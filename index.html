@@ -69,6 +69,29 @@
   .verified{color:var(--ok)}
   .hint{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5}
   a.link{color:#8fb7ff}
+  textarea{width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+        background:var(--panel2); color:var(--txt); font-size:14px; outline:none; font-family:inherit; resize:vertical; min-height:64px}
+  textarea:focus{border-color:var(--accent2)}
+  .ordercard{margin-bottom:14px; border-color:#4a3a6b}
+  .ordercard h2{margin:0 0 4px; font-size:18px}
+  .ordercard .sub{color:var(--muted); font-size:13px; margin:0 0 14px}
+  .orderbox{margin-top:16px; border-top:1px solid var(--line); padding-top:16px}
+  .fgrid{display:grid; gap:12px}
+  @media(min-width:640px){.fgrid-2{grid-template-columns:1fr 1fr}}
+  .ordertitle{display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap}
+  .ordertitle .tag{background:linear-gradient(135deg,#ff5c8a,#7c5cff); color:#fff; font-weight:700; padding:4px 10px; border-radius:20px; font-size:13px}
+  .thumb{margin-top:8px; border-radius:10px; max-width:160px; border:1px solid var(--line)}
+  .paidrow{display:flex; gap:12px; align-items:flex-end}
+  .budget-hint{color:var(--warn); font-size:12px; margin-top:6px}
+  .rawattrs{margin-top:12px}
+  .rawattrs summary{cursor:pointer; color:var(--muted); font-size:13px}
+  .rawattrs table{width:100%; border-collapse:collapse; margin-top:8px; font-size:13px}
+  .rawattrs td{border-bottom:1px solid var(--line); padding:5px 6px; vertical-align:top}
+  .rawattrs td:first-child{color:var(--muted); white-space:nowrap; padding-right:12px}
+  .sendorder{margin-top:10px; width:100%; border:0; border-radius:10px; padding:11px; font-weight:700; cursor:pointer;
+        background:linear-gradient(135deg,#25d366,#128c7e); color:#fff; font-size:14px}
+  .sendorder:hover{filter:brightness(1.08)}
+  .order-flag{margin-top:8px; font-size:12px; color:var(--accent2); font-weight:600}
   footer{ text-align:center; color:var(--muted); font-size:12px; padding:24px}
 </style>
 </head>
@@ -96,8 +119,71 @@
         <div class="hint">Serve per leggere i siti dei negozi e cercarne le email (il browser da solo non può, per la regola CORS).
           Preimpostato un proxy pubblico gratuito: a volte funziona, a volte i siti lo bloccano. Lascia vuoto per disattivare lo scraping.</div>
       </div>
+      <div>
+        <label>Password operatore (per recuperare gli ordini)</label>
+        <input id="appPass" type="password" placeholder="La password che hai impostato su Vercel (APP_PASSWORD)" autocomplete="off">
+        <div class="hint">Protegge i dati degli ordini: senza, chiunque potrebbe leggerli. Deve coincidere con <b>APP_PASSWORD</b> impostata sul backend Vercel.</div>
+      </div>
+      <div>
+        <label>URL backend ordini (avanzato)</label>
+        <input id="apiBase" type="text" placeholder="Vuoto = stesso sito (consigliato su Vercel)">
+        <div class="hint">Lascia vuoto se pubblichi tutto su Vercel. Compila solo se il front-end sta altrove (es. GitHub Pages) e il backend su un altro dominio Vercel, es. <code>https://tuo-progetto.vercel.app</code></div>
+      </div>
     </div>
   </details>
+
+  <!-- ORDINE -->
+  <div class="card ordercard">
+    <h2>📦 Smista ordine al fiorario</h2>
+    <p class="sub">Recupera un ordine dai tuoi negozi e invialo via WhatsApp al fiorario più vicino, con tutti i dettagli.</p>
+    <div class="row row-2" style="grid-template-columns:2fr 1fr">
+      <div>
+        <label>Sito / brand dell'ordine</label>
+        <select id="brand">
+          <option value="deluxy.it">deluxy.it</option>
+          <option value="deluxyflowers.com">deluxyflowers.com</option>
+          <option value="cakedesign.me">cakedesign.me</option>
+        </select>
+      </div>
+      <div>
+        <label>Numero ordine</label>
+        <input id="orderNum" type="text" placeholder="es. 1042">
+      </div>
+    </div>
+    <div style="margin-top:12px"><button class="btn" id="fetchOrder">📥 Recupera ordine</button></div>
+    <div class="status" id="orderStatus" style="text-align:left"></div>
+
+    <!-- dettagli ordine (editabili) -->
+    <div class="orderbox" id="orderBox" style="display:none">
+      <div class="ordertitle"><span class="tag" id="ordTag">ordine</span><span id="ordMeta" class="sub" style="margin:0"></span></div>
+      <div class="fgrid fgrid-2">
+        <div><label>Destinatario</label><input id="ord_recipient" type="text"></div>
+        <div><label>Telefono destinatario</label><input id="ord_phone" type="text"></div>
+      </div>
+      <div style="margin-top:12px"><label>Indirizzo di consegna</label><input id="ord_address" type="text"></div>
+      <div class="fgrid fgrid-2" style="margin-top:12px">
+        <div><label>Data consegna</label><input id="ord_date" type="text" placeholder="es. 12/07/2026"></div>
+        <div><label>Orario</label><input id="ord_time" type="text" placeholder="es. 10:00-13:00"></div>
+      </div>
+      <div style="margin-top:12px"><label>Bigliettino</label><textarea id="ord_card" placeholder="Testo del biglietto…"></textarea></div>
+      <div class="fgrid fgrid-2" style="margin-top:12px">
+        <div><label>Cliente ha pagato (€)</label><input id="ord_paid" type="text"></div>
+        <div>
+          <label>Budget fiorario (€)</label><input id="ord_budget" type="text" placeholder="Da definire">
+          <div class="budget-hint" id="budgetHint"></div>
+        </div>
+      </div>
+      <div style="margin-top:12px"><label>Prodotto / bouquet richiesto</label><input id="ord_items" type="text"></div>
+      <div style="margin-top:12px">
+        <label>Foto bouquet (link)</label><input id="ord_photo" type="text" placeholder="URL immagine">
+        <img id="ord_thumb" class="thumb" style="display:none" alt="foto bouquet">
+      </div>
+      <details class="rawattrs" id="rawAttrs"><summary>Vedi tutti i campi dell'ordine (grezzi)</summary><div id="rawAttrsBody"></div></details>
+
+      <button class="btn" id="findFlorists" style="margin-top:16px">🔎 Trova fiorai vicino alla consegna</button>
+      <div class="order-flag">Poi scegli un fiorario qui sotto e premi «Invia richiesta ordine» sulla sua scheda.</div>
+    </div>
+  </div>
 
   <!-- SEARCH -->
   <div class="card searchbar">
@@ -166,6 +252,22 @@ $('#address').value = localStorage.getItem('addr') || '';
 $('#apiKey').addEventListener('change', e => localStorage.setItem('gpk', e.target.value.trim()));
 $('#proxy').addEventListener('change',  e => localStorage.setItem('proxy', e.target.value.trim()));
 $('#address').addEventListener('change', e => localStorage.setItem('addr', e.target.value.trim()));
+
+// impostazioni ordini
+$('#appPass').value = localStorage.getItem('appPass') || '';
+$('#apiBase').value = localStorage.getItem('apiBase') || '';
+$('#brand').value   = localStorage.getItem('brand') || 'deluxy.it';
+$('#appPass').addEventListener('change', e => localStorage.setItem('appPass', e.target.value.trim()));
+$('#apiBase').addEventListener('change', e => localStorage.setItem('apiBase', e.target.value.trim()));
+$('#brand').addEventListener('change',   e => localStorage.setItem('brand', e.target.value));
+
+// stato ordine corrente + regola budget (tabella da completare insieme)
+let orderLoaded = false;
+const BUDGET_TABLE = { 85: 50 };   // <-- prezzo cliente (€) : budget fiorario (€). Aggiungeremo altre righe.
+function suggestBudget(paid){
+  const p = Math.round(Number(paid)||0);
+  return (BUDGET_TABLE[p] != null) ? BUDGET_TABLE[p] : null;   // null => "chiedi", inserimento manuale
+}
 
 // se manca la key apri il pannello impostazioni
 if(!$('#apiKey').value) $('#config').open = true;
@@ -299,6 +401,124 @@ async function scrapeEmail(website, proxy){
   return null;
 }
 
+/* ------------------ ORDINI ------------------ */
+function setOrderStatus(msg, isErr=false){
+  const el = $('#orderStatus'); el.textContent = msg; el.className = 'status'+(isErr?' err':''); el.style.textAlign='left';
+}
+function esc(s){ return (s||'').replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+async function fetchOrder(){
+  const brand = $('#brand').value;
+  const number = $('#orderNum').value.trim();
+  const pass = $('#appPass').value.trim();
+  const base = $('#apiBase').value.trim().replace(/\/$/,'');
+  localStorage.setItem('brand', brand);
+  $('#orderBox').style.display='none'; orderLoaded=false;
+  if(!number){ setOrderStatus('Inserisci il numero ordine.', true); return; }
+  if(!pass){ setOrderStatus('Inserisci la password operatore nelle impostazioni ⚙️.', true); $('#config').open=true; return; }
+
+  $('#fetchOrder').disabled = true;
+  setOrderStatus('Recupero ordine '+number+' da '+brand+'…');
+  try{
+    const url = base + '/api/order?brand='+encodeURIComponent(brand)+'&number='+encodeURIComponent(number);
+    const r = await fetch(url, { headers: { 'x-app-password': pass } });
+    let data; try{ data = await r.json(); }catch(e){ data = {}; }
+    if(!r.ok || data.found===false){
+      setOrderStatus('❌ '+(data.error || ('Errore '+r.status)), true);
+      return;
+    }
+    populateOrder(data);
+    setOrderStatus('✅ Ordine '+data.orderName+' caricato. Controlla/modifica i campi qui sotto.');
+  }catch(err){
+    setOrderStatus('❌ Impossibile contattare il backend. Se hai pubblicato su Vercel, controlla l\'URL. Dettaglio: '+err.message, true);
+  }finally{
+    $('#fetchOrder').disabled = false;
+  }
+}
+
+function populateOrder(o){
+  orderLoaded = true;
+  $('#orderBox').style.display='block';
+  $('#ordTag').textContent = o.brand + ' · ' + (o.orderName||'');
+  const paid = o.amountPaid || 0;
+  $('#ordMeta').textContent = (o.financialStatus? o.financialStatus+' · ':'') + 'pagato ' + paid + ' ' + (o.currency||'EUR');
+  $('#ord_recipient').value = o.recipient || '';
+  $('#ord_phone').value = o.phone || '';
+  $('#ord_address').value = o.address || '';
+  $('#ord_date').value = o.date || '';
+  $('#ord_time').value = o.time || '';
+  $('#ord_card').value = o.cardMessage || o.note || '';
+  $('#ord_paid').value = paid || '';
+  $('#ord_items').value = (o.items||[]).map(i=> (i.quantity>1? i.quantity+'× ':'')+i.title).join(' · ');
+  $('#ord_photo').value = o.photoUrl || '';
+  updateThumb();
+
+  // budget
+  const b = suggestBudget(paid);
+  if(b!=null){ $('#ord_budget').value = b; $('#budgetHint').textContent = ''; }
+  else { $('#ord_budget').value = ''; $('#budgetHint').textContent = '⚠️ Importo non in tabella: inserisci il budget a mano.'; }
+
+  // campi grezzi (attributi ordine + proprietà righe)
+  const rows = [];
+  (o.attributes||[]).forEach(a=> rows.push([a.key, a.value]));
+  (o.items||[]).forEach(i=> (i.properties||[]).forEach(p=> rows.push([i.title+' → '+p.key, p.value])));
+  if(o.note) rows.push(['Note ordine', o.note]);
+  $('#rawAttrsBody').innerHTML = rows.length
+    ? '<table>'+rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')+'</table>'
+    : '<div class="hint">Nessun attributo personalizzato nell\'ordine.</div>';
+}
+
+function updateThumb(){
+  const url = $('#ord_photo').value.trim();
+  const img = $('#ord_thumb');
+  if(url){ img.src = url; img.style.display='block'; } else { img.style.display='none'; }
+}
+$('#ord_photo').addEventListener('input', updateThumb);
+$('#ord_paid').addEventListener('input', ()=>{
+  const b = suggestBudget($('#ord_paid').value);
+  if(b!=null){ $('#ord_budget').value=b; $('#budgetHint').textContent=''; }
+  else { $('#budgetHint').textContent='⚠️ Importo non in tabella: inserisci il budget a mano.'; }
+});
+
+function buildOrderMessage(){
+  const L = [];
+  L.push('🌸 NUOVO ORDINE — ' + $('#brand').value + ' ' + ($('#ordTag').textContent.split('·').pop().trim()||''));
+  const add = (emoji,label,val)=>{ val=(val||'').trim(); if(val) L.push(emoji+' '+label+': '+val); };
+  add('👤','Destinatario', $('#ord_recipient').value);
+  add('📞','Tel. destinatario', $('#ord_phone').value);
+  add('📍','Indirizzo', $('#ord_address').value);
+  add('📅','Data', $('#ord_date').value);
+  add('🕐','Orario', $('#ord_time').value);
+  add('💬','Bigliettino', $('#ord_card').value);
+  add('💰','Budget fiorario', ($('#ord_budget').value.trim()? $('#ord_budget').value.trim()+' €' : ''));
+  add('🌸','Richiesta', $('#ord_items').value);
+  add('🖼️','Foto', $('#ord_photo').value);
+  L.push('\nConfermi disponibilità e orario? Grazie!');
+  return L.join('\n');
+}
+
+$('#fetchOrder').addEventListener('click', fetchOrder);
+$('#orderNum').addEventListener('keydown', e=>{ if(e.key==='Enter') fetchOrder(); });
+$('#findFlorists').addEventListener('click', ()=>{
+  const a = $('#ord_address').value.trim();
+  if(!a){ setOrderStatus('Manca l\'indirizzo di consegna.', true); return; }
+  $('#address').value = a; localStorage.setItem('addr', a);
+  // assicura categoria fiorai attiva
+  if(!cats.has('fioraio')){ cats.add('fioraio'); document.querySelector('.chip[data-cat="fioraio"]').classList.add('active'); }
+  run();
+  $('#results').scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+// invio richiesta ordine dalla scheda di un fiorario
+resultsEl.addEventListener('click', e=>{
+  const btn = e.target.closest('.sendorder');
+  if(!btn) return;
+  if(!orderLoaded){ alert('Prima recupera un ordine (📦 in alto), poi invialo al fiorario.'); return; }
+  const wa = btn.dataset.wa;
+  const msg = buildOrderMessage();
+  window.open(wa + '?text=' + encodeURIComponent(msg), '_blank');
+});
+
 /* ------------------ render ------------------ */
 function shopCard(d, cat, distMeters){
   const meta = CAT_META[cat];
@@ -329,6 +549,7 @@ function shopCard(d, cat, distMeters){
     </div>
     <div class="contacts">${c.join('')}</div>
     <div class="contacts email-slot" style="margin-top:8px"></div>
+    ${wa ? `<button class="sendorder" data-wa="${wa}">📤 Invia richiesta ordine su WhatsApp</button>` : ''}
     <div class="src">📍 Fonte contatti: <span class="verified">Google Places (scheda ufficiale)</span></div>
   `;
   return el;
