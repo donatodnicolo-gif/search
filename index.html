@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trova Fiorai & Pasticcerie — Contatti verificati</title>
+<style>
+  :root{
+    --bg:#0f1220; --panel:#1a1f35; --panel2:#232a47; --line:#2e3760;
+    --txt:#e9ecf6; --muted:#9aa3c4; --accent:#ff5c8a; --accent2:#7c5cff;
+    --ok:#2ecc71; --wa:#25d366; --warn:#f5a623;
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 80% -10%, #29224a 0%, transparent 60%),
+               radial-gradient(1000px 500px at -10% 10%, #3a1f3a 0%, transparent 55%), var(--bg);
+    color:var(--txt); min-height:100vh;
+  }
+  header{padding:28px 20px 10px; text-align:center}
+  header h1{margin:0 0 6px; font-size:26px; letter-spacing:.3px}
+  header h1 .em{filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
+  header p{margin:0; color:var(--muted); font-size:14px}
+  .wrap{max-width:920px; margin:0 auto; padding:16px}
+  .card{background:linear-gradient(180deg,var(--panel),#161b2f); border:1px solid var(--line);
+        border-radius:var(--radius); padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  .config summary{cursor:pointer; font-weight:600; color:var(--muted); outline:none}
+  .config[open] summary{margin-bottom:12px}
+  .grid{display:grid; gap:12px}
+  label{display:block; font-size:12px; color:var(--muted); margin:0 0 4px}
+  input,select{width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+        background:var(--panel2); color:var(--txt); font-size:14px; outline:none}
+  input:focus,select:focus{border-color:var(--accent2)}
+  .row{display:grid; grid-template-columns:1fr; gap:12px}
+  @media(min-width:640px){.row-2{grid-template-columns:1fr 1fr}.row-3{grid-template-columns:2fr 1fr 1fr}}
+  .searchbar{margin-top:14px}
+  .catbtns{display:flex; gap:8px; flex-wrap:wrap}
+  .chip{flex:1; min-width:130px; text-align:center; padding:12px; border-radius:12px; cursor:pointer;
+        border:1px solid var(--line); background:var(--panel2); color:var(--muted); font-weight:600; user-select:none; transition:.15s}
+  .chip.active{color:#fff; border-color:transparent}
+  .chip[data-cat="fioraio"].active{background:linear-gradient(135deg,#ff5c8a,#ff8f5c)}
+  .chip[data-cat="pasticceria"].active{background:linear-gradient(135deg,#7c5cff,#5cc9ff)}
+  .btn{border:0; border-radius:12px; padding:13px 18px; font-size:15px; font-weight:700; cursor:pointer;
+       background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; width:100%}
+  .btn:disabled{opacity:.55; cursor:not-allowed}
+  .status{margin:16px 0; min-height:20px; font-size:14px; color:var(--muted); text-align:center}
+  .status.err{color:#ff8896}
+  .results{display:grid; gap:14px; margin-top:8px}
+  .shop{background:linear-gradient(180deg,var(--panel),#151a2d); border:1px solid var(--line);
+        border-radius:var(--radius); padding:16px; position:relative; overflow:hidden}
+  .shop .head{display:flex; align-items:flex-start; gap:10px; justify-content:space-between}
+  .shop h3{margin:0; font-size:17px; line-height:1.25}
+  .badge{font-size:11px; padding:3px 8px; border-radius:20px; background:var(--panel2); color:var(--muted); white-space:nowrap}
+  .dist{font-weight:700; color:var(--accent)}
+  .meta{color:var(--muted); font-size:13px; margin:6px 0 12px}
+  .stars{color:#ffce54}
+  .contacts{display:flex; flex-wrap:wrap; gap:8px}
+  .contacts a, .contacts span.none{
+    display:inline-flex; align-items:center; gap:6px; text-decoration:none; font-size:13px; font-weight:600;
+    padding:9px 12px; border-radius:10px; border:1px solid var(--line); color:var(--txt); background:var(--panel2)}
+  .contacts a.wa{background:rgba(37,211,102,.14); border-color:rgba(37,211,102,.4); color:#8affbf}
+  .contacts a.tel{background:rgba(124,92,255,.14); border-color:rgba(124,92,255,.4)}
+  .contacts a.mail{background:rgba(245,166,35,.14); border-color:rgba(245,166,35,.4)}
+  .contacts a.web,.contacts a.map{background:var(--panel2)}
+  .contacts span.none{opacity:.5; font-weight:500}
+  .email-slot .loading{opacity:.6; font-style:italic; font-weight:500}
+  .src{font-size:11px; color:var(--muted); margin-top:10px}
+  .verified{color:var(--ok)}
+  .hint{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5}
+  a.link{color:#8fb7ff}
+  footer{ text-align:center; color:var(--muted); font-size:12px; padding:24px}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="em">🌸</span> Trova Fiorai &amp; Pasticcerie <span class="em">🍰</span></h1>
+  <p>Inserisci un indirizzo, scegli la categoria: trovo i più vicini con telefono, WhatsApp, email e sito.</p>
+</header>
+
+<div class="wrap">
+
+  <!-- CONFIG -->
+  <details class="card config" id="config">
+    <summary>⚙️ Impostazioni (Google API key &amp; proxy) — clicca per aprire</summary>
+    <div class="grid">
+      <div>
+        <label>Google Maps / Places API key (obbligatoria)</label>
+        <input id="apiKey" type="password" placeholder="Incolla qui la tua API key Google Cloud" autocomplete="off">
+        <div class="hint">Serve la <b>Maps JavaScript API</b> + <b>Places API</b> attive sul tuo progetto Google Cloud.
+          La chiave viene salvata solo nel tuo browser (localStorage). <a class="link" href="https://console.cloud.google.com/google/maps-apis" target="_blank" rel="noopener">Apri Google Cloud Console →</a></div>
+      </div>
+      <div>
+        <label>Proxy CORS per lo scraping email (opzionale, best effort)</label>
+        <input id="proxy" type="text" placeholder="es. https://api.allorigins.win/raw?url=">
+        <div class="hint">Serve per leggere i siti dei negozi e cercarne le email (il browser da solo non può, per la regola CORS).
+          Preimpostato un proxy pubblico gratuito: a volte funziona, a volte i siti lo bloccano. Lascia vuoto per disattivare lo scraping.</div>
+      </div>
+    </div>
+  </details>
+
+  <!-- SEARCH -->
+  <div class="card searchbar">
+    <div class="row row-3">
+      <div>
+        <label>Indirizzo o zona di partenza</label>
+        <input id="address" type="text" placeholder="es. Via Roma 10, Milano">
+      </div>
+      <div>
+        <label>Numero risultati</label>
+        <select id="limit">
+          <option value="6">6</option>
+          <option value="10" selected>10</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+        </select>
+      </div>
+      <div>
+        <label>Ordina per</label>
+        <select id="sort">
+          <option value="dist" selected>Distanza</option>
+          <option value="rating">Valutazione</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin:14px 0 4px">
+      <label>Cosa cerchi</label>
+      <div class="catbtns">
+        <div class="chip active" data-cat="fioraio">🌸 Fiorai</div>
+        <div class="chip active" data-cat="pasticceria">🍰 Pasticcerie</div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px">
+      <button class="btn" id="go">🔎 Cerca in zona</button>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="results" id="results"></div>
+
+</div>
+
+<footer>
+  Dati negozi &amp; contatti: Google Places · Email: scraping best-effort dai siti ufficiali · WhatsApp: link generato dal numero.<br>
+  Nessun dato viene inviato a server esterni oltre a Google e (se attivo) al proxy che scegli tu.
+</footer>
+
+<script>
+/* ------------------ stato & util ------------------ */
+const $ = s => document.querySelector(s);
+const statusEl = $('#status');
+const resultsEl = $('#results');
+const cats = new Set(['fioraio','pasticceria']);
+
+const CAT_META = {
+  fioraio:     { type:'florist', keyword:'fioraio fiorista',  emoji:'🌸', label:'Fiorista' },
+  pasticceria: { type:'bakery',  keyword:'pasticceria',       emoji:'🍰', label:'Pasticceria' }
+};
+
+// carica/salva impostazioni
+$('#apiKey').value = localStorage.getItem('gpk') || '';
+$('#proxy').value  = localStorage.getItem('proxy') ?? 'https://api.allorigins.win/raw?url=';
+$('#address').value = localStorage.getItem('addr') || '';
+$('#apiKey').addEventListener('change', e => localStorage.setItem('gpk', e.target.value.trim()));
+$('#proxy').addEventListener('change',  e => localStorage.setItem('proxy', e.target.value.trim()));
+$('#address').addEventListener('change', e => localStorage.setItem('addr', e.target.value.trim()));
+
+// se manca la key apri il pannello impostazioni
+if(!$('#apiKey').value) $('#config').open = true;
+
+// toggle categorie
+document.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => {
+  const c = ch.dataset.cat;
+  if(cats.has(c) && cats.size>1){ cats.delete(c); ch.classList.remove('active'); }
+  else { cats.add(c); ch.classList.add('active'); }
+}));
+
+function setStatus(msg, isErr=false){ statusEl.textContent = msg; statusEl.className = 'status'+(isErr?' err':''); }
+
+/* ------------------ Google loader ------------------ */
+// Google chiama questa funzione se la chiave è invalida / con restrizioni sbagliate
+window.gm_authFailure = () => {
+  setStatus('❌ Chiave Google rifiutata: non valida, fatturazione non attiva, oppure restrizioni (referrer/API) che bloccano questa pagina. Vedi le impostazioni ⚙️.', true);
+  $('#go').disabled = false;
+};
+
+let googleReady = null;
+function loadGoogle(key){
+  if(googleReady) return googleReady;
+  googleReady = new Promise((resolve,reject)=>{
+    if(window.google && google.maps && google.maps.places){ resolve(); return; }
+    const s = document.createElement('script');
+    // NB: callback esplicito (senza loading=async) => google.maps.places è pronto quando scatta
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places,geometry&language=it&region=IT&callback=__gmapsInit`;
+    s.async = true; s.defer = true;
+    s.onerror = () => reject(new Error('Caricamento di Google Maps fallito: rete assente o chiave/URL non validi.'));
+    window.__gmapsInit = () => {
+      if(window.google && google.maps && google.maps.places) resolve();
+      else reject(new Error('Google Maps caricato ma libreria Places non disponibile. Attiva "Places API" su Google Cloud.'));
+    };
+    // se dopo 15s non è successo nulla, non restare bloccati in eterno
+    setTimeout(()=>reject(new Error('Timeout: Google Maps non ha risposto. Controlla connessione, chiave e restrizioni della chiave.')), 15000);
+    document.head.appendChild(s);
+  });
+  return googleReady;
+}
+
+/* ------------------ geocoding ------------------ */
+function geocode(address){
+  return new Promise((resolve,reject)=>{
+    new google.maps.Geocoder().geocode({address, region:'it'}, (res,status)=>{
+      if(status==='OK' && res[0]) resolve(res[0].geometry.location);
+      else reject(new Error('Indirizzo non trovato. Prova a essere più specifico (via, città).'));
+    });
+  });
+}
+
+/* ------------------ nearby search per categoria ------------------ */
+let lastPlacesStatus = null;
+function nearby(service, location, cat){
+  const meta = CAT_META[cat];
+  return new Promise(resolve=>{
+    service.nearbySearch(
+      { location, rankBy: google.maps.places.RankBy.DISTANCE, type: meta.type, keyword: meta.keyword },
+      (results,status)=>{
+        lastPlacesStatus = status;
+        if(status===google.maps.places.PlacesServiceStatus.OK && results){
+          resolve(results.map(r=>({place:r, cat})));
+        } else resolve([]);
+      }
+    );
+  });
+}
+
+/* ------------------ dettagli negozio ------------------ */
+function details(service, placeId){
+  return new Promise(resolve=>{
+    service.getDetails({
+      placeId,
+      fields:['name','formatted_address','formatted_phone_number','international_phone_number',
+              'website','url','rating','user_ratings_total','opening_hours','geometry','business_status']
+    }, (d,status)=>{
+      resolve(status===google.maps.places.PlacesServiceStatus.OK ? d : null);
+    });
+  });
+}
+
+/* ------------------ helpers contatti ------------------ */
+function waLink(intlPhone){
+  if(!intlPhone) return null;
+  const digits = intlPhone.replace(/[^\d]/g,'');
+  return digits.length>=8 ? 'https://wa.me/'+digits : null;
+}
+function distanceStr(m){
+  return m<1000 ? Math.round(m)+' m' : (m/1000).toFixed(m<10000?1:0)+' km';
+}
+function stars(rating,total){
+  if(!rating) return '';
+  const full='★'.repeat(Math.round(rating));
+  return `<span class="stars">${full}</span> ${rating.toFixed(1)}${total?` (${total})`:''}`;
+}
+
+/* ------------------ email scraping (best effort) ------------------ */
+const BAD_EMAIL = /\.(png|jpg|jpeg|gif|svg|webp|css|js)$/i;
+const JUNK = /(sentry|wixpress|example\.com|@2x|domain\.com|email@|yourname|nome@)/i;
+function extractEmails(html){
+  const set = new Set();
+  const re = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+  let m;
+  while((m=re.exec(html))){
+    const e = m[0].toLowerCase();
+    if(!BAD_EMAIL.test(e) && !JUNK.test(e)) set.add(e);
+  }
+  return [...set].slice(0,3);
+}
+async function scrapeEmail(website, proxy){
+  if(!website || !proxy) return null;
+  const pages = [website];
+  // prova anche una pagina contatti tipica
+  try{
+    const u = new URL(website);
+    ['contatti','contact','contattaci','contact-us'].forEach(p=>pages.push(u.origin+'/'+p));
+  }catch(e){}
+  for(const page of pages){
+    try{
+      const url = proxy + encodeURIComponent(page);
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), 8000);
+      const r = await fetch(url, {signal:ctrl.signal});
+      clearTimeout(t);
+      if(!r.ok) continue;
+      const html = await r.text();
+      const emails = extractEmails(html);
+      if(emails.length) return emails;
+    }catch(e){ /* prova prossima pagina */ }
+  }
+  return null;
+}
+
+/* ------------------ render ------------------ */
+function shopCard(d, cat, distMeters){
+  const meta = CAT_META[cat];
+  const phone = d.formatted_phone_number;
+  const intl  = d.international_phone_number;
+  const wa    = waLink(intl);
+  const open  = d.opening_hours?.isOpen?.();
+  const openBadge = (open===true)?'<span class="badge" style="color:#8affbf">Aperto ora</span>'
+                  : (open===false)?'<span class="badge" style="color:#ff9a9a">Chiuso ora</span>':'';
+
+  const c = [];
+  if(phone) c.push(`<a class="tel" href="tel:${intl||phone}">📞 ${phone}</a>`);
+  if(wa)    c.push(`<a class="wa" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>`);
+  if(d.website) c.push(`<a class="web" href="${d.website}" target="_blank" rel="noopener">🌐 Sito</a>`);
+  if(d.url)     c.push(`<a class="map" href="${d.url}" target="_blank" rel="noopener">🗺️ Maps</a>`);
+  if(!phone && !d.website) c.push(`<span class="none">Nessun contatto pubblicato</span>`);
+
+  const el = document.createElement('div');
+  el.className = 'shop';
+  el.innerHTML = `
+    <div class="head">
+      <h3>${meta.emoji} ${d.name}</h3>
+      <span class="badge dist">${distMeters!=null?distanceStr(distMeters):''}</span>
+    </div>
+    <div class="meta">
+      ${meta.label} · ${d.formatted_address||''} ${openBadge}
+      ${d.rating?'<br>'+stars(d.rating,d.user_ratings_total):''}
+    </div>
+    <div class="contacts">${c.join('')}</div>
+    <div class="contacts email-slot" style="margin-top:8px"></div>
+    <div class="src">📍 Fonte contatti: <span class="verified">Google Places (scheda ufficiale)</span></div>
+  `;
+  return el;
+}
+
+/* ------------------ flusso principale ------------------ */
+$('#go').addEventListener('click', run);
+$('#address').addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
+
+async function run(){
+  const key = $('#apiKey').value.trim();
+  const address = $('#address').value.trim();
+  const proxy = $('#proxy').value.trim();
+  const limit = parseInt($('#limit').value,10);
+  const sortBy = $('#sort').value;
+
+  resultsEl.innerHTML='';
+  if(!key){ setStatus('Inserisci la tua Google API key nelle impostazioni ⚙️', true); $('#config').open=true; return; }
+  if(!address){ setStatus('Inserisci un indirizzo o una zona.', true); return; }
+  if(cats.size===0){ setStatus('Seleziona almeno una categoria (Fiorai / Pasticcerie).', true); return; }
+
+  $('#go').disabled = true;
+  try{
+    setStatus('Carico Google Maps…');
+    await loadGoogle(key);
+
+    setStatus('Cerco l\'indirizzo…');
+    const origin = await geocode(address);
+
+    setStatus('Cerco i negozi più vicini…');
+    const service = new google.maps.places.PlacesService(document.createElement('div'));
+
+    // ricerca per ogni categoria selezionata
+    let found = [];
+    for(const cat of cats){ found = found.concat(await nearby(service, origin, cat)); }
+
+    // dedup per place_id, calcola distanza
+    const seen = new Set();
+    found = found.filter(f=>{ if(seen.has(f.place.place_id)) return false; seen.add(f.place.place_id); return true; });
+    found.forEach(f=>{
+      f.dist = google.maps.geometry.spherical.computeDistanceBetween(origin, f.place.geometry.location);
+      f.rating = f.place.rating || 0;
+    });
+
+    if(found.length===0){
+      if(lastPlacesStatus==='REQUEST_DENIED')
+        setStatus('❌ "Places API" non abilitata sul tuo progetto Google Cloud, o la chiave non la autorizza. Attivala e riprova.', true);
+      else if(lastPlacesStatus==='OVER_QUERY_LIMIT')
+        setStatus('❌ Limite/quota Google superata (o fatturazione non attiva).', true);
+      else if(lastPlacesStatus==='ZERO_RESULTS')
+        setStatus('Nessun negozio di questa categoria vicino all\'indirizzo. Prova un\'altra zona o categoria.', true);
+      else
+        setStatus('Nessun risultato ('+(lastPlacesStatus||'?')+'). Prova un altro indirizzo o categoria.', true);
+      return;
+    }
+
+    // ordina e limita
+    found.sort((a,b)=> sortBy==='rating' ? (b.rating-a.rating) : (a.dist-b.dist));
+    found = found.slice(0, limit);
+
+    setStatus(`Carico i dettagli di ${found.length} negozi…`);
+    const cards = [];
+    for(const f of found){
+      const d = await details(service, f.place.place_id);
+      if(!d) continue;
+      const card = shopCard(d, f.cat, f.dist);
+      resultsEl.appendChild(card);
+      cards.push({card, website:d.website});
+    }
+
+    setStatus(`✅ Trovati ${cards.length} negozi.${proxy?' Cerco le email sui siti…':''}`);
+
+    // scraping email in background (best effort)
+    if(proxy){
+      let done=0, withEmail=0;
+      await Promise.all(cards.map(async ({card,website})=>{
+        const slot = card.querySelector('.email-slot');
+        if(!website){ return; }
+        slot.innerHTML = '<span class="loading">✉️ cerco email…</span>';
+        const emails = await scrapeEmail(website, proxy);
+        done++;
+        if(emails && emails.length){
+          withEmail++;
+          slot.innerHTML = emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`).join('');
+          const src = card.querySelector('.src');
+          src.innerHTML += ' · Email: <span class="verified">trovata sul sito ufficiale</span>';
+        } else {
+          slot.innerHTML = '<span class="none">✉️ email non trovata sul sito</span>';
+        }
+      }));
+      setStatus(`✅ ${cards.length} negozi · email trovate per ${withEmail}.`);
+    }
+
+  }catch(err){
+    console.error(err);
+    setStatus(err.message || 'Errore imprevisto.', true);
+  }finally{
+    $('#go').disabled = false;
+  }
+}
+</script>
+</body>
+</html>
