@@ -159,6 +159,16 @@
     <!-- dettagli ordine (editabili) -->
     <div class="orderbox" id="orderBox" style="display:none">
       <div class="ordertitle"><span class="tag" id="ordTag">ordine</span><span id="ordMeta" class="sub" style="margin:0"></span></div>
+      <div style="margin-bottom:12px">
+        <label>Lingua del messaggio al fiorista (rilevata dalla ricerca)</label>
+        <select id="ordLang">
+          <option value="it">Italiano</option>
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="es">Español</option>
+        </select>
+      </div>
       <div class="fgrid fgrid-2">
         <div><label>Destinatario</label><input id="ord_recipient" type="text"></div>
         <div><label>Telefono destinatario</label><input id="ord_phone" type="text"></div>
@@ -221,6 +231,10 @@
       </div>
     </div>
 
+    <label style="display:flex; align-items:center; gap:8px; margin-top:12px; cursor:pointer; font-size:13px; color:var(--txt)">
+      <input type="checkbox" id="onlyWa" style="width:auto"> 📱 Mostra solo probabili WhatsApp (cellulari)
+    </label>
+
     <div style="margin-top:14px">
       <button class="btn" id="go">🔎 Cerca in zona</button>
     </div>
@@ -244,9 +258,27 @@ const resultsEl = $('#results');
 const cats = new Set(['fioraio','pasticceria']);
 
 const CAT_META = {
-  fioraio:     { type:'florist', keyword:'fioraio fiorista',  emoji:'🌸', label:'Fiorista' },
-  pasticceria: { type:'bakery',  keyword:'pasticceria',       emoji:'🍰', label:'Pasticceria' }
+  fioraio:     { type:'florist', emoji:'🌸', label:'Fiorista' },
+  pasticceria: { type:'bakery',  emoji:'🍰', label:'Pasticceria' }
 };
+// parole chiave localizzate per la ricerca
+const KEYWORDS = {
+  fioraio:     { it:'fiorista fioraio', en:'florist', fr:'fleuriste', de:'blumenladen', es:'floristería', default:'florist' },
+  pasticceria: { it:'pasticceria',      en:'pastry cake shop', fr:'pâtisserie', de:'konditorei', es:'pastelería', default:'pastry shop' }
+};
+// paese -> lingua del messaggio
+const COUNTRY_LANG = { IT:'it', SM:'it', VA:'it', CH:'it', FR:'fr', MC:'fr', BE:'fr', LU:'fr',
+  DE:'de', AT:'de', ES:'es', GB:'en', IE:'en', US:'en', NL:'en', PT:'es' };
+// modello messaggio per lingua
+const MSG_I18N = {
+  it:{title:'NUOVO ORDINE',recipient:'Destinatario',phone:'Tel. destinatario',address:'Indirizzo',date:'Data',time:'Orario',card:'Bigliettino',budget:'Budget fiorista',request:'Richiesta',photo:'Foto',footer:'Confermi disponibilità e orario? Grazie!'},
+  en:{title:'NEW ORDER',recipient:'Recipient',phone:'Recipient phone',address:'Address',date:'Date',time:'Time',card:'Card message',budget:'Florist budget',request:'Request',photo:'Photo',footer:'Can you confirm availability and time? Thank you!'},
+  fr:{title:'NOUVELLE COMMANDE',recipient:'Destinataire',phone:'Tél. destinataire',address:'Adresse',date:'Date',time:'Horaire',card:'Message carte',budget:'Budget fleuriste',request:'Demande',photo:'Photo',footer:'Pouvez-vous confirmer la disponibilité et l’horaire ? Merci !'},
+  de:{title:'NEUE BESTELLUNG',recipient:'Empfänger',phone:'Tel. Empfänger',address:'Adresse',date:'Datum',time:'Uhrzeit',card:'Kartentext',budget:'Florist-Budget',request:'Wunsch',photo:'Foto',footer:'Können Sie Verfügbarkeit und Uhrzeit bestätigen? Danke!'},
+  es:{title:'NUEVO PEDIDO',recipient:'Destinatario',phone:'Tel. destinatario',address:'Dirección',date:'Fecha',time:'Horario',card:'Tarjeta',budget:'Presupuesto floristería',request:'Pedido',photo:'Foto',footer:'¿Puede confirmar disponibilidad y horario? ¡Gracias!'}
+};
+const LANG_NAME = { it:'Italiano', en:'English', fr:'Français', de:'Deutsch', es:'Español' };
+let currentLang = 'it';
 
 // carica/salva impostazioni
 $('#apiKey').value = localStorage.getItem('gpk') || '';
@@ -315,8 +347,11 @@ function loadGoogle(key){
 /* ------------------ geocoding ------------------ */
 function geocode(address){
   return new Promise((resolve,reject)=>{
-    new google.maps.Geocoder().geocode({address, region:'it'}, (res,status)=>{
-      if(status==='OK' && res[0]) resolve(res[0].geometry.location);
+    new google.maps.Geocoder().geocode({address}, (res,status)=>{
+      if(status==='OK' && res[0]){
+        const cc = (res[0].address_components.find(c=>c.types.includes('country'))||{}).short_name || 'IT';
+        resolve({ location: res[0].geometry.location, country: cc });
+      }
       else reject(new Error('Indirizzo non trovato. Prova a essere più specifico (via, città).'));
     });
   });
@@ -324,11 +359,12 @@ function geocode(address){
 
 /* ------------------ nearby search per categoria ------------------ */
 let lastPlacesStatus = null;
-function nearby(service, location, cat){
+function nearby(service, location, cat, lang){
   const meta = CAT_META[cat];
+  const keyword = KEYWORDS[cat][lang] || KEYWORDS[cat].default;
   return new Promise(resolve=>{
     service.nearbySearch(
-      { location, rankBy: google.maps.places.RankBy.DISTANCE, type: meta.type, keyword: meta.keyword },
+      { location, rankBy: google.maps.places.RankBy.DISTANCE, type: meta.type, keyword },
       (results,status)=>{
         lastPlacesStatus = status;
         if(status===google.maps.places.PlacesServiceStatus.OK && results){
@@ -357,6 +393,14 @@ function waLink(intlPhone){
   if(!intlPhone) return null;
   const digits = intlPhone.replace(/[^\d]/g,'');
   return digits.length>=8 ? 'https://wa.me/'+digits : null;
+}
+// Test "probabile WhatsApp": cellulare vs fisso (Italia: cell = 3…, fisso = 0…)
+function phoneKind(national, intl){
+  const natl = (national||'').replace(/[^\d]/g,'');
+  if(natl){ if(natl[0]==='3') return 'mobile'; if(natl[0]==='0') return 'fixed'; }
+  const d = (intl||'').replace(/[^\d]/g,'');
+  if(d.startsWith('39')){ const r=d.slice(2); if(r[0]==='3') return 'mobile'; if(r[0]==='0') return 'fixed'; }
+  return 'unknown';
 }
 function distanceStr(m){
   return m<1000 ? Math.round(m)+' m' : (m/1000).toFixed(m<10000?1:0)+' km';
@@ -483,22 +527,40 @@ $('#ord_paid').addEventListener('input', ()=>{
   else { $('#budgetHint').textContent='⚠️ Importo non in tabella: inserisci il budget a mano.'; }
 });
 
+function syncLangUI(){
+  const sel = $('#ordLang'); if(sel) sel.value = currentLang;
+}
 function buildOrderMessage(){
+  const lang = ($('#ordLang') && $('#ordLang').value) || currentLang || 'it';
+  const T = MSG_I18N[lang] || MSG_I18N.it;
+  const num = (($('#ordTag').textContent.split('·').pop())||'').trim();
   const L = [];
-  L.push('🌸 NUOVO ORDINE — ' + $('#brand').value + ' ' + ($('#ordTag').textContent.split('·').pop().trim()||''));
+  L.push('🌸 ' + T.title + ' — ' + $('#brand').value + (num?(' '+num):''));
   const add = (emoji,label,val)=>{ val=(val||'').trim(); if(val) L.push(emoji+' '+label+': '+val); };
-  add('👤','Destinatario', $('#ord_recipient').value);
-  add('📞','Tel. destinatario', $('#ord_phone').value);
-  add('📍','Indirizzo', $('#ord_address').value);
-  add('📅','Data', $('#ord_date').value);
-  add('🕐','Orario', $('#ord_time').value);
-  add('💬','Bigliettino', $('#ord_card').value);
-  add('💰','Budget fiorario', ($('#ord_budget').value.trim()? $('#ord_budget').value.trim()+' €' : ''));
-  add('🌸','Richiesta', $('#ord_items').value);
-  add('🖼️','Foto', $('#ord_photo').value);
-  L.push('\nConfermi disponibilità e orario? Grazie!');
+  add('👤',T.recipient, $('#ord_recipient').value);
+  add('📞',T.phone, $('#ord_phone').value);
+  add('📍',T.address, $('#ord_address').value);
+  add('📅',T.date, $('#ord_date').value);
+  add('🕐',T.time, $('#ord_time').value);
+  add('💬',T.card, $('#ord_card').value);
+  add('💰',T.budget, ($('#ord_budget').value.trim()? $('#ord_budget').value.trim()+' €' : ''));
+  add('🌸',T.request, $('#ord_items').value);
+  add('🖼️',T.photo, $('#ord_photo').value);
+  L.push('\n'+T.footer);
   return L.join('\n');
 }
+// filtro "solo probabili WhatsApp"
+function applyWaFilter(){
+  const only = $('#onlyWa').checked;
+  let shown=0;
+  resultsEl.querySelectorAll('.shop').forEach(el=>{
+    const hide = only && el.dataset.wakind!=='mobile';
+    el.style.display = hide ? 'none' : '';
+    if(!hide) shown++;
+  });
+  return shown;
+}
+$('#onlyWa').addEventListener('change', applyWaFilter);
 
 $('#fetchOrder').addEventListener('click', fetchOrder);
 $('#orderNum').addEventListener('keydown', e=>{ if(e.key==='Enter') fetchOrder(); });
@@ -530,9 +592,9 @@ resultsEl.addEventListener('click', e=>{
   const btn = e.target.closest('.sendorder');
   if(!btn) return;
   if(!orderLoaded){ alert('Prima recupera un ordine (📦 in alto), poi invialo al fiorario.'); return; }
-  const wa = btn.dataset.wa;
+  const phone = btn.dataset.phone;
   const msg = buildOrderMessage();
-  window.open(wa + '?text=' + encodeURIComponent(msg), '_blank');
+  window.open('https://web.whatsapp.com/send?phone=' + phone + '&text=' + encodeURIComponent(msg), '_blank');
 });
 
 /* ------------------ render ------------------ */
@@ -540,24 +602,34 @@ function shopCard(d, cat, distMeters){
   const meta = CAT_META[cat];
   const phone = d.formatted_phone_number;
   const intl  = d.international_phone_number;
-  const wa    = waLink(intl);
+  const waDigits = intl ? intl.replace(/[^\d]/g,'') : '';
+  const hasWa = waDigits.length >= 8;
+  const waChat = hasWa ? 'https://web.whatsapp.com/send?phone='+waDigits : null;
+  const kind  = phoneKind(phone, intl);
+  const waBadge = kind==='mobile' ? '<span class="badge" style="color:#8affbf">📱 WhatsApp probabile</span>'
+                : kind==='fixed'  ? '<span class="badge" style="color:#d0b98a">☎️ fisso · WhatsApp raro</span>'
+                : (hasWa ? '<span class="badge" style="color:#9aa3c4">WhatsApp da verificare</span>' : '');
   const open  = d.opening_hours?.isOpen?.();
   const openBadge = (open===true)?'<span class="badge" style="color:#8affbf">Aperto ora</span>'
                   : (open===false)?'<span class="badge" style="color:#ff9a9a">Chiuso ora</span>':'';
 
   const c = [];
   if(phone) c.push(`<a class="tel" href="tel:${intl||phone}">📞 ${phone}</a>`);
-  if(wa)    c.push(`<a class="wa" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>`);
+  if(waChat) c.push(`<a class="wa" href="${waChat}" target="_blank" rel="noopener">💬 WhatsApp Web</a>`);
   if(d.website) c.push(`<a class="web" href="${d.website}" target="_blank" rel="noopener">🌐 Sito</a>`);
   if(d.url)     c.push(`<a class="map" href="${d.url}" target="_blank" rel="noopener">🗺️ Maps</a>`);
   if(!phone && !d.website) c.push(`<span class="none">Nessun contatto pubblicato</span>`);
 
   const el = document.createElement('div');
   el.className = 'shop';
+  el.dataset.wakind = kind;
   el.innerHTML = `
     <div class="head">
       <h3>${meta.emoji} ${d.name}</h3>
-      <span class="badge dist">${distMeters!=null?distanceStr(distMeters):''}</span>
+      <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
+        <span class="badge dist">${distMeters!=null?distanceStr(distMeters):''}</span>
+        ${waBadge}
+      </div>
     </div>
     <div class="meta">
       ${meta.label} · ${d.formatted_address||''} ${openBadge}
@@ -565,7 +637,7 @@ function shopCard(d, cat, distMeters){
     </div>
     <div class="contacts">${c.join('')}</div>
     <div class="contacts email-slot" style="margin-top:8px"></div>
-    ${wa ? `<button class="sendorder" data-wa="${wa}">📤 Invia richiesta ordine su WhatsApp</button>` : ''}
+    ${hasWa ? `<button class="sendorder" data-phone="${waDigits}">📤 Invia richiesta ordine su WhatsApp Web</button>` : ''}
     <div class="src">📍 Fonte contatti: <span class="verified">Google Places (scheda ufficiale)</span></div>
   `;
   return el;
@@ -593,14 +665,17 @@ async function run(){
     await loadGoogle(key);
 
     setStatus('Cerco l\'indirizzo…');
-    const origin = await geocode(address);
+    const geo = await geocode(address);
+    const origin = geo.location;
+    currentLang = COUNTRY_LANG[geo.country] || 'it';
+    syncLangUI();
 
     setStatus('Cerco i negozi più vicini…');
     const service = new google.maps.places.PlacesService(document.createElement('div'));
 
     // ricerca per ogni categoria selezionata
     let found = [];
-    for(const cat of cats){ found = found.concat(await nearby(service, origin, cat)); }
+    for(const cat of cats){ found = found.concat(await nearby(service, origin, cat, currentLang)); }
 
     // dedup per place_id, calcola distanza
     const seen = new Set();
@@ -636,7 +711,9 @@ async function run(){
       cards.push({card, website:d.website});
     }
 
-    setStatus(`✅ Trovati ${cards.length} negozi.${proxy?' Cerco le email sui siti…':''}`);
+    applyWaFilter();
+    const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
+    setStatus(`✅ Trovati ${cards.length} negozi${langNote}.${proxy?' Cerco le email sui siti…':''}`);
 
     // scraping email in background (best effort)
     if(proxy){

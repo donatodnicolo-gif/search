@@ -42,6 +42,28 @@ In Google Cloud → Credenziali → chiave → **Referrer HTTP**, aggiungi il do
 https://search-xxx.vercel.app/*
 ```
 
+## Recupero automatico ordini SENZA token (Webhook + KV)
+Alternativa al token Shopify: Shopify "spinge" gli ordini nuovi verso il backend, che li salva.
+
+### a) Attiva l'archivio KV su Vercel
+1. Progetto Vercel → **Storage** → **Create Database** → **KV** (Upstash) → **Create**
+2. **Connect** al progetto `search-deluxy` → Vercel aggiunge da solo `KV_REST_API_URL` e `KV_REST_API_TOKEN`
+3. **Redeploy** il progetto
+
+### b) Crea il webhook in Shopify (per ogni negozio)
+1. Admin Shopify → **Impostazioni → Notifiche → Webhook** (in fondo) → **Crea webhook**
+2. Evento: **Creazione ordine** · Formato: **JSON**
+3. URL:
+   ```
+   https://search-deluxy.vercel.app/api/webhook?brand=deluxyflowers.com
+   ```
+4. Salva. Da ora ogni **nuovo** ordine viene salvato e sarà recuperabile nell'app col suo numero (pulsante "Da Shopify").
+
+> Nota immagine prodotto: il webhook nativo di Shopify NON include la foto. Per averla in automatico serve **Shopify Flow** (azione "Invia richiesta HTTP") con nel corpo l'URL immagine del prodotto, oppure si incolla il link a mano nell'app. Il backend è già pronto a leggere l'immagine se presente nel payload.
+
+### c) (facoltativo) Proteggi il webhook
+Env `WEBHOOK_SECRET` su Vercel + aggiungi `&key=IL_SEGRETO` all'URL del webhook.
+
 ## Regola budget
 In `index.html`, cerca `BUDGET_TABLE`: aggiungi le righe `prezzoCliente: budgetFiorario` man mano che le definiamo.
 Ora c'è solo `{ 85: 50 }`; per gli altri importi l'operatore inserisce il budget a mano.

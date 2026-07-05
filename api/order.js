@@ -56,6 +56,21 @@ async function findOrder(shop, token, number) {
   return null;
 }
 
+// legge un ordine dal magazzino KV (salvato dal webhook)
+async function kvGet(key) {
+  const url = process.env.KV_REST_API_URL, tok = process.env.KV_REST_API_TOKEN;
+  if (!url || !tok) return null;
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+      body: JSON.stringify(['GET', key]),
+    });
+    const j = await r.json();
+    return j.result || null;
+  } catch (e) { return null; }
+}
+
 // cerca un valore fra gli attributi ordine + proprietà righe, per parola chiave
 function guess(order, re) {
   const pools = [...(order.customAttributes || [])];
@@ -121,13 +136,22 @@ export default async function handler(req, res) {
 
     const cfg = BRANDS[brand];
     if (!cfg) return res.status(400).json({ error: 'Brand non valido.' });
-    if (!cfg.shop || !cfg.token) return res.status(500).json({ error: `Backend non configurato per ${brand}: mancano SHOP_/TOKEN_.` });
     if (!number) return res.status(400).json({ error: 'Numero ordine mancante.' });
+    const numNoHash = number.replace(/^#/, '').trim();
 
-    const order = await findOrder(cfg.shop, cfg.token, number);
-    if (!order) return res.status(404).json({ found: false, error: `Ordine ${number} non trovato su ${brand}.` });
+    // 1) prima cerca fra gli ordini ricevuti via webhook (nessun token necessario)
+    const cached = await kvGet(`order:${brand}:${numNoHash}`);
+    if (cached) return res.status(200).json(JSON.parse(cached));
 
-    return res.status(200).json(normalize(brand, order));
+    // 2) altrimenti, se è configurato un token Shopify, prova l'API Admin
+    if (cfg.shop && cfg.token) {
+      const order = await findOrder(cfg.shop, cfg.token, number);
+      if (order) return res.status(200).json(normalize(brand, order));
+      return res.status(404).json({ found: false, error: `Ordine ${number} non trovato su ${brand}.` });
+    }
+
+    // 3) niente webhook né token
+    return res.status(404).json({ found: false, error: `Ordine ${number} non ancora ricevuto via webhook (o attiva il token Shopify, oppure usa "Compila a mano").` });
   } catch (err) {
     return res.status(500).json({ error: 'Errore server: ' + (err.message || String(err)) });
   }
