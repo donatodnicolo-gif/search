@@ -1,8 +1,18 @@
-// Ricevitore Webhook Shopify — salva gli ordini su Vercel KV (nessun token Admin richiesto).
+// Ricevitore Webhook Shopify — salva gli ordini su Vercel KV (nessun token Admin richiesto per ricevere).
+// Accetta DUE formati:
 //
-// URL da incollare in Shopify (Impostazioni → Notifiche → Webhook, evento "Creazione ordine",
-// formato JSON), uno per negozio:
-//   https://search-deluxy.vercel.app/api/webhook?brand=deluxyflowers.com
+//  A) HTTPS diretto (Impostazioni → Notifiche → Webhook, evento "Creazione ordine", formato JSON):
+//     URL:  https://search-deluxy.vercel.app/api/webhook?brand=deluxyflowers.com
+//
+//  B) Google Cloud Pub/Sub (push subscription che punta a questo endpoint):
+//     - Crea un topic su GCP, concedi a delivery@shopify-pubsub-webhooks.iam.gserviceaccount.com
+//       il ruolo "Pub/Sub Publisher" sul topic.
+//     - Crea l'iscrizione lato Shopify con la mutation Admin: webhookSubscriptionCreate
+//       (topic ORDERS_CREATE, webhookSubscription { pubSubProject, pubSubTopic, format: JSON }).
+//     - Crea una subscription PUSH del topic che invii a:
+//         https://search-deluxy.vercel.app/api/webhook?brand=deluxyflowers.com
+//       Questo endpoint decodifica automaticamente l'envelope { message: { data(base64), attributes } }.
+//
 // (facoltativo, se imposti WEBHOOK_SECRET su Vercel:  ...&key=IL_TUO_SEGRETO )
 //
 // Env richiesti (Vercel → Storage → KV: si impostano da soli):
@@ -99,14 +109,25 @@ export default async function handler(req, res) {
     }
 
     const raw = await readRaw(req);
-    let o;
-    try { o = JSON.parse(raw); } catch (e) { return res.status(400).json({ error: 'JSON non valido' }); }
+    let body;
+    try { body = JSON.parse(raw); } catch (e) { return res.status(400).json({ error: 'JSON non valido' }); }
 
-    const shopDomain = req.headers['x-shopify-shop-domain'] || '';
+    // Rileva se arriva da Google Cloud Pub/Sub (push): { message: { data(base64), attributes } }
+    let order = body;
+    let attrs = {};
+    if (body && body.message && typeof body.message.data === 'string') {
+      attrs = body.message.attributes || {};
+      const decoded = Buffer.from(body.message.data, 'base64').toString('utf8');
+      try { order = JSON.parse(decoded); }
+      catch (e) { return res.status(400).json({ error: 'Pub/Sub: data non è JSON valido' }); }
+    }
+
+    // dominio negozio: da header (HTTPS diretto) o da attributi Pub/Sub
+    const shopDomain = req.headers['x-shopify-shop-domain'] || attrs['X-Shopify-Shop-Domain'] || attrs['x-shopify-shop-domain'] || '';
     const brand = req.query.brand || BRAND_BY_SHOP[shopDomain] || 'sconosciuto';
-    const data = normalize(brand, o);
+    const data = normalize(brand, order);
     const num = String(data.orderName).replace(/^#/, '').trim();
-    if (!num) return res.status(400).json({ error: 'Numero ordine mancante nel payload' });
+    if (!num) return res.status(200).json({ ok: true, skipped: 'nessun numero ordine (probabile messaggio di test)' });
 
     await kvSet(`order:${brand}:${num}`, JSON.stringify(data), 60 * 60 * 24 * 60); // 60 giorni
     return res.status(200).json({ ok: true, stored: `order:${brand}:${num}` });

@@ -64,6 +64,34 @@ Alternativa al token Shopify: Shopify "spinge" gli ordini nuovi verso il backend
 ### c) (facoltativo) Proteggi il webhook
 Env `WEBHOOK_SECRET` su Vercel + aggiungi `&key=IL_SEGRETO` all'URL del webhook.
 
+## Alternativa: consegna via Google Cloud Pub/Sub
+Metodo ufficiale Shopify più robusto (ritentativi automatici). Il backend è già pronto a riceverlo.
+
+1. **GCP → Pub/Sub → Crea topic** (es. `shopify-orders`).
+2. Sul topic → **⋮ → Visualizza autorizzazioni → Aggiungi entità (principal)**:
+   - Principal: `delivery@shopify-pubsub-webhooks.iam.gserviceaccount.com`
+   - Ruolo: **Pub/Sub Publisher**
+3. Crea una **subscription di tipo PUSH** sul topic, endpoint:
+   ```
+   https://search-deluxy.vercel.app/api/webhook?brand=deluxyflowers.com
+   ```
+4. Crea l'iscrizione webhook lato Shopify con la mutation Admin (`pubSubWebhookSubscriptionCreate` è **deprecata** → usa `webhookSubscriptionCreate`):
+   ```graphql
+   mutation {
+     webhookSubscriptionCreate(
+       topic: ORDERS_CREATE,
+       webhookSubscription: {
+         pubSubProject: "IL_TUO_PROGETTO_GCP",
+         pubSubTopic: "shopify-orders",
+         format: JSON
+       }
+     ) { webhookSubscription { id } userErrors { field message } }
+   }
+   ```
+   Questa mutation richiede accesso Admin API. Modo **senza token**: installa l'app gratuita **"Shopify GraphiQL App"** (di Shopify) e incolla lì la mutation — usa la sessione del negozio, nessun token da copiare.
+
+> Nota: Pub/Sub o HTTPS, il payload è lo stesso e **non include la foto** del prodotto. Per l'immagine automatica serve Shopify Flow (vedi sotto) o incollare il link a mano.
+
 ## Regola budget
 In `index.html`, cerca `BUDGET_TABLE`: aggiungi le righe `prezzoCliente: budgetFiorario` man mano che le definiamo.
 Ora c'è solo `{ 85: 50 }`; per gli altri importi l'operatore inserisce il budget a mano.
