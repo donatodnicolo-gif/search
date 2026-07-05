@@ -135,7 +135,7 @@
   <!-- ORDINE -->
   <div class="card ordercard">
     <h2>📦 Smista ordine al fiorario</h2>
-    <p class="sub">Recupera un ordine dai tuoi negozi e invialo via WhatsApp al fiorario più vicino, con tutti i dettagli.</p>
+    <p class="sub">Compila i dati dell'ordine e invialo via WhatsApp al fiorario più vicino, con tutti i dettagli.</p>
     <div class="row row-2" style="grid-template-columns:2fr 1fr">
       <div>
         <label>Sito / brand dell'ordine</label>
@@ -151,8 +151,8 @@
       </div>
     </div>
     <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
-      <button class="btn" id="fetchOrder" style="flex:1; min-width:180px">📥 Recupera da Shopify</button>
-      <button id="manualOrder" style="flex:1; min-width:180px; border:1px solid var(--line); background:var(--panel2); color:var(--txt); border-radius:12px; padding:13px 18px; font-size:15px; font-weight:700; cursor:pointer">✍️ Compila a mano</button>
+      <button class="btn" id="manualOrder" style="flex:2; min-width:200px">✍️ Compila ordine</button>
+      <button id="fetchOrder" style="flex:1; min-width:150px; border:1px solid var(--line); background:var(--panel2); color:var(--muted); border-radius:12px; padding:13px 18px; font-size:14px; font-weight:600; cursor:pointer">📥 Da Shopify (avanzato)</button>
     </div>
     <div class="status" id="orderStatus" style="text-align:left"></div>
 
