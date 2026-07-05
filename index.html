@@ -150,7 +150,10 @@
         <input id="orderNum" type="text" placeholder="es. 1042">
       </div>
     </div>
-    <div style="margin-top:12px"><button class="btn" id="fetchOrder">📥 Recupera ordine</button></div>
+    <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
+      <button class="btn" id="fetchOrder" style="flex:1; min-width:180px">📥 Recupera da Shopify</button>
+      <button id="manualOrder" style="flex:1; min-width:180px; border:1px solid var(--line); background:var(--panel2); color:var(--txt); border-radius:12px; padding:13px 18px; font-size:15px; font-weight:700; cursor:pointer">✍️ Compila a mano</button>
+    </div>
     <div class="status" id="orderStatus" style="text-align:left"></div>
 
     <!-- dettagli ordine (editabili) -->
@@ -499,6 +502,19 @@ function buildOrderMessage(){
 
 $('#fetchOrder').addEventListener('click', fetchOrder);
 $('#orderNum').addEventListener('keydown', e=>{ if(e.key==='Enter') fetchOrder(); });
+
+// modalità manuale: apre il form vuoto senza chiamare Shopify
+$('#manualOrder').addEventListener('click', ()=>{
+  orderLoaded = true;
+  $('#orderBox').style.display='block';
+  const num = $('#orderNum').value.trim().replace(/^#/,'');
+  $('#ordTag').textContent = $('#brand').value + ' · ' + (num ? '#'+num : 'manuale');
+  $('#ordMeta').textContent = 'inserimento manuale';
+  $('#rawAttrsBody').innerHTML = '<div class="hint">Modalità manuale: nessun dato importato da Shopify.</div>';
+  $('#budgetHint').textContent = '';
+  setOrderStatus('✍️ Modalità manuale attiva: compila i campi qui sotto, poi «Trova fiorai» e invia la richiesta.');
+  $('#orderBox').scrollIntoView({behavior:'smooth', block:'start'});
+});
 $('#findFlorists').addEventListener('click', ()=>{
   const a = $('#ord_address').value.trim();
   if(!a){ setOrderStatus('Manca l\'indirizzo di consegna.', true); return; }
