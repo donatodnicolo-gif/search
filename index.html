@@ -62,6 +62,7 @@
   .contacts a.wa{background:rgba(37,211,102,.14); border-color:rgba(37,211,102,.4); color:#8affbf}
   .contacts a.tel{background:rgba(124,92,255,.14); border-color:rgba(124,92,255,.4)}
   .contacts a.mail{background:rgba(245,166,35,.14); border-color:rgba(245,166,35,.4)}
+  .contacts a.insta{background:linear-gradient(135deg,rgba(225,48,108,.18),rgba(129,52,175,.18)); border-color:rgba(225,48,108,.45); color:#ffb3d0}
   .contacts a.web,.contacts a.map{background:var(--panel2)}
   .contacts span.none{opacity:.5; font-weight:500}
   .email-slot .loading{opacity:.6; font-style:italic; font-weight:500}
@@ -187,6 +188,10 @@
         </div>
       </div>
       <div style="margin-top:12px"><label>Prodotto / bouquet richiesto</label><input id="ord_items" type="text"></div>
+      <div class="fgrid fgrid-2" style="margin-top:12px">
+        <div><label>Variante (colore, misura…)</label><input id="ord_variant" type="text"></div>
+        <div><label>Quantità</label><input id="ord_qty" type="text" placeholder="es. 1"></div>
+      </div>
       <div style="margin-top:12px">
         <label>Foto bouquet (link)</label><input id="ord_photo" type="text" placeholder="URL immagine">
         <img id="ord_thumb" class="thumb" style="display:none" alt="foto bouquet">
@@ -269,14 +274,37 @@ const KEYWORDS = {
 // paese -> lingua del messaggio
 const COUNTRY_LANG = { IT:'it', SM:'it', VA:'it', CH:'it', FR:'fr', MC:'fr', BE:'fr', LU:'fr',
   DE:'de', AT:'de', ES:'es', GB:'en', IE:'en', US:'en', NL:'en', PT:'es' };
-// modello messaggio per lingua
-const MSG_I18N = {
-  it:{title:'NUOVO ORDINE',recipient:'Destinatario',phone:'Tel. destinatario',address:'Indirizzo',date:'Data',time:'Orario',card:'Bigliettino',budget:'Budget fiorista',request:'Richiesta',photo:'Foto',footer:'Confermi disponibilità e orario? Grazie!'},
-  en:{title:'NEW ORDER',recipient:'Recipient',phone:'Recipient phone',address:'Address',date:'Date',time:'Time',card:'Card message',budget:'Florist budget',request:'Request',photo:'Photo',footer:'Can you confirm availability and time? Thank you!'},
-  fr:{title:'NOUVELLE COMMANDE',recipient:'Destinataire',phone:'Tél. destinataire',address:'Adresse',date:'Date',time:'Horaire',card:'Message carte',budget:'Budget fleuriste',request:'Demande',photo:'Photo',footer:'Pouvez-vous confirmer la disponibilité et l’horaire ? Merci !'},
-  de:{title:'NEUE BESTELLUNG',recipient:'Empfänger',phone:'Tel. Empfänger',address:'Adresse',date:'Datum',time:'Uhrzeit',card:'Kartentext',budget:'Florist-Budget',request:'Wunsch',photo:'Foto',footer:'Können Sie Verfügbarkeit und Uhrzeit bestätigen? Danke!'},
-  es:{title:'NUEVO PEDIDO',recipient:'Destinatario',phone:'Tel. destinatario',address:'Dirección',date:'Fecha',time:'Horario',card:'Tarjeta',budget:'Presupuesto floristería',request:'Pedido',photo:'Foto',footer:'¿Puede confirmar disponibilidad y horario? ¡Gracias!'}
+// messaggio di richiesta disponibilità al fiorista (frase naturale, per lingua)
+const MSG_LANG = {
+  it:(p)=>`Buongiorno,${p.date?` per ${p.date}`:''} è possibile ${p.prod}${p.var?` ${p.var}`:''}${p.qty?` x${p.qty}`:''} da spedire con consegna a ${p.addr}${p.time?` all'ora ${p.time}`:''}?`,
+  en:(p)=>`Good morning,${p.date?` for ${p.date}`:''} would it be possible to prepare ${p.prod}${p.var?` ${p.var}`:''}${p.qty?` x${p.qty}`:''} for delivery to ${p.addr}${p.time?` at ${p.time}`:''}?`,
+  fr:(p)=>`Bonjour,${p.date?` pour ${p.date}`:''} serait-il possible de préparer ${p.prod}${p.var?` ${p.var}`:''}${p.qty?` x${p.qty}`:''} en livraison à ${p.addr}${p.time?` à ${p.time}`:''} ?`,
+  de:(p)=>`Guten Tag,${p.date?` für ${p.date}`:''} wäre es möglich, ${p.prod}${p.var?` ${p.var}`:''}${p.qty?` x${p.qty}`:''} zur Lieferung an ${p.addr}${p.time?` um ${p.time}`:''} vorzubereiten?`,
+  es:(p)=>`Buenos días,${p.date?` para ${p.date}`:''} ¿sería posible preparar ${p.prod}${p.var?` ${p.var}`:''}${p.qty?` x${p.qty}`:''} con entrega en ${p.addr}${p.time?` a las ${p.time}`:''}?`
 };
+const DAYWORDS  = { it:['oggi','domani'], en:['today','tomorrow'], fr:["aujourd'hui",'demain'], de:['heute','morgen'], es:['hoy','mañana'] };
+const PHOTOWORD = { it:'Foto prodotto', en:'Product photo', fr:'Photo produit', de:'Produktfoto', es:'Foto del producto' };
+// interpreta la data e restituisce "oggi"/"domani" (localizzato) o la data originale
+function parseDate(str){
+  if(!str) return null; let m;
+  m = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(m){ let y=+m[3]; if(y<100) y+=2000; const dt=new Date(y, +m[2]-1, +m[1]); return isNaN(dt)?null:dt; }
+  m = str.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+  if(m){ const dt=new Date(+m[1], +m[2]-1, +m[3]); return isNaN(dt)?null:dt; }
+  return null;
+}
+function dateLabel(str, lang){
+  str = (str||'').trim(); const d = parseDate(str);
+  if(d){
+    const today=new Date(); today.setHours(0,0,0,0);
+    const tom=new Date(today); tom.setDate(tom.getDate()+1);
+    d.setHours(0,0,0,0);
+    const w = DAYWORDS[lang]||DAYWORDS.it;
+    if(d.getTime()===today.getTime()) return w[0];
+    if(d.getTime()===tom.getTime())   return w[1];
+  }
+  return str;
+}
 const LANG_NAME = { it:'Italiano', en:'English', fr:'Français', de:'Deutsch', es:'Español' };
 let currentLang = 'it';
 
@@ -424,14 +452,25 @@ function extractEmails(html){
   }
   return [...set].slice(0,3);
 }
-async function scrapeEmail(website, proxy){
-  if(!website || !proxy) return null;
+// estrae l'handle Instagram dal codice della pagina
+const IG_SKIP = /^(p|reel|reels|explore|stories|accounts|about|developer|legal|directory|tv|web|help|privacy|terms)$/i;
+function extractInstagram(html){
+  const re = /instagram\.com\/([A-Za-z0-9._]{2,30})/ig;
+  let m;
+  while((m=re.exec(html))){
+    const h = m[1].replace(/\.$/,'');
+    if(!IG_SKIP.test(h)) return { handle:h, url:'https://instagram.com/'+h };
+  }
+  return null;
+}
+async function scrapeContacts(website, proxy){
+  if(!website || !proxy) return { emails:[], instagram:null };
   const pages = [website];
-  // prova anche una pagina contatti tipica
   try{
     const u = new URL(website);
     ['contatti','contact','contattaci','contact-us'].forEach(p=>pages.push(u.origin+'/'+p));
   }catch(e){}
+  let emails = [], instagram = null;
   for(const page of pages){
     try{
       const url = proxy + encodeURIComponent(page);
@@ -441,11 +480,12 @@ async function scrapeEmail(website, proxy){
       clearTimeout(t);
       if(!r.ok) continue;
       const html = await r.text();
-      const emails = extractEmails(html);
-      if(emails.length) return emails;
+      if(!emails.length) emails = extractEmails(html);
+      if(!instagram) instagram = extractInstagram(html);
+      if(emails.length && instagram) break;
     }catch(e){ /* prova prossima pagina */ }
   }
-  return null;
+  return { emails, instagram };
 }
 
 /* ------------------ ORDINI ------------------ */
@@ -496,7 +536,11 @@ function populateOrder(o){
   $('#ord_time').value = o.time || '';
   $('#ord_card').value = o.cardMessage || o.note || '';
   $('#ord_paid').value = paid || '';
-  $('#ord_items').value = (o.items||[]).map(i=> (i.quantity>1? i.quantity+'× ':'')+i.title).join(' · ');
+  const items = o.items||[];
+  const it0 = items[0] || {};
+  $('#ord_items').value   = items.length>1 ? items.map(i=>i.title).join(' · ') : (it0.title||'');
+  $('#ord_variant').value = it0.variant || '';
+  $('#ord_qty').value     = it0.quantity || '';
   $('#ord_photo').value = o.photoUrl || '';
   updateThumb();
 
@@ -532,22 +576,19 @@ function syncLangUI(){
 }
 function buildOrderMessage(){
   const lang = ($('#ordLang') && $('#ordLang').value) || currentLang || 'it';
-  const T = MSG_I18N[lang] || MSG_I18N.it;
-  const num = (($('#ordTag').textContent.split('·').pop())||'').trim();
-  const L = [];
-  L.push('🌸 ' + T.title + ' — ' + $('#brand').value + (num?(' '+num):''));
-  const add = (emoji,label,val)=>{ val=(val||'').trim(); if(val) L.push(emoji+' '+label+': '+val); };
-  add('👤',T.recipient, $('#ord_recipient').value);
-  add('📞',T.phone, $('#ord_phone').value);
-  add('📍',T.address, $('#ord_address').value);
-  add('📅',T.date, $('#ord_date').value);
-  add('🕐',T.time, $('#ord_time').value);
-  add('💬',T.card, $('#ord_card').value);
-  add('💰',T.budget, ($('#ord_budget').value.trim()? $('#ord_budget').value.trim()+' €' : ''));
-  add('🌸',T.request, $('#ord_items').value);
-  add('🖼️',T.photo, $('#ord_photo').value);
-  L.push('\n'+T.footer);
-  return L.join('\n');
+  const fn = MSG_LANG[lang] || MSG_LANG.it;
+  const p = {
+    date: dateLabel($('#ord_date').value, lang),
+    prod: $('#ord_items').value.trim() || '…',
+    var:  $('#ord_variant').value.trim(),
+    qty:  $('#ord_qty').value.trim(),
+    addr: $('#ord_address').value.trim() || '…',
+    time: $('#ord_time').value.trim()
+  };
+  let msg = fn(p);
+  const photo = $('#ord_photo').value.trim();
+  if(photo) msg += '\n\n' + (PHOTOWORD[lang]||'Foto') + ': ' + photo;
+  return msg;
 }
 // filtro "solo probabili WhatsApp"
 function applyWaFilter(){
@@ -713,27 +754,31 @@ async function run(){
 
     applyWaFilter();
     const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
-    setStatus(`✅ Trovati ${cards.length} negozi${langNote}.${proxy?' Cerco le email sui siti…':''}`);
+    setStatus(`✅ Trovati ${cards.length} negozi${langNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
 
-    // scraping email in background (best effort)
+    // scraping email + Instagram in background (best effort)
     if(proxy){
-      let done=0, withEmail=0;
+      let withEmail=0, withIg=0;
       await Promise.all(cards.map(async ({card,website})=>{
         const slot = card.querySelector('.email-slot');
         if(!website){ return; }
-        slot.innerHTML = '<span class="loading">✉️ cerco email…</span>';
-        const emails = await scrapeEmail(website, proxy);
-        done++;
-        if(emails && emails.length){
-          withEmail++;
-          slot.innerHTML = emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`).join('');
+        slot.innerHTML = '<span class="loading">✉️ cerco email e Instagram…</span>';
+        const { emails, instagram } = await scrapeContacts(website, proxy);
+        const parts = [];
+        if(emails && emails.length){ withEmail++; parts.push(...emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`)); }
+        if(instagram){ withIg++; parts.push(`<a class="insta" href="${instagram.url}" target="_blank" rel="noopener">📷 @${instagram.handle}</a>`); }
+        if(parts.length){
+          slot.innerHTML = parts.join('');
           const src = card.querySelector('.src');
-          src.innerHTML += ' · Email: <span class="verified">trovata sul sito ufficiale</span>';
+          const bits = [];
+          if(emails.length) bits.push('email');
+          if(instagram) bits.push('Instagram');
+          src.innerHTML += ' · '+bits.join(' + ')+': <span class="verified">dal sito ufficiale</span>';
         } else {
-          slot.innerHTML = '<span class="none">✉️ email non trovata sul sito</span>';
+          slot.innerHTML = '<span class="none">✉️ nessun contatto extra trovato</span>';
         }
       }));
-      setStatus(`✅ ${cards.length} negozi · email trovate per ${withEmail}.`);
+      setStatus(`✅ ${cards.length} negozi · email per ${withEmail} · Instagram per ${withIg}.`);
     }
 
   }catch(err){

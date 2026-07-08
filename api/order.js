@@ -25,7 +25,7 @@ query getOrder($q: String!) {
       shippingAddress { name firstName lastName address1 address2 city zip province country phone }
       customer { firstName lastName phone email }
       lineItems(first: 20) { edges { node {
-        title quantity
+        title quantity variantTitle
         customAttributes { key value }
         image { url }
         product { featuredImage { url } }
@@ -86,6 +86,7 @@ function normalize(brand, o) {
     const n = e.node;
     return {
       title: n.title,
+      variant: (n.variantTitle && n.variantTitle !== 'Default Title') ? n.variantTitle : '',
       quantity: n.quantity,
       image: n.image?.url || n.product?.featuredImage?.url || '',
       properties: (n.customAttributes || []).filter(a => a.key && !a.key.startsWith('_')),

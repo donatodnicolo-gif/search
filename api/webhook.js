@@ -55,6 +55,7 @@ function normalize(brand, o) {
 
   const items = (o.line_items || []).map(li => ({
     title: li.title,
+    variant: (li.variant_title && li.variant_title !== 'Default Title') ? li.variant_title : '',
     quantity: li.quantity,
     // immagine prodotto: presente se arriva da Shopify Flow o se aggiunta come proprietà
     image: (li.image && (li.image.url || li.image)) || li.product_image || li.image_url || '',
