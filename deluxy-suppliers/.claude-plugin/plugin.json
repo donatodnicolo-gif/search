@@ -1,0 +1,8 @@
+{
+  "name": "deluxy-suppliers",
+  "version": "1.0.0",
+  "description": "Deluxy Suppliers — gestisci l'app Deluxy (ricerca fiorai/pasticcerie + smistamento ordini Shopify via WhatsApp/Email) da qualsiasi Claude: recupero ordini, aggiunta negozi, deploy, e sviluppo del codice secondo la spec.",
+  "author": { "name": "Deluxy" },
+  "homepage": "https://search-deluxy.vercel.app",
+  "keywords": ["deluxy", "shopify", "fiorai", "ordini", "whatsapp"]
+}

@@ -1,4 +1,4 @@
-# Deluxy Manager — Plugin Claude Code
+# Deluxy Suppliers — Plugin Claude Code
 
 Gestisci e sviluppa l'app **Deluxy** (ricerca fiorai/pasticcerie + smistamento ordini Shopify via WhatsApp/Email) da **qualsiasi Claude Code**.
 
@@ -6,7 +6,7 @@ Gestisci e sviluppa l'app **Deluxy** (ricerca fiorai/pasticcerie + smistamento o
 - **Repo**: https://github.com/donatodnicolo-gif/search
 
 ## Cosa contiene
-- **Skill `deluxy-manager`** — insegna a Claude a operare l'app via le sue API e a modificarne il codice secondo la spec. Include la scheda tecnica completa in `skills/deluxy-manager/reference/AI_SPEC.md`.
+- **Skill `deluxy-suppliers`** — insegna a Claude a operare l'app via le sue API e a modificarne il codice secondo la spec. Include la scheda tecnica completa in `skills/deluxy-suppliers/reference/AI_SPEC.md`.
 - **Comandi**:
   - `/ordine <brand> <numero>` — recupera un ordine (es. `/ordine deluxyflowers.com 2484`)
   - `/collega-negozio <brand>` — collega un negozio Shopify (OAuth → token in cassaforte)
@@ -18,18 +18,18 @@ Il **pass code** dell'app (variabile `APP_PASSWORD` su Vercel): Claude lo chiede
 ## Installazione
 
 ### Opzione 1 — cartella locale (più semplice)
-Copia la cartella `deluxy-plugin/` dove vuoi, poi in Claude Code:
+Copia la cartella `deluxy-suppliers/` dove vuoi, poi in Claude Code:
 ```
-/plugin install ./deluxy-plugin
+/plugin install ./deluxy-suppliers
 ```
 (oppure aggiungi il percorso della cartella tra i plugin nelle impostazioni di Claude Code).
 
 ### Opzione 2 — da questo repo (marketplace)
-Il plugin vive dentro il repo dell'app: `donatodnicolo-gif/search` → `deluxy-plugin/`.
-Aggiungi il repo come marketplace di plugin e installa `deluxy-manager` da lì.
+Il plugin vive dentro il repo dell'app: `donatodnicolo-gif/search` → `deluxy-suppliers/`.
+Aggiungi il repo come marketplace di plugin e installa `deluxy-suppliers` da lì.
 
 ### Verifica
-Dopo l'installazione dovresti avere la skill `deluxy-manager` e i comandi `/ordine`, `/collega-negozio`, `/deploy`. Prova: `/ordine deluxyflowers.com 2484`.
+Dopo l'installazione dovresti avere la skill `deluxy-suppliers` e i comandi `/ordine`, `/collega-negozio`, `/deploy`. Prova: `/ordine deluxyflowers.com 2484`.
 
 ## Uso rapido
 - "Recuperami l'ordine 2484 di deluxyflowers" → Claude usa la skill e chiama l'API.

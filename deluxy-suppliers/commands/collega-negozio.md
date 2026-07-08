@@ -5,7 +5,7 @@ argument-hint: <brand>  (deluxyflowers.com | deluxy.it | cakedesign.me)
 
 Collega il negozio Shopify indicato in `$ARGUMENTS` alla cassaforte Deluxy.
 
-1. Mappa brand → dominio .myshopify.com (vedi la skill deluxy-manager, `reference/AI_SPEC.md` §6):
+1. Mappa brand → dominio .myshopify.com (vedi la skill deluxy-suppliers, `reference/AI_SPEC.md` §6):
    - deluxyflowers.com → fb72b1-2.myshopify.com
    - deluxy.it → deluxygifts.myshopify.com
    - cakedesign.me → cakedesign-5921.myshopify.com

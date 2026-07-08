@@ -1,5 +1,5 @@
 ---
-name: deluxy-manager
+name: deluxy-suppliers
 description: >-
   Gestisci e sviluppa l'app Deluxy (ricerca fiorai/pasticcerie + smistamento ordini Shopify
   via WhatsApp/Email, live su search-deluxy.vercel.app, repo donatodnicolo-gif/search).
@@ -8,7 +8,7 @@ description: >-
   dell'app in modo corretto. Trigger: "Deluxy", "smistamento ordini", "search-deluxy", "fiorai app".
 ---
 
-# Deluxy Manager
+# Deluxy Suppliers
 
 Questa skill ti permette di **gestire l'app Deluxy da qualsiasi Claude**. Due modalità:
 **(A) operare l'app live** via le sue API HTTP, e **(B) modificarne il codice** rispettando la spec.
