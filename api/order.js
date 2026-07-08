@@ -71,6 +71,20 @@ async function kvGet(key) {
   } catch (e) { return null; }
 }
 
+// credenziali del negozio: prima dalla cassaforte KV (config:v1), poi dalle env come fallback
+async function storeFor(brand) {
+  const raw = await kvGet('config:v1');
+  if (raw) {
+    try {
+      const c = JSON.parse(raw);
+      const s = (c.stores || []).find(x => x.brand === brand);
+      if (s && s.shop && s.token) return { shop: s.shop, token: s.token };
+    } catch (e) { /* ignora */ }
+  }
+  const env = BRANDS[brand];
+  return (env && env.shop && env.token) ? { shop: env.shop, token: env.token } : null;
+}
+
 // cerca un valore fra gli attributi ordine + proprietà righe, per parola chiave
 function guess(order, re) {
   const pools = [...(order.customAttributes || [])];
@@ -133,10 +147,9 @@ export default async function handler(req, res) {
     const pass = req.headers['x-app-password'] || '';
 
     if (!process.env.APP_PASSWORD) return res.status(500).json({ error: 'Backend non configurato: manca APP_PASSWORD.' });
-    if (pass !== process.env.APP_PASSWORD) return res.status(401).json({ error: 'Password operatore errata.' });
+    if (pass !== process.env.APP_PASSWORD) return res.status(401).json({ error: 'Pass code errato.' });
 
-    const cfg = BRANDS[brand];
-    if (!cfg) return res.status(400).json({ error: 'Brand non valido.' });
+    if (!brand) return res.status(400).json({ error: 'Brand mancante.' });
     if (!number) return res.status(400).json({ error: 'Numero ordine mancante.' });
     const numNoHash = number.replace(/^#/, '').trim();
 
@@ -144,9 +157,10 @@ export default async function handler(req, res) {
     const cached = await kvGet(`order:${brand}:${numNoHash}`);
     if (cached) return res.status(200).json(JSON.parse(cached));
 
-    // 2) altrimenti, se è configurato un token Shopify, prova l'API Admin
-    if (cfg.shop && cfg.token) {
-      const order = await findOrder(cfg.shop, cfg.token, number);
+    // 2) altrimenti, se in cassaforte c'è un token Shopify per questo negozio, prova l'API Admin
+    const store = await storeFor(brand);
+    if (store) {
+      const order = await findOrder(store.shop, store.token, number);
       if (order) return res.status(200).json(normalize(brand, order));
       return res.status(404).json({ found: false, error: `Ordine ${number} non trovato su ${brand}.` });
     }

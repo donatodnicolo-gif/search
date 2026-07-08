@@ -97,6 +97,16 @@
 </style>
 </head>
 <body>
+<!-- LOCK SCREEN -->
+<div id="lockScreen" style="position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; padding:24px; background:radial-gradient(1000px 500px at 50% 0%, #29224a 0%, transparent 60%), var(--bg)">
+  <div style="font-size:44px">🌸🔒</div>
+  <h2 style="margin:0; text-align:center">Deluxy — Accesso</h2>
+  <p style="color:var(--muted); text-align:center; max-width:340px; margin:0">Inserisci il pass code per accedere all'applicazione.</p>
+  <input id="passInput" type="password" placeholder="Pass code" autocomplete="current-password" style="max-width:300px; text-align:center">
+  <button class="btn" id="passBtn" style="max-width:300px">Entra</button>
+  <div id="passErr" class="status err" style="min-height:18px; margin:0"></div>
+</div>
+
 <header>
   <h1><span class="em">🌸</span> Trova Fiorai &amp; Pasticcerie <span class="em">🍰</span></h1>
   <p>Inserisci un indirizzo, scegli la categoria: trovo i più vicini con telefono, WhatsApp, email e sito.</p>
@@ -104,31 +114,28 @@
 
 <div class="wrap">
 
-  <!-- CONFIG -->
+  <!-- ADMIN -->
   <details class="card config" id="config">
-    <summary>⚙️ Impostazioni (Google API key &amp; proxy) — clicca per aprire</summary>
+    <summary>⚙️ Admin — impostazioni salvate sul server (clicca per aprire)</summary>
     <div class="grid">
       <div>
-        <label>Google Maps / Places API key (obbligatoria)</label>
-        <input id="apiKey" type="password" placeholder="Incolla qui la tua API key Google Cloud" autocomplete="off">
-        <div class="hint">Serve la <b>Maps JavaScript API</b> + <b>Places API</b> attive sul tuo progetto Google Cloud.
-          La chiave viene salvata solo nel tuo browser (localStorage). <a class="link" href="https://console.cloud.google.com/google/maps-apis" target="_blank" rel="noopener">Apri Google Cloud Console →</a></div>
+        <label>Google Maps / Places API key</label>
+        <input id="cfg_google" type="password" placeholder="Chiave Google Cloud" autocomplete="off">
+        <div class="hint">Serve <b>Maps JavaScript API</b> + <b>Places API</b>. Salvata sul server, consegnata solo dopo il pass code. <a class="link" href="https://console.cloud.google.com/google/maps-apis" target="_blank" rel="noopener">Google Cloud Console →</a></div>
       </div>
       <div>
-        <label>Proxy CORS per lo scraping email (opzionale, best effort)</label>
-        <input id="proxy" type="text" placeholder="es. https://api.allorigins.win/raw?url=">
-        <div class="hint">Serve per leggere i siti dei negozi e cercarne le email (il browser da solo non può, per la regola CORS).
-          Preimpostato un proxy pubblico gratuito: a volte funziona, a volte i siti lo bloccano. Lascia vuoto per disattivare lo scraping.</div>
+        <label>Proxy CORS (per email/Instagram — opzionale)</label>
+        <input id="cfg_proxy" type="text" placeholder="es. https://api.allorigins.win/raw?url=">
       </div>
       <div>
-        <label>Password operatore (per recuperare gli ordini)</label>
-        <input id="appPass" type="password" placeholder="La password che hai impostato su Vercel (APP_PASSWORD)" autocomplete="off">
-        <div class="hint">Protegge i dati degli ordini: senza, chiunque potrebbe leggerli. Deve coincidere con <b>APP_PASSWORD</b> impostata sul backend Vercel.</div>
+        <label style="font-size:13px; color:var(--txt); font-weight:700">🛍️ Negozi Shopify</label>
+        <div id="storeRows" class="grid" style="margin-top:8px"></div>
+        <div class="hint">Il <b>token Shopify resta sul server</b>, non arriva mai al browser. Lascia il token vuoto per non modificarlo.
+          Token: Shopify Admin → <i>Sviluppa app</i> → <i>Installa</i> → <i>Token di accesso Admin API</i> (inizia con <code>shpat_</code>).</div>
       </div>
       <div>
-        <label>URL backend ordini (avanzato)</label>
-        <input id="apiBase" type="text" placeholder="Vuoto = stesso sito (consigliato su Vercel)">
-        <div class="hint">Lascia vuoto se pubblichi tutto su Vercel. Compila solo se il front-end sta altrove (es. GitHub Pages) e il backend su un altro dominio Vercel, es. <code>https://tuo-progetto.vercel.app</code></div>
+        <button class="btn" id="cfg_save">💾 Salva impostazioni sul server</button>
+        <div class="status" id="cfg_status" style="text-align:left"></div>
       </div>
     </div>
   </details>
@@ -308,32 +315,97 @@ function dateLabel(str, lang){
 const LANG_NAME = { it:'Italiano', en:'English', fr:'Français', de:'Deutsch', es:'Español' };
 let currentLang = 'it';
 
-// carica/salva impostazioni
-$('#apiKey').value = localStorage.getItem('gpk') || '';
-$('#proxy').value  = localStorage.getItem('proxy') ?? 'https://api.allorigins.win/raw?url=';
+// comodità locali (non sensibili)
 $('#address').value = localStorage.getItem('addr') || '';
-$('#apiKey').addEventListener('change', e => localStorage.setItem('gpk', e.target.value.trim()));
-$('#proxy').addEventListener('change',  e => localStorage.setItem('proxy', e.target.value.trim()));
 $('#address').addEventListener('change', e => localStorage.setItem('addr', e.target.value.trim()));
+$('#brand').value = localStorage.getItem('brand') || 'deluxy.it';
+$('#brand').addEventListener('change', e => localStorage.setItem('brand', e.target.value));
 
-// impostazioni ordini
-$('#appPass').value = localStorage.getItem('appPass') || '';
-$('#apiBase').value = localStorage.getItem('apiBase') || '';
-$('#brand').value   = localStorage.getItem('brand') || 'deluxy.it';
-$('#appPass').addEventListener('change', e => localStorage.setItem('appPass', e.target.value.trim()));
-$('#apiBase').addEventListener('change', e => localStorage.setItem('apiBase', e.target.value.trim()));
-$('#brand').addEventListener('change',   e => localStorage.setItem('brand', e.target.value));
-
-// stato ordine corrente + regola budget (tabella da completare insieme)
+// stato ordine corrente + regola budget
 let orderLoaded = false;
-const BUDGET_TABLE = { 85: 50 };   // <-- prezzo cliente (€) : budget fiorario (€). Aggiungeremo altre righe.
+const BUDGET_TABLE = { 85: 50 };   // prezzo cliente (€) : budget fiorista (€) — da completare
 function suggestBudget(paid){
   const p = Math.round(Number(paid)||0);
-  return (BUDGET_TABLE[p] != null) ? BUDGET_TABLE[p] : null;   // null => "chiedi", inserimento manuale
+  return (BUDGET_TABLE[p] != null) ? BUDGET_TABLE[p] : null;
 }
 
-// se manca la key apri il pannello impostazioni
-if(!$('#apiKey').value) $('#config').open = true;
+/* ------------------ ACCESSO + CONFIG SUL SERVER ------------------ */
+const API_BASE = (location.hostname==='localhost'||location.hostname==='127.0.0.1') ? 'https://search-deluxy.vercel.app' : '';
+const KNOWN_BRANDS = ['deluxy.it','deluxyflowers.com','cakedesign.me'];
+let PASS = sessionStorage.getItem('pass') || '';
+let CONFIG = { googleKey:'', proxy:'', stores:[] };
+function cssId(b){ return b.replace(/[^a-z0-9]/gi,'_'); }
+
+// righe negozi nell'admin
+$('#storeRows').innerHTML = KNOWN_BRANDS.map(b=>`
+  <div style="border:1px solid var(--line); border-radius:10px; padding:10px">
+    <div style="font-weight:700; margin-bottom:6px">${b}</div>
+    <div class="fgrid fgrid-2">
+      <div><label>Dominio .myshopify.com</label><input id="cfg_shop_${cssId(b)}" type="text" placeholder="es. xxxx.myshopify.com"></div>
+      <div><label>Token Admin (shpat_…)</label><input id="cfg_token_${cssId(b)}" type="password" placeholder="lascia vuoto = invariato" autocomplete="off"></div>
+    </div>
+  </div>`).join('');
+
+function apiFetch(path, opts){
+  opts = opts || {};
+  opts.headers = Object.assign({ 'x-app-password': PASS }, opts.headers || {});
+  return fetch(API_BASE + path, opts);
+}
+function applyConfig(){
+  $('#cfg_google').value = CONFIG.googleKey || '';
+  $('#cfg_proxy').value  = CONFIG.proxy || '';
+  KNOWN_BRANDS.forEach(b=>{
+    const s = (CONFIG.stores||[]).find(x=>x.brand===b) || {};
+    const shopEl = $('#cfg_shop_'+cssId(b)); if(shopEl) shopEl.value = s.shop || '';
+    const tokEl = $('#cfg_token_'+cssId(b)); if(tokEl) tokEl.placeholder = s.hasToken ? '•••• salvato (vuoto = invariato)' : 'lascia vuoto = invariato';
+  });
+}
+async function loadConfig(){
+  const r = await apiFetch('/api/config');
+  if(!r.ok) throw new Error(r.status===401 ? 'Pass code errato' : ('Errore '+r.status));
+  const j = await r.json();
+  CONFIG = j.config || CONFIG;
+  applyConfig();
+}
+async function unlock(){
+  const pass = ($('#passInput').value.trim() || PASS);
+  if(!pass){ $('#passErr').textContent='Inserisci il pass code.'; return; }
+  $('#passBtn').disabled=true; $('#passErr').textContent='Verifico…';
+  PASS = pass;
+  try{
+    await loadConfig();
+    sessionStorage.setItem('pass', pass);
+    $('#lockScreen').style.display='none';
+    $('#passErr').textContent='';
+    if(!CONFIG.googleKey) $('#config').open = true;   // primo avvio → apri Admin
+  }catch(e){
+    PASS=''; sessionStorage.removeItem('pass');
+    $('#passErr').textContent='❌ '+e.message;
+  }finally{ $('#passBtn').disabled=false; }
+}
+$('#passBtn').addEventListener('click', unlock);
+$('#passInput').addEventListener('keydown', e=>{ if(e.key==='Enter') unlock(); });
+if(PASS){ unlock(); }   // sessione già sbloccata
+
+async function saveConfig(){
+  const stores = KNOWN_BRANDS.map(b=>({
+    brand: b,
+    shop: $('#cfg_shop_'+cssId(b)).value.trim(),
+    token: $('#cfg_token_'+cssId(b)).value.trim()
+  }));
+  const body = { googleKey: $('#cfg_google').value.trim(), proxy: $('#cfg_proxy').value.trim(), stores };
+  $('#cfg_save').disabled=true; $('#cfg_status').className='status'; $('#cfg_status').textContent='Salvo…';
+  try{
+    const r = await apiFetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
+    CONFIG = j.config; applyConfig();
+    KNOWN_BRANDS.forEach(b=>{ $('#cfg_token_'+cssId(b)).value=''; });  // i token ora sono sul server
+    $('#cfg_status').textContent='✅ Impostazioni salvate sul server.';
+  }catch(e){ $('#cfg_status').className='status err'; $('#cfg_status').textContent='❌ '+e.message; }
+  finally{ $('#cfg_save').disabled=false; }
+}
+$('#cfg_save').addEventListener('click', saveConfig);
 
 // toggle categorie
 document.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => {
@@ -497,18 +569,16 @@ function esc(s){ return (s||'').replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&
 async function fetchOrder(){
   const brand = $('#brand').value;
   const number = $('#orderNum').value.trim();
-  const pass = $('#appPass').value.trim();
-  const base = $('#apiBase').value.trim().replace(/\/$/,'');
   localStorage.setItem('brand', brand);
   $('#orderBox').style.display='none'; orderLoaded=false;
   if(!number){ setOrderStatus('Inserisci il numero ordine.', true); return; }
-  if(!pass){ setOrderStatus('Inserisci la password operatore nelle impostazioni ⚙️.', true); $('#config').open=true; return; }
+  if(!PASS){ setOrderStatus('Sessione scaduta: rientra col pass code.', true); location.reload(); return; }
 
   $('#fetchOrder').disabled = true;
   setOrderStatus('Recupero ordine '+number+' da '+brand+'…');
   try{
-    const url = base + '/api/order?brand='+encodeURIComponent(brand)+'&number='+encodeURIComponent(number);
-    const r = await fetch(url, { headers: { 'x-app-password': pass } });
+    const url = '/api/order?brand='+encodeURIComponent(brand)+'&number='+encodeURIComponent(number);
+    const r = await apiFetch(url);
     let data; try{ data = await r.json(); }catch(e){ data = {}; }
     if(!r.ok || data.found===false){
       setOrderStatus('❌ '+(data.error || ('Errore '+r.status)), true);
@@ -689,14 +759,14 @@ $('#go').addEventListener('click', run);
 $('#address').addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
 
 async function run(){
-  const key = $('#apiKey').value.trim();
+  const key = (CONFIG.googleKey||'').trim();
   const address = $('#address').value.trim();
-  const proxy = $('#proxy').value.trim();
+  const proxy = (CONFIG.proxy||'').trim();
   const limit = parseInt($('#limit').value,10);
   const sortBy = $('#sort').value;
 
   resultsEl.innerHTML='';
-  if(!key){ setStatus('Inserisci la tua Google API key nelle impostazioni ⚙️', true); $('#config').open=true; return; }
+  if(!key){ setStatus('Manca la chiave Google: aprila in ⚙️ Admin e salvala.', true); $('#config').open=true; return; }
   if(!address){ setStatus('Inserisci un indirizzo o una zona.', true); return; }
   if(cats.size===0){ setStatus('Seleziona almeno una categoria (Fiorai / Pasticcerie).', true); return; }
 
