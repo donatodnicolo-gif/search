@@ -49,11 +49,25 @@ async function gql(shop, token, q) {
 
 async function findOrder(shop, token, number) {
   const raw = String(number).trim().replace(/^#/, '');
-  for (const q of [`name:#${raw}`, `name:${raw}`]) {
+  // prova varie forme del nome ordine (con/senza #, ricerca libera, per numero)
+  const queries = [`name:#${raw}`, `name:${raw}`, `name:*${raw}`, `${raw}`, `order_number:${raw}`];
+  for (const q of queries) {
     const node = await gql(shop, token, q);
     if (node) return node;
   }
   return null;
+}
+
+// diagnostica: elenca i nomi degli ordini recenti per capire il formato
+async function recentOrderNames(shop, token) {
+  const r = await fetch(`https://${shop}/admin/api/${API_VERSION}/graphql.json`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+    body: JSON.stringify({ query: '{ orders(first:5, sortKey:CREATED_AT, reverse:true){ edges{ node{ name } } } }' }),
+  });
+  const j = await r.json();
+  if (j.errors) return { error: j.errors };
+  return (j?.data?.orders?.edges || []).map(e => e.node.name);
 }
 
 // legge un ordine dal magazzino KV (salvato dal webhook)
@@ -162,6 +176,10 @@ export default async function handler(req, res) {
     if (store) {
       const order = await findOrder(store.shop, store.token, number);
       if (order) return res.status(200).json(normalize(brand, order));
+      if (req.query.debug) {
+        const recent = await recentOrderNames(store.shop, store.token);
+        return res.status(404).json({ found: false, error: `Ordine ${number} non trovato su ${brand}.`, shop: store.shop, recentOrderNames: recent });
+      }
       return res.status(404).json({ found: false, error: `Ordine ${number} non trovato su ${brand}.` });
     }
 
