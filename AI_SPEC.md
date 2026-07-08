@@ -1,0 +1,97 @@
+# Deluxy — Scheda tecnica per AI (SPEC)
+
+Documento di riferimento per qualsiasi AI/sviluppatore che deve modificare l'app **senza romperla**.
+Leggi TUTTO prima di scrivere codice. Le sezioni "⚠️ Insidie" contengono gli errori già fatti e risolti: non ripeterli.
+
+---
+
+## 1. Cos'è
+App web per **cercare fiorai/pasticcerie vicino a un indirizzo** e **smistare ordini** (Deluxy) ai fiorai locali via **WhatsApp/Email**.
+- Front-end: **una pagina** `index.html` (vanilla JS, nessun framework, nessun build step).
+- Back-end: **funzioni serverless Vercel** in `api/*.js` (Node, `export default handler`, `fetch` globale).
+- Storage: **Upstash Redis** (aka "Vercel KV"), usato via **API REST** (NON la libreria `@vercel/kv`, per evitare dipendenze npm).
+
+## 2. Dove vive
+- **Live**: https://search-deluxy.vercel.app
+- **Repo**: https://github.com/donatodnicolo-gif/search — branch **`main`**. **Push su main = deploy automatico su Vercel** (~1 min).
+- **Progetto Vercel**: `search-deluxy` (team `deluxy`).
+- **Deploy**: NON serve CLI. `git push origin main` e Vercel ricostruisce. Le credenziali GitHub sono in cache (Git Credential Manager).
+- **Nessun Node/Python in locale**: per l'anteprima locale c'è un server statico **PowerShell** (`.claude/serve.ps1`, `.claude/launch.json`, porta 5510). Non usare `node`/`python`.
+
+## 3. Accesso (pass code)
+- All'avvio `index.html` mostra una **lock screen**: l'utente inserisce il **pass code** = env `APP_PASSWORD` su Vercel.
+- Il pass code viene salvato in `sessionStorage` e inviato come header **`x-app-password`** a tutte le API.
+- Tutte le API protette confrontano l'header con `process.env.APP_PASSWORD` (401 se diverso).
+
+## 4. Cassaforte impostazioni (KV `config:v1`)
+Oggetto JSON in KV alla chiave **`config:v1`**:
+```json
+{ "googleKey": "AIza...", "proxy": "https://api.allorigins.win/raw?url=",
+  "stores": [ { "brand": "deluxyflowers.com", "shop": "fb72b1-2.myshopify.com", "token": "shpat_..." } ] }
+```
+- I **token Shopify NON escono mai dal server**: `GET /api/config` restituisce `hasToken:true/false`, mai il token.
+- `googleKey` invece È restituita al browser (serve alla mappa; proteggila con restrizione referrer su Google Cloud).
+
+## 5. Endpoint API (tutti richiedono header `x-app-password`, tranne webhook)
+| Metodo | Path | Cosa fa |
+|---|---|---|
+| GET | `/api/config` | ritorna config "sanitizzata" (senza token) |
+| POST | `/api/config` | salva config; body `{googleKey,proxy,stores:[{brand,shop,token}]}`. **token vuoto = mantiene quello esistente** |
+| GET | `/api/order?brand=&number=&debug=` | ordine per numero. Prima cerca in KV (webhook), poi via Shopify Admin col token. `debug=1` elenca i nomi ordini recenti |
+| POST | `/api/webhook?brand=` | riceve ordine da Shopify (HTTPS diretto **o** envelope Google Pub/Sub) e lo salva in KV `order:{brand}:{num}` (TTL 60gg) |
+| GET | `/api/oauth?shop=&pass=` | avvia OAuth Shopify; il callback salva il token Admin del negozio in `config:v1.stores` |
+
+## 6. Negozi Shopify (3)
+| brand (chiave app) | shop (.myshopify.com) | store handle admin |
+|---|---|---|
+| `deluxyflowers.com` | `fb72b1-2.myshopify.com` | fb72b1-2 |
+| `deluxy.it` | `deluxygifts.myshopify.com` | deluxygifts (negozio "DELUXY") |
+| `cakedesign.me` | `cakedesign-5921.myshopify.com` | cakedesign-5921 |
+
+- **Ordini NUOVI** → webhook nativo Shopify "Creazione ordine" (JSON) verso `.../api/webhook?brand=<brand>`. Già configurati sui 3 negozi.
+- **Ordini PASSATI** → token Admin via OAuth (vedi §8), salvato in cassaforte; `/api/order` interroga l'Admin API.
+
+## 7. Variabili d'ambiente su Vercel
+`APP_PASSWORD`, `KV_REST_API_URL`, `KV_REST_API_TOKEN` (+ `KV_URL`, `REDIS_URL` iniettati da Upstash), `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`. Opzionale: `WEBHOOK_SECRET`.
+Dopo aver aggiunto/cambiato una env → **Redeploy**.
+
+## 8. App Shopify per OAuth (recupero ordini passati)
+- App nella **Dev Dashboard** (non "custom app legacy") chiamata **"Smistamento"**, org `DELUXY HOLDING`.
+- `client_id = 03b53820d9d734d60027251d54fc9d01`; scope `read_orders,read_customers,read_products`.
+- **`app_url` DEVE avere lo stesso host del redirect** = `https://search-deluxy.vercel.app` (vedi ⚠️).
+- Installazione/token: apri `/api/oauth?shop=<shop>.myshopify.com&pass=<APP_PASSWORD>` → autorizzi → il token finisce in `config:v1`.
+
+## 9. Generazione messaggio (front-end)
+`buildOrderMessage(lang)` produce una richiesta in linguaggio naturale:
+> Buongiorno, per {oggi/domani/data} è possibile {prodotto} {variante} x{qtà} da spedire con consegna a {indirizzo} all'ora {fascia}?\n\n💌 Bigliettino: {testo}
+- **Lingua** = paese del **negozio** (fiorario/pasticceria), non della consegna. Rilevata da `address_components` (country) di Google → mappa `COUNTRY_LANG` → it/en/fr/de/es. Il pulsante d'invio porta `data-lang`.
+- **oggi/domani**: `dateLabel()` confronta la data ordine con oggi/domani (usa `new Date()` del browser — OK nel browser, VIETATO nelle funzioni serverless/script).
+- **Foto**: NON nel testo. Per WhatsApp viene **copiata negli appunti** (`copyImageToClipboard`, canvas→`ClipboardItem`); l'operatore invia il testo e poi fa **Ctrl+V** per allegarla. Per Email va come **link** (mailto non allega file).
+
+## 10. Contatti (front-end)
+- Google Places (`getDetails`): telefono, sito, Maps, orari, valutazione, `address_components`.
+- Scraping (solo se `proxy` impostato): **email** + **Instagram** dal sito ufficiale. Instagram mostrato come **DM diretto** `https://ig.me/m/{handle}`.
+- **Heuristica WhatsApp**: numero cellulare (IT inizia con 3) = "WhatsApp probabile"; fisso (inizia con 0) = "raro". Non esiste verifica gratuita reale.
+- Invio: **WhatsApp** `https://web.whatsapp.com/send?phone=<digits>&text=<enc>`; **Email** `mailto:` con subject+body(+link foto).
+
+## 11. Convenzioni di codice (RISPETTALE)
+- `index.html`: un solo file, JS vanilla, testi UI in **italiano**, palette/variabili CSS già definite. Niente framework, niente CDN esterne (a parte Google Maps).
+- Funzioni Vercel: `export default async function handler(req,res)`, `fetch` globale, **niente dipendenze npm** (KV via REST). `req.query` per i parametri; `req.body` è già JSON tranne dove `export const config = { api:{ bodyParser:false } }` (solo `webhook.js`, che legge il body grezzo per gestire Pub/Sub).
+- KV via REST: `POST {KV_REST_API_URL}` header `Authorization: Bearer {KV_REST_API_TOKEN}`, body `["SET",key,value,"EX",ttl]` / `["GET",key]`.
+- Dopo modifiche: `git push origin main` (deploy auto). Verifica con `curl` sugli endpoint live.
+
+## 12. ⚠️ Insidie già incontrate (NON ripeterle)
+1. **Token Shopify**: i token `atkn_...` sono **"token di automazione app" (CI/CD)**, NON token Admin di negozio → danno 401 sull'Admin API. Il token valido per leggere ordini si ottiene **solo via OAuth** (o è `shpat_...`).
+2. **OAuth "matching hosts"**: `app_url` dell'app Shopify deve avere lo **stesso host** del `redirect_uri`. Se `app_url=https://example.com` e redirect `search-deluxy.vercel.app` → errore `invalid_request`. Imposta `app_url = https://search-deluxy.vercel.app`.
+3. **Match numero ordine ESATTO**: cercando l'ordine, accetta il risultato **solo se** `node.name` (togliendo i non-cifre) è uguale al numero richiesto. Ricerche larghe (`name:*`, testo libero) restituiscono l'ordine sbagliato.
+4. **Foto WhatsApp**: WhatsApp Web NON allega file via URL. Soluzione = copia negli appunti + Ctrl+V. E il testo si PERDE se alleghi la foto prima di inviarlo → istruisci "invia testo, POI allega foto".
+5. **`new Date()`/`Math.random()`**: OK nel browser, ma NON nelle funzioni serverless se un domani girano in contesti che li vietano (usare valori passati).
+6. **Niente Node/Python in locale**: anteprima con PowerShell (`.claude/serve.ps1`).
+7. **Google key**: deve stare nel browser (mappa) → proteggila con restrizione **referrer** `https://search-deluxy.vercel.app/*`.
+8. **CORS immagine per clipboard**: l'immagine va caricata con `crossOrigin='anonymous'`; se il CDN non consente CORS il canvas è "tainted" e `toBlob` fallisce → fallback: apri la foto in una scheda.
+
+## 13. Ricette rapide
+- **Aggiungere un negozio**: aggiungilo alla mappa `SHOP_BRAND` in `api/oauth.js` e a `BRAND_BY_SHOP` in `api/webhook.js`; aggiungi il brand a `KNOWN_BRANDS` in `index.html` e all'`<select id="brand">`; crea il webhook su Shopify; fai `/api/oauth?shop=...&pass=...`.
+- **Recuperare un ordine** (test): `curl "https://search-deluxy.vercel.app/api/order?brand=deluxyflowers.com&number=2484" -H "x-app-password: <PASS>"`.
+- **Diagnostica nomi ordine**: aggiungi `&debug=1`.
+- **Cambiare pass code**: cambia env `APP_PASSWORD` su Vercel + Redeploy.
