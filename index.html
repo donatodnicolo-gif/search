@@ -732,9 +732,9 @@ resultsEl.addEventListener('click', async e=>{
   if(photo){ copied = await copyImageToClipboard(photo); }
   const win = window.open(waUrl, '_blank');
   if(photo && !copied) window.open(photo, '_blank');   // fallback: apri la foto per trascinarla
-  const note = copied ? '🖼️ Immagine copiata: nella chat WhatsApp premi Ctrl+V per allegarla, poi invia.'
-             : photo   ? '🖼️ Foto aperta in una scheda: trascinala nella chat WhatsApp per allegarla.'
-             : '✅ WhatsApp aperto col messaggio pronto.';
+  const note = copied ? '✅ Su WhatsApp: 1) premi INVIO per inviare il messaggio (è già scritto). 2) POI premi Ctrl+V per allegare la foto e invia. (Se alleghi la foto prima, il testo resta indietro.)'
+             : photo   ? '✅ Testo già scritto su WhatsApp: premi INVIO per inviarlo. La foto è aperta in una scheda: trascinala nella chat.'
+             : '✅ WhatsApp aperto col messaggio già scritto: premi INVIO per inviarlo.';
   setOrderStatus(note + ' (lingua: ' + (LANG_NAME[lang]||lang) + ')');
   if(!win){ setOrderStatus('⚠️ Popup bloccato. Consenti i popup per questo sito, poi riprova. '+note, true); }
 });
