@@ -92,6 +92,9 @@
   .sendorder{margin-top:10px; width:100%; border:0; border-radius:10px; padding:11px; font-weight:700; cursor:pointer;
         background:linear-gradient(135deg,#25d366,#128c7e); color:#fff; font-size:14px}
   .sendorder:hover{filter:brightness(1.08)}
+  .sendemail{margin-top:8px; width:100%; border:0; border-radius:10px; padding:11px; font-weight:700; cursor:pointer;
+        background:linear-gradient(135deg,#f5a623,#e0762b); color:#fff; font-size:14px}
+  .sendemail:hover{filter:brightness(1.08)}
   .order-flag{margin-top:8px; font-size:12px; color:var(--accent2); font-weight:600}
   footer{ text-align:center; color:var(--muted); font-size:12px; padding:24px}
 </style>
@@ -645,6 +648,7 @@ function syncLangUI(){
   const sel = $('#ordLang'); if(sel) sel.value = currentLang;
 }
 const CARDWORD = { it:'Bigliettino', en:'Card message', fr:'Message carte', de:'Kartentext', es:'Tarjeta' };
+const SUBJECTWORD = { it:'Richiesta ordine', en:'Order request', fr:'Demande de commande', de:'Bestellanfrage', es:'Solicitud de pedido' };
 function buildOrderMessage(lang){
   lang = lang || ($('#ordLang') && $('#ordLang').value) || currentLang || 'it';
   const fn = MSG_LANG[lang] || MSG_LANG.it;
@@ -735,6 +739,24 @@ resultsEl.addEventListener('click', async e=>{
   if(!win){ setOrderStatus('⚠️ Popup bloccato. Consenti i popup per questo sito, poi riprova. '+note, true); }
 });
 
+// invio richiesta ordine via EMAIL (stessi dati del WhatsApp; la foto va come link)
+resultsEl.addEventListener('click', e=>{
+  const btn = e.target.closest('.sendemail');
+  if(!btn) return;
+  if(!orderLoaded){ alert('Prima recupera un ordine (📦 in alto), poi invialo al fiorario.'); return; }
+  const email = btn.dataset.email;
+  const card = btn.closest('.shop');
+  const lang = (card && card.dataset.lang) || currentLang || 'it';
+  const subject = (SUBJECTWORD[lang]||'Richiesta ordine') + ' ' + $('#ordTag').textContent;
+  let body = buildOrderMessage(lang);
+  const photo = $('#ord_photo').value.trim();
+  if(photo) body += '\n\n' + (PHOTOWORD[lang]||'Foto') + ': ' + photo;
+  window.location.href = 'mailto:' + encodeURIComponent(email)
+    + '?subject=' + encodeURIComponent(subject)
+    + '&body=' + encodeURIComponent(body);
+  setOrderStatus('📧 Email aperta verso ' + email + ' (lingua: ' + (LANG_NAME[lang]||lang) + '). Controlla e invia dal tuo client di posta.');
+});
+
 /* ------------------ render ------------------ */
 function shopCard(d, cat, distMeters){
   const meta = CAT_META[cat];
@@ -764,6 +786,7 @@ function shopCard(d, cat, distMeters){
   const el = document.createElement('div');
   el.className = 'shop';
   el.dataset.wakind = kind;
+  el.dataset.lang = shopLang;
   el.innerHTML = `
     <div class="head">
       <h3>${meta.emoji} ${d.name}</h3>
@@ -868,7 +891,8 @@ async function run(){
         if(emails && emails.length){ withEmail++; parts.push(...emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`)); }
         if(instagram){ withIg++; parts.push(`<a class="insta" href="https://ig.me/m/${instagram.handle}" target="_blank" rel="noopener">📷 DM @${instagram.handle}</a>`); }
         if(parts.length){
-          slot.innerHTML = parts.join('');
+          slot.innerHTML = parts.join('')
+            + (emails && emails.length ? `<button class="sendemail" data-email="${emails[0]}">📧 Invia richiesta via email</button>` : '');
           const src = card.querySelector('.src');
           const bits = [];
           if(emails.length) bits.push('email');
