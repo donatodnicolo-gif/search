@@ -128,6 +128,15 @@ function normalize(brand, o) {
     || [cust.firstName, cust.lastName].filter(Boolean).join(' ');
   const photo = items.find(i => i.image)?.image || '';
 
+  // data / orario / bigliettino: prima dagli attributi, poi dal testo libero delle note
+  const note = o.note || '';
+  let date = guess(o, /(data|consegn|delivery|date|quando|fecha|datum|livraison)/i);
+  let time = guess(o, /(orar|ora\b|time|fascia|slot|hora|uhr|heure)/i);
+  let cardMessage = guess(o, /(bigliet|dedica|messagg|message|card|frase|testo|tarjeta|karte|carte)/i);
+  if (!date) { const m = note.match(/(\d{1,2}[\/\-.]\d{1,2}(?:[\/\-.]\d{2,4})?)/); if (m) date = m[1]; }
+  if (!time) { const m = note.match(/(\d{1,2}[:.]\d{2}\s*[-–]\s*\d{1,2}(?:[:.]\d{2})?|\bore?\s*\d{1,2}(?:[:.]\d{2})?)/i); if (m) time = m[0]; }
+  if (!cardMessage) cardMessage = note;
+
   return {
     found: true,
     brand,
@@ -139,11 +148,8 @@ function normalize(brand, o) {
     phone: sa.phone || cust.phone || '',
     amountPaid: parseFloat(o.totalPriceSet?.shopMoney?.amount || '0'),
     currency: o.totalPriceSet?.shopMoney?.currencyCode || 'EUR',
-    note: o.note || '',
-    // campi personalizzati "indovinati" (modificabili nell'app)
-    date: guess(o, /(data|consegn|delivery|date|quando)/i),
-    time: guess(o, /(orar|ora\b|time|fascia|slot)/i),
-    cardMessage: guess(o, /(bigliet|dedica|message|messaggio|card|frase|testo)/i),
+    note,
+    date, time, cardMessage,
     photoUrl: photo,
     items,
     attributes: o.customAttributes || [],

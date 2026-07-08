@@ -480,7 +480,7 @@ function details(service, placeId){
   return new Promise(resolve=>{
     service.getDetails({
       placeId,
-      fields:['name','formatted_address','formatted_phone_number','international_phone_number',
+      fields:['name','formatted_address','address_components','formatted_phone_number','international_phone_number',
               'website','url','rating','user_ratings_total','opening_hours','geometry','business_status']
     }, (d,status)=>{
       resolve(status===google.maps.places.PlacesServiceStatus.OK ? d : null);
@@ -644,8 +644,9 @@ $('#ord_paid').addEventListener('input', ()=>{
 function syncLangUI(){
   const sel = $('#ordLang'); if(sel) sel.value = currentLang;
 }
-function buildOrderMessage(){
-  const lang = ($('#ordLang') && $('#ordLang').value) || currentLang || 'it';
+const CARDWORD = { it:'Bigliettino', en:'Card message', fr:'Message carte', de:'Kartentext', es:'Tarjeta' };
+function buildOrderMessage(lang){
+  lang = lang || ($('#ordLang') && $('#ordLang').value) || currentLang || 'it';
   const fn = MSG_LANG[lang] || MSG_LANG.it;
   const p = {
     date: dateLabel($('#ord_date').value, lang),
@@ -656,9 +657,24 @@ function buildOrderMessage(){
     time: $('#ord_time').value.trim()
   };
   let msg = fn(p);
-  const photo = $('#ord_photo').value.trim();
-  if(photo) msg += '\n\n' + (PHOTOWORD[lang]||'Foto') + ': ' + photo;
+  const card = $('#ord_card').value.trim();
+  if(card) msg += '\n\n💌 ' + (CARDWORD[lang]||'Bigliettino') + ': ' + card;
+  // la foto NON va nel testo: viene copiata negli appunti per essere allegata (Ctrl+V)
   return msg;
+}
+// copia la foto del prodotto negli appunti così l'operatore la allega con Ctrl+V
+async function copyImageToClipboard(url){
+  try{
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; img.src=url; });
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+    canvas.getContext('2d').drawImage(img,0,0);
+    const blob = await new Promise(r=>canvas.toBlob(r,'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+    return true;
+  }catch(err){ return false; }
 }
 // filtro "solo probabili WhatsApp"
 function applyWaFilter(){
@@ -699,13 +715,24 @@ $('#findFlorists').addEventListener('click', ()=>{
 });
 
 // invio richiesta ordine dalla scheda di un fiorario
-resultsEl.addEventListener('click', e=>{
+resultsEl.addEventListener('click', async e=>{
   const btn = e.target.closest('.sendorder');
   if(!btn) return;
   if(!orderLoaded){ alert('Prima recupera un ordine (📦 in alto), poi invialo al fiorario.'); return; }
   const phone = btn.dataset.phone;
-  const msg = buildOrderMessage();
-  window.open('https://web.whatsapp.com/send?phone=' + phone + '&text=' + encodeURIComponent(msg), '_blank');
+  const lang = btn.dataset.lang || currentLang || 'it';
+  const msg = buildOrderMessage(lang);
+  const waUrl = 'https://web.whatsapp.com/send?phone=' + phone + '&text=' + encodeURIComponent(msg);
+  const photo = $('#ord_photo').value.trim();
+  let copied = false;
+  if(photo){ copied = await copyImageToClipboard(photo); }
+  const win = window.open(waUrl, '_blank');
+  if(photo && !copied) window.open(photo, '_blank');   // fallback: apri la foto per trascinarla
+  const note = copied ? '🖼️ Immagine copiata: nella chat WhatsApp premi Ctrl+V per allegarla, poi invia.'
+             : photo   ? '🖼️ Foto aperta in una scheda: trascinala nella chat WhatsApp per allegarla.'
+             : '✅ WhatsApp aperto col messaggio pronto.';
+  setOrderStatus(note + ' (lingua: ' + (LANG_NAME[lang]||lang) + ')');
+  if(!win){ setOrderStatus('⚠️ Popup bloccato. Consenti i popup per questo sito, poi riprova. '+note, true); }
 });
 
 /* ------------------ render ------------------ */
@@ -716,6 +743,9 @@ function shopCard(d, cat, distMeters){
   const waDigits = intl ? intl.replace(/[^\d]/g,'') : '';
   const hasWa = waDigits.length >= 8;
   const waChat = hasWa ? 'https://web.whatsapp.com/send?phone='+waDigits : null;
+  // lingua del messaggio in base al PAESE del negozio (fiorario/pasticceria)
+  const cc = (d.address_components||[]).find(x=>x.types.includes('country'));
+  const shopLang = COUNTRY_LANG[cc && cc.short_name] || currentLang || 'it';
   const kind  = phoneKind(phone, intl);
   const waBadge = kind==='mobile' ? '<span class="badge" style="color:#8affbf">📱 WhatsApp probabile</span>'
                 : kind==='fixed'  ? '<span class="badge" style="color:#d0b98a">☎️ fisso · WhatsApp raro</span>'
@@ -748,7 +778,7 @@ function shopCard(d, cat, distMeters){
     </div>
     <div class="contacts">${c.join('')}</div>
     <div class="contacts email-slot" style="margin-top:8px"></div>
-    ${hasWa ? `<button class="sendorder" data-phone="${waDigits}">📤 Invia richiesta ordine su WhatsApp Web</button>` : ''}
+    ${hasWa ? `<button class="sendorder" data-phone="${waDigits}" data-lang="${shopLang}">📤 Invia richiesta ordine su WhatsApp Web</button>` : ''}
     <div class="src">📍 Fonte contatti: <span class="verified">Google Places (scheda ufficiale)</span></div>
   `;
   return el;
@@ -836,7 +866,7 @@ async function run(){
         const { emails, instagram } = await scrapeContacts(website, proxy);
         const parts = [];
         if(emails && emails.length){ withEmail++; parts.push(...emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`)); }
-        if(instagram){ withIg++; parts.push(`<a class="insta" href="${instagram.url}" target="_blank" rel="noopener">📷 @${instagram.handle}</a>`); }
+        if(instagram){ withIg++; parts.push(`<a class="insta" href="https://ig.me/m/${instagram.handle}" target="_blank" rel="noopener">📷 DM @${instagram.handle}</a>`); }
         if(parts.length){
           slot.innerHTML = parts.join('');
           const src = card.querySelector('.src');
