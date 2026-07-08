@@ -51,9 +51,11 @@ async function findOrder(shop, token, number) {
   const raw = String(number).trim().replace(/^#/, '');
   // prova varie forme del nome ordine (con/senza #, ricerca libera, per numero)
   const queries = [`name:#${raw}`, `name:${raw}`, `name:*${raw}`, `${raw}`, `order_number:${raw}`];
+  const wanted = raw.replace(/\D/g, '');
   for (const q of queries) {
     const node = await gql(shop, token, q);
-    if (node) return node;
+    // accetta solo se il numero dell'ordine trovato coincide ESATTAMENTE con quello richiesto
+    if (node && String(node.name).replace(/\D/g, '') === wanted) return node;
   }
   return null;
 }
