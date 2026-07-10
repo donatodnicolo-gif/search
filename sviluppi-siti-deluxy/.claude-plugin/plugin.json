@@ -1,0 +1,7 @@
+{
+  "name": "sviluppi-siti-deluxy",
+  "version": "1.0.0",
+  "description": "Sviluppi Siti Deluxy srl — istruzioni operative per lavorare in sicurezza sui temi Shopify dei siti Deluxy (deluxyflowers.com, deluxy.it, cakedesign.me): workflow sul tema di sviluppo, regole di consegna per brand, mappa dei file del tema, tecniche di modifica e test.",
+  "author": { "name": "Deluxy srl" },
+  "keywords": ["deluxy", "shopify", "temi", "liquid", "consegna", "date picker"]
+}
