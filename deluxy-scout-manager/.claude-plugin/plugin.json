@@ -1,0 +1,7 @@
+{
+  "name": "deluxy-scout-manager",
+  "version": "1.0.0",
+  "description": "Deluxy Scout — sviluppa e riprendi l'app mobile di prospezione commerciale (React Native/Expo + Supabase + HubSpot). Contiene lo stato del progetto, l'architettura, le regole di prodotto e i comandi per migrazioni, deploy della Edge Function e build. Pensato come handoff: un altro agente può riprendere il lavoro da qui.",
+  "author": { "name": "Deluxy" },
+  "keywords": ["deluxy", "scout", "react-native", "expo", "supabase", "hubspot", "crm", "prospezione"]
+}

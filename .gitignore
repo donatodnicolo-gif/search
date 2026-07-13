@@ -1,2 +1,10 @@
 .claude/
 deluxy-suppliers.zip
+
+# Deluxy Scout — segreti e artefatti build (mai committare)
+deluxy-scout/.env
+deluxy-scout/node_modules/
+deluxy-scout/.expo/
+deluxy-scout/dist/
+deluxy-scout/web-build/
+deluxy-scout/*.log

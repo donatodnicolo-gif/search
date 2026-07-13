@@ -1,0 +1,297 @@
+// Supabase Edge Function `hubspot-sync` (Deno).
+//
+// Fa da proxy sicuro tra l'app e HubSpot: il Private App token vive QUI come
+// secret (HUBSPOT_TOKEN), mai nel bundle dell'app. L'app chiama questa funzione
+// autenticata con il proprio JWT Supabase.
+//
+// Azioni:
+//   - sync_visit       { visit_id }  → upsert Company + Contact, crea Deal, scrive Nota
+//   - deals_for_place  { place_id }  → sync inverso: fasi/valori dei deal HubSpot
+//
+// Deploy:
+//   supabase functions deploy hubspot-sync
+//   supabase secrets set HUBSPOT_TOKEN=pat-xx-xxxx
+//   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=eyJ...
+//
+// Mappatura linea → proprietà deal: usiamo la proprietà custom `deluxy_linea`.
+// Mappatura fase → dealstage HubSpot: identità sui valori interni della pipeline.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const HUBSPOT = 'https://api.hubapi.com';
+
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+
+  try {
+    const token = Deno.env.get('HUBSPOT_TOKEN');
+    if (!token) return json({ error: 'HUBSPOT_TOKEN non configurato' }, 500);
+
+    // Client Supabase con service role (bypassa RLS lato server).
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    // Verifica il JWT dell'utente (l'app deve essere autenticata).
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data: userData } = await admin.auth.getUser(jwt);
+    if (!userData?.user) return json({ error: 'Non autenticato' }, 401);
+
+    const body = await req.json();
+    const hs = new HubSpot(token);
+
+    if (body.action === 'sync_visit') {
+      return json(await syncVisit(admin, hs, body.visit_id));
+    }
+    if (body.action === 'deals_for_place') {
+      return json(await dealsForPlace(admin, hs, body.place_id));
+    }
+    return json({ error: `Azione sconosciuta: ${body.action}` }, 400);
+  } catch (e) {
+    if (e instanceof RateLimit) {
+      return json({ error: 'rate_limited' }, 429, { 'Retry-After': String(e.retryAfter) });
+    }
+    return json({ error: String(e?.message ?? e) }, 500);
+  }
+});
+
+// ── Azione: sincronizza una visita ────────────────────────────────────────────
+async function syncVisit(admin: any, hs: HubSpot, visitId: string) {
+  const { data: visit } = await admin.from('visits').select('*').eq('id', visitId).single();
+  if (!visit) throw new Error('Visita non trovata');
+
+  const { data: place } = await admin.from('places').select('*').eq('id', visit.place_id).single();
+  if (!place) throw new Error('Place non trovato');
+
+  const { data: contatti } = await admin
+    .from('contacts')
+    .select('*')
+    .eq('place_id', place.id)
+    .order('is_decisore', { ascending: false });
+  const contatto = contatti?.[0] ?? null;
+
+  // 1. Company (upsert per hubspot_company_id o per nome+indirizzo).
+  const companyId = await hs.upsertCompany(place);
+  await admin.from('places').update({ hubspot_company_id: companyId }).eq('id', place.id);
+
+  // 2. Contact (opzionale) + associazione alla company.
+  let contactId: string | null = null;
+  if (contatto) {
+    contactId = await hs.upsertContact(contatto, companyId);
+    await admin.from('contacts').update({ hubspot_contact_id: contactId }).eq('id', contatto.id);
+  }
+
+  // 3. Deal: linea → deluxy_linea, esito → dealstage, e Briefing / Note post
+  //    meeting / Esito e analisi / Next step scritti come proprietà custom del
+  //    deal (visibili nella view "trattative def").
+  const dealId = await hs.createDeal({
+    nome: `${place.nome} — ${visit.linea_proposta ?? place.linea_ipotizzata ?? 'Deluxy'}`,
+    linea: visit.linea_proposta ?? place.linea_ipotizzata,
+    dealstage: dealstageDaEsito(visit.esito),
+    briefing: visit.briefing,
+    notePost: visit.note_post_meeting,
+    esitoAnalisi: visit.esito_analisi,
+    nextStep: visit.next_step,
+    companyId,
+    contactId,
+  });
+  await admin.from('deals').insert({
+    place_id: place.id,
+    linea: visit.linea_proposta ?? place.linea_ipotizzata,
+    fase: dealstageDaEsito(visit.esito),
+    hubspot_deal_id: dealId,
+    owner: visit.owner,
+  });
+
+  // 4. marca visita sincronizzata
+  await admin.from('visits').update({ hubspot_synced: true }).eq('id', visit.id);
+
+  return {
+    hubspot_company_id: companyId,
+    hubspot_contact_id: contactId,
+    hubspot_deal_id: dealId,
+    note_id: null,
+  };
+}
+
+// ── Azione: sync inverso deal per place ───────────────────────────────────────
+async function dealsForPlace(admin: any, hs: HubSpot, placeId: string) {
+  const { data: place } = await admin.from('places').select('*').eq('id', placeId).single();
+  if (!place?.hubspot_company_id) return [];
+  const deals = await hs.dealsByCompany(place.hubspot_company_id);
+  return deals.map((d) => ({
+    id: d.id,
+    place_id: placeId,
+    linea: d.properties.deluxy_linea ?? null,
+    fase: d.properties.dealstage,
+    valore_atteso: d.properties.amount ? Number(d.properties.amount) : null,
+    next_action: d.properties.next_action ?? null,
+    owner: null,
+    hubspot_deal_id: d.id,
+  }));
+}
+
+// ── Wrapper API HubSpot v3 ────────────────────────────────────────────────────
+class HubSpot {
+  constructor(private token: string) {}
+
+  private async req(path: string, init: RequestInit = {}): Promise<any> {
+    const res = await fetch(`${HUBSPOT}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        'Content-Type': 'application/json',
+        ...(init.headers ?? {}),
+      },
+    });
+    if (res.status === 429) {
+      throw new RateLimit(Number(res.headers.get('Retry-After') ?? '2'));
+    }
+    if (!res.ok) {
+      throw new Error(`HubSpot ${path} ${res.status}: ${await res.text()}`);
+    }
+    return res.status === 204 ? null : res.json();
+  }
+
+  async upsertCompany(place: any): Promise<string> {
+    const properties = {
+      name: place.nome,
+      address: place.indirizzo ?? '',
+      city: place.zona ?? 'Milano',
+      industry: place.settore ?? '',
+      deluxy_priorita: place.priorita,
+      deluxy_linea: place.linea_ipotizzata ?? '',
+    };
+    if (place.hubspot_company_id) {
+      await this.req(`/crm/v3/objects/companies/${place.hubspot_company_id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ properties }),
+      });
+      return place.hubspot_company_id;
+    }
+    const created = await this.req('/crm/v3/objects/companies', {
+      method: 'POST',
+      body: JSON.stringify({ properties }),
+    });
+    return created.id;
+  }
+
+  async upsertContact(c: any, companyId: string): Promise<string> {
+    const properties = {
+      firstname: c.nome,
+      jobtitle: c.ruolo ?? '',
+      phone: c.telefono ?? '',
+      email: c.email ?? '',
+    };
+    let id = c.hubspot_contact_id as string | null;
+    if (id) {
+      await this.req(`/crm/v3/objects/contacts/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ properties }),
+      });
+    } else {
+      const created = await this.req('/crm/v3/objects/contacts', {
+        method: 'POST',
+        body: JSON.stringify({ properties }),
+      });
+      id = created.id;
+    }
+    // Associazione contact → company (tipo standard 279).
+    await this.req(
+      `/crm/v3/objects/contacts/${id}/associations/companies/${companyId}/contact_to_company`,
+      { method: 'PUT' },
+    ).catch(() => {});
+    return id!;
+  }
+
+  async createDeal(d: {
+    nome: string;
+    linea: string | null;
+    dealstage: string;
+    briefing: string | null;
+    notePost: string | null;
+    esitoAnalisi: string | null;
+    nextStep: string;
+    companyId: string;
+    contactId: string | null;
+  }): Promise<string> {
+    const created = await this.req('/crm/v3/objects/deals', {
+      method: 'POST',
+      body: JSON.stringify({
+        properties: {
+          dealname: d.nome,
+          dealstage: d.dealstage,
+          deluxy_linea: d.linea ?? '',
+          deluxy_briefing: d.briefing ?? '',
+          deluxy_note_post: d.notePost ?? '',
+          deluxy_esito_analisi: d.esitoAnalisi ?? '',
+          deluxy_next_step: d.nextStep ?? '',
+        },
+      }),
+    });
+    const dealId = created.id;
+    await this.req(
+      `/crm/v3/objects/deals/${dealId}/associations/companies/${d.companyId}/deal_to_company`,
+      { method: 'PUT' },
+    ).catch(() => {});
+    if (d.contactId) {
+      await this.req(
+        `/crm/v3/objects/deals/${dealId}/associations/contacts/${d.contactId}/deal_to_contact`,
+        { method: 'PUT' },
+      ).catch(() => {});
+    }
+    return dealId;
+  }
+
+  async dealsByCompany(companyId: string): Promise<any[]> {
+    const assoc = await this.req(
+      `/crm/v3/objects/companies/${companyId}/associations/deals`,
+    );
+    const ids: string[] = (assoc.results ?? []).map((r: any) => r.id ?? r.toObjectId);
+    const out: any[] = [];
+    for (const id of ids) {
+      const deal = await this.req(
+        `/crm/v3/objects/deals/${id}?properties=dealname,dealstage,amount,deluxy_linea,next_action`,
+      );
+      out.push(deal);
+    }
+    return out;
+  }
+}
+
+// ── Utilità ───────────────────────────────────────────────────────────────────
+class RateLimit extends Error {
+  constructor(public retryAfter: number) {
+    super('rate_limited');
+  }
+}
+
+// Esito visita → dealstage HubSpot.
+function dealstageDaEsito(esito: string | null): string {
+  switch (esito) {
+    case 'chiuso':
+      return 'closedwon';
+    case 'non_target':
+      return 'closedlost';
+    case 'da_richiamare':
+      return 'appointmentscheduled';
+    case 'interessato':
+      return 'decisionmakerboughtin';
+    default:
+      return 'appointmentscheduled';
+  }
+}
+
+function json(body: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...cors, ...extraHeaders },
+  });
+}
