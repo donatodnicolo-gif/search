@@ -514,8 +514,11 @@ function phoneKind(national, intl){
 function distanceStr(m){
   return m<1000 ? Math.round(m)+' m' : (m/1000).toFixed(m<10000?1:0)+' km';
 }
-// distanza/tempo STRADALE (in auto) da un'origine verso più destinazioni (Distance Matrix)
-function drivingDistances(origin, destinations){
+// distanza/tempo STRADALE (in auto) — prova Google Distance Matrix, poi OSRM (gratuito, senza chiave)
+let lastDriveSource = null, lastDMStatus = null;
+function fmtKm(m){ return m<1000 ? Math.round(m)+' m' : (m/1000).toFixed(m<10000?1:0)+' km'; }
+function fmtMin(s){ const m=Math.round(s/60); return m<60 ? m+' min' : Math.floor(m/60)+' h '+(m%60)+' min'; }
+function gmapsDistances(origin, destinations){
   return new Promise(resolve=>{
     try{
       new google.maps.DistanceMatrixService().getDistanceMatrix({
@@ -523,10 +526,36 @@ function drivingDistances(origin, destinations){
         travelMode: google.maps.TravelMode.DRIVING,
         unitSystem: google.maps.UnitSystem.METRIC
       }, (res,status)=>{
+        lastDMStatus = status;
         resolve((status==='OK' && res.rows && res.rows[0]) ? res.rows[0].elements : null);
       });
-    }catch(e){ resolve(null); }
+    }catch(e){ lastDMStatus='EXCEPTION'; resolve(null); }
   });
+}
+// ripiego gratuito con OSRM (OpenStreetMap) — distanze/tempi reali su strada, nessuna API key
+async function osrmDistances(origin, destinations){
+  try{
+    const pts = [origin, ...destinations].map(p=>`${p.lng()},${p.lat()}`).join(';');
+    const url = `https://router.project-osrm.org/table/v1/driving/${pts}?sources=0&annotations=distance,duration`;
+    const r = await fetch(url);
+    if(!r.ok) return null;
+    const j = await r.json();
+    if(j.code!=='Ok' || !j.distances || !j.distances[0]) return null;
+    const dist = j.distances[0], dur = j.durations[0];
+    return destinations.map((_,i)=>{
+      const dm = dist[i+1], ds = dur[i+1];
+      if(dm==null) return { status:'ZERO_RESULTS' };
+      return { status:'OK', distance:{ value:dm, text:fmtKm(dm) }, duration:{ value:ds, text:fmtMin(ds) } };
+    });
+  }catch(e){ return null; }
+}
+async function drivingDistances(origin, destinations){
+  let elems = await gmapsDistances(origin, destinations);
+  if(elems){ lastDriveSource = 'Google'; return elems; }
+  elems = await osrmDistances(origin, destinations);
+  if(elems){ lastDriveSource = 'OSRM'; return elems; }
+  lastDriveSource = null;
+  return null;
 }
 function stars(rating,total){
   if(!rating) return '';
@@ -938,7 +967,10 @@ async function run(){
 
     applyWaFilter();
     const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
-    setStatus(`✅ Trovati ${cards.length} negozi${langNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
+    const distNote = lastDriveSource==='Google' ? ' · 🚗 distanza stradale'
+                   : lastDriveSource==='OSRM'   ? ' · 🚗 distanza stradale (OSM)'
+                   : ' · 📏 distanza in linea d\'aria (routing non disponibile)';
+    setStatus(`✅ Trovati ${cards.length} negozi${distNote}${langNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
 
     // scraping email + Instagram in background (best effort)
     if(proxy){
