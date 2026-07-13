@@ -68,6 +68,12 @@
   .email-slot .loading{opacity:.6; font-style:italic; font-weight:500}
   .src{font-size:11px; color:var(--muted); margin-top:10px}
   .verified{color:var(--ok)}
+  .reviews{margin-top:10px}
+  .reviews summary{cursor:pointer; font-size:13px; color:#ffce54; font-weight:600; outline:none}
+  .review{border-top:1px solid var(--line); padding:8px 0; font-size:12.5px}
+  .rv-head{display:flex; align-items:center; gap:6px; flex-wrap:wrap; color:var(--txt)}
+  .rv-time{color:var(--muted); font-size:11px}
+  .rv-text{color:var(--muted); margin-top:4px; line-height:1.45}
   .hint{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5}
   a.link{color:#8fb7ff}
   textarea{width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
@@ -484,7 +490,7 @@ function details(service, placeId){
     service.getDetails({
       placeId,
       fields:['name','formatted_address','address_components','formatted_phone_number','international_phone_number',
-              'website','url','rating','user_ratings_total','opening_hours','utc_offset_minutes','geometry','business_status']
+              'website','url','rating','user_ratings_total','reviews','opening_hours','utc_offset_minutes','geometry','business_status']
     }, (d,status)=>{
       resolve(status===google.maps.places.PlacesServiceStatus.OK ? d : null);
     });
@@ -507,6 +513,20 @@ function phoneKind(national, intl){
 }
 function distanceStr(m){
   return m<1000 ? Math.round(m)+' m' : (m/1000).toFixed(m<10000?1:0)+' km';
+}
+// distanza/tempo STRADALE (in auto) da un'origine verso più destinazioni (Distance Matrix)
+function drivingDistances(origin, destinations){
+  return new Promise(resolve=>{
+    try{
+      new google.maps.DistanceMatrixService().getDistanceMatrix({
+        origins: [origin], destinations,
+        travelMode: google.maps.TravelMode.DRIVING,
+        unitSystem: google.maps.UnitSystem.METRIC
+      }, (res,status)=>{
+        resolve((status==='OK' && res.rows && res.rows[0]) ? res.rows[0].elements : null);
+      });
+    }catch(e){ resolve(null); }
+  });
 }
 function stars(rating,total){
   if(!rating) return '';
@@ -772,7 +792,8 @@ resultsEl.addEventListener('click', e=>{
 });
 
 /* ------------------ render ------------------ */
-function shopCard(d, cat, distMeters){
+function shopCard(d, cat, dist){
+  dist = dist || {};
   const meta = CAT_META[cat];
   const phone = d.formatted_phone_number;
   const intl  = d.international_phone_number;
@@ -790,6 +811,18 @@ function shopCard(d, cat, distMeters){
   const openBadge = (open===true)?'<span class="badge" style="color:#8affbf; border-color:rgba(46,204,113,.45)">🟢 Aperto ora</span>'
                   : (open===false)?'<span class="badge" style="color:#ff9a9a; border-color:rgba(231,76,60,.45)">🔴 Chiuso ora</span>'
                   : (d.business_status==='OPERATIONAL'?'<span class="badge" style="color:#9aa3c4">orari non disponibili</span>':'');
+  // distanza STRADALE (in auto) se disponibile, altrimenti linea d'aria
+  const distBadge = dist.driveText ? `🚗 ${dist.driveText}${dist.durText?' · '+dist.durText:''}`
+                  : (dist.straight!=null ? distanceStr(dist.straight)+' (in linea d\'aria)' : '');
+  // recensioni recenti da Google
+  const reviewsHtml = (d.reviews && d.reviews.length) ? `
+    <details class="reviews"><summary>⭐ Recensioni recenti (${d.reviews.length})</summary>
+      ${d.reviews.slice(0,3).map(r=>`
+        <div class="review">
+          <div class="rv-head"><span class="stars">${'★'.repeat(Math.round(r.rating||0))}</span> <b>${esc(r.author_name||'')}</b> <span class="rv-time">${esc(r.relative_time_description||'')}</span></div>
+          <div class="rv-text">${esc((r.text||'').slice(0,260))}${(r.text||'').length>260?'…':''}</div>
+        </div>`).join('')}
+    </details>` : '';
 
   const c = [];
   if(phone) c.push(`<a class="tel" href="tel:${intl||phone}">📞 ${phone}</a>`);
@@ -806,7 +839,7 @@ function shopCard(d, cat, distMeters){
     <div class="head">
       <h3>${meta.emoji} ${d.name}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
-        <span class="badge dist">${distMeters!=null?distanceStr(distMeters):''}</span>
+        <span class="badge dist">${distBadge}</span>
         ${openBadge}
         ${waBadge}
       </div>
@@ -817,6 +850,7 @@ function shopCard(d, cat, distMeters){
     </div>
     <div class="contacts">${c.join('')}</div>
     <div class="contacts email-slot" style="margin-top:8px"></div>
+    ${reviewsHtml}
     ${hasWa ? `<button class="sendorder" data-phone="${waDigits}" data-lang="${shopLang}">📤 Invia richiesta ordine su WhatsApp Web</button>` : ''}
     <div class="src">📍 Fonte contatti: <span class="verified">Google Places (scheda ufficiale)</span></div>
   `;
@@ -877,16 +911,27 @@ async function run(){
       return;
     }
 
-    // ordina e limita
+    // ordina (linea d'aria) e limita
     found.sort((a,b)=> sortBy==='rating' ? (b.rating-a.rating) : (a.dist-b.dist));
     found = found.slice(0, limit);
+
+    // distanza STRADALE (in auto) dalla consegna: la calcolo per i selezionati e riordino
+    setStatus('Calcolo le distanze stradali…');
+    const elems = await drivingDistances(origin, found.map(f=>f.place.geometry.location));
+    if(elems){
+      found.forEach((f,i)=>{
+        const el = elems[i];
+        if(el && el.status==='OK'){ f.driveDist = el.distance.value; f.driveText = el.distance.text; f.durText = el.duration.text; }
+      });
+      if(sortBy==='dist') found.sort((a,b)=> (a.driveDist ?? a.dist) - (b.driveDist ?? b.dist));
+    }
 
     setStatus(`Carico i dettagli di ${found.length} negozi…`);
     const cards = [];
     for(const f of found){
       const d = await details(service, f.place.place_id);
       if(!d) continue;
-      const card = shopCard(d, f.cat, f.dist);
+      const card = shopCard(d, f.cat, { straight:f.dist, driveText:f.driveText, durText:f.durText });
       resultsEl.appendChild(card);
       cards.push({card, website:d.website});
     }
