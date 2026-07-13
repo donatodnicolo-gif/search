@@ -484,7 +484,7 @@ function details(service, placeId){
     service.getDetails({
       placeId,
       fields:['name','formatted_address','address_components','formatted_phone_number','international_phone_number',
-              'website','url','rating','user_ratings_total','opening_hours','geometry','business_status']
+              'website','url','rating','user_ratings_total','opening_hours','utc_offset_minutes','geometry','business_status']
     }, (d,status)=>{
       resolve(status===google.maps.places.PlacesServiceStatus.OK ? d : null);
     });
@@ -666,19 +666,31 @@ function buildOrderMessage(lang){
   // la foto NON va nel testo: viene copiata negli appunti per essere allegata (Ctrl+V)
   return msg;
 }
-// copia la foto del prodotto negli appunti così l'operatore la allega con Ctrl+V
-async function copyImageToClipboard(url){
+// scarica l'immagine e la converte in PNG (blob locale = niente "tainted canvas"); prova il proxy se il CDN blocca il CORS
+async function getImagePngBlob(url, proxy){
+  let blob;
+  try{ blob = await (await fetch(url, {mode:'cors'})).blob(); }
+  catch(e){
+    if(!proxy) throw e;
+    blob = await (await fetch(proxy + encodeURIComponent(url))).blob();
+  }
+  if(blob.type === 'image/png') return blob;
+  const objUrl = URL.createObjectURL(blob);
   try{
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; img.src=url; });
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-    canvas.getContext('2d').drawImage(img,0,0);
-    const blob = await new Promise(r=>canvas.toBlob(r,'image/png'));
-    await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
-    return true;
-  }catch(err){ return false; }
+    const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=objUrl; });
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    c.getContext('2d').drawImage(img,0,0);
+    return await new Promise((res,rej)=>c.toBlob(b=> b?res(b):rej(new Error('toBlob')), 'image/png'));
+  } finally { URL.revokeObjectURL(objUrl); }
+}
+// copia la foto negli appunti (Ctrl+V per allegarla). IMPORTANTE: clipboard.write() va invocata
+// SUBITO nel gesto del click, passando una Promise al ClipboardItem, altrimenti Chrome la blocca.
+function copyImageToClipboard(url, proxy){
+  try{
+    return navigator.clipboard.write([ new ClipboardItem({ 'image/png': getImagePngBlob(url, proxy) }) ])
+      .then(()=>true).catch(()=>false);
+  }catch(err){ return Promise.resolve(false); }
 }
 // filtro "solo probabili WhatsApp"
 function applyWaFilter(){
@@ -728,10 +740,12 @@ resultsEl.addEventListener('click', async e=>{
   const msg = buildOrderMessage(lang);
   const waUrl = 'https://web.whatsapp.com/send?phone=' + phone + '&text=' + encodeURIComponent(msg);
   const photo = $('#ord_photo').value.trim();
-  let copied = false;
-  if(photo){ copied = await copyImageToClipboard(photo); }
+  const proxy = (CONFIG.proxy||'').trim();
+  // AVVIA la copia immagine subito (in-gesto) e apri WhatsApp senza attendere: così l'attivazione non scade e il popup non viene bloccato
+  const clipP = photo ? copyImageToClipboard(photo, proxy) : Promise.resolve(false);
   const win = window.open(waUrl, '_blank');
-  if(photo && !copied) window.open(photo, '_blank');   // fallback: apri la foto per trascinarla
+  const copied = await clipP;
+  if(photo && !copied) window.open(photo, '_blank');   // fallback: apri la foto per trascinarla nella chat
   const note = copied ? '✅ Su WhatsApp: 1) premi INVIO per inviare il messaggio (è già scritto). 2) POI premi Ctrl+V per allegare la foto e invia. (Se alleghi la foto prima, il testo resta indietro.)'
              : photo   ? '✅ Testo già scritto su WhatsApp: premi INVIO per inviarlo. La foto è aperta in una scheda: trascinala nella chat.'
              : '✅ WhatsApp aperto col messaggio già scritto: premi INVIO per inviarlo.';
@@ -772,9 +786,10 @@ function shopCard(d, cat, distMeters){
   const waBadge = kind==='mobile' ? '<span class="badge" style="color:#8affbf">📱 WhatsApp probabile</span>'
                 : kind==='fixed'  ? '<span class="badge" style="color:#d0b98a">☎️ fisso · WhatsApp raro</span>'
                 : (hasWa ? '<span class="badge" style="color:#9aa3c4">WhatsApp da verificare</span>' : '');
-  const open  = d.opening_hours?.isOpen?.();
-  const openBadge = (open===true)?'<span class="badge" style="color:#8affbf">Aperto ora</span>'
-                  : (open===false)?'<span class="badge" style="color:#ff9a9a">Chiuso ora</span>':'';
+  let open; try { open = d.opening_hours?.isOpen?.(); } catch(e) { open = undefined; }
+  const openBadge = (open===true)?'<span class="badge" style="color:#8affbf; border-color:rgba(46,204,113,.45)">🟢 Aperto ora</span>'
+                  : (open===false)?'<span class="badge" style="color:#ff9a9a; border-color:rgba(231,76,60,.45)">🔴 Chiuso ora</span>'
+                  : (d.business_status==='OPERATIONAL'?'<span class="badge" style="color:#9aa3c4">orari non disponibili</span>':'');
 
   const c = [];
   if(phone) c.push(`<a class="tel" href="tel:${intl||phone}">📞 ${phone}</a>`);
@@ -792,11 +807,12 @@ function shopCard(d, cat, distMeters){
       <h3>${meta.emoji} ${d.name}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
         <span class="badge dist">${distMeters!=null?distanceStr(distMeters):''}</span>
+        ${openBadge}
         ${waBadge}
       </div>
     </div>
     <div class="meta">
-      ${meta.label} · ${d.formatted_address||''} ${openBadge}
+      ${meta.label} · ${d.formatted_address||''}
       ${d.rating?'<br>'+stars(d.rating,d.user_ratings_total):''}
     </div>
     <div class="contacts">${c.join('')}</div>
