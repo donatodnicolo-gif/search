@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/auth';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, shadow, spacing } from '@/lib/theme';
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -34,31 +34,34 @@ export default function Login() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.container}
       >
-        <View style={styles.brand}>
+        <View style={styles.card}>
+          <View style={styles.logoQuad}>
+            <Text style={styles.logoD}>D</Text>
+          </View>
           <Text style={styles.logo}>DELUXY</Text>
-          <Text style={styles.sub}>Scout — prospezione sul territorio</Text>
-        </View>
+          <Text style={styles.sub}>Scout · prospezione sul territorio</Text>
 
-        <View style={styles.form}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            placeholder="nome@deluxy.it"
-            placeholderTextColor={colors.grigio}
-          />
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholder="••••••••"
-            placeholderTextColor={colors.grigio}
-          />
+          {/* Campi raggruppati stile iOS: un contenitore, divisori hairline */}
+          <View style={styles.group}>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              placeholder="nome@deluxy.it"
+              placeholderTextColor={colors.grigio}
+            />
+            <View style={styles.divisore} />
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              placeholder="Password"
+              placeholderTextColor={colors.grigio}
+            />
+          </View>
 
           {errore ? <Text style={styles.errore}>{errore}</Text> : null}
 
@@ -69,6 +72,8 @@ export default function Login() {
           >
             <Text style={styles.btnTxt}>{loading ? 'Accesso…' : 'Accedi'}</Text>
           </Pressable>
+
+          <Text style={styles.footnote}>Consegne in guanti bianchi, dal 2019.</Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -82,35 +87,54 @@ function traduciErrore(msg: string): string {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.navy },
+  safe: { flex: 1, backgroundColor: colors.sfondo },
   container: { flex: 1, justifyContent: 'center', padding: spacing.lg },
-  brand: { alignItems: 'center', marginBottom: spacing.xl },
-  logo: { color: colors.oro, fontSize: 40, fontWeight: '900', letterSpacing: 6 },
-  sub: { color: '#C7CCD8', marginTop: spacing.sm, fontSize: 14 },
-  form: {
+  card: {
     backgroundColor: colors.bianco,
     borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  label: { color: colors.testoSoft, fontWeight: '700', fontSize: 13, marginTop: spacing.sm },
-  input: {
     borderWidth: 1,
-    borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: colors.testo,
-  },
-  errore: { color: colors.errore, marginTop: spacing.sm, fontWeight: '600' },
-  btn: {
-    backgroundColor: colors.oro,
-    borderRadius: radius.md,
-    paddingVertical: 16,
+    borderColor: colors.hairline,
+    padding: spacing.xl,
     alignItems: 'center',
-    marginTop: spacing.md,
+    ...shadow.float,
   },
-  btnDisabled: { opacity: 0.6 },
-  btnTxt: { color: colors.navy, fontWeight: '900', fontSize: 17 },
+  logoQuad: {
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    backgroundColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  logoD: {
+    color: colors.oro,
+    fontSize: 34,
+    fontWeight: '700',
+    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
+  },
+  logo: { color: colors.testo, fontSize: 26, fontWeight: '700', letterSpacing: 4 },
+  sub: { color: colors.testoSoft, marginTop: spacing.xs, fontSize: 14, marginBottom: spacing.lg },
+  group: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+  },
+  input: { paddingHorizontal: spacing.md, paddingVertical: 14, fontSize: 16, color: colors.testo },
+  divisore: { height: 1, backgroundColor: colors.hairline, marginLeft: spacing.md },
+  errore: { color: colors.errore, marginTop: spacing.md, fontWeight: '600', alignSelf: 'stretch' },
+  btn: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginTop: spacing.lg,
+  },
+  btnDisabled: { opacity: 0.55 },
+  btnTxt: { color: colors.bianco, fontWeight: '600', fontSize: 17 },
+  footnote: { color: colors.grigio, fontSize: 12, marginTop: spacing.lg },
 });

@@ -1,18 +1,39 @@
-// Palette e token di stile Deluxy. Un unico posto per colori/spaziature.
+// Palette e token di stile Deluxy Scout — allineati al **Deluxy Design System v1.0**
+// (deluxy-design-system/tokens/theme.ts). Stile Apple: sfondi neutri, testo scuro,
+// UN accento oro usato poco, azioni primarie NERE (ink). I nomi storici (navy/oro/…)
+// restano per compatibilità con le schermate, ma i valori sono quelli del DS.
 import type { DealStage, Priorita, StatoPlace } from '@/types';
 
 export const colors = {
-  navy: '#1B2A4A',
-  oro: '#A6832B',
-  sfondo: '#F2EFE8',
-  bianco: '#FFFFFF',
-  grigio: '#8A8A8A',
-  grigioChiaro: '#D8D4CA',
-  testo: '#1B2A4A',
-  testoSoft: '#5A6274',
-  successo: '#2E7D5B',
-  attenzione: '#C9962B',
-  errore: '#B23A3A',
+  // Superfici
+  sfondo: '#F5F5F7', // bg pagina (mai bianco pieno)
+  bianco: '#FFFFFF', // surface
+  // Testo
+  testo: '#1D1D1F', // text
+  testoSoft: '#6E6E73', // text-secondary
+  grigio: '#86868B', // text-tertiary
+  grigioChiaro: '#E3E3E6', // hairline (solido, per bordi)
+  // Brand scuro = azioni primarie (ink). "navy" resta come alias per le schermate.
+  navy: '#111318',
+  ink: '#111318',
+  inkHover: '#2A2D35',
+  // Accento oro (icone attive, focus, stelle, badge brand) — usato con parsimonia.
+  oro: '#B8963E',
+  gold: '#B8963E',
+  goldStrong: '#A07F2C',
+  goldSoft: 'rgba(184, 150, 62, 0.12)',
+  // Bordi e riempimenti neutri
+  hairline: 'rgba(0, 0, 0, 0.08)',
+  hairlineStrong: 'rgba(0, 0, 0, 0.14)',
+  fill: 'rgba(120, 120, 128, 0.08)',
+  fillHover: 'rgba(120, 120, 128, 0.14)',
+  fillActive: 'rgba(120, 120, 128, 0.20)',
+  // Semantici (solo per stati/feedback)
+  successo: '#248A3D', // green
+  attenzione: '#C93400', // orange
+  errore: '#D70015', // red
+  blue: '#0071E3',
+  purple: '#6D3FC4',
 } as const;
 
 export const spacing = {
@@ -26,14 +47,32 @@ export const spacing = {
 export const radius = {
   sm: 8,
   md: 12,
-  lg: 20,
+  lg: 18,
   pill: 999,
 } as const;
 
-// Colore pin per priorità (regola di prodotto #1).
+// Due sole ombre (DS): card e float. Morbide, mai dure.
+export const shadow = {
+  card: {
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  float: {
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+} as const;
+
+// Colore per priorità: P1 oro (accento) / P2 ink / P3 grigio.
 export const coloreProprita: Record<Priorita, string> = {
   P1: colors.oro,
-  P2: colors.navy,
+  P2: colors.ink,
   P3: colors.grigio,
 };
 
