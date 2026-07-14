@@ -4,6 +4,10 @@ Ultimo aggiornamento: **13 luglio 2026**. Questo documento permette a un altro a
 
 > ⚠️ **Segreti**: nessun valore segreto è in questo file. Le chiavi vere stanno in `deluxy-scout/.env` (gitignored) e nei secret della Edge Function. Gli identificatori qui sotto (project ref, portal id, URL) **non** sono segreti.
 
+> 🧭 **AMBIENTE DI LAVORO (14 lug 2026)**: per sfuggire alla concorrenza con l'altra sessione (che continuava a spostare il branch `deluxy-scout` nella working tree condivisa `C:\Users\nicol\app`), lo sviluppo Scout si è spostato in un **git worktree isolato**: cartella **`C:\Users\nicol\scoutwt`**, branch **`scout-ui`** (creato da `deluxy-scout`). `node_modules` è una **junction** verso quello del main tree; `.env` copiato. Build/deploy si fanno da lì. **Per integrare il lavoro**: `git merge scout-ui` sul branch `deluxy-scout` (o PR). Il branch `deluxy-scout` è condiviso/rumoroso (ci committa anche l'altra sessione col progetto `deluxy-platform-next`); `scout-ui` è pulito e solo-Scout.
+
+> 🧭 **Navigazione (14 lug 2026)**: da tab bar in basso a **drawer laterale a scomparsa** (`expo-router/drawer`, `_layout.tsx`): logo D in cima + voci con icona, attiva oro (sidebar DS), hamburger nell'header. Aggiunte dep `@react-navigation/drawer` + `react-native-gesture-handler` + `react-native-reanimated` (plugin in `babel.config.js`). Nota: reanimated è nativo → per l'APK Android servirà un **nuovo build EAS** (il web è già live).
+
 ---
 
 ## 1. Cos'è
