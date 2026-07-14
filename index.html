@@ -630,6 +630,21 @@ function populateOrder(o){
   $('#rawAttrsBody').innerHTML = rows.length
     ? '<table>'+rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')+'</table>'
     : '<div class="hint">Nessun attributo personalizzato nell\'ordine.</div>';
+
+  // AUTO: compila l'indirizzo di partenza, imposta la categoria dal brand e avvia la ricerca
+  if(o.address){
+    $('#address').value = o.address;
+    localStorage.setItem('addr', o.address);
+    setCategoryForBrand(o.brand || $('#brand').value);
+    run();
+    setTimeout(()=>{ const r=$('#results'); if(r) r.scrollIntoView({behavior:'smooth', block:'start'}); }, 350);
+  }
+}
+// flowers/deluxy → Fiorai ; cake → Pasticcerie
+function setCategoryForBrand(brand){
+  const want = (brand === 'cakedesign.me') ? 'pasticceria' : 'fioraio';
+  cats.clear(); cats.add(want);
+  document.querySelectorAll('.chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
 }
 
 function updateThumb(){
