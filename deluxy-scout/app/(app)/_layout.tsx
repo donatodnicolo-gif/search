@@ -40,6 +40,20 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
+        name="rubrica"
+        options={{
+          title: 'Rubrica',
+          tabBarIcon: ({ color }) => <TabIcon glifo="📇" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="trattative"
+        options={{
+          title: 'Trattative',
+          tabBarIcon: ({ color }) => <TabIcon glifo="💼" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="dashboard"
         options={{
           title: 'Dashboard',

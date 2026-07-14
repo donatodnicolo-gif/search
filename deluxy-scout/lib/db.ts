@@ -2,6 +2,17 @@
 import { supabase } from '@/lib/supabase';
 import type { Contact, Deal, Linea, Place, StatoPlace, Visit } from '@/types';
 
+/** Contatto arricchito col nome/indirizzo del negozio (per la Rubrica globale). */
+export interface ContattoConLuogo extends Contact {
+  place_nome: string | null;
+  place_indirizzo: string | null;
+}
+
+/** Trattativa arricchita col nome del negozio (per la sezione Trattative). */
+export interface TrattativaConLuogo extends Deal {
+  place_nome: string | null;
+}
+
 export async function fetchLinee(): Promise<Linea[]> {
   const { data, error } = await supabase.from('lines').select('*').order('nome');
   if (error) throw error;
@@ -104,6 +115,30 @@ export async function fetchAllDeals(): Promise<Deal[]> {
   const { data, error } = await supabase.from('deals').select('*');
   if (error) throw error;
   return (data ?? []) as Deal[];
+}
+
+/** Tutti i contatti registrati, col negozio di appartenenza (Rubrica globale). */
+export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('*, places(nome, indirizzo)')
+    .order('nome');
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    ...r,
+    place_nome: r.places?.nome ?? null,
+    place_indirizzo: r.places?.indirizzo ?? null,
+  })) as ContattoConLuogo[];
+}
+
+/** Tutte le trattative, col nome del negozio (per raggruppamento per negozio). */
+export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
+  const { data, error } = await supabase.from('deals').select('*, places(nome)');
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    ...r,
+    place_nome: r.places?.nome ?? null,
+  })) as TrattativaConLuogo[];
 }
 
 export async function aggiornaFaseDeal(dealId: string, fase: Deal['fase']): Promise<void> {

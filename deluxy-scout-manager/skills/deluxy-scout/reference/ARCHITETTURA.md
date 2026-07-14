@@ -12,7 +12,9 @@ app/                        # schermate (Expo Router)
   (app)/                    # area protetta (Tabs), guard su sessione
     mappa.tsx               # [tab] mappa (NATIVO): tutti i pin, colori priorità, filtri, pianificatore di giro + pannello tappe ordinate e "Naviga" multi-tappa
     mappa.web.tsx           # [tab] mappa (WEB): stessa logica giro senza react-native-maps → lista target + "Naviga" (Google Maps in nuova scheda)
-    lista.tsx               # [tab] lista target: filtri + ricerca testuale + FAB "nuovo target"
+    lista.tsx               # [tab] lista target: barra "Dove vai?" (geocode → ordina per vicinanza) + filtri + ricerca + FAB
+    rubrica.tsx             # [tab] Rubrica: tutti i contatti (join negozio), badge sync HubSpot, tel/email
+    trattative.tsx          # [tab] Trattative: deal raggruppate per negozio (SectionList), fase+valore
     dashboard.tsx           # [tab] metriche commerciali (grafici SVG)
     profilo.tsx             # [tab] profilo/impostazioni: utente, coda sync, integrazioni, export CSV, logout
     attivita/[id].tsx       # scheda attività + ipotesi + naviga/modifica + nuova visita + contatti
@@ -22,12 +24,13 @@ app/                        # schermate (Expo Router)
     modifica/[id].tsx       # modifica attività (nome, indirizzo, zona, categoria, priorità, stato)
     visita-dettaglio/[id].tsx # dettaglio visita: briefing/note/esito/next + foto vetrina
 components/                 # BoxIpotesi, EsitoButtons, Filters, PriorityBadge, SyncBadge, StatCard, BarChart
-lib/                        # supabase, auth, env, db, categoryRules, hubspot, syncQueue,
+lib/                        # supabase, auth, env, db, categoryRules, hubspot, geocode, syncQueue,
                             #   metrics, location, nav, giro, reminders, theme, usePlaces, export
 types/index.ts              # tipi condivisi (Place, Contact, Visit, Deal, Linea, CategoryRule…)
 supabase/
   migrations/               # 0001_schema.sql · 0002_rls.sql · 0003_seed.sql
   functions/hubspot-sync/   # Edge Function Deno (logica HubSpot lato server)
+  functions/geocode/        # Edge Function Deno (proxy Google Geocoding, chiave come secret)
   seed/lead.example.csv
 scripts/                    # mgmt-query.mjs, hubspot-setup-properties.mjs, import-places.mjs, create-user.mjs, gen-icons.mjs
 stubs/empty.js              # modulo vuoto per gli stub Metro (otel / react-native-maps su web)

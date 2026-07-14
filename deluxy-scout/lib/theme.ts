@@ -1,5 +1,5 @@
 // Palette e token di stile Deluxy. Un unico posto per colori/spaziature.
-import type { Priorita, StatoPlace } from '@/types';
+import type { DealStage, Priorita, StatoPlace } from '@/types';
 
 export const colors = {
   navy: '#1B2A4A',
@@ -50,4 +50,13 @@ export const iconaStato: Record<StatoPlace, string> = {
   visitato: '◐',
   cliente: '★',
   perso: '✕',
+};
+
+// Etichette leggibili per le fasi trattativa (dealstage HubSpot).
+export const labelFase: Record<DealStage, string> = {
+  appointmentscheduled: 'Appuntamento fissato',
+  decisionmakerboughtin: 'Decisore coinvolto',
+  contractsent: 'Proposta inviata',
+  closedwon: 'Chiusa vinta',
+  closedlost: 'Chiusa persa',
 };

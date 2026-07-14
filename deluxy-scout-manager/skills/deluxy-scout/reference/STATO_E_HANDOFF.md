@@ -36,14 +36,32 @@ App mobile React Native (Expo Router, TypeScript) per la prospezione commerciale
   - **`metro.config.js`**: stub di `@opentelemetry/api` (dipendenza opzionale di supabase-js, non installata) e di `react-native-maps` su web (→ `{ type: 'empty' }`). Stub vuoto in `stubs/empty.js`.
   - Build: `npm run build:web` (= `expo export --platform web --output-dir dist-web`). Il bundle è **autoconsistente** (anon key Supabase già inclusa). La chiave Maps Android nel bundle è ininfluente sul web (ristretta all'app Android).
   - **Deploy**: `dist-web` (con `vercel.json` di rewrite SPA) copiata in una cartella `deluxy-scout/` e pubblicata con `npx vercel deploy --prod --yes --token <VERCEL_TOKEN>`. Nessuna integrazione Git (evita il branch condiviso). Per ripubblicare: `npm run build:web`, poi rideploy della cartella. **Serve login utente Supabase per usarla davvero** (vedi §3.1).
+- **Sezioni nuove richieste dall'utente (14 lug 2026)** — funzionano su desktop e mobile:
+  - **"Dove vai?"** in `lista.tsx` (scheda Target): barra indirizzo → geocoding → l'elenco si riordina per **vicinanza** alla destinazione (mostra i km per riga); chip con l'indirizzo trovato e ✕ per azzerare. Geocoding via `lib/geocode.ts` → **Edge Function `geocode`** (Google Geocoding lato server, chiave come secret — NON nel client). ⚠️ La funzione è **scritta ma non ancora deployata**: la barra funzionerà solo dopo il deploy + secret (vedi §3.5).
+  - **Rubrica** (`rubrica.tsx`, nuovo tab 📇): tutti i contatti registrati (query `fetchTuttiContatti` con join sul negozio), ricerca, badge "HubSpot ✓ / da sync", tap→scheda negozio, azioni tel/email. Dati da Supabase (già sincronizzati con HubSpot).
+  - **Trattative** (`trattative.tsx`, nuovo tab 💼): tutte le deal raggruppate per negozio (`SectionList`, `fetchTutteTrattative`), fase leggibile (`labelFase` in `theme.ts`), valore atteso, totale in testata, tap→scheda negozio.
+  - Tab totali ora 6: Mappa · Target · Rubrica · Trattative · Dashboard · Profilo. `tsc` pulito, web build OK, 18/18 jest.
 
 ## 3. ⏳ Cosa manca (richiede l'utente / suoi account)
 1. **Utente auth per il login** — pronto lo script `scripts/create-user.mjs`: crea/aggiorna l'utente in Supabase Auth via Admin API, con email+password forniti **dall'utente** via env var (l'agente non vede la password); crea l'utente già confermato. Serve la `service_role` key. Comando in §5. In alternativa: Supabase → Authentication → Users → *Add user*.
 2. **Restringere la chiave Google Maps** (sicurezza, da fare) — la chiave Android finisce nell'APK ed è estraibile: la protezione vera è restringerla in Google Cloud Console → Credenziali → *App Android*: nome pacchetto `it.deluxy.scout` + **SHA-1** del keystore (presa da dashboard Expo → Credentials → Android), e restrizione API a *Maps SDK for Android*. Verificare che *Maps SDK for Android* sia abilitata e che il progetto Google Cloud abbia **billing attivo**.
 3. **Test end-to-end HubSpot** — con un utente loggato (punto 1), registrare una visita e verificare company+contatto+deal con le proprietà su HubSpot.
 4. **iOS / distribuzione store** — l'APK Android preview è fatto; per iOS serve setup Apple, per gli store la submission.
+5. **Attivare il geocoding "Dove vai?"** (Google, lato server) — richiede l'utente:
+   a. Google Cloud → abilitare **Geocoding API** + **billing** attivo; creare una **chiave dedicata** con restrizione API = *Geocoding API* (NON restrizione app Android, altrimenti le REST non passano).
+   b. Deploy della Edge Function e secret:
+      ```powershell
+      $env:SUPABASE_ACCESS_TOKEN = "<PAT Supabase>"
+      npx -y supabase@latest functions deploy geocode --project-ref fdsziebgkljfsugqqbqd
+      npx -y supabase@latest secrets set GOOGLE_GEOCODING_KEY=<chiave> --project-ref fdsziebgkljfsugqqbqd
+      ```
+   Finché non è fatto, la barra "Dove vai?" mostra un errore leggibile; il resto della scheda Target funziona normalmente. Il client deriva l'URL da solo (`<supabaseUrl>/functions/v1/geocode`), nessuna env var nuova.
 
-> **Git**: le modifiche del 13–14 lug sono nel working tree sul branch `deluxy-scout`, **non ancora committate** (in attesa dell'ok utente). File nuovi: `lib/nav.ts`, `lib/giro.ts`, `__tests__/nav.test.ts`, `scripts/create-user.mjs`, `metro.config.js`, `stubs/empty.js`, `app/(app)/mappa.web.tsx`, `.gitignore`. Modificati: `eas.json`, `app.config.ts`, `package.json`, `package-lock.json`, `app/(app)/mappa.tsx`. `.env` resta gitignored. **⚠️ Concorrenza**: un'altra sessione Claude lavora sull'app fiorai nella **stessa working directory** `C:\Users\nicol\app` e fa `git checkout` tra `main` e `deluxy-scout` → i file di deluxy-scout appaiono/spariscono ("flickering") e le modifiche non committate rischiano di perdersi. Non lanciare due sessioni sulla stessa cartella; se serve, committare spesso o usare un git worktree separato. Backup dei file nuovi salvato in scratchpad durante la sessione.
+> **Git** (branch `deluxy-scout`):
+> - `0c5e0a9` — versione web (Vercel) + giro navigabile + config Maps.
+> - `<commit 14 lug>` — sezioni Rubrica/Trattative + barra "Dove vai?" (geocode) + Edge Function `geocode`. File nuovi: `app/(app)/rubrica.tsx`, `app/(app)/trattative.tsx`, `lib/geocode.ts`, `supabase/functions/geocode/index.ts`. Modificati: `lib/db.ts`, `lib/theme.ts`, `app/(app)/_layout.tsx`, `app/(app)/lista.tsx`.
+> - `.env` resta gitignored.
+> **⚠️ Concorrenza**: un'altra sessione Claude lavora sull'app fiorai nella **stessa working directory** `C:\Users\nicol\app` e fa `git checkout` tra `main` e `deluxy-scout` → i file di deluxy-scout appaiono/spariscono ("flickering") e le modifiche non committate rischiano di perdersi. Non lanciare due sessioni sulla stessa cartella; se serve, committare spesso o usare un git worktree separato.
 
 ## 4. 🔐 Housekeeping sicurezza
 - `deluxy-scout/.env` è gitignored: **non committarlo mai**.
