@@ -44,6 +44,8 @@ export class PartnersService {
     return this.prisma.partner.create({
       data: {
         ...scalar,
+        contractStart: scalar.contractStart ? new Date(scalar.contractStart) : undefined,
+        contractEnd: scalar.contractEnd ? new Date(scalar.contractEnd) : undefined,
         provinces: provinceIds?.length
           ? { create: provinceIds.map((provinceId) => ({ provinceId })) }
           : undefined,

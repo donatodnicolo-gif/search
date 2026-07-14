@@ -109,6 +109,27 @@ model Partner {
   paymentStatus       String            @default("active")
   // Metodo di pagamento (legacy): bankTransfer | creditCard | directDebitMandate
   paymentMethod       String?
+  // Referente: nome (contactName) + cognome
+  contactSurname      String?
+  // Notifiche granulari (come nell'app reale)
+  whatsappNotifications Boolean         @default(false)
+  mailNotifications   Boolean           @default(false)
+  // Pagamenti e contratto
+  bankAccount         String? // IBAN
+  bankAccountName     String? // intestatario conto
+  sdiCode             String? // codice SDI fatturazione elettronica
+  contractStart       DateTime?
+  contractEnd         DateTime?
+  // Indirizzo di ritiro multiplo
+  isMultiPickup       Boolean           @default(false)
+  // Campi di vendita
+  storeUrl            String?
+  imageUrl            String?
+  // Sicurezza
+  valetIdentityCheck  Boolean           @default(false)
+  deliveryCodeRequired Boolean          @default(false)
+  // Partner magazzino
+  isWarehouse         Boolean           @default(false)
   active              Boolean           @default(true)
   provinces           PartnerProvince[]
   services            PartnerService[]

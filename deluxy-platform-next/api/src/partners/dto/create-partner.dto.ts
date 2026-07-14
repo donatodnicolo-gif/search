@@ -97,10 +97,15 @@ export class CreatePartnerDto {
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({ description: 'Referente' })
+  @ApiPropertyOptional({ description: 'Nome referente' })
   @IsOptional()
   @IsString()
   contactName?: string;
+
+  @ApiPropertyOptional({ description: 'Cognome referente' })
+  @IsOptional()
+  @IsString()
+  contactSurname?: string;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
@@ -121,6 +126,71 @@ export class CreatePartnerDto {
   @IsOptional()
   @IsBoolean()
   notificationsEnabled?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Notifiche WhatsApp' })
+  @IsOptional()
+  @IsBoolean()
+  whatsappNotifications?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Notifiche mail' })
+  @IsOptional()
+  @IsBoolean()
+  mailNotifications?: boolean;
+
+  @ApiPropertyOptional({ description: 'IBAN / conto bancario' })
+  @IsOptional()
+  @IsString()
+  bankAccount?: string;
+
+  @ApiPropertyOptional({ description: 'Intestatario del conto' })
+  @IsOptional()
+  @IsString()
+  bankAccountName?: string;
+
+  @ApiPropertyOptional({ description: 'Codice SDI fatturazione elettronica' })
+  @IsOptional()
+  @IsString()
+  sdiCode?: string;
+
+  @ApiPropertyOptional({ description: 'Inizio validita contratto (ISO)' })
+  @IsOptional()
+  @IsString()
+  contractStart?: string;
+
+  @ApiPropertyOptional({ description: 'Fine validita contratto (ISO)' })
+  @IsOptional()
+  @IsString()
+  contractEnd?: string;
+
+  @ApiPropertyOptional({ default: false, description: 'Indirizzo di ritiro multiplo' })
+  @IsOptional()
+  @IsBoolean()
+  isMultiPickup?: boolean;
+
+  @ApiPropertyOptional({ description: 'URL del negozio' })
+  @IsOptional()
+  @IsString()
+  storeUrl?: string;
+
+  @ApiPropertyOptional({ description: 'URL immagine partner' })
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @ApiPropertyOptional({ default: false, description: 'Verifica identita valet richiesta' })
+  @IsOptional()
+  @IsBoolean()
+  valetIdentityCheck?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Codice di consegna richiesto' })
+  @IsOptional()
+  @IsBoolean()
+  deliveryCodeRequired?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Partner magazzino' })
+  @IsOptional()
+  @IsBoolean()
+  isWarehouse?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
