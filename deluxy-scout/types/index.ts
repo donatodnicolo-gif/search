@@ -68,6 +68,7 @@ export interface Place {
   starred?: boolean;
   novita?: boolean;
   da_completare?: boolean;
+  nascosto?: boolean; // "non interessante": escluso dalla scoperta, visibile solo in Profilo → Nascosti
   hubspot_deal_aperta?: boolean;
   hubspot_sync_at?: string | null;
   google_refresh_at?: string | null;

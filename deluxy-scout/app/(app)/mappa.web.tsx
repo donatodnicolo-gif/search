@@ -12,7 +12,7 @@ import { ordinaGiro } from '@/lib/giro';
 import { urlNavigazione, urlNavigazioneGiro } from '@/lib/nav';
 import type { GeocodeResult } from '@/lib/geocode';
 import { scopriNegozi, type ScopertaResult } from '@/lib/discover';
-import { aggiornaStarred } from '@/lib/db';
+import { aggiornaNascosto, aggiornaStarred } from '@/lib/db';
 import { usePlaces } from '@/lib/usePlaces';
 import { AddressSearch } from '@/components/AddressSearch';
 import { PriorityBadge } from '@/components/PriorityBadge';
@@ -90,6 +90,16 @@ export default function MappaWeb() {
       await aggiornaStarred(p.id, nuovo);
     } catch {
       setScoperti((l) => l.map((x) => (x.id === p.id ? { ...x, starred: !nuovo } : x)));
+    }
+  }
+
+  // "Non interessante": nasconde per sempre (visibile solo in Profilo → Nascosti).
+  async function nascondi(p: Place) {
+    setScoperti((l) => l.filter((x) => x.id !== p.id));
+    try {
+      await aggiornaNascosto(p.id, true);
+    } catch {
+      if (destinazione) cerca(destinazione); // ripristina lo stato reale in caso d'errore
     }
   }
 
@@ -262,6 +272,14 @@ export default function MappaWeb() {
                   <Pressable style={styles.azione} hitSlop={8} onPress={() => toggleStar(p)}>
                     <Text style={[styles.stella, p.starred && styles.stellaOn]}>{p.starred ? '★' : '☆'}</Text>
                   </Pressable>
+                  <Pressable
+                    style={styles.azione}
+                    hitSlop={8}
+                    onPress={() => nascondi(p)}
+                    accessibilityLabel="Non interessante — nascondi"
+                  >
+                    <Text style={styles.nascondiIco}>🚫</Text>
+                  </Pressable>
                 </>
               ) : null}
             </Pressable>
@@ -386,6 +404,7 @@ const styles = StyleSheet.create({
   checkOn: { fontSize: 22, color: colors.successo },
   stella: { fontSize: 24, color: colors.grigioChiaro },
   stellaOn: { color: colors.oro },
+  nascondiIco: { fontSize: 16, opacity: 0.5 },
 
   dock: {
     position: 'absolute',

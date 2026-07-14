@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { colors, radius, spacing } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
@@ -10,6 +10,7 @@ import { esportaAttivitaCsv, esportaVisiteCsv } from '@/lib/export';
 
 export default function Profilo() {
   const { session, signOut } = useAuth();
+  const router = useRouter();
   const [inCoda, setInCoda] = useState(0);
   const [sync, setSync] = useState(false);
   const [esporto, setEsporto] = useState<null | 'attivita' | 'visite'>(null);
@@ -82,6 +83,14 @@ export default function Profilo() {
         </View>
       </View>
 
+      <Pressable style={styles.card} onPress={() => router.push('/(app)/nascosti')}>
+        <Text style={styles.cardLabel}>ATTIVITÀ</Text>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>🚫 Nascosti (non interessanti)</Text>
+          <Text style={styles.freccia}>›</Text>
+        </View>
+      </Pressable>
+
       <View style={styles.card}>
         <Text style={styles.cardLabel}>ESPORTA (CSV)</Text>
         <Pressable style={[styles.btn, esporto && styles.btnOff]} onPress={() => esporta('attivita')} disabled={!!esporto}>
@@ -117,6 +126,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   rowLabel: { color: colors.navy, fontSize: 15, fontWeight: '600' },
   rowValue: { color: colors.navy, fontSize: 18, fontWeight: '900' },
+  freccia: { color: colors.oro, fontSize: 20, fontWeight: '800' },
   pill: { fontSize: 12, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden' },
   pillOk: { backgroundColor: colors.successo, color: colors.bianco },
   pillOff: { backgroundColor: colors.grigioChiaro, color: colors.testoSoft },

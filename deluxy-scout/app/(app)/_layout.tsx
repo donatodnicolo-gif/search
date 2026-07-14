@@ -70,6 +70,7 @@ export default function AppLayout() {
         <Drawer.Screen name="nuovo-target" options={{ ...nascosta, title: 'Nuovo target' }} />
         <Drawer.Screen name="modifica/[id]" options={{ ...nascosta, title: 'Modifica attività' }} />
         <Drawer.Screen name="visita-dettaglio/[id]" options={{ ...nascosta, title: 'Dettaglio visita' }} />
+        <Drawer.Screen name="nascosti" options={{ ...nascosta, title: 'Nascosti' }} />
       </Drawer>
     </GestureHandlerRootView>
   );

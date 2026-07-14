@@ -159,6 +159,24 @@ export async function aggiornaStarred(placeId: string, starred: boolean): Promis
   if (error) throw error;
 }
 
+/** "Non interessante": nasconde (o ripristina) un'attività dalla scoperta. */
+export async function aggiornaNascosto(placeId: string, nascosto: boolean): Promise<void> {
+  const patch = nascosto ? { nascosto: true, starred: false, novita: false } : { nascosto: false };
+  const { error } = await supabase.from('places').update(patch).eq('id', placeId);
+  if (error) throw error;
+}
+
+/** Attività nascoste ("non interessanti") — per la sezione Nascosti nel Profilo. */
+export async function fetchNascosti(): Promise<Place[]> {
+  const { data, error } = await supabase
+    .from('places')
+    .select('*')
+    .eq('nascosto', true)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Place[];
+}
+
 /** "Sono stato qui" ma compilo dopo: il negozio resta come attività "da completare". */
 export async function segnaVisitatoDaCompletare(placeId: string): Promise<void> {
   const { error } = await supabase
