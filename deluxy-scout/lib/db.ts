@@ -159,6 +159,71 @@ export async function aggiornaStarred(placeId: string, starred: boolean): Promis
   if (error) throw error;
 }
 
+/** "Sono stato qui" ma compilo dopo: il negozio resta come attività "da completare". */
+export async function segnaVisitatoDaCompletare(placeId: string): Promise<void> {
+  const { error } = await supabase
+    .from('places')
+    .update({ stato: 'visitato', da_completare: true, novita: false })
+    .eq('id', placeId);
+  if (error) throw error;
+}
+
+/** Registra una visita rapida (contatto opzionale + note) e chiude il "da completare". */
+export async function registraVisitaRapida(
+  placeId: string,
+  opts: {
+    note: string;
+    contatto?: { nome: string; ruolo?: string | null; telefono?: string | null; email?: string | null; is_decisore?: boolean };
+  },
+): Promise<void> {
+  const { data: u } = await supabase.auth.getUser();
+  const owner = u.user?.id ?? null;
+
+  if (opts.contatto?.nome?.trim()) {
+    await inserisciContatto({
+      place_id: placeId,
+      nome: opts.contatto.nome.trim(),
+      ruolo: opts.contatto.ruolo ?? null,
+      telefono: opts.contatto.telefono ?? null,
+      email: opts.contatto.email ?? null,
+      is_decisore: !!opts.contatto.is_decisore,
+    });
+  }
+
+  await inserisciVisita({
+    place_id: placeId,
+    data: new Date().toISOString(),
+    lat: null,
+    lng: null,
+    esito: null,
+    briefing: null,
+    note_post_meeting: opts.note.trim() || null,
+    esito_analisi: null,
+    next_step: opts.note.trim() || 'Da definire',
+    linea_proposta: null,
+    cross_sell: null,
+    foto_url: null,
+    owner,
+  });
+
+  const { error } = await supabase
+    .from('places')
+    .update({ stato: 'visitato', da_completare: false, novita: false })
+    .eq('id', placeId);
+  if (error) throw error;
+}
+
+/** Attività segnate come "da completare" (visita registrata senza dettagli). */
+export async function fetchDaCompletare(): Promise<Place[]> {
+  const { data, error } = await supabase
+    .from('places')
+    .select('*')
+    .eq('da_completare', true)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Place[];
+}
+
 /** Inserisce una visita già sincronizzabile e ritorna l'id server. */
 export async function inserisciVisita(
   v: Omit<Visit, 'id' | 'created_at' | 'hubspot_synced'>,

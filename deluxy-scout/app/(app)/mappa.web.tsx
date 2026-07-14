@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import type { Place } from '@/types';
+import type { Place, Priorita } from '@/types';
 import { colors, iconaLinea, radius, spacing } from '@/lib/theme';
 import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
 import { ordinaGiro } from '@/lib/giro';
@@ -15,9 +15,12 @@ import { scopriNegozi, type ScopertaResult } from '@/lib/discover';
 import { aggiornaStarred } from '@/lib/db';
 import { usePlaces } from '@/lib/usePlaces';
 import { AddressSearch } from '@/components/AddressSearch';
+import { PriorityBadge } from '@/components/PriorityBadge';
+import { VisitaModal } from '@/components/VisitaModal';
 import { Loader } from '../_layout';
 
 const PRIO_COLORE: Record<string, string> = { P1: colors.oro, P2: colors.navy, P3: colors.grigio };
+const PRIORITA: Priorita[] = ['P1', 'P2', 'P3'];
 
 export default function MappaWeb() {
   const router = useRouter();
@@ -30,6 +33,8 @@ export default function MappaWeb() {
   const [scopInfo, setScopInfo] = useState<ScopertaResult | null>(null);
   const [scopErrore, setScopErrore] = useState<string | null>(null);
   const [filtroLinea, setFiltroLinea] = useState<string | null>(null);
+  const [filtroPriorita, setFiltroPriorita] = useState<Priorita | null>(null);
+  const [visitaPlace, setVisitaPlace] = useState<Place | null>(null);
 
   useEffect(() => {
     posizioneCorrente().then(setPos);
@@ -37,11 +42,7 @@ export default function MappaWeb() {
 
   const origine: Coord = destinazione ?? pos ?? MILANO;
 
-  async function onSelectDestinazione(r: GeocodeResult) {
-    const c = { lat: r.lat, lng: r.lng };
-    setDestinazione(c);
-    setGiroAttivo(false);
-    setFiltroLinea(null);
+  async function cerca(c: Coord) {
     setScopErrore(null);
     setScopLoading(true);
     try {
@@ -57,6 +58,21 @@ export default function MappaWeb() {
     }
   }
 
+  async function onSelectDestinazione(r: GeocodeResult) {
+    const c = { lat: r.lat, lng: r.lng };
+    setDestinazione(c);
+    setGiroAttivo(false);
+    setFiltroLinea(null);
+    setFiltroPriorita(null);
+    await cerca(c);
+  }
+
+  // Dopo una visita: ricarica dalla cache (riflette stato/da_completare aggiornati).
+  function chiudiVisita() {
+    setVisitaPlace(null);
+    if (destinazione) cerca(destinazione);
+  }
+
   function azzera() {
     setDestinazione(null);
     setScoperti([]);
@@ -64,6 +80,7 @@ export default function MappaWeb() {
     setScopErrore(null);
     setGiroAttivo(false);
     setFiltroLinea(null);
+    setFiltroPriorita(null);
   }
 
   async function toggleStar(p: Place) {
@@ -84,8 +101,13 @@ export default function MappaWeb() {
   }, [scoperti]);
 
   const scopertiFiltrati = useMemo(
-    () => (filtroLinea ? scoperti.filter((p) => p.linea_ipotizzata === filtroLinea) : scoperti),
-    [scoperti, filtroLinea],
+    () =>
+      scoperti.filter(
+        (p) =>
+          (!filtroLinea || p.linea_ipotizzata === filtroLinea) &&
+          (!filtroPriorita || p.priorita === filtroPriorita),
+      ),
+    [scoperti, filtroLinea, filtroPriorita],
   );
 
   const giro = useMemo(() => {
@@ -137,20 +159,34 @@ export default function MappaWeb() {
         )}
       </View>
 
-      {/* Filtro tipologia a pillole (solo in scoperta) */}
-      {destinazione && lineePresenti.length > 0 && !giroAttivo ? (
+      {/* Filtri a pillole (solo in scoperta): priorità + tipologia */}
+      {destinazione && !giroAttivo ? (
         <View style={styles.segmentWrap}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.segment}>
-            <Segmento label="Tutte" on={filtroLinea === null} onPress={() => setFiltroLinea(null)} />
-            {lineePresenti.map((l) => (
+            <Segmento label="Ogni priorità" on={!filtroPriorita} onPress={() => setFiltroPriorita(null)} />
+            {PRIORITA.map((p) => (
               <Segmento
-                key={l}
-                label={`${iconaLinea(l)} ${l}`}
-                on={filtroLinea === l}
-                onPress={() => setFiltroLinea((v) => (v === l ? null : l))}
+                key={p}
+                label={p}
+                colore={PRIO_COLORE[p]}
+                on={filtroPriorita === p}
+                onPress={() => setFiltroPriorita((v) => (v === p ? null : p))}
               />
             ))}
           </ScrollView>
+          {lineePresenti.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.segment}>
+              <Segmento label="Ogni tipo" on={!filtroLinea} onPress={() => setFiltroLinea(null)} />
+              {lineePresenti.map((l) => (
+                <Segmento
+                  key={l}
+                  label={`${iconaLinea(l)} ${l}`}
+                  on={filtroLinea === l}
+                  onPress={() => setFiltroLinea((v) => (v === l ? null : l))}
+                />
+              ))}
+            </ScrollView>
+          ) : null}
         </View>
       ) : null}
 
@@ -180,6 +216,7 @@ export default function MappaWeb() {
               {/* Testo */}
               <View style={styles.info}>
                 <View style={styles.titoloRow}>
+                  <PriorityBadge priorita={p.priorita} small />
                   <Text style={styles.nome} numberOfLines={1}>
                     {p.nome}
                   </Text>
@@ -190,7 +227,6 @@ export default function MappaWeb() {
                   ) : null}
                 </View>
                 <View style={styles.metaRow}>
-                  <View style={[styles.prioDot, { backgroundColor: PRIO_COLORE[p.priorita] }]} />
                   <Text style={styles.meta} numberOfLines={1}>
                     {[
                       p.linea_ipotizzata,
@@ -203,6 +239,7 @@ export default function MappaWeb() {
                       .filter(Boolean)
                       .join('  ·  ') || '—'}
                   </Text>
+                  {p.da_completare ? <Text style={styles.daCompl}>da completare</Text> : null}
                   {p.hubspot_deal_aperta ? <Text style={styles.hs}>● trattativa</Text> : null}
                 </View>
               </View>
@@ -216,9 +253,16 @@ export default function MappaWeb() {
                 <Text style={styles.azioneIco}>🧭</Text>
               </Pressable>
               {!giroAttivo ? (
-                <Pressable style={styles.azione} hitSlop={8} onPress={() => toggleStar(p)}>
-                  <Text style={[styles.stella, p.starred && styles.stellaOn]}>{p.starred ? '★' : '☆'}</Text>
-                </Pressable>
+                <>
+                  <Pressable style={styles.azione} hitSlop={8} onPress={() => setVisitaPlace(p)}>
+                    <Text style={[styles.check, p.stato === 'visitato' && styles.checkOn]}>
+                      {p.stato === 'visitato' ? '☑' : '☐'}
+                    </Text>
+                  </Pressable>
+                  <Pressable style={styles.azione} hitSlop={8} onPress={() => toggleStar(p)}>
+                    <Text style={[styles.stella, p.starred && styles.stellaOn]}>{p.starred ? '★' : '☆'}</Text>
+                  </Pressable>
+                </>
               ) : null}
             </Pressable>
           ))
@@ -248,13 +292,26 @@ export default function MappaWeb() {
           </Pressable>
         </View>
       </View>
+
+      <VisitaModal place={visitaPlace} onClose={() => setVisitaPlace(null)} onDone={chiudiVisita} />
     </View>
   );
 }
 
-function Segmento({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+function Segmento({
+  label,
+  on,
+  onPress,
+  colore,
+}: {
+  label: string;
+  on: boolean;
+  onPress: () => void;
+  colore?: string;
+}) {
   return (
     <Pressable style={[styles.seg, on && styles.segOn]} onPress={onPress}>
+      {colore ? <View style={[styles.segDot, { backgroundColor: colore }]} /> : null}
       <Text style={[styles.segTxt, on && styles.segTxtOn]} numberOfLines={1}>
         {label}
       </Text>
@@ -271,6 +328,9 @@ const styles = StyleSheet.create({
   segmentWrap: { paddingBottom: spacing.xs },
   segment: { paddingHorizontal: spacing.md, gap: spacing.sm },
   seg: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: radius.pill,
@@ -279,6 +339,7 @@ const styles = StyleSheet.create({
     borderColor: colors.grigioChiaro,
   },
   segOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  segDot: { width: 9, height: 9, borderRadius: 5 },
   segTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
   segTxtOn: { color: colors.bianco },
 
@@ -318,8 +379,11 @@ const styles = StyleSheet.create({
   prioDot: { width: 8, height: 8, borderRadius: 4 },
   meta: { flexShrink: 1, color: colors.testoSoft, fontSize: 13 },
   hs: { color: colors.successo, fontWeight: '700', fontSize: 11 },
+  daCompl: { color: colors.attenzione, fontWeight: '700', fontSize: 11 },
   azione: { paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
   azioneIco: { fontSize: 18 },
+  check: { fontSize: 22, color: colors.grigio },
+  checkOn: { fontSize: 22, color: colors.successo },
   stella: { fontSize: 24, color: colors.grigioChiaro },
   stellaOn: { color: colors.oro },
 

@@ -54,6 +54,13 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
+        name="da-completare"
+        options={{
+          title: 'Da fare',
+          tabBarIcon: ({ color }) => <TabIcon glifo="📝" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="dashboard"
         options={{
           title: 'Dashboard',
