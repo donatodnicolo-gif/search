@@ -2,11 +2,14 @@
 
 **MANUALE COMPLETO — EDIZIONE AGGIORNATA**
 
-> Aggiornato il 14 luglio 2026 — integra la mappatura completa di app.deluxy.it (ogni sezione, bottone, filtro e opzione verificati direttamente in app con utenza Admin).
-> Le parti contrassegnate con **[NUOVO]** sono funzionalità rilevate nell'app reale ma assenti nel manuale precedente.
+> Aggiornato il 14 luglio 2026 — integra la mappatura completa di app.deluxy.it (ogni sezione, bottone, filtro e opzione verificati direttamente in app con utenza Admin), il codice del backend reale e i chiarimenti dell'utente.
+> Le parti contrassegnate con **[NUOVO]** sono funzionalità rilevate nell'app reale/backend e assenti nel manuale precedente.
 >
-> **Questo file è la fonte di verità funzionale per lo sviluppo di `deluxy-platform-next`.**
-> Versione originale consegnata al team: `docs/COME-FUNZIONA-APP-DELUXY-AGGIORNATO-2026-07.docx`
+> **📌 Questo `.md` è la VERSIONE VIVA adatta a Claude: è la fonte di verità funzionale per lo sviluppo di `deluxy-platform-next` e va aggiornata a ogni nuova scoperta.** Regola: quando si verifica una schermata reale, rileggere e integrare qui; se un campo/opzione ha semantica dubbia, chiederla all'utente e poi documentarla.
+> Copia per le persone (snapshot): `docs/COME-FUNZIONA-APP-DELUXY-AGGIORNATO-2026-07.docx`.
+>
+> **Changelog**
+> - 14/07/2026 — chiarita la semantica del codice di consegna (`UNIQUE_PER_DELIVERY` = OTP per consegna reinviabile dal valet; `UNIQUE_PER_CUSTOMER` = codice fisso tipo PIN, rigenerabile dalla boutique in Customers); ritiro multiplo (scelta dell'indirizzo in fase di consegna); KM inclusi = dentro il comune / extra fuoricittà = fuori dal comune, verificato all'inserimento consegna.
 
 ---
 
@@ -86,17 +89,23 @@ Filtri pagamento: metodo (**Bank Transfer / Credit Card / Direct Debit Mandate**
 
 - **Personal information**: Nome (insegna)\*, E-mail\*, Partita IVA, Codice Fiscale, Indirizzo\*, Telefono\*, Cognome/Nome referente\*, Azienda (ragione sociale).
 - **Partner Provincia**: elenco province abilitate (es. MI, RM, CO, MB, LO, VA, BG, NO, PV, PC, CR, BS, LC) + AGGIUNGI PROVINCIA. Nelle consegne saranno selezionabili solo i partner con la provincia abilitata; i prodotti unici vengono caricati automaticamente.
-- **Servizio**: elenco servizi abilitati con SERVIZIO PREZZO ed EXTRA KM PREZZO per servizio, più KM INCLUDED (soglia senza sovrapprezzo per i prezzi fissi) ed EXTRA FUORICITTÀ PREZZO.
+- **Servizio**: elenco servizi abilitati con SERVIZIO PREZZO ed EXTRA KM PREZZO per servizio, più **KM INCLUDED** ed **EXTRA FUORICITTÀ PREZZO**. Significato confermato: **[NUOVO]**
+  - **KM INCLUDED** → si applica alle consegne **all'interno dello stesso comune**: è la soglia di KM inclusi senza sovrapprezzo (per i servizi a prezzo fisso).
+  - **EXTRA FUORICITTÀ PREZZO** → è il **costo per consegne fuori dal comune**; il controllo comune/fuori-comune viene fatto **all'inserimento di una nuova consegna**.
 - **Categorie di prodotti** venduti dal partner.
 - **Notifiche**: possibilità di inviare SMS, notifiche WhatsApp, notifiche mail.
-- **Pagamenti e contratto**: periodo di validità del contratto (date), metodo di pagamento (bonifico/carta/SDD), conto bancario, nome del conto, CODICE SDI, stato del pagamento (Active/Inactive/Blocked). **[NUOVO]**
-- **Fatturazione & Actions**: mail fatturazione + flag ABILITA FATTURAZIONE.
-- **Indirizzo di ritiro multiplo**: flag per partner con più punti di ritiro. **[NUOVO]**
-- **Campi di vendita**: URL del negozio + immagine. **[NUOVO]**
-- **Sicurezza**: VERIFICA DELL'IDENTITÀ VALET e CODICE DI CONSEGNA RICHIESTO impostabili a livello partner. **[NUOVO]**
-- **Partner Magazzino**: flag che qualifica il partner come magazzino. **[NUOVO]**
+- **Pagamenti e contratto**: periodo di validità del contratto (`startContractDate`/`endContractDate`), metodo di pagamento (bonifico/carta/SDD), conto bancario (IBAN), nome del conto, CODICE SDI, stato del pagamento (Active/Inactive/Blocked). **[NUOVO]** Le date contratto alimentano un job notturno (cron `checkingPartnerContract`, 03:00) che avvisa alla scadenza del contratto (flag `contractExpiryNotificationSent`). **[NUOVO — da codice backend]**
+- **Fatturazione & Actions**: mail fatturazione (`billingEmail`) + flag ABILITA FATTURAZIONE (`billingAccess`).
+- **Indirizzo di ritiro multiplo**: flag `isMultiplePickUpAddress`; quando attivo il partner ha una **lista di indirizzi di ritiro** (`pickupAddresses`, array) e **al momento della creazione della consegna si sceglie da quale indirizzo ritirare**. **[NUOVO]**
+- **Campi di vendita**: URL del negozio (`partnerShopUrl`) + immagine (`saleImage`), usati nella presentazione delle vendite. **[NUOVO]**
+- **Sicurezza**: VERIFICA DELL'IDENTITÀ VALET (`checkExpertIndentity`) e CODICE DI CONSEGNA RICHIESTO (`deliveryCodeCheck`) impostabili a livello partner. Il codice ha un **tipo** (`deliveryCodeCheckType`): **[NUOVO]**
+  - `UNIQUE_PER_DELIVERY` (default): un **codice OTP diverso per ogni consegna**, inviato al cliente alla creazione della consegna; il valet può **reinviarlo** in fase di consegna.
+  - `UNIQUE_PER_CUSTOMER`: un codice **fisso per il cliente** (come il PIN di una carta), assegnato una volta e valido per sempre; il cliente può chiederne la **rigenerazione** alla boutique tramite la sezione Customers dell'app (sui clienti della boutique).
+- **Partner Magazzino**: flag `partnerHasWarehouse` che qualifica il partner come magazzino. **[NUOVO]**
 - **WooCommerce API key**: GENERATE KEY / COPY KEY per collegare il plugin deluxy-send-order.
 - **Documentazione e note**. Bottoni: SALVA e DUPLICA.
+
+> **Note tecniche (da entità `partner.entity.ts`):** il campo NOME* corrisponde a `businessName` (l'insegna) mentre AZIENDA è un campo separato `agency` (ragione sociale). Indirizzo, `city`, `latitude`/`longitude` vengono geocodificati automaticamente. Oltre ai valori per-servizio esistono anche `kmIncluded` ed `extraOutSideCityKmPrice` **a livello di partner** (soglia KM inclusi e prezzo extra fuori città globali). Le 3 notifiche sono `sendSms` / `receiveWhatsappMsg` / `receiveEmailMsg`.
 
 #### Sottosezioni Partner
 
@@ -137,7 +146,7 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 
 - **Utenti** (`/utenti`): 550 utenti; colonne ID, Email, Cognome, Nome, Ruolo (nessuno/admin/expert/partner/operation, modificabile in linea), Attivo (Attivo/Disattivo/Da convalidare/Sconosciuto), Elimina. Visibile solo ad Admin. Qui si attivano gli utenti appena registrati e si trasformano in Admin.
 - **Operation** (`/operation`): staff d'ufficio (14 persone): Cognome, Nome, Email, Telefono, Attivo + AGGIUNGI.
-- **Customers** (`/customers`): 4.092 clienti; colonne: ID, Owner (Admin/Operation/Partner), Partner, Cognome, Nome, Email, Data nascita, Citofono, Telefono, Indirizzo, Note. Azioni: DELIVERY (crea consegna dal cliente), MODIFICA, ELIMINA; AGGIUNGI, ESPORTA, IMPORTARE, formato CSV.
+- **Customers** (`/customers`): 4.092 clienti; colonne: ID, Owner (Admin/Operation/Partner), Partner, Cognome, Nome, Email, Data nascita, Citofono, Telefono, Indirizzo, Note. Azioni: DELIVERY (crea consegna dal cliente), MODIFICA, ELIMINA; AGGIUNGI, ESPORTA, IMPORTARE, formato CSV. Da questa sezione la boutique può **rigenerare il codice di consegna "fisso" del cliente** quando il partner usa `deliveryCodeCheckType = UNIQUE_PER_CUSTOMER` (vedi 3.3 Sicurezza). **[NUOVO]**
 
 ### 3.6 Prodotti (`/prodotti`)
 
