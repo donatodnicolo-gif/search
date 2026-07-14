@@ -3,10 +3,11 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Contact, Deal, Place, Visit } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
-import { fetchContatti, fetchDealPlace, fetchPlace, fetchVisitePlace } from '@/lib/db';
+import { aggiornaPlace, fetchContatti, fetchDealPlace, fetchPlace, fetchVisitePlace } from '@/lib/db';
 import { dealsPerPlace } from '@/lib/hubspot';
 import { env } from '@/lib/env';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
+import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { Loader } from '../../_layout';
 
@@ -50,6 +51,17 @@ export default function SchedaAttivita() {
     }, [carica]),
   );
 
+  // Imposta/cambia la tipologia di interesse (linea) direttamente da qui.
+  async function salvaLinea(linea: string) {
+    if (!place) return;
+    setPlace({ ...place, linea_ipotizzata: linea });
+    try {
+      await aggiornaPlace(place.id, { linea_ipotizzata: linea });
+    } catch {
+      /* riprova al prossimo focus */
+    }
+  }
+
   if (loading) return <Loader />;
   if (!place) {
     return (
@@ -91,6 +103,9 @@ export default function SchedaAttivita() {
         <View style={{ marginTop: spacing.md }}>
           <BoxIpotesi linea={place.linea_ipotizzata} aggancio={place.aggancio_apertura} />
         </View>
+
+        <Text style={styles.interesseLbl}>Tipologia di interesse — tocca per impostarla</Text>
+        <LineaSelector value={place.linea_ipotizzata} onChange={salvaLinea} />
 
         <Pressable style={styles.btnVisita} onPress={() => router.push(`/(app)/visita/${place.id}`)}>
           <Text style={styles.btnVisitaTxt}>+ Nuova visita</Text>
@@ -203,6 +218,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   vuoto: { color: colors.grigio, fontStyle: 'italic' },
+  interesseLbl: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.oro,
+    letterSpacing: 1,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+  },
   btnSecondario: {
     borderWidth: 1.5,
     borderColor: colors.navy,
