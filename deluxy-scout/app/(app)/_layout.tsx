@@ -27,7 +27,6 @@ export default function AppLayout() {
           backgroundColor: colors.bianco,
           borderTopColor: colors.grigioChiaro,
         },
-        sceneContainerStyle: { backgroundColor: colors.sfondo },
       }}
     >
       <Tabs.Screen
