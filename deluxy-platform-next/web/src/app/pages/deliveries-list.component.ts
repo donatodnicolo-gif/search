@@ -11,31 +11,38 @@ import { DELIVERY_STATUS_LABELS, Delivery } from '../core/models';
   imports: [FormsModule, DatePipe],
   template: `
     <div class="page-header">
-      <h1>Consegne</h1>
+      <div>
+        <h1>Consegne</h1>
+        <p class="page-caption">Tutte le consegne della rete, in tempo reale.</p>
+      </div>
       <div class="filters">
-        <select [(ngModel)]="statusFilter" (ngModelChange)="load()">
+        <select class="field" [(ngModel)]="statusFilter" (ngModelChange)="load()">
           <option value="">Tutti gli stati</option>
           @for (entry of statusOptions; track entry[0]) {
             <option [value]="entry[0]">{{ entry[1] }}</option>
           }
         </select>
         <input
+          class="field"
           type="date"
           [(ngModel)]="dateFilter"
           (ngModelChange)="load()"
         />
-        <button class="refresh" (click)="load()">Aggiorna</button>
+        <button class="btn btn-primary" (click)="load()">Aggiorna</button>
       </div>
     </div>
 
     @if (loading()) {
-      <div class="info">Caricamento consegne...</div>
+      <div class="card state-card">Caricamento consegne…</div>
     } @else if (error()) {
-      <div class="error">{{ error() }}</div>
+      <div class="state-card error-card">{{ error() }}</div>
     } @else if (deliveries().length === 0) {
-      <div class="info">Nessuna consegna trovata.</div>
+      <div class="card state-card">
+        <strong>Nessuna consegna trovata.</strong>
+        <span class="muted">Modifica i filtri o aggiungi una nuova consegna.</span>
+      </div>
     } @else {
-      <div class="table-wrap">
+      <div class="card table-wrap">
         <table>
           <thead>
             <tr>
@@ -48,26 +55,26 @@ import { DELIVERY_STATUS_LABELS, Delivery } from '../core/models';
               <th>Ritiro</th>
               <th>Valet</th>
               <th>Stato</th>
-              <th>Prezzo</th>
+              <th class="num">Prezzo</th>
             </tr>
           </thead>
           <tbody>
             @for (d of deliveries(); track d.id) {
               <tr>
-                <td>{{ d.code }}</td>
+                <td class="mono">{{ d.code }}</td>
                 <td>{{ d.date | date: 'dd/MM/yyyy' }}</td>
                 <td>{{ d.serviceType?.name }}</td>
-                <td>{{ d.partner?.insegna }}</td>
+                <td class="strong">{{ d.partner?.insegna }}</td>
                 <td>{{ d.recipientFirstName }} {{ d.recipientLastName }}</td>
-                <td>{{ d.recipientAddress }}</td>
+                <td class="muted">{{ d.recipientAddress }}</td>
                 <td>
                   @if (d.pickupTimeFrom) {
-                    {{ d.pickupTimeFrom }}-{{ d.pickupTimeTo }}
+                    {{ d.pickupTimeFrom }}–{{ d.pickupTimeTo }}
                     @if (d.pickupFlexible) {
-                      <span class="flex-badge">flessibile</span>
+                      <span class="pill pill-flex">flessibile</span>
                     }
                   } @else {
-                    -
+                    <span class="muted">—</span>
                   }
                 </td>
                 <td>
@@ -78,11 +85,13 @@ import { DELIVERY_STATUS_LABELS, Delivery } from '../core/models';
                   }
                 </td>
                 <td>
-                  <span class="status" [class]="'status s-' + d.status">
-                    {{ statusLabel(d.status) }}
+                  <span class="pill" [class]="'pill s-' + d.status">
+                    <span class="dot"></span>{{ statusLabel(d.status) }}
                   </span>
                 </td>
-                <td>{{ d.price != null ? (d.price + ' €') : '-' }}</td>
+                <td class="num strong">
+                  {{ d.price != null ? (d.price + ' €') : '—' }}
+                </td>
               </tr>
             }
           </tbody>
@@ -94,123 +103,137 @@ import { DELIVERY_STATUS_LABELS, Delivery } from '../core/models';
     `
       .page-header {
         display: flex;
-        align-items: center;
+        align-items: flex-end;
         justify-content: space-between;
         flex-wrap: wrap;
-        gap: 12px;
-        margin-bottom: 20px;
+        gap: 16px;
+        margin-bottom: 24px;
       }
       h1 {
         margin: 0;
-        font-size: 24px;
+        font-size: 32px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+      }
+      .page-caption {
+        margin: 4px 0 0;
+        color: var(--text-secondary);
+        font-size: 14px;
       }
       .filters {
         display: flex;
         gap: 10px;
-      }
-      select,
-      input[type='date'] {
-        border: 1px solid var(--deluxy-border);
-        border-radius: 8px;
-        padding: 8px 10px;
-        font-size: 13px;
-        background: var(--deluxy-white);
-      }
-      .refresh {
-        background: var(--deluxy-dark);
-        color: var(--deluxy-gold);
-        border: none;
-        border-radius: 8px;
-        padding: 8px 16px;
-        cursor: pointer;
-        font-size: 13px;
+        align-items: center;
       }
       .table-wrap {
-        background: var(--deluxy-white);
-        border: 1px solid var(--deluxy-border);
-        border-radius: 12px;
         overflow-x: auto;
       }
       table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 13px;
+        font-size: 13.5px;
       }
       th,
       td {
         text-align: left;
-        padding: 12px 14px;
-        border-bottom: 1px solid var(--deluxy-border);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--hairline);
         white-space: nowrap;
       }
       th {
-        background: #fafaf7;
-        font-weight: 600;
-        color: var(--deluxy-muted);
+        font-weight: 500;
+        color: var(--text-tertiary);
         font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
+        position: sticky;
+        top: 0;
+        background: var(--surface);
+      }
+      th.num,
+      td.num {
+        text-align: right;
+      }
+      tbody tr {
+        transition: background 0.14s var(--ease);
+      }
+      tbody tr:hover {
+        background: rgba(120, 120, 128, 0.05);
       }
       tr:last-child td {
         border-bottom: none;
       }
+      .mono {
+        font-variant-numeric: tabular-nums;
+        color: var(--text-secondary);
+      }
+      .strong {
+        font-weight: 550;
+      }
       .muted {
-        color: var(--deluxy-muted);
-        font-style: italic;
+        color: var(--text-tertiary);
       }
-      .flex-badge {
-        background: #eef2ff;
-        color: #4338ca;
-        border-radius: 10px;
-        font-size: 11px;
-        padding: 2px 8px;
-        margin-left: 4px;
-      }
-      .status {
-        border-radius: 10px;
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 980px;
         padding: 3px 10px;
         font-size: 12px;
-        font-weight: 600;
-        background: #f3f4f6;
-        color: #374151;
+        font-weight: 550;
+        background: var(--fill);
+        color: var(--text-secondary);
+      }
+      .pill .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.85;
+      }
+      .pill-flex {
+        background: rgba(0, 113, 227, 0.1);
+        color: var(--blue);
+        margin-left: 6px;
+      }
+      .pill-flex::before {
+        content: none;
       }
       .s-created {
-        background: #fef3c7;
-        color: #92400e;
+        background: rgba(255, 149, 0, 0.12);
+        color: #b25000;
       }
       .s-assigned,
       .s-accepted,
       .s-in_preparation {
-        background: #dbeafe;
-        color: #1e40af;
+        background: rgba(0, 113, 227, 0.1);
+        color: var(--blue);
       }
       .s-in_delivery {
-        background: #ede9fe;
-        color: #5b21b6;
+        background: rgba(109, 63, 196, 0.11);
+        color: var(--purple);
       }
       .s-delivered,
       .s-delivered_time_approved {
-        background: #d1fae5;
-        color: #065f46;
+        background: rgba(36, 138, 61, 0.12);
+        color: var(--green);
       }
       .s-not_delivered,
       .s-cancelled,
       .s-not_accepted {
-        background: #fee2e2;
-        color: #991b1b;
+        background: rgba(215, 0, 21, 0.09);
+        color: var(--red);
       }
-      .info {
-        background: var(--deluxy-white);
-        border: 1px solid var(--deluxy-border);
-        border-radius: 12px;
-        padding: 24px;
-        color: var(--deluxy-muted);
+      .state-card {
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        color: var(--text-secondary);
       }
-      .error {
-        background: #fde8e8;
-        color: #b91c1c;
-        border-radius: 12px;
-        padding: 24px;
+      .error-card {
+        background: rgba(215, 0, 21, 0.06);
+        border: 1px solid rgba(215, 0, 21, 0.15);
+        border-radius: var(--radius-l);
+        color: var(--red);
       }
     `,
   ],
