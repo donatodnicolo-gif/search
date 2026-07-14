@@ -1,7 +1,8 @@
-import { Redirect } from 'expo-router';
+import { Redirect, router, useNavigation } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { DrawerActions } from '@react-navigation/native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { useAuth } from '@/lib/auth';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -10,6 +11,30 @@ import { Loader } from '../_layout';
 // Icone testuali semplici (niente dipendenze extra di icon set).
 function DrawerIcon({ glifo }: { glifo: string }) {
   return <Text style={{ fontSize: 20 }}>{glifo}</Text>;
+}
+
+// Pulsante ☰ nell'header: apre/chiude il menu laterale. Testuale così è
+// sempre visibile anche sul web (l'icona di default usa un font non caricato).
+function BtnMenu() {
+  const nav = useNavigation();
+  return (
+    <Pressable
+      onPress={() => nav.dispatch(DrawerActions.toggleDrawer())}
+      style={styles.headerBtn}
+      accessibilityLabel="Apri menu"
+    >
+      <Text style={styles.headerIco}>☰</Text>
+    </Pressable>
+  );
+}
+
+// Pulsante ‹ Indietro per le schermate di dettaglio.
+function BtnIndietro() {
+  return (
+    <Pressable onPress={() => router.back()} style={styles.headerBtn} accessibilityLabel="Indietro">
+      <Text style={styles.headerFreccia}>‹</Text>
+    </Pressable>
+  );
 }
 
 // Contenuto del drawer con intestazione brand (logo D) + voci.
@@ -35,7 +60,12 @@ export default function AppLayout() {
   if (loading) return <Loader />;
   if (!session) return <Redirect href="/(auth)/login" />;
 
-  const nascosta = { drawerItemStyle: { display: 'none' as const } };
+  // Schermata di dettaglio: fuori dal menu + freccia indietro al posto del ☰.
+  const dettaglio = (title: string) => ({
+    title,
+    drawerItemStyle: { display: 'none' as const },
+    headerLeft: () => <BtnIndietro />,
+  });
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -46,6 +76,7 @@ export default function AppLayout() {
           headerTintColor: colors.testo,
           headerTitleStyle: { fontWeight: '600', letterSpacing: -0.3 },
           headerShadowVisible: false,
+          headerLeft: () => <BtnMenu />,
           drawerType: 'front',
           drawerStyle: { backgroundColor: colors.bianco, width: 268, borderRightColor: colors.grigioChiaro },
           drawerActiveTintColor: colors.oro,
@@ -63,20 +94,23 @@ export default function AppLayout() {
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard', drawerIcon: () => <DrawerIcon glifo="📊" /> }} />
         <Drawer.Screen name="profilo" options={{ title: 'Profilo', drawerIcon: () => <DrawerIcon glifo="👤" /> }} />
 
-        {/* Rotte di dettaglio: raggiungibili via navigazione, nascoste dal menu */}
-        <Drawer.Screen name="attivita/[id]" options={{ ...nascosta, title: 'Attività' }} />
-        <Drawer.Screen name="visita/[placeId]" options={{ ...nascosta, title: 'Nuova visita' }} />
-        <Drawer.Screen name="contatto/[placeId]" options={{ ...nascosta, title: 'Nuovo contatto' }} />
-        <Drawer.Screen name="nuovo-target" options={{ ...nascosta, title: 'Nuovo target' }} />
-        <Drawer.Screen name="modifica/[id]" options={{ ...nascosta, title: 'Modifica attività' }} />
-        <Drawer.Screen name="visita-dettaglio/[id]" options={{ ...nascosta, title: 'Dettaglio visita' }} />
-        <Drawer.Screen name="nascosti" options={{ ...nascosta, title: 'Nascosti' }} />
+        {/* Rotte di dettaglio: nascoste dal menu, con freccia indietro */}
+        <Drawer.Screen name="attivita/[id]" options={dettaglio('Attività')} />
+        <Drawer.Screen name="visita/[placeId]" options={dettaglio('Nuova visita')} />
+        <Drawer.Screen name="contatto/[placeId]" options={dettaglio('Nuovo contatto')} />
+        <Drawer.Screen name="nuovo-target" options={dettaglio('Nuovo target')} />
+        <Drawer.Screen name="modifica/[id]" options={dettaglio('Modifica attività')} />
+        <Drawer.Screen name="visita-dettaglio/[id]" options={dettaglio('Dettaglio visita')} />
+        <Drawer.Screen name="nascosti" options={dettaglio('Nascosti')} />
       </Drawer>
     </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  headerBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  headerIco: { fontSize: 22, color: colors.testo },
+  headerFreccia: { fontSize: 30, color: colors.testo, marginTop: -6, fontWeight: '400' },
   scroll: { paddingTop: 0 },
   brand: {
     flexDirection: 'row',
