@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: deluxy-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: deluxy
+      POSTGRES_PASSWORD: deluxy
+      POSTGRES_DB: deluxy
+    ports:
+      - "5432:5432"
+    volumes:
+      - deluxy_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deluxy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: deluxy-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # In container si usa PostgreSQL: ricordarsi di impostare
+      # provider = "postgresql" in api/prisma/schema.prisma prima della build.
+      DATABASE_URL: postgresql://deluxy:deluxy@postgres:5432/deluxy?schema=public
+      JWT_SECRET: cambia-questo-segreto-in-produzione
+      JWT_EXPIRES_IN: 8h
+      PORT: 3000
+      CORS_ORIGINS: http://localhost:4200
+    ports:
+      - "3000:3000"
+
+volumes:
+  deluxy_pgdata:

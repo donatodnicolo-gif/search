@@ -1,0 +1,18 @@
+{
+  "name": "Deluxy Platform",
+  "short_name": "Deluxy",
+  "description": "Piattaforma Deluxy - consegne in guanti bianchi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111318",
+  "theme_color": "#111318",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

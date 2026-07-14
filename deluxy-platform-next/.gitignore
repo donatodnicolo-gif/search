@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.angular/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Prisma (SQLite dev database)
+*.db
+*.db-journal
+api/prisma/migrations/dev/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,23 @@
+{
+  "name": "deluxy-platform-next",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deluxy Platform Next - ambiente di sviluppo moderno per app.deluxy.it (logistica consegne in guanti bianchi)",
+  "workspaces": [
+    "api",
+    "web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:api": "npm run start:dev -w api",
+    "dev:web": "npm run start -w web",
+    "build": "npm run build -w api && npm run build -w web",
+    "build:api": "npm run build -w api",
+    "build:web": "npm run build -w web",
+    "prisma:generate": "npm run prisma:generate -w api",
+    "prisma:migrate": "npm run prisma:migrate -w api",
+    "seed": "npm run seed -w api"
+  }
+}

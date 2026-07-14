@@ -1,0 +1,585 @@
+// ============================================================
+// Deluxy Platform - Schema dati completo
+// ------------------------------------------------------------
+// Dev:  provider "sqlite"  + DATABASE_URL="file:./dev.db"
+// Prod: provider "postgresql" + DATABASE_URL="postgresql://..."
+//   (Prisma non permette di cambiare provider via env: per il
+//    passaggio a PostgreSQL modificare la riga `provider` qui
+//    sotto e rigenerare le migrazioni. Gli "enum" sono modellati
+//    come String per compatibilita' SQLite; i valori ammessi sono
+//    definiti in api/src/common/enums.ts e validati nei DTO.)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+// Utenti e ruoli
+// role: ADMIN | OPERATION | PARTNER | VALET | PROJECT_MANAGER
+// isSupport: admin "support" -> vede Finanza / marginalita'
+// ------------------------------------------------------------
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         String
+  isSupport    Boolean  @default(false)
+  active       Boolean  @default(true)
+  partnerId    String?
+  partner      Partner? @relation(fields: [partnerId], references: [id])
+  valetId      String?  @unique
+  valet        Valet?   @relation(fields: [valetId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ------------------------------------------------------------
+// Geografia: province e citta'
+// ------------------------------------------------------------
+model Province {
+  id                String             @id @default(cuid())
+  name              String
+  code              String             @unique // es. "MI"
+  cities            City[]
+  partnerProvinces  PartnerProvince[]
+  valetProvinces    ValetProvince[]
+  categoryDiscounts CategoryDiscount[]
+  sales             Sale[]
+}
+
+model City {
+  id         String   @id @default(cuid())
+  name       String
+  provinceId String
+  province   Province @relation(fields: [provinceId], references: [id])
+}
+
+// ------------------------------------------------------------
+// Tipi di servizio
+// pricingModel: PREZZO_FISSO | A_ORA | VENDITA | CORPORATE | MAGAZZINO
+// MAGAZZINO: basePrice + perPiecePrice + transportPrice
+// A_ORA: minimo 1 ora (minHours)
+// Il matching automatico avviene per pricingModel:
+//   servizio prezzo fisso del partner <-> salario prezzo fisso del valet
+// ------------------------------------------------------------
+model ServiceType {
+  id              String           @id @default(cuid())
+  name            String
+  code            String           @unique
+  pricingModel    String
+  basePrice       Float?
+  perPiecePrice   Float?
+  transportPrice  Float?
+  minHours        Int?             @default(1)
+  active          Boolean          @default(true)
+  partnerServices PartnerService[]
+  valetServices   ValetService[]
+  deliveries      Delivery[]
+}
+
+// ------------------------------------------------------------
+// Partner (negozi)
+// ------------------------------------------------------------
+model Partner {
+  id                  String            @id @default(cuid())
+  insegna             String
+  businessName        String? // ragione sociale
+  email               String            @unique
+  vatNumber           String? // P.IVA
+  fiscalCode          String? // CF
+  address             String?
+  phone               String?
+  contactName         String? // referente
+  invoicingEnabled    Boolean           @default(false)
+  invoiceEmail        String?
+  smsTemplatesEnabled Boolean           @default(false)
+  notificationsEnabled Boolean          @default(true)
+  documentation       String?
+  notes               String?
+  woocommerceApiKey   String?           @unique
+  // Stato pagamenti del partner (legacy): active | inactive | blocked
+  paymentStatus       String            @default("active")
+  // Metodo di pagamento (legacy): bankTransfer | creditCard | directDebitMandate
+  paymentMethod       String?
+  active              Boolean           @default(true)
+  provinces           PartnerProvince[]
+  services            PartnerService[]
+  categories          PartnerCategory[]
+  openingHours        OpeningHour[]
+  products            Product[]
+  deliveries          Delivery[]
+  customers           Customer[]
+  users               User[]
+  smsTemplates        SmsTemplate[]
+  sales               Sale[]
+  deliveryRules       DeliveryRulePartner[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+}
+
+model PartnerProvince {
+  id         String   @id @default(cuid())
+  partnerId  String
+  provinceId String
+  partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  province   Province @relation(fields: [provinceId], references: [id])
+
+  @@unique([partnerId, provinceId])
+}
+
+// Servizi abilitati per partner: prezzo, KM inclusi, extra fuori citta', extra KM
+model PartnerService {
+  id                  String      @id @default(cuid())
+  partnerId           String
+  serviceTypeId       String
+  price               Float
+  includedKm          Float       @default(0)
+  extraKmPrice        Float       @default(0)
+  extraOutOfCityPrice Float       @default(0)
+  partner             Partner     @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  serviceType         ServiceType @relation(fields: [serviceTypeId], references: [id])
+
+  @@unique([partnerId, serviceTypeId])
+}
+
+// Categorie di prodotto vendute dal partner, con priorita' di smistamento vendite
+model PartnerCategory {
+  id         String   @id @default(cuid())
+  partnerId  String
+  categoryId String
+  priority   Int      @default(0) // ordine nella lista priorita' smistamento vendite
+  partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([partnerId, categoryId])
+}
+
+// Orari di apertura settimanali (dayOfWeek: 0=domenica ... 6=sabato)
+model OpeningHour {
+  id        String  @id @default(cuid())
+  partnerId String
+  dayOfWeek Int
+  openTime  String? // "09:00"
+  closeTime String? // "19:30"
+  closed    Boolean @default(false)
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------------------------
+// Valet (corrieri)
+// ------------------------------------------------------------
+// NB: nella piattaforma legacy il valet si chiama internamente "expert"
+// (es. endpoint /api/experts/...). Qui usiamo "valet" come nel linguaggio
+// di business.
+model Valet {
+  id                  String            @id @default(cuid())
+  firstName           String
+  lastName            String
+  email               String            @unique
+  phone               String?
+  address             String?
+  hasVat              Boolean           @default(false) // flag P.IVA
+  vatNumber           String?
+  fiscalCode          String?
+  birthPlace          String?
+  birthDate           DateTime?
+  iban                String?
+  isTeamLeader        Boolean           @default(false)
+  vehicle             String? // mezzo: Auto | Bicicletta | Furgone | Moto/Scooter
+  withholdingPercent  Float             @default(0) // % ritenuta rimborso
+  notifyByEmail       Boolean           @default(true)
+  notifyByWhatsapp    Boolean           @default(false)
+  active              Boolean           @default(true)
+  provinces           ValetProvince[]
+  services            ValetService[]
+  deliveries          Delivery[]
+  activities          Activity[]
+  availabilities      ValetAvailability[]
+  salaries            Salary[]
+  payments            Payment[]
+  user                User?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+}
+
+model ValetProvince {
+  id         String   @id @default(cuid())
+  valetId    String
+  provinceId String
+  valet      Valet    @relation(fields: [valetId], references: [id], onDelete: Cascade)
+  province   Province @relation(fields: [provinceId], references: [id])
+
+  @@unique([valetId, provinceId])
+}
+
+// Servizi con salario per valet (matching per pricingModel con PartnerService)
+model ValetService {
+  id            String      @id @default(cuid())
+  valetId       String
+  serviceTypeId String
+  salary        Float
+  valet         Valet       @relation(fields: [valetId], references: [id], onDelete: Cascade)
+  serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
+
+  @@unique([valetId, serviceTypeId])
+}
+
+// Disponibilita' del valet
+model ValetAvailability {
+  id        String   @id @default(cuid())
+  valetId   String
+  date      DateTime
+  timeFrom  String? // "08:00"
+  timeTo    String? // "20:00"
+  available Boolean  @default(true)
+  valet     Valet    @relation(fields: [valetId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------------------------
+// Prodotti e categorie
+// type: UNICO | NON_UNICO | SUPERPRODOTTO
+// - UNICO: appartiene a un partner
+// - NON_UNICO: es. fiori, vendibile da piu' partner
+// - SUPERPRODOTTO: combinazione di altri prodotti (ProductComponent)
+// isAutoDiscounted + parentProductId: prodotti scontati generati
+//   automaticamente dagli sconti % per categoria/provincia
+// ------------------------------------------------------------
+model Category {
+  id               String             @id @default(cuid())
+  name             String             @unique
+  products         Product[]
+  discounts        CategoryDiscount[]
+  partnerCategories PartnerCategory[]
+}
+
+// Sconto % per categoria e provincia -> genera prodotti scontati automatici
+model CategoryDiscount {
+  id              String   @id @default(cuid())
+  categoryId      String
+  provinceId      String
+  discountPercent Float
+  category        Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  province        Province @relation(fields: [provinceId], references: [id])
+
+  @@unique([categoryId, provinceId])
+}
+
+model Product {
+  id                      String             @id @default(cuid())
+  name                    String
+  description             String?
+  price                   Float
+  type                    String // UNICO | NON_UNICO | SUPERPRODOTTO
+  partnerId               String?
+  partner                 Partner?           @relation(fields: [partnerId], references: [id])
+  categoryId              String?
+  category                Category?          @relation(fields: [categoryId], references: [id])
+  visibleToOtherPartners  Boolean            @default(false)
+  isAutoDiscounted        Boolean            @default(false)
+  parentProductId         String?
+  parentProduct           Product?           @relation("DiscountedVariants", fields: [parentProductId], references: [id])
+  discountedVariants      Product[]          @relation("DiscountedVariants")
+  components              ProductComponent[] @relation("SuperProduct")
+  usedInSuperProducts     ProductComponent[] @relation("ComponentProduct")
+  fields                  ProductField[]
+  deliveryProducts        DeliveryProduct[]
+  sales                   Sale[]
+  active                  Boolean            @default(true)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+}
+
+// Componenti di un superprodotto
+model ProductComponent {
+  id                 String  @id @default(cuid())
+  superProductId     String
+  componentProductId String
+  quantity           Int     @default(1)
+  superProduct       Product @relation("SuperProduct", fields: [superProductId], references: [id], onDelete: Cascade)
+  componentProduct   Product @relation("ComponentProduct", fields: [componentProductId], references: [id])
+
+  @@unique([superProductId, componentProductId])
+}
+
+// Campi testuali del prodotto (obbligatori / opzionali / solo-admin)
+model ProductField {
+  id        String  @id @default(cuid())
+  productId String
+  name      String
+  required  Boolean @default(false)
+  adminOnly Boolean @default(false)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------------------------
+// Clienti
+// ------------------------------------------------------------
+model Customer {
+  id         String     @id @default(cuid())
+  firstName  String
+  lastName   String
+  email      String?
+  phone      String?
+  address    String?
+  notes      String?
+  partnerId  String?
+  partner    Partner?   @relation(fields: [partnerId], references: [id])
+  deliveries Delivery[]
+  sales      Sale[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+// ------------------------------------------------------------
+// Consegne
+// status: created | assigned | in_preparation | accepted |
+//         in_delivery | delivered | not_delivered | cancelled |
+//         cancellation_requested | not_accepted |
+//         delivered_time_approved | delivered_time_not_approved
+// DDT: lo stesso ddtNumber su piu' ritiri (DeliveryPickup) = una consegna
+// ------------------------------------------------------------
+model Delivery {
+  id                 String            @id @default(cuid())
+  // Numero progressivo leggibile (assegnato dal service: max(code)+1;
+  // autoincrement su campo non-id non e' supportato da SQLite)
+  code               Int               @unique
+  date               DateTime // giorno della consegna
+  serviceTypeId      String
+  serviceType        ServiceType       @relation(fields: [serviceTypeId], references: [id])
+  partnerId          String
+  partner            Partner           @relation(fields: [partnerId], references: [id])
+  valetId            String?
+  valet              Valet?            @relation(fields: [valetId], references: [id])
+  customerId         String?
+  customer           Customer?         @relation(fields: [customerId], references: [id])
+  status             String            @default("created")
+  // Ritiro
+  pickupTimeFrom     String? // "10:00"
+  pickupTimeTo       String? // "12:00"
+  pickupFlexible     Boolean           @default(false)
+  pickupAddress      String?
+  // Destinatario
+  recipientFirstName String
+  recipientLastName  String
+  recipientAddress   String
+  recipientIntercom  String? // citofono
+  recipientPhone     String?
+  // Pagamento alla consegna (contanti detratti dallo stipendio del valet)
+  paymentOnDelivery  Boolean           @default(false)
+  paymentAmount      Float?
+  // Note
+  notes              String?
+  internalNotes      String? // visibili solo ad admin/operation/valet
+  ddtNumber          String?
+  // Distanza e extra (calcolo automatico ritiro -> consegna)
+  distanceKm         Float?
+  extraKm            Float             @default(0)
+  extraOutOfCity     Boolean           @default(false)
+  // Economia
+  price              Float? // prezzo per il partner
+  valetSalary        Float? // paga del valet
+  hours              Float? // per servizi a ora
+  // SMS trigger
+  smsOnCreated       Boolean           @default(false)
+  smsOnDeparted      Boolean           @default(false)
+  smsOnArrived       Boolean           @default(false)
+  products           DeliveryProduct[]
+  pickups            DeliveryPickup[]
+  activities         Activity[]
+  logs               DeliveryLog[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+}
+
+model DeliveryProduct {
+  id          String   @id @default(cuid())
+  deliveryId  String
+  productId   String
+  quantity    Int      @default(1)
+  fieldValues String? // JSON {nomeCampo: valore} per i ProductField
+  delivery    Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id])
+}
+
+// Ritiri multipli sotto lo stesso DDT
+model DeliveryPickup {
+  id         String   @id @default(cuid())
+  deliveryId String
+  address    String
+  timeFrom   String?
+  timeTo     String?
+  ddtNumber  String?
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+}
+
+// Log della consegna: inserita / partita / effettuata / cambi stato
+model DeliveryLog {
+  id         String   @id @default(cuid())
+  deliveryId String
+  type       String // created | departed | delivered | status_change | note
+  message    String
+  userId     String?
+  createdAt  DateTime @default(now())
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------------------------
+// Attivita' (ogni consegna genera attivita' di ritiro + consegna)
+// type: PICKUP | DELIVERY - ordinabili per orario ("reorder with time")
+// Il team leader vede anche le attivita' degli altri valet delle sue province
+// ------------------------------------------------------------
+model Activity {
+  id          String   @id @default(cuid())
+  deliveryId  String
+  delivery    Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  valetId     String?
+  valet       Valet?   @relation(fields: [valetId], references: [id])
+  type        String // PICKUP | DELIVERY
+  status      String   @default("pending") // pending | done | skipped
+  scheduledAt DateTime?
+  timeFrom    String?
+  timeTo      String?
+  address     String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------------------------------------
+// Modelli SMS per brand
+// brand: DELUXY | DELUXY_FLOWERS | CAKEDESIGN_ME | BUSINESS_DELUXY |
+//        DELUXY_EXPERIENCE | DELUXY_DOT_COM
+// trigger: CREATED | DEPARTED | ARRIVED
+// partnerId valorizzato = modello personalizzato del partner (se abilitato)
+// ------------------------------------------------------------
+model SmsTemplate {
+  id        String   @id @default(cuid())
+  brand     String
+  trigger   String
+  name      String
+  text      String
+  partnerId String?
+  partner   Partner? @relation(fields: [partnerId], references: [id])
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ------------------------------------------------------------
+// Regole carnet consegne
+// type: DAILY_COUNT (numero giornaliero) | TOTAL_COUNT (totale nel periodo)
+// partnerBillingAdjustment / valetPayAdjustment: plus/minus applicati
+// Estendibili a piu' partner tramite DeliveryRulePartner
+// ------------------------------------------------------------
+model DeliveryRule {
+  id                       String                @id @default(cuid())
+  name                     String
+  type                     String
+  deliveryCount            Int
+  periodStart              DateTime?
+  periodEnd                DateTime?
+  partnerBillingAdjustment Float                 @default(0)
+  valetPayAdjustment       Float                 @default(0)
+  active                   Boolean               @default(true)
+  partners                 DeliveryRulePartner[]
+  createdAt                DateTime              @default(now())
+}
+
+model DeliveryRulePartner {
+  id             String       @id @default(cuid())
+  deliveryRuleId String
+  partnerId      String
+  deliveryRule   DeliveryRule @relation(fields: [deliveryRuleId], references: [id], onDelete: Cascade)
+  partner        Partner      @relation(fields: [partnerId], references: [id])
+
+  @@unique([deliveryRuleId, partnerId])
+}
+
+// ------------------------------------------------------------
+// Stipendi valet
+// Flusso: DRAFT -> SENT -> RECEIPT_PENDING (ricevuta da firmare)
+//         -> APPROVED -> PAID
+// documentType: PROFORMA_INVOICE (valet con P.IVA) | WITHHOLDING_RECEIPT
+// cashDeductions: contanti incassati alla consegna, detratti
+// ------------------------------------------------------------
+model Salary {
+  id             String    @id @default(cuid())
+  valetId        String
+  valet          Valet     @relation(fields: [valetId], references: [id])
+  periodStart    DateTime
+  periodEnd      DateTime
+  grossAmount    Float
+  cashDeductions Float     @default(0)
+  netAmount      Float
+  documentType   String // PROFORMA_INVOICE | WITHHOLDING_RECEIPT
+  status         String    @default("DRAFT")
+  sentAt         DateTime?
+  approvedAt     DateTime?
+  paidAt         DateTime?
+  receipts       Receipt[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// Ricevute (da firmare -> firmate)
+model Receipt {
+  id       String    @id @default(cuid())
+  salaryId String
+  salary   Salary    @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+  number   String?
+  fileUrl  String?
+  signed   Boolean   @default(false)
+  signedAt DateTime?
+  createdAt DateTime @default(now())
+}
+
+// ------------------------------------------------------------
+// Pagamenti: rimborsi richiesti dai valet, reclami
+// type: REIMBURSEMENT | CLAIM
+// status: REQUESTED | APPROVED | REJECTED | PAID
+// ------------------------------------------------------------
+model Payment {
+  id          String   @id @default(cuid())
+  valetId     String
+  valet       Valet    @relation(fields: [valetId], references: [id])
+  type        String
+  amount      Float
+  description String?
+  status      String   @default("REQUESTED")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------------------------------------
+// Vendite (da app.deluxy.it)
+// Smistamento: prodotto UNICO -> partner della provincia se aperto;
+// NON_UNICO -> lista priorita' partner per provincia+categoria.
+// Sconto arrotondato a 0/5.
+// ------------------------------------------------------------
+model Sale {
+  id              String    @id @default(cuid())
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id])
+  partnerId       String? // partner assegnato dallo smistamento
+  partner         Partner?  @relation(fields: [partnerId], references: [id])
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  provinceId      String
+  province        Province  @relation(fields: [provinceId], references: [id])
+  brand           String    @default("DELUXY")
+  amount          Float
+  discountPercent Float     @default(0)
+  status          String    @default("created") // created | dispatched | completed | cancelled
+  source          String    @default("app") // app | woocommerce
+  externalOrderId String? // id ordine WooCommerce
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
