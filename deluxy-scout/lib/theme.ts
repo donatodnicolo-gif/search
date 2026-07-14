@@ -52,6 +52,23 @@ export const iconaStato: Record<StatoPlace, string> = {
   perso: '✕',
 };
 
+// Icona per tipologia di interesse (linea Deluxy). Chiave = nome linea.
+export const lineaIcona: Record<string, string> = {
+  Consegne: '🚚',
+  Catering: '🍽️',
+  'Regali aziendali': '🎁',
+  Affiliazioni: '🤝',
+  'Re-seller': '🏪',
+  'Food Supplier': '🥐',
+  Clientelling: '👤',
+  Concierge: '🛎️',
+  Magazzino: '📦',
+};
+
+export function iconaLinea(linea: string | null | undefined): string {
+  return (linea && lineaIcona[linea]) || '📍';
+}
+
 // Etichette leggibili per le fasi trattativa (dealstage HubSpot).
 export const labelFase: Record<DealStage, string> = {
   appointmentscheduled: 'Appuntamento fissato',

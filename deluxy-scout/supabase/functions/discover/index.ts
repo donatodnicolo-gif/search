@@ -106,13 +106,24 @@ Deno.serve(async (req) => {
     const cached = Boolean(area && area.refresh_at > soglia);
 
     if (!cached) {
-      // Interroga Google Places Nearby (tutte le attività nel raggio).
-      const url = `${NEARBY}?location=${lat},${lng}&radius=${radius}&language=it&key=${key}`;
-      const g = await (await fetch(url)).json();
-      if (g.status !== 'OK' && g.status !== 'ZERO_RESULTS') {
-        return json({ error: g.error_message ?? g.status, status: g.status }, 502);
+      // Interroga Google Places Nearby con paginazione (fino a ~60 risultati, 3 pagine).
+      let risultati: any[] = [];
+      let pageUrl = `${NEARBY}?location=${lat},${lng}&radius=${radius}&language=it&key=${key}`;
+      for (let page = 0; page < 3; page++) {
+        const g = await (await fetch(pageUrl)).json();
+        if (g.status !== 'OK' && g.status !== 'ZERO_RESULTS') {
+          if (page === 0) return json({ error: g.error_message ?? g.status, status: g.status }, 502);
+          break; // pagine successive fallite: tieni quello che abbiamo
+        }
+        risultati = risultati.concat(g.results ?? []);
+        if (!g.next_page_token) break;
+        // Il pagetoken diventa valido dopo un breve ritardo lato Google.
+        await new Promise((r) => setTimeout(r, 2000));
+        pageUrl = `${NEARBY}?pagetoken=${g.next_page_token}&key=${key}`;
       }
-      const risultati: any[] = g.results ?? [];
+      // Dedup per place_id (le pagine possono sovrapporsi).
+      const visti = new Set<string>();
+      risultati = risultati.filter((r) => r.place_id && !visti.has(r.place_id) && visti.add(r.place_id));
 
       if (risultati.length) {
         const ids = risultati.map((r) => r.place_id);

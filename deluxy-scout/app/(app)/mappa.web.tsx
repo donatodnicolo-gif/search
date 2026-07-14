@@ -1,28 +1,27 @@
-// Variante WEB della schermata Mappa.
-// react-native-maps è solo-nativo: qui niente mappa, ma il flusso "scoperta":
-// digiti un indirizzo → l'app trova i negozi della zona da Google (con cache),
+// Variante WEB della schermata Mappa — flusso "Scoperta sul territorio".
+// Digiti un indirizzo → l'app trova i negozi della zona da Google (con cache),
 // li classifica per linea, tu ⭐ quelli interessanti (= giro) e navighi.
+// Layout curato in stile Apple: liste raggruppate, icone tipologia, filtri a pillole.
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, iconaLinea, radius, spacing } from '@/lib/theme';
 import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
 import { ordinaGiro } from '@/lib/giro';
 import { urlNavigazione, urlNavigazioneGiro } from '@/lib/nav';
 import type { GeocodeResult } from '@/lib/geocode';
 import { scopriNegozi, type ScopertaResult } from '@/lib/discover';
 import { aggiornaStarred } from '@/lib/db';
-import { applicaFiltri, haFiltriAttivi, usePlaces } from '@/lib/usePlaces';
-import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
+import { usePlaces } from '@/lib/usePlaces';
 import { AddressSearch } from '@/components/AddressSearch';
-import { PriorityBadge } from '@/components/PriorityBadge';
 import { Loader } from '../_layout';
+
+const PRIO_COLORE: Record<string, string> = { P1: colors.oro, P2: colors.navy, P3: colors.grigio };
 
 export default function MappaWeb() {
   const router = useRouter();
-  const { places, loading, opzioni } = usePlaces();
-  const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
+  const { loading } = usePlaces();
   const [pos, setPos] = useState<Coord | null>(null);
   const [giroAttivo, setGiroAttivo] = useState(false);
   const [destinazione, setDestinazione] = useState<Coord | null>(null);
@@ -30,6 +29,7 @@ export default function MappaWeb() {
   const [scopLoading, setScopLoading] = useState(false);
   const [scopInfo, setScopInfo] = useState<ScopertaResult | null>(null);
   const [scopErrore, setScopErrore] = useState<string | null>(null);
+  const [filtroLinea, setFiltroLinea] = useState<string | null>(null);
 
   useEffect(() => {
     posizioneCorrente().then(setPos);
@@ -41,6 +41,7 @@ export default function MappaWeb() {
     const c = { lat: r.lat, lng: r.lng };
     setDestinazione(c);
     setGiroAttivo(false);
+    setFiltroLinea(null);
     setScopErrore(null);
     setScopLoading(true);
     try {
@@ -62,6 +63,7 @@ export default function MappaWeb() {
     setScopInfo(null);
     setScopErrore(null);
     setGiroAttivo(false);
+    setFiltroLinea(null);
   }
 
   async function toggleStar(p: Place) {
@@ -74,19 +76,23 @@ export default function MappaWeb() {
     }
   }
 
-  const filtrati = useMemo(() => applicaFiltri(places, filtri), [places, filtri]);
-  const visibili = haFiltriAttivi(filtri) ? filtrati : places;
-  const scopertiFiltrati = useMemo(() => applicaFiltri(scoperti, filtri), [scoperti, filtri]);
+  // Tipologie presenti tra i risultati (per il filtro a pillole).
+  const lineePresenti = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of scoperti) if (p.linea_ipotizzata) set.add(p.linea_ipotizzata);
+    return [...set].sort();
+  }, [scoperti]);
 
-  // In modalità scoperta il giro parte dai negozi ⭐ (se ce ne sono), altrimenti da tutti.
+  const scopertiFiltrati = useMemo(
+    () => (filtroLinea ? scoperti.filter((p) => p.linea_ipotizzata === filtroLinea) : scoperti),
+    [scoperti, filtroLinea],
+  );
+
   const giro = useMemo(() => {
     if (!giroAttivo) return [];
-    if (destinazione) {
-      const stellati = scopertiFiltrati.filter((p) => p.starred);
-      return ordinaGiro(stellati.length ? stellati : scopertiFiltrati, origine);
-    }
-    return ordinaGiro(haFiltriAttivi(filtri) ? filtrati : places, origine);
-  }, [giroAttivo, destinazione, scopertiFiltrati, origine, filtrati, places, filtri]);
+    const stellati = scopertiFiltrati.filter((p) => p.starred);
+    return ordinaGiro(stellati.length ? stellati : scopertiFiltrati, origine);
+  }, [giroAttivo, scopertiFiltrati, origine]);
 
   const giroNav = useMemo(
     () => urlNavigazioneGiro(origine, giro.map((p) => ({ lat: p.lat, lng: p.lng }))),
@@ -104,59 +110,77 @@ export default function MappaWeb() {
 
   if (loading) return <Loader />;
 
-  const elenco = giroAttivo ? giro : destinazione ? scopertiFiltrati : visibili;
+  const elenco = giroAttivo ? giro : scopertiFiltrati;
   const stellatiCount = scopertiFiltrati.filter((p) => p.starred).length;
 
   return (
     <View style={styles.container}>
-      <View style={styles.filterBar}>
-        <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} />
-      </View>
-
       <AddressSearch onSelect={onSelectDestinazione} onClear={azzera} />
 
-      <View style={styles.banner}>
+      {/* Caption di stato, leggera */}
+      <View style={styles.caption}>
         {scopLoading ? (
-          <View style={styles.bannerRow}>
-            <ActivityIndicator color={colors.navy} />
-            <Text style={styles.bannerTxt}>Cerco i negozi della zona su Google…</Text>
+          <View style={styles.capRow}>
+            <ActivityIndicator color={colors.navy} size="small" />
+            <Text style={styles.capTxt}>Cerco i negozi della zona…</Text>
           </View>
         ) : scopErrore ? (
-          <Text style={[styles.bannerTxt, { color: colors.errore }]}>{scopErrore}</Text>
+          <Text style={[styles.capTxt, { color: colors.errore }]}>{scopErrore}</Text>
         ) : destinazione && scopInfo ? (
-          <Text style={styles.bannerTxt}>
-            {scopInfo.places.length} attività nella zona
-            {scopInfo.nuovi ? ` · ${scopInfo.nuovi} novità` : ''}
-            {scopInfo.cached ? ' · da cache' : ' · aggiornato da Google'}
-            {stellatiCount ? ` · ${stellatiCount} ⭐ nel giro` : ''}. Metti ⭐ sui negozi interessanti.
+          <Text style={styles.capTxt}>
+            {scopInfo.places.length} attività · {scopInfo.nuovi ? `${scopInfo.nuovi} novità · ` : ''}
+            {scopInfo.cached ? 'da cache' : 'da Google'}
+            {stellatiCount ? ` · ${stellatiCount} ⭐ nel giro` : ''}
           </Text>
         ) : (
-          <Text style={styles.bannerTxt}>
-            🔎 Digita un indirizzo qui sopra: trovo i negozi della zona, li classifico per linea e tu
-            scegli con ⭐ quali visitare.
-          </Text>
+          <Text style={styles.capTxt}>Digita un indirizzo per scoprire i negozi della zona.</Text>
         )}
       </View>
+
+      {/* Filtro tipologia a pillole (solo in scoperta) */}
+      {destinazione && lineePresenti.length > 0 && !giroAttivo ? (
+        <View style={styles.segmentWrap}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.segment}>
+            <Segmento label="Tutte" on={filtroLinea === null} onPress={() => setFiltroLinea(null)} />
+            {lineePresenti.map((l) => (
+              <Segmento
+                key={l}
+                label={`${iconaLinea(l)} ${l}`}
+                on={filtroLinea === l}
+                onPress={() => setFiltroLinea((v) => (v === l ? null : l))}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       <ScrollView contentContainerStyle={styles.lista}>
         {elenco.length === 0 ? (
           <Text style={styles.vuoto}>
-            {destinazione ? 'Nessun negozio trovato in questa zona.' : 'Digita un indirizzo per iniziare.'}
+            {destinazione ? 'Nessun negozio in questa selezione.' : 'Nessun risultato ancora.'}
           </Text>
         ) : (
           elenco.map((p, i) => (
-            <View key={p.id} style={styles.card}>
+            <Pressable
+              key={p.id}
+              style={styles.card}
+              onPress={() => router.push(`/(app)/attivita/${p.id}`)}
+            >
+              {/* Icona tipologia (o numero tappa nel giro) */}
               {giroAttivo ? (
-                <Text style={styles.num}>{i + 1}</Text>
+                <View style={[styles.icona, { backgroundColor: colors.navy }]}>
+                  <Text style={styles.iconaNum}>{i + 1}</Text>
+                </View>
               ) : (
-                <Pressable onPress={() => toggleStar(p)} hitSlop={6} style={styles.star}>
-                  <Text style={[styles.starTxt, p.starred && styles.starOn]}>{p.starred ? '⭐' : '☆'}</Text>
-                </Pressable>
+                <View style={styles.icona}>
+                  <Text style={styles.iconaEmoji}>{iconaLinea(p.linea_ipotizzata)}</Text>
+                </View>
               )}
-              <Pressable style={styles.cardInfo} onPress={() => router.push(`/(app)/attivita/${p.id}`)}>
-                <View style={styles.cardHead}>
-                  <PriorityBadge priorita={p.priorita} small />
-                  <Text style={styles.cardNome} numberOfLines={1}>
+
+              {/* Testo */}
+              <View style={styles.info}>
+                <View style={styles.titoloRow}>
+                  <Text style={styles.nome} numberOfLines={1}>
                     {p.nome}
                   </Text>
                   {p.novita ? (
@@ -164,54 +188,62 @@ export default function MappaWeb() {
                       <Text style={styles.novitaTxt}>NOVITÀ</Text>
                     </View>
                   ) : null}
+                </View>
+                <View style={styles.metaRow}>
+                  <View style={[styles.prioDot, { backgroundColor: PRIO_COLORE[p.priorita] }]} />
+                  <Text style={styles.meta} numberOfLines={1}>
+                    {[
+                      p.linea_ipotizzata,
+                      giroAttivo
+                        ? `${distanzeTappe[i].toFixed(1)} km`
+                        : destinazione
+                          ? `${distanzaKm(destinazione, { lat: p.lat, lng: p.lng }).toFixed(1)} km`
+                          : null,
+                    ]
+                      .filter(Boolean)
+                      .join('  ·  ') || '—'}
+                  </Text>
                   {p.hubspot_deal_aperta ? <Text style={styles.hs}>● trattativa</Text> : null}
                 </View>
-                <Text style={styles.cardMeta} numberOfLines={1}>
-                  {[
-                    p.linea_ipotizzata,
-                    p.indirizzo,
-                    giroAttivo
-                      ? `${distanzeTappe[i].toFixed(1)} km`
-                      : destinazione
-                        ? `${distanzaKm(destinazione, { lat: p.lat, lng: p.lng }).toFixed(1)} km`
-                        : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ') || '—'}
-                </Text>
-              </Pressable>
+              </View>
+
+              {/* Azioni */}
               <Pressable
-                style={styles.cardNav}
+                style={styles.azione}
+                hitSlop={8}
                 onPress={() => Linking.openURL(urlNavigazione({ lat: p.lat, lng: p.lng }, origine))}
               >
-                <Text style={styles.cardNavTxt}>🧭</Text>
+                <Text style={styles.azioneIco}>🧭</Text>
               </Pressable>
-            </View>
+              {!giroAttivo ? (
+                <Pressable style={styles.azione} hitSlop={8} onPress={() => toggleStar(p)}>
+                  <Text style={[styles.stella, p.starred && styles.stellaOn]}>{p.starred ? '★' : '☆'}</Text>
+                </Pressable>
+              ) : null}
+            </Pressable>
           ))
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
-        <Text style={styles.conteggio}>
-          {giroAttivo
-            ? `${giro.length} tappe`
-            : destinazione
-              ? `${scopertiFiltrati.length} attività`
-              : `${visibili.length} attività`}
-          {giroAttivo && giroNav?.troncato ? ` · naviga prime ${giroNav.tappeIncluse}` : ''}
+      {/* Barra flottante giro */}
+      <View style={styles.dock}>
+        <Text style={styles.dockTxt}>
+          {giroAttivo ? `${giro.length} tappe` : `${scopertiFiltrati.length} attività`}
+          {giroAttivo && giroNav?.troncato ? ` · prime ${giroNav.tappeIncluse}` : ''}
         </Text>
-        <View style={styles.footerAzioni}>
+        <View style={styles.dockAzioni}>
           {giroAttivo && giroNav ? (
             <Pressable style={styles.btnNaviga} onPress={() => Linking.openURL(giroNav.url)}>
-              <Text style={styles.btnNavigaTxt}>🧭 Naviga giro</Text>
+              <Text style={styles.btnNavigaTxt}>🧭 Naviga</Text>
             </Pressable>
           ) : null}
           <Pressable
             style={[styles.btnGiro, giroAttivo && styles.btnGiroOn]}
             onPress={() => setGiroAttivo((v) => !v)}
+            disabled={!destinazione && !giroAttivo}
           >
             <Text style={[styles.btnGiroTxt, giroAttivo && styles.btnGiroTxtOn]}>
-              {giroAttivo ? 'Chiudi giro' : stellatiCount ? `Giro (${stellatiCount} ⭐)` : 'Pianifica giro'}
+              {giroAttivo ? 'Chiudi' : stellatiCount ? `Giro · ${stellatiCount} ⭐` : 'Pianifica giro'}
             </Text>
           </Pressable>
         </View>
@@ -220,71 +252,101 @@ export default function MappaWeb() {
   );
 }
 
+function Segmento({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable style={[styles.seg, on && styles.segOn]} onPress={onPress}>
+      <Text style={[styles.segTxt, on && styles.segTxtOn]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  filterBar: { backgroundColor: colors.sfondo, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro },
-  banner: { backgroundColor: '#EFE9DA', paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  bannerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  bannerTxt: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
-  lista: { padding: spacing.md, paddingBottom: 90, gap: spacing.sm },
-  vuoto: { color: colors.grigio, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.xl },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  caption: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
+  capRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  capTxt: { color: colors.testoSoft, fontSize: 13 },
+
+  segmentWrap: { paddingBottom: spacing.xs },
+  segment: { paddingHorizontal: spacing.md, gap: spacing.sm },
+  seg: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-  },
-  num: { width: 24, textAlign: 'center', color: colors.navy, fontWeight: '900', fontSize: 15 },
-  star: { width: 24, alignItems: 'center' },
-  starTxt: { fontSize: 20, color: colors.grigio },
-  starOn: { color: colors.oro },
-  cardInfo: { flex: 1 },
-  cardHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  cardNome: { flexShrink: 1, color: colors.navy, fontWeight: '800', fontSize: 15 },
-  novita: { backgroundColor: colors.oro, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 1 },
-  novitaTxt: { color: colors.navy, fontWeight: '900', fontSize: 10, letterSpacing: 0.5 },
-  hs: { color: colors.successo, fontWeight: '800', fontSize: 11 },
-  cardMeta: { color: colors.testoSoft, fontSize: 12, marginTop: 2 },
-  cardNav: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
   },
-  cardNavTxt: { fontSize: 18 },
-  footer: {
+  segOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  segTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
+  segTxtOn: { color: colors.bianco },
+
+  lista: { paddingHorizontal: spacing.md, paddingTop: spacing.xs, paddingBottom: 96, gap: 10 },
+  vuoto: { color: colors.grigio, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.xl },
+
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.bianco,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  icona: {
+    width: 46,
+    height: 46,
+    borderRadius: 13,
+    backgroundColor: '#F0ECE2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconaEmoji: { fontSize: 22 },
+  iconaNum: { color: colors.bianco, fontWeight: '900', fontSize: 18 },
+  info: { flex: 1, gap: 3 },
+  titoloRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  nome: { flexShrink: 1, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },
+  novita: { backgroundColor: colors.oro, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  novitaTxt: { color: colors.navy, fontWeight: '900', fontSize: 9, letterSpacing: 0.5 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  prioDot: { width: 8, height: 8, borderRadius: 4 },
+  meta: { flexShrink: 1, color: colors.testoSoft, fontSize: 13 },
+  hs: { color: colors.successo, fontWeight: '700', fontSize: 11 },
+  azione: { paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  azioneIco: { fontSize: 18 },
+  stella: { fontSize: 24, color: colors.grigioChiaro },
+  stellaOn: { color: colors.oro },
+
+  dock: {
     position: 'absolute',
-    bottom: spacing.lg,
+    bottom: spacing.md,
     left: spacing.md,
     right: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.bianco,
-    borderRadius: radius.pill,
-    paddingLeft: spacing.md,
-    paddingRight: spacing.xs,
-    paddingVertical: spacing.xs,
-    elevation: 4,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 22,
+    paddingLeft: spacing.lg,
+    paddingRight: 6,
+    paddingVertical: 6,
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
-  conteggio: { color: colors.navy, fontWeight: '700', fontSize: 13, flexShrink: 1 },
-  footerAzioni: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  btnNaviga: { backgroundColor: colors.oro, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
-  btnNavigaTxt: { color: colors.navy, fontWeight: '900' },
-  btnGiro: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  dockTxt: { color: colors.navy, fontWeight: '700', fontSize: 14, flexShrink: 1 },
+  dockAzioni: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  btnNaviga: { backgroundColor: colors.oro, borderRadius: 18, paddingHorizontal: spacing.md, paddingVertical: 11 },
+  btnNavigaTxt: { color: colors.navy, fontWeight: '800' },
+  btnGiro: { backgroundColor: colors.navy, borderRadius: 18, paddingHorizontal: spacing.md, paddingVertical: 11 },
   btnGiroOn: { backgroundColor: colors.oro },
   btnGiroTxt: { color: colors.bianco, fontWeight: '800' },
   btnGiroTxtOn: { color: colors.navy },
