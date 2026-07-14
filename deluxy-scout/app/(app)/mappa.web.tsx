@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import type { Place, Priorita } from '@/types';
+import type { Place } from '@/types';
 import { colors, iconaLinea, radius, spacing } from '@/lib/theme';
 import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
 import { ordinaGiro } from '@/lib/giro';
@@ -13,14 +13,12 @@ import { urlNavigazione, urlNavigazioneGiro } from '@/lib/nav';
 import type { GeocodeResult } from '@/lib/geocode';
 import { scopriNegozi, type ScopertaResult } from '@/lib/discover';
 import { aggiornaNascosto, aggiornaStarred } from '@/lib/db';
-import { usePlaces } from '@/lib/usePlaces';
+import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
 import { AddressSearch } from '@/components/AddressSearch';
+import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { VisitaModal } from '@/components/VisitaModal';
 import { Loader } from '../_layout';
-
-const PRIO_COLORE: Record<string, string> = { P1: colors.oro, P2: colors.navy, P3: colors.grigio };
-const PRIORITA: Priorita[] = ['P1', 'P2', 'P3'];
 
 export default function MappaWeb() {
   const router = useRouter();
@@ -32,8 +30,7 @@ export default function MappaWeb() {
   const [scopLoading, setScopLoading] = useState(false);
   const [scopInfo, setScopInfo] = useState<ScopertaResult | null>(null);
   const [scopErrore, setScopErrore] = useState<string | null>(null);
-  const [filtroLinea, setFiltroLinea] = useState<string | null>(null);
-  const [filtroPriorita, setFiltroPriorita] = useState<Priorita | null>(null);
+  const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
   const [visitaPlace, setVisitaPlace] = useState<Place | null>(null);
 
   useEffect(() => {
@@ -62,8 +59,7 @@ export default function MappaWeb() {
     const c = { lat: r.lat, lng: r.lng };
     setDestinazione(c);
     setGiroAttivo(false);
-    setFiltroLinea(null);
-    setFiltroPriorita(null);
+    setFiltri(FILTRI_VUOTI);
     await cerca(c);
   }
 
@@ -79,8 +75,7 @@ export default function MappaWeb() {
     setScopInfo(null);
     setScopErrore(null);
     setGiroAttivo(false);
-    setFiltroLinea(null);
-    setFiltroPriorita(null);
+    setFiltri(FILTRI_VUOTI);
   }
 
   async function toggleStar(p: Place) {
@@ -103,22 +98,15 @@ export default function MappaWeb() {
     }
   }
 
-  // Tipologie presenti tra i risultati (per il filtro a pillole).
-  const lineePresenti = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of scoperti) if (p.linea_ipotizzata) set.add(p.linea_ipotizzata);
-    return [...set].sort();
+  // Opzioni filtro: per la scoperta solo le linee presenti tra i risultati
+  // (zona/settore restano vuoti → i rispettivi gruppi non compaiono).
+  const opzioniFiltri = useMemo(() => {
+    const linee = new Set<string>();
+    for (const p of scoperti) if (p.linea_ipotizzata) linee.add(p.linea_ipotizzata);
+    return { zone: [] as string[], settori: [] as string[], linee: [...linee].sort() };
   }, [scoperti]);
 
-  const scopertiFiltrati = useMemo(
-    () =>
-      scoperti.filter(
-        (p) =>
-          (!filtroLinea || p.linea_ipotizzata === filtroLinea) &&
-          (!filtroPriorita || p.priorita === filtroPriorita),
-      ),
-    [scoperti, filtroLinea, filtroPriorita],
-  );
+  const scopertiFiltrati = useMemo(() => applicaFiltri(scoperti, filtri), [scoperti, filtri]);
 
   const giro = useMemo(() => {
     if (!giroAttivo) return [];
@@ -169,34 +157,10 @@ export default function MappaWeb() {
         )}
       </View>
 
-      {/* Filtri a pillole (solo in scoperta): priorità + tipologia */}
+      {/* Filtri a gruppi etichettati (come la scheda Target): Priorità / Stato / Linea */}
       {destinazione && !giroAttivo ? (
-        <View style={styles.segmentWrap}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.segment}>
-            <Segmento label="Ogni priorità" on={!filtroPriorita} onPress={() => setFiltroPriorita(null)} />
-            {PRIORITA.map((p) => (
-              <Segmento
-                key={p}
-                label={p}
-                colore={PRIO_COLORE[p]}
-                on={filtroPriorita === p}
-                onPress={() => setFiltroPriorita((v) => (v === p ? null : p))}
-              />
-            ))}
-          </ScrollView>
-          {lineePresenti.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.segment}>
-              <Segmento label="Ogni tipo" on={!filtroLinea} onPress={() => setFiltroLinea(null)} />
-              {lineePresenti.map((l) => (
-                <Segmento
-                  key={l}
-                  label={`${iconaLinea(l)} ${l}`}
-                  on={filtroLinea === l}
-                  onPress={() => setFiltroLinea((v) => (v === l ? null : l))}
-                />
-              ))}
-            </ScrollView>
-          ) : null}
+        <View style={styles.filterBar}>
+          <Filters filtri={filtri} opzioni={opzioniFiltri} onChange={setFiltri} />
         </View>
       ) : null}
 
@@ -316,52 +280,20 @@ export default function MappaWeb() {
   );
 }
 
-function Segmento({
-  label,
-  on,
-  onPress,
-  colore,
-}: {
-  label: string;
-  on: boolean;
-  onPress: () => void;
-  colore?: string;
-}) {
-  return (
-    <Pressable style={[styles.seg, on && styles.segOn]} onPress={onPress}>
-      {colore ? <View style={[styles.segDot, { backgroundColor: colore }]} /> : null}
-      <Text style={[styles.segTxt, on && styles.segTxtOn]} numberOfLines={1}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   caption: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
   capRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   capTxt: { color: colors.testoSoft, fontSize: 13 },
 
-  segmentWrap: { paddingBottom: spacing.xs },
-  segment: { paddingHorizontal: spacing.md, gap: spacing.sm },
-  seg: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: radius.pill,
+  filterBar: {
     backgroundColor: colors.bianco,
-    borderWidth: 1,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
     borderColor: colors.grigioChiaro,
   },
-  segOn: { backgroundColor: colors.navy, borderColor: colors.navy },
-  segDot: { width: 9, height: 9, borderRadius: 5 },
-  segTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
-  segTxtOn: { color: colors.bianco },
 
-  lista: { paddingHorizontal: spacing.md, paddingTop: spacing.xs, paddingBottom: 96, gap: 10 },
+  lista: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: 96, gap: 10 },
   vuoto: { color: colors.grigio, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.xl },
 
   card: {
