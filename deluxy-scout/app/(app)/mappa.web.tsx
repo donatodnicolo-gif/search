@@ -10,7 +10,6 @@ import { colors, iconaLinea, radius, spacing } from '@/lib/theme';
 
 const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
 import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
-import { ordinaGiro } from '@/lib/giro';
 import { urlNavigazione, urlNavigazioneGiro } from '@/lib/nav';
 import type { GeocodeResult } from '@/lib/geocode';
 import { scopriNegozi, type ScopertaResult } from '@/lib/discover';
@@ -35,10 +34,23 @@ export default function MappaWeb() {
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
   const [lineaFocus, setLineaFocus] = useState<string | null>(null); // linea da mettere in cima (null = tutte)
   const [visitaPlace, setVisitaPlace] = useState<Place | null>(null);
+  const [giroOrdine, setGiroOrdine] = useState<string[]>([]); // id stellati, nell'ordine (riordinabile)
 
   useEffect(() => {
     posizioneCorrente().then(setPos);
   }, []);
+
+  // Riconcilia l'ordine del giro coi negozi caricati: mantiene l'ordine scelto,
+  // aggiunge in fondo eventuali stellati non presenti, toglie i non-stellati.
+  useEffect(() => {
+    const stellatiIds = scoperti.filter((p) => p.starred).map((p) => p.id);
+    setGiroOrdine((prev) => {
+      const set = new Set(stellatiIds);
+      const mantenuti = prev.filter((id) => set.has(id));
+      const nuovi = stellatiIds.filter((id) => !prev.includes(id));
+      return [...mantenuti, ...nuovi];
+    });
+  }, [scoperti]);
 
   const origine: Coord = destinazione ?? pos ?? MILANO;
 
@@ -85,11 +97,25 @@ export default function MappaWeb() {
   async function toggleStar(p: Place) {
     const nuovo = !p.starred;
     setScoperti((l) => l.map((x) => (x.id === p.id ? { ...x, starred: nuovo, novita: false } : x)));
+    // Ordine del giro: se aggiungo la stella va in fondo (ordine di aggiunta); se la tolgo, esce.
+    setGiroOrdine((ord) => (nuovo ? [...ord.filter((id) => id !== p.id), p.id] : ord.filter((id) => id !== p.id)));
     try {
       await aggiornaStarred(p.id, nuovo);
     } catch {
       setScoperti((l) => l.map((x) => (x.id === p.id ? { ...x, starred: !nuovo } : x)));
     }
+  }
+
+  // Sposta una tappa su/giù nell'ordine del giro.
+  function spostaTappa(id: string, dir: -1 | 1) {
+    setGiroOrdine((ord) => {
+      const i = ord.indexOf(id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= ord.length) return ord;
+      const c = [...ord];
+      [c[i], c[j]] = [c[j], c[i]];
+      return c;
+    });
   }
 
   // "Non interessante": nasconde per sempre (visibile solo in Profilo → Nascosti).
@@ -112,11 +138,14 @@ export default function MappaWeb() {
 
   const scopertiFiltrati = useMemo(() => applicaFiltri(scoperti, filtri), [scoperti, filtri]);
 
-  const giro = useMemo(() => {
-    if (!giroAttivo) return [];
-    const stellati = scopertiFiltrati.filter((p) => p.starred);
-    return ordinaGiro(stellati.length ? stellati : scopertiFiltrati, origine);
-  }, [giroAttivo, scopertiFiltrati, origine]);
+  // Il giro sono i negozi ⭐ nell'ordine scelto dall'utente (aggiunta stelle + frecce).
+  const giro = useMemo(
+    () =>
+      giroOrdine
+        .map((id) => scoperti.find((p) => p.id === id))
+        .filter((p): p is Place => !!p && !!p.starred),
+    [giroOrdine, scoperti],
+  );
 
   const giroNav = useMemo(
     () => urlNavigazioneGiro(origine, giro.map((p) => ({ lat: p.lat, lng: p.lng }))),
@@ -202,7 +231,11 @@ export default function MappaWeb() {
       <ScrollView contentContainerStyle={styles.lista}>
         {elenco.length === 0 ? (
           <Text style={styles.vuoto}>
-            {destinazione ? 'Nessun negozio in questa selezione.' : 'Nessun risultato ancora.'}
+            {giroAttivo
+              ? 'Metti ⭐ sui negozi per costruire il giro, poi riordinali con ▲▼.'
+              : destinazione
+                ? 'Nessun negozio in questa selezione.'
+                : 'Nessun risultato ancora.'}
           </Text>
         ) : (
           elenco.map((p, i) => (
@@ -280,7 +313,16 @@ export default function MappaWeb() {
                     <Text style={styles.nascondiIco}>🚫</Text>
                   </Pressable>
                 </>
-              ) : null}
+              ) : (
+                <View style={styles.reorder}>
+                  <Pressable style={styles.azione} hitSlop={6} onPress={() => spostaTappa(p.id, -1)} accessibilityLabel="Sposta su">
+                    <Text style={styles.reorderIco}>▲</Text>
+                  </Pressable>
+                  <Pressable style={styles.azione} hitSlop={6} onPress={() => spostaTappa(p.id, 1)} accessibilityLabel="Sposta giù">
+                    <Text style={styles.reorderIco}>▼</Text>
+                  </Pressable>
+                </View>
+              )}
             </Pressable>
           ))
         )}
@@ -397,6 +439,8 @@ const styles = StyleSheet.create({
   stella: { fontSize: 24, color: colors.grigioChiaro },
   stellaOn: { color: colors.oro },
   nascondiIco: { fontSize: 16, opacity: 0.5 },
+  reorder: { flexDirection: 'row', gap: 2 },
+  reorderIco: { fontSize: 15, color: colors.testoSoft },
 
   dock: {
     position: 'absolute',
