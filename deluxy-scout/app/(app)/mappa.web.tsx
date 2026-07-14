@@ -5,8 +5,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import type { Place } from '@/types';
+import { LINEE_ATTIVE, type Place } from '@/types';
 import { colors, iconaLinea, radius, spacing } from '@/lib/theme';
+
+const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
 import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
 import { ordinaGiro } from '@/lib/giro';
 import { urlNavigazione, urlNavigazioneGiro } from '@/lib/nav';
@@ -31,6 +33,7 @@ export default function MappaWeb() {
   const [scopInfo, setScopInfo] = useState<ScopertaResult | null>(null);
   const [scopErrore, setScopErrore] = useState<string | null>(null);
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
+  const [lineaFocus, setLineaFocus] = useState<string | null>(null); // linea da mettere in cima (null = tutte)
   const [visitaPlace, setVisitaPlace] = useState<Place | null>(null);
 
   useEffect(() => {
@@ -76,6 +79,7 @@ export default function MappaWeb() {
     setScopErrore(null);
     setGiroAttivo(false);
     setFiltri(FILTRI_VUOTI);
+    setLineaFocus(null);
   }
 
   async function toggleStar(p: Place) {
@@ -130,12 +134,43 @@ export default function MappaWeb() {
 
   if (loading) return <Loader />;
 
-  const elenco = giroAttivo ? giro : scopertiFiltrati;
+  // Ordinamento della scoperta: linea scelta in cima → priorità (P1→P3) → vicinanza.
+  const elenco = useMemo(() => {
+    if (giroAttivo) return giro;
+    const base: Coord = destinazione ?? origine;
+    return [...scopertiFiltrati].sort((a, b) => {
+      if (lineaFocus) {
+        const fa = a.linea_ipotizzata === lineaFocus ? 0 : 1;
+        const fb = b.linea_ipotizzata === lineaFocus ? 0 : 1;
+        if (fa !== fb) return fa - fb;
+      }
+      const pr = RANK[a.priorita] - RANK[b.priorita];
+      if (pr !== 0) return pr;
+      return distanzaKm(base, { lat: a.lat, lng: a.lng }) - distanzaKm(base, { lat: b.lat, lng: b.lng });
+    });
+  }, [giroAttivo, giro, scopertiFiltrati, lineaFocus, destinazione, origine]);
+
   const stellatiCount = scopertiFiltrati.filter((p) => p.starred).length;
 
   return (
     <View style={styles.container}>
       <AddressSearch onSelect={onSelectDestinazione} onClear={azzera} />
+
+      {/* Ordina la scoperta dando precedenza a una linea di vendita (o Tutte). */}
+      <View style={styles.focusBar}>
+        <Text style={styles.focusLabel}>Ordina per linea di vendita</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.focusRow}>
+          <FocusPill label="Tutte le linee" on={!lineaFocus} onPress={() => setLineaFocus(null)} />
+          {LINEE_ATTIVE.map((l) => (
+            <FocusPill
+              key={l}
+              label={`${iconaLinea(l)} ${l}`}
+              on={lineaFocus === l}
+              onPress={() => setLineaFocus((v) => (v === l ? null : l))}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Caption di stato, leggera */}
       <View style={styles.caption}>
@@ -280,6 +315,16 @@ export default function MappaWeb() {
   );
 }
 
+function FocusPill({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable style={[styles.focusPill, on && styles.focusPillOn]} onPress={onPress}>
+      <Text style={[styles.focusPillTxt, on && styles.focusPillTxtOn]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   caption: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
@@ -292,6 +337,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: colors.grigioChiaro,
   },
+
+  focusBar: { paddingBottom: spacing.xs },
+  focusLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', paddingHorizontal: spacing.md, marginBottom: 4 },
+  focusRow: { paddingHorizontal: spacing.md, gap: 6 },
+  focusPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+  },
+  focusPillOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  focusPillTxt: { color: colors.testo, fontWeight: '600', fontSize: 13 },
+  focusPillTxtOn: { color: colors.bianco },
 
   lista: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: 96, gap: 10 },
   vuoto: { color: colors.grigio, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.xl },
