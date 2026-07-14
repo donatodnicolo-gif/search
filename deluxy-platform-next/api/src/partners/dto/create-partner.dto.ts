@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -12,6 +13,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { PartnerPaymentMethod, PartnerPaymentStatus } from '../../common/enums';
 
 export class PartnerServiceDto {
   @ApiProperty()
@@ -134,6 +136,23 @@ export class CreatePartnerDto {
   @IsOptional()
   @IsString()
   woocommerceApiKey?: string;
+
+  @ApiPropertyOptional({
+    enum: PartnerPaymentMethod,
+    description: 'Metodo di pagamento: bankTransfer | creditCard | directDebitMandate',
+  })
+  @IsOptional()
+  @IsEnum(PartnerPaymentMethod)
+  paymentMethod?: PartnerPaymentMethod;
+
+  @ApiPropertyOptional({
+    enum: PartnerPaymentStatus,
+    default: PartnerPaymentStatus.ACTIVE,
+    description: 'Stato pagamenti: active | inactive | blocked',
+  })
+  @IsOptional()
+  @IsEnum(PartnerPaymentStatus)
+  paymentStatus?: PartnerPaymentStatus;
 
   @ApiPropertyOptional({ type: [String], description: 'Province abilitate' })
   @IsOptional()

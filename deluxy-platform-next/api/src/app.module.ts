@@ -15,6 +15,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProductsModule } from './products/products.module';
 import { ProvincesModule } from './provinces/provinces.module';
+import { ServiceTypesModule } from './service-types/service-types.module';
 import { SalariesModule } from './salaries/salaries.module';
 import { SalesModule } from './sales/sales.module';
 import { SmsTemplatesModule } from './sms-templates/sms-templates.module';
@@ -41,6 +42,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     DeliveryRulesModule,
     SmsTemplatesModule,
     ProvincesModule,
+    ServiceTypesModule,
     FinanceModule,
     WoocommerceModule,
   ],

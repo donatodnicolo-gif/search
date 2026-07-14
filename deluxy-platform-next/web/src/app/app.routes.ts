@@ -23,10 +23,27 @@ export const routes: Routes = [
             (m) => m.DeliveriesListComponent,
           ),
       },
+      {
+        path: 'partners',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+        loadComponent: () =>
+          import('./pages/partners-list.component').then(
+            (m) => m.PartnersListComponent,
+          ),
+      },
+      {
+        path: 'partners/new',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+        loadComponent: () =>
+          import('./pages/partner-form.component').then(
+            (m) => m.PartnerFormComponent,
+          ),
+      },
       // ---- Route stub: sezioni in migrazione ----
       ...[
         { path: 'activities', title: 'Attivita', roles: ['ADMIN', 'OPERATION', 'VALET'] },
-        { path: 'partners', title: 'Partner', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
         { path: 'valets', title: 'Valet', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
         { path: 'customers', title: 'Clienti', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
         { path: 'products', title: 'Prodotti', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },

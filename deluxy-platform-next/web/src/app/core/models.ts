@@ -40,6 +40,52 @@ export interface Delivery {
   serviceType?: { id: string; name: string; pricingModel: string };
 }
 
+export interface Province {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+}
+
+export interface ServiceType {
+  id: string;
+  name: string;
+  code: string;
+  pricingModel: string;
+}
+
+export interface Partner {
+  id: string;
+  insegna: string;
+  email: string;
+  businessName?: string;
+  vatNumber?: string;
+  fiscalCode?: string;
+  address?: string;
+  phone?: string;
+  contactName?: string;
+  paymentStatus?: string;
+  active: boolean;
+  provinces?: { province: Province }[];
+  categories?: { category: Category }[];
+}
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  bankTransfer: 'Bonifico bancario',
+  creditCard: 'Carta di credito',
+  directDebitMandate: 'Addebito diretto (SDD)',
+};
+
+export const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  active: 'Attivo',
+  inactive: 'Inattivo',
+  blocked: 'Bloccato',
+};
+
 export const DELIVERY_STATUS_LABELS: Record<string, string> = {
   created: 'Da gestire',
   assigned: 'In gestione',
