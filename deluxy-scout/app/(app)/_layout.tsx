@@ -17,12 +17,17 @@ export default function AppLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.navy },
-        headerTintColor: colors.bianco,
-        headerTitleStyle: { fontWeight: '800' },
+        headerStyle: { backgroundColor: colors.bianco },
+        headerTintColor: colors.testo,
+        headerTitleStyle: { fontWeight: '600', letterSpacing: -0.3 },
+        headerShadowVisible: false,
         tabBarActiveTintColor: colors.oro,
         tabBarInactiveTintColor: colors.grigio,
-        tabBarStyle: { backgroundColor: colors.bianco },
+        tabBarStyle: {
+          backgroundColor: colors.bianco,
+          borderTopColor: colors.grigioChiaro,
+        },
+        sceneContainerStyle: { backgroundColor: colors.sfondo },
       }}
     >
       <Tabs.Screen
