@@ -153,6 +153,12 @@ export async function aggiornaStatoPlace(placeId: string, stato: StatoPlace): Pr
   if (error) throw error;
 }
 
+/** Marca/smarca un negozio come interessante (⭐ → entra nel giro). Azzera "novità". */
+export async function aggiornaStarred(placeId: string, starred: boolean): Promise<void> {
+  const { error } = await supabase.from('places').update({ starred, novita: false }).eq('id', placeId);
+  if (error) throw error;
+}
+
 /** Inserisce una visita già sincronizzabile e ritorna l'id server. */
 export async function inserisciVisita(
   v: Omit<Visit, 'id' | 'created_at' | 'hubspot_synced'>,

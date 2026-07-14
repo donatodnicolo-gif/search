@@ -25,13 +25,15 @@ app/                        # schermate (Expo Router)
     visita-dettaglio/[id].tsx # dettaglio visita: briefing/note/esito/next + foto vetrina
 components/                 # BoxIpotesi, EsitoButtons, Filters, PriorityBadge, SyncBadge, StatCard, BarChart,
                             #   AddressSearch (indirizzo+autocomplete Google), LineaSelector (tipologia interesse)
-lib/                        # supabase, auth, env, db, categoryRules, hubspot, geocode, syncQueue,
+lib/                        # supabase, auth, env, db, categoryRules, hubspot, geocode, discover, syncQueue,
                             #   metrics, location, nav, giro, reminders, theme, usePlaces, export
 types/index.ts              # tipi condivisi (Place, Contact, Visit, Deal, Linea, CategoryRule…)
 supabase/
   migrations/               # 0001_schema.sql · 0002_rls.sql · 0003_seed.sql
   functions/hubspot-sync/   # Edge Function Deno (logica HubSpot lato server)
-  functions/geocode/        # Edge Function Deno (proxy Google Geocoding, chiave come secret)
+  functions/geocode/        # Edge Function Deno (proxy Google Geocoding/Places: geocode/autocomplete/details)
+  functions/discover/       # Edge Function Deno (scoperta Google Nearby + cache 30gg + classificazione)
+  migrations/0004_discovery.sql  # campi scoperta su places + google_aree + places_vicini()
   seed/lead.example.csv
 scripts/                    # mgmt-query.mjs, hubspot-setup-properties.mjs, import-places.mjs, create-user.mjs, gen-icons.mjs
 stubs/empty.js              # modulo vuoto per gli stub Metro (otel / react-native-maps su web)

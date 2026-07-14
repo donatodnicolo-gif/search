@@ -61,6 +61,16 @@ export interface Place {
   zona: string | null;
   hubspot_company_id: string | null;
   created_at: string;
+  // Scoperta Google / cache (migrazione 0004). Opzionali: assenti sui record vecchi.
+  source?: 'manual' | 'google';
+  google_place_id?: string | null;
+  google_types?: string[] | null;
+  starred?: boolean;
+  novita?: boolean;
+  da_completare?: boolean;
+  hubspot_deal_aperta?: boolean;
+  hubspot_sync_at?: string | null;
+  google_refresh_at?: string | null;
 }
 
 export interface Contact {
