@@ -135,20 +135,20 @@ export default function MappaWeb() {
   if (loading) return <Loader />;
 
   // Ordinamento della scoperta: linea scelta in cima → priorità (P1→P3) → vicinanza.
-  const elenco = useMemo(() => {
-    if (giroAttivo) return giro;
-    const base: Coord = destinazione ?? origine;
-    return [...scopertiFiltrati].sort((a, b) => {
-      if (lineaFocus) {
-        const fa = a.linea_ipotizzata === lineaFocus ? 0 : 1;
-        const fb = b.linea_ipotizzata === lineaFocus ? 0 : 1;
-        if (fa !== fb) return fa - fb;
-      }
-      const pr = RANK[a.priorita] - RANK[b.priorita];
-      if (pr !== 0) return pr;
-      return distanzaKm(base, { lat: a.lat, lng: a.lng }) - distanzaKm(base, { lat: b.lat, lng: b.lng });
-    });
-  }, [giroAttivo, giro, scopertiFiltrati, lineaFocus, destinazione, origine]);
+  // NB: calcolo semplice (NON un hook) perché è dopo il return condizionale sopra.
+  const baseDist: Coord = destinazione ?? origine;
+  const elenco = giroAttivo
+    ? giro
+    : [...scopertiFiltrati].sort((a, b) => {
+        if (lineaFocus) {
+          const fa = a.linea_ipotizzata === lineaFocus ? 0 : 1;
+          const fb = b.linea_ipotizzata === lineaFocus ? 0 : 1;
+          if (fa !== fb) return fa - fb;
+        }
+        const pr = RANK[a.priorita] - RANK[b.priorita];
+        if (pr !== 0) return pr;
+        return distanzaKm(baseDist, { lat: a.lat, lng: a.lng }) - distanzaKm(baseDist, { lat: b.lat, lng: b.lng });
+      });
 
   const stellatiCount = scopertiFiltrati.filter((p) => p.starred).length;
 
