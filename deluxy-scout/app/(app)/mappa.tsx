@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
 import { colors, coloreProprita, iconaStato, radius, spacing } from '@/lib/theme';
-import { MILANO, posizioneCorrente, type Coord } from '@/lib/location';
+import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
+import { urlNavigazioneGiro } from '@/lib/nav';
+import { ordinaGiro } from '@/lib/giro';
 import { env } from '@/lib/env';
 import { applicaFiltri, haFiltriAttivi, usePlaces } from '@/lib/usePlaces';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
+import { PriorityBadge } from '@/components/PriorityBadge';
 import { Loader } from '../_layout';
 
 export default function Mappa() {
@@ -16,6 +19,7 @@ export default function Mappa() {
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
   const [pos, setPos] = useState<Coord | null>(null);
   const [giroAttivo, setGiroAttivo] = useState(false);
+  const [pannelloAperto, setPannelloAperto] = useState(false);
 
   useEffect(() => {
     posizioneCorrente().then(setPos);
@@ -34,6 +38,27 @@ export default function Mappa() {
     const base = haFiltriAttivi(filtri) ? filtrati : places;
     return ordinaGiro(base, partenza);
   }, [giroAttivo, pos, filtrati, places, filtri]);
+
+  // URL Google Maps per navigare l'intero giro (origine → tappe → destinazione).
+  const giroNav = useMemo(
+    () => urlNavigazioneGiro(pos, giro.map((p) => ({ lat: p.lat, lng: p.lng }))),
+    [pos, giro],
+  );
+
+  // Distanza di ciascuna tappa dalla precedente (dalla posizione corrente per la prima).
+  const distanzeTappe = useMemo(() => {
+    let prec: Coord = pos ?? MILANO;
+    return giro.map((p) => {
+      const d = distanzaKm(prec, { lat: p.lat, lng: p.lng });
+      prec = { lat: p.lat, lng: p.lng };
+      return d;
+    });
+  }, [giro, pos]);
+
+  function chiudiGiro() {
+    setGiroAttivo(false);
+    setPannelloAperto(false);
+  }
 
   if (loading) return <Loader />;
 
@@ -88,18 +113,71 @@ export default function Mappa() {
         </View>
       )}
 
+      {giroAttivo && giro.length > 0 && pannelloAperto ? (
+        <View style={styles.pannello}>
+          <View style={styles.pannelloHead}>
+            <Text style={styles.pannelloTitolo}>Giro · {giro.length} tappe</Text>
+            {giroNav?.troncato ? (
+              <Text style={styles.pannelloNota}>Naviga: prime {giroNav.tappeIncluse}</Text>
+            ) : null}
+          </View>
+          <ScrollView style={styles.pannelloLista}>
+            {giro.map((p, i) => (
+              <Pressable
+                key={p.id}
+                style={styles.tappa}
+                onPress={() => router.push(`/(app)/attivita/${p.id}`)}
+              >
+                <Text style={styles.tappaNum}>{i + 1}</Text>
+                <PriorityBadge priorita={p.priorita} small />
+                <View style={styles.tappaInfo}>
+                  <Text style={styles.tappaNome} numberOfLines={1}>
+                    {p.nome}
+                  </Text>
+                  <Text style={styles.tappaMeta} numberOfLines={1}>
+                    {[p.zona, `${distanzeTappe[i].toFixed(1)} km`].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+                <Text style={styles.tappaChevron}>›</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
       <View style={styles.footer}>
-        <Text style={styles.conteggio}>
-          {visibili.length} attività{giroAttivo && giro.length ? ` · giro di ${giro.length} tappe` : ''}
-        </Text>
-        <Pressable
-          style={[styles.btnGiro, giroAttivo && styles.btnGiroOn]}
-          onPress={() => setGiroAttivo((v) => !v)}
-        >
-          <Text style={[styles.btnGiroTxt, giroAttivo && styles.btnGiroTxtOn]}>
-            {giroAttivo ? 'Chiudi giro' : 'Pianifica giro'}
-          </Text>
-        </Pressable>
+        {giroAttivo ? (
+          <>
+            <Pressable style={styles.conteggioBtn} onPress={() => setPannelloAperto((v) => !v)}>
+              <Text style={styles.conteggio}>
+                {giro.length} tappe {giro.length > 0 ? (pannelloAperto ? '▾' : '▸') : ''}
+              </Text>
+            </Pressable>
+            <View style={styles.footerAzioni}>
+              {giroNav ? (
+                <Pressable style={styles.btnNaviga} onPress={() => Linking.openURL(giroNav.url)}>
+                  <Text style={styles.btnNavigaTxt}>🧭 Naviga</Text>
+                </Pressable>
+              ) : null}
+              <Pressable style={styles.btnChiudi} onPress={chiudiGiro}>
+                <Text style={styles.btnChiudiTxt}>Chiudi</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.conteggio}>{visibili.length} attività</Text>
+            <Pressable
+              style={styles.btnGiro}
+              onPress={() => {
+                setGiroAttivo(true);
+                setPannelloAperto(true);
+              }}
+            >
+              <Text style={styles.btnGiroTxt}>Pianifica giro</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
@@ -111,32 +189,6 @@ function PinAttivita({ place }: { place: Place }) {
       <Text style={styles.pinStato}>{iconaStato[place.stato]}</Text>
     </View>
   );
-}
-
-/** Ordina per priorità (P1>P2>P3) e poi costruisce un percorso greedy
- *  a partire dalla posizione corrente (nearest-neighbor). */
-function ordinaGiro(places: Place[], partenza: Coord): Place[] {
-  const rank: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
-  const restanti = [...places].sort((a, b) => rank[a.priorita] - rank[b.priorita]);
-  const percorso: Place[] = [];
-  let corrente = partenza;
-  // Greedy dentro ciascun livello di priorità per non "saltare" P1.
-  for (const livello of ['P1', 'P2', 'P3']) {
-    let pool = restanti.filter((p) => p.priorita === livello);
-    while (pool.length) {
-      pool.sort((a, b) => dist(corrente, a) - dist(corrente, b));
-      const prossimo = pool.shift()!;
-      percorso.push(prossimo);
-      corrente = { lat: prossimo.lat, lng: prossimo.lng };
-    }
-  }
-  return percorso;
-}
-
-function dist(a: Coord, b: { lat: number; lng: number }): number {
-  const dLat = a.lat - b.lat;
-  const dLng = a.lng - b.lng;
-  return dLat * dLat + dLng * dLng; // sufficiente per ordinare
 }
 
 const styles = StyleSheet.create({
@@ -183,8 +235,60 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
   conteggio: { color: colors.navy, fontWeight: '700', fontSize: 13 },
+  conteggioBtn: { paddingVertical: 6, paddingRight: spacing.sm },
   btnGiro: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
-  btnGiroOn: { backgroundColor: colors.oro },
   btnGiroTxt: { color: colors.bianco, fontWeight: '800' },
-  btnGiroTxtOn: { color: colors.navy },
+  footerAzioni: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  btnNaviga: { backgroundColor: colors.oro, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  btnNavigaTxt: { color: colors.navy, fontWeight: '900' },
+  btnChiudi: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  btnChiudiTxt: { color: colors.bianco, fontWeight: '800' },
+  // Pannello elenco tappe (sopra il footer).
+  pannello: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: 76,
+    maxHeight: '46%',
+    backgroundColor: colors.bianco,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.sm,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  pannelloHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.grigioChiaro,
+  },
+  pannelloTitolo: { color: colors.navy, fontWeight: '900', fontSize: 15 },
+  pannelloNota: { color: colors.oro, fontWeight: '700', fontSize: 12 },
+  pannelloLista: { paddingHorizontal: spacing.sm },
+  tappa: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.grigioChiaro,
+  },
+  tappaNum: {
+    width: 22,
+    textAlign: 'center',
+    color: colors.navy,
+    fontWeight: '900',
+    fontSize: 15,
+  },
+  tappaInfo: { flex: 1 },
+  tappaNome: { color: colors.navy, fontWeight: '700', fontSize: 15 },
+  tappaMeta: { color: colors.testoSoft, fontSize: 12, marginTop: 1 },
+  tappaChevron: { color: colors.grigio, fontSize: 20, fontWeight: '700' },
 });

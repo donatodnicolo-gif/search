@@ -73,6 +73,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     typedRoutes: true,
   },
   web: {
+    bundler: 'metro',
+    output: 'single',
     favicon: './assets/favicon.png',
   },
   extra: {

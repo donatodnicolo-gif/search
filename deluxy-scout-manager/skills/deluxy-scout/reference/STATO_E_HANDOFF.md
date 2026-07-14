@@ -1,6 +1,6 @@
 # Deluxy Scout — Stato del progetto & Handoff
 
-Ultimo aggiornamento: **11 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+Ultimo aggiornamento: **13 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
 
 > ⚠️ **Segreti**: nessun valore segreto è in questo file. Le chiavi vere stanno in `deluxy-scout/.env` (gitignored) e nei secret della Edge Function. Gli identificatori qui sotto (project ref, portal id, URL) **non** sono segreti.
 
@@ -26,12 +26,24 @@ App mobile React Native (Expo Router, TypeScript) per la prospezione commerciale
   - 7 proprietà custom create (vedi ARCHITETTURA §mappature).
   - Edge Function `hubspot-sync` **deployata**: `https://fdsziebgkljfsugqqbqd.supabase.co/functions/v1/hubspot-sync` (in `.env`). Secret `HUBSPOT_TOKEN` impostato. Verificata: 401 senza auth.
 - **Node.js** v24 installato (`C:\Program Files\nodejs`).
+- **Google Maps (Android)** — chiave configurata (l'utente l'ha fornita il 13 lug). Salvata in `deluxy-scout/.env` (`EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY`, gitignored) **e** come **variabile d'ambiente EAS** (scope progetto, ambiente `preview`, visibilità *sensitive* → non committata): creata con `eas env:create`. Il profilo `preview` di `eas.json` ora ha `"environment": "preview"` così il build la preleva. iOS lasciato vuoto (app solo Android).
+- **Build EAS con Maps (13 lug 2026)** — nuovo APK preview `finished` che include la chiave (log EAS: *"…loaded from the 'preview' environment: EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY"*). Artifact: `https://expo.dev/artifacts/eas/2HVixTwvQ6fV7RLXC9_IZ1GIwrqrmSAWxRXe2TQxVog.apk` (build `6ff9f020-8991-4452-8aa7-866064958b91`). Stesso keystore del build precedente (stessa SHA-1). Nota: sul tier gratuito la **coda** può durare ore.
+- **Feature "giro navigabile" (13 lug)** — nuovo `lib/nav.ts` (URL Google Maps: singola destinazione + percorso multi-tappa con waypoint, cap 9 + troncamento segnalato) e pannello tappe ordinate in `mappa.tsx` con pulsante 🧭 Naviga. Logica del giro estratta in `lib/giro.ts` (condivisa). Test in `__tests__/nav.test.ts`. `tsc` pulito, **18/18 jest verdi**. Non ancora committato (vedi §git sotto).
+- **Versione WEB live (14 lug 2026)** — l'app gira anche da browser: **https://deluxy-scout.vercel.app** (deploy statico su Vercel, account `donatodnicolo-gif`, team `deluxy`, progetto `deluxy-scout`). Verificata nel browser (login reso, 0 errori console). Come è fatta:
+  - Dipendenze web: `react-dom`, `react-native-web`, `@expo/metro-runtime` (via `expo install`).
+  - `app.config.ts` → `web: { bundler: 'metro', output: 'single' }` (SPA).
+  - **`mappa.web.tsx`**: variante web della schermata Mappa (react-native-maps è solo-nativo). Niente mappa: lista target + pianificatore di giro + pulsante 🧭 Naviga (apre Google Maps in una scheda). Riusa `lib/giro.ts`.
+  - **`metro.config.js`**: stub di `@opentelemetry/api` (dipendenza opzionale di supabase-js, non installata) e di `react-native-maps` su web (→ `{ type: 'empty' }`). Stub vuoto in `stubs/empty.js`.
+  - Build: `npm run build:web` (= `expo export --platform web --output-dir dist-web`). Il bundle è **autoconsistente** (anon key Supabase già inclusa). La chiave Maps Android nel bundle è ininfluente sul web (ristretta all'app Android).
+  - **Deploy**: `dist-web` (con `vercel.json` di rewrite SPA) copiata in una cartella `deluxy-scout/` e pubblicata con `npx vercel deploy --prod --yes --token <VERCEL_TOKEN>`. Nessuna integrazione Git (evita il branch condiviso). Per ripubblicare: `npm run build:web`, poi rideploy della cartella. **Serve login utente Supabase per usarla davvero** (vedi §3.1).
 
 ## 3. ⏳ Cosa manca (richiede l'utente / suoi account)
-1. **Utente auth per il login** — crearlo da Supabase → Authentication → Users → *Add user* (email + password scelta dall'utente). L'agente **non** deve digitare password né creare account al posto dell'utente.
-2. **Chiavi Google Maps** (Android + iOS) — servono per far renderizzare `react-native-maps` (senza, la schermata Mappa mostra un segnaposto: guard in `mappa.tsx` via `env.hasGoogleMaps()`). Richiede un progetto Google Cloud con **billing attivo**. Vanno in `.env` (`EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY`, `..._IOS_KEY`) e nel profilo `preview` di `eas.json` per le build.
-3. **Test end-to-end HubSpot** — con un utente loggato, registrare una visita e verificare company+contatto+deal con le proprietà su HubSpot.
-4. **iOS / distribuzione store** — l'APK Android preview è già fatto (vedi §EAS); per iOS serve setup Apple, per gli store la submission.
+1. **Utente auth per il login** — pronto lo script `scripts/create-user.mjs`: crea/aggiorna l'utente in Supabase Auth via Admin API, con email+password forniti **dall'utente** via env var (l'agente non vede la password); crea l'utente già confermato. Serve la `service_role` key. Comando in §5. In alternativa: Supabase → Authentication → Users → *Add user*.
+2. **Restringere la chiave Google Maps** (sicurezza, da fare) — la chiave Android finisce nell'APK ed è estraibile: la protezione vera è restringerla in Google Cloud Console → Credenziali → *App Android*: nome pacchetto `it.deluxy.scout` + **SHA-1** del keystore (presa da dashboard Expo → Credentials → Android), e restrizione API a *Maps SDK for Android*. Verificare che *Maps SDK for Android* sia abilitata e che il progetto Google Cloud abbia **billing attivo**.
+3. **Test end-to-end HubSpot** — con un utente loggato (punto 1), registrare una visita e verificare company+contatto+deal con le proprietà su HubSpot.
+4. **iOS / distribuzione store** — l'APK Android preview è fatto; per iOS serve setup Apple, per gli store la submission.
+
+> **Git**: le modifiche del 13–14 lug sono nel working tree sul branch `deluxy-scout`, **non ancora committate** (in attesa dell'ok utente). File nuovi: `lib/nav.ts`, `lib/giro.ts`, `__tests__/nav.test.ts`, `scripts/create-user.mjs`, `metro.config.js`, `stubs/empty.js`, `app/(app)/mappa.web.tsx`, `.gitignore`. Modificati: `eas.json`, `app.config.ts`, `package.json`, `package-lock.json`, `app/(app)/mappa.tsx`. `.env` resta gitignored. **⚠️ Concorrenza**: un'altra sessione Claude lavora sull'app fiorai nella **stessa working directory** `C:\Users\nicol\app` e fa `git checkout` tra `main` e `deluxy-scout` → i file di deluxy-scout appaiono/spariscono ("flickering") e le modifiche non committate rischiano di perdersi. Non lanciare due sessioni sulla stessa cartella; se serve, committare spesso o usare un git worktree separato. Backup dei file nuovi salvato in scratchpad durante la sessione.
 
 ## 4. 🔐 Housekeeping sicurezza
 - `deluxy-scout/.env` è gitignored: **non committarlo mai**.
@@ -89,4 +101,23 @@ node scripts/import-places.mjs supabase/seed/lead.example.csv
 - `mgmt-query.mjs` — esegue un file .sql o `-e "SQL"` via Supabase Management API (no password DB, no clipboard).
 - `hubspot-setup-properties.mjs` — crea/verifica le 7 proprietà custom HubSpot (idempotente).
 - `import-places.mjs` — importa un CSV di lead nella tabella `places`.
+- `create-user.mjs` — crea/aggiorna l'utente di login in Supabase Auth (Admin API). Email+password via env var (`SCOUT_EMAIL`/`SCOUT_PASSWORD`), utente già confermato. Idempotente.
 - `gen-icons.mjs` — rigenera icona/splash/adaptive/favicon da SVG (richiede `sharp`).
+
+## 8. Creare l'utente di login (comando)
+```powershell
+Set-Location 'C:\Users\nicol\app\deluxy-scout'
+$env:Path = "$env:ProgramFiles\nodejs;$env:Path"
+$env:SUPABASE_URL = "https://fdsziebgkljfsugqqbqd.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY = "<service_role key>"   # Supabase → Project Settings → API
+$env:SCOUT_EMAIL = "nome@deluxy.it"
+$env:SCOUT_PASSWORD = "<password scelta dall'utente, min 6>"
+node scripts/create-user.mjs
+```
+
+## 9. Chiave Maps come variabile EAS (già fatto — riferimento)
+```powershell
+$env:EXPO_TOKEN = "<personal access token Expo>"
+npx eas-cli env:create --scope project --name EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY --value "<key>" --visibility sensitive --environment preview --non-interactive
+npx eas-cli build -p android --profile preview --non-interactive --no-wait
+```

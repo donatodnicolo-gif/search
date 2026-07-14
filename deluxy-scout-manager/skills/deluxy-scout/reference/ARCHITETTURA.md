@@ -10,7 +10,8 @@ app/                        # schermate (Expo Router)
   index.tsx                 # redirect in base alla sessione
   (auth)/login.tsx          # login email/password
   (app)/                    # area protetta (Tabs), guard su sessione
-    mappa.tsx               # [tab] mappa: tutti i pin, colori priorità, filtri, pianificatore di giro
+    mappa.tsx               # [tab] mappa (NATIVO): tutti i pin, colori priorità, filtri, pianificatore di giro + pannello tappe ordinate e "Naviga" multi-tappa
+    mappa.web.tsx           # [tab] mappa (WEB): stessa logica giro senza react-native-maps → lista target + "Naviga" (Google Maps in nuova scheda)
     lista.tsx               # [tab] lista target: filtri + ricerca testuale + FAB "nuovo target"
     dashboard.tsx           # [tab] metriche commerciali (grafici SVG)
     profilo.tsx             # [tab] profilo/impostazioni: utente, coda sync, integrazioni, export CSV, logout
@@ -22,16 +23,21 @@ app/                        # schermate (Expo Router)
     visita-dettaglio/[id].tsx # dettaglio visita: briefing/note/esito/next + foto vetrina
 components/                 # BoxIpotesi, EsitoButtons, Filters, PriorityBadge, SyncBadge, StatCard, BarChart
 lib/                        # supabase, auth, env, db, categoryRules, hubspot, syncQueue,
-                            #   metrics, location, reminders, theme, usePlaces, export
+                            #   metrics, location, nav, giro, reminders, theme, usePlaces, export
 types/index.ts              # tipi condivisi (Place, Contact, Visit, Deal, Linea, CategoryRule…)
 supabase/
   migrations/               # 0001_schema.sql · 0002_rls.sql · 0003_seed.sql
   functions/hubspot-sync/   # Edge Function Deno (logica HubSpot lato server)
   seed/lead.example.csv
-scripts/                    # mgmt-query.mjs, hubspot-setup-properties.mjs, import-places.mjs
-__tests__/                  # metrics.test.ts, rules.test.ts
-app.config.ts               # legge .env → extra (anon key ok; token HubSpot NON qui)
+scripts/                    # mgmt-query.mjs, hubspot-setup-properties.mjs, import-places.mjs, create-user.mjs, gen-icons.mjs
+stubs/empty.js              # modulo vuoto per gli stub Metro (otel / react-native-maps su web)
+metro.config.js             # Metro + stub @opentelemetry/api e react-native-maps (web)
+__tests__/                  # metrics.test.ts, rules.test.ts, nav.test.ts
+app.config.ts               # legge .env → extra (anon key ok; token HubSpot NON qui); web: bundler metro, output single
 ```
+
+## Web (deluxy-scout.vercel.app)
+L'app gira anche da browser tramite `react-native-web`. La schermata Mappa usa `mappa.web.tsx` (niente `react-native-maps`, solo-nativo): lista target + pianificatore di giro + "Naviga" su Google Maps. `metro.config.js` stubba `react-native-maps` su web e `@opentelemetry/api` (dep opzionale di supabase-js) ovunque. Build con `npm run build:web` (→ `dist-web`, SPA autoconsistente); deploy statico su Vercel (`vercel deploy`, no integrazione Git). GPS/fotocamera degradati su web; il login e il resto delle schermate funzionano.
 
 ## Regole di prodotto (invarianti — non violarle)
 1. La mappa mostra **tutte** le attività; i filtri sono opzionali e servono al giro. Priorità: **P1 oro `#A6832B` / P2 navy `#1B2A4A` / P3 grigio**, con icona di stato sovrapposta al pin.
@@ -62,6 +68,9 @@ Proxy sicuro app↔HubSpot; il token vive come secret `HUBSPOT_TOKEN`. Azioni:
 - `sync_visit { visit_id }` → upsert Company (+`hubspot_company_id` sul place), upsert Contact, crea Deal con le proprietà, marca `visits.hubspot_synced=true`.
 - `deals_for_place { place_id }` → sync inverso (fasi/valori dei deal per la scheda attività).
 Autentica l'utente via JWT Supabase (`getUser`) e usa la service_role key (iniettata da Supabase) per scrivere sul DB. Gestisce 429 (RateLimit).
+
+## Flusso "giro" (mappa)
+"Pianifica giro" ordina le tappe per priorità (P1>P2>P3) e prossimità (nearest-neighbor entro ciascun livello), disegna la polyline e apre un **pannello scrollabile** con l'elenco numerato (badge priorità, zona, distanza dalla tappa precedente; tap → scheda attività). Il pulsante **🧭 Naviga** apre Google Maps con il percorso multi-tappa (`lib/nav.ts` → `urlNavigazioneGiro`: origine + fino a 9 waypoint + destinazione; oltre il limite tronca e lo segnala). Funziona anche senza mappa renderizzata (utile finché Maps non è configurato). Coperto da `__tests__/nav.test.ts`.
 
 ## Flusso "nuova visita"
 Check-in GPS → box ipotesi editabile → linea primaria (esclude standby) + cross-sell (solo standby) → esito a bottoni → Briefing/Note/Esito (dettatura da tastiera OS) → foto vetrina (Storage) → next-step obbligatorio → salva. Online: foto→visita→stato→sync HubSpot. Offline: coda. Dopo esito "interessato"/"da_richiamare": promemoria locale recap email entro 12h.
