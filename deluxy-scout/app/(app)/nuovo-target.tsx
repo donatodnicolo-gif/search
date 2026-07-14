@@ -176,11 +176,11 @@ const styles = StyleSheet.create({
   dot: { width: 12, height: 12, borderRadius: 6 },
   salva: {
     marginTop: spacing.lg,
-    backgroundColor: colors.oro,
-    borderRadius: radius.md,
-    paddingVertical: 18,
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
+    paddingVertical: 16,
     alignItems: 'center',
   },
-  salvaOff: { opacity: 0.6 },
-  salvaTxt: { color: colors.navy, fontWeight: '900', fontSize: 18 },
+  salvaOff: { opacity: 0.55 },
+  salvaTxt: { color: colors.bianco, fontWeight: '600', fontSize: 17 },
 });

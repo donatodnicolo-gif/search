@@ -162,8 +162,8 @@ const styles = StyleSheet.create({
   errore: { color: colors.errore, fontWeight: '600', marginTop: spacing.sm },
   azioni: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   btn: { flex: 1, borderRadius: radius.md, paddingVertical: 15, alignItems: 'center' },
-  btnSec: { backgroundColor: colors.bianco, borderWidth: 1.5, borderColor: colors.navy },
-  btnSecTxt: { color: colors.navy, fontWeight: '800' },
-  btnPri: { backgroundColor: colors.oro },
-  btnPriTxt: { color: colors.navy, fontWeight: '900', fontSize: 16 },
+  btnSec: { backgroundColor: colors.fill, borderWidth: 0 },
+  btnSecTxt: { color: colors.testo, fontWeight: '600' },
+  btnPri: { backgroundColor: colors.ink },
+  btnPriTxt: { color: colors.bianco, fontWeight: '600', fontSize: 16 },
 });
