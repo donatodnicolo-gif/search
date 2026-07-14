@@ -3,8 +3,8 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Contact, Deal, Place, Visit } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
-import { aggiornaPlace, fetchContatti, fetchDealPlace, fetchPlace, fetchVisitePlace } from '@/lib/db';
-import { dealsPerPlace } from '@/lib/hubspot';
+import { aggiornaPlace, fetchContatti, fetchDealPlace, fetchPlace, fetchVisitePlace, inserisciContatto } from '@/lib/db';
+import { dealsPerPlace, trovaContattiAI, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
 import { LineaSelector } from '@/components/LineaSelector';
@@ -19,6 +19,9 @@ export default function SchedaAttivita() {
   const [visite, setVisite] = useState<Visit[]>([]);
   const [deal, setDeal] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [matchAI, setMatchAI] = useState<MatchAI | null>(null);
+  const [matchLoading, setMatchLoading] = useState(false);
+  const [matchErrore, setMatchErrore] = useState<string | null>(null);
 
   const carica = useCallback(async () => {
     if (!id) return;
@@ -50,6 +53,41 @@ export default function SchedaAttivita() {
       carica();
     }, [carica]),
   );
+
+  // Conciliazione AI: cerca in HubSpot l'azienda/contatti del negozio.
+  async function cercaAI() {
+    if (!id) return;
+    setMatchErrore(null);
+    setMatchAI(null);
+    setMatchLoading(true);
+    try {
+      setMatchAI(await trovaContattiAI(id));
+    } catch (e) {
+      setMatchErrore((e as Error).message);
+    } finally {
+      setMatchLoading(false);
+    }
+  }
+
+  async function importaContattoAI(c: ContattoAI) {
+    if (!place) return;
+    try {
+      await inserisciContatto({
+        place_id: place.id,
+        nome: c.nome || 'Contatto',
+        ruolo: c.ruolo,
+        telefono: c.telefono,
+        email: c.email,
+        is_decisore: false,
+      });
+      setContatti(await fetchContatti(place.id));
+      setMatchAI((m) =>
+        m ? { ...m, contatti: m.contatti.filter((x) => x.hubspot_contact_id !== c.hubspot_contact_id) } : m,
+      );
+    } catch {
+      /* ignora: riprova */
+    }
+  }
 
   // Imposta/cambia la tipologia di interesse (linea) direttamente da qui.
   async function salvaLinea(linea: string) {
@@ -129,6 +167,42 @@ export default function SchedaAttivita() {
               </View>
             ))
           )}
+          {/* Conciliazione intelligente con HubSpot */}
+          <Pressable style={[styles.btnAI, matchLoading && { opacity: 0.6 }]} onPress={cercaAI} disabled={matchLoading}>
+            <Text style={styles.btnAITxt}>{matchLoading ? 'Cerco su HubSpot con l’AI…' : '🔎 Trova contatti (AI)'}</Text>
+          </Pressable>
+          {matchErrore ? <Text style={styles.err}>{matchErrore}</Text> : null}
+          {matchAI ? (
+            <View style={styles.aiBox}>
+              {matchAI.match ? (
+                <Text style={styles.aiMatch}>
+                  🏢 {matchAI.match.nome} · corrispondenza {matchAI.confidenza}
+                </Text>
+              ) : (
+                <Text style={styles.vuoto}>Nessuna azienda HubSpot corrispondente.</Text>
+              )}
+              {matchAI.nota ? <Text style={styles.aiNota}>{matchAI.nota}</Text> : null}
+              {matchAI.contatti.map((c) => (
+                <View key={c.hubspot_contact_id} style={styles.aiContatto}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.contattoNome}>{c.nome || 'Contatto'}</Text>
+                    <Text style={styles.meta}>
+                      {[c.ruolo, c.telefono, c.email].filter(Boolean).join(' · ') || '—'}
+                    </Text>
+                  </View>
+                  <Pressable style={styles.btnAdd} onPress={() => importaContattoAI(c)}>
+                    <Text style={styles.btnAddTxt}>+ Aggiungi</Text>
+                  </Pressable>
+                </View>
+              ))}
+              {matchAI.duplicati?.length ? (
+                <Text style={styles.aiDup}>
+                  ⚠️ Possibili duplicati da unire: {matchAI.duplicati.map((d) => d.motivo).join('; ')}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
           <Pressable style={styles.btnSecondario} onPress={() => router.push(`/(app)/contatto/${place.id}`)}>
             <Text style={styles.btnSecondarioTxt}>+ Aggiungi contatto</Text>
           </Pressable>
@@ -236,6 +310,43 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   btnSecondarioTxt: { color: colors.navy, fontWeight: '800' },
+  btnAI: {
+    backgroundColor: colors.goldSoft,
+    borderWidth: 1,
+    borderColor: colors.oro,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  btnAITxt: { color: colors.goldStrong, fontWeight: '800' },
+  aiBox: {
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  aiMatch: { color: colors.navy, fontWeight: '800', fontSize: 14 },
+  aiNota: { color: colors.testoSoft, fontSize: 12, fontStyle: 'italic' },
+  aiContatto: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.grigioChiaro,
+    paddingTop: spacing.sm,
+  },
+  btnAdd: {
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+  },
+  btnAddTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13 },
+  aiDup: { color: colors.attenzione, fontSize: 12, fontWeight: '600', marginTop: spacing.xs },
   contatto: { backgroundColor: colors.bianco, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
   contattoNome: { fontWeight: '800', color: colors.navy },
   link: { color: colors.oro, fontWeight: '700', marginTop: 2 },

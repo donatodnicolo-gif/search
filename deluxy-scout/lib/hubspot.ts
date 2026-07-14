@@ -73,3 +73,45 @@ export function dealsPerPlace(placeId: string): Promise<Deal[]> {
 export function syncVisitaPayload(visit: Visit): Promise<SyncVisitResult> {
   return callSync<SyncVisitResult>('sync_visit', { visit_id: visit.id });
 }
+
+// ── Conciliazione contatti con AI (Edge Function `hubspot-match`) ──────────────
+
+export interface ContattoAI {
+  hubspot_contact_id: string;
+  nome: string;
+  email: string | null;
+  telefono: string | null;
+  ruolo: string | null;
+}
+export interface MatchAI {
+  match: { hubspot_company_id: string; nome: string | null; indirizzo: string | null } | null;
+  contatti: ContattoAI[];
+  duplicati: { ids: string[]; motivo: string }[];
+  confidenza: 'alta' | 'media' | 'bassa' | 'nessuna';
+  nota: string;
+}
+
+/** Cerca in HubSpot l'azienda/contatti corrispondenti al negozio, con AI. */
+export async function trovaContattiAI(placeId: string): Promise<MatchAI> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/hubspot-match`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(await authHeader()),
+    },
+    body: JSON.stringify({ action: 'match_contacts', place_id: placeId }),
+  });
+  if (!res.ok) {
+    let msg = `Ricerca AI fallita (${res.status})`;
+    try {
+      const j = await res.json();
+      if (j?.error) msg = j.error;
+    } catch {
+      /* corpo non JSON */
+    }
+    throw new Error(msg);
+  }
+  return (await res.json()) as MatchAI;
+}
