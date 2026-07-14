@@ -29,6 +29,22 @@ export type LineaNome =
 
 export const LINEE_STANDBY: LineaNome[] = ['Clientelling', 'Concierge', 'Magazzino'];
 
+// Tutte le 9 linee, nell'ordine di presentazione.
+export const LINEE: LineaNome[] = [
+  'Consegne',
+  'Catering',
+  'Regali aziendali',
+  'Affiliazioni',
+  'Re-seller',
+  'Food Supplier',
+  'Clientelling',
+  'Concierge',
+  'Magazzino',
+];
+
+// Linee attive: usabili come tipologia di interesse primaria (esclude le standby).
+export const LINEE_ATTIVE: LineaNome[] = LINEE.filter((l) => !LINEE_STANDBY.includes(l));
+
 export interface Place {
   id: string;
   nome: string;

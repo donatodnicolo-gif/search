@@ -15,6 +15,7 @@ import type { CategoryRule, Place, Priorita, StatoPlace } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
 import { aggiornaPlace, fetchPlace } from '@/lib/db';
 import { caricaRegole } from '@/lib/categoryRules';
+import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { Loader } from '../../_layout';
 
@@ -35,6 +36,7 @@ export default function ModificaAttivita() {
   const [categoria, setCategoria] = useState<string | null>(null);
   const [priorita, setPriorita] = useState<Priorita>('P3');
   const [stato, setStato] = useState<StatoPlace>('da_visitare');
+  const [linea, setLinea] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -49,6 +51,7 @@ export default function ModificaAttivita() {
         setCategoria(p.categoria);
         setPriorita(p.priorita);
         setStato(p.stato);
+        setLinea(p.linea_ipotizzata);
       }
       setLoading(false);
     })();
@@ -74,6 +77,7 @@ export default function ModificaAttivita() {
         categoria,
         priorita,
         stato,
+        linea_ipotizzata: linea,
       });
       router.back();
     } catch (e: any) {
@@ -106,6 +110,9 @@ export default function ModificaAttivita() {
               <Chip key={c} label={c} on={categoria === c} onPress={() => setCategoria(c)} />
             ))}
           </View>
+
+          <Text style={styles.label}>Tipologia di interesse (linea)</Text>
+          <LineaSelector value={linea} onChange={setLinea} />
 
           <Text style={styles.label}>Priorità</Text>
           <View style={styles.chipWrap}>

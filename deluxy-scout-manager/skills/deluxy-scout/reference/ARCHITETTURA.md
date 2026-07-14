@@ -10,9 +10,9 @@ app/                        # schermate (Expo Router)
   index.tsx                 # redirect in base alla sessione
   (auth)/login.tsx          # login email/password
   (app)/                    # area protetta (Tabs), guard su sessione
-    mappa.tsx               # [tab] mappa (NATIVO): tutti i pin, colori priorità, filtri, pianificatore di giro + pannello tappe ordinate e "Naviga" multi-tappa
-    mappa.web.tsx           # [tab] mappa (WEB): stessa logica giro senza react-native-maps → lista target + "Naviga" (Google Maps in nuova scheda)
-    lista.tsx               # [tab] lista target: barra "Dove vai?" (geocode → ordina per vicinanza) + filtri + ricerca + FAB
+    mappa.tsx               # [tab] mappa (NATIVO): pin, giro + pannello tappe + "Naviga"; barra "Dove vai?" (AddressSearch) → ricentra + giro dall'indirizzo
+    mappa.web.tsx           # [tab] mappa (WEB): senza react-native-maps → lista + giro + "Dove vai?" (riordina per vicinanza) + "Naviga"
+    lista.tsx               # [tab] lista target: filtri + ricerca + tag linea (tipologia interesse) + FAB "nuovo target"
     rubrica.tsx             # [tab] Rubrica: tutti i contatti (join negozio), badge sync HubSpot, tel/email
     trattative.tsx          # [tab] Trattative: deal raggruppate per negozio (SectionList), fase+valore
     dashboard.tsx           # [tab] metriche commerciali (grafici SVG)
@@ -23,7 +23,8 @@ app/                        # schermate (Expo Router)
     nuovo-target.tsx        # crea attività dalla posizione GPS, ipotesi auto dalla categoria
     modifica/[id].tsx       # modifica attività (nome, indirizzo, zona, categoria, priorità, stato)
     visita-dettaglio/[id].tsx # dettaglio visita: briefing/note/esito/next + foto vetrina
-components/                 # BoxIpotesi, EsitoButtons, Filters, PriorityBadge, SyncBadge, StatCard, BarChart
+components/                 # BoxIpotesi, EsitoButtons, Filters, PriorityBadge, SyncBadge, StatCard, BarChart,
+                            #   AddressSearch (indirizzo+autocomplete Google), LineaSelector (tipologia interesse)
 lib/                        # supabase, auth, env, db, categoryRules, hubspot, geocode, syncQueue,
                             #   metrics, location, nav, giro, reminders, theme, usePlaces, export
 types/index.ts              # tipi condivisi (Place, Contact, Visit, Deal, Linea, CategoryRule…)

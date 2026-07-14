@@ -85,6 +85,11 @@ function Contatto({ contatto: c, onOpenPlace }: { contatto: ContattoConLuogo; on
           <Text style={styles.negozio}>🏬 {c.place_nome}</Text>
         </Pressable>
       ) : null}
+      {c.place_linea ? (
+        <View style={styles.lineaTag}>
+          <Text style={styles.lineaTagTxt}>{c.place_linea}</Text>
+        </View>
+      ) : null}
       <View style={styles.azioni}>
         {c.telefono ? (
           <Pressable style={styles.azione} onPress={() => Linking.openURL(`tel:${c.telefono}`)}>
@@ -136,6 +141,15 @@ const styles = StyleSheet.create({
   nome: { flex: 1, fontSize: 16, fontWeight: '800', color: colors.navy },
   meta: { color: colors.testoSoft, fontSize: 13 },
   negozio: { color: colors.navy, fontSize: 14, fontWeight: '600', marginTop: 2 },
+  lineaTag: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F3E9D6',
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginTop: 2,
+  },
+  lineaTagTxt: { color: colors.oro, fontWeight: '800', fontSize: 12 },
   azioni: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
   azione: {
     borderWidth: 1,

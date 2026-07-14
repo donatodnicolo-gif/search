@@ -1,5 +1,6 @@
 // Geocoding lato client: chiama l'Edge Function `geocode` (proxy sicuro verso
-// Google Geocoding). La chiave Google NON è nel bundle: vive come secret server.
+// Google Geocoding + Places). Le chiavi Google NON sono nel bundle: vivono come
+// secret server.
 import { env } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
 
@@ -9,13 +10,17 @@ export interface GeocodeResult {
   formatted_address: string;
 }
 
+export interface Predizione {
+  description: string;
+  place_id: string;
+}
+
 function geocodeUrl(): string {
   // Deriva dall'URL Supabase: <supabaseUrl>/functions/v1/geocode
   return `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/geocode`;
 }
 
-/** Converte un indirizzo/zona in coordinate. Lancia un errore leggibile se fallisce. */
-export async function geocodeIndirizzo(address: string): Promise<GeocodeResult> {
+async function call<T>(body: object): Promise<T> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   const res = await fetch(geocodeUrl(), {
@@ -25,7 +30,7 @@ export async function geocodeIndirizzo(address: string): Promise<GeocodeResult> 
       apikey: env.supabaseAnonKey(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ address }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     let msg = `Geocoding fallito (${res.status})`;
@@ -37,5 +42,21 @@ export async function geocodeIndirizzo(address: string): Promise<GeocodeResult> 
     }
     throw new Error(msg);
   }
-  return (await res.json()) as GeocodeResult;
+  return (await res.json()) as T;
+}
+
+/** Converte un indirizzo/zona in coordinate. */
+export function geocodeIndirizzo(address: string): Promise<GeocodeResult> {
+  return call<GeocodeResult>({ action: 'geocode', address });
+}
+
+/** Suggerimenti Google mentre l'utente digita (min 3 caratteri lato server). */
+export async function autocompleteIndirizzo(input: string): Promise<Predizione[]> {
+  const r = await call<{ predictions: Predizione[] }>({ action: 'autocomplete', input });
+  return r.predictions ?? [];
+}
+
+/** Coordinate di un suggerimento scelto (place_id → lat/lng). */
+export function dettagliLuogo(placeId: string): Promise<GeocodeResult> {
+  return call<GeocodeResult>({ action: 'details', place_id: placeId });
 }

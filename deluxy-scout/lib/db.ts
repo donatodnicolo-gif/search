@@ -2,10 +2,11 @@
 import { supabase } from '@/lib/supabase';
 import type { Contact, Deal, Linea, Place, StatoPlace, Visit } from '@/types';
 
-/** Contatto arricchito col nome/indirizzo del negozio (per la Rubrica globale). */
+/** Contatto arricchito con nome/indirizzo/linea del negozio (per la Rubrica globale). */
 export interface ContattoConLuogo extends Contact {
   place_nome: string | null;
   place_indirizzo: string | null;
+  place_linea: string | null;
 }
 
 /** Trattativa arricchita col nome del negozio (per la sezione Trattative). */
@@ -121,13 +122,14 @@ export async function fetchAllDeals(): Promise<Deal[]> {
 export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
   const { data, error } = await supabase
     .from('contacts')
-    .select('*, places(nome, indirizzo)')
+    .select('*, places(nome, indirizzo, linea_ipotizzata)')
     .order('nome');
   if (error) throw error;
   return (data ?? []).map((r: any) => ({
     ...r,
     place_nome: r.places?.nome ?? null,
     place_indirizzo: r.places?.indirizzo ?? null,
+    place_linea: r.places?.linea_ipotizzata ?? null,
   })) as ContattoConLuogo[];
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRouter } from 'expo-router';
@@ -7,9 +7,11 @@ import { colors, coloreProprita, iconaStato, radius, spacing } from '@/lib/theme
 import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
 import { urlNavigazioneGiro } from '@/lib/nav';
 import { ordinaGiro } from '@/lib/giro';
+import type { GeocodeResult } from '@/lib/geocode';
 import { env } from '@/lib/env';
 import { applicaFiltri, haFiltriAttivi, usePlaces } from '@/lib/usePlaces';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
+import { AddressSearch } from '@/components/AddressSearch';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { Loader } from '../_layout';
 
@@ -20,10 +22,15 @@ export default function Mappa() {
   const [pos, setPos] = useState<Coord | null>(null);
   const [giroAttivo, setGiroAttivo] = useState(false);
   const [pannelloAperto, setPannelloAperto] = useState(false);
+  const [destinazione, setDestinazione] = useState<Coord | null>(null);
+  const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
     posizioneCorrente().then(setPos);
   }, []);
+
+  // Punto di partenza del giro: l'indirizzo digitato, altrimenti la posizione GPS.
+  const origine: Coord = destinazione ?? pos ?? MILANO;
 
   // Regola #1: di default la mappa mostra TUTTI i pin. I filtri sono opzionali
   // e servono soprattutto a costruire il giro; non nascondono i pin finché
@@ -34,26 +41,37 @@ export default function Mappa() {
   // Pianificatore di giro: ordina per priorità poi prossimità (nearest-neighbor).
   const giro = useMemo(() => {
     if (!giroAttivo) return [];
-    const partenza = pos ?? MILANO;
     const base = haFiltriAttivi(filtri) ? filtrati : places;
-    return ordinaGiro(base, partenza);
-  }, [giroAttivo, pos, filtrati, places, filtri]);
+    return ordinaGiro(base, origine);
+  }, [giroAttivo, origine, filtrati, places, filtri]);
 
   // URL Google Maps per navigare l'intero giro (origine → tappe → destinazione).
   const giroNav = useMemo(
-    () => urlNavigazioneGiro(pos, giro.map((p) => ({ lat: p.lat, lng: p.lng }))),
-    [pos, giro],
+    () => urlNavigazioneGiro(origine, giro.map((p) => ({ lat: p.lat, lng: p.lng }))),
+    [origine, giro],
   );
 
-  // Distanza di ciascuna tappa dalla precedente (dalla posizione corrente per la prima).
+  // Distanza di ciascuna tappa dalla precedente (dall'origine per la prima).
   const distanzeTappe = useMemo(() => {
-    let prec: Coord = pos ?? MILANO;
+    let prec: Coord = origine;
     return giro.map((p) => {
       const d = distanzaKm(prec, { lat: p.lat, lng: p.lng });
       prec = { lat: p.lat, lng: p.lng };
       return d;
     });
-  }, [giro, pos]);
+  }, [giro, origine]);
+
+  // L'operatore digita "dove va": ricentra la mappa e apre il giro da lì.
+  function onSelectDestinazione(r: GeocodeResult) {
+    const c = { lat: r.lat, lng: r.lng };
+    setDestinazione(c);
+    setGiroAttivo(true);
+    setPannelloAperto(true);
+    mapRef.current?.animateToRegion(
+      { latitude: c.lat, longitude: c.lng, latitudeDelta: 0.05, longitudeDelta: 0.05 },
+      600,
+    );
+  }
 
   function chiudiGiro() {
     setGiroAttivo(false);
@@ -64,12 +82,9 @@ export default function Mappa() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.filterBar}>
-        <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} />
-      </View>
-
       {env.hasGoogleMaps() ? (
         <MapView
+          ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={styles.map}
           showsUserLocation
@@ -94,7 +109,7 @@ export default function Mappa() {
           {giro.length > 1 ? (
             <Polyline
               coordinates={[
-                ...(pos ? [{ latitude: pos.lat, longitude: pos.lng }] : []),
+                { latitude: origine.lat, longitude: origine.lng },
                 ...giro.map((p) => ({ latitude: p.lat, longitude: p.lng })),
               ]}
               strokeColor={colors.oro}
@@ -179,6 +194,14 @@ export default function Mappa() {
           </>
         )}
       </View>
+
+      {/* Controlli in cima, sopra la mappa: filtri + "Dove vai?" con suggerimenti. */}
+      <View style={styles.topOverlay} pointerEvents="box-none">
+        <View style={styles.filterBar}>
+          <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} />
+        </View>
+        <AddressSearch onSelect={onSelectDestinazione} onClear={() => setDestinazione(null)} />
+      </View>
     </View>
   );
 }
@@ -193,6 +216,7 @@ function PinAttivita({ place }: { place: Place }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
+  topOverlay: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 30 },
   filterBar: { backgroundColor: colors.sfondo, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro },
   map: { flex: 1 },
   mapPlaceholder: {

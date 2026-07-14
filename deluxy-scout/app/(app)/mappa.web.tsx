@@ -9,8 +9,10 @@ import { colors, radius, spacing } from '@/lib/theme';
 import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
 import { ordinaGiro } from '@/lib/giro';
 import { urlNavigazione, urlNavigazioneGiro } from '@/lib/nav';
+import type { GeocodeResult } from '@/lib/geocode';
 import { applicaFiltri, haFiltriAttivi, usePlaces } from '@/lib/usePlaces';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
+import { AddressSearch } from '@/components/AddressSearch';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { Loader } from '../_layout';
 
@@ -20,10 +22,14 @@ export default function MappaWeb() {
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
   const [pos, setPos] = useState<Coord | null>(null);
   const [giroAttivo, setGiroAttivo] = useState(false);
+  const [destinazione, setDestinazione] = useState<Coord | null>(null);
 
   useEffect(() => {
     posizioneCorrente().then(setPos);
   }, []);
+
+  // Punto di partenza: l'indirizzo digitato, altrimenti la posizione GPS.
+  const origine: Coord = destinazione ?? pos ?? MILANO;
 
   const filtrati = useMemo(() => applicaFiltri(places, filtri), [places, filtri]);
   const visibili = haFiltriAttivi(filtri) ? filtrati : places;
@@ -31,33 +37,47 @@ export default function MappaWeb() {
   const giro = useMemo(() => {
     if (!giroAttivo) return [];
     const base = haFiltriAttivi(filtri) ? filtrati : places;
-    return ordinaGiro(base, pos ?? MILANO);
-  }, [giroAttivo, pos, filtrati, places, filtri]);
+    return ordinaGiro(base, origine);
+  }, [giroAttivo, origine, filtrati, places, filtri]);
 
   const giroNav = useMemo(
-    () => urlNavigazioneGiro(pos, giro.map((p) => ({ lat: p.lat, lng: p.lng }))),
-    [pos, giro],
+    () => urlNavigazioneGiro(origine, giro.map((p) => ({ lat: p.lat, lng: p.lng }))),
+    [origine, giro],
   );
 
   // Distanza di ciascuna tappa dalla precedente (solo in modalità giro).
   const distanzeTappe = useMemo(() => {
-    let prec: Coord = pos ?? MILANO;
+    let prec: Coord = origine;
     return giro.map((p) => {
       const d = distanzaKm(prec, { lat: p.lat, lng: p.lng });
       prec = { lat: p.lat, lng: p.lng };
       return d;
     });
-  }, [giro, pos]);
+  }, [giro, origine]);
 
   if (loading) return <Loader />;
 
-  const elenco = giroAttivo ? giro : visibili;
+  // Senza giro: se c'è una destinazione, ordina per vicinanza; altrimenti ordine base.
+  const elenco = giroAttivo
+    ? giro
+    : destinazione
+      ? [...visibili].sort(
+          (a, b) =>
+            distanzaKm(destinazione, { lat: a.lat, lng: a.lng }) -
+            distanzaKm(destinazione, { lat: b.lat, lng: b.lng }),
+        )
+      : visibili;
 
   return (
     <View style={styles.container}>
       <View style={styles.filterBar}>
         <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} />
       </View>
+
+      <AddressSearch
+        onSelect={(r: GeocodeResult) => setDestinazione({ lat: r.lat, lng: r.lng })}
+        onClear={() => setDestinazione(null)}
+      />
 
       <View style={styles.banner}>
         <Text style={styles.bannerTxt}>
@@ -83,8 +103,12 @@ export default function MappaWeb() {
                 <Text style={styles.cardMeta} numberOfLines={1}>
                   {[
                     p.zona,
-                    p.categoria,
-                    giroAttivo ? `${distanzeTappe[i].toFixed(1)} km` : null,
+                    p.linea_ipotizzata,
+                    giroAttivo
+                      ? `${distanzeTappe[i].toFixed(1)} km`
+                      : destinazione
+                        ? `${distanzaKm(destinazione, { lat: p.lat, lng: p.lng }).toFixed(1)} km`
+                        : null,
                   ]
                     .filter(Boolean)
                     .join(' · ') || '—'}
@@ -92,7 +116,7 @@ export default function MappaWeb() {
               </Pressable>
               <Pressable
                 style={styles.cardNav}
-                onPress={() => Linking.openURL(urlNavigazione({ lat: p.lat, lng: p.lng }, pos))}
+                onPress={() => Linking.openURL(urlNavigazione({ lat: p.lat, lng: p.lng }, origine))}
               >
                 <Text style={styles.cardNavTxt}>🧭</Text>
               </Pressable>

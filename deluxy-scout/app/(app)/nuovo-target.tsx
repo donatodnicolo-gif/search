@@ -17,6 +17,7 @@ import { caricaRegole, regolaPerCategoria } from '@/lib/categoryRules';
 import { inserisciPlace } from '@/lib/db';
 import { posizioneCorrente, type Coord } from '@/lib/location';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
+import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { Loader } from '../_layout';
 
@@ -31,6 +32,7 @@ export default function NuovoTarget() {
   const [indirizzo, setIndirizzo] = useState('');
   const [zona, setZona] = useState('');
   const [categoria, setCategoria] = useState<string | null>(null);
+  const [lineaOverride, setLineaOverride] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -51,6 +53,9 @@ export default function NuovoTarget() {
     () => (categoria ? regolaPerCategoria(categoria, regole) : null),
     [categoria, regole],
   );
+
+  // Tipologia di interesse effettiva: la scelta manuale ha la precedenza sull'ipotesi.
+  const lineaScelta = lineaOverride ?? ipotesi?.linea_ipotizzata ?? null;
 
   async function salva() {
     if (!nome.trim()) {
@@ -73,7 +78,7 @@ export default function NuovoTarget() {
         settore: null,
         zona: zona.trim() || null,
         priorita: regola?.priorita ?? 'P3',
-        linea_ipotizzata: regola?.linea_ipotizzata ?? null,
+        linea_ipotizzata: lineaScelta ?? regola?.linea_ipotizzata ?? null,
         aggancio_apertura: regola?.aggancio_apertura ?? null,
       });
       router.replace(`/(app)/attivita/${place.id}`);
@@ -127,6 +132,9 @@ export default function NuovoTarget() {
               <BoxIpotesi linea={ipotesi.linea_ipotizzata} aggancio={ipotesi.aggancio_apertura} />
             </View>
           ) : null}
+
+          <Text style={styles.label}>Tipologia di interesse (linea)</Text>
+          <LineaSelector value={lineaScelta} onChange={setLineaOverride} />
 
           <Pressable style={[styles.salva, salvataggio && styles.salvaOff]} onPress={salva} disabled={salvataggio}>
             <Text style={styles.salvaTxt}>{salvataggio ? 'Salvataggio…' : 'Crea target'}</Text>
