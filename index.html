@@ -5,115 +5,127 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Trova Fiorai & Pasticcerie — Contatti verificati</title>
 <style>
+  /* Deluxy Design System v1.0 — token */
   :root{
-    --bg:#0f1220; --panel:#1a1f35; --panel2:#232a47; --line:#2e3760;
-    --txt:#e9ecf6; --muted:#9aa3c4; --accent:#ff5c8a; --accent2:#7c5cff;
-    --ok:#2ecc71; --wa:#25d366; --warn:#f5a623;
-    --radius:16px;
+    --bg:#f5f5f7; --surface:#fff; --surface-translucent:rgba(255,255,255,.72);
+    --text:#1d1d1f; --text-secondary:#6e6e73; --text-tertiary:#86868b;
+    --hairline:rgba(0,0,0,.08); --hairline-strong:rgba(0,0,0,.14);
+    --fill:rgba(120,120,128,.08); --fill-hover:rgba(120,120,128,.14); --fill-active:rgba(120,120,128,.2);
+    --ink:#111318; --ink-hover:#2a2d35; --gold:#b8963e; --gold-strong:#a07f2c; --gold-soft:rgba(184,150,62,.12);
+    --blue:#0071e3; --green:#248a3d; --orange:#c93400; --red:#d70015; --purple:#6d3fc4;
+    --radius-s:8px; --radius-m:12px; --radius-l:18px; --radius-xl:24px; --radius-pill:980px;
+    --shadow-card:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.05);
+    --shadow-float:0 4px 12px rgba(0,0,0,.08),0 24px 60px rgba(0,0,0,.12);
+    --ease:cubic-bezier(.25,.1,.25,1);
+    --font-sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Segoe UI Variable','Segoe UI',system-ui,Roboto,Helvetica,Arial,sans-serif;
+    --font-logo:Georgia,'Times New Roman',serif;
   }
   *{box-sizing:border-box}
-  body{
-    margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-    background:radial-gradient(1200px 600px at 80% -10%, #29224a 0%, transparent 60%),
-               radial-gradient(1000px 500px at -10% 10%, #3a1f3a 0%, transparent 55%), var(--bg);
-    color:var(--txt); min-height:100vh;
-  }
-  header{padding:28px 20px 10px; text-align:center}
-  header h1{margin:0 0 6px; font-size:26px; letter-spacing:.3px}
-  header h1 .em{filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
-  header p{margin:0; color:var(--muted); font-size:14px}
+  body{ margin:0; font-family:var(--font-sans); background:var(--bg); color:var(--text);
+    font-size:15px; line-height:1.47; -webkit-font-smoothing:antialiased; min-height:100vh; }
+  ::selection{ background:rgba(184,150,62,.25) }
+  header{padding:34px 20px 8px; text-align:center}
+  header h1{margin:0 0 6px; font-size:32px; font-weight:600; letter-spacing:-.025em}
+  header p{margin:0; color:var(--text-secondary); font-size:14px}
   .wrap{max-width:920px; margin:0 auto; padding:16px}
-  .card{background:linear-gradient(180deg,var(--panel),#161b2f); border:1px solid var(--line);
-        border-radius:var(--radius); padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
-  .config summary{cursor:pointer; font-weight:600; color:var(--muted); outline:none}
+  .card{background:var(--surface); border:1px solid var(--hairline);
+        border-radius:var(--radius-l); padding:20px; box-shadow:var(--shadow-card)}
+  .config summary{cursor:pointer; font-weight:600; color:var(--text); outline:none}
   .config[open] summary{margin-bottom:12px}
   .grid{display:grid; gap:12px}
-  label{display:block; font-size:12px; color:var(--muted); margin:0 0 4px}
-  input,select{width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
-        background:var(--panel2); color:var(--txt); font-size:14px; outline:none}
-  input:focus,select:focus{border-color:var(--accent2)}
+  label{display:block; font-size:12px; color:var(--text-tertiary); margin:0 0 4px}
+  input,select,textarea{width:100%; padding:11px 13px; border-radius:var(--radius-m); border:1px solid var(--hairline-strong);
+        background:var(--surface); color:var(--text); font-size:14px; font-family:inherit; outline:none;
+        transition:border-color .18s var(--ease), box-shadow .18s var(--ease)}
+  input:focus,select:focus,textarea:focus{border-color:var(--gold); box-shadow:0 0 0 4px var(--gold-soft)}
+  textarea{resize:vertical; min-height:64px}
   .row{display:grid; grid-template-columns:1fr; gap:12px}
   @media(min-width:640px){.row-2{grid-template-columns:1fr 1fr}.row-3{grid-template-columns:2fr 1fr 1fr}}
   .searchbar{margin-top:14px}
   .catbtns{display:flex; gap:8px; flex-wrap:wrap}
-  .chip{flex:1; min-width:130px; text-align:center; padding:12px; border-radius:12px; cursor:pointer;
-        border:1px solid var(--line); background:var(--panel2); color:var(--muted); font-weight:600; user-select:none; transition:.15s}
-  .chip.active{color:#fff; border-color:transparent}
-  .chip[data-cat="fioraio"].active{background:linear-gradient(135deg,#ff5c8a,#ff8f5c)}
-  .chip[data-cat="pasticceria"].active{background:linear-gradient(135deg,#7c5cff,#5cc9ff)}
-  .btn{border:0; border-radius:12px; padding:13px 18px; font-size:15px; font-weight:700; cursor:pointer;
-       background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; width:100%}
+  .chip{flex:1; min-width:130px; text-align:center; padding:11px; border-radius:var(--radius-pill); cursor:pointer;
+        border:1px solid var(--hairline-strong); background:var(--surface); color:var(--text-secondary); font-weight:600;
+        user-select:none; transition:.15s var(--ease)}
+  .chip.active{color:#fff; background:var(--ink); border-color:transparent}
+  .btn{border:0; border-radius:var(--radius-pill); padding:13px 18px; font-size:15px; font-weight:600; cursor:pointer;
+       background:var(--ink); color:#fff; width:100%; transition:background .18s var(--ease), transform .15s var(--ease)}
+  .btn:hover{background:var(--ink-hover)}
+  .btn:active{transform:scale(.98)}
   .btn:disabled{opacity:.55; cursor:not-allowed}
-  .status{margin:16px 0; min-height:20px; font-size:14px; color:var(--muted); text-align:center}
-  .status.err{color:#ff8896}
+  .status{margin:16px 0; min-height:20px; font-size:14px; color:var(--text-secondary); text-align:center}
+  .status.err{color:var(--red)}
   .results{display:grid; gap:14px; margin-top:8px}
-  .shop{background:linear-gradient(180deg,var(--panel),#151a2d); border:1px solid var(--line);
-        border-radius:var(--radius); padding:16px; position:relative; overflow:hidden}
+  .shop{background:var(--surface); border:1px solid var(--hairline); border-radius:var(--radius-l);
+        padding:20px; box-shadow:var(--shadow-card)}
   .shop .head{display:flex; align-items:flex-start; gap:10px; justify-content:space-between}
-  .shop h3{margin:0; font-size:17px; line-height:1.25}
-  .badge{font-size:11px; padding:3px 8px; border-radius:20px; background:var(--panel2); color:var(--muted); white-space:nowrap}
-  .dist{font-weight:700; color:var(--accent)}
-  .meta{color:var(--muted); font-size:13px; margin:6px 0 12px}
-  .stars{color:#ffce54}
+  .shop h3{margin:0; font-size:19px; font-weight:600; letter-spacing:-.02em; line-height:1.25}
+  .badge{font-size:11px; padding:4px 10px; border-radius:var(--radius-pill); background:var(--fill);
+        color:var(--text-secondary); white-space:nowrap; display:inline-flex; align-items:center; gap:5px}
+  .dist{font-weight:600; color:var(--text)}
+  .meta{color:var(--text-secondary); font-size:13px; margin:8px 0 12px}
+  .stars{color:var(--gold)}
   .contacts{display:flex; flex-wrap:wrap; gap:8px}
   .contacts a, .contacts span.none{
     display:inline-flex; align-items:center; gap:6px; text-decoration:none; font-size:13px; font-weight:600;
-    padding:9px 12px; border-radius:10px; border:1px solid var(--line); color:var(--txt); background:var(--panel2)}
-  .contacts a.wa{background:rgba(37,211,102,.14); border-color:rgba(37,211,102,.4); color:#8affbf}
-  .contacts a.tel{background:rgba(124,92,255,.14); border-color:rgba(124,92,255,.4)}
-  .contacts a.mail{background:rgba(245,166,35,.14); border-color:rgba(245,166,35,.4)}
-  .contacts a.insta{background:linear-gradient(135deg,rgba(225,48,108,.18),rgba(129,52,175,.18)); border-color:rgba(225,48,108,.45); color:#ffb3d0}
-  .contacts a.web,.contacts a.map{background:var(--panel2)}
-  .contacts span.none{opacity:.5; font-weight:500}
+    padding:9px 13px; border-radius:var(--radius-pill); border:1px solid var(--hairline); color:var(--text);
+    background:var(--fill); transition:background .15s var(--ease)}
+  .contacts a:hover{background:var(--fill-hover)}
+  .contacts a.wa{color:var(--green)}
+  .contacts a.tel{color:var(--ink)}
+  .contacts a.mail{color:var(--orange)}
+  .contacts a.insta{color:var(--purple)}
+  .contacts span.none{opacity:.6; font-weight:500}
   .email-slot .loading{opacity:.6; font-style:italic; font-weight:500}
-  .src{font-size:11px; color:var(--muted); margin-top:10px}
-  .verified{color:var(--ok)}
+  .src{font-size:11px; color:var(--text-tertiary); margin-top:12px}
+  .verified{color:var(--green)}
   .reviews{margin-top:10px}
-  .reviews summary{cursor:pointer; font-size:13px; color:#ffce54; font-weight:600; outline:none}
-  .review{border-top:1px solid var(--line); padding:8px 0; font-size:12.5px}
-  .rv-head{display:flex; align-items:center; gap:6px; flex-wrap:wrap; color:var(--txt)}
-  .rv-time{color:var(--muted); font-size:11px}
-  .rv-text{color:var(--muted); margin-top:4px; line-height:1.45}
-  .hint{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5}
-  a.link{color:#8fb7ff}
-  textarea{width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
-        background:var(--panel2); color:var(--txt); font-size:14px; outline:none; font-family:inherit; resize:vertical; min-height:64px}
-  textarea:focus{border-color:var(--accent2)}
-  .ordercard{margin-bottom:14px; border-color:#4a3a6b}
-  .ordercard h2{margin:0 0 4px; font-size:18px}
-  .ordercard .sub{color:var(--muted); font-size:13px; margin:0 0 14px}
-  .orderbox{margin-top:16px; border-top:1px solid var(--line); padding-top:16px}
+  .reviews summary{cursor:pointer; font-size:13px; color:var(--gold-strong); font-weight:600; outline:none}
+  .review{border-top:1px solid var(--hairline); padding:8px 0; font-size:13px}
+  .rv-head{display:flex; align-items:center; gap:6px; flex-wrap:wrap; color:var(--text)}
+  .rv-time{color:var(--text-tertiary); font-size:11px}
+  .rv-text{color:var(--text-secondary); margin-top:4px; line-height:1.45}
+  .hint{font-size:12px; color:var(--text-secondary); margin-top:8px; line-height:1.5}
+  a.link{color:var(--blue)}
+  .ordercard{margin-bottom:14px}
+  .ordercard h2{margin:0 0 4px; font-size:19px; font-weight:600; letter-spacing:-.02em}
+  .ordercard .sub{color:var(--text-secondary); font-size:13px; margin:0 0 14px}
+  .orderbox{margin-top:16px; border-top:1px solid var(--hairline); padding-top:16px}
   .fgrid{display:grid; gap:12px}
   @media(min-width:640px){.fgrid-2{grid-template-columns:1fr 1fr}}
   .ordertitle{display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap}
-  .ordertitle .tag{background:linear-gradient(135deg,#ff5c8a,#7c5cff); color:#fff; font-weight:700; padding:4px 10px; border-radius:20px; font-size:13px}
-  .thumb{margin-top:8px; border-radius:10px; max-width:160px; border:1px solid var(--line)}
+  .ordertitle .tag{background:var(--gold-soft); color:var(--gold-strong); font-weight:600; padding:4px 10px; border-radius:var(--radius-pill); font-size:13px}
+  .thumb{margin-top:8px; border-radius:var(--radius-m); max-width:160px; border:1px solid var(--hairline)}
   .paidrow{display:flex; gap:12px; align-items:flex-end}
-  .budget-hint{color:var(--warn); font-size:12px; margin-top:6px}
+  .budget-hint{color:var(--orange); font-size:12px; margin-top:6px}
   .rawattrs{margin-top:12px}
-  .rawattrs summary{cursor:pointer; color:var(--muted); font-size:13px}
+  .rawattrs summary{cursor:pointer; color:var(--text-secondary); font-size:13px}
   .rawattrs table{width:100%; border-collapse:collapse; margin-top:8px; font-size:13px}
-  .rawattrs td{border-bottom:1px solid var(--line); padding:5px 6px; vertical-align:top}
-  .rawattrs td:first-child{color:var(--muted); white-space:nowrap; padding-right:12px}
-  .sendorder{margin-top:10px; width:100%; border:0; border-radius:10px; padding:11px; font-weight:700; cursor:pointer;
-        background:linear-gradient(135deg,#25d366,#128c7e); color:#fff; font-size:14px}
-  .sendorder:hover{filter:brightness(1.08)}
-  .sendemail{margin-top:8px; width:100%; border:0; border-radius:10px; padding:11px; font-weight:700; cursor:pointer;
-        background:linear-gradient(135deg,#f5a623,#e0762b); color:#fff; font-size:14px}
-  .sendemail:hover{filter:brightness(1.08)}
-  .order-flag{margin-top:8px; font-size:12px; color:var(--accent2); font-weight:600}
-  footer{ text-align:center; color:var(--muted); font-size:12px; padding:24px}
+  .rawattrs td{border-bottom:1px solid var(--hairline); padding:5px 6px; vertical-align:top}
+  .rawattrs td:first-child{color:var(--text-tertiary); white-space:nowrap; padding-right:12px}
+  .sendorder{margin-top:10px; width:100%; border:0; border-radius:var(--radius-pill); padding:12px; font-weight:600; cursor:pointer;
+        background:var(--green); color:#fff; font-size:14px; transition:filter .15s var(--ease), transform .15s var(--ease)}
+  .sendorder:hover{filter:brightness(1.06)} .sendorder:active{transform:scale(.98)}
+  .sendemail{margin-top:8px; width:100%; border:0; border-radius:var(--radius-pill); padding:12px; font-weight:600; cursor:pointer;
+        background:var(--ink); color:#fff; font-size:14px; transition:background .18s var(--ease), transform .15s var(--ease)}
+  .sendemail:hover{background:var(--ink-hover)} .sendemail:active{transform:scale(.98)}
+  .order-flag{margin-top:8px; font-size:12px; color:var(--gold-strong); font-weight:600}
+  footer{ text-align:center; color:var(--text-tertiary); font-size:12px; padding:24px}
 </style>
 </head>
 <body>
 <!-- LOCK SCREEN -->
-<div id="lockScreen" style="position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; padding:24px; background:radial-gradient(1000px 500px at 50% 0%, #29224a 0%, transparent 60%), var(--bg)">
-  <div style="font-size:44px">🌸🔒</div>
-  <h2 style="margin:0; text-align:center">Deluxy — Accesso</h2>
-  <p style="color:var(--muted); text-align:center; max-width:340px; margin:0">Inserisci il pass code per accedere all'applicazione.</p>
-  <input id="passInput" type="password" placeholder="Pass code" autocomplete="current-password" style="max-width:300px; text-align:center">
-  <button class="btn" id="passBtn" style="max-width:300px">Entra</button>
-  <div id="passErr" class="status err" style="min-height:18px; margin:0"></div>
+<div id="lockScreen" style="position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; padding:24px; background:radial-gradient(720px 420px at 14% 8%, var(--gold-soft), transparent 60%), radial-gradient(720px 420px at 86% 92%, rgba(17,19,24,.10), transparent 60%), var(--bg)">
+  <div style="width:100%; max-width:360px; background:var(--surface-translucent); backdrop-filter:blur(30px) saturate(180%); -webkit-backdrop-filter:blur(30px) saturate(180%); border:1px solid var(--hairline); border-radius:var(--radius-xl); box-shadow:var(--shadow-float); padding:32px 28px; text-align:center">
+    <div style="width:56px; height:56px; margin:0 auto 16px; border-radius:15px; background:linear-gradient(145deg,#1D1F26,#3A3D47); box-shadow:inset 0 1px 0 rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center">
+      <span style="font-family:var(--font-logo); font-size:30px; color:var(--gold); line-height:1">D</span>
+    </div>
+    <h2 style="margin:0 0 4px; font-size:24px; font-weight:600; letter-spacing:-.022em">Deluxy</h2>
+    <p style="color:var(--text-secondary); font-size:14px; margin:0 0 20px">Inserisci il pass code per accedere.</p>
+    <input id="passInput" type="password" placeholder="Pass code" autocomplete="current-password" style="text-align:center; margin-bottom:12px">
+    <button class="btn" id="passBtn">Entra</button>
+    <div id="passErr" class="status err" style="min-height:18px; margin:10px 0 0"></div>
+    <p style="color:var(--text-tertiary); font-size:12px; margin:18px 0 0">Consegne in guanti bianchi, dal 2019.</p>
+  </div>
 </div>
 
 <header>
@@ -137,7 +149,7 @@
         <input id="cfg_proxy" type="text" placeholder="es. https://api.allorigins.win/raw?url=">
       </div>
       <div>
-        <label style="font-size:13px; color:var(--txt); font-weight:700">🛍️ Negozi Shopify</label>
+        <label style="font-size:13px; color:var(--text); font-weight:600">🛍️ Negozi Shopify</label>
         <div id="storeRows" class="grid" style="margin-top:8px"></div>
         <div class="hint">Il <b>token Shopify resta sul server</b>, non arriva mai al browser. Lascia il token vuoto per non modificarlo.
           Token: Shopify Admin → <i>Sviluppa app</i> → <i>Installa</i> → <i>Token di accesso Admin API</i> (inizia con <code>shpat_</code>).</div>
@@ -169,7 +181,7 @@
     </div>
     <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
       <button class="btn" id="manualOrder" style="flex:2; min-width:200px">✍️ Compila ordine</button>
-      <button id="fetchOrder" style="flex:1; min-width:150px; border:1px solid var(--line); background:var(--panel2); color:var(--muted); border-radius:12px; padding:13px 18px; font-size:14px; font-weight:600; cursor:pointer">📥 Da Shopify (avanzato)</button>
+      <button id="fetchOrder" style="flex:1; min-width:150px; border:1px solid var(--hairline-strong); background:var(--fill); color:var(--text); border-radius:var(--radius-pill); padding:13px 18px; font-size:14px; font-weight:600; cursor:pointer">📥 Da Shopify (avanzato)</button>
     </div>
     <div class="status" id="orderStatus" style="text-align:left"></div>
 
@@ -252,7 +264,7 @@
       </div>
     </div>
 
-    <label style="display:flex; align-items:center; gap:8px; margin-top:12px; cursor:pointer; font-size:13px; color:var(--txt)">
+    <label style="display:flex; align-items:center; gap:8px; margin-top:12px; cursor:pointer; font-size:13px; color:var(--text)">
       <input type="checkbox" id="onlyWa" style="width:auto"> 📱 Mostra solo probabili WhatsApp (cellulari)
     </label>
 
@@ -347,7 +359,7 @@ function cssId(b){ return b.replace(/[^a-z0-9]/gi,'_'); }
 
 // righe negozi nell'admin
 $('#storeRows').innerHTML = KNOWN_BRANDS.map(b=>`
-  <div style="border:1px solid var(--line); border-radius:10px; padding:10px">
+  <div style="border:1px solid var(--hairline); border-radius:var(--radius-m); padding:12px">
     <div style="font-weight:700; margin-bottom:6px">${b}</div>
     <div class="fgrid fgrid-2">
       <div><label>Dominio .myshopify.com</label><input id="cfg_shop_${cssId(b)}" type="text" placeholder="es. xxxx.myshopify.com"></div>
@@ -833,13 +845,13 @@ function shopCard(d, cat, dist){
   const cc = (d.address_components||[]).find(x=>x.types.includes('country'));
   const shopLang = COUNTRY_LANG[cc && cc.short_name] || currentLang || 'it';
   const kind  = phoneKind(phone, intl);
-  const waBadge = kind==='mobile' ? '<span class="badge" style="color:#8affbf">📱 WhatsApp probabile</span>'
-                : kind==='fixed'  ? '<span class="badge" style="color:#d0b98a">☎️ fisso · WhatsApp raro</span>'
-                : (hasWa ? '<span class="badge" style="color:#9aa3c4">WhatsApp da verificare</span>' : '');
+  const waBadge = kind==='mobile' ? '<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">📱 WhatsApp probabile</span>'
+                : kind==='fixed'  ? '<span class="badge" style="color:var(--orange); background:rgba(201,52,0,.1)">☎️ fisso · WhatsApp raro</span>'
+                : (hasWa ? '<span class="badge">WhatsApp da verificare</span>' : '');
   let open; try { open = d.opening_hours?.isOpen?.(); } catch(e) { open = undefined; }
-  const openBadge = (open===true)?'<span class="badge" style="color:#8affbf; border-color:rgba(46,204,113,.45)">🟢 Aperto ora</span>'
-                  : (open===false)?'<span class="badge" style="color:#ff9a9a; border-color:rgba(231,76,60,.45)">🔴 Chiuso ora</span>'
-                  : (d.business_status==='OPERATIONAL'?'<span class="badge" style="color:#9aa3c4">orari non disponibili</span>':'');
+  const openBadge = (open===true)?'<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">🟢 Aperto ora</span>'
+                  : (open===false)?'<span class="badge" style="color:var(--red); background:rgba(215,0,21,.1)">🔴 Chiuso ora</span>'
+                  : (d.business_status==='OPERATIONAL'?'<span class="badge">orari non disponibili</span>':'');
   // distanza STRADALE (in auto) se disponibile, altrimenti linea d'aria
   const distBadge = dist.driveText ? `🚗 ${dist.driveText}${dist.durText?' · '+dist.durText:''}`
                   : (dist.straight!=null ? distanceStr(dist.straight)+' (in linea d\'aria)' : '');
