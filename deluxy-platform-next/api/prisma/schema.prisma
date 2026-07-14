@@ -215,8 +215,18 @@ model Valet {
   birthDate           DateTime?
   iban                String?
   isTeamLeader        Boolean           @default(false)
+  // Team leader: province dove può assegnare + partner associati (JSON array di id, compat. SQLite)
+  teamLeaderProvinces String?
+  teamLeaderPartners  String?
   vehicle             String? // mezzo: Auto | Bicicletta | Furgone | Moto/Scooter
   withholdingPercent  Float             @default(0) // % ritenuta rimborso
+  // Stipendio
+  salaryFrequency     String            @default("monthly") // monthly | weekly
+  weeklyDepositLimit  Float?
+  // KM a livello valet
+  minimumKmIncluded   Float? // soglia KM inclusi entro il comune
+  extraOutOfCityPrice Float? // rimborso extra fuori dal comune
+  notes               String?
   notifyByEmail       Boolean           @default(true)
   notifyByWhatsapp    Boolean           @default(false)
   active              Boolean           @default(true)
@@ -248,6 +258,8 @@ model ValetService {
   valetId       String
   serviceTypeId String
   salary        Float
+  salaryPerItem Float? // per i servizi magazzino (salario a pezzo)
+  extraKmPrice  Float? // Extra KM/€
   valet         Valet       @relation(fields: [valetId], references: [id], onDelete: Cascade)
   serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
 

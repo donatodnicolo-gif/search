@@ -41,10 +41,27 @@ export const routes: Routes = [
             (m) => m.PartnerFormComponent,
           ),
       },
+      {
+        path: 'valets',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+        loadComponent: () =>
+          import('./pages/valets-list.component').then(
+            (m) => m.ValetsListComponent,
+          ),
+      },
+      {
+        path: 'valets/new',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+        loadComponent: () =>
+          import('./pages/valet-form.component').then(
+            (m) => m.ValetFormComponent,
+          ),
+      },
       // ---- Route stub: sezioni in migrazione ----
       ...[
         { path: 'activities', title: 'Attivita', roles: ['ADMIN', 'OPERATION', 'VALET'] },
-        { path: 'valets', title: 'Valet', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
         { path: 'customers', title: 'Clienti', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
         { path: 'products', title: 'Prodotti', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
         { path: 'sales', title: 'Vendite', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },

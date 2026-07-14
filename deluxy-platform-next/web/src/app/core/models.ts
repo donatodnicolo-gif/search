@@ -74,6 +74,25 @@ export interface Partner {
   categories?: { category: Category }[];
 }
 
+export interface Valet {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  vehicle?: string;
+  isTeamLeader: boolean;
+  active: boolean;
+  provinces?: { province: Province }[];
+}
+
+export const VEHICLE_OPTIONS = ['Auto', 'Bicicletta', 'Furgone', 'Moto/Scooter'];
+
+export const SALARY_FREQUENCY_LABELS: Record<string, string> = {
+  monthly: 'Mensile',
+  weekly: 'Settimanale',
+};
+
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   bankTransfer: 'Bonifico bancario',
   creditCard: 'Carta di credito',

@@ -55,6 +55,7 @@ Menu principale: **CONSEGNE · ACTIVITIES · PARTNER · VALET · UTENTI · PRODO
 - Colonne della lista: Stato, Vendita, Platform, ID, Original Consegna, Data, Orario, Partner, Valet, Indirizzo, Ora Ritiro, Tipo Servizio, Da Fatturare, Da Pagare, Azioni.
 - Filtri per colonna: stato (`created`/`assigned`/`delivering`/`inPreparation`/`accepted`/`requestCancellation`), piattaforma vendita (Deluxy=`shopifysale`, Cakes=`cakesales`, Flowers=`flowerssales`, Deluxy Experience=`deluxyexperiencesales`, Deluxy Dot Com=`deluxydotcomsales`), ID, date da/a, orari da/a, partner, valet, indirizzo, ora ritiro da/a, tipo servizio (`sales`/`hourlyrate`/`fixedprice`/`corporate`/`warehouseservice`), da fatturare Sì/No, da pagare Sì/No. Paginazione 10–500 elementi.
 - Azioni per riga: DETTAGLI, MODIFICA, ASSEGNA, MONITORARE, **ADDITIONAL VALET +/-** (aggiunta/rimozione valet extra su una consegna). **[NUOVO]**
+- **Vista team leader in Consegne**: un valet **team leader** può, in questa schermata, **vedere tutte le consegne (delle sue province) oppure filtrare per vedere solo le proprie** — ha un filtro "tutte / solo le mie". Un valet normale vede solo le proprie. **[NUOVO]**
 
 #### Dettaglio consegna (`/consegne/:id`)
 
@@ -124,12 +125,13 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 
 #### Scheda valet (campi completi, verificati)
 
-- **Personal information**: Cognome\*, Nome\*, E-mail\*, Telefono\*, Indirizzo\*, flag PARTITA IVA (con Partita IVA\* e Codice Fiscale\*), luogo e provincia di nascita, data di nascita, coordinate bancarie (IBAN), Percentuale Ritenuta.
-- **Salary Frequency Setting**: frequenza dello stipendio\* e limite di deposito settimanale. **[NUOVO]**
-- **Team Leader**: flag + province in cui può vedere/assegnare consegne in autonomia; associazione PARTNERS.
-- **Valet Province**: province in cui opera.
-- **Servizi**: per ogni servizio abilitato, Servizio Salario ed Extra Km/€, Minimum KM Included, EXTRA FUORICITTÀ PREZZO.
-- **Notifiche** WhatsApp / Mail; **Mezzo** (Auto, Bicicletta, Furgone, Moto/Scooter); Note.
+- **Personal information**: Cognome\*, Nome\*, E-mail\*, Telefono\*, Indirizzo\*, **Partita IVA** (opzionale), **Codice Fiscale\*** (obbligatorio), **Luogo di nascita (e provincia)**, Data di nascita, coordinate bancarie (IBAN), Percentuale Ritenuta. **[NUOVO — nel form reale il CF è obbligatorio, la P.IVA no]**
+- **Salary Frequency Setting**: frequenza dello stipendio\* (`salaryFrequency`: MENSILE / SETTIMANALE) e limite di deposito settimanale (`weeklyDepositLimit`). **[NUOVO]**
+- **Team Leader**: flag `isTeamLeader`; quando attivo si impostano le **PROVINCE** in cui il team leader può vedere/assegnare consegne in autonomia e i **PARTNERS** associati (es. SWISS FOOD, ECI).
+- **Valet Province**: province in cui il valet opera (distinte da quelle del team leader).
+- **Servizi**: per ogni servizio abilitato, Servizio Salario ed Extra Km/€; per i **servizi magazzino** anche **SALARY PER ITEM** (salario a pezzo). A livello valet: **Minimum KM Included** (soglia entro il comune) ed **EXTRA FUORICITTÀ PREZZO** (rimborso per consegne fuori dal comune). **Regola:** si può selezionare **un solo servizio a ora e un solo servizio a prezzo fisso** per valet. **[NUOVO]**
+- **Notifiche**: solo **WhatsApp** e **Mail** (il valet **non** ha l'opzione SMS, a differenza del partner); **Mezzo** (Auto, Bicicletta, Furgone, Moto/Scooter, selezione singola); Note.
+- **Note tecniche** (da `expert.entity.ts`): il valet nei sistemi è `Expert`; anagrafica (nome/cognome/email) sta sulla relazione `user`; la % ritenuta è `holdingPercentage`; le coordinate bancarie `bankAccountData`; `minimumKmIncluded` ed `extraOutSideCityKmPrice` sono a livello valet; indirizzo geocodificato (`city`, `latitude`/`longitude`).
 
 #### Sottosezioni Valet
 
