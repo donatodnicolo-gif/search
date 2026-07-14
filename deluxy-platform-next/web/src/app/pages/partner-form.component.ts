@@ -29,7 +29,7 @@ interface ServiceRow {
         <a routerLink="/partners" class="back">← Partner</a>
         <h1>Nuovo partner</h1>
         <p class="page-caption">
-          Anagrafica, province servite, servizi, fatturazione, sicurezza e integrazioni.
+          Anagrafica, province servite, servizi, pagamenti e setup.
         </p>
       </div>
     </div>
@@ -54,8 +54,26 @@ interface ServiceRow {
             <input class="field" name="vatNumber" [(ngModel)]="model.vatNumber" placeholder="IT01234567890" /></label>
           <label class="fld"><span>Codice fiscale</span>
             <input class="field" name="fiscalCode" [(ngModel)]="model.fiscalCode" /></label>
-          <label class="fld span-2"><span>Indirizzo</span>
+          <label class="fld span-2"><span>Indirizzo principale</span>
             <input class="field" name="address" [(ngModel)]="model.address" placeholder="Via …, CAP Città (PR)" /></label>
+        </div>
+
+        <!-- Ritiro multiplo, sotto l'indirizzo principale -->
+        <label class="toggle mt"><input type="checkbox" name="isMultiPickup" [(ngModel)]="model.isMultiPickup" /><span>Indirizzo di ritiro multiplo</span></label>
+        @if (model.isMultiPickup) {
+          <div class="pickup-list">
+            <span class="pickup-hint">Indirizzi di ritiro aggiuntivi (in consegna si sceglie quale usare):</span>
+            @for (addr of pickupAddresses; track $index) {
+              <div class="pickup-row">
+                <input class="field" [(ngModel)]="pickupAddresses[$index]" [name]="'pickup' + $index" placeholder="Via …, CAP Città (PR)" />
+                <button type="button" class="icon-btn" (click)="removePickup($index)" title="Rimuovi">✕</button>
+              </div>
+            }
+            <button type="button" class="btn btn-secondary add" (click)="addPickup()">+ Aggiungi indirizzo di ritiro</button>
+          </div>
+        }
+
+        <div class="grid-2 mt">
           <label class="fld"><span>Nome referente</span>
             <input class="field" name="contactName" [(ngModel)]="model.contactName" placeholder="Nome" /></label>
           <label class="fld"><span>Cognome referente</span>
@@ -83,7 +101,7 @@ interface ServiceRow {
       <section class="card block">
         <header class="block-head">
           <h2>Servizi abilitati</h2>
-          <span class="block-sub">Prezzo per servizio; KM inclusi ed extra valgono per i prezzi fissi.</span>
+          <span class="block-sub">Prezzo per servizio; KM inclusi (entro il comune) ed extra fuori città.</span>
         </header>
         @if (serviceRows.length === 0) { <p class="muted">Nessun servizio aggiunto.</p> }
         @for (row of serviceRows; track $index) {
@@ -118,9 +136,9 @@ interface ServiceRow {
         }
       </section>
 
-      <!-- Pagamenti e contratto -->
+      <!-- Pagamenti e fatturazione -->
       <section class="card block">
-        <header class="block-head"><h2>Pagamenti e contratto</h2></header>
+        <header class="block-head"><h2>Pagamenti e fatturazione</h2></header>
         <div class="grid-2">
           <label class="fld"><span>Metodo di pagamento</span>
             <select class="field" name="paymentMethod" [(ngModel)]="model.paymentMethod">
@@ -141,52 +159,56 @@ interface ServiceRow {
             <input class="field" name="bankAccountName" [(ngModel)]="model.bankAccountName" /></label>
           <label class="fld"><span>Codice SDI</span>
             <input class="field" name="sdiCode" [(ngModel)]="model.sdiCode" placeholder="Fatturazione elettronica" /></label>
-        </div>
-      </section>
-
-      <!-- Fatturazione e notifiche -->
-      <section class="card block">
-        <header class="block-head"><h2>Fatturazione e notifiche</h2></header>
-        <div class="grid-2">
-          <label class="fld span-2"><span>Email per le fatture</span>
+          <label class="fld"><span>Email per le fatture</span>
             <input class="field" type="email" name="invoiceEmail" [(ngModel)]="model.invoiceEmail" placeholder="fatture@partner.it" /></label>
         </div>
-        <div class="toggles">
-          <label class="toggle"><input type="checkbox" name="invoicingEnabled" [(ngModel)]="model.invoicingEnabled" /><span>Abilita fatturazione</span></label>
-          <label class="toggle"><input type="checkbox" name="smsTemplatesEnabled" [(ngModel)]="model.smsTemplatesEnabled" /><span>Possibilità di inviare SMS</span></label>
-          <label class="toggle"><input type="checkbox" name="whatsappNotifications" [(ngModel)]="model.whatsappNotifications" /><span>Notifiche WhatsApp</span></label>
-          <label class="toggle"><input type="checkbox" name="mailNotifications" [(ngModel)]="model.mailNotifications" /><span>Notifiche mail</span></label>
+        <label class="toggle mt"><input type="checkbox" name="invoicingEnabled" [(ngModel)]="model.invoicingEnabled" /><span>Abilita fatturazione</span></label>
+      </section>
+
+      <!-- Setup -->
+      <section class="card block">
+        <header class="block-head">
+          <h2>Setup</h2>
+          <span class="block-sub">Magazzino, sicurezza e notifiche.</span>
+        </header>
+        <div class="setup-group">
+          <span class="group-label">Magazzino</span>
+          <label class="toggle"><input type="checkbox" name="isWarehouse" [(ngModel)]="model.isWarehouse" /><span>Partner magazzino</span></label>
+        </div>
+        <div class="setup-group">
+          <span class="group-label">Sicurezza</span>
+          <div class="toggles">
+            <label class="toggle"><input type="checkbox" name="valetIdentityCheck" [(ngModel)]="model.valetIdentityCheck" /><span>Verifica identità valet</span></label>
+            <label class="toggle"><input type="checkbox" name="deliveryCodeRequired" [(ngModel)]="model.deliveryCodeRequired" /><span>Codice di consegna richiesto</span></label>
+          </div>
+        </div>
+        <div class="setup-group">
+          <span class="group-label">Notifiche</span>
+          <div class="toggles">
+            <label class="toggle"><input type="checkbox" name="smsTemplatesEnabled" [(ngModel)]="model.smsTemplatesEnabled" /><span>Possibilità di inviare SMS</span></label>
+            <label class="toggle"><input type="checkbox" name="whatsappNotifications" [(ngModel)]="model.whatsappNotifications" /><span>Notifiche WhatsApp</span></label>
+            <label class="toggle"><input type="checkbox" name="mailNotifications" [(ngModel)]="model.mailNotifications" /><span>Notifiche mail</span></label>
+          </div>
         </div>
       </section>
 
-      <!-- Vendita e sicurezza -->
+      <!-- Vendita e integrazioni -->
       <section class="card block">
-        <header class="block-head"><h2>Vendita e sicurezza</h2></header>
+        <header class="block-head"><h2>Vendita e integrazioni</h2></header>
         <div class="grid-2">
           <label class="fld"><span>URL del negozio</span>
             <input class="field" name="storeUrl" [(ngModel)]="model.storeUrl" placeholder="https://…" /></label>
           <label class="fld"><span>Immagine (URL)</span>
             <input class="field" name="imageUrl" [(ngModel)]="model.imageUrl" placeholder="https://…" /></label>
         </div>
-        <div class="toggles">
-          <label class="toggle"><input type="checkbox" name="isMultiPickup" [(ngModel)]="model.isMultiPickup" /><span>Indirizzo di ritiro multiplo</span></label>
-          <label class="toggle"><input type="checkbox" name="valetIdentityCheck" [(ngModel)]="model.valetIdentityCheck" /><span>Verifica identità valet</span></label>
-          <label class="toggle"><input type="checkbox" name="deliveryCodeRequired" [(ngModel)]="model.deliveryCodeRequired" /><span>Codice di consegna richiesto</span></label>
-          <label class="toggle"><input type="checkbox" name="isWarehouse" [(ngModel)]="model.isWarehouse" /><span>Partner magazzino</span></label>
-        </div>
-      </section>
-
-      <!-- WooCommerce e note -->
-      <section class="card block">
-        <header class="block-head"><h2>Integrazione WooCommerce e note</h2></header>
-        <label class="fld span-2"><span>WooCommerce API key</span>
+        <label class="fld span-2 mt"><span>WooCommerce API key</span>
           <div class="key-row">
             <input class="field" name="woocommerceApiKey" [(ngModel)]="model.woocommerceApiKey" placeholder="Chiave per il plugin deluxy-send-order" />
             <button type="button" class="btn btn-secondary" (click)="generateKey()">Genera</button>
             <button type="button" class="btn btn-secondary" (click)="copyKey()" [disabled]="!model.woocommerceApiKey">Copia</button>
           </div>
         </label>
-        <label class="fld span-2" style="margin-top:14px"><span>Note</span>
+        <label class="fld span-2 mt"><span>Note</span>
           <textarea class="field" rows="3" name="notes" [(ngModel)]="model.notes"></textarea></label>
       </section>
 
@@ -213,6 +235,7 @@ interface ServiceRow {
       .block-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
       .block-sub { display: block; margin-top: 3px; font-size: 13px; color: var(--text-tertiary); }
       .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+      .mt { margin-top: 16px; }
       .fld { display: flex; flex-direction: column; gap: 6px; }
       .fld > span { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
       .span-2 { grid-column: 1 / -1; }
@@ -224,12 +247,20 @@ interface ServiceRow {
       .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
       .svc-row { display: grid; grid-template-columns: 1.6fr repeat(4, 1fr) auto; gap: 8px; margin-bottom: 10px; align-items: center; }
       .svc-row .num { text-align: right; }
-      .icon-btn { width: 34px; height: 34px; border: none; border-radius: 8px; background: var(--fill); color: var(--text-secondary); cursor: pointer; font-size: 13px; transition: all 0.15s var(--ease); }
+      .pickup-list { margin-top: 12px; padding: 14px; background: var(--fill); border-radius: var(--radius-m); }
+      .pickup-hint { display: block; font-size: 12.5px; color: var(--text-tertiary); margin-bottom: 10px; }
+      .pickup-row { display: flex; gap: 8px; margin-bottom: 8px; }
+      .pickup-row .field { flex: 1; background: var(--surface); }
+      .icon-btn { width: 34px; height: 34px; border: none; border-radius: 8px; background: var(--fill-hover); color: var(--text-secondary); cursor: pointer; font-size: 13px; transition: all 0.15s var(--ease); flex-shrink: 0; }
       .icon-btn:hover { background: rgba(215,0,21,0.09); color: var(--red); }
       .add { margin-top: 4px; align-self: flex-start; }
-      .toggles { display: flex; flex-wrap: wrap; gap: 14px 18px; margin-top: 16px; }
+      .toggles { display: flex; flex-wrap: wrap; gap: 14px 18px; }
       .toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
       .toggle input { width: 16px; height: 16px; accent-color: var(--gold-strong); }
+      .setup-group { padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+      .setup-group:last-child { border-bottom: none; padding-bottom: 0; }
+      .setup-group:first-child { padding-top: 0; }
+      .group-label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); margin-bottom: 10px; }
       .key-row { display: flex; gap: 8px; }
       .key-row .field { flex: 1; }
       .actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
@@ -255,6 +286,7 @@ export class PartnerFormComponent {
   readonly paymentStatuses = Object.entries(PAYMENT_STATUS_LABELS);
 
   serviceRows: ServiceRow[] = [];
+  pickupAddresses: string[] = [];
 
   model = {
     insegna: '',
@@ -264,6 +296,7 @@ export class PartnerFormComponent {
     vatNumber: '',
     fiscalCode: '',
     address: '',
+    isMultiPickup: false,
     contactName: '',
     contactSurname: '',
     paymentMethod: '',
@@ -275,15 +308,14 @@ export class PartnerFormComponent {
     sdiCode: '',
     invoiceEmail: '',
     invoicingEnabled: false,
+    isWarehouse: false,
+    valetIdentityCheck: false,
+    deliveryCodeRequired: false,
     smsTemplatesEnabled: false,
     whatsappNotifications: false,
     mailNotifications: false,
     storeUrl: '',
     imageUrl: '',
-    isMultiPickup: false,
-    valetIdentityCheck: false,
-    deliveryCodeRequired: false,
-    isWarehouse: false,
     woocommerceApiKey: '',
     notes: '',
   };
@@ -302,10 +334,10 @@ export class PartnerFormComponent {
   addService(): void {
     this.serviceRows.push({ serviceTypeId: '', price: null, includedKm: null, extraKmPrice: null, extraOutOfCityPrice: null });
   }
+  removeService(i: number): void { this.serviceRows.splice(i, 1); }
 
-  removeService(i: number): void {
-    this.serviceRows.splice(i, 1);
-  }
+  addPickup(): void { this.pickupAddresses.push(''); }
+  removePickup(i: number): void { this.pickupAddresses.splice(i, 1); }
 
   generateKey(): void {
     const uuid =
@@ -353,6 +385,11 @@ export class PartnerFormComponent {
     }
     if (this.selectedProvinces.size) payload['provinceIds'] = [...this.selectedProvinces];
     if (this.selectedCategories.size) payload['categoryIds'] = [...this.selectedCategories];
+
+    if (m.isMultiPickup) {
+      const addrs = this.pickupAddresses.map((a) => a.trim()).filter(Boolean);
+      if (addrs.length) payload['pickupAddresses'] = addrs;
+    }
 
     const services = this.serviceRows
       .filter((r) => r.serviceTypeId && r.price != null)

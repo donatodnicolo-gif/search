@@ -120,8 +120,9 @@ model Partner {
   sdiCode             String? // codice SDI fatturazione elettronica
   contractStart       DateTime?
   contractEnd         DateTime?
-  // Indirizzo di ritiro multiplo
+  // Indirizzo di ritiro multiplo (+ lista indirizzi come JSON per compat. SQLite)
   isMultiPickup       Boolean           @default(false)
+  pickupAddresses     String? // JSON array di indirizzi di ritiro aggiuntivi
   // Campi di vendita
   storeUrl            String?
   imageUrl            String?

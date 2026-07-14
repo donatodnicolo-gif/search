@@ -40,12 +40,13 @@ export class PartnersService {
   }
 
   create(dto: CreatePartnerDto) {
-    const { provinceIds, categoryIds, services, openingHours, ...scalar } = dto;
+    const { provinceIds, categoryIds, services, openingHours, pickupAddresses, ...scalar } = dto;
     return this.prisma.partner.create({
       data: {
         ...scalar,
         contractStart: scalar.contractStart ? new Date(scalar.contractStart) : undefined,
         contractEnd: scalar.contractEnd ? new Date(scalar.contractEnd) : undefined,
+        pickupAddresses: pickupAddresses?.length ? JSON.stringify(pickupAddresses) : undefined,
         provinces: provinceIds?.length
           ? { create: provinceIds.map((provinceId) => ({ provinceId })) }
           : undefined,
@@ -69,7 +70,13 @@ export class PartnersService {
       throw new ForbiddenException('Accesso non consentito');
     }
     await this.findOne(id);
-    const { provinceIds, categoryIds, services, openingHours, ...scalar } = dto;
+    const { provinceIds, categoryIds, services, openingHours, pickupAddresses, ...rest } = dto;
+    const scalar = {
+      ...rest,
+      ...(rest.contractStart ? { contractStart: new Date(rest.contractStart) } : {}),
+      ...(rest.contractEnd ? { contractEnd: new Date(rest.contractEnd) } : {}),
+      ...(pickupAddresses ? { pickupAddresses: JSON.stringify(pickupAddresses) } : {}),
+    };
 
     // Il partner puo' modificare solo alcuni campi propri (es. orari apertura)
     if (user.role === Role.PARTNER) {

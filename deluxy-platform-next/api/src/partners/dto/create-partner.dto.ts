@@ -167,6 +167,12 @@ export class CreatePartnerDto {
   @IsBoolean()
   isMultiPickup?: boolean;
 
+  @ApiPropertyOptional({ type: [String], description: 'Indirizzi di ritiro aggiuntivi' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  pickupAddresses?: string[];
+
   @ApiPropertyOptional({ description: 'URL del negozio' })
   @IsOptional()
   @IsString()
