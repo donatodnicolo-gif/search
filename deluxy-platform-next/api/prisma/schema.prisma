@@ -118,8 +118,16 @@ model Partner {
   bankAccount         String? // IBAN
   bankAccountName     String? // intestatario conto
   sdiCode             String? // codice SDI fatturazione elettronica
+  certifiedEmail      String? // PEC
   contractStart       DateTime?
   contractEnd         DateTime?
+  // Notifiche extra
+  activityReminder    Boolean           @default(false) // promemoria attività
+  // KM a livello partner (soglia inclusa entro il comune + extra fuori città)
+  kmIncluded          Float?
+  extraOutOfCityPrice Float?
+  // Tipo codice di consegna (quando deliveryCodeRequired): UNIQUE_PER_DELIVERY | UNIQUE_PER_CUSTOMER
+  deliveryCodeCheckType String          @default("UNIQUE_PER_DELIVERY")
   // Indirizzo di ritiro multiplo (+ lista indirizzi come JSON per compat. SQLite)
   isMultiPickup       Boolean           @default(false)
   pickupAddresses     String? // JSON array di indirizzi di ritiro aggiuntivi
@@ -480,18 +488,27 @@ model Delivery {
   notes              String?
   internalNotes      String? // visibili solo ad admin/operation/valet
   ddtNumber          String?
+  ddtFile            String? // file/URL del DDT
   // Distanza e extra (calcolo automatico ritiro -> consegna)
   distanceKm         Float?
   extraKm            Float             @default(0)
   extraOutOfCity     Boolean           @default(false)
+  // Vendita Deluxy + valet servizio
+  deluxyDelivery     Boolean           @default(false) // "Vendita Deluxy"
+  valetServiceId     String? // "Valet Servizio" (id ValetService/ServiceType)
   // Economia (LISTINO: da fatturare / da pagare)
+  billable           Boolean           @default(true) // da fatturare
+  payable            Boolean           @default(true) // da pagare
   price              Float? // prezzo per il partner
   additionalPrice    Float? // plus/minus prezzo partner
   valetSalary        Float? // paga del valet
   valetAdditionalPrice Float? // plus/minus paga valet
+  isFlexiblePrice    Boolean           @default(false)
+  flexiblePrice      String? // prezzo flessibile (JSON/testo)
   hours              Float? // per servizi a ora
   personalizeSaleNotes String? // personalizzazione
-  // SMS trigger
+  // SMS: numero telefonico + trigger
+  smsPhoneNo         String?
   smsOnCreated       Boolean           @default(false)
   smsOnDeparted      Boolean           @default(false)
   smsOnArrived       Boolean           @default(false)

@@ -234,6 +234,46 @@ export class CreateDeliveryDto {
   @IsString()
   personalizeSaleNotes?: string;
 
+  @ApiPropertyOptional({ default: false, description: 'Vendita Deluxy' })
+  @IsOptional()
+  @IsBoolean()
+  deluxyDelivery?: boolean;
+
+  @ApiPropertyOptional({ description: 'Valet Servizio (id)' })
+  @IsOptional()
+  @IsString()
+  valetServiceId?: string;
+
+  @ApiPropertyOptional({ default: true, description: 'Da fatturare' })
+  @IsOptional()
+  @IsBoolean()
+  billable?: boolean;
+
+  @ApiPropertyOptional({ default: true, description: 'Da pagare' })
+  @IsOptional()
+  @IsBoolean()
+  payable?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Prezzo flessibile' })
+  @IsOptional()
+  @IsBoolean()
+  isFlexiblePrice?: boolean;
+
+  @ApiPropertyOptional({ description: 'Prezzo flessibile (testo)' })
+  @IsOptional()
+  @IsString()
+  flexiblePrice?: string;
+
+  @ApiPropertyOptional({ description: 'Numero telefonico per SMS' })
+  @IsOptional()
+  @IsString()
+  smsPhoneNo?: string;
+
+  @ApiPropertyOptional({ description: 'File/URL del DDT' })
+  @IsOptional()
+  @IsString()
+  ddtFile?: string;
+
   // SMS trigger
   @ApiPropertyOptional({ default: false })
   @IsOptional()

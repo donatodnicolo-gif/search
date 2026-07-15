@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -229,6 +230,35 @@ export class CreatePartnerDto {
   @IsOptional()
   @IsEnum(PartnerPaymentStatus)
   paymentStatus?: PartnerPaymentStatus;
+
+  @ApiPropertyOptional({ description: 'PEC' })
+  @IsOptional()
+  @IsString()
+  certifiedEmail?: string;
+
+  @ApiPropertyOptional({ default: false, description: 'Promemoria attività' })
+  @IsOptional()
+  @IsBoolean()
+  activityReminder?: boolean;
+
+  @ApiPropertyOptional({ description: 'KM inclusi a livello partner (entro il comune)' })
+  @IsOptional()
+  @IsNumber()
+  kmIncluded?: number;
+
+  @ApiPropertyOptional({ description: 'Extra fuori città a livello partner' })
+  @IsOptional()
+  @IsNumber()
+  extraOutOfCityPrice?: number;
+
+  @ApiPropertyOptional({
+    enum: ['UNIQUE_PER_DELIVERY', 'UNIQUE_PER_CUSTOMER'],
+    default: 'UNIQUE_PER_DELIVERY',
+    description: 'Tipo codice consegna (se deliveryCodeRequired)',
+  })
+  @IsOptional()
+  @IsIn(['UNIQUE_PER_DELIVERY', 'UNIQUE_PER_CUSTOMER'])
+  deliveryCodeCheckType?: string;
 
   @ApiPropertyOptional({ type: [String], description: 'Province abilitate' })
   @IsOptional()

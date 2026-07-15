@@ -89,7 +89,13 @@ interface ProductRow {
             <select class="field" name="paymentStatus" [(ngModel)]="model.paymentStatus">
               @for (s of paymentStatuses; track s[0]) { <option [value]="s[0]">{{ s[1] }}</option> }
             </select></label>
+          <label class="fld"><span>Valet Servizio</span>
+            <select class="field" name="valetServiceId" [(ngModel)]="model.valetServiceId">
+              <option value="">— automatico —</option>
+              @for (s of serviceTypes(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+            </select></label>
         </div>
+        <label class="toggle mt"><input type="checkbox" name="deluxyDelivery" [(ngModel)]="model.deluxyDelivery" /><span>Vendita Deluxy</span></label>
       </section>
 
       <!-- 4. Destinatario e mittente -->
@@ -121,8 +127,10 @@ interface ProductRow {
           <label class="fld"><span>Telefono mittente</span>
             <input class="field" name="senderPhone" [(ngModel)]="model.senderPhone" /></label>
         </div>
+        <label class="fld mt" style="max-width:280px"><span>SMS telefonici (numero)</span>
+          <input class="field" name="smsPhoneNo" [(ngModel)]="model.smsPhoneNo" placeholder="+39 …" /></label>
         <div class="toggles mt">
-          <span class="group-label">SMS telefonici</span>
+          <span class="group-label">Invia SMS</span>
           <label class="toggle"><input type="checkbox" name="smsOnCreated" [(ngModel)]="model.smsOnCreated" /><span>Alla creazione</span></label>
           <label class="toggle"><input type="checkbox" name="smsOnDeparted" [(ngModel)]="model.smsOnDeparted" /><span>Alla partenza</span></label>
           <label class="toggle"><input type="checkbox" name="smsOnArrived" [(ngModel)]="model.smsOnArrived" /><span>All'arrivo</span></label>
@@ -163,6 +171,7 @@ interface ProductRow {
         <div class="listino">
           <div>
             <span class="group-label">Da fatturare (partner)</span>
+            <label class="toggle mb"><input type="checkbox" name="billable" [(ngModel)]="model.billable" /><span>Da fatturare</span></label>
             <div class="grid-2">
               <label class="fld"><span>Prezzo (€)</span>
                 <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price" placeholder="auto" /></label>
@@ -172,6 +181,7 @@ interface ProductRow {
           </div>
           <div>
             <span class="group-label">Da pagare (valet)</span>
+            <label class="toggle mb"><input type="checkbox" name="payable" [(ngModel)]="model.payable" /><span>Da pagare</span></label>
             <div class="grid-2">
               <label class="fld"><span>Valet salario (€)</span>
                 <input class="field num" type="number" step="0.01" name="valetSalary" [(ngModel)]="model.valetSalary" /></label>
@@ -180,6 +190,11 @@ interface ProductRow {
             </div>
           </div>
         </div>
+        <label class="toggle mt"><input type="checkbox" name="isFlexiblePrice" [(ngModel)]="model.isFlexiblePrice" /><span>Prezzo flessibile</span></label>
+        @if (model.isFlexiblePrice) {
+          <label class="fld mt"><span>Dettaglio prezzo flessibile</span>
+            <input class="field" name="flexiblePrice" [(ngModel)]="model.flexiblePrice" placeholder="Es. da 20 a 50 €" /></label>
+        }
         @if (isHourly()) {
           <label class="fld mt" style="max-width:200px"><span>Ore (servizio a ora)</span>
             <input class="field num" type="number" min="1" name="hours" [(ngModel)]="model.hours" /></label>
@@ -192,6 +207,8 @@ interface ProductRow {
         <div class="grid-2">
           <label class="fld"><span>Numero DDT</span>
             <input class="field" name="ddtNumber" [(ngModel)]="model.ddtNumber" /></label>
+          <label class="fld"><span>File DDT (URL)</span>
+            <input class="field" name="ddtFile" [(ngModel)]="model.ddtFile" placeholder="https://…" /></label>
         </div>
         <label class="fld span-2 mt"><span>Note</span>
           <textarea class="field" rows="2" name="notes" [(ngModel)]="model.notes"></textarea></label>
@@ -294,18 +311,26 @@ export class DeliveryFormComponent {
     senderLastName: '',
     senderFirstName: '',
     senderPhone: '',
+    valetServiceId: '',
+    deluxyDelivery: false,
+    smsPhoneNo: '',
     smsOnCreated: false,
     smsOnDeparted: false,
     smsOnArrived: false,
     paymentOnDelivery: false,
     tryAndReturn: false,
     paymentAmount: null as number | null,
+    billable: true,
+    payable: true,
     price: null as number | null,
     additionalPrice: null as number | null,
     valetSalary: null as number | null,
     valetAdditionalPrice: null as number | null,
+    isFlexiblePrice: false,
+    flexiblePrice: '',
     hours: null as number | null,
     ddtNumber: '',
+    ddtFile: '',
     notes: '',
     personalizeSaleNotes: '',
     internalNotes: '',
@@ -376,12 +401,16 @@ export class DeliveryFormComponent {
       smsOnDeparted: m.smsOnDeparted,
       smsOnArrived: m.smsOnArrived,
       paymentStatus: m.paymentStatus,
+      deluxyDelivery: m.deluxyDelivery,
+      billable: m.billable,
+      payable: m.payable,
+      isFlexiblePrice: m.isFlexiblePrice,
     };
     for (const key of [
-      'valetId', 'status', 'customerId', 'deliveryTimeFrom', 'deliveryTimeTo',
+      'valetId', 'valetServiceId', 'status', 'customerId', 'deliveryTimeFrom', 'deliveryTimeTo',
       'pickupTimeFrom', 'pickupTimeTo', 'recipientIntercom', 'recipientPhone', 'recipientEmail',
-      'senderFirstName', 'senderLastName', 'senderPhone', 'ddtNumber', 'notes',
-      'personalizeSaleNotes', 'internalNotes',
+      'senderFirstName', 'senderLastName', 'senderPhone', 'smsPhoneNo', 'ddtNumber', 'ddtFile',
+      'flexiblePrice', 'notes', 'personalizeSaleNotes', 'internalNotes',
     ] as const) {
       const v = m[key];
       if (typeof v === 'string' && v.trim()) payload[key] = v.trim();

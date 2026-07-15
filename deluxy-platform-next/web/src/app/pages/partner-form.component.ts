@@ -118,6 +118,12 @@ interface ServiceRow {
           </div>
         }
         <button type="button" class="btn btn-secondary add" (click)="addService()">+ Aggiungi servizio</button>
+        <div class="grid-2 mt">
+          <label class="fld"><span>KM inclusi (a livello partner)</span>
+            <input class="field num" type="number" name="kmIncluded" [(ngModel)]="model.kmIncluded" /></label>
+          <label class="fld"><span>Extra fuori città (€, a livello partner)</span>
+            <input class="field num" type="number" step="0.01" name="extraOutOfCityPrice" [(ngModel)]="model.extraOutOfCityPrice" /></label>
+        </div>
       </section>
 
       <!-- Categorie -->
@@ -159,6 +165,8 @@ interface ServiceRow {
             <input class="field" name="bankAccountName" [(ngModel)]="model.bankAccountName" /></label>
           <label class="fld"><span>Codice SDI</span>
             <input class="field" name="sdiCode" [(ngModel)]="model.sdiCode" placeholder="Fatturazione elettronica" /></label>
+          <label class="fld"><span>PEC</span>
+            <input class="field" type="email" name="certifiedEmail" [(ngModel)]="model.certifiedEmail" placeholder="pec@partner.it" /></label>
           <label class="fld"><span>Email per le fatture</span>
             <input class="field" type="email" name="invoiceEmail" [(ngModel)]="model.invoiceEmail" placeholder="fatture@partner.it" /></label>
         </div>
@@ -181,6 +189,13 @@ interface ServiceRow {
             <label class="toggle"><input type="checkbox" name="valetIdentityCheck" [(ngModel)]="model.valetIdentityCheck" /><span>Verifica identità valet</span></label>
             <label class="toggle"><input type="checkbox" name="deliveryCodeRequired" [(ngModel)]="model.deliveryCodeRequired" /><span>Codice di consegna richiesto</span></label>
           </div>
+          @if (model.deliveryCodeRequired) {
+            <label class="fld mt" style="max-width:340px"><span>Tipo codice</span>
+              <select class="field" name="deliveryCodeCheckType" [(ngModel)]="model.deliveryCodeCheckType">
+                <option value="UNIQUE_PER_DELIVERY">Unico per consegna (OTP diverso ogni volta)</option>
+                <option value="UNIQUE_PER_CUSTOMER">Unico per cliente (fisso, tipo PIN)</option>
+              </select></label>
+          }
         </div>
         <div class="setup-group">
           <span class="group-label">Notifiche</span>
@@ -188,6 +203,7 @@ interface ServiceRow {
             <label class="toggle"><input type="checkbox" name="smsTemplatesEnabled" [(ngModel)]="model.smsTemplatesEnabled" /><span>Possibilità di inviare SMS</span></label>
             <label class="toggle"><input type="checkbox" name="whatsappNotifications" [(ngModel)]="model.whatsappNotifications" /><span>Notifiche WhatsApp</span></label>
             <label class="toggle"><input type="checkbox" name="mailNotifications" [(ngModel)]="model.mailNotifications" /><span>Notifiche mail</span></label>
+            <label class="toggle"><input type="checkbox" name="activityReminder" [(ngModel)]="model.activityReminder" /><span>Promemoria attività</span></label>
           </div>
         </div>
       </section>
@@ -310,14 +326,19 @@ export class PartnerFormComponent {
     bankAccount: '',
     bankAccountName: '',
     sdiCode: '',
+    certifiedEmail: '',
     invoiceEmail: '',
     invoicingEnabled: false,
+    kmIncluded: null as number | null,
+    extraOutOfCityPrice: null as number | null,
     isWarehouse: false,
     valetIdentityCheck: false,
     deliveryCodeRequired: false,
+    deliveryCodeCheckType: 'UNIQUE_PER_DELIVERY',
     smsTemplatesEnabled: false,
     whatsappNotifications: false,
     mailNotifications: false,
+    activityReminder: false,
     storeUrl: '',
     imageUrl: '',
     woocommerceApiKey: '',
@@ -376,18 +397,22 @@ export class PartnerFormComponent {
       isMultiPickup: m.isMultiPickup,
       valetIdentityCheck: m.valetIdentityCheck,
       deliveryCodeRequired: m.deliveryCodeRequired,
+      deliveryCodeCheckType: m.deliveryCodeCheckType,
       isWarehouse: m.isWarehouse,
+      activityReminder: m.activityReminder,
       paymentStatus: m.paymentStatus,
     };
     for (const key of [
       'businessName', 'phone', 'vatNumber', 'fiscalCode', 'address',
       'contactName', 'contactSurname', 'paymentMethod', 'contractStart', 'contractEnd',
-      'bankAccount', 'bankAccountName', 'sdiCode', 'invoiceEmail',
+      'bankAccount', 'bankAccountName', 'sdiCode', 'certifiedEmail', 'invoiceEmail',
       'storeUrl', 'imageUrl', 'woocommerceApiKey', 'notes',
     ] as const) {
       const v = (m as Record<string, unknown>)[key];
       if (typeof v === 'string' && v.trim()) payload[key] = v.trim();
     }
+    if (m.kmIncluded != null) payload['kmIncluded'] = Number(m.kmIncluded);
+    if (m.extraOutOfCityPrice != null) payload['extraOutOfCityPrice'] = Number(m.extraOutOfCityPrice);
     if (this.selectedProvinces.size) payload['provinceIds'] = [...this.selectedProvinces];
     if (this.selectedCategories.size) payload['categoryIds'] = [...this.selectedCategories];
 
