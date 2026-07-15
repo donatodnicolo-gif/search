@@ -68,6 +68,24 @@ export const routes: Routes = [
             (m) => m.ValetFormComponent,
           ),
       },
+      {
+        path: 'operators',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION'] },
+        loadComponent: () =>
+          import('./pages/operators-list.component').then(
+            (m) => m.OperatorsListComponent,
+          ),
+      },
+      {
+        path: 'operators/new',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION'] },
+        loadComponent: () =>
+          import('./pages/operator-form.component').then(
+            (m) => m.OperatorFormComponent,
+          ),
+      },
       // ---- Route stub: sezioni in migrazione ----
       ...[
         { path: 'activities', title: 'Attivita', roles: ['ADMIN', 'OPERATION', 'VALET'] },

@@ -630,3 +630,21 @@ model Sale {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }
+
+// Staff d'ufficio. Il flag isProjectManager lo qualifica come Project Manager
+// (come Operation ma senza Consegne e Attività).
+model Operation {
+  id               String   @id @default(cuid())
+  firstName        String
+  lastName         String
+  email            String   @unique
+  phone            String?
+  address          String?
+  notifyWhatsapp   Boolean  @default(false)
+  notifyMail       Boolean  @default(true)
+  isProjectManager Boolean  @default(false)
+  notes            String?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}

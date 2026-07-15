@@ -147,7 +147,7 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 ### 3.5 Utenti / Operation / Customers
 
 - **Utenti** (`/utenti`): 550 utenti; colonne ID, Email, Cognome, Nome, Ruolo (nessuno/admin/expert/partner/operation, modificabile in linea), Attivo (Attivo/Disattivo/Da convalidare/Sconosciuto), Elimina. Visibile solo ad Admin. Qui si attivano gli utenti appena registrati e si trasformano in Admin.
-- **Operation** (`/operation`): staff d'ufficio (14 persone): Cognome, Nome, Email, Telefono, Attivo + AGGIUNGI.
+- **Operation** (`/operation`): staff d'ufficio (14 persone): Cognome, Nome, Email, Telefono, Attivo + AGGIUNGI. **Form "Nuovo Operation"**: Cognome\*, Nome\*, E-mail\*, Telefono\*, Indirizzo\*; notifiche WhatsApp/Mail; **flag PROJECT MANAGER** (trasforma l'operatore in Project Manager — come Operation ma senza Consegne e Attività); Note. **[NUOVO — flag PM e notifiche sul form operation]**
 - **Customers** (`/customers`): 4.092 clienti; colonne: ID, Owner (Admin/Operation/Partner), Partner, Cognome, Nome, Email, Data nascita, Citofono, Telefono, Indirizzo, Note. Azioni: DELIVERY (crea consegna dal cliente), MODIFICA, ELIMINA; AGGIUNGI, ESPORTA, IMPORTARE, formato CSV. Da questa sezione la boutique può **rigenerare il codice di consegna "fisso" del cliente** quando il partner usa `deliveryCodeCheckType = UNIQUE_PER_CUSTOMER` (vedi 3.3 Sicurezza). **[NUOVO]**
 
 ### 3.6 Prodotti (`/prodotti`)

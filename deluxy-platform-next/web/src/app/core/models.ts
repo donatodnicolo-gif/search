@@ -117,6 +117,17 @@ export interface Customer {
   email?: string;
 }
 
+export interface Operation {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  isProjectManager: boolean;
+  active: boolean;
+}
+
 export const DELIVERY_PAYMENT_STATUS_LABELS: Record<string, string> = {
   default: 'Da definire',
   paid: 'Pagato',

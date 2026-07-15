@@ -30,6 +30,7 @@ const ICONS: Record<string, string> = {
   map: '<path d="m9 5-4.4 1.8a1 1 0 0 0-.6.9v10.1a1 1 0 0 0 1.4.9L9 17l6 2 4.4-1.8a1 1 0 0 0 .6-.9V6.2a1 1 0 0 0-1.4-.9L15 7Zm0 0v12m6-10v12"/>',
   users: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.8 3.5-5.8 7-5.8s6.2 2 7 5.8"/>',
   chart: '<path d="M4.5 19.5h15M7 16v-4.5M12 16V7M17 16v-6.5"/>',
+  badge: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4V2.8A.8.8 0 0 1 9.8 2h4.4a.8.8 0 0 1 .8.8V4"/><circle cx="12" cy="10.5" r="2.2"/><path d="M8.5 17c.4-1.8 1.8-2.7 3.5-2.7s3.1.9 3.5 2.7"/>',
 };
 
 const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
@@ -42,11 +43,17 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: 'Rete',
+    title: 'Utenti',
     items: [
       { label: 'Partner', path: '/partners', icon: 'store', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'Valet', path: '/valets', icon: 'bike', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'Clienti', path: '/customers', icon: 'people', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+      { label: 'Operatori', path: '/operators', icon: 'badge', roles: ['ADMIN', 'OPERATION'] },
+    ],
+  },
+  {
+    title: 'Catalogo',
+    items: [
       { label: 'Prodotti', path: '/products', icon: 'tag', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
     ],
   },
@@ -65,7 +72,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       { label: 'Modelli SMS', path: '/sms-templates', icon: 'message', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
       { label: 'Disponibilità', path: '/availability', icon: 'calendar', roles: ['VALET'] },
       { label: 'Province e città', path: '/provinces', icon: 'map', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
-      { label: 'Utenti', path: '/users', icon: 'users', roles: ['ADMIN'] },
+      { label: 'Utenti e ruoli', path: '/users', icon: 'users', roles: ['ADMIN'] },
     ],
   },
 ];
