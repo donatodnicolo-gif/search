@@ -43,6 +43,7 @@ export default function DettaglioVisita() {
 
         {visit.linea_proposta ? <Campo label="Linea proposta" valore={visit.linea_proposta} /> : null}
         {visit.cross_sell?.length ? <Campo label="Cross-sell" valore={visit.cross_sell.join(', ')} /> : null}
+        {visit.concorrenti ? <Campo label="Concorrenti già presenti" valore={visit.concorrenti} /> : null}
         <Campo label="Briefing" valore={visit.briefing} />
         <Campo label="Note post meeting" valore={visit.note_post_meeting} />
         <Campo label="Esito e analisi" valore={visit.esito_analisi} />

@@ -242,6 +242,7 @@ export async function registraVisitaRapida(
   opts: {
     esito: EsitoVisita;
     note: string;
+    concorrenti?: string | null;
     contatto?: { nome: string; ruolo?: string | null; telefono?: string | null; email?: string | null; is_decisore?: boolean };
   },
 ): Promise<void> {
@@ -271,6 +272,7 @@ export async function registraVisitaRapida(
     next_step: nextStepDaEsito[opts.esito],
     linea_proposta: null,
     cross_sell: null,
+    concorrenti: opts.concorrenti?.trim() || null,
     foto_url: null,
     owner,
   });

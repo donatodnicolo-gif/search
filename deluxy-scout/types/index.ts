@@ -109,6 +109,7 @@ export interface Visit {
   next_step: string;
   linea_proposta: string | null;
   cross_sell: string[] | null;
+  concorrenti: string | null; // concorrenti rilevati sul campo (testo libero, da riconciliare)
   foto_url: string | null;
   owner: string | null;
   hubspot_synced: boolean;

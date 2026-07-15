@@ -36,9 +36,9 @@ export async function esportaAttivitaCsv(): Promise<number> {
 
 export async function esportaVisiteCsv(): Promise<number> {
   const visite = await fetchAllVisits();
-  const headers = ['data', 'esito', 'linea_proposta', 'next_step', 'briefing', 'note_post_meeting', 'esito_analisi', 'hubspot_synced'];
+  const headers = ['data', 'esito', 'linea_proposta', 'concorrenti', 'next_step', 'briefing', 'note_post_meeting', 'esito_analisi', 'hubspot_synced'];
   const rows = visite.map((v) => [
-    v.data, v.esito, v.linea_proposta, v.next_step, v.briefing, v.note_post_meeting, v.esito_analisi, v.hubspot_synced,
+    v.data, v.esito, v.linea_proposta, v.concorrenti, v.next_step, v.briefing, v.note_post_meeting, v.esito_analisi, v.hubspot_synced,
   ]);
   await condividi('deluxy-visite.csv', toCsv(headers, rows));
   return visite.length;

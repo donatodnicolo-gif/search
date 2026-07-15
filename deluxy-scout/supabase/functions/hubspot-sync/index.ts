@@ -96,7 +96,11 @@ async function syncVisit(admin: any, hs: HubSpot, visitId: string) {
     linea: visit.linea_proposta ?? place.linea_ipotizzata,
     dealstage: dealstageDaEsito(visit.esito),
     briefing: visit.briefing,
-    notePost: visit.note_post_meeting,
+    // Concorrenti in coda alle note post meeting (nessuna proprietà HubSpot dedicata
+    // finché non riconciliamo con un elenco strutturato).
+    notePost: [visit.note_post_meeting, visit.concorrenti ? `Concorrenti già presenti: ${visit.concorrenti}` : null]
+      .filter(Boolean)
+      .join('\n\n') || null,
     esitoAnalisi: visit.esito_analisi,
     nextStep: visit.next_step,
     companyId,

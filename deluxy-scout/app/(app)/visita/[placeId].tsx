@@ -47,6 +47,7 @@ export default function NuovaVisita() {
   const [notePost, setNotePost] = useState('');
   const [analisi, setAnalisi] = useState('');
   const [nextStep, setNextStep] = useState('');
+  const [concorrenti, setConcorrenti] = useState('');
   const [fotoUri, setFotoUri] = useState<string | null>(null);
 
   useEffect(() => {
@@ -70,6 +71,12 @@ export default function NuovaVisita() {
   const lineeCrossSell = useMemo(
     () => linee.filter((l) => LINEE_STANDBY.includes(l.nome)),
     [linee],
+  );
+
+  // Linee di interesse selezionate (primaria + cross-sell), come contesto ai concorrenti.
+  const interessi = useMemo(
+    () => [linea, ...crossSell].filter(Boolean).join(', '),
+    [linea, crossSell],
   );
 
   const toggleCross = useCallback((nome: string) => {
@@ -112,6 +119,7 @@ export default function NuovaVisita() {
       next_step: nextStep.trim(),
       linea_proposta: linea,
       cross_sell: crossSell.length ? crossSell : null,
+      concorrenti: concorrenti.trim() || null,
       foto_url: null as string | null,
       owner: userRes.user?.id ?? null,
     };
@@ -220,6 +228,17 @@ export default function NuovaVisita() {
           <Label>Esito e analisi</Label>
           <TextInput style={[styles.input, styles.area]} value={analisi} onChangeText={setAnalisi} multiline placeholder="Analisi e prossime mosse…" placeholderTextColor={colors.grigio} />
 
+          <Label>Concorrenti già presenti</Label>
+          {interessi ? <Text style={styles.hint}>Per le linee di interesse: {interessi}</Text> : null}
+          <TextInput
+            style={[styles.input, styles.area]}
+            value={concorrenti}
+            onChangeText={setConcorrenti}
+            multiline
+            placeholder="Chi serve già il negozio? (es. Glovo per le consegne, Catering X…)"
+            placeholderTextColor={colors.grigio}
+          />
+
           <Label>Next step *</Label>
           <TextInput style={styles.input} value={nextStep} onChangeText={setNextStep} placeholder="Obbligatorio: il prossimo passo" placeholderTextColor={colors.grigio} />
 
@@ -271,6 +290,7 @@ const styles = StyleSheet.create({
   nome: { fontSize: 22, fontWeight: '900', color: colors.navy },
   checkin: { color: colors.testoSoft, marginBottom: spacing.sm, fontWeight: '600' },
   label: { color: colors.navy, fontWeight: '800', fontSize: 14, marginTop: spacing.md, marginBottom: 6 },
+  hint: { color: colors.testoSoft, fontSize: 12, marginBottom: 6 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,

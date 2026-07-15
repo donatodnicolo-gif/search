@@ -33,6 +33,7 @@ export function VisitaModal({
   const [email, setEmail] = useState('');
   const [decisore, setDecisore] = useState(false);
   const [note, setNote] = useState('');
+  const [concorrenti, setConcorrenti] = useState('');
   const [busy, setBusy] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -45,11 +46,18 @@ export function VisitaModal({
     setEmail('');
     setDecisore(false);
     setNote('');
+    setConcorrenti('');
     setErrore(null);
     setBusy(false);
   }, [place?.id]);
 
   if (!place) return null;
+
+  // Linee di interesse del negozio, come contesto ai concorrenti.
+  const interessi = (place.linee_ipotizzate?.length
+    ? place.linee_ipotizzate
+    : [place.linea_ipotizzata].filter(Boolean)
+  ).join(', ');
 
   async function salva() {
     if (!esito) {
@@ -68,6 +76,7 @@ export function VisitaModal({
       await registraVisitaRapida(place!.id, {
         esito,
         note,
+        concorrenti,
         contatto: nome.trim()
           ? { nome, ruolo, telefono, email, is_decisore: decisore }
           : undefined,
@@ -130,6 +139,17 @@ export function VisitaModal({
               multiline
             />
 
+            <Text style={styles.sezione}>Concorrenti già presenti</Text>
+            {interessi ? <Text style={styles.hint}>Per: {interessi}</Text> : null}
+            <TextInput
+              style={[styles.input, styles.note]}
+              value={concorrenti}
+              onChangeText={setConcorrenti}
+              placeholder="Chi serve già il negozio? (es. Glovo, Catering X…)"
+              placeholderTextColor={colors.grigio}
+              multiline
+            />
+
             {errore ? <Text style={styles.errore}>{errore}</Text> : null}
           </ScrollView>
 
@@ -161,6 +181,7 @@ const styles = StyleSheet.create({
   grip: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: colors.grigioChiaro, marginBottom: spacing.sm },
   titolo: { fontSize: 18, fontWeight: '900', color: colors.navy, marginBottom: spacing.sm },
   aggancio: { color: colors.testoSoft, fontSize: 13, fontStyle: 'italic', marginBottom: spacing.sm },
+  hint: { color: colors.testoSoft, fontSize: 12, marginTop: -spacing.xs },
   body: { paddingBottom: spacing.md, gap: spacing.sm },
   sezione: { color: colors.oro, fontWeight: '800', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginTop: spacing.sm },
   input: {

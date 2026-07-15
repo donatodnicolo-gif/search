@@ -38,6 +38,7 @@ function visita(placeId: string, giorniFa: number, esito: Visit['esito']): Visit
     next_step: 'x',
     linea_proposta: null,
     cross_sell: null,
+    concorrenti: null,
     foto_url: null,
     owner: null,
     hubspot_synced: false,
