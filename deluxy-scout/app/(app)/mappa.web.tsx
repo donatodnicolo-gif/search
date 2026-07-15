@@ -264,15 +264,15 @@ export default function MappaWeb() {
               <View style={styles.info}>
                 <View style={styles.titoloRow}>
                   <PriorityBadge priorita={p.priorita} small />
-                  <Text style={styles.nome} numberOfLines={1}>
-                    {p.nome}
-                  </Text>
                   {p.novita ? (
                     <View style={styles.novita}>
                       <Text style={styles.novitaTxt}>NOVITÀ</Text>
                     </View>
                   ) : null}
                 </View>
+                <Text style={styles.nome} numberOfLines={2}>
+                  {p.nome}
+                </Text>
                 <View style={styles.metaRow}>
                   <Text style={styles.meta} numberOfLines={1}>
                     {[
@@ -300,45 +300,47 @@ export default function MappaWeb() {
                 </View>
               </View>
 
-              {/* Azioni */}
-              <Pressable
-                style={styles.azione}
-                hitSlop={8}
-                onPress={() => Linking.openURL(urlNavigazione({ lat: p.lat, lng: p.lng }, origine))}
-                accessibilityLabel="Naviga"
-              >
-                <Ionicons name="navigate-outline" size={19} color={colors.testoSoft} />
-              </Pressable>
-              {!giroAttivo ? (
-                <>
-                  <Pressable style={styles.azione} hitSlop={8} onPress={() => setVisitaPlace(p)} accessibilityLabel="Visita">
-                    <Ionicons
-                      name={p.stato === 'visitato' ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={21}
-                      color={p.stato === 'visitato' ? colors.successo : colors.grigio}
-                    />
-                  </Pressable>
-                  <Pressable style={styles.azione} hitSlop={8} onPress={() => toggleStar(p)} accessibilityLabel="Interessante">
-                    <Ionicons
-                      name={p.starred ? 'star' : 'star-outline'}
-                      size={21}
-                      color={p.starred ? colors.oro : colors.grigio}
-                    />
-                  </Pressable>
-                  <Pressable style={styles.azione} hitSlop={8} onPress={() => nascondi(p)} accessibilityLabel="Non interessante — nascondi">
-                    <Ionicons name="eye-off-outline" size={19} color={colors.grigio} />
-                  </Pressable>
-                </>
-              ) : (
-                <View style={styles.reorder}>
-                  <Pressable style={styles.azione} hitSlop={6} onPress={() => spostaTappa(p.id, -1)} accessibilityLabel="Sposta su">
-                    <Ionicons name="chevron-up" size={18} color={colors.testoSoft} />
-                  </Pressable>
-                  <Pressable style={styles.azione} hitSlop={6} onPress={() => spostaTappa(p.id, 1)} accessibilityLabel="Sposta giù">
-                    <Ionicons name="chevron-down" size={18} color={colors.testoSoft} />
-                  </Pressable>
-                </View>
-              )}
+              {/* Azioni (raggruppate: gap stretto, così il nome ha più spazio) */}
+              <View style={styles.azioni}>
+                <Pressable
+                  style={styles.azione}
+                  hitSlop={8}
+                  onPress={() => Linking.openURL(urlNavigazione({ lat: p.lat, lng: p.lng }, origine))}
+                  accessibilityLabel="Naviga"
+                >
+                  <Ionicons name="navigate-outline" size={19} color={colors.testoSoft} />
+                </Pressable>
+                {!giroAttivo ? (
+                  <>
+                    <Pressable style={styles.azione} hitSlop={8} onPress={() => setVisitaPlace(p)} accessibilityLabel="Visita">
+                      <Ionicons
+                        name={p.stato === 'visitato' ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={21}
+                        color={p.stato === 'visitato' ? colors.successo : colors.grigio}
+                      />
+                    </Pressable>
+                    <Pressable style={styles.azione} hitSlop={8} onPress={() => toggleStar(p)} accessibilityLabel="Interessante">
+                      <Ionicons
+                        name={p.starred ? 'star' : 'star-outline'}
+                        size={21}
+                        color={p.starred ? colors.oro : colors.grigio}
+                      />
+                    </Pressable>
+                    <Pressable style={styles.azione} hitSlop={8} onPress={() => nascondi(p)} accessibilityLabel="Non interessante — nascondi">
+                      <Ionicons name="eye-off-outline" size={19} color={colors.grigio} />
+                    </Pressable>
+                  </>
+                ) : (
+                  <>
+                    <Pressable style={styles.azione} hitSlop={6} onPress={() => spostaTappa(p.id, -1)} accessibilityLabel="Sposta su">
+                      <Ionicons name="chevron-up" size={18} color={colors.testoSoft} />
+                    </Pressable>
+                    <Pressable style={styles.azione} hitSlop={6} onPress={() => spostaTappa(p.id, 1)} accessibilityLabel="Sposta giù">
+                      <Ionicons name="chevron-down" size={18} color={colors.testoSoft} />
+                    </Pressable>
+                  </>
+                )}
+              </View>
             </Pressable>
           ))
         )}
@@ -433,11 +435,11 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     backgroundColor: colors.bianco,
     borderRadius: 16,
     paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowRadius: 10,
@@ -455,8 +457,8 @@ const styles = StyleSheet.create({
   iconaEmoji: { fontSize: 22 },
   iconaNum: { color: colors.bianco, fontWeight: '900', fontSize: 18 },
   info: { flex: 1, gap: 3 },
-  titoloRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  nome: { flexShrink: 1, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },
+  titoloRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  nome: { color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2, lineHeight: 20 },
   novita: { backgroundColor: colors.oro, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   novitaTxt: { color: colors.navy, fontWeight: '900', fontSize: 9, letterSpacing: 0.5 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -469,7 +471,8 @@ const styles = StyleSheet.create({
   crmContattoTxt: { color: colors.successo, fontWeight: '800', fontSize: 10 },
   crmTrattativa: { backgroundColor: 'rgba(0,113,227,0.12)' },
   crmTrattativaTxt: { color: colors.blue, fontWeight: '800', fontSize: 10 },
-  azione: { paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  azioni: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  azione: { paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
   azioneIco: { fontSize: 18 },
   check: { fontSize: 22, color: colors.grigio },
   checkOn: { fontSize: 22, color: colors.successo },
