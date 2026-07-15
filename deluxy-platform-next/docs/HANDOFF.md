@@ -3,9 +3,11 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
-**Ultimo aggiornamento:** 15 luglio 2026
-**Branch:** `deluxy-scout` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
-**Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+**Ultimo aggiornamento:** 16 luglio 2026
+**Branch:** `platform-delivery-slots` (worktree isolato, basato su `deluxy-scout`) · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
+**Working dir:** `C:\Users\nicol\app\.claude\worktrees\platform-slots\deluxy-platform-next` (worktree) — da consolidare su `deluxy-scout`
+
+> ⚠️ **Perché un worktree separato (16/07):** un'altra sessione stava cambiando branch nel worktree principale `C:\Users\nicol\app` (regola 4), rischiando di sovrascrivere il lavoro. Questo lavoro è stato spostato in un worktree isolato (`.claude/worktrees/platform-slots`, branch `platform-delivery-slots`). I preview server dell'harness sono pinnati a `C:\Users\nicol\app`: per servire questo worktree i dev server girano via Bash (npm run dev:api / dev:web) sulle porte 3000/4200. Il DB dev (`api/prisma/dev.db`) e `api/.env` sono copie locali del worktree.
 
 ## Come riprendere (avvio rapido)
 
@@ -46,6 +48,7 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - **Calcoli** (`/calcoli` + modulo `api/src/calculations`): tutte le formule di prezzo centralizzate, con endpoint `POST /calculations/preview` e pagina con calcolatori live. Verificate: vendita, prezzo fisso (in/fuori città), a ora, magazzino. (Da confermare: prezzo fisso fuori città somma o no il valore base — vedi doc 7-bis.)
 - **Consegna — fasce orarie**: consegna e ritiro mostrano *dalle–alle* solo col flag "flessibile"; altrimenti si sceglie un orario e la fascia è **automatica di 1 ora** (`deliveryFlexible`/`pickupFlexible`; il "to" = orario+1h calcolato al submit).
 - **Consegna — Gestione ordine**: ogni prodotto mostra il **prezzo** e ha il flag **Prezzo flessibile** che consente di modificarlo (precompilato col prezzo base). Salvato su `DeliveryProduct.price`+`flexiblePrice`.
+- **Consegna — fascia consegna a tendina + ordine/dipendenze campi (16/07)**: nel form consegna **Servizio** è il 1° campo e **Indirizzo** il 2°; la **Data** ha min/default = oggi + `noticeDays`. Quando la consegna non è flessibile si sceglie una **fascia predefinita a tendina** (da `minOrderTime` a `maxOrderTime`, default 06:00–22:00, passo `slotHours`); il flag "flessibile" della consegna appare solo se il servizio ha `allowFlexibleTime` (nuovo campo `ServiceType`, con migrazione `20260715154057_service_allow_flexible_time`). Il **ritiro** resta invariato. Dall'indirizzo si deduce la **provincia** e si mostrano **solo partner/valet con quella provincia** e **solo partner col tipo di servizio abilitato** (novità). Verificato end-to-end nel browser (MI/MB, filtro servizio, avvisi). Doc + Word aggiornati.
 - **Form allineati campo-per-campo all'app reale** (15/07): Prodotto (varianti, multi-partner, piattaforme, flag), Partner (PEC, promemoria, tipo codice consegna, KM partner), Consegna (Vendita Deluxy, prezzo flessibile, valet servizio, da fatturare/pagare, smsPhoneNo, file DDT). Valet/Operatore/Categoria già allineati.
 - **Convenzioni form** (tutti i form di creazione): tasto **Duplica** in fondo — salva e mantiene i valori compilati per creare rapidamente un altro record (banner verde di conferma). Lo **SKU dei prodotti è automatico** (`DXY-NNNNN`, progressivo, rigenerato a ogni creazione/duplicazione).
 - **Liste reali** (dati da API): consegne, partner, valet, operatori.

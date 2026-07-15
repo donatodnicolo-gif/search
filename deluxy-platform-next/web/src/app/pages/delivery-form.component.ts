@@ -9,6 +9,7 @@ import {
   DELIVERY_STATUS_LABELS,
   Partner,
   Product,
+  Province,
   ServiceType,
   ValetRef,
 } from '../core/models';
@@ -37,44 +38,60 @@ interface ProductRow {
       <!-- 1. Scelta del servizio -->
       <section class="card block">
         <header class="block-head"><h2>Scelta del servizio</h2>
-          <span class="block-sub">In base all'indirizzo si scelgono partner e servizio.</span></header>
+          <span class="block-sub">Prima il servizio: determina il preavviso (data minima) e le fasce orarie di consegna.</span></header>
         <div class="grid-2">
-          <label class="fld"><span>Data consegna *</span>
-            <input class="field" type="date" name="date" [(ngModel)]="model.date" required /></label>
-          <label class="fld"><span>Indirizzo destinatario *</span>
-            <input class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" required placeholder="Via …, CAP Città (PR)" /></label>
-          <label class="fld"><span>Partner *</span>
-            <select class="field" name="partnerId" [(ngModel)]="model.partnerId" required>
-              <option value="">Seleziona partner…</option>
-              @for (p of partners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
-            </select></label>
           <label class="fld"><span>Servizio *</span>
-            <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" required>
+            <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" (ngModelChange)="onServiceChange()" required>
               <option value="">Seleziona servizio…</option>
               @for (s of serviceTypes(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
             </select></label>
+          <label class="fld"><span>Indirizzo destinatario *</span>
+            <input class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required placeholder="Via …, CAP Città (PR)" />
+            @if (addressProvince()) { <span class="slot-hint">Provincia {{ addressProvince()?.code }} → mostrati solo partner/valet abilitati</span> }
+            @else if (model.recipientAddress) { <span class="slot-hint warn">Provincia non riconosciuta: partner/valet non filtrati per provincia.</span> }
+          </label>
+          <label class="fld"><span>Data consegna *</span>
+            <input class="field" type="date" name="date" [(ngModel)]="model.date" [min]="deliveryMinDate()" required />
+            @if (selectedService()?.noticeDays) { <span class="slot-hint">Preavviso {{ selectedService()?.noticeDays }} g → dal {{ deliveryMinDate() }}</span> }
+          </label>
+          <label class="fld"><span>Partner *</span>
+            <select class="field" name="partnerId" [(ngModel)]="model.partnerId" required>
+              <option value="">Seleziona partner…</option>
+              @for (p of filteredPartners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
+            </select>
+            @if (model.serviceTypeId && filteredPartners().length === 0) { <span class="slot-hint warn">Nessun partner con questo servizio nella provincia dell'indirizzo.</span> }
+          </label>
         </div>
       </section>
 
       <!-- 2. Data di consegna e ritiro -->
       <section class="card block">
         <header class="block-head"><h2>Data di consegna e ritiro</h2>
-          <span class="block-sub">Senza flag flessibile la fascia è automaticamente di 1 ora.</span></header>
+          <span class="block-sub">La consegna usa le fasce del servizio; il ritiro ha fascia automatica di 1 ora salvo flessibile.</span></header>
 
         <!-- Consegna -->
-        <label class="toggle"><input type="checkbox" name="deliveryFlexible" [(ngModel)]="model.deliveryFlexible" /><span>Fascia oraria consegna flessibile</span></label>
-        @if (model.deliveryFlexible) {
-          <div class="grid-2 mt">
-            <label class="fld"><span>Consegna dalle</span>
-              <input class="field" type="time" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" /></label>
-            <label class="fld"><span>Consegna alle</span>
-              <input class="field" type="time" name="deliveryTimeTo" [(ngModel)]="model.deliveryTimeTo" /></label>
-          </div>
+        @if (!selectedService()) {
+          <p class="muted">Seleziona prima un servizio per impostare la fascia di consegna.</p>
         } @else {
-          <label class="fld mt" style="max-width:280px"><span>Ora consegna <em>(fascia di 1 ora)</em></span>
-            <input class="field" type="time" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" />
-            @if (model.deliveryTimeFrom) { <span class="slot-hint">→ {{ model.deliveryTimeFrom }}–{{ plusOneHour(model.deliveryTimeFrom) }}</span> }
-          </label>
+          @if (selectedService()?.allowFlexibleTime) {
+            <label class="toggle"><input type="checkbox" name="deliveryFlexible" [(ngModel)]="model.deliveryFlexible" /><span>Fascia oraria consegna flessibile</span></label>
+          }
+          @if (model.deliveryFlexible && selectedService()?.allowFlexibleTime) {
+            <div class="grid-2 mt">
+              <label class="fld"><span>Consegna dalle</span>
+                <input class="field" type="time" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" /></label>
+              <label class="fld"><span>Consegna alle</span>
+                <input class="field" type="time" name="deliveryTimeTo" [(ngModel)]="model.deliveryTimeTo" /></label>
+            </div>
+          } @else {
+            <label class="fld mt" style="max-width:320px"><span>Fascia oraria consegna <em>(fasce di {{ slotHours() }} ora/e)</em></span>
+              <select class="field" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom">
+                <option value="">Seleziona fascia…</option>
+                @for (slot of deliverySlots(); track slot.from) { <option [value]="slot.from">{{ slot.from }}–{{ slot.to }}</option> }
+              </select>
+              @if (deliverySlots().length === 0) { <span class="slot-hint warn">Nessuna fascia disponibile: controlla ora min/max e fascia del servizio.</span> }
+            </label>
+          }
         }
 
         <!-- Ritiro -->
@@ -102,7 +119,7 @@ interface ProductRow {
           <label class="fld"><span>Valet</span>
             <select class="field" name="valetId" [(ngModel)]="model.valetId">
               <option value="">Non assegnato</option>
-              @for (v of valets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
+              @for (v of filteredValets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
             </select></label>
           <label class="fld"><span>Stato consegna</span>
             <select class="field" name="status" [(ngModel)]="model.status">
@@ -284,6 +301,7 @@ interface ProductRow {
       .mt { margin-top: 16px; }
       .mt2 { margin-top: 20px; }
       .slot-hint { margin-top: 6px; font-size: 12.5px; color: var(--gold-strong); font-weight: 550; }
+      .slot-hint.warn { color: var(--red); }
       .fld { display: flex; flex-direction: column; gap: 6px; }
       .fld > span { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
       .fld em { color: var(--text-tertiary); font-style: normal; font-weight: 400; }
@@ -324,6 +342,9 @@ export class DeliveryFormComponent {
   readonly valets = signal<ValetRef[]>([]);
   readonly products = signal<Product[]>([]);
   readonly customers = signal<Customer[]>([]);
+  readonly provinces = signal<Province[]>([]);
+  /** Provincia rilevata dall'indirizzo destinatario (filtra partner/valet). */
+  readonly addressProvince = signal<Province | null>(null);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly justSaved = signal(false);
@@ -393,10 +414,79 @@ export class DeliveryFormComponent {
     });
   });
 
-  readonly isHourly = computed(() => {
-    const s = this.serviceTypes().find((x) => x.id === this.model.serviceTypeId);
-    return s?.pricingModel === 'A_ORA';
+  /** Servizio selezionato (aggiornato imperativamente da onServiceChange). */
+  readonly selectedService = signal<ServiceType | null>(null);
+  /** Fasce orarie di consegna generate dal servizio. */
+  readonly deliverySlots = signal<{ from: string; to: string }[]>([]);
+  /** Data minima consegna = oggi + giorni preavviso del servizio (YYYY-MM-DD). */
+  readonly deliveryMinDate = signal<string>('');
+
+  readonly slotHours = computed(() => {
+    const h = this.selectedService()?.slotHours;
+    return h && h > 0 ? h : 1;
   });
+  readonly isHourly = computed(() => this.selectedService()?.pricingModel === 'A_ORA');
+
+  /** Al cambio servizio: aggiorna fasce, data minima e resetta stati non più validi. */
+  onServiceChange(): void {
+    const s = this.serviceTypes().find((x) => x.id === this.model.serviceTypeId) ?? null;
+    this.selectedService.set(s);
+    // Se il servizio non consente la consegna flessibile, forza la modalità a fasce.
+    if (!s?.allowFlexibleTime) this.model.deliveryFlexible = false;
+    // Fasce orarie di consegna (dalle min alle max del servizio, passo = fascia).
+    const slots = this.buildSlots(s);
+    this.deliverySlots.set(slots);
+    // La fascia scelta in precedenza potrebbe non esistere più.
+    if (!this.model.deliveryFlexible && this.model.deliveryTimeFrom
+      && !slots.some((sl) => sl.from === this.model.deliveryTimeFrom)) {
+      this.model.deliveryTimeFrom = '';
+    }
+    // Data minima = oggi + giorni preavviso.
+    const min = this.computeMinDate(s?.noticeDays ?? 0);
+    this.deliveryMinDate.set(min);
+    if (!this.model.date || this.model.date < min) this.model.date = min;
+    // Il filtro per tipo servizio può escludere il partner scelto.
+    this.syncSelections();
+  }
+
+  /** Genera le fasce [from,to] da minOrderTime a maxOrderTime (default 06:00–22:00), passo = slotHours. */
+  private buildSlots(s: ServiceType | null): { from: string; to: string }[] {
+    if (!s) return [];
+    const step = this.slotHoursOf(s) * 60;
+    const start = this.timeToMin(s.minOrderTime) ?? 6 * 60;
+    const end = this.timeToMin(s.maxOrderTime) ?? 22 * 60;
+    const slots: { from: string; to: string }[] = [];
+    for (let t = start; t + step <= end; t += step) {
+      slots.push({ from: this.minToTime(t), to: this.minToTime(t + step) });
+    }
+    return slots;
+  }
+  private slotHoursOf(s: ServiceType | null): number {
+    const h = s?.slotHours;
+    return h && h > 0 ? h : 1;
+  }
+  private timeToMin(t?: string | null): number | null {
+    if (!t) return null;
+    const [h, m] = t.split(':').map(Number);
+    if (Number.isNaN(h)) return null;
+    return h * 60 + (Number.isNaN(m) ? 0 : m);
+  }
+  private minToTime(mins: number): string {
+    const h = Math.floor(mins / 60) % 24;
+    const m = mins % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+  private addHours(t: string, hours: number): string {
+    return this.minToTime((this.timeToMin(t) ?? 0) + hours * 60);
+  }
+  private computeMinDate(noticeDays: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() + (noticeDays || 0));
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
 
   constructor() {
     const api = environment.apiUrl;
@@ -405,17 +495,68 @@ export class DeliveryFormComponent {
     this.http.get<ValetRef[]>(`${api}/valets`).subscribe((d) => this.valets.set(d as ValetRef[]));
     this.http.get<Product[]>(`${api}/products`).subscribe((d) => this.products.set(d));
     this.http.get<Customer[]>(`${api}/customers`).subscribe((d) => this.customers.set(d));
+    this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
   }
+
+  /** Partner filtrati per tipo di servizio scelto e per provincia dell'indirizzo. */
+  readonly filteredPartners = computed(() => {
+    const svcId = this.selectedService()?.id;
+    const prov = this.addressProvince();
+    return this.partners().filter((p) => {
+      const svcOk = !svcId || (p.services ?? []).some((s) => s.serviceType?.id === svcId);
+      const provOk = !prov || (p.provinces ?? []).some((pp) => pp.province?.code === prov.code);
+      return svcOk && provOk;
+    });
+  });
+
+  /** Valet filtrati per provincia dell'indirizzo. */
+  readonly filteredValets = computed(() => {
+    const prov = this.addressProvince();
+    if (!prov) return this.valets();
+    return this.valets().filter((v) => (v.provinces ?? []).some((pp) => pp.province?.code === prov.code));
+  });
 
   applyCustomer(id: string): void {
     const c = this.customers().find((x) => x.id === id);
     if (!c) return;
     this.model.recipientFirstName = c.firstName ?? '';
     this.model.recipientLastName = c.lastName ?? '';
-    if (c.address) this.model.recipientAddress = c.address;
+    if (c.address) { this.model.recipientAddress = c.address; this.onAddressChange(); }
     if (c.intercom) this.model.recipientIntercom = c.intercom;
     if (c.phone) this.model.recipientPhone = c.phone;
     if (c.email) this.model.recipientEmail = c.email;
+  }
+
+  /** Al cambio indirizzo: rileva la provincia e sincronizza le selezioni. */
+  onAddressChange(): void {
+    this.addressProvince.set(this.detectProvince(this.model.recipientAddress));
+    this.syncSelections();
+  }
+
+  /** Cerca nell'indirizzo un codice provincia (es. "(MI)"), un nome provincia o una città nota. */
+  private detectProvince(address: string): Province | null {
+    const a = (address ?? '').trim();
+    if (!a) return null;
+    const lower = a.toLowerCase();
+    for (const p of this.provinces()) {
+      const codeRe = new RegExp(`(^|[^A-Za-z])${p.code}([^A-Za-z]|$)`);
+      if (codeRe.test(a)) return p;
+      if (p.name && lower.includes(p.name.toLowerCase())) return p;
+      for (const c of p.cities ?? []) {
+        if (c.name && lower.includes(c.name.toLowerCase())) return p;
+      }
+    }
+    return null;
+  }
+
+  /** Azzera partner/valet se non più presenti nelle liste filtrate. */
+  private syncSelections(): void {
+    if (this.model.partnerId && !this.filteredPartners().some((p) => p.id === this.model.partnerId)) {
+      this.model.partnerId = '';
+    }
+    if (this.model.valetId && !this.filteredValets().some((v) => v.id === this.model.valetId)) {
+      this.model.valetId = '';
+    }
   }
 
   addProduct(): void { this.productRows.push({ productId: '', quantity: 1, flexiblePrice: false, price: null }); }
@@ -483,10 +624,13 @@ export class DeliveryFormComponent {
       const v = m[key];
       if (typeof v === 'string' && v.trim()) payload[key] = v.trim();
     }
-    // Fasce orarie: se non flessibile => fascia automatica di 1 ora
+    // Consegna: se flessibile (e consentito dal servizio) dalle–alle libere;
+    // altrimenti la fascia scelta ha durata = fascia oraria del servizio.
+    const deliveryFlexibleEffective = m.deliveryFlexible && !!this.selectedService()?.allowFlexibleTime;
+    payload['deliveryFlexible'] = deliveryFlexibleEffective;
     if (m.deliveryTimeFrom) {
       payload['deliveryTimeFrom'] = m.deliveryTimeFrom;
-      payload['deliveryTimeTo'] = m.deliveryFlexible ? m.deliveryTimeTo : this.plusOneHour(m.deliveryTimeFrom);
+      payload['deliveryTimeTo'] = deliveryFlexibleEffective ? m.deliveryTimeTo : this.addHours(m.deliveryTimeFrom, this.slotHours());
     }
     if (m.pickupTimeFrom) {
       payload['pickupTimeFrom'] = m.pickupTimeFrom;

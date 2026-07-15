@@ -82,7 +82,8 @@ import { SERVICE_PRICING_OPTIONS } from '../core/models';
           <label class="fld"><span>Ora massima di inserimento</span>
             <input class="field" type="time" name="maxOrderTime" [(ngModel)]="model.maxOrderTime" /></label>
         </div>
-        <p class="hint">Prima dell'ora minima e dopo l'ora massima non è possibile richiedere il servizio per la data scelta. La fascia oraria (1/2/4 ore) sarà resa variabile in seguito.</p>
+        <label class="toggle mt"><input type="checkbox" name="allowFlexibleTime" [(ngModel)]="model.allowFlexibleTime" /><span>Consenti orario di consegna flessibile (dalle–alle)</span></label>
+        <p class="hint">Prima dell'ora minima e dopo l'ora massima non è possibile richiedere il servizio per la data scelta. Nel form consegna le fasce vanno da <strong>Ora minima</strong> a <strong>Ora massima</strong> (default 06:00–22:00) con passo pari alla <strong>Fascia oraria</strong>. Se "orario flessibile" è attivo, la consegna può indicare una fascia libera dalle–alle; altrimenti si sceglie solo una fascia predefinita. Il ritiro resta sempre con orario flessibile opzionale.</p>
       </section>
 
       @if (justSaved()) { <div class="ok-card card">Servizio creato ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un altro.</div> }
@@ -156,6 +157,7 @@ export class ServiceFormComponent {
     slotHours: null as number | null,
     minOrderTime: '',
     maxOrderTime: '',
+    allowFlexibleTime: false,
     notes: '',
     hideCustomerInfo: false,
   };
@@ -184,6 +186,7 @@ export class ServiceFormComponent {
     if (m.slotHours != null) payload['slotHours'] = Number(m.slotHours);
     if (m.minOrderTime.trim()) payload['minOrderTime'] = m.minOrderTime.trim();
     if (m.maxOrderTime.trim()) payload['maxOrderTime'] = m.maxOrderTime.trim();
+    payload['allowFlexibleTime'] = m.allowFlexibleTime;
 
     this.saving.set(true);
     this.http.post(`${environment.apiUrl}/service-types`, payload).subscribe({

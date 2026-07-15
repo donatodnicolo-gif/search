@@ -46,6 +46,7 @@ export class ServiceTypesService {
     slotHours?: number;
     maxOrderTime?: string;
     minOrderTime?: string;
+    allowFlexibleTime?: boolean;
     notes?: string;
     hideCustomerInfo?: boolean;
   }) {
@@ -73,6 +74,7 @@ export class ServiceTypesService {
         slotHours: body.slotHours,
         maxOrderTime: body.maxOrderTime,
         minOrderTime: body.minOrderTime,
+        allowFlexibleTime: body.allowFlexibleTime ?? false,
         notes: body.notes,
         hideCustomerInfo: body.hideCustomerInfo ?? false,
       },
@@ -113,6 +115,7 @@ export class ServiceTypesController {
       slotHours?: number;
       maxOrderTime?: string;
       minOrderTime?: string;
+      allowFlexibleTime?: boolean;
       notes?: string;
       hideCustomerInfo?: boolean;
     },

@@ -84,8 +84,9 @@ model ServiceType {
   // Setup prenotazione (usato dalle regole di richiesta servizio)
   noticeDays      Int? // giorni di preavviso
   slotHours       Int? // fascia oraria: 1 | 2 | 4 (ore)
-  maxOrderTime    String? // ora massima inserimento giornaliero "HH:MM"
-  minOrderTime    String? // ora minima inserimento giornaliero "HH:MM"
+  maxOrderTime    String? // ora massima inserimento giornaliero "HH:MM" (fine generazione fasce consegna)
+  minOrderTime    String? // ora minima inserimento giornaliero "HH:MM" (inizio generazione fasce consegna)
+  allowFlexibleTime Boolean        @default(false) // consente la fascia di consegna flessibile (dalle–alle)
   notes           String?
   hideCustomerInfo Boolean         @default(false)
   active          Boolean          @default(true)

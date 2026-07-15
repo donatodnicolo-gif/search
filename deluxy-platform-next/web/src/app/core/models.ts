@@ -44,6 +44,7 @@ export interface Province {
   id: string;
   name: string;
   code: string;
+  cities?: { name: string }[];
 }
 
 export interface Category {
@@ -89,6 +90,12 @@ export interface ServiceType {
   pricingModel: string;
   scope?: string;
   notes?: string;
+  // Setup prenotazione (usato dal form consegna)
+  noticeDays?: number | null;
+  slotHours?: number | null;
+  minOrderTime?: string | null;
+  maxOrderTime?: string | null;
+  allowFlexibleTime?: boolean;
 }
 
 export const SERVICE_PRICING_OPTIONS: { value: string; label: string }[] = [
@@ -126,6 +133,7 @@ export interface Partner {
   paymentStatus?: string;
   active: boolean;
   provinces?: { province: Province }[];
+  services?: { serviceType: { id: string; name?: string } }[];
   categories?: { category: Category }[];
 }
 
@@ -152,6 +160,7 @@ export interface ValetRef {
   id: string;
   firstName: string;
   lastName: string;
+  provinces?: { province: Province }[];
 }
 
 export interface Product {
