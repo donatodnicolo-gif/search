@@ -1,6 +1,15 @@
 # Deluxy Scout — Stato del progetto & Handoff
 
-Ultimo aggiornamento: **13 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+Ultimo aggiornamento: **15 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+
+> ⚡ **COME RIPRENDERE IN UNA NUOVA FINESTRA (checklist)**
+> 1. Apri una nuova sessione Claude Code nel progetto e scrivi **"continua deluxy-scout"** (la memoria si carica da sola e rimanda a questo file).
+> 2. **Lavora nel worktree** `C:\Users\nicol\scoutwt` (branch `scout-ui`), **non** in `C:\Users\nicol\app`. Se il worktree non c'è più: `git -C C:\Users\nicol\app worktree add -b scout-ui C:\Users\nicol\scoutwt scout-ui` (o `deluxy-scout`), poi ricrea la junction `node_modules` (`cmd //c "mklink /J node_modules C:\Users\nicol\app\deluxy-scout\node_modules"`) e copia `.env`.
+> 3. **Node**: `$env:Path = "$env:ProgramFiles\nodejs;$env:Path"`. Verifica con `npx tsc --noEmit` + `npx jest`.
+> 4. **Token da rifornire** (io NON li salvo — chiedili all'utente quando servono): `EXPO_TOKEN` (build APK), `VERCEL_TOKEN` (deploy web), `SUPABASE_PAT`/`SUPABASE_ACCESS_TOKEN` (migrazioni + deploy Edge Functions), e opzionale `ANTHROPIC_API_KEY` (match AI). Google Maps/HubSpot vivono già come secret server.
+> 5. **Deploy web**: `npm run build:web` → copia `dist-web` in una cartella `deluxy-scout/` con `vercel.json` (rewrite SPA) → `npx vercel deploy --prod --yes --token <VERCEL_TOKEN>` (URL: deluxy-scout.vercel.app).
+> 6. **Migrazioni** applicate fino a **0009**; se ne aggiungi, `node scripts/mgmt-query.mjs supabase/migrations/000X.sql` con `SUPABASE_PAT`.
+> 7. Tutto è **committato su `scout-ui`** ma **solo in locale** (non pushato). Per non perderlo: `git push` (serve auth GitHub) o merge su `deluxy-scout`.
 
 > ⚠️ **Segreti**: nessun valore segreto è in questo file. Le chiavi vere stanno in `deluxy-scout/.env` (gitignored) e nei secret della Edge Function. Gli identificatori qui sotto (project ref, portal id, URL) **non** sono segreti.
 
