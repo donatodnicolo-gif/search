@@ -461,9 +461,10 @@ model Delivery {
   customer           Customer?         @relation(fields: [customerId], references: [id])
   status             String            @default("created")
   paymentStatus      String            @default("default") // default | paid | toBePaid
-  // Fascia oraria consegna + ritiro
+  // Fascia oraria consegna + ritiro (se non flessibile => fascia di 1 ora)
   deliveryTimeFrom   String? // "09:00"
   deliveryTimeTo     String? // "13:00"
+  deliveryFlexible   Boolean           @default(false)
   pickupTimeFrom     String? // "10:00"
   pickupTimeTo       String? // "12:00"
   pickupFlexible     Boolean           @default(false)

@@ -106,10 +106,15 @@ export class CreateDeliveryDto {
   @IsString()
   pickupTimeTo?: string;
 
-  @ApiPropertyOptional({ default: false, description: 'Orario di ritiro flessibile' })
+  @ApiPropertyOptional({ default: false, description: 'Orario di ritiro flessibile (altrimenti fascia di 1 ora)' })
   @IsOptional()
   @IsBoolean()
   pickupFlexible?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Orario di consegna flessibile (altrimenti fascia di 1 ora)' })
+  @IsOptional()
+  @IsBoolean()
+  deliveryFlexible?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
