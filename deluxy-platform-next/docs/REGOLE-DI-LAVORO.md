@@ -2,9 +2,13 @@
 
 Valide per ogni sessione di sviluppo su questo repo (umani e Claude). Sono richiamate dal `CLAUDE.md` alla radice.
 
-## 0. Documento app sempre aggiornato
-Il manuale [COME-FUNZIONA-APP-DELUXY.md](COME-FUNZIONA-APP-DELUXY.md) è la fonte funzionale viva.
-**A ogni commit** che cambia comportamento/campi/flussi, aggiornare anche il documento nello stesso commit. Non lasciarlo indietro.
+## 0. Documento app sempre aggiornato (Markdown + Word)
+Il manuale [COME-FUNZIONA-APP-DELUXY.md](COME-FUNZIONA-APP-DELUXY.md) è la **fonte funzionale viva** (si modifica questo).
+**A ogni commit** che cambia comportamento/campi/flussi:
+1. aggiornare il `.md` nello stesso commit;
+2. **rigenerare il Word** con `npm run doc:word` (da `deluxy-platform-next/`) → produce `docs/COME-FUNZIONA-APP-DELUXY.docx` sempre allineato, e committarlo.
+
+Il `.docx` è generato automaticamente dal `.md`: **non** modificarlo a mano (verrebbe sovrascritto). Lo snapshot originale consegnato dal team è `COME-FUNZIONA-APP-DELUXY-AGGIORNATO-2026-07.docx` (storico, non aggiornato).
 
 ## 1. Handoff sempre aggiornato
 A ogni tappa e **prima di fermarsi**, aggiornare:
