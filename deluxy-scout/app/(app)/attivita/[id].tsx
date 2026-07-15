@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Contact, Deal, Place, Visit } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
-import { aggiornaPlace, fetchContatti, fetchDealPlace, fetchPlace, fetchVisitePlace, inserisciContatto } from '@/lib/db';
+import { aggiornaPlace, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchVisitePlace, inserisciContatto, scartaContatto } from '@/lib/db';
 import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
@@ -23,19 +23,42 @@ export default function SchedaAttivita() {
   const [matchAI, setMatchAI] = useState<MatchAI | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchErrore, setMatchErrore] = useState<string | null>(null);
+  const [scartati, setScartati] = useState<string[]>([]);
+
+  // Conciliazione: cerca nella copia locale HubSpot azienda/contatti del negozio,
+  // escludendo i contatti già marcati "non pertinenti".
+  async function eseguiMatch(p: Place, scartatiIds: string[]) {
+    setMatchErrore(null);
+    setMatchAI(null);
+    setMatchLoading(true);
+    try {
+      const r = await cercaContattiHubspot(p.nome, p.indirizzo);
+      setMatchAI({ ...r, contatti: r.contatti.filter((c) => !scartatiIds.includes(c.hubspot_contact_id)) });
+    } catch (e) {
+      setMatchErrore((e as Error).message);
+    } finally {
+      setMatchLoading(false);
+    }
+  }
 
   const carica = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [p, c, v, d] = await Promise.all([
+    // #1: reset del match quando cambia negozio (niente risultato "bloccato").
+    setMatchAI(null);
+    setMatchErrore(null);
+    setMatchLoading(false);
+    const [p, c, v, d, sc] = await Promise.all([
       fetchPlace(id),
       fetchContatti(id),
       fetchVisitePlace(id),
       fetchDealPlace(id),
+      fetchContattiScartati(id),
     ]);
     setPlace(p);
     setContatti(c);
     setVisite(v);
+    setScartati(sc);
     // Sync inverso: se HubSpot è configurato, prova ad allineare i deal.
     let deals = d;
     if (env.hubspotSyncUrl() && p?.hubspot_company_id) {
@@ -47,6 +70,8 @@ export default function SchedaAttivita() {
     }
     setDeal(deals);
     setLoading(false);
+    // #2: se il negozio è già abbinato a un'azienda HubSpot, mostra subito i contatti.
+    if (p?.hubspot_company_id) eseguiMatch(p, sc);
   }, [id]);
 
   useFocusEffect(
@@ -55,18 +80,17 @@ export default function SchedaAttivita() {
     }, [carica]),
   );
 
-  // Conciliazione: cerca nella copia locale di HubSpot l'azienda/contatti del negozio.
-  async function cercaAI() {
+  // #3: marca un contatto come "non pertinente" e nascondilo (per sempre).
+  async function scarta(c: ContattoAI) {
     if (!place) return;
-    setMatchErrore(null);
-    setMatchAI(null);
-    setMatchLoading(true);
+    setScartati((s) => [...s, c.hubspot_contact_id]);
+    setMatchAI((m) =>
+      m ? { ...m, contatti: m.contatti.filter((x) => x.hubspot_contact_id !== c.hubspot_contact_id) } : m,
+    );
     try {
-      setMatchAI(await cercaContattiHubspot(place.nome, place.indirizzo));
-    } catch (e) {
-      setMatchErrore((e as Error).message);
-    } finally {
-      setMatchLoading(false);
+      await scartaContatto(place.id, c.hubspot_contact_id);
+    } catch {
+      /* riprova al prossimo caricamento */
     }
   }
 
@@ -177,7 +201,11 @@ export default function SchedaAttivita() {
             ))
           )}
           {/* Conciliazione intelligente con HubSpot */}
-          <Pressable style={[styles.btnAI, matchLoading && { opacity: 0.6 }]} onPress={cercaAI} disabled={matchLoading}>
+          <Pressable
+            style={[styles.btnAI, matchLoading && { opacity: 0.6 }]}
+            onPress={() => eseguiMatch(place, scartati)}
+            disabled={matchLoading}
+          >
             <Text style={styles.btnAITxt}>
               {matchLoading ? (
                 'Cerco su HubSpot…'
@@ -210,6 +238,14 @@ export default function SchedaAttivita() {
                   </View>
                   <Pressable style={styles.btnAdd} onPress={() => importaContattoAI(c)}>
                     <Text style={styles.btnAddTxt}>+ Aggiungi</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.btnScarta}
+                    hitSlop={8}
+                    onPress={() => scarta(c)}
+                    accessibilityLabel="Non pertinente"
+                  >
+                    <Ionicons name="close" size={18} color={colors.grigio} />
                   </Pressable>
                 </View>
               ))}
@@ -364,6 +400,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   btnAddTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13 },
+  btnScarta: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.fill,
+  },
   aiDup: { color: colors.attenzione, fontSize: 12, fontWeight: '600', marginTop: spacing.xs },
   contatto: { backgroundColor: colors.bianco, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
   contattoNome: { fontWeight: '800', color: colors.navy },

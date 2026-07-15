@@ -85,6 +85,24 @@ export async function fetchContatti(placeId: string): Promise<Contact[]> {
   return (data ?? []) as Contact[];
 }
 
+/** Marca un contatto HubSpot come "non pertinente" per questo negozio (non riproporlo). */
+export async function scartaContatto(placeId: string, hubspotContactId: string): Promise<void> {
+  const { error } = await supabase
+    .from('contatti_scartati')
+    .upsert({ place_id: placeId, hubspot_contact_id: hubspotContactId });
+  if (error) throw error;
+}
+
+/** Id dei contatti HubSpot scartati per un negozio. */
+export async function fetchContattiScartati(placeId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('contatti_scartati')
+    .select('hubspot_contact_id')
+    .eq('place_id', placeId);
+  if (error) throw error;
+  return (data ?? []).map((r: any) => r.hubspot_contact_id);
+}
+
 export async function fetchVisit(id: string): Promise<Visit | null> {
   const { data, error } = await supabase.from('visits').select('*').eq('id', id).single();
   if (error) return null;
