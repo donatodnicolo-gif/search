@@ -2,15 +2,18 @@ import { Redirect, router, useNavigation } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions } from '@react-navigation/native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { useAuth } from '@/lib/auth';
 import { colors, radius, spacing } from '@/lib/theme';
 import { Loader } from '../_layout';
 
-// Icone testuali semplici (niente dipendenze extra di icon set).
-function DrawerIcon({ glifo }: { glifo: string }) {
-  return <Text style={{ fontSize: 20 }}>{glifo}</Text>;
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
+
+// Icone del menu in stile line-art (SF Symbols), tinta oro/muted dal navigatore.
+function DrawerIcon({ name, color, size }: { name: IconName; color: string; size: number }) {
+  return <Ionicons name={name} size={size} color={color} />;
 }
 
 // Pulsante ☰ nell'header: apre/chiude il menu laterale. Testuale così è
@@ -23,7 +26,7 @@ function BtnMenu() {
       style={styles.headerBtn}
       accessibilityLabel="Apri menu"
     >
-      <Text style={styles.headerIco}>☰</Text>
+      <Ionicons name="menu-outline" size={26} color={colors.testo} />
     </Pressable>
   );
 }
@@ -32,7 +35,7 @@ function BtnMenu() {
 function BtnIndietro() {
   return (
     <Pressable onPress={() => router.back()} style={styles.headerBtn} accessibilityLabel="Indietro">
-      <Text style={styles.headerFreccia}>‹</Text>
+      <Ionicons name="chevron-back" size={26} color={colors.testo} />
     </Pressable>
   );
 }
@@ -86,13 +89,13 @@ export default function AppLayout() {
           drawerItemStyle: { borderRadius: radius.md, paddingHorizontal: 4 },
         }}
       >
-        <Drawer.Screen name="mappa" options={{ title: 'Mappa', drawerIcon: () => <DrawerIcon glifo="🗺️" /> }} />
-        <Drawer.Screen name="lista" options={{ title: 'Target', drawerIcon: () => <DrawerIcon glifo="📋" /> }} />
-        <Drawer.Screen name="rubrica" options={{ title: 'Rubrica', drawerIcon: () => <DrawerIcon glifo="📇" /> }} />
-        <Drawer.Screen name="trattative" options={{ title: 'Trattative', drawerIcon: () => <DrawerIcon glifo="💼" /> }} />
-        <Drawer.Screen name="da-completare" options={{ title: 'Da fare', drawerIcon: () => <DrawerIcon glifo="📝" /> }} />
-        <Drawer.Screen name="dashboard" options={{ title: 'Dashboard', drawerIcon: () => <DrawerIcon glifo="📊" /> }} />
-        <Drawer.Screen name="profilo" options={{ title: 'Profilo', drawerIcon: () => <DrawerIcon glifo="👤" /> }} />
+        <Drawer.Screen name="mappa" options={{ title: 'Mappa', drawerIcon: ({ color, size }) => <DrawerIcon name="map-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="lista" options={{ title: 'Target', drawerIcon: ({ color, size }) => <DrawerIcon name="flag-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="rubrica" options={{ title: 'Rubrica', drawerIcon: ({ color, size }) => <DrawerIcon name="people-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="trattative" options={{ title: 'Trattative', drawerIcon: ({ color, size }) => <DrawerIcon name="briefcase-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="da-completare" options={{ title: 'Da fare', drawerIcon: ({ color, size }) => <DrawerIcon name="time-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="dashboard" options={{ title: 'Dashboard', drawerIcon: ({ color, size }) => <DrawerIcon name="stats-chart-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="profilo" options={{ title: 'Profilo', drawerIcon: ({ color, size }) => <DrawerIcon name="person-outline" color={color} size={size ?? 22} /> }} />
 
         {/* Rotte di dettaglio: nascoste dal menu, con freccia indietro */}
         <Drawer.Screen name="attivita/[id]" options={dettaglio('Attività')} />

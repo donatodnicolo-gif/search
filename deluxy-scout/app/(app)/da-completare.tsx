@@ -4,7 +4,8 @@ import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, iconaLinea, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing } from '@/lib/theme';
+import { LineaIcon } from '@/components/LineaIcon';
 import { fetchDaCompletare } from '@/lib/db';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { VisitaModal } from '@/components/VisitaModal';
@@ -47,7 +48,7 @@ export default function DaCompletare() {
         renderItem={({ item: p }) => (
           <Pressable style={styles.card} onPress={() => setSel(p)}>
             <View style={styles.icona}>
-              <Text style={styles.iconaEmoji}>{iconaLinea(p.linea_ipotizzata)}</Text>
+              <LineaIcon linea={p.linea_ipotizzata} size={22} color={colors.navy} />
             </View>
             <View style={styles.info}>
               <View style={styles.titoloRow}>

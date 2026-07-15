@@ -108,6 +108,23 @@ export function iconaLinea(linea: string | null | undefined): string {
   return (linea && lineaIcona[linea]) || '📍';
 }
 
+// Icone line-art (Ionicons) per tipologia — look premium, stile SF Symbols.
+export const lineaIconName: Record<string, string> = {
+  Consegne: 'cube-outline',
+  Catering: 'restaurant-outline',
+  'Regali aziendali': 'gift-outline',
+  Affiliazioni: 'people-outline',
+  'Re-seller': 'storefront-outline',
+  'Food Supplier': 'wine-outline',
+  Clientelling: 'person-outline',
+  Concierge: 'sparkles-outline',
+  Magazzino: 'file-tray-stacked-outline',
+};
+
+export function iconaLineaNome(linea: string | null | undefined): string {
+  return (linea && lineaIconName[linea]) || 'business-outline';
+}
+
 // Etichette leggibili per le fasi trattativa (dealstage HubSpot).
 export const labelFase: Record<DealStage, string> = {
   appointmentscheduled: 'Appuntamento fissato',

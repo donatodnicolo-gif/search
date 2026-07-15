@@ -3,7 +3,8 @@ import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, iconaLinea, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing } from '@/lib/theme';
+import { LineaIcon } from '@/components/LineaIcon';
 import { aggiornaNascosto, fetchNascosti } from '@/lib/db';
 import { PriorityBadge } from '@/components/PriorityBadge';
 
@@ -53,7 +54,7 @@ export default function Nascosti() {
         renderItem={({ item: p }) => (
           <View style={styles.card}>
             <View style={styles.icona}>
-              <Text style={styles.iconaEmoji}>{iconaLinea(p.linea_ipotizzata)}</Text>
+              <LineaIcon linea={p.linea_ipotizzata} size={22} color={colors.navy} />
             </View>
             <View style={styles.info}>
               <View style={styles.titoloRow}>

@@ -6,7 +6,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LINEE_ATTIVE, type Place } from '@/types';
-import { colors, iconaLinea, radius, spacing } from '@/lib/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, radius, spacing } from '@/lib/theme';
+import { LineaIcon } from '@/components/LineaIcon';
 
 const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
 import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
@@ -193,7 +195,7 @@ export default function MappaWeb() {
           {LINEE_ATTIVE.map((l) => (
             <FocusPill
               key={l}
-              label={`${iconaLinea(l)} ${l}`}
+              label={l}
               on={lineaFocus === l}
               onPress={() => setLineaFocus((v) => (v === l ? null : l))}
             />
@@ -251,7 +253,7 @@ export default function MappaWeb() {
                 </View>
               ) : (
                 <View style={styles.icona}>
-                  <Text style={styles.iconaEmoji}>{iconaLinea(p.linea_ipotizzata)}</Text>
+                  <LineaIcon linea={p.linea_ipotizzata} size={22} color={colors.navy} />
                 </View>
               )}
 
@@ -300,35 +302,37 @@ export default function MappaWeb() {
                 style={styles.azione}
                 hitSlop={8}
                 onPress={() => Linking.openURL(urlNavigazione({ lat: p.lat, lng: p.lng }, origine))}
+                accessibilityLabel="Naviga"
               >
-                <Text style={styles.azioneIco}>🧭</Text>
+                <Ionicons name="navigate-outline" size={19} color={colors.testoSoft} />
               </Pressable>
               {!giroAttivo ? (
                 <>
-                  <Pressable style={styles.azione} hitSlop={8} onPress={() => setVisitaPlace(p)}>
-                    <Text style={[styles.check, p.stato === 'visitato' && styles.checkOn]}>
-                      {p.stato === 'visitato' ? '☑' : '☐'}
-                    </Text>
+                  <Pressable style={styles.azione} hitSlop={8} onPress={() => setVisitaPlace(p)} accessibilityLabel="Visita">
+                    <Ionicons
+                      name={p.stato === 'visitato' ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={21}
+                      color={p.stato === 'visitato' ? colors.successo : colors.grigio}
+                    />
                   </Pressable>
-                  <Pressable style={styles.azione} hitSlop={8} onPress={() => toggleStar(p)}>
-                    <Text style={[styles.stella, p.starred && styles.stellaOn]}>{p.starred ? '★' : '☆'}</Text>
+                  <Pressable style={styles.azione} hitSlop={8} onPress={() => toggleStar(p)} accessibilityLabel="Interessante">
+                    <Ionicons
+                      name={p.starred ? 'star' : 'star-outline'}
+                      size={21}
+                      color={p.starred ? colors.oro : colors.grigio}
+                    />
                   </Pressable>
-                  <Pressable
-                    style={styles.azione}
-                    hitSlop={8}
-                    onPress={() => nascondi(p)}
-                    accessibilityLabel="Non interessante — nascondi"
-                  >
-                    <Text style={styles.nascondiIco}>🚫</Text>
+                  <Pressable style={styles.azione} hitSlop={8} onPress={() => nascondi(p)} accessibilityLabel="Non interessante — nascondi">
+                    <Ionicons name="eye-off-outline" size={19} color={colors.grigio} />
                   </Pressable>
                 </>
               ) : (
                 <View style={styles.reorder}>
                   <Pressable style={styles.azione} hitSlop={6} onPress={() => spostaTappa(p.id, -1)} accessibilityLabel="Sposta su">
-                    <Text style={styles.reorderIco}>▲</Text>
+                    <Ionicons name="chevron-up" size={18} color={colors.testoSoft} />
                   </Pressable>
                   <Pressable style={styles.azione} hitSlop={6} onPress={() => spostaTappa(p.id, 1)} accessibilityLabel="Sposta giù">
-                    <Text style={styles.reorderIco}>▼</Text>
+                    <Ionicons name="chevron-down" size={18} color={colors.testoSoft} />
                   </Pressable>
                 </View>
               )}
