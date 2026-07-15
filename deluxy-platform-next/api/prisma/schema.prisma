@@ -233,9 +233,10 @@ model Valet {
   birthDate           DateTime?
   iban                String?
   isTeamLeader        Boolean           @default(false)
-  // Team leader: province dove può assegnare + partner associati (JSON array di id, compat. SQLite)
+  // Team leader: province dove può assegnare + partner associati + partner esclusi (JSON array di id, compat. SQLite)
   teamLeaderProvinces String?
   teamLeaderPartners  String?
+  teamLeaderExcludedPartners String? // partner esclusi dallo scope del team leader
   vehicle             String? // mezzo: Auto | Bicicletta | Furgone | Moto/Scooter
   withholdingPercent  Float             @default(0) // % ritenuta rimborso
   // Stipendio

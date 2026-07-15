@@ -95,14 +95,16 @@ interface ValetServiceRow {
           <h2>Province di competenza</h2>
           <span class="block-sub">Province in cui il valet opera.</span>
         </header>
-        @if (provinces().length === 0) { <p class="muted">Nessuna provincia configurata.</p> }
-        @else {
-          <div class="chips">
-            @for (p of provinces(); track p.id) {
-              <button type="button" class="chip" [class.on]="selectedProvinces.has(p.id)" (click)="toggle(selectedProvinces, p.id)">{{ p.code }} · {{ p.name }}</button>
-            }
-          </div>
-        }
+        <select class="field add-select" (change)="addTo(selectedProvinces, $any($event.target).value); $any($event.target).value=''">
+          <option value="">+ Aggiungi provincia…</option>
+          @for (p of availableProvinces(selectedProvinces); track p.id) { <option [value]="p.id">{{ p.code }} · {{ p.name }}</option> }
+        </select>
+        <div class="chips picked">
+          @for (p of provincesIn(selectedProvinces); track p.id) {
+            <span class="chip on chip-rm">{{ p.code }} · {{ p.name }}<button type="button" class="x" (click)="removeFrom(selectedProvinces, p.id)" title="Rimuovi">✕</button></span>
+          }
+          @if (selectedProvinces.size === 0) { <span class="muted">Nessuna provincia selezionata.</span> }
+        </div>
       </section>
 
       <!-- Servizi -->
@@ -146,16 +148,39 @@ interface ValetServiceRow {
           @if (model.isTeamLeader) {
             <div class="sub-block">
               <span class="sub-hint">Province in cui può assegnare consegne:</span>
-              <div class="chips mb">
-                @for (p of provinces(); track p.id) {
-                  <button type="button" class="chip sm" [class.on]="tlProvinces.has(p.id)" (click)="toggle(tlProvinces, p.id)">{{ p.code }}</button>
+              <select class="field add-select" (change)="addTo(tlProvinces, $any($event.target).value); $any($event.target).value=''">
+                <option value="">+ Aggiungi provincia…</option>
+                @for (p of availableProvinces(tlProvinces); track p.id) { <option [value]="p.id">{{ p.code }} · {{ p.name }}</option> }
+              </select>
+              <div class="chips picked mb">
+                @for (p of provincesIn(tlProvinces); track p.id) {
+                  <span class="chip on sm chip-rm">{{ p.code }}<button type="button" class="x" (click)="removeFrom(tlProvinces, p.id)">✕</button></span>
                 }
+                @if (tlProvinces.size === 0) { <span class="muted">Nessuna.</span> }
               </div>
+
               <span class="sub-hint">Partner associati:</span>
-              <div class="chips">
-                @for (pt of partners(); track pt.id) {
-                  <button type="button" class="chip sm" [class.on]="tlPartners.has(pt.id)" (click)="toggle(tlPartners, pt.id)">{{ pt.insegna }}</button>
+              <select class="field add-select" (change)="addTo(tlPartners, $any($event.target).value); $any($event.target).value=''">
+                <option value="">+ Aggiungi partner…</option>
+                @for (pt of availablePartners(tlPartners, tlExcludedPartners); track pt.id) { <option [value]="pt.id">{{ pt.insegna }}</option> }
+              </select>
+              <div class="chips picked mb">
+                @for (pt of partnersIn(tlPartners); track pt.id) {
+                  <span class="chip on sm chip-rm">{{ pt.insegna }}<button type="button" class="x" (click)="removeFrom(tlPartners, pt.id)">✕</button></span>
                 }
+                @if (tlPartners.size === 0) { <span class="muted">Nessuno.</span> }
+              </div>
+
+              <span class="sub-hint">Partner esclusi (fuori dallo scope del team leader):</span>
+              <select class="field add-select" (change)="addTo(tlExcludedPartners, $any($event.target).value); $any($event.target).value=''">
+                <option value="">+ Escludi partner…</option>
+                @for (pt of availablePartners(tlExcludedPartners, tlPartners); track pt.id) { <option [value]="pt.id">{{ pt.insegna }}</option> }
+              </select>
+              <div class="chips picked">
+                @for (pt of partnersIn(tlExcludedPartners); track pt.id) {
+                  <span class="chip excl sm chip-rm">{{ pt.insegna }}<button type="button" class="x" (click)="removeFrom(tlExcludedPartners, pt.id)">✕</button></span>
+                }
+                @if (tlExcludedPartners.size === 0) { <span class="muted">Nessuno.</span> }
               </div>
             </div>
           }
@@ -225,6 +250,12 @@ interface ValetServiceRow {
       .chip.sm { padding: 4px 11px; font-size: 12.5px; }
       .chip:hover { background: var(--fill-hover); }
       .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+      .add-select { max-width: 340px; margin-bottom: 10px; }
+      .chips.picked { min-height: 8px; }
+      .chip-rm { display: inline-flex; align-items: center; gap: 7px; }
+      .chip .x { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 11px; line-height: 1; padding: 0; opacity: 0.65; }
+      .chip .x:hover { opacity: 1; }
+      .chip.excl { background: rgba(215,0,21,0.09); color: var(--red); border-color: rgba(215,0,21,0.22); }
       .svc-row { display: grid; grid-template-columns: 1.8fr repeat(3, 1fr) auto; gap: 8px; margin-bottom: 10px; align-items: center; }
       .icon-btn { width: 34px; height: 34px; border: none; border-radius: 8px; background: var(--fill); color: var(--text-secondary); cursor: pointer; font-size: 13px; transition: all 0.15s var(--ease); }
       .icon-btn:hover { background: rgba(215,0,21,0.09); color: var(--red); }
@@ -258,6 +289,7 @@ export class ValetFormComponent {
   readonly selectedProvinces = new Set<string>();
   readonly tlProvinces = new Set<string>();
   readonly tlPartners = new Set<string>();
+  readonly tlExcludedPartners = new Set<string>();
   readonly salaryFrequencies = Object.entries(SALARY_FREQUENCY_LABELS);
   readonly vehicles = VEHICLE_OPTIONS;
 
@@ -294,8 +326,22 @@ export class ValetFormComponent {
     this.http.get<Partner[]>(`${api}/partners`).subscribe((d) => this.partners.set(d));
   }
 
-  toggle(set: Set<string>, id: string): void {
-    set.has(id) ? set.delete(id) : set.add(id);
+  addTo(set: Set<string>, id: string): void { if (id) set.add(id); }
+  removeFrom(set: Set<string>, id: string): void { set.delete(id); }
+
+  /** Province non ancora nel set (per la tendina "aggiungi"). */
+  availableProvinces(set: Set<string>): Province[] {
+    return this.provinces().filter((p) => !set.has(p.id));
+  }
+  provincesIn(set: Set<string>): Province[] {
+    return this.provinces().filter((p) => set.has(p.id));
+  }
+  /** Partner non nel set e nemmeno nell'altro set (un partner non può essere insieme incluso ed escluso). */
+  availablePartners(set: Set<string>, other: Set<string>): Partner[] {
+    return this.partners().filter((p) => !set.has(p.id) && !other.has(p.id));
+  }
+  partnersIn(set: Set<string>): Partner[] {
+    return this.partners().filter((p) => set.has(p.id));
   }
 
   addService(): void {
@@ -347,6 +393,7 @@ export class ValetFormComponent {
     if (m.isTeamLeader) {
       if (this.tlProvinces.size) payload['teamLeaderProvinceIds'] = [...this.tlProvinces];
       if (this.tlPartners.size) payload['teamLeaderPartnerIds'] = [...this.tlPartners];
+      if (this.tlExcludedPartners.size) payload['teamLeaderExcludedPartnerIds'] = [...this.tlExcludedPartners];
     }
 
     const services = this.serviceRows

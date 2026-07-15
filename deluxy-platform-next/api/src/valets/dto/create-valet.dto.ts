@@ -102,6 +102,12 @@ export class CreateValetDto {
   @IsString({ each: true })
   teamLeaderPartnerIds?: string[];
 
+  @ApiPropertyOptional({ type: [String], description: 'Partner esclusi dallo scope del team leader' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  teamLeaderExcludedPartnerIds?: string[];
+
   @ApiPropertyOptional({ description: 'Mezzo (Auto, Bicicletta, Furgone, Moto/Scooter)' })
   @IsOptional()
   @IsString()
