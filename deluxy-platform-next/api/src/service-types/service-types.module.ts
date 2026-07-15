@@ -42,6 +42,10 @@ export class ServiceTypesService {
     transportPrice?: number;
     deliveryPrice?: number;
     minHours?: number;
+    noticeDays?: number;
+    slotHours?: number;
+    maxOrderTime?: string;
+    minOrderTime?: string;
     notes?: string;
     hideCustomerInfo?: boolean;
   }) {
@@ -65,6 +69,10 @@ export class ServiceTypesService {
         transportPrice: body.transportPrice,
         deliveryPrice: body.deliveryPrice,
         minHours: body.minHours,
+        noticeDays: body.noticeDays,
+        slotHours: body.slotHours,
+        maxOrderTime: body.maxOrderTime,
+        minOrderTime: body.minOrderTime,
         notes: body.notes,
         hideCustomerInfo: body.hideCustomerInfo ?? false,
       },
@@ -101,6 +109,10 @@ export class ServiceTypesController {
       transportPrice?: number;
       deliveryPrice?: number;
       minHours?: number;
+      noticeDays?: number;
+      slotHours?: number;
+      maxOrderTime?: string;
+      minOrderTime?: string;
       notes?: string;
       hideCustomerInfo?: boolean;
     },

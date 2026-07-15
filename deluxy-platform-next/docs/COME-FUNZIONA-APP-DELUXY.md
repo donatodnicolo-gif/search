@@ -264,6 +264,8 @@ Stripe (pagamenti online), Qonto (banking dal Profilo), Google Maps (geocoding, 
 
 I **servizi** si definiscono in **Amministrazione → Servizi** (nuovo ambiente): nome, tipo, e **destinazione** (Partner / Valet / entrambi). Le **tariffe** si impostano nella scheda del singolo partner/valet. Nell'app reale sono in *Setup → Servizi Partner* (`/servizi`) e *Valet → Servizi Valet* (`/valet/servizi`).
 
+**Setup prenotazione del servizio** (usato al momento della richiesta): **Giorni preavviso**, **Fascia oraria** (1 / 2 / 4 ore, da rendere variabile), **Ora minima di inserimento** (da quale ora si può richiedere il servizio per la data scelta), **Ora massima di inserimento** (dopo quella ora non è più possibile richiederlo per la data scelta). Campi `noticeDays`, `slotHours`, `minOrderTime`, `maxOrderTime` su `ServiceType`. **[NUOVO]**
+
 Tutte le **formule di prezzo** sono centralizzate nel modulo **`api/src/calculations`** (endpoint `POST /api/v1/calculations/preview`) e consultabili/provabili nella pagina **Amministrazione → Calcoli**.
 
 ### Tipi di servizio partner e relativo calcolo

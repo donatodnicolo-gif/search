@@ -81,6 +81,11 @@ model ServiceType {
   transportPrice  Float? // magazzino: prezzo consegna
   deliveryPrice   Float? // magazzino: prezzo consegna (nuovo)
   minHours        Int?             @default(1)
+  // Setup prenotazione (usato dalle regole di richiesta servizio)
+  noticeDays      Int? // giorni di preavviso
+  slotHours       Int? // fascia oraria: 1 | 2 | 4 (ore)
+  maxOrderTime    String? // ora massima inserimento giornaliero "HH:MM"
+  minOrderTime    String? // ora minima inserimento giornaliero "HH:MM"
   notes           String?
   hideCustomerInfo Boolean         @default(false)
   active          Boolean          @default(true)

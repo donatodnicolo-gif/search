@@ -63,6 +63,28 @@ import { SERVICE_PRICING_OPTIONS } from '../core/models';
         <label class="toggle mt"><input type="checkbox" name="hideCustomerInfo" [(ngModel)]="model.hideCustomerInfo" /><span>Nascondi informazioni cliente</span></label>
       </section>
 
+      <!-- Setup prenotazione -->
+      <section class="card block">
+        <header class="block-head"><h2>Setup</h2>
+          <span class="block-sub">Regole di prenotazione del servizio (usate al momento della richiesta).</span></header>
+        <div class="grid-2">
+          <label class="fld"><span>Giorni preavviso</span>
+            <input class="field num" type="number" min="0" name="noticeDays" [(ngModel)]="model.noticeDays" placeholder="Es. 1" /></label>
+          <label class="fld"><span>Fascia oraria</span>
+            <select class="field" name="slotHours" [(ngModel)]="model.slotHours">
+              <option [ngValue]="null">—</option>
+              <option [ngValue]="1">1 ora</option>
+              <option [ngValue]="2">2 ore</option>
+              <option [ngValue]="4">4 ore</option>
+            </select></label>
+          <label class="fld"><span>Ora minima di inserimento</span>
+            <input class="field" type="time" name="minOrderTime" [(ngModel)]="model.minOrderTime" /></label>
+          <label class="fld"><span>Ora massima di inserimento</span>
+            <input class="field" type="time" name="maxOrderTime" [(ngModel)]="model.maxOrderTime" /></label>
+        </div>
+        <p class="hint">Prima dell'ora minima e dopo l'ora massima non è possibile richiedere il servizio per la data scelta. La fascia oraria (1/2/4 ore) sarà resa variabile in seguito.</p>
+      </section>
+
       @if (justSaved()) { <div class="ok-card card">Servizio creato ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un altro.</div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
@@ -108,6 +130,7 @@ import { SERVICE_PRICING_OPTIONS } from '../core/models';
       .actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 14px 18px; border-radius: var(--radius-l); }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 14px 18px; border-radius: var(--radius-l); }
+      .hint { margin: 14px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
       @media (max-width: 720px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
     `,
   ],
@@ -129,6 +152,10 @@ export class ServiceFormComponent {
     perPiecePrice: null as number | null,
     deliveryPrice: null as number | null,
     minHours: null as number | null,
+    noticeDays: null as number | null,
+    slotHours: null as number | null,
+    minOrderTime: '',
+    maxOrderTime: '',
     notes: '',
     hideCustomerInfo: false,
   };
@@ -152,6 +179,11 @@ export class ServiceFormComponent {
       if (m.deliveryPrice != null) payload['deliveryPrice'] = Number(m.deliveryPrice);
     }
     if (m.pricingModel === 'A_ORA' && m.minHours != null) payload['minHours'] = Number(m.minHours);
+    // Setup prenotazione
+    if (m.noticeDays != null) payload['noticeDays'] = Number(m.noticeDays);
+    if (m.slotHours != null) payload['slotHours'] = Number(m.slotHours);
+    if (m.minOrderTime.trim()) payload['minOrderTime'] = m.minOrderTime.trim();
+    if (m.maxOrderTime.trim()) payload['maxOrderTime'] = m.maxOrderTime.trim();
 
     this.saving.set(true);
     this.http.post(`${environment.apiUrl}/service-types`, payload).subscribe({
