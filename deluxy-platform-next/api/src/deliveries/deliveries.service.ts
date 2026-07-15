@@ -116,6 +116,8 @@ export class DeliveriesService {
               create: products.map((p) => ({
                 productId: p.productId,
                 quantity: p.quantity ?? 1,
+                price: p.price,
+                flexiblePrice: p.flexiblePrice ?? false,
                 fieldValues: p.fieldValues,
               })),
             }

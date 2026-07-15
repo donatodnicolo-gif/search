@@ -522,13 +522,15 @@ model Delivery {
 }
 
 model DeliveryProduct {
-  id          String   @id @default(cuid())
-  deliveryId  String
-  productId   String
-  quantity    Int      @default(1)
-  fieldValues String? // JSON {nomeCampo: valore} per i ProductField
-  delivery    Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
-  product     Product  @relation(fields: [productId], references: [id])
+  id             String   @id @default(cuid())
+  deliveryId     String
+  productId      String
+  quantity       Int      @default(1)
+  price          Float? // prezzo del prodotto in questa consegna (override se flessibile)
+  flexiblePrice  Boolean  @default(false) // consente la modifica del prezzo prodotto
+  fieldValues    String? // JSON {nomeCampo: valore} per i ProductField
+  delivery       Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  product        Product  @relation(fields: [productId], references: [id])
 }
 
 // Ritiri multipli sotto lo stesso DDT

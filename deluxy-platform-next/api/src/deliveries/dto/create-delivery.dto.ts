@@ -23,6 +23,16 @@ export class DeliveryProductDto {
   @Min(1)
   quantity?: number;
 
+  @ApiPropertyOptional({ description: 'Prezzo del prodotto in questa consegna (se flessibile)' })
+  @IsOptional()
+  @IsNumber()
+  price?: number;
+
+  @ApiPropertyOptional({ default: false, description: 'Prezzo flessibile (modifica del prezzo prodotto)' })
+  @IsOptional()
+  @IsBoolean()
+  flexiblePrice?: boolean;
+
   @ApiPropertyOptional({ description: 'JSON {nomeCampo: valore} per i campi prodotto' })
   @IsOptional()
   @IsString()

@@ -16,6 +16,8 @@ import {
 interface ProductRow {
   productId: string;
   quantity: number | null;
+  flexiblePrice: boolean;
+  price: number | null;
 }
 
 @Component({
@@ -165,13 +167,24 @@ interface ProductRow {
           <span class="block-sub">Prodotti del partner mostrati per primi.</span></header>
         @if (productRows.length === 0) { <p class="muted">Nessun prodotto aggiunto.</p> }
         @for (row of productRows; track $index) {
-          <div class="prod-row">
-            <select class="field" [(ngModel)]="row.productId" [name]="'prod' + $index">
-              <option value="">Prodotto…</option>
-              @for (p of sortedProducts(); track p.id) { <option [value]="p.id">{{ p.name }}{{ p.partner ? '' : ' (generico)' }}</option> }
-            </select>
-            <input class="field num qty" type="number" min="1" placeholder="Qtà" [(ngModel)]="row.quantity" [name]="'qty' + $index" />
-            <button type="button" class="icon-btn" (click)="removeProduct($index)" title="Rimuovi">✕</button>
+          <div class="prod-item">
+            <div class="prod-top">
+              <select class="field" [(ngModel)]="row.productId" (ngModelChange)="onProductChange(row)" [name]="'prod' + $index">
+                <option value="">Prodotto…</option>
+                @for (p of sortedProducts(); track p.id) { <option [value]="p.id">{{ p.name }}{{ p.partner ? '' : ' (generico)' }}</option> }
+              </select>
+              <input class="field num qty" type="number" min="1" placeholder="Qtà" [(ngModel)]="row.quantity" [name]="'qty' + $index" />
+              <button type="button" class="icon-btn" (click)="removeProduct($index)" title="Rimuovi">✕</button>
+            </div>
+            <div class="prod-bottom">
+              <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.flexiblePrice" (change)="onFlexToggle(row)" [name]="'pflex' + $index" /><span>Prezzo flessibile</span></label>
+              @if (row.flexiblePrice) {
+                <span class="price-lbl">Prezzo (€)</span>
+                <input class="field num price-in" type="number" step="0.01" [(ngModel)]="row.price" [name]="'pprice' + $index" />
+              } @else {
+                <span class="price-static">Prezzo: <strong>{{ productPrice(row.productId) != null ? (productPrice(row.productId) + ' €') : '—' }}</strong></span>
+              }
+            </div>
           </div>
         }
         <button type="button" class="btn btn-secondary add" (click)="addProduct()">+ Aggiungi prodotto</button>
@@ -280,6 +293,13 @@ interface ProductRow {
       .muted { color: var(--text-tertiary); font-size: 14px; margin: 0; }
       .divider { height: 1px; background: var(--hairline); margin: 18px 0; }
       .prod-row { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; margin-bottom: 10px; align-items: center; }
+      .prod-item { border: 1px solid var(--hairline); border-radius: var(--radius-m); padding: 12px 14px; margin-bottom: 10px; }
+      .prod-top { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; }
+      .prod-bottom { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+      .price-static { font-size: 13.5px; color: var(--text-secondary); }
+      .price-lbl { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
+      .price-in { max-width: 130px; }
+      .toggle.sm { font-size: 13px; }
       .icon-btn { width: 34px; height: 34px; border: none; border-radius: 8px; background: var(--fill); color: var(--text-secondary); cursor: pointer; font-size: 13px; transition: all 0.15s var(--ease); }
       .icon-btn:hover { background: rgba(215,0,21,0.09); color: var(--red); }
       .add { margin-top: 4px; align-self: flex-start; }
@@ -398,8 +418,23 @@ export class DeliveryFormComponent {
     if (c.email) this.model.recipientEmail = c.email;
   }
 
-  addProduct(): void { this.productRows.push({ productId: '', quantity: 1 }); }
+  addProduct(): void { this.productRows.push({ productId: '', quantity: 1, flexiblePrice: false, price: null }); }
   removeProduct(i: number): void { this.productRows.splice(i, 1); }
+
+  /** Prezzo base del prodotto selezionato. */
+  productPrice(productId: string): number | null {
+    return this.products().find((p) => p.id === productId)?.price ?? null;
+  }
+
+  /** Al cambio prodotto, se il prezzo è flessibile precompila con il prezzo base. */
+  onProductChange(row: ProductRow): void {
+    if (row.flexiblePrice && row.price == null) row.price = this.productPrice(row.productId);
+  }
+
+  /** Attivando "prezzo flessibile" precompila con il prezzo base del prodotto. */
+  onFlexToggle(row: ProductRow): void {
+    if (row.flexiblePrice && row.price == null) row.price = this.productPrice(row.productId);
+  }
 
   /** "HH:MM" + 1 ora (per le fasce di 1 ora quando non flessibile). */
   plusOneHour(t: string): string {
@@ -464,7 +499,12 @@ export class DeliveryFormComponent {
 
     const products = this.productRows
       .filter((r) => r.productId)
-      .map((r) => ({ productId: r.productId, quantity: r.quantity ?? 1 }));
+      .map((r) => ({
+        productId: r.productId,
+        quantity: r.quantity ?? 1,
+        flexiblePrice: r.flexiblePrice,
+        price: r.flexiblePrice && r.price != null ? Number(r.price) : undefined,
+      }));
     if (products.length) payload['products'] = products;
 
     this.saving.set(true);
