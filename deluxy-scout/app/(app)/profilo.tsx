@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -7,6 +7,7 @@ import { colors, radius, spacing } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { contaInCoda, flushCoda } from '@/lib/syncQueue';
+import { aggiornaNomeProfilo, fetchProfilo } from '@/lib/db';
 import { sincronizzaHubspot } from '@/lib/hubspot';
 import { esportaAttivitaCsv, esportaVisiteCsv } from '@/lib/export';
 
@@ -17,6 +18,8 @@ export default function Profilo() {
   const [sync, setSync] = useState(false);
   const [syncHS, setSyncHS] = useState(false);
   const [esporto, setEsporto] = useState<null | 'attivita' | 'visite'>(null);
+  const [nome, setNome] = useState('');
+  const [salvoNome, setSalvoNome] = useState(false);
 
   async function sincronizzaContatti() {
     setSyncHS(true);
@@ -32,7 +35,26 @@ export default function Profilo() {
 
   const aggiorna = useCallback(async () => {
     setInCoda(await contaInCoda());
-  }, []);
+    const uid = session?.user?.id;
+    if (uid) {
+      const p = await fetchProfilo(uid);
+      if (p) setNome(p.nome ?? '');
+    }
+  }, [session?.user?.id]);
+
+  async function salvaNome() {
+    const uid = session?.user?.id;
+    if (!uid) return;
+    setSalvoNome(true);
+    try {
+      await aggiornaNomeProfilo(uid, nome);
+      Alert.alert('Profilo', 'Nome aggiornato.');
+    } catch {
+      Alert.alert('Profilo', 'Impossibile salvare il nome (riprova più tardi).');
+    } finally {
+      setSalvoNome(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -75,6 +97,20 @@ export default function Profilo() {
         <Text style={styles.cardLabel}>ACCOUNT</Text>
         <Text style={styles.email}>{email}</Text>
         <Text style={styles.meta}>Venditore Deluxy Scout</Text>
+        <Text style={[styles.cardLabel, { marginTop: spacing.md }]}>IL TUO NOME</Text>
+        <View style={styles.nomeRow}>
+          <TextInput
+            style={styles.nomeInput}
+            value={nome}
+            onChangeText={setNome}
+            placeholder="Nome e cognome"
+            placeholderTextColor={colors.grigio}
+          />
+          <Pressable style={[styles.nomeBtn, salvoNome && styles.btnOff]} onPress={salvaNome} disabled={salvoNome}>
+            {salvoNome ? <ActivityIndicator color={colors.bianco} /> : <Text style={styles.btnTxt}>Salva</Text>}
+          </Pressable>
+        </View>
+        <Text style={styles.meta}>Comparirà nella dashboard di Team dell'amministratore.</Text>
       </View>
 
       <View style={styles.card}>
@@ -150,6 +186,19 @@ const styles = StyleSheet.create({
   pill: { fontSize: 12, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden' },
   pillOk: { backgroundColor: colors.successo, color: colors.bianco },
   pillOff: { backgroundColor: colors.grigioChiaro, color: colors.testoSoft },
+  nomeRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center', marginTop: spacing.xs },
+  nomeInput: {
+    flex: 1,
+    backgroundColor: colors.sfondo,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: colors.testo,
+  },
+  nomeBtn: { backgroundColor: colors.ink, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 12 },
   btn: { backgroundColor: colors.navy, borderRadius: radius.md, paddingVertical: 13, alignItems: 'center', marginTop: spacing.sm },
   btnOff: { opacity: 0.5 },
   btnTxt: { color: colors.bianco, fontWeight: '800' },

@@ -194,6 +194,49 @@ export function attivitaPerVenditore(
   return Array.from(acc.values()).sort((a, b) => b.visite7 - a.visite7 || b.visite - a.visite);
 }
 
+export interface GiornoAttivita {
+  giorno: string; // 'YYYY-MM-DD'
+  visite: Visit[];
+  totale: number;
+  interessati: number;
+  daRichiamare: number;
+  nonTarget: number;
+  chiusi: number;
+  contatti: number; // visite in cui è stato aggiunto un contatto (heuristica: esito interessato/chiuso)
+}
+
+/**
+ * Attività di UN venditore, raggruppata per giorno (più recente in cima), con
+ * le KPI del giorno. Il giorno è la parte data dell'ISO (UTC): sufficiente per
+ * la reportistica quotidiana. Le visite del giorno sono ordinate dalla più
+ * recente. Passa ownerId=null per le visite non attribuite.
+ */
+export function attivitaPerGiorno(visits: Visit[], ownerId: string | null): GiornoAttivita[] {
+  const mie = visits.filter((v) => (v.owner ?? null) === ownerId);
+  const perGiorno = new Map<string, Visit[]>();
+  for (const v of mie) {
+    const g = v.data.slice(0, 10);
+    const lista = perGiorno.get(g) ?? [];
+    lista.push(v);
+    perGiorno.set(g, lista);
+  }
+  return Array.from(perGiorno.entries())
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([giorno, vs]) => {
+      const ordinate = [...vs].sort((a, b) => (a.data < b.data ? 1 : -1));
+      return {
+        giorno,
+        visite: ordinate,
+        totale: vs.length,
+        interessati: vs.filter((v) => v.esito === 'interessato').length,
+        daRichiamare: vs.filter((v) => v.esito === 'da_richiamare').length,
+        nonTarget: vs.filter((v) => v.esito === 'non_target').length,
+        chiusi: vs.filter((v) => v.esito === 'chiuso').length,
+        contatti: vs.filter((v) => v.esito === 'interessato' || v.esito === 'chiuso').length,
+      };
+    });
+}
+
 export function followupAffiliazioni(deals: Deal[]): Deal[] {
   const linee = ['Affiliazioni', 'Re-seller'];
   return deals.filter(

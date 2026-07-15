@@ -168,6 +168,19 @@ export async function fetchProfiles(): Promise<Profilo[]> {
   return (data ?? []) as Profilo[];
 }
 
+/** Un singolo profilo (per la schermata del venditore / il proprio Profilo). */
+export async function fetchProfilo(id: string): Promise<Profilo | null> {
+  const { data, error } = await supabase.from('profiles').select('id, email, nome').eq('id', id).single();
+  if (error) return null;
+  return data as Profilo;
+}
+
+/** Imposta il nome visualizzato di un profilo (proprio, o chiunque se admin — via RLS). */
+export async function aggiornaNomeProfilo(id: string, nome: string): Promise<void> {
+  const { error } = await supabase.from('profiles').update({ nome: nome.trim() || null }).eq('id', id);
+  if (error) throw error;
+}
+
 /** Tutti i contatti registrati, col negozio di appartenenza (Rubrica globale). */
 export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
   const { data, error } = await supabase

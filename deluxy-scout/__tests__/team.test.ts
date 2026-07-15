@@ -1,6 +1,6 @@
 // Dashboard di Team: rollup attività per venditore.
 import type { Deal, Profilo, Visit } from '@/types';
-import { attivitaPerVenditore, nomeVenditore } from '@/lib/metrics';
+import { attivitaPerGiorno, attivitaPerVenditore, nomeVenditore } from '@/lib/metrics';
 
 const OGGI = new Date('2026-07-15T12:00:00Z');
 
@@ -88,5 +88,46 @@ describe('attivitaPerVenditore', () => {
   it('raggruppa le visite senza owner sotto "Non attribuito"', () => {
     const stats = attivitaPerVenditore([visita(null, 1, 'chiuso')], [], PROFILI, OGGI);
     expect(stats.find((s) => s.ownerId === null)?.nome).toBe('Non attribuito');
+  });
+});
+
+describe('attivitaPerGiorno', () => {
+  // Visita con data ISO esplicita per controllare il raggruppamento giornaliero.
+  function vGiorno(owner: string | null, iso: string, esito: Visit['esito']): Visit {
+    return { ...visita(owner, 0, esito), id: `${owner}-${iso}-${esito}`, data: iso };
+  }
+
+  it('filtra per venditore e raggruppa per giorno (più recente in cima)', () => {
+    const visits = [
+      vGiorno('u1', '2026-07-15T09:00:00Z', 'interessato'),
+      vGiorno('u1', '2026-07-15T15:00:00Z', 'chiuso'),
+      vGiorno('u1', '2026-07-14T10:00:00Z', 'non_target'),
+      vGiorno('u2', '2026-07-15T11:00:00Z', 'interessato'), // altro venditore, escluso
+    ];
+    const giorni = attivitaPerGiorno(visits, 'u1');
+    expect(giorni.map((g) => g.giorno)).toEqual(['2026-07-15', '2026-07-14']);
+    expect(giorni[0].totale).toBe(2);
+    expect(giorni[0].interessati).toBe(1);
+    expect(giorni[0].chiusi).toBe(1);
+  });
+
+  it('calcola le KPI del giorno (contatti = interessati + chiusi)', () => {
+    const visits = [
+      vGiorno('u1', '2026-07-15T09:00:00Z', 'interessato'),
+      vGiorno('u1', '2026-07-15T10:00:00Z', 'chiuso'),
+      vGiorno('u1', '2026-07-15T11:00:00Z', 'da_richiamare'),
+    ];
+    const [g] = attivitaPerGiorno(visits, 'u1');
+    expect(g.contatti).toBe(2);
+    expect(g.daRichiamare).toBe(1);
+  });
+
+  it('ordina le visite del giorno dalla più recente', () => {
+    const visits = [
+      vGiorno('u1', '2026-07-15T09:00:00Z', 'interessato'),
+      vGiorno('u1', '2026-07-15T17:00:00Z', 'chiuso'),
+    ];
+    const [g] = attivitaPerGiorno(visits, 'u1');
+    expect(g.visite[0].data).toBe('2026-07-15T17:00:00Z');
   });
 });

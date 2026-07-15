@@ -12,11 +12,19 @@ create table if not exists profiles (
 alter table profiles enable row level security;
 drop policy if exists profiles_read on profiles;
 create policy profiles_read on profiles for select to authenticated using (true);
--- Ognuno può aggiornare il PROPRIO nome (l'admin i propri; i nomi si possono
--- anche gestire lato DB). Nessun insert/delete dal client: ci pensa il trigger.
+-- Ognuno può aggiornare il PROPRIO nome. Nessun insert/delete dal client:
+-- ci pensa il trigger.
 drop policy if exists profiles_update_own on profiles;
 create policy profiles_update_own on profiles
   for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
+
+-- L'amministratore della rete può rinominare qualunque venditore (dashboard Team).
+-- L'email viaggia nel JWT; tenerla allineata a ADMIN_EMAILS in lib/admin.ts.
+drop policy if exists profiles_update_admin on profiles;
+create policy profiles_update_admin on profiles
+  for update to authenticated
+  using ((auth.jwt() ->> 'email') = 'nicolo.donato@deluxy.it')
+  with check ((auth.jwt() ->> 'email') = 'nicolo.donato@deluxy.it');
 
 -- Backfill degli utenti già esistenti (nome = parte prima della @, se assente).
 insert into profiles (id, email, nome)

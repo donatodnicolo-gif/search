@@ -2,8 +2,9 @@
 // Riepilogo di rete + scheda per venditore (volume, esiti, deal) + feed delle
 // ultime visite. I dati sono già condivisi via RLS; qui li attribuiamo a un nome.
 import { useCallback, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Redirect, useFocusEffect } from 'expo-router';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import type { Deal, Place, Profilo, Visit } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
@@ -27,6 +28,7 @@ const ESITO_COLORE: Record<string, string> = {
 
 export default function Team() {
   const { session } = useAuth();
+  const router = useRouter();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -86,7 +88,14 @@ export default function Team() {
       {venditori.length === 0 ? (
         <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Nessuna attività registrata.'}</Text>
       ) : (
-        venditori.map((s) => <VenditoreCard key={s.ownerId ?? 'none'} s={s} oggi={new Date()} />)
+        venditori.map((s) => (
+          <VenditoreCard
+            key={s.ownerId ?? 'none'}
+            s={s}
+            oggi={new Date()}
+            onPress={() => router.push(`/(app)/venditore/${s.ownerId ?? 'none'}`)}
+          />
+        ))
       )}
 
       <Text style={styles.sezione}>Ultime visite</Text>
@@ -112,14 +121,17 @@ export default function Team() {
   );
 }
 
-function VenditoreCard({ s, oggi }: { s: StatVenditore; oggi: Date }) {
+function VenditoreCard({ s, oggi, onPress }: { s: StatVenditore; oggi: Date; onPress: () => void }) {
   return (
-    <View style={styles.vCard}>
+    <Pressable style={styles.vCard} onPress={onPress}>
       <View style={styles.vHead}>
         <Text style={styles.vNome} numberOfLines={1}>
           {s.nome}
         </Text>
-        <Text style={styles.vUltima}>{s.ultimaData ? `attivo ${quando(s.ultimaData, oggi)}` : 'mai'}</Text>
+        <View style={styles.vHeadRight}>
+          <Text style={styles.vUltima}>{s.ultimaData ? `attivo ${quando(s.ultimaData, oggi)}` : 'mai'}</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.grigio} />
+        </View>
       </View>
       <View style={styles.vStats}>
         <Metric label="Visite 7g" valore={s.visite7} forte />
@@ -129,7 +141,7 @@ function VenditoreCard({ s, oggi }: { s: StatVenditore; oggi: Date }) {
         <Metric label="Deal aperti" valore={s.dealAperti} />
         <Metric label="Vinti" valore={s.dealVinti} />
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -178,7 +190,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  vHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: spacing.sm, gap: spacing.sm },
+  vHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm, gap: spacing.sm },
+  vHeadRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   vNome: { flexShrink: 1, color: colors.navy, fontWeight: '800', fontSize: 17, letterSpacing: -0.3 },
   vUltima: { color: colors.testoSoft, fontSize: 12, fontWeight: '600' },
   vStats: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
