@@ -72,6 +72,46 @@ export function coperturaZone(places: Place[]): CoperturaZona[] {
     .sort((a, b) => b.totali - a.totali);
 }
 
+/** Visite negli ultimi 7 giorni: il ritmo settimanale conta più del totale storico. */
+export function visiteUltimi7Giorni(visits: Visit[], oggi: Date = new Date()): number {
+  const soglia = oggi.getTime() - 7 * 86400000;
+  return visits.filter((v) => new Date(v.data).getTime() >= soglia).length;
+}
+
+export interface Richiamo {
+  place: Place;
+  visita: Visit;
+  giorni: number; // giorni trascorsi dall'ultima visita
+  inRitardo: boolean; // oltre la soglia di richiamo per quell'esito
+}
+
+// Soglie di richiamo in giorni: il recap all'interessato è urgente,
+// il "da richiamare" può attendere fino a una settimana.
+const SOGLIA_RICHIAMO: Record<string, number> = { interessato: 3, da_richiamare: 7 };
+
+/**
+ * Coda richiami: attività la cui ULTIMA visita ha esito "interessato" o
+ * "da richiamare" (e che non sono già chiuse come cliente/perso).
+ * Ordinate: prima i ritardi, poi le più vecchie.
+ */
+export function daRicontattare(places: Place[], visits: Visit[], oggi: Date = new Date()): Richiamo[] {
+  const ultime = new Map<string, Visit>();
+  for (const v of visits) {
+    const cur = ultime.get(v.place_id);
+    if (!cur || v.data > cur.data) ultime.set(v.place_id, v);
+  }
+  const perId = new Map(places.map((p) => [p.id, p]));
+  const out: Richiamo[] = [];
+  for (const [placeId, v] of ultime) {
+    if (v.esito !== 'interessato' && v.esito !== 'da_richiamare') continue;
+    const place = perId.get(placeId);
+    if (!place || place.stato === 'cliente' || place.stato === 'perso') continue;
+    const giorni = Math.floor((oggi.getTime() - new Date(v.data).getTime()) / 86400000);
+    out.push({ place, visita: v, giorni, inRitardo: giorni > SOGLIA_RICHIAMO[v.esito] });
+  }
+  return out.sort((a, b) => Number(b.inRitardo) - Number(a.inRitardo) || b.giorni - a.giorni);
+}
+
 export function chiusePerse(deals: Deal[]): Deal[] {
   return deals.filter((d) => d.fase === 'closedlost');
 }

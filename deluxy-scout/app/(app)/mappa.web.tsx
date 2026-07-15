@@ -104,7 +104,9 @@ export default function MappaWeb() {
     try {
       await aggiornaStarred(p.id, nuovo);
     } catch {
-      setScoperti((l) => l.map((x) => (x.id === p.id ? { ...x, starred: !nuovo } : x)));
+      // Ripristina lo stato originale (stella E badge novità).
+      setScoperti((l) => l.map((x) => (x.id === p.id ? { ...x, starred: p.starred, novita: p.novita } : x)));
+      setGiroOrdine((ord) => (p.starred ? ord : ord.filter((id) => id !== p.id)));
     }
   }
 

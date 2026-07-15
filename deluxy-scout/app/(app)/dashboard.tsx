@@ -9,11 +9,13 @@ import { contaInCoda, flushCoda } from '@/lib/syncQueue';
 import {
   chiusePerse,
   coperturaZone,
+  daRicontattare,
   dealApertiPerLinea,
   followupAffiliazioni,
   tassoAvanzamento,
   visitePerSettimana,
   visitePerVenditore,
+  visiteUltimi7Giorni,
 } from '@/lib/metrics';
 import { BarChart } from '@/components/BarChart';
 import { StatCard } from '@/components/StatCard';
@@ -29,17 +31,20 @@ export default function Dashboard() {
 
   const carica = useCallback(async () => {
     setLoading(true);
-    const [p, v, d, q] = await Promise.all([
-      fetchPlaces(),
-      fetchAllVisits(),
-      fetchAllDeals(),
-      contaInCoda(),
-    ]);
-    setPlaces(p);
-    setVisits(v);
-    setDeals(d);
-    setInCoda(q);
-    setLoading(false);
+    try {
+      const [p, v, d, q] = await Promise.all([
+        fetchPlaces(),
+        fetchAllVisits(),
+        fetchAllDeals(),
+        contaInCoda(),
+      ]);
+      setPlaces(p);
+      setVisits(v);
+      setDeals(d);
+      setInCoda(q);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useFocusEffect(
@@ -57,6 +62,8 @@ export default function Dashboard() {
   const cop = coperturaZone(places);
   const perse = chiusePerse(deals);
   const affil = followupAffiliazioni(deals);
+  const richiami = daRicontattare(places, visits);
+  const inRitardo = richiami.filter((r) => r.inRitardo).length;
 
   return (
     <ScrollView
@@ -71,10 +78,14 @@ export default function Dashboard() {
       ) : null}
 
       <View style={styles.cards}>
-        <StatCard label="Visite totali" valore={visits.length} accent />
+        <StatCard label="Visite ultimi 7 giorni" valore={visiteUltimi7Giorni(visits)} sub={`${visits.length} totali`} accent />
+        <StatCard
+          label="Da ricontattare"
+          valore={richiami.length}
+          sub={inRitardo ? `${inRitardo} in ritardo` : undefined}
+        />
         <StatCard label="Deal aperti" valore={deals.filter((d) => d.fase !== 'closedwon' && d.fase !== 'closedlost').length} />
         <StatCard label="Appuntamento → decisore" valore={`${tasso.pct}%`} sub={`${tasso.num}/${tasso.den} trattative`} />
-        <StatCard label="Attività totali" valore={places.length} />
       </View>
 
       <BarChart titolo="Visite per settimana" data={visitePerSettimana(visits)} />
