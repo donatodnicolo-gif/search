@@ -42,8 +42,10 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
   - **Categorie** (`/categories/new`): nome, note, AI prompt, campi extra (opzionale/obbligatorio/admin), sconti % per provincia.
   - **Prodotti** (`/products/new`): nome, categoria, tipo (unico/non-unico/superprodotto), partner, SKU, prezzo/prezzo pubblico, giorni prep., immagine, plus, descrizione, campi personalizzati, componenti superprodotto.
 - **Menu**: sezione **Prodotti** (Prodotti + Categorie); **Amministrazione** ora include **Servizi** e **Calcoli**.
-- **Servizi** (`/services/new`): nome, tipo (vendita/prezzo fisso/a ora/magazzino/aziendale), **scelta Partner/Valet**; le tariffe si impostano nelle schede partner/valet. Backend: `ServiceType.scope` + `deliveryPrice` (magazzino).
-- **Calcoli** (`/calcoli` + modulo `api/src/calculations`): tutte le formule di prezzo centralizzate, con endpoint `POST /calculations/preview` e pagina con calcolatori live. Verificate: vendita, prezzo fisso (in/fuori città), a ora, magazzino.
+- **Servizi** (`/services/new`): nome, tipo (vendita/prezzo fisso/a ora/magazzino/aziendale), **scelta Partner/Valet**; le tariffe si impostano nelle schede partner/valet. Backend: `ServiceType.scope` + `deliveryPrice` (magazzino). **Sezione Setup prenotazione**: `noticeDays` (giorni preavviso), `slotHours` (fascia 1/2/4 ore — da rendere variabile), `minOrderTime`/`maxOrderTime` (ora min/max inserimento giornaliero). Da usare più avanti per le regole di richiesta servizio.
+- **Calcoli** (`/calcoli` + modulo `api/src/calculations`): tutte le formule di prezzo centralizzate, con endpoint `POST /calculations/preview` e pagina con calcolatori live. Verificate: vendita, prezzo fisso (in/fuori città), a ora, magazzino. (Da confermare: prezzo fisso fuori città somma o no il valore base — vedi doc 7-bis.)
+- **Consegna — fasce orarie**: consegna e ritiro mostrano *dalle–alle* solo col flag "flessibile"; altrimenti si sceglie un orario e la fascia è **automatica di 1 ora** (`deliveryFlexible`/`pickupFlexible`; il "to" = orario+1h calcolato al submit).
+- **Consegna — Gestione ordine**: ogni prodotto mostra il **prezzo** e ha il flag **Prezzo flessibile** che consente di modificarlo (precompilato col prezzo base). Salvato su `DeliveryProduct.price`+`flexiblePrice`.
 - **Form allineati campo-per-campo all'app reale** (15/07): Prodotto (varianti, multi-partner, piattaforme, flag), Partner (PEC, promemoria, tipo codice consegna, KM partner), Consegna (Vendita Deluxy, prezzo flessibile, valet servizio, da fatturare/pagare, smsPhoneNo, file DDT). Valet/Operatore/Categoria già allineati.
 - **Convenzioni form** (tutti i form di creazione): tasto **Duplica** in fondo — salva e mantiene i valori compilati per creare rapidamente un altro record (banner verde di conferma). Lo **SKU dei prodotti è automatico** (`DXY-NNNNN`, progressivo, rigenerato a ogni creazione/duplicazione).
 - **Liste reali** (dati da API): consegne, partner, valet, operatori.
@@ -62,8 +64,13 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 7. **Rifiniture**: nel form valet rendere Telefono/Indirizzo obbligatori e CF sempre richiesto (come app reale).
 8. **In pausa**: analisi multi-agente del vecchio codice (cosa fa ogni funzione + come aggiornarla).
 
-## Note
+## Note operative (IMPORTANTI per una nuova sessione)
 
+- ⚠️ **Una sola sessione Claude per questa cartella** (regola 4): due sessioni sulla stessa working dir si sovrascrivono branch e lavoro non committato. Se serve lavorare in parallelo, usare un **git worktree** isolato (cartella + branch dedicati).
+- **Push pre-autorizzato** (utente, 15/07: "si sempre"): dopo ogni commit, pushare su `origin/deluxy-scout` **senza chiedere conferma ogni volta** (menzionarlo soltanto). Restano da confermare: deploy, invii, cancellazioni.
+- **Regola d'oro UI**: ogni form/schermata va **verificato campo-per-campo contro l'app reale** app.deluxy.it (sessione admin) prima di dirlo finito; integrare le scoperte nel manuale; se un campo ha semantica dubbia, **chiedere all'utente**.
 - Token demo a scadenza breve: durante i test la sessione web può saltare — rifare login.
-- Le migrazioni Prisma vanno create con l'API server **fermo** (lock del query engine su Windows).
+- Le migrazioni Prisma vanno create con l'API server **fermo** (lock del query engine su Windows): `preview_stop` o chiudere `npm run dev:api`, poi `npx prisma migrate dev --name ...`.
+- Dopo ogni modifica al `.md`: `npm run doc:word` per rigenerare il Word, e committarlo.
 - Tutto il lavoro è sul branch `deluxy-scout` (non `main`). Consolidamento su `main` via PR quando deciso.
+- Ultimo commit pushato: `0a71e45` (sezione Setup servizio).
