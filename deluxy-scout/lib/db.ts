@@ -37,6 +37,7 @@ export async function inserisciPlace(p: {
   zona: string | null;
   priorita: Place['priorita'];
   linea_ipotizzata: string | null;
+  linee_ipotizzate?: string[] | null;
   aggancio_apertura: string | null;
 }): Promise<Place> {
   const { data, error } = await supabase
@@ -52,7 +53,7 @@ export async function inserisciPlace(p: {
 export async function aggiornaPlace(
   id: string,
   patch: Partial<
-    Pick<Place, 'nome' | 'indirizzo' | 'zona' | 'categoria' | 'settore' | 'priorita' | 'stato' | 'linea_ipotizzata' | 'aggancio_apertura'>
+    Pick<Place, 'nome' | 'indirizzo' | 'zona' | 'categoria' | 'settore' | 'priorita' | 'stato' | 'linea_ipotizzata' | 'linee_ipotizzate' | 'aggancio_apertura'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('places').update(patch).eq('id', id);

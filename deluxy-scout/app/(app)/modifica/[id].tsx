@@ -36,7 +36,7 @@ export default function ModificaAttivita() {
   const [categoria, setCategoria] = useState<string | null>(null);
   const [priorita, setPriorita] = useState<Priorita>('P3');
   const [stato, setStato] = useState<StatoPlace>('da_visitare');
-  const [linea, setLinea] = useState<string | null>(null);
+  const [linee, setLinee] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -51,7 +51,7 @@ export default function ModificaAttivita() {
         setCategoria(p.categoria);
         setPriorita(p.priorita);
         setStato(p.stato);
-        setLinea(p.linea_ipotizzata);
+        setLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : []));
       }
       setLoading(false);
     })();
@@ -77,7 +77,8 @@ export default function ModificaAttivita() {
         categoria,
         priorita,
         stato,
-        linea_ipotizzata: linea,
+        linea_ipotizzata: linee[0] ?? null,
+        linee_ipotizzate: linee,
       });
       router.back();
     } catch (e: any) {
@@ -112,7 +113,7 @@ export default function ModificaAttivita() {
           </View>
 
           <Text style={styles.label}>Tipologia di interesse (linea)</Text>
-          <LineaSelector value={linea} onChange={setLinea} />
+          <LineaSelector value={linee} onChange={setLinee} />
 
           <Text style={styles.label}>Priorità</Text>
           <View style={styles.chipWrap}>
@@ -151,7 +152,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
   err: { padding: spacing.lg, color: colors.errore },
-  label: { color: colors.navy, fontWeight: '800', fontSize: 14, marginTop: spacing.md, marginBottom: 6 },
+  label: { color: colors.oro, fontWeight: '800', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginTop: spacing.lg, marginBottom: 6 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
@@ -167,8 +168,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: radius.pill,
   },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },

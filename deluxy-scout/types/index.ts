@@ -54,7 +54,8 @@ export interface Place {
   settore: string | null;
   categoria: string | null;
   priorita: Priorita;
-  linea_ipotizzata: string | null;
+  linea_ipotizzata: string | null; // linea "primaria" (= prima di linee_ipotizzate)
+  linee_ipotizzate?: string[] | null; // tipologia di interesse MULTIPLA
   aggancio_apertura: string | null;
   fuoco_espansione: string | null;
   stato: StatoPlace;

@@ -89,12 +89,13 @@ export default function SchedaAttivita() {
     }
   }
 
-  // Imposta/cambia la tipologia di interesse (linea) direttamente da qui.
-  async function salvaLinea(linea: string) {
+  // Imposta/cambia la tipologia di interesse (linee, multipla) direttamente da qui.
+  async function salvaLinee(linee: string[]) {
     if (!place) return;
-    setPlace({ ...place, linea_ipotizzata: linea });
+    const primaria = linee[0] ?? null;
+    setPlace({ ...place, linee_ipotizzate: linee, linea_ipotizzata: primaria });
     try {
-      await aggiornaPlace(place.id, { linea_ipotizzata: linea });
+      await aggiornaPlace(place.id, { linee_ipotizzate: linee, linea_ipotizzata: primaria });
     } catch {
       /* riprova al prossimo focus */
     }
@@ -142,8 +143,11 @@ export default function SchedaAttivita() {
           <BoxIpotesi linea={place.linea_ipotizzata} aggancio={place.aggancio_apertura} />
         </View>
 
-        <Text style={styles.interesseLbl}>Tipologia di interesse — tocca per impostarla</Text>
-        <LineaSelector value={place.linea_ipotizzata} onChange={salvaLinea} />
+        <Text style={styles.interesseLbl}>Tipologia di interesse — scegline una o più</Text>
+        <LineaSelector
+          value={place.linee_ipotizzate ?? (place.linea_ipotizzata ? [place.linea_ipotizzata] : [])}
+          onChange={salvaLinee}
+        />
 
         <Pressable style={styles.btnVisita} onPress={() => router.push(`/(app)/visita/${place.id}`)}>
           <Text style={styles.btnVisitaTxt}>+ Nuova visita</Text>

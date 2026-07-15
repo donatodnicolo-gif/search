@@ -32,7 +32,7 @@ export default function NuovoTarget() {
   const [indirizzo, setIndirizzo] = useState('');
   const [zona, setZona] = useState('');
   const [categoria, setCategoria] = useState<string | null>(null);
-  const [lineaOverride, setLineaOverride] = useState<string | null>(null);
+  const [lineeOverride, setLineeOverride] = useState<string[] | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -55,7 +55,7 @@ export default function NuovoTarget() {
   );
 
   // Tipologia di interesse effettiva: la scelta manuale ha la precedenza sull'ipotesi.
-  const lineaScelta = lineaOverride ?? ipotesi?.linea_ipotizzata ?? null;
+  const lineeScelte = lineeOverride ?? (ipotesi?.linea_ipotizzata ? [ipotesi.linea_ipotizzata] : []);
 
   async function salva() {
     if (!nome.trim()) {
@@ -78,7 +78,8 @@ export default function NuovoTarget() {
         settore: null,
         zona: zona.trim() || null,
         priorita: regola?.priorita ?? 'P3',
-        linea_ipotizzata: lineaScelta ?? regola?.linea_ipotizzata ?? null,
+        linea_ipotizzata: lineeScelte[0] ?? regola?.linea_ipotizzata ?? null,
+        linee_ipotizzate: lineeScelte.length ? lineeScelte : regola?.linea_ipotizzata ? [regola.linea_ipotizzata] : null,
         aggancio_apertura: regola?.aggancio_apertura ?? null,
       });
       router.replace(`/(app)/attivita/${place.id}`);
@@ -134,7 +135,7 @@ export default function NuovoTarget() {
           ) : null}
 
           <Text style={styles.label}>Tipologia di interesse (linea)</Text>
-          <LineaSelector value={lineaScelta} onChange={setLineaOverride} />
+          <LineaSelector value={lineeScelte} onChange={setLineeOverride} />
 
           <Pressable style={[styles.salva, salvataggio && styles.salvaOff]} onPress={salva} disabled={salvataggio}>
             <Text style={styles.salvaTxt}>{salvataggio ? 'Salvataggio…' : 'Crea target'}</Text>
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
   checkin: { color: colors.testoSoft, fontWeight: '600', marginBottom: spacing.sm },
-  label: { color: colors.navy, fontWeight: '800', fontSize: 14, marginTop: spacing.md, marginBottom: 6 },
+  label: { color: colors.oro, fontWeight: '800', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginTop: spacing.lg, marginBottom: 6 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
@@ -165,8 +166,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: radius.pill,
   },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
