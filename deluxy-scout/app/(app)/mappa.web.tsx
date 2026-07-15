@@ -196,6 +196,7 @@ export default function MappaWeb() {
             <FocusPill
               key={l}
               label={l}
+              linea={l}
               on={lineaFocus === l}
               onPress={() => setLineaFocus((v) => (v === l ? null : l))}
             />
@@ -372,9 +373,20 @@ export default function MappaWeb() {
   );
 }
 
-function FocusPill({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+function FocusPill({
+  label,
+  linea,
+  on,
+  onPress,
+}: {
+  label: string;
+  linea?: string;
+  on: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable style={[styles.focusPill, on && styles.focusPillOn]} onPress={onPress}>
+      {linea ? <LineaIcon linea={linea} size={15} color={on ? colors.bianco : colors.testo} /> : null}
       <Text style={[styles.focusPillTxt, on && styles.focusPillTxtOn]} numberOfLines={1}>
         {label}
       </Text>
@@ -399,6 +411,9 @@ const styles = StyleSheet.create({
   focusLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', paddingHorizontal: spacing.md, marginBottom: 4 },
   focusRow: { paddingHorizontal: spacing.md, gap: 6 },
   focusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: radius.pill,
