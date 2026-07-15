@@ -6,6 +6,7 @@ import { colors, radius, spacing } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { contaInCoda, flushCoda } from '@/lib/syncQueue';
+import { sincronizzaHubspot } from '@/lib/hubspot';
 import { esportaAttivitaCsv, esportaVisiteCsv } from '@/lib/export';
 
 export default function Profilo() {
@@ -13,7 +14,20 @@ export default function Profilo() {
   const router = useRouter();
   const [inCoda, setInCoda] = useState(0);
   const [sync, setSync] = useState(false);
+  const [syncHS, setSyncHS] = useState(false);
   const [esporto, setEsporto] = useState<null | 'attivita' | 'visite'>(null);
+
+  async function sincronizzaContatti() {
+    setSyncHS(true);
+    try {
+      const r = await sincronizzaHubspot();
+      Alert.alert('HubSpot', `Sincronizzati ${r.aziende} aziende e ${r.contatti} contatti.`);
+    } catch (e: any) {
+      Alert.alert('Errore', e?.message ?? 'Riprova più tardi.');
+    } finally {
+      setSyncHS(false);
+    }
+  }
 
   const aggiorna = useCallback(async () => {
     setInCoda(await contaInCoda());
@@ -81,6 +95,9 @@ export default function Profilo() {
             {hubspotOk ? 'Collegato' : 'Non configurato'}
           </Text>
         </View>
+        <Pressable style={[styles.btn, syncHS && styles.btnOff]} onPress={sincronizzaContatti} disabled={syncHS}>
+          <Text style={styles.btnTxt}>{syncHS ? 'Sincronizzo…' : 'Sincronizza contatti da HubSpot'}</Text>
+        </Pressable>
       </View>
 
       <Pressable style={styles.card} onPress={() => router.push('/(app)/nascosti')}>

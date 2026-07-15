@@ -4,7 +4,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import type { Contact, Deal, Place, Visit } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
 import { aggiornaPlace, fetchContatti, fetchDealPlace, fetchPlace, fetchVisitePlace, inserisciContatto } from '@/lib/db';
-import { dealsPerPlace, trovaContattiAI, type ContattoAI, type MatchAI } from '@/lib/hubspot';
+import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
 import { LineaSelector } from '@/components/LineaSelector';
@@ -54,14 +54,14 @@ export default function SchedaAttivita() {
     }, [carica]),
   );
 
-  // Conciliazione AI: cerca in HubSpot l'azienda/contatti del negozio.
+  // Conciliazione: cerca nella copia locale di HubSpot l'azienda/contatti del negozio.
   async function cercaAI() {
-    if (!id) return;
+    if (!place) return;
     setMatchErrore(null);
     setMatchAI(null);
     setMatchLoading(true);
     try {
-      setMatchAI(await trovaContattiAI(id));
+      setMatchAI(await cercaContattiHubspot(place.nome, place.indirizzo));
     } catch (e) {
       setMatchErrore((e as Error).message);
     } finally {
@@ -169,7 +169,7 @@ export default function SchedaAttivita() {
           )}
           {/* Conciliazione intelligente con HubSpot */}
           <Pressable style={[styles.btnAI, matchLoading && { opacity: 0.6 }]} onPress={cercaAI} disabled={matchLoading}>
-            <Text style={styles.btnAITxt}>{matchLoading ? 'Cerco su HubSpot con l’AI…' : '🔎 Trova contatti (AI)'}</Text>
+            <Text style={styles.btnAITxt}>{matchLoading ? 'Cerco su HubSpot…' : '🔎 Trova contatti su HubSpot'}</Text>
           </Pressable>
           {matchErrore ? <Text style={styles.err}>{matchErrore}</Text> : null}
           {matchAI ? (

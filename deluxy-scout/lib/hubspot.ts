@@ -91,6 +91,53 @@ export interface MatchAI {
   nota: string;
 }
 
+/**
+ * Match veloce sulla copia LOCALE di HubSpot (tabelle hubspot_companies/contacts,
+ * popolate da sincronizzaHubspot). Usa la similarità trigram lato DB. Nessuna AI.
+ */
+export async function cercaContattiHubspot(nome: string, indirizzo: string | null): Promise<MatchAI> {
+  const { data: cand, error } = await supabase.rpc('cerca_azienda_hubspot', {
+    p_nome: nome,
+    p_indirizzo: indirizzo,
+    p_limit: 3,
+  });
+  if (error) throw new Error(error.message);
+  const best = (cand ?? [])[0] as any;
+  if (!best || Number(best.somiglianza) < 0.3) {
+    return { match: null, contatti: [], duplicati: [], confidenza: 'nessuna', nota: 'Nessuna azienda simile trovata su HubSpot.' };
+  }
+  const { data: contatti } = await supabase
+    .from('hubspot_contacts')
+    .select('hubspot_id, nome, email, telefono, ruolo')
+    .eq('company_hubspot_id', best.hubspot_id);
+  const sim = Number(best.somiglianza);
+  return {
+    match: { hubspot_company_id: best.hubspot_id, nome: best.nome, indirizzo: best.indirizzo },
+    contatti: (contatti ?? []).map((c: any) => ({
+      hubspot_contact_id: c.hubspot_id,
+      nome: c.nome ?? '',
+      email: c.email ?? null,
+      telefono: c.telefono ?? null,
+      ruolo: c.ruolo ?? null,
+    })),
+    duplicati: [],
+    confidenza: sim >= 0.7 ? 'alta' : sim >= 0.45 ? 'media' : 'bassa',
+    nota: `Corrispondenza ${Math.round(sim * 100)}% con "${best.nome}".`,
+  };
+}
+
+/** Avvia l'estrazione completa del CRM HubSpot nella copia locale. */
+export async function sincronizzaHubspot(): Promise<{ aziende: number; contatti: number }> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/hubspot-match`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: env.supabaseAnonKey(), ...(await authHeader()) },
+    body: JSON.stringify({ action: 'sync_crm' }),
+  });
+  if (!res.ok) throw new Error(`Sync HubSpot fallita (${res.status})`);
+  return (await res.json()) as { aziende: number; contatti: number };
+}
+
 /** Cerca in HubSpot l'azienda/contatti corrispondenti al negozio, con AI. */
 export async function trovaContattiAI(placeId: string): Promise<MatchAI> {
   const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/hubspot-match`;

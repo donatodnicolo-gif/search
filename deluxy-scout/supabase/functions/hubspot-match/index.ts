@@ -36,20 +36,75 @@ async function hs(token: string, path: string, init?: RequestInit) {
   return res.json();
 }
 
+// Estrae TUTTE le aziende e i contatti da HubSpot e li salva nella copia locale.
+async function syncCrm(admin: any, token: string) {
+  const now = new Date().toISOString();
+
+  let after: string | undefined;
+  let nAz = 0;
+  do {
+    const url = `/crm/v3/objects/companies?limit=100&properties=name,address,city,zip,domain,phone${after ? `&after=${after}` : ''}`;
+    const page = await hs(token, url);
+    const rows = (page.results ?? []).map((c: any) => ({
+      hubspot_id: String(c.id),
+      nome: c.properties?.name ?? null,
+      indirizzo: c.properties?.address ?? null,
+      citta: c.properties?.city ?? null,
+      cap: c.properties?.zip ?? null,
+      dominio: c.properties?.domain ?? null,
+      telefono: c.properties?.phone ?? null,
+      synced_at: now,
+    }));
+    if (rows.length) await admin.from('hubspot_companies').upsert(rows, { onConflict: 'hubspot_id' });
+    nAz += rows.length;
+    after = page.paging?.next?.after;
+  } while (after);
+
+  after = undefined;
+  let nCon = 0;
+  do {
+    const url = `/crm/v3/objects/contacts?limit=100&properties=firstname,lastname,email,phone,jobtitle&associations=companies${after ? `&after=${after}` : ''}`;
+    const page = await hs(token, url);
+    const rows = (page.results ?? []).map((c: any) => {
+      const compId = c.associations?.companies?.results?.[0]?.id;
+      const nome = [c.properties?.firstname, c.properties?.lastname].filter(Boolean).join(' ').trim();
+      return {
+        hubspot_id: String(c.id),
+        company_hubspot_id: compId ? String(compId) : null,
+        nome: nome || null,
+        email: c.properties?.email ?? null,
+        telefono: c.properties?.phone ?? null,
+        ruolo: c.properties?.jobtitle ?? null,
+        synced_at: now,
+      };
+    });
+    if (rows.length) await admin.from('hubspot_contacts').upsert(rows, { onConflict: 'hubspot_id' });
+    nCon += rows.length;
+    after = page.paging?.next?.after;
+  } while (after);
+
+  return json({ aziende: nAz, contatti: nCon });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
     const token = Deno.env.get('HUBSPOT_TOKEN');
-    const aiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!token) return json({ error: 'HUBSPOT_TOKEN non configurato' }, 500);
-    if (!aiKey) return json({ error: 'ANTHROPIC_API_KEY non configurato' }, 500);
-
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const body = await req.json().catch(() => ({}));
+
+    // Estrazione CRM → copia locale (aziende + contatti). Non richiede AI.
+    if (body.action === 'sync_crm') {
+      return await syncCrm(admin, token);
+    }
+
+    // match_contacts: richiede utente autenticato + chiave AI.
+    const aiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!aiKey) return json({ error: 'ANTHROPIC_API_KEY non configurato' }, 500);
     const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
     const { data: userData } = await admin.auth.getUser(jwt);
     if (!userData?.user) return json({ error: 'Non autenticato' }, 401);
-
-    const body = await req.json().catch(() => ({}));
     if (body.action !== 'match_contacts') return json({ error: `Azione sconosciuta: ${body.action}` }, 400);
 
     const { data: place } = await admin.from('places').select('*').eq('id', body.place_id).single();
