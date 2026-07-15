@@ -41,6 +41,17 @@ export class ProductComponentDto {
   quantity?: number;
 }
 
+export class ProductVariantDto {
+  @ApiProperty({ description: 'Valore opzione (es. "Media")' })
+  @IsString()
+  name: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  price?: number;
+}
+
 export class CreateProductDto {
   @ApiProperty()
   @IsString()
@@ -116,6 +127,71 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   visibleToOtherPartners?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Non modificabile' })
+  @IsOptional()
+  @IsBoolean()
+  notEditable?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Controlla stock' })
+  @IsOptional()
+  @IsBoolean()
+  controlStock?: boolean;
+
+  @ApiPropertyOptional({ description: 'Giacenza' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  stock?: number;
+
+  @ApiPropertyOptional({ default: false, description: 'Prodotto non fisico' })
+  @IsOptional()
+  @IsBoolean()
+  notPhysical?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Super provincia' })
+  @IsOptional()
+  @IsBoolean()
+  isSuperProvince?: boolean;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  useAlternateName?: boolean;
+
+  @ApiPropertyOptional({ description: 'Nome alternativo del prodotto' })
+  @IsOptional()
+  @IsString()
+  alternateName?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Piattaforme: deluxy|cakes|flowers|business|experience|dotcom' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  platforms?: string[];
+
+  @ApiPropertyOptional({ default: false, description: 'Il prodotto ha varianti' })
+  @IsOptional()
+  @IsBoolean()
+  hasVariants?: boolean;
+
+  @ApiPropertyOptional({ description: 'Titolo opzione varianti (es. Dimensione)' })
+  @IsOptional()
+  @IsString()
+  optionTitle?: string;
+
+  @ApiPropertyOptional({ type: [ProductVariantDto], description: 'Varianti (nome + prezzo, SKU auto)' })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductVariantDto)
+  variants?: ProductVariantDto[];
+
+  @ApiPropertyOptional({ type: [String], description: 'ID partner aggiuntivi (PRODUCTS PARTNER)' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  additionalPartnerIds?: string[];
 
   @ApiPropertyOptional({ type: [ProductFieldDto], description: 'Campi testuali (obbligatori/opzionali/solo-admin)' })
   @IsOptional()

@@ -13,6 +13,8 @@ const PRODUCT_INCLUDE = {
   partner: { select: { id: true, insegna: true } },
   category: true,
   fields: true,
+  variants: true,
+  partnerLinks: true,
   components: { include: { componentProduct: { select: { id: true, name: true, price: true } } } },
 } as const;
 
@@ -54,16 +56,38 @@ export class ProductsService {
     if (dto.type === ProductType.UNICO && !partnerId) {
       throw new BadRequestException('Un prodotto UNICO richiede un partner');
     }
-    const { fields, components, partnerId: _p, sku: _sku, ...scalar } = dto;
+    const {
+      fields,
+      components,
+      variants,
+      additionalPartnerIds,
+      platforms,
+      partnerId: _p,
+      sku: _sku,
+      ...scalar
+    } = dto;
     // SKU generato automaticamente (progressivo), rigenerato a ogni duplicazione
-    const count = await this.prisma.product.count();
+    let count = await this.prisma.product.count();
     const sku = `DXY-${String(count + 1).padStart(5, '0')}`;
+    // SKU auto anche per ogni variante
+    const variantCreate = dto.hasVariants && variants?.length
+      ? variants.map((v, i) => ({
+          name: v.name,
+          price: v.price,
+          sku: `DXY-${String(count + 1).padStart(5, '0')}-${String(i + 1).padStart(2, '0')}`,
+        }))
+      : undefined;
     return this.prisma.product.create({
       data: {
         ...scalar,
         sku,
         partnerId,
+        platforms: platforms?.length ? JSON.stringify(platforms) : undefined,
         fields: fields?.length ? { create: fields } : undefined,
+        variants: variantCreate ? { create: variantCreate } : undefined,
+        partnerLinks: additionalPartnerIds?.length
+          ? { create: additionalPartnerIds.map((partnerId) => ({ partnerId })) }
+          : undefined,
         components:
           dto.type === ProductType.SUPERPRODOTTO && components?.length
             ? { create: components }
@@ -78,12 +102,29 @@ export class ProductsService {
     if (user.role === Role.PARTNER && product.partnerId !== user.partnerId) {
       throw new ForbiddenException('Puoi modificare solo i tuoi prodotti');
     }
-    const { fields, components, ...scalar } = dto;
+    const { fields, components, variants, additionalPartnerIds, platforms, ...scalar } = dto;
     return this.prisma.product.update({
       where: { id },
       data: {
         ...scalar,
+        ...(platforms ? { platforms: JSON.stringify(platforms) } : {}),
         ...(fields ? { fields: { deleteMany: {}, create: fields } } : {}),
+        ...(variants
+          ? {
+              variants: {
+                deleteMany: {},
+                create: variants.map((v) => ({ name: v.name, price: v.price })),
+              },
+            }
+          : {}),
+        ...(additionalPartnerIds
+          ? {
+              partnerLinks: {
+                deleteMany: {},
+                create: additionalPartnerIds.map((partnerId) => ({ partnerId })),
+              },
+            }
+          : {}),
         ...(components
           ? { components: { deleteMany: {}, create: components } }
           : {}),

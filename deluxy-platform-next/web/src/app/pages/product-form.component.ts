@@ -3,10 +3,11 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../environments/environment';
-import { Category, Partner, ProductRef } from '../core/models';
+import { Category, Partner, PRODUCT_PLATFORMS, ProductRef } from '../core/models';
 
 interface FieldRow { name: string; required: boolean; adminOnly: boolean; }
 interface ComponentRow { componentProductId: string; quantity: number | null; }
+interface VariantRow { name: string; price: number | null; }
 
 @Component({
   selector: 'app-product-form',
@@ -61,12 +62,70 @@ interface ComponentRow { componentProductId: string; quantity: number | null; }
             <input class="field" name="shortDesc" maxlength="80" [(ngModel)]="model.shortDesc" /></label>
           <label class="fld span-2"><span>Descrizione</span>
             <textarea class="field" rows="3" name="description" [(ngModel)]="model.description"></textarea></label>
+          <label class="fld span-2"><span>Nome alternativo del prodotto</span>
+            <input class="field" name="alternateName" [(ngModel)]="model.alternateName" /></label>
         </div>
         <div class="toggles mt">
+          <label class="toggle"><input type="checkbox" name="useAlternateName" [(ngModel)]="model.useAlternateName" /><span>Usa nome alternativo</span></label>
           <label class="toggle"><input type="checkbox" name="visibleToOtherPartners" [(ngModel)]="model.visibleToOtherPartners" /><span>Visibile ad altri partner</span></label>
+          <label class="toggle"><input type="checkbox" name="notEditable" [(ngModel)]="model.notEditable" /><span>Non modificabile</span></label>
+          <label class="toggle"><input type="checkbox" name="notPhysical" [(ngModel)]="model.notPhysical" /><span>Non fisico</span></label>
+          <label class="toggle"><input type="checkbox" name="isSuperProvince" [(ngModel)]="model.isSuperProvince" /><span>Super provincia</span></label>
+          <label class="toggle"><input type="checkbox" name="controlStock" [(ngModel)]="model.controlStock" /><span>Controlla stock</span></label>
           <label class="toggle"><input type="checkbox" name="approved" [(ngModel)]="model.approved" /><span>Approvato</span></label>
           <label class="toggle"><input type="checkbox" name="active" [(ngModel)]="model.active" /><span>Attivo</span></label>
         </div>
+        @if (model.controlStock) {
+          <label class="fld mt" style="max-width:200px"><span>Giacenza</span>
+            <input class="field num" type="number" min="0" name="stock" [(ngModel)]="model.stock" /></label>
+        }
+      </section>
+
+      <!-- Piattaforme di vendita -->
+      <section class="card block">
+        <header class="block-head"><h2>Piattaforme di vendita</h2>
+          <span class="block-sub">Dove è pubblicato il prodotto.</span></header>
+        <div class="chips">
+          @for (p of platformOptions; track p.value) {
+            <button type="button" class="chip" [class.on]="selectedPlatforms.has(p.value)" (click)="toggle(selectedPlatforms, p.value)">{{ p.label }}</button>
+          }
+        </div>
+      </section>
+
+      <!-- Partner aggiuntivi -->
+      <section class="card block">
+        <header class="block-head"><h2>Partner aggiuntivi</h2>
+          <span class="block-sub">Altri partner che possono vendere questo prodotto.</span></header>
+        @if (partners().length === 0) { <p class="muted">Nessun partner.</p> }
+        @else {
+          <div class="chips">
+            @for (p of partners(); track p.id) {
+              <button type="button" class="chip" [class.on]="selectedPartners.has(p.id)" (click)="toggle(selectedPartners, p.id)">{{ p.insegna }}</button>
+            }
+          </div>
+        }
+      </section>
+
+      <!-- Varianti -->
+      <section class="card block">
+        <header class="block-head"><h2>Varianti</h2>
+          <span class="block-sub">Es. dimensioni o versioni con prezzo e SKU propri.</span></header>
+        <label class="toggle"><input type="checkbox" name="hasVariants" [(ngModel)]="model.hasVariants" /><span>Il prodotto ha varianti</span></label>
+        @if (model.hasVariants) {
+          <div class="sub-block">
+            <label class="fld"><span>Titolo opzione <em>(es. Dimensione)</em></span>
+              <input class="field" name="optionTitle" [(ngModel)]="model.optionTitle" placeholder="Dimensione" /></label>
+            <span class="sub-hint mt">Varianti (lo SKU è generato automaticamente):</span>
+            @for (row of variantRows; track $index) {
+              <div class="var-row">
+                <input class="field" placeholder="Nome variante (es. Media)" [(ngModel)]="row.name" [name]="'vname' + $index" />
+                <input class="field num" type="number" step="0.01" placeholder="Prezzo €" [(ngModel)]="row.price" [name]="'vprice' + $index" />
+                <button type="button" class="icon-btn" (click)="variantRows.splice($index,1)">✕</button>
+              </div>
+            }
+            <button type="button" class="btn btn-secondary add" (click)="variantRows.push({name:'',price:null})">+ Aggiungi variante</button>
+          </div>
+        }
       </section>
 
       <!-- Campi personalizzati -->
@@ -141,6 +200,14 @@ interface ComponentRow { componentProductId: string; quantity: number | null; }
       .toggle input { width: 16px; height: 16px; accent-color: var(--gold-strong); }
       .fld-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 12px; margin-bottom: 10px; align-items: center; }
       .comp-row { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; margin-bottom: 10px; align-items: center; }
+      .var-row { display: grid; grid-template-columns: 1fr 140px auto; gap: 8px; margin-bottom: 10px; align-items: center; }
+      .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+      .chip { appearance: none; border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 14px; font-size: 13px; font-family: inherit; color: var(--text); cursor: pointer; transition: all 0.15s var(--ease); }
+      .chip:hover { background: var(--fill); }
+      .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+      .sub-block { margin-top: 14px; padding: 16px; background: var(--fill); border-radius: var(--radius-m); }
+      .sub-hint { display: block; font-size: 12.5px; color: var(--text-tertiary); margin-bottom: 10px; }
+      .sub-block .field { background: var(--surface); }
       .icon-btn { width: 34px; height: 34px; border: none; border-radius: 8px; background: var(--fill); color: var(--text-secondary); cursor: pointer; font-size: 13px; }
       .icon-btn:hover { background: rgba(215,0,21,0.09); color: var(--red); }
       .add { margin-top: 4px; align-self: flex-start; }
@@ -165,6 +232,10 @@ export class ProductFormComponent {
 
   fieldRows: FieldRow[] = [];
   componentRows: ComponentRow[] = [];
+  variantRows: VariantRow[] = [];
+  readonly platformOptions = PRODUCT_PLATFORMS;
+  readonly selectedPlatforms = new Set<string>();
+  readonly selectedPartners = new Set<string>();
 
   model = {
     name: '',
@@ -178,10 +249,21 @@ export class ProductFormComponent {
     imageUrl: '',
     shortDesc: '',
     description: '',
+    alternateName: '',
+    useAlternateName: false,
     visibleToOtherPartners: false,
+    notEditable: false,
+    controlStock: false,
+    stock: null as number | null,
+    notPhysical: false,
+    isSuperProvince: false,
     approved: false,
     active: true,
+    hasVariants: false,
+    optionTitle: '',
   };
+
+  toggle(set: Set<string>, id: string): void { set.has(id) ? set.delete(id) : set.add(id); }
 
   constructor() {
     const api = environment.apiUrl;
@@ -209,15 +291,31 @@ export class ProductFormComponent {
       type: m.type,
       price: Number(m.price),
       visibleToOtherPartners: m.visibleToOtherPartners,
+      useAlternateName: m.useAlternateName,
+      notEditable: m.notEditable,
+      controlStock: m.controlStock,
+      notPhysical: m.notPhysical,
+      isSuperProvince: m.isSuperProvince,
       approved: m.approved,
       active: m.active,
+      hasVariants: m.hasVariants,
     };
     if (m.partnerId) payload['partnerId'] = m.partnerId;
-    for (const key of ['line', 'imageUrl', 'shortDesc', 'description'] as const) {
+    for (const key of ['line', 'imageUrl', 'shortDesc', 'description', 'alternateName', 'optionTitle'] as const) {
       if (m[key].trim()) payload[key] = m[key].trim();
     }
     if (m.publicPrice != null) payload['publicPrice'] = Number(m.publicPrice);
     if (m.prepDays != null) payload['prepDays'] = Number(m.prepDays);
+    if (m.controlStock && m.stock != null) payload['stock'] = Number(m.stock);
+    if (this.selectedPlatforms.size) payload['platforms'] = [...this.selectedPlatforms];
+    if (this.selectedPartners.size) payload['additionalPartnerIds'] = [...this.selectedPartners];
+
+    if (m.hasVariants) {
+      const variants = this.variantRows
+        .filter((v) => v.name.trim())
+        .map((v) => ({ name: v.name.trim(), price: v.price != null ? Number(v.price) : undefined }));
+      if (variants.length) payload['variants'] = variants;
+    }
 
     const fields = this.fieldRows.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), required: f.required, adminOnly: f.adminOnly }));
     if (fields.length) payload['fields'] = fields;

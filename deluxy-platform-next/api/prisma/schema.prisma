@@ -337,6 +337,22 @@ model Product {
   categoryId              String?
   category                Category?          @relation(fields: [categoryId], references: [id])
   visibleToOtherPartners  Boolean            @default(false)
+  // Flag prodotto (come app reale)
+  notEditable             Boolean            @default(false) // non modificabile
+  controlStock            Boolean            @default(false) // controlla stock
+  stock                   Int? // giacenza (se controlStock)
+  notPhysical             Boolean            @default(false) // prodotto non fisico
+  isSuperProvince         Boolean            @default(false) // super provincia
+  useAlternateName        Boolean            @default(false)
+  alternateName           String? // nome alternativo del prodotto
+  // Piattaforme di vendita abilitate (JSON array: deluxy|cakes|flowers|business|experience|dotcom)
+  platforms               String?
+  // Varianti
+  hasVariants             Boolean            @default(false)
+  optionTitle             String? // titolo opzione varianti (es. "Dimensione")
+  variants                ProductVariant[]
+  // Partner aggiuntivi che vendono il prodotto (oltre al partner proprietario)
+  partnerLinks            ProductPartnerLink[]
   isAutoDiscounted        Boolean            @default(false)
   parentProductId         String?
   parentProduct           Product?           @relation("DiscountedVariants", fields: [parentProductId], references: [id])
@@ -349,6 +365,27 @@ model Product {
   active                  Boolean            @default(true)
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
+}
+
+// Variante di prodotto (es. taglia S/M/L), con proprio prezzo e SKU
+model ProductVariant {
+  id        String  @id @default(cuid())
+  productId String
+  name      String // valore opzione (es. "Media")
+  price     Float?
+  sku       String?
+  active    Boolean @default(true)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// Associazione prodotto <-> partner aggiuntivo (PRODUCTS PARTNER)
+model ProductPartnerLink {
+  id        String  @id @default(cuid())
+  productId String
+  partnerId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, partnerId])
 }
 
 // Componenti di un superprodotto

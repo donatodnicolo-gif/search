@@ -61,6 +61,15 @@ export const PRODUCT_TYPE_LABELS: Record<string, string> = {
   SUPERPRODOTTO: 'Superprodotto',
 };
 
+export const PRODUCT_PLATFORMS: { value: string; label: string }[] = [
+  { value: 'deluxy', label: 'Deluxy' },
+  { value: 'cakes', label: 'Cakes' },
+  { value: 'flowers', label: 'Flowers' },
+  { value: 'business', label: 'Business' },
+  { value: 'experience', label: 'Deluxy Experience' },
+  { value: 'dotcom', label: 'Deluxy Dot Com' },
+];
+
 export interface ProductRef {
   id: string;
   name: string;
