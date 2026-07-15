@@ -103,6 +103,26 @@ export async function fetchContattiScartati(placeId: string): Promise<string[]> 
   return (data ?? []).map((r: any) => r.hubspot_contact_id);
 }
 
+/** Rifiuta TUTTA l'associazione azienda↔negozio: l'azienda non verrà più riproposta. */
+export async function scartaAzienda(placeId: string, hubspotCompanyId: string): Promise<void> {
+  await supabase.from('aziende_scartate').upsert({ place_id: placeId, hubspot_company_id: hubspotCompanyId });
+  const { error } = await supabase
+    .from('places')
+    .update({ hubspot_company_id: null, hubspot_ha_contatto: false, hubspot_deal_aperta: false })
+    .eq('id', placeId);
+  if (error) throw error;
+}
+
+/** Id delle aziende HubSpot scartate per un negozio. */
+export async function fetchAziendeScartate(placeId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('aziende_scartate')
+    .select('hubspot_company_id')
+    .eq('place_id', placeId);
+  if (error) throw error;
+  return (data ?? []).map((r: any) => r.hubspot_company_id);
+}
+
 export async function fetchVisit(id: string): Promise<Visit | null> {
   const { data, error } = await supabase.from('visits').select('*').eq('id', id).single();
   if (error) return null;

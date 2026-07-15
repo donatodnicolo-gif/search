@@ -95,14 +95,18 @@ export interface MatchAI {
  * Match veloce sulla copia LOCALE di HubSpot (tabelle hubspot_companies/contacts,
  * popolate da sincronizzaHubspot). Usa la similarità trigram lato DB. Nessuna AI.
  */
-export async function cercaContattiHubspot(nome: string, indirizzo: string | null): Promise<MatchAI> {
+export async function cercaContattiHubspot(
+  nome: string,
+  indirizzo: string | null,
+  escludi: string[] = [],
+): Promise<MatchAI> {
   const { data: cand, error } = await supabase.rpc('cerca_azienda_hubspot', {
     p_nome: nome,
     p_indirizzo: indirizzo,
-    p_limit: 3,
+    p_limit: 5,
   });
   if (error) throw new Error(error.message);
-  const best = (cand ?? [])[0] as any;
+  const best = ((cand ?? []) as any[]).find((c) => !escludi.includes(c.hubspot_id));
   if (!best || Number(best.somiglianza) < 0.3) {
     return { match: null, contatti: [], duplicati: [], confidenza: 'nessuna', nota: 'Nessuna azienda simile trovata su HubSpot.' };
   }
