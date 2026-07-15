@@ -74,11 +74,15 @@ model ServiceType {
   id              String           @id @default(cuid())
   name            String
   code            String           @unique
-  pricingModel    String
-  basePrice       Float?
-  perPiecePrice   Float?
-  transportPrice  Float?
+  pricingModel    String // VENDITA | PREZZO_FISSO | A_ORA | MAGAZZINO | CORPORATE
+  scope           String           @default("partner") // partner | valet | both
+  basePrice       Float? // magazzino: prezzo fisso
+  perPiecePrice   Float? // magazzino: prezzo a pezzo
+  transportPrice  Float? // magazzino: prezzo consegna
+  deliveryPrice   Float? // magazzino: prezzo consegna (nuovo)
   minHours        Int?             @default(1)
+  notes           String?
+  hideCustomerInfo Boolean         @default(false)
   active          Boolean          @default(true)
   partnerServices PartnerService[]
   valetServices   ValetService[]

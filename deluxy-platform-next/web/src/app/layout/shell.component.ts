@@ -62,6 +62,8 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: 'Amministrazione',
     items: [
+      { label: 'Servizi', path: '/services', icon: 'rules', roles: ['ADMIN', 'OPERATION'] },
+      { label: 'Calcoli', path: '/calcoli', icon: 'chart', roles: ['ADMIN', 'OPERATION'] },
       { label: 'Stipendi', path: '/salaries', icon: 'euro', roles: ['ADMIN', 'OPERATION', 'VALET'] },
       { label: 'Pagamenti', path: '/payments', icon: 'wallet', roles: ['ADMIN', 'OPERATION', 'VALET'] },
       { label: 'Regole carnet', path: '/delivery-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },

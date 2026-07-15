@@ -87,7 +87,31 @@ export interface ServiceType {
   name: string;
   code: string;
   pricingModel: string;
+  scope?: string;
+  notes?: string;
 }
+
+export const SERVICE_PRICING_OPTIONS: { value: string; label: string }[] = [
+  { value: 'VENDITA', label: 'Vendita' },
+  { value: 'PREZZO_FISSO', label: 'A prezzo fisso' },
+  { value: 'A_ORA', label: 'A ora' },
+  { value: 'MAGAZZINO', label: 'Magazzino' },
+  { value: 'CORPORATE', label: 'Aziendale (corporate)' },
+];
+
+export const SERVICE_PRICING_LABELS: Record<string, string> = {
+  VENDITA: 'Vendita',
+  PREZZO_FISSO: 'A prezzo fisso',
+  A_ORA: 'A ora',
+  MAGAZZINO: 'Magazzino',
+  CORPORATE: 'Aziendale',
+};
+
+export const SERVICE_SCOPE_LABELS: Record<string, string> = {
+  partner: 'Partner',
+  valet: 'Valet',
+  both: 'Partner e Valet',
+};
 
 export interface Partner {
   id: string;

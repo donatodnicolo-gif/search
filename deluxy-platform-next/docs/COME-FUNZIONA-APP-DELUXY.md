@@ -260,6 +260,24 @@ Tab SHOPIFY PRODOTTI in Prodotti e piattaforme di vendita collegate (`shopifysal
 
 Stripe (pagamenti online), Qonto (banking dal Profilo), Google Maps (geocoding, mappa consegne, calcolo distanze), SMS + WhatsApp (notifiche), Web Push (notifiche in app, contatore nell'header).
 
+## 7-bis. Servizi e Calcoli (pricing) — sezione interna
+
+I **servizi** si definiscono in **Amministrazione → Servizi** (nuovo ambiente): nome, tipo, e **destinazione** (Partner / Valet / entrambi). Le **tariffe** si impostano nella scheda del singolo partner/valet. Nell'app reale sono in *Setup → Servizi Partner* (`/servizi`) e *Valet → Servizi Valet* (`/valet/servizi`).
+
+Tutte le **formule di prezzo** sono centralizzate nel modulo **`api/src/calculations`** (endpoint `POST /api/v1/calculations/preview`) e consultabili/provabili nella pagina **Amministrazione → Calcoli**.
+
+### Tipi di servizio partner e relativo calcolo
+
+| Tipo | Calcolo del valore |
+|---|---|
+| **Vendita** | Vendiamo un prodotto per il partner trattenendo una nostra %. Nella sezione prodotti il **Valore totale** = Σ (prezzo singolo prodotto × qtà), includendo i prezzi impostati come **flessibili**. |
+| **A prezzo fisso** | Es. servizio di consegna. **In città**: valore servizio + prezzo/km × max(0, distanza − km inclusi). **Fuori città**: prezzo fuori città × distanza. La **distanza** è calcolata via Google Maps tra ritiro e consegna. Il valore è **esposto nel Listino**. |
+| **A ora** | max(1, ore) × prezzo orario (minimo 1 ora, sull'orario di consegna). Valore **esposto nel Listino**. |
+| **Magazzino** | prezzo fisso (`servizio prezzo`) + prezzo a pezzo (`price per product` × qtà) + **prezzo consegna** (nuovo). |
+| **Aziendale (corporate)** | Non è una formula: il sistema **replica la consegna a un altro partner**, trasformando il servizio da *prezzo fisso* a *vendita* (il valore diventa quindi quello di una Vendita per il partner destinatario). |
+
+> Da confermare: nel "prezzo fisso" fuori città, se al costo `prezzo fuori città × distanza` vada sommato anche il valore base del servizio (attualmente non sommato, come da specifica ricevuta).
+
 ## 8. API — note per sviluppatori
 
 - **Base URL**: `https://app.deluxy.it/api` (ambiente sandbox: dev.deluxy.it).

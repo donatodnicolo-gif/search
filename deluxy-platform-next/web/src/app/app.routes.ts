@@ -114,6 +114,27 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/category-form.component').then((m) => m.CategoryFormComponent),
       },
+      {
+        path: 'services',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION'] },
+        loadComponent: () =>
+          import('./pages/services-list.component').then((m) => m.ServicesListComponent),
+      },
+      {
+        path: 'services/new',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION'] },
+        loadComponent: () =>
+          import('./pages/service-form.component').then((m) => m.ServiceFormComponent),
+      },
+      {
+        path: 'calcoli',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION'] },
+        loadComponent: () =>
+          import('./pages/calcoli.component').then((m) => m.CalcoliComponent),
+      },
       // ---- Route stub: sezioni in migrazione ----
       ...[
         { path: 'activities', title: 'Attivita', roles: ['ADMIN', 'OPERATION', 'VALET'] },
