@@ -83,7 +83,31 @@ async function syncCrm(admin: any, token: string) {
     after = page.paging?.next?.after;
   } while (after);
 
-  return json({ aziende: nAz, contatti: nCon });
+  // Trattative (deals) con l'azienda associata.
+  after = undefined;
+  let nDeal = 0;
+  do {
+    const url = `/crm/v3/objects/deals?limit=100&properties=dealname,dealstage,amount&associations=companies${after ? `&after=${after}` : ''}`;
+    const page = await hs(token, url);
+    const rows = (page.results ?? []).map((d: any) => {
+      const compId = d.associations?.companies?.results?.[0]?.id;
+      const fase: string = d.properties?.dealstage ?? '';
+      return {
+        hubspot_id: String(d.id),
+        company_hubspot_id: compId ? String(compId) : null,
+        nome: d.properties?.dealname ?? null,
+        fase: fase || null,
+        valore: d.properties?.amount ? Number(d.properties.amount) : null,
+        aperta: !['closedwon', 'closedlost'].includes(fase),
+        synced_at: now,
+      };
+    });
+    if (rows.length) await admin.from('hubspot_deals').upsert(rows, { onConflict: 'hubspot_id' });
+    nDeal += rows.length;
+    after = page.paging?.next?.after;
+  } while (after);
+
+  return json({ aziende: nAz, contatti: nCon, trattative: nDeal });
 }
 
 Deno.serve(async (req) => {

@@ -177,6 +177,14 @@ Deno.serve(async (req) => {
         .upsert({ cella, centro_lat: lat, centro_lng: lng, refresh_at: nowIso });
     }
 
+    // Abbina i negozi della zona al CRM HubSpot (flag contatto / trattativa aperta).
+    // Best-effort: se fallisce (es. tabelle CRM vuote) la scoperta prosegue.
+    try {
+      await admin.rpc('abbina_places_vicini', { p_lat: lat, p_lng: lng, p_raggio: radius });
+    } catch {
+      /* ignora: i flag HubSpot restano ai valori precedenti */
+    }
+
     // Restituisci tutte le attività vicine (da DB, ordinate per distanza).
     const { data: places, error } = await admin.rpc('places_vicini', {
       p_lat: lat,

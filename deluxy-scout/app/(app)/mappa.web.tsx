@@ -281,8 +281,17 @@ export default function MappaWeb() {
                       .filter(Boolean)
                       .join('  ·  ') || '—'}
                   </Text>
+                  {p.hubspot_ha_contatto ? (
+                    <View style={[styles.crmBadge, styles.crmContatto]}>
+                      <Text style={styles.crmContattoTxt}>◑ contatto</Text>
+                    </View>
+                  ) : null}
+                  {p.hubspot_deal_aperta ? (
+                    <View style={[styles.crmBadge, styles.crmTrattativa]}>
+                      <Text style={styles.crmTrattativaTxt}>◆ trattativa</Text>
+                    </View>
+                  ) : null}
                   {p.da_completare ? <Text style={styles.daCompl}>da completare</Text> : null}
-                  {p.hubspot_deal_aperta ? <Text style={styles.hs}>● trattativa</Text> : null}
                 </View>
               </View>
 
@@ -432,6 +441,11 @@ const styles = StyleSheet.create({
   meta: { flexShrink: 1, color: colors.testoSoft, fontSize: 13 },
   hs: { color: colors.successo, fontWeight: '700', fontSize: 11 },
   daCompl: { color: colors.attenzione, fontWeight: '700', fontSize: 11 },
+  crmBadge: { borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 1 },
+  crmContatto: { backgroundColor: 'rgba(36,138,61,0.12)' },
+  crmContattoTxt: { color: colors.successo, fontWeight: '800', fontSize: 10 },
+  crmTrattativa: { backgroundColor: 'rgba(0,113,227,0.12)' },
+  crmTrattativaTxt: { color: colors.blue, fontWeight: '800', fontSize: 10 },
   azione: { paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
   azioneIco: { fontSize: 18 },
   check: { fontSize: 22, color: colors.grigio },
