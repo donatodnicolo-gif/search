@@ -9,6 +9,7 @@
 > **Word sempre aggiornato** (per le persone): `docs/COME-FUNZIONA-APP-DELUXY.docx`, generato da questo `.md` con `npm run doc:word` — non modificarlo a mano. Snapshot storico originale: `docs/COME-FUNZIONA-APP-DELUXY-AGGIORNATO-2026-07.docx`.
 >
 > **Changelog**
+> - 16/07/2026 (3) — Form **Servizio** e **Valet**: nel Servizio, **Ora minima/massima di inserimento** sono ora **tendine (00:00–23:00)**. Nel Valet: **Luogo e Data di nascita sempre visibili**; con **Partita IVA** attiva compare **solo la P.IVA** (spariscono CF e % ritenuta); **senza** P.IVA compaiono **CF\*** e **% ritenuta**; l'**IBAN** è spostato nella sezione **Stipendio**. Documentati: *Partner magazzino* = il cliente ha lo stock dei propri prodotti monitorato; *% ritenuta* = % di rimborso spese per ricevuta fiscale sul totale dei servizi effettuati. (Categorie partner e province partner/valet sono già a **selezione multipla** a chip.)
 > - 16/07/2026 (2) — Form consegna, **ordine e dipendenze dei campi**: 1) **Servizio** è il primo campo; 2) **Indirizzo destinatario** è il secondo; 3) la **Data consegna** ha come minimo (e default) **oggi + giorni di preavviso** del servizio. Inserito l'indirizzo, il sistema rileva la **provincia** e mostra **solo i partner e i valet con quella provincia abilitata**; inoltre — **novità di questo sviluppo** — mostra **solo i partner che hanno abilitato quel tipo di servizio**. (Nel nuovo ambiente la provincia è dedotta dal testo dell'indirizzo — codice tipo `(MI)`, nome provincia o città; nell'app reale è geocodificata via Google Maps.)
 > - 16/07/2026 — Form consegna, **fascia oraria di consegna a tendina**: quando la consegna **non** è flessibile si sceglie una **fascia predefinita** da un menu a tendina invece di un orario libero. Le fasce vanno da **Ora minima** a **Ora massima** del servizio (default **06:00–22:00**) con durata = **Fascia oraria** del servizio (`slotHours`, default 1 ora). La consegna mostra il flag "flessibile" **solo se il servizio lo consente** (nuovo campo servizio `allowFlexibleTime`); il **ritiro** resta sempre con orario flessibile opzionale e fascia automatica di 1 ora.
 > - 15/07/2026 (4) — Form consegna, sezione **Gestione dell'ordine**: ogni prodotto mostra il **prezzo** e ha un flag **Prezzo flessibile** che ne consente la modifica (precompilato col prezzo base). Il prezzo override è salvato sulla riga della consegna (`DeliveryProduct.price` + `flexiblePrice`).
@@ -121,7 +122,7 @@ Filtri pagamento: metodo (**Bank Transfer / Credit Card / Direct Debit Mandate**
 - **Sicurezza**: VERIFICA DELL'IDENTITÀ VALET (`checkExpertIndentity`) e CODICE DI CONSEGNA RICHIESTO (`deliveryCodeCheck`) impostabili a livello partner. Il codice ha un **tipo** (`deliveryCodeCheckType`): **[NUOVO]**
   - `UNIQUE_PER_DELIVERY` (default): un **codice OTP diverso per ogni consegna**, inviato al cliente alla creazione della consegna; il valet può **reinviarlo** in fase di consegna.
   - `UNIQUE_PER_CUSTOMER`: un codice **fisso per il cliente** (come il PIN di una carta), assegnato una volta e valido per sempre; il cliente può chiederne la **rigenerazione** alla boutique tramite la sezione Customers dell'app (sui clienti della boutique).
-- **Partner Magazzino**: flag `partnerHasWarehouse` che qualifica il partner come magazzino. **[NUOVO]**
+- **Partner Magazzino**: flag `partnerHasWarehouse` che qualifica il partner come magazzino. **Significa che il cliente ha lo stock dei propri prodotti monitorato** (gestione delle giacenze dei suoi prodotti in magazzino). **[NUOVO]**
 - **WooCommerce API key**: GENERATE KEY / COPY KEY per collegare il plugin deluxy-send-order.
 - **Documentazione e note**. Bottoni: SALVA e DUPLICA.
 
@@ -144,7 +145,11 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 
 #### Scheda valet (campi completi, verificati)
 
-- **Personal information**: Cognome\*, Nome\*, E-mail\*, Telefono\*, Indirizzo\*, **Partita IVA** (opzionale), **Codice Fiscale\*** (obbligatorio), **Luogo di nascita (e provincia)**, Data di nascita, coordinate bancarie (IBAN), Percentuale Ritenuta. **[NUOVO — nel form reale il CF è obbligatorio, la P.IVA no]**
+- **Personal information**: Cognome\*, Nome\*, E-mail\*, Telefono\*, Indirizzo\*, **Luogo di nascita (e provincia)** e **Data di nascita** (sempre visibili), flag **Partita IVA**. **Regola form nuovo ambiente**: **[NUOVO]**
+  - con **Partita IVA** attiva si mostra **solo il campo P.IVA\*** (il valet fattura: niente CF né ritenuta in questa sezione);
+  - **senza Partita IVA** si mostrano **Codice Fiscale\*** e **Percentuale Ritenuta (%)** (ricevuta con ritenuta d'acconto).
+  - Le **coordinate bancarie (IBAN)** stanno nella sezione **Stipendio** (non più tra i dati fiscali).
+  - **`% Ritenuta`** = **percentuale di rimborso spese per la ricevuta fiscale sul totale dei servizi effettuati** dal valet. **[NUOVO — chiarimento utente]**
 - **Salary Frequency Setting**: frequenza dello stipendio\* (`salaryFrequency`: MENSILE / SETTIMANALE) e limite di deposito settimanale (`weeklyDepositLimit`). **[NUOVO]**
 - **Team Leader**: flag `isTeamLeader`; quando attivo si impostano le **PROVINCE** in cui il team leader può vedere/assegnare consegne in autonomia e i **PARTNERS** associati (es. SWISS FOOD, ECI).
 - **Valet Province**: province in cui il valet opera (distinte da quelle del team leader).

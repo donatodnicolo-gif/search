@@ -51,19 +51,23 @@ interface ValetServiceRow {
             <input class="field" name="address" [(ngModel)]="model.address" placeholder="Via …, CAP Città (PR)" /></label>
         </div>
 
+        <div class="grid-2 mt">
+          <label class="fld"><span>Luogo di nascita (e provincia)</span>
+            <input class="field" name="birthPlace" [(ngModel)]="model.birthPlace" placeholder="Milano (MI)" /></label>
+          <label class="fld"><span>Data di nascita</span>
+            <input class="field" type="date" name="birthDate" [(ngModel)]="model.birthDate" /></label>
+        </div>
+
         <label class="toggle mt"><input type="checkbox" name="hasVat" [(ngModel)]="model.hasVat" /><span>Partita IVA</span></label>
         @if (model.hasVat) {
           <div class="grid-2 sub-block">
             <label class="fld"><span>Partita IVA *</span>
               <input class="field" name="vatNumber" [(ngModel)]="model.vatNumber" placeholder="IT01234567890" /></label>
+          </div>
+        } @else {
+          <div class="grid-2 sub-block">
             <label class="fld"><span>Codice fiscale *</span>
               <input class="field" name="fiscalCode" [(ngModel)]="model.fiscalCode" /></label>
-            <label class="fld"><span>Luogo di nascita (e provincia)</span>
-              <input class="field" name="birthPlace" [(ngModel)]="model.birthPlace" placeholder="Milano (MI)" /></label>
-            <label class="fld"><span>Data di nascita</span>
-              <input class="field" type="date" name="birthDate" [(ngModel)]="model.birthDate" /></label>
-            <label class="fld"><span>Coordinate bancarie (IBAN)</span>
-              <input class="field" name="iban" [(ngModel)]="model.iban" placeholder="IT60 X054 …" /></label>
             <label class="fld"><span>Percentuale ritenuta (%)</span>
               <input class="field num" type="number" step="0.01" name="withholdingPercent" [(ngModel)]="model.withholdingPercent" /></label>
           </div>
@@ -80,6 +84,8 @@ interface ValetServiceRow {
             </select></label>
           <label class="fld"><span>Limite di deposito settimanale</span>
             <input class="field num" type="number" step="0.01" name="weeklyDepositLimit" [(ngModel)]="model.weeklyDepositLimit" placeholder="€" /></label>
+          <label class="fld span-2"><span>Coordinate bancarie (IBAN)</span>
+            <input class="field" name="iban" [(ngModel)]="model.iban" placeholder="IT60 X054 …" /></label>
         </div>
       </section>
 
@@ -305,8 +311,12 @@ export class ValetFormComponent {
       this.error.set('Nome, cognome ed email sono obbligatori.');
       return;
     }
-    if (m.hasVat && (!m.vatNumber.trim() || !m.fiscalCode.trim())) {
-      this.error.set('Con Partita IVA attiva, P.IVA e codice fiscale sono obbligatori.');
+    if (m.hasVat && !m.vatNumber.trim()) {
+      this.error.set('Con Partita IVA attiva, la P.IVA è obbligatoria.');
+      return;
+    }
+    if (!m.hasVat && !m.fiscalCode.trim()) {
+      this.error.set('Senza Partita IVA, il codice fiscale è obbligatorio.');
       return;
     }
 
@@ -320,11 +330,16 @@ export class ValetFormComponent {
       notifyByWhatsapp: m.notifyByWhatsapp,
       salaryFrequency: m.salaryFrequency,
     };
-    for (const key of ['phone', 'address', 'vatNumber', 'fiscalCode', 'birthPlace', 'birthDate', 'iban', 'vehicle', 'notes'] as const) {
+    // Con P.IVA: P.IVA (no CF, no ritenuta). Senza P.IVA: CF + % ritenuta.
+    const fiscalKeys = m.hasVat ? (['vatNumber'] as const) : (['fiscalCode'] as const);
+    for (const key of ['phone', 'address', 'birthPlace', 'birthDate', 'iban', 'vehicle', 'notes', ...fiscalKeys] as const) {
       const v = m[key];
       if (typeof v === 'string' && v.trim()) payload[key] = v.trim();
     }
-    for (const key of ['withholdingPercent', 'weeklyDepositLimit', 'minimumKmIncluded', 'extraOutOfCityPrice'] as const) {
+    const numKeys = m.hasVat
+      ? (['weeklyDepositLimit', 'minimumKmIncluded', 'extraOutOfCityPrice'] as const)
+      : (['withholdingPercent', 'weeklyDepositLimit', 'minimumKmIncluded', 'extraOutOfCityPrice'] as const);
+    for (const key of numKeys) {
       const v = m[key];
       if (v != null && v !== ('' as unknown)) payload[key] = Number(v);
     }

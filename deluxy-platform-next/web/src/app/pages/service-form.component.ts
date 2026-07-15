@@ -78,9 +78,15 @@ import { SERVICE_PRICING_OPTIONS } from '../core/models';
               <option [ngValue]="4">4 ore</option>
             </select></label>
           <label class="fld"><span>Ora minima di inserimento</span>
-            <input class="field" type="time" name="minOrderTime" [(ngModel)]="model.minOrderTime" /></label>
+            <select class="field" name="minOrderTime" [(ngModel)]="model.minOrderTime">
+              <option value="">—</option>
+              @for (h of hours24; track h) { <option [value]="h">{{ h }}</option> }
+            </select></label>
           <label class="fld"><span>Ora massima di inserimento</span>
-            <input class="field" type="time" name="maxOrderTime" [(ngModel)]="model.maxOrderTime" /></label>
+            <select class="field" name="maxOrderTime" [(ngModel)]="model.maxOrderTime">
+              <option value="">—</option>
+              @for (h of hours24; track h) { <option [value]="h">{{ h }}</option> }
+            </select></label>
         </div>
         <label class="toggle mt"><input type="checkbox" name="allowFlexibleTime" [(ngModel)]="model.allowFlexibleTime" /><span>Consenti orario di consegna flessibile (dalle–alle)</span></label>
         <p class="hint">Prima dell'ora minima e dopo l'ora massima non è possibile richiedere il servizio per la data scelta. Nel form consegna le fasce vanno da <strong>Ora minima</strong> a <strong>Ora massima</strong> (default 06:00–22:00) con passo pari alla <strong>Fascia oraria</strong>. Se "orario flessibile" è attivo, la consegna può indicare una fascia libera dalle–alle; altrimenti si sceglie solo una fascia predefinita. Il ritiro resta sempre con orario flessibile opzionale.</p>
@@ -144,6 +150,8 @@ export class ServiceFormComponent {
   readonly error = signal<string | null>(null);
   readonly justSaved = signal(false);
   readonly pricingOptions = SERVICE_PRICING_OPTIONS;
+  /** 00:00 … 23:00 per le tendine ora min/max inserimento. */
+  readonly hours24 = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
   model = {
     name: '',
