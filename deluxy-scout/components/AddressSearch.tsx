@@ -3,6 +3,7 @@
 // coordinate (place_id → lat/lng) e le restituisce via onSelect.
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '@/lib/theme';
 import { autocompleteIndirizzo, dettagliLuogo, type GeocodeResult, type Predizione } from '@/lib/geocode';
 
@@ -94,7 +95,7 @@ export function AddressSearch({
           {predizioni.map((p) => (
             <Pressable key={p.place_id} style={styles.pred} onPress={() => scegli(p)}>
               <Text style={styles.predTxt} numberOfLines={2}>
-                📍 {p.description}
+                <Ionicons name="location-outline" size={14} color={colors.grigio} /> {p.description}
               </Text>
             </Pressable>
           ))}

@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { EsitoVisita, Linea, Place } from '@/types';
@@ -176,7 +177,8 @@ export default function NuovaVisita() {
         <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.nome}>{place.nome}</Text>
           <Text style={styles.checkin}>
-            {pos ? '📍 Check-in acquisito' : '📍 Acquisizione posizione…'}
+            <Ionicons name="location-outline" size={14} color={colors.testoSoft} />{' '}
+            {pos ? 'Check-in acquisito' : 'Acquisizione posizione…'}
           </Text>
 
           {/* Ipotesi editabile */}

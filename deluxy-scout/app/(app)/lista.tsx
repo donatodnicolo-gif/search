@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
@@ -57,7 +58,7 @@ export default function Lista() {
         renderItem={({ item }) => <Riga place={item} onPress={() => router.push(`/(app)/attivita/${item.id}`)} />}
       />
       <Pressable style={styles.fab} onPress={() => router.push('/(app)/nuovo-target')} accessibilityLabel="Nuovo target">
-        <Text style={styles.fabTxt}>＋</Text>
+        <Ionicons name="add" size={30} color={colors.bianco} />
       </Pressable>
     </View>
   );

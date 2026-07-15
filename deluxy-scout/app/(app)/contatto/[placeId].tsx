@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { inserisciContatto } from '@/lib/db';
@@ -68,7 +69,9 @@ export default function NuovoContatto() {
           <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="nome@azienda.it" placeholderTextColor={colors.grigio} />
 
           <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>È il decisore ⭐</Text>
+            <Text style={styles.switchLabel}>
+              È il decisore <Ionicons name="star" size={14} color={colors.oro} />
+            </Text>
             <Switch
               value={isDecisore}
               onValueChange={setIsDecisore}

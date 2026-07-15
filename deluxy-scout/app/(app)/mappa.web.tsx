@@ -350,7 +350,9 @@ export default function MappaWeb() {
         <View style={styles.dockAzioni}>
           {giroAttivo && giroNav ? (
             <Pressable style={styles.btnNaviga} onPress={() => Linking.openURL(giroNav.url)}>
-              <Text style={styles.btnNavigaTxt}>🧭 Naviga</Text>
+              <Text style={styles.btnNavigaTxt}>
+                <Ionicons name="navigate-outline" size={15} color={colors.testo} /> Naviga
+              </Text>
             </Pressable>
           ) : null}
           <Pressable

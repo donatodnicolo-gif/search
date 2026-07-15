@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
@@ -119,7 +120,7 @@ export default function Mappa() {
         </MapView>
       ) : (
         <View style={styles.mapPlaceholder}>
-          <Text style={styles.mapPlaceholderIco}>🗺️</Text>
+          <Ionicons name="map-outline" size={44} color={colors.grigio} style={{ marginBottom: spacing.sm }} />
           <Text style={styles.mapPlaceholderTitolo}>Mappa non ancora configurata</Text>
           <Text style={styles.mapPlaceholderTxt}>
             Aggiungi le chiavi Google Maps per vedere i pin sul territorio. Intanto usa la scheda
@@ -171,7 +172,9 @@ export default function Mappa() {
             <View style={styles.footerAzioni}>
               {giroNav ? (
                 <Pressable style={styles.btnNaviga} onPress={() => Linking.openURL(giroNav.url)}>
-                  <Text style={styles.btnNavigaTxt}>🧭 Naviga</Text>
+                  <Text style={styles.btnNavigaTxt}>
+                    <Ionicons name="navigate-outline" size={15} color={colors.navy} /> Naviga
+                  </Text>
                 </Pressable>
               ) : null}
               <Pressable style={styles.btnChiudi} onPress={chiudiGiro}>

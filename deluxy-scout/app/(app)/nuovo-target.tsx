@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import type { CategoryRule } from '@/types';
 import { colors, coloreProprita, radius, spacing } from '@/lib/theme';
@@ -98,7 +99,8 @@ export default function NuovoTarget() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.checkin}>
-            {pos ? '📍 Posizione acquisita' : '📍 Acquisizione posizione…'}
+            <Ionicons name="location-outline" size={14} color={colors.testoSoft} />{' '}
+            {pos ? 'Posizione acquisita' : 'Acquisizione posizione…'}
           </Text>
 
           <Text style={styles.label}>Nome attività *</Text>

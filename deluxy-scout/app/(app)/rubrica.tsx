@@ -1,6 +1,7 @@
 // Rubrica: tutti i contatti registrati nell'app, condivisi con HubSpot.
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
@@ -71,7 +72,7 @@ function Contatto({ contatto: c, onOpenPlace }: { contatto: ContattoConLuogo; on
     <View style={styles.card}>
       <View style={styles.cardHead}>
         <Text style={styles.nome} numberOfLines={1}>
-          {c.nome} {c.is_decisore ? '⭐' : ''}
+          {c.nome} {c.is_decisore ? <Ionicons name="star" size={13} color={colors.oro} /> : null}
         </Text>
         <View style={[styles.badge, c.hubspot_contact_id ? styles.badgeOk : styles.badgeAttesa]}>
           <Text style={[styles.badgeTxt, c.hubspot_contact_id ? styles.badgeTxtOk : styles.badgeTxtAttesa]}>
@@ -82,7 +83,9 @@ function Contatto({ contatto: c, onOpenPlace }: { contatto: ContattoConLuogo; on
       {c.ruolo ? <Text style={styles.meta}>{c.ruolo}</Text> : null}
       {c.place_nome ? (
         <Pressable onPress={onOpenPlace}>
-          <Text style={styles.negozio}>🏬 {c.place_nome}</Text>
+          <Text style={styles.negozio}>
+            <Ionicons name="storefront-outline" size={14} color={colors.navy} /> {c.place_nome}
+          </Text>
         </Pressable>
       ) : null}
       {c.place_linea ? (
@@ -93,12 +96,16 @@ function Contatto({ contatto: c, onOpenPlace }: { contatto: ContattoConLuogo; on
       <View style={styles.azioni}>
         {c.telefono ? (
           <Pressable style={styles.azione} onPress={() => Linking.openURL(`tel:${c.telefono}`)}>
-            <Text style={styles.azioneTxt}>📞 {c.telefono}</Text>
+            <Text style={styles.azioneTxt}>
+              <Ionicons name="call-outline" size={13} color={colors.oro} /> {c.telefono}
+            </Text>
           </Pressable>
         ) : null}
         {c.email ? (
           <Pressable style={styles.azione} onPress={() => Linking.openURL(`mailto:${c.email}`)}>
-            <Text style={styles.azioneTxt}>✉️ {c.email}</Text>
+            <Text style={styles.azioneTxt}>
+              <Ionicons name="mail-outline" size={13} color={colors.oro} /> {c.email}
+            </Text>
           </Pressable>
         ) : null}
       </View>

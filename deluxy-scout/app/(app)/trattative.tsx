@@ -1,6 +1,7 @@
 // Trattative: tutte le deal aperte, raggruppate per negozio.
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, labelFase, radius, spacing } from '@/lib/theme';
 import { fetchTutteTrattative, type TrattativaConLuogo } from '@/lib/db';
@@ -89,7 +90,7 @@ export default function Trattative() {
             onPress={() => router.push(`/(app)/attivita/${(section as Sezione).placeId}`)}
           >
             <Text style={styles.sezioneTitolo} numberOfLines={1}>
-              🏬 {section.title}
+              <Ionicons name="storefront-outline" size={14} color={colors.bianco} /> {section.title}
             </Text>
             <Text style={styles.sezioneConteggio}>{section.data.length}</Text>
           </Pressable>

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -103,7 +104,9 @@ export default function Profilo() {
       <Pressable style={styles.card} onPress={() => router.push('/(app)/nascosti')}>
         <Text style={styles.cardLabel}>ATTIVITÀ</Text>
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>🚫 Nascosti (non interessanti)</Text>
+          <Text style={styles.rowLabel}>
+            <Ionicons name="eye-off-outline" size={15} color={colors.navy} /> Nascosti (non interessanti)
+          </Text>
           <Text style={styles.freccia}>›</Text>
         </View>
       </Pressable>

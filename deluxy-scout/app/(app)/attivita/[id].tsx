@@ -1,5 +1,6 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Contact, Deal, Place, Visit } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
@@ -132,10 +133,14 @@ export default function SchedaAttivita() {
               )
             }
           >
-            <Text style={styles.btnNavigaTxt}>🧭 Naviga</Text>
+            <Text style={styles.btnNavigaTxt}>
+              <Ionicons name="navigate-outline" size={15} color={colors.navy} /> Naviga
+            </Text>
           </Pressable>
           <Pressable style={[styles.btnNaviga, { flex: 1 }]} onPress={() => router.push(`/(app)/modifica/${place.id}`)}>
-            <Text style={styles.btnNavigaTxt}>✏️ Modifica</Text>
+            <Text style={styles.btnNavigaTxt}>
+              <Ionicons name="create-outline" size={15} color={colors.navy} /> Modifica
+            </Text>
           </Pressable>
         </View>
 
@@ -160,7 +165,7 @@ export default function SchedaAttivita() {
             contatti.map((c) => (
               <View key={c.id} style={styles.contatto}>
                 <Text style={styles.contattoNome}>
-                  {c.nome} {c.is_decisore ? '⭐' : ''}
+                  {c.nome} {c.is_decisore ? <Ionicons name="star" size={13} color={colors.oro} /> : null}
                 </Text>
                 {c.ruolo ? <Text style={styles.meta}>{c.ruolo}</Text> : null}
                 {c.telefono ? (
@@ -173,14 +178,23 @@ export default function SchedaAttivita() {
           )}
           {/* Conciliazione intelligente con HubSpot */}
           <Pressable style={[styles.btnAI, matchLoading && { opacity: 0.6 }]} onPress={cercaAI} disabled={matchLoading}>
-            <Text style={styles.btnAITxt}>{matchLoading ? 'Cerco su HubSpot…' : '🔎 Trova contatti su HubSpot'}</Text>
+            <Text style={styles.btnAITxt}>
+              {matchLoading ? (
+                'Cerco su HubSpot…'
+              ) : (
+                <>
+                  <Ionicons name="search-outline" size={15} color={colors.goldStrong} /> Trova contatti su HubSpot
+                </>
+              )}
+            </Text>
           </Pressable>
           {matchErrore ? <Text style={styles.err}>{matchErrore}</Text> : null}
           {matchAI ? (
             <View style={styles.aiBox}>
               {matchAI.match ? (
                 <Text style={styles.aiMatch}>
-                  🏢 {matchAI.match.nome} · corrispondenza {matchAI.confidenza}
+                  <Ionicons name="business-outline" size={14} color={colors.navy} /> {matchAI.match.nome} · corrispondenza{' '}
+                  {matchAI.confidenza}
                 </Text>
               ) : (
                 <Text style={styles.vuoto}>Nessuna azienda HubSpot corrispondente.</Text>
