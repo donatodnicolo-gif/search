@@ -147,6 +147,9 @@ interface ProductRow {
             <option value="">— nuovo destinatario —</option>
             @for (c of customers(); track c.id) { <option [value]="c.id">{{ c.lastName }} {{ c.firstName }}</option> }
           </select></label>
+        @if (!model.customerId) {
+          <label class="toggle mt"><input type="checkbox" name="saveCustomer" [(ngModel)]="model.saveCustomer" /><span>Salva come nuovo cliente in Clienti</span></label>
+        }
         <div class="grid-2 mt">
           <label class="fld"><span>Cognome destinatario *</span>
             <input class="field" name="recipientLastName" [(ngModel)]="model.recipientLastName" required /></label>
@@ -369,6 +372,7 @@ export class DeliveryFormComponent {
     status: '',
     paymentStatus: 'default',
     customerId: '',
+    saveCustomer: false,
     recipientLastName: '',
     recipientFirstName: '',
     recipientIntercom: '',
@@ -652,6 +656,31 @@ export class DeliveryFormComponent {
     if (products.length) payload['products'] = products;
 
     this.saving.set(true);
+    // Se richiesto, salva prima il destinatario come nuovo cliente in Clienti, poi crea la consegna.
+    if (m.saveCustomer && !m.customerId) {
+      const customerPayload: Record<string, unknown> = {
+        firstName: m.recipientFirstName.trim(),
+        lastName: m.recipientLastName.trim(),
+      };
+      if (m.recipientEmail.trim()) customerPayload['email'] = m.recipientEmail.trim();
+      if (m.recipientPhone.trim()) customerPayload['phone'] = m.recipientPhone.trim();
+      if (m.recipientAddress.trim()) customerPayload['address'] = m.recipientAddress.trim();
+      if (m.partnerId) customerPayload['partnerId'] = m.partnerId;
+      this.http.post<{ id: string }>(`${environment.apiUrl}/customers`, customerPayload).subscribe({
+        next: (c) => { payload['customerId'] = c.id; this.postDelivery(payload, duplicate); },
+        error: (err) => {
+          this.saving.set(false);
+          const msg = err?.error?.message;
+          this.error.set('Cliente non salvato: ' + (Array.isArray(msg) ? msg.join(' · ') : msg ?? 'errore'));
+        },
+      });
+      return;
+    }
+    this.postDelivery(payload, duplicate);
+  }
+
+  /** Crea la consegna col payload dato. */
+  private postDelivery(payload: Record<string, unknown>, duplicate: boolean): void {
     this.http.post(`${environment.apiUrl}/deliveries`, payload).subscribe({
       next: () => {
         if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }

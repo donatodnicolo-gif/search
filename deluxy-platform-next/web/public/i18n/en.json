@@ -1,0 +1,48 @@
+{
+  "app": { "tagline": "White-glove delivery, since 2019." },
+  "login": {
+    "title": "Deluxy",
+    "subtitle": "Sign in to the white-glove delivery platform.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…"
+  },
+  "nav": {
+    "section": {
+      "operativita": "Operations",
+      "utenti": "Users",
+      "prodotti": "Products",
+      "amministrazione": "Administration",
+      "configurazione": "Configuration"
+    },
+    "consegne": "Deliveries",
+    "attivita": "Activities",
+    "vendite": "Sales",
+    "partner": "Partners",
+    "valet": "Valets",
+    "clienti": "Customers",
+    "operatori": "Operators",
+    "prodotti": "Products",
+    "categorie": "Categories",
+    "servizi": "Services",
+    "calcoli": "Calculations",
+    "stipendi": "Salaries",
+    "pagamenti": "Payments",
+    "regoleCarnet": "Carnet rules",
+    "finanza": "Finance",
+    "modelliSms": "SMS templates",
+    "disponibilita": "Availability",
+    "province": "Provinces & cities",
+    "utentiRuoli": "Users & roles"
+  },
+  "role": {
+    "ADMIN": "Administrator",
+    "OPERATION": "Operation",
+    "PARTNER": "Partner",
+    "VALET": "Valet",
+    "PROJECT_MANAGER": "Project Manager"
+  },
+  "shell": { "logout": "Log out" },
+  "lang": { "it": "Italian", "en": "English", "choose": "Language" }
+}

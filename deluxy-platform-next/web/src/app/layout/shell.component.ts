@@ -2,8 +2,10 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { TranslatePipe } from '@ngx-translate/core';
 import { AuthService } from '../core/auth.service';
 import { Role } from '../core/models';
+import { LanguageSwitcherComponent } from './language-switcher.component';
 
 interface NavItem {
   label: string;
@@ -36,47 +38,47 @@ const ICONS: Record<string, string> = {
 
 const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
-    title: 'Operatività',
+    title: 'nav.section.operativita',
     items: [
-      { label: 'Consegne', path: '/deliveries', icon: 'box', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
-      { label: 'Attività', path: '/activities', icon: 'clock', roles: ['ADMIN', 'OPERATION', 'VALET'] },
-      { label: 'Vendite', path: '/sales', icon: 'cart', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+      { label: 'nav.consegne', path: '/deliveries', icon: 'box', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
+      { label: 'nav.attivita', path: '/activities', icon: 'clock', roles: ['ADMIN', 'OPERATION', 'VALET'] },
+      { label: 'nav.vendite', path: '/sales', icon: 'cart', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
     ],
   },
   {
-    title: 'Utenti',
+    title: 'nav.section.utenti',
     items: [
-      { label: 'Partner', path: '/partners', icon: 'store', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
-      { label: 'Valet', path: '/valets', icon: 'bike', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
-      { label: 'Clienti', path: '/customers', icon: 'people', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
-      { label: 'Operatori', path: '/operators', icon: 'badge', roles: ['ADMIN', 'OPERATION'] },
+      { label: 'nav.partner', path: '/partners', icon: 'store', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      { label: 'nav.valet', path: '/valets', icon: 'bike', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      { label: 'nav.clienti', path: '/customers', icon: 'people', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+      { label: 'nav.operatori', path: '/operators', icon: 'badge', roles: ['ADMIN', 'OPERATION'] },
     ],
   },
   {
-    title: 'Prodotti',
+    title: 'nav.section.prodotti',
     items: [
-      { label: 'Prodotti', path: '/products', icon: 'tag', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
-      { label: 'Categorie', path: '/categories', icon: 'folder', roles: ['ADMIN', 'OPERATION'] },
+      { label: 'nav.prodotti', path: '/products', icon: 'tag', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+      { label: 'nav.categorie', path: '/categories', icon: 'folder', roles: ['ADMIN', 'OPERATION'] },
     ],
   },
   {
-    title: 'Amministrazione',
+    title: 'nav.section.amministrazione',
     items: [
-      { label: 'Servizi', path: '/services', icon: 'rules', roles: ['ADMIN', 'OPERATION'] },
-      { label: 'Calcoli', path: '/calcoli', icon: 'chart', roles: ['ADMIN', 'OPERATION'] },
-      { label: 'Stipendi', path: '/salaries', icon: 'euro', roles: ['ADMIN', 'OPERATION', 'VALET'] },
-      { label: 'Pagamenti', path: '/payments', icon: 'wallet', roles: ['ADMIN', 'OPERATION', 'VALET'] },
-      { label: 'Regole carnet', path: '/delivery-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
-      { label: 'Finanza', path: '/finance', icon: 'chart', roles: ['ADMIN'], supportOnly: true },
+      { label: 'nav.servizi', path: '/services', icon: 'rules', roles: ['ADMIN', 'OPERATION'] },
+      { label: 'nav.calcoli', path: '/calcoli', icon: 'chart', roles: ['ADMIN', 'OPERATION'] },
+      { label: 'nav.stipendi', path: '/salaries', icon: 'euro', roles: ['ADMIN', 'OPERATION', 'VALET'] },
+      { label: 'nav.pagamenti', path: '/payments', icon: 'wallet', roles: ['ADMIN', 'OPERATION', 'VALET'] },
+      { label: 'nav.regoleCarnet', path: '/delivery-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      { label: 'nav.finanza', path: '/finance', icon: 'chart', roles: ['ADMIN'], supportOnly: true },
     ],
   },
   {
-    title: 'Configurazione',
+    title: 'nav.section.configurazione',
     items: [
-      { label: 'Modelli SMS', path: '/sms-templates', icon: 'message', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
-      { label: 'Disponibilità', path: '/availability', icon: 'calendar', roles: ['VALET'] },
-      { label: 'Province e città', path: '/provinces', icon: 'map', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
-      { label: 'Utenti e ruoli', path: '/users', icon: 'users', roles: ['ADMIN'] },
+      { label: 'nav.modelliSms', path: '/sms-templates', icon: 'message', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
+      { label: 'nav.disponibilita', path: '/availability', icon: 'calendar', roles: ['VALET'] },
+      { label: 'nav.province', path: '/provinces', icon: 'map', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      { label: 'nav.utentiRuoli', path: '/users', icon: 'users', roles: ['ADMIN'] },
     ],
   },
 ];
@@ -84,9 +86,12 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, LanguageSwitcherComponent],
   template: `
     <div class="shell">
+      <!-- Selettore lingua (fisso in alto a destra) -->
+      <app-language-switcher />
+
       <!-- Topbar (solo mobile) -->
       <header class="topbar">
         <button class="hamburger" (click)="toggle()" aria-label="Apri menu">
@@ -111,11 +116,11 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
 
         <nav>
           @for (section of sections(); track section.title) {
-            <div class="nav-section">{{ section.title }}</div>
+            <div class="nav-section">{{ section.title | translate }}</div>
             @for (item of section.items; track item.path) {
               <a [routerLink]="item.path" routerLinkActive="active" class="nav-link" (click)="close()">
                 <span class="nav-icon" [innerHTML]="icon(item.icon)"></span>
-                <span>{{ item.label }}</span>
+                <span>{{ item.label | translate }}</span>
               </a>
             }
           }
@@ -127,9 +132,9 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
             <div class="user-name">
               {{ auth.user()?.firstName }} {{ auth.user()?.lastName }}
             </div>
-            <div class="user-role">{{ roleLabel() }}</div>
+            <div class="user-role">{{ roleLabel() | translate }}</div>
           </div>
-          <button class="logout" (click)="auth.logout()" title="Esci">
+          <button class="logout" (click)="auth.logout()" [title]="'shell.logout' | translate">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 4.5H7A1.5 1.5 0 0 0 5.5 6v12A1.5 1.5 0 0 0 7 19.5h7M10.5 12H20m0 0-3-3m3 3-3 3"/>
             </svg>
@@ -433,14 +438,8 @@ export class ShellComponent {
   });
 
   readonly roleLabel = computed(() => {
-    const labels: Record<string, string> = {
-      ADMIN: 'Amministratore',
-      OPERATION: 'Operation',
-      PARTNER: 'Partner',
-      VALET: 'Valet',
-      PROJECT_MANAGER: 'Project Manager',
-    };
-    return labels[this.auth.user()?.role ?? ''] ?? '';
+    const role = this.auth.user()?.role;
+    return role ? `role.${role}` : '';
   });
 
   readonly initials = computed(() => {

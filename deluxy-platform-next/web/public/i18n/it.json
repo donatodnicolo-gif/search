@@ -1,0 +1,48 @@
+{
+  "app": { "tagline": "Consegne in guanti bianchi, dal 2019." },
+  "login": {
+    "title": "Deluxy",
+    "subtitle": "Accedi alla piattaforma di consegna in guanti bianchi.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Accedi",
+    "submitting": "Accesso in corso…"
+  },
+  "nav": {
+    "section": {
+      "operativita": "Operatività",
+      "utenti": "Utenti",
+      "prodotti": "Prodotti",
+      "amministrazione": "Amministrazione",
+      "configurazione": "Configurazione"
+    },
+    "consegne": "Consegne",
+    "attivita": "Attività",
+    "vendite": "Vendite",
+    "partner": "Partner",
+    "valet": "Valet",
+    "clienti": "Clienti",
+    "operatori": "Operatori",
+    "prodotti": "Prodotti",
+    "categorie": "Categorie",
+    "servizi": "Servizi",
+    "calcoli": "Calcoli",
+    "stipendi": "Stipendi",
+    "pagamenti": "Pagamenti",
+    "regoleCarnet": "Regole carnet",
+    "finanza": "Finanza",
+    "modelliSms": "Modelli SMS",
+    "disponibilita": "Disponibilità",
+    "province": "Province e città",
+    "utentiRuoli": "Utenti e ruoli"
+  },
+  "role": {
+    "ADMIN": "Amministratore",
+    "OPERATION": "Operation",
+    "PARTNER": "Partner",
+    "VALET": "Valet",
+    "PROJECT_MANAGER": "Project Manager"
+  },
+  "shell": { "logout": "Esci" },
+  "lang": { "it": "Italiano", "en": "Inglese", "choose": "Lingua" }
+}

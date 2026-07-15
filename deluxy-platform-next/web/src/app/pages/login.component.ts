@@ -1,20 +1,23 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 import { AuthService } from '../core/auth.service';
+import { LanguageSwitcherComponent } from '../layout/language-switcher.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslatePipe, LanguageSwitcherComponent],
   template: `
     <div class="login-page">
+      <app-language-switcher />
       <form class="login-card" (ngSubmit)="submit()">
         <div class="logo">
           <span class="logo-d">D</span>
         </div>
         <h1>Deluxy</h1>
-        <p class="subtitle">Accedi alla piattaforma di consegna in guanti bianchi.</p>
+        <p class="subtitle">{{ 'login.subtitle' | translate }}</p>
 
         <div class="fields">
           <input
@@ -24,7 +27,7 @@ import { AuthService } from '../core/auth.service';
             [(ngModel)]="email"
             required
             autocomplete="username"
-            placeholder="Email"
+            [placeholder]="'login.email' | translate"
             aria-label="Email"
           />
           <input
@@ -34,7 +37,7 @@ import { AuthService } from '../core/auth.service';
             [(ngModel)]="password"
             required
             autocomplete="current-password"
-            placeholder="Password"
+            [placeholder]="'login.password' | translate"
             aria-label="Password"
           />
         </div>
@@ -44,10 +47,10 @@ import { AuthService } from '../core/auth.service';
         }
 
         <button type="submit" [disabled]="loading()">
-          {{ loading() ? 'Accesso in corso…' : 'Accedi' }}
+          {{ (loading() ? 'login.submitting' : 'login.submit') | translate }}
         </button>
 
-        <p class="footnote">Consegne in guanti bianchi, dal 2019.</p>
+        <p class="footnote">{{ 'app.tagline' | translate }}</p>
       </form>
     </div>
   `,
