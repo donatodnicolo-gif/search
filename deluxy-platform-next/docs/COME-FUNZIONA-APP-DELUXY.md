@@ -38,6 +38,12 @@ Ruoli disponibili: **Admin** (solo alcuni admin — es. "support" — abilitati 
 | **Valet (Expert)** | Consegne, Activities, dati Partner e Valet (disponibilità orari), Disponibilità, Stipendi, Regole Valet, Pagamenti, Ricevute. |
 | **Operation** | Consegne, Activities, Partner (+aggiunta), Valet (+aggiunta), Customers (+aggiunta), Prodotti (+aggiunta), Modelli SMS (+aggiunta), Vendita, Cakes Order Product, Province & Cities. |
 
+**Sotto-ruoli operatore** (impostati alla creazione dell'operatore, controllano la visibilità delle sezioni del menu): **[NUOVO]**
+- **Operation** (base): vede la sezione Operatività; non vede Amministrazione.
+- **Finance**: vede **anche** la sezione Amministrazione (Stipendi, Pagamenti, Regole, Finanza).
+- **Project Manager**: **non** vede la sezione Operatività (Consegne, Attività, Vendite).
+- **Customer Service**: **non** vede la sezione Amministrazione.
+
 **Stati utente** (pagina Utenti): Attivo, Disattivo, Da convalidare, Sconosciuto. Ruolo assegnabile in linea: nessuno / admin / expert / partner / operation.
 
 **Dati attuali rilevati**: 550 utenti registrati, 243 partner, ~57 valet attivi in lista, 14 membri Operation, 4.092 customers, 8.503 prodotti.
@@ -147,7 +153,12 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 ### 3.5 Utenti / Operation / Customers
 
 - **Utenti** (`/utenti`): 550 utenti; colonne ID, Email, Cognome, Nome, Ruolo (nessuno/admin/expert/partner/operation, modificabile in linea), Attivo (Attivo/Disattivo/Da convalidare/Sconosciuto), Elimina. Visibile solo ad Admin. Qui si attivano gli utenti appena registrati e si trasformano in Admin.
-- **Operation** (`/operation`): staff d'ufficio (14 persone): Cognome, Nome, Email, Telefono, Attivo + AGGIUNGI. **Form "Nuovo Operation"**: Cognome\*, Nome\*, E-mail\*, Telefono\*, Indirizzo\*; notifiche WhatsApp/Mail; **flag PROJECT MANAGER** (trasforma l'operatore in Project Manager — come Operation ma senza Consegne e Attività); Note. **[NUOVO — flag PM e notifiche sul form operation]**
+- **Operation** (`/operation`): staff d'ufficio (14 persone): Cognome, Nome, Email, Telefono, Attivo + AGGIUNGI. **Form "Nuovo Operation"**: Cognome\*, Nome\*, E-mail\*, Telefono\*, Indirizzo\*; notifiche WhatsApp/Mail; **Ruolo operatore**; Note. **[NUOVO]**
+  - **Ruolo operatore** (controlla la visibilità delle sezioni del menu): **[NUOVO]**
+    - `operation` (base): vede la sezione **Operatività**, non **Amministrazione**.
+    - `finance`: vede **anche la sezione Amministrazione** (Stipendi, Pagamenti, Regole, Finanza).
+    - `project_manager`: **non vede la sezione Operatività** (Consegne, Attività, Vendite).
+    - `customer_service`: **non vede la sezione Amministrazione**.
 - **Customers** (`/customers`): 4.092 clienti; colonne: ID, Owner (Admin/Operation/Partner), Partner, Cognome, Nome, Email, Data nascita, Citofono, Telefono, Indirizzo, Note. Azioni: DELIVERY (crea consegna dal cliente), MODIFICA, ELIMINA; AGGIUNGI, ESPORTA, IMPORTARE, formato CSV. Da questa sezione la boutique può **rigenerare il codice di consegna "fisso" del cliente** quando il partner usa `deliveryCodeCheckType = UNIQUE_PER_CUSTOMER` (vedi 3.3 Sicurezza). **[NUOVO]**
 
 ### 3.6 Prodotti (`/prodotti`)

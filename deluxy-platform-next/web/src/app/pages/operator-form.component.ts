@@ -3,6 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../environments/environment';
+import { OPERATION_ROLE_OPTIONS } from '../core/models';
 
 @Component({
   selector: 'app-operator-form',
@@ -13,7 +14,7 @@ import { environment } from '../../environments/environment';
       <div>
         <a routerLink="/operators" class="back">← Operatori</a>
         <h1>Nuovo operatore</h1>
-        <p class="page-caption">Staff d'ufficio. Il flag Project Manager esclude Consegne e Attività.</p>
+        <p class="page-caption">Staff d'ufficio. Il ruolo determina quali sezioni del menu vede l'operatore.</p>
       </div>
     </div>
 
@@ -40,7 +41,12 @@ import { environment } from '../../environments/environment';
           <span class="block-sub">Ruolo e notifiche.</span></header>
         <div class="setup-group">
           <span class="group-label">Ruolo</span>
-          <label class="toggle"><input type="checkbox" name="isProjectManager" [(ngModel)]="model.isProjectManager" /><span>Project Manager <em>(come Operation, senza Consegne e Attività)</em></span></label>
+          <label class="fld" style="max-width:360px">
+            <select class="field" name="operationRole" [(ngModel)]="model.operationRole">
+              @for (r of roleOptions; track r.value) { <option [value]="r.value">{{ r.label }}</option> }
+            </select>
+          </label>
+          <p class="role-hint">{{ roleHint() }}</p>
         </div>
         <div class="setup-group">
           <span class="group-label">Notifiche</span>
@@ -88,6 +94,7 @@ import { environment } from '../../environments/environment';
       .setup-group:last-child { border-bottom: none; padding-bottom: 0; }
       .setup-group:first-child { padding-top: 0; }
       .group-label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); margin-bottom: 10px; }
+      .role-hint { margin: 8px 0 0; font-size: 13px; color: var(--text-secondary); }
       .toggles { display: flex; flex-wrap: wrap; gap: 14px 18px; }
       .toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
       .toggle input { width: 16px; height: 16px; accent-color: var(--gold-strong); }
@@ -105,17 +112,23 @@ export class OperatorFormComponent {
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
 
+  readonly roleOptions = OPERATION_ROLE_OPTIONS;
+
   model = {
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
     address: '',
-    isProjectManager: false,
+    operationRole: 'operation',
     notifyWhatsapp: false,
     notifyMail: true,
     notes: '',
   };
+
+  roleHint(): string {
+    return this.roleOptions.find((r) => r.value === this.model.operationRole)?.hint ?? '';
+  }
 
   submit(): void {
     this.error.set(null);
@@ -128,7 +141,7 @@ export class OperatorFormComponent {
       firstName: m.firstName.trim(),
       lastName: m.lastName.trim(),
       email: m.email.trim(),
-      isProjectManager: m.isProjectManager,
+      operationRole: m.operationRole,
       notifyWhatsapp: m.notifyWhatsapp,
       notifyMail: m.notifyMail,
     };

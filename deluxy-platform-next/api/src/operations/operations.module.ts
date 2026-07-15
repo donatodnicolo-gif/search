@@ -17,7 +17,15 @@ import {
   ApiTags,
   PartialType,
 } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
+
+/** Ruoli operatore e sezioni visibili. */
+export const OPERATION_ROLES = [
+  'operation',
+  'finance',
+  'project_manager',
+  'customer_service',
+] as const;
 import { Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
@@ -55,10 +63,15 @@ export class CreateOperationDto {
   @IsBoolean()
   notifyMail?: boolean;
 
-  @ApiPropertyOptional({ default: false, description: 'Qualifica come Project Manager' })
+  @ApiPropertyOptional({
+    enum: OPERATION_ROLES,
+    default: 'operation',
+    description:
+      'Ruolo: operation (base) | finance (vede Amministrazione) | project_manager (no Operatività) | customer_service (no Amministrazione)',
+  })
   @IsOptional()
-  @IsBoolean()
-  isProjectManager?: boolean;
+  @IsIn(OPERATION_ROLES as unknown as string[])
+  operationRole?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

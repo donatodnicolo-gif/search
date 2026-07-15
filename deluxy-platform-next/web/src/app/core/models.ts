@@ -124,9 +124,25 @@ export interface Operation {
   email: string;
   phone?: string;
   address?: string;
-  isProjectManager: boolean;
+  operationRole: string;
   active: boolean;
 }
+
+/** Ruolo operatore → etichetta + sezioni visibili. */
+export const OPERATION_ROLE_OPTIONS: {
+  value: string;
+  label: string;
+  hint: string;
+}[] = [
+  { value: 'operation', label: 'Operation', hint: 'Ruolo base d\'ufficio.' },
+  { value: 'finance', label: 'Finance', hint: 'Vede anche la sezione Amministrazione.' },
+  { value: 'project_manager', label: 'Project Manager', hint: 'Non vede la sezione Operatività.' },
+  { value: 'customer_service', label: 'Customer Service', hint: 'Non vede la sezione Amministrazione.' },
+];
+
+export const OPERATION_ROLE_LABELS: Record<string, string> = Object.fromEntries(
+  OPERATION_ROLE_OPTIONS.map((o) => [o.value, o.label]),
+);
 
 export const DELIVERY_PAYMENT_STATUS_LABELS: Record<string, string> = {
   default: 'Da definire',

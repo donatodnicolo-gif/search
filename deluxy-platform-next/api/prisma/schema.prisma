@@ -642,7 +642,12 @@ model Operation {
   address          String?
   notifyWhatsapp   Boolean  @default(false)
   notifyMail       Boolean  @default(true)
-  isProjectManager Boolean  @default(false)
+  // Ruolo operatore (controlla la visibilità delle sezioni):
+  //  operation        -> base (vede Operatività, non Amministrazione)
+  //  finance          -> vede anche la sezione Amministrazione
+  //  project_manager  -> NON vede la sezione Operatività
+  //  customer_service -> NON vede la sezione Amministrazione
+  operationRole    String   @default("operation")
   notes            String?
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())

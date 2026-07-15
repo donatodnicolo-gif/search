@@ -3,7 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { environment } from '../../environments/environment';
-import { Operation } from '../core/models';
+import { Operation, OPERATION_ROLE_LABELS } from '../core/models';
 
 @Component({
   selector: 'app-operators-list',
@@ -44,8 +44,9 @@ import { Operation } from '../core/models';
                 <td class="muted">{{ o.email }}</td>
                 <td>{{ o.phone || '—' }}</td>
                 <td>
-                  @if (o.isProjectManager) { <span class="pill pill-pm">Project Manager</span> }
-                  @else { <span class="pill pill-neutral">Operation</span> }
+                  <span class="pill" [class.pill-pm]="o.operationRole !== 'operation'" [class.pill-neutral]="o.operationRole === 'operation'">
+                    {{ roleLabel(o.operationRole) }}
+                  </span>
                 </td>
                 <td>
                   @if (o.active) { <span class="pill s-active"><span class="dot"></span>Attivo</span> }
@@ -108,5 +109,9 @@ export class OperatorsListComponent {
       next: (d) => { this.operators.set(d); this.loading.set(false); },
       error: (err) => { this.loading.set(false); this.error.set(err?.error?.message ?? 'Errore nel caricamento'); },
     });
+  }
+
+  roleLabel(role: string): string {
+    return OPERATION_ROLE_LABELS[role] ?? role;
   }
 }
