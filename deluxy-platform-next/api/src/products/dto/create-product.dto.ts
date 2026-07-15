@@ -51,10 +51,52 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({ description: 'Plus del prodotto (max 80 char)' })
+  @IsOptional()
+  @IsString()
+  shortDesc?: string;
+
   @ApiProperty()
   @IsNumber()
   @Min(0)
   price: number;
+
+  @ApiPropertyOptional({ description: 'Prezzo pubblico' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  publicPrice?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  sku?: string;
+
+  @ApiPropertyOptional({ description: 'Giorni di preparazione' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  prepDays?: number;
+
+  @ApiPropertyOptional({ description: 'Linea / brand' })
+  @IsOptional()
+  @IsString()
+  line?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  approved?: boolean;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
 
   @ApiProperty({ enum: ProductType, description: 'UNICO (di un partner) | NON_UNICO (es. fiori) | SUPERPRODOTTO (combinazione)' })
   @IsEnum(ProductType)

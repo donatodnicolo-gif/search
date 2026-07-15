@@ -86,11 +86,38 @@ export const routes: Routes = [
             (m) => m.OperatorFormComponent,
           ),
       },
+      {
+        path: 'products',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+        loadComponent: () =>
+          import('./pages/products-list.component').then((m) => m.ProductsListComponent),
+      },
+      {
+        path: 'products/new',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
+        loadComponent: () =>
+          import('./pages/product-form.component').then((m) => m.ProductFormComponent),
+      },
+      {
+        path: 'categories',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION'] },
+        loadComponent: () =>
+          import('./pages/categories-list.component').then((m) => m.CategoriesListComponent),
+      },
+      {
+        path: 'categories/new',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION'] },
+        loadComponent: () =>
+          import('./pages/category-form.component').then((m) => m.CategoryFormComponent),
+      },
       // ---- Route stub: sezioni in migrazione ----
       ...[
         { path: 'activities', title: 'Attivita', roles: ['ADMIN', 'OPERATION', 'VALET'] },
         { path: 'customers', title: 'Clienti', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
-        { path: 'products', title: 'Prodotti', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
         { path: 'sales', title: 'Vendite', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
         { path: 'sms-templates', title: 'Modelli SMS', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
         { path: 'availability', title: 'Disponibilita', roles: ['VALET'] },

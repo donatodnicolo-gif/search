@@ -167,10 +167,11 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 - Bottoni: AGGIUNGI, ESPORTA, IMPORTARE, SCARICA IL FORMATO CSV, ELIMINAZIONE MULTIPLA (+SELEZIONA TUTTI), selettore stato Attivo/Disattivo.
 - Colonne/filtri: ID, Foto, Nome, Variante SKU, Categoria, Prezzo, Prezzo Pubblico, Stock, Partner, SKU, Super Prodotto Sì/No, Super Provincia Sì/No, Prodotto Unico Sì/No, Approvato Sì/No, In Magazzino Sì/No, Attivo.
 - Tipi di prodotto: **unici** (di un partner), **non-unici** (es. fiori), **superprodotti** (combinazioni di più prodotti). Flag "Visible to other partners" per rendere visibili i prodotti unici ad altri partner. Admin/Operation aggiungono qualsiasi prodotto; ogni partner carica i propri come unici.
+- **Form "Nuovo prodotto"** (verificato): Nome\*, Partner, Prodotto Categoria\*, SKU, Giorni Preparazione, **Plus del prodotto** (max 80 char)\*, Descrizione (editor rich text), Prezzo, Prezzo pubblico, Linea, Immagine; flag **Non modificabile**, **Prodotto unico**; **Inventory management** (Controlla stock, nome alternativo); **Shopify connection** (Approvato, Attivo, Not physical, Select platforms + descrizione per piattaforma). **[NUOVO — campi del form prodotto]**
 
 #### Sottosezioni Prodotti
 
-- **Categorie** (`/product/categoria`): 63 categorie (es. Fiori, Fiori Classici, Fiori d'Arte, Torte, Dolci, Box Regalo, Cappelliere, Palloncini, Accessori, B2B Colazione/Break/Lunch/Aperitivo, Ghirlande, Abbonamento Fiori, Regalistica Natale…). Per categoria: % di sconto per provincia (genera automaticamente prodotti scontati) e campi testuali obbligatori / opzionali / solo Admin.
+- **Categorie** (`/product/categoria`): 63 categorie (es. Fiori, Fiori Classici, Fiori d'Arte, Torte, Dolci, Box Regalo, Cappelliere, Palloncini, Accessori, B2B Colazione/Break/Lunch/Aperitivo, Ghirlande, Abbonamento Fiori, Regalistica Natale…). **Form "Nuova categoria"** (verificato): Nome\*, Note, **AI Prompt** (per generazione AI, es. torte), **Extra fields** (nome campo + tipo: Opzionale / Obbligatorio / solo Admin), **Province discounts** (provincia + % di sconto → genera automaticamente prodotti scontati arrotondati a 0/5). **[NUOVO — AI Prompt e Note sul form categoria]**
 - **Prodotto Collections** (`/collections`): collezioni shop per provincia: Collection Name, Handle (es. `province-products/rm`), Descrizione, Provincia, Codice provincia, Categoria prodotto. **[NUOVO]**
 - **Cakes Order Product** (`/cake/orders`): torte acquistate e realizzate con l'AI (8 presenti) con foto.
 

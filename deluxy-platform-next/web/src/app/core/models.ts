@@ -49,6 +49,28 @@ export interface Province {
 export interface Category {
   id: string;
   name: string;
+  notes?: string;
+  aiPrompt?: string;
+  fields?: { id: string; name: string; fieldType: string }[];
+  discounts?: { id: string; discountPercent: number; province: Province }[];
+}
+
+export const PRODUCT_TYPE_LABELS: Record<string, string> = {
+  UNICO: 'Unico',
+  NON_UNICO: 'Non unico',
+  SUPERPRODOTTO: 'Superprodotto',
+};
+
+export interface ProductRef {
+  id: string;
+  name: string;
+  price?: number;
+  sku?: string;
+  type?: string;
+  approved?: boolean;
+  active?: boolean;
+  partner?: { id: string; insegna: string } | null;
+  category?: { id: string; name: string } | null;
 }
 
 export interface ServiceType {

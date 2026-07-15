@@ -31,6 +31,7 @@ const ICONS: Record<string, string> = {
   users: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.8 3.5-5.8 7-5.8s6.2 2 7 5.8"/>',
   chart: '<path d="M4.5 19.5h15M7 16v-4.5M12 16V7M17 16v-6.5"/>',
   badge: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4V2.8A.8.8 0 0 1 9.8 2h4.4a.8.8 0 0 1 .8.8V4"/><circle cx="12" cy="10.5" r="2.2"/><path d="M8.5 17c.4-1.8 1.8-2.7 3.5-2.7s3.1.9 3.5 2.7"/>',
+  folder: '<path d="M3.5 7.5a2 2 0 0 1 2-2h3l2 2.2h6a2 2 0 0 1 2 2v6.3a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2Z"/>',
 };
 
 const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
@@ -52,9 +53,10 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: 'Catalogo',
+    title: 'Prodotti',
     items: [
       { label: 'Prodotti', path: '/products', icon: 'tag', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+      { label: 'Categorie', path: '/categories', icon: 'folder', roles: ['ADMIN', 'OPERATION'] },
     ],
   },
   {

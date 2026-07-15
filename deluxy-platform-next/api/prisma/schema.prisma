@@ -289,9 +289,22 @@ model ValetAvailability {
 model Category {
   id               String             @id @default(cuid())
   name             String             @unique
+  notes            String?
+  aiPrompt         String? // prompt per generazione AI (es. torte)
   products         Product[]
-  discounts        CategoryDiscount[]
+  discounts        CategoryDiscount[] // sconto % per provincia
+  fields           CategoryField[] // campi testuali extra per i prodotti della categoria
   partnerCategories PartnerCategory[]
+}
+
+// Campo testuale extra definito a livello categoria.
+// fieldType: optional | required | admin (solo admin)
+model CategoryField {
+  id         String   @id @default(cuid())
+  categoryId String
+  name       String
+  fieldType  String   @default("optional")
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 }
 
 // Sconto % per categoria e provincia -> genera prodotti scontati automatici
@@ -310,7 +323,14 @@ model Product {
   id                      String             @id @default(cuid())
   name                    String
   description             String?
+  shortDesc               String? // "Plus del prodotto" (max 80 char)
   price                   Float
+  publicPrice             Float? // prezzo pubblico
+  sku                     String?
+  prepDays                Int? // giorni di preparazione
+  line                    String? // linea/brand
+  imageUrl                String?
+  approved                Boolean            @default(false)
   type                    String // UNICO | NON_UNICO | SUPERPRODOTTO
   partnerId               String?
   partner                 Partner?           @relation(fields: [partnerId], references: [id])
