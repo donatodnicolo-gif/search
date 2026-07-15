@@ -6,6 +6,15 @@ export type StatoPlace = 'da_visitare' | 'visitato' | 'cliente' | 'perso';
 
 export type EsitoVisita = 'interessato' | 'da_richiamare' | 'non_target' | 'chiuso';
 
+// Stato del place derivato dall'esito della visita (regola commerciale unica,
+// condivisa da visita completa, visita rapida e coda di sync).
+export const statoDaEsito: Record<EsitoVisita, StatoPlace> = {
+  interessato: 'visitato',
+  da_richiamare: 'visitato',
+  non_target: 'perso',
+  chiuso: 'cliente',
+};
+
 // Fasi reali della pipeline HubSpot (dealstage).
 export type DealStage =
   | 'appointmentscheduled'

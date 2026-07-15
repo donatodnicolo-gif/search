@@ -1,6 +1,9 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
-import type { Contact, Deal, Linea, Place, StatoPlace, Visit } from '@/types';
+import type { Contact, Deal, EsitoVisita, Linea, Place, StatoPlace, Visit } from '@/types';
+import { statoDaEsito } from '@/types';
+import { env } from '@/lib/env';
+import { syncVisita } from '@/lib/hubspot';
 
 /** Contatto arricchito con nome/indirizzo/linea del negozio (per la Rubrica globale). */
 export interface ContattoConLuogo extends Contact {
@@ -225,10 +228,19 @@ export async function segnaVisitatoDaCompletare(placeId: string): Promise<void> 
   if (error) throw error;
 }
 
-/** Registra una visita rapida (contatto opzionale + note) e chiude il "da completare". */
+/** Prossimo passo commerciale suggerito dall'esito (per la visita rapida). */
+export const nextStepDaEsito: Record<EsitoVisita, string> = {
+  interessato: 'Inviare recap email entro 12 ore',
+  da_richiamare: 'Richiamare il punto vendita',
+  non_target: 'Nessuna azione',
+  chiuso: 'Attivare il cliente',
+};
+
+/** Registra una visita rapida (esito + contatto opzionale + note) e chiude il "da completare". */
 export async function registraVisitaRapida(
   placeId: string,
   opts: {
+    esito: EsitoVisita;
     note: string;
     contatto?: { nome: string; ruolo?: string | null; telefono?: string | null; email?: string | null; is_decisore?: boolean };
   },
@@ -247,16 +259,16 @@ export async function registraVisitaRapida(
     });
   }
 
-  await inserisciVisita({
+  const visita = await inserisciVisita({
     place_id: placeId,
     data: new Date().toISOString(),
     lat: null,
     lng: null,
-    esito: null,
+    esito: opts.esito,
     briefing: null,
     note_post_meeting: opts.note.trim() || null,
     esito_analisi: null,
-    next_step: opts.note.trim() || 'Da definire',
+    next_step: nextStepDaEsito[opts.esito],
     linea_proposta: null,
     cross_sell: null,
     foto_url: null,
@@ -265,9 +277,20 @@ export async function registraVisitaRapida(
 
   const { error } = await supabase
     .from('places')
-    .update({ stato: 'visitato', da_completare: false, novita: false })
+    .update({ stato: statoDaEsito[opts.esito], da_completare: false, novita: false })
     .eq('id', placeId);
   if (error) throw error;
+
+  // Best effort: porta subito la visita su HubSpot (company+contact+deal).
+  // Se fallisce resta hubspot_synced=false e verrà ripresa dai sync successivi.
+  // I "non target" NON creano deal su HubSpot: non inquinare la pipeline.
+  if (opts.esito !== 'non_target' && env.hubspotSyncUrl()) {
+    try {
+      await syncVisita(visita.id);
+    } catch {
+      /* la visita è salva su Supabase; il sync si recupera dopo */
+    }
+  }
 }
 
 /** Attività segnate come "da completare" (visita registrata senza dettagli). */

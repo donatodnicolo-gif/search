@@ -1,5 +1,5 @@
-// Pop-up "sono stato qui": contatto (opzionale) + note. Si può salvare subito
-// oppure posticipare (il negozio resta come attività "da completare").
+// Pop-up "sono stato qui": esito (obbligatorio) + contatto (opzionale) + note.
+// Si può salvare subito oppure posticipare (il negozio resta "da completare").
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,9 +12,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { Place } from '@/types';
+import type { EsitoVisita, Place } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { registraVisitaRapida, segnaVisitatoDaCompletare } from '@/lib/db';
+import { EsitoButtons } from '@/components/EsitoButtons';
 
 export function VisitaModal({
   place,
@@ -25,6 +26,7 @@ export function VisitaModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const [esito, setEsito] = useState<EsitoVisita | null>(null);
   const [nome, setNome] = useState('');
   const [ruolo, setRuolo] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -36,6 +38,7 @@ export function VisitaModal({
 
   // Reset dei campi ad ogni apertura su un negozio diverso.
   useEffect(() => {
+    setEsito(null);
     setNome('');
     setRuolo('');
     setTelefono('');
@@ -49,14 +52,21 @@ export function VisitaModal({
   if (!place) return null;
 
   async function salva() {
-    if (!note.trim()) {
-      setErrore('Aggiungi almeno una nota (o usa “Compila dopo”).');
+    if (!esito) {
+      setErrore('Scegli l’esito della visita.');
+      return;
+    }
+    // La nota è obbligatoria solo quando l'esito merita un seguito.
+    const serveNota = esito === 'interessato' || esito === 'da_richiamare';
+    if (serveNota && !note.trim()) {
+      setErrore('Aggiungi una nota: servirà per il recap o il richiamo.');
       return;
     }
     setBusy(true);
     setErrore(null);
     try {
       await registraVisitaRapida(place!.id, {
+        esito,
         note,
         contatto: nome.trim()
           ? { nome, ruolo, telefono, email, is_decisore: decisore }
@@ -89,7 +99,15 @@ export function VisitaModal({
           <Text style={styles.titolo} numberOfLines={1}>
             ✓ Visita · {place.nome}
           </Text>
+          {place.aggancio_apertura ? (
+            <Text style={styles.aggancio} numberOfLines={2}>
+              💬 {place.aggancio_apertura}
+            </Text>
+          ) : null}
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
+            <Text style={styles.sezione}>Com’è andata?</Text>
+            <EsitoButtons value={esito} onChange={setEsito} />
+
             <Text style={styles.sezione}>Contatto (opzionale)</Text>
             <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Nome referente" placeholderTextColor={colors.grigio} />
             <TextInput style={styles.input} value={ruolo} onChangeText={setRuolo} placeholder="Ruolo" placeholderTextColor={colors.grigio} />
@@ -142,6 +160,7 @@ const styles = StyleSheet.create({
   },
   grip: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: colors.grigioChiaro, marginBottom: spacing.sm },
   titolo: { fontSize: 18, fontWeight: '900', color: colors.navy, marginBottom: spacing.sm },
+  aggancio: { color: colors.testoSoft, fontSize: 13, fontStyle: 'italic', marginBottom: spacing.sm },
   body: { paddingBottom: spacing.md, gap: spacing.sm },
   sezione: { color: colors.oro, fontWeight: '800', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginTop: spacing.sm },
   input: {
