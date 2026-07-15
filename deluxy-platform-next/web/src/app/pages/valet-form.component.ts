@@ -179,10 +179,12 @@ interface ValetServiceRow {
         <textarea class="field" rows="3" name="notes" [(ngModel)]="model.notes"></textarea>
       </section>
 
+      @if (justSaved()) { <div class="ok-card card">Valet creato ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un altro.</div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
       <div class="actions">
         <a routerLink="/valets" class="btn btn-secondary">Annulla</a>
+        <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">Duplica</button>
         <button type="submit" class="btn btn-primary" [disabled]="saving()">
           {{ saving() ? 'Salvataggio…' : 'Crea valet' }}
         </button>
@@ -231,6 +233,7 @@ interface ValetServiceRow {
       .actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
       .actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 14px 18px; border-radius: var(--radius-l); }
+      .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 14px 18px; border-radius: var(--radius-l); }
       @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } .svc-row { grid-template-columns: 1fr 1fr; } }
     `,
   ],
@@ -244,6 +247,7 @@ export class ValetFormComponent {
   readonly partners = signal<Partner[]>([]);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
+  readonly justSaved = signal(false);
 
   readonly selectedProvinces = new Set<string>();
   readonly tlProvinces = new Set<string>();
@@ -293,8 +297,9 @@ export class ValetFormComponent {
   }
   removeService(i: number): void { this.serviceRows.splice(i, 1); }
 
-  submit(): void {
+  submit(duplicate = false): void {
     this.error.set(null);
+    this.justSaved.set(false);
     const m = this.model;
     if (!m.firstName.trim() || !m.lastName.trim() || !m.email.trim()) {
       this.error.set('Nome, cognome ed email sono obbligatori.');
@@ -341,7 +346,10 @@ export class ValetFormComponent {
 
     this.saving.set(true);
     this.http.post(`${environment.apiUrl}/valets`, payload).subscribe({
-      next: () => this.router.navigate(['/valets']),
+      next: () => {
+        if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+        this.router.navigate(['/valets']);
+      },
       error: (err) => {
         this.saving.set(false);
         const msg = err?.error?.message;

@@ -42,6 +42,7 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
   - **Categorie** (`/categories/new`): nome, note, AI prompt, campi extra (opzionale/obbligatorio/admin), sconti % per provincia.
   - **Prodotti** (`/products/new`): nome, categoria, tipo (unico/non-unico/superprodotto), partner, SKU, prezzo/prezzo pubblico, giorni prep., immagine, plus, descrizione, campi personalizzati, componenti superprodotto.
 - **Menu**: sezione **Prodotti** (Prodotti + Categorie).
+- **Convenzioni form** (tutti i form di creazione): tasto **Duplica** in fondo — salva e mantiene i valori compilati per creare rapidamente un altro record (banner verde di conferma). Lo **SKU dei prodotti è automatico** (`DXY-NNNNN`, progressivo, rigenerato a ogni creazione/duplicazione).
 - **Liste reali** (dati da API): consegne, partner, valet, operatori.
 - **Backend moduli**: auth, deliveries, partners, valets, products, customers, users, service-types, provinces, categories, operations, woocommerce (endpoint pubblico), + stub degli altri.
 - **Analisi backend legacy** e **scaffolding connessione DB in sola lettura** (`api/.env.legacy.example`, `api/prisma/legacy-readonly-user.sql`).

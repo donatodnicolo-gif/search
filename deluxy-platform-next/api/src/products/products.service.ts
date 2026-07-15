@@ -54,10 +54,14 @@ export class ProductsService {
     if (dto.type === ProductType.UNICO && !partnerId) {
       throw new BadRequestException('Un prodotto UNICO richiede un partner');
     }
-    const { fields, components, partnerId: _p, ...scalar } = dto;
+    const { fields, components, partnerId: _p, sku: _sku, ...scalar } = dto;
+    // SKU generato automaticamente (progressivo), rigenerato a ogni duplicazione
+    const count = await this.prisma.product.count();
+    const sku = `DXY-${String(count + 1).padStart(5, '0')}`;
     return this.prisma.product.create({
       data: {
         ...scalar,
+        sku,
         partnerId,
         fields: fields?.length ? { create: fields } : undefined,
         components:

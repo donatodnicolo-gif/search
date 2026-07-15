@@ -202,10 +202,12 @@ interface ProductRow {
         <label class="toggle mt"><input type="checkbox" name="deliveryCodeRequired" [(ngModel)]="model.deliveryCodeRequired" /><span>Codice di consegna richiesto</span></label>
       </section>
 
+      @if (justSaved()) { <div class="ok-card card">Consegna creata ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un'altra.</div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
       <div class="actions">
         <a routerLink="/deliveries" class="btn btn-secondary">Annulla</a>
+        <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">Duplica</button>
         <button type="submit" class="btn btn-primary" [disabled]="saving()">
           {{ saving() ? 'Salvataggio…' : 'Crea consegna' }}
         </button>
@@ -247,6 +249,7 @@ interface ProductRow {
       .actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
       .actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 14px 18px; border-radius: var(--radius-l); }
+      .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 14px 18px; border-radius: var(--radius-l); }
       @media (max-width: 760px) { .grid-2, .grid-4, .listino { grid-template-columns: 1fr; } }
     `,
   ],
@@ -262,6 +265,7 @@ export class DeliveryFormComponent {
   readonly customers = signal<Customer[]>([]);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
+  readonly justSaved = signal(false);
 
   readonly statusOptions = Object.entries(DELIVERY_STATUS_LABELS);
   readonly paymentStatuses = Object.entries(DELIVERY_PAYMENT_STATUS_LABELS);
@@ -347,8 +351,9 @@ export class DeliveryFormComponent {
   addProduct(): void { this.productRows.push({ productId: '', quantity: 1 }); }
   removeProduct(i: number): void { this.productRows.splice(i, 1); }
 
-  submit(): void {
+  submit(duplicate = false): void {
     this.error.set(null);
+    this.justSaved.set(false);
     const m = this.model;
     if (!m.date || !m.partnerId || !m.serviceTypeId || !m.recipientAddress.trim()
       || !m.recipientFirstName.trim() || !m.recipientLastName.trim()) {
@@ -393,7 +398,10 @@ export class DeliveryFormComponent {
 
     this.saving.set(true);
     this.http.post(`${environment.apiUrl}/deliveries`, payload).subscribe({
-      next: () => this.router.navigate(['/deliveries']),
+      next: () => {
+        if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+        this.router.navigate(['/deliveries']);
+      },
       error: (err) => {
         this.saving.set(false);
         const msg = err?.error?.message;

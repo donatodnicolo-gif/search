@@ -9,6 +9,7 @@
 > **Word sempre aggiornato** (per le persone): `docs/COME-FUNZIONA-APP-DELUXY.docx`, generato da questo `.md` con `npm run doc:word` — non modificarlo a mano. Snapshot storico originale: `docs/COME-FUNZIONA-APP-DELUXY-AGGIORNATO-2026-07.docx`.
 >
 > **Changelog**
+> - 15/07/2026 — nuovo ambiente: form Categorie e Prodotti (con AI prompt, campi extra, sconti provincia, tipo/componenti); menu con sezione Prodotti e sezione Utenti; ruoli operatore (Operation/Finance/Project Manager/Customer Service). **Convenzioni nuovo ambiente**: ogni form di creazione ha un tasto **Duplica** (salva e mantiene i valori per un nuovo record); lo **SKU prodotto è generato automaticamente** (`DXY-NNNNN`, rigenerato a ogni creazione/duplicazione).
 > - 14/07/2026 — chiarita la semantica del codice di consegna (`UNIQUE_PER_DELIVERY` = OTP per consegna reinviabile dal valet; `UNIQUE_PER_CUSTOMER` = codice fisso tipo PIN, rigenerabile dalla boutique in Customers); ritiro multiplo (scelta dell'indirizzo in fase di consegna); KM inclusi = dentro il comune / extra fuoricittà = fuori dal comune, verificato all'inserimento consegna.
 
 ---
