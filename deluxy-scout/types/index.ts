@@ -127,6 +127,12 @@ export interface Deal {
   hubspot_deal_id: string | null;
 }
 
+export interface Profilo {
+  id: string;
+  email: string | null;
+  nome: string | null;
+}
+
 export interface Linea {
   id: string;
   nome: LineaNome;

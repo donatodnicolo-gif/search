@@ -1,5 +1,5 @@
 // Calcolo metriche dashboard a partire dai dati grezzi (visits, deals, places).
-import type { Deal, Place, Visit } from '@/types';
+import type { Deal, Place, Profilo, Visit } from '@/types';
 import type { BarDatum } from '@/components/BarChart';
 
 // Settimana ISO come chiave "YYYY-Www" senza usare API di data proibite in build.
@@ -114,6 +114,84 @@ export function daRicontattare(places: Place[], visits: Visit[], oggi: Date = ne
 
 export function chiusePerse(deals: Deal[]): Deal[] {
   return deals.filter((d) => d.fase === 'closedlost');
+}
+
+// ── Dashboard di Team (admin): chi ha fatto cosa ────────────────────────────
+
+export interface StatVenditore {
+  ownerId: string | null;
+  nome: string;
+  visite: number;
+  visite7: number; // ultimi 7 giorni
+  ultimaData: string | null;
+  interessati: number;
+  daRichiamare: number;
+  dealAperti: number;
+  dealVinti: number;
+}
+
+/** Nome visualizzato per un owner: profilo (nome→email) o ripiego leggibile. */
+export function nomeVenditore(ownerId: string | null, profili: Map<string, Profilo>): string {
+  if (!ownerId) return 'Non attribuito';
+  const p = profili.get(ownerId);
+  if (p?.nome?.trim()) return p.nome.trim();
+  if (p?.email?.trim()) return p.email.split('@')[0];
+  return `Utente ${ownerId.slice(0, 6)}`;
+}
+
+/**
+ * Rollup per venditore: volume visite (totale + ultimi 7 giorni), ultima
+ * attività, esiti caldi (interessati / da richiamare) e deal aperti/vinti.
+ * Ordinato per visite negli ultimi 7 giorni (poi totale), così l'admin vede
+ * subito chi è attivo ora.
+ */
+export function attivitaPerVenditore(
+  visits: Visit[],
+  deals: Deal[],
+  profili: Profilo[],
+  oggi: Date = new Date(),
+): StatVenditore[] {
+  const mappaProfili = new Map(profili.map((p) => [p.id, p]));
+  const soglia7 = oggi.getTime() - 7 * 86400000;
+  const acc = new Map<string, StatVenditore>();
+
+  const chiave = (id: string | null) => id ?? '∅';
+  const assicura = (id: string | null): StatVenditore => {
+    const k = chiave(id);
+    let s = acc.get(k);
+    if (!s) {
+      s = {
+        ownerId: id,
+        nome: nomeVenditore(id, mappaProfili),
+        visite: 0,
+        visite7: 0,
+        ultimaData: null,
+        interessati: 0,
+        daRichiamare: 0,
+        dealAperti: 0,
+        dealVinti: 0,
+      };
+      acc.set(k, s);
+    }
+    return s;
+  };
+
+  for (const v of visits) {
+    const s = assicura(v.owner);
+    s.visite += 1;
+    if (new Date(v.data).getTime() >= soglia7) s.visite7 += 1;
+    if (!s.ultimaData || v.data > s.ultimaData) s.ultimaData = v.data;
+    if (v.esito === 'interessato') s.interessati += 1;
+    if (v.esito === 'da_richiamare') s.daRichiamare += 1;
+  }
+
+  for (const d of deals) {
+    const s = assicura(d.owner);
+    if (d.fase === 'closedwon') s.dealVinti += 1;
+    else if (d.fase !== 'closedlost') s.dealAperti += 1;
+  }
+
+  return Array.from(acc.values()).sort((a, b) => b.visite7 - a.visite7 || b.visite - a.visite);
 }
 
 export function followupAffiliazioni(deals: Deal[]): Deal[] {

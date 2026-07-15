@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions } from '@react-navigation/native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { useAuth } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
 import { colors, radius, spacing } from '@/lib/theme';
 import { Loader } from '../_layout';
 
@@ -62,6 +63,7 @@ export default function AppLayout() {
   const { session, loading } = useAuth();
   if (loading) return <Loader />;
   if (!session) return <Redirect href="/(auth)/login" />;
+  const admin = isAdmin(session.user?.email);
 
   // Schermata di dettaglio: fuori dal menu + freccia indietro al posto del ☰.
   const dettaglio = (title: string) => ({
@@ -95,6 +97,15 @@ export default function AppLayout() {
         <Drawer.Screen name="trattative" options={{ title: 'Trattative', drawerIcon: ({ color, size }) => <DrawerIcon name="briefcase-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="da-completare" options={{ title: 'Da fare', drawerIcon: ({ color, size }) => <DrawerIcon name="time-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard', drawerIcon: ({ color, size }) => <DrawerIcon name="stats-chart-outline" color={color} size={size ?? 22} /> }} />
+        {/* Team: visibile solo all'amministratore della rete (gate anche nella schermata). */}
+        <Drawer.Screen
+          name="team"
+          options={
+            admin
+              ? { title: 'Team', drawerIcon: ({ color, size }) => <DrawerIcon name="people-circle-outline" color={color} size={size ?? 22} /> }
+              : { drawerItemStyle: { display: 'none' as const } }
+          }
+        />
         <Drawer.Screen name="profilo" options={{ title: 'Profilo', drawerIcon: ({ color, size }) => <DrawerIcon name="person-outline" color={color} size={size ?? 22} /> }} />
 
         {/* Rotte di dettaglio: nascoste dal menu, con freccia indietro */}

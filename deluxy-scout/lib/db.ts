@@ -1,6 +1,6 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
-import type { Contact, Deal, EsitoVisita, Linea, Place, StatoPlace, Visit } from '@/types';
+import type { Contact, Deal, EsitoVisita, Linea, Place, Profilo, StatoPlace, Visit } from '@/types';
 import { statoDaEsito } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
@@ -158,6 +158,14 @@ export async function fetchAllDeals(): Promise<Deal[]> {
   const { data, error } = await supabase.from('deals').select('*');
   if (error) throw error;
   return (data ?? []) as Deal[];
+}
+
+/** Profili utente (owner → nome/email), per la dashboard di Team. Tollerante:
+ *  se la migrazione 0014 non è applicata, ritorna [] e la UI usa un nome di ripiego. */
+export async function fetchProfiles(): Promise<Profilo[]> {
+  const { data, error } = await supabase.from('profiles').select('id, email, nome');
+  if (error) return [];
+  return (data ?? []) as Profilo[];
 }
 
 /** Tutti i contatti registrati, col negozio di appartenenza (Rubrica globale). */
