@@ -24,6 +24,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'deliveries/new',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
+        loadComponent: () =>
+          import('./pages/delivery-form.component').then(
+            (m) => m.DeliveryFormComponent,
+          ),
+      },
+      {
         path: 'partners',
         canActivate: [roleGuard],
         data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },

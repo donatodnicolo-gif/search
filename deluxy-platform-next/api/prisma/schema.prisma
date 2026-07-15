@@ -395,7 +395,10 @@ model Delivery {
   customerId         String?
   customer           Customer?         @relation(fields: [customerId], references: [id])
   status             String            @default("created")
-  // Ritiro
+  paymentStatus      String            @default("default") // default | paid | toBePaid
+  // Fascia oraria consegna + ritiro
+  deliveryTimeFrom   String? // "09:00"
+  deliveryTimeTo     String? // "13:00"
   pickupTimeFrom     String? // "10:00"
   pickupTimeTo       String? // "12:00"
   pickupFlexible     Boolean           @default(false)
@@ -406,9 +409,16 @@ model Delivery {
   recipientAddress   String
   recipientIntercom  String? // citofono
   recipientPhone     String?
+  recipientEmail     String?
+  // Mittente
+  senderFirstName    String?
+  senderLastName     String?
+  senderPhone        String?
   // Pagamento alla consegna (contanti detratti dallo stipendio del valet)
   paymentOnDelivery  Boolean           @default(false)
   paymentAmount      Float?
+  tryAndReturn       Boolean           @default(false)
+  deliveryCodeRequired Boolean         @default(false)
   // Note
   notes              String?
   internalNotes      String? // visibili solo ad admin/operation/valet
@@ -417,10 +427,13 @@ model Delivery {
   distanceKm         Float?
   extraKm            Float             @default(0)
   extraOutOfCity     Boolean           @default(false)
-  // Economia
+  // Economia (LISTINO: da fatturare / da pagare)
   price              Float? // prezzo per il partner
+  additionalPrice    Float? // plus/minus prezzo partner
   valetSalary        Float? // paga del valet
+  valetAdditionalPrice Float? // plus/minus paga valet
   hours              Float? // per servizi a ora
+  personalizeSaleNotes String? // personalizzazione
   // SMS trigger
   smsOnCreated       Boolean           @default(false)
   smsOnDeparted      Boolean           @default(false)

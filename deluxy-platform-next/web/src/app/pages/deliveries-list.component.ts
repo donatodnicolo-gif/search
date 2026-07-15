@@ -2,13 +2,14 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { DELIVERY_STATUS_LABELS, Delivery } from '../core/models';
 
 @Component({
   selector: 'app-deliveries-list',
   standalone: true,
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, RouterLink],
   template: `
     <div class="page-header">
       <div>
@@ -28,7 +29,8 @@ import { DELIVERY_STATUS_LABELS, Delivery } from '../core/models';
           [(ngModel)]="dateFilter"
           (ngModelChange)="load()"
         />
-        <button class="btn btn-primary" (click)="load()">Aggiorna</button>
+        <button class="btn btn-secondary" (click)="load()">Aggiorna</button>
+        <a routerLink="/deliveries/new" class="btn btn-primary">+ Aggiungi consegna</a>
       </div>
     </div>
 

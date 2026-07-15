@@ -93,6 +93,36 @@ export const SALARY_FREQUENCY_LABELS: Record<string, string> = {
   weekly: 'Settimanale',
 };
 
+export interface ValetRef {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  price?: number;
+  sku?: string;
+  partner?: { id: string; insegna: string } | null;
+}
+
+export interface Customer {
+  id: string;
+  firstName: string;
+  lastName: string;
+  address?: string;
+  phone?: string;
+  intercom?: string;
+  email?: string;
+}
+
+export const DELIVERY_PAYMENT_STATUS_LABELS: Record<string, string> = {
+  default: 'Da definire',
+  paid: 'Pagato',
+  toBePaid: 'Da pagare',
+};
+
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   bankTransfer: 'Bonifico bancario',
   creditCard: 'Carta di credito',

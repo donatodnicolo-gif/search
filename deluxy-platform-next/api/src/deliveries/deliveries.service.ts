@@ -105,10 +105,12 @@ export class DeliveriesService {
         code: (last._max.code ?? 0) + 1,
         date: new Date(dto.date),
         partnerId,
-        price,
+        // Prezzo: se impostato manualmente (LISTINO) vince, altrimenti calcolo automatico
+        price: dto.price != null ? dto.price : price,
         distanceKm,
         extraKm,
-        status: dto.valetId ? DeliveryStatus.ASSIGNED : DeliveryStatus.CREATED,
+        // Stato: se impostato manualmente vince, altrimenti in base all'assegnazione valet
+        status: dto.status ?? (dto.valetId ? DeliveryStatus.ASSIGNED : DeliveryStatus.CREATED),
         products: products?.length
           ? {
               create: products.map((p) => ({

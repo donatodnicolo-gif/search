@@ -74,6 +74,27 @@ export class CreateDeliveryDto {
   @IsString()
   customerId?: string;
 
+  @ApiPropertyOptional({ description: 'Stato consegna iniziale (admin/operation)' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Stato pagamento: default | paid | toBePaid' })
+  @IsOptional()
+  @IsString()
+  paymentStatus?: string;
+
+  // Fascia oraria consegna
+  @ApiPropertyOptional({ example: '09:00' })
+  @IsOptional()
+  @IsString()
+  deliveryTimeFrom?: string;
+
+  @ApiPropertyOptional({ example: '13:00' })
+  @IsOptional()
+  @IsString()
+  deliveryTimeTo?: string;
+
   // Ritiro
   @ApiPropertyOptional({ example: '10:00' })
   @IsOptional()
@@ -118,6 +139,27 @@ export class CreateDeliveryDto {
   @IsString()
   recipientPhone?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  recipientEmail?: string;
+
+  // Mittente
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  senderFirstName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  senderLastName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  senderPhone?: string;
+
   // Pagamento alla consegna
   @ApiPropertyOptional({ default: false })
   @IsOptional()
@@ -128,6 +170,16 @@ export class CreateDeliveryDto {
   @IsOptional()
   @IsNumber()
   paymentAmount?: number;
+
+  @ApiPropertyOptional({ default: false, description: 'Prova e reso del prodotto' })
+  @IsOptional()
+  @IsBoolean()
+  tryAndReturn?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Codice di consegna richiesto' })
+  @IsOptional()
+  @IsBoolean()
+  deliveryCodeRequired?: boolean;
 
   // Note
   @ApiPropertyOptional()
@@ -155,6 +207,32 @@ export class CreateDeliveryDto {
   @IsNumber()
   @Min(1)
   hours?: number;
+
+  // LISTINO
+  @ApiPropertyOptional({ description: 'Prezzo per il partner (da fatturare)' })
+  @IsOptional()
+  @IsNumber()
+  price?: number;
+
+  @ApiPropertyOptional({ description: 'Plus/minus prezzo partner' })
+  @IsOptional()
+  @IsNumber()
+  additionalPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Paga del valet (da pagare)' })
+  @IsOptional()
+  @IsNumber()
+  valetSalary?: number;
+
+  @ApiPropertyOptional({ description: 'Plus/minus paga valet' })
+  @IsOptional()
+  @IsNumber()
+  valetAdditionalPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Personalizzazione' })
+  @IsOptional()
+  @IsString()
+  personalizeSaleNotes?: string;
 
   // SMS trigger
   @ApiPropertyOptional({ default: false })
