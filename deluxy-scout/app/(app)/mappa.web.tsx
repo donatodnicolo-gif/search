@@ -3,7 +3,7 @@
 // li classifica per linea, tu ⭐ quelli interessanti (= giro) e navighi.
 // Layout curato in stile Apple: liste raggruppate, icone tipologia, filtri a pillole.
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LINEE_ATTIVE, type Place } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +25,8 @@ import { Loader } from '../_layout';
 
 export default function MappaWeb() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 560; // sotto questa soglia: card a colonna, icone a capo
   const { loading } = usePlaces();
   const [pos, setPos] = useState<Coord | null>(null);
   const [giroAttivo, setGiroAttivo] = useState(false);
@@ -246,34 +248,35 @@ export default function MappaWeb() {
           elenco.map((p, i) => (
             <Pressable
               key={p.id}
-              style={styles.card}
+              style={[styles.card, isMobile && styles.cardMobile]}
               onPress={() => router.push(`/(app)/attivita/${p.id}`)}
             >
-              {/* Icona tipologia (o numero tappa nel giro) */}
-              {giroAttivo ? (
-                <View style={[styles.icona, { backgroundColor: colors.navy }]}>
-                  <Text style={styles.iconaNum}>{i + 1}</Text>
-                </View>
-              ) : (
-                <View style={styles.icona}>
-                  <LineaIcon linea={p.linea_ipotizzata} size={22} color={colors.navy} />
-                </View>
-              )}
+              {/* Riga alta: icona + testo. Su mobile occupa tutta la larghezza,
+                  così il nome del negozio si legge per esteso. */}
+              <View style={styles.cardTop}>
+                {/* Icona tipologia (o numero tappa nel giro) */}
+                {giroAttivo ? (
+                  <View style={[styles.icona, { backgroundColor: colors.navy }]}>
+                    <Text style={styles.iconaNum}>{i + 1}</Text>
+                  </View>
+                ) : (
+                  <View style={styles.icona}>
+                    <LineaIcon linea={p.linea_ipotizzata} size={22} color={colors.navy} />
+                  </View>
+                )}
 
-              {/* Testo */}
-              <View style={styles.info}>
-                <View style={styles.titoloRow}>
-                  <PriorityBadge priorita={p.priorita} small />
-                  {p.novita ? (
-                    <View style={styles.novita}>
-                      <Text style={styles.novitaTxt}>NOVITÀ</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text style={styles.nome} numberOfLines={2}>
-                  {p.nome}
-                </Text>
-                <View style={styles.metaRow}>
+                {/* Testo */}
+                <View style={styles.info}>
+                  <View style={styles.titoloRow}>
+                    <PriorityBadge priorita={p.priorita} small />
+                    {p.novita ? (
+                      <View style={styles.novita}>
+                        <Text style={styles.novitaTxt}>NOVITÀ</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.nome}>{p.nome}</Text>
+                  <View style={styles.metaRow}>
                   <Text style={styles.meta} numberOfLines={1}>
                     {[
                       p.linea_ipotizzata,
@@ -297,11 +300,12 @@ export default function MappaWeb() {
                     </View>
                   ) : null}
                   {p.da_completare ? <Text style={styles.daCompl}>da completare</Text> : null}
+                  </View>
                 </View>
               </View>
 
-              {/* Azioni (raggruppate: gap stretto, così il nome ha più spazio) */}
-              <View style={styles.azioni}>
+              {/* Azioni: in riga a destra su desktop, a capo sotto su mobile. */}
+              <View style={[styles.azioni, isMobile && styles.azioniMobile]}>
                 <Pressable
                   style={styles.azione}
                   hitSlop={8}
@@ -446,6 +450,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
+  // Su mobile la card diventa a colonna: testo sopra (nome per esteso), icone sotto.
+  cardMobile: { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
+  // Riga alta (icona + testo): su desktop occupa lo spazio prima delle icone.
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
   icona: {
     width: 46,
     height: 46,
@@ -456,9 +464,9 @@ const styles = StyleSheet.create({
   },
   iconaEmoji: { fontSize: 22 },
   iconaNum: { color: colors.bianco, fontWeight: '900', fontSize: 18 },
-  info: { flex: 1, gap: 3 },
+  info: { flex: 1, minWidth: 0, gap: 3 },
   titoloRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  nome: { color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2, lineHeight: 20 },
+  nome: { color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2, lineHeight: 21 },
   novita: { backgroundColor: colors.oro, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   novitaTxt: { color: colors.navy, fontWeight: '900', fontSize: 9, letterSpacing: 0.5 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -472,7 +480,9 @@ const styles = StyleSheet.create({
   crmTrattativa: { backgroundColor: 'rgba(0,113,227,0.12)' },
   crmTrattativaTxt: { color: colors.blue, fontWeight: '800', fontSize: 10 },
   azioni: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  azione: { paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
+  // Mobile: icone a capo, allineate a destra sotto il testo, con più respiro.
+  azioniMobile: { justifyContent: 'flex-end', gap: 10, paddingLeft: 56, paddingTop: 2 },
+  azione: { paddingHorizontal: 4, paddingVertical: 2, alignItems: 'center', justifyContent: 'center' },
   azioneIco: { fontSize: 18 },
   check: { fontSize: 22, color: colors.grigio },
   checkOn: { fontSize: 22, color: colors.successo },

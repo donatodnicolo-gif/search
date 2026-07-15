@@ -310,13 +310,16 @@ export async function fetchDaCompletare(): Promise<Place[]> {
 export async function inserisciVisita(
   v: Omit<Visit, 'id' | 'created_at' | 'hubspot_synced'>,
 ): Promise<Visit> {
-  const { data, error } = await supabase
-    .from('visits')
-    .insert({ ...v, hubspot_synced: false })
-    .select('*')
-    .single();
-  if (error) throw error;
-  return data as Visit;
+  const payload = { ...v, hubspot_synced: false };
+  let res = await supabase.from('visits').insert(payload).select('*').single();
+  // Degrada con grazia se la migrazione 0013 (colonna concorrenti) non è applicata:
+  // salva la visita senza quel campo invece di far fallire tutto il salvataggio.
+  if (res.error && /concorrenti/i.test(res.error.message)) {
+    const { concorrenti: _omesso, ...senzaConcorrenti } = payload;
+    res = await supabase.from('visits').insert(senzaConcorrenti).select('*').single();
+  }
+  if (res.error) throw res.error;
+  return res.data as Visit;
 }
 
 /** Carica la foto vetrina su Supabase Storage e ritorna l'URL pubblico. */
