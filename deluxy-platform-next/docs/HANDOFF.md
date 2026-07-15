@@ -75,5 +75,5 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Token demo a scadenza breve: durante i test la sessione web può saltare — rifare login.
 - Le migrazioni Prisma vanno create con l'API server **fermo** (lock del query engine su Windows): `preview_stop` o chiudere `npm run dev:api`, poi `npx prisma migrate dev --name ...`.
 - Dopo ogni modifica al `.md`: `npm run doc:word` per rigenerare il Word, e committarlo.
-- Tutto il lavoro è sul branch `deluxy-scout` (non `main`). Consolidamento su `main` via PR quando deciso.
-- Ultimo commit pushato: `0a71e45` (sezione Setup servizio).
+- Il lavoro base è sul branch `deluxy-scout`; **questa tappa è sul branch/worktree isolato `platform-delivery-slots`** (pushato su `origin/platform-delivery-slots`). **Da consolidare su `deluxy-scout`** (merge/PR) quando l'altra sessione ha smesso di toccare `C:\Users\nicol\app`. Consolidamento finale su `main` via PR quando deciso.
+- Ultimo commit pushato: `dce97f8` su `origin/platform-delivery-slots` (fascia consegna a tendina + ordine campi + filtro provincia/servizio).
