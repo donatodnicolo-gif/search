@@ -1,5 +1,6 @@
-import { Component, computed, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, computed, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AuthService } from '../core/auth.service';
 import { Role } from '../core/models';
@@ -75,7 +76,23 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <div class="shell">
-      <aside class="sidebar">
+      <!-- Topbar (solo mobile) -->
+      <header class="topbar">
+        <button class="hamburger" (click)="toggle()" aria-label="Apri menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+        <span class="brand-mark sm">D</span>
+        <span class="brand-name">Deluxy</span>
+      </header>
+
+      <!-- Overlay per chiudere il drawer -->
+      @if (menuOpen()) {
+        <div class="overlay" (click)="close()"></div>
+      }
+
+      <aside class="sidebar" [class.open]="menuOpen()">
         <div class="brand">
           <span class="brand-mark">D</span>
           <span class="brand-name">Deluxy</span>
@@ -85,7 +102,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
           @for (section of sections(); track section.title) {
             <div class="nav-section">{{ section.title }}</div>
             @for (item of section.items; track item.path) {
-              <a [routerLink]="item.path" routerLinkActive="active" class="nav-link">
+              <a [routerLink]="item.path" routerLinkActive="active" class="nav-link" (click)="close()">
                 <span class="nav-icon" [innerHTML]="icon(item.icon)"></span>
                 <span>{{ item.label }}</span>
               </a>
@@ -268,15 +285,97 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         max-width: 100%;
         overflow-x: auto;
       }
+
+      /* Topbar e overlay: nascosti su desktop */
+      .topbar {
+        display: none;
+      }
+      .overlay {
+        display: none;
+      }
+
       @media (max-width: 800px) {
         .shell {
           flex-direction: column;
         }
-        .sidebar {
-          width: 100%;
-          height: auto;
-          position: static;
+        /* Topbar mobile fissa in alto */
+        .topbar {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          position: sticky;
+          top: 0;
+          z-index: 40;
+          height: 56px;
+          padding: 0 16px;
+          background: var(--surface-translucent);
+          -webkit-backdrop-filter: blur(24px) saturate(180%);
+          backdrop-filter: blur(24px) saturate(180%);
+          border-bottom: 1px solid var(--hairline);
         }
+        .hamburger {
+          width: 38px;
+          height: 38px;
+          border: none;
+          border-radius: 9px;
+          background: transparent;
+          color: var(--text);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px;
+          margin-left: -6px;
+        }
+        .hamburger:hover {
+          background: var(--fill);
+        }
+        .hamburger svg {
+          width: 100%;
+          height: 100%;
+        }
+        .brand-mark.sm {
+          width: 30px;
+          height: 30px;
+          font-size: 17px;
+          border-radius: 8px;
+        }
+
+        /* Sidebar come drawer off-canvas */
+        .sidebar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          height: 100dvh;
+          width: 264px;
+          max-width: 82vw;
+          z-index: 60;
+          transform: translateX(-100%);
+          transition: transform 0.28s var(--ease);
+          box-shadow: var(--shadow-float);
+          border-right: 1px solid var(--hairline);
+        }
+        .sidebar.open {
+          transform: translateX(0);
+        }
+        /* La "brand" interna al drawer è ridondante con la topbar ma resta come intestazione del menu */
+
+        .overlay {
+          display: block;
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+          background: rgba(0, 0, 0, 0.32);
+          -webkit-backdrop-filter: blur(2px);
+          backdrop-filter: blur(2px);
+          animation: fade 0.2s var(--ease);
+        }
+        @keyframes fade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
         .content {
           padding: 20px 16px 32px;
         }
@@ -287,8 +386,27 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
 export class ShellComponent {
   readonly auth = inject(AuthService);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly router = inject(Router);
 
   private readonly iconCache = new Map<string, SafeHtml>();
+
+  /** Drawer mobile aperto/chiuso. */
+  readonly menuOpen = signal(false);
+
+  constructor() {
+    // Chiude il drawer a ogni navigazione
+    this.router.events
+      .pipe(filter((e) => e instanceof NavigationEnd))
+      .subscribe(() => this.menuOpen.set(false));
+  }
+
+  toggle(): void {
+    this.menuOpen.update((v) => !v);
+  }
+
+  close(): void {
+    this.menuOpen.set(false);
+  }
 
   readonly sections = computed(() => {
     const user = this.auth.user();
