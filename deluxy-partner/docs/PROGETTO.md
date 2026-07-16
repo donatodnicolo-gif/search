@@ -1,6 +1,6 @@
 # Deluxy Partner — Progetto e visione
 
-**Data:** 16 luglio 2026 · **Stato:** v0.1 operativa in locale, dati 2026 importati
+**Data:** 16 luglio 2026 · **Stato:** v0.2 **in produzione su https://deluxy-partner.vercel.app** (Postgres Supabase, login con password di team), dati 2026 importati
 
 ## 1. Perché
 
@@ -77,9 +77,9 @@ Next.js 15 (App Router)
 
 Scelte chiave: **derivati mai persistiti** (saldi/rolling sempre ricalcolati → impossibile la deriva dei numeri tipica dell'Excel); **snapshot della fee** su ogni vendita (cambiare la fee di un partner non riscrive la storia); **anno/mese di competenza espliciti** su ogni movimento (il rolling è una semplice aggregazione).
 
-## 7. Cosa manca / limiti noti v0.1
+## 7. Cosa manca / limiti noti v0.2
 
-- Nessuna autenticazione: usare solo in locale finché non c'è la Fase D.
+- Autenticazione a **password unica di team** (`PARTNER_APP_PASSWORD` su Vercel; cambiarla invalida tutte le sessioni). Ruoli e utenze individuali con audit restano in Fase D.
 - L'IBAN ordinante nell'export SEPA è un placeholder: impostare quello reale Deluxy prima dell'uso (in `src/app/api/sepa/route.ts`, poi in una pagina Impostazioni).
 - Le fatture importate dall'Excel sono totali mensili con tipologia dedotta; le nuove nascono già granulari.
 - Il forecast è importato dal piano commerciale ma non ancora modificabile in app.

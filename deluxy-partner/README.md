@@ -2,21 +2,30 @@
 
 Gestione finanziaria e operativa dei partner Deluxy. **Sostituisce PARTNER.xlsx** (Database clienti 2026): servizi a fatturazione, vendite come vendor, saldi/compensazioni, bonifici, rolling e reportistica.
 
+**Produzione: https://deluxy-partner.vercel.app** (accesso con password del team, env `PARTNER_APP_PASSWORD` su Vercel — cambiandola si invalidano tutte le sessioni).
+
 Documento di progetto completo: [docs/PROGETTO.md](docs/PROGETTO.md)
 
-## Avvio
+## Avvio in locale
 
 ```bash
 npm install
-npm run db:push     # crea il database SQLite (prisma/dev.db)
-npm run db:seed     # importa i dati estratti da PARTNER.xlsx
+# .env (non in git): DATABASE_URL e DIRECT_URL del Postgres Supabase
+# (progetto "deluxy-partner", ref zegbztfxisqeowngvgvh — dashboard Supabase → Connect).
+# Senza PARTNER_APP_PASSWORD nel .env l'app in locale è aperta (niente login).
 npm run dev         # http://localhost:3040
 ```
+
+Il seed (`npm run db:push && npm run db:seed`) serve solo per ricreare il database da zero: **cancella e reimporta** i dati di PARTNER.xlsx, non farlo sul database di produzione già in uso.
+
+## Deploy
+
+Vercel, progetto `deluxy/deluxy-partner`: `npx vercel --prod` dalla cartella. Env di produzione: `DATABASE_URL` (pooler 6543 con `?pgbouncer=true&connection_limit=1`), `DIRECT_URL` (pooler 5432), `PARTNER_APP_PASSWORD`.
 
 ## Stack
 
 - **Next.js 15** (App Router, server components + server actions)
-- **Prisma 6 + SQLite** (migrabile a PostgreSQL/Supabase senza toccare il codice applicativo)
+- **Prisma 6 + PostgreSQL** (Supabase, org Deluxy)
 - **Deluxy Design System v1.0** — token in `src/app/tokens.css` (copia di `deluxy-design-system/tokens/tokens.css`); vedi `deluxy-design-system/DESIGN-SYSTEM.md`
 
 ## Struttura
