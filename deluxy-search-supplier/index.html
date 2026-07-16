@@ -820,6 +820,7 @@ function populateOrder(o){
   $('#ord_variant').value = it0.variant || '';
   $('#ord_qty').value     = it0.quantity || '';
   $('#ord_photo').value = o.photoUrl || '';
+  orderPhotoNote = o.photoUrl ? '' : (o.photoNote || 'Questo ordine non contiene la foto del prodotto.');
   updateThumb();
 
   // budget
@@ -926,6 +927,7 @@ async function toPngBlob(blob){
    navigator.clipboard.write() funziona SOLO se il documento ha il focus: se la si avvia mentre
    l'immagine deve ancora essere scaricata, quando finisce il focus è già su WhatsApp e Chrome
    la rifiuta ("Document is not focused"). Per questo il file va scaricato PRIMA del click. */
+let orderPhotoNote = ''; // perché la foto manca (dal backend), mostrato nel riquadro
 let photoSrc = '';     // URL attualmente precaricato
 let photoFile = null;  // Blob originale (per il download) — null finché non è pronto
 let photoPng  = null;  // Blob PNG (per gli appunti) — null finché non è pronto
@@ -1016,7 +1018,10 @@ function updateDeal(){
   const url = $('#ord_photo').value.trim();
   const img = $('#deal_thumb'), none = $('#deal_nophoto');
   if(url){ img.src = url; img.style.display = 'block'; none.style.display = 'none'; }
-  else   { img.style.display = 'none'; none.style.display = 'flex'; }
+  else   {
+    img.style.display = 'none'; none.style.display = 'flex';
+    none.textContent = (orderPhotoNote || 'Nessuna foto') + ' Incolla il link nel campo «Foto bouquet» qui sotto.';
+  }
   prefetchPhoto(url);
 }
 // filtro "solo probabili WhatsApp"
