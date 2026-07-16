@@ -102,8 +102,21 @@
         border:1px solid var(--hairline); border-radius:var(--radius-l)}
   @media(min-width:640px){ .deal{grid-template-columns:180px 1fr; align-items:start} }
   .deal-photo{display:flex; flex-direction:column; gap:10px}
-  .deal-photo img{width:100%; aspect-ratio:1; object-fit:cover; background:var(--surface);
-        border:1px solid var(--hairline); border-radius:var(--radius-m)}
+  .deal-shot{position:relative; display:none}
+  .deal-shot.on{display:block}
+  .deal-photo img{display:block; width:100%; aspect-ratio:1; object-fit:cover; background:var(--surface);
+        border:1px solid var(--hairline); border-radius:var(--radius-m); cursor:pointer;
+        transition:filter .18s var(--ease)}
+  .deal-shot:hover img{filter:brightness(.92)}
+  .deal-shot:active img{transform:scale(.98)}
+  .dl-icon{position:absolute; top:8px; right:8px; width:34px; height:34px; padding:0; cursor:pointer;
+        display:flex; align-items:center; justify-content:center;
+        background:var(--surface-translucent); backdrop-filter:blur(12px) saturate(180%);
+        border:1px solid var(--hairline-strong); border-radius:50%; box-shadow:var(--shadow-card);
+        color:var(--text); transition:background .18s var(--ease), transform .15s var(--ease)}
+  .dl-icon:hover{background:var(--surface)}
+  .dl-icon:active{transform:scale(.92)}
+  .dl-icon svg{width:17px; height:17px}
   .deal-photo .empty{display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:1;
         background:var(--surface); border:1px dashed var(--hairline-strong); border-radius:var(--radius-m);
         color:var(--text-tertiary); font-size:12px; text-align:center; padding:10px}
@@ -290,9 +303,14 @@
       <!-- riepilogo: foto pronta da scaricare + prezzi -->
       <div class="deal">
         <div class="deal-photo">
-          <img id="deal_thumb" alt="foto del prodotto ordinato" style="display:none">
+          <div class="deal-shot" id="dealShot">
+            <img id="deal_thumb" alt="foto del prodotto ordinato" title="Clicca per scaricare la foto">
+            <button class="dl-icon" id="dlIcon" type="button" title="Scarica la foto" aria-label="Scarica la foto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+            </button>
+          </div>
           <div class="empty" id="deal_nophoto">Nessuna foto nell'ordine</div>
-          <button class="btn-dl" id="dlPhoto" disabled>⬇️ Scarica foto</button>
+          <button class="btn-dl" id="dlPhoto" type="button" disabled>⬇️ Scarica foto</button>
           <div class="dl-hint" id="dlHint"></div>
         </div>
         <div class="prices">
@@ -981,15 +999,22 @@ function photoFileName(){
   const ext  = (photoFile && photoFile.type === 'image/png') ? 'png' : 'jpg';
   return `deluxy-${num}-${prod||'prodotto'}.${ext}`;
 }
-$('#dlPhoto').addEventListener('click', ()=>{
-  if(!photoFile) return;
+function downloadPhoto(){
+  if(!photoFile){
+    $('#dlHint').textContent = photoErr ? '⚠️ Foto non scaricabile: ' + photoErr : '⏳ La foto si sta ancora preparando, riprova fra un istante.';
+    return;
+  }
+  const name = photoFileName();
   const objUrl = URL.createObjectURL(photoFile);
   const a = document.createElement('a');
-  a.href = objUrl; a.download = photoFileName();
+  a.href = objUrl; a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(objUrl), 60000);
-  $('#dlHint').textContent = '✅ Scaricata: ' + photoFileName();
-});
+  $('#dlHint').textContent = '✅ Scaricata: ' + name;
+}
+$('#dlPhoto').addEventListener('click', downloadPhoto);
+$('#dlIcon').addEventListener('click', downloadPhoto);
+$('#deal_thumb').addEventListener('click', downloadPhoto);
 // copia negli appunti usando il blob GIÀ pronto: si risolve in pochi ms, mentre la pagina ha ancora il focus
 async function copyPhotoToClipboard(){
   if(!photoPng || !navigator.clipboard || !window.ClipboardItem) return false;
@@ -1016,10 +1041,10 @@ function updateDeal(){
   else                       { tag.className = 'price-tag exact'; tag.textContent = 'impostato a mano'; }
   // foto
   const url = $('#ord_photo').value.trim();
-  const img = $('#deal_thumb'), none = $('#deal_nophoto');
-  if(url){ img.src = url; img.style.display = 'block'; none.style.display = 'none'; }
+  const img = $('#deal_thumb'), shot = $('#dealShot'), none = $('#deal_nophoto');
+  if(url){ img.src = url; shot.classList.add('on'); none.style.display = 'none'; }
   else   {
-    img.style.display = 'none'; none.style.display = 'flex';
+    shot.classList.remove('on'); none.style.display = 'flex';
     none.textContent = (orderPhotoNote || 'Nessuna foto') + ' Incolla il link nel campo «Foto bouquet» qui sotto.';
   }
   prefetchPhoto(url);
