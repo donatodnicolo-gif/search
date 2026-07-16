@@ -67,7 +67,20 @@ Dopo aver aggiunto/cambiato una env → **Redeploy**.
 > Buongiorno, per {oggi/domani/data} è possibile {prodotto} {variante} x{qtà} da spedire con consegna a {indirizzo} all'ora {fascia}?\n\n💌 Bigliettino: {testo}
 - **Lingua** = paese del **negozio** (fiorario/pasticceria), non della consegna. Rilevata da `address_components` (country) di Google → mappa `COUNTRY_LANG` → it/en/fr/de/es. Il pulsante d'invio porta `data-lang`.
 - **oggi/domani**: `dateLabel()` confronta la data ordine con oggi/domani (usa `new Date()` del browser — OK nel browser, VIETATO nelle funzioni serverless/script).
-- **Foto**: NON nel testo. Per WhatsApp viene **copiata negli appunti** (`copyImageToClipboard`, canvas→`ClipboardItem`); l'operatore invia il testo e poi fa **Ctrl+V** per allegarla. Per Email va come **link** (mailto non allega file).
+- **Foto**: NON nel testo. Per WhatsApp viene **copiata negli appunti** e l'operatore invia il testo e poi fa **Ctrl+V** per allegarla (vedi §9-bis). Per Email va come **link** (mailto non allega file).
+
+## 9-bis. Riepilogo «foto + prezzi» e appunti
+Sezione `.deal` in cima al riquadro ordine: miniatura, pulsante **⬇️ Scarica foto**, e tre prezzi (pagato dal cliente · da proporre al fiorario · margine).
+
+**Prezzo da proporre** — `suggestBudget(paid)` ritorna `{value, exact}`:
+- `BUDGET_TABLE` (prezzo cliente → budget fiorista): oggi solo `85 → 50`. **Quando arrivano gli altri prezzi vanno aggiunti qui.**
+- Fuori tabella: stima `BUDGET_RATIO` (0.59, ricavato da 85→50), marcata a schermo come **«stima — da confermare»** in arancione. Non è una regola aziendale: è un ripiego, l'operatore corregge a mano.
+
+**Appunti (la parte delicata)** — `navigator.clipboard.write()` funziona **solo se il documento ha il focus**. Perciò:
+1. La foto si **precarica** appena l'URL è noto (`prefetchPhoto` → `photoFile` originale per il download, `photoPng` per gli appunti).
+2. Al click su «Invia richiesta»: **prima** `await copyPhotoToClipboard()` (il PNG è già pronto → si risolve in pochi ms, pagina ancora a fuoco), **poi** `window.open(WhatsApp)`.
+3. Mai invertire l'ordine e mai passare una **Promise** al `ClipboardItem`: se la copia finisce dopo l'apertura di WhatsApp, Chrome la rifiuta con *"Document is not focused"*.
+4. Se la copia non riesce, il ripiego è il pulsante **Scarica foto** (niente `window.open` dopo un `await`: verrebbe bloccato come popup).
 
 ## 10. Contatti (front-end)
 - Google Places (`getDetails`): telefono, sito, Maps, orari, valutazione, `address_components`.
@@ -86,10 +99,11 @@ Dopo aver aggiunto/cambiato una env → **Redeploy**.
 2. **OAuth "matching hosts"**: `app_url` dell'app Shopify deve avere lo **stesso host** del `redirect_uri`. Se `app_url=https://example.com` e redirect `search-deluxy.vercel.app` → errore `invalid_request`. Imposta `app_url = https://search-deluxy.vercel.app`.
 3. **Match numero ordine ESATTO**: cercando l'ordine, accetta il risultato **solo se** `node.name` (togliendo i non-cifre) è uguale al numero richiesto. Ricerche larghe (`name:*`, testo libero) restituiscono l'ordine sbagliato.
 4. **Foto WhatsApp**: WhatsApp Web NON allega file via URL. Soluzione = copia negli appunti + Ctrl+V. E il testo si PERDE se alleghi la foto prima di inviarlo → istruisci "invia testo, POI allega foto".
+4-bis. **La copia negli appunti richiede il FOCUS** (bug risolto il 16/07/2026): la versione precedente avviava `clipboard.write()` con una Promise e apriva WhatsApp nello stesso istante → quando l'immagine era pronta il focus era su WhatsApp e Chrome rifiutava con *"Document is not focused"*; il `catch` lo nascondeva e il fallback `window.open(foto)` dopo `await` veniva bloccato come popup. Da PC non si incollava nulla. Regola: **precarica la foto, copia PRIMA, apri WhatsApp DOPO** (§9-bis).
 5. **`new Date()`/`Math.random()`**: OK nel browser, ma NON nelle funzioni serverless se un domani girano in contesti che li vietano (usare valori passati).
 6. **Niente Node/Python in locale**: anteprima con PowerShell (`.claude/serve.ps1`).
 7. **Google key**: deve stare nel browser (mappa) → proteggila con restrizione **referrer** `https://search-deluxy.vercel.app/*`.
-8. **CORS immagine per clipboard**: l'immagine va caricata con `crossOrigin='anonymous'`; se il CDN non consente CORS il canvas è "tainted" e `toBlob` fallisce → fallback: apri la foto in una scheda.
+8. **CORS immagine**: si scarica il file con `fetch` e si converte dal **blob locale** (`fetchImageBlob` → `toPngBlob`), così il canvas non è mai "tainted". Se il CDN blocca il CORS si riprova col `proxy` configurato; se fallisce anche quello, il pulsante diventa «⚠️ Foto non scaricabile» e si salva a mano dal link.
 
 ## 13. Ricette rapide
 - **Aggiungere un negozio**: aggiungilo alla mappa `SHOP_BRAND` in `api/oauth.js` e a `BRAND_BY_SHOP` in `api/webhook.js`; aggiungi il brand a `KNOWN_BRANDS` in `index.html` e all'`<select id="brand">`; crea il webhook su Shopify; fai `/api/oauth?shop=...&pass=...`.
