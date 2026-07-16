@@ -72,6 +72,19 @@ async function recentOrderNames(shop, token) {
   return (j?.data?.orders?.edges || []).map(e => e.node.name);
 }
 
+async function kvSet(key, value, ttl) {
+  const url = process.env.KV_REST_API_URL, tok = process.env.KV_REST_API_TOKEN;
+  if (!url || !tok) return false;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+      body: JSON.stringify(['SET', key, value, 'EX', ttl]),
+    });
+    return true;
+  } catch (e) { return false; }
+}
+
 // legge un ordine dal magazzino KV (salvato dal webhook)
 async function kvGet(key) {
   const url = process.env.KV_REST_API_URL, tok = process.env.KV_REST_API_TOKEN;
@@ -177,7 +190,39 @@ export default async function handler(req, res) {
 
     // 1) prima cerca fra gli ordini ricevuti via webhook (nessun token necessario)
     const cached = await kvGet(`order:${brand}:${numNoHash}`);
-    if (cached) return res.status(200).json(JSON.parse(cached));
+    if (cached) {
+      const data = JSON.parse(cached);
+      // Il payload del webhook Shopify NON include le immagini dei prodotti: se manca la foto
+      // la recuperiamo dall'Admin API (che la sa) e ri-salviamo l'ordine arricchito in KV.
+      if (!data.photoUrl) {
+        try {
+          const store = await storeFor(brand);
+          if (store) {
+            const order = await findOrder(store.shop, store.token, numNoHash);
+            if (order) {
+              const full = normalize(brand, order);
+              if (full.photoUrl) {
+                data.photoUrl = full.photoUrl;
+                data.photoSource = 'admin';
+                // riporta anche le immagini sulle singole righe, se combaciano per titolo
+                (data.items || []).forEach(it => {
+                  const m = (full.items || []).find(x => x.title === it.title);
+                  if (m && m.image) it.image = m.image;
+                });
+                await kvSet(`order:${brand}:${numNoHash}`, JSON.stringify(data), 60 * 60 * 24 * 60);
+              } else {
+                data.photoNote = 'Il prodotto non ha immagine su Shopify.';
+              }
+            }
+          } else {
+            data.photoNote = 'Foto non disponibile: il webhook non la include e manca il token Shopify di questo negozio (collegalo dalle Impostazioni).';
+          }
+        } catch (e) {
+          data.photoNote = 'Foto non recuperata da Shopify: ' + (e.message || String(e));
+        }
+      }
+      return res.status(200).json(data);
+    }
 
     // 2) altrimenti, se in cassaforte c'è un token Shopify per questo negozio, prova l'API Admin
     const store = await storeFor(brand);

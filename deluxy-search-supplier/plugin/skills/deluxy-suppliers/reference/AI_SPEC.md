@@ -51,6 +51,7 @@ Oggetto JSON in KV alla chiave **`config:v1`**:
 
 - **Ordini NUOVI** → webhook nativo Shopify "Creazione ordine" (JSON) verso `.../api/webhook?brand=<brand>`. Già configurati sui 3 negozi.
 - **Ordini PASSATI** → token Admin via OAuth (vedi §8), salvato in cassaforte; `/api/order` interroga l'Admin API.
+- ⚠️ **Il payload del webhook NON contiene le immagini dei prodotti.** Perciò `/api/order`, quando l'ordine arriva da KV **senza** `photoUrl`, lo **arricchisce** interrogando l'Admin API (`product { featuredImage { url } }`) e ri-salva l'ordine completo in KV (TTL 60gg). Se manca il token del negozio o il prodotto non ha immagine, risponde con `photoNote` che spiega il motivo (mostrato in `.deal`).
 
 ## 7. Variabili d'ambiente su Vercel
 `APP_PASSWORD`, `KV_REST_API_URL`, `KV_REST_API_TOKEN` (+ `KV_URL`, `REDIS_URL` iniettati da Upstash), `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`. Opzionale: `WEBHOOK_SECRET`.
@@ -101,7 +102,8 @@ Sezione `.deal` in cima al riquadro ordine: miniatura, pulsante **⬇️ Scarica
 4. **Foto WhatsApp**: WhatsApp Web NON allega file via URL. Soluzione = copia negli appunti + Ctrl+V. E il testo si PERDE se alleghi la foto prima di inviarlo → istruisci "invia testo, POI allega foto".
 4-bis. **La copia negli appunti richiede il FOCUS** (bug risolto il 16/07/2026): la versione precedente avviava `clipboard.write()` con una Promise e apriva WhatsApp nello stesso istante → quando l'immagine era pronta il focus era su WhatsApp e Chrome rifiutava con *"Document is not focused"*; il `catch` lo nascondeva e il fallback `window.open(foto)` dopo `await` veniva bloccato come popup. Da PC non si incollava nulla. Regola: **precarica la foto, copia PRIMA, apri WhatsApp DOPO** (§9-bis).
 5. **`new Date()`/`Math.random()`**: OK nel browser, ma NON nelle funzioni serverless se un domani girano in contesti che li vietano (usare valori passati).
-6. **Niente Node/Python in locale**: anteprima con PowerShell (`.claude/serve.ps1`).
+6. **Anteprima locale**: server statico PowerShell (`.claude/serve.ps1`, porta 5510) — serve `deluxy-search-supplier/`. In locale le `/api/*` NON esistono: la lock screen non si sblocca, per collaudare l'interfaccia si nasconde `#lockScreen` e si chiama `populateOrder({...})` da console. (Aggiornamento 16/07/2026: **Node 24 e npm ci sono** — `node --check api/*.js` per il lint di sintassi. Python no.)
+6-bis. **Ordine da KV = senza foto**: `/api/order` usciva subito con la copia del webhook (`if (cached) return ...`) e il webhook non include le immagini → foto sempre vuota anche per prodotti che su Shopify l'immagine ce l'hanno. Risolto arricchendo da Admin API (§6). Regola generale: **la cache del webhook è incompleta, non trattarla come la verità completa sull'ordine.**
 7. **Google key**: deve stare nel browser (mappa) → proteggila con restrizione **referrer** `https://search-deluxy.vercel.app/*`.
 8. **CORS immagine**: si scarica il file con `fetch` e si converte dal **blob locale** (`fetchImageBlob` → `toPngBlob`), così il canvas non è mai "tainted". Se il CDN blocca il CORS si riprova col `proxy` configurato; se fallisce anche quello, il pulsante diventa «⚠️ Foto non scaricabile» e si salva a mano dal link.
 
