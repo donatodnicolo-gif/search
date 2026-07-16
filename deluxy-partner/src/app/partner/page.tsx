@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, pctIt } from "@/lib/format";
+import { ThSort, ordina } from "@/components/ThSort";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ function badgeStato(clienteAnno: string | null) {
 export default async function PartnerList({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; citta?: string; categoria?: string; stato?: string }>;
+  searchParams: Promise<{ q?: string; citta?: string; categoria?: string; stato?: string; sort?: string; dir?: string }>;
 }) {
   const sp = await searchParams;
   const tutti = await riepilogoTutti(ANNO_CORRENTE);
@@ -22,7 +23,7 @@ export default async function PartnerList({
   const citta = [...new Set(tutti.map((t) => t.partner.citta).filter(Boolean))].sort() as string[];
   const categorie = [...new Set(tutti.map((t) => t.partner.categoria?.trim()).filter(Boolean))].sort() as string[];
 
-  const filtered = tutti.filter((t) => {
+  let filtered = tutti.filter((t) => {
     const p = t.partner;
     if (sp.q && !p.nome.toLowerCase().includes(sp.q.toLowerCase())) return false;
     if (sp.citta && p.citta !== sp.citta) return false;
@@ -31,6 +32,20 @@ export default async function PartnerList({
     if (sp.stato === "dismessi" && p.clienteAnno !== "Dismesso") return false;
     return true;
   });
+
+  type T = (typeof tutti)[number];
+  const campi: Record<string, (t: T) => string | number | null> = {
+    nome: (t) => t.partner.nome,
+    categoria: (t) => t.partner.categoria,
+    citta: (t) => t.partner.citta,
+    servizi: (t) => t.partner.servizi,
+    stato: (t) => t.partner.clienteAnno,
+    fee: (t) => t.partner.feePercent,
+    vendite: (t) => t.rolling.vendite,
+    servizio: (t) => t.rolling.fatture,
+    residuo: (t) => t.rolling.residuo,
+  };
+  if (sp.sort && campi[sp.sort]) filtered = ordina(filtered, campi[sp.sort], sp.dir);
 
   return (
     <>
@@ -71,15 +86,15 @@ export default async function PartnerList({
           <table>
             <thead>
               <tr>
-                <th>Partner</th>
-                <th>Categoria</th>
-                <th>Città</th>
-                <th>Servizio</th>
-                <th>Stato</th>
-                <th className="num">Fee</th>
-                <th className="num">Vendite YTD</th>
-                <th className="num">Servizi YTD</th>
-                <th className="num">Residuo</th>
+                <ThSort label="Partner" campo="nome" sp={sp} path="/partner" />
+                <ThSort label="Categoria" campo="categoria" sp={sp} path="/partner" />
+                <ThSort label="Città" campo="citta" sp={sp} path="/partner" />
+                <ThSort label="Servizio" campo="servizi" sp={sp} path="/partner" />
+                <ThSort label="Stato" campo="stato" sp={sp} path="/partner" />
+                <ThSort label="Fee" campo="fee" sp={sp} path="/partner" num />
+                <ThSort label="Vendite YTD" campo="vendite" sp={sp} path="/partner" num />
+                <ThSort label="Servizi YTD" campo="servizio" sp={sp} path="/partner" num />
+                <ThSort label="Residuo" campo="residuo" sp={sp} path="/partner" num />
               </tr>
             </thead>
             <tbody>

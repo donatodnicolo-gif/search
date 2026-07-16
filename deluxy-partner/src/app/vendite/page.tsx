@@ -4,23 +4,36 @@ import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, MESI, commissione, dovutoVendita } from "@/lib/calc";
 import { deleteVendita } from "@/lib/actions";
+import { ThSort, ordina } from "@/components/ThSort";
 
 export const dynamic = "force-dynamic";
 
 export default async function VenditePage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; mese?: string }>;
+  searchParams: Promise<{ anno?: string; mese?: string; sort?: string; dir?: string }>;
 }) {
   const sp = await searchParams;
   const anno = sp.anno ? parseInt(sp.anno) : ANNO_CORRENTE;
   const mese = sp.mese ? parseInt(sp.mese) : undefined;
 
-  const vendite = await prisma.venditaVendor.findMany({
+  let vendite = await prisma.venditaVendor.findMany({
     where: { anno, ...(mese ? { mese } : {}) },
     include: { partner: true },
     orderBy: [{ mese: "desc" }, { partner: { nome: "asc" } }],
   });
+
+  type V = (typeof vendite)[number];
+  const campi: Record<string, (v: V) => string | number | Date | null> = {
+    partner: (v) => v.partner.nome,
+    mese: (v) => v.mese * 100 + (v.data ? v.data.getUTCDate() : 0),
+    descrizione: (v) => v.descrizione,
+    incasso: (v) => v.incassoLordo,
+    fee: (v) => v.feePercent,
+    commissione: (v) => commissione(v),
+    dovuto: (v) => dovutoVendita(v),
+  };
+  if (sp.sort && campi[sp.sort]) vendite = ordina(vendite, campi[sp.sort], sp.dir);
 
   const totIncasso = vendite.reduce((a, v) => a + v.incassoLordo, 0);
   const totComm = vendite.reduce((a, v) => a + commissione(v), 0);
@@ -79,13 +92,13 @@ export default async function VenditePage({
             <table>
               <thead>
                 <tr>
-                  <th>Partner</th>
-                  <th>Mese</th>
-                  <th>Descrizione</th>
-                  <th className="num">Incasso</th>
-                  <th className="num">Fee</th>
-                  <th className="num">Commissione</th>
-                  <th className="num">Dovuto al partner</th>
+                  <ThSort label="Partner" campo="partner" sp={sp} path="/vendite" />
+                  <ThSort label="Mese" campo="mese" sp={sp} path="/vendite" />
+                  <ThSort label="Descrizione" campo="descrizione" sp={sp} path="/vendite" />
+                  <ThSort label="Incasso" campo="incasso" sp={sp} path="/vendite" num />
+                  <ThSort label="Fee" campo="fee" sp={sp} path="/vendite" num />
+                  <ThSort label="Commissione" campo="commissione" sp={sp} path="/vendite" num />
+                  <ThSort label="Dovuto al partner" campo="dovuto" sp={sp} path="/vendite" num />
                   <th></th>
                 </tr>
               </thead>

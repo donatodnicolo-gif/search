@@ -58,6 +58,12 @@ const icons = {
       <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
     </svg>
   ),
+  confronti: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M7 17l4-6 3 3 4.5-7" />
+      <path d="M3 4v16h18" />
+    </svg>
+  ),
   impostazioni: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <circle cx="12" cy="12" r="3.2" />
@@ -85,6 +91,7 @@ const sections: { label: string; items: Item[] }[] = [
       { href: "/saldi", label: "Saldi e bonifici", icon: icons.saldi },
       { href: "/scadenzario", label: "Scadenzario", icon: icons.scadenze },
       { href: "/report", label: "Report", icon: icons.report },
+      { href: "/confronti", label: "Confronti", icon: icons.confronti },
     ],
   },
   {

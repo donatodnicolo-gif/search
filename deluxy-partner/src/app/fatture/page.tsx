@@ -4,20 +4,21 @@ import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
 import { nomeMese, MESI, ivato } from "@/lib/calc";
 import { segnaFatturaPagata, deleteFattura } from "@/lib/actions";
+import { ThSort, ordina } from "@/components/ThSort";
 
 export const dynamic = "force-dynamic";
 
 export default async function FatturePage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; mese?: string; stato?: string; tipologia?: string }>;
+  searchParams: Promise<{ anno?: string; mese?: string; stato?: string; tipologia?: string; sort?: string; dir?: string }>;
 }) {
   const sp = await searchParams;
   const anno = sp.anno ? parseInt(sp.anno) : ANNO_CORRENTE;
   const mese = sp.mese ? parseInt(sp.mese) : undefined;
 
   const tipologie = await prisma.tipologiaServizio.findMany({ orderBy: { ordine: "asc" } });
-  const fatture = await prisma.fatturaServizio.findMany({
+  let fatture = await prisma.fatturaServizio.findMany({
     where: {
       anno,
       ...(mese ? { mese } : {}),
@@ -28,6 +29,19 @@ export default async function FatturePage({
     include: { partner: true, tipologia: true },
     orderBy: [{ mese: "desc" }, { partner: { nome: "asc" } }],
   });
+
+  type F = (typeof fatture)[number];
+  const campi: Record<string, (f: F) => string | number | Date | null> = {
+    partner: (f) => f.partner.nome,
+    mese: (f) => f.mese,
+    tipologia: (f) => f.tipologia.nome,
+    numero: (f) => f.numero,
+    scadenza: (f) => f.scadenza,
+    imponibile: (f) => f.imponibile,
+    ivato: (f) => ivato(f),
+    stato: (f) => (f.pagata ? 1 : 0),
+  };
+  if (sp.sort && campi[sp.sort]) fatture = ordina(fatture, campi[sp.sort], sp.dir);
 
   const totale = fatture.reduce((a, f) => a + f.imponibile, 0);
   const totaleIvato = fatture.reduce((a, f) => a + ivato(f), 0);
@@ -92,14 +106,14 @@ export default async function FatturePage({
             <table>
               <thead>
                 <tr>
-                  <th>Partner</th>
-                  <th>Mese</th>
-                  <th>Tipologia</th>
-                  <th>N° fattura</th>
-                  <th>Scadenza</th>
-                  <th className="num">Imponibile</th>
-                  <th className="num">IVA incl.</th>
-                  <th>Stato</th>
+                  <ThSort label="Partner" campo="partner" sp={sp} path="/fatture" />
+                  <ThSort label="Mese" campo="mese" sp={sp} path="/fatture" />
+                  <ThSort label="Tipologia" campo="tipologia" sp={sp} path="/fatture" />
+                  <ThSort label="N° fattura" campo="numero" sp={sp} path="/fatture" />
+                  <ThSort label="Scadenza" campo="scadenza" sp={sp} path="/fatture" />
+                  <ThSort label="Imponibile" campo="imponibile" sp={sp} path="/fatture" num />
+                  <ThSort label="IVA incl." campo="ivato" sp={sp} path="/fatture" num />
+                  <ThSort label="Stato" campo="stato" sp={sp} path="/fatture" />
                   <th></th>
                 </tr>
               </thead>

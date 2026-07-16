@@ -18,6 +18,7 @@ La gestione partner viveva in `PARTNER.xlsx`: un foglio per partner/anno con blo
 | **Saldi e bonifici** | Blocchi "Extra" + "Saldi" | Chiusura mensile per partner: aggiunte/detrazioni, fattura commissioni, bonifico (+ inviato / − ricevuto) con data; residuo calcolato in tempo reale |
 | **Scadenzario** | — (non esisteva) | Fatture scadute da incassare, bonifici pendenti, fatture commissioni da emettere |
 | **Report** | "Piano Per Area" + rolling | Andamento mensile, per tipologia/città/categoria, top partner, forecast vs actual dal piano commerciale |
+| **Confronti** | — (non esisteva) | 2026 vs 2025 su dati reali (ledger 2025 importato dal foglio "Database clienti 2025"), per mese, trimestre, anno o periodo personalizzato, per partner con Δ € e Δ % |
 | **Export SEPA** | — (non esisteva) | Distinta bonifici del mese in pain.001.001.03 (XML) da caricare in home banking + CSV di controllo |
 
 ### Le formule (motore `src/lib/calc.ts`)
@@ -38,7 +39,9 @@ stima chiusura     = run-rate: (vendite+servizi YTD) / mesi attivi × 12
 
 Da `PARTNER.xlsx` (estrazione 16/07/2026): **92 partner**, **176 fatture servizi**, **213 vendite vendor**, **325 saldi mensili** (gennaio–giugno 2026), forecast del piano commerciale (36 clienti × 12 mesi). Le fatture importate hanno tipologia dedotta dai servizi del partner (rivedibile a mano); i movimenti importati sono marcati "Import PARTNER.xlsx".
 
-**Non migrato (fuori perimetro v0.1):** foglio "Anagrafica" (personale/valet: già dominio della piattaforma), "Buste e Biglietti" (magazzino consumabili), "Database clienti 2025" (storico, consultabile nell'Excel archiviato).
+Importato anche lo **storico 2025** dal foglio "Database clienti 2025" (ledger mensile reale: 331 fatture, 198 vendite, 643 saldi, 69 partner di cui 2 presenti solo nello storico) — alimenta la pagina Confronti. Re-import: `node prisma/seed-2025.mjs` (additivo: tocca solo l'anno 2025).
+
+**Non migrato (fuori perimetro):** foglio "Anagrafica" (personale/valet: già dominio della piattaforma), "Buste e Biglietti" (magazzino consumabili).
 
 ## 4. Processi operativi (chi fa cosa, quando)
 
