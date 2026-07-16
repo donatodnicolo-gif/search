@@ -129,7 +129,13 @@ function VenditoreCard({ s, oggi, onPress }: { s: StatVenditore; oggi: Date; onP
           {s.nome}
         </Text>
         <View style={styles.vHeadRight}>
-          <Text style={styles.vUltima}>{s.ultimaData ? `attivo ${quando(s.ultimaData, oggi)}` : 'mai'}</Text>
+          <Text style={styles.vUltima}>
+            {s.ultimaData
+              ? `attivo ${quando(s.ultimaData, oggi)}`
+              : s.ultimoAccesso
+                ? `accesso ${quando(s.ultimoAccesso, oggi)}`
+                : 'mai attivo'}
+          </Text>
           <Ionicons name="chevron-forward" size={16} color={colors.grigio} />
         </View>
       </View>

@@ -163,14 +163,14 @@ export async function fetchAllDeals(): Promise<Deal[]> {
 /** Profili utente (owner → nome/email), per la dashboard di Team. Tollerante:
  *  se la migrazione 0014 non è applicata, ritorna [] e la UI usa un nome di ripiego. */
 export async function fetchProfiles(): Promise<Profilo[]> {
-  const { data, error } = await supabase.from('profiles').select('id, email, nome');
+  const { data, error } = await supabase.from('profiles').select('id, email, nome, ultimo_accesso');
   if (error) return [];
   return (data ?? []) as Profilo[];
 }
 
 /** Un singolo profilo (per la schermata del venditore / il proprio Profilo). */
 export async function fetchProfilo(id: string): Promise<Profilo | null> {
-  const { data, error } = await supabase.from('profiles').select('id, email, nome').eq('id', id).single();
+  const { data, error } = await supabase.from('profiles').select('id, email, nome, ultimo_accesso').eq('id', id).single();
   if (error) return null;
   return data as Profilo;
 }

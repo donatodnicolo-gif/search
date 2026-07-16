@@ -12,6 +12,18 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
+// Segna "ultimo accesso" del proprio profilo (per la dashboard Team). Fire-and-forget:
+// RLS consente a ognuno di aggiornare la propria riga; errori ignorati.
+function segnaAccesso(s: Session | null): void {
+  const uid = s?.user?.id;
+  if (!uid) return;
+  supabase
+    .from('profiles')
+    .update({ ultimo_accesso: new Date().toISOString() })
+    .eq('id', uid)
+    .then(undefined, () => {});
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -20,9 +32,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
+      segnaAccesso(data.session);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      if (event === 'SIGNED_IN') segnaAccesso(s);
     });
     return () => sub.subscription.unsubscribe();
   }, []);

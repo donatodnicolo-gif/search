@@ -124,6 +124,7 @@ export interface StatVenditore {
   visite: number;
   visite7: number; // ultimi 7 giorni
   ultimaData: string | null;
+  ultimoAccesso: string | null; // ultimo login all'app (per chi non ha visite)
   interessati: number;
   daRichiamare: number;
   dealAperti: number;
@@ -166,6 +167,7 @@ export function attivitaPerVenditore(
         visite: 0,
         visite7: 0,
         ultimaData: null,
+        ultimoAccesso: id ? (mappaProfili.get(id)?.ultimo_accesso ?? null) : null,
         interessati: 0,
         daRichiamare: 0,
         dealAperti: 0,
@@ -175,6 +177,9 @@ export function attivitaPerVenditore(
     }
     return s;
   };
+
+  // Includi OGNI venditore noto (anche a 0 attività), così è visibile e selezionabile.
+  for (const p of profili) assicura(p.id);
 
   for (const v of visits) {
     const s = assicura(v.owner);

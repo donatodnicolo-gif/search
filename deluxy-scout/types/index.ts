@@ -131,6 +131,7 @@ export interface Profilo {
   id: string;
   email: string | null;
   nome: string | null;
+  ultimo_accesso?: string | null;
 }
 
 export interface Linea {
