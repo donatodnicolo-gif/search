@@ -14,7 +14,8 @@ App web per **cercare fiorai/pasticcerie vicino a un indirizzo** e **smistare or
 ## 2. Dove vive
 - **Live**: https://search-deluxy.vercel.app
 - **Repo**: https://github.com/donatodnicolo-gif/search — branch **`main`**. **Push su main = deploy automatico su Vercel** (~1 min).
-- **Progetto Vercel**: `search-deluxy` (team `deluxy`).
+- **Cartella nel repo**: tutto sta in **`deluxy-search-supplier/`** (`index.html`, `api/`, questa spec, `plugin/`). Alla root del repo non c'è più nulla dell'app.
+- **Progetto Vercel**: `search-deluxy` (team `deluxy`), con **Root Directory = `deluxy-search-supplier`**. Le funzioni serverless sono riconosciute solo dentro `api/` relativo alla Root Directory: se sposti di nuovo i file, aggiorna quell'impostazione o le API vanno offline. Le URL pubbliche restano `/api/...`.
 - **Deploy**: NON serve CLI. `git push origin main` e Vercel ricostruisce. Le credenziali GitHub sono in cache (Git Credential Manager).
 - **Nessun Node/Python in locale**: per l'anteprima locale c'è un server statico **PowerShell** (`.claude/serve.ps1`, `.claude/launch.json`, porta 5510). Non usare `node`/`python`.
 
