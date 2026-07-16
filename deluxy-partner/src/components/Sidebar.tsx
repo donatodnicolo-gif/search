@@ -1,0 +1,126 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+type Item = { href: string; label: string; icon: React.ReactNode };
+
+const stroke = {
+  fill: "none",
+  strokeWidth: 1.7,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+
+const icons = {
+  dashboard: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <rect x="3" y="3" width="7.5" height="7.5" rx="2" />
+      <rect x="13.5" y="3" width="7.5" height="7.5" rx="2" />
+      <rect x="3" y="13.5" width="7.5" height="7.5" rx="2" />
+      <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" />
+    </svg>
+  ),
+  partner: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6S13.9 16 14.5 19" />
+      <circle cx="16.5" cy="9.5" r="2.4" />
+      <path d="M15.5 14.6c2.6.1 4.3 1.6 4.9 4" />
+    </svg>
+  ),
+  fattura: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M7 3h10a1 1 0 0 1 1 1v17l-3-1.7L12 21l-3-1.7L6 21V4a1 1 0 0 1 1-1z" />
+      <path d="M9.5 8h5M9.5 12h5" />
+    </svg>
+  ),
+  vendite: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M4 5h2l2.2 11h9.6L20 8H7" />
+      <circle cx="9.5" cy="19.5" r="1.3" />
+      <circle cx="16.5" cy="19.5" r="1.3" />
+    </svg>
+  ),
+  saldi: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M12 3v18M5 8c0-2 2.5-3.5 7-3.5S19 6 19 8s-2.5 3.5-7 3.5S5 14 5 16s2.5 3.5 7 3.5 7-1.5 7-3.5" />
+    </svg>
+  ),
+  scadenze: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2.2" />
+    </svg>
+  ),
+  report: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
+    </svg>
+  ),
+};
+
+const sections: { label: string; items: Item[] }[] = [
+  {
+    label: "Operatività",
+    items: [
+      { href: "/", label: "Dashboard", icon: icons.dashboard },
+      { href: "/fatture", label: "Servizi a fatturazione", icon: icons.fattura },
+      { href: "/vendite", label: "Vendite come vendor", icon: icons.vendite },
+    ],
+  },
+  {
+    label: "Rete",
+    items: [{ href: "/partner", label: "Partner", icon: icons.partner }],
+  },
+  {
+    label: "Amministrazione",
+    items: [
+      { href: "/saldi", label: "Saldi e bonifici", icon: icons.saldi },
+      { href: "/scadenzario", label: "Scadenzario", icon: icons.scadenze },
+      { href: "/report", label: "Report", icon: icons.report },
+    ],
+  },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  return (
+    <aside className="sidebar">
+      <div className="brand">
+        <div className="brand-logo">D</div>
+        <div>
+          <div className="brand-name">Deluxy Partner</div>
+          <div className="brand-sub">Gestione partner</div>
+        </div>
+      </div>
+
+      {sections.map((s) => (
+        <div className="nav-section" key={s.label}>
+          <div className="nav-label">{s.label}</div>
+          {s.items.map((it) => (
+            <Link
+              key={it.href}
+              href={it.href}
+              className={`nav-item${isActive(it.href) ? " active" : ""}`}
+            >
+              {it.icon}
+              {it.label}
+            </Link>
+          ))}
+        </div>
+      ))}
+
+      <div className="sidebar-footer">
+        <div className="avatar">DX</div>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Deluxy</div>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Amministrazione</div>
+        </div>
+      </div>
+    </aside>
+  );
+}

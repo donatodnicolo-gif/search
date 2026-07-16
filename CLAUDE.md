@@ -1,6 +1,6 @@
 # Repo Deluxy — regole per lo sviluppo
 
-Questo repo contiene le app dell'ecosistema Deluxy: `deluxy-platform-next/` (piattaforma logistica, staging moderno), `deluxy-scout/` (app mobile prospezione), `deluxy-suppliers/` (app fornitori/smistamento ordini), `sviluppi-siti-deluxy/` (temi Shopify), `deluxy-scout-manager/`.
+Questo repo contiene le app dell'ecosistema Deluxy: `deluxy-platform-next/` (piattaforma logistica, staging moderno), `deluxy-scout/` (app mobile prospezione), `deluxy-suppliers/` (app fornitori/smistamento ordini), `deluxy-partner/` (gestione finanziaria partner, sostituisce PARTNER.xlsx), `sviluppi-siti-deluxy/` (temi Shopify), `deluxy-scout-manager/`.
 
 ## Design system (obbligatorio per ogni lavoro di UI)
 

@@ -1,0 +1,26 @@
+{
+  "name": "deluxy-partner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deluxy Partner — gestione finanziaria e operativa dei partner (sostituisce PARTNER.xlsx)",
+  "scripts": {
+    "dev": "next dev -p 3040",
+    "build": "next build",
+    "start": "next start -p 3040",
+    "db:push": "prisma db push",
+    "db:seed": "node prisma/seed.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.5.0",
+    "next": "^15.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "prisma": "^6.5.0",
+    "typescript": "^5.7.3"
+  }
+}

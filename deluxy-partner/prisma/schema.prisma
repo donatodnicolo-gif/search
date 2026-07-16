@@ -1,0 +1,136 @@
+// Deluxy Partner — schema dati
+// Sostituisce PARTNER.xlsx (Database clienti 2026): ogni foglio/blocco Excel
+// diventa un'entità normalizzata. Le colonne "DA NON TOCCARE FORMULA" del
+// foglio (commissioni, dovuto, saldi, rolling) qui sono SEMPRE calcolate dal
+// motore in src/lib/calc.ts, mai memorizzate a mano.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Partner commerciale (foglio "Database clienti 2026", colonne A-N)
+model Partner {
+  id                     String   @id @default(cuid())
+  nome                   String   @unique
+  ragioneSociale         String?
+  categoria              String? // Pasticceria, Fiori, Boutique, Ristorante...
+  citta                  String?
+  servizi                String? // etichette: Vendor, Consegne, Magazzino...
+  clienteAnno            String? // P.P. | Nuovo | Dismesso
+  feePercent             Float? // % commissione su vendite come vendor
+  debiti2025             Float    @default(0) // situazione debitoria al 31.12.2025
+  pdrDebito              String? // piano di rientro debito
+  crediti2025            Float    @default(0) // situazione creditizia al 31.12.2025
+  ggPagamento            Int      @default(0) // giorni pagamento fattura (0 = vista fattura)
+  compensazione          Boolean  @default(false) // crediti servizi compensati dagli incassi vendite
+  commissioniADetrazione Boolean  @default(false) // commissioni detratte dal pagamento incassi
+  addebitoDiretto        Boolean  @default(false)
+  cartaCreditoApp        Boolean  @default(false)
+  iban                   String? // per bonifici SEPA
+  email                  String?
+  telefono               String?
+  note                   String?
+  attivo                 Boolean  @default(true)
+  fatture                FatturaServizio[]
+  vendite                VenditaVendor[]
+  saldi                  SaldoMensile[]
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+// Tipologia di servizio (aree del foglio "Piano Per Area")
+model TipologiaServizio {
+  id      String            @id @default(cuid())
+  nome    String            @unique
+  ordine  Int               @default(0)
+  fatture FatturaServizio[]
+}
+
+// Servizi a fatturazione: fattura a credito emessa da Deluxy verso il partner
+// (blocco mensile "Servizi A Fatturazione")
+model FatturaServizio {
+  id            String             @id @default(cuid())
+  partnerId     String
+  partner       Partner            @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  tipologiaId   String
+  tipologia     TipologiaServizio  @relation(fields: [tipologiaId], references: [id])
+  anno          Int
+  mese          Int // 1-12, mese di competenza
+  numero        String? // n° fattura FattureInCloud (es. 68/2026)
+  emissione     DateTime?
+  scadenza      DateTime?
+  imponibile    Float // netto IVA
+  aliquotaIva   Float              @default(22)
+  pagata        Boolean            @default(false)
+  dataPagamento DateTime?
+  descrizione   String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([partnerId, anno, mese])
+  @@index([pagata, scadenza])
+}
+
+// Servizi come vendor: vendite fatte da Deluxy per conto del partner
+// (blocco mensile "Servizi come VENDOR"). La commissione e il dovuto al
+// partner sono calcolati: commissione = incasso * fee%; dovuto = incasso -
+// commissione * (1 + IVA).
+model VenditaVendor {
+  id           String   @id @default(cuid())
+  partnerId    String
+  partner      Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  anno         Int
+  mese         Int // 1-12, mese di competenza
+  data         DateTime?
+  descrizione  String?
+  incassoLordo Float // importo venduto/incassato da Deluxy
+  feePercent   Float // snapshot della fee del partner al momento della vendita
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([partnerId, anno, mese])
+}
+
+// Chiusura mensile partner (blocchi "Extra" + "Saldi" del foglio):
+// extra monetari, fattura commissioni, bonifico e note.
+// Il saldo in compensazione e il residuo sono calcolati dal motore.
+model SaldoMensile {
+  id              String    @id @default(cuid())
+  partnerId       String
+  partner         Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  anno            Int
+  mese            Int // 1-12
+  commFattEmessa  Boolean   @default(false) // fattura commissioni emessa
+  commFattNumero  String? // n° fattura commissioni FattureInCloud
+  aggiunte        Float     @default(0) // importi extra a favore del partner
+  detrazioni      Float     @default(0) // importi da scalare al partner
+  dataPagamento   DateTime? // data in cui risulta saldato / incassato
+  bonificoImporto Float? // >0 inviato al partner, <0 ricevuto dal partner
+  bonificoData    DateTime?
+  chiuso          Boolean   @default(false)
+  note            String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([partnerId, anno, mese])
+}
+
+// Piano commerciale: actual 2025 / actual 2026 / forecast 2026
+// (foglio "Piano commerciale e Forecast")
+model Forecast {
+  id          String  @id @default(cuid())
+  partnerNome String
+  servizio    String
+  anno        Int // anno di riferimento del forecast (2026)
+  mese        Int
+  valPrecedente Float? // consuntivo anno precedente (2025)
+  actual      Float?
+  forecast    Float?
+
+  @@unique([partnerNome, servizio, anno, mese])
+}
