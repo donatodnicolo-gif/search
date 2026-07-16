@@ -1,6 +1,8 @@
 # Repo Deluxy — regole per lo sviluppo
 
-Questo repo contiene le app dell'ecosistema Deluxy: `deluxy-platform-next/` (piattaforma logistica, staging moderno), `deluxy-scout/` (app mobile prospezione), `deluxy-suppliers/` (app fornitori/smistamento ordini), `sviluppi-siti-deluxy/` (temi Shopify), `deluxy-scout-manager/`.
+Questo repo contiene le app dell'ecosistema Deluxy: `deluxy-platform-next/` (piattaforma logistica, staging moderno), `deluxy-scout/` (app mobile prospezione), `deluxy-search-supplier/` (ricerca fiorai/pasticcerie + smistamento ordini Shopify via WhatsApp/Email; include il plugin in `plugin/`), `sviluppi-siti-deluxy/` (temi Shopify), `deluxy-scout-manager/`.
+
+> `deluxy-search-supplier/` è pubblicata su Vercel (progetto `search-deluxy`, **Root Directory = `deluxy-search-supplier`**) dal branch **`main`**: si sviluppa lì, non su questo branch. Spec: [deluxy-search-supplier/AI_SPEC.md](deluxy-search-supplier/AI_SPEC.md).
 
 ## Regole di lavoro (obbligatorie)
 

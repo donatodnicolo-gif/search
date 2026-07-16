@@ -18,14 +18,14 @@ Il **pass code** dell'app (variabile `APP_PASSWORD` su Vercel): Claude lo chiede
 ## Installazione
 
 ### Opzione 1 — cartella locale (più semplice)
-Copia la cartella `deluxy-suppliers/` dove vuoi, poi in Claude Code:
+Copia questa cartella dove vuoi (rinominandola `deluxy-suppliers` se preferisci), poi in Claude Code:
 ```
 /plugin install ./deluxy-suppliers
 ```
 (oppure aggiungi il percorso della cartella tra i plugin nelle impostazioni di Claude Code).
 
 ### Opzione 2 — da questo repo (marketplace)
-Il plugin vive dentro il repo dell'app: `donatodnicolo-gif/search` → `deluxy-suppliers/`.
+Il plugin vive dentro il repo dell'app: `donatodnicolo-gif/search` → `deluxy-search-supplier/plugin/`.
 Aggiungi il repo come marketplace di plugin e installa `deluxy-suppliers` da lì.
 
 ### Verifica
