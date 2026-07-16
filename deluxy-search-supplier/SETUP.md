@@ -94,4 +94,7 @@ Metodo ufficiale Shopify più robusto (ritentativi automatici). Il backend è gi
 
 ## Regola budget
 In `index.html`, cerca `BUDGET_TABLE`: aggiungi le righe `prezzoCliente: budgetFiorario` man mano che le definiamo.
-Ora c'è solo `{ 85: 50 }`; per gli altri importi l'operatore inserisce il budget a mano.
+Ora c'è solo `{ 85: 50 }`, mostrato col badge verde **«da tabella»**.
+
+Per gli importi non in tabella l'app propone una **stima** = `BUDGET_RATIO` (59% del prezzo cliente, ricavato da 85→50), col badge arancione **«stima — da confermare»** e un avviso sotto il campo: è un ripiego, non una regola aziendale, e l'operatore può correggere a mano (il badge diventa «impostato a mano»).
+Ogni prezzo aggiunto a `BUDGET_TABLE` sostituisce la stima con il valore esatto.

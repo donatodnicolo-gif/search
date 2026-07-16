@@ -97,6 +97,34 @@
   .thumb{margin-top:8px; border-radius:var(--radius-m); max-width:160px; border:1px solid var(--hairline)}
   .paidrow{display:flex; gap:12px; align-items:flex-end}
   .budget-hint{color:var(--orange); font-size:12px; margin-top:6px}
+  /* riepilogo: foto scaricabile + prezzi */
+  .deal{display:grid; gap:20px; margin-bottom:16px; padding:20px; background:var(--fill);
+        border:1px solid var(--hairline); border-radius:var(--radius-l)}
+  @media(min-width:640px){ .deal{grid-template-columns:180px 1fr; align-items:start} }
+  .deal-photo{display:flex; flex-direction:column; gap:10px}
+  .deal-photo img{width:100%; aspect-ratio:1; object-fit:cover; background:var(--surface);
+        border:1px solid var(--hairline); border-radius:var(--radius-m)}
+  .deal-photo .empty{display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:1;
+        background:var(--surface); border:1px dashed var(--hairline-strong); border-radius:var(--radius-m);
+        color:var(--text-tertiary); font-size:12px; text-align:center; padding:10px}
+  .btn-dl{border:1px solid var(--hairline-strong); background:var(--surface); color:var(--text);
+        border-radius:var(--radius-pill); padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer;
+        transition:background .18s var(--ease), transform .15s var(--ease)}
+  .btn-dl:hover:not(:disabled){background:var(--fill-hover)}
+  .btn-dl:active:not(:disabled){transform:scale(.97)}
+  .btn-dl:disabled{opacity:.55; cursor:default}
+  .dl-hint{font-size:11px; color:var(--text-tertiary); line-height:1.4}
+  .prices{display:grid; gap:10px}
+  .price{display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:10px 14px;
+        background:var(--surface); border:1px solid var(--hairline); border-radius:var(--radius-m)}
+  .price-label{font-size:13px; color:var(--text-secondary)}
+  .price-value{font-size:22px; font-weight:600; letter-spacing:-.022em; font-variant-numeric:tabular-nums}
+  .price-propose{border-color:rgba(184,150,62,.35); background:var(--gold-soft)}
+  .price-propose .price-value{color:var(--gold-strong)}
+  .price-margin .price-value{font-size:17px; color:var(--text-secondary)}
+  .price-tag{font-size:11px; font-weight:600; padding:3px 8px; border-radius:var(--radius-pill); white-space:nowrap}
+  .price-tag.exact{background:rgba(36,138,61,.1); color:var(--green)}
+  .price-tag.est{background:rgba(201,52,0,.1); color:var(--orange)}
   .rawattrs{margin-top:12px}
   .rawattrs summary{cursor:pointer; color:var(--text-secondary); font-size:13px}
   .rawattrs table{width:100%; border-collapse:collapse; margin-top:8px; font-size:13px}
@@ -258,6 +286,31 @@
     <!-- dettagli ordine (editabili) -->
     <div class="orderbox" id="orderBox" style="display:none">
       <div class="ordertitle"><span class="tag" id="ordTag">ordine</span><span id="ordMeta" class="sub" style="margin:0"></span></div>
+
+      <!-- riepilogo: foto pronta da scaricare + prezzi -->
+      <div class="deal">
+        <div class="deal-photo">
+          <img id="deal_thumb" alt="foto del prodotto ordinato" style="display:none">
+          <div class="empty" id="deal_nophoto">Nessuna foto nell'ordine</div>
+          <button class="btn-dl" id="dlPhoto" disabled>⬇️ Scarica foto</button>
+          <div class="dl-hint" id="dlHint"></div>
+        </div>
+        <div class="prices">
+          <div class="price">
+            <span class="price-label">Ordine — pagato dal cliente</span>
+            <span class="price-value" id="deal_paid">—</span>
+          </div>
+          <div class="price price-propose">
+            <span class="price-label">Da proporre al fiorario<br><span class="price-tag" id="deal_src"></span></span>
+            <span class="price-value" id="deal_budget">—</span>
+          </div>
+          <div class="price price-margin">
+            <span class="price-label">Margine Deluxy</span>
+            <span class="price-value" id="deal_margin">—</span>
+          </div>
+        </div>
+      </div>
+
       <div style="margin-bottom:12px">
         <label>Lingua del messaggio al fiorista (rilevata dalla ricerca)</label>
         <select id="ordLang">
@@ -417,10 +470,15 @@ $('#brand').addEventListener('change', e => localStorage.setItem('brand', e.targ
 // stato ordine corrente + regola budget
 let orderLoaded = false;
 const BUDGET_TABLE = { 85: 50 };   // prezzo cliente (€) : budget fiorista (€) — da completare
+const BUDGET_RATIO = 0.59;         // fuori tabella: stima = 59% del prezzo cliente (ricavato da 85→50)
+// ritorna {value, exact} — exact=false significa "stima da confermare", non una regola aziendale
 function suggestBudget(paid){
-  const p = Math.round(Number(paid)||0);
-  return (BUDGET_TABLE[p] != null) ? BUDGET_TABLE[p] : null;
+  const p = Math.round(parseFloat(String(paid).replace(',', '.')) || 0);
+  if(p <= 0) return null;
+  if(BUDGET_TABLE[p] != null) return { value: BUDGET_TABLE[p], exact: true };
+  return { value: Math.round(p * BUDGET_RATIO), exact: false };
 }
+function eur(n){ return '€ ' + Number(n).toLocaleString('it-IT', {minimumFractionDigits:0, maximumFractionDigits:2}); }
 
 /* ------------------ ACCESSO + CONFIG SUL SERVER ------------------ */
 const API_BASE = (location.hostname==='localhost'||location.hostname==='127.0.0.1') ? 'https://search-deluxy.vercel.app' : '';
@@ -766,8 +824,12 @@ function populateOrder(o){
 
   // budget
   const b = suggestBudget(paid);
-  if(b!=null){ $('#ord_budget').value = b; $('#budgetHint').textContent = ''; }
-  else { $('#ord_budget').value = ''; $('#budgetHint').textContent = '⚠️ Importo non in tabella: inserisci il budget a mano.'; }
+  if(b == null){ $('#ord_budget').value = ''; $('#budgetHint').textContent = '⚠️ Prezzo cliente mancante: inserisci il budget a mano.'; }
+  else {
+    $('#ord_budget').value = b.value;
+    $('#budgetHint').textContent = b.exact ? '' : '⚠️ Prezzo non in tabella: questa è una stima (' + Math.round(BUDGET_RATIO*100) + '% del prezzo cliente), controllala.';
+  }
+  updateDeal();
 
   // campi grezzi (attributi ordine + proprietà righe)
   const rows = [];
@@ -799,12 +861,18 @@ function updateThumb(){
   const img = $('#ord_thumb');
   if(url){ img.src = url; img.style.display='block'; } else { img.style.display='none'; }
 }
-$('#ord_photo').addEventListener('input', updateThumb);
+$('#ord_photo').addEventListener('input', ()=>{ updateThumb(); updateDeal(); });
 $('#ord_paid').addEventListener('input', ()=>{
   const b = suggestBudget($('#ord_paid').value);
-  if(b!=null){ $('#ord_budget').value=b; $('#budgetHint').textContent=''; }
-  else { $('#budgetHint').textContent='⚠️ Importo non in tabella: inserisci il budget a mano.'; }
+  if(b == null){ $('#budgetHint').textContent = '⚠️ Prezzo cliente mancante: inserisci il budget a mano.'; }
+  else {
+    $('#ord_budget').value = b.value;
+    $('#budgetHint').textContent = b.exact ? '' : '⚠️ Prezzo non in tabella: questa è una stima (' + Math.round(BUDGET_RATIO*100) + '% del prezzo cliente), controllala.';
+  }
+  updateDeal();
 });
+$('#ord_budget').addEventListener('input', updateDeal);
+$('#ord_items').addEventListener('input', updateDlButton);
 
 function syncLangUI(){
   const sel = $('#ordLang'); if(sel) sel.value = currentLang;
@@ -828,14 +896,21 @@ function buildOrderMessage(lang){
   // la foto NON va nel testo: viene copiata negli appunti per essere allegata (Ctrl+V)
   return msg;
 }
-// scarica l'immagine e la converte in PNG (blob locale = niente "tainted canvas"); prova il proxy se il CDN blocca il CORS
-async function getImagePngBlob(url, proxy){
-  let blob;
-  try{ blob = await (await fetch(url, {mode:'cors'})).blob(); }
-  catch(e){
+// scarica il file immagine; prova il proxy se il CDN blocca il CORS
+async function fetchImageBlob(url, proxy){
+  try{
+    const r = await fetch(url, {mode:'cors'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return await r.blob();
+  }catch(e){
     if(!proxy) throw e;
-    blob = await (await fetch(proxy + encodeURIComponent(url))).blob();
+    const r = await fetch(proxy + encodeURIComponent(url));
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return await r.blob();
   }
+}
+// converte in PNG (dal blob locale: niente "tainted canvas"), formato che WhatsApp accetta dagli appunti
+async function toPngBlob(blob){
   if(blob.type === 'image/png') return blob;
   const objUrl = URL.createObjectURL(blob);
   try{
@@ -846,13 +921,103 @@ async function getImagePngBlob(url, proxy){
     return await new Promise((res,rej)=>c.toBlob(b=> b?res(b):rej(new Error('toBlob')), 'image/png'));
   } finally { URL.revokeObjectURL(objUrl); }
 }
-// copia la foto negli appunti (Ctrl+V per allegarla). IMPORTANTE: clipboard.write() va invocata
-// SUBITO nel gesto del click, passando una Promise al ClipboardItem, altrimenti Chrome la blocca.
-function copyImageToClipboard(url, proxy){
+
+/* ---- foto dell'ordine: si precarica appena l'URL è noto, così all'invio è già pronta ----
+   navigator.clipboard.write() funziona SOLO se il documento ha il focus: se la si avvia mentre
+   l'immagine deve ancora essere scaricata, quando finisce il focus è già su WhatsApp e Chrome
+   la rifiuta ("Document is not focused"). Per questo il file va scaricato PRIMA del click. */
+let photoSrc = '';     // URL attualmente precaricato
+let photoFile = null;  // Blob originale (per il download) — null finché non è pronto
+let photoPng  = null;  // Blob PNG (per gli appunti) — null finché non è pronto
+let photoErr  = '';
+
+function prefetchPhoto(url){
+  url = (url||'').trim();
+  if(url === photoSrc) return;
+  photoSrc = url; photoFile = null; photoPng = null; photoErr = '';
+  updateDlButton();
+  if(!url) return;
+  const forUrl = url;
+  fetchImageBlob(url, (CONFIG.proxy||'').trim())
+    .then(async blob=>{
+      if(photoSrc !== forUrl) return;              // l'ordine è cambiato nel frattempo
+      photoFile = blob;
+      updateDlButton();
+      try{ const png = await toPngBlob(blob); if(photoSrc === forUrl) photoPng = png; }
+      catch(e){ console.warn('conversione PNG fallita', e); }
+      updateDlButton();
+    })
+    .catch(err=>{
+      if(photoSrc !== forUrl) return;
+      photoErr = err.message || 'errore';
+      console.warn('precarico foto fallito', err);
+      updateDlButton();
+    });
+}
+function updateDlButton(){
+  const btn = $('#dlPhoto'), hint = $('#dlHint');
+  if(!btn) return;
+  if(!photoSrc){ btn.disabled = true; hint.textContent = ''; return; }
+  if(photoFile){
+    btn.disabled = false;
+    btn.textContent = '⬇️ Scarica foto';
+    hint.textContent = photoPng ? 'Pronta: si allega anche da sola con Ctrl+V dopo l\'invio del testo.'
+                                : 'Pronta per il download.';
+  } else if(photoErr){
+    btn.disabled = true;
+    btn.textContent = '⚠️ Foto non scaricabile';
+    hint.textContent = 'Il sito della foto blocca il download (' + photoErr + '). Apri il link nel campo «Foto bouquet» e salvala a mano.';
+  } else {
+    btn.disabled = true;
+    btn.textContent = '⏳ Preparo la foto…';
+    hint.textContent = '';
+  }
+}
+function photoFileName(){
+  const num  = ($('#ordTag').textContent.match(/#?(\d+)/)||[])[1] || 'ordine';
+  const prod = ($('#ord_items').value||'prodotto').replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-|-$/g,'').slice(0,40).toLowerCase();
+  const ext  = (photoFile && photoFile.type === 'image/png') ? 'png' : 'jpg';
+  return `deluxy-${num}-${prod||'prodotto'}.${ext}`;
+}
+$('#dlPhoto').addEventListener('click', ()=>{
+  if(!photoFile) return;
+  const objUrl = URL.createObjectURL(photoFile);
+  const a = document.createElement('a');
+  a.href = objUrl; a.download = photoFileName();
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(objUrl), 60000);
+  $('#dlHint').textContent = '✅ Scaricata: ' + photoFileName();
+});
+// copia negli appunti usando il blob GIÀ pronto: si risolve in pochi ms, mentre la pagina ha ancora il focus
+async function copyPhotoToClipboard(){
+  if(!photoPng || !navigator.clipboard || !window.ClipboardItem) return false;
   try{
-    return navigator.clipboard.write([ new ClipboardItem({ 'image/png': getImagePngBlob(url, proxy) }) ])
-      .then(()=>true).catch(()=>false);
-  }catch(err){ return Promise.resolve(false); }
+    await navigator.clipboard.write([ new ClipboardItem({ 'image/png': photoPng }) ]);
+    return true;
+  }catch(err){ console.warn('copia negli appunti fallita', err); return false; }
+}
+
+// riepilogo prezzi + foto
+function updateDeal(){
+  const paidRaw = parseFloat(String($('#ord_paid').value).replace(',', '.'));
+  const paid = isFinite(paidRaw) ? paidRaw : null;
+  const budRaw = parseFloat(String($('#ord_budget').value).replace(',', '.'));
+  const bud = isFinite(budRaw) ? budRaw : null;
+  $('#deal_paid').textContent   = paid != null ? eur(paid) : '—';
+  $('#deal_budget').textContent = bud  != null ? eur(bud)  : '—';
+  $('#deal_margin').textContent = (paid != null && bud != null) ? eur(paid - bud) : '—';
+  const s = suggestBudget($('#ord_paid').value);
+  const tag = $('#deal_src');
+  if(bud == null)            { tag.className = 'price-tag'; tag.textContent = ''; }
+  else if(s && s.exact && bud === s.value){ tag.className = 'price-tag exact'; tag.textContent = 'da tabella'; }
+  else if(s && !s.exact && bud === s.value){ tag.className = 'price-tag est'; tag.textContent = 'stima ' + Math.round(BUDGET_RATIO*100) + '% — da confermare'; }
+  else                       { tag.className = 'price-tag exact'; tag.textContent = 'impostato a mano'; }
+  // foto
+  const url = $('#ord_photo').value.trim();
+  const img = $('#deal_thumb'), none = $('#deal_nophoto');
+  if(url){ img.src = url; img.style.display = 'block'; none.style.display = 'none'; }
+  else   { img.style.display = 'none'; none.style.display = 'flex'; }
+  prefetchPhoto(url);
 }
 // filtro "solo probabili WhatsApp"
 function applyWaFilter(){
@@ -879,6 +1044,7 @@ $('#manualOrder').addEventListener('click', ()=>{
   $('#ordMeta').textContent = 'inserimento manuale';
   $('#rawAttrsBody').innerHTML = '<div class="hint">Modalità manuale: nessun dato importato da Shopify.</div>';
   $('#budgetHint').textContent = '';
+  updateDeal();
   setOrderStatus('✍️ Modalità manuale attiva: compila i campi qui sotto, poi «Trova fiorai» e invia la richiesta.');
   $('#orderBox').scrollIntoView({behavior:'smooth', block:'start'});
 });
@@ -902,14 +1068,14 @@ resultsEl.addEventListener('click', async e=>{
   const msg = buildOrderMessage(lang);
   const waUrl = 'https://web.whatsapp.com/send?phone=' + phone + '&text=' + encodeURIComponent(msg);
   const photo = $('#ord_photo').value.trim();
-  const proxy = (CONFIG.proxy||'').trim();
-  // AVVIA la copia immagine subito (in-gesto) e apri WhatsApp senza attendere: così l'attivazione non scade e il popup non viene bloccato
-  const clipP = photo ? copyImageToClipboard(photo, proxy) : Promise.resolve(false);
+  // 1) PRIMA la copia negli appunti, mentre questa pagina ha ancora il focus (requisito dell'API appunti).
+  //    Il PNG è già pronto grazie al precarico, quindi si risolve in pochi ms e l'attivazione utente
+  //    (5s) resta valida per la window.open subito dopo.
+  const copied = await copyPhotoToClipboard();
+  // 2) POI apri WhatsApp
   const win = window.open(waUrl, '_blank');
-  const copied = await clipP;
-  if(photo && !copied) window.open(photo, '_blank');   // fallback: apri la foto per trascinarla nella chat
   const note = copied ? '✅ Su WhatsApp: 1) premi INVIO per inviare il messaggio (è già scritto). 2) POI premi Ctrl+V per allegare la foto e invia. (Se alleghi la foto prima, il testo resta indietro.)'
-             : photo   ? '✅ Testo già scritto su WhatsApp: premi INVIO per inviarlo. La foto è aperta in una scheda: trascinala nella chat.'
+             : photo   ? '✅ Testo già scritto su WhatsApp: premi INVIO per inviarlo. La foto non è finita negli appunti: scaricala col pulsante «⬇️ Scarica foto» qui sopra e trascinala nella chat.'
              : '✅ WhatsApp aperto col messaggio già scritto: premi INVIO per inviarlo.';
   setOrderStatus(note + ' (lingua: ' + (LANG_NAME[lang]||lang) + ')');
   if(!win){ setOrderStatus('⚠️ Popup bloccato. Consenti i popup per questo sito, poi riprova. '+note, true); }
