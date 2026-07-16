@@ -58,6 +58,12 @@ const icons = {
       <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
     </svg>
   ),
+  impostazioni: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M19 12a7 7 0 0 0-.14-1.4l2-1.55-2-3.46-2.35.95a7 7 0 0 0-2.42-1.4L13.7 2.6h-3.4l-.39 2.54a7 7 0 0 0-2.42 1.4l-2.35-.95-2 3.46 2 1.55A7 7 0 0 0 5 12c0 .48.05.94.14 1.4l-2 1.55 2 3.46 2.35-.95a7 7 0 0 0 2.42 1.4l.39 2.54h3.4l.39-2.54a7 7 0 0 0 2.42-1.4l2.35.95 2-3.46-2-1.55c.09-.46.14-.92.14-1.4z" />
+    </svg>
+  ),
 };
 
 const sections: { label: string; items: Item[] }[] = [
@@ -80,6 +86,10 @@ const sections: { label: string; items: Item[] }[] = [
       { href: "/scadenzario", label: "Scadenzario", icon: icons.scadenze },
       { href: "/report", label: "Report", icon: icons.report },
     ],
+  },
+  {
+    label: "Configurazione",
+    items: [{ href: "/impostazioni", label: "Impostazioni", icon: icons.impostazioni }],
   },
 ];
 

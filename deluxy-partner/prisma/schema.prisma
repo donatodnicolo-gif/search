@@ -121,6 +121,12 @@ model SaldoMensile {
   @@unique([partnerId, anno, mese])
 }
 
+// Impostazioni dell'app (chiave/valore): dati ordinante SEPA, preferenze
+model Impostazione {
+  chiave String @id
+  valore String
+}
+
 // Piano commerciale: actual 2025 / actual 2026 / forecast 2026
 // (foglio "Piano commerciale e Forecast")
 model Forecast {

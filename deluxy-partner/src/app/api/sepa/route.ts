@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
 import { nomeMese } from "@/lib/calc";
+import { CHIAVI, leggiImpostazioni } from "@/lib/impostazioni";
 
 // Export dei bonifici da fare ai partner per un mese:
 //  - formato=csv  → distinta in CSV (controllo/contabilità)
@@ -58,6 +59,16 @@ export async function GET(req: NextRequest) {
   }
 
   // SEPA pain.001 — solo partner con IBAN
+  const imp = await leggiImpostazioni();
+  const ordinanteNome = imp[CHIAVI.ordinanteNome];
+  const ordinanteIban = imp[CHIAVI.ordinanteIban];
+  const ordinanteBic = imp[CHIAVI.ordinanteBic];
+  if (!ordinanteNome || !ordinanteIban) {
+    return new NextResponse(
+      "Per generare il file SEPA servono intestazione e IBAN del conto Deluxy: impostali in Impostazioni (menu Configurazione).",
+      { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } }
+    );
+  }
   const conIban = pendenti.filter((x) => x.partner.iban);
   const now = new Date();
   const msgId = `DELUXY-PARTNER-${anno}${String(mese).padStart(2, "0")}-${now.getTime()}`;
@@ -94,9 +105,9 @@ export async function GET(req: NextRequest) {
       <CtrlSum>${totale}</CtrlSum>
       <PmtTpInf><SvcLvl><Cd>SEPA</Cd></SvcLvl></PmtTpInf>
       <ReqdExctnDt>${dataEsecuzione}</ReqdExctnDt>
-      <Dbtr><Nm>DELUXY</Nm></Dbtr>
-      <DbtrAcct><Id><IBAN>IT00X0000000000000000000000</IBAN></Id></DbtrAcct>
-      <DbtrAgt><FinInstnId/></DbtrAgt>
+      <Dbtr><Nm>${esc(soloAscii(ordinanteNome))}</Nm></Dbtr>
+      <DbtrAcct><Id><IBAN>${esc(ordinanteIban.replace(/\s/g, ""))}</IBAN></Id></DbtrAcct>
+      <DbtrAgt>${ordinanteBic ? `<FinInstnId><BIC>${esc(ordinanteBic)}</BIC></FinInstnId>` : "<FinInstnId/>"}</DbtrAgt>
       <ChrgBr>SLEV</ChrgBr>${txs}
     </PmtInf>
   </CstmrCdtTrfInitn>
@@ -107,8 +118,6 @@ export async function GET(req: NextRequest) {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
       "Content-Disposition": `attachment; filename="sepa-bonifici-partner-${anno}-${String(mese).padStart(2, "0")}.xml"`,
-      // Nota: sostituire l'IBAN ordinante (DbtrAcct) con quello reale Deluxy
-      // in impostazioni prima dell'uso in banca.
     },
   });
 }
