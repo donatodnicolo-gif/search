@@ -3,6 +3,7 @@ import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { nomeMese } from "@/lib/calc";
+import { registraBonifico } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -105,10 +106,30 @@ export default async function Dashboard() {
                     <td className="num">{euro(x.r.dovutoPartner)}</td>
                     <td className="num">{euro(x.r.bonifico)}</td>
                     <td className="num neg">{euro(-x.r.residuo)}</td>
-                    <td>
-                      <Link className="btn small secondary" href={`/saldi?anno=${anno}&mese=${x.mese}`}>
-                        Gestisci
-                      </Link>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <span style={{ display: "inline-flex", gap: 8 }}>
+                        <Link className="btn small secondary" href={`/saldi?anno=${anno}&mese=${x.mese}`}>
+                          Gestisci
+                        </Link>
+                        <form
+                          action={registraBonifico.bind(
+                            null,
+                            x.partner.id,
+                            anno,
+                            x.mese,
+                            +(-x.r.residuo).toFixed(2),
+                            undefined
+                          )}
+                        >
+                          <button
+                            className="btn small primary"
+                            type="submit"
+                            title={`Registra bonifico di ${euro(-x.r.residuo)} con data odierna (il mese risulterà pareggiato)`}
+                          >
+                            Paga
+                          </button>
+                        </form>
+                      </span>
                     </td>
                   </tr>
                 ))}
