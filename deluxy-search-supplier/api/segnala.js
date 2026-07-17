@@ -59,8 +59,7 @@ export default async function handler(req, res) {
     // riga di nota sull'ordine per cui il negozio è stato contattato
     const ord = body.ordine || {};
     const ordTxt = (ord.numero || ord.valore)
-      ? 'Contattato per l\'ordine' + (ord.numero ? ' #' + ord.numero : '')
-        + (ord.brand ? ' ' + ord.brand : '') + (ord.valore ? ' — € ' + ord.valore : '') + '.'
+      ? 'Ordine' + (ord.numero ? ' #' + ord.numero : '') + (ord.valore ? ' valore € ' + ord.valore : '')
       : '';
     const quando = (typeof body.quando === 'string' && body.quando) ? body.quando : '';
     const dataStr = quando.slice(0, 10);
