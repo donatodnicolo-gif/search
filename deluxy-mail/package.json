@@ -4,10 +4,10 @@
   "private": true,
   "description": "AI MAIL 2.0 — client di posta Deluxy che smista, crea attività e propone risposte in automatico",
   "scripts": {
-    "dev": "next dev -p 3050",
+    "dev": "next dev -p 3070",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
-    "start": "next start -p 3050",
+    "start": "next start -p 3070",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.mjs",
     "tauri": "tauri"

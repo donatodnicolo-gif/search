@@ -3,7 +3,7 @@
 Client di posta Deluxy che **legge la posta da solo**: la smista nelle sezioni che
 decidi tu, estrae le attività da fare e prepara le risposte. Tu controlli e invii.
 
-- **Porta locale:** 3050 (`npm run dev`)
+- **Porta locale:** 3070 (`npm run dev`)
 - **Design system:** [Deluxy Design System v1.0](../deluxy-design-system/DESIGN-SYSTEM.md) — token in `src/app/tokens.css`
 - **Come funziona nel dettaglio:** [docs/COME-FUNZIONA-AI-MAIL.md](docs/COME-FUNZIONA-AI-MAIL.md)
 
@@ -24,7 +24,7 @@ decidi tu, estrae le attività da fare e prepara le risposte. Tu controlli e inv
 cp .env.example .env     # poi compila i valori
 npm install
 npm run db:push          # crea le tabelle
-npm run dev              # http://localhost:3050
+npm run dev              # http://localhost:3070
 ```
 
 Poi, dentro l'app: **Impostazioni** → collega la casella → **Sezioni** → crea le tue
