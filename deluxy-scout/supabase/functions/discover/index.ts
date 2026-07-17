@@ -246,6 +246,8 @@ Deno.serve(async (req) => {
               categoria,
               google_types: types,
               google_place_id: r.place_id,
+              google_rating: typeof r.rating === 'number' ? r.rating : null,
+              google_reviews: typeof r.user_ratings_total === 'number' ? r.user_ratings_total : null,
               source: 'google',
               novita: true,
               priorita: regola?.priorita ?? 'P3',
@@ -259,11 +261,21 @@ Deno.serve(async (req) => {
         nuovi = nuoviRecord.length;
         if (nuoviRecord.length) await admin.from('places').insert(nuoviRecord);
 
-        // Rinfresca il timestamp dei già noti (senza toccare starred/stato/hubspot).
-        const notiIds = [...notiSet];
-        if (notiIds.length) {
-          await admin.from('places').update({ google_refresh_at: nowIso }).in('google_place_id', notiIds);
-        }
+        // Rinfresca timestamp + recensioni dei già noti (senza toccare starred/stato/hubspot).
+        // Le recensioni cambiano per negozio → update mirati in parallelo (poche decine).
+        const noti = risultati.filter((r) => notiSet.has(r.place_id));
+        await Promise.all(
+          noti.map((r) =>
+            admin
+              .from('places')
+              .update({
+                google_refresh_at: nowIso,
+                google_rating: typeof r.rating === 'number' ? r.rating : null,
+                google_reviews: typeof r.user_ratings_total === 'number' ? r.user_ratings_total : null,
+              })
+              .eq('google_place_id', r.place_id),
+          ),
+        );
       }
 
       // Registra il refresh della cella.

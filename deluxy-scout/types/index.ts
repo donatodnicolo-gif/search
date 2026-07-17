@@ -115,6 +115,9 @@ export interface Place {
   nascosto?: boolean; // "non interessante": escluso dalla scoperta, visibile solo in Profilo → Nascosti
   hubspot_ha_contatto?: boolean; // l'azienda abbinata ha almeno un contatto
   hubspot_deal_aperta?: boolean; // l'azienda abbinata ha una trattativa aperta
+  google_rating?: number | null; // voto Google 0-5 (recensioni)
+  google_reviews?: number | null; // numero di recensioni Google
+  anagrafiche_stato?: string | null; // stato dal registro (attivo=partner, in_trattativa, ...)
   hubspot_sync_at?: string | null;
   google_refresh_at?: string | null;
 }

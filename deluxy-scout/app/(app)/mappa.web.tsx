@@ -7,7 +7,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, us
 import { useRouter } from 'expo-router';
 import { LINEE_ATTIVE, type Place } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, labelStato, radius, spacing } from '@/lib/theme';
 import { LineaIcon } from '@/components/LineaIcon';
 
 const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
@@ -15,13 +15,33 @@ import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/locatio
 import { urlNavigazione, urlNavigazioneGiro } from '@/lib/nav';
 import type { GeocodeResult } from '@/lib/geocode';
 import { scopriNegozi, type FiltroScoperta, type ScopertaResult } from '@/lib/discover';
-import { aggiornaNascosto, aggiornaStarred } from '@/lib/db';
+import { aggiornaNascosto, aggiornaStarred, aggiornaStatoPlace } from '@/lib/db';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
 import { AddressSearch } from '@/components/AddressSearch';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { VisitaModal } from '@/components/VisitaModal';
 import { Loader } from '../_layout';
+
+// Colore per lo stato attività (allineato ai token del design system).
+function coloreStato(s: string): string {
+  if (s === 'visitato') return colors.successo;
+  if (s === 'cliente') return colors.oro;
+  if (s === 'perso') return colors.errore;
+  return colors.grigio; // da_visitare
+}
+
+// Etichetta breve dello stato registro (partner / trattativa) da mostrare sulla card.
+function statoAffLabel(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const m: Record<string, string> = {
+    attivo: '★ Partner',
+    in_trattativa: 'In trattativa',
+    in_contatto: 'In contatto',
+    da_ricontattare: 'Da ricontattare',
+  };
+  return m[s] ?? null; // prospect/in_attesa/non_interessato: non li evidenziamo
+}
 
 // Sottomenu "cosa cerco": affiliati di default, poi si allarga.
 const TIPI_SCOPERTA: { v: FiltroScoperta; l: string }[] = [
@@ -113,18 +133,33 @@ export default function MappaWeb() {
     setLineaFocus(null);
   }
 
+  // Stella = "da visitare": entra nel giro E porta lo stato a da_visitare.
   async function toggleStar(p: Place) {
     const nuovo = !p.starred;
-    setScoperti((l) => l.map((x) => (x.id === p.id ? { ...x, starred: nuovo, novita: false } : x)));
+    const statoNuovo = nuovo ? 'da_visitare' : p.stato;
+    setScoperti((l) =>
+      l.map((x) => (x.id === p.id ? { ...x, starred: nuovo, stato: statoNuovo, novita: false } : x)),
+    );
     // Ordine del giro: se aggiungo la stella va in fondo (ordine di aggiunta); se la tolgo, esce.
     setGiroOrdine((ord) => (nuovo ? [...ord.filter((id) => id !== p.id), p.id] : ord.filter((id) => id !== p.id)));
     try {
       await aggiornaStarred(p.id, nuovo);
+      if (nuovo && p.stato !== 'da_visitare') await aggiornaStatoPlace(p.id, 'da_visitare');
     } catch {
-      // Ripristina lo stato originale (stella E badge novità).
-      setScoperti((l) => l.map((x) => (x.id === p.id ? { ...x, starred: p.starred, novita: p.novita } : x)));
+      // Ripristina lo stato originale (stella, stato E badge novità).
+      setScoperti((l) => l.map((x) => (x.id === p.id ? { ...x, starred: p.starred, stato: p.stato, novita: p.novita } : x)));
       setGiroOrdine((ord) => (p.starred ? ord : ord.filter((id) => id !== p.id)));
     }
+  }
+
+  // Cerchio = "visitato": porta lo stato a visitato, esce dal giro e apre il pop-up
+  // per registrare i dettagli della visita.
+  async function segnaVisitato(p: Place) {
+    setScoperti((l) => l.map((x) => (x.id === p.id ? { ...x, stato: 'visitato', starred: false } : x)));
+    setGiroOrdine((ord) => ord.filter((id) => id !== p.id));
+    aggiornaStatoPlace(p.id, 'visitato').catch(() => {});
+    if (p.starred) aggiornaStarred(p.id, false).catch(() => {});
+    setVisitaPlace({ ...p, stato: 'visitato' });
   }
 
   // Sposta una tappa su/giù nell'ordine del giro.
@@ -335,6 +370,22 @@ export default function MappaWeb() {
                       .filter(Boolean)
                       .join('  ·  ') || '—'}
                   </Text>
+                  {typeof p.google_rating === 'number' ? (
+                    <View style={styles.rating}>
+                      <Ionicons name="star" size={11} color={colors.oro} />
+                      <Text style={styles.ratingTxt}>
+                        {p.google_rating.toFixed(1)}
+                        {p.google_reviews ? ` (${p.google_reviews})` : ''}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {statoAffLabel(p.anagrafiche_stato) ? (
+                    <View style={[styles.crmBadge, p.anagrafiche_stato === 'attivo' ? styles.crmPartner : styles.crmRegistro]}>
+                      <Text style={p.anagrafiche_stato === 'attivo' ? styles.crmPartnerTxt : styles.crmRegistroTxt}>
+                        {statoAffLabel(p.anagrafiche_stato)}
+                      </Text>
+                    </View>
+                  ) : null}
                   {p.hubspot_ha_contatto ? (
                     <View style={[styles.crmBadge, styles.crmContatto]}>
                       <Text style={styles.crmContattoTxt}>◑ contatto</Text>
@@ -343,6 +394,12 @@ export default function MappaWeb() {
                   {p.hubspot_deal_aperta ? (
                     <View style={[styles.crmBadge, styles.crmTrattativa]}>
                       <Text style={styles.crmTrattativaTxt}>◆ trattativa</Text>
+                    </View>
+                  ) : null}
+                  {p.stato && p.stato !== 'da_visitare' ? (
+                    <View style={[styles.statoBadge, { borderColor: coloreStato(p.stato) }]}>
+                      <View style={[styles.statoDot, { backgroundColor: coloreStato(p.stato) }]} />
+                      <Text style={styles.statoBadgeTxt}>{labelStato[p.stato]}</Text>
                     </View>
                   ) : null}
                   {p.da_completare ? <Text style={styles.daCompl}>da completare</Text> : null}
@@ -362,18 +419,18 @@ export default function MappaWeb() {
                 </Pressable>
                 {!giroAttivo ? (
                   <>
-                    <Pressable style={styles.azione} hitSlop={8} onPress={() => setVisitaPlace(p)} accessibilityLabel="Visita">
+                    <Pressable style={styles.azione} hitSlop={8} onPress={() => segnaVisitato(p)} accessibilityLabel="Segna visitato">
                       <Ionicons
                         name={p.stato === 'visitato' ? 'checkmark-circle' : 'ellipse-outline'}
                         size={21}
                         color={p.stato === 'visitato' ? colors.successo : colors.grigio}
                       />
                     </Pressable>
-                    <Pressable style={styles.azione} hitSlop={8} onPress={() => toggleStar(p)} accessibilityLabel="Interessante">
+                    <Pressable style={styles.azione} hitSlop={8} onPress={() => toggleStar(p)} accessibilityLabel="Da visitare (giro)">
                       <Ionicons
-                        name={p.starred ? 'star' : 'star-outline'}
+                        name={p.starred || p.stato === 'da_visitare' ? 'star' : 'star-outline'}
                         size={21}
-                        color={p.starred ? colors.oro : colors.grigio}
+                        color={p.starred || p.stato === 'da_visitare' ? colors.oro : colors.grigio}
                       />
                     </Pressable>
                     <Pressable style={styles.azione} hitSlop={8} onPress={() => nascondi(p)} accessibilityLabel="Non interessante — nascondi">
@@ -538,7 +595,7 @@ const styles = StyleSheet.create({
   nome: { color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2, lineHeight: 21 },
   novita: { backgroundColor: colors.oro, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   novitaTxt: { color: colors.navy, fontWeight: '900', fontSize: 9, letterSpacing: 0.5 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, rowGap: 4 },
   prioDot: { width: 8, height: 8, borderRadius: 4 },
   meta: { flexShrink: 1, color: colors.testoSoft, fontSize: 13 },
   hs: { color: colors.successo, fontWeight: '700', fontSize: 11 },
@@ -548,6 +605,23 @@ const styles = StyleSheet.create({
   crmContattoTxt: { color: colors.successo, fontWeight: '800', fontSize: 10 },
   crmTrattativa: { backgroundColor: 'rgba(0,113,227,0.12)' },
   crmTrattativaTxt: { color: colors.blue, fontWeight: '800', fontSize: 10 },
+  crmPartner: { backgroundColor: 'rgba(36,138,61,0.14)' },
+  crmPartnerTxt: { color: colors.successo, fontWeight: '800', fontSize: 10 },
+  crmRegistro: { backgroundColor: 'rgba(184,150,62,0.16)' },
+  crmRegistroTxt: { color: colors.oro, fontWeight: '800', fontSize: 10 },
+  rating: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  ratingTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 11 },
+  statoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+  },
+  statoDot: { width: 6, height: 6, borderRadius: 3 },
+  statoBadgeTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 10 },
   azioni: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   // Mobile: icone a capo, allineate a destra sotto il testo, con più respiro.
   azioniMobile: { justifyContent: 'flex-end', gap: 10, paddingLeft: 56, paddingTop: 2 },
