@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { dataBreve } from '@/lib/format'
 import { iniziali } from '@/lib/contatti'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
+import { RispostaAzioni } from '@/components/RispostaAzioni'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,11 +78,11 @@ export default async function Contatto({ params }: Props) {
         <div className="mail-list">
           {messaggi.map((m) => (
             <div key={m.id} className={`mail-row ${m.letto ? '' : 'non-letto'}`}>
-              <Link href={`/messaggio/${m.id}`} className="mail-row-link">
+              <div className="mail-row-head">
+                <Link href={`/messaggio/${m.id}`} className="mail-row-link">
                 <div className="mail-top">
                   <span className={m.letto ? 'dot-spacer' : 'dot-unread'} />
                   <span className="mail-mittente">{m.oggetto}</span>
-                  <span className="mail-data">{dataBreve(m.data)}</span>
                 </div>
 
                 <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
@@ -110,7 +111,13 @@ export default async function Contatto({ params }: Props) {
                     {m.bozza && !m.bozza.inviata && <span className="badge gold">Bozza pronta</span>}
                   </div>
                 )}
-              </Link>
+                </Link>
+
+                <div className="mail-row-side">
+                  <span className="mail-data">{dataBreve(m.data)}</span>
+                  <RispostaAzioni id={m.id} />
+                </div>
+              </div>
 
               <div style={{ paddingLeft: 17 }}>
                 <PrioritaButtons

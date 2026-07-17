@@ -212,7 +212,39 @@ input:focus, select:focus, textarea:focus {
 .mail-row.non-letto { background: rgba(0, 113, 227, 0.03); }
 .mail-row.selezionato { background: var(--fill-active); }
 /* Solo questa parte apre la mail: i pulsanti di priorità stanno fuori. */
-.mail-row-link { display: block; cursor: pointer; }
+.mail-row-link { display: block; cursor: pointer; flex: 1; min-width: 0; }
+
+/* Testa della riga: il messaggio a sinistra, data e azioni di risposta in
+   alto a destra. Sono fuori dal link perché un link dentro un link non esiste. */
+.mail-row-head { display: flex; align-items: flex-start; gap: 16px; }
+.mail-row-side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.risposta-azioni { display: flex; gap: 5px; }
+.risposta-btn {
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 150ms var(--ease), color 150ms var(--ease),
+    border-color 150ms var(--ease);
+}
+.risposta-btn:hover { background: var(--ink); color: #fff; border-color: transparent; }
+
+/* Su schermo stretto le tre azioni andrebbero a capo sopra il testo: meglio
+   passare dal dettaglio del messaggio, dove ci sono per esteso. */
+@media (max-width: 700px) {
+  .risposta-azioni { display: none; }
+}
 
 .mail-top { display: flex; align-items: center; gap: 10px; }
 .mail-mittente { font-size: 14px; font-weight: 500; flex: 1; min-width: 0; }

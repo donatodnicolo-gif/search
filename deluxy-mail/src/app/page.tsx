@@ -5,6 +5,7 @@ import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
 import { ArchiviaDefinitivo } from '@/components/ArchiviaDefinitivo'
 import { AzioniRiga } from '@/components/AzioniRiga'
+import { RispostaAzioni } from '@/components/RispostaAzioni'
 
 export const dynamic = 'force-dynamic'
 
@@ -141,11 +142,11 @@ export default async function PostaInArrivo({ searchParams }: Props) {
               // La riga non è più tutta un link: i pulsanti di priorità devono
               // essere cliccabili senza aprire la mail.
               <div key={m.id} className={`mail-row ${m.letto ? '' : 'non-letto'}`}>
-                <Link href={`/messaggio/${m.id}`} className="mail-row-link">
+                <div className="mail-row-head">
+                  <Link href={`/messaggio/${m.id}`} className="mail-row-link">
                   <div className="mail-top">
                     <span className={m.letto ? 'dot-spacer' : 'dot-unread'} />
                     <span className="mail-mittente">{m.mittenteNome || m.mittente}</span>
-                    <span className="mail-data">{dataBreve(m.data)}</span>
                   </div>
                   <div className="mail-oggetto" style={{ paddingLeft: 17 }}>
                     {m.oggetto}
@@ -182,7 +183,13 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                       )}
                     </div>
                   )}
-                </Link>
+                  </Link>
+
+                  <div className="mail-row-side">
+                    <span className="mail-data">{dataBreve(m.data)}</span>
+                    <RispostaAzioni id={m.id} />
+                  </div>
+                </div>
 
                 <div style={{ paddingLeft: 17 }}>
                   <PrioritaButtons
