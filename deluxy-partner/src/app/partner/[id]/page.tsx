@@ -218,6 +218,73 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
           </div>
         </div>
       ))}
+
+      {mesiConDati.length > 0 && (() => {
+        // Totale YTD: somma dei mesi con dati, confrontata con lo stesso periodo 2025
+        const ultimoMese = Math.max(...mesiConDati.map((m) => m.mese));
+        const ytd = mesi.slice(0, ultimoMese).map((m) => m.riepilogo);
+        const sum = (fn: (r: (typeof ytd)[number]) => number) => ytd.reduce((a, r) => a + fn(r), 0);
+        const ytdPrec = prec.mesi.slice(0, ultimoMese).map((m) => m.riepilogo);
+        const sumPrec = (fn: (r: (typeof ytdPrec)[number]) => number) => ytdPrec.reduce((a, r) => a + fn(r), 0);
+        const totCur = sum((r) => r.vendite + r.serviziNetto);
+        const totPrec = sumPrec((r) => r.vendite + r.serviziNetto);
+        const dp = totPrec ? ((totCur - totPrec) / totPrec) * 100 : null;
+        const residuoYtd = sum((r) => r.residuo);
+        return (
+          <div className="month-block" style={{ background: "var(--surface)" }}>
+            <div className="month-head">
+              <span style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                Totale YTD {anno} (Gennaio–{nomeMese(ultimoMese)})
+                <span className="muted" style={{ fontWeight: 400, fontSize: 12.5 }}>
+                  {annoPrec} stesso periodo: {totPrec ? euro(totPrec) : "—"}
+                  {dp != null && (
+                    <>
+                      {" · "}
+                      <span style={{ color: dp >= 0 ? "var(--green)" : "var(--red)", fontWeight: 500 }}>
+                        {dp >= 0 ? "+" : ""}{dp.toFixed(1).replace(".", ",")}%
+                      </span>
+                    </>
+                  )}
+                </span>
+              </span>
+              {Math.abs(residuoYtd) < 0.01 ? (
+                <span className="badge green"><span className="dot" />Tutto pareggiato</span>
+              ) : residuoYtd > 0 ? (
+                <span className="badge orange"><span className="dot" />Da incassare {euro(residuoYtd)}</span>
+              ) : (
+                <span className="badge orange"><span className="dot" />Da bonificare {euro(-residuoYtd)}</span>
+              )}
+            </div>
+            <div className="month-body">
+              <div className="table-wrap">
+                <table className="mini-table">
+                  <tbody>
+                    <tr>
+                      <td style={{ width: 170 }} className="muted">Vendite come vendor</td>
+                      <td>commissioni {euro(sum((r) => r.commissioni))}</td>
+                      <td className="num">{euro(sum((r) => r.vendite))} <span className="muted">→ dovuto {euro(sum((r) => r.dovutoPartner))}</span></td>
+                    </tr>
+                    <tr>
+                      <td className="muted">Servizi a fatturazione</td>
+                      <td>IVA inclusa {euro(sum((r) => r.serviziIvato))}</td>
+                      <td className="num">{euro(sum((r) => r.serviziNetto))} <span className="muted">netto IVA</span></td>
+                    </tr>
+                    <tr style={{ background: "var(--bg)" }}>
+                      <td className="muted">Saldi</td>
+                      <td>
+                        Bonificato al partner {euro(rolling.pagatoAlPartner)} · incassato {euro(rolling.incassatoDalPartner)}
+                      </td>
+                      <td className={`num ${Math.abs(residuoYtd) < 0.01 ? "" : residuoYtd > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
+                        residuo {euro(residuoYtd)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }
