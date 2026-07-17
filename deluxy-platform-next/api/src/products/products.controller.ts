@@ -6,10 +6,12 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
+import { ListQueryDto } from '../common/list-query';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
 import { ProductsService } from './products.service';
 
@@ -20,9 +22,12 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lista prodotti (il partner vede i propri + i visibili)' })
-  findAll(@CurrentUser() user: JwtUser) {
-    return this.productsService.findAll(user);
+  @ApiOperation({
+    summary:
+      'Lista prodotti paginata (il partner vede i propri + i visibili). q = ricerca globale su tutti i campi testuali',
+  })
+  findAll(@CurrentUser() user: JwtUser, @Query() query: ListQueryDto) {
+    return this.productsService.findAll(user, query);
   }
 
   @Get(':id')

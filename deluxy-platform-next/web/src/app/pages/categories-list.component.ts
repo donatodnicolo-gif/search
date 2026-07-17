@@ -1,37 +1,38 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { Category } from '../core/models';
 
 @Component({
   selector: 'app-categories-list',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <div class="page-header">
       <div>
-        <h1>Categorie</h1>
-        <p class="page-caption">{{ categories().length }} categorie di prodotto.</p>
+        <h1>{{ 'categories.title' | translate }}</h1>
+        <p class="page-caption">{{ categories().length }} {{ 'categories.caption' | translate }}</p>
       </div>
       <div class="head-actions">
-        <input class="field" placeholder="Cerca…" [(ngModel)]="query" />
-        <a routerLink="/categories/new" class="btn btn-primary">+ Aggiungi categoria</a>
+        <input class="field" [attr.placeholder]="'categories.searchPlaceholder' | translate" [(ngModel)]="query" />
+        <a routerLink="/categories/new" class="btn btn-primary">+ {{ 'categories.add' | translate }}</a>
       </div>
     </div>
 
-    @if (loading()) { <div class="card state-card">Caricamento…</div> }
+    @if (loading()) { <div class="card state-card">{{ 'categories.loading' | translate }}</div> }
     @else if (error()) { <div class="error-card">{{ error() }}</div> }
     @else if (filtered().length === 0) {
-      <div class="card state-card"><strong>Nessuna categoria.</strong><span class="muted">Aggiungine una.</span></div>
+      <div class="card state-card"><strong>{{ 'categories.emptyTitle' | translate }}</strong><span class="muted">{{ 'categories.emptyHint' | translate }}</span></div>
     } @else {
       <div class="card table-wrap">
         <table>
-          <thead><tr><th>Nome</th><th>Note</th><th>Campi extra</th><th>Sconti provincia</th></tr></thead>
+          <thead><tr><th>{{ 'categories.col.name' | translate }}</th><th>{{ 'categories.col.notes' | translate }}</th><th>{{ 'categories.col.fields' | translate }}</th><th>{{ 'categories.col.discounts' | translate }}</th><th>{{ 'deliveries.col.actions' | translate }}</th></tr></thead>
           <tbody>
             @for (c of filtered(); track c.id) {
-              <tr>
+              <tr class="row-link" tabindex="0" (click)="openDetail(c)" (keydown.enter)="openDetail(c)">
                 <td class="strong">{{ c.name }}</td>
                 <td class="muted">{{ c.notes || '—' }}</td>
                 <td>
@@ -41,6 +42,9 @@ import { Category } from '../core/models';
                 <td>
                   @for (d of (c.discounts || []); track d.id) { <span class="pill pill-gold">{{ d.province.code }} −{{ d.discountPercent }}%</span> }
                   @empty { <span class="muted">—</span> }
+                </td>
+                <td class="actions-cell" (click)="$event.stopPropagation()">
+                  <a class="act" [routerLink]="['/categories', c.id, 'edit']">{{ 'common.edit' | translate }}</a>
                 </td>
               </tr>
             }
@@ -67,6 +71,11 @@ import { Category } from '../core/models';
       .pill { display: inline-flex; align-items: center; border-radius: 980px; padding: 3px 10px; font-size: 12px; font-weight: 550; margin: 0 4px 4px 0; }
       .pill-neutral { background: var(--fill); color: var(--text-secondary); }
       .pill-gold { background: var(--gold-soft); color: var(--gold-strong); }
+      .row-link { cursor: pointer; }
+      .row-link:focus-visible { outline: 2px solid var(--gold-strong); outline-offset: -2px; }
+      .actions-cell { white-space: nowrap; }
+      .act { display: inline-flex; align-items: center; border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 4px 11px; font-size: 12px; font-weight: 550; color: var(--text); text-decoration: none; }
+      .act:hover { background: var(--fill); }
       .state-card { padding: 32px; display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); border-radius: var(--radius-l); color: var(--red); padding: 24px; }
     `,
@@ -74,6 +83,13 @@ import { Category } from '../core/models';
 })
 export class CategoriesListComponent {
   private readonly http = inject(HttpClient);
+  private readonly translate = inject(TranslateService);
+  private readonly router = inject(Router);
+
+  /** Il click sulla riga apre sempre il dettaglio. */
+  openDetail(c: Category): void {
+    this.router.navigate(['/categories', c.id]);
+  }
 
   readonly categories = signal<Category[]>([]);
   readonly loading = signal(true);
@@ -89,7 +105,7 @@ export class CategoriesListComponent {
   constructor() {
     this.http.get<Category[]>(`${environment.apiUrl}/categories`).subscribe({
       next: (d) => { this.categories.set(d); this.loading.set(false); },
-      error: (err) => { this.loading.set(false); this.error.set(err?.error?.message ?? 'Errore nel caricamento'); },
+      error: (err) => { this.loading.set(false); this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')); },
     });
   }
 }

@@ -1,52 +1,55 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
-import { PAYMENT_STATUS_LABELS, Partner } from '../core/models';
+import { AuthService } from '../core/auth.service';
+import { Partner } from '../core/models';
 
 @Component({
   selector: 'app-partners-list',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <div class="page-header">
       <div>
-        <h1>Partner</h1>
-        <p class="page-caption">{{ partners().length }} partner in rete.</p>
+        <h1>{{ 'partners.title' | translate }}</h1>
+        <p class="page-caption">{{ partners().length }} {{ 'partners.caption' | translate }}</p>
       </div>
       <div class="head-actions">
-        <input class="field" placeholder="Cerca…" [(ngModel)]="query" />
-        <a routerLink="/partners/new" class="btn btn-primary">+ Aggiungi partner</a>
+        <input class="field" [attr.placeholder]="'partners.searchPlaceholder' | translate" [(ngModel)]="query" />
+        <a routerLink="/partners/new" class="btn btn-primary">+ {{ 'partners.add' | translate }}</a>
       </div>
     </div>
 
     @if (loading()) {
-      <div class="card state-card">Caricamento partner…</div>
+      <div class="card state-card">{{ 'partners.loading' | translate }}</div>
     } @else if (error()) {
       <div class="error-card">{{ error() }}</div>
     } @else if (filtered().length === 0) {
       <div class="card state-card">
-        <strong>Nessun partner trovato.</strong>
-        <span class="muted">Aggiungine uno con “Aggiungi partner”.</span>
+        <strong>{{ 'partners.emptyTitle' | translate }}</strong>
+        <span class="muted">{{ 'partners.emptyHint' | translate }}</span>
       </div>
     } @else {
       <div class="card table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Insegna</th>
-              <th>Email</th>
-              <th>Telefono</th>
-              <th>Province</th>
-              <th>Categorie</th>
-              <th>Pagamento</th>
-              <th>Stato</th>
+              <th>{{ 'partners.col.insegna' | translate }}</th>
+              <th>{{ 'partners.col.email' | translate }}</th>
+              <th>{{ 'partners.col.phone' | translate }}</th>
+              <th>{{ 'partners.col.provinces' | translate }}</th>
+              <th>{{ 'partners.col.categories' | translate }}</th>
+              <th>{{ 'partners.col.payment' | translate }}</th>
+              <th>{{ 'partners.col.status' | translate }}</th>
+              <th>{{ 'deliveries.col.actions' | translate }}</th>
             </tr>
           </thead>
           <tbody>
             @for (p of filtered(); track p.id) {
-              <tr>
+              <tr class="row-link" tabindex="0" (click)="openDetail(p)" (keydown.enter)="openDetail(p)">
                 <td class="strong">{{ p.insegna }}</td>
                 <td class="muted">{{ p.email }}</td>
                 <td>{{ p.phone || '—' }}</td>
@@ -60,12 +63,17 @@ import { PAYMENT_STATUS_LABELS, Partner } from '../core/models';
                 </td>
                 <td>
                   <span class="pill" [class]="'pill s-' + (p.paymentStatus || 'active')">
-                    <span class="dot"></span>{{ statusLabel(p.paymentStatus) }}
+                    <span class="dot"></span>{{ ('enums.paymentStatus.' + (p.paymentStatus || 'active')) | translate }}
                   </span>
                 </td>
                 <td>
-                  @if (p.active) { <span class="pill s-active"><span class="dot"></span>Attivo</span> }
-                  @else { <span class="pill pill-neutral">Disattivo</span> }
+                  @if (p.active) { <span class="pill s-active"><span class="dot"></span>{{ 'common.active' | translate }}</span> }
+                  @else { <span class="pill pill-neutral">{{ 'common.inactive' | translate }}</span> }
+                </td>
+                <td class="actions-cell" (click)="$event.stopPropagation()">
+                  @if (canEdit()) {
+                    <a class="act" [routerLink]="['/partners', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
+                  }
                 </td>
               </tr>
             }
@@ -97,6 +105,11 @@ import { PAYMENT_STATUS_LABELS, Partner } from '../core/models';
       .s-active { background: rgba(36,138,61,0.12); color: var(--green); }
       .s-inactive { background: rgba(255,149,0,0.12); color: #b25000; }
       .s-blocked { background: rgba(215,0,21,0.09); color: var(--red); }
+      .row-link { cursor: pointer; }
+      .row-link:focus-visible { outline: 2px solid var(--gold-strong); outline-offset: -2px; }
+      .actions-cell { white-space: nowrap; }
+      .act { display: inline-flex; align-items: center; border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 4px 11px; font-size: 12px; font-weight: 550; color: var(--text); text-decoration: none; }
+      .act:hover { background: var(--fill); }
       .state-card { padding: 32px; display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); border-radius: var(--radius-l); color: var(--red); padding: 24px; }
     `,
@@ -104,6 +117,20 @@ import { PAYMENT_STATUS_LABELS, Partner } from '../core/models';
 })
 export class PartnersListComponent {
   private readonly http = inject(HttpClient);
+  private readonly translate = inject(TranslateService);
+  private readonly router = inject(Router);
+  private readonly auth = inject(AuthService);
+
+  /** Il click sulla riga apre sempre il dettaglio. */
+  openDetail(p: Partner): void {
+    this.router.navigate(['/partners', p.id]);
+  }
+
+  /** Modifica partner: admin, operation, project manager (come l'API). */
+  canEdit(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER';
+  }
 
   readonly partners = signal<Partner[]>([]);
   readonly loading = signal(true);
@@ -129,16 +156,12 @@ export class PartnersListComponent {
       },
       error: (err) => {
         this.loading.set(false);
-        this.error.set(err?.error?.message ?? 'Errore nel caricamento dei partner');
+        this.error.set(err?.error?.message ?? this.translate.instant('partners.loadError'));
       },
     });
   }
 
   namesOf(p: Partner): string {
     return (p.categories || []).map((c) => c.category.name).join(', ');
-  }
-
-  statusLabel(status?: string): string {
-    return PAYMENT_STATUS_LABELS[status ?? 'active'] ?? status ?? '—';
   }
 }

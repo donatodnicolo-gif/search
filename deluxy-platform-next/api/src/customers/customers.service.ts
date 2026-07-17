@@ -25,7 +25,14 @@ export class CustomersService {
   async findOne(id: string, user: JwtUser) {
     const customer = await this.prisma.customer.findUnique({
       where: { id },
-      include: { partner: { select: { id: true, insegna: true } } },
+      include: {
+        partner: { select: { id: true, insegna: true } },
+        // Consegne del cliente, mostrate nella scheda cliente
+        deliveries: {
+          select: { id: true, code: true, date: true, status: true },
+          orderBy: { date: 'desc' },
+        },
+      },
     });
     if (!customer) throw new NotFoundException('Cliente non trovato');
     if (user.role === Role.PARTNER && customer.partnerId !== user.partnerId) {

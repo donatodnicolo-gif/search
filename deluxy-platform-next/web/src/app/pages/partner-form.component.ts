@@ -1,7 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import {
   Category,
@@ -22,14 +23,14 @@ interface ServiceRow {
 @Component({
   selector: 'app-partner-form',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <div class="form-head">
       <div>
-        <a routerLink="/partners" class="back">← Partner</a>
-        <h1>Nuovo partner</h1>
+        <a routerLink="/partners" class="back">← {{ 'partnerForm.backToPartners' | translate }}</a>
+        <h1>{{ (editId() ? 'partnerForm.editTitle' : 'partnerForm.title') | translate }}</h1>
         <p class="page-caption">
-          Anagrafica, province servite, servizi, pagamenti e setup.
+          {{ 'partnerForm.caption' | translate }}
         </p>
       </div>
     </div>
@@ -38,56 +39,56 @@ interface ServiceRow {
       <!-- Informazioni generali -->
       <section class="card block">
         <header class="block-head">
-          <h2>Informazioni generali</h2>
-          <span class="block-sub">I campi con * sono obbligatori.</span>
+          <h2>{{ 'partnerForm.general.title' | translate }}</h2>
+          <span class="block-sub">{{ 'partnerForm.general.requiredNote' | translate }}</span>
         </header>
         <div class="grid-2">
-          <label class="fld"><span>Insegna *</span>
-            <input class="field" name="insegna" [(ngModel)]="model.insegna" required placeholder="Es. Fioraio Milano Centro" /></label>
-          <label class="fld"><span>Email *</span>
-            <input class="field" type="email" name="email" [(ngModel)]="model.email" required placeholder="ordini@partner.it" /></label>
-          <label class="fld"><span>Ragione sociale</span>
-            <input class="field" name="businessName" [(ngModel)]="model.businessName" placeholder="Partner S.r.l." /></label>
-          <label class="fld"><span>Telefono</span>
+          <label class="fld"><span>{{ 'partnerForm.general.insegna' | translate }}</span>
+            <input class="field" name="insegna" [(ngModel)]="model.insegna" required [attr.placeholder]="'partnerForm.general.insegnaPlaceholder' | translate" /></label>
+          <label class="fld"><span>{{ 'partnerForm.general.email' | translate }}</span>
+            <input class="field" type="email" name="email" [(ngModel)]="model.email" required [attr.placeholder]="'partnerForm.general.emailPlaceholder' | translate" /></label>
+          <label class="fld"><span>{{ 'partnerForm.general.businessName' | translate }}</span>
+            <input class="field" name="businessName" [(ngModel)]="model.businessName" [attr.placeholder]="'partnerForm.general.businessNamePlaceholder' | translate" /></label>
+          <label class="fld"><span>{{ 'partnerForm.general.phone' | translate }}</span>
             <input class="field" name="phone" [(ngModel)]="model.phone" placeholder="+39 …" /></label>
-          <label class="fld"><span>Partita IVA</span>
+          <label class="fld"><span>{{ 'partnerForm.general.vatNumber' | translate }}</span>
             <input class="field" name="vatNumber" [(ngModel)]="model.vatNumber" placeholder="IT01234567890" /></label>
-          <label class="fld"><span>Codice fiscale</span>
+          <label class="fld"><span>{{ 'partnerForm.general.fiscalCode' | translate }}</span>
             <input class="field" name="fiscalCode" [(ngModel)]="model.fiscalCode" /></label>
-          <label class="fld span-2"><span>Indirizzo principale</span>
-            <input class="field" name="address" [(ngModel)]="model.address" placeholder="Via …, CAP Città (PR)" /></label>
+          <label class="fld span-2"><span>{{ 'partnerForm.general.address' | translate }}</span>
+            <input class="field" name="address" [(ngModel)]="model.address" [attr.placeholder]="'partnerForm.general.addressPlaceholder' | translate" /></label>
         </div>
 
         <!-- Ritiro multiplo, sotto l'indirizzo principale -->
-        <label class="toggle mt"><input type="checkbox" name="isMultiPickup" [(ngModel)]="model.isMultiPickup" /><span>Indirizzo di ritiro multiplo</span></label>
+        <label class="toggle mt"><input type="checkbox" name="isMultiPickup" [(ngModel)]="model.isMultiPickup" /><span>{{ 'partnerForm.general.multiPickup' | translate }}</span></label>
         @if (model.isMultiPickup) {
           <div class="pickup-list">
-            <span class="pickup-hint">Indirizzi di ritiro aggiuntivi (in consegna si sceglie quale usare):</span>
+            <span class="pickup-hint">{{ 'partnerForm.general.pickupHint' | translate }}</span>
             @for (addr of pickupAddresses; track $index) {
               <div class="pickup-row">
-                <input class="field" [(ngModel)]="pickupAddresses[$index]" [name]="'pickup' + $index" placeholder="Via …, CAP Città (PR)" />
-                <button type="button" class="icon-btn" (click)="removePickup($index)" title="Rimuovi">✕</button>
+                <input class="field" [(ngModel)]="pickupAddresses[$index]" [name]="'pickup' + $index" [attr.placeholder]="'partnerForm.general.addressPlaceholder' | translate" />
+                <button type="button" class="icon-btn" (click)="removePickup($index)" [title]="'partnerForm.general.remove' | translate">✕</button>
               </div>
             }
-            <button type="button" class="btn btn-secondary add" (click)="addPickup()">+ Aggiungi indirizzo di ritiro</button>
+            <button type="button" class="btn btn-secondary add" (click)="addPickup()">+ {{ 'partnerForm.general.addPickup' | translate }}</button>
           </div>
         }
 
         <div class="grid-2 mt">
-          <label class="fld"><span>Nome referente</span>
-            <input class="field" name="contactName" [(ngModel)]="model.contactName" placeholder="Nome" /></label>
-          <label class="fld"><span>Cognome referente</span>
-            <input class="field" name="contactSurname" [(ngModel)]="model.contactSurname" placeholder="Cognome" /></label>
+          <label class="fld"><span>{{ 'partnerForm.general.contactName' | translate }}</span>
+            <input class="field" name="contactName" [(ngModel)]="model.contactName" [attr.placeholder]="'partnerForm.general.contactNamePlaceholder' | translate" /></label>
+          <label class="fld"><span>{{ 'partnerForm.general.contactSurname' | translate }}</span>
+            <input class="field" name="contactSurname" [(ngModel)]="model.contactSurname" [attr.placeholder]="'partnerForm.general.contactSurnamePlaceholder' | translate" /></label>
         </div>
       </section>
 
       <!-- Province servite -->
       <section class="card block">
         <header class="block-head">
-          <h2>Province servite</h2>
-          <span class="block-sub">Il partner sarà selezionabile solo nelle consegne di queste province.</span>
+          <h2>{{ 'partnerForm.provinces.title' | translate }}</h2>
+          <span class="block-sub">{{ 'partnerForm.provinces.subtitle' | translate }}</span>
         </header>
-        @if (provinces().length === 0) { <p class="muted">Nessuna provincia configurata.</p> }
+        @if (provinces().length === 0) { <p class="muted">{{ 'partnerForm.provinces.empty' | translate }}</p> }
         @else {
           <div class="chips">
             @for (p of provinces(); track p.id) {
@@ -100,28 +101,28 @@ interface ServiceRow {
       <!-- Servizi abilitati -->
       <section class="card block">
         <header class="block-head">
-          <h2>Servizi abilitati</h2>
-          <span class="block-sub">Prezzo per servizio; KM inclusi (entro il comune) ed extra fuori città.</span>
+          <h2>{{ 'partnerForm.services.title' | translate }}</h2>
+          <span class="block-sub">{{ 'partnerForm.services.subtitle' | translate }}</span>
         </header>
-        @if (serviceRows.length === 0) { <p class="muted">Nessun servizio aggiunto.</p> }
+        @if (serviceRows.length === 0) { <p class="muted">{{ 'partnerForm.services.empty' | translate }}</p> }
         @for (row of serviceRows; track $index) {
           <div class="svc-row">
             <select class="field svc-type" [(ngModel)]="row.serviceTypeId" [name]="'svcType' + $index">
-              <option value="">Tipo di servizio…</option>
+              <option value="">{{ 'partnerForm.services.typePlaceholder' | translate }}</option>
               @for (s of serviceTypes(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
             </select>
-            <input class="field num" type="number" step="0.01" placeholder="Prezzo €" [(ngModel)]="row.price" [name]="'svcPrice' + $index" />
-            <input class="field num" type="number" placeholder="KM incl." [(ngModel)]="row.includedKm" [name]="'svcKm' + $index" />
-            <input class="field num" type="number" step="0.01" placeholder="€/KM extra" [(ngModel)]="row.extraKmPrice" [name]="'svcKmP' + $index" />
-            <input class="field num" type="number" step="0.01" placeholder="Extra f.città" [(ngModel)]="row.extraOutOfCityPrice" [name]="'svcOut' + $index" />
-            <button type="button" class="icon-btn" (click)="removeService($index)" title="Rimuovi">✕</button>
+            <input class="field num" type="number" step="0.01" [attr.placeholder]="'partnerForm.services.pricePlaceholder' | translate" [(ngModel)]="row.price" [name]="'svcPrice' + $index" />
+            <input class="field num" type="number" [attr.placeholder]="'partnerForm.services.kmIncludedPlaceholder' | translate" [(ngModel)]="row.includedKm" [name]="'svcKm' + $index" />
+            <input class="field num" type="number" step="0.01" [attr.placeholder]="'partnerForm.services.extraKmPlaceholder' | translate" [(ngModel)]="row.extraKmPrice" [name]="'svcKmP' + $index" />
+            <input class="field num" type="number" step="0.01" [attr.placeholder]="'partnerForm.services.extraOutOfCityPlaceholder' | translate" [(ngModel)]="row.extraOutOfCityPrice" [name]="'svcOut' + $index" />
+            <button type="button" class="icon-btn" (click)="removeService($index)" [title]="'partnerForm.general.remove' | translate">✕</button>
           </div>
         }
-        <button type="button" class="btn btn-secondary add" (click)="addService()">+ Aggiungi servizio</button>
+        <button type="button" class="btn btn-secondary add" (click)="addService()">+ {{ 'partnerForm.services.add' | translate }}</button>
         <div class="grid-2 mt">
-          <label class="fld"><span>KM inclusi (a livello partner)</span>
+          <label class="fld"><span>{{ 'partnerForm.services.kmIncludedPartner' | translate }}</span>
             <input class="field num" type="number" name="kmIncluded" [(ngModel)]="model.kmIncluded" /></label>
-          <label class="fld"><span>Extra fuori città (€, a livello partner)</span>
+          <label class="fld"><span>{{ 'partnerForm.services.extraOutOfCityPartner' | translate }}</span>
             <input class="field num" type="number" step="0.01" name="extraOutOfCityPrice" [(ngModel)]="model.extraOutOfCityPrice" /></label>
         </div>
       </section>
@@ -129,10 +130,10 @@ interface ServiceRow {
       <!-- Categorie -->
       <section class="card block">
         <header class="block-head">
-          <h2>Categorie vendute</h2>
-          <span class="block-sub">Determinano priorità e sconti per provincia.</span>
+          <h2>{{ 'partnerForm.categories.title' | translate }}</h2>
+          <span class="block-sub">{{ 'partnerForm.categories.subtitle' | translate }}</span>
         </header>
-        @if (categories().length === 0) { <p class="muted">Nessuna categoria configurata.</p> }
+        @if (categories().length === 0) { <p class="muted">{{ 'partnerForm.categories.empty' | translate }}</p> }
         @else {
           <div class="chips">
             @for (c of categories(); track c.id) {
@@ -144,98 +145,100 @@ interface ServiceRow {
 
       <!-- Pagamenti e fatturazione -->
       <section class="card block">
-        <header class="block-head"><h2>Pagamenti e fatturazione</h2></header>
+        <header class="block-head"><h2>{{ 'partnerForm.payments.title' | translate }}</h2></header>
         <div class="grid-2">
-          <label class="fld"><span>Metodo di pagamento</span>
+          <label class="fld"><span>{{ 'partnerForm.payments.paymentMethod' | translate }}</span>
             <select class="field" name="paymentMethod" [(ngModel)]="model.paymentMethod">
               <option value="">—</option>
-              @for (m of paymentMethods; track m[0]) { <option [value]="m[0]">{{ m[1] }}</option> }
+              @for (m of paymentMethods; track m[0]) { <option [value]="m[0]">{{ ('enums.paymentMethod.' + m[0]) | translate }}</option> }
             </select></label>
-          <label class="fld"><span>Stato del pagamento</span>
+          <label class="fld"><span>{{ 'partnerForm.payments.paymentStatus' | translate }}</span>
             <select class="field" name="paymentStatus" [(ngModel)]="model.paymentStatus">
-              @for (s of paymentStatuses; track s[0]) { <option [value]="s[0]">{{ s[1] }}</option> }
+              @for (s of paymentStatuses; track s[0]) { <option [value]="s[0]">{{ ('enums.paymentStatus.' + s[0]) | translate }}</option> }
             </select></label>
-          <label class="fld"><span>Contratto — dal</span>
+          <label class="fld"><span>{{ 'partnerForm.payments.contractStart' | translate }}</span>
             <input class="field" type="date" name="contractStart" [(ngModel)]="model.contractStart" /></label>
-          <label class="fld"><span>Contratto — al</span>
+          <label class="fld"><span>{{ 'partnerForm.payments.contractEnd' | translate }}</span>
             <input class="field" type="date" name="contractEnd" [(ngModel)]="model.contractEnd" /></label>
-          <label class="fld"><span>Conto bancario (IBAN)</span>
+          <label class="fld"><span>{{ 'partnerForm.payments.bankAccount' | translate }}</span>
             <input class="field" name="bankAccount" [(ngModel)]="model.bankAccount" placeholder="IT60 X054 …" /></label>
-          <label class="fld"><span>Intestatario del conto</span>
+          <label class="fld"><span>{{ 'partnerForm.payments.bankAccountName' | translate }}</span>
             <input class="field" name="bankAccountName" [(ngModel)]="model.bankAccountName" /></label>
-          <label class="fld"><span>Codice SDI</span>
-            <input class="field" name="sdiCode" [(ngModel)]="model.sdiCode" placeholder="Fatturazione elettronica" /></label>
-          <label class="fld"><span>PEC</span>
+          <label class="fld"><span>{{ 'partnerForm.payments.sdiCode' | translate }}</span>
+            <input class="field" name="sdiCode" [(ngModel)]="model.sdiCode" [attr.placeholder]="'partnerForm.payments.sdiCodePlaceholder' | translate" /></label>
+          <label class="fld"><span>{{ 'partnerForm.payments.certifiedEmail' | translate }}</span>
             <input class="field" type="email" name="certifiedEmail" [(ngModel)]="model.certifiedEmail" placeholder="pec@partner.it" /></label>
-          <label class="fld"><span>Email per le fatture</span>
+          <label class="fld"><span>{{ 'partnerForm.payments.invoiceEmail' | translate }}</span>
             <input class="field" type="email" name="invoiceEmail" [(ngModel)]="model.invoiceEmail" placeholder="fatture@partner.it" /></label>
         </div>
-        <label class="toggle mt"><input type="checkbox" name="invoicingEnabled" [(ngModel)]="model.invoicingEnabled" /><span>Abilita fatturazione</span></label>
+        <label class="toggle mt"><input type="checkbox" name="invoicingEnabled" [(ngModel)]="model.invoicingEnabled" /><span>{{ 'partnerForm.payments.invoicingEnabled' | translate }}</span></label>
       </section>
 
       <!-- Setup -->
       <section class="card block">
         <header class="block-head">
-          <h2>Setup</h2>
-          <span class="block-sub">Magazzino, sicurezza e notifiche.</span>
+          <h2>{{ 'partnerForm.setup.title' | translate }}</h2>
+          <span class="block-sub">{{ 'partnerForm.setup.subtitle' | translate }}</span>
         </header>
         <div class="setup-group">
-          <span class="group-label">Magazzino</span>
-          <label class="toggle"><input type="checkbox" name="isWarehouse" [(ngModel)]="model.isWarehouse" /><span>Partner magazzino</span></label>
+          <span class="group-label">{{ 'partnerForm.setup.warehouseGroup' | translate }}</span>
+          <label class="toggle"><input type="checkbox" name="isWarehouse" [(ngModel)]="model.isWarehouse" /><span>{{ 'partnerForm.setup.isWarehouse' | translate }}</span></label>
         </div>
         <div class="setup-group">
-          <span class="group-label">Sicurezza</span>
+          <span class="group-label">{{ 'partnerForm.setup.securityGroup' | translate }}</span>
           <div class="toggles">
-            <label class="toggle"><input type="checkbox" name="valetIdentityCheck" [(ngModel)]="model.valetIdentityCheck" /><span>Verifica identità valet</span></label>
-            <label class="toggle"><input type="checkbox" name="deliveryCodeRequired" [(ngModel)]="model.deliveryCodeRequired" /><span>Codice di consegna richiesto</span></label>
+            <label class="toggle"><input type="checkbox" name="valetIdentityCheck" [(ngModel)]="model.valetIdentityCheck" /><span>{{ 'partnerForm.setup.valetIdentityCheck' | translate }}</span></label>
+            <label class="toggle"><input type="checkbox" name="deliveryCodeRequired" [(ngModel)]="model.deliveryCodeRequired" /><span>{{ 'partnerForm.setup.deliveryCodeRequired' | translate }}</span></label>
           </div>
           @if (model.deliveryCodeRequired) {
-            <label class="fld mt" style="max-width:340px"><span>Tipo codice</span>
+            <label class="fld mt" style="max-width:340px"><span>{{ 'partnerForm.setup.deliveryCodeType' | translate }}</span>
               <select class="field" name="deliveryCodeCheckType" [(ngModel)]="model.deliveryCodeCheckType">
-                <option value="UNIQUE_PER_DELIVERY">Unico per consegna (OTP diverso ogni volta)</option>
-                <option value="UNIQUE_PER_CUSTOMER">Unico per cliente (fisso, tipo PIN)</option>
+                <option value="UNIQUE_PER_DELIVERY">{{ 'partnerForm.setup.codeUniquePerDelivery' | translate }}</option>
+                <option value="UNIQUE_PER_CUSTOMER">{{ 'partnerForm.setup.codeUniquePerCustomer' | translate }}</option>
               </select></label>
           }
         </div>
         <div class="setup-group">
-          <span class="group-label">Notifiche</span>
+          <span class="group-label">{{ 'partnerForm.setup.notificationsGroup' | translate }}</span>
           <div class="toggles">
-            <label class="toggle"><input type="checkbox" name="smsTemplatesEnabled" [(ngModel)]="model.smsTemplatesEnabled" /><span>Possibilità di inviare SMS</span></label>
-            <label class="toggle"><input type="checkbox" name="whatsappNotifications" [(ngModel)]="model.whatsappNotifications" /><span>Notifiche WhatsApp</span></label>
-            <label class="toggle"><input type="checkbox" name="mailNotifications" [(ngModel)]="model.mailNotifications" /><span>Notifiche mail</span></label>
-            <label class="toggle"><input type="checkbox" name="activityReminder" [(ngModel)]="model.activityReminder" /><span>Promemoria attività</span></label>
+            <label class="toggle"><input type="checkbox" name="smsTemplatesEnabled" [(ngModel)]="model.smsTemplatesEnabled" /><span>{{ 'partnerForm.setup.smsEnabled' | translate }}</span></label>
+            <label class="toggle"><input type="checkbox" name="whatsappNotifications" [(ngModel)]="model.whatsappNotifications" /><span>{{ 'partnerForm.setup.whatsappNotifications' | translate }}</span></label>
+            <label class="toggle"><input type="checkbox" name="mailNotifications" [(ngModel)]="model.mailNotifications" /><span>{{ 'partnerForm.setup.mailNotifications' | translate }}</span></label>
+            <label class="toggle"><input type="checkbox" name="activityReminder" [(ngModel)]="model.activityReminder" /><span>{{ 'partnerForm.setup.activityReminder' | translate }}</span></label>
           </div>
         </div>
       </section>
 
       <!-- Vendita e integrazioni -->
       <section class="card block">
-        <header class="block-head"><h2>Vendita e integrazioni</h2></header>
+        <header class="block-head"><h2>{{ 'partnerForm.sales.title' | translate }}</h2></header>
         <div class="grid-2">
-          <label class="fld"><span>URL del negozio</span>
+          <label class="fld"><span>{{ 'partnerForm.sales.storeUrl' | translate }}</span>
             <input class="field" name="storeUrl" [(ngModel)]="model.storeUrl" placeholder="https://…" /></label>
-          <label class="fld"><span>Immagine (URL)</span>
+          <label class="fld"><span>{{ 'partnerForm.sales.imageUrl' | translate }}</span>
             <input class="field" name="imageUrl" [(ngModel)]="model.imageUrl" placeholder="https://…" /></label>
         </div>
-        <label class="fld span-2 mt"><span>WooCommerce API key</span>
+        <label class="fld span-2 mt"><span>{{ 'partnerForm.sales.woocommerceApiKey' | translate }}</span>
           <div class="key-row">
-            <input class="field" name="woocommerceApiKey" [(ngModel)]="model.woocommerceApiKey" placeholder="Chiave per il plugin deluxy-send-order" />
-            <button type="button" class="btn btn-secondary" (click)="generateKey()">Genera</button>
-            <button type="button" class="btn btn-secondary" (click)="copyKey()" [disabled]="!model.woocommerceApiKey">Copia</button>
+            <input class="field" name="woocommerceApiKey" [(ngModel)]="model.woocommerceApiKey" [attr.placeholder]="'partnerForm.sales.woocommerceApiKeyPlaceholder' | translate" />
+            <button type="button" class="btn btn-secondary" (click)="generateKey()">{{ 'partnerForm.sales.generate' | translate }}</button>
+            <button type="button" class="btn btn-secondary" (click)="copyKey()" [disabled]="!model.woocommerceApiKey">{{ 'partnerForm.sales.copy' | translate }}</button>
           </div>
         </label>
-        <label class="fld span-2 mt"><span>Note</span>
+        <label class="fld span-2 mt"><span>{{ 'partnerForm.sales.notes' | translate }}</span>
           <textarea class="field" rows="3" name="notes" [(ngModel)]="model.notes"></textarea></label>
       </section>
 
-      @if (justSaved()) { <div class="ok-card card">Partner creato ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un altro.</div> }
+      @if (justSaved()) { <div class="ok-card card" [innerHTML]="'partnerForm.actions.savedNote' | translate"></div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
       <div class="actions">
-        <a routerLink="/partners" class="btn btn-secondary">Annulla</a>
-        <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">Duplica</button>
+        <a routerLink="/partners" class="btn btn-secondary">{{ 'partnerForm.actions.cancel' | translate }}</a>
+        @if (!editId()) {
+          <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'partnerForm.actions.duplicate' | translate }}</button>
+        }
         <button type="submit" class="btn btn-primary" [disabled]="saving()">
-          {{ saving() ? 'Salvataggio…' : 'Crea partner' }}
+          {{ saving() ? ('partnerForm.actions.saving' | translate) : ((editId() ? 'common.save' : 'partnerForm.actions.create') | translate) }}
         </button>
       </div>
     </form>
@@ -292,6 +295,8 @@ interface ServiceRow {
 export class PartnerFormComponent {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly translate = inject(TranslateService);
 
   readonly provinces = signal<Province[]>([]);
   readonly categories = signal<Category[]>([]);
@@ -345,11 +350,68 @@ export class PartnerFormComponent {
     notes: '',
   };
 
+  /** Id partner in modifica (null = nuovo partner). */
+  readonly editId = signal<string | null>(null);
+
   constructor() {
     const api = environment.apiUrl;
     this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
     this.http.get<Category[]>(`${api}/categories`).subscribe((d) => this.categories.set(d));
     this.http.get<ServiceType[]>(`${api}/service-types`).subscribe((d) => this.serviceTypes.set(d));
+
+    // Modalita' modifica: /partners/:id/edit
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.editId.set(id);
+      this.http.get<Record<string, any>>(`${api}/partners/${id}`).subscribe({
+        next: (p) => this.prefill(p),
+        error: (err) =>
+          this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')),
+      });
+    }
+  }
+
+  /** Riempie il form con il partner esistente. */
+  private prefill(p: Record<string, any>): void {
+    const m = this.model as Record<string, any>;
+    for (const key of Object.keys(this.model)) {
+      const v = p[key];
+      if (v === null || v === undefined) continue;
+      // Le date arrivano ISO: il campo input[type=date] vuole YYYY-MM-DD
+      if ((key === 'contractStart' || key === 'contractEnd') && typeof v === 'string') {
+        m[key] = v.slice(0, 10);
+      } else {
+        m[key] = v;
+      }
+    }
+    // Province / categorie / servizi collegati
+    this.selectedProvinces.clear();
+    for (const pp of (p['provinces'] as any[]) ?? []) {
+      if (pp?.province?.id) this.selectedProvinces.add(pp.province.id);
+    }
+    this.selectedCategories.clear();
+    for (const c of (p['categories'] as any[]) ?? []) {
+      if (c?.category?.id) this.selectedCategories.add(c.category.id);
+    }
+    this.serviceRows = ((p['services'] as any[]) ?? []).map((s) => ({
+      serviceTypeId: s.serviceType?.id ?? s.serviceTypeId ?? '',
+      price: s.price ?? null,
+      includedKm: s.includedKm ?? null,
+      extraKmPrice: s.extraKmPrice ?? null,
+      extraOutOfCityPrice: s.extraOutOfCityPrice ?? null,
+    }));
+    // pickupAddresses e' salvato come stringa JSON lato API
+    const pa = p['pickupAddresses'];
+    if (typeof pa === 'string') {
+      try {
+        const parsed = JSON.parse(pa);
+        this.pickupAddresses = Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        this.pickupAddresses = [];
+      }
+    } else if (Array.isArray(pa)) {
+      this.pickupAddresses = pa.map(String);
+    }
   }
 
   toggle(set: Set<string>, id: string): void {
@@ -382,7 +444,7 @@ export class PartnerFormComponent {
     this.error.set(null);
     this.justSaved.set(false);
     if (!this.model.insegna.trim() || !this.model.email.trim()) {
-      this.error.set('Insegna ed email sono obbligatori.');
+      this.error.set(this.translate.instant('partnerForm.errors.requiredFields'));
       return;
     }
 
@@ -413,13 +475,16 @@ export class PartnerFormComponent {
     }
     if (m.kmIncluded != null) payload['kmIncluded'] = Number(m.kmIncluded);
     if (m.extraOutOfCityPrice != null) payload['extraOutOfCityPrice'] = Number(m.extraOutOfCityPrice);
-    if (this.selectedProvinces.size) payload['provinceIds'] = [...this.selectedProvinces];
-    if (this.selectedCategories.size) payload['categoryIds'] = [...this.selectedCategories];
+    // In modifica le collezioni vanno inviate SEMPRE, anche vuote: altrimenti
+    // svuotarle non le cancellerebbe (l'API aggiorna solo le chiavi presenti).
+    const isEdit = !!this.editId();
+    if (this.selectedProvinces.size || isEdit) payload['provinceIds'] = [...this.selectedProvinces];
+    if (this.selectedCategories.size || isEdit) payload['categoryIds'] = [...this.selectedCategories];
 
-    if (m.isMultiPickup) {
-      const addrs = this.pickupAddresses.map((a) => a.trim()).filter(Boolean);
-      if (addrs.length) payload['pickupAddresses'] = addrs;
-    }
+    const addrs = m.isMultiPickup
+      ? this.pickupAddresses.map((a) => a.trim()).filter(Boolean)
+      : [];
+    if (addrs.length || isEdit) payload['pickupAddresses'] = addrs;
 
     const services = this.serviceRows
       .filter((r) => r.serviceTypeId && r.price != null)
@@ -430,18 +495,23 @@ export class PartnerFormComponent {
         extraKmPrice: r.extraKmPrice != null ? Number(r.extraKmPrice) : undefined,
         extraOutOfCityPrice: r.extraOutOfCityPrice != null ? Number(r.extraOutOfCityPrice) : undefined,
       }));
-    if (services.length) payload['services'] = services;
+    if (services.length || isEdit) payload['services'] = services;
 
     this.saving.set(true);
-    this.http.post(`${environment.apiUrl}/partners`, payload).subscribe({
+    const id = this.editId();
+    const req = id
+      ? this.http.put(`${environment.apiUrl}/partners/${id}`, payload)
+      : this.http.post(`${environment.apiUrl}/partners`, payload);
+    req.subscribe({
       next: () => {
+        if (id) { this.router.navigate(['/partners', id]); return; }
         if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }
         else this.router.navigate(['/partners']);
       },
       error: (err) => {
         this.saving.set(false);
         const msg = err?.error?.message;
-        this.error.set(Array.isArray(msg) ? msg.join(' · ') : msg ?? 'Errore nella creazione del partner');
+        this.error.set(Array.isArray(msg) ? msg.join(' · ') : msg ?? this.translate.instant('partnerForm.errors.createFailed'));
       },
     });
   }

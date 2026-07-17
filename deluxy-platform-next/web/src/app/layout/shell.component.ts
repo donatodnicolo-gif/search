@@ -2,8 +2,10 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { TranslatePipe } from '@ngx-translate/core';
 import { AuthService } from '../core/auth.service';
 import { Role } from '../core/models';
+import { LanguageSwitcherComponent } from './language-switcher.component';
 
 interface NavItem {
   label: string;
@@ -36,47 +38,47 @@ const ICONS: Record<string, string> = {
 
 const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
-    title: 'Operatività',
+    title: 'nav.section.operativita',
     items: [
-      { label: 'Consegne', path: '/deliveries', icon: 'box', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
-      { label: 'Attività', path: '/activities', icon: 'clock', roles: ['ADMIN', 'OPERATION', 'VALET'] },
-      { label: 'Vendite', path: '/sales', icon: 'cart', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+      { label: 'nav.consegne', path: '/deliveries', icon: 'box', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
+      { label: 'nav.attivita', path: '/activities', icon: 'clock', roles: ['ADMIN', 'OPERATION', 'VALET'] },
+      { label: 'nav.vendite', path: '/sales', icon: 'cart', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
     ],
   },
   {
-    title: 'Utenti',
+    title: 'nav.section.utenti',
     items: [
-      { label: 'Partner', path: '/partners', icon: 'store', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
-      { label: 'Valet', path: '/valets', icon: 'bike', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
-      { label: 'Clienti', path: '/customers', icon: 'people', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
-      { label: 'Operatori', path: '/operators', icon: 'badge', roles: ['ADMIN', 'OPERATION'] },
+      { label: 'nav.partner', path: '/partners', icon: 'store', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      { label: 'nav.valet', path: '/valets', icon: 'bike', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      { label: 'nav.clienti', path: '/customers', icon: 'people', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+      { label: 'nav.operatori', path: '/operators', icon: 'badge', roles: ['ADMIN', 'OPERATION'] },
     ],
   },
   {
-    title: 'Prodotti',
+    title: 'nav.section.prodotti',
     items: [
-      { label: 'Prodotti', path: '/products', icon: 'tag', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
-      { label: 'Categorie', path: '/categories', icon: 'folder', roles: ['ADMIN', 'OPERATION'] },
+      { label: 'nav.prodotti', path: '/products', icon: 'tag', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+      { label: 'nav.categorie', path: '/categories', icon: 'folder', roles: ['ADMIN', 'OPERATION'] },
     ],
   },
   {
-    title: 'Amministrazione',
+    title: 'nav.section.amministrazione',
     items: [
-      { label: 'Servizi', path: '/services', icon: 'rules', roles: ['ADMIN', 'OPERATION'] },
-      { label: 'Calcoli', path: '/calcoli', icon: 'chart', roles: ['ADMIN', 'OPERATION'] },
-      { label: 'Stipendi', path: '/salaries', icon: 'euro', roles: ['ADMIN', 'OPERATION', 'VALET'] },
-      { label: 'Pagamenti', path: '/payments', icon: 'wallet', roles: ['ADMIN', 'OPERATION', 'VALET'] },
-      { label: 'Regole carnet', path: '/delivery-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
-      { label: 'Finanza', path: '/finance', icon: 'chart', roles: ['ADMIN'], supportOnly: true },
+      { label: 'nav.servizi', path: '/services', icon: 'rules', roles: ['ADMIN', 'OPERATION'] },
+      { label: 'nav.calcoli', path: '/calcoli', icon: 'chart', roles: ['ADMIN', 'OPERATION'] },
+      { label: 'nav.stipendi', path: '/salaries', icon: 'euro', roles: ['ADMIN', 'OPERATION', 'VALET'] },
+      { label: 'nav.pagamenti', path: '/payments', icon: 'wallet', roles: ['ADMIN', 'OPERATION', 'VALET'] },
+      { label: 'nav.regoleCarnet', path: '/delivery-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      { label: 'nav.finanza', path: '/finance', icon: 'chart', roles: ['ADMIN'], supportOnly: true },
     ],
   },
   {
-    title: 'Configurazione',
+    title: 'nav.section.configurazione',
     items: [
-      { label: 'Modelli SMS', path: '/sms-templates', icon: 'message', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
-      { label: 'Disponibilità', path: '/availability', icon: 'calendar', roles: ['VALET'] },
-      { label: 'Province e città', path: '/provinces', icon: 'map', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
-      { label: 'Utenti e ruoli', path: '/users', icon: 'users', roles: ['ADMIN'] },
+      { label: 'nav.modelliSms', path: '/sms-templates', icon: 'message', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
+      { label: 'nav.disponibilita', path: '/availability', icon: 'calendar', roles: ['VALET'] },
+      { label: 'nav.province', path: '/provinces', icon: 'map', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      { label: 'nav.utentiRuoli', path: '/users', icon: 'users', roles: ['ADMIN'] },
     ],
   },
 ];
@@ -84,12 +86,15 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, LanguageSwitcherComponent],
   template: `
     <div class="shell">
+      <!-- Selettore lingua (fisso in alto a destra) -->
+      <app-language-switcher />
+
       <!-- Topbar (solo mobile) -->
       <header class="topbar">
-        <button class="hamburger" (click)="toggle()" aria-label="Apri menu">
+        <button class="hamburger" (click)="toggle()" [attr.aria-label]="'shell.openMenu' | translate">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
@@ -103,19 +108,35 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         <div class="overlay" (click)="close()"></div>
       }
 
-      <aside class="sidebar" [class.open]="menuOpen()">
+      <aside class="sidebar" [class.open]="menuOpen()" [class.collapsed]="collapsed()">
         <div class="brand">
           <span class="brand-mark">D</span>
           <span class="brand-name">Deluxy</span>
+          <button
+            class="collapse-btn"
+            (click)="toggleCollapse()"
+            [attr.aria-label]="(collapsed() ? 'shell.expandMenu' : 'shell.collapseMenu') | translate"
+            [title]="(collapsed() ? 'shell.expandMenu' : 'shell.collapseMenu') | translate"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.5 7 9.5 12l5 5" />
+            </svg>
+          </button>
         </div>
 
         <nav>
           @for (section of sections(); track section.title) {
-            <div class="nav-section">{{ section.title }}</div>
+            <div class="nav-section">{{ section.title | translate }}</div>
             @for (item of section.items; track item.path) {
-              <a [routerLink]="item.path" routerLinkActive="active" class="nav-link" (click)="close()">
+              <a
+                [routerLink]="item.path"
+                routerLinkActive="active"
+                class="nav-link"
+                (click)="close()"
+                [title]="collapsed() ? (item.label | translate) : ''"
+              >
                 <span class="nav-icon" [innerHTML]="icon(item.icon)"></span>
-                <span>{{ item.label }}</span>
+                <span class="nav-text">{{ item.label | translate }}</span>
               </a>
             }
           }
@@ -127,9 +148,9 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
             <div class="user-name">
               {{ auth.user()?.firstName }} {{ auth.user()?.lastName }}
             </div>
-            <div class="user-role">{{ roleLabel() }}</div>
+            <div class="user-role">{{ roleLabel() | translate }}</div>
           </div>
-          <button class="logout" (click)="auth.logout()" title="Esci">
+          <button class="logout" (click)="auth.logout()" [title]="'shell.logout' | translate">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 4.5H7A1.5 1.5 0 0 0 5.5 6v12A1.5 1.5 0 0 0 7 19.5h7M10.5 12H20m0 0-3-3m3 3-3 3"/>
             </svg>
@@ -168,6 +189,30 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         align-items: center;
         gap: 10px;
         padding: 4px 10px 18px;
+      }
+      .collapse-btn {
+        margin-left: auto;
+        width: 28px;
+        height: 28px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 5px;
+        flex-shrink: 0;
+        transition: background 0.16s var(--ease), color 0.16s var(--ease), transform 0.2s var(--ease);
+      }
+      .collapse-btn:hover {
+        background: var(--fill);
+        color: var(--text);
+      }
+      .collapse-btn svg {
+        width: 100%;
+        height: 100%;
       }
       .brand-mark {
         display: inline-flex;
@@ -297,6 +342,44 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         overflow-x: auto;
       }
 
+      /* Sidebar collassata (desktop): solo icone */
+      .sidebar {
+        transition: width 0.24s var(--ease);
+      }
+      .sidebar.collapsed {
+        width: 68px;
+        padding-left: 8px;
+        padding-right: 8px;
+      }
+      .sidebar.collapsed .brand-name,
+      .sidebar.collapsed .nav-text,
+      .sidebar.collapsed .nav-section,
+      .sidebar.collapsed .user-meta {
+        display: none;
+      }
+      .sidebar.collapsed .brand {
+        justify-content: center;
+        padding: 4px 0 18px;
+      }
+      .sidebar.collapsed .collapse-btn {
+        margin-left: 0;
+        transform: rotate(180deg);
+      }
+      .sidebar.collapsed .brand-mark {
+        display: none;
+      }
+      .sidebar.collapsed .nav-link {
+        justify-content: center;
+        padding: 9px 0;
+      }
+      .sidebar.collapsed .user-box {
+        justify-content: center;
+        padding: 10px 0;
+      }
+      .sidebar.collapsed .logout {
+        display: none;
+      }
+
       /* Topbar e overlay: nascosti su desktop */
       .topbar {
         display: none;
@@ -370,6 +453,27 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         .sidebar.open {
           transform: translateX(0);
         }
+        /* Su mobile il collasso desktop non si applica: il menu resta un drawer pieno */
+        .sidebar.collapsed {
+          width: 264px;
+          max-width: 82vw;
+          padding: 18px 12px 14px;
+        }
+        .sidebar.collapsed .brand-name,
+        .sidebar.collapsed .nav-text,
+        .sidebar.collapsed .nav-section,
+        .sidebar.collapsed .user-meta,
+        .sidebar.collapsed .brand-mark,
+        .sidebar.collapsed .logout {
+          display: revert;
+        }
+        .sidebar.collapsed .nav-link {
+          justify-content: flex-start;
+          padding: 7px 10px;
+        }
+        .collapse-btn {
+          display: none;
+        }
         /* La "brand" interna al drawer è ridondante con la topbar ma resta come intestazione del menu */
 
         .overlay {
@@ -404,6 +508,27 @@ export class ShellComponent {
   /** Drawer mobile aperto/chiuso. */
   readonly menuOpen = signal(false);
 
+  /** Sidebar desktop ridotta a sole icone (persistita). */
+  readonly collapsed = signal(this.readCollapsed());
+
+  private readCollapsed(): boolean {
+    try {
+      return localStorage.getItem('sidebarCollapsed') === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  toggleCollapse(): void {
+    const next = !this.collapsed();
+    this.collapsed.set(next);
+    try {
+      localStorage.setItem('sidebarCollapsed', next ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
+
   constructor() {
     // Chiude il drawer a ogni navigazione
     this.router.events
@@ -433,14 +558,8 @@ export class ShellComponent {
   });
 
   readonly roleLabel = computed(() => {
-    const labels: Record<string, string> = {
-      ADMIN: 'Amministratore',
-      OPERATION: 'Operation',
-      PARTNER: 'Partner',
-      VALET: 'Valet',
-      PROJECT_MANAGER: 'Project Manager',
-    };
-    return labels[this.auth.user()?.role ?? ''] ?? '';
+    const role = this.auth.user()?.role;
+    return role ? `role.${role}` : '';
   });
 
   readonly initials = computed(() => {

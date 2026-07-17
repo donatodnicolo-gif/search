@@ -1,14 +1,16 @@
 import { Component, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { TranslatePipe } from '@ngx-translate/core';
 
 /** Pagina segnaposto per le sezioni non ancora migrate. */
 @Component({
   selector: 'app-stub',
   standalone: true,
+  imports: [TranslatePipe],
   template: `
     <h1>{{ title() }}</h1>
-    <p class="page-caption">Sezione in arrivo sulla nuova piattaforma.</p>
+    <p class="page-caption">{{ 'stub.caption' | translate }}</p>
     <div class="card stub-card">
       <div class="stub-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -16,13 +18,12 @@ import { toSignal } from '@angular/core/rxjs-interop';
           <path d="M4.5 7.5 12 11.5l7.5-4M12 11.5v9"/>
         </svg>
       </div>
-      <h2>In migrazione dalla piattaforma legacy</h2>
+      <h2>{{ 'stub.migratingTitle' | translate }}</h2>
       <p>
-        La sezione <strong>{{ title() }}</strong> sarà disponibile qui a breve.
-        L'endpoint API corrispondente è già attivo.
+        {{ 'stub.availableSoonPart1' | translate }} <strong>{{ title() }}</strong> {{ 'stub.availableSoonPart2' | translate }}
       </p>
       <a class="btn btn-secondary" href="/api/docs" target="_blank" rel="noopener">
-        Apri la documentazione API
+        {{ 'stub.openApiDocs' | translate }}
       </a>
     </div>
   `,

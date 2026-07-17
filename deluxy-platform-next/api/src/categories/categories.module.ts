@@ -1,10 +1,21 @@
-import { Body, Controller, Get, Injectable, Module, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Injectable,
+  Module,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiProperty,
   ApiPropertyOptional,
   ApiTags,
+  PartialType,
 } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -70,6 +81,9 @@ export class CreateCategoryDto {
   discounts?: CategoryDiscountDto[];
 }
 
+/** Update parziale: tutti i campi opzionali. */
+export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {}
+
 const CATEGORY_INCLUDE = {
   fields: true,
   discounts: { include: { province: true } },
@@ -83,6 +97,40 @@ export class CategoriesService {
     return this.prisma.category.findMany({
       include: CATEGORY_INCLUDE,
       orderBy: { name: 'asc' },
+    });
+  }
+
+  async findOne(id: string) {
+    const category = await this.prisma.category.findUnique({
+      where: { id },
+      include: CATEGORY_INCLUDE,
+    });
+    if (!category) throw new NotFoundException('Categoria non trovata');
+    return category;
+  }
+
+  /** Aggiorna la categoria; campi extra e sconti sono sostituiti in blocco. */
+  async update(id: string, dto: UpdateCategoryDto) {
+    await this.findOne(id);
+    const { fields, discounts, ...scalar } = dto;
+    return this.prisma.category.update({
+      where: { id },
+      data: {
+        ...scalar,
+        ...(fields ? { fields: { deleteMany: {}, create: fields } } : {}),
+        ...(discounts
+          ? {
+              discounts: {
+                deleteMany: {},
+                create: discounts.map((d) => ({
+                  provinceId: d.provinceId,
+                  discountPercent: d.discountPercent,
+                })),
+              },
+            }
+          : {}),
+      },
+      include: CATEGORY_INCLUDE,
     });
   }
 
@@ -127,11 +175,24 @@ export class CategoriesController {
     return this.categoriesService.findAll();
   }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Dettaglio categoria' })
+  findOne(@Param('id') id: string) {
+    return this.categoriesService.findOne(id);
+  }
+
   @Post()
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Crea categoria (con campi extra e sconti provincia)' })
   create(@Body() dto: CreateCategoryDto) {
     return this.categoriesService.create(dto);
+  }
+
+  @Put(':id')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Aggiorna categoria (campi extra e sconti sostituiti in blocco)' })
+  update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
+    return this.categoriesService.update(id, dto);
   }
 
   @Post(':id/discounts')

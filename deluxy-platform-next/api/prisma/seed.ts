@@ -345,6 +345,10 @@ async function main() {
       valetId: valet1.id,
       customerId: customer.id,
       status: 'assigned',
+      // Fascia di consegna (setup servizio: fasce di 2h tra 08:00 e 20:00)
+      deliveryTimeFrom: '14:00',
+      deliveryTimeTo: '16:00',
+      deliveryFlexible: false,
       pickupTimeFrom: '10:00',
       pickupTimeTo: '12:00',
       pickupFlexible: false,

@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 
 /**
@@ -11,72 +12,72 @@ import { environment } from '../../environments/environment';
 @Component({
   selector: 'app-calcoli',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslatePipe],
   template: `
-    <h1>Calcoli</h1>
-    <p class="page-caption">Tutte le formule di prezzo dei servizi, in un unico posto. Provale qui sotto.</p>
+    <h1>{{ 'calcoli.title' | translate }}</h1>
+    <p class="page-caption">{{ 'calcoli.caption' | translate }}</p>
 
     <div class="grid">
       <!-- Vendita -->
       <section class="card block">
-        <h2>Vendita</h2>
-        <p class="formula">totale = Σ (prezzo prodotto × qtà) — include i prezzi flessibili</p>
+        <h2>{{ 'enums.servicePricingLong.VENDITA' | translate }}</h2>
+        <p class="formula">{{ 'calcoli.formulaSale' | translate }}</p>
         <div class="try">
-          <label>Prezzo <input class="field num" type="number" [(ngModel)]="sale.price" /></label>
-          <label>Qtà <input class="field num" type="number" [(ngModel)]="sale.qty" /></label>
-          <button class="btn btn-secondary" (click)="calc('VENDITA', { lines: [{ price: sale.price, quantity: sale.qty }] }, 'sale')">Calcola</button>
+          <label>{{ 'calcoli.price' | translate }} <input class="field num" type="number" [(ngModel)]="sale.price" /></label>
+          <label>{{ 'calcoli.qty' | translate }} <input class="field num" type="number" [(ngModel)]="sale.qty" /></label>
+          <button class="btn btn-secondary" (click)="calc('VENDITA', { lines: [{ price: sale.price, quantity: sale.qty }] }, 'sale')">{{ 'calcoli.calculate' | translate }}</button>
           <span class="res" [class.on]="results.sale != null">{{ results.sale != null ? (results.sale + ' €') : '' }}</span>
         </div>
       </section>
 
       <!-- Prezzo fisso -->
       <section class="card block">
-        <h2>A prezzo fisso</h2>
-        <p class="formula">in città: valore servizio + prezzo/km × max(0, distanza − km inclusi)<br />
-          fuori città: prezzo fuori città × distanza</p>
-        <p class="note">Distanza calcolata via Google Maps (ritiro → consegna). Il valore è esposto nel Listino.</p>
+        <h2>{{ 'enums.servicePricingLong.PREZZO_FISSO' | translate }}</h2>
+        <p class="formula">{{ 'calcoli.formulaFixedCity' | translate }}<br />
+          {{ 'calcoli.formulaFixedOutCity' | translate }}</p>
+        <p class="note">{{ 'calcoli.noteFixed' | translate }}</p>
         <div class="try wrap">
-          <label class="tg"><input type="checkbox" [(ngModel)]="fixed.inCity" /> In città</label>
-          <label>Valore <input class="field num" type="number" [(ngModel)]="fixed.serviceValue" /></label>
-          <label>Km incl. <input class="field num" type="number" [(ngModel)]="fixed.kmIncluded" /></label>
+          <label class="tg"><input type="checkbox" [(ngModel)]="fixed.inCity" /> {{ 'calcoli.inCity' | translate }}</label>
+          <label>{{ 'calcoli.value' | translate }} <input class="field num" type="number" [(ngModel)]="fixed.serviceValue" /></label>
+          <label>{{ 'calcoli.kmIncluded' | translate }} <input class="field num" type="number" [(ngModel)]="fixed.kmIncluded" /></label>
           <label>€/km <input class="field num" type="number" [(ngModel)]="fixed.extraKmPrice" /></label>
-          <label>€ fuori/km <input class="field num" type="number" [(ngModel)]="fixed.extraOutOfCityPrice" /></label>
-          <label>Distanza <input class="field num" type="number" [(ngModel)]="fixed.distanceKm" /></label>
-          <button class="btn btn-secondary" (click)="calc('PREZZO_FISSO', fixed, 'fixed')">Calcola</button>
+          <label>{{ 'calcoli.pricePerKmOutOfCity' | translate }} <input class="field num" type="number" [(ngModel)]="fixed.extraOutOfCityPrice" /></label>
+          <label>{{ 'calcoli.distance' | translate }} <input class="field num" type="number" [(ngModel)]="fixed.distanceKm" /></label>
+          <button class="btn btn-secondary" (click)="calc('PREZZO_FISSO', fixed, 'fixed')">{{ 'calcoli.calculate' | translate }}</button>
           <span class="res" [class.on]="results.fixed != null">{{ results.fixed != null ? (results.fixed + ' €') : '' }}</span>
         </div>
       </section>
 
       <!-- A ora -->
       <section class="card block">
-        <h2>A ora</h2>
-        <p class="formula">valore = max(1, ore) × prezzo orario (minimo 1 ora). Esposto nel Listino.</p>
+        <h2>{{ 'enums.servicePricingLong.A_ORA' | translate }}</h2>
+        <p class="formula">{{ 'calcoli.formulaHourly' | translate }}</p>
         <div class="try">
-          <label>Ore <input class="field num" type="number" [(ngModel)]="hourly.hours" /></label>
+          <label>{{ 'calcoli.hours' | translate }} <input class="field num" type="number" [(ngModel)]="hourly.hours" /></label>
           <label>€/ora <input class="field num" type="number" [(ngModel)]="hourly.hourlyPrice" /></label>
-          <button class="btn btn-secondary" (click)="calc('A_ORA', hourly, 'hourly')">Calcola</button>
+          <button class="btn btn-secondary" (click)="calc('A_ORA', hourly, 'hourly')">{{ 'calcoli.calculate' | translate }}</button>
           <span class="res" [class.on]="results.hourly != null">{{ results.hourly != null ? (results.hourly + ' €') : '' }}</span>
         </div>
       </section>
 
       <!-- Magazzino -->
       <section class="card block">
-        <h2>Magazzino</h2>
-        <p class="formula">prezzo fisso + prezzo a pezzo × qtà + prezzo consegna</p>
+        <h2>{{ 'enums.servicePricingLong.MAGAZZINO' | translate }}</h2>
+        <p class="formula">{{ 'calcoli.formulaWarehouse' | translate }}</p>
         <div class="try wrap">
-          <label>Fisso <input class="field num" type="number" [(ngModel)]="wh.fixedPrice" /></label>
-          <label>A pezzo <input class="field num" type="number" [(ngModel)]="wh.perPiecePrice" /></label>
-          <label>Qtà <input class="field num" type="number" [(ngModel)]="wh.quantity" /></label>
-          <label>Consegna <input class="field num" type="number" [(ngModel)]="wh.deliveryPrice" /></label>
-          <button class="btn btn-secondary" (click)="calc('MAGAZZINO', wh, 'wh')">Calcola</button>
+          <label>{{ 'calcoli.fixedPrice' | translate }} <input class="field num" type="number" [(ngModel)]="wh.fixedPrice" /></label>
+          <label>{{ 'calcoli.perPiecePrice' | translate }} <input class="field num" type="number" [(ngModel)]="wh.perPiecePrice" /></label>
+          <label>{{ 'calcoli.qty' | translate }} <input class="field num" type="number" [(ngModel)]="wh.quantity" /></label>
+          <label>{{ 'calcoli.deliveryPrice' | translate }} <input class="field num" type="number" [(ngModel)]="wh.deliveryPrice" /></label>
+          <button class="btn btn-secondary" (click)="calc('MAGAZZINO', wh, 'wh')">{{ 'calcoli.calculate' | translate }}</button>
           <span class="res" [class.on]="results.wh != null">{{ results.wh != null ? (results.wh + ' €') : '' }}</span>
         </div>
       </section>
 
       <!-- Aziendale -->
       <section class="card block span-2">
-        <h2>Aziendale (corporate)</h2>
-        <p class="formula">Non è una formula di prezzo: il sistema <strong>replica la consegna a un altro partner</strong>, trasformando il servizio da <em>prezzo fisso</em> a <em>vendita</em> (il valore viene quindi calcolato come una Vendita per il partner destinatario).</p>
+        <h2>{{ 'enums.servicePricingLong.CORPORATE' | translate }}</h2>
+        <p class="formula">{{ 'calcoli.corporateNotePart1' | translate }} <strong>{{ 'calcoli.corporateNoteStrong' | translate }}</strong>{{ 'calcoli.corporateNoteComma' | translate }} <em>{{ 'calcoli.corporateNoteEm1' | translate }}</em> {{ 'calcoli.corporateNoteTo' | translate }} <em>{{ 'calcoli.corporateNoteEm2' | translate }}</em> {{ 'calcoli.corporateNotePart4' | translate }}</p>
       </section>
     </div>
   `,

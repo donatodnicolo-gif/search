@@ -233,9 +233,10 @@ model Valet {
   birthDate           DateTime?
   iban                String?
   isTeamLeader        Boolean           @default(false)
-  // Team leader: province dove può assegnare + partner associati (JSON array di id, compat. SQLite)
+  // Team leader: province dove può assegnare + partner associati + partner esclusi (JSON array di id, compat. SQLite)
   teamLeaderProvinces String?
   teamLeaderPartners  String?
+  teamLeaderExcludedPartners String? // partner esclusi dallo scope del team leader
   vehicle             String? // mezzo: Auto | Bicicletta | Furgone | Moto/Scooter
   withholdingPercent  Float             @default(0) // % ritenuta rimborso
   // Stipendio
@@ -347,7 +348,9 @@ model Product {
   sku                     String?
   prepDays                Int? // giorni di preparazione
   line                    String? // linea/brand
-  imageUrl                String?
+  imageUrl                String? // immagine principale
+  images                  String? // JSON array di URL immagine (galleria/Shopify)
+  platformDescriptions    String? // JSON { piattaforma: descrizione } per SELECT PLATFORMS
   approved                Boolean            @default(false)
   type                    String // UNICO | NON_UNICO | SUPERPRODOTTO
   partnerId               String?
@@ -387,13 +390,18 @@ model Product {
 
 // Variante di prodotto (es. taglia S/M/L), con proprio prezzo e SKU
 model ProductVariant {
-  id        String  @id @default(cuid())
-  productId String
-  name      String // valore opzione (es. "Media")
-  price     Float?
-  sku       String?
-  active    Boolean @default(true)
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id           String  @id @default(cuid())
+  productId    String
+  name         String // valore opzione (es. "Media")
+  price        Float?
+  publicPrice  Float? // prezzo pubblico variante
+  sku          String? // SKU variante (auto: <SKU prodotto>-NN progressivo)
+  imageUrl     String? // immagine della variante
+  prepDays     Int? // giorni di preparazione variante
+  controlStock Boolean @default(false) // controlla stock variante
+  stock        Int? // giacenza variante
+  active       Boolean @default(true)
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 // Associazione prodotto <-> partner aggiuntivo (PRODUCTS PARTNER)
@@ -471,6 +479,10 @@ model Delivery {
   customer           Customer?         @relation(fields: [customerId], references: [id])
   status             String            @default("created")
   paymentStatus      String            @default("default") // default | paid | toBePaid
+  // Token del link pubblico di monitoraggio (bottone MONITORARE).
+  // Casuale e opaco: niente @unique per evitare il rebuild tabella in SQLite,
+  // la ricerca usa findFirst.
+  trackingToken      String?
   // Fascia oraria consegna + ritiro (se non flessibile => fascia di 1 ora)
   deliveryTimeFrom   String? // "09:00"
   deliveryTimeTo     String? // "13:00"

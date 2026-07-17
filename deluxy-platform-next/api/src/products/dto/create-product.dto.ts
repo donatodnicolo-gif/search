@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Min,
@@ -50,6 +51,39 @@ export class ProductVariantDto {
   @IsOptional()
   @IsNumber()
   price?: number;
+
+  @ApiPropertyOptional({ description: 'Prezzo pubblico variante' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  publicPrice?: number;
+
+  @ApiPropertyOptional({ description: 'SKU variante (generato automaticamente: <SKU prodotto>-NN)' })
+  @IsOptional()
+  @IsString()
+  sku?: string;
+
+  @ApiPropertyOptional({ description: 'Immagine della variante (URL)' })
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Giorni di preparazione variante' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  prepDays?: number;
+
+  @ApiPropertyOptional({ default: false, description: 'Controlla stock variante' })
+  @IsOptional()
+  @IsBoolean()
+  controlStock?: boolean;
+
+  @ApiPropertyOptional({ description: 'Giacenza variante' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  stock?: number;
 }
 
 export class CreateProductDto {
@@ -94,10 +128,21 @@ export class CreateProductDto {
   @IsString()
   line?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Immagine principale (URL)' })
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Galleria immagini (URL)' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
+
+  @ApiPropertyOptional({ description: 'Descrizione per piattaforma { piattaforma: testo }' })
+  @IsOptional()
+  @IsObject()
+  platformDescriptions?: Record<string, string>;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()

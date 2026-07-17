@@ -39,7 +39,7 @@ export class ValetsService {
   create(dto: CreateValetDto) {
     const {
       provinceIds, services, birthDate,
-      teamLeaderProvinceIds, teamLeaderPartnerIds, ...scalar
+      teamLeaderProvinceIds, teamLeaderPartnerIds, teamLeaderExcludedPartnerIds, ...scalar
     } = dto;
     return this.prisma.valet.create({
       data: {
@@ -50,6 +50,9 @@ export class ValetsService {
           : undefined,
         teamLeaderPartners: teamLeaderPartnerIds?.length
           ? JSON.stringify(teamLeaderPartnerIds)
+          : undefined,
+        teamLeaderExcludedPartners: teamLeaderExcludedPartnerIds?.length
+          ? JSON.stringify(teamLeaderExcludedPartnerIds)
           : undefined,
         provinces: provinceIds?.length
           ? { create: provinceIds.map((provinceId) => ({ provinceId })) }
@@ -64,7 +67,7 @@ export class ValetsService {
     await this.findOne(id);
     const {
       provinceIds, services, birthDate,
-      teamLeaderProvinceIds, teamLeaderPartnerIds, ...scalar
+      teamLeaderProvinceIds, teamLeaderPartnerIds, teamLeaderExcludedPartnerIds, ...scalar
     } = dto;
     return this.prisma.valet.update({
       where: { id },
@@ -76,6 +79,9 @@ export class ValetsService {
           : {}),
         ...(teamLeaderPartnerIds
           ? { teamLeaderPartners: JSON.stringify(teamLeaderPartnerIds) }
+          : {}),
+        ...(teamLeaderExcludedPartnerIds
+          ? { teamLeaderExcludedPartners: JSON.stringify(teamLeaderExcludedPartnerIds) }
           : {}),
         ...(provinceIds
           ? {

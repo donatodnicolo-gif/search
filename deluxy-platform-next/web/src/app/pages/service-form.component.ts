@@ -1,98 +1,107 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { SERVICE_PRICING_OPTIONS } from '../core/models';
 
 @Component({
   selector: 'app-service-form',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <div class="form-head">
       <div>
-        <a routerLink="/services" class="back">← Servizi</a>
-        <h1>Nuovo servizio</h1>
-        <p class="page-caption">Definisci il servizio e scegli se è per partner o valet. Le tariffe si impostano nella scheda del partner/valet.</p>
+        <a routerLink="/services" class="back">← {{ 'serviceForm.backToServices' | translate }}</a>
+        <h1>{{ (editId() ? 'serviceForm.editTitle' : 'serviceForm.title') | translate }}</h1>
+        <p class="page-caption">{{ 'serviceForm.caption' | translate }}</p>
       </div>
     </div>
 
     <form (ngSubmit)="submit()" class="form-grid">
       <section class="card block">
-        <header class="block-head"><h2>Servizio</h2>
-          <span class="block-sub">I campi con * sono obbligatori.</span></header>
+        <header class="block-head"><h2>{{ 'serviceForm.service.title' | translate }}</h2>
+          <span class="block-sub">{{ 'serviceForm.service.requiredNote' | translate }}</span></header>
         <div class="grid-2">
-          <label class="fld"><span>Nome servizio *</span>
-            <input class="field" name="name" [(ngModel)]="model.name" required placeholder="Es. Consegna Standard" /></label>
-          <label class="fld"><span>Tipo servizio *</span>
+          <label class="fld"><span>{{ 'serviceForm.service.name' | translate }}</span>
+            <input class="field" name="name" [(ngModel)]="model.name" required [attr.placeholder]="'serviceForm.service.namePlaceholder' | translate" /></label>
+          <label class="fld"><span>{{ 'serviceForm.service.pricingModel' | translate }}</span>
             <select class="field" name="pricingModel" [(ngModel)]="model.pricingModel" required>
-              @for (t of pricingOptions; track t.value) { <option [value]="t.value">{{ t.label }}</option> }
+              @for (t of pricingOptions; track t.value) { <option [value]="t.value">{{ 'enums.servicePricingLong.' + t.value | translate }}</option> }
             </select></label>
         </div>
 
         <div class="setup-group mt">
-          <span class="group-label">Destinazione</span>
+          <span class="group-label">{{ 'serviceForm.service.scope' | translate }}</span>
           <div class="chips">
-            <button type="button" class="chip" [class.on]="model.scope === 'partner'" (click)="model.scope='partner'">Partner</button>
-            <button type="button" class="chip" [class.on]="model.scope === 'valet'" (click)="model.scope='valet'">Valet</button>
-            <button type="button" class="chip" [class.on]="model.scope === 'both'" (click)="model.scope='both'">Entrambi</button>
+            <button type="button" class="chip" [class.on]="model.scope === 'partner'" (click)="model.scope='partner'">{{ 'enums.serviceScope.partner' | translate }}</button>
+            <button type="button" class="chip" [class.on]="model.scope === 'valet'" (click)="model.scope='valet'">{{ 'enums.serviceScope.valet' | translate }}</button>
+            <button type="button" class="chip" [class.on]="model.scope === 'both'" (click)="model.scope='both'">{{ 'serviceForm.service.scopeBoth' | translate }}</button>
           </div>
         </div>
 
         @if (model.pricingModel === 'MAGAZZINO') {
           <div class="sub-block">
-            <span class="sub-hint">Servizio magazzino: prezzo fisso + prezzo a pezzo + prezzo consegna (valori base, personalizzabili per partner).</span>
+            <span class="sub-hint">{{ 'serviceForm.service.magazzinoHint' | translate }}</span>
             <div class="grid-3">
-              <label class="fld"><span>Prezzo fisso (€)</span>
+              <label class="fld"><span>{{ 'serviceForm.service.basePrice' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="basePrice" [(ngModel)]="model.basePrice" /></label>
-              <label class="fld"><span>Prezzo a pezzo (€)</span>
+              <label class="fld"><span>{{ 'serviceForm.service.perPiecePrice' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="perPiecePrice" [(ngModel)]="model.perPiecePrice" /></label>
-              <label class="fld"><span>Prezzo consegna (€)</span>
+              <label class="fld"><span>{{ 'serviceForm.service.deliveryPrice' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="deliveryPrice" [(ngModel)]="model.deliveryPrice" /></label>
             </div>
           </div>
         }
         @if (model.pricingModel === 'A_ORA') {
-          <label class="fld mt" style="max-width:200px"><span>Ore minime</span>
+          <label class="fld mt" style="max-width:200px"><span>{{ 'serviceForm.service.minHours' | translate }}</span>
             <input class="field num" type="number" min="1" name="minHours" [(ngModel)]="model.minHours" /></label>
         }
 
-        <label class="fld span-2 mt"><span>Note</span>
+        <label class="fld span-2 mt"><span>{{ 'serviceForm.service.notes' | translate }}</span>
           <textarea class="field" rows="2" name="notes" [(ngModel)]="model.notes"></textarea></label>
-        <label class="toggle mt"><input type="checkbox" name="hideCustomerInfo" [(ngModel)]="model.hideCustomerInfo" /><span>Nascondi informazioni cliente</span></label>
+        <label class="toggle mt"><input type="checkbox" name="hideCustomerInfo" [(ngModel)]="model.hideCustomerInfo" /><span>{{ 'serviceForm.service.hideCustomerInfo' | translate }}</span></label>
       </section>
 
       <!-- Setup prenotazione -->
       <section class="card block">
-        <header class="block-head"><h2>Setup</h2>
-          <span class="block-sub">Regole di prenotazione del servizio (usate al momento della richiesta).</span></header>
+        <header class="block-head"><h2>{{ 'serviceForm.setup.title' | translate }}</h2>
+          <span class="block-sub">{{ 'serviceForm.setup.subtitle' | translate }}</span></header>
         <div class="grid-2">
-          <label class="fld"><span>Giorni preavviso</span>
-            <input class="field num" type="number" min="0" name="noticeDays" [(ngModel)]="model.noticeDays" placeholder="Es. 1" /></label>
-          <label class="fld"><span>Fascia oraria</span>
+          <label class="fld"><span>{{ 'serviceForm.setup.noticeDays' | translate }}</span>
+            <input class="field num" type="number" min="0" name="noticeDays" [(ngModel)]="model.noticeDays" [attr.placeholder]="'serviceForm.setup.noticeDaysPlaceholder' | translate" /></label>
+          <label class="fld"><span>{{ 'serviceForm.setup.slotHours' | translate }}</span>
             <select class="field" name="slotHours" [(ngModel)]="model.slotHours">
               <option [ngValue]="null">—</option>
-              <option [ngValue]="1">1 ora</option>
-              <option [ngValue]="2">2 ore</option>
-              <option [ngValue]="4">4 ore</option>
+              <option [ngValue]="1">{{ 'serviceForm.setup.slotHours1' | translate }}</option>
+              <option [ngValue]="2">{{ 'serviceForm.setup.slotHours2' | translate }}</option>
+              <option [ngValue]="4">{{ 'serviceForm.setup.slotHours4' | translate }}</option>
             </select></label>
-          <label class="fld"><span>Ora minima di inserimento</span>
-            <input class="field" type="time" name="minOrderTime" [(ngModel)]="model.minOrderTime" /></label>
-          <label class="fld"><span>Ora massima di inserimento</span>
-            <input class="field" type="time" name="maxOrderTime" [(ngModel)]="model.maxOrderTime" /></label>
+          <label class="fld"><span>{{ 'serviceForm.setup.minOrderTime' | translate }}</span>
+            <select class="field" name="minOrderTime" [(ngModel)]="model.minOrderTime">
+              <option value="">—</option>
+              @for (h of hours24; track h) { <option [value]="h">{{ h }}</option> }
+            </select></label>
+          <label class="fld"><span>{{ 'serviceForm.setup.maxOrderTime' | translate }}</span>
+            <select class="field" name="maxOrderTime" [(ngModel)]="model.maxOrderTime">
+              <option value="">—</option>
+              @for (h of hours24; track h) { <option [value]="h">{{ h }}</option> }
+            </select></label>
         </div>
-        <label class="toggle mt"><input type="checkbox" name="allowFlexibleTime" [(ngModel)]="model.allowFlexibleTime" /><span>Consenti fascia oraria flessibile (dalle–alle)</span></label>
-        <p class="hint">Prima dell'ora minima e dopo l'ora massima non è possibile richiedere il servizio per la data scelta. Se ora minima, ora massima e fascia oraria sono compilate, in Nuova consegna le fasce di consegna vengono proposte come elenco (es. 08–10, 10–12…). Con "fascia flessibile" l'operatore può invece indicare un dalle–alle libero.</p>
+        <label class="toggle mt"><input type="checkbox" name="allowFlexibleTime" [(ngModel)]="model.allowFlexibleTime" /><span>{{ 'serviceForm.setup.allowFlexibleTime' | translate }}</span></label>
+        <p class="hint" [innerHTML]="'serviceForm.setup.hint' | translate"></p>
       </section>
 
-      @if (justSaved()) { <div class="ok-card card">Servizio creato ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un altro.</div> }
+      @if (justSaved()) { <div class="ok-card card" [innerHTML]="'serviceForm.savedNotice' | translate"></div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
       <div class="actions">
-        <a routerLink="/services" class="btn btn-secondary">Annulla</a>
-        <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">Duplica</button>
-        <button type="submit" class="btn btn-primary" [disabled]="saving()">{{ saving() ? 'Salvataggio…' : 'Crea servizio' }}</button>
+        <a routerLink="/services" class="btn btn-secondary">{{ 'common.cancel' | translate }}</a>
+        @if (!editId()) {
+          <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'common.duplicate' | translate }}</button>
+        }
+        <button type="submit" class="btn btn-primary" [disabled]="saving()">{{ saving() ? ('common.saving' | translate) : ((editId() ? 'common.save' : 'serviceForm.submit') | translate) }}</button>
       </div>
     </form>
   `,
@@ -139,11 +148,15 @@ import { SERVICE_PRICING_OPTIONS } from '../core/models';
 export class ServiceFormComponent {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly translate = inject(TranslateService);
 
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly justSaved = signal(false);
   readonly pricingOptions = SERVICE_PRICING_OPTIONS;
+  /** 00:00 … 23:00 per le tendine ora min/max inserimento. */
+  readonly hours24 = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
   model = {
     name: '',
@@ -162,11 +175,37 @@ export class ServiceFormComponent {
     hideCustomerInfo: false,
   };
 
+  /** Id servizio in modifica (null = nuovo servizio). */
+  readonly editId = signal<string | null>(null);
+
+  constructor() {
+    // Modalita' modifica: /services/:id/edit
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.editId.set(id);
+      this.http.get<Record<string, any>>(`${environment.apiUrl}/service-types/${id}`).subscribe({
+        next: (s) => this.prefill(s),
+        error: (err) =>
+          this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')),
+      });
+    }
+  }
+
+  /** Riempie il form con il servizio esistente. */
+  private prefill(s: Record<string, any>): void {
+    const m = this.model as Record<string, any>;
+    for (const key of Object.keys(this.model)) {
+      const v = s[key];
+      if (v === null || v === undefined) continue;
+      m[key] = v;
+    }
+  }
+
   submit(duplicate = false): void {
     this.error.set(null);
     this.justSaved.set(false);
     const m = this.model;
-    if (!m.name.trim()) { this.error.set('Il nome servizio è obbligatorio.'); return; }
+    if (!m.name.trim()) { this.error.set(this.translate.instant('serviceForm.nameRequired')); return; }
 
     const payload: Record<string, unknown> = {
       name: m.name.trim(),
@@ -189,15 +228,20 @@ export class ServiceFormComponent {
     payload['allowFlexibleTime'] = m.allowFlexibleTime;
 
     this.saving.set(true);
-    this.http.post(`${environment.apiUrl}/service-types`, payload).subscribe({
+    const id = this.editId();
+    const req = id
+      ? this.http.put(`${environment.apiUrl}/service-types/${id}`, payload)
+      : this.http.post(`${environment.apiUrl}/service-types`, payload);
+    req.subscribe({
       next: () => {
+        if (id) { this.router.navigate(['/services', id]); return; }
         if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }
         else this.router.navigate(['/services']);
       },
       error: (err) => {
         this.saving.set(false);
         const msg = err?.error?.message;
-        this.error.set(Array.isArray(msg) ? msg.join(' · ') : msg ?? 'Errore nella creazione del servizio');
+        this.error.set(Array.isArray(msg) ? msg.join(' · ') : msg ?? this.translate.instant('serviceForm.createError'));
       },
     });
   }
