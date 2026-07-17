@@ -74,13 +74,40 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       where: { attivo: !inArchivio, citta: { not: null }, ...(filtri.categoria ? { categoria: filtri.categoria } : {}) },
       orderBy: { citta: "asc" },
     }),
+    // Novità = top 10 per data più recente tra creazione e ultimo contatto.
+    // Le date future di ultimo contatto (appuntamenti pianificati) non contano
+    // finché non arrivano. Prisma non ordina per GREATEST: si prendono i top 10
+    // di entrambi i criteri e si fondono.
     conNovita
-      ? prisma.partner.findMany({
-          where: { attivo: true },
-          include: { contatti: true },
-          orderBy: { creatoIl: "desc" },
-          take: 10,
-        })
+      ? (async () => {
+          const adesso = new Date();
+          const [creati, contattati] = await Promise.all([
+            prisma.partner.findMany({
+              where: { attivo: true },
+              include: { contatti: true },
+              orderBy: { creatoIl: "desc" },
+              take: 10,
+            }),
+            prisma.partner.findMany({
+              where: { attivo: true, ultimaVisita: { lte: adesso } },
+              include: { contatti: true },
+              orderBy: { ultimaVisita: "desc" },
+              take: 10,
+            }),
+          ]);
+          const perId = new Map([...creati, ...contattati].map((p) => [p.id, p]));
+          // Per il lotto storico dell'Excel la data di creazione è quella
+          // convenzionale (uguale per tutti): lì conta solo l'ultimo contatto.
+          const rilevante = (p: (typeof creati)[number]) =>
+            Math.max(
+              p.fonte === "excel" ? 0 : p.creatoIl.getTime(),
+              p.ultimaVisita && p.ultimaVisita <= adesso ? p.ultimaVisita.getTime() : 0,
+            );
+          return [...perId.values()]
+            .filter((p) => rilevante(p) > 0)
+            .sort((a, b) => rilevante(b) - rilevante(a))
+            .slice(0, 10);
+        })()
       : Promise.resolve([]),
   ]);
 
@@ -191,7 +218,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       {conNovita && novita.length > 0 && (
         <>
           <h2 className="sezione-titolo">
-            Novità <span>ultimi 10 inserimenti</span>
+            Novità <span>top 10 per nuovo inserimento o ultimo contatto</span>
           </h2>
           <div className="tabella-wrap" style={{ marginBottom: 22 }}>
             <table>
