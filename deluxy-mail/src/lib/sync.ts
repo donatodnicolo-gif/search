@@ -2,7 +2,7 @@ import type { Regola, Sezione } from '@prisma/client'
 import { db } from './db'
 import { scaricaNuovi, scaricaVecchi, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
-import { analizzaMessaggio, riassumiContatto } from './ai'
+import { analizzaMessaggio, riassumiContatto, scriviRisposta } from './ai'
 import { CHIAVI, leggiImpostazioni } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
 
@@ -186,6 +186,74 @@ function inItaliano(errore: string): string {
 }
 
 /**
+ * Prepara l'esecuzione di un'attività: fa scrivere all'AI la mail che la porta
+ * a termine e la lascia come bozza, aperta e pronta da controllare.
+ *
+ * Non invia niente: "esegui" qui vuol dire "portami al punto in cui basta
+ * rileggere e premere invia". Il testo lo scrive il modello, la decisione
+ * resta tua.
+ */
+export async function preparaEsecuzione(
+  attivitaId: string
+): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
+  const attivita = await db.attivita.findUnique({
+    where: { id: attivitaId },
+    include: { messaggio: true },
+  })
+  if (!attivita) return { ok: false, messaggio: 'Attività non trovata.' }
+
+  // L'attività può venire da una mail precisa o dal punto della situazione con
+  // un contatto: in quel caso si risponde al suo messaggio più recente.
+  let messaggio = attivita.messaggio
+  if (!messaggio && attivita.contattoEmail) {
+    messaggio = await db.messaggio.findFirst({
+      where: { mittente: attivita.contattoEmail, direzione: 'entrata', cestinato: false },
+      orderBy: { data: 'desc' },
+    })
+  }
+
+  if (!messaggio) {
+    return {
+      ok: false,
+      messaggio: 'Questa attività non nasce da una mail: non c’è nessuno a cui rispondere.',
+    }
+  }
+
+  const impostazioni = await leggiImpostazioni()
+
+  try {
+    const testo = await scriviRisposta({
+      messaggio,
+      compito: attivita.titolo,
+      dettaglio: attivita.dettaglio,
+      contestoAzienda: impostazioni[CHIAVI.contestoAzienda],
+      firma: impostazioni[CHIAVI.firma],
+      oggi: new Date(),
+    })
+
+    const bozza = await db.bozza.create({
+      data: {
+        messaggioId: messaggio.id,
+        origine: 'ai',
+        modo: 'rispondi',
+        a: messaggio.mittente,
+        oggetto: testo.oggetto,
+        corpo: testo.corpo,
+        corpoAI: testo.corpo,
+      },
+    })
+
+    return {
+      ok: true,
+      messaggio: 'Risposta pronta.',
+      vaiA: `/messaggio/${messaggio.id}/scrivi?modo=rispondi&bozza=${bozza.id}`,
+    }
+  } catch (e) {
+    return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
+  }
+}
+
+/**
  * Fa il punto della situazione con un contatto: legge le ultime mail scambiate
  * con lui — ricevute e inviate — e ne ricava il quadro, cosa è rimasto aperto
  * e cosa conviene fare.
@@ -193,9 +261,17 @@ function inItaliano(errore: string): string {
  * Le azioni proposte diventano attività vere, non righe da guardare: le
  * ritrovi in Attività insieme a tutto il resto e le spunti quando le fai.
  */
+export type QuadroContatto = {
+  situazione: string
+  taskAperti: string[]
+  azioni: { id: string; titolo: string; dettaglio: string | null; priorita: string; scadenza: Date | null }[]
+  messaggiVisti: number
+  aggiornatoIl: Date
+}
+
 export async function analizzaContattoOra(
   email: string
-): Promise<{ ok: boolean; messaggio: string }> {
+): Promise<{ ok: boolean; messaggio: string; quadro?: QuadroContatto }> {
   // Sia quelle di lui sia le mie: il quadro senza le mie risposte sarebbe
   // monco — non si capirebbe chi aspetta cosa.
   const messaggi = await db.messaggio.findMany({
@@ -243,19 +319,22 @@ export async function analizzaContattoOra(
       where: { contattoEmail: email, creataDaAI: true, fatta: false },
     })
 
+    const create = []
     for (const a of analisi.azioni) {
-      await db.attivita.create({
-        data: {
-          contattoEmail: email,
-          titolo: a.titolo,
-          dettaglio: a.dettaglio || null,
-          scadenza: a.scadenza ? new Date(a.scadenza) : null,
-          priorita: CODICI_PRIORITA.includes(a.priorita as never) ? a.priorita : 'P2',
-        },
-      })
+      create.push(
+        await db.attivita.create({
+          data: {
+            contattoEmail: email,
+            titolo: a.titolo,
+            dettaglio: a.dettaglio || null,
+            scadenza: a.scadenza ? new Date(a.scadenza) : null,
+            priorita: CODICI_PRIORITA.includes(a.priorita as never) ? a.priorita : 'P2',
+          },
+        })
+      )
     }
 
-    await db.riassuntoContatto.upsert({
+    const salvato = await db.riassuntoContatto.upsert({
       where: { email },
       create: {
         email,
@@ -279,9 +358,50 @@ export async function analizzaContattoOra(
         n === 0
           ? `Letti ${messaggi.length} messaggi: niente da fare per ora.`
           : `Letti ${messaggi.length} messaggi: ${n === 1 ? '1 azione proposta' : `${n} azioni proposte`} in Attività.`,
+      quadro: {
+        situazione: analisi.situazione,
+        taskAperti: analisi.taskAperti,
+        azioni: create.map((a) => ({
+          id: a.id,
+          titolo: a.titolo,
+          dettaglio: a.dettaglio,
+          priorita: a.priorita,
+          scadenza: a.scadenza,
+        })),
+        messaggiVisti: messaggi.length,
+        aggiornatoIl: salvato.aggiornatoIl,
+      },
     }
   } catch (e) {
     return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
+  }
+}
+
+/**
+ * Il quadro già calcolato, senza richiamare il modello: riaprire il pannello
+ * non deve ripagare l'analisi.
+ */
+export async function leggiQuadroContatto(email: string): Promise<QuadroContatto | null> {
+  const r = await db.riassuntoContatto.findUnique({ where: { email } })
+  if (!r) return null
+
+  const azioni = await db.attivita.findMany({
+    where: { contattoEmail: email, fatta: false },
+    orderBy: [{ scadenza: 'asc' }, { priorita: 'asc' }],
+  })
+
+  return {
+    situazione: r.situazione,
+    taskAperti: r.taskAperti.split('\n').filter(Boolean),
+    azioni: azioni.map((a) => ({
+      id: a.id,
+      titolo: a.titolo,
+      dettaglio: a.dettaglio,
+      priorita: a.priorita,
+      scadenza: a.scadenza,
+    })),
+    messaggiVisti: r.messaggiVisti,
+    aggiornatoIl: r.aggiornatoIl,
   }
 }
 

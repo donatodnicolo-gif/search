@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { creaAttivitaManuale } from '@/lib/actions'
 import { CheckAttivita } from '@/components/CheckAttivita'
+import { BottoneEsegui } from '@/components/BottoneEsegui'
 import { coloreDiPriorita, PRIORITA, priorita as livello } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
@@ -92,6 +93,9 @@ export default async function Attivita() {
                   >
                     {a.priorita}
                   </span>
+                  {/* Esegui solo se c'è una mail a cui rispondere: un'attività
+                      scritta a mano senza origine non ha nulla da eseguire. */}
+                  {(a.messaggio || a.contattoEmail) && <BottoneEsegui id={a.id} />}
                 </div>
               </div>
             )

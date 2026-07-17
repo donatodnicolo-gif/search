@@ -9,8 +9,11 @@ import { cifra, decifra } from './crypto'
 import {
   analizzaContattoOra,
   analizzaMessaggioOra,
+  leggiQuadroContatto,
+  preparaEsecuzione,
   scaricaStorico,
   sincronizzaTutti,
+  type QuadroContatto,
 } from './sync'
 import { CODICI_PRIORITA } from './format'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
@@ -189,9 +192,40 @@ export async function impostaPriorita(
   return esito
 }
 
-/** Fa il punto della situazione con un contatto leggendo le ultime mail. */
-export async function analizzaContatto(email: string): Promise<{ ok: boolean; messaggio: string }> {
+/**
+ * Il quadro della situazione con un contatto, per il pannello.
+ *
+ * Senza `rifai` restituisce quello già calcolato, se c'è: aprire il pannello
+ * due volte non deve pagare due analisi. Con `rifai` richiama il modello.
+ */
+export async function analizzaContatto(
+  email: string,
+  rifai = false
+): Promise<{ ok: boolean; messaggio: string; quadro?: QuadroContatto }> {
+  if (!rifai) {
+    const salvato = await leggiQuadroContatto(email)
+    if (salvato) {
+      return {
+        ok: true,
+        messaggio: `Letti ${salvato.messaggiVisti} messaggi.`,
+        quadro: salvato,
+      }
+    }
+  }
+
   const esito = await analizzaContattoOra(email)
+  revalidatePath('/', 'layout')
+  return esito
+}
+
+/**
+ * Esegue un'attività: fa scrivere all'AI la mail che la porta a termine e
+ * restituisce dove andare a controllarla. Non invia niente.
+ */
+export async function eseguiAttivita(
+  id: string
+): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
+  const esito = await preparaEsecuzione(id)
   revalidatePath('/', 'layout')
   return esito
 }
