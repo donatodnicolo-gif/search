@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { dataLunga } from '@/lib/format'
 import { BozzaEditor } from '@/components/BozzaEditor'
 import { AzioniMessaggio } from '@/components/AzioniMessaggio'
+import { PrioritaButtons } from '@/components/PrioritaButtons'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,15 +64,18 @@ export default async function DettaglioMessaggio({ params }: Props) {
                     : 'te'}
               </span>
             )}
-            {messaggio.priorita && (
-              <span className="badge neutral">priorità {messaggio.priorita}</span>
-            )}
             {messaggio.allegati > 0 && (
               <span className="badge neutral">
                 {messaggio.allegati} allegat{messaggio.allegati === 1 ? 'o' : 'i'}
               </span>
             )}
           </div>
+
+          <PrioritaButtons
+            id={messaggio.id}
+            priorita={messaggio.priorita}
+            prioritaDa={messaggio.prioritaDa}
+          />
         </div>
 
         {messaggio.riassunto && (

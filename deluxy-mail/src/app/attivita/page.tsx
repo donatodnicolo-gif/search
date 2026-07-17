@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { creaAttivitaManuale } from '@/lib/actions'
 import { CheckAttivita } from '@/components/CheckAttivita'
-import { coloreDiPriorita } from '@/lib/format'
+import { coloreDiPriorita, PRIORITA, priorita as livello } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,7 +70,12 @@ export default async function Attivita() {
                       {a.scadenza.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
                     </span>
                   )}
-                  <span className={`badge ${coloreDiPriorita(a.priorita)}`}>{a.priorita}</span>
+                  <span
+                    className={`badge ${coloreDiPriorita(a.priorita)}`}
+                    title={livello(a.priorita)?.quando}
+                  >
+                    {a.priorita}
+                  </span>
                 </div>
               </div>
             )
@@ -98,10 +103,12 @@ export default async function Attivita() {
             </div>
             <div>
               <label className="field-label">Priorità</label>
-              <select name="priorita" defaultValue="media">
-                <option value="alta">Alta</option>
-                <option value="media">Media</option>
-                <option value="bassa">Bassa</option>
+              <select name="priorita" defaultValue="P2">
+                {PRIORITA.map((p) => (
+                  <option key={p.codice} value={p.codice}>
+                    {p.codice} — {p.quando}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

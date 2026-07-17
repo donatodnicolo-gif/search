@@ -127,7 +127,12 @@ model Messaggio {
   // Come è stata decisa la sezione: "regola" (deterministica) o "ai".
   smistatoDa  String?
   regolaId    String? // regola deterministica che ha deciso, se presente
-  priorita    String? // alta | media | bassa
+  // Scala unica di tutta l'app: P0 urgente, P1 entro 24 ore, P2 entro la
+  // settimana, P3 quando c'è tempo.
+  priorita    String?
+  // 'ai' o 'manuale': una priorità scelta a mano non viene più toccata
+  // dall'AI in una ri-analisi.
+  prioritaDa  String?
   riassunto   String? // una frase in italiano
   serveRisposta Boolean @default(false)
   analizzatoIl  DateTime?
@@ -153,7 +158,7 @@ model Attivita {
   titolo      String
   dettaglio   String?
   scadenza    DateTime?
-  priorita    String  @default("media") // alta | media | bassa
+  priorita    String  @default("P2") // stessa scala dei messaggi: P0…P3
   fatta       Boolean @default(false)
   fattaIl     DateTime?
   creataDaAI  Boolean @default(true)

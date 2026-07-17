@@ -5,6 +5,7 @@ import nodemailer from 'nodemailer'
 import { db } from './db'
 import { cifra, decifra } from './crypto'
 import { scaricaStorico, sincronizzaTutti } from './sync'
+import { CODICI_PRIORITA } from './format'
 import { provaConnessione } from './imap'
 import { scriviImpostazione } from './impostazioni'
 
@@ -104,6 +105,22 @@ export async function segnaLetto(id: string, letto: boolean) {
 
 export async function archiviaMessaggio(id: string) {
   await db.messaggio.update({ where: { id }, data: { archiviato: true, letto: true } })
+  revalidatePath('/', 'layout')
+}
+
+/**
+ * Priorità scelta a mano. Da qui in poi è tua: `prioritaDa: 'manuale'` fa sì
+ * che una ri-analisi non te la sovrascriva.
+ * Ripremere lo stesso livello la toglie, e la parola torna all'AI.
+ */
+export async function impostaPriorita(id: string, codice: string | null) {
+  if (codice !== null && !CODICI_PRIORITA.includes(codice as never)) {
+    throw new Error(`Priorità non valida: ${codice}`)
+  }
+  await db.messaggio.update({
+    where: { id },
+    data: { priorita: codice, prioritaDa: codice ? 'manuale' : null },
+  })
   revalidatePath('/', 'layout')
 }
 

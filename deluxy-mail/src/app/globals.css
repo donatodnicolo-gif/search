@@ -211,6 +211,8 @@ input:focus, select:focus, textarea:focus {
 .mail-row:hover { background: rgba(120, 120, 128, 0.05); }
 .mail-row.non-letto { background: rgba(0, 113, 227, 0.03); }
 .mail-row.selezionato { background: var(--fill-active); }
+/* Solo questa parte apre la mail: i pulsanti di priorità stanno fuori. */
+.mail-row-link { display: block; cursor: pointer; }
 
 .mail-top { display: flex; align-items: center; gap: 10px; }
 .mail-mittente { font-size: 14px; font-weight: 500; flex: 1; min-width: 0; }
@@ -226,6 +228,33 @@ input:focus, select:focus, textarea:focus {
 }
 .mail-riassunto .ai-mark { color: var(--gold-strong); font-weight: 600; flex: 0 0 auto; }
 .mail-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+/* ---------- Pulsanti di priorità (P0…P3) ---------- */
+.prio-group { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.prio-btn {
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  padding: 3px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background 150ms var(--ease), color 150ms var(--ease),
+    border-color 150ms var(--ease), transform 150ms var(--ease);
+}
+.prio-btn:hover { background: var(--fill-hover); }
+.prio-btn:active { transform: scale(0.96); }
+
+/* Spento il livello si vede appena; acceso prende il colore del suo stato. */
+.prio-btn.attivo { color: #fff; border-color: transparent; }
+.prio-btn.red.attivo { background: var(--red); }
+.prio-btn.orange.attivo { background: var(--orange); }
+.prio-btn.blue.attivo { background: var(--blue); }
+.prio-btn.neutral.attivo { background: var(--text-secondary); }
+
+.prio-nota { font-size: 12px; color: var(--text-tertiary); margin-left: 2px; }
 
 /* pallino non letto */
 .dot-unread { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); flex: 0 0 7px; }

@@ -4,6 +4,7 @@ import { scaricaNuovi, scaricaVecchi, testoLeggibile, type MessaggioScaricato } 
 import { applicaRegole, type EsitoRegole } from './regole'
 import { analizzaMessaggio } from './ai'
 import { CHIAVI, leggiImpostazioni } from './impostazioni'
+import { CODICI_PRIORITA } from './format'
 
 export type EsitoSync = {
   // 'scarico'   = messaggi nuovi presi dalla casella;
@@ -53,12 +54,20 @@ async function analizzaESalva(opts: {
       : null
     const sezioneId = daRegole.sezioneId ?? sezioneAI
 
+    // Una priorità che hai messo tu non si tocca: l'AI la propone solo dove
+    // non hai ancora deciso.
+    const attuale = await db.messaggio.findUnique({
+      where: { id: messaggioId },
+      select: { prioritaDa: true },
+    })
+    const prioritaManuale = attuale?.prioritaDa === 'manuale'
+
     await db.messaggio.update({
       where: { id: messaggioId },
       data: {
         sezioneId,
         smistatoDa: daRegole.sezioneId ? 'regola' : sezioneAI ? 'ai' : null,
-        priorita: analisi.priorita,
+        ...(prioritaManuale ? {} : { priorita: analisi.priorita, prioritaDa: 'ai' }),
         riassunto: analisi.riassunto,
         serveRisposta: analisi.serveRisposta,
         analizzatoIl: new Date(),
@@ -90,7 +99,7 @@ async function analizzaESalva(opts: {
           titolo: a.titolo,
           dettaglio: a.dettaglio || null,
           scadenza: a.scadenza ? new Date(a.scadenza) : null,
-          priorita: ['alta', 'media', 'bassa'].includes(a.priorita) ? a.priorita : 'media',
+          priorita: CODICI_PRIORITA.includes(a.priorita as never) ? a.priorita : 'P2',
         },
       })
     }
