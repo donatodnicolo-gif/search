@@ -1,0 +1,80 @@
+// Deluxy Anagrafiche — schema dati
+// Registro centralizzato dei partner B2B: fonte di verità per tutte le app Deluxy.
+// Le altre app leggono via API; solo la piattaforma consegne (app.deluxy.it) scrive.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // In locale: SQLite (nessun servizio da avviare).
+  // In produzione: cambiare in "postgresql" e impostare DATABASE_URL.
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Partner {
+  id             String     @id @default(cuid())
+  nome           String // insegna / nome prospect
+  ragioneSociale String?
+  // Categoria libera normalizzata in maiuscolo: BOUTIQUE, FIORISTA, PASTICCERIA,
+  // RISTORANTE, CATERING, GIFTING, CONCIERGE, ...
+  categoria      String     @default("ALTRO")
+  tipoProspect   String? // valore grezzo "TIPO PROSPECT" del tracker Excel
+  // prospect | in_contatto | in_attesa | in_trattativa | da_ricontattare |
+  // attivo (= partner) | non_interessato | dismesso — vedi src/lib/stati.ts
+  stato          String     @default("prospect")
+  citta          String?
+  provincia      String?
+  regione        String?
+  indirizzo      String?
+  email          String?
+  telefono       String?
+  pIva           String?
+  codiceFiscale  String?
+  account        String? // commerciale che segue l'anagrafica (ELEONORA, GAIA, ...)
+  ultimaVisita   DateTime?
+  note           String?
+  contattiRaw    String? // blocco contatti originale dell'Excel (testo libero)
+  // Extra specifici del foglio di provenienza (stime, fee, ...), JSON serializzato
+  datiExtra      String?
+  contatti       Contatto[]
+  // Collegamento con la piattaforma consegne: id del Partner su app.deluxy.it
+  platformId     String?    @unique
+  // excel | platform | manuale
+  fonte          String     @default("manuale")
+  attivo         Boolean    @default(true)
+  creatoIl       DateTime   @default(now())
+  aggiornatoIl   DateTime   @updatedAt
+
+  @@index([categoria])
+  @@index([stato])
+  @@index([citta])
+  @@index([nome])
+}
+
+// Persone di riferimento del partner (parse del blocco CONTATTI dell'Excel
+// o inviate dalle API)
+model Contatto {
+  id        String  @id @default(cuid())
+  partnerId String
+  ruolo     String? // TITOLARE, STORE MANAGER, SALES ASSISTANT, ...
+  nome      String?
+  telefono  String?
+  email     String?
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId])
+}
+
+// Chiavi API delle app client. La chiave in chiaro non viene mai salvata:
+// si conserva solo lo SHA-256 (vedi scripts/crea-chiave.mjs).
+model ApiKey {
+  id        String    @id @default(cuid())
+  nome      String    @unique // app client: deluxy-platform, deluxy-partner, ...
+  hash      String    @unique // sha256 esadecimale della chiave
+  scrittura Boolean   @default(false) // true = può creare/modificare/disattivare
+  attiva    Boolean   @default(true)
+  creataIl  DateTime  @default(now())
+  ultimoUso DateTime?
+}
