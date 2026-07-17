@@ -3,7 +3,7 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
-**Ultimo aggiornamento:** 16 luglio 2026
+**Ultimo aggiornamento:** 17 luglio 2026
 **Branch:** `platform-delivery-slots` (worktree isolato, basato su `deluxy-scout`) · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\.claude\worktrees\platform-slots\deluxy-platform-next` (worktree) — da consolidare su `deluxy-scout`
 
@@ -59,16 +59,44 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - **Analisi backend legacy** e **scaffolding connessione DB in sola lettura** (`api/.env.legacy.example`, `api/prisma/legacy-readonly-user.sql`).
 - Tutto **pushato** su `origin/deluxy-scout`.
 
+### 17/07/2026 — multilingua completo, dettagli+modifica ovunque, azioni consegne, filtri/ordinamenti
+
+- **Multilingua esteso a tutta l'app**: tradotte le schermate centrali (liste + tutti i form). `web/public/i18n/{it,en}.json` → **~775 chiavi, IT/EN allineate** (verificato con confronto automatico dei path). Restava solo shell+login.
+- **Sidebar collassabile** (desktop): pulsante riduci/espandi, solo icone, stato persistito in `localStorage`; su mobile resta il drawer.
+- **Consegne — lista**: colonna **Stato come primo campo, solo pallino colorato** (nome nel tooltip) + **legenda colori** sopra la tabella; colonna **Consegna** con l'orario; il **Servizio è un'icona** per tipo. ⚠️ **Colori allineati all'app reale** (Da gestire=**rosso**, In gestione=giallo, In preparazione=arancione, Accettata=blu, In consegna=viola, Richiesta annullamento=azzurro) — prima erano diversi.
+- **Convenzione: click sulla riga → Dettaglio** (niente bottone "Dettagli") in **tutte** le sezioni; accessibile da tastiera (Tab+Invio). I bottoni azione non attivano la riga.
+- **Pagine di Dettaglio nuove**: consegna, partner, cliente, valet, prodotto, categoria, servizio, operatore.
+- **Form di MODIFICA** per tutte le sezioni (riusano il form di creazione: rotta `/<sez>/:id/edit`, precompilato, salva in PUT — **PATCH per gli operatori** —, niente "Duplica").
+- **Sezione Clienti creata da zero** (era uno stub): lista + form + dettaglio con le consegne del cliente.
+- **Consegne — azioni di riga**: **Modifica** (regola: il partner solo se stato `created` e servizio ≠ VENDITA, **applicata lato server**), **Assegna** (pop-up coi valet della provincia della consegna), **Additional valet +/-** (plus/minus su `valetAdditionalPrice`), **Monitorare** (link **pubblico** `/tracking/<token>` senza login).
+- **Prodotti — allineamento all'app reale**: tipo come **flag** (Prodotto unico / Super prodotto), partner aggiuntivi gated dietro *Visible to other partners*, Plus obbligatorio, sezione **Shopify** (Approvato/Attivo/Not physical + piattaforme + descrizione per piattaforma + galleria immagini), **varianti ricche** (SKU **auto progressivo** `<SKU>-NN`, giorni prep., prezzo, prezzo pubblico, stock, **immagine per variante**).
+- **Filtri e ordinamenti (iniziato)**: contratto comune in `api/src/common/list-query.ts` → `?q=&sort=&dir=&page=&pageSize=` con risposta **`{ items, total, page, pageSize }`**. `q` = **ricerca globale** su tutti i campi testuali (anche di relazione, es. `category.name`); `sort` con **whitelist** per risorsa; `pageSize` default 50, max 500; data/ora con filtri propri (`dateFrom`/`dateTo`). **Applicato ai Prodotti** (API + lista con intestazioni ordinabili, ricerca con debounce, paginazione) e verificato E2E.
+
+**Fix (erano bug reali, non regressioni):**
+- `PUT /deliveries/:id` era vietato al partner → la regola di modifica non sarebbe mai stata applicabile.
+- `AssignValetDto.valetId` non aveva decoratore di validazione → il ValidationPipe (whitelist) lo scartava e **l'assegnazione andava in 500**.
+- `update()` delle consegne **scartava i prodotti** (e gli indirizzi di ritiro).
+- `GET /customers/:id` non restituiva le consegne del cliente.
+- **Svuotare una collezione in modifica non la cancellava** (i form omettevano gli array vuoti): ora in edit si inviano sempre, anche vuoti.
+- `pickupAddresses` del partner è una **stringa JSON**, non un array (il prefill lo gestisce).
+
+**API aggiunte perché mancanti:** `GET/PUT /categories/:id`, `GET/PUT /service-types/:id`, `GET /operations/:id`, `GET /deliveries/:id/tracking-link`, `GET /deliveries/tracking/:token` (**pubblico**).
+**Migrazioni:** `product_variant_rich_images_platformdesc`, `product_variant_image`, `delivery_tracking_token`.
+
 ## MANCA / PROSSIMI PASSI
 
 1. **[BLOCCATO — palla all'utente] Connessione al DB di produzione (MySQL, sola lettura)**: servono i 5 valori `MYSQL_*` (o replica) + raggiungibilità/tunnel. Vedi ANALISI-BACKEND-LEGACY. Poi `prisma db pull` per lo schema reale.
 2. **Allineare l'endpoint WooCommerce** al contratto reale: `POST /api/deliveries/sync/woo-order`, header `x-deluxy-partner-key`, payload+risposta identici (oggi usa `x-api-key` e `/woocommerce/orders`).
-3. **Form di MODIFICA** (oggi c'è solo la creazione): partner, valet, operatore, consegna.
-2-bis. **[in attesa]** Form **Prodotti**: replicare il comportamento dei **flag** dell'app reale (cosa mostra/nasconde/abilita ogni flag cliccandolo). Richiede osservazione diretta di app.deluxy.it (login admin) — Claude non può autenticarsi con credenziali; l'utente deve descrivere i comportamenti o fornire accesso (es. sessione Claude-in-Chrome già loggata).
-3-bis. **Traduzione incrementale**: portare le stringhe delle singole schermate (form consegna/partner/valet/servizio/prodotto/liste) alle chiavi i18n in `web/public/i18n/{it,en}.json` (finora tradotti shell/menu + login).
+3. ~~**Form di MODIFICA**~~ → **FATTO il 17/07** per tutte le sezioni (vedi FATTO).
+2-bis. ~~Form **Prodotti**: comportamento dei flag dell'app reale~~ → **FATTO il 17/07**: osservato dal vivo su app.deluxy.it (l'utente ha fatto il login; Claude non inserisce credenziali) e replicato. Semantica dei campi ora nel manuale (§3.6).
+3-bis. ~~**Traduzione incrementale**~~ → **FATTO il 17/07**: tutte le schermate tradotte (~775 chiavi IT/EN allineate).
 4. **Applicare la visibilità per ruolo operatore** al login (Finance vede Amministrazione, PM no Operatività, Customer Service no Amministrazione) — richiede auth reale che porti `operationRole` nel token e sidebar che filtri.
 5. **Autenticazione reale** contro il DB: mapping `extraId`/`extraType` → partner/valet/operation.
-6. **Sezioni ancora stub**: Attività, Vendite, Prodotti, Clienti (creazione), Stipendi, Pagamenti, Regole carnet, Finanza, Modelli SMS, Disponibilità, Province, Utenti/ruoli.
+6. **Sezioni ancora stub**: Attività, Vendite, Stipendi, Pagamenti, Regole carnet, Finanza, Modelli SMS, Disponibilità, Province, Utenti/ruoli. *(Clienti non è più stub: fatto il 17/07.)*
+9. **Filtri/ordinamenti: completare le liste rimanenti** applicando il contratto già validato (`api/src/common/list-query.ts`): Consegne, Partner, Clienti, Valet, Categorie, Servizi, Operatori. Fatto solo **Prodotti**. ⚠️ La risposta diventa `{items,total,page,pageSize}` (non più un array): aggiornare i consumatori della lista convertita.
+10. **⚠️ Ricerca case-insensitive su PostgreSQL**: in SQLite (dev) `contains` → `LIKE`, già case-insensitive; su **Postgres (produzione) `LIKE` è case-sensitive** → servirà `mode: 'insensitive'` in `textSearch()`, altrimenti la ricerca globale si comporterà diversamente in produzione.
+11. **Image manager Shopify e descrizione per piattaforma**: la parte dati/form c'è (URL multipli + descrizione per piattaforma); manca l'**upload/sincronizzazione reale su Shopify** (stub).
+12. **`trackingToken` senza vincolo unique**: in SQLite avrebbe richiesto una migrazione interattiva con rebuild tabella; il token è casuale a 24 byte e la ricerca usa `findFirst`. **In PostgreSQL aggiungere l'indice unique.**
 7. **Rifiniture**: nel form valet rendere Telefono/Indirizzo obbligatori e CF sempre richiesto (come app reale).
 8. **In pausa**: analisi multi-agente del vecchio codice (cosa fa ogni funzione + come aggiornarla).
 

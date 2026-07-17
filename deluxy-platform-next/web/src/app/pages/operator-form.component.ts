@@ -1,75 +1,78 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { OPERATION_ROLE_OPTIONS } from '../core/models';
 
 @Component({
   selector: 'app-operator-form',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <div class="form-head">
       <div>
-        <a routerLink="/operators" class="back">← Operatori</a>
-        <h1>Nuovo operatore</h1>
-        <p class="page-caption">Staff d'ufficio. Il ruolo determina quali sezioni del menu vede l'operatore.</p>
+        <a routerLink="/operators" class="back">← {{ 'operatorForm.backToOperators' | translate }}</a>
+        <h1>{{ (editId() ? 'operatorForm.editTitle' : 'operatorForm.title') | translate }}</h1>
+        <p class="page-caption">{{ 'operatorForm.caption' | translate }}</p>
       </div>
     </div>
 
     <form (ngSubmit)="submit()" class="form-grid">
       <section class="card block">
-        <header class="block-head"><h2>Informazioni generali</h2>
-          <span class="block-sub">I campi con * sono obbligatori.</span></header>
+        <header class="block-head"><h2>{{ 'operatorForm.general.title' | translate }}</h2>
+          <span class="block-sub">{{ 'operatorForm.general.requiredNote' | translate }}</span></header>
         <div class="grid-2">
-          <label class="fld"><span>Cognome *</span>
+          <label class="fld"><span>{{ 'operatorForm.general.lastName' | translate }}</span>
             <input class="field" name="lastName" [(ngModel)]="model.lastName" required placeholder="Rossi" /></label>
-          <label class="fld"><span>Nome *</span>
+          <label class="fld"><span>{{ 'operatorForm.general.firstName' | translate }}</span>
             <input class="field" name="firstName" [(ngModel)]="model.firstName" required placeholder="Giulia" /></label>
-          <label class="fld"><span>Email *</span>
+          <label class="fld"><span>{{ 'operatorForm.general.email' | translate }}</span>
             <input class="field" type="email" name="email" [(ngModel)]="model.email" required placeholder="operatore@deluxy.it" /></label>
-          <label class="fld"><span>Telefono *</span>
+          <label class="fld"><span>{{ 'operatorForm.general.phone' | translate }}</span>
             <input class="field" name="phone" [(ngModel)]="model.phone" placeholder="+39 …" /></label>
-          <label class="fld span-2"><span>Indirizzo *</span>
-            <input class="field" name="address" [(ngModel)]="model.address" placeholder="Via …, CAP Città (PR)" /></label>
+          <label class="fld span-2"><span>{{ 'operatorForm.general.address' | translate }}</span>
+            <input class="field" name="address" [(ngModel)]="model.address" [attr.placeholder]="'operatorForm.general.addressPlaceholder' | translate" /></label>
         </div>
       </section>
 
       <section class="card block">
-        <header class="block-head"><h2>Setup</h2>
-          <span class="block-sub">Ruolo e notifiche.</span></header>
+        <header class="block-head"><h2>{{ 'operatorForm.setup.title' | translate }}</h2>
+          <span class="block-sub">{{ 'operatorForm.setup.subtitle' | translate }}</span></header>
         <div class="setup-group">
-          <span class="group-label">Ruolo</span>
+          <span class="group-label">{{ 'operatorForm.setup.role' | translate }}</span>
           <label class="fld" style="max-width:360px">
             <select class="field" name="operationRole" [(ngModel)]="model.operationRole">
-              @for (r of roleOptions; track r.value) { <option [value]="r.value">{{ r.label }}</option> }
+              @for (r of roleOptions; track r.value) { <option [value]="r.value">{{ 'enums.operationRole.' + r.value | translate }}</option> }
             </select>
           </label>
           <p class="role-hint">{{ roleHint() }}</p>
         </div>
         <div class="setup-group">
-          <span class="group-label">Notifiche</span>
+          <span class="group-label">{{ 'operatorForm.setup.notifications' | translate }}</span>
           <div class="toggles">
-            <label class="toggle"><input type="checkbox" name="notifyWhatsapp" [(ngModel)]="model.notifyWhatsapp" /><span>Notifiche WhatsApp</span></label>
-            <label class="toggle"><input type="checkbox" name="notifyMail" [(ngModel)]="model.notifyMail" /><span>Notifiche mail</span></label>
+            <label class="toggle"><input type="checkbox" name="notifyWhatsapp" [(ngModel)]="model.notifyWhatsapp" /><span>{{ 'operatorForm.setup.notifyWhatsapp' | translate }}</span></label>
+            <label class="toggle"><input type="checkbox" name="notifyMail" [(ngModel)]="model.notifyMail" /><span>{{ 'operatorForm.setup.notifyMail' | translate }}</span></label>
           </div>
         </div>
       </section>
 
       <section class="card block">
-        <header class="block-head"><h2>Note</h2></header>
+        <header class="block-head"><h2>{{ 'operatorForm.notes.title' | translate }}</h2></header>
         <textarea class="field" rows="3" name="notes" [(ngModel)]="model.notes"></textarea>
       </section>
 
-      @if (justSaved()) { <div class="ok-card card">Operatore creato ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un altro.</div> }
+      @if (justSaved()) { <div class="ok-card card" [innerHTML]="'operatorForm.savedNotice' | translate"></div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
       <div class="actions">
-        <a routerLink="/operators" class="btn btn-secondary">Annulla</a>
-        <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">Duplica</button>
+        <a routerLink="/operators" class="btn btn-secondary">{{ 'common.cancel' | translate }}</a>
+        @if (!editId()) {
+          <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'common.duplicate' | translate }}</button>
+        }
         <button type="submit" class="btn btn-primary" [disabled]="saving()">
-          {{ saving() ? 'Salvataggio…' : 'Crea operatore' }}
+          {{ saving() ? ('common.saving' | translate) : ((editId() ? 'common.save' : 'operatorForm.submit') | translate) }}
         </button>
       </div>
     </form>
@@ -111,6 +114,8 @@ import { OPERATION_ROLE_OPTIONS } from '../core/models';
 export class OperatorFormComponent {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly translate = inject(TranslateService);
 
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -130,8 +135,35 @@ export class OperatorFormComponent {
     notes: '',
   };
 
+  /** Id operatore in modifica (null = nuovo operatore). */
+  readonly editId = signal<string | null>(null);
+
+  constructor() {
+    // Modalita' modifica: /operators/:id/edit
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.editId.set(id);
+      this.http.get<Record<string, any>>(`${environment.apiUrl}/operations/${id}`).subscribe({
+        next: (o) => this.prefill(o),
+        error: (err) =>
+          this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')),
+      });
+    }
+  }
+
+  /** Riempie il form con l'operatore esistente. */
+  private prefill(o: Record<string, any>): void {
+    const m = this.model as Record<string, any>;
+    for (const key of Object.keys(this.model)) {
+      const v = o[key];
+      if (v === null || v === undefined) continue;
+      m[key] = v;
+    }
+  }
+
   roleHint(): string {
-    return this.roleOptions.find((r) => r.value === this.model.operationRole)?.hint ?? '';
+    const value = this.roleOptions.find((r) => r.value === this.model.operationRole)?.value;
+    return value ? this.translate.instant('enums.operationRoleHint.' + value) : '';
   }
 
   submit(duplicate = false): void {
@@ -139,7 +171,7 @@ export class OperatorFormComponent {
     this.justSaved.set(false);
     const m = this.model;
     if (!m.firstName.trim() || !m.lastName.trim() || !m.email.trim()) {
-      this.error.set('Nome, cognome ed email sono obbligatori.');
+      this.error.set(this.translate.instant('operatorForm.requiredFields'));
       return;
     }
     const payload: Record<string, unknown> = {
@@ -155,15 +187,21 @@ export class OperatorFormComponent {
     }
 
     this.saving.set(true);
-    this.http.post(`${environment.apiUrl}/operations`, payload).subscribe({
+    const id = this.editId();
+    // Per gli operatori l'API usa PATCH, non PUT.
+    const req = id
+      ? this.http.patch(`${environment.apiUrl}/operations/${id}`, payload)
+      : this.http.post(`${environment.apiUrl}/operations`, payload);
+    req.subscribe({
       next: () => {
+        if (id) { this.router.navigate(['/operators', id]); return; }
         if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }
         else this.router.navigate(['/operators']);
       },
       error: (err) => {
         this.saving.set(false);
         const msg = err?.error?.message;
-        this.error.set(Array.isArray(msg) ? msg.join(' · ') : msg ?? 'Errore nella creazione dell\'operatore');
+        this.error.set(Array.isArray(msg) ? msg.join(' · ') : msg ?? this.translate.instant('operatorForm.createError'));
       },
     });
   }

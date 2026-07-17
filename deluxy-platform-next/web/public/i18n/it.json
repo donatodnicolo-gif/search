@@ -1,5 +1,7 @@
 {
-  "app": { "tagline": "Consegne in guanti bianchi, dal 2019." },
+  "app": {
+    "tagline": "Consegne in guanti bianchi, dal 2019."
+  },
   "login": {
     "title": "Deluxy",
     "subtitle": "Accedi alla piattaforma di consegna in guanti bianchi.",
@@ -43,6 +45,985 @@
     "VALET": "Valet",
     "PROJECT_MANAGER": "Project Manager"
   },
-  "shell": { "logout": "Esci" },
-  "lang": { "it": "Italiano", "en": "Inglese", "choose": "Lingua" }
+  "shell": {
+    "logout": "Esci",
+    "openMenu": "Apri menu",
+    "collapseMenu": "Riduci menu",
+    "expandMenu": "Espandi menu"
+  },
+  "lang": {
+    "it": "Italiano",
+    "en": "Inglese",
+    "choose": "Lingua"
+  },
+  "common": {
+    "refresh": "Aggiorna",
+    "loading": "Caricamento…",
+    "notAssigned": "Non assegnato",
+    "flexible": "flessibile",
+    "add": "Aggiungi",
+    "edit": "Modifica",
+    "save": "Salva",
+    "saving": "Salvataggio…",
+    "cancel": "Annulla",
+    "delete": "Elimina",
+    "duplicate": "Duplica",
+    "back": "Indietro",
+    "search": "Cerca",
+    "yes": "Sì",
+    "no": "No",
+    "active": "Attivo",
+    "inactive": "Inattivo",
+    "all": "Tutti",
+    "none": "Nessuno",
+    "optional": "opzionale",
+    "required": "obbligatorio",
+    "loadError": "Errore nel caricamento dei dati",
+    "saveError": "Errore nel salvataggio",
+    "comingSoon": "In arrivo"
+  },
+  "enums": {
+    "productType": {
+      "UNICO": "Unico",
+      "NON_UNICO": "Non unico",
+      "SUPERPRODOTTO": "Superprodotto"
+    },
+    "servicePricing": {
+      "VENDITA": "Vendita",
+      "PREZZO_FISSO": "A prezzo fisso",
+      "A_ORA": "A ora",
+      "MAGAZZINO": "Magazzino",
+      "CORPORATE": "Aziendale"
+    },
+    "servicePricingLong": {
+      "VENDITA": "Vendita",
+      "PREZZO_FISSO": "A prezzo fisso",
+      "A_ORA": "A ora",
+      "MAGAZZINO": "Magazzino",
+      "CORPORATE": "Aziendale (corporate)"
+    },
+    "serviceScope": {
+      "partner": "Partner",
+      "valet": "Valet",
+      "both": "Partner e Valet"
+    },
+    "vehicle": {
+      "Auto": "Auto",
+      "Bicicletta": "Bicicletta",
+      "Furgone": "Furgone",
+      "Moto/Scooter": "Moto/Scooter"
+    },
+    "salaryFrequency": {
+      "monthly": "Mensile",
+      "weekly": "Settimanale"
+    },
+    "operationRole": {
+      "operation": "Operation",
+      "finance": "Finance",
+      "project_manager": "Project Manager",
+      "customer_service": "Customer Service"
+    },
+    "operationRoleHint": {
+      "operation": "Ruolo base d'ufficio.",
+      "finance": "Vede anche la sezione Amministrazione.",
+      "project_manager": "Non vede la sezione Operatività.",
+      "customer_service": "Non vede la sezione Amministrazione."
+    },
+    "deliveryPaymentStatus": {
+      "default": "Da definire",
+      "paid": "Pagato",
+      "toBePaid": "Da pagare"
+    },
+    "paymentMethod": {
+      "bankTransfer": "Bonifico bancario",
+      "creditCard": "Carta di credito",
+      "directDebitMandate": "Addebito diretto (SDD)"
+    },
+    "paymentStatus": {
+      "active": "Attivo",
+      "inactive": "Inattivo",
+      "blocked": "Bloccato"
+    }
+  },
+  "status": {
+    "delivery": {
+      "created": "Da gestire",
+      "assigned": "In gestione",
+      "in_preparation": "In preparazione",
+      "accepted": "Accettata",
+      "in_delivery": "In consegna",
+      "delivered": "Consegnata",
+      "not_delivered": "Non consegnata",
+      "cancelled": "Annullata",
+      "cancellation_requested": "Cancellazione richiesta",
+      "not_accepted": "Non accettata",
+      "delivered_time_approved": "Consegnata (orario approvato)",
+      "delivered_time_not_approved": "Consegnata (orario da approvare)"
+    }
+  },
+  "deliveries": {
+    "title": "Consegne",
+    "caption": "Tutte le consegne della rete, in tempo reale.",
+    "allStatuses": "Tutti gli stati",
+    "add": "+ Aggiungi consegna",
+    "loading": "Caricamento consegne…",
+    "loadError": "Errore nel caricamento delle consegne",
+    "emptyTitle": "Nessuna consegna trovata.",
+    "emptyHint": "Modifica i filtri o aggiungi una nuova consegna.",
+    "col": {
+      "date": "Data",
+      "service": "Servizio",
+      "partner": "Partner",
+      "recipient": "Destinatario",
+      "address": "Indirizzo",
+      "pickup": "Ritiro",
+      "valet": "Valet",
+      "status": "Stato",
+      "price": "Prezzo",
+      "delivery": "Consegna",
+      "actions": "Azioni"
+    },
+    "legend": "Legenda",
+    "actions": {
+      "details": "Dettagli",
+      "edit": "Modifica",
+      "assign": "Assegna",
+      "monitor": "Monitorare",
+      "additionalValet": "Additional valet +/-"
+    },
+    "assign": {
+      "title": "Assegna valet",
+      "forDelivery": "Consegna #{{code}} · provincia",
+      "noProvince": "provincia non riconosciuta",
+      "noValets": "Nessun valet abilitato per questa provincia.",
+      "choose": "Assegna"
+    },
+    "additional": {
+      "title": "Additional valet +/-",
+      "hint": "Plus o minus sulla paga del valet per la consegna #{{code}}. Usa un valore negativo per il minus.",
+      "amount": "Importo (€)"
+    }
+  },
+  "partners": {
+    "title": "Partner",
+    "caption": "partner in rete.",
+    "searchPlaceholder": "Cerca…",
+    "add": "Aggiungi partner",
+    "loading": "Caricamento partner…",
+    "loadError": "Errore nel caricamento dei partner",
+    "emptyTitle": "Nessun partner trovato.",
+    "emptyHint": "Aggiungine uno con “Aggiungi partner”.",
+    "col": {
+      "insegna": "Insegna",
+      "email": "Email",
+      "phone": "Telefono",
+      "provinces": "Province",
+      "categories": "Categorie",
+      "payment": "Pagamento",
+      "status": "Stato"
+    }
+  },
+  "valets": {
+    "title": "Valet",
+    "caption": "valet in rete.",
+    "searchPlaceholder": "Cerca…",
+    "add": "Aggiungi valet",
+    "loading": "Caricamento valet…",
+    "loadError": "Errore nel caricamento dei valet",
+    "emptyTitle": "Nessun valet trovato.",
+    "emptyHint": "Aggiungine uno con “Aggiungi valet”.",
+    "col": {
+      "lastName": "Cognome",
+      "firstName": "Nome",
+      "email": "Email",
+      "phone": "Telefono",
+      "provinces": "Province",
+      "vehicle": "Mezzo",
+      "teamLeader": "Team leader",
+      "status": "Stato"
+    }
+  },
+  "products": {
+    "title": "Prodotti",
+    "caption": "prodotti a catalogo.",
+    "searchPlaceholder": "Cerca…",
+    "add": "Aggiungi prodotto",
+    "loading": "Caricamento…",
+    "emptyTitle": "Nessun prodotto.",
+    "emptyHint": "Aggiungine uno.",
+    "approved": "Approvato",
+    "pending": "Da approvare",
+    "col": {
+      "name": "Nome",
+      "sku": "SKU",
+      "category": "Categoria",
+      "type": "Tipo",
+      "partner": "Partner",
+      "price": "Prezzo",
+      "status": "Stato"
+    }
+  },
+  "categories": {
+    "title": "Categorie",
+    "caption": "categorie di prodotto.",
+    "searchPlaceholder": "Cerca…",
+    "add": "Aggiungi categoria",
+    "loading": "Caricamento…",
+    "emptyTitle": "Nessuna categoria.",
+    "emptyHint": "Aggiungine una.",
+    "col": {
+      "name": "Nome",
+      "notes": "Note",
+      "fields": "Campi extra",
+      "discounts": "Sconti provincia"
+    }
+  },
+  "services": {
+    "title": "Servizi",
+    "caption": "servizi (partner e valet).",
+    "add": "Aggiungi servizio",
+    "loading": "Caricamento…",
+    "emptyTitle": "Nessun servizio.",
+    "emptyHint": "Aggiungine uno.",
+    "col": {
+      "name": "Nome",
+      "type": "Tipo",
+      "scope": "Destinazione",
+      "notes": "Note"
+    }
+  },
+  "operators": {
+    "title": "Operatori",
+    "caption": "operatori d'ufficio.",
+    "searchPlaceholder": "Cerca…",
+    "add": "Aggiungi operatore",
+    "loading": "Caricamento operatori…",
+    "emptyTitle": "Nessun operatore.",
+    "emptyHint": "Aggiungine uno con “Aggiungi operatore”.",
+    "col": {
+      "lastName": "Cognome",
+      "firstName": "Nome",
+      "email": "Email",
+      "phone": "Telefono",
+      "role": "Ruolo",
+      "status": "Stato"
+    }
+  },
+  "calcoli": {
+    "title": "Calcoli",
+    "caption": "Tutte le formule di prezzo dei servizi, in un unico posto. Provale qui sotto.",
+    "calculate": "Calcola",
+    "price": "Prezzo",
+    "qty": "Qtà",
+    "value": "Valore",
+    "kmIncluded": "Km incl.",
+    "pricePerKmOutOfCity": "€ fuori/km",
+    "distance": "Distanza",
+    "hours": "Ore",
+    "fixedPrice": "Fisso",
+    "perPiecePrice": "A pezzo",
+    "deliveryPrice": "Consegna",
+    "inCity": "In città",
+    "formulaSale": "totale = Σ (prezzo prodotto × qtà) — include i prezzi flessibili",
+    "formulaFixedCity": "in città: valore servizio + prezzo/km × max(0, distanza − km inclusi)",
+    "formulaFixedOutCity": "fuori città: prezzo fuori città × distanza",
+    "noteFixed": "Distanza calcolata via Google Maps (ritiro → consegna). Il valore è esposto nel Listino.",
+    "formulaHourly": "valore = max(1, ore) × prezzo orario (minimo 1 ora). Esposto nel Listino.",
+    "formulaWarehouse": "prezzo fisso + prezzo a pezzo × qtà + prezzo consegna",
+    "corporateNotePart1": "Non è una formula di prezzo: il sistema",
+    "corporateNoteStrong": "replica la consegna a un altro partner",
+    "corporateNoteComma": ", trasformando il servizio da",
+    "corporateNoteEm1": "prezzo fisso",
+    "corporateNoteTo": "a",
+    "corporateNoteEm2": "vendita",
+    "corporateNotePart4": "(il valore viene quindi calcolato come una Vendita per il partner destinatario)."
+  },
+  "stub": {
+    "caption": "Sezione in arrivo sulla nuova piattaforma.",
+    "migratingTitle": "In migrazione dalla piattaforma legacy",
+    "availableSoonPart1": "La sezione",
+    "availableSoonPart2": "sarà disponibile qui a breve. L'endpoint API corrispondente è già attivo.",
+    "openApiDocs": "Apri la documentazione API"
+  },
+  "deliveryForm": {
+    "backToDeliveries": "Consegne",
+    "title": "Nuova consegna",
+    "caption": "Servizio, ritiro, destinatario, prodotti e listino.",
+    "submit": "Crea consegna",
+    "section": {
+      "service": {
+        "title": "Scelta del servizio",
+        "sub": "Prima il servizio: determina il preavviso (data minima) e le fasce orarie di consegna."
+      },
+      "timing": {
+        "title": "Data di consegna e ritiro",
+        "sub": "La consegna usa le fasce del servizio; il ritiro ha fascia automatica di 1 ora salvo flessibile."
+      },
+      "assignment": {
+        "title": "Assegnazione",
+        "sub": "Valet e stato (admin / operation)."
+      },
+      "people": {
+        "title": "Destinatario e mittente"
+      },
+      "order": {
+        "title": "Gestione dell'ordine",
+        "sub": "Prodotti del partner mostrati per primi."
+      },
+      "pricing": {
+        "title": "Listino",
+        "sub": "Lasciando vuoto il prezzo, viene calcolato dal servizio del partner."
+      },
+      "docs": {
+        "title": "Documentazione e note"
+      }
+    },
+    "field": {
+      "service": "Servizio",
+      "recipientAddress": "Indirizzo destinatario",
+      "date": "Data consegna",
+      "partner": "Partner",
+      "deliveryFrom": "Consegna dalle",
+      "deliveryTo": "Consegna alle",
+      "deliverySlot": "Fascia oraria consegna",
+      "pickupFrom": "Ritiro dalle",
+      "pickupTo": "Ritiro alle",
+      "pickupTime": "Ora ritiro",
+      "valet": "Valet",
+      "status": "Stato consegna",
+      "paymentStatus": "Stato del pagamento",
+      "valetService": "Valet Servizio",
+      "existingCustomer": "Cliente esistente",
+      "recipientLastName": "Cognome destinatario",
+      "recipientFirstName": "Nome destinatario",
+      "intercom": "Citofono",
+      "recipientPhone": "Telefono destinatario",
+      "recipientEmail": "Email destinatario",
+      "senderLastName": "Cognome mittente",
+      "senderFirstName": "Nome mittente",
+      "senderPhone": "Telefono mittente",
+      "smsPhone": "SMS telefonici (numero)",
+      "ddtNumber": "Numero DDT",
+      "ddtFile": "File DDT (URL)",
+      "notes": "Note",
+      "personalization": "Personalizzazione",
+      "internalNotes": "Note interne",
+      "internalNotesRoles": "(admin / operation / valet)",
+      "deliveryCodeRequired": "Codice di consegna richiesto"
+    },
+    "placeholder": {
+      "selectService": "Seleziona servizio…",
+      "address": "Via …, CAP Città (PR)",
+      "selectPartner": "Seleziona partner…",
+      "selectSlot": "Seleziona fascia…",
+      "selectProduct": "Prodotto…",
+      "qty": "Qtà",
+      "auto": "auto"
+    },
+    "hint": {
+      "provinceDetected": "Provincia {{code}} → mostrati solo partner/valet abilitati",
+      "provinceUnknown": "Provincia non riconosciuta: partner/valet non filtrati per provincia.",
+      "notice": "Preavviso {{days}} g → dal {{date}}",
+      "noPartners": "Nessun partner con questo servizio nella provincia dell'indirizzo."
+    },
+    "timing": {
+      "selectServiceFirst": "Seleziona prima un servizio per impostare la fascia di consegna.",
+      "deliveryFlexible": "Fascia oraria consegna flessibile",
+      "slotSize": "(fasce di {{hours}} ora/e)",
+      "noSlots": "Nessuna fascia disponibile: controlla ora min/max e fascia del servizio.",
+      "pickupFlexible": "Fascia oraria ritiro flessibile",
+      "pickupSlotSize": "(fascia di 1 ora)"
+    },
+    "option": {
+      "automatic": "Automatico",
+      "automaticLower": "automatico",
+      "newRecipient": "nuovo destinatario"
+    },
+    "toggle": {
+      "deluxySale": "Vendita Deluxy",
+      "saveCustomer": "Salva come nuovo cliente in Clienti"
+    },
+    "sms": {
+      "groupLabel": "Invia SMS",
+      "onCreated": "Alla creazione",
+      "onDeparted": "Alla partenza",
+      "onArrived": "All'arrivo"
+    },
+    "order": {
+      "noProducts": "Nessun prodotto aggiunto.",
+      "generic": "generico",
+      "remove": "Rimuovi",
+      "flexiblePrice": "Prezzo flessibile",
+      "priceEuro": "Prezzo (€)",
+      "priceLabel": "Prezzo:",
+      "addProduct": "Aggiungi prodotto",
+      "paymentOnDelivery": "Pagamento alla consegna",
+      "tryAndReturn": "Prova e reso del prodotto",
+      "cashToCollect": "Contanti da incassare (€)"
+    },
+    "pricing": {
+      "billableGroup": "Da fatturare (partner)",
+      "billable": "Da fatturare",
+      "price": "Prezzo (€)",
+      "plusMinus": "Plus / minus (€)",
+      "payableGroup": "Da pagare (valet)",
+      "payable": "Da pagare",
+      "valetSalary": "Valet salario (€)",
+      "flexiblePrice": "Prezzo flessibile",
+      "flexiblePriceDetail": "Dettaglio prezzo flessibile",
+      "flexiblePricePlaceholder": "Es. da 20 a 50 €",
+      "hours": "Ore (servizio a ora)"
+    },
+    "savedNotice": {
+      "pre": "Consegna creata ✓ — i valori restano compilati: premi",
+      "create": "Crea",
+      "or": "o",
+      "post": "per crearne un'altra."
+    },
+    "error": {
+      "requiredFields": "Compila data, partner, servizio, indirizzo e nome/cognome destinatario.",
+      "customerNotSaved": "Cliente non salvato: ",
+      "genericShort": "errore",
+      "createFailed": "Errore nella creazione della consegna"
+    },
+    "editTitle": "Modifica consegna"
+  },
+  "partnerForm": {
+    "title": "Nuovo partner",
+    "caption": "Anagrafica, province servite, servizi, pagamenti e setup.",
+    "backToPartners": "Partner",
+    "general": {
+      "title": "Informazioni generali",
+      "requiredNote": "I campi con * sono obbligatori.",
+      "insegna": "Insegna *",
+      "insegnaPlaceholder": "Es. Fioraio Milano Centro",
+      "email": "Email *",
+      "emailPlaceholder": "ordini@partner.it",
+      "businessName": "Ragione sociale",
+      "businessNamePlaceholder": "Partner S.r.l.",
+      "phone": "Telefono",
+      "vatNumber": "Partita IVA",
+      "fiscalCode": "Codice fiscale",
+      "address": "Indirizzo principale",
+      "addressPlaceholder": "Via …, CAP Città (PR)",
+      "multiPickup": "Indirizzo di ritiro multiplo",
+      "pickupHint": "Indirizzi di ritiro aggiuntivi (in consegna si sceglie quale usare):",
+      "remove": "Rimuovi",
+      "addPickup": "Aggiungi indirizzo di ritiro",
+      "contactName": "Nome referente",
+      "contactNamePlaceholder": "Nome",
+      "contactSurname": "Cognome referente",
+      "contactSurnamePlaceholder": "Cognome"
+    },
+    "provinces": {
+      "title": "Province servite",
+      "subtitle": "Il partner sarà selezionabile solo nelle consegne di queste province.",
+      "empty": "Nessuna provincia configurata."
+    },
+    "services": {
+      "title": "Servizi abilitati",
+      "subtitle": "Prezzo per servizio; KM inclusi (entro il comune) ed extra fuori città.",
+      "empty": "Nessun servizio aggiunto.",
+      "typePlaceholder": "Tipo di servizio…",
+      "pricePlaceholder": "Prezzo €",
+      "kmIncludedPlaceholder": "KM incl.",
+      "extraKmPlaceholder": "€/KM extra",
+      "extraOutOfCityPlaceholder": "Extra f.città",
+      "add": "Aggiungi servizio",
+      "kmIncludedPartner": "KM inclusi (a livello partner)",
+      "extraOutOfCityPartner": "Extra fuori città (€, a livello partner)"
+    },
+    "categories": {
+      "title": "Categorie vendute",
+      "subtitle": "Determinano priorità e sconti per provincia.",
+      "empty": "Nessuna categoria configurata."
+    },
+    "payments": {
+      "title": "Pagamenti e fatturazione",
+      "paymentMethod": "Metodo di pagamento",
+      "paymentStatus": "Stato del pagamento",
+      "contractStart": "Contratto — dal",
+      "contractEnd": "Contratto — al",
+      "bankAccount": "Conto bancario (IBAN)",
+      "bankAccountName": "Intestatario del conto",
+      "sdiCode": "Codice SDI",
+      "sdiCodePlaceholder": "Fatturazione elettronica",
+      "certifiedEmail": "PEC",
+      "invoiceEmail": "Email per le fatture",
+      "invoicingEnabled": "Abilita fatturazione"
+    },
+    "setup": {
+      "title": "Setup",
+      "subtitle": "Magazzino, sicurezza e notifiche.",
+      "warehouseGroup": "Magazzino",
+      "isWarehouse": "Partner magazzino",
+      "securityGroup": "Sicurezza",
+      "valetIdentityCheck": "Verifica identità valet",
+      "deliveryCodeRequired": "Codice di consegna richiesto",
+      "deliveryCodeType": "Tipo codice",
+      "codeUniquePerDelivery": "Unico per consegna (OTP diverso ogni volta)",
+      "codeUniquePerCustomer": "Unico per cliente (fisso, tipo PIN)",
+      "notificationsGroup": "Notifiche",
+      "smsEnabled": "Possibilità di inviare SMS",
+      "whatsappNotifications": "Notifiche WhatsApp",
+      "mailNotifications": "Notifiche mail",
+      "activityReminder": "Promemoria attività"
+    },
+    "sales": {
+      "title": "Vendita e integrazioni",
+      "storeUrl": "URL del negozio",
+      "imageUrl": "Immagine (URL)",
+      "woocommerceApiKey": "WooCommerce API key",
+      "woocommerceApiKeyPlaceholder": "Chiave per il plugin deluxy-send-order",
+      "generate": "Genera",
+      "copy": "Copia",
+      "notes": "Note"
+    },
+    "actions": {
+      "savedNote": "Partner creato ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un altro.",
+      "cancel": "Annulla",
+      "duplicate": "Duplica",
+      "saving": "Salvataggio…",
+      "create": "Crea partner"
+    },
+    "errors": {
+      "requiredFields": "Insegna ed email sono obbligatori.",
+      "createFailed": "Errore nella creazione del partner"
+    },
+    "editTitle": "Modifica partner"
+  },
+  "valetForm": {
+    "backToValets": "Valet",
+    "title": "Nuovo valet",
+    "caption": "Anagrafica, stipendio, province, servizi e setup.",
+    "requiredHint": "I campi con * sono obbligatori.",
+    "createButton": "Crea valet",
+    "remove": "Rimuovi",
+    "provincesHint": "Province in cui il valet opera.",
+    "addProvince": "+ Aggiungi provincia…",
+    "provincesEmpty": "Nessuna provincia selezionata.",
+    "servicesHint": "Salario per servizio. Regola: un solo servizio a ora e uno a prezzo fisso.",
+    "servicesEmpty": "Nessun servizio aggiunto.",
+    "serviceTypePlaceholder": "Tipo di servizio…",
+    "addService": "+ Aggiungi servizio",
+    "setupHint": "Team leader, mezzo e notifiche.",
+    "tlProvincesHint": "Province in cui può assegnare consegne:",
+    "tlProvincesEmpty": "Nessuna.",
+    "tlPartnersHint": "Partner associati:",
+    "addPartner": "+ Aggiungi partner…",
+    "tlPartnersEmpty": "Nessuno.",
+    "tlExcludedHint": "Partner esclusi (fuori dallo scope del team leader):",
+    "excludePartner": "+ Escludi partner…",
+    "tlExcludedEmpty": "Nessuno.",
+    "savedOk": "Valet creato ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un altro.",
+    "sections": {
+      "general": "Informazioni generali",
+      "salary": "Stipendio",
+      "provinces": "Province di competenza",
+      "services": "Servizi",
+      "setup": "Setup",
+      "notes": "Note"
+    },
+    "groups": {
+      "teamLeader": "Team leader",
+      "vehicle": "Mezzo",
+      "notifications": "Notifiche"
+    },
+    "fields": {
+      "lastName": "Cognome *",
+      "firstName": "Nome *",
+      "email": "Email *",
+      "phone": "Telefono",
+      "address": "Indirizzo",
+      "birthPlace": "Luogo di nascita (e provincia)",
+      "birthDate": "Data di nascita",
+      "hasVat": "Partita IVA",
+      "vatNumber": "Partita IVA *",
+      "fiscalCode": "Codice fiscale *",
+      "withholdingPercent": "Percentuale ritenuta (%)",
+      "salaryFrequency": "Frequenza stipendio *",
+      "weeklyDepositLimit": "Limite di deposito settimanale",
+      "iban": "Coordinate bancarie (IBAN)",
+      "minimumKmIncluded": "Minimum KM Included (entro il comune)",
+      "extraOutOfCityPrice": "Extra fuori città (€)",
+      "isTeamLeader": "Il valet è team leader",
+      "notifyByWhatsapp": "Notifiche WhatsApp",
+      "notifyByEmail": "Notifiche mail"
+    },
+    "placeholders": {
+      "lastName": "Rossi",
+      "firstName": "Luca",
+      "email": "valet@deluxy.it",
+      "phone": "+39 …",
+      "address": "Via …, CAP Città (PR)",
+      "birthPlace": "Milano (MI)",
+      "salary": "Salario €",
+      "perItem": "€/pezzo",
+      "extraKm": "€/KM extra"
+    },
+    "errors": {
+      "nameRequired": "Nome, cognome ed email sono obbligatori.",
+      "vatRequired": "Con Partita IVA attiva, la P.IVA è obbligatoria.",
+      "fiscalCodeRequired": "Senza Partita IVA, il codice fiscale è obbligatorio.",
+      "createError": "Errore nella creazione del valet",
+      "updateError": "Errore nel salvataggio del valet"
+    },
+    "editTitle": "Modifica valet"
+  },
+  "productForm": {
+    "backToProducts": "Prodotti",
+    "title": "Nuovo prodotto",
+    "caption": "Anagrafica, prezzo, tipo e campi personalizzati.",
+    "submit": "Crea prodotto",
+    "skuAuto": "Generato automaticamente",
+    "noPartners": "Nessun partner.",
+    "noFields": "Nessun campo.",
+    "section": {
+      "details": {
+        "title": "Dettagli del prodotto",
+        "requiredNote": "I campi con * sono obbligatori."
+      },
+      "platforms": {
+        "title": "Piattaforme di vendita",
+        "sub": "Dove è pubblicato il prodotto."
+      },
+      "additionalPartners": {
+        "title": "Partner aggiuntivi",
+        "sub": "Altri partner che possono vendere questo prodotto."
+      },
+      "variants": {
+        "title": "Varianti",
+        "sub": "Es. dimensioni o versioni con prezzo e SKU propri."
+      },
+      "customFields": {
+        "title": "Campi personalizzati",
+        "sub": "Es. messaggio sul biglietto, note di confezionamento."
+      },
+      "components": {
+        "title": "Componenti",
+        "sub": "Prodotti che compongono il superprodotto."
+      },
+      "superProduct": {
+        "title": "Super prodotto",
+        "sub": "Prodotto combinato da più prodotti e opzioni di provincia."
+      },
+      "shopify": {
+        "title": "Shopify",
+        "sub": "Approvazione, piattaforme di vendita e immagini del prodotto."
+      }
+    },
+    "field": {
+      "name": "Nome",
+      "category": "Categoria",
+      "type": "Tipo",
+      "partner": "Partner",
+      "line": "Linea / brand",
+      "price": "Prezzo (€)",
+      "publicPrice": "Prezzo pubblico (€)",
+      "prepDays": "Giorni di preparazione",
+      "imageUrl": "Immagine (URL)",
+      "shortDesc": "Plus del prodotto",
+      "shortDescHint": "(max 80 caratteri)",
+      "description": "Descrizione",
+      "alternateName": "Nome alternativo del prodotto",
+      "stock": "Giacenza",
+      "lineHint": "(valori separati da ;)",
+      "alternateNameHint": "(nome che il partner vede in Consegne)"
+    },
+    "placeholder": {
+      "name": "Es. Bouquet Rose Rosse",
+      "selectCategory": "Seleziona categoria…"
+    },
+    "typeOption": {
+      "UNICO": "Unico (di un partner)",
+      "NON_UNICO": "Non unico (es. fiori)",
+      "SUPERPRODOTTO": "Superprodotto (combinazione)"
+    },
+    "option": {
+      "noPartner": "— nessuno —"
+    },
+    "toggle": {
+      "useAlternateName": "Usa nome alternativo",
+      "visibleToOtherPartners": "Visibile ad altri partner",
+      "notEditable": "Non modificabile",
+      "notPhysical": "Non fisico",
+      "isSuperProvince": "Super provincia",
+      "controlStock": "Controlla stock",
+      "approved": "Approvato",
+      "isUnique": "Prodotto unico",
+      "isSuperProduct": "Super prodotto"
+    },
+    "variants": {
+      "hasVariants": "Il prodotto ha varianti",
+      "optionTitle": "Titolo opzione",
+      "optionTitleHint": "(es. Dimensione)",
+      "optionTitlePlaceholder": "Dimensione",
+      "listHint": "Varianti (lo SKU è generato automaticamente):",
+      "namePlaceholder": "Nome variante (es. Media)",
+      "pricePlaceholder": "Prezzo €",
+      "add": "+ Aggiungi variante",
+      "name": "Nome variante",
+      "sku": "SKU",
+      "skuPlaceholder": "SKU variante",
+      "prepDays": "Giorni prep.",
+      "price": "Prezzo",
+      "publicPrice": "Prezzo pubblico",
+      "controlStock": "Controlla stock",
+      "stock": "Giacenza",
+      "image": "Immagine variante",
+      "skuAuto": "SKU generato automaticamente (progressivo)"
+    },
+    "customFields": {
+      "namePlaceholder": "Nome campo",
+      "required": "Obbligatorio",
+      "adminOnly": "Solo admin",
+      "add": "+ Aggiungi campo"
+    },
+    "components": {
+      "selectProduct": "Prodotto…",
+      "qtyPlaceholder": "Qtà",
+      "add": "+ Aggiungi componente"
+    },
+    "saved": {
+      "before": "Prodotto creato ✓ — i valori restano compilati: premi ",
+      "create": "Crea",
+      "or": " o ",
+      "after": " per crearne un altro (nuovo SKU)."
+    },
+    "error": {
+      "requiredFields": "Nome, categoria e prezzo sono obbligatori.",
+      "partnerRequired": "Un prodotto Unico richiede un partner.",
+      "createFailed": "Errore nella creazione del prodotto"
+    },
+    "images": {
+      "title": "Immagini",
+      "sub": "Galleria immagini del prodotto. La prima è la principale.",
+      "placeholder": "https://…",
+      "primary": "Principale",
+      "add": "+ Aggiungi immagine"
+    },
+    "platforms": {
+      "descHint": "Descrizione mostrata su ciascuna piattaforma selezionata.",
+      "descFor": "Descrizione ({{platform}})"
+    },
+    "editTitle": "Modifica prodotto"
+  },
+  "serviceForm": {
+    "backToServices": "Servizi",
+    "title": "Nuovo servizio",
+    "caption": "Definisci il servizio e scegli se è per partner o valet. Le tariffe si impostano nella scheda del partner/valet.",
+    "service": {
+      "title": "Servizio",
+      "requiredNote": "I campi con * sono obbligatori.",
+      "name": "Nome servizio *",
+      "namePlaceholder": "Es. Consegna Standard",
+      "pricingModel": "Tipo servizio *",
+      "scope": "Destinazione",
+      "scopeBoth": "Entrambi",
+      "magazzinoHint": "Servizio magazzino: prezzo fisso + prezzo a pezzo + prezzo consegna (valori base, personalizzabili per partner).",
+      "basePrice": "Prezzo fisso (€)",
+      "perPiecePrice": "Prezzo a pezzo (€)",
+      "deliveryPrice": "Prezzo consegna (€)",
+      "minHours": "Ore minime",
+      "notes": "Note",
+      "hideCustomerInfo": "Nascondi informazioni cliente"
+    },
+    "setup": {
+      "title": "Setup",
+      "subtitle": "Regole di prenotazione del servizio (usate al momento della richiesta).",
+      "noticeDays": "Giorni preavviso",
+      "noticeDaysPlaceholder": "Es. 1",
+      "slotHours": "Fascia oraria",
+      "slotHours1": "1 ora",
+      "slotHours2": "2 ore",
+      "slotHours4": "4 ore",
+      "minOrderTime": "Ora minima di inserimento",
+      "maxOrderTime": "Ora massima di inserimento",
+      "allowFlexibleTime": "Consenti orario di consegna flessibile (dalle–alle)",
+      "hint": "Prima dell'ora minima e dopo l'ora massima non è possibile richiedere il servizio per la data scelta. Nel form consegna le fasce vanno da <strong>Ora minima</strong> a <strong>Ora massima</strong> (default 06:00–22:00) con passo pari alla <strong>Fascia oraria</strong>. Se \"orario flessibile\" è attivo, la consegna può indicare una fascia libera dalle–alle; altrimenti si sceglie solo una fascia predefinita. Il ritiro resta sempre con orario flessibile opzionale."
+    },
+    "savedNotice": "Servizio creato ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un altro.",
+    "submit": "Crea servizio",
+    "nameRequired": "Il nome servizio è obbligatorio.",
+    "createError": "Errore nella creazione del servizio",
+    "editTitle": "Modifica servizio"
+  },
+  "categoryForm": {
+    "backToCategories": "Categorie",
+    "title": "Nuova categoria",
+    "caption": "Campi extra dei prodotti e sconti % per provincia.",
+    "info": {
+      "title": "Informazioni",
+      "name": "Nome categoria *",
+      "namePlaceholder": "Es. Fiori",
+      "notes": "Note",
+      "aiPrompt": "AI Prompt",
+      "aiPromptHint": "(generazione AI, es. torte)"
+    },
+    "fields": {
+      "title": "Campi extra",
+      "subtitle": "Campi testuali dei prodotti di questa categoria.",
+      "empty": "Nessun campo.",
+      "namePlaceholder": "Nome campo",
+      "optional": "Opzionale",
+      "required": "Obbligatorio",
+      "adminOnly": "Solo admin",
+      "add": "Aggiungi campo"
+    },
+    "discounts": {
+      "title": "Sconti per provincia",
+      "subtitle": "Generano automaticamente prodotti scontati (arrotondati a 0/5).",
+      "empty": "Nessuno sconto.",
+      "provincePlaceholder": "Provincia…",
+      "percentPlaceholder": "Sconto %",
+      "add": "Aggiungi sconto"
+    },
+    "savedNotice": "Categoria creata ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un'altra.",
+    "submit": "Crea categoria",
+    "nameRequired": "Il nome categoria è obbligatorio.",
+    "createError": "Errore nella creazione della categoria",
+    "editTitle": "Modifica categoria"
+  },
+  "operatorForm": {
+    "backToOperators": "Operatori",
+    "title": "Nuovo operatore",
+    "caption": "Staff d'ufficio. Il ruolo determina quali sezioni del menu vede l'operatore.",
+    "general": {
+      "title": "Informazioni generali",
+      "requiredNote": "I campi con * sono obbligatori.",
+      "lastName": "Cognome *",
+      "firstName": "Nome *",
+      "email": "Email *",
+      "phone": "Telefono *",
+      "address": "Indirizzo *",
+      "addressPlaceholder": "Via …, CAP Città (PR)"
+    },
+    "setup": {
+      "title": "Setup",
+      "subtitle": "Ruolo e notifiche.",
+      "role": "Ruolo",
+      "notifications": "Notifiche",
+      "notifyWhatsapp": "Notifiche WhatsApp",
+      "notifyMail": "Notifiche mail"
+    },
+    "notes": {
+      "title": "Note"
+    },
+    "savedNotice": "Operatore creato ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un altro.",
+    "submit": "Crea operatore",
+    "requiredFields": "Nome, cognome ed email sono obbligatori.",
+    "createError": "Errore nella creazione dell'operatore",
+    "editTitle": "Modifica operatore"
+  },
+  "deliveryDetail": {
+    "title": "Consegna #{{code}}",
+    "section": {
+      "timing": "Dati di consegna e ritiro",
+      "service": "Scelta del servizio",
+      "people": "Destinatario e mittente",
+      "order": "Gestione dell'ordine",
+      "docs": "Documentazione e note",
+      "history": "Storico consegna"
+    },
+    "pickupAddress": "Indirizzo di ritiro",
+    "pricingModel": "Tipo servizio",
+    "distance": "Distanza",
+    "price": "Prezzo",
+    "additionalPrice": "Plus / minus",
+    "valetSalary": "Salario valet",
+    "intercom": "Citofono",
+    "phone": "Telefono",
+    "email": "Email",
+    "sender": "Mittente",
+    "product": "Prodotto",
+    "qty": "Qtà",
+    "noProducts": "Nessun prodotto.",
+    "paymentOnDelivery": "Pagamento alla consegna",
+    "tryAndReturn": "Prova e reso",
+    "paymentStatus": "Stato del pagamento",
+    "ddtNumber": "Numero DDT",
+    "ddtFile": "File DDT",
+    "notes": "Note",
+    "personalization": "Personalizzazione",
+    "internalNotes": "Note interne",
+    "noLogs": "Nessun evento nello storico."
+  },
+  "tracking": {
+    "title": "Consegna #{{code}}",
+    "history": "Stato della consegna",
+    "notFound": "Consegna non trovata o link non più valido."
+  },
+  "customers": {
+    "title": "Clienti",
+    "caption": "clienti in anagrafica.",
+    "searchPlaceholder": "Cerca…",
+    "add": "Aggiungi cliente",
+    "loading": "Caricamento clienti…",
+    "emptyTitle": "Nessun cliente trovato.",
+    "emptyHint": "Aggiungine uno con “Aggiungi cliente”.",
+    "col": {
+      "lastName": "Cognome",
+      "firstName": "Nome",
+      "email": "Email",
+      "phone": "Telefono",
+      "address": "Indirizzo"
+    }
+  },
+  "customerForm": {
+    "title": "Nuovo cliente",
+    "editTitle": "Modifica cliente",
+    "caption": "Anagrafica del cliente.",
+    "section": {
+      "general": "Informazioni generali"
+    },
+    "requiredNote": "I campi con * sono obbligatori.",
+    "addressPlaceholder": "Via …, CAP Città (PR)",
+    "notes": "Note",
+    "submit": "Crea cliente",
+    "error": {
+      "required": "Nome e cognome sono obbligatori."
+    }
+  },
+  "customerDetail": {
+    "deliveries": "Consegne del cliente",
+    "noDeliveries": "Nessuna consegna."
+  },
+  "operatorDetail": {
+    "address": "Indirizzo",
+    "loadError": "Errore nel caricamento dell'operatore"
+  },
+  "valetDetail": {
+    "vatNumber": "Partita IVA",
+    "fiscalCode": "Codice fiscale",
+    "salaryFrequency": "Frequenza stipendio",
+    "col": {
+      "salary": "Salario",
+      "perItem": "€/pezzo",
+      "extraKm": "€/KM extra"
+    },
+    "teamLeaderProvinces": "Province in cui può assegnare consegne",
+    "teamLeaderPartners": "Partner associati",
+    "teamLeaderExcluded": "Partner esclusi"
+  },
+  "productDetail": {
+    "noPlatforms": "Nessuna piattaforma selezionata.",
+    "noImages": "Nessuna immagine.",
+    "noVariants": "Nessuna variante.",
+    "fieldName": "Nome campo"
+  },
+  "categoryDetail": {
+    "fieldName": "Campo",
+    "fieldType": "Tipo",
+    "province": "Provincia",
+    "discount": "Sconto",
+    "loadError": "Errore nel caricamento della categoria"
+  },
+  "serviceDetail": {
+    "pricesTitle": "Prezzi",
+    "loadError": "Errore nel caricamento del servizio"
+  },
+  "list": {
+    "pageOf": "Pagina {{page}} di {{pages}}",
+    "perPage": "per pagina"
+  }
 }

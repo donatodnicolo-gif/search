@@ -4,8 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { JwtUser } from '../common/decorators';
-import { ActivityType, DeliveryStatus, Role } from '../common/enums';
+import { ActivityType, DeliveryStatus, PricingModel, Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
@@ -158,13 +159,47 @@ export class DeliveriesService {
   }
 
   async update(id: string, dto: UpdateDeliveryDto, user: JwtUser) {
-    await this.findOne(id, user);
+    const delivery = await this.findOne(id, user);
+    // Regola di business: il partner puo' modificare la consegna solo finche' e'
+    // "da gestire" (created = il rosso della legenda) e solo se il tipo di
+    // servizio non e' VENDITA. Admin/Operation non hanno limiti.
+    if (user.role === Role.PARTNER) {
+      if (delivery.status !== DeliveryStatus.CREATED) {
+        throw new ForbiddenException(
+          "Puoi modificare la consegna solo finché è da gestire",
+        );
+      }
+      if (delivery.serviceType?.pricingModel === PricingModel.VENDITA) {
+        throw new ForbiddenException(
+          'Le consegne con servizio di tipo Vendita non sono modificabili dal partner',
+        );
+      }
+    }
     const { products, pickups, partnerId, date, ...scalar } = dto;
     return this.prisma.delivery.update({
       where: { id },
       data: {
         ...scalar,
         ...(date ? { date: new Date(date) } : {}),
+        // Righe prodotto: sostituite in blocco (come nei form di modifica)
+        ...(products
+          ? {
+              products: {
+                deleteMany: {},
+                create: products.map((p) => ({
+                  productId: p.productId,
+                  quantity: p.quantity ?? 1,
+                  price: p.price,
+                  flexiblePrice: p.flexiblePrice ?? false,
+                  fieldValues: p.fieldValues,
+                })),
+              },
+            }
+          : {}),
+        // Indirizzi di ritiro multipli
+        ...(pickups
+          ? { pickups: { deleteMany: {}, create: pickups } }
+          : {}),
       },
       include: DELIVERY_INCLUDE,
     });
@@ -204,6 +239,48 @@ export class DeliveriesService {
       },
       include: DELIVERY_INCLUDE,
     });
+  }
+
+  /**
+   * Restituisce (creandolo se assente) il token del link pubblico di
+   * monitoraggio della consegna. Token opaco: non deducibile dall'id.
+   */
+  async getTrackingToken(id: string, user: JwtUser) {
+    const delivery = await this.findOne(id, user);
+    if (delivery.trackingToken) return { token: delivery.trackingToken };
+    const token = randomBytes(24).toString('hex');
+    await this.prisma.delivery.update({ where: { id }, data: { trackingToken: token } });
+    return { token };
+  }
+
+  /**
+   * Vista pubblica della consegna (link MONITORARE, senza login).
+   * Espone solo lo stretto necessario al monitoraggio: niente contatti,
+   * niente note, niente economics, niente indirizzo completo.
+   */
+  async findByTrackingToken(token: string) {
+    const delivery = await this.prisma.delivery.findFirst({
+      where: { trackingToken: token },
+      include: {
+        partner: { select: { insegna: true } },
+        valet: { select: { firstName: true } },
+        logs: { orderBy: { createdAt: 'asc' } },
+      },
+    });
+    if (!delivery) throw new NotFoundException('Consegna non trovata');
+    return {
+      code: delivery.code,
+      status: delivery.status,
+      date: delivery.date,
+      deliveryTimeFrom: delivery.deliveryTimeFrom,
+      deliveryTimeTo: delivery.deliveryTimeTo,
+      // Solo il nome di battesimo del destinatario e la citta', per riconoscere
+      // la consegna senza esporre dati personali completi.
+      recipientFirstName: delivery.recipientFirstName,
+      partner: delivery.partner?.insegna ?? null,
+      valetFirstName: delivery.valet?.firstName ?? null,
+      logs: delivery.logs.map((l) => ({ type: l.type, message: l.message, createdAt: l.createdAt })),
+    };
   }
 
   async assignValet(id: string, valetId: string, user: JwtUser) {

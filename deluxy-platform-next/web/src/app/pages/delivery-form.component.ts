@@ -1,8 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { detectProvince } from '../core/province.util';
 import {
   Customer,
   DELIVERY_PAYMENT_STATUS_LABELS,
@@ -24,87 +26,87 @@ interface ProductRow {
 @Component({
   selector: 'app-delivery-form',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <div class="form-head">
       <div>
-        <a routerLink="/deliveries" class="back">← Consegne</a>
-        <h1>Nuova consegna</h1>
-        <p class="page-caption">Servizio, ritiro, destinatario, prodotti e listino.</p>
+        <a routerLink="/deliveries" class="back">← {{ 'deliveryForm.backToDeliveries' | translate }}</a>
+        <h1>{{ (editId() ? 'deliveryForm.editTitle' : 'deliveryForm.title') | translate }}</h1>
+        <p class="page-caption">{{ 'deliveryForm.caption' | translate }}</p>
       </div>
     </div>
 
     <form (ngSubmit)="submit()" class="form-grid">
       <!-- 1. Scelta del servizio -->
       <section class="card block">
-        <header class="block-head"><h2>Scelta del servizio</h2>
-          <span class="block-sub">Prima il servizio: determina il preavviso (data minima) e le fasce orarie di consegna.</span></header>
+        <header class="block-head"><h2>{{ 'deliveryForm.section.service.title' | translate }}</h2>
+          <span class="block-sub">{{ 'deliveryForm.section.service.sub' | translate }}</span></header>
         <div class="grid-2">
-          <label class="fld"><span>Servizio *</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.service' | translate }} *</span>
             <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" (ngModelChange)="onServiceChange()" required>
-              <option value="">Seleziona servizio…</option>
+              <option value="">{{ 'deliveryForm.placeholder.selectService' | translate }}</option>
               @for (s of serviceTypes(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
             </select></label>
-          <label class="fld"><span>Indirizzo destinatario *</span>
-            <input class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required placeholder="Via …, CAP Città (PR)" />
-            @if (addressProvince()) { <span class="slot-hint">Provincia {{ addressProvince()?.code }} → mostrati solo partner/valet abilitati</span> }
-            @else if (model.recipientAddress) { <span class="slot-hint warn">Provincia non riconosciuta: partner/valet non filtrati per provincia.</span> }
+          <label class="fld"><span>{{ 'deliveryForm.field.recipientAddress' | translate }} *</span>
+            <input class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required [placeholder]="'deliveryForm.placeholder.address' | translate" />
+            @if (addressProvince()) { <span class="slot-hint">{{ 'deliveryForm.hint.provinceDetected' | translate:{ code: addressProvince()?.code } }}</span> }
+            @else if (model.recipientAddress) { <span class="slot-hint warn">{{ 'deliveryForm.hint.provinceUnknown' | translate }}</span> }
           </label>
-          <label class="fld"><span>Data consegna *</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.date' | translate }} *</span>
             <input class="field" type="date" name="date" [(ngModel)]="model.date" [min]="deliveryMinDate()" required />
-            @if (selectedService()?.noticeDays) { <span class="slot-hint">Preavviso {{ selectedService()?.noticeDays }} g → dal {{ deliveryMinDate() }}</span> }
+            @if (selectedService()?.noticeDays) { <span class="slot-hint">{{ 'deliveryForm.hint.notice' | translate:{ days: selectedService()?.noticeDays, date: deliveryMinDate() } }}</span> }
           </label>
-          <label class="fld"><span>Partner *</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.partner' | translate }} *</span>
             <select class="field" name="partnerId" [(ngModel)]="model.partnerId" required>
-              <option value="">Seleziona partner…</option>
+              <option value="">{{ 'deliveryForm.placeholder.selectPartner' | translate }}</option>
               @for (p of filteredPartners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
             </select>
-            @if (model.serviceTypeId && filteredPartners().length === 0) { <span class="slot-hint warn">Nessun partner con questo servizio nella provincia dell'indirizzo.</span> }
+            @if (model.serviceTypeId && filteredPartners().length === 0) { <span class="slot-hint warn">{{ 'deliveryForm.hint.noPartners' | translate }}</span> }
           </label>
         </div>
       </section>
 
       <!-- 2. Data di consegna e ritiro -->
       <section class="card block">
-        <header class="block-head"><h2>Data di consegna e ritiro</h2>
-          <span class="block-sub">La consegna usa le fasce del servizio; il ritiro ha fascia automatica di 1 ora salvo flessibile.</span></header>
+        <header class="block-head"><h2>{{ 'deliveryForm.section.timing.title' | translate }}</h2>
+          <span class="block-sub">{{ 'deliveryForm.section.timing.sub' | translate }}</span></header>
 
         <!-- Consegna -->
         @if (!selectedService()) {
-          <p class="muted">Seleziona prima un servizio per impostare la fascia di consegna.</p>
+          <p class="muted">{{ 'deliveryForm.timing.selectServiceFirst' | translate }}</p>
         } @else {
           @if (selectedService()?.allowFlexibleTime) {
-            <label class="toggle"><input type="checkbox" name="deliveryFlexible" [(ngModel)]="model.deliveryFlexible" /><span>Fascia oraria consegna flessibile</span></label>
+            <label class="toggle"><input type="checkbox" name="deliveryFlexible" [(ngModel)]="model.deliveryFlexible" /><span>{{ 'deliveryForm.timing.deliveryFlexible' | translate }}</span></label>
           }
           @if (model.deliveryFlexible && selectedService()?.allowFlexibleTime) {
             <div class="grid-2 mt">
-              <label class="fld"><span>Consegna dalle</span>
+              <label class="fld"><span>{{ 'deliveryForm.field.deliveryFrom' | translate }}</span>
                 <input class="field" type="time" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" /></label>
-              <label class="fld"><span>Consegna alle</span>
+              <label class="fld"><span>{{ 'deliveryForm.field.deliveryTo' | translate }}</span>
                 <input class="field" type="time" name="deliveryTimeTo" [(ngModel)]="model.deliveryTimeTo" /></label>
             </div>
           } @else {
-            <label class="fld mt" style="max-width:320px"><span>Fascia oraria consegna <em>(fasce di {{ slotHours() }} ora/e)</em></span>
+            <label class="fld mt" style="max-width:320px"><span>{{ 'deliveryForm.field.deliverySlot' | translate }} <em>{{ 'deliveryForm.timing.slotSize' | translate:{ hours: slotHours() } }}</em></span>
               <select class="field" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom">
-                <option value="">Seleziona fascia…</option>
+                <option value="">{{ 'deliveryForm.placeholder.selectSlot' | translate }}</option>
                 @for (slot of deliverySlots(); track slot.from) { <option [value]="slot.from">{{ slot.from }}–{{ slot.to }}</option> }
               </select>
-              @if (deliverySlots().length === 0) { <span class="slot-hint warn">Nessuna fascia disponibile: controlla ora min/max e fascia del servizio.</span> }
+              @if (deliverySlots().length === 0) { <span class="slot-hint warn">{{ 'deliveryForm.timing.noSlots' | translate }}</span> }
             </label>
           }
         }
 
         <!-- Ritiro -->
-        <label class="toggle mt2"><input type="checkbox" name="pickupFlexible" [(ngModel)]="model.pickupFlexible" /><span>Fascia oraria ritiro flessibile</span></label>
+        <label class="toggle mt2"><input type="checkbox" name="pickupFlexible" [(ngModel)]="model.pickupFlexible" /><span>{{ 'deliveryForm.timing.pickupFlexible' | translate }}</span></label>
         @if (model.pickupFlexible) {
           <div class="grid-2 mt">
-            <label class="fld"><span>Ritiro dalle *</span>
+            <label class="fld"><span>{{ 'deliveryForm.field.pickupFrom' | translate }} *</span>
               <input class="field" type="time" name="pickupTimeFrom" [(ngModel)]="model.pickupTimeFrom" /></label>
-            <label class="fld"><span>Ritiro alle *</span>
+            <label class="fld"><span>{{ 'deliveryForm.field.pickupTo' | translate }} *</span>
               <input class="field" type="time" name="pickupTimeTo" [(ngModel)]="model.pickupTimeTo" /></label>
           </div>
         } @else {
-          <label class="fld mt" style="max-width:280px"><span>Ora ritiro * <em>(fascia di 1 ora)</em></span>
+          <label class="fld mt" style="max-width:280px"><span>{{ 'deliveryForm.field.pickupTime' | translate }} * <em>{{ 'deliveryForm.timing.pickupSlotSize' | translate }}</em></span>
             <input class="field" type="time" name="pickupTimeFrom" [(ngModel)]="model.pickupTimeFrom" />
             @if (model.pickupTimeFrom) { <span class="slot-hint">→ {{ model.pickupTimeFrom }}–{{ plusOneHour(model.pickupTimeFrom) }}</span> }
           </label>
@@ -113,175 +115,177 @@ interface ProductRow {
 
       <!-- 3. Scelta del salario (assegnazione) -->
       <section class="card block">
-        <header class="block-head"><h2>Assegnazione</h2>
-          <span class="block-sub">Valet e stato (admin / operation).</span></header>
+        <header class="block-head"><h2>{{ 'deliveryForm.section.assignment.title' | translate }}</h2>
+          <span class="block-sub">{{ 'deliveryForm.section.assignment.sub' | translate }}</span></header>
         <div class="grid-2">
-          <label class="fld"><span>Valet</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.valet' | translate }}</span>
             <select class="field" name="valetId" [(ngModel)]="model.valetId">
-              <option value="">Non assegnato</option>
+              <option value="">{{ 'common.notAssigned' | translate }}</option>
               @for (v of filteredValets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
             </select></label>
-          <label class="fld"><span>Stato consegna</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.status' | translate }}</span>
             <select class="field" name="status" [(ngModel)]="model.status">
-              <option value="">Automatico</option>
-              @for (s of statusOptions; track s[0]) { <option [value]="s[0]">{{ s[1] }}</option> }
+              <option value="">{{ 'deliveryForm.option.automatic' | translate }}</option>
+              @for (s of statusOptions; track s[0]) { <option [value]="s[0]">{{ 'status.delivery.' + s[0] | translate }}</option> }
             </select></label>
-          <label class="fld"><span>Stato del pagamento</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.paymentStatus' | translate }}</span>
             <select class="field" name="paymentStatus" [(ngModel)]="model.paymentStatus">
-              @for (s of paymentStatuses; track s[0]) { <option [value]="s[0]">{{ s[1] }}</option> }
+              @for (s of paymentStatuses; track s[0]) { <option [value]="s[0]">{{ 'enums.deliveryPaymentStatus.' + s[0] | translate }}</option> }
             </select></label>
-          <label class="fld"><span>Valet Servizio</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.valetService' | translate }}</span>
             <select class="field" name="valetServiceId" [(ngModel)]="model.valetServiceId">
-              <option value="">— automatico —</option>
+              <option value="">— {{ 'deliveryForm.option.automaticLower' | translate }} —</option>
               @for (s of serviceTypes(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
             </select></label>
         </div>
-        <label class="toggle mt"><input type="checkbox" name="deluxyDelivery" [(ngModel)]="model.deluxyDelivery" /><span>Vendita Deluxy</span></label>
+        <label class="toggle mt"><input type="checkbox" name="deluxyDelivery" [(ngModel)]="model.deluxyDelivery" /><span>{{ 'deliveryForm.toggle.deluxySale' | translate }}</span></label>
       </section>
 
       <!-- 4. Destinatario e mittente -->
       <section class="card block">
-        <header class="block-head"><h2>Destinatario e mittente</h2></header>
-        <label class="fld"><span>Cliente esistente</span>
+        <header class="block-head"><h2>{{ 'deliveryForm.section.people.title' | translate }}</h2></header>
+        <label class="fld"><span>{{ 'deliveryForm.field.existingCustomer' | translate }}</span>
           <select class="field" name="customerId" [(ngModel)]="model.customerId" (ngModelChange)="applyCustomer($event)">
-            <option value="">— nuovo destinatario —</option>
+            <option value="">— {{ 'deliveryForm.option.newRecipient' | translate }} —</option>
             @for (c of customers(); track c.id) { <option [value]="c.id">{{ c.lastName }} {{ c.firstName }}</option> }
           </select></label>
         @if (!model.customerId) {
-          <label class="toggle mt"><input type="checkbox" name="saveCustomer" [(ngModel)]="model.saveCustomer" /><span>Salva come nuovo cliente in Clienti</span></label>
+          <label class="toggle mt"><input type="checkbox" name="saveCustomer" [(ngModel)]="model.saveCustomer" /><span>{{ 'deliveryForm.toggle.saveCustomer' | translate }}</span></label>
         }
         <div class="grid-2 mt">
-          <label class="fld"><span>Cognome destinatario *</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.recipientLastName' | translate }} *</span>
             <input class="field" name="recipientLastName" [(ngModel)]="model.recipientLastName" required /></label>
-          <label class="fld"><span>Nome destinatario *</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.recipientFirstName' | translate }} *</span>
             <input class="field" name="recipientFirstName" [(ngModel)]="model.recipientFirstName" required /></label>
-          <label class="fld"><span>Citofono *</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.intercom' | translate }} *</span>
             <input class="field" name="recipientIntercom" [(ngModel)]="model.recipientIntercom" /></label>
-          <label class="fld"><span>Telefono destinatario</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.recipientPhone' | translate }}</span>
             <input class="field" name="recipientPhone" [(ngModel)]="model.recipientPhone" placeholder="+39 …" /></label>
-          <label class="fld"><span>Email destinatario</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.recipientEmail' | translate }}</span>
             <input class="field" type="email" name="recipientEmail" [(ngModel)]="model.recipientEmail" /></label>
         </div>
         <div class="divider"></div>
         <div class="grid-2">
-          <label class="fld"><span>Cognome mittente</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.senderLastName' | translate }}</span>
             <input class="field" name="senderLastName" [(ngModel)]="model.senderLastName" /></label>
-          <label class="fld"><span>Nome mittente</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.senderFirstName' | translate }}</span>
             <input class="field" name="senderFirstName" [(ngModel)]="model.senderFirstName" /></label>
-          <label class="fld"><span>Telefono mittente</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.senderPhone' | translate }}</span>
             <input class="field" name="senderPhone" [(ngModel)]="model.senderPhone" /></label>
         </div>
-        <label class="fld mt" style="max-width:280px"><span>SMS telefonici (numero)</span>
+        <label class="fld mt" style="max-width:280px"><span>{{ 'deliveryForm.field.smsPhone' | translate }}</span>
           <input class="field" name="smsPhoneNo" [(ngModel)]="model.smsPhoneNo" placeholder="+39 …" /></label>
         <div class="toggles mt">
-          <span class="group-label">Invia SMS</span>
-          <label class="toggle"><input type="checkbox" name="smsOnCreated" [(ngModel)]="model.smsOnCreated" /><span>Alla creazione</span></label>
-          <label class="toggle"><input type="checkbox" name="smsOnDeparted" [(ngModel)]="model.smsOnDeparted" /><span>Alla partenza</span></label>
-          <label class="toggle"><input type="checkbox" name="smsOnArrived" [(ngModel)]="model.smsOnArrived" /><span>All'arrivo</span></label>
+          <span class="group-label">{{ 'deliveryForm.sms.groupLabel' | translate }}</span>
+          <label class="toggle"><input type="checkbox" name="smsOnCreated" [(ngModel)]="model.smsOnCreated" /><span>{{ 'deliveryForm.sms.onCreated' | translate }}</span></label>
+          <label class="toggle"><input type="checkbox" name="smsOnDeparted" [(ngModel)]="model.smsOnDeparted" /><span>{{ 'deliveryForm.sms.onDeparted' | translate }}</span></label>
+          <label class="toggle"><input type="checkbox" name="smsOnArrived" [(ngModel)]="model.smsOnArrived" /><span>{{ 'deliveryForm.sms.onArrived' | translate }}</span></label>
         </div>
       </section>
 
       <!-- 5. Gestione dell'ordine -->
       <section class="card block">
-        <header class="block-head"><h2>Gestione dell'ordine</h2>
-          <span class="block-sub">Prodotti del partner mostrati per primi.</span></header>
-        @if (productRows.length === 0) { <p class="muted">Nessun prodotto aggiunto.</p> }
+        <header class="block-head"><h2>{{ 'deliveryForm.section.order.title' | translate }}</h2>
+          <span class="block-sub">{{ 'deliveryForm.section.order.sub' | translate }}</span></header>
+        @if (productRows.length === 0) { <p class="muted">{{ 'deliveryForm.order.noProducts' | translate }}</p> }
         @for (row of productRows; track $index) {
           <div class="prod-item">
             <div class="prod-top">
               <select class="field" [(ngModel)]="row.productId" (ngModelChange)="onProductChange(row)" [name]="'prod' + $index">
-                <option value="">Prodotto…</option>
-                @for (p of sortedProducts(); track p.id) { <option [value]="p.id">{{ p.name }}{{ p.partner ? '' : ' (generico)' }}</option> }
+                <option value="">{{ 'deliveryForm.placeholder.selectProduct' | translate }}</option>
+                @for (p of sortedProducts(); track p.id) { <option [value]="p.id">{{ p.name }}{{ p.partner ? '' : ' (' + ('deliveryForm.order.generic' | translate) + ')' }}</option> }
               </select>
-              <input class="field num qty" type="number" min="1" placeholder="Qtà" [(ngModel)]="row.quantity" [name]="'qty' + $index" />
-              <button type="button" class="icon-btn" (click)="removeProduct($index)" title="Rimuovi">✕</button>
+              <input class="field num qty" type="number" min="1" [placeholder]="'deliveryForm.placeholder.qty' | translate" [(ngModel)]="row.quantity" [name]="'qty' + $index" />
+              <button type="button" class="icon-btn" (click)="removeProduct($index)" [title]="'deliveryForm.order.remove' | translate">✕</button>
             </div>
             <div class="prod-bottom">
-              <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.flexiblePrice" (change)="onFlexToggle(row)" [name]="'pflex' + $index" /><span>Prezzo flessibile</span></label>
+              <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.flexiblePrice" (change)="onFlexToggle(row)" [name]="'pflex' + $index" /><span>{{ 'deliveryForm.order.flexiblePrice' | translate }}</span></label>
               @if (row.flexiblePrice) {
-                <span class="price-lbl">Prezzo (€)</span>
+                <span class="price-lbl">{{ 'deliveryForm.order.priceEuro' | translate }}</span>
                 <input class="field num price-in" type="number" step="0.01" [(ngModel)]="row.price" [name]="'pprice' + $index" />
               } @else {
-                <span class="price-static">Prezzo: <strong>{{ productPrice(row.productId) != null ? (productPrice(row.productId) + ' €') : '—' }}</strong></span>
+                <span class="price-static">{{ 'deliveryForm.order.priceLabel' | translate }} <strong>{{ productPrice(row.productId) != null ? (productPrice(row.productId) + ' €') : '—' }}</strong></span>
               }
             </div>
           </div>
         }
-        <button type="button" class="btn btn-secondary add" (click)="addProduct()">+ Aggiungi prodotto</button>
+        <button type="button" class="btn btn-secondary add" (click)="addProduct()">+ {{ 'deliveryForm.order.addProduct' | translate }}</button>
 
         <div class="toggles mt">
-          <label class="toggle"><input type="checkbox" name="paymentOnDelivery" [(ngModel)]="model.paymentOnDelivery" /><span>Pagamento alla consegna</span></label>
-          <label class="toggle"><input type="checkbox" name="tryAndReturn" [(ngModel)]="model.tryAndReturn" /><span>Prova e reso del prodotto</span></label>
+          <label class="toggle"><input type="checkbox" name="paymentOnDelivery" [(ngModel)]="model.paymentOnDelivery" /><span>{{ 'deliveryForm.order.paymentOnDelivery' | translate }}</span></label>
+          <label class="toggle"><input type="checkbox" name="tryAndReturn" [(ngModel)]="model.tryAndReturn" /><span>{{ 'deliveryForm.order.tryAndReturn' | translate }}</span></label>
         </div>
         @if (model.paymentOnDelivery) {
-          <label class="fld mt" style="max-width:260px"><span>Contanti da incassare (€)</span>
+          <label class="fld mt" style="max-width:260px"><span>{{ 'deliveryForm.order.cashToCollect' | translate }}</span>
             <input class="field num" type="number" step="0.01" name="paymentAmount" [(ngModel)]="model.paymentAmount" /></label>
         }
       </section>
 
       <!-- 6. Listino -->
       <section class="card block">
-        <header class="block-head"><h2>Listino</h2>
-          <span class="block-sub">Lasciando vuoto il prezzo, viene calcolato dal servizio del partner.</span></header>
+        <header class="block-head"><h2>{{ 'deliveryForm.section.pricing.title' | translate }}</h2>
+          <span class="block-sub">{{ 'deliveryForm.section.pricing.sub' | translate }}</span></header>
         <div class="listino">
           <div>
-            <span class="group-label">Da fatturare (partner)</span>
-            <label class="toggle mb"><input type="checkbox" name="billable" [(ngModel)]="model.billable" /><span>Da fatturare</span></label>
+            <span class="group-label">{{ 'deliveryForm.pricing.billableGroup' | translate }}</span>
+            <label class="toggle mb"><input type="checkbox" name="billable" [(ngModel)]="model.billable" /><span>{{ 'deliveryForm.pricing.billable' | translate }}</span></label>
             <div class="grid-2">
-              <label class="fld"><span>Prezzo (€)</span>
-                <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price" placeholder="auto" /></label>
-              <label class="fld"><span>Plus / minus (€)</span>
+              <label class="fld"><span>{{ 'deliveryForm.pricing.price' | translate }}</span>
+                <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price" [placeholder]="'deliveryForm.placeholder.auto' | translate" /></label>
+              <label class="fld"><span>{{ 'deliveryForm.pricing.plusMinus' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="additionalPrice" [(ngModel)]="model.additionalPrice" /></label>
             </div>
           </div>
           <div>
-            <span class="group-label">Da pagare (valet)</span>
-            <label class="toggle mb"><input type="checkbox" name="payable" [(ngModel)]="model.payable" /><span>Da pagare</span></label>
+            <span class="group-label">{{ 'deliveryForm.pricing.payableGroup' | translate }}</span>
+            <label class="toggle mb"><input type="checkbox" name="payable" [(ngModel)]="model.payable" /><span>{{ 'deliveryForm.pricing.payable' | translate }}</span></label>
             <div class="grid-2">
-              <label class="fld"><span>Valet salario (€)</span>
+              <label class="fld"><span>{{ 'deliveryForm.pricing.valetSalary' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="valetSalary" [(ngModel)]="model.valetSalary" /></label>
-              <label class="fld"><span>Plus / minus (€)</span>
+              <label class="fld"><span>{{ 'deliveryForm.pricing.plusMinus' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="valetAdditionalPrice" [(ngModel)]="model.valetAdditionalPrice" /></label>
             </div>
           </div>
         </div>
-        <label class="toggle mt"><input type="checkbox" name="isFlexiblePrice" [(ngModel)]="model.isFlexiblePrice" /><span>Prezzo flessibile</span></label>
+        <label class="toggle mt"><input type="checkbox" name="isFlexiblePrice" [(ngModel)]="model.isFlexiblePrice" /><span>{{ 'deliveryForm.pricing.flexiblePrice' | translate }}</span></label>
         @if (model.isFlexiblePrice) {
-          <label class="fld mt"><span>Dettaglio prezzo flessibile</span>
-            <input class="field" name="flexiblePrice" [(ngModel)]="model.flexiblePrice" placeholder="Es. da 20 a 50 €" /></label>
+          <label class="fld mt"><span>{{ 'deliveryForm.pricing.flexiblePriceDetail' | translate }}</span>
+            <input class="field" name="flexiblePrice" [(ngModel)]="model.flexiblePrice" [placeholder]="'deliveryForm.pricing.flexiblePricePlaceholder' | translate" /></label>
         }
         @if (isHourly()) {
-          <label class="fld mt" style="max-width:200px"><span>Ore (servizio a ora)</span>
+          <label class="fld mt" style="max-width:200px"><span>{{ 'deliveryForm.pricing.hours' | translate }}</span>
             <input class="field num" type="number" min="1" name="hours" [(ngModel)]="model.hours" /></label>
         }
       </section>
 
       <!-- 7. Documentazione e note -->
       <section class="card block">
-        <header class="block-head"><h2>Documentazione e note</h2></header>
+        <header class="block-head"><h2>{{ 'deliveryForm.section.docs.title' | translate }}</h2></header>
         <div class="grid-2">
-          <label class="fld"><span>Numero DDT</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.ddtNumber' | translate }}</span>
             <input class="field" name="ddtNumber" [(ngModel)]="model.ddtNumber" /></label>
-          <label class="fld"><span>File DDT (URL)</span>
+          <label class="fld"><span>{{ 'deliveryForm.field.ddtFile' | translate }}</span>
             <input class="field" name="ddtFile" [(ngModel)]="model.ddtFile" placeholder="https://…" /></label>
         </div>
-        <label class="fld span-2 mt"><span>Note</span>
+        <label class="fld span-2 mt"><span>{{ 'deliveryForm.field.notes' | translate }}</span>
           <textarea class="field" rows="2" name="notes" [(ngModel)]="model.notes"></textarea></label>
-        <label class="fld span-2 mt"><span>Personalizzazione</span>
+        <label class="fld span-2 mt"><span>{{ 'deliveryForm.field.personalization' | translate }}</span>
           <textarea class="field" rows="2" name="personalizeSaleNotes" [(ngModel)]="model.personalizeSaleNotes"></textarea></label>
-        <label class="fld span-2 mt"><span>Note interne <em>(admin / operation / valet)</em></span>
+        <label class="fld span-2 mt"><span>{{ 'deliveryForm.field.internalNotes' | translate }} <em>{{ 'deliveryForm.field.internalNotesRoles' | translate }}</em></span>
           <textarea class="field" rows="2" name="internalNotes" [(ngModel)]="model.internalNotes"></textarea></label>
-        <label class="toggle mt"><input type="checkbox" name="deliveryCodeRequired" [(ngModel)]="model.deliveryCodeRequired" /><span>Codice di consegna richiesto</span></label>
+        <label class="toggle mt"><input type="checkbox" name="deliveryCodeRequired" [(ngModel)]="model.deliveryCodeRequired" /><span>{{ 'deliveryForm.field.deliveryCodeRequired' | translate }}</span></label>
       </section>
 
-      @if (justSaved()) { <div class="ok-card card">Consegna creata ✓ — i valori restano compilati: premi <strong>Crea</strong> o <strong>Duplica</strong> per crearne un'altra.</div> }
+      @if (justSaved()) { <div class="ok-card card">{{ 'deliveryForm.savedNotice.pre' | translate }} <strong>{{ 'deliveryForm.savedNotice.create' | translate }}</strong> {{ 'deliveryForm.savedNotice.or' | translate }} <strong>{{ 'common.duplicate' | translate }}</strong> {{ 'deliveryForm.savedNotice.post' | translate }}</div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
       <div class="actions">
-        <a routerLink="/deliveries" class="btn btn-secondary">Annulla</a>
-        <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">Duplica</button>
+        <a routerLink="/deliveries" class="btn btn-secondary">{{ 'common.cancel' | translate }}</a>
+        @if (!editId()) {
+          <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'common.duplicate' | translate }}</button>
+        }
         <button type="submit" class="btn btn-primary" [disabled]="saving()">
-          {{ saving() ? 'Salvataggio…' : 'Crea consegna' }}
+          {{ saving() ? ('common.saving' | translate) : ((editId() ? 'common.save' : 'deliveryForm.submit') | translate) }}
         </button>
       </div>
     </form>
@@ -339,6 +343,8 @@ interface ProductRow {
 export class DeliveryFormComponent {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly translate = inject(TranslateService);
 
   readonly partners = signal<Partner[]>([]);
   readonly serviceTypes = signal<ServiceType[]>([]);
@@ -492,14 +498,72 @@ export class DeliveryFormComponent {
     return `${y}-${m}-${day}`;
   }
 
+  /** Id consegna in modifica (null = nuova consegna). */
+  readonly editId = signal<string | null>(null);
+
   constructor() {
     const api = environment.apiUrl;
     this.http.get<Partner[]>(`${api}/partners`).subscribe((d) => this.partners.set(d));
     this.http.get<ServiceType[]>(`${api}/service-types`).subscribe((d) => this.serviceTypes.set(d));
     this.http.get<ValetRef[]>(`${api}/valets`).subscribe((d) => this.valets.set(d as ValetRef[]));
-    this.http.get<Product[]>(`${api}/products`).subscribe((d) => this.products.set(d));
+    // La lista prodotti e' paginata: qui serve il catalogo per la tendina,
+    // quindi chiedo la pagina massima consentita.
+    this.http
+      .get<{ items: Product[] }>(`${api}/products`, { params: { pageSize: 500 } })
+      .subscribe((d) => this.products.set(d.items ?? []));
     this.http.get<Customer[]>(`${api}/customers`).subscribe((d) => this.customers.set(d));
     this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
+
+    // Modalita' modifica: /deliveries/:id/edit
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.editId.set(id);
+      this.http.get<Record<string, unknown>>(`${api}/deliveries/${id}`).subscribe({
+        next: (d) => this.prefill(d),
+        error: (err) =>
+          this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')),
+      });
+    }
+  }
+
+  /** Riempie il form con la consegna esistente. */
+  private prefill(d: Record<string, any>): void {
+    const m = this.model;
+    m.date = typeof d['date'] === 'string' ? d['date'].slice(0, 10) : '';
+    for (const key of [
+      'recipientAddress', 'partnerId', 'serviceTypeId', 'deliveryTimeFrom', 'deliveryTimeTo',
+      'pickupTimeFrom', 'pickupTimeTo', 'valetId', 'status', 'paymentStatus', 'customerId',
+      'recipientLastName', 'recipientFirstName', 'recipientIntercom', 'recipientPhone',
+      'recipientEmail', 'senderLastName', 'senderFirstName', 'senderPhone', 'valetServiceId',
+      'smsPhoneNo', 'flexiblePrice', 'ddtNumber', 'ddtFile', 'notes', 'personalizeSaleNotes',
+      'internalNotes',
+    ] as const) {
+      if (d[key] != null) (m as Record<string, unknown>)[key] = d[key];
+    }
+    for (const key of [
+      'deliveryFlexible', 'pickupFlexible', 'deluxyDelivery', 'smsOnCreated', 'smsOnDeparted',
+      'smsOnArrived', 'paymentOnDelivery', 'tryAndReturn', 'billable', 'payable',
+      'isFlexiblePrice', 'deliveryCodeRequired',
+    ] as const) {
+      if (d[key] != null) (m as Record<string, unknown>)[key] = !!d[key];
+    }
+    for (const key of ['paymentAmount', 'price', 'additionalPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {
+      if (d[key] != null) (m as Record<string, unknown>)[key] = d[key];
+    }
+    // Prodotti della consegna
+    const products = (d['products'] as any[]) ?? [];
+    this.productRows = products.map((p) => ({
+      productId: p.productId ?? p.product?.id ?? '',
+      quantity: p.quantity ?? 1,
+      price: p.price ?? null,
+      flexiblePrice: !!p.flexiblePrice,
+    })) as ProductRow[];
+    // Ricostruisce fasce orarie, data minima e filtri dipendenti
+    this.onAddressChange();
+    this.onServiceChange();
+    // onServiceChange puo' azzerare la fascia: la ripristina da quella salvata
+    if (d['deliveryTimeFrom']) m.deliveryTimeFrom = d['deliveryTimeFrom'] as string;
+    if (d['date']) m.date = (d['date'] as string).slice(0, 10);
   }
 
   /** Partner filtrati per tipo di servizio scelto e per provincia dell'indirizzo. */
@@ -537,20 +601,9 @@ export class DeliveryFormComponent {
     this.syncSelections();
   }
 
-  /** Cerca nell'indirizzo un codice provincia (es. "(MI)"), un nome provincia o una città nota. */
+  /** Deduce la provincia dall'indirizzo (logica condivisa con la lista consegne). */
   private detectProvince(address: string): Province | null {
-    const a = (address ?? '').trim();
-    if (!a) return null;
-    const lower = a.toLowerCase();
-    for (const p of this.provinces()) {
-      const codeRe = new RegExp(`(^|[^A-Za-z])${p.code}([^A-Za-z]|$)`);
-      if (codeRe.test(a)) return p;
-      if (p.name && lower.includes(p.name.toLowerCase())) return p;
-      for (const c of p.cities ?? []) {
-        if (c.name && lower.includes(c.name.toLowerCase())) return p;
-      }
-    }
-    return null;
+    return detectProvince(address, this.provinces());
   }
 
   /** Azzera partner/valet se non più presenti nelle liste filtrate. */
@@ -594,7 +647,7 @@ export class DeliveryFormComponent {
     const m = this.model;
     if (!m.date || !m.partnerId || !m.serviceTypeId || !m.recipientAddress.trim()
       || !m.recipientFirstName.trim() || !m.recipientLastName.trim()) {
-      this.error.set('Compila data, partner, servizio, indirizzo e nome/cognome destinatario.');
+      this.error.set(this.translate.instant('deliveryForm.error.requiredFields'));
       return;
     }
 
@@ -653,7 +706,9 @@ export class DeliveryFormComponent {
         flexiblePrice: r.flexiblePrice,
         price: r.flexiblePrice && r.price != null ? Number(r.price) : undefined,
       }));
-    if (products.length) payload['products'] = products;
+    // In modifica invio sempre i prodotti, anche a lista vuota: altrimenti
+    // rimuoverli tutti non li cancellerebbe (l'API scrive solo le chiavi presenti).
+    if (products.length || this.editId()) payload['products'] = products;
 
     this.saving.set(true);
     // Se richiesto, salva prima il destinatario come nuovo cliente in Clienti, poi crea la consegna.
@@ -671,7 +726,7 @@ export class DeliveryFormComponent {
         error: (err) => {
           this.saving.set(false);
           const msg = err?.error?.message;
-          this.error.set('Cliente non salvato: ' + (Array.isArray(msg) ? msg.join(' · ') : msg ?? 'errore'));
+          this.error.set(this.translate.instant('deliveryForm.error.customerNotSaved') + (Array.isArray(msg) ? msg.join(' · ') : msg ?? this.translate.instant('deliveryForm.error.genericShort')));
         },
       });
       return;
@@ -681,15 +736,22 @@ export class DeliveryFormComponent {
 
   /** Crea la consegna col payload dato. */
   private postDelivery(payload: Record<string, unknown>, duplicate: boolean): void {
-    this.http.post(`${environment.apiUrl}/deliveries`, payload).subscribe({
+    const id = this.editId();
+    const req = id
+      ? this.http.put(`${environment.apiUrl}/deliveries/${id}`, payload)
+      : this.http.post(`${environment.apiUrl}/deliveries`, payload);
+
+    req.subscribe({
       next: () => {
+        // In modifica si torna al dettaglio; in creazione alla lista (o si resta per duplicare)
+        if (id) { this.router.navigate(['/deliveries', id]); return; }
         if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
         this.router.navigate(['/deliveries']);
       },
       error: (err) => {
         this.saving.set(false);
         const msg = err?.error?.message;
-        this.error.set(Array.isArray(msg) ? msg.join(' · ') : msg ?? 'Errore nella creazione della consegna');
+        this.error.set(Array.isArray(msg) ? msg.join(' · ') : msg ?? this.translate.instant('deliveryForm.error.createFailed'));
       },
     });
   }

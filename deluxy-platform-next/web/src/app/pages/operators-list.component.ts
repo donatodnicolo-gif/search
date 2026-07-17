@@ -1,56 +1,60 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
-import { Operation, OPERATION_ROLE_LABELS } from '../core/models';
+import { Operation } from '../core/models';
 
 @Component({
   selector: 'app-operators-list',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <div class="page-header">
       <div>
-        <h1>Operatori</h1>
-        <p class="page-caption">{{ operators().length }} operatori d'ufficio.</p>
+        <h1>{{ 'operators.title' | translate }}</h1>
+        <p class="page-caption">{{ operators().length }} {{ 'operators.caption' | translate }}</p>
       </div>
       <div class="head-actions">
-        <input class="field" placeholder="Cerca…" [(ngModel)]="query" />
-        <a routerLink="/operators/new" class="btn btn-primary">+ Aggiungi operatore</a>
+        <input class="field" [attr.placeholder]="'operators.searchPlaceholder' | translate" [(ngModel)]="query" />
+        <a routerLink="/operators/new" class="btn btn-primary">+ {{ 'operators.add' | translate }}</a>
       </div>
     </div>
 
     @if (loading()) {
-      <div class="card state-card">Caricamento operatori…</div>
+      <div class="card state-card">{{ 'operators.loading' | translate }}</div>
     } @else if (error()) {
       <div class="error-card">{{ error() }}</div>
     } @else if (filtered().length === 0) {
       <div class="card state-card">
-        <strong>Nessun operatore.</strong>
-        <span class="muted">Aggiungine uno con “Aggiungi operatore”.</span>
+        <strong>{{ 'operators.emptyTitle' | translate }}</strong>
+        <span class="muted">{{ 'operators.emptyHint' | translate }}</span>
       </div>
     } @else {
       <div class="card table-wrap">
         <table>
           <thead>
-            <tr><th>Cognome</th><th>Nome</th><th>Email</th><th>Telefono</th><th>Ruolo</th><th>Stato</th></tr>
+            <tr><th>{{ 'operators.col.lastName' | translate }}</th><th>{{ 'operators.col.firstName' | translate }}</th><th>{{ 'operators.col.email' | translate }}</th><th>{{ 'operators.col.phone' | translate }}</th><th>{{ 'operators.col.role' | translate }}</th><th>{{ 'operators.col.status' | translate }}</th><th>{{ 'deliveries.col.actions' | translate }}</th></tr>
           </thead>
           <tbody>
             @for (o of filtered(); track o.id) {
-              <tr>
+              <tr class="row-link" tabindex="0" (click)="openDetail(o)" (keydown.enter)="openDetail(o)">
                 <td class="strong">{{ o.lastName }}</td>
                 <td>{{ o.firstName }}</td>
                 <td class="muted">{{ o.email }}</td>
                 <td>{{ o.phone || '—' }}</td>
                 <td>
                   <span class="pill" [class.pill-pm]="o.operationRole !== 'operation'" [class.pill-neutral]="o.operationRole === 'operation'">
-                    {{ roleLabel(o.operationRole) }}
+                    {{ ('enums.operationRole.' + o.operationRole) | translate }}
                   </span>
                 </td>
                 <td>
-                  @if (o.active) { <span class="pill s-active"><span class="dot"></span>Attivo</span> }
-                  @else { <span class="pill pill-neutral">Disattivo</span> }
+                  @if (o.active) { <span class="pill s-active"><span class="dot"></span>{{ 'common.active' | translate }}</span> }
+                  @else { <span class="pill pill-neutral">{{ 'common.inactive' | translate }}</span> }
+                </td>
+                <td class="actions-cell" (click)="$event.stopPropagation()">
+                  <a class="act" [routerLink]="['/operators', o.id, 'edit']">{{ 'common.edit' | translate }}</a>
                 </td>
               </tr>
             }
@@ -80,6 +84,11 @@ import { Operation, OPERATION_ROLE_LABELS } from '../core/models';
       .pill-neutral { background: var(--fill); color: var(--text-secondary); }
       .pill-pm { background: var(--gold-soft); color: var(--gold-strong); }
       .s-active { background: rgba(36,138,61,0.12); color: var(--green); }
+      .row-link { cursor: pointer; }
+      .row-link:focus-visible { outline: 2px solid var(--gold-strong); outline-offset: -2px; }
+      .actions-cell { white-space: nowrap; }
+      .act { display: inline-flex; align-items: center; border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 4px 11px; font-size: 12px; font-weight: 550; color: var(--text); text-decoration: none; }
+      .act:hover { background: var(--fill); }
       .state-card { padding: 32px; display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); border-radius: var(--radius-l); color: var(--red); padding: 24px; }
     `,
@@ -87,6 +96,13 @@ import { Operation, OPERATION_ROLE_LABELS } from '../core/models';
 })
 export class OperatorsListComponent {
   private readonly http = inject(HttpClient);
+  private readonly translate = inject(TranslateService);
+  private readonly router = inject(Router);
+
+  /** Il click sulla riga apre sempre il dettaglio. */
+  openDetail(o: Operation): void {
+    this.router.navigate(['/operators', o.id]);
+  }
 
   readonly operators = signal<Operation[]>([]);
   readonly loading = signal(true);
@@ -107,11 +123,7 @@ export class OperatorsListComponent {
   constructor() {
     this.http.get<Operation[]>(`${environment.apiUrl}/operations`).subscribe({
       next: (d) => { this.operators.set(d); this.loading.set(false); },
-      error: (err) => { this.loading.set(false); this.error.set(err?.error?.message ?? 'Errore nel caricamento'); },
+      error: (err) => { this.loading.set(false); this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')); },
     });
-  }
-
-  roleLabel(role: string): string {
-    return OPERATION_ROLE_LABELS[role] ?? role;
   }
 }

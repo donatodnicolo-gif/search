@@ -94,7 +94,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
 
       <!-- Topbar (solo mobile) -->
       <header class="topbar">
-        <button class="hamburger" (click)="toggle()" aria-label="Apri menu">
+        <button class="hamburger" (click)="toggle()" [attr.aria-label]="'shell.openMenu' | translate">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
@@ -108,19 +108,35 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         <div class="overlay" (click)="close()"></div>
       }
 
-      <aside class="sidebar" [class.open]="menuOpen()">
+      <aside class="sidebar" [class.open]="menuOpen()" [class.collapsed]="collapsed()">
         <div class="brand">
           <span class="brand-mark">D</span>
           <span class="brand-name">Deluxy</span>
+          <button
+            class="collapse-btn"
+            (click)="toggleCollapse()"
+            [attr.aria-label]="(collapsed() ? 'shell.expandMenu' : 'shell.collapseMenu') | translate"
+            [title]="(collapsed() ? 'shell.expandMenu' : 'shell.collapseMenu') | translate"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.5 7 9.5 12l5 5" />
+            </svg>
+          </button>
         </div>
 
         <nav>
           @for (section of sections(); track section.title) {
             <div class="nav-section">{{ section.title | translate }}</div>
             @for (item of section.items; track item.path) {
-              <a [routerLink]="item.path" routerLinkActive="active" class="nav-link" (click)="close()">
+              <a
+                [routerLink]="item.path"
+                routerLinkActive="active"
+                class="nav-link"
+                (click)="close()"
+                [title]="collapsed() ? (item.label | translate) : ''"
+              >
                 <span class="nav-icon" [innerHTML]="icon(item.icon)"></span>
-                <span>{{ item.label | translate }}</span>
+                <span class="nav-text">{{ item.label | translate }}</span>
               </a>
             }
           }
@@ -173,6 +189,30 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         align-items: center;
         gap: 10px;
         padding: 4px 10px 18px;
+      }
+      .collapse-btn {
+        margin-left: auto;
+        width: 28px;
+        height: 28px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 5px;
+        flex-shrink: 0;
+        transition: background 0.16s var(--ease), color 0.16s var(--ease), transform 0.2s var(--ease);
+      }
+      .collapse-btn:hover {
+        background: var(--fill);
+        color: var(--text);
+      }
+      .collapse-btn svg {
+        width: 100%;
+        height: 100%;
       }
       .brand-mark {
         display: inline-flex;
@@ -302,6 +342,44 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         overflow-x: auto;
       }
 
+      /* Sidebar collassata (desktop): solo icone */
+      .sidebar {
+        transition: width 0.24s var(--ease);
+      }
+      .sidebar.collapsed {
+        width: 68px;
+        padding-left: 8px;
+        padding-right: 8px;
+      }
+      .sidebar.collapsed .brand-name,
+      .sidebar.collapsed .nav-text,
+      .sidebar.collapsed .nav-section,
+      .sidebar.collapsed .user-meta {
+        display: none;
+      }
+      .sidebar.collapsed .brand {
+        justify-content: center;
+        padding: 4px 0 18px;
+      }
+      .sidebar.collapsed .collapse-btn {
+        margin-left: 0;
+        transform: rotate(180deg);
+      }
+      .sidebar.collapsed .brand-mark {
+        display: none;
+      }
+      .sidebar.collapsed .nav-link {
+        justify-content: center;
+        padding: 9px 0;
+      }
+      .sidebar.collapsed .user-box {
+        justify-content: center;
+        padding: 10px 0;
+      }
+      .sidebar.collapsed .logout {
+        display: none;
+      }
+
       /* Topbar e overlay: nascosti su desktop */
       .topbar {
         display: none;
@@ -375,6 +453,27 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         .sidebar.open {
           transform: translateX(0);
         }
+        /* Su mobile il collasso desktop non si applica: il menu resta un drawer pieno */
+        .sidebar.collapsed {
+          width: 264px;
+          max-width: 82vw;
+          padding: 18px 12px 14px;
+        }
+        .sidebar.collapsed .brand-name,
+        .sidebar.collapsed .nav-text,
+        .sidebar.collapsed .nav-section,
+        .sidebar.collapsed .user-meta,
+        .sidebar.collapsed .brand-mark,
+        .sidebar.collapsed .logout {
+          display: revert;
+        }
+        .sidebar.collapsed .nav-link {
+          justify-content: flex-start;
+          padding: 7px 10px;
+        }
+        .collapse-btn {
+          display: none;
+        }
         /* La "brand" interna al drawer è ridondante con la topbar ma resta come intestazione del menu */
 
         .overlay {
@@ -408,6 +507,27 @@ export class ShellComponent {
 
   /** Drawer mobile aperto/chiuso. */
   readonly menuOpen = signal(false);
+
+  /** Sidebar desktop ridotta a sole icone (persistita). */
+  readonly collapsed = signal(this.readCollapsed());
+
+  private readCollapsed(): boolean {
+    try {
+      return localStorage.getItem('sidebarCollapsed') === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  toggleCollapse(): void {
+    const next = !this.collapsed();
+    this.collapsed.set(next);
+    try {
+      localStorage.setItem('sidebarCollapsed', next ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
 
   constructor() {
     // Chiude il drawer a ogni navigazione

@@ -5,6 +5,7 @@ import {
   Get,
   Injectable,
   Module,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -89,6 +90,12 @@ export class OperationsService {
     return this.prisma.operation.findMany({ orderBy: { lastName: 'asc' } });
   }
 
+  async findOne(id: string) {
+    const operation = await this.prisma.operation.findUnique({ where: { id } });
+    if (!operation) throw new NotFoundException('Operatore non trovato');
+    return operation;
+  }
+
   create(dto: CreateOperationDto) {
     return this.prisma.operation.create({ data: dto });
   }
@@ -114,6 +121,13 @@ export class OperationsController {
   @ApiOperation({ summary: 'Lista operatori (staff ufficio)' })
   findAll() {
     return this.operationsService.findAll();
+  }
+
+  @Get(':id')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Dettaglio operatore' })
+  findOne(@Param('id') id: string) {
+    return this.operationsService.findOne(id);
   }
 
   @Post()

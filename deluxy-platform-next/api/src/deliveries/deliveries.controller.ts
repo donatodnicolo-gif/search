@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { CurrentUser, JwtUser, Roles } from '../common/decorators';
+import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { DeliveriesService } from './deliveries.service';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
@@ -56,7 +56,9 @@ export class DeliveriesController {
   }
 
   @Put(':id')
-  @Roles(Role.ADMIN, Role.OPERATION)
+  // Il partner e' ammesso ma il service applica la regola: solo consegne
+  // "da gestire" e con servizio diverso da VENDITA.
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
   @ApiOperation({ summary: 'Aggiorna consegna' })
   update(
     @Param('id') id: string,
@@ -74,6 +76,20 @@ export class DeliveriesController {
     @CurrentUser() user: JwtUser,
   ) {
     return this.deliveriesService.updateStatus(id, dto.status, user);
+  }
+
+  @Get(':id/tracking-link')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Token del link pubblico di monitoraggio (lo crea se assente)' })
+  trackingLink(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.getTrackingToken(id, user);
+  }
+
+  @Public()
+  @Get('tracking/:token')
+  @ApiOperation({ summary: 'Monitoraggio pubblico della consegna (senza login)' })
+  publicTracking(@Param('token') token: string) {
+    return this.deliveriesService.findByTrackingToken(token);
   }
 
   @Patch(':id/assign')

@@ -4,7 +4,10 @@ import {
   Get,
   Injectable,
   Module,
+  NotFoundException,
+  Param,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -22,6 +25,17 @@ export class ServiceTypesService {
       where: { active: true },
       orderBy: { name: 'asc' },
     });
+  }
+
+  async findOne(id: string) {
+    const service = await this.prisma.serviceType.findUnique({ where: { id } });
+    if (!service) throw new NotFoundException('Servizio non trovato');
+    return service;
+  }
+
+  async update(id: string, body: Record<string, unknown>) {
+    await this.findOne(id);
+    return this.prisma.serviceType.update({ where: { id }, data: body });
   }
 
   /** Filtrabile per ambito (partner | valet). "both" appare in entrambi. */
@@ -94,6 +108,19 @@ export class ServiceTypesController {
     return scope
       ? this.serviceTypesService.findByScope(scope)
       : this.serviceTypesService.findAll();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Dettaglio tipo di servizio' })
+  findOne(@Param('id') id: string) {
+    return this.serviceTypesService.findOne(id);
+  }
+
+  @Put(':id')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Aggiorna tipo di servizio' })
+  update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+    return this.serviceTypesService.update(id, body);
   }
 
   @Post()

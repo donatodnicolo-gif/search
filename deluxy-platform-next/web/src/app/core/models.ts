@@ -26,6 +26,9 @@ export interface Delivery {
   code: number;
   date: string;
   status: string;
+  deliveryTimeFrom?: string;
+  deliveryTimeTo?: string;
+  deliveryFlexible?: boolean;
   pickupTimeFrom?: string;
   pickupTimeTo?: string;
   pickupFlexible: boolean;
