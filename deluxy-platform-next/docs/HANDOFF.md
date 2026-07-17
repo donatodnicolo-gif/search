@@ -106,6 +106,10 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 17/07/2026 (sera 6) — Pulsante Aggiorna sulla mappa consegne
+
+- Pulsante **"Aggiorna"** in alto a sinistra del pannello mappa (`DeliveryMapComponent.refresh()`): se la mappa è pronta ricarica i punti da `GET /deliveries/map`, altrimenti **re-inizializza** (rilegge `/settings/public` e ricarica lo script) — utile subito dopo aver inserito la chiave browser o dopo un errore. Disabilitato durante il caricamento. Verificato nel browser (presente, cliccabile, nessun errore).
+
 ### 17/07/2026 (sera 5) — Autocomplete indirizzi Google Places (form consegna)
 
 - Campo **Indirizzo destinatario** del form consegna: agganciato `google.maps.places.Autocomplete` (ristretto all'Italia, `types:['address']`). Alla selezione compila l'indirizzo e ricava la **provincia** da `administrative_area_level_2` (→ filtro partner/valet). Evento Google riportato nella zona Angular (`NgZone.run`).
