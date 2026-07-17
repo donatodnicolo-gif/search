@@ -8,28 +8,34 @@ async function datiSidebar() {
   // Se il database non è ancora configurato la sidebar non deve far crollare
   // la pagina: mostra le voci fisse e nessuna sezione.
   try {
-    const [sezioni, daFare, nonLette] = await Promise.all([
+    const [sezioni, daFare, nonLette, cestinati] = await Promise.all([
       db.sezione.findMany({
         orderBy: { ordine: 'asc' },
-        include: { _count: { select: { messaggi: { where: { archiviato: false, letto: false } } } } },
+        include: {
+          _count: {
+            select: { messaggi: { where: { archiviato: false, letto: false, cestinato: false } } },
+          },
+        },
       }),
       db.attivita.count({ where: { fatta: false } }),
-      db.messaggio.count({ where: { letto: false, archiviato: false } }),
+      db.messaggio.count({ where: { letto: false, archiviato: false, cestinato: false } }),
+      db.messaggio.count({ where: { cestinato: true } }),
     ])
-    return { sezioni, daFare, nonLette, errore: false }
+    return { sezioni, daFare, nonLette, cestinati, errore: false }
   } catch {
-    return { sezioni: [], daFare: 0, nonLette: 0, errore: true }
+    return { sezioni: [], daFare: 0, nonLette: 0, cestinati: 0, errore: true }
   }
 }
 
 export async function Sidebar() {
-  const { sezioni, daFare, nonLette } = await datiSidebar()
+  const { sezioni, daFare, nonLette, cestinati } = await datiSidebar()
 
   const principali: Voce[] = [
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
     { href: '/attivita', label: 'Attività', badge: daFare },
     { href: '/bozze', label: 'Bozze' },
     { href: '/contatti', label: 'Contatti' },
+    { href: '/cestino', label: 'Cestino', badge: cestinati },
   ]
 
   const gestione: Voce[] = [

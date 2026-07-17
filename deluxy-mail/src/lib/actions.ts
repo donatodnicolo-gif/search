@@ -177,6 +177,48 @@ export async function impostaPriorita(id: string, codice: string | null) {
   revalidatePath('/', 'layout')
 }
 
+// ---------- Cestino ----------
+
+/**
+ * Il cestino è di AI Mail, non della casella: nasconde il messaggio qui, ma
+ * sul server IMAP resta dov'era. È sempre reversibile finché non si svuota.
+ */
+export async function cestinaMessaggio(id: string) {
+  await db.messaggio.update({
+    where: { id },
+    data: { cestinato: true, cestinatoIl: new Date(), letto: true },
+  })
+  revalidatePath('/', 'layout')
+}
+
+export async function ripristinaMessaggio(id: string) {
+  await db.messaggio.update({
+    where: { id },
+    data: { cestinato: false, cestinatoIl: null, archiviato: false },
+  })
+  revalidatePath('/', 'layout')
+}
+
+/**
+ * Svuota il cestino: cancella la copia locale dei messaggi cestinati.
+ *
+ * La mail vera resta sul server: se un domani rifai lo scarico dello storico,
+ * quei messaggi tornano. Qui si perdono solo il lavoro dell'AI (riassunto,
+ * attività, bozza) e la priorità che avevi messo.
+ */
+export async function svuotaCestino(): Promise<{ ok: boolean; messaggio: string }> {
+  try {
+    const r = await db.messaggio.deleteMany({ where: { cestinato: true } })
+    revalidatePath('/', 'layout')
+    return {
+      ok: true,
+      messaggio: `Cestino svuotato: ${r.count} messaggi rimossi da AI Mail. Sul server della casella sono ancora lì.`,
+    }
+  } catch (e) {
+    return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
+  }
+}
+
 export async function spostaInSezione(id: string, sezioneId: string | null) {
   // Spostamento manuale: da qui in poi la sezione l'hai decisa tu, non l'AI.
   await db.messaggio.update({
@@ -268,6 +310,67 @@ export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: 
     return { ok: true, messaggio: `Risposta inviata a ${bozza.messaggio.mittente}.` }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Invio non riuscito' }
+  }
+}
+
+// ---------- Scrivere e inviare ----------
+
+/**
+ * Invia una risposta, una risposta a tutti o un inoltro.
+ *
+ * Come per le bozze dell'AI, è l'utente a premere invia: qui non parte mai
+ * niente da solo. Il messaggio esce dall'indirizzo della casella da cui è
+ * arrivato l'originale, così il thread resta coerente.
+ */
+export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
+  try {
+    const messaggioId = testo(form, 'messaggioId')
+    const a = testo(form, 'a')
+    const cc = testo(form, 'cc')
+    const oggetto = testo(form, 'oggetto')
+    const corpo = testo(form, 'corpo')
+
+    if (!a) return { ok: false, messaggio: 'Manca il destinatario.' }
+    if (!corpo) return { ok: false, messaggio: 'Il messaggio è vuoto.' }
+
+    const originale = await db.messaggio.findUniqueOrThrow({
+      where: { id: messaggioId },
+      include: { account: true },
+    })
+    const account = originale.account
+
+    const transporter = nodemailer.createTransport({
+      host: account.smtpHost,
+      port: account.smtpPort,
+      secure: account.smtpSicuro,
+      auth: { user: account.smtpUtente, pass: decifra(account.smtpPassword) },
+    })
+
+    const inoltro = testo(form, 'modo') === 'inoltra'
+
+    await transporter.sendMail({
+      from: `${account.nome} <${account.email}>`,
+      to: a,
+      cc: cc || undefined,
+      subject: oggetto,
+      text: corpo,
+      // Un inoltro non appartiene alla conversazione originale: legarlo al
+      // thread lo farebbe finire nella discussione sbagliata del destinatario.
+      inReplyTo: inoltro ? undefined : (originale.messageId ?? undefined),
+      references: inoltro ? undefined : (originale.messageId ?? undefined),
+    })
+
+    if (!inoltro) {
+      await db.messaggio.update({
+        where: { id: messaggioId },
+        data: { letto: true, serveRisposta: false },
+      })
+    }
+
+    revalidatePath('/', 'layout')
+    return { ok: true, messaggio: `Messaggio inviato a ${a}.` }
+  } catch (e) {
+    return { ok: false, messaggio: `Invio non riuscito: ${e instanceof Error ? e.message : 'errore'}` }
   }
 }
 

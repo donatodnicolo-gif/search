@@ -120,6 +120,10 @@ model Messaggio {
 
   letto     Boolean @default(false)
   archiviato Boolean @default(false)
+  // Cestino di AI Mail: nasconde il messaggio ovunque, ma non tocca la casella
+  // sul server IMAP. Svuotare il cestino cancella solo la copia locale.
+  cestinato  Boolean   @default(false)
+  cestinatoIl DateTime?
 
   // --- Livello AI ---
   sezioneId   String?

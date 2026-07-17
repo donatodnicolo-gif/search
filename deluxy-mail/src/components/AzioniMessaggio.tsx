@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   archiviaDefinitivo,
   archiviaMessaggio,
+  cestinaMessaggio,
   segnaLetto,
   spostaInSezione,
 } from '@/lib/actions'
@@ -40,6 +42,16 @@ export function AzioniMessaggio({
 
   return (
     <div className="page-actions">
+      <Link href={`/messaggio/${id}/scrivi?modo=rispondi`} className="btn primary small">
+        Rispondi
+      </Link>
+      <Link href={`/messaggio/${id}/scrivi?modo=tutti`} className="btn secondary small">
+        Rispondi a tutti
+      </Link>
+      <Link href={`/messaggio/${id}/scrivi?modo=inoltra`} className="btn secondary small">
+        Inoltra
+      </Link>
+
       <select
         value={sezioneId ?? ''}
         disabled={inCorso}
@@ -76,6 +88,20 @@ export function AzioniMessaggio({
           Archivia
         </button>
       )}
+
+      <button
+        className="btn secondary small"
+        disabled={inCorso}
+        title="Sposta nel cestino di AI Mail (la mail resta sul server)"
+        onClick={() =>
+          esegui(async () => {
+            await cestinaMessaggio(id)
+            router.push('/')
+          })
+        }
+      >
+        Cestina
+      </button>
 
       {conferma ? (
         <>

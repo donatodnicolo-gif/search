@@ -312,6 +312,23 @@ input:focus, select:focus, textarea:focus {
 }
 .riga-azioni { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
 
+/* Azioni reversibili della riga: stesso peso visivo di "Archivia definitivo",
+   ma neutre — quella è rossa perché è l'unica che lascia un segno. */
+.azione-riga {
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  padding: 2px 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 150ms var(--ease);
+}
+.azione-riga:hover { color: var(--text); }
+.azione-riga:disabled { opacity: 0.55; cursor: default; }
+
 /* pallino non letto */
 .dot-unread { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); flex: 0 0 7px; }
 .dot-spacer { width: 7px; flex: 0 0 7px; }

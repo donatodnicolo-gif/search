@@ -4,6 +4,7 @@ import { dataBreve, PRIORITA } from '@/lib/format'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
 import { ArchiviaDefinitivo } from '@/components/ArchiviaDefinitivo'
+import { AzioniRiga } from '@/components/AzioniRiga'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,6 +48,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
 
   const messaggi = await db.messaggio.findMany({
     where: {
+      // Il cestino ha una pagina sua: qui non si vede mai, nemmeno fra gli
+      // archiviati o filtrando per sezione.
+      cestinato: false,
       archiviato: stato === 'archiviati',
       ...(sezione ? { sezioneId: sezione } : {}),
       ...(stato === 'non-letti' ? { letto: false } : {}),
@@ -182,6 +186,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                 <div style={{ paddingLeft: 17 }}>
                   <PrioritaButtons id={m.id} priorita={m.priorita} prioritaDa={m.prioritaDa} />
                   <div className="riga-azioni">
+                    <AzioniRiga id={m.id} archiviato={m.archiviato} cestinato={m.cestinato} />
                     <ArchiviaDefinitivo id={m.id} mittente={m.mittente} />
                   </div>
                 </div>
