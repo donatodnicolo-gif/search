@@ -6,6 +6,7 @@ decidi tu, estrae le attività da fare e prepara le risposte. Tu controlli e inv
 - **Porta locale:** 3070 (`npm run dev`)
 - **Design system:** [Deluxy Design System v1.0](../deluxy-design-system/DESIGN-SYSTEM.md) — token in `src/app/tokens.css`
 - **Come funziona nel dettaglio:** [docs/COME-FUNZIONA-AI-MAIL.md](docs/COME-FUNZIONA-AI-MAIL.md)
+- **Metterla online:** [docs/METTERE-ONLINE.md](docs/METTERE-ONLINE.md)
 
 ## Cosa fa
 
@@ -54,6 +55,9 @@ L'interfaccia è una sola, web. Da lì:
 
 ## Sicurezza
 
+- **Online l'app non parte senza `APP_PASSWORD`** (risponde 503): contiene una casella
+  di posta intera, e un URL difficile da indovinare non è una protezione. In locale,
+  dove ci arrivi solo tu, resta aperta.
 - Le password delle caselle sono cifrate con AES-256-GCM (`src/lib/crypto.ts`); nel
   database non c'è mai una password in chiaro.
 - Il contenuto delle email è trattato come **dato, mai come istruzione**: il prompt di

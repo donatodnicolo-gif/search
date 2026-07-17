@@ -9,7 +9,10 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 export async function GET(request: Request) {
-  const atteso = process.env.CRON_TOKEN
+  // Il cron di Vercel non può mettere il token nell'URL: chiama la rotta con
+  // "Authorization: Bearer $CRON_SECRET". In locale invece è comodo il token
+  // in query, quindi si accettano entrambi.
+  const atteso = process.env.CRON_TOKEN || process.env.CRON_SECRET
   if (!atteso) {
     return NextResponse.json(
       { errore: 'CRON_TOKEN non configurato: la sincronizzazione automatica è disattivata.' },
