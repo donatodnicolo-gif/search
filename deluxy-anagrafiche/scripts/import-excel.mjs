@@ -280,6 +280,9 @@ for (const { contatti, ...dati } of uniche) {
     data: {
       ...dati,
       fonte: "excel",
+      // Data convenzionale del lotto storico del tracker (vigilia della nascita
+      // del registro): un re-import non deve far sembrare "di oggi" anagrafiche vecchie.
+      creatoIl: new Date("2026-07-16T10:00:00.000Z"),
       contatti: contatti.length ? { create: contatti } : undefined,
     },
   });

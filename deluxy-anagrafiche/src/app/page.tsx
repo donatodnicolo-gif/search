@@ -8,19 +8,41 @@ export const dynamic = "force-dynamic";
 
 const PER_PAGINA = 50;
 
-type Ricerca = { q?: string; categoria?: string; citta?: string; stato?: string; pagina?: string };
+// Colonne ordinabili: parametro ?ordina= → campo Prisma
+const COLONNE_ORDINABILI = {
+  nome: "Nome",
+  categoria: "Categoria",
+  citta: "Città",
+  stato: "Stato",
+  account: "Account",
+  creatoIl: "Creata",
+} as const;
+type CampoOrdinamento = keyof typeof COLONNE_ORDINABILI;
+
+type Ricerca = {
+  q?: string;
+  categoria?: string;
+  citta?: string;
+  stato?: string;
+  pagina?: string;
+  ordina?: string;
+  dir?: string;
+};
 
 export default async function Elenco({ searchParams }: { searchParams: Promise<Ricerca> }) {
   const filtri = await searchParams;
   const pagina = Math.max(1, Number(filtri.pagina) || 1);
+  const ordina: CampoOrdinamento =
+    filtri.ordina && filtri.ordina in COLONNE_ORDINABILI ? (filtri.ordina as CampoOrdinamento) : "nome";
+  const dir: "asc" | "desc" = filtri.dir === "desc" ? "desc" : "asc";
 
   const where: Prisma.PartnerWhereInput = { attivo: true };
   if (filtri.q) {
     where.OR = [
-      { nome: { contains: filtri.q } },
-      { ragioneSociale: { contains: filtri.q } },
-      { email: { contains: filtri.q } },
-      { citta: { contains: filtri.q } },
+      { nome: { contains: filtri.q, mode: "insensitive" } },
+      { ragioneSociale: { contains: filtri.q, mode: "insensitive" } },
+      { email: { contains: filtri.q, mode: "insensitive" } },
+      { citta: { contains: filtri.q, mode: "insensitive" } },
     ];
   }
   if (filtri.categoria) where.categoria = filtri.categoria;
@@ -32,7 +54,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     prisma.partner.findMany({
       where,
       include: { contatti: true },
-      orderBy: { nome: "asc" },
+      // Nome come criterio secondario per un ordine stabile a parità di valore
+      orderBy: ordina === "nome" ? { nome: dir } : [{ [ordina]: dir }, { nome: "asc" }],
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
     }),
@@ -46,16 +69,45 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
 
   const pagineTotali = Math.max(1, Math.ceil(totale / PER_PAGINA));
 
-  const linkPagina = (n: number) => {
+  const parametriBase = () => {
     const p = new URLSearchParams();
     if (filtri.q) p.set("q", filtri.q);
     if (filtri.categoria) p.set("categoria", filtri.categoria);
     if (filtri.citta) p.set("citta", filtri.citta);
     if (filtri.stato) p.set("stato", filtri.stato);
+    return p;
+  };
+
+  const linkPagina = (n: number) => {
+    const p = parametriBase();
+    if (ordina !== "nome") p.set("ordina", ordina);
+    if (dir !== "asc") p.set("dir", dir);
     if (n > 1) p.set("pagina", String(n));
     const qs = p.toString();
     return qs ? `/?${qs}` : "/";
   };
+
+  // Click sull'intestazione: ordina per quella colonna; secondo click inverte.
+  // Cambiando ordinamento si riparte dalla prima pagina.
+  const linkOrdina = (campo: CampoOrdinamento) => {
+    const p = parametriBase();
+    if (campo !== "nome") p.set("ordina", campo);
+    if (campo === ordina && dir === "asc") p.set("dir", "desc");
+    const qs = p.toString();
+    return qs ? `/?${qs}` : "/";
+  };
+
+  const dataIt = (d: Date) =>
+    d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  const Intestazione = ({ campo }: { campo: CampoOrdinamento }) => (
+    <th>
+      <a className="th-ordina" href={linkOrdina(campo)}>
+        {COLONNE_ORDINABILI[campo]}
+        <span className="th-freccia">{ordina === campo ? (dir === "asc" ? "↑" : "↓") : ""}</span>
+      </a>
+    </th>
+  );
 
   return (
     <div className="layout">
@@ -102,12 +154,13 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
           <table>
             <thead>
               <tr>
-                <th>Nome</th>
-                <th>Categoria</th>
-                <th>Città</th>
-                <th>Stato</th>
-                <th>Account</th>
+                <Intestazione campo="nome" />
+                <Intestazione campo="categoria" />
+                <Intestazione campo="citta" />
+                <Intestazione campo="stato" />
+                <Intestazione campo="account" />
                 <th>Contatti</th>
+                <Intestazione campo="creatoIl" />
               </tr>
             </thead>
             <tbody>
@@ -132,6 +185,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                             .join(" · ")
                         : "—"}
                     </td>
+                    <td className="cella-muta">{dataIt(p.creatoIl)}</td>
                   </tr>
                 );
               })}
