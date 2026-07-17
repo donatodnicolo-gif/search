@@ -67,11 +67,14 @@ export default function MappaWeb() {
 
   const origine: Coord = destinazione ?? pos ?? MILANO;
 
-  async function cerca(c: Coord, f: FiltroScoperta = filtroScoperta) {
+  async function cerca(c: Coord, f?: FiltroScoperta) {
     setScopErrore(null);
     setScopLoading(true);
     try {
-      const res = await scopriNegozi(c.lat, c.lng, 400, f);
+      // Il sotto-filtro (fiori/pasticcerie/…) vale solo con la linea Affiliazioni attiva;
+      // altrimenti la scoperta cerca tutti i tipi.
+      const filtro = f ?? (lineaFocus === 'Affiliazioni' ? filtroScoperta : 'tutti');
+      const res = await scopriNegozi(c.lat, c.lng, 400, filtro);
       setScoperti(res.places);
       setScopInfo(res);
     } catch (e) {
@@ -203,22 +206,6 @@ export default function MappaWeb() {
     <View style={styles.container}>
       <AddressSearch onSelect={onSelectDestinazione} onClear={azzera} />
 
-      {/* Cosa cercare: default affiliati (fioristi + pasticcerie), poi allargabile. */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tipiRow}>
-        {TIPI_SCOPERTA.map((t) => (
-          <Pressable
-            key={t.v}
-            onPress={() => {
-              setFiltroScoperta(t.v);
-              if (destinazione && scopInfo) cerca(destinazione, t.v); // rilancia se già cercato
-            }}
-            style={[styles.tipoChip, filtroScoperta === t.v && styles.tipoChipOn]}
-          >
-            <Text style={[styles.tipoTxt, filtroScoperta === t.v && styles.tipoTxtOn]}>{t.l}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-
       {/* La scoperta parte solo su richiesta esplicita (costa chiamate a Google). */}
       {destinazione ? (
         <Pressable
@@ -247,6 +234,24 @@ export default function MappaWeb() {
             />
           ))}
         </ScrollView>
+
+        {/* Sotto-filtro "cosa cerco": solo quando è attiva la linea Affiliazioni. */}
+        {lineaFocus === 'Affiliazioni' ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subRow}>
+            {TIPI_SCOPERTA.map((t) => (
+              <Pressable
+                key={t.v}
+                onPress={() => {
+                  setFiltroScoperta(t.v);
+                  if (destinazione && scopInfo) cerca(destinazione, t.v);
+                }}
+                style={[styles.subChip, filtroScoperta === t.v && styles.subChipOn]}
+              >
+                <Text style={[styles.subTxt, filtroScoperta === t.v && styles.subTxtOn]}>{t.l}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
       </View>
 
       {/* Caption di stato, leggera */}
@@ -466,18 +471,19 @@ const styles = StyleSheet.create({
   },
   btnCercaOff: { opacity: 0.55 },
   btnCercaTxt: { color: colors.bianco, fontWeight: '600', fontSize: 15 },
-  tipiRow: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: 6 },
-  tipoChip: {
+  subRow: { paddingHorizontal: spacing.md, paddingTop: 6, gap: 6, alignItems: 'center' },
+  subChip: {
+    alignSelf: 'center',
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: radius.pill,
   },
-  tipoChipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  tipoTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
-  tipoTxtOn: { color: colors.bianco },
+  subChipOn: { backgroundColor: colors.oro, borderColor: colors.oro },
+  subTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 12 },
+  subTxtOn: { color: colors.bianco },
   focusBar: { paddingBottom: spacing.xs },
   focusLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', paddingHorizontal: spacing.md, marginBottom: 4 },
   focusRow: { paddingHorizontal: spacing.md, gap: 6 },
