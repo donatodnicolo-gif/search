@@ -211,6 +211,36 @@ input:focus, select:focus, textarea:focus {
 .mini-table th { padding: 8px 18px; }
 .mini-table td { padding: 8px 18px; }
 
+/* footer del blocco mese: registrazione pagamenti e nota */
+.month-footer {
+  border-top: 1px solid var(--hairline);
+  background: var(--bg);
+  padding: 12px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pay-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.pay-group {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  padding: 8px 12px;
+}
+.pay-title { font-size: 12.5px; font-weight: 600; margin-right: 2px; white-space: nowrap; }
+.pay-group input[type="number"] { width: 110px; padding: 6px 10px; font-size: 13px; }
+.pay-group input[type="date"] { width: 140px; padding: 6px 10px; font-size: 13px; }
+.note-details summary {
+  cursor: pointer; list-style: none;
+  font-size: 12.5px; color: var(--text-secondary);
+  display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap;
+}
+.note-details summary::-webkit-details-marker { display: none; }
+.note-details summary .note-testo { color: var(--text); font-style: italic; }
+.note-details summary .note-azione { color: var(--blue); }
+.note-details[open] summary .note-azione { display: none; }
+
 @media (max-width: 900px) {
   .shell { flex-direction: column; }
   .sidebar { width: 100%; height: auto; position: static; flex-direction: row; flex-wrap: wrap; }

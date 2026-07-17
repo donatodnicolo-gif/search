@@ -179,7 +179,10 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                       <td>
                         <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                           {f.pagata ? (
-                            <span className="badge green"><span className="dot" />Saldata {dataIt(f.dataPagamento)}</span>
+                            <span className="badge green">
+                              <span className="dot" />
+                              Saldata{f.dataPagamento ? ` ${dataIt(f.dataPagamento)}` : ""}
+                            </span>
                           ) : (
                             <span className="badge orange"><span className="dot" />Da incassare</span>
                           )}
@@ -223,19 +226,25 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                   )}
                   {r.compensazione ? (
                     <tr style={{ background: "var(--bg)" }}>
-                      <td className="muted">Saldo in compensazione</td>
+                      <td className="muted">Saldo del mese (compensazione)</td>
                       <td colSpan={2}>
-                        Servizi IVATI {euro(r.serviziIvato)} − dovuto vendite {euro(r.dovutoPartner)}
+                        Fatture IVATE {euro(r.serviziIvato)} − dovuto vendite {euro(r.dovutoPartner)} ={" "}
+                        <strong>{euro(r.saldo)}</strong>{" "}
+                        <span className="muted">
+                          {Math.abs(r.saldo) < 0.01 ? "" : r.saldo > 0 ? "(il partner ci deve)" : "(dobbiamo al partner)"}
+                        </span>
                       </td>
                       <td>
                         {saldo?.bonificoImporto != null && (
                           <span className="muted">
-                            Bonifico {saldo.bonificoImporto > 0 ? "inviato" : "ricevuto"} {euro(Math.abs(saldo.bonificoImporto))} il {dataIt(saldo.bonificoData)}
+                            {saldo.bonificoImporto > 0 ? "Pagato al partner" : "Incassato"}{" "}
+                            {euro(Math.abs(saldo.bonificoImporto))}
+                            {saldo.bonificoData ? ` il ${dataIt(saldo.bonificoData)}` : ""}
                           </span>
                         )}
                       </td>
                       <td className={`num ${r.pareggiato ? "" : r.residuo > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
-                        {euro(r.saldo)} → residuo {euro(r.residuo)}
+                        residuo {euro(r.residuo)}
                       </td>
                     </tr>
                   ) : (
@@ -248,7 +257,9 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                         </td>
                         <td>
                           {saldo?.bonificoImporto != null && saldo.bonificoImporto > 0 && (
-                            <span className="muted">Bonifico inviato il {dataIt(saldo.bonificoData)}</span>
+                            <span className="muted">
+                              Bonifico inviato{saldo.bonificoData ? ` il ${dataIt(saldo.bonificoData)}` : ""}
+                            </span>
                           )}
                         </td>
                         <td className={`num ${r.daBonificare >= 0.01 ? "neg" : ""}`} style={{ fontWeight: 600 }}>
@@ -263,7 +274,9 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                         </td>
                         <td>
                           {saldo?.bonificoImporto != null && saldo.bonificoImporto < 0 && (
-                            <span className="muted">Incasso registrato il {dataIt(saldo.bonificoData)}</span>
+                            <span className="muted">
+                              Incasso registrato{saldo.bonificoData ? ` il ${dataIt(saldo.bonificoData)}` : ""}
+                            </span>
                           )}
                         </td>
                         <td className={`num ${r.daIncassare >= 0.01 ? "pos" : ""}`} style={{ fontWeight: 600 }}>
