@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { MenuInteressi } from "@/components/MenuInteressi";
 import { MenuStato } from "@/components/MenuStato";
+import { Riconcilia } from "@/components/Riconcilia";
 import { etichetta, Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
@@ -316,15 +317,23 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     </td>
                     <td className="cella-muta col-secondaria">{dataIt(p.creatoIl)}</td>
                     <td>
-                      <form action={impostaArchiviato.bind(null, p.id, !inArchivio)}>
-                        <button
-                          type="submit"
-                          className="btn-archivia"
-                          title={inArchivio ? "Ripristina" : "Archivia"}
-                        >
-                          {inArchivio ? "↩" : "⌫"}
-                        </button>
-                      </form>
+                      <span style={{ display: "inline-flex", gap: 2 }}>
+                        <Riconcilia
+                          cerca="hubspot"
+                          partnerId={p.id}
+                          nomeRiga={p.nome}
+                          collegato={Boolean(p.hubspotId)}
+                        />
+                        <form action={impostaArchiviato.bind(null, p.id, !inArchivio)}>
+                          <button
+                            type="submit"
+                            className="btn-archivia"
+                            title={inArchivio ? "Ripristina" : "Archivia"}
+                          >
+                            {inArchivio ? "↩" : "⌫"}
+                          </button>
+                        </form>
+                      </span>
                     </td>
                   </tr>
                 );

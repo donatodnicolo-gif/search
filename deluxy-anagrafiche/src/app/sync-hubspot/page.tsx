@@ -1,3 +1,4 @@
+import { Riconcilia } from "@/components/Riconcilia";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { chiaveNome, hubspotConfigurato, scaricaAziendeHubspot, type AziendaHubspot } from "@/lib/hubspot";
@@ -13,7 +14,7 @@ export default async function SyncHubspot() {
   let aziende: AziendaHubspot[] = [];
   const partner = await prisma.partner.findMany({
     where: { attivo: true },
-    select: { id: true, nome: true, citta: true, categoria: true, stato: true },
+    select: { id: true, nome: true, citta: true, categoria: true, stato: true, hubspotId: true },
     orderBy: { nome: "asc" },
   });
 
@@ -25,13 +26,18 @@ export default async function SyncHubspot() {
     }
   }
 
-  // Indici per nome normalizzato
+  // Match: prima le riconciliazioni manuali (hubspotId), poi il nome normalizzato
   const perChiaveHubspot = new Map(aziende.map((a) => [chiaveNome(a.nome), a]));
   const perChiaveRegistro = new Map(partner.map((p) => [chiaveNome(p.nome), p]));
+  const idCollegati = new Set(partner.map((p) => p.hubspotId).filter(Boolean));
 
-  const inEntrambi = partner.filter((p) => perChiaveHubspot.has(chiaveNome(p.nome)));
-  const soloRegistro = partner.filter((p) => !perChiaveHubspot.has(chiaveNome(p.nome)));
-  const soloHubspot = aziende.filter((a) => !perChiaveRegistro.has(chiaveNome(a.nome)));
+  const agganciata = (p: (typeof partner)[number]) =>
+    Boolean(p.hubspotId) || perChiaveHubspot.has(chiaveNome(p.nome));
+  const inEntrambi = partner.filter(agganciata);
+  const soloRegistro = partner.filter((p) => !agganciata(p));
+  const soloHubspot = aziende.filter(
+    (a) => !idCollegati.has(a.id) && !perChiaveRegistro.has(chiaveNome(a.nome)),
+  );
 
   return (
     <div className="layout">
@@ -95,7 +101,7 @@ export default async function SyncHubspot() {
             <div className="tabella-wrap" style={{ marginBottom: 22 }}>
               <table>
                 <thead>
-                  <tr><th>Nome</th><th>Città</th><th>Telefono</th><th>Dominio</th></tr>
+                  <tr><th>Nome</th><th>Città</th><th>Telefono</th><th>Dominio</th><th aria-label="Riconcilia"></th></tr>
                 </thead>
                 <tbody>
                   {soloHubspot.slice(0, 100).map((a) => (
@@ -104,10 +110,11 @@ export default async function SyncHubspot() {
                       <td className="cella-muta">{a.citta ?? "—"}</td>
                       <td className="cella-muta">{a.telefono ?? "—"}</td>
                       <td className="cella-muta">{a.dominio ?? "—"}</td>
+                      <td><Riconcilia cerca="partner" hubspotId={a.id} nomeRiga={a.nome} /></td>
                     </tr>
                   ))}
                   {soloHubspot.length === 0 && (
-                    <tr><td colSpan={4} className="cella-muta">Niente: tutte le companies di HubSpot sono nel registro.</td></tr>
+                    <tr><td colSpan={5} className="cella-muta">Niente: tutte le companies di HubSpot sono nel registro.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -124,7 +131,7 @@ export default async function SyncHubspot() {
             <div className="tabella-wrap">
               <table>
                 <thead>
-                  <tr><th>Nome</th><th>Categoria</th><th>Città</th><th>Stato</th></tr>
+                  <tr><th>Nome</th><th>Categoria</th><th>Città</th><th>Stato</th><th aria-label="Riconcilia"></th></tr>
                 </thead>
                 <tbody>
                   {soloRegistro.slice(0, 100).map((p) => (
@@ -133,6 +140,7 @@ export default async function SyncHubspot() {
                       <td className="cella-muta">{p.categoria}</td>
                       <td className="cella-muta">{p.citta ?? "—"}</td>
                       <td className="cella-muta">{p.stato}</td>
+                      <td><Riconcilia cerca="hubspot" partnerId={p.id} nomeRiga={p.nome} /></td>
                     </tr>
                   ))}
                 </tbody>

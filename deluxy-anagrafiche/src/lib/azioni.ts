@@ -104,6 +104,24 @@ export async function creaPartner(fd: FormData) {
   redirect(`/partner/${creato.id}`);
 }
 
+// Riconciliazione con HubSpot: collega (o scollega, con null) un'anagrafica
+// alla company del CRM. Il vincolo unique su hubspotId impedisce di collegare
+// la stessa company a due anagrafiche: in quel caso il collegamento passa
+// all'anagrafica scelta per ultima.
+export async function riconciliaHubspot(partnerId: string, hubspotId: string | null) {
+  if (hubspotId) {
+    // se la company era collegata altrove, libera il vecchio collegamento
+    await prisma.partner.updateMany({
+      where: { hubspotId, NOT: { id: partnerId } },
+      data: { hubspotId: null },
+    });
+  }
+  await prisma.partner.update({ where: { id: partnerId }, data: { hubspotId } });
+  revalidatePath("/");
+  revalidatePath("/sync-hubspot");
+  revalidatePath(`/partner/${partnerId}`);
+}
+
 // Archivia (attivo=false) o ripristina un'anagrafica. Le archiviate spariscono
 // da elenchi, sidebar e API (salvo attivo=false/tutti) e vivono nella sezione
 // "Archiviati". Stessa semantica del DELETE delle API.

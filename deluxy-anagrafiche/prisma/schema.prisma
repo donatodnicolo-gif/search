@@ -46,6 +46,8 @@ model Partner {
   passaggi       PassaggioStato[]
   // Collegamento con la piattaforma consegne: id del Partner su app.deluxy.it
   platformId     String?    @unique
+  // Riconciliazione manuale con HubSpot: id della company nel CRM
+  hubspotId      String?    @unique
   // excel | platform | manuale
   fonte          String     @default("manuale")
   attivo         Boolean    @default(true)

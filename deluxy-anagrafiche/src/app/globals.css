@@ -376,6 +376,68 @@ tbody tr:hover { background: var(--fill); }
   .modulo, .modulo-contatto { grid-template-columns: 1fr; }
 }
 
+/* ---------- Riconciliazione (popup) ---------- */
+.btn-riconcilia {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border: 0; border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit; font-size: 14px;
+  cursor: pointer;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+.btn-riconcilia:hover { background: var(--fill); color: var(--text); }
+.btn-riconcilia.collegato { color: var(--gold-strong); }
+
+.modale-sfondo {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, 0.28);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 10vh 20px 20px;
+}
+.modale {
+  width: 520px; max-width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-float);
+  padding: 20px;
+}
+.modale-testata { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.modale-titolo { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.modale-sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.modale-chiudi {
+  border: 0; background: transparent; cursor: pointer;
+  color: var(--text-tertiary); font-size: 14px; padding: 4px 6px; border-radius: var(--radius-s);
+}
+.modale-chiudi:hover { background: var(--fill); color: var(--text); }
+.modale-ricerca {
+  width: 100%;
+  font: inherit; color: var(--text);
+  background: var(--fill);
+  border: 1px solid transparent;
+  border-radius: var(--radius-m);
+  padding: 10px 12px;
+  outline: none;
+}
+.modale-ricerca:focus { background: var(--surface); border-color: var(--hairline-strong); }
+.modale-risultati { margin-top: 10px; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.modale-vuoto { padding: 14px 6px; font-size: 13.5px; color: var(--text-tertiary); }
+.modale-voce {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%;
+  border: 0; border-radius: var(--radius-m);
+  background: transparent;
+  padding: 9px 10px;
+  font: inherit; text-align: left;
+  cursor: pointer;
+  transition: background 120ms var(--ease);
+}
+.modale-voce:hover { background: var(--fill); }
+.modale-voce-nome { font-weight: 500; font-size: 14px; }
+.modale-voce-sub { font-size: 12.5px; color: var(--text-secondary); }
+
 /* ---------- Sync HubSpot ---------- */
 .sync-riepilogo {
   display: grid;
