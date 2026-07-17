@@ -109,6 +109,59 @@ export async function archiviaMessaggio(id: string) {
 }
 
 /**
+ * "Archivia definitivo": archivia questo messaggio, tutti quelli già presenti
+ * dello stesso mittente, e crea la regola che archivierà anche i prossimi.
+ *
+ * Niente viene cancellato: archiviato vuol dire fuori dalla posta in arrivo,
+ * e la mail resta comunque intatta sul server IMAP. La regola è visibile e
+ * spegnibile dalla pagina Regole, così la decisione si può sempre disfare.
+ */
+export async function archiviaDefinitivo(
+  id: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  try {
+    const msg = await db.messaggio.findUniqueOrThrow({
+      where: { id },
+      select: { mittente: true },
+    })
+
+    // Una regola per mittente: premerlo due volte non ne crea due.
+    const esistente = await db.regola.findFirst({
+      where: { seMittente: msg.mittente, archivia: true },
+    })
+    if (!esistente) {
+      await db.regola.create({
+        data: {
+          nome: `Archivia sempre: ${msg.mittente}`,
+          // Priorità alta e fermaQui: se hai deciso che questo mittente non ti
+          // interessa, non ha senso che altre regole lo smistino altrove.
+          priorita: 200,
+          seMittente: msg.mittente,
+          archivia: true,
+          segnaLetta: true,
+          fermaQui: true,
+        },
+      })
+    } else if (!esistente.attiva) {
+      await db.regola.update({ where: { id: esistente.id }, data: { attiva: true } })
+    }
+
+    const arretrati = await db.messaggio.updateMany({
+      where: { mittente: msg.mittente, archiviato: false },
+      data: { archiviato: true, letto: true },
+    })
+
+    revalidatePath('/', 'layout')
+    return {
+      ok: true,
+      messaggio: `Archiviati ${arretrati.count} messaggi di ${msg.mittente}. I prossimi verranno archiviati da soli: la regola è in Regole, puoi spegnerla quando vuoi.`,
+    }
+  } catch (e) {
+    return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
+  }
+}
+
+/**
  * Priorità scelta a mano. Da qui in poi è tua: `prioritaDa: 'manuale'` fa sì
  * che una ri-analisi non te la sovrascriva.
  * Ripremere lo stesso livello la toglie, e la parola torna all'AI.

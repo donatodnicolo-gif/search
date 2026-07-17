@@ -35,6 +35,7 @@ export default async function DettaglioMessaggio({ params }: Props) {
           archiviato={messaggio.archiviato}
           sezioneId={messaggio.sezioneId}
           sezioni={sezioni.map((s) => ({ id: s.id, nome: s.nome }))}
+          mittente={messaggio.mittente}
         />
       </div>
 
@@ -42,8 +43,14 @@ export default async function DettaglioMessaggio({ params }: Props) {
         <div className="mail-head">
           <h1 className="mail-subject">{messaggio.oggetto}</h1>
           <div className="mail-meta">
-            <strong>{messaggio.mittenteNome || messaggio.mittente}</strong>{' '}
-            &lt;{messaggio.mittente}&gt;
+            <Link
+              href={`/contatti/${encodeURIComponent(messaggio.mittente)}`}
+              style={{ textDecoration: 'underline' }}
+              title="Vedi tutti i messaggi di questo contatto"
+            >
+              <strong>{messaggio.mittenteNome || messaggio.mittente}</strong>{' '}
+              &lt;{messaggio.mittente}&gt;
+            </Link>
             <br />
             a {messaggio.destinatari} · {dataLunga(messaggio.data)}
           </div>

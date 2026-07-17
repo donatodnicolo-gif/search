@@ -29,6 +29,7 @@ export async function Sidebar() {
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
     { href: '/attivita', label: 'Attività', badge: daFare },
     { href: '/bozze', label: 'Bozze' },
+    { href: '/contatti', label: 'Contatti' },
   ]
 
   const gestione: Voce[] = [
