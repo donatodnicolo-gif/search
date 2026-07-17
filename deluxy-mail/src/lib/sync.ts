@@ -1,6 +1,6 @@
 import type { Sezione } from '@prisma/client'
 import { db } from './db'
-import { scaricaNuovi, type MessaggioScaricato } from './imap'
+import { scaricaNuovi, testoLeggibile, type MessaggioScaricato } from './imap'
 import { applicaRegole, type EsitoRegole } from './regole'
 import { analizzaMessaggio } from './ai'
 import { CHIAVI, leggiImpostazioni } from './impostazioni'
@@ -144,6 +144,17 @@ export async function rianalizzaFalliti(limite = 25): Promise<EsitoSync> {
   })
 
   for (const m of falliti) {
+    // Un messaggio salvato prima che la ripulitura del testo esistesse ha il
+    // corpo ancora pieno di CSS: si ripulisce ora, e se cambia lo si riscrive
+    // a database, così anteprima e dettaglio smettono di mostrare markup.
+    const corpoTesto = testoLeggibile(m.corpoTesto, m.corpoHtml ?? undefined)
+    if (corpoTesto !== m.corpoTesto) {
+      await db.messaggio.update({
+        where: { id: m.id },
+        data: { corpoTesto, anteprima: corpoTesto.replace(/\s+/g, ' ').slice(0, 200) },
+      })
+    }
+
     const messaggio: MessaggioScaricato = {
       uid: m.uid,
       messageId: m.messageId,
@@ -154,7 +165,7 @@ export async function rianalizzaFalliti(limite = 25): Promise<EsitoSync> {
       oggetto: m.oggetto,
       data: m.data,
       anteprima: m.anteprima,
-      corpoTesto: m.corpoTesto,
+      corpoTesto,
       corpoHtml: m.corpoHtml,
       allegati: m.allegati,
       letto: m.letto,
