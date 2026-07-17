@@ -10,17 +10,28 @@ unica** a cui accedono tutte le app dell'ecosistema Deluxy.
 - I dati iniziali arrivano dal tracker `ANAGRAFICHE B2B COMPLETE - ACTIVITY TRACKER.xlsx`
   (~570 anagrafiche: boutique, fioristi, pasticcerie, ristorazione, gifting, concierge).
 
-Stack: Next.js 15 + Prisma + SQLite (come deluxy-hub e deluxy-partner). Porta **3060**.
+Stack: Next.js 15 + Prisma + **Postgres condiviso** delle app Deluxy (stesso
+cluster di deluxy-hub e deluxy-partner, schema `anagrafiche`). Porta **3060**.
 
 ## Avvio
 
 ```bash
-cp .env.example .env
+# .env con DATABASE_URL/DIRECT_URL: si genera copiandole da un'altra app del cluster
+node scripts/configura-db-condiviso.mjs ../deluxy-hub/.env
 npm install
-npm run db:push          # crea il database SQLite
+npm run db:push          # crea le tabelle nello schema "anagrafiche"
 npm run import:excel     # importa il tracker (default: ~/Downloads/ANAGRAFICHE B2B COMPLETE - ACTIVITY TRACKER.xlsx)
 npm run dev              # http://localhost:3060
 ```
+
+## Deploy (Vercel)
+
+Progetto Vercel `deluxy-anagrafiche` (creato, root = questa cartella). Variabili
+d'ambiente in produzione: `DATABASE_URL`, `DIRECT_URL` (come nel `.env`, con
+`schema=anagrafiche`) e `ANAGRAFICHE_APP_PASSWORD` (protegge la UI; le API
+/api/v1 restano protette dalle chiavi). Poi `npx vercel --prod`.
+Dopo il deploy: impostare `APP_URL_ANAGRAFICHE` sul progetto deluxy-hub e
+aggiornare `ANAGRAFICHE_URL` nelle app client (piattaforma, deluxy-partner).
 
 L'import è idempotente: rilanciandolo sostituisce solo le anagrafiche con
 `fonte = "excel"`, senza toccare quelle create dalla piattaforma o a mano.

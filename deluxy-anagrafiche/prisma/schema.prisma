@@ -7,10 +7,12 @@ generator client {
 }
 
 datasource db {
-  // In locale: SQLite (nessun servizio da avviare).
-  // In produzione: cambiare in "postgresql" e impostare DATABASE_URL.
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  // Postgres condiviso delle app Deluxy (stesso cluster di hub/partner),
+  // schema "anagrafiche". Per rigenerare il .env locale:
+  //   node scripts/configura-db-condiviso.mjs <env-di-un-altra-app>
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
 }
 
 model Partner {
