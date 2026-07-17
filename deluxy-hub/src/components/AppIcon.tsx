@@ -10,6 +10,15 @@ const TRATTO = {
 
 // Glifi delle app: linea sottile, oro su tessera scura (vedi .app-icon).
 const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
+  // Furgone: le consegne in guanti bianchi
+  consegne: (
+    <>
+      <path d="M2.5 6.5h10v9h-10z" {...TRATTO} />
+      <path d="M12.5 9.5h4l3 3v3h-7z" {...TRATTO} />
+      <circle cx="6.5" cy="17.5" r="1.8" {...TRATTO} />
+      <circle cx="16.5" cy="17.5" r="1.8" {...TRATTO} />
+    </>
+  ),
   // Lente: ricerca partner sul territorio
   search: (
     <>

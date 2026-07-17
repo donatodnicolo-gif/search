@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "search" | "partner" | "scout" | "mail" | "anagrafiche";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -28,6 +28,16 @@ function url(env: string | undefined, fallbackLocale: string): string | null {
 
 export function catalogoApp(): AppDeluxy[] {
   const app: (Omit<AppDeluxy, "url"> & { url: string | null })[] = [
+    {
+      id: "consegne",
+      nome: "Consegne",
+      sottotitolo: "Piattaforma logistica",
+      descrizione:
+        "Il cuore operativo: consegne, attività, valletti e clienti delle spedizioni in guanti bianchi.",
+      icona: "consegne",
+      url: url(process.env.APP_URL_CONSEGNE, "http://localhost:4200/deliveries"),
+      ruoli: ["admin"],
+    },
     {
       id: "search",
       nome: "Search Partners",
