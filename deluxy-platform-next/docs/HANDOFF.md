@@ -68,6 +68,7 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 ## Note operative (IMPORTANTI per una nuova sessione)
 
 - ⚠️ **Una sola sessione Claude per questa cartella** (regola 4): due sessioni sulla stessa working dir si sovrascrivono branch e lavoro non committato. Se serve lavorare in parallelo, usare un **git worktree** isolato (cartella + branch dedicati).
+- **Porte alternative per sessioni parallele**: se 3000/4200 sono occupate da un'altra sessione, avviare l'API con `PORT=3010` e `CORS_ORIGINS=http://localhost:4200,http://localhost:4210`, e il web con `npx ng serve --port 4210`. `environment.ts` capisce da solo la porta: web su 4210 → API su 3010.
 - **Push pre-autorizzato** (utente, 15/07: "si sempre"): dopo ogni commit, pushare su `origin/deluxy-scout` **senza chiedere conferma ogni volta** (menzionarlo soltanto). Restano da confermare: deploy, invii, cancellazioni.
 - **Regola d'oro UI**: ogni form/schermata va **verificato campo-per-campo contro l'app reale** app.deluxy.it (sessione admin) prima di dirlo finito; integrare le scoperte nel manuale; se un campo ha semantica dubbia, **chiedere all'utente**.
 - Token demo a scadenza breve: durante i test la sessione web può saltare — rifare login.
