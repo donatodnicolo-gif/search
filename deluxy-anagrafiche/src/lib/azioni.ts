@@ -16,3 +16,15 @@ export async function cambiaStato(partnerId: string, fd: FormData) {
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
 }
+
+// Archivia (attivo=false) o ripristina un'anagrafica. Le archiviate spariscono
+// da elenchi, sidebar e API (salvo attivo=false/tutti) e vivono nella sezione
+// "Archiviati". Stessa semantica del DELETE delle API.
+export async function impostaArchiviato(partnerId: string, archiviato: boolean) {
+  await prisma.partner.update({
+    where: { id: partnerId },
+    data: { attivo: !archiviato },
+  });
+  revalidatePath(`/partner/${partnerId}`);
+  revalidatePath("/");
+}

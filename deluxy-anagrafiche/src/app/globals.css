@@ -216,6 +216,10 @@ tbody tr:hover { background: var(--fill); }
 .menu-stato-voce:hover { background: var(--fill); }
 .menu-stato-voce .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
 .menu-stato-voce .stato-label { color: var(--text); }
+.menu-stato-lista form { display: flex; flex-direction: column; gap: 2px; }
+.menu-stato-lista form .menu-stato-voce { width: 100%; }
+.menu-divisore { height: 1px; background: var(--hairline); margin: 4px 8px; }
+.menu-voce-archivio { color: var(--text-secondary); }
 
 /* ---------- Selettore di stato (scheda partner) ---------- */
 .selettore-stato {

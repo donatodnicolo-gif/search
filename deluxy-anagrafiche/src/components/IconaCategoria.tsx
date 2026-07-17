@@ -103,6 +103,14 @@ const GLIFI: Record<string, React.ReactNode> = {
       <path d="M7 19.5h10" {...TRATTO} />
     </>
   ),
+  // Scatola d'archivio
+  ARCHIVIO: (
+    <>
+      <rect x="4" y="4.5" width="16" height="4.5" rx="1" {...TRATTO} />
+      <path d="M5.5 9v9a1.5 1.5 0 0 0 1.5 1.5h10A1.5 1.5 0 0 0 18.5 18V9" {...TRATTO} />
+      <path d="M10 12.5h4" {...TRATTO} />
+    </>
+  ),
   // Palloncino
   PARTY: (
     <>

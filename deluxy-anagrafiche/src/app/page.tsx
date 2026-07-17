@@ -28,16 +28,18 @@ type Ricerca = {
   pagina?: string;
   ordina?: string;
   dir?: string;
+  archiviati?: string;
 };
 
 export default async function Elenco({ searchParams }: { searchParams: Promise<Ricerca> }) {
   const filtri = await searchParams;
   const pagina = Math.max(1, Number(filtri.pagina) || 1);
+  const inArchivio = filtri.archiviati === "1";
   const ordina: CampoOrdinamento =
     filtri.ordina && filtri.ordina in COLONNE_ORDINABILI ? (filtri.ordina as CampoOrdinamento) : "nome";
   const dir: "asc" | "desc" = filtri.dir === "desc" ? "desc" : "asc";
 
-  const where: Prisma.PartnerWhereInput = { attivo: true };
+  const where: Prisma.PartnerWhereInput = { attivo: !inArchivio };
   if (filtri.q) where.AND = whereRicerca(filtri.q);
   if (filtri.categoria) where.categoria = filtri.categoria;
   if (filtri.citta) where.citta = filtri.citta;
@@ -55,8 +57,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     }),
     prisma.partner.groupBy({
       by: ["citta"],
-      // Le città proposte seguono la tipologia selezionata nella sidebar
-      where: { attivo: true, citta: { not: null }, ...(filtri.categoria ? { categoria: filtri.categoria } : {}) },
+      // Le città proposte seguono la tipologia selezionata nella sidebar (o l'archivio)
+      where: { attivo: !inArchivio, citta: { not: null }, ...(filtri.categoria ? { categoria: filtri.categoria } : {}) },
       orderBy: { citta: "asc" },
     }),
   ]);
@@ -65,6 +67,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
 
   const parametriBase = () => {
     const p = new URLSearchParams();
+    if (inArchivio) p.set("archiviati", "1");
     if (filtri.q) p.set("q", filtri.q);
     if (filtri.categoria) p.set("categoria", filtri.categoria);
     if (filtri.citta) p.set("citta", filtri.citta);
@@ -105,20 +108,23 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
 
   return (
     <div className="layout">
-      <Sidebar categoriaAttiva={filtri.categoria ?? null} />
+      <Sidebar categoriaAttiva={filtri.categoria ?? null} archivioAttivo={inArchivio} />
       <main className="main">
       <div className="page-head">
         <div>
           <h1 className="page-title">
-            {filtri.categoria ? etichetta(filtri.categoria) : "Visione globale"}
+            {inArchivio ? "Archiviati" : filtri.categoria ? etichetta(filtri.categoria) : "Visione globale"}
           </h1>
           <p className="page-sub">
-            {totale} anagrafiche · fonte di verità per tutte le app Deluxy
+            {inArchivio
+              ? `${totale} anagrafiche archiviate · invisibili a elenchi e app`
+              : `${totale} anagrafiche · fonte di verità per tutte le app Deluxy`}
           </p>
         </div>
       </div>
 
       <form className="filtri" method="get" action="/">
+        {inArchivio && <input type="hidden" name="archiviati" value="1" />}
         {filtri.categoria && <input type="hidden" name="categoria" value={filtri.categoria} />}
         <input
           type="search"
@@ -170,7 +176,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     </td>
                     <td className="cella-muta">{p.categoria}</td>
                     <td className="cella-muta">{p.citta ?? "—"}</td>
-                    <td><MenuStato partnerId={p.id} stato={p.stato} /></td>
+                    <td><MenuStato partnerId={p.id} stato={p.stato} archiviato={inArchivio} /></td>
                     <td className="cella-muta">{p.account ?? "—"}</td>
                     <td className="cella-muta">
                       {riferimento

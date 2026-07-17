@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
+import { impostaArchiviato } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,21 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
             {[p.categoria, p.citta, p.regione].filter(Boolean).join(" · ")}
           </p>
         </div>
-        <SelettoreStato partnerId={p.id} statoAttuale={p.stato} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
+          {p.attivo ? (
+            <SelettoreStato partnerId={p.id} statoAttuale={p.stato} />
+          ) : (
+            <span className="badge" style={{ color: "var(--text-tertiary)" }}>
+              <span className="dot" />
+              <span style={{ color: "var(--text)" }}>Archiviata</span>
+            </span>
+          )}
+          <form action={impostaArchiviato.bind(null, p.id, p.attivo)}>
+            <button type="submit" className="btn btn-secondario" style={{ fontSize: 12.5, padding: "6px 14px" }}>
+              {p.attivo ? "⌫ Archivia" : "↩ Ripristina"}
+            </button>
+          </form>
+        </div>
       </div>
 
       <section className="scheda">
