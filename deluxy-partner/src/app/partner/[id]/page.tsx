@@ -5,6 +5,7 @@ import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, commissione, dovutoVendita, ivato } from "@/lib/calc";
 import { segnaFatturaPagata } from "@/lib/actions";
+import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { PagamentoMese } from "@/components/PagamentoMese";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,8 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
           <p style={{ marginTop: 14, fontSize: 13.5, color: "var(--text-secondary)" }}>{partner.note}</p>
         )}
       </div>
+
+      <AnagraficaCard nomePartner={partner.nome} />
 
       <h2 className="section-title">Rolling {anno}</h2>
       <div className="kpi-grid">

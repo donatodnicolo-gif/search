@@ -90,6 +90,15 @@ ANAGRAFICHE_API_KEY="<chiave con scrittura>"
 La sync è best-effort: se il registro non risponde, l'operazione sulla piattaforma
 va comunque a buon fine e il mancato invio finisce nei log.
 
+## App già integrate
+
+- **deluxy-platform-next** (scrittura): sync automatica dei partner via
+  `AnagraficheSyncService`.
+- **deluxy-partner** (lettura): la scheda partner mostra la card "Anagrafica dal
+  registro centralizzato" (`src/components/AnagraficaCard.tsx` +
+  `src/lib/anagrafiche.ts`), con match per nome. Limite noto: se più anagrafiche
+  hanno lo stesso nome (es. una catena in più città) viene mostrata la prima.
+
 ## UI
 
 - `/` — elenco con ricerca e filtri (categoria, città, stato) e paginazione
