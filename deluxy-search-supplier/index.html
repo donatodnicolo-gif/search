@@ -57,6 +57,10 @@
   .results{display:grid; gap:14px; margin-top:8px}
   .shop{background:var(--surface); border:1px solid var(--hairline); border-radius:var(--radius-l);
         padding:20px; box-shadow:var(--shadow-card)}
+  /* schede dal registro anagrafiche: prospect (blu) e partner (oro) */
+  .shop.registry{border-color:rgba(0,113,227,.35)}
+  .shop.registry.partner, .shop.matched-partner{border-color:rgba(184,150,62,.55);
+        box-shadow:0 0 0 3px var(--gold-soft), var(--shadow-card)}
   .shop .head{display:flex; align-items:flex-start; gap:10px; justify-content:space-between}
   .shop h3{margin:0; font-size:19px; font-weight:600; letter-spacing:-.02em; line-height:1.25}
   .badge{font-size:11px; padding:4px 10px; border-radius:var(--radius-pill); background:var(--fill);
@@ -259,6 +263,17 @@
         <label>Proxy CORS (per email/Instagram — opzionale)</label>
         <input id="cfg_proxy" type="text" placeholder="es. https://api.allorigins.win/raw?url=">
       </div>
+      <div class="fgrid fgrid-2">
+        <div>
+          <label>Registro anagrafiche — URL</label>
+          <input id="cfg_anag_url" type="text" placeholder="es. http://localhost:3060">
+        </div>
+        <div>
+          <label>Registro anagrafiche — chiave API (dlxk_…)</label>
+          <input id="cfg_anag_key" type="password" placeholder="chiave di sola lettura" autocomplete="off">
+        </div>
+      </div>
+      <div class="hint" style="margin-top:-6px">Dopo ogni ricerca l'app controlla nel registro (deluxy-anagrafiche) se in quella città o provincia abbiamo già un <b>partner</b> o un <b>prospect</b> e lo mostra in cima ai risultati. Il registro deve essere raggiungibile dal tuo browser (es. in esecuzione sul tuo PC).</div>
       <div>
         <label style="font-size:13px; color:var(--text); font-weight:600">🛍️ Negozi Shopify</label>
         <div id="storeRows" class="grid" style="margin-top:8px"></div>
@@ -367,6 +382,18 @@
       </div>
       <details class="rawattrs" id="rawAttrs"><summary>Vedi tutti i campi dell'ordine (grezzi)</summary><div id="rawAttrsBody"></div></details>
 
+      <!-- messaggio pronto da copiare (WhatsApp / email) -->
+      <div class="msgbox" style="margin-top:16px">
+        <label>💬 Messaggio per il negozio — si aggiorna dai campi qui sopra, puoi modificarlo</label>
+        <textarea id="ord_msg" rows="5" spellcheck="false"></textarea>
+        <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap">
+          <button class="btn-dl" id="copyMsg" type="button">📋 Copia messaggio</button>
+          <button class="btn-dl" id="resetMsg" type="button" style="display:none">↺ Rigenera dai campi</button>
+          <span class="hint" id="copyMsgStatus" style="margin:0"></span>
+        </div>
+        <div class="hint">Copialo e incollalo dove preferisci (WhatsApp, email, Instagram…), oppure usa i pulsanti «Invia» sulle schede qui sotto. Se lo modifichi a mano, verrà inviato il tuo testo.</div>
+      </div>
+
       <button class="btn" id="findFlorists" style="margin-top:16px">🔎 Trova fiorai vicino alla consegna</button>
       <div class="order-flag">Poi scegli un fiorario qui sotto e premi «Invia richiesta ordine» sulla sua scheda.</div>
     </div>
@@ -432,6 +459,13 @@ const $ = s => document.querySelector(s);
 const statusEl = $('#status');
 const resultsEl = $('#results');
 const cats = new Set(['fioraio','pasticceria']);
+// su mobile i link WhatsApp usano wa.me → si apre l'app WhatsApp del telefono
+const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+function waChatUrl(digits, text){
+  const base = IS_MOBILE ? 'https://wa.me/'+digits : 'https://web.whatsapp.com/send?phone='+digits;
+  if(!text) return base;
+  return base + (IS_MOBILE ? '?text=' : '&text=') + encodeURIComponent(text);
+}
 
 const CAT_META = {
   fioraio:     { type:'florist', emoji:'🌸', label:'Fiorista' },
@@ -502,7 +536,7 @@ function eur(n){ return '€ ' + Number(n).toLocaleString('it-IT', {minimumFract
 const API_BASE = (location.hostname==='localhost'||location.hostname==='127.0.0.1') ? 'https://search-deluxy.vercel.app' : '';
 const KNOWN_BRANDS = ['deluxy.it','deluxyflowers.com','cakedesign.me'];
 let PASS = sessionStorage.getItem('pass') || '';
-let CONFIG = { googleKey:'', proxy:'', stores:[] };
+let CONFIG = { googleKey:'', proxy:'', anagUrl:'', anagKey:'', stores:[] };
 function cssId(b){ return b.replace(/[^a-z0-9]/gi,'_'); }
 
 // righe negozi nell'admin
@@ -523,6 +557,8 @@ function apiFetch(path, opts){
 function applyConfig(){
   $('#cfg_google').value = CONFIG.googleKey || '';
   $('#cfg_proxy').value  = CONFIG.proxy || '';
+  $('#cfg_anag_url').value = CONFIG.anagUrl || '';
+  $('#cfg_anag_key').value = CONFIG.anagKey || '';
   KNOWN_BRANDS.forEach(b=>{
     const s = (CONFIG.stores||[]).find(x=>x.brand===b) || {};
     const shopEl = $('#cfg_shop_'+cssId(b)); if(shopEl) shopEl.value = s.shop || '';
@@ -562,7 +598,8 @@ async function saveConfig(){
     shop: $('#cfg_shop_'+cssId(b)).value.trim(),
     token: $('#cfg_token_'+cssId(b)).value.trim()
   }));
-  const body = { googleKey: $('#cfg_google').value.trim(), proxy: $('#cfg_proxy').value.trim(), stores };
+  const body = { googleKey: $('#cfg_google').value.trim(), proxy: $('#cfg_proxy').value.trim(),
+                 anagUrl: $('#cfg_anag_url').value.trim(), anagKey: $('#cfg_anag_key').value.trim(), stores };
   $('#cfg_save').disabled=true; $('#cfg_status').className='status'; $('#cfg_status').textContent='Salvo…';
   try{
     const r = await apiFetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
@@ -632,12 +669,88 @@ function geocode(address){
   return new Promise((resolve,reject)=>{
     new google.maps.Geocoder().geocode({address}, (res,status)=>{
       if(status==='OK' && res[0]){
-        const cc = (res[0].address_components.find(c=>c.types.includes('country'))||{}).short_name || 'IT';
-        resolve({ location: res[0].geometry.location, country: cc });
+        const comp = t => (res[0].address_components.find(c=>c.types.includes(t))||{});
+        const cc = comp('country').short_name || 'IT';
+        // città e provincia della zona: servono per il controllo nel registro anagrafiche
+        const city = comp('locality').long_name || comp('postal_town').long_name || comp('administrative_area_level_3').long_name || '';
+        const prov = comp('administrative_area_level_2');
+        resolve({ location: res[0].geometry.location, country: cc,
+                  city, provShort: prov.short_name || '', provLong: prov.long_name || '' });
       }
       else reject(new Error('Indirizzo non trovato. Prova a essere più specifico (via, città).'));
     });
   });
+}
+
+/* ------------------ registro anagrafiche (partner / prospect già nostri) ------------------ */
+const ANAG_CAT = { fioraio:'FIORISTA', pasticceria:'PASTICCERIA' };
+const ANAG_STATO = { attivo:'Partner attivo', prospect:'Prospect', in_contatto:'In contatto', in_attesa:'In attesa',
+                     in_trattativa:'In trattativa', da_ricontattare:'Da ricontattare', non_interessato:'Non interessato', dismesso:'Dismesso' };
+async function anagQuery(params){
+  const base = (CONFIG.anagUrl || '').trim().replace(/\/$/,'');
+  const qs = new URLSearchParams(Object.assign({ perPage:'200' }, params));
+  const r = await fetch(base + '/api/v1/partners?' + qs, { headers:{ 'x-api-key': (CONFIG.anagKey||'').trim() } });
+  if(!r.ok){
+    let msg = 'HTTP '+r.status;
+    try{ msg = (await r.json()).errore || msg; }catch(e){}
+    throw new Error(msg);
+  }
+  return (await r.json()).dati || [];
+}
+// cerca nel registro per città; se in città non c'è nulla, allarga alla provincia
+async function anagLookup(geo, categorie){
+  if(!(CONFIG.anagUrl||'').trim() || !(CONFIG.anagKey||'').trim()) return { skipped:true, list:[] };
+  const byId = new Map();
+  const add = list => list.forEach(p => byId.set(p.id, p));
+  let scope = '';
+  for (const campo of ['citta','provincia']){
+    const valori = campo==='citta'
+      ? [geo.city].filter(Boolean)
+      : [geo.provShort, geo.provLong].filter(Boolean);
+    for (const cat of categorie){
+      for (const v of valori){
+        try{ add(await anagQuery({ categoria: ANAG_CAT[cat]||cat, [campo]: v.toUpperCase() })); }
+        catch(err){ return { error: err.message, list:[] }; }
+      }
+    }
+    if(byId.size){ scope = campo==='citta' ? (geo.city||'') : ('provincia '+(geo.provShort||geo.provLong)); break; }
+  }
+  // partner attivi prima, poi gli altri stati (prospect ecc.)
+  const list = [...byId.values()].sort((a,b)=> (a.stato==='attivo'?0:1) - (b.stato==='attivo'?0:1));
+  return { list, scope };
+}
+function normName(s){
+  return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+}
+// scheda di un partner/prospect del registro, mostrata in cima ai risultati
+function registryCard(p){
+  const isPartner = p.stato === 'attivo';
+  const digits = (p.telefono||'').replace(/[^\d]/g,'');
+  const waDigits = digits ? (digits.length<=10 && digits[0]==='3' ? '39'+digits : digits) : '';
+  const hasWa = waDigits.length >= 8;
+  const c = [];
+  if(p.telefono) c.push(`<a class="tel" href="tel:${esc(p.telefono)}">📞 ${esc(p.telefono)}</a>`);
+  if(hasWa) c.push(`<a class="wa" href="${waChatUrl(waDigits)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+  if(p.email) c.push(`<a class="mail" href="mailto:${esc(p.email)}">✉️ ${esc(p.email)}</a>`);
+  if(!c.length) c.push('<span class="none">Nessun contatto nel registro</span>');
+  const luogo = [p.indirizzo, p.citta, p.provincia?('('+p.provincia+')'):''].filter(Boolean).join(' · ');
+  const el = document.createElement('div');
+  el.className = 'shop registry' + (isPartner ? ' partner' : '');
+  el.dataset.registry = '1';
+  el.innerHTML = `
+    <div class="head">
+      <h3>${isPartner?'🤝':'📋'} ${esc(p.nome)}</h3>
+      <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
+        <span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+(ANAG_STATO[p.stato]||p.stato||'Prospect')}</span>
+      </div>
+    </div>
+    <div class="meta">${esc(p.categoria||'')}${luogo?' · '+esc(luogo):''}${p.note?'<br>📝 '+esc(String(p.note).slice(0,180)):''}</div>
+    <div class="contacts">${c.join('')}</div>
+    ${hasWa ? `<button class="sendorder" data-phone="${waDigits}" data-lang="it">📤 Invia richiesta ordine su WhatsApp${IS_MOBILE?'':' Web'}</button>` : ''}
+    ${(!hasWa && p.email) ? `<button class="sendemail" data-email="${esc(p.email)}">📧 Invia richiesta via email</button>` : ''}
+    <div class="src">📍 Fonte: <span class="verified">registro anagrafiche Deluxy</span>${p.account?' · account: '+esc(p.account):''}</div>
+  `;
+  return el;
 }
 
 /* ------------------ nearby search per categoria ------------------ */
@@ -849,6 +962,7 @@ function populateOrder(o){
     $('#budgetHint').textContent = b.exact ? '' : '⚠️ Prezzo non in tabella: questa è una stima (' + Math.round(BUDGET_RATIO*100) + '% del prezzo cliente), controllala.';
   }
   updateDeal();
+  refreshOrderMessage(true);
 
   // campi grezzi (attributi ordine + proprietà righe)
   const rows = [];
@@ -915,6 +1029,36 @@ function buildOrderMessage(lang){
   // la foto NON va nel testo: viene copiata negli appunti per essere allegata (Ctrl+V)
   return msg;
 }
+
+/* ---- textarea del messaggio: si rigenera dai campi finché l'utente non la modifica ---- */
+let msgDirty = false;   // true = l'utente ha scritto a mano: non sovrascrivere e usa il suo testo
+function refreshOrderMessage(force){
+  if(msgDirty && !force) return;
+  msgDirty = false;
+  $('#ord_msg').value = buildOrderMessage($('#ordLang').value);
+  $('#resetMsg').style.display = 'none';
+}
+// il messaggio effettivo da inviare: quello scritto a mano se c'è, altrimenti generato nella lingua del negozio
+function currentMessage(lang){
+  const manual = $('#ord_msg').value.trim();
+  return (msgDirty && manual) ? manual : buildOrderMessage(lang);
+}
+$('#ord_msg').addEventListener('input', ()=>{ msgDirty = true; $('#resetMsg').style.display=''; });
+$('#resetMsg').addEventListener('click', ()=> refreshOrderMessage(true));
+['#ord_date','#ord_time','#ord_items','#ord_variant','#ord_qty','#ord_address','#ord_card'].forEach(sel=>
+  $(sel).addEventListener('input', ()=> refreshOrderMessage()));
+$('#ordLang').addEventListener('change', ()=> refreshOrderMessage());
+async function copyMessage(){
+  const text = $('#ord_msg').value;
+  const st = $('#copyMsgStatus');
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text);
+    else{ $('#ord_msg').select(); document.execCommand('copy'); }
+    st.textContent = '✅ Copiato: incollalo su WhatsApp, email o dove vuoi.';
+  }catch(e){ st.textContent = '⚠️ Copia non riuscita: seleziona il testo e copia con Ctrl+C.'; }
+  setTimeout(()=>{ st.textContent=''; }, 4000);
+}
+$('#copyMsg').addEventListener('click', copyMessage);
 // scarica il file immagine; prova il proxy se il CDN blocca il CORS
 async function fetchImageBlob(url, proxy){
   try{
@@ -1054,7 +1198,8 @@ function applyWaFilter(){
   const only = $('#onlyWa').checked;
   let shown=0;
   resultsEl.querySelectorAll('.shop').forEach(el=>{
-    const hide = only && el.dataset.wakind!=='mobile';
+    // le schede del registro anagrafiche restano sempre visibili
+    const hide = only && !el.dataset.registry && el.dataset.wakind!=='mobile';
     el.style.display = hide ? 'none' : '';
     if(!hide) shown++;
   });
@@ -1075,6 +1220,7 @@ $('#manualOrder').addEventListener('click', ()=>{
   $('#rawAttrsBody').innerHTML = '<div class="hint">Modalità manuale: nessun dato importato da Shopify.</div>';
   $('#budgetHint').textContent = '';
   updateDeal();
+  refreshOrderMessage(true);
   setOrderStatus('✍️ Modalità manuale attiva: compila i campi qui sotto, poi «Trova fiorai» e invia la richiesta.');
   $('#orderBox').scrollIntoView({behavior:'smooth', block:'start'});
 });
@@ -1095,16 +1241,18 @@ resultsEl.addEventListener('click', async e=>{
   if(!orderLoaded){ alert('Prima recupera un ordine (📦 in alto), poi invialo al fiorario.'); return; }
   const phone = btn.dataset.phone;
   const lang = btn.dataset.lang || currentLang || 'it';
-  const msg = buildOrderMessage(lang);
-  const waUrl = 'https://web.whatsapp.com/send?phone=' + phone + '&text=' + encodeURIComponent(msg);
+  const msg = currentMessage(lang);
+  const waUrl = waChatUrl(phone, msg);
   const photo = $('#ord_photo').value.trim();
   // 1) PRIMA la copia negli appunti, mentre questa pagina ha ancora il focus (requisito dell'API appunti).
   //    Il PNG è già pronto grazie al precarico, quindi si risolve in pochi ms e l'attivazione utente
-  //    (5s) resta valida per la window.open subito dopo.
-  const copied = await copyPhotoToClipboard();
-  // 2) POI apri WhatsApp
+  //    (5s) resta valida per la window.open subito dopo. (Su mobile gli appunti-immagine non sono
+  //    affidabili: si salta e la foto si allega dalla galleria dopo il download.)
+  const copied = IS_MOBILE ? false : await copyPhotoToClipboard();
+  // 2) POI apri WhatsApp (app del telefono su mobile, WhatsApp Web su desktop)
   const win = window.open(waUrl, '_blank');
-  const note = copied ? '✅ Su WhatsApp: 1) premi INVIO per inviare il messaggio (è già scritto). 2) POI premi Ctrl+V per allegare la foto e invia. (Se alleghi la foto prima, il testo resta indietro.)'
+  const note = IS_MOBILE ? ('✅ Si apre l\'app WhatsApp col messaggio già scritto: premi Invia.' + (photo ? ' Per la foto: «⬇️ Scarica foto» qui sopra, poi allegala nella chat.' : ''))
+             : copied ? '✅ Su WhatsApp: 1) premi INVIO per inviare il messaggio (è già scritto). 2) POI premi Ctrl+V per allegare la foto e invia. (Se alleghi la foto prima, il testo resta indietro.)'
              : photo   ? '✅ Testo già scritto su WhatsApp: premi INVIO per inviarlo. La foto non è finita negli appunti: scaricala col pulsante «⬇️ Scarica foto» qui sopra e trascinala nella chat.'
              : '✅ WhatsApp aperto col messaggio già scritto: premi INVIO per inviarlo.';
   setOrderStatus(note + ' (lingua: ' + (LANG_NAME[lang]||lang) + ')');
@@ -1120,7 +1268,7 @@ resultsEl.addEventListener('click', e=>{
   const card = btn.closest('.shop');
   const lang = (card && card.dataset.lang) || currentLang || 'it';
   const subject = (SUBJECTWORD[lang]||'Richiesta ordine') + ' ' + $('#ordTag').textContent;
-  let body = buildOrderMessage(lang);
+  let body = currentMessage(lang);
   const photo = $('#ord_photo').value.trim();
   if(photo) body += '\n\n' + (PHOTOWORD[lang]||'Foto') + ': ' + photo;
   window.location.href = 'mailto:' + encodeURIComponent(email)
@@ -1137,7 +1285,7 @@ function shopCard(d, cat, dist){
   const intl  = d.international_phone_number;
   const waDigits = intl ? intl.replace(/[^\d]/g,'') : '';
   const hasWa = waDigits.length >= 8;
-  const waChat = hasWa ? 'https://web.whatsapp.com/send?phone='+waDigits : null;
+  const waChat = hasWa ? waChatUrl(waDigits) : null;   // su mobile apre l'app WhatsApp
   // lingua del messaggio in base al PAESE del negozio (fiorario/pasticceria)
   const cc = (d.address_components||[]).find(x=>x.types.includes('country'));
   const shopLang = COUNTRY_LANG[cc && cc.short_name] || currentLang || 'it';
@@ -1164,7 +1312,7 @@ function shopCard(d, cat, dist){
 
   const c = [];
   if(phone) c.push(`<a class="tel" href="tel:${intl||phone}">📞 ${phone}</a>`);
-  if(waChat) c.push(`<a class="wa" href="${waChat}" target="_blank" rel="noopener">💬 WhatsApp Web</a>`);
+  if(waChat) c.push(`<a class="wa" href="${waChat}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
   if(d.website) c.push(`<a class="web" href="${d.website}" target="_blank" rel="noopener">🌐 Sito</a>`);
   if(d.url)     c.push(`<a class="map" href="${d.url}" target="_blank" rel="noopener">🗺️ Maps</a>`);
   if(!phone && !d.website) c.push(`<span class="none">Nessun contatto pubblicato</span>`);
@@ -1189,7 +1337,7 @@ function shopCard(d, cat, dist){
     <div class="contacts">${c.join('')}</div>
     <div class="contacts email-slot" style="margin-top:8px"></div>
     ${reviewsHtml}
-    ${hasWa ? `<button class="sendorder" data-phone="${waDigits}" data-lang="${shopLang}">📤 Invia richiesta ordine su WhatsApp Web</button>` : ''}
+    ${hasWa ? `<button class="sendorder" data-phone="${waDigits}" data-lang="${shopLang}">📤 Invia richiesta ordine su WhatsApp${IS_MOBILE?'':' Web'}</button>` : ''}
     <div class="src">📍 Fonte contatti: <span class="verified">Google Places (scheda ufficiale)</span></div>
   `;
   return el;
@@ -1221,6 +1369,9 @@ async function run(){
     const origin = geo.location;
     currentLang = COUNTRY_LANG[geo.country] || 'it';
     syncLangUI();
+
+    // in parallelo alla ricerca Google: partner/prospect già nostri in questa città/provincia
+    const anagPromise = anagLookup(geo, [...cats]).catch(err=>({ error: err.message, list:[] }));
 
     setStatus('Cerco i negozi più vicini…');
     const service = new google.maps.places.PlacesService(document.createElement('div'));
@@ -1274,12 +1425,42 @@ async function run(){
       cards.push({card, website:d.website});
     }
 
+    // registro anagrafiche: evidenzia chi è già partner/prospect e portalo in cima
+    let anagNote = '';
+    const anag = await anagPromise;
+    if(anag.error){ anagNote = ' · ⚠️ registro anagrafiche non raggiungibile'; console.warn('registro anagrafiche:', anag.error); }
+    else if(!anag.skipped){
+      const matchedIds = new Set();
+      const matchedCards = [];
+      // match per nome con le schede Google
+      resultsEl.querySelectorAll('.shop').forEach(cardEl=>{
+        const name = normName((cardEl.querySelector('h3')||{}).textContent);
+        const p = anag.list.find(x=>{ const k=normName(x.nome); return k.length>3 && name.length>3 && (k===name || name.includes(k) || k.includes(name)); });
+        if(!p) return;
+        matchedIds.add(p.id);
+        const isPartner = p.stato==='attivo';
+        if(isPartner) cardEl.classList.add('matched-partner');
+        const col = cardEl.querySelector('.head > div');
+        if(col) col.insertAdjacentHTML('afterbegin',
+          `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+(ANAG_STATO[p.stato]||p.stato)}</span>`);
+        matchedCards.push(cardEl);
+      });
+      // schede del registro non presenti tra i risultati Google + schede Google matchate, tutte in cima
+      const regCards = anag.list.filter(p=>!matchedIds.has(p.id)).map(registryCard);
+      resultsEl.prepend(...regCards, ...matchedCards);
+      const nPartner = anag.list.filter(p=>p.stato==='attivo').length;
+      const nAltri = anag.list.length - nPartner;
+      anagNote = anag.list.length
+        ? ` · 🤝 nel registro: ${nPartner} partner e ${nAltri} prospect (${anag.scope||'zona'}) — in cima alla lista`
+        : ' · registro: nessun partner/prospect in zona';
+    }
+
     applyWaFilter();
     const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
     const distNote = lastDriveSource==='Google' ? ' · 🚗 distanza stradale'
                    : lastDriveSource==='OSRM'   ? ' · 🚗 distanza stradale (OSM)'
                    : ' · 📏 distanza in linea d\'aria (routing non disponibile)';
-    setStatus(`✅ Trovati ${cards.length} negozi${distNote}${langNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
+    setStatus(`✅ Trovati ${cards.length} negozi${distNote}${langNote}${anagNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
 
     // scraping email + Instagram in background (best effort)
     if(proxy){
@@ -1304,7 +1485,7 @@ async function run(){
           slot.innerHTML = '<span class="none">✉️ nessun contatto extra trovato</span>';
         }
       }));
-      setStatus(`✅ ${cards.length} negozi · email per ${withEmail} · Instagram per ${withIg}.`);
+      setStatus(`✅ ${cards.length} negozi · email per ${withEmail} · Instagram per ${withIg}${anagNote}.`);
     }
 
   }catch(err){

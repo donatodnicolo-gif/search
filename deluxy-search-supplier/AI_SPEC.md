@@ -87,7 +87,14 @@ Sezione `.deal` in cima al riquadro ordine: miniatura, pulsante **⬇️ Scarica
 - Google Places (`getDetails`): telefono, sito, Maps, orari, valutazione, `address_components`.
 - Scraping (solo se `proxy` impostato): **email** + **Instagram** dal sito ufficiale. Instagram mostrato come **DM diretto** `https://ig.me/m/{handle}`.
 - **Heuristica WhatsApp**: numero cellulare (IT inizia con 3) = "WhatsApp probabile"; fisso (inizia con 0) = "raro". Non esiste verifica gratuita reale.
-- Invio: **WhatsApp** `https://web.whatsapp.com/send?phone=<digits>&text=<enc>`; **Email** `mailto:` con subject+body(+link foto).
+- Invio: **WhatsApp** `https://web.whatsapp.com/send?phone=<digits>&text=<enc>` da desktop, **`https://wa.me/<digits>?text=<enc>` su mobile** (apre l'app WhatsApp del telefono; rilevamento con `IS_MOBILE` da user agent, helper `waChatUrl()`); **Email** `mailto:` con subject+body(+link foto).
+- **Messaggio copiabile** (17/07/2026): textarea `#ord_msg` nel box ordine, rigenerata dai campi (`refreshOrderMessage`) finché l'utente non la modifica a mano (`msgDirty`); da lì in poi i pulsanti «Invia» usano il testo dell'utente (`currentMessage()`), il pulsante «↺ Rigenera» torna al testo automatico. «📋 Copia messaggio» = `navigator.clipboard.writeText`.
+
+## 10-bis. Registro anagrafiche (partner/prospect già nostri in zona)
+- Dopo ogni ricerca, l'app interroga **deluxy-anagrafiche** (`GET {anagUrl}/api/v1/partners?categoria=FIORISTA|PASTICCERIA&citta=<CITTÀ>` con header `x-api-key`); se in città non c'è nulla riprova con `provincia=`. Risposta `{ dati: [...] }`; stato `attivo` = partner, gli altri stati = prospect.
+- `anagUrl` e `anagKey` (chiave di **sola lettura** `dlxk_…`) si impostano in ⚙️ Admin e vivono nella config su KV (`api/config.js`). La chiamata parte **dal browser** (il registro di solito gira su `localhost:3060` del PC dell'operatore, non raggiungibile da Vercel).
+- Esito: schede dedicate in cima ai risultati (`registryCard`, bordo oro = partner, blu = prospect) + badge sulle schede Google che matchano per nome (`normName`); nota nello status. Il filtro «solo WhatsApp» non le nasconde (`data-registry`). Best-effort: se il registro non risponde la ricerca funziona comunque.
+- ⚠️ Le API del registro **richiedono CORS**: c'è `deluxy-anagrafiche/src/middleware.ts` (branch scout-ui) che apre GET/OPTIONS su `/api/*`. Senza, il browser blocca la chiamata dalla pagina Vercel.
 
 ## 11. Convenzioni di codice (RISPETTALE)
 - `index.html`: un solo file, JS vanilla, testi UI in **italiano**, palette/variabili CSS già definite. Niente framework, niente CDN esterne (a parte Google Maps).

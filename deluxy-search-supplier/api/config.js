@@ -25,11 +25,14 @@ async function readConfig() {
   try { return JSON.parse(raw); } catch (e) { return { googleKey: '', proxy: '', stores: [] }; }
 }
 
-// versione "pubblica": include la chiave Google (serve al browser) ma NON i token Shopify
+// versione "pubblica": include la chiave Google e quella (sola lettura) del registro
+// anagrafiche — servono al browser — ma NON i token Shopify
 function sanitize(c) {
   return {
     googleKey: c.googleKey || '',
     proxy: c.proxy || '',
+    anagUrl: c.anagUrl || '',
+    anagKey: c.anagKey || '',
     stores: (c.stores || []).map(s => ({ brand: s.brand, shop: s.shop || '', hasToken: !!s.token })),
   };
 }
@@ -68,6 +71,8 @@ export default async function handler(req, res) {
       const merged = {
         googleKey: body.googleKey !== undefined ? String(body.googleKey).trim() : (cur.googleKey || ''),
         proxy: body.proxy !== undefined ? String(body.proxy).trim() : (cur.proxy || ''),
+        anagUrl: body.anagUrl !== undefined ? String(body.anagUrl).trim() : (cur.anagUrl || ''),
+        anagKey: body.anagKey !== undefined ? String(body.anagKey).trim() : (cur.anagKey || ''),
         stores: mergeStores(cur.stores, body.stores),
       };
       await kv(['SET', KEY, JSON.stringify(merged)]);
