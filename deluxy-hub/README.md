@@ -103,7 +103,12 @@ Env di produzione già impostate: `HUB_SESSION_SECRET`, `APP_URL_SEARCH`,
 senza sito pubblico non compaiono.
 
 Env di produzione impostate: `DATABASE_URL`, `DIRECT_URL` (entrambe con
-`?schema=hub`), `HUB_SESSION_SECRET`, `APP_URL_SEARCH`, `APP_URL_PARTNER`.
+`?schema=hub`), `HUB_SESSION_SECRET`, `APP_URL_SEARCH`, `APP_URL_PARTNER`,
+`APP_URL_SCOUT`.
+
+**Cambiare un `APP_URL_*` non basta**: le env di Vercel si applicano solo ai
+deployment nuovi, quindi dopo averle modificate serve un `npx vercel deploy
+--prod`, altrimenti il sito continua a mostrare i vecchi valori.
 
 Lo `?schema=hub` non è un dettaglio: senza, `db push` lavorerebbe sullo schema
 `public` e finirebbe **sui dati di Partner**.
@@ -128,14 +133,14 @@ npx vercel deploy --prod
 ## 6. Stato
 
 **In produzione** su https://deluxy-hub.vercel.app (17 luglio 2026). Verificato
-**sul sito pubblicato**: login dell'admin, home con Search Partners e Partner che
-puntano ai domini di produzione e nessun `localhost`, Scout correttamente
-nascosto, `/utenti` raggiungibile dall'admin, e redirect a `/login` per home,
+**sul sito pubblicato**: login dell'admin, home con le tre app (Search Partners,
+Partner, Commerciale Scout) che puntano ai domini di produzione e nessun
+`localhost`, `/utenti` raggiungibile dall'admin, e redirect a `/login` per home,
 `/utenti` e con cookie di sessione falsificato. Sul database: tabelle solo nello
 schema `hub`, le 7 tabelle di Partner in `public` intatte.
 
-**Manca** — Scout, Anagrafiche e AI Mail non hanno un indirizzo pubblico, quindi
-in produzione non compaiono (appariranno da sole impostando i rispettivi
-`APP_URL_*`). Il filtro per ruolo è provato in locale ma **non ancora sul sito
-pubblicato con un utente non-admin reale**: esiste solo l'admin. Nessun recupero
-password autonomo (lo reimposta un admin da `/utenti`).
+**Manca** — Anagrafiche e AI Mail non hanno un indirizzo pubblico, quindi in
+produzione non compaiono (appariranno da sole impostando `APP_URL_ANAGRAFICHE` e
+`APP_URL_MAIL` e ripubblicando). Il filtro per ruolo è provato in locale ma **non
+ancora sul sito pubblicato con un utente non-admin reale**: esiste solo l'admin.
+Nessun recupero password autonomo (lo reimposta un admin da `/utenti`).
