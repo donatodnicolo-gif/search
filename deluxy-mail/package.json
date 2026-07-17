@@ -9,7 +9,7 @@
     "postinstall": "prisma generate",
     "start": "next start -p 3070",
     "db:push": "prisma db push",
-    "db:seed": "node prisma/seed.mjs",
+    "db:seed": "node --env-file=.env prisma/seed.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
