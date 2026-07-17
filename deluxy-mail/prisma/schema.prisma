@@ -1,0 +1,184 @@
+// AI MAIL 2.0 — schema dati
+//
+// Idea di fondo: la posta resta sul server IMAP (fonte di verità), qui teniamo
+// una copia indicizzata dei messaggi più il "livello intelligente" che l'app
+// aggiunge sopra: sezioni, regole, attività e bozze di risposta.
+//
+// Le password IMAP/SMTP sono SEMPRE cifrate (AES-256-GCM, src/lib/crypto.ts):
+// nel database non finisce mai una password in chiaro.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
+}
+
+// Una casella di posta collegata (IMAP in lettura, SMTP in invio).
+model Account {
+  id           String  @id @default(cuid())
+  nome         String // etichetta mostrata nell'app, es. "Deluxy Delivery"
+  email        String  @unique
+  // IMAP
+  imapHost     String
+  imapPort     Int     @default(993)
+  imapSicuro   Boolean @default(true) // TLS diretto sulla porta 993
+  imapUtente   String
+  imapPassword String // cifrata (mai in chiaro)
+  // SMTP
+  smtpHost     String
+  smtpPort     Int     @default(465)
+  smtpSicuro   Boolean @default(true)
+  smtpUtente   String
+  smtpPassword String // cifrata (mai in chiaro)
+  // Stato sincronizzazione
+  cartella     String    @default("INBOX")
+  ultimoUid    Int       @default(0) // ultimo UID IMAP già scaricato
+  ultimoSync   DateTime?
+  ultimoErrore String?
+  attivo       Boolean   @default(true)
+  creatoIl     DateTime  @default(now())
+  messaggi     Messaggio[]
+
+  @@index([attivo])
+}
+
+// Una sezione della posta: le colonne in cui l'AI allinea i messaggi.
+// Sono create dall'utente ("Ordini", "Fornitori", "Amministrazione"…).
+model Sezione {
+  id          String @id @default(cuid())
+  nome        String @unique
+  // Descrizione in italiano di cosa va qui dentro: è il testo che l'AI legge
+  // per decidere lo smistamento, quindi conta più del nome.
+  descrizione String
+  colore      String @default("blue") // token semantico: blue|green|orange|red|purple|gold
+  ordine      Int    @default(0)
+  creataIl    DateTime @default(now())
+  messaggi    Messaggio[]
+  regole      Regola[]
+}
+
+// Una regola impostata dall'utente. Può essere deterministica (condizioni
+// esatte, valutate senza AI) e/o linguistica (istruzione in italiano che
+// viene passata al modello). Le due cose si combinano.
+model Regola {
+  id          String  @id @default(cuid())
+  nome        String
+  attiva      Boolean @default(true)
+  priorita    Int     @default(0) // più alto = valutata prima
+
+  // --- Parte deterministica (tutte le condizioni valorizzate devono essere vere) ---
+  seMittente  String? // sottostringa, es. "@fornitore.it"
+  seOggetto   String? // sottostringa nell'oggetto
+  seContiene  String? // sottostringa nel corpo
+
+  // --- Parte linguistica: l'AI la legge come istruzione ---
+  istruzioneAI String?
+
+  // --- Cosa fare quando scatta ---
+  sezioneId    String?
+  sezione      Sezione? @relation(fields: [sezioneId], references: [id], onDelete: SetNull)
+  creaAttivita Boolean  @default(false)
+  creaBozza    Boolean  @default(false)
+  segnaLetta   Boolean  @default(false)
+  archivia     Boolean  @default(false)
+  // Se true, le regole di priorità inferiore non vengono più valutate.
+  fermaQui     Boolean  @default(false)
+
+  creataIl DateTime @default(now())
+
+  @@index([attiva, priorita])
+}
+
+// Un messaggio scaricato dalla casella.
+model Messaggio {
+  id        String @id @default(cuid())
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  uid       Int // UID IMAP, unico dentro la cartella dell'account
+  messageId String? // Message-ID del protocollo, per collegare i thread
+  thread    String? // chiave di raggruppamento (Message-ID radice o oggetto normalizzato)
+
+  mittente     String
+  mittenteNome String?
+  destinatari  String // lista separata da virgola
+  oggetto      String
+  data         DateTime
+  anteprima    String // prime righe, per la lista
+  corpoTesto   String  @db.Text
+  corpoHtml    String? @db.Text
+  allegati     Int     @default(0)
+
+  letto     Boolean @default(false)
+  archiviato Boolean @default(false)
+
+  // --- Livello AI ---
+  sezioneId   String?
+  sezione     Sezione? @relation(fields: [sezioneId], references: [id], onDelete: SetNull)
+  // Come è stata decisa la sezione: "regola" (deterministica) o "ai".
+  smistatoDa  String?
+  regolaId    String? // regola deterministica che ha deciso, se presente
+  priorita    String? // alta | media | bassa
+  riassunto   String? // una frase in italiano
+  serveRisposta Boolean @default(false)
+  analizzatoIl  DateTime?
+  erroreAI      String?
+
+  attivita  Attivita[]
+  bozza     Bozza?
+
+  creatoIl DateTime @default(now())
+
+  @@unique([accountId, uid])
+  @@index([data])
+  @@index([sezioneId, data])
+  @@index([analizzatoIl])
+}
+
+// Un'attività estratta automaticamente da un messaggio.
+model Attivita {
+  id          String  @id @default(cuid())
+  messaggioId String?
+  messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
+
+  titolo      String
+  dettaglio   String?
+  scadenza    DateTime?
+  priorita    String  @default("media") // alta | media | bassa
+  fatta       Boolean @default(false)
+  fattaIl     DateTime?
+  creataDaAI  Boolean @default(true)
+  creataIl    DateTime @default(now())
+
+  @@index([fatta, scadenza])
+}
+
+// La risposta proposta dall'AI per un messaggio. Non parte mai da sola:
+// resta una bozza finché non la invii tu.
+model Bozza {
+  id          String @id @default(cuid())
+  messaggioId String @unique
+  messaggio   Messaggio @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
+
+  oggetto  String
+  corpo    String @db.Text
+  // Il testo così come l'ha scritto l'AI: serve per capire quanto correggi
+  // e per rigenerare la bozza senza perdere le tue modifiche.
+  corpoAI  String @db.Text
+  modificata Boolean  @default(false)
+  inviata    Boolean  @default(false)
+  inviataIl  DateTime?
+  creataIl   DateTime @default(now())
+}
+
+// Preferenze globali (chiave/valore): tono delle risposte, firma, contesto
+// aziendale da dare all'AI.
+model Impostazione {
+  chiave      String   @id
+  valore      String   @db.Text
+  aggiornataIl DateTime @updatedAt
+}

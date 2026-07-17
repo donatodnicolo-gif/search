@@ -1,0 +1,252 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import nodemailer from 'nodemailer'
+import { db } from './db'
+import { cifra, decifra } from './crypto'
+import { sincronizzaTutti } from './sync'
+import { provaConnessione } from './imap'
+import { scriviImpostazione } from './impostazioni'
+
+function testo(form: FormData, campo: string): string {
+  return String(form.get(campo) ?? '').trim()
+}
+function opzionale(form: FormData, campo: string): string | null {
+  return testo(form, campo) || null
+}
+function flag(form: FormData, campo: string): boolean {
+  return form.get(campo) === 'on' || form.get(campo) === 'true'
+}
+
+// ---------- Sincronizzazione ----------
+
+export async function sincronizzaOra(): Promise<{ ok: boolean; messaggio: string }> {
+  try {
+    const esiti = await sincronizzaTutti()
+    if (esiti.length === 0) {
+      return { ok: false, messaggio: 'Nessuna casella collegata: aggiungila in Impostazioni.' }
+    }
+    const errori = esiti.filter((e) => e.errore)
+    const nuovi = esiti.reduce((s, e) => s + e.scaricati, 0)
+    const attivita = esiti.reduce((s, e) => s + e.attivitaCreate, 0)
+    const bozze = esiti.reduce((s, e) => s + e.bozzeCreate, 0)
+
+    revalidatePath('/', 'layout')
+
+    if (errori.length) {
+      return { ok: false, messaggio: `Errore su ${errori[0].account}: ${errori[0].errore}` }
+    }
+    if (nuovi === 0) return { ok: true, messaggio: 'Nessun messaggio nuovo.' }
+    return {
+      ok: true,
+      messaggio: `${nuovi} messaggi nuovi · ${attivita} attività · ${bozze} bozze.`,
+    }
+  } catch (e) {
+    return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
+  }
+}
+
+// ---------- Messaggi ----------
+
+export async function segnaLetto(id: string, letto: boolean) {
+  await db.messaggio.update({ where: { id }, data: { letto } })
+  revalidatePath('/', 'layout')
+}
+
+export async function archiviaMessaggio(id: string) {
+  await db.messaggio.update({ where: { id }, data: { archiviato: true, letto: true } })
+  revalidatePath('/', 'layout')
+}
+
+export async function spostaInSezione(id: string, sezioneId: string | null) {
+  // Spostamento manuale: da qui in poi la sezione l'hai decisa tu, non l'AI.
+  await db.messaggio.update({
+    where: { id },
+    data: { sezioneId, smistatoDa: sezioneId ? 'manuale' : null },
+  })
+  revalidatePath('/', 'layout')
+}
+
+// ---------- Attività ----------
+
+export async function segnaAttivita(id: string, fatta: boolean) {
+  await db.attivita.update({
+    where: { id },
+    data: { fatta, fattaIl: fatta ? new Date() : null },
+  })
+  revalidatePath('/', 'layout')
+}
+
+export async function creaAttivitaManuale(form: FormData) {
+  const scadenza = testo(form, 'scadenza')
+  await db.attivita.create({
+    data: {
+      titolo: testo(form, 'titolo'),
+      dettaglio: opzionale(form, 'dettaglio'),
+      scadenza: scadenza ? new Date(scadenza) : null,
+      priorita: testo(form, 'priorita') || 'media',
+      creataDaAI: false,
+    },
+  })
+  revalidatePath('/attivita')
+}
+
+export async function eliminaAttivita(id: string) {
+  await db.attivita.delete({ where: { id } })
+  revalidatePath('/attivita')
+}
+
+// ---------- Bozze ----------
+
+export async function salvaBozza(id: string, oggetto: string, corpo: string) {
+  const bozza = await db.bozza.findUniqueOrThrow({ where: { id } })
+  await db.bozza.update({
+    where: { id },
+    data: { oggetto, corpo, modificata: corpo !== bozza.corpoAI },
+  })
+  revalidatePath('/', 'layout')
+}
+
+/**
+ * Invia una bozza via SMTP. È l'unica azione che esce verso l'esterno e parte
+ * solo da un click esplicito: l'AI scrive, tu mandi.
+ */
+export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: string }> {
+  try {
+    const bozza = await db.bozza.findUniqueOrThrow({
+      where: { id },
+      include: { messaggio: { include: { account: true } } },
+    })
+    if (bozza.inviata) return { ok: false, messaggio: 'Questa bozza è già stata inviata.' }
+
+    const account = bozza.messaggio.account
+    const transporter = nodemailer.createTransport({
+      host: account.smtpHost,
+      port: account.smtpPort,
+      secure: account.smtpSicuro,
+      auth: { user: account.smtpUtente, pass: decifra(account.smtpPassword) },
+    })
+
+    await transporter.sendMail({
+      from: `${account.nome} <${account.email}>`,
+      to: bozza.messaggio.mittente,
+      subject: bozza.oggetto,
+      text: bozza.corpo,
+      inReplyTo: bozza.messaggio.messageId ?? undefined,
+      references: bozza.messaggio.messageId ?? undefined,
+    })
+
+    await db.bozza.update({
+      where: { id },
+      data: { inviata: true, inviataIl: new Date() },
+    })
+    await db.messaggio.update({
+      where: { id: bozza.messaggioId },
+      data: { letto: true, serveRisposta: false },
+    })
+
+    revalidatePath('/', 'layout')
+    return { ok: true, messaggio: `Risposta inviata a ${bozza.messaggio.mittente}.` }
+  } catch (e) {
+    return { ok: false, messaggio: e instanceof Error ? e.message : 'Invio non riuscito' }
+  }
+}
+
+// ---------- Sezioni ----------
+
+export async function creaSezione(form: FormData) {
+  const ultima = await db.sezione.findFirst({ orderBy: { ordine: 'desc' } })
+  await db.sezione.create({
+    data: {
+      nome: testo(form, 'nome'),
+      descrizione: testo(form, 'descrizione'),
+      colore: testo(form, 'colore') || 'blue',
+      ordine: (ultima?.ordine ?? 0) + 1,
+    },
+  })
+  revalidatePath('/', 'layout')
+}
+
+export async function eliminaSezione(id: string) {
+  await db.sezione.delete({ where: { id } })
+  revalidatePath('/', 'layout')
+}
+
+// ---------- Regole ----------
+
+export async function creaRegola(form: FormData) {
+  await db.regola.create({
+    data: {
+      nome: testo(form, 'nome'),
+      priorita: Number(testo(form, 'priorita') || 0),
+      seMittente: opzionale(form, 'seMittente'),
+      seOggetto: opzionale(form, 'seOggetto'),
+      seContiene: opzionale(form, 'seContiene'),
+      istruzioneAI: opzionale(form, 'istruzioneAI'),
+      sezioneId: opzionale(form, 'sezioneId'),
+      creaAttivita: flag(form, 'creaAttivita'),
+      creaBozza: flag(form, 'creaBozza'),
+      segnaLetta: flag(form, 'segnaLetta'),
+      archivia: flag(form, 'archivia'),
+      fermaQui: flag(form, 'fermaQui'),
+    },
+  })
+  revalidatePath('/regole')
+}
+
+export async function attivaRegola(id: string, attiva: boolean) {
+  await db.regola.update({ where: { id }, data: { attiva } })
+  revalidatePath('/regole')
+}
+
+export async function eliminaRegola(id: string) {
+  await db.regola.delete({ where: { id } })
+  revalidatePath('/regole')
+}
+
+// ---------- Account ----------
+
+export async function creaAccount(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
+  try {
+    const dati = {
+      nome: testo(form, 'nome'),
+      email: testo(form, 'email'),
+      imapHost: testo(form, 'imapHost'),
+      imapPort: Number(testo(form, 'imapPort') || 993),
+      imapSicuro: true,
+      imapUtente: testo(form, 'imapUtente') || testo(form, 'email'),
+      imapPassword: cifra(testo(form, 'imapPassword')),
+      smtpHost: testo(form, 'smtpHost'),
+      smtpPort: Number(testo(form, 'smtpPort') || 465),
+      smtpSicuro: true,
+      smtpUtente: testo(form, 'smtpUtente') || testo(form, 'email'),
+      smtpPassword: cifra(testo(form, 'smtpPassword') || testo(form, 'imapPassword')),
+      cartella: testo(form, 'cartella') || 'INBOX',
+    }
+
+    // Meglio scoprire ora che host o password sono sbagliati, non al primo sync.
+    await provaConnessione({ ...dati, id: '', ultimoUid: 0 } as never)
+
+    const account = await db.account.create({ data: dati })
+    revalidatePath('/impostazioni')
+    return { ok: true, messaggio: `Casella ${account.email} collegata.` }
+  } catch (e) {
+    return {
+      ok: false,
+      messaggio: `Collegamento non riuscito: ${e instanceof Error ? e.message : 'errore'}`,
+    }
+  }
+}
+
+export async function eliminaAccount(id: string) {
+  await db.account.delete({ where: { id } })
+  revalidatePath('/impostazioni')
+}
+
+// ---------- Impostazioni ----------
+
+export async function salvaImpostazioni(form: FormData) {
+  await scriviImpostazione('contesto_azienda', testo(form, 'contestoAzienda'))
+  await scriviImpostazione('firma', testo(form, 'firma'))
+  revalidatePath('/impostazioni')
+}
