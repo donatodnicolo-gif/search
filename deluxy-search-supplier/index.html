@@ -705,23 +705,30 @@ async function anagQuery(params){
   }
   return (await r.json()).dati || [];
 }
-// cerca nel registro per città; se in città non c'è nulla, allarga alla provincia
+// cerca nel registro allargando via via: città esatta → provincia → città capoluogo
+// (es. consegna a Greve in Chianti: "GREVE IN CHIANTI" → "FI" → "FIRENZE", così i
+// partner/prospect registrati sul capoluogo escono anche per le consegne in zona)
 async function anagLookup(geo, categorie){
   if(!(CONFIG.anagKey||'').trim()) return { skipped:true, list:[] };
   const byId = new Map();
   const add = list => list.forEach(p => byId.set(p.id, p));
+  // "Città Metropolitana di Firenze" / "Provincia di Como" → "Firenze" / "Como"
+  const provCity = (geo.provLong||'').replace(/^(città metropolitana di|provincia di|metropolitan city of|province of)\s*/i,'').trim();
+  const stages = [
+    { campo:'citta',     valori:[geo.city],                  scope: geo.city },
+    { campo:'provincia', valori:[geo.provShort, geo.provLong], scope: 'provincia '+(geo.provShort||geo.provLong) },
+    { campo:'citta',     valori:[provCity !== geo.city ? provCity : ''], scope: provCity+' (capoluogo)' },
+  ];
   let scope = '';
-  for (const campo of ['citta','provincia']){
-    const valori = campo==='citta'
-      ? [geo.city].filter(Boolean)
-      : [geo.provShort, geo.provLong].filter(Boolean);
+  for (const st of stages){
+    const valori = st.valori.filter(Boolean);
     for (const cat of categorie){
       for (const v of valori){
-        try{ add(await anagQuery({ categoria: ANAG_CAT[cat]||cat, [campo]: v })); }
+        try{ add(await anagQuery({ categoria: ANAG_CAT[cat]||cat, [st.campo]: v })); }
         catch(err){ return { error: err.message, list:[] }; }
       }
     }
-    if(byId.size){ scope = campo==='citta' ? (geo.city||'') : ('provincia '+(geo.provShort||geo.provLong)); break; }
+    if(byId.size){ scope = st.scope; break; }
   }
   // partner attivi prima, poi gli altri stati (prospect ecc.)
   const list = [...byId.values()].sort((a,b)=> (isPartnerAttivo(a)?0:1) - (isPartnerAttivo(b)?0:1));
