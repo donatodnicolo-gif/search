@@ -266,14 +266,14 @@
       <div class="fgrid fgrid-2">
         <div>
           <label>Registro anagrafiche — URL</label>
-          <input id="cfg_anag_url" type="text" placeholder="es. http://localhost:3060">
+          <input id="cfg_anag_url" type="text" placeholder="vuoto = https://deluxy-anagrafiche.vercel.app">
         </div>
         <div>
           <label>Registro anagrafiche — chiave API (dlxk_…)</label>
           <input id="cfg_anag_key" type="password" placeholder="chiave di sola lettura" autocomplete="off">
         </div>
       </div>
-      <div class="hint" style="margin-top:-6px">Dopo ogni ricerca l'app controlla nel registro (deluxy-anagrafiche) se in quella città o provincia abbiamo già un <b>partner</b> o un <b>prospect</b> e lo mostra in cima ai risultati. Il registro deve essere raggiungibile dal tuo browser (es. in esecuzione sul tuo PC).</div>
+      <div class="hint" style="margin-top:-6px">Dopo ogni ricerca l'app controlla nel registro (deluxy-anagrafiche) se in quella città o provincia abbiamo già un <b>partner</b> o un <b>prospect</b> e lo mostra in cima ai risultati. Basta la chiave: l'URL serve solo per puntare a un registro diverso (es. <code>http://localhost:3060</code> in sviluppo).</div>
       <div>
         <label style="font-size:13px; color:var(--text); font-weight:600">🛍️ Negozi Shopify</label>
         <div id="storeRows" class="grid" style="margin-top:8px"></div>
@@ -683,13 +683,21 @@ function geocode(address){
 }
 
 /* ------------------ registro anagrafiche (partner / prospect già nostri) ------------------ */
+const ANAG_URL_DEFAULT = 'https://deluxy-anagrafiche.vercel.app';   // registro online: raggiungibile anche da mobile
 const ANAG_CAT = { fioraio:'FIORISTA', pasticceria:'PASTICCERIA' };
 const ANAG_STATO = { attivo:'Partner attivo', prospect:'Prospect', in_contatto:'In contatto', in_attesa:'In attesa',
                      in_trattativa:'In trattativa', da_ricontattare:'Da ricontattare', non_interessato:'Non interessato', dismesso:'Dismesso' };
+const isPartnerAttivo = p => String(p.stato||'').toLowerCase() === 'attivo';
+const statoLabel = p => ANAG_STATO[String(p.stato||'').toLowerCase()] || p.stato || 'Prospect';
 async function anagQuery(params){
-  const base = (CONFIG.anagUrl || '').trim().replace(/\/$/,'');
-  const qs = new URLSearchParams(Object.assign({ perPage:'200' }, params));
-  const r = await fetch(base + '/api/v1/partners?' + qs, { headers:{ 'x-api-key': (CONFIG.anagKey||'').trim() } });
+  const base = ((CONFIG.anagUrl||'').trim() || ANAG_URL_DEFAULT).replace(/\/$/,'');
+  const qs = new URLSearchParams({ perPage:'200' });
+  for(const [k,v] of Object.entries(params)) if(v) qs.set(k, String(v).toUpperCase());   // il registro salva tutto in maiuscolo
+  const r = await fetch(base + '/api/v1/partners?' + qs, {
+    headers:{ 'x-api-key': (CONFIG.anagKey||'').trim() },
+    signal: (AbortSignal && AbortSignal.timeout) ? AbortSignal.timeout(5000) : undefined,
+    cache: 'no-store'
+  });
   if(!r.ok){
     let msg = 'HTTP '+r.status;
     try{ msg = (await r.json()).errore || msg; }catch(e){}
@@ -699,7 +707,7 @@ async function anagQuery(params){
 }
 // cerca nel registro per città; se in città non c'è nulla, allarga alla provincia
 async function anagLookup(geo, categorie){
-  if(!(CONFIG.anagUrl||'').trim() || !(CONFIG.anagKey||'').trim()) return { skipped:true, list:[] };
+  if(!(CONFIG.anagKey||'').trim()) return { skipped:true, list:[] };
   const byId = new Map();
   const add = list => list.forEach(p => byId.set(p.id, p));
   let scope = '';
@@ -709,14 +717,14 @@ async function anagLookup(geo, categorie){
       : [geo.provShort, geo.provLong].filter(Boolean);
     for (const cat of categorie){
       for (const v of valori){
-        try{ add(await anagQuery({ categoria: ANAG_CAT[cat]||cat, [campo]: v.toUpperCase() })); }
+        try{ add(await anagQuery({ categoria: ANAG_CAT[cat]||cat, [campo]: v })); }
         catch(err){ return { error: err.message, list:[] }; }
       }
     }
     if(byId.size){ scope = campo==='citta' ? (geo.city||'') : ('provincia '+(geo.provShort||geo.provLong)); break; }
   }
   // partner attivi prima, poi gli altri stati (prospect ecc.)
-  const list = [...byId.values()].sort((a,b)=> (a.stato==='attivo'?0:1) - (b.stato==='attivo'?0:1));
+  const list = [...byId.values()].sort((a,b)=> (isPartnerAttivo(a)?0:1) - (isPartnerAttivo(b)?0:1));
   return { list, scope };
 }
 function normName(s){
@@ -724,7 +732,7 @@ function normName(s){
 }
 // scheda di un partner/prospect del registro, mostrata in cima ai risultati
 function registryCard(p){
-  const isPartner = p.stato === 'attivo';
+  const isPartner = isPartnerAttivo(p);
   const digits = (p.telefono||'').replace(/[^\d]/g,'');
   const waDigits = digits ? (digits.length<=10 && digits[0]==='3' ? '39'+digits : digits) : '';
   const hasWa = waDigits.length >= 8;
@@ -734,6 +742,15 @@ function registryCard(p){
   if(p.email) c.push(`<a class="mail" href="mailto:${esc(p.email)}">✉️ ${esc(p.email)}</a>`);
   if(!c.length) c.push('<span class="none">Nessun contatto nel registro</span>');
   const luogo = [p.indirizzo, p.citta, p.provincia?('('+p.provincia+')'):''].filter(Boolean).join(' · ');
+  // referenti (persone di contatto) dal registro
+  const refs = (p.contatti||[]).map(ct=>{
+    const bits = [];
+    if(ct.telefono) bits.push(`<a class="tel" href="tel:${esc(ct.telefono)}">📞 ${esc(ct.telefono)}</a>`);
+    if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">✉️ ${esc(ct.email)}</a>`);
+    const chi = [ct.nome, ct.ruolo].filter(Boolean).join(' · ');
+    if(!bits.length && !chi) return '';
+    return `<div class="meta" style="margin:8px 0 4px">👤 ${esc(chi||'referente')}</div>${bits.length?`<div class="contacts">${bits.join('')}</div>`:''}`;
+  }).join('');
   const el = document.createElement('div');
   el.className = 'shop registry' + (isPartner ? ' partner' : '');
   el.dataset.registry = '1';
@@ -741,11 +758,12 @@ function registryCard(p){
     <div class="head">
       <h3>${isPartner?'🤝':'📋'} ${esc(p.nome)}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
-        <span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+(ANAG_STATO[p.stato]||p.stato||'Prospect')}</span>
+        <span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>
       </div>
     </div>
     <div class="meta">${esc(p.categoria||'')}${luogo?' · '+esc(luogo):''}${p.note?'<br>📝 '+esc(String(p.note).slice(0,180)):''}</div>
     <div class="contacts">${c.join('')}</div>
+    ${refs}
     ${hasWa ? `<button class="sendorder" data-phone="${waDigits}" data-lang="it">📤 Invia richiesta ordine su WhatsApp${IS_MOBILE?'':' Web'}</button>` : ''}
     ${(!hasWa && p.email) ? `<button class="sendemail" data-email="${esc(p.email)}">📧 Invia richiesta via email</button>` : ''}
     <div class="src">📍 Fonte: <span class="verified">registro anagrafiche Deluxy</span>${p.account?' · account: '+esc(p.account):''}</div>
@@ -1438,17 +1456,17 @@ async function run(){
         const p = anag.list.find(x=>{ const k=normName(x.nome); return k.length>3 && name.length>3 && (k===name || name.includes(k) || k.includes(name)); });
         if(!p) return;
         matchedIds.add(p.id);
-        const isPartner = p.stato==='attivo';
+        const isPartner = isPartnerAttivo(p);
         if(isPartner) cardEl.classList.add('matched-partner');
         const col = cardEl.querySelector('.head > div');
         if(col) col.insertAdjacentHTML('afterbegin',
-          `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+(ANAG_STATO[p.stato]||p.stato)}</span>`);
+          `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>`);
         matchedCards.push(cardEl);
       });
       // schede del registro non presenti tra i risultati Google + schede Google matchate, tutte in cima
       const regCards = anag.list.filter(p=>!matchedIds.has(p.id)).map(registryCard);
       resultsEl.prepend(...regCards, ...matchedCards);
-      const nPartner = anag.list.filter(p=>p.stato==='attivo').length;
+      const nPartner = anag.list.filter(isPartnerAttivo).length;
       const nAltri = anag.list.length - nPartner;
       anagNote = anag.list.length
         ? ` · 🤝 nel registro: ${nPartner} partner e ${nAltri} prospect (${anag.scope||'zona'}) — in cima alla lista`
