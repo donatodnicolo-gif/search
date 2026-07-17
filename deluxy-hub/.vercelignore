@@ -1,0 +1,13 @@
+# File che non devono MAI finire nel pacchetto caricato su Vercel.
+# In produzione le variabili arrivano dalle Environment Variables del progetto:
+# se caricassimo anche i .env locali, il sito leggerebbe i valori di sviluppo
+# (es. APP_URL_SCOUT=localhost) e ci spediremmo in cloud le credenziali del
+# database. Vercel non applica .gitignore agli upload, serve questo file.
+.env
+.env.*
+!.env.example
+
+prisma/dev.db
+prisma/dev.db-journal
+node_modules
+.next

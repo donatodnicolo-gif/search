@@ -76,7 +76,7 @@ export function catalogoApp(): AppDeluxy[] {
       descrizione:
         "Legge la posta, la smista nelle tue sezioni, estrae le attività e prepara le risposte da controllare.",
       icona: "mail",
-      url: url(process.env.APP_URL_MAIL, "http://localhost:3050"),
+      url: url(process.env.APP_URL_MAIL, "http://localhost:3070"),
       ruoli: ["admin"],
     },
   ];

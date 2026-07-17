@@ -8,10 +8,13 @@ generator client {
 }
 
 datasource db {
-  // In locale: SQLite (nessun servizio da avviare).
-  // In produzione: cambiare in "postgresql" e impostare DATABASE_URL / DIRECT_URL.
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  // Postgres (Supabase). Il portale vive nello schema "hub" dello stesso database
+  // di deluxy-partner: le sue tabelle restano isolate da quelle di Partner, che
+  // stanno in "public". Lo schema si sceglie con ?schema=hub nelle URL, quindi
+  // un "prisma db push" del Hub non può toccare i dati di Partner.
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooler 6543 con ?pgbouncer=true&connection_limit=1&schema=hub
+  directUrl = env("DIRECT_URL") // pooler 5432 con ?schema=hub — per migrazioni/db push
 }
 
 model Utente {

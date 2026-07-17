@@ -1,11 +1,18 @@
 # Deluxy Hub
 
+**Produzione: https://deluxy-hub.vercel.app** — URL pubblico, ma senza login non
+si vede nulla. Si entra solo con gli utenti creati da `/utenti`.
+
 Portale unico di accesso alle app Deluxy. L'utente entra con email e password e
 trova nella home **solo le icone delle app abilitate per il suo ruolo**. Ogni app
 resta autonoma: il Hub la linka, non la ingloba.
 
-Stack: **Next.js 15** (App Router, server action) · **Prisma** · **SQLite** in
-locale · Deluxy Design System v1.0. Porta di sviluppo: **3050**.
+Stack: **Next.js 15** (App Router, server action) · **Prisma** · **Postgres
+(Supabase)** · Deluxy Design System v1.0. Porta di sviluppo: **3050**.
+
+Il Hub vive nello **schema `hub`** dello stesso database Supabase di
+`deluxy-partner`: le sue tabelle sono isolate da quelle di Partner (che stanno in
+`public`), quindi un `prisma db push` del Hub non può toccarne i dati.
 
 ---
 
@@ -22,7 +29,13 @@ locale · Deluxy Design System v1.0. Porta di sviluppo: **3050**.
 - Le icone (SVG) sono in [`src/components/AppIcon.tsx`](src/components/AppIcon.tsx).
 
 Gli URL delle app arrivano dall'ambiente (`APP_URL_SEARCH`, `APP_URL_PARTNER`,
-`APP_URL_SCOUT`), così lo stesso codice punta a locale o produzione.
+`APP_URL_SCOUT`, …), così lo stesso codice punta a locale o produzione.
+
+**Un'app senza URL configurato sparisce dalla home.** In produzione l'URL deve
+arrivare dall'ambiente: se manca, l'icona non viene mostrata invece di portare a
+una pagina morta. Il fallback a `localhost` vale solo in sviluppo. È così che
+Scout (app mobile, nessun sito pubblico), Anagrafiche e AI Mail restano visibili
+in locale ma nascosti in produzione finché non hanno un indirizzo pubblico.
 
 ### Aggiungere un'app
 
@@ -36,16 +49,20 @@ Gli URL delle app arrivano dall'ambiente (`APP_URL_SEARCH`, `APP_URL_PARTNER`,
 cd deluxy-hub
 npm install
 cp .env.example .env        # poi compila i valori (vedi sotto)
-npx prisma db push          # crea prisma/dev.db
+npx prisma db push          # crea le tabelle nello schema "hub"
 npm run db:seed             # crea il primo amministratore
 npm run dev                 # http://localhost:3050
 ```
+
+Serve un Postgres anche in locale (come `deluxy-partner`): metti in `.env` la
+connection string Supabase con `?schema=hub` in fondo.
 
 ### Variabili d'ambiente
 
 | Variabile | A cosa serve |
 |---|---|
-| `DATABASE_URL` | `file:./dev.db` in locale |
+| `DATABASE_URL` | Postgres Supabase, pooler 6543, con `?pgbouncer=true&connection_limit=1&schema=hub` |
+| `DIRECT_URL` | Postgres Supabase, pooler 5432, con `?schema=hub` — usata da `db push` |
 | `HUB_SESSION_SECRET` | firma il cookie di sessione. **Cambiarlo disconnette tutti.** Generalo con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `APP_URL_SEARCH` / `APP_URL_PARTNER` / `APP_URL_SCOUT` | dove puntano le icone |
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | primo admin creato dal seed (solo primo avvio) |
@@ -75,22 +92,50 @@ npm run dev                 # http://localhost:3050
 | `/profilo` | tutti | proprio ruolo, app abilitate, cambio password |
 | `/utenti` | solo admin | crea, modifica ruolo, attiva/disattiva, elimina |
 
-## 5. Andare in produzione
+## 5. Deploy
 
-1. In `prisma/schema.prisma` cambia `provider = "sqlite"` in `"postgresql"` e
-   aggiungi `directUrl = env("DIRECT_URL")` (stesso schema di `deluxy-partner`).
-2. Su Vercel imposta `DATABASE_URL`, `DIRECT_URL`, `HUB_SESSION_SECRET` e i tre
-   `APP_URL_*` di produzione.
-3. `npx prisma db push` verso il database di produzione, poi lancia il seed una
-   volta sola per creare l'admin.
+Progetto Vercel: **`deluxy/deluxy-hub`** (`npx vercel --prod` dalla cartella,
+come `deluxy-partner`). Il portale è a URL pubblico ma **non mostra nulla senza
+login**: si entra solo con gli utenti creati da `/utenti`.
+
+Env di produzione già impostate: `HUB_SESSION_SECRET`, `APP_URL_SEARCH`,
+`APP_URL_PARTNER`. Gli altri `APP_URL_*` sono volutamente assenti, così le app
+senza sito pubblico non compaiono.
+
+Env di produzione impostate: `DATABASE_URL`, `DIRECT_URL` (entrambe con
+`?schema=hub`), `HUB_SESSION_SECRET`, `APP_URL_SEARCH`, `APP_URL_PARTNER`.
+
+Lo `?schema=hub` non è un dettaglio: senza, `db push` lavorerebbe sullo schema
+`public` e finirebbe **sui dati di Partner**.
+
+### `.vercelignore`: i `.env` non si caricano
+
+Vercel **non applica `.gitignore`** agli upload: senza
+[`.vercelignore`](.vercelignore) il `.env` locale finisce nel pacchetto, e in
+produzione l'app legge i valori di sviluppo. È già successo: il primo deploy
+mostrava l'icona di Scout con `http://localhost:8081`, perché `APP_URL_SCOUT`
+arrivava dal `.env` caricato invece che dalle env di Vercel. Caricare il `.env`
+significa anche spedire in cloud le credenziali del database. Non toglierlo.
+
+### Primo deploy su un database nuovo
+
+```bash
+npx prisma db push   # crea le tabelle nello schema "hub"
+npm run db:seed      # crea il primo admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)
+npx vercel deploy --prod
+```
 
 ## 6. Stato
 
-**Fatto** — login con database, ruoli, home a icone filtrata, gestione utenti,
-cambio password, protezione middleware. Build e typecheck puliti; login, filtro
-ruoli, blocco `/utenti` per non-admin, cookie manomesso, password errata e utente
-disattivato verificati sull'app in esecuzione.
+**In produzione** su https://deluxy-hub.vercel.app (17 luglio 2026). Verificato
+**sul sito pubblicato**: login dell'admin, home con Search Partners e Partner che
+puntano ai domini di produzione e nessun `localhost`, Scout correttamente
+nascosto, `/utenti` raggiungibile dall'admin, e redirect a `/login` per home,
+`/utenti` e con cookie di sessione falsificato. Sul database: tabelle solo nello
+schema `hub`, le 7 tabelle di Partner in `public` intatte.
 
-**Manca** — deploy (gira solo in locale), `scout` punta al web di Expo
-(`localhost:8081`) e non a una build pubblicata, nessun recupero password
-autonomo (lo reimposta un admin da `/utenti`).
+**Manca** — Scout, Anagrafiche e AI Mail non hanno un indirizzo pubblico, quindi
+in produzione non compaiono (appariranno da sole impostando i rispettivi
+`APP_URL_*`). Il filtro per ruolo è provato in locale ma **non ancora sul sito
+pubblicato con un utente non-admin reale**: esiste solo l'admin. Nessun recupero
+password autonomo (lo reimposta un admin da `/utenti`).
