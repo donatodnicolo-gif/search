@@ -138,14 +138,15 @@ const FOGLI = [
     tipoComeCategoria: true,
     col: {
       tipo: 0, nome: 1, citta: 2, provincia: 3, regione: 4, indirizzo: 5,
-      contatti: 6, ultimaVisita: null, account: 8,
+      // "ULTIMA MAIL / TELEFONATA" (col 17) è l'ultimo contatto del gifting
+      contatti: 6, ultimaVisita: 17, account: 8,
       stato: [14],
       mail: [],
       note: [[12, "Note & decisioner"], [18, "Note"]],
       extra: [
         [7, "tipologia"], [10, "arrivoContatto"], [11, "fornitore"],
         [13, "destinazioneRegali"], [15, "stimaBudgetRegali"],
-        [16, "tipologieStimeVolumi"], [17, "ultimaMailTelefonata"],
+        [16, "tipologieStimeVolumi"],
       ],
     },
   },

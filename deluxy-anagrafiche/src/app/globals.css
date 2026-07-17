@@ -291,6 +291,15 @@ tbody tr:hover { background: var(--fill); }
   margin-left: 6px;
 }
 .cella-fonte { color: var(--text-tertiary); font-size: 12px; }
+/* Note in colonna: una riga sola, testo completo nel tooltip */
+.cella-note {
+  display: inline-block;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
 
 /* ---------- Form "Nuova anagrafica" ---------- */
 .modulo {

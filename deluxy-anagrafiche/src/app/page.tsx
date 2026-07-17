@@ -17,6 +17,7 @@ const COLONNE_ORDINABILI = {
   citta: "Città",
   stato: "Stato",
   account: "Account",
+  ultimaVisita: "Ultimo contatto",
   creatoIl: "Creata",
 } as const;
 type CampoOrdinamento = keyof typeof COLONNE_ORDINABILI;
@@ -55,8 +56,14 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     prisma.partner.findMany({
       where,
       include: { contatti: true },
-      // Nome come criterio secondario per un ordine stabile a parità di valore
-      orderBy: ordina === "nome" ? { nome: dir } : [{ [ordina]: dir }, { nome: "asc" }],
+      // Nome come criterio secondario per un ordine stabile a parità di valore;
+      // per "Ultimo contatto" i record senza data vanno in fondo
+      orderBy:
+        ordina === "nome"
+          ? { nome: dir }
+          : ordina === "ultimaVisita"
+            ? [{ ultimaVisita: { sort: dir, nulls: "last" } }, { nome: "asc" }]
+            : [{ [ordina]: dir }, { nome: "asc" }],
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
     }),
@@ -237,6 +244,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                 <Intestazione campo="stato" />
                 <Intestazione campo="account" />
                 <th>Contatti</th>
+                <Intestazione campo="ultimaVisita" />
+                <th>Note</th>
                 <Intestazione campo="creatoIl" />
                 <th aria-label="Archivia"></th>
               </tr>
@@ -263,6 +272,14 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                             .filter(Boolean)
                             .join(" · ")
                         : "—"}
+                    </td>
+                    <td className="cella-muta">{p.ultimaVisita ? dataIt(p.ultimaVisita) : "—"}</td>
+                    <td className="cella-muta">
+                      {p.note ? (
+                        <span className="cella-note" title={p.note}>{p.note}</span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="cella-muta">{dataIt(p.creatoIl)}</td>
                     <td>
