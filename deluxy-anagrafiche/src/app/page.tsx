@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { MenuStato } from "@/components/MenuStato";
 import { etichetta, Sidebar } from "@/components/Sidebar";
+import { impostaArchiviato } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { whereRicerca } from "@/lib/ricerca";
 import { ETICHETTE_STATO, STATI } from "@/lib/stati";
@@ -161,6 +162,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                 <Intestazione campo="account" />
                 <th>Contatti</th>
                 <Intestazione campo="creatoIl" />
+                <th aria-label="Archivia"></th>
               </tr>
             </thead>
             <tbody>
@@ -186,6 +188,17 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                         : "—"}
                     </td>
                     <td className="cella-muta">{dataIt(p.creatoIl)}</td>
+                    <td>
+                      <form action={impostaArchiviato.bind(null, p.id, !inArchivio)}>
+                        <button
+                          type="submit"
+                          className="btn-archivia"
+                          title={inArchivio ? "Ripristina" : "Archivia"}
+                        >
+                          {inArchivio ? "↩" : "⌫"}
+                        </button>
+                      </form>
+                    </td>
                   </tr>
                 );
               })}
