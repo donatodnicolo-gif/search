@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { isStato } from "./stati";
 import { ARCHIVIATA, registraPassaggio } from "./storico";
@@ -22,6 +23,65 @@ export async function cambiaStato(partnerId: string, fd: FormData) {
   await registraPassaggio(partnerId, attuale.stato, nuovo, "ui");
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
+}
+
+// Creazione di un'anagrafica dal form "Nuovo" della UI (fonte "ui").
+// Stessa dedup delle API: se nome+città esiste già (anche in archivio) non si
+// crea un doppione, si apre la scheda esistente.
+export async function creaPartner(fd: FormData) {
+  const testo = (k: string) => {
+    const v = String(fd.get(k) ?? "").trim();
+    return v || null;
+  };
+  const maiuscolo = (k: string) => testo(k)?.toUpperCase() ?? null;
+
+  const nome = testo("nome");
+  const categoria = maiuscolo("categoria");
+  if (!nome || !categoria) redirect("/partner/nuovo?errore=1");
+
+  const stato = String(fd.get("stato") ?? "");
+  const citta = maiuscolo("citta");
+
+  const esistente = await prisma.partner.findFirst({
+    where: {
+      nome: { equals: nome, mode: "insensitive" },
+      ...(citta ? { citta: { equals: citta, mode: "insensitive" } } : { citta: null }),
+    },
+  });
+  if (esistente) redirect(`/partner/${esistente.id}?esistente=1`);
+
+  const contatti = [];
+  for (const i of [0, 1, 2]) {
+    const c = {
+      ruolo: testo(`c${i}-ruolo`)?.toUpperCase() ?? null,
+      nome: testo(`c${i}-nome`),
+      telefono: testo(`c${i}-telefono`),
+      email: testo(`c${i}-email`),
+    };
+    if (c.ruolo || c.nome || c.telefono || c.email) contatti.push(c);
+  }
+
+  const creato = await prisma.partner.create({
+    data: {
+      nome,
+      categoria,
+      stato: isStato(stato) ? stato : "prospect",
+      citta,
+      provincia: maiuscolo("provincia"),
+      regione: maiuscolo("regione"),
+      indirizzo: testo("indirizzo"),
+      ragioneSociale: testo("ragioneSociale"),
+      email: testo("email"),
+      telefono: testo("telefono"),
+      pIva: testo("pIva"),
+      account: maiuscolo("account"),
+      note: testo("note"),
+      fonte: "ui",
+      contatti: contatti.length ? { create: contatti } : undefined,
+    },
+  });
+  revalidatePath("/");
+  redirect(`/partner/${creato.id}`);
 }
 
 // Archivia (attivo=false) o ripristina un'anagrafica. Le archiviate spariscono

@@ -122,6 +122,14 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
               : `${totale} anagrafiche · fonte di verità per tutte le app Deluxy`}
           </p>
         </div>
+        {!inArchivio && (
+          <a
+            className="btn"
+            href={filtri.categoria ? `/partner/nuovo?categoria=${encodeURIComponent(filtri.categoria)}` : "/partner/nuovo"}
+          >
+            ＋ Nuovo
+          </a>
+        )}
       </div>
 
       <form className="filtri" method="get" action="/">

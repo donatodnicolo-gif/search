@@ -280,6 +280,53 @@ tbody tr:hover { background: var(--fill); }
 }
 .stato-pill.attuale .stato-label { color: var(--text); }
 
+/* ---------- Form "Nuova anagrafica" ---------- */
+.modulo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+.modulo-contatto {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.modulo-contatto:last-child { border-bottom: none; }
+.campo-modulo { display: flex; flex-direction: column; gap: 5px; }
+.campo-modulo.largo { grid-column: 1 / -1; }
+.campo-modulo label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-tertiary);
+}
+.campo-modulo .obbligatorio { color: var(--gold-strong); }
+.campo-modulo input,
+.campo-modulo select,
+.campo-modulo textarea {
+  font: inherit; font-size: 14px;
+  color: var(--text);
+  background: var(--fill);
+  border: 1px solid transparent;
+  border-radius: var(--radius-m);
+  padding: 9px 12px;
+  outline: none;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+  resize: vertical;
+}
+.campo-modulo input:focus,
+.campo-modulo select:focus,
+.campo-modulo textarea:focus { background: var(--surface); border-color: var(--hairline-strong); }
+.azioni-modulo { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+.avviso-errore {
+  padding: 10px 14px; margin-bottom: 14px;
+  background: rgba(215, 0, 21, 0.07);
+  color: var(--red, #D70015);
+  border-radius: var(--radius-m);
+  font-size: 13.5px;
+}
+@media (max-width: 800px) {
+  .modulo, .modulo-contatto { grid-template-columns: 1fr; }
+}
+
 /* ---------- Storia (timeline passaggi di stato) ---------- */
 .storia { list-style: none; display: flex; flex-direction: column; }
 .storia li {

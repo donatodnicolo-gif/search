@@ -31,6 +31,7 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
     excel: "dal tracker Excel",
     platform: "da app.deluxy.it",
     manuale: "via API",
+    ui: "dal registro",
   };
   const nomeStato = (s: string) =>
     s === "archiviata" ? "Archiviata" : isStato(s) ? ETICHETTE_STATO[s] : s;
