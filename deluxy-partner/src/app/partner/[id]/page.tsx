@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, commissione, dovutoVendita } from "@/lib/calc";
-import { registraBonifico } from "@/lib/actions";
+import { segnaFatturaPagata } from "@/lib/actions";
+import { PagamentoMese } from "@/components/PagamentoMese";
 
 export const dynamic = "force-dynamic";
 
@@ -129,21 +130,6 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
               ) : (
                 <span className="badge orange"><span className="dot" />Da bonificare {euro(-r.residuo)}</span>
               )}
-              {Math.abs(r.residuo) >= 0.01 && (
-                <form action={registraBonifico.bind(null, partner.id, anno, mese, +(-r.residuo).toFixed(2), undefined)}>
-                  <button
-                    className="btn small primary"
-                    type="submit"
-                    title={
-                      r.residuo < 0
-                        ? `Registra bonifico inviato di ${euro(-r.residuo)} con data odierna: il mese risulterà pareggiato`
-                        : `Registra incasso di ${euro(r.residuo)} con data odierna: il mese risulterà pareggiato`
-                    }
-                  >
-                    Segna saldato
-                  </button>
-                </form>
-              )}
               <Link href={`/saldi?anno=${anno}&mese=${mese}&q=${encodeURIComponent(partner.nome.slice(0, 12))}`} className="btn small secondary">
                 Saldo mese
               </Link>
@@ -159,11 +145,22 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                       <td>{f.tipologia.nome}{f.numero ? ` · fatt. ${f.numero}` : ""}</td>
                       <td>scad. {dataIt(f.scadenza)}</td>
                       <td>
-                        {f.pagata ? (
-                          <span className="badge green"><span className="dot" />Saldata {dataIt(f.dataPagamento)}</span>
-                        ) : (
-                          <span className="badge orange"><span className="dot" />Da incassare</span>
-                        )}
+                        <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          {f.pagata ? (
+                            <span className="badge green"><span className="dot" />Saldata {dataIt(f.dataPagamento)}</span>
+                          ) : (
+                            <span className="badge orange"><span className="dot" />Da incassare</span>
+                          )}
+                          <form action={segnaFatturaPagata.bind(null, f.id, !f.pagata, undefined)}>
+                            <button
+                              className="btn small secondary"
+                              type="submit"
+                              title={f.pagata ? "Segna di nuovo da incassare" : "Il partner ha saldato questa fattura (data odierna)"}
+                            >
+                              {f.pagata ? "Riapri" : "Hanno saldato"}
+                            </button>
+                          </form>
+                        </span>
                       </td>
                       <td className="num">{euro(f.imponibile)} <span className="muted">+IVA</span></td>
                     </tr>
@@ -215,6 +212,14 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                 </tbody>
               </table>
             </div>
+            <PagamentoMese
+              partnerId={partner.id}
+              anno={anno}
+              mese={mese}
+              residuo={r.residuo}
+              bonificoImporto={saldo?.bonificoImporto ?? null}
+              bonificoData={saldo?.bonificoData ?? null}
+            />
           </div>
         </div>
       ))}

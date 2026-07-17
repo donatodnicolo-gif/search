@@ -217,3 +217,55 @@ export async function registraBonifico(
   });
   revalidateAll();
 }
+
+// Registra il pagamento di un mese dalla scheda partner, indicando importo, data
+// e direzione: "inviato" = abbiamo pagato noi il partner (bonifico > 0),
+// "ricevuto" = ha pagato il partner (bonifico < 0). Si somma a quanto già registrato.
+export async function registraPagamentoMese(
+  partnerId: string,
+  anno: number,
+  mese: number,
+  direzione: "inviato" | "ricevuto",
+  fd: FormData
+) {
+  const importo = n(fd, "importo");
+  if (importo == null || Math.abs(importo) < 0.005) return;
+  const firmato = direzione === "inviato" ? Math.abs(importo) : -Math.abs(importo);
+  const data = d(fd, "data") ?? new Date();
+  const esistente = await prisma.saldoMensile.findUnique({
+    where: { partnerId_anno_mese: { partnerId, anno, mese } },
+  });
+  await prisma.saldoMensile.upsert({
+    where: { partnerId_anno_mese: { partnerId, anno, mese } },
+    create: { partnerId, anno, mese, bonificoImporto: firmato, bonificoData: data, dataPagamento: data },
+    update: {
+      bonificoImporto: (esistente?.bonificoImporto ?? 0) + firmato,
+      bonificoData: data,
+      dataPagamento: data,
+    },
+  });
+  revalidateAll();
+}
+
+// Annulla i pagamenti registrati per un mese (torna a "da saldare")
+export async function azzeraPagamentoMese(partnerId: string, anno: number, mese: number) {
+  await prisma.saldoMensile.updateMany({
+    where: { partnerId, anno, mese },
+    data: { bonificoImporto: null, bonificoData: null, dataPagamento: null, chiuso: false },
+  });
+  revalidateAll();
+}
+
+// Segna saldate (o riapre) tutte le fatture servizi di un mese di un partner
+export async function segnaFattureMesePagate(
+  partnerId: string,
+  anno: number,
+  mese: number,
+  pagata: boolean
+) {
+  await prisma.fatturaServizio.updateMany({
+    where: { partnerId, anno, mese },
+    data: { pagata, dataPagamento: pagata ? new Date() : null },
+  });
+  revalidateAll();
+}
