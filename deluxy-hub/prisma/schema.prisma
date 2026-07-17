@@ -1,0 +1,30 @@
+// Deluxy Hub — schema dati
+// Solo gli utenti stanno sul database. Il catalogo delle app e la mappa
+// ruolo → app vivono nel codice (src/lib/apps.ts), perché sono configurazione
+// di deploy (URL, icone) e non dati che l'utente modifica.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // In locale: SQLite (nessun servizio da avviare).
+  // In produzione: cambiare in "postgresql" e impostare DATABASE_URL / DIRECT_URL.
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Utente {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  nome          String
+  // scrypt: "salt:hash" in esadecimale, vedi src/lib/password.ts
+  passwordHash  String
+  // admin | partner | commerciale — valori in src/lib/ruoli.ts
+  ruolo         String
+  attivo        Boolean   @default(true)
+  creatoIl      DateTime  @default(now())
+  ultimoAccesso DateTime?
+
+  @@index([ruolo])
+}

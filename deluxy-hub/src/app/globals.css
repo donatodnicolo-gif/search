@@ -1,0 +1,208 @@
+@import "./tokens.css";
+
+/* Deluxy Hub — implementazione del Deluxy Design System v1.0
+   (deluxy-design-system/DESIGN-SYSTEM.md). Solo var(--…) dei token. */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* ---------- Barra superiore ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 24px;
+  background: var(--surface-translucent);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-logo {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: linear-gradient(145deg, #1d1f26, #3a3d47);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: var(--gold);
+  font-family: var(--font-logo);
+  font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+  flex: 0 0 auto;
+}
+.brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+.brand-sub { font-size: 12px; color: var(--text-secondary); }
+
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+/* ---------- Contenuto ---------- */
+.main { max-width: 1080px; margin: 0 auto; padding: 40px 24px 64px; }
+
+.page-head { margin-bottom: 28px; }
+.page-title { font-size: 30px; font-weight: 600; letter-spacing: -0.022em; }
+.page-sub { font-size: 15px; color: var(--text-secondary); margin-top: 6px; }
+
+.section-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-tertiary);
+  margin: 32px 0 12px;
+}
+
+/* ---------- Griglia app ---------- */
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.app-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  transition: transform 200ms var(--ease), box-shadow 200ms var(--ease);
+}
+.app-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-float);
+}
+.app-card:active { transform: translateY(-1px); }
+
+.app-icon {
+  width: 56px; height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #1d1f26, #3a3d47);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: var(--gold);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.app-name { font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
+.app-role { font-size: 12.5px; color: var(--text-tertiary); margin-top: 2px; }
+.app-desc { font-size: 13.5px; color: var(--text-secondary); line-height: 1.45; }
+.app-foot {
+  margin-top: auto; padding-top: 6px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.app-open { font-size: 13px; font-weight: 500; color: var(--blue); }
+
+.vuoto {
+  padding: 48px 24px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* ---------- Badge ---------- */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  font-size: 12px; font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.gold { background: var(--gold-soft); color: var(--gold-strong); }
+.badge.green { background: rgba(36, 138, 61, 0.12); color: var(--green); }
+.badge.red { background: rgba(215, 0, 21, 0.1); color: var(--red); }
+
+/* ---------- Bottoni ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit; font-size: 13.5px; font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms var(--ease), opacity 150ms var(--ease);
+}
+.btn:hover { background: var(--fill-hover); }
+.btn.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+.btn.primary:hover { background: var(--ink-hover); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.btn.ghost:hover { background: var(--fill); color: var(--text); }
+.btn.danger { color: var(--red); }
+.btn.danger:hover { background: rgba(215, 0, 21, 0.08); }
+
+/* ---------- Form ---------- */
+input, select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+}
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+}
+label.campo { display: block; margin-bottom: 12px; }
+label.campo > span {
+  display: block;
+  font-size: 12.5px; font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  padding: 24px;
+}
+
+.avviso {
+  padding: 10px 14px;
+  border-radius: var(--radius-m);
+  font-size: 13.5px;
+  margin-bottom: 18px;
+}
+.avviso.ok { background: rgba(36, 138, 61, 0.1); color: var(--green); }
+.avviso.errore { background: rgba(215, 0, 21, 0.09); color: var(--red); }
+
+/* ---------- Tabella ---------- */
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-tertiary);
+  padding: 0 12px 10px;
+}
+td {
+  padding: 12px;
+  border-top: 1px solid var(--hairline);
+  font-size: 14px;
+  vertical-align: middle;
+}
