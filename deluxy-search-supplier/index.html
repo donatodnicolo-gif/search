@@ -274,6 +274,18 @@
         </div>
       </div>
       <div class="hint" style="margin-top:-6px">Dopo ogni ricerca l'app controlla nel registro (deluxy-anagrafiche) se in quella città o provincia abbiamo già un <b>partner</b> o un <b>prospect</b> e lo mostra in cima ai risultati. Basta la chiave: l'URL serve solo per puntare a un registro diverso (es. <code>http://localhost:3060</code> in sviluppo).</div>
+      <div class="fgrid fgrid-2">
+        <div>
+          <label>Registro — chiave di SCRITTURA (per «Segnala al commerciale»)</label>
+          <input id="cfg_anag_wkey" type="password" placeholder="lascia vuoto = invariata" autocomplete="off">
+          <div class="hint">Resta <b>solo sul server</b> (mai nel browser): serve a <code>/api/segnala</code> per creare il prospect nel registro. Si genera con <code>npm run chiave -- deluxy-search --scrittura</code>.</div>
+        </div>
+        <div>
+          <label>Google OAuth Client ID (per «Salva in rubrica»)</label>
+          <input id="cfg_goauth" type="text" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
+          <div class="hint">Client ID OAuth (tipo <i>Web</i>) con l'API <b>People</b> attiva e origine <code>https://search-deluxy.vercel.app</code>. Vuoto = il pulsante scarica un file .vcf da aprire con la rubrica.</div>
+        </div>
+      </div>
       <div>
         <label style="font-size:13px; color:var(--text); font-weight:600">🛍️ Negozi Shopify</label>
         <div id="storeRows" class="grid" style="margin-top:8px"></div>
@@ -559,6 +571,8 @@ function applyConfig(){
   $('#cfg_proxy').value  = CONFIG.proxy || '';
   $('#cfg_anag_url').value = CONFIG.anagUrl || '';
   $('#cfg_anag_key').value = CONFIG.anagKey || '';
+  $('#cfg_goauth').value = CONFIG.googleOauthClientId || '';
+  $('#cfg_anag_wkey').placeholder = CONFIG.hasAnagWriteKey ? '•••• salvata (vuoto = invariata)' : 'lascia vuoto = invariata';
   KNOWN_BRANDS.forEach(b=>{
     const s = (CONFIG.stores||[]).find(x=>x.brand===b) || {};
     const shopEl = $('#cfg_shop_'+cssId(b)); if(shopEl) shopEl.value = s.shop || '';
@@ -599,7 +613,9 @@ async function saveConfig(){
     token: $('#cfg_token_'+cssId(b)).value.trim()
   }));
   const body = { googleKey: $('#cfg_google').value.trim(), proxy: $('#cfg_proxy').value.trim(),
-                 anagUrl: $('#cfg_anag_url').value.trim(), anagKey: $('#cfg_anag_key').value.trim(), stores };
+                 anagUrl: $('#cfg_anag_url').value.trim(), anagKey: $('#cfg_anag_key').value.trim(),
+                 anagWriteKey: $('#cfg_anag_wkey').value.trim(),
+                 googleOauthClientId: $('#cfg_goauth').value.trim(), stores };
   $('#cfg_save').disabled=true; $('#cfg_status').className='status'; $('#cfg_status').textContent='Salvo…';
   try{
     const r = await apiFetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
@@ -607,6 +623,7 @@ async function saveConfig(){
     if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
     CONFIG = j.config; applyConfig();
     KNOWN_BRANDS.forEach(b=>{ $('#cfg_token_'+cssId(b)).value=''; });  // i token ora sono sul server
+    $('#cfg_anag_wkey').value='';  // anche la chiave di scrittura resta solo sul server
     $('#cfg_status').textContent='✅ Impostazioni salvate sul server.';
   }catch(e){ $('#cfg_status').className='status err'; $('#cfg_status').textContent='❌ '+e.message; }
   finally{ $('#cfg_save').disabled=false; }
@@ -1302,8 +1319,107 @@ resultsEl.addEventListener('click', e=>{
   setOrderStatus('📧 Email aperta verso ' + email + ' (lingua: ' + (LANG_NAME[lang]||lang) + '). Controlla e invia dal tuo client di posta.');
 });
 
+/* ------------------ rubrica Google + segnalazione al commerciale ------------------ */
+const CARD_DATA = {};   // place_id -> dati del negozio (per «Salva in rubrica» e «Segnala»)
+let gisReady = null, gisToken = null;
+function loadGis(){
+  if(gisReady) return gisReady;
+  gisReady = new Promise((res,rej)=>{
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = ()=>res(); s.onerror = ()=>rej(new Error('Impossibile caricare Google Identity.'));
+    document.head.appendChild(s);
+  });
+  return gisReady;
+}
+// token OAuth per la People API (rubrica): chiede il consenso la prima volta
+async function getContactsToken(){
+  if(gisToken && gisToken.exp > Date.now()) return gisToken.token;
+  await loadGis();
+  return new Promise((res,rej)=>{
+    const tc = google.accounts.oauth2.initTokenClient({
+      client_id: (CONFIG.googleOauthClientId||'').trim(),
+      scope: 'https://www.googleapis.com/auth/contacts',
+      callback: t => {
+        if(t && t.access_token){ gisToken = { token:t.access_token, exp: Date.now() + ((t.expires_in||3600)-60)*1000 }; res(t.access_token); }
+        else rej(new Error('Autorizzazione rubrica negata.'));
+      },
+      error_callback: err => rej(new Error((err && err.message) || 'Autorizzazione rubrica annullata.'))
+    });
+    tc.requestAccessToken();
+  });
+}
+async function saveToGoogleContacts(data){
+  const token = await getContactsToken();
+  const body = {
+    names: [{ givenName: data.nome }],
+    organizations: [{ name: data.nome }],
+    phoneNumbers: data.telefono ? [{ value: data.telefono, type: 'work' }] : [],
+    emailAddresses: data.email ? [{ value: data.email, type: 'work' }] : [],
+    addresses: data.indirizzo ? [{ formattedValue: data.indirizzo, type: 'work' }] : [],
+    urls: data.sito ? [{ value: data.sito, type: 'work' }] : [],
+    biographies: [{ value: 'Aggiunto dall\'app Deluxy search' + (data.categoria ? ' · '+data.categoria : '') }]
+  };
+  const r = await fetch('https://people.googleapis.com/v1/people:createContact', {
+    method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){ const j = await r.json().catch(()=>({})); throw new Error((j.error && j.error.message) || ('HTTP '+r.status)); }
+}
+// ripiego senza OAuth: file .vcf che si apre con la rubrica (telefono e PC)
+function downloadVcf(data){
+  const e2 = s => String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');
+  const lines = ['BEGIN:VCARD','VERSION:3.0','FN:'+e2(data.nome),'ORG:'+e2(data.nome)];
+  if(data.telefono) lines.push('TEL;TYPE=WORK:'+e2(data.telefono));
+  if(data.email) lines.push('EMAIL;TYPE=WORK:'+e2(data.email));
+  if(data.indirizzo) lines.push('ADR;TYPE=WORK:;;'+e2(data.indirizzo)+';;;;');
+  if(data.sito) lines.push('URL:'+e2(data.sito));
+  lines.push('NOTE:'+e2('Aggiunto dall\'app Deluxy search'),'END:VCARD');
+  const blob = new Blob([lines.join('\r\n')], {type:'text/vcard;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (data.nome||'contatto').replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-|-$/g,'').toLowerCase()+'.vcf';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
+}
+async function saveContact(btn){
+  const data = CARD_DATA[btn.dataset.pid]; if(!data) return;
+  btn.disabled = true;
+  try{
+    if((CONFIG.googleOauthClientId||'').trim()){
+      btn.textContent = '⏳ Salvo in rubrica…';
+      await saveToGoogleContacts(data);
+      btn.textContent = '✅ In rubrica Google';
+    } else {
+      downloadVcf(data);
+      btn.textContent = '✅ Scaricato .vcf — aprilo per salvarlo in rubrica';
+    }
+  }catch(err){
+    console.warn('rubrica Google:', err);
+    downloadVcf(data);
+    btn.textContent = '✅ Scaricato .vcf (rubrica Google non disponibile)';
+  }
+}
+async function reportShop(btn){
+  const data = CARD_DATA[btn.dataset.pid]; if(!data) return;
+  btn.disabled = true; btn.textContent = '⏳ Segnalo al commerciale…';
+  try{
+    const r = await apiFetch('/api/segnala', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
+    btn.textContent = j.esistente ? ('ℹ️ Già nel registro · '+statoLabel(j.partner||{})) : '✅ Segnalato: prospect creato nel registro';
+  }catch(err){
+    btn.disabled = false; btn.textContent = '⚠️ Segnalazione fallita, riprova';
+    setStatus('❌ Segnala al commerciale: '+err.message, true);
+  }
+}
+resultsEl.addEventListener('click', e=>{
+  const s = e.target.closest('.savecontact'); if(s){ saveContact(s); return; }
+  const r = e.target.closest('.reportshop'); if(r){ reportShop(r); }
+});
+
 /* ------------------ render ------------------ */
-function shopCard(d, cat, dist){
+function shopCard(d, cat, dist, pid){
   dist = dist || {};
   const meta = CAT_META[cat];
   const phone = d.formatted_phone_number;
@@ -1342,6 +1458,17 @@ function shopCard(d, cat, dist){
   if(d.url)     c.push(`<a class="map" href="${d.url}" target="_blank" rel="noopener">🗺️ Maps</a>`);
   if(!phone && !d.website) c.push(`<span class="none">Nessun contatto pubblicato</span>`);
 
+  // dati per «Salva in rubrica» e «Segnala al commerciale»
+  const cityC = (d.address_components||[]).find(x=>x.types.includes('locality'))
+             || (d.address_components||[]).find(x=>x.types.includes('postal_town'))
+             || (d.address_components||[]).find(x=>x.types.includes('administrative_area_level_3'));
+  const provC = (d.address_components||[]).find(x=>x.types.includes('administrative_area_level_2'));
+  if(pid) CARD_DATA[pid] = {
+    nome: d.name, categoria: ANAG_CAT[cat] || '',
+    citta: cityC ? cityC.long_name : '', provincia: provC ? (provC.short_name || provC.long_name) : '',
+    indirizzo: d.formatted_address || '', telefono: intl || phone || '', email: '', sito: d.website || ''
+  };
+
   const el = document.createElement('div');
   el.className = 'shop';
   el.dataset.wakind = kind;
@@ -1363,6 +1490,10 @@ function shopCard(d, cat, dist){
     <div class="contacts email-slot" style="margin-top:8px"></div>
     ${reviewsHtml}
     ${hasWa ? `<button class="sendorder" data-phone="${waDigits}" data-lang="${shopLang}">📤 Invia richiesta ordine su WhatsApp${IS_MOBILE?'':' Web'}</button>` : ''}
+    ${pid ? `<div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
+      <button class="btn-dl savecontact" data-pid="${pid}">💾 Salva in rubrica</button>
+      <button class="btn-dl reportshop" data-pid="${pid}">📣 Segnala al commerciale</button>
+    </div>` : ''}
     <div class="src">📍 Fonte contatti: <span class="verified">Google Places (scheda ufficiale)</span></div>
   `;
   return el;
@@ -1445,9 +1576,9 @@ async function run(){
     for(const f of found){
       const d = await details(service, f.place.place_id);
       if(!d) continue;
-      const card = shopCard(d, f.cat, { straight:f.dist, driveText:f.driveText, durText:f.durText });
+      const card = shopCard(d, f.cat, { straight:f.dist, driveText:f.driveText, durText:f.durText }, f.place.place_id);
       resultsEl.appendChild(card);
-      cards.push({card, website:d.website});
+      cards.push({card, website:d.website, pid:f.place.place_id});
     }
 
     // registro anagrafiche: evidenzia chi è già partner/prospect e portalo in cima
@@ -1468,6 +1599,9 @@ async function run(){
         const col = cardEl.querySelector('.head > div');
         if(col) col.insertAdjacentHTML('afterbegin',
           `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>`);
+        // già censito: inutile segnalarlo di nuovo al commerciale
+        const rep = cardEl.querySelector('.reportshop');
+        if(rep){ rep.disabled = true; rep.textContent = 'ℹ️ Già nel registro · '+statoLabel(p); }
         matchedCards.push(cardEl);
       });
       // schede del registro non presenti tra i risultati Google + schede Google matchate, tutte in cima
@@ -1490,13 +1624,14 @@ async function run(){
     // scraping email + Instagram in background (best effort)
     if(proxy){
       let withEmail=0, withIg=0;
-      await Promise.all(cards.map(async ({card,website})=>{
+      await Promise.all(cards.map(async ({card,website,pid})=>{
         const slot = card.querySelector('.email-slot');
         if(!website){ return; }
         slot.innerHTML = '<span class="loading">✉️ cerco email e Instagram…</span>';
         const { emails, instagram } = await scrapeContacts(website, proxy);
         const parts = [];
-        if(emails && emails.length){ withEmail++; parts.push(...emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`)); }
+        if(emails && emails.length){ withEmail++; parts.push(...emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`));
+          if(pid && CARD_DATA[pid]) CARD_DATA[pid].email = emails[0]; }
         if(instagram){ withIg++; parts.push(`<a class="insta" href="https://ig.me/m/${instagram.handle}" target="_blank" rel="noopener">📷 DM @${instagram.handle}</a>`); }
         if(parts.length){
           slot.innerHTML = parts.join('')

@@ -26,13 +26,16 @@ async function readConfig() {
 }
 
 // versione "pubblica": include la chiave Google e quella (sola lettura) del registro
-// anagrafiche — servono al browser — ma NON i token Shopify
+// anagrafiche — servono al browser — ma NON i token Shopify né la chiave di
+// SCRITTURA del registro (usata solo dal server in /api/segnala)
 function sanitize(c) {
   return {
     googleKey: c.googleKey || '',
     proxy: c.proxy || '',
     anagUrl: c.anagUrl || '',
     anagKey: c.anagKey || '',
+    hasAnagWriteKey: !!c.anagWriteKey,
+    googleOauthClientId: c.googleOauthClientId || '',
     stores: (c.stores || []).map(s => ({ brand: s.brand, shop: s.shop || '', hasToken: !!s.token })),
   };
 }
@@ -73,6 +76,9 @@ export default async function handler(req, res) {
         proxy: body.proxy !== undefined ? String(body.proxy).trim() : (cur.proxy || ''),
         anagUrl: body.anagUrl !== undefined ? String(body.anagUrl).trim() : (cur.anagUrl || ''),
         anagKey: body.anagKey !== undefined ? String(body.anagKey).trim() : (cur.anagKey || ''),
+        // segreta: vuota = mantiene quella già salvata (come i token Shopify)
+        anagWriteKey: (body.anagWriteKey && String(body.anagWriteKey).trim()) ? String(body.anagWriteKey).trim() : (cur.anagWriteKey || ''),
+        googleOauthClientId: body.googleOauthClientId !== undefined ? String(body.googleOauthClientId).trim() : (cur.googleOauthClientId || ''),
         stores: mergeStores(cur.stores, body.stores),
       };
       await kv(['SET', KEY, JSON.stringify(merged)]);

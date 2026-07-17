@@ -96,6 +96,12 @@ Sezione `.deal` in cima al riquadro ordine: miniatura, pulsante **⬇️ Scarica
 - Esito: schede dedicate in cima ai risultati (`registryCard`, bordo oro = partner, blu = prospect, con i **referenti** `p.contatti` → telefono/email) + badge sulle schede Google che matchano per nome (`normName`); nota nello status. Il filtro «solo WhatsApp» non le nasconde (`data-registry`). Best-effort: se il registro non risponde la ricerca funziona comunque.
 - ⚠️ Le API del registro **richiedono CORS**: `deluxy-anagrafiche/src/middleware.ts` apre GET/OPTIONS su `/api/*`. Senza, il browser blocca la chiamata dalla pagina Vercel.
 
+## 10-ter. Schede Google: «Salva in rubrica» e «Segnala al commerciale»
+- Ogni scheda che viene da Google (non dal registro) ha due pulsanti; i dati del negozio stanno in `CARD_DATA[place_id]` (nome, categoria, città, provincia — da `address_components` —, indirizzo, telefono, email dallo scraping, sito).
+- **💾 Salva in rubrica**: con `googleOauthClientId` configurato in Admin usa Google Identity Services (`accounts.google.com/gsi/client`, scope `auth/contacts`) e `POST people:createContact` della **People API**; il Client ID (tipo Web) deve avere la People API attiva e l'origine `https://search-deluxy.vercel.app`. Senza Client ID (o se l'OAuth fallisce) ripiega su un **file .vcf** scaricato, che si apre con la rubrica di telefono/PC.
+- **📣 Segnala al commerciale**: `POST /api/segnala` (pass code) → la funzione server legge dalla config KV `anagWriteKey` (chiave di **scrittura** del registro, impostata in Admin, **mai mandata al browser** — in `sanitize` solo `hasAnagWriteKey`) e crea il prospect: `stato:'prospect'`, `fonte:'manuale'`, nota con origine e sito. Prima controlla i duplicati (`q=` + confronto nome/città normalizzati): se esiste risponde `{esistente:true}` e il pulsante mostra lo stato. Le schede Google già matchate col registro hanno il pulsante disabilitato («Già nel registro»).
+- Chiave di scrittura: si genera nel registro con `npm run chiave -- deluxy-search --scrittura`.
+
 ## 11. Convenzioni di codice (RISPETTALE)
 - `index.html`: un solo file, JS vanilla, testi UI in **italiano**, palette/variabili CSS già definite. Niente framework, niente CDN esterne (a parte Google Maps).
 - Funzioni Vercel: `export default async function handler(req,res)`, `fetch` globale, **niente dipendenze npm** (KV via REST). `req.query` per i parametri; `req.body` è già JSON tranne dove `export const config = { api:{ bodyParser:false } }` (solo `webhook.js`, che legge il body grezzo per gestire Pub/Sub).
