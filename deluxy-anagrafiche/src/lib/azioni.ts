@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
+import { isInteresse } from "./interessi";
 import { isStato } from "./stati";
 import { ARCHIVIATA, registraPassaggio } from "./storico";
 
@@ -21,6 +22,25 @@ export async function cambiaStato(partnerId: string, fd: FormData) {
     data: { stato: nuovo },
   });
   await registraPassaggio(partnerId, attuale.stato, nuovo, "ui");
+  revalidatePath(`/partner/${partnerId}`);
+  revalidatePath("/");
+}
+
+// Aggiunge o toglie una tipologia di interesse (multi-scelta).
+// Un solo statement atomico: click rapidi ravvicinati non si perdono a vicenda
+// come accadrebbe con leggi-array-poi-riscrivi.
+export async function toggleInteresse(partnerId: string, fd: FormData) {
+  const valore = String(fd.get("interesse") ?? "");
+  if (!isInteresse(valore)) return;
+  await prisma.$executeRaw`
+    UPDATE "Partner"
+    SET "interessi" = CASE
+      WHEN "interessi" @> ARRAY[${valore}]::text[]
+        THEN array_remove("interessi", ${valore})
+      ELSE array_append("interessi", ${valore})
+    END,
+    "aggiornatoIl" = now()
+    WHERE "id" = ${partnerId}`;
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
 }

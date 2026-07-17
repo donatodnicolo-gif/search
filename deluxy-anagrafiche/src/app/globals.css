@@ -240,6 +240,25 @@ tbody tr:hover { background: var(--fill); }
 .menu-divisore { height: 1px; background: var(--hairline); margin: 4px 8px; }
 .menu-voce-archivio { color: var(--text-secondary); }
 
+/* Interessi (multi-scelta stile stato) */
+.interessi-pillole { display: inline-flex; flex-wrap: wrap; gap: 4px; max-width: 240px; }
+.pill-interesse {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  font-size: 11.5px; font-weight: 500;
+  white-space: nowrap;
+}
+.pill-interesse .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.pill-interesse .stato-label { color: var(--text); }
+.interessi-vuoto { color: var(--text-tertiary); }
+.interesse-spunta { margin-left: auto; color: var(--green); font-weight: 600; }
+.etichetta-interessi {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-tertiary);
+}
+
 /* Bottone archivia/ripristina nelle righe delle viste */
 .btn-archivia {
   display: inline-flex; align-items: center; justify-content: center;

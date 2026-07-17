@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { MenuInteressi } from "@/components/MenuInteressi";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato } from "@/lib/azioni";
@@ -54,6 +55,12 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
           </p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
+          {p.attivo && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="etichetta-interessi">Interessi</span>
+              <MenuInteressi partnerId={p.id} interessi={p.interessi} />
+            </div>
+          )}
           {p.attivo ? (
             <SelettoreStato partnerId={p.id} statoAttuale={p.stato} />
           ) : (

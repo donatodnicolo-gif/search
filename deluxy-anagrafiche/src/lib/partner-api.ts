@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { isInteresse } from "./interessi";
 import { isStato } from "./stati";
 
 // Campi scalari accettati in scrittura dalle API (POST/PATCH).
@@ -74,6 +75,14 @@ export function validaPartner(
 
   if ("attivo" in body) dati.attivo = Boolean(body.attivo);
 
+  if ("interessi" in body) {
+    if (!Array.isArray(body.interessi)) return { errore: "'interessi' deve essere una lista" };
+    // valori fuori catalogo scartati in silenzio (catalogo in src/lib/interessi.ts)
+    dati.interessi = (body.interessi as unknown[])
+      .map((v) => String(v).trim().toLowerCase().replace(/[\s-]+/g, "_"))
+      .filter(isInteresse);
+  }
+
   let contatti: ContattoInput[] | undefined;
   if ("contatti" in body) {
     if (!Array.isArray(body.contatti)) return { errore: "'contatti' deve essere una lista" };
@@ -109,6 +118,7 @@ export function serializzaPartner(p: PartnerConContatti) {
     codiceFiscale: p.codiceFiscale,
     account: p.account,
     ultimaVisita: p.ultimaVisita,
+    interessi: p.interessi,
     note: p.note,
     contattiRaw: p.contattiRaw,
     datiExtra: p.datiExtra ? JSON.parse(p.datiExtra) : null,

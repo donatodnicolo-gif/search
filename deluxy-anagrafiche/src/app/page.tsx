@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { MenuInteressi } from "@/components/MenuInteressi";
 import { MenuStato } from "@/components/MenuStato";
 import { etichetta, Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato } from "@/lib/azioni";
@@ -242,6 +243,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                 <Intestazione campo="citta" />
                 <th>Telefono</th>
                 <Intestazione campo="stato" />
+                <th>Interessi</th>
                 <Intestazione campo="account" />
                 <th>Contatti</th>
                 <Intestazione campo="ultimaVisita" />
@@ -265,6 +267,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     <td className="cella-muta">{p.citta ?? "—"}</td>
                     <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
                     <td><MenuStato partnerId={p.id} stato={p.stato} archiviato={inArchivio} /></td>
+                    <td><MenuInteressi partnerId={p.id} interessi={p.interessi} /></td>
                     <td className="cella-muta">{p.account ?? "—"}</td>
                     <td className="cella-muta">
                       {riferimento

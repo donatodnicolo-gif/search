@@ -36,6 +36,8 @@ model Partner {
   codiceFiscale  String?
   account        String? // commerciale che segue l'anagrafica (ELEONORA, GAIA, ...)
   ultimaVisita   DateTime?
+  // Tipologie di interesse commerciale (multi-scelta, catalogo in src/lib/interessi.ts)
+  interessi      String[]   @default([])
   note           String?
   contattiRaw    String? // blocco contatti originale dell'Excel (testo libero)
   // Extra specifici del foglio di provenienza (stime, fee, ...), JSON serializzato
