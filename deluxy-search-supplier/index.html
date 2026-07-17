@@ -1370,6 +1370,7 @@ resultsEl.addEventListener('click', e=>{
 
 /* ------------------ rubrica Google + segnalazione al commerciale ------------------ */
 const CARD_DATA = {};   // place_id -> dati del negozio (per «Salva in rubrica» e «Segnala»)
+let lastGeo = null;     // geocoding dell'ultima ricerca (per la provincia nel nome contatto)
 let gisReady = null, gisToken = null;
 function loadGis(){
   if(gisReady) return gisReady;
@@ -1398,10 +1399,39 @@ async function getContactsToken(){
     tc.requestAccessToken();
   });
 }
-async function saveToGoogleContacts(data){
-  const token = await getContactsToken();
+// nome del contatto in rubrica: FORNITORE [NOME] [TIPO] PROV. [PROVINCIA]
+function contactName(data){
+  const tipo = data.categoria === 'PASTICCERIA' ? 'PASTICCERE' : 'FIORAIO';
+  const prov = (data.provincia || (lastGeo && lastGeo.provShort) || '').toUpperCase();
+  return 'FORNITORE ' + String(data.nome||'').toUpperCase() + ' ' + tipo + (prov ? ' PROV. ' + prov : '');
+}
+// cerca il numero tra i contatti esistenti (People API searchContacts, best effort)
+async function findContactByPhone(token, phone){
+  const digits = String(phone||'').replace(/[^\d]/g,'');
+  if(digits.length < 6) return null;
+  const coda = digits.slice(-9);   // confronto sulla parte finale: ignora il prefisso +39
+  const auth = { headers:{ Authorization:'Bearer '+token } };
+  // warm-up richiesto dalla People API prima di searchContacts
+  await fetch('https://people.googleapis.com/v1/people:searchContacts?query=&readMask=names', auth).catch(()=>{});
+  const query = [String(phone||'').trim(), digits, coda];
+  for(const q of [...new Set(query)].filter(Boolean)){
+    const r = await fetch('https://people.googleapis.com/v1/people:searchContacts?pageSize=10&readMask=names,phoneNumbers&query='+encodeURIComponent(q), auth);
+    if(!r.ok) continue;
+    const results = (await r.json()).results || [];
+    for(const res of results){
+      const p = res.person || {};
+      const trovato = (p.phoneNumbers||[]).some(x=>{
+        const d = String(x.value||'').replace(/[^\d]/g,'');
+        return d && (d.endsWith(coda) || coda.endsWith(d.slice(-9)));
+      });
+      if(trovato) return p;
+    }
+  }
+  return null;
+}
+async function createGoogleContact(token, data){
   const body = {
-    names: [{ givenName: data.nome }],
+    names: [{ givenName: contactName(data) }],
     organizations: [{ name: data.nome }],
     phoneNumbers: data.telefono ? [{ value: data.telefono, type: 'work' }] : [],
     emailAddresses: data.email ? [{ value: data.email, type: 'work' }] : [],
@@ -1418,7 +1448,7 @@ async function saveToGoogleContacts(data){
 // ripiego senza OAuth: file .vcf che si apre con la rubrica (telefono e PC)
 function downloadVcf(data){
   const e2 = s => String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');
-  const lines = ['BEGIN:VCARD','VERSION:3.0','FN:'+e2(data.nome),'ORG:'+e2(data.nome)];
+  const lines = ['BEGIN:VCARD','VERSION:3.0','FN:'+e2(contactName(data)),'ORG:'+e2(data.nome)];
   if(data.telefono) lines.push('TEL;TYPE=WORK:'+e2(data.telefono));
   if(data.email) lines.push('EMAIL;TYPE=WORK:'+e2(data.email));
   if(data.indirizzo) lines.push('ADR;TYPE=WORK:;;'+e2(data.indirizzo)+';;;;');
@@ -1436,9 +1466,17 @@ async function saveContact(btn){
   btn.disabled = true;
   try{
     if((CONFIG.googleOauthClientId||'').trim()){
+      btn.textContent = '⏳ Controllo la rubrica…';
+      const token = await getContactsToken();
+      const esistente = await findContactByPhone(token, data.telefono);
+      if(esistente){
+        const nome = ((esistente.names||[])[0]||{}).displayName || 'contatto esistente';
+        btn.textContent = 'ℹ️ Già in rubrica: ' + nome;
+        return;
+      }
       btn.textContent = '⏳ Salvo in rubrica…';
-      await saveToGoogleContacts(data);
-      btn.textContent = '✅ In rubrica Google';
+      await createGoogleContact(token, data);
+      btn.textContent = '✅ In rubrica: ' + contactName(data);
     } else {
       downloadVcf(data);
       btn.textContent = '✅ Scaricato .vcf — aprilo per salvarlo in rubrica';
@@ -1571,6 +1609,7 @@ async function run(){
 
     setStatus('Cerco l\'indirizzo…');
     const geo = await geocode(address);
+    lastGeo = geo;
     const origin = geo.location;
     currentLang = COUNTRY_LANG[geo.country] || 'it';
     syncLangUI();
