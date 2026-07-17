@@ -28,16 +28,32 @@ Verificate 1:1 sui dati dell'Excel:
 ```
 commissione        = incasso vendite × fee%                     (netto IVA)
 dovuto al partner  = incasso − commissione × 1,22               ("Importo Incassi netto Commissioni")
-saldo mese         = servizi fatturati IVATI − (dovuto vendite + aggiunte − detrazioni)
-                     > 0: il partner deve a Deluxy · < 0: Deluxy deve al partner
-residuo            = saldo + bonifici registrati                (0 = mese pareggiato)
 rolling            = cumulati YTD: fatture, vendite, commissioni, dovuto, bonificato/incassato
 stima chiusura     = run-rate: (vendite+servizi YTD) / mesi attivi × 12
 ```
 
+**Due regimi, in base al flag Compensazione del partner** (decisione presa il 17/07/2026;
+il foglio invece compensava per tutti, anche per chi ha "Compensazione: NO"):
+
+| | Con compensazione (6 partner con "Sì") | Senza compensazione (tutti gli altri) |
+|---|---|---|
+| Logica | un unico saldo netto per mese, come "SALDO IN COMPENSAZIONE" | due partite **mai** compensate tra loro, come "Credito/Debito da Saldare" |
+| Formule | `saldo = servizi IVATI − dovuto partner`<br>`residuo = saldo + bonifici` | `da incassare = fatture non saldate (IVATE) − acconti ricevuti`<br>`da bonificare = dovuto partner − bonifici inviati` |
+| Pareggiato | residuo = 0 | entrambe le partite a 0 |
+
+Perché: compensare crediti e debiti di un partner che li salda separatamente faceva apparire
+un dovuto più basso del reale (rischio di sotto-pagare il partner) e contava due volte la
+stessa fattura (netting + scadenzario). Convenzione bonifici: **> 0 inviato al partner, < 0 ricevuto**.
+
 ## 3. Dati importati
 
 Da `PARTNER.xlsx` (estrazione 16/07/2026): **92 partner**, **176 fatture servizi**, **213 vendite vendor**, **325 saldi mensili** (gennaio–giugno 2026), forecast del piano commerciale (36 clienti × 12 mesi). Le fatture importate hanno tipologia dedotta dai servizi del partner (rivedibile a mano); i movimenti importati sono marcati "Import PARTNER.xlsx".
+
+**Riconciliazione incassi (17/07/2026):** nel foglio il pagamento di una fattura poteva essere
+segnato con la spunta "Saldo Avvenuto", come "Bonifico Ricevuto" negativo, o entrambi. Per i
+partner senza compensazione la fonte di verità è la spunta: `node prisma/riconcilia-incassi.mjs`
+(anteprima; `--applica` per scrivere) ha marcato saldate **17 fatture** già incassate ma senza
+spunta, tutte con incasso pari al centesimo all'importo IVATO.
 
 Importato anche lo **storico 2025** dal foglio "Database clienti 2025" (ledger mensile reale: 331 fatture, 198 vendite, 643 saldi, 69 partner di cui 2 presenti solo nello storico) — alimenta la pagina Confronti. Re-import: `node prisma/seed-2025.mjs` (additivo: tocca solo l'anno 2025).
 

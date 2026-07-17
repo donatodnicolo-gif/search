@@ -26,18 +26,19 @@ export default async function Dashboard() {
   const scadute = fattureAperte.filter((f) => f.scadenza && f.scadenza < oggi);
   const totScaduto = scadute.reduce((a, f) => a + f.imponibile * (1 + f.aliquotaIva / 100), 0);
 
-  // Mesi con residuo da pareggiare (saldo ≠ 0 al netto dei bonifici)
-  const daPareggiare = tutti
-    .flatMap((t) =>
-      t.mesi
-        .filter((m) => Math.abs(m.riepilogo.residuo) >= 0.01 && (m.riepilogo.vendite || m.riepilogo.serviziNetto || m.riepilogo.bonifico))
-        .map((m) => ({ partner: t.partner, mese: m.mese, r: m.riepilogo }))
-    )
-    .sort((a, b) => Math.abs(b.r.residuo) - Math.abs(a.r.residuo));
-  const daPagareAiPartner = daPareggiare.filter((x) => x.r.residuo < 0);
-  const daIncassare = daPareggiare.filter((x) => x.r.residuo > 0);
-  const totDaPagare = daPagareAiPartner.reduce((a, x) => a + -x.r.residuo, 0);
-  const totDaIncassare = daIncassare.reduce((a, x) => a + x.r.residuo, 0);
+  // Mesi con partite aperte. Per i partner senza compensazione le due direzioni
+  // sono indipendenti: lo stesso mese puo' avere sia da bonificare sia da incassare.
+  const mesiPartner = tutti.flatMap((t) =>
+    t.mesi.map((m) => ({ partner: t.partner, mese: m.mese, r: m.riepilogo }))
+  );
+  const daPagareAiPartner = mesiPartner
+    .filter((x) => x.r.daBonificare >= 0.01)
+    .sort((a, b) => b.r.daBonificare - a.r.daBonificare);
+  const daIncassareRighe = mesiPartner
+    .filter((x) => x.r.daIncassare >= 0.01)
+    .sort((a, b) => b.r.daIncassare - a.r.daIncassare);
+  const totDaPagare = daPagareAiPartner.reduce((a, x) => a + x.r.daBonificare, 0);
+  const totDaIncassare = daIncassareRighe.reduce((a, x) => a + x.r.daIncassare, 0);
 
   return (
     <>
@@ -68,7 +69,7 @@ export default async function Dashboard() {
         <div className="kpi">
           <div className="kpi-label">Da incassare dai partner</div>
           <div className="kpi-value neg">{euro(totDaIncassare)}</div>
-          <div className="kpi-sub">{daIncassare.length} mesi partner aperti · scaduto {euro(totScaduto)}</div>
+          <div className="kpi-sub">{daIncassareRighe.length} mesi partner aperti · scaduto {euro(totScaduto)}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Bonifici da fare ai partner</div>
@@ -104,11 +105,11 @@ export default async function Dashboard() {
                     <td><Link href={`/partner/${x.partner.id}`}>{x.partner.nome}</Link></td>
                     <td>{nomeMese(x.mese)}</td>
                     <td className="num">{euro(x.r.dovutoPartner)}</td>
-                    <td className="num">{euro(x.r.bonifico)}</td>
-                    <td className="num neg">{euro(-x.r.residuo)}</td>
+                    <td className="num">{euro(x.r.bonificoInviato)}</td>
+                    <td className="num neg">{euro(x.r.daBonificare)}</td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       <span style={{ display: "inline-flex", gap: 8 }}>
-                        <Link className="btn small secondary" href={`/saldi?anno=${anno}&mese=${x.mese}`}>
+                        <Link className="btn small secondary" href={`/partner/${x.partner.id}`}>
                           Gestisci
                         </Link>
                         <form
@@ -117,14 +118,14 @@ export default async function Dashboard() {
                             x.partner.id,
                             anno,
                             x.mese,
-                            +(-x.r.residuo).toFixed(2),
+                            +x.r.daBonificare.toFixed(2),
                             undefined
                           )}
                         >
                           <button
                             className="btn small primary"
                             type="submit"
-                            title={`Registra bonifico di ${euro(-x.r.residuo)} con data odierna (il mese risulterà pareggiato)`}
+                            title={`Registra bonifico di ${euro(x.r.daBonificare)} con data odierna (il mese risulterà pareggiato)`}
                           >
                             Paga
                           </button>

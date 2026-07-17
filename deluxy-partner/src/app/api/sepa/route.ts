@@ -28,10 +28,10 @@ export async function GET(req: NextRequest) {
   const pendenti = tutti
     .map((t) => {
       const m = t.mesi.find((x) => x.mese === mese)!;
-      return { partner: t.partner, residuo: m.riepilogo.residuo };
+      return { partner: t.partner, daBonificare: m.riepilogo.daBonificare };
     })
-    .filter((x) => x.residuo < -0.01) // Deluxy deve al partner
-    .map((x) => ({ partner: x.partner, importo: +(-x.residuo).toFixed(2) }));
+    .filter((x) => x.daBonificare >= 0.01) // Deluxy deve al partner
+    .map((x) => ({ partner: x.partner, importo: +x.daBonificare.toFixed(2) }));
 
   const causale = (nome: string) =>
     soloAscii(`Saldo vendite ${nomeMese(mese)} ${anno} - ${nome}`);

@@ -2,8 +2,20 @@
 // Replica (e sostituisce) le formule del foglio PARTNER.xlsx:
 //   commissione        = incasso vendite x fee%
 //   dovuto al partner  = incasso - commissione x (1 + IVA)   ["Importo Incassi netto Commissioni"]
-//   saldo compensazione = servizi fatturati IVATI - dovuto vendite (+ extra)
-//   residuo            = saldo + bonifici registrati (bonifico >0 inviato, <0 ricevuto)
+//
+// Due regimi, in base al flag "Compensazione" del partner (colonna dell'Excel:
+// "se i crediti per servizi vengono compensati dagli incassi per vendite"):
+//
+//   CON compensazione  -> un unico saldo netto per mese, come "SALDO IN COMPENSAZIONE":
+//                         saldo = servizi fatturati IVATI - dovuto vendite (+ extra)
+//                         residuo = saldo + bonifici registrati
+//
+//   SENZA compensazione -> due partite separate, mai compensate tra loro
+//                         ("Credito da Saldare" / "Debito da Saldare" dell'Excel):
+//                         da incassare = fatture non saldate (IVATE), meno eventuali acconti ricevuti
+//                         da bonificare = dovuto vendite (+ extra), meno i bonifici gia' inviati
+//
+// Convenzione bonifici: importo > 0 = inviato al partner, < 0 = ricevuto dal partner.
 
 export const IVA_DEFAULT = 22;
 
@@ -38,6 +50,7 @@ export function ivato(f: FatturaLike): number {
 }
 
 export type RiepilogoMese = {
+  compensazione: boolean;
   serviziNetto: number; // imponibile fatture servizi
   serviziIvato: number;
   serviziNonPagati: number; // ivato delle fatture non saldate
@@ -47,15 +60,23 @@ export type RiepilogoMese = {
   aggiunte: number;
   detrazioni: number;
   dovutoPartner: number; // dovutoVendite + aggiunte - detrazioni
-  saldo: number; // >0 il partner deve a Deluxy, <0 Deluxy deve al partner
-  bonifico: number; // registrato (>0 inviato al partner, <0 ricevuto)
-  residuo: number; // saldo + bonifico: 0 = mese pareggiato
+  bonifico: number; // netto registrato (>0 inviato, <0 ricevuto)
+  bonificoInviato: number; // >= 0
+  bonificoRicevuto: number; // >= 0 (valore assoluto degli incassi)
+  saldo: number; // servizi IVATI - dovuto al partner (netto: significativo con compensazione)
+  daIncassare: number; // >= 0: quanto il partner deve a Deluxy
+  daBonificare: number; // >= 0: quanto Deluxy deve al partner
+  residuo: number; // daIncassare - daBonificare (netto, per colonne e ordinamenti)
+  pareggiato: boolean;
 };
+
+const positivo = (v: number) => (v > 0.005 ? v : 0);
 
 export function riepilogoMese(
   fatture: FatturaLike[],
   vendite: VenditaLike[],
-  saldoMese: SaldoLike
+  saldoMese: SaldoLike,
+  compensazione: boolean
 ): RiepilogoMese {
   const serviziNetto = fatture.reduce((a, f) => a + f.imponibile, 0);
   const serviziIvato = fatture.reduce((a, f) => a + ivato(f), 0);
@@ -66,10 +87,26 @@ export function riepilogoMese(
   const aggiunte = saldoMese?.aggiunte ?? 0;
   const detrazioni = saldoMese?.detrazioni ?? 0;
   const dovutoPartner = dovutoVenditeTot + aggiunte - detrazioni;
-  const saldo = serviziIvato - dovutoPartner;
   const bonifico = saldoMese?.bonificoImporto ?? 0;
-  const residuo = saldo + bonifico;
+  const bonificoInviato = bonifico > 0 ? bonifico : 0;
+  const bonificoRicevuto = bonifico < 0 ? -bonifico : 0;
+  const saldo = serviziIvato - dovutoPartner;
+
+  let daIncassare: number;
+  let daBonificare: number;
+  if (compensazione) {
+    // partite compensate: conta solo il netto del mese
+    const residuoNetto = saldo + bonifico;
+    daIncassare = positivo(residuoNetto);
+    daBonificare = positivo(-residuoNetto);
+  } else {
+    // partite separate: le fatture si saldano da sole, il dovuto vendite col bonifico
+    daIncassare = positivo(serviziNonPagati - bonificoRicevuto);
+    daBonificare = positivo(dovutoPartner - bonificoInviato);
+  }
+
   return {
+    compensazione,
     serviziNetto,
     serviziIvato,
     serviziNonPagati,
@@ -79,9 +116,14 @@ export function riepilogoMese(
     aggiunte,
     detrazioni,
     dovutoPartner,
-    saldo,
     bonifico,
-    residuo,
+    bonificoInviato,
+    bonificoRicevuto,
+    saldo,
+    daIncassare,
+    daBonificare,
+    residuo: daIncassare - daBonificare,
+    pareggiato: daIncassare < 0.01 && daBonificare < 0.01,
   };
 }
 
@@ -93,7 +135,9 @@ export type Rolling = {
   incassiNettoCommissioni: number; // dovuto ai partner
   pagatoAlPartner: number; // bonifici inviati
   incassatoDalPartner: number; // bonifici/incassi ricevuti
-  residuo: number; // somma dei residui mensili
+  daIncassare: number; // >= 0 cumulato
+  daBonificare: number; // >= 0 cumulato
+  residuo: number; // daIncassare - daBonificare
   stimaChiusura: number; // run-rate su 12 mesi (vendite + servizi)
 };
 
@@ -103,14 +147,18 @@ export function rolling(mesi: RiepilogoMese[]): Rolling {
   const vendite = sum((m) => m.vendite);
   const mesiAttivi = mesi.filter((m) => m.vendite !== 0 || m.serviziNetto !== 0).length;
   const base = vendite + fatture;
+  const daIncassare = sum((m) => m.daIncassare);
+  const daBonificare = sum((m) => m.daBonificare);
   return {
     fatture,
     vendite,
     commissioni: sum((m) => m.commissioni),
     incassiNettoCommissioni: sum((m) => m.dovutoPartner),
-    pagatoAlPartner: sum((m) => (m.bonifico > 0 ? m.bonifico : 0)),
-    incassatoDalPartner: sum((m) => (m.bonifico < 0 ? -m.bonifico : 0)),
-    residuo: sum((m) => m.residuo),
+    pagatoAlPartner: sum((m) => m.bonificoInviato),
+    incassatoDalPartner: sum((m) => m.bonificoRicevuto),
+    daIncassare,
+    daBonificare,
+    residuo: daIncassare - daBonificare,
     stimaChiusura: mesiAttivi > 0 ? (base / mesiAttivi) * 12 : 0,
   };
 }

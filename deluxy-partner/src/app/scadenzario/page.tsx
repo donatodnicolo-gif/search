@@ -24,10 +24,10 @@ export default async function Scadenzario() {
   const bonificiPendenti = tutti
     .flatMap((t) =>
       t.mesi
-        .filter((m) => m.riepilogo.residuo < -0.01 && (m.riepilogo.vendite || m.riepilogo.serviziNetto))
+        .filter((m) => m.riepilogo.daBonificare >= 0.01)
         .map((m) => ({ partner: t.partner, mese: m.mese, r: m.riepilogo }))
     )
-    .sort((a, b) => a.mese - b.mese || a.r.residuo - b.r.residuo);
+    .sort((a, b) => a.mese - b.mese || b.r.daBonificare - a.r.daBonificare);
 
   const commDaEmettere = tutti.flatMap((t) =>
     t.mesi
@@ -55,7 +55,7 @@ export default async function Scadenzario() {
         <div className="kpi">
           <div className="kpi-label">Bonifici partner pendenti</div>
           <div className={`kpi-value ${bonificiPendenti.length ? "neg" : "pos"}`}>{bonificiPendenti.length}</div>
-          <div className="kpi-sub">{euro(bonificiPendenti.reduce((a, x) => a + -x.r.residuo, 0))}</div>
+          <div className="kpi-sub">{euro(bonificiPendenti.reduce((a, x) => a + x.r.daBonificare, 0))}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Fatture commissioni da emettere</div>
@@ -132,10 +132,10 @@ export default async function Scadenzario() {
                   <tr key={x.partner.id + x.mese}>
                     <td><Link href={`/partner/${x.partner.id}`} style={{ fontWeight: 500 }}>{x.partner.nome}</Link></td>
                     <td>{nomeMese(x.mese)}</td>
-                    <td className="num neg">{euro(-x.r.residuo)}</td>
+                    <td className="num neg">{euro(x.r.daBonificare)}</td>
                     <td className="muted">{x.partner.iban ?? "IBAN mancante"}</td>
                     <td>
-                      <Link className="btn small secondary" href={`/saldi?anno=${anno}&mese=${x.mese}&q=${encodeURIComponent(x.partner.nome.slice(0, 12))}`}>
+                      <Link className="btn small secondary" href={`/partner/${x.partner.id}`}>
                         Registra bonifico
                       </Link>
                     </td>

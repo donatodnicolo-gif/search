@@ -84,11 +84,26 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
           <div className="kpi-sub">Bonificato {euro(rolling.pagatoAlPartner)} · incassato {euro(rolling.incassatoDalPartner)}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Residuo</div>
-          <div className={`kpi-value ${Math.abs(rolling.residuo) < 0.01 ? "" : rolling.residuo > 0 ? "pos" : "neg"}`}>
-            {euro(rolling.residuo)}
-          </div>
-          <div className="kpi-sub">{rolling.residuo > 0.01 ? "il partner deve a Deluxy" : rolling.residuo < -0.01 ? "Deluxy deve al partner" : "pareggiato"}</div>
+          <div className="kpi-label">{partner.compensazione ? "Residuo (in compensazione)" : "Partite aperte"}</div>
+          {partner.compensazione ? (
+            <>
+              <div className={`kpi-value ${Math.abs(rolling.residuo) < 0.01 ? "" : rolling.residuo > 0 ? "pos" : "neg"}`}>
+                {euro(rolling.residuo)}
+              </div>
+              <div className="kpi-sub">
+                {rolling.residuo > 0.01 ? "il partner deve a Deluxy" : rolling.residuo < -0.01 ? "Deluxy deve al partner" : "pareggiato"}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={`kpi-value ${rolling.daBonificare >= 0.01 ? "neg" : ""}`} style={{ fontSize: 22 }}>
+                {euro(rolling.daBonificare)}
+              </div>
+              <div className="kpi-sub">
+                da bonificare al partner · <strong>{euro(rolling.daIncassare)}</strong> da incassare (fatture)
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -123,12 +138,12 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
               })()}
             </span>
             <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              {Math.abs(r.residuo) < 0.01 ? (
-                <span className="badge green"><span className="dot" />Pareggiato</span>
-              ) : r.residuo > 0 ? (
-                <span className="badge orange"><span className="dot" />Da incassare {euro(r.residuo)}</span>
-              ) : (
-                <span className="badge orange"><span className="dot" />Da bonificare {euro(-r.residuo)}</span>
+              {r.pareggiato && <span className="badge green"><span className="dot" />Pareggiato</span>}
+              {r.daBonificare >= 0.01 && (
+                <span className="badge orange"><span className="dot" />Da bonificare {euro(r.daBonificare)}</span>
+              )}
+              {r.daIncassare >= 0.01 && (
+                <span className="badge orange"><span className="dot" />Da incassare {euro(r.daIncassare)}</span>
               )}
               <Link href={`/saldi?anno=${anno}&mese=${mese}&q=${encodeURIComponent(partner.nome.slice(0, 12))}`} className="btn small secondary">
                 Saldo mese
@@ -189,22 +204,57 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                       <td className="num">{euro(r.aggiunte - r.detrazioni)}</td>
                     </tr>
                   )}
-                  <tr style={{ background: "var(--bg)" }}>
-                    <td className="muted">Saldo</td>
-                    <td colSpan={2}>
-                      Servizi IVATI {euro(r.serviziIvato)} − dovuto vendite {euro(r.dovutoPartner)}
-                    </td>
-                    <td>
-                      {saldo?.bonificoImporto != null && (
-                        <span className="muted">
-                          Bonifico {saldo.bonificoImporto > 0 ? "inviato" : "ricevuto"} {euro(Math.abs(saldo.bonificoImporto))} il {dataIt(saldo.bonificoData)}
-                        </span>
-                      )}
-                    </td>
-                    <td className={`num ${Math.abs(r.residuo) < 0.01 ? "" : r.residuo > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
-                      {euro(r.saldo)} → residuo {euro(r.residuo)}
-                    </td>
-                  </tr>
+                  {r.compensazione ? (
+                    <tr style={{ background: "var(--bg)" }}>
+                      <td className="muted">Saldo in compensazione</td>
+                      <td colSpan={2}>
+                        Servizi IVATI {euro(r.serviziIvato)} − dovuto vendite {euro(r.dovutoPartner)}
+                      </td>
+                      <td>
+                        {saldo?.bonificoImporto != null && (
+                          <span className="muted">
+                            Bonifico {saldo.bonificoImporto > 0 ? "inviato" : "ricevuto"} {euro(Math.abs(saldo.bonificoImporto))} il {dataIt(saldo.bonificoData)}
+                          </span>
+                        )}
+                      </td>
+                      <td className={`num ${r.pareggiato ? "" : r.residuo > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
+                        {euro(r.saldo)} → residuo {euro(r.residuo)}
+                      </td>
+                    </tr>
+                  ) : (
+                    <>
+                      <tr style={{ background: "var(--bg)" }}>
+                        <td className="muted">Da bonificare al partner</td>
+                        <td colSpan={2}>
+                          Dovuto vendite {euro(r.dovutoPartner)}
+                          {r.bonificoInviato > 0 && <> − già bonificato {euro(r.bonificoInviato)}</>}
+                        </td>
+                        <td>
+                          {saldo?.bonificoImporto != null && saldo.bonificoImporto > 0 && (
+                            <span className="muted">Bonifico inviato il {dataIt(saldo.bonificoData)}</span>
+                          )}
+                        </td>
+                        <td className={`num ${r.daBonificare >= 0.01 ? "neg" : ""}`} style={{ fontWeight: 600 }}>
+                          {euro(r.daBonificare)}
+                        </td>
+                      </tr>
+                      <tr style={{ background: "var(--bg)" }}>
+                        <td className="muted">Da incassare dal partner</td>
+                        <td colSpan={2}>
+                          Fatture non saldate {euro(r.serviziNonPagati)}
+                          {r.bonificoRicevuto > 0 && <> − acconti ricevuti {euro(r.bonificoRicevuto)}</>}
+                        </td>
+                        <td>
+                          {saldo?.bonificoImporto != null && saldo.bonificoImporto < 0 && (
+                            <span className="muted">Incasso registrato il {dataIt(saldo.bonificoData)}</span>
+                          )}
+                        </td>
+                        <td className={`num ${r.daIncassare >= 0.01 ? "pos" : ""}`} style={{ fontWeight: 600 }}>
+                          {euro(r.daIncassare)}
+                        </td>
+                      </tr>
+                    </>
+                  )}
                   {saldo?.note && (
                     <tr>
                       <td className="muted">Note</td>
@@ -218,7 +268,8 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
               partnerId={partner.id}
               anno={anno}
               mese={mese}
-              residuo={r.residuo}
+              daBonificare={r.daBonificare}
+              daIncassare={r.daIncassare}
               bonificoImporto={saldo?.bonificoImporto ?? null}
               bonificoData={saldo?.bonificoData ?? null}
             />
@@ -236,7 +287,8 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
         const totCur = sum((r) => r.vendite + r.serviziNetto);
         const totPrec = sumPrec((r) => r.vendite + r.serviziNetto);
         const dp = totPrec ? ((totCur - totPrec) / totPrec) * 100 : null;
-        const residuoYtd = sum((r) => r.residuo);
+        const daBonificareYtd = sum((r) => r.daBonificare);
+        const daIncassareYtd = sum((r) => r.daIncassare);
         return (
           <div className="month-block" style={{ background: "var(--surface)" }}>
             <div className="month-head">
@@ -254,13 +306,17 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                   )}
                 </span>
               </span>
-              {Math.abs(residuoYtd) < 0.01 ? (
-                <span className="badge green"><span className="dot" />Tutto pareggiato</span>
-              ) : residuoYtd > 0 ? (
-                <span className="badge orange"><span className="dot" />Da incassare {euro(residuoYtd)}</span>
-              ) : (
-                <span className="badge orange"><span className="dot" />Da bonificare {euro(-residuoYtd)}</span>
-              )}
+              <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                {daBonificareYtd < 0.01 && daIncassareYtd < 0.01 && (
+                  <span className="badge green"><span className="dot" />Tutto pareggiato</span>
+                )}
+                {daBonificareYtd >= 0.01 && (
+                  <span className="badge orange"><span className="dot" />Da bonificare {euro(daBonificareYtd)}</span>
+                )}
+                {daIncassareYtd >= 0.01 && (
+                  <span className="badge orange"><span className="dot" />Da incassare {euro(daIncassareYtd)}</span>
+                )}
+              </span>
             </div>
             <div className="month-body">
               <div className="table-wrap">
@@ -277,12 +333,17 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                       <td className="num">{euro(sum((r) => r.serviziNetto))} <span className="muted">netto IVA</span></td>
                     </tr>
                     <tr style={{ background: "var(--bg)" }}>
-                      <td className="muted">Saldi</td>
-                      <td>
-                        Bonificato al partner {euro(rolling.pagatoAlPartner)} · incassato {euro(rolling.incassatoDalPartner)}
+                      <td className="muted">Da bonificare al partner</td>
+                      <td>Già bonificato {euro(rolling.pagatoAlPartner)}</td>
+                      <td className={`num ${daBonificareYtd >= 0.01 ? "neg" : ""}`} style={{ fontWeight: 600 }}>
+                        {euro(daBonificareYtd)}
                       </td>
-                      <td className={`num ${Math.abs(residuoYtd) < 0.01 ? "" : residuoYtd > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
-                        residuo {euro(residuoYtd)}
+                    </tr>
+                    <tr style={{ background: "var(--bg)" }}>
+                      <td className="muted">Da incassare dal partner</td>
+                      <td>Già incassato {euro(rolling.incassatoDalPartner)}</td>
+                      <td className={`num ${daIncassareYtd >= 0.01 ? "pos" : ""}`} style={{ fontWeight: 600 }}>
+                        {euro(daIncassareYtd)}
                       </td>
                     </tr>
                   </tbody>

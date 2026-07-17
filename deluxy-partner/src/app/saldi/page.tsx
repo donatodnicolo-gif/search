@@ -27,15 +27,15 @@ export default async function SaldiPage({
       const has = x.r.vendite || x.r.serviziNetto || x.r.bonifico || x.saldo;
       if (!has) return false;
       if (sp.q && !x.partner.nome.toLowerCase().includes(sp.q.toLowerCase())) return false;
-      if (sp.solo === "aperti" && Math.abs(x.r.residuo) < 0.01) return false;
+      if (sp.solo === "aperti" && x.r.pareggiato) return false;
       return true;
     })
-    .sort((a, b) => Math.abs(b.r.residuo) - Math.abs(a.r.residuo));
+    .sort((a, b) => Math.max(b.r.daBonificare, b.r.daIncassare) - Math.max(a.r.daBonificare, a.r.daIncassare));
 
-  const daPagare = righe.filter((x) => x.r.residuo < -0.01);
-  const daIncassare = righe.filter((x) => x.r.residuo > 0.01);
-  const totDaPagare = daPagare.reduce((a, x) => a + -x.r.residuo, 0);
-  const totDaIncassare = daIncassare.reduce((a, x) => a + x.r.residuo, 0);
+  const daPagare = righe.filter((x) => x.r.daBonificare >= 0.01);
+  const daIncassare = righe.filter((x) => x.r.daIncassare >= 0.01);
+  const totDaPagare = daPagare.reduce((a, x) => a + x.r.daBonificare, 0);
+  const totDaIncassare = daIncassare.reduce((a, x) => a + x.r.daIncassare, 0);
   const backUrl = `/saldi?anno=${anno}&mese=${mese}`;
 
   return (
@@ -70,7 +70,7 @@ export default async function SaldiPage({
         </div>
         <div className="kpi">
           <div className="kpi-label">Partner pareggiati</div>
-          <div className="kpi-value pos">{righe.length - daPagare.length - daIncassare.length}</div>
+          <div className="kpi-value pos">{righe.filter((x) => x.r.pareggiato).length}</div>
           <div className="kpi-sub">su {righe.length} con movimenti nel mese</div>
         </div>
       </div>
@@ -117,12 +117,12 @@ export default async function SaldiPage({
                 <span className="muted">Servizi IVATI {euro(r.serviziIvato)}</span>
                 <span className="muted">Dovuto vendite {euro(r.dovutoPartner)}</span>
                 <span className="muted">Bonifico {euro(r.bonifico)}</span>
-                {Math.abs(r.residuo) < 0.01 ? (
-                  <span className="badge green"><span className="dot" />Pareggiato</span>
-                ) : r.residuo > 0 ? (
-                  <span className="badge orange"><span className="dot" />Da incassare {euro(r.residuo)}</span>
-                ) : (
-                  <span className="badge orange"><span className="dot" />Da bonificare {euro(-r.residuo)}</span>
+                {r.pareggiato && <span className="badge green"><span className="dot" />Pareggiato</span>}
+                {r.daBonificare >= 0.01 && (
+                  <span className="badge orange"><span className="dot" />Da bonificare {euro(r.daBonificare)}</span>
+                )}
+                {r.daIncassare >= 0.01 && (
+                  <span className="badge orange"><span className="dot" />Da incassare {euro(r.daIncassare)}</span>
                 )}
               </span>
             </summary>
@@ -151,7 +151,7 @@ export default async function SaldiPage({
                   </div>
                   <div>
                     <label className="field-label">Bonifico € (+ inviato / − ricevuto)</label>
-                    <input type="number" name="bonificoImporto" step="0.01" defaultValue={saldo?.bonificoImporto ?? ""} placeholder={r.saldo ? String(-r.saldo.toFixed(2)) : "0,00"} />
+                    <input type="number" name="bonificoImporto" step="0.01" defaultValue={saldo?.bonificoImporto ?? ""} placeholder={r.daBonificare >= 0.01 ? r.daBonificare.toFixed(2) : "0,00"} />
                   </div>
                   <div>
                     <label className="field-label">Data bonifico</label>

@@ -9,7 +9,8 @@ export type SaldoRecord = NonNullable<Awaited<ReturnType<typeof prisma.saldoMens
 
 // Riepilogo completo di un partner per un anno: 12 mesi calcolati + rolling.
 export async function riepilogoPartner(partnerId: string, anno: number) {
-  const [fatture, vendite, saldi] = await Promise.all([
+  const [partner, fatture, vendite, saldi] = await Promise.all([
+    prisma.partner.findUnique({ where: { id: partnerId }, select: { compensazione: true } }),
     prisma.fatturaServizio.findMany({
       where: { partnerId, anno },
       include: { tipologia: true },
@@ -22,12 +23,14 @@ export async function riepilogoPartner(partnerId: string, anno: number) {
     prisma.saldoMensile.findMany({ where: { partnerId, anno } }),
   ]);
 
+  const compensazione = partner?.compensazione ?? false;
+
   const mesi = Array.from({ length: 12 }, (_, i) => {
     const mese = i + 1;
     const f = fatture.filter((x) => x.mese === mese);
     const v = vendite.filter((x) => x.mese === mese);
     const saldo = saldi.find((x) => x.mese === mese) ?? null;
-    return { mese, fatture: f, vendite: v, saldo, riepilogo: riepilogoMese(f, v, saldo) };
+    return { mese, fatture: f, vendite: v, saldo, riepilogo: riepilogoMese(f, v, saldo, compensazione) };
   });
 
   return { fatture, vendite, saldi, mesi, rolling: rolling(mesi.map((m) => m.riepilogo)) };
@@ -55,7 +58,8 @@ export async function riepilogoTutti(anno: number) {
         riepilogo: riepilogoMese(
           pf.filter((f) => f.mese === mese),
           pv.filter((v) => v.mese === mese),
-          saldo
+          saldo,
+          p.compensazione
         ),
       };
     });
