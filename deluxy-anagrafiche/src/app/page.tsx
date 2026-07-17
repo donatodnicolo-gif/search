@@ -156,6 +156,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     platform: "app.deluxy.it",
     manuale: "API",
     ui: "registro",
+    hubspot: "HubSpot",
   };
 
   const Intestazione = ({ campo, classe }: { campo: CampoOrdinamento; classe?: string }) => (

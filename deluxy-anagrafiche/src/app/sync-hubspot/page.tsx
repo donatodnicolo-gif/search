@@ -1,5 +1,6 @@
 import { Riconcilia } from "@/components/Riconcilia";
 import { Sidebar } from "@/components/Sidebar";
+import { importaDaHubspot } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { chiaveNome, hubspotConfigurato, scaricaAziendeHubspot, type AziendaHubspot } from "@/lib/hubspot";
 
@@ -110,7 +111,20 @@ export default async function SyncHubspot() {
                       <td className="cella-muta">{a.citta ?? "—"}</td>
                       <td className="cella-muta">{a.telefono ?? "—"}</td>
                       <td className="cella-muta">{a.dominio ?? "—"}</td>
-                      <td><Riconcilia cerca="partner" hubspotId={a.id} nomeRiga={a.nome} /></td>
+                      <td>
+                        <span style={{ display: "inline-flex", gap: 2 }}>
+                          <form action={importaDaHubspot.bind(null, a)}>
+                            <button
+                              type="submit"
+                              className="btn-archivia btn-importa"
+                              title="Importa nel registro come prospect (categoria DA CLASSIFICARE)"
+                            >
+                              ＋
+                            </button>
+                          </form>
+                          <Riconcilia cerca="partner" hubspotId={a.id} nomeRiga={a.nome} />
+                        </span>
+                      </td>
                     </tr>
                   ))}
                   {soloHubspot.length === 0 && (

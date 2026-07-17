@@ -280,6 +280,8 @@ tbody tr:hover { background: var(--fill); }
   transition: background 120ms var(--ease), color 120ms var(--ease);
 }
 .btn-archivia:hover { background: var(--fill); color: var(--text); }
+.btn-importa { color: var(--green); font-weight: 600; }
+.btn-importa:hover { color: var(--green); }
 
 /* ---------- Selettore di stato (scheda partner) ---------- */
 .selettore-stato {

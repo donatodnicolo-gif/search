@@ -33,6 +33,7 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
     platform: "da app.deluxy.it",
     manuale: "via API",
     ui: "dal registro",
+    hubspot: "da HubSpot",
   };
   const nomeStato = (s: string) =>
     s === "archiviata" ? "Archiviata" : isStato(s) ? ETICHETTE_STATO[s] : s;

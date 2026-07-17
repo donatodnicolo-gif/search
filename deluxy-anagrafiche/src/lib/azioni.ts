@@ -122,6 +122,50 @@ export async function riconciliaHubspot(partnerId: string, hubspotId: string | n
   revalidatePath(`/partner/${partnerId}`);
 }
 
+// Importa una company HubSpot come nuova anagrafica (bottone "+" del sync).
+// Nasce come prospect in categoria "DA CLASSIFICARE" (il team la smista poi)
+// già riconciliata. Se un'anagrafica con lo stesso nome+città esiste già,
+// non si duplica: si collega e basta.
+export async function importaDaHubspot(a: {
+  id: string;
+  nome: string;
+  citta: string | null;
+  telefono: string | null;
+  dominio: string | null;
+}) {
+  const esistente = await prisma.partner.findFirst({
+    where: {
+      OR: [
+        { hubspotId: a.id },
+        {
+          nome: { equals: a.nome, mode: "insensitive" },
+          ...(a.citta ? { citta: { equals: a.citta, mode: "insensitive" } } : { citta: null }),
+        },
+      ],
+    },
+  });
+  if (esistente) {
+    if (!esistente.hubspotId) {
+      await prisma.partner.update({ where: { id: esistente.id }, data: { hubspotId: a.id } });
+    }
+  } else {
+    await prisma.partner.create({
+      data: {
+        nome: a.nome,
+        categoria: "DA CLASSIFICARE",
+        stato: "prospect",
+        citta: a.citta?.toUpperCase() ?? null,
+        telefono: a.telefono,
+        note: a.dominio ? `Sito: ${a.dominio}` : null,
+        fonte: "hubspot",
+        hubspotId: a.id,
+      },
+    });
+  }
+  revalidatePath("/sync-hubspot");
+  revalidatePath("/");
+}
+
 // Archivia (attivo=false) o ripristina un'anagrafica. Le archiviate spariscono
 // da elenchi, sidebar e API (salvo attivo=false/tutti) e vivono nella sezione
 // "Archiviati". Stessa semantica del DELETE delle API.
