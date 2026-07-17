@@ -106,6 +106,13 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 17/07/2026 (sera 8) — Orari di apertura del partner
+
+- **Sezione "Orari di apertura"** nel form Partner (`partner-form`): griglia settimanale lun→dom, ogni giorno con flag **Chiuso** e orario **dalle–alle**; pulsante **"copia il lunedì su tutti"**; prefill in modifica. Invio nel payload come `openingHours` (giorni chiusi o con orario; in edit sempre, anche vuoto → cancellazione). Backend già pronto (`OpeningHour`, `OpeningHourDto`, partner service con deleteMany+create).
+- **Scheda partner** (`partner-detail`): nuova sezione che mostra gli orari settimanali ordinati (giorni non impostati omessi). `dayOfWeek` DB: 0=domenica…6=sabato; ordine visualizzato lun→dom via `WEEK_DAYS`.
+- i18n IT/EN (`partnerForm.openingHours.*`, giorni). Verificato: round-trip API (Lun/Mar 09:00–19:30, Dom chiuso), dettaglio e form prefill nel browser.
+- ⚠️ **Distinzione**: l'app reale ha *anche* la **disponibilità per data** (`/partner/availability/list`, con link pubblico) — non ancora fatta; qui è l'**orario settimanale ricorrente**. Prossimo passo eventuale: availability per data (nuovo modello o riuso di `ValetAvailability`-like).
+
 ### 17/07/2026 (sera 7) — Fix layout mobile lista consegne + robustezza mappa
 
 - **Barra filtri consegne responsive**: `.filters` ora `flex-wrap: wrap`; su ≤640px i controlli vanno a capo a larghezza piena (prima andavano in overflow orizzontale a 890px in un viewport da 375px, tagliando la ricerca — è il bug dello screenshot mobile). Mappa a **320px** su mobile (era 460).

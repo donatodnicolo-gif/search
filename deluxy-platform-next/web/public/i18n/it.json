@@ -621,6 +621,23 @@
       "subtitle": "Determinano priorità e sconti per provincia.",
       "empty": "Nessuna categoria configurata."
     },
+    "openingHours": {
+      "title": "Orari di apertura",
+      "subtitle": "Orario settimanale del punto vendita: usato per proporre le fasce di ritiro/consegna.",
+      "closed": "Chiuso",
+      "closedNote": "Chiuso tutto il giorno",
+      "copyAll": "Copia il lunedì su tutti i giorni",
+      "emptyDetail": "Orari non ancora impostati.",
+      "days": {
+        "mon": "Lunedì",
+        "tue": "Martedì",
+        "wed": "Mercoledì",
+        "thu": "Giovedì",
+        "fri": "Venerdì",
+        "sat": "Sabato",
+        "sun": "Domenica"
+      }
+    },
     "payments": {
       "title": "Pagamenti e fatturazione",
       "paymentMethod": "Metodo di pagamento",

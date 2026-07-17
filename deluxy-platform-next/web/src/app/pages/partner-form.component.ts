@@ -20,6 +20,25 @@ interface ServiceRow {
   extraOutOfCityPrice: number | null;
 }
 
+interface OpeningHourRow {
+  dayOfWeek: number; // 0=domenica … 6=sabato (convenzione DB)
+  key: string; // chiave i18n del giorno
+  closed: boolean;
+  openTime: string;
+  closeTime: string;
+}
+
+/** Giorni in ordine di visualizzazione (lunedì→domenica), con il dayOfWeek del DB. */
+const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
+  { dayOfWeek: 1, key: 'mon' },
+  { dayOfWeek: 2, key: 'tue' },
+  { dayOfWeek: 3, key: 'wed' },
+  { dayOfWeek: 4, key: 'thu' },
+  { dayOfWeek: 5, key: 'fri' },
+  { dayOfWeek: 6, key: 'sat' },
+  { dayOfWeek: 0, key: 'sun' },
+];
+
 @Component({
   selector: 'app-partner-form',
   standalone: true,
@@ -143,6 +162,30 @@ interface ServiceRow {
         }
       </section>
 
+      <!-- Orari di apertura settimanali -->
+      <section class="card block">
+        <header class="block-head">
+          <h2>{{ 'partnerForm.openingHours.title' | translate }}</h2>
+          <span class="block-sub">{{ 'partnerForm.openingHours.subtitle' | translate }}</span>
+        </header>
+        <div class="oh-rows">
+          @for (row of openingHoursRows; track row.dayOfWeek) {
+            <div class="oh-row">
+              <span class="oh-day">{{ 'partnerForm.openingHours.days.' + row.key | translate }}</span>
+              <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.closed" [name]="'ohClosed' + row.dayOfWeek" /><span>{{ 'partnerForm.openingHours.closed' | translate }}</span></label>
+              @if (!row.closed) {
+                <input class="field time" type="time" [(ngModel)]="row.openTime" [name]="'ohOpen' + row.dayOfWeek" />
+                <span class="oh-sep">–</span>
+                <input class="field time" type="time" [(ngModel)]="row.closeTime" [name]="'ohClose' + row.dayOfWeek" />
+              } @else {
+                <span class="oh-closed-note">{{ 'partnerForm.openingHours.closedNote' | translate }}</span>
+              }
+            </div>
+          }
+        </div>
+        <button type="button" class="btn btn-secondary oh-copy" (click)="copyFirstDayToAll()">{{ 'partnerForm.openingHours.copyAll' | translate }}</button>
+      </section>
+
       <!-- Pagamenti e fatturazione -->
       <section class="card block">
         <header class="block-head"><h2>{{ 'partnerForm.payments.title' | translate }}</h2></header>
@@ -255,6 +298,15 @@ interface ServiceRow {
       .block-head { margin-bottom: 18px; }
       .block-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
       .block-sub { display: block; margin-top: 3px; font-size: 13px; color: var(--text-tertiary); }
+      .oh-rows { display: flex; flex-direction: column; gap: 8px; }
+      .oh-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+      .oh-day { width: 92px; font-size: 13.5px; font-weight: 550; color: var(--text-secondary); }
+      .oh-row .toggle.sm { font-size: 13px; }
+      .field.time { width: 120px; }
+      .oh-sep { color: var(--text-tertiary); }
+      .oh-closed-note { font-size: 13px; color: var(--text-tertiary); font-style: italic; }
+      .oh-copy { margin-top: 14px; }
+      @media (max-width: 640px) { .oh-day { width: 100%; } .field.time { flex: 1; width: auto; } }
       .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
       .mt { margin-top: 16px; }
       .fld { display: flex; flex-direction: column; gap: 6px; }
@@ -312,6 +364,14 @@ export class PartnerFormComponent {
 
   serviceRows: ServiceRow[] = [];
   pickupAddresses: string[] = [];
+  /** Orari di apertura: una riga per giorno (lun→dom). */
+  openingHoursRows: OpeningHourRow[] = WEEK_DAYS.map((d) => ({
+    dayOfWeek: d.dayOfWeek,
+    key: d.key,
+    closed: false,
+    openTime: '',
+    closeTime: '',
+  }));
 
   model = {
     insegna: '',
@@ -400,6 +460,16 @@ export class PartnerFormComponent {
       extraKmPrice: s.extraKmPrice ?? null,
       extraOutOfCityPrice: s.extraOutOfCityPrice ?? null,
     }));
+    // Orari di apertura settimanali
+    const oh = (p['openingHours'] as any[]) ?? [];
+    if (oh.length) {
+      for (const row of this.openingHoursRows) {
+        const found = oh.find((x) => x.dayOfWeek === row.dayOfWeek);
+        row.closed = found ? !!found.closed : false;
+        row.openTime = found?.openTime ?? '';
+        row.closeTime = found?.closeTime ?? '';
+      }
+    }
     // pickupAddresses e' salvato come stringa JSON lato API
     const pa = p['pickupAddresses'];
     if (typeof pa === 'string') {
@@ -422,6 +492,16 @@ export class PartnerFormComponent {
     this.serviceRows.push({ serviceTypeId: '', price: null, includedKm: null, extraKmPrice: null, extraOutOfCityPrice: null });
   }
   removeService(i: number): void { this.serviceRows.splice(i, 1); }
+
+  /** Copia l'orario del primo giorno (lunedì) su tutti gli altri. */
+  copyFirstDayToAll(): void {
+    const first = this.openingHoursRows[0];
+    for (const row of this.openingHoursRows) {
+      row.closed = first.closed;
+      row.openTime = first.openTime;
+      row.closeTime = first.closeTime;
+    }
+  }
 
   addPickup(): void { this.pickupAddresses.push(''); }
   removePickup(i: number): void { this.pickupAddresses.splice(i, 1); }
@@ -496,6 +576,18 @@ export class PartnerFormComponent {
         extraOutOfCityPrice: r.extraOutOfCityPrice != null ? Number(r.extraOutOfCityPrice) : undefined,
       }));
     if (services.length || isEdit) payload['services'] = services;
+
+    // Orari: giorni chiusi o con almeno un orario. In modifica invio sempre
+    // (anche vuoto) così eliminare tutti gli orari li cancella davvero.
+    const openingHours = this.openingHoursRows
+      .filter((r) => r.closed || r.openTime || r.closeTime)
+      .map((r) => ({
+        dayOfWeek: r.dayOfWeek,
+        closed: r.closed,
+        openTime: r.closed ? undefined : (r.openTime || undefined),
+        closeTime: r.closed ? undefined : (r.closeTime || undefined),
+      }));
+    if (openingHours.length || isEdit) payload['openingHours'] = openingHours;
 
     this.saving.set(true);
     const id = this.editId();

@@ -29,7 +29,19 @@ interface PartnerDetail {
   provinces?: { province: { id: string; code: string; name: string } }[];
   categories?: { category: { id: string; name: string } }[];
   services?: { serviceType?: { id: string; name?: string }; price?: number }[];
+  openingHours?: { dayOfWeek: number; openTime?: string | null; closeTime?: string | null; closed?: boolean }[];
 }
+
+/** Giorni in ordine lun→dom con la loro chiave i18n (dayOfWeek DB: 0=dom…6=sab). */
+const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
+  { dayOfWeek: 1, key: 'mon' },
+  { dayOfWeek: 2, key: 'tue' },
+  { dayOfWeek: 3, key: 'wed' },
+  { dayOfWeek: 4, key: 'thu' },
+  { dayOfWeek: 5, key: 'fri' },
+  { dayOfWeek: 6, key: 'sat' },
+  { dayOfWeek: 0, key: 'sun' },
+];
 
 /** Dettaglio partner (sola lettura). */
 @Component({
@@ -107,6 +119,21 @@ interface PartnerDetail {
             } @else { <p class="muted">{{ 'partnerForm.categories.empty' | translate }}</p> }
           </section>
 
+          <section class="card block">
+            <h2>{{ 'partnerForm.openingHours.title' | translate }}</h2>
+            @if (weekHours(p).length) {
+              <div class="hours">
+                @for (h of weekHours(p); track h.key) {
+                  <div class="hours-row">
+                    <span class="hours-day">{{ 'partnerForm.openingHours.days.' + h.key | translate }}</span>
+                    @if (h.closed) { <span class="hours-closed">{{ 'partnerForm.openingHours.closed' | translate }}</span> }
+                    @else { <span class="hours-time">{{ h.openTime }}<span class="sep">–</span>{{ h.closeTime }}</span> }
+                  </div>
+                }
+              </div>
+            } @else { <p class="muted">{{ 'partnerForm.openingHours.emptyDetail' | translate }}</p> }
+          </section>
+
           <section class="card block span-2">
             <h2>{{ 'partnerForm.services.title' | translate }}</h2>
             @if (p.services?.length) {
@@ -155,6 +182,12 @@ interface PartnerDetail {
       .muted { color: var(--text-tertiary); font-size: 13.5px; margin: 0; }
       .notes { margin: 0; font-size: 13.5px; white-space: pre-wrap; }
       .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+      .hours { display: flex; flex-direction: column; gap: 6px; }
+      .hours-row { display: flex; align-items: baseline; gap: 12px; font-size: 14px; }
+      .hours-day { width: 92px; color: var(--text-secondary); font-weight: 550; }
+      .hours-time { font-variant-numeric: tabular-nums; }
+      .hours-time .sep { margin: 0 4px; color: var(--text-tertiary); }
+      .hours-closed { color: var(--text-tertiary); font-style: italic; }
       .chip { border: 1px solid var(--hairline-strong); border-radius: 980px; padding: 4px 12px; font-size: 12.5px; }
       table.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
       table.mini th, table.mini td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--hairline); }
@@ -181,6 +214,16 @@ export class PartnerDetailComponent {
   canEdit(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER' || r === 'PARTNER';
+  }
+
+  /** Orari settimanali ordinati lun→dom, solo i giorni impostati (chiusi o con orario). */
+  weekHours(p: PartnerDetail): { key: string; closed: boolean; openTime: string; closeTime: string }[] {
+    const byDay = new Map((p.openingHours ?? []).map((h) => [h.dayOfWeek, h]));
+    return WEEK_DAYS.flatMap((d) => {
+      const h = byDay.get(d.dayOfWeek);
+      if (!h || (!h.closed && !h.openTime && !h.closeTime)) return [];
+      return [{ key: d.key, closed: !!h.closed, openTime: h.openTime ?? '', closeTime: h.closeTime ?? '' }];
+    });
   }
 
   constructor() {

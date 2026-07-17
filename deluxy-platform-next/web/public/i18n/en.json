@@ -621,6 +621,23 @@
       "subtitle": "They determine priority and discounts by province.",
       "empty": "No category configured."
     },
+    "openingHours": {
+      "title": "Opening hours",
+      "subtitle": "Weekly store schedule: used to suggest pickup/delivery time slots.",
+      "closed": "Closed",
+      "closedNote": "Closed all day",
+      "copyAll": "Copy Monday to all days",
+      "emptyDetail": "Hours not set yet.",
+      "days": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
+      }
+    },
     "payments": {
       "title": "Payments and invoicing",
       "paymentMethod": "Payment method",
