@@ -1461,8 +1461,23 @@ function downloadVcf(data){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
 }
+// se telefono o email mancano nei dati, ripescali dai link della scheda (tel: / mailto:)
+function fillContactsFromCard(btn, data){
+  const card = btn.closest('.shop');
+  if(!card) return data;
+  if(!data.telefono){
+    const t = card.querySelector('a.tel');
+    if(t) data.telefono = decodeURIComponent((t.getAttribute('href')||'').replace('tel:',''));
+  }
+  if(!data.email){
+    const m = card.querySelector('a.mail');
+    if(m) data.email = decodeURIComponent((m.getAttribute('href')||'').replace('mailto:',''));
+  }
+  return data;
+}
 async function saveContact(btn){
   const data = CARD_DATA[btn.dataset.pid]; if(!data) return;
+  fillContactsFromCard(btn, data);
   btn.disabled = true;
   try{
     if((CONFIG.googleOauthClientId||'').trim()){
@@ -1489,6 +1504,7 @@ async function saveContact(btn){
 }
 async function reportShop(btn){
   const data = CARD_DATA[btn.dataset.pid]; if(!data) return;
+  fillContactsFromCard(btn, data);
   btn.disabled = true; btn.textContent = '⏳ Segnalo al commerciale…';
   try{
     const r = await apiFetch('/api/segnala', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
