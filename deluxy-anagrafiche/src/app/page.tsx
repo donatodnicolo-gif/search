@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { BadgeStato } from "@/components/BadgeStato";
+import { etichetta, Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { ETICHETTE_STATO, STATI } from "@/lib/stati";
 
@@ -26,7 +27,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
   if (filtri.citta) where.citta = filtri.citta;
   if (filtri.stato) where.stato = filtri.stato;
 
-  const [totale, partner, categorie, citta] = await Promise.all([
+  const [totale, partner, citta] = await Promise.all([
     prisma.partner.count({ where }),
     prisma.partner.findMany({
       where,
@@ -35,10 +36,10 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
     }),
-    prisma.partner.groupBy({ by: ["categoria"], where: { attivo: true }, orderBy: { categoria: "asc" } }),
     prisma.partner.groupBy({
       by: ["citta"],
-      where: { attivo: true, citta: { not: null } },
+      // Le città proposte seguono la tipologia selezionata nella sidebar
+      where: { attivo: true, citta: { not: null }, ...(filtri.categoria ? { categoria: filtri.categoria } : {}) },
       orderBy: { citta: "asc" },
     }),
   ]);
@@ -57,10 +58,14 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
   };
 
   return (
-    <main className="main">
+    <div className="layout">
+      <Sidebar categoriaAttiva={filtri.categoria ?? null} />
+      <main className="main">
       <div className="page-head">
         <div>
-          <h1 className="page-title">Anagrafiche</h1>
+          <h1 className="page-title">
+            {filtri.categoria ? etichetta(filtri.categoria) : "Visione globale"}
+          </h1>
           <p className="page-sub">
             {totale} anagrafiche · fonte di verità per tutte le app Deluxy
           </p>
@@ -68,18 +73,13 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       </div>
 
       <form className="filtri" method="get" action="/">
+        {filtri.categoria && <input type="hidden" name="categoria" value={filtri.categoria} />}
         <input
           type="search"
           name="q"
           placeholder="Cerca per nome, ragione sociale, email o città…"
           defaultValue={filtri.q ?? ""}
         />
-        <select name="categoria" defaultValue={filtri.categoria ?? ""}>
-          <option value="">Tutte le categorie</option>
-          {categorie.map((c) => (
-            <option key={c.categoria} value={c.categoria}>{c.categoria}</option>
-          ))}
-        </select>
         <select name="citta" defaultValue={filtri.citta ?? ""}>
           <option value="">Tutte le città</option>
           {citta.map((c) => (
@@ -147,6 +147,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
           {pagina < pagineTotali && <a className="btn btn-secondario" href={linkPagina(pagina + 1)}>Successiva →</a>}
         </nav>
       </div>
-    </main>
+      </main>
+    </div>
   );
 }

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { BadgeStato } from "@/components/BadgeStato";
+import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -22,8 +23,12 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
   const extra: Record<string, unknown> = p.datiExtra ? JSON.parse(p.datiExtra) : {};
 
   return (
-    <main className="main">
-      <a className="ritorno" href="/">← Tutte le anagrafiche</a>
+    <div className="layout">
+      <Sidebar categoriaAttiva={p.categoria} />
+      <main className="main">
+      <a className="ritorno" href={`/?categoria=${encodeURIComponent(p.categoria)}`}>
+        ← Tutte le anagrafiche {p.categoria.toLowerCase()}
+      </a>
 
       <div className="page-head">
         <div>
@@ -109,6 +114,7 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
           </dl>
         </section>
       )}
-    </main>
+      </main>
+    </div>
   );
 }
