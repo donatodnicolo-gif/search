@@ -23,3 +23,24 @@ export async function sessionToken(password: string): Promise<string> {
 export function ambienteLocale(): boolean {
   return process.env.NODE_ENV !== 'production' && !process.env.VERCEL
 }
+
+/** Cookie (leggibile) con l'email di chi è entrato: serve solo a riproporla
+ *  al prossimo accesso, non è un fattore di sicurezza. */
+export const EMAIL_COOKIE = 'aimail_email'
+
+/**
+ * Vero se l'email può entrare.
+ *
+ * `APP_EMAIL` è l'elenco delle email autorizzate, separate da virgola. Se non
+ * è impostata, l'email è comunque obbligatoria da digitare ma non viene
+ * confrontata con un elenco — così il campo esiste da subito senza costringere
+ * a configurare nulla, e diventa un vero filtro appena metti APP_EMAIL.
+ */
+export function emailAmmessa(email: string): boolean {
+  const consentite = (process.env.APP_EMAIL ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+  if (consentite.length === 0) return email.trim().length > 0
+  return consentite.includes(email.trim().toLowerCase())
+}

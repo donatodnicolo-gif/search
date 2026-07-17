@@ -58,6 +58,7 @@ In **Settings → Environment Variables**, per Production e Preview:
 | `OPENAI_MODEL` | `gpt-4o-mini` |
 | `APP_SECRET` | **lo stesso del `.env` locale** (vedi sotto) |
 | `APP_PASSWORD` | la password per entrare |
+| `APP_EMAIL` | email abilitate all'accesso, separate da virgola (facoltativa) |
 | `CRON_SECRET` | token per il cron (lo genera Vercel se lo lasci vuoto) |
 
 > **`APP_SECRET` non è un valore qualsiasi:** cifra le password IMAP/SMTP nel

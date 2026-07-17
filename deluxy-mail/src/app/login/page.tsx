@@ -1,20 +1,34 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { SESSION_COOKIE, sessionToken } from '@/lib/auth'
+import { SESSION_COOKIE, EMAIL_COOKIE, sessionToken, emailAmmessa } from '@/lib/auth'
 
 async function login(fd: FormData) {
   'use server'
   const password = process.env.APP_PASSWORD
+  const email = String(fd.get('email') ?? '').trim()
   const tentativo = String(fd.get('password') ?? '')
+
+  // Servono entrambi: email autorizzata E password giusta.
   if (!password || tentativo !== password) {
-    redirect('/login?errore=1')
+    redirect('/login?errore=password')
   }
+  if (!emailAmmessa(email)) {
+    redirect('/login?errore=email')
+  }
+
   const jar = await cookies()
   jar.set(SESSION_COOKIE, await sessionToken(password), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 30, // 30 giorni
+    path: '/',
+  })
+  // L'email non è un segreto: la ricordiamo per riproporla al prossimo accesso.
+  jar.set(EMAIL_COOKIE, email, {
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 180,
     path: '/',
   })
   redirect('/')
@@ -26,6 +40,13 @@ export default async function LoginPage({
   searchParams: Promise<{ errore?: string }>
 }) {
   const sp = await searchParams
+  const emailRicordata = (await cookies()).get(EMAIL_COOKIE)?.value ?? ''
+  const messaggioErrore =
+    sp.errore === 'email'
+      ? 'Questa email non è abilitata all’accesso.'
+      : sp.errore === 'password'
+        ? 'Password non corretta.'
+        : null
 
   return (
     <div
@@ -67,17 +88,26 @@ export default async function LoginPage({
         </p>
         <form action={login}>
           <input
+            type="email"
+            name="email"
+            required
+            autoFocus={!emailRicordata}
+            defaultValue={emailRicordata}
+            placeholder="La tua email"
+            autoComplete="email"
+            style={{ textAlign: 'center' }}
+          />
+          <input
             type="password"
             name="password"
             required
-            autoFocus
+            autoFocus={!!emailRicordata}
             placeholder="Password"
-            style={{ textAlign: 'center' }}
+            autoComplete="current-password"
+            style={{ textAlign: 'center', marginTop: 10 }}
           />
-          {sp.errore && (
-            <p style={{ color: 'var(--red)', fontSize: 13, marginTop: 10 }}>
-              Password non corretta.
-            </p>
+          {messaggioErrore && (
+            <p style={{ color: 'var(--red)', fontSize: 13, marginTop: 10 }}>{messaggioErrore}</p>
           )}
           <button
             type="submit"
