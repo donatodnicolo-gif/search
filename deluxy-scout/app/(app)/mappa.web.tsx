@@ -439,6 +439,14 @@ export default function MappaWeb() {
                   </>
                 ) : (
                   <>
+                    {/* Anche durante il giro: pallino per confermare la visita. */}
+                    <Pressable style={styles.azione} hitSlop={8} onPress={() => segnaVisitato(p)} accessibilityLabel="Segna visitato">
+                      <Ionicons
+                        name={p.stato === 'visitato' ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={21}
+                        color={p.stato === 'visitato' ? colors.successo : colors.grigio}
+                      />
+                    </Pressable>
                     <Pressable style={styles.azione} hitSlop={6} onPress={() => spostaTappa(p.id, -1)} accessibilityLabel="Sposta su">
                       <Ionicons name="chevron-up" size={18} color={colors.testoSoft} />
                     </Pressable>
