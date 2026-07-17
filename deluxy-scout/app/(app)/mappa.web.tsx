@@ -14,7 +14,7 @@ const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
 import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
 import { urlNavigazione, urlNavigazioneGiro } from '@/lib/nav';
 import type { GeocodeResult } from '@/lib/geocode';
-import { scopriNegozi, type ScopertaResult } from '@/lib/discover';
+import { scopriNegozi, type FiltroScoperta, type ScopertaResult } from '@/lib/discover';
 import { aggiornaNascosto, aggiornaStarred } from '@/lib/db';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
 import { AddressSearch } from '@/components/AddressSearch';
@@ -22,6 +22,14 @@ import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { VisitaModal } from '@/components/VisitaModal';
 import { Loader } from '../_layout';
+
+// Sottomenu "cosa cerco": affiliati di default, poi si allarga.
+const TIPI_SCOPERTA: { v: FiltroScoperta; l: string }[] = [
+  { v: 'affiliazioni', l: 'Fiori/Pasticcerie' },
+  { v: 'fiori', l: 'Fiori' },
+  { v: 'pasticcerie', l: 'Pasticcerie' },
+  { v: 'tutti', l: 'Tutti' },
+];
 
 export default function MappaWeb() {
   const router = useRouter();
@@ -35,6 +43,7 @@ export default function MappaWeb() {
   const [scopLoading, setScopLoading] = useState(false);
   const [scopInfo, setScopInfo] = useState<ScopertaResult | null>(null);
   const [scopErrore, setScopErrore] = useState<string | null>(null);
+  const [filtroScoperta, setFiltroScoperta] = useState<FiltroScoperta>('affiliazioni');
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
   const [lineaFocus, setLineaFocus] = useState<string | null>(null); // linea da mettere in cima (null = tutte)
   const [visitaPlace, setVisitaPlace] = useState<Place | null>(null);
@@ -58,11 +67,11 @@ export default function MappaWeb() {
 
   const origine: Coord = destinazione ?? pos ?? MILANO;
 
-  async function cerca(c: Coord) {
+  async function cerca(c: Coord, f: FiltroScoperta = filtroScoperta) {
     setScopErrore(null);
     setScopLoading(true);
     try {
-      const res = await scopriNegozi(c.lat, c.lng, 400);
+      const res = await scopriNegozi(c.lat, c.lng, 400, f);
       setScoperti(res.places);
       setScopInfo(res);
     } catch (e) {
@@ -193,6 +202,22 @@ export default function MappaWeb() {
   return (
     <View style={styles.container}>
       <AddressSearch onSelect={onSelectDestinazione} onClear={azzera} />
+
+      {/* Cosa cercare: default affiliati (fioristi + pasticcerie), poi allargabile. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tipiRow}>
+        {TIPI_SCOPERTA.map((t) => (
+          <Pressable
+            key={t.v}
+            onPress={() => {
+              setFiltroScoperta(t.v);
+              if (destinazione && scopInfo) cerca(destinazione, t.v); // rilancia se già cercato
+            }}
+            style={[styles.tipoChip, filtroScoperta === t.v && styles.tipoChipOn]}
+          >
+            <Text style={[styles.tipoTxt, filtroScoperta === t.v && styles.tipoTxtOn]}>{t.l}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
 
       {/* La scoperta parte solo su richiesta esplicita (costa chiamate a Google). */}
       {destinazione ? (
@@ -441,6 +466,18 @@ const styles = StyleSheet.create({
   },
   btnCercaOff: { opacity: 0.55 },
   btnCercaTxt: { color: colors.bianco, fontWeight: '600', fontSize: 15 },
+  tipiRow: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: 6 },
+  tipoChip: {
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+  },
+  tipoChipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  tipoTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
+  tipoTxtOn: { color: colors.bianco },
   focusBar: { paddingBottom: spacing.xs },
   focusLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', paddingHorizontal: spacing.md, marginBottom: 4 },
   focusRow: { paddingHorizontal: spacing.md, gap: 6 },

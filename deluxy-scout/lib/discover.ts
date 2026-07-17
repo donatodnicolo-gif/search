@@ -14,7 +14,15 @@ function discoverUrl(): string {
   return `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/discover`;
 }
 
-export async function scopriNegozi(lat: number, lng: number, radius = 300): Promise<ScopertaResult> {
+// Cosa cercare: default 'affiliazioni' (fioristi+pasticcerie), poi fiori/pasticcerie/tutti.
+export type FiltroScoperta = 'affiliazioni' | 'fiori' | 'pasticcerie' | 'tutti';
+
+export async function scopriNegozi(
+  lat: number,
+  lng: number,
+  radius = 300,
+  filtro: FiltroScoperta = 'affiliazioni',
+): Promise<ScopertaResult> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   const res = await fetch(discoverUrl(), {
@@ -24,7 +32,7 @@ export async function scopriNegozi(lat: number, lng: number, radius = 300): Prom
       apikey: env.supabaseAnonKey(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ action: 'discover', lat, lng, radius }),
+    body: JSON.stringify({ action: 'discover', lat, lng, radius, filtro }),
   });
   if (!res.ok) {
     let msg = `Scoperta fallita (${res.status})`;

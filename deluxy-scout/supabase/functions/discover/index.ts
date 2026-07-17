@@ -73,6 +73,15 @@ const TIPI_RICERCA = [
   'bank',
 ];
 
+// Preset del filtro "cosa cerco" scelto dall'app (sottomenu Mappa).
+// 'affiliazioni' = solo affiliati (fioristi + pasticcerie); 'tutti' = flusso pieno.
+const PRESET_TIPI: Record<string, string[]> = {
+  affiliazioni: ['florist', 'bakery'],
+  fiori: ['florist'],
+  pasticcerie: ['bakery'],
+  tutti: TIPI_RICERCA,
+};
+
 /** Distanza in metri (Haversine). */
 function distanzaMetri(aLat: number, aLng: number, bLat?: number, bLng?: number): number {
   if (!isFinite(bLat as number) || !isFinite(bLng as number)) return Infinity;
@@ -150,7 +159,14 @@ Deno.serve(async (req) => {
     const radius = Math.min(Math.max(Number(body.radius) || 300, 50), 2000);
     if (!isFinite(lat) || !isFinite(lng)) return json({ error: 'lat/lng mancanti' }, 400);
 
-    const cella = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+    // Filtro "cosa cerco" (sottomenu Mappa): default = affiliati (fioristi + pasticcerie).
+    const filtro = PRESET_TIPI[body.filtro as string] ? (body.filtro as string) : 'affiliazioni';
+    const tipiCercati = PRESET_TIPI[filtro];
+    const soloAffiliati = filtro !== 'tutti'; // con 'tutti' includiamo anche la generica
+
+    // La cache è per-filtro: cercare "solo fiori" non deve marcare la cella come
+    // "già scansionata per tutto". Cella = coordinate + filtro.
+    const cella = `${lat.toFixed(3)},${lng.toFixed(3)}@${filtro}`;
     const nowIso = new Date().toISOString();
     const soglia = new Date(Date.now() - CACHE_GIORNI * 86400_000).toISOString();
 
@@ -175,14 +191,15 @@ Deno.serve(async (req) => {
       const dentroRaggio = (r: any) =>
         distanzaMetri(lat, lng, r.geometry?.location?.lat, r.geometry?.location?.lng) <= radius;
 
-      // Generica (prominenza): copre anche i tipi non in TIPI_RICERCA.
-      const generica = pagineNearby(
-        `${NEARBY}?location=${lat},${lng}&radius=${radius}&language=it&key=${key}`,
-        key,
-        3,
-      );
+      // Generica (prominenza): solo quando cerco "Tutti" — copre i tipi non elencati.
+      // Con un filtro (affiliati/fiori/pasticcerie) la si SALTA, altrimenti Google
+      // riporterebbe tutto il rumore vanificando il filtro.
+      const generica = soloAffiliati
+        ? Promise.resolve([] as any[])
+        : pagineNearby(`${NEARBY}?location=${lat},${lng}&radius=${radius}&language=it&key=${key}`, key, 3);
+
       // Per tipo (distanza): in parallelo; `rankby=distance` non ammette `radius`.
-      const perTipo = TIPI_RICERCA.map((t) =>
+      const perTipo = tipiCercati.map((t) =>
         pagineNearby(
           `${NEARBY}?location=${lat},${lng}&rankby=distance&type=${t}&language=it&key=${key}`,
           key,
@@ -263,7 +280,7 @@ Deno.serve(async (req) => {
       /* ignora: i flag HubSpot restano ai valori precedenti */
     }
 
-    // Restituisci tutte le attività vicine (da DB, ordinate per distanza).
+    // Restituisci le attività vicine (da DB, ordinate per distanza).
     const { data: places, error } = await admin.rpc('places_vicini', {
       p_lat: lat,
       p_lng: lng,
@@ -271,7 +288,19 @@ Deno.serve(async (req) => {
     });
     if (error) return json({ error: error.message }, 500);
 
-    return json({ places: places ?? [], cached, nuovi });
+    // Coerenza col sottomenu: se ho filtrato la ricerca, filtro anche l'output per
+    // categoria (fioraio/pasticceria), così "solo fiori" mostra solo fioristi.
+    const CAT_FILTRO: Record<string, string[]> = {
+      affiliazioni: ['fioraio', 'pasticceria'],
+      fiori: ['fioraio'],
+      pasticcerie: ['pasticceria'],
+    };
+    const catAmmesse = CAT_FILTRO[filtro];
+    const risposta = catAmmesse
+      ? (places ?? []).filter((p: any) => catAmmesse.includes(p.categoria))
+      : (places ?? []);
+
+    return json({ places: risposta, cached, nuovi, filtro });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }

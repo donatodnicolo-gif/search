@@ -145,6 +145,15 @@ function Card({
         <View style={{ flex: 1 }}>
           <Text style={styles.nome} numberOfLines={1}>{item.nome}</Text>
           {item.indirizzo ? <Text style={styles.meta} numberOfLines={1}>{item.indirizzo}</Text> : null}
+          {item.telefono ? (
+            <Pressable onPress={onChiama} hitSlop={6}>
+              <Text style={styles.tel}>
+                <Ionicons name="call" size={12} color={colors.successo} /> {item.telefono}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text style={styles.metaLeggero}>Nessun numero in rubrica</Text>
+          )}
           <View style={styles.refRow}>
             {item.referente ? <Text style={styles.meta}>{item.referente}</Text> : null}
             <Text style={styles.metaLeggero}>· {quando(item.ultima_chiamata)}</Text>
@@ -219,6 +228,7 @@ const styles = StyleSheet.create({
   nome: { fontSize: 16, fontWeight: '800', color: colors.navy },
   meta: { color: colors.testoSoft, fontSize: 13 },
   metaLeggero: { color: colors.grigio, fontSize: 12 },
+  tel: { color: colors.successo, fontSize: 14, fontWeight: '700', marginTop: 3 },
   refRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, flexWrap: 'wrap' },
   btnChiama: {
     flexDirection: 'row',
