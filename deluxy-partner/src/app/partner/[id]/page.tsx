@@ -7,6 +7,8 @@ import { nomeMese, commissione, dovutoVendita, ivato } from "@/lib/calc";
 import { segnaFatturaPagata } from "@/lib/actions";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { PagamentoMese } from "@/components/PagamentoMese";
+import { RecapAI } from "@/components/RecapAI";
+import { costruisciRecapPrompt } from "@/lib/recap";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,16 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
   // valore mese = vendite + servizi fatturati (netto IVA), per il confronto anno su anno
   const valoreMese = (r: { vendite: number; serviziNetto: number }) => r.vendite + r.serviziNetto;
 
+  const recapPrompt = costruisciRecapPrompt({
+    partner,
+    anno,
+    annoPrec,
+    mesi,
+    mesiPrec: prec.mesi,
+    rolling,
+    rollingPrec: prec.rolling,
+  });
+
   return (
     <>
       <div className="page-head">
@@ -46,6 +58,8 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
           <Link href={`/partner/${id}/modifica`} className="btn primary">Modifica</Link>
         </div>
       </div>
+
+      <RecapAI prompt={recapPrompt} />
 
       <div className="card">
         <div className="info-grid">
