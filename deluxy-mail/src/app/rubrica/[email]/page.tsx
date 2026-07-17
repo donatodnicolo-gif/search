@@ -20,7 +20,7 @@ export default async function Contatto({ params }: Props) {
     take: 200,
     include: {
       sezione: true,
-      bozza: { select: { id: true, inviata: true } },
+      bozze: { where: { inviata: false }, select: { id: true } },
       _count: { select: { attivita: true } },
     },
   })
@@ -36,7 +36,7 @@ export default async function Contatto({ params }: Props) {
     <>
       <div className="page-head">
         <div>
-          <Link href="/contatti" className="btn secondary small" style={{ marginBottom: 14 }}>
+          <Link href="/rubrica" className="btn secondary small" style={{ marginBottom: 14 }}>
             ← Contatti
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -96,7 +96,7 @@ export default async function Contatto({ params }: Props) {
                   )}
                 </div>
 
-                {(m.sezione || m.archiviato || m._count.attivita > 0 || m.bozza) && (
+                {(m.sezione || m.archiviato || m._count.attivita > 0 || m.bozze.length > 0) && (
                   <div className="mail-tags" style={{ paddingLeft: 17 }}>
                     {m.sezione && (
                       <span className={`badge ${m.sezione.colore}`}>
@@ -108,7 +108,7 @@ export default async function Contatto({ params }: Props) {
                     {m._count.attivita > 0 && (
                       <span className="badge neutral">{m._count.attivita} attività</span>
                     )}
-                    {m.bozza && !m.bozza.inviata && <span className="badge gold">Bozza pronta</span>}
+                    {m.bozze.length > 0 && <span className="badge gold">Bozza pronta</span>}
                   </div>
                 )}
                 </Link>

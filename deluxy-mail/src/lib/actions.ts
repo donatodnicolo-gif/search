@@ -2,11 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import nodemailer from 'nodemailer'
+import MailComposer from 'nodemailer/lib/mail-composer'
+import type { Account } from '@prisma/client'
 import { db } from './db'
 import { cifra, decifra } from './crypto'
 import { analizzaMessaggioOra, scaricaStorico, sincronizzaTutti } from './sync'
 import { CODICI_PRIORITA } from './format'
-import { provaConnessione } from './imap'
+import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
 import { scriviImpostazione } from './impostazioni'
 
 function testo(form: FormData, campo: string): string {
@@ -291,41 +293,144 @@ export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: 
       include: { messaggio: { include: { account: true } } },
     })
     if (bozza.inviata) return { ok: false, messaggio: 'Questa bozza è già stata inviata.' }
+    if (!bozza.messaggio) return { ok: false, messaggio: 'Bozza senza messaggio d’origine.' }
 
     const account = bozza.messaggio.account
-    const transporter = nodemailer.createTransport({
-      host: account.smtpHost,
-      port: account.smtpPort,
-      secure: account.smtpSicuro,
-      auth: { user: account.smtpUtente, pass: decifra(account.smtpPassword) },
-    })
+    const daInviare: DaInviare = {
+      a: bozza.a || bozza.messaggio.mittente,
+      cc: bozza.cc,
+      oggetto: bozza.oggetto,
+      corpo: bozza.corpo,
+      inRispostaA: bozza.messaggio.messageId,
+    }
 
-    await transporter.sendMail({
-      from: `${account.nome} <${account.email}>`,
-      to: bozza.messaggio.mittente,
-      subject: bozza.oggetto,
-      text: bozza.corpo,
-      inReplyTo: bozza.messaggio.messageId ?? undefined,
-      references: bozza.messaggio.messageId ?? undefined,
-    })
+    const { raw, messageId } = await spedisci(account, daInviare)
+    const avviso = await registraInviato(account, daInviare, raw, messageId)
 
     await db.bozza.update({
       where: { id },
       data: { inviata: true, inviataIl: new Date() },
     })
     await db.messaggio.update({
-      where: { id: bozza.messaggioId },
+      where: { id: bozza.messaggio.id },
       data: { letto: true, serveRisposta: false },
     })
 
     revalidatePath('/', 'layout')
-    return { ok: true, messaggio: `Risposta inviata a ${bozza.messaggio.mittente}.` }
+    return {
+      ok: true,
+      messaggio: `Risposta inviata a ${daInviare.a}.${avviso ? ` ${avviso}` : ''}`,
+    }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Invio non riuscito' }
   }
 }
 
 // ---------- Scrivere e inviare ----------
+
+type DaInviare = {
+  a: string
+  cc?: string
+  oggetto: string
+  corpo: string
+  /** Message-ID dell'originale: aggancia la risposta alla conversazione. */
+  inRispostaA?: string | null
+}
+
+/**
+ * Spedisce davvero un messaggio e ne lascia traccia in tre posti.
+ *
+ * Il MIME si costruisce una volta sola e si riusa per l'invio e per la copia
+ * in "Inviata": ricostruirlo darebbe due messaggi con Message-ID diverso, cioè
+ * due mail diverse per i client di posta.
+ */
+async function spedisci(
+  account: Account,
+  m: DaInviare
+): Promise<{ raw: Buffer; messageId: string }> {
+  const composer = new MailComposer({
+    from: `${account.nome} <${account.email}>`,
+    to: m.a,
+    cc: m.cc || undefined,
+    subject: m.oggetto,
+    text: m.corpo,
+    inReplyTo: m.inRispostaA ?? undefined,
+    references: m.inRispostaA ?? undefined,
+  })
+
+  const mail = composer.compile()
+  const raw = await mail.build()
+  const messageId = mail.messageId()
+
+  const transporter = nodemailer.createTransport({
+    host: account.smtpHost,
+    port: account.smtpPort,
+    secure: account.smtpSicuro,
+    auth: { user: account.smtpUtente, pass: decifra(account.smtpPassword) },
+  })
+  await transporter.sendMail({ envelope: { from: account.email, to: [m.a, ...(m.cc ? m.cc.split(',').map((x) => x.trim()) : [])] }, raw })
+
+  return { raw, messageId }
+}
+
+/**
+ * Registra il messaggio inviato: copia nella cartella "Inviata" del server e
+ * riga in "Posta inviata" dentro AI Mail.
+ *
+ * Se la copia sul server non riesce, l'invio resta valido — la mail è già
+ * partita. Si segnala e si va avanti: non ha senso far fallire un'operazione
+ * riuscita per colpa di un archivio.
+ */
+async function registraInviato(
+  account: Account,
+  m: DaInviare,
+  raw: Buffer,
+  messageId: string
+): Promise<string | null> {
+  let avviso: string | null = null
+
+  let cartella = account.cartellaInviata
+  try {
+    if (!cartella) {
+      cartella = await trovaCartellaInviata(account)
+      if (cartella) {
+        await db.account.update({ where: { id: account.id }, data: { cartellaInviata: cartella } })
+      }
+    }
+    if (cartella) await salvaInInviata(account, cartella, raw)
+    else avviso = 'Copia non salvata sul server: cartella “Inviata” non trovata.'
+  } catch {
+    avviso = 'Copia non salvata nella cartella “Inviata” del server.'
+  }
+
+  // uid negativo decrescente: i messaggi in uscita non vengono da uno scarico
+  // e non devono collidere con la numerazione IMAP della posta in arrivo.
+  const ultimo = await db.messaggio.findFirst({
+    where: { accountId: account.id, direzione: 'uscita' },
+    orderBy: { uid: 'asc' },
+    select: { uid: true },
+  })
+  const uid = Math.min(-1, (ultimo?.uid ?? 0) - 1)
+
+  await db.messaggio.create({
+    data: {
+      accountId: account.id,
+      uid,
+      direzione: 'uscita',
+      messageId,
+      mittente: account.email,
+      mittenteNome: account.nome,
+      destinatari: [m.a, m.cc].filter(Boolean).join(', '),
+      oggetto: m.oggetto,
+      data: new Date(),
+      anteprima: m.corpo.replace(/\s+/g, ' ').slice(0, 200),
+      corpoTesto: m.corpo,
+      letto: true,
+    },
+  })
+
+  return avviso
+}
 
 /**
  * Invia una risposta, una risposta a tutti o un inoltro.
@@ -350,27 +455,20 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
       include: { account: true },
     })
     const account = originale.account
-
-    const transporter = nodemailer.createTransport({
-      host: account.smtpHost,
-      port: account.smtpPort,
-      secure: account.smtpSicuro,
-      auth: { user: account.smtpUtente, pass: decifra(account.smtpPassword) },
-    })
-
     const inoltro = testo(form, 'modo') === 'inoltra'
 
-    await transporter.sendMail({
-      from: `${account.nome} <${account.email}>`,
-      to: a,
-      cc: cc || undefined,
-      subject: oggetto,
-      text: corpo,
+    const daInviare: DaInviare = {
+      a,
+      cc,
+      oggetto,
+      corpo,
       // Un inoltro non appartiene alla conversazione originale: legarlo al
       // thread lo farebbe finire nella discussione sbagliata del destinatario.
-      inReplyTo: inoltro ? undefined : (originale.messageId ?? undefined),
-      references: inoltro ? undefined : (originale.messageId ?? undefined),
-    })
+      inRispostaA: inoltro ? null : originale.messageId,
+    }
+
+    const { raw, messageId } = await spedisci(account, daInviare)
+    const avviso = await registraInviato(account, daInviare, raw, messageId)
 
     if (!inoltro) {
       await db.messaggio.update({
@@ -379,11 +477,54 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
       })
     }
 
+    // La bozza da cui è partito l'invio ha esaurito il suo compito.
+    const bozzaId = testo(form, 'bozzaId')
+    if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId } })
+
     revalidatePath('/', 'layout')
-    return { ok: true, messaggio: `Messaggio inviato a ${a}.` }
+    return { ok: true, messaggio: `Messaggio inviato a ${a}.${avviso ? ` ${avviso}` : ''}` }
   } catch (e) {
     return { ok: false, messaggio: `Invio non riuscito: ${e instanceof Error ? e.message : 'errore'}` }
   }
+}
+
+/**
+ * Mette da parte una mail iniziata e non finita, per riprenderla dopo.
+ * Se la bozza esiste già la aggiorna, invece di crearne una nuova a ogni salvataggio.
+ */
+export async function salvaMinuta(form: FormData): Promise<{ ok: boolean; messaggio: string; id?: string }> {
+  try {
+    const bozzaId = testo(form, 'bozzaId')
+    const messaggioId = testo(form, 'messaggioId')
+    const dati = {
+      a: testo(form, 'a'),
+      cc: testo(form, 'cc'),
+      oggetto: testo(form, 'oggetto'),
+      corpo: testo(form, 'corpo'),
+      modo: testo(form, 'modo') || 'rispondi',
+      origine: 'utente',
+    }
+
+    if (!dati.corpo && !dati.a) {
+      return { ok: false, messaggio: 'Non c’è ancora niente da salvare.' }
+    }
+
+    const bozza = bozzaId
+      ? await db.bozza.update({ where: { id: bozzaId }, data: { ...dati, modificata: true } })
+      : await db.bozza.create({
+          data: { ...dati, messaggioId: messaggioId || null, corpoAI: '' },
+        })
+
+    revalidatePath('/', 'layout')
+    return { ok: true, messaggio: 'Bozza salvata. La trovi in Bozze.', id: bozza.id }
+  } catch (e) {
+    return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
+  }
+}
+
+export async function eliminaBozza(id: string) {
+  await db.bozza.delete({ where: { id } })
+  revalidatePath('/', 'layout')
 }
 
 // ---------- Sezioni ----------

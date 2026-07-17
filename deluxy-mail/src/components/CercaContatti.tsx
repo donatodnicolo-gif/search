@@ -14,7 +14,7 @@ export function CercaContatti({ valore }: { valore: string }) {
   useEffect(() => {
     if (testo === valore) return
     const id = setTimeout(() => {
-      router.push(testo.trim() ? `/contatti?q=${encodeURIComponent(testo.trim())}` : '/contatti')
+      router.push(testo.trim() ? `/rubrica?q=${encodeURIComponent(testo.trim())}` : '/rubrica')
     }, 500)
     return () => clearTimeout(id)
   }, [testo, valore, router])

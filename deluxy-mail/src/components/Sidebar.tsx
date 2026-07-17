@@ -8,33 +8,46 @@ async function datiSidebar() {
   // Se il database non è ancora configurato la sidebar non deve far crollare
   // la pagina: mostra le voci fisse e nessuna sezione.
   try {
-    const [sezioni, daFare, nonLette, cestinati] = await Promise.all([
+    const [sezioni, daFare, nonLette, cestinati, bozze] = await Promise.all([
       db.sezione.findMany({
         orderBy: { ordine: 'asc' },
         include: {
           _count: {
-            select: { messaggi: { where: { archiviato: false, letto: false, cestinato: false } } },
+            select: {
+              messaggi: {
+                where: {
+                  archiviato: false,
+                  letto: false,
+                  cestinato: false,
+                  direzione: 'entrata',
+                },
+              },
+            },
           },
         },
       }),
       db.attivita.count({ where: { fatta: false } }),
-      db.messaggio.count({ where: { letto: false, archiviato: false, cestinato: false } }),
+      db.messaggio.count({
+        where: { letto: false, archiviato: false, cestinato: false, direzione: 'entrata' },
+      }),
       db.messaggio.count({ where: { cestinato: true } }),
+      db.bozza.count({ where: { inviata: false } }),
     ])
-    return { sezioni, daFare, nonLette, cestinati, errore: false }
+    return { sezioni, daFare, nonLette, cestinati, bozze, errore: false }
   } catch {
-    return { sezioni: [], daFare: 0, nonLette: 0, cestinati: 0, errore: true }
+    return { sezioni: [], daFare: 0, nonLette: 0, cestinati: 0, bozze: 0, errore: true }
   }
 }
 
 export async function Sidebar() {
-  const { sezioni, daFare, nonLette, cestinati } = await datiSidebar()
+  const { sezioni, daFare, nonLette, cestinati, bozze } = await datiSidebar()
 
   const principali: Voce[] = [
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
     { href: '/attivita', label: 'Attività', badge: daFare },
-    { href: '/bozze', label: 'Bozze' },
-    { href: '/contatti', label: 'Contatti' },
+    { href: '/bozze', label: 'Bozze', badge: bozze },
+    { href: '/inviata', label: 'Posta inviata' },
+    { href: '/rubrica', label: 'Rubrica' },
     { href: '/cestino', label: 'Cestino', badge: cestinati },
   ]
 

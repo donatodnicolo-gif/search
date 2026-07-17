@@ -142,6 +142,53 @@ function connessione(account: Account): ImapFlow {
   })
 }
 
+/**
+ * Trova la cartella della posta inviata sul server.
+ *
+ * Il nome cambia da provider a provider ("Sent", "INVIATA", "Posta inviata",
+ * "[Gmail]/Posta inviata"), quindi non si indovina: IMAP marca quella giusta
+ * con il flag speciale \Sent. Se il server non lo dichiara si prova con i nomi
+ * più comuni, e se non c'è nemmeno quelli si rinuncia (null) — meglio non
+ * salvare la copia che crearla nel posto sbagliato.
+ */
+export async function trovaCartellaInviata(account: Account): Promise<string | null> {
+  const client = connessione(account)
+  await client.connect()
+  try {
+    const lista = await client.list()
+
+    const speciale = lista.find((c) => c.specialUse === '\\Sent')
+    if (speciale) return speciale.path
+
+    const nomi = ['sent', 'inviata', 'posta inviata', 'sent items', 'sent mail', 'inviati']
+    const perNome = lista.find((c) => nomi.includes(c.name.toLowerCase()))
+    return perNome?.path ?? null
+  } finally {
+    await client.logout()
+  }
+}
+
+/**
+ * Deposita una copia del messaggio inviato nella cartella "Inviata" del server.
+ *
+ * Senza questo, una mail spedita da AI Mail non esisterebbe da nessuna parte
+ * per gli altri client: apri la posta dal telefono e la tua risposta non c'è.
+ * L'invio SMTP consegna al destinatario, ma non lascia traccia nella casella.
+ */
+export async function salvaInInviata(
+  account: Account,
+  cartella: string,
+  sorgente: Buffer | string
+): Promise<void> {
+  const client = connessione(account)
+  await client.connect()
+  try {
+    await client.append(cartella, sorgente, ['\\Seen'])
+  } finally {
+    await client.logout()
+  }
+}
+
 /** Apre e chiude una connessione per verificare host, porta e credenziali. */
 export async function provaConnessione(account: Account): Promise<void> {
   const client = connessione(account)

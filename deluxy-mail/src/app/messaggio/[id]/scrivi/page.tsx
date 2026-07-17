@@ -9,12 +9,12 @@ export const dynamic = 'force-dynamic'
 
 type Props = {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ modo?: string }>
+  searchParams: Promise<{ modo?: string; bozza?: string }>
 }
 
 export default async function Scrivi({ params, searchParams }: Props) {
   const { id } = await params
-  const { modo: modoGrezzo } = await searchParams
+  const { modo: modoGrezzo, bozza: bozzaId } = await searchParams
   const modo = modoValido(modoGrezzo)
 
   const messaggio = await db.messaggio.findUnique({
@@ -25,12 +25,20 @@ export default async function Scrivi({ params, searchParams }: Props) {
 
   const impostazioni = await leggiImpostazioni()
 
-  const iniziale = preparaRisposta({
-    messaggio,
-    modo,
-    mioIndirizzo: messaggio.account.email,
-    firma: impostazioni[CHIAVI.firma],
-  })
+  // Riprendendo una bozza si riparte da com'era, non dai campi precompilati:
+  // sarebbe come non averla mai salvata.
+  const bozza = bozzaId
+    ? await db.bozza.findUnique({ where: { id: bozzaId, inviata: false } })
+    : null
+
+  const iniziale = bozza
+    ? { a: bozza.a, cc: bozza.cc, oggetto: bozza.oggetto, corpo: bozza.corpo }
+    : preparaRisposta({
+        messaggio,
+        modo,
+        mioIndirizzo: messaggio.account.email,
+        firma: impostazioni[CHIAVI.firma],
+      })
 
   return (
     <>
@@ -56,6 +64,7 @@ export default async function Scrivi({ params, searchParams }: Props) {
         da={`${messaggio.account.nome} <${messaggio.account.email}>`}
         iniziale={iniziale}
         tornaA={`/messaggio/${id}`}
+        bozzaId={bozza?.id}
       />
     </>
   )

@@ -36,6 +36,10 @@ model Account {
   smtpPassword String // cifrata (mai in chiaro)
   // Stato sincronizzazione
   cartella     String    @default("INBOX")
+  // Cartella della posta inviata sul server. Il nome cambia da provider a
+  // provider ("Sent", "INVIATA", "Posta inviata"): si scopre dal flag IMAP
+  // \Sent invece di indovinarlo.
+  cartellaInviata String?
   // La sincronizzazione si muove in due direzioni: in avanti prende i messaggi
   // nuovi (UID > ultimoUid), all'indietro recupera lo storico (UID < primoUid).
   // primoUid = 0 significa "non ho ancora scaricato niente".
@@ -107,6 +111,10 @@ model Messaggio {
   uid       Int // UID IMAP, unico dentro la cartella dell'account
   messageId String? // Message-ID del protocollo, per collegare i thread
   thread    String? // chiave di raggruppamento (Message-ID radice o oggetto normalizzato)
+  // 'entrata' = arrivata nella casella; 'uscita' = inviata da AI Mail.
+  // I messaggi in uscita hanno uid negativo: non arrivano da uno scarico e
+  // non devono scontrarsi con la numerazione IMAP della posta in arrivo.
+  direzione String @default("entrata")
 
   mittente     String
   mittenteNome String?
@@ -143,7 +151,7 @@ model Messaggio {
   erroreAI      String?
 
   attivita  Attivita[]
-  bozza     Bozza?
+  bozze     Bozza[]
 
   creatoIl DateTime @default(now())
 
@@ -171,22 +179,37 @@ model Attivita {
   @@index([fatta, scadenza])
 }
 
-// La risposta proposta dall'AI per un messaggio. Non parte mai da sola:
-// resta una bozza finché non la invii tu.
+// Una risposta non ancora inviata. Due origini: la propone l'AI, oppure l'hai
+// iniziata tu e messa da parte. In nessun caso parte da sola.
 model Bozza {
-  id          String @id @default(cuid())
-  messaggioId String @unique
-  messaggio   Messaggio @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
+  id          String     @id @default(cuid())
+  // Nulla per un messaggio nuovo scritto da zero; valorizzata quando la bozza
+  // nasce rispondendo o inoltrando.
+  messaggioId String?
+  messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
+  accountId   String?
 
+  // 'ai' = proposta dal modello, 'utente' = iniziata da te.
+  origine String @default("ai")
+  // rispondi | tutti | inoltra | nuovo — serve a riaprirla come l'avevi lasciata.
+  modo    String @default("rispondi")
+
+  a        String @default("")
+  cc       String @default("")
   oggetto  String
   corpo    String @db.Text
-  // Il testo così come l'ha scritto l'AI: serve per capire quanto correggi
-  // e per rigenerare la bozza senza perdere le tue modifiche.
-  corpoAI  String @db.Text
-  modificata Boolean  @default(false)
-  inviata    Boolean  @default(false)
+  // Il testo così come l'ha scritto l'AI: serve per capire quanto correggi.
+  // Vuoto per le bozze tue.
+  corpoAI  String @db.Text @default("")
+
+  modificata Boolean   @default(false)
+  inviata    Boolean   @default(false)
   inviataIl  DateTime?
-  creataIl   DateTime @default(now())
+  creataIl     DateTime @default(now())
+  aggiornataIl DateTime @default(now()) @updatedAt
+
+  @@index([inviata, aggiornataIl])
+  @@index([messaggioId])
 }
 
 // Preferenze globali (chiave/valore): tono delle risposte, firma, contesto

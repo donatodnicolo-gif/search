@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { inviaMessaggio } from '@/lib/actions'
+import { inviaMessaggio, salvaMinuta } from '@/lib/actions'
 import type { Modo } from '@/lib/rispondi'
 
 type Props = {
@@ -11,9 +11,11 @@ type Props = {
   da: string
   iniziale: { a: string; cc: string; oggetto: string; corpo: string }
   tornaA: string
+  /** Valorizzato quando si sta riprendendo una bozza già salvata. */
+  bozzaId?: string
 }
 
-export function Composizione({ messaggioId, modo, da, iniziale, tornaA }: Props) {
+export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId }: Props) {
   const [a, setA] = useState(iniziale.a)
   const [cc, setCc] = useState(iniziale.cc)
   const [oggetto, setOggetto] = useState(iniziale.oggetto)
@@ -21,21 +23,38 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA }: Props)
   const [stato, setStato] = useState<{ ok: boolean; messaggio: string } | null>(null)
   // L'invio è irreversibile: prima di partire si conferma.
   const [conferma, setConferma] = useState(false)
+  // Salvando due volte non si devono creare due bozze: dal primo salvataggio
+  // in poi si aggiorna quella.
+  const [idBozza, setIdBozza] = useState(bozzaId)
   const [inCorso, startTransition] = useTransition()
   const router = useRouter()
+
+  function campi() {
+    const form = new FormData()
+    if (idBozza) form.set('bozzaId', idBozza)
+    form.set('messaggioId', messaggioId)
+    form.set('modo', modo)
+    form.set('a', a)
+    form.set('cc', cc)
+    form.set('oggetto', oggetto)
+    form.set('corpo', corpo)
+    return form
+  }
+
+  function salva() {
+    setStato(null)
+    startTransition(async () => {
+      const esito = await salvaMinuta(campi())
+      setStato(esito)
+      if (esito.id) setIdBozza(esito.id)
+      router.refresh()
+    })
+  }
 
   function invia() {
     setStato(null)
     startTransition(async () => {
-      const form = new FormData()
-      form.set('messaggioId', messaggioId)
-      form.set('modo', modo)
-      form.set('a', a)
-      form.set('cc', cc)
-      form.set('oggetto', oggetto)
-      form.set('corpo', corpo)
-
-      const esito = await inviaMessaggio(form)
+      const esito = await inviaMessaggio(campi())
       setStato(esito)
       setConferma(false)
       if (esito.ok) {
@@ -109,6 +128,10 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA }: Props)
           type="button"
         >
           Annulla
+        </button>
+
+        <button className="btn secondary" onClick={salva} disabled={inCorso} type="button">
+          Salva bozza
         </button>
 
         {conferma ? (

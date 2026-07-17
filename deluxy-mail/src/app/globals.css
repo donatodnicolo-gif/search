@@ -365,6 +365,34 @@ input:focus, select:focus, textarea:focus {
 .dot-unread { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); flex: 0 0 7px; }
 .dot-spacer { width: 7px; flex: 0 0 7px; }
 
+/* ---------- Rubrica: i più frequenti ---------- */
+.frequenti-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.frequente {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  padding: 14px 16px;
+  transition: transform 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+.frequente:hover { transform: translateY(-1px); box-shadow: var(--shadow-float); }
+.frequente-nome {
+  display: block; font-size: 14px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.frequente-mail {
+  display: block; font-size: 12px; color: var(--text-tertiary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.frequente-conta { display: block; font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
 /* ---------- Dettaglio messaggio ---------- */
 .mail-head { padding-bottom: 18px; border-bottom: 1px solid var(--hairline); margin-bottom: 18px; }
 .mail-subject { font-size: 24px; font-weight: 600; letter-spacing: -0.022em; }

@@ -52,6 +52,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       // Il cestino ha una pagina sua: qui non si vede mai, nemmeno fra gli
       // archiviati o filtrando per sezione.
       cestinato: false,
+      // Quello che hai inviato tu sta in "Posta inviata".
+      direzione: 'entrata',
       archiviato: stato === 'archiviati',
       ...(sezione ? { sezioneId: sezione } : {}),
       ...(stato === 'non-letti' ? { letto: false } : {}),
@@ -63,7 +65,11 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     // le urgenze si usano i filtri P0…P3 qui sopra.
     orderBy: { data: 'desc' },
     take: 100,
-    include: { sezione: true, bozza: { select: { id: true, inviata: true } }, _count: { select: { attivita: true } } },
+    include: {
+      sezione: true,
+      bozze: { where: { inviata: false }, select: { id: true } },
+      _count: { select: { attivita: true } },
+    },
   })
 
   const filtri = [
@@ -165,7 +171,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
 
                   {/* Niente badge quando l'AI non ha girato: è la normalità,
                       non un guasto — parte solo se dai una priorità. */}
-                  {(m.sezione || m._count.attivita > 0 || m.bozza) && (
+                  {(m.sezione || m._count.attivita > 0 || m.bozze.length > 0) && (
                     <div className="mail-tags" style={{ paddingLeft: 17 }}>
                       {m.sezione && (
                         <span className={`badge ${m.sezione.colore}`}>
@@ -178,9 +184,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                           {m._count.attivita} attività
                         </span>
                       )}
-                      {m.bozza && !m.bozza.inviata && (
-                        <span className="badge gold">Bozza pronta</span>
-                      )}
+                      {m.bozze.length > 0 && <span className="badge gold">Bozza pronta</span>}
                     </div>
                   )}
                   </Link>

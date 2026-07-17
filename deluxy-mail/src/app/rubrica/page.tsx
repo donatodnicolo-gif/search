@@ -7,15 +7,19 @@ export const dynamic = 'force-dynamic'
 
 type Props = { searchParams: Promise<{ q?: string }> }
 
-export default async function Contatti({ searchParams }: Props) {
+export default async function Rubrica({ searchParams }: Props) {
   const { q } = await searchParams
   const contatti = await elencoContatti(q)
+
+  // I più frequenti solo quando non stai cercando: durante una ricerca sono
+  // rumore, hai già in mente chi vuoi.
+  const frequenti = q ? [] : [...contatti].sort((a, b) => b.messaggi - a.messaggi).slice(0, 8)
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Contatti</h1>
+          <h1 className="page-title">Rubrica</h1>
           <p className="page-caption">
             Chi ti scrive, registrato da solo dalla posta. Apri un contatto per vedere tutti i
             suoi messaggi.
@@ -26,6 +30,34 @@ export default async function Contatti({ searchParams }: Props) {
         </div>
       </div>
 
+      {frequenti.length > 0 && (
+        <>
+          <h2 className="section-title" style={{ marginTop: 0 }}>
+            I più frequenti
+          </h2>
+          <div className="frequenti-grid">
+            {frequenti.map((c) => (
+              <Link
+                key={c.email}
+                href={`/rubrica/${encodeURIComponent(c.email)}`}
+                className="frequente"
+              >
+                <span className="avatar">{iniziali(c.nome, c.email)}</span>
+                <span style={{ minWidth: 0 }}>
+                  <span className="frequente-nome">{c.nome || c.email.split('@')[0]}</span>
+                  <span className="frequente-mail">{c.email}</span>
+                  <span className="frequente-conta">
+                    {c.messaggi} messaggi
+                    {c.daRispondere > 0 && ` · ${c.daRispondere} da rispondere`}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+
+      <h2 className="section-title">{q ? 'Risultati' : 'Tutti i contatti'}</h2>
       <div className="card tight">
         {contatti.length === 0 ? (
           <div className="empty">
@@ -53,7 +85,7 @@ export default async function Contatti({ searchParams }: Props) {
                   <tr key={c.email} className="row-link">
                     <td>
                       <Link
-                        href={`/contatti/${encodeURIComponent(c.email)}`}
+                        href={`/rubrica/${encodeURIComponent(c.email)}`}
                         style={{ display: 'flex', alignItems: 'center', gap: 12 }}
                       >
                         <span className="avatar">{iniziali(c.nome, c.email)}</span>

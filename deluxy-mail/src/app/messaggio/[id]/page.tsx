@@ -16,11 +16,15 @@ export default async function DettaglioMessaggio({ params }: Props) {
 
   const messaggio = await db.messaggio.findUnique({
     where: { id },
-    include: { sezione: true, bozza: true, attivita: true, account: true },
+    include: { sezione: true, bozze: true, attivita: true, account: true },
   })
   if (!messaggio) notFound()
 
   const sezioni = await db.sezione.findMany({ orderBy: { ordine: 'asc' } })
+
+  // Qui si mostra solo la proposta dell'AI: le bozze che hai iniziato tu si
+  // riprendono dalla schermata di scrittura, dove le stavi scrivendo.
+  const bozzaAI = messaggio.bozze.find((b) => b.origine === 'ai' && !b.inviata)
 
   return (
     <>
@@ -45,7 +49,7 @@ export default async function DettaglioMessaggio({ params }: Props) {
           <h1 className="mail-subject">{messaggio.oggetto}</h1>
           <div className="mail-meta">
             <Link
-              href={`/contatti/${encodeURIComponent(messaggio.mittente)}`}
+              href={`/rubrica/${encodeURIComponent(messaggio.mittente)}`}
               style={{ textDecoration: 'underline' }}
               title="Vedi tutti i messaggi di questo contatto"
             >
@@ -138,15 +142,15 @@ export default async function DettaglioMessaggio({ params }: Props) {
         <div className="mail-body">{messaggio.corpoTesto}</div>
       </div>
 
-      {messaggio.bozza && (
+      {bozzaAI && (
         <div className="card draft-box">
           <BozzaEditor
             bozza={{
-              id: messaggio.bozza.id,
-              oggetto: messaggio.bozza.oggetto,
-              corpo: messaggio.bozza.corpo,
-              inviata: messaggio.bozza.inviata,
-              modificata: messaggio.bozza.modificata,
+              id: bozzaAI.id,
+              oggetto: bozzaAI.oggetto,
+              corpo: bozzaAI.corpo,
+              inviata: bozzaAI.inviata,
+              modificata: bozzaAI.modificata,
             }}
             destinatario={messaggio.mittente}
             mittente={messaggio.account.email}
