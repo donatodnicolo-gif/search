@@ -511,7 +511,13 @@ export class DeliveryFormComponent {
     this.http
       .get<{ items: Product[] }>(`${api}/products`, { params: { pageSize: 500 } })
       .subscribe((d) => this.products.set(d.items ?? []));
-    this.http.get<Customer[]>(`${api}/customers`).subscribe((d) => this.customers.set(d));
+    // La lista clienti e' paginata: qui serve per la tendina "Cliente esistente",
+    // quindi chiedo la pagina massima. ATTENZIONE: in produzione i clienti sono
+    // migliaia, quindi la tendina resta parziale -> va sostituita da una ricerca
+    // mentre si scrive (vedi HANDOFF, punto aperto).
+    this.http
+      .get<{ items: Customer[] }>(`${api}/customers`, { params: { pageSize: 500 } })
+      .subscribe((d) => this.customers.set(d.items ?? []));
     this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
 
     // Modalita' modifica: /deliveries/:id/edit

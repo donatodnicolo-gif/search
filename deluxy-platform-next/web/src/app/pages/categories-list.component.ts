@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { ClientTable } from '../core/client-table';
 import { Category } from '../core/models';
 
 @Component({
@@ -17,7 +18,7 @@ import { Category } from '../core/models';
         <p class="page-caption">{{ categories().length }} {{ 'categories.caption' | translate }}</p>
       </div>
       <div class="head-actions">
-        <input class="field" [attr.placeholder]="'categories.searchPlaceholder' | translate" [(ngModel)]="query" />
+        <input class="field" name="q" [attr.placeholder]="'common.search' | translate" [ngModel]="table.query()" (ngModelChange)="table.query.set($event)" />
         <a routerLink="/categories/new" class="btn btn-primary">+ {{ 'categories.add' | translate }}</a>
       </div>
     </div>
@@ -29,7 +30,15 @@ import { Category } from '../core/models';
     } @else {
       <div class="card table-wrap">
         <table>
-          <thead><tr><th>{{ 'categories.col.name' | translate }}</th><th>{{ 'categories.col.notes' | translate }}</th><th>{{ 'categories.col.fields' | translate }}</th><th>{{ 'categories.col.discounts' | translate }}</th><th>{{ 'deliveries.col.actions' | translate }}</th></tr></thead>
+          <thead>
+            <tr>
+              <th class="sortable" (click)="table.sortBy('name')">{{ 'categories.col.name' | translate }}<span class="sort-ind">{{ table.indicator('name') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('notes')">{{ 'categories.col.notes' | translate }}<span class="sort-ind">{{ table.indicator('notes') }}</span></th>
+              <th>{{ 'categories.col.fields' | translate }}</th>
+              <th>{{ 'categories.col.discounts' | translate }}</th>
+              <th>{{ 'deliveries.col.actions' | translate }}</th>
+            </tr>
+          </thead>
           <tbody>
             @for (c of filtered(); track c.id) {
               <tr class="row-link" tabindex="0" (click)="openDetail(c)" (keydown.enter)="openDetail(c)">
@@ -64,6 +73,9 @@ import { Category } from '../core/models';
       table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
       th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; white-space: nowrap; }
+      th.sortable { cursor: pointer; user-select: none; }
+      th.sortable:hover { color: var(--text); }
+      .sort-ind { color: var(--gold-strong); font-weight: 700; }
       tbody tr:hover { background: rgba(120,120,128,0.05); }
       tr:last-child td { border-bottom: none; }
       .strong { font-weight: 550; }
@@ -94,13 +106,13 @@ export class CategoriesListComponent {
   readonly categories = signal<Category[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
-  query = '';
+  /** Ricerca globale + ordinamento per colonna, lato client (lista piccola). */
+  readonly table = new ClientTable<Category>(
+    ['name', 'notes', 'fields.name', 'discounts.province.code', 'discounts.province.name'],
+    'name',
+  );
 
-  readonly filtered = computed(() => {
-    const q = this.query.trim().toLowerCase();
-    if (!q) return this.categories();
-    return this.categories().filter((c) => c.name.toLowerCase().includes(q));
-  });
+  readonly filtered = computed(() => this.table.view(this.categories()));
 
   constructor() {
     this.http.get<Category[]>(`${environment.apiUrl}/categories`).subscribe({

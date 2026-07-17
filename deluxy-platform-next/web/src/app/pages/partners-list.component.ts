@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
+import { ClientTable } from '../core/client-table';
 import { Partner } from '../core/models';
 
 @Component({
@@ -18,7 +19,13 @@ import { Partner } from '../core/models';
         <p class="page-caption">{{ partners().length }} {{ 'partners.caption' | translate }}</p>
       </div>
       <div class="head-actions">
-        <input class="field" [attr.placeholder]="'partners.searchPlaceholder' | translate" [(ngModel)]="query" />
+        <input
+          class="field"
+          name="q"
+          [attr.placeholder]="'common.search' | translate"
+          [ngModel]="table.query()"
+          (ngModelChange)="table.query.set($event)"
+        />
         <a routerLink="/partners/new" class="btn btn-primary">+ {{ 'partners.add' | translate }}</a>
       </div>
     </div>
@@ -37,13 +44,13 @@ import { Partner } from '../core/models';
         <table>
           <thead>
             <tr>
-              <th>{{ 'partners.col.insegna' | translate }}</th>
-              <th>{{ 'partners.col.email' | translate }}</th>
-              <th>{{ 'partners.col.phone' | translate }}</th>
+              <th class="sortable" (click)="table.sortBy('insegna')">{{ 'partners.col.insegna' | translate }}<span class="sort-ind">{{ table.indicator('insegna') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('email')">{{ 'partners.col.email' | translate }}<span class="sort-ind">{{ table.indicator('email') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('phone')">{{ 'partners.col.phone' | translate }}<span class="sort-ind">{{ table.indicator('phone') }}</span></th>
               <th>{{ 'partners.col.provinces' | translate }}</th>
               <th>{{ 'partners.col.categories' | translate }}</th>
-              <th>{{ 'partners.col.payment' | translate }}</th>
-              <th>{{ 'partners.col.status' | translate }}</th>
+              <th class="sortable" (click)="table.sortBy('paymentStatus')">{{ 'partners.col.payment' | translate }}<span class="sort-ind">{{ table.indicator('paymentStatus') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('active')">{{ 'partners.col.status' | translate }}<span class="sort-ind">{{ table.indicator('active') }}</span></th>
               <th>{{ 'deliveries.col.actions' | translate }}</th>
             </tr>
           </thead>
@@ -93,6 +100,9 @@ import { Partner } from '../core/models';
       table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
       th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; }
+      th.sortable { cursor: pointer; user-select: none; }
+      th.sortable:hover { color: var(--text); }
+      .sort-ind { color: var(--gold-strong); font-weight: 700; }
       tbody tr { transition: background 0.14s var(--ease); }
       tbody tr:hover { background: rgba(120,120,128,0.05); }
       tr:last-child td { border-bottom: none; }
@@ -135,18 +145,22 @@ export class PartnersListComponent {
   readonly partners = signal<Partner[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
-  query = '';
+  /** Ricerca globale + ordinamento per colonna, lato client (lista piccola). */
+  readonly table = new ClientTable<Partner>(
+    [
+      'insegna',
+      'email',
+      'phone',
+      'businessName',
+      'vatNumber',
+      'provinces.province.code',
+      'provinces.province.name',
+      'categories.category.name',
+    ],
+    'insegna',
+  );
 
-  readonly filtered = computed(() => {
-    const q = this.query.trim().toLowerCase();
-    if (!q) return this.partners();
-    return this.partners().filter(
-      (p) =>
-        p.insegna.toLowerCase().includes(q) ||
-        p.email.toLowerCase().includes(q) ||
-        (p.phone || '').toLowerCase().includes(q),
-    );
-  });
+  readonly filtered = computed(() => this.table.view(this.partners()));
 
   constructor() {
     this.http.get<Partner[]>(`${environment.apiUrl}/partners`).subscribe({

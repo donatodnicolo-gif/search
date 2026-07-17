@@ -15,10 +15,16 @@ import { Customer } from '../core/models';
     <div class="page-header">
       <div>
         <h1>{{ 'customers.title' | translate }}</h1>
-        <p class="page-caption">{{ customers().length }} {{ 'customers.caption' | translate }}</p>
+        <p class="page-caption">{{ total() }} {{ 'customers.caption' | translate }}</p>
       </div>
       <div class="filters">
-        <input class="field" [(ngModel)]="query" name="query" [attr.placeholder]="'customers.searchPlaceholder' | translate" />
+        <input
+          class="field"
+          name="q"
+          [attr.placeholder]="'customers.searchPlaceholder' | translate"
+          [ngModel]="query"
+          (ngModelChange)="onSearch($event)"
+        />
         <a routerLink="/customers/new" class="btn btn-primary">+ {{ 'customers.add' | translate }}</a>
       </div>
     </div>
@@ -27,7 +33,7 @@ import { Customer } from '../core/models';
       <div class="card state-card">{{ 'customers.loading' | translate }}</div>
     } @else if (error()) {
       <div class="state-card error-card">{{ error() }}</div>
-    } @else if (filtered().length === 0) {
+    } @else if (customers().length === 0) {
       <div class="card state-card">
         <strong>{{ 'customers.emptyTitle' | translate }}</strong>
         <span class="muted">{{ 'customers.emptyHint' | translate }}</span>
@@ -37,16 +43,16 @@ import { Customer } from '../core/models';
         <table>
           <thead>
             <tr>
-              <th>{{ 'customers.col.lastName' | translate }}</th>
-              <th>{{ 'customers.col.firstName' | translate }}</th>
-              <th>{{ 'customers.col.email' | translate }}</th>
-              <th>{{ 'customers.col.phone' | translate }}</th>
-              <th>{{ 'customers.col.address' | translate }}</th>
+              @for (col of columns; track col.field) {
+                <th class="sortable" (click)="sortBy(col.field)">
+                  {{ col.label | translate }}<span class="sort-ind">{{ sortIndicator(col.field) }}</span>
+                </th>
+              }
               <th>{{ 'deliveries.col.actions' | translate }}</th>
             </tr>
           </thead>
           <tbody>
-            @for (c of filtered(); track c.id) {
+            @for (c of customers(); track c.id) {
               <tr class="row-link" tabindex="0" (click)="openDetail(c)" (keydown.enter)="openDetail(c)">
                 <td class="strong">{{ c.lastName }}</td>
                 <td>{{ c.firstName }}</td>
@@ -60,6 +66,17 @@ import { Customer } from '../core/models';
             }
           </tbody>
         </table>
+      </div>
+
+      <!-- Paginazione server-side: in produzione i clienti sono migliaia -->
+      <div class="pager">
+        <button type="button" class="act" [disabled]="page() <= 1" (click)="goTo(page() - 1)">‹</button>
+        <span class="pager-info">{{ 'list.pageOf' | translate: { page: page(), pages: totalPages() } }}</span>
+        <button type="button" class="act" [disabled]="page() >= totalPages()" (click)="goTo(page() + 1)">›</button>
+        <select class="field pager-size" [ngModel]="pageSize" (ngModelChange)="changePageSize($event)" name="pageSize">
+          @for (s of pageSizes; track s) { <option [value]="s">{{ s }}</option> }
+        </select>
+        <span class="pager-info">{{ 'list.perPage' | translate }}</span>
       </div>
     }
   `,
@@ -79,6 +96,13 @@ import { Customer } from '../core/models';
       tr:last-child td { border-bottom: none; }
       .strong { font-weight: 550; }
       .muted { color: var(--text-tertiary); }
+      th.sortable { cursor: pointer; user-select: none; }
+      th.sortable:hover { color: var(--text); }
+      .sort-ind { color: var(--gold-strong); font-weight: 700; }
+      .pager { display: flex; align-items: center; gap: 10px; margin-top: 14px; justify-content: flex-end; }
+      .pager-info { font-size: 12.5px; color: var(--text-tertiary); }
+      .pager-size { width: auto; padding: 4px 8px; font-size: 12.5px; }
+      .act:disabled { opacity: 0.4; cursor: not-allowed; }
       .row-link { cursor: pointer; }
       .row-link:focus-visible { outline: 2px solid var(--gold-strong); outline-offset: -2px; }
       .actions-cell { white-space: nowrap; }
@@ -97,31 +121,91 @@ export class CustomersListComponent {
   readonly customers = signal<Customer[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
-  query = '';
 
-  readonly filtered = computed(() => {
-    const q = this.query.trim().toLowerCase();
-    if (!q) return this.customers();
-    return this.customers().filter(
-      (c) =>
-        c.lastName.toLowerCase().includes(q) ||
-        c.firstName.toLowerCase().includes(q) ||
-        (c.email || '').toLowerCase().includes(q) ||
-        (c.phone || '').toLowerCase().includes(q),
-    );
-  });
+  /** Stato tabella: tutto server-side (in produzione i clienti sono migliaia). */
+  query = '';
+  readonly total = signal(0);
+  readonly page = signal(1);
+  pageSize = 50;
+  readonly pageSizes = [10, 25, 50, 100, 200, 500];
+  readonly sort = signal<string>('lastName');
+  readonly dir = signal<'asc' | 'desc'>('asc');
+  private searchTimer?: ReturnType<typeof setTimeout>;
+
+  readonly columns = [
+    { field: 'lastName', label: 'customers.col.lastName' },
+    { field: 'firstName', label: 'customers.col.firstName' },
+    { field: 'email', label: 'customers.col.email' },
+    { field: 'phone', label: 'customers.col.phone' },
+    { field: 'address', label: 'customers.col.address' },
+  ];
+
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
+
+  sortIndicator(field: string): string {
+    if (this.sort() !== field) return '';
+    return this.dir() === 'asc' ? ' ↑' : ' ↓';
+  }
+
+  sortBy(field: string): void {
+    if (this.sort() === field) {
+      this.dir.set(this.dir() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sort.set(field);
+      this.dir.set('asc');
+    }
+    this.page.set(1);
+    this.load();
+  }
+
+  /** Ricerca globale con debounce. */
+  onSearch(value: string): void {
+    this.query = value;
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      this.page.set(1);
+      this.load();
+    }, 300);
+  }
+
+  goTo(page: number): void {
+    if (page < 1 || page > this.totalPages()) return;
+    this.page.set(page);
+    this.load();
+  }
+
+  changePageSize(size: number): void {
+    this.pageSize = Number(size);
+    this.page.set(1);
+    this.load();
+  }
 
   openDetail(c: Customer): void {
     this.router.navigate(['/customers', c.id]);
   }
 
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    const params: Record<string, string> = {
+      page: String(this.page()),
+      pageSize: String(this.pageSize),
+      sort: this.sort(),
+      dir: this.dir(),
+    };
+    if (this.query.trim()) params['q'] = this.query.trim();
+    this.http
+      .get<{ items: Customer[]; total: number }>(`${environment.apiUrl}/customers`, { params })
+      .subscribe({
+        next: (d) => { this.customers.set(d.items ?? []); this.total.set(d.total ?? 0); this.loading.set(false); },
+        error: (err) => {
+          this.loading.set(false);
+          this.error.set(err?.error?.message ?? this.translate.instant('common.loadError'));
+        },
+      });
+  }
+
   constructor() {
-    this.http.get<Customer[]>(`${environment.apiUrl}/customers`).subscribe({
-      next: (d) => { this.customers.set(d); this.loading.set(false); },
-      error: (err) => {
-        this.loading.set(false);
-        this.error.set(err?.error?.message ?? this.translate.instant('common.loadError'));
-      },
-    });
+    this.load();
   }
 }
