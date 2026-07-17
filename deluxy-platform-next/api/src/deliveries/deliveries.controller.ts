@@ -36,6 +36,22 @@ export class DeliveriesController {
     return this.deliveriesService.findAll(user, query);
   }
 
+  // NB: dichiarata PRIMA di :id, altrimenti "/map" verrebbe catturata da :id.
+  @Get('map')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Punti mappa delle consegne (con coordinate), filtrabili come la lista' })
+  mapPoints(@CurrentUser() user: JwtUser, @Query() query: DeliveryListQueryDto) {
+    return this.deliveriesService.mapPoints(user, query);
+  }
+
+  @Post('geocode-missing')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Backfill: geocodifica le consegne senza coordinate (throttlato)' })
+  @ApiQuery({ name: 'limit', required: false })
+  geocodeMissing(@Query('limit') limit?: string) {
+    return this.deliveriesService.geocodeMissing(limit ? Number(limit) : 50);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Dettaglio consegna con attivita e log' })
   findOne(@Param('id') id: string, @CurrentUser() user: JwtUser) {

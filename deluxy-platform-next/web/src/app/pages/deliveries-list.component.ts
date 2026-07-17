@@ -9,6 +9,7 @@ import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 import { DELIVERY_STATUS_LABELS, Delivery, Province, ValetRef } from '../core/models';
 import { detectProvince } from '../core/province.util';
+import { DeliveryMapComponent } from './delivery-map.component';
 
 /** Icona per tipo di servizio (stroke 24x24, stile shell). */
 const SERVICE_ICONS: Record<string, string> = {
@@ -22,7 +23,7 @@ const SERVICE_ICONS: Record<string, string> = {
 @Component({
   selector: 'app-deliveries-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, RouterLink, TranslatePipe],
+  imports: [FormsModule, DatePipe, RouterLink, TranslatePipe, DeliveryMapComponent],
   template: `
     <div class="page-header">
       <div>
@@ -49,10 +50,19 @@ const SERVICE_ICONS: Record<string, string> = {
           [ngModel]="query"
           (ngModelChange)="onSearch($event)"
         />
+        @if (canSeeMap()) {
+          <button class="btn btn-secondary" (click)="showMap.set(!showMap())">
+            {{ (showMap() ? 'deliveries.map.hide' : 'deliveries.map.show') | translate }}
+          </button>
+        }
         <button class="btn btn-secondary" (click)="load()">{{ 'common.refresh' | translate }}</button>
         <a routerLink="/deliveries/new" class="btn btn-primary">{{ 'deliveries.add' | translate }}</a>
       </div>
     </div>
+
+    @if (canSeeMap() && showMap()) {
+      <app-delivery-map [status]="statusFilter" [date]="dateFilter" />
+    }
 
     @if (loading()) {
       <div class="card state-card">{{ 'deliveries.loading' | translate }}</div>
@@ -741,6 +751,13 @@ export class DeliveriesListComponent {
 
   statusFilter = '';
   dateFilter = '';
+  readonly showMap = signal(false);
+
+  /** La mappa consegne (indirizzi = dati sensibili) è solo per Admin/Operation. */
+  canSeeMap(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION';
+  }
   readonly statusKeys = Object.keys(DELIVERY_STATUS_LABELS);
 
   /**

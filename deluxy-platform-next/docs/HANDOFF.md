@@ -106,6 +106,14 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 17/07/2026 (sera 4) — Mappa consegne (Google Maps con puntatori)
+
+- **Coordinate sulla consegna**: `Delivery.latitude/longitude` (migrazione `20260717201903_delivery_coords`), geocodificate **una volta** alla creazione/modifica (`DeliveriesService` usa `SettingsService.geocodeCoords`, chiave server). **Backfill** `POST /deliveries/geocode-missing?limit=` (admin, throttlato). La mappa **non geocodifica a runtime**.
+- **Endpoint mappa**: `GET /deliveries/map` (Admin/Operation) → `{ points:[{id,code,status,date,latitude,longitude,recipient…,deliveryTime…,partner,valet}], capped }`, filtrabile come la lista (stato, data), cap 3000. Dichiarato **prima** di `:id` nel controller (altrimenti `/map` sarebbe catturato dalla route param).
+- **Due chiavi Maps** in Impostazioni: `googleMapsApiKey` (SEGRETA, solo server — geocodifica) e `googleMapsBrowserKey` (per la mappa JS nel browser, esposta via `GET /settings/public`). ⚠️ La browser key va **separata** e ristretta per referrer + Maps JavaScript API.
+- **Frontend**: `DeliveryMapComponent` (`web/src/app/pages/delivery-map.component.ts`) — carica Google Maps JS **pigramente** (singleton), marker colorati per stato (colori legenda), **cluster** via markerclusterer CDN (degrada a marker singoli se non carica), popup con link alla scheda. Pannello espandibile "Mostra mappa" nella lista Consegne, **solo Admin/Operation** (indirizzi = dati sensibili). Fallback: no chiave browser → avviso + link Impostazioni; no coordinate → "nessuna consegna geolocalizzata".
+- Verificato via API: geocodifica reale (Montenapoleone→45.467,9.196; Corso Como→45.480,9.187), `/deliveries/map` restituisce i punti, `/settings/public`, backfill. Nel browser: campo browser key in Impostazioni, pulsante "Mostra mappa" (admin), pannello con stato "no chiave" corretto. **La mappa con i pin richiede la chiave browser** (da inserire in Impostazioni) — non testabile senza (Claude non inserisce chiavi API).
+
 ## MANCA / PROSSIMI PASSI
 
 1. **[BLOCCATO — palla all'utente] Connessione al DB di produzione (MySQL, sola lettura)**: servono i 5 valori `MYSQL_*` (o replica) + raggiungibilità/tunnel. Vedi ANALISI-BACKEND-LEGACY. Poi `prisma db pull` per lo schema reale.

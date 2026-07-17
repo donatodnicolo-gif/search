@@ -16,6 +16,7 @@ import {
 } from '../common/list-query';
 import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.module';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
 
@@ -30,7 +31,10 @@ const DELIVERY_INCLUDE = {
 
 @Injectable()
 export class DeliveriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
 
   /** Filtro di visibilita' in base al ruolo. */
   private roleFilter(user: JwtUser) {
@@ -121,6 +125,75 @@ export class DeliveriesService {
     };
   }
 
+  /**
+   * Punti per la mappa consegne: solo consegne con coordinate, filtrate come la
+   * lista (stato, intervallo date). Proiezione leggera, risultati limitati.
+   * Riservato ad Admin/Operation (gate nel controller).
+   */
+  async mapPoints(user: JwtUser, query: DeliveryListQueryDto) {
+    const scope: any = { ...this.roleFilter(user) };
+    if (query.status) scope.status = query.status;
+    if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
+    if (query.valetId && user.role !== Role.VALET) scope.valetId = query.valetId;
+    if (query.date) {
+      const day = new Date(query.date);
+      const next = new Date(day);
+      next.setDate(next.getDate() + 1);
+      scope.date = { gte: day, lt: next };
+    } else {
+      const range = dateRange(query, 'date');
+      if (range) Object.assign(scope, range);
+    }
+    scope.latitude = { not: null };
+
+    const rows = await this.prisma.delivery.findMany({
+      where: scope,
+      select: {
+        id: true,
+        code: true,
+        status: true,
+        date: true,
+        latitude: true,
+        longitude: true,
+        recipientFirstName: true,
+        recipientLastName: true,
+        recipientAddress: true,
+        deliveryTimeFrom: true,
+        deliveryTimeTo: true,
+        partner: { select: { insegna: true } },
+        valet: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { date: 'desc' },
+      take: 3000, // cap di sicurezza: oltre serve un altro approccio (tiles/heatmap)
+    });
+    return { points: rows, capped: rows.length === 3000 };
+  }
+
+  /**
+   * Backfill: geocodifica le consegne senza coordinate (una tantum, throttlato).
+   * Elabora al massimo `limit` consegne per chiamata per non sforare la quota.
+   */
+  async geocodeMissing(limit = 50) {
+    const pending = await this.prisma.delivery.findMany({
+      where: { latitude: null, recipientAddress: { not: '' } },
+      select: { id: true, recipientAddress: true },
+      take: Math.min(Math.max(limit, 1), 200),
+    });
+    let updated = 0;
+    for (const d of pending) {
+      const coords = await this.settings.geocodeCoords(d.recipientAddress);
+      if (coords) {
+        await this.prisma.delivery.update({
+          where: { id: d.id },
+          data: { latitude: coords.lat, longitude: coords.lng },
+        });
+        updated++;
+      }
+    }
+    const remaining = await this.prisma.delivery.count({ where: { latitude: null } });
+    return { processed: pending.length, updated, remaining };
+  }
+
   async findOne(id: string, user: JwtUser) {
     const delivery = await this.prisma.delivery.findFirst({
       where: { id, ...this.roleFilter(user) },
@@ -164,12 +237,17 @@ export class DeliveriesService {
 
     const last = await this.prisma.delivery.aggregate({ _max: { code: true } });
 
+    // Coordinate per la mappa: geocodifica una volta l'indirizzo (chiave server).
+    const coords = await this.settings.geocodeCoords(dto.recipientAddress);
+
     const delivery = await this.prisma.delivery.create({
       data: {
         ...scalar,
         code: (last._max.code ?? 0) + 1,
         date: new Date(dto.date),
         partnerId,
+        latitude: coords?.lat ?? null,
+        longitude: coords?.lng ?? null,
         // Prezzo: se impostato manualmente (LISTINO) vince, altrimenti calcolo automatico
         price: dto.price != null ? dto.price : price,
         distanceKm,
@@ -240,11 +318,19 @@ export class DeliveriesService {
       }
     }
     const { products, pickups, partnerId, date, ...scalar } = dto;
+    // Se l'indirizzo destinatario cambia, rigeocodifica le coordinate della mappa.
+    const reGeocode =
+      dto.recipientAddress && dto.recipientAddress !== delivery.recipientAddress
+        ? await this.settings.geocodeCoords(dto.recipientAddress)
+        : undefined;
     return this.prisma.delivery.update({
       where: { id },
       data: {
         ...scalar,
         ...(date ? { date: new Date(date) } : {}),
+        ...(reGeocode !== undefined
+          ? { latitude: reGeocode?.lat ?? null, longitude: reGeocode?.lng ?? null }
+          : {}),
         // Righe prodotto: sostituite in blocco (come nei form di modifica)
         ...(products
           ? {

@@ -88,7 +88,9 @@
       "sub": "Visibili e modificabili solo dall'amministratore.",
       "googleMaps": "Chiave API Google Maps",
       "googleMapsPlaceholder": "AIza…",
-      "googleMapsHint": "Usata per la geocodifica degli indirizzi (provincia della consegna) e in futuro per mappe e distanze. Serve una chiave con l'API \"Geocoding\" abilitata. Senza chiave la provincia viene dedotta dal testo dell'indirizzo.",
+      "googleMapsHint": "Chiave SEGRETA, usata solo lato server per la geocodifica degli indirizzi (provincia + coordinate della consegna). Serve l'API \"Geocoding\" abilitata. Senza chiave la provincia viene dedotta dal testo dell'indirizzo.",
+      "googleMapsBrowser": "Chiave browser Google Maps",
+      "googleMapsBrowserHint": "Chiave per la MAPPA nel browser (per natura visibile nel sorgente): tienila SEPARATA da quella segreta e limitala per referrer HTTP e alla sola \"Maps JavaScript API\". Serve per il pannello mappa nelle Consegne.",
       "show": "Mostra",
       "hide": "Nascondi"
     },
@@ -232,6 +234,16 @@
     "caption": "Tutte le consegne della rete, in tempo reale.",
     "allStatuses": "Tutti gli stati",
     "add": "+ Aggiungi consegna",
+    "map": {
+      "show": "Mostra mappa",
+      "hide": "Nascondi mappa",
+      "loading": "Caricamento mappa…",
+      "noKey": "Mappa non configurata: inserisci la chiave browser Google Maps nelle Impostazioni.",
+      "goToSettings": "Vai alle Impostazioni",
+      "noPoints": "Nessuna consegna geolocalizzata per i filtri attuali.",
+      "error": "Impossibile caricare la mappa.",
+      "capped": "Mostrate le prime 3000 consegne."
+    },
     "loading": "Caricamento consegne…",
     "loadError": "Errore nel caricamento delle consegne",
     "emptyTitle": "Nessuna consegna trovata.",

@@ -547,6 +547,10 @@ model Delivery {
   recipientFirstName String
   recipientLastName  String
   recipientAddress   String
+  // Coordinate geocodificate dell'indirizzo destinatario (per la mappa consegne).
+  // Popolate una volta alla creazione/modifica; null se non geocodificabile.
+  latitude           Float?
+  longitude          Float?
   recipientIntercom  String? // citofono
   recipientPhone     String?
   recipientEmail     String?

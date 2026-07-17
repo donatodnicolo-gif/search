@@ -88,7 +88,9 @@
       "sub": "Visible and editable by the administrator only.",
       "googleMaps": "Google Maps API key",
       "googleMapsPlaceholder": "AIza…",
-      "googleMapsHint": "Used to geocode addresses (delivery province) and, later, for maps and distances. The key needs the \"Geocoding\" API enabled. Without a key, the province is inferred from the address text.",
+      "googleMapsHint": "SECRET key, used only server-side to geocode addresses (delivery province + coordinates). Needs the \"Geocoding\" API enabled. Without a key, the province is inferred from the address text.",
+      "googleMapsBrowser": "Google Maps browser key",
+      "googleMapsBrowserHint": "Key for the in-browser MAP (visible in page source by nature): keep it SEPARATE from the secret one and restrict it by HTTP referrer and to the \"Maps JavaScript API\" only. Used by the map panel in Deliveries.",
       "show": "Show",
       "hide": "Hide"
     },
@@ -232,6 +234,16 @@
     "caption": "All the network's deliveries, in real time.",
     "allStatuses": "All statuses",
     "add": "+ Add delivery",
+    "map": {
+      "show": "Show map",
+      "hide": "Hide map",
+      "loading": "Loading map…",
+      "noKey": "Map not configured: add the Google Maps browser key in Settings.",
+      "goToSettings": "Go to Settings",
+      "noPoints": "No geolocated deliveries for the current filters.",
+      "error": "Could not load the map.",
+      "capped": "Showing the first 3000 deliveries."
+    },
     "loading": "Loading deliveries…",
     "loadError": "Error loading deliveries",
     "emptyTitle": "No delivery found.",

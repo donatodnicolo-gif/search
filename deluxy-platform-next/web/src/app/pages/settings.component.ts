@@ -44,6 +44,18 @@ interface GeocodeResult {
         </label>
         <p class="hint">{{ 'settings.apiKeys.googleMapsHint' | translate }}</p>
 
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.apiKeys.googleMapsBrowser' | translate }}</span>
+          <div class="key-row">
+            <input class="field mono" [type]="showBrowserKey() ? 'text' : 'password'" name="googleMapsBrowserKey"
+                   [(ngModel)]="model.googleMapsBrowserKey" autocomplete="off"
+                   [attr.placeholder]="'settings.apiKeys.googleMapsPlaceholder' | translate" />
+            <button type="button" class="btn btn-secondary" (click)="showBrowserKey.set(!showBrowserKey())">
+              {{ (showBrowserKey() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
+            </button>
+          </div>
+        </label>
+        <p class="hint">{{ 'settings.apiKeys.googleMapsBrowserHint' | translate }}</p>
+
         <div class="actions">
           <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save()">
             {{ saving() ? ('common.saving' | translate) : ('common.save' | translate) }}
@@ -107,15 +119,19 @@ export class SettingsComponent {
   readonly saved = signal(false);
   readonly error = signal<string | null>(null);
   readonly showKey = signal(false);
+  readonly showBrowserKey = signal(false);
   readonly testing = signal(false);
   readonly testResult = signal<GeocodeResult | null>(null);
 
-  model = { googleMapsApiKey: '' };
+  model = { googleMapsApiKey: '', googleMapsBrowserKey: '' };
   testAddress = '';
 
   constructor() {
     this.http.get<Record<string, string>>(`${environment.apiUrl}/settings`).subscribe({
-      next: (s) => { this.model.googleMapsApiKey = s['googleMapsApiKey'] ?? ''; },
+      next: (s) => {
+        this.model.googleMapsApiKey = s['googleMapsApiKey'] ?? '';
+        this.model.googleMapsBrowserKey = s['googleMapsBrowserKey'] ?? '';
+      },
       error: () => this.error.set('Errore nel caricamento delle impostazioni'),
     });
   }
