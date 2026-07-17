@@ -6,6 +6,11 @@ import { creaAccount } from '@/lib/actions'
 
 // Preset dei provider più comuni: evitano di dover cercare host e porte.
 const PRESET: Record<string, { imapHost: string; smtpHost: string; nota?: string }> = {
+  'SecureMail (deluxy.it)': {
+    imapHost: 'pop.securemail.pro',
+    smtpHost: 'authsmtp.securemail.pro',
+    nota: 'Le caselle @deluxy.it. La password è quella scelta nell’Area Clienti per l’attivazione della casella.',
+  },
   Gmail: {
     imapHost: 'imap.gmail.com',
     smtpHost: 'smtp.gmail.com',
@@ -21,10 +26,12 @@ const PRESET: Record<string, { imapHost: string; smtpHost: string; nota?: string
   Altro: { imapHost: '', smtpHost: '' },
 }
 
+const PRESET_INIZIALE = 'SecureMail (deluxy.it)'
+
 export function FormAccount() {
-  const [provider, setProvider] = useState('Gmail')
-  const [imapHost, setImapHost] = useState(PRESET.Gmail.imapHost)
-  const [smtpHost, setSmtpHost] = useState(PRESET.Gmail.smtpHost)
+  const [provider, setProvider] = useState(PRESET_INIZIALE)
+  const [imapHost, setImapHost] = useState(PRESET[PRESET_INIZIALE].imapHost)
+  const [smtpHost, setSmtpHost] = useState(PRESET[PRESET_INIZIALE].smtpHost)
   const [stato, setStato] = useState<{ ok: boolean; messaggio: string } | null>(null)
   const [inCorso, startTransition] = useTransition()
   const router = useRouter()
