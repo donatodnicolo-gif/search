@@ -705,19 +705,19 @@ async function anagQuery(params){
   }
   return (await r.json()).dati || [];
 }
-// cerca nel registro allargando via via: città esatta → provincia → città capoluogo
-// (es. consegna a Greve in Chianti: "GREVE IN CHIANTI" → "FI" → "FIRENZE", così i
-// partner/prospect registrati sul capoluogo escono anche per le consegne in zona)
+// cerca nel registro SEMPRE per provincia: provincia= con sigla (FI), nome (FIRENZE)
+// e nome completo. Unico ripiego: se non esce nulla (schede con provincia vuota),
+// si riprova con citta=capoluogo, così i registrati sul capoluogo escono comunque.
 async function anagLookup(geo, categorie){
   if(!(CONFIG.anagKey||'').trim()) return { skipped:true, list:[] };
   const byId = new Map();
   const add = list => list.forEach(p => byId.set(p.id, p));
   // "Città Metropolitana di Firenze" / "Provincia di Como" → "Firenze" / "Como"
   const provCity = (geo.provLong||'').replace(/^(città metropolitana di|provincia di|metropolitan city of|province of)\s*/i,'').trim();
+  const provinceVals = [...new Set([geo.provShort, provCity, geo.provLong].filter(Boolean).map(v=>v.toUpperCase()))];
   const stages = [
-    { campo:'citta',     valori:[geo.city],                  scope: geo.city },
-    { campo:'provincia', valori:[geo.provShort, geo.provLong], scope: 'provincia '+(geo.provShort||geo.provLong) },
-    { campo:'citta',     valori:[provCity !== geo.city ? provCity : ''], scope: provCity+' (capoluogo)' },
+    { campo:'provincia', valori: provinceVals, scope: 'provincia '+(geo.provShort||provCity||geo.provLong) },
+    { campo:'citta',     valori:[provCity],    scope: provCity+' (capoluogo)' },
   ];
   let scope = '';
   for (const st of stages){
