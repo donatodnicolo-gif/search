@@ -59,7 +59,7 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
-      <RecapAI prompt={recapPrompt} />
+      <RecapAI partnerId={id} prompt={recapPrompt} />
 
       <div className="card">
         <div className="info-grid">
