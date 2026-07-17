@@ -19,6 +19,93 @@ export type MessaggioScaricato = {
   letto: boolean
 }
 
+// Entità HTML con nome che capitano davvero nella posta italiana. Le accentate
+// non sono un dettaglio: senza, "Nicolò" arriva all'AI come "Nicol&ograve;".
+const ENTITA: Record<string, string> = {
+  nbsp: ' ',
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  euro: '€',
+  agrave: 'à',
+  egrave: 'è',
+  eacute: 'é',
+  igrave: 'ì',
+  ograve: 'ò',
+  ugrave: 'ù',
+  ccedil: 'ç',
+  laquo: '«',
+  raquo: '»',
+  ldquo: '“',
+  rdquo: '”',
+  lsquo: '‘',
+  rsquo: '’',
+  hellip: '…',
+  ndash: '–',
+  mdash: '—',
+  deg: '°',
+  copy: '©',
+  reg: '®',
+  trade: '™',
+}
+
+/** Vero se il "testo" è in realtà markup: CSS, tag HTML, commenti condizionali. */
+function sembraMarkup(testo: string): boolean {
+  const inizio = testo.slice(0, 500)
+  return /\{[^}]*:[^}]*\}|<\/?[a-z][^>]*>|<!--/i.test(inizio)
+}
+
+/**
+ * Ricava il testo leggibile di una mail.
+ *
+ * Molti mailer transazionali (Shopify in testa) mandano un text/plain che è
+ * solo l'HTML ricopiato, CSS compreso. Darlo all'AI così com'è significa
+ * pagare migliaia di token di fogli di stile e farle analizzare rumore, quindi
+ * quando il testo sembra markup lo si ricostruisce ripulendo l'HTML.
+ */
+export function testoLeggibile(testo: string | undefined, html: string | false | undefined): string {
+  const grezzo = (testo ?? '').trim()
+  if (grezzo && !sembraMarkup(grezzo)) return grezzo
+
+  const sorgente = typeof html === 'string' && html ? html : grezzo
+  if (!sorgente) return ''
+
+  const pulito = sorgente
+    // Via i blocchi che non sono contenuto: stile, script, testa, commenti.
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<head[\s\S]*?<\/head>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    // A capo dove l'HTML andava a capo davvero, così le righe restano leggibili.
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|tr|h[1-6]|li)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    // Entità: prima le numeriche (&#233; &#xE9;), poi quelle con nome.
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    // &Agrave; e &agrave; sono lettere diverse: si prova prima il nome esatto,
+    // e solo se non c'è si ricade sulla versione minuscola.
+    .replace(
+      /&([a-z]+);/gi,
+      (intera, nome: string) =>
+        ENTITA[nome] ??
+        (ENTITA[nome.toLowerCase()] ? ENTITA[nome.toLowerCase()].toUpperCase() : intera)
+    )
+    // Un blocco CSS sopravvissuto (selettore { proprietà: valore }).
+    .replace(/[^\n{}]*\{[^{}]*:[^{}]*\}/g, ' ')
+    // Spazi e righe vuote in eccesso.
+    .replace(/[ \t ]+/g, ' ')
+    .replace(/\n\s*\n\s*\n+/g, '\n\n')
+    .split('\n')
+    .map((r) => r.trim())
+    .join('\n')
+    .trim()
+
+  return pulito
+}
+
 function connessione(account: Account): ImapFlow {
   return new ImapFlow({
     host: account.imapHost,
@@ -82,7 +169,7 @@ export async function scaricaNuovi(
         : parsed.to
           ? [parsed.to]
           : []
-      const testo = (parsed.text ?? '').trim()
+      const testo = testoLeggibile(parsed.text, parsed.html)
 
       messaggi.push({
         uid: msg.uid,

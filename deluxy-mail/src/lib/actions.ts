@@ -26,21 +26,39 @@ export async function sincronizzaOra(): Promise<{ ok: boolean; messaggio: string
     if (esiti.length === 0) {
       return { ok: false, messaggio: 'Nessuna casella collegata: aggiungila in Impostazioni.' }
     }
-    const errori = esiti.filter((e) => e.errore)
-    const nuovi = esiti.reduce((s, e) => s + e.scaricati, 0)
-    const attivita = esiti.reduce((s, e) => s + e.attivitaCreate, 0)
-    const bozze = esiti.reduce((s, e) => s + e.bozzeCreate, 0)
-
     revalidatePath('/', 'layout')
 
+    const errori = esiti.filter((e) => e.errore)
     if (errori.length) {
       return { ok: false, messaggio: `Errore su ${errori[0].account}: ${errori[0].errore}` }
     }
-    if (nuovi === 0) return { ok: true, messaggio: 'Nessun messaggio nuovo.' }
-    return {
-      ok: true,
-      messaggio: `${nuovi} messaggi nuovi · ${attivita} attività · ${bozze} bozze.`,
+
+    const scarichi = esiti.filter((e) => e.tipo === 'scarico')
+    const nuovi = scarichi.reduce((s, e) => s + e.scaricati, 0)
+    const recuperati = esiti.find((e) => e.tipo === 'rianalisi')
+    const attivita = esiti.reduce((s, e) => s + e.attivitaCreate, 0)
+    const bozze = esiti.reduce((s, e) => s + e.bozzeCreate, 0)
+    const analizzati = esiti.reduce((s, e) => s + e.analizzati, 0)
+    const nonAnalizzati = esiti.reduce((s, e) => s + e.scaricati, 0) - analizzati
+
+    const parti: string[] = []
+    if (nuovi > 0) parti.push(`${nuovi} messaggi nuovi`)
+    if (recuperati?.analizzati) parti.push(`${recuperati.analizzati} recuperati`)
+    if (attivita > 0) parti.push(`${attivita} attività`)
+    if (bozze > 0) parti.push(`${bozze} bozze`)
+
+    // Se l'AI non è riuscita su qualcuno, va detto: altrimenti sembra tutto a
+    // posto e quei messaggi restano lì grezzi senza che nessuno se ne accorga.
+    if (nonAnalizzati > 0) {
+      parti.push(`${nonAnalizzati} senza analisi AI`)
+      return {
+        ok: false,
+        messaggio: `${parti.join(' · ')}. Apri un messaggio col badge rosso per vedere l’errore.`,
+      }
     }
+
+    if (parti.length === 0) return { ok: true, messaggio: 'Nessun messaggio nuovo.' }
+    return { ok: true, messaggio: `${parti.join(' · ')}.` }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
   }
