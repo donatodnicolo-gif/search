@@ -30,6 +30,8 @@
   .wrap{max-width:920px; margin:0 auto; padding:16px}
   .card{background:var(--surface); border:1px solid var(--hairline);
         border-radius:var(--radius-l); padding:20px; box-shadow:var(--shadow-card)}
+  .config{display:none}          /* nascosta: si apre da «Impostazioni» nella sidebar */
+  .config.show{display:block}
   .config summary{cursor:pointer; font-weight:600; color:var(--text); outline:none}
   .config[open] summary{margin-bottom:12px}
   .grid{display:grid; gap:12px}
@@ -619,7 +621,7 @@ async function unlock(){
     sessionStorage.setItem('pass', pass);
     $('#lockScreen').style.display='none';
     $('#passErr').textContent='';
-    if(!CONFIG.googleKey) $('#config').open = true;   // primo avvio → apri Admin
+    if(!CONFIG.googleKey){ $('#config').classList.add('show'); $('#config').open = true; }   // primo avvio → apri Admin
   }catch(e){
     PASS=''; sessionStorage.removeItem('pass');
     $('#passErr').textContent='❌ '+e.message;
@@ -662,7 +664,12 @@ document.querySelectorAll('.nav-link[data-scroll]').forEach(a=> a.addEventListen
   if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
   setActiveNav(a); closeMenu();
 }));
-$('#navAdmin').addEventListener('click', ()=>{ $('#config').open=true; $('#config').scrollIntoView({behavior:'smooth', block:'start'}); setActiveNav($('#navAdmin')); closeMenu(); });
+$('#navAdmin').addEventListener('click', ()=>{
+  const c = $('#config');
+  const mostra = c.classList.toggle('show');   // secondo click su «Impostazioni» = richiudi
+  if(mostra){ c.open = true; c.scrollIntoView({behavior:'smooth', block:'start'}); }
+  setActiveNav($('#navAdmin')); closeMenu();
+});
 $('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);
 $('#appOverlay').addEventListener('click', closeMenu);
