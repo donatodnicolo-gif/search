@@ -4,6 +4,7 @@ import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { whereRicerca } from "@/lib/ricerca";
+import { registraPassaggio } from "@/lib/storico";
 
 const INCLUDE = { contatti: true } as const;
 
@@ -111,6 +112,9 @@ export async function POST(req: NextRequest) {
       },
       include: INCLUDE,
     });
+    if (dati.stato) {
+      await registraPassaggio(esistente.id, esistente.stato, aggiornato.stato, client.nome);
+    }
     return NextResponse.json(serializzaPartner(aggiornato));
   }
 

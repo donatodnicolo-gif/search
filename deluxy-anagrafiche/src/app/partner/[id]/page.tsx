@@ -3,6 +3,7 @@ import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
+import { ETICHETTE_STATO, isStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,23 @@ function Campo({ etichetta, valore, largo }: { etichetta: string; valore?: strin
 
 export default async function Dettaglio({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const p = await prisma.partner.findUnique({ where: { id }, include: { contatti: true } });
+  const p = await prisma.partner.findUnique({
+    where: { id },
+    include: { contatti: true, passaggi: { orderBy: { creatoIl: "desc" } } },
+  });
   if (!p) notFound();
 
   const extra: Record<string, unknown> = p.datiExtra ? JSON.parse(p.datiExtra) : {};
+
+  const ETICHETTE_FONTE: Record<string, string> = {
+    excel: "dal tracker Excel",
+    platform: "da app.deluxy.it",
+    manuale: "via API",
+  };
+  const nomeStato = (s: string) =>
+    s === "archiviata" ? "Archiviata" : isStato(s) ? ETICHETTE_STATO[s] : s;
+  const dataOra = (d: Date) =>
+    d.toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="layout">
@@ -129,6 +143,26 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
           </dl>
         </section>
       )}
+
+      <section className="scheda">
+        <h2 className="scheda-titolo">Storia</h2>
+        <ol className="storia">
+          {p.passaggi.map((ev) => (
+            <li key={ev.id}>
+              <span className="storia-data">{dataOra(ev.creatoIl)}</span>
+              <span>
+                {nomeStato(ev.da)} <span className="storia-freccia">→</span> <strong>{nomeStato(ev.a)}</strong>
+              </span>
+              <span className="storia-origine">{ev.origine === "ui" ? "dal registro" : ev.origine}</span>
+            </li>
+          ))}
+          <li>
+            <span className="storia-data">{dataOra(p.creatoIl)}</span>
+            <span><strong>Creata</strong></span>
+            <span className="storia-origine">{ETICHETTE_FONTE[p.fonte] ?? p.fonte}</span>
+          </li>
+        </ol>
+      </section>
       </main>
     </div>
   );

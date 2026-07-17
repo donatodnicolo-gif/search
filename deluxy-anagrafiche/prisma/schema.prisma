@@ -41,6 +41,7 @@ model Partner {
   // Extra specifici del foglio di provenienza (stime, fee, ...), JSON serializzato
   datiExtra      String?
   contatti       Contatto[]
+  passaggi       PassaggioStato[]
   // Collegamento con la piattaforma consegne: id del Partner su app.deluxy.it
   platformId     String?    @unique
   // excel | platform | manuale
@@ -67,6 +68,20 @@ model Contatto {
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   @@index([partnerId])
+}
+
+// Storico dei passaggi di stato (e archiviazioni/ripristini) di un'anagrafica.
+// "archiviata" è un valore speciale di da/a per gli eventi di archivio.
+model PassaggioStato {
+  id        String   @id @default(cuid())
+  partnerId String
+  da        String
+  a         String
+  origine   String // "ui" oppure il nome della chiave API (deluxy-platform, ...)
+  creatoIl  DateTime @default(now())
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId, creatoIl])
 }
 
 // Chiavi API delle app client. La chiave in chiaro non viene mai salvata:

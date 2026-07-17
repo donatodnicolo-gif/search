@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
+import { ARCHIVIATA, registraPassaggio } from "@/lib/storico";
 
 const INCLUDE = { contatti: true } as const;
 
@@ -49,6 +50,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
     include: INCLUDE,
   });
+  if (dati.stato) await registraPassaggio(id, esistente.stato, aggiornato.stato, client.nome);
+  if (dati.attivo === false && esistente.attivo) {
+    await registraPassaggio(id, aggiornato.stato, ARCHIVIATA, client.nome);
+  } else if (dati.attivo === true && !esistente.attivo) {
+    await registraPassaggio(id, ARCHIVIATA, aggiornato.stato, client.nome);
+  }
   return NextResponse.json(serializzaPartner(aggiornato));
 }
 
@@ -67,5 +74,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     data: { attivo: false },
     include: INCLUDE,
   });
+  if (esistente.attivo) {
+    await registraPassaggio(id, esistente.stato, ARCHIVIATA, client.nome);
+  }
   return NextResponse.json(serializzaPartner(disattivato));
 }
