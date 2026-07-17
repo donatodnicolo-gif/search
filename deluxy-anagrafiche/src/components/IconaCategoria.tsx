@@ -103,6 +103,13 @@ const GLIFI: Record<string, React.ReactNode> = {
       <path d="M7 19.5h10" {...TRATTO} />
     </>
   ),
+  // Frecce circolari: sincronizzazione
+  SYNC: (
+    <>
+      <path d="M19 12a7 7 0 0 1-12 5M5 12a7 7 0 0 1 12-5" {...TRATTO} />
+      <path d="M17 3.5V7h-3.5M7 20.5V17h3.5" {...TRATTO} />
+    </>
+  ),
   // Scatola d'archivio
   ARCHIVIO: (
     <>

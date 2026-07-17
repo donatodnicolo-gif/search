@@ -7,9 +7,11 @@ import { IconaCategoria } from "./IconaCategoria";
 export async function Sidebar({
   categoriaAttiva,
   archivioAttivo = false,
+  hubspotAttivo = false,
 }: {
   categoriaAttiva?: string | null;
   archivioAttivo?: boolean;
+  hubspotAttivo?: boolean;
 }) {
   const [categorie, archiviate] = await Promise.all([
     prisma.partner.groupBy({
@@ -26,7 +28,7 @@ export async function Sidebar({
     <aside className="sidebar">
       <nav>
         <div className="sb-label">Registro</div>
-        <a className={`sb-item${!categoriaAttiva && !archivioAttivo ? " attiva" : ""}`} href="/">
+        <a className={`sb-item${!categoriaAttiva && !archivioAttivo && !hubspotAttivo ? " attiva" : ""}`} href="/">
           <span className="sb-icona"><IconaCategoria categoria="GLOBALE" /></span>
           <span className="sb-nome">Visione globale</span>
           <span className="sb-count">{totale}</span>
@@ -50,6 +52,12 @@ export async function Sidebar({
           <span className="sb-icona"><IconaCategoria categoria="ARCHIVIO" /></span>
           <span className="sb-nome">Archiviati</span>
           <span className="sb-count">{archiviate}</span>
+        </a>
+
+        <div className="sb-label">Sync</div>
+        <a className={`sb-item${hubspotAttivo ? " attiva" : ""}`} href="/sync-hubspot">
+          <span className="sb-icona"><IconaCategoria categoria="SYNC" /></span>
+          <span className="sb-nome">Sync HubSpot</span>
         </a>
       </nav>
     </aside>
