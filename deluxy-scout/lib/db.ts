@@ -228,7 +228,7 @@ export async function aggiornaStarred(placeId: string, starred: boolean): Promis
 export async function fetchAffiliazioni(): Promise<AffiliazioneRow[]> {
   const { data, error } = await supabase
     .from('places')
-    .select('id, nome, indirizzo, zona, categoria, stato_affiliazione, contacts(nome, ruolo, telefono, is_decisore), chiamate(created_at)')
+    .select('id, nome, indirizzo, zona, categoria, stato_affiliazione, starred, contacts(nome, ruolo, telefono, is_decisore), chiamate(created_at)')
     .eq('linea_ipotizzata', 'Re-seller')
     .order('nome');
   if (error) throw error;
@@ -251,6 +251,7 @@ export async function fetchAffiliazioni(): Promise<AffiliazioneRow[]> {
       telefono: ref?.telefono ?? null,
       referente: ref?.nome ?? null,
       ultima_chiamata: ultima,
+      starred: Boolean(r.starred),
     } as AffiliazioneRow;
   });
 }

@@ -17,10 +17,18 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing } from '@/lib/theme';
-import { aggiornaStatoAffiliazione, fetchAffiliazioni, registraChiamata } from '@/lib/db';
+import { aggiornaStarred, aggiornaStatoAffiliazione, fetchAffiliazioni, registraChiamata } from '@/lib/db';
 import { STATI_AFFILIAZIONE, type AffiliazioneRow, type StatoAffiliazione } from '@/types';
 
-const FILTRI: (StatoAffiliazione | 'tutti')[] = ['tutti', ...STATI_AFFILIAZIONE];
+type FiltroAff = StatoAffiliazione | 'tutti' | 'selezionati';
+
+const FILTRI: FiltroAff[] = ['tutti', 'selezionati', ...STATI_AFFILIAZIONE];
+
+function etichettaFiltro(f: FiltroAff, nSel: number): string {
+  if (f === 'tutti') return 'Tutti';
+  if (f === 'selezionati') return `Selezionati${nSel ? ` (${nSel})` : ''}`;
+  return labelAffiliazione[f];
+}
 
 function quando(iso: string | null): string {
   if (!iso) return 'mai chiamato';
@@ -35,7 +43,8 @@ export default function Affiliazioni() {
   const [righe, setRighe] = useState<AffiliazioneRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [filtro, setFiltro] = useState<StatoAffiliazione | 'tutti'>('tutti');
+  const [filtro, setFiltro] = useState<FiltroAff>('tutti');
+  const nSel = useMemo(() => righe.filter((r) => r.starred).length, [righe]);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -55,7 +64,8 @@ export default function Affiliazioni() {
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
     return righe.filter((r) => {
-      if (filtro !== 'tutti' && r.stato_affiliazione !== filtro) return false;
+      if (filtro === 'selezionati') { if (!r.starred) return false; }
+      else if (filtro !== 'tutti' && r.stato_affiliazione !== filtro) return false;
       if (!q) return true;
       return [r.nome, r.indirizzo, r.zona, r.referente, r.telefono]
         .filter(Boolean)
@@ -86,6 +96,17 @@ export default function Affiliazioni() {
     }
   }
 
+  // Seleziona/deseleziona l'affiliazione da contattare (stesso flag della stella in mappa).
+  async function seleziona(r: AffiliazioneRow) {
+    const nuovo = !r.starred;
+    setRighe((cur) => cur.map((x) => (x.id === r.id ? { ...x, starred: nuovo } : x)));
+    try {
+      await aggiornaStarred(r.id, nuovo);
+    } catch {
+      setRighe((cur) => cur.map((x) => (x.id === r.id ? { ...x, starred: r.starred } : x)));
+    }
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.head}>
@@ -105,7 +126,7 @@ export default function Affiliazioni() {
           {FILTRI.map((f) => (
             <Pressable key={f} onPress={() => setFiltro(f)} style={[styles.chip, filtro === f && styles.chipOn]}>
               <Text style={[styles.chipTxt, filtro === f && styles.chipTxtOn]}>
-                {f === 'tutti' ? 'Tutti' : labelAffiliazione[f]}
+                {etichettaFiltro(f, nSel)}
               </Text>
             </Pressable>
           ))}
@@ -121,7 +142,12 @@ export default function Affiliazioni() {
           <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Nessuna affiliazione con questi filtri.'}</Text>
         }
         renderItem={({ item }) => (
-          <Card item={item} onChiama={() => chiama(item)} onStato={(s) => cambiaStato(item, s)} />
+          <Card
+            item={item}
+            onChiama={() => chiama(item)}
+            onStato={(s) => cambiaStato(item, s)}
+            onSeleziona={() => seleziona(item)}
+          />
         )}
       />
     </View>
@@ -132,16 +158,27 @@ function Card({
   item,
   onChiama,
   onStato,
+  onSeleziona,
 }: {
   item: AffiliazioneRow;
   onChiama: () => void;
   onStato: (s: StatoAffiliazione) => void;
+  onSeleziona: () => void;
 }) {
   const [apriStep, setApriStep] = useState(false);
   const stato = item.stato_affiliazione ?? 'prospect';
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, item.starred && styles.cardSel]}>
       <View style={styles.cardTop}>
+        {/* Selettore "da contattare": icona telefono → Selezionati. */}
+        <Pressable
+          style={[styles.selBtn, item.starred && styles.selBtnOn]}
+          onPress={onSeleziona}
+          hitSlop={8}
+          accessibilityLabel={item.starred ? 'Togli dai selezionati' : 'Seleziona da contattare'}
+        >
+          <Ionicons name="call" size={17} color={item.starred ? colors.bianco : colors.grigio} />
+        </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.nome} numberOfLines={1}>{item.nome}</Text>
           {item.indirizzo ? <Text style={styles.meta} numberOfLines={1}>{item.indirizzo}</Text> : null}
@@ -224,7 +261,19 @@ const styles = StyleSheet.create({
     borderColor: colors.grigioChiaro,
     padding: spacing.md,
   },
+  cardSel: { borderColor: colors.oro, backgroundColor: 'rgba(184,150,62,0.06)' },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  selBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderColor: colors.grigioChiaro,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  selBtnOn: { backgroundColor: colors.oro, borderColor: colors.oro },
   nome: { fontSize: 16, fontWeight: '800', color: colors.navy },
   meta: { color: colors.testoSoft, fontSize: 13 },
   metaLeggero: { color: colors.grigio, fontSize: 12 },

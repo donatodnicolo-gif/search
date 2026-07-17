@@ -38,6 +38,7 @@ export interface AffiliazioneRow {
   telefono: string | null;
   referente: string | null;
   ultima_chiamata: string | null;
+  starred: boolean; // "Selezionato" da contattare (stesso flag della stella in mappa)
 }
 
 // Stato del place derivato dall'esito della visita (regola commerciale unica,

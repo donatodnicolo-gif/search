@@ -456,7 +456,7 @@ export default function MappaWeb() {
       {/* Barra flottante giro */}
       <View style={styles.dock}>
         <Text style={styles.dockTxt}>
-          {giroAttivo ? `${giro.length} tappe` : `${scopertiFiltrati.length} attività`}
+          {giroAttivo ? `${giro.length} selezionati` : `${scopertiFiltrati.length} attività`}
           {giroAttivo && giroNav?.troncato ? ` · prime ${giroNav.tappeIncluse}` : ''}
         </Text>
         <View style={styles.dockAzioni}>
@@ -473,7 +473,7 @@ export default function MappaWeb() {
             disabled={!destinazione && !giroAttivo}
           >
             <Text style={[styles.btnGiroTxt, giroAttivo && styles.btnGiroTxtOn]}>
-              {giroAttivo ? 'Chiudi' : stellatiCount ? `Giro · ${stellatiCount} ⭐` : 'Pianifica giro'}
+              {giroAttivo ? 'Chiudi' : stellatiCount ? `Selezionati · ${stellatiCount} ⭐` : 'Selezionati'}
             </Text>
           </Pressable>
         </View>
