@@ -74,12 +74,15 @@ export default function MappaWeb() {
     }
   }
 
-  async function onSelectDestinazione(r: GeocodeResult) {
-    const c = { lat: r.lat, lng: r.lng };
-    setDestinazione(c);
+  // Scegliere l'indirizzo NON avvia la ricerca: la prepara e basta. Si parte col
+  // pulsante "Cerca negozi qui" (la scoperta costa chiamate a Google: meglio esplicita).
+  function onSelectDestinazione(r: GeocodeResult) {
+    setDestinazione({ lat: r.lat, lng: r.lng });
     setGiroAttivo(false);
     setFiltri(FILTRI_VUOTI);
-    await cerca(c);
+    setScoperti([]);
+    setScopInfo(null);
+    setScopErrore(null);
   }
 
   // Dopo una visita: ricarica dalla cache (riflette stato/da_completare aggiornati).
@@ -190,6 +193,19 @@ export default function MappaWeb() {
   return (
     <View style={styles.container}>
       <AddressSearch onSelect={onSelectDestinazione} onClear={azzera} />
+
+      {/* La scoperta parte solo su richiesta esplicita (costa chiamate a Google). */}
+      {destinazione ? (
+        <Pressable
+          style={[styles.btnCerca, scopLoading && styles.btnCercaOff]}
+          onPress={() => cerca(destinazione)}
+          disabled={scopLoading}
+        >
+          <Text style={styles.btnCercaTxt}>
+            {scopLoading ? 'Cerco negozi…' : scopInfo ? 'Cerca di nuovo qui' : 'Cerca negozi qui'}
+          </Text>
+        </Pressable>
+      ) : null}
 
       {/* Ordina la scoperta dando precedenza a una linea di vendita (o Tutte). */}
       <View style={styles.focusBar}>
@@ -415,6 +431,16 @@ const styles = StyleSheet.create({
     borderColor: colors.grigioChiaro,
   },
 
+  btnCerca: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  btnCercaOff: { opacity: 0.55 },
+  btnCercaTxt: { color: colors.bianco, fontWeight: '600', fontSize: 15 },
   focusBar: { paddingBottom: spacing.xs },
   focusLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', paddingHorizontal: spacing.md, marginBottom: 4 },
   focusRow: { paddingHorizontal: spacing.md, gap: 6 },

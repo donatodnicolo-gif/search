@@ -57,6 +57,65 @@ function categoriaDaTypes(types: string[]): string {
   return 'altro';
 }
 
+// Tipi Google interrogati singolarmente con `rankby=distance` (vedi nota nel handler).
+// Sono quelli che generano le linee Deluxy; l'ordine non conta (i risultati si uniscono).
+const TIPI_RICERCA = [
+  'clothing_store',
+  'jewelry_store',
+  'shoe_store',
+  'florist',
+  'bakery',
+  'restaurant',
+  'cafe',
+  'lodging',
+  'beauty_salon',
+  'lawyer',
+  'bank',
+];
+
+/** Distanza in metri (Haversine). */
+function distanzaMetri(aLat: number, aLng: number, bLat?: number, bLng?: number): number {
+  if (!isFinite(bLat as number) || !isFinite(bLng as number)) return Infinity;
+  const R = 6371000;
+  const dLat = ((bLat! - aLat) * Math.PI) / 180;
+  const dLng = ((bLng! - aLng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat! * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/**
+ * Scorre le pagine di una Nearby. `dentro` (opzionale) serve alle query
+ * `rankby=distance`, che sono ordinate per distanza: appena l'ultimo risultato
+ * di una pagina esce dal raggio, le pagine dopo sono tutte più lontane → stop.
+ * Lancia se già la prima pagina fallisce (chiave/quota), così il chiamante decide.
+ */
+async function pagineNearby(
+  url0: string,
+  key: string,
+  maxPagine: number,
+  dentro?: (r: any) => boolean,
+): Promise<any[]> {
+  const out: any[] = [];
+  let url = url0;
+  for (let p = 0; p < maxPagine; p++) {
+    const g = await (await fetch(url)).json();
+    if (g.status !== 'OK' && g.status !== 'ZERO_RESULTS') {
+      if (p === 0) throw new Error(g.error_message ?? g.status);
+      break; // pagine successive fallite: tieni quello che hai
+    }
+    const res: any[] = g.results ?? [];
+    out.push(...res);
+    if (dentro && res.length && !dentro(res[res.length - 1])) break;
+    if (!g.next_page_token) break;
+    // Il pagetoken diventa valido dopo un breve ritardo lato Google.
+    await new Promise((r) => setTimeout(r, 2000));
+    url = `${NEARBY}?pagetoken=${g.next_page_token}&key=${key}`;
+  }
+  return out;
+}
+
 // Trova la regola per categoria: esatta → parziale → 'altro'.
 function regolaPerCategoria(categoria: string, regole: any[]) {
   const c = categoria.toLowerCase();
@@ -106,24 +165,43 @@ Deno.serve(async (req) => {
     const cached = Boolean(area && area.refresh_at > soglia);
 
     if (!cached) {
-      // Interroga Google Places Nearby con paginazione (fino a ~60 risultati, 3 pagine).
-      let risultati: any[] = [];
-      let pageUrl = `${NEARBY}?location=${lat},${lng}&radius=${radius}&language=it&key=${key}`;
-      for (let page = 0; page < 3; page++) {
-        const g = await (await fetch(pageUrl)).json();
-        if (g.status !== 'OK' && g.status !== 'ZERO_RESULTS') {
-          if (page === 0) return json({ error: g.error_message ?? g.status, status: g.status }, 502);
-          break; // pagine successive fallite: tieni quello che abbiamo
-        }
-        risultati = risultati.concat(g.results ?? []);
-        if (!g.next_page_token) break;
-        // Il pagetoken diventa valido dopo un breve ritardo lato Google.
-        await new Promise((r) => setTimeout(r, 2000));
-        pageUrl = `${NEARBY}?pagetoken=${g.next_page_token}&key=${key}`;
+      // Google Nearby, quando gli passi un `radius`, ordina per PROMINENZA e tronca a
+      // 60 risultati: in zone dense (Quadrilatero/San Babila) ci sono più di 60 esercizi
+      // anche entro 100 m, quindi le boutique piccole — proprio il nostro target — restano
+      // sistematicamente fuori (verificato: MooRER in Corso Venezia 2 non usciva).
+      // Rimedio: affiancare, per ogni tipo che ci interessa, una query `rankby=distance`
+      // che restituisce i più VICINI invece dei più famosi. Ogni tipo ha il suo budget di
+      // risultati, quindi i negozi sotto casa ci sono di sicuro.
+      const dentroRaggio = (r: any) =>
+        distanzaMetri(lat, lng, r.geometry?.location?.lat, r.geometry?.location?.lng) <= radius;
+
+      // Generica (prominenza): copre anche i tipi non in TIPI_RICERCA.
+      const generica = pagineNearby(
+        `${NEARBY}?location=${lat},${lng}&radius=${radius}&language=it&key=${key}`,
+        key,
+        3,
+      );
+      // Per tipo (distanza): in parallelo; `rankby=distance` non ammette `radius`.
+      const perTipo = TIPI_RICERCA.map((t) =>
+        pagineNearby(
+          `${NEARBY}?location=${lat},${lng}&rankby=distance&type=${t}&language=it&key=${key}`,
+          key,
+          2,
+          dentroRaggio,
+        ),
+      );
+
+      const esiti = await Promise.allSettled([generica, ...perTipo]);
+      // Se fallisce la generica è un problema vero (chiave/quota); i singoli tipi no.
+      if (esiti[0].status === 'rejected') {
+        const err = (esiti[0] as PromiseRejectedResult).reason;
+        return json({ error: String(err?.message ?? err) }, 502);
       }
-      // Dedup per place_id (le pagine possono sovrapporsi).
+      // `rankby=distance` ignora il raggio → filtriamo noi. Dedup per place_id.
       const visti = new Set<string>();
-      risultati = risultati.filter((r) => r.place_id && !visti.has(r.place_id) && visti.add(r.place_id));
+      const risultati = esiti
+        .flatMap((e) => (e.status === 'fulfilled' ? e.value : []))
+        .filter((r) => r.place_id && dentroRaggio(r) && !visti.has(r.place_id) && visti.add(r.place_id));
 
       if (risultati.length) {
         const ids = risultati.map((r) => r.place_id);
