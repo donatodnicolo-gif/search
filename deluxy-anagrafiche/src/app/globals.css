@@ -280,6 +280,18 @@ tbody tr:hover { background: var(--fill); }
 }
 .stato-pill.attuale .stato-label { color: var(--text); }
 
+/* ---------- Titoli di sezione dell'elenco ---------- */
+.sezione-titolo {
+  font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 2px 0 10px;
+}
+.sezione-titolo span {
+  font-size: 12.5px; font-weight: 400; color: var(--text-tertiary);
+  margin-left: 6px;
+}
+.cella-fonte { color: var(--text-tertiary); font-size: 12px; }
+
 /* ---------- Form "Nuova anagrafica" ---------- */
 .modulo {
   display: grid;

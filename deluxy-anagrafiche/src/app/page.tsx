@@ -46,7 +46,11 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
   if (filtri.citta) where.citta = filtri.citta;
   if (filtri.stato) where.stato = filtri.stato;
 
-  const [totale, partner, citta] = await Promise.all([
+  // La sezione "Novità" appare solo sulla visione globale pulita
+  const conNovita =
+    !inArchivio && !filtri.categoria && !filtri.q && !filtri.citta && !filtri.stato && pagina === 1;
+
+  const [totale, partner, citta, novita] = await Promise.all([
     prisma.partner.count({ where }),
     prisma.partner.findMany({
       where,
@@ -62,6 +66,14 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       where: { attivo: !inArchivio, citta: { not: null }, ...(filtri.categoria ? { categoria: filtri.categoria } : {}) },
       orderBy: { citta: "asc" },
     }),
+    conNovita
+      ? prisma.partner.findMany({
+          where: { attivo: true },
+          include: { contatti: true },
+          orderBy: { creatoIl: "desc" },
+          take: 10,
+        })
+      : Promise.resolve([]),
   ]);
 
   const pagineTotali = Math.max(1, Math.ceil(totale / PER_PAGINA));
@@ -97,6 +109,18 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
 
   const dataIt = (d: Date) =>
     d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  // Telefono da mostrare in colonna: quello dell'anagrafica o del primo referente
+  type ConContatti = (typeof partner)[number];
+  const telefonoDi = (p: ConContatti) =>
+    p.telefono ?? p.contatti.find((c) => c.telefono)?.telefono ?? null;
+
+  const FONTI: Record<string, string> = {
+    excel: "Excel",
+    platform: "app.deluxy.it",
+    manuale: "API",
+    ui: "registro",
+  };
 
   const Intestazione = ({ campo }: { campo: CampoOrdinamento }) => (
     <th>
@@ -156,6 +180,49 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
         <button className="btn" type="submit">Filtra</button>
       </form>
 
+      {conNovita && novita.length > 0 && (
+        <>
+          <h2 className="sezione-titolo">
+            Novità <span>ultimi 10 inserimenti</span>
+          </h2>
+          <div className="tabella-wrap" style={{ marginBottom: 22 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Categoria</th>
+                  <th>Città</th>
+                  <th>Telefono</th>
+                  <th>Stato</th>
+                  <th>Creata</th>
+                </tr>
+              </thead>
+              <tbody>
+                {novita.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <a href={`/partner/${p.id}`}>
+                        <div className="cella-nome">{p.nome}</div>
+                        {p.indirizzo && <div className="cella-sub">{p.indirizzo}</div>}
+                      </a>
+                    </td>
+                    <td className="cella-muta">{p.categoria}</td>
+                    <td className="cella-muta">{p.citta ?? "—"}</td>
+                    <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
+                    <td><MenuStato partnerId={p.id} stato={p.stato} /></td>
+                    <td className="cella-muta">
+                      {dataIt(p.creatoIl)}
+                      <span className="cella-fonte"> · {FONTI[p.fonte] ?? p.fonte}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <h2 className="sezione-titolo">Tutte le anagrafiche</h2>
+        </>
+      )}
+
       {partner.length === 0 ? (
         <div className="vuoto">Nessuna anagrafica trovata con questi filtri.</div>
       ) : (
@@ -166,6 +233,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                 <Intestazione campo="nome" />
                 <Intestazione campo="categoria" />
                 <Intestazione campo="citta" />
+                <th>Telefono</th>
                 <Intestazione campo="stato" />
                 <Intestazione campo="account" />
                 <th>Contatti</th>
@@ -186,6 +254,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     </td>
                     <td className="cella-muta">{p.categoria}</td>
                     <td className="cella-muta">{p.citta ?? "—"}</td>
+                    <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
                     <td><MenuStato partnerId={p.id} stato={p.stato} archiviato={inArchivio} /></td>
                     <td className="cella-muta">{p.account ?? "—"}</td>
                     <td className="cella-muta">
