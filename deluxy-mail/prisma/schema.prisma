@@ -36,7 +36,12 @@ model Account {
   smtpPassword String // cifrata (mai in chiaro)
   // Stato sincronizzazione
   cartella     String    @default("INBOX")
-  ultimoUid    Int       @default(0) // ultimo UID IMAP già scaricato
+  // La sincronizzazione si muove in due direzioni: in avanti prende i messaggi
+  // nuovi (UID > ultimoUid), all'indietro recupera lo storico (UID < primoUid).
+  // primoUid = 0 significa "non ho ancora scaricato niente".
+  ultimoUid    Int       @default(0)
+  primoUid     Int       @default(0)
+  storicoFinito Boolean  @default(false) // true = si è arrivati in fondo alla casella
   ultimoSync   DateTime?
   ultimoErrore String?
   attivo       Boolean   @default(true)

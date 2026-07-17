@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import nodemailer from 'nodemailer'
 import { db } from './db'
 import { cifra, decifra } from './crypto'
-import { sincronizzaTutti } from './sync'
+import { scaricaStorico, sincronizzaTutti } from './sync'
 import { provaConnessione } from './imap'
 import { scriviImpostazione } from './impostazioni'
 
@@ -59,6 +59,37 @@ export async function sincronizzaOra(): Promise<{ ok: boolean; messaggio: string
 
     if (parti.length === 0) return { ok: true, messaggio: 'Nessun messaggio nuovo.' }
     return { ok: true, messaggio: `${parti.join(' · ')}.` }
+  } catch (e) {
+    return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
+  }
+}
+
+/**
+ * Scarica un blocco di posta vecchia. Si preme una volta per blocco: così
+ * decidi tu quanto indietro andare, invece di ritrovarti anni di archivio
+ * analizzati (e pagati) senza averlo chiesto.
+ */
+export async function scaricaStoricoOra(
+  accountId: string,
+  quanti = 25
+): Promise<{ ok: boolean; messaggio: string; finito?: boolean }> {
+  try {
+    const e = await scaricaStorico(accountId, quanti)
+    revalidatePath('/', 'layout')
+
+    if (e.errore) return { ok: false, messaggio: `Errore: ${e.errore}` }
+    if (e.finito && e.scaricati === 0) {
+      return { ok: true, messaggio: 'Hai già tutta la casella: non c’è altro da scaricare.', finito: true }
+    }
+
+    const nonAnalizzati = e.scaricati - e.analizzati
+    const coda = e.finito ? ' Era l’ultimo blocco: la casella è tutta qui.' : ''
+    const avviso = nonAnalizzati > 0 ? ` ${nonAnalizzati} senza analisi AI.` : ''
+    return {
+      ok: nonAnalizzati === 0,
+      messaggio: `${e.scaricati} messaggi più vecchi scaricati.${avviso}${coda}`,
+      finito: e.finito,
+    }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
   }

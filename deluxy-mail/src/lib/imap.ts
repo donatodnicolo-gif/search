@@ -127,6 +127,85 @@ export async function provaConnessione(account: Account): Promise<void> {
   }
 }
 
+/** Trasforma un messaggio IMAP grezzo nella forma che usa il resto dell'app. */
+async function converti(uid: number, source: Buffer, letto: boolean): Promise<MessaggioScaricato> {
+  // simpleParser ha anche un overload con callback: senza annotazione esplicita
+  // TypeScript sceglie quello e il tipo del risultato si perde.
+  const parsed: ParsedMail = await simpleParser(source)
+  const from = parsed.from?.value?.[0]
+  const to: AddressObject[] = Array.isArray(parsed.to) ? parsed.to : parsed.to ? [parsed.to] : []
+  const testo = testoLeggibile(parsed.text, parsed.html)
+
+  return {
+    uid,
+    messageId: parsed.messageId ?? null,
+    thread: parsed.references
+      ? [parsed.references].flat()[0]
+      : (parsed.inReplyTo ?? parsed.messageId ?? null),
+    mittente: from?.address ?? 'sconosciuto',
+    mittenteNome: from?.name || null,
+    destinatari: to
+      .flatMap((t) => t.value.map((v) => v.address))
+      .filter(Boolean)
+      .join(', '),
+    oggetto: parsed.subject ?? '(senza oggetto)',
+    data: parsed.date ?? new Date(),
+    anteprima: testo.replace(/\s+/g, ' ').slice(0, 200),
+    corpoTesto: testo,
+    corpoHtml: typeof parsed.html === 'string' ? parsed.html : null,
+    allegati: parsed.attachments?.length ?? 0,
+    letto,
+  }
+}
+
+/**
+ * Scarica lo storico: i messaggi PRECEDENTI a quelli che abbiamo già
+ * (UID < primoUid), dal più recente andando indietro, a blocchi.
+ *
+ * Serve perché il primo collegamento prende solo la posta recente: da qui si
+ * recupera il resto della casella quando lo si chiede, un blocco alla volta.
+ */
+export async function scaricaVecchi(
+  account: Account,
+  limite = 25
+): Promise<{ messaggi: MessaggioScaricato[]; primoUid: number; finito: boolean }> {
+  if (account.primoUid <= 1) {
+    return { messaggi: [], primoUid: account.primoUid, finito: true }
+  }
+
+  const client = connessione(account)
+  await client.connect()
+
+  try {
+    await client.mailboxOpen(account.cartella, { readOnly: true })
+
+    // search dice quali UID esistono davvero: la numerazione ha buchi dove i
+    // messaggi sono stati cancellati, quindi non si può contare a ritroso.
+    const esistenti = await client.search({ uid: `1:${account.primoUid - 1}` }, { uid: true })
+    if (!esistenti || esistenti.length === 0) {
+      return { messaggi: [], primoUid: account.primoUid, finito: true }
+    }
+
+    // I più recenti fra i vecchi: gli ultimi della lista.
+    const daPrendere = esistenti.slice(-limite)
+    const messaggi: MessaggioScaricato[] = []
+
+    for await (const msg of client.fetch(
+      daPrendere.join(','),
+      { uid: true, source: true, flags: true },
+      { uid: true }
+    )) {
+      if (!msg.source) continue
+      messaggi.push(await converti(msg.uid, msg.source, Boolean(msg.flags?.has('\\Seen'))))
+    }
+
+    const primoUid = Math.min(...daPrendere)
+    return { messaggi, primoUid, finito: daPrendere.length === esistenti.length }
+  } finally {
+    await client.logout()
+  }
+}
+
 /**
  * Scarica i messaggi con UID successivo a `account.ultimoUid`.
  * Il limite evita che il primo collegamento a una casella con anni di posta
@@ -135,7 +214,7 @@ export async function provaConnessione(account: Account): Promise<void> {
 export async function scaricaNuovi(
   account: Account,
   limite = 50
-): Promise<{ messaggi: MessaggioScaricato[]; ultimoUid: number }> {
+): Promise<{ messaggi: MessaggioScaricato[]; ultimoUid: number; primoUid: number }> {
   const client = connessione(account)
   await client.connect()
 
@@ -156,46 +235,20 @@ export async function scaricaNuovi(
     )) {
       // `uid:daUid:*` restituisce comunque l'ultimo messaggio anche quando non
       // ce ne sono di nuovi: lo scartiamo esplicitamente.
+      // `uid:daUid:*` restituisce comunque l'ultimo messaggio anche quando non
+      // ce ne sono di nuovi: lo scartiamo esplicitamente.
       if (msg.uid < daUid) continue
       if (messaggi.length >= limite) break
       if (!msg.source) continue // senza sorgente non c'è nulla da leggere
 
-      // simpleParser ha anche un overload con callback: senza annotazione
-      // esplicita TypeScript sceglie quello e il tipo del risultato si perde.
-      const parsed: ParsedMail = await simpleParser(msg.source)
-      const from = parsed.from?.value?.[0]
-      const to: AddressObject[] = Array.isArray(parsed.to)
-        ? parsed.to
-        : parsed.to
-          ? [parsed.to]
-          : []
-      const testo = testoLeggibile(parsed.text, parsed.html)
-
-      messaggi.push({
-        uid: msg.uid,
-        messageId: parsed.messageId ?? null,
-        thread: parsed.references
-          ? [parsed.references].flat()[0]
-          : (parsed.inReplyTo ?? parsed.messageId ?? null),
-        mittente: from?.address ?? 'sconosciuto',
-        mittenteNome: from?.name || null,
-        destinatari: to
-          .flatMap((t) => t.value.map((v) => v.address))
-          .filter(Boolean)
-          .join(', '),
-        oggetto: parsed.subject ?? '(senza oggetto)',
-        data: parsed.date ?? new Date(),
-        anteprima: testo.replace(/\s+/g, ' ').slice(0, 200),
-        corpoTesto: testo,
-        corpoHtml: typeof parsed.html === 'string' ? parsed.html : null,
-        allegati: parsed.attachments?.length ?? 0,
-        letto: Boolean(msg.flags?.has('\\Seen')),
-      })
-
+      messaggi.push(await converti(msg.uid, msg.source, Boolean(msg.flags?.has('\\Seen'))))
       if (msg.uid > ultimoUid) ultimoUid = msg.uid
     }
 
-    return { messaggi, ultimoUid }
+    // Il più vecchio di questo giro apre la strada allo scarico dello storico.
+    const primoUid = messaggi.length ? Math.min(...messaggi.map((m) => m.uid)) : 0
+
+    return { messaggi, ultimoUid, primoUid }
   } finally {
     await client.logout()
   }

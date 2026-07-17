@@ -3,13 +3,17 @@ import { salvaImpostazioni } from '@/lib/actions'
 import { leggiImpostazioni, CHIAVI } from '@/lib/impostazioni'
 import { FormAccount } from '@/components/FormAccount'
 import { EliminaAccount } from '@/components/EliminaAccount'
+import { ScaricaStorico } from '@/components/ScaricaStorico'
 import { dataLunga } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Impostazioni() {
   const [account, impostazioni] = await Promise.all([
-    db.account.findMany({ orderBy: { creatoIl: 'asc' } }),
+    db.account.findMany({
+      orderBy: { creatoIl: 'asc' },
+      include: { _count: { select: { messaggi: true } } },
+    }),
     leggiImpostazioni(),
   ])
 
@@ -81,6 +85,31 @@ export default async function Impostazioni() {
           </div>
         )}
       </div>
+
+      {account.length > 0 && (
+        <>
+          <h2 className="section-title">Scaricare la posta vecchia</h2>
+          <div className="card">
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
+              Al primo collegamento AI Mail prende solo la posta recente, per non tirare giù
+              anni di archivio senza che tu l’abbia chiesto. Il resto della casella è ancora
+              sul server: da qui lo recuperi un blocco alla volta.
+            </p>
+            {account.map((a) => (
+              <div key={a.id} style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>
+                  {a.nome} · <span className="muted">{a._count.messaggi} messaggi scaricati</span>
+                </div>
+                <ScaricaStorico
+                  accountId={a.id}
+                  storicoFinito={a.storicoFinito}
+                  messaggiInArchivio={a._count.messaggi}
+                />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       <h2 className="section-title">Collega una casella</h2>
       <div className="card">

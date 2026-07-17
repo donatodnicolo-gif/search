@@ -1,19 +1,22 @@
-import type { Sezione } from '@prisma/client'
+import type { Regola, Sezione } from '@prisma/client'
 import { db } from './db'
-import { scaricaNuovi, testoLeggibile, type MessaggioScaricato } from './imap'
+import { scaricaNuovi, scaricaVecchi, testoLeggibile, type MessaggioScaricato } from './imap'
 import { applicaRegole, type EsitoRegole } from './regole'
 import { analizzaMessaggio } from './ai'
 import { CHIAVI, leggiImpostazioni } from './impostazioni'
 
 export type EsitoSync = {
-  // 'scarico' = messaggi nuovi presi dalla casella;
+  // 'scarico'   = messaggi nuovi presi dalla casella;
+  // 'storico'   = messaggi vecchi recuperati andando indietro;
   // 'rianalisi' = messaggi già presenti, rimasti senza analisi e riprovati.
-  tipo: 'scarico' | 'rianalisi'
+  tipo: 'scarico' | 'storico' | 'rianalisi'
   account: string
   scaricati: number
   analizzati: number
   attivitaCreate: number
   bozzeCreate: number
+  /** Solo per 'storico': true quando non c'è più posta vecchia da prendere. */
+  finito?: boolean
   errore?: string
 }
 
@@ -225,10 +228,45 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
     leggiImpostazioni(),
   ])
 
-  for (const msg of nuovi.messaggi) {
+  await salvaEAnalizzaTutti({
+    accountId: account.id,
+    messaggi: nuovi.messaggi,
+    sezioni,
+    regole,
+    impostazioni,
+    esito,
+  })
+
+  await db.account.update({
+    where: { id: account.id },
+    data: {
+      ultimoUid: nuovi.ultimoUid,
+      // primoUid si fissa al primo scarico: da lì in poi si muove solo
+      // all'indietro, quando si chiede lo storico.
+      ...(account.primoUid === 0 && nuovi.primoUid > 0 ? { primoUid: nuovi.primoUid } : {}),
+      ultimoSync: new Date(),
+      ultimoErrore: null,
+    },
+  })
+
+  return esito
+}
+
+/** Salva i messaggi nuovi, saltando quelli già presenti, e li fa analizzare. */
+async function salvaEAnalizzaTutti(opts: {
+  accountId: string
+  messaggi: MessaggioScaricato[]
+  sezioni: Sezione[]
+  regole: Regola[]
+  impostazioni: Record<string, string>
+  esito: EsitoSync
+}): Promise<void> {
+  const { accountId, messaggi, sezioni, regole, impostazioni, esito } = opts
+
+  for (const msg of messaggi) {
     // Un UID già presente significa che l'abbiamo già lavorato: si salta.
     const esistente = await db.messaggio.findUnique({
-      where: { accountId_uid: { accountId: account.id, uid: msg.uid } },
+      where: { accountId_uid: { accountId, uid: msg.uid } },
     })
     if (esistente) continue
 
@@ -236,7 +274,7 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
 
     const salvato = await db.messaggio.create({
       data: {
-        accountId: account.id,
+        accountId,
         uid: msg.uid,
         messageId: msg.messageId,
         thread: msg.thread,
@@ -271,13 +309,75 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
       esito.bozzeCreate += analisi.bozzeCreate
     }
   }
+}
+
+/**
+ * Scarica un blocco di posta vecchia, andando indietro nel tempo.
+ *
+ * È un'azione che chiedi tu, non automatica: recuperare anni di archivio
+ * costa tempo e token, e non è detto che serva.
+ */
+export async function scaricaStorico(accountId: string, limite = 25): Promise<EsitoSync> {
+  const account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
+  const esito: EsitoSync = {
+    tipo: 'storico',
+    account: account.email,
+    scaricati: 0,
+    analizzati: 0,
+    attivitaCreate: 0,
+    bozzeCreate: 0,
+  }
+
+  if (account.storicoFinito) return { ...esito, finito: true }
+
+  // primoUid può essere 0 su un account collegato prima che questo campo
+  // esistesse, o se il primo scarico non ha trovato nulla. In quel caso lo si
+  // ricava dai messaggi già presenti: il più vecchio che abbiamo è il punto da
+  // cui andare indietro.
+  let primoUid = account.primoUid
+  if (primoUid === 0) {
+    const piuVecchio = await db.messaggio.findFirst({
+      where: { accountId: account.id },
+      orderBy: { uid: 'asc' },
+      select: { uid: true },
+    })
+    if (!piuVecchio) {
+      // Nessun messaggio: non c'è un punto di partenza, prima serve un
+      // "Aggiorna posta".
+      return { ...esito, errore: 'Prima scarica la posta recente con “Aggiorna posta”.' }
+    }
+    primoUid = piuVecchio.uid
+    await db.account.update({ where: { id: account.id }, data: { primoUid } })
+  }
+
+  let vecchi
+  try {
+    vecchi = await scaricaVecchi({ ...account, primoUid }, limite)
+  } catch (e) {
+    return { ...esito, errore: e instanceof Error ? e.message : String(e) }
+  }
+
+  const [sezioni, regole, impostazioni] = await Promise.all([
+    db.sezione.findMany({ orderBy: { ordine: 'asc' } }),
+    db.regola.findMany(),
+    leggiImpostazioni(),
+  ])
+
+  await salvaEAnalizzaTutti({
+    accountId: account.id,
+    messaggi: vecchi.messaggi,
+    sezioni,
+    regole,
+    impostazioni,
+    esito,
+  })
 
   await db.account.update({
     where: { id: account.id },
-    data: { ultimoUid: nuovi.ultimoUid, ultimoSync: new Date(), ultimoErrore: null },
+    data: { primoUid: vecchi.primoUid, storicoFinito: vecchi.finito },
   })
 
-  return esito
+  return { ...esito, finito: vecchi.finito }
 }
 
 export async function sincronizzaTutti(): Promise<EsitoSync[]> {
