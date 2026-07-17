@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { dataBreve, PRIORITA } from '@/lib/format'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
+import { ArchiviaDefinitivo } from '@/components/ArchiviaDefinitivo'
 
 export const dynamic = 'force-dynamic'
 
@@ -180,6 +181,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
 
                 <div style={{ paddingLeft: 17 }}>
                   <PrioritaButtons id={m.id} priorita={m.priorita} prioritaDa={m.prioritaDa} />
+                  <div className="riga-azioni">
+                    <ArchiviaDefinitivo id={m.id} mittente={m.mittente} />
+                  </div>
                 </div>
               </div>
             ))}

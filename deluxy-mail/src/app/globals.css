@@ -288,6 +288,30 @@ input:focus, select:focus, textarea:focus {
 
 .prio-nota { font-size: 12px; color: var(--text-tertiary); margin-left: 2px; }
 
+/* "Archivia definitivo" sotto i pulsanti di priorità: discreto finché non
+   serve, perché crea una regola permanente e non va premuto per sbaglio. */
+.archivia-def {
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  padding: 2px 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 150ms var(--ease);
+}
+.archivia-def:hover { color: var(--red); }
+.archivia-def:disabled { opacity: 0.55; cursor: default; }
+.archivia-def.si { color: var(--red); font-weight: 600; }
+
+.archivia-def-conferma {
+  display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; color: var(--text-secondary);
+}
+.riga-azioni { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+
 /* pallino non letto */
 .dot-unread { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); flex: 0 0 7px; }
 .dot-spacer { width: 7px; flex: 0 0 7px; }
