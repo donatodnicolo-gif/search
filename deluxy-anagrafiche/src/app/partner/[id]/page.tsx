@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { BadgeStato } from "@/components/BadgeStato";
+import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 
@@ -37,7 +37,7 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
             {[p.categoria, p.citta, p.regione].filter(Boolean).join(" · ")}
           </p>
         </div>
-        <BadgeStato stato={p.stato} />
+        <SelettoreStato partnerId={p.id} statoAttuale={p.stato} />
       </div>
 
       <section className="scheda">
