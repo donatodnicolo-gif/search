@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, commissione, dovutoVendita } from "@/lib/calc";
+import { registraBonifico } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,16 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
   if (!partner) notFound();
 
   const anno = ANNO_CORRENTE;
-  const { mesi, rolling } = await riepilogoPartner(id, anno);
+  const annoPrec = anno - 1;
+  const [{ mesi, rolling }, prec] = await Promise.all([
+    riepilogoPartner(id, anno),
+    riepilogoPartner(id, annoPrec),
+  ]);
   const mesiConDati = mesi.filter(
     (m) => m.fatture.length || m.vendite.length || m.saldo
   );
+  // valore mese = vendite + servizi fatturati (netto IVA), per il confronto anno su anno
+  const valoreMese = (r: { vendite: number; serviziNetto: number }) => r.vendite + r.serviziNetto;
 
   return (
     <>
@@ -59,12 +66,16 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
         <div className="kpi">
           <div className="kpi-label">Vendite come vendor</div>
           <div className="kpi-value">{euro(rolling.vendite)}</div>
-          <div className="kpi-sub">Commissioni {euro(rolling.commissioni)}</div>
+          <div className="kpi-sub">
+            Commissioni {euro(rolling.commissioni)} · {annoPrec} intero: {euro(prec.rolling.vendite)}
+          </div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Servizi fatturati (netto IVA)</div>
           <div className="kpi-value">{euro(rolling.fatture)}</div>
-          <div className="kpi-sub">Stima chiusura {euro(rolling.stimaChiusura)}</div>
+          <div className="kpi-sub">
+            Stima chiusura {euro(rolling.stimaChiusura)} · {annoPrec} intero: {euro(prec.rolling.fatture)}
+          </div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Dovuto al partner (YTD)</div>
@@ -93,7 +104,23 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
       {mesiConDati.map(({ mese, fatture, vendite, saldo, riepilogo: r }) => (
         <div className="month-block" key={mese} style={{ background: "var(--surface)" }}>
           <div className="month-head">
-            <span>{nomeMese(mese)} {anno}</span>
+            <span style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+              {nomeMese(mese)} {anno}
+              {(() => {
+                const v25 = valoreMese(prec.mesi[mese - 1].riepilogo);
+                const v26 = valoreMese(r);
+                if (!v25) return <span className="muted" style={{ fontWeight: 400, fontSize: 12.5 }}>{annoPrec}: —</span>;
+                const dp = ((v26 - v25) / v25) * 100;
+                return (
+                  <span className="muted" style={{ fontWeight: 400, fontSize: 12.5 }}>
+                    {annoPrec}: {euro(v25)} ·{" "}
+                    <span style={{ color: dp >= 0 ? "var(--green)" : "var(--red)", fontWeight: 500 }}>
+                      {dp >= 0 ? "+" : ""}{dp.toFixed(1).replace(".", ",")}%
+                    </span>
+                  </span>
+                );
+              })()}
+            </span>
             <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               {Math.abs(r.residuo) < 0.01 ? (
                 <span className="badge green"><span className="dot" />Pareggiato</span>
@@ -101,6 +128,21 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                 <span className="badge orange"><span className="dot" />Da incassare {euro(r.residuo)}</span>
               ) : (
                 <span className="badge orange"><span className="dot" />Da bonificare {euro(-r.residuo)}</span>
+              )}
+              {Math.abs(r.residuo) >= 0.01 && (
+                <form action={registraBonifico.bind(null, partner.id, anno, mese, +(-r.residuo).toFixed(2), undefined)}>
+                  <button
+                    className="btn small primary"
+                    type="submit"
+                    title={
+                      r.residuo < 0
+                        ? `Registra bonifico inviato di ${euro(-r.residuo)} con data odierna: il mese risulterà pareggiato`
+                        : `Registra incasso di ${euro(r.residuo)} con data odierna: il mese risulterà pareggiato`
+                    }
+                  >
+                    Segna saldato
+                  </button>
+                </form>
               )}
               <Link href={`/saldi?anno=${anno}&mese=${mese}&q=${encodeURIComponent(partner.nome.slice(0, 12))}`} className="btn small secondary">
                 Saldo mese
