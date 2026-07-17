@@ -186,6 +186,21 @@
   .content{flex:1; padding:36px 44px 48px; max-width:100%; overflow-x:auto}
   .content .wrap{max-width:760px; margin:0; padding:0}
   .page-head{max-width:760px; margin:0 0 20px}
+  /* sidebar a scomparsa su desktop */
+  .side-toggle{display:none}
+  @media(min-width:801px){
+    .side-toggle{display:inline-flex; margin:0 0 10px}
+    .sidebar{transition:margin-left .28s var(--ease)}
+    .shell.side-hidden .sidebar{margin-left:-250px}
+  }
+  /* due colonne: impostazioni a sinistra, lista risultati a destra */
+  .cols{display:grid; gap:18px; align-items:start}
+  @media(min-width:1100px){
+    .content .wrap{max-width:1360px}
+    .page-head{max-width:1360px}
+    .cols{grid-template-columns:minmax(400px,560px) minmax(380px,1fr)}
+    .col-right{position:sticky; top:16px; max-height:calc(100vh - 32px); overflow-y:auto; padding:2px}
+  }
   .page-head h1{margin:0 0 6px; font-size:32px; font-weight:600; letter-spacing:-.025em}
   .page-head .cap{margin:0; color:var(--text-secondary); font-size:14px}
   .topbar{display:none} .app-overlay{display:none}
@@ -244,11 +259,14 @@
     </div>
   </aside>
   <main class="content">
+    <button class="hamburger side-toggle" id="btnSide" title="Mostra/nascondi menu" aria-label="Mostra/nascondi menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="page-head">
       <h1>Smistamento ordini</h1>
       <p class="cap">Recupera un ordine e invialo al fiorario o pasticceria più vicino, via WhatsApp o email.</p>
     </div>
     <div class="wrap">
+    <div class="cols">
+    <div class="col-left">
 
   <!-- ADMIN -->
   <details class="card config" id="config">
@@ -453,8 +471,13 @@
     </div>
   </div>
 
-  <div class="status" id="status"></div>
-  <div class="results" id="results"></div>
+    </div><!-- /col-left -->
+
+    <div class="col-right">
+      <div class="status" id="status"></div>
+      <div class="results" id="results"></div>
+    </div><!-- /col-right -->
+    </div><!-- /cols -->
 
     </div>
   </main>
@@ -643,6 +666,13 @@ $('#navAdmin').addEventListener('click', ()=>{ $('#config').open=true; $('#confi
 $('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);
 $('#appOverlay').addEventListener('click', closeMenu);
+// sidebar a scomparsa su desktop (lo stato resta tra le sessioni)
+function applySide(){ document.querySelector('.shell').classList.toggle('side-hidden', localStorage.getItem('sideHidden')==='1'); }
+$('#btnSide').addEventListener('click', ()=>{
+  localStorage.setItem('sideHidden', localStorage.getItem('sideHidden')==='1' ? '0' : '1');
+  applySide();
+});
+applySide();
 
 // toggle categorie
 document.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => {
