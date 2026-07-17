@@ -26,7 +26,9 @@ npm run dev              # http://localhost:3060
 
 ## Deploy (Vercel)
 
-Progetto Vercel `deluxy-anagrafiche` (creato, root = questa cartella). Variabili
+**Live: https://deluxy-anagrafiche.vercel.app** (UI con password, API con chiavi).
+
+Progetto Vercel `deluxy-anagrafiche` (root = questa cartella). Variabili
 d'ambiente in produzione: `DATABASE_URL`, `DIRECT_URL` (come nel `.env`, con
 `schema=anagrafiche`) e `ANAGRAFICHE_APP_PASSWORD` (protegge la UI; le API
 /api/v1 restano protette dalle chiavi). Poi `npx vercel --prod`.
