@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
-import { nomeMese, commissione, dovutoVendita } from "@/lib/calc";
+import { nomeMese, commissione, dovutoVendita, ivato } from "@/lib/calc";
 import { segnaFatturaPagata } from "@/lib/actions";
 import { PagamentoMese } from "@/components/PagamentoMese";
 
@@ -162,7 +162,9 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                           </form>
                         </span>
                       </td>
-                      <td className="num">{euro(f.imponibile)} <span className="muted">+IVA</span></td>
+                      <td className="num">
+                        {euro(f.imponibile)} <span className="muted">+IVA → {euro(ivato(f))}</span>
+                      </td>
                     </tr>
                   ))}
                   {vendite.map((v) => (
