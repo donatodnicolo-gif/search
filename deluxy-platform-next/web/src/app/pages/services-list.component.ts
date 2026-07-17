@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { ClientTable } from '../core/client-table';
 import { ServiceType } from '../core/models';
 
 @Component({
@@ -17,7 +18,8 @@ import { ServiceType } from '../core/models';
         <p class="page-caption">{{ services().length }} {{ 'services.caption' | translate }}</p>
       </div>
       <div class="head-actions">
-        <select class="field" [(ngModel)]="scopeFilter">
+        <input class="field" name="q" [attr.placeholder]="'common.search' | translate" [ngModel]="table.query()" (ngModelChange)="table.query.set($event)" />
+        <select class="field" name="scope" [ngModel]="scopeFilter()" (ngModelChange)="scopeFilter.set($event)">
           <option value="">{{ 'common.all' | translate }}</option>
           <option value="partner">{{ 'enums.serviceScope.partner' | translate }}</option>
           <option value="valet">{{ 'enums.serviceScope.valet' | translate }}</option>
@@ -33,7 +35,15 @@ import { ServiceType } from '../core/models';
     } @else {
       <div class="card table-wrap">
         <table>
-          <thead><tr><th>{{ 'services.col.name' | translate }}</th><th>{{ 'services.col.type' | translate }}</th><th>{{ 'services.col.scope' | translate }}</th><th>{{ 'services.col.notes' | translate }}</th><th>{{ 'deliveries.col.actions' | translate }}</th></tr></thead>
+          <thead>
+            <tr>
+              <th class="sortable" (click)="table.sortBy('name')">{{ 'services.col.name' | translate }}<span class="sort-ind">{{ table.indicator('name') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('pricingModel')">{{ 'services.col.type' | translate }}<span class="sort-ind">{{ table.indicator('pricingModel') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('scope')">{{ 'services.col.scope' | translate }}<span class="sort-ind">{{ table.indicator('scope') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('notes')">{{ 'services.col.notes' | translate }}<span class="sort-ind">{{ table.indicator('notes') }}</span></th>
+              <th>{{ 'deliveries.col.actions' | translate }}</th>
+            </tr>
+          </thead>
           <tbody>
             @for (s of filtered(); track s.id) {
               <tr class="row-link" tabindex="0" (click)="openDetail(s)" (keydown.enter)="openDetail(s)">
@@ -62,6 +72,9 @@ import { ServiceType } from '../core/models';
       table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
       th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; }
+      th.sortable { cursor: pointer; user-select: none; }
+      th.sortable:hover { color: var(--text); }
+      .sort-ind { color: var(--gold-strong); font-weight: 700; }
       tbody tr:hover { background: rgba(120,120,128,0.05); }
       tr:last-child td { border-bottom: none; }
       .strong { font-weight: 550; }
@@ -92,12 +105,20 @@ export class ServicesListComponent {
   readonly services = signal<ServiceType[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
-  scopeFilter = '';
+  readonly scopeFilter = signal('');
+
+  /** Ricerca globale + ordinamento per colonna, lato client (lista piccola). */
+  readonly table = new ClientTable<ServiceType>(
+    ['name', 'code', 'notes', 'pricingModel', 'scope'],
+    'name',
+  );
 
   readonly filtered = computed(() => {
-    const f = this.scopeFilter;
-    if (!f) return this.services();
-    return this.services().filter((s) => s.scope === f || s.scope === 'both');
+    const f = this.scopeFilter();
+    const items = f
+      ? this.services().filter((s) => s.scope === f || s.scope === 'both')
+      : this.services();
+    return this.table.view(items);
   });
 
   constructor() {

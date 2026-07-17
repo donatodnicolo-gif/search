@@ -5,11 +5,12 @@ import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { ProductRef } from '../core/models';
+import { SavedViewsComponent } from '../core/saved-views.component';
 
 @Component({
   selector: 'app-products-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, TranslatePipe],
+  imports: [FormsModule, RouterLink, TranslatePipe, SavedViewsComponent],
   template: `
     <div class="page-header">
       <div>
@@ -25,6 +26,19 @@ import { ProductRef } from '../core/models';
         />
         <a routerLink="/products/new" class="btn btn-primary">+ {{ 'products.add' | translate }}</a>
       </div>
+    </div>
+
+    <!-- Viste rapide salvate (per account, condivisibili) -->
+    <app-saved-views section="products" [current]="currentView()" (applyView)="applyView($event)" />
+
+    <!-- Tab: lista principale / archivio (stato separato da Attivo) -->
+    <div class="tabs">
+      <button type="button" class="tab" [class.on]="!archived()" (click)="setArchived(false)">
+        {{ 'products.tabActive' | translate }}
+      </button>
+      <button type="button" class="tab" [class.on]="archived()" (click)="setArchived(true)">
+        {{ 'products.tabArchive' | translate }}
+      </button>
     </div>
 
     @if (loading()) { <div class="card state-card">{{ 'products.loading' | translate }}</div> }
@@ -58,6 +72,11 @@ import { ProductRef } from '../core/models';
                 </td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   <a class="act" [routerLink]="['/products', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
+                  @if (archived()) {
+                    <button type="button" class="act" (click)="setArchivedFlag(p, false)">{{ 'products.restore' | translate }}</button>
+                  } @else {
+                    <button type="button" class="act" (click)="setArchivedFlag(p, true)">{{ 'products.archive' | translate }}</button>
+                  }
                 </td>
               </tr>
             }
@@ -106,6 +125,11 @@ import { ProductRef } from '../core/models';
       .actions-cell { white-space: nowrap; }
       .act { display: inline-flex; align-items: center; border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 4px 11px; font-size: 12px; font-weight: 550; color: var(--text); text-decoration: none; }
       .act:hover { background: var(--fill); }
+      /* Tab lista principale / archivio */
+      .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+      .tab { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 16px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; }
+      .tab:hover { background: var(--fill); }
+      .tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
       /* Intestazioni ordinabili */
       th.sortable { cursor: pointer; user-select: none; }
       th.sortable:hover { color: var(--text); }
@@ -156,6 +180,53 @@ export class ProductsListComponent {
   ];
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
+
+  // ---- Archivio: stato separato da "Attivo" (un disattivato resta in lista) ----
+  readonly archived = signal(false);
+
+  setArchived(value: boolean): void {
+    if (this.archived() === value) return;
+    this.archived.set(value);
+    this.page.set(1);
+    this.load();
+  }
+
+  /** Archivia o ripristina un prodotto e ricarica la lista corrente. */
+  setArchivedFlag(p: ProductRef, archived: boolean): void {
+    this.http
+      .patch(`${environment.apiUrl}/products/${p.id}/archive`, { archived })
+      .subscribe({
+        next: () => this.load(),
+        error: (err) => this.error.set(err?.error?.message ?? this.translate.instant('common.saveError')),
+      });
+  }
+
+  // ---- Viste rapide ----
+  /**
+   * Stato corrente salvato in una vista.
+   * Metodo e non `computed`: `query` e `pageSize` sono campi semplici, non
+   * signal, quindi un computed non ricalcolerebbe al loro cambiare.
+   */
+  currentView(): Record<string, unknown> {
+    return {
+      q: this.query,
+      sort: this.sort(),
+      dir: this.dir(),
+      pageSize: this.pageSize,
+      archived: this.archived(),
+    };
+  }
+
+  /** Applica una vista salvata: ripristina ricerca, ordinamento, pagina e tab. */
+  applyView(config: Record<string, unknown>): void {
+    this.query = typeof config['q'] === 'string' ? (config['q'] as string) : '';
+    if (typeof config['sort'] === 'string') this.sort.set(config['sort'] as string);
+    if (config['dir'] === 'asc' || config['dir'] === 'desc') this.dir.set(config['dir']);
+    if (typeof config['pageSize'] === 'number') this.pageSize = config['pageSize'] as number;
+    this.archived.set(config['archived'] === true);
+    this.page.set(1);
+    this.load();
+  }
 
   sortIndicator(field: string): string {
     if (this.sort() !== field) return '';

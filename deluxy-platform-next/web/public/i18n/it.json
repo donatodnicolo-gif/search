@@ -261,7 +261,11 @@
       "partner": "Partner",
       "price": "Prezzo",
       "status": "Stato"
-    }
+    },
+    "tabActive": "Prodotti",
+    "tabArchive": "Archivio",
+    "archive": "Archivia",
+    "restore": "Ripristina"
   },
   "categories": {
     "title": "Categorie",
@@ -982,7 +986,10 @@
     "submit": "Crea cliente",
     "error": {
       "required": "Nome e cognome sono obbligatori."
-    }
+    },
+    "partner": "Partner di provenienza",
+    "partnerHint": "(da quale partner arriva il cliente)",
+    "noPartner": "— nessuno —"
   },
   "customerDetail": {
     "deliveries": "Consegne del cliente",
@@ -1025,5 +1032,14 @@
   "list": {
     "pageOf": "Pagina {{page}} di {{pages}}",
     "perPage": "per pagina"
+  },
+  "views": {
+    "title": "Viste",
+    "save": "Salva vista",
+    "empty": "Nessuna vista salvata.",
+    "namePlaceholder": "Nome della vista",
+    "share": "Condividi",
+    "shareHint": "Rendi la vista visibile a tutto il team",
+    "sharedHint": "Vista condivisa dal team"
   }
 }

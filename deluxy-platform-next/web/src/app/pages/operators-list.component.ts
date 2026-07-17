@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { ClientTable } from '../core/client-table';
 import { Operation } from '../core/models';
 
 @Component({
@@ -17,7 +18,7 @@ import { Operation } from '../core/models';
         <p class="page-caption">{{ operators().length }} {{ 'operators.caption' | translate }}</p>
       </div>
       <div class="head-actions">
-        <input class="field" [attr.placeholder]="'operators.searchPlaceholder' | translate" [(ngModel)]="query" />
+        <input class="field" name="q" [attr.placeholder]="'common.search' | translate" [ngModel]="table.query()" (ngModelChange)="table.query.set($event)" />
         <a routerLink="/operators/new" class="btn btn-primary">+ {{ 'operators.add' | translate }}</a>
       </div>
     </div>
@@ -35,7 +36,15 @@ import { Operation } from '../core/models';
       <div class="card table-wrap">
         <table>
           <thead>
-            <tr><th>{{ 'operators.col.lastName' | translate }}</th><th>{{ 'operators.col.firstName' | translate }}</th><th>{{ 'operators.col.email' | translate }}</th><th>{{ 'operators.col.phone' | translate }}</th><th>{{ 'operators.col.role' | translate }}</th><th>{{ 'operators.col.status' | translate }}</th><th>{{ 'deliveries.col.actions' | translate }}</th></tr>
+            <tr>
+              <th class="sortable" (click)="table.sortBy('lastName')">{{ 'operators.col.lastName' | translate }}<span class="sort-ind">{{ table.indicator('lastName') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('firstName')">{{ 'operators.col.firstName' | translate }}<span class="sort-ind">{{ table.indicator('firstName') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('email')">{{ 'operators.col.email' | translate }}<span class="sort-ind">{{ table.indicator('email') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('phone')">{{ 'operators.col.phone' | translate }}<span class="sort-ind">{{ table.indicator('phone') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('operationRole')">{{ 'operators.col.role' | translate }}<span class="sort-ind">{{ table.indicator('operationRole') }}</span></th>
+              <th class="sortable" (click)="table.sortBy('active')">{{ 'operators.col.status' | translate }}<span class="sort-ind">{{ table.indicator('active') }}</span></th>
+              <th>{{ 'deliveries.col.actions' | translate }}</th>
+            </tr>
           </thead>
           <tbody>
             @for (o of filtered(); track o.id) {
@@ -74,6 +83,9 @@ import { Operation } from '../core/models';
       table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
       th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; }
+      th.sortable { cursor: pointer; user-select: none; }
+      th.sortable:hover { color: var(--text); }
+      .sort-ind { color: var(--gold-strong); font-weight: 700; }
       tbody tr { transition: background 0.14s var(--ease); }
       tbody tr:hover { background: rgba(120,120,128,0.05); }
       tr:last-child td { border-bottom: none; }
@@ -107,18 +119,13 @@ export class OperatorsListComponent {
   readonly operators = signal<Operation[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
-  query = '';
+  /** Ricerca globale + ordinamento per colonna, lato client (lista piccola). */
+  readonly table = new ClientTable<Operation>(
+    ['lastName', 'firstName', 'email', 'phone', 'operationRole'],
+    'lastName',
+  );
 
-  readonly filtered = computed(() => {
-    const q = this.query.trim().toLowerCase();
-    if (!q) return this.operators();
-    return this.operators().filter(
-      (o) =>
-        o.lastName.toLowerCase().includes(q) ||
-        o.firstName.toLowerCase().includes(q) ||
-        o.email.toLowerCase().includes(q),
-    );
-  });
+  readonly filtered = computed(() => this.table.view(this.operators()));
 
   constructor() {
     this.http.get<Operation[]>(`${environment.apiUrl}/operations`).subscribe({

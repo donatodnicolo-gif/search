@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { AuthService } from '../core/auth.service';
+import { Partner } from '../core/models';
 
 /** Form cliente: crea (POST) oppure modifica (PUT) in base alla rotta. */
 @Component({
@@ -30,6 +32,15 @@ import { environment } from '../../environments/environment';
             <input class="field" type="email" name="email" [(ngModel)]="model.email" /></label>
           <label class="fld"><span>{{ 'customers.col.phone' | translate }}</span>
             <input class="field" name="phone" [(ngModel)]="model.phone" placeholder="+39 …" /></label>
+          <!-- Partner di provenienza: solo admin/operation. Per il ruolo
+               partner lo imposta l'API col proprio partner. -->
+          @if (canChoosePartner()) {
+            <label class="fld span-2"><span>{{ 'customerForm.partner' | translate }} <em>{{ 'customerForm.partnerHint' | translate }}</em></span>
+              <select class="field" name="partnerId" [(ngModel)]="model.partnerId">
+                <option value="">{{ 'customerForm.noPartner' | translate }}</option>
+                @for (p of partners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
+              </select></label>
+          }
           <label class="fld span-2"><span>{{ 'customers.col.address' | translate }}</span>
             <input class="field" name="address" [(ngModel)]="model.address" [attr.placeholder]="'customerForm.addressPlaceholder' | translate" /></label>
           <label class="fld span-2"><span>{{ 'customerForm.notes' | translate }}</span>
@@ -76,14 +87,31 @@ export class CustomerFormComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly translate = inject(TranslateService);
+  private readonly auth = inject(AuthService);
 
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly editId = signal<string | null>(null);
+  readonly partners = signal<Partner[]>([]);
 
-  model = { firstName: '', lastName: '', email: '', phone: '', address: '', notes: '' };
+  model = { firstName: '', lastName: '', email: '', phone: '', address: '', notes: '', partnerId: '' };
+
+  /**
+   * Solo admin/operation scelgono da quale partner proviene il cliente:
+   * al ruolo partner l'API forza il proprio.
+   */
+  canChoosePartner(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION';
+  }
 
   constructor() {
+    if (this.canChoosePartner()) {
+      this.http
+        .get<Partner[]>(`${environment.apiUrl}/partners`)
+        .subscribe((d) => this.partners.set(d));
+    }
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.editId.set(id);
@@ -112,6 +140,13 @@ export class CustomerFormComponent {
     };
     for (const k of ['email', 'phone', 'address', 'notes'] as const) {
       if (m[k].trim()) payload[k] = m[k].trim();
+    }
+    // Partner di provenienza: solo se l'utente puo' sceglierlo. In modifica
+    // invio anche la stringa vuota (= nessun partner), altrimenti non si
+    // potrebbe togliere il partner a un cliente.
+    if (this.canChoosePartner()) {
+      if (m.partnerId) payload['partnerId'] = m.partnerId;
+      else if (this.editId()) payload['partnerId'] = null;
     }
 
     this.saving.set(true);
