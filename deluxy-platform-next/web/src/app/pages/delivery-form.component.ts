@@ -1,10 +1,22 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  NgZone,
+  ViewChild,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { loadGoogleMaps } from '../core/google-maps';
 import { detectProvince } from '../core/province.util';
+
+declare const google: any;
 import {
   Customer,
   DELIVERY_PAYMENT_STATUS_LABELS,
@@ -48,7 +60,7 @@ interface ProductRow {
               @for (s of serviceTypes(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
             </select></label>
           <label class="fld"><span>{{ 'deliveryForm.field.recipientAddress' | translate }} *</span>
-            <input class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required [placeholder]="'deliveryForm.placeholder.address' | translate" />
+            <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
             @if (addressProvince()) { <span class="slot-hint">{{ 'deliveryForm.hint.provinceDetected' | translate:{ code: addressProvince()?.code } }}</span> }
             @else if (model.recipientAddress) { <span class="slot-hint warn">{{ 'deliveryForm.hint.provinceUnknown' | translate }}</span> }
           </label>
@@ -343,11 +355,15 @@ interface ProductRow {
     `,
   ],
 })
-export class DeliveryFormComponent {
+export class DeliveryFormComponent implements AfterViewInit {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly translate = inject(TranslateService);
+  private readonly zone = inject(NgZone);
+
+  @ViewChild('addressInput') addressInput?: ElementRef<HTMLInputElement>;
+  private autocomplete: any = null;
 
   readonly partners = signal<Partner[]>([]);
   readonly serviceTypes = signal<ServiceType[]>([]);
@@ -602,6 +618,52 @@ export class DeliveryFormComponent {
     if (c.intercom) this.model.recipientIntercom = c.intercom;
     if (c.phone) this.model.recipientPhone = c.phone;
     if (c.email) this.model.recipientEmail = c.email;
+  }
+
+  /** Aggancia l'autocomplete indirizzi di Google Places al campo destinatario,
+   *  se in Impostazioni è configurata la chiave browser. Degrada silenziosamente
+   *  al campo di testo normale (con geocodifica server) se manca la chiave. */
+  ngAfterViewInit(): void {
+    const input = this.addressInput?.nativeElement;
+    if (!input) return;
+    this.http
+      .get<{ googleMapsBrowserKey: string | null }>(`${environment.apiUrl}/settings/public`)
+      .subscribe({
+        next: async (cfg) => {
+          const key = cfg?.googleMapsBrowserKey;
+          if (!key) return; // nessuna chiave: resta il campo normale
+          try {
+            await loadGoogleMaps(key);
+            this.autocomplete = new google.maps.places.Autocomplete(input, {
+              componentRestrictions: { country: 'it' },
+              fields: ['formatted_address', 'geometry', 'address_components'],
+              types: ['address'],
+            });
+            this.autocomplete.addListener('place_changed', () => {
+              const place = this.autocomplete.getPlace();
+              // L'evento Google è fuori dal ciclo Angular: rientro con la zona.
+              this.zone.run(() => this.onPlaceSelected(place));
+            });
+          } catch {
+            /* script non caricato: resta il campo normale */
+          }
+        },
+        error: () => { /* nessuna chiave/rete: campo normale */ },
+      });
+  }
+
+  /** Indirizzo scelto dal menu Google: compila il campo e ricava la provincia. */
+  private onPlaceSelected(place: any): void {
+    if (!place) return;
+    const address = place.formatted_address || this.addressInput?.nativeElement.value || '';
+    this.model.recipientAddress = address;
+    const comp = (place.address_components || []).find((c: any) =>
+      (c.types || []).includes('administrative_area_level_2'),
+    );
+    const code = comp?.short_name as string | undefined;
+    const prov = code ? (this.provinces().find((p) => p.code === code) ?? null) : null;
+    this.addressProvince.set(prov ?? this.detectProvince(address));
+    this.syncSelections();
   }
 
   /** Al cambio indirizzo: rileva subito la provincia dal testo, poi (con debounce)

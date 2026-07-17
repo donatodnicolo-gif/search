@@ -171,3 +171,14 @@ input.field {
   border-radius: var(--radius-l);
   box-shadow: var(--shadow-card);
 }
+
+/* Menu autocomplete indirizzi di Google Places: sopra la UI dell'app. */
+.pac-container {
+  z-index: 3000;
+  border-radius: 12px;
+  border: 1px solid var(--hairline-strong);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  font-family: inherit;
+  margin-top: 4px;
+}
+.pac-item { padding: 6px 12px; font-size: 13px; cursor: pointer; }

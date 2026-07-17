@@ -13,6 +13,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { loadGoogleMaps } from '../core/google-maps';
 import { DELIVERY_STATUS_LABELS } from '../core/models';
 
 declare const google: any;
@@ -48,23 +49,6 @@ const STATUS_COLOR: Record<string, string> = {
   cancelled: '#8a8a8e',
   delivered_time_not_approved: '#8a8a8e',
 };
-
-// Caricamento una sola volta dello script Google Maps (singleton di modulo).
-let mapsScriptPromise: Promise<void> | null = null;
-function loadGoogleMaps(key: string): Promise<void> {
-  if (typeof google !== 'undefined' && google?.maps) return Promise.resolve();
-  if (mapsScriptPromise) return mapsScriptPromise;
-  mapsScriptPromise = new Promise<void>((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&language=it&region=IT`;
-    s.async = true;
-    s.defer = true;
-    s.onload = () => resolve();
-    s.onerror = () => { mapsScriptPromise = null; reject(new Error('maps-load-failed')); };
-    document.head.appendChild(s);
-  });
-  return mapsScriptPromise;
-}
 
 // Caricamento opzionale del clusterer (degrada a marker singoli se non disponibile).
 let clustererScriptPromise: Promise<boolean> | null = null;

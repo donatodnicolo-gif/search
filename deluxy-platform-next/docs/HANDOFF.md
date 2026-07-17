@@ -106,6 +106,13 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 17/07/2026 (sera 5) — Autocomplete indirizzi Google Places (form consegna)
+
+- Campo **Indirizzo destinatario** del form consegna: agganciato `google.maps.places.Autocomplete` (ristretto all'Italia, `types:['address']`). Alla selezione compila l'indirizzo e ricava la **provincia** da `administrative_area_level_2` (→ filtro partner/valet). Evento Google riportato nella zona Angular (`NgZone.run`).
+- Usa la **chiave browser** (`GET /settings/public`). ⚠️ La chiave browser deve avere abilitate sia **Maps JavaScript API** sia **Places API**. Senza chiave: degrada al campo di testo + geocodifica server (comportamento precedente). `autocomplete="off"` sul campo per sopprimere l'autofill di Chrome.
+- **Helper condiviso** `web/src/app/core/google-maps.ts`: carica lo script Google Maps **una sola volta** con `libraries=places` (usato da mappa consegne + autocomplete). La mappa non ha più il suo loader locale.
+- Stile globale `.pac-container` in `styles.css` (z-index sopra la UI). Verificato il fallback senza chiave (campo normale, nessun errore console); il menu Google richiede la chiave browser da inserire in Impostazioni.
+
 ### 17/07/2026 (sera 4) — Mappa consegne (Google Maps con puntatori)
 
 - **Coordinate sulla consegna**: `Delivery.latitude/longitude` (migrazione `20260717201903_delivery_coords`), geocodificate **una volta** alla creazione/modifica (`DeliveriesService` usa `SettingsService.geocodeCoords`, chiave server). **Backfill** `POST /deliveries/geocode-missing?limit=` (admin, throttlato). La mappa **non geocodifica a runtime**.
