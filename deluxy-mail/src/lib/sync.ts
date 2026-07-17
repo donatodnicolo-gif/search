@@ -12,10 +12,28 @@ export type EsitoSync = {
   tipo: 'scarico' | 'storico'
   account: string
   scaricati: number
+  /** Non salvati per un problema passeggero: si riprovano al giro dopo. */
+  nonSalvati: number
+  /** Scartati per un problema loro: non si riproveranno più. */
+  scartati: number
   /** Solo per 'storico': true quando non c'è più posta vecchia da prendere. */
   finito?: boolean
   errore?: string
 }
+
+/** Errori di connessione: passeggeri, vale la pena riprovare. */
+function transitorio(e: unknown): boolean {
+  const t = e instanceof Error ? e.message : String(e)
+  return (
+    t.includes('unexpected message from server') ||
+    t.includes("Can't reach database server") ||
+    t.includes('Connection reset') ||
+    t.includes('ECONNRESET') ||
+    t.includes('connection closed')
+  )
+}
+
+const attendi = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /**
  * Analizza un messaggio con l'AI: riassunto di cosa c'è da fare, e l'attività
@@ -175,7 +193,13 @@ function inItaliano(errore: string): string {
  */
 export async function sincronizzaAccount(accountId: string, limite = 25): Promise<EsitoSync> {
   const account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
-  const esito: EsitoSync = { tipo: 'scarico', account: account.email, scaricati: 0 }
+  const esito: EsitoSync = {
+    tipo: 'scarico',
+    account: account.email,
+    scaricati: 0,
+    nonSalvati: 0,
+    scartati: 0,
+  }
 
   let nuovi
   try {
@@ -190,12 +214,23 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
   }
 
   const regole = await db.regola.findMany()
-  await salvaMessaggi({ accountId: account.id, messaggi: nuovi.messaggi, regole, esito })
+  const { primoFallito } = await salvaMessaggi({
+    accountId: account.id,
+    messaggi: nuovi.messaggi,
+    regole,
+    esito,
+  })
+
+  // Il segnalibro non supera mai un messaggio che non si è riusciti a salvare:
+  // altrimenti il prossimo scarico ripartirebbe da dopo, e quella mail non
+  // verrebbe letta mai più. Meglio riscaricare qualcosa due volte (l'UID già
+  // presente si salta da solo) che perderla.
+  const ultimoUid = primoFallito !== null ? primoFallito - 1 : nuovi.ultimoUid
 
   await db.account.update({
     where: { id: account.id },
     data: {
-      ultimoUid: nuovi.ultimoUid,
+      ultimoUid: Math.max(account.ultimoUid, ultimoUid),
       // primoUid si fissa al primo scarico: da lì in poi si muove solo
       // all'indietro, quando si chiede lo storico.
       ...(account.primoUid === 0 && nuovi.primoUid > 0 ? { primoUid: nuovi.primoUid } : {}),
@@ -207,48 +242,91 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
   return esito
 }
 
-/** Salva i messaggi nuovi applicando le regole, saltando quelli già presenti. */
+/**
+ * Salva i messaggi nuovi applicando le regole, saltando quelli già presenti.
+ *
+ * Restituisce l'UID più basso che non si è riusciti a salvare: serve a chi
+ * chiama per non spostare in avanti il segnalibro oltre quel punto, altrimenti
+ * quel messaggio non verrebbe mai più riletto dalla casella.
+ */
 async function salvaMessaggi(opts: {
   accountId: string
   messaggi: MessaggioScaricato[]
   regole: Regola[]
   esito: EsitoSync
-}): Promise<void> {
+}): Promise<{ primoFallito: number | null }> {
   const { accountId, messaggi, regole, esito } = opts
+  let primoFallito: number | null = null
 
   for (const msg of messaggi) {
-    // Un UID già presente significa che l'abbiamo già lavorato: si salta.
-    const esistente = await db.messaggio.findUnique({
-      where: { accountId_uid: { accountId, uid: msg.uid } },
-    })
-    if (esistente) continue
-
     const daRegole = applicaRegole(regole, msg)
 
-    await db.messaggio.create({
-      data: {
-        accountId,
-        uid: msg.uid,
-        messageId: msg.messageId,
-        thread: msg.thread,
-        mittente: msg.mittente,
-        mittenteNome: msg.mittenteNome,
-        destinatari: msg.destinatari,
-        oggetto: msg.oggetto,
-        data: msg.data,
-        anteprima: msg.anteprima,
-        corpoTesto: msg.corpoTesto,
-        corpoHtml: msg.corpoHtml,
-        allegati: msg.allegati,
-        letto: msg.letto || daRegole.segnaLetta,
-        archiviato: daRegole.archivia,
-        sezioneId: daRegole.sezioneId,
-        smistatoDa: daRegole.sezioneId ? 'regola' : null,
-        regolaId: daRegole.regolaId,
-      },
-    })
-    esito.scaricati++
+    // Un messaggio che non si salva non deve far saltare tutti gli altri: la
+    // connessione al database può cadere per un istante, e il resto dello
+    // scarico è comunque buono. Un tentativo, una pausa, un secondo tentativo.
+    let salvato = false
+    for (let tentativo = 0; tentativo < 2 && !salvato; tentativo++) {
+      try {
+        // Un UID già presente significa che l'abbiamo già lavorato: si salta.
+        const esistente = await db.messaggio.findUnique({
+          where: { accountId_uid: { accountId, uid: msg.uid } },
+        })
+        if (esistente) {
+          salvato = true
+          break
+        }
+
+        await db.messaggio.create({
+          data: {
+            accountId,
+            uid: msg.uid,
+            messageId: msg.messageId,
+            thread: msg.thread,
+            mittente: msg.mittente,
+            mittenteNome: msg.mittenteNome,
+            destinatari: msg.destinatari,
+            oggetto: msg.oggetto,
+            data: msg.data,
+            anteprima: msg.anteprima,
+            corpoTesto: msg.corpoTesto,
+            corpoHtml: msg.corpoHtml,
+            allegati: msg.allegati,
+            letto: msg.letto || daRegole.segnaLetta,
+            archiviato: daRegole.archivia,
+            sezioneId: daRegole.sezioneId,
+            smistatoDa: daRegole.sezioneId ? 'regola' : null,
+            regolaId: daRegole.regolaId,
+          },
+        })
+        salvato = true
+        esito.scaricati++
+      } catch (e) {
+        if (transitorio(e) && tentativo === 0) {
+          await attendi(400)
+          continue
+        }
+
+        if (transitorio(e)) {
+          // Problema di connessione: il segnalibro si ferma qui e il prossimo
+          // giro riprende da questo messaggio.
+          esito.nonSalvati++
+          if (primoFallito === null || msg.uid < primoFallito) primoFallito = msg.uid
+        } else {
+          // Problema del messaggio, non della connessione: riproverebbe in
+          // eterno, bloccando tutta la posta arrivata dopo. Si salta e si va
+          // avanti — meglio perdere una mail che la casella.
+          esito.scartati++
+          console.error(
+            `[AI Mail] messaggio uid ${msg.uid} scartato ("${msg.oggetto}"):`,
+            e instanceof Error ? e.message : e
+          )
+        }
+        break
+      }
+    }
   }
+
+  return { primoFallito }
 }
 
 /**
@@ -257,7 +335,13 @@ async function salvaMessaggi(opts: {
  */
 export async function scaricaStorico(accountId: string, limite = 25): Promise<EsitoSync> {
   const account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
-  const esito: EsitoSync = { tipo: 'storico', account: account.email, scaricati: 0 }
+  const esito: EsitoSync = {
+    tipo: 'storico',
+    account: account.email,
+    scaricati: 0,
+    nonSalvati: 0,
+    scartati: 0,
+  }
 
   if (account.storicoFinito) return { ...esito, finito: true }
 
@@ -286,14 +370,23 @@ export async function scaricaStorico(accountId: string, limite = 25): Promise<Es
   }
 
   const regole = await db.regola.findMany()
-  await salvaMessaggi({ accountId: account.id, messaggi: vecchi.messaggi, regole, esito })
-
-  await db.account.update({
-    where: { id: account.id },
-    data: { primoUid: vecchi.primoUid, storicoFinito: vecchi.finito },
+  const { primoFallito } = await salvaMessaggi({
+    accountId: account.id,
+    messaggi: vecchi.messaggi,
+    regole,
+    esito,
   })
 
-  return { ...esito, finito: vecchi.finito }
+  // Se qualcosa non si è salvato, il segnalibro dello storico resta dov'è: il
+  // prossimo blocco ripassa da qui e recupera. I già salvati si saltano da soli.
+  if (primoFallito === null) {
+    await db.account.update({
+      where: { id: account.id },
+      data: { primoUid: vecchi.primoUid, storicoFinito: vecchi.finito },
+    })
+  }
+
+  return { ...esito, finito: primoFallito === null && vecchi.finito }
 }
 
 export async function sincronizzaTutti(): Promise<EsitoSync[]> {

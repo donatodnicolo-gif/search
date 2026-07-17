@@ -35,10 +35,20 @@ export async function sincronizzaOra(): Promise<{ ok: boolean; messaggio: string
     }
 
     const nuovi = esiti.reduce((s, e) => s + e.scaricati, 0)
-    if (nuovi === 0) return { ok: true, messaggio: 'Nessun messaggio nuovo.' }
+    const rimandati = esiti.reduce((s, e) => s + e.nonSalvati, 0)
+    const scartati = esiti.reduce((s, e) => s + e.scartati, 0)
+
+    const note: string[] = []
+    if (rimandati > 0) note.push(`${rimandati} li riprendo al prossimo giro (database occupato)`)
+    if (scartati > 0) note.push(`${scartati} scartati perché illeggibili`)
+    const avviso = note.length ? ` ${note.join(', ')}.` : ''
+
+    if (nuovi === 0) {
+      return { ok: note.length === 0, messaggio: `Nessun messaggio nuovo.${avviso}` }
+    }
     return {
-      ok: true,
-      messaggio: `${nuovi} messaggi nuovi. Dai una priorità a quelli che contano: l’AI li analizza e crea le attività.`,
+      ok: note.length === 0,
+      messaggio: `${nuovi} messaggi nuovi. Dai una priorità a quelli che contano: l’AI li analizza e crea le attività.${avviso}`,
     }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }

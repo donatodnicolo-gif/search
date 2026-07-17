@@ -51,6 +51,32 @@ const ENTITA: Record<string, string> = {
   trade: '™',
 }
 
+// Caratteri che Postgres non accetta in una colonna di testo. Il byte NULL è
+// il vero problema: una sola occorrenza fa rifiutare la scrittura e chiudere
+// la connessione ("unexpected message from server"). Capita davvero — le mail
+// promozionali con HTML generato male ne contengono — e senza ripulirle un
+// singolo messaggio blocca lo scarico di tutti quelli dopo di lui.
+// Si tengono \t \n \r, che sono testo legittimo.
+const CONTROLLO = new RegExp(
+  '[' +
+    String.fromCharCode(0) +
+    '-' +
+    String.fromCharCode(8) +
+    String.fromCharCode(11) +
+    String.fromCharCode(12) +
+    String.fromCharCode(14) +
+    '-' +
+    String.fromCharCode(31) +
+    String.fromCharCode(127) +
+    ']',
+  'g'
+)
+
+/** Toglie i caratteri che il database non può memorizzare. */
+export function ripulisciPerDatabase(testo: string): string {
+  return testo.replace(CONTROLLO, '')
+}
+
 /** Vero se il "testo" è in realtà markup: CSS, tag HTML, commenti condizionali. */
 function sembraMarkup(testo: string): boolean {
   const inizio = testo.slice(0, 500)
@@ -134,7 +160,8 @@ async function converti(uid: number, source: Buffer, letto: boolean): Promise<Me
   const parsed: ParsedMail = await simpleParser(source)
   const from = parsed.from?.value?.[0]
   const to: AddressObject[] = Array.isArray(parsed.to) ? parsed.to : parsed.to ? [parsed.to] : []
-  const testo = testoLeggibile(parsed.text, parsed.html)
+  const testo = ripulisciPerDatabase(testoLeggibile(parsed.text, parsed.html))
+  const html = typeof parsed.html === 'string' ? ripulisciPerDatabase(parsed.html) : null
 
   return {
     uid,
@@ -143,16 +170,16 @@ async function converti(uid: number, source: Buffer, letto: boolean): Promise<Me
       ? [parsed.references].flat()[0]
       : (parsed.inReplyTo ?? parsed.messageId ?? null),
     mittente: from?.address ?? 'sconosciuto',
-    mittenteNome: from?.name || null,
+    mittenteNome: from?.name ? ripulisciPerDatabase(from.name) : null,
     destinatari: to
       .flatMap((t) => t.value.map((v) => v.address))
       .filter(Boolean)
       .join(', '),
-    oggetto: parsed.subject ?? '(senza oggetto)',
+    oggetto: ripulisciPerDatabase(parsed.subject ?? '(senza oggetto)'),
     data: parsed.date ?? new Date(),
     anteprima: testo.replace(/\s+/g, ' ').slice(0, 200),
     corpoTesto: testo,
-    corpoHtml: typeof parsed.html === 'string' ? parsed.html : null,
+    corpoHtml: html,
     allegati: parsed.attachments?.length ?? 0,
     letto,
   }
