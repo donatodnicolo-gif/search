@@ -8,7 +8,12 @@ import { segnaFatturaPagata } from "@/lib/actions";
 export const dynamic = "force-dynamic";
 
 // Scadenzario: tutto ciò che è in sospeso, ordinato per urgenza.
-export default async function Scadenzario() {
+export default async function Scadenzario({
+  searchParams,
+}: {
+  searchParams: Promise<{ sollecito?: string }>;
+}) {
+  const sp = await searchParams;
   const anno = ANNO_CORRENTE;
   const oggi = new Date();
 
@@ -43,6 +48,11 @@ export default async function Scadenzario() {
           <p className="page-caption">
             Fatture da incassare, bonifici da inviare e fatture commissioni da emettere.
           </p>
+          {sp.sollecito === "ok" && (
+            <span className="badge green" style={{ marginTop: 8 }}>
+              <span className="dot" />Sollecito registrato
+            </span>
+          )}
         </div>
       </div>
 
@@ -96,10 +106,24 @@ export default async function Scadenzario() {
                       )}
                     </td>
                     <td className="num">{euro(ivato(f))}</td>
-                    <td>
-                      <form action={segnaFatturaPagata.bind(null, f.id, true, undefined)}>
-                        <button className="btn small secondary" type="submit">Segna saldata</button>
-                      </form>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+                        <form action={segnaFatturaPagata.bind(null, f.id, true, undefined)} style={{ display: "inline" }}>
+                          <button className="btn small secondary" type="submit">Segna saldata</button>
+                        </form>
+                        <Link
+                          className="btn small primary"
+                          href={`/solleciti/${f.id}`}
+                          title="Prepara e invia una mail di sollecito al partner"
+                        >
+                          Invia sollecito
+                        </Link>
+                        {f.sollecitoInviatoIl && (
+                          <span className="badge blue" title="Data ultimo sollecito inviato">
+                            <span className="dot" />Sollecitata {dataIt(f.sollecitoInviatoIl)}
+                          </span>
+                        )}
+                      </span>
                     </td>
                   </tr>
                 ))}

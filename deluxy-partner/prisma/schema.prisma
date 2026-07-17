@@ -70,6 +70,7 @@ model FatturaServizio {
   pagata        Boolean            @default(false)
   dataPagamento DateTime?
   descrizione   String?
+  sollecitoInviatoIl DateTime? // ultimo sollecito di pagamento inviato
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
