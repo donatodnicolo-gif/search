@@ -14,6 +14,12 @@ export const routes: Routes = [
       import('./pages/tracking.component').then((m) => m.TrackingComponent),
   },
   {
+    // Accettazione invito: la persona sceglie la password. Pubblica, fuori dallo shell.
+    path: 'invite/:token',
+    loadComponent: () =>
+      import('./pages/accept-invite.component').then((m) => m.AcceptInviteComponent),
+  },
+  {
     path: '',
     canActivate: [authGuard],
     loadComponent: () =>
@@ -295,6 +301,14 @@ export const routes: Routes = [
             (m) => m.CustomerDetailComponent,
           ),
       },
+      // ---- Utenti e accessi (solo admin) ----
+      {
+        path: 'users',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN'] },
+        loadComponent: () =>
+          import('./pages/users-list.component').then((m) => m.UsersListComponent),
+      },
       // ---- Impostazioni (chiavi API, solo admin) ----
       {
         path: 'settings',
@@ -313,7 +327,6 @@ export const routes: Routes = [
         { path: 'payments', title: 'Pagamenti', roles: ['ADMIN', 'OPERATION', 'VALET'] },
         { path: 'delivery-rules', title: 'Regole carnet', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
         { path: 'provinces', title: 'Province e citta', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
-        { path: 'users', title: 'Utenti', roles: ['ADMIN'] },
         { path: 'finance', title: 'Finanza', roles: ['ADMIN'] },
       ].map((stub) => ({
         path: stub.path,

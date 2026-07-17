@@ -9,6 +9,14 @@ export enum Role {
   PROJECT_MANAGER = 'PROJECT_MANAGER',
 }
 
+/** Stato dell'accesso di un utente (separato dall'operatività dell'anagrafica). */
+export enum UserStatus {
+  INVITED = 'invited', // creato, deve ancora scegliere la password
+  ACTIVE = 'active', // può accedere
+  SUSPENDED = 'suspended', // sospeso temporaneo
+  ARCHIVED = 'archived', // cessato (record conservato)
+}
+
 export enum DeliveryStatus {
   CREATED = 'created', // da gestire
   ASSIGNED = 'assigned', // in gestione

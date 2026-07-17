@@ -27,9 +27,11 @@ export const OPERATION_ROLES = [
   'project_manager',
   'customer_service',
 ] as const;
-import { Roles } from '../common/decorators';
+import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersModule } from '../users/users.module';
+import { UsersService } from '../users/users.service';
 
 export class CreateOperationDto {
   @ApiProperty()
@@ -84,7 +86,10 @@ export class UpdateOperationDto extends PartialType(CreateOperationDto) {}
 
 @Injectable()
 export class OperationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly users: UsersService,
+  ) {}
 
   findAll() {
     return this.prisma.operation.findMany({ orderBy: { lastName: 'asc' } });
@@ -96,8 +101,23 @@ export class OperationsService {
     return operation;
   }
 
-  create(dto: CreateOperationDto) {
-    return this.prisma.operation.create({ data: dto });
+  async create(dto: CreateOperationDto, actor?: JwtUser) {
+    const operation = await this.prisma.operation.create({ data: dto });
+    // Un gesto solo: crea l'utente collegato (invitato). Project Manager è un
+    // ruolo di accesso a sé; gli altri sotto-ruoli restano OPERATION.
+    const role =
+      operation.operationRole === 'project_manager' ? Role.PROJECT_MANAGER : Role.OPERATION;
+    await this.users.provisionForAnagrafica(
+      {
+        email: operation.email,
+        firstName: operation.firstName,
+        lastName: operation.lastName,
+        role,
+        operationId: operation.id,
+      },
+      actor,
+    );
+    return operation;
   }
 
   update(id: string, dto: UpdateOperationDto) {
@@ -133,8 +153,8 @@ export class OperationsController {
   @Post()
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Crea operatore' })
-  create(@Body() dto: CreateOperationDto) {
-    return this.operationsService.create(dto);
+  create(@Body() dto: CreateOperationDto, @CurrentUser() actor: JwtUser) {
+    return this.operationsService.create(dto, actor);
   }
 
   @Patch(':id')
@@ -153,6 +173,7 @@ export class OperationsController {
 }
 
 @Module({
+  imports: [UsersModule],
   controllers: [OperationsController],
   providers: [OperationsService],
 })

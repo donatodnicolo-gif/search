@@ -231,8 +231,13 @@ async function main() {
   });
 
   // ---- Utenti ----
+  // Gli utenti demo sono già attivi (hanno password e possono accedere).
   const upsertUser = (email: string, data: any) =>
-    prisma.user.upsert({ where: { email }, update: {}, create: { email, passwordHash, ...data } });
+    prisma.user.upsert({
+      where: { email },
+      update: { status: 'active' },
+      create: { email, passwordHash, status: 'active', activatedAt: new Date(), ...data },
+    });
 
   await upsertUser('admin@deluxy.it', {
     firstName: 'Ada',

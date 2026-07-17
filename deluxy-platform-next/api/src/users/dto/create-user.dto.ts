@@ -14,10 +14,14 @@ export class CreateUserDto {
   @IsEmail()
   email: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({
+    minLength: 8,
+    description: 'Se omessa, l\'utente viene creato "invitato" e sceglierà la password dal link di invito',
+  })
+  @IsOptional()
   @IsString()
   @MinLength(8)
-  password: string;
+  password?: string;
 
   @ApiProperty()
   @IsString()
@@ -47,4 +51,9 @@ export class CreateUserDto {
   valetId?: string;
 }
 
-export class UpdateUserDto extends PartialType(CreateUserDto) {}
+export class UpdateUserDto extends PartialType(CreateUserDto) {
+  @ApiPropertyOptional({ description: 'Collega l\'utente a un operatore (staff ufficio)' })
+  @IsOptional()
+  @IsString()
+  operationId?: string;
+}

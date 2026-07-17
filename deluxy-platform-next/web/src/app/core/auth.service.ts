@@ -37,6 +37,13 @@ export class AuthService {
       );
   }
 
+  /** Imposta la sessione da una risposta di login (usato anche dall'accettazione invito). */
+  setSession(res: LoginResponse): void {
+    localStorage.setItem(TOKEN_KEY, res.accessToken);
+    localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+    this.userSignal.set(res.user);
+  }
+
   logout(): void {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

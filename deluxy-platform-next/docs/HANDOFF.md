@@ -89,6 +89,16 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - **Geocodifica indirizzo consegna**: `GET /settings/geocode?address=` (tutti i ruoli autenticati) chiama Google Geocoding con la chiave salvata e restituisce `provinceCode` (`administrative_area_level_2`). Il form consegna la usa con **debounce 700ms** dopo la digitazione; se trova la provincia vince sul riconoscimento testuale, che resta il **fallback** senza chiave/errore. Verificato: senza chiave → messaggio dedicato; con chiave finta → REQUEST_DENIED gestito.
 - **Ora ritiro a tendina**: 00:00–23:30 a passi di 30 min (un orario fuori griglia salvato in precedenza viene aggiunto alla lista in modifica).
 
+### 17/07/2026 (sera 2) — Gestione utenti: stati, invito, revoca immediata, audit
+
+- **`User.status`** (`invited|active|suspended|archived`) al posto di `User.active` (migrazione `20260717150000_user_status_invite_audit`, scritta a mano per preservare i 6 utenti demo come `active`). Accesso separato dall'operatività dell'anagrafica.
+- **Invito**: creando Partner/Valet/Operatore si crea/collega l'utente in stato `invited` con token a scadenza (7 gg). Pagine pubbliche `GET /auth/invite/:token` + `POST /auth/accept-invite` (la persona sceglie la password → account attivo + auto-login). Provisioning in `UsersService.provisionForAnagrafica`, chiamato da partners/valets/operations service (moduli ora importano `UsersModule`).
+- **Revoca immediata**: `JwtAuthGuard` verifica `status==='active'` sul DB a ogni richiesta (prima controllava solo la firma → un utente disattivato entrava fino a 8h). Verificato: sospendendo valet2, `/auth/me` col suo token dà subito 401.
+- **Pagina Utenti** (`/users`, era stub): lista con stato/ruolo/anagrafica + azioni `PATCH /users/:id/status` (attiva/sospendi/archivia), `POST /users/:id/resend-invite` (ritorna il token → il client compone `origin/invite/<token>` e lo copia). "Elimina" = archivia. **Audit** in `UserEvent`. Nuovo utente da UI = invitato (nessuna password dall'admin).
+- **`User.operationId`**: collega finalmente l'operatore al suo account.
+- ⚠️ **Senza SMTP l'invito è un link da copiare/condividere** (predisposto per l'invio email automatico). `CreateUserDto.password` è ora opzionale (con password = attivo; senza = invitato).
+- Verificato end-to-end via API (invito→accetta→login; revoca immediata) e nel browser (pagina Utenti, pagina pubblica invito). Dati di test ripuliti.
+
 ## MANCA / PROSSIMI PASSI
 
 1. **[BLOCCATO — palla all'utente] Connessione al DB di produzione (MySQL, sola lettura)**: servono i 5 valori `MYSQL_*` (o replica) + raggiungibilità/tunnel. Vedi ANALISI-BACKEND-LEGACY. Poi `prisma db pull` per lo schema reale.
@@ -97,8 +107,9 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 2-bis. ~~Form **Prodotti**: comportamento dei flag dell'app reale~~ → **FATTO il 17/07**: osservato dal vivo su app.deluxy.it (l'utente ha fatto il login; Claude non inserisce credenziali) e replicato. Semantica dei campi ora nel manuale (§3.6).
 3-bis. ~~**Traduzione incrementale**~~ → **FATTO il 17/07**: tutte le schermate tradotte (~775 chiavi IT/EN allineate).
 4. **Applicare la visibilità per ruolo operatore** al login (Finance vede Amministrazione, PM no Operatività, Customer Service no Amministrazione) — richiede auth reale che porti `operationRole` nel token e sidebar che filtri.
-5. **Autenticazione reale** contro il DB: mapping `extraId`/`extraType` → partner/valet/operation.
-6. **Sezioni ancora stub**: Attività, Vendite, Stipendi, Pagamenti, Regole carnet, Finanza, Modelli SMS, Disponibilità, Province, Utenti/ruoli. *(Clienti non è più stub: fatto il 17/07.)*
+5. **Autenticazione reale** contro il DB: mapping `extraId`/`extraType` → partner/valet/operation. *(17/07: `User` ora collega partner/valet/operation e ha stati espliciti — base pronta.)*
+6. **Sezioni ancora stub**: Attività, Vendite, Stipendi, Pagamenti, Regole carnet, Finanza, Modelli SMS, Disponibilità, Province. *(Clienti e Utenti non sono più stub: fatti il 17/07.)*
+6-bis. **Invito via email**: oggi l'invito è un **link da copiare** (nessun SMTP configurato). Wire di un invio email reale (o WhatsApp) quando si configura un provider; il token e il flusso sono già pronti.
 9. ~~**Filtri/ordinamenti**~~ → **FATTO il 17/07** su tutte le liste, con **due strategie decise in base al volume**:
    - **Server-side** (`api/src/common/list-query.ts`, risposta `{items,total,page,pageSize}`): **Prodotti** (8.503 in prod), **Consegne**, **Clienti** (4.092). Ricerca globale `q` in AND con lo scope di ruolo, sort su whitelist, paginazione 10–500 (default 50).
    - **Client-side** (`web/src/app/core/client-table.ts`): **Partner, Valet, Categorie, Servizi, Operatori** — liste piccole (≤243) usate soprattutto come tendine nei form: la conversione server-side avrebbe rotto ~14 punti di chiamata senza dare valore. Queste API restano array.

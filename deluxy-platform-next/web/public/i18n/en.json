@@ -39,6 +39,47 @@
     "utentiRuoli": "Users & roles",
     "impostazioni": "Settings"
   },
+  "users": {
+    "title": "Users",
+    "caption": "Manage access: who can sign in, with which role and status. Operativity (receiving work) is managed in the Partner/Valet/Operator records.",
+    "new": "New user",
+    "empty": "No users.",
+    "inviteReady": "Invite ready",
+    "inviteShare": "Share this link with the person: they'll open it to choose a password and activate the account.",
+    "col": {
+      "status": "Status",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "linked": "Record",
+      "actions": "Actions"
+    },
+    "form": {
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "role": "Role",
+      "inviteHint": "The user is created as \"invited\": they'll get a link to choose their password. No password set by the admin.",
+      "createInvite": "Create and generate invite"
+    },
+    "action": {
+      "copyInvite": "Copy invite link",
+      "reinvite": "Re-invite",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "archive": "Archive",
+      "copy": "Copy"
+    }
+  },
+  "acceptInvite": {
+    "loading": "Checking the invite…",
+    "invalidTitle": "Invalid invite",
+    "title": "Set your password",
+    "welcome": "Hi {{name}}, create your password to sign in",
+    "password": "Password (min. 8 characters)",
+    "confirm": "Confirm password",
+    "submit": "Activate account and sign in"
+  },
   "settings": {
     "title": "Settings",
     "caption": "API keys for external services. Values are stored only in the platform database.",

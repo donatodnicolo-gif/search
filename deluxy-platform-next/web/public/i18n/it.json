@@ -39,6 +39,47 @@
     "utentiRuoli": "Utenti e ruoli",
     "impostazioni": "Impostazioni"
   },
+  "users": {
+    "title": "Utenti",
+    "caption": "Governa gli accessi: chi può entrare, con quale ruolo e stato. L'operatività (ricevere lavoro) si gestisce nelle schede Partner/Valet/Operatore.",
+    "new": "Nuovo utente",
+    "empty": "Nessun utente.",
+    "inviteReady": "Invito pronto",
+    "inviteShare": "Condividi questo link con la persona: lo aprirà per scegliere la password e attivare l'account.",
+    "col": {
+      "status": "Stato",
+      "name": "Nome",
+      "email": "Email",
+      "role": "Ruolo",
+      "linked": "Anagrafica",
+      "actions": "Azioni"
+    },
+    "form": {
+      "firstName": "Nome",
+      "lastName": "Cognome",
+      "email": "Email",
+      "role": "Ruolo",
+      "inviteHint": "L'utente viene creato come \"invitato\": riceverà un link per scegliere la password. Nessuna password impostata dall'admin.",
+      "createInvite": "Crea e genera invito"
+    },
+    "action": {
+      "copyInvite": "Copia link invito",
+      "reinvite": "Reinvita",
+      "suspend": "Sospendi",
+      "reactivate": "Riattiva",
+      "archive": "Archivia",
+      "copy": "Copia"
+    }
+  },
+  "acceptInvite": {
+    "loading": "Verifica dell'invito…",
+    "invalidTitle": "Invito non valido",
+    "title": "Imposta la password",
+    "welcome": "Ciao {{name}}, crea la password per accedere",
+    "password": "Password (min. 8 caratteri)",
+    "confirm": "Conferma password",
+    "submit": "Attiva account ed entra"
+  },
   "settings": {
     "title": "Impostazioni",
     "caption": "Chiavi API dei servizi esterni. I valori sono salvati solo nel database della piattaforma.",

@@ -27,19 +27,44 @@ datasource db {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
-  passwordHash String
+  passwordHash String?  // null finché l'utente non accetta l'invito e sceglie la password
   firstName    String
   lastName     String
   role         String
   isSupport    Boolean  @default(false)
-  active       Boolean  @default(true)
+  // Stato dell'ACCESSO (separato dall'operatività dell'anagrafica):
+  //  invited   -> creato, non ha ancora scelto la password (non può entrare)
+  //  active    -> può accedere
+  //  suspended -> sospeso temporaneo (non può entrare, torna attivabile)
+  //  archived  -> cessato (non può entrare; il record resta per lo storico)
+  status       String   @default("invited")
+  // Invito: token monouso a scadenza con cui la persona sceglie la password
+  inviteToken          String?   @unique
+  inviteTokenExpiresAt DateTime?
+  activatedAt          DateTime?
   partnerId    String?
   partner      Partner? @relation(fields: [partnerId], references: [id])
   valetId      String?  @unique
   valet        Valet?   @relation(fields: [valetId], references: [id])
+  operationId  String?    @unique
+  operation    Operation? @relation(fields: [operationId], references: [id])
   savedViews   SavedView[]
+  events       UserEvent[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// Registro delle azioni sugli utenti (audit): chi ha invitato/attivato/
+// sospeso/archiviato chi, quando e con quale nota.
+model UserEvent {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String   // created | invited | activated | suspended | archived | reactivated | role_changed
+  actorId    String?  // id dell'utente che ha compiuto l'azione (null = sistema)
+  actorEmail String?
+  note       String?
+  createdAt  DateTime @default(now())
 }
 
 /**
@@ -785,6 +810,7 @@ model Operation {
   operationRole    String   @default("operation")
   notes            String?
   active           Boolean  @default(true)
+  user             User?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

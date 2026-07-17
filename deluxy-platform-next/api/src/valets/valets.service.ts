@@ -6,6 +6,7 @@ import {
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersService } from '../users/users.service';
 import { CreateValetDto, UpdateValetDto } from './dto/create-valet.dto';
 
 const VALET_INCLUDE = {
@@ -15,7 +16,10 @@ const VALET_INCLUDE = {
 
 @Injectable()
 export class ValetsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly users: UsersService,
+  ) {}
 
   findAll() {
     return this.prisma.valet.findMany({
@@ -36,12 +40,12 @@ export class ValetsService {
     return valet;
   }
 
-  create(dto: CreateValetDto) {
+  async create(dto: CreateValetDto, actor?: JwtUser) {
     const {
       provinceIds, services, birthDate,
       teamLeaderProvinceIds, teamLeaderPartnerIds, teamLeaderExcludedPartnerIds, ...scalar
     } = dto;
-    return this.prisma.valet.create({
+    const valet = await this.prisma.valet.create({
       data: {
         ...scalar,
         birthDate: birthDate ? new Date(birthDate) : undefined,
@@ -61,6 +65,18 @@ export class ValetsService {
       },
       include: VALET_INCLUDE,
     });
+    // Un gesto solo: crea l'utente VALET collegato (invitato).
+    await this.users.provisionForAnagrafica(
+      {
+        email: valet.email,
+        firstName: valet.firstName,
+        lastName: valet.lastName,
+        role: Role.VALET,
+        valetId: valet.id,
+      },
+      actor,
+    );
+    return valet;
   }
 
   async update(id: string, dto: UpdateValetDto) {

@@ -35,8 +35,8 @@ export class PartnersController {
   @Post()
   @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER)
   @ApiOperation({ summary: 'Crea partner con province, servizi, categorie e orari' })
-  create(@Body() dto: CreatePartnerDto) {
-    return this.partnersService.create(dto);
+  create(@Body() dto: CreatePartnerDto, @CurrentUser() actor: JwtUser) {
+    return this.partnersService.create(dto, actor);
   }
 
   @Put(':id')

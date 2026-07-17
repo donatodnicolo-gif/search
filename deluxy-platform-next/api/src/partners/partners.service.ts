@@ -6,6 +6,7 @@ import {
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersService } from '../users/users.service';
 import { CreatePartnerDto, UpdatePartnerDto } from './dto/create-partner.dto';
 
 const PARTNER_INCLUDE = {
@@ -17,7 +18,10 @@ const PARTNER_INCLUDE = {
 
 @Injectable()
 export class PartnersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly users: UsersService,
+  ) {}
 
   findAll() {
     return this.prisma.partner.findMany({
@@ -39,9 +43,9 @@ export class PartnersService {
     return partner;
   }
 
-  create(dto: CreatePartnerDto) {
+  async create(dto: CreatePartnerDto, actor?: JwtUser) {
     const { provinceIds, categoryIds, services, openingHours, pickupAddresses, ...scalar } = dto;
-    return this.prisma.partner.create({
+    const partner = await this.prisma.partner.create({
       data: {
         ...scalar,
         contractStart: scalar.contractStart ? new Date(scalar.contractStart) : undefined,
@@ -63,6 +67,19 @@ export class PartnersService {
       },
       include: PARTNER_INCLUDE,
     });
+    // Un gesto solo: crea l'utente PARTNER collegato (invitato). Gestione
+    // dell'invito dalla pagina Utenti.
+    await this.users.provisionForAnagrafica(
+      {
+        email: partner.email,
+        firstName: partner.contactName || partner.insegna,
+        lastName: partner.contactSurname || '',
+        role: Role.PARTNER,
+        partnerId: partner.id,
+      },
+      actor,
+    );
+    return partner;
   }
 
   async update(id: string, dto: UpdatePartnerDto, user: JwtUser) {

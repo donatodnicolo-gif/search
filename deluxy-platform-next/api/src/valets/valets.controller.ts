@@ -36,8 +36,8 @@ export class ValetsController {
   @Post()
   @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER)
   @ApiOperation({ summary: 'Crea valet con province e servizi/salari' })
-  create(@Body() dto: CreateValetDto) {
-    return this.valetsService.create(dto);
+  create(@Body() dto: CreateValetDto, @CurrentUser() actor: JwtUser) {
+    return this.valetsService.create(dto, actor);
   }
 
   @Put(':id')

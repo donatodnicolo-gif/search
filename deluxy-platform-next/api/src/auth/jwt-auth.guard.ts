@@ -7,12 +7,14 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { IS_PUBLIC_KEY } from '../common/decorators';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly reflector: Reflector,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -29,12 +31,22 @@ export class JwtAuthGuard implements CanActivate {
       : undefined;
     if (!token) throw new UnauthorizedException('Token mancante');
 
+    let payload: { sub: string };
     try {
       // Usa il segreto configurato nel JwtModule (registerAsync)
-      request.user = await this.jwtService.verifyAsync(token);
-      return true;
+      payload = await this.jwtService.verifyAsync(token);
     } catch {
       throw new UnauthorizedException('Token non valido o scaduto');
     }
+
+    // Revoca immediata: lo stato dell'utente è verificato sul DB a OGNI
+    // richiesta, non solo al login. Un utente sospeso/archiviato perde
+    // l'accesso subito, senza aspettare la scadenza del token.
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user || user.status !== 'active') {
+      throw new UnauthorizedException('Accesso revocato o utente non attivo');
+    }
+    request.user = payload;
+    return true;
   }
 }
