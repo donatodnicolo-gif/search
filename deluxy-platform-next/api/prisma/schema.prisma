@@ -37,8 +37,31 @@ model User {
   partner      Partner? @relation(fields: [partnerId], references: [id])
   valetId      String?  @unique
   valet        Valet?   @relation(fields: [valetId], references: [id])
+  savedViews   SavedView[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+/**
+ * Vista di visualizzazione rapida salvata dall'utente su una lista:
+ * memorizza ricerca/ordinamento/paginazione/filtri per richiamarli con un clic.
+ * Legata all'utente (segue l'account, non il browser).
+ */
+model SavedView {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Sezione: deliveries | products | customers | partners | valets | categories | services | operators
+  section   String
+  name      String
+  // JSON con lo stato della lista: { q, sort, dir, pageSize, ...filtri specifici }
+  config    String
+  // Vista condivisa con tutto il team (non solo con chi l'ha creata)
+  shared    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, section])
 }
 
 // ------------------------------------------------------------
@@ -384,6 +407,10 @@ model Product {
   deliveryProducts        DeliveryProduct[]
   sales                   Sale[]
   active                  Boolean            @default(true)
+  // Archiviato: stato SEPARATO da `active`. Un prodotto disattivato resta
+  // visibile nella lista principale; uno archiviato va nella sezione Archivio.
+  archived                Boolean            @default(false)
+  archivedAt              DateTime?
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
 }

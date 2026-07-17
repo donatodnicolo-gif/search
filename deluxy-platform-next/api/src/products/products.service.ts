@@ -7,12 +7,12 @@ import {
 import { JwtUser } from '../common/decorators';
 import { ProductType, Role } from '../common/enums';
 import {
-  ListQueryDto,
   PagedResult,
   buildOrderBy,
   paginate,
   textSearch,
 } from '../common/list-query';
+import { ProductListQueryDto } from './dto/product-list-query.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
 
@@ -60,8 +60,8 @@ export class ProductsService {
    * Lista prodotti con ricerca globale, ordinamento e paginazione.
    * Il partner vede i propri prodotti + quelli visibili agli altri partner.
    */
-  async findAll(user: JwtUser, query: ListQueryDto): Promise<PagedResult<unknown>> {
-    const scope =
+  async findAll(user: JwtUser, query: ProductListQueryDto): Promise<PagedResult<unknown>> {
+    const roleScope =
       user.role === Role.PARTNER
         ? {
             OR: [
@@ -70,6 +70,9 @@ export class ProductsService {
             ],
           }
         : {};
+    // Archivio: sezione separata da `active`. Di default si vedono i NON
+    // archiviati (compresi i disattivati, che restano visibili).
+    const scope = { ...roleScope, archived: query.archived === true };
     const search = textSearch(query.q, ProductsService.SEARCH_FIELDS);
     // scope e ricerca vanno in AND: la ricerca non deve allargare la visibilita'
     const where = search ? { AND: [scope, search] } : scope;
@@ -212,6 +215,22 @@ export class ProductsService {
           ? { components: { deleteMany: {}, create: components } }
           : {}),
       },
+      include: PRODUCT_INCLUDE,
+    });
+  }
+
+  /**
+   * Archivia / ripristina un prodotto. E' uno stato separato da `active`:
+   * l'archiviato sparisce dalla lista principale e va nella sezione Archivio.
+   */
+  async setArchived(id: string, archived: boolean, user: JwtUser) {
+    const product = await this.findOne(id);
+    if (user.role === Role.PARTNER && product.partnerId !== user.partnerId) {
+      throw new ForbiddenException('Puoi archiviare solo i tuoi prodotti');
+    }
+    return this.prisma.product.update({
+      where: { id },
+      data: { archived, archivedAt: archived ? new Date() : null },
       include: PRODUCT_INCLUDE,
     });
   }

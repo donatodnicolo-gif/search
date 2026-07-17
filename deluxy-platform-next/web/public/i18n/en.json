@@ -261,7 +261,11 @@
       "partner": "Partner",
       "price": "Price",
       "status": "Status"
-    }
+    },
+    "tabActive": "Products",
+    "tabArchive": "Archive",
+    "archive": "Archive",
+    "restore": "Restore"
   },
   "categories": {
     "title": "Categories",
@@ -1028,5 +1032,14 @@
   "list": {
     "pageOf": "Page {{page}} of {{pages}}",
     "perPage": "per page"
+  },
+  "views": {
+    "title": "Views",
+    "save": "Save view",
+    "empty": "No saved view.",
+    "namePlaceholder": "View name",
+    "share": "Share",
+    "shareHint": "Make the view visible to the whole team",
+    "sharedHint": "View shared by the team"
   }
 }
