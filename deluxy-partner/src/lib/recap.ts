@@ -1,7 +1,7 @@
 import { euro } from "./format";
 import { nomeMese, type RiepilogoMese, type Rolling } from "./calc";
 
-type MeseRiep = { mese: number; riepilogo: RiepilogoMese };
+type MeseRiep = { mese: number; riepilogo: RiepilogoMese; saldo?: { note: string | null } | null };
 
 // Costruisce il prompt testuale da incollare in ChatGPT: istruzioni (esperto di
 // finance) + tutta la situazione crediti/debiti mese per mese, risultati e
@@ -30,6 +30,10 @@ export function costruisciRecapPrompt(opts: {
   L.push("2. Analisi di crediti e debiti: quanto dobbiamo bonificare al partner, quanto dobbiamo incassare, esposizione netta e trend mensile.");
   L.push("3. Segnalazione di anomalie, rischi (es. crediti scaduti, esposizione crescente) e mesi critici.");
   L.push("4. 2-3 raccomandazioni operative concrete.");
+  L.push(
+    "Tieni conto delle NOTE operatore riportate su alcuni mesi: spiegano accordi, contestazioni " +
+      "o situazioni particolari e vanno considerate nel giudizio."
+  );
   L.push("Usa un tono da report direzionale, con numeri puntuali. Evita giri di parole.");
   L.push("");
   L.push("=== DATI PARTNER ===");
@@ -51,8 +55,9 @@ export function costruisciRecapPrompt(opts: {
   );
   L.push("");
 
-  for (const { mese, riepilogo: r } of mesi) {
-    const hasData = r.vendite || r.serviziNetto || r.bonifico || r.daIncassare || r.daBonificare;
+  for (const { mese, riepilogo: r, saldo } of mesi) {
+    const nota = saldo?.note?.trim();
+    const hasData = r.vendite || r.serviziNetto || r.bonifico || r.daIncassare || r.daBonificare || nota;
     if (!hasData) continue;
     const p = mesiPrec.find((x) => x.mese === mese)?.riepilogo;
     const val = r.vendite + r.serviziNetto;
@@ -69,6 +74,7 @@ export function costruisciRecapPrompt(opts: {
     L.push(
       `  => Da bonificare al partner: ${euro(r.daBonificare)} | Da incassare dal partner: ${euro(r.daIncassare)} | ${r.pareggiato ? "PAREGGIATO" : "APERTO"}`
     );
+    if (nota) L.push(`  NOTA operatore: ${nota}`);
   }
 
   L.push("");

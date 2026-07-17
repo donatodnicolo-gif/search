@@ -272,12 +272,6 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                       </tr>
                     </>
                   )}
-                  {saldo?.note && (
-                    <tr>
-                      <td className="muted">Note</td>
-                      <td colSpan={4} style={{ color: "var(--text-secondary)" }}>{saldo.note}</td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
@@ -289,6 +283,7 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
               daIncassare={r.daIncassare}
               bonificoImporto={saldo?.bonificoImporto ?? null}
               bonificoData={saldo?.bonificoData ?? null}
+              note={saldo?.note ?? null}
             />
           </div>
         </div>
