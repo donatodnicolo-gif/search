@@ -229,6 +229,38 @@ input:focus, select:focus, textarea:focus {
 .mail-riassunto .ai-mark { color: var(--gold-strong); font-weight: 600; flex: 0 0 auto; }
 .mail-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 
+/* ---------- Posta in arrivo a due colonne ---------- */
+/* 70% posta, 30% attività: le cose da fare restano sott'occhio mentre leggi. */
+.inbox-split { display: grid; grid-template-columns: 70% 30%; gap: 24px; align-items: start; }
+.inbox-split > * { min-width: 0; }
+
+.col-attivita { position: sticky; top: 40px; }
+.col-attivita-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 10px; padding: 0 2px;
+}
+
+.col-task {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+.col-task:last-child { border-bottom: none; }
+.col-task-titolo { font-size: 13.5px; line-height: 1.4; }
+.col-task-titolo a:hover { text-decoration: underline; }
+.col-task-meta {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 6px; font-size: 12px; flex-wrap: wrap;
+}
+.col-task-meta .scaduta { color: var(--red); }
+
+/* Sotto i 1100px la colonna sparisce: su schermo stretto ruberebbe spazio
+   alla posta, e le attività hanno già una pagina tutta loro. */
+@media (max-width: 1100px) {
+  .inbox-split { grid-template-columns: 1fr; }
+  .col-attivita { display: none; }
+}
+
 /* ---------- Pulsanti di priorità (P0…P3) ---------- */
 .prio-group { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
 .prio-btn {

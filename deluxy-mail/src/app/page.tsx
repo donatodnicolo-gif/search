@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { dataBreve, PRIORITA } from '@/lib/format'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
+import { ColonnaAttivita } from '@/components/ColonnaAttivita'
 
 export const dynamic = 'force-dynamic'
 
@@ -118,7 +119,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         </div>
       </div>
 
-      <div className="card tight">
+      <div className="inbox-split">
+        <div className="card tight">
         {messaggi.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">✓</div>
@@ -183,6 +185,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             ))}
           </div>
         )}
+        </div>
+
+        <ColonnaAttivita />
       </div>
     </>
   )
