@@ -16,6 +16,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ProductsModule } from './products/products.module';
 import { ProvincesModule } from './provinces/provinces.module';
 import { ServiceTypesModule } from './service-types/service-types.module';
+import { SettingsModule } from './settings/settings.module';
 import { OperationsModule } from './operations/operations.module';
 import { SavedViewsModule } from './saved-views/saved-views.module';
 import { CalculationsModule } from './calculations/calculations.module';
@@ -46,6 +47,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     SmsTemplatesModule,
     ProvincesModule,
     ServiceTypesModule,
+    SettingsModule,
     OperationsModule,
     SavedViewsModule,
     CalculationsModule,

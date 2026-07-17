@@ -83,6 +83,12 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 **API aggiunte perché mancanti:** `GET/PUT /categories/:id`, `GET/PUT /service-types/:id`, `GET /operations/:id`, `GET /deliveries/:id/tracking-link`, `GET /deliveries/tracking/:token` (**pubblico**).
 **Migrazioni:** `product_variant_rich_images_platformdesc`, `product_variant_image`, `delivery_tracking_token`.
 
+### 17/07/2026 (sera) — Impostazioni admin + geocodifica Google + tendina ora ritiro
+
+- **Configurazione → Impostazioni** (`/settings`, solo ADMIN): chiavi API dei servizi esterni salvate **solo nel DB** (`AppSetting`, migrazione `20260717143057_app_settings`; `GET/PUT /settings` admin). Prima chiave: **Google Maps** (campo mascherato con Mostra/Nascondi + tester "Prova geocodifica"). ⚠️ Regola 3 rispettata: nessuna chiave in file/commit — la inserisce l'utente nella pagina.
+- **Geocodifica indirizzo consegna**: `GET /settings/geocode?address=` (tutti i ruoli autenticati) chiama Google Geocoding con la chiave salvata e restituisce `provinceCode` (`administrative_area_level_2`). Il form consegna la usa con **debounce 700ms** dopo la digitazione; se trova la provincia vince sul riconoscimento testuale, che resta il **fallback** senza chiave/errore. Verificato: senza chiave → messaggio dedicato; con chiave finta → REQUEST_DENIED gestito.
+- **Ora ritiro a tendina**: 00:00–23:30 a passi di 30 min (un orario fuori griglia salvato in precedenza viene aggiunto alla lista in modifica).
+
 ## MANCA / PROSSIMI PASSI
 
 1. **[BLOCCATO — palla all'utente] Connessione al DB di produzione (MySQL, sola lettura)**: servono i 5 valori `MYSQL_*` (o replica) + raggiungibilità/tunnel. Vedi ANALISI-BACKEND-LEGACY. Poi `prisma db pull` per lo schema reale.

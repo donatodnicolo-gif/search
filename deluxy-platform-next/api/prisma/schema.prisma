@@ -757,6 +757,15 @@ model Sale {
   updatedAt       DateTime  @updatedAt
 }
 
+// Impostazioni applicative (chiave-valore) gestite dall'admin in Configurazione →
+// Impostazioni: chiavi API di servizi esterni (es. Google Maps) e simili.
+// I valori vivono SOLO nel database: mai in file di codice o commit (regola 3).
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 // Staff d'ufficio. Il flag isProjectManager lo qualifica come Project Manager
 // (come Operation ma senza Consegne e Attività).
 model Operation {

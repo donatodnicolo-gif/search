@@ -36,7 +36,32 @@
     "modelliSms": "Modelli SMS",
     "disponibilita": "Disponibilità",
     "province": "Province e città",
-    "utentiRuoli": "Utenti e ruoli"
+    "utentiRuoli": "Utenti e ruoli",
+    "impostazioni": "Impostazioni"
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "caption": "Chiavi API dei servizi esterni. I valori sono salvati solo nel database della piattaforma.",
+    "apiKeys": {
+      "title": "Chiavi API",
+      "sub": "Visibili e modificabili solo dall'amministratore.",
+      "googleMaps": "Chiave API Google Maps",
+      "googleMapsPlaceholder": "AIza…",
+      "googleMapsHint": "Usata per la geocodifica degli indirizzi (provincia della consegna) e in futuro per mappe e distanze. Serve una chiave con l'API \"Geocoding\" abilitata. Senza chiave la provincia viene dedotta dal testo dell'indirizzo.",
+      "show": "Mostra",
+      "hide": "Nascondi"
+    },
+    "saved": "Impostazioni salvate ✓",
+    "test": {
+      "title": "Prova geocodifica",
+      "sub": "Verifica la chiave: inserisci un indirizzo e controlla la provincia rilevata.",
+      "placeholder": "Es. Via Montenapoleone 8, Milano",
+      "button": "Prova",
+      "testing": "Verifica…",
+      "found": "Provincia rilevata: {{code}}",
+      "noKey": "Nessuna chiave salvata: salva prima la chiave API Google Maps.",
+      "notFound": "Indirizzo non riconosciuto o chiave non valida"
+    }
   },
   "role": {
     "ADMIN": "Amministratore",
@@ -420,6 +445,7 @@
       "address": "Via …, CAP Città (PR)",
       "selectPartner": "Seleziona partner…",
       "selectSlot": "Seleziona fascia…",
+      "selectTime": "Seleziona orario…",
       "selectProduct": "Prodotto…",
       "qty": "Qtà",
       "auto": "auto"

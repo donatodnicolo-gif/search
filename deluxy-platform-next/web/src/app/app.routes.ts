@@ -295,6 +295,14 @@ export const routes: Routes = [
             (m) => m.CustomerDetailComponent,
           ),
       },
+      // ---- Impostazioni (chiavi API, solo admin) ----
+      {
+        path: 'settings',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN'] },
+        loadComponent: () =>
+          import('./pages/settings.component').then((m) => m.SettingsComponent),
+      },
       // ---- Route stub: sezioni in migrazione ----
       ...[
         { path: 'activities', title: 'Attivita', roles: ['ADMIN', 'OPERATION', 'VALET'] },

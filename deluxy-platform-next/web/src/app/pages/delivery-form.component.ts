@@ -107,7 +107,10 @@ interface ProductRow {
           </div>
         } @else {
           <label class="fld mt" style="max-width:280px"><span>{{ 'deliveryForm.field.pickupTime' | translate }} * <em>{{ 'deliveryForm.timing.pickupSlotSize' | translate }}</em></span>
-            <input class="field" type="time" name="pickupTimeFrom" [(ngModel)]="model.pickupTimeFrom" />
+            <select class="field" name="pickupTimeFrom" [(ngModel)]="model.pickupTimeFrom">
+              <option value="">{{ 'deliveryForm.placeholder.selectTime' | translate }}</option>
+              @for (t of pickupTimeOptions; track t) { <option [value]="t">{{ t }}</option> }
+            </select>
             @if (model.pickupTimeFrom) { <span class="slot-hint">→ {{ model.pickupTimeFrom }}–{{ plusOneHour(model.pickupTimeFrom) }}</span> }
           </label>
         }
@@ -601,10 +604,35 @@ export class DeliveryFormComponent {
     if (c.email) this.model.recipientEmail = c.email;
   }
 
-  /** Al cambio indirizzo: rileva la provincia e sincronizza le selezioni. */
+  /** Al cambio indirizzo: rileva subito la provincia dal testo, poi (con debounce)
+   *  la conferma via Google Geocoding se in Impostazioni è salvata la chiave API. */
   onAddressChange(): void {
     this.addressProvince.set(this.detectProvince(this.model.recipientAddress));
     this.syncSelections();
+    this.scheduleGeocode();
+  }
+
+  private geocodeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Geocodifica lato server (chiave dalle Impostazioni): parte 700ms dopo l'ultimo
+   *  tasto e vince sul riconoscimento testuale solo se trova una provincia. */
+  private scheduleGeocode(): void {
+    if (this.geocodeTimer) clearTimeout(this.geocodeTimer);
+    const address = this.model.recipientAddress.trim();
+    if (address.length < 6) return;
+    this.geocodeTimer = setTimeout(() => {
+      this.http
+        .get<{ provinceCode: string | null }>(`${environment.apiUrl}/settings/geocode`, { params: { address } })
+        .subscribe({
+          next: (r) => {
+            // L'indirizzo può essere cambiato mentre la richiesta era in volo.
+            if (this.model.recipientAddress.trim() !== address || !r.provinceCode) return;
+            const prov = this.provinces().find((p) => p.code === r.provinceCode) ?? null;
+            if (prov) { this.addressProvince.set(prov); this.syncSelections(); }
+          },
+          error: () => { /* senza chiave o rete: resta il riconoscimento testuale */ },
+        });
+    }, 700);
   }
 
   /** Deduce la provincia dall'indirizzo (logica condivisa con la lista consegne). */
@@ -638,6 +666,21 @@ export class DeliveryFormComponent {
   /** Attivando "prezzo flessibile" precompila con il prezzo base del prodotto. */
   onFlexToggle(row: ProductRow): void {
     if (row.flexiblePrice && row.price == null) row.price = this.productPrice(row.productId);
+  }
+
+  /** Orari proponibili per il ritiro: mezz'ora in mezz'ora, 00:00–23:30.
+   *  In modifica, un orario salvato fuori griglia viene aggiunto alla lista. */
+  get pickupTimeOptions(): string[] {
+    const options: string[] = [];
+    for (let h = 0; h < 24; h++) {
+      options.push(`${String(h).padStart(2, '0')}:00`, `${String(h).padStart(2, '0')}:30`);
+    }
+    const current = this.model.pickupTimeFrom;
+    if (current && !options.includes(current)) {
+      options.push(current);
+      options.sort();
+    }
+    return options;
   }
 
   /** "HH:MM" + 1 ora (per la fascia di ritiro di 1 ora quando non flessibile). */

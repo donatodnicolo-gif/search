@@ -36,7 +36,32 @@
     "modelliSms": "SMS templates",
     "disponibilita": "Availability",
     "province": "Provinces & cities",
-    "utentiRuoli": "Users & roles"
+    "utentiRuoli": "Users & roles",
+    "impostazioni": "Settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "caption": "API keys for external services. Values are stored only in the platform database.",
+    "apiKeys": {
+      "title": "API keys",
+      "sub": "Visible and editable by the administrator only.",
+      "googleMaps": "Google Maps API key",
+      "googleMapsPlaceholder": "AIza…",
+      "googleMapsHint": "Used to geocode addresses (delivery province) and, later, for maps and distances. The key needs the \"Geocoding\" API enabled. Without a key, the province is inferred from the address text.",
+      "show": "Show",
+      "hide": "Hide"
+    },
+    "saved": "Settings saved ✓",
+    "test": {
+      "title": "Geocoding test",
+      "sub": "Verify the key: enter an address and check the detected province.",
+      "placeholder": "E.g. Via Montenapoleone 8, Milano",
+      "button": "Test",
+      "testing": "Testing…",
+      "found": "Province detected: {{code}}",
+      "noKey": "No key saved: save the Google Maps API key first.",
+      "notFound": "Address not recognized or invalid key"
+    }
   },
   "role": {
     "ADMIN": "Administrator",
@@ -420,6 +445,7 @@
       "address": "Street …, ZIP City (PR)",
       "selectPartner": "Select a partner…",
       "selectSlot": "Select a slot…",
+      "selectTime": "Select a time…",
       "selectProduct": "Product…",
       "qty": "Qty",
       "auto": "auto"
