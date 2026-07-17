@@ -6,6 +6,7 @@ import {
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { AnagraficheSyncService } from './anagrafiche-sync.service';
 import { CreatePartnerDto, UpdatePartnerDto } from './dto/create-partner.dto';
 
 const PARTNER_INCLUDE = {
@@ -17,7 +18,10 @@ const PARTNER_INCLUDE = {
 
 @Injectable()
 export class PartnersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly anagrafiche: AnagraficheSyncService,
+  ) {}
 
   findAll() {
     return this.prisma.partner.findMany({
@@ -39,9 +43,9 @@ export class PartnersService {
     return partner;
   }
 
-  create(dto: CreatePartnerDto) {
+  async create(dto: CreatePartnerDto) {
     const { provinceIds, categoryIds, services, openingHours, ...scalar } = dto;
-    return this.prisma.partner.create({
+    const partner = await this.prisma.partner.create({
       data: {
         ...scalar,
         provinces: provinceIds?.length
@@ -60,6 +64,9 @@ export class PartnersService {
       },
       include: PARTNER_INCLUDE,
     });
+    // Il registro centralizzato riceve ogni nuovo partner (best-effort, non blocca)
+    this.anagrafiche.sincronizza(partner);
+    return partner;
   }
 
   async update(id: string, dto: UpdatePartnerDto, user: JwtUser) {
@@ -75,7 +82,7 @@ export class PartnersService {
       if (scalar.phone !== undefined) allowed.phone = scalar.phone;
       if (scalar.contactName !== undefined) allowed.contactName = scalar.contactName;
       if (scalar.notes !== undefined) allowed.notes = scalar.notes;
-      return this.prisma.partner.update({
+      const aggiornato = await this.prisma.partner.update({
         where: { id },
         data: {
           ...allowed,
@@ -85,9 +92,11 @@ export class PartnersService {
         },
         include: PARTNER_INCLUDE,
       });
+      this.anagrafiche.sincronizza(aggiornato);
+      return aggiornato;
     }
 
-    return this.prisma.partner.update({
+    const aggiornato = await this.prisma.partner.update({
       where: { id },
       data: {
         ...scalar,
@@ -117,11 +126,18 @@ export class PartnersService {
       },
       include: PARTNER_INCLUDE,
     });
+    this.anagrafiche.sincronizza(aggiornato);
+    return aggiornato;
   }
 
   async remove(id: string) {
     await this.findOne(id);
-    await this.prisma.partner.update({ where: { id }, data: { active: false } });
+    const disattivato = await this.prisma.partner.update({
+      where: { id },
+      data: { active: false },
+      include: PARTNER_INCLUDE,
+    });
+    this.anagrafiche.sincronizza(disattivato);
     return { deactivated: true };
   }
 }
