@@ -3,7 +3,7 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
-**Ultimo aggiornamento:** 15 luglio 2026
+**Ultimo aggiornamento:** 17 luglio 2026
 **Branch:** `deluxy-scout` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
 
@@ -42,9 +42,9 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
   - **Categorie** (`/categories/new`): nome, note, AI prompt, campi extra (opzionale/obbligatorio/admin), sconti % per provincia.
   - **Prodotti** (`/products/new`): nome, categoria, tipo (unico/non-unico/superprodotto), partner, SKU, prezzo/prezzo pubblico, giorni prep., immagine, plus, descrizione, campi personalizzati, componenti superprodotto.
 - **Menu**: sezione **Prodotti** (Prodotti + Categorie); **Amministrazione** ora include **Servizi** e **Calcoli**.
-- **Servizi** (`/services/new`): nome, tipo (vendita/prezzo fisso/a ora/magazzino/aziendale), **scelta Partner/Valet**; le tariffe si impostano nelle schede partner/valet. Backend: `ServiceType.scope` + `deliveryPrice` (magazzino). **Sezione Setup prenotazione**: `noticeDays` (giorni preavviso), `slotHours` (fascia 1/2/4 ore — da rendere variabile), `minOrderTime`/`maxOrderTime` (ora min/max inserimento giornaliero). Da usare più avanti per le regole di richiesta servizio.
+- **Servizi** (`/services/new`): nome, tipo (vendita/prezzo fisso/a ora/magazzino/aziendale), **scelta Partner/Valet**; le tariffe si impostano nelle schede partner/valet. Backend: `ServiceType.scope` + `deliveryPrice` (magazzino). **Sezione Setup prenotazione**: `noticeDays` (giorni preavviso), `slotHours` (fascia 1/2/4 ore), `minOrderTime`/`maxOrderTime` (ora min/max inserimento giornaliero), `allowFlexibleTime` (**Consenti fascia oraria flessibile**, migrazione `service_allow_flexible_time`).
 - **Calcoli** (`/calcoli` + modulo `api/src/calculations`): tutte le formule di prezzo centralizzate, con endpoint `POST /calculations/preview` e pagina con calcolatori live. Verificate: vendita, prezzo fisso (in/fuori città), a ora, magazzino. (Da confermare: prezzo fisso fuori città somma o no il valore base — vedi doc 7-bis.)
-- **Consegna — fasce orarie**: consegna e ritiro mostrano *dalle–alle* solo col flag "flessibile"; altrimenti si sceglie un orario e la fascia è **automatica di 1 ora** (`deliveryFlexible`/`pickupFlexible`; il "to" = orario+1h calcolato al submit).
+- **Consegna — fasce orarie** (17/07): il flag "Fascia oraria consegna flessibile" appare **solo se il servizio lo consente** (`allowFlexibleTime`); la fascia automatica di consegna dura **`slotHours` del servizio** (default 1 ora); se il servizio ha min+max+fascia compilati le fasce sono **proposte come elenco generato** (es. 08–10 … 18–20). Il ritiro resta a fascia di 1 ora (`pickupFlexible` sempre disponibile). Demo: servizio "Consegna prezzo fisso" seedato con fasce 2h 08–20 e flessibile consentito (il seed aggiorna il setup anche su DB già popolati).
 - **Consegna — Gestione ordine**: ogni prodotto mostra il **prezzo** e ha il flag **Prezzo flessibile** che consente di modificarlo (precompilato col prezzo base). Salvato su `DeliveryProduct.price`+`flexiblePrice`.
 - **Form allineati campo-per-campo all'app reale** (15/07): Prodotto (varianti, multi-partner, piattaforme, flag), Partner (PEC, promemoria, tipo codice consegna, KM partner), Consegna (Vendita Deluxy, prezzo flessibile, valet servizio, da fatturare/pagare, smsPhoneNo, file DDT). Valet/Operatore/Categoria già allineati.
 - **Convenzioni form** (tutti i form di creazione): tasto **Duplica** in fondo — salva e mantiene i valori compilati per creare rapidamente un altro record (banner verde di conferma). Lo **SKU dei prodotti è automatico** (`DXY-NNNNN`, progressivo, rigenerato a ogni creazione/duplicazione).
@@ -62,6 +62,7 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 5. **Autenticazione reale** contro il DB: mapping `extraId`/`extraType` → partner/valet/operation.
 6. **Sezioni ancora stub**: Attività, Vendite, Prodotti, Clienti (creazione), Stipendi, Pagamenti, Regole carnet, Finanza, Modelli SMS, Disponibilità, Province, Utenti/ruoli.
 7. **Rifiniture**: nel form valet rendere Telefono/Indirizzo obbligatori e CF sempre richiesto (come app reale).
+7-bis. **Da confermare con l'utente/app reale**: la semantica di `minOrderTime`/`maxOrderTime` — oggi usati sia come limite di inserimento (testo nel form Servizi) sia come intervallo di **generazione fasce di consegna** (elenco 08–10… nel form Consegna). Verificare su app.deluxy.it quale delle due (o entrambe) è quella vera.
 8. **In pausa**: analisi multi-agente del vecchio codice (cosa fa ogni funzione + come aggiornarla).
 
 ## Note operative (IMPORTANTI per una nuova sessione)

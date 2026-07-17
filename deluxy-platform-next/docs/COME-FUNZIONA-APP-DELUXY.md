@@ -9,6 +9,7 @@
 > **Word sempre aggiornato** (per le persone): `docs/COME-FUNZIONA-APP-DELUXY.docx`, generato da questo `.md` con `npm run doc:word` — non modificarlo a mano. Snapshot storico originale: `docs/COME-FUNZIONA-APP-DELUXY-AGGIORNATO-2026-07.docx`.
 >
 > **Changelog**
+> - 17/07/2026 — **Setup servizio → fasce di consegna**: nuovo flag **Consenti fascia oraria flessibile** sul servizio (`ServiceType.allowFlexibleTime`). Nel form consegna il flag "Fascia oraria consegna flessibile" appare **solo se il servizio lo consente**; la fascia automatica non è più fissa a 1 ora ma usa la **Fascia oraria del servizio** (`slotHours`, default 1 ora); se il servizio ha ora minima+massima+fascia compilate, le fasce di consegna sono **proposte come elenco generato** (es. 08–10, 10–12… fino alle 20). Il ritiro resta a fascia di 1 ora.
 > - 15/07/2026 (4) — Form consegna, sezione **Gestione dell'ordine**: ogni prodotto mostra il **prezzo** e ha un flag **Prezzo flessibile** che ne consente la modifica (precompilato col prezzo base). Il prezzo override è salvato sulla riga della consegna (`DeliveryProduct.price` + `flexiblePrice`).
 > - 15/07/2026 (3) — Form consegna: le fasce orarie di **consegna e ritiro** mostrano i campi **dalle–alle** solo se il flag "flessibile" è spuntato; altrimenti si sceglie un solo orario e la fascia è **automaticamente di 1 ora** (es. 10:00 → 10:00–11:00).
 > - 15/07/2026 (2) — allineamento form all'app reale campo-per-campo: **Prodotto** (varianti con prezzo/SKU, multi-partner PRODUCTS PARTNER, piattaforme, controlla stock, non modificabile, super provincia, nome alternativo); **Partner** (PEC, promemoria attività, tipo codice consegna UNIQUE_PER_DELIVERY/CUSTOMER, KM inclusi/extra fuori città a livello partner); **Consegna** (Vendita Deluxy, prezzo flessibile, Valet Servizio, toggle Da fatturare/Da pagare, n° telefono SMS, file DDT).
@@ -264,7 +265,9 @@ Stripe (pagamenti online), Qonto (banking dal Profilo), Google Maps (geocoding, 
 
 I **servizi** si definiscono in **Amministrazione → Servizi** (nuovo ambiente): nome, tipo, e **destinazione** (Partner / Valet / entrambi). Le **tariffe** si impostano nella scheda del singolo partner/valet. Nell'app reale sono in *Setup → Servizi Partner* (`/servizi`) e *Valet → Servizi Valet* (`/valet/servizi`).
 
-**Setup prenotazione del servizio** (usato al momento della richiesta): **Giorni preavviso**, **Fascia oraria** (1 / 2 / 4 ore, da rendere variabile), **Ora minima di inserimento** (da quale ora si può richiedere il servizio per la data scelta), **Ora massima di inserimento** (dopo quella ora non è più possibile richiederlo per la data scelta). Campi `noticeDays`, `slotHours`, `minOrderTime`, `maxOrderTime` su `ServiceType`. **[NUOVO]**
+**Setup prenotazione del servizio** (usato al momento della richiesta): **Giorni preavviso**, **Fascia oraria** (1 / 2 / 4 ore), **Ora minima di inserimento**, **Ora massima di inserimento**, **Consenti fascia oraria flessibile (dalle–alle)**. Campi `noticeDays`, `slotHours`, `minOrderTime`, `maxOrderTime`, `allowFlexibleTime` su `ServiceType`. **[NUOVO]**
+
+**Effetto sul form Nuova consegna** (nuovo ambiente): la fascia di consegna automatica dura `slotHours` ore (default 1); se ora minima+massima+fascia sono compilate, le fasce vengono **proposte come elenco generato** da min a max a passi di `slotHours` (es. 08:00–10:00 … 18:00–20:00); il flag "Fascia oraria consegna flessibile" (dalle–alle libero) appare **solo se il servizio lo consente**. Il ritiro resta a fascia fissa di 1 ora. **[NUOVO]**
 
 Tutte le **formule di prezzo** sono centralizzate nel modulo **`api/src/calculations`** (endpoint `POST /api/v1/calculations/preview`) e consultabili/provabili nella pagina **Amministrazione → Calcoli**.
 

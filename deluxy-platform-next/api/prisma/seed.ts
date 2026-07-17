@@ -15,10 +15,21 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+// Setup prenotazione demo del servizio a prezzo fisso
+const bookingSetup = {
+  noticeDays: 1, // consegna prenotabile da domani
+  slotHours: 2, // fasce di 2 ore
+  minOrderTime: '08:00', // prima fascia dalle 08:00
+  maxOrderTime: '20:00', // ultima fascia entro le 20:00
+  allowFlexibleTime: true, // consente la fascia di consegna flessibile
+};
+
 async function main() {
   // Idempotenza: se i dati demo esistono gia', non duplicare
   if ((await prisma.delivery.count()) > 0) {
-    console.log('Seed gia eseguito (esistono consegne): nessuna modifica.');
+    // ...ma allinea comunque il setup prenotazione demo (campi aggiunti dopo il primo seed)
+    await prisma.serviceType.updateMany({ where: { code: 'CONSEGNA_FISSA' }, data: bookingSetup });
+    console.log('Seed gia eseguito (esistono consegne): aggiornato solo il setup prenotazione demo.');
     return;
   }
 
@@ -47,12 +58,13 @@ async function main() {
   // ---- Tipi di servizio ----
   const prezzoFisso = await prisma.serviceType.upsert({
     where: { code: 'CONSEGNA_FISSA' },
-    update: {},
+    update: bookingSetup,
     create: {
       name: 'Consegna prezzo fisso',
       code: 'CONSEGNA_FISSA',
       pricingModel: 'PREZZO_FISSO',
       basePrice: 25,
+      ...bookingSetup,
     },
   });
   const aOra = await prisma.serviceType.upsert({

@@ -89,6 +89,12 @@ export interface ServiceType {
   pricingModel: string;
   scope?: string;
   notes?: string;
+  // Setup prenotazione
+  noticeDays?: number | null;
+  slotHours?: number | null;
+  minOrderTime?: string | null;
+  maxOrderTime?: string | null;
+  allowFlexibleTime?: boolean;
 }
 
 export const SERVICE_PRICING_OPTIONS: { value: string; label: string }[] = [

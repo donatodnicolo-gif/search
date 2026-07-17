@@ -49,7 +49,7 @@ interface ProductRow {
               @for (p of partners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
             </select></label>
           <label class="fld"><span>Servizio *</span>
-            <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" required>
+            <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" (ngModelChange)="onServiceChange()" required>
               <option value="">Seleziona servizio…</option>
               @for (s of serviceTypes(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
             </select></label>
@@ -59,21 +59,29 @@ interface ProductRow {
       <!-- 2. Data di consegna e ritiro -->
       <section class="card block">
         <header class="block-head"><h2>Data di consegna e ritiro</h2>
-          <span class="block-sub">Senza flag flessibile la fascia è automaticamente di 1 ora.</span></header>
+          <span class="block-sub">La fascia di consegna segue il setup del servizio; il ritiro è di 1 ora.</span></header>
 
         <!-- Consegna -->
-        <label class="toggle"><input type="checkbox" name="deliveryFlexible" [(ngModel)]="model.deliveryFlexible" /><span>Fascia oraria consegna flessibile</span></label>
-        @if (model.deliveryFlexible) {
+        @if (allowFlexible) {
+          <label class="toggle"><input type="checkbox" name="deliveryFlexible" [(ngModel)]="model.deliveryFlexible" /><span>Fascia oraria consegna flessibile</span></label>
+        }
+        @if (model.deliveryFlexible && allowFlexible) {
           <div class="grid-2 mt">
             <label class="fld"><span>Consegna dalle</span>
               <input class="field" type="time" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" /></label>
             <label class="fld"><span>Consegna alle</span>
               <input class="field" type="time" name="deliveryTimeTo" [(ngModel)]="model.deliveryTimeTo" /></label>
           </div>
+        } @else if (deliverySlots.length) {
+          <label class="fld mt" style="max-width:280px"><span>Fascia di consegna</span>
+            <select class="field" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom">
+              <option value="">Seleziona fascia…</option>
+              @for (sl of deliverySlots; track sl.from) { <option [value]="sl.from">{{ sl.from }}–{{ sl.to }}</option> }
+            </select></label>
         } @else {
-          <label class="fld mt" style="max-width:280px"><span>Ora consegna <em>(fascia di 1 ora)</em></span>
+          <label class="fld mt" style="max-width:280px"><span>Ora consegna <em>(fascia di {{ slotHours }} {{ slotHours === 1 ? 'ora' : 'ore' }})</em></span>
             <input class="field" type="time" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" />
-            @if (model.deliveryTimeFrom) { <span class="slot-hint">→ {{ model.deliveryTimeFrom }}–{{ plusOneHour(model.deliveryTimeFrom) }}</span> }
+            @if (model.deliveryTimeFrom) { <span class="slot-hint">→ {{ model.deliveryTimeFrom }}–{{ plusHours(model.deliveryTimeFrom, slotHours) }}</span> }
           </label>
         }
 
@@ -89,7 +97,7 @@ interface ProductRow {
         } @else {
           <label class="fld mt" style="max-width:280px"><span>Ora ritiro * <em>(fascia di 1 ora)</em></span>
             <input class="field" type="time" name="pickupTimeFrom" [(ngModel)]="model.pickupTimeFrom" />
-            @if (model.pickupTimeFrom) { <span class="slot-hint">→ {{ model.pickupTimeFrom }}–{{ plusOneHour(model.pickupTimeFrom) }}</span> }
+            @if (model.pickupTimeFrom) { <span class="slot-hint">→ {{ model.pickupTimeFrom }}–{{ plusHours(model.pickupTimeFrom) }}</span> }
           </label>
         }
       </section>
@@ -436,11 +444,50 @@ export class DeliveryFormComponent {
     if (row.flexiblePrice && row.price == null) row.price = this.productPrice(row.productId);
   }
 
-  /** "HH:MM" + 1 ora (per le fasce di 1 ora quando non flessibile). */
-  plusOneHour(t: string): string {
+  /** Servizio selezionato (con il suo setup prenotazione). Getter: si rivaluta a ogni change detection. */
+  get selectedService(): ServiceType | undefined {
+    return this.serviceTypes().find((x) => x.id === this.model.serviceTypeId);
+  }
+
+  /** Ore della fascia di consegna automatica: slotHours del servizio, default 1. */
+  get slotHours(): number {
+    return this.selectedService?.slotHours ?? 1;
+  }
+
+  /** true se il servizio scelto consente il dalle–alle libero sulla consegna. */
+  get allowFlexible(): boolean {
+    return this.selectedService?.allowFlexibleTime ?? false;
+  }
+
+  /** Fasce di consegna generate dal setup del servizio (minOrderTime→maxOrderTime a passi di slotHours). */
+  get deliverySlots(): { from: string; to: string }[] {
+    const s = this.selectedService;
+    if (!s?.slotHours || !s.minOrderTime || !s.maxOrderTime) return [];
+    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const slots: { from: string; to: string }[] = [];
+    for (let from = s.minOrderTime; toMin(from) + s.slotHours * 60 <= toMin(s.maxOrderTime); ) {
+      const to = this.plusHours(from, s.slotHours);
+      slots.push({ from, to });
+      from = to;
+    }
+    return slots;
+  }
+
+  /** Al cambio servizio: azzera il flessibile se non consentito e l'orario se fuori dalle fasce proposte. */
+  onServiceChange(): void {
+    if (!this.allowFlexible) this.model.deliveryFlexible = false;
+    const slots = this.deliverySlots;
+    if (!this.model.deliveryFlexible && slots.length && !slots.some((sl) => sl.from === this.model.deliveryTimeFrom)) {
+      this.model.deliveryTimeFrom = '';
+      this.model.deliveryTimeTo = '';
+    }
+  }
+
+  /** "HH:MM" + N ore (per le fasce automatiche quando non flessibile). */
+  plusHours(t: string, hours = 1): string {
     if (!t) return '';
     const [h, m] = t.split(':').map(Number);
-    return `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    return `${String((h + hours) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
   submit(duplicate = false): void {
@@ -461,7 +508,7 @@ export class DeliveryFormComponent {
       recipientFirstName: m.recipientFirstName.trim(),
       recipientLastName: m.recipientLastName.trim(),
       pickupFlexible: m.pickupFlexible,
-      deliveryFlexible: m.deliveryFlexible,
+      deliveryFlexible: m.deliveryFlexible && this.allowFlexible,
       paymentOnDelivery: m.paymentOnDelivery,
       tryAndReturn: m.tryAndReturn,
       deliveryCodeRequired: m.deliveryCodeRequired,
@@ -483,14 +530,15 @@ export class DeliveryFormComponent {
       const v = m[key];
       if (typeof v === 'string' && v.trim()) payload[key] = v.trim();
     }
-    // Fasce orarie: se non flessibile => fascia automatica di 1 ora
+    // Fasce orarie: se non flessibile => fascia automatica (slotHours del servizio, default 1 ora)
+    const deliveryFlexible = m.deliveryFlexible && this.allowFlexible;
     if (m.deliveryTimeFrom) {
       payload['deliveryTimeFrom'] = m.deliveryTimeFrom;
-      payload['deliveryTimeTo'] = m.deliveryFlexible ? m.deliveryTimeTo : this.plusOneHour(m.deliveryTimeFrom);
+      payload['deliveryTimeTo'] = deliveryFlexible ? m.deliveryTimeTo : this.plusHours(m.deliveryTimeFrom, this.slotHours);
     }
     if (m.pickupTimeFrom) {
       payload['pickupTimeFrom'] = m.pickupTimeFrom;
-      payload['pickupTimeTo'] = m.pickupFlexible ? m.pickupTimeTo : this.plusOneHour(m.pickupTimeFrom);
+      payload['pickupTimeTo'] = m.pickupFlexible ? m.pickupTimeTo : this.plusHours(m.pickupTimeFrom);
     }
     for (const key of ['paymentAmount', 'price', 'additionalPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {
       const v = m[key];
