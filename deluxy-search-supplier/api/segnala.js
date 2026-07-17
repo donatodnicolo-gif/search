@@ -3,9 +3,11 @@
 // impostata da ⚙️ Admin) e NON arriva mai al browser, come i token Shopify.
 //
 // POST /api/segnala   header x-app-password
-//   body { nome, categoria, citta, provincia, indirizzo, telefono, email, sito, note }
-//   -> { ok, esistente:true, partner }  se un'anagrafica simile c'è già (nessun duplicato)
-//   -> { ok, creato:true, partner }     se il prospect è stato creato
+//   body { nome, categoria, citta, provincia, indirizzo, telefono, email, sito, note,
+//          quando (ISO, dal browser), ordine: { numero, valore, brand } }
+//   -> { ok, creato:true, partner }                    prospect creato (note con l'ordine)
+//   -> { ok, esistente:true, aggiornato:true, partner } già censito: ultimaVisita
+//        («ultimo contatto») aggiornata e nota dell'ordine accodata
 
 const KEY = 'config:v1';
 const ANAG_URL_DEFAULT = 'https://deluxy-anagrafiche.vercel.app';
@@ -54,6 +56,15 @@ export default async function handler(req, res) {
     const writeKey = (cfg.anagWriteKey || '').trim();
     if (!writeKey) return res.status(400).json({ error: 'Manca la chiave di scrittura del registro: impostala in ⚙️ Admin.' });
 
+    // riga di nota sull'ordine per cui il negozio è stato contattato
+    const ord = body.ordine || {};
+    const ordTxt = (ord.numero || ord.valore)
+      ? 'Contattato per l\'ordine' + (ord.numero ? ' #' + ord.numero : '')
+        + (ord.brand ? ' ' + ord.brand : '') + (ord.valore ? ' — € ' + ord.valore : '') + '.'
+      : '';
+    const quando = (typeof body.quando === 'string' && body.quando) ? body.quando : '';
+    const dataStr = quando.slice(0, 10);
+
     // niente duplicati: cerca per nome e confronta nome normalizzato + città
     const qUrl = base + '/api/v1/partners?perPage=50&q=' + encodeURIComponent(nome);
     const qr = await fetch(qUrl, { headers: { 'x-api-key': writeKey } });
@@ -61,7 +72,21 @@ export default async function handler(req, res) {
       const esistenti = (await qr.json()).dati || [];
       const dup = esistenti.find(p => norm(p.nome) === norm(nome)
         && (!body.citta || !p.citta || norm(p.citta) === norm(body.citta)));
-      if (dup) return res.status(200).json({ ok: true, esistente: true, partner: dup });
+      if (dup) {
+        // già censito: aggiorna «ultimo contatto» (ultimaVisita) e accoda la nota dell'ordine
+        const nuovaNota = ((dup.note || '') + '\n'
+          + (dataStr ? '[' + dataStr + '] ' : '')
+          + (ordTxt || 'Ricontattato dall\'app search/supplier.')).trim();
+        const patch = { note: nuovaNota };
+        if (quando) patch.ultimaVisita = quando;
+        const pr = await fetch(base + '/api/v1/partners/' + dup.id, {
+          method: 'PATCH',
+          headers: { 'x-api-key': writeKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        });
+        const pj = await pr.json().catch(() => null);
+        return res.status(200).json({ ok: true, esistente: true, aggiornato: pr.ok, partner: (pr.ok && pj) || dup });
+      }
     }
 
     const record = {
@@ -73,10 +98,11 @@ export default async function handler(req, res) {
       indirizzo: body.indirizzo || null,
       telefono: body.telefono || null,
       email: body.email || null,
-      note: ['Segnalato al commerciale dall\'app search/supplier.', body.sito ? ('Sito: ' + body.sito) : '', body.note || '']
+      note: ['Segnalato al commerciale dall\'app search/supplier.', ordTxt, body.sito ? ('Sito: ' + body.sito) : '', body.note || '']
         .filter(Boolean).join(' '),
       fonte: 'manuale',
     };
+    if (quando) record.ultimaVisita = quando;
     const cr = await fetch(base + '/api/v1/partners', {
       method: 'POST',
       headers: { 'x-api-key': writeKey, 'Content-Type': 'application/json' },

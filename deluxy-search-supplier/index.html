@@ -1507,10 +1507,19 @@ async function reportShop(btn){
   fillContactsFromCard(btn, data);
   btn.disabled = true; btn.textContent = '⏳ Segnalo al commerciale…';
   try{
-    const r = await apiFetch('/api/segnala', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    // ordine per cui si sta contattando il negozio → finisce nelle note del registro
+    const payload = Object.assign({ quando: new Date().toISOString() }, data);
+    if(orderLoaded){
+      const numero = ($('#ordTag').textContent.match(/#?(\d+)/)||[])[1] || '';
+      const valore = $('#ord_paid').value.trim();
+      if(numero || valore) payload.ordine = { numero, valore, brand: $('#brand').value };
+    }
+    const r = await apiFetch('/api/segnala', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const j = await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
-    btn.textContent = j.esistente ? ('ℹ️ Già nel registro · '+statoLabel(j.partner||{})) : '✅ Segnalato: prospect creato nel registro';
+    btn.textContent = j.esistente
+      ? (j.aggiornato ? 'ℹ️ Già nel registro · ultimo contatto aggiornato' : 'ℹ️ Già nel registro · '+statoLabel(j.partner||{}))
+      : '✅ Segnalato: prospect creato nel registro';
   }catch(err){
     btn.disabled = false; btn.textContent = '⚠️ Segnalazione fallita, riprova';
     setStatus('❌ Segnala al commerciale: '+err.message, true);
