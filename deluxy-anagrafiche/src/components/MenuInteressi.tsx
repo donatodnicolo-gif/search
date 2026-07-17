@@ -8,7 +8,16 @@ import { COLORE_INTERESSE, ETICHETTE_INTERESSE, INTERESSI, isInteresse } from "@
 // scelta multipla — ogni click aggiunge o toglie un interesse. Il menu resta
 // aperto per selezionare più voci di fila; posizionato fixed per non essere
 // ritagliato dallo scorrimento della tabella.
-export function MenuInteressi({ partnerId, interessi }: { partnerId: string; interessi: string[] }) {
+// `compatto` (righe di tabella): al massimo 2 pillole + "+N".
+export function MenuInteressi({
+  partnerId,
+  interessi,
+  compatto = false,
+}: {
+  partnerId: string;
+  interessi: string[];
+  compatto?: boolean;
+}) {
   const ancora = useRef<HTMLElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const attivi = interessi.filter(isInteresse);
@@ -28,12 +37,17 @@ export function MenuInteressi({ partnerId, interessi }: { partnerId: string; int
           <span className="interessi-vuoto">—</span>
         ) : (
           <span className="interessi-pillole">
-            {attivi.map((i) => (
+            {(compatto ? attivi.slice(0, 2) : attivi).map((i) => (
               <span className="pill-interesse" key={i} style={{ color: COLORE_INTERESSE[i] }}>
                 <span className="dot" />
                 <span className="stato-label">{ETICHETTE_INTERESSE[i]}</span>
               </span>
             ))}
+            {compatto && attivi.length > 2 && (
+              <span className="pill-interesse" title={attivi.slice(2).map((i) => ETICHETTE_INTERESSE[i]).join(", ")}>
+                <span className="stato-label">+{attivi.length - 2}</span>
+              </span>
+            )}
           </span>
         )}
         <span className="menu-freccia">▾</span>

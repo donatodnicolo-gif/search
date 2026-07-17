@@ -130,8 +130,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     ui: "registro",
   };
 
-  const Intestazione = ({ campo }: { campo: CampoOrdinamento }) => (
-    <th>
+  const Intestazione = ({ campo, classe }: { campo: CampoOrdinamento; classe?: string }) => (
+    <th className={classe}>
       <a className="th-ordina" href={linkOrdina(campo)}>
         {COLONNE_ORDINABILI[campo]}
         <span className="th-freccia">{ordina === campo ? (dir === "asc" ? "↑" : "↓") : ""}</span>
@@ -244,17 +244,15 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                 <th>Telefono</th>
                 <Intestazione campo="stato" />
                 <th>Interessi</th>
-                <Intestazione campo="account" />
-                <th>Contatti</th>
+                <Intestazione campo="account" classe="col-secondaria" />
                 <Intestazione campo="ultimaVisita" />
                 <th>Note</th>
-                <Intestazione campo="creatoIl" />
+                <Intestazione campo="creatoIl" classe="col-secondaria" />
                 <th aria-label="Archivia"></th>
               </tr>
             </thead>
             <tbody>
               {partner.map((p) => {
-                const riferimento = p.contatti.find((c) => c.nome) ?? p.contatti[0];
                 return (
                   <tr key={p.id}>
                     <td>
@@ -267,15 +265,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     <td className="cella-muta">{p.citta ?? "—"}</td>
                     <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
                     <td><MenuStato partnerId={p.id} stato={p.stato} archiviato={inArchivio} /></td>
-                    <td><MenuInteressi partnerId={p.id} interessi={p.interessi} /></td>
-                    <td className="cella-muta">{p.account ?? "—"}</td>
-                    <td className="cella-muta">
-                      {riferimento
-                        ? [riferimento.nome ?? riferimento.ruolo, riferimento.telefono ?? riferimento.email]
-                            .filter(Boolean)
-                            .join(" · ")
-                        : "—"}
-                    </td>
+                    <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto /></td>
+                    <td className="cella-muta col-secondaria">{p.account ?? "—"}</td>
                     <td className="cella-muta">{p.ultimaVisita ? dataIt(p.ultimaVisita) : "—"}</td>
                     <td className="cella-muta">
                       {p.note ? (
@@ -284,7 +275,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                         "—"
                       )}
                     </td>
-                    <td className="cella-muta">{dataIt(p.creatoIl)}</td>
+                    <td className="cella-muta col-secondaria">{dataIt(p.creatoIl)}</td>
                     <td>
                       <form action={impostaArchiviato.bind(null, p.id, !inArchivio)}>
                         <button
