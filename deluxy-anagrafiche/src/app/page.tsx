@@ -202,6 +202,9 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                   <th>Città</th>
                   <th>Telefono</th>
                   <th>Stato</th>
+                  <th>Interessi</th>
+                  <th>Ultimo contatto</th>
+                  <th>Note</th>
                   <th>Creata</th>
                 </tr>
               </thead>
@@ -218,6 +221,15 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     <td className="cella-muta">{p.citta ?? "—"}</td>
                     <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
                     <td><MenuStato partnerId={p.id} stato={p.stato} /></td>
+                    <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto /></td>
+                    <td className="cella-muta">{p.ultimaVisita ? dataIt(p.ultimaVisita) : "—"}</td>
+                    <td className="cella-muta">
+                      {p.note ? (
+                        <span className="cella-note" title={p.note}>{p.note}</span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="cella-muta">
                       {dataIt(p.creatoIl)}
                       <span className="cella-fonte"> · {FONTI[p.fonte] ?? p.fonte}</span>
