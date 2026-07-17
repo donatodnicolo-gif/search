@@ -50,8 +50,8 @@ l'app aggiorna solo quando premi "Aggiorna posta".
 L'interfaccia è una sola, web. Da lì:
 
 - **Desktop:** wrapper [Tauri](https://tauri.app) (`npm run tauri`) — da aggiungere.
-- **Android:** l'app è già una PWA installabile (`public/manifest.webmanifest`).
-  Mancano le icone `icon-192.png` e `icon-512.png` in `public/`.
+- **Android:** l'app è già una PWA installabile (manifest + icone pronti). Per un
+  APK vero: [docs/../android/COME-FARE-APK.md](android/COME-FARE-APK.md).
 
 ## Sicurezza
 

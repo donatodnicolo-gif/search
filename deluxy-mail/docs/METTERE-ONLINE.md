@@ -83,14 +83,14 @@ compare nel portale. Senza, in produzione l'app resta nascosta.
 ## 6. Sul telefono
 
 Aperto l'URL con Chrome su Android: menù → **Installa app**. La PWA è già
-configurata (`public/manifest.webmanifest`), mancano solo le icone
-`icon-192.png` e `icon-512.png` in `public/`.
+pronta, icone comprese (`public/manifest.webmanifest` + `icon-192/512.png`) —
+si installa e si comporta come un'app. Per un vero APK da distribuire, vedi
+[../android/COME-FARE-APK.md](../android/COME-FARE-APK.md).
 
 ---
 
 ## Cosa NON è ancora pronto per l'online
 
-- **Icone PWA:** mancano, l'installazione su Android funziona ma senza icona.
 - **Un solo utente:** `APP_PASSWORD` è una password condivisa, non ci sono utenti
   separati. Chi entra vede tutto.
 - **Tauri (desktop):** non ancora impacchettato.
