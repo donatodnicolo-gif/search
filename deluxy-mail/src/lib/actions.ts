@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import nodemailer from 'nodemailer'
 import { db } from './db'
 import { cifra, decifra } from './crypto'
-import { scaricaStorico, sincronizzaTutti } from './sync'
+import { analizzaMessaggioOra, scaricaStorico, sincronizzaTutti } from './sync'
 import { CODICI_PRIORITA } from './format'
 import { provaConnessione } from './imap'
 import { scriviImpostazione } from './impostazioni'
@@ -34,32 +34,12 @@ export async function sincronizzaOra(): Promise<{ ok: boolean; messaggio: string
       return { ok: false, messaggio: `Errore su ${errori[0].account}: ${errori[0].errore}` }
     }
 
-    const scarichi = esiti.filter((e) => e.tipo === 'scarico')
-    const nuovi = scarichi.reduce((s, e) => s + e.scaricati, 0)
-    const recuperati = esiti.find((e) => e.tipo === 'rianalisi')
-    const attivita = esiti.reduce((s, e) => s + e.attivitaCreate, 0)
-    const bozze = esiti.reduce((s, e) => s + e.bozzeCreate, 0)
-    const analizzati = esiti.reduce((s, e) => s + e.analizzati, 0)
-    const nonAnalizzati = esiti.reduce((s, e) => s + e.scaricati, 0) - analizzati
-
-    const parti: string[] = []
-    if (nuovi > 0) parti.push(`${nuovi} messaggi nuovi`)
-    if (recuperati?.analizzati) parti.push(`${recuperati.analizzati} recuperati`)
-    if (attivita > 0) parti.push(`${attivita} attività`)
-    if (bozze > 0) parti.push(`${bozze} bozze`)
-
-    // Se l'AI non è riuscita su qualcuno, va detto: altrimenti sembra tutto a
-    // posto e quei messaggi restano lì grezzi senza che nessuno se ne accorga.
-    if (nonAnalizzati > 0) {
-      parti.push(`${nonAnalizzati} senza analisi AI`)
-      return {
-        ok: false,
-        messaggio: `${parti.join(' · ')}. Apri un messaggio col badge rosso per vedere l’errore.`,
-      }
+    const nuovi = esiti.reduce((s, e) => s + e.scaricati, 0)
+    if (nuovi === 0) return { ok: true, messaggio: 'Nessun messaggio nuovo.' }
+    return {
+      ok: true,
+      messaggio: `${nuovi} messaggi nuovi. Dai una priorità a quelli che contano: l’AI li analizza e crea le attività.`,
     }
-
-    if (parti.length === 0) return { ok: true, messaggio: 'Nessun messaggio nuovo.' }
-    return { ok: true, messaggio: `${parti.join(' · ')}.` }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
   }
@@ -83,12 +63,10 @@ export async function scaricaStoricoOra(
       return { ok: true, messaggio: 'Hai già tutta la casella: non c’è altro da scaricare.', finito: true }
     }
 
-    const nonAnalizzati = e.scaricati - e.analizzati
     const coda = e.finito ? ' Era l’ultimo blocco: la casella è tutta qui.' : ''
-    const avviso = nonAnalizzati > 0 ? ` ${nonAnalizzati} senza analisi AI.` : ''
     return {
-      ok: nonAnalizzati === 0,
-      messaggio: `${e.scaricati} messaggi più vecchi scaricati.${avviso}${coda}`,
+      ok: true,
+      messaggio: `${e.scaricati} messaggi più vecchi scaricati.${coda}`,
       finito: e.finito,
     }
   } catch (e) {
@@ -162,19 +140,43 @@ export async function archiviaDefinitivo(
 }
 
 /**
- * Priorità scelta a mano. Da qui in poi è tua: `prioritaDa: 'manuale'` fa sì
- * che una ri-analisi non te la sovrascriva.
- * Ripremere lo stesso livello la toglie, e la parola torna all'AI.
+ * Priorità scelta a mano — ed è questo il momento in cui l'AI entra in gioco.
+ *
+ * Dare una priorità significa "questo messaggio conta": solo allora vale la
+ * pena spendere una chiamata al modello per farsi dire cosa c'è da fare e
+ * caricarlo come attività. Sul resto della posta l'AI non gira, e non costa.
+ *
+ * Togliendo la priorità l'analisi resta: il lavoro è già stato pagato, e
+ * l'attività magari l'hai già in mano.
  */
-export async function impostaPriorita(id: string, codice: string | null) {
+export async function impostaPriorita(
+  id: string,
+  codice: string | null
+): Promise<{ ok: boolean; messaggio: string | null }> {
   if (codice !== null && !CODICI_PRIORITA.includes(codice as never)) {
     throw new Error(`Priorità non valida: ${codice}`)
   }
+
   await db.messaggio.update({
     where: { id },
     data: { priorita: codice, prioritaDa: codice ? 'manuale' : null },
   })
+
+  if (!codice) {
+    revalidatePath('/', 'layout')
+    return { ok: true, messaggio: null }
+  }
+
+  const esito = await analizzaMessaggioOra(id)
   revalidatePath('/', 'layout')
+  return esito
+}
+
+/** Rilancia l'analisi di un messaggio: serve quando è andata storta. */
+export async function rianalizza(id: string): Promise<{ ok: boolean; messaggio: string }> {
+  const esito = await analizzaMessaggioOra(id)
+  revalidatePath('/', 'layout')
+  return esito
 }
 
 // ---------- Cestino ----------

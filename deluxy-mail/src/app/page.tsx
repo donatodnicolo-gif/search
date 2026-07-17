@@ -162,7 +162,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                     </div>
                   )}
 
-                  {(m.sezione || m._count.attivita > 0 || m.bozza || m.erroreAI) && (
+                  {/* Niente badge quando l'AI non ha girato: è la normalità,
+                      non un guasto — parte solo se dai una priorità. */}
+                  {(m.sezione || m._count.attivita > 0 || m.bozza) && (
                     <div className="mail-tags" style={{ paddingLeft: 17 }}>
                       {m.sezione && (
                         <span className={`badge ${m.sezione.colore}`}>
@@ -178,13 +180,17 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                       {m.bozza && !m.bozza.inviata && (
                         <span className="badge gold">Bozza pronta</span>
                       )}
-                      {m.erroreAI && <span className="badge red">AI non riuscita</span>}
                     </div>
                   )}
                 </Link>
 
                 <div style={{ paddingLeft: 17 }}>
-                  <PrioritaButtons id={m.id} priorita={m.priorita} prioritaDa={m.prioritaDa} />
+                  <PrioritaButtons
+                    id={m.id}
+                    priorita={m.priorita}
+                    prioritaDa={m.prioritaDa}
+                    analizzato={m.analizzatoIl !== null}
+                  />
                   <div className="riga-azioni">
                     <AzioniRiga id={m.id} archiviato={m.archiviato} cestinato={m.cestinato} />
                     <ArchiviaDefinitivo id={m.id} mittente={m.mittente} />

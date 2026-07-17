@@ -1,41 +1,66 @@
 import type { Regola, Sezione } from '@prisma/client'
 import { db } from './db'
-import { scaricaNuovi, scaricaVecchi, testoLeggibile, type MessaggioScaricato } from './imap'
-import { applicaRegole, type EsitoRegole } from './regole'
+import { scaricaNuovi, scaricaVecchi, type MessaggioScaricato } from './imap'
+import { applicaRegole } from './regole'
 import { analizzaMessaggio } from './ai'
 import { CHIAVI, leggiImpostazioni } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
 
 export type EsitoSync = {
-  // 'scarico'   = messaggi nuovi presi dalla casella;
-  // 'storico'   = messaggi vecchi recuperati andando indietro;
-  // 'rianalisi' = messaggi già presenti, rimasti senza analisi e riprovati.
-  tipo: 'scarico' | 'storico' | 'rianalisi'
+  // 'scarico' = messaggi nuovi presi dalla casella;
+  // 'storico' = messaggi vecchi recuperati andando indietro.
+  tipo: 'scarico' | 'storico'
   account: string
   scaricati: number
-  analizzati: number
-  attivitaCreate: number
-  bozzeCreate: number
   /** Solo per 'storico': true quando non c'è più posta vecchia da prendere. */
   finito?: boolean
   errore?: string
 }
 
 /**
- * Chiede l'analisi all'AI e la salva sul messaggio già presente a database.
+ * Analizza un messaggio con l'AI: riassunto di cosa c'è da fare, e l'attività
+ * corrispondente.
  *
- * Sta fuori dal ciclo di scarico perché serve in due momenti: quando un
- * messaggio arriva, e quando si riprova un messaggio la cui analisi era
- * fallita (tipicamente per un errore temporaneo dell'API).
+ * NON viene chiamata dallo scarico. Si attiva quando dai una priorità a un
+ * messaggio: sei tu a dire "questo conta", e solo allora si spendono token.
+ * Scaricare 50 mail al giorno e analizzarle tutte significa pagare l'analisi
+ * di newsletter e notifiche che non leggerai mai.
+ *
+ * La priorità che hai scelto guida l'attività: se hai marcato P0, l'attività
+ * nasce P0 — l'urgenza la decidi tu, non il modello.
  */
-async function analizzaESalva(opts: {
+export async function analizzaMessaggioOra(
   messaggioId: string
-  messaggio: MessaggioScaricato
-  daRegole: EsitoRegole
-  sezioni: Sezione[]
-  impostazioni: Record<string, string>
-}): Promise<{ ok: boolean; attivitaCreate: number; bozzeCreate: number }> {
-  const { messaggioId, messaggio, daRegole, sezioni, impostazioni } = opts
+): Promise<{ ok: boolean; messaggio: string }> {
+  const m = await db.messaggio.findUnique({
+    where: { id: messaggioId },
+    include: { account: true },
+  })
+  if (!m) return { ok: false, messaggio: 'Messaggio non trovato.' }
+
+  const [sezioni, regole, impostazioni] = await Promise.all([
+    db.sezione.findMany({ orderBy: { ordine: 'asc' } }),
+    db.regola.findMany(),
+    leggiImpostazioni(),
+  ])
+
+  const messaggio: MessaggioScaricato = {
+    uid: m.uid,
+    messageId: m.messageId,
+    thread: m.thread,
+    mittente: m.mittente,
+    mittenteNome: m.mittenteNome,
+    destinatari: m.destinatari,
+    oggetto: m.oggetto,
+    data: m.data,
+    anteprima: m.anteprima,
+    corpoTesto: m.corpoTesto,
+    corpoHtml: m.corpoHtml,
+    allegati: m.allegati,
+    letto: m.letto,
+  }
+
+  const daRegole = applicaRegole(regole, messaggio)
 
   try {
     const analisi = await analizzaMessaggio({
@@ -47,27 +72,16 @@ async function analizzaESalva(opts: {
       oggi: new Date(),
     })
 
-    // Una regola deterministica ha l'ultima parola sulla sezione: se l'hai
-    // scritta tu, l'AI non la sovrascrive.
+    // Una sezione decisa da una regola o spostata a mano non si tocca.
     const sezioneAI = analisi.sezione
       ? (sezioni.find((s) => s.nome === analisi.sezione)?.id ?? null)
       : null
-    const sezioneId = daRegole.sezioneId ?? sezioneAI
-
-    // Una priorità che hai messo tu non si tocca: l'AI la propone solo dove
-    // non hai ancora deciso.
-    const attuale = await db.messaggio.findUnique({
-      where: { id: messaggioId },
-      select: { prioritaDa: true },
-    })
-    const prioritaManuale = attuale?.prioritaDa === 'manuale'
+    const sezioneDecisa = m.smistatoDa === 'manuale' || m.smistatoDa === 'regola'
 
     await db.messaggio.update({
-      where: { id: messaggioId },
+      where: { id: m.id },
       data: {
-        sezioneId,
-        smistatoDa: daRegole.sezioneId ? 'regola' : sezioneAI ? 'ai' : null,
-        ...(prioritaManuale ? {} : { priorita: analisi.priorita, prioritaDa: 'ai' }),
+        ...(sezioneDecisa ? {} : { sezioneId: sezioneAI, smistatoDa: sezioneAI ? 'ai' : null }),
         riassunto: analisi.riassunto,
         serveRisposta: analisi.serveRisposta,
         analizzatoIl: new Date(),
@@ -75,149 +89,93 @@ async function analizzaESalva(opts: {
       },
     })
 
-    const attivita =
-      daRegole.creaAttivita && analisi.attivita.length === 0
-        ? [
-            {
-              titolo: `Gestire: ${messaggio.oggetto}`,
-              dettaglio: analisi.riassunto,
-              scadenza: null,
-              priorita: analisi.priorita,
-            },
-          ]
-        : analisi.attivita
+    // Rifare l'analisi non deve accumulare doppioni di quello che ha già
+    // prodotto l'AI; quello che hai scritto o già fatto tu resta.
+    await db.attivita.deleteMany({ where: { messaggioId: m.id, creataDaAI: true, fatta: false } })
+    await db.bozza.deleteMany({ where: { messaggioId: m.id, inviata: false } })
 
-    // Su una ri-analisi il messaggio può avere già attività e bozza di un
-    // tentativo precedente: si ripulisce, altrimenti si duplicano.
-    await db.attivita.deleteMany({ where: { messaggioId, creataDaAI: true } })
-    await db.bozza.deleteMany({ where: { messaggioId, inviata: false } })
+    // L'attività eredita la priorità del messaggio: l'hai scelta tu.
+    const prioritaAttivita = CODICI_PRIORITA.includes(m.priorita as never) ? m.priorita! : 'P2'
+
+    const attivita = analisi.attivita.length
+      ? analisi.attivita
+      : // Hai dato una priorità: vuol dire che qualcosa da fare c'è. Se l'AI
+        // non ha trovato un'azione precisa, l'attività si crea comunque col
+        // suo riassunto, invece di lasciarti a mani vuote.
+        [
+          {
+            titolo: `Gestire: ${m.oggetto}`,
+            dettaglio: analisi.riassunto,
+            scadenza: null,
+            priorita: prioritaAttivita,
+          },
+        ]
 
     for (const a of attivita) {
       await db.attivita.create({
         data: {
-          messaggioId,
+          messaggioId: m.id,
           titolo: a.titolo,
           dettaglio: a.dettaglio || null,
           scadenza: a.scadenza ? new Date(a.scadenza) : null,
-          priorita: CODICI_PRIORITA.includes(a.priorita as never) ? a.priorita : 'P2',
+          priorita: prioritaAttivita,
         },
       })
     }
 
-    const vuoleBozza = daRegole.creaBozza || analisi.serveRisposta
-    let bozzeCreate = 0
-    if (vuoleBozza && analisi.bozza) {
+    if (analisi.serveRisposta && analisi.bozza) {
       await db.bozza.create({
         data: {
-          messaggioId,
+          messaggioId: m.id,
           oggetto: analisi.bozza.oggetto,
           corpo: analisi.bozza.corpo,
           corpoAI: analisi.bozza.corpo,
         },
       })
-      bozzeCreate = 1
     }
 
-    return { ok: true, attivitaCreate: attivita.length, bozzeCreate }
+    const conBozza = analisi.serveRisposta && analisi.bozza ? ' e una bozza di risposta' : ''
+    return {
+      ok: true,
+      messaggio: `${attivita.length === 1 ? 'Attività creata' : `${attivita.length} attività create`}${conBozza}.`,
+    }
   } catch (e) {
-    await db.messaggio.update({
-      where: { id: messaggioId },
-      data: { erroreAI: e instanceof Error ? e.message : String(e) },
-    })
-    return { ok: false, attivitaCreate: 0, bozzeCreate: 0 }
+    const errore = e instanceof Error ? e.message : String(e)
+    await db.messaggio.update({ where: { id: m.id }, data: { erroreAI: errore } })
+    return { ok: false, messaggio: inItaliano(errore) }
   }
 }
 
 /**
- * Riprova i messaggi già scaricati ma mai analizzati: senza questo, una mail
- * arrivata mentre l'API era ferma (quota finita, rete giù) resterebbe grezza
- * per sempre, perché lo scarico non la ripesca più.
+ * Gli errori dell'API OpenAI arrivano in inglese e lunghi. In mezzo a una
+ * lista di mail servono corti e con scritto cosa fare.
+ * L'originale resta comunque su `Messaggio.erroreAI`, per capirci qualcosa.
  */
-export async function rianalizzaFalliti(limite = 25): Promise<EsitoSync> {
-  const esito: EsitoSync = {
-    tipo: 'rianalisi',
-    account: 'messaggi rimasti indietro',
-    scaricati: 0,
-    analizzati: 0,
-    attivitaCreate: 0,
-    bozzeCreate: 0,
+function inItaliano(errore: string): string {
+  if (errore.includes('429') || errore.includes('quota')) {
+    return 'Credito OpenAI esaurito: caricalo e riprova.'
   }
-
-  const [sezioni, regole, impostazioni] = await Promise.all([
-    db.sezione.findMany({ orderBy: { ordine: 'asc' } }),
-    db.regola.findMany(),
-    leggiImpostazioni(),
-  ])
-
-  const falliti = await db.messaggio.findMany({
-    where: { analizzatoIl: null },
-    orderBy: { data: 'desc' },
-    take: limite,
-  })
-
-  for (const m of falliti) {
-    // Un messaggio salvato prima che la ripulitura del testo esistesse ha il
-    // corpo ancora pieno di CSS: si ripulisce ora, e se cambia lo si riscrive
-    // a database, così anteprima e dettaglio smettono di mostrare markup.
-    const corpoTesto = testoLeggibile(m.corpoTesto, m.corpoHtml ?? undefined)
-    if (corpoTesto !== m.corpoTesto) {
-      await db.messaggio.update({
-        where: { id: m.id },
-        data: { corpoTesto, anteprima: corpoTesto.replace(/\s+/g, ' ').slice(0, 200) },
-      })
-    }
-
-    const messaggio: MessaggioScaricato = {
-      uid: m.uid,
-      messageId: m.messageId,
-      thread: m.thread,
-      mittente: m.mittente,
-      mittenteNome: m.mittenteNome,
-      destinatari: m.destinatari,
-      oggetto: m.oggetto,
-      data: m.data,
-      anteprima: m.anteprima,
-      corpoTesto,
-      corpoHtml: m.corpoHtml,
-      allegati: m.allegati,
-      letto: m.letto,
-    }
-    const daRegole = applicaRegole(regole, messaggio)
-    const analisi = await analizzaESalva({
-      messaggioId: m.id,
-      messaggio,
-      daRegole,
-      sezioni,
-      impostazioni,
-    })
-    esito.scaricati++
-    if (analisi.ok) {
-      esito.analizzati++
-      esito.attivitaCreate += analisi.attivitaCreate
-      esito.bozzeCreate += analisi.bozzeCreate
-    }
+  if (errore.includes('401') || errore.includes('API key')) {
+    return 'Chiave OpenAI non valida: controlla OPENAI_API_KEY.'
   }
-
-  return esito
+  if (errore.includes('OPENAI_API_KEY mancante')) {
+    return 'Manca la chiave OpenAI: l’analisi è spenta.'
+  }
+  if (errore.includes('timeout') || errore.includes('ETIMEDOUT') || errore.includes('ECONN')) {
+    return 'OpenAI non risponde: riprova fra poco.'
+  }
+  return errore.length > 120 ? `${errore.slice(0, 120)}…` : errore
 }
 
 /**
- * Sincronizza una casella: scarica i nuovi messaggi, applica le regole
- * dell'utente e poi chiede all'AI sezione, attività e bozza di risposta.
+ * Sincronizza una casella: scarica i nuovi messaggi e applica le regole.
  *
- * L'analisi AI di un messaggio che fallisce non blocca gli altri: l'errore
- * viene scritto sul messaggio e il ciclo prosegue.
+ * Qui l'AI non entra: costa, e la maggior parte della posta non merita
+ * un'analisi. La si chiama quando dai una priorità a un messaggio.
  */
 export async function sincronizzaAccount(accountId: string, limite = 25): Promise<EsitoSync> {
   const account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
-  const esito: EsitoSync = {
-    tipo: 'scarico',
-    account: account.email,
-    scaricati: 0,
-    analizzati: 0,
-    attivitaCreate: 0,
-    bozzeCreate: 0,
-  }
+  const esito: EsitoSync = { tipo: 'scarico', account: account.email, scaricati: 0 }
 
   let nuovi
   try {
@@ -231,20 +189,8 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
     return { ...esito, errore }
   }
 
-  const [sezioni, regole, impostazioni] = await Promise.all([
-    db.sezione.findMany({ orderBy: { ordine: 'asc' } }),
-    db.regola.findMany(),
-    leggiImpostazioni(),
-  ])
-
-  await salvaEAnalizzaTutti({
-    accountId: account.id,
-    messaggi: nuovi.messaggi,
-    sezioni,
-    regole,
-    impostazioni,
-    esito,
-  })
+  const regole = await db.regola.findMany()
+  await salvaMessaggi({ accountId: account.id, messaggi: nuovi.messaggi, regole, esito })
 
   await db.account.update({
     where: { id: account.id },
@@ -261,16 +207,14 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
   return esito
 }
 
-/** Salva i messaggi nuovi, saltando quelli già presenti, e li fa analizzare. */
-async function salvaEAnalizzaTutti(opts: {
+/** Salva i messaggi nuovi applicando le regole, saltando quelli già presenti. */
+async function salvaMessaggi(opts: {
   accountId: string
   messaggi: MessaggioScaricato[]
-  sezioni: Sezione[]
   regole: Regola[]
-  impostazioni: Record<string, string>
   esito: EsitoSync
 }): Promise<void> {
-  const { accountId, messaggi, sezioni, regole, impostazioni, esito } = opts
+  const { accountId, messaggi, regole, esito } = opts
 
   for (const msg of messaggi) {
     // Un UID già presente significa che l'abbiamo già lavorato: si salta.
@@ -281,7 +225,7 @@ async function salvaEAnalizzaTutti(opts: {
 
     const daRegole = applicaRegole(regole, msg)
 
-    const salvato = await db.messaggio.create({
+    await db.messaggio.create({
       data: {
         accountId,
         uid: msg.uid,
@@ -304,45 +248,22 @@ async function salvaEAnalizzaTutti(opts: {
       },
     })
     esito.scaricati++
-
-    const analisi = await analizzaESalva({
-      messaggioId: salvato.id,
-      messaggio: msg,
-      daRegole,
-      sezioni,
-      impostazioni,
-    })
-    if (analisi.ok) {
-      esito.analizzati++
-      esito.attivitaCreate += analisi.attivitaCreate
-      esito.bozzeCreate += analisi.bozzeCreate
-    }
   }
 }
 
 /**
  * Scarica un blocco di posta vecchia, andando indietro nel tempo.
- *
- * È un'azione che chiedi tu, non automatica: recuperare anni di archivio
- * costa tempo e token, e non è detto che serva.
+ * Come lo scarico normale: prende i messaggi, non li analizza.
  */
 export async function scaricaStorico(accountId: string, limite = 25): Promise<EsitoSync> {
   const account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
-  const esito: EsitoSync = {
-    tipo: 'storico',
-    account: account.email,
-    scaricati: 0,
-    analizzati: 0,
-    attivitaCreate: 0,
-    bozzeCreate: 0,
-  }
+  const esito: EsitoSync = { tipo: 'storico', account: account.email, scaricati: 0 }
 
   if (account.storicoFinito) return { ...esito, finito: true }
 
   // primoUid può essere 0 su un account collegato prima che questo campo
-  // esistesse, o se il primo scarico non ha trovato nulla. In quel caso lo si
-  // ricava dai messaggi già presenti: il più vecchio che abbiamo è il punto da
-  // cui andare indietro.
+  // esistesse: lo si ricava dal messaggio più vecchio che abbiamo, altrimenti
+  // lo storico si crederebbe finito senza aver scaricato niente.
   let primoUid = account.primoUid
   if (primoUid === 0) {
     const piuVecchio = await db.messaggio.findFirst({
@@ -351,8 +272,6 @@ export async function scaricaStorico(accountId: string, limite = 25): Promise<Es
       select: { uid: true },
     })
     if (!piuVecchio) {
-      // Nessun messaggio: non c'è un punto di partenza, prima serve un
-      // "Aggiorna posta".
       return { ...esito, errore: 'Prima scarica la posta recente con “Aggiorna posta”.' }
     }
     primoUid = piuVecchio.uid
@@ -366,20 +285,8 @@ export async function scaricaStorico(accountId: string, limite = 25): Promise<Es
     return { ...esito, errore: e instanceof Error ? e.message : String(e) }
   }
 
-  const [sezioni, regole, impostazioni] = await Promise.all([
-    db.sezione.findMany({ orderBy: { ordine: 'asc' } }),
-    db.regola.findMany(),
-    leggiImpostazioni(),
-  ])
-
-  await salvaEAnalizzaTutti({
-    accountId: account.id,
-    messaggi: vecchi.messaggi,
-    sezioni,
-    regole,
-    impostazioni,
-    esito,
-  })
+  const regole = await db.regola.findMany()
+  await salvaMessaggi({ accountId: account.id, messaggi: vecchi.messaggi, regole, esito })
 
   await db.account.update({
     where: { id: account.id },
@@ -393,11 +300,5 @@ export async function sincronizzaTutti(): Promise<EsitoSync[]> {
   const account = await db.account.findMany({ where: { attivo: true } })
   const esiti: EsitoSync[] = []
   for (const a of account) esiti.push(await sincronizzaAccount(a.id))
-
-  // Ogni giro recupera anche quello che era rimasto indietro: se l'API era
-  // ferma ieri, oggi quei messaggi vengono analizzati senza doverlo chiedere.
-  const recuperati = await rianalizzaFalliti()
-  if (recuperati.scaricati > 0) esiti.push(recuperati)
-
   return esiti
 }

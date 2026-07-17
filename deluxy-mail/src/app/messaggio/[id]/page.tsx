@@ -5,6 +5,7 @@ import { dataLunga } from '@/lib/format'
 import { BozzaEditor } from '@/components/BozzaEditor'
 import { AzioniMessaggio } from '@/components/AzioniMessaggio'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
+import { Rianalizza } from '@/components/Rianalizza'
 
 export const dynamic = 'force-dynamic'
 
@@ -82,6 +83,7 @@ export default async function DettaglioMessaggio({ params }: Props) {
             id={messaggio.id}
             priorita={messaggio.priorita}
             prioritaDa={messaggio.prioritaDa}
+            analizzato={messaggio.analizzatoIl !== null}
           />
         </div>
 
@@ -107,12 +109,29 @@ export default async function DettaglioMessaggio({ params }: Props) {
           </div>
         )}
 
+        {/* L'errore si vede solo qui e solo se l'analisi è stata chiesta e non
+            è riuscita: nella lista sarebbe rumore su ogni messaggio. */}
         {messaggio.erroreAI && (
-          <div className="ai-box" style={{ background: 'rgba(215,0,21,0.06)', borderColor: 'rgba(215,0,21,0.2)' }}>
+          <div
+            className="ai-box"
+            style={{ background: 'rgba(215,0,21,0.06)', borderColor: 'rgba(215,0,21,0.2)' }}
+          >
             <div className="ai-box-title" style={{ color: 'var(--red)' }}>
-              Analisi AI non riuscita
+              Analisi non riuscita
             </div>
             <div className="ai-box-text">{messaggio.erroreAI}</div>
+            <div style={{ marginTop: 12 }}>
+              <Rianalizza id={messaggio.id} />
+            </div>
+          </div>
+        )}
+
+        {!messaggio.riassunto && !messaggio.erroreAI && (
+          <div className="ai-box" style={{ background: 'var(--fill)', borderColor: 'var(--hairline)' }}>
+            <div className="ai-box-text" style={{ color: 'var(--text-secondary)' }}>
+              L’AI non ha ancora letto questo messaggio. Dagli una priorità qui sopra: te lo
+              riassume e crea l’attività da fare.
+            </div>
           </div>
         )}
 

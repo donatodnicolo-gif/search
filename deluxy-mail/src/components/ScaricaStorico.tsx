@@ -59,8 +59,8 @@ export function ScaricaStorico({ accountId, storicoFinito, messaggiInArchivio }:
 
       <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 10, lineHeight: 1.5 }}>
         Ogni blocco va indietro nel tempo partendo dal messaggio più vecchio che hai già.
-        Premi più volte per risalire tutta la casella. Ogni messaggio scaricato viene anche
-        analizzato dall’AI, quindi consuma credito OpenAI: per questo non parte da solo.
+        Premi più volte per risalire tutta la casella. Scaricare non costa niente: l’AI
+        entra in gioco solo sui messaggi a cui dai una priorità.
       </div>
 
       {stato && (

@@ -113,7 +113,12 @@ export default async function Contatto({ params }: Props) {
               </Link>
 
               <div style={{ paddingLeft: 17 }}>
-                <PrioritaButtons id={m.id} priorita={m.priorita} prioritaDa={m.prioritaDa} />
+                <PrioritaButtons
+                  id={m.id}
+                  priorita={m.priorita}
+                  prioritaDa={m.prioritaDa}
+                  analizzato={m.analizzatoIl !== null}
+                />
               </div>
             </div>
           ))}
