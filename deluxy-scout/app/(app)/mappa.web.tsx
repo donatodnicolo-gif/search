@@ -396,7 +396,7 @@ export default function MappaWeb() {
                       <Text style={styles.crmTrattativaTxt}>◆ trattativa</Text>
                     </View>
                   ) : null}
-                  {p.stato && p.stato !== 'da_visitare' ? (
+                  {p.stato ? (
                     <View style={[styles.statoBadge, { borderColor: coloreStato(p.stato) }]}>
                       <View style={[styles.statoDot, { backgroundColor: coloreStato(p.stato) }]} />
                       <Text style={styles.statoBadgeTxt}>{labelStato[p.stato]}</Text>
@@ -428,9 +428,9 @@ export default function MappaWeb() {
                     </Pressable>
                     <Pressable style={styles.azione} hitSlop={8} onPress={() => toggleStar(p)} accessibilityLabel="Da visitare (giro)">
                       <Ionicons
-                        name={p.starred || p.stato === 'da_visitare' ? 'star' : 'star-outline'}
+                        name={p.starred ? 'star' : 'star-outline'}
                         size={21}
-                        color={p.starred || p.stato === 'da_visitare' ? colors.oro : colors.grigio}
+                        color={p.starred ? colors.oro : colors.grigio}
                       />
                     </Pressable>
                     <Pressable style={styles.azione} hitSlop={8} onPress={() => nascondi(p)} accessibilityLabel="Non interessante — nascondi">
