@@ -1,7 +1,9 @@
 import Link from 'next/link'
+import { db } from '@/lib/db'
 import { elencoContatti, iniziali } from '@/lib/contatti'
 import { dataBreve } from '@/lib/format'
 import { CercaContatti } from '@/components/CercaContatti'
+import { BottoneAI } from '@/components/BottoneAI'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +12,14 @@ type Props = { searchParams: Promise<{ q?: string }> }
 export default async function Rubrica({ searchParams }: Props) {
   const { q } = await searchParams
   const contatti = await elencoContatti(q)
+
+  // Chi è già stato analizzato: il pulsante lo dice, così non si rispende una
+  // chiamata al modello per riavere lo stesso quadro.
+  const riassunti = await db.riassuntoContatto.findMany({
+    where: { email: { in: contatti.map((c) => c.email) } },
+    select: { email: true, aggiornatoIl: true },
+  })
+  const analizzatoIl = new Map(riassunti.map((r) => [r.email, r.aggiornatoIl]))
 
   // I più frequenti solo quando non stai cercando: durante una ricerca sono
   // rumore, hai già in mente chi vuoi.
@@ -37,21 +47,22 @@ export default async function Rubrica({ searchParams }: Props) {
           </h2>
           <div className="frequenti-grid">
             {frequenti.map((c) => (
-              <Link
-                key={c.email}
-                href={`/rubrica/${encodeURIComponent(c.email)}`}
-                className="frequente"
-              >
-                <span className="avatar">{iniziali(c.nome, c.email)}</span>
-                <span style={{ minWidth: 0 }}>
-                  <span className="frequente-nome">{c.nome || c.email.split('@')[0]}</span>
-                  <span className="frequente-mail">{c.email}</span>
-                  <span className="frequente-conta">
-                    {c.messaggi} messaggi
-                    {c.daRispondere > 0 && ` · ${c.daRispondere} da rispondere`}
+              <div key={c.email} className="frequente-card">
+                <Link href={`/rubrica/${encodeURIComponent(c.email)}`} className="frequente">
+                  <span className="avatar">{iniziali(c.nome, c.email)}</span>
+                  <span style={{ minWidth: 0 }}>
+                    <span className="frequente-nome">{c.nome || c.email.split('@')[0]}</span>
+                    <span className="frequente-mail">{c.email}</span>
+                    <span className="frequente-conta">
+                      {c.messaggi} messaggi
+                      {c.daRispondere > 0 && ` · ${c.daRispondere} da rispondere`}
+                    </span>
                   </span>
-                </span>
-              </Link>
+                </Link>
+                <div className="frequente-ai">
+                  <BottoneAI email={c.email} aggiornatoIl={analizzatoIl.get(c.email) ?? null} />
+                </div>
+              </div>
             ))}
           </div>
         </>
@@ -78,6 +89,7 @@ export default async function Rubrica({ searchParams }: Props) {
                   <th className="num">Messaggi</th>
                   <th className="num">Da rispondere</th>
                   <th className="num">Ultimo</th>
+                  <th className="num">Situazione</th>
                 </tr>
               </thead>
               <tbody>
@@ -108,6 +120,9 @@ export default async function Rubrica({ searchParams }: Props) {
                       )}
                     </td>
                     <td className="num muted">{dataBreve(c.ultimo)}</td>
+                    <td className="num">
+                      <BottoneAI email={c.email} aggiornatoIl={analizzatoIl.get(c.email) ?? null} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

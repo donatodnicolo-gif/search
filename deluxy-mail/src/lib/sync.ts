@@ -2,7 +2,7 @@ import type { Regola, Sezione } from '@prisma/client'
 import { db } from './db'
 import { scaricaNuovi, scaricaVecchi, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
-import { analizzaMessaggio } from './ai'
+import { analizzaMessaggio, riassumiContatto } from './ai'
 import { CHIAVI, leggiImpostazioni } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
 
@@ -183,6 +183,106 @@ function inItaliano(errore: string): string {
     return 'OpenAI non risponde: riprova fra poco.'
   }
   return errore.length > 120 ? `${errore.slice(0, 120)}…` : errore
+}
+
+/**
+ * Fa il punto della situazione con un contatto: legge le ultime mail scambiate
+ * con lui — ricevute e inviate — e ne ricava il quadro, cosa è rimasto aperto
+ * e cosa conviene fare.
+ *
+ * Le azioni proposte diventano attività vere, non righe da guardare: le
+ * ritrovi in Attività insieme a tutto il resto e le spunti quando le fai.
+ */
+export async function analizzaContattoOra(
+  email: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  // Sia quelle di lui sia le mie: il quadro senza le mie risposte sarebbe
+  // monco — non si capirebbe chi aspetta cosa.
+  const messaggi = await db.messaggio.findMany({
+    where: {
+      cestinato: false,
+      OR: [{ mittente: email }, { direzione: 'uscita', destinatari: { contains: email } }],
+    },
+    orderBy: { data: 'desc' },
+    take: 10,
+    select: {
+      data: true,
+      oggetto: true,
+      corpoTesto: true,
+      direzione: true,
+      mittenteNome: true,
+    },
+  })
+
+  if (messaggi.length === 0) {
+    return { ok: false, messaggio: 'Nessun messaggio con questo contatto.' }
+  }
+
+  const nome = messaggi.find((m) => m.direzione === 'entrata')?.mittenteNome ?? null
+  const impostazioni = await leggiImpostazioni()
+
+  try {
+    const analisi = await riassumiContatto({
+      contatto: email,
+      nome,
+      // Dalla più vecchia alla più recente: una conversazione al contrario non
+      // si capisce, e il modello deve seguirne il filo.
+      messaggi: [...messaggi].reverse().map((m) => ({
+        daMe: m.direzione === 'uscita',
+        data: m.data,
+        oggetto: m.oggetto,
+        corpo: m.corpoTesto,
+      })),
+      contestoAzienda: impostazioni[CHIAVI.contestoAzienda],
+      oggi: new Date(),
+    })
+
+    // Rifare il punto sostituisce le azioni proposte prima, che nel frattempo
+    // sono vecchie. Quelle già fatte, e quelle scritte da te, restano.
+    await db.attivita.deleteMany({
+      where: { contattoEmail: email, creataDaAI: true, fatta: false },
+    })
+
+    for (const a of analisi.azioni) {
+      await db.attivita.create({
+        data: {
+          contattoEmail: email,
+          titolo: a.titolo,
+          dettaglio: a.dettaglio || null,
+          scadenza: a.scadenza ? new Date(a.scadenza) : null,
+          priorita: CODICI_PRIORITA.includes(a.priorita as never) ? a.priorita : 'P2',
+        },
+      })
+    }
+
+    await db.riassuntoContatto.upsert({
+      where: { email },
+      create: {
+        email,
+        situazione: analisi.situazione,
+        taskAperti: analisi.taskAperti.join('\n'),
+        messaggiVisti: messaggi.length,
+        azioniCreate: analisi.azioni.length,
+      },
+      update: {
+        situazione: analisi.situazione,
+        taskAperti: analisi.taskAperti.join('\n'),
+        messaggiVisti: messaggi.length,
+        azioniCreate: analisi.azioni.length,
+      },
+    })
+
+    const n = analisi.azioni.length
+    return {
+      ok: true,
+      messaggio:
+        n === 0
+          ? `Letti ${messaggi.length} messaggi: niente da fare per ora.`
+          : `Letti ${messaggi.length} messaggi: ${n === 1 ? '1 azione proposta' : `${n} azioni proposte`} in Attività.`,
+    }
+  } catch (e) {
+    return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
+  }
 }
 
 /**

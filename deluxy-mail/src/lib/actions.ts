@@ -6,7 +6,12 @@ import MailComposer from 'nodemailer/lib/mail-composer'
 import type { Account } from '@prisma/client'
 import { db } from './db'
 import { cifra, decifra } from './crypto'
-import { analizzaMessaggioOra, scaricaStorico, sincronizzaTutti } from './sync'
+import {
+  analizzaContattoOra,
+  analizzaMessaggioOra,
+  scaricaStorico,
+  sincronizzaTutti,
+} from './sync'
 import { CODICI_PRIORITA } from './format'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
 import { scriviImpostazione } from './impostazioni'
@@ -180,6 +185,13 @@ export async function impostaPriorita(
   }
 
   const esito = await analizzaMessaggioOra(id)
+  revalidatePath('/', 'layout')
+  return esito
+}
+
+/** Fa il punto della situazione con un contatto leggendo le ultime mail. */
+export async function analizzaContatto(email: string): Promise<{ ok: boolean; messaggio: string }> {
+  const esito = await analizzaContattoOra(email)
   revalidatePath('/', 'layout')
   return esito
 }

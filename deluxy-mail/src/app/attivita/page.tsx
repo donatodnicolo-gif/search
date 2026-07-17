@@ -12,12 +12,16 @@ export default async function Attivita() {
       where: { fatta: false },
       orderBy: [{ scadenza: 'asc' }, { creataIl: 'desc' }],
       include: { messaggio: { select: { id: true, oggetto: true, mittente: true } } },
+      // contattoEmail arriva coi campi scalari: è valorizzato sulle azioni
+      // nate dal punto della situazione con un contatto.
     }),
     db.attivita.findMany({
       where: { fatta: true },
       orderBy: { fattaIl: 'desc' },
       take: 20,
       include: { messaggio: { select: { id: true, oggetto: true, mittente: true } } },
+      // contattoEmail arriva coi campi scalari: è valorizzato sulle azioni
+      // nate dal punto della situazione con un contatto.
     }),
   ])
 
@@ -53,7 +57,7 @@ export default async function Attivita() {
                 <div style={{ minWidth: 0 }}>
                   <div className="task-titolo">{a.titolo}</div>
                   {a.dettaglio && <div className="task-sub">{a.dettaglio}</div>}
-                  {a.messaggio && (
+                  {a.messaggio ? (
                     <div className="task-sub">
                       da{' '}
                       <Link href={`/messaggio/${a.messaggio.id}`} style={{ textDecoration: 'underline' }}>
@@ -61,6 +65,18 @@ export default async function Attivita() {
                       </Link>{' '}
                       · {a.messaggio.mittente}
                     </div>
+                  ) : (
+                    a.contattoEmail && (
+                      <div className="task-sub">
+                        dal punto della situazione con{' '}
+                        <Link
+                          href={`/rubrica/${encodeURIComponent(a.contattoEmail)}`}
+                          style={{ textDecoration: 'underline' }}
+                        >
+                          {a.contattoEmail}
+                        </Link>
+                      </div>
+                    )
                   )}
                 </div>
                 <div className="task-side">

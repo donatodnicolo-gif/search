@@ -166,6 +166,9 @@ model Attivita {
   id          String  @id @default(cuid())
   messaggioId String?
   messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
+  // Valorizzato quando l'attività nasce dall'analisi di un contatto invece
+  // che da un singolo messaggio: riguarda il rapporto, non una mail sola.
+  contattoEmail String?
 
   titolo      String
   dettaglio   String?
@@ -210,6 +213,20 @@ model Bozza {
 
   @@index([inviata, aggiornataIl])
   @@index([messaggioId])
+}
+
+// Il quadro della situazione con un contatto, come lo vede l'AI leggendo le
+// ultime mail scambiate. Si aggiorna a richiesta: costa una chiamata al
+// modello, quindi la si fa quando serve, non a ogni apertura della rubrica.
+model RiassuntoContatto {
+  email        String   @id
+  situazione   String   @db.Text
+  // Le cose in sospeso, una per riga: solo da leggere. Quelle da fare
+  // diventano attività vere, che si spuntano.
+  taskAperti   String   @db.Text @default("")
+  messaggiVisti Int     @default(0)
+  azioniCreate Int      @default(0)
+  aggiornatoIl DateTime @default(now()) @updatedAt
 }
 
 // Preferenze globali (chiave/valore): tono delle risposte, firma, contesto

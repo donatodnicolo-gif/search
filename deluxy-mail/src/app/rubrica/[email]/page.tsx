@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
-import { dataBreve } from '@/lib/format'
+import { coloreDiPriorita, dataBreve } from '@/lib/format'
 import { iniziali } from '@/lib/contatti'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { RispostaAzioni } from '@/components/RispostaAzioni'
+import { BottoneAI } from '@/components/BottoneAI'
+import { CheckAttivita } from '@/components/CheckAttivita'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +31,15 @@ export default async function Contatto({ params }: Props) {
   const nome = messaggi.find((m) => m.mittenteNome)?.mittenteNome ?? null
   const daRispondere = messaggi.filter((m) => m.serveRisposta && !m.archiviato).length
   const attivitaAperte = await db.attivita.count({
-    where: { fatta: false, messaggio: { mittente: email } },
+    where: {
+      fatta: false,
+      OR: [{ messaggio: { mittente: email } }, { contattoEmail: email }],
+    },
+  })
+  const riassunto = await db.riassuntoContatto.findUnique({ where: { email } })
+  const azioni = await db.attivita.findMany({
+    where: { contattoEmail: email, fatta: false },
+    orderBy: [{ scadenza: 'asc' }, { priorita: 'asc' }],
   })
 
   return (
@@ -53,6 +63,9 @@ export default async function Contatto({ params }: Props) {
             </div>
           </div>
         </div>
+        <div className="page-actions">
+          <BottoneAI email={email} aggiornatoIl={riassunto?.aggiornatoIl ?? null} />
+        </div>
       </div>
 
       <div className="kpi-grid">
@@ -72,6 +85,68 @@ export default async function Contatto({ params }: Props) {
           <div className="kpi-sub">nate dalle sue mail</div>
         </div>
       </div>
+
+      {riassunto ? (
+        <div className="ai-box">
+          <div className="ai-box-title">
+            La situazione secondo l’AI · {riassunto.messaggiVisti} messaggi letti il{' '}
+            {riassunto.aggiornatoIl.toLocaleDateString('it-IT')}
+          </div>
+          <div className="ai-box-text">{riassunto.situazione}</div>
+
+          {riassunto.taskAperti.trim() && (
+            <>
+              <div className="ai-box-title" style={{ marginTop: 14 }}>
+                Rimasto in sospeso
+              </div>
+              <ul style={{ margin: '0 0 0 18px', fontSize: 14 }}>
+                {riassunto.taskAperti
+                  .split('\n')
+                  .filter(Boolean)
+                  .map((t, i) => (
+                    <li key={i} style={{ marginTop: 4 }}>
+                      {t}
+                    </li>
+                  ))}
+              </ul>
+            </>
+          )}
+
+          {azioni.length > 0 && (
+            <>
+              <div className="ai-box-title" style={{ marginTop: 14 }}>
+                Azioni proposte · le trovi anche in Attività
+              </div>
+              {azioni.map((a) => (
+                <div key={a.id} className="col-task" style={{ padding: '10px 0', border: 'none' }}>
+                  <CheckAttivita id={a.id} fatta={a.fatta} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14 }}>{a.titolo}</div>
+                    {a.dettaglio && (
+                      <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 2 }}>
+                        {a.dettaglio}
+                      </div>
+                    )}
+                  </div>
+                  <span className={`badge ${coloreDiPriorita(a.priorita)}`}>{a.priorita}</span>
+                  {a.scadenza && (
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      entro {a.scadenza.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="ai-box" style={{ background: 'var(--fill)', borderColor: 'var(--hairline)' }}>
+          <div className="ai-box-text" style={{ color: 'var(--text-secondary)' }}>
+            Premi <strong>AI</strong> qui sopra: legge le ultime 10 mail scambiate con questo
+            contatto, ti dice a che punto siete e propone cosa fare.
+          </div>
+        </div>
+      )}
 
       <h2 className="section-title">Tutti i messaggi</h2>
       <div className="card tight">
