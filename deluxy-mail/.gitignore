@@ -8,3 +8,5 @@ build
 next-env.d.ts
 .vercel
 src-tauri/target
+
+.vercel
