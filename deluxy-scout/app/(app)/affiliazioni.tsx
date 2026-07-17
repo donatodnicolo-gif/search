@@ -1,0 +1,256 @@
+// Affiliazioni: le attività della linea Re-seller (fioristi/pasticcerie) da reclutare
+// come affiliati su deluxy.it. Per ciascuna: dati anagrafici, bottone "Chiama" (apre il
+// telefono e registra la chiamata) e lo "step" di stato (i 7 valori del registro).
+import { useCallback, useMemo, useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
+import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing } from '@/lib/theme';
+import { aggiornaStatoAffiliazione, fetchAffiliazioni, registraChiamata } from '@/lib/db';
+import { STATI_AFFILIAZIONE, type AffiliazioneRow, type StatoAffiliazione } from '@/types';
+
+const FILTRI: (StatoAffiliazione | 'tutti')[] = ['tutti', ...STATI_AFFILIAZIONE];
+
+function quando(iso: string | null): string {
+  if (!iso) return 'mai chiamato';
+  const giorni = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (giorni <= 0) return 'chiamato oggi';
+  if (giorni === 1) return 'chiamato ieri';
+  if (giorni < 30) return `chiamato ${giorni} giorni fa`;
+  return `chiamato ${Math.floor(giorni / 30)} mesi fa`;
+}
+
+export default function Affiliazioni() {
+  const [righe, setRighe] = useState<AffiliazioneRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [filtro, setFiltro] = useState<StatoAffiliazione | 'tutti'>('tutti');
+
+  const carica = useCallback(async () => {
+    setLoading(true);
+    try {
+      setRighe(await fetchAffiliazioni());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      carica();
+    }, [carica]),
+  );
+
+  const dati = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return righe.filter((r) => {
+      if (filtro !== 'tutti' && r.stato_affiliazione !== filtro) return false;
+      if (!q) return true;
+      return [r.nome, r.indirizzo, r.zona, r.referente, r.telefono]
+        .filter(Boolean)
+        .some((v) => (v as string).toLowerCase().includes(q));
+    });
+  }, [righe, query, filtro]);
+
+  async function chiama(r: AffiliazioneRow) {
+    if (!r.telefono) {
+      Alert.alert('Nessun numero', 'Questa affiliazione non ha un telefono in rubrica.');
+      return;
+    }
+    // Registra la chiamata (best-effort) e apri il dialer.
+    registraChiamata(r.id).then(carica).catch(() => {});
+    const tel = r.telefono.replace(/[^\d+]/g, '');
+    Linking.openURL(`tel:${tel}`).catch(() =>
+      Alert.alert('Impossibile chiamare', 'Compone il numero manualmente: ' + r.telefono),
+    );
+  }
+
+  async function cambiaStato(r: AffiliazioneRow, stato: StatoAffiliazione) {
+    setRighe((cur) => cur.map((x) => (x.id === r.id ? { ...x, stato_affiliazione: stato } : x)));
+    try {
+      await aggiornaStatoAffiliazione(r.id, stato);
+    } catch (e: any) {
+      Alert.alert('Errore', e?.message ?? 'Stato non salvato.');
+      carica();
+    }
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.head}>
+        <Text style={styles.sub}>
+          {righe.length} affiliazioni · fioristi e pasticcerie da reclutare
+        </Text>
+        <TextInput
+          style={styles.search}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Cerca per nome, città, referente…"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          clearButtonMode="while-editing"
+        />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+          {FILTRI.map((f) => (
+            <Pressable key={f} onPress={() => setFiltro(f)} style={[styles.chip, filtro === f && styles.chipOn]}>
+              <Text style={[styles.chipTxt, filtro === f && styles.chipTxtOn]}>
+                {f === 'tutti' ? 'Tutti' : labelAffiliazione[f]}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+
+      <FlatList
+        data={dati}
+        keyExtractor={(r) => r.id}
+        contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
+        ListEmptyComponent={
+          <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Nessuna affiliazione con questi filtri.'}</Text>
+        }
+        renderItem={({ item }) => (
+          <Card item={item} onChiama={() => chiama(item)} onStato={(s) => cambiaStato(item, s)} />
+        )}
+      />
+    </View>
+  );
+}
+
+function Card({
+  item,
+  onChiama,
+  onStato,
+}: {
+  item: AffiliazioneRow;
+  onChiama: () => void;
+  onStato: (s: StatoAffiliazione) => void;
+}) {
+  const [apriStep, setApriStep] = useState(false);
+  const stato = item.stato_affiliazione ?? 'prospect';
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.nome} numberOfLines={1}>{item.nome}</Text>
+          {item.indirizzo ? <Text style={styles.meta} numberOfLines={1}>{item.indirizzo}</Text> : null}
+          <View style={styles.refRow}>
+            {item.referente ? <Text style={styles.meta}>{item.referente}</Text> : null}
+            <Text style={styles.metaLeggero}>· {quando(item.ultima_chiamata)}</Text>
+          </View>
+        </View>
+        <Pressable style={[styles.btnChiama, !item.telefono && styles.btnChiamaOff]} onPress={onChiama}>
+          <Ionicons name="call-outline" size={16} color={colors.bianco} />
+          <Text style={styles.btnChiamaTxt}>Chiama</Text>
+        </Pressable>
+      </View>
+
+      {/* Step: stato corrente → tap per espandere e cambiarlo. */}
+      <Pressable style={styles.statoRow} onPress={() => setApriStep((v) => !v)}>
+        <View style={[styles.dot, { backgroundColor: coloreAffiliazione[stato] }]} />
+        <Text style={styles.statoTxt}>{labelAffiliazione[stato]}</Text>
+        <Ionicons name={apriStep ? 'chevron-up' : 'chevron-down'} size={15} color={colors.grigio} />
+      </Pressable>
+      {apriStep ? (
+        <View style={styles.stepWrap}>
+          {STATI_AFFILIAZIONE.map((s) => (
+            <Pressable
+              key={s}
+              onPress={() => { onStato(s); setApriStep(false); }}
+              style={[styles.stepChip, s === stato && { borderColor: coloreAffiliazione[s], backgroundColor: coloreAffiliazione[s] }]}
+            >
+              <Text style={[styles.stepTxt, s === stato && styles.stepTxtOn]}>{labelAffiliazione[s]}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.sfondo },
+  head: { paddingTop: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro, backgroundColor: colors.sfondo },
+  sub: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.md, marginBottom: spacing.sm },
+  search: {
+    marginHorizontal: spacing.md,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.testo,
+  },
+  filtri: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 6 },
+  chip: {
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+  },
+  chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  chipTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
+  chipTxtOn: { color: colors.bianco },
+  list: { padding: spacing.md, gap: spacing.sm },
+  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
+  card: {
+    backgroundColor: colors.bianco,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    padding: spacing.md,
+  },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  nome: { fontSize: 16, fontWeight: '800', color: colors.navy },
+  meta: { color: colors.testoSoft, fontSize: 13 },
+  metaLeggero: { color: colors.grigio, fontSize: 12 },
+  refRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, flexWrap: 'wrap' },
+  btnChiama: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.successo,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  btnChiamaOff: { backgroundColor: colors.grigio },
+  btnChiamaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13 },
+  statoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.grigioChiaro,
+  },
+  dot: { width: 9, height: 9, borderRadius: 5 },
+  statoTxt: { flex: 1, color: colors.navy, fontWeight: '600', fontSize: 13 },
+  stepWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
+  stepChip: {
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    backgroundColor: colors.sfondo,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+  },
+  stepTxt: { color: colors.navy, fontWeight: '600', fontSize: 12 },
+  stepTxtOn: { color: colors.bianco },
+});

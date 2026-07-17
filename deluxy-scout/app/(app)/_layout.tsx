@@ -95,6 +95,7 @@ export default function AppLayout() {
         <Drawer.Screen name="lista" options={{ title: 'Target', drawerIcon: ({ color, size }) => <DrawerIcon name="flag-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="rubrica" options={{ title: 'Rubrica', drawerIcon: ({ color, size }) => <DrawerIcon name="people-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="trattative" options={{ title: 'Trattative', drawerIcon: ({ color, size }) => <DrawerIcon name="briefcase-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni', drawerIcon: ({ color, size }) => <DrawerIcon name="git-network-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="da-completare" options={{ title: 'Da fare', drawerIcon: ({ color, size }) => <DrawerIcon name="time-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard', drawerIcon: ({ color, size }) => <DrawerIcon name="stats-chart-outline" color={color} size={size ?? 22} /> }} />
         {/* Team: visibile solo all'amministratore della rete (gate anche nella schermata). */}

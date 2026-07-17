@@ -6,6 +6,40 @@ export type StatoPlace = 'da_visitare' | 'visitato' | 'cliente' | 'perso';
 
 export type EsitoVisita = 'interessato' | 'da_richiamare' | 'non_target' | 'chiuso';
 
+// Stato di lavorazione dell'affiliazione — i 7 valori del registro Deluxy Anagrafiche.
+export type StatoAffiliazione =
+  | 'prospect'
+  | 'in_contatto'
+  | 'in_attesa'
+  | 'in_trattativa'
+  | 'da_ricontattare'
+  | 'attivo'
+  | 'non_interessato';
+
+// Ordine dello "step" (dal primo contatto alla chiusura) per la UI.
+export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
+  'prospect',
+  'in_contatto',
+  'in_attesa',
+  'in_trattativa',
+  'da_ricontattare',
+  'attivo',
+  'non_interessato',
+];
+
+// Contatto della scheda, per la lista Affiliazioni (numero da chiamare + referente).
+export interface AffiliazioneRow {
+  id: string;
+  nome: string;
+  indirizzo: string | null;
+  zona: string | null;
+  categoria: string | null;
+  stato_affiliazione: StatoAffiliazione | null;
+  telefono: string | null;
+  referente: string | null;
+  ultima_chiamata: string | null;
+}
+
 // Stato del place derivato dall'esito della visita (regola commerciale unica,
 // condivisa da visita completa, visita rapida e coda di sync).
 export const statoDaEsito: Record<EsitoVisita, StatoPlace> = {

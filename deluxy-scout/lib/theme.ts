@@ -2,7 +2,7 @@
 // (deluxy-design-system/tokens/theme.ts). Stile Apple: sfondi neutri, testo scuro,
 // UN accento oro usato poco, azioni primarie NERE (ink). I nomi storici (navy/oro/…)
 // restano per compatibilità con le schermate, ma i valori sono quelli del DS.
-import type { DealStage, Priorita, StatoPlace } from '@/types';
+import type { DealStage, Priorita, StatoAffiliazione, StatoPlace } from '@/types';
 
 export const colors = {
   // Superfici
@@ -132,4 +132,25 @@ export const labelFase: Record<DealStage, string> = {
   contractsent: 'Proposta inviata',
   closedwon: 'Chiusa vinta',
   closedlost: 'Chiusa persa',
+};
+
+// Etichette + colore-dot per gli stati affiliazione (i 7 del registro Anagrafiche).
+export const labelAffiliazione: Record<StatoAffiliazione, string> = {
+  prospect: 'Prospect',
+  in_contatto: 'In contatto',
+  in_attesa: 'In attesa',
+  in_trattativa: 'In trattativa',
+  da_ricontattare: 'Da ricontattare',
+  attivo: 'Attivo',
+  non_interessato: 'Non interessato',
+};
+
+export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
+  prospect: colors.grigio,
+  in_contatto: '#5A6274',
+  in_attesa: colors.attenzione,
+  in_trattativa: colors.oro,
+  da_ricontattare: colors.attenzione,
+  attivo: colors.successo,
+  non_interessato: colors.errore,
 };

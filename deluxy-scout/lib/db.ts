@@ -1,6 +1,6 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
-import type { Contact, Deal, EsitoVisita, Linea, Place, Profilo, StatoPlace, Visit } from '@/types';
+import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo, StatoAffiliazione, StatoPlace, Visit } from '@/types';
 import { statoDaEsito } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
@@ -219,6 +219,59 @@ export async function aggiornaStatoPlace(placeId: string, stato: StatoPlace): Pr
 /** Marca/smarca un negozio come interessante (⭐ → entra nel giro). Azzera "novità". */
 export async function aggiornaStarred(placeId: string, starred: boolean): Promise<void> {
   const { error } = await supabase.from('places').update({ starred, novita: false }).eq('id', placeId);
+  if (error) throw error;
+}
+
+// ── Affiliazioni (linea Re-seller: fioristi/pasticcerie da reclutare) ──────────
+
+/** Elenco affiliazioni con dati anagrafici, referente principale e ultima chiamata. */
+export async function fetchAffiliazioni(): Promise<AffiliazioneRow[]> {
+  const { data, error } = await supabase
+    .from('places')
+    .select('id, nome, indirizzo, zona, categoria, stato_affiliazione, contacts(nome, ruolo, telefono, is_decisore), chiamate(created_at)')
+    .eq('linea_ipotizzata', 'Re-seller')
+    .order('nome');
+  if (error) throw error;
+  return (data ?? []).map((r: any) => {
+    const contatti: any[] = r.contacts ?? [];
+    // Referente da chiamare: primo con telefono, preferendo il decisore.
+    const conTel = contatti.filter((c) => c.telefono);
+    const ref = conTel.find((c) => c.is_decisore) ?? conTel[0] ?? null;
+    const ultima = (r.chiamate ?? [])
+      .map((c: any) => c.created_at)
+      .sort()
+      .at(-1) ?? null;
+    return {
+      id: r.id,
+      nome: r.nome,
+      indirizzo: r.indirizzo,
+      zona: r.zona,
+      categoria: r.categoria,
+      stato_affiliazione: r.stato_affiliazione,
+      telefono: ref?.telefono ?? null,
+      referente: ref?.nome ?? null,
+      ultima_chiamata: ultima,
+    } as AffiliazioneRow;
+  });
+}
+
+export async function aggiornaStatoAffiliazione(
+  placeId: string,
+  stato: StatoAffiliazione,
+): Promise<void> {
+  const { error } = await supabase.from('places').update({ stato_affiliazione: stato }).eq('id', placeId);
+  if (error) throw error;
+}
+
+/** Registra una chiamata effettuata (chi la fa lo mette l'RLS/owner di default). */
+export async function registraChiamata(placeId: string, esito?: string, note?: string): Promise<void> {
+  const { data: userRes } = await supabase.auth.getUser();
+  const { error } = await supabase.from('chiamate').insert({
+    place_id: placeId,
+    owner: userRes.user?.id ?? null,
+    esito: esito ?? null,
+    note: note ?? null,
+  });
   if (error) throw error;
 }
 
