@@ -982,7 +982,10 @@
     "submit": "Crea cliente",
     "error": {
       "required": "Nome e cognome sono obbligatori."
-    }
+    },
+    "partner": "Partner di provenienza",
+    "partnerHint": "(da quale partner arriva il cliente)",
+    "noPartner": "— nessuno —"
   },
   "customerDetail": {
     "deliveries": "Consegne del cliente",

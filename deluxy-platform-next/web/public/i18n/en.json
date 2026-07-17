@@ -982,7 +982,10 @@
     "submit": "Create customer",
     "error": {
       "required": "First name and last name are required."
-    }
+    },
+    "partner": "Source partner",
+    "partnerHint": "(which partner the customer comes from)",
+    "noPartner": "— none —"
   },
   "customerDetail": {
     "deliveries": "Customer deliveries",
