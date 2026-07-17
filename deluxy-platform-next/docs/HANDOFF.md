@@ -57,7 +57,7 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - **Liste reali** (dati da API): consegne, partner, valet, operatori.
 - **Backend moduli**: auth, deliveries, partners, valets, products, customers, users, service-types, provinces, categories, operations, woocommerce (endpoint pubblico), + stub degli altri.
 - **Analisi backend legacy** e **scaffolding connessione DB in sola lettura** (`api/.env.legacy.example`, `api/prisma/legacy-readonly-user.sql`).
-- Tutto **pushato** su `origin/deluxy-scout`.
+- Pushato su `origin/deluxy-scout` fino a `2caa7cc`; i commit del 17/07 (fusioni comprese) sono **in attesa di push** (vedi nota in fondo).
 
 ### 17/07/2026 — multilingua completo, dettagli+modifica ovunque, azioni consegne, filtri/ordinamenti
 
@@ -115,4 +115,4 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Le migrazioni Prisma vanno create con l'API server **fermo** (lock del query engine su Windows): `preview_stop` o chiudere `npm run dev:api`, poi `npx prisma migrate dev --name ...`.
 - Dopo ogni modifica al `.md`: `npm run doc:word` per rigenerare il Word, e committarlo.
 - Tutto il lavoro piattaforma è di nuovo consolidato su **`deluxy-scout`** (merge di `platform-delivery-slots` il 17/07). Consolidamento finale su `main` via PR quando deciso.
-- ⚠️ **Push in sospeso**: il merge e i 2 commit precedenti (`0ea2d28`, `e8c7896`) sono solo locali — pushare `deluxy-scout` appena possibile (il push automatico era bloccato dai permessi della sessione).
+- ⚠️ **Push in sospeso**: i commit del 17/07 su `deluxy-scout` (`0ea2d28`, `e8c7896`, merge `1000ded`, `8859a35`, merge `eb627c6` + doc) sono solo locali — pushare `deluxy-scout` appena possibile (il push automatico era bloccato dai permessi della sessione). Entrambe le fusioni includono anche i 4 commit del worktree **mai pushati** su `origin/platform-delivery-slots` (ricerca globale consegne, filtri tutte le liste, archivio+viste rapide prodotti, partner di provenienza clienti).
