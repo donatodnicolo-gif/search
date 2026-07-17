@@ -5,6 +5,7 @@ import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
 import { ArchiviaDefinitivo } from '@/components/ArchiviaDefinitivo'
 import { AzioniRiga } from '@/components/AzioniRiga'
+import { AssistenteAI } from '@/components/AssistenteAI'
 import { RispostaAzioni } from '@/components/RispostaAzioni'
 
 export const dynamic = 'force-dynamic'
@@ -130,6 +131,10 @@ export default async function PostaInArrivo({ searchParams }: Props) {
           })}
         </div>
       </div>
+
+      {/* Solo nella vista principale: dentro una sezione o un filtro sarebbe
+          fuori posto. */}
+      {!sezione && !stato && !p && <AssistenteAI />}
 
       <div className="inbox-split">
         <div className="card tight">

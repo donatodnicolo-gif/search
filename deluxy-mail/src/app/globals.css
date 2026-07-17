@@ -418,6 +418,64 @@ input:focus, select:focus, textarea:focus {
 .ai-btn.fatto:hover { background: var(--gold-soft); color: var(--gold-strong); }
 .ai-esito { font-size: 11.5px; color: var(--text-secondary); }
 
+/* ---------- Assistente AI (in cima alla posta) ---------- */
+.assistente {
+  background: linear-gradient(135deg, var(--gold-soft), rgba(184, 150, 62, 0.04));
+  border: 1px solid rgba(184, 150, 62, 0.22);
+  border-radius: var(--radius-l);
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+.assistente-titolo { font-size: 15px; font-weight: 600; }
+.assistente-sotto { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.assistente-bottoni { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.assistente-btn {
+  flex: 1;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-m);
+  padding: 12px 16px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-sans);
+  transition: border-color 150ms var(--ease), transform 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+.assistente-btn:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card);
+}
+.assistente-btn:disabled { opacity: 0.6; cursor: default; }
+.assistente-btn-label { font-size: 14px; font-weight: 600; }
+.assistente-btn-sotto { font-size: 12px; color: var(--text-tertiary); }
+.assistente-conferma {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; margin-top: 14px; flex-wrap: wrap;
+  font-size: 13.5px; color: var(--text-secondary);
+}
+.assistente-stato { font-size: 13px; color: var(--text-secondary); margin-top: 12px; }
+
+/* Checklist di archiviazione del report */
+.checklist-testa {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 18px; border-bottom: 1px solid var(--hairline); flex-wrap: wrap;
+}
+.checklist-riga {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 18px; border-bottom: 1px solid var(--hairline); cursor: pointer;
+  transition: background 150ms var(--ease);
+}
+.checklist-riga:last-child { border-bottom: none; }
+.checklist-riga:hover { background: rgba(120, 120, 128, 0.05); }
+.checklist-riga.off { opacity: 0.5; }
+.checklist-riga input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--ink); }
+.checklist-oggetto { display: block; font-size: 14px; }
+.checklist-meta { display: block; font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+
 /* ---------- Pannello AI a destra ---------- */
 .pannello-velo {
   position: fixed;

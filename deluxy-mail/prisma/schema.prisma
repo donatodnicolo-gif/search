@@ -152,6 +152,7 @@ model Messaggio {
 
   attivita  Attivita[]
   bozze     Bozza[]
+  proposte  PropostaArchivio[]
 
   creatoIl DateTime @default(now())
 
@@ -169,6 +170,11 @@ model Attivita {
   // Valorizzato quando l'attività nasce dall'analisi di un contatto invece
   // che da un singolo messaggio: riguarda il rapporto, non una mail sola.
   contattoEmail String?
+  // Valorizzato quando l'attività nasce da un giro dell'Assistente (Oggi /
+  // Settimana / Mese): serve a raggrupparle nel report e a ripulirle se lo
+  // rifai.
+  rapportoId    String?
+  rapporto      RapportoAI? @relation(fields: [rapportoId], references: [id], onDelete: SetNull)
 
   titolo      String
   dettaglio   String?
@@ -227,6 +233,41 @@ model RiassuntoContatto {
   messaggiVisti Int     @default(0)
   azioniCreate Int      @default(0)
   aggiornatoIl DateTime @default(now()) @updatedAt
+}
+
+// Il risultato di un giro dell'Assistente: l'AI legge tutta la posta di un
+// periodo (oggi / settimana / mese) e produce un quadro, le attività e la
+// lista di cosa si può archiviare. Si salva perché non è usa e getta: lo
+// rivedi, spunti le attività, applichi le archiviazioni con calma.
+model RapportoAI {
+  id             String   @id @default(cuid())
+  periodo        String // oggi | settimana | mese
+  riassunto      String   @db.Text
+  messaggiVisti  Int      @default(0)
+  // true = il periodo aveva più messaggi del tetto e ne ho letti i più recenti.
+  troncato       Boolean  @default(false)
+  attivitaCreate Int      @default(0)
+  generatoIl     DateTime @default(now())
+  attivita       Attivita[]
+  proposte       PropostaArchivio[]
+
+  @@index([generatoIl])
+}
+
+// Un messaggio che l'AI propone di archiviare. Non viene archiviato da solo:
+// è una casella che spunti tu. "Applicata" lo archivia una volta (esce dalla
+// posta in arrivo), senza creare regole: se l'AI ha sbagliato mittente hai
+// perso un messaggio, non il suo futuro.
+model PropostaArchivio {
+  id          String     @id @default(cuid())
+  rapportoId  String
+  rapporto    RapportoAI @relation(fields: [rapportoId], references: [id], onDelete: Cascade)
+  messaggioId String
+  messaggio   Messaggio  @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
+  motivo      String
+  applicata   Boolean    @default(false)
+
+  @@index([rapportoId])
 }
 
 // Preferenze globali (chiave/valore): tono delle risposte, firma, contesto

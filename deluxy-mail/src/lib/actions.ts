@@ -237,6 +237,51 @@ export async function rianalizza(id: string): Promise<{ ok: boolean; messaggio: 
   return esito
 }
 
+// ---------- Assistente AI (Oggi / Settimana / Mese) ----------
+
+export async function contaPeriodoAI(
+  periodo: string
+): Promise<{ totale: number; daLavorare: number }> {
+  const { contaPeriodo, periodoValido } = await import('./assistente')
+  return contaPeriodo(periodoValido(periodo), new Date())
+}
+
+export async function avviaAssistenteAI(
+  periodo: string
+): Promise<{ ok: boolean; messaggio: string; rapportoId?: string }> {
+  const { eseguiAssistente, periodoValido } = await import('./assistente')
+  const esito = await eseguiAssistente(periodoValido(periodo), new Date())
+  revalidatePath('/', 'layout')
+  return esito
+}
+
+/** Archivia i messaggi spuntati nella checklist del report. Una volta, senza
+ *  creare regole: come deciso, un errore non brucia il futuro del mittente. */
+export async function applicaArchiviazioni(
+  ids: string[]
+): Promise<{ ok: boolean; messaggio: string }> {
+  if (ids.length === 0) return { ok: false, messaggio: 'Non hai selezionato niente.' }
+
+  const proposte = await db.propostaArchivio.findMany({
+    where: { id: { in: ids }, applicata: false },
+    select: { id: true, messaggioId: true },
+  })
+
+  for (const p of proposte) {
+    await db.messaggio.update({
+      where: { id: p.messaggioId },
+      data: { archiviato: true, letto: true },
+    })
+    await db.propostaArchivio.update({ where: { id: p.id }, data: { applicata: true } })
+  }
+
+  revalidatePath('/', 'layout')
+  return {
+    ok: true,
+    messaggio: `Archiviati ${proposte.length} messaggi. Sono negli Archiviati, e restano sul server.`,
+  }
+}
+
 // ---------- Cestino ----------
 
 /**
