@@ -14,6 +14,7 @@ import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { DeliveriesService } from './deliveries.service';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
+import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import {
   AssignValetDto,
   UpdateDeliveryDto,
@@ -27,19 +28,12 @@ export class DeliveriesController {
   constructor(private readonly deliveriesService: DeliveriesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lista consegne (filtrata per ruolo)' })
-  @ApiQuery({ name: 'date', required: false })
-  @ApiQuery({ name: 'status', required: false })
-  @ApiQuery({ name: 'partnerId', required: false })
-  @ApiQuery({ name: 'valetId', required: false })
-  findAll(
-    @CurrentUser() user: JwtUser,
-    @Query('date') date?: string,
-    @Query('status') status?: string,
-    @Query('partnerId') partnerId?: string,
-    @Query('valetId') valetId?: string,
-  ) {
-    return this.deliveriesService.findAll(user, { date, status, partnerId, valetId });
+  @ApiOperation({
+    summary:
+      'Lista consegne paginata (filtrata per ruolo). q = ricerca globale sui campi testuali; filtri stato/partner/valet/data',
+  })
+  findAll(@CurrentUser() user: JwtUser, @Query() query: DeliveryListQueryDto) {
+    return this.deliveriesService.findAll(user, query);
   }
 
   @Get(':id')

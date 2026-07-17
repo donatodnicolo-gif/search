@@ -30,7 +30,7 @@ const SERVICE_ICONS: Record<string, string> = {
         <p class="page-caption">{{ 'deliveries.caption' | translate }}</p>
       </div>
       <div class="filters">
-        <select class="field" [(ngModel)]="statusFilter" (ngModelChange)="load()">
+        <select class="field" [(ngModel)]="statusFilter" (ngModelChange)="reload()">
           <option value="">{{ 'deliveries.allStatuses' | translate }}</option>
           @for (key of statusKeys; track key) {
             <option [value]="key">{{ 'status.delivery.' + key | translate }}</option>
@@ -40,7 +40,14 @@ const SERVICE_ICONS: Record<string, string> = {
           class="field"
           type="date"
           [(ngModel)]="dateFilter"
-          (ngModelChange)="load()"
+          (ngModelChange)="reload()"
+        />
+        <input
+          class="field"
+          name="q"
+          [attr.placeholder]="'common.search' | translate"
+          [ngModel]="query"
+          (ngModelChange)="onSearch($event)"
         />
         <button class="btn btn-secondary" (click)="load()">{{ 'common.refresh' | translate }}</button>
         <a routerLink="/deliveries/new" class="btn btn-primary">{{ 'deliveries.add' | translate }}</a>
@@ -72,17 +79,33 @@ const SERVICE_ICONS: Record<string, string> = {
         <table>
           <thead>
             <tr>
-              <th class="st-col">{{ 'deliveries.col.status' | translate }}</th>
-              <th>#</th>
-              <th>{{ 'deliveries.col.date' | translate }}</th>
-              <th>{{ 'deliveries.col.service' | translate }}</th>
-              <th>{{ 'deliveries.col.partner' | translate }}</th>
-              <th>{{ 'deliveries.col.recipient' | translate }}</th>
+              <th class="st-col sortable" (click)="sortBy('status')">
+                {{ 'deliveries.col.status' | translate }}<span class="sort-ind">{{ sortIndicator('status') }}</span>
+              </th>
+              <th class="sortable" (click)="sortBy('code')">#<span class="sort-ind">{{ sortIndicator('code') }}</span></th>
+              <th class="sortable" (click)="sortBy('date')">
+                {{ 'deliveries.col.date' | translate }}<span class="sort-ind">{{ sortIndicator('date') }}</span>
+              </th>
+              <th class="sortable" (click)="sortBy('serviceType.name')">
+                {{ 'deliveries.col.service' | translate }}<span class="sort-ind">{{ sortIndicator('serviceType.name') }}</span>
+              </th>
+              <th class="sortable" (click)="sortBy('partner.insegna')">
+                {{ 'deliveries.col.partner' | translate }}<span class="sort-ind">{{ sortIndicator('partner.insegna') }}</span>
+              </th>
+              <th class="sortable" (click)="sortBy('recipientLastName')">
+                {{ 'deliveries.col.recipient' | translate }}<span class="sort-ind">{{ sortIndicator('recipientLastName') }}</span>
+              </th>
               <th>{{ 'deliveries.col.address' | translate }}</th>
-              <th>{{ 'deliveries.col.delivery' | translate }}</th>
-              <th>{{ 'deliveries.col.pickup' | translate }}</th>
+              <th class="sortable" (click)="sortBy('deliveryTimeFrom')">
+                {{ 'deliveries.col.delivery' | translate }}<span class="sort-ind">{{ sortIndicator('deliveryTimeFrom') }}</span>
+              </th>
+              <th class="sortable" (click)="sortBy('pickupTimeFrom')">
+                {{ 'deliveries.col.pickup' | translate }}<span class="sort-ind">{{ sortIndicator('pickupTimeFrom') }}</span>
+              </th>
               <th>{{ 'deliveries.col.valet' | translate }}</th>
-              <th class="num">{{ 'deliveries.col.price' | translate }}</th>
+              <th class="num sortable" (click)="sortBy('price')">
+                {{ 'deliveries.col.price' | translate }}<span class="sort-ind">{{ sortIndicator('price') }}</span>
+              </th>
               <th>{{ 'deliveries.col.actions' | translate }}</th>
             </tr>
           </thead>
@@ -157,6 +180,17 @@ const SERVICE_ICONS: Record<string, string> = {
             }
           </tbody>
         </table>
+      </div>
+
+      <!-- Paginazione server-side -->
+      <div class="pager">
+        <button type="button" class="act" [disabled]="page() <= 1" (click)="goTo(page() - 1)">‹</button>
+        <span class="pager-info">{{ 'list.pageOf' | translate: { page: page(), pages: totalPages() } }}</span>
+        <button type="button" class="act" [disabled]="page() >= totalPages()" (click)="goTo(page() + 1)">›</button>
+        <select class="field pager-size" [ngModel]="pageSize" (ngModelChange)="changePageSize($event)" name="pageSize">
+          @for (s of pageSizes; track s) { <option [value]="s">{{ s }}</option> }
+        </select>
+        <span class="pager-info">{{ 'list.perPage' | translate }} · {{ total() }}</span>
       </div>
     }
 
@@ -420,6 +454,36 @@ const SERVICE_ICONS: Record<string, string> = {
         font-size: 13px;
         font-weight: 550;
         color: var(--text-secondary);
+      }
+
+      /* Intestazioni ordinabili */
+      th.sortable {
+        cursor: pointer;
+        user-select: none;
+      }
+      th.sortable:hover {
+        color: var(--text);
+      }
+      .sort-ind {
+        color: var(--gold-strong);
+        font-weight: 700;
+      }
+      /* Paginazione */
+      .pager {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 14px;
+        justify-content: flex-end;
+      }
+      .pager-info {
+        font-size: 12.5px;
+        color: var(--text-tertiary);
+      }
+      .pager-size {
+        width: auto;
+        padding: 4px 8px;
+        font-size: 12.5px;
       }
 
       /* La riga apre il dettaglio */
@@ -709,17 +773,75 @@ export class DeliveriesListComponent {
     }
   }
 
+  // ---- Stato tabella: ricerca globale + ordinamento + paginazione (server-side) ----
+  query = '';
+  readonly total = signal(0);
+  readonly page = signal(1);
+  pageSize = 50;
+  readonly pageSizes = [10, 25, 50, 100, 200, 500];
+  readonly sort = signal<string>('date');
+  readonly dir = signal<'asc' | 'desc'>('desc');
+  private searchTimer?: ReturnType<typeof setTimeout>;
+
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
+
+  sortIndicator(field: string): string {
+    if (this.sort() !== field) return '';
+    return this.dir() === 'asc' ? ' ↑' : ' ↓';
+  }
+
+  /** Click sull'intestazione: stesso campo inverte il verso, altrimenti asc. */
+  sortBy(field: string): void {
+    if (this.sort() === field) {
+      this.dir.set(this.dir() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sort.set(field);
+      this.dir.set('asc');
+    }
+    this.reload();
+  }
+
+  /** Ricerca globale con debounce: una chiamata sola a fine digitazione. */
+  onSearch(value: string): void {
+    this.query = value;
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.reload(), 300);
+  }
+
+  /** Cambio filtro/ordinamento: si riparte dalla prima pagina. */
+  reload(): void {
+    this.page.set(1);
+    this.load();
+  }
+
+  goTo(page: number): void {
+    if (page < 1 || page > this.totalPages()) return;
+    this.page.set(page);
+    this.load();
+  }
+
+  changePageSize(size: number): void {
+    this.pageSize = Number(size);
+    this.reload();
+  }
+
   load(): void {
     this.loading.set(true);
     this.error.set(null);
-    let params = new HttpParams();
+    let params = new HttpParams()
+      .set('page', String(this.page()))
+      .set('pageSize', String(this.pageSize))
+      .set('sort', this.sort())
+      .set('dir', this.dir());
     if (this.statusFilter) params = params.set('status', this.statusFilter);
     if (this.dateFilter) params = params.set('date', this.dateFilter);
+    if (this.query.trim()) params = params.set('q', this.query.trim());
     this.http
-      .get<Delivery[]>(`${environment.apiUrl}/deliveries`, { params })
+      .get<{ items: Delivery[]; total: number }>(`${environment.apiUrl}/deliveries`, { params })
       .subscribe({
         next: (data) => {
-          this.deliveries.set(data);
+          this.deliveries.set(data.items ?? []);
+          this.total.set(data.total ?? 0);
           this.loading.set(false);
         },
         error: (err) => {

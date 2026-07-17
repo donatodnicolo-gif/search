@@ -7,6 +7,14 @@ import {
 import { randomBytes } from 'node:crypto';
 import { JwtUser } from '../common/decorators';
 import { ActivityType, DeliveryStatus, PricingModel, Role } from '../common/enums';
+import {
+  PagedResult,
+  buildOrderBy,
+  dateRange,
+  paginate,
+  textSearch,
+} from '../common/list-query';
+import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
@@ -35,26 +43,82 @@ export class DeliveriesService {
     return {};
   }
 
+  /** Campi testuali coperti dalla ricerca globale `q`. */
+  private static readonly SEARCH_FIELDS = [
+    'recipientFirstName',
+    'recipientLastName',
+    'recipientAddress',
+    'recipientPhone',
+    'recipientEmail',
+    'senderFirstName',
+    'senderLastName',
+    'ddtNumber',
+    'notes',
+    'partner.insegna',
+    'valet.firstName',
+    'valet.lastName',
+    'serviceType.name',
+  ];
+
+  /** Campi ordinabili (whitelist). */
+  private static readonly SORT_FIELDS = [
+    'code',
+    'date',
+    'status',
+    'price',
+    'deliveryTimeFrom',
+    'pickupTimeFrom',
+    'recipientLastName',
+    'partner.insegna',
+    'serviceType.name',
+  ];
+
+  /**
+   * Lista consegne: filtri specifici (stato/partner/valet/data) + ricerca
+   * globale, ordinamento e paginazione dal contratto comune.
+   */
   async findAll(
     user: JwtUser,
-    query: { date?: string; status?: string; partnerId?: string; valetId?: string },
-  ) {
-    const where: any = { ...this.roleFilter(user) };
-    if (query.status) where.status = query.status;
-    if (query.partnerId && user.role !== Role.PARTNER) where.partnerId = query.partnerId;
-    if (query.valetId && user.role !== Role.VALET) where.valetId = query.valetId;
+    query: DeliveryListQueryDto,
+  ): Promise<PagedResult<unknown>> {
+    const scope: any = { ...this.roleFilter(user) };
+    if (query.status) scope.status = query.status;
+    if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
+    if (query.valetId && user.role !== Role.VALET) scope.valetId = query.valetId;
+    // `date` = giorno singolo (retrocompatibile); dateFrom/dateTo = intervallo
     if (query.date) {
       const day = new Date(query.date);
       const next = new Date(day);
       next.setDate(next.getDate() + 1);
-      where.date = { gte: day, lt: next };
+      scope.date = { gte: day, lt: next };
+    } else {
+      const range = dateRange(query, 'date');
+      if (range) Object.assign(scope, range);
     }
-    const deliveries = await this.prisma.delivery.findMany({
-      where,
-      include: DELIVERY_INCLUDE,
-      orderBy: [{ date: 'desc' }, { code: 'desc' }],
-    });
-    return deliveries.map((d) => this.hideInternalNotes(d, user));
+
+    const search = textSearch(query.q, DeliveriesService.SEARCH_FIELDS);
+    const where = search ? { AND: [scope, search] } : scope;
+    const { skip, take, page, pageSize } = paginate(query);
+
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.delivery.findMany({
+        where,
+        include: DELIVERY_INCLUDE,
+        orderBy: buildOrderBy(query, DeliveriesService.SORT_FIELDS, [
+          { date: 'desc' },
+          { code: 'desc' },
+        ]) as any,
+        skip,
+        take,
+      }),
+      this.prisma.delivery.count({ where }),
+    ]);
+    return {
+      items: rows.map((d) => this.hideInternalNotes(d, user)),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   async findOne(id: string, user: JwtUser) {
