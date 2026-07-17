@@ -80,6 +80,11 @@ export class CreateOperationDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ default: true, description: 'Operatore attivo/disattivo' })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
 }
 
 export class UpdateOperationDto extends PartialType(CreateOperationDto) {}

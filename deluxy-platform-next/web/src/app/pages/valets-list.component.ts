@@ -7,11 +7,12 @@ import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 import { ClientTable } from '../core/client-table';
 import { Valet } from '../core/models';
+import { StatusOption, StatusSelectComponent } from '../core/status-select.component';
 
 @Component({
   selector: 'app-valets-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, TranslatePipe],
+  imports: [FormsModule, RouterLink, TranslatePipe, StatusSelectComponent],
   template: `
     <div class="page-header">
       <div>
@@ -73,8 +74,12 @@ import { Valet } from '../core/models';
                   @else { <span class="muted">—</span> }
                 </td>
                 <td>
-                  @if (v.active) { <span class="pill s-active"><span class="dot"></span>{{ 'common.active' | translate }}</span> }
-                  @else { <span class="pill pill-neutral">{{ 'common.inactive' | translate }}</span> }
+                  <app-status-select
+                    [value]="v.active ? 'true' : 'false'"
+                    [options]="activeOptions()"
+                    [editable]="canEdit()"
+                    (changed)="changeActive(v, $event)"
+                  />
                 </td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   @if (canEdit()) {
@@ -167,6 +172,27 @@ export class ValetsListComponent {
       error: (err) => {
         this.loading.set(false);
         this.error.set(err?.error?.message ?? this.translate.instant('valets.loadError'));
+      },
+    });
+  }
+
+  activeOptions(): StatusOption[] {
+    return [
+      { value: 'true', label: this.translate.instant('common.active'), cls: 's-active' },
+      { value: 'false', label: this.translate.instant('common.inactive'), cls: 'pill-neutral' },
+    ];
+  }
+
+  /** Cambio stato attivo/disattivo inline (ottimistico + rollback). */
+  changeActive(v: Valet, value: string): void {
+    const previous = v.active;
+    v.active = value === 'true';
+    this.valets.set([...this.valets()]);
+    this.http.put(`${environment.apiUrl}/valets/${v.id}`, { active: v.active }).subscribe({
+      error: () => {
+        v.active = previous;
+        this.valets.set([...this.valets()]);
+        this.error.set(this.translate.instant('common.saveError'));
       },
     });
   }

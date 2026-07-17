@@ -60,6 +60,11 @@ export class CreateValetDto {
   @IsBoolean()
   hasVat?: boolean;
 
+  @ApiPropertyOptional({ default: true, description: 'Valet attivo/disattivo' })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

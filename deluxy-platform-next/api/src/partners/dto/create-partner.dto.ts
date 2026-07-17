@@ -231,6 +231,11 @@ export class CreatePartnerDto {
   @IsEnum(PartnerPaymentStatus)
   paymentStatus?: PartnerPaymentStatus;
 
+  @ApiPropertyOptional({ default: true, description: 'Partner attivo/disattivo' })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+
   @ApiPropertyOptional({ description: 'PEC' })
   @IsOptional()
   @IsString()

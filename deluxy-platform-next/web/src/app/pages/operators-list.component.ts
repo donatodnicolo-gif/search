@@ -6,11 +6,12 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { ClientTable } from '../core/client-table';
 import { Operation } from '../core/models';
+import { StatusOption, StatusSelectComponent } from '../core/status-select.component';
 
 @Component({
   selector: 'app-operators-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, TranslatePipe],
+  imports: [FormsModule, RouterLink, TranslatePipe, StatusSelectComponent],
   template: `
     <div class="page-header">
       <div>
@@ -59,8 +60,12 @@ import { Operation } from '../core/models';
                   </span>
                 </td>
                 <td>
-                  @if (o.active) { <span class="pill s-active"><span class="dot"></span>{{ 'common.active' | translate }}</span> }
-                  @else { <span class="pill pill-neutral">{{ 'common.inactive' | translate }}</span> }
+                  <app-status-select
+                    [value]="o.active ? 'true' : 'false'"
+                    [options]="activeOptions()"
+                    [editable]="true"
+                    (changed)="changeActive(o, $event)"
+                  />
                 </td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   <a class="act" [routerLink]="['/operators', o.id, 'edit']">{{ 'common.edit' | translate }}</a>
@@ -131,6 +136,27 @@ export class OperatorsListComponent {
     this.http.get<Operation[]>(`${environment.apiUrl}/operations`).subscribe({
       next: (d) => { this.operators.set(d); this.loading.set(false); },
       error: (err) => { this.loading.set(false); this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')); },
+    });
+  }
+
+  activeOptions(): StatusOption[] {
+    return [
+      { value: 'true', label: this.translate.instant('common.active'), cls: 's-active' },
+      { value: 'false', label: this.translate.instant('common.inactive'), cls: 'pill-neutral' },
+    ];
+  }
+
+  /** Cambio stato attivo/disattivo inline (ottimistico + rollback). Operatori usano PATCH. */
+  changeActive(o: Operation, value: string): void {
+    const previous = o.active;
+    o.active = value === 'true';
+    this.operators.set([...this.operators()]);
+    this.http.patch(`${environment.apiUrl}/operations/${o.id}`, { active: o.active }).subscribe({
+      error: () => {
+        o.active = previous;
+        this.operators.set([...this.operators()]);
+        this.error.set(this.translate.instant('common.saveError'));
+      },
     });
   }
 }

@@ -99,6 +99,13 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - ⚠️ **Senza SMTP l'invito è un link da copiare/condividere** (predisposto per l'invio email automatico). `CreateUserDto.password` è ora opzionale (con password = attivo; senza = invitato).
 - Verificato end-to-end via API (invito→accetta→login; revoca immediata) e nel browser (pagina Utenti, pagina pubblica invito). Dati di test ripuliti.
 
+### 17/07/2026 (sera 3) — Stati modificabili in linea dalle liste
+
+- **`StatusSelectComponent`** (`web/src/app/core/status-select.component.ts`): pillola-stato con menu a clic, riutilizzabile. Usato in **Partner** (Pagamento `paymentStatus` + Stato `active`), **Valet** (`active`), **Operatori** (`active`). Aggiornamento **ottimistico** con rollback se la chiamata fallisce.
+- Backend: aggiunto `active` (opzionale) a **CreatePartnerDto / CreateValetDto / CreateOperationDto** — prima il ValidationPipe (`whitelist:true`) lo scartava e il PUT/PATCH era un no-op silenzioso. L'update parziale non tocca le relazioni (verificato: province valet intatte).
+- Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
+- Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
+
 ## MANCA / PROSSIMI PASSI
 
 1. **[BLOCCATO — palla all'utente] Connessione al DB di produzione (MySQL, sola lettura)**: servono i 5 valori `MYSQL_*` (o replica) + raggiungibilità/tunnel. Vedi ANALISI-BACKEND-LEGACY. Poi `prisma db pull` per lo schema reale.

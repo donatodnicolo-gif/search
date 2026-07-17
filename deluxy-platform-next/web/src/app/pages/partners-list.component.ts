@@ -7,11 +7,12 @@ import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 import { ClientTable } from '../core/client-table';
 import { Partner } from '../core/models';
+import { StatusOption, StatusSelectComponent } from '../core/status-select.component';
 
 @Component({
   selector: 'app-partners-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, TranslatePipe],
+  imports: [FormsModule, RouterLink, TranslatePipe, StatusSelectComponent],
   template: `
     <div class="page-header">
       <div>
@@ -69,13 +70,20 @@ import { Partner } from '../core/models';
                   {{ (p.categories || []).length ? namesOf(p) : '—' }}
                 </td>
                 <td>
-                  <span class="pill" [class]="'pill s-' + (p.paymentStatus || 'active')">
-                    <span class="dot"></span>{{ ('enums.paymentStatus.' + (p.paymentStatus || 'active')) | translate }}
-                  </span>
+                  <app-status-select
+                    [value]="p.paymentStatus || 'active'"
+                    [options]="paymentOptions()"
+                    [editable]="canEdit()"
+                    (changed)="changePayment(p, $event)"
+                  />
                 </td>
                 <td>
-                  @if (p.active) { <span class="pill s-active"><span class="dot"></span>{{ 'common.active' | translate }}</span> }
-                  @else { <span class="pill pill-neutral">{{ 'common.inactive' | translate }}</span> }
+                  <app-status-select
+                    [value]="p.active ? 'true' : 'false'"
+                    [options]="activeOptions()"
+                    [editable]="canEdit()"
+                    (changed)="changeActive(p, $event)"
+                  />
                 </td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   @if (canEdit()) {
@@ -177,5 +185,46 @@ export class PartnersListComponent {
 
   namesOf(p: Partner): string {
     return (p.categories || []).map((c) => c.category.name).join(', ');
+  }
+
+  /** Opzioni stato pagamento (attivo | inattivo | bloccato). */
+  paymentOptions(): StatusOption[] {
+    return [
+      { value: 'active', label: this.translate.instant('enums.paymentStatus.active'), cls: 's-active' },
+      { value: 'inactive', label: this.translate.instant('enums.paymentStatus.inactive'), cls: 's-inactive' },
+      { value: 'blocked', label: this.translate.instant('enums.paymentStatus.blocked'), cls: 's-blocked' },
+    ];
+  }
+
+  /** Opzioni stato attivo/disattivo. */
+  activeOptions(): StatusOption[] {
+    return [
+      { value: 'true', label: this.translate.instant('common.active'), cls: 's-active' },
+      { value: 'false', label: this.translate.instant('common.inactive'), cls: 'pill-neutral' },
+    ];
+  }
+
+  changePayment(p: Partner, value: string): void {
+    this.patchPartner(p, { paymentStatus: value }, () => (p.paymentStatus = value));
+  }
+
+  changeActive(p: Partner, value: string): void {
+    const active = value === 'true';
+    this.patchPartner(p, { active }, () => (p.active = active));
+  }
+
+  /** Salva il cambio di stato inline (aggiornamento ottimistico + rollback). */
+  private patchPartner(p: Partner, body: Record<string, unknown>, apply: () => void): void {
+    const snapshot = { paymentStatus: p.paymentStatus, active: p.active };
+    apply();
+    this.partners.set([...this.partners()]); // notifica il signal
+    this.http.put(`${environment.apiUrl}/partners/${p.id}`, body).subscribe({
+      error: () => {
+        p.paymentStatus = snapshot.paymentStatus;
+        p.active = snapshot.active;
+        this.partners.set([...this.partners()]);
+        this.error.set(this.translate.instant('common.saveError'));
+      },
+    });
   }
 }
