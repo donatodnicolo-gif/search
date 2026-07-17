@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -67,6 +67,15 @@ export function catalogoApp(): AppDeluxy[] {
       icona: "anagrafiche",
       url: url(process.env.APP_URL_ANAGRAFICHE, "http://localhost:3060"),
       ruoli: ["admin", "commerciale"],
+    },
+    {
+      id: "maison",
+      nome: "Maison",
+      sottotitolo: "Piano digitale Shopify",
+      descrizione: "Deluxy OS: il piano digitale dei siti Shopify Deluxy.",
+      icona: "maison",
+      url: url(process.env.APP_URL_MAISON, "https://deluxy-os.base44.app/"),
+      ruoli: ["admin", "partner", "commerciale"],
     },
     {
       id: "scout",

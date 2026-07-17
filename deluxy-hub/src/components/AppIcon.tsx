@@ -10,6 +10,14 @@ const TRATTO = {
 
 // Glifi delle app: linea sottile, oro su tessera scura (vedi .app-icon).
 const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
+  // Maison: il piano digitale dei siti Shopify
+  maison: (
+    <>
+      <path d="M3.5 11 12 4.2 20.5 11" {...TRATTO} />
+      <path d="M5.8 9.8v9.7h12.4V9.8" {...TRATTO} />
+      <path d="M9.8 19.5v-5.2h4.4v5.2" {...TRATTO} />
+    </>
+  ),
   // Furgone: le consegne in guanti bianchi
   consegne: (
     <>
