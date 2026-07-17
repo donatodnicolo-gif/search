@@ -1,8 +1,9 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { ClientTable } from '../core/client-table';
 
 interface ManagedUser {
   id: string;
@@ -26,8 +27,6 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
   archived: { label: 'Archiviato', color: '#8A8A8E' },
 };
 
-const ROLE_OPTIONS = ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER', 'VALET'];
-
 /** Configurazione → Utenti (solo admin): governa l'accesso, non l'operatività. */
 @Component({
   selector: 'app-users-list',
@@ -39,34 +38,14 @@ const ROLE_OPTIONS = ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER', 'VALET
         <h1>{{ 'users.title' | translate }}</h1>
         <p class="page-caption">{{ 'users.caption' | translate }}</p>
       </div>
-      <button class="btn btn-primary" (click)="showCreate.set(!showCreate())">
-        {{ (showCreate() ? 'common.cancel' : 'users.new') | translate }}
-      </button>
+      <input
+        class="field search"
+        name="q"
+        [attr.placeholder]="'common.search' | translate"
+        [ngModel]="table.query()"
+        (ngModelChange)="table.query.set($event)"
+      />
     </div>
-
-    @if (showCreate()) {
-      <section class="card create">
-        <div class="grid">
-          <label class="fld"><span>{{ 'users.form.firstName' | translate }} *</span>
-            <input class="field" [(ngModel)]="draft.firstName" /></label>
-          <label class="fld"><span>{{ 'users.form.lastName' | translate }} *</span>
-            <input class="field" [(ngModel)]="draft.lastName" /></label>
-          <label class="fld"><span>{{ 'users.form.email' | translate }} *</span>
-            <input class="field" type="email" [(ngModel)]="draft.email" /></label>
-          <label class="fld"><span>{{ 'users.form.role' | translate }} *</span>
-            <select class="field" [(ngModel)]="draft.role">
-              @for (r of roleOptions; track r) { <option [value]="r">{{ 'role.' + r | translate }}</option> }
-            </select></label>
-        </div>
-        <p class="hint">{{ 'users.form.inviteHint' | translate }}</p>
-        @if (createError()) { <div class="error-card">{{ createError() }}</div> }
-        <div class="actions">
-          <button class="btn btn-primary" [disabled]="creating()" (click)="create()">
-            {{ creating() ? ('common.saving' | translate) : ('users.form.createInvite' | translate) }}
-          </button>
-        </div>
-      </section>
-    }
 
     @if (banner(); as b) { <div class="ok-card card">{{ b }}</div> }
     @if (error()) { <div class="error-card card">{{ error() }}</div> }
@@ -84,7 +63,7 @@ const ROLE_OPTIONS = ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER', 'VALET
           </tr>
         </thead>
         <tbody>
-          @for (u of users(); track u.id) {
+          @for (u of filtered(); track u.id) {
             <tr>
               <td>
                 <span class="badge" [style.--c]="statusColor(u.status)">
@@ -111,7 +90,7 @@ const ROLE_OPTIONS = ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER', 'VALET
               </td>
             </tr>
           }
-          @if (!users().length) { <tr><td colspan="6" class="muted empty">{{ 'users.empty' | translate }}</td></tr> }
+          @if (!filtered().length) { <tr><td colspan="6" class="muted empty">{{ 'users.empty' | translate }}</td></tr> }
         </tbody>
       </table>
     </div>
@@ -130,13 +109,7 @@ const ROLE_OPTIONS = ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER', 'VALET
       .head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 16px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; max-width: 640px; }
-      .btn { text-decoration: none; display: inline-flex; align-items: center; }
-      .create { padding: 20px 22px; margin-bottom: 16px; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
-      .fld { display: flex; flex-direction: column; gap: 6px; }
-      .fld > span { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
-      .hint { margin: 12px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
-      .actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+      .search { min-width: 240px; }
       .table-wrap { padding: 6px 2px; overflow-x: auto; }
       table { width: 100%; border-collapse: collapse; font-size: 14px; }
       th { text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-tertiary); padding: 12px 14px; border-bottom: 1px solid var(--hairline); }
@@ -154,7 +127,6 @@ const ROLE_OPTIONS = ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER', 'VALET
       .invite-box .link { display: block; width: 100%; overflow-x: auto; padding: 10px 12px; background: var(--fill); border-radius: 10px; font-family: ui-monospace, monospace; font-size: 12.5px; }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
-      @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
     `,
   ],
 })
@@ -164,12 +136,24 @@ export class UsersListComponent {
   readonly error = signal<string | null>(null);
   readonly banner = signal<string | null>(null);
   readonly inviteLink = signal<string | null>(null);
-  readonly showCreate = signal(false);
-  readonly creating = signal(false);
-  readonly createError = signal<string | null>(null);
-  readonly roleOptions = ROLE_OPTIONS;
 
-  draft = { firstName: '', lastName: '', email: '', role: 'OPERATION' };
+  /** Ricerca globale lato client (lista piccola). */
+  readonly table = new ClientTable<ManagedUser>(
+    [
+      'email',
+      'firstName',
+      'lastName',
+      'role',
+      'status',
+      'partner.insegna',
+      'valet.firstName',
+      'valet.lastName',
+      'operation.firstName',
+      'operation.lastName',
+    ],
+    'createdAt',
+  );
+  readonly filtered = computed(() => this.table.view(this.users()));
 
   constructor() { this.load(); }
 
@@ -208,38 +192,6 @@ export class UsersListComponent {
         this.load();
       },
       error: (err) => this.error.set(err?.error?.message ?? 'Errore nella generazione dell\'invito'),
-    });
-  }
-
-  create(): void {
-    this.createError.set(null);
-    if (!this.draft.firstName.trim() || !this.draft.lastName.trim() || !this.draft.email.trim()) {
-      this.createError.set('Nome, cognome ed email sono obbligatori.');
-      return;
-    }
-    this.creating.set(true);
-    // Senza password: l'utente viene creato "invitato".
-    this.http.post<ManagedUser & { inviteToken?: string }>(`${environment.apiUrl}/users`, {
-      firstName: this.draft.firstName.trim(),
-      lastName: this.draft.lastName.trim(),
-      email: this.draft.email.trim(),
-      role: this.draft.role,
-    }).subscribe({
-      next: (u) => {
-        this.creating.set(false);
-        this.showCreate.set(false);
-        this.draft = { firstName: '', lastName: '', email: '', role: 'OPERATION' };
-        this.load();
-        if (u.inviteToken) {
-          const link = `${window.location.origin}/invite/${u.inviteToken}`;
-          this.inviteLink.set(link);
-          this.copyToClipboard(link);
-        }
-      },
-      error: (err) => {
-        this.creating.set(false);
-        this.createError.set(err?.error?.message ?? 'Errore nella creazione');
-      },
     });
   }
 
