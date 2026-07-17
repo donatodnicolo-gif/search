@@ -104,6 +104,7 @@ function loadClusterer(): Promise<boolean> {
   styles: [
     `
       .map-shell { position: relative; padding: 0; overflow: hidden; height: 460px; margin-bottom: 18px; }
+      @media (max-width: 640px) { .map-shell { height: 320px; } }
       .map { width: 100%; height: 100%; }
       .refresh-btn { position: absolute; top: 10px; left: 10px; z-index: 5; display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--hairline-strong); border-radius: 980px; padding: 6px 13px; font-size: 12.5px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
       .refresh-btn:hover { background: var(--fill); }
@@ -161,6 +162,9 @@ export class DeliveryMapComponent implements AfterViewInit, OnChanges, OnDestroy
       const key = cfg?.googleMapsBrowserKey;
       if (!key) { this.state.set('no-key'); return; }
       await loadGoogleMaps(key);
+      // Attende che il contenitore abbia una dimensione: creare la mappa in un
+      // pannello appena mostrato (height ancora 0) la lascia sull'immagine statica.
+      await this.waitForSize(this.mapEl.nativeElement);
       this.map = new google.maps.Map(this.mapEl.nativeElement, {
         center: { lat: 45.4642, lng: 9.19 }, // Milano
         zoom: 11,
@@ -174,6 +178,18 @@ export class DeliveryMapComponent implements AfterViewInit, OnChanges, OnDestroy
     } catch {
       this.state.set('error');
     }
+  }
+
+  /** Risolve quando l'elemento ha una dimensione (max ~20 frame di attesa). */
+  private waitForSize(el: HTMLElement): Promise<void> {
+    return new Promise((resolve) => {
+      let tries = 0;
+      const check = () => {
+        if ((el.clientHeight > 0 && el.clientWidth > 0) || tries++ > 20) resolve();
+        else requestAnimationFrame(check);
+      };
+      check();
+    });
   }
 
   private loadPoints(): void {
@@ -227,6 +243,15 @@ export class DeliveryMapComponent implements AfterViewInit, OnChanges, OnDestroy
 
     this.map.fitBounds(bounds);
     if (points.length === 1) this.map.setZoom(14);
+
+    // Sblocco: se la mappa è rimasta sull'immagine statica (contenitore mostrato
+    // dopo la creazione), un resize la forza a caricare le tile interattive.
+    setTimeout(() => {
+      if (!this.map) return;
+      google.maps.event.trigger(this.map, 'resize');
+      this.map.fitBounds(bounds);
+      if (points.length === 1) this.map.setZoom(14);
+    }, 250);
   }
 
   private popupHtml(p: MapPoint): string {

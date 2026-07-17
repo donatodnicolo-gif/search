@@ -279,6 +279,14 @@ const SERVICE_ICONS: Record<string, string> = {
         display: flex;
         gap: 10px;
         align-items: center;
+        flex-wrap: wrap;
+      }
+      /* Mobile: i filtri vanno a capo e occupano tutta la larghezza (niente overflow). */
+      @media (max-width: 640px) {
+        .page-header { align-items: stretch; }
+        .filters { width: 100%; }
+        .filters > * { flex: 1 1 140px; min-width: 0; }
+        .filters .btn { justify-content: center; text-align: center; }
       }
       .table-wrap {
         overflow-x: auto;

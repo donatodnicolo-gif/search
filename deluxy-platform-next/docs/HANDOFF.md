@@ -106,6 +106,12 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 17/07/2026 (sera 7) — Fix layout mobile lista consegne + robustezza mappa
+
+- **Barra filtri consegne responsive**: `.filters` ora `flex-wrap: wrap`; su ≤640px i controlli vanno a capo a larghezza piena (prima andavano in overflow orizzontale a 890px in un viewport da 375px, tagliando la ricerca — è il bug dello screenshot mobile). Mappa a **320px** su mobile (era 460).
+- **Mappa più robusta**: `DeliveryMapComponent` attende che il contenitore abbia dimensione prima di creare la mappa (`waitForSize`) e fa un `resize` dopo il render — evita il classico caso di mappa grigia/statica quando si apre un pannello a scomparsa.
+- ⚠️ **Nota su verifica mappa**: nel browser di anteprima di Claude la pagina risulta `document.hidden=true`, e Google Maps in quel caso mostra solo l'**immagine statica** e rimanda le tile interattive → la mappa interattiva **non è verificabile nell'anteprima** (artefatto dello strumento, non dell'app). Va provata su un browser reale.
+
 ### 17/07/2026 (sera 6) — Pulsante Aggiorna sulla mappa consegne
 
 - Pulsante **"Aggiorna"** in alto a sinistra del pannello mappa (`DeliveryMapComponent.refresh()`): se la mappa è pronta ricarica i punti da `GET /deliveries/map`, altrimenti **re-inizializza** (rilegge `/settings/public` e ricarica lo script) — utile subito dopo aver inserito la chiave browser o dopo un errore. Disabilitato durante il caricamento. Verificato nel browser (presente, cliccabile, nessun errore).
