@@ -187,6 +187,36 @@ tbody tr:hover { background: var(--fill); }
 }
 .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
+/* ---------- Menu di stato (righe dell'elenco) ---------- */
+.menu-stato { position: relative; display: inline-block; }
+.menu-stato summary {
+  list-style: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.menu-stato summary::-webkit-details-marker { display: none; }
+.menu-freccia { font-size: 10px; color: var(--text-tertiary); }
+.menu-stato-lista {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 20;
+  display: flex; flex-direction: column; gap: 2px;
+  min-width: 175px; padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-float);
+}
+.menu-stato-voce {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border: 0; border-radius: 8px;
+  background: transparent;
+  font: inherit; font-size: 13px; text-align: left;
+  cursor: pointer;
+  transition: background 120ms var(--ease);
+}
+.menu-stato-voce:hover { background: var(--fill); }
+.menu-stato-voce .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+.menu-stato-voce .stato-label { color: var(--text); }
+
 /* ---------- Selettore di stato (scheda partner) ---------- */
 .selettore-stato {
   display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end;

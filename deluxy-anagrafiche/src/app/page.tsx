@@ -1,7 +1,8 @@
 import type { Prisma } from "@prisma/client";
-import { BadgeStato } from "@/components/BadgeStato";
+import { MenuStato } from "@/components/MenuStato";
 import { etichetta, Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
+import { whereRicerca } from "@/lib/ricerca";
 import { ETICHETTE_STATO, STATI } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
@@ -37,14 +38,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
   const dir: "asc" | "desc" = filtri.dir === "desc" ? "desc" : "asc";
 
   const where: Prisma.PartnerWhereInput = { attivo: true };
-  if (filtri.q) {
-    where.OR = [
-      { nome: { contains: filtri.q, mode: "insensitive" } },
-      { ragioneSociale: { contains: filtri.q, mode: "insensitive" } },
-      { email: { contains: filtri.q, mode: "insensitive" } },
-      { citta: { contains: filtri.q, mode: "insensitive" } },
-    ];
-  }
+  if (filtri.q) where.AND = whereRicerca(filtri.q);
   if (filtri.categoria) where.categoria = filtri.categoria;
   if (filtri.citta) where.citta = filtri.citta;
   if (filtri.stato) where.stato = filtri.stato;
@@ -129,7 +123,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
         <input
           type="search"
           name="q"
-          placeholder="Cerca per nome, ragione sociale, email o città…"
+          placeholder="Cerca in tutti i campi: nome, città, referenti, telefono, note…"
           defaultValue={filtri.q ?? ""}
         />
         <select name="citta" defaultValue={filtri.citta ?? ""}>
@@ -176,7 +170,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     </td>
                     <td className="cella-muta">{p.categoria}</td>
                     <td className="cella-muta">{p.citta ?? "—"}</td>
-                    <td><BadgeStato stato={p.stato} /></td>
+                    <td><MenuStato partnerId={p.id} stato={p.stato} /></td>
                     <td className="cella-muta">{p.account ?? "—"}</td>
                     <td className="cella-muta">
                       {riferimento
