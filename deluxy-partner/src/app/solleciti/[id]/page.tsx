@@ -68,7 +68,7 @@ export default async function SollecitoPage({
   if (!fattura) notFound();
 
   const { oggetto, corpo } = testoSollecito(fattura);
-  const smtp = smtpConfigurato();
+  const smtp = await smtpConfigurato();
   const action = inviaSollecito.bind(null, id);
   const manuale = segnaSollecitoManuale.bind(null, id);
   const mailto = `mailto:${encodeURIComponent(fattura.partner.email ?? "")}?subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(corpo)}`;
@@ -101,8 +101,9 @@ export default async function SollecitoPage({
         <div className="card" style={{ padding: 16, marginBottom: 16 }}>
           <span className="badge orange" style={{ marginBottom: 8 }}><span className="dot" />Invio diretto non configurato</span>
           <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginTop: 8 }}>
-            Per inviare dall&apos;app servono le variabili <code>SMTP_HOST</code>, <code>SMTP_USER</code> e{" "}
-            <code>SMTP_PASS</code> su Vercel (con Gmail: smtp.gmail.com, porta 587 e una &laquo;password per le app&raquo;).
+            Per inviare dall&apos;app, configura la casella email in{" "}
+            <Link href="/impostazioni" style={{ color: "var(--blue)" }}>Impostazioni → Email solleciti</Link>{" "}
+            (con Register.it: server <code>authsmtp.deluxy.it</code>, porta 587, credenziali del servizio SMTP autenticato).
             Nel frattempo puoi usare &laquo;Apri nel client di posta&raquo; qui sotto: prepara la mail nel tuo programma
             di posta, la invii da lì e poi la segni come inviata.
           </p>

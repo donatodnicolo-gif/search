@@ -5,6 +5,12 @@ export const CHIAVI = {
   ordinanteNome: "sepa.ordinante.nome",
   ordinanteIban: "sepa.ordinante.iban",
   ordinanteBic: "sepa.ordinante.bic",
+  // SMTP per invio solleciti (es. casella Register.it del dominio)
+  smtpHost: "smtp.host",
+  smtpPort: "smtp.port",
+  smtpUser: "smtp.user",
+  smtpPass: "smtp.pass",
+  smtpFrom: "smtp.from",
 } as const;
 
 export async function leggiImpostazioni(): Promise<Record<string, string>> {

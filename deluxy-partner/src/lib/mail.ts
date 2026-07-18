@@ -1,29 +1,55 @@
 import nodemailer from "nodemailer";
+import { prisma } from "./db";
+import { CHIAVI } from "./impostazioni";
 
-// Invio email via SMTP. Configurazione tramite variabili d'ambiente:
-//   SMTP_HOST, SMTP_PORT (587 default), SMTP_USER, SMTP_PASS,
-//   SMTP_FROM (default: SMTP_USER, es. "Deluxy <amministrazione@deluxy.it>")
-// Con Gmail: host smtp.gmail.com, porta 587, e una "password per le app"
-// (myaccount.google.com/apppasswords), NON la password normale.
+// Invio email via SMTP. La configurazione si fa dalla pagina Impostazioni
+// (sezione "Email solleciti", salvata nel database); in mancanza valgono le
+// variabili d'ambiente SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM.
+//
+// Con una casella Register.it del dominio: host authmail.register.it,
+// porta 587 (o 465 SSL), utente = indirizzo email completo.
 
-export function smtpConfigurato(): boolean {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+export type ConfigSmtp = {
+  host?: string;
+  port: number;
+  user?: string;
+  pass?: string;
+  from?: string;
+};
+
+export async function configSmtp(): Promise<ConfigSmtp> {
+  const righe = await prisma.impostazione.findMany({
+    where: { chiave: { startsWith: "smtp." } },
+  });
+  const m = Object.fromEntries(righe.map((r) => [r.chiave, r.valore]));
+  const host = m[CHIAVI.smtpHost] || process.env.SMTP_HOST;
+  const port = parseInt(m[CHIAVI.smtpPort] || process.env.SMTP_PORT || "587");
+  const user = m[CHIAVI.smtpUser] || process.env.SMTP_USER;
+  const pass = m[CHIAVI.smtpPass] || process.env.SMTP_PASS;
+  const from = m[CHIAVI.smtpFrom] || process.env.SMTP_FROM || user;
+  return { host, port, user, pass, from };
+}
+
+export async function smtpConfigurato(): Promise<boolean> {
+  const c = await configSmtp();
+  return Boolean(c.host && c.user && c.pass);
 }
 
 export async function inviaEmail(opts: { to: string; subject: string; text: string }) {
-  if (!smtpConfigurato()) {
+  const c = await configSmtp();
+  if (!c.host || !c.user || !c.pass) {
     throw new Error(
-      "SMTP non configurato: impostare SMTP_HOST, SMTP_USER e SMTP_PASS (vedi pagina Impostazioni)."
+      "SMTP non configurato: compila la sezione Email solleciti in Impostazioni."
     );
   }
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT ?? "587"),
-    secure: process.env.SMTP_PORT === "465",
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    host: c.host,
+    port: c.port,
+    secure: c.port === 465,
+    auth: { user: c.user, pass: c.pass },
   });
   await transporter.sendMail({
-    from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
+    from: c.from,
     to: opts.to,
     subject: opts.subject,
     text: opts.text,
