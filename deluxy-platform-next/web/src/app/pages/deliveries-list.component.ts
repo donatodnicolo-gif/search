@@ -3,7 +3,7 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
@@ -630,6 +630,7 @@ export class DeliveriesListComponent {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly iconCache = new Map<string, SafeHtml>();
 
   /**
@@ -786,6 +787,9 @@ export class DeliveriesListComponent {
   ];
 
   constructor() {
+    // Filtro data preimpostato dalla query (es. "Vai al giorno" dal calendario).
+    const qDate = this.route.snapshot.queryParamMap.get('date');
+    if (qDate) this.dateFilter = qDate;
     this.load();
     // Riferimenti per il pop-up "Assegna" (solo per chi può gestire)
     if (this.canManage()) {

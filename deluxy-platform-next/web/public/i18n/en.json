@@ -235,6 +235,7 @@
     "caption": "Days with orders are marked. Click a day to see the deliveries.",
     "today": "Today",
     "pickDay": "Select a day to see the deliveries.",
+    "goToDay": "Go to day →",
     "order": "order",
     "orders": "orders",
     "loading": "Loading…",

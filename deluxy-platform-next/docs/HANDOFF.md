@@ -106,6 +106,10 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 18/07/2026 (4) — Calendario: pulsante "Vai al giorno"
+
+- Pannello del giorno del calendario: bottone **"Vai al giorno"** → `/deliveries?date=<giorno>`. La lista consegne ora legge il query param `date` all'avvio (nel constructor, prima di `load()`) e preimposta `dateFilter`. Filtrato per ruolo (il partner/valet vede i suoi). Verificato: da un giorno del calendario si apre la lista con il filtro data attivo e le consegne di quel giorno.
+
 ### 18/07/2026 (3) — Calendario e disponibilità per i valet
 
 - **Modello** `ValetAvailability`: aggiunti `@@unique([valetId, date])` e `note` (migrazione `20260718070000_valet_availability_unique`, scritta a mano: ADD COLUMN + CREATE UNIQUE INDEX). `available=false` = non disponibile; `timeFrom/timeTo` = disponibile solo in fascia.

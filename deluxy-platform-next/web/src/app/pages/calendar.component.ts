@@ -90,6 +90,7 @@ const STATUS_COLOR: Record<string, string> = {
             <strong>{{ selectedLabel() }}</strong>
             <span class="muted">{{ dayItems().length }} {{ (dayItems().length === 1 ? 'calendar.order' : 'calendar.orders') | translate }}</span>
           </header>
+          <a class="btn btn-secondary go-day" routerLink="/deliveries" [queryParams]="{ date: selected() }">{{ 'calendar.goToDay' | translate }}</a>
           @if (isSelectedClosed()) { <div class="closed-note">{{ 'calendar.closedNote' | translate }}</div> }
 
           @if (canEdit()) {
@@ -181,6 +182,7 @@ const STATUS_COLOR: Record<string, string> = {
       .muted { color: var(--text-secondary); font-size: 14px; }
       .dp-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
       .dp-head strong { font-size: 16px; text-transform: capitalize; }
+      .go-day { display: inline-flex; align-self: flex-start; text-decoration: none; margin-bottom: 14px; }
       .dlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
       .dlist a { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--hairline); border-radius: 12px; text-decoration: none; color: var(--text); }
       .dlist a:hover { background: var(--fill); }
