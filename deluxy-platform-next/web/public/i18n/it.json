@@ -239,6 +239,9 @@
     "orders": "ordini",
     "loading": "Caricamento…",
     "noOrders": "Nessun ordine in questo giorno.",
+    "closed": "Chiuso",
+    "closedLegend": "Giorno di chiusura (dai tuoi orari di apertura)",
+    "closedNote": "Il negozio risulta chiuso in questo giorno.",
     "wd": { "mon": "Lun", "tue": "Mar", "wed": "Mer", "thu": "Gio", "fri": "Ven", "sat": "Sab", "sun": "Dom" }
   },
   "deliveries": {

@@ -239,6 +239,9 @@
     "orders": "orders",
     "loading": "Loading…",
     "noOrders": "No orders on this day.",
+    "closed": "Closed",
+    "closedLegend": "Closing day (from your opening hours)",
+    "closedNote": "The store is closed on this day.",
     "wd": { "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun" }
   },
   "deliveries": {

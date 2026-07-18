@@ -3,6 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { AuthService } from '../core/auth.service';
 import { DELIVERY_STATUS_LABELS } from '../core/models';
 
 interface CalDay { date: string; total: number; byStatus: Record<string, number> }
@@ -18,7 +19,7 @@ interface DeliveryLite {
   partner?: { insegna: string };
 }
 
-interface Cell { ymd: string; day: number; inMonth: boolean; isToday: boolean; count: number }
+interface Cell { ymd: string; day: number; inMonth: boolean; isToday: boolean; count: number; closed: boolean }
 
 const STATUS_COLOR: Record<string, string> = {
   created: '#d70015', assigned: '#e6b800', in_preparation: '#ff9500', accepted: '#007aff',
@@ -54,12 +55,16 @@ const STATUS_COLOR: Record<string, string> = {
         <div class="grid">
           @for (c of cells(); track c.ymd) {
             <button type="button" class="cell" [class.out]="!c.inMonth" [class.today]="c.isToday"
-                    [class.has]="c.count > 0" [class.sel]="c.ymd === selected()" (click)="selectDay(c)">
+                    [class.has]="c.count > 0" [class.closed]="c.closed" [class.sel]="c.ymd === selected()" (click)="selectDay(c)">
               <span class="dnum">{{ c.day }}</span>
+              @if (c.closed) { <span class="closed-tag">{{ 'calendar.closed' | translate }}</span> }
               @if (c.count > 0) { <span class="badge">{{ c.count }}</span> }
             </button>
           }
         </div>
+        @if (hasClosedDays()) {
+          <div class="legend"><span class="chip-closed"></span>{{ 'calendar.closedLegend' | translate }}</div>
+        }
       </div>
 
       <div class="card day-panel">
@@ -70,6 +75,7 @@ const STATUS_COLOR: Record<string, string> = {
             <strong>{{ selectedLabel() }}</strong>
             <span class="muted">{{ dayItems().length }} {{ (dayItems().length === 1 ? 'calendar.order' : 'calendar.orders') | translate }}</span>
           </header>
+          @if (isSelectedClosed()) { <div class="closed-note">{{ 'calendar.closedNote' | translate }}</div> }
           @if (loadingDay()) { <p class="muted">{{ 'calendar.loading' | translate }}</p> }
           @else if (!dayItems().length) { <p class="muted">{{ 'calendar.noOrders' | translate }}</p> }
           @else {
@@ -112,6 +118,12 @@ const STATUS_COLOR: Record<string, string> = {
       .cell.has { border-color: var(--gold); }
       .cell.today { border-color: var(--ink); border-width: 1.5px; }
       .cell.sel { background: var(--gold-soft); border-color: var(--gold-strong); }
+      .cell.closed { background: repeating-linear-gradient(45deg, var(--fill), var(--fill) 6px, rgba(120,120,128,0.09) 6px, rgba(120,120,128,0.09) 12px); }
+      .cell.closed .dnum { color: var(--text-tertiary); }
+      .closed-tag { position: absolute; top: 6px; right: 8px; font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-tertiary); }
+      .legend { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12.5px; color: var(--text-tertiary); }
+      .chip-closed { width: 22px; height: 14px; border-radius: 4px; background: repeating-linear-gradient(45deg, var(--fill), var(--fill) 4px, rgba(120,120,128,0.12) 4px, rgba(120,120,128,0.12) 8px); border: 1px solid var(--hairline); }
+      .closed-note { margin-bottom: 12px; padding: 8px 12px; background: var(--fill); border-radius: 10px; font-size: 12.5px; color: var(--text-secondary); }
       .dnum { font-size: 13px; font-weight: 550; }
       .badge { position: absolute; bottom: 6px; right: 6px; min-width: 20px; height: 20px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; background: var(--ink); color: #fff; border-radius: 980px; font-size: 11.5px; font-weight: 600; }
       .day-panel { padding: 18px 20px; min-height: 200px; }
@@ -133,8 +145,11 @@ const STATUS_COLOR: Record<string, string> = {
 export class CalendarComponent {
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
+  private readonly auth = inject(AuthService);
 
   readonly weekdays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  /** Giorni della settimana in cui il partner è chiuso (dayOfWeek 0=dom…6=sab). */
+  private readonly closedWeekdays = signal<Set<number>>(new Set());
   /** Anno/mese visualizzati (mese 0-based). */
   readonly year = signal(new Date().getFullYear());
   readonly month = signal(new Date().getMonth());
@@ -146,7 +161,26 @@ export class CalendarComponent {
 
   private readonly todayYmd = this.ymd(new Date());
 
-  constructor() { this.loadMonth(); }
+  constructor() {
+    this.loadMonth();
+    this.loadClosedDays();
+  }
+
+  /** Se l'utente è un partner, carica i suoi orari e ricava i giorni di chiusura. */
+  private loadClosedDays(): void {
+    const user = this.auth.user();
+    if (user?.role !== 'PARTNER' || !user.partnerId) return;
+    this.http.get<{ openingHours?: { dayOfWeek: number; closed?: boolean }[] }>(
+      `${environment.apiUrl}/partners/${user.partnerId}`,
+    ).subscribe({
+      next: (p) => {
+        const closed = new Set<number>();
+        for (const h of p.openingHours ?? []) if (h.closed) closed.add(h.dayOfWeek);
+        this.closedWeekdays.set(closed);
+      },
+      error: () => { /* senza orari: nessuna evidenziazione */ },
+    });
+  }
 
   monthLabel(): string {
     const lang = this.translate.currentLang() || 'it';
@@ -171,6 +205,7 @@ export class CalendarComponent {
     const start = new Date(first);
     start.setUTCDate(start.getUTCDate() - offset);
     const counts = this.counts();
+    const closedWd = this.closedWeekdays();
     const cells: Cell[] = [];
     for (let i = 0; i < 42; i++) {
       const d = new Date(start);
@@ -182,6 +217,7 @@ export class CalendarComponent {
         inMonth: d.getUTCMonth() === this.month(),
         isToday: ymd === this.todayYmd,
         count: counts[ymd] ?? 0,
+        closed: closedWd.has(d.getUTCDay()),
       });
     }
     return cells;
@@ -230,6 +266,15 @@ export class CalendarComponent {
       next: (res) => { this.dayItems.set(res.items ?? []); this.loadingDay.set(false); },
       error: () => { this.dayItems.set([]); this.loadingDay.set(false); },
     });
+  }
+
+  hasClosedDays(): boolean { return this.closedWeekdays().size > 0; }
+
+  /** Il giorno selezionato cade in un giorno di chiusura del partner? */
+  isSelectedClosed(): boolean {
+    const s = this.selected();
+    if (!s) return false;
+    return this.closedWeekdays().has(new Date(s + 'T00:00:00Z').getUTCDay());
   }
 
   statusLabel(s: string): string { return DELIVERY_STATUS_LABELS[s] ?? s; }

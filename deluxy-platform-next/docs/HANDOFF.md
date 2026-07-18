@@ -112,6 +112,7 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - **Pagina** `/calendar` (`CalendarComponent`, ADMIN/OPERATION/PARTNER/VALET): vista mensile lun→dom (42 celle, calcolo in **UTC** per coerenza con le date del backend), prev/next/oggi; ogni giorno con ordini ha un badge col conteggio. Click su un giorno → `GET /deliveries?date=&pageSize=100` e pannello con l'elenco (dot stato + link alla scheda). Voce menu **Calendario** in Operatività.
 - ⚠️ `translate.currentLang` in questa versione di ngx-translate è un **signal** → va chiamato `currentLang()` (non come proprietà). i18n `calendar.*` + `nav.calendario`.
 - Verificato: endpoint role-scoped (admin 5 giorni, fioraio 2), pagina come partner (luglio 2026, giorni 14 e 20 marcati), click giorno → elenco con link.
+- **Giorni di chiusura evidenziati (partner)**: se l'utente è PARTNER, il calendario carica i suoi orari (`GET /partners/:partnerId`) e marca le celle il cui `getUTCDay()` è tra i `dayOfWeek` con `closed=true` (motivo tratteggiato + legenda + avviso nel pannello del giorno). Per admin/operation non si applica (nessun `partnerId` → nessuna evidenziazione; un domani si potrebbe aggiungere un selettore partner). Verificato: fioraio ha la domenica chiusa → tutte le domeniche evidenziate, avviso al click.
 
 ### 17/07/2026 (sera 8) — Orari di apertura del partner
 
