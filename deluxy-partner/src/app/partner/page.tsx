@@ -12,13 +12,47 @@ function badgeStato(clienteAnno: string | null) {
   return <span className="badge neutral"><span className="dot" />—</span>;
 }
 
+// variazione % rispetto allo stesso periodo dell'anno prima, in piccolo sotto il valore
+function DeltaAnno({ cur, prev }: { cur: number; prev: number }) {
+  if (prev < 0.005) {
+    return <span className="delta-anno neutro">{cur >= 0.005 ? "nuovo" : "—"}</span>;
+  }
+  const dp = ((cur - prev) / prev) * 100;
+  const cls = dp >= 0 ? "pos" : "neg";
+  return (
+    <span className={`delta-anno ${cls}`} title={`Stesso periodo ${ANNO_CORRENTE - 1}: ${euro(prev)}`}>
+      {dp >= 0 ? "+" : ""}{dp.toFixed(1).replace(".", ",")}%
+    </span>
+  );
+}
+
 export default async function PartnerList({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string; citta?: string; categoria?: string; stato?: string; sort?: string; dir?: string }>;
 }) {
   const sp = await searchParams;
-  const tutti = await riepilogoTutti(ANNO_CORRENTE);
+  const [tutti, prec] = await Promise.all([
+    riepilogoTutti(ANNO_CORRENTE),
+    riepilogoTutti(ANNO_CORRENTE - 1),
+  ]);
+
+  // confronto a parità di periodo: fino all'ultimo mese con movimenti nel 2026
+  const meseMax = Math.max(
+    1,
+    ...tutti.flatMap((t) =>
+      t.mesi.filter((m) => m.riepilogo.vendite || m.riepilogo.serviziNetto).map((m) => m.mese)
+    )
+  );
+  const precPeriodo = new Map(
+    prec.map((t) => [
+      t.partner.id,
+      {
+        vendite: t.mesi.slice(0, meseMax).reduce((a, m) => a + m.riepilogo.vendite, 0),
+        servizi: t.mesi.slice(0, meseMax).reduce((a, m) => a + m.riepilogo.serviziNetto, 0),
+      },
+    ])
+  );
 
   const citta = [...new Set(tutti.map((t) => t.partner.citta).filter(Boolean))].sort() as string[];
   const categorie = [...new Set(tutti.map((t) => t.partner.categoria?.trim()).filter(Boolean))].sort() as string[];
@@ -106,8 +140,14 @@ export default async function PartnerList({
                   <td className="muted">{t.partner.servizi ?? "—"}</td>
                   <td>{badgeStato(t.partner.clienteAnno)}</td>
                   <td className="num">{pctIt(t.partner.feePercent)}</td>
-                  <td className="num">{euro(t.rolling.vendite)}</td>
-                  <td className="num">{euro(t.rolling.fatture)}</td>
+                  <td className="num">
+                    {euro(t.rolling.vendite)}
+                    <DeltaAnno cur={t.rolling.vendite} prev={precPeriodo.get(t.partner.id)?.vendite ?? 0} />
+                  </td>
+                  <td className="num">
+                    {euro(t.rolling.fatture)}
+                    <DeltaAnno cur={t.rolling.fatture} prev={precPeriodo.get(t.partner.id)?.servizi ?? 0} />
+                  </td>
                   <td className={`num ${Math.abs(t.rolling.residuo) < 0.01 ? "" : t.rolling.residuo > 0 ? "pos" : "neg"}`}>
                     {euro(t.rolling.residuo)}
                   </td>

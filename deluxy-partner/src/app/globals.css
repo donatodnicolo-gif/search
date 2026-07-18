@@ -76,7 +76,41 @@ a { color: inherit; text-decoration: none; }
   display: flex; align-items: center; justify-content: center;
 }
 
+/* sidebar a scomparsa: resta il binario con le sole icone */
+.sidebar { transition: width 200ms var(--ease), flex-basis 200ms var(--ease); }
+.sidebar.chiusa { width: 68px; flex: 0 0 68px; padding: 20px 10px 16px; }
+.sidebar.chiusa .solo-estesa { display: none; }
+.sidebar.chiusa .brand { justify-content: center; padding-left: 0; padding-right: 0; }
+.sidebar.chiusa .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
+.sidebar.chiusa .sidebar-footer { justify-content: center; }
+.sidebar-toggle {
+  position: absolute;
+  top: 26px;
+  right: -12px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10;
+  transition: background 150ms var(--ease), transform 150ms var(--ease);
+}
+.sidebar-toggle:hover { background: var(--fill-hover); }
+.sidebar-toggle:active { transform: scale(0.94); }
+.sidebar-toggle svg { stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sidebar { position: sticky; }
+.sidebar, .sidebar.chiusa { overflow: visible; }
+
 .main { flex: 1; min-width: 0; padding: 40px 44px 60px; }
+
+/* variazione anno su anno nelle colonne YTD */
+.delta-anno { display: block; font-size: 11px; font-weight: 500; margin-top: 2px; }
+.delta-anno.pos { color: var(--green); }
+.delta-anno.neg { color: var(--red); }
+.delta-anno.neutro { color: var(--text-tertiary); font-weight: 400; }
 
 /* ---------- Pagina ---------- */
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }

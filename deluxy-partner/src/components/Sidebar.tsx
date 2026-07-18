@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 type Item = { href: string; label: string; icon: React.ReactNode };
 
@@ -109,14 +110,41 @@ const sections: { label: string; items: Item[] }[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [chiusa, setChiusa] = useState(false);
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
+  // stato persistito: la preferenza sopravvive alla navigazione e al reload
+  useEffect(() => {
+    setChiusa(localStorage.getItem("sidebar-chiusa") === "1");
+  }, []);
+  const toggle = () => {
+    setChiusa((v) => {
+      localStorage.setItem("sidebar-chiusa", v ? "0" : "1");
+      return !v;
+    });
+  };
+
   return (
-    <aside className="sidebar">
+    <aside
+      className={`sidebar${chiusa ? " chiusa" : ""}`}
+      style={{ width: chiusa ? 68 : 250, flex: `0 0 ${chiusa ? 68 : 250}px` }}
+    >
+      <button
+        type="button"
+        className="sidebar-toggle"
+        onClick={toggle}
+        title={chiusa ? "Espandi il menu" : "Riduci il menu"}
+        aria-label={chiusa ? "Espandi il menu" : "Riduci il menu"}
+      >
+        <svg viewBox="0 0 24 24" {...stroke} style={{ width: 15, height: 15 }}>
+          {chiusa ? <path d="M9 5l7 7-7 7" /> : <path d="M15 5l-7 7 7 7" />}
+        </svg>
+      </button>
+
       <div className="brand">
         <div className="brand-logo">D</div>
-        <div>
+        <div className="solo-estesa">
           <div className="brand-name">Deluxy Partner</div>
           <div className="brand-sub">Gestione partner</div>
         </div>
@@ -124,15 +152,16 @@ export function Sidebar() {
 
       {sections.map((s) => (
         <div className="nav-section" key={s.label}>
-          <div className="nav-label">{s.label}</div>
+          <div className="nav-label solo-estesa">{s.label}</div>
           {s.items.map((it) => (
             <Link
               key={it.href}
               href={it.href}
               className={`nav-item${isActive(it.href) ? " active" : ""}`}
+              title={chiusa ? it.label : undefined}
             >
               {it.icon}
-              {it.label}
+              <span className="solo-estesa">{it.label}</span>
             </Link>
           ))}
         </div>
@@ -140,7 +169,7 @@ export function Sidebar() {
 
       <div className="sidebar-footer">
         <div className="avatar">DX</div>
-        <div>
+        <div className="solo-estesa">
           <div style={{ fontSize: 13, fontWeight: 600 }}>Deluxy</div>
           <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Amministrazione</div>
         </div>
