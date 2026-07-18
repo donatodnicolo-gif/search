@@ -1,19 +1,25 @@
 import { prisma } from "@/lib/db";
+import { COLORE_INTERESSE, ETICHETTE_INTERESSE, INTERESSI, type Interesse } from "@/lib/interessi";
+import { COLORE_STATO, ETICHETTE_STATO, STATI } from "@/lib/stati";
 import { IconaCategoria } from "./IconaCategoria";
 
-// Sidebar di navigazione per tipologia. "Visione globale" mostra tutto;
-// ogni tipologia filtra l'elenco. I conteggi considerano solo le anagrafiche
+// Sidebar di navigazione: tipologie, stati e interessi filtrano l'elenco;
+// "Visione globale" mostra tutto. I conteggi considerano solo le anagrafiche
 // attive; le archiviate vivono nella sezione dedicata in fondo.
 export async function Sidebar({
   categoriaAttiva,
+  statoAttivo,
+  interesseAttivo,
   archivioAttivo = false,
   hubspotAttivo = false,
 }: {
   categoriaAttiva?: string | null;
+  statoAttivo?: string | null;
+  interesseAttivo?: string | null;
   archivioAttivo?: boolean;
   hubspotAttivo?: boolean;
 }) {
-  const [categorie, archiviate] = await Promise.all([
+  const [categorie, archiviate, statiConteggio, interessiConteggio] = await Promise.all([
     prisma.partner.groupBy({
       by: ["categoria"],
       where: { attivo: true },
@@ -21,14 +27,25 @@ export async function Sidebar({
       orderBy: [{ _count: { categoria: "desc" } }, { categoria: "asc" }],
     }),
     prisma.partner.count({ where: { attivo: false } }),
+    prisma.partner.groupBy({ by: ["stato"], where: { attivo: true }, _count: { _all: true } }),
+    // Gli interessi sono un array: si contano i singoli valori con unnest.
+    // Schema sempre qualificato nelle query dirette (pgbouncer).
+    prisma.$queryRaw<{ interesse: string; totale: bigint }[]>`
+      SELECT unnest("interessi") AS interesse, count(*) AS totale
+      FROM "anagrafiche"."Partner" WHERE "attivo" GROUP BY 1`,
   ]);
   const totale = categorie.reduce((somma, c) => somma + c._count._all, 0);
+  const perStato = new Map(statiConteggio.map((s) => [s.stato, s._count._all]));
+  const perInteresse = new Map(interessiConteggio.map((i) => [i.interesse, Number(i.totale)]));
+
+  const globaleAttiva =
+    !categoriaAttiva && !statoAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo;
 
   return (
     <aside className="sidebar">
       <nav>
         <div className="sb-label">Registro</div>
-        <a className={`sb-item${!categoriaAttiva && !archivioAttivo && !hubspotAttivo ? " attiva" : ""}`} href="/">
+        <a className={`sb-item${globaleAttiva ? " attiva" : ""}`} href="/">
           <span className="sb-icona"><IconaCategoria categoria="GLOBALE" /></span>
           <span className="sb-nome">Visione globale</span>
           <span className="sb-count">{totale}</span>
@@ -44,6 +61,32 @@ export async function Sidebar({
             <span className="sb-icona"><IconaCategoria categoria={c.categoria} /></span>
             <span className="sb-nome">{etichetta(c.categoria)}</span>
             <span className="sb-count">{c._count._all}</span>
+          </a>
+        ))}
+
+        <div className="sb-label">Stati</div>
+        {STATI.map((s) => (
+          <a
+            key={s}
+            className={`sb-item${statoAttivo === s ? " attiva" : ""}`}
+            href={`/?stato=${s}`}
+          >
+            <span className="sb-icona"><span className="sb-dot" style={{ background: COLORE_STATO[s] }} /></span>
+            <span className="sb-nome">{ETICHETTE_STATO[s]}</span>
+            <span className="sb-count">{perStato.get(s) ?? 0}</span>
+          </a>
+        ))}
+
+        <div className="sb-label">Interessi</div>
+        {INTERESSI.map((i: Interesse) => (
+          <a
+            key={i}
+            className={`sb-item${interesseAttivo === i ? " attiva" : ""}`}
+            href={`/?interesse=${i}`}
+          >
+            <span className="sb-icona"><span className="sb-dot" style={{ background: COLORE_INTERESSE[i] }} /></span>
+            <span className="sb-nome">{ETICHETTE_INTERESSE[i]}</span>
+            <span className="sb-count">{perInteresse.get(i) ?? 0}</span>
           </a>
         ))}
 

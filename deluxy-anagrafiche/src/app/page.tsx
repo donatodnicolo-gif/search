@@ -4,6 +4,7 @@ import { MenuStato } from "@/components/MenuStato";
 import { Riconcilia } from "@/components/Riconcilia";
 import { etichetta, Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato } from "@/lib/azioni";
+import { ETICHETTE_INTERESSE, isInteresse } from "@/lib/interessi";
 import { prisma } from "@/lib/db";
 import { whereRicerca } from "@/lib/ricerca";
 import { ETICHETTE_STATO, STATI } from "@/lib/stati";
@@ -29,6 +30,7 @@ type Ricerca = {
   categoria?: string;
   citta?: string;
   stato?: string;
+  interesse?: string;
   pagina?: string;
   ordina?: string;
   dir?: string;
@@ -43,15 +45,18 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     filtri.ordina && filtri.ordina in COLONNE_ORDINABILI ? (filtri.ordina as CampoOrdinamento) : "nome";
   const dir: "asc" | "desc" = filtri.dir === "desc" ? "desc" : "asc";
 
+  const interesse = filtri.interesse && isInteresse(filtri.interesse) ? filtri.interesse : undefined;
+
   const where: Prisma.PartnerWhereInput = { attivo: !inArchivio };
   if (filtri.q) where.AND = whereRicerca(filtri.q);
   if (filtri.categoria) where.categoria = filtri.categoria;
   if (filtri.citta) where.citta = filtri.citta;
   if (filtri.stato) where.stato = filtri.stato;
+  if (interesse) where.interessi = { has: interesse };
 
   // La sezione "Novità" appare solo sulla visione globale pulita
   const conNovita =
-    !inArchivio && !filtri.categoria && !filtri.q && !filtri.citta && !filtri.stato && pagina === 1;
+    !inArchivio && !filtri.categoria && !filtri.q && !filtri.citta && !filtri.stato && !interesse && pagina === 1;
 
   const [totale, partner, citta, novita] = await Promise.all([
     prisma.partner.count({ where }),
@@ -121,6 +126,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     if (filtri.categoria) p.set("categoria", filtri.categoria);
     if (filtri.citta) p.set("citta", filtri.citta);
     if (filtri.stato) p.set("stato", filtri.stato);
+    if (interesse) p.set("interesse", interesse);
     return p;
   };
 
@@ -170,12 +176,25 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
 
   return (
     <div className="layout">
-      <Sidebar categoriaAttiva={filtri.categoria ?? null} archivioAttivo={inArchivio} />
+      <Sidebar
+        categoriaAttiva={filtri.categoria ?? null}
+        statoAttivo={!inArchivio ? (filtri.stato ?? null) : null}
+        interesseAttivo={interesse ?? null}
+        archivioAttivo={inArchivio}
+      />
       <main className="main">
       <div className="page-head">
         <div>
           <h1 className="page-title">
-            {inArchivio ? "Archiviati" : filtri.categoria ? etichetta(filtri.categoria) : "Visione globale"}
+            {inArchivio
+              ? "Archiviati"
+              : filtri.categoria
+                ? etichetta(filtri.categoria)
+                : filtri.stato && STATI.includes(filtri.stato as (typeof STATI)[number])
+                  ? ETICHETTE_STATO[filtri.stato as (typeof STATI)[number]]
+                  : interesse
+                    ? ETICHETTE_INTERESSE[interesse]
+                    : "Visione globale"}
           </h1>
           <p className="page-sub">
             {inArchivio
@@ -196,6 +215,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       <form className="filtri" method="get" action="/">
         {inArchivio && <input type="hidden" name="archiviati" value="1" />}
         {filtri.categoria && <input type="hidden" name="categoria" value={filtri.categoria} />}
+        {interesse && <input type="hidden" name="interesse" value={interesse} />}
         <input
           type="search"
           name="q"
