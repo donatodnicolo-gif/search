@@ -6,6 +6,8 @@ import { BozzaEditor } from '@/components/BozzaEditor'
 import { AzioniMessaggio } from '@/components/AzioniMessaggio'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { Rianalizza } from '@/components/Rianalizza'
+import { CorpoMessaggio } from '@/components/CorpoMessaggio'
+import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
 import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
@@ -141,7 +143,10 @@ export default async function DettaglioMessaggio({ params }: Props) {
           </div>
         )}
 
-        <div className="mail-body">{messaggio.corpoTesto}</div>
+        <CorpoMessaggio
+          html={messaggio.corpoHtml ? sanitizzaHtml(messaggio.corpoHtml) : null}
+          testo={messaggio.corpoTesto}
+        />
       </div>
 
       {bozzaAI && (
