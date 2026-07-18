@@ -42,13 +42,15 @@ export class DeliveriesController {
   @ApiQuery({ name: 'from', required: false })
   @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'partnerId', required: false })
+  @ApiQuery({ name: 'valetId', required: false })
   calendar(
     @CurrentUser() user: JwtUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('partnerId') partnerId?: string,
+    @Query('valetId') valetId?: string,
   ) {
-    return this.deliveriesService.calendar(user, from, to, partnerId);
+    return this.deliveriesService.calendar(user, from, to, partnerId, valetId);
   }
 
   @Get('map')

@@ -245,11 +245,19 @@
     "exc": {
       "title": "Chiusura / orario speciale per questo giorno",
       "normal": "Normale",
-      "closed": "Chiuso",
-      "special": "Orario speciale",
+      "blocked": "Chiuso",
+      "timed": "Orario speciale",
+      "tag": "Chiuso",
       "notePlaceholder": "Nota (facoltativa)",
       "remove": "Rimuovi",
       "save": "Salva"
+    },
+    "avail": {
+      "title": "Disponibilità per questo giorno",
+      "normal": "Disponibile",
+      "blocked": "Non disponibile",
+      "timed": "Disponibile in fascia",
+      "tag": "Non disp."
     },
     "wd": { "mon": "Lun", "tue": "Mar", "wed": "Mer", "thu": "Gio", "fri": "Ven", "sat": "Sab", "sun": "Dom" }
   },

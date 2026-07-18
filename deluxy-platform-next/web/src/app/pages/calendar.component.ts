@@ -20,8 +20,9 @@ interface DeliveryLite {
   partner?: { insegna: string };
 }
 
-interface DayException { closed: boolean; openTime?: string | null; closeTime?: string | null; note?: string | null }
-interface Cell { ymd: string; day: number; inMonth: boolean; isToday: boolean; count: number; closed: boolean; exc: 'none' | 'closed' | 'special' }
+/** Override per una data: chiuso/non-disponibile (blocked) o orario speciale/fascia (timed). */
+interface Override { mode: 'blocked' | 'timed'; from?: string | null; to?: string | null; note?: string | null }
+interface Cell { ymd: string; day: number; inMonth: boolean; isToday: boolean; count: number; closed: boolean; ov: 'none' | 'blocked' | 'timed' }
 
 const STATUS_COLOR: Record<string, string> = {
   created: '#d70015', assigned: '#e6b800', in_preparation: '#ff9500', accepted: '#007aff',
@@ -29,8 +30,11 @@ const STATUS_COLOR: Record<string, string> = {
   delivered_time_approved: '#248a3d',
 };
 
-/** Calendario mensile delle consegne: ogni giorno con ordini è marcato; il
- *  click apre l'elenco del giorno. Filtrato per ruolo (il partner vede i suoi). */
+/**
+ * Calendario mensile: ogni giorno con consegne è marcato; il click apre l'elenco.
+ * Filtrato per ruolo. Con un partner/valet in contesto mostra ed edita anche le
+ * chiusure/orari speciali (partner) o la disponibilità (valet) per data.
+ */
 @Component({
   selector: 'app-calendar',
   standalone: true,
@@ -38,7 +42,7 @@ const STATUS_COLOR: Record<string, string> = {
   template: `
     <div class="page-header">
       <div>
-        <h1>{{ 'calendar.title' | translate }}@if (partnerName()) { <span class="pname"> · {{ partnerName() }}</span> }</h1>
+        <h1>{{ 'calendar.title' | translate }}@if (entityName()) { <span class="pname"> · {{ entityName() }}</span> }</h1>
         <p class="page-caption">{{ 'calendar.caption' | translate }}</p>
       </div>
       <div class="nav">
@@ -57,17 +61,24 @@ const STATUS_COLOR: Record<string, string> = {
         <div class="grid">
           @for (c of cells(); track c.ymd) {
             <button type="button" class="cell" [class.out]="!c.inMonth" [class.today]="c.isToday"
-                    [class.has]="c.count > 0" [class.closed]="c.closed || c.exc === 'closed'" [class.sel]="c.ymd === selected()" (click)="selectDay(c)">
+                    [class.has]="c.count > 0" [class.closed]="c.closed || c.ov === 'blocked'" [class.sel]="c.ymd === selected()" (click)="selectDay(c)">
               <span class="dnum">{{ c.day }}</span>
-              @if (c.closed || c.exc === 'closed') { <span class="closed-tag">{{ 'calendar.closed' | translate }}</span> }
-              @if (c.exc === 'closed') { <span class="exc-dot red"></span> }
-              @else if (c.exc === 'special') { <span class="exc-dot gold"></span> }
+              @if (c.closed) { <span class="closed-tag">{{ 'calendar.closed' | translate }}</span> }
+              @else if (c.ov === 'blocked') { <span class="closed-tag">{{ prefix() + 'tag' | translate }}</span> }
+              @if (c.ov === 'blocked') { <span class="exc-dot red"></span> }
+              @else if (c.ov === 'timed') { <span class="exc-dot gold"></span> }
               @if (c.count > 0) { <span class="badge">{{ c.count }}</span> }
             </button>
           }
         </div>
         @if (hasClosedDays()) {
           <div class="legend"><span class="chip-closed"></span>{{ 'calendar.closedLegend' | translate }}</div>
+        }
+        @if (canEdit()) {
+          <div class="legend">
+            <span class="exc-dot red static"></span>{{ prefix() + 'blocked' | translate }}
+            <span class="exc-dot gold static"></span>{{ prefix() + 'timed' | translate }}
+          </div>
         }
       </div>
 
@@ -81,15 +92,15 @@ const STATUS_COLOR: Record<string, string> = {
           </header>
           @if (isSelectedClosed()) { <div class="closed-note">{{ 'calendar.closedNote' | translate }}</div> }
 
-          @if (canEditExceptions()) {
+          @if (canEdit()) {
             <div class="exc-editor">
-              <span class="exc-title">{{ 'calendar.exc.title' | translate }}</span>
+              <span class="exc-title">{{ prefix() + 'title' | translate }}</span>
               <div class="exc-modes">
-                <label><input type="radio" name="excMode" value="normal" [(ngModel)]="editMode" /><span>{{ 'calendar.exc.normal' | translate }}</span></label>
-                <label><input type="radio" name="excMode" value="closed" [(ngModel)]="editMode" /><span>{{ 'calendar.exc.closed' | translate }}</span></label>
-                <label><input type="radio" name="excMode" value="special" [(ngModel)]="editMode" /><span>{{ 'calendar.exc.special' | translate }}</span></label>
+                <label><input type="radio" name="ovMode" value="normal" [(ngModel)]="editMode" /><span>{{ prefix() + 'normal' | translate }}</span></label>
+                <label><input type="radio" name="ovMode" value="blocked" [(ngModel)]="editMode" /><span>{{ prefix() + 'blocked' | translate }}</span></label>
+                <label><input type="radio" name="ovMode" value="timed" [(ngModel)]="editMode" /><span>{{ prefix() + 'timed' | translate }}</span></label>
               </div>
-              @if (editMode === 'special') {
+              @if (editMode === 'timed') {
                 <div class="exc-times">
                   <input class="field time" type="time" [(ngModel)]="editOpen" />
                   <span>–</span>
@@ -98,8 +109,8 @@ const STATUS_COLOR: Record<string, string> = {
               }
               <input class="field" [(ngModel)]="editNote" [attr.placeholder]="'calendar.exc.notePlaceholder' | translate" />
               <div class="exc-actions">
-                @if (hasException()) { <button type="button" class="btn btn-secondary" [disabled]="savingExc()" (click)="removeException()">{{ 'calendar.exc.remove' | translate }}</button> }
-                <button type="button" class="btn btn-primary" [disabled]="savingExc()" (click)="saveException()">{{ savingExc() ? ('common.saving' | translate) : ('common.save' | translate) }}</button>
+                @if (hasOverride()) { <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="removeOverride()">{{ 'calendar.exc.remove' | translate }}</button> }
+                <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="saveOverride()">{{ saving() ? ('common.saving' | translate) : ('common.save' | translate) }}</button>
               </div>
             </div>
           }
@@ -154,6 +165,7 @@ const STATUS_COLOR: Record<string, string> = {
       .chip-closed { width: 22px; height: 14px; border-radius: 4px; background: repeating-linear-gradient(45deg, var(--fill), var(--fill) 4px, rgba(120,120,128,0.12) 4px, rgba(120,120,128,0.12) 8px); border: 1px solid var(--hairline); }
       .closed-note { margin-bottom: 12px; padding: 8px 12px; background: var(--fill); border-radius: 10px; font-size: 12.5px; color: var(--text-secondary); }
       .exc-dot { position: absolute; bottom: 7px; left: 7px; width: 7px; height: 7px; border-radius: 50%; }
+      .exc-dot.static { position: static; margin-left: 4px; }
       .exc-dot.red { background: var(--red); }
       .exc-dot.gold { background: var(--gold-strong); }
       .exc-editor { margin: 4px 0 14px; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
@@ -188,24 +200,24 @@ export class CalendarComponent {
   private readonly route = inject(ActivatedRoute);
 
   readonly weekdays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-  /** Giorni della settimana in cui il partner è chiuso (dayOfWeek 0=dom…6=sab). */
-  private readonly closedWeekdays = signal<Set<number>>(new Set());
-  /** partnerId dalla query (admin/operation aprono il calendario di un partner). */
   private readonly routePartnerId = this.route.snapshot.queryParamMap.get('partnerId');
-  /** Nome del partner in visualizzazione (se calendario di un singolo partner). */
-  readonly partnerName = signal<string | null>(null);
-  /** Eccezioni per data del partner: YYYY-MM-DD → { closed, openTime, closeTime, note }. */
-  private readonly exceptions = signal<Record<string, DayException>>({});
-  /** Stato dell'editor eccezione (pannello del giorno). */
-  editMode: 'normal' | 'closed' | 'special' = 'normal';
+  private readonly routeValetId = this.route.snapshot.queryParamMap.get('valetId');
+
+  /** Giorni della settimana in cui il partner è chiuso (solo contesto partner). */
+  private readonly closedWeekdays = signal<Set<number>>(new Set());
+  /** Nome dell'entità (partner o valet) in visualizzazione. */
+  readonly entityName = signal<string | null>(null);
+  /** Override per data: YYYY-MM-DD → Override. */
+  private readonly overrides = signal<Record<string, Override>>({});
+
+  editMode: 'normal' | 'blocked' | 'timed' = 'normal';
   editOpen = '';
   editClose = '';
   editNote = '';
-  readonly savingExc = signal(false);
-  /** Anno/mese visualizzati (mese 0-based). */
+  readonly saving = signal(false);
+
   readonly year = signal(new Date().getFullYear());
   readonly month = signal(new Date().getMonth());
-  /** Conteggi per giorno (YYYY-MM-DD → totale). */
   private readonly counts = signal<Record<string, number>>({});
   readonly selected = signal<string | null>(null);
   readonly dayItems = signal<DeliveryLite[]>([]);
@@ -215,32 +227,44 @@ export class CalendarComponent {
 
   constructor() {
     this.loadMonth();
-    this.loadPartnerInfo();
+    this.loadEntityInfo();
   }
 
-  /** Partner di cui mostrare il calendario: dalla query (admin/operation) oppure
-   *  il partner stesso; null = tutti (admin/operation senza filtro). */
-  private targetPartnerId(): string | null {
-    if (this.routePartnerId) return this.routePartnerId;
+  /** Contesto del calendario: partner o valet (da query o dal proprio account). */
+  private ctx(): { type: 'partner' | 'valet' | null; id: string | null } {
+    if (this.routePartnerId) return { type: 'partner', id: this.routePartnerId };
+    if (this.routeValetId) return { type: 'valet', id: this.routeValetId };
     const u = this.auth.user();
-    return u?.role === 'PARTNER' ? (u.partnerId ?? null) : null;
+    if (u?.role === 'PARTNER' && u.partnerId) return { type: 'partner', id: u.partnerId };
+    if (u?.role === 'VALET' && u.valetId) return { type: 'valet', id: u.valetId };
+    return { type: null, id: null };
   }
 
-  /** Carica nome + giorni di chiusura del partner in visualizzazione (se singolo). */
-  private loadPartnerInfo(): void {
-    const pid = this.targetPartnerId();
-    if (!pid) return;
-    this.http.get<{ insegna?: string; openingHours?: { dayOfWeek: number; closed?: boolean }[] }>(
-      `${environment.apiUrl}/partners/${pid}`,
-    ).subscribe({
-      next: (p) => {
-        this.partnerName.set(p.insegna ?? null);
-        const closed = new Set<number>();
-        for (const h of p.openingHours ?? []) if (h.closed) closed.add(h.dayOfWeek);
-        this.closedWeekdays.set(closed);
-      },
-      error: () => { /* senza dati: nessuna evidenziazione */ },
-    });
+  /** Prefisso i18n dell'editor a seconda del contesto (chiusure vs disponibilità). */
+  prefix(): string { return this.ctx().type === 'valet' ? 'calendar.avail.' : 'calendar.exc.'; }
+
+  /** Carica nome (+ giorni di chiusura per il partner) dell'entità in contesto. */
+  private loadEntityInfo(): void {
+    const c = this.ctx();
+    if (!c.id) return;
+    if (c.type === 'partner') {
+      this.http.get<{ insegna?: string; openingHours?: { dayOfWeek: number; closed?: boolean }[] }>(
+        `${environment.apiUrl}/partners/${c.id}`,
+      ).subscribe({
+        next: (p) => {
+          this.entityName.set(p.insegna ?? null);
+          const closed = new Set<number>();
+          for (const h of p.openingHours ?? []) if (h.closed) closed.add(h.dayOfWeek);
+          this.closedWeekdays.set(closed);
+        },
+        error: () => {},
+      });
+    } else if (c.type === 'valet') {
+      this.http.get<{ firstName?: string; lastName?: string }>(`${environment.apiUrl}/valets/${c.id}`).subscribe({
+        next: (v) => this.entityName.set(`${v.lastName ?? ''} ${v.firstName ?? ''}`.trim() || null),
+        error: () => {},
+      });
+    }
   }
 
   monthLabel(): string {
@@ -259,21 +283,20 @@ export class CalendarComponent {
     });
   }
 
-  /** 42 celle (6 settimane) a partire dal lunedì della settimana del giorno 1. */
   readonly cells = computed<Cell[]>(() => {
     const first = new Date(Date.UTC(this.year(), this.month(), 1));
-    const offset = (first.getUTCDay() + 6) % 7; // lunedì = 0
+    const offset = (first.getUTCDay() + 6) % 7;
     const start = new Date(first);
     start.setUTCDate(start.getUTCDate() - offset);
     const counts = this.counts();
     const closedWd = this.closedWeekdays();
-    const exc = this.exceptions();
+    const ov = this.overrides();
     const cells: Cell[] = [];
     for (let i = 0; i < 42; i++) {
       const d = new Date(start);
       d.setUTCDate(start.getUTCDate() + i);
       const ymd = this.ymd(d);
-      const e = exc[ymd];
+      const o = ov[ymd];
       cells.push({
         ymd,
         day: d.getUTCDate(),
@@ -281,7 +304,7 @@ export class CalendarComponent {
         isToday: ymd === this.todayYmd,
         count: counts[ymd] ?? 0,
         closed: closedWd.has(d.getUTCDay()),
-        exc: e ? (e.closed ? 'closed' : 'special') : 'none',
+        ov: o ? o.mode : 'none',
       });
     }
     return cells;
@@ -311,8 +334,9 @@ export class CalendarComponent {
     const from = cells[0].ymd;
     const to = cells[cells.length - 1].ymd;
     let params = new HttpParams().set('from', from).set('to', to);
-    const pid = this.targetPartnerId();
-    if (pid) params = params.set('partnerId', pid);
+    const c = this.ctx();
+    if (c.type === 'partner') params = params.set('partnerId', c.id!);
+    else if (c.type === 'valet') params = params.set('valetId', c.id!);
     this.http.get<{ days: CalDay[] }>(`${environment.apiUrl}/deliveries/calendar`, { params }).subscribe({
       next: (res) => {
         const map: Record<string, number> = {};
@@ -321,22 +345,31 @@ export class CalendarComponent {
       },
       error: () => this.counts.set({}),
     });
-    this.loadExceptions(from, to);
+    this.loadOverrides(from, to);
   }
 
-  /** Eccezioni per data del partner nel mese visualizzato. */
-  private loadExceptions(from?: string, to?: string): void {
-    const pid = this.targetPartnerId();
-    if (!pid) { this.exceptions.set({}); return; }
-    if (!from) { const c = this.cells(); from = c[0].ymd; to = c[c.length - 1].ymd; }
+  /** Carica override del mese (eccezioni partner o disponibilità valet). */
+  private loadOverrides(from?: string, to?: string): void {
+    const c = this.ctx();
+    if (!c.id) { this.overrides.set({}); return; }
+    if (!from) { const cells = this.cells(); from = cells[0].ymd; to = cells[cells.length - 1].ymd; }
     const params = new HttpParams().set('from', from).set('to', to!);
-    this.http.get<DayException & { date: string }[]>(`${environment.apiUrl}/partners/${pid}/day-exceptions`, { params }).subscribe({
-      next: (rows: any) => {
-        const map: Record<string, DayException> = {};
-        for (const r of rows ?? []) map[r.date] = { closed: r.closed, openTime: r.openTime, closeTime: r.closeTime, note: r.note };
-        this.exceptions.set(map);
+    const url = c.type === 'partner'
+      ? `${environment.apiUrl}/partners/${c.id}/day-exceptions`
+      : `${environment.apiUrl}/valets/${c.id}/availability`;
+    this.http.get<any[]>(url, { params }).subscribe({
+      next: (rows) => {
+        const map: Record<string, Override> = {};
+        for (const r of rows ?? []) {
+          if (c.type === 'partner') {
+            map[r.date] = { mode: r.closed ? 'blocked' : 'timed', from: r.openTime, to: r.closeTime, note: r.note };
+          } else {
+            map[r.date] = { mode: r.available === false ? 'blocked' : 'timed', from: r.timeFrom, to: r.timeTo, note: r.note };
+          }
+        }
+        this.overrides.set(map);
       },
-      error: () => this.exceptions.set({}),
+      error: () => this.overrides.set({}),
     });
   }
 
@@ -346,72 +379,85 @@ export class CalendarComponent {
     if (c.count === 0) { this.dayItems.set([]); return; }
     this.loadingDay.set(true);
     let params = new HttpParams().set('date', c.ymd).set('pageSize', '100');
-    const pid = this.targetPartnerId();
-    if (pid) params = params.set('partnerId', pid);
+    const ct = this.ctx();
+    if (ct.type === 'partner') params = params.set('partnerId', ct.id!);
+    else if (ct.type === 'valet') params = params.set('valetId', ct.id!);
     this.http.get<{ items: DeliveryLite[] }>(`${environment.apiUrl}/deliveries`, { params }).subscribe({
       next: (res) => { this.dayItems.set(res.items ?? []); this.loadingDay.set(false); },
       error: () => { this.dayItems.set([]); this.loadingDay.set(false); },
     });
   }
 
-  /** Popola l'editor con l'eccezione esistente per la data (o valori vuoti). */
   private initEditor(ymd: string): void {
-    const e = this.exceptions()[ymd];
-    this.editMode = e ? (e.closed ? 'closed' : 'special') : 'normal';
-    this.editOpen = e?.openTime ?? '';
-    this.editClose = e?.closeTime ?? '';
-    this.editNote = e?.note ?? '';
+    const o = this.overrides()[ymd];
+    this.editMode = o ? o.mode : 'normal';
+    this.editOpen = o?.from ?? '';
+    this.editClose = o?.to ?? '';
+    this.editNote = o?.note ?? '';
   }
 
   hasClosedDays(): boolean { return this.closedWeekdays().size > 0; }
 
-  /** Il giorno selezionato cade in un giorno di chiusura del partner? */
   isSelectedClosed(): boolean {
     const s = this.selected();
     if (!s) return false;
     return this.closedWeekdays().has(new Date(s + 'T00:00:00Z').getUTCDay());
   }
 
-  /** L'editor eccezioni è disponibile solo con un partner in contesto. */
-  canEditExceptions(): boolean {
-    if (!this.targetPartnerId()) return false;
+  /** L'editor è disponibile solo con un partner/valet in contesto. */
+  canEdit(): boolean {
+    if (!this.ctx().id) return false;
     const r = this.auth.user()?.role;
-    return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER' || r === 'PARTNER';
+    return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER' || r === 'PARTNER' || r === 'VALET';
   }
 
-  /** true se la data selezionata ha già un'eccezione salvata. */
-  hasException(): boolean {
+  hasOverride(): boolean {
     const s = this.selected();
-    return !!s && !!this.exceptions()[s];
+    return !!s && !!this.overrides()[s];
   }
 
-  saveException(): void {
-    const pid = this.targetPartnerId();
+  saveOverride(): void {
+    const c = this.ctx();
     const date = this.selected();
-    if (!pid || !date) return;
-    this.savingExc.set(true);
-    if (this.editMode === 'normal') { this.removeException(); return; }
-    const body = {
-      date,
-      closed: this.editMode === 'closed',
-      openTime: this.editMode === 'special' ? (this.editOpen || undefined) : undefined,
-      closeTime: this.editMode === 'special' ? (this.editClose || undefined) : undefined,
-      note: this.editNote.trim() || undefined,
-    };
-    this.http.put(`${environment.apiUrl}/partners/${pid}/day-exceptions`, body).subscribe({
-      next: () => { this.savingExc.set(false); this.loadExceptions(); },
-      error: () => this.savingExc.set(false),
+    if (!c.id || !date) return;
+    if (this.editMode === 'normal') { this.removeOverride(); return; }
+    this.saving.set(true);
+    const timed = this.editMode === 'timed';
+    const body: any = c.type === 'partner'
+      ? {
+          date,
+          closed: this.editMode === 'blocked',
+          openTime: timed ? (this.editOpen || undefined) : undefined,
+          closeTime: timed ? (this.editClose || undefined) : undefined,
+          note: this.editNote.trim() || undefined,
+        }
+      : {
+          date,
+          available: this.editMode !== 'blocked',
+          timeFrom: timed ? (this.editOpen || undefined) : undefined,
+          timeTo: timed ? (this.editClose || undefined) : undefined,
+          note: this.editNote.trim() || undefined,
+        };
+    const url = c.type === 'partner'
+      ? `${environment.apiUrl}/partners/${c.id}/day-exceptions`
+      : `${environment.apiUrl}/valets/${c.id}/availability`;
+    this.http.put(url, body).subscribe({
+      next: () => { this.saving.set(false); this.loadOverrides(); },
+      error: () => this.saving.set(false),
     });
   }
 
-  removeException(): void {
-    const pid = this.targetPartnerId();
+  removeOverride(): void {
+    const c = this.ctx();
     const date = this.selected();
-    if (!pid || !date) { this.savingExc.set(false); return; }
-    this.savingExc.set(true);
-    this.http.delete(`${environment.apiUrl}/partners/${pid}/day-exceptions/${date}`).subscribe({
-      next: () => { this.savingExc.set(false); this.editMode = 'normal'; this.editOpen = ''; this.editClose = ''; this.editNote = ''; this.loadExceptions(); },
-      error: () => this.savingExc.set(false),
+    if (!c.id || !date) { this.saving.set(false); return; }
+    this.saving.set(true);
+    const url = c.type === 'partner'
+      ? `${environment.apiUrl}/partners/${c.id}/day-exceptions/${date}`
+      : `${environment.apiUrl}/valets/${c.id}/availability/${date}`;
+    this.http.delete(url).subscribe({
+      next: () => { this.saving.set(false); this.editMode = 'normal'; this.editOpen = ''; this.editClose = ''; this.editNote = ''; this.loadOverrides(); },
+      error: () => this.saving.set(false),
     });
   }
 

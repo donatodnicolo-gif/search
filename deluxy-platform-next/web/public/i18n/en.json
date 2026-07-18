@@ -245,11 +245,19 @@
     "exc": {
       "title": "Closure / special hours for this day",
       "normal": "Normal",
-      "closed": "Closed",
-      "special": "Special hours",
+      "blocked": "Closed",
+      "timed": "Special hours",
+      "tag": "Closed",
       "notePlaceholder": "Note (optional)",
       "remove": "Remove",
       "save": "Save"
+    },
+    "avail": {
+      "title": "Availability for this day",
+      "normal": "Available",
+      "blocked": "Unavailable",
+      "timed": "Available in a time range",
+      "tag": "Off"
     },
     "wd": { "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun" }
   },

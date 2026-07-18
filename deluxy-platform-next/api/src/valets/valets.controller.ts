@@ -2,13 +2,13 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { CreateValetDto, UpdateValetDto } from './dto/create-valet.dto';
@@ -55,24 +55,35 @@ export class ValetsController {
   }
 
   @Get(':id/availability')
-  @ApiOperation({ summary: 'Disponibilita del valet' })
-  getAvailability(@Param('id') id: string, @CurrentUser() user: JwtUser) {
-    if (user.role === Role.VALET && user.valetId !== id) {
-      throw new ForbiddenException('Accesso non consentito');
-    }
-    return this.valetsService.getAvailability(id);
+  @ApiOperation({ summary: 'Disponibilita del valet per data (in un intervallo)' })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  getAvailability(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.valetsService.getAvailability(id, user, from, to);
   }
 
-  @Post(':id/availability')
-  @ApiOperation({ summary: 'Registra disponibilita (il valet solo per se stesso)' })
+  @Put(':id/availability')
+  @ApiOperation({ summary: 'Imposta disponibilita per una data (upsert; il valet solo la propria)' })
   setAvailability(
     @Param('id') id: string,
-    @Body() body: { date: string; timeFrom?: string; timeTo?: string; available?: boolean },
+    @Body() body: { date: string; available?: boolean; timeFrom?: string; timeTo?: string; note?: string },
     @CurrentUser() user: JwtUser,
   ) {
-    if (user.role === Role.VALET && user.valetId !== id) {
-      throw new ForbiddenException('Accesso non consentito');
-    }
-    return this.valetsService.setAvailability(id, body);
+    return this.valetsService.setAvailability(id, user, body);
+  }
+
+  @Delete(':id/availability/:date')
+  @ApiOperation({ summary: 'Rimuove la disponibilita di una data (torna al default disponibile)' })
+  removeAvailability(
+    @Param('id') id: string,
+    @Param('date') date: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.valetsService.removeAvailability(id, user, date);
   }
 }

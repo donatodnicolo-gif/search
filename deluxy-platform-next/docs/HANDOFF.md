@@ -106,6 +106,14 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 18/07/2026 (3) — Calendario e disponibilità per i valet
+
+- **Modello** `ValetAvailability`: aggiunti `@@unique([valetId, date])` e `note` (migrazione `20260718070000_valet_availability_unique`, scritta a mano: ADD COLUMN + CREATE UNIQUE INDEX). `available=false` = non disponibile; `timeFrom/timeTo` = disponibile solo in fascia.
+- **Endpoint** in ValetsController: `GET/PUT /valets/:id/availability` (upsert su valetId+date; `from/to`), `DELETE /valets/:id/availability/:date`. Permesso: VALET solo la propria (`assertCanManage`), ADMIN/OPERATION/PM su tutti. Calendar accetta anche `valetId`.
+- **Calendario generalizzato** (`CalendarComponent`): `ctx()` = partner o valet (da query `?partnerId`/`?valetId` o dal proprio account). Un unico modello `Override {mode:'blocked'|'timed', from, to, note}` normalizza sia le eccezioni partner (closed→blocked) sia la disponibilità valet (available=false→blocked). L'editor usa il prefisso i18n `prefix()` (`calendar.exc.` per il partner, `calendar.avail.` per il valet). Marcatura: pallino rosso = blocked, oro = timed. `PUT` verso `/partners/:id/day-exceptions` o `/valets/:id/availability` a seconda del contesto.
+- Bottone **Calendario** nella scheda valet (admin/operation) → `/calendar?valetId=<id>`.
+- Verificato E2E: valet1 imposta la propria disponibilità (21/07 non disp., 22/07 fascia 14–18) via API e via UI (creazione 25/07); marcatura ed etichette valet corrette; il lato partner resta invariato (etichette Chiuso/Orario speciale). Test ripuliti.
+
 ### 18/07/2026 (2) — Calendario: eccezioni per data (chiusure / orari speciali)
 
 - **Modello** `PartnerDayException` (migrazione `20260718062446_partner_day_exception`): `partnerId + date` unique, `closed`, `openTime/closeTime` (orario speciale), `note`. Vince sull'orario settimanale per quel giorno.

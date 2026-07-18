@@ -351,7 +351,8 @@ model ValetService {
   @@unique([valetId, serviceTypeId])
 }
 
-// Disponibilita' del valet
+// Disponibilita' del valet per DATA specifica (impostata dal valet dal calendario):
+// available=false -> non disponibile; timeFrom/timeTo -> disponibile solo in fascia.
 model ValetAvailability {
   id        String   @id @default(cuid())
   valetId   String
@@ -359,7 +360,10 @@ model ValetAvailability {
   timeFrom  String? // "08:00"
   timeTo    String? // "20:00"
   available Boolean  @default(true)
+  note      String?
   valet     Valet    @relation(fields: [valetId], references: [id], onDelete: Cascade)
+
+  @@unique([valetId, date])
 }
 
 // ------------------------------------------------------------

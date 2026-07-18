@@ -56,6 +56,9 @@ interface ValetDetail {
           <span class="pill" [class.on]="v.active">
             {{ (v.active ? 'common.active' : 'common.inactive') | translate }}
           </span>
+          @if (canSeeCalendar()) {
+            <a class="btn btn-secondary edit" [routerLink]="['/calendar']" [queryParams]="{ valetId: v.id }">{{ 'nav.calendario' | translate }}</a>
+          }
           @if (canEdit()) {
             <a class="btn btn-secondary edit" [routerLink]="['/valets', v.id, 'edit']">{{ 'common.edit' | translate }}</a>
           }
@@ -238,6 +241,12 @@ export class ValetDetailComponent {
   canEdit(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER';
+  }
+
+  /** Calendario del valet: admin/operation. */
+  canSeeCalendar(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION';
   }
 
   constructor() {
