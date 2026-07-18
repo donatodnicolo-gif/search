@@ -10,7 +10,7 @@ import { env } from '@/lib/env';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
 import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
-import { CreaTaskModal } from '@/components/CreaTaskModal';
+import { TaskFormModal } from '@/components/TaskFormModal';
 import { Loader } from '../../_layout';
 
 export default function SchedaAttivita() {
@@ -208,7 +208,12 @@ export default function SchedaAttivita() {
         </View>
 
         {taskAperto ? (
-          <CreaTaskModal placeId={place.id} placeNome={place.nome} onClose={() => setTaskAperto(false)} />
+          <TaskFormModal
+            placeId={place.id}
+            placeNome={place.nome}
+            onClose={() => setTaskAperto(false)}
+            onSalvato={() => setTaskAperto(false)}
+          />
         ) : null}
 
         <Sezione titolo="Contatti">

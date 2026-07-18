@@ -436,32 +436,58 @@ export async function aggiornaStarred(placeId: string, starred: boolean): Promis
 
 // ── Task personali (tasklist privata del venditore) ────────────────────────────
 
-/** I miei task (RLS: solo i propri). Non completati prima, per scadenza poi priorità. */
-export async function fetchMieiTask(): Promise<Task[]> {
-  const { data, error } = await supabase
+/**
+ * Task visibili. `soloMiei=true` → solo quelli assegnati a me; altrimenti tutti
+ * quelli che l'RLS concede (assegnati a me + creati da me + TUTTI se admin).
+ * Risolve i nomi di assegnatario e creatore dai profili.
+ */
+export async function fetchTask(soloMiei: boolean): Promise<Task[]> {
+  const { data: u } = await supabase.auth.getUser();
+  const uid = u.user?.id ?? null;
+  let q = supabase
     .from('tasks')
     .select('*, places(nome)')
     .order('completata', { ascending: true })
     .order('scadenza', { ascending: true, nullsFirst: false })
     .order('priorita', { ascending: true })
     .order('created_at', { ascending: false });
+  if (soloMiei && uid) q = q.eq('owner', uid);
+  const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []).map((r: any) => ({ ...r, place_nome: r.places?.nome ?? null })) as Task[];
+  const righe = (data ?? []).map((r: any) => ({ ...r, place_nome: r.places?.nome ?? null })) as Task[];
+
+  const ids = [...new Set(righe.flatMap((t) => [t.owner, t.creato_da]).filter(Boolean))] as string[];
+  if (ids.length) {
+    const profili = await fetchProfiles();
+    const nome = new Map(profili.map((p) => [p.id, nomeDaProfilo(p)]));
+    for (const t of righe) {
+      t.owner_nome = t.owner ? nome.get(t.owner) ?? null : null;
+      t.creato_da_nome = t.creato_da ? nome.get(t.creato_da) ?? null : null;
+    }
+  }
+  return righe;
 }
 
-/** Crea un task per l'utente corrente (owner via default auth.uid()). */
+/** Retrocompat: i task assegnati a me. */
+export function fetchMieiTask(): Promise<Task[]> {
+  return fetchTask(true);
+}
+
+/** Crea un task; `owner` = assegnatario (default: l'utente corrente). */
 export async function inserisciTask(t: {
   titolo: string;
   note?: string | null;
   priorita: Task['priorita'];
   scadenza?: string | null;
   place_id?: string | null;
+  owner?: string | null;
 }): Promise<Task> {
   const { data: u } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('tasks')
     .insert({
-      owner: u.user?.id ?? undefined,
+      owner: t.owner ?? u.user?.id ?? undefined,
+      creato_da: u.user?.id ?? undefined,
       titolo: t.titolo,
       note: t.note ?? null,
       priorita: t.priorita,
@@ -474,10 +500,10 @@ export async function inserisciTask(t: {
   return data as Task;
 }
 
-/** Aggiorna i campi editabili di un task. */
+/** Aggiorna i campi editabili di un task (incl. riassegnazione via `owner`). */
 export async function aggiornaTask(
   id: string,
-  patch: Partial<Pick<Task, 'titolo' | 'note' | 'priorita' | 'scadenza'>>,
+  patch: Partial<Pick<Task, 'titolo' | 'note' | 'priorita' | 'scadenza' | 'owner'>>,
 ): Promise<void> {
   const { error } = await supabase.from('tasks').update(patch).eq('id', id);
   if (error) throw error;

@@ -176,9 +176,12 @@ export interface Task {
   scadenza: string | null; // YYYY-MM-DD
   completata: boolean;
   place_id: string | null;
+  creato_da: string | null; // chi ha creato il task (owner = a chi è assegnato)
   created_at: string;
   completata_at: string | null;
   place_nome?: string | null; // nome del negozio collegato (join, opzionale)
+  owner_nome?: string | null; // nome dell'assegnatario (risolto)
+  creato_da_nome?: string | null; // nome del creatore (risolto)
 }
 
 export interface Profilo {
