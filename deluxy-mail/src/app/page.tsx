@@ -175,14 +175,25 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                     </div>
                   ) : (
                     <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
-                      <span className="muted">{m.anteprima}</span>
+                      {/* Se tradotta, l'anteprima mostra l'italiano, non la lingua originale. */}
+                      <span className="muted">
+                        {m.corpoTradotto
+                          ? m.corpoTradotto.replace(/\s+/g, ' ').slice(0, 200)
+                          : m.anteprima}
+                      </span>
                     </div>
                   )}
 
                   {/* Niente badge quando l'AI non ha girato: è la normalità,
                       non un guasto — parte solo se dai una priorità. */}
-                  {(m.sezione || m._count.attivita > 0 || m.bozze.length > 0) && (
+                  {(m.sezione || m.corpoTradotto || m._count.attivita > 0 || m.bozze.length > 0) && (
                     <div className="mail-tags" style={{ paddingLeft: 17 }}>
+                      {m.corpoTradotto && (
+                        <span className="badge gold">
+                          <span className="dot" />
+                          Tradotto{m.lingua ? ` dal ${m.lingua}` : ''}
+                        </span>
+                      )}
                       {m.sezione && (
                         <span className={`badge ${m.sezione.colore}`}>
                           <span className="dot" />

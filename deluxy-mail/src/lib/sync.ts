@@ -381,12 +381,16 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
     return { ...esito, errore }
   }
 
-  const regole = await db.regola.findMany({ where: { utenteId: account.utenteId } })
+  const [regole, prefUtente] = await Promise.all([
+    db.regola.findMany({ where: { utenteId: account.utenteId } }),
+    db.utente.findUnique({ where: { id: account.utenteId }, select: { traduzioneAuto: true } }),
+  ])
   const { primoFallito } = await salvaMessaggi({
     utenteId: account.utenteId,
     accountId: account.id,
     messaggi: nuovi.messaggi,
     regole,
+    traduzioneAuto: prefUtente?.traduzioneAuto ?? false,
     esito,
   })
 
@@ -409,9 +413,10 @@ async function salvaMessaggi(opts: {
   accountId: string
   messaggi: MessaggioScaricato[]
   regole: Regola[]
+  traduzioneAuto: boolean
   esito: EsitoSync
 }): Promise<{ primoFallito: number | null }> {
-  const { utenteId, accountId, messaggi, regole, esito } = opts
+  const { utenteId, accountId, messaggi, regole, traduzioneAuto, esito } = opts
   let primoFallito: number | null = null
 
   for (const msg of messaggi) {
@@ -428,7 +433,7 @@ async function salvaMessaggi(opts: {
           break
         }
 
-        await db.messaggio.create({
+        const creato = await db.messaggio.create({
           data: {
             utenteId,
             accountId,
@@ -450,9 +455,21 @@ async function salvaMessaggi(opts: {
             smistatoDa: daRegole.sezioneId ? 'regola' : null,
             regolaId: daRegole.regolaId,
           },
+          select: { id: true, direzione: true },
         })
         salvato = true
         esito.scaricati++
+
+        // Traduzione all'arrivo: se attiva, le mail nuove in lingua straniera
+        // si traducono subito, così la lista le mostra già in italiano senza
+        // doverle aprire. Una traduzione fallita non blocca lo scarico.
+        if (traduzioneAuto && creato.direzione === 'entrata') {
+          try {
+            await traduciMessaggioSeServe(creato.id, utenteId)
+          } catch {
+            /* si riproverà all'apertura */
+          }
+        }
       } catch (e) {
         if (transitorio(e) && tentativo === 0) {
           await attendi(400)
@@ -498,12 +515,16 @@ export async function scaricaStorico(accountId: string, limite = 25): Promise<Es
     return { ...esito, errore: e instanceof Error ? e.message : String(e) }
   }
 
-  const regole = await db.regola.findMany({ where: { utenteId: account.utenteId } })
+  const [regole, prefUtente] = await Promise.all([
+    db.regola.findMany({ where: { utenteId: account.utenteId } }),
+    db.utente.findUnique({ where: { id: account.utenteId }, select: { traduzioneAuto: true } }),
+  ])
   const { primoFallito } = await salvaMessaggi({
     utenteId: account.utenteId,
     accountId: account.id,
     messaggi: vecchi.messaggi,
     regole,
+    traduzioneAuto: prefUtente?.traduzioneAuto ?? false,
     esito,
   })
 
