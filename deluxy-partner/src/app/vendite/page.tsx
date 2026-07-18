@@ -107,15 +107,22 @@ export default async function VenditePage({
                   <tr key={v.id}>
                     <td><Link href={`/partner/${v.partnerId}`} style={{ fontWeight: 500 }}>{v.partner.nome}</Link></td>
                     <td>{nomeMese(v.mese)}{v.data ? ` · ${dataIt(v.data)}` : ""}</td>
-                    <td className="muted">{v.descrizione ?? "—"}</td>
+                    <td>
+                      <Link href={`/vendite/${v.id}`} style={{ color: "var(--blue)" }} title="Apri e modifica la vendita">
+                        {v.descrizione ?? "Vendita"}
+                      </Link>
+                    </td>
                     <td className="num">{euro(v.incassoLordo)}</td>
                     <td className="num">{pctIt(v.feePercent)}</td>
                     <td className="num pos">{euro(commissione(v))}</td>
                     <td className="num">{euro(dovutoVendita(v))}</td>
-                    <td>
-                      <form action={deleteVendita.bind(null, v.id)}>
-                        <button className="btn small danger" type="submit">Elimina</button>
-                      </form>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <span style={{ display: "inline-flex", gap: 6 }}>
+                        <Link href={`/vendite/${v.id}`} className="btn small secondary">Modifica</Link>
+                        <form action={deleteVendita.bind(null, v.id)}>
+                          <button className="btn small danger" type="submit">Elimina</button>
+                        </form>
+                      </span>
                     </td>
                   </tr>
                 ))}

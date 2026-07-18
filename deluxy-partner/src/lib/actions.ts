@@ -192,6 +192,39 @@ export async function createVendita(fd: FormData) {
   redirect(`/vendite?anno=${anno}&mese=${mese}`);
 }
 
+// Modifica una vendita esistente (incasso, fee, periodo, descrizione).
+// La fee è memorizzata sulla singola vendita: cambiarla qui aggiorna commissione
+// e dovuto di quel movimento senza toccare le altre vendite.
+export async function updateVendita(id: string, fd: FormData) {
+  const incassoLordo = n(fd, "incassoLordo");
+  const anno = n(fd, "anno");
+  const mese = n(fd, "mese");
+  const feePercent = n(fd, "feePercent");
+  if (incassoLordo == null || !anno || !mese || feePercent == null) {
+    throw new Error("Compilare incasso, periodo e fee");
+  }
+  await prisma.venditaVendor.update({
+    where: { id },
+    data: { incassoLordo, anno, mese, feePercent, data: d(fd, "data"), descrizione: s(fd, "descrizione") },
+  });
+  revalidateAll();
+  redirect(`/vendite/${id}?salvato=1`);
+}
+
+// Riallinea la fee di tutte le vendite di un partner (di un anno) alla fee
+// attuale del partner. Usato quando si corregge la fee e la si vuole applicare
+// anche ai movimenti già registrati.
+export async function riallineaFeeVendite(partnerId: string, anno: number) {
+  const p = await prisma.partner.findUnique({ where: { id: partnerId } });
+  if (!p) return;
+  await prisma.venditaVendor.updateMany({
+    where: { partnerId, anno },
+    data: { feePercent: p.feePercent ?? 0 },
+  });
+  revalidateAll();
+  redirect(`/partner/${partnerId}`);
+}
+
 export async function deleteVendita(id: string) {
   await prisma.venditaVendor.delete({ where: { id } });
   revalidateAll();

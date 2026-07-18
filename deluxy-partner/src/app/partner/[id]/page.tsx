@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, commissione, dovutoVendita, ivato } from "@/lib/calc";
-import { segnaFatturaPagata } from "@/lib/actions";
+import { segnaFatturaPagata, riallineaFeeVendite } from "@/lib/actions";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { PagamentoMese } from "@/components/PagamentoMese";
 import { RecapAI } from "@/components/RecapAI";
@@ -33,6 +33,12 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
   // valore mese = vendite + servizi fatturati (netto IVA), per il confronto anno su anno
   const valoreMese = (r: { vendite: number; serviziNetto: number }) => r.vendite + r.serviziNetto;
 
+  // vendite con fee diversa da quella attuale del partner (fee cambiata dopo l'inserimento)
+  const feeAttuale = partner.feePercent ?? 0;
+  const venditeDisallineate = mesi
+    .flatMap((m) => m.vendite)
+    .filter((v) => v.feePercent !== feeAttuale).length;
+
   const recapPrompt = costruisciRecapPrompt({
     partner,
     anno,
@@ -53,6 +59,17 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
           </p>
         </div>
         <div className="page-actions">
+          {venditeDisallineate > 0 && (
+            <form action={riallineaFeeVendite.bind(null, id, anno)}>
+              <button
+                className="btn secondary"
+                type="submit"
+                title={`Applica la fee attuale (${feeAttuale}%) a ${venditeDisallineate} vendite ${anno} con fee diversa`}
+              >
+                Riallinea fee vendite ({venditeDisallineate})
+              </button>
+            </form>
+          )}
           <Link href={`/fatture/nuova?partnerId=${id}`} className="btn secondary">+ Fattura servizi</Link>
           <Link href={`/vendite/nuova?partnerId=${id}`} className="btn secondary">+ Vendita vendor</Link>
           <Link href={`/partner/${id}/modifica`} className="btn primary">Modifica</Link>
@@ -210,8 +227,20 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                   {vendite.map((v) => (
                     <tr key={v.id}>
                       <td className="muted">Vendite come vendor</td>
-                      <td>{v.descrizione ?? "Vendite"}{v.data ? ` · ${dataIt(v.data)}` : ""}</td>
-                      <td>fee {pctIt(v.feePercent)} → comm. {euro(commissione(v))}</td>
+                      <td>
+                        <Link href={`/vendite/${v.id}`} style={{ color: "var(--blue)" }} title="Apri e modifica la vendita (incasso, fee…)">
+                          {v.descrizione ?? "Vendite"}
+                        </Link>
+                        {v.data ? ` · ${dataIt(v.data)}` : ""}
+                      </td>
+                      <td>
+                        fee {pctIt(v.feePercent)} → comm. {euro(commissione(v))}
+                        {v.feePercent !== (partner.feePercent ?? 0) && (
+                          <Link href={`/vendite/${v.id}`} className="badge orange" style={{ marginLeft: 6 }} title={`Fee diversa dal partner (${partner.feePercent ?? 0}%)`}>
+                            <span className="dot" />fee {pctIt(partner.feePercent)}?
+                          </Link>
+                        )}
+                      </td>
                       <td>
                         {saldo?.commFattEmessa ? (
                           <span className="badge green"><span className="dot" />Fatt. comm. {saldo.commFattNumero ?? ""}</span>
