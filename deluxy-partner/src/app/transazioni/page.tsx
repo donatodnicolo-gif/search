@@ -6,12 +6,14 @@ import { ivato, nomeMese } from "@/lib/calc";
 import { suggerisci, type Suggerimento } from "@/lib/riconciliazione";
 import {
   importaEstratto,
+  sincronizzaQonto,
   registraTransazioneFattura,
   registraTransazionePagamento,
   ignoraTransazione,
   ripristinaTransazione,
   eliminaTransazioniNonRegistrate,
 } from "@/lib/transazioni-actions";
+import { qontoConfigurato } from "@/lib/qonto";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,7 @@ export default async function TransazioniPage({
       .map((m) => ({ partner: t.partner, mese: m.mese, importo: m.riepilogo.daBonificare }))
   );
 
+  const qonto = await qontoConfigurato();
   const ctx = { partners, fattureAperte, daBonificare };
   const nuove = transazioni.filter((t) => t.stato === "nuova");
   const registrate = transazioni.filter((t) => t.stato === "registrata");
@@ -124,20 +127,33 @@ export default async function TransazioniPage({
         </div>
       )}
 
-      <form action={importaEstratto} className="card" style={{ marginBottom: 20 }}>
+      <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 300px" }}>
-            <label className="field-label">Estratto conto (CSV o XLSX) — qualsiasi banca</label>
-            <input type="file" name="file" accept=".csv,.txt,.xlsx,.xls" required style={{ border: "1px solid var(--hairline-strong)", borderRadius: "var(--radius-m)", padding: 8, width: "100%", fontSize: 13.5, background: "var(--surface)" }} />
-          </div>
-          <button className="btn primary" type="submit">Importa</button>
+          {qonto && (
+            <form action={sincronizzaQonto} style={{ display: "flex", alignItems: "flex-end" }}>
+              <button className="btn primary" type="submit" title="Scarica i movimenti recenti direttamente dal conto Qonto">
+                ⇅ Sincronizza da Qonto
+              </button>
+            </form>
+          )}
+          <form action={importaEstratto} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", flex: "1 1 340px" }}>
+            <div style={{ flex: "1 1 260px" }}>
+              <label className="field-label">
+                {qonto ? "Oppure carica un estratto (CSV/XLSX) di un'altra banca" : "Estratto conto (CSV o XLSX) — qualsiasi banca"}
+              </label>
+              <input type="file" name="file" accept=".csv,.txt,.xlsx,.xls" required style={{ border: "1px solid var(--hairline-strong)", borderRadius: "var(--radius-m)", padding: 8, width: "100%", fontSize: 13.5, background: "var(--surface)" }} />
+            </div>
+            <button className={`btn ${qonto ? "secondary" : "primary"}`} type="submit">Importa file</button>
+          </form>
         </div>
         <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
-          Riconosce automaticamente le colonne più comuni (Data contabile/operazione, Importo o Dare/Avere,
-          Descrizione/Causale). Ricaricare lo stesso estratto non crea doppioni. Nessun movimento viene
-          registrato in automatico: ogni abbinamento va confermato qui sotto.
+          {qonto
+            ? "La sincronizzazione Qonto scarica i movimenti completati di tutti i conti (senza doppioni)."
+            : "Riconosce automaticamente le colonne più comuni (Data contabile/operazione, Importo o Dare/Avere, Descrizione/Causale). Ricaricare lo stesso estratto non crea doppioni."}{" "}
+          Nessun movimento viene registrato in automatico: ogni abbinamento va confermato qui sotto.
+          {!qonto && " Hai Qonto? Collegalo in Impostazioni per sincronizzare senza file."}
         </p>
-      </form>
+      </div>
 
       {transazioni.length > 0 && (
         <div className="kpi-grid">

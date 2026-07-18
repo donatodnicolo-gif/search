@@ -71,7 +71,7 @@ export function parseDataIt(v: unknown): Date | null {
   return null;
 }
 
-function hashMovimento(data: Date, importo: number, descrizione: string): string {
+export function hashMovimento(data: Date, importo: number, descrizione: string): string {
   return createHash("sha256")
     .update(`${data.toISOString().slice(0, 10)}|${importo.toFixed(2)}|${descrizione.trim().toUpperCase()}`)
     .digest("hex")

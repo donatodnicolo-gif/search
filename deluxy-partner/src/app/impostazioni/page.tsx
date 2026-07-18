@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { CHIAVI, leggiImpostazioni, salvaImpostazione, ibanValido } from "@/lib/impostazioni";
 import { inviaEmail } from "@/lib/mail";
 import { ficStato } from "@/lib/fic";
+import { qontoOrganizzazione, qontoConfigurato } from "@/lib/qonto";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,35 @@ async function salvaSmtp(fd: FormData) {
   redirect("/impostazioni?salvato=smtp");
 }
 
+async function salvaQonto(fd: FormData) {
+  "use server";
+  const login = String(fd.get("qontoLogin") ?? "").trim();
+  const key = String(fd.get("qontoKey") ?? "").trim(); // vuota = non modificare
+  await salvaImpostazione("qonto.login", login);
+  if (key !== "") await salvaImpostazione("qonto.secretKey", key);
+  if (fd.get("qontoKeyCancella") === "on") await salvaImpostazione("qonto.secretKey", "");
+  revalidatePath("/impostazioni");
+  redirect("/impostazioni?salvato=1");
+}
+
+async function verificaQonto() {
+  "use server";
+  try {
+    const org = await qontoOrganizzazione();
+    const conti = org.conti
+      .map((c) => `${c.name ?? c.slug}: ${c.balance.toLocaleString("it-IT", { minimumFractionDigits: 2 })} ${c.currency}`)
+      .join(" · ");
+    redirect(
+      "/impostazioni?salvato=qonto&dettaglio=" +
+        encodeURIComponent(`${org.nome} — ${org.conti.length} conto/i (${conti})`)
+    );
+  } catch (e) {
+    // il redirect interno di Next viaggia come eccezione: non intercettarlo
+    if ((e as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")) throw e;
+    redirect("/impostazioni?errore=" + encodeURIComponent((e as Error).message));
+  }
+}
+
 async function inviaProva(fd: FormData) {
   "use server";
   const to = String(fd.get("provaA") ?? "").trim();
@@ -60,7 +90,7 @@ async function inviaProva(fd: FormData) {
 export default async function ImpostazioniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ salvato?: string; errore?: string; azienda?: string }>;
+  searchParams: Promise<{ salvato?: string; errore?: string; azienda?: string; dettaglio?: string }>;
 }) {
   const sp = await searchParams;
   const imp = await leggiImpostazioni();
@@ -85,7 +115,9 @@ export default async function ImpostazioniPage({
               ? "Email di prova inviata: controlla la casella"
               : sp.salvato === "fic"
                 ? `Fatture in Cloud collegato${sp.azienda ? ` — azienda: ${sp.azienda}` : ""}`
-                : "Impostazioni salvate"}
+                : sp.salvato === "qonto"
+                  ? `Qonto connesso: ${sp.dettaglio ? decodeURIComponent(sp.dettaglio) : "ok"}`
+                  : "Impostazioni salvate"}
           </span>
         </div>
       )}
@@ -150,6 +182,46 @@ export default async function ImpostazioniPage({
           )}
         </div>
       </div>
+
+      <h2 className="section-title">Qonto (conto bancario)</h2>
+      <form action={salvaQonto} className="card">
+        <div className="form-grid">
+          <div>
+            <label className="field-label">Login API (es. deluxy-1234)</label>
+            <input type="text" name="qontoLogin" defaultValue={imp["qonto.login"] ?? ""} placeholder="nome-organizzazione-1234" />
+          </div>
+          <div>
+            <label className="field-label">
+              Secret key{imp["qonto.secretKey"] ? " (impostata — lascia vuoto per non cambiarla)" : ""}
+            </label>
+            <input type="password" name="qontoKey" autoComplete="new-password" placeholder={imp["qonto.secretKey"] ? "••••••••" : ""} />
+          </div>
+          {imp["qonto.secretKey"] && (
+            <div className="checkbox-row">
+              <input type="checkbox" id="qontoKeyCancella" name="qontoKeyCancella" />
+              <label htmlFor="qontoKeyCancella">Cancella la secret key salvata</label>
+            </div>
+          )}
+        </div>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 14 }}>
+          Le credenziali si generano dall&apos;app Qonto: <strong>Impostazioni → Integrazioni e Partner →
+          Chiave API</strong>. Accesso in sola lettura ai movimenti: abilita il bottone
+          &laquo;Sincronizza da Qonto&raquo; in Import transazioni (niente più export CSV manuali).
+        </p>
+        <div className="form-footer">
+          <button type="submit" className="btn primary">Salva Qonto</button>
+        </div>
+      </form>
+      {(await qontoConfigurato()) && (
+        <div className="card" style={{ marginTop: 16, padding: 16 }}>
+          <form action={verificaQonto} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13.5, color: "var(--text-secondary)" }}>
+              Controlla che le credenziali funzionino: legge nome organizzazione, conti e saldi.
+            </span>
+            <button type="submit" className="btn secondary" style={{ marginLeft: "auto" }}>Verifica connessione</button>
+          </form>
+        </div>
+      )}
 
       <h2 className="section-title">Email solleciti (SMTP)</h2>
       <form action={salvaSmtp} className="card">

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { parseEstratto } from "./estratto";
+import { parseEstratto, hashMovimento } from "./estratto";
+import { qontoOrganizzazione, qontoTransazioni } from "./qonto";
 
 function revalidate() {
   for (const p of ["/", "/transazioni", "/fatture", "/scadenzario", "/saldi", "/partner"]) {
@@ -46,6 +47,45 @@ export async function importaEstratto(fd: FormData) {
   redirect(
     `/transazioni?import=ok&nuove=${res.count}&doppioni=${movimenti.movimenti.length - res.count}&scartate=${movimenti.scartate}`
   );
+}
+
+// Sincronizza i movimenti direttamente dall'API Qonto (tutti i conti,
+// movimenti completati). Stessa pipeline dell'import file: dedup per hash,
+// nessuna registrazione automatica.
+export async function sincronizzaQonto() {
+  let nuove = 0, totali = 0, conti = 0;
+  try {
+    const org = await qontoOrganizzazione();
+    for (const conto of org.conti) {
+      if (conto.status && conto.status !== "active") continue;
+      conti++;
+      const txs = await qontoTransazioni(conto.iban);
+      totali += txs.length;
+      if (!txs.length) continue;
+      const res = await prisma.transazioneBancaria.createMany({
+        data: txs.map((t) => {
+          const data = new Date(t.settled_at ?? t.emitted_at);
+          const importo = t.side === "credit" ? Math.abs(t.amount) : -Math.abs(t.amount);
+          const descrizione = [t.label, t.reference].filter(Boolean).join(" — ") || "(senza descrizione)";
+          return {
+            data,
+            importo,
+            divisa: t.currency ?? "EUR",
+            descrizione: descrizione.slice(0, 500),
+            controparte: t.label?.slice(0, 200) ?? null,
+            hash: hashMovimento(data, importo, `qonto:${t.transaction_id}`),
+            fonte: `Qonto (${conto.iban.slice(-8)})`,
+          };
+        }),
+        skipDuplicates: true,
+      });
+      nuove += res.count;
+    }
+  } catch (e) {
+    redirect("/transazioni?errore=" + encodeURIComponent((e as Error).message));
+  }
+  revalidate();
+  redirect(`/transazioni?import=ok&nuove=${nuove}&doppioni=${totali - nuove}&scartate=0`);
 }
 
 // La transazione salda una fattura: fattura → pagata con la data del movimento
