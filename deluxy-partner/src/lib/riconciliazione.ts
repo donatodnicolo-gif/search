@@ -29,9 +29,19 @@ export function normalizza(s: string): string {
 }
 
 const PAROLE_GENERICHE = new Set([
+  // forme societarie e parole di causale
   "BONIFICO", "SEPA", "FAVORE", "ORDINE", "SRLS", "SRL", "SNC", "SAS", "SPA", "DITTA",
-  "PAGAMENTO", "SALDO", "FATTURA", "FATT", "RIF", "CRO", "TRN", "DELUXY", "MILANO", "ROMA",
-  "FIRENZE", "ITALIA", "DELLA", "DELLE", "DEGLI",
+  "PAGAMENTO", "SALDO", "FATTURA", "FATT", "RIF", "CRO", "TRN", "DELUXY", "VENDITE",
+  // città e paesi ricorrenti
+  "MILANO", "ROMA", "FIRENZE", "TORINO", "GENOVA", "MONZA", "COMO", "ITALIA", "ITALY",
+  "DELLA", "DELLE", "DEGLI", "DEL",
+  // mesi (compaiono in alcuni nomi partner e in molte causali)
+  "GENNAIO", "FEBBRAIO", "MARZO", "APRILE", "MAGGIO", "GIUGNO", "LUGLIO", "AGOSTO",
+  "SETTEMBRE", "OTTOBRE", "NOVEMBRE", "DICEMBRE",
+  // categorie merceologiche: comuni sia nei nomi partner sia nei negozi da carta
+  "FIORI", "FIORE", "FIORAIO", "FIORISTA", "FIORERIA", "FLOWERS", "FLOWER", "FLEURS",
+  "PASTICCERIA", "BOTTEGA", "MARKET", "SHOP", "STORE", "ATELIER", "CAFFE", "BAR",
+  "DOLCE", "DOLCI", "NUOVO", "NUOVA", "REAL", "GRUPPO", "CASA", "ANGOLO", "OASI",
 ]);
 
 // token significativi del nome partner (incluso il contenuto tra parentesi)
@@ -165,7 +175,14 @@ export function suggerisci(
     if (suoi.length) {
       return { tipo: "discrepanza", partner, motivo: `partner riconosciuto ma importo diverso dagli attesi (${suoi.map((s) => s.importo.toFixed(2)).join(", ")} €)` };
     }
-    return { tipo: "bonifico_partner", partner, mesePagamento: null, motivo: "partner riconosciuto, nessun dovuto aperto: pagamento già registrato o extra" };
+    // Partner riconosciuto ma nessun dovuto aperto: se la causale è quella della
+    // nostra distinta SEPA lo proponiamo come bonifico extra; altrimenti — tipico
+    // dei conti carta, dove il nome coincide con un negozio — resta non riconosciuto
+    // per non suggerire pagamenti inesistenti.
+    if (daNoi) {
+      return { tipo: "bonifico_partner", partner, mesePagamento: null, motivo: "causale della distinta SEPA, nessun dovuto aperto: possibile bonifico extra" };
+    }
+    return { tipo: "sconosciuta", motivo: `nome simile a ${partner.nome} ma nessun dovuto aperto: probabile spesa non collegata` };
   }
   return { tipo: "sconosciuta", motivo: "nessun partner riconosciuto nella causale" };
 }

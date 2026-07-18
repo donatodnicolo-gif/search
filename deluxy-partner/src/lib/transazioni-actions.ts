@@ -153,6 +153,17 @@ export async function ignoraTransazione(txId: string) {
   revalidate();
 }
 
+// Ignora in blocco un elenco di transazioni (es. tutte le non riconosciute:
+// spese carta, fornitori, incassi e-commerce estranei ai partner).
+export async function ignoraTransazioni(ids: string[]) {
+  if (!ids.length) return;
+  await prisma.transazioneBancaria.updateMany({
+    where: { id: { in: ids }, stato: "nuova" },
+    data: { stato: "ignorata" },
+  });
+  revalidate();
+}
+
 export async function ripristinaTransazione(txId: string) {
   await prisma.transazioneBancaria.update({
     where: { id: txId },

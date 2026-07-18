@@ -22,7 +22,7 @@ export type EsitoParse = {
 };
 
 const SIN_DATA = ["data contabile", "data operazione", "data valuta", "data reg", "data mov", "data", "date", "booking date", "started date", "completed date"];
-const SIN_IMPORTO = ["importo", "amount", "movimento", "importo eur", "importo (eur)", "importo euro"];
+const SIN_IMPORTO = ["importo", "payment amount", "amount", "movimento", "importo eur", "importo (eur)", "importo euro", "transaction amount"];
 const SIN_DARE = ["dare", "uscite", "addebiti", "addebito", "debit", "money out", "out"];
 const SIN_AVERE = ["avere", "entrate", "accrediti", "accredito", "credit", "money in", "in"];
 const SIN_DESC = ["descrizione operazione", "descrizione estesa", "descrizione", "causale", "dettagli", "description", "operazione", "note", "reference"];

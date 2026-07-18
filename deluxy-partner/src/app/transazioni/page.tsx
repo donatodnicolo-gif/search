@@ -10,6 +10,7 @@ import {
   registraTransazioneFattura,
   registraTransazionePagamento,
   ignoraTransazione,
+  ignoraTransazioni,
   ripristinaTransazione,
   eliminaTransazioniNonRegistrate,
 } from "@/lib/transazioni-actions";
@@ -148,8 +149,8 @@ export default async function TransazioniPage({
         </div>
         <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
           {qonto
-            ? "La sincronizzazione Qonto scarica i movimenti completati di tutti i conti (senza doppioni)."
-            : "Riconosce automaticamente le colonne più comuni (Data contabile/operazione, Importo o Dare/Avere, Descrizione/Causale). Ricaricare lo stesso estratto non crea doppioni."}{" "}
+            ? "La sincronizzazione Qonto scarica i movimenti completati di tutti i conti (senza doppioni). Per altre banche carica il file: riconosce le colonne più comuni, incluso l'export CSV di Vivid. "
+            : "Riconosce automaticamente le colonne più comuni delle banche italiane ed estere — incluso l'export CSV di Vivid (Completed date, Counterparty name, Reference, Payment amount). Ricaricare lo stesso estratto non crea doppioni. "}
           Nessun movimento viene registrato in automatico: ogni abbinamento va confermato qui sotto.
           {!qonto && " Hai Qonto? Collegalo in Impostazioni per sincronizzare senza file."}
         </p>
@@ -293,7 +294,14 @@ export default async function TransazioniPage({
 
       {sconosciute.length > 0 && (
         <>
-          <h2 className="section-title">Non riconosciute</h2>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <h2 className="section-title">Non riconosciute ({sconosciute.length})</h2>
+            <form action={ignoraTransazioni.bind(null, sconosciute.map((x) => x.tx.id))}>
+              <button className="btn secondary small" type="submit" title="Segna ignorate tutte le transazioni non riconosciute (spese carta, fornitori, incassi e-commerce…)">
+                Ignora tutte le {sconosciute.length}
+              </button>
+            </form>
+          </div>
           <div className="card tight">
             <div className="table-wrap">
               <table>
@@ -301,7 +309,7 @@ export default async function TransazioniPage({
                   <tr><th>Data</th><th>Movimento</th><th className="num">Importo</th><th></th></tr>
                 </thead>
                 <tbody>
-                  {sconosciute.map(({ tx }) => (
+                  {sconosciute.slice(0, 60).map(({ tx }) => (
                     <tr key={tx.id}>
                       {rigaTx(tx)}
                       <td style={{ whiteSpace: "nowrap" }}>
@@ -316,7 +324,8 @@ export default async function TransazioniPage({
             </div>
           </div>
           <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
-            Movimenti estranei ai partner (stipendi, fornitori, commissioni bancarie…): ignorali pure.
+            Movimenti estranei ai partner (spese carta, fornitori, incassi e-commerce, commissioni bancarie…): ignorali pure.
+            {sconosciute.length > 60 && ` Mostrate le prime 60 di ${sconosciute.length}: usa «Ignora tutte» per ripulire in blocco.`}
           </p>
         </>
       )}
