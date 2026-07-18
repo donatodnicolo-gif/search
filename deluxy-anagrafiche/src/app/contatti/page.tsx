@@ -1,16 +1,17 @@
 import type { Prisma } from "@prisma/client";
 import { Sidebar } from "@/components/Sidebar";
+import { TabellaContattiGoogle, type RigaContatto } from "@/components/TabellaContattiGoogle";
 import { prisma } from "@/lib/db";
+import { ETICHETTE_STATO, isStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
 
 const PER_PAGINA = 60;
 
-const ETICHETTA_FONTE: Record<string, string> = {
-  hubspot: "HubSpot",
-  ui: "Registro",
-  platform: "app.deluxy.it",
-};
+// Un'anagrafica è affiliato/reseller se ha l'interesse relativo → nel nome
+// del contatto Google si aggiunge la provincia.
+const affiliatoReseller = (interessi: string[]) =>
+  interessi.includes("affiliazione") || interessi.includes("vendor");
 
 type Ricerca = { q?: string; fonte?: string; pagina?: string };
 
@@ -36,7 +37,14 @@ export default async function Contatti({ searchParams }: { searchParams: Promise
     prisma.contatto.count({ where }),
     prisma.contatto.findMany({
       where,
-      include: { partner: { select: { id: true, nome: true, categoria: true, citta: true } } },
+      include: {
+        partner: {
+          select: {
+            id: true, nome: true, categoria: true, citta: true,
+            stato: true, provincia: true, indirizzo: true, ragioneSociale: true, interessi: true,
+          },
+        },
+      },
       orderBy: [{ nome: "asc" }],
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
@@ -46,6 +54,25 @@ export default async function Contatti({ searchParams }: { searchParams: Promise
     prisma.contatto.count({ where: { partner: { attivo: true }, email: { not: null } } }),
     prisma.contatto.count({ where: { partner: { attivo: true }, fonte: "hubspot" } }),
   ]);
+
+  const righe: RigaContatto[] = contatti.map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    ruolo: c.ruolo,
+    telefono: c.telefono,
+    email: c.email,
+    fonte: c.fonte,
+    partnerId: c.partner.id,
+    partnerNome: c.partner.nome,
+    categoria: c.partner.categoria,
+    citta: c.partner.citta,
+    stato: c.partner.stato,
+    statoLabel: isStato(c.partner.stato) ? ETICHETTE_STATO[c.partner.stato] : c.partner.stato,
+    provincia: c.partner.provincia,
+    indirizzo: c.partner.indirizzo,
+    ragioneSociale: c.partner.ragioneSociale,
+    affiliatoReseller: affiliatoReseller(c.partner.interessi),
+  }));
 
   const pagineTotali = Math.max(1, Math.ceil(totale / PER_PAGINA));
   const linkPagina = (n: number) => {
@@ -95,37 +122,7 @@ export default async function Contatti({ searchParams }: { searchParams: Promise
         {contatti.length === 0 ? (
           <div className="vuoto">Nessun contatto con questi filtri.</div>
         ) : (
-          <div className="tabella-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Ruolo</th>
-                  <th>Telefono</th>
-                  <th>Email</th>
-                  <th>Anagrafica</th>
-                  <th>Fonte</th>
-                </tr>
-              </thead>
-              <tbody>
-                {contatti.map((c) => (
-                  <tr key={c.id}>
-                    <td><div className="cella-nome">{c.nome ?? "—"}</div></td>
-                    <td className="cella-muta">{c.ruolo ?? "—"}</td>
-                    <td className="cella-muta">{c.telefono ?? "—"}</td>
-                    <td className="cella-muta">{c.email ?? "—"}</td>
-                    <td>
-                      <a href={`/partner/${c.partner.id}`}>
-                        <div className="cella-nome">{c.partner.nome}</div>
-                        <div className="cella-sub">{[c.partner.categoria, c.partner.citta].filter(Boolean).join(" · ")}</div>
-                      </a>
-                    </td>
-                    <td className="cella-muta">{ETICHETTA_FONTE[c.fonte ?? "excel"] ?? "Excel"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TabellaContattiGoogle contatti={righe} />
         )}
 
         <div className="paginazione">
