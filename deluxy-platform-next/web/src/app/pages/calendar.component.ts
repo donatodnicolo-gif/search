@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
@@ -36,7 +36,7 @@ const STATUS_COLOR: Record<string, string> = {
   template: `
     <div class="page-header">
       <div>
-        <h1>{{ 'calendar.title' | translate }}</h1>
+        <h1>{{ 'calendar.title' | translate }}@if (partnerName()) { <span class="pname"> · {{ partnerName() }}</span> }</h1>
         <p class="page-caption">{{ 'calendar.caption' | translate }}</p>
       </div>
       <div class="nav">
@@ -102,6 +102,7 @@ const STATUS_COLOR: Record<string, string> = {
     `
       .page-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
+      .pname { color: var(--text-tertiary); font-weight: 500; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
       .nav { display: flex; align-items: center; gap: 8px; }
       .nav .btn { padding: 6px 12px; }
@@ -146,10 +147,15 @@ export class CalendarComponent {
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly weekdays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   /** Giorni della settimana in cui il partner è chiuso (dayOfWeek 0=dom…6=sab). */
   private readonly closedWeekdays = signal<Set<number>>(new Set());
+  /** partnerId dalla query (admin/operation aprono il calendario di un partner). */
+  private readonly routePartnerId = this.route.snapshot.queryParamMap.get('partnerId');
+  /** Nome del partner in visualizzazione (se calendario di un singolo partner). */
+  readonly partnerName = signal<string | null>(null);
   /** Anno/mese visualizzati (mese 0-based). */
   readonly year = signal(new Date().getFullYear());
   readonly month = signal(new Date().getMonth());
@@ -163,22 +169,31 @@ export class CalendarComponent {
 
   constructor() {
     this.loadMonth();
-    this.loadClosedDays();
+    this.loadPartnerInfo();
   }
 
-  /** Se l'utente è un partner, carica i suoi orari e ricava i giorni di chiusura. */
-  private loadClosedDays(): void {
-    const user = this.auth.user();
-    if (user?.role !== 'PARTNER' || !user.partnerId) return;
-    this.http.get<{ openingHours?: { dayOfWeek: number; closed?: boolean }[] }>(
-      `${environment.apiUrl}/partners/${user.partnerId}`,
+  /** Partner di cui mostrare il calendario: dalla query (admin/operation) oppure
+   *  il partner stesso; null = tutti (admin/operation senza filtro). */
+  private targetPartnerId(): string | null {
+    if (this.routePartnerId) return this.routePartnerId;
+    const u = this.auth.user();
+    return u?.role === 'PARTNER' ? (u.partnerId ?? null) : null;
+  }
+
+  /** Carica nome + giorni di chiusura del partner in visualizzazione (se singolo). */
+  private loadPartnerInfo(): void {
+    const pid = this.targetPartnerId();
+    if (!pid) return;
+    this.http.get<{ insegna?: string; openingHours?: { dayOfWeek: number; closed?: boolean }[] }>(
+      `${environment.apiUrl}/partners/${pid}`,
     ).subscribe({
       next: (p) => {
+        this.partnerName.set(p.insegna ?? null);
         const closed = new Set<number>();
         for (const h of p.openingHours ?? []) if (h.closed) closed.add(h.dayOfWeek);
         this.closedWeekdays.set(closed);
       },
-      error: () => { /* senza orari: nessuna evidenziazione */ },
+      error: () => { /* senza dati: nessuna evidenziazione */ },
     });
   }
 
@@ -246,7 +261,9 @@ export class CalendarComponent {
     const cells = this.cells();
     const from = cells[0].ymd;
     const to = cells[cells.length - 1].ymd;
-    const params = new HttpParams().set('from', from).set('to', to);
+    let params = new HttpParams().set('from', from).set('to', to);
+    const pid = this.targetPartnerId();
+    if (pid) params = params.set('partnerId', pid);
     this.http.get<{ days: CalDay[] }>(`${environment.apiUrl}/deliveries/calendar`, { params }).subscribe({
       next: (res) => {
         const map: Record<string, number> = {};
@@ -261,7 +278,9 @@ export class CalendarComponent {
     if (c.count === 0) { this.selected.set(c.ymd); this.dayItems.set([]); return; }
     this.selected.set(c.ymd);
     this.loadingDay.set(true);
-    const params = new HttpParams().set('date', c.ymd).set('pageSize', '100');
+    let params = new HttpParams().set('date', c.ymd).set('pageSize', '100');
+    const pid = this.targetPartnerId();
+    if (pid) params = params.set('partnerId', pid);
     this.http.get<{ items: DeliveryLite[] }>(`${environment.apiUrl}/deliveries`, { params }).subscribe({
       next: (res) => { this.dayItems.set(res.items ?? []); this.loadingDay.set(false); },
       error: () => { this.dayItems.set([]); this.loadingDay.set(false); },

@@ -57,6 +57,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           <span class="pill" [class.on]="p.active">
             {{ (p.active ? 'common.active' : 'common.inactive') | translate }}
           </span>
+          @if (canSeeCalendar()) {
+            <a class="btn btn-secondary edit" [routerLink]="['/calendar']" [queryParams]="{ partnerId: p.id }">{{ 'nav.calendario' | translate }}</a>
+          }
           @if (canEdit()) {
             <a class="btn btn-secondary edit" [routerLink]="['/partners', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
           }
@@ -214,6 +217,12 @@ export class PartnerDetailComponent {
   canEdit(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER' || r === 'PARTNER';
+  }
+
+  /** Calendario del partner: admin/operation (vedono le consegne di ogni partner). */
+  canSeeCalendar(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION';
   }
 
   /** Orari settimanali ordinati lun→dom, solo i giorni impostati (chiusi o con orario). */

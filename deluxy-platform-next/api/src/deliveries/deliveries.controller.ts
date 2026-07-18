@@ -41,12 +41,14 @@ export class DeliveriesController {
   @ApiOperation({ summary: 'Conteggio consegne per giorno (calendario), filtrato per ruolo' })
   @ApiQuery({ name: 'from', required: false })
   @ApiQuery({ name: 'to', required: false })
+  @ApiQuery({ name: 'partnerId', required: false })
   calendar(
     @CurrentUser() user: JwtUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('partnerId') partnerId?: string,
   ) {
-    return this.deliveriesService.calendar(user, from, to);
+    return this.deliveriesService.calendar(user, from, to, partnerId);
   }
 
   @Get('map')

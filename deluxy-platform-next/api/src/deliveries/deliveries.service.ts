@@ -130,8 +130,10 @@ export class DeliveriesService {
    * filtrato per ruolo (il partner vede solo le proprie). Serve alla vista
    * mensile: ogni giorno con ordini viene marcato.
    */
-  async calendar(user: JwtUser, from?: string, to?: string) {
+  async calendar(user: JwtUser, from?: string, to?: string, partnerId?: string) {
     const scope: any = { ...this.roleFilter(user) };
+    // Admin/Operation possono filtrare per partner (il partner resta ai suoi).
+    if (partnerId && user.role !== Role.PARTNER) scope.partnerId = partnerId;
     if (from || to) {
       scope.date = {};
       if (from) scope.date.gte = new Date(from);
