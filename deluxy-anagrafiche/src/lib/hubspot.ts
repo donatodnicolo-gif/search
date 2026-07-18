@@ -9,13 +9,15 @@ export type AziendaHubspot = {
   citta: string | null;
   telefono: string | null;
   dominio: string | null;
+  // notes_last_contacted: data dell'ultimo contatto tracciato dal CRM (ISO)
+  ultimoContatto: string | null;
 };
 
 export function hubspotConfigurato(): boolean {
   return Boolean(process.env.HUBSPOT_ACCESS_TOKEN);
 }
 
-const PROPRIETA = ["name", "city", "phone", "domain"];
+const PROPRIETA = ["name", "city", "phone", "domain", "notes_last_contacted"];
 const PER_PAGINA = 100;
 const MAX_PAGINE = 20; // fino a 2000 companies per confronto
 
@@ -53,6 +55,7 @@ export async function scaricaAziendeHubspot(): Promise<AziendaHubspot[]> {
         citta: r.properties.city ?? null,
         telefono: r.properties.phone ?? null,
         dominio: r.properties.domain ?? null,
+        ultimoContatto: r.properties.notes_last_contacted ?? null,
       });
     }
     after = json.paging?.next?.after;
@@ -87,6 +90,7 @@ export async function cercaAziendeHubspot(query: string): Promise<AziendaHubspot
       citta: r.properties.city ?? null,
       telefono: r.properties.phone ?? null,
       dominio: r.properties.domain ?? null,
+      ultimoContatto: r.properties.notes_last_contacted ?? null,
     }));
 }
 

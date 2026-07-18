@@ -65,7 +65,13 @@ export default async function SyncHubspot({ searchParams }: { searchParams: Prom
   );
 
   // Ricerca condivisa e ordinamenti indipendenti per le due tabelle
-  const COLONNE_HS = { nome: "Nome", citta: "Città", telefono: "Telefono", dominio: "Dominio" } as const;
+  const COLONNE_HS = {
+    nome: "Nome",
+    citta: "Città",
+    telefono: "Telefono",
+    dominio: "Dominio",
+    ultimoContatto: "Ultimo contatto",
+  } as const;
   const COLONNE_REG = { nome: "Nome", categoria: "Categoria", citta: "Città", stato: "Stato" } as const;
   type CampoHs = keyof typeof COLONNE_HS;
   type CampoReg = keyof typeof COLONNE_REG;
@@ -208,6 +214,15 @@ export default async function SyncHubspot({ searchParams }: { searchParams: Prom
                       <td className="cella-muta">{a.citta ?? "—"}</td>
                       <td className="cella-muta">{a.telefono ?? "—"}</td>
                       <td className="cella-muta">{a.dominio ?? "—"}</td>
+                      <td className="cella-muta">
+                        {a.ultimoContatto
+                          ? new Date(a.ultimoContatto).toLocaleDateString("it-IT", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                            })
+                          : "—"}
+                      </td>
                       <td>
                         <span style={{ display: "inline-flex", gap: 2 }}>
                           <form action={importaDaHubspot.bind(null, a)}>
@@ -226,7 +241,7 @@ export default async function SyncHubspot({ searchParams }: { searchParams: Prom
                   ))}
                   {soloHubspot.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="cella-muta">
+                      <td colSpan={6} className="cella-muta">
                         {filtri.q?.trim()
                           ? `Nessuna company trovata per «${filtri.q.trim()}».`
                           : "Niente: tutte le companies di HubSpot sono nel registro."}

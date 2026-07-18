@@ -132,6 +132,7 @@ export async function importaDaHubspot(a: {
   citta: string | null;
   telefono: string | null;
   dominio: string | null;
+  ultimoContatto?: string | null;
 }) {
   const esistente = await prisma.partner.findFirst({
     where: {
@@ -157,6 +158,10 @@ export async function importaDaHubspot(a: {
         citta: a.citta?.toUpperCase() ?? null,
         telefono: a.telefono,
         note: a.dominio ? `Sito: ${a.dominio}` : null,
+        ultimaVisita:
+          a.ultimoContatto && !isNaN(new Date(a.ultimoContatto).getTime())
+            ? new Date(a.ultimoContatto)
+            : null,
         fonte: "hubspot",
         hubspotId: a.id,
       },
