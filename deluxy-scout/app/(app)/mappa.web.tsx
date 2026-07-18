@@ -21,6 +21,7 @@ import { AddressSearch } from '@/components/AddressSearch';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { VisitaModal } from '@/components/VisitaModal';
+import { RegistroExpandable } from '@/components/RegistroExpandable';
 import { Loader } from '../_layout';
 
 // Colore per lo stato attività (allineato ai token del design system).
@@ -332,6 +333,7 @@ export default function MappaWeb() {
               style={[styles.card, isMobile && styles.cardMobile]}
               onPress={() => router.push(`/(app)/attivita/${p.id}`)}
             >
+              <View style={[styles.cardMain, isMobile && styles.cardMainMobile]}>
               {/* Riga alta: icona + testo. Su mobile occupa tutta la larghezza,
                   così il nome del negozio si legge per esteso. */}
               <View style={styles.cardTop}>
@@ -456,6 +458,8 @@ export default function MappaWeb() {
                   </>
                 )}
               </View>
+              </View>
+              <RegistroExpandable nome={p.nome} citta={p.zona} />
             </Pressable>
           ))
         )}
@@ -571,9 +575,9 @@ const styles = StyleSheet.create({
   vuoto: { color: colors.grigio, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.xl },
 
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 8,
     backgroundColor: colors.bianco,
     borderRadius: 16,
     paddingVertical: 12,
@@ -585,7 +589,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   // Su mobile la card diventa a colonna: testo sopra (nome per esteso), icone sotto.
-  cardMobile: { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
+  cardMobile: { gap: 6 },
+  cardMain: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardMainMobile: { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
   // Riga alta (icona + testo): su desktop occupa lo spazio prima delle icone.
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
   icona: {
