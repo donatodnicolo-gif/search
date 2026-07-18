@@ -69,6 +69,23 @@ duplicati per numero. Implementazione di riferimento **funzionante**:
    e scaricarlo come Blob (`text/vcard`) — sul telefono si apre direttamente nella rubrica.
    Nel .vcf il controllo duplicati non è possibile: ci pensa la rubrica all'importazione.
 
+## Leggere la rubrica (stesso token, stesso Client ID)
+
+Lo scope `auth/contacts` copre anche la lettura (il dedupe del punto 3 È una lettura).
+Per app di sola lettura chiedere lo scope ridotto `auth/contacts.readonly` (consenso
+più leggero). Endpoint utili:
+
+- **Elenco completo** (paginato, max 1000/pagina):
+  `GET /v1/people/me/connections?personFields=names,phoneNumbers,emailAddresses,organizations&pageSize=1000&pageToken=…`
+  — `sortOrder=LAST_MODIFIED_DESCENDING` per i più recenti; `requestSyncToken=true` +
+  `syncToken` per la sincronizzazione incrementale (solo i contatti cambiati).
+- **Ricerca** per nome/numero/email: `people:searchContacts?query=…&readMask=…`
+  (sempre col warm-up a query vuota).
+- **Dettaglio**: `GET /v1/{resourceName}?personFields=…` (`resourceName` = `people/c…`
+  dalle risposte di list/search).
+
+Si legge sempre e solo la rubrica dell'account che ha dato il consenso in quel browser.
+
 ## Errori tipici
 
 - **redirect/origin mismatch**: l'origine JavaScript del client DEVE essere esattamente
