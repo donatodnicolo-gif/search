@@ -1,21 +1,21 @@
-// Segnala al commerciale — crea un prospect nel registro anagrafiche.
-// La chiave di SCRITTURA del registro sta nella config su KV (campo anagWriteKey,
-// impostata da ⚙️ Admin) e NON arriva mai al browser, come i token Shopify.
+// Segnala al commerciale — propone il negozio al registro anagrafiche seguendo le
+// regole d'ingaggio del registro (deluxy-anagrafiche/README.md): un solo POST
+// upsert-merge con sistema+idEsterno+asOf; l'anti-doppioni, l'append delle note e
+// il merge per campo li fa il registro. Niente stato: le nuove nascono "prospect".
+// La chiave di SCRITTURA sta nella config su KV (campo anagWriteKey, impostata da
+// ⚙️ Impostazioni) e NON arriva mai al browser, come i token Shopify.
 //
-// POST /api/segnala   header x-app-password
+// POST /api/segnala   header x-app-password + x-app-user
 //   body { nome, categoria, citta, provincia, indirizzo, telefono, email, sito, note,
-//          quando (ISO, dal browser), ordine: { numero, valore, brand } }
-//   -> { ok, creato:true, partner }                    prospect creato (note con l'ordine)
-//   -> { ok, esistente:true, aggiornato:true, partner } già censito: ultimaVisita
-//        («ultimo contatto») aggiornata e nota dell'ordine accodata
+//          idEsterno (place_id Google), quando (ISO, dal browser),
+//          ordine: { numero, valore, brand } }
+//   -> { ok, creato:true, partner }                      nuovo prospect nel registro
+//   -> { ok, esistente:true, aggiornato:true, partner }  già censito: merge (note in
+//        append, ultimaVisita/campi più freschi aggiornati dal registro)
 
 import { authUser, readConfig } from './_auth.js';
 
 const ANAG_URL_DEFAULT = 'https://deluxy-anagrafiche.vercel.app';
-
-function norm(s) {
-  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     const cfg = await readConfig();
     const base = (cfg.anagUrl || ANAG_URL_DEFAULT).replace(/\/$/, '');
     const writeKey = (cfg.anagWriteKey || '').trim();
-    if (!writeKey) return res.status(400).json({ error: 'Manca la chiave di scrittura del registro: impostala in ⚙️ Admin.' });
+    if (!writeKey) return res.status(400).json({ error: 'Manca la chiave di scrittura del registro: impostala in ⚙️ Impostazioni.' });
 
     // riga di nota sull'ordine per cui il negozio è stato contattato
     const ord = body.ordine || {};
@@ -45,45 +45,26 @@ export default async function handler(req, res) {
     const quando = (typeof body.quando === 'string' && body.quando) ? body.quando : '';
     const dataStr = quando.slice(0, 10);
 
-    // niente duplicati: cerca per nome e confronta nome normalizzato + città
-    const qUrl = base + '/api/v1/partners?perPage=50&q=' + encodeURIComponent(nome);
-    const qr = await fetch(qUrl, { headers: { 'x-api-key': writeKey } });
-    if (qr.ok) {
-      const esistenti = (await qr.json()).dati || [];
-      const dup = esistenti.find(p => norm(p.nome) === norm(nome)
-        && (!body.citta || !p.citta || norm(p.citta) === norm(body.citta)));
-      if (dup) {
-        // già censito: aggiorna «ultimo contatto» (ultimaVisita) e accoda la nota dell'ordine
-        const nuovaNota = ((dup.note || '') + '\n'
-          + (dataStr ? '[' + dataStr + '] ' : '')
-          + (ordTxt || 'Ricontattato dall\'app search/supplier.')
-          + ' (' + auth.utente + ')').trim();
-        const patch = { note: nuovaNota };
-        if (quando) patch.ultimaVisita = quando;
-        const pr = await fetch(base + '/api/v1/partners/' + dup.id, {
-          method: 'PATCH',
-          headers: { 'x-api-key': writeKey, 'Content-Type': 'application/json' },
-          body: JSON.stringify(patch),
-        });
-        const pj = await pr.json().catch(() => null);
-        return res.status(200).json({ ok: true, esistente: true, aggiornato: pr.ok, partner: (pr.ok && pj) || dup });
-      }
-    }
-
     const record = {
       nome,
-      categoria: String(body.categoria || '').toUpperCase() || null,
-      stato: 'prospect',
-      citta: body.citta ? String(body.citta).toUpperCase() : null,
-      provincia: body.provincia ? String(body.provincia).toUpperCase() : null,
-      indirizzo: body.indirizzo || null,
-      telefono: body.telefono || null,
-      email: body.email || null,
-      note: ['Segnalato al commerciale dall\'app search/supplier (' + auth.utente + ').', ordTxt, body.sito ? ('Sito: ' + body.sito) : '', body.note || '']
-        .filter(Boolean).join(' '),
-      fonte: 'manuale',
+      categoria: String(body.categoria || '').toUpperCase() || undefined,
+      citta: body.citta ? String(body.citta).toUpperCase() : undefined,
+      provincia: body.provincia ? String(body.provincia).toUpperCase() : undefined,
+      indirizzo: body.indirizzo || undefined,
+      telefono: body.telefono || undefined,
+      email: body.email || undefined,
+      // il registro accoda le note: una riga per ogni segnalazione, con data e utenza
+      note: [
+        (dataStr ? '[' + dataStr + '] ' : '') + 'Segnalato dall\'app search/supplier (' + auth.utente + ').',
+        ordTxt, body.sito ? ('Sito: ' + body.sito) : '', body.note || '',
+      ].filter(Boolean).join(' '),
+      // identità stabile per il registro: ci riconosce alla prossima segnalazione
+      sistema: 'deluxy-suppliers',
+      idEsterno: body.idEsterno ? String(body.idEsterno) : undefined,
+      asOf: quando || undefined,
+      ultimaVisita: quando || undefined,
     };
-    if (quando) record.ultimaVisita = quando;
+
     const cr = await fetch(base + '/api/v1/partners', {
       method: 'POST',
       headers: { 'x-api-key': writeKey, 'Content-Type': 'application/json' },
@@ -91,6 +72,10 @@ export default async function handler(req, res) {
     });
     const cj = await cr.json().catch(() => ({}));
     if (!cr.ok) return res.status(502).json({ error: 'Registro: ' + (cj.errore || ('HTTP ' + cr.status)) });
+
+    // 201/"creato" = nuovo prospect; 200/"merged" = già censito, il registro ha fatto il merge
+    const merged = cj.esito === 'merged' || (cj.esito !== 'creato' && cr.status === 200);
+    if (merged) return res.status(200).json({ ok: true, esistente: true, aggiornato: true, partner: cj });
     return res.status(200).json({ ok: true, creato: true, partner: cj });
   } catch (err) {
     return res.status(500).json({ error: 'Errore server: ' + (err.message || String(err)) });

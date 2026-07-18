@@ -643,7 +643,8 @@ function applyConfig(){
   $('#cfg_google').value = CONFIG.googleKey || '';
   $('#cfg_proxy').value  = CONFIG.proxy || '';
   $('#cfg_anag_url').value = CONFIG.anagUrl || '';
-  $('#cfg_anag_key').value = CONFIG.anagKey || '';
+  $('#cfg_anag_key').value = '';
+  $('#cfg_anag_key').placeholder = CONFIG.hasAnagKey ? '•••• salvata (vuoto = invariata)' : 'chiave di sola lettura';
   $('#cfg_goauth').value = CONFIG.googleOauthClientId || '';
   $('#cfg_anag_wkey').placeholder = CONFIG.hasAnagWriteKey ? '•••• salvata (vuoto = invariata)' : 'lascia vuoto = invariata';
   KNOWN_BRANDS.forEach(b=>{
@@ -746,7 +747,8 @@ async function saveConfig(){
     if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
     CONFIG = j.config; applyConfig();
     KNOWN_BRANDS.forEach(b=>{ $('#cfg_token_'+cssId(b)).value=''; });  // i token ora sono sul server
-    $('#cfg_anag_wkey').value='';  // anche la chiave di scrittura resta solo sul server
+    $('#cfg_anag_wkey').value='';  // le chiavi del registro restano solo sul server
+    $('#cfg_anag_key').value='';
     $('#cfg_status').textContent='✅ Impostazioni salvate sul server.';
   }catch(e){ $('#cfg_status').className='status err'; $('#cfg_status').textContent='❌ '+e.message; }
   finally{ $('#cfg_save').disabled=false; }
@@ -865,26 +867,19 @@ const ANAG_STATO = { attivo:'Partner attivo', prospect:'Prospect', in_contatto:'
 const isPartnerAttivo = p => String(p.stato||'').toLowerCase() === 'attivo';
 const statoLabel = p => ANAG_STATO[String(p.stato||'').toLowerCase()] || p.stato || 'Prospect';
 async function anagQuery(params){
-  const base = ((CONFIG.anagUrl||'').trim() || ANAG_URL_DEFAULT).replace(/\/$/,'');
+  // passa dal nostro proxy /api/anagrafiche: la chiave del registro resta sul server
   const qs = new URLSearchParams({ perPage:'200' });
   for(const [k,v] of Object.entries(params)) if(v) qs.set(k, String(v).toUpperCase());   // il registro salva tutto in maiuscolo
-  const r = await fetch(base + '/api/v1/partners?' + qs, {
-    headers:{ 'x-api-key': (CONFIG.anagKey||'').trim() },
-    signal: (AbortSignal && AbortSignal.timeout) ? AbortSignal.timeout(5000) : undefined,
-    cache: 'no-store'
-  });
-  if(!r.ok){
-    let msg = 'HTTP '+r.status;
-    try{ msg = (await r.json()).errore || msg; }catch(e){}
-    throw new Error(msg);
-  }
-  return (await r.json()).dati || [];
+  const r = await apiFetch('/api/anagrafiche?' + qs);
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error || ('HTTP '+r.status));
+  return j.dati || [];
 }
 // cerca nel registro SEMPRE per provincia: provincia= con sigla (FI), nome (FIRENZE)
 // e nome completo. Unico ripiego: se non esce nulla (schede con provincia vuota),
 // si riprova con citta=capoluogo, così i registrati sul capoluogo escono comunque.
 async function anagLookup(geo, categorie){
-  if(!(CONFIG.anagKey||'').trim()) return { skipped:true, list:[] };
+  if(!CONFIG.hasAnagKey && !CONFIG.hasAnagWriteKey) return { skipped:true, list:[] };
   const byId = new Map();
   const add = list => list.forEach(p => byId.set(p.id, p));
   // "Città Metropolitana di Firenze" / "Provincia di Como" → "Firenze" / "Como"
@@ -1622,8 +1617,9 @@ async function reportShop(btn){
   fillContactsFromCard(btn, data);
   btn.disabled = true; btn.textContent = '⏳ Segnalo al commerciale…';
   try{
-    // ordine per cui si sta contattando il negozio → finisce nelle note del registro
-    const payload = Object.assign({ quando: new Date().toISOString() }, data);
+    // ordine per cui si sta contattando il negozio → finisce nelle note del registro;
+    // idEsterno (place_id Google) = identità stabile con cui il registro ci riconosce
+    const payload = Object.assign({ quando: new Date().toISOString(), idEsterno: btn.dataset.pid }, data);
     if(orderLoaded){
       const numero = ($('#ordTag').textContent.match(/#?(\d+)/)||[])[1] || '';
       const valore = $('#ord_paid').value.trim();

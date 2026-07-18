@@ -37,9 +37,11 @@ solo dove siamo e come si lavora.
    città capoluogo), partner 🤝/prospect 📋 in cima ai risultati, match per nome.
 5. **💾 Salva in rubrica**: People API con dedupe per numero (ultime 9 cifre), nome contatto
    `FORNITORE [NOME] [FIORAIO|PASTICCERE] PROV. [PR]`; ripiego .vcf senza OAuth.
-6. **📣 Segnala al commerciale**: `/api/segnala` crea il prospect nel registro (nota:
-   `Ordine #… valore € …` + utenza) o, se già censito, aggiorna `ultimaVisita` e accoda la nota.
-   Chiave di scrittura del registro solo in config KV (mai al browser).
+6. **📣 Segnala al commerciale**: `/api/segnala` fa un solo POST upsert-merge al registro
+   secondo le sue regole d'ingaggio (`sistema:'deluxy-suppliers'` + `idEsterno`=place_id,
+   `asOf`, niente `stato`): `esito creato` = nuovo prospect, `merged` = note accodate e
+   ultimo contatto aggiornato dal registro. Anche le LETTURE passano dal proxy
+   `/api/anagrafiche`: nessuna chiave del registro arriva più al browser.
 7. **Storico richieste** (`/api/storico`, KV `storico:v1`): richieste WhatsApp/email,
    rubrica, segnalazioni — con utenza, negozio, esito, ordine.
 8. **Deep link**: `?brand=…&ordine=…` oppure `?indirizzo=…&categoria=fiorai|pasticcerie`

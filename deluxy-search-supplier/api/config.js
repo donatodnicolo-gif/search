@@ -37,7 +37,7 @@ function sanitize(c) {
     googleKey: c.googleKey || '',
     proxy: c.proxy || '',
     anagUrl: c.anagUrl || '',
-    anagKey: c.anagKey || '',
+    hasAnagKey: !!c.anagKey,
     hasAnagWriteKey: !!c.anagWriteKey,
     googleOauthClientId: c.googleOauthClientId || '',
     utenti: (c.utenti || []).map(u => ({ nome: u.nome })),
@@ -96,7 +96,8 @@ export default async function handler(req, res) {
         googleKey: body.googleKey !== undefined ? String(body.googleKey).trim() : (cur.googleKey || ''),
         proxy: body.proxy !== undefined ? String(body.proxy).trim() : (cur.proxy || ''),
         anagUrl: body.anagUrl !== undefined ? String(body.anagUrl).trim() : (cur.anagUrl || ''),
-        anagKey: body.anagKey !== undefined ? String(body.anagKey).trim() : (cur.anagKey || ''),
+        // segreta: vuota = mantiene quella già salvata (le chiavi non tornano al browser)
+        anagKey: (body.anagKey && String(body.anagKey).trim()) ? String(body.anagKey).trim() : (cur.anagKey || ''),
         // segreta: vuota = mantiene quella già salvata (come i token Shopify)
         anagWriteKey: (body.anagWriteKey && String(body.anagWriteKey).trim()) ? String(body.anagWriteKey).trim() : (cur.anagWriteKey || ''),
         googleOauthClientId: body.googleOauthClientId !== undefined ? String(body.googleOauthClientId).trim() : (cur.googleOauthClientId || ''),
