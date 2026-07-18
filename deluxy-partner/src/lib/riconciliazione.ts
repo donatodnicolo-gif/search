@@ -61,9 +61,23 @@ export function matchPartner(testo: string, partners: Partner[]): Partner | null
   return migliore;
 }
 
-// numeri fattura citati nel testo (es. "181/2026", "fatt. 68-69/2026")
+// numeri fattura citati nel testo (es. "181/2026", "fatt. 68-69/2026").
+// Il lookbehind esclude le DATE: in "del 16/07/2026" il pezzo "07/2026" non è
+// un numero di fattura (è preceduto da cifra+separatore).
 function numeriFattura(testo: string): string[] {
-  return [...testo.matchAll(/(\d{1,4})\s*\/\s*(20\d{2})/g)].map((m) => `${+m[1]}/${m[2]}`);
+  // (?<!\d) impedisce di partire a metà numero ("7" dentro "07").
+  // Il mese delle date va escluso ("07/2026" dentro "16/07/2026"): se il numero
+  // è preceduto da cifra+separatore ED è un possibile mese (≤12) lo scartiamo,
+  // così "70/2026" in "fatt. 68-69-70/2026" resta valido.
+  const out: string[] = [];
+  for (const m of testo.matchAll(/(?<!\d)(\d{1,4})\s*\/\s*(20\d{2})/g)) {
+    const idx = m.index ?? 0;
+    const prima = testo.slice(Math.max(0, idx - 2), idx);
+    const num = +m[1];
+    if (/\d[\/\-.]$/.test(prima) && num <= 12) continue; // mese di una data
+    out.push(`${num}/${m[2]}`);
+  }
+  return out;
 }
 
 function normalizzaNumero(numero: string | null): string[] {

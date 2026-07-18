@@ -71,7 +71,7 @@ export type QontoTransazione = {
 };
 
 // Movimenti completati di un conto (IBAN), paginati, dal più recente
-export async function qontoTransazioni(iban: string, maxPagine = 10): Promise<QontoTransazione[]> {
+export async function qontoTransazioni(iban: string, maxPagine = 30): Promise<QontoTransazione[]> {
   const tutte: QontoTransazione[] = [];
   let pagina = 1;
   for (; pagina <= maxPagine; pagina++) {
