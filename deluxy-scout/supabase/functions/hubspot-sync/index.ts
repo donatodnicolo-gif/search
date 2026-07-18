@@ -56,6 +56,9 @@ Deno.serve(async (req) => {
     if (body.action === 'sync_deal') {
       return json(await syncDeal(admin, hs, body.deal_id));
     }
+    if (body.action === 'refresh_deal_values') {
+      return json(await refreshDealValues(admin, hs));
+    }
     return json({ error: `Azione sconosciuta: ${body.action}` }, 400);
   } catch (e) {
     if (e instanceof RateLimit) {
@@ -189,6 +192,35 @@ async function dealsForPlace(admin: any, hs: HubSpot, placeId: string) {
   }));
 }
 
+// ── Azione: allinea gli importi (e fase) dei deal locali con HubSpot ───────────
+// Le trattative nate da una visita vengono create su HubSpot senza `amount`;
+// se l'importo viene poi impostato su HubSpot, qui lo si riporta su Supabase così
+// la sezione Trattative mostra il valore anche per i deal che vengono da HubSpot.
+async function refreshDealValues(admin: any, hs: HubSpot) {
+  const { data: deals } = await admin
+    .from('deals')
+    .select('id, hubspot_deal_id')
+    .not('hubspot_deal_id', 'is', null);
+  const ids: string[] = (deals ?? []).map((d: any) => d.hubspot_deal_id);
+  if (!ids.length) return { aggiornati: 0 };
+
+  const byHsId = await hs.readDeals(ids); // hubspot_id → { amount, dealstage, ... }
+  let aggiornati = 0;
+  for (const d of deals ?? []) {
+    const p = byHsId.get(d.hubspot_deal_id);
+    if (!p) continue;
+    const patch: Record<string, unknown> = {};
+    if (p.amount != null && isFinite(Number(p.amount))) patch.valore_atteso = Number(p.amount);
+    if (p.dealstage) patch.fase = p.dealstage;
+    if (p.deluxy_linea) patch.linea = p.deluxy_linea;
+    if (p.next_action) patch.next_action = p.next_action;
+    if (Object.keys(patch).length === 0) continue;
+    await admin.from('deals').update(patch).eq('id', d.id);
+    aggiornati++;
+  }
+  return { aggiornati };
+}
+
 // ── Wrapper API HubSpot v3 ────────────────────────────────────────────────────
 class HubSpot {
   constructor(private token: string) {}
@@ -300,6 +332,24 @@ class HubSpot {
       ).catch(() => {});
     }
     return dealId;
+  }
+
+  /** Legge in batch le proprietà dei deal per id HubSpot → Map(id → properties). */
+  async readDeals(ids: string[]): Promise<Map<string, any>> {
+    const props = ['amount', 'dealstage', 'deluxy_linea', 'next_action'];
+    const out = new Map<string, any>();
+    // Batch read a blocchi di 100 (limite HubSpot).
+    for (let i = 0; i < ids.length; i += 100) {
+      const chunk = ids.slice(i, i + 100);
+      const res = await this.req('/crm/v3/objects/deals/batch/read', {
+        method: 'POST',
+        body: JSON.stringify({ properties: props, inputs: chunk.map((id) => ({ id })) }),
+      });
+      for (const r of res?.results ?? []) {
+        out.set(r.id, r.properties ?? {});
+      }
+    }
+    return out;
   }
 
   async dealsByCompany(companyId: string): Promise<any[]> {

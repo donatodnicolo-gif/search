@@ -23,7 +23,7 @@ import {
   type PlaceLite,
   type TrattativaConLuogo,
 } from '@/lib/db';
-import { syncTrattativa } from '@/lib/hubspot';
+import { aggiornaValoriTrattative, syncTrattativa } from '@/lib/hubspot';
 import { env } from '@/lib/env';
 import { LINEE_ATTIVE, type Contact, type DealStage } from '@/types';
 
@@ -57,10 +57,23 @@ export default function Trattative() {
     }
   }, []);
 
+  // Best-effort: allinea gli importi da HubSpot (i deal nati da una visita non
+  // hanno `amount`; se impostato su HubSpot lo riportiamo qui). Se aggiorna
+  // qualcosa, ricarica la lista. Non blocca né segnala errori all'utente.
+  const allineaDaHubspot = useCallback(async () => {
+    if (!env.hubspotSyncUrl()) return;
+    try {
+      const { aggiornati } = await aggiornaValoriTrattative();
+      if (aggiornati > 0) setDeals(await fetchTutteTrattative());
+    } catch {
+      /* la lista locale resta valida; si riprova al prossimo accesso */
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      carica();
-    }, [carica]),
+      carica().then(allineaDaHubspot);
+    }, [carica, allineaDaHubspot]),
   );
 
   const sezioni = useMemo<Sezione[]>(() => {

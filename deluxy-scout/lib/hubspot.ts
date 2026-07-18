@@ -84,6 +84,15 @@ export function syncTrattativa(dealId: string): Promise<SyncDealResult> {
   return callSync<SyncDealResult>('sync_deal', { deal_id: dealId });
 }
 
+/**
+ * Allinea importi/fase dei deal locali con HubSpot (le trattative nate da una
+ * visita non hanno `amount`: se impostato su HubSpot, lo riporta su Supabase).
+ * Ritorna quanti deal sono stati aggiornati.
+ */
+export function aggiornaValoriTrattative(): Promise<{ aggiornati: number }> {
+  return callSync<{ aggiornati: number }>('refresh_deal_values', {});
+}
+
 /** Utile per un eventuale re-sync manuale a partire dai dati locali. */
 export function syncVisitaPayload(visit: Visit): Promise<SyncVisitResult> {
   return callSync<SyncVisitResult>('sync_visit', { visit_id: visit.id });
