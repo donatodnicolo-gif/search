@@ -10,7 +10,9 @@
     "start": "next start -p 3060",
     "db:push": "prisma db push",
     "chiave": "node scripts/crea-chiave.mjs",
-    "import:excel": "node scripts/import-excel.mjs"
+    "import:excel": "node scripts/import-excel.mjs",
+    "import:hubspot-contatti": "node scripts/importa-hubspot-contatti.mjs",
+    "export:vcard": "node scripts/esporta-vcard-google.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",

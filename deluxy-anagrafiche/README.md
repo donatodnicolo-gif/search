@@ -114,8 +114,11 @@ app.deluxy.it) e `hubspotId` (company del CRM) — entrambi chiavi di riconcilia
 uniche, `fonte` (`excel` | `platform` | `manuale` | `ui` | `hubspot`), `attivo`
 (soft delete).
 
-`Contatto`: persone di riferimento (ruolo, nome, telefono, email), estratte
-automaticamente dal blocco contatti in testo libero dell'Excel o inviate via API.
+`Contatto`: persone di riferimento (ruolo, nome, telefono, email, `fonte`),
+estratte dal blocco contatti dell'Excel, inviate via API, o importate da HubSpot
+(`npm run import:hubspot-contatti`: aggancio azienda→partner per id o nome, dedup
+per email/telefono/nome). Vista d'insieme in `/contatti`, elenco completo nella
+scheda di ogni partner.
 
 `PassaggioStato`: storico dei cambi di stato/archiviazione (da, a, origine, quando).
 

@@ -111,7 +111,9 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
 
       {p.contatti.length > 0 && (
         <section className="scheda">
-          <h2 className="scheda-titolo">Persone di riferimento</h2>
+          <h2 className="scheda-titolo">
+            Contatti <span className="scheda-sub">{p.contatti.length} persone di riferimento</span>
+          </h2>
           <div className="tabella-wrap" style={{ boxShadow: "none", border: "1px solid var(--hairline)" }}>
             <table>
               <thead>
@@ -120,6 +122,7 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
                   <th>Nome</th>
                   <th>Telefono</th>
                   <th>Email</th>
+                  <th>Fonte</th>
                 </tr>
               </thead>
               <tbody>
@@ -129,6 +132,7 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
                     <td>{c.nome ?? "—"}</td>
                     <td className="cella-muta">{c.telefono ?? "—"}</td>
                     <td className="cella-muta">{c.email ?? "—"}</td>
+                    <td className="cella-muta">{c.fonte === "hubspot" ? "HubSpot" : c.fonte ? c.fonte : "Excel"}</td>
                   </tr>
                 ))}
               </tbody>

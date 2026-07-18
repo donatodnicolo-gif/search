@@ -103,6 +103,13 @@ const GLIFI: Record<string, React.ReactNode> = {
       <path d="M7 19.5h10" {...TRATTO} />
     </>
   ),
+  // Persona in cerchio: rubrica contatti
+  CONTATTI: (
+    <>
+      <circle cx="12" cy="9" r="3.2" {...TRATTO} />
+      <path d="M6 19.5a6 6 0 0 1 12 0" {...TRATTO} />
+    </>
+  ),
   // Barre: dashboard di analisi
   DASHBOARD: (
     <>
