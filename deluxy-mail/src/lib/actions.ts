@@ -12,12 +12,13 @@ import {
   leggiQuadroContatto,
   preparaEsecuzione,
   scaricaStorico,
-  sincronizzaTutti,
+  sincronizzaUtente,
   type QuadroContatto,
 } from './sync'
 import { CODICI_PRIORITA } from './format'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
 import { scriviImpostazione } from './impostazioni'
+import { utenteCorrente } from './sessione'
 
 function testo(form: FormData, campo: string): string {
   return String(form.get(campo) ?? '').trim()
@@ -29,11 +30,18 @@ function flag(form: FormData, campo: string): boolean {
   return form.get(campo) === 'on' || form.get(campo) === 'true'
 }
 
+/** L'utente della sessione, o errore. Il middleware garantisce che ci sia. */
+async function uid(): Promise<string> {
+  const u = await utenteCorrente()
+  if (!u) throw new Error('Sessione scaduta: rientra.')
+  return u.id
+}
+
 // ---------- Sincronizzazione ----------
 
 export async function sincronizzaOra(): Promise<{ ok: boolean; messaggio: string }> {
   try {
-    const esiti = await sincronizzaTutti()
+    const esiti = await sincronizzaUtente(await uid())
     if (esiti.length === 0) {
       return { ok: false, messaggio: 'Nessuna casella collegata: aggiungila in Impostazioni.' }
     }
@@ -53,9 +61,7 @@ export async function sincronizzaOra(): Promise<{ ok: boolean; messaggio: string
     if (scartati > 0) note.push(`${scartati} scartati perché illeggibili`)
     const avviso = note.length ? ` ${note.join(', ')}.` : ''
 
-    if (nuovi === 0) {
-      return { ok: note.length === 0, messaggio: `Nessun messaggio nuovo.${avviso}` }
-    }
+    if (nuovi === 0) return { ok: note.length === 0, messaggio: `Nessun messaggio nuovo.${avviso}` }
     return {
       ok: note.length === 0,
       messaggio: `${nuovi} messaggi nuovi. Dai una priorità a quelli che contano: l’AI li analizza e crea le attività.${avviso}`,
@@ -65,16 +71,15 @@ export async function sincronizzaOra(): Promise<{ ok: boolean; messaggio: string
   }
 }
 
-/**
- * Scarica un blocco di posta vecchia. Si preme una volta per blocco: così
- * decidi tu quanto indietro andare, invece di ritrovarti anni di archivio
- * analizzati (e pagati) senza averlo chiesto.
- */
 export async function scaricaStoricoOra(
   accountId: string,
   quanti = 25
 ): Promise<{ ok: boolean; messaggio: string; finito?: boolean }> {
   try {
+    // La casella dev'essere dell'utente.
+    const mio = await db.account.findFirst({ where: { id: accountId, utenteId: await uid() } })
+    if (!mio) return { ok: false, messaggio: 'Casella non trovata.' }
+
     const e = await scaricaStorico(accountId, quanti)
     revalidatePath('/', 'layout')
 
@@ -82,13 +87,8 @@ export async function scaricaStoricoOra(
     if (e.finito && e.scaricati === 0) {
       return { ok: true, messaggio: 'Hai già tutta la casella: non c’è altro da scaricare.', finito: true }
     }
-
     const coda = e.finito ? ' Era l’ultimo blocco: la casella è tutta qui.' : ''
-    return {
-      ok: true,
-      messaggio: `${e.scaricati} messaggi più vecchi scaricati.${coda}`,
-      finito: e.finito,
-    }
+    return { ok: true, messaggio: `${e.scaricati} messaggi più vecchi scaricati.${coda}`, finito: e.finito }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
   }
@@ -97,42 +97,32 @@ export async function scaricaStoricoOra(
 // ---------- Messaggi ----------
 
 export async function segnaLetto(id: string, letto: boolean) {
-  await db.messaggio.update({ where: { id }, data: { letto } })
+  await db.messaggio.updateMany({ where: { id, utenteId: await uid() }, data: { letto } })
   revalidatePath('/', 'layout')
 }
 
 export async function archiviaMessaggio(id: string) {
-  await db.messaggio.update({ where: { id }, data: { archiviato: true, letto: true } })
+  await db.messaggio.updateMany({
+    where: { id, utenteId: await uid() },
+    data: { archiviato: true, letto: true },
+  })
   revalidatePath('/', 'layout')
 }
 
-/**
- * "Archivia definitivo": archivia questo messaggio, tutti quelli già presenti
- * dello stesso mittente, e crea la regola che archivierà anche i prossimi.
- *
- * Niente viene cancellato: archiviato vuol dire fuori dalla posta in arrivo,
- * e la mail resta comunque intatta sul server IMAP. La regola è visibile e
- * spegnibile dalla pagina Regole, così la decisione si può sempre disfare.
- */
-export async function archiviaDefinitivo(
-  id: string
-): Promise<{ ok: boolean; messaggio: string }> {
+export async function archiviaDefinitivo(id: string): Promise<{ ok: boolean; messaggio: string }> {
   try {
-    const msg = await db.messaggio.findUniqueOrThrow({
-      where: { id },
-      select: { mittente: true },
-    })
+    const utenteId = await uid()
+    const msg = await db.messaggio.findFirst({ where: { id, utenteId }, select: { mittente: true } })
+    if (!msg) return { ok: false, messaggio: 'Messaggio non trovato.' }
 
-    // Una regola per mittente: premerlo due volte non ne crea due.
     const esistente = await db.regola.findFirst({
-      where: { seMittente: msg.mittente, archivia: true },
+      where: { utenteId, seMittente: msg.mittente, archivia: true },
     })
     if (!esistente) {
       await db.regola.create({
         data: {
+          utenteId,
           nome: `Archivia sempre: ${msg.mittente}`,
-          // Priorità alta e fermaQui: se hai deciso che questo mittente non ti
-          // interessa, non ha senso che altre regole lo smistino altrove.
           priorita: 200,
           seMittente: msg.mittente,
           archivia: true,
@@ -145,7 +135,7 @@ export async function archiviaDefinitivo(
     }
 
     const arretrati = await db.messaggio.updateMany({
-      where: { mittente: msg.mittente, archiviato: false },
+      where: { utenteId, mittente: msg.mittente, archiviato: false },
       data: { archiviato: true, letto: true },
     })
 
@@ -159,16 +149,6 @@ export async function archiviaDefinitivo(
   }
 }
 
-/**
- * Priorità scelta a mano — ed è questo il momento in cui l'AI entra in gioco.
- *
- * Dare una priorità significa "questo messaggio conta": solo allora vale la
- * pena spendere una chiamata al modello per farsi dire cosa c'è da fare e
- * caricarlo come attività. Sul resto della posta l'AI non gira, e non costa.
- *
- * Togliendo la priorità l'analisi resta: il lavoro è già stato pagato, e
- * l'attività magari l'hai già in mano.
- */
 export async function impostaPriorita(
   id: string,
   codice: string | null
@@ -176,9 +156,9 @@ export async function impostaPriorita(
   if (codice !== null && !CODICI_PRIORITA.includes(codice as never)) {
     throw new Error(`Priorità non valida: ${codice}`)
   }
-
-  await db.messaggio.update({
-    where: { id },
+  const utenteId = await uid()
+  await db.messaggio.updateMany({
+    where: { id, utenteId },
     data: { priorita: codice, prioritaDa: codice ? 'manuale' : null },
   })
 
@@ -187,89 +167,68 @@ export async function impostaPriorita(
     return { ok: true, messaggio: null }
   }
 
-  const esito = await analizzaMessaggioOra(id)
+  const esito = await analizzaMessaggioOra(id, utenteId)
   revalidatePath('/', 'layout')
   return esito
 }
 
-/**
- * Il quadro della situazione con un contatto, per il pannello.
- *
- * Senza `rifai` restituisce quello già calcolato, se c'è: aprire il pannello
- * due volte non deve pagare due analisi. Con `rifai` richiama il modello.
- */
 export async function analizzaContatto(
   email: string,
   rifai = false
 ): Promise<{ ok: boolean; messaggio: string; quadro?: QuadroContatto }> {
+  const utenteId = await uid()
   if (!rifai) {
-    const salvato = await leggiQuadroContatto(email)
-    if (salvato) {
-      return {
-        ok: true,
-        messaggio: `Letti ${salvato.messaggiVisti} messaggi.`,
-        quadro: salvato,
-      }
-    }
+    const salvato = await leggiQuadroContatto(utenteId, email)
+    if (salvato) return { ok: true, messaggio: `Letti ${salvato.messaggiVisti} messaggi.`, quadro: salvato }
   }
-
-  const esito = await analizzaContattoOra(email)
+  const esito = await analizzaContattoOra(utenteId, email)
   revalidatePath('/', 'layout')
   return esito
 }
 
-/**
- * Esegue un'attività: fa scrivere all'AI la mail che la porta a termine e
- * restituisce dove andare a controllarla. Non invia niente.
- */
 export async function eseguiAttivita(
   id: string
 ): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
-  const esito = await preparaEsecuzione(id)
+  const esito = await preparaEsecuzione(id, await uid())
   revalidatePath('/', 'layout')
   return esito
 }
 
-/** Rilancia l'analisi di un messaggio: serve quando è andata storta. */
 export async function rianalizza(id: string): Promise<{ ok: boolean; messaggio: string }> {
-  const esito = await analizzaMessaggioOra(id)
+  const esito = await analizzaMessaggioOra(id, await uid())
   revalidatePath('/', 'layout')
   return esito
 }
 
-// ---------- Assistente AI (Oggi / Settimana / Mese) ----------
+// ---------- Assistente AI ----------
 
-export async function contaPeriodoAI(
-  periodo: string
-): Promise<{ totale: number; daLavorare: number }> {
+export async function contaPeriodoAI(periodo: string): Promise<{ totale: number; daLavorare: number }> {
   const { contaPeriodo, periodoValido } = await import('./assistente')
-  return contaPeriodo(periodoValido(periodo), new Date())
+  return contaPeriodo(await uid(), periodoValido(periodo), new Date())
 }
 
 export async function avviaAssistenteAI(
   periodo: string
 ): Promise<{ ok: boolean; messaggio: string; rapportoId?: string }> {
   const { eseguiAssistente, periodoValido } = await import('./assistente')
-  const esito = await eseguiAssistente(periodoValido(periodo), new Date())
+  const esito = await eseguiAssistente(await uid(), periodoValido(periodo), new Date())
   revalidatePath('/', 'layout')
   return esito
 }
 
-/** Archivia i messaggi spuntati nella checklist del report. Una volta, senza
- *  creare regole: come deciso, un errore non brucia il futuro del mittente. */
-export async function applicaArchiviazioni(
-  ids: string[]
-): Promise<{ ok: boolean; messaggio: string }> {
+export async function applicaArchiviazioni(ids: string[]): Promise<{ ok: boolean; messaggio: string }> {
   if (ids.length === 0) return { ok: false, messaggio: 'Non hai selezionato niente.' }
+  const utenteId = await uid()
 
+  // Solo proposte su messaggi dell'utente.
   const proposte = await db.propostaArchivio.findMany({
-    where: { id: { in: ids }, applicata: false },
+    where: { id: { in: ids }, applicata: false, messaggio: { utenteId } },
     select: { id: true, messaggioId: true },
   })
 
   for (const p of proposte) {
-    await db.messaggio.update({
-      where: { id: p.messaggioId },
+    await db.messaggio.updateMany({
+      where: { id: p.messaggioId, utenteId },
       data: { archiviato: true, letto: true },
     })
     await db.propostaArchivio.update({ where: { id: p.id }, data: { applicata: true } })
@@ -284,36 +243,25 @@ export async function applicaArchiviazioni(
 
 // ---------- Cestino ----------
 
-/**
- * Il cestino è di AI Mail, non della casella: nasconde il messaggio qui, ma
- * sul server IMAP resta dov'era. È sempre reversibile finché non si svuota.
- */
 export async function cestinaMessaggio(id: string) {
-  await db.messaggio.update({
-    where: { id },
+  await db.messaggio.updateMany({
+    where: { id, utenteId: await uid() },
     data: { cestinato: true, cestinatoIl: new Date(), letto: true },
   })
   revalidatePath('/', 'layout')
 }
 
 export async function ripristinaMessaggio(id: string) {
-  await db.messaggio.update({
-    where: { id },
+  await db.messaggio.updateMany({
+    where: { id, utenteId: await uid() },
     data: { cestinato: false, cestinatoIl: null, archiviato: false },
   })
   revalidatePath('/', 'layout')
 }
 
-/**
- * Svuota il cestino: cancella la copia locale dei messaggi cestinati.
- *
- * La mail vera resta sul server: se un domani rifai lo scarico dello storico,
- * quei messaggi tornano. Qui si perdono solo il lavoro dell'AI (riassunto,
- * attività, bozza) e la priorità che avevi messo.
- */
 export async function svuotaCestino(): Promise<{ ok: boolean; messaggio: string }> {
   try {
-    const r = await db.messaggio.deleteMany({ where: { cestinato: true } })
+    const r = await db.messaggio.deleteMany({ where: { cestinato: true, utenteId: await uid() } })
     revalidatePath('/', 'layout')
     return {
       ok: true,
@@ -325,9 +273,14 @@ export async function svuotaCestino(): Promise<{ ok: boolean; messaggio: string 
 }
 
 export async function spostaInSezione(id: string, sezioneId: string | null) {
-  // Spostamento manuale: da qui in poi la sezione l'hai decisa tu, non l'AI.
-  await db.messaggio.update({
-    where: { id },
+  const utenteId = await uid()
+  // La sezione, se indicata, dev'essere dell'utente.
+  if (sezioneId) {
+    const mia = await db.sezione.findFirst({ where: { id: sezioneId, utenteId } })
+    if (!mia) return
+  }
+  await db.messaggio.updateMany({
+    where: { id, utenteId },
     data: { sezioneId, smistatoDa: sezioneId ? 'manuale' : null },
   })
   revalidatePath('/', 'layout')
@@ -336,8 +289,8 @@ export async function spostaInSezione(id: string, sezioneId: string | null) {
 // ---------- Attività ----------
 
 export async function segnaAttivita(id: string, fatta: boolean) {
-  await db.attivita.update({
-    where: { id },
+  await db.attivita.updateMany({
+    where: { id, utenteId: await uid() },
     data: { fatta, fattaIl: fatta ? new Date() : null },
   })
   revalidatePath('/', 'layout')
@@ -345,12 +298,14 @@ export async function segnaAttivita(id: string, fatta: boolean) {
 
 export async function creaAttivitaManuale(form: FormData) {
   const scadenza = testo(form, 'scadenza')
+  const priorita = testo(form, 'priorita')
   await db.attivita.create({
     data: {
+      utenteId: await uid(),
       titolo: testo(form, 'titolo'),
       dettaglio: opzionale(form, 'dettaglio'),
       scadenza: scadenza ? new Date(scadenza) : null,
-      priorita: testo(form, 'priorita') || 'media',
+      priorita: CODICI_PRIORITA.includes(priorita as never) ? priorita : 'P2',
       creataDaAI: false,
     },
   })
@@ -358,14 +313,15 @@ export async function creaAttivitaManuale(form: FormData) {
 }
 
 export async function eliminaAttivita(id: string) {
-  await db.attivita.delete({ where: { id } })
+  await db.attivita.deleteMany({ where: { id, utenteId: await uid() } })
   revalidatePath('/attivita')
 }
 
 // ---------- Bozze ----------
 
 export async function salvaBozza(id: string, oggetto: string, corpo: string) {
-  const bozza = await db.bozza.findUniqueOrThrow({ where: { id } })
+  const bozza = await db.bozza.findFirst({ where: { id, utenteId: await uid() } })
+  if (!bozza) return
   await db.bozza.update({
     where: { id },
     data: { oggetto, corpo, modificata: corpo !== bozza.corpoAI },
@@ -373,16 +329,14 @@ export async function salvaBozza(id: string, oggetto: string, corpo: string) {
   revalidatePath('/', 'layout')
 }
 
-/**
- * Invia una bozza via SMTP. È l'unica azione che esce verso l'esterno e parte
- * solo da un click esplicito: l'AI scrive, tu mandi.
- */
 export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: string }> {
   try {
-    const bozza = await db.bozza.findUniqueOrThrow({
-      where: { id },
+    const utenteId = await uid()
+    const bozza = await db.bozza.findFirst({
+      where: { id, utenteId },
       include: { messaggio: { include: { account: true } } },
     })
+    if (!bozza) return { ok: false, messaggio: 'Bozza non trovata.' }
     if (bozza.inviata) return { ok: false, messaggio: 'Questa bozza è già stata inviata.' }
     if (!bozza.messaggio) return { ok: false, messaggio: 'Bozza senza messaggio d’origine.' }
 
@@ -396,22 +350,16 @@ export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: 
     }
 
     const { raw, messageId } = await spedisci(account, daInviare)
-    const avviso = await registraInviato(account, daInviare, raw, messageId)
+    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId)
 
-    await db.bozza.update({
-      where: { id },
-      data: { inviata: true, inviataIl: new Date() },
-    })
+    await db.bozza.update({ where: { id }, data: { inviata: true, inviataIl: new Date() } })
     await db.messaggio.update({
       where: { id: bozza.messaggio.id },
       data: { letto: true, serveRisposta: false },
     })
 
     revalidatePath('/', 'layout')
-    return {
-      ok: true,
-      messaggio: `Risposta inviata a ${daInviare.a}.${avviso ? ` ${avviso}` : ''}`,
-    }
+    return { ok: true, messaggio: `Risposta inviata a ${daInviare.a}.${avviso ? ` ${avviso}` : ''}` }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Invio non riuscito' }
   }
@@ -424,21 +372,10 @@ type DaInviare = {
   cc?: string
   oggetto: string
   corpo: string
-  /** Message-ID dell'originale: aggancia la risposta alla conversazione. */
   inRispostaA?: string | null
 }
 
-/**
- * Spedisce davvero un messaggio e ne lascia traccia in tre posti.
- *
- * Il MIME si costruisce una volta sola e si riusa per l'invio e per la copia
- * in "Inviata": ricostruirlo darebbe due messaggi con Message-ID diverso, cioè
- * due mail diverse per i client di posta.
- */
-async function spedisci(
-  account: Account,
-  m: DaInviare
-): Promise<{ raw: Buffer; messageId: string }> {
+async function spedisci(account: Account, m: DaInviare): Promise<{ raw: Buffer; messageId: string }> {
   const composer = new MailComposer({
     from: `${account.nome} <${account.email}>`,
     to: m.a,
@@ -459,20 +396,16 @@ async function spedisci(
     secure: account.smtpSicuro,
     auth: { user: account.smtpUtente, pass: decifra(account.smtpPassword) },
   })
-  await transporter.sendMail({ envelope: { from: account.email, to: [m.a, ...(m.cc ? m.cc.split(',').map((x) => x.trim()) : [])] }, raw })
+  await transporter.sendMail({
+    envelope: { from: account.email, to: [m.a, ...(m.cc ? m.cc.split(',').map((x) => x.trim()) : [])] },
+    raw,
+  })
 
   return { raw, messageId }
 }
 
-/**
- * Registra il messaggio inviato: copia nella cartella "Inviata" del server e
- * riga in "Posta inviata" dentro AI Mail.
- *
- * Se la copia sul server non riesce, l'invio resta valido — la mail è già
- * partita. Si segnala e si va avanti: non ha senso far fallire un'operazione
- * riuscita per colpa di un archivio.
- */
 async function registraInviato(
+  utenteId: string,
   account: Account,
   m: DaInviare,
   raw: Buffer,
@@ -494,19 +427,18 @@ async function registraInviato(
     avviso = 'Copia non salvata nella cartella “Inviata” del server.'
   }
 
-  // uid negativo decrescente: i messaggi in uscita non vengono da uno scarico
-  // e non devono collidere con la numerazione IMAP della posta in arrivo.
   const ultimo = await db.messaggio.findFirst({
     where: { accountId: account.id, direzione: 'uscita' },
     orderBy: { uid: 'asc' },
     select: { uid: true },
   })
-  const uid = Math.min(-1, (ultimo?.uid ?? 0) - 1)
+  const uidMsg = Math.min(-1, (ultimo?.uid ?? 0) - 1)
 
   await db.messaggio.create({
     data: {
+      utenteId,
       accountId: account.id,
-      uid,
+      uid: uidMsg,
       direzione: 'uscita',
       messageId,
       mittente: account.email,
@@ -523,15 +455,9 @@ async function registraInviato(
   return avviso
 }
 
-/**
- * Invia una risposta, una risposta a tutti o un inoltro.
- *
- * Come per le bozze dell'AI, è l'utente a premere invia: qui non parte mai
- * niente da solo. Il messaggio esce dall'indirizzo della casella da cui è
- * arrivato l'originale, così il thread resta coerente.
- */
 export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
   try {
+    const utenteId = await uid()
     const messaggioId = testo(form, 'messaggioId')
     const a = testo(form, 'a')
     const cc = testo(form, 'cc')
@@ -541,10 +467,12 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     if (!a) return { ok: false, messaggio: 'Manca il destinatario.' }
     if (!corpo) return { ok: false, messaggio: 'Il messaggio è vuoto.' }
 
-    const originale = await db.messaggio.findUniqueOrThrow({
-      where: { id: messaggioId },
+    const originale = await db.messaggio.findFirst({
+      where: { id: messaggioId, utenteId },
       include: { account: true },
     })
+    if (!originale) return { ok: false, messaggio: 'Messaggio d’origine non trovato.' }
+
     const account = originale.account
     const inoltro = testo(form, 'modo') === 'inoltra'
 
@@ -553,24 +481,18 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
       cc,
       oggetto,
       corpo,
-      // Un inoltro non appartiene alla conversazione originale: legarlo al
-      // thread lo farebbe finire nella discussione sbagliata del destinatario.
       inRispostaA: inoltro ? null : originale.messageId,
     }
 
     const { raw, messageId } = await spedisci(account, daInviare)
-    const avviso = await registraInviato(account, daInviare, raw, messageId)
+    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId)
 
     if (!inoltro) {
-      await db.messaggio.update({
-        where: { id: messaggioId },
-        data: { letto: true, serveRisposta: false },
-      })
+      await db.messaggio.update({ where: { id: messaggioId }, data: { letto: true, serveRisposta: false } })
     }
 
-    // La bozza da cui è partito l'invio ha esaurito il suo compito.
     const bozzaId = testo(form, 'bozzaId')
-    if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId } })
+    if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId, utenteId } })
 
     revalidatePath('/', 'layout')
     return { ok: true, messaggio: `Messaggio inviato a ${a}.${avviso ? ` ${avviso}` : ''}` }
@@ -579,12 +501,11 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
   }
 }
 
-/**
- * Mette da parte una mail iniziata e non finita, per riprenderla dopo.
- * Se la bozza esiste già la aggiorna, invece di crearne una nuova a ogni salvataggio.
- */
-export async function salvaMinuta(form: FormData): Promise<{ ok: boolean; messaggio: string; id?: string }> {
+export async function salvaMinuta(
+  form: FormData
+): Promise<{ ok: boolean; messaggio: string; id?: string }> {
   try {
+    const utenteId = await uid()
     const bozzaId = testo(form, 'bozzaId')
     const messaggioId = testo(form, 'messaggioId')
     const dati = {
@@ -596,15 +517,18 @@ export async function salvaMinuta(form: FormData): Promise<{ ok: boolean; messag
       origine: 'utente',
     }
 
-    if (!dati.corpo && !dati.a) {
-      return { ok: false, messaggio: 'Non c’è ancora niente da salvare.' }
-    }
+    if (!dati.corpo && !dati.a) return { ok: false, messaggio: 'Non c’è ancora niente da salvare.' }
 
-    const bozza = bozzaId
-      ? await db.bozza.update({ where: { id: bozzaId }, data: { ...dati, modificata: true } })
-      : await db.bozza.create({
-          data: { ...dati, messaggioId: messaggioId || null, corpoAI: '' },
-        })
+    let bozza
+    if (bozzaId) {
+      const mia = await db.bozza.findFirst({ where: { id: bozzaId, utenteId } })
+      if (!mia) return { ok: false, messaggio: 'Bozza non trovata.' }
+      bozza = await db.bozza.update({ where: { id: bozzaId }, data: { ...dati, modificata: true } })
+    } else {
+      bozza = await db.bozza.create({
+        data: { ...dati, utenteId, messaggioId: messaggioId || null, corpoAI: '' },
+      })
+    }
 
     revalidatePath('/', 'layout')
     return { ok: true, messaggio: 'Bozza salvata. La trovi in Bozze.', id: bozza.id }
@@ -614,16 +538,18 @@ export async function salvaMinuta(form: FormData): Promise<{ ok: boolean; messag
 }
 
 export async function eliminaBozza(id: string) {
-  await db.bozza.delete({ where: { id } })
+  await db.bozza.deleteMany({ where: { id, utenteId: await uid() } })
   revalidatePath('/', 'layout')
 }
 
 // ---------- Sezioni ----------
 
 export async function creaSezione(form: FormData) {
-  const ultima = await db.sezione.findFirst({ orderBy: { ordine: 'desc' } })
+  const utenteId = await uid()
+  const ultima = await db.sezione.findFirst({ where: { utenteId }, orderBy: { ordine: 'desc' } })
   await db.sezione.create({
     data: {
+      utenteId,
       nome: testo(form, 'nome'),
       descrizione: testo(form, 'descrizione'),
       colore: testo(form, 'colore') || 'blue',
@@ -634,22 +560,30 @@ export async function creaSezione(form: FormData) {
 }
 
 export async function eliminaSezione(id: string) {
-  await db.sezione.delete({ where: { id } })
+  await db.sezione.deleteMany({ where: { id, utenteId: await uid() } })
   revalidatePath('/', 'layout')
 }
 
 // ---------- Regole ----------
 
 export async function creaRegola(form: FormData) {
+  const utenteId = await uid()
+  const sezioneId = opzionale(form, 'sezioneId')
+  // La sezione scelta dev'essere dell'utente.
+  const sezioneValida = sezioneId
+    ? await db.sezione.findFirst({ where: { id: sezioneId, utenteId }, select: { id: true } })
+    : null
+
   await db.regola.create({
     data: {
+      utenteId,
       nome: testo(form, 'nome'),
       priorita: Number(testo(form, 'priorita') || 0),
       seMittente: opzionale(form, 'seMittente'),
       seOggetto: opzionale(form, 'seOggetto'),
       seContiene: opzionale(form, 'seContiene'),
       istruzioneAI: opzionale(form, 'istruzioneAI'),
-      sezioneId: opzionale(form, 'sezioneId'),
+      sezioneId: sezioneValida?.id ?? null,
       creaAttivita: flag(form, 'creaAttivita'),
       creaBozza: flag(form, 'creaBozza'),
       segnaLetta: flag(form, 'segnaLetta'),
@@ -661,12 +595,12 @@ export async function creaRegola(form: FormData) {
 }
 
 export async function attivaRegola(id: string, attiva: boolean) {
-  await db.regola.update({ where: { id }, data: { attiva } })
+  await db.regola.updateMany({ where: { id, utenteId: await uid() }, data: { attiva } })
   revalidatePath('/regole')
 }
 
 export async function eliminaRegola(id: string) {
-  await db.regola.delete({ where: { id } })
+  await db.regola.deleteMany({ where: { id, utenteId: await uid() } })
   revalidatePath('/regole')
 }
 
@@ -674,7 +608,9 @@ export async function eliminaRegola(id: string) {
 
 export async function creaAccount(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
   try {
+    const utenteId = await uid()
     const dati = {
+      utenteId,
       nome: testo(form, 'nome'),
       email: testo(form, 'email'),
       imapHost: testo(form, 'imapHost'),
@@ -697,22 +633,28 @@ export async function creaAccount(form: FormData): Promise<{ ok: boolean; messag
     revalidatePath('/impostazioni')
     return { ok: true, messaggio: `Casella ${account.email} collegata.` }
   } catch (e) {
-    return {
-      ok: false,
-      messaggio: `Collegamento non riuscito: ${e instanceof Error ? e.message : 'errore'}`,
-    }
+    return { ok: false, messaggio: `Collegamento non riuscito: ${e instanceof Error ? e.message : 'errore'}` }
   }
 }
 
 export async function eliminaAccount(id: string) {
-  await db.account.delete({ where: { id } })
+  await db.account.deleteMany({ where: { id, utenteId: await uid() } })
   revalidatePath('/impostazioni')
 }
 
 // ---------- Impostazioni ----------
 
+/**
+ * La firma è personale (sempre salvabile). Il contesto aziendale è condiviso:
+ * lo modifica solo un admin, perché vale per tutta l'azienda.
+ */
 export async function salvaImpostazioni(form: FormData) {
-  await scriviImpostazione('contesto_azienda', testo(form, 'contestoAzienda'))
-  await scriviImpostazione('firma', testo(form, 'firma'))
+  const u = await utenteCorrente()
+  if (!u) return
+
+  await db.utente.update({ where: { id: u.id }, data: { firma: testo(form, 'firma') } })
+  if (u.ruolo === 'admin' && form.has('contestoAzienda')) {
+    await scriviImpostazione('contesto_azienda', testo(form, 'contestoAzienda'))
+  }
   revalidatePath('/impostazioni')
 }

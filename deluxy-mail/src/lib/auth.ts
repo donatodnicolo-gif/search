@@ -1,46 +1,55 @@
-// Protezione con password unica, come deluxy-partner.
-// Il cookie di sessione è l'HMAC della password: cambiando APP_PASSWORD si
-// invalidano tutte le sessioni aperte.
+// Sessione firmata — parte "edge-safe" (Web Crypto), importabile dal middleware.
+// L'hashing delle password sta in password.ts (solo Node), perché il middleware
+// gira su edge e non può usare node:crypto.
 
 export const SESSION_COOKIE = 'aimail_session'
+export const EMAIL_COOKIE = 'aimail_email' // solo per riproporre l'email al login
 
-export async function sessionToken(password: string): Promise<string> {
-  const data = new TextEncoder().encode(`deluxy-mail::${password}`)
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
+function segreto(): string {
+  const s = process.env.APP_SECRET
+  if (!s) throw new Error('APP_SECRET mancante: le sessioni non possono essere firmate.')
+  return s
 }
 
-/**
- * Vero solo quando l'app gira sulla macchina di chi la usa.
- *
- * Qui dentro c'è una casella di posta intera: senza password, chiunque abbia
- * l'URL legge tutto e può scrivere a tuo nome. In locale la password si può
- * saltare; appena l'app è raggiungibile dalla rete, no. Per questo il
- * controllo non guarda solo se APP_PASSWORD c'è: guarda anche dove gira.
- */
-export function ambienteLocale(): boolean {
-  return process.env.NODE_ENV !== 'production' && !process.env.VERCEL
+async function chiaveHmac(): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(segreto()),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
 }
 
-/** Cookie (leggibile) con l'email di chi è entrato: serve solo a riproporla
- *  al prossimo accesso, non è un fattore di sicurezza. */
-export const EMAIL_COOKIE = 'aimail_email'
+function base64url(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf)
+  let bin = ''
+  for (const b of bytes) bin += String.fromCharCode(b)
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
 
-/**
- * Vero se l'email può entrare.
- *
- * `APP_EMAIL` è l'elenco delle email autorizzate, separate da virgola. Se non
- * è impostata, l'email è comunque obbligatoria da digitare ma non viene
- * confrontata con un elenco — così il campo esiste da subito senza costringere
- * a configurare nulla, e diventa un vero filtro appena metti APP_EMAIL.
- */
-export function emailAmmessa(email: string): boolean {
-  const consentite = (process.env.APP_EMAIL ?? '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean)
-  if (consentite.length === 0) return email.trim().length > 0
-  return consentite.includes(email.trim().toLowerCase())
+async function firma(userId: string): Promise<string> {
+  const key = await chiaveHmac()
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(userId))
+  return base64url(sig)
+}
+
+/** Crea il cookie di sessione: `userId.firma`. Solo noi possiamo firmarlo. */
+export async function creaSessione(userId: string): Promise<string> {
+  return `${userId}.${await firma(userId)}`
+}
+
+/** Restituisce lo userId se il cookie è firmato correttamente, altrimenti null. */
+export async function verificaSessione(token: string | undefined): Promise<string | null> {
+  if (!token) return null
+  const punto = token.lastIndexOf('.')
+  if (punto <= 0) return null
+  const userId = token.slice(0, punto)
+  const dato = token.slice(punto + 1)
+  const atteso = await firma(userId)
+  // confronto a tempo costante
+  if (dato.length !== atteso.length) return null
+  let diff = 0
+  for (let i = 0; i < dato.length; i++) diff |= dato.charCodeAt(i) ^ atteso.charCodeAt(i)
+  return diff === 0 ? userId : null
 }

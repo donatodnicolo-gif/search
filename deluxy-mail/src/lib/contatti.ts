@@ -9,21 +9,22 @@ export type Contatto = {
 }
 
 /**
- * I contatti non sono una tabella: si ricavano dai messaggi.
- *
- * Un elenco salvato a parte andrebbe tenuto in sincrono a ogni scarico, a ogni
- * cancellazione, a ogni cambio di nome del mittente — e prima o poi divergerebbe.
- * Derivarlo dalla posta lo rende sempre vero per definizione.
+ * I contatti si ricavano dai messaggi dell'utente. Sempre filtrati per
+ * utenteId: nessuno vede i contatti di un altro.
  */
-export async function elencoContatti(cerca?: string): Promise<Contatto[]> {
-  const filtro = cerca?.trim()
-    ? {
-        OR: [
-          { mittente: { contains: cerca.trim(), mode: 'insensitive' as const } },
-          { mittenteNome: { contains: cerca.trim(), mode: 'insensitive' as const } },
-        ],
-      }
-    : {}
+export async function elencoContatti(utenteId: string, cerca?: string): Promise<Contatto[]> {
+  const testo = cerca?.trim()
+  const filtro = {
+    utenteId,
+    ...(testo
+      ? {
+          OR: [
+            { mittente: { contains: testo, mode: 'insensitive' as const } },
+            { mittenteNome: { contains: testo, mode: 'insensitive' as const } },
+          ],
+        }
+      : {}),
+  }
 
   const gruppi = await db.messaggio.groupBy({
     by: ['mittente'],
@@ -37,11 +38,8 @@ export async function elencoContatti(cerca?: string): Promise<Contatto[]> {
 
   const indirizzi = gruppi.map((g) => g.mittente)
 
-  // Il nome più recente con cui quel mittente si è presentato: distinct tiene
-  // la prima riga di ogni gruppo, e l'ordine per data decrescente la rende la
-  // più recente.
   const nomi = await db.messaggio.findMany({
-    where: { mittente: { in: indirizzi } },
+    where: { utenteId, mittente: { in: indirizzi } },
     distinct: ['mittente'],
     orderBy: { data: 'desc' },
     select: { mittente: true, mittenteNome: true },
@@ -50,7 +48,7 @@ export async function elencoContatti(cerca?: string): Promise<Contatto[]> {
 
   const daRispondere = await db.messaggio.groupBy({
     by: ['mittente'],
-    where: { mittente: { in: indirizzi }, serveRisposta: true, archiviato: false },
+    where: { utenteId, mittente: { in: indirizzi }, serveRisposta: true, archiviato: false },
     _count: { _all: true },
   })
   const rispostePer = new Map(daRispondere.map((r) => [r.mittente, r._count._all]))
@@ -64,7 +62,6 @@ export async function elencoContatti(cerca?: string): Promise<Contatto[]> {
   }))
 }
 
-/** Iniziali per l'avatar: dal nome se c'è, altrimenti dall'indirizzo. */
 export function iniziali(nome: string | null, email: string): string {
   const base = (nome || email.split('@')[0] || '?').trim()
   const parti = base.split(/[\s._-]+/).filter(Boolean)

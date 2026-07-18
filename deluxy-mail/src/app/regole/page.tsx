@@ -1,13 +1,19 @@
 import { db } from '@/lib/db'
 import { creaRegola } from '@/lib/actions'
 import { AzioniRegola } from '@/components/AzioniRegola'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Regole() {
+  const u = await richiediUtente()
   const [regole, sezioni] = await Promise.all([
-    db.regola.findMany({ orderBy: [{ priorita: 'desc' }, { creataIl: 'asc' }], include: { sezione: true } }),
-    db.sezione.findMany({ orderBy: { ordine: 'asc' } }),
+    db.regola.findMany({
+      where: { utenteId: u.id },
+      orderBy: [{ priorita: 'desc' }, { creataIl: 'asc' }],
+      include: { sezione: true },
+    }),
+    db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } }),
   ])
 
   return (

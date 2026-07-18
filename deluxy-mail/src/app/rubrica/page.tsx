@@ -4,6 +4,7 @@ import { elencoContatti, iniziali } from '@/lib/contatti'
 import { dataBreve } from '@/lib/format'
 import { CercaContatti } from '@/components/CercaContatti'
 import { BottoneAI } from '@/components/BottoneAI'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,12 +12,13 @@ type Props = { searchParams: Promise<{ q?: string }> }
 
 export default async function Rubrica({ searchParams }: Props) {
   const { q } = await searchParams
-  const contatti = await elencoContatti(q)
+  const u = await richiediUtente()
+  const contatti = await elencoContatti(u.id, q)
 
   // Chi è già stato analizzato: il pulsante lo dice, così non si rispende una
   // chiamata al modello per riavere lo stesso quadro.
   const riassunti = await db.riassuntoContatto.findMany({
-    where: { email: { in: contatti.map((c) => c.email) } },
+    where: { utenteId: u.id, email: { in: contatti.map((c) => c.email) } },
     select: { email: true, aggiornatoIl: true },
   })
   const analizzatoIl = new Map(riassunti.map((r) => [r.email, r.aggiornatoIl]))

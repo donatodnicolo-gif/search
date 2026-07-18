@@ -1,12 +1,14 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { dataBreve } from '@/lib/format'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PostaInviata() {
+  const u = await richiediUtente()
   const messaggi = await db.messaggio.findMany({
-    where: { direzione: 'uscita', cestinato: false },
+    where: { utenteId: u.id, direzione: 'uscita', cestinato: false },
     orderBy: { data: 'desc' },
     take: 200,
   })

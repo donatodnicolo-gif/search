@@ -5,6 +5,7 @@ import { coloreDiPriorita, dataBreve } from '@/lib/format'
 import { CheckAttivita } from '@/components/CheckAttivita'
 import { BottoneEsegui } from '@/components/BottoneEsegui'
 import { ChecklistArchivio } from '@/components/ChecklistArchivio'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,9 +19,10 @@ type Props = { params: Promise<{ id: string }> }
 
 export default async function Rapporto({ params }: Props) {
   const { id } = await params
+  const u = await richiediUtente()
 
-  const rapporto = await db.rapportoAI.findUnique({
-    where: { id },
+  const rapporto = await db.rapportoAI.findFirst({
+    where: { id, utenteId: u.id },
     include: {
       attivita: { orderBy: [{ fatta: 'asc' }, { priorita: 'asc' }], include: { messaggio: true } },
       proposte: {

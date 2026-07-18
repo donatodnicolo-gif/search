@@ -3,12 +3,14 @@ import { db } from '@/lib/db'
 import { dataBreve } from '@/lib/format'
 import { AzioniRiga } from '@/components/AzioniRiga'
 import { SvuotaCestino } from '@/components/SvuotaCestino'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Cestino() {
+  const u = await richiediUtente()
   const messaggi = await db.messaggio.findMany({
-    where: { cestinato: true },
+    where: { utenteId: u.id, cestinato: true },
     orderBy: { cestinatoIl: 'desc' },
     take: 200,
   })

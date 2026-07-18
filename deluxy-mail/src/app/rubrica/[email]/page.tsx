@@ -7,6 +7,7 @@ import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { RispostaAzioni } from '@/components/RispostaAzioni'
 import { BottoneAI } from '@/components/BottoneAI'
 import { CheckAttivita } from '@/components/CheckAttivita'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,9 +16,10 @@ type Props = { params: Promise<{ email: string }> }
 export default async function Contatto({ params }: Props) {
   const { email: grezza } = await params
   const email = decodeURIComponent(grezza)
+  const u = await richiediUtente()
 
   const messaggi = await db.messaggio.findMany({
-    where: { mittente: email },
+    where: { utenteId: u.id, mittente: email },
     orderBy: { data: 'desc' },
     take: 200,
     include: {
@@ -32,13 +34,16 @@ export default async function Contatto({ params }: Props) {
   const daRispondere = messaggi.filter((m) => m.serveRisposta && !m.archiviato).length
   const attivitaAperte = await db.attivita.count({
     where: {
+      utenteId: u.id,
       fatta: false,
       OR: [{ messaggio: { mittente: email } }, { contattoEmail: email }],
     },
   })
-  const riassunto = await db.riassuntoContatto.findUnique({ where: { email } })
+  const riassunto = await db.riassuntoContatto.findUnique({
+    where: { utenteId_email: { utenteId: u.id, email } },
+  })
   const azioni = await db.attivita.findMany({
-    where: { contattoEmail: email, fatta: false },
+    where: { utenteId: u.id, contattoEmail: email, fatta: false },
     orderBy: [{ scadenza: 'asc' }, { priorita: 'asc' }],
   })
 

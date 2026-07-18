@@ -1,46 +1,46 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
+import { utenteCorrente } from '@/lib/sessione'
+import { esci } from '@/lib/auth-actions'
+import { iniziali } from '@/lib/contatti'
 import { SyncButton } from './SyncButton'
 
 type Voce = { href: string; label: string; badge?: number }
 
-async function datiSidebar() {
-  // Se il database non è ancora configurato la sidebar non deve far crollare
-  // la pagina: mostra le voci fisse e nessuna sezione.
+async function datiSidebar(utenteId: string) {
   try {
     const [sezioni, daFare, nonLette, cestinati, bozze] = await Promise.all([
       db.sezione.findMany({
+        where: { utenteId },
         orderBy: { ordine: 'asc' },
         include: {
           _count: {
             select: {
               messaggi: {
-                where: {
-                  archiviato: false,
-                  letto: false,
-                  cestinato: false,
-                  direzione: 'entrata',
-                },
+                where: { archiviato: false, letto: false, cestinato: false, direzione: 'entrata' },
               },
             },
           },
         },
       }),
-      db.attivita.count({ where: { fatta: false } }),
+      db.attivita.count({ where: { utenteId, fatta: false } }),
       db.messaggio.count({
-        where: { letto: false, archiviato: false, cestinato: false, direzione: 'entrata' },
+        where: { utenteId, letto: false, archiviato: false, cestinato: false, direzione: 'entrata' },
       }),
-      db.messaggio.count({ where: { cestinato: true } }),
-      db.bozza.count({ where: { inviata: false } }),
+      db.messaggio.count({ where: { utenteId, cestinato: true } }),
+      db.bozza.count({ where: { utenteId, inviata: false } }),
     ])
-    return { sezioni, daFare, nonLette, cestinati, bozze, errore: false }
+    return { sezioni, daFare, nonLette, cestinati, bozze }
   } catch {
-    return { sezioni: [], daFare: 0, nonLette: 0, cestinati: 0, bozze: 0, errore: true }
+    return { sezioni: [], daFare: 0, nonLette: 0, cestinati: 0, bozze: 0 }
   }
 }
 
 export async function Sidebar() {
-  const { sezioni, daFare, nonLette, cestinati, bozze } = await datiSidebar()
+  const utente = await utenteCorrente()
+  if (!utente) return null // la pagina reindirizza al login; niente sidebar
+
+  const { sezioni, daFare, nonLette, cestinati, bozze } = await datiSidebar(utente.id)
 
   const principali: Voce[] = [
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
@@ -55,6 +55,7 @@ export async function Sidebar() {
     { href: '/regole', label: 'Regole' },
     { href: '/sezioni', label: 'Sezioni' },
     { href: '/impostazioni', label: 'Impostazioni' },
+    ...(utente.ruolo === 'admin' ? [{ href: '/utenti', label: 'Utenti' }] : []),
   ]
 
   return (
@@ -84,16 +85,10 @@ export async function Sidebar() {
           <div className="nav-label">Sezioni</div>
           {sezioni.map((s) => (
             <Link key={s.id} href={`/?sezione=${s.id}`} className="nav-item">
-              <span className="badge-dot-wrap" style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
                 <span
                   className="dot"
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    background: `var(--${s.colore})`,
-                    flex: '0 0 7px',
-                  }}
+                  style={{ width: 7, height: 7, borderRadius: '50%', background: `var(--${s.colore})`, flex: '0 0 7px' }}
                 />
                 {s.nome}
               </span>
@@ -111,6 +106,27 @@ export async function Sidebar() {
           </Link>
         ))}
       </nav>
+
+      <div className="sidebar-footer">
+        <span className="avatar">{iniziali(utente.nome, utente.email)}</span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {utente.nome}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+            {utente.ruolo === 'admin' ? 'Amministratore' : 'Utente'}
+          </div>
+        </div>
+        <form action={esci}>
+          <button
+            type="submit"
+            title="Esci"
+            style={{ border: 'none', background: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}
+          >
+            Esci
+          </button>
+        </form>
+      </div>
     </aside>
   )
 }

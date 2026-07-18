@@ -1,38 +1,9 @@
-import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { SESSION_COOKIE, EMAIL_COOKIE, sessionToken, emailAmmessa } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { EMAIL_COOKIE } from '@/lib/auth'
+import { accedi, creaPrimoAdmin } from '@/lib/auth-actions'
 
-async function login(fd: FormData) {
-  'use server'
-  const password = process.env.APP_PASSWORD
-  const email = String(fd.get('email') ?? '').trim()
-  const tentativo = String(fd.get('password') ?? '')
-
-  // Servono entrambi: email autorizzata E password giusta.
-  if (!password || tentativo !== password) {
-    redirect('/login?errore=password')
-  }
-  if (!emailAmmessa(email)) {
-    redirect('/login?errore=email')
-  }
-
-  const jar = await cookies()
-  jar.set(SESSION_COOKIE, await sessionToken(password), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 30, // 30 giorni
-    path: '/',
-  })
-  // L'email non è un segreto: la ricordiamo per riproporla al prossimo accesso.
-  jar.set(EMAIL_COOKIE, email, {
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 180,
-    path: '/',
-  })
-  redirect('/')
-}
+export const dynamic = 'force-dynamic'
 
 export default async function LoginPage({
   searchParams,
@@ -40,12 +11,16 @@ export default async function LoginPage({
   searchParams: Promise<{ errore?: string }>
 }) {
   const sp = await searchParams
+  // Primo avvio: se non c'è nessun utente, la login diventa "crea il primo
+  // amministratore". Così il sistema parte senza porte di servizio.
+  const nessunUtente = (await db.utente.count().catch(() => 1)) === 0
   const emailRicordata = (await cookies()).get(EMAIL_COOKIE)?.value ?? ''
+
   const messaggioErrore =
-    sp.errore === 'email'
-      ? 'Questa email non è abilitata all’accesso.'
-      : sp.errore === 'password'
-        ? 'Password non corretta.'
+    sp.errore === 'dati'
+      ? 'Controlla i dati: email valida e password di almeno 6 caratteri.'
+      : sp.errore
+        ? 'Email o password non corretti.'
         : null
 
   return (
@@ -84,16 +59,28 @@ export default async function LoginPage({
         </div>
         <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.022em' }}>AI Mail</h1>
         <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 6, marginBottom: 24 }}>
-          La tua posta, letta e ordinata. Accesso riservato.
+          {nessunUtente
+            ? 'Primo avvio: crea l’amministratore.'
+            : 'La posta aziendale, letta e ordinata.'}
         </p>
-        <form action={login}>
+
+        <form action={nessunUtente ? creaPrimoAdmin : accedi}>
+          {nessunUtente && (
+            <input
+              type="text"
+              name="nome"
+              required
+              placeholder="Il tuo nome"
+              style={{ textAlign: 'center', marginBottom: 10 }}
+            />
+          )}
           <input
             type="email"
             name="email"
             required
-            autoFocus={!emailRicordata}
-            defaultValue={emailRicordata}
-            placeholder="La tua email"
+            autoFocus={!emailRicordata || nessunUtente}
+            defaultValue={nessunUtente ? '' : emailRicordata}
+            placeholder="Email"
             autoComplete="email"
             style={{ textAlign: 'center' }}
           />
@@ -101,9 +88,9 @@ export default async function LoginPage({
             type="password"
             name="password"
             required
-            autoFocus={!!emailRicordata}
-            placeholder="Password"
-            autoComplete="current-password"
+            autoFocus={!!emailRicordata && !nessunUtente}
+            placeholder={nessunUtente ? 'Scegli una password (min 6)' : 'Password'}
+            autoComplete={nessunUtente ? 'new-password' : 'current-password'}
             style={{ textAlign: 'center', marginTop: 10 }}
           />
           {messaggioErrore && (
@@ -114,12 +101,10 @@ export default async function LoginPage({
             className="btn primary"
             style={{ width: '100%', marginTop: 16, padding: '12px 18px', justifyContent: 'center' }}
           >
-            Entra
+            {nessunUtente ? 'Crea amministratore' : 'Entra'}
           </button>
         </form>
-        <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 26 }}>
-          Deluxy · 2.0
-        </p>
+        <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 26 }}>Deluxy · 2.0</p>
       </div>
     </div>
   )

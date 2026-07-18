@@ -4,8 +4,13 @@
 // una copia indicizzata dei messaggi più il "livello intelligente" che l'app
 // aggiunge sopra: sezioni, regole, attività e bozze di risposta.
 //
+// Multi-utente: ogni riga di dati appartiene a un Utente (utenteId). Un utente
+// vede solo i propri dati — le query sono SEMPRE filtrate per utenteId. L'unica
+// cosa condivisa è il contesto aziendale dato all'AI (Impostazione globale).
+//
 // Le password IMAP/SMTP sono SEMPRE cifrate (AES-256-GCM, src/lib/crypto.ts):
-// nel database non finisce mai una password in chiaro.
+// nel database non finisce mai una password in chiaro. Le password degli utenti
+// sono hashate (scrypt, src/lib/auth.ts), mai reversibili.
 
 generator client {
   provider = "prisma-client-js"
@@ -17,11 +22,35 @@ datasource db {
   directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
 }
 
+// Chi accede ad AI Mail. Gli utenti li crea un amministratore dentro l'app.
+model Utente {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  nome         String
+  passwordHash String // scrypt "salt.hash" — mai reversibile
+  ruolo        String   @default("utente") // admin | utente
+  firma        String   @default("") @db.Text // firma personale nelle bozze
+  attivo       Boolean  @default(true)
+  creatoIl     DateTime @default(now())
+
+  account   Account[]
+  sezioni   Sezione[]
+  regole    Regola[]
+  messaggi  Messaggio[]
+  attivita  Attivita[]
+  bozze     Bozza[]
+  rapporti  RapportoAI[]
+  riassunti RiassuntoContatto[]
+}
+
 // Una casella di posta collegata (IMAP in lettura, SMTP in invio).
 model Account {
-  id           String  @id @default(cuid())
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
   nome         String // etichetta mostrata nell'app, es. "Deluxy Delivery"
-  email        String  @unique
+  email        String
   // IMAP
   imapHost     String
   imapPort     Int     @default(993)
@@ -35,229 +64,207 @@ model Account {
   smtpUtente   String
   smtpPassword String // cifrata (mai in chiaro)
   // Stato sincronizzazione
-  cartella     String    @default("INBOX")
-  // Cartella della posta inviata sul server. Il nome cambia da provider a
-  // provider ("Sent", "INVIATA", "Posta inviata"): si scopre dal flag IMAP
-  // \Sent invece di indovinarlo.
+  cartella        String  @default("INBOX")
   cartellaInviata String?
-  // La sincronizzazione si muove in due direzioni: in avanti prende i messaggi
-  // nuovi (UID > ultimoUid), all'indietro recupera lo storico (UID < primoUid).
-  // primoUid = 0 significa "non ho ancora scaricato niente".
-  ultimoUid    Int       @default(0)
-  primoUid     Int       @default(0)
-  storicoFinito Boolean  @default(false) // true = si è arrivati in fondo alla casella
-  ultimoSync   DateTime?
-  ultimoErrore String?
-  attivo       Boolean   @default(true)
-  creatoIl     DateTime  @default(now())
-  messaggi     Messaggio[]
+  ultimoUid       Int     @default(0)
+  primoUid        Int     @default(0)
+  storicoFinito   Boolean @default(false)
+  ultimoSync      DateTime?
+  ultimoErrore    String?
+  attivo          Boolean   @default(true)
+  creatoIl        DateTime  @default(now())
+  messaggi        Messaggio[]
 
-  @@index([attivo])
+  @@unique([utenteId, email])
+  @@index([utenteId, attivo])
 }
 
 // Una sezione della posta: le colonne in cui l'AI allinea i messaggi.
-// Sono create dall'utente ("Ordini", "Fornitori", "Amministrazione"…).
 model Sezione {
-  id          String @id @default(cuid())
-  nome        String @unique
-  // Descrizione in italiano di cosa va qui dentro: è il testo che l'AI legge
-  // per decidere lo smistamento, quindi conta più del nome.
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  nome        String
   descrizione String
-  colore      String @default("blue") // token semantico: blue|green|orange|red|purple|gold
-  ordine      Int    @default(0)
+  colore      String   @default("blue")
+  ordine      Int      @default(0)
   creataIl    DateTime @default(now())
   messaggi    Messaggio[]
   regole      Regola[]
+
+  @@unique([utenteId, nome])
+  @@index([utenteId])
 }
 
-// Una regola impostata dall'utente. Può essere deterministica (condizioni
-// esatte, valutate senza AI) e/o linguistica (istruzione in italiano che
-// viene passata al modello). Le due cose si combinano.
+// Una regola impostata dall'utente (deterministica e/o linguistica).
 model Regola {
-  id          String  @id @default(cuid())
-  nome        String
-  attiva      Boolean @default(true)
-  priorita    Int     @default(0) // più alto = valutata prima
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
 
-  // --- Parte deterministica (tutte le condizioni valorizzate devono essere vere) ---
-  seMittente  String? // sottostringa, es. "@fornitore.it"
-  seOggetto   String? // sottostringa nell'oggetto
-  seContiene  String? // sottostringa nel corpo
+  nome     String
+  attiva   Boolean @default(true)
+  priorita Int     @default(0)
 
-  // --- Parte linguistica: l'AI la legge come istruzione ---
+  seMittente String?
+  seOggetto  String?
+  seContiene String?
+
   istruzioneAI String?
 
-  // --- Cosa fare quando scatta ---
   sezioneId    String?
   sezione      Sezione? @relation(fields: [sezioneId], references: [id], onDelete: SetNull)
   creaAttivita Boolean  @default(false)
   creaBozza    Boolean  @default(false)
   segnaLetta   Boolean  @default(false)
   archivia     Boolean  @default(false)
-  // Se true, le regole di priorità inferiore non vengono più valutate.
   fermaQui     Boolean  @default(false)
 
   creataIl DateTime @default(now())
 
-  @@index([attiva, priorita])
+  @@index([utenteId, attiva, priorita])
 }
 
-// Un messaggio scaricato dalla casella.
+// Un messaggio scaricato dalla casella. utenteId denormalizzato dall'account,
+// così le liste (posta, rubrica) si filtrano per utente senza join.
 model Messaggio {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
+  utenteId  String
+  utente    Utente  @relation(fields: [utenteId], references: [id], onDelete: Cascade)
   accountId String
   account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
-  uid       Int // UID IMAP, unico dentro la cartella dell'account
-  messageId String? // Message-ID del protocollo, per collegare i thread
-  thread    String? // chiave di raggruppamento (Message-ID radice o oggetto normalizzato)
-  // 'entrata' = arrivata nella casella; 'uscita' = inviata da AI Mail.
-  // I messaggi in uscita hanno uid negativo: non arrivano da uno scarico e
-  // non devono scontrarsi con la numerazione IMAP della posta in arrivo.
-  direzione String @default("entrata")
+  uid       Int
+  messageId String?
+  thread    String?
+  direzione String  @default("entrata")
 
   mittente     String
   mittenteNome String?
-  destinatari  String // lista separata da virgola
+  destinatari  String
   oggetto      String
   data         DateTime
-  anteprima    String // prime righe, per la lista
+  anteprima    String
   corpoTesto   String  @db.Text
   corpoHtml    String? @db.Text
   allegati     Int     @default(0)
 
-  letto     Boolean @default(false)
-  archiviato Boolean @default(false)
-  // Cestino di AI Mail: nasconde il messaggio ovunque, ma non tocca la casella
-  // sul server IMAP. Svuotare il cestino cancella solo la copia locale.
-  cestinato  Boolean   @default(false)
+  letto       Boolean   @default(false)
+  archiviato  Boolean   @default(false)
+  cestinato   Boolean   @default(false)
   cestinatoIl DateTime?
 
-  // --- Livello AI ---
-  sezioneId   String?
-  sezione     Sezione? @relation(fields: [sezioneId], references: [id], onDelete: SetNull)
-  // Come è stata decisa la sezione: "regola" (deterministica) o "ai".
-  smistatoDa  String?
-  regolaId    String? // regola deterministica che ha deciso, se presente
-  // Scala unica di tutta l'app: P0 urgente, P1 entro 24 ore, P2 entro la
-  // settimana, P3 quando c'è tempo.
-  priorita    String?
-  // 'ai' o 'manuale': una priorità scelta a mano non viene più toccata
-  // dall'AI in una ri-analisi.
-  prioritaDa  String?
-  riassunto   String? // una frase in italiano
-  serveRisposta Boolean @default(false)
+  sezioneId     String?
+  sezione       Sezione?  @relation(fields: [sezioneId], references: [id], onDelete: SetNull)
+  smistatoDa    String?
+  regolaId      String?
+  priorita      String?
+  prioritaDa    String?
+  riassunto     String?
+  serveRisposta Boolean   @default(false)
   analizzatoIl  DateTime?
   erroreAI      String?
 
-  attivita  Attivita[]
-  bozze     Bozza[]
-  proposte  PropostaArchivio[]
+  attivita Attivita[]
+  bozze    Bozza[]
+  proposte PropostaArchivio[]
 
   creatoIl DateTime @default(now())
 
   @@unique([accountId, uid])
-  @@index([data])
-  @@index([sezioneId, data])
-  @@index([analizzatoIl])
+  @@index([utenteId, data])
+  @@index([utenteId, sezioneId, data])
 }
 
-// Un'attività estratta automaticamente da un messaggio.
+// Un'attività, da un messaggio o dal quadro di un contatto o dall'Assistente.
 model Attivita {
-  id          String  @id @default(cuid())
-  messaggioId String?
-  messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
-  // Valorizzato quando l'attività nasce dall'analisi di un contatto invece
-  // che da un singolo messaggio: riguarda il rapporto, non una mail sola.
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  messaggioId   String?
+  messaggio     Messaggio?  @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
   contattoEmail String?
-  // Valorizzato quando l'attività nasce da un giro dell'Assistente (Oggi /
-  // Settimana / Mese): serve a raggrupparle nel report e a ripulirle se lo
-  // rifai.
   rapportoId    String?
   rapporto      RapportoAI? @relation(fields: [rapportoId], references: [id], onDelete: SetNull)
 
-  titolo      String
-  dettaglio   String?
-  scadenza    DateTime?
-  priorita    String  @default("P2") // stessa scala dei messaggi: P0…P3
-  fatta       Boolean @default(false)
-  fattaIl     DateTime?
-  creataDaAI  Boolean @default(true)
-  creataIl    DateTime @default(now())
+  titolo     String
+  dettaglio  String?
+  scadenza   DateTime?
+  priorita   String    @default("P2")
+  fatta      Boolean   @default(false)
+  fattaIl    DateTime?
+  creataDaAI Boolean   @default(true)
+  creataIl   DateTime  @default(now())
 
-  @@index([fatta, scadenza])
+  @@index([utenteId, fatta, scadenza])
 }
 
-// Una risposta non ancora inviata. Due origini: la propone l'AI, oppure l'hai
-// iniziata tu e messa da parte. In nessun caso parte da sola.
+// Una risposta non ancora inviata (proposta dall'AI o iniziata dall'utente).
 model Bozza {
-  id          String     @id @default(cuid())
-  // Nulla per un messaggio nuovo scritto da zero; valorizzata quando la bozza
-  // nasce rispondendo o inoltrando.
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
   messaggioId String?
   messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
   accountId   String?
 
-  // 'ai' = proposta dal modello, 'utente' = iniziata da te.
   origine String @default("ai")
-  // rispondi | tutti | inoltra | nuovo — serve a riaprirla come l'avevi lasciata.
   modo    String @default("rispondi")
 
-  a        String @default("")
-  cc       String @default("")
-  oggetto  String
-  corpo    String @db.Text
-  // Il testo così come l'ha scritto l'AI: serve per capire quanto correggi.
-  // Vuoto per le bozze tue.
-  corpoAI  String @db.Text @default("")
+  a       String @default("")
+  cc      String @default("")
+  oggetto String
+  corpo   String @db.Text
+  corpoAI String @default("") @db.Text
 
-  modificata Boolean   @default(false)
-  inviata    Boolean   @default(false)
-  inviataIl  DateTime?
-  creataIl     DateTime @default(now())
-  aggiornataIl DateTime @default(now()) @updatedAt
+  modificata   Boolean   @default(false)
+  inviata      Boolean   @default(false)
+  inviataIl    DateTime?
+  creataIl     DateTime  @default(now())
+  aggiornataIl DateTime  @default(now()) @updatedAt
 
-  @@index([inviata, aggiornataIl])
+  @@index([utenteId, inviata, aggiornataIl])
   @@index([messaggioId])
 }
 
-// Il quadro della situazione con un contatto, come lo vede l'AI leggendo le
-// ultime mail scambiate. Si aggiorna a richiesta: costa una chiamata al
-// modello, quindi la si fa quando serve, non a ogni apertura della rubrica.
+// Il quadro della situazione con un contatto, per utente.
 model RiassuntoContatto {
-  email        String   @id
-  situazione   String   @db.Text
-  // Le cose in sospeso, una per riga: solo da leggere. Quelle da fare
-  // diventano attività vere, che si spuntano.
-  taskAperti   String   @db.Text @default("")
-  messaggiVisti Int     @default(0)
-  azioniCreate Int      @default(0)
-  aggiornatoIl DateTime @default(now()) @updatedAt
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  email         String
+  situazione    String   @db.Text
+  taskAperti    String   @default("") @db.Text
+  messaggiVisti Int      @default(0)
+  azioniCreate  Int      @default(0)
+  aggiornatoIl  DateTime @default(now()) @updatedAt
+
+  @@unique([utenteId, email])
 }
 
-// Il risultato di un giro dell'Assistente: l'AI legge tutta la posta di un
-// periodo (oggi / settimana / mese) e produce un quadro, le attività e la
-// lista di cosa si può archiviare. Si salva perché non è usa e getta: lo
-// rivedi, spunti le attività, applichi le archiviazioni con calma.
+// Il risultato di un giro dell'Assistente (oggi/settimana/mese), per utente.
 model RapportoAI {
-  id             String   @id @default(cuid())
-  periodo        String // oggi | settimana | mese
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  periodo        String
   riassunto      String   @db.Text
   messaggiVisti  Int      @default(0)
-  // true = il periodo aveva più messaggi del tetto e ne ho letti i più recenti.
   troncato       Boolean  @default(false)
   attivitaCreate Int      @default(0)
   generatoIl     DateTime @default(now())
   attivita       Attivita[]
   proposte       PropostaArchivio[]
 
-  @@index([generatoIl])
+  @@index([utenteId, generatoIl])
 }
 
-// Un messaggio che l'AI propone di archiviare. Non viene archiviato da solo:
-// è una casella che spunti tu. "Applicata" lo archivia una volta (esce dalla
-// posta in arrivo), senza creare regole: se l'AI ha sbagliato mittente hai
-// perso un messaggio, non il suo futuro.
+// Un messaggio che l'AI propone di archiviare (scoping via rapporto/messaggio).
 model PropostaArchivio {
   id          String     @id @default(cuid())
   rapportoId  String
@@ -270,10 +277,10 @@ model PropostaArchivio {
   @@index([rapportoId])
 }
 
-// Preferenze globali (chiave/valore): tono delle risposte, firma, contesto
-// aziendale da dare all'AI.
+// Preferenze GLOBALI (condivise fra tutti): contesto aziendale dato all'AI.
+// La firma invece è personale ed è su Utente.
 model Impostazione {
-  chiave      String   @id
-  valore      String   @db.Text
+  chiave       String   @id
+  valore       String   @db.Text
   aggiornataIl DateTime @updatedAt
 }

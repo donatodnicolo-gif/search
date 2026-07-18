@@ -1,9 +1,39 @@
+-- AI Mail — schema multi-utente. ATTENZIONE: azzera le tabelle (in produzione sono vuote).
+-- Incolla tutto nell SQL Editor di Supabase e premi Run.
+
+DROP TABLE IF EXISTS "PropostaArchivio" CASCADE;
+DROP TABLE IF EXISTS "RapportoAI" CASCADE;
+DROP TABLE IF EXISTS "RiassuntoContatto" CASCADE;
+DROP TABLE IF EXISTS "Bozza" CASCADE;
+DROP TABLE IF EXISTS "Attivita" CASCADE;
+DROP TABLE IF EXISTS "Messaggio" CASCADE;
+DROP TABLE IF EXISTS "Regola" CASCADE;
+DROP TABLE IF EXISTS "Sezione" CASCADE;
+DROP TABLE IF EXISTS "Account" CASCADE;
+DROP TABLE IF EXISTS "Impostazione" CASCADE;
+DROP TABLE IF EXISTS "Utente" CASCADE;
+
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateTable
+CREATE TABLE "Utente" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "nome" TEXT NOT NULL,
+    "passwordHash" TEXT NOT NULL,
+    "ruolo" TEXT NOT NULL DEFAULT 'utente',
+    "firma" TEXT NOT NULL DEFAULT '',
+    "attivo" BOOLEAN NOT NULL DEFAULT true,
+    "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Utente_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Account" (
     "id" TEXT NOT NULL,
+    "utenteId" TEXT NOT NULL,
     "nome" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "imapHost" TEXT NOT NULL,
@@ -32,6 +62,7 @@ CREATE TABLE "Account" (
 -- CreateTable
 CREATE TABLE "Sezione" (
     "id" TEXT NOT NULL,
+    "utenteId" TEXT NOT NULL,
     "nome" TEXT NOT NULL,
     "descrizione" TEXT NOT NULL,
     "colore" TEXT NOT NULL DEFAULT 'blue',
@@ -44,6 +75,7 @@ CREATE TABLE "Sezione" (
 -- CreateTable
 CREATE TABLE "Regola" (
     "id" TEXT NOT NULL,
+    "utenteId" TEXT NOT NULL,
     "nome" TEXT NOT NULL,
     "attiva" BOOLEAN NOT NULL DEFAULT true,
     "priorita" INTEGER NOT NULL DEFAULT 0,
@@ -65,6 +97,7 @@ CREATE TABLE "Regola" (
 -- CreateTable
 CREATE TABLE "Messaggio" (
     "id" TEXT NOT NULL,
+    "utenteId" TEXT NOT NULL,
     "accountId" TEXT NOT NULL,
     "uid" INTEGER NOT NULL,
     "messageId" TEXT,
@@ -100,6 +133,7 @@ CREATE TABLE "Messaggio" (
 -- CreateTable
 CREATE TABLE "Attivita" (
     "id" TEXT NOT NULL,
+    "utenteId" TEXT NOT NULL,
     "messaggioId" TEXT,
     "contattoEmail" TEXT,
     "rapportoId" TEXT,
@@ -118,6 +152,7 @@ CREATE TABLE "Attivita" (
 -- CreateTable
 CREATE TABLE "Bozza" (
     "id" TEXT NOT NULL,
+    "utenteId" TEXT NOT NULL,
     "messaggioId" TEXT,
     "accountId" TEXT,
     "origine" TEXT NOT NULL DEFAULT 'ai',
@@ -138,6 +173,8 @@ CREATE TABLE "Bozza" (
 
 -- CreateTable
 CREATE TABLE "RiassuntoContatto" (
+    "id" TEXT NOT NULL,
+    "utenteId" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "situazione" TEXT NOT NULL,
     "taskAperti" TEXT NOT NULL DEFAULT '',
@@ -145,12 +182,13 @@ CREATE TABLE "RiassuntoContatto" (
     "azioniCreate" INTEGER NOT NULL DEFAULT 0,
     "aggiornatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "RiassuntoContatto_pkey" PRIMARY KEY ("email")
+    CONSTRAINT "RiassuntoContatto_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "RapportoAI" (
     "id" TEXT NOT NULL,
+    "utenteId" TEXT NOT NULL,
     "periodo" TEXT NOT NULL,
     "riassunto" TEXT NOT NULL,
     "messaggiVisti" INTEGER NOT NULL DEFAULT 0,
@@ -182,46 +220,64 @@ CREATE TABLE "Impostazione" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Account_email_key" ON "Account"("email");
+CREATE UNIQUE INDEX "Utente_email_key" ON "Utente"("email");
 
 -- CreateIndex
-CREATE INDEX "Account_attivo_idx" ON "Account"("attivo");
+CREATE INDEX "Account_utenteId_attivo_idx" ON "Account"("utenteId", "attivo");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Sezione_nome_key" ON "Sezione"("nome");
+CREATE UNIQUE INDEX "Account_utenteId_email_key" ON "Account"("utenteId", "email");
 
 -- CreateIndex
-CREATE INDEX "Regola_attiva_priorita_idx" ON "Regola"("attiva", "priorita");
+CREATE INDEX "Sezione_utenteId_idx" ON "Sezione"("utenteId");
 
 -- CreateIndex
-CREATE INDEX "Messaggio_data_idx" ON "Messaggio"("data");
+CREATE UNIQUE INDEX "Sezione_utenteId_nome_key" ON "Sezione"("utenteId", "nome");
 
 -- CreateIndex
-CREATE INDEX "Messaggio_sezioneId_data_idx" ON "Messaggio"("sezioneId", "data");
+CREATE INDEX "Regola_utenteId_attiva_priorita_idx" ON "Regola"("utenteId", "attiva", "priorita");
 
 -- CreateIndex
-CREATE INDEX "Messaggio_analizzatoIl_idx" ON "Messaggio"("analizzatoIl");
+CREATE INDEX "Messaggio_utenteId_data_idx" ON "Messaggio"("utenteId", "data");
+
+-- CreateIndex
+CREATE INDEX "Messaggio_utenteId_sezioneId_data_idx" ON "Messaggio"("utenteId", "sezioneId", "data");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Messaggio_accountId_uid_key" ON "Messaggio"("accountId", "uid");
 
 -- CreateIndex
-CREATE INDEX "Attivita_fatta_scadenza_idx" ON "Attivita"("fatta", "scadenza");
+CREATE INDEX "Attivita_utenteId_fatta_scadenza_idx" ON "Attivita"("utenteId", "fatta", "scadenza");
 
 -- CreateIndex
-CREATE INDEX "Bozza_inviata_aggiornataIl_idx" ON "Bozza"("inviata", "aggiornataIl");
+CREATE INDEX "Bozza_utenteId_inviata_aggiornataIl_idx" ON "Bozza"("utenteId", "inviata", "aggiornataIl");
 
 -- CreateIndex
 CREATE INDEX "Bozza_messaggioId_idx" ON "Bozza"("messaggioId");
 
 -- CreateIndex
-CREATE INDEX "RapportoAI_generatoIl_idx" ON "RapportoAI"("generatoIl");
+CREATE UNIQUE INDEX "RiassuntoContatto_utenteId_email_key" ON "RiassuntoContatto"("utenteId", "email");
+
+-- CreateIndex
+CREATE INDEX "RapportoAI_utenteId_generatoIl_idx" ON "RapportoAI"("utenteId", "generatoIl");
 
 -- CreateIndex
 CREATE INDEX "PropostaArchivio_rapportoId_idx" ON "PropostaArchivio"("rapportoId");
 
 -- AddForeignKey
+ALTER TABLE "Account" ADD CONSTRAINT "Account_utenteId_fkey" FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Sezione" ADD CONSTRAINT "Sezione_utenteId_fkey" FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Regola" ADD CONSTRAINT "Regola_utenteId_fkey" FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Regola" ADD CONSTRAINT "Regola_sezioneId_fkey" FOREIGN KEY ("sezioneId") REFERENCES "Sezione"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Messaggio" ADD CONSTRAINT "Messaggio_utenteId_fkey" FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Messaggio" ADD CONSTRAINT "Messaggio_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "Account"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -230,13 +286,25 @@ ALTER TABLE "Messaggio" ADD CONSTRAINT "Messaggio_accountId_fkey" FOREIGN KEY ("
 ALTER TABLE "Messaggio" ADD CONSTRAINT "Messaggio_sezioneId_fkey" FOREIGN KEY ("sezioneId") REFERENCES "Sezione"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Attivita" ADD CONSTRAINT "Attivita_utenteId_fkey" FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Attivita" ADD CONSTRAINT "Attivita_messaggioId_fkey" FOREIGN KEY ("messaggioId") REFERENCES "Messaggio"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Attivita" ADD CONSTRAINT "Attivita_rapportoId_fkey" FOREIGN KEY ("rapportoId") REFERENCES "RapportoAI"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Bozza" ADD CONSTRAINT "Bozza_utenteId_fkey" FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Bozza" ADD CONSTRAINT "Bozza_messaggioId_fkey" FOREIGN KEY ("messaggioId") REFERENCES "Messaggio"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RiassuntoContatto" ADD CONSTRAINT "RiassuntoContatto_utenteId_fkey" FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RapportoAI" ADD CONSTRAINT "RapportoAI_utenteId_fkey" FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PropostaArchivio" ADD CONSTRAINT "PropostaArchivio_rapportoId_fkey" FOREIGN KEY ("rapportoId") REFERENCES "RapportoAI"("id") ON DELETE CASCADE ON UPDATE CASCADE;

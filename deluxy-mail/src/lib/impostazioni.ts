@@ -1,8 +1,11 @@
 import { db } from './db'
 
+// Il contesto aziendale è CONDIVISO fra tutti gli utenti: è la descrizione
+// dell'azienda che l'AI legge per ogni analisi. Lo modifica un admin.
+// La firma invece è personale ed è su Utente.
+
 export const CHIAVI = {
   contestoAzienda: 'contesto_azienda',
-  firma: 'firma',
 } as const
 
 export async function leggiImpostazioni(): Promise<Record<string, string>> {

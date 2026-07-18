@@ -7,6 +7,7 @@ import { ArchiviaDefinitivo } from '@/components/ArchiviaDefinitivo'
 import { AzioniRiga } from '@/components/AzioniRiga'
 import { AssistenteAI } from '@/components/AssistenteAI'
 import { RispostaAzioni } from '@/components/RispostaAzioni'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,8 +15,9 @@ type Props = { searchParams: Promise<{ sezione?: string; stato?: string; p?: str
 
 export default async function PostaInArrivo({ searchParams }: Props) {
   const { sezione, stato, p } = await searchParams
+  const u = await richiediUtente()
 
-  const account = await db.account.count()
+  const account = await db.account.count({ where: { utenteId: u.id } })
   if (account === 0) {
     return (
       <>
@@ -46,10 +48,13 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     )
   }
 
-  const sezioneAttiva = sezione ? await db.sezione.findUnique({ where: { id: sezione } }) : null
+  const sezioneAttiva = sezione
+    ? await db.sezione.findFirst({ where: { id: sezione, utenteId: u.id } })
+    : null
 
   const messaggi = await db.messaggio.findMany({
     where: {
+      utenteId: u.id,
       // Il cestino ha una pagina sua: qui non si vede mai, nemmeno fra gli
       // archiviati o filtrando per sezione.
       cestinato: false,
@@ -218,7 +223,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         )}
         </div>
 
-        <ColonnaAttivita />
+        <ColonnaAttivita utenteId={u.id} />
       </div>
     </>
   )

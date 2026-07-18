@@ -6,6 +6,7 @@ import { BozzaEditor } from '@/components/BozzaEditor'
 import { AzioniMessaggio } from '@/components/AzioniMessaggio'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { Rianalizza } from '@/components/Rianalizza'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,14 +14,15 @@ type Props = { params: Promise<{ id: string }> }
 
 export default async function DettaglioMessaggio({ params }: Props) {
   const { id } = await params
+  const u = await richiediUtente()
 
-  const messaggio = await db.messaggio.findUnique({
-    where: { id },
+  const messaggio = await db.messaggio.findFirst({
+    where: { id, utenteId: u.id },
     include: { sezione: true, bozze: true, attivita: true, account: true },
   })
   if (!messaggio) notFound()
 
-  const sezioni = await db.sezione.findMany({ orderBy: { ordine: 'asc' } })
+  const sezioni = await db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } })
 
   // Qui si mostra solo la proposta dell'AI: le bozze che hai iniziato tu si
   // riprendono dalla schermata di scrittura, dove le stavi scrivendo.

@@ -5,17 +5,21 @@ import { FormAccount } from '@/components/FormAccount'
 import { EliminaAccount } from '@/components/EliminaAccount'
 import { ScaricaStorico } from '@/components/ScaricaStorico'
 import { dataLunga } from '@/lib/format'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Impostazioni() {
+  const u = await richiediUtente()
   const [account, impostazioni] = await Promise.all([
     db.account.findMany({
+      where: { utenteId: u.id },
       orderBy: { creatoIl: 'asc' },
       include: { _count: { select: { messaggi: true } } },
     }),
     leggiImpostazioni(),
   ])
+  const isAdmin = u.ruolo === 'admin'
 
   const aiPronta = Boolean(process.env.OPENAI_API_KEY)
   const modello = process.env.OPENAI_MODEL || 'gpt-4o-mini'
@@ -135,24 +139,26 @@ export default async function Impostazioni() {
         <form action={salvaImpostazioni}>
           <div className="form-grid">
             <div className="full">
-              <label className="field-label">Contesto aziendale</label>
+              <label className="field-label">
+                Contesto aziendale {isAdmin ? '(condiviso con tutti)' : '(solo un admin lo modifica)'}
+              </label>
               <textarea
                 name="contestoAzienda"
                 rows={4}
+                disabled={!isAdmin}
                 defaultValue={impostazioni[CHIAVI.contestoAzienda] ?? ''}
                 placeholder="Deluxy consegna fiori e composizioni a Milano. Lavoriamo con fiorai e pasticcerie partner. Le consegne si prenotano entro le 18 del giorno prima."
               />
               <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
-                L’AI legge questo testo prima di ogni risposta: più è preciso, meno correzioni
-                dovrai fare.
+                L’AI legge questo testo prima di ogni risposta. È lo stesso per tutta l’azienda.
               </div>
             </div>
             <div className="full">
-              <label className="field-label">Firma per le bozze</label>
+              <label className="field-label">La tua firma per le bozze</label>
               <textarea
                 name="firma"
                 rows={3}
-                defaultValue={impostazioni[CHIAVI.firma] ?? ''}
+                defaultValue={u.firma}
                 placeholder={'Nicolò Donato\nDeluxy\n+39 ...'}
               />
             </div>

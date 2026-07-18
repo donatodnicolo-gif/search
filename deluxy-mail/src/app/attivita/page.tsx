@@ -4,25 +4,23 @@ import { creaAttivitaManuale } from '@/lib/actions'
 import { CheckAttivita } from '@/components/CheckAttivita'
 import { BottoneEsegui } from '@/components/BottoneEsegui'
 import { coloreDiPriorita, PRIORITA, priorita as livello } from '@/lib/format'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Attivita() {
+  const u = await richiediUtente()
   const [daFare, fatte] = await Promise.all([
     db.attivita.findMany({
-      where: { fatta: false },
+      where: { utenteId: u.id, fatta: false },
       orderBy: [{ scadenza: 'asc' }, { creataIl: 'desc' }],
       include: { messaggio: { select: { id: true, oggetto: true, mittente: true } } },
-      // contattoEmail arriva coi campi scalari: è valorizzato sulle azioni
-      // nate dal punto della situazione con un contatto.
     }),
     db.attivita.findMany({
-      where: { fatta: true },
+      where: { utenteId: u.id, fatta: true },
       orderBy: { fattaIl: 'desc' },
       take: 20,
       include: { messaggio: { select: { id: true, oggetto: true, mittente: true } } },
-      // contattoEmail arriva coi campi scalari: è valorizzato sulle azioni
-      // nate dal punto della situazione con un contatto.
     }),
   ])
 

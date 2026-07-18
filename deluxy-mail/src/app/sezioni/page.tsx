@@ -1,13 +1,16 @@
 import { db } from '@/lib/db'
 import { creaSezione } from '@/lib/actions'
 import { EliminaSezione } from '@/components/EliminaSezione'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 const COLORI = ['blue', 'green', 'orange', 'red', 'purple', 'gold'] as const
 
 export default async function Sezioni() {
+  const u = await richiediUtente()
   const sezioni = await db.sezione.findMany({
+    where: { utenteId: u.id },
     orderBy: { ordine: 'asc' },
     include: { _count: { select: { messaggi: true } } },
   })

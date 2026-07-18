@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
-import { leggiImpostazioni, CHIAVI } from '@/lib/impostazioni'
 import { modoValido, preparaRisposta, TITOLI } from '@/lib/rispondi'
 import { Composizione } from '@/components/Composizione'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,19 +16,18 @@ export default async function Scrivi({ params, searchParams }: Props) {
   const { id } = await params
   const { modo: modoGrezzo, bozza: bozzaId } = await searchParams
   const modo = modoValido(modoGrezzo)
+  const u = await richiediUtente()
 
-  const messaggio = await db.messaggio.findUnique({
-    where: { id },
+  const messaggio = await db.messaggio.findFirst({
+    where: { id, utenteId: u.id },
     include: { account: true },
   })
   if (!messaggio) notFound()
 
-  const impostazioni = await leggiImpostazioni()
-
   // Riprendendo una bozza si riparte da com'era, non dai campi precompilati:
   // sarebbe come non averla mai salvata.
   const bozza = bozzaId
-    ? await db.bozza.findUnique({ where: { id: bozzaId, inviata: false } })
+    ? await db.bozza.findFirst({ where: { id: bozzaId, utenteId: u.id, inviata: false } })
     : null
 
   const iniziale = bozza
@@ -37,7 +36,7 @@ export default async function Scrivi({ params, searchParams }: Props) {
         messaggio,
         modo,
         mioIndirizzo: messaggio.account.email,
-        firma: impostazioni[CHIAVI.firma],
+        firma: u.firma || undefined,
       })
 
   return (

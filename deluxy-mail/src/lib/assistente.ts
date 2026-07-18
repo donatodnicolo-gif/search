@@ -5,12 +5,7 @@ import { CODICI_PRIORITA } from './format'
 
 export type Periodo = 'oggi' | 'settimana' | 'mese'
 
-// Il tetto scelto: fino a ~200 messaggi più recenti per giro. Oggi non ci
-// arriva quasi mai; il mese, se pesante, lo lavori in più passate.
 const TETTO: Record<Periodo, number> = { oggi: 100, settimana: 200, mese: 200 }
-
-// Quante mail per chiamata di triage: 20 mail corte stanno larghe in una
-// richiesta, e trasformano 200 messaggi in ~10 chiamate invece di 200.
 const PER_LOTTO = 20
 
 export function periodoValido(p: string | undefined): Periodo {
@@ -21,7 +16,6 @@ export function etichettaPeriodo(p: Periodo): string {
   return p === 'oggi' ? 'oggi' : p === 'settimana' ? 'questa settimana' : 'questo mese'
 }
 
-/** L'inizio del periodo: mezzanotte di oggi, 7 giorni fa, 30 giorni fa. */
 function inizioPeriodo(p: Periodo, ora: Date): Date {
   const d = new Date(ora)
   d.setHours(0, 0, 0, 0)
@@ -30,10 +24,9 @@ function inizioPeriodo(p: Periodo, ora: Date): Date {
   return d
 }
 
-/** I messaggi che l'Assistente guarderebbe: posta ricevuta del periodo, non
- *  ancora archiviata né cestinata. */
-function filtro(p: Periodo, ora: Date) {
+function filtro(utenteId: string, p: Periodo, ora: Date) {
   return {
+    utenteId,
     direzione: 'entrata',
     cestinato: false,
     archiviato: false,
@@ -41,27 +34,22 @@ function filtro(p: Periodo, ora: Date) {
   }
 }
 
-/** Quanti messaggi ci sono nel periodo, per la conferma prima di spendere. */
-export async function contaPeriodo(p: Periodo, ora: Date): Promise<{ totale: number; daLavorare: number }> {
-  const totale = await db.messaggio.count({ where: filtro(p, ora) })
+export async function contaPeriodo(
+  utenteId: string,
+  p: Periodo,
+  ora: Date
+): Promise<{ totale: number; daLavorare: number }> {
+  const totale = await db.messaggio.count({ where: filtro(utenteId, p, ora) })
   return { totale, daLavorare: Math.min(totale, TETTO[p]) }
 }
 
-/**
- * Un giro dell'Assistente su un periodo.
- *
- * map-reduce: triage a lotti (ogni mail classificata in poche parole) →
- * sintesi (il quadro del periodo dalle classificazioni). Da qui nascono le
- * attività, con il link alla mail così "Esegui" sa a chi rispondere, e le
- * proposte di archiviazione, che restano da spuntare — niente si archivia da
- * solo.
- */
 export async function eseguiAssistente(
+  utenteId: string,
   p: Periodo,
   ora: Date
 ): Promise<{ ok: boolean; messaggio: string; rapportoId?: string }> {
   const messaggi = await db.messaggio.findMany({
-    where: filtro(p, ora),
+    where: filtro(utenteId, p, ora),
     orderBy: { data: 'desc' },
     take: TETTO[p],
     select: { id: true, mittente: true, mittenteNome: true, oggetto: true, corpoTesto: true },
@@ -71,11 +59,10 @@ export async function eseguiAssistente(
     return { ok: false, messaggio: `Nessun messaggio da leggere ${etichettaPeriodo(p)}.` }
   }
 
-  const totale = await db.messaggio.count({ where: filtro(p, ora) })
+  const totale = await db.messaggio.count({ where: filtro(utenteId, p, ora) })
   const impostazioni = await leggiImpostazioni()
 
   try {
-    // --- Fase 1: triage a lotti ---
     const schede: (SchedaTriage & { messaggioId: string })[] = []
     for (let i = 0; i < messaggi.length; i += PER_LOTTO) {
       const lotto = messaggi.slice(i, i + PER_LOTTO)
@@ -90,15 +77,12 @@ export async function eseguiAssistente(
         contestoAzienda: impostazioni[CHIAVI.contestoAzienda],
         oggi: ora,
       })
-      // La scheda n=1 è il primo messaggio del lotto, e così via: si riaggancia
-      // per posizione, non fidandosi che il modello inventi un id.
       for (const s of risultato) {
         const m = lotto[s.n - 1]
         if (m) schede.push({ ...s, messaggioId: m.id })
       }
     }
 
-    // --- Fase 2: sintesi ---
     const conAzione = schede.filter((s) => s.azione).length
     const archiviabili = schede.filter((s) => s.archiviabile).length
     const riassunto = await sintetizzaPeriodo({
@@ -109,9 +93,9 @@ export async function eseguiAssistente(
       oggi: ora,
     })
 
-    // --- Salvataggio ---
     const rapporto = await db.rapportoAI.create({
       data: {
+        utenteId,
         periodo: p,
         riassunto,
         messaggiVisti: messaggi.length,
@@ -124,6 +108,7 @@ export async function eseguiAssistente(
       if (s.azione) {
         await db.attivita.create({
           data: {
+            utenteId,
             messaggioId: s.messaggioId,
             rapportoId: rapporto.id,
             titolo: s.azione.titolo,
@@ -135,11 +120,7 @@ export async function eseguiAssistente(
       }
       if (s.archiviabile) {
         await db.propostaArchivio.create({
-          data: {
-            rapportoId: rapporto.id,
-            messaggioId: s.messaggioId,
-            motivo: s.motivoArchivio || 'Non richiede attenzione',
-          },
+          data: { rapportoId: rapporto.id, messaggioId: s.messaggioId, motivo: s.motivoArchivio || 'Non richiede attenzione' },
         })
       }
     }

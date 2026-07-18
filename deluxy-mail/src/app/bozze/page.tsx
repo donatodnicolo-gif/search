@@ -2,12 +2,14 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { dataBreve } from '@/lib/format'
 import { EliminaBozza } from '@/components/EliminaBozza'
+import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Bozze() {
+  const u = await richiediUtente()
   const bozze = await db.bozza.findMany({
-    where: { inviata: false },
+    where: { utenteId: u.id, inviata: false },
     orderBy: { aggiornataIl: 'desc' },
     include: {
       messaggio: { select: { id: true, mittente: true, mittenteNome: true } },

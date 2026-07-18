@@ -8,15 +8,15 @@ import { coloreDiPriorita, priorita as livello } from '@/lib/format'
  * Solo desktop: sotto i 1100px la colonna sparisce e resta la pagina Attività,
  * perché su uno schermo stretto toglierebbe spazio alla posta.
  */
-export async function ColonnaAttivita() {
+export async function ColonnaAttivita({ utenteId }: { utenteId: string }) {
   const attivita = await db.attivita.findMany({
-    where: { fatta: false },
+    where: { utenteId, fatta: false },
     orderBy: [{ scadenza: 'asc' }, { priorita: 'asc' }],
     take: 15,
     include: { messaggio: { select: { id: true } } },
   })
 
-  const totale = await db.attivita.count({ where: { fatta: false } })
+  const totale = await db.attivita.count({ where: { utenteId, fatta: false } })
 
   const oggi = new Date()
   oggi.setHours(23, 59, 59, 999)
