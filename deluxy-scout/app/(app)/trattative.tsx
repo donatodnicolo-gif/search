@@ -46,6 +46,7 @@ export default function Trattative() {
   const [deals, setDeals] = useState<TrattativaConLuogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [faseFiltro, setFaseFiltro] = useState<DealStage | 'tutte'>('tutte');
   const [formAperto, setFormAperto] = useState(false);
 
   const carica = useCallback(async () => {
@@ -76,37 +77,47 @@ export default function Trattative() {
     }, [carica, allineaDaHubspot]),
   );
 
-  const sezioni = useMemo<Sezione[]>(() => {
-    const q = query.trim().toLowerCase();
-    const filtrate = q
-      ? deals.filter((d) =>
-          [d.place_nome, d.linea, labelFase[d.fase]]
-            .filter(Boolean)
-            .some((v) => (v as string).toLowerCase().includes(q)),
-        )
-      : deals;
+  // Stati presenti (per i chip filtro), nell'ordine della pipeline.
+  const fasiPresenti = useMemo<DealStage[]>(() => {
+    const set = new Set(deals.map((d) => d.fase));
+    return FASI.filter((f) => set.has(f));
+  }, [deals]);
 
+  const filtrate = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return deals.filter((d) => {
+      if (faseFiltro !== 'tutte' && d.fase !== faseFiltro) return false;
+      if (!q) return true;
+      return [d.place_nome, d.linea, d.titolo, labelFase[d.fase]]
+        .filter(Boolean)
+        .some((v) => (v as string).toLowerCase().includes(q));
+    });
+  }, [deals, query, faseFiltro]);
+
+  const sezioni = useMemo<Sezione[]>(() => {
     const map = new Map<string, Sezione>();
     for (const d of filtrate) {
-      const key = d.place_id;
+      // Raggruppa per negozio Scout se collegato, altrimenti per nome.
+      const title = d.place_nome ?? 'Senza negozio';
+      const key = d.place_id || `nome:${title}`;
       if (!map.has(key)) {
-        map.set(key, { title: d.place_nome ?? 'Senza negozio', placeId: key, data: [] });
+        map.set(key, { title, placeId: d.place_id || '', data: [] });
       }
       map.get(key)!.data.push(d);
     }
     return [...map.values()].sort((a, b) => a.title.localeCompare(b.title));
-  }, [deals, query]);
+  }, [filtrate]);
 
   const totale = useMemo(
-    () => deals.reduce((s, d) => s + (d.valore_atteso ?? 0), 0),
-    [deals],
+    () => filtrate.reduce((s, d) => s + (d.valore_atteso ?? 0), 0),
+    [filtrate],
   );
 
   return (
     <View style={styles.container}>
       <View style={styles.head}>
         <Text style={styles.sub}>
-          {deals.length} trattative · valore atteso € {totale.toLocaleString('it-IT')}
+          {filtrate.length} trattative · valore € {totale.toLocaleString('it-IT')}
         </Text>
         <TextInput
           style={styles.search}
@@ -117,6 +128,21 @@ export default function Trattative() {
           autoCapitalize="none"
           clearButtonMode="while-editing"
         />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtri}
+        >
+          <FiltroChip label="Tutte" on={faseFiltro === 'tutte'} onPress={() => setFaseFiltro('tutte')} />
+          {fasiPresenti.map((f) => (
+            <FiltroChip
+              key={f}
+              label={labelFase[f]}
+              on={faseFiltro === f}
+              onPress={() => setFaseFiltro(f)}
+            />
+          ))}
+        </ScrollView>
       </View>
       <SectionList
         sections={sezioni}
@@ -125,19 +151,24 @@ export default function Trattative() {
         stickySectionHeadersEnabled={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
-          <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Nessuna trattativa aperta.'}</Text>
+          <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Nessuna trattativa.'}</Text>
         }
-        renderSectionHeader={({ section }) => (
-          <Pressable
-            style={styles.sezioneHead}
-            onPress={() => router.push(`/(app)/attivita/${(section as Sezione).placeId}`)}
-          >
-            <Text style={styles.sezioneTitolo} numberOfLines={1}>
-              <Ionicons name="storefront-outline" size={14} color={colors.bianco} /> {section.title}
-            </Text>
-            <Text style={styles.sezioneConteggio}>{section.data.length}</Text>
-          </Pressable>
-        )}
+        renderSectionHeader={({ section }) => {
+          const sez = section as Sezione;
+          const navigabile = Boolean(sez.placeId);
+          return (
+            <Pressable
+              style={styles.sezioneHead}
+              disabled={!navigabile}
+              onPress={() => navigabile && router.push(`/(app)/attivita/${sez.placeId}`)}
+            >
+              <Text style={styles.sezioneTitolo} numberOfLines={1}>
+                <Ionicons name="storefront-outline" size={14} color={colors.bianco} /> {section.title}
+              </Text>
+              <Text style={styles.sezioneConteggio}>{section.data.length}</Text>
+            </Pressable>
+          );
+        }}
         renderItem={({ item }) => <RigaDeal deal={item} />}
       />
 
@@ -159,12 +190,20 @@ export default function Trattative() {
   );
 }
 
+function FiltroChip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable style={[styles.filtroChip, on && styles.filtroChipOn]} onPress={onPress}>
+      <Text style={[styles.filtroChipTxt, on && styles.filtroChipTxtOn]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function RigaDeal({ deal }: { deal: TrattativaConLuogo }) {
   return (
     <View style={styles.deal}>
       <View style={styles.dealHead}>
         <Text style={styles.dealLinea} numberOfLines={1}>
-          {deal.linea ?? 'Trattativa'}
+          {deal.linea ?? deal.titolo ?? 'Trattativa'}
         </Text>
         {deal.valore_atteso ? (
           <Text style={styles.dealValore}>€ {deal.valore_atteso.toLocaleString('it-IT')}</Text>
@@ -174,7 +213,11 @@ function RigaDeal({ deal }: { deal: TrattativaConLuogo }) {
         <View style={styles.faseBadge}>
           <Text style={styles.faseTxt}>{labelFase[deal.fase]}</Text>
         </View>
-        {deal.hubspot_deal_id ? <Text style={styles.hs}>HubSpot ✓</Text> : null}
+        {deal.origine === 'hubspot' ? (
+          <Text style={styles.hs}>HubSpot</Text>
+        ) : deal.hubspot_deal_id ? (
+          <Text style={styles.hs}>HubSpot ✓</Text>
+        ) : null}
       </View>
       {deal.next_action ? <Text style={styles.nextAction}>→ {deal.next_action}</Text> : null}
     </View>
@@ -422,6 +465,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.testo,
   },
+  filtri: { flexDirection: 'row', gap: 6, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  filtroChip: {
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  filtroChipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  filtroChipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
+  filtroChipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, paddingBottom: 96 },
   vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
   sezioneHead: {

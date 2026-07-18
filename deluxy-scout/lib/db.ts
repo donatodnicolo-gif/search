@@ -15,6 +15,8 @@ export interface ContattoConLuogo extends Contact {
 /** Trattativa arricchita col nome del negozio (per la sezione Trattative). */
 export interface TrattativaConLuogo extends Deal {
   place_nome: string | null;
+  titolo?: string | null; // nome del deal HubSpot (quando non c'è una linea Scout)
+  origine?: 'scout' | 'hubspot';
 }
 
 export async function fetchLinee(): Promise<Linea[]> {
@@ -196,14 +198,73 @@ export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
   })) as ContattoConLuogo[];
 }
 
-/** Tutte le trattative, col nome del negozio (per raggruppamento per negozio). */
+/**
+ * Tutte le trattative, col nome del negozio. Unisce due fonti:
+ *  1. i deal "nativi" di Scout (tabella `deals`, creati da visita o a mano);
+ *  2. le trattative APERTE dalla copia locale del CRM HubSpot (`hubspot_deals`,
+ *     sync notturno) — così si vedono anche gli **importi** del pipeline HubSpot
+ *     che non nasce da Scout. Dedup per id HubSpot (vince il deal Scout).
+ */
 export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
-  const { data, error } = await supabase.from('deals').select('*, places(nome)');
+  // 1. Trattative native Scout.
+  const { data: scout, error } = await supabase.from('deals').select('*, places(nome)');
   if (error) throw error;
-  return (data ?? []).map((r: any) => ({
+  const scoutRows: TrattativaConLuogo[] = (scout ?? []).map((r: any) => ({
     ...r,
     place_nome: r.places?.nome ?? null,
-  })) as TrattativaConLuogo[];
+    titolo: null,
+    origine: 'scout',
+  }));
+  const hsGiaScout = new Set(scoutRows.map((r) => r.hubspot_deal_id).filter(Boolean));
+
+  // 2. Trattative aperte dal CRM HubSpot (con valore). Se la tabella non esiste
+  //    (copia CRM non ancora popolata) degrada con grazia: mostra solo Scout.
+  const { data: hsDeals } = await supabase
+    .from('hubspot_deals')
+    .select('hubspot_id, company_hubspot_id, nome, fase, valore, aperta')
+    .eq('aperta', true);
+
+  // Risolvi il nome: negozio Scout collegato → azienda HubSpot → nome del deal.
+  const companyIds = [
+    ...new Set((hsDeals ?? []).map((d: any) => d.company_hubspot_id).filter(Boolean)),
+  ];
+  const placeByCompany = new Map<string, { id: string; nome: string }>();
+  const companyName = new Map<string, string>();
+  if (companyIds.length) {
+    const { data: places } = await supabase
+      .from('places')
+      .select('id, nome, hubspot_company_id')
+      .in('hubspot_company_id', companyIds);
+    for (const p of places ?? []) placeByCompany.set(p.hubspot_company_id, { id: p.id, nome: p.nome });
+    const { data: comps } = await supabase
+      .from('hubspot_companies')
+      .select('hubspot_id, nome')
+      .in('hubspot_id', companyIds);
+    for (const c of comps ?? []) companyName.set(c.hubspot_id, c.nome);
+  }
+
+  const hsRows: TrattativaConLuogo[] = (hsDeals ?? [])
+    .filter((d: any) => !hsGiaScout.has(d.hubspot_id))
+    .map((d: any) => {
+      const place = d.company_hubspot_id ? placeByCompany.get(d.company_hubspot_id) : undefined;
+      const nomeNegozio =
+        place?.nome ?? (d.company_hubspot_id ? companyName.get(d.company_hubspot_id) : null) ?? null;
+      return {
+        id: `hs_${d.hubspot_id}`,
+        place_id: place?.id ?? '',
+        linea: null,
+        fase: d.fase,
+        valore_atteso: d.valore != null ? Number(d.valore) : null,
+        next_action: null,
+        owner: null,
+        hubspot_deal_id: d.hubspot_id,
+        place_nome: nomeNegozio,
+        titolo: d.nome ?? null,
+        origine: 'hubspot',
+      } as TrattativaConLuogo;
+    });
+
+  return [...scoutRows, ...hsRows];
 }
 
 export async function aggiornaFaseDeal(dealId: string, fase: Deal['fase']): Promise<void> {
