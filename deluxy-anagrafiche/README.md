@@ -54,6 +54,10 @@ anagrafici nelle vostre app — leggeteli da qui.
 
 ### Regole d'ingaggio (attive)
 
+- **Primo contatto senza id**: `GET /partners/match?pIva=…` (o `nome`+`citta`,
+  passando anche `idEsterno`) → vi dice il match sicuro o i candidati con la
+  confidenza. Le richieste finiscono nella pagina *Richieste di aggancio*, dove
+  il team risolve gli ambigui e crea il riferimento; da lì risolvete per id.
 - Nel POST mandate `sistema` (o si deduce dalla vostra chiave) e `idEsterno` (il
   vostro id per quel partner): registro il riferimento e vi riconosco alla
   prossima. Poi risolvete con `GET /partners/by-ref/:sistema/:idEsterno`.
@@ -141,6 +145,7 @@ Autenticazione: header `x-api-key: <chiave>` (oppure `Authorization: Bearer <chi
 | GET | `/api/v1/partners` | lettura | Elenco con filtri e paginazione |
 | GET | `/api/v1/partners/:id` | lettura | Dettaglio (`:id` = id registro, `platformId`, o qualsiasi `idEsterno` registrato) |
 | GET | `/api/v1/partners/by-ref/:sistema/:idEsterno` | lettura | Risolve il partner dall'id interno di un'altra app |
+| GET | `/api/v1/partners/match` | lettura | Aggancio senza id: `pIva`/`codiceFiscale`/`nome`+`citta` → match sicuro o candidati con confidenza |
 | POST | `/api/v1/partners` | scrittura | Upsert-merge; identità via `sistema`+`idEsterno` → `platformId` → P.IVA/CF → nome+città |
 | PATCH | `/api/v1/partners/:id` | scrittura | Aggiornamento parziale |
 | DELETE | `/api/v1/partners/:id` | scrittura | Disattiva (soft delete, `attivo=false`) |
