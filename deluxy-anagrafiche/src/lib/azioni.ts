@@ -171,6 +171,58 @@ export async function importaDaHubspot(a: {
   revalidatePath("/");
 }
 
+// Salvataggio della pagina di modifica: aggiorna i dati anagrafici e
+// sostituisce integralmente i referenti con le righe compilate del form.
+// Stato, interessi e archivio hanno i loro controlli dedicati e restano fuori.
+export async function aggiornaPartner(partnerId: string, fd: FormData) {
+  const testo = (k: string) => {
+    const v = String(fd.get(k) ?? "").trim();
+    return v || null;
+  };
+  const maiuscolo = (k: string) => testo(k)?.toUpperCase() ?? null;
+
+  const nome = testo("nome");
+  const categoria = maiuscolo("categoria");
+  if (!nome || !categoria) redirect(`/partner/${partnerId}/modifica?errore=1`);
+
+  const righeContatti = Number(fd.get("righeContatti")) || 0;
+  const contatti = [];
+  for (let i = 0; i < righeContatti; i++) {
+    const c = {
+      ruolo: testo(`c${i}-ruolo`)?.toUpperCase() ?? null,
+      nome: testo(`c${i}-nome`),
+      telefono: testo(`c${i}-telefono`),
+      email: testo(`c${i}-email`),
+    };
+    if (c.ruolo || c.nome || c.telefono || c.email) contatti.push(c);
+  }
+
+  const ultimaVisita = testo("ultimaVisita");
+  await prisma.partner.update({
+    where: { id: partnerId },
+    data: {
+      nome,
+      categoria,
+      ragioneSociale: testo("ragioneSociale"),
+      citta: maiuscolo("citta"),
+      provincia: maiuscolo("provincia"),
+      regione: maiuscolo("regione"),
+      indirizzo: testo("indirizzo"),
+      email: testo("email"),
+      telefono: testo("telefono"),
+      pIva: testo("pIva"),
+      codiceFiscale: testo("codiceFiscale"),
+      account: maiuscolo("account"),
+      note: testo("note"),
+      ultimaVisita: ultimaVisita ? new Date(ultimaVisita) : null,
+      contatti: { deleteMany: {}, create: contatti },
+    },
+  });
+  revalidatePath("/");
+  revalidatePath(`/partner/${partnerId}`);
+  redirect(`/partner/${partnerId}`);
+}
+
 // Archivia (attivo=false) o ripristina un'anagrafica. Le archiviate spariscono
 // da elenchi, sidebar e API (salvo attivo=false/tutti) e vivono nella sezione
 // "Archiviati". Stessa semantica del DELETE delle API.

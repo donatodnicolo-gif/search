@@ -70,11 +70,16 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
               <span style={{ color: "var(--text)" }}>Archiviata</span>
             </span>
           )}
-          <form action={impostaArchiviato.bind(null, p.id, p.attivo)}>
-            <button type="submit" className="btn btn-secondario" style={{ fontSize: 12.5, padding: "6px 14px" }}>
-              {p.attivo ? "⌫ Archivia" : "↩ Ripristina"}
-            </button>
-          </form>
+          <div style={{ display: "flex", gap: 8 }}>
+            <a className="btn btn-secondario" href={`/partner/${p.id}/modifica`} style={{ fontSize: 12.5, padding: "6px 14px" }}>
+              ✎ Modifica
+            </a>
+            <form action={impostaArchiviato.bind(null, p.id, p.attivo)}>
+              <button type="submit" className="btn btn-secondario" style={{ fontSize: 12.5, padding: "6px 14px" }}>
+                {p.attivo ? "⌫ Archivia" : "↩ Ripristina"}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
 
