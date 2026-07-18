@@ -398,7 +398,7 @@ export async function cercaPlaces(term: string, limit = 20): Promise<PlaceLite[]
 /** Modifica una trattativa Scout (tabella `deals`). */
 export async function aggiornaDeal(
   id: string,
-  patch: Partial<Pick<Deal, 'linea' | 'fase' | 'valore_atteso' | 'next_action' | 'scadenza'>>,
+  patch: Partial<Pick<Deal, 'linea' | 'linee' | 'fase' | 'valore_atteso' | 'next_action' | 'scadenza'>>,
 ): Promise<void> {
   const { error } = await supabase.from('deals').update(patch).eq('id', id);
   if (error) throw error;
@@ -408,6 +408,7 @@ export async function aggiornaDeal(
 export async function inserisciDeal(d: {
   place_id: string;
   linea: string | null;
+  linee?: string[] | null;
   fase: Deal['fase'];
   valore_atteso: number | null;
   next_action: string | null;

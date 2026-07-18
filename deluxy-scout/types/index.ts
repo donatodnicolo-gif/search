@@ -159,7 +159,8 @@ export interface Visit {
 export interface Deal {
   id: string;
   place_id: string;
-  linea: string | null;
+  linea: string | null; // linea primaria (prima di `linee`)
+  linee?: string[] | null; // tipologie di interesse MULTIPLE della trattativa
   fase: DealStage;
   valore_atteso: number | null;
   next_action: string | null;

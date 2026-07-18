@@ -26,7 +26,8 @@ import {
 } from '@/lib/db';
 import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } from '@/lib/hubspot';
 import { env } from '@/lib/env';
-import { LINEE_ATTIVE, type Contact, type DealStage, type StatoAffiliazione } from '@/types';
+import { type Contact, type DealStage, type StatoAffiliazione } from '@/types';
+import { LineaSelector } from '@/components/LineaSelector';
 
 interface Sezione {
   title: string;
@@ -235,9 +236,10 @@ function RegistroBadge({ stato, partner }: { stato: string; partner?: boolean })
 }
 
 function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => void }) {
-  const titolo = deal.titolo ?? deal.linea ?? 'Trattativa';
-  // Tipologia di interesse (linea Deluxy) come tag, quando distinta dal titolo.
-  const tipologia = deal.linea && deal.titolo ? deal.linea : null;
+  const lineaTxt = deal.linee?.length ? deal.linee.join(', ') : deal.linea;
+  const titolo = deal.titolo ?? lineaTxt ?? 'Trattativa';
+  // Tipologia di interesse (linee Deluxy) come tag, quando distinta dal titolo.
+  const tipologia = lineaTxt && deal.titolo ? lineaTxt : null;
   const daRegistro = deal.origine === 'anagrafiche';
   return (
     <Pressable style={styles.deal} onPress={onEdit}>
@@ -306,7 +308,9 @@ function TrattativaModal({
     deal ? { id: deal.place_id, nome: deal.place_nome ?? 'Negozio', indirizzo: null, zona: null } : null,
   );
   const [contatti, setContatti] = useState<Contact[]>([]);
-  const [linea, setLinea] = useState<string>(deal?.linea ?? 'Consegne');
+  const [linee, setLinee] = useState<string[]>(
+    deal?.linee?.length ? deal.linee : deal?.linea ? [deal.linea] : ['Consegne'],
+  );
   const [fase, setFase] = useState<DealStage>((deal?.fase as DealStage) ?? 'appointmentscheduled');
   const [valore, setValore] = useState(deal?.valore_atteso != null ? String(deal.valore_atteso) : '');
   const [nextAction, setNextAction] = useState(deal?.next_action ?? '');
@@ -356,7 +360,8 @@ function TrattativaModal({
     try {
       const valNum = valore.trim() ? Number(valore.replace(/[^\d]/g, '')) : null;
       const patch = {
-        linea,
+        linea: linee[0] ?? null,
+        linee,
         fase,
         valore_atteso: valNum != null && isFinite(valNum) ? valNum : null,
         next_action: nextAction.trim() || null,
@@ -500,19 +505,9 @@ function TrattativaModal({
               </Text>
             ) : null}
 
-            {/* Linea */}
-            <Text style={styles.campoLabel}>Linea</Text>
-            <View style={styles.chipRow}>
-              {LINEE_ATTIVE.map((l) => (
-                <Pressable
-                  key={l}
-                  style={[styles.chip, linea === l && styles.chipOn]}
-                  onPress={() => setLinea(l)}
-                >
-                  <Text style={[styles.chipTxt, linea === l && styles.chipTxtOn]}>{l}</Text>
-                </Pressable>
-              ))}
-            </View>
+            {/* Linee (tipologie di interesse) — selezione multipla */}
+            <Text style={styles.campoLabel}>Linee (una o più)</Text>
+            <LineaSelector value={linee} onChange={setLinee} />
 
             {/* Fase */}
             <Text style={styles.campoLabel}>Fase</Text>
