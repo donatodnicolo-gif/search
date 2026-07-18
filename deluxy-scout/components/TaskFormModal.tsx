@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { Priorita, Profilo, Task } from '@/types';
 import { colors, coloreProprita, radius, spacing } from '@/lib/theme';
 import { supabase } from '@/lib/supabase';
-import { aggiornaTask, fetchProfiles, inserisciTask } from '@/lib/db';
+import { aggiornaTask, fetchProfiles, inserisciTask, notificaAssegnazioneTask } from '@/lib/db';
 import { nomeVenditore } from '@/lib/metrics';
 
 const PRIORITA: { v: Priorita; label: string }[] = [
@@ -74,10 +74,18 @@ export function TaskFormModal({
     if (!t || salvando) return;
     setSalvando(true);
     try {
+      const assegnatario = owner ?? mioId;
+      let taskId = task?.id ?? null;
       if (inModifica && task) {
-        await aggiornaTask(task.id, { titolo: t, priorita, scadenza, owner: owner ?? mioId });
+        await aggiornaTask(task.id, { titolo: t, priorita, scadenza, owner: assegnatario });
+        taskId = task.id;
       } else {
-        await inserisciTask({ titolo: t, priorita, scadenza, owner: owner ?? mioId, place_id: placeId ?? null });
+        const nuovo = await inserisciTask({ titolo: t, priorita, scadenza, owner: assegnatario, place_id: placeId ?? null });
+        taskId = nuovo.id;
+      }
+      // Se assegnato a un ALTRO, notifica via email (best-effort; inerte se SMTP non configurato).
+      if (taskId && assegnatario && assegnatario !== mioId) {
+        notificaAssegnazioneTask(taskId).catch(() => {});
       }
       onSalvato();
       onClose();

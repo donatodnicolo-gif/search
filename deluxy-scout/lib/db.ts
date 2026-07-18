@@ -524,6 +524,25 @@ export async function eliminaTask(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Notifica via email l'assegnatario di un task (Edge Function `notifica-task`).
+ * Best effort: se lo SMTP non è configurato la funzione non invia nulla.
+ */
+export async function notificaAssegnazioneTask(taskId: string): Promise<void> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/notifica-task`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ task_id: taskId }),
+  });
+}
+
 // ── Affiliazioni (linea Re-seller: fioristi/pasticcerie da reclutare) ──────────
 
 /** Elenco affiliazioni con dati anagrafici, referente principale e ultima chiamata. */
