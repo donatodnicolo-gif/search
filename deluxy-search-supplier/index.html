@@ -680,6 +680,7 @@ async function unlock(){
     $('.user-name').textContent = USER;
     $('.avatar').textContent = USER.slice(0,2).toUpperCase();
     if(!CONFIG.googleKey){ setView(true); setActiveNav($('#navAdmin')); }   // primo avvio → vai alle Impostazioni
+    else applyDeepLink();   // parametri arrivati da un'altra app (bottone esterno)
   }catch(e){
     PASS=''; sessionStorage.removeItem('pass');
     $('#passErr').textContent='❌ '+e.message;
@@ -689,6 +690,40 @@ $('#passBtn').addEventListener('click', unlock);
 $('#passInput').addEventListener('keydown', e=>{ if(e.key==='Enter') unlock(); });
 $('#userInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#passInput').focus(); });
 if(PASS && USER){ unlock(); }   // sessione già sbloccata
+
+/* ------------------ DEEP LINK (richiamo da altre app) ------------------
+   L'app si può aprire da un bottone di un'altra app con parametri in URL:
+   ?brand=deluxyflowers.com&ordine=2403     → recupera l'ordine e cerca i negozi
+   ?indirizzo=Via Roma 1, Milano&categoria=fiorai|pasticcerie → ricerca diretta
+   I parametri si applicano DOPO il login (che resta obbligatorio). */
+let deepLinkDone = false;
+function applyDeepLink(){
+  if(deepLinkDone) return;
+  deepLinkDone = true;
+  const q = new URLSearchParams(location.search);
+  if(![...q.keys()].length) return;
+  const brand = q.get('brand');
+  if(brand && KNOWN_BRANDS.includes(brand)){ $('#brand').value = brand; localStorage.setItem('brand', brand); }
+  const cat = (q.get('categoria')||'').toLowerCase();
+  if(cat.startsWith('fior') || cat.startsWith('pasticc')){
+    const want = cat.startsWith('pasticc') ? 'pasticceria' : 'fioraio';
+    cats.clear(); cats.add(want);
+    document.querySelectorAll('.chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
+  }
+  const ordine = (q.get('ordine') || q.get('order') || '').trim();
+  const indirizzo = (q.get('indirizzo') || q.get('address') || '').trim();
+  if(ordine){
+    $('#orderNum').value = ordine.replace(/^#/,'');
+    setView('operativa');
+    fetchOrder();          // a fine recupero parte da sola anche la ricerca in zona
+    return;
+  }
+  if(indirizzo){
+    $('#address').value = indirizzo; localStorage.setItem('addr', indirizzo);
+    setView('operativa');
+    run();
+  }
+}
 
 async function saveConfig(){
   const stores = KNOWN_BRANDS.map(b=>({
