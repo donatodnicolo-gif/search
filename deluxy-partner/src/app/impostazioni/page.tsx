@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { CHIAVI, leggiImpostazioni, salvaImpostazione, ibanValido } from "@/lib/impostazioni";
 import { inviaEmail } from "@/lib/mail";
+import { ficStato } from "@/lib/fic";
 
 export const dynamic = "force-dynamic";
 
@@ -59,10 +60,11 @@ async function inviaProva(fd: FormData) {
 export default async function ImpostazioniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ salvato?: string; errore?: string }>;
+  searchParams: Promise<{ salvato?: string; errore?: string; azienda?: string }>;
 }) {
   const sp = await searchParams;
   const imp = await leggiImpostazioni();
+  const fic = await ficStato();
 
   return (
     <>
@@ -79,7 +81,11 @@ export default async function ImpostazioniPage({
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
           <span className="badge green">
             <span className="dot" />
-            {sp.salvato === "prova" ? "Email di prova inviata: controlla la casella" : "Impostazioni salvate"}
+            {sp.salvato === "prova"
+              ? "Email di prova inviata: controlla la casella"
+              : sp.salvato === "fic"
+                ? `Fatture in Cloud collegato${sp.azienda ? ` — azienda: ${sp.azienda}` : ""}`
+                : "Impostazioni salvate"}
           </span>
         </div>
       )}
@@ -119,6 +125,31 @@ export default async function ImpostazioniPage({
           <button type="submit" className="btn primary">Salva impostazioni</button>
         </div>
       </form>
+
+      <h2 className="section-title">Fatture in Cloud</h2>
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <div>
+            {fic.collegato ? (
+              <span className="badge green"><span className="dot" />Collegato — azienda: {fic.companyName}</span>
+            ) : fic.credenziali ? (
+              <span className="badge orange"><span className="dot" />App FINANCE configurata, account non ancora collegato</span>
+            ) : (
+              <span className="badge neutral"><span className="dot" />Non configurato</span>
+            )}
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8 }}>
+              Il collegamento permette di emettere fatture dall&apos;app (con numero di ritorno automatico)
+              e sincronizzare lo stato degli incassi. Il consenso si dà una sola volta con l&apos;account
+              Fatture in Cloud; il rinnovo del token è automatico.
+            </p>
+          </div>
+          {fic.credenziali && (
+            <a className="btn primary" href="/api/fic/authorize">
+              {fic.collegato ? "Ricollega" : "Collega Fatture in Cloud"}
+            </a>
+          )}
+        </div>
+      </div>
 
       <h2 className="section-title">Email solleciti (SMTP)</h2>
       <form action={salvaSmtp} className="card">
