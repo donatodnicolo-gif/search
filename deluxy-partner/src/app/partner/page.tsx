@@ -153,6 +153,31 @@ export default async function PartnerList({
                   </td>
                 </tr>
               ))}
+              {(() => {
+                const somma = (fn: (t: T) => number) => filtered.reduce((a, t) => a + fn(t), 0);
+                const totVendite = somma((t) => t.rolling.vendite);
+                const totServizi = somma((t) => t.rolling.fatture);
+                const totResiduo = somma((t) => t.rolling.residuo);
+                const totVenditePrec = somma((t) => precPeriodo.get(t.partner.id)?.vendite ?? 0);
+                const totServiziPrec = somma((t) => precPeriodo.get(t.partner.id)?.servizi ?? 0);
+                return (
+                  <tr style={{ background: "var(--bg)", fontWeight: 600 }}>
+                    <td>Totale ({filtered.length} partner)</td>
+                    <td colSpan={5}></td>
+                    <td className="num">
+                      {euro(totVendite)}
+                      <DeltaAnno cur={totVendite} prev={totVenditePrec} />
+                    </td>
+                    <td className="num">
+                      {euro(totServizi)}
+                      <DeltaAnno cur={totServizi} prev={totServiziPrec} />
+                    </td>
+                    <td className={`num ${Math.abs(totResiduo) < 0.01 ? "" : totResiduo > 0 ? "pos" : "neg"}`}>
+                      {euro(totResiduo)}
+                    </td>
+                  </tr>
+                );
+              })()}
             </tbody>
           </table>
         </div>
