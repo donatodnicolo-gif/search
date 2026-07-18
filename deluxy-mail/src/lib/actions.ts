@@ -665,12 +665,18 @@ export async function salvaImpostazioni(form: FormData) {
   const u = await utenteCorrente()
   if (!u) return
 
+  // Le lingue lette arrivano come caselle spuntate (più valori con lo stesso
+  // nome): si raccolgono tutte. Se non ne spunti nessuna, resta l'italiano.
+  const lingue = form
+    .getAll('lingueLette')
+    .map((v) => String(v).trim().toLowerCase())
+    .filter(Boolean)
   await db.utente.update({
     where: { id: u.id },
     data: {
       firma: testo(form, 'firma'),
       traduzioneAuto: flag(form, 'traduzioneAuto'),
-      lingueLette: testo(form, 'lingueLette') || 'italiano',
+      lingueLette: lingue.length ? lingue.join(', ') : 'italiano',
     },
   })
   if (u.ruolo === 'admin' && form.has('contestoAzienda')) {

@@ -9,8 +9,13 @@ import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
+// Lingue offerte come caselle: i nomi coincidono con quelli che l'AI usa per
+// rilevare la lingua (in italiano), così il confronto funziona.
+const LINGUE = ['italiano', 'inglese', 'francese', 'spagnolo', 'tedesco', 'portoghese', 'olandese']
+
 export default async function Impostazioni() {
   const u = await richiediUtente()
+  const lingueLette = u.lingueLette.split(',').map((l) => l.trim().toLowerCase())
   const [account, impostazioni] = await Promise.all([
     db.account.findMany({
       where: { utenteId: u.id },
@@ -176,14 +181,22 @@ export default async function Impostazioni() {
             </div>
             <div className="full">
               <label className="field-label">Lingue che leggo (non tradurre)</label>
-              <input
-                type="text"
-                name="lingueLette"
-                defaultValue={u.lingueLette}
-                placeholder="italiano, inglese"
-              />
-              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
-                Separate da virgola. Le mail in queste lingue non vengono tradotte.
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 4 }}>
+                {LINGUE.map((lingua) => (
+                  <label key={lingua} className="checkbox-row" style={{ padding: 0 }}>
+                    <input
+                      type="checkbox"
+                      name="lingueLette"
+                      value={lingua}
+                      defaultChecked={lingueLette.includes(lingua)}
+                    />
+                    {lingua.charAt(0).toUpperCase() + lingua.slice(1)}
+                  </label>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>
+                Le mail nelle lingue spuntate non vengono tradotte. Se non spunti niente, resta
+                l’italiano.
               </div>
             </div>
           </div>
