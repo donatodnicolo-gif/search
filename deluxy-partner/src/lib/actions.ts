@@ -4,6 +4,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
+import { feeApplicabile, feeDaTariffe } from "./fee";
 
 function s(fd: FormData, k: string): string | null {
   const v = fd.get(k);
@@ -174,8 +175,8 @@ export async function createVendita(fd: FormData) {
   }
   let feePercent = n(fd, "feePercent");
   if (feePercent == null) {
-    const p = await prisma.partner.findUnique({ where: { id: partnerId } });
-    feePercent = p?.feePercent ?? 0;
+    // fee del mese di competenza dallo storico tariffe (o fee base del partner)
+    feePercent = await feeApplicabile(partnerId, anno, mese);
   }
   await prisma.venditaVendor.create({
     data: {
@@ -211,16 +212,43 @@ export async function updateVendita(id: string, fd: FormData) {
   redirect(`/vendite/${id}?salvato=1`);
 }
 
-// Riallinea la fee di tutte le vendite di un partner (di un anno) alla fee
-// attuale del partner. Usato quando si corregge la fee e la si vuole applicare
-// anche ai movimenti già registrati.
+// Riallinea la fee di ogni vendita di un partner (di un anno) alla fee valida
+// per il SUO mese secondo lo storico tariffe (fallback: fee base del partner).
+// Così le vendite si aggiornano ciascuna con la fee corretta del proprio periodo.
 export async function riallineaFeeVendite(partnerId: string, anno: number) {
-  const p = await prisma.partner.findUnique({ where: { id: partnerId } });
-  if (!p) return;
-  await prisma.venditaVendor.updateMany({
-    where: { partnerId, anno },
-    data: { feePercent: p.feePercent ?? 0 },
+  const [p, tariffe, vendite] = await Promise.all([
+    prisma.partner.findUnique({ where: { id: partnerId }, select: { feePercent: true } }),
+    prisma.tariffaPartner.findMany({ where: { partnerId } }),
+    prisma.venditaVendor.findMany({ where: { partnerId, anno } }),
+  ]);
+  const feeBase = p?.feePercent ?? 0;
+  for (const v of vendite) {
+    const fee = feeDaTariffe(tariffe, v.anno, v.mese, feeBase);
+    if (fee !== v.feePercent) {
+      await prisma.venditaVendor.update({ where: { id: v.id }, data: { feePercent: fee } });
+    }
+  }
+  revalidateAll();
+  redirect(`/partner/${partnerId}`);
+}
+
+// Aggiunge/aggiorna una decorrenza di fee: "dal mese/anno la fee diventa X%".
+export async function aggiungiTariffa(partnerId: string, fd: FormData) {
+  const dalAnno = n(fd, "dalAnno");
+  const dalMese = n(fd, "dalMese");
+  const feePercent = n(fd, "feePercent");
+  if (!dalAnno || !dalMese || feePercent == null) throw new Error("Compila mese, anno e fee");
+  await prisma.tariffaPartner.upsert({
+    where: { partnerId_dalAnno_dalMese: { partnerId, dalAnno, dalMese } },
+    create: { partnerId, dalAnno, dalMese, feePercent },
+    update: { feePercent },
   });
+  revalidateAll();
+  redirect(`/partner/${partnerId}`);
+}
+
+export async function eliminaTariffa(id: string, partnerId: string) {
+  await prisma.tariffaPartner.delete({ where: { id } });
   revalidateAll();
   redirect(`/partner/${partnerId}`);
 }

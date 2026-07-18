@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
-import { nomeMese, commissione, dovutoVendita, ivato } from "@/lib/calc";
-import { segnaFatturaPagata, riallineaFeeVendite } from "@/lib/actions";
+import { nomeMese, commissione, dovutoVendita, ivato, MESI } from "@/lib/calc";
+import { segnaFatturaPagata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa } from "@/lib/actions";
+import { feeDaTariffe } from "@/lib/fee";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { PagamentoMese } from "@/components/PagamentoMese";
 import { RecapAI } from "@/components/RecapAI";
@@ -23,9 +24,10 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
 
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
-  const [{ mesi, rolling }, prec] = await Promise.all([
+  const [{ mesi, rolling }, prec, tariffe] = await Promise.all([
     riepilogoPartner(id, anno),
     riepilogoPartner(id, annoPrec),
+    prisma.tariffaPartner.findMany({ where: { partnerId: id }, orderBy: [{ dalAnno: "desc" }, { dalMese: "desc" }] }),
   ]);
   const mesiConDati = mesi.filter(
     (m) => m.fatture.length || m.vendite.length || m.saldo
@@ -33,11 +35,12 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
   // valore mese = vendite + servizi fatturati (netto IVA), per il confronto anno su anno
   const valoreMese = (r: { vendite: number; serviziNetto: number }) => r.vendite + r.serviziNetto;
 
-  // vendite con fee diversa da quella attuale del partner (fee cambiata dopo l'inserimento)
-  const feeAttuale = partner.feePercent ?? 0;
+  // fee attesa per una vendita = fee valida nel suo mese secondo lo storico
+  const feeBase = partner.feePercent ?? 0;
+  const feeAttesaVendita = (v: { anno: number; mese: number }) => feeDaTariffe(tariffe, v.anno, v.mese, feeBase);
   const venditeDisallineate = mesi
     .flatMap((m) => m.vendite)
-    .filter((v) => v.feePercent !== feeAttuale).length;
+    .filter((v) => v.feePercent !== feeAttesaVendita(v)).length;
 
   const recapPrompt = costruisciRecapPrompt({
     partner,
@@ -64,7 +67,7 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
               <button
                 className="btn secondary"
                 type="submit"
-                title={`Applica la fee attuale (${feeAttuale}%) a ${venditeDisallineate} vendite ${anno} con fee diversa`}
+                title={`Applica a ${venditeDisallineate} vendite ${anno} la fee prevista dallo storico per il loro mese`}
               >
                 Riallinea fee vendite ({venditeDisallineate})
               </button>
@@ -95,6 +98,59 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
       </div>
 
       <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} />
+
+      <h2 className="section-title">Fee nel tempo</h2>
+      <div className="card">
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 12 }}>
+          Fee base attuale <strong>{pctIt(partner.feePercent)}</strong>. Se la fee cambia da un certo
+          mese, aggiungi una decorrenza: le vendite di quel mese in poi la useranno automaticamente,
+          quelle precedenti restano invariate.
+        </p>
+        {tariffe.length > 0 && (
+          <div className="table-wrap" style={{ marginBottom: 12 }}>
+            <table className="mini-table">
+              <thead>
+                <tr><th>Dal</th><th>Fee</th><th></th></tr>
+              </thead>
+              <tbody>
+                {tariffe.map((t) => (
+                  <tr key={t.id}>
+                    <td>{nomeMese(t.dalMese)} {t.dalAnno}</td>
+                    <td>{pctIt(t.feePercent)}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <form action={eliminaTariffa.bind(null, t.id, id)}>
+                        <button className="btn small danger" type="submit">Elimina</button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <form action={aggiungiTariffa.bind(null, id)} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div>
+            <label className="field-label">Dal mese</label>
+            <select name="dalMese" defaultValue={new Date().getMonth() + 1} style={{ width: "auto" }}>
+              {MESI.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="field-label">Anno</label>
+            <input type="number" name="dalAnno" defaultValue={anno} step="1" style={{ width: 90 }} />
+          </div>
+          <div>
+            <label className="field-label">Fee %</label>
+            <input type="number" name="feePercent" step="0.1" min="0" max="100" required style={{ width: 90 }} placeholder="es. 22" />
+          </div>
+          <button className="btn primary small" type="submit">Aggiungi decorrenza</button>
+          {venditeDisallineate > 0 && (
+            <span className="muted" style={{ fontSize: 12.5, alignSelf: "center", marginLeft: "auto" }}>
+              {venditeDisallineate} vendite {anno} non allineate allo storico — usa «Riallinea fee vendite» in alto.
+            </span>
+          )}
+        </form>
+      </div>
 
       <h2 className="section-title">Rolling {anno}</h2>
       <div className="kpi-grid">
@@ -235,9 +291,9 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                       </td>
                       <td>
                         fee {pctIt(v.feePercent)} → comm. {euro(commissione(v))}
-                        {v.feePercent !== (partner.feePercent ?? 0) && (
-                          <Link href={`/vendite/${v.id}`} className="badge orange" style={{ marginLeft: 6 }} title={`Fee diversa dal partner (${partner.feePercent ?? 0}%)`}>
-                            <span className="dot" />fee {pctIt(partner.feePercent)}?
+                        {v.feePercent !== feeAttesaVendita(v) && (
+                          <Link href={`/vendite/${v.id}`} className="badge orange" style={{ marginLeft: 6 }} title={`Per ${nomeMese(v.mese)} la fee prevista è ${feeAttesaVendita(v)}%`}>
+                            <span className="dot" />attesa {pctIt(feeAttesaVendita(v))}?
                           </Link>
                         )}
                       </td>

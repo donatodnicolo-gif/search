@@ -153,6 +153,22 @@ model Impostazione {
   valore String
 }
 
+// Storico delle fee di un partner: "dal mese/anno la fee diventa X%".
+// Una vendita per un dato mese prende la fee valida in quel mese (la tariffa più
+// recente con decorrenza <= mese), così lo storico resta invariato e i mesi
+// successivi si aggiornano da soli. Fallback: partner.feePercent.
+model TariffaPartner {
+  id         String   @id @default(cuid())
+  partnerId  String
+  dalAnno    Int
+  dalMese    Int // 1-12: la fee è valida DA questo mese in poi
+  feePercent Float
+  createdAt  DateTime @default(now())
+
+  @@unique([partnerId, dalAnno, dalMese])
+  @@index([partnerId])
+}
+
 // Regola di associazione: quando l'operatore assegna a mano un partner a un
 // movimento non riconosciuto, la controparte viene memorizzata qui così i
 // movimenti futuri dello stesso soggetto si riconoscono da soli.
