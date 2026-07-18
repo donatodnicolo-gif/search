@@ -11,6 +11,7 @@ import { BoxIpotesi } from '@/components/BoxIpotesi';
 import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { TaskFormModal } from '@/components/TaskFormModal';
+import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 import { Loader } from '../../_layout';
 
 export default function SchedaAttivita() {
@@ -190,6 +191,8 @@ export default function SchedaAttivita() {
         <View style={{ marginTop: spacing.md }}>
           <BoxIpotesi linea={place.linea_ipotizzata} aggancio={place.aggancio_apertura} />
         </View>
+
+        <AnagraficaRegistroCard nome={place.nome} citta={place.zona} />
 
         <Text style={styles.interesseLbl}>Tipologia di interesse — scegline una o più</Text>
         <LineaSelector

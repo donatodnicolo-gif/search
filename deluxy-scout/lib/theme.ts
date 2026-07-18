@@ -143,6 +143,7 @@ export const labelAffiliazione: Record<StatoAffiliazione, string> = {
   da_ricontattare: 'Da ricontattare',
   attivo: 'Attivo',
   non_interessato: 'Non interessato',
+  dismesso: 'Dismesso',
 };
 
 export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
@@ -153,4 +154,5 @@ export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
   da_ricontattare: colors.attenzione,
   attivo: colors.successo,
   non_interessato: colors.errore,
+  dismesso: colors.grigio,
 };

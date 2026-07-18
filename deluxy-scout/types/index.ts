@@ -6,7 +6,7 @@ export type StatoPlace = 'da_visitare' | 'visitato' | 'cliente' | 'perso';
 
 export type EsitoVisita = 'interessato' | 'da_richiamare' | 'non_target' | 'chiuso';
 
-// Stato di lavorazione dell'affiliazione — i 7 valori del registro Deluxy Anagrafiche.
+// Stato di lavorazione dell'affiliazione — gli 8 valori del registro Deluxy Anagrafiche.
 export type StatoAffiliazione =
   | 'prospect'
   | 'in_contatto'
@@ -14,7 +14,8 @@ export type StatoAffiliazione =
   | 'in_trattativa'
   | 'da_ricontattare'
   | 'attivo'
-  | 'non_interessato';
+  | 'non_interessato'
+  | 'dismesso';
 
 // Ordine dello "step" (dal primo contatto alla chiusura) per la UI.
 export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
@@ -25,6 +26,7 @@ export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
   'da_ricontattare',
   'attivo',
   'non_interessato',
+  'dismesso',
 ];
 
 // Contatto della scheda, per la lista Affiliazioni (numero da chiamare + referente).
