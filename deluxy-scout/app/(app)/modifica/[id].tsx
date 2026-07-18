@@ -80,7 +80,8 @@ export default function ModificaAttivita() {
         linea_ipotizzata: linee[0] ?? null,
         linee_ipotizzate: linee,
       });
-      router.back();
+      // Drawer senza stack lineare: torniamo al dettaglio, non alla Mappa.
+      router.replace(`/(app)/attivita/${place.id}`);
     } catch (e: any) {
       Alert.alert('Errore', e?.message ?? 'Impossibile salvare le modifiche.');
     } finally {

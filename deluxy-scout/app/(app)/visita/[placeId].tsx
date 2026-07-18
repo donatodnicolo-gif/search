@@ -137,7 +137,7 @@ export default function NuovaVisita() {
         });
         await programmaRecapEmail({ esito, nomeAttivita: place.nome, placeId: place.id });
         Alert.alert('Salvata offline', 'La visita verrà sincronizzata al ritorno online.');
-        router.back();
+        router.replace(`/(app)/attivita/${place.id}`);
         return;
       }
 
@@ -155,7 +155,7 @@ export default function NuovaVisita() {
       // Tenta anche di svuotare eventuali visite rimaste in coda.
       flushCoda().catch(() => {});
       Alert.alert('Visita salvata', 'Sincronizzata su Supabase.');
-      router.back();
+      router.replace(`/(app)/attivita/${place.id}`);
     } catch (e: any) {
       // Fallback: se qualcosa va storto online, accoda comunque per non perdere dati.
       await accodaVisita({
@@ -166,7 +166,7 @@ export default function NuovaVisita() {
         retries: 0,
       });
       Alert.alert('Salvata in coda', `Errore online, messa in coda di sync.\n${e?.message ?? ''}`);
-      router.back();
+      router.replace(`/(app)/attivita/${place.id}`);
     } finally {
       setSalvataggio(false);
     }

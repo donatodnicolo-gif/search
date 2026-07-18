@@ -43,7 +43,9 @@ export default function NuovoContatto() {
         email: email.trim() || null,
         is_decisore: isDecisore,
       });
-      router.back();
+      // Il layout è un Drawer (niente stack lineare): router.back() tornerebbe
+      // alla Mappa. Torniamo esplicitamente al dettaglio del negozio.
+      router.replace(`/(app)/attivita/${placeId}`);
     } catch (e: any) {
       Alert.alert('Errore', e?.message ?? 'Impossibile salvare il contatto.');
     } finally {
