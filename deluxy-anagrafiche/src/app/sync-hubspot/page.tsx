@@ -8,12 +8,21 @@ export const dynamic = "force-dynamic";
 
 type Ricerca = { q?: string; hsOrd?: string; hsDir?: string; regOrd?: string; regDir?: string };
 
+// Normalizzazione per la ricerca: minuscole, senza accenti né punteggiatura,
+// così "100% capri" trova "100% CAPRI" e "caffe" trova "Caffè".
+const normalizza = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ");
+
 // Filtro "a parole" in memoria: ogni parola deve comparire in almeno un campo
 const filtra = <T,>(lista: T[], q: string | undefined, campi: (r: T) => (string | null)[]) => {
   if (!q?.trim()) return lista;
-  const parole = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const parole = normalizza(q).split(/\s+/).filter(Boolean);
   return lista.filter((r) => {
-    const testo = campi(r).filter(Boolean).join(" | ").toLowerCase();
+    const testo = normalizza(campi(r).filter(Boolean).join(" | "));
     return parole.every((p) => testo.includes(p));
   });
 };
@@ -39,7 +48,23 @@ export default async function SyncHubspot({ searchParams }: { searchParams: Prom
   let aziende: AziendaHubspot[] = [];
   const partner = await prisma.partner.findMany({
     where: { attivo: true },
-    select: { id: true, nome: true, citta: true, categoria: true, stato: true, hubspotId: true },
+    select: {
+      id: true,
+      nome: true,
+      ragioneSociale: true,
+      citta: true,
+      provincia: true,
+      regione: true,
+      indirizzo: true,
+      categoria: true,
+      stato: true,
+      telefono: true,
+      email: true,
+      account: true,
+      note: true,
+      hubspotId: true,
+      contatti: { select: { ruolo: true, nome: true, telefono: true, email: true } },
+    },
     orderBy: { nome: "asc" },
   });
 
@@ -81,16 +106,43 @@ export default async function SyncHubspot({ searchParams }: { searchParams: Prom
   const regOrd: CampoReg = filtri.regOrd && filtri.regOrd in COLONNE_REG ? (filtri.regOrd as CampoReg) : "nome";
   const regDir: "asc" | "desc" = filtri.regDir === "desc" ? "desc" : "asc";
 
+  // Tutti i campi entrano nella ricerca, referenti compresi
+  const campiRegistro = (p: (typeof partner)[number]) => [
+    p.nome,
+    p.ragioneSociale,
+    p.categoria,
+    p.citta,
+    p.provincia,
+    p.regione,
+    p.indirizzo,
+    p.stato,
+    p.telefono,
+    p.email,
+    p.account,
+    p.note,
+    ...p.contatti.flatMap((c) => [c.ruolo, c.nome, c.telefono, c.email]),
+  ];
+  const campiHubspot = (a: AziendaHubspot) => [a.nome, a.citta, a.telefono, a.dominio];
+
   const soloHubspot = ordinaPer(
-    filtra(tuttiSoloHubspot, filtri.q, (a) => [a.nome, a.citta, a.telefono, a.dominio]),
+    filtra(tuttiSoloHubspot, filtri.q, campiHubspot),
     hsDir,
     (a) => a[hsOrd],
   );
   const soloRegistro = ordinaPer(
-    filtra(tuttiSoloRegistro, filtri.q, (p) => [p.nome, p.categoria, p.citta, p.stato]),
+    filtra(tuttiSoloRegistro, filtri.q, campiRegistro),
     regDir,
     (p) => p[regOrd],
   );
+
+  // Cercando, si mostrano anche i match "in entrambi" (altrimenti chi è già
+  // agganciato sembra introvabile: es. "100% capri" che sta nelle due basi)
+  const aziendePerId = new Map(aziende.map((a) => [a.id, a]));
+  const aziendaDi = (p: (typeof partner)[number]) =>
+    (p.hubspotId ? aziendePerId.get(p.hubspotId) : undefined) ?? perChiaveHubspot.get(chiaveNome(p.nome));
+  const inEntrambiTrovati = filtri.q?.trim()
+    ? filtra(inEntrambi, filtri.q, (p) => [...campiRegistro(p), ...(aziendaDi(p) ? campiHubspot(aziendaDi(p)!) : [])])
+    : [];
 
   // Link di ordinamento che conserva ricerca e ordinamento dell'altra tabella
   const linkOrdina = (tabella: "hs" | "reg", campo: string) => {
@@ -193,6 +245,41 @@ export default async function SyncHubspot({ searchParams }: { searchParams: Prom
               />
               <button className="btn" type="submit">Cerca</button>
             </form>
+
+            {filtri.q?.trim() && (
+              <>
+                <h2 className="sezione-titolo">
+                  In entrambi <span>{inEntrambiTrovati.length} corrispondenze già agganciate per «{filtri.q.trim()}»</span>
+                </h2>
+                <div className="tabella-wrap" style={{ marginBottom: 22 }}>
+                  <table>
+                    <thead>
+                      <tr><th>Anagrafica</th><th>Categoria</th><th>Città</th><th>Stato</th><th>Company HubSpot</th></tr>
+                    </thead>
+                    <tbody>
+                      {inEntrambiTrovati.slice(0, 50).map((p) => {
+                        const a = aziendaDi(p);
+                        return (
+                          <tr key={p.id}>
+                            <td><a href={`/partner/${p.id}`}><div className="cella-nome">{p.nome}</div></a></td>
+                            <td className="cella-muta">{p.categoria}</td>
+                            <td className="cella-muta">{p.citta ?? "—"}</td>
+                            <td className="cella-muta">{p.stato}</td>
+                            <td className="cella-muta">
+                              {a ? [a.nome, a.dominio ?? a.citta].filter(Boolean).join(" · ") : "—"}
+                              {p.hubspotId && <span className="cella-fonte"> · riconciliata ⇄</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {inEntrambiTrovati.length === 0 && (
+                        <tr><td colSpan={5} className="cella-muta">Nessuna corrispondenza agganciata per «{filtri.q.trim()}».</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
 
             <h2 className="sezione-titolo">
               Solo su HubSpot <span>{conteggio(soloHubspot.length, tuttiSoloHubspot.length, "companies non presenti nel registro")}</span>
