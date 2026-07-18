@@ -93,6 +93,14 @@ export function aggiornaValoriTrattative(): Promise<{ aggiornati: number }> {
   return callSync<{ aggiornati: number }>('refresh_deal_values', {});
 }
 
+/** Modifica un deal esistente su HubSpot (fase/valore/linea/next action) + mirror. */
+export function modificaTrattativaHubspot(
+  hubspotDealId: string,
+  patch: { linea?: string | null; fase?: string | null; valore_atteso?: number | null; next_action?: string | null },
+): Promise<{ ok: boolean; hubspot_deal_id: string }> {
+  return callSync('update_deal', { hubspot_deal_id: hubspotDealId, patch });
+}
+
 /** Utile per un eventuale re-sync manuale a partire dai dati locali. */
 export function syncVisitaPayload(visit: Visit): Promise<SyncVisitResult> {
   return callSync<SyncVisitResult>('sync_visit', { visit_id: visit.id });

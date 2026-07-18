@@ -370,6 +370,15 @@ export async function cercaPlaces(term: string, limit = 20): Promise<PlaceLite[]
   return (data ?? []) as PlaceLite[];
 }
 
+/** Modifica una trattativa Scout (tabella `deals`). */
+export async function aggiornaDeal(
+  id: string,
+  patch: Partial<Pick<Deal, 'linea' | 'fase' | 'valore_atteso' | 'next_action'>>,
+): Promise<void> {
+  const { error } = await supabase.from('deals').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
 /** Crea una trattativa a mano (poi sincronizzabile su HubSpot col valore). */
 export async function inserisciDeal(d: {
   place_id: string;

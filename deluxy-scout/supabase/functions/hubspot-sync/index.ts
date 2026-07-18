@@ -59,6 +59,9 @@ Deno.serve(async (req) => {
     if (body.action === 'refresh_deal_values') {
       return json(await refreshDealValues(admin, hs));
     }
+    if (body.action === 'update_deal') {
+      return json(await updateDeal(admin, hs, body.hubspot_deal_id, body.patch));
+    }
     return json({ error: `Azione sconosciuta: ${body.action}` }, 400);
   } catch (e) {
     if (e instanceof RateLimit) {
@@ -221,6 +224,39 @@ async function refreshDealValues(admin: any, hs: HubSpot) {
   return { aggiornati };
 }
 
+// ── Azione: modifica un deal esistente su HubSpot (+ mirror locale) ────────────
+async function updateDeal(
+  admin: any,
+  hs: HubSpot,
+  hubspotDealId: string,
+  patch: { linea?: string | null; fase?: string | null; valore_atteso?: number | null; next_action?: string | null },
+) {
+  if (!hubspotDealId) throw new Error('hubspot_deal_id mancante');
+  await hs.patchDeal(hubspotDealId, patch);
+  // Allinea la copia locale del CRM così la UI mostra subito il cambiamento.
+  const mirror: Record<string, unknown> = {};
+  if (patch.fase !== undefined) {
+    mirror.fase = patch.fase;
+    mirror.aperta = !['closedwon', 'closedlost'].includes(String(patch.fase));
+  }
+  if (patch.valore_atteso !== undefined) mirror.valore = patch.valore_atteso;
+  if (patch.linea !== undefined) mirror.linea = patch.linea;
+  if (Object.keys(mirror).length) {
+    await admin.from('hubspot_deals').update(mirror).eq('hubspot_id', hubspotDealId);
+  }
+  // Se esiste anche un deal Scout collegato, aggiorna pure quello.
+  const dealPatch: Record<string, unknown> = {
+    ...(patch.fase !== undefined ? { fase: patch.fase } : {}),
+    ...(patch.valore_atteso !== undefined ? { valore_atteso: patch.valore_atteso } : {}),
+    ...(patch.linea !== undefined ? { linea: patch.linea } : {}),
+    ...(patch.next_action !== undefined ? { next_action: patch.next_action } : {}),
+  };
+  if (Object.keys(dealPatch).length) {
+    await admin.from('deals').update(dealPatch).eq('hubspot_deal_id', hubspotDealId);
+  }
+  return { ok: true, hubspot_deal_id: hubspotDealId };
+}
+
 // ── Wrapper API HubSpot v3 ────────────────────────────────────────────────────
 class HubSpot {
   constructor(private token: string) {}
@@ -332,6 +368,23 @@ class HubSpot {
       ).catch(() => {});
     }
     return dealId;
+  }
+
+  /** Modifica le proprietà di un deal esistente (amount/dealstage/linea/next_action). */
+  async patchDeal(
+    id: string,
+    patch: { linea?: string | null; fase?: string | null; valore_atteso?: number | null; next_action?: string | null },
+  ): Promise<void> {
+    const props: Record<string, string> = {};
+    if (patch.fase !== undefined && patch.fase !== null) props.dealstage = patch.fase;
+    if (patch.linea !== undefined) props.deluxy_linea = patch.linea ?? '';
+    if (patch.next_action !== undefined) props.deluxy_next_step = patch.next_action ?? '';
+    if (patch.valore_atteso !== undefined) props.amount = patch.valore_atteso == null ? '' : String(patch.valore_atteso);
+    if (!Object.keys(props).length) return;
+    await this.req(`/crm/v3/objects/deals/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ properties: props }),
+    });
   }
 
   /** Legge in batch le proprietà dei deal per id HubSpot → Map(id → properties). */

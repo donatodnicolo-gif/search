@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { coloreAffiliazione, colors, labelAffiliazione, labelFase, radius, spacing } from '@/lib/theme';
 import {
+  aggiornaDeal,
   cercaPlaces,
   fetchContatti,
   fetchTutteTrattative,
@@ -23,7 +24,7 @@ import {
   type PlaceLite,
   type TrattativaConLuogo,
 } from '@/lib/db';
-import { aggiornaValoriTrattative, syncTrattativa } from '@/lib/hubspot';
+import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } from '@/lib/hubspot';
 import { env } from '@/lib/env';
 import { LINEE_ATTIVE, type Contact, type DealStage, type StatoAffiliazione } from '@/types';
 
@@ -48,6 +49,7 @@ export default function Trattative() {
   const [query, setQuery] = useState('');
   const [faseFiltro, setFaseFiltro] = useState<DealStage | 'tutte'>('tutte');
   const [formAperto, setFormAperto] = useState(false);
+  const [editDeal, setEditDeal] = useState<TrattativaConLuogo | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -169,7 +171,7 @@ export default function Trattative() {
             </Pressable>
           );
         }}
-        renderItem={({ item }) => <RigaDeal deal={item} />}
+        renderItem={({ item }) => <RigaDeal deal={item} onEdit={() => setEditDeal(item)} />}
       />
 
       <Pressable style={styles.fab} onPress={() => setFormAperto(true)}>
@@ -178,10 +180,21 @@ export default function Trattative() {
       </Pressable>
 
       {formAperto ? (
-        <NuovaTrattativaModal
+        <TrattativaModal
           onClose={() => setFormAperto(false)}
-          onCreata={() => {
+          onSalvata={() => {
             setFormAperto(false);
+            carica();
+          }}
+        />
+      ) : null}
+
+      {editDeal ? (
+        <TrattativaModal
+          deal={editDeal}
+          onClose={() => setEditDeal(null)}
+          onSalvata={() => {
+            setEditDeal(null);
             carica();
           }}
         />
@@ -210,20 +223,22 @@ function RegistroBadge({ stato, partner }: { stato: string; partner?: boolean })
   );
 }
 
-function RigaDeal({ deal }: { deal: TrattativaConLuogo }) {
+function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => void }) {
   const titolo = deal.titolo ?? deal.linea ?? 'Trattativa';
   // Tipologia di interesse (linea Deluxy) come tag, quando distinta dal titolo.
   const tipologia = deal.linea && deal.titolo ? deal.linea : null;
   const daRegistro = deal.origine === 'anagrafiche';
   return (
-    <View style={styles.deal}>
+    <Pressable style={styles.deal} onPress={onEdit}>
       <View style={styles.dealHead}>
         <Text style={styles.dealLinea} numberOfLines={1}>
           {titolo}
         </Text>
         {deal.valore_atteso ? (
           <Text style={styles.dealValore}>€ {deal.valore_atteso.toLocaleString('it-IT')}</Text>
-        ) : null}
+        ) : (
+          <Ionicons name="create-outline" size={16} color={colors.grigio} />
+        )}
       </View>
       <View style={styles.dealMetaRow}>
         {/* Fase: dealstage per Scout/HubSpot; stato registro per le righe da Anagrafiche. */}
@@ -252,27 +267,47 @@ function RigaDeal({ deal }: { deal: TrattativaConLuogo }) {
         ) : null}
       </View>
       {deal.next_action ? <Text style={styles.nextAction}>→ {deal.next_action}</Text> : null}
-    </View>
+    </Pressable>
   );
 }
 
-// ── Form "Nuova trattativa" (sincronizzato con negozio + contatti) ─────────────
-function NuovaTrattativaModal({ onClose, onCreata }: { onClose: () => void; onCreata: () => void }) {
+// ── Form crea/modifica trattativa (sincronizzato con negozio + contatti) ───────
+function TrattativaModal({
+  deal,
+  onClose,
+  onSalvata,
+}: {
+  deal?: TrattativaConLuogo;
+  onClose: () => void;
+  onSalvata: () => void;
+}) {
+  const inModifica = !!deal;
+  const daRegistro = deal?.origine === 'anagrafiche';
   const [ricerca, setRicerca] = useState('');
   const [risultati, setRisultati] = useState<PlaceLite[]>([]);
-  const [place, setPlace] = useState<PlaceLite | null>(null);
+  const [place, setPlace] = useState<PlaceLite | null>(
+    deal ? { id: deal.place_id, nome: deal.place_nome ?? 'Negozio', indirizzo: null, zona: null } : null,
+  );
   const [contatti, setContatti] = useState<Contact[]>([]);
-  const [linea, setLinea] = useState<string>('Consegne');
-  const [fase, setFase] = useState<DealStage>('appointmentscheduled');
-  const [valore, setValore] = useState('');
-  const [nextAction, setNextAction] = useState('');
+  const [linea, setLinea] = useState<string>(deal?.linea ?? 'Consegne');
+  const [fase, setFase] = useState<DealStage>((deal?.fase as DealStage) ?? 'appointmentscheduled');
+  const [valore, setValore] = useState(deal?.valore_atteso != null ? String(deal.valore_atteso) : '');
+  const [nextAction, setNextAction] = useState(deal?.next_action ?? '');
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Typeahead negozi (debounce). Non cerca finché non è selezionato un negozio.
+  // In modifica: carica i contatti del negozio già associato (se ce n'è uno Scout).
   useEffect(() => {
-    if (place) return;
+    if (deal?.place_id) {
+      fetchContatti(deal.place_id).then(setContatti).catch(() => setContatti([]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Typeahead negozi (solo in creazione, finché non è selezionato un negozio).
+  useEffect(() => {
+    if (inModifica || place) return;
     if (debounce.current) clearTimeout(debounce.current);
     debounce.current = setTimeout(async () => {
       try {
@@ -284,7 +319,7 @@ function NuovaTrattativaModal({ onClose, onCreata }: { onClose: () => void; onCr
     return () => {
       if (debounce.current) clearTimeout(debounce.current);
     };
-  }, [ricerca, place]);
+  }, [ricerca, place, inModifica]);
 
   async function selezionaPlace(p: PlaceLite) {
     setPlace(p);
@@ -302,34 +337,65 @@ function NuovaTrattativaModal({ onClose, onCreata }: { onClose: () => void; onCr
     setErrore(null);
     try {
       const valNum = valore.trim() ? Number(valore.replace(/[^\d]/g, '')) : null;
-      const deal = await inserisciDeal({
-        place_id: place.id,
+      const patch = {
         linea,
         fase,
         valore_atteso: valNum != null && isFinite(valNum) ? valNum : null,
         next_action: nextAction.trim() || null,
-      });
-      // Best effort: porta la trattativa + i contatti su HubSpot (con il valore).
-      if (env.hubspotSyncUrl()) {
-        try {
-          await syncTrattativa(deal.id);
-        } catch {
-          /* la trattativa è salva su Supabase; il sync si recupera dopo */
+      };
+
+      if (inModifica && deal) {
+        if (deal.origine === 'hubspot' && deal.hubspot_deal_id) {
+          // Deal HubSpot: modifica su HubSpot (+ mirror locale) via edge function.
+          await modificaTrattativaHubspot(deal.hubspot_deal_id, patch);
+        } else if (daRegistro) {
+          // Riga dal registro: non esiste un deal → creane uno Scout gestibile.
+          const nuovo = await inserisciDeal({ place_id: deal.place_id, ...patch });
+          if (env.hubspotSyncUrl()) {
+            try {
+              await syncTrattativa(nuovo.id);
+            } catch {
+              /* recuperabile al prossimo sync */
+            }
+          }
+        } else {
+          // Deal Scout: aggiorna la riga; se già su HubSpot, riporta la modifica.
+          await aggiornaDeal(deal.id, patch);
+          if (deal.hubspot_deal_id && env.hubspotSyncUrl()) {
+            try {
+              await modificaTrattativaHubspot(deal.hubspot_deal_id, patch);
+            } catch {
+              /* la modifica è salva su Supabase; il sync si recupera dopo */
+            }
+          }
+        }
+      } else {
+        // Creazione.
+        const nuovo = await inserisciDeal({ place_id: place.id, ...patch });
+        if (env.hubspotSyncUrl()) {
+          try {
+            await syncTrattativa(nuovo.id);
+          } catch {
+            /* la trattativa è salva su Supabase; il sync si recupera dopo */
+          }
         }
       }
-      onCreata();
+      onSalvata();
     } catch (e: any) {
       setErrore(e?.message ?? 'Errore nel salvataggio');
       setSalvando(false);
     }
   }
 
+  const titoloSheet = !inModifica ? 'Nuova trattativa' : daRegistro ? 'Crea trattativa' : 'Modifica trattativa';
+  const labelSalva = !inModifica ? 'Crea trattativa' : daRegistro ? 'Crea trattativa Scout' : 'Salva modifiche';
+
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitolo}>Nuova trattativa</Text>
+            <Text style={styles.sheetTitolo}>{titoloSheet}</Text>
             <Pressable onPress={onClose} hitSlop={10}>
               <Ionicons name="close" size={24} color={colors.testoSoft} />
             </Pressable>
@@ -350,15 +416,17 @@ function NuovaTrattativaModal({ onClose, onCreata }: { onClose: () => void; onCr
                     </Text>
                   ) : null}
                 </View>
-                <Pressable
-                  onPress={() => {
-                    setPlace(null);
-                    setContatti([]);
-                  }}
-                  hitSlop={8}
-                >
-                  <Ionicons name="swap-horizontal" size={20} color={colors.oro} />
-                </Pressable>
+                {!inModifica ? (
+                  <Pressable
+                    onPress={() => {
+                      setPlace(null);
+                      setContatti([]);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="swap-horizontal" size={20} color={colors.oro} />
+                  </Pressable>
+                ) : null}
               </View>
             ) : (
               <>
@@ -405,6 +473,12 @@ function NuovaTrattativaModal({ onClose, onCreata }: { onClose: () => void; onCr
                   </Text>
                 ))}
               </View>
+            ) : null}
+
+            {daRegistro ? (
+              <Text style={styles.notaRegistro}>
+                Dal registro Anagrafiche: salvando crei una trattativa Scout gestibile per questo negozio.
+              </Text>
             ) : null}
 
             {/* Linea */}
@@ -467,7 +541,7 @@ function NuovaTrattativaModal({ onClose, onCreata }: { onClose: () => void; onCr
             {salvando ? (
               <ActivityIndicator color={colors.bianco} />
             ) : (
-              <Text style={styles.salvaTxt}>Crea trattativa</Text>
+              <Text style={styles.salvaTxt}>{labelSalva}</Text>
             )}
           </Pressable>
         </View>
@@ -673,6 +747,13 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
+  notaRegistro: {
+    color: colors.testoSoft,
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: spacing.sm,
+    lineHeight: 17,
+  },
   errore: { color: colors.errore, fontSize: 13, marginTop: spacing.sm },
   salva: {
     backgroundColor: colors.navy,
