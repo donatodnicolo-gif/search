@@ -1,9 +1,13 @@
-// Cassaforte impostazioni — salva/legge la configurazione (chiave Google, negozi Shopify) su Vercel KV.
-// Protetta dal pass code (APP_PASSWORD). I token Shopify NON vengono mai restituiti al browser.
+// Cassaforte impostazioni — salva/legge la configurazione (chiave Google, negozi
+// Shopify, utenze) su Vercel KV. I token Shopify, la chiave di scrittura del
+// registro e le password delle utenze NON vengono mai restituiti al browser.
 //
-// GET  /api/config    header x-app-password  -> { ok, config: { googleKey, proxy, stores:[{brand,shop,hasToken}] } }
-// POST /api/config    header x-app-password  body { googleKey, proxy, stores:[{brand,shop,token}] }
-//   (token vuoto = mantiene quello già salvato)
+// GET  /api/config    header x-app-password (+x-app-user)  — qualsiasi utenza
+// POST /api/config    SOLO amministratore (pass code principale APP_PASSWORD)
+//   body { googleKey, proxy, ..., utenti:[{nome,pass}], stores:[{brand,shop,token}] }
+//   (token/pass vuoti = mantengono quelli già salvati)
+
+import { authUser } from './_auth.js';
 
 const KEY = 'config:v1';
 
@@ -36,8 +40,25 @@ function sanitize(c) {
     anagKey: c.anagKey || '',
     hasAnagWriteKey: !!c.anagWriteKey,
     googleOauthClientId: c.googleOauthClientId || '',
+    utenti: (c.utenti || []).map(u => ({ nome: u.nome })),
     stores: (c.stores || []).map(s => ({ brand: s.brand, shop: s.shop || '', hasToken: !!s.token })),
   };
+}
+
+// utenze: pass vuota = mantiene quella già salvata; riga tolta = utenza rimossa
+function mergeUtenti(current, incoming) {
+  if (!Array.isArray(incoming)) return current || [];
+  const byNome = {};
+  (current || []).forEach(u => { if (u && u.nome) byNome[String(u.nome).toLowerCase()] = u; });
+  return incoming
+    .map(u => {
+      const nome = String((u && u.nome) || '').trim();
+      if (!nome) return null;
+      const prev = byNome[nome.toLowerCase()] || {};
+      const pass = (u.pass && String(u.pass).trim()) ? String(u.pass).trim() : (prev.pass || '');
+      return pass ? { nome, pass } : null;   // utenza senza password = non salvata
+    })
+    .filter(Boolean);
 }
 
 function mergeStores(current, incoming) {
@@ -53,22 +74,22 @@ function mergeStores(current, incoming) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Headers', 'x-app-password, content-type');
+  res.setHeader('Access-Control-Allow-Headers', 'x-app-password, x-app-user, content-type');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
-    if (!process.env.APP_PASSWORD) return res.status(500).json({ error: 'Backend non configurato: manca APP_PASSWORD.' });
-    const pass = req.headers['x-app-password'] || '';
-    if (pass !== process.env.APP_PASSWORD) return res.status(401).json({ error: 'Pass code errato.' });
+    const auth = await authUser(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
 
     if (req.method === 'GET') {
       const c = await readConfig();
-      return res.status(200).json({ ok: true, config: sanitize(c) });
+      return res.status(200).json({ ok: true, config: sanitize(c), utente: auth.utente, admin: auth.admin });
     }
 
     if (req.method === 'POST') {
+      if (!auth.admin) return res.status(403).json({ error: 'Solo l\'amministratore (pass code principale) può salvare le impostazioni.' });
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const cur = await readConfig();
       const merged = {
@@ -79,6 +100,7 @@ export default async function handler(req, res) {
         // segreta: vuota = mantiene quella già salvata (come i token Shopify)
         anagWriteKey: (body.anagWriteKey && String(body.anagWriteKey).trim()) ? String(body.anagWriteKey).trim() : (cur.anagWriteKey || ''),
         googleOauthClientId: body.googleOauthClientId !== undefined ? String(body.googleOauthClientId).trim() : (cur.googleOauthClientId || ''),
+        utenti: mergeUtenti(cur.utenti, body.utenti),
         stores: mergeStores(cur.stores, body.stores),
       };
       await kv(['SET', KEY, JSON.stringify(merged)]);

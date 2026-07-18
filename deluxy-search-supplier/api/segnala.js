@@ -9,26 +9,9 @@
 //   -> { ok, esistente:true, aggiornato:true, partner } già censito: ultimaVisita
 //        («ultimo contatto») aggiornata e nota dell'ordine accodata
 
-const KEY = 'config:v1';
+import { authUser, readConfig } from './_auth.js';
+
 const ANAG_URL_DEFAULT = 'https://deluxy-anagrafiche.vercel.app';
-
-async function kv(cmd) {
-  const url = process.env.KV_REST_API_URL, tok = process.env.KV_REST_API_TOKEN;
-  if (!url || !tok) throw new Error('Archivio KV non configurato.');
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
-    body: JSON.stringify(cmd),
-  });
-  const j = await r.json();
-  return j.result;
-}
-
-async function readConfig() {
-  const raw = await kv(['GET', KEY]);
-  if (!raw) return {};
-  try { return JSON.parse(raw); } catch (e) { return {}; }
-}
 
 function norm(s) {
   return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -36,16 +19,14 @@ function norm(s) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Headers', 'x-app-password, content-type');
+  res.setHeader('Access-Control-Allow-Headers', 'x-app-password, x-app-user, content-type');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Metodo non consentito' });
 
   try {
-    if (!process.env.APP_PASSWORD) return res.status(500).json({ error: 'Backend non configurato: manca APP_PASSWORD.' });
-    if ((req.headers['x-app-password'] || '') !== process.env.APP_PASSWORD) {
-      return res.status(401).json({ error: 'Pass code errato.' });
-    }
+    const auth = await authUser(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
 
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const nome = String(body.nome || '').trim();
@@ -75,7 +56,8 @@ export default async function handler(req, res) {
         // già censito: aggiorna «ultimo contatto» (ultimaVisita) e accoda la nota dell'ordine
         const nuovaNota = ((dup.note || '') + '\n'
           + (dataStr ? '[' + dataStr + '] ' : '')
-          + (ordTxt || 'Ricontattato dall\'app search/supplier.')).trim();
+          + (ordTxt || 'Ricontattato dall\'app search/supplier.')
+          + ' (' + auth.utente + ')').trim();
         const patch = { note: nuovaNota };
         if (quando) patch.ultimaVisita = quando;
         const pr = await fetch(base + '/api/v1/partners/' + dup.id, {
@@ -97,7 +79,7 @@ export default async function handler(req, res) {
       indirizzo: body.indirizzo || null,
       telefono: body.telefono || null,
       email: body.email || null,
-      note: ['Segnalato al commerciale dall\'app search/supplier.', ordTxt, body.sito ? ('Sito: ' + body.sito) : '', body.note || '']
+      note: ['Segnalato al commerciale dall\'app search/supplier (' + auth.utente + ').', ordTxt, body.sito ? ('Sito: ' + body.sito) : '', body.note || '']
         .filter(Boolean).join(' '),
       fonte: 'manuale',
     };

@@ -34,6 +34,16 @@
   .config.show{display:block}
   /* vista «Impostazioni»: solo la card Admin, niente smistamento/ricerca/risultati */
   .content.view-settings .ordercard, .content.view-settings .searchbar, .content.view-settings .col-right{display:none}
+  .storicocard{display:none}
+  .content.view-storico .ordercard, .content.view-storico .searchbar, .content.view-storico .col-right, .content.view-storico .config{display:none}
+  .content.view-storico .storicocard{display:block}
+  .st-row{display:grid; grid-template-columns:auto 1fr auto; gap:4px 14px; padding:12px 2px; border-top:1px solid var(--hairline); align-items:baseline}
+  .st-row:first-child{border-top:none}
+  .st-when{font-size:12px; color:var(--text-tertiary); white-space:nowrap}
+  .st-main{min-width:0}
+  .st-shop{font-weight:600}
+  .st-det{font-size:12.5px; color:var(--text-secondary); margin-top:2px}
+  .st-user{font-size:12px; font-weight:600; color:var(--gold-strong); background:var(--gold-soft); padding:3px 10px; border-radius:var(--radius-pill); white-space:nowrap}
   .config summary{cursor:pointer; font-weight:600; color:var(--text); outline:none}
   .config[open] summary{margin-bottom:12px}
   .grid{display:grid; gap:12px}
@@ -233,6 +243,7 @@
     </div>
     <h2 style="margin:0 0 4px; font-size:24px; font-weight:600; letter-spacing:-.022em">Deluxy</h2>
     <p style="color:var(--text-secondary); font-size:14px; margin:0 0 20px">Inserisci il pass code per accedere.</p>
+    <input id="userInput" type="text" placeholder="Nome utente" autocomplete="username" style="text-align:center; margin-bottom:10px">
     <input id="passInput" type="password" placeholder="Pass code" autocomplete="current-password" style="text-align:center; margin-bottom:12px">
     <button class="btn" id="passBtn">Entra</button>
     <div id="passErr" class="status err" style="min-height:18px; margin:10px 0 0"></div>
@@ -253,6 +264,7 @@
       <div class="nav-section">Operatività</div>
       <a class="nav-link active" data-scroll=".ordercard"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="2.5"/><path d="M4 11h16M12 7v13M8 7l1.5-3h5L16 7"/></svg></span><span>Smistamento</span></a>
       <a class="nav-link" data-scroll=".searchbar"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.6-3.6"/></svg></span><span>Ricerca negozi</span></a>
+      <a class="nav-link" id="navStorico"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><span>Storico richieste</span></a>
       <div class="nav-section">Configurazione</div>
       <a class="nav-link" id="navAdmin"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.2M12 18.3v2.2M4.8 7l1.9 1.1M17.3 15.9l1.9 1.1M4.8 17l1.9-1.1M17.3 8.1l1.9-1.1M3.5 12h2.2M18.3 12h2.2"/></svg></span><span>Impostazioni</span></a>
     </nav>
@@ -307,6 +319,12 @@
           <input id="cfg_goauth" type="text" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
           <div class="hint">Client ID OAuth (tipo <i>Web</i>) con l'API <b>People</b> attiva e origine <code>https://search-deluxy.vercel.app</code>. Vuoto = il pulsante scarica un file .vcf da aprire con la rubrica.</div>
         </div>
+      </div>
+      <div>
+        <label style="font-size:13px; color:var(--text); font-weight:600">👥 Utenze dell'app</label>
+        <div id="userRows" class="grid" style="margin-top:8px"></div>
+        <button class="btn-dl" id="addUserRow" type="button" style="margin-top:8px">➕ Aggiungi utenza</button>
+        <div class="hint">Ogni operatore entra con <b>nome utente + pass code personale</b> e le sue azioni compaiono nello Storico col suo nome. Pass vuota = invariata; riga rimossa = utenza revocata. Il pass code principale resta quello dell'amministratore (unico che può salvare le impostazioni).</div>
       </div>
       <div>
         <label style="font-size:13px; color:var(--text); font-weight:600">🛍️ Negozi Shopify</label>
@@ -483,6 +501,15 @@
     </div><!-- /col-right -->
     </div><!-- /cols -->
 
+    <!-- STORICO RICHIESTE (vista dedicata) -->
+    <div class="card storicocard" id="storicoCard">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px">
+        <div class="hint" id="storicoInfo" style="margin:0"></div>
+        <button class="btn-dl" id="storicoReload" type="button">↻ Aggiorna</button>
+      </div>
+      <div id="storicoBody"><div class="hint">Carico lo storico…</div></div>
+    </div>
+
     </div>
   </main>
 </div>
@@ -575,6 +602,7 @@ function eur(n){ return '€ ' + Number(n).toLocaleString('it-IT', {minimumFract
 const API_BASE = (location.hostname==='localhost'||location.hostname==='127.0.0.1') ? 'https://search-deluxy.vercel.app' : '';
 const KNOWN_BRANDS = ['deluxy.it','deluxyflowers.com','cakedesign.me'];
 let PASS = sessionStorage.getItem('pass') || '';
+let USER = sessionStorage.getItem('user') || '';
 let CONFIG = { googleKey:'', proxy:'', anagUrl:'', anagKey:'', stores:[] };
 function cssId(b){ return b.replace(/[^a-z0-9]/gi,'_'); }
 
@@ -590,10 +618,28 @@ $('#storeRows').innerHTML = KNOWN_BRANDS.map(b=>`
 
 function apiFetch(path, opts){
   opts = opts || {};
-  opts.headers = Object.assign({ 'x-app-password': PASS }, opts.headers || {});
+  opts.headers = Object.assign({ 'x-app-password': PASS, 'x-app-user': USER }, opts.headers || {});
   return fetch(API_BASE + path, opts);
 }
+function utenteRow(nome){
+  const div = document.createElement('div');
+  div.style.cssText = 'display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:center';
+  div.innerHTML = `<input type="text" class="u-nome" placeholder="nome utente">
+    <input type="password" class="u-pass" placeholder="${nome?'•••• (vuoto = invariata)':'pass code'}" autocomplete="new-password">
+    <button class="btn-dl u-del" type="button" title="Rimuovi utenza">✕</button>`;
+  div.querySelector('.u-nome').value = nome || '';
+  div.querySelector('.u-del').addEventListener('click', ()=>div.remove());
+  return div;
+}
+function renderUtenti(){
+  const box = $('#userRows'); if(!box) return;
+  box.innerHTML = '';
+  (CONFIG.utenti||[]).forEach(u=> box.appendChild(utenteRow(u.nome)));
+}
+$('#addUserRow').addEventListener('click', ()=> $('#userRows').appendChild(utenteRow('')));
+
 function applyConfig(){
+  renderUtenti();
   $('#cfg_google').value = CONFIG.googleKey || '';
   $('#cfg_proxy').value  = CONFIG.proxy || '';
   $('#cfg_anag_url').value = CONFIG.anagUrl || '';
@@ -608,21 +654,31 @@ function applyConfig(){
 }
 async function loadConfig(){
   const r = await apiFetch('/api/config');
-  if(!r.ok) throw new Error(r.status===401 ? 'Pass code errato' : ('Errore '+r.status));
+  if(!r.ok){
+    let msg = 'Errore '+r.status;
+    try{ msg = (await r.json()).error || msg; }catch(e){}
+    throw new Error(msg);
+  }
   const j = await r.json();
   CONFIG = j.config || CONFIG;
   applyConfig();
 }
 async function unlock(){
   const pass = ($('#passInput').value.trim() || PASS);
+  const user = ($('#userInput').value.trim() || USER);
+  if(!user){ $('#passErr').textContent='Inserisci il nome utente.'; return; }
   if(!pass){ $('#passErr').textContent='Inserisci il pass code.'; return; }
   $('#passBtn').disabled=true; $('#passErr').textContent='Verifico…';
-  PASS = pass;
+  PASS = pass; USER = user;
   try{
     await loadConfig();
     sessionStorage.setItem('pass', pass);
+    sessionStorage.setItem('user', user);
     $('#lockScreen').style.display='none';
     $('#passErr').textContent='';
+    // utente nella sidebar
+    $('.user-name').textContent = USER;
+    $('.avatar').textContent = USER.slice(0,2).toUpperCase();
     if(!CONFIG.googleKey){ setView(true); setActiveNav($('#navAdmin')); }   // primo avvio → vai alle Impostazioni
   }catch(e){
     PASS=''; sessionStorage.removeItem('pass');
@@ -631,7 +687,8 @@ async function unlock(){
 }
 $('#passBtn').addEventListener('click', unlock);
 $('#passInput').addEventListener('keydown', e=>{ if(e.key==='Enter') unlock(); });
-if(PASS){ unlock(); }   // sessione già sbloccata
+$('#userInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#passInput').focus(); });
+if(PASS && USER){ unlock(); }   // sessione già sbloccata
 
 async function saveConfig(){
   const stores = KNOWN_BRANDS.map(b=>({
@@ -639,10 +696,14 @@ async function saveConfig(){
     shop: $('#cfg_shop_'+cssId(b)).value.trim(),
     token: $('#cfg_token_'+cssId(b)).value.trim()
   }));
+  const utenti = [...document.querySelectorAll('#userRows > div')].map(r=>({
+    nome: r.querySelector('.u-nome').value.trim(),
+    pass: r.querySelector('.u-pass').value.trim()
+  })).filter(u=>u.nome);
   const body = { googleKey: $('#cfg_google').value.trim(), proxy: $('#cfg_proxy').value.trim(),
                  anagUrl: $('#cfg_anag_url').value.trim(), anagKey: $('#cfg_anag_key').value.trim(),
                  anagWriteKey: $('#cfg_anag_wkey').value.trim(),
-                 googleOauthClientId: $('#cfg_goauth').value.trim(), stores };
+                 googleOauthClientId: $('#cfg_goauth').value.trim(), utenti, stores };
   $('#cfg_save').disabled=true; $('#cfg_status').className='status'; $('#cfg_status').textContent='Salvo…';
   try{
     const r = await apiFetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
@@ -662,27 +723,40 @@ function setActiveNav(a){ document.querySelectorAll('.nav-link').forEach(x=>x.cl
 function closeMenu(){ $('#sidebar').classList.remove('open'); $('#appOverlay').classList.remove('open'); }
 function toggleMenu(){ $('#sidebar').classList.toggle('open'); $('#appOverlay').classList.toggle('open'); }
 const PAGE_TITLES = { operativa: ['Smistamento ordini', 'Recupera un ordine e invialo al fiorario o pasticceria più vicino, via WhatsApp o email.'],
-                      impostazioni: ['Impostazioni', 'Chiavi e collegamenti dell\'app, salvati sul server.'] };
-function setView(settings){
-  document.querySelector('.content').classList.toggle('view-settings', settings);
-  $('#config').classList.toggle('show', settings);
-  if(settings) $('#config').open = true;
-  const t = PAGE_TITLES[settings ? 'impostazioni' : 'operativa'];
+                      impostazioni: ['Impostazioni', 'Chiavi, utenze e collegamenti dell\'app, salvati sul server.'],
+                      storico: ['Storico richieste', 'Richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
+// vista: false/'operativa' | true/'impostazioni' | 'storico'
+function setView(vista){
+  if(vista === true) vista = 'impostazioni';
+  if(!vista) vista = 'operativa';
+  const content = document.querySelector('.content');
+  content.classList.toggle('view-settings', vista==='impostazioni');
+  content.classList.toggle('view-storico', vista==='storico');
+  $('#config').classList.toggle('show', vista==='impostazioni');
+  if(vista==='impostazioni') $('#config').open = true;
+  const t = PAGE_TITLES[vista];
   document.querySelector('.page-head h1').textContent = t[0];
   document.querySelector('.page-head .cap').textContent = t[1];
 }
 document.querySelectorAll('.nav-link[data-scroll]').forEach(a=> a.addEventListener('click', ()=>{
-  setView(false);
+  setView('operativa');
   const el = document.querySelector(a.dataset.scroll);
   if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
   setActiveNav(a); closeMenu();
 }));
 $('#navAdmin').addEventListener('click', ()=>{
-  setView(true);
+  setView('impostazioni');
   window.scrollTo({top:0, behavior:'smooth'});
   setActiveNav($('#navAdmin')); closeMenu();
 });
-$('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); location.reload(); });
+$('#navStorico').addEventListener('click', ()=>{
+  setView('storico');
+  window.scrollTo({top:0, behavior:'smooth'});
+  setActiveNav($('#navStorico')); closeMenu();
+  loadStorico();
+});
+$('#storicoReload').addEventListener('click', loadStorico);
+$('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);
 $('#appOverlay').addEventListener('click', closeMenu);
 // sidebar a scomparsa su desktop (lo stato resta tra le sessioni)
@@ -1348,6 +1422,7 @@ resultsEl.addEventListener('click', async e=>{
              : '✅ WhatsApp aperto col messaggio già scritto: premi INVIO per inviarlo.';
   setOrderStatus(note + ' (lingua: ' + (LANG_NAME[lang]||lang) + ')');
   if(!win){ setOrderStatus('⚠️ Popup bloccato. Consenti i popup per questo sito, poi riprova. '+note, true); }
+  logEvento({ tipo:'richiesta', canale:'whatsapp', esito:'messaggio pronto su WhatsApp', negozio: negozioDaScheda(btn) });
 });
 
 // invio richiesta ordine via EMAIL (stessi dati del WhatsApp; la foto va come link)
@@ -1366,6 +1441,7 @@ resultsEl.addEventListener('click', e=>{
     + '?subject=' + encodeURIComponent(subject)
     + '&body=' + encodeURIComponent(body);
   setOrderStatus('📧 Email aperta verso ' + email + ' (lingua: ' + (LANG_NAME[lang]||lang) + '). Controlla e invia dal tuo client di posta.');
+  logEvento({ tipo:'richiesta', canale:'email', esito:'bozza email aperta', negozio: negozioDaScheda(btn) });
 });
 
 /* ------------------ rubrica Google + segnalazione al commerciale ------------------ */
@@ -1487,19 +1563,23 @@ async function saveContact(btn){
       if(esistente){
         const nome = ((esistente.names||[])[0]||{}).displayName || 'contatto esistente';
         btn.textContent = 'ℹ️ Già in rubrica: ' + nome;
+        logEvento({ tipo:'rubrica', esito:'già in rubrica', negozio:data });
         return;
       }
       btn.textContent = '⏳ Salvo in rubrica…';
       await createGoogleContact(token, data);
       btn.textContent = '✅ In rubrica: ' + contactName(data);
+      logEvento({ tipo:'rubrica', esito:'salvato in rubrica Google', negozio:data });
     } else {
       downloadVcf(data);
       btn.textContent = '✅ Scaricato .vcf — aprilo per salvarlo in rubrica';
+      logEvento({ tipo:'rubrica', esito:'scaricato .vcf', negozio:data });
     }
   }catch(err){
     console.warn('rubrica Google:', err);
     downloadVcf(data);
     btn.textContent = '✅ Scaricato .vcf (rubrica Google non disponibile)';
+    logEvento({ tipo:'rubrica', esito:'scaricato .vcf (OAuth non riuscito)', negozio:data });
   }
 }
 async function reportShop(btn){
@@ -1520,6 +1600,9 @@ async function reportShop(btn){
     btn.textContent = j.esistente
       ? (j.aggiornato ? 'ℹ️ Già nel registro · ultimo contatto aggiornato' : 'ℹ️ Già nel registro · '+statoLabel(j.partner||{}))
       : '✅ Segnalato: prospect creato nel registro';
+    logEvento({ tipo:'segnalazione',
+      esito: j.esistente ? (j.aggiornato ? 'già nel registro · ultimo contatto aggiornato' : 'già nel registro') : 'prospect creato nel registro',
+      negozio:data });
   }catch(err){
     btn.disabled = false; btn.textContent = '⚠️ Segnalazione fallita, riprova';
     setStatus('❌ Segnala al commerciale: '+err.message, true);
@@ -1529,6 +1612,73 @@ resultsEl.addEventListener('click', e=>{
   const s = e.target.closest('.savecontact'); if(s){ saveContact(s); return; }
   const r = e.target.closest('.reportshop'); if(r){ reportShop(r); }
 });
+
+/* ------------------ STORICO RICHIESTE ------------------ */
+function ordineCorrente(){
+  if(!orderLoaded) return null;
+  const numero = ($('#ordTag').textContent.match(/#?(\d+)/)||[])[1] || '';
+  const valore = $('#ord_paid').value.trim();
+  if(!numero && !valore) return null;
+  return { numero, valore, brand: $('#brand').value };
+}
+// nome e contatti del negozio letti dalla scheda su cui si è cliccato
+function negozioDaScheda(el){
+  const card = el.closest('.shop'); if(!card) return {};
+  const nome = ((card.querySelector('h3')||{}).textContent||'').replace(/^\S+\s/,'').trim();
+  const telA = card.querySelector('a.tel'), mailA = card.querySelector('a.mail');
+  return { nome,
+    telefono: telA ? (telA.getAttribute('href')||'').replace('tel:','') : '',
+    email: mailA ? (mailA.getAttribute('href')||'').replace('mailto:','') : '' };
+}
+// registra un evento nello storico sul server (best effort, non blocca l'interfaccia)
+function logEvento(evt){
+  try{
+    const body = Object.assign({ quando: new Date().toISOString(), ordine: ordineCorrente() }, evt);
+    apiFetch('/api/storico', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(()=>{});
+  }catch(e){}
+}
+const ST_TIPO = { richiesta:'📤 Richiesta ordine', rubrica:'💾 Rubrica', segnalazione:'📣 Segnalazione' };
+function fmtQuando(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return iso || '';
+  return d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'})
+       + ' ' + d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+}
+async function loadStorico(){
+  const body = $('#storicoBody');
+  body.innerHTML = '<div class="hint">Carico lo storico…</div>';
+  try{
+    const r = await apiFetch('/api/storico');
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
+    const eventi = j.eventi || [];
+    $('#storicoInfo').textContent = eventi.length ? (eventi.length + ' eventi registrati, più recenti in alto.') : '';
+    if(!eventi.length){
+      body.innerHTML = '<div class="hint">Ancora nessuna richiesta registrata: invia un ordine, salva un contatto in rubrica o segnala un negozio e comparirà qui.</div>';
+      return;
+    }
+    body.innerHTML = eventi.map(e=>{
+      const det = [ST_TIPO[e.tipo] || e.tipo];
+      if(e.canale) det.push(e.canale==='whatsapp' ? 'WhatsApp' : e.canale==='email' ? 'Email' : e.canale);
+      if(e.esito) det.push(e.esito);
+      if(e.ordine && (e.ordine.numero || e.ordine.valore))
+        det.push('Ordine' + (e.ordine.numero?' #'+e.ordine.numero:'') + (e.ordine.valore?' € '+e.ordine.valore:'') + (e.ordine.brand?' · '+e.ordine.brand:''));
+      const n = e.negozio || {};
+      const luogo = [n.citta, n.provincia ? '('+n.provincia+')' : ''].filter(Boolean).join(' ');
+      const contatti = [n.telefono, n.email].filter(Boolean).join(' · ');
+      return `<div class="st-row">
+        <span class="st-when">${esc(fmtQuando(e.quando))}</span>
+        <div class="st-main">
+          <div class="st-shop">${esc(n.nome||'—')}${luogo ? ' <span style="font-weight:400; color:var(--text-tertiary)">'+esc(luogo)+'</span>' : ''}</div>
+          <div class="st-det">${det.map(esc).join(' · ')}${contatti ? '<br>'+esc(contatti) : ''}</div>
+        </div>
+        <span class="st-user">👤 ${esc(e.utente||'?')}</span>
+      </div>`;
+    }).join('');
+  }catch(err){
+    body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>';
+  }
+}
 
 /* ------------------ render ------------------ */
 function shopCard(d, cat, dist, pid){
