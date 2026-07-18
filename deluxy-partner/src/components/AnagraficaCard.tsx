@@ -1,4 +1,4 @@
-import { cercaAnagrafica, urlAnagrafiche, type Anagrafica } from "@/lib/anagrafiche";
+import { risolviAnagrafica, urlAnagrafiche, type Anagrafica } from "@/lib/anagrafiche";
 
 // Etichetta e colore badge per gli stati del registro (vedi deluxy-anagrafiche)
 const STATI: Record<string, { etichetta: string; classe: string }> = {
@@ -35,8 +35,15 @@ function Voce({ k, v }: { k: string; v: string | null | undefined }) {
 // Card con i dati anagrafici letti in diretta dal registro centralizzato
 // (deluxy-anagrafiche). Se il registro è spento, non configurato o il partner
 // non è ancora censito lì, la card spiega la situazione senza rompere la scheda.
-export async function AnagraficaCard({ nomePartner }: { nomePartner: string }) {
-  const anagrafica: Anagrafica | null = await cercaAnagrafica(nomePartner);
+export async function AnagraficaCard({
+  nomePartner,
+  anagraficaId,
+}: {
+  nomePartner: string;
+  anagraficaId?: string | null;
+}) {
+  // Collegato per id = join affidabile; altrimenti ripiego sul match per nome
+  const anagrafica: Anagrafica | null = await risolviAnagrafica(nomePartner, anagraficaId);
 
   return (
     <>

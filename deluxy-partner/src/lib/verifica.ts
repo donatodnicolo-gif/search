@@ -43,9 +43,14 @@ async function trovaPartner(query: string) {
   const q = query.trim();
   if (!q) return { partner: null, candidati: [] as { id: string; nome: string }[] };
 
-  // 1. id esatto
+  // 1. id esatto (id interno di deluxy-partner)
   const perId = await prisma.partner.findUnique({ where: { id: q } });
   if (perId) return { partner: perId, candidati: [] };
+
+  // 1b. id del registro Anagrafiche (lingua comune di id tra le app):
+  // così un'altra app che ha solo l'anagraficaId incrocia la situazione finanziaria.
+  const perAnagrafica = await prisma.partner.findUnique({ where: { anagraficaId: q } });
+  if (perAnagrafica) return { partner: perAnagrafica, candidati: [] };
 
   const partners = await prisma.partner.findMany();
   // 2. nome esatto (normalizzato)

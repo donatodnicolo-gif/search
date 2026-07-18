@@ -56,8 +56,15 @@ async function chiamata(percorso: string): Promise<unknown | null> {
   }
 }
 
+// Risolve l'anagrafica dall'id del registro (join affidabile una volta
+// collegato l'`anagraficaId`). È la "lingua comune di id" tra le app.
+export async function anagraficaPerId(id: string): Promise<Anagrafica | null> {
+  return (await chiamata(`/api/v1/partners/${encodeURIComponent(id)}`)) as Anagrafica | null;
+}
+
 // Cerca l'anagrafica per nome: match esatto (case-insensitive) se c'è,
-// altrimenti l'unico risultato della ricerca, altrimenti null.
+// altrimenti l'unico risultato della ricerca, altrimenti null. Fallback quando
+// il partner non è ancora collegato per id.
 export async function cercaAnagrafica(nome: string): Promise<Anagrafica | null> {
   const risposta = (await chiamata(
     `/api/v1/partners?q=${encodeURIComponent(nome)}&perPage=10`,
@@ -66,4 +73,16 @@ export async function cercaAnagrafica(nome: string): Promise<Anagrafica | null> 
   const esatta = dati.find((a) => a.nome.toLowerCase() === nome.toLowerCase());
   if (esatta) return esatta;
   return dati.length === 1 ? dati[0] : null;
+}
+
+// Risolve preferendo il collegamento per id; se assente ripiega sul nome.
+export async function risolviAnagrafica(
+  nome: string,
+  anagraficaId?: string | null,
+): Promise<Anagrafica | null> {
+  if (anagraficaId) {
+    const perId = await anagraficaPerId(anagraficaId);
+    if (perId) return perId;
+  }
+  return cercaAnagrafica(nome);
 }

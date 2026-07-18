@@ -77,7 +77,7 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
         )}
       </div>
 
-      <AnagraficaCard nomePartner={partner.nome} />
+      <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} />
 
       <h2 className="section-title">Rolling {anno}</h2>
       <div className="kpi-grid">
