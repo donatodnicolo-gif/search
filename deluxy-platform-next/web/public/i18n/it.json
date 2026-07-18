@@ -374,6 +374,9 @@
     "filePlaceholder": "https://… link alla ricevuta firmata",
     "fileRequired": "Scegli un file dal PC o incolla un link.",
     "signedOk": "Ricevuta firmata ✓",
+    "pay": "Paga",
+    "paid": "Pagato",
+    "paidOk": "Stipendio pagato ✓",
     "tab": {
       "pending": "Da firmare",
       "signed": "Firmate"

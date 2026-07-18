@@ -106,6 +106,13 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 18/07/2026 (11) — Ricevute: bottone "Paga" nella tab Firmate
+
+- Feedback: "in firmate aggiungi bottone PAGA". In `ReceiptsListComponent`, nella tab **Firmate**, per admin/operation (`canManage()` via `AuthService`) ogni ricevuta firmata il cui stipendio non è ancora pagato mostra un bottone **Paga** → `pay(r)` fa `PATCH /salaries/:salaryId/status {status:'PAID'}`. Se lo stipendio è già `PAID` la cella mostra il badge **Pagato**; il valet non vede il bottone.
+- Serviva `salary.id` nella risposta ricevute (già incluso dal backend) → aggiunto al tipo `Receipt.salary`. Nessuna modifica backend (riusa l'endpoint stato stipendio). i18n `receipts.pay/paid/paidOk` (IT/EN 993/993).
+- Verificato E2E in browser: ricevuta firmata → tab Firmate mostra **Paga** → click → banner "Stipendio pagato ✓" → riga passa a **Pagato**; via API lo stipendio risulta `PAID` con `paidAt`. Build web pulita. Dati/file di test ripuliti.
+- Nota flusso: **Paga** dalla ricevuta va direttamente a `PAID` (salta lo stato APPROVED, che resta usato solo dal flusso in Stipendi → Archivio). La guardia backend blocca solo APPROVED-senza-firma, non PAID, quindi è consentito.
+
 ### 18/07/2026 (10) — Ricevute: upload del file firmato dal PC
 
 - Feedback: "in ricevute permetti di caricare anche file presenti su pc". Prima la ricevuta firmata era solo un **URL**; ora si può caricare un **file vero dal computer**.

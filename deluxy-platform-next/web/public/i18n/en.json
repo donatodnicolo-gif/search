@@ -374,6 +374,9 @@
     "filePlaceholder": "https://… link to the signed receipt",
     "fileRequired": "Choose a file from your PC or paste a link.",
     "signedOk": "Receipt signed ✓",
+    "pay": "Pay",
+    "paid": "Paid",
+    "paidOk": "Salary paid ✓",
     "tab": {
       "pending": "To sign",
       "signed": "Signed"

@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { AuthService } from '../core/auth.service';
 
 interface Receipt {
   id: string;
@@ -12,6 +13,7 @@ interface Receipt {
   signed: boolean;
   signedAt?: string;
   salary?: {
+    id: string;
     periodStart: string;
     periodEnd: string;
     documentType: string;
@@ -87,6 +89,10 @@ interface Receipt {
                     } @else {
                       <button class="link-btn" (click)="openSign(r)">{{ 'receipts.signAction' | translate }}</button>
                     }
+                  } @else if (r.salary?.status === 'PAID') {
+                    <span class="badge" [style.--c]="'#248A3D'"><span class="dot"></span>{{ 'receipts.paid' | translate }}</span>
+                  } @else if (canManage()) {
+                    <button class="btn btn-primary btn-sm" [disabled]="busy() === r.id" (click)="pay(r)">{{ 'receipts.pay' | translate }}</button>
                   } @else { <span class="muted">✓</span> }
                 </td>
               </tr>
@@ -125,6 +131,7 @@ interface Receipt {
       .file-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .or { font-size: 12px; color: var(--text-tertiary); }
       .sign-actions { display: flex; gap: 10px; align-items: center; }
+      .btn-sm { padding: 5px 16px; font-size: 12.5px; }
       .state-card { padding: 28px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
@@ -134,6 +141,12 @@ interface Receipt {
 export class ReceiptsListComponent {
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
+  private readonly auth = inject(AuthService);
+
+  canManage(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION';
+  }
 
   readonly receipts = signal<Receipt[]>([]);
   readonly loading = signal(true);
@@ -226,5 +239,16 @@ export class ReceiptsListComponent {
     this.closeSign();
     this.banner.set(this.translate.instant('receipts.signedOk'));
     this.load();
+  }
+
+  /** Segna lo stipendio collegato come pagato (solo admin/operation). */
+  pay(r: Receipt): void {
+    if (!r.salary?.id) return;
+    this.error.set(null);
+    this.busy.set(r.id);
+    this.http.patch(`${environment.apiUrl}/salaries/${r.salary.id}/status`, { status: 'PAID' }).subscribe({
+      next: () => { this.busy.set(null); this.banner.set(this.translate.instant('receipts.paidOk')); this.load(); },
+      error: (err) => { this.busy.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
+    });
   }
 }
