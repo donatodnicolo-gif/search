@@ -103,17 +103,29 @@ function normalizzaNumero(numero: string | null): string[] {
     .map((n) => `${+n}/${anno}`);
 }
 
+// Chiave stabile del soggetto di un movimento (per le associazioni salvate):
+// la controparte quando c'è, altrimenti la descrizione.
+export function chiaveControparte(tx: { controparte: string | null; descrizione: string }): string | null {
+  const base = (tx.controparte ?? "").trim() || tx.descrizione.trim();
+  const n = normalizza(base);
+  return n.length >= 3 ? n : null;
+}
+
 export function suggerisci(
   tx: Pick<TransazioneBancaria, "importo" | "descrizione" | "controparte" | "data">,
   ctx: {
     partners: Partner[];
     fattureAperte: (FatturaServizio & { partner: Partner })[];
     daBonificare: { partner: Partner; mese: number; importo: number }[];
+    associazioni?: Map<string, Partner>; // controparte normalizzata → partner
   }
 ): Suggerimento {
   const testo = `${tx.descrizione} ${tx.controparte ?? ""}`;
   const testoNorm = normalizza(testo);
-  const partner = matchPartner(testo, ctx.partners);
+  // Una regola salvata dall'operatore ha la precedenza sul match automatico.
+  const chiave = chiaveControparte(tx);
+  const forzato = chiave ? ctx.associazioni?.get(chiave) ?? null : null;
+  const partner = forzato ?? matchPartner(testo, ctx.partners);
 
   if (tx.importo > 0) {
     // ACCREDITO → incasso di fatture
@@ -148,10 +160,16 @@ export function suggerisci(
       if (sue.length && Math.abs(somma - tx.importo) <= TOLLERANZA) {
         return { tipo: "fattura", fattura: sue[0], motivo: `copre tutte le ${sue.length} fatture aperte del partner` };
       }
-      if (sue.length) {
+      // Un'associazione salvata è una scelta esplicita dell'operatore: mai
+      // "discrepanza", si registra come incasso dal partner.
+      if (sue.length && !forzato) {
         return { tipo: "discrepanza", partner, motivo: `partner riconosciuto ma l'importo non corrisponde a nessuna fattura aperta (aperte: ${somma.toFixed(2)} €)` };
       }
-      return { tipo: "incasso_partner", partner, motivo: "partner riconosciuto, nessuna fattura aperta: possibile incasso in compensazione" };
+      return {
+        tipo: "incasso_partner",
+        partner,
+        motivo: forzato ? "associazione salvata: incasso dal partner" : "partner riconosciuto, nessuna fattura aperta: possibile incasso in compensazione",
+      };
     }
     return { tipo: "sconosciuta", motivo: "nessun partner o fattura riconosciuti nella causale" };
   }
@@ -172,13 +190,17 @@ export function suggerisci(
   }
   if (partner) {
     const suoi = ctx.daBonificare.filter((x) => x.partner.id === partner.id);
-    if (suoi.length) {
+    // Con un'associazione salvata non è una discrepanza: si registra come bonifico.
+    if (suoi.length && !forzato) {
       return { tipo: "discrepanza", partner, motivo: `partner riconosciuto ma importo diverso dagli attesi (${suoi.map((s) => s.importo.toFixed(2)).join(", ")} €)` };
     }
-    // Partner riconosciuto ma nessun dovuto aperto: se la causale è quella della
-    // nostra distinta SEPA lo proponiamo come bonifico extra; altrimenti — tipico
-    // dei conti carta, dove il nome coincide con un negozio — resta non riconosciuto
-    // per non suggerire pagamenti inesistenti.
+    // Partner riconosciuto ma nessun dovuto aperto: se il match viene da una
+    // regola salvata dall'operatore o dalla causale della distinta SEPA, lo
+    // proponiamo come bonifico extra; altrimenti — tipico dei conti carta, dove il
+    // nome coincide con un negozio — resta non riconosciuto per non inventare pagamenti.
+    if (forzato) {
+      return { tipo: "bonifico_partner", partner, mesePagamento: null, motivo: "associazione salvata: pagamento verso il partner" };
+    }
     if (daNoi) {
       return { tipo: "bonifico_partner", partner, mesePagamento: null, motivo: "causale della distinta SEPA, nessun dovuto aperto: possibile bonifico extra" };
     }

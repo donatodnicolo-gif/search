@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { parseEstratto, hashMovimento } from "./estratto";
+import { chiaveControparte } from "./riconciliazione";
 import { qontoOrganizzazione, qontoTransazioni } from "./qonto";
 
 function revalidate() {
@@ -150,6 +151,58 @@ export async function registraTransazionePagamento(
 
 export async function ignoraTransazione(txId: string) {
   await prisma.transazioneBancaria.update({ where: { id: txId }, data: { stato: "ignorata" } });
+  revalidate();
+}
+
+// Associa a mano un partner a un movimento non riconosciuto: registra il
+// movimento sul partner (incasso/bonifico) E memorizza la regola controparte →
+// partner, così i movimenti futuri dello stesso soggetto si riconoscono da soli.
+export async function associaControparte(txId: string, fd: FormData) {
+  const partnerId = String(fd.get("partnerId") ?? "");
+  if (!partnerId) return;
+  const tx = await prisma.transazioneBancaria.findUnique({ where: { id: txId } });
+  const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
+  if (!tx || !partner) return;
+
+  // 1. salva/rinforza la regola sulla controparte
+  const chiave = chiaveControparte(tx);
+  if (chiave) {
+    await prisma.associazioneControparte.upsert({
+      where: { chiave },
+      create: { chiave, partnerId, partnerNome: partner.nome, esempio: (tx.controparte ?? tx.descrizione).slice(0, 200) },
+      update: { partnerId, partnerNome: partner.nome, usi: { increment: 1 } },
+    });
+  }
+
+  // 2. registra questo movimento sul partner (stessa logica del pagamento)
+  const anno = tx.data.getUTCFullYear();
+  const meseEff = tx.data.getUTCMonth() + 1;
+  const importoFirmato = tx.importo < 0 ? Math.abs(tx.importo) : -Math.abs(tx.importo);
+  const esistente = await prisma.saldoMensile.findUnique({
+    where: { partnerId_anno_mese: { partnerId, anno, mese: meseEff } },
+  });
+  await prisma.saldoMensile.upsert({
+    where: { partnerId_anno_mese: { partnerId, anno, mese: meseEff } },
+    create: { partnerId, anno, mese: meseEff, bonificoImporto: importoFirmato, bonificoData: tx.data, dataPagamento: tx.data },
+    update: {
+      bonificoImporto: (esistente?.bonificoImporto ?? 0) + importoFirmato,
+      bonificoData: tx.data,
+      dataPagamento: esistente?.dataPagamento ?? tx.data,
+    },
+  });
+  await prisma.transazioneBancaria.update({
+    where: { id: txId },
+    data: {
+      stato: "registrata",
+      partnerId,
+      esito: `${importoFirmato > 0 ? "Bonifico a" : "Incasso da"} ${partner.nome} (associazione salvata) — ${nomeMeseIt(meseEff)} ${anno}`,
+    },
+  });
+  revalidate();
+}
+
+export async function eliminaAssociazione(id: string) {
+  await prisma.associazioneControparte.delete({ where: { id } });
   revalidate();
 }
 

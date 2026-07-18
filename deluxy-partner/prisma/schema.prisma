@@ -36,6 +36,9 @@ model Partner {
   email                  String?
   telefono               String?
   note                   String?
+  // Chiave di join con il registro Deluxy Anagrafiche (id del partner lì).
+  // Popolata una volta per riconciliazione; è la "lingua comune di id" tra le app.
+  anagraficaId           String?  @unique
   attivo                 Boolean  @default(true)
   fatture                FatturaServizio[]
   vendite                VenditaVendor[]
@@ -148,6 +151,20 @@ model SaldoMensile {
 model Impostazione {
   chiave String @id
   valore String
+}
+
+// Regola di associazione: quando l'operatore assegna a mano un partner a un
+// movimento non riconosciuto, la controparte viene memorizzata qui così i
+// movimenti futuri dello stesso soggetto si riconoscono da soli.
+model AssociazioneControparte {
+  id          String   @id @default(cuid())
+  chiave      String   @unique // controparte normalizzata
+  partnerId   String
+  partnerNome String
+  esempio     String? // testo originale che ha generato la regola
+  usi         Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // Storico delle richieste di verifica arrivate via API da altri progetti.

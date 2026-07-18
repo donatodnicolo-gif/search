@@ -11,6 +11,8 @@ import {
   registraTransazionePagamento,
   ignoraTransazione,
   ignoraTransazioni,
+  associaControparte,
+  eliminaAssociazione,
   ripristinaTransazione,
   eliminaTransazioniNonRegistrate,
 } from "@/lib/transazioni-actions";
@@ -25,15 +27,24 @@ export default async function TransazioniPage({
 }) {
   const sp = await searchParams;
 
-  const [tutteLeTransazioni, partners, fattureAperte, tutti] = await Promise.all([
+  const [tutteLeTransazioni, partners, fattureAperte, tutti, associazioniRec] = await Promise.all([
     prisma.transazioneBancaria.findMany({ orderBy: { data: "desc" } }),
-    prisma.partner.findMany(),
+    prisma.partner.findMany({ orderBy: { nome: "asc" } }),
     prisma.fatturaServizio.findMany({
       where: { pagata: false, imponibile: { gt: 0 } },
       include: { partner: true },
     }),
     riepilogoTutti(ANNO_CORRENTE),
+    prisma.associazioneControparte.findMany({ orderBy: { updatedAt: "desc" } }),
   ]);
+
+  // mappa controparte-normalizzata → partner, usata dal motore di riconoscimento
+  const partnerPerId = new Map(partners.map((p) => [p.id, p]));
+  const associazioni = new Map(
+    associazioniRec
+      .map((a) => [a.chiave, partnerPerId.get(a.partnerId)] as const)
+      .filter((x): x is [string, (typeof partners)[number]] => Boolean(x[1]))
+  );
 
   // Ricerca "morbida": senza accenti, per parole parziali e importi. Tutti i
   // termini digitati devono comparire (in qualsiasi ordine) nel testo/importo
@@ -55,7 +66,7 @@ export default async function TransazioniPage({
   );
 
   const qonto = await qontoConfigurato();
-  const ctx = { partners, fattureAperte, daBonificare };
+  const ctx = { partners, fattureAperte, daBonificare, associazioni };
   const nuove = transazioni.filter((t) => t.stato === "nuova");
   const registrate = transazioni.filter((t) => t.stato === "registrata");
   const ignorate = transazioni.filter((t) => t.stato === "ignorata");
@@ -346,12 +357,23 @@ export default async function TransazioniPage({
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Data</th><th>Movimento</th><th className="num">Importo</th><th></th></tr>
+                  <tr><th>Data</th><th>Movimento</th><th className="num">Importo</th><th>Associa a un partner</th><th></th></tr>
                 </thead>
                 <tbody>
                   {sconosciute.slice(0, 60).map(({ tx }) => (
                     <tr key={tx.id}>
                       {rigaTx(tx)}
+                      <td>
+                        <form action={associaControparte.bind(null, tx.id)} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <select name="partnerId" required defaultValue="" style={{ width: "auto", minWidth: 180, padding: "5px 9px", fontSize: 12.5 }}>
+                            <option value="" disabled>Scegli partner…</option>
+                            {partners.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                          </select>
+                          <button className="btn small primary" type="submit" title="Registra questo movimento sul partner e ricorda la controparte per i prossimi">
+                            Associa
+                          </button>
+                        </form>
+                      </td>
                       <td style={{ whiteSpace: "nowrap" }}>
                         <form action={ignoraTransazione.bind(null, tx.id)}>
                           <button className="btn small secondary" type="submit">Ignora</button>
@@ -364,8 +386,10 @@ export default async function TransazioniPage({
             </div>
           </div>
           <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
-            Movimenti estranei ai partner (spese carta, fornitori, incassi e-commerce, commissioni bancarie…): ignorali pure.
-            {sconosciute.length > 60 && ` Mostrate le prime 60 di ${sconosciute.length}: usa «Ignora tutte» per ripulire in blocco.`}
+            Scegli il partner e premi «Associa»: il movimento viene registrato e la controparte
+            memorizzata, così i prossimi movimenti dello stesso soggetto si riconoscono da soli.
+            Il resto (spese carta, fornitori, incassi e-commerce…) puoi ignorarlo.
+            {sconosciute.length > 60 && ` Mostrate le prime 60 di ${sconosciute.length}: usa «Ignora tutte» per il resto.`}
           </p>
         </>
       )}
@@ -403,6 +427,43 @@ export default async function TransazioniPage({
             </div>
           </div>
         </>
+      )}
+
+      {!query && associazioniRec.length > 0 && (
+        <details style={{ marginTop: 24 }}>
+          <summary style={{ cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+            Associazioni salvate ({associazioniRec.length}) — controparti riconosciute automaticamente
+          </summary>
+          <div className="card tight" style={{ marginTop: 12 }}>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Controparte (dall&apos;estratto)</th><th>Partner associato</th><th className="num">Usi</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {associazioniRec.map((a) => (
+                    <tr key={a.id}>
+                      <td className="muted">{a.esempio ?? a.chiave}</td>
+                      <td>
+                        {partnerPerId.has(a.partnerId) ? (
+                          <Link href={`/partner/${a.partnerId}`} style={{ fontWeight: 500 }}>{a.partnerNome}</Link>
+                        ) : (
+                          <span className="muted">{a.partnerNome} (rimosso)</span>
+                        )}
+                      </td>
+                      <td className="num">{a.usi}</td>
+                      <td>
+                        <form action={eliminaAssociazione.bind(null, a.id)}>
+                          <button className="btn small danger" type="submit" title="Elimina la regola (i movimenti futuri torneranno da riconoscere)">Elimina</button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
       )}
 
       {(registrate.length > 0 || ignorate.length > 0) && (
