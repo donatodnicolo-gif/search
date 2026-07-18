@@ -369,8 +369,10 @@
     "open": "Apri",
     "signAction": "Carica firmata",
     "upload": "Carica",
+    "pickFile": "Scegli file dal PC…",
+    "or": "oppure",
     "filePlaceholder": "https://… link alla ricevuta firmata",
-    "fileRequired": "Allega il link della ricevuta firmata.",
+    "fileRequired": "Scegli un file dal PC o incolla un link.",
     "signedOk": "Ricevuta firmata ✓",
     "tab": {
       "pending": "Da firmare",

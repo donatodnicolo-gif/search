@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
 import {
   BadRequestException,
   Body,
@@ -10,11 +12,29 @@ import {
   Param,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role, SalaryStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+
+const RECEIPTS_DIR = join(process.cwd(), 'uploads', 'receipts');
+
+/** Storage su disco per le ricevute caricate dal PC (servite poi da /uploads/receipts). */
+const receiptStorage = diskStorage({
+  destination: (_req, _file, cb) => {
+    if (!existsSync(RECEIPTS_DIR)) mkdirSync(RECEIPTS_DIR, { recursive: true });
+    cb(null, RECEIPTS_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${Date.now()}-${safe}`);
+  },
+});
 
 @Injectable()
 export class ReceiptsService {
@@ -78,9 +98,28 @@ export class ReceiptsController {
 
   @Post(':id/sign')
   @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
-  @ApiOperation({ summary: 'Carica la ricevuta firmata (URL) → stipendio in approvazione' })
+  @ApiOperation({ summary: 'Carica la ricevuta firmata via URL → stipendio in approvazione' })
   sign(@CurrentUser() user: JwtUser, @Param('id') id: string, @Body() body: { fileUrl?: string }) {
     return this.receiptsService.sign(user, id, body.fileUrl);
+  }
+
+  @Post(':id/upload')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Carica la ricevuta firmata come FILE dal PC → stipendio in approvazione' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: receiptStorage,
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    }),
+  )
+  upload(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @UploadedFile() file?: { filename: string },
+  ) {
+    if (!file) throw new BadRequestException('Nessun file caricato');
+    return this.receiptsService.sign(user, id, `/uploads/receipts/${file.filename}`);
   }
 }
 

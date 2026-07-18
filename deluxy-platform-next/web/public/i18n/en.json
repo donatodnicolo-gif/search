@@ -369,8 +369,10 @@
     "open": "Open",
     "signAction": "Upload signed",
     "upload": "Upload",
+    "pickFile": "Choose file from PC…",
+    "or": "or",
     "filePlaceholder": "https://… link to the signed receipt",
-    "fileRequired": "Attach the link to the signed receipt.",
+    "fileRequired": "Choose a file from your PC or paste a link.",
     "signedOk": "Receipt signed ✓",
     "tab": {
       "pending": "To sign",

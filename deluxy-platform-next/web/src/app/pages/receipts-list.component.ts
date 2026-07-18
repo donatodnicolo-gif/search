@@ -67,14 +67,23 @@ interface Receipt {
                   <span class="badge" [style.--c]="r.signed ? '#248A3D' : '#C04C00'"><span class="dot"></span>{{ (r.signed ? 'receipts.signed' : 'receipts.toSign') | translate }}</span>
                 </td>
                 <td>
-                  @if (r.fileUrl) { <a [href]="r.fileUrl" target="_blank" rel="noopener">{{ 'receipts.open' | translate }}</a> } @else { <span class="muted">—</span> }
+                  @if (r.fileUrl) { <a [href]="fileHref(r)" target="_blank" rel="noopener">{{ 'receipts.open' | translate }}</a> } @else { <span class="muted">—</span> }
                 </td>
                 <td class="row-actions">
                   @if (!r.signed) {
                     @if (signFor() === r.id) {
-                      <input class="field" [(ngModel)]="fileUrl" [placeholder]="'receipts.filePlaceholder' | translate" />
-                      <button class="link-btn" [disabled]="busy() === r.id" (click)="sign(r)">{{ 'receipts.upload' | translate }}</button>
-                      <button class="link-btn danger" (click)="signFor.set(null)">{{ 'common.cancel' | translate }}</button>
+                      <div class="sign-box">
+                        <label class="file-pick">
+                          <input type="file" accept="image/*,application/pdf" (change)="onFileSelected($event)" />
+                          <span>{{ pickedName() || ('receipts.pickFile' | translate) }}</span>
+                        </label>
+                        <span class="or">{{ 'receipts.or' | translate }}</span>
+                        <input class="field" [(ngModel)]="fileUrl" [placeholder]="'receipts.filePlaceholder' | translate" />
+                        <div class="sign-actions">
+                          <button class="link-btn" [disabled]="busy() === r.id" (click)="submitSign(r)">{{ 'receipts.upload' | translate }}</button>
+                          <button class="link-btn danger" (click)="closeSign()">{{ 'common.cancel' | translate }}</button>
+                        </div>
+                      </div>
                     } @else {
                       <button class="link-btn" (click)="openSign(r)">{{ 'receipts.signAction' | translate }}</button>
                     }
@@ -110,6 +119,12 @@ interface Receipt {
       .link-btn { background: none; border: none; padding: 0; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
       .link-btn.danger { color: var(--red); }
       .link-btn:disabled { opacity: 0.5; cursor: default; }
+      .sign-box { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .file-pick { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--hairline); border-radius: 980px; cursor: pointer; font-size: 12.5px; background: var(--surface); max-width: 220px; }
+      .file-pick input[type=file] { display: none; }
+      .file-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .or { font-size: 12px; color: var(--text-tertiary); }
+      .sign-actions { display: flex; gap: 10px; align-items: center; }
       .state-card { padding: 28px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
@@ -127,14 +142,24 @@ export class ReceiptsListComponent {
   readonly busy = signal<string | null>(null);
   readonly view = signal<'pending' | 'signed'>('pending');
   readonly signFor = signal<string | null>(null);
+  readonly pickedName = signal<string | null>(null);
   fileUrl = '';
+  private pickedFile: File | null = null;
+
+  /** Origine dell'API (senza /api/v1) per costruire il link ai file caricati. */
+  private readonly apiOrigin = environment.apiUrl.replace(/\/api\/v1\/?$/, '');
 
   constructor() { this.load(); }
+
+  fileHref(r: Receipt): string {
+    const url = r.fileUrl ?? '';
+    return url.startsWith('/uploads') ? this.apiOrigin + url : url;
+  }
 
   setView(v: 'pending' | 'signed'): void {
     if (this.view() === v) return;
     this.view.set(v);
-    this.signFor.set(null);
+    this.closeSign();
     this.load();
   }
 
@@ -149,16 +174,57 @@ export class ReceiptsListComponent {
 
   openSign(r: Receipt): void {
     this.signFor.set(this.signFor() === r.id ? null : r.id);
-    this.fileUrl = '';
+    this.resetPick();
   }
 
-  sign(r: Receipt): void {
+  closeSign(): void {
+    this.signFor.set(null);
+    this.resetPick();
+  }
+
+  private resetPick(): void {
+    this.fileUrl = '';
+    this.pickedFile = null;
+    this.pickedName.set(null);
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.pickedFile = file;
+    this.pickedName.set(file?.name ?? null);
+  }
+
+  /** Carica: se è stato scelto un file dal PC lo invia (multipart), altrimenti usa l'URL. */
+  submitSign(r: Receipt): void {
+    if (this.pickedFile) {
+      this.uploadFile(r, this.pickedFile);
+      return;
+    }
     if (!this.fileUrl.trim()) { this.error.set(this.translate.instant('receipts.fileRequired')); return; }
     this.error.set(null);
     this.busy.set(r.id);
     this.http.post(`${environment.apiUrl}/receipts/${r.id}/sign`, { fileUrl: this.fileUrl.trim() }).subscribe({
-      next: () => { this.busy.set(null); this.signFor.set(null); this.banner.set(this.translate.instant('receipts.signedOk')); this.load(); },
+      next: () => this.onSigned(),
       error: (err) => { this.busy.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
     });
+  }
+
+  private uploadFile(r: Receipt, file: File): void {
+    this.error.set(null);
+    this.busy.set(r.id);
+    const form = new FormData();
+    form.append('file', file, file.name);
+    this.http.post(`${environment.apiUrl}/receipts/${r.id}/upload`, form).subscribe({
+      next: () => this.onSigned(),
+      error: (err) => { this.busy.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
+    });
+  }
+
+  private onSigned(): void {
+    this.busy.set(null);
+    this.closeSign();
+    this.banner.set(this.translate.instant('receipts.signedOk'));
+    this.load();
   }
 }

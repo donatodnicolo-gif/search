@@ -106,6 +106,14 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 18/07/2026 (10) — Ricevute: upload del file firmato dal PC
+
+- Feedback: "in ricevute permetti di caricare anche file presenti su pc". Prima la ricevuta firmata era solo un **URL**; ora si può caricare un **file vero dal computer**.
+- **Backend**: nuovo `POST /receipts/:id/upload` (multipart, `FileInterceptor` + `multer` `diskStorage`, max 10 MB) accanto a `POST /receipts/:id/sign` (URL). Il file va in `api/uploads/receipts/` (nome `${timestamp}-${originalname}`) e la ricevuta salva `fileUrl = /uploads/receipts/<file>`; poi il flusso è identico (`signed=true`, stipendio → `RECEIPT_PENDING`). `main.ts` ora è `NestExpressApplication` con `useStaticAssets(cwd/uploads, prefix:'/uploads/')` → i file sono serviti da `http://<api>/uploads/…`. `multer` è già presente (hoisted, v2.2.0, dipendenza di `@nestjs/platform-express`); nessun pacchetto aggiunto. `api/uploads/` aggiunto a `.gitignore`.
+- **Frontend** (`ReceiptsListComponent`): nel riquadro "Carica firmata" ora c'è **selettore file** ("Scegli file dal PC…", accept `image/*,application/pdf`) **oppure** campo URL; `submitSign()` sceglie: se c'è un file → `POST /upload` con `FormData`, altrimenti `POST /sign` con l'URL. Il link **Apri** usa `fileHref()` che antepone l'origine dell'API ai path `/uploads` (i link `http…` restano invariati). i18n `receipts.pickFile`, `receipts.or` (IT/EN, 990/990).
+- **Verificato E2E**: upload via API (curl -F) → ricevuta firmata, file servito a `/uploads/receipts/…` (200, `application/pdf`); e via **browser** (file input impostato con DataTransfer + "Carica") → banner "Ricevuta firmata ✓", tab Firmate con link Apri assoluto funzionante. Build API+web pulite. Dati e file di test ripuliti.
+- ⚠️ **Nota deploy futuro**: i file stanno sul disco locale dell'API (`uploads/`). In produzione serve storage persistente (volume o object storage tipo S3); oggi l'app è solo locale, quindi va bene così.
+
 ### 18/07/2026 (9) — Sync partner → registro Anagrafiche (portata nel branch)
 
 - **Divergenza scoperta**: `AnagraficheSyncService` (invio dei partner al registro centralizzato `deluxy-anagrafiche`) esisteva nella copia `C:\Users\nicol\scoutwt\deluxy-platform-next` ma **mancava** nel branch di lavoro `deluxy-scout` (`C:\Users\nicol\app\deluxy-platform-next`). Prima, creando un partner qui, non partiva alcuna sync.
