@@ -254,10 +254,10 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
             <Text style={styles.lineaTagTxt}>{tipologia}</Text>
           </View>
         ) : null}
-        {/* Stato registro come info aggiuntiva sui deal Scout/HubSpot schedati. */}
-        {!daRegistro && deal.anagrafiche_stato ? (
-          <RegistroBadge stato={deal.anagrafiche_stato} partner={deal.is_partner} />
-        ) : null}
+        {/* Sui deal mostriamo solo il flag "Partner" (già cliente): gli altri stati
+            registro competerebbero con la fase del deal (es. "In trattativa" accanto
+            a "Chiusa vinta"). La fase del deal è lo stato di verità della trattativa. */}
+        {!daRegistro && deal.is_partner ? <RegistroBadge stato="attivo" partner /> : null}
         {deal.origine === 'hubspot' ? (
           <Text style={styles.hs}>HubSpot</Text>
         ) : daRegistro ? (
