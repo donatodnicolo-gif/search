@@ -199,11 +199,14 @@ function FiltroChip({ label, on, onPress }: { label: string; on: boolean; onPres
 }
 
 function RigaDeal({ deal }: { deal: TrattativaConLuogo }) {
+  const titolo = deal.titolo ?? deal.linea ?? 'Trattativa';
+  // Tipologia di interesse (linea Deluxy) come tag, quando distinta dal titolo.
+  const tipologia = deal.linea && deal.titolo ? deal.linea : null;
   return (
     <View style={styles.deal}>
       <View style={styles.dealHead}>
         <Text style={styles.dealLinea} numberOfLines={1}>
-          {deal.linea ?? deal.titolo ?? 'Trattativa'}
+          {titolo}
         </Text>
         {deal.valore_atteso ? (
           <Text style={styles.dealValore}>€ {deal.valore_atteso.toLocaleString('it-IT')}</Text>
@@ -213,6 +216,11 @@ function RigaDeal({ deal }: { deal: TrattativaConLuogo }) {
         <View style={styles.faseBadge}>
           <Text style={styles.faseTxt}>{labelFase[deal.fase]}</Text>
         </View>
+        {tipologia ? (
+          <View style={styles.lineaTag}>
+            <Text style={styles.lineaTagTxt}>{tipologia}</Text>
+          </View>
+        ) : null}
         {deal.origine === 'hubspot' ? (
           <Text style={styles.hs}>HubSpot</Text>
         ) : deal.hubspot_deal_id ? (
@@ -517,6 +525,13 @@ const styles = StyleSheet.create({
   dealMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   faseBadge: { backgroundColor: colors.sfondo, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
   faseTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 12 },
+  lineaTag: {
+    backgroundColor: colors.goldSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  lineaTagTxt: { color: colors.goldStrong, fontWeight: '800', fontSize: 12 },
   hs: { color: colors.successo, fontWeight: '700', fontSize: 12 },
   nextAction: { color: colors.testoSoft, fontSize: 13 },
 

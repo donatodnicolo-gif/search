@@ -221,7 +221,7 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
   //    (copia CRM non ancora popolata) degrada con grazia: mostra solo Scout.
   const { data: hsDeals } = await supabase
     .from('hubspot_deals')
-    .select('hubspot_id, company_hubspot_id, nome, fase, valore, aperta')
+    .select('hubspot_id, company_hubspot_id, nome, fase, valore, linea, aperta')
     .eq('aperta', true);
 
   // Risolvi il nome: negozio Scout collegato → azienda HubSpot → nome del deal.
@@ -252,7 +252,7 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
       return {
         id: `hs_${d.hubspot_id}`,
         place_id: place?.id ?? '',
-        linea: null,
+        linea: d.linea ?? null,
         fase: d.fase,
         valore_atteso: d.valore != null ? Number(d.valore) : null,
         next_action: null,

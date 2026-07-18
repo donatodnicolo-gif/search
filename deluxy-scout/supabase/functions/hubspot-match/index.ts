@@ -87,7 +87,7 @@ async function syncCrm(admin: any, token: string) {
   after = undefined;
   let nDeal = 0;
   do {
-    const url = `/crm/v3/objects/deals?limit=100&properties=dealname,dealstage,amount&associations=companies${after ? `&after=${after}` : ''}`;
+    const url = `/crm/v3/objects/deals?limit=100&properties=dealname,dealstage,amount,deluxy_linea&associations=companies${after ? `&after=${after}` : ''}`;
     const page = await hs(token, url);
     const rows = (page.results ?? []).map((d: any) => {
       const compId = d.associations?.companies?.results?.[0]?.id;
@@ -98,6 +98,7 @@ async function syncCrm(admin: any, token: string) {
         nome: d.properties?.dealname ?? null,
         fase: fase || null,
         valore: d.properties?.amount ? Number(d.properties.amount) : null,
+        linea: d.properties?.deluxy_linea || null,
         aperta: !['closedwon', 'closedlost'].includes(fase),
         synced_at: now,
       };
