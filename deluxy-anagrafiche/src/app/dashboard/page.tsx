@@ -1,7 +1,9 @@
+import { Prisma } from "@prisma/client";
+import { FiltriDashboard } from "@/components/FiltriDashboard";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
-import { COLORE_INTERESSE, ETICHETTE_INTERESSE, INTERESSI } from "@/lib/interessi";
-import { COLORE_STATO, ETICHETTE_STATO, STATI } from "@/lib/stati";
+import { COLORE_INTERESSE, ETICHETTE_INTERESSE, INTERESSI, isInteresse } from "@/lib/interessi";
+import { COLORE_STATO, ETICHETTE_STATO, STATI, isStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
 
@@ -39,11 +41,36 @@ function Barra({
   );
 }
 
-export default async function Dashboard() {
+type Ricerca = { categoria?: string; regione?: string; stato?: string; interesse?: string };
+
+export default async function Dashboard({ searchParams }: { searchParams: Promise<Ricerca> }) {
+  const sp = await searchParams;
+  const categoria = sp.categoria || undefined;
+  const regione = sp.regione || undefined;
+  const stato = sp.stato && isStato(sp.stato) ? sp.stato : undefined;
+  const interesse = sp.interesse && isInteresse(sp.interesse) ? sp.interesse : undefined;
+  const filtriAttivi = [categoria, regione, stato, interesse].filter(Boolean).length;
+
+  // Filtro Prisma (groupBy/count) e filtro SQL (query raw), stessi criteri
+  const where: Prisma.PartnerWhereInput = { attivo: true };
+  if (categoria) where.categoria = categoria;
+  if (regione) where.regione = regione;
+  if (stato) where.stato = stato;
+  if (interesse) where.interessi = { has: interesse };
+
+  const cond: Prisma.Sql[] = [Prisma.sql`"attivo"`];
+  if (categoria) cond.push(Prisma.sql`"categoria" = ${categoria}`);
+  if (regione) cond.push(Prisma.sql`"regione" = ${regione}`);
+  if (stato) cond.push(Prisma.sql`"stato" = ${stato}`);
+  if (interesse) cond.push(Prisma.sql`${interesse} = ANY("interessi")`);
+  const whereRaw = Prisma.join(cond, " AND ");
+
   const setteGiorniFa = new Date(Date.now() - 7 * 24 * 3600 * 1000);
   const oggi = new Date();
 
   const [
+    opzioniCategorie,
+    opzioniRegioni,
     totale,
     perStato,
     perCategoria,
@@ -58,52 +85,29 @@ export default async function Dashboard() {
     conReferente,
     riconciliate,
   ] = await Promise.all([
-    prisma.partner.count({ where: { attivo: true } }),
-    prisma.partner.groupBy({ by: ["stato"], where: { attivo: true }, _count: { _all: true } }),
-    prisma.partner.groupBy({
-      by: ["categoria"],
-      where: { attivo: true },
-      _count: { _all: true },
-      orderBy: { _count: { categoria: "desc" } },
-    }),
-    prisma.partner.groupBy({
-      by: ["regione"],
-      where: { attivo: true, regione: { not: null } },
-      _count: { _all: true },
-      orderBy: { _count: { regione: "desc" } },
-    }),
-    prisma.partner.groupBy({
-      by: ["citta"],
-      where: { attivo: true, citta: { not: null } },
-      _count: { _all: true },
-      orderBy: { _count: { citta: "desc" } },
-      take: 10,
-    }),
-    prisma.$queryRaw<{ interesse: string; totale: bigint }[]>`
+    // Opzioni dei menu: sempre l'elenco completo, indipendente dai filtri attivi
+    prisma.partner.findMany({ where: { attivo: true }, distinct: ["categoria"], select: { categoria: true }, orderBy: { categoria: "asc" } }),
+    prisma.partner.findMany({ where: { attivo: true, regione: { not: null } }, distinct: ["regione"], select: { regione: true }, orderBy: { regione: "asc" } }),
+    prisma.partner.count({ where }),
+    prisma.partner.groupBy({ by: ["stato"], where, _count: { _all: true } }),
+    prisma.partner.groupBy({ by: ["categoria"], where, _count: { _all: true }, orderBy: { _count: { categoria: "desc" } } }),
+    prisma.partner.groupBy({ by: ["regione"], where: regione ? where : { ...where, regione: { not: null } }, _count: { _all: true }, orderBy: { _count: { regione: "desc" } } }),
+    prisma.partner.groupBy({ by: ["citta"], where: { ...where, citta: { not: null } }, _count: { _all: true }, orderBy: { _count: { citta: "desc" } }, take: 10 }),
+    prisma.$queryRaw<{ interesse: string; totale: bigint }[]>(Prisma.sql`
       SELECT unnest("interessi") AS interesse, count(*) AS totale
-      FROM "anagrafiche"."Partner" WHERE "attivo" GROUP BY 1`,
-    prisma.$queryRaw<{ mese: Date; totale: bigint }[]>`
+      FROM "anagrafiche"."Partner" WHERE ${whereRaw} GROUP BY 1`),
+    prisma.$queryRaw<{ mese: Date; totale: bigint }[]>(Prisma.sql`
       SELECT date_trunc('month', "ultimaVisita") AS mese, count(*) AS totale
       FROM "anagrafiche"."Partner"
-      WHERE "attivo" AND "ultimaVisita" IS NOT NULL
+      WHERE ${whereRaw} AND "ultimaVisita" IS NOT NULL
         AND "ultimaVisita" >= now() - interval '12 months' AND "ultimaVisita" <= now()
-      GROUP BY 1 ORDER BY 1`,
-    // Il lotto storico dell'Excel ha la data convenzionale del 16/07/2026:
-    // non conta come "nuovo arrivo"
-    prisma.partner.count({
-      where: { attivo: true, creatoIl: { gte: setteGiorniFa }, fonte: { not: "excel" } },
-    }),
-    prisma.partner.count({
-      where: { attivo: true, ultimaVisita: { gte: setteGiorniFa, lte: oggi } },
-    }),
-    prisma.partner.count({
-      where: { attivo: true, OR: [{ telefono: { not: null } }, { contatti: { some: { telefono: { not: null } } } }] },
-    }),
-    prisma.partner.count({
-      where: { attivo: true, OR: [{ email: { not: null } }, { contatti: { some: { email: { not: null } } } }] },
-    }),
-    prisma.partner.count({ where: { attivo: true, contatti: { some: {} } } }),
-    prisma.partner.count({ where: { attivo: true, hubspotId: { not: null } } }),
+      GROUP BY 1 ORDER BY 1`),
+    prisma.partner.count({ where: { ...where, creatoIl: { gte: setteGiorniFa }, fonte: { not: "excel" } } }),
+    prisma.partner.count({ where: { ...where, ultimaVisita: { gte: setteGiorniFa, lte: oggi } } }),
+    prisma.partner.count({ where: { ...where, OR: [{ telefono: { not: null } }, { contatti: { some: { telefono: { not: null } } } }] } }),
+    prisma.partner.count({ where: { ...where, OR: [{ email: { not: null } }, { contatti: { some: { email: { not: null } } } }] } }),
+    prisma.partner.count({ where: { ...where, contatti: { some: {} } } }),
+    prisma.partner.count({ where: { ...where, hubspotId: { not: null } } }),
   ]);
 
   const statoConteggio = new Map(perStato.map((s) => [s.stato, s._count._all]));
@@ -138,26 +142,45 @@ export default async function Dashboard() {
   const maxMese = Math.max(...mesi.map((m) => m.totale), 1);
 
   const pct = (n: number) => (totale ? Math.round((n / totale) * 100) : 0);
+  const senzaRegione = totale - perRegione.reduce((s, r) => s + r._count._all, 0);
 
   return (
     <div className="layout">
-      <Sidebar dashboardAttiva />
+      <Sidebar
+        dashboardAttiva
+        categoriaAttiva={categoria ?? null}
+        statoAttivo={stato ?? null}
+        interesseAttivo={interesse ?? null}
+      />
       <main className="main">
         <div className="page-head">
           <div>
             <h1 className="page-title">Dashboard</h1>
-            <p className="page-sub">Analisi del registro: funnel, aree, interessi e qualità dei dati.</p>
+            <p className="page-sub">
+              {filtriAttivi > 0
+                ? `${totale} anagrafiche nella fetta selezionata`
+                : "Analisi del registro: funnel, aree, interessi e qualità dei dati."}
+            </p>
           </div>
         </div>
 
+        <FiltriDashboard
+          categorie={opzioniCategorie.map((c) => c.categoria)}
+          regioni={opzioniRegioni.map((r) => r.regione!).filter(Boolean)}
+          valori={{ categoria, regione, stato, interesse }}
+        />
+
         <div className="sync-riepilogo" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
-          <div className="sync-kpi"><div className="sync-kpi-valore">{totale}</div><div className="sync-kpi-etichetta">Anagrafiche attive</div></div>
+          <div className="sync-kpi"><div className="sync-kpi-valore">{totale}</div><div className="sync-kpi-etichetta">Anagrafiche{filtriAttivi > 0 ? " (filtro)" : " attive"}</div></div>
           <div className="sync-kpi"><div className="sync-kpi-valore">{statoConteggio.get("attivo") ?? 0}</div><div className="sync-kpi-etichetta">Partner operativi</div></div>
           <div className="sync-kpi"><div className="sync-kpi-valore">{pipeline}</div><div className="sync-kpi-etichetta">In pipeline (contatto → trattativa)</div></div>
           <div className="sync-kpi"><div className="sync-kpi-valore">{nuove7}</div><div className="sync-kpi-etichetta">Nuove negli ultimi 7 giorni</div></div>
           <div className="sync-kpi"><div className="sync-kpi-valore">{contattate7}</div><div className="sync-kpi-etichetta">Contattate negli ultimi 7 giorni</div></div>
         </div>
 
+        {totale === 0 ? (
+          <div className="vuoto">Nessuna anagrafica in questa fetta. Allarga i filtri.</div>
+        ) : (
         <div className="dash-grid">
           <section className="scheda">
             <h2 className="scheda-titolo">Funnel per stato</h2>
@@ -169,7 +192,7 @@ export default async function Dashboard() {
                 massimo={maxStato}
                 colore={COLORE_STATO[s]}
                 href={`/?stato=${s}`}
-                dettaglio={`${ETICHETTE_STATO[s]}: ${statoConteggio.get(s) ?? 0} (${pct(statoConteggio.get(s) ?? 0)}% del registro)`}
+                dettaglio={`${ETICHETTE_STATO[s]}: ${statoConteggio.get(s) ?? 0} (${pct(statoConteggio.get(s) ?? 0)}% della fetta)`}
               />
             ))}
           </section>
@@ -211,9 +234,9 @@ export default async function Dashboard() {
               <Barra key={r.regione} etichetta={r.regione ?? "—"} valore={r._count._all} massimo={maxRegione} />
             ))}
             {altreRegioni > 0 && <Barra etichetta="Altre" valore={altreRegioni} massimo={maxRegione} colore="var(--fill-active)" />}
-            <p className="testo-guida" style={{ marginTop: 10 }}>
-              {totale - perRegione.reduce((s, r) => s + r._count._all, 0)} anagrafiche senza regione.
-            </p>
+            {senzaRegione > 0 && (
+              <p className="testo-guida" style={{ marginTop: 10 }}>{senzaRegione} anagrafiche senza regione.</p>
+            )}
           </section>
 
           <section className="scheda">
@@ -251,10 +274,11 @@ export default async function Dashboard() {
             <Barra etichetta="Con referenti" valore={conReferente} massimo={totale} dettaglio={`Con referenti: ${conReferente} (${pct(conReferente)}%)`} />
             <Barra etichetta="Riconciliate HubSpot" valore={riconciliate} massimo={totale} dettaglio={`Riconciliate: ${riconciliate} (${pct(riconciliate)}%)`} />
             <p className="testo-guida" style={{ marginTop: 10 }}>
-              Percentuali sul totale delle {totale} attive. Telefono ed email contano anche i referenti.
+              Percentuali sul totale della fetta ({totale}). Telefono ed email contano anche i referenti.
             </p>
           </section>
         </div>
+        )}
       </main>
     </div>
   );
