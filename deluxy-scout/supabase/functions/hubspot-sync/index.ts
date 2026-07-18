@@ -280,11 +280,13 @@ class HubSpot {
   }
 
   async upsertCompany(place: any): Promise<string> {
+    // NB: `industry` è un ENUM HubSpot a valori fissi (RETAIL, APPAREL_FASHION…):
+    // inviare il nostro settore italiano (es. "FIORISTA") dà 400 INVALID_OPTION e
+    // fa fallire tutto il sync. Il settore vive già in `deluxy_linea` (custom, libera).
     const properties = {
       name: place.nome,
       address: place.indirizzo ?? '',
       city: place.zona ?? 'Milano',
-      industry: place.settore ?? '',
       deluxy_priorita: place.priorita,
       deluxy_linea: place.linea_ipotizzata ?? '',
     };
@@ -316,11 +318,27 @@ class HubSpot {
         body: JSON.stringify({ properties }),
       });
     } else {
-      const created = await this.req('/crm/v3/objects/contacts', {
-        method: 'POST',
-        body: JSON.stringify({ properties }),
-      });
-      id = created.id;
+      try {
+        const created = await this.req('/crm/v3/objects/contacts', {
+          method: 'POST',
+          body: JSON.stringify({ properties }),
+        });
+        id = created.id;
+      } catch (e) {
+        // Contatto già presente su HubSpot (stessa email) → 409 con l'id esistente:
+        // riusalo e aggiornalo, invece di far fallire tutto il sync.
+        const msg = String((e as any)?.message ?? e);
+        const m = msg.match(/Existing ID:\s*(\d+)/);
+        if (msg.includes(' 409:') && m) {
+          id = m[1];
+          await this.req(`/crm/v3/objects/contacts/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ properties }),
+          }).catch(() => {});
+        } else {
+          throw e;
+        }
+      }
     }
     // Associazione contact → company (tipo standard 279).
     await this.req(
