@@ -65,6 +65,12 @@ const icons = {
       <path d="M20 16H7M10 12.5 6.5 16l3.5 3.5" />
     </svg>
   ),
+  analisi: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M12 3v18" />
+      <path d="M17 7.5c0-1.7-2.2-2.5-5-2.5s-5 .9-5 2.6c0 4.3 10 2.4 10 6.8 0 1.7-2.2 2.6-5 2.6s-5-.8-5-2.5" />
+    </svg>
+  ),
   confronti: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <path d="M7 17l4-6 3 3 4.5-7" />
@@ -99,6 +105,7 @@ const sections: { label: string; items: Item[] }[] = [
       { href: "/transazioni", label: "Import transazioni", icon: icons.transazioni },
       { href: "/scadenzario", label: "Scadenzario", icon: icons.scadenze },
       { href: "/report", label: "Report", icon: icons.report },
+      { href: "/analisi", label: "Analisi finanziaria", icon: icons.analisi },
       { href: "/confronti", label: "Confronti", icon: icons.confronti },
     ],
   },
