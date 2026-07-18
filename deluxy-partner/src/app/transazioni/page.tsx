@@ -21,11 +21,11 @@ export const dynamic = "force-dynamic";
 export default async function TransazioniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ import?: string; nuove?: string; doppioni?: string; scartate?: string; errore?: string }>;
+  searchParams: Promise<{ import?: string; nuove?: string; doppioni?: string; scartate?: string; errore?: string; cerca?: string }>;
 }) {
   const sp = await searchParams;
 
-  const [transazioni, partners, fattureAperte, tutti] = await Promise.all([
+  const [tutteLeTransazioni, partners, fattureAperte, tutti] = await Promise.all([
     prisma.transazioneBancaria.findMany({ orderBy: { data: "desc" } }),
     prisma.partner.findMany(),
     prisma.fatturaServizio.findMany({
@@ -34,6 +34,19 @@ export default async function TransazioniPage({
     }),
     riepilogoTutti(ANNO_CORRENTE),
   ]);
+
+  // Ricerca "morbida": senza accenti, per parole parziali e importi. Tutti i
+  // termini digitati devono comparire (in qualsiasi ordine) nel testo/importo
+  // del movimento — così "gru 500" trova un movimento di GRUÈ da 500 €.
+  const query = (sp.cerca ?? "").trim();
+  const normS = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const termini = normS(query).split(/\s+/).filter(Boolean);
+  const searchable = (t: (typeof tutteLeTransazioni)[number]) =>
+    normS(`${t.descrizione} ${t.controparte ?? ""} ${t.esito ?? ""} ${t.importo.toFixed(2)} ${Math.abs(t.importo).toFixed(2)}`);
+  const passaRicerca = (t: (typeof tutteLeTransazioni)[number]) =>
+    termini.length === 0 || termini.every((term) => searchable(t).includes(term));
+
+  const transazioni = tutteLeTransazioni.filter(passaRicerca);
 
   const daBonificare = tutti.flatMap((t) =>
     t.mesi
@@ -52,16 +65,17 @@ export default async function TransazioniPage({
   const discrepanze = conSugg.filter((x) => x.sugg.tipo === "discrepanza");
   const sconosciute = conSugg.filter((x) => x.sugg.tipo === "sconosciuta");
 
-  // Attesi mancanti: nel periodo coperto dall'estratto, cosa NON si trova in banca
-  const periodo = transazioni.length
+  // Attesi mancanti e periodo: sempre sull'insieme completo (la ricerca non
+  // deve falsare cosa manca in banca); la sezione è nascosta durante la ricerca.
+  const periodo = tutteLeTransazioni.length
     ? {
-        da: new Date(Math.min(...transazioni.map((t) => t.data.getTime()))),
-        a: new Date(Math.max(...transazioni.map((t) => t.data.getTime()))),
+        da: new Date(Math.min(...tutteLeTransazioni.map((t) => t.data.getTime()))),
+        a: new Date(Math.max(...tutteLeTransazioni.map((t) => t.data.getTime()))),
       }
     : null;
   const TOL = 0.02;
-  const accrediti = transazioni.filter((t) => t.importo > 0);
-  const addebiti = transazioni.filter((t) => t.importo < 0);
+  const accrediti = tutteLeTransazioni.filter((t) => t.importo > 0);
+  const addebiti = tutteLeTransazioni.filter((t) => t.importo < 0);
   const fattureMancanti = periodo
     ? fattureAperte.filter(
         (f) =>
@@ -156,7 +170,33 @@ export default async function TransazioniPage({
         </p>
       </div>
 
-      {transazioni.length > 0 && (
+      {tutteLeTransazioni.length > 0 && (
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <form method="get" className="filters" style={{ width: "100%" }}>
+            <input
+              type="search"
+              name="cerca"
+              defaultValue={query}
+              placeholder="Cerca per partner, causale o importo (anche parziale: «gru», «500», «chanel roma»)…"
+              style={{ flex: "1 1 340px", minWidth: 0 }}
+              autoComplete="off"
+            />
+            <button className="btn secondary small" type="submit">Cerca</button>
+            {query && (
+              <Link href="/transazioni" className="btn secondary small">Azzera</Link>
+            )}
+          </form>
+          {query && (
+            <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+              {transazioni.length} risultati per «{query}» ·{" "}
+              {daRegistrare.length} con match · {discrepanze.length} discrepanze ·{" "}
+              {sconosciute.length} non riconosciute · {registrate.length + ignorate.length} nello storico.
+            </p>
+          )}
+        </div>
+      )}
+
+      {transazioni.length > 0 && !query && (
         <div className="kpi-grid">
           <div className="kpi">
             <div className="kpi-label">Da registrare (match trovato)</div>
@@ -330,7 +370,7 @@ export default async function TransazioniPage({
         </>
       )}
 
-      {periodo && (fattureMancanti.length > 0 || bonificiMancanti.length > 0) && (
+      {!query && periodo && (fattureMancanti.length > 0 || bonificiMancanti.length > 0) && (
         <>
           <h2 className="section-title">
             Attesi ma assenti dall&apos;estratto ({dataIt(periodo.da)} – {dataIt(periodo.a)})
@@ -366,7 +406,7 @@ export default async function TransazioniPage({
       )}
 
       {(registrate.length > 0 || ignorate.length > 0) && (
-        <details style={{ marginTop: 24 }}>
+        <details style={{ marginTop: 24 }} open={Boolean(query)}>
           <summary style={{ cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
             Storico: {registrate.length} registrate · {ignorate.length} ignorate
           </summary>
@@ -403,7 +443,20 @@ export default async function TransazioniPage({
         </details>
       )}
 
-      {transazioni.length === 0 && !sp.errore && (
+      {transazioni.length === 0 && query && (
+        <div className="card">
+          <div className="empty">
+            <div className="empty-icon">⌕</div>
+            <div className="empty-title">Nessun risultato per «{query}»</div>
+            <div className="empty-text">
+              Prova con meno parole o solo una parte del nome/importo.{" "}
+              <Link href="/transazioni" style={{ color: "var(--blue)" }}>Azzera la ricerca</Link>.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tutteLeTransazioni.length === 0 && !sp.errore && (
         <div className="card">
           <div className="empty">
             <div className="empty-icon">⇅</div>
