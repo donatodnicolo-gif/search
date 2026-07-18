@@ -49,8 +49,8 @@ export function catalogoApp(): AppDeluxy[] {
       ruoli: ["admin", "commerciale"],
     },
     {
-      id: "partner",
-      nome: "Partner",
+      id: "partner", // id interno e APP_URL_PARTNER restano "partner": è l'app deluxy-partner
+      nome: "Finance",
       sottotitolo: "Gestione finanziaria",
       descrizione:
         "Fatture servizi, vendite vendor, saldi e bonifici SEPA. Sostituisce il file PARTNER.xlsx.",
