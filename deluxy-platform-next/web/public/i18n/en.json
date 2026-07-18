@@ -31,6 +31,7 @@
     "servizi": "Services",
     "calcoli": "Calculations",
     "stipendi": "Salaries",
+    "ricevute": "Receipts",
     "pagamenti": "Payments",
     "regoleCarnet": "Carnet rules",
     "finanza": "Finance",
@@ -304,6 +305,9 @@
     "generate": "Generate salaries",
     "empty": "No salaries.",
     "reopened": "Salary reopened ✓",
+    "export": "Export",
+    "claimOpen": "Claim open",
+    "awaitSignature": "Awaiting signature",
     "tab": {
       "active": "Active",
       "archive": "Archive"
@@ -312,12 +316,22 @@
       "paid": "Paid",
       "unpaid": "Unpaid"
     },
+    "reclamo": {
+      "title": "New claim on this salary",
+      "amount": "Amount €",
+      "desc": "Description (e.g. Area C reimbursement)",
+      "send": "Send claim",
+      "required": "Enter a valid amount.",
+      "done": "Claim sent ✓"
+    },
     "gen": {
       "valet": "Valet",
       "pickValet": "Select valet…",
       "from": "Period — from",
       "to": "Period — to",
       "hint": "Sums the pay of deliveries completed in the period, minus cash collected on delivery. The document (pro-forma or receipt) depends on the valet's VAT status.",
+      "freqWeekly": "Suggested period: current week (weekly salary frequency).",
+      "freqMonthly": "Suggested period: current month (monthly salary frequency).",
       "run": "Generate",
       "required": "Select valet and period.",
       "done": "Salary generated ✓"
@@ -342,7 +356,34 @@
       "genReceipt": "Generate receipt",
       "approve": "Approve",
       "markPaid": "Mark paid",
-      "reopen": "Reopen"
+      "reopen": "Reopen",
+      "reclamo": "Claim"
+    }
+  },
+  "receipts": {
+    "title": "Receipts",
+    "caption": "Receipts generated when salaries are sent: the valet re-uploads them signed for approval and payment.",
+    "empty": "No receipts.",
+    "signed": "Signed",
+    "toSign": "To sign",
+    "open": "Open",
+    "signAction": "Upload signed",
+    "upload": "Upload",
+    "filePlaceholder": "https://… link to the signed receipt",
+    "fileRequired": "Attach the link to the signed receipt.",
+    "signedOk": "Receipt signed ✓",
+    "tab": {
+      "pending": "To sign",
+      "signed": "Signed"
+    },
+    "col": {
+      "valet": "Valet",
+      "period": "Period",
+      "number": "Number",
+      "document": "Document",
+      "status": "Receipt status",
+      "file": "File",
+      "actions": "Actions"
     }
   },
   "deliveries": {

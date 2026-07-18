@@ -21,6 +21,7 @@ import { OperationsModule } from './operations/operations.module';
 import { SavedViewsModule } from './saved-views/saved-views.module';
 import { CalculationsModule } from './calculations/calculations.module';
 import { SalariesModule } from './salaries/salaries.module';
+import { ReceiptsModule } from './receipts/receipts.module';
 import { SalesModule } from './sales/sales.module';
 import { SmsTemplatesModule } from './sms-templates/sms-templates.module';
 import { UsersModule } from './users/users.module';
@@ -42,6 +43,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     CustomersModule,
     SalesModule,
     SalariesModule,
+    ReceiptsModule,
     PaymentsModule,
     DeliveryRulesModule,
     SmsTemplatesModule,

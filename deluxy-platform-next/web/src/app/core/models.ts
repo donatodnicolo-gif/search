@@ -163,6 +163,8 @@ export interface ValetRef {
   id: string;
   firstName: string;
   lastName: string;
+  hasVat?: boolean;
+  salaryFrequency?: string; // monthly | weekly
   provinces?: { province: Province }[];
 }
 

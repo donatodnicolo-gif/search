@@ -28,6 +28,7 @@ export class SalariesService {
       include: {
         valet: { select: { id: true, firstName: true, lastName: true, hasVat: true } },
         receipts: true,
+        claims: true,
       },
       orderBy: { periodStart: 'desc' },
     });
@@ -74,18 +75,40 @@ export class SalariesService {
 
   /**
    * Avanzamento del flusso stipendi:
-   * DRAFT -> SENT (invio) -> RECEIPT_PENDING (ricevuta da firmare)
-   * -> APPROVED -> PAID.
+   * DRAFT -> SENT (invio: archivia + genera la ricevuta DA FIRMARE)
+   * -> [il valet firma la ricevuta] -> RECEIPT_PENDING (ricevuta firmata, da approvare)
+   * -> APPROVED (solo se la ricevuta e' firmata) -> PAID.
    */
   async updateStatus(id: string, status: SalaryStatus) {
+    const salary = await this.prisma.salary.findUnique({
+      where: { id },
+      include: { receipts: true },
+    });
+    if (!salary) throw new NotFoundException('Stipendio non trovato');
+
     const data: any = { status };
-    // L'invio archivia lo stipendio: esce dai "attivi" ed entra in Archivio.
-    if (status === SalaryStatus.SENT) { data.sentAt = new Date(); data.archived = true; }
-    if (status === SalaryStatus.APPROVED) data.approvedAt = new Date();
-    if (status === SalaryStatus.PAID) data.paidAt = new Date();
-    if (status === SalaryStatus.RECEIPT_PENDING) {
-      data.receipts = { create: { signed: false } };
+    if (status === SalaryStatus.SENT) {
+      // L'invio archivia lo stipendio e genera la ricevuta da far firmare al valet.
+      data.sentAt = new Date();
+      data.archived = true;
+      if (salary.receipts.length === 0) {
+        const count = await this.prisma.receipt.count();
+        data.receipts = {
+          create: {
+            number: `RIC-${new Date().getFullYear()}-${count + 1}`,
+            signed: false,
+          },
+        };
+      }
     }
+    if (status === SalaryStatus.APPROVED) {
+      // Si approva solo dopo che il valet ha firmato la ricevuta.
+      if (!salary.receipts.some((r) => r.signed)) {
+        throw new BadRequestException('La ricevuta deve essere firmata prima dell approvazione');
+      }
+      data.approvedAt = new Date();
+    }
+    if (status === SalaryStatus.PAID) data.paidAt = new Date();
     return this.prisma.salary.update({ where: { id }, data });
   }
 
@@ -97,6 +120,8 @@ export class SalariesService {
     if (salary.status === SalaryStatus.PAID) {
       throw new BadRequestException('Uno stipendio già pagato non può essere riaperto');
     }
+    // Riaprendo si annulla anche la ricevuta generata: andrà rigenerata al nuovo invio.
+    await this.prisma.receipt.deleteMany({ where: { salaryId: id } });
     return this.prisma.salary.update({
       where: { id },
       data: {

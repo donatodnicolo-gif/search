@@ -27,12 +27,13 @@ export class PaymentsService {
     });
   }
 
-  /** Il valet richiede un rimborso o apre un reclamo. */
-  create(user: JwtUser, body: { type: PaymentType; amount: number; description?: string; valetId?: string }) {
+  /** Il valet richiede un rimborso o apre un reclamo (eventualmente su una riga di stipendio). */
+  create(user: JwtUser, body: { type: PaymentType; amount: number; description?: string; valetId?: string; salaryId?: string }) {
     const valetId = user.role === Role.VALET ? user.valetId! : body.valetId!;
     return this.prisma.payment.create({
       data: {
         valetId,
+        salaryId: body.salaryId ?? null,
         type: body.type,
         amount: body.amount,
         description: body.description,
@@ -62,7 +63,7 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Richiedi rimborso (REIMBURSEMENT) o reclamo (CLAIM)' })
   create(
     @CurrentUser() user: JwtUser,
-    @Body() body: { type: PaymentType; amount: number; description?: string; valetId?: string },
+    @Body() body: { type: PaymentType; amount: number; description?: string; valetId?: string; salaryId?: string },
   ) {
     return this.paymentsService.create(user, body);
   }

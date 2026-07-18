@@ -20,24 +20,26 @@ interface Salary {
   archived: boolean;
   valet?: { id: string; firstName: string; lastName: string; hasVat: boolean };
   receipts?: { id: string; signed: boolean }[];
+  claims?: { id: string; amount: number; status: string }[];
 }
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   DRAFT: { label: 'Bozza', color: '#8A8A8E' },
-  SENT: { label: 'Inviato', color: '#007aff' },
-  RECEIPT_PENDING: { label: 'Ricevuta in attesa', color: '#C04C00' },
+  SENT: { label: 'Inviato · da firmare', color: '#007aff' },
+  RECEIPT_PENDING: { label: 'Ricevuta firmata · da approvare', color: '#C04C00' },
   APPROVED: { label: 'Approvato', color: '#B8963E' },
   PAID: { label: 'Pagato', color: '#248A3D' },
 };
-/** Passo successivo del flusso: stato → { next, azione }. */
+/** Passo successivo del flusso lato admin: stato → { next, azione }.
+ *  Da SENT si passa a RECEIPT_PENDING quando il VALET firma la ricevuta (pagina Ricevute),
+ *  quindi qui non c'è un'azione admin su SENT. */
 const NEXT: Record<string, { next: string; key: string }> = {
   DRAFT: { next: 'SENT', key: 'send' },
-  SENT: { next: 'RECEIPT_PENDING', key: 'genReceipt' },
   RECEIPT_PENDING: { next: 'APPROVED', key: 'approve' },
   APPROVED: { next: 'PAID', key: 'markPaid' },
 };
 
-/** Amministrazione → Stipendi: genera, gestisce il flusso e archivia gli stipendi. */
+/** Amministrazione → Stipendi: genera, gestisce il flusso, archivia; il valet vede i propri e apre reclami. */
 @Component({
   selector: 'app-salaries-list',
   standalone: true,
@@ -54,9 +56,10 @@ const NEXT: Record<string, { next: string; key: string }> = {
             <option value="">{{ 'salaries.allValets' | translate }}</option>
             @for (v of valets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
           </select>
-          @if (view() === 'active') {
-            <button class="btn btn-primary" (click)="toggleGen()">{{ (showGen() ? 'common.cancel' : 'salaries.generate') | translate }}</button>
-          }
+        }
+        <button class="btn btn-ghost" [disabled]="!filtered().length" (click)="exportCsv()">{{ 'salaries.export' | translate }}</button>
+        @if (canManage() && view() === 'active') {
+          <button class="btn btn-primary" (click)="toggleGen()">{{ (showGen() ? 'common.cancel' : 'salaries.generate') | translate }}</button>
         }
       </div>
     </div>
@@ -70,7 +73,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       <section class="card gen">
         <div class="grid">
           <label class="fld"><span>{{ 'salaries.gen.valet' | translate }} *</span>
-            <select class="field" [(ngModel)]="genValet">
+            <select class="field" [(ngModel)]="genValet" (ngModelChange)="onGenValetChange()">
               <option value="">{{ 'salaries.gen.pickValet' | translate }}</option>
               @for (v of valets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
             </select></label>
@@ -79,6 +82,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
           <label class="fld"><span>{{ 'salaries.gen.to' | translate }} *</span>
             <input class="field" type="date" [(ngModel)]="genTo" /></label>
         </div>
+        @if (freqHint()) { <p class="hint">{{ freqHint() }}</p> }
         <p class="hint">{{ 'salaries.gen.hint' | translate }}</p>
         @if (genError()) { <div class="error-card">{{ genError() }}</div> }
         <div class="actions">
@@ -120,6 +124,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
                 <td>{{ ('salaries.doc.' + s.documentType) | translate }}</td>
                 <td>
                   <span class="badge" [style.--c]="statusColor(s.status)"><span class="dot"></span>{{ statusLabel(s.status) }}</span>
+                  @if (s.claims?.length) { <span class="claim-tag">{{ 'salaries.claimOpen' | translate }}</span> }
                 </td>
                 @if (view() === 'archive') {
                   <td>
@@ -131,6 +136,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
                     <button class="link-btn" [disabled]="busy() === s.id" (click)="advance(s, n.next)">{{ ('salaries.action.' + n.key) | translate }}</button>
                   }
                   @if (canManage() && view() === 'archive') {
+                    @if (s.status === 'SENT') { <span class="muted">{{ 'salaries.awaitSignature' | translate }}</span> }
                     @if (next(s.status); as n) {
                       <button class="link-btn" [disabled]="busy() === s.id" (click)="advance(s, n.next)">{{ ('salaries.action.' + n.key) | translate }}</button>
                     }
@@ -138,8 +144,22 @@ const NEXT: Record<string, { next: string; key: string }> = {
                       <button class="link-btn danger" [disabled]="busy() === s.id" (click)="reopen(s)">{{ 'salaries.action.reopen' | translate }}</button>
                     } @else { <span class="muted">✓</span> }
                   }
+                  <button class="link-btn" (click)="openReclamo(s)">{{ 'salaries.action.reclamo' | translate }}</button>
                 </td>
               </tr>
+              @if (reclamoFor() === s.id) {
+                <tr class="reclamo-row">
+                  <td [attr.colspan]="view() === 'archive' ? 9 : 8">
+                    <div class="reclamo">
+                      <span class="reclamo-title">{{ 'salaries.reclamo.title' | translate }}</span>
+                      <input class="field small" type="number" min="0" step="0.01" [(ngModel)]="reclamoAmount" [placeholder]="'salaries.reclamo.amount' | translate" />
+                      <input class="field" [(ngModel)]="reclamoDesc" [placeholder]="'salaries.reclamo.desc' | translate" />
+                      <button class="btn btn-primary" [disabled]="busy() === s.id" (click)="submitReclamo(s)">{{ 'salaries.reclamo.send' | translate }}</button>
+                      <button class="btn btn-ghost" (click)="reclamoFor.set(null)">{{ 'common.cancel' | translate }}</button>
+                    </div>
+                  </td>
+                </tr>
+              }
             }
             @if (!filtered().length) { <tr><td [attr.colspan]="view() === 'archive' ? 9 : 8" class="muted empty">{{ 'salaries.empty' | translate }}</td></tr> }
           </tbody>
@@ -174,10 +194,15 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .empty { text-align: center; padding: 28px; }
       .badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 980px; font-size: 12px; font-weight: 550; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
       .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
-      .row-actions { display: flex; gap: 12px; }
+      .claim-tag { margin-left: 8px; font-size: 11px; font-weight: 600; color: #C04C00; }
+      .row-actions { display: flex; gap: 12px; align-items: center; }
       .link-btn { background: none; border: none; padding: 0; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
       .link-btn.danger { color: var(--red); }
       .link-btn:disabled { opacity: 0.5; cursor: default; }
+      .reclamo-row td { background: var(--fill); }
+      .reclamo { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .reclamo-title { font-weight: 600; font-size: 13px; }
+      .field.small { max-width: 120px; }
       .state-card { padding: 28px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
@@ -202,9 +227,15 @@ export class SalariesListComponent {
   readonly showGen = signal(false);
   readonly generating = signal(false);
   readonly genError = signal<string | null>(null);
+  readonly freqHint = signal<string | null>(null);
   genValet = '';
   genFrom = '';
   genTo = '';
+
+  // Reclamo (il valet apre un reclamo su una riga di stipendio)
+  readonly reclamoFor = signal<string | null>(null);
+  reclamoAmount: number | null = null;
+  reclamoDesc = '';
 
   readonly filtered = computed(() =>
     this.valetFilter ? this.salaries().filter((s) => s.valetId === this.valetFilter) : this.salaries(),
@@ -226,14 +257,43 @@ export class SalariesListComponent {
     if (this.view() === v) return;
     this.view.set(v);
     this.showGen.set(false);
+    this.reclamoFor.set(null);
     this.load();
   }
 
-  /** Apre il pannello Genera precompilando il valet dal filtro (niente doppia scelta). */
+  /** Apre il pannello Genera precompilando il valet dal filtro (niente doppia scelta) + periodo dalla frequenza. */
   toggleGen(): void {
     const open = !this.showGen();
     this.showGen.set(open);
-    if (open && this.valetFilter) this.genValet = this.valetFilter;
+    if (open && this.valetFilter) { this.genValet = this.valetFilter; this.onGenValetChange(); }
+  }
+
+  /** Al cambio del valet, propone il periodo in base alla frequenza stipendio (mensile/settimanale). */
+  onGenValetChange(): void {
+    const v = this.valets().find((x) => x.id === this.genValet);
+    if (!v) { this.freqHint.set(null); return; }
+    const weekly = (v.salaryFrequency ?? 'monthly') === 'weekly';
+    const now = new Date();
+    let from: Date, to: Date;
+    if (weekly) {
+      // Settimana corrente: lunedì → domenica.
+      const day = (now.getDay() + 6) % 7; // 0 = lunedì
+      from = new Date(now); from.setDate(now.getDate() - day);
+      to = new Date(from); to.setDate(from.getDate() + 6);
+    } else {
+      // Mese corrente: primo → ultimo giorno.
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+      to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    }
+    this.genFrom = this.iso(from);
+    this.genTo = this.iso(to);
+    this.freqHint.set(
+      this.translate.instant(weekly ? 'salaries.gen.freqWeekly' : 'salaries.gen.freqMonthly'),
+    );
+  }
+
+  private iso(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   private load(): void {
@@ -263,7 +323,7 @@ export class SalariesListComponent {
       next: () => {
         this.generating.set(false);
         this.showGen.set(false);
-        this.genValet = ''; this.genFrom = ''; this.genTo = '';
+        this.genValet = ''; this.genFrom = ''; this.genTo = ''; this.freqHint.set(null);
         this.banner.set(this.translate.instant('salaries.gen.done'));
         this.load();
       },
@@ -287,5 +347,59 @@ export class SalariesListComponent {
       next: () => { this.busy.set(null); this.banner.set(this.translate.instant('salaries.reopened')); this.load(); },
       error: (err) => { this.busy.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
     });
+  }
+
+  openReclamo(s: Salary): void {
+    this.reclamoFor.set(this.reclamoFor() === s.id ? null : s.id);
+    this.reclamoAmount = null;
+    this.reclamoDesc = '';
+  }
+
+  submitReclamo(s: Salary): void {
+    if (!this.reclamoAmount || this.reclamoAmount <= 0) {
+      this.error.set(this.translate.instant('salaries.reclamo.required'));
+      return;
+    }
+    this.error.set(null);
+    this.busy.set(s.id);
+    this.http.post(`${environment.apiUrl}/payments`, {
+      type: 'CLAIM',
+      salaryId: s.id,
+      valetId: s.valetId,
+      amount: this.reclamoAmount,
+      description: this.reclamoDesc || undefined,
+    }).subscribe({
+      next: () => {
+        this.busy.set(null);
+        this.reclamoFor.set(null);
+        this.banner.set(this.translate.instant('salaries.reclamo.done'));
+        this.load();
+      },
+      error: (err) => { this.busy.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
+    });
+  }
+
+  /** Esporta la lista corrente (filtrata) in CSV. */
+  exportCsv(): void {
+    const t = (k: string) => this.translate.instant(k);
+    const head = [
+      t('salaries.col.valet'), t('salaries.col.period'), t('salaries.col.gross'),
+      t('salaries.col.cash'), t('salaries.col.net'), t('salaries.col.document'), t('salaries.col.status'),
+    ];
+    const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const rows = this.filtered().map((s) => [
+      `${s.valet?.lastName ?? ''} ${s.valet?.firstName ?? ''}`.trim(),
+      `${s.periodStart?.slice(0, 10)} / ${s.periodEnd?.slice(0, 10)}`,
+      s.grossAmount.toFixed(2), s.cashDeductions.toFixed(2), s.netAmount.toFixed(2),
+      t('salaries.doc.' + s.documentType), this.statusLabel(s.status),
+    ]);
+    const csv = [head, ...rows].map((r) => r.map(esc).join(';')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `stipendi-${this.view()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 }

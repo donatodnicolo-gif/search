@@ -106,6 +106,18 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 18/07/2026 (8) — Stipendi allineati all'app reale: Ricevute+firma, Reclamo, Esporta, Frequenza (feedback)
+
+Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la mia pagina con `/valet/stipendi` reale (manuale righe 204-205) e implementati i 4 pezzi mancanti (l'utente ha risposto "tutti"):
+
+1. **Ricevute con firma** (il pezzo grosso). L'invio dello stipendio ora **genera la ricevuta** (unsigned, numero `RIC-<anno>-<n>`) invece di aspettare uno stato separato. Nuovo modulo backend **`receipts.module.ts`** (registrato in `app.module.ts`): `GET /receipts?signed=true|false` (role-scoped: il valet vede le proprie via `salary.valetId`), `POST /receipts/:id/sign` `{fileUrl}` (valet proprio o admin/operation) → `signed=true`, `signedAt`, `fileUrl`, e avanza lo stipendio a `RECEIPT_PENDING`. In `salaries.updateStatus` l'**approvazione (APPROVED) è bloccata con 400** se nessuna ricevuta è firmata; `reopen` ora **cancella** le ricevute. Nuova **pagina `/receipts`** (`ReceiptsListComponent`) + voce menu `nav.ricevute`: tab Da firmare/Firmate, colonna Stato ricevuta, azione "Carica firmata" (input URL) per il valet, link "Apri" al file. Il file firmato è un **URL** (come `ddtFile`/immagini nel resto dell'app — upload binario = TODO futuro, non c'è multer).
+2. **Reclamo per riga**. `Payment.salaryId String?` (relazione facoltativa, migrazione `payment_salary_link`); `payments.create` accetta `salaryId`; `salaries.findAll` include `claims`. In pagina Stipendi: bottone **Reclamo** su ogni riga → form inline (importo + descrizione) → `POST /payments {type:CLAIM, salaryId, valetId, amount}`; le righe con reclami mostrano il tag *Reclamo aperto*.
+3. **Esporta**. Bottone in testata che scarica la lista **filtrata** in CSV (BOM UTF-8, `;` separatore) lato client.
+4. **Frequenza stipendio**. `ValetRef` esteso con `salaryFrequency`/`hasVat`; aprendo Genera (o cambiando valet) il periodo è **precompilato**: settimana corrente (lun-dom) se `weekly`, mese corrente se `monthly`, con hint esplicativo.
+
+- Verificato E2E via API: invia→ricevuta creata+archiviato; approva-senza-firma→**400**; firma→`RECEIPT_PENDING`+fileUrl; approva→APPROVED; reclamo→CLAIM legato (visibile in `salary.claims` e `/payments`). In browser: pagina Ricevute (tab Firmate mostra `RIC-2026-1`, link Apri), pagina Stipendi (tag *Reclamo aperto*, bottone Esporta, prefill periodo da frequenza). Build API+web pulite, i18n IT/EN 988/988. Dati di test ripuliti.
+- ⚠️ **TODO futuri**: upload binario del file firmato (ora è un URL); export server-side/Excel; gestione approvazione/pagamento del reclamo dalla pagina Stipendi (per ora si gestisce da Pagamenti).
+
 ### 18/07/2026 (7) — Stipendi: Attivi/Archivio, stato finanziario, riapertura (feedback utente)
 
 - Feedback in 5 punti sulla pagina Stipendi, tutti implementati:

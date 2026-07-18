@@ -31,6 +31,7 @@
     "servizi": "Servizi",
     "calcoli": "Calcoli",
     "stipendi": "Stipendi",
+    "ricevute": "Ricevute",
     "pagamenti": "Pagamenti",
     "regoleCarnet": "Regole carnet",
     "finanza": "Finanza",
@@ -304,6 +305,9 @@
     "generate": "Genera stipendi",
     "empty": "Nessuno stipendio.",
     "reopened": "Stipendio riaperto ✓",
+    "export": "Esporta",
+    "claimOpen": "Reclamo aperto",
+    "awaitSignature": "In attesa di firma",
     "tab": {
       "active": "Attivi",
       "archive": "Archivio"
@@ -312,12 +316,22 @@
       "paid": "Pagato",
       "unpaid": "Non pagato"
     },
+    "reclamo": {
+      "title": "Nuovo reclamo su questo stipendio",
+      "amount": "Importo €",
+      "desc": "Descrizione (es. rimborso Area C)",
+      "send": "Invia reclamo",
+      "required": "Inserisci un importo valido.",
+      "done": "Reclamo inviato ✓"
+    },
     "gen": {
       "valet": "Valet",
       "pickValet": "Seleziona valet…",
       "from": "Periodo — dal",
       "to": "Periodo — al",
       "hint": "Somma le paghe delle consegne effettuate nel periodo, meno i contanti incassati alla consegna. Il documento (pro-forma o ricevuta) dipende dalla P.IVA del valet.",
+      "freqWeekly": "Periodo proposto: settimana corrente (frequenza stipendio settimanale).",
+      "freqMonthly": "Periodo proposto: mese corrente (frequenza stipendio mensile).",
       "run": "Genera",
       "required": "Seleziona valet e periodo.",
       "done": "Stipendio generato ✓"
@@ -342,7 +356,34 @@
       "genReceipt": "Genera ricevuta",
       "approve": "Approva",
       "markPaid": "Segna pagato",
-      "reopen": "Riapri"
+      "reopen": "Riapri",
+      "reclamo": "Reclamo"
+    }
+  },
+  "receipts": {
+    "title": "Ricevute",
+    "caption": "Ricevute generate dall'invio degli stipendi: il valet le ricarica firmate per l'approvazione e il pagamento.",
+    "empty": "Nessuna ricevuta.",
+    "signed": "Firmata",
+    "toSign": "Da firmare",
+    "open": "Apri",
+    "signAction": "Carica firmata",
+    "upload": "Carica",
+    "filePlaceholder": "https://… link alla ricevuta firmata",
+    "fileRequired": "Allega il link della ricevuta firmata.",
+    "signedOk": "Ricevuta firmata ✓",
+    "tab": {
+      "pending": "Da firmare",
+      "signed": "Firmate"
+    },
+    "col": {
+      "valet": "Valet",
+      "period": "Periodo",
+      "number": "Numero",
+      "document": "Documento",
+      "status": "Stato ricevuta",
+      "file": "File",
+      "actions": "Azioni"
     }
   },
   "deliveries": {

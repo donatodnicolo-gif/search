@@ -324,6 +324,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/salaries-list.component').then((m) => m.SalariesListComponent),
       },
+      // ---- Ricevute (Amministrazione / valet) ----
+      {
+        path: 'receipts',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'VALET'] },
+        loadComponent: () =>
+          import('./pages/receipts-list.component').then((m) => m.ReceiptsListComponent),
+      },
       // ---- Pagamenti (Amministrazione) ----
       {
         path: 'payments',

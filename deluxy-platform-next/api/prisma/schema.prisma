@@ -751,6 +751,7 @@ model Salary {
   approvedAt     DateTime?
   paidAt         DateTime?
   receipts       Receipt[]
+  claims         Payment[] // reclami aperti dal valet su questo stipendio
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 }
@@ -776,6 +777,9 @@ model Payment {
   id          String   @id @default(cuid())
   valetId     String
   valet       Valet    @relation(fields: [valetId], references: [id])
+  // Reclamo aperto su una riga di stipendio (es. rimborso Area C). Facoltativo.
+  salaryId    String?
+  salary      Salary?  @relation(fields: [salaryId], references: [id], onDelete: SetNull)
   type        String
   amount      Float
   description String?
