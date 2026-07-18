@@ -32,8 +32,11 @@ export async function cambiaStato(partnerId: string, fd: FormData) {
 export async function toggleInteresse(partnerId: string, fd: FormData) {
   const valore = String(fd.get("interesse") ?? "");
   if (!isInteresse(valore)) return;
+  // Schema qualificato esplicitamente: via pgbouncer il search_path non è
+  // garantito e "Partner" senza schema può risolvere nella tabella di
+  // un'altra app del cluster (successo in produzione: errore 42703).
   await prisma.$executeRaw`
-    UPDATE "Partner"
+    UPDATE "anagrafiche"."Partner"
     SET "interessi" = CASE
       WHEN "interessi" @> ARRAY[${valore}]::text[]
         THEN array_remove("interessi", ${valore})
