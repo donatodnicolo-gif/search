@@ -30,6 +30,12 @@ model Utente {
   passwordHash String // scrypt "salt.hash" — mai reversibile
   ruolo        String   @default("utente") // admin | utente
   firma        String   @default("") @db.Text // firma personale nelle bozze
+  // Traduzione automatica: se attiva, le mail in lingua straniera aperte
+  // vengono tradotte in italiano, e le risposte scritte in italiano vengono
+  // inviate nella lingua dell'originale.
+  traduzioneAuto Boolean @default(false)
+  // Lingue che l'utente legge senza bisogno di traduzione (una per virgola).
+  lingueLette   String   @default("italiano")
   attivo       Boolean  @default(true)
   creatoIl     DateTime @default(now())
 
@@ -165,6 +171,11 @@ model Messaggio {
   serveRisposta Boolean   @default(false)
   analizzatoIl  DateTime?
   erroreAI      String?
+  // Traduzione: lingua rilevata del messaggio (null = non ancora controllato).
+  // corpoTradotto = traduzione in italiano, valorizzata solo se la lingua è
+  // straniera e la traduzione automatica è attiva.
+  lingua        String?
+  corpoTradotto String?   @db.Text
 
   attivita Attivita[]
   bozze    Bozza[]

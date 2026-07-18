@@ -1,5 +1,4 @@
--- AI Mail — schema multi-utente. ATTENZIONE: azzera le tabelle (in produzione sono vuote).
--- Incolla tutto nell SQL Editor di Supabase e premi Run.
+-- AI Mail — schema. ATTENZIONE: azzera le tabelle.
 
 DROP TABLE IF EXISTS "PropostaArchivio" CASCADE;
 DROP TABLE IF EXISTS "RapportoAI" CASCADE;
@@ -24,6 +23,8 @@ CREATE TABLE "Utente" (
     "passwordHash" TEXT NOT NULL,
     "ruolo" TEXT NOT NULL DEFAULT 'utente',
     "firma" TEXT NOT NULL DEFAULT '',
+    "traduzioneAuto" BOOLEAN NOT NULL DEFAULT false,
+    "lingueLette" TEXT NOT NULL DEFAULT 'italiano',
     "attivo" BOOLEAN NOT NULL DEFAULT true,
     "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -125,6 +126,8 @@ CREATE TABLE "Messaggio" (
     "serveRisposta" BOOLEAN NOT NULL DEFAULT false,
     "analizzatoIl" TIMESTAMP(3),
     "erroreAI" TEXT,
+    "lingua" TEXT,
+    "corpoTradotto" TEXT,
     "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Messaggio_pkey" PRIMARY KEY ("id")

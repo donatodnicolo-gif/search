@@ -2,7 +2,7 @@ import type { Regola, Sezione } from '@prisma/client'
 import { db } from './db'
 import { scaricaNuovi, scaricaVecchi, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
-import { analizzaMessaggio, riassumiContatto, scriviRisposta } from './ai'
+import { analizzaMessaggio, riassumiContatto, scriviRisposta, rilevaETraduci } from './ai'
 import { CHIAVI, leggiImpostazioni } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
 
@@ -28,6 +28,54 @@ function transitorio(e: unknown): boolean {
 }
 
 const attendi = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Se la traduzione automatica è attiva, rileva la lingua di un messaggio in
+ * arrivo e, se è straniera, lo traduce in italiano. Si fa una volta sola:
+ * `lingua` resta valorizzato e il risultato è memorizzato, quindi riaprire il
+ * messaggio non ripaga la traduzione.
+ *
+ * Restituisce i campi aggiornati così la pagina non deve rileggere.
+ */
+export async function traduciMessaggioSeServe(
+  messaggioId: string,
+  utenteId: string
+): Promise<{ lingua: string | null; corpoTradotto: string | null }> {
+  const m = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    select: { lingua: true, corpoTradotto: true, corpoTesto: true, direzione: true },
+  })
+  if (!m) return { lingua: null, corpoTradotto: null }
+  // Già controllato, oppure è una mia mail inviata: niente da fare.
+  if (m.lingua !== null || m.direzione !== 'entrata') {
+    return { lingua: m.lingua, corpoTradotto: m.corpoTradotto }
+  }
+
+  const utente = await db.utente.findUnique({
+    where: { id: utenteId },
+    select: { traduzioneAuto: true, lingueLette: true },
+  })
+  if (!utente?.traduzioneAuto) return { lingua: null, corpoTradotto: null }
+
+  try {
+    const lingueLette = utente.lingueLette
+      .split(',')
+      .map((l) => l.trim().toLowerCase())
+      .filter(Boolean)
+
+    const esito = await rilevaETraduci({ testo: m.corpoTesto, lingueLette })
+    const corpoTradotto = esito.traduzione.trim() || null
+    await db.messaggio.update({
+      where: { id: messaggioId },
+      data: { lingua: esito.lingua, corpoTradotto },
+    })
+    return { lingua: esito.lingua, corpoTradotto }
+  } catch {
+    // Una traduzione fallita non deve impedire di leggere la mail: si riprova
+    // alla prossima apertura (lingua resta null).
+    return { lingua: null, corpoTradotto: null }
+  }
+}
 
 /** Il contesto aziendale (condiviso) e la firma personale dell'utente. */
 async function contestoAI(utenteId: string): Promise<{ contestoAzienda?: string; firma?: string }> {

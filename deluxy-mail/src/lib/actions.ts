@@ -16,6 +16,7 @@ import {
   type QuadroContatto,
 } from './sync'
 import { CODICI_PRIORITA } from './format'
+import { traduciVerso } from './ai'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
 import { scriviImpostazione } from './impostazioni'
 import { utenteCorrente } from './sessione'
@@ -341,11 +342,15 @@ export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: 
     if (!bozza.messaggio) return { ok: false, messaggio: 'Bozza senza messaggio d’origine.' }
 
     const account = bozza.messaggio.account
+    const { corpo: corpoFinale, tradottoIn } = await traduciSeStraniera(
+      bozza.messaggio.lingua,
+      bozza.corpo
+    )
     const daInviare: DaInviare = {
       a: bozza.a || bozza.messaggio.mittente,
       cc: bozza.cc,
       oggetto: bozza.oggetto,
-      corpo: bozza.corpo,
+      corpo: corpoFinale,
       inRispostaA: bozza.messaggio.messageId,
     }
 
@@ -359,7 +364,8 @@ export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: 
     })
 
     revalidatePath('/', 'layout')
-    return { ok: true, messaggio: `Risposta inviata a ${daInviare.a}.${avviso ? ` ${avviso}` : ''}` }
+    const nota = tradottoIn ? ` Tradotto in ${tradottoIn} prima dell’invio.` : ''
+    return { ok: true, messaggio: `Risposta inviata a ${daInviare.a}.${nota}${avviso ? ` ${avviso}` : ''}` }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Invio non riuscito' }
   }
@@ -476,11 +482,17 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     const account = originale.account
     const inoltro = testo(form, 'modo') === 'inoltra'
 
+    // Rispondendo a una mail straniera: scritta in italiano, inviata nella sua
+    // lingua. Un inoltro invece si manda com'è.
+    const { corpo: corpoFinale, tradottoIn } = inoltro
+      ? { corpo, tradottoIn: null }
+      : await traduciSeStraniera(originale.lingua, corpo)
+
     const daInviare: DaInviare = {
       a,
       cc,
       oggetto,
-      corpo,
+      corpo: corpoFinale,
       inRispostaA: inoltro ? null : originale.messageId,
     }
 
@@ -495,7 +507,8 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId, utenteId } })
 
     revalidatePath('/', 'layout')
-    return { ok: true, messaggio: `Messaggio inviato a ${a}.${avviso ? ` ${avviso}` : ''}` }
+    const nota = tradottoIn ? ` Tradotto in ${tradottoIn} prima dell’invio.` : ''
+    return { ok: true, messaggio: `Messaggio inviato a ${a}.${nota}${avviso ? ` ${avviso}` : ''}` }
   } catch (e) {
     return { ok: false, messaggio: `Invio non riuscito: ${e instanceof Error ? e.message : 'errore'}` }
   }
@@ -652,9 +665,39 @@ export async function salvaImpostazioni(form: FormData) {
   const u = await utenteCorrente()
   if (!u) return
 
-  await db.utente.update({ where: { id: u.id }, data: { firma: testo(form, 'firma') } })
+  await db.utente.update({
+    where: { id: u.id },
+    data: {
+      firma: testo(form, 'firma'),
+      traduzioneAuto: flag(form, 'traduzioneAuto'),
+      lingueLette: testo(form, 'lingueLette') || 'italiano',
+    },
+  })
   if (u.ruolo === 'admin' && form.has('contestoAzienda')) {
     await scriviImpostazione('contesto_azienda', testo(form, 'contestoAzienda'))
   }
   revalidatePath('/impostazioni')
+}
+
+/**
+ * Prima di inviare una risposta a una mail in lingua straniera, traduce il
+ * testo (scritto in italiano) nella lingua dell'originale. Se l'originale è in
+ * italiano, o la lingua non è nota, non tocca niente.
+ */
+async function traduciSeStraniera(
+  linguaOriginale: string | null,
+  corpoItaliano: string
+): Promise<{ corpo: string; tradottoIn: string | null }> {
+  const lingua = linguaOriginale?.trim()
+  if (!lingua || lingua.toLowerCase() === 'italiano') {
+    return { corpo: corpoItaliano, tradottoIn: null }
+  }
+  try {
+    const corpo = await traduciVerso({ testo: corpoItaliano, lingua })
+    return { corpo, tradottoIn: lingua }
+  } catch {
+    // Se la traduzione fallisce si invia comunque, in italiano: meglio una
+    // risposta che parte di una bloccata.
+    return { corpo: corpoItaliano, tradottoIn: null }
+  }
 }

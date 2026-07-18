@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { modoValido, preparaRisposta, TITOLI } from '@/lib/rispondi'
 import { Composizione } from '@/components/Composizione'
 import { richiediUtente } from '@/lib/sessione'
+import { traduciMessaggioSeServe } from '@/lib/sync'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +40,12 @@ export default async function Scrivi({ params, searchParams }: Props) {
         firma: u.firma || undefined,
       })
 
+  // Se la mail è straniera, la risposta si scrive in italiano e si traduce
+  // all'invio. Rilevo la lingua (memorizzata) per avvisarlo qui.
+  const { lingua } = await traduciMessaggioSeServe(messaggio.id, u.id)
+  const rispostaTradotta =
+    modo !== 'inoltra' && lingua != null && lingua.toLowerCase() !== 'italiano' ? lingua : null
+
   return (
     <>
       <div className="page-head">
@@ -56,6 +63,15 @@ export default async function Scrivi({ params, searchParams }: Props) {
           </p>
         </div>
       </div>
+
+      {rispostaTradotta && (
+        <div className="ai-box" style={{ marginBottom: 16 }}>
+          <div className="ai-box-text">
+            Questa mail è in <strong>{rispostaTradotta}</strong>. Scrivi pure in italiano: al
+            momento dell’invio la traduco io nella sua lingua.
+          </div>
+        </div>
+      )}
 
       <Composizione
         messaggioId={messaggio.id}

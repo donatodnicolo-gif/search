@@ -162,6 +162,30 @@ export default async function Impostazioni() {
                 placeholder={'Nicolò Donato\nDeluxy\n+39 ...'}
               />
             </div>
+
+            <div className="full">
+              <label className="checkbox-row">
+                <input type="checkbox" name="traduzioneAuto" defaultChecked={u.traduzioneAuto} />
+                Traduzione automatica
+              </label>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6, lineHeight: 1.5 }}>
+                Le mail in lingua straniera vengono tradotte in italiano quando le apri (con
+                l’originale a un clic). E quando rispondi scrivi in italiano: all’invio traduco
+                io nella lingua della mail.
+              </div>
+            </div>
+            <div className="full">
+              <label className="field-label">Lingue che leggo (non tradurre)</label>
+              <input
+                type="text"
+                name="lingueLette"
+                defaultValue={u.lingueLette}
+                placeholder="italiano, inglese"
+              />
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
+                Separate da virgola. Le mail in queste lingue non vengono tradotte.
+              </div>
+            </div>
           </div>
           <div className="form-footer">
             <button className="btn primary" type="submit">

@@ -9,6 +9,7 @@ import { Rianalizza } from '@/components/Rianalizza'
 import { CorpoMessaggio } from '@/components/CorpoMessaggio'
 import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
 import { richiediUtente } from '@/lib/sessione'
+import { traduciMessaggioSeServe } from '@/lib/sync'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,9 @@ export default async function DettaglioMessaggio({ params }: Props) {
     include: { sezione: true, bozze: true, attivita: true, account: true },
   })
   if (!messaggio) notFound()
+
+  // Traduzione automatica all'apertura (una volta, poi memorizzata).
+  const { lingua, corpoTradotto } = await traduciMessaggioSeServe(messaggio.id, u.id)
 
   const sezioni = await db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } })
 
@@ -146,6 +150,8 @@ export default async function DettaglioMessaggio({ params }: Props) {
         <CorpoMessaggio
           html={messaggio.corpoHtml ? sanitizzaHtml(messaggio.corpoHtml) : null}
           testo={messaggio.corpoTesto}
+          tradotto={corpoTradotto}
+          lingua={lingua}
         />
       </div>
 

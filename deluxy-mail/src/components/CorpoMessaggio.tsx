@@ -6,20 +6,26 @@ type Props = {
   /** HTML già sanitizzato lato server, o null se la mail è di solo testo. */
   html: string | null
   testo: string
+  /** Traduzione in italiano, se la mail era in lingua straniera. */
+  tradotto?: string | null
+  /** Lingua rilevata (per il badge). */
+  lingua?: string | null
 }
 
 /**
- * Mostra il corpo di una mail. Se c'è l'HTML lo rende come si deve — tabelle,
- * immagini, formattazione — dentro un iframe in sandbox SENZA script: il codice
- * della mail non può girare, quindi niente XSS né tracciamento attivo. I link
- * si aprono in una scheda nuova. Un interruttore torna al testo semplice.
- *
- * L'iframe è same-origin (via srcdoc) ma senza allow-scripts: così la pagina
- * può misurarne l'altezza per adattarla al contenuto, mentre gli script della
- * mail restano inerti.
+ * Mostra il corpo di una mail.
+ * - Se c'è una traduzione, la mostra per prima (badge "Tradotto da…") con un
+ *   clic per vedere l'originale.
+ * - L'originale, se è HTML, si rende dentro un iframe in sandbox SENZA script:
+ *   il codice della mail non gira (niente XSS né tracciamento attivo), i link
+ *   aprono in scheda nuova, e la pagina ne misura l'altezza per adattarla.
  */
-export function CorpoMessaggio({ html, testo }: Props) {
-  const [modo, setModo] = useState<'html' | 'testo'>(html ? 'html' : 'testo')
+export function CorpoMessaggio({ html, testo, tradotto, lingua }: Props) {
+  // Vista iniziale: la traduzione se c'è, altrimenti l'originale nella forma
+  // migliore (HTML se disponibile).
+  const [vista, setVista] = useState<'tradotto' | 'html' | 'testo'>(
+    tradotto ? 'tradotto' : html ? 'html' : 'testo'
+  )
   const [altezza, setAltezza] = useState(200)
   const ref = useRef<HTMLIFrameElement>(null)
 
@@ -40,24 +46,55 @@ export function CorpoMessaggio({ html, testo }: Props) {
   }
 
   useEffect(() => {
-    if (modo === 'html') misura()
-  }, [modo])
+    if (vista === 'html') misura()
+  }, [vista])
+
+  const originale: 'html' | 'testo' = html ? 'html' : 'testo'
 
   return (
     <>
-      {html && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+      {tradotto ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            marginBottom: 10,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span className="badge gold">
+            <span className="dot" />
+            {vista === 'tradotto'
+              ? `Tradotto${lingua ? ` dal ${lingua}` : ''} dall’AI`
+              : `Originale${lingua ? ` in ${lingua}` : ''}`}
+          </span>
           <button
             type="button"
             className="azione-riga"
-            onClick={() => setModo((m) => (m === 'html' ? 'testo' : 'html'))}
+            onClick={() => setVista((v) => (v === 'tradotto' ? originale : 'tradotto'))}
           >
-            {modo === 'html' ? 'Vedi testo semplice' : 'Vedi versione formattata'}
+            {vista === 'tradotto' ? 'Vedi originale' : 'Vedi traduzione'}
           </button>
         </div>
+      ) : (
+        html && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <button
+              type="button"
+              className="azione-riga"
+              onClick={() => setVista((v) => (v === 'html' ? 'testo' : 'html'))}
+            >
+              {vista === 'html' ? 'Vedi testo semplice' : 'Vedi versione formattata'}
+            </button>
+          </div>
+        )
       )}
 
-      {modo === 'html' && html ? (
+      {vista === 'tradotto' && tradotto ? (
+        <div className="mail-body">{tradotto}</div>
+      ) : vista === 'html' && html ? (
         <iframe
           ref={ref}
           title="Contenuto del messaggio"
