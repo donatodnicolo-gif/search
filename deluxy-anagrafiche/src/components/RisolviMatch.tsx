@@ -7,7 +7,17 @@ type Partner = { id: string; nome: string; categoria: string; citta: string | nu
 
 // Risoluzione manuale di una richiesta di aggancio: cerca l'anagrafica giusta
 // e collegala (crea il riferimento esterno se la richiesta porta un id d'app).
-export function RisolviMatch({ richiestaId, suggerimento }: { richiestaId: string; suggerimento?: string }) {
+// `agganciata`: c'è già un match → il bottone è "Modifica" (per correggerlo),
+// senza "Ignora".
+export function RisolviMatch({
+  richiestaId,
+  suggerimento,
+  agganciata = false,
+}: {
+  richiestaId: string;
+  suggerimento?: string;
+  agganciata?: boolean;
+}) {
   const [aperto, setAperto] = useState(false);
   const [query, setQuery] = useState(suggerimento ?? "");
   const [risultati, setRisultati] = useState<Partner[]>([]);
@@ -46,18 +56,28 @@ export function RisolviMatch({ richiestaId, suggerimento }: { richiestaId: strin
 
   return (
     <span style={{ display: "inline-flex", gap: 6 }}>
-      <button type="button" className="btn small" onClick={() => setAperto(true)}>Risolvi</button>
-      <form action={ignoraRichiestaMatch.bind(null, richiestaId)}>
-        <button type="submit" className="btn small btn-secondario" title="Archivia senza collegare">Ignora</button>
-      </form>
+      <button
+        type="button"
+        className={`btn small${agganciata ? " btn-secondario" : ""}`}
+        onClick={() => setAperto(true)}
+      >
+        {agganciata ? "Modifica" : "Risolvi"}
+      </button>
+      {!agganciata && (
+        <form action={ignoraRichiestaMatch.bind(null, richiestaId)}>
+          <button type="submit" className="btn small btn-secondario" title="Archivia senza collegare">Ignora</button>
+        </form>
+      )}
 
       {aperto && (
         <div className="modale-sfondo" onClick={() => setAperto(false)}>
           <div className="modale" onClick={(e) => e.stopPropagation()}>
             <div className="modale-testata">
               <div>
-                <div className="modale-titolo">Risolvi l&apos;aggancio</div>
-                <div className="modale-sub">Cerca e scegli l&apos;anagrafica corrispondente</div>
+                <div className="modale-titolo">{agganciata ? "Modifica l'aggancio" : "Risolvi l'aggancio"}</div>
+                <div className="modale-sub">
+                  {agganciata ? "Cambia l'anagrafica collegata" : "Cerca e scegli l'anagrafica corrispondente"}
+                </div>
               </div>
               <button type="button" className="modale-chiudi" onClick={() => setAperto(false)}>✕</button>
             </div>

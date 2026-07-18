@@ -94,7 +94,13 @@ export default async function Match() {
                       )}
                     </td>
                     <td>
-                      {!r.risolto && <RisolviMatch richiestaId={r.id} suggerimento={suggerimento} />}
+                      {r.partnerId ? (
+                        <RisolviMatch richiestaId={r.id} suggerimento={suggerimento} agganciata />
+                      ) : !r.risolto ? (
+                        <RisolviMatch richiestaId={r.id} suggerimento={suggerimento} />
+                      ) : (
+                        <span className="cella-fonte">ignorata</span>
+                      )}
                     </td>
                   </tr>
                 );
