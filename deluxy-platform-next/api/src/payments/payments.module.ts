@@ -58,6 +58,7 @@ export class PaymentsController {
   }
 
   @Post()
+  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
   @ApiOperation({ summary: 'Richiedi rimborso (REIMBURSEMENT) o reclamo (CLAIM)' })
   create(
     @CurrentUser() user: JwtUser,

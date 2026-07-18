@@ -262,6 +262,41 @@
     },
     "wd": { "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun" }
   },
+  "payments": {
+    "title": "Payments",
+    "caption": "Valet reimbursements and claims (e.g. Area C reimbursement). The valet requests them, admin/operation approve and pay.",
+    "allValets": "All valets",
+    "new": "New request",
+    "empty": "No requests.",
+    "form": {
+      "valet": "Valet",
+      "pickValet": "Select valet…",
+      "type": "Type",
+      "amount": "Amount (€)",
+      "description": "Description",
+      "descPlaceholder": "E.g. Area C reimbursement on 12/07",
+      "submit": "Send request",
+      "required": "Fill in amount (and valet).",
+      "done": "Request sent ✓"
+    },
+    "col": {
+      "valet": "Valet",
+      "type": "Type",
+      "amount": "Amount",
+      "description": "Description",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "type": {
+      "REIMBURSEMENT": "Reimbursement",
+      "CLAIM": "Claim"
+    },
+    "action": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "markPaid": "Mark paid"
+    }
+  },
   "salaries": {
     "title": "Salaries",
     "caption": "Generate and manage valet salaries: pro-forma (with VAT) or withholding receipt.",

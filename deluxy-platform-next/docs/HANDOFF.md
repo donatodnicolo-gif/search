@@ -106,6 +106,13 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 18/07/2026 (6) — Sezione Pagamenti (frontend, era stub)
+
+- Backend già presente (`PaymentsService`): `GET /payments` (role-scoped), `POST /payments` (valet apre su di sé; admin/operation su un valetId), `PATCH /payments/:id/status` (admin/operation). Tipi `REIMBURSEMENT|CLAIM`, stati `REQUESTED→APPROVED/REJECTED→PAID`. **Fix**: `@Roles(ADMIN,OPERATION,VALET)` sulla creazione (prima aperto anche ai partner).
+- **Pagina** `/payments` (`PaymentsListComponent`, sostituisce lo stub): lista (valet, tipo, importo, descrizione, stato a pill), filtro valet, form **Nuova richiesta** (valet select solo per admin/operation), azioni **Approva/Rifiuta** (da REQUESTED) e **Segna pagato** (da APPROVED). i18n `payments.*`.
+- Verificato E2E: valet1 crea rimborso (12.5€ Area C), admin approva → pagina mostra "Segna pagato". Dati di test ripuliti.
+- ⚠️ **Restano stub**: Regole carnet, Finanza, Attività, Vendite, Modelli SMS, Province.
+
 ### 18/07/2026 (5) — Sezione Stipendi (frontend, era stub)
 
 - Backend già presente e funzionale (`SalariesService` in `api/src/salaries/salaries.module.ts`): `GET /salaries` (role-scoped, il valet vede i propri), `POST /salaries/generate` (somma `valetSalary` delle consegne `delivered`/`delivered_time_approved` nel periodo, meno i contanti `paymentOnDelivery`; documento pro-forma se `valet.hasVat` else ricevuta ritenuta), `PATCH /salaries/:id/status` (flusso DRAFT→SENT→RECEIPT_PENDING→APPROVED→PAID; a RECEIPT_PENDING crea una `Receipt`). **Fix**: aggiunto `@Roles(ADMIN, OPERATION)` all'avanzamento stato (prima qualsiasi autenticato).

@@ -262,6 +262,41 @@
     },
     "wd": { "mon": "Lun", "tue": "Mar", "wed": "Mer", "thu": "Gio", "fri": "Ven", "sat": "Sab", "sun": "Dom" }
   },
+  "payments": {
+    "title": "Pagamenti",
+    "caption": "Rimborsi e reclami dei valet (es. rimborso Area C). Il valet li richiede, admin/operation approvano e pagano.",
+    "allValets": "Tutti i valet",
+    "new": "Nuova richiesta",
+    "empty": "Nessuna richiesta.",
+    "form": {
+      "valet": "Valet",
+      "pickValet": "Seleziona valet…",
+      "type": "Tipo",
+      "amount": "Importo (€)",
+      "description": "Descrizione",
+      "descPlaceholder": "Es. rimborso Area C del 12/07",
+      "submit": "Invia richiesta",
+      "required": "Compila importo (e valet).",
+      "done": "Richiesta inviata ✓"
+    },
+    "col": {
+      "valet": "Valet",
+      "type": "Tipo",
+      "amount": "Importo",
+      "description": "Descrizione",
+      "status": "Stato",
+      "actions": "Azioni"
+    },
+    "type": {
+      "REIMBURSEMENT": "Rimborso",
+      "CLAIM": "Reclamo"
+    },
+    "action": {
+      "approve": "Approva",
+      "reject": "Rifiuta",
+      "markPaid": "Segna pagato"
+    }
+  },
   "salaries": {
     "title": "Stipendi",
     "caption": "Genera e gestisci gli stipendi dei valet: pro-forma (con P.IVA) o ricevuta con ritenuta.",
