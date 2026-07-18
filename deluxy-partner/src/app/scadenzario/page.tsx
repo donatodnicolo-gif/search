@@ -96,7 +96,11 @@ export default async function Scadenzario({
                   <tr key={f.id}>
                     <td><Link href={`/partner/${f.partnerId}`} style={{ fontWeight: 500 }}>{f.partner.nome}</Link></td>
                     <td>{nomeMese(f.mese)}</td>
-                    <td>{f.numero ?? "—"}</td>
+                    <td>
+                      <Link href={`/fatture/${f.id}`} style={{ color: "var(--blue)" }} title="Apri il record della fattura">
+                        {f.numero ?? "s.n."}
+                      </Link>
+                    </td>
                     <td>{f.tipologia.nome}</td>
                     <td>
                       {f.scadenza && f.scadenza < oggi ? (

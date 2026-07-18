@@ -114,6 +114,34 @@ export async function createFattura(fd: FormData) {
   redirect(`/fatture?anno=${anno}&mese=${mese}`);
 }
 
+export async function updateFattura(id: string, fd: FormData) {
+  const imponibile = n(fd, "imponibile");
+  const anno = n(fd, "anno");
+  const mese = n(fd, "mese");
+  const tipologiaId = s(fd, "tipologiaId");
+  if (imponibile == null || !anno || !mese || !tipologiaId) {
+    throw new Error("Compilare tipologia, periodo e imponibile");
+  }
+  await prisma.fatturaServizio.update({
+    where: { id },
+    data: {
+      tipologiaId,
+      anno,
+      mese,
+      numero: s(fd, "numero"),
+      emissione: d(fd, "emissione"),
+      scadenza: d(fd, "scadenza"),
+      imponibile,
+      aliquotaIva: n(fd, "aliquotaIva") ?? 22,
+      pagata: b(fd, "pagata"),
+      dataPagamento: b(fd, "pagata") ? d(fd, "dataPagamento") : null,
+      descrizione: s(fd, "descrizione"),
+    },
+  });
+  revalidateAll();
+  redirect(`/fatture/${id}?salvato=1`);
+}
+
 export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagamento?: string) {
   await prisma.fatturaServizio.update({
     where: { id },

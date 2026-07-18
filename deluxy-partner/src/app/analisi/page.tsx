@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 // e da pagare. Il saldo proiettato parte dalla liquidità reale Qonto e somma
 // solo le partite ancora aperte.
 
-type Voce = { chi: string; partnerId: string; rif: string; importo: number; saldata: boolean };
+type Voce = { chi: string; partnerId: string; rif: string; importo: number; saldata: boolean; href: string };
 type Bucket = {
   chiave: string;
   etichetta: string;
@@ -83,6 +83,7 @@ export default async function AnalisiPage() {
       rif: `fatt. ${f.numero ?? "s.n."}${f.scadenza ? ` · scad. ${dataIt(f.scadenza)}` : ` · ${nomeMese(f.mese)} ${f.anno}`}${f.pagata && f.dataPagamento ? ` · incassata ${dataIt(f.dataPagamento)}` : ""}`,
       importo: ivato(f),
       saldata: f.pagata,
+      href: `/fatture/${f.id}`,
     });
   }
 
@@ -91,6 +92,7 @@ export default async function AnalisiPage() {
     for (const m of t.mesi) {
       const r = m.riepilogo;
       const dataComp = new Date(Date.UTC(anno, m.mese - 1, 28));
+      const hrefMese = `/partner/${t.partner.id}#mese-${m.mese}`;
       if (r.bonificoInviato >= 0.01) {
         bucket(dataComp).uscite.push({
           chi: t.partner.nome,
@@ -98,6 +100,7 @@ export default async function AnalisiPage() {
           rif: `dovuto ${nomeMese(m.mese)} ${anno}`,
           importo: r.bonificoInviato,
           saldata: true,
+          href: hrefMese,
         });
       }
       if (r.daBonificare >= 0.01) {
@@ -107,6 +110,7 @@ export default async function AnalisiPage() {
           rif: `dovuto ${nomeMese(m.mese)} ${anno}`,
           importo: r.daBonificare,
           saldata: false,
+          href: hrefMese,
         });
       }
     }
@@ -217,14 +221,18 @@ export default async function AnalisiPage() {
                             <div key={"e" + i} style={{ opacity: v.saldata ? 0.6 : 1 }}>
                               <span style={{ color: "var(--green)" }}>{v.saldata ? "✓" : "○"} +{euro(v.importo)}</span>{" "}
                               <Link href={`/partner/${v.partnerId}`}>{v.chi}</Link>{" "}
-                              <span className="muted">({v.rif})</span>
+                              <Link href={v.href} className="muted" style={{ textDecoration: "underline", textUnderlineOffset: 2 }} title="Apri il record della fattura">
+                                ({v.rif})
+                              </Link>
                             </div>
                           ))}
                           {[...r.uscite].sort((a, b) => Number(a.saldata) - Number(b.saldata) || b.importo - a.importo).map((v, i) => (
                             <div key={"u" + i} style={{ opacity: v.saldata ? 0.6 : 1 }}>
                               <span style={{ color: "var(--red)" }}>{v.saldata ? "✓" : "○"} −{euro(v.importo)}</span>{" "}
                               <Link href={`/partner/${v.partnerId}`}>{v.chi}</Link>{" "}
-                              <span className="muted">({v.rif})</span>
+                              <Link href={v.href} className="muted" style={{ textDecoration: "underline", textUnderlineOffset: 2 }} title="Apri il mese nella scheda partner">
+                                ({v.rif})
+                              </Link>
                             </div>
                           ))}
                         </div>

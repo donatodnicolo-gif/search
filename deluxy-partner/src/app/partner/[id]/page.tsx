@@ -135,7 +135,7 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
         </div>
       )}
       {mesiConDati.map(({ mese, fatture, vendite, saldo, riepilogo: r }) => (
-        <div className="month-block" key={mese} style={{ background: "var(--surface)" }}>
+        <div className="month-block" key={mese} id={`mese-${mese}`} style={{ background: "var(--surface)", scrollMarginTop: 20 }}>
           <div className="month-head">
             <span style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
               {nomeMese(mese)} {anno}
@@ -174,7 +174,12 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                   {fatture.map((f) => (
                     <tr key={f.id}>
                       <td style={{ width: 170 }} className="muted">Servizi a fatturazione</td>
-                      <td>{f.tipologia.nome}{f.numero ? ` · fatt. ${f.numero}` : ""}</td>
+                      <td>
+                        {f.tipologia.nome} ·{" "}
+                        <Link href={`/fatture/${f.id}`} style={{ color: "var(--blue)" }} title="Apri il record della fattura">
+                          fatt. {f.numero ?? "s.n."}
+                        </Link>
+                      </td>
                       <td>scad. {dataIt(f.scadenza)}</td>
                       <td>
                         <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
