@@ -19,6 +19,7 @@ import { useFocusEffect } from 'expo-router';
 import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing } from '@/lib/theme';
 import { aggiornaStarred, aggiornaStatoAffiliazione, fetchAffiliazioni, registraChiamata } from '@/lib/db';
 import { STATI_AFFILIAZIONE, type AffiliazioneRow, type StatoAffiliazione } from '@/types';
+import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 
 type FiltroAff = StatoAffiliazione | 'tutti' | 'selezionati';
 
@@ -166,6 +167,7 @@ function Card({
   onSeleziona: () => void;
 }) {
   const [apriStep, setApriStep] = useState(false);
+  const [apriRegistro, setApriRegistro] = useState(false);
   const stato = item.stato_affiliazione ?? 'prospect';
   return (
     <View style={[styles.card, item.starred && styles.cardSel]}>
@@ -221,6 +223,14 @@ function Card({
           ))}
         </View>
       ) : null}
+
+      {/* Dati LIVE dal registro Anagrafiche (stato, interessi, referenti) — on demand. */}
+      <Pressable style={styles.statoRow} onPress={() => setApriRegistro((v) => !v)}>
+        <Ionicons name="library-outline" size={15} color={colors.oro} />
+        <Text style={styles.statoTxt}>Registro Anagrafiche</Text>
+        <Ionicons name={apriRegistro ? 'chevron-up' : 'chevron-down'} size={15} color={colors.grigio} />
+      </Pressable>
+      {apriRegistro ? <AnagraficaRegistroCard nome={item.nome} citta={item.zona} compatta /> : null}
     </View>
   );
 }

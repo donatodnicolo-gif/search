@@ -20,7 +20,15 @@ const LABEL_INTERESSE: Record<string, string> = {
   vendor: 'Vendor',
 };
 
-export function AnagraficaRegistroCard({ nome, citta }: { nome: string; citta?: string | null }) {
+export function AnagraficaRegistroCard({
+  nome,
+  citta,
+  compatta,
+}: {
+  nome: string;
+  citta?: string | null;
+  compatta?: boolean;
+}) {
   const [loading, setLoading] = useState(true);
   const [partner, setPartner] = useState<PartnerRegistro | null>(null);
   const [esatto, setEsatto] = useState(false);
@@ -45,9 +53,9 @@ export function AnagraficaRegistroCard({ nome, citta }: { nome: string; citta?: 
 
   if (loading) {
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, compatta && styles.cardCompatta]}>
         <View style={styles.headRow}>
-          <Text style={styles.titolo}>Anagrafica dal registro</Text>
+          {compatta ? null : <Text style={styles.titolo}>Anagrafica dal registro</Text>}
           <ActivityIndicator size="small" color={colors.oro} />
         </View>
       </View>
@@ -55,10 +63,12 @@ export function AnagraficaRegistroCard({ nome, citta }: { nome: string; citta?: 
   }
   if (errore || !partner) {
     return (
-      <View style={styles.card}>
-        <View style={styles.headRow}>
-          <Text style={styles.titolo}>Anagrafica dal registro</Text>
-        </View>
+      <View style={[styles.card, compatta && styles.cardCompatta]}>
+        {compatta ? null : (
+          <View style={styles.headRow}>
+            <Text style={styles.titolo}>Anagrafica dal registro</Text>
+          </View>
+        )}
         <Text style={styles.vuoto}>{errore ? 'Registro non raggiungibile.' : 'Non presente nel registro Anagrafiche.'}</Text>
       </View>
     );
@@ -69,9 +79,9 @@ export function AnagraficaRegistroCard({ nome, citta }: { nome: string; citta?: 
   const contatti = (partner.contatti ?? []).filter((c) => c.nome || c.telefono || c.email);
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, compatta && styles.cardCompatta]}>
       <View style={styles.headRow}>
-        <Text style={styles.titolo}>Anagrafica dal registro</Text>
+        {compatta ? <View /> : <Text style={styles.titolo}>Anagrafica dal registro</Text>}
         {!esatto ? <Text style={styles.probabile}>corrispondenza probabile</Text> : null}
       </View>
 
@@ -139,6 +149,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     gap: 8,
   },
+  cardCompatta: { borderWidth: 0, backgroundColor: 'transparent', padding: 0, marginTop: spacing.sm, gap: 6 },
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titolo: { fontSize: 12, fontWeight: '800', color: colors.oro, letterSpacing: 0.6, textTransform: 'uppercase' },
   probabile: { fontSize: 11, color: colors.grigio, fontStyle: 'italic' },
