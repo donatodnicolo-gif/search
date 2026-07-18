@@ -52,21 +52,23 @@ anagrafici nelle vostre app — leggeteli da qui.
 - Se la vostra app gira nel browser (es. search/supplier), la scrittura passa da
   una vostra API route/edge function che fa da proxy: la chiave non esce dal server.
 
-### Regole d'ingaggio
+### Regole d'ingaggio (attive)
 
+- Nel POST mandate `sistema` (o si deduce dalla vostra chiave) e `idEsterno` (il
+  vostro id per quel partner): registro il riferimento e vi riconosco alla
+  prossima. Poi risolvete con `GET /partners/by-ref/:sistema/:idEsterno`.
 - Scrivete i **campi che osservate davvero** (telefono, email, indirizzo,
-  referenti, data ultimo contatto). Includete una `asOf` col dato: vince il più fresco.
-- **Non impostate voi** `stato`, `interessi`, `categoria` (classificazione),
-  `account`: li cura il team. Se ce li mandate, diventeranno *proposte* da rivedere,
-  non verranno applicati.
-- I **referenti** si fondono per identità: mandate la vostra lista, non cancello
-  quelli inseriti da altri.
+  referenti, data ultimo contatto). Includete `asOf` (ISO): un campo si
+  sovrascrive solo se il vostro dato è più fresco, o se la vostra sorgente è più
+  autorevole di quella che l'aveva scritto.
+- **Non impostate voi** `stato`, `interessi`, `account`: li cura il team e
+  vengono ignorati (li trovate in `in_revisione` nella risposta). Le nuove
+  anagrafiche nascono come `prospect`.
+- **Note** in append, **referenti** in merge per identità (email>tel>nome):
+  nessun'app cancella quelli inseriti da altre.
 
-> **Live oggi**: upsert, dedup nome+città, note-append, tag di fonte, chiavi per app.
-> **In arrivo (Fase 1 dell'architettura)**: `sistema`+`idEsterno` generalizzato,
-> `asOf`/vince-il-più-fresco, campi bloccati e coda proposte. Includete già
-> `sistema`+`idEsterno` e `asOf` nei vostri POST: oggi li ignoro, ma così non
-> dovrete ritoccare l'integrazione dopo.
+La risposta del POST dice cosa è successo: `{ esito: "creato"|"merged", applicati:
+[...], in_revisione: [...], riferimenti: [...] }`.
 
 ---
 
@@ -137,8 +139,9 @@ Autenticazione: header `x-api-key: <chiave>` (oppure `Authorization: Bearer <chi
 | --- | --- | --- | --- |
 | GET | `/api/v1/health` | nessuno | Stato del servizio |
 | GET | `/api/v1/partners` | lettura | Elenco con filtri e paginazione |
-| GET | `/api/v1/partners/:id` | lettura | Dettaglio (`:id` può essere anche il `platformId`) |
-| POST | `/api/v1/partners` | scrittura | Crea; se il body ha un `platformId` già noto fa upsert |
+| GET | `/api/v1/partners/:id` | lettura | Dettaglio (`:id` = id registro, `platformId`, o qualsiasi `idEsterno` registrato) |
+| GET | `/api/v1/partners/by-ref/:sistema/:idEsterno` | lettura | Risolve il partner dall'id interno di un'altra app |
+| POST | `/api/v1/partners` | scrittura | Upsert-merge; identità via `sistema`+`idEsterno` → `platformId` → P.IVA/CF → nome+città |
 | PATCH | `/api/v1/partners/:id` | scrittura | Aggiornamento parziale |
 | DELETE | `/api/v1/partners/:id` | scrittura | Disattiva (soft delete, `attivo=false`) |
 
