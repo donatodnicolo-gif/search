@@ -166,6 +166,20 @@ export interface Deal {
   hubspot_deal_id: string | null;
 }
 
+// Task personale del venditore (tasklist privata con priorità e scadenza).
+export interface Task {
+  id: string;
+  owner: string | null;
+  titolo: string;
+  note: string | null;
+  priorita: Priorita;
+  scadenza: string | null; // YYYY-MM-DD
+  completata: boolean;
+  place_id: string | null;
+  created_at: string;
+  completata_at: string | null;
+}
+
 export interface Profilo {
   id: string;
   email: string | null;

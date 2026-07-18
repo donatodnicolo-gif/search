@@ -1,6 +1,6 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
-import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo, StatoAffiliazione, StatoPlace, Visit } from '@/types';
+import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo, StatoAffiliazione, StatoPlace, Task, Visit } from '@/types';
 import { statoDaEsito } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
@@ -431,6 +431,70 @@ export async function aggiornaStatoPlace(placeId: string, stato: StatoPlace): Pr
 /** Marca/smarca un negozio come interessante (⭐ → entra nel giro). Azzera "novità". */
 export async function aggiornaStarred(placeId: string, starred: boolean): Promise<void> {
   const { error } = await supabase.from('places').update({ starred, novita: false }).eq('id', placeId);
+  if (error) throw error;
+}
+
+// ── Task personali (tasklist privata del venditore) ────────────────────────────
+
+/** I miei task (RLS: solo i propri). Non completati prima, per scadenza poi priorità. */
+export async function fetchMieiTask(): Promise<Task[]> {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .order('completata', { ascending: true })
+    .order('scadenza', { ascending: true, nullsFirst: false })
+    .order('priorita', { ascending: true })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Task[];
+}
+
+/** Crea un task per l'utente corrente (owner via default auth.uid()). */
+export async function inserisciTask(t: {
+  titolo: string;
+  note?: string | null;
+  priorita: Task['priorita'];
+  scadenza?: string | null;
+  place_id?: string | null;
+}): Promise<Task> {
+  const { data: u } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert({
+      owner: u.user?.id ?? undefined,
+      titolo: t.titolo,
+      note: t.note ?? null,
+      priorita: t.priorita,
+      scadenza: t.scadenza ?? null,
+      place_id: t.place_id ?? null,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Task;
+}
+
+/** Aggiorna i campi editabili di un task. */
+export async function aggiornaTask(
+  id: string,
+  patch: Partial<Pick<Task, 'titolo' | 'note' | 'priorita' | 'scadenza'>>,
+): Promise<void> {
+  const { error } = await supabase.from('tasks').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+/** Segna un task come completato (o lo riapre), tracciando la data. */
+export async function completaTask(id: string, completata: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('tasks')
+    .update({ completata, completata_at: completata ? new Date().toISOString() : null })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/** Elimina un task (azione dell'utente sul proprio elenco). */
+export async function eliminaTask(id: string): Promise<void> {
+  const { error } = await supabase.from('tasks').delete().eq('id', id);
   if (error) throw error;
 }
 
