@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -8,8 +9,9 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role, SalaryDocumentType, SalaryStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,9 +20,9 @@ import { PrismaService } from '../prisma/prisma.service';
 export class SalariesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(user: JwtUser) {
-    const where =
-      user.role === Role.VALET ? { valetId: user.valetId ?? '-' } : {};
+  findAll(user: JwtUser, archived = false) {
+    const where: any = { archived };
+    if (user.role === Role.VALET) where.valetId = user.valetId ?? '-';
     return this.prisma.salary.findMany({
       where,
       include: {
@@ -77,13 +79,34 @@ export class SalariesService {
    */
   async updateStatus(id: string, status: SalaryStatus) {
     const data: any = { status };
-    if (status === SalaryStatus.SENT) data.sentAt = new Date();
+    // L'invio archivia lo stipendio: esce dai "attivi" ed entra in Archivio.
+    if (status === SalaryStatus.SENT) { data.sentAt = new Date(); data.archived = true; }
     if (status === SalaryStatus.APPROVED) data.approvedAt = new Date();
     if (status === SalaryStatus.PAID) data.paidAt = new Date();
     if (status === SalaryStatus.RECEIPT_PENDING) {
       data.receipts = { create: { signed: false } };
     }
     return this.prisma.salary.update({ where: { id }, data });
+  }
+
+  /** Riapre uno stipendio dall'archivio: torna in bozza tra gli attivi.
+   *  Consentito solo se non è ancora stato pagato (stato finanziario). */
+  async reopen(id: string) {
+    const salary = await this.prisma.salary.findUnique({ where: { id } });
+    if (!salary) throw new NotFoundException('Stipendio non trovato');
+    if (salary.status === SalaryStatus.PAID) {
+      throw new BadRequestException('Uno stipendio già pagato non può essere riaperto');
+    }
+    return this.prisma.salary.update({
+      where: { id },
+      data: {
+        archived: false,
+        status: SalaryStatus.DRAFT,
+        sentAt: null,
+        approvedAt: null,
+        paidAt: null,
+      },
+    });
   }
 }
 
@@ -94,9 +117,10 @@ export class SalariesController {
   constructor(private readonly salariesService: SalariesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lista stipendi (il valet vede i propri)' })
-  findAll(@CurrentUser() user: JwtUser) {
-    return this.salariesService.findAll(user);
+  @ApiOperation({ summary: 'Lista stipendi (il valet vede i propri). archived=true per l archivio' })
+  @ApiQuery({ name: 'archived', required: false })
+  findAll(@CurrentUser() user: JwtUser, @Query('archived') archived?: string) {
+    return this.salariesService.findAll(user, archived === 'true');
   }
 
   @Post('generate')
@@ -106,6 +130,13 @@ export class SalariesController {
     @Body() body: { valetId: string; periodStart: string; periodEnd: string },
   ) {
     return this.salariesService.generate(body.valetId, body.periodStart, body.periodEnd);
+  }
+
+  @Post(':id/reopen')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Riapre dallo archivio (solo se non pagato): torna in bozza' })
+  reopen(@Param('id') id: string) {
+    return this.salariesService.reopen(id);
   }
 
   @Patch(':id/status')

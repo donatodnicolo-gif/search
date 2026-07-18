@@ -303,6 +303,15 @@
     "allValets": "Tutti i valet",
     "generate": "Genera stipendi",
     "empty": "Nessuno stipendio.",
+    "reopened": "Stipendio riaperto ✓",
+    "tab": {
+      "active": "Attivi",
+      "archive": "Archivio"
+    },
+    "fin": {
+      "paid": "Pagato",
+      "unpaid": "Non pagato"
+    },
     "gen": {
       "valet": "Valet",
       "pickValet": "Seleziona valet…",
@@ -321,6 +330,7 @@
       "net": "Netto",
       "document": "Documento",
       "status": "Stato",
+      "financial": "Stato finanziario",
       "actions": "Azioni"
     },
     "doc": {
@@ -331,7 +341,8 @@
       "send": "Invia",
       "genReceipt": "Genera ricevuta",
       "approve": "Approva",
-      "markPaid": "Segna pagato"
+      "markPaid": "Segna pagato",
+      "reopen": "Riapri"
     }
   },
   "deliveries": {

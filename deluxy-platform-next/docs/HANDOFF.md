@@ -3,7 +3,7 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
-**Ultimo aggiornamento:** 17 luglio 2026
+**Ultimo aggiornamento:** 18 luglio 2026
 **Branch:** `deluxy-scout` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
 
@@ -105,6 +105,17 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Backend: aggiunto `active` (opzionale) a **CreatePartnerDto / CreateValetDto / CreateOperationDto** — prima il ValidationPipe (`whitelist:true`) lo scartava e il PUT/PATCH era un no-op silenzioso. L'update parziale non tocca le relazioni (verificato: province valet intatte).
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
+
+### 18/07/2026 (7) — Stipendi: Attivi/Archivio, stato finanziario, riapertura (feedback utente)
+
+- Feedback in 5 punti sulla pagina Stipendi, tutti implementati:
+  1. **Niente doppia scelta del valet**: il pannello **Genera** eredita il valet dal **filtro** in alto (`toggleGen()` precompila `genValet` da `valetFilter`).
+  2. **Default = attivi**: la lista mostra gli stipendi **non in archivio**; nuovo tab **Attivi/Archivio** (`view` signal → `GET /salaries` con `?archived=true` in Archivio).
+  3. **Invia archivia**: `updateStatus` imposta `archived=true` quando lo stato passa a **SENT** → lo stipendio esce dagli attivi ed entra in **Archivio**.
+  4. **Riapri solo se non pagato**: nuovo `POST /salaries/:id/reopen` (admin/operation) → torna `DRAFT`, `archived=false`, azzera i timestamp; rifiuta con **400** se `status===PAID`. In pagina il bottone **Riapri** compare in Archivio solo se non pagato (i pagati mostrano ✓).
+  5. **Colonna Stato finanziario** in Archivio: **Non pagato** finché `status!==PAID`, poi **Pagato** (pill verde).
+- Backend: campo `Salary.archived Boolean @default(false)` (migrazione `20260718135049_salary_archived`); `findAll(user, archived)` filtra su `archived`; controller legge `@Query('archived')`. i18n `salaries.tab.*`, `salaries.fin.*`, `salaries.col.financial`, `salaries.action.reopen`, `salaries.reopened` (IT/EN, parità 955 chiavi).
+- Verificato E2E via API: Invia → sparisce dagli attivi e appare in Archivio; Riapri (SENT) → torna attivo; avanzato fino a PAID → Riapri risponde **400 "Uno stipendio già pagato non può essere riaperto"**. In browser: tab Archivio mostra la colonna **Stato finanziario** e nasconde **Genera**. Dati di test ripuliti (stipendio demo di nuovo DRAFT attivo, receipts azzerate).
 
 ### 18/07/2026 (6) — Sezione Pagamenti (frontend, era stub)
 

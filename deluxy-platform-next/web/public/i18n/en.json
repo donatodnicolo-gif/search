@@ -303,6 +303,15 @@
     "allValets": "All valets",
     "generate": "Generate salaries",
     "empty": "No salaries.",
+    "reopened": "Salary reopened ✓",
+    "tab": {
+      "active": "Active",
+      "archive": "Archive"
+    },
+    "fin": {
+      "paid": "Paid",
+      "unpaid": "Unpaid"
+    },
     "gen": {
       "valet": "Valet",
       "pickValet": "Select valet…",
@@ -321,6 +330,7 @@
       "net": "Net",
       "document": "Document",
       "status": "Status",
+      "financial": "Financial status",
       "actions": "Actions"
     },
     "doc": {
@@ -331,7 +341,8 @@
       "send": "Send",
       "genReceipt": "Generate receipt",
       "approve": "Approve",
-      "markPaid": "Mark paid"
+      "markPaid": "Mark paid",
+      "reopen": "Reopen"
     }
   },
   "deliveries": {

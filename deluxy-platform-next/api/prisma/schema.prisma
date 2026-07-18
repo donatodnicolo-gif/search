@@ -745,6 +745,8 @@ model Salary {
   netAmount      Float
   documentType   String // PROFORMA_INVOICE | WITHHOLDING_RECEIPT
   status         String    @default("DRAFT")
+  // Archiviato: lo stipendio inviato esce dalla lista attivi ed entra in Archivio.
+  archived       Boolean   @default(false)
   sentAt         DateTime?
   approvedAt     DateTime?
   paidAt         DateTime?

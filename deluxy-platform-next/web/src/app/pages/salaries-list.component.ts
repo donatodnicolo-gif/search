@@ -17,6 +17,7 @@ interface Salary {
   netAmount: number;
   documentType: string;
   status: string;
+  archived: boolean;
   valet?: { id: string; firstName: string; lastName: string; hasVat: boolean };
   receipts?: { id: string; signed: boolean }[];
 }
@@ -36,7 +37,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
   APPROVED: { next: 'PAID', key: 'markPaid' },
 };
 
-/** Amministrazione → Stipendi: genera e gestisce il flusso stipendi dei valet. */
+/** Amministrazione → Stipendi: genera, gestisce il flusso e archivia gli stipendi. */
 @Component({
   selector: 'app-salaries-list',
   standalone: true,
@@ -53,12 +54,19 @@ const NEXT: Record<string, { next: string; key: string }> = {
             <option value="">{{ 'salaries.allValets' | translate }}</option>
             @for (v of valets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
           </select>
-          <button class="btn btn-primary" (click)="showGen.set(!showGen())">{{ (showGen() ? 'common.cancel' : 'salaries.generate') | translate }}</button>
+          @if (view() === 'active') {
+            <button class="btn btn-primary" (click)="toggleGen()">{{ (showGen() ? 'common.cancel' : 'salaries.generate') | translate }}</button>
+          }
         }
       </div>
     </div>
 
-    @if (showGen()) {
+    <div class="tabs">
+      <button class="tab" [class.on]="view() === 'active'" (click)="setView('active')">{{ 'salaries.tab.active' | translate }}</button>
+      <button class="tab" [class.on]="view() === 'archive'" (click)="setView('archive')">{{ 'salaries.tab.archive' | translate }}</button>
+    </div>
+
+    @if (showGen() && view() === 'active') {
       <section class="card gen">
         <div class="grid">
           <label class="fld"><span>{{ 'salaries.gen.valet' | translate }} *</span>
@@ -97,6 +105,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
               <th class="num">{{ 'salaries.col.net' | translate }}</th>
               <th>{{ 'salaries.col.document' | translate }}</th>
               <th>{{ 'salaries.col.status' | translate }}</th>
+              @if (view() === 'archive') { <th>{{ 'salaries.col.financial' | translate }}</th> }
               <th>{{ 'salaries.col.actions' | translate }}</th>
             </tr>
           </thead>
@@ -112,16 +121,27 @@ const NEXT: Record<string, { next: string; key: string }> = {
                 <td>
                   <span class="badge" [style.--c]="statusColor(s.status)"><span class="dot"></span>{{ statusLabel(s.status) }}</span>
                 </td>
+                @if (view() === 'archive') {
+                  <td>
+                    <span class="badge" [style.--c]="isPaid(s) ? '#248A3D' : '#8A8A8E'"><span class="dot"></span>{{ (isPaid(s) ? 'salaries.fin.paid' : 'salaries.fin.unpaid') | translate }}</span>
+                  </td>
+                }
                 <td class="row-actions">
-                  @if (canManage() && next(s.status); as n) {
+                  @if (canManage() && view() === 'active' && next(s.status); as n) {
                     <button class="link-btn" [disabled]="busy() === s.id" (click)="advance(s, n.next)">{{ ('salaries.action.' + n.key) | translate }}</button>
-                  } @else if (s.status === 'PAID') {
-                    <span class="muted">✓</span>
+                  }
+                  @if (canManage() && view() === 'archive') {
+                    @if (next(s.status); as n) {
+                      <button class="link-btn" [disabled]="busy() === s.id" (click)="advance(s, n.next)">{{ ('salaries.action.' + n.key) | translate }}</button>
+                    }
+                    @if (!isPaid(s)) {
+                      <button class="link-btn danger" [disabled]="busy() === s.id" (click)="reopen(s)">{{ 'salaries.action.reopen' | translate }}</button>
+                    } @else { <span class="muted">✓</span> }
                   }
                 </td>
               </tr>
             }
-            @if (!filtered().length) { <tr><td colspan="8" class="muted empty">{{ 'salaries.empty' | translate }}</td></tr> }
+            @if (!filtered().length) { <tr><td [attr.colspan]="view() === 'archive' ? 9 : 8" class="muted empty">{{ 'salaries.empty' | translate }}</td></tr> }
           </tbody>
         </table>
       </div>
@@ -129,11 +149,14 @@ const NEXT: Record<string, { next: string; key: string }> = {
   `,
   styles: [
     `
-      .page-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 22px; }
+      .page-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; max-width: 640px; }
       .head-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .head-actions .btn { text-decoration: none; }
+      .tabs { display: inline-flex; gap: 4px; background: var(--fill); border-radius: 980px; padding: 4px; margin-bottom: 18px; }
+      .tab { appearance: none; border: none; background: none; border-radius: 980px; padding: 7px 18px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text-secondary); cursor: pointer; }
+      .tab.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
       .gen { padding: 20px 22px; margin-bottom: 16px; }
       .grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px 16px; }
       .fld { display: flex; flex-direction: column; gap: 6px; }
@@ -153,6 +176,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
       .row-actions { display: flex; gap: 12px; }
       .link-btn { background: none; border: none; padding: 0; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+      .link-btn.danger { color: var(--red); }
       .link-btn:disabled { opacity: 0.5; cursor: default; }
       .state-card { padding: 28px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
@@ -172,6 +196,7 @@ export class SalariesListComponent {
   readonly error = signal<string | null>(null);
   readonly banner = signal<string | null>(null);
   readonly busy = signal<string | null>(null);
+  readonly view = signal<'active' | 'archive'>('active');
 
   valetFilter = '';
   readonly showGen = signal(false);
@@ -197,9 +222,24 @@ export class SalariesListComponent {
     }
   }
 
+  setView(v: 'active' | 'archive'): void {
+    if (this.view() === v) return;
+    this.view.set(v);
+    this.showGen.set(false);
+    this.load();
+  }
+
+  /** Apre il pannello Genera precompilando il valet dal filtro (niente doppia scelta). */
+  toggleGen(): void {
+    const open = !this.showGen();
+    this.showGen.set(open);
+    if (open && this.valetFilter) this.genValet = this.valetFilter;
+  }
+
   private load(): void {
     this.loading.set(true);
-    this.http.get<Salary[]>(`${environment.apiUrl}/salaries`).subscribe({
+    const params = this.view() === 'archive' ? { params: { archived: 'true' } } : {};
+    this.http.get<Salary[]>(`${environment.apiUrl}/salaries`, params).subscribe({
       next: (d) => { this.salaries.set(d); this.loading.set(false); },
       error: () => { this.loading.set(false); this.error.set(this.translate.instant('common.loadError')); },
     });
@@ -208,6 +248,7 @@ export class SalariesListComponent {
   statusLabel(s: string): string { return STATUS_META[s]?.label ?? s; }
   statusColor(s: string): string { return STATUS_META[s]?.color ?? '#8A8A8E'; }
   next(status: string): { next: string; key: string } | null { return NEXT[status] ?? null; }
+  isPaid(s: Salary): boolean { return s.status === 'PAID'; }
 
   generate(): void {
     this.genError.set(null);
@@ -236,6 +277,15 @@ export class SalariesListComponent {
     this.http.patch(`${environment.apiUrl}/salaries/${s.id}/status`, { status }).subscribe({
       next: () => { this.busy.set(null); this.load(); },
       error: (err) => { this.busy.set(null); this.error.set(err?.error?.message ?? 'Errore nel cambio di stato'); },
+    });
+  }
+
+  reopen(s: Salary): void {
+    this.error.set(null);
+    this.busy.set(s.id);
+    this.http.post(`${environment.apiUrl}/salaries/${s.id}/reopen`, {}).subscribe({
+      next: () => { this.busy.set(null); this.banner.set(this.translate.instant('salaries.reopened')); this.load(); },
+      error: (err) => { this.busy.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
     });
   }
 }
