@@ -161,6 +161,7 @@ export interface Deal {
   fase: DealStage;
   valore_atteso: number | null;
   next_action: string | null;
+  scadenza: string | null; // data di scadenza del follow-up (YYYY-MM-DD)
   owner: string | null;
   hubspot_deal_id: string | null;
 }

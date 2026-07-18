@@ -42,6 +42,17 @@ const FASI: DealStage[] = [
   'closedlost',
 ];
 
+// Data ISO (YYYY-MM-DD) a N giorni da oggi, e formattazione GG/MM/AAAA.
+function isoTraGiorni(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function formattaData(iso: string): string {
+  const [a, m, g] = iso.split('-');
+  return `${g}/${m}/${a}`;
+}
+
 export default function Trattative() {
   const router = useRouter();
   const [deals, setDeals] = useState<TrattativaConLuogo[]>([]);
@@ -299,6 +310,7 @@ function TrattativaModal({
   const [fase, setFase] = useState<DealStage>((deal?.fase as DealStage) ?? 'appointmentscheduled');
   const [valore, setValore] = useState(deal?.valore_atteso != null ? String(deal.valore_atteso) : '');
   const [nextAction, setNextAction] = useState(deal?.next_action ?? '');
+  const [scadenza, setScadenza] = useState<string | null>(deal?.scadenza ?? null);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -348,6 +360,7 @@ function TrattativaModal({
         fase,
         valore_atteso: valNum != null && isFinite(valNum) ? valNum : null,
         next_action: nextAction.trim() || null,
+        scadenza,
       };
 
       if (inModifica && deal) {
@@ -535,6 +548,30 @@ function TrattativaModal({
               placeholder="es. Inviare preventivo"
               placeholderTextColor={colors.grigio}
             />
+
+            {/* Scadenza follow-up */}
+            <Text style={styles.campoLabel}>Scadenza follow-up</Text>
+            <View style={styles.chipRow}>
+              <Pressable
+                style={[styles.chip, !scadenza && styles.chipOn]}
+                onPress={() => setScadenza(null)}
+              >
+                <Text style={[styles.chipTxt, !scadenza && styles.chipTxtOn]}>Nessuna</Text>
+              </Pressable>
+              {[7, 14, 30].map((g) => {
+                const iso = isoTraGiorni(g);
+                return (
+                  <Pressable
+                    key={g}
+                    style={[styles.chip, scadenza === iso && styles.chipOn]}
+                    onPress={() => setScadenza(iso)}
+                  >
+                    <Text style={[styles.chipTxt, scadenza === iso && styles.chipTxtOn]}>+{g} giorni</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {scadenza ? <Text style={styles.scadenzaSel}>Scade il {formattaData(scadenza)}</Text> : null}
 
             {errore ? <Text style={styles.errore}>{errore}</Text> : null}
           </ScrollView>
@@ -755,6 +792,7 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
+  scadenzaSel: { color: colors.goldStrong, fontWeight: '700', fontSize: 12, marginTop: 4 },
   notaRegistro: {
     color: colors.testoSoft,
     fontSize: 12,

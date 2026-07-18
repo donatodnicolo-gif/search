@@ -27,7 +27,7 @@ function visita(owner: string | null, giorniFa: number, esito: Visit['esito']): 
 }
 
 function deal(owner: string | null, fase: Deal['fase']): Deal {
-  return { id: `${owner}-${fase}`, place_id: 'p1', linea: null, fase, valore_atteso: null, next_action: null, owner, hubspot_deal_id: null };
+  return { id: `${owner}-${fase}`, place_id: 'p1', linea: null, fase, valore_atteso: null, next_action: null, scadenza: null, owner, hubspot_deal_id: null };
 }
 
 const PROFILI: Profilo[] = [

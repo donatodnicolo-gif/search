@@ -4,18 +4,39 @@
 // 2) Da completare — visite segnate sul campo ma senza contatto/note.
 import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { LineaIcon } from '@/components/LineaIcon';
-import { fetchAllVisits, fetchDaCompletare, fetchPlaces } from '@/lib/db';
-import { daRicontattare, type Richiamo } from '@/lib/metrics';
+import {
+  fetchAllVisits,
+  fetchDaCompletare,
+  fetchPlaces,
+  fetchTutteTrattative,
+  type TrattativaConLuogo,
+} from '@/lib/db';
+import { daRicontattare, followupAffiliazioni, type Richiamo } from '@/lib/metrics';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { VisitaModal } from '@/components/VisitaModal';
 
 type Riga =
   | { tipo: 'richiamo'; richiamo: Richiamo }
+  | { tipo: 'followup'; deal: TrattativaConLuogo }
   | { tipo: 'completa'; place: Place };
+
+// Info scadenza follow-up: testo relativo + flag ritardo + data breve.
+function scadenzaInfo(iso: string | null): { txt: string; ritardo: boolean; data: string | null } {
+  if (!iso) return { txt: 'Senza scadenza', ritardo: false, data: null };
+  const d = new Date(iso + 'T00:00:00');
+  const oggi = new Date();
+  oggi.setHours(0, 0, 0, 0);
+  const gg = Math.round((d.getTime() - oggi.getTime()) / 86400000);
+  const data = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const txt =
+    gg === 0 ? 'scade oggi' : gg === 1 ? 'scade domani' : gg === -1 ? 'scaduta ieri' : gg < 0 ? `scaduta ${-gg}g fa` : `tra ${gg}g`;
+  return { txt, ritardo: gg < 0, data };
+}
 
 const LABEL_ESITO: Record<string, string> = {
   interessato: 'Interessato — inviare recap',
@@ -26,19 +47,28 @@ export default function DaCompletare() {
   const router = useRouter();
   const [richiami, setRichiami] = useState<Richiamo[]>([]);
   const [daCompletare, setDaCompletare] = useState<Place[]>([]);
+  const [followup, setFollowup] = useState<TrattativaConLuogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState<Place | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
     try {
-      const [dc, places, visits] = await Promise.all([
+      const [dc, places, visits, trattative] = await Promise.all([
         fetchDaCompletare(),
         fetchPlaces(),
         fetchAllVisits(),
+        fetchTutteTrattative(),
       ]);
       setDaCompletare(dc);
       setRichiami(daRicontattare(places, visits));
+      // Follow-up affiliazioni/re-seller aperti, prima i più urgenti (scaduti in cima).
+      const fu = followupAffiliazioni(trattative).sort((a, b) => {
+        if (!a.scadenza) return 1;
+        if (!b.scadenza) return -1;
+        return a.scadenza < b.scadenza ? -1 : a.scadenza > b.scadenza ? 1 : 0;
+      });
+      setFollowup(fu);
     } finally {
       setLoading(false);
     }
@@ -54,6 +84,9 @@ export default function DaCompletare() {
     ...(richiami.length
       ? [{ title: `Da ricontattare (${richiami.length})`, data: richiami.map((r): Riga => ({ tipo: 'richiamo', richiamo: r })) }]
       : []),
+    ...(followup.length
+      ? [{ title: `Follow-up affiliazioni (${followup.length})`, data: followup.map((d): Riga => ({ tipo: 'followup', deal: d })) }]
+      : []),
     ...(daCompletare.length
       ? [{ title: `Da completare (${daCompletare.length})`, data: daCompletare.map((p): Riga => ({ tipo: 'completa', place: p })) }]
       : []),
@@ -68,7 +101,9 @@ export default function DaCompletare() {
       </View>
       <SectionList
         sections={sezioni}
-        keyExtractor={(r) => (r.tipo === 'richiamo' ? `r-${r.richiamo.place.id}` : `c-${r.place.id}`)}
+        keyExtractor={(r) =>
+          r.tipo === 'richiamo' ? `r-${r.richiamo.place.id}` : r.tipo === 'followup' ? `f-${r.deal.id}` : `c-${r.place.id}`
+        }
         contentContainerStyle={styles.list}
         stickySectionHeadersEnabled={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
@@ -79,6 +114,11 @@ export default function DaCompletare() {
         renderItem={({ item }) =>
           item.tipo === 'richiamo' ? (
             <RigaRichiamo r={item.richiamo} onPress={() => router.push(`/(app)/attivita/${item.richiamo.place.id}`)} />
+          ) : item.tipo === 'followup' ? (
+            <RigaFollowup
+              d={item.deal}
+              onPress={() => item.deal.place_id && router.push(`/(app)/attivita/${item.deal.place_id}`)}
+            />
           ) : (
             <RigaCompleta p={item.place} onPress={() => setSel(item.place)} />
           )
@@ -124,6 +164,45 @@ function RigaRichiamo({ r, onPress }: { r: Richiamo; onPress: () => void }) {
             “{visita.note_post_meeting}”
           </Text>
         ) : null}
+      </View>
+      <Text style={styles.freccia}>Apri ›</Text>
+    </Pressable>
+  );
+}
+
+function RigaFollowup({ d, onPress }: { d: TrattativaConLuogo; onPress: () => void }) {
+  const sc = scadenzaInfo(d.scadenza);
+  return (
+    <Pressable style={styles.card} onPress={onPress}>
+      <View style={styles.icona}>
+        <LineaIcon linea={d.linea} size={22} color={colors.navy} />
+      </View>
+      <View style={styles.info}>
+        <View style={styles.titoloRow}>
+          <Text style={styles.nome} numberOfLines={1}>
+            {d.place_nome ?? d.linea ?? 'Trattativa'}
+          </Text>
+          {sc.ritardo ? (
+            <View style={styles.ritardo}>
+              <Text style={styles.ritardoTxt}>IN RITARDO</Text>
+            </View>
+          ) : null}
+        </View>
+        <View style={styles.metaRow}>
+          <Ionicons name="person-circle-outline" size={14} color={colors.testoSoft} />
+          <Text style={styles.meta} numberOfLines={1}>
+            {d.owner_nome ?? 'Non attribuito'}
+          </Text>
+          <Text style={styles.metaSep}>·</Text>
+          <Ionicons
+            name="calendar-outline"
+            size={13}
+            color={sc.ritardo ? colors.errore : colors.testoSoft}
+          />
+          <Text style={[styles.meta, sc.ritardo && { color: colors.errore, fontWeight: '800' }]} numberOfLines={1}>
+            {sc.data ? `${sc.data} · ${sc.txt}` : sc.txt}
+          </Text>
+        </View>
       </View>
       <Text style={styles.freccia}>Apri ›</Text>
     </Pressable>
@@ -192,6 +271,8 @@ const styles = StyleSheet.create({
   titoloRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   nome: { flexShrink: 1, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },
   meta: { color: colors.testoSoft, fontSize: 13 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
+  metaSep: { color: colors.grigioChiaro, fontSize: 13 },
   nota: { color: colors.grigio, fontSize: 12, fontStyle: 'italic' },
   ritardo: { backgroundColor: colors.attenzione, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   ritardoTxt: { color: colors.bianco, fontWeight: '900', fontSize: 9, letterSpacing: 0.5 },

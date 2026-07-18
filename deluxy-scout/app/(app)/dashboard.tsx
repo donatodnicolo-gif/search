@@ -19,7 +19,6 @@ import {
   coperturaZone,
   daRicontattare,
   dealPerFase,
-  followupAffiliazioni,
   nomeVenditore,
   valorePerLinea,
   valoreTrattative,
@@ -138,7 +137,6 @@ export default function Dashboard() {
   const inRitardo = richiami.filter((r) => r.inRitardo).length;
   const cop = useMemo(() => coperturaZone(placesF), [placesF]);
   const perse = useMemo(() => chiusePerse(dealsF), [dealsF]);
-  const affil = useMemo(() => followupAffiliazioni(dealsF), [dealsF]);
   const faseBar = useMemo(
     () => dealPerFase(dealsF).map((x) => ({ label: labelFase[x.fase], value: x.value })),
     [dealsF],
@@ -258,19 +256,6 @@ export default function Dashboard() {
               ) : (
                 <Text style={styles.meta}>{d.origine === 'hubspot' ? 'HubSpot' : 'Registro'}</Text>
               )}
-            </View>
-          ))
-        )}
-      </Sezione>
-
-      <Sezione titolo={`Follow-up affiliazioni / re-seller (${affil.length})`}>
-        {affil.length === 0 ? (
-          <Text style={styles.vuoto}>Nessun follow-up aperto.</Text>
-        ) : (
-          affil.map((d) => (
-            <View key={d.id} style={styles.dealRow}>
-              <Text style={styles.dealLinea} numberOfLines={1}>{d.place_nome ?? d.linea}</Text>
-              <Text style={styles.meta}>{labelFase[d.fase]}</Text>
             </View>
           ))
         )}

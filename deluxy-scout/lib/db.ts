@@ -314,6 +314,7 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
         fase: d.fase,
         valore_atteso: d.valore != null ? Number(d.valore) : null,
         next_action: null,
+        scadenza: null,
         owner: null,
         hubspot_deal_id: d.hubspot_id,
         place_nome: nomeNegozio,
@@ -339,6 +340,7 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
       fase: 'decisionmakerboughtin' as Deal['fase'],
       valore_atteso: null,
       next_action: null,
+      scadenza: null,
       owner: null,
       hubspot_deal_id: null,
       place_nome: r.nome,
@@ -396,7 +398,7 @@ export async function cercaPlaces(term: string, limit = 20): Promise<PlaceLite[]
 /** Modifica una trattativa Scout (tabella `deals`). */
 export async function aggiornaDeal(
   id: string,
-  patch: Partial<Pick<Deal, 'linea' | 'fase' | 'valore_atteso' | 'next_action'>>,
+  patch: Partial<Pick<Deal, 'linea' | 'fase' | 'valore_atteso' | 'next_action' | 'scadenza'>>,
 ): Promise<void> {
   const { error } = await supabase.from('deals').update(patch).eq('id', id);
   if (error) throw error;
@@ -409,6 +411,7 @@ export async function inserisciDeal(d: {
   fase: Deal['fase'];
   valore_atteso: number | null;
   next_action: string | null;
+  scadenza?: string | null;
 }): Promise<Deal> {
   const { data: u } = await supabase.auth.getUser();
   const { data, error } = await supabase
