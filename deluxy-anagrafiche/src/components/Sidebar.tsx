@@ -13,12 +13,14 @@ export async function Sidebar({
   interesseAttivo,
   archivioAttivo = false,
   hubspotAttivo = false,
+  dashboardAttiva = false,
 }: {
   categoriaAttiva?: string | null;
   statoAttivo?: string | null;
   interesseAttivo?: string | null;
   archivioAttivo?: boolean;
   hubspotAttivo?: boolean;
+  dashboardAttiva?: boolean;
 }) {
   const [categorie, archiviate, statiConteggio, interessiConteggio] = await Promise.all([
     prisma.partner.groupBy({
@@ -40,7 +42,7 @@ export async function Sidebar({
   const perInteresse = new Map(interessiConteggio.map((i) => [i.interesse, Number(i.totale)]));
 
   const globaleAttiva =
-    !categoriaAttiva && !statoAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo;
+    !categoriaAttiva && !statoAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva;
 
   return (
     <aside className="sidebar">
@@ -50,6 +52,10 @@ export async function Sidebar({
             <span className="sb-icona"><IconaCategoria categoria="GLOBALE" /></span>
             <span className="sb-nome">Visione globale</span>
             <span className="sb-count">{totale}</span>
+          </a>
+          <a className={`sb-item${dashboardAttiva ? " attiva" : ""}`} href="/dashboard">
+            <span className="sb-icona"><IconaCategoria categoria="DASHBOARD" /></span>
+            <span className="sb-nome">Dashboard</span>
           </a>
         </SbSezione>
 

@@ -103,6 +103,13 @@ const GLIFI: Record<string, React.ReactNode> = {
       <path d="M7 19.5h10" {...TRATTO} />
     </>
   ),
+  // Barre: dashboard di analisi
+  DASHBOARD: (
+    <>
+      <path d="M5 20V10M12 20V4M19 20v-7" {...TRATTO} />
+      <path d="M3 20h18" {...TRATTO} />
+    </>
+  ),
   // Frecce circolari: sincronizzazione
   SYNC: (
     <>
