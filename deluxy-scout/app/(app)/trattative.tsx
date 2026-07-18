@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, labelFase, radius, spacing } from '@/lib/theme';
+import { coloreAffiliazione, colors, labelAffiliazione, labelFase, radius, spacing } from '@/lib/theme';
 import {
   cercaPlaces,
   fetchContatti,
@@ -25,7 +25,7 @@ import {
 } from '@/lib/db';
 import { aggiornaValoriTrattative, syncTrattativa } from '@/lib/hubspot';
 import { env } from '@/lib/env';
-import { LINEE_ATTIVE, type Contact, type DealStage } from '@/types';
+import { LINEE_ATTIVE, type Contact, type DealStage, type StatoAffiliazione } from '@/types';
 
 interface Sezione {
   title: string;
@@ -198,10 +198,23 @@ function FiltroChip({ label, on, onPress }: { label: string; on: boolean; onPres
   );
 }
 
+function RegistroBadge({ stato, partner }: { stato: string; partner?: boolean }) {
+  const s = stato as StatoAffiliazione;
+  const colore = coloreAffiliazione[s] ?? colors.grigio;
+  const label = partner ? 'Partner' : (labelAffiliazione[s] ?? stato);
+  return (
+    <View style={styles.regBadge}>
+      <View style={[styles.regDot, { backgroundColor: colore }]} />
+      <Text style={[styles.regTxt, { color: colore }]}>{label}</Text>
+    </View>
+  );
+}
+
 function RigaDeal({ deal }: { deal: TrattativaConLuogo }) {
   const titolo = deal.titolo ?? deal.linea ?? 'Trattativa';
   // Tipologia di interesse (linea Deluxy) come tag, quando distinta dal titolo.
   const tipologia = deal.linea && deal.titolo ? deal.linea : null;
+  const daRegistro = deal.origine === 'anagrafiche';
   return (
     <View style={styles.deal}>
       <View style={styles.dealHead}>
@@ -213,16 +226,27 @@ function RigaDeal({ deal }: { deal: TrattativaConLuogo }) {
         ) : null}
       </View>
       <View style={styles.dealMetaRow}>
-        <View style={styles.faseBadge}>
-          <Text style={styles.faseTxt}>{labelFase[deal.fase]}</Text>
-        </View>
+        {/* Fase: dealstage per Scout/HubSpot; stato registro per le righe da Anagrafiche. */}
+        {daRegistro ? (
+          <RegistroBadge stato={deal.anagrafiche_stato ?? 'in_trattativa'} />
+        ) : (
+          <View style={styles.faseBadge}>
+            <Text style={styles.faseTxt}>{labelFase[deal.fase]}</Text>
+          </View>
+        )}
         {tipologia ? (
           <View style={styles.lineaTag}>
             <Text style={styles.lineaTagTxt}>{tipologia}</Text>
           </View>
         ) : null}
+        {/* Stato registro come info aggiuntiva sui deal Scout/HubSpot schedati. */}
+        {!daRegistro && deal.anagrafiche_stato ? (
+          <RegistroBadge stato={deal.anagrafiche_stato} partner={deal.is_partner} />
+        ) : null}
         {deal.origine === 'hubspot' ? (
           <Text style={styles.hs}>HubSpot</Text>
+        ) : daRegistro ? (
+          <Text style={styles.hs}>Registro</Text>
         ) : deal.hubspot_deal_id ? (
           <Text style={styles.hs}>HubSpot ✓</Text>
         ) : null}
@@ -532,6 +556,17 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   lineaTagTxt: { color: colors.goldStrong, fontWeight: '800', fontSize: 12 },
+  regBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.sfondo,
+    borderRadius: radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  regDot: { width: 7, height: 7, borderRadius: 4 },
+  regTxt: { fontWeight: '800', fontSize: 12 },
   hs: { color: colors.successo, fontWeight: '700', fontSize: 12 },
   nextAction: { color: colors.testoSoft, fontSize: 13 },
 

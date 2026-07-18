@@ -16,7 +16,9 @@ export interface ContattoConLuogo extends Contact {
 export interface TrattativaConLuogo extends Deal {
   place_nome: string | null;
   titolo?: string | null; // nome del deal HubSpot (quando non c'è una linea Scout)
-  origine?: 'scout' | 'hubspot';
+  origine?: 'scout' | 'hubspot' | 'anagrafiche';
+  anagrafiche_stato?: string | null; // stato dal registro Anagrafiche, se il negozio è schedato
+  is_partner?: boolean; // registro = 'attivo' (già cliente/partner)
 }
 
 export async function fetchLinee(): Promise<Linea[]> {
@@ -198,27 +200,80 @@ export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
   })) as ContattoConLuogo[];
 }
 
+/** Normalizza un nome per il match (minuscolo, senza accenti/punteggiatura). */
+function normNome(s: string | null | undefined): string {
+  return (s ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[^a-z0-9]+/g, '')
+    .trim();
+}
+
+interface RegPlace {
+  id: string;
+  nome: string;
+  linea_ipotizzata: string | null;
+  anagrafiche_stato: string | null;
+  hubspot_company_id: string | null;
+}
+
 /**
- * Tutte le trattative, col nome del negozio. Unisce due fonti:
+ * Tutte le trattative, col nome del negozio. Unisce TRE fonti:
  *  1. i deal "nativi" di Scout (tabella `deals`, creati da visita o a mano);
  *  2. le trattative APERTE dalla copia locale del CRM HubSpot (`hubspot_deals`,
- *     sync notturno) — così si vedono anche gli **importi** del pipeline HubSpot
- *     che non nasce da Scout. Dedup per id HubSpot (vince il deal Scout).
+ *     sync notturno) — così si vedono anche gli **importi** del pipeline HubSpot;
+ *  3. i partner del registro **Anagrafiche** con stato `in_trattativa` (che non
+ *     hanno un deal Scout/HubSpot), con la loro **tipologia** (linea).
+ * Ogni riga è arricchita con la **tipologia** e lo **stato registro** del negozio
+ * corrispondente (match per negozio Scout → azienda HubSpot → nome normalizzato).
+ * Dedup: vince Scout, poi HubSpot, poi registro; niente doppioni per negozio.
  */
 export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
+  // Registro Anagrafiche (schedati) — per arricchire tipologia/stato e come fonte 3.
+  const { data: reg } = await supabase
+    .from('places')
+    .select('id, nome, linea_ipotizzata, anagrafiche_stato, hubspot_company_id')
+    .not('anagrafiche_stato', 'is', null);
+  const regPlaces = (reg ?? []) as RegPlace[];
+  const regById = new Map<string, RegPlace>();
+  const regByCompany = new Map<string, RegPlace>();
+  const regByNorm = new Map<string, RegPlace>();
+  for (const r of regPlaces) {
+    regById.set(r.id, r);
+    if (r.hubspot_company_id) regByCompany.set(r.hubspot_company_id, r);
+    const k = normNome(r.nome);
+    if (k && !regByNorm.has(k)) regByNorm.set(k, r);
+  }
+  const trovaReg = (placeId?: string, companyId?: string, ...nomi: (string | null | undefined)[]) => {
+    if (placeId && regById.has(placeId)) return regById.get(placeId);
+    if (companyId && regByCompany.has(companyId)) return regByCompany.get(companyId);
+    for (const n of nomi) {
+      const k = normNome(n);
+      if (k && regByNorm.has(k)) return regByNorm.get(k);
+    }
+    return undefined;
+  };
+  const arricchisci = (row: TrattativaConLuogo, r?: RegPlace) => {
+    if (!r) return row;
+    if (!row.linea) row.linea = r.linea_ipotizzata ?? null;
+    row.anagrafiche_stato = r.anagrafiche_stato ?? null;
+    row.is_partner = r.anagrafiche_stato === 'attivo';
+    return row;
+  };
+
   // 1. Trattative native Scout.
   const { data: scout, error } = await supabase.from('deals').select('*, places(nome)');
   if (error) throw error;
-  const scoutRows: TrattativaConLuogo[] = (scout ?? []).map((r: any) => ({
-    ...r,
-    place_nome: r.places?.nome ?? null,
-    titolo: null,
-    origine: 'scout',
-  }));
+  const scoutRows: TrattativaConLuogo[] = (scout ?? []).map((r: any) =>
+    arricchisci(
+      { ...r, place_nome: r.places?.nome ?? null, titolo: null, origine: 'scout' },
+      trovaReg(r.place_id, undefined, r.places?.nome),
+    ),
+  );
   const hsGiaScout = new Set(scoutRows.map((r) => r.hubspot_deal_id).filter(Boolean));
 
-  // 2. Trattative aperte dal CRM HubSpot (con valore). Se la tabella non esiste
-  //    (copia CRM non ancora popolata) degrada con grazia: mostra solo Scout.
+  // 2. Trattative aperte dal CRM HubSpot (con valore). Degrada con grazia se la
+  //    copia CRM non è popolata (mostra solo Scout + registro).
   const { data: hsDeals } = await supabase
     .from('hubspot_deals')
     .select('hubspot_id, company_hubspot_id, nome, fase, valore, linea, aperta')
@@ -247,9 +302,9 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
     .filter((d: any) => !hsGiaScout.has(d.hubspot_id))
     .map((d: any) => {
       const place = d.company_hubspot_id ? placeByCompany.get(d.company_hubspot_id) : undefined;
-      const nomeNegozio =
-        place?.nome ?? (d.company_hubspot_id ? companyName.get(d.company_hubspot_id) : null) ?? null;
-      return {
+      const nomeAzienda = d.company_hubspot_id ? companyName.get(d.company_hubspot_id) : null;
+      const nomeNegozio = place?.nome ?? nomeAzienda ?? null;
+      const row: TrattativaConLuogo = {
         id: `hs_${d.hubspot_id}`,
         place_id: place?.id ?? '',
         linea: d.linea ?? null,
@@ -261,10 +316,35 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
         place_nome: nomeNegozio,
         titolo: d.nome ?? null,
         origine: 'hubspot',
-      } as TrattativaConLuogo;
+      };
+      return arricchisci(row, trovaReg(place?.id, d.company_hubspot_id, nomeAzienda, nomeNegozio, d.nome));
     });
 
-  return [...scoutRows, ...hsRows];
+  // 3. Registro Anagrafiche: partner in trattativa senza deal Scout/HubSpot.
+  const negoziGiaMostrati = new Set(
+    [...scoutRows, ...hsRows].map((r) => r.place_id).filter(Boolean),
+  );
+  const anaRows: TrattativaConLuogo[] = regPlaces
+    .filter((r) => r.anagrafiche_stato === 'in_trattativa' && !negoziGiaMostrati.has(r.id))
+    .map((r) => ({
+      id: `ana_${r.id}`,
+      place_id: r.id,
+      linea: r.linea_ipotizzata ?? null,
+      // Nessuna dealstage nel registro: la mappiamo a uno stage aperto "medio"
+      // per raggruppamento/filtro; in UI si mostra lo stato registro reale.
+      fase: 'decisionmakerboughtin' as Deal['fase'],
+      valore_atteso: null,
+      next_action: null,
+      owner: null,
+      hubspot_deal_id: null,
+      place_nome: r.nome,
+      titolo: null,
+      origine: 'anagrafiche',
+      anagrafiche_stato: 'in_trattativa',
+      is_partner: false,
+    }));
+
+  return [...scoutRows, ...hsRows, ...anaRows];
 }
 
 export async function aggiornaFaseDeal(dealId: string, fase: Deal['fase']): Promise<void> {
