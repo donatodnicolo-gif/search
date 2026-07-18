@@ -7,6 +7,7 @@ import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { AnagraficheSyncService } from './anagrafiche-sync.service';
 import { CreatePartnerDto, UpdatePartnerDto } from './dto/create-partner.dto';
 
 const PARTNER_INCLUDE = {
@@ -21,6 +22,7 @@ export class PartnersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
+    private readonly anagrafiche: AnagraficheSyncService,
   ) {}
 
   findAll() {
@@ -79,6 +81,8 @@ export class PartnersService {
       },
       actor,
     );
+    // Invia il partner al registro centralizzato Anagrafiche (best-effort, non blocca).
+    this.anagrafiche.sincronizza(partner);
     return partner;
   }
 
@@ -101,7 +105,7 @@ export class PartnersService {
       if (scalar.phone !== undefined) allowed.phone = scalar.phone;
       if (scalar.contactName !== undefined) allowed.contactName = scalar.contactName;
       if (scalar.notes !== undefined) allowed.notes = scalar.notes;
-      return this.prisma.partner.update({
+      const aggiornatoPartner = await this.prisma.partner.update({
         where: { id },
         data: {
           ...allowed,
@@ -111,9 +115,11 @@ export class PartnersService {
         },
         include: PARTNER_INCLUDE,
       });
+      this.anagrafiche.sincronizza(aggiornatoPartner);
+      return aggiornatoPartner;
     }
 
-    return this.prisma.partner.update({
+    const aggiornato = await this.prisma.partner.update({
       where: { id },
       data: {
         ...scalar,
@@ -143,11 +149,19 @@ export class PartnersService {
       },
       include: PARTNER_INCLUDE,
     });
+    this.anagrafiche.sincronizza(aggiornato);
+    return aggiornato;
   }
 
   async remove(id: string) {
     await this.findOne(id);
-    await this.prisma.partner.update({ where: { id }, data: { active: false } });
+    // Disattivazione = soft delete; propagato al registro come stato "dismesso".
+    const disattivato = await this.prisma.partner.update({
+      where: { id },
+      data: { active: false },
+      include: PARTNER_INCLUDE,
+    });
+    this.anagrafiche.sincronizza(disattivato);
     return { deactivated: true };
   }
 

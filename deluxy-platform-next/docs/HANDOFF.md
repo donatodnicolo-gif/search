@@ -106,6 +106,14 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 18/07/2026 (9) — Sync partner → registro Anagrafiche (portata nel branch)
+
+- **Divergenza scoperta**: `AnagraficheSyncService` (invio dei partner al registro centralizzato `deluxy-anagrafiche`) esisteva nella copia `C:\Users\nicol\scoutwt\deluxy-platform-next` ma **mancava** nel branch di lavoro `deluxy-scout` (`C:\Users\nicol\app\deluxy-platform-next`). Prima, creando un partner qui, non partiva alcuna sync.
+- **Portata**: nuovo `api/src/partners/anagrafiche-sync.service.ts` (identico all'altra copia), registrato in `PartnersModule`, iniettato in `PartnersService` e chiamato **fire-and-forget** in `create`, `update` (entrambi i rami: partner-role e admin) e `remove` (soft delete → `stato: dismesso`). Invia `POST {ANAGRAFICHE_URL}/api/v1/partners` con header `x-api-key`, body `{platformId, nome, ragioneSociale, email, pIva, codiceFiscale, indirizzo, telefono, note, categoria, stato, attivo, fonte:'platform', contatti}`.
+- **Config**: legge `ANAGRAFICHE_URL` (default `http://localhost:3060`) e `ANAGRAFICHE_API_KEY` da env. Creato `api/.env.example` (prima assente) con placeholder — **la chiave reale NON è committata** (va nel `.env` locale / env di produzione, generata su anagrafiche con `npm run chiave -- deluxy-platform --scrittura`). Best-effort: senza chiave logga "sync saltata" e prosegue.
+- **Verificato E2E**: mock del registro su :3060 + API con `ANAGRAFICHE_API_KEY` fittizia → creando un partner arriva **POST #1** (`stato: attivo`, `fonte: platform`, contatti, x-api-key corretto); disattivandolo arriva **POST #2** (`stato: dismesso`, `attivo: false`). `nest build` pulito. Partner e utente di test ripuliti dal DB.
+- ⚠️ **Segnalazione**: nella copia `scoutwt` il file `api/.env.example` contiene una **chiave `ANAGRAFICHE_API_KEY` reale committata** (`dlxk_…`) — è una fuga di segreto da revocare/ripulire (qui ho committato solo un placeholder vuoto).
+
 ### 18/07/2026 (8) — Stipendi allineati all'app reale: Ricevute+firma, Reclamo, Esporta, Frequenza (feedback)
 
 Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la mia pagina con `/valet/stipendi` reale (manuale righe 204-205) e implementati i 4 pezzi mancanti (l'utente ha risposto "tutti"):
