@@ -77,6 +77,11 @@ const icons = {
       <path d="M3 4v16h18" />
     </svg>
   ),
+  api: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M8 9l-4 3 4 3M16 9l4 3-4 3M13.5 6l-3 12" />
+    </svg>
+  ),
   impostazioni: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <circle cx="12" cy="12" r="3.2" />
@@ -111,7 +116,10 @@ const sections: { label: string; items: Item[] }[] = [
   },
   {
     label: "Configurazione",
-    items: [{ href: "/impostazioni", label: "Impostazioni", icon: icons.impostazioni }],
+    items: [
+      { href: "/verifiche", label: "API verifiche", icon: icons.api },
+      { href: "/impostazioni", label: "Impostazioni", icon: icons.impostazioni },
+    ],
   },
 ];
 

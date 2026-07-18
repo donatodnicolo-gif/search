@@ -27,6 +27,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // tutto tranne login, callback OAuth, asset statici e file pubblici
-  matcher: ["/((?!login|api/fic/callback|_next/static|_next/image|favicon.ico).*)"],
+  // tutto tranne login, callback OAuth, API pubblica di verifica (auth a chiave),
+  // asset statici e file pubblici
+  matcher: ["/((?!login|api/fic/callback|api/verifiche|_next/static|_next/image|favicon.ico).*)"],
 };

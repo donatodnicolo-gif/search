@@ -150,6 +150,21 @@ model Impostazione {
   valore String
 }
 
+// Storico delle richieste di verifica arrivate via API da altri progetti.
+model RichiestaVerifica {
+  id              String   @id @default(cuid())
+  origine         String? // app chiamante (header X-App o parametro)
+  queryPartner    String // cosa è stato cercato
+  partnerId       String?
+  partnerNome     String?
+  esito           String // trovato | non_trovato | non_autorizzato
+  rispostaSintesi String? // riassunto testuale della situazione tornata
+  ip              String?
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 // Piano commerciale: actual 2025 / actual 2026 / forecast 2026
 // (foglio "Piano commerciale e Forecast")
 model Forecast {
