@@ -6,8 +6,9 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { CreatePartnerDto, UpdatePartnerDto } from './dto/create-partner.dto';
@@ -55,5 +56,43 @@ export class PartnersController {
   @ApiOperation({ summary: 'Disattiva partner (soft delete)' })
   remove(@Param('id') id: string) {
     return this.partnersService.remove(id);
+  }
+
+  // --- Eccezioni per data (chiusure straordinarie / orari speciali) ---
+
+  @Get(':id/day-exceptions')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
+  @ApiOperation({ summary: 'Eccezioni per data del partner (chiusure/orari speciali) in un intervallo' })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  dayExceptions(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.partnersService.getDayExceptions(id, user, from, to);
+  }
+
+  @Put(':id/day-exceptions')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
+  @ApiOperation({ summary: 'Imposta chiusura/orario speciale per una data (upsert)' })
+  upsertDayException(
+    @Param('id') id: string,
+    @Body() dto: { date: string; closed?: boolean; openTime?: string; closeTime?: string; note?: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.partnersService.upsertDayException(id, user, dto);
+  }
+
+  @Delete(':id/day-exceptions/:date')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
+  @ApiOperation({ summary: 'Rimuove l eccezione di una data (torna all orario settimanale)' })
+  removeDayException(
+    @Param('id') id: string,
+    @Param('date') date: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.partnersService.removeDayException(id, user, date);
   }
 }

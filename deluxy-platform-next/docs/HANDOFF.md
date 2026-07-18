@@ -106,6 +106,13 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 18/07/2026 (2) — Calendario: eccezioni per data (chiusure / orari speciali)
+
+- **Modello** `PartnerDayException` (migrazione `20260718062446_partner_day_exception`): `partnerId + date` unique, `closed`, `openTime/closeTime` (orario speciale), `note`. Vince sull'orario settimanale per quel giorno.
+- **Endpoint** in PartnersController: `GET/PUT /partners/:id/day-exceptions` (upsert su partnerId+date; `from/to` per la lista), `DELETE /partners/:id/day-exceptions/:date`. Permesso: PARTNER solo sul proprio id (`assertCanManage`), ADMIN/OPERATION/PM su tutti. DTO inline (no class → il ValidationPipe non lo strippa).
+- **Calendario**: pannello del giorno con editor **Normale / Chiuso / Orario speciale** (+ nota), visibile solo con un partner in contesto (`canEditExceptions`). Marcatura celle: pallino **rosso** = chiuso, **oro** = orario speciale (oltre allo striped per i chiusi). Salva = PUT, "Normale" = DELETE. Ricarica le eccezioni del mese dopo il salvataggio.
+- Verificato E2E: creata via API chiusura (22/07) + orario speciale (23/07) → marcate correttamente; editor precompilato (23/07 = special 10–13); creata una chiusura via UI (24/07) → pallino rosso; poi test ripuliti.
+
 ### 18/07/2026 — Calendario consegne (anche per il partner)
 
 - **Endpoint** `GET /deliveries/calendar?from=&to=` (`DeliveriesService.calendar`): conteggio consegne per giorno (+ per stato), **filtrato per ruolo** (`roleFilter`, il partner vede i suoi). Dichiarato **prima di `:id`** nel controller (come `/map`). Proiezione leggera (date+status), cap 10000.

@@ -202,6 +202,7 @@ model Partner {
   services            PartnerService[]
   categories          PartnerCategory[]
   openingHours        OpeningHour[]
+  dayExceptions       PartnerDayException[]
   products            Product[]
   deliveries          Delivery[]
   customers           Customer[]
@@ -259,6 +260,23 @@ model OpeningHour {
   closeTime String? // "19:30"
   closed    Boolean @default(false)
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+}
+
+// Eccezioni per DATA specifica (chiusura straordinaria o orario speciale):
+// vincono sull'orario settimanale per quel giorno. Una riga per (partner, data).
+model PartnerDayException {
+  id        String   @id @default(cuid())
+  partnerId String
+  date      DateTime // giorno specifico (mezzanotte UTC)
+  closed    Boolean  @default(false)
+  openTime  String? // "09:00" (orario speciale, se non chiuso)
+  closeTime String? // "13:00"
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, date])
 }
 
 // ------------------------------------------------------------

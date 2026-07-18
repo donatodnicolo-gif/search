@@ -242,6 +242,15 @@
     "closed": "Chiuso",
     "closedLegend": "Giorno di chiusura (dai tuoi orari di apertura)",
     "closedNote": "Il negozio risulta chiuso in questo giorno.",
+    "exc": {
+      "title": "Chiusura / orario speciale per questo giorno",
+      "normal": "Normale",
+      "closed": "Chiuso",
+      "special": "Orario speciale",
+      "notePlaceholder": "Nota (facoltativa)",
+      "remove": "Rimuovi",
+      "save": "Salva"
+    },
     "wd": { "mon": "Lun", "tue": "Mar", "wed": "Mer", "thu": "Gio", "fri": "Ven", "sat": "Sab", "sun": "Dom" }
   },
   "deliveries": {

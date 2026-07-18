@@ -1,5 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
@@ -19,7 +20,8 @@ interface DeliveryLite {
   partner?: { insegna: string };
 }
 
-interface Cell { ymd: string; day: number; inMonth: boolean; isToday: boolean; count: number; closed: boolean }
+interface DayException { closed: boolean; openTime?: string | null; closeTime?: string | null; note?: string | null }
+interface Cell { ymd: string; day: number; inMonth: boolean; isToday: boolean; count: number; closed: boolean; exc: 'none' | 'closed' | 'special' }
 
 const STATUS_COLOR: Record<string, string> = {
   created: '#d70015', assigned: '#e6b800', in_preparation: '#ff9500', accepted: '#007aff',
@@ -32,7 +34,7 @@ const STATUS_COLOR: Record<string, string> = {
 @Component({
   selector: 'app-calendar',
   standalone: true,
-  imports: [RouterLink, TranslatePipe],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <div class="page-header">
       <div>
@@ -55,9 +57,11 @@ const STATUS_COLOR: Record<string, string> = {
         <div class="grid">
           @for (c of cells(); track c.ymd) {
             <button type="button" class="cell" [class.out]="!c.inMonth" [class.today]="c.isToday"
-                    [class.has]="c.count > 0" [class.closed]="c.closed" [class.sel]="c.ymd === selected()" (click)="selectDay(c)">
+                    [class.has]="c.count > 0" [class.closed]="c.closed || c.exc === 'closed'" [class.sel]="c.ymd === selected()" (click)="selectDay(c)">
               <span class="dnum">{{ c.day }}</span>
-              @if (c.closed) { <span class="closed-tag">{{ 'calendar.closed' | translate }}</span> }
+              @if (c.closed || c.exc === 'closed') { <span class="closed-tag">{{ 'calendar.closed' | translate }}</span> }
+              @if (c.exc === 'closed') { <span class="exc-dot red"></span> }
+              @else if (c.exc === 'special') { <span class="exc-dot gold"></span> }
               @if (c.count > 0) { <span class="badge">{{ c.count }}</span> }
             </button>
           }
@@ -76,6 +80,30 @@ const STATUS_COLOR: Record<string, string> = {
             <span class="muted">{{ dayItems().length }} {{ (dayItems().length === 1 ? 'calendar.order' : 'calendar.orders') | translate }}</span>
           </header>
           @if (isSelectedClosed()) { <div class="closed-note">{{ 'calendar.closedNote' | translate }}</div> }
+
+          @if (canEditExceptions()) {
+            <div class="exc-editor">
+              <span class="exc-title">{{ 'calendar.exc.title' | translate }}</span>
+              <div class="exc-modes">
+                <label><input type="radio" name="excMode" value="normal" [(ngModel)]="editMode" /><span>{{ 'calendar.exc.normal' | translate }}</span></label>
+                <label><input type="radio" name="excMode" value="closed" [(ngModel)]="editMode" /><span>{{ 'calendar.exc.closed' | translate }}</span></label>
+                <label><input type="radio" name="excMode" value="special" [(ngModel)]="editMode" /><span>{{ 'calendar.exc.special' | translate }}</span></label>
+              </div>
+              @if (editMode === 'special') {
+                <div class="exc-times">
+                  <input class="field time" type="time" [(ngModel)]="editOpen" />
+                  <span>–</span>
+                  <input class="field time" type="time" [(ngModel)]="editClose" />
+                </div>
+              }
+              <input class="field" [(ngModel)]="editNote" [attr.placeholder]="'calendar.exc.notePlaceholder' | translate" />
+              <div class="exc-actions">
+                @if (hasException()) { <button type="button" class="btn btn-secondary" [disabled]="savingExc()" (click)="removeException()">{{ 'calendar.exc.remove' | translate }}</button> }
+                <button type="button" class="btn btn-primary" [disabled]="savingExc()" (click)="saveException()">{{ savingExc() ? ('common.saving' | translate) : ('common.save' | translate) }}</button>
+              </div>
+            </div>
+          }
+
           @if (loadingDay()) { <p class="muted">{{ 'calendar.loading' | translate }}</p> }
           @else if (!dayItems().length) { <p class="muted">{{ 'calendar.noOrders' | translate }}</p> }
           @else {
@@ -125,6 +153,16 @@ const STATUS_COLOR: Record<string, string> = {
       .legend { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12.5px; color: var(--text-tertiary); }
       .chip-closed { width: 22px; height: 14px; border-radius: 4px; background: repeating-linear-gradient(45deg, var(--fill), var(--fill) 4px, rgba(120,120,128,0.12) 4px, rgba(120,120,128,0.12) 8px); border: 1px solid var(--hairline); }
       .closed-note { margin-bottom: 12px; padding: 8px 12px; background: var(--fill); border-radius: 10px; font-size: 12.5px; color: var(--text-secondary); }
+      .exc-dot { position: absolute; bottom: 7px; left: 7px; width: 7px; height: 7px; border-radius: 50%; }
+      .exc-dot.red { background: var(--red); }
+      .exc-dot.gold { background: var(--gold-strong); }
+      .exc-editor { margin: 4px 0 14px; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
+      .exc-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-tertiary); }
+      .exc-modes { display: flex; flex-wrap: wrap; gap: 12px; }
+      .exc-modes label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+      .exc-times { display: flex; align-items: center; gap: 8px; }
+      .exc-times .time { width: 120px; }
+      .exc-actions { display: flex; justify-content: flex-end; gap: 8px; }
       .dnum { font-size: 13px; font-weight: 550; }
       .badge { position: absolute; bottom: 6px; right: 6px; min-width: 20px; height: 20px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; background: var(--ink); color: #fff; border-radius: 980px; font-size: 11.5px; font-weight: 600; }
       .day-panel { padding: 18px 20px; min-height: 200px; }
@@ -156,6 +194,14 @@ export class CalendarComponent {
   private readonly routePartnerId = this.route.snapshot.queryParamMap.get('partnerId');
   /** Nome del partner in visualizzazione (se calendario di un singolo partner). */
   readonly partnerName = signal<string | null>(null);
+  /** Eccezioni per data del partner: YYYY-MM-DD → { closed, openTime, closeTime, note }. */
+  private readonly exceptions = signal<Record<string, DayException>>({});
+  /** Stato dell'editor eccezione (pannello del giorno). */
+  editMode: 'normal' | 'closed' | 'special' = 'normal';
+  editOpen = '';
+  editClose = '';
+  editNote = '';
+  readonly savingExc = signal(false);
   /** Anno/mese visualizzati (mese 0-based). */
   readonly year = signal(new Date().getFullYear());
   readonly month = signal(new Date().getMonth());
@@ -221,11 +267,13 @@ export class CalendarComponent {
     start.setUTCDate(start.getUTCDate() - offset);
     const counts = this.counts();
     const closedWd = this.closedWeekdays();
+    const exc = this.exceptions();
     const cells: Cell[] = [];
     for (let i = 0; i < 42; i++) {
       const d = new Date(start);
       d.setUTCDate(start.getUTCDate() + i);
       const ymd = this.ymd(d);
+      const e = exc[ymd];
       cells.push({
         ymd,
         day: d.getUTCDate(),
@@ -233,6 +281,7 @@ export class CalendarComponent {
         isToday: ymd === this.todayYmd,
         count: counts[ymd] ?? 0,
         closed: closedWd.has(d.getUTCDay()),
+        exc: e ? (e.closed ? 'closed' : 'special') : 'none',
       });
     }
     return cells;
@@ -272,11 +321,29 @@ export class CalendarComponent {
       },
       error: () => this.counts.set({}),
     });
+    this.loadExceptions(from, to);
+  }
+
+  /** Eccezioni per data del partner nel mese visualizzato. */
+  private loadExceptions(from?: string, to?: string): void {
+    const pid = this.targetPartnerId();
+    if (!pid) { this.exceptions.set({}); return; }
+    if (!from) { const c = this.cells(); from = c[0].ymd; to = c[c.length - 1].ymd; }
+    const params = new HttpParams().set('from', from).set('to', to!);
+    this.http.get<DayException & { date: string }[]>(`${environment.apiUrl}/partners/${pid}/day-exceptions`, { params }).subscribe({
+      next: (rows: any) => {
+        const map: Record<string, DayException> = {};
+        for (const r of rows ?? []) map[r.date] = { closed: r.closed, openTime: r.openTime, closeTime: r.closeTime, note: r.note };
+        this.exceptions.set(map);
+      },
+      error: () => this.exceptions.set({}),
+    });
   }
 
   selectDay(c: Cell): void {
-    if (c.count === 0) { this.selected.set(c.ymd); this.dayItems.set([]); return; }
     this.selected.set(c.ymd);
+    this.initEditor(c.ymd);
+    if (c.count === 0) { this.dayItems.set([]); return; }
     this.loadingDay.set(true);
     let params = new HttpParams().set('date', c.ymd).set('pageSize', '100');
     const pid = this.targetPartnerId();
@@ -287,6 +354,15 @@ export class CalendarComponent {
     });
   }
 
+  /** Popola l'editor con l'eccezione esistente per la data (o valori vuoti). */
+  private initEditor(ymd: string): void {
+    const e = this.exceptions()[ymd];
+    this.editMode = e ? (e.closed ? 'closed' : 'special') : 'normal';
+    this.editOpen = e?.openTime ?? '';
+    this.editClose = e?.closeTime ?? '';
+    this.editNote = e?.note ?? '';
+  }
+
   hasClosedDays(): boolean { return this.closedWeekdays().size > 0; }
 
   /** Il giorno selezionato cade in un giorno di chiusura del partner? */
@@ -294,6 +370,49 @@ export class CalendarComponent {
     const s = this.selected();
     if (!s) return false;
     return this.closedWeekdays().has(new Date(s + 'T00:00:00Z').getUTCDay());
+  }
+
+  /** L'editor eccezioni è disponibile solo con un partner in contesto. */
+  canEditExceptions(): boolean {
+    if (!this.targetPartnerId()) return false;
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER' || r === 'PARTNER';
+  }
+
+  /** true se la data selezionata ha già un'eccezione salvata. */
+  hasException(): boolean {
+    const s = this.selected();
+    return !!s && !!this.exceptions()[s];
+  }
+
+  saveException(): void {
+    const pid = this.targetPartnerId();
+    const date = this.selected();
+    if (!pid || !date) return;
+    this.savingExc.set(true);
+    if (this.editMode === 'normal') { this.removeException(); return; }
+    const body = {
+      date,
+      closed: this.editMode === 'closed',
+      openTime: this.editMode === 'special' ? (this.editOpen || undefined) : undefined,
+      closeTime: this.editMode === 'special' ? (this.editClose || undefined) : undefined,
+      note: this.editNote.trim() || undefined,
+    };
+    this.http.put(`${environment.apiUrl}/partners/${pid}/day-exceptions`, body).subscribe({
+      next: () => { this.savingExc.set(false); this.loadExceptions(); },
+      error: () => this.savingExc.set(false),
+    });
+  }
+
+  removeException(): void {
+    const pid = this.targetPartnerId();
+    const date = this.selected();
+    if (!pid || !date) { this.savingExc.set(false); return; }
+    this.savingExc.set(true);
+    this.http.delete(`${environment.apiUrl}/partners/${pid}/day-exceptions/${date}`).subscribe({
+      next: () => { this.savingExc.set(false); this.editMode = 'normal'; this.editOpen = ''; this.editClose = ''; this.editNote = ''; this.loadExceptions(); },
+      error: () => this.savingExc.set(false),
+    });
   }
 
   statusLabel(s: string): string { return DELIVERY_STATUS_LABELS[s] ?? s; }

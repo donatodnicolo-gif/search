@@ -150,4 +150,60 @@ export class PartnersService {
     await this.prisma.partner.update({ where: { id }, data: { active: false } });
     return { deactivated: true };
   }
+
+  // --- Eccezioni per data (chiusure straordinarie / orari speciali) ---
+
+  /** Il partner gestisce solo le proprie eccezioni; admin/operation/PM tutte. */
+  private assertCanManage(partnerId: string, user: JwtUser): void {
+    if (user.role === Role.PARTNER && user.partnerId !== partnerId) {
+      throw new ForbiddenException('Accesso non consentito');
+    }
+  }
+
+  async getDayExceptions(partnerId: string, user: JwtUser, from?: string, to?: string) {
+    this.assertCanManage(partnerId, user);
+    const where: any = { partnerId };
+    if (from || to) {
+      where.date = {};
+      if (from) where.date.gte = new Date(from);
+      if (to) { const t = new Date(to); t.setDate(t.getDate() + 1); where.date.lt = t; }
+    }
+    const rows = await this.prisma.partnerDayException.findMany({ where, orderBy: { date: 'asc' } });
+    return rows.map((r) => ({
+      date: r.date.toISOString().slice(0, 10),
+      closed: r.closed,
+      openTime: r.openTime,
+      closeTime: r.closeTime,
+      note: r.note,
+    }));
+  }
+
+  /** Crea/aggiorna l'eccezione per una data (upsert su partnerId+date). */
+  async upsertDayException(
+    partnerId: string,
+    user: JwtUser,
+    dto: { date: string; closed?: boolean; openTime?: string; closeTime?: string; note?: string },
+  ) {
+    this.assertCanManage(partnerId, user);
+    const date = new Date(dto.date + 'T00:00:00.000Z');
+    const data = {
+      closed: dto.closed ?? false,
+      openTime: dto.closed ? null : (dto.openTime || null),
+      closeTime: dto.closed ? null : (dto.closeTime || null),
+      note: dto.note || null,
+    };
+    const row = await this.prisma.partnerDayException.upsert({
+      where: { partnerId_date: { partnerId, date } },
+      update: data,
+      create: { partnerId, date, ...data },
+    });
+    return { date: row.date.toISOString().slice(0, 10), ...data };
+  }
+
+  async removeDayException(partnerId: string, user: JwtUser, dateStr: string) {
+    this.assertCanManage(partnerId, user);
+    const date = new Date(dateStr + 'T00:00:00.000Z');
+    await this.prisma.partnerDayException.deleteMany({ where: { partnerId, date } });
+    return { deleted: true };
+  }
 }
