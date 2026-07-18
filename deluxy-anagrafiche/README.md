@@ -13,6 +13,63 @@ unica** a cui accedono tutte le app dell'ecosistema Deluxy.
 Stack: Next.js 15 + Prisma + **Postgres condiviso** delle app Deluxy (stesso
 cluster di deluxy-hub e deluxy-partner, schema `anagrafiche`). Porta **3060**.
 
+---
+
+## Per le altre app Deluxy — come integrarsi
+
+Questo è il brief di integrazione: leggetelo prima di far parlare la vostra app
+con Anagrafiche. **Regola d'oro: il registro possiede il record, voi lo leggete;
+scriverci significa proporre, non sovrascrivere.** Non duplicate i dati
+anagrafici nelle vostre app — leggeteli da qui.
+
+### Collegamento (tutte le app)
+
+- Base URL produzione: `https://deluxy-anagrafiche.vercel.app`
+- Autenticazione: header `x-api-key: <chiave-della-tua-app>` (ogni app ha la sua,
+  in una variabile d'ambiente **lato server** — mai nel codice del browser).
+- Le letture (GET) hanno il CORS aperto; le scritture vanno fatte server-to-server.
+
+### Se leggi (tutte le app)
+
+- `GET /api/v1/partners?q=&categoria=&citta=&provincia=&regione=&stato=&interesse=&page=&perPage=`
+  → `{ totale, dati: [...] }`. `q` è multi-parola su **tutti i campi** (anagrafica
+  + referenti); i filtri si combinano in AND. Città e province sono in MAIUSCOLO.
+- `GET /api/v1/partners/:id` — accetta anche il vostro `platformId`.
+- Per "esiste un partner in questa città?" usate i filtri e guardate `totale`.
+- Non tenete una copia locale: rileggete. Se vi serve una cache, invalidatela
+  spesso (in futuro arriveranno webhook sui cambi — vedi Fase 3 dell'architettura).
+
+### Se scrivi (oggi solo la piattaforma consegne; le altre app "segnalano")
+
+- `POST /api/v1/partners` con la chiave di scrittura → **upsert** (201 = creato,
+  200 = aggiornato).
+- **Mandate sempre un vostro identificativo stabile** (oggi `platformId`; a breve
+  `sistema` + `idEsterno` per tutte le app): è così che riconosco il record come
+  vostro ed evito doppioni.
+- Anti-doppioni già attivo: stesso nome + città → aggiorno l'esistente. Le note si
+  **accodano**, non si sovrascrivono.
+- `PATCH /:id` per modifiche mirate; `DELETE /:id` = archiviazione (soft delete).
+- Se la vostra app gira nel browser (es. search/supplier), la scrittura passa da
+  una vostra API route/edge function che fa da proxy: la chiave non esce dal server.
+
+### Regole d'ingaggio
+
+- Scrivete i **campi che osservate davvero** (telefono, email, indirizzo,
+  referenti, data ultimo contatto). Includete una `asOf` col dato: vince il più fresco.
+- **Non impostate voi** `stato`, `interessi`, `categoria` (classificazione),
+  `account`: li cura il team. Se ce li mandate, diventeranno *proposte* da rivedere,
+  non verranno applicati.
+- I **referenti** si fondono per identità: mandate la vostra lista, non cancello
+  quelli inseriti da altri.
+
+> **Live oggi**: upsert, dedup nome+città, note-append, tag di fonte, chiavi per app.
+> **In arrivo (Fase 1 dell'architettura)**: `sistema`+`idEsterno` generalizzato,
+> `asOf`/vince-il-più-fresco, campi bloccati e coda proposte. Includete già
+> `sistema`+`idEsterno` e `asOf` nei vostri POST: oggi li ignoro, ma così non
+> dovrete ritoccare l'integrazione dopo.
+
+---
+
 ## Avvio
 
 ```bash
@@ -42,25 +99,34 @@ L'import è idempotente: rilanciandolo sostituisce solo le anagrafiche con
 
 `Partner`: nome, ragione sociale, categoria (BOUTIQUE, FIORISTA, PASTICCERIA, …),
 stato del ciclo di vita (`prospect`, `in_contatto`, `in_attesa`, `in_trattativa`,
-`da_ricontattare`, `attivo`, `non_interessato`, `dismesso`), città/provincia/regione,
-indirizzo, email, telefono, P.IVA, CF, account commerciale, ultima visita, note,
-`datiExtra` (JSON con i campi specifici del tracker: stime fatturato, fee, …),
-`platformId` (id del partner su app.deluxy.it, chiave dell'upsert), `fonte`
-(`excel` | `platform` | `manuale`), `attivo` (soft delete).
+`da_ricontattare`, `attivo`, `non_interessato`, `dismesso`), `interessi` (array
+multi-scelta: consegne, affiliazione, gifting, catering, eventi, pr_activation,
+in_store, vendor), città/provincia/regione, indirizzo, email, telefono, P.IVA, CF,
+account commerciale, ultima visita, note, `datiExtra` (JSON con i campi specifici
+del tracker: stime fatturato, fee, …), `platformId` (id del partner su
+app.deluxy.it) e `hubspotId` (company del CRM) — entrambi chiavi di riconciliazione
+uniche, `fonte` (`excel` | `platform` | `manuale` | `ui` | `hubspot`), `attivo`
+(soft delete).
 
 `Contatto`: persone di riferimento (ruolo, nome, telefono, email), estratte
-automaticamente dal blocco contatti in testo libero dell'Excel.
+automaticamente dal blocco contatti in testo libero dell'Excel o inviate via API.
+
+`PassaggioStato`: storico dei cambi di stato/archiviazione (da, a, origine, quando).
 
 `ApiKey`: chiavi delle app client; nel DB c'è solo lo SHA-256.
 
 ## Chiavi API
 
 ```bash
-npm run chiave -- deluxy-platform --scrittura   # lettura + scrittura
+npm run chiave -- deluxy-platform --scrittura   # lettura + scrittura (solo la piattaforma consegne)
 npm run chiave -- deluxy-partner                # sola lettura
+npm run chiave -- deluxy-suppliers              # sola lettura
+npm run chiave -- deluxy-scout                  # sola lettura
 ```
 
-La chiave viene stampata una sola volta: copiarla nel `.env` dell'app client.
+La chiave viene stampata una sola volta: copiarla nel `.env` dell'app client
+(consegnarla per canale privato, mai committarla). Il nome usato qui è la
+**sorgente** che comparirà nella provenienza dei dati e nel ranking di fiducia.
 Rilanciare il comando con lo stesso nome rigenera (e revoca) la chiave.
 
 ## API REST (`/api/v1`)
@@ -76,9 +142,9 @@ Autenticazione: header `x-api-key: <chiave>` (oppure `Authorization: Bearer <chi
 | PATCH | `/api/v1/partners/:id` | scrittura | Aggiornamento parziale |
 | DELETE | `/api/v1/partners/:id` | scrittura | Disattiva (soft delete, `attivo=false`) |
 
-Filtri di `GET /partners`: `q` (nome/ragione sociale/email), `categoria`, `citta`,
-`provincia`, `regione`, `stato`, `fonte`, `platformId`, `attivo` (`false` = solo
-disattivati, `tutti` = tutti), `page`, `perPage` (max 200).
+Filtri di `GET /partners`: `q` (multi-parola su tutti i campi e i contatti),
+`categoria`, `citta`, `provincia`, `regione`, `stato`, `fonte`, `platformId`,
+`attivo` (`false` = solo disattivati, `tutti` = tutti), `page`, `perPage` (max 200).
 
 Risposta dell'elenco: `{ totale, pagina, perPagina, dati: [...] }`.
 
@@ -109,12 +175,26 @@ va comunque a buon fine e il mancato invio finisce nei log.
   `AnagraficheSyncService`.
 - **deluxy-partner** (lettura): la scheda partner mostra la card "Anagrafica dal
   registro centralizzato" (`src/components/AnagraficaCard.tsx` +
-  `src/lib/anagrafiche.ts`), con match per nome. Limite noto: se più anagrafiche
-  hanno lo stesso nome (es. una catena in più città) viene mostrata la prima.
+  `src/lib/anagrafiche.ts`), con match per nome.
+- **deluxy-suppliers**, **deluxy-scout**: chiavi di sola lettura già generate,
+  pronte per l'integrazione (stesso schema di `src/lib/anagrafiche.ts`).
+
+## Architettura di scrittura (multi-sorgente)
+
+Il registro è la fonte di verità: ogni scrittura in arrivo è un *merge* governato
+da regole per campo (curati dal team = bloccati, fattuali = vince il più fresco,
+additivi = si accumulano), mai una sostituzione. Identità risolta per
+riferimento esterno → chiave legale → nome+città. Vedi la nota di architettura
+per il modello completo (riferimenti esterni, provenienza per campo, coda proposte)
+e le fasi di realizzazione.
 
 ## UI
 
-- `/` — elenco con ricerca e filtri (categoria, città, stato) e paginazione
-- `/partner/:id` — scheda con anagrafica, persone di riferimento, note e dati del tracker
+- `/` — Visione globale: elenco con ricerca su tutti i campi, filtri, ordinamenti,
+  sezione Novità, cambio stato/interessi in riga, archiviazione, riconciliazione HubSpot
+- `/dashboard` — analisi (funnel, aree, interessi, qualità dati) con macro-filtri
+- `/sync-hubspot` — confronto e riconciliazione col CRM HubSpot
+- `/partner/:id` — scheda con anagrafica, referenti, note, storico stati; `/partner/:id/modifica` per l'edit
+- Sidebar con sezioni a espansione: tipologie, stati, interessi, archivio, sync
 
 La UI segue il Deluxy Design System v1.0 (`deluxy-design-system/DESIGN-SYSTEM.md`).
