@@ -112,7 +112,7 @@ export function daRicontattare(places: Place[], visits: Visit[], oggi: Date = ne
   return out.sort((a, b) => Number(b.inRitardo) - Number(a.inRitardo) || b.giorni - a.giorni);
 }
 
-export function chiusePerse(deals: Deal[]): Deal[] {
+export function chiusePerse<T extends Deal>(deals: T[]): T[] {
   return deals.filter((d) => d.fase === 'closedlost');
 }
 
@@ -242,7 +242,73 @@ export function attivitaPerGiorno(visits: Visit[], ownerId: string | null): Gior
     });
 }
 
-export function followupAffiliazioni(deals: Deal[]): Deal[] {
+// ── Analisi trattative (valori pipeline) ───────────────────────────────────────
+
+export interface ValoreTrattative {
+  aperto: number; // valore atteso dei deal ancora aperti
+  vinto: number; // valore dei closedwon
+  perso: number; // valore dei closedlost
+  nAperti: number;
+  nVinti: number;
+  nPersi: number;
+}
+
+/** Somma i valori dei deal per stato (aperto / vinto / perso). */
+export function valoreTrattative(deals: Deal[]): ValoreTrattative {
+  const r: ValoreTrattative = { aperto: 0, vinto: 0, perso: 0, nAperti: 0, nVinti: 0, nPersi: 0 };
+  for (const d of deals) {
+    const v = d.valore_atteso ?? 0;
+    if (d.fase === 'closedwon') {
+      r.vinto += v;
+      r.nVinti += 1;
+    } else if (d.fase === 'closedlost') {
+      r.perso += v;
+      r.nPersi += 1;
+    } else {
+      r.aperto += v;
+      r.nAperti += 1;
+    }
+  }
+  return r;
+}
+
+/** Tasso di vittoria: vinte / (vinte + perse). */
+export function winRate(deals: Deal[]): { pct: number; num: number; den: number } {
+  const num = deals.filter((d) => d.fase === 'closedwon').length;
+  const den = deals.filter((d) => d.fase === 'closedwon' || d.fase === 'closedlost').length;
+  return { pct: den ? Math.round((num / den) * 100) : 0, num, den };
+}
+
+/** Numero di deal per fase (per un funnel/istogramma). Ritorna le fasi grezze. */
+export function dealPerFase(deals: Deal[]): { fase: Deal['fase']; value: number }[] {
+  const ordine: Deal['fase'][] = [
+    'appointmentscheduled',
+    'decisionmakerboughtin',
+    'contractsent',
+    'closedwon',
+    'closedlost',
+  ];
+  const conteggio = new Map<string, number>();
+  for (const d of deals) conteggio.set(d.fase, (conteggio.get(d.fase) ?? 0) + 1);
+  return ordine
+    .filter((f) => conteggio.has(f))
+    .map((fase) => ({ fase, value: conteggio.get(fase) ?? 0 }));
+}
+
+/** Valore ATTESO (deal aperti) sommato per linea. */
+export function valorePerLinea(deals: Deal[]): BarDatum[] {
+  const aperti = deals.filter((d) => d.fase !== 'closedwon' && d.fase !== 'closedlost');
+  const somma = new Map<string, number>();
+  for (const d of aperti) {
+    const k = d.linea ?? 'n/d';
+    somma.set(k, (somma.get(k) ?? 0) + (d.valore_atteso ?? 0));
+  }
+  return Array.from(somma.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
+}
+
+export function followupAffiliazioni<T extends Deal>(deals: T[]): T[] {
   const linee = ['Affiliazioni', 'Re-seller'];
   return deals.filter(
     (d) => d.linea && linee.includes(d.linea) && d.fase !== 'closedwon' && d.fase !== 'closedlost',

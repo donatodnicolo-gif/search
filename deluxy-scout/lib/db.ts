@@ -20,6 +20,7 @@ export interface TrattativaConLuogo extends Deal {
   anagrafiche_stato?: string | null; // stato dal registro Anagrafiche, se il negozio è schedato
   is_partner?: boolean; // registro = 'attivo' (già cliente/partner)
   owner_nome?: string | null; // nome del venditore che possiede la trattativa
+  place_zona?: string | null; // zona/area del negozio (per i filtri della Dashboard)
 }
 
 export async function fetchLinee(): Promise<Linea[]> {
@@ -213,6 +214,7 @@ function normNome(s: string | null | undefined): string {
 interface RegPlace {
   id: string;
   nome: string;
+  zona: string | null;
   linea_ipotizzata: string | null;
   anagrafiche_stato: string | null;
   hubspot_company_id: string | null;
@@ -233,7 +235,7 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
   // Registro Anagrafiche (schedati) — per arricchire tipologia/stato e come fonte 3.
   const { data: reg } = await supabase
     .from('places')
-    .select('id, nome, linea_ipotizzata, anagrafiche_stato, hubspot_company_id')
+    .select('id, nome, zona, linea_ipotizzata, anagrafiche_stato, hubspot_company_id')
     .not('anagrafiche_stato', 'is', null);
   const regPlaces = (reg ?? []) as RegPlace[];
   const regById = new Map<string, RegPlace>();
@@ -263,11 +265,11 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
   };
 
   // 1. Trattative native Scout.
-  const { data: scout, error } = await supabase.from('deals').select('*, places(nome)');
+  const { data: scout, error } = await supabase.from('deals').select('*, places(nome, zona)');
   if (error) throw error;
   const scoutRows: TrattativaConLuogo[] = (scout ?? []).map((r: any) =>
     arricchisci(
-      { ...r, place_nome: r.places?.nome ?? null, titolo: null, origine: 'scout' },
+      { ...r, place_nome: r.places?.nome ?? null, place_zona: r.places?.zona ?? null, titolo: null, origine: 'scout' },
       trovaReg(r.place_id, undefined, r.places?.nome),
     ),
   );
@@ -284,14 +286,14 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
   const companyIds = [
     ...new Set((hsDeals ?? []).map((d: any) => d.company_hubspot_id).filter(Boolean)),
   ];
-  const placeByCompany = new Map<string, { id: string; nome: string }>();
+  const placeByCompany = new Map<string, { id: string; nome: string; zona: string | null }>();
   const companyName = new Map<string, string>();
   if (companyIds.length) {
     const { data: places } = await supabase
       .from('places')
-      .select('id, nome, hubspot_company_id')
+      .select('id, nome, zona, hubspot_company_id')
       .in('hubspot_company_id', companyIds);
-    for (const p of places ?? []) placeByCompany.set(p.hubspot_company_id, { id: p.id, nome: p.nome });
+    for (const p of places ?? []) placeByCompany.set(p.hubspot_company_id, { id: p.id, nome: p.nome, zona: p.zona });
     const { data: comps } = await supabase
       .from('hubspot_companies')
       .select('hubspot_id, nome')
@@ -315,6 +317,7 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
         owner: null,
         hubspot_deal_id: d.hubspot_id,
         place_nome: nomeNegozio,
+        place_zona: place?.zona ?? null,
         titolo: d.nome ?? null,
         origine: 'hubspot',
       };
@@ -339,6 +342,7 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
       owner: null,
       hubspot_deal_id: null,
       place_nome: r.nome,
+      place_zona: r.zona ?? null,
       titolo: null,
       origine: 'anagrafiche',
       anagrafiche_stato: 'in_trattativa',
