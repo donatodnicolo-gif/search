@@ -40,8 +40,30 @@ model Partner {
   fatture                FatturaServizio[]
   vendite                VenditaVendor[]
   saldi                  SaldoMensile[]
+  transazioni            TransazioneBancaria[]
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
+}
+
+// Movimento dell'estratto conto importato da CSV/XLSX.
+// hash = impronta di (data, importo, descrizione) per non duplicare
+// ricaricando lo stesso estratto o periodi sovrapposti.
+model TransazioneBancaria {
+  id          String   @id @default(cuid())
+  data        DateTime
+  importo     Float // > 0 accredito, < 0 addebito
+  divisa      String   @default("EUR")
+  descrizione String
+  controparte String?
+  hash        String   @unique
+  fonte       String? // nome del file importato
+  stato       String   @default("nuova") // nuova | registrata | ignorata
+  esito       String? // annotazione dell'azione fatta (es. "fattura 181/2026 saldata")
+  partnerId   String?
+  partner     Partner? @relation(fields: [partnerId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([stato, data])
 }
 
 // Tipologia di servizio (aree del foglio "Piano Per Area")

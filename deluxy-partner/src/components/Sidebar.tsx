@@ -58,6 +58,12 @@ const icons = {
       <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
     </svg>
   ),
+  transazioni: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M4 8h13M14 4.5 17.5 8 14 11.5" />
+      <path d="M20 16H7M10 12.5 6.5 16l3.5 3.5" />
+    </svg>
+  ),
   confronti: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <path d="M7 17l4-6 3 3 4.5-7" />
@@ -89,6 +95,7 @@ const sections: { label: string; items: Item[] }[] = [
     label: "Amministrazione",
     items: [
       { href: "/saldi", label: "Saldi e bonifici", icon: icons.saldi },
+      { href: "/transazioni", label: "Import transazioni", icon: icons.transazioni },
       { href: "/scadenzario", label: "Scadenzario", icon: icons.scadenze },
       { href: "/report", label: "Report", icon: icons.report },
       { href: "/confronti", label: "Confronti", icon: icons.confronti },

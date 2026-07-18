@@ -20,6 +20,7 @@ La gestione partner viveva in `PARTNER.xlsx`: un foglio per partner/anno con blo
 | **Report** | "Piano Per Area" + rolling | Andamento mensile, per tipologia/città/categoria, top partner, forecast vs actual dal piano commerciale |
 | **Confronti** | — (non esisteva) | 2026 vs 2025 su dati reali (ledger 2025 importato dal foglio "Database clienti 2025"), per mese, trimestre, anno o periodo personalizzato, per partner con Δ € e Δ % |
 | **Export SEPA** | — (non esisteva) | Distinta bonifici del mese in pain.001.001.03 (XML) da caricare in home banking + CSV di controllo |
+| **Import transazioni** | — (non esisteva) | Upload estratto conto CSV/XLSX (parser tollerante, dedup per hash), riconciliazione automatica con fatture e dovuti (numero fattura in causale → importo esatto → nome/ragione sociale → causale SEPA), conferma a 1 click, discrepanze spiegate e lista degli attesi assenti dall'estratto — è la Fase B della roadmap, in versione manuale |
 
 ### Le formule (motore `src/lib/calc.ts`)
 
