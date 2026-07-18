@@ -440,13 +440,13 @@ export async function aggiornaStarred(placeId: string, starred: boolean): Promis
 export async function fetchMieiTask(): Promise<Task[]> {
   const { data, error } = await supabase
     .from('tasks')
-    .select('*')
+    .select('*, places(nome)')
     .order('completata', { ascending: true })
     .order('scadenza', { ascending: true, nullsFirst: false })
     .order('priorita', { ascending: true })
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data ?? []) as Task[];
+  return (data ?? []).map((r: any) => ({ ...r, place_nome: r.places?.nome ?? null })) as Task[];
 }
 
 /** Crea un task per l'utente corrente (owner via default auth.uid()). */

@@ -178,6 +178,7 @@ export interface Task {
   place_id: string | null;
   created_at: string;
   completata_at: string | null;
+  place_nome?: string | null; // nome del negozio collegato (join, opzionale)
 }
 
 export interface Profilo {

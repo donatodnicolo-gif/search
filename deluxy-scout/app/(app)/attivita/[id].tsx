@@ -10,6 +10,7 @@ import { env } from '@/lib/env';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
 import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
+import { CreaTaskModal } from '@/components/CreaTaskModal';
 import { Loader } from '../../_layout';
 
 export default function SchedaAttivita() {
@@ -25,6 +26,7 @@ export default function SchedaAttivita() {
   const [matchErrore, setMatchErrore] = useState<string | null>(null);
   const [scartati, setScartati] = useState<string[]>([]);
   const [aziendeScartate, setAziendeScartate] = useState<string[]>([]);
+  const [taskAperto, setTaskAperto] = useState(false);
 
   // Conciliazione: cerca nella copia locale HubSpot azienda/contatti del negozio,
   // escludendo le aziende già rifiutate e i contatti "non pertinenti".
@@ -195,9 +197,19 @@ export default function SchedaAttivita() {
           onChange={salvaLinee}
         />
 
-        <Pressable style={styles.btnVisita} onPress={() => router.push(`/(app)/visita/${place.id}`)}>
-          <Text style={styles.btnVisitaTxt}>+ Nuova visita</Text>
-        </Pressable>
+        <View style={styles.azioniRow}>
+          <Pressable style={[styles.btnVisita, { flex: 1, marginTop: 0 }]} onPress={() => router.push(`/(app)/visita/${place.id}`)}>
+            <Text style={styles.btnVisitaTxt}>+ Nuova visita</Text>
+          </Pressable>
+          <Pressable style={styles.btnTask} onPress={() => setTaskAperto(true)}>
+            <Ionicons name="checkbox-outline" size={16} color={colors.navy} />
+            <Text style={styles.btnTaskTxt}>Task</Text>
+          </Pressable>
+        </View>
+
+        {taskAperto ? (
+          <CreaTaskModal placeId={place.id} placeNome={place.nome} onClose={() => setTaskAperto(false)} />
+        ) : null}
 
         <Sezione titolo="Contatti">
           {contatti.length === 0 ? (
@@ -350,6 +362,18 @@ const styles = StyleSheet.create({
   },
   btnVisitaTxt: { color: colors.navy, fontWeight: '900', fontSize: 17 },
   azioniRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  btnTask: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: colors.grigioChiaro,
+    backgroundColor: colors.bianco,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+  },
+  btnTaskTxt: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   btnNaviga: {
     borderWidth: 1.5,
     borderColor: colors.navy,

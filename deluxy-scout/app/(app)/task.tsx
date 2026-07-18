@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type { Priorita, Task } from '@/types';
 import { colors, coloreProprita, radius, spacing } from '@/lib/theme';
 import { completaTask, eliminaTask, fetchMieiTask, inserisciTask } from '@/lib/db';
@@ -50,6 +50,7 @@ const SCAD_OPT: { label: string; giorni: number | null }[] = [
 ];
 
 export default function TaskScreen() {
+  const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [titolo, setTitolo] = useState('');
@@ -188,7 +189,13 @@ export default function TaskScreen() {
         <>
           <Text style={styles.sezione}>Da fare ({aperti.length})</Text>
           {aperti.map((t) => (
-            <RigaTask key={t.id} t={t} onToggle={() => toggle(t)} onDelete={() => rimuovi(t)} />
+            <RigaTask
+              key={t.id}
+              t={t}
+              onToggle={() => toggle(t)}
+              onDelete={() => rimuovi(t)}
+              onOpen={t.place_id ? () => router.push(`/(app)/attivita/${t.place_id}`) : undefined}
+            />
           ))}
         </>
       ) : null}
@@ -197,7 +204,13 @@ export default function TaskScreen() {
         <>
           <Text style={[styles.sezione, { marginTop: spacing.lg }]}>Completati ({fatti.length})</Text>
           {fatti.map((t) => (
-            <RigaTask key={t.id} t={t} onToggle={() => toggle(t)} onDelete={() => rimuovi(t)} />
+            <RigaTask
+              key={t.id}
+              t={t}
+              onToggle={() => toggle(t)}
+              onDelete={() => rimuovi(t)}
+              onOpen={t.place_id ? () => router.push(`/(app)/attivita/${t.place_id}`) : undefined}
+            />
           ))}
         </>
       ) : null}
@@ -205,7 +218,17 @@ export default function TaskScreen() {
   );
 }
 
-function RigaTask({ t, onToggle, onDelete }: { t: Task; onToggle: () => void; onDelete: () => void }) {
+function RigaTask({
+  t,
+  onToggle,
+  onDelete,
+  onOpen,
+}: {
+  t: Task;
+  onToggle: () => void;
+  onDelete: () => void;
+  onOpen?: () => void;
+}) {
   const sc = scadenzaInfo(t.scadenza);
   return (
     <View style={styles.riga}>
@@ -216,11 +239,11 @@ function RigaTask({ t, onToggle, onDelete }: { t: Task; onToggle: () => void; on
           color={t.completata ? colors.successo : coloreProprita[t.priorita]}
         />
       </Pressable>
-      <View style={styles.rigaInfo}>
+      <Pressable style={styles.rigaInfo} onPress={onOpen} disabled={!onOpen}>
         <Text style={[styles.titolo, t.completata && styles.titoloFatto]} numberOfLines={2}>
           {t.titolo}
         </Text>
-        {sc || !t.completata ? (
+        {sc || !t.completata || t.place_nome ? (
           <View style={styles.metaRow}>
             {!t.completata ? <View style={[styles.dot, { backgroundColor: coloreProprita[t.priorita] }]} /> : null}
             {sc ? (
@@ -233,9 +256,18 @@ function RigaTask({ t, onToggle, onDelete }: { t: Task; onToggle: () => void; on
                 <Text style={[styles.meta, sc.ritardo && !t.completata && styles.metaRitardo]}>{sc.txt}</Text>
               </>
             ) : null}
+            {t.place_nome ? (
+              <>
+                {sc ? <Text style={styles.metaSep}>·</Text> : null}
+                <Ionicons name="storefront-outline" size={12} color={colors.oro} />
+                <Text style={[styles.meta, { color: colors.goldStrong }]} numberOfLines={1}>
+                  {t.place_nome}
+                </Text>
+              </>
+            ) : null}
           </View>
         ) : null}
-      </View>
+      </Pressable>
       <Pressable onPress={onDelete} hitSlop={8} style={styles.del}>
         <Ionicons name="trash-outline" size={18} color={colors.grigio} />
       </Pressable>
@@ -310,7 +342,8 @@ const styles = StyleSheet.create({
   rigaInfo: { flex: 1, gap: 2 },
   titolo: { color: colors.testo, fontWeight: '700', fontSize: 15 },
   titoloFatto: { color: colors.grigio, textDecorationLine: 'line-through', fontWeight: '600' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
+  metaSep: { color: colors.grigioChiaro, fontSize: 12 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   meta: { color: colors.testoSoft, fontSize: 12, fontWeight: '600' },
   metaRitardo: { color: colors.errore, fontWeight: '800' },
