@@ -100,7 +100,9 @@ export function catalogoApp(): AppDeluxy[] {
     },
   ];
 
-  return app.filter((a): a is AppDeluxy => a.url !== null);
+  return app
+    .filter((a): a is AppDeluxy => a.url !== null)
+    .sort((a, b) => a.nome.localeCompare(b.nome, "it")); // ordine alfabetico A→Z
 }
 
 // Le app suggerite per un ruolo: servono da preselezione quando si crea un
