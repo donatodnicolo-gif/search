@@ -316,6 +316,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/users-list.component').then((m) => m.UsersListComponent),
       },
+      // ---- Stipendi (Amministrazione) ----
+      {
+        path: 'salaries',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'VALET'] },
+        loadComponent: () =>
+          import('./pages/salaries-list.component').then((m) => m.SalariesListComponent),
+      },
       // ---- Impostazioni (chiavi API, solo admin) ----
       {
         path: 'settings',
@@ -330,7 +338,6 @@ export const routes: Routes = [
         { path: 'sales', title: 'Vendite', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
         { path: 'sms-templates', title: 'Modelli SMS', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
         { path: 'availability', title: 'Disponibilita', roles: ['VALET'] },
-        { path: 'salaries', title: 'Stipendi', roles: ['ADMIN', 'OPERATION', 'VALET'] },
         { path: 'payments', title: 'Pagamenti', roles: ['ADMIN', 'OPERATION', 'VALET'] },
         { path: 'delivery-rules', title: 'Regole carnet', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
         { path: 'provinces', title: 'Province e citta', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },

@@ -262,6 +262,43 @@
     },
     "wd": { "mon": "Lun", "tue": "Mar", "wed": "Mer", "thu": "Gio", "fri": "Ven", "sat": "Sab", "sun": "Dom" }
   },
+  "salaries": {
+    "title": "Stipendi",
+    "caption": "Genera e gestisci gli stipendi dei valet: pro-forma (con P.IVA) o ricevuta con ritenuta.",
+    "allValets": "Tutti i valet",
+    "generate": "Genera stipendi",
+    "empty": "Nessuno stipendio.",
+    "gen": {
+      "valet": "Valet",
+      "pickValet": "Seleziona valet…",
+      "from": "Periodo — dal",
+      "to": "Periodo — al",
+      "hint": "Somma le paghe delle consegne effettuate nel periodo, meno i contanti incassati alla consegna. Il documento (pro-forma o ricevuta) dipende dalla P.IVA del valet.",
+      "run": "Genera",
+      "required": "Seleziona valet e periodo.",
+      "done": "Stipendio generato ✓"
+    },
+    "col": {
+      "valet": "Valet",
+      "period": "Periodo",
+      "gross": "Lordo",
+      "cash": "Contanti",
+      "net": "Netto",
+      "document": "Documento",
+      "status": "Stato",
+      "actions": "Azioni"
+    },
+    "doc": {
+      "PROFORMA_INVOICE": "Pro-forma fattura",
+      "WITHHOLDING_RECEIPT": "Ricevuta ritenuta"
+    },
+    "action": {
+      "send": "Invia",
+      "genReceipt": "Genera ricevuta",
+      "approve": "Approva",
+      "markPaid": "Segna pagato"
+    }
+  },
   "deliveries": {
     "title": "Consegne",
     "caption": "Tutte le consegne della rete, in tempo reale.",

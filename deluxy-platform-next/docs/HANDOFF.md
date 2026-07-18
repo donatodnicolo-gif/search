@@ -106,6 +106,13 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 18/07/2026 (5) — Sezione Stipendi (frontend, era stub)
+
+- Backend già presente e funzionale (`SalariesService` in `api/src/salaries/salaries.module.ts`): `GET /salaries` (role-scoped, il valet vede i propri), `POST /salaries/generate` (somma `valetSalary` delle consegne `delivered`/`delivered_time_approved` nel periodo, meno i contanti `paymentOnDelivery`; documento pro-forma se `valet.hasVat` else ricevuta ritenuta), `PATCH /salaries/:id/status` (flusso DRAFT→SENT→RECEIPT_PENDING→APPROVED→PAID; a RECEIPT_PENDING crea una `Receipt`). **Fix**: aggiunto `@Roles(ADMIN, OPERATION)` all'avanzamento stato (prima qualsiasi autenticato).
+- **Pagina** `/salaries` (`SalariesListComponent`, sostituisce lo stub): lista (valet, periodo, lordo, contanti, netto, documento, stato a pill), **filtro valet**, pannello **Genera stipendi** (valet+periodo), **avanzamento stato** con un'azione per passo (Invia/Genera ricevuta/Approva/Segna pagato) solo per admin/operation. i18n `salaries.*`.
+- Verificato E2E: generato stipendio per Neri (ricevuta ritenuta, 0€ perché nessuna consegna consegnata nel periodo demo), avanzato DRAFT→SENT via API e pagina renderizza correttamente. Dati di test ripuliti.
+- ⚠️ **Da fare più avanti**: upload ricevuta firmata dal valet (file), reclamo/claim per riga (come app reale), export, e collegare i contanti/plus-minus reali sulle consegne. Manca ancora **Pagamenti** (`/payments`), **Regole carnet**, **Finanza** (stub).
+
 ### 18/07/2026 (4) — Calendario: pulsante "Vai al giorno"
 
 - Pannello del giorno del calendario: bottone **"Vai al giorno"** → `/deliveries?date=<giorno>`. La lista consegne ora legge il query param `date` all'avvio (nel constructor, prima di `load()`) e preimposta `dateFilter`. Filtrato per ruolo (il partner/valet vede i suoi). Verificato: da un giorno del calendario si apre la lista con il filtro data attivo e le consegne di quel giorno.

@@ -262,6 +262,43 @@
     },
     "wd": { "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun" }
   },
+  "salaries": {
+    "title": "Salaries",
+    "caption": "Generate and manage valet salaries: pro-forma (with VAT) or withholding receipt.",
+    "allValets": "All valets",
+    "generate": "Generate salaries",
+    "empty": "No salaries.",
+    "gen": {
+      "valet": "Valet",
+      "pickValet": "Select valet…",
+      "from": "Period — from",
+      "to": "Period — to",
+      "hint": "Sums the pay of deliveries completed in the period, minus cash collected on delivery. The document (pro-forma or receipt) depends on the valet's VAT status.",
+      "run": "Generate",
+      "required": "Select valet and period.",
+      "done": "Salary generated ✓"
+    },
+    "col": {
+      "valet": "Valet",
+      "period": "Period",
+      "gross": "Gross",
+      "cash": "Cash",
+      "net": "Net",
+      "document": "Document",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "doc": {
+      "PROFORMA_INVOICE": "Pro-forma invoice",
+      "WITHHOLDING_RECEIPT": "Withholding receipt"
+    },
+    "action": {
+      "send": "Send",
+      "genReceipt": "Generate receipt",
+      "approve": "Approve",
+      "markPaid": "Mark paid"
+    }
+  },
   "deliveries": {
     "title": "Deliveries",
     "caption": "All the network's deliveries, in real time.",

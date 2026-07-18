@@ -109,6 +109,7 @@ export class SalariesController {
   }
 
   @Patch(':id/status')
+  @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Avanza il flusso: DRAFT->SENT->RECEIPT_PENDING->APPROVED->PAID' })
   updateStatus(@Param('id') id: string, @Body() body: { status: SalaryStatus }) {
     return this.salariesService.updateStatus(id, body.status);
