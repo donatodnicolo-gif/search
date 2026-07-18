@@ -196,10 +196,19 @@ export default async function Scadenzario({
                     <td>{nomeMese(x.mese)}</td>
                     <td className="num">{euro(x.r.vendite)}</td>
                     <td className="num">{euro(x.r.commissioni)}</td>
-                    <td>
-                      <Link className="btn small secondary" href={`/saldi?anno=${anno}&mese=${x.mese}&q=${encodeURIComponent(x.partner.nome.slice(0, 12))}`}>
-                        Gestisci
-                      </Link>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <span style={{ display: "inline-flex", gap: 6 }}>
+                        <Link
+                          className="btn small primary"
+                          href={`/fic/emetti?partnerId=${x.partner.id}&anno=${anno}&mese=${x.mese}`}
+                          title="Crea la fattura commissioni su Fatture in Cloud (non inviata)"
+                        >
+                          Emetti su FIC
+                        </Link>
+                        <Link className="btn small secondary" href={`/saldi?anno=${anno}&mese=${x.mese}&q=${encodeURIComponent(x.partner.nome.slice(0, 12))}`}>
+                          Gestisci
+                        </Link>
+                      </span>
                     </td>
                   </tr>
                 ))}

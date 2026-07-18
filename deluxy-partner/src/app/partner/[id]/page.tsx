@@ -211,7 +211,16 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                         {saldo?.commFattEmessa ? (
                           <span className="badge green"><span className="dot" />Fatt. comm. {saldo.commFattNumero ?? ""}</span>
                         ) : (
-                          <span className="badge neutral"><span className="dot" />Fatt. comm. da emettere</span>
+                          <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                            <span className="badge neutral"><span className="dot" />Fatt. comm. da emettere</span>
+                            <Link
+                              className="btn small secondary"
+                              href={`/fic/emetti?partnerId=${partner.id}&anno=${anno}&mese=${mese}`}
+                              title="Crea la fattura commissioni su Fatture in Cloud"
+                            >
+                              Emetti
+                            </Link>
+                          </span>
                         )}
                       </td>
                       <td className="num">{euro(v.incassoLordo)} <span className="muted">→ dovuto {euro(dovutoVendita(v))}</span></td>

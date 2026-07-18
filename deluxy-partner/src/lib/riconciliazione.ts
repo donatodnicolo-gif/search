@@ -42,13 +42,15 @@ export function tokenPartner(nome: string): string[] {
 }
 
 export function matchPartner(testo: string, partners: Partner[]): Partner | null {
-  const t = normalizza(testo);
+  // confronto per PAROLE INTERE, non per sottostringa ("FIORE" non deve
+  // combaciare con "FIORERIA")
+  const parole = new Set(normalizza(testo).split(" "));
   let migliore: Partner | null = null;
   let migliorPunteggio = 0;
   for (const p of partners) {
     const tokens = tokenPartner(p.nome);
     if (!tokens.length) continue;
-    const presenti = tokens.filter((tok) => t.includes(tok));
+    const presenti = tokens.filter((tok) => parole.has(tok));
     if (!presenti.length) continue;
     // serve un token forte (>=5 caratteri) o almeno due token
     const forte = presenti.some((tok) => tok.length >= 5);

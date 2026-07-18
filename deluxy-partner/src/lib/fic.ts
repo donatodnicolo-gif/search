@@ -116,6 +116,62 @@ export async function ficFetch<T = unknown>(path: string, init?: RequestInit): P
   return (await res.json()) as T;
 }
 
+export type FicCliente = { id: number; name: string; vat_number?: string | null };
+
+// Elenco clienti dell'azienda (paginato)
+export async function ficClienti(): Promise<FicCliente[]> {
+  const { companyId } = await ficStato();
+  if (!companyId) throw new Error("Fatture in Cloud non collegato.");
+  const clienti: FicCliente[] = [];
+  for (let page = 1; page <= 30; page++) {
+    const r = await ficFetch<{ data: FicCliente[]; last_page?: number }>(
+      `/c/${companyId}/entities/clients?fields=id,name,vat_number&per_page=100&page=${page}`
+    );
+    clienti.push(...r.data);
+    if (!r.last_page || page >= r.last_page) break;
+  }
+  return clienti;
+}
+
+// Crea una fattura (NON inviata allo SDI: l'invio si fa da Fatture in Cloud
+// dopo il controllo). Il numero viene assegnato da Fatture in Cloud e
+// restituito qui.
+export async function ficCreaFattura(opts: {
+  clienteId: number;
+  descrizione: string;
+  imponibile: number;
+  visibleSubject?: string;
+}): Promise<{ id: number; numero: string }> {
+  const { companyId } = await ficStato();
+  if (!companyId) throw new Error("Fatture in Cloud non collegato.");
+  const oggi = new Date().toISOString().slice(0, 10);
+  const r = await ficFetch<{ data: { id: number; number: number; numeration: string | null; date: string } }>(
+    `/c/${companyId}/issued_documents`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        data: {
+          type: "invoice",
+          entity: { id: opts.clienteId },
+          date: oggi,
+          visible_subject: opts.visibleSubject ?? "",
+          items_list: [
+            {
+              name: opts.descrizione,
+              qty: 1,
+              net_price: +opts.imponibile.toFixed(2),
+              vat: { id: 0 }, // 22%
+            },
+          ],
+        },
+      }),
+    }
+  );
+  const d = r.data;
+  const anno = (d.date ?? oggi).slice(0, 4);
+  return { id: d.id, numero: `${d.number}${d.numeration?.trim() ? d.numeration : `/${anno}`}` };
+}
+
 // Dopo il collegamento: memorizza l'azienda su cui operare (la prima, o "Deluxy" se presente)
 export async function ficSelezionaAzienda(): Promise<{ id: number; name: string }> {
   const data = await ficFetch<{ data: { companies: { id: number; name: string }[] } }>(
