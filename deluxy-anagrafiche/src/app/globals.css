@@ -86,7 +86,23 @@ a { color: inherit; text-decoration: none; }
   padding: 0 12px;
   margin: 18px 0 6px;
 }
-.sb-label:first-child { margin-top: 0; }
+.sb-sezione:first-child > .sb-label { margin-top: 0; }
+
+/* Sezioni a espansione */
+.sb-sezione > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between;
+  border-radius: var(--radius-s);
+  transition: color 120ms var(--ease);
+}
+.sb-sezione > summary::-webkit-details-marker { display: none; }
+.sb-sezione > summary:hover { color: var(--text); }
+.sb-chevron {
+  font-size: 9px;
+  transition: transform 160ms var(--ease);
+}
+.sb-sezione:not([open]) .sb-chevron { transform: rotate(-90deg); }
 
 .sb-item {
   display: flex; align-items: center; gap: 10px;

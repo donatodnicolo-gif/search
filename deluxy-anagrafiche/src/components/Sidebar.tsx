@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { COLORE_INTERESSE, ETICHETTE_INTERESSE, INTERESSI, type Interesse } from "@/lib/interessi";
 import { COLORE_STATO, ETICHETTE_STATO, STATI } from "@/lib/stati";
 import { IconaCategoria } from "./IconaCategoria";
+import { SbSezione } from "./SbSezione";
 
 // Sidebar di navigazione: tipologie, stati e interessi filtrano l'elenco;
 // "Visione globale" mostra tutto. I conteggi considerano solo le anagrafiche
@@ -44,64 +45,70 @@ export async function Sidebar({
   return (
     <aside className="sidebar">
       <nav>
-        <div className="sb-label">Registro</div>
-        <a className={`sb-item${globaleAttiva ? " attiva" : ""}`} href="/">
-          <span className="sb-icona"><IconaCategoria categoria="GLOBALE" /></span>
-          <span className="sb-nome">Visione globale</span>
-          <span className="sb-count">{totale}</span>
-        </a>
-
-        <div className="sb-label">Tipologie</div>
-        {categorie.map((c) => (
-          <a
-            key={c.categoria}
-            className={`sb-item${categoriaAttiva === c.categoria && !archivioAttivo ? " attiva" : ""}`}
-            href={`/?categoria=${encodeURIComponent(c.categoria)}`}
-          >
-            <span className="sb-icona"><IconaCategoria categoria={c.categoria} /></span>
-            <span className="sb-nome">{etichetta(c.categoria)}</span>
-            <span className="sb-count">{c._count._all}</span>
+        <SbSezione titolo="Registro">
+          <a className={`sb-item${globaleAttiva ? " attiva" : ""}`} href="/">
+            <span className="sb-icona"><IconaCategoria categoria="GLOBALE" /></span>
+            <span className="sb-nome">Visione globale</span>
+            <span className="sb-count">{totale}</span>
           </a>
-        ))}
+        </SbSezione>
 
-        <div className="sb-label">Stati</div>
-        {STATI.map((s) => (
-          <a
-            key={s}
-            className={`sb-item${statoAttivo === s ? " attiva" : ""}`}
-            href={`/?stato=${s}`}
-          >
-            <span className="sb-icona"><span className="sb-dot" style={{ background: COLORE_STATO[s] }} /></span>
-            <span className="sb-nome">{ETICHETTE_STATO[s]}</span>
-            <span className="sb-count">{perStato.get(s) ?? 0}</span>
+        <SbSezione titolo="Tipologie">
+          {categorie.map((c) => (
+            <a
+              key={c.categoria}
+              className={`sb-item${categoriaAttiva === c.categoria && !archivioAttivo ? " attiva" : ""}`}
+              href={`/?categoria=${encodeURIComponent(c.categoria)}`}
+            >
+              <span className="sb-icona"><IconaCategoria categoria={c.categoria} /></span>
+              <span className="sb-nome">{etichetta(c.categoria)}</span>
+              <span className="sb-count">{c._count._all}</span>
+            </a>
+          ))}
+        </SbSezione>
+
+        <SbSezione titolo="Stati">
+          {STATI.map((s) => (
+            <a
+              key={s}
+              className={`sb-item${statoAttivo === s ? " attiva" : ""}`}
+              href={`/?stato=${s}`}
+            >
+              <span className="sb-icona"><span className="sb-dot" style={{ background: COLORE_STATO[s] }} /></span>
+              <span className="sb-nome">{ETICHETTE_STATO[s]}</span>
+              <span className="sb-count">{perStato.get(s) ?? 0}</span>
+            </a>
+          ))}
+        </SbSezione>
+
+        <SbSezione titolo="Interessi">
+          {INTERESSI.map((i: Interesse) => (
+            <a
+              key={i}
+              className={`sb-item${interesseAttivo === i ? " attiva" : ""}`}
+              href={`/?interesse=${i}`}
+            >
+              <span className="sb-icona"><span className="sb-dot" style={{ background: COLORE_INTERESSE[i] }} /></span>
+              <span className="sb-nome">{ETICHETTE_INTERESSE[i]}</span>
+              <span className="sb-count">{perInteresse.get(i) ?? 0}</span>
+            </a>
+          ))}
+        </SbSezione>
+
+        <SbSezione titolo="Archivio">
+          <a className={`sb-item${archivioAttivo ? " attiva" : ""}`} href="/?archiviati=1">
+            <span className="sb-icona"><IconaCategoria categoria="ARCHIVIO" /></span>
+            <span className="sb-nome">Archiviati</span>
+            <span className="sb-count">{archiviate}</span>
           </a>
-        ))}
+        </SbSezione>
 
-        <div className="sb-label">Interessi</div>
-        {INTERESSI.map((i: Interesse) => (
-          <a
-            key={i}
-            className={`sb-item${interesseAttivo === i ? " attiva" : ""}`}
-            href={`/?interesse=${i}`}
-          >
-            <span className="sb-icona"><span className="sb-dot" style={{ background: COLORE_INTERESSE[i] }} /></span>
-            <span className="sb-nome">{ETICHETTE_INTERESSE[i]}</span>
-            <span className="sb-count">{perInteresse.get(i) ?? 0}</span>
+        <SbSezione titolo="Sync">
+          <a className={`sb-item${hubspotAttivo ? " attiva" : ""}`} href="/sync-hubspot">
+            <span className="sb-icona"><IconaCategoria categoria="SYNC" /></span>
+            <span className="sb-nome">Sync HubSpot</span>
           </a>
-        ))}
-
-        <div className="sb-label">Archivio</div>
-        <a className={`sb-item${archivioAttivo ? " attiva" : ""}`} href="/?archiviati=1">
-          <span className="sb-icona"><IconaCategoria categoria="ARCHIVIO" /></span>
-          <span className="sb-nome">Archiviati</span>
-          <span className="sb-count">{archiviate}</span>
-        </a>
-
-        <div className="sb-label">Sync</div>
-        <a className={`sb-item${hubspotAttivo ? " attiva" : ""}`} href="/sync-hubspot">
-          <span className="sb-icona"><IconaCategoria categoria="SYNC" /></span>
-          <span className="sb-nome">Sync HubSpot</span>
-        </a>
+        </SbSezione>
       </nav>
     </aside>
   );
