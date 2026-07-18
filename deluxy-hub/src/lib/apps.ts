@@ -39,8 +39,8 @@ export function catalogoApp(): AppDeluxy[] {
       ruoli: ["admin"],
     },
     {
-      id: "search",
-      nome: "Search Partners",
+      id: "search", // id interno e APP_URL_SEARCH restano "search": è l'app deluxy-suppliers
+      nome: "Ricerca fornitori",
       sottotitolo: "Ricerca e smistamento",
       descrizione:
         "Trova fiorai e pasticcerie sul territorio e smista gli ordini Shopify via WhatsApp o email.",
