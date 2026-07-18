@@ -44,11 +44,15 @@ model Partner {
   datiExtra      String?
   contatti       Contatto[]
   passaggi       PassaggioStato[]
+  riferimenti    RiferimentoEsterno[]
   // Collegamento con la piattaforma consegne: id del Partner su app.deluxy.it
   platformId     String?    @unique
   // Riconciliazione manuale con HubSpot: id della company nel CRM
   hubspotId      String?    @unique
-  // excel | platform | manuale
+  // Provenienza per campo dei valori fattuali: { campo: { sistema, asOf } }.
+  // Alimenta il merge "vince il più fresco / la sorgente più autorevole".
+  provenienza    Json?
+  // excel | platform | manuale | ui | hubspot | <nome sorgente API>
   fonte          String     @default("manuale")
   attivo         Boolean    @default(true)
   creatoIl       DateTime   @default(now())
@@ -69,8 +73,24 @@ model Contatto {
   nome      String?
   telefono  String?
   email     String?
+  fonte     String? // sorgente che ha inserito il referente (per il merge)
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
+  @@index([partnerId])
+}
+
+// Riconciliazione con i sistemi esterni: mappa "id di quell'app" -> partner.
+// Generalizza platformId/hubspotId e rende Anagrafiche il risolutore di id
+// per tutto l'ecosistema: GET /api/v1/partners/by-ref/:sistema/:idEsterno.
+model RiferimentoEsterno {
+  id        String   @id @default(cuid())
+  partnerId String
+  sistema   String // platform | hubspot | scout | suppliers | partner | search | ...
+  idEsterno String
+  creatoIl  DateTime @default(now())
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([sistema, idEsterno])
   @@index([partnerId])
 }
 

@@ -2,11 +2,26 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { calcolaMerge, mergeContatti, nomeSistema, provenienzaIniziale } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { whereRicerca } from "@/lib/ricerca";
-import { registraPassaggio } from "@/lib/storico";
 
-const INCLUDE = { contatti: true } as const;
+const INCLUDE = { contatti: true, riferimenti: true } as const;
+
+// Registra i riferimenti esterni (sistema→id) per la risoluzione futura.
+async function registraRiferimenti(
+  partnerId: string,
+  refs: { sistema: string; idEsterno?: string | null }[],
+) {
+  for (const r of refs) {
+    if (!r.idEsterno) continue;
+    await prisma.riferimentoEsterno.upsert({
+      where: { sistema_idEsterno: { sistema: r.sistema, idEsterno: r.idEsterno } },
+      create: { partnerId, sistema: r.sistema, idEsterno: r.idEsterno },
+      update: { partnerId },
+    });
+  }
+}
 
 // GET /api/v1/partners — elenco con filtri e paginazione.
 // Filtri: q (ricerca a parole su tutti i campi e i contatti), categoria, citta,
@@ -53,9 +68,12 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// POST /api/v1/partners — crea un'anagrafica (richiede chiave con scrittura).
-// Se il body ha un platformId già registrato, aggiorna quell'anagrafica (upsert):
-// è il percorso usato dalla piattaforma consegne quando crea o modifica un partner.
+// POST /api/v1/partners — upsert-merge (richiede chiave con scrittura).
+// Identità risolta in cascata: riferimento esterno (sistema+idEsterno) →
+// platformId → P.IVA/CF → nome+città. Se il record esiste, i campi vengono
+// fusi secondo le regole di proprietà (curati dal team = bloccati; fattuali =
+// vince il più fresco/autorevole; note e referenti = additivi). Body opzionale:
+// `sistema`, `idEsterno` (l'id dell'app chiamante), `asOf` (freschezza ISO).
 export async function POST(req: NextRequest) {
   const client = await autentica(req, { scrittura: true });
   if (client instanceof NextResponse) return client;
@@ -70,57 +88,101 @@ export async function POST(req: NextRequest) {
   const risultato = validaPartner(body, true);
   if ("errore" in risultato) return erroreApi(400, risultato.errore);
   const { dati, contatti } = risultato;
-  if (!dati.fonte) dati.fonte = client.nome === "deluxy-platform" ? "platform" : "manuale";
 
-  let esistente = dati.platformId
-    ? await prisma.partner.findUnique({ where: { platformId: dati.platformId } })
-    : null;
+  const sistema = nomeSistema(client.nome, typeof body.sistema === "string" ? body.sistema : undefined);
+  const idEsterno = typeof body.idEsterno === "string" ? body.idEsterno.trim() : undefined;
+  const asOf = typeof body.asOf === "string" ? body.asOf : undefined;
+  const platformId = typeof dati.platformId === "string" ? dati.platformId : undefined;
+  const hubspotId = typeof dati.hubspotId === "string" ? dati.hubspotId : undefined;
 
-  // Dedup per le segnalazioni senza platformId (es. app search/supplier):
-  // stesso nome nella stessa città = stessa anagrafica, anche se disattivata.
-  // In quel caso si aggiornano i dati ma NON stato/attivo/fonte, che sono
-  // decisioni del team (una segnalazione ripetuta non riporta a "prospect"
-  // chi è già in trattativa, né resuscita chi è stato rimosso).
-  if (!esistente && !dati.platformId) {
+  // --- Cascata di identità ---
+  let esistente: Awaited<ReturnType<typeof prisma.partner.findFirst>> = null;
+  if (idEsterno) {
+    const ref = await prisma.riferimentoEsterno.findUnique({
+      where: { sistema_idEsterno: { sistema, idEsterno } },
+      include: { partner: true },
+    });
+    esistente = ref?.partner ?? null;
+  }
+  if (!esistente && platformId) {
+    esistente = await prisma.partner.findUnique({ where: { platformId } });
+  }
+  if (!esistente && typeof dati.pIva === "string" && dati.pIva) {
+    esistente = await prisma.partner.findFirst({ where: { pIva: dati.pIva } });
+  }
+  if (!esistente && typeof dati.codiceFiscale === "string" && dati.codiceFiscale) {
+    esistente = await prisma.partner.findFirst({ where: { codiceFiscale: dati.codiceFiscale } });
+  }
+  if (!esistente && typeof dati.nome === "string") {
     esistente = await prisma.partner.findFirst({
       where: {
         nome: { equals: dati.nome, mode: "insensitive" },
-        ...(dati.citta ? { citta: { equals: dati.citta, mode: "insensitive" } } : { citta: null }),
+        ...(typeof dati.citta === "string" && dati.citta
+          ? { citta: { equals: dati.citta, mode: "insensitive" } }
+          : { citta: null }),
       },
     });
-    if (esistente) {
-      delete dati.stato;
-      delete dati.attivo;
-      delete dati.fonte;
-      // La nota nuova si accoda a quella esistente invece di sovrascriverla
-      if (dati.note && esistente.note && !esistente.note.includes(dati.note)) {
-        dati.note = `${esistente.note}\n${dati.note}`;
-      } else if (esistente.note && !dati.note) {
-        delete dati.note;
-      }
-    }
   }
+
+  const refs = [
+    { sistema, idEsterno },
+    { sistema: "platform", idEsterno: platformId },
+    { sistema: "hubspot", idEsterno: hubspotId },
+  ];
 
   if (esistente) {
-    const aggiornato = await prisma.partner.update({
+    // Questi campi non passano dal merge: identità (xref), fonte (creatore) e
+    // attivo (una scrittura di sync non resuscita né archivia un'anagrafica).
+    const mergeInput = { ...dati };
+    delete mergeInput.platformId;
+    delete mergeInput.hubspotId;
+    delete mergeInput.fonte;
+    delete mergeInput.attivo;
+
+    const { dati: datiMerge, provenienza, ignorati } = calcolaMerge(esistente, mergeInput, sistema, asOf);
+
+    let contattiWrite: Prisma.ContattoUpdateManyWithoutPartnerNestedInput | undefined;
+    if (contatti) {
+      const esistentiC = await prisma.contatto.findMany({ where: { partnerId: esistente.id } });
+      const ops = mergeContatti(esistentiC, contatti, sistema);
+      contattiWrite = { create: ops.create, update: ops.update };
+    }
+
+    await prisma.partner.update({
       where: { id: esistente.id },
       data: {
-        ...dati,
-        contatti: contatti
-          ? { deleteMany: {}, create: contatti }
-          : undefined,
+        ...datiMerge,
+        provenienza: provenienza as Prisma.InputJsonValue,
+        ...(contattiWrite ? { contatti: contattiWrite } : {}),
       },
-      include: INCLUDE,
     });
-    if (dati.stato) {
-      await registraPassaggio(esistente.id, esistente.stato, aggiornato.stato, client.nome);
-    }
-    return NextResponse.json(serializzaPartner(aggiornato));
+    await registraRiferimenti(esistente.id, refs);
+    const aggiornato = await prisma.partner.findUnique({ where: { id: esistente.id }, include: INCLUDE });
+    return NextResponse.json({
+      esito: "merged",
+      ...serializzaPartner(aggiornato!),
+      applicati: Object.keys(datiMerge),
+      in_revisione: ignorati,
+    });
   }
 
+  // Nessun aggancio: nuova anagrafica. Nasce come prospect: stato, interessi e
+  // account sono decisioni del team, non li imposta la sorgente esterna.
+  const datiCreate = { ...dati };
+  delete datiCreate.stato;
+  delete datiCreate.interessi;
+  delete datiCreate.account;
+  delete datiCreate.attivo;
+  const fonte = typeof dati.fonte === "string" && dati.fonte ? dati.fonte : sistema === "platform" ? "platform" : sistema;
   const creato = await prisma.partner.create({
-    data: { ...dati, contatti: contatti ? { create: contatti } : undefined },
-    include: INCLUDE,
+    data: {
+      ...datiCreate,
+      fonte,
+      provenienza: provenienzaIniziale(datiCreate, sistema, asOf) as Prisma.InputJsonValue,
+      contatti: contatti ? { create: contatti.map((c) => ({ ...c, fonte: sistema })) } : undefined,
+    },
   });
-  return NextResponse.json(serializzaPartner(creato), { status: 201 });
+  await registraRiferimenti(creato.id, refs);
+  const creatoFull = await prisma.partner.findUnique({ where: { id: creato.id }, include: INCLUDE });
+  return NextResponse.json({ esito: "creato", ...serializzaPartner(creatoFull!) }, { status: 201 });
 }

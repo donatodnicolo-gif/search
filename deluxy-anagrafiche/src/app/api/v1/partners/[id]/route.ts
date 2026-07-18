@@ -1,28 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { mergeContatti } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { ARCHIVIATA, registraPassaggio } from "@/lib/storico";
 
-const INCLUDE = { contatti: true } as const;
+const INCLUDE = { contatti: true, riferimenti: true } as const;
 
 type Params = { params: Promise<{ id: string }> };
 
-// GET /api/v1/partners/:id — dettaglio (l'id può essere anche il platformId)
+// GET /api/v1/partners/:id — dettaglio. L'id può essere l'id del registro, il
+// platformId o (via riferimento esterno) l'id di qualsiasi app che lo abbia
+// registrato — così tutte le app risolvono lo stesso partner con la propria chiave.
 export async function GET(req: NextRequest, { params }: Params) {
   const client = await autentica(req);
   if (client instanceof NextResponse) return client;
 
   const { id } = await params;
-  const partner =
+  let partner =
     (await prisma.partner.findUnique({ where: { id }, include: INCLUDE })) ??
     (await prisma.partner.findUnique({ where: { platformId: id }, include: INCLUDE }));
+  if (!partner) {
+    const ref = await prisma.riferimentoEsterno.findFirst({
+      where: { idEsterno: id },
+      include: { partner: { include: INCLUDE } },
+    });
+    partner = ref?.partner ?? null;
+  }
   if (!partner) return erroreApi(404, "Anagrafica non trovata");
   return NextResponse.json(serializzaPartner(partner));
 }
 
-// PATCH /api/v1/partners/:id — aggiornamento parziale (richiede scrittura).
-// Se il body contiene 'contatti', la lista sostituisce integralmente quella esistente.
+// PATCH /api/v1/partners/:id — aggiornamento parziale mirato (richiede scrittura).
+// A differenza del POST è esplicito: i campi indicati vengono impostati (writer
+// fidato). I referenti però si fondono per identità, non si sostituiscono, per
+// non cancellare quelli inseriti da altre app.
 export async function PATCH(req: NextRequest, { params }: Params) {
   const client = await autentica(req, { scrittura: true });
   if (client instanceof NextResponse) return client;
@@ -42,11 +54,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const esistente = await prisma.partner.findUnique({ where: { id } });
   if (!esistente) return erroreApi(404, "Anagrafica non trovata");
 
+  let contattiWrite: import("@prisma/client").Prisma.ContattoUpdateManyWithoutPartnerNestedInput | undefined;
+  if (contatti) {
+    const esistentiC = await prisma.contatto.findMany({ where: { partnerId: id } });
+    const ops = mergeContatti(esistentiC, contatti, client.nome.replace(/^deluxy-/, ""));
+    contattiWrite = { create: ops.create, update: ops.update };
+  }
+
   const aggiornato = await prisma.partner.update({
     where: { id },
     data: {
       ...dati,
-      contatti: contatti ? { deleteMany: {}, create: contatti } : undefined,
+      ...(contattiWrite ? { contatti: contattiWrite } : {}),
     },
     include: INCLUDE,
   });

@@ -97,7 +97,9 @@ export function validaPartner(
   return { dati: dati as Prisma.PartnerUncheckedCreateInput, contatti };
 }
 
-type PartnerConContatti = Prisma.PartnerGetPayload<{ include: { contatti: true } }>;
+type PartnerConContatti = Prisma.PartnerGetPayload<{ include: { contatti: true } }> & {
+  riferimenti?: { sistema: string; idEsterno: string }[];
+};
 
 // Rappresentazione JSON esposta dalle API
 export function serializzaPartner(p: PartnerConContatti) {
@@ -130,6 +132,9 @@ export function serializzaPartner(p: PartnerConContatti) {
       email: c.email,
     })),
     platformId: p.platformId,
+    hubspotId: p.hubspotId,
+    // Riferimenti esterni per il join cross-app (sistema → id di quell'app)
+    riferimenti: (p.riferimenti ?? []).map((r) => ({ sistema: r.sistema, idEsterno: r.idEsterno })),
     fonte: p.fonte,
     attivo: p.attivo,
     creatoIl: p.creatoIl,
