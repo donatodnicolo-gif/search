@@ -110,6 +110,14 @@ const GLIFI: Record<string, React.ReactNode> = {
       <path d="M3 20h18" {...TRATTO} />
     </>
   ),
+  // Due nodi collegati: richieste di aggancio
+  MATCH: (
+    <>
+      <circle cx="6.5" cy="12" r="2.5" {...TRATTO} />
+      <circle cx="17.5" cy="12" r="2.5" {...TRATTO} />
+      <path d="M9 12h6" {...TRATTO} />
+    </>
+  ),
   // Frecce circolari: sincronizzazione
   SYNC: (
     <>

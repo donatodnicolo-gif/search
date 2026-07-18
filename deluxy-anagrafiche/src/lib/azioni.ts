@@ -226,6 +226,30 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
   redirect(`/partner/${partnerId}`);
 }
 
+// Risolve a mano una richiesta di aggancio: collega l'anagrafica scelta e,
+// se la richiesta porta l'id dell'app, crea il riferimento esterno — così
+// quell'app da lì in poi risolve per id.
+export async function risolviRichiestaMatch(richiestaId: string, partnerId: string) {
+  const r = await prisma.richiestaMatch.findUnique({ where: { id: richiestaId } });
+  if (!r) return;
+  if (r.idEsterno) {
+    await prisma.riferimentoEsterno.upsert({
+      where: { sistema_idEsterno: { sistema: r.sistema, idEsterno: r.idEsterno } },
+      create: { partnerId, sistema: r.sistema, idEsterno: r.idEsterno },
+      update: { partnerId },
+    });
+  }
+  await prisma.richiestaMatch.update({ where: { id: richiestaId }, data: { partnerId, risolto: true } });
+  revalidatePath("/match");
+  revalidatePath("/");
+}
+
+// Archivia una richiesta senza collegarla (falso positivo, rumore).
+export async function ignoraRichiestaMatch(richiestaId: string) {
+  await prisma.richiestaMatch.update({ where: { id: richiestaId }, data: { risolto: true } });
+  revalidatePath("/match");
+}
+
 // Archivia (attivo=false) o ripristina un'anagrafica. Le archiviate spariscono
 // da elenchi, sidebar e API (salvo attivo=false/tutti) e vivono nella sezione
 // "Archiviati". Stessa semantica del DELETE delle API.

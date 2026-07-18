@@ -14,6 +14,7 @@ export async function Sidebar({
   archivioAttivo = false,
   hubspotAttivo = false,
   dashboardAttiva = false,
+  matchAttivo = false,
 }: {
   categoriaAttiva?: string | null;
   statoAttivo?: string | null;
@@ -21,6 +22,7 @@ export async function Sidebar({
   archivioAttivo?: boolean;
   hubspotAttivo?: boolean;
   dashboardAttiva?: boolean;
+  matchAttivo?: boolean;
 }) {
   const [categorie, archiviate, statiConteggio, interessiConteggio] = await Promise.all([
     prisma.partner.groupBy({
@@ -37,12 +39,13 @@ export async function Sidebar({
       SELECT unnest("interessi") AS interesse, count(*) AS totale
       FROM "anagrafiche"."Partner" WHERE "attivo" GROUP BY 1`,
   ]);
+  const daRisolvere = await prisma.richiestaMatch.count({ where: { risolto: false, esito: { not: "agganciata" } } });
   const totale = categorie.reduce((somma, c) => somma + c._count._all, 0);
   const perStato = new Map(statiConteggio.map((s) => [s.stato, s._count._all]));
   const perInteresse = new Map(interessiConteggio.map((i) => [i.interesse, Number(i.totale)]));
 
   const globaleAttiva =
-    !categoriaAttiva && !statoAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva;
+    !categoriaAttiva && !statoAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo;
 
   return (
     <aside className="sidebar">
@@ -113,6 +116,11 @@ export async function Sidebar({
           <a className={`sb-item${hubspotAttivo ? " attiva" : ""}`} href="/sync-hubspot">
             <span className="sb-icona"><IconaCategoria categoria="SYNC" /></span>
             <span className="sb-nome">Sync HubSpot</span>
+          </a>
+          <a className={`sb-item${matchAttivo ? " attiva" : ""}`} href="/match">
+            <span className="sb-icona"><IconaCategoria categoria="MATCH" /></span>
+            <span className="sb-nome">Richieste di aggancio</span>
+            {daRisolvere > 0 && <span className="sb-count">{daRisolvere}</span>}
           </a>
         </SbSezione>
       </nav>
