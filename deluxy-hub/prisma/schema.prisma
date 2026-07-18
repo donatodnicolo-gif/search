@@ -23,8 +23,13 @@ model Utente {
   nome          String
   // scrypt: "salt:hash" in esadecimale, vedi src/lib/password.ts
   passwordHash  String
-  // admin | partner | commerciale — valori in src/lib/ruoli.ts
+  // admin | partner | commerciale — valori in src/lib/ruoli.ts.
+  // Governa i privilegi (solo admin gestisce gli utenti), NON più quali app si
+  // vedono: quelle sono la lista esplicita appAbilitate qui sotto.
   ruolo         String
+  // ID delle app che questo utente può aprire (valori in src/lib/apps.ts).
+  // Ignorato per gli admin, che vedono comunque tutto il catalogo.
+  appAbilitate  String[]  @default([])
   attivo        Boolean   @default(true)
   creatoIl      DateTime  @default(now())
   ultimoAccesso DateTime?

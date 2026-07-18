@@ -1,7 +1,7 @@
 import { cambiaMiaPassword } from "@/lib/actions";
 import { prisma } from "@/lib/db";
-import { appPerRuolo, } from "@/lib/apps";
-import { RUOLO_INFO, type Ruolo } from "@/lib/ruoli";
+import { RUOLO_INFO } from "@/lib/ruoli";
+import { appVisibili } from "@/lib/permessi";
 import { richiediSessione } from "@/lib/sessione-server";
 
 const MESSAGGI_ERRORE: Record<string, string> = {
@@ -17,6 +17,7 @@ export default async function ProfiloPage({
   const sessione = await richiediSessione();
   const sp = await searchParams;
   const utente = await prisma.utente.findUnique({ where: { id: sessione.uid } });
+  const app = await appVisibili(sessione);
 
   return (
     <main className="main" style={{ maxWidth: 620 }}>
@@ -44,10 +45,7 @@ export default async function ProfiloPage({
           </span>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-tertiary)", marginTop: 14 }}>
-          App abilitate:{" "}
-          {appPerRuolo(sessione.ruolo as Ruolo)
-            .map((a) => a.nome)
-            .join(" · ") || "nessuna"}
+          App abilitate: {app.map((a) => a.nome).join(" · ") || "nessuna"}
         </p>
       </div>
 

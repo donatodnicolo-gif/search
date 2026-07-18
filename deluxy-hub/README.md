@@ -18,14 +18,27 @@ Il Hub vive nello **schema `hub`** dello stesso database Supabase di
 
 ## 1. Ruoli e app
 
-| Ruolo | Etichetta | App visibili |
-|---|---|---|
-| `admin` | Amministratore | Search Partners · Partner · Commerciale Scout **+ gestione utenti** |
-| `partner` | Partner | Partner |
-| `commerciale` | Commerciale | Search Partners · Commerciale Scout |
+Il **ruolo** decide i privilegi, **non** più quali app si vedono:
 
+| Ruolo | Etichetta | Cosa può fare |
+|---|---|---|
+| `admin` | Amministratore | vede **tutte** le app + gestisce gli utenti (`/utenti`) |
+| `partner` | Partner | vede solo le app spuntate sul suo profilo |
+| `commerciale` | Commerciale | vede solo le app spuntate sul suo profilo |
+
+**Le app visibili si scelgono per singolo utente**, non per ruolo: in `/utenti`
+ogni utente ha una lista di spunte (una per app del catalogo). Il ruolo serve
+solo da preselezione comoda quando crei l'utente. Gli **admin** vedono comunque
+tutto il catalogo, a prescindere dalle spunte.
+
+- La lista sta nel campo `appAbilitate` (`String[]`) dell'`Utente`, vedi
+  [`prisma/schema.prisma`](prisma/schema.prisma).
+- Chi vede cosa è deciso da `appVisibili()` in [`src/lib/permessi.ts`](src/lib/permessi.ts),
+  che rilegge l'utente dal database a ogni caricamento: **modificare le spunte ha
+  effetto subito**, senza aspettare un nuovo login (a differenza del ruolo, che
+  viaggia nel cookie).
 - I ruoli sono in [`src/lib/ruoli.ts`](src/lib/ruoli.ts).
-- Il catalogo app e la mappa ruolo → app sono in [`src/lib/apps.ts`](src/lib/apps.ts).
+- Il catalogo app è in [`src/lib/apps.ts`](src/lib/apps.ts).
 - Le icone (SVG) sono in [`src/components/AppIcon.tsx`](src/components/AppIcon.tsx).
 
 Gli URL delle app arrivano dall'ambiente (`APP_URL_SEARCH`, `APP_URL_PARTNER`,
@@ -40,8 +53,13 @@ in locale ma nascosti in produzione finché non hanno un indirizzo pubblico.
 ### Aggiungere un'app
 
 1. Aggiungi il glifo in `AppIcon.tsx` e il suo nome al tipo `icona` in `apps.ts`.
-2. Aggiungi la voce in `catalogoApp()` con `ruoli` ed `url` (da env).
-3. Aggiungi la variabile in `.env.example`.
+2. Aggiungi la voce in `catalogoApp()` con `url` (da env) e `ruoli` (i ruoli per
+   cui l'app è pre-spuntata quando crei un utente — non decide chi la vede).
+3. Aggiungi la variabile in `.env.example` e, per la produzione, nelle env di
+   Vercel; poi `npx vercel deploy --prod`.
+
+L'app comparirà come nuova spunta in `/utenti`: assegnala agli utenti che devono
+vederla (gli admin la vedono già).
 
 ## 2. Avvio in locale
 
@@ -79,7 +97,9 @@ connection string Supabase con `?schema=hub` in fondo.
 - **Permessi**: il middleware blocca `/utenti` a chi non è `admin`; le server
   action ricontrollano il ruolo lato server (`richiediAdmin()`), quindi non basta
   nascondere un bottone.
-- Cambiare ruolo o disattivare un utente ha effetto **al prossimo login**: il
+- **App visibili**: si scelgono per utente (campo `appAbilitate`) e la home le
+  rilegge dal database a ogni caricamento, quindi cambiarle ha effetto subito.
+- Cambiare **ruolo** o disattivare un utente ha effetto **al prossimo login**: il
   ruolo viaggia nel cookie, che dura 30 giorni. Per un'espulsione immediata,
   cambiare `HUB_SESSION_SECRET`.
 
@@ -87,10 +107,10 @@ connection string Supabase con `?schema=hub` in fondo.
 
 | Rotta | Chi | Cosa |
 |---|---|---|
-| `/` | tutti | home con le icone delle app del proprio ruolo |
+| `/` | tutti | home con le icone delle app abilitate per l'utente |
 | `/login` | pubblica | email + password |
 | `/profilo` | tutti | proprio ruolo, app abilitate, cambio password |
-| `/utenti` | solo admin | crea, modifica ruolo, attiva/disattiva, elimina |
+| `/utenti` | solo admin | crea, sceglie app per utente, cambia ruolo/password, attiva/disattiva, elimina |
 
 ## 5. Deploy
 
@@ -132,15 +152,17 @@ npx vercel deploy --prod
 
 ## 6. Stato
 
-**In produzione** su https://deluxy-hub.vercel.app (17 luglio 2026). Verificato
-**sul sito pubblicato**: login dell'admin, home con le tre app (Search Partners,
-Partner, Commerciale Scout) che puntano ai domini di produzione e nessun
-`localhost`, `/utenti` raggiungibile dall'admin, e redirect a `/login` per home,
-`/utenti` e con cookie di sessione falsificato. Sul database: tabelle solo nello
-schema `hub`, le 7 tabelle di Partner in `public` intatte.
+**In produzione** su https://deluxy-hub.vercel.app (18 luglio 2026). Sei app nel
+catalogo (Consegne, Search Partners, Partner, Anagrafiche, Maison, Commerciale
+Scout, AI Mail); Consegne è ancora un segnaposto su `localhost`.
 
-**Manca** — Anagrafiche e AI Mail non hanno un indirizzo pubblico, quindi in
-produzione non compaiono (appariranno da sole impostando `APP_URL_ANAGRAFICHE` e
-`APP_URL_MAIL` e ripubblicando). Il filtro per ruolo è provato in locale ma **non
-ancora sul sito pubblicato con un utente non-admin reale**: esiste solo l'admin.
-Nessun recupero password autonomo (lo reimposta un admin da `/utenti`).
+**Permessi per singola app** verificati **sul sito pubblicato**: creato un utente
+di prova con ruolo commerciale ma con la sola app Partner spuntata; al login
+vedeva **solo Partner** (non i default del commerciale), senza link `/utenti`, e
+`/utenti` gli veniva bloccato con redirect alla home. Utente di prova poi
+eliminato: sul database resta solo l'admin. Confermato anche: login admin (vede
+tutto), redirect a `/login` per home, `/utenti` e con cookie falsificato,
+isolamento schema `hub` con le tabelle di Partner intatte.
+
+**Manca** — Consegne non ha un indirizzo pubblico (segnaposto admin). Nessun
+recupero password autonomo (lo reimposta un admin da `/utenti`).

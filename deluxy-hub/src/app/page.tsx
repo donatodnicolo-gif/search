@@ -1,11 +1,11 @@
 import { AppIcon } from "@/components/AppIcon";
-import { appPerRuolo } from "@/lib/apps";
 import { RUOLO_INFO } from "@/lib/ruoli";
+import { appVisibili } from "@/lib/permessi";
 import { richiediSessione } from "@/lib/sessione-server";
 
 export default async function HomePage() {
   const sessione = await richiediSessione();
-  const app = appPerRuolo(sessione.ruolo);
+  const app = await appVisibili(sessione);
   const nome = sessione.nome.split(" ")[0];
 
   return (

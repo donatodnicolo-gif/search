@@ -8,9 +8,16 @@ import { hashPassword, verificaPassword } from "./password";
 import { SESSION_COOKIE, DURATA_SESSIONE_S, creaSessione } from "./session";
 import { richiediAdmin, sessioneCorrente } from "./sessione-server";
 import { isRuolo, type Ruolo } from "./ruoli";
+import { idAppValidi } from "./apps";
 
 function testo(fd: FormData, campo: string): string {
   return String(fd.get(campo) ?? "").trim();
+}
+
+// Le app spuntate nel form arrivano come più campi "app" con lo stesso nome.
+// Teniamo solo gli id che corrispondono a un'app reale del catalogo.
+function appSelezionate(fd: FormData): string[] {
+  return idAppValidi(fd.getAll("app").map((v) => String(v)));
 }
 
 export async function accedi(fd: FormData) {
@@ -73,7 +80,13 @@ export async function creaUtente(fd: FormData) {
   }
 
   await prisma.utente.create({
-    data: { email, nome, ruolo, passwordHash: await hashPassword(password) },
+    data: {
+      email,
+      nome,
+      ruolo,
+      appAbilitate: appSelezionate(fd),
+      passwordHash: await hashPassword(password),
+    },
   });
 
   revalidatePath("/utenti");
@@ -91,10 +104,17 @@ export async function aggiornaUtente(fd: FormData) {
 
   if (!id || !nome || !isRuolo(ruolo)) redirect("/utenti?errore=dati");
 
-  const dati: { nome: string; ruolo: Ruolo; attivo: boolean; passwordHash?: string } = {
+  const dati: {
+    nome: string;
+    ruolo: Ruolo;
+    attivo: boolean;
+    appAbilitate: string[];
+    passwordHash?: string;
+  } = {
     nome,
     ruolo,
     attivo,
+    appAbilitate: appSelezionate(fd),
   };
   if (password) {
     if (password.length < 8) redirect("/utenti?errore=password");

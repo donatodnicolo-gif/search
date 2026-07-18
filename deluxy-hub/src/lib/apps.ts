@@ -103,6 +103,22 @@ export function catalogoApp(): AppDeluxy[] {
   return app.filter((a): a is AppDeluxy => a.url !== null);
 }
 
+// Le app suggerite per un ruolo: servono da preselezione quando si crea un
+// utente, non decidono più da sole cosa vede (quello è la lista per-utente).
 export function appPerRuolo(ruolo: Ruolo): AppDeluxy[] {
   return catalogoApp().filter((app) => app.ruoli.includes(ruolo));
+}
+
+// Le app che un utente può aprire davvero, dato l'elenco di id salvato su di lui.
+// Filtra gli id che non esistono più nel catalogo (app rimossa o senza URL).
+export function appPerIds(ids: readonly string[]): AppDeluxy[] {
+  const scelti = new Set(ids);
+  return catalogoApp().filter((app) => scelti.has(app.id));
+}
+
+// Tiene solo gli id che corrispondono a un'app reale del catalogo: usato prima
+// di salvare, così sul database non finiscono id inventati.
+export function idAppValidi(ids: readonly string[]): string[] {
+  const esistenti = new Set(catalogoApp().map((a) => a.id));
+  return [...new Set(ids)].filter((id) => esistenti.has(id));
 }

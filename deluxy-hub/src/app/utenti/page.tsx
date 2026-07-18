@@ -1,8 +1,57 @@
 import { aggiornaUtente, creaUtente, eliminaUtente } from "@/lib/actions";
-import { appPerRuolo } from "@/lib/apps";
+import { appPerIds, appPerRuolo, catalogoApp } from "@/lib/apps";
 import { prisma } from "@/lib/db";
 import { RUOLI, RUOLO_INFO, type Ruolo } from "@/lib/ruoli";
 import { richiediAdmin } from "@/lib/sessione-server";
+
+// Spunte "quali app può aprire questo utente". Gli id spuntati arrivano alla
+// server action come campi "app" ripetuti. `selezionate` pre-spunta quelle giuste
+// (i default del ruolo su un nuovo utente, le app già assegnate in modifica).
+function ScelteApp({ selezionate }: { selezionate: readonly string[] }) {
+  const scelti = new Set(selezionate);
+  return (
+    <div className="campo" style={{ marginBottom: 0, gridColumn: "1 / -1" }}>
+      <span>App visibili nella home</span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 2 }}>
+        {catalogoApp().map((a) => (
+          <label
+            key={a.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              fontSize: 13,
+              padding: "7px 13px",
+              border: "1px solid var(--hairline-strong)",
+              borderRadius: "var(--radius-pill)",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              name="app"
+              value={a.id}
+              defaultChecked={scelti.has(a.id)}
+              style={{ width: "auto", margin: 0 }}
+            />
+            {a.nome}
+          </label>
+        ))}
+      </div>
+      <span
+        style={{
+          fontSize: 11.5,
+          color: "var(--text-tertiary)",
+          fontWeight: 400,
+          marginTop: 7,
+          display: "block",
+        }}
+      >
+        Gli amministratori vedono comunque tutte le app, a prescindere da queste spunte.
+      </span>
+    </div>
+  );
+}
 
 const MESSAGGI_OK: Record<string, string> = {
   creato: "Utente creato.",
@@ -37,7 +86,7 @@ export default async function UtentiPage({
       <div className="page-head">
         <h1 className="page-title">Utenti</h1>
         <p className="page-sub">
-          Chi può entrare nel portale e, in base al ruolo, quali app vede nella home.
+          Chi può entrare nel portale e, app per app, cosa vede nella home.
         </p>
       </div>
 
@@ -74,7 +123,12 @@ export default async function UtentiPage({
               ))}
             </select>
           </label>
-          <button type="submit" className="btn primary" style={{ justifyContent: "center", padding: "10px 18px" }}>
+          <ScelteApp selezionate={appPerRuolo("commerciale").map((a) => a.id)} />
+          <button
+            type="submit"
+            className="btn primary"
+            style={{ justifyContent: "center", padding: "10px 18px", gridColumn: "1 / -1" }}
+          >
             Crea utente
           </button>
         </form>
@@ -105,9 +159,11 @@ export default async function UtentiPage({
                     {RUOLO_INFO[u.ruolo as Ruolo]?.etichetta ?? u.ruolo}
                   </span>
                   <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>
-                    {appPerRuolo(u.ruolo as Ruolo)
-                      .map((a) => a.nome)
-                      .join(" · ") || "nessuna app"}
+                    {u.ruolo === "admin"
+                      ? "tutte le app"
+                      : appPerIds(u.appAbilitate)
+                          .map((a) => a.nome)
+                          .join(" · ") || "nessuna app"}
                   </div>
                 </td>
                 <td>
@@ -150,6 +206,7 @@ export default async function UtentiPage({
                         <span>Nuova password (vuoto = invariata)</span>
                         <input name="password" type="password" autoComplete="new-password" />
                       </label>
+                      <ScelteApp selezionate={u.appAbilitate} />
                       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
                         <input
                           type="checkbox"
