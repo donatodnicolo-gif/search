@@ -1,10 +1,31 @@
 // Trattative: tutte le deal aperte, raggruppate per negozio.
-import { useCallback, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  SectionList,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, labelFase, radius, spacing } from '@/lib/theme';
-import { fetchTutteTrattative, type TrattativaConLuogo } from '@/lib/db';
+import {
+  cercaPlaces,
+  fetchContatti,
+  fetchTutteTrattative,
+  inserisciDeal,
+  type PlaceLite,
+  type TrattativaConLuogo,
+} from '@/lib/db';
+import { syncTrattativa } from '@/lib/hubspot';
+import { env } from '@/lib/env';
+import { LINEE_ATTIVE, type Contact, type DealStage } from '@/types';
 
 interface Sezione {
   title: string;
@@ -12,11 +33,20 @@ interface Sezione {
   data: TrattativaConLuogo[];
 }
 
+const FASI: DealStage[] = [
+  'appointmentscheduled',
+  'decisionmakerboughtin',
+  'contractsent',
+  'closedwon',
+  'closedlost',
+];
+
 export default function Trattative() {
   const router = useRouter();
   const [deals, setDeals] = useState<TrattativaConLuogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [formAperto, setFormAperto] = useState(false);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -97,6 +127,21 @@ export default function Trattative() {
         )}
         renderItem={({ item }) => <RigaDeal deal={item} />}
       />
+
+      <Pressable style={styles.fab} onPress={() => setFormAperto(true)}>
+        <Ionicons name="add" size={22} color={colors.bianco} />
+        <Text style={styles.fabTxt}>Nuova trattativa</Text>
+      </Pressable>
+
+      {formAperto ? (
+        <NuovaTrattativaModal
+          onClose={() => setFormAperto(false)}
+          onCreata={() => {
+            setFormAperto(false);
+            carica();
+          }}
+        />
+      ) : null}
     </View>
   );
 }
@@ -123,6 +168,226 @@ function RigaDeal({ deal }: { deal: TrattativaConLuogo }) {
   );
 }
 
+// ── Form "Nuova trattativa" (sincronizzato con negozio + contatti) ─────────────
+function NuovaTrattativaModal({ onClose, onCreata }: { onClose: () => void; onCreata: () => void }) {
+  const [ricerca, setRicerca] = useState('');
+  const [risultati, setRisultati] = useState<PlaceLite[]>([]);
+  const [place, setPlace] = useState<PlaceLite | null>(null);
+  const [contatti, setContatti] = useState<Contact[]>([]);
+  const [linea, setLinea] = useState<string>('Consegne');
+  const [fase, setFase] = useState<DealStage>('appointmentscheduled');
+  const [valore, setValore] = useState('');
+  const [nextAction, setNextAction] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Typeahead negozi (debounce). Non cerca finché non è selezionato un negozio.
+  useEffect(() => {
+    if (place) return;
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(async () => {
+      try {
+        setRisultati(await cercaPlaces(ricerca));
+      } catch {
+        setRisultati([]);
+      }
+    }, 250);
+    return () => {
+      if (debounce.current) clearTimeout(debounce.current);
+    };
+  }, [ricerca, place]);
+
+  async function selezionaPlace(p: PlaceLite) {
+    setPlace(p);
+    setRisultati([]);
+    try {
+      setContatti(await fetchContatti(p.id));
+    } catch {
+      setContatti([]);
+    }
+  }
+
+  async function salva() {
+    if (!place || salvando) return;
+    setSalvando(true);
+    setErrore(null);
+    try {
+      const valNum = valore.trim() ? Number(valore.replace(/[^\d]/g, '')) : null;
+      const deal = await inserisciDeal({
+        place_id: place.id,
+        linea,
+        fase,
+        valore_atteso: valNum != null && isFinite(valNum) ? valNum : null,
+        next_action: nextAction.trim() || null,
+      });
+      // Best effort: porta la trattativa + i contatti su HubSpot (con il valore).
+      if (env.hubspotSyncUrl()) {
+        try {
+          await syncTrattativa(deal.id);
+        } catch {
+          /* la trattativa è salva su Supabase; il sync si recupera dopo */
+        }
+      }
+      onCreata();
+    } catch (e: any) {
+      setErrore(e?.message ?? 'Errore nel salvataggio');
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <View style={styles.sheet}>
+          <View style={styles.sheetHead}>
+            <Text style={styles.sheetTitolo}>Nuova trattativa</Text>
+            <Pressable onPress={onClose} hitSlop={10}>
+              <Ionicons name="close" size={24} color={colors.testoSoft} />
+            </Pressable>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+            {/* Negozio / contatto */}
+            <Text style={styles.campoLabel}>Negozio</Text>
+            {place ? (
+              <View style={styles.placeSel}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.placeSelNome} numberOfLines={1}>
+                    {place.nome}
+                  </Text>
+                  {place.indirizzo ? (
+                    <Text style={styles.placeSelInd} numberOfLines={1}>
+                      {place.indirizzo}
+                    </Text>
+                  ) : null}
+                </View>
+                <Pressable
+                  onPress={() => {
+                    setPlace(null);
+                    setContatti([]);
+                  }}
+                  hitSlop={8}
+                >
+                  <Ionicons name="swap-horizontal" size={20} color={colors.oro} />
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  style={styles.input}
+                  value={ricerca}
+                  onChangeText={setRicerca}
+                  placeholder="Cerca negozio per nome o indirizzo…"
+                  placeholderTextColor={colors.grigio}
+                  autoFocus
+                />
+                {risultati.map((p) => (
+                  <Pressable key={p.id} style={styles.risultato} onPress={() => selezionaPlace(p)}>
+                    <Ionicons name="storefront-outline" size={16} color={colors.testoSoft} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.risNome} numberOfLines={1}>
+                        {p.nome}
+                      </Text>
+                      {p.indirizzo ? (
+                        <Text style={styles.risInd} numberOfLines={1}>
+                          {p.indirizzo}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                ))}
+              </>
+            )}
+
+            {/* Contatti sincronizzati */}
+            {place ? (
+              <View style={styles.contattiBox}>
+                <Text style={styles.contattiTitolo}>
+                  {contatti.length
+                    ? `${contatti.length} contatt${contatti.length === 1 ? 'o' : 'i'} — sincronizzati su HubSpot`
+                    : 'Nessun contatto registrato per questo negozio'}
+                </Text>
+                {contatti.map((c) => (
+                  <Text key={c.id} style={styles.contattoRiga} numberOfLines={1}>
+                    • {c.nome}
+                    {c.ruolo ? ` (${c.ruolo})` : ''}
+                    {c.telefono ? ` · ${c.telefono}` : ''}
+                    {c.is_decisore ? '  ★' : ''}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+
+            {/* Linea */}
+            <Text style={styles.campoLabel}>Linea</Text>
+            <View style={styles.chipRow}>
+              {LINEE_ATTIVE.map((l) => (
+                <Pressable
+                  key={l}
+                  style={[styles.chip, linea === l && styles.chipOn]}
+                  onPress={() => setLinea(l)}
+                >
+                  <Text style={[styles.chipTxt, linea === l && styles.chipTxtOn]}>{l}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Fase */}
+            <Text style={styles.campoLabel}>Fase</Text>
+            <View style={styles.chipRow}>
+              {FASI.map((f) => (
+                <Pressable
+                  key={f}
+                  style={[styles.chip, fase === f && styles.chipOn]}
+                  onPress={() => setFase(f)}
+                >
+                  <Text style={[styles.chipTxt, fase === f && styles.chipTxtOn]}>{labelFase[f]}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Valore */}
+            <Text style={styles.campoLabel}>Valore atteso (€)</Text>
+            <TextInput
+              style={styles.input}
+              value={valore}
+              onChangeText={setValore}
+              placeholder="es. 1500"
+              placeholderTextColor={colors.grigio}
+              keyboardType="numeric"
+            />
+
+            {/* Prossima azione */}
+            <Text style={styles.campoLabel}>Prossima azione</Text>
+            <TextInput
+              style={styles.input}
+              value={nextAction}
+              onChangeText={setNextAction}
+              placeholder="es. Inviare preventivo"
+              placeholderTextColor={colors.grigio}
+            />
+
+            {errore ? <Text style={styles.errore}>{errore}</Text> : null}
+          </ScrollView>
+
+          <Pressable
+            style={[styles.salva, (!place || salvando) && styles.salvaDisabled]}
+            disabled={!place || salvando}
+            onPress={salva}
+          >
+            {salvando ? (
+              <ActivityIndicator color={colors.bianco} />
+            ) : (
+              <Text style={styles.salvaTxt}>Crea trattativa</Text>
+            )}
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: {
@@ -144,7 +409,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.testo,
   },
-  list: { padding: spacing.md, paddingBottom: spacing.xl },
+  list: { padding: spacing.md, paddingBottom: 96 },
   vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
   sezioneHead: {
     flexDirection: 'row',
@@ -186,4 +451,119 @@ const styles = StyleSheet.create({
   faseTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 12 },
   hs: { color: colors.successo, fontWeight: '700', fontSize: 12 },
   nextAction: { color: colors.testoSoft, fontSize: 13 },
+
+  // FAB
+  fab: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.navy,
+    borderRadius: radius.pill,
+    paddingLeft: 14,
+    paddingRight: 18,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
+
+  // Modal / sheet
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: colors.sfondo,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    maxHeight: '90%',
+    paddingBottom: spacing.lg,
+  },
+  sheetHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.grigioChiaro,
+  },
+  sheetTitolo: { fontSize: 18, fontWeight: '900', color: colors.testo },
+  sheetBody: { padding: spacing.md, gap: spacing.xs },
+  campoLabel: { fontSize: 12, fontWeight: '800', color: colors.testoSoft, marginTop: spacing.sm, marginBottom: 4 },
+  input: {
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.testo,
+  },
+  risultato: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    marginTop: 6,
+  },
+  risNome: { fontWeight: '700', color: colors.testo, fontSize: 14 },
+  risInd: { color: colors.testoSoft, fontSize: 12 },
+  placeSel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.oro,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  placeSelNome: { fontWeight: '800', color: colors.testo, fontSize: 15 },
+  placeSelInd: { color: colors.testoSoft, fontSize: 12 },
+  contattiBox: {
+    backgroundColor: colors.bianco,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    padding: spacing.sm,
+    marginTop: 6,
+    gap: 2,
+  },
+  contattiTitolo: { fontSize: 12, fontWeight: '800', color: colors.testoSoft, marginBottom: 2 },
+  contattoRiga: { fontSize: 13, color: colors.testo },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  chipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
+  chipTxtOn: { color: colors.bianco },
+  errore: { color: colors.errore, fontSize: 13, marginTop: spacing.sm },
+  salva: {
+    backgroundColor: colors.navy,
+    borderRadius: radius.pill,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  salvaDisabled: { opacity: 0.4 },
+  salvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 16 },
 });

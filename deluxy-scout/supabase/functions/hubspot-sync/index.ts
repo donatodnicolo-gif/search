@@ -53,6 +53,9 @@ Deno.serve(async (req) => {
     if (body.action === 'deals_for_place') {
       return json(await dealsForPlace(admin, hs, body.place_id));
     }
+    if (body.action === 'sync_deal') {
+      return json(await syncDeal(admin, hs, body.deal_id));
+    }
     return json({ error: `Azione sconosciuta: ${body.action}` }, 400);
   } catch (e) {
     if (e instanceof RateLimit) {
@@ -122,6 +125,50 @@ async function syncVisit(admin: any, hs: HubSpot, visitId: string) {
     hubspot_contact_id: contactId,
     hubspot_deal_id: dealId,
     note_id: null,
+  };
+}
+
+// ── Azione: sincronizza una trattativa creata a mano (con i contatti) ──────────
+async function syncDeal(admin: any, hs: HubSpot, dealId: string) {
+  const { data: deal } = await admin.from('deals').select('*').eq('id', dealId).single();
+  if (!deal) throw new Error('Trattativa non trovata');
+  const { data: place } = await admin.from('places').select('*').eq('id', deal.place_id).single();
+  if (!place) throw new Error('Place non trovato');
+
+  const { data: contatti } = await admin
+    .from('contacts')
+    .select('*')
+    .eq('place_id', place.id)
+    .order('is_decisore', { ascending: false });
+
+  // 1. Company + tutti i contatti (sync completo dei contatti del negozio).
+  const companyId = await hs.upsertCompany(place);
+  await admin.from('places').update({ hubspot_company_id: companyId }).eq('id', place.id);
+
+  let primoContactId: string | null = null;
+  for (const c of contatti ?? []) {
+    const cid = await hs.upsertContact(c, companyId);
+    await admin.from('contacts').update({ hubspot_contact_id: cid }).eq('id', c.id);
+    if (!primoContactId) primoContactId = cid;
+  }
+
+  // 2. Deal con valore atteso (amount) e fase.
+  const hubspotDealId = await hs.createDeal({
+    nome: `${place.nome} — ${deal.linea ?? 'Deluxy'}`,
+    linea: deal.linea,
+    dealstage: deal.fase,
+    amount: deal.valore_atteso,
+    nextStep: deal.next_action,
+    companyId,
+    contactId: primoContactId,
+  });
+  await admin.from('deals').update({ hubspot_deal_id: hubspotDealId }).eq('id', deal.id);
+
+  return {
+    hubspot_company_id: companyId,
+    hubspot_contact_id: primoContactId,
+    hubspot_deal_id: hubspotDealId,
+    contatti_sincronizzati: (contatti ?? []).length,
   };
 }
 
@@ -219,26 +266,27 @@ class HubSpot {
     nome: string;
     linea: string | null;
     dealstage: string;
-    briefing: string | null;
-    notePost: string | null;
-    esitoAnalisi: string | null;
-    nextStep: string;
+    briefing?: string | null;
+    notePost?: string | null;
+    esitoAnalisi?: string | null;
+    nextStep?: string | null;
+    amount?: number | null;
     companyId: string;
     contactId: string | null;
   }): Promise<string> {
+    const props: Record<string, string> = {
+      dealname: d.nome,
+      dealstage: d.dealstage,
+      deluxy_linea: d.linea ?? '',
+      deluxy_briefing: d.briefing ?? '',
+      deluxy_note_post: d.notePost ?? '',
+      deluxy_esito_analisi: d.esitoAnalisi ?? '',
+      deluxy_next_step: d.nextStep ?? '',
+    };
+    if (d.amount != null && isFinite(d.amount)) props.amount = String(d.amount);
     const created = await this.req('/crm/v3/objects/deals', {
       method: 'POST',
-      body: JSON.stringify({
-        properties: {
-          dealname: d.nome,
-          dealstage: d.dealstage,
-          deluxy_linea: d.linea ?? '',
-          deluxy_briefing: d.briefing ?? '',
-          deluxy_note_post: d.notePost ?? '',
-          deluxy_esito_analisi: d.esitoAnalisi ?? '',
-          deluxy_next_step: d.nextStep ?? '',
-        },
-      }),
+      body: JSON.stringify({ properties: props }),
     });
     const dealId = created.id;
     await this.req(

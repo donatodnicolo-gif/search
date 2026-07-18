@@ -69,6 +69,21 @@ export function dealsPerPlace(placeId: string): Promise<Deal[]> {
   return callSync<Deal[]>('deals_for_place', { place_id: placeId });
 }
 
+export interface SyncDealResult {
+  hubspot_company_id: string;
+  hubspot_contact_id: string | null;
+  hubspot_deal_id: string;
+  contatti_sincronizzati: number;
+}
+
+/**
+ * Sincronizza una trattativa creata a mano: upsert Company + tutti i Contatti del
+ * negozio, crea il Deal con valore atteso (amount) e fase. Ritorna gli id HubSpot.
+ */
+export function syncTrattativa(dealId: string): Promise<SyncDealResult> {
+  return callSync<SyncDealResult>('sync_deal', { deal_id: dealId });
+}
+
 /** Utile per un eventuale re-sync manuale a partire dai dati locali. */
 export function syncVisitaPayload(visit: Visit): Promise<SyncVisitResult> {
   return callSync<SyncVisitResult>('sync_visit', { visit_id: visit.id });

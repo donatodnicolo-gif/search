@@ -1,6 +1,16 @@
 # Deluxy Scout — Stato del progetto & Handoff
 
-Ultimo aggiornamento: **16 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+Ultimo aggiornamento: **18 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+
+> 🆕 **Fatto il 17-18 lug 2026** (branch `scout-ui`):
+> - **Sezione Affiliazioni** (`app/(app)/affiliazioni.tsx`): elenco negozi linea Re-seller con dati anagrafici, **numero di telefono visibile**, referente, ultima chiamata. Bottone **Chiama** (registra una chiamata in tabella `chiamate`), **step con i 7 stati** del registro Anagrafiche (`stato_affiliazione`), **icona telefono per selezionare** ("Selezionati" da contattare = flag `starred`, lo stesso della stella in Mappa). Filtri: `tutti / selezionati / <7 stati>`. Migrazione **0017** (enum `stato_affiliazione` + tabella `chiamate` + RLS).
+> - **Mappa — scoperta arricchita** (`app/(app)/mappa.web.tsx`): card scoperta con **recensioni Google** (voto + n°), verifica se è già **partner** (da Anagrafiche) e lo **stato trattativa**; **stato editabile in linea** allineato agli stati mappa: click **stella** → `da_visitare` + aggiunge a "Selezionati"; click **cerchio** → `visitato` + apre il pop-up visita rapida. Migrazione **0018** (`google_rating`/`google_reviews`). Sottomenu **Fiori/Pasticcerie / Fiori / Pasticcerie / Tutti** (pill piccole) visibile **solo** quando la linea "Affiliazioni" è selezionata.
+> - **"Selezionati"**: rinominata la ex sezione "Pianifica giro" → **Selezionati**; il **pallino conferma-visita** è presente anche in questa modalità (commit `53d50c1`).
+> - **Trattative — valore + creazione** (`app/(app)/trattative.tsx`, commit da fare): il **valore** era già mostrato (riga deal + totale atteso in testata). Aggiunto **FAB "Nuova trattativa"** → modal con: **typeahead negozio** (`cercaPlaces`), **contatti del negozio** mostrati con nota "sincronizzati su HubSpot", **linea** (chip), **fase** (5 dealstage), **valore atteso €**, **prossima azione**. Salva → `inserisciDeal` (Supabase) + best-effort `syncTrattativa` (HubSpot).
+>   - Backend: **nuova azione `sync_deal`** in `hubspot-sync/index.ts` (upsert Company + **tutti** i contatti del negozio, crea Deal con **`amount` = valore atteso** e fase). Aggiunto param `amount` a `createDeal`. `lib/db.ts`: `cercaPlaces` + `inserisciDeal`. `lib/hubspot.ts`: `syncTrattativa(dealId)`.
+>   - Verifica: `npx tsc --noEmit` **pulito** + `npx expo export --platform web` **ok**.
+>   - ⏳ **DA DEPLOYARE** (servono i token, non in ambiente): **web** `VERCEL_TOKEN=… bash scripts/deploy-web.sh` **e** **Edge Function** `SUPABASE_ACCESS_TOKEN=… npx supabase functions deploy hubspot-sync --project-ref fdsziebgkljfsugqqbqd`. Finché non si rideploya `hubspot-sync`, l'azione `sync_deal` risponde "Azione sconosciuta" e il push HubSpot della trattativa fallisce in silenzio (la trattativa resta comunque salva su Supabase).
+>   - Nota HubSpot: `amount` è property standard del deal → nessuna property custom da creare.
 
 > 🆕 **Fatto il 16 lug 2026** (branch `scout-ui`, tutto già **live**):
 > - **Nomi venditori**: impostato `raw_user_meta_data.nome` sui 3 utenti (Nicolò Daniele Donato, Eleonora Mannini, Martina Calia) → la dashboard Team non mostra più "Utente xxxxxx". Migrazione **0015** (`profiles.ultimo_accesso`, backfill da `auth.last_sign_in_at`); l'app aggiorna il proprio ultimo accesso a ogni login (`lib/auth.tsx`). Commit `3bd6d23`.

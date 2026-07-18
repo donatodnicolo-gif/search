@@ -211,6 +211,42 @@ export async function aggiornaFaseDeal(dealId: string, fase: Deal['fase']): Prom
   if (error) throw error;
 }
 
+/** Negozio in forma leggera, per il typeahead del form "Nuova trattativa". */
+export interface PlaceLite {
+  id: string;
+  nome: string;
+  indirizzo: string | null;
+  zona: string | null;
+}
+
+/** Cerca negozi per nome/indirizzo (per collegare la trattativa a un contatto/negozio). */
+export async function cercaPlaces(term: string, limit = 20): Promise<PlaceLite[]> {
+  const q = term.trim();
+  let query = supabase.from('places').select('id, nome, indirizzo, zona').order('nome').limit(limit);
+  if (q) query = query.or(`nome.ilike.%${q}%,indirizzo.ilike.%${q}%`);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as PlaceLite[];
+}
+
+/** Crea una trattativa a mano (poi sincronizzabile su HubSpot col valore). */
+export async function inserisciDeal(d: {
+  place_id: string;
+  linea: string | null;
+  fase: Deal['fase'];
+  valore_atteso: number | null;
+  next_action: string | null;
+}): Promise<Deal> {
+  const { data: u } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('deals')
+    .insert({ ...d, owner: u.user?.id ?? null, hubspot_deal_id: null })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Deal;
+}
+
 export async function aggiornaStatoPlace(placeId: string, stato: StatoPlace): Promise<void> {
   const { error } = await supabase.from('places').update({ stato }).eq('id', placeId);
   if (error) throw error;
