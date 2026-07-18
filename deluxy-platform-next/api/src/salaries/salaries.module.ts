@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
-import { Role, SalaryDocumentType, SalaryStatus } from '../common/enums';
+import { PaymentStatus, PaymentType, Role, SalaryDocumentType, SalaryStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -109,7 +109,24 @@ export class SalariesService {
       data.approvedAt = new Date();
     }
     if (status === SalaryStatus.PAID) data.paidAt = new Date();
-    return this.prisma.salary.update({ where: { id }, data });
+    const updated = await this.prisma.salary.update({ where: { id }, data });
+
+    // Al pagamento: crea lo storico in Pagamenti (una sola volta, alla transizione a PAID).
+    if (status === SalaryStatus.PAID && salary.status !== SalaryStatus.PAID) {
+      const fmt = (d: Date) =>
+        `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+      await this.prisma.payment.create({
+        data: {
+          valetId: salary.valetId,
+          salaryId: salary.id,
+          type: PaymentType.SALARY,
+          amount: salary.netAmount,
+          status: PaymentStatus.PAID,
+          description: `Stipendio ${fmt(salary.periodStart)} – ${fmt(salary.periodEnd)}`,
+        },
+      });
+    }
+    return updated;
   }
 
   /** Riapre uno stipendio dall'archivio: torna in bozza tra gli attivi.

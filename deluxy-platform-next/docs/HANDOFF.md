@@ -106,6 +106,12 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 18/07/2026 (12) — Pagamento stipendio → storico in Pagamenti
+
+- Feedback: "se clicca paga in pagamento crea uno storico del pagamento". Implementato **lato backend** in `salaries.updateStatus`: alla **transizione a PAID** (da qualunque origine — bottone Paga nelle Ricevute o Segna pagato in Stipendi/Archivio) crea un `Payment` di tipo **SALARY** (`amount = netAmount`, `status = PAID`, `salaryId` collegato, `description = "Stipendio dd/mm/yyyy – dd/mm/yyyy"`). Guardia `salary.status !== PAID` → creato **una sola volta** (idempotente, niente doppioni se si ri-PATCH PAID).
+- Nuovo `PaymentType.SALARY` in `enums.ts`; import `PaymentType`/`PaymentStatus` in `salaries.module.ts`. Frontend Pagamenti: la label del tipo arriva da `payments.type.SALARY` (IT "Stipendio" / EN "Salary", 994/994). Nessuna modifica alla pagina Pagamenti (già rende `payments.type.<TYPE>` e non offre azioni su record PAID). Il tipo SALARY non è tra quelli creabili dal form (solo REIMBURSEMENT/CLAIM).
+- Verificato E2E via API: 0 pagamenti → invia+firma+paga → 1 pagamento SALARY (amount netto, PAID, desc periodo, valet); ri-PATCH PAID → resta 1 (idempotente). In browser la pagina **Pagamenti** mostra la riga "Neri Sara · Stipendio · … · Pagato". Build API+web pulite. Dati/file test ripuliti.
+
 ### 18/07/2026 (11) — Ricevute: bottone "Paga" nella tab Firmate
 
 - Feedback: "in firmate aggiungi bottone PAGA". In `ReceiptsListComponent`, nella tab **Firmate**, per admin/operation (`canManage()` via `AuthService`) ogni ricevuta firmata il cui stipendio non è ancora pagato mostra un bottone **Paga** → `pay(r)` fa `PATCH /salaries/:salaryId/status {status:'PAID'}`. Se lo stipendio è già `PAID` la cella mostra il badge **Pagato**; il valet non vede il bottone.

@@ -111,6 +111,7 @@ export enum SalaryDocumentType {
 export enum PaymentType {
   REIMBURSEMENT = 'REIMBURSEMENT',
   CLAIM = 'CLAIM',
+  SALARY = 'SALARY', // storico del pagamento di uno stipendio
 }
 
 export enum PaymentStatus {
