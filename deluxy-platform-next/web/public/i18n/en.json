@@ -19,6 +19,7 @@
       "configurazione": "Configuration"
     },
     "consegne": "Deliveries",
+    "calendario": "Calendar",
     "attivita": "Activities",
     "vendite": "Sales",
     "partner": "Partners",
@@ -228,6 +229,17 @@
       "delivered_time_approved": "Delivered (time approved)",
       "delivered_time_not_approved": "Delivered (time pending approval)"
     }
+  },
+  "calendar": {
+    "title": "Calendar",
+    "caption": "Days with orders are marked. Click a day to see the deliveries.",
+    "today": "Today",
+    "pickDay": "Select a day to see the deliveries.",
+    "order": "order",
+    "orders": "orders",
+    "loading": "Loading…",
+    "noOrders": "No orders on this day.",
+    "wd": { "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun" }
   },
   "deliveries": {
     "title": "Deliveries",

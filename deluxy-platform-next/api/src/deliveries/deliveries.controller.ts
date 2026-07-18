@@ -36,7 +36,19 @@ export class DeliveriesController {
     return this.deliveriesService.findAll(user, query);
   }
 
-  // NB: dichiarata PRIMA di :id, altrimenti "/map" verrebbe catturata da :id.
+  // NB: dichiarate PRIMA di :id, altrimenti verrebbero catturate dalla route param.
+  @Get('calendar')
+  @ApiOperation({ summary: 'Conteggio consegne per giorno (calendario), filtrato per ruolo' })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  calendar(
+    @CurrentUser() user: JwtUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.deliveriesService.calendar(user, from, to);
+  }
+
   @Get('map')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Punti mappa delle consegne (con coordinate), filtrabili come la lista' })

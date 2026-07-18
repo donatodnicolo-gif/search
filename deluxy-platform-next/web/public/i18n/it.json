@@ -19,6 +19,7 @@
       "configurazione": "Configurazione"
     },
     "consegne": "Consegne",
+    "calendario": "Calendario",
     "attivita": "Attività",
     "vendite": "Vendite",
     "partner": "Partner",
@@ -228,6 +229,17 @@
       "delivered_time_approved": "Consegnata (orario approvato)",
       "delivered_time_not_approved": "Consegnata (orario da approvare)"
     }
+  },
+  "calendar": {
+    "title": "Calendario",
+    "caption": "I giorni con ordini sono segnati. Clicca un giorno per vedere le consegne.",
+    "today": "Oggi",
+    "pickDay": "Seleziona un giorno per vedere le consegne.",
+    "order": "ordine",
+    "orders": "ordini",
+    "loading": "Caricamento…",
+    "noOrders": "Nessun ordine in questo giorno.",
+    "wd": { "mon": "Lun", "tue": "Mar", "wed": "Mer", "thu": "Gio", "fri": "Ven", "sat": "Sab", "sun": "Dom" }
   },
   "deliveries": {
     "title": "Consegne",

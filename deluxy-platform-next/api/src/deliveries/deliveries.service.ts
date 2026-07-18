@@ -126,6 +126,34 @@ export class DeliveriesService {
   }
 
   /**
+   * Calendario: conteggio consegne per giorno (e per stato) in un intervallo,
+   * filtrato per ruolo (il partner vede solo le proprie). Serve alla vista
+   * mensile: ogni giorno con ordini viene marcato.
+   */
+  async calendar(user: JwtUser, from?: string, to?: string) {
+    const scope: any = { ...this.roleFilter(user) };
+    if (from || to) {
+      scope.date = {};
+      if (from) scope.date.gte = new Date(from);
+      if (to) { const t = new Date(to); t.setDate(t.getDate() + 1); scope.date.lt = t; }
+    }
+    const rows = await this.prisma.delivery.findMany({
+      where: scope,
+      select: { date: true, status: true },
+      take: 10000,
+    });
+    const byDay = new Map<string, { date: string; total: number; byStatus: Record<string, number> }>();
+    for (const r of rows) {
+      const key = r.date.toISOString().slice(0, 10);
+      const entry = byDay.get(key) ?? { date: key, total: 0, byStatus: {} };
+      entry.total++;
+      entry.byStatus[r.status] = (entry.byStatus[r.status] ?? 0) + 1;
+      byDay.set(key, entry);
+    }
+    return { days: [...byDay.values()] };
+  }
+
+  /**
    * Punti per la mappa consegne: solo consegne con coordinate, filtrate come la
    * lista (stato, intervallo date). Proiezione leggera, risultati limitati.
    * Riservato ad Admin/Operation (gate nel controller).

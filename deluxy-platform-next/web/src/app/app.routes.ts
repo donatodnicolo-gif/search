@@ -66,6 +66,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'calendar',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
+        loadComponent: () =>
+          import('./pages/calendar.component').then((m) => m.CalendarComponent),
+      },
+      {
         path: 'partners',
         canActivate: [roleGuard],
         data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },

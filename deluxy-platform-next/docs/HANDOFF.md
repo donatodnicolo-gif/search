@@ -106,6 +106,13 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 18/07/2026 — Calendario consegne (anche per il partner)
+
+- **Endpoint** `GET /deliveries/calendar?from=&to=` (`DeliveriesService.calendar`): conteggio consegne per giorno (+ per stato), **filtrato per ruolo** (`roleFilter`, il partner vede i suoi). Dichiarato **prima di `:id`** nel controller (come `/map`). Proiezione leggera (date+status), cap 10000.
+- **Pagina** `/calendar` (`CalendarComponent`, ADMIN/OPERATION/PARTNER/VALET): vista mensile lun→dom (42 celle, calcolo in **UTC** per coerenza con le date del backend), prev/next/oggi; ogni giorno con ordini ha un badge col conteggio. Click su un giorno → `GET /deliveries?date=&pageSize=100` e pannello con l'elenco (dot stato + link alla scheda). Voce menu **Calendario** in Operatività.
+- ⚠️ `translate.currentLang` in questa versione di ngx-translate è un **signal** → va chiamato `currentLang()` (non come proprietà). i18n `calendar.*` + `nav.calendario`.
+- Verificato: endpoint role-scoped (admin 5 giorni, fioraio 2), pagina come partner (luglio 2026, giorni 14 e 20 marcati), click giorno → elenco con link.
+
 ### 17/07/2026 (sera 8) — Orari di apertura del partner
 
 - **Sezione "Orari di apertura"** nel form Partner (`partner-form`): griglia settimanale lun→dom, ogni giorno con flag **Chiuso** e orario **dalle–alle**; pulsante **"copia il lunedì su tutti"**; prefill in modifica. Invio nel payload come `openingHours` (giorni chiusi o con orario; in edit sempre, anche vuoto → cancellazione). Backend già pronto (`OpeningHour`, `OpeningHourDto`, partner service con deleteMany+create).

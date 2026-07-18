@@ -42,6 +42,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     title: 'nav.section.operativita',
     items: [
       { label: 'nav.consegne', path: '/deliveries', icon: 'box', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
+      { label: 'nav.calendario', path: '/calendar', icon: 'calendar', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
       { label: 'nav.attivita', path: '/activities', icon: 'clock', roles: ['ADMIN', 'OPERATION', 'VALET'] },
       { label: 'nav.vendite', path: '/sales', icon: 'cart', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
     ],
