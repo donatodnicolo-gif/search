@@ -266,6 +266,12 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
           <Text style={styles.hs}>HubSpot ✓</Text>
         ) : null}
       </View>
+      {deal.owner_nome ? (
+        <View style={styles.ownerRow}>
+          <Ionicons name="person-circle-outline" size={15} color={colors.testoSoft} />
+          <Text style={styles.ownerTxt}>{deal.owner_nome}</Text>
+        </View>
+      ) : null}
       {deal.next_action ? <Text style={styles.nextAction}>→ {deal.next_action}</Text> : null}
     </Pressable>
   );
@@ -643,6 +649,8 @@ const styles = StyleSheet.create({
   regTxt: { fontWeight: '800', fontSize: 12 },
   hs: { color: colors.successo, fontWeight: '700', fontSize: 12 },
   nextAction: { color: colors.testoSoft, fontSize: 13 },
+  ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  ownerTxt: { color: colors.testoSoft, fontSize: 12, fontWeight: '700' },
 
   // FAB
   fab: {

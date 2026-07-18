@@ -19,6 +19,7 @@ export interface TrattativaConLuogo extends Deal {
   origine?: 'scout' | 'hubspot' | 'anagrafiche';
   anagrafiche_stato?: string | null; // stato dal registro Anagrafiche, se il negozio è schedato
   is_partner?: boolean; // registro = 'attivo' (già cliente/partner)
+  owner_nome?: string | null; // nome del venditore che possiede la trattativa
 }
 
 export async function fetchLinee(): Promise<Linea[]> {
@@ -344,7 +345,25 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
       is_partner: false,
     }));
 
-  return [...scoutRows, ...hsRows, ...anaRows];
+  // Owner (venditore) → nome: risolvi gli UUID dai profili (best effort).
+  const righe = [...scoutRows, ...hsRows, ...anaRows];
+  const ownerIds = [...new Set(righe.map((r) => r.owner).filter(Boolean))] as string[];
+  if (ownerIds.length) {
+    const profili = await fetchProfiles();
+    const nomePerId = new Map(profili.map((p) => [p.id, nomeDaProfilo(p)]));
+    for (const r of righe) {
+      if (r.owner) r.owner_nome = nomePerId.get(r.owner) ?? null;
+    }
+  }
+
+  return righe;
+}
+
+/** Nome visualizzato di un venditore: nome → prefisso email → "Utente xxxxxx". */
+function nomeDaProfilo(p: Profilo): string {
+  if (p.nome?.trim()) return p.nome.trim();
+  if (p.email) return p.email.split('@')[0];
+  return `Utente ${p.id.slice(0, 6)}`;
 }
 
 export async function aggiornaFaseDeal(dealId: string, fase: Deal['fase']): Promise<void> {
