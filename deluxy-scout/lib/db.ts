@@ -560,14 +560,18 @@ export async function notificaAssegnazioneTask(taskId: string): Promise<void> {
 
 // ── Richieste di pagamento (aperte dal commerciale, gestite da Finance) ────────
 
-/** Le richieste visibili (RLS: le mie; Finance/admin: tutte), con nome richiedente. */
+/** Le richieste di pagamento visibili (RLS: le mie; admin: tutte), col nome owner. */
 export async function fetchRichiestePagamento(): Promise<RichiestaPagamento[]> {
   const { data, error } = await supabase
     .from('richieste_pagamento')
     .select('*')
     .order('created_at', { ascending: false });
   if (error) throw error;
-  const righe = (data ?? []).map((r: any) => ({ ...r, importo: Number(r.importo) })) as RichiestaPagamento[];
+  const righe = (data ?? []).map((r: any) => ({
+    ...r,
+    importo: Number(r.importo),
+    importo_incassato: Number(r.importo_incassato),
+  })) as RichiestaPagamento[];
   const ids = [...new Set(righe.map((r) => r.owner))];
   if (ids.length) {
     const profili = await fetchProfiles();
@@ -577,13 +581,13 @@ export async function fetchRichiestePagamento(): Promise<RichiestaPagamento[]> {
   return righe;
 }
 
-/** Apre una richiesta di pagamento (stato iniziale: inviata). */
+/** Crea una richiesta di pagamento da una trattativa (stato iniziale: inviata). */
 export async function inserisciRichiestaPagamento(r: {
-  beneficiario: string;
+  cliente: string;
   importo: number;
-  causale: string;
-  iban?: string | null;
-  urgenza: 'normale' | 'urgente';
+  causale?: string | null;
+  scadenza?: string | null;
+  deal_id?: string | null;
   place_id?: string | null;
 }): Promise<RichiestaPagamento> {
   const { data: u } = await supabase.auth.getUser();
@@ -591,23 +595,23 @@ export async function inserisciRichiestaPagamento(r: {
     .from('richieste_pagamento')
     .insert({
       owner: u.user?.id ?? undefined,
-      beneficiario: r.beneficiario,
+      cliente: r.cliente,
       importo: r.importo,
-      causale: r.causale,
-      iban: r.iban ?? null,
-      urgenza: r.urgenza,
+      causale: r.causale ?? null,
+      scadenza: r.scadenza ?? null,
+      deal_id: r.deal_id ?? null,
       place_id: r.place_id ?? null,
     })
     .select('*')
     .single();
   if (error) throw error;
-  return { ...data, importo: Number(data.importo) } as RichiestaPagamento;
+  return { ...data, importo: Number(data.importo), importo_incassato: Number(data.importo_incassato) } as RichiestaPagamento;
 }
 
-/** Aggiorna una richiesta (Finance: stato + nota; owner: correzioni finché inviata). */
+/** Aggiorna l'esito/monitoraggio di una richiesta (stato, incassato, nota, scadenza). */
 export async function aggiornaRichiestaPagamento(
   id: string,
-  patch: Partial<Pick<RichiestaPagamento, 'stato' | 'nota_finance' | 'beneficiario' | 'importo' | 'causale' | 'iban' | 'urgenza'>>,
+  patch: Partial<Pick<RichiestaPagamento, 'stato' | 'importo_incassato' | 'nota' | 'scadenza' | 'importo' | 'causale'>>,
 ): Promise<void> {
   const { error } = await supabase
     .from('richieste_pagamento')

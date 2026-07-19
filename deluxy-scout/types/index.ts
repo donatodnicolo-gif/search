@@ -187,23 +187,25 @@ export interface Task {
   creato_da_nome?: string | null; // nome del creatore (risolto)
 }
 
-// Richiesta di pagamento: aperta dal commerciale, gestita da Finance.
-export type StatoPagamento = 'inviata' | 'in_lavorazione' | 'pagata' | 'rifiutata';
+// Richiesta di pagamento nata da una TRATTATIVA vinta: si invia al cliente (anche
+// parziale/acconto) e si monitora l'esito dell'incasso.
+export type StatoPagamento = 'inviata' | 'in_attesa' | 'pagata' | 'parziale' | 'insoluta' | 'annullata';
 
 export interface RichiestaPagamento {
   id: string;
   owner: string;
+  deal_id: string | null;
   place_id: string | null;
-  beneficiario: string;
-  importo: number;
-  causale: string;
-  iban: string | null;
-  urgenza: 'normale' | 'urgente';
+  cliente: string;
+  importo: number; // importo richiesto (anche parziale)
+  importo_incassato: number;
+  causale: string | null;
+  scadenza: string | null;
   stato: StatoPagamento;
-  nota_finance: string | null;
+  nota: string | null;
   created_at: string;
   updated_at: string;
-  owner_nome?: string | null; // risolto dai profili (per la vista Finance)
+  owner_nome?: string | null; // risolto dai profili (per la supervisione)
 }
 
 export interface Profilo {
