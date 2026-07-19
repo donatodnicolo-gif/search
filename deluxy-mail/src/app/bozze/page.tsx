@@ -89,14 +89,15 @@ type BozzaConMessaggio = {
 }
 
 function RigaBozza({ bozza }: { bozza: BozzaConMessaggio }) {
-  // Una bozza tua si riapre nella schermata di scrittura da cui è nata; una
-  // dell'AI si rivede sotto il messaggio a cui risponde.
+  // Una bozza tua si riapre nella schermata di scrittura da cui è nata (la
+  // risposta sotto il messaggio, la mail nuova in "Scrivi"); una dell'AI si
+  // rivede sotto il messaggio a cui risponde.
   const dove =
     bozza.origine === 'utente' && bozza.messaggio
       ? `/messaggio/${bozza.messaggio.id}/scrivi?modo=${bozza.modo}&bozza=${bozza.id}`
       : bozza.messaggio
         ? `/messaggio/${bozza.messaggio.id}`
-        : '/bozze'
+        : `/scrivi?bozza=${bozza.id}`
 
   const destinatario = bozza.a || bozza.messaggio?.mittenteNome || bozza.messaggio?.mittente || '—'
 
@@ -117,6 +118,7 @@ function RigaBozza({ bozza }: { bozza: BozzaConMessaggio }) {
             </span>
           </div>
           <div className="mail-tags" style={{ paddingLeft: 17 }}>
+            {bozza.modo === 'nuova' && <span className="badge neutral">nuova mail</span>}
             {bozza.modo === 'inoltra' && <span className="badge neutral">inoltro</span>}
             {bozza.modo === 'tutti' && <span className="badge neutral">a tutti</span>}
             {bozza.origine === 'ai' && bozza.modificata && (

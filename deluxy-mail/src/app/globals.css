@@ -623,6 +623,39 @@ input:focus, select:focus, textarea:focus {
 .draft-box { margin-top: 18px; }
 .draft-box textarea { min-height: 220px; line-height: 1.6; resize: vertical; }
 
+/* ---------- Finestra "Nuova attività" (dialogo con l'AI) ---------- */
+.modal-scrim {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0, 0, 0, 0.32);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 10vh 16px 16px;
+}
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  padding: 20px 22px;
+  width: 100%; max-width: 560px;
+  max-height: 80vh; overflow-y: auto;
+}
+.modal-title {
+  font-size: 17px; font-weight: 600; letter-spacing: -0.017em;
+  margin-bottom: 12px;
+}
+
+/* La domanda (e la proposta) dell'AI nel dialogo: stesso oro dell'ai-box. */
+.ai-domanda {
+  display: flex; gap: 8px; align-items: flex-start;
+  background: var(--gold-soft);
+  border: 1px solid rgba(184, 150, 62, 0.22);
+  border-radius: var(--radius-m);
+  padding: 10px 12px;
+  font-size: 13.5px; line-height: 1.5;
+  margin-bottom: 12px;
+}
+.ai-domanda .ai-mark { color: var(--gold-strong); font-weight: 600; flex: 0 0 auto; font-size: 11px; padding-top: 2px; }
+
 /* ---------- Regole ---------- */
 .rule-card {
   border: 1px solid var(--hairline);

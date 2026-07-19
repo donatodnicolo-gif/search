@@ -20,7 +20,7 @@ import {
 } from './sync'
 import { chiaveThread } from './thread'
 import { CODICI_PRIORITA } from './format'
-import { traduciVerso, pianificaAttivita } from './ai'
+import { traduciVerso, pianificaAttivita, pianificaConProposta } from './ai'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
 import { utenteCorrente } from './sessione'
@@ -289,6 +289,90 @@ export async function attivitaDaComando(
     return {
       ok: true,
       messaggio: piano.length === 1 ? '1 attività creata dall’AI.' : `${piano.length} attività create dall’AI.`,
+    }
+  } catch (e) {
+    const m = e instanceof Error ? e.message : 'Non riuscito.'
+    if (/connection error|fetch failed|ENOTFOUND|network/i.test(m))
+      return { ok: false, messaggio: 'Connessione a OpenAI non riuscita: riprova.' }
+    if (/401|API key/i.test(m)) return { ok: false, messaggio: 'Chiave OpenAI non valida.' }
+    return { ok: false, messaggio: m.slice(0, 120) }
+  }
+}
+
+export type EsitoNuovaAttivita = {
+  ok: boolean
+  messaggio: string
+  /** La proposta di azione che l'AI può intraprendere, da mostrare all'utente. */
+  proposta?: string
+  /** L'attività (con contatto) che l'AI può eseguire subito col "Procedi". */
+  eseguibileId?: string
+}
+
+/**
+ * "Nuova attività": l'utente racconta cosa c'è da seguire, l'AI la crea e
+ * propone l'azione che può intraprendere (preparare la bozza di mail se ha
+ * riconosciuto un contatto). Non invia mai nulla da sola.
+ */
+export async function creaAttivitaConProposta(comando: string): Promise<EsitoNuovaAttivita> {
+  const utenteId = await uid()
+  if (!comando.trim()) return { ok: false, messaggio: 'Racconta cosa devo seguire.' }
+
+  try {
+    const imp = await leggiImpostazioni()
+
+    // I contatti recenti della casella: gli unici indirizzi che l'AI può
+    // agganciare a un'attività (mai inventati).
+    const recenti = await db.messaggio.findMany({
+      where: { utenteId, direzione: 'entrata', cestinato: false },
+      orderBy: { data: 'desc' },
+      distinct: ['mittente'],
+      take: 40,
+      select: { mittente: true, mittenteNome: true },
+    })
+    const contatti = recenti.map((m) => ({ email: m.mittente, nome: m.mittenteNome }))
+    const conosciute = new Set(contatti.map((c) => c.email.toLowerCase()))
+
+    const piano = await pianificaConProposta({
+      comando,
+      contestoAzienda: imp[CHIAVI.contestoAzienda],
+      contatti,
+      oggi: new Date(),
+    })
+    if (piano.attivita.length === 0) {
+      return { ok: false, messaggio: 'Non ho ricavato attività: prova a essere più specifico.' }
+    }
+
+    let eseguibileId: string | undefined
+    for (const a of piano.attivita) {
+      // Il contatto vale solo se è davvero fra quelli conosciuti.
+      const contatto =
+        a.contattoEmail && conosciute.has(a.contattoEmail.toLowerCase())
+          ? a.contattoEmail.toLowerCase()
+          : null
+      const creata = await db.attivita.create({
+        data: {
+          utenteId,
+          titolo: a.titolo,
+          dettaglio: a.dettaglio || null,
+          scadenza: a.scadenza ? new Date(a.scadenza) : null,
+          priorita: CODICI_PRIORITA.includes(a.priorita as never) ? a.priorita : 'P2',
+          contattoEmail: contatto,
+          creataDaAI: true,
+        },
+      })
+      if (contatto && !eseguibileId) eseguibileId = creata.id
+    }
+
+    revalidatePath('/attivita')
+    revalidatePath('/', 'layout')
+    return {
+      ok: true,
+      messaggio:
+        piano.attivita.length === 1
+          ? 'Attività creata: la seguo io.'
+          : `${piano.attivita.length} attività create: le seguo io.`,
+      proposta: piano.proposta,
+      eseguibileId,
     }
   } catch (e) {
     const m = e instanceof Error ? e.message : 'Non riuscito.'
@@ -681,6 +765,36 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     revalidatePath('/', 'layout')
     const nota = tradottoIn ? ` Tradotto in ${tradottoIn} prima dell’invio.` : ''
     return { ok: true, messaggio: `Messaggio inviato a ${a}.${nota}${avviso ? ` ${avviso}` : ''}` }
+  } catch (e) {
+    return { ok: false, messaggio: `Invio non riuscito: ${e instanceof Error ? e.message : 'errore'}` }
+  }
+}
+
+/** Invia una mail scritta da zero (non in risposta a niente): apre una
+ *  conversazione nuova dal primo account dell'utente. */
+export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
+  try {
+    const utenteId = await uid()
+    const a = testo(form, 'a')
+    const cc = testo(form, 'cc')
+    const oggetto = testo(form, 'oggetto')
+    const corpo = testo(form, 'corpo')
+
+    if (!a) return { ok: false, messaggio: 'Manca il destinatario.' }
+    if (!corpo) return { ok: false, messaggio: 'Il messaggio è vuoto.' }
+
+    const account = await db.account.findFirst({ where: { utenteId } })
+    if (!account) return { ok: false, messaggio: 'Nessuna casella collegata: aggiungila in Impostazioni.' }
+
+    const daInviare: DaInviare = { a, cc, oggetto, corpo, inRispostaA: null }
+    const { raw, messageId } = await spedisci(account, daInviare)
+    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, null)
+
+    const bozzaId = testo(form, 'bozzaId')
+    if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId, utenteId } })
+
+    revalidatePath('/', 'layout')
+    return { ok: true, messaggio: `Messaggio inviato a ${a}.${avviso ? ` ${avviso}` : ''}` }
   } catch (e) {
     return { ok: false, messaggio: `Invio non riuscito: ${e instanceof Error ? e.message : 'errore'}` }
   }

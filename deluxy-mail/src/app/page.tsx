@@ -6,6 +6,7 @@ import { ColonnaAttivita } from '@/components/ColonnaAttivita'
 import { ArchiviaDefinitivo } from '@/components/ArchiviaDefinitivo'
 import { AzioniRiga } from '@/components/AzioniRiga'
 import { AssistenteAI } from '@/components/AssistenteAI'
+import { NuoveAzioni } from '@/components/NuoveAzioni'
 import { RispostaAzioni } from '@/components/RispostaAzioni'
 import { richiediUtente } from '@/lib/sessione'
 import { raggruppa } from '@/lib/thread'
@@ -134,6 +135,10 @@ export default async function PostaInArrivo({ searchParams }: Props) {
           </p>
         </div>
         <div className="page-actions filters">
+          <NuoveAzioni />
+
+          <span style={{ width: 1, height: 22, background: 'var(--hairline-strong)', margin: '0 2px' }} />
+
           {filtri.map((f) => {
             const params = new URLSearchParams()
             if (sezione) params.set('sezione', sezione)

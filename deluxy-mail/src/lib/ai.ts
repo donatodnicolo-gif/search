@@ -222,6 +222,96 @@ ${opts.comando.slice(0, 1500)}`,
   return (JSON.parse(json) as { attivita: AttivitaPianificata[] }).attivita
 }
 
+// ---------- Nuova attività con proposta di azione ----------
+
+export type AttivitaProposta = AttivitaPianificata & { contattoEmail: string | null }
+export type PianoConProposta = { attivita: AttivitaProposta[]; proposta: string }
+
+const SCHEMA_PIANO_PROPOSTA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['attivita', 'proposta'],
+  properties: {
+    attivita: {
+      type: 'array',
+      description: 'Le attività concrete da seguire.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['titolo', 'dettaglio', 'scadenza', 'priorita', 'contattoEmail'],
+        properties: {
+          titolo: { type: 'string', description: 'Azione concreta, all’infinito.' },
+          dettaglio: { type: 'string', description: 'Cosa fare, in pratica. Può essere breve.' },
+          scadenza: { type: ['string', 'null'], description: 'Data ISO YYYY-MM-DD o null.' },
+          priorita: { type: 'string', enum: [...CODICI_PRIORITA] },
+          contattoEmail: {
+            type: ['string', 'null'],
+            description:
+              'SOLO un indirizzo preso dall’elenco CONTATTI CONOSCIUTI, se l’attività riguarda chiaramente quel contatto. Altrimenti null. MAI inventare indirizzi.',
+          },
+        },
+      },
+    },
+    proposta: {
+      type: 'string',
+      description:
+        'La proposta di azione che TU (l’AI) puoi intraprendere subito, in prima persona (“Posso…”), 1-2 frasi. Se hai collegato un contatto: proponi di preparare la bozza di mail. Se no: spiega cosa terrai d’occhio o cosa ti servirebbe per agire.',
+    },
+  },
+} as const
+
+const SISTEMA_PIANO_PROPOSTA = `${SISTEMA_PIANO}
+- Se l'attività riguarda uno dei CONTATTI CONOSCIUTI forniti, valorizza contattoEmail con QUELLA email (mai altre): così potrai eseguirla tu preparando la mail.
+- In "proposta" descrivi l'azione che puoi intraprendere TU adesso: preparare una bozza di mail al contatto collegato è l'unica azione concreta che sai fare. NON proponi mai di inviare da solo: prepari, l'utente decide.`
+
+/**
+ * Come pianificaAttivita, ma l'AI aggancia (se può) un contatto conosciuto a
+ * ogni attività e formula la proposta di azione che può intraprendere.
+ */
+export async function pianificaConProposta(opts: {
+  comando: string
+  contestoAzienda?: string
+  contatti: { email: string; nome: string | null }[]
+  oggi: Date
+}): Promise<PianoConProposta> {
+  const elencoContatti =
+    opts.contatti.length === 0
+      ? '(nessuno)'
+      : opts.contatti.map((c) => `- ${c.nome ? `${c.nome} ` : ''}<${c.email}>`).join('\n')
+
+  const risposta = await client().chat.completions.create({
+    model: MODELLO,
+    temperature: 0.3,
+    response_format: {
+      type: 'json_schema',
+      json_schema: {
+        name: 'piano_proposta',
+        strict: true,
+        schema: SCHEMA_PIANO_PROPOSTA as unknown as Record<string, unknown>,
+      },
+    },
+    messages: [
+      { role: 'system', content: SISTEMA_PIANO_PROPOSTA },
+      {
+        role: 'user',
+        content: `Data di oggi: ${opts.oggi.toISOString().slice(0, 10)}
+
+CONTESTO AZIENDALE:
+${opts.contestoAzienda || '(non impostato)'}
+
+CONTATTI CONOSCIUTI (gli unici indirizzi che puoi usare):
+${elencoContatti}
+
+COSA DEVO SEGUIRE (parole dell'utente):
+${opts.comando.slice(0, 1500)}`,
+      },
+    ],
+  })
+  const json = risposta.choices[0]?.message?.content
+  if (!json) throw new Error('Risposta AI vuota')
+  return JSON.parse(json) as PianoConProposta
+}
+
 // ---------- Giudizio spam (per i casi dubbi) ----------
 
 const SCHEMA_SPAM = {

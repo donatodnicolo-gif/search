@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **19 luglio 2026**.
+> Documento di ripartenza. Aggiornato: **20 luglio 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -100,7 +100,7 @@ Ogni tabella dati ha `utenteId` → **isolamento multi-utente** (ogni query è f
   - `istruzioniMirate` — raccoglie le istruzioni AI del **contatto** e del **thread** (precedenza **thread > contatto > globale**).
   - `traduciMessaggioSeServe`.
 - **ai.ts** — chiamate OpenAI (tutte con json_schema strict; client con **key ripulita da spazi/a-capo**, timeout 45s, maxRetries 2):
-  - `analizzaMessaggio` (analisi completa), `riassumiContatto`, `riassumiThread`, `scriviRisposta`, `pianificaAttivita` (comando in linguaggio naturale → attività), `giudicaSpam`, `rilevaETraduci` + `traduciVerso` (traduzione), `triageLotto` + `sintetizzaPeriodo` (Assistente map-reduce). Tutte le funzioni AI accettano `istruzioni?: string[]` (le istruzioni mirate).
+  - `analizzaMessaggio` (analisi completa), `riassumiContatto`, `riassumiThread`, `scriviRisposta`, `pianificaAttivita` (comando in linguaggio naturale → attività), `pianificaConProposta` (come sopra ma aggancia un contatto CONOSCIUTO alle attività e formula la proposta di azione che l'AI può intraprendere), `giudicaSpam`, `rilevaETraduci` + `traduciVerso` (traduzione), `triageLotto` + `sintetizzaPeriodo` (Assistente map-reduce). Tutte le funzioni AI accettano `istruzioni?: string[]` (le istruzioni mirate).
 - **regole.ts** — `applicaRegole(regole, msg)` → `EsitoRegole` (sezione, letta, archivia, `istruzioniAI[]`, `attivitaDaCreare[]`).
 - **thread.ts** — raggruppamento in conversazioni (union-find su radice della catena + oggetto normalizzato): `raggruppa`, `normalizzaOggetto`, `chiaveThread`.
 - **spam.ts** — `valutaSpam(msg, ctx)` → livello `basso`/`medio`/`alto` a punteggio (frasi tipiche, spoofing marchi, link IP/accorciati, maiuscolo…). Whitelist forte: contatto noto / dominio proprio / contatto AI = mai spam.
@@ -117,9 +117,9 @@ Ogni tabella dati ha `utenteId` → **isolamento multi-utente** (ogni query è f
 Tutte scoped per utente via `uid()`. Le principali:
 
 - **Posta/priorità:** `impostaPriorita` (setta priorità + lancia analisi AI; **non lancia mai** errori al client, torna sempre `{ok, messaggio}`), `rianalizza`.
-- **Invio:** `inviaMessaggio`, `inviaBozza`, `salvaMinuta`, `salvaBozza` (invio via SMTP + copia in Inviata + traduzione se la mail originale è straniera).
+- **Invio:** `inviaMessaggio`, `inviaNuovaMail` (mail scritta da zero dalla pagina `/scrivi`: nessun originale, apre una conversazione nuova), `inviaBozza`, `salvaMinuta` (con `modo='nuova'` e senza `messaggioId` per le mail da zero), `salvaBozza` (invio via SMTP + copia in Inviata + traduzione se la mail originale è straniera).
 - **Contatti/AI:** `analizzaContatto`, `cambiaContattoAI` (PLUS AI on/off), `salvaIstruzioniContatto`, `salvaIstruzioniThread`, `riassumiConversazione`.
-- **Attività:** `eseguiAttivita` (AI scrive la mail), `creaAttivitaManuale` (attività tua, opzionale contatto → eseguibile dall'AI), `attivitaDaComando` (comando NL → attività via `pianificaAttivita`), `eliminaAttivita`, toggle "fatta".
+- **Attività:** `eseguiAttivita` (AI scrive la mail), `creaAttivitaManuale` (attività tua, opzionale contatto → eseguibile dall'AI), `attivitaDaComando` (comando NL → attività via `pianificaAttivita`), `creaAttivitaConProposta` (il dialogo "Nuova attività" della posta: crea le attività, aggancia solo contatti realmente conosciuti — i mittenti recenti — e torna `proposta` + `eseguibileId` per il tasto "Procedi"), `eliminaAttivita`, toggle "fatta".
 - **Regole:** `creaRegola` (con **retrodata**: applica subito le parti deterministiche allo storico via `retrodataRegola`), `attivaRegola`, `eliminaRegola`.
 - **Assistente:** `contaPeriodoAI`, `avviaAssistenteAI`.
 - **Sync/account/impostazioni:** `sincronizzaOra`, `scaricaStorico`, `creaAccount`, `salvaImpostazioni`.
@@ -142,6 +142,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 - **PLUS AI** sui contatti + **AI Inbox** (vista dedicata) vs **Tutte** (predefinita). SPAM escluso dalla posta in arrivo.
 - **Istruzioni AI mirate** per **contatto** e per **conversazione** (precedenza thread > contatto > globale), applicate a tutte le chiamate AI. Fidate, separate dal corpo mail.
 - **Attività**: create dall'AI, **a mano**, o da **comando in linguaggio naturale**; tutte eseguibili dall'AI (scrive la mail).
+- **Tasti "Nuova mail" e "Nuova attività"** in testa alla posta (20 lug): "Nuova mail" apre `/scrivi` (mail da zero, conversazione nuova, bozze riprendibili con badge "nuova mail"); "Nuova attività" apre il dialogo con l'AI che **chiede quale attività bisogna seguire**, la crea (agganciando solo contatti conosciuti) e **propone l'azione che può intraprendere** — col tasto "Procedi" prepara subito la bozza di mail.
 - **Assistente AI** (oggi/settimana/mese): riassunto del periodo + attività + proposte di archiviazione (map-reduce).
 - **Anti-SPAM automatico all'arrivo** (euristiche gratuite + giudizio AI sui casi dubbi), prudente per non nascondere mail di lavoro; sezione SPAM **recuperabile** (mai cancellati).
 - **Multi-utente** con login (email+password), ruoli, admin che crea gli utenti.
@@ -190,6 +191,7 @@ deluxy-mail/
   src/app/
     layout.tsx                # Shell (drawer mobile), maxDuration
     page.tsx                  # posta in arrivo (Tutte / AI Inbox, thread, spam escluso)
+    scrivi/page.tsx           # nuova mail da zero (anche ?bozza= per riprenderla)
     messaggio/[id]/page.tsx   # dettaglio + conversazione + istruzioni thread
     rubrica/[email]/page.tsx  # contatto + PLUS AI + istruzioni + quadro AI
     attivita/page.tsx         # attività + NuovaAttivita (manuale + comando AI)
@@ -198,7 +200,8 @@ deluxy-mail/
     api/sync/route.ts         # cron
   src/lib/                    # vedi §5
   src/components/             # UI (Shell, Sidebar, PrioritaButtons, EditorIstruzioni,
-                              #     NuovaAttivita, RiassuntoConversazione, BottoneContattoAI, …)
+                              #     NuovaAttivita, NuoveAzioni [tasti + dialogo AI],
+                              #     ComposizioneNuova, RiassuntoConversazione, …)
 ```
 
 ---
