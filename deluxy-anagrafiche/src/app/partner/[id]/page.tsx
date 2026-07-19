@@ -4,6 +4,7 @@ import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
+import { linkContattoHubspot } from "@/lib/hubspot-link";
 import { ETICHETTE_STATO, isStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
@@ -129,7 +130,15 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
                 {p.contatti.map((c) => (
                   <tr key={c.id}>
                     <td className="cella-muta">{c.ruolo ?? "—"}</td>
-                    <td>{c.nome ?? "—"}</td>
+                    <td>
+                      {c.hubspotId ? (
+                        <a href={linkContattoHubspot(c.hubspotId)} target="_blank" rel="noreferrer" title="Apri il contatto in HubSpot">
+                          {c.nome ?? "—"} ↗
+                        </a>
+                      ) : (
+                        c.nome ?? "—"
+                      )}
+                    </td>
                     <td className="cella-muta">{c.telefono ?? "—"}</td>
                     <td className="cella-muta">{c.email ?? "—"}</td>
                     <td className="cella-muta">{c.fonte === "hubspot" ? "HubSpot" : c.fonte ? c.fonte : "Excel"}</td>

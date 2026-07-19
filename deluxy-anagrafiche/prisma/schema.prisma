@@ -74,6 +74,7 @@ model Contatto {
   telefono  String?
   email     String?
   fonte     String? // sorgente che ha inserito il referente (per il merge)
+  hubspotId String? // id del contatto nel CRM HubSpot (per aprirlo)
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   @@index([partnerId])

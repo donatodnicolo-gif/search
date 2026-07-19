@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { GOOGLE_OAUTH_CLIENT_ID } from "@/lib/google";
+import { linkContattoHubspot } from "@/lib/hubspot-link";
 
 export type RigaContatto = {
   id: string;
@@ -10,6 +11,7 @@ export type RigaContatto = {
   telefono: string | null;
   email: string | null;
   fonte: string | null;
+  hubspotId: string | null;
   partnerId: string;
   partnerNome: string;
   categoria: string | null;
@@ -188,7 +190,15 @@ export function TabellaContattiGoogle({ contatti }: { contatti: RigaContatto[] }
               const e = esiti[c.id];
               return (
                 <tr key={c.id}>
-                  <td><div className="cella-nome">{c.nome ?? "—"}</div></td>
+                  <td>
+                    {c.hubspotId ? (
+                      <a href={linkContattoHubspot(c.hubspotId)} target="_blank" rel="noreferrer" title="Apri in HubSpot">
+                        <div className="cella-nome">{c.nome ?? "—"} ↗</div>
+                      </a>
+                    ) : (
+                      <div className="cella-nome">{c.nome ?? "—"}</div>
+                    )}
+                  </td>
                   <td className="cella-muta">{c.ruolo ?? "—"}</td>
                   <td className="cella-muta">{c.telefono ?? "—"}</td>
                   <td className="cella-muta">{c.email ?? "—"}</td>

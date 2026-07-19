@@ -102,6 +102,7 @@ let totContatti = 0;
           nome: nome || null,
           telefono: pr.phone || null,
           email: pr.email || null,
+          hubspotId: r.id,
         });
       }
     }
@@ -109,27 +110,40 @@ let totContatti = 0;
   } while (after);
 }
 
-// 4. Scrittura con dedup per identità (email>telefono>nome)
+// 4. Scrittura con dedup per identità (email>telefono>nome). Se il referente
+// esiste già, gli si aggancia comunque l'id HubSpot (per aprirlo nel CRM).
 let aggiunti = 0;
+let arricchiti = 0;
 let partnerToccati = 0;
 for (const p of partner) {
   const nuovi = daAggiungere.get(p.id);
   if (!nuovi?.length) continue;
-  const chiaviEsistenti = new Set(p.contatti.map(chiave).filter(Boolean));
+  const perChiaveEsistente = new Map(p.contatti.map((c) => [chiave(c), c]).filter(([k]) => k));
   const daCreare = [];
+  let toccato = false;
   for (const c of nuovi) {
     const k = chiave(c);
-    if (k && chiaviEsistenti.has(k)) continue;
-    if (k) chiaviEsistenti.add(k);
+    const esistente = k ? perChiaveEsistente.get(k) : null;
+    if (esistente) {
+      if (!esistente.hubspotId && c.hubspotId) {
+        await prisma.contatto.update({ where: { id: esistente.id }, data: { hubspotId: c.hubspotId } });
+        arricchiti++;
+        toccato = true;
+      }
+      continue;
+    }
+    if (k) perChiaveEsistente.set(k, { ...c, id: "nuovo" });
     daCreare.push({ ...c, fonte: "hubspot" });
   }
-  if (!daCreare.length) continue;
-  await prisma.partner.update({ where: { id: p.id }, data: { contatti: { create: daCreare } } });
-  aggiunti += daCreare.length;
-  partnerToccati++;
+  if (daCreare.length) {
+    await prisma.partner.update({ where: { id: p.id }, data: { contatti: { create: daCreare } } });
+    aggiunti += daCreare.length;
+    toccato = true;
+  }
+  if (toccato) partnerToccati++;
 }
 
 console.log(
-  `Contatti HubSpot letti: ${totContatti} | referenti aggiunti: ${aggiunti} su ${partnerToccati} partner`,
+  `Contatti HubSpot letti: ${totContatti} | aggiunti: ${aggiunti} | id agganciati a esistenti: ${arricchiti} | su ${partnerToccati} partner`,
 );
 await prisma.$disconnect();

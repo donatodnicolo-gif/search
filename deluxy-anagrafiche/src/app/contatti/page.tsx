@@ -62,6 +62,7 @@ export default async function Contatti({ searchParams }: { searchParams: Promise
     telefono: c.telefono,
     email: c.email,
     fonte: c.fonte,
+    hubspotId: c.hubspotId,
     partnerId: c.partner.id,
     partnerNome: c.partner.nome,
     categoria: c.partner.categoria,
