@@ -118,6 +118,13 @@ export class DeliveriesController {
     return this.deliveriesService.findByTrackingToken(token);
   }
 
+  @Public()
+  @Post('delivered/:token')
+  @ApiOperation({ summary: 'Conferma pubblica di consegna (link "consegnata"): stato -> delivered' })
+  confirmDelivered(@Param('token') token: string, @Body() body: { receivedBy?: string }) {
+    return this.deliveriesService.confirmDeliveredByToken(token, body.receivedBy);
+  }
+
   @Patch(':id/assign')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Assegna valet (calcola paga dal matching servizio/salario)' })

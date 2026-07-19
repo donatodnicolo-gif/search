@@ -106,6 +106,20 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 19/07/2026 (3) — Dettaglio consegna: tasti azione (Stampa/Maps/Condividi/Link consegna/Assegna)
+
+- Feedback: "nella visualizzazione di una consegna in app.deluxy.it compaiono dei tasti, replica anche qui". Il manuale (§ Dettaglio consegna) elenca: **STAMPA · MAPS · SHARE · DELIVERED LINK · ASSEGNA**. La pagina `delivery-detail.component.ts` era di sola lettura, senza azioni.
+- **Implementati** in una barra azioni sotto il titolo:
+  - **Stampa** → `window.print()`.
+  - **Maps** → apre Google Maps su `latitude,longitude` (se presenti) o sull'indirizzo destinatario.
+  - **Condividi** → `GET /:id/tracking-link` → copia `origin/tracking/:token` (link pubblico di monitoraggio).
+  - **Link consegna** → stesso token → copia `origin/consegnata/:token` (link pubblico di conferma consegna).
+  - **Assegna** → pop-up coi valet della provincia della consegna (`detectProvince` + filtro), `PATCH /:id/assign` (riusa la logica della lista). Condividi/Link/Assegna solo `canManage()` (admin/operation); Stampa/Maps per tutti.
+- **Nuovo flusso pubblico "conferma consegna"** (per DELIVERED LINK): `Delivery.receivedBy` (migrazione `delivery_received_by`); endpoint **`@Public() POST /deliveries/delivered/:token`** `{receivedBy}` → stato `delivered` + `receivedBy` + log "Consegna confermata" (idempotente: se già consegnata risponde `gia_consegnata`). Nuova pagina pubblica **`/consegnata/:token`** (`ConfirmDeliveryComponent`, fuori dallo shell come `/tracking/:token`): mostra i dati minimi (via l'endpoint tracking) + campo "chi ha ritirato" + Conferma.
+- i18n `deliveryDetail.act.*`, `confirmDelivery.*` (IT/EN 1044/1044). Copia link: `navigator.clipboard` con fallback `prompt` (nell'iframe di preview la clipboard è bloccata, in browser reale funziona).
+- **Verificato E2E**: pubblico `POST delivered/:token` senza auth → consegna #5 created→delivered, receivedBy salvato, ri-POST `gia_consegnata`. In browser: i 5 tasti compaiono; **Assegna** apre il pop-up con provincia "Milano" e i valet; pagina `/consegnata/:token` (public, no shell) → submit "Consegna confermata ✓". Build API+web pulite. Consegna di test ripristinata a `created`.
+- ⚠️ **TODO**: la conferma consegna reale prevede anche **foto della ricevuta** + notifica ad Admin/Operation (qui solo "chi ha ritirato"); si può aggiungere con l'upload file già presente nelle Ricevute.
+
 ### 19/07/2026 (2) — Fatturazione: ogni consegna «da fatturare» + dettaglio riga per riga
 
 - Feedback (con screenshot Consegne tutte "Da gestire"): "ogni consegna dovrebbe comparire in fatturazione secondo le regole". Il doc definisce il Listino (calcolo prezzo) e il flag "Da fatturare" ma non lo stato → chiesto all'utente: **① tutte le consegne `billable` del periodo, qualsiasi stato tranne annullata/non consegnata**; **② fattura con dettaglio riga per riga**.

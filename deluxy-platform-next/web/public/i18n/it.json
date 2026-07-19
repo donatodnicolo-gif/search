@@ -1261,7 +1261,23 @@
     "notes": "Note",
     "personalization": "Personalizzazione",
     "internalNotes": "Note interne",
-    "noLogs": "Nessun evento nello storico."
+    "noLogs": "Nessun evento nello storico.",
+    "act": {
+      "print": "Stampa",
+      "maps": "Maps",
+      "share": "Condividi",
+      "deliveredLink": "Link consegna",
+      "assign": "Assegna",
+      "shareCopied": "Link di monitoraggio copiato ✓",
+      "deliveredCopied": "Link di conferma consegna copiato ✓"
+    }
+  },
+  "confirmDelivery": {
+    "title": "Conferma consegna #{{code}}",
+    "receivedBy": "Chi ha ritirato",
+    "receivedByPlaceholder": "Nome e cognome di chi ha ricevuto",
+    "confirm": "Conferma consegna",
+    "done": "Consegna confermata ✓ Grazie."
   },
   "tracking": {
     "title": "Consegna #{{code}}",

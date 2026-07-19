@@ -464,6 +464,34 @@ export class DeliveriesService {
     };
   }
 
+  /**
+   * Conferma di consegna dal link pubblico "consegnata" (senza login): imposta
+   * lo stato a "delivered" e registra chi ha ritirato. Idempotente.
+   */
+  async confirmDeliveredByToken(token: string, receivedBy?: string) {
+    const delivery = await this.prisma.delivery.findFirst({ where: { trackingToken: token } });
+    if (!delivery) throw new NotFoundException('Consegna non trovata');
+    if (delivery.status === 'delivered' || delivery.status === 'delivered_time_approved') {
+      return { esito: 'gia_consegnata', code: delivery.code };
+    }
+    await this.prisma.delivery.update({
+      where: { id: delivery.id },
+      data: {
+        status: 'delivered',
+        receivedBy: receivedBy?.trim() || null,
+        logs: {
+          create: {
+            type: 'delivered',
+            message: receivedBy?.trim()
+              ? `Consegna confermata — ricevuta da ${receivedBy.trim()}`
+              : 'Consegna confermata',
+          },
+        },
+      },
+    });
+    return { esito: 'confermata', code: delivery.code };
+  }
+
   async assignValet(id: string, valetId: string, user: JwtUser) {
     const delivery = await this.findOne(id, user);
     const valet = await this.prisma.valet.findUnique({ where: { id: valetId } });

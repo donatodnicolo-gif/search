@@ -558,6 +558,8 @@ model Delivery {
   // Casuale e opaco: niente @unique per evitare il rebuild tabella in SQLite,
   // la ricerca usa findFirst.
   trackingToken      String?
+  // Conferma di consegna (dal link pubblico "consegnata"): chi ha ritirato.
+  receivedBy         String?
   // Fascia oraria consegna + ritiro (se non flessibile => fascia di 1 ora)
   deliveryTimeFrom   String? // "09:00"
   deliveryTimeTo     String? // "13:00"

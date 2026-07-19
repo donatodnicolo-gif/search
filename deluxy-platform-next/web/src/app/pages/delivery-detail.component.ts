@@ -1,10 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
+import { Province, ValetRef } from '../core/models';
+import { detectProvince } from '../core/province.util';
 
 interface DeliveryLog { id: string; type: string; message: string; createdAt: string; }
 interface DeliveryProductRow {
@@ -53,6 +55,10 @@ interface DeliveryDetail {
   valetSalary?: number;
   valetAdditionalPrice?: number;
   distanceKm?: number;
+  latitude?: number;
+  longitude?: number;
+  trackingToken?: string;
+  receivedBy?: string;
   partner?: { id: string; insegna: string };
   valet?: { id: string; firstName: string; lastName: string } | null;
   serviceType?: { id: string; name: string; pricingModel: string };
@@ -74,8 +80,21 @@ interface DeliveryDetail {
             <span class="dot" [class]="'dot s-' + d.status"></span>{{ 'status.delivery.' + d.status | translate }}
           </span>
         </div>
+        <!-- Azioni in alto (come app.deluxy.it): Stampa · Maps · Share · Delivered link · Assegna -->
+        <div class="actions-bar">
+          <button type="button" class="act" (click)="print()">{{ 'deliveryDetail.act.print' | translate }}</button>
+          <button type="button" class="act" [disabled]="!mapsUrl(d)" (click)="openMaps(d)">{{ 'deliveryDetail.act.maps' | translate }}</button>
+          @if (canManage()) {
+            <button type="button" class="act" (click)="share(d)">{{ 'deliveryDetail.act.share' | translate }}</button>
+            <button type="button" class="act" (click)="deliveredLink(d)">{{ 'deliveryDetail.act.deliveredLink' | translate }}</button>
+            <button type="button" class="act primary" (click)="openAssign()">{{ 'deliveryDetail.act.assign' | translate }}</button>
+          }
+        </div>
       }
     </div>
+
+    @if (banner(); as b) { <div class="toast">{{ b }}</div> }
+    @if (actionError()) { <div class="toast err">{{ actionError() }}</div> }
 
     @if (loading()) {
       <div class="card state-card">{{ 'common.loading' | translate }}</div>
@@ -203,6 +222,34 @@ interface DeliveryDetail {
       </div>
       }
     }
+
+    @if (assignOpen()) {
+      <div class="overlay" (click)="assignOpen.set(false)"></div>
+      <div class="dialog card">
+        <h2>{{ 'deliveries.assign.title' | translate }}</h2>
+        @if (delivery(); as d) {
+          <p class="muted">{{ 'deliveries.assign.forDelivery' | translate: { code: d.code } }}
+            @if (assignProvince(); as p) { <span class="tag">{{ p.name }}</span> }
+            @else { <span class="tag warn">{{ 'deliveries.assign.noProvince' | translate }}</span> }
+          </p>
+        }
+        @if (assignValets().length === 0) {
+          <p class="muted">{{ 'deliveries.assign.noValets' | translate }}</p>
+        } @else {
+          <ul class="valet-list">
+            @for (v of assignValets(); track v.id) {
+              <li>
+                <span>{{ v.lastName }} {{ v.firstName }}</span>
+                <button type="button" class="act primary" [disabled]="busy()" (click)="assign(v.id)">{{ 'deliveries.assign.choose' | translate }}</button>
+              </li>
+            }
+          </ul>
+        }
+        <div class="dialog-foot">
+          <button type="button" class="act" (click)="assignOpen.set(false)">{{ 'common.cancel' | translate }}</button>
+        </div>
+      </div>
+    }
   `,
   styles: [
     `
@@ -211,6 +258,21 @@ interface DeliveryDetail {
       .back:hover { color: var(--text); }
       .title-row { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
+      .actions-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+      .act { appearance: none; font: inherit; font-size: 13px; font-weight: 550; padding: 7px 16px; border-radius: 980px; border: 1px solid var(--hairline); background: var(--surface); color: var(--text); cursor: pointer; }
+      .act:hover { background: var(--fill); }
+      .act:disabled { opacity: 0.45; cursor: default; }
+      .act.primary { background: var(--ink, #1d1d1f); color: #fff; border-color: transparent; }
+      .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink, #1d1d1f); color: #fff; padding: 10px 20px; border-radius: 980px; font-size: 13.5px; z-index: 60; box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+      .toast.err { background: var(--red); }
+      .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 50; }
+      .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51; width: min(440px, 92vw); padding: 24px 26px; }
+      .dialog h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }
+      .tag { margin-left: 6px; font-size: 11px; background: rgba(0,113,227,0.1); color: var(--blue); border-radius: 980px; padding: 2px 8px; }
+      .tag.warn { background: rgba(215,0,21,0.08); color: var(--red); }
+      .valet-list { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+      .valet-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--hairline); font-size: 14px; }
+      .dialog-foot { display: flex; justify-content: flex-end; margin-top: 16px; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 980px; }
       .block { padding: 22px 24px; }
       .block h2 { margin: 0 0 14px; font-size: 16px; font-weight: 600; letter-spacing: -0.015em; }
@@ -247,30 +309,113 @@ export class DeliveryDetailComponent {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
+  private readonly translate = inject(TranslateService);
 
   readonly delivery = signal<DeliveryDetail | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+
+  readonly banner = signal<string | null>(null);
+  readonly actionError = signal<string | null>(null);
+  readonly busy = signal(false);
+  readonly assignOpen = signal(false);
+  readonly provinces = signal<Province[]>([]);
+  readonly valets = signal<ValetRef[]>([]);
+  private id = '';
+
+  /** Provincia dedotta dall'indirizzo del destinatario. */
+  readonly assignProvince = computed(() => {
+    const d = this.delivery();
+    return d ? detectProvince(d.recipientAddress, this.provinces()) : null;
+  });
+  /** Solo i valet che hanno abilitata quella provincia. */
+  readonly assignValets = computed(() => {
+    const prov = this.assignProvince();
+    if (!prov) return this.valets();
+    return this.valets().filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code));
+  });
 
   /** Il partner non vede note interne né i costi. */
   isPartner(): boolean {
     return this.auth.user()?.role === 'PARTNER';
   }
 
-  /** Storico/log: solo admin e operation. */
-  canSeeLogs(): boolean {
+  /** Storico/log e azioni gestionali: solo admin e operation. */
+  canManage(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION';
   }
+  canSeeLogs(): boolean { return this.canManage(); }
 
   constructor() {
-    const id = this.route.snapshot.paramMap.get('id');
-    this.http.get<DeliveryDetail>(`${environment.apiUrl}/deliveries/${id}`).subscribe({
+    this.id = this.route.snapshot.paramMap.get('id') ?? '';
+    this.load();
+    if (this.canManage()) {
+      this.http.get<Province[]>(`${environment.apiUrl}/provinces`).subscribe((p) => this.provinces.set(p));
+      this.http.get<ValetRef[]>(`${environment.apiUrl}/valets`).subscribe((v) => this.valets.set(v));
+    }
+  }
+
+  private load(): void {
+    this.http.get<DeliveryDetail>(`${environment.apiUrl}/deliveries/${this.id}`).subscribe({
       next: (d) => { this.delivery.set(d); this.loading.set(false); },
       error: (err) => {
         this.loading.set(false);
         this.error.set(err?.error?.message ?? 'Errore nel caricamento della consegna');
       },
     });
+  }
+
+  // ---- STAMPA ----
+  print(): void { window.print(); }
+
+  // ---- MAPS ----
+  mapsUrl(d: DeliveryDetail): string | null {
+    if (d.latitude != null && d.longitude != null) {
+      return `https://www.google.com/maps/search/?api=1&query=${d.latitude},${d.longitude}`;
+    }
+    if (d.recipientAddress) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.recipientAddress)}`;
+    }
+    return null;
+  }
+  openMaps(d: DeliveryDetail): void {
+    const url = this.mapsUrl(d);
+    if (url) window.open(url, '_blank');
+  }
+
+  // ---- SHARE: link pubblico di monitoraggio ----
+  share(d: DeliveryDetail): void {
+    this.actionError.set(null);
+    this.http.get<{ token: string }>(`${environment.apiUrl}/deliveries/${d.id}/tracking-link`).subscribe({
+      next: (r) => this.copy(`${location.origin}/tracking/${r.token}`, this.translate.instant('deliveryDetail.act.shareCopied')),
+      error: (err) => this.actionError.set(err?.error?.message ?? 'Errore'),
+    });
+  }
+
+  // ---- DELIVERED LINK: link pubblico di conferma consegna ----
+  deliveredLink(d: DeliveryDetail): void {
+    this.actionError.set(null);
+    this.http.get<{ token: string }>(`${environment.apiUrl}/deliveries/${d.id}/tracking-link`).subscribe({
+      next: (r) => this.copy(`${location.origin}/consegnata/${r.token}`, this.translate.instant('deliveryDetail.act.deliveredCopied')),
+      error: (err) => this.actionError.set(err?.error?.message ?? 'Errore'),
+    });
+  }
+
+  // ---- ASSEGNA ----
+  openAssign(): void { this.actionError.set(null); this.assignOpen.set(true); }
+  assign(valetId: string): void {
+    this.busy.set(true);
+    this.http.patch(`${environment.apiUrl}/deliveries/${this.id}/assign`, { valetId }).subscribe({
+      next: () => { this.busy.set(false); this.assignOpen.set(false); this.load(); },
+      error: (err) => { this.busy.set(false); this.actionError.set(err?.error?.message ?? 'Errore'); },
+    });
+  }
+
+  private copy(text: string, msg: string): void {
+    navigator.clipboard?.writeText(text).then(
+      () => { this.banner.set(msg); setTimeout(() => this.banner.set(null), 2500); },
+      () => { window.prompt(msg, text); },
+    );
   }
 }

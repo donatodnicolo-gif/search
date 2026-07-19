@@ -14,6 +14,12 @@ export const routes: Routes = [
       import('./pages/tracking.component').then((m) => m.TrackingComponent),
   },
   {
+    // Conferma consegna pubblica (bottone DELIVERED LINK): nessun login, fuori dallo shell.
+    path: 'consegnata/:token',
+    loadComponent: () =>
+      import('./pages/confirm-delivery.component').then((m) => m.ConfirmDeliveryComponent),
+  },
+  {
     // Accettazione invito: la persona sceglie la password. Pubblica, fuori dallo shell.
     path: 'invite/:token',
     loadComponent: () =>

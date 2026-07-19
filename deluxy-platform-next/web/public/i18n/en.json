@@ -1261,7 +1261,23 @@
     "notes": "Notes",
     "personalization": "Personalization",
     "internalNotes": "Internal notes",
-    "noLogs": "No history events."
+    "noLogs": "No history events.",
+    "act": {
+      "print": "Print",
+      "maps": "Maps",
+      "share": "Share",
+      "deliveredLink": "Delivery link",
+      "assign": "Assign",
+      "shareCopied": "Tracking link copied ✓",
+      "deliveredCopied": "Delivery confirmation link copied ✓"
+    }
+  },
+  "confirmDelivery": {
+    "title": "Confirm delivery #{{code}}",
+    "receivedBy": "Received by",
+    "receivedByPlaceholder": "Name of who received it",
+    "confirm": "Confirm delivery",
+    "done": "Delivery confirmed ✓ Thank you."
   },
   "tracking": {
     "title": "Delivery #{{code}}",
