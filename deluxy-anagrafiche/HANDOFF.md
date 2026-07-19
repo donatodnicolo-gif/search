@@ -123,13 +123,14 @@ provenienza/ranking. La cascata d'identità in scrittura: xref → platformId �
 
 ## 7. Sviluppi IN CORSO / pending
 
-1. **Google OAuth Client ID (bloccante per «Salva in Google»)**: il default in `src/lib/google.ts`
-   è `639032328429-…` (progetto `braided-box-423507-f3`, NON modificabile dall'utente → errore
-   `origin_mismatch`). Va sostituito col client dell'utente **«Deluxy search rubrica»** nel
-   progetto **«My Project 75759»**, Client ID `813248887384-kdks…` (**id completo da farsi dare**),
-   via costante o env `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` + redeploy. L'utente su quel progetto
-   deve: aggiungere le **origini JS** (`https://deluxy-anagrafiche.vercel.app`, `http://localhost:3060`),
-   **abilitare People API**, mettere `deluxy.delivery@gmail.com` tra i **test user**.
+1. ~~Google OAuth Client ID~~ **RISOLTO (20/07/2026)**: `src/lib/google.ts` ora usa il client
+   **«Deluxy search rubrica»** `813248887384-kdksp8lq8p8pg4tou6b2q4i7r0avchjt.apps.googleusercontent.com`
+   (progetto **«My Project 75759»** = `xenon-jetty-502714-c9`, account **deluxy.delivery@gmail.com**,
+   in console via `?authuser=1`). Configurato sul client: origini JS
+   `https://search-deluxy.vercel.app` + `https://deluxy-anagrafiche.vercel.app` + `http://localhost:3060`;
+   People API già abilitata; test user: deividcala, deluxy.delivery, donatod.nicolo (@gmail.com).
+   Gotcha console: il tasto Salva può restare coperto dal banner cookie e il carattere `/` digitato
+   ruba il focus alla ricerca globale — impostare i campi via DOM se succede.
 2. **Fase 2 architettura** (non ancora costruita): coda **proposte** per i campi bloccati toccati
    dalle app + UI di revisione; **Fase 3**: outbox/webhook sui cambi + Idempotency-Key.
 3. **Pulizia contatti Excel**: alcuni referenti dall'Excel hanno il campo `nome` sporco (testo
