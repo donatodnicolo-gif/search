@@ -181,6 +181,20 @@ export async function fetchProfilo(id: string): Promise<Profilo | null> {
   return data as Profilo;
 }
 
+/** Token privato del feed iCal dell'utente corrente (per sottoscrivere il calendario). */
+export async function fetchCalToken(): Promise<string | null> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return null;
+  const { data, error } = await supabase.from('profiles').select('cal_token').eq('id', u.user.id).single();
+  if (error) return null;
+  return (data as any)?.cal_token ?? null;
+}
+
+/** URL del feed iCal sottoscrivibile (Google/Apple/Outlook). */
+export function urlFeedCalendario(token: string): string {
+  return `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/calendario-ics?token=${token}`;
+}
+
 /** Imposta il nome visualizzato di un profilo (proprio, o chiunque se admin — via RLS). */
 export async function aggiornaNomeProfilo(id: string, nome: string): Promise<void> {
   const { error } = await supabase.from('profiles').update({ nome: nome.trim() || null }).eq('id', id);
