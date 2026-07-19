@@ -6,6 +6,13 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 
+interface InvoiceLine {
+  id: string;
+  date: string;
+  recipient: string;
+  description?: string;
+  amount: number;
+}
 interface Invoice {
   id: string;
   partnerId: string;
@@ -17,6 +24,7 @@ interface Invoice {
   status: string;
   archived: boolean;
   partner?: { id: string; insegna: string };
+  lines?: InvoiceLine[];
 }
 interface PartnerLite { id: string; insegna: string }
 
@@ -120,6 +128,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
                   </td>
                 }
                 <td class="row-actions">
+                  <button class="link-btn" (click)="toggleDetail(i)">{{ (expanded() === i.id ? 'invoices.action.hideDetail' : 'invoices.action.detail') | translate }}</button>
                   @if (canManage() && view() === 'active' && next(i.status); as n) {
                     <button class="link-btn" [disabled]="busy() === i.id" (click)="advance(i, n.next)">{{ ('invoices.action.' + n.key) | translate }}</button>
                   }
@@ -133,6 +142,32 @@ const NEXT: Record<string, { next: string; key: string }> = {
                   }
                 </td>
               </tr>
+              @if (expanded() === i.id) {
+                <tr class="detail-row">
+                  <td [attr.colspan]="view() === 'archive' ? 8 : 7">
+                    @if (i.lines?.length) {
+                      <table class="lines">
+                        <thead><tr>
+                          <th>{{ 'invoices.line.date' | translate }}</th>
+                          <th>{{ 'invoices.line.recipient' | translate }}</th>
+                          <th>{{ 'invoices.line.description' | translate }}</th>
+                          <th class="num">{{ 'invoices.line.amount' | translate }}</th>
+                        </tr></thead>
+                        <tbody>
+                          @for (l of i.lines; track l.id) {
+                            <tr>
+                              <td>{{ l.date | date: 'dd/MM/yy' }}</td>
+                              <td>{{ l.recipient }}</td>
+                              <td class="muted">{{ l.description || '—' }}</td>
+                              <td class="num">{{ l.amount | number: '1.2-2' }} €</td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    } @else { <span class="muted">{{ 'invoices.noLines' | translate }}</span> }
+                  </td>
+                </tr>
+              }
             }
             @if (!filtered().length) { <tr><td [attr.colspan]="view() === 'archive' ? 8 : 7" class="muted empty">{{ 'invoices.empty' | translate }}</td></tr> }
           </tbody>
@@ -168,6 +203,11 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 980px; font-size: 12px; font-weight: 550; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
       .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
       .row-actions { display: flex; gap: 12px; align-items: center; }
+      .detail-row > td { background: var(--fill); padding: 10px 24px; }
+      table.lines { width: 100%; border-collapse: collapse; font-size: 12.5px; background: var(--surface); border-radius: var(--radius-m); overflow: hidden; }
+      table.lines th, table.lines td { padding: 8px 12px; border-bottom: 1px solid var(--hairline); }
+      table.lines th { font-size: 11px; }
+      table.lines tr:last-child td { border-bottom: none; }
       .link-btn { background: none; border: none; padding: 0; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
       .link-btn.danger { color: var(--red); }
       .link-btn:disabled { opacity: 0.5; cursor: default; }
@@ -190,6 +230,7 @@ export class InvoicesListComponent {
   readonly banner = signal<string | null>(null);
   readonly busy = signal<string | null>(null);
   readonly view = signal<'active' | 'archive'>('active');
+  readonly expanded = signal<string | null>(null);
 
   partnerFilter = '';
   readonly showGen = signal(false);
@@ -221,7 +262,12 @@ export class InvoicesListComponent {
     if (this.view() === v) return;
     this.view.set(v);
     this.showGen.set(false);
+    this.expanded.set(null);
     this.load();
+  }
+
+  toggleDetail(i: Invoice): void {
+    this.expanded.set(this.expanded() === i.id ? null : i.id);
   }
 
   /** Apre il pannello Genera precompilando il partner dal filtro. */

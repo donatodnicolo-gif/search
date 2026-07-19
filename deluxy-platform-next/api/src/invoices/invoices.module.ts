@@ -49,14 +49,21 @@ export class InvoicesService {
     if (user.role === Role.PARTNER) where.partnerId = user.partnerId ?? '-';
     return this.prisma.invoice.findMany({
       where,
-      include: { partner: { select: { id: true, insegna: true } } },
+      include: {
+        partner: { select: { id: true, insegna: true } },
+        lines: { orderBy: { date: 'asc' } },
+      },
       orderBy: { periodStart: 'desc' },
     });
   }
 
+  // Stati esclusi dalla fatturazione: annullata e non consegnata.
+  private static readonly NON_BILLABLE_STATUSES = ['cancelled', 'notDelivered'];
+
   /**
-   * Genera la fattura del periodo per un partner: somma di price + additionalPrice
-   * delle consegne "da fatturare" (billable) ed effettuate nel periodo.
+   * Genera la fattura del periodo per un partner: una riga per ogni consegna
+   * "da fatturare" (billable) del periodo, in qualsiasi stato tranne
+   * annullata/non consegnata. Importo riga = price + additionalPrice.
    */
   async generate(partnerId: string, periodStart: string, periodEnd: string) {
     const partner = await this.prisma.partner.findUnique({ where: { id: partnerId } });
@@ -66,14 +73,19 @@ export class InvoicesService {
       where: {
         partnerId,
         billable: true,
-        status: { in: ['delivered', 'delivered_time_approved'] },
+        status: { notIn: InvoicesService.NON_BILLABLE_STATUSES },
         date: { gte: new Date(periodStart), lte: new Date(periodEnd) },
       },
+      orderBy: { date: 'asc' },
     });
-    const totalAmount = deliveries.reduce(
-      (sum, d) => sum + (d.price ?? 0) + (d.additionalPrice ?? 0),
-      0,
-    );
+    const lines = deliveries.map((d) => ({
+      deliveryId: d.id,
+      date: d.date,
+      recipient: `${d.recipientLastName} ${d.recipientFirstName}`.trim(),
+      description: d.recipientAddress ?? null,
+      amount: (d.price ?? 0) + (d.additionalPrice ?? 0),
+    }));
+    const totalAmount = lines.reduce((sum, l) => sum + l.amount, 0);
     const year = new Date(periodStart).getFullYear();
     const count = await this.prisma.invoice.count();
 
@@ -84,9 +96,11 @@ export class InvoicesService {
         periodStart: new Date(periodStart),
         periodEnd: new Date(periodEnd),
         totalAmount,
-        deliveriesCount: deliveries.length,
+        deliveriesCount: lines.length,
         status: InvoiceStatus.DRAFT,
+        lines: { create: lines },
       },
+      include: { lines: true },
     });
   }
 

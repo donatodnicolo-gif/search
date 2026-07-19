@@ -808,8 +808,22 @@ model Invoice {
   archived        Boolean   @default(false)
   issuedAt        DateTime?
   paidAt          DateTime?
+  lines           InvoiceLine[]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+}
+
+// Riga di fattura: una consegna fatturata (snapshot al momento della generazione).
+model InvoiceLine {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  deliveryId  String? // riferimento alla consegna (facoltativo)
+  date        DateTime
+  recipient   String
+  description String?
+  amount      Float    @default(0)
+  createdAt   DateTime @default(now())
 }
 
 // ------------------------------------------------------------

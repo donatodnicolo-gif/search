@@ -302,7 +302,7 @@
   },
   "invoices": {
     "title": "Invoicing",
-    "caption": "Generate and manage partner invoices: sum of the billable deliveries in the period.",
+    "caption": "Generate and manage partner invoices: one line per billable delivery in the period.",
     "allPartners": "All partners",
     "generate": "Generate invoice",
     "empty": "No invoices.",
@@ -321,7 +321,7 @@
       "pickPartner": "Select partner…",
       "from": "Period — from",
       "to": "Period — to",
-      "hint": "Sum of price + surcharge of the partner's deliveries marked \"to bill\" and completed in the period.",
+      "hint": "One line per partner delivery marked \"to bill\" in the period (any status except cancelled/undelivered). Amount = price + surcharge.",
       "run": "Generate",
       "required": "Select partner and period.",
       "done": "Invoice generated ✓"
@@ -336,10 +336,19 @@
       "financial": "Payment status",
       "actions": "Actions"
     },
+    "line": {
+      "date": "Date",
+      "recipient": "Recipient",
+      "description": "Address",
+      "amount": "Amount"
+    },
+    "noLines": "No billable deliveries in this invoice.",
     "action": {
       "issue": "Issue",
       "markPaid": "Mark paid",
-      "reopen": "Reopen"
+      "reopen": "Reopen",
+      "detail": "Detail",
+      "hideDetail": "Hide"
     }
   },
   "salaries": {

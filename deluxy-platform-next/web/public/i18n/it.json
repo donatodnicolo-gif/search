@@ -302,7 +302,7 @@
   },
   "invoices": {
     "title": "Fatturazione",
-    "caption": "Genera e gestisci le fatture dei partner: somma delle consegne da fatturare nel periodo.",
+    "caption": "Genera e gestisci le fatture dei partner: una riga per ogni consegna da fatturare nel periodo.",
     "allPartners": "Tutti i partner",
     "generate": "Genera fattura",
     "empty": "Nessuna fattura.",
@@ -321,7 +321,7 @@
       "pickPartner": "Seleziona partner…",
       "from": "Periodo — dal",
       "to": "Periodo — al",
-      "hint": "Somma di prezzo + plus delle consegne del partner marcate «da fatturare» ed effettuate nel periodo.",
+      "hint": "Una riga per ogni consegna del partner marcata «da fatturare» nel periodo (qualsiasi stato tranne annullata/non consegnata). Importo = prezzo + plus.",
       "run": "Genera",
       "required": "Seleziona partner e periodo.",
       "done": "Fattura generata ✓"
@@ -336,10 +336,19 @@
       "financial": "Stato pagamento",
       "actions": "Azioni"
     },
+    "line": {
+      "date": "Data",
+      "recipient": "Destinatario",
+      "description": "Indirizzo",
+      "amount": "Importo"
+    },
+    "noLines": "Nessuna consegna da fatturare in questa fattura.",
     "action": {
       "issue": "Emetti",
       "markPaid": "Segna pagata",
-      "reopen": "Riapri"
+      "reopen": "Riapri",
+      "detail": "Dettaglio",
+      "hideDetail": "Nascondi"
     }
   },
   "salaries": {

@@ -106,6 +106,14 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 19/07/2026 (2) — Fatturazione: ogni consegna «da fatturare» + dettaglio riga per riga
+
+- Feedback (con screenshot Consegne tutte "Da gestire"): "ogni consegna dovrebbe comparire in fatturazione secondo le regole". Il doc definisce il Listino (calcolo prezzo) e il flag "Da fatturare" ma non lo stato → chiesto all'utente: **① tutte le consegne `billable` del periodo, qualsiasi stato tranne annullata/non consegnata**; **② fattura con dettaglio riga per riga**.
+- **Backend**: `generate` ora filtra `billable:true` + `status notIn ['cancelled','notDelivered']` (prima `in ['delivered','delivered_time_approved']`) e crea una **riga per consegna**. Nuovo modello `InvoiceLine` (invoiceId, deliveryId?, date, recipient, description=indirizzo, amount=price+additionalPrice; `Invoice.lines`, onDelete Cascade) — migrazione `invoice_lines`. `findAll` include `lines`. Le righe sono uno **snapshot** alla generazione (non ricalcolate dopo).
+- **Frontend** (`InvoicesListComponent`): bottone **Dettaglio** per riga → espande una sotto-tabella (Data/Destinatario/Indirizzo/Importo). Interfaccia `InvoiceLine`, signal `expanded`. i18n `invoices.line.*`, `invoices.action.detail/hideDetail`, `invoices.noLines` (IT/EN 1032/1032); aggiornati caption e hint.
+- **Verificato E2E**: partner Atelier Fiori Test con 2 consegne **created** (Da gestire) 25€ l'una → fattura totale **50€, 2 consegne**, 2 righe con data/destinatario/indirizzo. In browser: Dettaglio espande la sotto-tabella corretta. Build API+web pulite. Fattura di test eliminata (righe in cascade).
+- Nota: `GET /deliveries` risponde `{items,total,page,pageSize}` (non un array) — utile per gli script di verifica.
+
 ### 19/07/2026 (1) — Webhook «fattura pagata» (API inbound, x-api-key)
 
 - Feedback: "fai un servizio api che ti possono richiamare per aggiornarti che una fattura è stata pagata". Endpoint macchina-a-macchina: `POST /api/v1/invoices/webhook/paid`.
