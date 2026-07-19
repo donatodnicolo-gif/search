@@ -27,6 +27,7 @@ import {
   winRate,
 } from '@/lib/metrics';
 import { BarChart } from '@/components/BarChart';
+import { PageIntro } from '@/components/ui';
 import { StatCard } from '@/components/StatCard';
 import { SyncBadge } from '@/components/SyncBadge';
 
@@ -146,11 +147,12 @@ export default function Dashboard() {
   const filtriAttivi = zona !== 'tutte' || venditore !== 'tutti' || linea !== 'tutte' || fase !== 'tutte';
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
-    >
+    <View style={styles.container}>
+      <PageIntro testo="La fotografia della tua attività: trattative, visite e copertura delle zone. Usa i filtri per restringere la vista." />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
+      >
       {inCoda > 0 ? (
         <Pressable onPress={() => flushCoda().then(carica)} style={{ alignSelf: 'center' }}>
           <SyncBadge count={inCoda} />
@@ -224,7 +226,7 @@ export default function Dashboard() {
 
       <Sezione titolo="Copertura zone">
         {cop.length === 0 ? (
-          <Text style={styles.vuoto}>Nessuna zona.</Text>
+          <Text style={styles.vuoto}>Nessuna zona ancora: assegna una zona alle attività per vedere la copertura.</Text>
         ) : (
           cop.map((z) => (
             <View key={z.zona} style={styles.zonaRow}>
@@ -242,7 +244,7 @@ export default function Dashboard() {
 
       <Sezione titolo={`Chiuse perse da recuperare (${perse.length})`}>
         {perse.length === 0 ? (
-          <Text style={styles.vuoto}>Nessuna trattativa persa.</Text>
+          <Text style={styles.vuoto}>Nessuna trattativa persa da recuperare: ottimo segno.</Text>
         ) : (
           perse.map((d) => (
             <View key={d.id} style={styles.dealRow}>
@@ -251,7 +253,7 @@ export default function Dashboard() {
               </Text>
               {d.origine === 'scout' ? (
                 <Pressable style={styles.btnNurt} onPress={() => nurturing(d)}>
-                  <Text style={styles.btnNurtTxt}>↺ Nurturing</Text>
+                  <Text style={styles.btnNurtTxt}>Riapri trattativa</Text>
                 </Pressable>
               ) : (
                 <Text style={styles.meta}>{d.origine === 'hubspot' ? 'HubSpot' : 'Registro'}</Text>
@@ -264,7 +266,8 @@ export default function Dashboard() {
       <Pressable style={styles.logout} onPress={signOut}>
         <Text style={styles.logoutTxt}>Esci</Text>
       </Pressable>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -301,7 +304,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.sm },
   cards: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
   sezione: { marginTop: spacing.lg },
-  sezioneTitolo: { fontSize: 13, fontWeight: '800', color: colors.oro, letterSpacing: 1, textTransform: 'uppercase', marginBottom: spacing.sm },
+  sezioneTitolo: { fontSize: 11, fontWeight: '600', color: colors.testoSoft, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: spacing.sm },
   vuoto: { color: colors.grigio, fontStyle: 'italic' },
 
   // Filtri

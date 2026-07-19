@@ -7,7 +7,8 @@ import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from '
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, spacing } from '@/lib/theme';
+import { EmptyState, StatusBadge } from '@/components/ui';
 import { LineaIcon } from '@/components/LineaIcon';
 import {
   fetchAllVisits,
@@ -34,7 +35,7 @@ function scadenzaInfo(iso: string | null): { txt: string; ritardo: boolean; data
   const gg = Math.round((d.getTime() - oggi.getTime()) / 86400000);
   const data = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
   const txt =
-    gg === 0 ? 'scade oggi' : gg === 1 ? 'scade domani' : gg === -1 ? 'scaduta ieri' : gg < 0 ? `scaduta ${-gg}g fa` : `tra ${gg}g`;
+    gg === 0 ? 'scade oggi' : gg === 1 ? 'scade domani' : gg === -1 ? 'scaduta ieri' : gg < 0 ? `scaduta ${-gg} giorni fa` : `tra ${gg} giorni`;
   return { txt, ritardo: gg < 0, data };
 }
 
@@ -108,7 +109,12 @@ export default function DaCompletare() {
         stickySectionHeadersEnabled={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
-          <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Niente da fare 🎉'}</Text>
+          <EmptyState
+            icona="checkmark-done-outline"
+            titolo="Niente da fare"
+            aiuto="Quando una visita chiede un seguito o resta da completare, la trovi in questa coda."
+            loading={loading}
+          />
         }
         renderSectionHeader={({ section }) => <Text style={styles.sezione}>{section.title}</Text>}
         renderItem={({ item }) =>
@@ -150,11 +156,7 @@ function RigaRichiamo({ r, onPress }: { r: Richiamo; onPress: () => void }) {
           <Text style={styles.nome} numberOfLines={1}>
             {p.nome}
           </Text>
-          {inRitardo ? (
-            <View style={styles.ritardo}>
-              <Text style={styles.ritardoTxt}>IN RITARDO</Text>
-            </View>
-          ) : null}
+          {inRitardo ? <StatusBadge small label="In ritardo" colore={colors.errore} /> : null}
         </View>
         <Text style={styles.meta} numberOfLines={1}>
           {LABEL_ESITO[visita.esito ?? ''] ?? 'Da ricontattare'} · visita {quando}
@@ -182,11 +184,7 @@ function RigaFollowup({ d, onPress }: { d: TrattativaConLuogo; onPress: () => vo
           <Text style={styles.nome} numberOfLines={1}>
             {d.place_nome ?? d.linea ?? 'Trattativa'}
           </Text>
-          {sc.ritardo ? (
-            <View style={styles.ritardo}>
-              <Text style={styles.ritardoTxt}>IN RITARDO</Text>
-            </View>
-          ) : null}
+          {sc.ritardo ? <StatusBadge small label="In ritardo" colore={colors.errore} /> : null}
         </View>
         <View style={styles.metaRow}>
           <Ionicons name="person-circle-outline" size={14} color={colors.testoSoft} />
@@ -242,12 +240,11 @@ const styles = StyleSheet.create({
   },
   sub: { color: colors.testoSoft, fontSize: 13 },
   list: { padding: spacing.md, gap: 10 },
-  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
   sezione: {
-    color: colors.oro,
-    fontWeight: '800',
-    fontSize: 12,
-    letterSpacing: 1,
+    color: colors.testoSoft,
+    fontWeight: '600',
+    fontSize: 11,
+    letterSpacing: 0.7,
     textTransform: 'uppercase',
     marginTop: spacing.sm,
     marginBottom: 2,
@@ -266,7 +263,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  icona: { width: 46, height: 46, borderRadius: 13, backgroundColor: '#F0ECE2', alignItems: 'center', justifyContent: 'center' },
+  icona: { width: 46, height: 46, borderRadius: 13, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1, gap: 3 },
   titoloRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   nome: { flexShrink: 1, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },
@@ -274,7 +271,5 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
   metaSep: { color: colors.grigioChiaro, fontSize: 13 },
   nota: { color: colors.grigio, fontSize: 12, fontStyle: 'italic' },
-  ritardo: { backgroundColor: colors.attenzione, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
-  ritardoTxt: { color: colors.bianco, fontWeight: '900', fontSize: 9, letterSpacing: 0.5 },
   freccia: { color: colors.oro, fontWeight: '800', fontSize: 14 },
 });

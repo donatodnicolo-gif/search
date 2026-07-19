@@ -20,6 +20,7 @@ import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing } from '
 import { aggiornaStarred, aggiornaStatoAffiliazione, fetchAffiliazioni, registraChiamata } from '@/lib/db';
 import { STATI_AFFILIAZIONE, type AffiliazioneRow, type StatoAffiliazione } from '@/types';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
+import { EmptyState, PageIntro } from '@/components/ui';
 
 type FiltroAff = StatoAffiliazione | 'tutti' | 'selezionati';
 
@@ -110,6 +111,7 @@ export default function Affiliazioni() {
 
   return (
     <View style={styles.container}>
+      <PageIntro testo="Fioristi e pasticcerie da reclutare come affiliati. La stella li mette tra i Selezionati da contattare; Chiama registra la chiamata e apre il telefono." />
       <View style={styles.head}>
         <Text style={styles.sub}>
           {righe.length} affiliazioni · fioristi e pasticcerie da reclutare
@@ -140,7 +142,12 @@ export default function Affiliazioni() {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
-          <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Nessuna affiliazione con questi filtri.'}</Text>
+          <EmptyState
+            loading={loading}
+            icona="git-network-outline"
+            titolo="Nessuna affiliazione qui"
+            aiuto="Prova ad azzerare i filtri o la ricerca. Le affiliazioni sono i negozi della linea Re-seller importati dal registro."
+          />
         }
         renderItem={({ item }) => (
           <Card
@@ -172,14 +179,14 @@ function Card({
   return (
     <View style={[styles.card, item.starred && styles.cardSel]}>
       <View style={styles.cardTop}>
-        {/* Selettore "da contattare": icona telefono → Selezionati. */}
+        {/* Selettore "da contattare": stella → Selezionati (stesso flag della Mappa). */}
         <Pressable
           style={[styles.selBtn, item.starred && styles.selBtnOn]}
           onPress={onSeleziona}
           hitSlop={8}
           accessibilityLabel={item.starred ? 'Togli dai selezionati' : 'Seleziona da contattare'}
         >
-          <Ionicons name="call" size={17} color={item.starred ? colors.bianco : colors.grigio} />
+          <Ionicons name={item.starred ? 'star' : 'star-outline'} size={18} color={item.starred ? colors.bianco : colors.grigio} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.nome} numberOfLines={1}>{item.nome}</Text>
@@ -207,7 +214,10 @@ function Card({
       {/* Step: stato corrente → tap per espandere e cambiarlo. */}
       <Pressable style={styles.statoRow} onPress={() => setApriStep((v) => !v)}>
         <View style={[styles.dot, { backgroundColor: coloreAffiliazione[stato] }]} />
-        <Text style={styles.statoTxt}>{labelAffiliazione[stato]}</Text>
+        <Text style={styles.statoTxt}>
+          Stato: {labelAffiliazione[stato]}
+          {!apriStep ? <Text style={styles.statoHint}>  ·  tocca per cambiare</Text> : null}
+        </Text>
         <Ionicons name={apriStep ? 'chevron-up' : 'chevron-down'} size={15} color={colors.grigio} />
       </Pressable>
       {apriStep ? (
@@ -263,7 +273,6 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, gap: spacing.sm },
-  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
   card: {
     backgroundColor: colors.bianco,
     borderRadius: radius.md,
@@ -271,7 +280,7 @@ const styles = StyleSheet.create({
     borderColor: colors.grigioChiaro,
     padding: spacing.md,
   },
-  cardSel: { borderColor: colors.oro, backgroundColor: 'rgba(184,150,62,0.06)' },
+  cardSel: { borderColor: colors.oro, backgroundColor: colors.goldSoft },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   selBtn: {
     width: 38,
@@ -293,12 +302,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: colors.successo,
+    backgroundColor: colors.ink,
     borderRadius: radius.pill,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  btnChiamaOff: { backgroundColor: colors.grigio },
+  btnChiamaOff: { opacity: 0.55 },
   btnChiamaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13 },
   statoRow: {
     flexDirection: 'row',
@@ -311,6 +320,7 @@ const styles = StyleSheet.create({
   },
   dot: { width: 9, height: 9, borderRadius: 5 },
   statoTxt: { flex: 1, color: colors.navy, fontWeight: '600', fontSize: 13 },
+  statoHint: { color: colors.grigio, fontWeight: '400', fontSize: 11 },
   stepWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
   stepChip: {
     borderWidth: 1,

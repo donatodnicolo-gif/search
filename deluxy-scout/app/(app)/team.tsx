@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { fetchAllDeals, fetchAllVisits, fetchPlaces, fetchProfiles } from '@/lib/db';
 import { attivitaPerVenditore, nomeVenditore, visiteUltimi7Giorni, type StatVenditore } from '@/lib/metrics';
+import { EmptyState, PageIntro } from '@/components/ui';
 import { StatCard } from '@/components/StatCard';
 
 const ESITO_LABEL: Record<string, string> = {
@@ -72,21 +73,27 @@ export default function Team() {
   if (!isAdmin(session?.user?.email)) return <Redirect href="/(app)/dashboard" />;
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
-    >
+    <View style={styles.container}>
+      <PageIntro testo="L'attività di tutta la rete: visite, esiti e trattative di ogni venditore. Tocca un venditore per il dettaglio giorno per giorno." />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
+      >
       <View style={styles.cards}>
         <StatCard label="Visite ultimi 7 giorni" valore={visiteUltimi7Giorni(visits)} sub={`${visits.length} totali`} accent />
-        <StatCard label="Venditori attivi (7g)" valore={attivi7} sub={`${venditori.length} in totale`} />
-        <StatCard label="Deal aperti" valore={deals.filter((d) => d.fase !== 'closedwon' && d.fase !== 'closedlost').length} />
-        <StatCard label="Deal vinti" valore={deals.filter((d) => d.fase === 'closedwon').length} />
+        <StatCard label="Venditori attivi (7 gg)" valore={attivi7} sub={`${venditori.length} in totale`} />
+        <StatCard label="Trattative aperte" valore={deals.filter((d) => d.fase !== 'closedwon' && d.fase !== 'closedlost').length} />
+        <StatCard label="Trattative vinte" valore={deals.filter((d) => d.fase === 'closedwon').length} />
       </View>
 
       <Text style={styles.sezione}>Per venditore</Text>
       {venditori.length === 0 ? (
-        <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Nessuna attività registrata.'}</Text>
+        <EmptyState
+          icona="people-outline"
+          titolo="Nessuna attività registrata"
+          aiuto="Quando i venditori registrano visite e trattative, qui compare una scheda per ciascuno."
+          loading={loading}
+        />
       ) : (
         venditori.map((s) => (
           <VenditoreCard
@@ -100,7 +107,7 @@ export default function Team() {
 
       <Text style={styles.sezione}>Ultime visite</Text>
       {recenti.length === 0 ? (
-        <Text style={styles.vuoto}>Nessuna visita.</Text>
+        <Text style={styles.vuoto}>Ancora nessuna visita registrata dalla rete.</Text>
       ) : (
         recenti.map((v) => (
           <View key={v.id} style={styles.feedRow}>
@@ -117,7 +124,8 @@ export default function Team() {
           </View>
         ))
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -140,12 +148,12 @@ function VenditoreCard({ s, oggi, onPress }: { s: StatVenditore; oggi: Date; onP
         </View>
       </View>
       <View style={styles.vStats}>
-        <Metric label="Visite 7g" valore={s.visite7} forte />
+        <Metric label="Visite 7 gg" valore={s.visite7} forte />
         <Metric label="Totali" valore={s.visite} />
         <Metric label="Interessati" valore={s.interessati} />
-        <Metric label="Da richiam." valore={s.daRichiamare} />
-        <Metric label="Deal aperti" valore={s.dealAperti} />
-        <Metric label="Vinti" valore={s.dealVinti} />
+        <Metric label="Da richiamare" valore={s.daRichiamare} />
+        <Metric label="Trattative aperte" valore={s.dealAperti} />
+        <Metric label="Vinte" valore={s.dealVinti} />
       </View>
     </Pressable>
   );
@@ -166,7 +174,8 @@ function quando(iso: string, oggi: Date = new Date()): string {
   if (giorni <= 0) return 'oggi';
   if (giorni === 1) return 'ieri';
   if (giorni < 7) return `${giorni} giorni fa`;
-  if (giorni < 30) return `${Math.floor(giorni / 7)} sett. fa`;
+  if (giorni < 14) return `1 settimana fa`;
+  if (giorni < 30) return `${Math.floor(giorni / 7)} settimane fa`;
   return `${Math.floor(giorni / 30)} mesi fa`;
 }
 
@@ -175,10 +184,10 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.xs },
   cards: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
   sezione: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.oro,
-    letterSpacing: 1,
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.testoSoft,
+    letterSpacing: 0.7,
     textTransform: 'uppercase',
     marginTop: spacing.lg,
     marginBottom: spacing.sm,

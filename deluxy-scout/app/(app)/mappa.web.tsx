@@ -7,8 +7,9 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, us
 import { useRouter } from 'expo-router';
 import { LINEE_ATTIVE, type Place } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, labelStato, radius, spacing } from '@/lib/theme';
+import { coloreStato, colors, labelStato, radius, spacing } from '@/lib/theme';
 import { LineaIcon } from '@/components/LineaIcon';
+import { EmptyState, tinta } from '@/components/ui';
 
 const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
 import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
@@ -24,19 +25,11 @@ import { VisitaModal } from '@/components/VisitaModal';
 import { RegistroExpandable } from '@/components/RegistroExpandable';
 import { Loader } from '../_layout';
 
-// Colore per lo stato attività (allineato ai token del design system).
-function coloreStato(s: string): string {
-  if (s === 'visitato') return colors.successo;
-  if (s === 'cliente') return colors.oro;
-  if (s === 'perso') return colors.errore;
-  return colors.grigio; // da_visitare
-}
-
 // Etichetta breve dello stato registro (partner / trattativa) da mostrare sulla card.
 function statoAffLabel(s: string | null | undefined): string | null {
   if (!s) return null;
   const m: Record<string, string> = {
-    attivo: '★ Partner',
+    attivo: 'Già partner',
     in_trattativa: 'In trattativa',
     in_contatto: 'In contatto',
     da_ricontattare: 'Da ricontattare',
@@ -300,11 +293,18 @@ export default function MappaWeb() {
         ) : scopErrore ? (
           <Text style={[styles.capTxt, { color: colors.errore }]}>{scopErrore}</Text>
         ) : destinazione && scopInfo ? (
-          <Text style={styles.capTxt}>
-            {scopInfo.places.length} attività · {scopInfo.nuovi ? `${scopInfo.nuovi} novità · ` : ''}
-            {scopInfo.cached ? 'da cache' : 'da Google'}
-            {stellatiCount ? ` · ${stellatiCount} ⭐ nel giro` : ''}
-          </Text>
+          <>
+            <Text style={styles.capTxt}>
+              {scopInfo.places.length} attività · {scopInfo.nuovi ? `${scopInfo.nuovi} novità · ` : ''}
+              {scopInfo.cached ? 'ricerca recente salvata' : 'appena aggiornate da Google'}
+              {stellatiCount ? ` · ${stellatiCount} nel giro` : ''}
+            </Text>
+            {!giroAttivo && scopInfo.places.length ? (
+              <Text style={styles.legenda}>
+                Sulle card: ⭐ aggiungi al giro · cerchio segna la visita · occhio nascondi
+              </Text>
+            ) : null}
+          </>
         ) : (
           <Text style={styles.capTxt}>Digita un indirizzo per scoprire i negozi della zona.</Text>
         )}
@@ -319,13 +319,25 @@ export default function MappaWeb() {
 
       <ScrollView contentContainerStyle={styles.lista}>
         {elenco.length === 0 ? (
-          <Text style={styles.vuoto}>
-            {giroAttivo
-              ? 'Metti ⭐ sui negozi per costruire il giro, poi riordinali con ▲▼.'
-              : destinazione
-                ? 'Nessun negozio in questa selezione.'
-                : 'Nessun risultato ancora.'}
-          </Text>
+          giroAttivo ? (
+            <EmptyState
+              icona="star-outline"
+              titolo="Nessuna tappa nel giro"
+              aiuto="Tocca la stella sui negozi che vuoi visitare: entrano qui tra i Selezionati e puoi riordinarli con le frecce."
+            />
+          ) : destinazione ? (
+            <EmptyState
+              icona="storefront-outline"
+              titolo="Nessun negozio in questa selezione"
+              aiuto='Prova ad allargare i filtri o premi "Cerca negozi qui" per interrogare Google su questa zona.'
+            />
+          ) : (
+            <EmptyState
+              icona="search-outline"
+              titolo="Inizia da un indirizzo"
+              aiuto="Digita l'indirizzo dove vuoi fare prospezione: l'app trova i negozi della zona e li classifica per linea Deluxy."
+            />
+          )
         ) : (
           elenco.map((p, i) => (
             <Pressable
@@ -390,21 +402,21 @@ export default function MappaWeb() {
                   ) : null}
                   {p.hubspot_ha_contatto ? (
                     <View style={[styles.crmBadge, styles.crmContatto]}>
-                      <Text style={styles.crmContattoTxt}>◑ contatto</Text>
+                      <Text style={styles.crmContattoTxt}>Contatto in CRM</Text>
                     </View>
                   ) : null}
                   {p.hubspot_deal_aperta ? (
                     <View style={[styles.crmBadge, styles.crmTrattativa]}>
-                      <Text style={styles.crmTrattativaTxt}>◆ trattativa</Text>
+                      <Text style={styles.crmTrattativaTxt}>Trattativa aperta</Text>
                     </View>
                   ) : null}
                   {p.stato ? (
-                    <View style={[styles.statoBadge, { borderColor: coloreStato(p.stato) }]}>
-                      <View style={[styles.statoDot, { backgroundColor: coloreStato(p.stato) }]} />
-                      <Text style={styles.statoBadgeTxt}>{labelStato[p.stato]}</Text>
+                    <View style={[styles.statoBadge, { backgroundColor: tinta(coloreStato[p.stato]) }]}>
+                      <View style={[styles.statoDot, { backgroundColor: coloreStato[p.stato] }]} />
+                      <Text style={[styles.statoBadgeTxt, { color: coloreStato[p.stato] }]}>{labelStato[p.stato]}</Text>
                     </View>
                   ) : null}
-                  {p.da_completare ? <Text style={styles.daCompl}>da completare</Text> : null}
+                  {p.da_completare ? <Text style={styles.daCompl}>visita da completare</Text> : null}
                   </View>
                 </View>
               </View>
@@ -485,7 +497,7 @@ export default function MappaWeb() {
             disabled={!destinazione && !giroAttivo}
           >
             <Text style={[styles.btnGiroTxt, giroAttivo && styles.btnGiroTxtOn]}>
-              {giroAttivo ? 'Chiudi' : stellatiCount ? `Selezionati · ${stellatiCount} ⭐` : 'Selezionati'}
+              {giroAttivo ? 'Chiudi' : stellatiCount ? `Selezionati · ${stellatiCount}` : 'Selezionati'}
             </Text>
           </Pressable>
         </View>
@@ -522,6 +534,7 @@ const styles = StyleSheet.create({
   caption: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
   capRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   capTxt: { color: colors.testoSoft, fontSize: 13 },
+  legenda: { color: colors.grigio, fontSize: 11, marginTop: 2 },
 
   filterBar: {
     backgroundColor: colors.bianco,
@@ -550,7 +563,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: radius.pill,
   },
-  subChipOn: { backgroundColor: colors.oro, borderColor: colors.oro },
+  subChipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   subTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 12 },
   subTxtOn: { color: colors.bianco },
   focusBar: { paddingBottom: spacing.xs },
@@ -572,7 +585,6 @@ const styles = StyleSheet.create({
   focusPillTxtOn: { color: colors.bianco },
 
   lista: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: 96, gap: 10 },
-  vuoto: { color: colors.grigio, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.xl },
 
   card: {
     flexDirection: 'column',
@@ -598,56 +610,44 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 13,
-    backgroundColor: '#F0ECE2',
+    backgroundColor: colors.goldSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconaEmoji: { fontSize: 22 },
   iconaNum: { color: colors.bianco, fontWeight: '900', fontSize: 18 },
   info: { flex: 1, minWidth: 0, gap: 3 },
   titoloRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   nome: { color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2, lineHeight: 21 },
-  novita: { backgroundColor: colors.oro, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
-  novitaTxt: { color: colors.navy, fontWeight: '900', fontSize: 9, letterSpacing: 0.5 },
+  novita: { backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  novitaTxt: { color: colors.goldStrong, fontWeight: '800', fontSize: 9, letterSpacing: 0.5 },
   metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, rowGap: 4 },
-  prioDot: { width: 8, height: 8, borderRadius: 4 },
   meta: { flexShrink: 1, color: colors.testoSoft, fontSize: 13 },
-  hs: { color: colors.successo, fontWeight: '700', fontSize: 11 },
   daCompl: { color: colors.attenzione, fontWeight: '700', fontSize: 11 },
   crmBadge: { borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 1 },
-  crmContatto: { backgroundColor: 'rgba(36,138,61,0.12)' },
-  crmContattoTxt: { color: colors.successo, fontWeight: '800', fontSize: 10 },
-  crmTrattativa: { backgroundColor: 'rgba(0,113,227,0.12)' },
-  crmTrattativaTxt: { color: colors.blue, fontWeight: '800', fontSize: 10 },
-  crmPartner: { backgroundColor: 'rgba(36,138,61,0.14)' },
-  crmPartnerTxt: { color: colors.successo, fontWeight: '800', fontSize: 10 },
-  crmRegistro: { backgroundColor: 'rgba(184,150,62,0.16)' },
-  crmRegistroTxt: { color: colors.oro, fontWeight: '800', fontSize: 10 },
+  crmContatto: { backgroundColor: tinta(colors.successo) },
+  crmContattoTxt: { color: colors.successo, fontWeight: '700', fontSize: 10 },
+  crmTrattativa: { backgroundColor: tinta(colors.blue) },
+  crmTrattativaTxt: { color: colors.blue, fontWeight: '700', fontSize: 10 },
+  crmPartner: { backgroundColor: tinta(colors.successo) },
+  crmPartnerTxt: { color: colors.successo, fontWeight: '700', fontSize: 10 },
+  crmRegistro: { backgroundColor: colors.goldSoft },
+  crmRegistroTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 10 },
   rating: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   ratingTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 11 },
   statoBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    borderWidth: 1,
     borderRadius: radius.pill,
-    paddingHorizontal: 7,
-    paddingVertical: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   statoDot: { width: 6, height: 6, borderRadius: 3 },
-  statoBadgeTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 10 },
+  statoBadgeTxt: { fontWeight: '700', fontSize: 10 },
   azioni: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   // Mobile: icone a capo, allineate a destra sotto il testo, con più respiro.
   azioniMobile: { justifyContent: 'flex-end', gap: 10, paddingLeft: 56, paddingTop: 2 },
   azione: { paddingHorizontal: 4, paddingVertical: 2, alignItems: 'center', justifyContent: 'center' },
-  azioneIco: { fontSize: 18 },
-  check: { fontSize: 22, color: colors.grigio },
-  checkOn: { fontSize: 22, color: colors.successo },
-  stella: { fontSize: 24, color: colors.grigioChiaro },
-  stellaOn: { color: colors.oro },
-  nascondiIco: { fontSize: 16, opacity: 0.5 },
-  reorder: { flexDirection: 'row', gap: 2 },
-  reorderIco: { fontSize: 15, color: colors.testoSoft },
 
   dock: {
     position: 'absolute',
@@ -672,8 +672,8 @@ const styles = StyleSheet.create({
   dockAzioni: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   btnNaviga: { backgroundColor: colors.fill, borderRadius: 18, paddingHorizontal: spacing.md, paddingVertical: 11 },
   btnNavigaTxt: { color: colors.testo, fontWeight: '600' },
-  btnGiro: { backgroundColor: colors.navy, borderRadius: 18, paddingHorizontal: spacing.md, paddingVertical: 11 },
-  btnGiroOn: { backgroundColor: colors.oro },
+  btnGiro: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 11 },
+  btnGiroOn: { backgroundColor: colors.fillActive },
   btnGiroTxt: { color: colors.bianco, fontWeight: '800' },
-  btnGiroTxtOn: { color: colors.navy },
+  btnGiroTxtOn: { color: colors.testo },
 });

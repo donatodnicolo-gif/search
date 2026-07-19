@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { coloreAffiliazione, colors, labelAffiliazione, labelFase, radius, spacing } from '@/lib/theme';
+import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, spacing } from '@/lib/theme';
 import {
   aggiornaDeal,
   cercaPlaces,
@@ -28,6 +28,7 @@ import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } f
 import { env } from '@/lib/env';
 import { type Contact, type DealStage, type StatoAffiliazione } from '@/types';
 import { LineaSelector } from '@/components/LineaSelector';
+import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 
 interface Sezione {
   title: string;
@@ -129,6 +130,7 @@ export default function Trattative() {
 
   return (
     <View style={styles.container}>
+      <PageIntro testo="Le trattative in corso raggruppate per negozio, da Scout, HubSpot e registro Anagrafiche. Tocca una trattativa per modificarla." />
       <View style={styles.head}>
         <Text style={styles.sub}>
           {filtrate.length} trattative · valore € {totale.toLocaleString('it-IT')}
@@ -165,7 +167,14 @@ export default function Trattative() {
         stickySectionHeadersEnabled={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
-          <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Nessuna trattativa.'}</Text>
+          <EmptyState
+            loading={loading}
+            icona="briefcase-outline"
+            titolo="Nessuna trattativa"
+            aiuto="Le trattative nascono da una visita con esito positivo o da qui: crea la prima col bottone in basso."
+            azione="Nuova trattativa"
+            onAzione={() => setFormAperto(true)}
+          />
         }
         renderSectionHeader={({ section }) => {
           const sez = section as Sezione;
@@ -176,10 +185,10 @@ export default function Trattative() {
               disabled={!navigabile}
               onPress={() => navigabile && router.push(`/(app)/attivita/${sez.placeId}`)}
             >
-              <Text style={styles.sezioneTitolo} numberOfLines={1}>
-                <Ionicons name="storefront-outline" size={14} color={colors.bianco} /> {section.title}
-              </Text>
+              <Ionicons name="storefront-outline" size={15} color={colors.testoSoft} />
+              <Text style={styles.sezioneTitolo} numberOfLines={1}>{section.title}</Text>
               <Text style={styles.sezioneConteggio}>{section.data.length}</Text>
+              {navigabile ? <Ionicons name="chevron-forward" size={15} color={colors.grigio} /> : null}
             </Pressable>
           );
         }}
@@ -250,7 +259,7 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
         {deal.valore_atteso ? (
           <Text style={styles.dealValore}>€ {deal.valore_atteso.toLocaleString('it-IT')}</Text>
         ) : (
-          <Ionicons name="create-outline" size={16} color={colors.grigio} />
+          <Text style={styles.dealValoreVuoto}>+ valore €</Text>
         )}
       </View>
       <View style={styles.dealMetaRow}>
@@ -258,9 +267,7 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
         {daRegistro ? (
           <RegistroBadge stato={deal.anagrafiche_stato ?? 'in_trattativa'} />
         ) : (
-          <View style={styles.faseBadge}>
-            <Text style={styles.faseTxt}>{labelFase[deal.fase]}</Text>
-          </View>
+          <StatusBadge small label={labelFase[deal.fase]} colore={coloreFase[deal.fase]} />
         )}
         {tipologia ? (
           <View style={styles.lineaTag}>
@@ -272,11 +279,11 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
             a "Chiusa vinta"). La fase del deal è lo stato di verità della trattativa. */}
         {!daRegistro && deal.is_partner ? <RegistroBadge stato="attivo" partner /> : null}
         {deal.origine === 'hubspot' ? (
-          <Text style={styles.hs}>HubSpot</Text>
+          <Text style={styles.origine}>da HubSpot</Text>
         ) : daRegistro ? (
-          <Text style={styles.hs}>Registro</Text>
+          <Text style={styles.origine}>dal registro</Text>
         ) : deal.hubspot_deal_id ? (
-          <Text style={styles.hs}>HubSpot ✓</Text>
+          <Text style={styles.hs}>su HubSpot ✓</Text>
         ) : null}
       </View>
       {deal.owner_nome ? (
@@ -285,7 +292,7 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
           <Text style={styles.ownerTxt}>{deal.owner_nome}</Text>
         </View>
       ) : null}
-      {deal.next_action ? <Text style={styles.nextAction}>→ {deal.next_action}</Text> : null}
+      {deal.next_action ? <Text style={styles.nextAction}>Prossima azione: {deal.next_action}</Text> : null}
     </Pressable>
   );
 }
@@ -493,7 +500,7 @@ function TrattativaModal({
                     • {c.nome}
                     {c.ruolo ? ` (${c.ruolo})` : ''}
                     {c.telefono ? ` · ${c.telefono}` : ''}
-                    {c.is_decisore ? '  ★' : ''}
+                    {c.is_decisore ? ' · decisore' : ''}
                   </Text>
                 ))}
               </View>
@@ -623,28 +630,32 @@ const styles = StyleSheet.create({
   filtroChipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, paddingBottom: 96 },
   vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
+  // Header di gruppo chiaro (DS: nessun header colorato), tap → scheda negozio.
   sezioneHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.navy,
+    gap: 6,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
-  sezioneTitolo: { flex: 1, color: colors.bianco, fontWeight: '800', fontSize: 15 },
+  sezioneTitolo: { flex: 1, color: colors.testo, fontWeight: '700', fontSize: 15, letterSpacing: -0.2 },
   sezioneConteggio: {
-    color: colors.navy,
-    backgroundColor: colors.oro,
-    fontWeight: '900',
-    fontSize: 13,
+    color: colors.testoSoft,
+    backgroundColor: colors.fill,
+    fontWeight: '700',
+    fontSize: 12,
     minWidth: 24,
     textAlign: 'center',
     borderRadius: radius.pill,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    overflow: 'hidden',
   },
   deal: {
     backgroundColor: colors.bianco,
@@ -657,10 +668,9 @@ const styles = StyleSheet.create({
   },
   dealHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   dealLinea: { flex: 1, fontWeight: '800', color: colors.navy, fontSize: 15 },
-  dealValore: { color: colors.oro, fontWeight: '900', fontSize: 15 },
-  dealMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  faseBadge: { backgroundColor: colors.sfondo, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
-  faseTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 12 },
+  dealValore: { color: colors.goldStrong, fontWeight: '800', fontSize: 15 },
+  dealValoreVuoto: { color: colors.grigio, fontWeight: '600', fontSize: 12 },
+  dealMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   lineaTag: {
     backgroundColor: colors.goldSoft,
     borderRadius: radius.pill,
@@ -680,6 +690,7 @@ const styles = StyleSheet.create({
   regDot: { width: 7, height: 7, borderRadius: 4 },
   regTxt: { fontWeight: '800', fontSize: 12 },
   hs: { color: colors.successo, fontWeight: '700', fontSize: 12 },
+  origine: { color: colors.grigio, fontWeight: '600', fontSize: 12 },
   nextAction: { color: colors.testoSoft, fontSize: 13 },
   ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ownerTxt: { color: colors.testoSoft, fontSize: 12, fontWeight: '700' },

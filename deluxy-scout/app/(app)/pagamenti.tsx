@@ -27,6 +27,7 @@ import {
   inserisciRichiestaPagamento,
   type TrattativaConLuogo,
 } from '@/lib/db';
+import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 
 const LABEL: Record<StatoPagamento, string> = {
   inviata: 'Inviata',
@@ -36,11 +37,13 @@ const LABEL: Record<StatoPagamento, string> = {
   insoluta: 'Insoluta',
   annullata: 'Annullata',
 };
+// Colori semantici DS: blue = in corso, orange = da gestire, green = ok,
+// purple = stato intermedio, red = problema, grigio = neutro.
 const COLORE: Record<StatoPagamento, string> = {
-  inviata: colors.attenzione,
-  in_attesa: colors.navy,
+  inviata: colors.blue,
+  in_attesa: colors.attenzione,
   pagata: colors.successo,
-  parziale: colors.oro,
+  parziale: colors.purple,
   insoluta: colors.errore,
   annullata: colors.grigio,
 };
@@ -86,10 +89,11 @@ export default function Pagamenti() {
 
   return (
     <View style={styles.container}>
+      <PageIntro testo="Chiedi l'incasso di una trattativa vinta (anche un acconto o più rate) e segui qui l'esito dei pagamenti." />
       <View style={styles.head}>
         <Text style={styles.sub}>
           {righe.length} richieste · {eur(tot.daIncassare)} da incassare · {eur(tot.incassato)} incassati
-          {admin ? ' · supervisione' : ''}
+          {admin ? ' · vedi anche quelle del team' : ''}
         </Text>
       </View>
 
@@ -98,7 +102,13 @@ export default function Pagamenti() {
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
       >
         {!loading && righe.length === 0 ? (
-          <Text style={styles.vuoto}>Nessuna richiesta. Creane una da una trattativa col + in basso.</Text>
+          <EmptyState
+            icona="cash-outline"
+            titolo="Nessuna richiesta di pagamento"
+            aiuto="Quando chiudi una trattativa, crea da qui la richiesta di incasso per il cliente e monitorane l'esito."
+            azione="Nuova richiesta"
+            onAzione={() => setFormAperto(true)}
+          />
         ) : null}
         {righe.map((r) => (
           <RigaPagamento
@@ -175,9 +185,7 @@ function RigaPagamento({
         </View>
       </View>
       <View style={styles.metaRow}>
-        <View style={[styles.badge, { backgroundColor: COLORE[r.stato] }]}>
-          <Text style={styles.badgeTxt}>{LABEL[r.stato]}</Text>
-        </View>
+        <StatusBadge small label={LABEL[r.stato]} colore={COLORE[r.stato]} />
         {r.rate && r.rate.length ? (
           <Text style={styles.meta}>{r.rate.filter((x) => x.pagata).length}/{r.rate.length} rate</Text>
         ) : r.scadenza ? (
@@ -186,7 +194,7 @@ function RigaPagamento({
         {mostraOwner && r.owner_nome ? (
           <Text style={styles.meta}><Ionicons name="person-circle-outline" size={12} color={colors.testoSoft} /> {r.owner_nome}</Text>
         ) : null}
-        <Text style={styles.data}>{r.created_at.slice(0, 10)}</Text>
+        <Text style={styles.data}>{r.created_at.slice(0, 10).split('-').reverse().join('/')}</Text>
       </View>
 
       {espansa ? (
@@ -218,7 +226,7 @@ function RigaPagamento({
                   <Text style={styles.rataMonImp}>{eur(rt.importo)}</Text>
                 </Pressable>
               ))}
-              <Text style={styles.label}>Stato manuale</Text>
+              <Text style={styles.label}>Stato dell'incasso</Text>
               <View style={styles.statiRow}>
                 {STATI.map((s) => (
                   <Pressable
@@ -399,7 +407,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
                 const iso = isoTraGiorni(g);
                 return (
                   <Pressable key={g} style={[styles.chip, scadenza === iso && styles.chipOn]} onPress={() => setScadenza(iso)}>
-                    <Text style={[styles.chipTxt, scadenza === iso && styles.chipTxtOn]}>+{g}g</Text>
+                    <Text style={[styles.chipTxt, scadenza === iso && styles.chipTxtOn]}>entro {g} gg</Text>
                   </Pressable>
                 );
               })}
@@ -407,7 +415,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
 
             {/* Split in rate: per valore € o % del totale, ognuna con scadenza */}
             <View style={styles.rateHead}>
-              <Text style={styles.label}>Rate / split</Text>
+              <Text style={styles.label}>Rate di pagamento</Text>
               <Pressable
                 onPress={() =>
                   setRate((rs) => [...rs, { key: Date.now() + rs.length, etichetta: '', modo: 'percentuale', valore: '', scadenza: null }])
@@ -418,7 +426,9 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
               </Pressable>
             </View>
             {rate.length === 0 ? (
-              <Text style={styles.notaLibero}>Nessuna rata: pagamento unico dell'importo sopra.</Text>
+              <Text style={styles.notaLibero}>
+                Senza rate il pagamento è unico. Con "+ Aggiungi rata" dividi l'importo (es. acconto 30% e saldo).
+              </Text>
             ) : (
               rate.map((rt, idx) => (
                 <View key={rt.key} style={styles.rataRow}>
@@ -427,17 +437,24 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
                       style={styles.rataEtich}
                       value={rt.etichetta}
                       onChangeText={(t) => setRate((rs) => rs.map((x) => (x.key === rt.key ? { ...x, etichetta: t } : x)))}
-                      placeholder={idx === 0 ? 'Acconto' : 'Saldo'}
+                      placeholder={idx === 0 ? 'Nome rata (es. Acconto)' : 'Nome rata (es. Saldo)'}
                       placeholderTextColor={colors.grigio}
                     />
+                    <Pressable onPress={() => setRate((rs) => rs.filter((x) => x.key !== rt.key))} hitSlop={8} accessibilityLabel="Elimina rata">
+                      <Ionicons name="trash-outline" size={18} color={colors.grigio} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.rataQuanto}>
+                    <Text style={styles.rataMiniLabel}>Quanto</Text>
                     <View style={styles.modoToggle}>
                       {(['percentuale', 'valore'] as const).map((m) => (
                         <Pressable
                           key={m}
                           style={[styles.modoBtn, rt.modo === m && styles.modoBtnOn]}
                           onPress={() => setRate((rs) => rs.map((x) => (x.key === rt.key ? { ...x, modo: m } : x)))}
+                          accessibilityLabel={m === 'percentuale' ? 'In percentuale del totale' : 'In euro'}
                         >
-                          <Text style={[styles.modoTxt, rt.modo === m && styles.modoTxtOn]}>{m === 'percentuale' ? '%' : '€'}</Text>
+                          <Text style={[styles.modoTxt, rt.modo === m && styles.modoTxtOn]}>{m === 'percentuale' ? '% del totale' : '€'}</Text>
                         </Pressable>
                       ))}
                     </View>
@@ -445,25 +462,23 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
                       style={styles.rataVal}
                       value={rt.valore}
                       onChangeText={(t) => setRate((rs) => rs.map((x) => (x.key === rt.key ? { ...x, valore: t } : x)))}
-                      placeholder={rt.modo === 'percentuale' ? '30' : '150'}
+                      placeholder={rt.modo === 'percentuale' ? 'es. 30' : 'es. 150'}
                       placeholderTextColor={colors.grigio}
                       keyboardType="decimal-pad"
                     />
-                    <Pressable onPress={() => setRate((rs) => rs.filter((x) => x.key !== rt.key))} hitSlop={8}>
-                      <Ionicons name="trash-outline" size={18} color={colors.grigio} />
-                    </Pressable>
+                    <Text style={styles.rataCalc}>= {eur(importoRata(rt, totaleImporto))}</Text>
                   </View>
                   <View style={styles.rataBottom}>
-                    <Text style={styles.rataCalc}>= {eur(importoRata(rt, totaleImporto))}</Text>
+                    <Text style={styles.rataMiniLabel}>Scadenza</Text>
                     <View style={styles.chipRow}>
                       <Pressable style={[styles.chipMini, !rt.scadenza && styles.chipOn]} onPress={() => setRate((rs) => rs.map((x) => (x.key === rt.key ? { ...x, scadenza: null } : x)))}>
-                        <Text style={[styles.chipTxt, !rt.scadenza && styles.chipTxtOn]}>—</Text>
+                        <Text style={[styles.chipTxt, !rt.scadenza && styles.chipTxtOn]}>Nessuna</Text>
                       </Pressable>
                       {[15, 30, 60].map((g) => {
                         const iso = isoTraGiorni(g);
                         return (
                           <Pressable key={g} style={[styles.chipMini, rt.scadenza === iso && styles.chipOn]} onPress={() => setRate((rs) => rs.map((x) => (x.key === rt.key ? { ...x, scadenza: iso } : x)))}>
-                            <Text style={[styles.chipTxt, rt.scadenza === iso && styles.chipTxtOn]}>+{g}g</Text>
+                            <Text style={[styles.chipTxt, rt.scadenza === iso && styles.chipTxtOn]}>entro {g} gg</Text>
                           </Pressable>
                         );
                       })}
@@ -474,7 +489,8 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
             )}
             {rate.length ? (
               <Text style={[styles.notaLibero, Math.abs(assegnato - totaleImporto) > 0.5 && { color: colors.errore }]}>
-                Assegnato {eur(assegnato)} / {eur(totaleImporto)} · residuo {eur(totaleImporto - assegnato)}
+                Rate per {eur(assegnato)} su {eur(totaleImporto)} totali
+                {totaleImporto - assegnato !== 0 ? ` · mancano ${eur(totaleImporto - assegnato)}` : ' · tutto assegnato ✓'}
               </Text>
             ) : null}
 
@@ -508,8 +524,6 @@ const styles = StyleSheet.create({
   importo: { color: colors.oro, fontWeight: '900', fontSize: 16 },
   incassatoParz: { color: colors.successo, fontSize: 11, fontWeight: '700' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  badge: { borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
-  badgeTxt: { color: colors.bianco, fontWeight: '800', fontSize: 11 },
   meta: { color: colors.testoSoft, fontSize: 12, fontWeight: '600' },
   data: { color: colors.grigio, fontSize: 11, marginLeft: 'auto' },
   espansa: { gap: 6, marginTop: 4, borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: spacing.sm },
@@ -518,7 +532,7 @@ const styles = StyleSheet.create({
   statoChipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 12 },
   incassoRow: { flexDirection: 'row', gap: 8 },
   incassoInput: { flex: 1, backgroundColor: colors.sfondo, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 9, fontSize: 15, color: colors.testo },
-  incassoBtn: { backgroundColor: colors.navy, borderRadius: radius.md, paddingHorizontal: 16, justifyContent: 'center' },
+  incassoBtn: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: 18, justifyContent: 'center' },
   incassoBtnTxt: { color: colors.bianco, fontWeight: '800', fontSize: 13 },
   fab: {
     position: 'absolute', right: spacing.md, bottom: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -548,17 +562,19 @@ const styles = StyleSheet.create({
   // Editor rate
   rateHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
   aggiungiRata: { color: colors.oro, fontWeight: '800', fontSize: 13 },
-  rataRow: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, padding: 8, gap: 6 },
+  rataRow: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, padding: 10, gap: 8 },
   rataTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rataEtich: { flex: 1, backgroundColor: colors.sfondo, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 7, fontSize: 13, color: colors.testo },
+  rataQuanto: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  rataMiniLabel: { color: colors.grigio, fontSize: 11, fontWeight: '700', width: 62 },
   modoToggle: { flexDirection: 'row', borderRadius: radius.sm, overflow: 'hidden', borderWidth: 1, borderColor: colors.grigioChiaro },
   modoBtn: { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: colors.sfondo },
   modoBtnOn: { backgroundColor: colors.navy },
-  modoTxt: { fontWeight: '800', fontSize: 13, color: colors.testoSoft },
+  modoTxt: { fontWeight: '700', fontSize: 12.5, color: colors.testoSoft },
   modoTxtOn: { color: colors.bianco },
-  rataVal: { width: 56, backgroundColor: colors.sfondo, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 7, fontSize: 13, color: colors.testo, textAlign: 'right' },
-  rataBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  rataCalc: { color: colors.oro, fontWeight: '800', fontSize: 13 },
+  rataVal: { width: 76, backgroundColor: colors.sfondo, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 7, fontSize: 13, color: colors.testo, textAlign: 'right' },
+  rataBottom: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rataCalc: { color: colors.goldStrong, fontWeight: '800', fontSize: 13, marginLeft: 'auto' },
   chipMini: { backgroundColor: colors.sfondo, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 4 },
   // Monitoraggio rate
   rataMon: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },

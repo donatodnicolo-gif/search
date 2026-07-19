@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, radius, spacing } from '@/lib/theme';
+import type { StatoPlace } from '@/types';
+import { colors, labelStato, radius, spacing } from '@/lib/theme';
 
 export interface FiltriMappa {
   zona: string | null;
@@ -26,6 +27,10 @@ interface Props {
 const PRIORITA = ['P1', 'P2', 'P3'];
 const STATI = ['da_visitare', 'visitato', 'cliente', 'perso'];
 
+// Etichette leggibili nei chip (mai valori tecnici con underscore o sigle nude).
+const LABEL_PRIORITA: Record<string, string> = { P1: 'P1 · Alta', P2: 'P2 · Media', P3: 'P3 · Bassa' };
+const labelChipStato = (v: string) => labelStato[v as StatoPlace] ?? v;
+
 /** Barra filtri orizzontale in cima alla mappa/lista. */
 export function Filters({ filtri, opzioni, onChange }: Props) {
   function toggle(key: keyof FiltriMappa, val: string) {
@@ -38,8 +43,20 @@ export function Filters({ filtri, opzioni, onChange }: Props) {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
     >
-      <Gruppo titolo="Priorità" valori={PRIORITA} attivo={filtri.priorita} onTap={(v) => toggle('priorita', v)} />
-      <Gruppo titolo="Stato" valori={STATI} attivo={filtri.stato} onTap={(v) => toggle('stato', v)} />
+      <Gruppo
+        titolo="Priorità"
+        valori={PRIORITA}
+        attivo={filtri.priorita}
+        onTap={(v) => toggle('priorita', v)}
+        label={(v) => LABEL_PRIORITA[v] ?? v}
+      />
+      <Gruppo
+        titolo="Stato"
+        valori={STATI}
+        attivo={filtri.stato}
+        onTap={(v) => toggle('stato', v)}
+        label={labelChipStato}
+      />
       <Gruppo titolo="Zona" valori={opzioni.zone} attivo={filtri.zona} onTap={(v) => toggle('zona', v)} />
       <Gruppo titolo="Settore" valori={opzioni.settori} attivo={filtri.settore} onTap={(v) => toggle('settore', v)} />
       <Gruppo titolo="Linea" valori={opzioni.linee} attivo={filtri.linea} onTap={(v) => toggle('linea', v)} />
@@ -52,11 +69,13 @@ function Gruppo({
   valori,
   attivo,
   onTap,
+  label,
 }: {
   titolo: string;
   valori: string[];
   attivo: string | null;
   onTap: (v: string) => void;
+  label?: (v: string) => string;
 }) {
   if (valori.length === 0) return null;
   return (
@@ -68,7 +87,7 @@ function Gruppo({
           return (
             <TouchableOpacity key={v} onPress={() => onTap(v)} style={[styles.chip, on && styles.chipOn]}>
               <Text style={[styles.chipTxt, on && styles.chipTxtOn]} numberOfLines={1}>
-                {v}
+                {label ? label(v) : v}
               </Text>
             </TouchableOpacity>
           );

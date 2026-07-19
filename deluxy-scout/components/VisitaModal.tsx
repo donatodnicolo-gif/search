@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { EsitoVisita, Place } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { registraVisitaRapida, segnaVisitatoDaCompletare } from '@/lib/db';
@@ -106,11 +107,11 @@ export function VisitaModal({
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.grip} />
           <Text style={styles.titolo} numberOfLines={1}>
-            ✓ Visita · {place.nome}
+            Visita · {place.nome}
           </Text>
           {place.aggancio_apertura ? (
             <Text style={styles.aggancio} numberOfLines={2}>
-              💬 {place.aggancio_apertura}
+              <Ionicons name="chatbubble-outline" size={12} color={colors.testoSoft} /> {place.aggancio_apertura}
             </Text>
           ) : null}
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>

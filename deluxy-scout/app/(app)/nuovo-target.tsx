@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import type { CategoryRule } from '@/types';
-import { colors, coloreProprita, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing } from '@/lib/theme';
 import { caricaRegole, regolaPerCategoria } from '@/lib/categoryRules';
 import { inserisciPlace } from '@/lib/db';
 import { posizioneCorrente, type Coord } from '@/lib/location';
@@ -130,7 +130,6 @@ export default function NuovoTarget() {
               <View style={styles.prioRow}>
                 <Text style={styles.label}>Priorità automatica</Text>
                 <PriorityBadge priorita={ipotesi.priorita} small />
-                <View style={[styles.dot, { backgroundColor: coloreProprita[ipotesi.priorita] }]} />
               </View>
               <BoxIpotesi linea={ipotesi.linea_ipotizzata} aggancio={ipotesi.aggancio_apertura} />
             </View>
@@ -176,7 +175,6 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
   prioRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
-  dot: { width: 12, height: 12, borderRadius: 6 },
   salva: {
     marginTop: spacing.lg,
     backgroundColor: colors.ink,

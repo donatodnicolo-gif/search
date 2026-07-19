@@ -4,6 +4,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'rea
 import { useFocusEffect } from 'expo-router';
 import type { Place } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
+import { EmptyState } from '@/components/ui';
 import { LineaIcon } from '@/components/LineaIcon';
 import { aggiornaNascosto, fetchNascosti } from '@/lib/db';
 import { PriorityBadge } from '@/components/PriorityBadge';
@@ -49,7 +50,12 @@ export default function Nascosti() {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
-          <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Nessuna attività nascosta.'}</Text>
+          <EmptyState
+            icona="eye-off-outline"
+            titolo="Nessuna attività nascosta"
+            aiuto="Le attività che segni come non interessanti finiscono qui: puoi ripristinarle quando vuoi."
+            loading={loading}
+          />
         }
         renderItem={({ item: p }) => (
           <View style={styles.card}>
@@ -88,7 +94,6 @@ const styles = StyleSheet.create({
   },
   sub: { color: colors.testoSoft, fontSize: 13 },
   list: { padding: spacing.md, gap: 10 },
-  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -103,8 +108,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  icona: { width: 46, height: 46, borderRadius: 13, backgroundColor: '#F0ECE2', alignItems: 'center', justifyContent: 'center' },
-  iconaEmoji: { fontSize: 22 },
+  icona: { width: 46, height: 46, borderRadius: 13, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1, gap: 3 },
   titoloRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   nome: { flexShrink: 1, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },

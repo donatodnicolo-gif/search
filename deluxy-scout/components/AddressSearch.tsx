@@ -38,7 +38,8 @@ export function AddressSearch({
       try {
         setPredizioni(await autocompleteIndirizzo(t.trim()));
       } catch (e) {
-        setErrore((e as Error).message);
+        // Messaggio chiaro per l'utente, dettaglio tecnico tra parentesi.
+        setErrore(`Ricerca non riuscita, riprova. (${(e as Error).message})`);
         setPredizioni([]);
       } finally {
         setLoading(false);
@@ -56,7 +57,7 @@ export function AddressSearch({
       setScelto(true);
       onSelect(r);
     } catch (e) {
-      setErrore((e as Error).message);
+      setErrore(`Ricerca non riuscita, riprova. (${(e as Error).message})`);
     } finally {
       setLoading(false);
     }
@@ -84,8 +85,8 @@ export function AddressSearch({
         />
         {loading ? <ActivityIndicator color={colors.navy} style={styles.side} /> : null}
         {input && !loading ? (
-          <Pressable onPress={azzera} style={styles.side} hitSlop={8}>
-            <Text style={styles.clear}>✕</Text>
+          <Pressable onPress={azzera} style={styles.side} hitSlop={8} accessibilityLabel="Azzera ricerca">
+            <Ionicons name="close" size={18} color={colors.grigio} />
           </Pressable>
         ) : null}
       </View>
@@ -119,7 +120,6 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, paddingHorizontal: spacing.md, paddingVertical: 11, fontSize: 15, color: colors.testo },
   side: { paddingHorizontal: spacing.xs },
-  clear: { color: colors.grigio, fontWeight: '900', fontSize: 16 },
   errore: { color: colors.errore, fontSize: 13, marginTop: spacing.xs, fontWeight: '600' },
   dropdown: {
     position: 'absolute',

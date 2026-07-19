@@ -165,7 +165,10 @@ export default function NuovaVisita() {
         createdAt: new Date().toISOString(),
         retries: 0,
       });
-      Alert.alert('Salvata in coda', `Errore online, messa in coda di sync.\n${e?.message ?? ''}`);
+      Alert.alert(
+        'Salvata in coda',
+        `Il salvataggio online non è riuscito: la visita verrà inviata automaticamente appena possibile.${e?.message ? `\n(Dettaglio: ${e.message})` : ''}`,
+      );
       router.replace(`/(app)/attivita/${place.id}`);
     } finally {
       setSalvataggio(false);
@@ -209,7 +212,7 @@ export default function NuovaVisita() {
           />
 
           {/* Cross-sell: linee in standby, sezione separata (mai come primaria) */}
-          <Label>Cross-sell (linee in standby)</Label>
+          <Label>Altre linee da proporre</Label>
           <View style={styles.chipWrap}>
             {lineeCrossSell.map((l) => (
               <Chip key={l.id} label={l.nome} on={crossSell.includes(l.nome)} onPress={() => toggleCross(l.nome)} standby />
@@ -246,7 +249,10 @@ export default function NuovaVisita() {
             {fotoUri ? (
               <Image source={{ uri: fotoUri }} style={styles.fotoImg} />
             ) : (
-              <Text style={styles.fotoTxt}>📷 Foto vetrina</Text>
+              <View style={styles.fotoVuota}>
+                <Ionicons name="camera-outline" size={22} color={colors.testoSoft} />
+                <Text style={styles.fotoTxt}>Foto vetrina</Text>
+              </View>
             )}
           </Pressable>
 
@@ -328,14 +334,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
   },
   fotoImg: { width: '100%', height: '100%' },
+  fotoVuota: { alignItems: 'center', gap: 4 },
   fotoTxt: { color: colors.testoSoft, fontWeight: '700' },
+  // Azione primaria DS: pillola nera (ink), mai oro.
   salva: {
     marginTop: spacing.lg,
-    backgroundColor: colors.oro,
-    borderRadius: radius.md,
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
     paddingVertical: 18,
     alignItems: 'center',
   },
-  salvaOff: { opacity: 0.6 },
-  salvaTxt: { color: colors.navy, fontWeight: '900', fontSize: 18 },
+  salvaOff: { opacity: 0.55 },
+  salvaTxt: { color: colors.bianco, fontWeight: '600', fontSize: 17 },
 });

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -28,10 +28,12 @@ export default function RootLayout() {
   );
 }
 
+// Loading sobrio (DS: niente spinner giganti): indicatore piccolo + testo.
 export function Loader() {
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.sfondo }}>
-      <ActivityIndicator size="large" color={colors.navy} />
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: colors.sfondo }}>
+      <ActivityIndicator size="small" color={colors.testoSoft} />
+      <Text style={{ color: colors.testoSoft, fontSize: 14 }}>Caricamento…</Text>
     </View>
   );
 }

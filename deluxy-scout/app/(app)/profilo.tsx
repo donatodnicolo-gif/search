@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { colors, radius, spacing } from '@/lib/theme';
+import { StatusBadge } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { contaInCoda, flushCoda } from '@/lib/syncQueue';
@@ -128,9 +129,11 @@ export default function Profilo() {
         <Text style={styles.cardLabel}>INTEGRAZIONI</Text>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>HubSpot</Text>
-          <Text style={[styles.pill, hubspotOk ? styles.pillOk : styles.pillOff]}>
-            {hubspotOk ? 'Collegato' : 'Non configurato'}
-          </Text>
+          <StatusBadge
+            small
+            label={hubspotOk ? 'Collegato' : 'Non configurato'}
+            colore={hubspotOk ? colors.successo : colors.grigio}
+          />
         </View>
         <Pressable style={[styles.btn, syncHS && styles.btnOff]} onPress={sincronizzaContatti} disabled={syncHS}>
           <Text style={styles.btnTxt}>{syncHS ? 'Sincronizzo…' : 'Sincronizza contatti da HubSpot'}</Text>
@@ -176,16 +179,13 @@ const styles = StyleSheet.create({
     borderColor: colors.grigioChiaro,
     padding: spacing.md,
   },
-  cardLabel: { color: colors.oro, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginBottom: spacing.sm },
+  cardLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '600', letterSpacing: 0.7, marginBottom: spacing.sm },
   email: { fontSize: 18, fontWeight: '800', color: colors.navy },
   meta: { color: colors.testoSoft, fontSize: 13, marginTop: 2 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   rowLabel: { color: colors.navy, fontSize: 15, fontWeight: '600' },
   rowValue: { color: colors.navy, fontSize: 18, fontWeight: '900' },
   freccia: { color: colors.oro, fontSize: 20, fontWeight: '800' },
-  pill: { fontSize: 12, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden' },
-  pillOk: { backgroundColor: colors.successo, color: colors.bianco },
-  pillOff: { backgroundColor: colors.grigioChiaro, color: colors.testoSoft },
   nomeRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center', marginTop: spacing.xs },
   nomeInput: {
     flex: 1,

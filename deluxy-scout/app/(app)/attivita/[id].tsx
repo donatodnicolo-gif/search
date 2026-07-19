@@ -3,7 +3,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Contact, Deal, Place, Visit } from '@/types';
-import { colors, labelStato, radius, spacing } from '@/lib/theme';
+import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
 import { aggiornaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto } from '@/lib/db';
 import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
@@ -13,6 +13,14 @@ import { PriorityBadge } from '@/components/PriorityBadge';
 import { TaskFormModal } from '@/components/TaskFormModal';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 import { Loader } from '../../_layout';
+
+// Etichette leggibili per l'esito visita (mai il valore tecnico con underscore).
+const LABEL_ESITO: Record<string, string> = {
+  interessato: 'Interessato',
+  da_richiamare: 'Da richiamare',
+  non_target: 'Non target',
+  chiuso: 'Chiuso',
+};
 
 export default function SchedaAttivita() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -221,7 +229,10 @@ export default function SchedaAttivita() {
 
         <Sezione titolo="Contatti">
           {contatti.length === 0 ? (
-            <Text style={styles.vuoto}>Nessun contatto registrato.</Text>
+            <View>
+              <Text style={styles.vuoto}>Nessun contatto registrato.</Text>
+              <Text style={styles.vuotoAiuto}>Aggiungilo qui sotto, oppure cercalo su HubSpot.</Text>
+            </View>
           ) : (
             contatti.map((c) => (
               <View key={c.id} style={styles.contatto}>
@@ -259,7 +270,7 @@ export default function SchedaAttivita() {
               {matchAI.match ? (
                 <View style={styles.aiMatchRow}>
                   <Text style={[styles.aiMatch, { flex: 1 }]}>
-                    <Ionicons name="business-outline" size={14} color={colors.navy} /> {matchAI.match.nome} · corrispondenza{' '}
+                    <Ionicons name="business-outline" size={14} color={colors.navy} /> {matchAI.match.nome} · affinità{' '}
                     {matchAI.confidenza}
                   </Text>
                   <Pressable style={styles.btnRimuovi} onPress={rimuoviAzienda}>
@@ -293,7 +304,8 @@ export default function SchedaAttivita() {
               ))}
               {matchAI.duplicati?.length ? (
                 <Text style={styles.aiDup}>
-                  ⚠️ Possibili duplicati da unire: {matchAI.duplicati.map((d) => d.motivo).join('; ')}
+                  <Ionicons name="alert-circle-outline" size={13} color={colors.attenzione} /> Possibili duplicati da
+                  unire: {matchAI.duplicati.map((d) => d.motivo).join('; ')}
                 </Text>
               ) : null}
             </View>
@@ -306,12 +318,15 @@ export default function SchedaAttivita() {
 
         <Sezione titolo="Trattative (HubSpot)">
           {deal.length === 0 ? (
-            <Text style={styles.vuoto}>Nessuna trattativa aperta.</Text>
+            <View>
+              <Text style={styles.vuoto}>Nessuna trattativa aperta.</Text>
+              <Text style={styles.vuotoAiuto}>Le trattative HubSpot collegate al negozio compaiono qui.</Text>
+            </View>
           ) : (
             deal.map((d) => (
               <View key={d.id} style={styles.deal}>
                 <Text style={styles.dealLinea}>{d.linea ?? 'Deal'}</Text>
-                <Text style={styles.meta}>Fase: {d.fase}</Text>
+                <Text style={styles.meta}>Fase: {labelFase[d.fase] ?? d.fase}</Text>
                 {d.valore_atteso ? <Text style={styles.meta}>Valore: € {d.valore_atteso}</Text> : null}
               </View>
             ))
@@ -320,7 +335,10 @@ export default function SchedaAttivita() {
 
         <Sezione titolo={`Storico visite (${visite.length})`}>
           {visite.length === 0 ? (
-            <Text style={styles.vuoto}>Ancora nessuna visita.</Text>
+            <View>
+              <Text style={styles.vuoto}>Ancora nessuna visita.</Text>
+              <Text style={styles.vuotoAiuto}>Registra la prima con «+ Nuova visita» qui sopra.</Text>
+            </View>
           ) : (
             visite.map((v) => (
               <Pressable
@@ -329,8 +347,13 @@ export default function SchedaAttivita() {
                 onPress={() => router.push(`/(app)/visita-dettaglio/${v.id}`)}
               >
                 <Text style={styles.visitaData}>
-                  {new Date(v.data).toLocaleDateString('it-IT')} · {v.esito ?? '—'}
-                  {v.hubspot_synced ? '' : '  ⏳'}
+                  {new Date(v.data).toLocaleDateString('it-IT')} · {v.esito ? LABEL_ESITO[v.esito] ?? v.esito : '—'}
+                  {v.hubspot_synced ? null : (
+                    <>
+                      {'  '}
+                      <Ionicons name="time-outline" size={13} color={colors.attenzione} />
+                    </>
+                  )}
                   {'  ›'}
                 </Text>
                 {v.next_step ? <Text style={styles.meta}>Next: {v.next_step}</Text> : null}
@@ -361,14 +384,15 @@ const styles = StyleSheet.create({
   stato: { color: colors.testoSoft, fontWeight: '700' },
   nome: { fontSize: 24, fontWeight: '900', color: colors.navy, marginTop: spacing.sm },
   meta: { color: colors.testoSoft, fontSize: 14, marginTop: 2 },
+  // Azione primaria DS: pillola nera (ink), mai oro.
   btnVisita: {
-    backgroundColor: colors.oro,
-    borderRadius: radius.md,
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: spacing.md,
   },
-  btnVisitaTxt: { color: colors.navy, fontWeight: '900', fontSize: 17 },
+  btnVisitaTxt: { color: colors.bianco, fontWeight: '600', fontSize: 17 },
   azioniRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   btnTask: {
     flexDirection: 'row',
@@ -400,6 +424,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   vuoto: { color: colors.grigio, fontStyle: 'italic' },
+  vuotoAiuto: { color: colors.grigio, fontSize: 12.5, marginTop: 2 },
   interesseLbl: {
     fontSize: 13,
     fontWeight: '800',

@@ -10,6 +10,8 @@ import { colors, coloreProprita, radius, spacing } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { completaTask, eliminaTask, fetchTask } from '@/lib/db';
+import { EmptyState, PageIntro } from '@/components/ui';
+import { PriorityBadge } from '@/components/PriorityBadge';
 import { TaskFormModal } from '@/components/TaskFormModal';
 
 function scadenzaInfo(iso: string | null): { txt: string; ritardo: boolean } | null {
@@ -20,7 +22,7 @@ function scadenzaInfo(iso: string | null): { txt: string; ritardo: boolean } | n
   const gg = Math.round((d.getTime() - oggi.getTime()) / 86400000);
   const data = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
   const rel =
-    gg === 0 ? 'oggi' : gg === 1 ? 'domani' : gg === -1 ? 'ieri' : gg < 0 ? `${-gg}g fa` : `tra ${gg}g`;
+    gg === 0 ? 'oggi' : gg === 1 ? 'domani' : gg === -1 ? 'ieri' : gg < 0 ? `${-gg} giorni fa` : `tra ${gg} giorni`;
   return { txt: `${data} · ${rel}`, ritardo: gg < 0 };
 }
 
@@ -73,6 +75,7 @@ export default function TaskScreen() {
 
   return (
     <View style={styles.container}>
+      <PageIntro testo="I tuoi promemoria e quelli assegnati al team: spunta un task quando è fatto, toccalo per modificarlo." />
       <View style={styles.head}>
         <View style={styles.toggle}>
           <Seg label="Assegnati a me" on={scope === 'miei'} onPress={() => setScope('miei')} />
@@ -85,8 +88,13 @@ export default function TaskScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
       >
-        {!loading && tasks.length === 0 ? (
-          <Text style={styles.vuoto}>Nessun task. Aggiungine uno col + in basso 👇</Text>
+        {tasks.length === 0 ? (
+          <EmptyState
+            icona="checkbox-outline"
+            titolo="Nessun task"
+            aiuto="Creane uno col bottone Nuovo task in basso: scadenza, priorità e assegnatario."
+            loading={loading}
+          />
         ) : null}
 
         {aperti.length > 0 ? (
@@ -166,7 +174,7 @@ function RigaTask({
           {t.titolo}
         </Text>
         <View style={styles.metaRow}>
-          {!t.completata ? <View style={[styles.dot, { backgroundColor: coloreProprita[t.priorita] }]} /> : null}
+          {!t.completata ? <PriorityBadge priorita={t.priorita} small /> : null}
           {sc ? (
             <>
               <Ionicons name="calendar-outline" size={12} color={sc.ritardo && !t.completata ? colors.errore : colors.testoSoft} />
@@ -211,12 +219,11 @@ const styles = StyleSheet.create({
   segTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   segTxtOn: { color: colors.testo },
   content: { padding: spacing.md, paddingBottom: 96, gap: spacing.sm },
-  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
   sezione: {
-    color: colors.oro,
-    fontWeight: '800',
-    fontSize: 12,
-    letterSpacing: 1,
+    color: colors.testoSoft,
+    fontWeight: '600',
+    fontSize: 11,
+    letterSpacing: 0.7,
     textTransform: 'uppercase',
     marginBottom: 2,
   },
@@ -237,7 +244,6 @@ const styles = StyleSheet.create({
   titoloFatto: { color: colors.grigio, textDecorationLine: 'line-through', fontWeight: '600' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
   metaSep: { color: colors.grigioChiaro, fontSize: 12 },
-  dot: { width: 7, height: 7, borderRadius: 4 },
   meta: { color: colors.testoSoft, fontSize: 12, fontWeight: '600' },
   metaRitardo: { color: colors.errore, fontWeight: '800' },
   del: { width: 24, alignItems: 'flex-end' },

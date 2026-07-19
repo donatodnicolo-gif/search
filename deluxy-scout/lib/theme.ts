@@ -83,6 +83,14 @@ export const labelStato: Record<StatoPlace, string> = {
   perso: 'Perso',
 };
 
+// Colore semantico DS per lo stato del negozio (per i badge a pillola con dot).
+export const coloreStato: Record<StatoPlace, string> = {
+  da_visitare: colors.attenzione, // da gestire
+  visitato: colors.blue, // in corso
+  cliente: colors.successo,
+  perso: colors.errore,
+};
+
 // Piccola icona sovrapposta al pin per lo stato.
 export const iconaStato: Record<StatoPlace, string> = {
   da_visitare: '○',
@@ -134,6 +142,15 @@ export const labelFase: Record<DealStage, string> = {
   closedlost: 'Chiusa persa',
 };
 
+// Colore semantico DS per la fase (avanzamento pipeline → esito).
+export const coloreFase: Record<DealStage, string> = {
+  appointmentscheduled: colors.blue,
+  decisionmakerboughtin: colors.purple,
+  contractsent: colors.attenzione,
+  closedwon: colors.successo,
+  closedlost: colors.errore,
+};
+
 // Etichette + colore-dot per gli stati affiliazione (i 7 del registro Anagrafiche).
 export const labelAffiliazione: Record<StatoAffiliazione, string> = {
   prospect: 'Prospect',
@@ -148,7 +165,7 @@ export const labelAffiliazione: Record<StatoAffiliazione, string> = {
 
 export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
   prospect: colors.grigio,
-  in_contatto: '#5A6274',
+  in_contatto: colors.blue,
   in_attesa: colors.attenzione,
   in_trattativa: colors.oro,
   da_ricontattare: colors.attenzione,

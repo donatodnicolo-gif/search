@@ -144,7 +144,9 @@ export default function VenditoreDettaglio() {
         {loading ? (
           <Text style={styles.vuoto}>Caricamento…</Text>
         ) : giorni.length === 0 ? (
-          <Text style={styles.vuoto}>Nessuna visita registrata.</Text>
+          <Text style={styles.vuoto}>
+            Nessuna visita registrata da questo venditore: quando ne farà, compariranno qui giorno per giorno.
+          </Text>
         ) : (
           giorni.map((g) => (
             <GiornoCard key={g.giorno} g={g} nomiPlace={nomiPlace} onVisita={(id) => router.push(`/(app)/visita-dettaglio/${id}`)} />
@@ -173,7 +175,7 @@ function GiornoCard({
       {/* KPI del giorno */}
       <View style={styles.kpiRow}>
         {g.interessati ? <Kpi label="interessati" n={g.interessati} colore={colors.successo} /> : null}
-        {g.daRichiamare ? <Kpi label="da richiam." n={g.daRichiamare} colore={colors.attenzione} /> : null}
+        {g.daRichiamare ? <Kpi label="da richiamare" n={g.daRichiamare} colore={colors.attenzione} /> : null}
         {g.chiusi ? <Kpi label="chiusi" n={g.chiusi} colore={colors.oro} /> : null}
         {g.nonTarget ? <Kpi label="non target" n={g.nonTarget} colore={colors.grigio} /> : null}
         {g.contatti ? <Kpi label="contatti" n={g.contatti} colore={colors.navy} /> : null}
@@ -255,10 +257,10 @@ const styles = StyleSheet.create({
 
   cards: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   sezione: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.oro,
-    letterSpacing: 1,
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.testoSoft,
+    letterSpacing: 0.7,
     textTransform: 'uppercase',
     marginTop: spacing.md,
     marginBottom: spacing.xs,

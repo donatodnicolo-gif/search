@@ -18,16 +18,17 @@ import { supabase } from '@/lib/supabase';
 import { aggiornaTask, fetchProfiles, inserisciTask, notificaAssegnazioneTask } from '@/lib/db';
 import { nomeVenditore } from '@/lib/metrics';
 
+// Etichette allineate al PriorityBadge ("P1 · Alta"…).
 const PRIORITA: { v: Priorita; label: string }[] = [
-  { v: 'P1', label: 'Alta' },
-  { v: 'P2', label: 'Media' },
-  { v: 'P3', label: 'Bassa' },
+  { v: 'P1', label: 'P1 · Alta' },
+  { v: 'P2', label: 'P2 · Media' },
+  { v: 'P3', label: 'P3 · Bassa' },
 ];
 const SCAD: { label: string; giorni: number | null }[] = [
   { label: 'Nessuna', giorni: null },
   { label: 'Oggi', giorni: 0 },
   { label: 'Domani', giorni: 1 },
-  { label: '+7g', giorni: 7 },
+  { label: '+7 giorni', giorni: 7 },
 ];
 
 function isoTraGiorni(n: number): string {

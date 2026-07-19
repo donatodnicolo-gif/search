@@ -117,7 +117,7 @@ export default function Oggi() {
         <Azione icona="checkbox-outline" label="Task" onPress={() => router.push('/(app)/task')} />
         <Azione icona="map-outline" label="Mappa" onPress={() => router.push('/(app)/mappa')} />
         <Azione icona="briefcase-outline" label="Trattative" onPress={() => router.push('/(app)/trattative')} />
-        <Azione icona="cash-outline" label="Pagamento" onPress={() => router.push('/(app)/pagamenti')} />
+        <Azione icona="cash-outline" label="Pagamenti" onPress={() => router.push('/(app)/pagamenti')} />
       </View>
 
       {/* In ritardo */}
@@ -130,9 +130,9 @@ export default function Oggi() {
       ) : null}
 
       {/* Agenda di oggi */}
-      <Sezione titolo="Agenda di oggi" colore={colors.oro}>
+      <Sezione titolo="Agenda di oggi" colore={colors.testoSoft}>
         {agendaOggi.length === 0 ? (
-          <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Niente in scadenza oggi.'}</Text>
+          <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Niente in scadenza oggi. Le scadenze di task e trattative compariranno qui.'}</Text>
         ) : (
           agendaOggi.map((e) => (
             <RigaEvento key={e.id} {...e} onPress={() => e.placeId && router.push(`/(app)/attivita/${e.placeId}`)} />
@@ -142,7 +142,7 @@ export default function Oggi() {
 
       {/* Richiami */}
       {richiami.length ? (
-        <Sezione titolo={`Da ricontattare (${richiami.length})`} colore={colors.oro}>
+        <Sezione titolo={`Da ricontattare (${richiami.length})`} colore={colors.testoSoft}>
           {richiami.slice(0, 4).map((r) => (
             <Pressable key={r.place.id} style={styles.evento} onPress={() => router.push(`/(app)/attivita/${r.place.id}`)}>
               <Ionicons name="call-outline" size={16} color={r.inRitardo ? colors.errore : colors.testoSoft} />
@@ -159,7 +159,7 @@ export default function Oggi() {
       ) : null}
 
       {/* Prossimi task */}
-      <Sezione titolo={`I miei task (${tasks.length})`} colore={colors.oro}>
+      <Sezione titolo={`I miei task (${tasks.length})`} colore={colors.testoSoft}>
         {tasks.length === 0 ? (
           <Text style={styles.vuoto}>Nessun task aperto.</Text>
         ) : (

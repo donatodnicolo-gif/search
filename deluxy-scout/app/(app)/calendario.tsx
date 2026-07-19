@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
+import { PageIntro } from '@/components/ui';
 import { fetchCalToken, fetchTask, fetchTutteTrattative, urlFeedCalendario } from '@/lib/db';
 
 interface Evento {
@@ -106,6 +107,7 @@ export default function Calendario() {
 
   return (
     <View style={styles.container}>
+      <PageIntro testo="Gli appuntamenti con una scadenza: task e follow-up delle trattative. Tocca un giorno per vederne l'elenco." />
       <View style={styles.head}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
           <Chip label="Tutti" on={venditore === 'tutti'} onPress={() => setVenditore('tutti')} />
@@ -164,7 +166,9 @@ export default function Calendario() {
         {/* Giorno selezionato */}
         <Text style={styles.giornoSelTitolo}>{etichettaGiornoSel(giornoSel)}</Text>
         {eventiGiorno.length === 0 ? (
-          <Text style={styles.vuoto}>Nessun appuntamento in questo giorno.</Text>
+          <Text style={styles.vuoto}>
+            Nessun appuntamento in questo giorno. Le scadenze di task e trattative compaiono qui automaticamente.
+          </Text>
         ) : (
           eventiGiorno.map((e) => (
             <Pressable
@@ -258,9 +262,12 @@ function SyncModal({ onClose }: { onClose: () => void }) {
             <Text style={styles.istr}>• <Text style={styles.b}>Apple Calendar</Text>: File → Nuova sottoscrizione calendario → incolla</Text>
             <Text style={styles.istr}>• <Text style={styles.b}>Outlook</Text>: Aggiungi calendario → Da Internet → incolla</Text>
           </View>
-          <Text style={styles.avviso}>
-            ⚠️ È un link segreto e personale: chi ce l'ha vede i tuoi appuntamenti. Non condividerlo.
-          </Text>
+          <View style={styles.avvisoRow}>
+            <Ionicons name="alert-circle-outline" size={16} color={colors.attenzione} />
+            <Text style={styles.avviso}>
+              È un link segreto e personale: chi ce l'ha vede i tuoi appuntamenti. Non condividerlo.
+            </Text>
+          </View>
         </View>
       </View>
     </Modal>
@@ -290,7 +297,7 @@ const styles = StyleSheet.create({
   cellaNumSel: { color: colors.bianco, fontWeight: '800' },
   pallino: { minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
   pallinoTxt: { fontSize: 10, fontWeight: '900' },
-  giornoSelTitolo: { marginTop: spacing.md, marginBottom: spacing.sm, fontWeight: '800', color: colors.oro, fontSize: 13, textTransform: 'capitalize' },
+  giornoSelTitolo: { marginTop: spacing.md, marginBottom: spacing.sm, fontWeight: '600', color: colors.testoSoft, fontSize: 13, textTransform: 'capitalize' },
   vuoto: { color: colors.grigio, fontStyle: 'italic', fontSize: 13 },
   evento: {
     flexDirection: 'row',
@@ -358,5 +365,6 @@ const styles = StyleSheet.create({
   istrTitolo: { fontWeight: '800', color: colors.testo, fontSize: 13, marginBottom: 2 },
   istr: { color: colors.testoSoft, fontSize: 13, lineHeight: 19 },
   b: { fontWeight: '800', color: colors.testo },
-  avviso: { color: colors.testoSoft, fontSize: 12, fontStyle: 'italic' },
+  avvisoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  avviso: { flex: 1, color: colors.testoSoft, fontSize: 12, fontStyle: 'italic' },
 });
