@@ -7,7 +7,7 @@
 //   body { googleKey, proxy, ..., utenti:[{nome,pass}], stores:[{brand,shop,token}] }
 //   (token/pass vuoti = mantengono quelli già salvati)
 
-import { authUser } from './_auth.js';
+import { authUser, newSalt, hashPass } from './_auth.js';
 
 const KEY = 'config:v1';
 
@@ -45,7 +45,9 @@ function sanitize(c) {
   };
 }
 
-// utenze: pass vuota = mantiene quella già salvata; riga tolta = utenza rimossa
+// utenze: pass vuota = mantiene quella già salvata; riga tolta = utenza rimossa.
+// In cassaforte va SOLO { nome, salt, passHash } (scrypt), mai la password in chiaro;
+// le voci legacy col campo `pass` vengono hashate qui al primo salvataggio.
 function mergeUtenti(current, incoming) {
   if (!Array.isArray(incoming)) return current || [];
   const byNome = {};
@@ -55,8 +57,17 @@ function mergeUtenti(current, incoming) {
       const nome = String((u && u.nome) || '').trim();
       if (!nome) return null;
       const prev = byNome[nome.toLowerCase()] || {};
-      const pass = (u.pass && String(u.pass).trim()) ? String(u.pass).trim() : (prev.pass || '');
-      return pass ? { nome, pass } : null;   // utenza senza password = non salvata
+      const passNew = (u.pass && String(u.pass).trim()) ? String(u.pass).trim() : '';
+      if (passNew) {                                   // password (ri)impostata → nuovo hash
+        const salt = newSalt();
+        return { nome, salt, passHash: hashPass(passNew, salt) };
+      }
+      if (prev.passHash && prev.salt) return { nome, salt: prev.salt, passHash: prev.passHash };
+      if (prev.pass) {                                 // legacy in chiaro → migra ora
+        const salt = newSalt();
+        return { nome, salt, passHash: hashPass(String(prev.pass), salt) };
+      }
+      return null;                                     // utenza senza password = non salvata
     })
     .filter(Boolean);
 }

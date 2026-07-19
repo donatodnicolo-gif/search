@@ -19,10 +19,12 @@ App web per **cercare fiorai/pasticcerie vicino a un indirizzo** e **smistare or
 - **Deploy**: NON serve CLI. `git push origin main` e Vercel ricostruisce. Le credenziali GitHub sono in cache (Git Credential Manager).
 - **Nessun Node/Python in locale**: per l'anteprima locale c'è un server statico **PowerShell** (`.claude/serve.ps1`, `.claude/launch.json`, porta 5510). Non usare `node`/`python`.
 
-## 3. Accesso (pass code)
-- All'avvio `index.html` mostra una **lock screen**: l'utente inserisce il **pass code** = env `APP_PASSWORD` su Vercel.
-- Il pass code viene salvato in `sessionStorage` e inviato come header **`x-app-password`** a tutte le API.
-- Tutte le API protette confrontano l'header con `process.env.APP_PASSWORD` (401 se diverso).
+## 3. Accesso (email + password)
+- All'avvio `index.html` mostra una **lock screen**: email + password. Due strade in `api/_auth.js`:
+  - **amministratore**: email qualsiasi + pass code principale (env `APP_PASSWORD` su Vercel) → `admin:true`, unico che può salvare le impostazioni;
+  - **utenza operatore**: creata dall'admin in ⚙️ Impostazioni → «👥 Utenze dell'app», salvata in `config:v1.utenti`.
+- Credenziali in `sessionStorage`, inviate come header **`x-app-user`** + **`x-app-password`** a tutte le API.
+- **Le password delle utenze NON sono in chiaro**: in cassaforte c'è solo `{nome, salt, passHash}` (scrypt, `node:crypto`, confronto `timingSafeEqual`). Hash creato in `config.js` al salvataggio; le voci legacy col campo `pass` in chiaro vengono migrate da sole (al primo login riuscito o al primo salvataggio delle impostazioni). `GET /api/config` restituisce delle utenze solo `{nome}`.
 
 ## 4. Cassaforte impostazioni (KV `config:v1`)
 Oggetto JSON in KV alla chiave **`config:v1`**:
