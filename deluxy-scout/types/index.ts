@@ -191,13 +191,26 @@ export interface Task {
 // parziale/acconto) e si monitora l'esito dell'incasso.
 export type StatoPagamento = 'inviata' | 'in_attesa' | 'pagata' | 'parziale' | 'insoluta' | 'annullata';
 
+// Rata (split) di una richiesta: per valore € o per % del totale, con scadenza.
+export interface RataPagamento {
+  id: string;
+  richiesta_id: string;
+  etichetta: string | null;
+  modo: 'valore' | 'percentuale';
+  percentuale: number | null;
+  importo: number;
+  scadenza: string | null;
+  pagata: boolean;
+  ordine: number;
+}
+
 export interface RichiestaPagamento {
   id: string;
   owner: string;
   deal_id: string | null;
   place_id: string | null;
   cliente: string;
-  importo: number; // importo richiesto (anche parziale)
+  importo: number; // importo richiesto totale (anche parziale rispetto al deal)
   importo_incassato: number;
   causale: string | null;
   scadenza: string | null;
@@ -206,6 +219,7 @@ export interface RichiestaPagamento {
   created_at: string;
   updated_at: string;
   owner_nome?: string | null; // risolto dai profili (per la supervisione)
+  rate?: RataPagamento[]; // split in rate (se presenti)
 }
 
 export interface Profilo {

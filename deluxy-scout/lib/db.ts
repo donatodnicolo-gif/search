@@ -564,13 +564,16 @@ export async function notificaAssegnazioneTask(taskId: string): Promise<void> {
 export async function fetchRichiestePagamento(): Promise<RichiestaPagamento[]> {
   const { data, error } = await supabase
     .from('richieste_pagamento')
-    .select('*')
+    .select('*, rate_pagamento(*)')
     .order('created_at', { ascending: false });
   if (error) throw error;
   const righe = (data ?? []).map((r: any) => ({
     ...r,
     importo: Number(r.importo),
     importo_incassato: Number(r.importo_incassato),
+    rate: (r.rate_pagamento ?? [])
+      .map((x: any) => ({ ...x, importo: Number(x.importo), percentuale: x.percentuale != null ? Number(x.percentuale) : null }))
+      .sort((a: any, b: any) => a.ordine - b.ordine),
   })) as RichiestaPagamento[];
   const ids = [...new Set(righe.map((r) => r.owner))];
   if (ids.length) {
@@ -581,7 +584,7 @@ export async function fetchRichiestePagamento(): Promise<RichiestaPagamento[]> {
   return righe;
 }
 
-/** Crea una richiesta di pagamento da una trattativa (stato iniziale: inviata). */
+/** Crea una richiesta di pagamento da una trattativa, con eventuali rate (split). */
 export async function inserisciRichiestaPagamento(r: {
   cliente: string;
   importo: number;
@@ -589,6 +592,7 @@ export async function inserisciRichiestaPagamento(r: {
   scadenza?: string | null;
   deal_id?: string | null;
   place_id?: string | null;
+  rate?: { etichetta?: string | null; modo: 'valore' | 'percentuale'; percentuale?: number | null; importo: number; scadenza?: string | null }[];
 }): Promise<RichiestaPagamento> {
   const { data: u } = await supabase.auth.getUser();
   const { data, error } = await supabase
@@ -605,7 +609,39 @@ export async function inserisciRichiestaPagamento(r: {
     .select('*')
     .single();
   if (error) throw error;
+  if (r.rate?.length) {
+    const righe = r.rate.map((x, i) => ({
+      richiesta_id: data.id,
+      etichetta: x.etichetta ?? null,
+      modo: x.modo,
+      percentuale: x.percentuale ?? null,
+      importo: x.importo,
+      scadenza: x.scadenza ?? null,
+      ordine: i,
+    }));
+    const { error: e2 } = await supabase.from('rate_pagamento').insert(righe);
+    if (e2) throw e2;
+  }
   return { ...data, importo: Number(data.importo), importo_incassato: Number(data.importo_incassato) } as RichiestaPagamento;
+}
+
+/** Segna una rata pagata/non pagata e ricalcola il rollup della richiesta. */
+export async function aggiornaRataPagata(rata: { id: string; richiesta_id: string }, pagata: boolean): Promise<void> {
+  const { error } = await supabase.from('rate_pagamento').update({ pagata }).eq('id', rata.id);
+  if (error) throw error;
+  // Ricalcola incassato/stato della richiesta dalle sue rate.
+  const { data: rate } = await supabase
+    .from('rate_pagamento')
+    .select('importo, pagata')
+    .eq('richiesta_id', rata.richiesta_id);
+  const { data: req } = await supabase.from('richieste_pagamento').select('importo').eq('id', rata.richiesta_id).single();
+  const incassato = (rate ?? []).filter((x: any) => x.pagata).reduce((s: number, x: any) => s + Number(x.importo), 0);
+  const totale = Number(req?.importo ?? 0);
+  const stato = incassato <= 0 ? 'inviata' : incassato >= totale ? 'pagata' : 'parziale';
+  await supabase
+    .from('richieste_pagamento')
+    .update({ importo_incassato: incassato, stato, updated_at: new Date().toISOString() })
+    .eq('id', rata.richiesta_id);
 }
 
 /** Aggiorna l'esito/monitoraggio di una richiesta (stato, incassato, nota, scadenza). */
