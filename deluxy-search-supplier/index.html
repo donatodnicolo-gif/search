@@ -243,8 +243,8 @@
     </div>
     <h2 style="margin:0 0 4px; font-size:24px; font-weight:600; letter-spacing:-.022em">Deluxy</h2>
     <p style="color:var(--text-secondary); font-size:14px; margin:0 0 20px">Inserisci il pass code per accedere.</p>
-    <input id="userInput" type="text" placeholder="Nome utente" autocomplete="username" style="text-align:center; margin-bottom:10px">
-    <input id="passInput" type="password" placeholder="Pass code" autocomplete="current-password" style="text-align:center; margin-bottom:12px">
+    <input id="userInput" type="email" placeholder="Email" autocomplete="username" style="text-align:center; margin-bottom:10px">
+    <input id="passInput" type="password" placeholder="Password" autocomplete="current-password" style="text-align:center; margin-bottom:12px">
     <button class="btn" id="passBtn">Entra</button>
     <div id="passErr" class="status err" style="min-height:18px; margin:10px 0 0"></div>
     <p style="color:var(--text-tertiary); font-size:12px; margin:18px 0 0">Consegne in guanti bianchi, dal 2019.</p>
@@ -324,7 +324,7 @@
         <label style="font-size:13px; color:var(--text); font-weight:600">👥 Utenze dell'app</label>
         <div id="userRows" class="grid" style="margin-top:8px"></div>
         <button class="btn-dl" id="addUserRow" type="button" style="margin-top:8px">➕ Aggiungi utenza</button>
-        <div class="hint">Ogni operatore entra con <b>nome utente + pass code personale</b> e le sue azioni compaiono nello Storico col suo nome. Pass vuota = invariata; riga rimossa = utenza revocata. Il pass code principale resta quello dell'amministratore (unico che può salvare le impostazioni).</div>
+        <div class="hint">Ogni operatore entra con <b>email + password personale</b> e le sue azioni compaiono nello Storico con la sua email. Password vuota = invariata; riga rimossa = utenza revocata. Il pass code principale resta quello dell'amministratore (unico che può salvare le impostazioni).</div>
       </div>
       <div>
         <label style="font-size:13px; color:var(--text); font-weight:600">🛍️ Negozi Shopify</label>
@@ -624,8 +624,8 @@ function apiFetch(path, opts){
 function utenteRow(nome){
   const div = document.createElement('div');
   div.style.cssText = 'display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:center';
-  div.innerHTML = `<input type="text" class="u-nome" placeholder="nome utente">
-    <input type="password" class="u-pass" placeholder="${nome?'•••• (vuoto = invariata)':'pass code'}" autocomplete="new-password">
+  div.innerHTML = `<input type="email" class="u-nome" placeholder="email" autocomplete="off">
+    <input type="password" class="u-pass" placeholder="${nome?'•••• (vuoto = invariata)':'password'}" autocomplete="new-password">
     <button class="btn-dl u-del" type="button" title="Rimuovi utenza">✕</button>`;
   div.querySelector('.u-nome').value = nome || '';
   div.querySelector('.u-del').addEventListener('click', ()=>div.remove());
@@ -667,8 +667,8 @@ async function loadConfig(){
 async function unlock(){
   const pass = ($('#passInput').value.trim() || PASS);
   const user = ($('#userInput').value.trim() || USER);
-  if(!user){ $('#passErr').textContent='Inserisci il nome utente.'; return; }
-  if(!pass){ $('#passErr').textContent='Inserisci il pass code.'; return; }
+  if(!user){ $('#passErr').textContent='Inserisci l\'email.'; return; }
+  if(!pass){ $('#passErr').textContent='Inserisci la password.'; return; }
   $('#passBtn').disabled=true; $('#passErr').textContent='Verifico…';
   PASS = pass; USER = user;
   try{
