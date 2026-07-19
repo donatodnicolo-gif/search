@@ -210,6 +210,7 @@ model Partner {
   smsTemplates        SmsTemplate[]
   sales               Sale[]
   deliveryRules       DeliveryRulePartner[]
+  invoices            Invoice[]
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 }
@@ -786,6 +787,29 @@ model Payment {
   status      String   @default("REQUESTED")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------------------------------------
+// Fatturazione partner: fattura periodica delle consegne "da fatturare".
+// Somma di price + additionalPrice delle consegne billable ed effettuate.
+// status: DRAFT (bozza) | ISSUED (emessa, va in storico) | PAID (pagata)
+// ------------------------------------------------------------
+model Invoice {
+  id              String    @id @default(cuid())
+  partnerId       String
+  partner         Partner   @relation(fields: [partnerId], references: [id])
+  number          String? // FAT-<anno>-<n>
+  periodStart     DateTime
+  periodEnd       DateTime
+  totalAmount     Float     @default(0)
+  deliveriesCount Int       @default(0)
+  status          String    @default("DRAFT")
+  // Emettendo la fattura esce dalle bozze ed entra nello Storico.
+  archived        Boolean   @default(false)
+  issuedAt        DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 // ------------------------------------------------------------

@@ -30,6 +30,7 @@
     "categorie": "Categorie",
     "servizi": "Servizi",
     "calcoli": "Calcoli",
+    "fatturazione": "Fatturazione",
     "stipendi": "Stipendi",
     "ricevute": "Ricevute",
     "pagamenti": "Pagamenti",
@@ -297,6 +298,48 @@
       "approve": "Approva",
       "reject": "Rifiuta",
       "markPaid": "Segna pagato"
+    }
+  },
+  "invoices": {
+    "title": "Fatturazione",
+    "caption": "Genera e gestisci le fatture dei partner: somma delle consegne da fatturare nel periodo.",
+    "allPartners": "Tutti i partner",
+    "generate": "Genera fattura",
+    "empty": "Nessuna fattura.",
+    "export": "Esporta",
+    "reopened": "Fattura riaperta ✓",
+    "tab": {
+      "active": "Bozze",
+      "archive": "Storico"
+    },
+    "fin": {
+      "paid": "Pagata",
+      "unpaid": "Non pagata"
+    },
+    "gen": {
+      "partner": "Partner",
+      "pickPartner": "Seleziona partner…",
+      "from": "Periodo — dal",
+      "to": "Periodo — al",
+      "hint": "Somma di prezzo + plus delle consegne del partner marcate «da fatturare» ed effettuate nel periodo.",
+      "run": "Genera",
+      "required": "Seleziona partner e periodo.",
+      "done": "Fattura generata ✓"
+    },
+    "col": {
+      "partner": "Partner",
+      "number": "Numero",
+      "period": "Periodo",
+      "deliveries": "N. consegne",
+      "total": "Totale",
+      "status": "Stato",
+      "financial": "Stato pagamento",
+      "actions": "Azioni"
+    },
+    "action": {
+      "issue": "Emetti",
+      "markPaid": "Segna pagata",
+      "reopen": "Riapri"
     }
   },
   "salaries": {

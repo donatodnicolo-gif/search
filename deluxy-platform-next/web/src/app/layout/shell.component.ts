@@ -68,6 +68,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { label: 'nav.servizi', path: '/services', icon: 'rules', roles: ['ADMIN', 'OPERATION'] },
       { label: 'nav.calcoli', path: '/calcoli', icon: 'chart', roles: ['ADMIN', 'OPERATION'] },
+      { label: 'nav.fatturazione', path: '/invoices', icon: 'euro', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
       { label: 'nav.stipendi', path: '/salaries', icon: 'euro', roles: ['ADMIN', 'OPERATION', 'VALET'] },
       { label: 'nav.ricevute', path: '/receipts', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'VALET'] },
       { label: 'nav.pagamenti', path: '/payments', icon: 'wallet', roles: ['ADMIN', 'OPERATION', 'VALET'] },

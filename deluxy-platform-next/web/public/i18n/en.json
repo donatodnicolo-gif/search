@@ -30,6 +30,7 @@
     "categorie": "Categories",
     "servizi": "Services",
     "calcoli": "Calculations",
+    "fatturazione": "Invoicing",
     "stipendi": "Salaries",
     "ricevute": "Receipts",
     "pagamenti": "Payments",
@@ -297,6 +298,48 @@
       "approve": "Approve",
       "reject": "Reject",
       "markPaid": "Mark paid"
+    }
+  },
+  "invoices": {
+    "title": "Invoicing",
+    "caption": "Generate and manage partner invoices: sum of the billable deliveries in the period.",
+    "allPartners": "All partners",
+    "generate": "Generate invoice",
+    "empty": "No invoices.",
+    "export": "Export",
+    "reopened": "Invoice reopened ✓",
+    "tab": {
+      "active": "Drafts",
+      "archive": "History"
+    },
+    "fin": {
+      "paid": "Paid",
+      "unpaid": "Unpaid"
+    },
+    "gen": {
+      "partner": "Partner",
+      "pickPartner": "Select partner…",
+      "from": "Period — from",
+      "to": "Period — to",
+      "hint": "Sum of price + surcharge of the partner's deliveries marked \"to bill\" and completed in the period.",
+      "run": "Generate",
+      "required": "Select partner and period.",
+      "done": "Invoice generated ✓"
+    },
+    "col": {
+      "partner": "Partner",
+      "number": "Number",
+      "period": "Period",
+      "deliveries": "Deliveries",
+      "total": "Total",
+      "status": "Status",
+      "financial": "Payment status",
+      "actions": "Actions"
+    },
+    "action": {
+      "issue": "Issue",
+      "markPaid": "Mark paid",
+      "reopen": "Reopen"
     }
   },
   "salaries": {

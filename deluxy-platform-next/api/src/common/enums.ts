@@ -121,6 +121,13 @@ export enum PaymentStatus {
   PAID = 'PAID',
 }
 
+// Fatturazione partner: Bozza -> Emessa -> Pagata
+export enum InvoiceStatus {
+  DRAFT = 'DRAFT',
+  ISSUED = 'ISSUED',
+  PAID = 'PAID',
+}
+
 export enum DeliveryRuleType {
   DAILY_COUNT = 'DAILY_COUNT',
   TOTAL_COUNT = 'TOTAL_COUNT',
