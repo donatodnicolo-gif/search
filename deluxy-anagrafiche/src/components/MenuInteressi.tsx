@@ -28,7 +28,11 @@ export function MenuInteressi({
       onToggle={(e) => {
         if (e.currentTarget.open && ancora.current) {
           const r = ancora.current.getBoundingClientRect();
-          setPos({ top: r.bottom + 6, left: r.left });
+          // Rientra nel viewport: se aperto a sinistra sforerebbe a destra
+          // (etichetta in alto a destra della scheda), lo si sposta a sinistra.
+          const larghezza = 200;
+          const left = Math.max(8, Math.min(r.left, window.innerWidth - larghezza - 8));
+          setPos({ top: r.bottom + 6, left });
         }
       }}
     >
