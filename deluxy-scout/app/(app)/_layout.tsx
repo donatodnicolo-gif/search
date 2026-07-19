@@ -91,14 +91,20 @@ export default function AppLayout() {
           drawerItemStyle: { borderRadius: radius.md, paddingHorizontal: 4 },
         }}
       >
-        <Drawer.Screen name="mappa" options={{ title: 'Mappa', drawerIcon: ({ color, size }) => <DrawerIcon name="map-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="lista" options={{ title: 'Target', drawerIcon: ({ color, size }) => <DrawerIcon name="flag-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="rubrica" options={{ title: 'Rubrica', drawerIcon: ({ color, size }) => <DrawerIcon name="people-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="trattative" options={{ title: 'Trattative', drawerIcon: ({ color, size }) => <DrawerIcon name="briefcase-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni', drawerIcon: ({ color, size }) => <DrawerIcon name="git-network-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="da-completare" options={{ title: 'Da fare', drawerIcon: ({ color, size }) => <DrawerIcon name="time-outline" color={color} size={size ?? 22} /> }} />
+        {/* Il mio lavoro (assistente + agenda) */}
+        <Drawer.Screen name="oggi" options={{ title: 'Oggi', drawerIcon: ({ color, size }) => <DrawerIcon name="sunny-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="task" options={{ title: 'I miei task', drawerIcon: ({ color, size }) => <DrawerIcon name="checkbox-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="calendario" options={{ title: 'Calendario', drawerIcon: ({ color, size }) => <DrawerIcon name="calendar-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="da-completare" options={{ title: 'Da fare', drawerIcon: ({ color, size }) => <DrawerIcon name="time-outline" color={color} size={size ?? 22} /> }} />
+        {/* Prospezione sul territorio */}
+        <Drawer.Screen name="mappa" options={{ title: 'Mappa', drawerIcon: ({ color, size }) => <DrawerIcon name="map-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="lista" options={{ title: 'Target', drawerIcon: ({ color, size }) => <DrawerIcon name="flag-outline" color={color} size={size ?? 22} /> }} />
+        {/* Pipeline commerciale */}
+        <Drawer.Screen name="trattative" options={{ title: 'Trattative', drawerIcon: ({ color, size }) => <DrawerIcon name="briefcase-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni', drawerIcon: ({ color, size }) => <DrawerIcon name="git-network-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="rubrica" options={{ title: 'Rubrica', drawerIcon: ({ color, size }) => <DrawerIcon name="people-outline" color={color} size={size ?? 22} /> }} />
+        {/* Amministrazione */}
+        <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti', drawerIcon: ({ color, size }) => <DrawerIcon name="cash-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard', drawerIcon: ({ color, size }) => <DrawerIcon name="stats-chart-outline" color={color} size={size ?? 22} /> }} />
         {/* Team: visibile solo all'amministratore della rete (gate anche nella schermata). */}
         <Drawer.Screen

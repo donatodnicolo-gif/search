@@ -6,6 +6,6 @@ import { Loader } from './_layout';
 export default function Index() {
   const { session, loading } = useAuth();
   if (loading) return <Loader />;
-  // Schermata di default all'accesso: la tasklist personale.
-  return <Redirect href={session ? '/(app)/task' : '/(auth)/login'} />;
+  // Schermata di default all'accesso: "Oggi", l'assistente del commerciale.
+  return <Redirect href={session ? '/(app)/oggi' : '/(auth)/login'} />;
 }

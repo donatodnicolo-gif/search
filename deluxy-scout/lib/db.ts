@@ -1,6 +1,6 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
-import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo, StatoAffiliazione, StatoPlace, Task, Visit } from '@/types';
+import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo, RichiestaPagamento, StatoAffiliazione, StatoPlace, Task, Visit } from '@/types';
 import { statoDaEsito } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
@@ -542,6 +542,85 @@ export async function notificaAssegnazioneTask(taskId: string): Promise<void> {
     },
     body: JSON.stringify({ task_id: taskId }),
   });
+}
+
+// ── Richieste di pagamento (aperte dal commerciale, gestite da Finance) ────────
+
+/** Le richieste visibili (RLS: le mie; Finance/admin: tutte), con nome richiedente. */
+export async function fetchRichiestePagamento(): Promise<RichiestaPagamento[]> {
+  const { data, error } = await supabase
+    .from('richieste_pagamento')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const righe = (data ?? []).map((r: any) => ({ ...r, importo: Number(r.importo) })) as RichiestaPagamento[];
+  const ids = [...new Set(righe.map((r) => r.owner))];
+  if (ids.length) {
+    const profili = await fetchProfiles();
+    const nome = new Map(profili.map((p) => [p.id, nomeDaProfilo(p)]));
+    for (const r of righe) r.owner_nome = nome.get(r.owner) ?? null;
+  }
+  return righe;
+}
+
+/** Apre una richiesta di pagamento (stato iniziale: inviata). */
+export async function inserisciRichiestaPagamento(r: {
+  beneficiario: string;
+  importo: number;
+  causale: string;
+  iban?: string | null;
+  urgenza: 'normale' | 'urgente';
+  place_id?: string | null;
+}): Promise<RichiestaPagamento> {
+  const { data: u } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('richieste_pagamento')
+    .insert({
+      owner: u.user?.id ?? undefined,
+      beneficiario: r.beneficiario,
+      importo: r.importo,
+      causale: r.causale,
+      iban: r.iban ?? null,
+      urgenza: r.urgenza,
+      place_id: r.place_id ?? null,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return { ...data, importo: Number(data.importo) } as RichiestaPagamento;
+}
+
+/** Aggiorna una richiesta (Finance: stato + nota; owner: correzioni finché inviata). */
+export async function aggiornaRichiestaPagamento(
+  id: string,
+  patch: Partial<Pick<RichiestaPagamento, 'stato' | 'nota_finance' | 'beneficiario' | 'importo' | 'causale' | 'iban' | 'urgenza'>>,
+): Promise<void> {
+  const { error } = await supabase
+    .from('richieste_pagamento')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/**
+ * Chiede l'invio del riepilogo email (task in scadenza + follow-up) all'utente
+ * corrente (Edge Function `promemoria`). Inerte se SMTP non configurato.
+ */
+export async function inviaPromemoriaEmail(): Promise<{ sent: boolean; reason?: string }> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/promemoria`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw new Error(`Promemoria ${res.status}`);
+  return (await res.json()) as { sent: boolean; reason?: string };
 }
 
 // ── Affiliazioni (linea Re-seller: fioristi/pasticcerie da reclutare) ──────────
