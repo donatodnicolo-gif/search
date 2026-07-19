@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
+import { aggiornaNascosto } from '@/lib/db';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
@@ -16,9 +17,20 @@ export default function Lista() {
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
   const [query, setQuery] = useState('');
 
+  async function nascondi(place: Place) {
+    try {
+      await aggiornaNascosto(place.id, true);
+      ricarica();
+    } catch (e: any) {
+      Alert.alert('Errore', e?.message ?? 'Impossibile rimuovere il target.');
+    }
+  }
+
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const f = applicaFiltri(places, filtri).filter((p) => {
+    const f = applicaFiltri(places, filtri)
+      .filter((p) => !p.nascosto) // i target "non interessanti" non compaiono qui
+      .filter((p) => {
       if (!q) return true;
       return (
         p.nome.toLowerCase().includes(q) ||
@@ -55,7 +67,9 @@ export default function Lista() {
             {loading ? 'Caricamento…' : 'Nessuna attività con questi filtri.'}
           </Text>
         }
-        renderItem={({ item }) => <Riga place={item} onPress={() => router.push(`/(app)/attivita/${item.id}`)} />}
+        renderItem={({ item }) => (
+          <Riga place={item} onPress={() => router.push(`/(app)/attivita/${item.id}`)} onNascondi={() => nascondi(item)} />
+        )}
       />
       <Pressable style={styles.fab} onPress={() => router.push('/(app)/nuovo-target')} accessibilityLabel="Nuovo target">
         <Ionicons name="add" size={30} color={colors.bianco} />
@@ -64,7 +78,7 @@ export default function Lista() {
   );
 }
 
-function Riga({ place, onPress }: { place: Place; onPress: () => void }) {
+function Riga({ place, onPress, onNascondi }: { place: Place; onPress: () => void; onNascondi: () => void }) {
   return (
     <Pressable style={styles.riga} onPress={onPress}>
       <View style={styles.rigaHead}>
@@ -73,6 +87,17 @@ function Riga({ place, onPress }: { place: Place; onPress: () => void }) {
           {place.nome}
         </Text>
         <Text style={styles.stato}>{labelStato[place.stato]}</Text>
+        <Pressable
+          style={styles.nascondi}
+          hitSlop={8}
+          onPress={(e) => {
+            (e as any)?.stopPropagation?.();
+            onNascondi();
+          }}
+          accessibilityLabel="Rimuovi target (nascondi)"
+        >
+          <Ionicons name="eye-off-outline" size={18} color={colors.grigio} />
+        </Pressable>
       </View>
       {place.linea_ipotizzata ? (
         <View style={styles.lineaTag}>
@@ -112,6 +137,7 @@ const styles = StyleSheet.create({
   rigaHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   nome: { flex: 1, fontSize: 16, fontWeight: '800', color: colors.navy },
   stato: { fontSize: 12, color: colors.testoSoft, fontWeight: '600' },
+  nascondi: { padding: 2 },
   // "Tipologia di interesse" = linea Deluxy, come tag oro.
   lineaTag: {
     alignSelf: 'flex-start',
