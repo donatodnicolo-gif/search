@@ -1,18 +1,29 @@
+// Tutte le date si mostrano nel fuso di Roma. Senza questo, il server (Vercel
+// gira in UTC) formatterebbe gli orari con 1-2 ore di scarto.
+export const FUSO = 'Europe/Rome'
+
+/** Il giorno "YYYY-MM-DD" di una data nel fuso di Roma, per confronti corretti
+ *  anche a cavallo della mezzanotte. */
+function giornoRoma(d: Date): string {
+  return d.toLocaleDateString('en-CA', { timeZone: FUSO }) // en-CA → ISO YYYY-MM-DD
+}
+
 /** Data breve per la lista: oggi = ora, quest'anno = giorno/mese, altrimenti anno. */
 export function dataBreve(d: Date): string {
   const ora = new Date()
-  const stessoGiorno = d.toDateString() === ora.toDateString()
-  if (stessoGiorno) {
-    return d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+  const gd = giornoRoma(d)
+  if (gd === giornoRoma(ora)) {
+    return d.toLocaleTimeString('it-IT', { timeZone: FUSO, hour: '2-digit', minute: '2-digit' })
   }
-  if (d.getFullYear() === ora.getFullYear()) {
-    return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+  if (gd.slice(0, 4) === giornoRoma(ora).slice(0, 4)) {
+    return d.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short' })
   }
-  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
+  return d.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export function dataLunga(d: Date): string {
   return d.toLocaleString('it-IT', {
+    timeZone: FUSO,
     weekday: 'long',
     day: 'numeric',
     month: 'long',

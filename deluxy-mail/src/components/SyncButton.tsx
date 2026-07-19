@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { sincronizzaOra } from '@/lib/actions'
 
-// Ogni quanto controllare la posta da solo. 5 minuti: abbastanza da sembrare
-// istantaneo, abbastanza raro da non pesare sul server IMAP.
-const OGNI_MS = 5 * 60 * 1000
+// Ogni quanto controllare la posta da solo: 30 secondi, così la posta nuova
+// compare quasi subito. Gira solo mentre la finestra è visibile.
+const OGNI_MS = 30 * 1000
 const CHIAVE_AUTO = 'aimail:auto'
 
 export function SyncButton() {
@@ -74,7 +74,7 @@ export function SyncButton() {
           onChange={(e) => cambiaAuto(e.target.checked)}
           style={{ width: 14, height: 14, accentColor: 'var(--ink)' }}
         />
-        Automatico ogni 5 min
+        Automatico ogni 30 sec
       </label>
 
       {stato && (

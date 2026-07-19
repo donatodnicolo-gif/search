@@ -1,10 +1,20 @@
-import type { Regola, Sezione } from '@prisma/client'
+import type { Messaggio, Regola, Sezione } from '@prisma/client'
 import { db } from './db'
 import { scaricaNuovi, scaricaVecchi, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
-import { analizzaMessaggio, riassumiContatto, scriviRisposta, rilevaETraduci } from './ai'
+import {
+  analizzaMessaggio,
+  riassumiContatto,
+  scriviRisposta,
+  rilevaETraduci,
+  riassumiThread,
+  giudicaSpam,
+  type AnalisiThread,
+} from './ai'
 import { CHIAVI, leggiImpostazioni } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
+import { raggruppa, chiaveThread } from './thread'
+import { valutaSpam } from './spam'
 
 export type EsitoSync = {
   tipo: 'scarico' | 'storico'
@@ -77,6 +87,48 @@ export async function traduciMessaggioSeServe(
   }
 }
 
+/**
+ * Le istruzioni AI mirate per un messaggio: quelle del contatto e quelle della
+ * conversazione. Ordine di precedenza: la conversazione prevale sul contatto,
+ * che prevale sul contesto globale (passato a parte). Sono istruzioni FIDATE
+ * (le scrive l'utente), tenute separate dal corpo delle email.
+ */
+export async function istruzioniMirate(
+  utenteId: string,
+  opts: { mittente?: string | null; messaggioId?: string }
+): Promise<string[]> {
+  const righe: string[] = []
+  try {
+    if (opts.mittente) {
+      const c = await db.contattoAI.findUnique({
+        where: { utenteId_email: { utenteId, email: opts.mittente.toLowerCase() } },
+        select: { istruzioni: true },
+      })
+      if (c?.istruzioni?.trim()) {
+        righe.push(`Per il contatto ${opts.mittente}, vale questa istruzione: ${c.istruzioni.trim()}`)
+      }
+    }
+    if (opts.messaggioId) {
+      const conversazione = await messaggiThread(utenteId, opts.messaggioId)
+      if (conversazione.length > 0) {
+        const chiave = chiaveThread(conversazione)
+        const t = await db.istruzioneThread.findUnique({
+          where: { utenteId_chiave: { utenteId, chiave } },
+          select: { istruzioni: true },
+        })
+        if (t?.istruzioni?.trim()) {
+          righe.push(
+            `Per QUESTA conversazione (prevale sulle altre istruzioni): ${t.istruzioni.trim()}`
+          )
+        }
+      }
+    }
+  } catch {
+    // Se le tabelle/colonne non ci sono ancora, semplicemente niente istruzioni mirate.
+  }
+  return righe
+}
+
 /** Il contesto aziendale (condiviso) e la firma personale dell'utente. */
 async function contestoAI(utenteId: string): Promise<{ contestoAzienda?: string; firma?: string }> {
   const [impostazioni, utente] = await Promise.all([
@@ -120,12 +172,13 @@ export async function analizzaMessaggioOra(
   }
 
   const daRegole = applicaRegole(regole, messaggio)
+  const mirate = await istruzioniMirate(utenteId, { mittente: m.mittente, messaggioId: m.id })
 
   try {
     const analisi = await analizzaMessaggio({
       messaggio,
       sezioni,
-      istruzioniAI: daRegole.istruzioniAI,
+      istruzioniAI: [...daRegole.istruzioniAI, ...mirate],
       contestoAzienda: ctx.contestoAzienda,
       firma: ctx.firma,
       oggi: new Date(),
@@ -134,7 +187,7 @@ export async function analizzaMessaggioOra(
     const sezioneAI = analisi.sezione
       ? (sezioni.find((s) => s.nome === analisi.sezione)?.id ?? null)
       : null
-    const sezioneDecisa = m.smistatoDa === 'manuale' || m.smistatoDa === 'regola'
+    const sezioneDecisa = m.smistatoDa === 'manuale' || m.smistatoDa === 'regola' || m.smistatoDa === 'spam'
 
     await db.messaggio.update({
       where: { id: m.id },
@@ -196,6 +249,10 @@ function inItaliano(errore: string): string {
   if (errore.includes('429') || errore.includes('quota')) return 'Credito OpenAI esaurito: caricalo e riprova.'
   if (errore.includes('401') || errore.includes('API key')) return 'Chiave OpenAI non valida: controlla OPENAI_API_KEY.'
   if (errore.includes('OPENAI_API_KEY mancante')) return 'Manca la chiave OpenAI: l’analisi è spenta.'
+  if (
+    /connection error|fetch failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|EAI_AGAIN|network|socket hang up/i.test(errore)
+  )
+    return 'Connessione a OpenAI non riuscita: riprova fra poco.'
   if (errore.includes('timeout') || errore.includes('ETIMEDOUT') || errore.includes('ECONN')) return 'OpenAI non risponde: riprova fra poco.'
   return errore.length > 120 ? `${errore.slice(0, 120)}…` : errore
 }
@@ -223,6 +280,7 @@ export async function preparaEsecuzione(
   }
 
   const ctx = await contestoAI(utenteId)
+  const mirate = await istruzioniMirate(utenteId, { mittente: messaggio.mittente, messaggioId: messaggio.id })
 
   try {
     const testo = await scriviRisposta({
@@ -230,6 +288,7 @@ export async function preparaEsecuzione(
       compito: attivita.titolo,
       dettaglio: attivita.dettaglio,
       contestoAzienda: ctx.contestoAzienda,
+      istruzioni: mirate,
       firma: ctx.firma,
       oggi: new Date(),
     })
@@ -280,6 +339,7 @@ export async function analizzaContattoOra(
 
   const nome = messaggi.find((m) => m.direzione === 'entrata')?.mittenteNome ?? null
   const ctx = await contestoAI(utenteId)
+  const mirate = await istruzioniMirate(utenteId, { mittente: email })
 
   try {
     const analisi = await riassumiContatto({
@@ -292,6 +352,7 @@ export async function analizzaContattoOra(
         corpo: m.corpoTesto,
       })),
       contestoAzienda: ctx.contestoAzienda,
+      istruzioni: mirate,
       oggi: new Date(),
     })
 
@@ -391,6 +452,7 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
     messaggi: nuovi.messaggi,
     regole,
     traduzioneAuto: prefUtente?.traduzioneAuto ?? false,
+    dominioProprio: (account.email.split('@')[1] || '').toLowerCase(),
     esito,
   })
 
@@ -408,16 +470,96 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
   return esito
 }
 
+/** Crea la sezione SPAM dell'utente se non c'è, e ne restituisce l'id. */
+export async function assicuraSezioneSpam(utenteId: string): Promise<string> {
+  const s = await db.sezione.upsert({
+    where: { utenteId_nome: { utenteId, nome: 'SPAM' } },
+    create: {
+      utenteId,
+      nome: 'SPAM',
+      descrizione: 'Posta indesiderata: pubblicità non richiesta, phishing e truffe.',
+      colore: 'red',
+      ordine: 99,
+    },
+    update: {},
+    select: { id: true },
+  })
+  return s.id
+}
+
 async function salvaMessaggi(opts: {
   utenteId: string
   accountId: string
   messaggi: MessaggioScaricato[]
   regole: Regola[]
   traduzioneAuto: boolean
+  dominioProprio: string
   esito: EsitoSync
 }): Promise<{ primoFallito: number | null }> {
-  const { utenteId, accountId, messaggi, regole, traduzioneAuto, esito } = opts
+  const { utenteId, accountId, messaggi, regole, traduzioneAuto, dominioProprio, esito } = opts
   let primoFallito: number | null = null
+
+  // Contesto anti-spam, preparato una volta per giro: la sezione SPAM e i
+  // contatti col PLUS AI (che non vanno mai marcati spam). Un budget limita le
+  // verifiche AI dei casi dubbi, per non spendere troppo in un solo scarico.
+  let spamSezioneId: string | null = null
+  let emailAI = new Set<string>()
+  try {
+    spamSezioneId = await assicuraSezioneSpam(utenteId)
+    const ai = await db.contattoAI.findMany({ where: { utenteId }, select: { email: true } })
+    emailAI = new Set(ai.map((c) => c.email))
+  } catch {
+    spamSezioneId = null // se qualcosa va storto, semplicemente non si filtra
+  }
+  let budgetAI = 12
+
+  const filtraSpam = async (msg: MessaggioScaricato, messaggioId: string) => {
+    if (!spamSezioneId) return
+    const mittBasso = msg.mittente.toLowerCase()
+    const dominioMitt = mittBasso.split('@')[1] || ''
+
+    // Chi ti ha già scritto (o a cui hai scritto) è un contatto noto: mai spam.
+    const noti = await db.messaggio.count({
+      where: {
+        utenteId,
+        id: { not: messaggioId },
+        OR: [{ mittente: msg.mittente }, { direzione: 'uscita', destinatari: { contains: msg.mittente } }],
+      },
+    })
+
+    const esitoSpam = valutaSpam(
+      { oggetto: msg.oggetto, corpoTesto: msg.corpoTesto, mittente: msg.mittente, mittenteNome: msg.mittenteNome },
+      {
+        contattoNoto: noti > 0,
+        dominioProprio: !!dominioMitt && dominioMitt === dominioProprio,
+        contattoAI: emailAI.has(mittBasso),
+      }
+    )
+
+    let spam = esitoSpam.livello === 'alto'
+    if (esitoSpam.livello === 'medio' && budgetAI > 0) {
+      budgetAI--
+      try {
+        const g = await giudicaSpam({
+          oggetto: msg.oggetto,
+          mittente: msg.mittente,
+          mittenteNome: msg.mittenteNome,
+          corpo: msg.corpoTesto,
+          indizi: esitoSpam.motivi,
+        })
+        spam = g.spam
+      } catch {
+        spam = false // nel dubbio (AI giù), non nascondere la mail
+      }
+    }
+
+    if (spam) {
+      await db.messaggio.update({
+        where: { id: messaggioId },
+        data: { sezioneId: spamSezioneId, smistatoDa: 'spam' },
+      })
+    }
+  }
 
   for (const msg of messaggi) {
     const daRegole = applicaRegole(regole, msg)
@@ -468,6 +610,29 @@ async function salvaMessaggi(opts: {
             await traduciMessaggioSeServe(creato.id, utenteId)
           } catch {
             /* si riproverà all'apertura */
+          }
+        }
+
+        // Filtro anti-spam all'arrivo: solo posta in entrata non già smistata da
+        // una regola o archiviata. Un errore qui non deve fermare lo scarico.
+        if (creato.direzione === 'entrata' && !daRegole.sezioneId && !daRegole.archivia) {
+          try {
+            await filtraSpam(msg, creato.id)
+          } catch {
+            /* niente: la mail resta in posta */
+          }
+        }
+
+        // Attività su misura definite dalle regole che hanno agganciato la mail.
+        if (creato.direzione === 'entrata' && daRegole.attivitaDaCreare.length) {
+          for (const titolo of daRegole.attivitaDaCreare) {
+            try {
+              await db.attivita.create({
+                data: { utenteId, messaggioId: creato.id, titolo, creataDaAI: false, priorita: 'P2' },
+              })
+            } catch {
+              /* un'attività fallita non blocca lo scarico */
+            }
           }
         }
       } catch (e) {
@@ -525,6 +690,7 @@ export async function scaricaStorico(accountId: string, limite = 25): Promise<Es
     messaggi: vecchi.messaggi,
     regole,
     traduzioneAuto: prefUtente?.traduzioneAuto ?? false,
+    dominioProprio: (account.email.split('@')[1] || '').toLowerCase(),
     esito,
   })
 
@@ -536,6 +702,150 @@ export async function scaricaStorico(accountId: string, limite = 25): Promise<Es
   }
 
   return { ...esito, finito: primoFallito === null && vecchi.finito }
+}
+
+// ---------- Thread (conversazioni) ----------
+
+export type RiassuntoThreadSalvato = {
+  chiave: string
+  analisi: AnalisiThread
+  partecipanti: number
+  messaggiVisti: number
+  generatoIl: Date
+}
+
+/**
+ * Tutti i messaggi del thread a cui appartiene un dato messaggio, dal più
+ * vecchio al più recente. Riusa lo STESSO raggruppamento della posta in arrivo
+ * (catena di risposte + oggetto specifico), così la conversazione mostrata è
+ * identica a quella raggruppata in lista. Include anche la posta inviata.
+ */
+export async function messaggiThread(utenteId: string, messaggioId: string): Promise<Messaggio[]> {
+  // Finestra di candidati (leggera): id/thread/oggetto/data bastano a raggruppare.
+  const candidati = await db.messaggio.findMany({
+    where: { utenteId, cestinato: false },
+    orderBy: { data: 'desc' },
+    take: 400,
+    select: { id: true, thread: true, oggetto: true, data: true },
+  })
+
+  const dentroFinestra = candidati.some((c) => c.id === messaggioId)
+  if (!dentroFinestra) {
+    // Messaggio fuori dalla finestra recente: lo restituiamo da solo.
+    const solo = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId } })
+    return solo ? [solo] : []
+  }
+
+  const gruppi = raggruppa(candidati)
+  const gruppo = gruppi.find((g) => g.some((m) => m.id === messaggioId))
+  const ids = (gruppo ?? []).map((m) => m.id)
+  if (ids.length === 0) return []
+
+  const messaggi = await db.messaggio.findMany({
+    where: { id: { in: ids }, utenteId },
+    orderBy: { data: 'asc' },
+  })
+  return messaggi
+}
+
+function contaPartecipanti(messaggi: Messaggio[]): number {
+  const chi = new Set<string>()
+  for (const m of messaggi) {
+    if (m.direzione === 'uscita') chi.add('me')
+    else chi.add(m.mittente.toLowerCase())
+  }
+  return chi.size
+}
+
+/**
+ * L'AI legge tutta la conversazione e ne fa il quadro "per punti di vista":
+ * cosa vuole/dice ogni parte, cosa resta in sospeso. Salvato per riletture.
+ */
+export async function riassumiThreadOra(
+  utenteId: string,
+  messaggioId: string
+): Promise<{ ok: boolean; messaggio: string; riassunto?: RiassuntoThreadSalvato }> {
+  const messaggi = await messaggiThread(utenteId, messaggioId)
+  if (messaggi.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
+
+  const ctx = await contestoAI(utenteId)
+  const chiave = chiaveThread(messaggi)
+  const partecipanti = contaPartecipanti(messaggi)
+  const primo = messaggi.find((m) => m.direzione === 'entrata')
+  const mirate = await istruzioniMirate(utenteId, {
+    mittente: primo?.mittente ?? null,
+    messaggioId: messaggi[0]?.id,
+  })
+
+  try {
+    const analisi = await riassumiThread({
+      messaggi: messaggi.map((m) => ({
+        daMe: m.direzione === 'uscita',
+        chi: m.mittenteNome || m.mittente,
+        data: m.data,
+        oggetto: m.oggetto,
+        // Se tradotta, si dà all'AI l'italiano.
+        corpo: m.corpoTradotto || m.corpoTesto,
+      })),
+      contestoAzienda: ctx.contestoAzienda,
+      istruzioni: mirate,
+      oggi: new Date(),
+    })
+
+    const salvato = await db.riassuntoThread.upsert({
+      where: { utenteId_chiave: { utenteId, chiave } },
+      create: {
+        utenteId,
+        chiave,
+        riassunto: JSON.stringify(analisi),
+        partecipanti,
+        messaggiVisti: messaggi.length,
+      },
+      update: {
+        riassunto: JSON.stringify(analisi),
+        partecipanti,
+        messaggiVisti: messaggi.length,
+        generatoIl: new Date(),
+      },
+    })
+
+    return {
+      ok: true,
+      messaggio: `Letti ${messaggi.length} messaggi di ${partecipanti} ${partecipanti === 1 ? 'parte' : 'parti'}.`,
+      riassunto: { chiave, analisi, partecipanti, messaggiVisti: messaggi.length, generatoIl: salvato.generatoIl },
+    }
+  } catch (e) {
+    return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
+  }
+}
+
+/** Il riassunto salvato di un thread, se c'è. */
+export async function leggiRiassuntoThread(
+  utenteId: string,
+  chiave: string
+): Promise<RiassuntoThreadSalvato | null> {
+  let r
+  try {
+    // La tabella potrebbe non esistere ancora in produzione (migrazione da
+    // applicare): in quel caso si degrada a "nessun riassunto salvato".
+    r = await db.riassuntoThread.findUnique({ where: { utenteId_chiave: { utenteId, chiave } } })
+  } catch {
+    return null
+  }
+  if (!r) return null
+  let analisi: AnalisiThread
+  try {
+    analisi = JSON.parse(r.riassunto) as AnalisiThread
+  } catch {
+    return null
+  }
+  return {
+    chiave: r.chiave,
+    analisi,
+    partecipanti: r.partecipanti,
+    messaggiVisti: r.messaggiVisti,
+    generatoIl: r.generatoIl,
+  }
 }
 
 /** Tutte le caselle attive di tutti gli utenti — per il cron. */

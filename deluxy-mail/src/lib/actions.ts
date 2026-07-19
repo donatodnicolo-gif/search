@@ -10,15 +10,19 @@ import {
   analizzaContattoOra,
   analizzaMessaggioOra,
   leggiQuadroContatto,
+  messaggiThread,
   preparaEsecuzione,
+  riassumiThreadOra,
   scaricaStorico,
   sincronizzaUtente,
   type QuadroContatto,
+  type RiassuntoThreadSalvato,
 } from './sync'
+import { chiaveThread } from './thread'
 import { CODICI_PRIORITA } from './format'
-import { traduciVerso } from './ai'
+import { traduciVerso, pianificaAttivita } from './ai'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
-import { scriviImpostazione } from './impostazioni'
+import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
 import { utenteCorrente } from './sessione'
 
 function testo(form: FormData, campo: string): string {
@@ -168,9 +172,20 @@ export async function impostaPriorita(
     return { ok: true, messaggio: null }
   }
 
-  const esito = await analizzaMessaggioOra(id, utenteId)
-  revalidatePath('/', 'layout')
-  return esito
+  // L'analisi non deve MAI far lanciare l'azione: se qualcosa va storto
+  // (OpenAI, database, timeout) il client deve ricevere un messaggio, non un
+  // errore silenzioso — altrimenti "cliccando la priorità non succede nulla".
+  try {
+    const esito = await analizzaMessaggioOra(id, utenteId)
+    revalidatePath('/', 'layout')
+    return esito
+  } catch (e) {
+    revalidatePath('/', 'layout')
+    return {
+      ok: false,
+      messaggio: e instanceof Error ? e.message : 'Analisi non riuscita: riprova.',
+    }
+  }
 }
 
 export async function analizzaContatto(
@@ -187,6 +202,19 @@ export async function analizzaContatto(
   return esito
 }
 
+/**
+ * L'AI riassume una conversazione (thread) "per punti di vista". Se esiste già
+ * un riassunto e non si chiede di rifarlo, si restituisce quello salvato.
+ */
+export async function riassumiConversazione(
+  messaggioId: string
+): Promise<{ ok: boolean; messaggio: string; riassunto?: RiassuntoThreadSalvato }> {
+  const utenteId = await uid()
+  const esito = await riassumiThreadOra(utenteId, messaggioId)
+  revalidatePath('/', 'layout')
+  return esito
+}
+
 export async function eseguiAttivita(
   id: string
 ): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
@@ -195,10 +223,162 @@ export async function eseguiAttivita(
   return esito
 }
 
+/** Crea un'attività scritta da te. Se la colleghi a un contatto, l'AI potrà
+ *  eseguirla (scrivere la mail) col tasto "Esegui". */
+export async function creaAttivitaManuale(
+  form: FormData
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const titolo = testo(form, 'titolo')
+  if (!titolo) return { ok: false, messaggio: 'Serve un titolo per l’attività.' }
+
+  const scad = testo(form, 'scadenza')
+  const contatto = testo(form, 'contattoEmail').toLowerCase() || null
+  const codice = testo(form, 'priorita')
+  const priorita = CODICI_PRIORITA.includes(codice as never) ? codice : 'P2'
+
+  await db.attivita.create({
+    data: {
+      utenteId,
+      titolo,
+      dettaglio: opzionale(form, 'dettaglio'),
+      scadenza: scad ? new Date(scad) : null,
+      priorita,
+      contattoEmail: contatto,
+      creataDaAI: false,
+    },
+  })
+  revalidatePath('/attivita')
+  revalidatePath('/', 'layout')
+  return {
+    ok: true,
+    messaggio: contatto ? 'Attività creata. Puoi eseguirla con l’AI.' : 'Attività creata.',
+  }
+}
+
+/** Trasforma un comando in linguaggio naturale in attività concrete (via AI). */
+export async function attivitaDaComando(
+  comando: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  if (!comando.trim()) return { ok: false, messaggio: 'Scrivi cosa vuoi fare.' }
+
+  try {
+    const imp = await leggiImpostazioni()
+    const piano = await pianificaAttivita({
+      comando,
+      contestoAzienda: imp[CHIAVI.contestoAzienda],
+      oggi: new Date(),
+    })
+    if (piano.length === 0) return { ok: false, messaggio: 'Non ho ricavato attività: prova a essere più specifico.' }
+
+    for (const a of piano) {
+      await db.attivita.create({
+        data: {
+          utenteId,
+          titolo: a.titolo,
+          dettaglio: a.dettaglio || null,
+          scadenza: a.scadenza ? new Date(a.scadenza) : null,
+          priorita: CODICI_PRIORITA.includes(a.priorita as never) ? a.priorita : 'P2',
+          creataDaAI: true,
+        },
+      })
+    }
+    revalidatePath('/attivita')
+    revalidatePath('/', 'layout')
+    return {
+      ok: true,
+      messaggio: piano.length === 1 ? '1 attività creata dall’AI.' : `${piano.length} attività create dall’AI.`,
+    }
+  } catch (e) {
+    const m = e instanceof Error ? e.message : 'Non riuscito.'
+    if (/connection error|fetch failed|ENOTFOUND|network/i.test(m))
+      return { ok: false, messaggio: 'Connessione a OpenAI non riuscita: riprova.' }
+    if (/401|API key/i.test(m)) return { ok: false, messaggio: 'Chiave OpenAI non valida.' }
+    return { ok: false, messaggio: m.slice(0, 120) }
+  }
+}
+
 export async function rianalizza(id: string): Promise<{ ok: boolean; messaggio: string }> {
   const esito = await analizzaMessaggioOra(id, await uid())
   revalidatePath('/', 'layout')
   return esito
+}
+
+// ---------- Contatti AI (il "PLUS AI") ----------
+
+/**
+ * Attiva/disattiva il PLUS AI su un contatto. Un contatto AI finisce nella
+ * AI Inbox e su di lui l'AI fa il quadro (mail ricevute e inviate) per
+ * definire le prossime attività. Restituisce lo stato risultante.
+ */
+export async function cambiaContattoAI(
+  email: string,
+  attiva: boolean
+): Promise<{ ok: boolean; attiva: boolean }> {
+  const utenteId = await uid()
+  const pulita = email.trim().toLowerCase()
+  if (!pulita) return { ok: false, attiva: false }
+
+  if (attiva) {
+    await db.contattoAI.upsert({
+      where: { utenteId_email: { utenteId, email: pulita } },
+      create: { utenteId, email: pulita },
+      update: {},
+    })
+  } else {
+    await db.contattoAI.deleteMany({ where: { utenteId, email: pulita } })
+  }
+
+  revalidatePath('/', 'layout')
+  return { ok: true, attiva }
+}
+
+// ---------- Istruzioni AI mirate (contatto / conversazione) ----------
+
+/**
+ * Salva le istruzioni AI per un contatto. Scriverle rende il contatto "AI"
+ * (compare nella AI Inbox): è coerente, stai dicendo all'AI come trattarlo.
+ */
+export async function salvaIstruzioniContatto(
+  email: string,
+  testo: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const pulita = email.trim().toLowerCase()
+  if (!pulita) return { ok: false, messaggio: 'Contatto non valido.' }
+
+  await db.contattoAI.upsert({
+    where: { utenteId_email: { utenteId, email: pulita } },
+    create: { utenteId, email: pulita, istruzioni: testo.trim() },
+    update: { istruzioni: testo.trim() },
+  })
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: testo.trim() ? 'Istruzioni salvate.' : 'Istruzioni rimosse.' }
+}
+
+/** Salva le istruzioni AI per la conversazione a cui appartiene un messaggio. */
+export async function salvaIstruzioniThread(
+  messaggioId: string,
+  testo: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const conversazione = await messaggiThread(utenteId, messaggioId)
+  if (conversazione.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
+  const chiave = chiaveThread(conversazione)
+
+  const pulito = testo.trim()
+  if (!pulito) {
+    await db.istruzioneThread.deleteMany({ where: { utenteId, chiave } })
+  } else {
+    await db.istruzioneThread.upsert({
+      where: { utenteId_chiave: { utenteId, chiave } },
+      create: { utenteId, chiave, istruzioni: pulito },
+      update: { istruzioni: pulito },
+    })
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: pulito ? 'Istruzioni salvate.' : 'Istruzioni rimosse.' }
 }
 
 // ---------- Assistente AI ----------
@@ -297,22 +477,6 @@ export async function segnaAttivita(id: string, fatta: boolean) {
   revalidatePath('/', 'layout')
 }
 
-export async function creaAttivitaManuale(form: FormData) {
-  const scadenza = testo(form, 'scadenza')
-  const priorita = testo(form, 'priorita')
-  await db.attivita.create({
-    data: {
-      utenteId: await uid(),
-      titolo: testo(form, 'titolo'),
-      dettaglio: opzionale(form, 'dettaglio'),
-      scadenza: scadenza ? new Date(scadenza) : null,
-      priorita: CODICI_PRIORITA.includes(priorita as never) ? priorita : 'P2',
-      creataDaAI: false,
-    },
-  })
-  revalidatePath('/attivita')
-}
-
 export async function eliminaAttivita(id: string) {
   await db.attivita.deleteMany({ where: { id, utenteId: await uid() } })
   revalidatePath('/attivita')
@@ -355,7 +519,8 @@ export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: 
     }
 
     const { raw, messageId } = await spedisci(account, daInviare)
-    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId)
+    const threadRadice = bozza.messaggio.thread || bozza.messaggio.messageId
+    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, threadRadice)
 
     await db.bozza.update({ where: { id }, data: { inviata: true, inviataIl: new Date() } })
     await db.messaggio.update({
@@ -415,7 +580,8 @@ async function registraInviato(
   account: Account,
   m: DaInviare,
   raw: Buffer,
-  messageId: string
+  messageId: string,
+  threadRadice: string | null
 ): Promise<string | null> {
   let avviso: string | null = null
 
@@ -447,6 +613,9 @@ async function registraInviato(
       uid: uidMsg,
       direzione: 'uscita',
       messageId,
+      // Radice della conversazione dell'originale: così la risposta si
+      // raggruppa nello stesso thread anche se cambia l'oggetto.
+      thread: threadRadice,
       mittente: account.email,
       mittenteNome: account.nome,
       destinatari: [m.a, m.cc].filter(Boolean).join(', '),
@@ -497,7 +666,10 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     }
 
     const { raw, messageId } = await spedisci(account, daInviare)
-    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId)
+    // Un inoltro apre una conversazione nuova; una risposta resta nel thread
+    // dell'originale (la sua radice, o il suo Message-ID se ne è il capostipite).
+    const threadRadice = inoltro ? null : originale.thread || originale.messageId
+    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, threadRadice)
 
     if (!inoltro) {
       await db.messaggio.update({ where: { id: messaggioId }, data: { letto: true, serveRisposta: false } })
@@ -587,7 +759,7 @@ export async function creaRegola(form: FormData) {
     ? await db.sezione.findFirst({ where: { id: sezioneId, utenteId }, select: { id: true } })
     : null
 
-  await db.regola.create({
+  const regola = await db.regola.create({
     data: {
       utenteId,
       nome: testo(form, 'nome'),
@@ -596,6 +768,7 @@ export async function creaRegola(form: FormData) {
       seOggetto: opzionale(form, 'seOggetto'),
       seContiene: opzionale(form, 'seContiene'),
       istruzioneAI: opzionale(form, 'istruzioneAI'),
+      attivitaTesto: opzionale(form, 'attivitaTesto'),
       sezioneId: sezioneValida?.id ?? null,
       creaAttivita: flag(form, 'creaAttivita'),
       creaBozza: flag(form, 'creaBozza'),
@@ -604,7 +777,63 @@ export async function creaRegola(form: FormData) {
       fermaQui: flag(form, 'fermaQui'),
     },
   })
+
+  // Retrodata: applica SUBITO la regola ai messaggi già presenti. Solo le parti
+  // deterministiche (sposta in sezione, segna letta, archivia): l'istruzione AI
+  // e la creazione di attività/bozze restano legate all'analisi, non si fanno a
+  // tappeto sullo storico per non spendere e non generare rumore.
+  if (flag(form, 'retrodata')) {
+    await retrodataRegola(utenteId, regola)
+  }
+
   revalidatePath('/regole')
+  revalidatePath('/', 'layout')
+}
+
+/** Applica le azioni deterministiche di una regola alla posta già presente.
+ *  Restituisce quanti messaggi ha toccato. */
+async function retrodataRegola(
+  utenteId: string,
+  r: {
+    seMittente: string | null
+    seOggetto: string | null
+    seContiene: string | null
+    sezioneId: string | null
+    segnaLetta: boolean
+    archivia: boolean
+  }
+): Promise<number> {
+  const data: {
+    sezioneId?: string
+    smistatoDa?: string
+    letto?: boolean
+    archiviato?: boolean
+  } = {}
+  if (r.sezioneId) {
+    data.sezioneId = r.sezioneId
+    data.smistatoDa = 'regola'
+  }
+  if (r.segnaLetta) data.letto = true
+  if (r.archivia) data.archiviato = true
+  if (Object.keys(data).length === 0) return 0 // niente di deterministico da applicare
+
+  const where: {
+    utenteId: string
+    direzione: string
+    cestinato: boolean
+    mittente?: { contains: string; mode: 'insensitive' }
+    oggetto?: { contains: string; mode: 'insensitive' }
+    corpoTesto?: { contains: string; mode: 'insensitive' }
+    NOT?: { smistatoDa: string }
+  } = { utenteId, direzione: 'entrata', cestinato: false }
+  if (r.seMittente) where.mittente = { contains: r.seMittente, mode: 'insensitive' }
+  if (r.seOggetto) where.oggetto = { contains: r.seOggetto, mode: 'insensitive' }
+  if (r.seContiene) where.corpoTesto = { contains: r.seContiene, mode: 'insensitive' }
+  // Non sovrascrivere lo smistamento fatto a mano.
+  if (data.sezioneId) where.NOT = { smistatoDa: 'manuale' }
+
+  const res = await db.messaggio.updateMany({ where, data })
+  return res.count
 }
 
 export async function attivaRegola(id: string, attiva: boolean) {

@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
-import { creaAttivitaManuale } from '@/lib/actions'
 import { CheckAttivita } from '@/components/CheckAttivita'
 import { BottoneEsegui } from '@/components/BottoneEsegui'
-import { coloreDiPriorita, PRIORITA, priorita as livello } from '@/lib/format'
+import { NuovaAttivita } from '@/components/NuovaAttivita'
+import { coloreDiPriorita, priorita as livello, FUSO } from '@/lib/format'
 import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
@@ -33,10 +33,12 @@ export default async function Attivita() {
         <div>
           <h1 className="page-title">Attività</h1>
           <p className="page-caption">
-            Quello che le mail ti chiedono di fare, estratto automaticamente dall’AI.
+            Quello che le mail ti chiedono di fare, più le attività che aggiungi tu.
           </p>
         </div>
       </div>
+
+      <NuovaAttivita />
 
       <div className="card tight">
         {daFare.length === 0 ? (
@@ -82,7 +84,7 @@ export default async function Attivita() {
                   {a.scadenza && (
                     <span className={`badge ${scaduta ? 'red' : 'neutral'}`}>
                       {scaduta ? 'scaduta ' : 'entro '}
-                      {a.scadenza.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                      {a.scadenza.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short' })}
                     </span>
                   )}
                   <span
@@ -101,43 +103,6 @@ export default async function Attivita() {
         )}
       </div>
 
-      <h2 className="section-title">Aggiungi un’attività</h2>
-      <div className="card">
-        <form action={creaAttivitaManuale}>
-          <div className="form-grid">
-            <div className="full">
-              <label className="field-label">
-                Titolo <span className="req">*</span>
-              </label>
-              <input type="text" name="titolo" required placeholder="Richiamare il fornitore" />
-            </div>
-            <div className="full">
-              <label className="field-label">Dettaglio</label>
-              <input type="text" name="dettaglio" />
-            </div>
-            <div>
-              <label className="field-label">Scadenza</label>
-              <input type="date" name="scadenza" />
-            </div>
-            <div>
-              <label className="field-label">Priorità</label>
-              <select name="priorita" defaultValue="P2">
-                {PRIORITA.map((p) => (
-                  <option key={p.codice} value={p.codice}>
-                    {p.codice} — {p.quando}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="form-footer">
-            <button className="btn primary" type="submit">
-              Aggiungi
-            </button>
-          </div>
-        </form>
-      </div>
-
       {fatte.length > 0 && (
         <>
           <h2 className="section-title">Fatte di recente</h2>
@@ -149,7 +114,7 @@ export default async function Attivita() {
                   <div className="task-titolo">{a.titolo}</div>
                   {a.fattaIl && (
                     <div className="task-sub">
-                      completata il {a.fattaIl.toLocaleDateString('it-IT')}
+                      completata il {a.fattaIl.toLocaleDateString('it-IT', { timeZone: FUSO })}
                     </div>
                   )}
                 </div>

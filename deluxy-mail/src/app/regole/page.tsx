@@ -145,6 +145,19 @@ export default async function Regole() {
               </div>
             </div>
 
+            <div className="full">
+              <label className="field-label">Attività da creare (opzionale)</label>
+              <input
+                type="text"
+                name="attivitaTesto"
+                placeholder="Es. Verificare l’ordine e confermare la data di consegna"
+              />
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
+                Se compilato, ogni messaggio agganciato dalla regola crea questa attività (poi
+                eseguibile dall’AI). Serve almeno una condizione qui sopra.
+              </div>
+            </div>
+
             <div>
               <label className="field-label">Sposta nella sezione</label>
               <select name="sezioneId" defaultValue="">
@@ -178,6 +191,18 @@ export default async function Regole() {
                 <label className="checkbox-row">
                   <input type="checkbox" name="fermaQui" /> Non valutare altre regole
                 </label>
+              </div>
+            </div>
+
+            <div className="full">
+              <label className="checkbox-row">
+                <input type="checkbox" name="retrodata" />{' '}
+                <strong>Applica anche ai messaggi già presenti</strong>
+              </label>
+              <div className="muted" style={{ fontSize: 12, marginTop: 4, paddingLeft: 24 }}>
+                Una tantum: sistema subito la posta che hai già (sposta in sezione, segna letta,
+                archivia) secondo questa regola. Le azioni AI (istruzione, attività, bozza)
+                restano legate all’analisi.
               </div>
             </div>
           </div>

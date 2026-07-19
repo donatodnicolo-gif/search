@@ -8,14 +8,29 @@ import { AzioniRiga } from '@/components/AzioniRiga'
 import { AssistenteAI } from '@/components/AssistenteAI'
 import { RispostaAzioni } from '@/components/RispostaAzioni'
 import { richiediUtente } from '@/lib/sessione'
+import { raggruppa } from '@/lib/thread'
+import { emailContattiAI } from '@/lib/contattiAI'
 
 export const dynamic = 'force-dynamic'
+// Le azioni AI (analisi alla priorità) girano su questa route: su Vercel il
+// default è 10s e la funzione verrebbe uccisa a metà chiamata OpenAI. 60s è il
+// massimo del piano.
+export const maxDuration = 60
 
-type Props = { searchParams: Promise<{ sezione?: string; stato?: string; p?: string }> }
+type Props = {
+  searchParams: Promise<{ sezione?: string; stato?: string; p?: string; vista?: string }>
+}
 
 export default async function PostaInArrivo({ searchParams }: Props) {
-  const { sezione, stato, p } = await searchParams
+  const { sezione, stato, p, vista } = await searchParams
   const u = await richiediUtente()
+
+  // Due viste: "Tutte" (predefinita: tutta la posta, così la posta nuova si
+  // vede subito) e "AI Inbox" (solo i contatti col PLUS AI). Dentro una sezione
+  // la distinzione non serve.
+  const vistaAI = !sezione && vista === 'ai'
+  const emailAI = await emailContattiAI(u.id)
+  const setAI = new Set(emailAI)
 
   const account = await db.account.count({ where: { utenteId: u.id } })
   if (account === 0) {
@@ -52,6 +67,14 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     ? await db.sezione.findFirst({ where: { id: sezione, utenteId: u.id } })
     : null
 
+  // La sezione SPAM si vede solo aprendola: nella posta in arrivo (e nella AI
+  // Inbox) la posta indesiderata resta fuori.
+  const spamSez = await db.sezione.findFirst({
+    where: { utenteId: u.id, nome: 'SPAM' },
+    select: { id: true },
+  })
+  const spamId = spamSez?.id ?? null
+
   const messaggi = await db.messaggio.findMany({
     where: {
       utenteId: u.id,
@@ -62,9 +85,14 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       direzione: 'entrata',
       archiviato: stato === 'archiviati',
       ...(sezione ? { sezioneId: sezione } : {}),
+      // Fuori la posta indesiderata, tranne quando stai proprio guardando SPAM.
+      ...(spamId && sezione !== spamId ? { NOT: { sezioneId: spamId } } : {}),
       ...(stato === 'non-letti' ? { letto: false } : {}),
       ...(stato === 'da-rispondere' ? { serveRisposta: true } : {}),
       ...(p ? { priorita: p } : {}),
+      // AI Inbox: SOLO le mail dei contatti col PLUS AI. Le mail nuove degli
+      // altri restano in "Tutte".
+      ...(vistaAI ? { mittente: { in: emailAI } } : {}),
     },
     // Sempre in ordine di arrivo: una mail appena arrivata non è ancora stata
     // analizzata, e ordinare per priorità la spingerebbe in fondo. Per vedere
@@ -78,6 +106,11 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     },
   })
 
+  // Raggruppa la posta in conversazioni: una riga per thread (catena di
+  // risposte o stesso oggetto anche con destinatari diversi). Il volto della
+  // riga è il messaggio più recente del thread.
+  const gruppi = raggruppa(messaggi)
+
   const filtri = [
     { chiave: '', label: 'Tutti' },
     { chiave: 'non-letti', label: 'Non letti' },
@@ -89,17 +122,22 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">{sezioneAttiva?.nome ?? 'Posta in arrivo'}</h1>
+          <h1 className="page-title">
+            {sezioneAttiva?.nome ?? (vistaAI ? 'AI Inbox' : 'Posta in arrivo')}
+          </h1>
           <p className="page-caption">
             {sezioneAttiva
               ? sezioneAttiva.descrizione
-              : 'Le mail lette, smistate e riassunte automaticamente dall’AI.'}
+              : vistaAI
+                ? 'Solo i contatti col PLUS AI, con tutte le funzioni AI.'
+                : 'Tutta la posta, letta e smistata automaticamente dall’AI.'}
           </p>
         </div>
         <div className="page-actions filters">
           {filtri.map((f) => {
             const params = new URLSearchParams()
             if (sezione) params.set('sezione', sezione)
+            if (vistaAI) params.set('vista', 'ai')
             if (p) params.set('p', p)
             if (f.chiave) params.set('stato', f.chiave)
             const attivo = (stato ?? '') === f.chiave
@@ -119,6 +157,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
           {PRIORITA.map((liv) => {
             const params = new URLSearchParams()
             if (sezione) params.set('sezione', sezione)
+            if (vistaAI) params.set('vista', 'ai')
             if (stato) params.set('stato', stato)
             const attivo = p === liv.codice
             // Ripremere il filtro attivo lo toglie.
@@ -137,6 +176,32 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         </div>
       </div>
 
+      {/* Le due viste: AI Inbox e Tutte. Dentro una sezione non compaiono. */}
+      {!sezione && (
+        <div className="vista-tabs">
+          {[
+            { chiave: 'all', label: 'Tutte', attivo: !vistaAI },
+            { chiave: 'ai', label: 'AI Inbox', attivo: vistaAI },
+          ].map((v) => {
+            const params = new URLSearchParams()
+            if (v.chiave === 'ai') params.set('vista', 'ai')
+            if (stato) params.set('stato', stato)
+            if (p) params.set('p', p)
+            const qs = params.toString()
+            return (
+              <Link
+                key={v.chiave}
+                href={qs ? `/?${qs}` : '/'}
+                className={`vista-tab ${v.attivo ? 'attivo' : ''}`}
+              >
+                {v.chiave === 'ai' && <span className="ai-toggle-mark">AI</span>}
+                {v.label}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+
       {/* Solo nella vista principale: dentro una sezione o un filtro sarebbe
           fuori posto. */}
       {!sezione && !stato && !p && <AssistenteAI />}
@@ -145,24 +210,55 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         <div className="card tight">
         {messaggi.length === 0 ? (
           <div className="empty">
-            <div className="empty-icon">✓</div>
-            <div className="empty-title">Niente da vedere qui</div>
+            <div className="empty-icon">{vistaAI && emailAI.length === 0 ? 'AI' : '✓'}</div>
+            <div className="empty-title">
+              {vistaAI && emailAI.length === 0 ? 'Nessun contatto col PLUS AI' : 'Niente da vedere qui'}
+            </div>
             <p className="empty-text">
-              Nessun messaggio con questi filtri. Premi “Aggiorna posta” per leggere le
-              novità.
+              {vistaAI && emailAI.length === 0 ? (
+                <>
+                  Apri una mail (o una scheda in Rubrica) e premi <strong>+ AI</strong> per
+                  seguirne il contatto qui. Intanto trovi tutto in{' '}
+                  <Link href="/?vista=all" style={{ textDecoration: 'underline' }}>
+                    Tutte
+                  </Link>
+                  .
+                </>
+              ) : (
+                'Nessun messaggio con questi filtri. Premi “Aggiorna posta” per leggere le novità.'
+              )}
             </p>
           </div>
         ) : (
           <div className="mail-list">
-            {messaggi.map((m) => (
+            {gruppi.map((g) => {
+              // Il volto della conversazione è il messaggio più recente; i
+              // pulsanti agiscono su di esso. La catena è già ordinata dal più
+              // vecchio al più recente.
+              const m = g[g.length - 1]
+              const nel = g.length
+              const parti = new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size
+              const nonLetti = g.some((x) => !x.letto)
+              const contattoAI = setAI.has(m.mittente.toLowerCase())
+              return (
               // La riga non è più tutta un link: i pulsanti di priorità devono
               // essere cliccabili senza aprire la mail.
-              <div key={m.id} className={`mail-row ${m.letto ? '' : 'non-letto'}`}>
+              <div key={m.id} className={`mail-row ${nonLetti ? 'non-letto' : ''}`}>
                 <div className="mail-row-head">
                   <Link href={`/messaggio/${m.id}`} className="mail-row-link">
                   <div className="mail-top">
-                    <span className={m.letto ? 'dot-spacer' : 'dot-unread'} />
+                    <span className={nonLetti ? 'dot-unread' : 'dot-spacer'} />
                     <span className="mail-mittente">{m.mittenteNome || m.mittente}</span>
+                    {contattoAI && (
+                      <span className="ai-toggle-mark" title="Contatto AI (PLUS AI attivo)">
+                        AI
+                      </span>
+                    )}
+                    {nel > 1 && (
+                      <span className="thread-count" title={`${nel} messaggi · ${parti} ${parti === 1 ? 'parte' : 'parti'}`}>
+                        {nel}
+                      </span>
+                    )}
                   </div>
                   <div className="mail-oggetto" style={{ paddingLeft: 17 }}>
                     {m.oggetto}
@@ -229,7 +325,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
         </div>

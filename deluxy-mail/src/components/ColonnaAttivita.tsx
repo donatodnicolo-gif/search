@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { CheckAttivita } from './CheckAttivita'
-import { coloreDiPriorita, priorita as livello } from '@/lib/format'
+import { coloreDiPriorita, priorita as livello, FUSO } from '@/lib/format'
 
 /**
  * Le attività aperte, in colonna a destra della posta in arrivo.
@@ -63,6 +63,7 @@ export async function ColonnaAttivita({ utenteId }: { utenteId: string }) {
                       <span className={scaduta ? 'scaduta' : 'muted'}>
                         {scaduta ? 'scaduta ' : 'entro '}
                         {a.scadenza.toLocaleDateString('it-IT', {
+                          timeZone: FUSO,
                           day: 'numeric',
                           month: 'short',
                         })}

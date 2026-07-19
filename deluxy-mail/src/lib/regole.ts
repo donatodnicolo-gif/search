@@ -10,6 +10,8 @@ export type EsitoRegole = {
   archivia: boolean
   /** Istruzioni in italiano delle regole che hanno agganciato il messaggio. */
   istruzioniAI: string[]
+  /** Testi di attività su misura da creare per questo messaggio (regole con attivitaTesto). */
+  attivitaDaCreare: string[]
 }
 
 function contiene(testo: string, ago: string | null): boolean {
@@ -44,6 +46,7 @@ export function applicaRegole(regole: Regola[], msg: MessaggioScaricato): EsitoR
     segnaLetta: false,
     archivia: false,
     istruzioniAI: [],
+    attivitaDaCreare: [],
   }
 
   const ordinate = [...regole]
@@ -69,6 +72,7 @@ export function applicaRegole(regole: Regola[], msg: MessaggioScaricato): EsitoR
     esito.segnaLetta ||= regola.segnaLetta
     esito.archivia ||= regola.archivia
     if (regola.istruzioneAI) esito.istruzioniAI.push(regola.istruzioneAI)
+    if (regola.attivitaTesto?.trim()) esito.attivitaDaCreare.push(regola.attivitaTesto.trim())
 
     if (regola.fermaQui) break
   }

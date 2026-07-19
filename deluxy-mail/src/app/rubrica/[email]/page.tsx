@@ -1,15 +1,19 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
-import { coloreDiPriorita, dataBreve } from '@/lib/format'
+import { coloreDiPriorita, dataBreve, FUSO } from '@/lib/format'
 import { iniziali } from '@/lib/contatti'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { RispostaAzioni } from '@/components/RispostaAzioni'
 import { BottoneAI } from '@/components/BottoneAI'
+import { BottoneContattoAI } from '@/components/BottoneContattoAI'
 import { CheckAttivita } from '@/components/CheckAttivita'
 import { richiediUtente } from '@/lib/sessione'
+import { datiContattoAI } from '@/lib/contattiAI'
+import { EditorIstruzioni } from '@/components/EditorIstruzioni'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // il quadro AI del contatto gira qui
 
 type Props = { params: Promise<{ email: string }> }
 
@@ -42,6 +46,7 @@ export default async function Contatto({ params }: Props) {
   const riassunto = await db.riassuntoContatto.findUnique({
     where: { utenteId_email: { utenteId: u.id, email } },
   })
+  const { attivo: contattoAI, istruzioni: istruzioniContatto } = await datiContattoAI(u.id, email)
   const azioni = await db.attivita.findMany({
     where: { utenteId: u.id, contattoEmail: email, fatta: false },
     orderBy: [{ scadenza: 'asc' }, { priorita: 'asc' }],
@@ -68,9 +73,14 @@ export default async function Contatto({ params }: Props) {
             </div>
           </div>
         </div>
-        <div className="page-actions">
+        <div className="page-actions" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <BottoneContattoAI email={email.toLowerCase()} attivo={contattoAI} />
           <BottoneAI email={email} aggiornatoIl={riassunto?.aggiornatoIl ?? null} />
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 18 }}>
+        <EditorIstruzioni tipo="contatto" target={email.toLowerCase()} valore={istruzioniContatto} />
       </div>
 
       <div className="kpi-grid">
@@ -95,7 +105,7 @@ export default async function Contatto({ params }: Props) {
         <div className="ai-box">
           <div className="ai-box-title">
             La situazione secondo l’AI · {riassunto.messaggiVisti} messaggi letti il{' '}
-            {riassunto.aggiornatoIl.toLocaleDateString('it-IT')}
+            {riassunto.aggiornatoIl.toLocaleDateString('it-IT', { timeZone: FUSO })}
           </div>
           <div className="ai-box-text">{riassunto.situazione}</div>
 
@@ -136,7 +146,7 @@ export default async function Contatto({ params }: Props) {
                   <span className={`badge ${coloreDiPriorita(a.priorita)}`}>{a.priorita}</span>
                   {a.scadenza && (
                     <span className="muted" style={{ fontSize: 12 }}>
-                      entro {a.scadenza.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                      entro {a.scadenza.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short' })}
                     </span>
                   )}
                 </div>

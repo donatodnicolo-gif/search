@@ -26,9 +26,15 @@ export function PrioritaButtons({ id, priorita, prioritaDa, analizzato }: Props)
     setStato(null)
 
     startTransition(async () => {
-      const esito = await impostaPriorita(id, nuovo)
-      if (esito.messaggio) setStato({ ok: esito.ok, testo: esito.messaggio })
-      router.refresh()
+      try {
+        const esito = await impostaPriorita(id, nuovo)
+        if (esito.messaggio) setStato({ ok: esito.ok, testo: esito.messaggio })
+        router.refresh()
+      } catch {
+        // Se l'azione stessa fallisce (rete, timeout della funzione), non
+        // restare muti: mostra un errore invece di "non succede nulla".
+        setStato({ ok: false, testo: 'Non è arrivata risposta: riprova fra poco.' })
+      }
     })
   }
 

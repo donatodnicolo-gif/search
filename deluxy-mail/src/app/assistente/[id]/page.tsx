@@ -1,13 +1,14 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
-import { coloreDiPriorita, dataBreve } from '@/lib/format'
+import { coloreDiPriorita, dataBreve, FUSO } from '@/lib/format'
 import { CheckAttivita } from '@/components/CheckAttivita'
 import { BottoneEsegui } from '@/components/BottoneEsegui'
 import { ChecklistArchivio } from '@/components/ChecklistArchivio'
 import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // l'Assistente AI (riassunto periodo) gira qui
 
 const TITOLI: Record<string, string> = {
   oggi: 'Assistente · Oggi',
@@ -47,6 +48,7 @@ export default async function Rapporto({ params }: Props) {
           <p className="page-caption">
             {rapporto.messaggiVisti} messaggi letti il{' '}
             {rapporto.generatoIl.toLocaleString('it-IT', {
+              timeZone: FUSO,
               day: 'numeric',
               month: 'long',
               hour: '2-digit',

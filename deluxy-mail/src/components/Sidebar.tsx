@@ -25,7 +25,15 @@ async function datiSidebar(utenteId: string) {
       }),
       db.attivita.count({ where: { utenteId, fatta: false } }),
       db.messaggio.count({
-        where: { utenteId, letto: false, archiviato: false, cestinato: false, direzione: 'entrata' },
+        where: {
+          utenteId,
+          letto: false,
+          archiviato: false,
+          cestinato: false,
+          direzione: 'entrata',
+          // La posta indesiderata non gonfia il contatore della posta in arrivo.
+          NOT: { sezione: { nome: 'SPAM' } },
+        },
       }),
       db.messaggio.count({ where: { utenteId, cestinato: true } }),
       db.bozza.count({ where: { utenteId, inviata: false } }),

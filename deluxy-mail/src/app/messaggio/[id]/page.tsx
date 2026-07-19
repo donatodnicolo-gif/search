@@ -1,17 +1,23 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
-import { dataLunga } from '@/lib/format'
+import { dataLunga, FUSO } from '@/lib/format'
 import { BozzaEditor } from '@/components/BozzaEditor'
 import { AzioniMessaggio } from '@/components/AzioniMessaggio'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { Rianalizza } from '@/components/Rianalizza'
 import { CorpoMessaggio } from '@/components/CorpoMessaggio'
+import { RiassuntoConversazione } from '@/components/RiassuntoConversazione'
+import { BottoneContattoAI } from '@/components/BottoneContattoAI'
+import { EditorIstruzioni } from '@/components/EditorIstruzioni'
 import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
 import { richiediUtente } from '@/lib/sessione'
-import { traduciMessaggioSeServe } from '@/lib/sync'
+import { traduciMessaggioSeServe, messaggiThread, leggiRiassuntoThread } from '@/lib/sync'
+import { chiaveThread } from '@/lib/thread'
+import { eContattoAI } from '@/lib/contattiAI'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // le azioni AI (analisi, riassunto thread) girano qui
 
 type Props = { params: Promise<{ id: string }> }
 
@@ -29,6 +35,31 @@ export default async function DettaglioMessaggio({ params }: Props) {
   const { lingua, corpoTradotto } = await traduciMessaggioSeServe(messaggio.id, u.id)
 
   const sezioni = await db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } })
+
+  // La conversazione a cui appartiene questo messaggio (catena di risposte o
+  // stesso oggetto). Se ha più di un messaggio, mostriamo il thread e il
+  // riassunto per punti di vista già salvato, se c'è.
+  const conversazione = await messaggiThread(u.id, messaggio.id)
+  const chiaveConv = conversazione.length > 1 ? chiaveThread(conversazione) : null
+  const riassuntoThread = chiaveConv ? await leggiRiassuntoThread(u.id, chiaveConv) : null
+  let istruzioniThread = ''
+  if (chiaveConv) {
+    try {
+      const it = await db.istruzioneThread.findUnique({
+        where: { utenteId_chiave: { utenteId: u.id, chiave: chiaveConv } },
+        select: { istruzioni: true },
+      })
+      istruzioniThread = it?.istruzioni ?? ''
+    } catch {
+      /* tabella non ancora migrata: nessuna istruzione */
+    }
+  }
+
+  // Il contatto ha il PLUS AI? (solo per la posta in arrivo: il mittente è il
+  // contatto). Serve a mostrare il toggle e, se attivo, il quadro della situazione.
+  const contattoEmail = messaggio.mittente.toLowerCase()
+  const contattoAI =
+    messaggio.direzione === 'entrata' ? await eContattoAI(u.id, contattoEmail) : false
 
   // Qui si mostra solo la proposta dell'AI: le bozze che hai iniziato tu si
   // riprendono dalla schermata di scrittura, dove le stavi scrivendo.
@@ -67,6 +98,17 @@ export default async function DettaglioMessaggio({ params }: Props) {
             <br />
             a {messaggio.destinatari} · {dataLunga(messaggio.data)}
           </div>
+
+          {messaggio.direzione === 'entrata' && (
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <BottoneContattoAI email={contattoEmail} attivo={contattoAI} />
+              {contattoAI && (
+                <Link href={`/rubrica/${encodeURIComponent(messaggio.mittente)}`} className="btn secondary small">
+                  Quadro AI del contatto →
+                </Link>
+              )}
+            </div>
+          )}
           <div className="mail-tags">
             {messaggio.sezione && (
               <span className={`badge ${messaggio.sezione.colore}`}>
@@ -111,7 +153,7 @@ export default async function DettaglioMessaggio({ params }: Props) {
                     {a.scadenza && (
                       <span className="muted">
                         {' '}
-                        — entro {a.scadenza.toLocaleDateString('it-IT')}
+                        — entro {a.scadenza.toLocaleDateString('it-IT', { timeZone: FUSO })}
                       </span>
                     )}
                   </li>
@@ -154,6 +196,63 @@ export default async function DettaglioMessaggio({ params }: Props) {
           lingua={lingua}
         />
       </div>
+
+      {conversazione.length > 1 && (
+        <div className="card">
+          <div className="mail-subject" style={{ fontSize: 18, marginBottom: 4 }}>
+            Conversazione · {conversazione.length} messaggi
+          </div>
+
+          <EditorIstruzioni tipo="thread" target={messaggio.id} valore={istruzioniThread} />
+
+          <RiassuntoConversazione
+            messaggioId={messaggio.id}
+            iniziale={
+              riassuntoThread
+                ? {
+                    analisi: riassuntoThread.analisi,
+                    partecipanti: riassuntoThread.partecipanti,
+                    messaggiVisti: riassuntoThread.messaggiVisti,
+                    generatoIl: riassuntoThread.generatoIl,
+                  }
+                : null
+            }
+          />
+
+          <div className="thread-list" style={{ marginTop: 14 }}>
+            {conversazione.map((c) => {
+              const attuale = c.id === messaggio.id
+              return (
+                <Link
+                  key={c.id}
+                  href={`/messaggio/${c.id}`}
+                  className="thread-item"
+                  style={{
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'baseline',
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    background: attuale ? 'var(--fill)' : 'transparent',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                  }}
+                >
+                  <span style={{ fontWeight: 600, minWidth: 140, flexShrink: 0 }}>
+                    {c.direzione === 'uscita' ? 'Tu' : c.mittenteNome || c.mittente}
+                  </span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.oggetto}
+                  </span>
+                  <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>
+                    {dataLunga(c.data)}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {bozzaAI && (
         <div className="card draft-box">
