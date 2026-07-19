@@ -171,3 +171,123 @@ npm run dev            # http://localhost:3050
   redirect. Utente di prova poi eliminato (sul db resta solo l'admin).
 - Sicurezza: redirect a `/login` per home, `/utenti` e con cookie falsificato;
   password in hash `scrypt` (mai in chiaro nel db); isolamento schema `hub`.
+
+---
+
+## 11. Riferimento dettagliato: funzioni, "API", dati
+
+> Il Hub **non è una REST API**: è un'app Next.js con **server action** (mutazioni)
+> e **middleware** (protezione). La "superficie API" sono le server action più il
+> contratto del cookie di sessione. Non consuma API esterne; le app che linka
+> hanno le proprie (es. l'API a chiave di `deluxy-anagrafiche`).
+
+### 11.1 Modello dati (Prisma — `prisma/schema.prisma`)
+
+Un'unica tabella nello schema `hub`:
+
+```
+model Utente {
+  id            String   @id @default(cuid())
+  email         String   @unique         // salvata sempre in minuscolo
+  nome          String
+  passwordHash  String                    // "saltHex:hashHex" (scrypt)
+  ruolo         String                    // admin | partner | commerciale
+  appAbilitate  String[] @default([])     // id delle app visibili (ignorato per admin)
+  attivo        Boolean  @default(true)   // false = non può accedere
+  creatoIl      DateTime @default(now())
+  ultimoAccesso DateTime?                 // aggiornato a ogni login
+  @@index([ruolo])
+}
+```
+
+### 11.2 Server action (`src/lib/actions.ts`) — la "API" del Hub
+
+Tutte `"use server"`, ricevono `FormData`, rispondono con `redirect`. Chi le può
+chiamare e cosa fanno:
+
+| Azione | Chi | Input (campi FormData) | Effetto |
+|---|---|---|---|
+| `accedi` | pubblico | `email`, `password`, `da?` | Verifica `scrypt`. Se ok e utente `attivo`: aggiorna `ultimoAccesso`, crea cookie `dh_session` (30 gg), redirect a `da` (solo path interni) o `/`. Se no: `/login?errore=1`. **Messaggio unico** per email inesistente / password errata / utente disattivato (no user-enumeration). |
+| `esci` | loggato | — | Cancella il cookie, redirect `/login`. |
+| `creaUtente` | **admin** | `nome`, `email`, `password`(≥8), `ruolo`, `app` (ripetuto) | Valida, controlla email unica, hash password, crea `Utente` con `appAbilitate` = app spuntate valide. |
+| `aggiornaUtente` | **admin** | `id`, `nome`, `ruolo`, `attivo`(checkbox), `password?`, `app`(ripetuto) | Aggiorna nome/ruolo/attivo/appAbilitate. Password cambiata **solo se fornita** (≥8). |
+| `eliminaUtente` | **admin** | `id` | Elimina l'utente. **Blocca l'auto-eliminazione** (`id` == sessione). |
+| `cambiaMiaPassword` | loggato | `attuale`, `nuova`(≥8) | Verifica la password attuale, poi la sostituisce. |
+
+Guardie server (`src/lib/sessione-server.ts`), da chiamare nelle pagine/action:
+`sessioneCorrente()` → `Sessione | null`; `richiediSessione()` → redirect `/login`
+se assente; `richiediAdmin()` → redirect `/` se non admin. **La difesa è lato
+server**: nascondere un bottone non basta, le action ricontrollano sempre.
+
+### 11.3 Contratto del cookie di sessione (`src/lib/session.ts`)
+
+- Cookie **`dh_session`**, `httpOnly`, `secure` in prod, `sameSite=lax`, durata
+  **30 giorni** (`DURATA_SESSIONE_S`).
+- Formato: `base64url(payloadJSON) + "." + base64url(HMAC_SHA256(payload, HUB_SESSION_SECRET))`.
+- Payload `Sessione`: `{ uid, nome, ruolo, exp }` (`exp` in secondi epoch).
+- `creaSessione({uid,nome,ruolo})` → token. `leggiSessione(token)` → `Sessione | null`:
+  valida la firma **a tempo costante**, controlla `exp` e la forma. Un cookie
+  manomesso o scaduto → `null` → il middleware rimanda al login.
+- Cambiare **`HUB_SESSION_SECRET`** invalida **tutte** le sessioni (espulsione
+  immediata di tutti).
+
+### 11.4 Middleware (`src/middleware.ts`)
+
+Gira sull'Edge, senza toccare il database. Per ogni richiesta (tranne
+`login`, asset statici, `favicon.ico`): se `leggiSessione` è `null` → redirect
+`/login?da=<path>` e cancella il cookie; se il path inizia con `/utenti` e il
+ruolo non è `admin` → redirect `/`.
+
+### 11.5 Catalogo app e permessi (`src/lib/apps.ts`, `permessi.ts`)
+
+- Tipo `AppDeluxy = { id, nome, sottotitolo, descrizione, icona, url, ruoli, mobile? }`.
+- `catalogoApp()` → `AppDeluxy[]`: costruisce le voci, **scarta quelle senza URL**
+  (in prod: se manca `APP_URL_*` l'app sparisce), **ordina per nome A→Z**.
+- `appPerRuolo(ruolo)` → default di preselezione in `/utenti` (NON decide chi vede).
+- `appPerIds(ids)` → le app il cui id è nell'elenco (usato per la lista utente).
+- `idAppValidi(ids)` → tiene solo gli id che esistono nel catalogo (validazione
+  prima del salvataggio).
+- `appVisibili(sessione)` (in `permessi.ts`) → **cosa vede uno in home**: admin =
+  tutto il catalogo; altri = `appPerIds(utente.appAbilitate)`, letto dal **database
+  a ogni load** (modifica immediata).
+
+Per **aggiungere/rinominare** un'app vedi §7.3 e il README (rinominare = solo
+`nome`, mai `id`/`APP_URL_*`).
+
+### 11.6 Password (`src/lib/password.ts`)
+
+`hashPassword(pw)` → `"saltHex:hashHex"` (scrypt, salt 16 byte, key 64 byte, solo
+Node — niente dipendenze native su Windows). `verificaPassword(pw, salvata)` →
+`bool`, confronto a tempo costante (`timingSafeEqual`). In chiaro le password non
+esistono da nessuna parte.
+
+### 11.7 Ruoli (`src/lib/ruoli.ts`)
+
+`RUOLI = ["admin","partner","commerciale"]`; `RUOLO_INFO[ruolo] = {etichetta,
+descrizione}`; `isRuolo(x)` type-guard. Elenco chiuso: aggiungere un ruolo qui.
+
+### 11.8 Stack e comandi rapidi
+
+- **Stack**: Next.js 15 (App Router, React 19, server action) · Prisma 6 ·
+  Postgres (Supabase) · Deluxy Design System v1.0 (token in `src/app/tokens.css`).
+- **Dev**: `npm run dev` (porta 3050). **Build**: `npm run build`
+  (`prisma generate && next build`). **DB**: `npm run db:push`, `npm run db:seed`.
+- **Deploy**: `npx vercel deploy --prod` da `deluxy-hub/`.
+- **Typecheck**: `npx tsc --noEmit`.
+
+### 11.9 Variabili d'ambiente (significato)
+
+| Var | Serve a |
+|---|---|
+| `DATABASE_URL` | Postgres pooler **6543**, `?pgbouncer=true&connection_limit=1&schema=hub` |
+| `DIRECT_URL` | Postgres diretta **5432**, `?schema=hub` (per `db push`/migrazioni) |
+| `HUB_SESSION_SECRET` | firma il cookie; cambiarlo disconnette tutti |
+| `APP_URL_SEARCH` `_PARTNER` `_ANAGRAFICHE` `_MAISON` `_SCOUT` `_MAIL` `_CONSEGNE` | dove puntano le icone (assente in prod = app nascosta) |
+| `SEED_ADMIN_EMAIL` `SEED_ADMIN_PASSWORD` | primo admin creato da `db:seed` (solo primo avvio) |
+
+### 11.10 Stato prodotto in una riga
+
+Portale **live e completo** con 7 app catalogate (6 pubbliche + Consegne
+segnaposto), login a database, permessi app-per-utente immediati, gestione utenti
+admin. Manca: cambio password admin di default, URL pubblico per Consegne,
+recupero password autonomo, popolamento degli utenti reali.
