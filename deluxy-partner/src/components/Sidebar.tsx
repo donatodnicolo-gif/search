@@ -36,6 +36,12 @@ const icons = {
       <path d="M9.5 8h5M9.5 12h5" />
     </svg>
   ),
+  proforma: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M6 3h8l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+      <path d="M14 3v4h4M9 12h6M9 16h6" />
+    </svg>
+  ),
   vendite: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <path d="M4 5h2l2.2 11h9.6L20 8H7" />
@@ -96,6 +102,7 @@ const sections: { label: string; items: Item[] }[] = [
     items: [
       { href: "/", label: "Dashboard", icon: icons.dashboard },
       { href: "/fatture", label: "Servizi a fatturazione", icon: icons.fattura },
+      { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
       { href: "/vendite", label: "Vendite come vendor", icon: icons.vendite },
     ],
   },

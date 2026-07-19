@@ -44,6 +44,7 @@ model Partner {
   vendite                VenditaVendor[]
   saldi                  SaldoMensile[]
   transazioni            TransazioneBancaria[]
+  proforme               ProForma[]
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 }
@@ -145,6 +146,47 @@ model SaldoMensile {
   updatedAt       DateTime  @updatedAt
 
   @@unique([partnerId, anno, mese])
+}
+
+// Pro-forma: documento non fiscale inviato al partner prima della fattura vera.
+// Numerazione progressiva per anno (PF 1/2026, PF 2/2026…). Ciclo di vita:
+// bozza → inviata → fatturata (con n° della fattura definitiva) oppure annullata.
+// I totali (imponibile, IVA, totale documento) sono sempre calcolati dalle righe.
+model ProForma {
+  id            String    @id @default(cuid())
+  numero        Int // progressivo nell'anno
+  anno          Int // anno della numerazione
+  partnerId     String
+  partner       Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  data          DateTime // data del documento
+  scadenza      DateTime? // termine di pagamento proposto
+  oggetto       String? // causale in testa al documento
+  note          String? // note in calce (condizioni, coordinate, ecc.)
+  stato         String    @default("bozza") // bozza | inviata | fatturata | annullata
+  inviataIl     DateTime?
+  inviataA      String? // destinatario dell'ultimo invio
+  fatturaNumero String? // n° fattura definitiva (quando stato = fatturata)
+  fatturataIl   DateTime?
+  annullataIl   DateTime?
+  righe         ProFormaRiga[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([anno, numero])
+  @@index([stato, data])
+  @@index([partnerId])
+}
+
+// Riga di dettaglio della pro-forma: importo riga = quantita * prezzoUnitario.
+model ProFormaRiga {
+  id            String   @id @default(cuid())
+  proFormaId    String
+  proForma      ProForma @relation(fields: [proFormaId], references: [id], onDelete: Cascade)
+  ordine        Int      @default(0)
+  descrizione   String
+  quantita      Float    @default(1)
+  prezzoUnitario Float // netto IVA
+  aliquotaIva   Float    @default(22)
 }
 
 // Impostazioni dell'app (chiave/valore): dati ordinante SEPA, preferenze

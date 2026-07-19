@@ -5,6 +5,11 @@ export const CHIAVI = {
   ordinanteNome: "sepa.ordinante.nome",
   ordinanteIban: "sepa.ordinante.iban",
   ordinanteBic: "sepa.ordinante.bic",
+  // Intestazione dei documenti emessi (pro-forma): dati mittente
+  aziendaIntestazione: "azienda.intestazione",
+  aziendaIndirizzo: "azienda.indirizzo",
+  aziendaPiva: "azienda.piva",
+  aziendaContatti: "azienda.contatti",
   // SMTP per invio solleciti (es. casella Register.it del dominio)
   smtpHost: "smtp.host",
   smtpPort: "smtp.port",

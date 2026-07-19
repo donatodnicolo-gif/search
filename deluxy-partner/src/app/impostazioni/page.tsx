@@ -23,6 +23,16 @@ async function salva(fd: FormData) {
   redirect("/impostazioni?salvato=1");
 }
 
+async function salvaAzienda(fd: FormData) {
+  "use server";
+  await salvaImpostazione(CHIAVI.aziendaIntestazione, String(fd.get("aziendaIntestazione") ?? ""));
+  await salvaImpostazione(CHIAVI.aziendaIndirizzo, String(fd.get("aziendaIndirizzo") ?? ""));
+  await salvaImpostazione(CHIAVI.aziendaPiva, String(fd.get("aziendaPiva") ?? ""));
+  await salvaImpostazione(CHIAVI.aziendaContatti, String(fd.get("aziendaContatti") ?? ""));
+  revalidatePath("/impostazioni");
+  redirect("/impostazioni?salvato=1");
+}
+
 async function salvaSmtp(fd: FormData) {
   "use server";
   const host = String(fd.get("smtpHost") ?? "").trim();
@@ -155,6 +165,35 @@ export default async function ImpostazioniPage({
         </p>
         <div className="form-footer">
           <button type="submit" className="btn primary">Salva impostazioni</button>
+        </div>
+      </form>
+
+      <h2 className="section-title">Intestazione documenti (pro-forma)</h2>
+      <form action={salvaAzienda} className="card">
+        <div className="form-grid">
+          <div>
+            <label className="field-label">Ragione sociale / intestazione</label>
+            <input type="text" name="aziendaIntestazione" defaultValue={imp[CHIAVI.aziendaIntestazione] ?? ""} placeholder="es. Deluxy S.r.l." />
+          </div>
+          <div>
+            <label className="field-label">Indirizzo (sede legale)</label>
+            <input type="text" name="aziendaIndirizzo" defaultValue={imp[CHIAVI.aziendaIndirizzo] ?? ""} placeholder="es. Via Esempio 1, 20121 Milano (MI)" />
+          </div>
+          <div>
+            <label className="field-label">Partita IVA</label>
+            <input type="text" name="aziendaPiva" defaultValue={imp[CHIAVI.aziendaPiva] ?? ""} placeholder="es. 12345678901" />
+          </div>
+          <div>
+            <label className="field-label">Contatti (email · telefono)</label>
+            <input type="text" name="aziendaContatti" defaultValue={imp[CHIAVI.aziendaContatti] ?? ""} placeholder="es. amministrazione@deluxy.it · +39 02 0000000" />
+          </div>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 14 }}>
+          Questi dati compaiono nell&apos;intestazione delle fatture pro-forma generate dalla sezione
+          &laquo;Pro-forma&raquo;.
+        </p>
+        <div className="form-footer">
+          <button type="submit" className="btn primary">Salva intestazione</button>
         </div>
       </form>
 

@@ -1,6 +1,6 @@
 # Deluxy Partner — Handoff / Stato del prodotto
 
-**Ultimo aggiornamento:** 19 luglio 2026 · **Commit di riferimento:** `b8bf6c1` su branch `scout-ui` (origin).
+**Ultimo aggiornamento:** 20 luglio 2026 (nuova sezione Pro-forma) · branch `scout-ui` (origin).
 Questo è il documento "parti da qui": stato reale del prodotto, funzioni, API, integrazioni, dati e come lavorarci. La fonte di verità funzionale storica resta [PROGETTO.md](PROGETTO.md); questo file è il quadro corrente più completo.
 
 ---
@@ -74,6 +74,7 @@ Convenzione bonifici: `> 0` inviato al partner, `< 0` ricevuto. `RiepilogoMese` 
 | `/partner`, `/partner/[id]`, `/partner/nuovo`, `/partner/[id]/modifica` | Lista (con totale e delta vs 2025), scheda con Recap AI, anagrafica centralizzata, Fee nel tempo, Rolling, movimenti mensili con registrazione pagamenti e note, totale YTD |
 | `/fatture`, `/fatture/[id]`, `/fatture/nuova` | Servizi a fatturazione; scheda record editabile; tipologia obbligatoria dal "Piano per Area" |
 | `/vendite`, `/vendite/[id]`, `/vendite/nuova` | Vendite come vendor; scheda con modifica fee/incasso |
+| `/proforma`, `/proforma/nuova`, `/proforma/[id]`, `/proforma/[id]/modifica`, `/proforma/[id]/invia` | **Pro-forma ad hoc**: righe libere con totali live, numerazione `PF n/anno` per anno, documento stampabile (Stampa/PDF del browser, `@media print`), invio email (SMTP o mailto, testo precompilato modificabile). Stati: bozza → inviata → **fatturata** (con n° fattura definitiva) oppure **annullata**; bozze modificabili/eliminabili, stati sempre reversibili. Intestazione mittente da Impostazioni → "Intestazione documenti" (chiavi `azienda.*`). Logica: `src/lib/proforma.ts` + `proforma-actions.ts`, editor righe `RigheProForma.tsx` |
 | `/saldi` | Riconciliazione mensile per partner, export SEPA/CSV |
 | `/transazioni` | **Import transazioni**: upload CSV/XLSX (parser tollerante, incluso Vivid) o **Sincronizza da Qonto**; riconciliazione con match a 1 click, discrepanze, non riconosciute, ricerca morbida, "attesi mancanti" |
 | `/scadenzario` | Fatture da incassare (con "Invia sollecito" + "Emetti su FIC"), bonifici pendenti, commissioni da emettere |
@@ -107,7 +108,7 @@ Esiti: 200 trovato · 404 non trovato (con `candidati`) · 401 chiave errata · 
 
 ## 9. Modello dati (Prisma)
 
-`Partner` · `TipologiaServizio` · `FatturaServizio` · `VenditaVendor` · `SaldoMensile` (chiusura mensile: extra, fattura commissioni, bonifico, note) · `TariffaPartner` (storico fee) · `TransazioneBancaria` (movimenti importati, hash univoco, stato nuova/registrata/ignorata) · `AssociazioneControparte` (regole controparte→partner per la riconciliazione, apprese) · `Impostazione` (chiave/valore) · `RichiestaVerifica` (storico API) · `Forecast` (piano commerciale). Schema completo: `prisma/schema.prisma`.
+`Partner` · `TipologiaServizio` · `FatturaServizio` · `VenditaVendor` · `SaldoMensile` (chiusura mensile: extra, fattura commissioni, bonifico, note) · `TariffaPartner` (storico fee) · `TransazioneBancaria` (movimenti importati, hash univoco, stato nuova/registrata/ignorata) · `AssociazioneControparte` (regole controparte→partner per la riconciliazione, apprese) · `ProForma` + `ProFormaRiga` (pro-forma con righe; totali sempre calcolati dalle righe; `@@unique([anno, numero])`) · `Impostazione` (chiave/valore) · `RichiestaVerifica` (storico API) · `Forecast` (piano commerciale). Schema completo: `prisma/schema.prisma`.
 
 ## 10. Cosa manca / prossimi sviluppi
 

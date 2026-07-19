@@ -281,3 +281,84 @@ input:focus, select:focus, textarea:focus {
   .sidebar-footer { display: none; }
   .main { padding: 20px 16px 40px; }
 }
+
+/* ————— Pro-forma: editor righe ————— */
+.righe-editor {
+  border: 1px solid var(--hairline); border-radius: var(--radius-m, 12px);
+  overflow: hidden; background: var(--surface);
+}
+.righe-head, .righe-row {
+  display: grid; grid-template-columns: 1fr 70px 120px 70px 110px 36px;
+  gap: 8px; align-items: center; padding: 8px 12px;
+}
+.righe-head {
+  background: var(--fill); font-size: 11.5px; font-weight: 600;
+  color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.righe-row { border-top: 1px solid var(--hairline); }
+.righe-row input { padding: 7px 10px; font-size: 13.5px; }
+.righe-row input.num, .righe-head .num { text-align: right; }
+.righe-importo { font-size: 13.5px; font-variant-numeric: tabular-nums; font-weight: 500; }
+.righe-footer {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; border-top: 1px solid var(--hairline); background: var(--fill);
+  flex-wrap: wrap;
+}
+.righe-totali { font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.righe-totali strong { color: var(--text); font-weight: 600; }
+
+/* ————— Pro-forma: documento ————— */
+.docpf { padding: 44px 48px; max-width: 860px; }
+.docpf-top { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
+.docpf-brand { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.docpf-mittente { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+.docpf-titolo { text-align: right; }
+.docpf-tipo {
+  font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--gold-strong, #8a6d2f);
+}
+.docpf-numero { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin-top: 2px; }
+.docpf-data { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+.docpf-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-tertiary); margin-right: 6px;
+}
+.docpf-dest { margin-top: 32px; }
+.docpf-dest-nome { font-size: 15.5px; font-weight: 600; margin-top: 3px; }
+.docpf-oggetto { margin-top: 18px; font-size: 13.5px; }
+.docpf-righe { width: 100%; border-collapse: collapse; margin-top: 22px; }
+.docpf-righe th {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-secondary); text-align: left; padding: 8px 10px;
+  border-bottom: 1.5px solid var(--text); background: none;
+}
+.docpf-righe td { font-size: 13.5px; padding: 9px 10px; border-bottom: 1px solid var(--hairline); }
+.docpf-righe .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.docpf-bottom { display: flex; justify-content: space-between; gap: 32px; margin-top: 22px; align-items: flex-start; }
+.docpf-note { flex: 1; font-size: 12.5px; color: var(--text-secondary); }
+.docpf-note p { margin-bottom: 8px; }
+.docpf-disclaimer { font-size: 11.5px; color: var(--text-tertiary); margin-top: 14px; line-height: 1.5; }
+.docpf-totali { min-width: 250px; }
+.docpf-tot-riga {
+  display: flex; justify-content: space-between; gap: 18px;
+  font-size: 13px; padding: 5px 0; font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.docpf-tot-finale {
+  border-top: 1.5px solid var(--text); margin-top: 6px; padding-top: 9px;
+  font-size: 15px; font-weight: 700; color: var(--text);
+}
+
+.pf-esito summary { list-style: none; cursor: pointer; display: inline-flex; }
+.pf-esito summary::-webkit-details-marker { display: none; }
+
+/* Stampa: resta solo il documento, su foglio bianco A4 */
+@media print {
+  .sidebar, .no-print { display: none !important; }
+  .main { padding: 0; }
+  body, .shell { background: #fff; }
+  .docpf.card {
+    border: none; box-shadow: none; border-radius: 0;
+    max-width: none; padding: 10mm 6mm;
+  }
+}
