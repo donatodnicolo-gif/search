@@ -1,7 +1,9 @@
 import {
   BadRequestException,
   Body,
+  CanActivate,
   Controller,
+  ExecutionContext,
   Get,
   Injectable,
   Module,
@@ -10,11 +12,33 @@ import {
   Patch,
   Post,
   Query,
+  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { CurrentUser, JwtUser, Roles } from '../common/decorators';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { InvoiceStatus, Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+
+/**
+ * Guard per i webhook macchina-a-macchina: richiede l'header `x-api-key`
+ * uguale a INVOICE_WEBHOOK_API_KEY. Nessun login utente (usato con @Public).
+ */
+@Injectable()
+export class WebhookApiKeyGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const req = context.switchToHttp().getRequest();
+    const provided =
+      req.headers['x-api-key'] ??
+      (req.headers['authorization']?.startsWith('Bearer ')
+        ? req.headers['authorization'].slice(7)
+        : undefined);
+    const expected = process.env.INVOICE_WEBHOOK_API_KEY;
+    if (!expected) throw new UnauthorizedException('Webhook fatture non configurato');
+    if (provided !== expected) throw new UnauthorizedException('API key non valida');
+    return true;
+  }
+}
 
 @Injectable()
 export class InvoicesService {
@@ -74,6 +98,34 @@ export class InvoicesService {
     return this.prisma.invoice.update({ where: { id }, data });
   }
 
+  /**
+   * Webhook: un sistema esterno (es. contabilità) segnala che una fattura è stata
+   * pagata. Identifica la fattura per `id` o per `number` (es. FAT-2026-3).
+   * Idempotente: se già pagata la ritorna senza modifiche.
+   */
+  async markPaidByWebhook(body: { id?: string; number?: string; paidAt?: string }) {
+    if (!body.id && !body.number) {
+      throw new BadRequestException('Fornisci `id` o `number` della fattura');
+    }
+    const invoice = await this.prisma.invoice.findFirst({
+      where: body.id ? { id: body.id } : { number: body.number },
+    });
+    if (!invoice) throw new NotFoundException('Fattura non trovata');
+    if (invoice.status === InvoiceStatus.PAID) {
+      return { esito: 'gia_pagata', fattura: invoice };
+    }
+    const updated = await this.prisma.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        status: InvoiceStatus.PAID,
+        archived: true,
+        paidAt: body.paidAt ? new Date(body.paidAt) : new Date(),
+        issuedAt: invoice.issuedAt ?? new Date(),
+      },
+    });
+    return { esito: 'aggiornata', fattura: updated };
+  }
+
   /** Riapre una fattura dallo storico: torna in bozza. Solo se non ancora pagata. */
   async reopen(id: string) {
     const invoice = await this.prisma.invoice.findUnique({ where: { id } });
@@ -106,6 +158,18 @@ export class InvoicesController {
   @ApiOperation({ summary: 'Genera la fattura del periodo (somma delle consegne da fatturare)' })
   generate(@Body() body: { partnerId: string; periodStart: string; periodEnd: string }) {
     return this.invoicesService.generate(body.partnerId, body.periodStart, body.periodEnd);
+  }
+
+  @Post('webhook/paid')
+  @Public()
+  @UseGuards(WebhookApiKeyGuard)
+  @ApiSecurity('x-api-key')
+  @ApiOperation({
+    summary:
+      'Webhook (x-api-key): un sistema esterno segnala che una fattura è pagata. Body: { id | number, paidAt? }',
+  })
+  markPaidWebhook(@Body() body: { id?: string; number?: string; paidAt?: string }) {
+    return this.invoicesService.markPaidByWebhook(body);
   }
 
   @Post(':id/reopen')

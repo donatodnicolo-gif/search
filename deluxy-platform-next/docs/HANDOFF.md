@@ -106,6 +106,15 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - Endpoint usati: Partner/Valet `PUT /:id`, Operatori `PATCH /:id`. Verificato E2E nel browser (partner attivo→inattivo persistito) e via API (valet/operatore).
 - Servizi non ha colonna stato → non toccato. La pagina **Utenti** ha già i suoi bottoni di stato (feature precedente).
 
+### 19/07/2026 (1) — Webhook «fattura pagata» (API inbound, x-api-key)
+
+- Feedback: "fai un servizio api che ti possono richiamare per aggiornarti che una fattura è stata pagata". Endpoint macchina-a-macchina: `POST /api/v1/invoices/webhook/paid`.
+- **Auth**: `@Public()` (salta il JwtAuthGuard globale) + nuovo **`WebhookApiKeyGuard`** (in `invoices.module.ts`) che confronta header `x-api-key` (o `Authorization: Bearer`) con `process.env.INVOICE_WEBHOOK_API_KEY`. Se la env è vuota → `401` (webhook disattivato); chiave errata → `401`.
+- **Body**: `{ id?, number?, paidAt? }` — identifica la fattura per `id` o per `number` (es. `FAT-2026-3`). `markPaidByWebhook`: se già `PAID` risponde `{esito:'gia_pagata'}` (idempotente), altrimenti setta `status=PAID`, `archived=true`, `paidAt` (dal body o ora), `issuedAt` se mancante, e risponde `{esito:'aggiornata', fattura}`. `404` se non trovata; `400` se manca sia id sia number.
+- **Config**: `INVOICE_WEBHOOK_API_KEY` in `api/.env` (aggiunto placeholder in `.env.example`; chiave reale non committata).
+- **Verificato E2E**: senza chiave→401, chiave errata→401, chiave giusta by number→`PAID`+archived+paidAt (esito aggiornata), ri-chiamata→gia_pagata, numero inesistente→404. `nest build` pulito. Fattura di test eliminata.
+- Nota: `WebhookApiKeyGuard` non ha dipendenze DI, usato via `@UseGuards` a livello di metodo (non serve registrarlo tra i provider). Rotta `webhook/paid` distinta da `:id/status`/`:id/reopen` (secondo segmento diverso), nessun conflitto.
+
 ### 18/07/2026 (13) — Sezione Fatturazione partner (era mancante)
 
 - Feedback: "manca sezione fatturazione, controlla in app.deluxy.it come è realizzata". Nel reale è `/partner/fattura` (Genera fattura + Storico + Esporta) + Invoice List, alimentata dal blocco "DA FATTURARE" delle consegne; è il **gemello degli Stipendi lato partner**. Costruita a specchio (flusso scelto dall'utente: **Bozza → Emessa → Pagata**).
