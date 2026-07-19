@@ -19,10 +19,12 @@ App web per **cercare fiorai/pasticcerie vicino a un indirizzo** e **smistare or
 - **Deploy**: NON serve CLI. `git push origin main` e Vercel ricostruisce. Le credenziali GitHub sono in cache (Git Credential Manager).
 - **Nessun Node/Python in locale**: per l'anteprima locale c'è un server statico **PowerShell** (`.claude/serve.ps1`, `.claude/launch.json`, porta 5510). Non usare `node`/`python`.
 
-## 3. Accesso (pass code)
-- All'avvio `index.html` mostra una **lock screen**: l'utente inserisce il **pass code** = env `APP_PASSWORD` su Vercel.
-- Il pass code viene salvato in `sessionStorage` e inviato come header **`x-app-password`** a tutte le API.
-- Tutte le API protette confrontano l'header con `process.env.APP_PASSWORD` (401 se diverso).
+## 3. Accesso (email + password)
+- All'avvio `index.html` mostra una **lock screen**: email + password. Due strade in `api/_auth.js`:
+  - **amministratore**: email qualsiasi + pass code principale (env `APP_PASSWORD` su Vercel) → `admin:true`, unico che può salvare le impostazioni;
+  - **utenza operatore**: creata dall'admin in ⚙️ Impostazioni → «👥 Utenze dell'app», salvata in `config:v1.utenti`.
+- Credenziali in `sessionStorage`, inviate come header **`x-app-user`** + **`x-app-password`** a tutte le API.
+- **Le password delle utenze NON sono in chiaro**: in cassaforte c'è solo `{nome, salt, passHash}` (scrypt, `node:crypto`, confronto `timingSafeEqual`). Hash creato in `config.js` al salvataggio; le voci legacy col campo `pass` in chiaro vengono migrate da sole (al primo login riuscito o al primo salvataggio delle impostazioni). `GET /api/config` restituisce delle utenze solo `{nome}`.
 
 ## 4. Cassaforte impostazioni (KV `config:v1`)
 Oggetto JSON in KV alla chiave **`config:v1`**:
@@ -87,7 +89,30 @@ Sezione `.deal` in cima al riquadro ordine: miniatura, pulsante **⬇️ Scarica
 - Google Places (`getDetails`): telefono, sito, Maps, orari, valutazione, `address_components`.
 - Scraping (solo se `proxy` impostato): **email** + **Instagram** dal sito ufficiale. Instagram mostrato come **DM diretto** `https://ig.me/m/{handle}`.
 - **Heuristica WhatsApp**: numero cellulare (IT inizia con 3) = "WhatsApp probabile"; fisso (inizia con 0) = "raro". Non esiste verifica gratuita reale.
-- Invio: **WhatsApp** `https://web.whatsapp.com/send?phone=<digits>&text=<enc>`; **Email** `mailto:` con subject+body(+link foto).
+- Invio: **WhatsApp** `https://web.whatsapp.com/send?phone=<digits>&text=<enc>` da desktop, **`https://wa.me/<digits>?text=<enc>` su mobile** (apre l'app WhatsApp del telefono; rilevamento con `IS_MOBILE` da user agent, helper `waChatUrl()`); **Email** `mailto:` con subject+body(+link foto).
+- **Messaggio copiabile** (17/07/2026): textarea `#ord_msg` nel box ordine, rigenerata dai campi (`refreshOrderMessage`) finché l'utente non la modifica a mano (`msgDirty`); da lì in poi i pulsanti «Invia» usano il testo dell'utente (`currentMessage()`), il pulsante «↺ Rigenera» torna al testo automatico. «📋 Copia messaggio» = `navigator.clipboard.writeText`.
+
+## 10-bis. Registro anagrafiche (partner/prospect già nostri in zona)
+- Dopo ogni ricerca, l'app interroga **deluxy-anagrafiche** (`GET {anagUrl}/api/v1/partners?…` con header `x-api-key`, timeout 5 s, `cache:no-store`) **sempre per provincia**: `provincia=` con sigla (FI), nome (FIRENZE) e nome completo (CITTÀ METROPOLITANA DI FIRENZE), ricavati dal geocoding della zona di consegna. Unico ripiego, per le schede con provincia vuota: se non esce nulla si riprova con `citta=<capoluogo>`. **Tutti i valori dei filtri vanno in MAIUSCOLO** (il registro salva tutto così; ci pensa `anagQuery`). Risposta `{ totale, dati:[...] }`; stato `attivo` (confronto case-insensitive) = partner, gli altri stati = prospect.
+- URL di default: **`https://deluxy-anagrafiche.vercel.app`**. Le letture passano dal **proxy `/api/anagrafiche`** (autenticato con le utenze dell'app): la chiave `anagKey` (sola lettura, `dlxk_…`) vive nella config KV e **non arriva mai al browser** (in `sanitize` solo `hasAnagKey`; se manca, il proxy usa la chiave di scrittura). `anagUrl` opzionale per puntare altrove (es. `http://localhost:3060` in sviluppo). Segue le regole d'ingaggio del registro: "chiave lato server, mai nel browser".
+- Esito: schede dedicate in cima ai risultati (`registryCard`, bordo oro = partner, blu = prospect, con i **referenti** `p.contatti` → telefono/email) + badge sulle schede Google che matchano per nome (`normName`); nota nello status. Il filtro «solo WhatsApp» non le nasconde (`data-registry`). Best-effort: se il registro non risponde la ricerca funziona comunque.
+- ⚠️ Le API del registro **richiedono CORS**: `deluxy-anagrafiche/src/middleware.ts` apre GET/OPTIONS su `/api/*`. Senza, il browser blocca la chiamata dalla pagina Vercel.
+
+## 10-ter. Schede Google: «Salva in rubrica» e «Segnala al commerciale»
+- Ogni scheda che viene da Google (non dal registro) ha due pulsanti; i dati del negozio stanno in `CARD_DATA[place_id]` (nome, categoria, città, provincia — da `address_components` —, indirizzo, telefono, email dallo scraping, sito).
+- **💾 Salva in rubrica**: con `googleOauthClientId` configurato in Admin usa Google Identity Services (`accounts.google.com/gsi/client`, scope `auth/contacts`) e la **People API**; il Client ID (tipo Web) deve avere la People API attiva e l'origine `https://search-deluxy.vercel.app`. Prima di creare, **cerca il numero** con `people:searchContacts` (con richiesta di warm-up, confronto sulle ultime 9 cifre): se il contatto esiste mostra «Già in rubrica» e non duplica. Il contatto viene salvato col nome **`FORNITORE [NOME] [TIPO] PROV. [PROVINCIA]`** (`contactName()`: tipo FIORAIO/PASTICCERE dalla categoria, provincia dal negozio o dall'ultima ricerca `lastGeo`). Senza Client ID (o se l'OAuth fallisce) ripiega su un **file .vcf** con lo stesso nome, che si apre con la rubrica di telefono/PC (lì niente controllo duplicati).
+- **📣 Segnala al commerciale**: `POST /api/segnala` (utenze) → la funzione server legge dalla config KV `anagWriteKey` (chiave di **scrittura**, mai al browser — `hasAnagWriteKey`) e fa **un solo POST upsert-merge** al registro seguendo le sue regole d'ingaggio: `sistema:'deluxy-suppliers'` + `idEsterno` (= place_id Google: il registro ci riconosce alla prossima segnalazione), `asOf` e `ultimaVisita` = `quando` (ISO dal browser, regola §12.5), nota `[data] Segnalato dall'app search/supplier (utente). Ordine #2403 valore € 85. Sito: …`. **Niente `stato`** (le nuove nascono `prospect`; stato/interessi/account li cura il team del registro). Anti-doppioni, append delle note e merge per campo li fa il registro: risposta `{esito:'creato'|'merged', applicati, in_revisione}` → tradotta in `{creato:true}` o `{esistente:true, aggiornato:true}`. La `fonte` del record risulta `deluxy-suppliers` (dedotta da `sistema`). Le schede Google già matchate col registro hanno il pulsante disabilitato («Già nel registro»).
+- Chiave di scrittura: si genera nel registro con `npm run chiave -- deluxy-suppliers --scrittura` (consegna per canale privato → incollarla in Impostazioni).
+
+## 10-ter-bis. Deep link (bottone da altre app)
+L'app è richiamabile da un bottone/link di qualsiasi altra app; i parametri si applicano **dopo il login** (`applyDeepLink()` in `unlock()`), che resta obbligatorio:
+- `https://search-deluxy.vercel.app/?brand=deluxyflowers.com&ordine=2403` → imposta il brand, recupera l'ordine (che auto-compila indirizzo e categoria e lancia la ricerca)
+- `https://search-deluxy.vercel.app/?indirizzo=Via Roma 1, Milano&categoria=fiorai|pasticcerie` → ricerca diretta in zona senza ordine
+- Alias accettati: `order`/`address`; `#` iniziale nel numero ordine tollerato. Parametri sconosciuti ignorati; senza parametri non cambia nulla.
+
+## 10-quater. Utenze e Storico richieste
+- **Utenze**: si entra con **nome utente + pass code**. Due livelli: il pass code principale (`APP_PASSWORD`) = amministratore (unico che può salvare le Impostazioni); le utenze operative vivono nella config KV (`utenti:[{nome,pass}]`, gestite in ⚙️ Impostazioni → «Utenze dell'app»; `sanitize` non restituisce mai le password). Il browser manda `x-app-password` + `x-app-user`; l'autenticazione condivisa sta in **`api/_auth.js`** (`authUser`, il prefisso `_` non crea un endpoint) ed è usata da `config`, `order`, `segnala`, `storico`.
+- **Storico richieste** (`api/storico.js`, chiave KV `storico:v1`, max 500 eventi, più recenti in testa): registra richieste ordine inviate (WhatsApp/email), salvataggi in rubrica e segnalazioni, ognuno con **l'utenza autenticata** (mai dal body), timestamp dal browser (`quando`), negozio, esito ed eventuale ordine `{numero, valore, brand}`. Il client logga con `logEvento()` (best effort, non blocca la UI) dai 4 punti: invio WhatsApp, invio email, `saveContact`, `reportShop`. Vista dedicata «Storico richieste» in sidebar (`setView('storico')` → carica con `loadStorico()`).
 
 ## 11. Convenzioni di codice (RISPETTALE)
 - `index.html`: un solo file, JS vanilla, testi UI in **italiano**, palette/variabili CSS già definite. Niente framework, niente CDN esterne (a parte Google Maps).
