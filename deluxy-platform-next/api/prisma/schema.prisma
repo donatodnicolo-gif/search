@@ -37,8 +37,31 @@ model User {
   partner      Partner? @relation(fields: [partnerId], references: [id])
   valetId      String?  @unique
   valet        Valet?   @relation(fields: [valetId], references: [id])
+  savedViews   SavedView[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+/**
+ * Vista di visualizzazione rapida salvata dall'utente su una lista:
+ * memorizza ricerca/ordinamento/paginazione/filtri per richiamarli con un clic.
+ * Legata all'utente (segue l'account, non il browser).
+ */
+model SavedView {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Sezione: deliveries | products | customers | partners | valets | categories | services | operators
+  section   String
+  name      String
+  // JSON con lo stato della lista: { q, sort, dir, pageSize, ...filtri specifici }
+  config    String
+  // Vista condivisa con tutto il team (non solo con chi l'ha creata)
+  shared    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, section])
 }
 
 // ------------------------------------------------------------
@@ -74,11 +97,21 @@ model ServiceType {
   id              String           @id @default(cuid())
   name            String
   code            String           @unique
-  pricingModel    String
-  basePrice       Float?
-  perPiecePrice   Float?
-  transportPrice  Float?
+  pricingModel    String // VENDITA | PREZZO_FISSO | A_ORA | MAGAZZINO | CORPORATE
+  scope           String           @default("partner") // partner | valet | both
+  basePrice       Float? // magazzino: prezzo fisso
+  perPiecePrice   Float? // magazzino: prezzo a pezzo
+  transportPrice  Float? // magazzino: prezzo consegna
+  deliveryPrice   Float? // magazzino: prezzo consegna (nuovo)
   minHours        Int?             @default(1)
+  // Setup prenotazione (usato dalle regole di richiesta servizio)
+  noticeDays      Int? // giorni di preavviso
+  slotHours       Int? // fascia oraria: 1 | 2 | 4 (ore)
+  maxOrderTime    String? // ora massima inserimento giornaliero "HH:MM" (fine generazione fasce consegna)
+  minOrderTime    String? // ora minima inserimento giornaliero "HH:MM" (inizio generazione fasce consegna)
+  allowFlexibleTime Boolean        @default(false) // consente la fascia di consegna flessibile (dalle–alle)
+  notes           String?
+  hideCustomerInfo Boolean         @default(false)
   active          Boolean          @default(true)
   partnerServices PartnerService[]
   valetServices   ValetService[]
@@ -109,6 +142,36 @@ model Partner {
   paymentStatus       String            @default("active")
   // Metodo di pagamento (legacy): bankTransfer | creditCard | directDebitMandate
   paymentMethod       String?
+  // Referente: nome (contactName) + cognome
+  contactSurname      String?
+  // Notifiche granulari (come nell'app reale)
+  whatsappNotifications Boolean         @default(false)
+  mailNotifications   Boolean           @default(false)
+  // Pagamenti e contratto
+  bankAccount         String? // IBAN
+  bankAccountName     String? // intestatario conto
+  sdiCode             String? // codice SDI fatturazione elettronica
+  certifiedEmail      String? // PEC
+  contractStart       DateTime?
+  contractEnd         DateTime?
+  // Notifiche extra
+  activityReminder    Boolean           @default(false) // promemoria attività
+  // KM a livello partner (soglia inclusa entro il comune + extra fuori città)
+  kmIncluded          Float?
+  extraOutOfCityPrice Float?
+  // Tipo codice di consegna (quando deliveryCodeRequired): UNIQUE_PER_DELIVERY | UNIQUE_PER_CUSTOMER
+  deliveryCodeCheckType String          @default("UNIQUE_PER_DELIVERY")
+  // Indirizzo di ritiro multiplo (+ lista indirizzi come JSON per compat. SQLite)
+  isMultiPickup       Boolean           @default(false)
+  pickupAddresses     String? // JSON array di indirizzi di ritiro aggiuntivi
+  // Campi di vendita
+  storeUrl            String?
+  imageUrl            String?
+  // Sicurezza
+  valetIdentityCheck  Boolean           @default(false)
+  deliveryCodeRequired Boolean          @default(false)
+  // Partner magazzino
+  isWarehouse         Boolean           @default(false)
   active              Boolean           @default(true)
   provinces           PartnerProvince[]
   services            PartnerService[]
@@ -193,8 +256,19 @@ model Valet {
   birthDate           DateTime?
   iban                String?
   isTeamLeader        Boolean           @default(false)
+  // Team leader: province dove può assegnare + partner associati + partner esclusi (JSON array di id, compat. SQLite)
+  teamLeaderProvinces String?
+  teamLeaderPartners  String?
+  teamLeaderExcludedPartners String? // partner esclusi dallo scope del team leader
   vehicle             String? // mezzo: Auto | Bicicletta | Furgone | Moto/Scooter
   withholdingPercent  Float             @default(0) // % ritenuta rimborso
+  // Stipendio
+  salaryFrequency     String            @default("monthly") // monthly | weekly
+  weeklyDepositLimit  Float?
+  // KM a livello valet
+  minimumKmIncluded   Float? // soglia KM inclusi entro il comune
+  extraOutOfCityPrice Float? // rimborso extra fuori dal comune
+  notes               String?
   notifyByEmail       Boolean           @default(true)
   notifyByWhatsapp    Boolean           @default(false)
   active              Boolean           @default(true)
@@ -226,6 +300,8 @@ model ValetService {
   valetId       String
   serviceTypeId String
   salary        Float
+  salaryPerItem Float? // per i servizi magazzino (salario a pezzo)
+  extraKmPrice  Float? // Extra KM/€
   valet         Valet       @relation(fields: [valetId], references: [id], onDelete: Cascade)
   serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
 
@@ -255,9 +331,22 @@ model ValetAvailability {
 model Category {
   id               String             @id @default(cuid())
   name             String             @unique
+  notes            String?
+  aiPrompt         String? // prompt per generazione AI (es. torte)
   products         Product[]
-  discounts        CategoryDiscount[]
+  discounts        CategoryDiscount[] // sconto % per provincia
+  fields           CategoryField[] // campi testuali extra per i prodotti della categoria
   partnerCategories PartnerCategory[]
+}
+
+// Campo testuale extra definito a livello categoria.
+// fieldType: optional | required | admin (solo admin)
+model CategoryField {
+  id         String   @id @default(cuid())
+  categoryId String
+  name       String
+  fieldType  String   @default("optional")
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 }
 
 // Sconto % per categoria e provincia -> genera prodotti scontati automatici
@@ -276,13 +365,38 @@ model Product {
   id                      String             @id @default(cuid())
   name                    String
   description             String?
+  shortDesc               String? // "Plus del prodotto" (max 80 char)
   price                   Float
+  publicPrice             Float? // prezzo pubblico
+  sku                     String?
+  prepDays                Int? // giorni di preparazione
+  line                    String? // linea/brand
+  imageUrl                String? // immagine principale
+  images                  String? // JSON array di URL immagine (galleria/Shopify)
+  platformDescriptions    String? // JSON { piattaforma: descrizione } per SELECT PLATFORMS
+  approved                Boolean            @default(false)
   type                    String // UNICO | NON_UNICO | SUPERPRODOTTO
   partnerId               String?
   partner                 Partner?           @relation(fields: [partnerId], references: [id])
   categoryId              String?
   category                Category?          @relation(fields: [categoryId], references: [id])
   visibleToOtherPartners  Boolean            @default(false)
+  // Flag prodotto (come app reale)
+  notEditable             Boolean            @default(false) // non modificabile
+  controlStock            Boolean            @default(false) // controlla stock
+  stock                   Int? // giacenza (se controlStock)
+  notPhysical             Boolean            @default(false) // prodotto non fisico
+  isSuperProvince         Boolean            @default(false) // super provincia
+  useAlternateName        Boolean            @default(false)
+  alternateName           String? // nome alternativo del prodotto
+  // Piattaforme di vendita abilitate (JSON array: deluxy|cakes|flowers|business|experience|dotcom)
+  platforms               String?
+  // Varianti
+  hasVariants             Boolean            @default(false)
+  optionTitle             String? // titolo opzione varianti (es. "Dimensione")
+  variants                ProductVariant[]
+  // Partner aggiuntivi che vendono il prodotto (oltre al partner proprietario)
+  partnerLinks            ProductPartnerLink[]
   isAutoDiscounted        Boolean            @default(false)
   parentProductId         String?
   parentProduct           Product?           @relation("DiscountedVariants", fields: [parentProductId], references: [id])
@@ -293,8 +407,38 @@ model Product {
   deliveryProducts        DeliveryProduct[]
   sales                   Sale[]
   active                  Boolean            @default(true)
+  // Archiviato: stato SEPARATO da `active`. Un prodotto disattivato resta
+  // visibile nella lista principale; uno archiviato va nella sezione Archivio.
+  archived                Boolean            @default(false)
+  archivedAt              DateTime?
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
+}
+
+// Variante di prodotto (es. taglia S/M/L), con proprio prezzo e SKU
+model ProductVariant {
+  id           String  @id @default(cuid())
+  productId    String
+  name         String // valore opzione (es. "Media")
+  price        Float?
+  publicPrice  Float? // prezzo pubblico variante
+  sku          String? // SKU variante (auto: <SKU prodotto>-NN progressivo)
+  imageUrl     String? // immagine della variante
+  prepDays     Int? // giorni di preparazione variante
+  controlStock Boolean @default(false) // controlla stock variante
+  stock        Int? // giacenza variante
+  active       Boolean @default(true)
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// Associazione prodotto <-> partner aggiuntivo (PRODUCTS PARTNER)
+model ProductPartnerLink {
+  id        String  @id @default(cuid())
+  productId String
+  partnerId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, partnerId])
 }
 
 // Componenti di un superprodotto
@@ -361,7 +505,15 @@ model Delivery {
   customerId         String?
   customer           Customer?         @relation(fields: [customerId], references: [id])
   status             String            @default("created")
-  // Ritiro
+  paymentStatus      String            @default("default") // default | paid | toBePaid
+  // Token del link pubblico di monitoraggio (bottone MONITORARE).
+  // Casuale e opaco: niente @unique per evitare il rebuild tabella in SQLite,
+  // la ricerca usa findFirst.
+  trackingToken      String?
+  // Fascia oraria consegna + ritiro (se non flessibile => fascia di 1 ora)
+  deliveryTimeFrom   String? // "09:00"
+  deliveryTimeTo     String? // "13:00"
+  deliveryFlexible   Boolean           @default(false)
   pickupTimeFrom     String? // "10:00"
   pickupTimeTo       String? // "12:00"
   pickupFlexible     Boolean           @default(false)
@@ -372,22 +524,41 @@ model Delivery {
   recipientAddress   String
   recipientIntercom  String? // citofono
   recipientPhone     String?
+  recipientEmail     String?
+  // Mittente
+  senderFirstName    String?
+  senderLastName     String?
+  senderPhone        String?
   // Pagamento alla consegna (contanti detratti dallo stipendio del valet)
   paymentOnDelivery  Boolean           @default(false)
   paymentAmount      Float?
+  tryAndReturn       Boolean           @default(false)
+  deliveryCodeRequired Boolean         @default(false)
   // Note
   notes              String?
   internalNotes      String? // visibili solo ad admin/operation/valet
   ddtNumber          String?
+  ddtFile            String? // file/URL del DDT
   // Distanza e extra (calcolo automatico ritiro -> consegna)
   distanceKm         Float?
   extraKm            Float             @default(0)
   extraOutOfCity     Boolean           @default(false)
-  // Economia
+  // Vendita Deluxy + valet servizio
+  deluxyDelivery     Boolean           @default(false) // "Vendita Deluxy"
+  valetServiceId     String? // "Valet Servizio" (id ValetService/ServiceType)
+  // Economia (LISTINO: da fatturare / da pagare)
+  billable           Boolean           @default(true) // da fatturare
+  payable            Boolean           @default(true) // da pagare
   price              Float? // prezzo per il partner
+  additionalPrice    Float? // plus/minus prezzo partner
   valetSalary        Float? // paga del valet
+  valetAdditionalPrice Float? // plus/minus paga valet
+  isFlexiblePrice    Boolean           @default(false)
+  flexiblePrice      String? // prezzo flessibile (JSON/testo)
   hours              Float? // per servizi a ora
-  // SMS trigger
+  personalizeSaleNotes String? // personalizzazione
+  // SMS: numero telefonico + trigger
+  smsPhoneNo         String?
   smsOnCreated       Boolean           @default(false)
   smsOnDeparted      Boolean           @default(false)
   smsOnArrived       Boolean           @default(false)
@@ -400,13 +571,15 @@ model Delivery {
 }
 
 model DeliveryProduct {
-  id          String   @id @default(cuid())
-  deliveryId  String
-  productId   String
-  quantity    Int      @default(1)
-  fieldValues String? // JSON {nomeCampo: valore} per i ProductField
-  delivery    Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
-  product     Product  @relation(fields: [productId], references: [id])
+  id             String   @id @default(cuid())
+  deliveryId     String
+  productId      String
+  quantity       Int      @default(1)
+  price          Float? // prezzo del prodotto in questa consegna (override se flessibile)
+  flexiblePrice  Boolean  @default(false) // consente la modifica del prezzo prodotto
+  fieldValues    String? // JSON {nomeCampo: valore} per i ProductField
+  delivery       Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  product        Product  @relation(fields: [productId], references: [id])
 }
 
 // Ritiri multipli sotto lo stesso DDT
@@ -582,4 +755,27 @@ model Sale {
   externalOrderId String? // id ordine WooCommerce
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+}
+
+// Staff d'ufficio. Il flag isProjectManager lo qualifica come Project Manager
+// (come Operation ma senza Consegne e Attività).
+model Operation {
+  id               String   @id @default(cuid())
+  firstName        String
+  lastName         String
+  email            String   @unique
+  phone            String?
+  address          String?
+  notifyWhatsapp   Boolean  @default(false)
+  notifyMail       Boolean  @default(true)
+  // Ruolo operatore (controlla la visibilità delle sezioni):
+  //  operation        -> base (vede Operatività, non Amministrazione)
+  //  finance          -> vede anche la sezione Amministrazione
+  //  project_manager  -> NON vede la sezione Operatività
+  //  customer_service -> NON vede la sezione Amministrazione
+  operationRole    String   @default("operation")
+  notes            String?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

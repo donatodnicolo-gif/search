@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEmail,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -19,6 +20,16 @@ export class ValetServiceDto {
   @ApiProperty({ description: 'Salario per il servizio (matching con il servizio partner dello stesso modello di prezzo)' })
   @IsNumber()
   salary: number;
+
+  @ApiPropertyOptional({ description: 'Salario a pezzo (servizi magazzino)' })
+  @IsOptional()
+  @IsNumber()
+  salaryPerItem?: number;
+
+  @ApiPropertyOptional({ description: 'Extra KM/€' })
+  @IsOptional()
+  @IsNumber()
+  extraKmPrice?: number;
 }
 
 export class CreateValetDto {
@@ -79,7 +90,25 @@ export class CreateValetDto {
   @IsBoolean()
   isTeamLeader?: boolean;
 
-  @ApiPropertyOptional({ description: 'Mezzo (auto, scooter, furgone...)' })
+  @ApiPropertyOptional({ type: [String], description: 'Province in cui il team leader può assegnare' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  teamLeaderProvinceIds?: string[];
+
+  @ApiPropertyOptional({ type: [String], description: 'Partner associati al team leader' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  teamLeaderPartnerIds?: string[];
+
+  @ApiPropertyOptional({ type: [String], description: 'Partner esclusi dallo scope del team leader' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  teamLeaderExcludedPartnerIds?: string[];
+
+  @ApiPropertyOptional({ description: 'Mezzo (Auto, Bicicletta, Furgone, Moto/Scooter)' })
   @IsOptional()
   @IsString()
   vehicle?: string;
@@ -88,6 +117,31 @@ export class CreateValetDto {
   @IsOptional()
   @IsNumber()
   withholdingPercent?: number;
+
+  @ApiPropertyOptional({ enum: ['monthly', 'weekly'], default: 'monthly', description: 'Frequenza stipendio' })
+  @IsOptional()
+  @IsIn(['monthly', 'weekly'])
+  salaryFrequency?: string;
+
+  @ApiPropertyOptional({ description: 'Limite di deposito settimanale' })
+  @IsOptional()
+  @IsNumber()
+  weeklyDepositLimit?: number;
+
+  @ApiPropertyOptional({ description: 'Minimum KM Included (entro il comune)' })
+  @IsOptional()
+  @IsNumber()
+  minimumKmIncluded?: number;
+
+  @ApiPropertyOptional({ description: 'Extra fuori città (rimborso fuori dal comune)' })
+  @IsOptional()
+  @IsNumber()
+  extraOutOfCityPrice?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()

@@ -23,6 +23,16 @@ export class DeliveryProductDto {
   @Min(1)
   quantity?: number;
 
+  @ApiPropertyOptional({ description: 'Prezzo del prodotto in questa consegna (se flessibile)' })
+  @IsOptional()
+  @IsNumber()
+  price?: number;
+
+  @ApiPropertyOptional({ default: false, description: 'Prezzo flessibile (modifica del prezzo prodotto)' })
+  @IsOptional()
+  @IsBoolean()
+  flexiblePrice?: boolean;
+
   @ApiPropertyOptional({ description: 'JSON {nomeCampo: valore} per i campi prodotto' })
   @IsOptional()
   @IsString()
@@ -74,6 +84,27 @@ export class CreateDeliveryDto {
   @IsString()
   customerId?: string;
 
+  @ApiPropertyOptional({ description: 'Stato consegna iniziale (admin/operation)' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Stato pagamento: default | paid | toBePaid' })
+  @IsOptional()
+  @IsString()
+  paymentStatus?: string;
+
+  // Fascia oraria consegna
+  @ApiPropertyOptional({ example: '09:00' })
+  @IsOptional()
+  @IsString()
+  deliveryTimeFrom?: string;
+
+  @ApiPropertyOptional({ example: '13:00' })
+  @IsOptional()
+  @IsString()
+  deliveryTimeTo?: string;
+
   // Ritiro
   @ApiPropertyOptional({ example: '10:00' })
   @IsOptional()
@@ -85,10 +116,15 @@ export class CreateDeliveryDto {
   @IsString()
   pickupTimeTo?: string;
 
-  @ApiPropertyOptional({ default: false, description: 'Orario di ritiro flessibile' })
+  @ApiPropertyOptional({ default: false, description: 'Orario di ritiro flessibile (altrimenti fascia di 1 ora)' })
   @IsOptional()
   @IsBoolean()
   pickupFlexible?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Orario di consegna flessibile (altrimenti fascia di 1 ora)' })
+  @IsOptional()
+  @IsBoolean()
+  deliveryFlexible?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -118,6 +154,27 @@ export class CreateDeliveryDto {
   @IsString()
   recipientPhone?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  recipientEmail?: string;
+
+  // Mittente
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  senderFirstName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  senderLastName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  senderPhone?: string;
+
   // Pagamento alla consegna
   @ApiPropertyOptional({ default: false })
   @IsOptional()
@@ -128,6 +185,16 @@ export class CreateDeliveryDto {
   @IsOptional()
   @IsNumber()
   paymentAmount?: number;
+
+  @ApiPropertyOptional({ default: false, description: 'Prova e reso del prodotto' })
+  @IsOptional()
+  @IsBoolean()
+  tryAndReturn?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Codice di consegna richiesto' })
+  @IsOptional()
+  @IsBoolean()
+  deliveryCodeRequired?: boolean;
 
   // Note
   @ApiPropertyOptional()
@@ -155,6 +222,72 @@ export class CreateDeliveryDto {
   @IsNumber()
   @Min(1)
   hours?: number;
+
+  // LISTINO
+  @ApiPropertyOptional({ description: 'Prezzo per il partner (da fatturare)' })
+  @IsOptional()
+  @IsNumber()
+  price?: number;
+
+  @ApiPropertyOptional({ description: 'Plus/minus prezzo partner' })
+  @IsOptional()
+  @IsNumber()
+  additionalPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Paga del valet (da pagare)' })
+  @IsOptional()
+  @IsNumber()
+  valetSalary?: number;
+
+  @ApiPropertyOptional({ description: 'Plus/minus paga valet' })
+  @IsOptional()
+  @IsNumber()
+  valetAdditionalPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Personalizzazione' })
+  @IsOptional()
+  @IsString()
+  personalizeSaleNotes?: string;
+
+  @ApiPropertyOptional({ default: false, description: 'Vendita Deluxy' })
+  @IsOptional()
+  @IsBoolean()
+  deluxyDelivery?: boolean;
+
+  @ApiPropertyOptional({ description: 'Valet Servizio (id)' })
+  @IsOptional()
+  @IsString()
+  valetServiceId?: string;
+
+  @ApiPropertyOptional({ default: true, description: 'Da fatturare' })
+  @IsOptional()
+  @IsBoolean()
+  billable?: boolean;
+
+  @ApiPropertyOptional({ default: true, description: 'Da pagare' })
+  @IsOptional()
+  @IsBoolean()
+  payable?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Prezzo flessibile' })
+  @IsOptional()
+  @IsBoolean()
+  isFlexiblePrice?: boolean;
+
+  @ApiPropertyOptional({ description: 'Prezzo flessibile (testo)' })
+  @IsOptional()
+  @IsString()
+  flexiblePrice?: string;
+
+  @ApiPropertyOptional({ description: 'Numero telefonico per SMS' })
+  @IsOptional()
+  @IsString()
+  smsPhoneNo?: string;
+
+  @ApiPropertyOptional({ description: 'File/URL del DDT' })
+  @IsOptional()
+  @IsString()
+  ddtFile?: string;
 
   // SMS trigger
   @ApiPropertyOptional({ default: false })

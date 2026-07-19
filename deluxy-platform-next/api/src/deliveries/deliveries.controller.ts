@@ -10,10 +10,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { CurrentUser, JwtUser, Roles } from '../common/decorators';
+import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { DeliveriesService } from './deliveries.service';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
+import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import {
   AssignValetDto,
   UpdateDeliveryDto,
@@ -27,19 +28,12 @@ export class DeliveriesController {
   constructor(private readonly deliveriesService: DeliveriesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lista consegne (filtrata per ruolo)' })
-  @ApiQuery({ name: 'date', required: false })
-  @ApiQuery({ name: 'status', required: false })
-  @ApiQuery({ name: 'partnerId', required: false })
-  @ApiQuery({ name: 'valetId', required: false })
-  findAll(
-    @CurrentUser() user: JwtUser,
-    @Query('date') date?: string,
-    @Query('status') status?: string,
-    @Query('partnerId') partnerId?: string,
-    @Query('valetId') valetId?: string,
-  ) {
-    return this.deliveriesService.findAll(user, { date, status, partnerId, valetId });
+  @ApiOperation({
+    summary:
+      'Lista consegne paginata (filtrata per ruolo). q = ricerca globale sui campi testuali; filtri stato/partner/valet/data',
+  })
+  findAll(@CurrentUser() user: JwtUser, @Query() query: DeliveryListQueryDto) {
+    return this.deliveriesService.findAll(user, query);
   }
 
   @Get(':id')
@@ -56,7 +50,9 @@ export class DeliveriesController {
   }
 
   @Put(':id')
-  @Roles(Role.ADMIN, Role.OPERATION)
+  // Il partner e' ammesso ma il service applica la regola: solo consegne
+  // "da gestire" e con servizio diverso da VENDITA.
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
   @ApiOperation({ summary: 'Aggiorna consegna' })
   update(
     @Param('id') id: string,
@@ -74,6 +70,20 @@ export class DeliveriesController {
     @CurrentUser() user: JwtUser,
   ) {
     return this.deliveriesService.updateStatus(id, dto.status, user);
+  }
+
+  @Get(':id/tracking-link')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Token del link pubblico di monitoraggio (lo crea se assente)' })
+  trackingLink(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.getTrackingToken(id, user);
+  }
+
+  @Public()
+  @Get('tracking/:token')
+  @ApiOperation({ summary: 'Monitoraggio pubblico della consegna (senza login)' })
+  publicTracking(@Param('token') token: string) {
+    return this.deliveriesService.findByTrackingToken(token);
   }
 
   @Patch(':id/assign')

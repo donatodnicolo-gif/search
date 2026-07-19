@@ -18,6 +18,11 @@
     "build:web": "npm run build -w web",
     "prisma:generate": "npm run prisma:generate -w api",
     "prisma:migrate": "npm run prisma:migrate -w api",
-    "seed": "npm run seed -w api"
+    "seed": "npm run seed -w api",
+    "doc:word": "node scripts/build-doc-word.mjs"
+  },
+  "devDependencies": {
+    "html-to-docx": "^1.8.0",
+    "marked": "^18.0.6"
   }
 }

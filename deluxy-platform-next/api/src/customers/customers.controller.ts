@@ -6,10 +6,12 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
+import { ListQueryDto } from '../common/list-query';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/create-customer.dto';
 
@@ -20,9 +22,12 @@ export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lista clienti (il partner vede solo i propri)' })
-  findAll(@CurrentUser() user: JwtUser) {
-    return this.customersService.findAll(user);
+  @ApiOperation({
+    summary:
+      'Lista clienti paginata (il partner vede solo i propri). q = ricerca globale sui campi testuali',
+  })
+  findAll(@CurrentUser() user: JwtUser, @Query() query: ListQueryDto) {
+    return this.customersService.findAll(user, query);
   }
 
   @Get(':id')

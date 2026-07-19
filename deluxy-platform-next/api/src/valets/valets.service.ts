@@ -37,11 +37,23 @@ export class ValetsService {
   }
 
   create(dto: CreateValetDto) {
-    const { provinceIds, services, birthDate, ...scalar } = dto;
+    const {
+      provinceIds, services, birthDate,
+      teamLeaderProvinceIds, teamLeaderPartnerIds, teamLeaderExcludedPartnerIds, ...scalar
+    } = dto;
     return this.prisma.valet.create({
       data: {
         ...scalar,
         birthDate: birthDate ? new Date(birthDate) : undefined,
+        teamLeaderProvinces: teamLeaderProvinceIds?.length
+          ? JSON.stringify(teamLeaderProvinceIds)
+          : undefined,
+        teamLeaderPartners: teamLeaderPartnerIds?.length
+          ? JSON.stringify(teamLeaderPartnerIds)
+          : undefined,
+        teamLeaderExcludedPartners: teamLeaderExcludedPartnerIds?.length
+          ? JSON.stringify(teamLeaderExcludedPartnerIds)
+          : undefined,
         provinces: provinceIds?.length
           ? { create: provinceIds.map((provinceId) => ({ provinceId })) }
           : undefined,
@@ -53,12 +65,24 @@ export class ValetsService {
 
   async update(id: string, dto: UpdateValetDto) {
     await this.findOne(id);
-    const { provinceIds, services, birthDate, ...scalar } = dto;
+    const {
+      provinceIds, services, birthDate,
+      teamLeaderProvinceIds, teamLeaderPartnerIds, teamLeaderExcludedPartnerIds, ...scalar
+    } = dto;
     return this.prisma.valet.update({
       where: { id },
       data: {
         ...scalar,
         ...(birthDate ? { birthDate: new Date(birthDate) } : {}),
+        ...(teamLeaderProvinceIds
+          ? { teamLeaderProvinces: JSON.stringify(teamLeaderProvinceIds) }
+          : {}),
+        ...(teamLeaderPartnerIds
+          ? { teamLeaderPartners: JSON.stringify(teamLeaderPartnerIds) }
+          : {}),
+        ...(teamLeaderExcludedPartnerIds
+          ? { teamLeaderExcludedPartners: JSON.stringify(teamLeaderExcludedPartnerIds) }
+          : {}),
         ...(provinceIds
           ? {
               provinces: {

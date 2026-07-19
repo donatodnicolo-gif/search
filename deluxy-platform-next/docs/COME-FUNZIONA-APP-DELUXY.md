@@ -2,11 +2,33 @@
 
 **MANUALE COMPLETO — EDIZIONE AGGIORNATA**
 
-> Aggiornato il 14 luglio 2026 — integra la mappatura completa di app.deluxy.it (ogni sezione, bottone, filtro e opzione verificati direttamente in app con utenza Admin).
-> Le parti contrassegnate con **[NUOVO]** sono funzionalità rilevate nell'app reale ma assenti nel manuale precedente.
+> Aggiornato il 14 luglio 2026 — integra la mappatura completa di app.deluxy.it (ogni sezione, bottone, filtro e opzione verificati direttamente in app con utenza Admin), il codice del backend reale e i chiarimenti dell'utente.
+> Le parti contrassegnate con **[NUOVO]** sono funzionalità rilevate nell'app reale/backend e assenti nel manuale precedente.
 >
-> **Questo file è la fonte di verità funzionale per lo sviluppo di `deluxy-platform-next`.**
-> Versione originale consegnata al team: `docs/COME-FUNZIONA-APP-DELUXY-AGGIORNATO-2026-07.docx`
+> **📌 Questo `.md` è la VERSIONE VIVA adatta a Claude: è la fonte di verità funzionale per lo sviluppo di `deluxy-platform-next` e va aggiornata a ogni nuova scoperta.** Regola: quando si verifica una schermata reale, rileggere e integrare qui; se un campo/opzione ha semantica dubbia, chiederla all'utente e poi documentarla.
+> **Word sempre aggiornato** (per le persone): `docs/COME-FUNZIONA-APP-DELUXY.docx`, generato da questo `.md` con `npm run doc:word` — non modificarlo a mano. Snapshot storico originale: `docs/COME-FUNZIONA-APP-DELUXY-AGGIORNATO-2026-07.docx`.
+>
+> **Changelog**
+> - 17/07/2026 (4) — **Filtri e ordinamenti su tutte le liste**. Convenzione decisa: **una sola ricerca globale** (cerca in *tutti* i campi testuali, comprese le relazioni — es. cercando "Fiori" trova i prodotti della categoria Fiori), **data/ora con filtri propri** (`dateFrom`/`dateTo`), **ogni colonna ordinabile** asc/desc. Due strategie in base al volume: **server-side** per le liste grandi — **Prodotti** (8.503 in produzione), **Consegne**, **Clienti** (4.092) — con contratto comune `?q=&sort=&dir=&page=&pageSize=` → `{items,total,page,pageSize}` (default 50, max 500, come l'app reale); **client-side** per le liste piccole (**Partner, Valet, Categorie, Servizi, Operatori**), che sono ≤243 record e servono soprattutto come tendine nei form. La ricerca è sempre in **AND con il filtro di ruolo** (un partner che cerca il nome di un altro partner non vede nulla) e l'ordinamento accetta solo campi in **whitelist**. ⚠️ In SQLite (dev) la ricerca è già case-insensitive; su **PostgreSQL** servirà `mode: 'insensitive'`.
+> - 17/07/2026 (3) — **Fix: svuotare una collezione in modifica ora la cancella davvero**. I form inviavano array/oggetti solo se non vuoti e l'API scrive solo le chiavi presenti: rimuovendo *tutte* le immagini/piattaforme/varianti/campi di un prodotto (o province/servizi/indirizzi di ritiro di un partner, servizi/liste team leader di un valet, campi/sconti di una categoria, prodotti di una consegna) i vecchi valori **restavano**. Ora, **in modalità modifica**, le collezioni sono inviate sempre — anche vuote (`[]`/`{}`). Regola per i nuovi form: in edit inviare esplicitamente la collezione vuota.
+> - 17/07/2026 (2) — **Nuovo ambiente: convenzione "riga → dettaglio + Modifica" estesa a tutte le anagrafiche**. In **Consegne, Partner, Clienti, Valet, Prodotti, Categorie, Servizi, Operatori** il **click sulla riga apre il dettaglio** (`/<sezione>/:id`, anche da tastiera con Tab+Invio) e la colonna **Azioni** ha il bottone **Modifica** (`/<sezione>/:id/edit`), che **riusa il form di creazione** in modalità modifica (precompilato, salva in PUT/PATCH, niente "Duplica"). Nuove pagine di dettaglio per tutte le sezioni. **Sezione Clienti creata da zero** (prima era solo uno stub): lista, form, dettaglio con le consegne del cliente. **API aggiunte perché mancanti**: `GET/PUT /categories/:id`, `GET/PUT /service-types/:id`, `GET /operations/:id`; `GET /customers/:id` ora include le consegne. Nota: gli operatori si aggiornano con **PATCH**, le altre sezioni con **PUT**.
+> - 17/07/2026 — **Nuovo ambiente: azioni di riga delle Consegne implementate**. **MODIFICA**: form di modifica (rotta `deliveries/:id/edit`, riusa il form di creazione, salva in PUT); la regola del partner è applicata **lato server** (solo `created` e servizio ≠ VENDITA) — prima `PUT /deliveries/:id` era riservato ad Admin/Operation. **ASSEGNA**: pop-up con i valet che hanno abilitata la provincia della consegna (provincia dedotta dall'indirizzo); usa `PATCH /deliveries/:id/assign`. **ADDITIONAL VALET +/-**: pop-up per il plus/minus immediato sulla paga (`valetAdditionalPrice`). **MONITORARE**: link pubblico `/tracking/<token>` (token opaco su `Delivery.trackingToken`, endpoint `@Public()`), che espone **solo** codice, stato, data, fascia, nome del destinatario, partner, nome valet e log — niente indirizzo, contatti, note o importi. **Fix**: `update()` ora salva anche **prodotti** e indirizzi di ritiro (prima venivano scartati); `AssignValetDto.valetId` non aveva decoratore di validazione e veniva scartato dal ValidationPipe (l'assegnazione andava in errore 500).
+> - 16/07/2026 (11) — **Consegne, semantica dei bottoni di riga** (chiarita dall'utente): **MODIFICA** apre la consegna in modifica; **ASSEGNA** apre un **pop-up con i valet che hanno abilitata la provincia** della consegna; **MONITORARE** apre un **link pubblico** di monitoraggio della consegna; **ADDITIONAL VALET +/-** dà **subito un plus o minus al valet** — **correzione**: il doc lo descriveva erroneamente come "aggiunta/rimozione valet extra". Nel nuovo ambiente il bottone DETTAGLI è sostituito dal **click sulla riga**.
+> - 16/07/2026 (10) — **Consegne, permessi dei bottoni di riga** (regola di business dall'utente): **Admin** tutti i bottoni; **Partner** solo **MODIFICA**, finché la consegna è **in rosso** (stato *Da gestire*/`created` secondo la legenda colori dell'app reale) e solo su consegne **non di tipo servizio "vendita Deluxy"**; **Valet** solo **DETTAGLI**. Nota: nel nuovo ambiente la legenda colori era diversa dall'app reale (vedi §3.1) — allineata.
+> - 16/07/2026 (9) — **Nuovo ambiente, form Prodotto allineato all'app reale**: tipo prodotto ora come **flag** (*Prodotto unico* + *Super prodotto*) invece del select; **partner aggiuntivi** mostrati solo se *Visible to other partners* è attivo; **Plus del prodotto obbligatorio**; hint *Linea* (valori separati da `;`); **galleria immagini** (URL multipli, prima = principale) e **descrizione per piattaforma**; **varianti ricche** — ogni variante ha Nome\*, **SKU manuale**, Giorni prep., Prezzo, Prezzo pubblico, Controlla stock/Giacenza. Backend: nuovi campi `ProductVariant` (publicPrice, sku, prepDays, controlStock, stock) e `Product` (images, platformDescriptions) + migrazione. La *sincronizzazione immagini su Shopify* resta uno stub (richiede integrazione Shopify).
+> - 16/07/2026 (8) — **Form prodotto reale, comportamento verificato live** (app.deluxy.it): confermato il "reveal" delle checkbox — *Visible To Other Partners* mostra il selettore **partner aggiuntivi**; *Super Prodotto* mostra il selettore **prodotti componenti**; *ha varianti?* mostra **titolo opzione + varianti**, dove **ogni variante** ha Nome\*, **SKU\* manuale**, Giorni preparazione, Prezzo, Prezzo pubblico, Controlla stock proprio. Nel form reale *Partner* è un select singolo e *Linea* accetta più valori separati da `;`.
+> - 16/07/2026 (7) — **Prodotti, altri campi** (chiarito dall'utente): **Nome alternativo del prodotto** = il nome che il **partner vede in Consegne** (col flag *Usa nome alternativo*); **Visible to other partners** = rende visibile il prodotto a un **altro partner anche se è il prodotto unico di un altro partner** (utile per il **Corporate Service**); **Super Prodotto** = il **flag** basta e indica un **prodotto combinato**. Resta da confermare il **comportamento** del flag *Varianti del prodotto*.
+> - 16/07/2026 (6) — **Prodotti, semantica campi** (chiarita dall'utente, prima mancante nel doc): **Super Provincia** = il prodotto in vendita viene proposto a un **partner specifico** con una **% di scontistica calcolata per provincia**; **Not physical** = si abbina a **Shopify** e indica che il prodotto **non ha stock** (nemmeno su Shopify); **Non modificabile** = i **partner non possono modificarlo**; **Linea** = la **linea del prodotto**.
+> - 16/07/2026 (5) — **Multilingua**: la piattaforma è ora multilingua (ngx-translate). Aggiunta la lingua **Inglese** oltre all'Italiano; **selettore lingua con bandierine** (SVG) fisso **in alto a destra**, disponibile anche nella pagina di login; la scelta è persistita (`localStorage`, default Italiano). Tradotti al momento shell/menu e login; le altre schermate si traducono in modo incrementale (chiavi in `web/public/i18n/it.json` + `en.json`). Inoltre nel **form consegna** nuovo flag **"Salva come nuovo cliente in Clienti"**: alla creazione, se il destinatario è nuovo, viene prima salvato in Clienti e poi creata la consegna collegata.
+> - 16/07/2026 (4) — Form **Valet**: province di competenza e sezione **Team leader** ora usano un **menu a tendina "aggiungi"** (fra tutte le province/partner) con **chip rimovibili** invece della griglia di chip; aggiunta la lista **Partner esclusi** dallo scope del team leader (nuovo campo `teamLeaderExcludedPartners`, con migrazione). Un partner non può essere insieme associato ed escluso.
+> - 16/07/2026 (3) — Form **Servizio** e **Valet**: nel Servizio, **Ora minima/massima di inserimento** sono ora **tendine (00:00–23:00)**. Nel Valet: **Luogo e Data di nascita sempre visibili**; con **Partita IVA** attiva compare **solo la P.IVA** (spariscono CF e % ritenuta); **senza** P.IVA compaiono **CF\*** e **% ritenuta**; l'**IBAN** è spostato nella sezione **Stipendio**. Documentati: *Partner magazzino* = il cliente ha lo stock dei propri prodotti monitorato; *% ritenuta* = % di rimborso spese per ricevuta fiscale sul totale dei servizi effettuati. (Categorie partner e province partner/valet sono già a **selezione multipla** a chip.)
+> - 16/07/2026 (2) — Form consegna, **ordine e dipendenze dei campi**: 1) **Servizio** è il primo campo; 2) **Indirizzo destinatario** è il secondo; 3) la **Data consegna** ha come minimo (e default) **oggi + giorni di preavviso** del servizio. Inserito l'indirizzo, il sistema rileva la **provincia** e mostra **solo i partner e i valet con quella provincia abilitata**; inoltre — **novità di questo sviluppo** — mostra **solo i partner che hanno abilitato quel tipo di servizio**. (Nel nuovo ambiente la provincia è dedotta dal testo dell'indirizzo — codice tipo `(MI)`, nome provincia o città; nell'app reale è geocodificata via Google Maps.)
+> - 16/07/2026 — Form consegna, **fascia oraria di consegna a tendina**: quando la consegna **non** è flessibile si sceglie una **fascia predefinita** da un menu a tendina invece di un orario libero. Le fasce vanno da **Ora minima** a **Ora massima** del servizio (default **06:00–22:00**) con durata = **Fascia oraria** del servizio (`slotHours`, default 1 ora). La consegna mostra il flag "flessibile" **solo se il servizio lo consente** (nuovo campo servizio `allowFlexibleTime`); il **ritiro** resta sempre con orario flessibile opzionale e fascia automatica di 1 ora.
+> - 15/07/2026 (4) — Form consegna, sezione **Gestione dell'ordine**: ogni prodotto mostra il **prezzo** e ha un flag **Prezzo flessibile** che ne consente la modifica (precompilato col prezzo base). Il prezzo override è salvato sulla riga della consegna (`DeliveryProduct.price` + `flexiblePrice`).
+> - 15/07/2026 (3) — Form consegna: le fasce orarie di **consegna e ritiro** mostrano i campi **dalle–alle** solo se il flag "flessibile" è spuntato; altrimenti si sceglie un solo orario e la fascia è **automaticamente di 1 ora** (es. 10:00 → 10:00–11:00).
+> - 15/07/2026 (2) — allineamento form all'app reale campo-per-campo: **Prodotto** (varianti con prezzo/SKU, multi-partner PRODUCTS PARTNER, piattaforme, controlla stock, non modificabile, super provincia, nome alternativo); **Partner** (PEC, promemoria attività, tipo codice consegna UNIQUE_PER_DELIVERY/CUSTOMER, KM inclusi/extra fuori città a livello partner); **Consegna** (Vendita Deluxy, prezzo flessibile, Valet Servizio, toggle Da fatturare/Da pagare, n° telefono SMS, file DDT).
+> - 15/07/2026 — nuovo ambiente: form Categorie e Prodotti (con AI prompt, campi extra, sconti provincia, tipo/componenti); menu con sezione Prodotti e sezione Utenti; ruoli operatore (Operation/Finance/Project Manager/Customer Service). **Convenzioni nuovo ambiente**: ogni form di creazione ha un tasto **Duplica** (salva e mantiene i valori per un nuovo record); lo **SKU prodotto è generato automaticamente** (`DXY-NNNNN`, rigenerato a ogni creazione/duplicazione).
+> - 14/07/2026 — chiarita la semantica del codice di consegna (`UNIQUE_PER_DELIVERY` = OTP per consegna reinviabile dal valet; `UNIQUE_PER_CUSTOMER` = codice fisso tipo PIN, rigenerabile dalla boutique in Customers); ritiro multiplo (scelta dell'indirizzo in fase di consegna); KM inclusi = dentro il comune / extra fuoricittà = fuori dal comune, verificato all'inserimento consegna.
 
 ---
 
@@ -17,6 +39,7 @@
 - **Autenticazione**: JWT (Bearer token) con ruoli nel payload (`admin`, `expert`, `partner`, `operation`); endpoint `/api/auth`, `/api/users/me`.
 - **Integrazioni attive rilevate**: Google Maps (geocoding/mappe), Stripe (pagamenti), Qonto (banking, da Profilo), Web Push Notification (`/api/web-push-notification`), SMS, WhatsApp, WooCommerce (plugin `deluxy-send-order`), Shopify (prodotti e piattaforme di vendita). **[NUOVO]**
 - **Endpoint API osservati**: `/api/users/me`, `/api/auth/<token>`, `/api/experts/delivery/experts`, `/api/web-push-notification/count/:id`. Il ruolo "valet" nelle API si chiama **"expert"**.
+- **[NUOVO — nuovo ambiente] Multilingua**: il nuovo frontend è internazionalizzato con **ngx-translate**. Lingue attive: **Italiano** (default) e **Inglese**. Selettore a bandierine in alto a destra, scelta persistita in `localStorage`. File di traduzione: `web/public/i18n/{it,en}.json`. Le stringhe si migrano alle chiavi in modo incrementale.
 
 ### Limiti attuali e strategia
 
@@ -35,6 +58,12 @@ Ruoli disponibili: **Admin** (solo alcuni admin — es. "support" — abilitati 
 | **Valet (Expert)** | Consegne, Activities, dati Partner e Valet (disponibilità orari), Disponibilità, Stipendi, Regole Valet, Pagamenti, Ricevute. |
 | **Operation** | Consegne, Activities, Partner (+aggiunta), Valet (+aggiunta), Customers (+aggiunta), Prodotti (+aggiunta), Modelli SMS (+aggiunta), Vendita, Cakes Order Product, Province & Cities. |
 
+**Sotto-ruoli operatore** (impostati alla creazione dell'operatore, controllano la visibilità delle sezioni del menu): **[NUOVO]**
+- **Operation** (base): vede la sezione Operatività; non vede Amministrazione.
+- **Finance**: vede **anche** la sezione Amministrazione (Stipendi, Pagamenti, Regole, Finanza).
+- **Project Manager**: **non** vede la sezione Operatività (Consegne, Attività, Vendite).
+- **Customer Service**: **non** vede la sezione Amministrazione.
+
 **Stati utente** (pagina Utenti): Attivo, Disattivo, Da convalidare, Sconosciuto. Ruolo assegnabile in linea: nessuno / admin / expert / partner / operation.
 
 **Dati attuali rilevati**: 550 utenti registrati, 243 partner, ~57 valet attivi in lista, 14 membri Operation, 4.092 customers, 8.503 prodotti.
@@ -51,7 +80,19 @@ Menu principale: **CONSEGNE · ACTIVITIES · PARTNER · VALET · UTENTI · PRODO
 - Legenda stati (colori): Da gestire (rosso), In gestione (giallo), In consegna (viola), In preparazione (arancione), Accettata (blu), Richiedi Annullamento (azzurro).
 - Colonne della lista: Stato, Vendita, Platform, ID, Original Consegna, Data, Orario, Partner, Valet, Indirizzo, Ora Ritiro, Tipo Servizio, Da Fatturare, Da Pagare, Azioni.
 - Filtri per colonna: stato (`created`/`assigned`/`delivering`/`inPreparation`/`accepted`/`requestCancellation`), piattaforma vendita (Deluxy=`shopifysale`, Cakes=`cakesales`, Flowers=`flowerssales`, Deluxy Experience=`deluxyexperiencesales`, Deluxy Dot Com=`deluxydotcomsales`), ID, date da/a, orari da/a, partner, valet, indirizzo, ora ritiro da/a, tipo servizio (`sales`/`hourlyrate`/`fixedprice`/`corporate`/`warehouseservice`), da fatturare Sì/No, da pagare Sì/No. Paginazione 10–500 elementi.
-- Azioni per riga: DETTAGLI, MODIFICA, ASSEGNA, MONITORARE, **ADDITIONAL VALET +/-** (aggiunta/rimozione valet extra su una consegna). **[NUOVO]**
+- Azioni per riga: DETTAGLI, MODIFICA, ASSEGNA, MONITORARE, **ADDITIONAL VALET +/-**. **[NUOVO]**
+- **Cosa fa ogni bottone** (chiarito dall'utente): **[NUOVO]**
+  - **DETTAGLI**: apre il dettaglio della consegna.
+  - **MODIFICA**: apre la consegna **in modifica**.
+  - **ASSEGNA**: apre un **pop-up con la lista dei valet che hanno abilitata quella provincia** (la provincia della consegna).
+  - **MONITORARE**: apre un **link pubblico** dove è possibile **monitorare la consegna** (tracking accessibile senza login).
+  - **ADDITIONAL VALET +/-**: permette di dare **subito un plus o minus al valet** (rettifica economica sulla paga del valet). *(Correzione: in precedenza il doc lo descriveva come "aggiunta/rimozione valet extra" — non è così.)*
+- **Permessi sui bottoni di riga, per ruolo** (regola di business): **[NUOVO]**
+  - **Admin**: **tutti** i bottoni.
+  - **Partner**: può usare **MODIFICA** solo **finché la consegna è "in rosso"** — cioè nello stato **Da gestire** (`created`), secondo la legenda colori dell'app reale — e **solo sulle consegne che non sono di tipo servizio "vendita Deluxy"**.
+  - **Valet**: solo **DETTAGLI**.
+  - **Convenzione nuovo ambiente**: il bottone **DETTAGLI** non esiste — il dettaglio si apre **cliccando la riga** della consegna (per tutti i ruoli che vedono la lista). I bottoni restano solo per le azioni (Modifica, Assegna, Monitorare, Additional valet). **[NUOVO]**
+- **Vista team leader in Consegne**: un valet **team leader** può, in questa schermata, **vedere tutte le consegne (delle sue province) oppure filtrare per vedere solo le proprie** — ha un filtro "tutte / solo le mie". Un valet normale vede solo le proprie. **[NUOVO]**
 
 #### Dettaglio consegna (`/consegne/:id`)
 
@@ -64,7 +105,14 @@ Menu principale: **CONSEGNE · ACTIVITIES · PARTNER · VALET · UTENTI · PRODO
 
 Data consegna\* · Indirizzo destinatario · Partner · Servizio\* · Fascia oraria consegna (+flag flessibile) · Fascia oraria ritiro\* (+flag flessibile) · Prodotto, quantità, prezzo flessibile · Vendita Deluxy · Valet · Valet Servizio · Stato consegna · Stato del pagamento · SMS telefonici · Pagamento alla consegna (+prezzo contanti) · Prova e reso del prodotto · Customer esistente (CHOOSE EXISTING CUSTOMER) o SAVE CUSTOMER · Cognome/Nome destinatario\* · Citofono\* · Telefono/Email destinatario · Cognome/Nome/Telefono mittente · DA FATTURARE (indirizzo di ritiro, prezzo, plus prezzo) · DA PAGARE (valet salario, plus/minus) · Numero DDT + file DDT · Note · PERSONALIZZAZIONE · Note interne · CODICE DI CONSEGNA RICHIESTO.
 
-**Regole**: obbligatori giorno, servizio, orario ritiro, nome e cognome destinatario, indirizzo, citofono, prodotto. In base all'indirizzo vengono proposti i partner della provincia. La fascia minima per servizi orari è 1 ora. Il sistema associa automaticamente il tipo servizio partner al salario valet (fisso↔fisso, ora↔ora, vendita↔fisso). Con SMS telefonici parte il messaggio secondo i Modelli SMS (creata/partita/arrivata). Prodotti del partner mostrati per primi in grassetto. Per prezzo fisso: calcolo automatico distanza ritiro→consegna con extra KM per il partner e rimborsi valet. Consegne con stesso DDT: più ritiri in Activities, una sola consegna. Note interne visibili solo ad Admin/Operation/Valet.
+**Ordine e dipendenze dei primi campi (nuovo ambiente)**: **[NUOVO]**
+1. **Servizio** è il primo campo: determina il preavviso e le fasce orarie di consegna.
+2. **Indirizzo destinatario** è il secondo campo (obbligatorio): da esso si deduce la **provincia**.
+3. **Data consegna**: minimo e default = **oggi + giorni di preavviso** (`noticeDays`) del servizio.
+4. **Partner**: mostrati **solo i partner con la provincia dell'indirizzo abilitata E che hanno abilitato il tipo di servizio scelto** (il filtro per tipo di servizio è una novità del nuovo ambiente). Il **Valet** è filtrato per la sola provincia dell'indirizzo. Se la selezione precedente esce dal filtro, viene azzerata; se nessun partner soddisfa i criteri, un avviso lo segnala.
+5. **Fascia oraria di consegna**: se il servizio **non** consente l'orario flessibile (o il flag è disattivo) si sceglie una **fascia predefinita a tendina** (da `minOrderTime` a `maxOrderTime`, default 06:00–22:00, durata = `slotHours`); se consentito e attivo, si indica una fascia libera **dalle–alle**. Il **ritiro** ha sempre il flag flessibile opzionale con fascia automatica di 1 ora.
+
+**Regole**: obbligatori servizio, indirizzo, data (≥ oggi + preavviso), orario ritiro, nome e cognome destinatario, citofono, prodotto. In base all'indirizzo vengono proposti i partner della provincia (e del tipo di servizio); nell'app reale la provincia è geocodificata via Google Maps, nel nuovo ambiente è dedotta dal testo dell'indirizzo (codice tipo `(MI)`, nome provincia o città). La fascia minima per servizi orari è 1 ora. Il sistema associa automaticamente il tipo servizio partner al salario valet (fisso↔fisso, ora↔ora, vendita↔fisso). Con SMS telefonici parte il messaggio secondo i Modelli SMS (creata/partita/arrivata). Prodotti del partner mostrati per primi in grassetto. Per prezzo fisso: calcolo automatico distanza ritiro→consegna con extra KM per il partner e rimborsi valet. Consegne con stesso DDT: più ritiri in Activities, una sola consegna. Note interne visibili solo ad Admin/Operation/Valet.
 
 **Problemi di salvataggio**: verificare numero di caratteri dei telefoni, validare l'indirizzo, verificare presenza prodotto, controllare il messaggio di errore in fondo al form.
 
@@ -86,17 +134,23 @@ Filtri pagamento: metodo (**Bank Transfer / Credit Card / Direct Debit Mandate**
 
 - **Personal information**: Nome (insegna)\*, E-mail\*, Partita IVA, Codice Fiscale, Indirizzo\*, Telefono\*, Cognome/Nome referente\*, Azienda (ragione sociale).
 - **Partner Provincia**: elenco province abilitate (es. MI, RM, CO, MB, LO, VA, BG, NO, PV, PC, CR, BS, LC) + AGGIUNGI PROVINCIA. Nelle consegne saranno selezionabili solo i partner con la provincia abilitata; i prodotti unici vengono caricati automaticamente.
-- **Servizio**: elenco servizi abilitati con SERVIZIO PREZZO ed EXTRA KM PREZZO per servizio, più KM INCLUDED (soglia senza sovrapprezzo per i prezzi fissi) ed EXTRA FUORICITTÀ PREZZO.
+- **Servizio**: elenco servizi abilitati con SERVIZIO PREZZO ed EXTRA KM PREZZO per servizio, più **KM INCLUDED** ed **EXTRA FUORICITTÀ PREZZO**. Significato confermato: **[NUOVO]**
+  - **KM INCLUDED** → si applica alle consegne **all'interno dello stesso comune**: è la soglia di KM inclusi senza sovrapprezzo (per i servizi a prezzo fisso).
+  - **EXTRA FUORICITTÀ PREZZO** → è il **costo per consegne fuori dal comune**; il controllo comune/fuori-comune viene fatto **all'inserimento di una nuova consegna**.
 - **Categorie di prodotti** venduti dal partner.
 - **Notifiche**: possibilità di inviare SMS, notifiche WhatsApp, notifiche mail.
-- **Pagamenti e contratto**: periodo di validità del contratto (date), metodo di pagamento (bonifico/carta/SDD), conto bancario, nome del conto, CODICE SDI, stato del pagamento (Active/Inactive/Blocked). **[NUOVO]**
-- **Fatturazione & Actions**: mail fatturazione + flag ABILITA FATTURAZIONE.
-- **Indirizzo di ritiro multiplo**: flag per partner con più punti di ritiro. **[NUOVO]**
-- **Campi di vendita**: URL del negozio + immagine. **[NUOVO]**
-- **Sicurezza**: VERIFICA DELL'IDENTITÀ VALET e CODICE DI CONSEGNA RICHIESTO impostabili a livello partner. **[NUOVO]**
-- **Partner Magazzino**: flag che qualifica il partner come magazzino. **[NUOVO]**
+- **Pagamenti e contratto**: periodo di validità del contratto (`startContractDate`/`endContractDate`), metodo di pagamento (bonifico/carta/SDD), conto bancario (IBAN), nome del conto, CODICE SDI, stato del pagamento (Active/Inactive/Blocked). **[NUOVO]** Le date contratto alimentano un job notturno (cron `checkingPartnerContract`, 03:00) che avvisa alla scadenza del contratto (flag `contractExpiryNotificationSent`). **[NUOVO — da codice backend]**
+- **Fatturazione & Actions**: mail fatturazione (`billingEmail`) + flag ABILITA FATTURAZIONE (`billingAccess`).
+- **Indirizzo di ritiro multiplo**: flag `isMultiplePickUpAddress`; quando attivo il partner ha una **lista di indirizzi di ritiro** (`pickupAddresses`, array) e **al momento della creazione della consegna si sceglie da quale indirizzo ritirare**. **[NUOVO]**
+- **Campi di vendita**: URL del negozio (`partnerShopUrl`) + immagine (`saleImage`), usati nella presentazione delle vendite. **[NUOVO]**
+- **Sicurezza**: VERIFICA DELL'IDENTITÀ VALET (`checkExpertIndentity`) e CODICE DI CONSEGNA RICHIESTO (`deliveryCodeCheck`) impostabili a livello partner. Il codice ha un **tipo** (`deliveryCodeCheckType`): **[NUOVO]**
+  - `UNIQUE_PER_DELIVERY` (default): un **codice OTP diverso per ogni consegna**, inviato al cliente alla creazione della consegna; il valet può **reinviarlo** in fase di consegna.
+  - `UNIQUE_PER_CUSTOMER`: un codice **fisso per il cliente** (come il PIN di una carta), assegnato una volta e valido per sempre; il cliente può chiederne la **rigenerazione** alla boutique tramite la sezione Customers dell'app (sui clienti della boutique).
+- **Partner Magazzino**: flag `partnerHasWarehouse` che qualifica il partner come magazzino. **Significa che il cliente ha lo stock dei propri prodotti monitorato** (gestione delle giacenze dei suoi prodotti in magazzino). **[NUOVO]**
 - **WooCommerce API key**: GENERATE KEY / COPY KEY per collegare il plugin deluxy-send-order.
 - **Documentazione e note**. Bottoni: SALVA e DUPLICA.
+
+> **Note tecniche (da entità `partner.entity.ts`):** il campo NOME* corrisponde a `businessName` (l'insegna) mentre AZIENDA è un campo separato `agency` (ragione sociale). Indirizzo, `city`, `latitude`/`longitude` vengono geocodificati automaticamente. Oltre ai valori per-servizio esistono anche `kmIncluded` ed `extraOutSideCityKmPrice` **a livello di partner** (soglia KM inclusi e prezzo extra fuori città globali). Le 3 notifiche sono `sendSms` / `receiveWhatsappMsg` / `receiveEmailMsg`.
 
 #### Sottosezioni Partner
 
@@ -115,12 +169,18 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 
 #### Scheda valet (campi completi, verificati)
 
-- **Personal information**: Cognome\*, Nome\*, E-mail\*, Telefono\*, Indirizzo\*, flag PARTITA IVA (con Partita IVA\* e Codice Fiscale\*), luogo e provincia di nascita, data di nascita, coordinate bancarie (IBAN), Percentuale Ritenuta.
-- **Salary Frequency Setting**: frequenza dello stipendio\* e limite di deposito settimanale. **[NUOVO]**
-- **Team Leader**: flag + province in cui può vedere/assegnare consegne in autonomia; associazione PARTNERS.
-- **Valet Province**: province in cui opera.
-- **Servizi**: per ogni servizio abilitato, Servizio Salario ed Extra Km/€, Minimum KM Included, EXTRA FUORICITTÀ PREZZO.
-- **Notifiche** WhatsApp / Mail; **Mezzo** (Auto, Bicicletta, Furgone, Moto/Scooter); Note.
+- **Personal information**: Cognome\*, Nome\*, E-mail\*, Telefono\*, Indirizzo\*, **Luogo di nascita (e provincia)** e **Data di nascita** (sempre visibili), flag **Partita IVA**. **Regola form nuovo ambiente**: **[NUOVO]**
+  - con **Partita IVA** attiva si mostra **solo il campo P.IVA\*** (il valet fattura: niente CF né ritenuta in questa sezione);
+  - **senza Partita IVA** si mostrano **Codice Fiscale\*** e **Percentuale Ritenuta (%)** (ricevuta con ritenuta d'acconto).
+  - Le **coordinate bancarie (IBAN)** stanno nella sezione **Stipendio** (non più tra i dati fiscali).
+  - **`% Ritenuta`** = **percentuale di rimborso spese per la ricevuta fiscale sul totale dei servizi effettuati** dal valet. **[NUOVO — chiarimento utente]**
+- **Salary Frequency Setting**: frequenza dello stipendio\* (`salaryFrequency`: MENSILE / SETTIMANALE) e limite di deposito settimanale (`weeklyDepositLimit`). **[NUOVO]**
+- **Team Leader**: flag `isTeamLeader`; quando attivo si impostano le **PROVINCE** in cui il team leader può vedere/assegnare consegne in autonomia, i **PARTNERS associati** e — **[NUOVO]** — i **PARTNER ESCLUSI** dal suo scope (`teamLeaderExcludedPartners`): il team leader gestisce i partner delle sue province **tranne** quelli esclusi. Un partner non può essere insieme associato ed escluso.
+- **Valet Province**: province in cui il valet opera (distinte da quelle del team leader).
+- **Selezione province/partner (nuovo ambiente)**: province di competenza, province e partner del team leader (inclusi/esclusi) si scelgono da un **menu a tendina "aggiungi"** tra **tutte** le voci disponibili; le voci scelte restano come **chip rimovibili** (scala con 108 province / 243 partner). **[NUOVO]**
+- **Servizi**: per ogni servizio abilitato, Servizio Salario ed Extra Km/€; per i **servizi magazzino** anche **SALARY PER ITEM** (salario a pezzo). A livello valet: **Minimum KM Included** (soglia entro il comune) ed **EXTRA FUORICITTÀ PREZZO** (rimborso per consegne fuori dal comune). **Regola:** si può selezionare **un solo servizio a ora e un solo servizio a prezzo fisso** per valet. **[NUOVO]**
+- **Notifiche**: solo **WhatsApp** e **Mail** (il valet **non** ha l'opzione SMS, a differenza del partner); **Mezzo** (Auto, Bicicletta, Furgone, Moto/Scooter, selezione singola); Note.
+- **Note tecniche** (da `expert.entity.ts`): il valet nei sistemi è `Expert`; anagrafica (nome/cognome/email) sta sulla relazione `user`; la % ritenuta è `holdingPercentage`; le coordinate bancarie `bankAccountData`; `minimumKmIncluded` ed `extraOutSideCityKmPrice` sono a livello valet; indirizzo geocodificato (`city`, `latitude`/`longitude`).
 
 #### Sottosezioni Valet
 
@@ -136,8 +196,13 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 ### 3.5 Utenti / Operation / Customers
 
 - **Utenti** (`/utenti`): 550 utenti; colonne ID, Email, Cognome, Nome, Ruolo (nessuno/admin/expert/partner/operation, modificabile in linea), Attivo (Attivo/Disattivo/Da convalidare/Sconosciuto), Elimina. Visibile solo ad Admin. Qui si attivano gli utenti appena registrati e si trasformano in Admin.
-- **Operation** (`/operation`): staff d'ufficio (14 persone): Cognome, Nome, Email, Telefono, Attivo + AGGIUNGI.
-- **Customers** (`/customers`): 4.092 clienti; colonne: ID, Owner (Admin/Operation/Partner), Partner, Cognome, Nome, Email, Data nascita, Citofono, Telefono, Indirizzo, Note. Azioni: DELIVERY (crea consegna dal cliente), MODIFICA, ELIMINA; AGGIUNGI, ESPORTA, IMPORTARE, formato CSV.
+- **Operation** (`/operation`): staff d'ufficio (14 persone): Cognome, Nome, Email, Telefono, Attivo + AGGIUNGI. **Form "Nuovo Operation"**: Cognome\*, Nome\*, E-mail\*, Telefono\*, Indirizzo\*; notifiche WhatsApp/Mail; **Ruolo operatore**; Note. **[NUOVO]**
+  - **Ruolo operatore** (controlla la visibilità delle sezioni del menu): **[NUOVO]**
+    - `operation` (base): vede la sezione **Operatività**, non **Amministrazione**.
+    - `finance`: vede **anche la sezione Amministrazione** (Stipendi, Pagamenti, Regole, Finanza).
+    - `project_manager`: **non vede la sezione Operatività** (Consegne, Attività, Vendite).
+    - `customer_service`: **non vede la sezione Amministrazione**.
+- **Customers** (`/customers`): 4.092 clienti; colonne: ID, Owner (Admin/Operation/Partner), Partner, Cognome, Nome, Email, Data nascita, Citofono, Telefono, Indirizzo, Note. Azioni: DELIVERY (crea consegna dal cliente), MODIFICA, ELIMINA; AGGIUNGI, ESPORTA, IMPORTARE, formato CSV. Da questa sezione la boutique può **rigenerare il codice di consegna "fisso" del cliente** quando il partner usa `deliveryCodeCheckType = UNIQUE_PER_CUSTOMER` (vedi 3.3 Sicurezza). **[NUOVO]**
 
 ### 3.6 Prodotti (`/prodotti`)
 
@@ -145,10 +210,13 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 - Bottoni: AGGIUNGI, ESPORTA, IMPORTARE, SCARICA IL FORMATO CSV, ELIMINAZIONE MULTIPLA (+SELEZIONA TUTTI), selettore stato Attivo/Disattivo.
 - Colonne/filtri: ID, Foto, Nome, Variante SKU, Categoria, Prezzo, Prezzo Pubblico, Stock, Partner, SKU, Super Prodotto Sì/No, Super Provincia Sì/No, Prodotto Unico Sì/No, Approvato Sì/No, In Magazzino Sì/No, Attivo.
 - Tipi di prodotto: **unici** (di un partner), **non-unici** (es. fiori), **superprodotti** (combinazioni di più prodotti). Flag "Visible to other partners" per rendere visibili i prodotti unici ad altri partner. Admin/Operation aggiungono qualsiasi prodotto; ogni partner carica i propri come unici.
+- **Form "Nuovo prodotto"** (verificato campo-per-campo): sezioni **DETTAGLI** (Nome\*, Partner, Categoria\*, SKU, Giorni Preparazione, **Plus del prodotto** max 80\*, Descrizione rich text, Prezzo, Prezzo pubblico, Linea, Immagine; flag Non modificabile, Prodotto unico), **INVENTORY MANAGEMENT** (Controlla stock, Nome alternativo + Usa nome alternativo), **SHOPIFY CONNECTION** (Approvato, Attivo, Not physical, **SELECT PLATFORMS**: Deluxy/Cakes/Flowers/Business/Experience/DotCom + descrizione per piattaforma, image manager), **PRODUCTS PARTNER** (partner aggiuntivi che vendono il prodotto), **SUPER PRODOTTO** (componenti), **PRODOTTO VARIANTI** (flag ha varianti + titolo opzione + varianti con prezzo/SKU), **CAMPI OBBLIGATORI** (campi testuali). **[NUOVO — form prodotto completo, incl. varianti e multi-partner]**
+  - **Significato campi (chiarito dall'utente)**: *Super Provincia* = in vendita il prodotto viene proposto a un **partner specifico** con una **% di scontistica calcolata per provincia**; *Not physical* = si abbina a **Shopify** e indica un prodotto **senza stock** (nemmeno su Shopify); *Non modificabile* = i **partner non possono modificarlo**; *Linea* = la **linea del prodotto**; *Nome alternativo del prodotto* = il nome che il **partner vede in Consegne** (attivo col flag *Usa nome alternativo*); *Visible to other partners* = rende il prodotto visibile a un **altro partner anche se è il prodotto unico di un altro partner** (utile per il **Corporate Service**); *Super Prodotto* = il **flag** è sufficiente e indica un **prodotto combinato** (composto da più prodotti).
+  - **Comportamento checkbox (verificato live sul form reale)**: le sezioni con "reveal" mostrano campi aggiuntivi solo quando il flag è attivo. **Visible To Other Partners** → compaiono **PARTNER + AGGIUNGI PARTNER** (selettore partner aggiuntivi che vendono il prodotto). **Super Prodotto** → compaiono **PRODOTTI + AGGIUNGI PRODOTTO** (componenti del prodotto combinato). **Il prodotto ha varianti? [SI]** → compaiono **NOME OPZIONE** (titolo opzione) + **AGGIUNGI VARIANTI**; ogni variante ha: **Nome variante\***, **SKU variante\* (manuale, non auto)**, **Giorni preparazione**, **Prezzo**, **Prezzo pubblico**, **Controlla stock (variante)**, **Rimuovi**. Quindi ogni variante è di fatto un mini-prodotto con prezzo/SKU/stock propri. Altri dettagli reali: **Partner** in DETTAGLI è un **select singolo**; **Linea** accetta **più valori separati da `;`**; i nomi campo interni sono `visibleToOtherPartners`, `isSuperProduct`, `isSuperProvinceProduct`, `productHasVariants`, `productOptionTitle`, `variantName`, `variantSku`, `variantGgDispMin`, `variantPrice`, `variantShopifyPrice`, `controlVariantStock`.
 
 #### Sottosezioni Prodotti
 
-- **Categorie** (`/product/categoria`): 63 categorie (es. Fiori, Fiori Classici, Fiori d'Arte, Torte, Dolci, Box Regalo, Cappelliere, Palloncini, Accessori, B2B Colazione/Break/Lunch/Aperitivo, Ghirlande, Abbonamento Fiori, Regalistica Natale…). Per categoria: % di sconto per provincia (genera automaticamente prodotti scontati) e campi testuali obbligatori / opzionali / solo Admin.
+- **Categorie** (`/product/categoria`): 63 categorie (es. Fiori, Fiori Classici, Fiori d'Arte, Torte, Dolci, Box Regalo, Cappelliere, Palloncini, Accessori, B2B Colazione/Break/Lunch/Aperitivo, Ghirlande, Abbonamento Fiori, Regalistica Natale…). **Form "Nuova categoria"** (verificato): Nome\*, Note, **AI Prompt** (per generazione AI, es. torte), **Extra fields** (nome campo + tipo: Opzionale / Obbligatorio / solo Admin), **Province discounts** (provincia + % di sconto → genera automaticamente prodotti scontati arrotondati a 0/5). **[NUOVO — AI Prompt e Note sul form categoria]**
 - **Prodotto Collections** (`/collections`): collezioni shop per provincia: Collection Name, Handle (es. `province-products/rm`), Descrizione, Provincia, Codice provincia, Categoria prodotto. **[NUOVO]**
 - **Cakes Order Product** (`/cake/orders`): torte acquistate e realizzate con l'AI (8 presenti) con foto.
 
@@ -232,6 +300,26 @@ Tab SHOPIFY PRODOTTI in Prodotti e piattaforme di vendita collegate (`shopifysal
 ### Altre integrazioni rilevate
 
 Stripe (pagamenti online), Qonto (banking dal Profilo), Google Maps (geocoding, mappa consegne, calcolo distanze), SMS + WhatsApp (notifiche), Web Push (notifiche in app, contatore nell'header).
+
+## 7-bis. Servizi e Calcoli (pricing) — sezione interna
+
+I **servizi** si definiscono in **Amministrazione → Servizi** (nuovo ambiente): nome, tipo, e **destinazione** (Partner / Valet / entrambi). Le **tariffe** si impostano nella scheda del singolo partner/valet. Nell'app reale sono in *Setup → Servizi Partner* (`/servizi`) e *Valet → Servizi Valet* (`/valet/servizi`).
+
+**Setup prenotazione del servizio** (usato al momento della richiesta): **Giorni preavviso** (`noticeDays`, alimenta la data minima consegna = oggi + preavviso), **Fascia oraria** (`slotHours`: 1 / 2 / 4 ore — durata delle fasce di consegna a tendina), **Ora minima di inserimento** (`minOrderTime`) e **Ora massima di inserimento** (`maxOrderTime`). Le due ore delimitano anche la **generazione delle fasce di consegna a tendina** nel form (da min a max, default **06:00–22:00**, passo = fascia oraria). Nuovo flag **Consenti orario di consegna flessibile** (`allowFlexibleTime`): se attivo, nel form consegna compare l'opzione per una fascia libera dalle–alle; se disattivo si può scegliere solo una fascia predefinita. Campi su `ServiceType`: `noticeDays`, `slotHours`, `minOrderTime`, `maxOrderTime`, `allowFlexibleTime`. **[NUOVO]**
+
+Tutte le **formule di prezzo** sono centralizzate nel modulo **`api/src/calculations`** (endpoint `POST /api/v1/calculations/preview`) e consultabili/provabili nella pagina **Amministrazione → Calcoli**.
+
+### Tipi di servizio partner e relativo calcolo
+
+| Tipo | Calcolo del valore |
+|---|---|
+| **Vendita** | Vendiamo un prodotto per il partner trattenendo una nostra %. Nella sezione prodotti il **Valore totale** = Σ (prezzo singolo prodotto × qtà), includendo i prezzi impostati come **flessibili**. |
+| **A prezzo fisso** | Es. servizio di consegna. **In città**: valore servizio + prezzo/km × max(0, distanza − km inclusi). **Fuori città**: prezzo fuori città × distanza. La **distanza** è calcolata via Google Maps tra ritiro e consegna. Il valore è **esposto nel Listino**. |
+| **A ora** | max(1, ore) × prezzo orario (minimo 1 ora, sull'orario di consegna). Valore **esposto nel Listino**. |
+| **Magazzino** | prezzo fisso (`servizio prezzo`) + prezzo a pezzo (`price per product` × qtà) + **prezzo consegna** (nuovo). |
+| **Aziendale (corporate)** | Non è una formula: il sistema **replica la consegna a un altro partner**, trasformando il servizio da *prezzo fisso* a *vendita* (il valore diventa quindi quello di una Vendita per il partner destinatario). |
+
+> Da confermare: nel "prezzo fisso" fuori città, se al costo `prezzo fuori città × distanza` vada sommato anche il valore base del servizio (attualmente non sommato, come da specifica ricevuta).
 
 ## 8. API — note per sviluppatori
 

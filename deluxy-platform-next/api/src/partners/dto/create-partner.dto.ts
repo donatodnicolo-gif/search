@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -97,10 +98,15 @@ export class CreatePartnerDto {
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({ description: 'Referente' })
+  @ApiPropertyOptional({ description: 'Nome referente' })
   @IsOptional()
   @IsString()
   contactName?: string;
+
+  @ApiPropertyOptional({ description: 'Cognome referente' })
+  @IsOptional()
+  @IsString()
+  contactSurname?: string;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
@@ -121,6 +127,77 @@ export class CreatePartnerDto {
   @IsOptional()
   @IsBoolean()
   notificationsEnabled?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Notifiche WhatsApp' })
+  @IsOptional()
+  @IsBoolean()
+  whatsappNotifications?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Notifiche mail' })
+  @IsOptional()
+  @IsBoolean()
+  mailNotifications?: boolean;
+
+  @ApiPropertyOptional({ description: 'IBAN / conto bancario' })
+  @IsOptional()
+  @IsString()
+  bankAccount?: string;
+
+  @ApiPropertyOptional({ description: 'Intestatario del conto' })
+  @IsOptional()
+  @IsString()
+  bankAccountName?: string;
+
+  @ApiPropertyOptional({ description: 'Codice SDI fatturazione elettronica' })
+  @IsOptional()
+  @IsString()
+  sdiCode?: string;
+
+  @ApiPropertyOptional({ description: 'Inizio validita contratto (ISO)' })
+  @IsOptional()
+  @IsString()
+  contractStart?: string;
+
+  @ApiPropertyOptional({ description: 'Fine validita contratto (ISO)' })
+  @IsOptional()
+  @IsString()
+  contractEnd?: string;
+
+  @ApiPropertyOptional({ default: false, description: 'Indirizzo di ritiro multiplo' })
+  @IsOptional()
+  @IsBoolean()
+  isMultiPickup?: boolean;
+
+  @ApiPropertyOptional({ type: [String], description: 'Indirizzi di ritiro aggiuntivi' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  pickupAddresses?: string[];
+
+  @ApiPropertyOptional({ description: 'URL del negozio' })
+  @IsOptional()
+  @IsString()
+  storeUrl?: string;
+
+  @ApiPropertyOptional({ description: 'URL immagine partner' })
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @ApiPropertyOptional({ default: false, description: 'Verifica identita valet richiesta' })
+  @IsOptional()
+  @IsBoolean()
+  valetIdentityCheck?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Codice di consegna richiesto' })
+  @IsOptional()
+  @IsBoolean()
+  deliveryCodeRequired?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Partner magazzino' })
+  @IsOptional()
+  @IsBoolean()
+  isWarehouse?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -153,6 +230,35 @@ export class CreatePartnerDto {
   @IsOptional()
   @IsEnum(PartnerPaymentStatus)
   paymentStatus?: PartnerPaymentStatus;
+
+  @ApiPropertyOptional({ description: 'PEC' })
+  @IsOptional()
+  @IsString()
+  certifiedEmail?: string;
+
+  @ApiPropertyOptional({ default: false, description: 'Promemoria attività' })
+  @IsOptional()
+  @IsBoolean()
+  activityReminder?: boolean;
+
+  @ApiPropertyOptional({ description: 'KM inclusi a livello partner (entro il comune)' })
+  @IsOptional()
+  @IsNumber()
+  kmIncluded?: number;
+
+  @ApiPropertyOptional({ description: 'Extra fuori città a livello partner' })
+  @IsOptional()
+  @IsNumber()
+  extraOutOfCityPrice?: number;
+
+  @ApiPropertyOptional({
+    enum: ['UNIQUE_PER_DELIVERY', 'UNIQUE_PER_CUSTOMER'],
+    default: 'UNIQUE_PER_DELIVERY',
+    description: 'Tipo codice consegna (se deliveryCodeRequired)',
+  })
+  @IsOptional()
+  @IsIn(['UNIQUE_PER_DELIVERY', 'UNIQUE_PER_CUSTOMER'])
+  deliveryCodeCheckType?: string;
 
   @ApiPropertyOptional({ type: [String], description: 'Province abilitate' })
   @IsOptional()
