@@ -64,10 +64,10 @@ const dati = await res.json();
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">API di verifica partner</h1>
+          <h1 className="page-title">API di verifica</h1>
           <p className="page-caption">
-            Altri progetti Deluxy possono chiedere la situazione finanziaria di un partner. Ogni
-            richiesta viene registrata nello storico qui sotto.
+            Altri progetti Deluxy possono chiedere la situazione finanziaria di un partner o lo stato
+            di pagamento di una fattura. Ogni richiesta viene registrata nello storico qui sotto.
           </p>
         </div>
       </div>
@@ -141,6 +141,39 @@ const dati = await res.json();
         <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
           Esiti: <code>200</code> trovato · <code>404</code> non trovato (con eventuali <code>candidati</code>) ·
           <code>401</code> chiave assente/errata · <code>400</code> parametro mancante.
+        </p>
+      </div>
+
+      <h2 className="section-title">Verifica se una fattura è pagata</h2>
+      <div className="card">
+        <p style={{ fontSize: 14, marginBottom: 6 }}>
+          <strong>Endpoint:</strong> <code>GET {BASE_URL}/api/fatture?numero=&lt;numero&gt;</code> (oppure <code>?id=&lt;idFattura&gt;</code>)
+        </p>
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 14 }}>
+          Stessa chiave (<code>X-API-Key</code>). Il numero può essere raggruppato (es. <code>68-69-70/2026</code>):
+          cercando <code>69/2026</code> la trova. Risponde con lo stato di pagamento.
+        </p>
+
+        <div style={{ fontSize: 12.5, color: "var(--text-tertiary)", marginBottom: 4 }}>Esempio curl</div>
+        <pre style={{ background: "var(--bg)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: 14, overflowX: "auto", fontSize: 12.5, lineHeight: 1.5 }}>{`curl -s "${BASE_URL}/api/fatture?numero=181/2026" \\
+  -H "X-API-Key: ${esempioChiave}" -H "X-App: deluxy-mail"`}</pre>
+
+        <div style={{ fontSize: 12.5, color: "var(--text-tertiary)", margin: "14px 0 4px" }}>Risposta (200 se trovata)</div>
+        <pre style={{ background: "var(--bg)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: 14, overflowX: "auto", fontSize: 12.5, lineHeight: 1.5 }}>{`{
+  "trovata": true,
+  "numero": "181/2026",
+  "partner": { "id": "...", "nome": "MAZZETTI D'ALTAVILLA" },
+  "pagata": true,
+  "dataPagamento": "2026-07-15",   // null se non pagata
+  "scaduta": false,
+  "scadenza": "2026-04-04",
+  "competenza": "Febbraio 2026",
+  "imponibile": 30.32, "aliquotaIva": 22, "totale": 36.99,
+  "tipologia": "Consegne",
+  "aggiornatoAl": "2026-07-18T..."
+}`}</pre>
+        <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+          Il campo chiave è <code>pagata</code> (true/false); <code>dataPagamento</code> dà la data dell&apos;incasso.
         </p>
       </div>
 
