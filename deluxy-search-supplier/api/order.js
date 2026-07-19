@@ -7,6 +7,8 @@
 //   SHOP_DELUXYFLOWERS     es. deluxyflowers.myshopify.com TOKEN_DELUXYFLOWERS
 //   SHOP_CAKEDESIGN        es. cakedesign.myshopify.com    TOKEN_CAKEDESIGN
 
+import { authUser } from './_auth.js';
+
 const API_VERSION = '2024-10';
 
 const BRANDS = {
@@ -172,17 +174,16 @@ function normalize(brand, o) {
 export default async function handler(req, res) {
   // CORS (utile se il front-end sta su un dominio diverso, es. github.io)
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'x-app-password, content-type');
+  res.setHeader('Access-Control-Allow-Headers', 'x-app-password, x-app-user, content-type');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
     const brand = String(req.query.brand || '');
     const number = String(req.query.number || '');
-    const pass = req.headers['x-app-password'] || '';
 
-    if (!process.env.APP_PASSWORD) return res.status(500).json({ error: 'Backend non configurato: manca APP_PASSWORD.' });
-    if (pass !== process.env.APP_PASSWORD) return res.status(401).json({ error: 'Pass code errato.' });
+    const auth = await authUser(req);   // pass code principale o utenza dell'app
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
 
     if (!brand) return res.status(400).json({ error: 'Brand mancante.' });
     if (!number) return res.status(400).json({ error: 'Numero ordine mancante.' });
