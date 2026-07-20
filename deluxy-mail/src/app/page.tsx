@@ -31,9 +31,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   const { sezione, stato, p, vista } = await searchParams
   const u = await richiediUtente()
 
-  // Due viste: "Tutte" (predefinita: tutta la posta, così la posta nuova si
-  // vede subito) e "AI Inbox" (solo i contatti col PLUS AI). Dentro una sezione
-  // la distinzione non serve.
+  // Due viste: "In arrivo" (predefinita: la posta non ancora smistata in una
+  // sezione) e "AI Inbox" (solo i contatti col PLUS AI, in qualunque sezione).
+  // Dentro una sezione la distinzione non serve.
   const vistaAI = !sezione && vista === 'ai'
   const emailAI = await emailContattiAI(u.id)
   const setAI = new Set(emailAI)
@@ -90,14 +90,24 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       // Quello che hai inviato tu sta in "Posta inviata".
       direzione: 'entrata',
       archiviato: stato === 'archiviati',
-      ...(sezione ? { sezioneId: sezione } : {}),
-      // Fuori la posta indesiderata, tranne quando stai proprio guardando SPAM.
-      ...(spamId && sezione !== spamId ? { NOT: { sezioneId: spamId } } : {}),
+      // Una mail smistata in una sezione sta NELLA SUA SEZIONE, come le
+      // cartelle di un client classico: la posta in arrivo mostra solo quella
+      // ancora da smistare. Senza questo, una sezione ad alto volume (es. le
+      // notifiche degli ordini) replicherebbe sé stessa in posta in arrivo
+      // seppellendo il resto. Nella AI Inbox invece si vede tutto il contatto,
+      // in qualunque sezione (tranne SPAM).
+      ...(sezione
+        ? { sezioneId: sezione }
+        : vistaAI
+          ? spamId
+            ? { NOT: { sezioneId: spamId } }
+            : {}
+          : { sezioneId: null }),
       ...(stato === 'non-letti' ? { letto: false } : {}),
       ...(stato === 'da-rispondere' ? { serveRisposta: true } : {}),
       ...(p ? { priorita: p } : {}),
       // AI Inbox: SOLO le mail dei contatti col PLUS AI. Le mail nuove degli
-      // altri restano in "Tutte".
+      // altri restano in "In arrivo".
       ...(vistaAI ? { mittente: { in: emailAI } } : {}),
     },
     // Sempre in ordine di arrivo: una mail appena arrivata non è ancora stata
@@ -144,7 +154,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
               ? sezioneAttiva.descrizione
               : vistaAI
                 ? 'Solo i contatti col PLUS AI, con tutte le funzioni AI.'
-                : 'Tutta la posta, letta e smistata automaticamente dall’AI.'}
+                : 'La posta ancora da smistare. Quella già in una sezione la trovi nella barra a lato.'}
           </p>
         </div>
         <div className="page-actions filters">
@@ -196,7 +206,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       {!sezione && (
         <div className="vista-tabs">
           {[
-            { chiave: 'all', label: 'Tutte', attivo: !vistaAI },
+            { chiave: 'all', label: 'In arrivo', attivo: !vistaAI },
             { chiave: 'ai', label: 'AI Inbox', attivo: vistaAI },
           ].map((v) => {
             const params = new URLSearchParams()
@@ -234,9 +244,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
               {vistaAI && emailAI.length === 0 ? (
                 <>
                   Apri una mail (o una scheda in Rubrica) e premi <strong>+ AI</strong> per
-                  seguirne il contatto qui. Intanto trovi tutto in{' '}
+                  seguirne il contatto qui. Intanto trovi la posta in{' '}
                   <Link href="/?vista=all" style={{ textDecoration: 'underline' }}>
-                    Tutte
+                    In arrivo
                   </Link>
                   .
                 </>

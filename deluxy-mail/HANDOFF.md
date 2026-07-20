@@ -139,6 +139,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 - **Priorità P0–P3** su ogni mail → scatena l'analisi AI (riassunto + attività + bozza + smistamento in sezione).
 - **Traduzione automatica**: mail in lingua straniera tradotte in italiano (all'arrivo e all'apertura); risposte scritte in italiano e inviate nella lingua originale. Configurabile (`lingueLette`).
 - **Conversazioni (thread)**: raggruppamento per catena di risposte e per oggetto (anche con destinatari/oggetti diversi); **riassunto "per punti di vista"** che spiega la posizione di ogni parte.
+- **Posta in arrivo = solo posta da smistare** (20 lug): una mail smistata in una sezione (da regola o AI) sta NELLA SUA SEZIONE, come le cartelle di un client classico — non resta anche in posta in arrivo. Senza questo, una sezione ad alto volume (es. le notifiche ordini) replicava sé stessa in home e seppelliva il resto. La vista si chiama "In arrivo" (ex "Tutte"); la AI Inbox invece mostra il contatto in qualunque sezione (tranne SPAM).
 - **Rubrica** con quadro AI del contatto (mail ricevute+inviate → prossime attività).
 - **PLUS AI** sui contatti + **AI Inbox** (vista dedicata) vs **Tutte** (predefinita). SPAM escluso dalla posta in arrivo.
 - **Istruzioni AI mirate** per **contatto** e per **conversazione** (precedenza thread > contatto > globale), applicate a tutte le chiamate AI. Fidate, separate dal corpo mail.
