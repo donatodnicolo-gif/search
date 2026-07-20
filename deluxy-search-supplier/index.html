@@ -761,7 +761,7 @@ function closeMenu(){ $('#sidebar').classList.remove('open'); $('#appOverlay').c
 function toggleMenu(){ $('#sidebar').classList.toggle('open'); $('#appOverlay').classList.toggle('open'); }
 const PAGE_TITLES = { operativa: ['Smistamento ordini', 'Recupera un ordine e invialo al fiorario o pasticceria più vicino, via WhatsApp o email.'],
                       impostazioni: ['Impostazioni', 'Chiavi, utenze e collegamenti dell\'app, salvati sul server.'],
-                      storico: ['Storico richieste', 'Richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
+                      storico: ['Storico richieste', 'Check ordini Shopify, richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
 // vista: false/'operativa' | true/'impostazioni' | 'storico'
 function setView(vista){
   if(vista === true) vista = 'impostazioni';
@@ -793,6 +793,19 @@ $('#navStorico').addEventListener('click', ()=>{
   loadStorico();
 });
 $('#storicoReload').addEventListener('click', loadStorico);
+// «Riapri richiesta»: ricarica l'ordine di quell'evento e riparte col flusso normale
+// (recupero → indirizzo → categoria dal brand → ricerca fornitori in automatico)
+$('#storicoBody').addEventListener('click', e=>{
+  const b = e.target.closest('.st-reopen'); if(!b) return;
+  const sel = $('#brand');
+  if([...sel.options].some(o=>o.value===b.dataset.brand)) sel.value = b.dataset.brand;
+  localStorage.setItem('brand', sel.value);
+  $('#orderNum').value = b.dataset.num;
+  setView(false);
+  const nav = document.querySelector('.nav-link[data-scroll=".ordercard"]');
+  if(nav) setActiveNav(nav);
+  fetchOrder();
+});
 $('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);
 $('#appOverlay').addEventListener('click', closeMenu);
@@ -1111,7 +1124,8 @@ async function fetchOrder(){
   $('#fetchOrder').disabled = true;
   setOrderStatus('Recupero ordine '+number+' da '+brand+'…');
   try{
-    const url = '/api/order?brand='+encodeURIComponent(brand)+'&number='+encodeURIComponent(number);
+    const url = '/api/order?brand='+encodeURIComponent(brand)+'&number='+encodeURIComponent(number)
+              + '&ts='+encodeURIComponent(new Date().toISOString());   // per lo Storico (il server non usa new Date())
     const r = await apiFetch(url);
     let data; try{ data = await r.json(); }catch(e){ data = {}; }
     if(!r.ok || data.found===false){
@@ -1204,6 +1218,10 @@ $('#ord_items').addEventListener('input', updateDlButton);
 
 function syncLangUI(){
   const sel = $('#ordLang'); if(sel) sel.value = currentLang;
+  // impostare sel.value da codice NON scatena l'evento 'change': il testo copiabile
+  // va rigenerato esplicitamente, altrimenti resta nella lingua precedente (bug #2555:
+  // consegna in Francia ma messaggio in italiano). refreshOrderMessage rispetta msgDirty.
+  refreshOrderMessage();
 }
 const CARDWORD = { it:'Bigliettino', en:'Card message', fr:'Message carte', de:'Kartentext', es:'Tarjeta' };
 const SUBJECTWORD = { it:'Richiesta ordine', en:'Order request', fr:'Demande de commande', de:'Bestellanfrage', es:'Solicitud de pedido' };
@@ -1668,7 +1686,7 @@ function logEvento(evt){
     apiFetch('/api/storico', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(()=>{});
   }catch(e){}
 }
-const ST_TIPO = { richiesta:'📤 Richiesta ordine', rubrica:'💾 Rubrica', segnalazione:'📣 Segnalazione' };
+const ST_TIPO = { richiesta:'📤 Richiesta ordine', rubrica:'💾 Rubrica', segnalazione:'📣 Segnalazione', check:'🔎 Check ordine' };
 function fmtQuando(iso){
   const d = new Date(iso);
   if(isNaN(d)) return iso || '';
@@ -1697,11 +1715,15 @@ async function loadStorico(){
       const n = e.negozio || {};
       const luogo = [n.citta, n.provincia ? '('+n.provincia+')' : ''].filter(Boolean).join(' ');
       const contatti = [n.telefono, n.email].filter(Boolean).join(' · ');
+      const riapri = (e.ordine && e.ordine.numero && e.ordine.brand)
+        ? `<button class="btn-dl st-reopen" style="margin-top:6px; padding:4px 12px; font-size:12px" data-brand="${esc(e.ordine.brand)}" data-num="${esc(e.ordine.numero)}">↻ Riapri richiesta</button>`
+        : '';
       return `<div class="st-row">
         <span class="st-when">${esc(fmtQuando(e.quando))}</span>
         <div class="st-main">
           <div class="st-shop">${esc(n.nome||'—')}${luogo ? ' <span style="font-weight:400; color:var(--text-tertiary)">'+esc(luogo)+'</span>' : ''}</div>
           <div class="st-det">${det.map(esc).join(' · ')}${contatti ? '<br>'+esc(contatti) : ''}</div>
+          ${riapri}
         </div>
         <span class="st-user">👤 ${esc(e.utente||'?')}</span>
       </div>`;
