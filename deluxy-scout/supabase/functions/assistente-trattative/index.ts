@@ -4,11 +4,11 @@
 // Claude una sintesi + le azioni prioritarie + i punti d'attenzione.
 //
 // Sicurezza: chiave AI come secret, mai nel bundle. Inerte se non configurata.
-// Secret: ANTHROPIC_API_KEY (da impostare). L'utente dev'essere loggato.
+// Secret: OPENAI_API_KEY (da impostare); opzionale OPENAI_MODEL. L'utente dev'essere loggato.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const ANTHROPIC = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-haiku-4-5-20251001'; // veloce ed economico, adatto al riassunto
+const OPENAI = 'https://api.openai.com/v1/chat/completions';
+const MODEL = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini'; // veloce ed economico
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     const { data: userData } = await admin.auth.getUser(jwt);
     if (!userData?.user) return json({ error: 'Non autenticato' }, 401);
 
-    const aiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    const aiKey = Deno.env.get('OPENAI_API_KEY');
     if (!aiKey) return json({ disponibile: false, reason: 'ai_non_configurata' });
 
     const body = await req.json().catch(() => ({}));
@@ -77,14 +77,22 @@ Deno.serve(async (req) => {
       })),
     });
 
-    const aiRes = await fetch(ANTHROPIC, {
+    const aiRes = await fetch(OPENAI, {
       method: 'POST',
-      headers: { 'x-api-key': aiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1024, system: sys, messages: [{ role: 'user', content: userMsg }] }),
+      headers: { authorization: `Bearer ${aiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 1024,
+        response_format: { type: 'json_object' }, // forza un oggetto JSON valido
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: userMsg },
+        ],
+      }),
     });
     if (!aiRes.ok) return json({ error: `AI ${aiRes.status}: ${(await aiRes.text().catch(() => '')).slice(0, 200)}` }, 502);
     const aiData = await aiRes.json();
-    const testo: string = aiData.content?.[0]?.text ?? '{}';
+    const testo: string = aiData.choices?.[0]?.message?.content ?? '{}';
     let parsed: any = {};
     try {
       parsed = JSON.parse(testo);
