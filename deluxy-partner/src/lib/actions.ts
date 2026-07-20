@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { feeApplicabile, feeDaTariffe } from "./fee";
+import { risolviAnagrafica, contattoAmministrativo } from "./anagrafiche";
 
 function s(fd: FormData, k: string): string | null {
   const v = fd.get(k);
@@ -56,6 +57,10 @@ function partnerData(fd: FormData) {
     iban: s(fd, "iban"),
     email: s(fd, "email"),
     telefono: s(fd, "telefono"),
+    ammNome: s(fd, "ammNome"),
+    ammRuolo: s(fd, "ammRuolo"),
+    ammEmail: s(fd, "ammEmail"),
+    ammTelefono: s(fd, "ammTelefono"),
     note: s(fd, "note"),
     attivo: b(fd, "attivo"),
   };
@@ -75,6 +80,30 @@ export async function updatePartner(id: string, fd: FormData) {
   await prisma.partner.update({ where: { id }, data });
   revalidateAll();
   redirect(`/partner/${id}`);
+}
+
+// Copia nel partner il contatto amministrativo trovato nel registro Anagrafiche.
+// Il registro resta la fonte di verità: qui se ne tiene una copia operativa per
+// sapere a chi mandare solleciti e pro-forma (questa app ha chiave di sola lettura).
+export async function importaContattoAmministrativo(partnerId: string) {
+  const p = await prisma.partner.findUnique({ where: { id: partnerId } });
+  if (!p) throw new Error("Partner non trovato");
+  const anagrafica = await risolviAnagrafica(p.nome, p.anagraficaId);
+  const c = contattoAmministrativo(anagrafica);
+  if (!c) redirect(`/partner/${partnerId}?amm=non-trovato`);
+  await prisma.partner.update({
+    where: { id: partnerId },
+    data: {
+      ammNome: c.nome ?? p.ammNome,
+      ammRuolo: c.ruolo ?? p.ammRuolo,
+      ammEmail: c.email ?? p.ammEmail,
+      ammTelefono: c.telefono ?? p.ammTelefono,
+      // se l'anagrafica è stata risolta per nome, memorizziamo il collegamento
+      anagraficaId: p.anagraficaId ?? anagrafica?.id ?? null,
+    },
+  });
+  revalidateAll();
+  redirect(`/partner/${partnerId}?amm=importato`);
 }
 
 // ---------- Fatture servizi ----------

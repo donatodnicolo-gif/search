@@ -18,6 +18,7 @@ async function inviaSollecito(fatturaId: string, fd: FormData) {
   const to = String(fd.get("to") ?? "").trim();
   const subject = String(fd.get("subject") ?? "").trim();
   const text = String(fd.get("text") ?? "").trim();
+  const da = String(fd.get("da") ?? "").trim(); // "partner" = tornato dalla scheda
   if (!to || !subject || !text) redirect(`/solleciti/${fatturaId}?errore=campi`);
 
   try {
@@ -30,16 +31,22 @@ async function inviaSollecito(fatturaId: string, fd: FormData) {
     where: { id: fatturaId },
     data: { sollecitoInviatoIl: new Date() },
   });
-  // se il destinatario non era salvato in anagrafica, lo memorizziamo
+  // se il destinatario non era salvato, lo memorizziamo come contatto
+  // amministrativo del partner (è l'indirizzo a cui si chiedono i pagamenti)
   const fattura = await prisma.fatturaServizio.findUnique({
     where: { id: fatturaId },
     include: { partner: true },
   });
-  if (fattura && !fattura.partner.email) {
-    await prisma.partner.update({ where: { id: fattura.partnerId }, data: { email: to } });
+  if (fattura && !fattura.partner.ammEmail) {
+    await prisma.partner.update({
+      where: { id: fattura.partnerId },
+      data: { ammEmail: to, ...(fattura.partner.email ? {} : { email: to }) },
+    });
   }
   revalidatePath("/scadenzario");
-  redirect("/scadenzario?sollecito=ok");
+  revalidatePath(`/partner/${fattura?.partnerId ?? ""}`, "layout");
+  // tornando dalla scheda partner si resta lì, altrimenti allo scadenzario
+  redirect(da === "partner" && fattura ? `/partner/${fattura.partnerId}?sollecito=ok` : "/scadenzario?sollecito=ok");
 }
 
 async function segnaSollecitoManuale(fatturaId: string) {
@@ -57,10 +64,11 @@ export default async function SollecitoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ errore?: string }>;
+  searchParams: Promise<{ errore?: string; da?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
+  const daPartner = sp.da === "partner";
   const fattura = await prisma.fatturaServizio.findUnique({
     where: { id },
     include: { partner: true, tipologia: true },
@@ -71,14 +79,20 @@ export default async function SollecitoPage({
   const smtp = await smtpConfigurato();
   const action = inviaSollecito.bind(null, id);
   const manuale = segnaSollecitoManuale.bind(null, id);
-  const mailto = `mailto:${encodeURIComponent(fattura.partner.email ?? "")}?subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(corpo)}`;
+  // destinatario predefinito: il contatto amministrativo (chi paga), poi l'email generica
+  const destinatario = fattura.partner.ammEmail ?? fattura.partner.email ?? "";
+  const mailto = `mailto:${encodeURIComponent(destinatario)}?subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(corpo)}`;
 
   return (
     <>
       <div className="page-head">
         <div>
-          <Link href="/scadenzario" className="btn secondary small" style={{ marginBottom: 10 }}>
-            ← Torna allo scadenzario
+          <Link
+            href={daPartner ? `/partner/${fattura.partnerId}` : "/scadenzario"}
+            className="btn secondary small"
+            style={{ marginBottom: 10 }}
+          >
+            ← {daPartner ? "Torna alla scheda partner" : "Torna allo scadenzario"}
           </Link>
           <h1 className="page-title">Sollecito di pagamento</h1>
           <p className="page-caption">
@@ -118,10 +132,24 @@ export default async function SollecitoPage({
               type="email"
               name="to"
               required
-              defaultValue={fattura.partner.email ?? ""}
-              placeholder={fattura.partner.email ? "" : "email del partner (verrà salvata in anagrafica)"}
+              defaultValue={destinatario}
+              placeholder={destinatario ? "" : "email amministrazione (verrà salvata sul partner)"}
             />
+            <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+              {fattura.partner.ammEmail ? (
+                <>
+                  Contatto amministrativo{fattura.partner.ammNome ? ` (${fattura.partner.ammNome})` : ""}.{" "}
+                  <Link href={`/partner/${fattura.partnerId}`} style={{ color: "var(--blue)" }}>Cambialo nella scheda partner</Link>.
+                </>
+              ) : (
+                <>
+                  Nessun contatto amministrativo impostato: si usa l&apos;email generale del partner.{" "}
+                  <Link href={`/partner/${fattura.partnerId}`} style={{ color: "var(--blue)" }}>Impostalo qui</Link>.
+                </>
+              )}
+            </p>
           </div>
+          <input type="hidden" name="da" value={sp.da ?? ""} />
           <div className="full">
             <label className="field-label">Oggetto <span className="req">*</span></label>
             <input type="text" name="subject" required defaultValue={oggetto} />

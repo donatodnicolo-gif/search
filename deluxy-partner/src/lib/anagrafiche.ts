@@ -75,6 +75,22 @@ export async function cercaAnagrafica(nome: string): Promise<Anagrafica | null> 
   return dati.length === 1 ? dati[0] : null;
 }
 
+// Sceglie, fra i contatti del registro, quello amministrativo: prima chi ha un
+// ruolo di amministrazione/contabilità, poi il primo con una email (serve per
+// mandargli solleciti e pro-forma).
+const RUOLO_AMM = /ammin|contab|fattur|account|paghe|segret/i;
+
+export function contattoAmministrativo(a: Anagrafica | null): ContattoAnagrafica | null {
+  if (!a) return null;
+  const conEmail = a.contatti.filter((c) => c.email);
+  return (
+    conEmail.find((c) => RUOLO_AMM.test(c.ruolo ?? "")) ??
+    a.contatti.find((c) => RUOLO_AMM.test(c.ruolo ?? "")) ??
+    conEmail[0] ??
+    null
+  );
+}
+
 // Risolve preferendo il collegamento per id; se assente ripiega sul nome.
 export async function risolviAnagrafica(
   nome: string,

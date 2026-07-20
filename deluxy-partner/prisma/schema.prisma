@@ -35,6 +35,12 @@ model Partner {
   iban                   String? // per bonifici SEPA
   email                  String?
   telefono               String?
+  // Referente amministrativo (chi paga le fatture): destinatario predefinito di
+  // solleciti e pro-forma. Si può importare dal registro Anagrafiche.
+  ammNome                String?
+  ammEmail               String?
+  ammTelefono            String?
+  ammRuolo               String? // es. "Amministrazione", "Contabilità"
   note                   String?
   // Chiave di join con il registro Deluxy Anagrafiche (id del partner lì).
   // Popolata una volta per riconciliazione; è la "lingua comune di id" tra le app.

@@ -7,6 +7,7 @@ import { nomeMese, commissione, dovutoVendita, ivato, MESI } from "@/lib/calc";
 import { segnaFatturaPagata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
+import { ContattoAmministrativo } from "@/components/ContattoAmministrativo";
 import { PagamentoMese } from "@/components/PagamentoMese";
 import { RecapAI } from "@/components/RecapAI";
 import { costruisciRecapPrompt } from "@/lib/recap";
@@ -17,17 +18,28 @@ function siNo(v: boolean) {
   return v ? "Sì" : "No";
 }
 
-export default async function PartnerDetail({ params }: { params: Promise<{ id: string }> }) {
+export default async function PartnerDetail({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ amm?: string; fic?: string }>;
+}) {
   const { id } = await params;
+  const sp = await searchParams;
   const partner = await prisma.partner.findUnique({ where: { id } });
   if (!partner) notFound();
 
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
-  const [{ mesi, rolling }, prec, tariffe] = await Promise.all([
+  const [{ mesi, rolling }, prec, tariffe, fattureAperte] = await Promise.all([
     riepilogoPartner(id, anno),
     riepilogoPartner(id, annoPrec),
     prisma.tariffaPartner.findMany({ where: { partnerId: id }, orderBy: [{ dalAnno: "desc" }, { dalMese: "desc" }] }),
+    prisma.fatturaServizio.findMany({
+      where: { partnerId: id, pagata: false, imponibile: { gt: 0 } },
+      orderBy: [{ scadenza: "asc" }],
+    }),
   ]);
   const mesiConDati = mesi.filter(
     (m) => m.fatture.length || m.vendite.length || m.saldo
@@ -96,6 +108,20 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
           <p style={{ marginTop: 14, fontSize: 13.5, color: "var(--text-secondary)" }}>{partner.note}</p>
         )}
       </div>
+
+      {sp.amm && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          {sp.amm === "importato" ? (
+            <span className="badge green"><span className="dot" />Contatto amministrativo importato dal registro</span>
+          ) : (
+            <span className="badge orange">
+              <span className="dot" />Nessun contatto amministrativo trovato nel registro Anagrafiche
+            </span>
+          )}
+        </div>
+      )}
+
+      <ContattoAmministrativo partner={partner} fattureAperte={fattureAperte} />
 
       <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} />
 

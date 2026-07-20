@@ -74,6 +74,32 @@ export function PartnerForm({
           <label className="field-label">Telefono</label>
           <input type="text" name="telefono" defaultValue={p?.telefono ?? ""} />
         </div>
+
+        <div className="full" style={{ marginTop: 4 }}>
+          <div className="field-label" style={{ fontWeight: 600, color: "var(--text)" }}>
+            Contatto amministrativo
+          </div>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>
+            Chi si occupa dei pagamenti: è il destinatario predefinito di solleciti e pro-forma.
+            Dalla scheda partner puoi importarlo dal registro Anagrafiche.
+          </p>
+        </div>
+        <div>
+          <label className="field-label">Nome referente</label>
+          <input type="text" name="ammNome" defaultValue={p?.ammNome ?? ""} placeholder="es. Maria Rossi" />
+        </div>
+        <div>
+          <label className="field-label">Ruolo</label>
+          <input type="text" name="ammRuolo" defaultValue={p?.ammRuolo ?? ""} placeholder="es. Amministrazione" />
+        </div>
+        <div>
+          <label className="field-label">Email amministrazione</label>
+          <input type="email" name="ammEmail" defaultValue={p?.ammEmail ?? ""} placeholder="amministrazione@…" />
+        </div>
+        <div>
+          <label className="field-label">Telefono amministrazione</label>
+          <input type="text" name="ammTelefono" defaultValue={p?.ammTelefono ?? ""} />
+        </div>
         <div className="checkbox-row">
           <input type="checkbox" id="compensazione" name="compensazione" defaultChecked={p?.compensazione ?? false} />
           <label htmlFor="compensazione">Compensazione crediti/incassi</label>
