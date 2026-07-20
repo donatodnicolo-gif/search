@@ -53,6 +53,7 @@ export async function Sidebar() {
   const principali: Voce[] = [
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
     { href: '/attivita', label: 'Attività', badge: daFare },
+    { href: '/calendario', label: 'Calendario' },
     { href: '/bozze', label: 'Bozze', badge: bozze },
     { href: '/inviata', label: 'Posta inviata' },
     { href: '/rubrica', label: 'Rubrica' },

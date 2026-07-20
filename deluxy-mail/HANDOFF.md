@@ -79,6 +79,7 @@ Ogni tabella dati ha `utenteId` → **isolamento multi-utente** (ogni query è f
 - **ContattoAI** — il "PLUS AI": presenza della riga = contatto seguito dall'AI (entra nella AI Inbox). Campo `istruzioni` = istruzioni AI per quel contatto.
 - **IstruzioneThread** — istruzioni AI per una conversazione. Chiave `[utenteId, chiave]` (stessa chiave del RiassuntoThread).
 - **Impostazione** — preferenze GLOBALI condivise (es. contesto aziendale dato all'AI).
+- **Evento** — appuntamento del calendario (titolo, luogo, inizio/fine, giornataIntera, link opzionale al messaggio). `Utente.tokenCalendario` = token segreto del feed iCal (vuoto = feed spento).
 
 ---
 
@@ -124,6 +125,7 @@ Tutte scoped per utente via `uid()`. Le principali:
 - **Regole:** `creaRegola` (con **retrodata**: applica subito le parti deterministiche allo storico via `retrodataRegola`), `attivaRegola`, `eliminaRegola`.
 - **Assistente:** `contaPeriodoAI`, `avviaAssistenteAI`.
 - **Sync/account/impostazioni:** `sincronizzaOra`, `scaricaStorico`, `creaAccount`, `salvaImpostazioni`.
+- **Calendario:** `creaEvento` (orari in ora italiana → UTC), `eliminaEvento`, `rigeneraFeedCalendario` / `spegniFeedCalendario` (token del feed iCal). Rotta pubblica **`/api/calendario?token=…`** (esclusa dal middleware): feed iCalendar RFC 5545 generato da `lib/ics.ts`, sola lettura, da abbonare in Google/Apple/Outlook.
 - **Utenti (auth-actions.ts):** `accedi`, `creaPrimoAdmin`, `esci`, `creaUtente`, `cambiaStatoUtente`, `reimpostaPassword`, `eliminaUtente`, `salvaFirma`.
 
 Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby può girare **1 volta al giorno** (`vercel.json`). L'auto-refresh a 30s è **client-side** (SyncButton), gira solo con la app aperta e in primo piano.
@@ -150,6 +152,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 - **Anti-SPAM automatico all'arrivo** (euristiche gratuite + giudizio AI sui casi dubbi), prudente per non nascondere mail di lavoro; sezione SPAM **recuperabile** (mai cancellati).
 - **Multi-utente** con login (email+password), ruoli, admin che crea gli utenti.
 - **Mobile**: sidebar a scomparsa (drawer con hamburger); Assistente AI nascosto su mobile per far vedere subito la posta.
+- **Calendario** (20 lug): pagina `/calendario` — vista mensile + prossimi 30 giorni, appuntamenti a mano (anche giornata intera), eliminazione con conferma. **Sincronizzazione con le altre agende** via feed iCal segreto (pannello in fondo alla pagina: accendi → copia il link → "Da URL" in Google Calendar / calendario iPhone / Outlook; rigenera o spegni quando vuoi). Su mobile la griglia mostra i giorni a pallini.
 
 ---
 

@@ -36,6 +36,28 @@ const stmts = [
        AND m."messageId" IS NOT NULL
        AND m."utenteId" = k."utenteId" AND m."messageId" = k."messageId"
        AND (k."uid" < m."uid" OR (k."uid" = m."uid" AND k."id" < m."id"))`,
+  // Calendario: appuntamenti + token del feed iCal sull'utente.
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "tokenCalendario" TEXT NOT NULL DEFAULT ''`,
+  `CREATE TABLE IF NOT EXISTS "Evento" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL,
+     "titolo" TEXT NOT NULL, "descrizione" TEXT NOT NULL DEFAULT '',
+     "luogo" TEXT NOT NULL DEFAULT '',
+     "inizio" TIMESTAMP(3) NOT NULL, "fine" TIMESTAMP(3),
+     "giornataIntera" BOOLEAN NOT NULL DEFAULT false,
+     "messaggioId" TEXT, "creatoDaAI" BOOLEAN NOT NULL DEFAULT false,
+     "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     "aggiornatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS "Evento_utenteId_inizio_idx" ON "Evento"("utenteId","inizio")`,
+  `DO $$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='Evento_utenteId_fkey') THEN
+       ALTER TABLE "Evento" ADD CONSTRAINT "Evento_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='Evento_messaggioId_fkey') THEN
+       ALTER TABLE "Evento" ADD CONSTRAINT "Evento_messaggioId_fkey"
+         FOREIGN KEY ("messaggioId") REFERENCES "Messaggio"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+     END IF;
+   END $$`,
   // APP DELUXY: regole di smistamento verso le app + storico degli invii.
   `CREATE TABLE IF NOT EXISTS "RegolaApp" (
      "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL,

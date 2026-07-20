@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { randomBytes } from 'node:crypto'
 import nodemailer from 'nodemailer'
 import MailComposer from 'nodemailer/lib/mail-composer'
 import type { Account } from '@prisma/client'
@@ -19,7 +20,7 @@ import {
   type RiassuntoThreadSalvato,
 } from './sync'
 import { chiaveThread } from './thread'
-import { CODICI_PRIORITA } from './format'
+import { CODICI_PRIORITA, FUSO } from './format'
 import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione } from './ai'
 import { azioneDi, regolaAppPerMail, type AzioneDescritta } from './appDeluxy'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
@@ -840,6 +841,71 @@ export async function salvaMinuta(
 export async function eliminaBozza(id: string) {
   await db.bozza.deleteMany({ where: { id, utenteId: await uid() } })
   revalidatePath('/', 'layout')
+}
+
+// ---------- Calendario ----------
+
+export async function creaEvento(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const titolo = testo(form, 'titolo')
+  if (!titolo) return { ok: false, messaggio: 'Serve un titolo.' }
+
+  const giorno = testo(form, 'giorno') // YYYY-MM-DD
+  if (!giorno) return { ok: false, messaggio: 'Serve la data.' }
+  const giornataIntera = flag(form, 'giornataIntera')
+  const oraInizio = testo(form, 'oraInizio') // HH:MM
+  const oraFine = testo(form, 'oraFine')
+
+  // Le date arrivano come ora italiana: si memorizzano in UTC. Il fuso di
+  // Roma è +2 d'estate/+1 d'inverno: lo calcola il formatter, non a mano.
+  const locale = (o: string) => {
+    const [h, m] = o.split(':').map(Number)
+    const [Y, M, G] = giorno.split('-').map(Number)
+    // Trova l'offset del fuso Europe/Rome per quel giorno.
+    const utcBase = Date.UTC(Y, M - 1, G, h ?? 0, m ?? 0)
+    const inRoma = new Date(utcBase).toLocaleString('en-US', { timeZone: FUSO })
+    const offset = utcBase - new Date(`${inRoma} UTC`).getTime()
+    return new Date(utcBase + offset)
+  }
+
+  const inizio = giornataIntera ? new Date(`${giorno}T00:00:00Z`) : locale(oraInizio || '09:00')
+  const fine = giornataIntera ? null : oraFine ? locale(oraFine) : null
+  if (fine && fine < inizio) return { ok: false, messaggio: 'La fine è prima dell’inizio.' }
+
+  await db.evento.create({
+    data: {
+      utenteId,
+      titolo,
+      descrizione: testo(form, 'descrizione'),
+      luogo: testo(form, 'luogo'),
+      inizio,
+      fine,
+      giornataIntera,
+      messaggioId: opzionale(form, 'messaggioId'),
+    },
+  })
+  revalidatePath('/calendario')
+  return { ok: true, messaggio: 'Appuntamento salvato.' }
+}
+
+export async function eliminaEvento(id: string) {
+  await db.evento.deleteMany({ where: { id, utenteId: await uid() } })
+  revalidatePath('/calendario')
+}
+
+/** Accende (o rigenera) il feed iCal: un token nuovo invalida il vecchio link. */
+export async function rigeneraFeedCalendario(): Promise<{ ok: boolean; token: string }> {
+  const utenteId = await uid()
+  const token = randomBytes(24).toString('base64url')
+  await db.utente.update({ where: { id: utenteId }, data: { tokenCalendario: token } })
+  revalidatePath('/calendario')
+  return { ok: true, token }
+}
+
+/** Spegne il feed: il link smette di funzionare per chiunque lo avesse. */
+export async function spegniFeedCalendario() {
+  await db.utente.update({ where: { id: await uid() }, data: { tokenCalendario: '' } })
+  revalidatePath('/calendario')
 }
 
 // ---------- APP DELUXY: dalla mail a una funzione di un'altra app ----------

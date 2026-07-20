@@ -11,9 +11,10 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Tutto tranne: il login, gli asset, il manifest della PWA e /api/sync —
-  // quella si autentica col suo CRON_TOKEN, non ha un cookie da mostrare.
+  // Tutto tranne: il login, gli asset, il manifest della PWA, /api/sync (si
+  // autentica col CRON_TOKEN) e /api/calendario (feed iCal col suo token:
+  // Google/Apple/Outlook non hanno un cookie da mostrare).
   matcher: [
-    '/((?!login|api/sync|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-).*)',
+    '/((?!login|api/sync|api/calendario|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-).*)',
   ],
 }

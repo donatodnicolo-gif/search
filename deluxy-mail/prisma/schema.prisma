@@ -37,6 +37,9 @@ model Utente {
   // Lingue che l'utente legge senza bisogno di traduzione (una per virgola).
   lingueLette   String   @default("italiano")
   attivo       Boolean  @default(true)
+  // Token segreto del feed iCal del calendario: chi lo conosce può LEGGERE
+  // gli appuntamenti (Google/Apple/Outlook in abbonamento). Vuoto = feed spento.
+  tokenCalendario String @default("")
   creatoIl     DateTime @default(now())
 
   account   Account[]
@@ -52,6 +55,31 @@ model Utente {
   istruzioniThread IstruzioneThread[]
   regoleApp  RegolaApp[]
   inviiApp   InvioApp[]
+  eventi     Evento[]
+}
+
+// Un appuntamento del calendario. Può nascere a mano o da una mail (il link
+// al messaggio resta, così dall'evento si torna alla conversazione).
+model Evento {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  titolo         String
+  descrizione    String  @default("") @db.Text
+  luogo          String  @default("")
+  inizio         DateTime
+  fine           DateTime?
+  giornataIntera Boolean @default(false)
+
+  messaggioId String?
+  messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: SetNull)
+  creatoDaAI  Boolean    @default(false)
+
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @default(now()) @updatedAt
+
+  @@index([utenteId, inizio])
 }
 
 // Una casella di posta collegata (IMAP in lettura, SMTP in invio).
@@ -189,6 +217,7 @@ model Messaggio {
   bozze    Bozza[]
   proposte PropostaArchivio[]
   inviiApp InvioApp[]
+  eventi   Evento[]
 
   creatoIl DateTime @default(now())
 
