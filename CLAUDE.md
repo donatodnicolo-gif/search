@@ -39,4 +39,8 @@ Prima di lavorare, leggere **[deluxy-platform-next/docs/REGOLE-DI-LAVORO.md](del
 
 ## Piattaforma Deluxy (app.deluxy.it)
 
+> ⚠️ **Versione unica della piattaforma.** `deluxy-platform-next/` ha **una sola versione valida**, allineata su `main`, `deluxy-scout` e `scout-ui` (19/07/2026). Prima di lavorarci fare **sempre** `git pull`. **Non ripescare né copiare file di questa cartella da branch, worktree, cartelle o zip più vecchi** (es. `C:\Users\nicol\scoutwt\deluxy-platform-next`, `deluxy-platform-next.zip`): contengono copie obsolete che hanno già causato lavoro perso. In caso di dubbio la versione buona è quella su **`main`**.
+>
+> Cartella di lavoro: `C:\Users\nicol\app\deluxy-platform-next`. Stato, funzioni e API: [docs/HANDOFF.md](deluxy-platform-next/docs/HANDOFF.md).
+
 La fonte di verità funzionale della piattaforma è [deluxy-platform-next/docs/COME-FUNZIONA-APP-DELUXY.md](deluxy-platform-next/docs/COME-FUNZIONA-APP-DELUXY.md) (manuale completo verificato sull'app in produzione, luglio 2026). Ogni feature del nuovo ambiente va confrontata con quel documento.
