@@ -267,6 +267,39 @@ export async function eliminaContatto(contattoId: string) {
   redirect("/contatti?eliminato=1");
 }
 
+// Toglie il referente dall'anagrafica (bottone ✕ nella sezione Contatti della
+// scheda). Un Contatto appartiene a una sola anagrafica: rimuovere
+// l'associazione significa togliere la persona da quell'azienda.
+export async function staccaContatto(contattoId: string) {
+  const c = await prisma.contatto.delete({
+    where: { id: contattoId },
+    select: { partnerId: true },
+  });
+  revalidatePath(`/partner/${c.partnerId}`);
+  revalidatePath("/contatti");
+  revalidatePath("/");
+}
+
+// Raggruppa un'anagrafica sotto un'insegna madre (es. la sede di Milano sotto
+// BOTTEGA VENETA). Niente cicli: la madre non può essere una sede della figlia,
+// e chi ha già delle sedi non può diventare a sua volta una sede (un livello).
+export async function raggruppaSotto(partnerId: string, capogruppoId: string | null) {
+  if (capogruppoId) {
+    if (capogruppoId === partnerId) return;
+    const [madre, figlia] = await Promise.all([
+      prisma.partner.findUnique({ where: { id: capogruppoId }, select: { capogruppoId: true } }),
+      prisma.partner.count({ where: { capogruppoId: partnerId } }),
+    ]);
+    if (!madre) return;
+    // la madre è già una sede di qualcun altro, oppure questa ha già sedi proprie
+    if (madre.capogruppoId || figlia > 0) return;
+  }
+  await prisma.partner.update({ where: { id: partnerId }, data: { capogruppoId } });
+  revalidatePath(`/partner/${partnerId}`);
+  if (capogruppoId) revalidatePath(`/partner/${capogruppoId}`);
+  revalidatePath("/");
+}
+
 // Risolve a mano una richiesta di aggancio: collega l'anagrafica scelta e,
 // se la richiesta porta l'id dell'app, crea il riferimento esterno — così
 // quell'app da lì in poi risolve per id.

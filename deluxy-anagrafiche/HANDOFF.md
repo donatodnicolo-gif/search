@@ -43,7 +43,8 @@ opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se assente la UI è aperta).
   `account`, `ultimaVisita`, `interessi[]` (multi, `src/lib/interessi.ts`: consegne·affiliazione·
   gifting·catering·eventi·pr_activation·in_store·vendor), `note`, `datiExtra` (JSON tracker),
   `platformId` @unique, `hubspotId` @unique, `provenienzaCampi` (JSON: chi/quando per campo),
-  `fonte` (excel·platform·manuale·ui·hubspot), `attivo` (soft delete).
+  `fonte` (excel·platform·manuale·ui·hubspot), `attivo` (soft delete),
+  `capogruppoId` → self-relation `capogruppo`/`sedi` (gruppi aziendali a un livello).
 - **Contatto** — referenti (persone): `ruolo·nome·telefono·email·fonte·hubspotId` (id del
   contatto nel CRM, per aprirlo) · `nomeRubrica` (nome per la rubrica Google; se vuoto si
   usa `[STATO] [AZIENDA] [CITTÀ] [Nome contatto]`). Fonti: Excel + HubSpot.
@@ -70,6 +71,11 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   (categoria/città/stato/interesse), ordinamenti cliccabili, **sezione Novità** (top 10 tra
   data creazione e ultimo contatto), colonne Interessi/Ultimo contatto/Note, cambio
   stato/interessi in riga, archivia/ripristina, riconciliazione HubSpot (⇄), bottone **＋ Nuovo**.
+  **Gruppi aziendali** (`Partner.capogruppoId`, self-relation `capogruppo`/`sedi`, un solo
+  livello): un'insegna madre raccoglie le sue sedi (es. BOTTEGA VENETA → Milano, Roma); ogni
+  sede resta autonoma con referenti, stato, interessi e azioni propri. Le sedi non sono righe
+  a sé: stanno sotto la madre, apribili col ▸ (`GruppoEspandibile`). **Durante una ricerca
+  (`?q=`) l'elenco torna piatto**, così una sede resta trovabile per nome.
 - **`/dashboard`** — analisi con **macro-filtri** (tipologia/regione/stato/interesse in AND):
   KPI, funnel per stato, interessi, tipologie/regioni/città, contatti per mese, qualità dati.
 - **`/contatti`** — rubrica di tutti i referenti (Excel + HubSpot), ricerca, filtro fonte,
@@ -85,7 +91,11 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
 - **`/match`** — storico delle richieste di aggancio delle app (tipo, esito, app, confidenza);
   **Risolvi** (crea xref) le ambigue, **Modifica** quelle già agganciate, **Ignora** il rumore.
 - **`/partner/:id`** — scheda: anagrafica, pillole stato + menu interessi, ✎ Modifica, archivia,
-  sezione **Contatti** (Excel+HubSpot con link al CRM), Note, Dati del tracker, **Storia** (timeline).
+  sezione **Contatti** (Excel+HubSpot con link al CRM, telefono cliccabile, **✕ rimuove il
+  referente** dall'azienda → `staccaContatto`), Note, Dati del tracker, **Storia** (timeline).
+  **Gruppi**: `⧉ Raggruppa` (`GestioneGruppo`) mette l'anagrafica sotto un'insegna madre;
+  una sede mostra «Sede del gruppo X» + «Togli dal gruppo»; la madre ha la sezione
+  **Sedi del gruppo** (✕ per sganciarne una). Azione unica `raggruppaSotto(partnerId, capogruppoId|null)`.
   **Diventata cliente → rubrica Google in automatico**: quando lo stato passa a `attivo`
   (etichetta «Partner»), `cambiaStato` fa redirect a `?rubrica=1` e il pannello
   `SalvaRubricaAuto` salva tutti i referenti nella rubrica dell'operatore (verifica per numero,

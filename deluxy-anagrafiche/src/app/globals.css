@@ -298,6 +298,35 @@ tbody tr:hover { background: var(--fill); }
 }
 .btn-archivia:hover { background: var(--fill); color: var(--text); }
 .btn-importa { color: var(--green); font-weight: 600; }
+
+/* Gruppi aziendali: insegna madre espandibile con le sue sedi */
+.cella-espandi { width: 46px; padding-right: 0 !important; }
+.btn-espandi {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 6px;
+  border: 0; border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit; font-size: 11px;
+  cursor: pointer;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+.btn-espandi:hover { background: var(--fill); color: var(--text); }
+.btn-espandi.aperto { color: var(--text); }
+.freccia-espandi { display: inline-block; transition: transform 140ms var(--ease); }
+.btn-espandi.aperto .freccia-espandi { transform: rotate(90deg); }
+.conta-sedi {
+  font-size: 10.5px; font-weight: 600;
+  color: var(--text-tertiary);
+  background: var(--fill); border-radius: 999px;
+  padding: 0 5px; line-height: 15px;
+}
+.riga-sede { background: color-mix(in srgb, var(--fill) 45%, transparent); }
+.cella-nome-sede { padding-left: 14px; position: relative; }
+.cella-nome-sede::before {
+  content: "└"; position: absolute; left: 0;
+  color: var(--text-tertiary); font-weight: 400;
+}
 .btn-importa:hover { color: var(--green); }
 
 /* ---------- Selettore di stato (scheda partner) ---------- */

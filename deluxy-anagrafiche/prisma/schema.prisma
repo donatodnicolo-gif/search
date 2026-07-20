@@ -45,6 +45,12 @@ model Partner {
   contatti       Contatto[]
   passaggi       PassaggioStato[]
   riferimenti    RiferimentoEsterno[]
+  // Gruppo aziendale: un'insegna madre (es. BOTTEGA VENETA) con le sue sedi
+  // (Milano, Roma). Ogni sede resta un'anagrafica autonoma con i propri
+  // referenti, stato e azioni; la madre le raggruppa e basta.
+  capogruppoId   String?
+  capogruppo     Partner?   @relation("Gruppo", fields: [capogruppoId], references: [id], onDelete: SetNull)
+  sedi           Partner[]  @relation("Gruppo")
   // Collegamento con la piattaforma consegne: id del Partner su app.deluxy.it
   platformId     String?    @unique
   // Riconciliazione manuale con HubSpot: id della company nel CRM
@@ -62,6 +68,7 @@ model Partner {
   @@index([stato])
   @@index([citta])
   @@index([nome])
+  @@index([capogruppoId])
 }
 
 // Persone di riferimento del partner (parse del blocco CONTATTI dell'Excel

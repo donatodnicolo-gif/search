@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
+import { GestioneGruppo } from "@/components/GestioneGruppo";
 import type { RigaContatto } from "@/components/google-rubrica";
 import { MenuInteressi } from "@/components/MenuInteressi";
 import { SalvaRubricaAuto } from "@/components/SalvaRubricaAuto";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
-import { impostaArchiviato } from "@/lib/azioni";
+import { impostaArchiviato, raggruppaSotto, staccaContatto } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
 import { ETICHETTE_STATO, isStato } from "@/lib/stati";
@@ -32,7 +33,16 @@ export default async function Dettaglio({
   const { rubrica } = await searchParams;
   const p = await prisma.partner.findUnique({
     where: { id },
-    include: { contatti: true, passaggi: { orderBy: { creatoIl: "desc" } } },
+    include: {
+      contatti: true,
+      passaggi: { orderBy: { creatoIl: "desc" } },
+      capogruppo: { select: { id: true, nome: true, citta: true } },
+      sedi: {
+        where: { attivo: true },
+        select: { id: true, nome: true, citta: true, stato: true, categoria: true, contatti: { select: { id: true } } },
+        orderBy: { nome: "asc" },
+      },
+    },
   });
   if (!p) notFound();
 
@@ -110,6 +120,10 @@ export default async function Dettaglio({
             <a className="btn btn-secondario" href={`/partner/${p.id}/modifica`} style={{ fontSize: 12.5, padding: "6px 14px" }}>
               ✎ Modifica
             </a>
+            {/* Una sede non può avere sedi proprie: il gruppo è a un livello */}
+            {p.attivo && !p.capogruppo && p.sedi.length === 0 && (
+              <GestioneGruppo partnerId={p.id} nome={p.nome} />
+            )}
             <form action={impostaArchiviato.bind(null, p.id, p.attivo)}>
               <button type="submit" className="btn btn-secondario" style={{ fontSize: 12.5, padding: "6px 14px" }}>
                 {p.attivo ? "⌫ Archivia" : "↩ Ripristina"}
@@ -120,6 +134,23 @@ export default async function Dettaglio({
       </div>
 
       {righeRubrica.length > 0 && <SalvaRubricaAuto contatti={righeRubrica} />}
+
+      {p.capogruppo && (
+        <section className="scheda" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <p style={{ margin: 0, fontSize: 13.5 }}>
+            Sede del gruppo{" "}
+            <a href={`/partner/${p.capogruppo.id}`}>
+              <strong>{p.capogruppo.nome}</strong>
+            </a>
+            {p.capogruppo.citta && <span className="cella-fonte"> · {p.capogruppo.citta}</span>}
+          </p>
+          <form action={raggruppaSotto.bind(null, p.id, null)}>
+            <button type="submit" className="btn btn-secondario" style={{ fontSize: 12.5, padding: "6px 14px" }}>
+              Togli dal gruppo
+            </button>
+          </form>
+        </section>
+      )}
 
       <section className="scheda">
         <h2 className="scheda-titolo">Anagrafica</h2>
@@ -147,6 +178,49 @@ export default async function Dettaglio({
         </dl>
       </section>
 
+      {p.sedi.length > 0 && (
+        <section className="scheda">
+          <h2 className="scheda-titolo">
+            Sedi del gruppo <span className="scheda-sub">{p.sedi.length} anagrafiche collegate</span>
+          </h2>
+          <div className="tabella-wrap" style={{ boxShadow: "none", border: "1px solid var(--hairline)" }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Sede</th>
+                  <th>Città</th>
+                  <th>Stato</th>
+                  <th>Referenti</th>
+                  <th aria-label="Azioni"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {p.sedi.map((s) => (
+                  <tr key={s.id}>
+                    <td>
+                      <a href={`/partner/${s.id}`}>
+                        <div className="cella-nome">{s.nome}</div>
+                        <div className="cella-sub">{s.categoria}</div>
+                      </a>
+                    </td>
+                    <td className="cella-muta">{s.citta ?? "—"}</td>
+                    <td className="cella-muta">{nomeStato(s.stato)}</td>
+                    <td className="cella-muta">{s.contatti.length}</td>
+                    <td>
+                      <form action={raggruppaSotto.bind(null, s.id, null)}>
+                        <button type="submit" className="btn-archivia" title="Togli questa sede dal gruppo">
+                          ✕
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       {p.contatti.length > 0 && (
         <section className="scheda">
           <h2 className="scheda-titolo">
@@ -161,6 +235,7 @@ export default async function Dettaglio({
                   <th>Telefono</th>
                   <th>Email</th>
                   <th>Fonte</th>
+                  <th aria-label="Rimuovi"></th>
                 </tr>
               </thead>
               <tbody>
@@ -168,17 +243,37 @@ export default async function Dettaglio({
                   <tr key={c.id}>
                     <td className="cella-muta">{c.ruolo ?? "—"}</td>
                     <td>
-                      {c.hubspotId ? (
-                        <a href={linkContattoHubspot(c.hubspotId)} target="_blank" rel="noreferrer" title="Apri il contatto in HubSpot">
-                          {c.nome ?? "—"} ↗
+                      <span style={{ display: "inline-flex", gap: 6, alignItems: "baseline" }}>
+                        <a href={`/contatti/${c.id}`} title="Apri e modifica il contatto">
+                          {c.nome ?? "—"}
                         </a>
+                        {c.hubspotId && (
+                          <a href={linkContattoHubspot(c.hubspotId)} target="_blank" rel="noreferrer" title="Apri il contatto in HubSpot">
+                            ↗
+                          </a>
+                        )}
+                      </span>
+                    </td>
+                    <td className="cella-muta">
+                      {c.telefono ? (
+                        <a href={`tel:${c.telefono.replace(/[^\d+]/g, "")}`} title="Chiama">{c.telefono}</a>
                       ) : (
-                        c.nome ?? "—"
+                        "—"
                       )}
                     </td>
-                    <td className="cella-muta">{c.telefono ?? "—"}</td>
                     <td className="cella-muta">{c.email ?? "—"}</td>
                     <td className="cella-muta">{c.fonte === "hubspot" ? "HubSpot" : c.fonte ? c.fonte : "Excel"}</td>
+                    <td>
+                      <form action={staccaContatto.bind(null, c.id)}>
+                        <button
+                          type="submit"
+                          className="btn-archivia"
+                          title={`Rimuovi «${c.nome ?? "questo referente"}» da ${p.nome}`}
+                        >
+                          ✕
+                        </button>
+                      </form>
+                    </td>
                   </tr>
                 ))}
               </tbody>

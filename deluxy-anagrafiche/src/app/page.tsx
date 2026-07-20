@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { GruppoEspandibile } from "@/components/GruppoEspandibile";
 import { MenuInteressi } from "@/components/MenuInteressi";
 import { MenuStato } from "@/components/MenuStato";
 import { Riconcilia } from "@/components/Riconcilia";
@@ -49,6 +50,10 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
 
   const where: Prisma.PartnerWhereInput = { attivo: !inArchivio };
   if (filtri.q) where.AND = whereRicerca(filtri.q);
+  // Le sedi di un gruppo non compaiono come righe a sé: stanno annidate sotto
+  // l'insegna madre. Durante una ricerca invece l'elenco torna piatto, così
+  // una sede resta comunque trovabile per nome.
+  if (!filtri.q) where.capogruppoId = null;
   if (filtri.categoria) where.categoria = filtri.categoria;
   if (filtri.citta) where.citta = filtri.citta;
   if (filtri.stato) where.stato = filtri.stato;
@@ -62,7 +67,10 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     prisma.partner.count({ where }),
     prisma.partner.findMany({
       where,
-      include: { contatti: true },
+      include: {
+        contatti: true,
+        sedi: { where: { attivo: !inArchivio }, include: { contatti: true }, orderBy: { nome: "asc" } },
+      },
       // Nome come criterio secondario per un ordine stabile a parità di valore;
       // per "Ultimo contatto" i record senza data vanno in fondo
       orderBy:
@@ -153,7 +161,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
 
   // Telefono da mostrare in colonna: quello dell'anagrafica o del primo referente
-  type ConContatti = (typeof partner)[number];
+  type ConContatti = { telefono: string | null; contatti: { telefono: string | null }[] };
   const telefonoDi = (p: ConContatti) =>
     p.telefono ?? p.contatti.find((c) => c.telefono)?.telefono ?? null;
 
@@ -164,6 +172,41 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     ui: "registro",
     hubspot: "HubSpot",
   };
+
+  // Le celle di una riga dell'elenco: identiche per un'insegna madre e per una
+  // sua sede (ogni sede ha stato, interessi e azioni propri).
+  type RigaPartner = (typeof partner)[number]["sedi"][number];
+  const Celle = ({ p, sede }: { p: RigaPartner; sede?: boolean }) => (
+    <>
+      <td>
+        <a href={`/partner/${p.id}`}>
+          <div className={sede ? "cella-nome cella-nome-sede" : "cella-nome"}>{p.nome}</div>
+          {p.indirizzo && <div className="cella-sub">{p.indirizzo}</div>}
+        </a>
+      </td>
+      <td className="cella-muta">{p.categoria}</td>
+      <td className="cella-muta">{p.citta ?? "—"}</td>
+      <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
+      <td><MenuStato partnerId={p.id} stato={p.stato} archiviato={inArchivio} /></td>
+      <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto /></td>
+      <td className="cella-muta col-secondaria">{p.account ?? "—"}</td>
+      <td className="cella-muta">{p.ultimaVisita ? dataIt(p.ultimaVisita) : "—"}</td>
+      <td className="cella-muta">
+        {p.note ? <span className="cella-note" title={p.note}>{p.note}</span> : "—"}
+      </td>
+      <td className="cella-muta col-secondaria">{dataIt(p.creatoIl)}</td>
+      <td>
+        <span style={{ display: "inline-flex", gap: 2 }}>
+          <Riconcilia cerca="hubspot" partnerId={p.id} nomeRiga={p.nome} collegato={Boolean(p.hubspotId)} />
+          <form action={impostaArchiviato.bind(null, p.id, !inArchivio)}>
+            <button type="submit" className="btn-archivia" title={inArchivio ? "Ripristina" : "Archivia"}>
+              {inArchivio ? "↩" : "⌫"}
+            </button>
+          </form>
+        </span>
+      </td>
+    </>
+  );
 
   const Intestazione = ({ campo, classe }: { campo: CampoOrdinamento; classe?: string }) => (
     <th className={classe}>
@@ -299,6 +342,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
           <table>
             <thead>
               <tr>
+                <th className="cella-espandi" aria-label="Sedi"></th>
                 <Intestazione campo="nome" />
                 <Intestazione campo="categoria" />
                 <Intestazione campo="citta" />
@@ -313,52 +357,20 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
               </tr>
             </thead>
             <tbody>
-              {partner.map((p) => {
-                return (
+              {partner.map((p) =>
+                p.sedi.length > 0 ? (
+                  <GruppoEspandibile
+                    key={p.id}
+                    celle={<Celle p={p} />}
+                    sedi={p.sedi.map((s) => ({ id: s.id, celle: <Celle p={s} sede /> }))}
+                  />
+                ) : (
                   <tr key={p.id}>
-                    <td>
-                      <a href={`/partner/${p.id}`}>
-                        <div className="cella-nome">{p.nome}</div>
-                        {p.indirizzo && <div className="cella-sub">{p.indirizzo}</div>}
-                      </a>
-                    </td>
-                    <td className="cella-muta">{p.categoria}</td>
-                    <td className="cella-muta">{p.citta ?? "—"}</td>
-                    <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
-                    <td><MenuStato partnerId={p.id} stato={p.stato} archiviato={inArchivio} /></td>
-                    <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto /></td>
-                    <td className="cella-muta col-secondaria">{p.account ?? "—"}</td>
-                    <td className="cella-muta">{p.ultimaVisita ? dataIt(p.ultimaVisita) : "—"}</td>
-                    <td className="cella-muta">
-                      {p.note ? (
-                        <span className="cella-note" title={p.note}>{p.note}</span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="cella-muta col-secondaria">{dataIt(p.creatoIl)}</td>
-                    <td>
-                      <span style={{ display: "inline-flex", gap: 2 }}>
-                        <Riconcilia
-                          cerca="hubspot"
-                          partnerId={p.id}
-                          nomeRiga={p.nome}
-                          collegato={Boolean(p.hubspotId)}
-                        />
-                        <form action={impostaArchiviato.bind(null, p.id, !inArchivio)}>
-                          <button
-                            type="submit"
-                            className="btn-archivia"
-                            title={inArchivio ? "Ripristina" : "Archivia"}
-                          >
-                            {inArchivio ? "↩" : "⌫"}
-                          </button>
-                        </form>
-                      </span>
-                    </td>
+                    <td className="cella-espandi" />
+                    <Celle p={p} />
                   </tr>
-                );
-              })}
+                ),
+              )}
             </tbody>
           </table>
         </div>
