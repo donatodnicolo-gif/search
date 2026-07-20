@@ -177,6 +177,38 @@ const dati = await res.json();
         </p>
       </div>
 
+      <h2 className="section-title">Totali servizi per tipologia (per periodo)</h2>
+      <div className="card">
+        <p style={{ fontSize: 14, marginBottom: 6 }}>
+          <strong>Endpoint:</strong> <code>GET {BASE_URL}/api/tipologie?anno=2026</code>
+        </p>
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 14 }}>
+          Aggrega il fatturato dei servizi <strong>per tipologia</strong> (Consegne, Eventi, Magazzino…) su un periodo.
+          Parametri: <code>anno</code>, e in alternativa <code>mese=6</code> oppure un intervallo <code>dal=1&amp;al=6</code>;
+          <code>stato=pagate|aperte|tutte</code> (default tutte). Stessa chiave (<code>X-API-Key</code>).
+        </p>
+
+        <div style={{ fontSize: 12.5, color: "var(--text-tertiary)", marginBottom: 4 }}>Esempio curl</div>
+        <pre style={{ background: "var(--bg)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: 14, overflowX: "auto", fontSize: 12.5, lineHeight: 1.5 }}>{`curl -s "${BASE_URL}/api/tipologie?anno=2026&dal=1&al=6" \\
+  -H "X-API-Key: ${esempioChiave}" -H "X-App: mia-app"`}</pre>
+
+        <div style={{ fontSize: 12.5, color: "var(--text-tertiary)", margin: "14px 0 4px" }}>Risposta (200)</div>
+        <pre style={{ background: "var(--bg)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: 14, overflowX: "auto", fontSize: 12.5, lineHeight: 1.5 }}>{`{
+  "anno": 2026,
+  "periodo": { "dal": 1, "al": 6, "etichetta": "Gennaio–Giugno 2026" },
+  "stato": "tutte",
+  "tipologie": [
+    { "tipologia": "Consegne", "imponibile": 130228.82, "iva": 28650.34,
+      "totale": 158879.16, "fatture": 144, "quota": 71.6 },   // quota = % sull'imponibile del periodo
+    { "tipologia": "Eventi", "imponibile": 21975, "iva": 4834.5, "totale": 26809.5, "fatture": 4, "quota": 12.1 }
+  ],
+  "totali": { "imponibile": 181803.49, "iva": 39996.77, "totale": 221800.26, "fatture": 177 }
+}`}</pre>
+        <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+          <code>imponibile</code> = netto IVA, <code>totale</code> = IVA inclusa. Tipologie ordinate per imponibile decrescente.
+        </p>
+      </div>
+
       <h2 className="section-title">Pro-forma (lettura, creazione e conferma pagamento)</h2>
       <div className="card">
         <p style={{ fontSize: 14, marginBottom: 6 }}>
