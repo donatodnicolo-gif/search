@@ -309,7 +309,12 @@ const AZIONI: AzioneApp[] = [
             const dove = r.consegna?.indirizzo ? `Consegna a ${r.consegna.indirizzo}. ` : ''
             return { ok: true, messaggio: `${dove}${righe.join('  ')}`, link: FORNITORI_URL }
           }
-          if (status === 401 || status === 403) return { ok: false, messaggio: 'Password dell’app Fornitori non valida.' }
+          if (status === 401 || status === 403)
+            return {
+              ok: false,
+              messaggio:
+                'Password Fornitori rifiutata. Deve essere la password AMMINISTRATORE dell’app Fornitori (search-deluxy) — non il tuo codice utente del sito. Reimpostala in Impostazioni App.',
+            }
           if (status === 404) return { ok: false, messaggio: 'Ordine non trovato in Fornitori.' }
           if (status === 422) return { ok: false, messaggio: testoErrore(risposta, 'Ordine senza indirizzo o non geocodificabile.') }
           return { ok: false, messaggio: testoErrore(risposta, `Fornitori ha risposto ${status}.`) }
@@ -377,7 +382,8 @@ const META_APP: Record<string, { variabileEnv: string; comeSiOttiene: string }> 
   },
   Fornitori: {
     variabileEnv: 'FORNITORI_PASSWORD',
-    comeSiOttiene: 'La password amministratore dell’app Fornitori (search-deluxy).',
+    comeSiOttiene:
+      'La password AMMINISTRATORE dell’app Fornitori (search-deluxy) — quella che sblocca tutte le utenze, non il tuo codice utente personale. È la stessa che useresti nel comando curl «x-app-password».',
   },
 }
 
