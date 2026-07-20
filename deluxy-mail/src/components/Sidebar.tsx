@@ -63,6 +63,7 @@ export async function Sidebar() {
   ]
 
   const applicazioni: Voce[] = [
+    { href: '/rene', label: 'Renè AI' },
     { href: '/rubrica', label: 'Rubrica' },
     { href: '/calendario', label: 'Calendario' },
   ]

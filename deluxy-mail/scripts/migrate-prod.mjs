@@ -76,6 +76,53 @@ const stmts = [
      WHERE "corpoTradotto" IS NOT NULL
        AND left(lower(regexp_replace("corpoTradotto", '\\s+', ' ', 'g')), 300)
          = left(lower(regexp_replace("corpoTesto", '\\s+', ' ', 'g')), 300)`,
+  // Renè AI: memoria, analisi, proposte e conseguenze.
+  `CREATE TABLE IF NOT EXISTS "ReneMemoria" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL UNIQUE,
+     "testo" TEXT NOT NULL DEFAULT '',
+     "aggiornatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS "ReneAnalisi" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL,
+     "periodo" TEXT NOT NULL, "riassunto" TEXT NOT NULL,
+     "urgenti" TEXT NOT NULL DEFAULT '[]',
+     "creataIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS "ReneAnalisi_utenteId_creataIl_idx" ON "ReneAnalisi"("utenteId","creataIl")`,
+  `CREATE TABLE IF NOT EXISTS "ReneProposta" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "analisiId" TEXT,
+     "tipo" TEXT NOT NULL, "dati" TEXT NOT NULL, "firma" TEXT NOT NULL,
+     "stato" TEXT NOT NULL DEFAULT 'proposta', "esitoTesto" TEXT NOT NULL DEFAULT '',
+     "daConseguenza" BOOLEAN NOT NULL DEFAULT false,
+     "creataIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS "ReneProposta_utenteId_stato_creataIl_idx" ON "ReneProposta"("utenteId","stato","creataIl")`,
+  `CREATE INDEX IF NOT EXISTS "ReneProposta_utenteId_firma_idx" ON "ReneProposta"("utenteId","firma")`,
+  `CREATE TABLE IF NOT EXISTS "ReneConseguenza" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL,
+     "tipo" TEXT NOT NULL, "descrizione" TEXT NOT NULL DEFAULT '',
+     "attiva" BOOLEAN NOT NULL DEFAULT true,
+     "creataIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "ReneConseguenza_utenteId_tipo_key" ON "ReneConseguenza"("utenteId","tipo")`,
+  `DO $$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ReneMemoria_utenteId_fkey') THEN
+       ALTER TABLE "ReneMemoria" ADD CONSTRAINT "ReneMemoria_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ReneAnalisi_utenteId_fkey') THEN
+       ALTER TABLE "ReneAnalisi" ADD CONSTRAINT "ReneAnalisi_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ReneProposta_utenteId_fkey') THEN
+       ALTER TABLE "ReneProposta" ADD CONSTRAINT "ReneProposta_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ReneProposta_analisiId_fkey') THEN
+       ALTER TABLE "ReneProposta" ADD CONSTRAINT "ReneProposta_analisiId_fkey"
+         FOREIGN KEY ("analisiId") REFERENCES "ReneAnalisi"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ReneConseguenza_utenteId_fkey') THEN
+       ALTER TABLE "ReneConseguenza" ADD CONSTRAINT "ReneConseguenza_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+   END $$`,
   // Intervallo di sincronizzazione automatica scelto dall'utente (secondi).
   `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "sincronizzaOgniSec" INTEGER NOT NULL DEFAULT 60`,
   // Appuntamento proposto dall'AI su una mail (invito a riunione).

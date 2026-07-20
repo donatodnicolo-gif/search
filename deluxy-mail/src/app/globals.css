@@ -924,7 +924,6 @@ input:focus, select:focus, textarea:focus {
      Assistente AI nascosto (resta su desktop), così le mail salgono subito. */
   .page-title { font-size: 24px; }
   .page-head { margin-bottom: 14px; }
-  .assistente { display: none; }
   /* I filtri e le priorità restano su una fascia scorrevole, senza mangiare
      tre righe di altezza. Va da bordo a bordo dello schermo, così si capisce
      che continua invece di sembrare tagliata a metà. */

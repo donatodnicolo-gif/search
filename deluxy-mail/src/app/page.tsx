@@ -5,7 +5,6 @@ import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
 import { ArchiviaDefinitivo } from '@/components/ArchiviaDefinitivo'
 import { AzioniRiga } from '@/components/AzioniRiga'
-import { AssistenteAI } from '@/components/AssistenteAI'
 import { NuoveAzioni } from '@/components/NuoveAzioni'
 import { CarteApp } from '@/components/CarteApp'
 import { InvioAppDialog } from '@/components/InvioAppDialog'
@@ -250,9 +249,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         </div>
       )}
 
-      {/* Solo nella vista principale: dentro una sezione o un filtro sarebbe
-          fuori posto. */}
-      {!sezione && !stato && !p && <AssistenteAI />}
+      {/* L'analisi periodica vive nella pagina di Renè AI (sidebar →
+          Applicazioni): la posta in arrivo resta solo posta. */}
 
       <div className="inbox-split">
         <div className="card tight">

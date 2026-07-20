@@ -941,6 +941,117 @@ export async function staccaDalThread(messaggioId: string): Promise<{ ok: boolea
   return { ok: true, messaggio: 'Mail staccata dalla conversazione.' }
 }
 
+// ---------- Renè AI ----------
+
+export async function avviaRene(
+  periodo: string
+): Promise<{ ok: boolean; messaggio: string; analisiId?: string }> {
+  const { eseguiRene, periodoValidoRene } = await import('./rene')
+  try {
+    const esito = await eseguiRene(await uid(), periodoValidoRene(periodo))
+    revalidatePath('/rene')
+    revalidatePath('/', 'layout')
+    return esito
+  } catch (e) {
+    const t = e instanceof Error ? e.message : 'Non riuscito.'
+    if (/connection error|fetch failed|ENOTFOUND|network/i.test(t))
+      return { ok: false, messaggio: 'Connessione a OpenAI non riuscita: riprova.' }
+    if (/401|API key/i.test(t)) return { ok: false, messaggio: 'Chiave OpenAI non valida.' }
+    return { ok: false, messaggio: t.slice(0, 140) }
+  }
+}
+
+/** Decide una proposta di Renè. `eConseguenza`: da ora quel tipo lo fa da solo. */
+export async function decidiPropostaRene(
+  id: string,
+  approva: boolean,
+  eConseguenza = false
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const proposta = await db.reneProposta.findFirst({ where: { id, utenteId } })
+  if (!proposta) return { ok: false, messaggio: 'Proposta non trovata.' }
+  if (proposta.stato !== 'proposta') return { ok: false, messaggio: 'Proposta già decisa.' }
+
+  if (!approva) {
+    await db.reneProposta.update({ where: { id }, data: { stato: 'rifiutata' } })
+    revalidatePath('/rene')
+    return { ok: true, messaggio: 'Proposta scartata (non verrà riproposta).' }
+  }
+
+  const { applicaPropostaRene, TIPI_RENE } = await import('./rene')
+  let dati: Record<string, unknown> = {}
+  try {
+    dati = JSON.parse(proposta.dati)
+  } catch {
+    /* dati rotti: fallirà con messaggio chiaro */
+  }
+  const esito = await applicaPropostaRene(utenteId, proposta.tipo, dati)
+  await db.reneProposta.update({
+    where: { id },
+    data: { stato: esito.ok ? 'applicata' : 'errore', esitoTesto: esito.messaggio },
+  })
+
+  if (esito.ok && eConseguenza) {
+    await db.reneConseguenza.upsert({
+      where: { utenteId_tipo: { utenteId, tipo: proposta.tipo } },
+      create: { utenteId, tipo: proposta.tipo, descrizione: TIPI_RENE[proposta.tipo] ?? proposta.tipo },
+      update: { attiva: true },
+    })
+  }
+
+  revalidatePath('/rene')
+  revalidatePath('/', 'layout')
+  return esito
+}
+
+/** Approva in blocco tutte le proposte in attesa di un'analisi. */
+export async function approvaTutteRene(analisiId: string): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const proposte = await db.reneProposta.findMany({
+    where: { utenteId, analisiId, stato: 'proposta' },
+    orderBy: { creataIl: 'asc' },
+  })
+  if (proposte.length === 0) return { ok: false, messaggio: 'Niente da approvare.' }
+
+  const { applicaPropostaRene } = await import('./rene')
+  let okCount = 0
+  for (const p of proposte) {
+    let dati: Record<string, unknown> = {}
+    try {
+      dati = JSON.parse(p.dati)
+    } catch {
+      /* fallirà con esito chiaro */
+    }
+    const esito = await applicaPropostaRene(utenteId, p.tipo, dati)
+    await db.reneProposta.update({
+      where: { id: p.id },
+      data: { stato: esito.ok ? 'applicata' : 'errore', esitoTesto: esito.messaggio },
+    })
+    if (esito.ok) okCount++
+  }
+  revalidatePath('/rene')
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: `${okCount} su ${proposte.length} proposte applicate.` }
+}
+
+/** Accende/spegne una conseguenza (il "fai da solo" per un tipo di azione). */
+export async function cambiaConseguenzaRene(id: string, attiva: boolean) {
+  await db.reneConseguenza.updateMany({ where: { id, utenteId: await uid() }, data: { attiva } })
+  revalidatePath('/rene')
+}
+
+/** Il taccuino di Renè lo puoi correggere a mano: resta compatto. */
+export async function salvaMemoriaRene(form: FormData): Promise<void> {
+  const utenteId = await uid()
+  const testo = String(form.get('testo') ?? '').slice(0, 1500)
+  await db.reneMemoria.upsert({
+    where: { utenteId },
+    create: { utenteId, testo },
+    update: { testo },
+  })
+  revalidatePath('/rene')
+}
+
 // ---------- Calendario ----------
 
 export async function creaEvento(form: FormData): Promise<{ ok: boolean; messaggio: string }> {

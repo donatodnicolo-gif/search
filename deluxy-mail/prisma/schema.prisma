@@ -59,6 +59,10 @@ model Utente {
   inviiApp   InvioApp[]
   eventi     Evento[]
   riassuntiSezione RiassuntoSezione[]
+  reneMemoria      ReneMemoria?
+  reneAnalisi      ReneAnalisi[]
+  reneProposte     ReneProposta[]
+  reneConseguenze  ReneConseguenza[]
 }
 
 // Un appuntamento del calendario. Può nascere a mano o da una mail (il link
@@ -470,6 +474,77 @@ model InvioApp {
 
   @@index([utenteId, creatoIl])
   @@index([messaggioId])
+}
+
+// ---------- Renè AI: l'agente che tiene la casella in ordine ----------
+
+// Il taccuino di Renè: le istruzioni che ha imparato sulle abitudini della
+// casella, in forma COMPATTA (si riscrive a ogni giro, non si accumula).
+model ReneMemoria {
+  id       String @id @default(cuid())
+  utenteId String @unique
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  testo        String   @default("") @db.Text
+  aggiornatoIl DateTime @default(now()) @updatedAt
+}
+
+// Un giro di analisi di Renè: il quadro del periodo e le urgenze scoperte.
+model ReneAnalisi {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  periodo   String
+  riassunto String @db.Text
+  // Le mail urgenti senza risposta (JSON: [{messaggioId, oggetto, mittente, motivo}]).
+  urgenti   String @default("[]") @db.Text
+  creataIl  DateTime @default(now())
+
+  proposte ReneProposta[]
+
+  @@index([utenteId, creataIl])
+}
+
+// Un'azione che Renè propone: si applica solo dopo la conferma dell'utente
+// (o da sola, se quel TIPO di azione è diventato una conseguenza).
+model ReneProposta {
+  id        String  @id @default(cuid())
+  utenteId  String
+  utente    Utente  @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  analisiId String?
+  analisi   ReneAnalisi? @relation(fields: [analisiId], references: [id], onDelete: Cascade)
+
+  // sezione | regola | smista | attivita | evento
+  tipo  String
+  // I dati dell'azione, in JSON.
+  dati  String @db.Text
+  // Impronta per non riproporre due volte la stessa cosa (anche se rifiutata).
+  firma String
+  // proposta | applicata | rifiutata | errore
+  stato      String  @default("proposta")
+  esitoTesto String  @default("")
+  // true se applicata da sola perché il tipo è una conseguenza approvata.
+  daConseguenza Boolean @default(false)
+  creataIl   DateTime @default(now())
+
+  @@index([utenteId, stato, creataIl])
+  @@index([utenteId, firma])
+}
+
+// Una conseguenza: "questo tipo di azione l'ho approvato, d'ora in poi Renè
+// lo fa da solo". Revocabile in ogni momento.
+model ReneConseguenza {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  tipo        String
+  descrizione String  @default("")
+  attiva      Boolean @default(true)
+  creataIl    DateTime @default(now())
+
+  @@unique([utenteId, tipo])
 }
 
 // Preferenze GLOBALI (condivise fra tutti): contesto aziendale dato all'AI.
