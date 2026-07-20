@@ -51,6 +51,24 @@ function leggiSenzaTraduzione(lingua: string, lingueLette: string[]): boolean {
 }
 
 /**
+ * L'AI a volte rimette l'ORIGINALE nel campo traduzione (non traduce davvero).
+ * Se "traduzione" e originale sono quasi identici, non è una traduzione: va
+ * scartata, altrimenti il badge "Tradotto" appare su un testo ancora straniero.
+ */
+function traduzioneFinta(originale: string, traduzione: string): boolean {
+  const pulisci = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim()
+  const a = pulisci(originale)
+  const b = pulisci(traduzione)
+  if (!b) return true
+  if (a === b) return true
+  // Overlap forte sull'inizio (dove sta il grosso del testo utile): se i primi
+  // ~300 caratteri coincidono, l'AI ha ricopiato l'originale.
+  const n = Math.min(a.length, b.length, 300)
+  if (n >= 40 && a.slice(0, n) === b.slice(0, n)) return true
+  return false
+}
+
+/**
  * Se la traduzione automatica è attiva, rileva la lingua di un messaggio in
  * arrivo e, se è straniera, lo traduce in italiano. Si fa una volta sola:
  * `lingua` resta valorizzato e il risultato è memorizzato, quindi riaprire il
@@ -88,10 +106,12 @@ export async function traduciMessaggioSeServe(
 
     // La scelta dell'utente decide QUI, non nel prompt: il modello a volte
     // traduce lo stesso una lingua che sai leggere. Le regole deterministiche
-    // battono sempre l'AI.
-    const corpoTradotto = leggiSenzaTraduzione(esito.lingua, lingueLette)
-      ? null
-      : esito.traduzione.trim() || null
+    // battono sempre l'AI. E se l'AI ha ricopiato l'originale invece di
+    // tradurre, la traduzione finta si scarta (niente badge su testo straniero).
+    const corpoTradotto =
+      leggiSenzaTraduzione(esito.lingua, lingueLette) || traduzioneFinta(m.corpoTesto, esito.traduzione)
+        ? null
+        : esito.traduzione.trim() || null
 
     await db.messaggio.update({
       where: { id: messaggioId },

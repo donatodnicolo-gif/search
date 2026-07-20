@@ -69,6 +69,13 @@ const stmts = [
        AND m."corpoTradotto" IS NOT NULL
        AND m."lingua" IS NOT NULL
        AND position(lower(trim(m."lingua")) in lower(u."lingueLette")) > 0`,
+  // Traduzioni FINTE: il campo traduzione contiene (quasi) l'originale, così il
+  // badge "Tradotto" compare su un testo ancora straniero. Confronto sui primi
+  // 300 caratteri, normalizzati (minuscole, spazi compattati).
+  `UPDATE "Messaggio" SET "corpoTradotto" = NULL
+     WHERE "corpoTradotto" IS NOT NULL
+       AND left(lower(regexp_replace("corpoTradotto", '\\s+', ' ', 'g')), 300)
+         = left(lower(regexp_replace("corpoTesto", '\\s+', ' ', 'g')), 300)`,
   // Aggancio manuale delle mail a una conversazione.
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "threadManuale" TEXT`,
   `CREATE INDEX IF NOT EXISTS "Messaggio_utenteId_threadManuale_idx" ON "Messaggio"("utenteId","threadManuale")`,
