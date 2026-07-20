@@ -284,45 +284,71 @@ export async function scaricaVecchi(
  * Scarica i messaggi con UID successivo a `account.ultimoUid`.
  * Il limite evita che il primo collegamento a una casella con anni di posta
  * scarichi tutto in una volta: si riprende al sync successivo.
+ *
+ * `giaPresenti` (opzionale) dice quali di quegli UID sono GIÀ salvati nel
+ * database: quelli non vengono rifetchati (il corpo pesa) e il cursore li
+ * scavalca. Così un cursore rimasto indietro si ripara da solo in un giro,
+ * invece di rimacinare le stesse mail 25 alla volta.
  */
 export async function scaricaNuovi(
   account: Account,
-  limite = 50
-): Promise<{ messaggi: MessaggioScaricato[]; ultimoUid: number; primoUid: number }> {
+  limite = 50,
+  giaPresenti?: (uids: number[]) => Promise<Set<number>>
+): Promise<{ messaggi: MessaggioScaricato[]; ultimoUid: number; primoUid: number; restanti: number }> {
   const client = connessione(account)
   await client.connect()
 
   try {
     const mailbox = await client.mailboxOpen(account.cartella, { readOnly: true })
-    const messaggi: MessaggioScaricato[] = []
-    let ultimoUid = account.ultimoUid
 
     // Prima sincronizzazione: partiamo dagli ultimi `limite` messaggi invece
     // che dall'inizio della casella.
     const daUid =
       account.ultimoUid > 0 ? account.ultimoUid + 1 : Math.max(1, (mailbox.uidNext ?? 1) - limite)
 
-    for await (const msg of client.fetch(
-      { uid: `${daUid}:*` },
-      { uid: true, source: true, flags: true, envelope: true },
-      { uid: true }
-    )) {
-      // `uid:daUid:*` restituisce comunque l'ultimo messaggio anche quando non
-      // ce ne sono di nuovi: lo scartiamo esplicitamente.
-      // `uid:daUid:*` restituisce comunque l'ultimo messaggio anche quando non
-      // ce ne sono di nuovi: lo scartiamo esplicitamente.
-      if (msg.uid < daUid) continue
-      if (messaggi.length >= limite) break
-      if (!msg.source) continue // senza sorgente non c'è nulla da leggere
+    // Prima una search leggera: quali UID esistono davvero da qui in poi
+    // (senza corpi). `daUid:*` può restituire anche l'ultimo messaggio quando
+    // non c'è niente di nuovo: il filtro lo scarta.
+    const esistenti = ((await client.search({ uid: `${daUid}:*` }, { uid: true })) || [])
+      .filter((u) => u >= daUid)
+      .sort((a, b) => a - b)
 
-      messaggi.push(await converti(msg.uid, msg.source, Boolean(msg.flags?.has('\\Seen'))))
-      if (msg.uid > ultimoUid) ultimoUid = msg.uid
+    if (esistenti.length === 0) {
+      return { messaggi: [], ultimoUid: account.ultimoUid, primoUid: 0, restanti: 0 }
     }
+
+    // Gli UID già in DB non si riscaricano: contano solo per il cursore.
+    const salvati = giaPresenti ? await giaPresenti(esistenti) : new Set<number>()
+    const daScaricare = esistenti.filter((u) => !salvati.has(u)).slice(0, limite)
+
+    const messaggi: MessaggioScaricato[] = []
+    if (daScaricare.length > 0) {
+      for await (const msg of client.fetch(
+        daScaricare.join(','),
+        { uid: true, source: true, flags: true },
+        { uid: true }
+      )) {
+        if (!msg.source) continue // senza sorgente non c'è nulla da leggere
+        messaggi.push(await converti(msg.uid, msg.source, Boolean(msg.flags?.has('\\Seen'))))
+      }
+    }
+
+    // Il cursore può salire fin dove ogni UID del server è coperto (già in DB
+    // o scaricato in questo giro): al primo buco si ferma, così non si salta
+    // nessuna mail.
+    const coperti = new Set<number>([...salvati, ...daScaricare])
+    let ultimoUid = account.ultimoUid
+    for (const u of esistenti) {
+      if (!coperti.has(u)) break
+      ultimoUid = u
+    }
+
+    const restanti = esistenti.length - esistenti.filter((u) => coperti.has(u)).length
 
     // Il più vecchio di questo giro apre la strada allo scarico dello storico.
     const primoUid = messaggi.length ? Math.min(...messaggi.map((m) => m.uid)) : 0
 
-    return { messaggi, ultimoUid, primoUid }
+    return { messaggi, ultimoUid, primoUid, restanti }
   } finally {
     await client.logout()
   }

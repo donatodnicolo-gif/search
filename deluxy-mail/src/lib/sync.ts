@@ -430,42 +430,84 @@ export async function leggiQuadroContatto(utenteId: string, email: string): Prom
 
 /** Sincronizza una casella: scarica i nuovi messaggi e applica le regole. */
 export async function sincronizzaAccount(accountId: string, limite = 25): Promise<EsitoSync> {
-  const account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
-  const esito: EsitoSync = { tipo: 'scarico', account: account.email, scaricati: 0, nonSalvati: 0, scartati: 0 }
+  const partenza = Date.now()
+  // La Server Action ha 60s su Vercel: il giro si ferma per tempo, il cursore
+  // incrementale garantisce che il lavoro fatto resti acquisito.
+  const BUDGET_MS = 35_000
 
-  let nuovi
-  try {
-    nuovi = await scaricaNuovi(account, limite)
-  } catch (e) {
-    const errore = e instanceof Error ? e.message : String(e)
-    await db.account.update({ where: { id: account.id }, data: { ultimoErrore: errore, ultimoSync: new Date() } })
-    return { ...esito, errore }
-  }
+  let account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
+  const esito: EsitoSync = { tipo: 'scarico', account: account.email, scaricati: 0, nonSalvati: 0, scartati: 0 }
 
   const [regole, prefUtente] = await Promise.all([
     db.regola.findMany({ where: { utenteId: account.utenteId } }),
     db.utente.findUnique({ where: { id: account.utenteId }, select: { traduzioneAuto: true } }),
   ])
-  const { primoFallito } = await salvaMessaggi({
-    utenteId: account.utenteId,
-    accountId: account.id,
-    messaggi: nuovi.messaggi,
-    regole,
-    traduzioneAuto: prefUtente?.traduzioneAuto ?? false,
-    dominioProprio: (account.email.split('@')[1] || '').toLowerCase(),
-    esito,
-  })
 
-  const ultimoUid = primoFallito !== null ? primoFallito - 1 : nuovi.ultimoUid
-  await db.account.update({
-    where: { id: account.id },
-    data: {
-      ultimoUid: Math.max(account.ultimoUid, ultimoUid),
-      ...(account.primoUid === 0 && nuovi.primoUid > 0 ? { primoUid: nuovi.primoUid } : {}),
-      ultimoSync: new Date(),
-      ultimoErrore: null,
-    },
-  })
+  // Quali di questi uid sono già salvati: scaricaNuovi li scavalca senza
+  // rifetcharne il corpo (è anche la riparazione di un cursore rimasto indietro).
+  const giaPresenti = async (uids: number[]) => {
+    const presenti = await db.messaggio.findMany({
+      where: { accountId, uid: { in: uids } },
+      select: { uid: true },
+    })
+    return new Set(presenti.map((m) => m.uid))
+  }
+
+  // A esaurimento: più blocchi per giro finché c'è arretrato e resta tempo.
+  for (let giro = 0; giro < 20; giro++) {
+    let nuovi
+    try {
+      nuovi = await scaricaNuovi(account, limite, giaPresenti)
+    } catch (e) {
+      const errore = e instanceof Error ? e.message : String(e)
+      await db.account.update({ where: { id: account.id }, data: { ultimoErrore: errore, ultimoSync: new Date() } })
+      return { ...esito, errore }
+    }
+
+    const { primoFallito } = await salvaMessaggi({
+      utenteId: account.utenteId,
+      accountId: account.id,
+      messaggi: nuovi.messaggi,
+      regole,
+      traduzioneAuto: prefUtente?.traduzioneAuto ?? false,
+      dominioProprio: (account.email.split('@')[1] || '').toLowerCase(),
+      esito,
+      avanzaUltimoUid: true,
+    })
+
+    // Solo in avanti (updateMany con condizione): mai regressioni del cursore.
+    const ultimoUid = primoFallito !== null ? primoFallito - 1 : nuovi.ultimoUid
+    await db.account.updateMany({
+      where: { id: account.id, ultimoUid: { lt: ultimoUid } },
+      data: { ultimoUid },
+    })
+    await db.account.update({
+      where: { id: account.id },
+      data: {
+        ...(account.primoUid === 0 && nuovi.primoUid > 0 ? { primoUid: nuovi.primoUid } : {}),
+        ultimoSync: new Date(),
+        ultimoErrore: null,
+      },
+    })
+
+    if (primoFallito !== null || nuovi.restanti === 0) break
+    // Nessun messaggio recuperato ma arretrato ancora lì: qualcosa non si
+    // lascia scaricare, meglio fermarsi che girare a vuoto.
+    if (nuovi.messaggi.length === 0) break
+    if (Date.now() - partenza > BUDGET_MS) break
+    account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
+  }
+
+  // Niente di nuovo e tempo avanzato? Un blocco di storico: così la posta
+  // vecchia arriva da sola, senza dover premere niente in Impostazioni.
+  if (esito.scaricati === 0 && !account.storicoFinito && Date.now() - partenza < BUDGET_MS / 2) {
+    try {
+      const storico = await scaricaStorico(accountId, limite)
+      esito.scaricati += storico.scaricati
+    } catch {
+      /* lo storico non deve far fallire il sync */
+    }
+  }
 
   return esito
 }
@@ -495,6 +537,9 @@ async function salvaMessaggi(opts: {
   traduzioneAuto: boolean
   dominioProprio: string
   esito: EsitoSync
+  /** true SOLO per lo scarico dei nuovi: fa avanzare account.ultimoUid man
+   *  mano. Lo storico NON deve toccarlo (uid bassi: lo farebbe regredire). */
+  avanzaUltimoUid?: boolean
 }): Promise<{ primoFallito: number | null }> {
   const { utenteId, accountId, messaggi, regole, traduzioneAuto, dominioProprio, esito } = opts
   let primoFallito: number | null = null
@@ -569,12 +614,17 @@ async function salvaMessaggi(opts: {
   // (timeout). Se ultimoUid avanzasse solo alla fine, il sync ripartirebbe
   // sempre dallo stesso blocco senza fare mai progresso: quindi si avanza
   // messaggio per messaggio, appena l'esito (salvato o scartato) è definitivo.
+  // L'update è MONOTONO (solo in avanti, condizione nel WHERE): mai regressioni,
+  // nemmeno con più sync in parallelo.
   let cursore = 0
   const avanzaCursore = async (uid: number) => {
-    if (primoFallito !== null || uid <= cursore) return
+    if (!opts.avanzaUltimoUid || primoFallito !== null || uid <= cursore) return
     cursore = uid
     try {
-      await db.account.update({ where: { id: accountId }, data: { ultimoUid: uid } })
+      await db.account.updateMany({
+        where: { id: accountId, ultimoUid: { lt: uid } },
+        data: { ultimoUid: uid },
+      })
     } catch {
       /* si sistema con l'update finale */
     }
@@ -592,6 +642,20 @@ async function salvaMessaggi(opts: {
         if (esistente) {
           salvato = true
           break
+        }
+
+        // Stessa mail arrivata in più copie (alias/inoltri: stesso Message-ID,
+        // uid diversi): se ne tiene una sola. Le copie gonfierebbero i thread
+        // e creerebbero attività doppie.
+        if (msg.messageId) {
+          const copia = await db.messaggio.findFirst({
+            where: { utenteId, messageId: msg.messageId, direzione: 'entrata' },
+            select: { id: true },
+          })
+          if (copia) {
+            salvato = true
+            break
+          }
         }
 
         const creato = await db.messaggio.create({
