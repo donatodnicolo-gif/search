@@ -1053,9 +1053,9 @@ function ctCard(p){
 }
 $('#contattiReload').addEventListener('click', ()=> loadContatti(true));
 $('#ctTipo').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
-  ctFiltro.tipo=b.dataset.tipo; $('#ctTipo .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
+  ctFiltro.tipo=b.dataset.tipo; document.querySelectorAll('#ctTipo .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
 $('#ctCat').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
-  ctFiltro.cat=b.dataset.cat; $('#ctCat .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
+  ctFiltro.cat=b.dataset.cat; document.querySelectorAll('#ctCat .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
 $('#ctSearch').addEventListener('input', ()=>{ ctFiltro.q=$('#ctSearch').value; renderContatti(); });
 
 $('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); location.reload(); });
