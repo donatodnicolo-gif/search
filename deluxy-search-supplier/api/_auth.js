@@ -79,6 +79,13 @@ export async function authUser(req) {
   // (integrazioni con un solo campo credenziale, es. AI Mail)
   const chiave = apiKey || (KEY_RE.test(pass) ? pass : '');
   if (chiave) return authApiKey(chiave);
+  // sessione temporanea da handoff (link monouso, vedi api/link.js)
+  const sess = String(req.headers['x-app-session'] || '').trim();
+  if (sess) {
+    const raw = await kvCmd(['GET', 'session:' + sess]);
+    if (raw) { let i = {}; try { i = JSON.parse(raw); } catch (e) { /* ignora */ } return { utente: i.utente || 'link', admin: false, cfg: null }; }
+    return { error: 'Sessione scaduta: riapri il link dall\'app.', status: 401 };
+  }
   const nome = String(req.headers['x-app-user'] || '').trim();
   if (pass && pass === process.env.APP_PASSWORD) {
     return { utente: nome || 'admin', admin: true, cfg: null };

@@ -687,6 +687,7 @@ const API_BASE = (location.hostname==='localhost'||location.hostname==='127.0.0.
 const KNOWN_BRANDS = ['deluxy.it','deluxyflowers.com','cakedesign.me'];
 let PASS = sessionStorage.getItem('pass') || '';
 let USER = sessionStorage.getItem('user') || '';
+let SESSION = sessionStorage.getItem('session') || '';   // handoff da un'altra app (link monouso)
 let CONFIG = { googleKey:'', proxy:'', anagUrl:'', anagKey:'', stores:[] };
 function cssId(b){ return b.replace(/[^a-z0-9]/gi,'_'); }
 
@@ -702,7 +703,10 @@ $('#storeRows').innerHTML = KNOWN_BRANDS.map(b=>`
 
 function apiFetch(path, opts){
   opts = opts || {};
-  opts.headers = Object.assign({ 'x-app-password': PASS, 'x-app-user': USER }, opts.headers || {});
+  const h = { 'x-app-user': USER };
+  if(SESSION) h['x-app-session'] = SESSION;   // sessione da handoff (niente password)
+  else h['x-app-password'] = PASS;
+  opts.headers = Object.assign(h, opts.headers || {});
   return fetch(API_BASE + path, opts);
 }
 function utenteRow(nome){
@@ -821,7 +825,47 @@ async function unlock(){
 $('#passBtn').addEventListener('click', unlock);
 $('#passInput').addEventListener('keydown', e=>{ if(e.key==='Enter') unlock(); });
 $('#userInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#passInput').focus(); });
-if(PASS && USER){ unlock(); }   // sessione già sbloccata
+
+// entra con una sessione temporanea (da handoff): niente password, credenziale = SESSION
+async function unlockSession(sess, utente){
+  SESSION = sess; PASS = ''; USER = utente || 'link';
+  sessionStorage.setItem('session', sess);
+  sessionStorage.setItem('user', USER);
+  sessionStorage.removeItem('pass');
+  try{
+    await loadConfig();
+    $('#lockScreen').style.display='none';
+    $('#passErr').textContent='';
+    $('.user-name').textContent = USER;
+    $('.avatar').textContent = USER.slice(0,2).toUpperCase();
+    applyDeepLink();
+    return true;
+  }catch(e){
+    SESSION=''; sessionStorage.removeItem('session');
+    $('#passErr').textContent='❌ Link non valido o scaduto. '+e.message;
+    return false;
+  }
+}
+// scambia il codice ?t=… (monouso) per una sessione, poi lo toglie dall'URL
+async function handoff(){
+  const q = new URLSearchParams(location.search);
+  const code = q.get('t');
+  if(!code) return false;
+  try{
+    const r = await fetch(API_BASE + '/api/link?code=' + encodeURIComponent(code) + '&ts=' + encodeURIComponent(new Date().toISOString()));
+    const j = await r.json().catch(()=>({}));
+    q.delete('t');   // consumato: non deve restare nella cronologia
+    history.replaceState(null, '', location.pathname + (q.toString() ? '?'+q.toString() : ''));
+    if(!r.ok || !j.ok) return false;
+    return await unlockSession(j.session, j.utente);
+  }catch(e){ return false; }
+}
+// avvio: prima l'handoff, poi una sessione ripresa, poi il login classico
+(async ()=>{
+  if(await handoff()) return;
+  if(SESSION && USER){ if(await unlockSession(SESSION, USER)) return; }
+  if(PASS && USER){ unlock(); }
+})();
 
 /* ------------------ DEEP LINK (richiamo da altre app) ------------------
    L'app si può aprire da un bottone di un'altra app con parametri in URL:
@@ -1058,7 +1102,7 @@ $('#ctCat').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if
   ctFiltro.cat=b.dataset.cat; document.querySelectorAll('#ctCat .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
 $('#ctSearch').addEventListener('input', ()=>{ ctFiltro.q=$('#ctSearch').value; renderContatti(); });
 
-$('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); location.reload(); });
+$('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); sessionStorage.removeItem('session'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);
 $('#appOverlay').addEventListener('click', closeMenu);
 // sidebar a scomparsa su desktop (lo stato resta tra le sessioni)
@@ -1373,7 +1417,7 @@ async function fetchOrder(){
   localStorage.setItem('brand', brand);
   $('#orderBox').style.display='none'; orderLoaded=false;
   if(!number){ setOrderStatus('Inserisci il numero ordine.', true); return; }
-  if(!PASS){ setOrderStatus('Sessione scaduta: rientra col pass code.', true); location.reload(); return; }
+  if(!PASS && !SESSION){ setOrderStatus('Sessione scaduta: rientra col pass code.', true); location.reload(); return; }
 
   $('#fetchOrder').disabled = true;
   setOrderStatus('Recupero ordine '+number+' da '+brand+'…');

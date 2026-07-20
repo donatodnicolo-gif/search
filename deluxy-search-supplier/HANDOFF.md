@@ -58,6 +58,17 @@ solo dove siamo e come si lavora.
    da tutte le API; gestione in Impostazioni → «🔑 Chiavi API» (solo admin), segreto mostrato
    una sola volta (salvato scrypt), revoca immediata, Storico firma `chiave:<nome>`.
    Collaudo completo in produzione 20/07 (crea→usa→403 su admin→revoca→401).
+   Una chiave dlxs_ è accettata anche nel campo `x-app-password` (app con un solo campo).
+13. **Handoff senza login** (20/07, `/api/link`): un'app con chiave API fa POST /api/link →
+   codice monouso (KV `linkcode:` TTL 300s); apre `/?t=<code>&brand=&ordine=`; il browser fa
+   GET /api/link?code= → sessione (KV `session:` TTL 1h, header `x-app-session`) e la ricerca
+   parte già sbloccata. Collaudato end-to-end nel browser (sblocco + ordine + ricerca, no login).
+   ⚠️ **Insidia risolta**: `fetchOrder` aveva `if(!PASS) location.reload()` → con la sessione
+   (PASS vuoto) andava in loop di reload infinito. Ora `if(!PASS && !SESSION)`. Ogni guard futuro
+   su `PASS` deve considerare anche `SESSION`.
+14. **Nota Vercel firewall**: burst di richieste (loop/test) da un IP fanno scattare una *System
+   Rule* automatica «Challenge» su quell'IP (pagina "Vercel Security Checkpoint"). I browser la
+   passano da soli; `curl` no. È temporanea e per-IP, decade da sola. Non è un toggle manuale.
 13. **Sezione Contatti** (20/07): voce sidebar «Contatti», vista dedicata (`loadContatti`),
    importa TUTTE le pagine da `/api/anagrafiche` e raggruppa per provincia. Filtri: tipo
    (Partner=stato `attivo` / Fornitori=tutti gli altri stati), categoria (Fiorai/Pasticcerie),
