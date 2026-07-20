@@ -76,6 +76,13 @@ solo dove siamo e come si lavora.
    ristoranti, gioiellerie…), non solo fiorai (114) e pasticcerie (77): «Tutte le categorie»
    le mostra tutte. Da decidere se limitare il default a fiorai+pasticcerie.
 
+15. **Riconciliazione fornitore ↔ registro** (20/07, `/api/riconcilia`): pulsante «🔗 Riconcilia»
+   sulle schede Google → si sceglie il contatto del registro (preselezionato dal match per nome)
+   → il registro salva il riferimento esterno (deluxy-suppliers + place_id), fonde i dati freschi
+   e accoda la nota. Reti di sicurezza per doppioni/omonimie (409 + rollback soft del creato).
+   Collaudata in produzione: «Les fleurs de May» (Sainte-Maxime) riconciliata, riferimento e nota
+   verificati nel registro.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
