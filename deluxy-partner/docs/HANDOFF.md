@@ -41,6 +41,8 @@ Su Vercel (produzione) e nel `.env` locale:
 | `DIRECT_URL` | Vercel + .env | Postgres, pooler 5432 (migrazioni/`db push`) |
 | `PARTNER_APP_PASSWORD` | Vercel | Password login UI (assente in locale = app aperta) |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | Vercel + .env | Recap AI (chiave condivisa con deluxy-mail; modello `gpt-4o-mini`) |
+| `OPENAI_VISION_MODEL` | Vercel + .env (facoltativa) | Lettura AI foto IBAN in Pagamenti diretti (default `gpt-4o`, deve avere capacità vision) |
+| `CRON_SECRET` | Vercel | Autorizza il cron `/api/cron/qonto` (senza → 503, cron disattivo) |
 | `ANAGRAFICHE_URL`, `ANAGRAFICHE_API_KEY` | Vercel + .env | Lettura dal registro anagrafiche centralizzato (sola lettura) |
 
 **Importante — credenziali NON in env, ma nel DB** (tabella `Impostazione`, chiave/valore): SMTP solleciti (`smtp.*`), Qonto (`qonto.*`), Fatture in Cloud (`fic.*` incluso access/refresh token), ordinante SEPA (`sepa.*`), chiave API pubblica (`api.verificheKey`). Si gestiscono dalla pagina **Impostazioni** e **/verifiche**, non toccando Vercel.
@@ -76,6 +78,7 @@ Convenzione bonifici: `> 0` inviato al partner, `< 0` ricevuto. `RiepilogoMese` 
 | `/vendite`, `/vendite/[id]`, `/vendite/nuova` | Vendite come vendor; scheda con modifica fee/incasso |
 | `/proforma`, `/proforma/nuova`, `/proforma/[id]`, `/proforma/[id]/modifica`, `/proforma/[id]/invia` | **Pro-forma ad hoc**: righe libere con totali live, numerazione `PF n/anno` per anno, documento stampabile (Stampa/PDF del browser, `@media print`), invio email (SMTP o mailto, testo precompilato modificabile). Stati: bozza → inviata → **fatturata** (con n° fattura definitiva) oppure **annullata**; bozze modificabili/eliminabili, stati sempre reversibili. Intestazione mittente da Impostazioni → "Intestazione documenti" (chiavi `azienda.*`). Logica: `src/lib/proforma.ts` + `proforma-actions.ts`, editor righe `RigheProForma.tsx` |
 | `/saldi` | Riconciliazione mensile per partner, export SEPA/CSV |
+| `/pagamenti`, `/pagamenti/nuova`, `/pagamenti/[id]` | **Pagamenti diretti ai fornitori**: si carica una foto/screenshot dei dati bancari, l'**AI (OpenAI vision)** legge beneficiario/IBAN/BIC/importo/causale (`/api/pagamenti/leggi`), l'operatore **verifica** (validazione IBAN mod-97) e predispone il bonifico. Esecuzione = **file SEPA** del singolo pagamento (`/api/pagamenti/[id]/sepa`) da autorizzare in Qonto/home banking. **L'app non esegue pagamenti.** Stati: predisposto → pagato \| annullato. La foto non viene salvata. `src/lib/lettura-iban.ts`, `src/lib/sepa.ts`, `src/lib/pagamenti-actions.ts` |
 | `/transazioni` | **Import transazioni**: upload CSV/XLSX (parser tollerante, incluso Vivid) o **Sincronizza da Qonto**; riconciliazione con match a 1 click, discrepanze, non riconosciute, ricerca morbida, "attesi mancanti" |
 | `/scadenzario` | Fatture da incassare (con "Invia sollecito" + "Emetti su FIC"), bonifici pendenti, commissioni da emettere. **Ricerca** (partner/n. fattura/tipologia/IBAN) su tutte e tre le tabelle e **colonne ordinabili indipendenti** per tabella (default: nome partner) |
 | `/report`, `/confronti`, `/analisi` | Report per tipologia/città/categoria + forecast; Confronti 2026 vs 2025 (mese/trimestre/anno/personalizzato); Analisi finanziaria per scadenza con split saldato/da saldare e liquidità Qonto live |

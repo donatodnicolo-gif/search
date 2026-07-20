@@ -195,6 +195,29 @@ model ProFormaRiga {
   aliquotaIva   Float    @default(22)
 }
 
+// Pagamento diretto a un fornitore: i dati beneficiario vengono letti da una
+// foto/IBAN con l'AI, verificati dall'operatore e predisposti come bonifico.
+// L'app NON esegue il pagamento: genera il file SEPA da autorizzare in banca
+// (Qonto/home banking). Stato: predisposto -> pagato oppure annullato.
+// La foto NON viene salvata: l'AI la legge al volo, restano solo i dati.
+model PagamentoDiretto {
+  id            String    @id @default(cuid())
+  beneficiario  String // intestatario del conto
+  iban          String
+  bic           String?
+  importo       Float
+  causale       String?
+  fornitore     String? // riferimento interno / nome fornitore
+  note          String?
+  ibanValido    Boolean   @default(false) // esito del controllo mod-97 al salvataggio
+  stato         String    @default("predisposto") // predisposto | pagato | annullato
+  dataPagamento DateTime? // quando segnato pagato
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([stato, createdAt])
+}
+
 // Impostazioni dell'app (chiave/valore): dati ordinante SEPA, preferenze
 model Impostazione {
   chiave String @id

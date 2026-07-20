@@ -56,6 +56,12 @@ const icons = {
       <path d="M12 3v18M5 8c0-2 2.5-3.5 7-3.5S19 6 19 8s-2.5 3.5-7 3.5S5 14 5 16s2.5 3.5 7 3.5 7-1.5 7-3.5" />
     </svg>
   ),
+  pagamenti: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M3 10h18M7 14h4" />
+    </svg>
+  ),
   scadenze: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <circle cx="12" cy="12" r="8.5" />
@@ -126,6 +132,7 @@ const sections: { label: string; items: Item[] }[] = [
     label: "Amministrazione",
     items: [
       { href: "/saldi", label: "Saldi e bonifici", icon: icons.saldi },
+      { href: "/pagamenti", label: "Pagamenti diretti", icon: icons.pagamenti },
       { href: "/transazioni", label: "Import transazioni", icon: icons.transazioni },
       { href: "/scadenzario", label: "Scadenzario", icon: icons.scadenze },
       { href: "/report", label: "Report", icon: icons.report },
