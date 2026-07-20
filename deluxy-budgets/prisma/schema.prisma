@@ -1,0 +1,115 @@
+// Deluxy Budgets — schema dati
+// Contiene i budget aziendali per anno: per maison (canali D2C / Eventi / B2B),
+// per linea commerciale (team commerciale), gli scenari su 3 livelli
+// (raggiungibile / sfidante / irraggiungibile) con relativi premi, i costi per
+// il P&L, le % di spesa ADV per maison/mese e le proposte di budget dei
+// Responsabili. Il P&L è SEMPRE calcolato in src/lib/calc.ts, mai memorizzato.
+//
+// Sviluppo: SQLite (file dev.db, zero configurazione). Per la produzione
+// cambiare provider in "postgresql" e puntare DATABASE_URL a Supabase.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Maison / brand (Deluxy.it, Deluxyflowers.com, CakeDesign.me, Business, Experience)
+model Maison {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  nome        String
+  ordine      Int           @default(0)
+  budgets     BudgetEntry[]
+  advPercents AdvPercent[]
+}
+
+// Budget pubblicato (livello "raggiungibile"): vendite per maison × canale × mese.
+// Gli altri due livelli si ottengono con i moltiplicatori di ScenarioConfig.
+model BudgetEntry {
+  id       String @id @default(cuid())
+  year     Int
+  month    Int // 1..12
+  canale   String // D2C | EVENTI | B2B
+  vendite  Float  @default(0)
+  maison   Maison @relation(fields: [maisonId], references: [id], onDelete: Cascade)
+  maisonId String
+
+  @@unique([year, maisonId, month, canale])
+}
+
+// Scenari su 3 livelli con moltiplicatore sul budget pubblicato e premio
+// riconosciuto al raggiungimento del livello.
+model ScenarioConfig {
+  id             String  @id @default(cuid())
+  year           Int
+  livello        String // RAGGIUNGIBILE | SFIDANTE | IRRAGGIUNGIBILE
+  moltiplicatore Float   @default(1)
+  premio         Float   @default(0) // premio totale team se il livello è raggiunto
+  note           String?
+
+  @@unique([year, livello])
+}
+
+// Voci di costo per il P&L. maisonId null = voce globale.
+model CostConfig {
+  id       String  @id @default(cuid())
+  year     Int
+  maisonId String? // null = tutta l'azienda
+  tipo     String // COGS_PCT (% su vendite) | FISSO_MENSILE | FISSO_ANNUO
+  label    String
+  valore   Float   @default(0)
+}
+
+// Spesa ADV consentita: % su vendite per maison × mese, personalizzabile.
+// budgetPubblicato = ADV HP mensile del monitoraggio (riferimento).
+model AdvPercent {
+  id               String @id @default(cuid())
+  year             Int
+  month            Int
+  percent          Float  @default(0) // % su vendite del mese spendibile in ADV
+  budgetPubblicato Float  @default(0)
+  maison           Maison @relation(fields: [maisonId], references: [id], onDelete: Cascade)
+  maisonId         String
+
+  @@unique([year, maisonId, month])
+}
+
+// Linee del team commerciale (Affiliazioni, Consegne Corporate, Catering & Eventi…)
+model LineaCommerciale {
+  id      String        @id @default(cuid())
+  slug    String        @unique
+  nome    String
+  ordine  Int           @default(0)
+  targets TargetLinea[]
+}
+
+// Target mensile della linea: valore € e numero clienti/attivazioni.
+model TargetLinea {
+  id      String           @id @default(cuid())
+  year    Int
+  month   Int
+  valore  Float            @default(0)
+  clienti Float            @default(0)
+  linea   LineaCommerciale @relation(fields: [lineaId], references: [id], onDelete: Cascade)
+  lineaId String
+
+  @@unique([year, lineaId, month])
+}
+
+// Proposta di budget inviata da un utente di livello Responsabile.
+model PropostaBudget {
+  id         String   @id @default(cuid())
+  year       Int
+  autore     String
+  ruolo      String   @default("Responsabile")
+  ambitoTipo String // MAISON | LINEA | GLOBALE
+  ambitoSlug String? // slug della maison o della linea
+  valori     String // JSON: [{month, valore}] × 12
+  note       String?
+  stato      String   @default("INVIATA") // BOZZA | INVIATA | APPROVATA | RESPINTA
+  createdAt  DateTime @default(now())
+}

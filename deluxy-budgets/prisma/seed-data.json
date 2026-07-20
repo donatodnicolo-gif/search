@@ -1,0 +1,985 @@
+{
+  "year": 2026,
+  "maisons": [
+    {
+      "slug": "deluxy",
+      "nome": "Deluxy.it",
+      "months": [
+        {
+          "month": 1,
+          "d2c": 50112,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 6862
+        },
+        {
+          "month": 2,
+          "d2c": 74936,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 9860
+        },
+        {
+          "month": 3,
+          "d2c": 135000,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 18000
+        },
+        {
+          "month": 4,
+          "d2c": 134280,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 18000
+        },
+        {
+          "month": 5,
+          "d2c": 193960,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 26000
+        },
+        {
+          "month": 6,
+          "d2c": 104440,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 14000
+        },
+        {
+          "month": 7,
+          "d2c": 0,
+          "eventi": 10444,
+          "b2b": 93996,
+          "adv": 14000
+        },
+        {
+          "month": 8,
+          "d2c": 0,
+          "eventi": 11190,
+          "b2b": 63410,
+          "adv": 10000
+        },
+        {
+          "month": 9,
+          "d2c": 0,
+          "eventi": 28646.4,
+          "b2b": 114585.6,
+          "adv": 19200
+        },
+        {
+          "month": 10,
+          "d2c": 13428,
+          "eventi": 26856,
+          "b2b": 93996,
+          "adv": 18000
+        },
+        {
+          "month": 11,
+          "d2c": 0,
+          "eventi": 11936,
+          "b2b": 107424,
+          "adv": 16000
+        },
+        {
+          "month": 12,
+          "d2c": 22380,
+          "eventi": 44760,
+          "b2b": 156660,
+          "adv": 30000
+        }
+      ]
+    },
+    {
+      "slug": "cakedesign",
+      "nome": "CakeDesign.me",
+      "months": [
+        {
+          "month": 1,
+          "d2c": 4853,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 1118.19
+        },
+        {
+          "month": 2,
+          "d2c": 6004,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 1561.83
+        },
+        {
+          "month": 3,
+          "d2c": 6618.57,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 1636.37
+        },
+        {
+          "month": 4,
+          "d2c": 5948,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 1636.37
+        },
+        {
+          "month": 5,
+          "d2c": 5335,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 1872.74
+        },
+        {
+          "month": 6,
+          "d2c": 5500,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 1454.55
+        },
+        {
+          "month": 7,
+          "d2c": 5000,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 1272.73
+        },
+        {
+          "month": 8,
+          "d2c": 3000,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 727.28
+        },
+        {
+          "month": 9,
+          "d2c": 10000,
+          "eventi": 2500,
+          "b2b": 500,
+          "adv": 1272.73
+        },
+        {
+          "month": 10,
+          "d2c": 12000,
+          "eventi": 2500,
+          "b2b": 1000,
+          "adv": 1454.55
+        },
+        {
+          "month": 11,
+          "d2c": 14241.39,
+          "eventi": 2500,
+          "b2b": 2000,
+          "adv": 1454.55
+        },
+        {
+          "month": 12,
+          "d2c": 21500.04,
+          "eventi": 5000,
+          "b2b": 3000,
+          "adv": 2727.29
+        }
+      ]
+    },
+    {
+      "slug": "flowers",
+      "nome": "Deluxyflowers.com",
+      "months": [
+        {
+          "month": 1,
+          "d2c": 11375,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 1750
+        },
+        {
+          "month": 2,
+          "d2c": 14079,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 2166
+        },
+        {
+          "month": 3,
+          "d2c": 11310,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 1740
+        },
+        {
+          "month": 4,
+          "d2c": 11047.86,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 1699.67
+        },
+        {
+          "month": 5,
+          "d2c": 16511.63,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 2540.25
+        },
+        {
+          "month": 6,
+          "d2c": 22300.44,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 3556.18
+        },
+        {
+          "month": 7,
+          "d2c": 27000,
+          "eventi": 3000,
+          "b2b": 0,
+          "adv": 5000
+        },
+        {
+          "month": 8,
+          "d2c": 12750,
+          "eventi": 2250,
+          "b2b": 0,
+          "adv": 2500
+        },
+        {
+          "month": 9,
+          "d2c": 32000,
+          "eventi": 8000,
+          "b2b": 0,
+          "adv": 6333.33
+        },
+        {
+          "month": 10,
+          "d2c": 24500,
+          "eventi": 7000,
+          "b2b": 3500,
+          "adv": 5541.67
+        },
+        {
+          "month": 11,
+          "d2c": 30038.47,
+          "eventi": 3337.61,
+          "b2b": 0,
+          "adv": 5423.61
+        },
+        {
+          "month": 12,
+          "d2c": 42000,
+          "eventi": 12000,
+          "b2b": 6000,
+          "adv": 9000
+        }
+      ]
+    },
+    {
+      "slug": "business",
+      "nome": "Deluxy Business (B2B)",
+      "months": [
+        {
+          "month": 1,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 0
+        },
+        {
+          "month": 2,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 2250,
+          "adv": 409.09
+        },
+        {
+          "month": 3,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 4499.99,
+          "adv": 818.18
+        },
+        {
+          "month": 4,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 4499.99,
+          "adv": 818.18
+        },
+        {
+          "month": 5,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 6749.99,
+          "adv": 1227.27
+        },
+        {
+          "month": 6,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 2250,
+          "adv": 409.09
+        },
+        {
+          "month": 7,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 2250,
+          "adv": 409.09
+        },
+        {
+          "month": 8,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 2250,
+          "adv": 409.09
+        },
+        {
+          "month": 9,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 33749.93,
+          "adv": 6136.35
+        },
+        {
+          "month": 10,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 56249.88,
+          "adv": 10227.25
+        },
+        {
+          "month": 11,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 78749.83,
+          "adv": 14318.15
+        },
+        {
+          "month": 12,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 31499.93,
+          "adv": 5727.26
+        }
+      ]
+    },
+    {
+      "slug": "experience",
+      "nome": "Deluxy Experience",
+      "months": [
+        {
+          "month": 1,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 0
+        },
+        {
+          "month": 2,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 0
+        },
+        {
+          "month": 3,
+          "d2c": 0,
+          "eventi": 0,
+          "b2b": 0,
+          "adv": 0
+        },
+        {
+          "month": 4,
+          "d2c": 0,
+          "eventi": 1350,
+          "b2b": 0,
+          "adv": 270
+        },
+        {
+          "month": 5,
+          "d2c": 0,
+          "eventi": 1350,
+          "b2b": 0,
+          "adv": 270
+        },
+        {
+          "month": 6,
+          "d2c": 0,
+          "eventi": 1350,
+          "b2b": 0,
+          "adv": 270
+        },
+        {
+          "month": 7,
+          "d2c": 0,
+          "eventi": 1350,
+          "b2b": 0,
+          "adv": 270
+        },
+        {
+          "month": 8,
+          "d2c": 0,
+          "eventi": 1350,
+          "b2b": 0,
+          "adv": 270
+        },
+        {
+          "month": 9,
+          "d2c": 0,
+          "eventi": 3375,
+          "b2b": 0,
+          "adv": 675
+        },
+        {
+          "month": 10,
+          "d2c": 0,
+          "eventi": 3375,
+          "b2b": 0,
+          "adv": 675
+        },
+        {
+          "month": 11,
+          "d2c": 0,
+          "eventi": 3375,
+          "b2b": 0,
+          "adv": 675
+        },
+        {
+          "month": 12,
+          "d2c": 0,
+          "eventi": 5625,
+          "b2b": 0,
+          "adv": 1125
+        }
+      ]
+    }
+  ],
+  "linee": [
+    {
+      "slug": "affiliazioni",
+      "nome": "Affiliazioni",
+      "months": [
+        {
+          "month": 1,
+          "valore": 2000,
+          "clienti": 2
+        },
+        {
+          "month": 2,
+          "valore": 13000,
+          "clienti": 13
+        },
+        {
+          "month": 3,
+          "valore": 11000,
+          "clienti": 11
+        },
+        {
+          "month": 4,
+          "valore": 11000,
+          "clienti": 11
+        },
+        {
+          "month": 5,
+          "valore": 13000,
+          "clienti": 13
+        },
+        {
+          "month": 6,
+          "valore": 9000,
+          "clienti": 9
+        },
+        {
+          "month": 7,
+          "valore": 7000,
+          "clienti": 7
+        },
+        {
+          "month": 8,
+          "valore": 4000,
+          "clienti": 4
+        },
+        {
+          "month": 9,
+          "valore": 10000,
+          "clienti": 10
+        },
+        {
+          "month": 10,
+          "valore": 10000,
+          "clienti": 10
+        },
+        {
+          "month": 11,
+          "valore": 10000,
+          "clienti": 10
+        },
+        {
+          "month": 12,
+          "valore": 0,
+          "clienti": 0
+        }
+      ]
+    },
+    {
+      "slug": "consegne-corporate",
+      "nome": "Consegne Corporate",
+      "months": [
+        {
+          "month": 1,
+          "valore": 0,
+          "clienti": 0
+        },
+        {
+          "month": 2,
+          "valore": 2000,
+          "clienti": 1
+        },
+        {
+          "month": 3,
+          "valore": 4000,
+          "clienti": 2
+        },
+        {
+          "month": 4,
+          "valore": 6000,
+          "clienti": 2
+        },
+        {
+          "month": 5,
+          "valore": 10000,
+          "clienti": 3
+        },
+        {
+          "month": 6,
+          "valore": 12000,
+          "clienti": 3
+        },
+        {
+          "month": 7,
+          "valore": 14000,
+          "clienti": 3
+        },
+        {
+          "month": 8,
+          "valore": 8000,
+          "clienti": 3
+        },
+        {
+          "month": 9,
+          "valore": 14000,
+          "clienti": 4
+        },
+        {
+          "month": 10,
+          "valore": 16000,
+          "clienti": 4
+        },
+        {
+          "month": 11,
+          "valore": 18000,
+          "clienti": 4
+        },
+        {
+          "month": 12,
+          "valore": 20000,
+          "clienti": 5
+        }
+      ]
+    },
+    {
+      "slug": "catering-eventi",
+      "nome": "Catering & Eventi",
+      "months": [
+        {
+          "month": 1,
+          "valore": 0,
+          "clienti": 0
+        },
+        {
+          "month": 2,
+          "valore": 500,
+          "clienti": 1
+        },
+        {
+          "month": 3,
+          "valore": 3500,
+          "clienti": 2
+        },
+        {
+          "month": 4,
+          "valore": 3500,
+          "clienti": 3
+        },
+        {
+          "month": 5,
+          "valore": 3500,
+          "clienti": 3
+        },
+        {
+          "month": 6,
+          "valore": 3500,
+          "clienti": 3
+        },
+        {
+          "month": 7,
+          "valore": 1000,
+          "clienti": 3
+        },
+        {
+          "month": 8,
+          "valore": 0,
+          "clienti": 3
+        },
+        {
+          "month": 9,
+          "valore": 5000,
+          "clienti": 4
+        },
+        {
+          "month": 10,
+          "valore": 5500,
+          "clienti": 4
+        },
+        {
+          "month": 11,
+          "valore": 5500,
+          "clienti": 4
+        },
+        {
+          "month": 12,
+          "valore": 18500,
+          "clienti": 8
+        }
+      ]
+    },
+    {
+      "slug": "torte-mono",
+      "nome": "Torte e Mono",
+      "months": [
+        {
+          "month": 1,
+          "valore": 0,
+          "clienti": 0
+        },
+        {
+          "month": 2,
+          "valore": 500,
+          "clienti": 0.5
+        },
+        {
+          "month": 3,
+          "valore": 500,
+          "clienti": 0.5
+        },
+        {
+          "month": 4,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 5,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 6,
+          "valore": 500,
+          "clienti": 2
+        },
+        {
+          "month": 7,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 8,
+          "valore": 500,
+          "clienti": 2
+        },
+        {
+          "month": 9,
+          "valore": 1500,
+          "clienti": 3
+        },
+        {
+          "month": 10,
+          "valore": 1500,
+          "clienti": 3
+        },
+        {
+          "month": 11,
+          "valore": 1500,
+          "clienti": 3
+        },
+        {
+          "month": 12,
+          "valore": 5500,
+          "clienti": 5
+        }
+      ]
+    },
+    {
+      "slug": "regalistica",
+      "nome": "Regalistica",
+      "months": [
+        {
+          "month": 1,
+          "valore": 0,
+          "clienti": 0
+        },
+        {
+          "month": 2,
+          "valore": 500,
+          "clienti": 1
+        },
+        {
+          "month": 3,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 4,
+          "valore": 3500,
+          "clienti": 3
+        },
+        {
+          "month": 5,
+          "valore": 1500,
+          "clienti": 4
+        },
+        {
+          "month": 6,
+          "valore": 500,
+          "clienti": 1
+        },
+        {
+          "month": 7,
+          "valore": 500,
+          "clienti": 1
+        },
+        {
+          "month": 8,
+          "valore": 500,
+          "clienti": 1
+        },
+        {
+          "month": 9,
+          "valore": 5000,
+          "clienti": 4
+        },
+        {
+          "month": 10,
+          "valore": 8500,
+          "clienti": 7
+        },
+        {
+          "month": 11,
+          "valore": 11000,
+          "clienti": 7
+        },
+        {
+          "month": 12,
+          "valore": 92500,
+          "clienti": 25
+        }
+      ]
+    },
+    {
+      "slug": "retail-marketing",
+      "nome": "Retail Marketing & Concierge",
+      "months": [
+        {
+          "month": 1,
+          "valore": 0,
+          "clienti": 0
+        },
+        {
+          "month": 2,
+          "valore": 500,
+          "clienti": 0.5
+        },
+        {
+          "month": 3,
+          "valore": 1000,
+          "clienti": 1
+        },
+        {
+          "month": 4,
+          "valore": 3000,
+          "clienti": 3
+        },
+        {
+          "month": 5,
+          "valore": 3000,
+          "clienti": 3
+        },
+        {
+          "month": 6,
+          "valore": 3000,
+          "clienti": 3
+        },
+        {
+          "month": 7,
+          "valore": 4000,
+          "clienti": 4
+        },
+        {
+          "month": 8,
+          "valore": 1000,
+          "clienti": 1
+        },
+        {
+          "month": 9,
+          "valore": 3000,
+          "clienti": 3
+        },
+        {
+          "month": 10,
+          "valore": 3000,
+          "clienti": 3
+        },
+        {
+          "month": 11,
+          "valore": 3000,
+          "clienti": 3
+        },
+        {
+          "month": 12,
+          "valore": 5500,
+          "clienti": 5.5
+        }
+      ]
+    },
+    {
+      "slug": "eventi-altro",
+      "nome": "Eventi & Altro",
+      "months": [
+        {
+          "month": 1,
+          "valore": 0,
+          "clienti": 0
+        },
+        {
+          "month": 2,
+          "valore": 5000,
+          "clienti": 1
+        },
+        {
+          "month": 3,
+          "valore": 0,
+          "clienti": 0
+        },
+        {
+          "month": 4,
+          "valore": 2500,
+          "clienti": 1
+        },
+        {
+          "month": 5,
+          "valore": 2500,
+          "clienti": 1
+        },
+        {
+          "month": 6,
+          "valore": 5000,
+          "clienti": 1
+        },
+        {
+          "month": 7,
+          "valore": 0,
+          "clienti": 0
+        },
+        {
+          "month": 8,
+          "valore": 0,
+          "clienti": 0
+        },
+        {
+          "month": 9,
+          "valore": 10000,
+          "clienti": 2
+        },
+        {
+          "month": 10,
+          "valore": 5000,
+          "clienti": 2
+        },
+        {
+          "month": 11,
+          "valore": 5000,
+          "clienti": 2
+        },
+        {
+          "month": 12,
+          "valore": 15000,
+          "clienti": 5
+        }
+      ]
+    },
+    {
+      "slug": "magazzino",
+      "nome": "Magazzino / Logistica",
+      "months": [
+        {
+          "month": 1,
+          "valore": 0,
+          "clienti": 0
+        },
+        {
+          "month": 2,
+          "valore": 500,
+          "clienti": 0.5
+        },
+        {
+          "month": 3,
+          "valore": 500,
+          "clienti": 0.5
+        },
+        {
+          "month": 4,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 5,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 6,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 7,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 8,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 9,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 10,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 11,
+          "valore": 1000,
+          "clienti": 2
+        },
+        {
+          "month": 12,
+          "valore": 1000,
+          "clienti": 2
+        }
+      ]
+    }
+  ]
+}

@@ -57,6 +57,13 @@ const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
       <circle cx="12" cy="10.5" r="2.5" {...TRATTO} />
     </>
   ),
+  // Grafico a barre con freccia: budget e P&L su 3 livelli
+  budgets: (
+    <>
+      <path d="M4 20.5V11M9.3 20.5V6.5M14.6 20.5v-8M21 20.5H3" {...TRATTO} />
+      <path d="m15.5 6.5 5-3.5M20.5 3l-3.6.4M20.5 3l.4 3.6" {...TRATTO} />
+    </>
+  ),
   // Busta con scintilla: posta letta e smistata dall'AI
   mail: (
     <>

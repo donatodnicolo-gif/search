@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -76,6 +76,16 @@ export function catalogoApp(): AppDeluxy[] {
       icona: "maison",
       url: url(process.env.APP_URL_MAISON, "https://deluxy-os.base44.app/"),
       ruoli: ["admin", "partner", "commerciale"],
+    },
+    {
+      id: "budgets",
+      nome: "Budgets",
+      sottotitolo: "Budget e P&L",
+      descrizione:
+        "Budget aziendali su 3 livelli (raggiungibile, sfidante, irraggiungibile) con P&L, premi, proposte dei responsabili e spese ADV.",
+      icona: "budgets",
+      url: url(process.env.APP_URL_BUDGETS, "http://localhost:3080"),
+      ruoli: ["admin"],
     },
     {
       id: "scout",
