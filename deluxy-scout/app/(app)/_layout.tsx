@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions } from '@react-navigation/native';
-import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
+import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -12,10 +12,49 @@ import { Loader } from '../_layout';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
-// Icone del menu in stile line-art (SF Symbols), tinta oro/muted dal navigatore.
-function DrawerIcon({ name, color, size }: { name: IconName; color: string; size: number }) {
-  return <Ionicons name={name} size={size} color={color} />;
-}
+// Menu raggruppato per FLUSSO DI LAVORO commerciale (DS: sezioni con etichetta
+// MAIUSCOLA). L'ordine segue la giornata del venditore: cosa fai oggi →
+// trovi i clienti → li porti avanti → misuri → account.
+type Voce = { name: string; label: string; icon: IconName; soloAdmin?: boolean };
+const SEZIONI: { titolo: string; voci: Voce[] }[] = [
+  {
+    titolo: 'Operatività',
+    voci: [
+      { name: 'oggi', label: 'Oggi', icon: 'sunny-outline' },
+      { name: 'task', label: 'I miei task', icon: 'checkbox-outline' },
+      { name: 'calendario', label: 'Calendario', icon: 'calendar-outline' },
+      { name: 'da-completare', label: 'Da fare', icon: 'time-outline' },
+    ],
+  },
+  {
+    titolo: 'Prospezione',
+    voci: [
+      { name: 'mappa', label: 'Mappa', icon: 'map-outline' },
+      { name: 'lista', label: 'Target', icon: 'flag-outline' },
+      { name: 'rubrica', label: 'Rubrica', icon: 'people-outline' },
+      { name: 'script', label: 'Script', icon: 'document-text-outline' },
+    ],
+  },
+  {
+    titolo: 'Pipeline',
+    voci: [
+      { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
+      { name: 'affiliazioni', label: 'Affiliazioni', icon: 'git-network-outline' },
+      { name: 'pagamenti', label: 'Pagamenti', icon: 'cash-outline' },
+    ],
+  },
+  {
+    titolo: 'Andamento',
+    voci: [
+      { name: 'dashboard', label: 'Dashboard', icon: 'stats-chart-outline' },
+      { name: 'team', label: 'Team', icon: 'people-circle-outline', soloAdmin: true },
+    ],
+  },
+  {
+    titolo: 'Account',
+    voci: [{ name: 'profilo', label: 'Profilo', icon: 'person-outline' }],
+  },
+];
 
 // Pulsante ☰ nell'header: apre/chiude il menu laterale. Testuale così è
 // sempre visibile anche sul web (l'icona di default usa un font non caricato).
@@ -41,8 +80,12 @@ function BtnIndietro() {
   );
 }
 
-// Contenuto del drawer con intestazione brand (logo D) + voci.
-function ContenutoDrawer(props: any) {
+// Contenuto del drawer: intestazione brand (logo D) + voci raggruppate per
+// sezione, con etichetta MAIUSCOLA (Design System). La voce Team compare solo
+// all'amministratore della rete.
+function ContenutoDrawer({ admin, ...props }: any) {
+  const state = props.state;
+  const attuale: string | undefined = state?.routes?.[state.index]?.name;
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={styles.scroll}>
       <View style={styles.brand}>
@@ -54,7 +97,29 @@ function ContenutoDrawer(props: any) {
           <Text style={styles.sub}>Scout</Text>
         </View>
       </View>
-      <DrawerItemList {...props} />
+      {SEZIONI.map((sez) => {
+        const voci = sez.voci.filter((v) => !v.soloAdmin || admin);
+        if (!voci.length) return null;
+        return (
+          <View key={sez.titolo} style={styles.sezione}>
+            <Text style={styles.sezioneTitolo}>{sez.titolo}</Text>
+            {voci.map((v) => (
+              <DrawerItem
+                key={v.name}
+                label={v.label}
+                focused={attuale === v.name}
+                onPress={() => props.navigation.navigate(v.name)}
+                icon={({ color, size }) => <Ionicons name={v.icon} size={size ?? 22} color={color} />}
+                activeTintColor={colors.oro}
+                inactiveTintColor={colors.testoSoft}
+                activeBackgroundColor={colors.fillActive}
+                labelStyle={styles.voceLabel}
+                style={styles.voce}
+              />
+            ))}
+          </View>
+        );
+      })}
     </DrawerContentScrollView>
   );
 }
@@ -75,7 +140,7 @@ export default function AppLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
-        drawerContent={(props) => <ContenutoDrawer {...props} />}
+        drawerContent={(props) => <ContenutoDrawer {...props} admin={admin} />}
         screenOptions={{
           headerStyle: { backgroundColor: colors.bianco },
           headerTintColor: colors.testo,
@@ -84,39 +149,23 @@ export default function AppLayout() {
           headerLeft: () => <BtnMenu />,
           drawerType: 'front',
           drawerStyle: { backgroundColor: colors.bianco, width: 268, borderRightColor: colors.grigioChiaro },
-          drawerActiveTintColor: colors.oro,
-          drawerInactiveTintColor: colors.testoSoft,
-          drawerActiveBackgroundColor: colors.fillActive,
-          drawerLabelStyle: { fontSize: 15, fontWeight: '600', marginLeft: -12 },
-          drawerItemStyle: { borderRadius: radius.md, paddingHorizontal: 4 },
         }}
       >
-        {/* Il mio lavoro (assistente + agenda) */}
-        <Drawer.Screen name="oggi" options={{ title: 'Oggi', drawerIcon: ({ color, size }) => <DrawerIcon name="sunny-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="task" options={{ title: 'I miei task', drawerIcon: ({ color, size }) => <DrawerIcon name="checkbox-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="calendario" options={{ title: 'Calendario', drawerIcon: ({ color, size }) => <DrawerIcon name="calendar-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="da-completare" options={{ title: 'Da fare', drawerIcon: ({ color, size }) => <DrawerIcon name="time-outline" color={color} size={size ?? 22} /> }} />
-        {/* Prospezione sul territorio */}
-        <Drawer.Screen name="mappa" options={{ title: 'Mappa', drawerIcon: ({ color, size }) => <DrawerIcon name="map-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="lista" options={{ title: 'Target', drawerIcon: ({ color, size }) => <DrawerIcon name="flag-outline" color={color} size={size ?? 22} /> }} />
-        {/* Pipeline commerciale */}
-        <Drawer.Screen name="trattative" options={{ title: 'Trattative', drawerIcon: ({ color, size }) => <DrawerIcon name="briefcase-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni', drawerIcon: ({ color, size }) => <DrawerIcon name="git-network-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="rubrica" options={{ title: 'Rubrica', drawerIcon: ({ color, size }) => <DrawerIcon name="people-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="script" options={{ title: 'Script', drawerIcon: ({ color, size }) => <DrawerIcon name="document-text-outline" color={color} size={size ?? 22} /> }} />
-        {/* Amministrazione */}
-        <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti', drawerIcon: ({ color, size }) => <DrawerIcon name="cash-outline" color={color} size={size ?? 22} /> }} />
-        <Drawer.Screen name="dashboard" options={{ title: 'Dashboard', drawerIcon: ({ color, size }) => <DrawerIcon name="stats-chart-outline" color={color} size={size ?? 22} /> }} />
-        {/* Team: visibile solo all'amministratore della rete (gate anche nella schermata). */}
-        <Drawer.Screen
-          name="team"
-          options={
-            admin
-              ? { title: 'Team', drawerIcon: ({ color, size }) => <DrawerIcon name="people-circle-outline" color={color} size={size ?? 22} /> }
-              : { drawerItemStyle: { display: 'none' as const } }
-          }
-        />
-        <Drawer.Screen name="profilo" options={{ title: 'Profilo', drawerIcon: ({ color, size }) => <DrawerIcon name="person-outline" color={color} size={size ?? 22} /> }} />
+        {/* L'ordine e le icone del menu sono definiti in SEZIONI (drawer content). */}
+        <Drawer.Screen name="oggi" options={{ title: 'Oggi' }} />
+        <Drawer.Screen name="task" options={{ title: 'I miei task' }} />
+        <Drawer.Screen name="calendario" options={{ title: 'Calendario' }} />
+        <Drawer.Screen name="da-completare" options={{ title: 'Da fare' }} />
+        <Drawer.Screen name="mappa" options={{ title: 'Mappa' }} />
+        <Drawer.Screen name="lista" options={{ title: 'Target' }} />
+        <Drawer.Screen name="rubrica" options={{ title: 'Rubrica' }} />
+        <Drawer.Screen name="script" options={{ title: 'Script' }} />
+        <Drawer.Screen name="trattative" options={{ title: 'Trattative' }} />
+        <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni' }} />
+        <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />
+        <Drawer.Screen name="dashboard" options={{ title: 'Dashboard' }} />
+        <Drawer.Screen name="team" options={{ title: 'Team' }} />
+        <Drawer.Screen name="profilo" options={{ title: 'Profilo' }} />
 
         {/* Rotte di dettaglio: nascoste dal menu, con freccia indietro */}
         <Drawer.Screen name="attivita/[id]" options={dettaglio('Attività')} />
@@ -136,9 +185,20 @@ export default function AppLayout() {
 
 const styles = StyleSheet.create({
   headerBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  headerIco: { fontSize: 22, color: colors.testo },
-  headerFreccia: { fontSize: 30, color: colors.testo, marginTop: -6, fontWeight: '400' },
-  scroll: { paddingTop: 0 },
+  scroll: { paddingTop: 0, paddingBottom: spacing.lg },
+  // Sezioni del menu (etichetta MAIUSCOLA DS + voci).
+  sezione: { marginTop: spacing.sm, marginBottom: 2 },
+  sezioneTitolo: {
+    color: colors.testoSoft,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+    paddingHorizontal: spacing.md,
+    marginBottom: 2,
+  },
+  voce: { borderRadius: radius.md, marginHorizontal: 4, marginVertical: 0 },
+  voceLabel: { fontSize: 15, fontWeight: '600', marginLeft: -12 },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
