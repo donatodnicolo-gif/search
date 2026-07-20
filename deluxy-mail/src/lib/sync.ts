@@ -40,6 +40,17 @@ function transitorio(e: unknown): boolean {
 const attendi = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /**
+ * Vero se questa lingua NON va tradotta: è l'italiano, oppure una di quelle
+ * che l'utente ha spuntato in Impostazioni. Il confronto è tollerante perché
+ * l'AI può rispondere "inglese", "Inglese" o "inglese (britannico)".
+ */
+function leggiSenzaTraduzione(lingua: string, lingueLette: string[]): boolean {
+  const l = lingua.trim().toLowerCase()
+  if (!l || l === 'italiano') return true
+  return lingueLette.some((letta) => l.includes(letta) || letta.includes(l))
+}
+
+/**
  * Se la traduzione automatica è attiva, rileva la lingua di un messaggio in
  * arrivo e, se è straniera, lo traduce in italiano. Si fa una volta sola:
  * `lingua` resta valorizzato e il risultato è memorizzato, quindi riaprire il
@@ -74,7 +85,14 @@ export async function traduciMessaggioSeServe(
       .filter(Boolean)
 
     const esito = await rilevaETraduci({ testo: m.corpoTesto, lingueLette })
-    const corpoTradotto = esito.traduzione.trim() || null
+
+    // La scelta dell'utente decide QUI, non nel prompt: il modello a volte
+    // traduce lo stesso una lingua che sai leggere. Le regole deterministiche
+    // battono sempre l'AI.
+    const corpoTradotto = leggiSenzaTraduzione(esito.lingua, lingueLette)
+      ? null
+      : esito.traduzione.trim() || null
+
     await db.messaggio.update({
       where: { id: messaggioId },
       data: { lingua: esito.lingua, corpoTradotto },

@@ -36,6 +36,15 @@ const stmts = [
        AND m."messageId" IS NOT NULL
        AND m."utenteId" = k."utenteId" AND m."messageId" = k."messageId"
        AND (k."uid" < m."uid" OR (k."uid" = m."uid" AND k."id" < m."id"))`,
+  // Traduzioni fatte a torto: mail in una lingua che l'utente ha spuntato come
+  // "già letta" ma tradotte lo stesso (il vecchio codice si fidava del prompt).
+  // Si butta solo la traduzione: la mail e la lingua rilevata restano.
+  `UPDATE "Messaggio" m SET "corpoTradotto" = NULL
+     FROM "Utente" u
+     WHERE m."utenteId" = u."id"
+       AND m."corpoTradotto" IS NOT NULL
+       AND m."lingua" IS NOT NULL
+       AND position(lower(trim(m."lingua")) in lower(u."lingueLette")) > 0`,
   // Aggancio manuale delle mail a una conversazione.
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "threadManuale" TEXT`,
   `CREATE INDEX IF NOT EXISTS "Messaggio_utenteId_threadManuale_idx" ON "Messaggio"("utenteId","threadManuale")`,
