@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { randomBytes } from 'node:crypto'
 import nodemailer from 'nodemailer'
 import MailComposer from 'nodemailer/lib/mail-composer'
-import type { Account } from '@prisma/client'
+import type { Account, Prisma } from '@prisma/client'
+import { alternative } from './condizioni'
 import { db } from './db'
 import { cifra, decifra } from './crypto'
 import {
@@ -1420,20 +1421,29 @@ async function retrodataRegola(
   if (r.archivia) data.archiviato = true
   if (Object.keys(data).length === 0) return 0 // niente di deterministico da applicare
 
-  const where: {
-    utenteId: string
-    direzione: string
-    cestinato: boolean
-    mittente?: { contains: string; mode: 'insensitive' }
-    oggetto?: { contains: string; mode: 'insensitive' }
-    corpoTesto?: { contains: string; mode: 'insensitive' }
-    NOT?: { smistatoDa: string }
-  } = { utenteId, direzione: 'entrata', cestinato: false }
-  if (r.seMittente) where.mittente = { contains: r.seMittente, mode: 'insensitive' }
-  if (r.seOggetto) where.oggetto = { contains: r.seOggetto, mode: 'insensitive' }
-  if (r.seContiene) where.corpoTesto = { contains: r.seContiene, mode: 'insensitive' }
-  // Non sovrascrivere lo smistamento fatto a mano.
-  if (data.sezioneId) where.NOT = { smistatoDa: 'manuale' }
+  // Ogni condizione con più alternative (separate da virgola) diventa un gruppo
+  // OR; i gruppi delle diverse condizioni si combinano in AND. Così una regola
+  // «oggetto contiene [DELUXY], [DELUXYFLOWERS]» retrodata su entrambe.
+  const gruppoOr = (campo: 'mittente' | 'oggetto' | 'corpoTesto', condizione: string | null) => {
+    const alt = alternative(condizione)
+    if (alt.length === 0) return null
+    return { OR: alt.map((a) => ({ [campo]: { contains: a, mode: 'insensitive' as const } })) }
+  }
+
+  const and = [
+    gruppoOr('mittente', r.seMittente),
+    gruppoOr('oggetto', r.seOggetto),
+    gruppoOr('corpoTesto', r.seContiene),
+  ].filter(Boolean) as Prisma.MessaggioWhereInput[]
+
+  const where: Prisma.MessaggioWhereInput = {
+    utenteId,
+    direzione: 'entrata',
+    cestinato: false,
+    ...(and.length ? { AND: and } : {}),
+    // Non sovrascrivere lo smistamento fatto a mano.
+    ...(data.sezioneId ? { NOT: { smistatoDa: 'manuale' } } : {}),
+  }
 
   const res = await db.messaggio.updateMany({ where, data })
   return res.count

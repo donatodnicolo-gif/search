@@ -1,5 +1,6 @@
 import type { Regola } from '@prisma/client'
 import type { MessaggioScaricato } from './imap'
+import { condizioneSoddisfatta } from './condizioni'
 
 export type EsitoRegole = {
   sezioneId: string | null
@@ -14,19 +15,15 @@ export type EsitoRegole = {
   attivitaDaCreare: string[]
 }
 
-function contiene(testo: string, ago: string | null): boolean {
-  if (!ago) return true // condizione non impostata = non filtra
-  return testo.toLowerCase().includes(ago.toLowerCase())
-}
-
-/** Vero se tutte le condizioni deterministiche valorizzate sono soddisfatte. */
+/** Vero se tutte le condizioni deterministiche valorizzate sono soddisfatte.
+ *  Dentro ogni condizione le alternative separate da virgola valgono in OR. */
 function scatta(regola: Regola, msg: MessaggioScaricato): boolean {
   const haCondizioni = Boolean(regola.seMittente || regola.seOggetto || regola.seContiene)
   if (!haCondizioni) return false
   return (
-    contiene(`${msg.mittenteNome ?? ''} ${msg.mittente}`, regola.seMittente) &&
-    contiene(msg.oggetto, regola.seOggetto) &&
-    contiene(msg.corpoTesto, regola.seContiene)
+    condizioneSoddisfatta(`${msg.mittenteNome ?? ''} ${msg.mittente}`, regola.seMittente) &&
+    condizioneSoddisfatta(msg.oggetto, regola.seOggetto) &&
+    condizioneSoddisfatta(msg.corpoTesto, regola.seContiene)
   )
 }
 

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { creaRegola } from '@/lib/actions'
 import { AzioniRegola } from '@/components/AzioniRegola'
+import { ValoreCondizione } from '@/components/ValoreCondizione'
 import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
@@ -79,17 +80,17 @@ export default async function Regole() {
                   {[
                     r.seMittente && (
                       <>
-                        il mittente contiene <code>{r.seMittente}</code>
+                        il mittente contiene <ValoreCondizione valore={r.seMittente} />
                       </>
                     ),
                     r.seOggetto && (
                       <>
-                        l’oggetto contiene <code>{r.seOggetto}</code>
+                        l’oggetto contiene <ValoreCondizione valore={r.seOggetto} />
                       </>
                     ),
                     r.seContiene && (
                       <>
-                        il testo contiene <code>{r.seContiene}</code>
+                        il testo contiene <ValoreCondizione valore={r.seContiene} />
                       </>
                     ),
                   ]
@@ -134,11 +135,17 @@ export default async function Regole() {
             </div>
             <div>
               <label className="field-label">Se l’oggetto contiene</label>
-              <input type="text" name="seOggetto" placeholder="fattura" />
+              <input type="text" name="seOggetto" placeholder="fattura, ricevuta" />
             </div>
             <div>
               <label className="field-label">Se il testo contiene</label>
               <input type="text" name="seContiene" />
+            </div>
+            <div className="full" style={{ marginTop: -6 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                Più alternative: separale con una virgola. La condizione vale se ne trova almeno una
+                (es. oggetto «fattura, ricevuta» scatta su entrambe).
+              </div>
             </div>
 
             <div className="full">

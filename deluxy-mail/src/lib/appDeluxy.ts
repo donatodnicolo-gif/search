@@ -7,6 +7,7 @@
 
 import type { RegolaApp } from '@prisma/client'
 import type { ChiaviApp, NomeChiaveApp } from './chiaviApp'
+import { condizioneSoddisfatta } from './condizioni'
 
 // ---------- Configurazione (env su Vercel; i default sono gli URL pubblici) ----------
 // Solo gli URL vengono dall'ambiente: non sono segreti. Le CHIAVI arrivano dal
@@ -406,22 +407,20 @@ export function statoApp(chiavi: ChiaviApp): StatoApp[] {
 
 type MailPerRegole = { mittente: string; mittenteNome: string | null; oggetto: string; corpoTesto: string }
 
-const contiene = (testo: string, ago: string | null) =>
-  !ago || testo.toLowerCase().includes(ago.toLowerCase())
-
 /**
  * La prima regola APP DELUXY che aggancia la mail (stessa semantica delle
- * regole della posta: tutte le condizioni valorizzate devono valere; vince la
- * priorità più alta). Una regola senza condizioni non scatta mai da sola.
+ * regole della posta: tutte le condizioni valorizzate devono valere, e dentro
+ * ognuna le alternative separate da virgola valgono in OR; vince la priorità
+ * più alta). Una regola senza condizioni non scatta mai da sola.
  */
 export function regolaAppPerMail(regole: RegolaApp[], msg: MailPerRegole): RegolaApp | null {
   const ordinate = [...regole].filter((r) => r.attiva).sort((a, b) => b.priorita - a.priorita)
   for (const r of ordinate) {
     if (!r.seMittente && !r.seOggetto && !r.seContiene) continue
     if (
-      contiene(`${msg.mittenteNome ?? ''} ${msg.mittente}`, r.seMittente) &&
-      contiene(msg.oggetto, r.seOggetto) &&
-      contiene(msg.corpoTesto, r.seContiene)
+      condizioneSoddisfatta(`${msg.mittenteNome ?? ''} ${msg.mittente}`, r.seMittente) &&
+      condizioneSoddisfatta(msg.oggetto, r.seOggetto) &&
+      condizioneSoddisfatta(msg.corpoTesto, r.seContiene)
     ) {
       return r
     }

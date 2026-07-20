@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { creaRegolaApp } from '@/lib/actions'
 import { AzioniRegolaApp } from '@/components/AzioniRegolaApp'
 import { ChiaveAppForm } from '@/components/ChiaveAppForm'
+import { ValoreCondizione } from '@/components/ValoreCondizione'
 import { descriviAzioni, statoApp } from '@/lib/appDeluxy'
 import { leggiChiaviApp, statoChiaviApp } from '@/lib/chiaviApp'
 import { richiediUtente } from '@/lib/sessione'
@@ -141,17 +142,17 @@ export default async function ImpostazioniApp() {
                   {[
                     r.seMittente && (
                       <>
-                        il mittente contiene <code>{r.seMittente}</code>
+                        il mittente contiene <ValoreCondizione valore={r.seMittente} />
                       </>
                     ),
                     r.seOggetto && (
                       <>
-                        l’oggetto contiene <code>{r.seOggetto}</code>
+                        l’oggetto contiene <ValoreCondizione valore={r.seOggetto} />
                       </>
                     ),
                     r.seContiene && (
                       <>
-                        il testo contiene <code>{r.seContiene}</code>
+                        il testo contiene <ValoreCondizione valore={r.seContiene} />
                       </>
                     ),
                   ]
@@ -196,11 +197,17 @@ export default async function ImpostazioniApp() {
             </div>
             <div>
               <label className="field-label">Se l’oggetto contiene</label>
-              <input type="text" name="seOggetto" placeholder="preventivo" />
+              <input type="text" name="seOggetto" placeholder="[DELUXY], [DELUXYFLOWERS]" />
             </div>
             <div>
               <label className="field-label">Se il testo contiene</label>
               <input type="text" name="seContiene" />
+            </div>
+            <div className="full" style={{ marginTop: -6 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                Più alternative: separale con una virgola. La condizione vale se ne trova almeno una
+                (es. oggetto «[DELUXY], [DELUXYFLOWERS]» scatta su tutt’e due).
+              </div>
             </div>
 
             <div>
