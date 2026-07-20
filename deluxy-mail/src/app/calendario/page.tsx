@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
-import { FUSO } from '@/lib/format'
+import { FUSO, coloreDiPriorita, priorita as livello } from '@/lib/format'
 import { NuovoEvento } from '@/components/NuovoEvento'
 import { EliminaEvento } from '@/components/EliminaEvento'
 import { FeedCalendario } from '@/components/FeedCalendario'
@@ -46,8 +46,18 @@ export default async function Calendario({ searchParams }: Props) {
   let eventiMese: Awaited<ReturnType<typeof db.evento.findMany>> = []
   let prossimi: typeof eventiMese = []
   let tokenCalendario = ''
+  // Le attività con una scadenza: entrano nel calendario, ordinate per urgenza.
+  type TaskConScadenza = {
+    id: string
+    titolo: string
+    priorita: string
+    scadenza: Date | null
+    messaggio: { id: string } | null
+  }
+  let taskMese: TaskConScadenza[] = []
+  let taskUrgenti: TaskConScadenza[] = []
   try {
-    ;[eventiMese, prossimi] = await Promise.all([
+    ;[eventiMese, prossimi, taskMese] = await Promise.all([
       db.evento.findMany({
         where: { utenteId: u.id, inizio: { gte: inizioMese, lt: fineMese } },
         orderBy: { inizio: 'asc' },
@@ -60,11 +70,28 @@ export default async function Calendario({ searchParams }: Props) {
         orderBy: { inizio: 'asc' },
         take: 20,
       }),
+      db.attivita.findMany({
+        where: { utenteId: u.id, fatta: false, scadenza: { gte: inizioMese, lt: fineMese } },
+        orderBy: [{ scadenza: 'asc' }, { priorita: 'asc' }],
+        select: { id: true, titolo: true, priorita: true, scadenza: true, messaggio: { select: { id: true } } },
+      }),
     ])
     tokenCalendario = (await db.utente.findUnique({
       where: { id: u.id },
       select: { tokenCalendario: true },
     }))?.tokenCalendario ?? ''
+
+    // La lista "per urgenza": le scadute e le imminenti, prima le più urgenti.
+    taskUrgenti = await db.attivita.findMany({
+      where: {
+        utenteId: u.id,
+        fatta: false,
+        scadenza: { lt: new Date(adesso.getTime() + 30 * 24 * 60 * 60 * 1000) },
+      },
+      orderBy: [{ scadenza: 'asc' }, { priorita: 'asc' }],
+      take: 30,
+      select: { id: true, titolo: true, priorita: true, scadenza: true, messaggio: { select: { id: true } } },
+    })
   } catch {
     // Tabella non ancora migrata: la pagina si apre lo stesso, vuota.
   }
@@ -74,6 +101,14 @@ export default async function Calendario({ searchParams }: Props) {
   for (const e of eventiMese) {
     const chiave = giornoIt(e.inizio)
     perGiorno.set(chiave, [...(perGiorno.get(chiave) ?? []), e])
+  }
+
+  // Le task nel giorno della loro scadenza.
+  const taskPerGiorno = new Map<string, TaskConScadenza[]>()
+  for (const t of taskMese) {
+    if (!t.scadenza) continue
+    const chiave = giornoIt(t.scadenza)
+    taskPerGiorno.set(chiave, [...(taskPerGiorno.get(chiave) ?? []), t])
   }
 
   // La griglia: da lunedì della prima settimana a domenica dell'ultima.
@@ -125,6 +160,17 @@ export default async function Calendario({ searchParams }: Props) {
                     {e.titolo}
                   </div>
                 ))}
+                {(taskPerGiorno.get(c.chiave) ?? []).map((t) => (
+                  <Link
+                    key={t.id}
+                    href={t.messaggio ? `/messaggio/${t.messaggio.id}` : '/attivita'}
+                    className={`cal-task prio-${t.priorita}`}
+                    title={`${t.priorita} · ${t.titolo}`}
+                  >
+                    <span className="cal-task-dot" />
+                    {t.titolo}
+                  </Link>
+                ))}
               </div>
             )
           )}
@@ -165,6 +211,47 @@ export default async function Calendario({ searchParams }: Props) {
           ))
         )}
       </div>
+
+      {taskUrgenti.length > 0 && (
+        <>
+          <h2 className="section-title">Attività in scadenza</h2>
+          <div className="card tight">
+            {taskUrgenti.map((t) => {
+              const scaduta = t.scadenza && t.scadenza < adesso
+              return (
+                <div key={t.id} className="task-row">
+                  <div className="cal-quando">
+                    <div className="cal-quando-giorno">
+                      {t.scadenza
+                        ? t.scadenza.toLocaleDateString('it-IT', { timeZone: FUSO, weekday: 'short', day: 'numeric', month: 'short' })
+                        : '—'}
+                    </div>
+                    <div className={`cal-quando-ora ${scaduta ? 'scaduta' : ''}`}>
+                      {scaduta ? 'scaduta' : 'in scadenza'}
+                    </div>
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div className="task-titolo">
+                      {t.messaggio ? (
+                        <Link href={`/messaggio/${t.messaggio.id}`} style={{ textDecoration: 'underline' }}>
+                          {t.titolo}
+                        </Link>
+                      ) : (
+                        t.titolo
+                      )}
+                    </div>
+                  </div>
+                  <div className="task-side">
+                    <span className={`badge ${coloreDiPriorita(t.priorita)}`} title={livello(t.priorita)?.quando}>
+                      {t.priorita}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
 
       <h2 className="section-title">Sincronizza con le altre agende</h2>
       <div className="card">

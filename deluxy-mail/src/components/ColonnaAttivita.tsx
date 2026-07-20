@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { CheckAttivita } from './CheckAttivita'
+import { BottoneEsegui } from './BottoneEsegui'
 import { coloreDiPriorita, priorita as livello, FUSO } from '@/lib/format'
 
 /**
@@ -70,6 +71,13 @@ export async function ColonnaAttivita({ utenteId }: { utenteId: string }) {
                       </span>
                     )}
                   </div>
+                  {/* Esegui: l'AI scrive la mail che chiude l'attività. Solo se
+                      c'è una mail o un contatto a cui rispondere. */}
+                  {(a.messaggio || a.contattoEmail) && (
+                    <div style={{ marginTop: 8 }}>
+                      <BottoneEsegui id={a.id} />
+                    </div>
+                  )}
                 </div>
               </div>
             )
