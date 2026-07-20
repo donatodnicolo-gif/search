@@ -69,10 +69,10 @@ export default async function MaisonDetail({
         </div>
         <div className="kpi">
           <div className="kpi-label">Risultato operativo</div>
-          <div className={`kpi-value ${pl.risultatoOperativo >= 0 ? "pos" : "neg"}`}>
-            {eur(pl.risultatoOperativo)}
+          <div className={`kpi-value ${pl.ebitda >= 0 ? "pos" : "neg"}`}>
+            {eur(pl.ebitda)}
           </div>
-          <div className="kpi-sub">quota costi fissi inclusa</div>
+          <div className="kpi-sub">quota personale e struttura inclusa</div>
         </div>
       </div>
 

@@ -41,6 +41,20 @@ const icons = {
       <path d="M14 3v4h4M9 12h6M9 16h6" />
     </svg>
   ),
+  pl: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M4 20.5V11M9.3 20.5V6.5M14.6 20.5v-8M21 20.5H3" />
+      <path d="m15.5 6.5 5-3.5M20.5 3l-3.6.4M20.5 3l.4 3.6" />
+    </svg>
+  ),
+  dipendenti: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <circle cx="9" cy="7.5" r="3.2" />
+      <path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6S13.9 16 14.5 19" />
+      <circle cx="17" cy="9" r="2.2" />
+      <path d="M16 13.8c2.4.2 3.9 1.6 4.5 3.9" />
+    </svg>
+  ),
   spese: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <circle cx="12" cy="12" r="8.5" />
@@ -66,17 +80,22 @@ const sections: { label: string; items: Item[] }[] = [
   {
     label: "Budget",
     items: [
-      { href: "/", label: "Dashboard P&L", icon: icons.dashboard },
+      { href: "/", label: "Dashboard", icon: icons.dashboard },
       { href: "/maison", label: "Maison", icon: icons.maison },
       { href: "/commerciale", label: "Team commerciale", icon: icons.commerciale },
     ],
   },
   {
-    label: "Processo",
+    label: "Conti",
     items: [
-      { href: "/proposte", label: "Proposte budget", icon: icons.proposte },
+      { href: "/pl", label: "P&L aziendale", icon: icons.pl },
+      { href: "/dipendenti", label: "Dipendenti", icon: icons.dipendenti },
       { href: "/spese", label: "Spese ADV", icon: icons.spese },
     ],
+  },
+  {
+    label: "Processo",
+    items: [{ href: "/proposte", label: "Proposte budget", icon: icons.proposte }],
   },
   {
     label: "Configurazione",

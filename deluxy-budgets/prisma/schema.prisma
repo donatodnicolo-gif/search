@@ -100,6 +100,23 @@ model TargetLinea {
   @@unique([year, lineaId, month])
 }
 
+// Persone a costo: dipendenti (RAL + contributi), stagisti (rimborso) e
+// consulenti (compenso). `mesi` è la lista dei mesi in cui il costo c'è
+// davvero (assunzioni infra-anno, stage di 6 mesi, consulenze a progetto).
+model Dipendente {
+  id            String  @id @default(cuid())
+  year          Int
+  nome          String
+  ruolo         String?
+  tipo          String // DIPENDENTE | STAGISTA | CONSULENTE
+  importo       Float   @default(0) // RAL se ANNUO, compenso se MENSILE
+  periodicita   String  @default("ANNUO") // ANNUO | MENSILE
+  contributiPct Float   @default(0) // oneri sopra il lordo (dipendenti ~38%)
+  mesi          String  @default("[1,2,3,4,5,6,7,8,9,10,11,12]") // JSON: mesi di competenza
+  maisonId      String? // null = costo di struttura, non attribuito a una maison
+  note          String?
+}
+
 // Proposta di budget inviata da un utente di livello Responsabile.
 model PropostaBudget {
   id         String   @id @default(cuid())

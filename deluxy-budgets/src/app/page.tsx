@@ -13,17 +13,18 @@ export default async function Dashboard() {
     { label: "Costo del venduto", get: (pl) => `− ${eur(pl.cogs)}` },
     { label: "Margine lordo", get: (pl) => eur(pl.margineLordo) },
     { label: "Spesa ADV", get: (pl) => `− ${eur(pl.adv)}` },
-    { label: "Costi fissi", get: (pl) => `− ${eur(pl.costiFissi)}` },
+    { label: "Costo del personale", get: (pl) => `− ${eur(pl.personale)}` },
+    { label: "Costi di struttura", get: (pl) => `− ${eur(pl.costiFissi)}` },
     {
-      label: "Risultato operativo",
-      get: (pl) => eur(pl.risultatoOperativo),
-      cls: (pl) => (pl.risultatoOperativo >= 0 ? "pos" : "neg"),
+      label: "EBITDA",
+      get: (pl) => eur(pl.ebitda),
+      cls: (pl) => (pl.ebitda >= 0 ? "pos" : "neg"),
     },
     { label: "Premi al raggiungimento", get: (pl) => `− ${eur(pl.premio)}` },
     {
-      label: "Risultato dopo premi",
-      get: (pl) => eur(pl.risultatoDopoPremi),
-      cls: (pl) => (pl.risultatoDopoPremi >= 0 ? "pos" : "neg"),
+      label: "Risultato netto",
+      get: (pl) => eur(pl.risultatoNetto),
+      cls: (pl) => (pl.risultatoNetto >= 0 ? "pos" : "neg"),
     },
   ];
 
@@ -37,6 +38,7 @@ export default async function Dashboard() {
           </p>
         </div>
         <div className="page-actions">
+          <Link className="btn secondary" href="/pl">P&amp;L completo</Link>
           <Link className="btn secondary" href="/impostazioni">Scenari e costi</Link>
           <Link className="btn primary" href="/proposte/nuova">Invia proposta budget</Link>
         </div>
@@ -50,7 +52,7 @@ export default async function Dashboard() {
             </div>
             <div className="kpi-value">{eur(pls[i].ricavi)}</div>
             <div className="kpi-sub">
-              ×{pls[i].moltiplicatore.toLocaleString("it-IT")} · risultato {eur(pls[i].risultatoOperativo)}
+              ×{pls[i].moltiplicatore.toLocaleString("it-IT")} · EBITDA {eur(pls[i].ebitda)}
               {pls[i].premio > 0 ? ` · premio ${eur(pls[i].premio)}` : " · premio da impostare"}
             </div>
           </div>
@@ -78,9 +80,9 @@ export default async function Dashboard() {
                 </tr>
               ))}
               <tr className="tot">
-                <td>Marginalità operativa</td>
+                <td>Marginalità (EBITDA %)</td>
                 {pls.map((pl) => (
-                  <td className="num" key={pl.livello}>{pct(pl.rosPct)}</td>
+                  <td className="num" key={pl.livello}>{pct(pl.ebitdaPct)}</td>
                 ))}
               </tr>
             </tbody>

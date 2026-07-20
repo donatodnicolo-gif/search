@@ -6,8 +6,15 @@ pubblicato), *sfidante* e *irraggiungibile*.
 
 ## Cosa fa (v1)
 
-- **Dashboard P&L** (`/`): conto economico 2026 sui 3 livelli (ricavi, costo del venduto,
-  ADV, costi fissi, risultato operativo, premi) + riepilogo per maison.
+- **Dashboard** (`/`): sintesi del conto economico 2026 sui 3 livelli + riepilogo per maison.
+- **P&L** (`/pl`): conto economico aziendale completo — ricavi per canale, costo del venduto,
+  margine lordo, ADV, **costo del personale**, costi di struttura, EBITDA, premi e risultato
+  netto — confrontato sui 3 livelli, con **andamento mensile** (evidenzia i mesi in perdita)
+  e conto economico **per maison** (costi comuni ripartiti in proporzione ai ricavi).
+- **Dipendenti** (`/dipendenti`): organico a budget con **dipendenti a RAL** (oneri sopra il
+  lordo, default 38%), **stagisti** e **consulenti** a compenso mensile, e i **mesi in cui il
+  costo è a carico** (assunzioni infra-anno, stage, consulenze a progetto). Il costo azienda
+  entra automaticamente nel P&L, anche mese per mese.
 - **Maison** (`/maison`, `/maison/[slug]`): per ogni brand (Deluxy.it, CakeDesign.me,
   Deluxyflowers.com, Business B2B, Experience) la vista mensile **D2C · Eventi · B2B
   (lead generation)** con selettore del livello.
@@ -48,13 +55,14 @@ npm run dev               # http://localhost:3080
 
 ## Stato
 
-**FATTO**: schema dati, seed 2026 dai file Excel, dashboard P&L 3 livelli, dettaglio
-maison D2C/Eventi/B2B, team commerciale per linee e clienti, invio e lista proposte,
-spese ADV con % per mese personalizzabili, impostazioni scenari/premi/costi, catalogo
-Hub aggiornato (id `budgets`, `APP_URL_BUDGETS`).
+**FATTO**: schema dati, seed 2026 dai file Excel, dashboard 3 livelli, **P&L aziendale
+completo** (annuale, mensile e per maison), **sezione Dipendenti** (RAL/stagisti/consulenti
+con mesi di competenza), dettaglio maison D2C/Eventi/B2B, team commerciale per linee e
+clienti, invio e lista proposte, spese ADV con % per mese personalizzabili, impostazioni
+scenari/premi/costi, catalogo Hub aggiornato (id `budgets`, `APP_URL_BUDGETS`).
 
 **MANCA**: consuntivi/actual accanto al budget (integrazione monitoraggio), premi per
 singolo responsabile (oggi monte premi totale), approvazione/consolidamento delle
 proposte nel budget ufficiale, autenticazione via Hub, deploy (Vercel + Postgres),
 budget pluriennale 2027-30 (già presente nei file pubblicati), P&L per singola linea
-commerciale.
+commerciale, tredicesima/quattordicesima e TFR come voci distinte del costo del lavoro.
