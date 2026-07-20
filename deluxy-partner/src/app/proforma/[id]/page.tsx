@@ -16,7 +16,7 @@ export default async function ProFormaDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ salvato?: string; inviata?: string }>;
+  searchParams: Promise<{ salvato?: string; inviata?: string; fic?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -64,6 +64,14 @@ export default async function ProFormaDetail({
       {sp.salvato && (
         <div className="card no-print" style={{ padding: 14, marginBottom: 16 }}>
           <span className="badge green"><span className="dot" />Pro-forma salvata</span>
+        </div>
+      )}
+      {sp.fic && (
+        <div className="card no-print" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green">
+            <span className="dot" />Fattura emessa su Fatture in Cloud — n. {decodeURIComponent(sp.fic)}
+            {" "}(non inviata allo SDI: controllala e inviala da Fatture in Cloud)
+          </span>
         </div>
       )}
       {sp.inviata && (
@@ -176,8 +184,15 @@ export default async function ProFormaDetail({
           )}
           {pf.stato === "inviata" && (
             <>
+              <Link
+                href={`/fic/fattura?proforma=${id}`}
+                className="btn primary"
+                title="Crea la fattura vera su Fatture in Cloud dalle righe di questa pro-forma"
+              >
+                Emetti fattura su FIC…
+              </Link>
               <details className="pf-esito">
-                <summary className="btn primary">Segna fatturata…</summary>
+                <summary className="btn secondary">Segna fatturata a mano…</summary>
                 <form
                   action={cambiaStatoProForma.bind(null, id, "fatturata")}
                   style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "flex-end", flexWrap: "wrap" }}

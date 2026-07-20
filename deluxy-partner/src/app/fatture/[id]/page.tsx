@@ -14,7 +14,7 @@ export default async function FatturaDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ salvato?: string }>;
+  searchParams: Promise<{ salvato?: string; fic?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -60,12 +60,29 @@ export default async function FatturaDetail({
           {fattura.sollecitoInviatoIl && (
             <span className="badge blue"><span className="dot" />Sollecitata {dataIt(fattura.sollecitoInviatoIl)}</span>
           )}
+          {!fattura.numero && (
+            <Link
+              href={`/fic/fattura?fattura=${fattura.id}`}
+              className="btn primary small"
+              title="Emetti questa fattura su Fatture in Cloud e riporta qui il numero"
+            >
+              Emetti su FIC…
+            </Link>
+          )}
         </div>
       </div>
 
       {sp.salvato && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
           <span className="badge green"><span className="dot" />Fattura aggiornata</span>
+        </div>
+      )}
+      {sp.fic && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green">
+            <span className="dot" />Emessa su Fatture in Cloud — n. {decodeURIComponent(sp.fic)}
+            {" "}(non inviata allo SDI: controllala e inviala da lì)
+          </span>
         </div>
       )}
 

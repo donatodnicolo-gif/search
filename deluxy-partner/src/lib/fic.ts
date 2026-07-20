@@ -136,15 +136,71 @@ export async function ficClienti(): Promise<FicCliente[]> {
 // Crea una fattura (NON inviata allo SDI: l'invio si fa da Fatture in Cloud
 // dopo il controllo). Il numero viene assegnato da Fatture in Cloud e
 // restituito qui.
+export type RigaFattura = {
+  descrizione: string;
+  quantita?: number;
+  prezzoUnitario: number; // netto IVA
+  aliquotaIva?: number; // % (default 22)
+};
+
+// Aliquote IVA configurate sull'azienda: servono per mandare righe con aliquote
+// diverse dal 22%. Mappa "percentuale → id FIC"; in mancanza si usa l'id 0 (22%).
+let cacheAliquote: Map<number, number> | null = null;
+export async function ficAliquote(): Promise<Map<number, number>> {
+  if (cacheAliquote) return cacheAliquote;
+  const { companyId } = await ficStato();
+  if (!companyId) throw new Error("Fatture in Cloud non collegato.");
+  let r: { data: { id: number; value: number }[] };
+  try {
+    r = await ficFetch<{ data: { id: number; value: number }[] }>(`/c/${companyId}/info/vat_types`);
+  } catch (e) {
+    // senza il permesso di lettura delle impostazioni non possiamo mappare le
+    // aliquote: meglio fermarsi che emettere una riga con l'IVA sbagliata
+    throw new Error(
+      "Non riesco a leggere le aliquote IVA da Fatture in Cloud " +
+        `(${(e as Error).message}). Le righe non al 22% non possono essere emesse: ` +
+        "ricollega l'account da Impostazioni concedendo anche i permessi sulle impostazioni, " +
+        "oppure emetti la fattura direttamente su Fatture in Cloud."
+    );
+  }
+  const m = new Map<number, number>();
+  for (const v of r.data ?? []) if (!m.has(v.value)) m.set(v.value, v.id);
+  cacheAliquote = m;
+  return m;
+}
+
+// Crea una fattura su Fatture in Cloud. La fattura NON viene inviata allo SDI:
+// il controllo e l'invio restano su FIC; qui torna solo il numero assegnato.
+// Accetta una riga singola (descrizione + imponibile) o più righe.
 export async function ficCreaFattura(opts: {
   clienteId: number;
-  descrizione: string;
-  imponibile: number;
+  descrizione?: string;
+  imponibile?: number;
+  righe?: RigaFattura[];
   visibleSubject?: string;
+  data?: Date;
+  scadenza?: Date | null;
 }): Promise<{ id: number; numero: string }> {
   const { companyId } = await ficStato();
   if (!companyId) throw new Error("Fatture in Cloud non collegato.");
-  const oggi = new Date().toISOString().slice(0, 10);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const dataDoc = iso(opts.data ?? new Date());
+
+  const righe: RigaFattura[] =
+    opts.righe && opts.righe.length > 0
+      ? opts.righe
+      : [{ descrizione: opts.descrizione ?? "", prezzoUnitario: opts.imponibile ?? 0 }];
+
+  // id dell'aliquota: serve solo se qualche riga non è al 22%
+  const serveMappa = righe.some((r) => (r.aliquotaIva ?? 22) !== 22);
+  const mappa = serveMappa ? await ficAliquote() : null;
+  const idAliquota = (perc: number) => (perc === 22 ? 0 : mappa?.get(perc) ?? 0);
+
+  const totale = righe.reduce(
+    (a, r) => a + (r.quantita ?? 1) * r.prezzoUnitario * (1 + (r.aliquotaIva ?? 22) / 100),
+    0
+  );
+
   const r = await ficFetch<{ data: { id: number; number: number; numeration: string | null; date: string } }>(
     `/c/${companyId}/issued_documents`,
     {
@@ -153,22 +209,27 @@ export async function ficCreaFattura(opts: {
         data: {
           type: "invoice",
           entity: { id: opts.clienteId },
-          date: oggi,
+          date: dataDoc,
           visible_subject: opts.visibleSubject ?? "",
-          items_list: [
-            {
-              name: opts.descrizione,
-              qty: 1,
-              net_price: +opts.imponibile.toFixed(2),
-              vat: { id: 0 }, // 22%
-            },
-          ],
+          items_list: righe.map((x) => ({
+            name: x.descrizione,
+            qty: x.quantita ?? 1,
+            net_price: +x.prezzoUnitario.toFixed(2),
+            vat: { id: idAliquota(x.aliquotaIva ?? 22) },
+          })),
+          ...(opts.scadenza
+            ? {
+                payments_list: [
+                  { amount: +totale.toFixed(2), due_date: iso(opts.scadenza), status: "not_paid" },
+                ],
+              }
+            : {}),
         },
       }),
     }
   );
   const d = r.data;
-  const anno = (d.date ?? oggi).slice(0, 4);
+  const anno = (d.date ?? dataDoc).slice(0, 4);
   return { id: d.id, numero: `${d.number}${d.numeration?.trim() ? d.numeration : `/${anno}`}` };
 }
 
