@@ -173,6 +173,16 @@ export default function Profilo() {
         </Pressable>
       </View>
 
+      <Pressable style={styles.card} onPress={() => router.push('/(app)/email-config')}>
+        <Text style={styles.cardLabel}>EMAIL</Text>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>
+            <Ionicons name="mail-outline" size={15} color={colors.navy} /> La tua casella per notifiche e promemoria
+          </Text>
+          <Text style={styles.freccia}>›</Text>
+        </View>
+      </Pressable>
+
       <Pressable style={styles.card} onPress={() => router.push('/(app)/nascosti')}>
         <Text style={styles.cardLabel}>ATTIVITÀ</Text>
         <View style={styles.row}>

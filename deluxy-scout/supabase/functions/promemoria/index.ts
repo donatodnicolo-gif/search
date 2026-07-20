@@ -6,10 +6,11 @@
 // INERTE ({ sent: false, reason: 'smtp_non_configurato' }), nessun invio.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+import { credenzialiPerUtente } from '../_shared/smtp.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 function json(body: unknown, status = 200) {
@@ -52,12 +53,9 @@ Deno.serve(async (req) => {
     const { data: profilo } = await admin.from('profiles').select('email, nome').eq('id', uid).single();
     if (!profilo?.email) return json({ sent: false, reason: 'email_assente' });
 
-    const host = Deno.env.get('SMTP_HOST');
-    const user = Deno.env.get('SMTP_USER');
-    const pass = Deno.env.get('SMTP_PASS');
-    if (!host || !user || !pass) return json({ sent: false, reason: 'smtp_non_configurato', task: nTask, followup: nDeal });
-    const port = Number(Deno.env.get('SMTP_PORT') ?? '465');
-    const from = Deno.env.get('SMTP_FROM') ?? user;
+    // Il promemoria parte dalla casella personale dell'utente (Register.it).
+    const cred = await credenzialiPerUtente(admin, uid);
+    if (!cred) return json({ sent: false, reason: 'smtp_non_configurato', task: nTask, followup: nDeal });
 
     const righeTask = (tasks ?? []).map((t: any) => `• [${t.priorita}] ${t.titolo} (scad. ${t.scadenza})`).join('\n');
     const righeDeal = (deals ?? [])
@@ -70,9 +68,9 @@ Deno.serve(async (req) => {
       `Apri l'app: https://deluxy-scout.vercel.app\n`;
 
     const client = new SMTPClient({
-      connection: { hostname: host, port, tls: port === 465, auth: { username: user, password: pass } },
+      connection: { hostname: cred.host, port: cred.port, tls: cred.port === 465, auth: { username: cred.user, password: cred.pass } },
     });
-    await client.send({ from, to: profilo.email, subject: `Promemoria Scout: ${nTask + nDeal} cose in scadenza`, content: corpo });
+    await client.send({ from: cred.from, to: profilo.email, subject: `Promemoria Scout: ${nTask + nDeal} cose in scadenza`, content: corpo });
     await client.close();
 
     return json({ sent: true, to: profilo.email, task: nTask, followup: nDeal });

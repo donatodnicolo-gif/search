@@ -10,10 +10,11 @@
 //   supabase secrets set SMTP_HOST=... SMTP_PORT=465 SMTP_USER=... SMTP_PASS=... SMTP_FROM=...
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+import { credenzialiPerUtente } from '../_shared/smtp.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
@@ -50,14 +51,9 @@ Deno.serve(async (req) => {
     const creatore = (profili ?? []).find((p: any) => p.id === task.creato_da);
     if (!assegnatario?.email) return json({ sent: false, reason: 'email_assegnatario_assente' });
 
-    const host = Deno.env.get('SMTP_HOST');
-    const user = Deno.env.get('SMTP_USER');
-    const pass = Deno.env.get('SMTP_PASS');
-    if (!host || !user || !pass) {
-      return json({ sent: false, reason: 'smtp_non_configurato' });
-    }
-    const port = Number(Deno.env.get('SMTP_PORT') ?? '465');
-    const from = Deno.env.get('SMTP_FROM') ?? user;
+    // Mittente = la casella personale di CHI assegna il task (fallback: secret globali).
+    const cred = await credenzialiPerUtente(admin, task.creato_da ?? null);
+    if (!cred) return json({ sent: false, reason: 'smtp_non_configurato' });
 
     const nomeCreatore = creatore?.nome || creatore?.email?.split('@')[0] || 'Un collega';
     const scad = task.scadenza ? ` (scadenza ${task.scadenza})` : '';
@@ -69,9 +65,9 @@ Deno.serve(async (req) => {
       `Aprilo qui: https://deluxy-scout.vercel.app/task\n`;
 
     const client = new SMTPClient({
-      connection: { hostname: host, port, tls: port === 465, auth: { username: user, password: pass } },
+      connection: { hostname: cred.host, port: cred.port, tls: cred.port === 465, auth: { username: cred.user, password: cred.pass } },
     });
-    await client.send({ from, to: assegnatario.email, subject: oggetto, content: corpo });
+    await client.send({ from: cred.from, to: assegnatario.email, subject: oggetto, content: corpo });
     await client.close();
 
     return json({ sent: true, to: assegnatario.email });

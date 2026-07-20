@@ -125,6 +125,7 @@ export default function AppLayout() {
         <Drawer.Screen name="modifica/[id]" options={dettaglio('Modifica attività')} />
         <Drawer.Screen name="visita-dettaglio/[id]" options={dettaglio('Dettaglio visita')} />
         <Drawer.Screen name="nascosti" options={dettaglio('Nascosti')} />
+        <Drawer.Screen name="email-config" options={dettaglio('Email')} />
         <Drawer.Screen name="venditore/[ownerId]" options={dettaglio('Venditore')} />
       </Drawer>
     </GestureHandlerRootView>
