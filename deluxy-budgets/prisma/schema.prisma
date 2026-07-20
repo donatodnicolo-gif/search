@@ -109,7 +109,9 @@ model Dipendente {
   nome          String
   ruolo         String?
   tipo          String // DIPENDENTE | STAGISTA | CONSULENTE
-  importo       Float   @default(0) // RAL se ANNUO, compenso se MENSILE
+  importo       Float   @default(0) // RAL (o compenso) a tempo pieno, tabellare
+  superminimo   Float   @default(0) // superminimo individuale, stessa periodicità di `importo`
+  partTimePct   Float   @default(100) // 100 = tempo pieno; il lordo si riproporziona
   periodicita   String  @default("ANNUO") // ANNUO | MENSILE
   contributiPct Float   @default(0) // oneri sopra il lordo (dipendenti ~38%)
   mesi          String  @default("[1,2,3,4,5,6,7,8,9,10,11,12]") // JSON: mesi di competenza

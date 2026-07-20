@@ -15,6 +15,9 @@ function normalizza(body: Record<string, unknown>) {
     ruolo: body.ruolo ? String(body.ruolo).trim() : null,
     tipo: TIPI.includes(String(body.tipo)) ? String(body.tipo) : "DIPENDENTE",
     importo: Math.max(0, Number(body.importo) || 0),
+    superminimo: Math.max(0, Number(body.superminimo) || 0),
+    // 0 non ha senso (costo nullo) e oltre 100 non è part-time: si resta nel range utile
+    partTimePct: Math.min(100, Math.max(1, Number(body.partTimePct) || 100)),
     periodicita: PERIODICITA.includes(String(body.periodicita)) ? String(body.periodicita) : "ANNUO",
     contributiPct: Math.min(200, Math.max(0, Number(body.contributiPct) || 0)),
     mesi: JSON.stringify(mesi),

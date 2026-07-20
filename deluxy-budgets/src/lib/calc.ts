@@ -29,6 +29,8 @@ export type Persona = {
   ruolo: string | null;
   tipo: string;
   importo: number;
+  superminimo: number;
+  partTimePct: number;
   periodicita: string;
   contributiPct: number;
   mesi: number[];
@@ -97,6 +99,8 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       ruolo: d.ruolo,
       tipo: d.tipo,
       importo: d.importo,
+      superminimo: d.superminimo,
+      partTimePct: d.partTimePct,
       periodicita: d.periodicita,
       contributiPct: d.contributiPct,
       mesi: leggiMesi(d.mesi),
@@ -141,13 +145,19 @@ export function advConsentitoMese(mese: MaisonBudget["mesi"][number]): number {
 
 // ---------- Costo del personale ----------
 
+// Lordo annuo effettivo: tabellare + superminimo individuale, riproporzionati
+// per la percentuale di part-time (100 = tempo pieno). Senza oneri.
+export function lordoAnnuo(p: Persona): number {
+  const pieno = p.periodicita === "ANNUO" ? p.importo + p.superminimo : (p.importo + p.superminimo) * 12;
+  return (pieno * p.partTimePct) / 100;
+}
+
 // Costo azienda di una persona in un dato mese: zero se quel mese non è tra
-// quelli di competenza. La RAL annua si spalma su 12 mensilità e gli oneri si
-// applicano sopra il lordo.
+// quelli di competenza. Il lordo (già riproporzionato per il part-time) si
+// spalma su 12 mensilità e gli oneri si applicano sopra.
 export function costoPersonaMese(p: Persona, month: number): number {
   if (!p.mesi.includes(month)) return 0;
-  const base = p.periodicita === "ANNUO" ? p.importo / 12 : p.importo;
-  return base * (1 + p.contributiPct / 100);
+  return (lordoAnnuo(p) / 12) * (1 + p.contributiPct / 100);
 }
 
 export function costoPersonaAnno(p: Persona): number {

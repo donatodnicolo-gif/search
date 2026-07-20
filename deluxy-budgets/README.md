@@ -13,8 +13,10 @@ pubblicato), *sfidante* e *irraggiungibile*.
   e conto economico **per maison** (costi comuni ripartiti in proporzione ai ricavi).
 - **Dipendenti** (`/dipendenti`): organico a budget con **dipendenti a RAL** (oneri sopra il
   lordo, default 38%), **stagisti** e **consulenti** a compenso mensile, e i **mesi in cui il
-  costo è a carico** (assunzioni infra-anno, stage, consulenze a progetto). Il costo azienda
-  entra automaticamente nel P&L, anche mese per mese.
+  costo è a carico** (assunzioni infra-anno, stage, consulenze a progetto). Per ciascuno si
+  indicano **superminimo individuale** e **% di part-time**: il lordo effettivo è
+  `(tabellare + superminimo) × % tempo`, riproporzionato come da CCNL, e gli oneri si
+  applicano sopra. Il costo azienda entra automaticamente nel P&L, anche mese per mese.
 - **Maison** (`/maison`, `/maison/[slug]`): per ogni brand (Deluxy.it, CakeDesign.me,
   Deluxyflowers.com, Business B2B, Experience) la vista mensile **D2C · Eventi · B2B
   (lead generation)** con selettore del livello.
