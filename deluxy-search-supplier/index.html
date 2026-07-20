@@ -1417,7 +1417,7 @@ async function fetchOrder(){
   localStorage.setItem('brand', brand);
   $('#orderBox').style.display='none'; orderLoaded=false;
   if(!number){ setOrderStatus('Inserisci il numero ordine.', true); return; }
-  if(!PASS){ setOrderStatus('Sessione scaduta: rientra col pass code.', true); location.reload(); return; }
+  if(!PASS && !SESSION){ setOrderStatus('Sessione scaduta: rientra col pass code.', true); location.reload(); return; }
 
   $('#fetchOrder').disabled = true;
   setOrderStatus('Recupero ordine '+number+' da '+brand+'…');
