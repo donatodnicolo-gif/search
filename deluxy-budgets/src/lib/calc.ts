@@ -14,8 +14,17 @@ export const LIVELLI: { key: Livello; label: string; badge: string }[] = [
   { key: "IRRAGGIUNGIBILE", label: "Irraggiungibile", badge: "purple" },
 ];
 
-export const CANALI = ["D2C", "EVENTI", "B2B"] as const;
-export type Canale = (typeof CANALI)[number];
+// Tipologia di servizio venduto, con il suo margine. Le tre di partenza
+// (D2C, Eventi, B2B) vengono dal budget pubblicato; altre si aggiungono da
+// /margini.
+export type Tipologia = {
+  id: string;
+  slug: string;
+  nome: string;
+  marginePct: number;
+  ordine: number;
+  note: string | null;
+};
 
 export const TIPI_PERSONA = [
   { key: "DIPENDENTE", label: "Dipendente", badge: "blue" },
@@ -51,13 +60,20 @@ export type TeamBudget = {
   note: string | null;
 };
 
+export type MeseMaison = {
+  month: number;
+  // vendite pubblicate per slug di tipologia
+  vendite: Record<string, number>;
+  advPercent: number;
+  advPubblicato: number;
+};
+
 export type MaisonBudget = {
   id: string;
   slug: string;
   nome: string;
   ordine: number;
-  // vendite pubblicate per mese (1..12) e canale
-  mesi: { month: number; d2c: number; eventi: number; b2b: number; advPercent: number; advPubblicato: number }[];
+  mesi: MeseMaison[];
 };
 
 export type DatiAnno = {
@@ -67,10 +83,11 @@ export type DatiAnno = {
   costi: { id: string; tipo: string; label: string; valore: number; maisonId: string | null }[];
   persone: Persona[];
   team: TeamBudget[];
+  tipologie: Tipologia[];
 };
 
 export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
-  const [maisons, entries, advs, scenari, costi, dipendenti, team] = await Promise.all([
+  const [maisons, entries, advs, scenari, costi, dipendenti, team, tipologie] = await Promise.all([
     prisma.maison.findMany({ orderBy: { ordine: "asc" } }),
     prisma.budgetEntry.findMany({ where: { year } }),
     prisma.advPercent.findMany({ where: { year } }),
@@ -78,19 +95,21 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
     prisma.costConfig.findMany({ where: { year } }),
     prisma.dipendente.findMany({ where: { year }, orderBy: { nome: "asc" } }),
     prisma.team.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
+    prisma.tipologiaServizio.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
   ]);
 
   const out: MaisonBudget[] = maisons.map((m) => {
-    const mesi = [];
+    const mesi: MeseMaison[] = [];
     for (let month = 1; month <= 12; month++) {
-      const get = (canale: string) =>
-        entries.find((e) => e.maisonId === m.id && e.month === month && e.canale === canale)?.vendite ?? 0;
       const adv = advs.find((a) => a.maisonId === m.id && a.month === month);
+      const vendite: Record<string, number> = {};
+      for (const t of tipologie) {
+        vendite[t.slug] =
+          entries.find((e) => e.maisonId === m.id && e.month === month && e.canale === t.slug)?.vendite ?? 0;
+      }
       mesi.push({
         month,
-        d2c: get("D2C"),
-        eventi: get("EVENTI"),
-        b2b: get("B2B"),
+        vendite,
         advPercent: adv?.percent ?? 0,
         advPubblicato: adv?.budgetPubblicato ?? 0,
       });
@@ -134,6 +153,14 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       ordine: t.ordine,
       note: t.note,
     })),
+    tipologie: tipologie.map((t) => ({
+      id: t.id,
+      slug: t.slug,
+      nome: t.nome,
+      marginePct: t.marginePct,
+      ordine: t.ordine,
+      note: t.note,
+    })),
   };
 }
 
@@ -155,19 +182,27 @@ export function premio(dati: DatiAnno, livello: Livello): number {
   return dati.scenari.find((s) => s.livello === livello)?.premio ?? 0;
 }
 
+// Vendite totali del mese, su tutte le tipologie.
+export function venditeMese(mese: MeseMaison): number {
+  return Object.values(mese.vendite).reduce((s, v) => s + v, 0);
+}
+
 export function totaliMaison(m: MaisonBudget) {
-  const d2c = m.mesi.reduce((s, x) => s + x.d2c, 0);
-  const eventi = m.mesi.reduce((s, x) => s + x.eventi, 0);
-  const b2b = m.mesi.reduce((s, x) => s + x.b2b, 0);
+  const perServizio: Record<string, number> = {};
+  for (const mese of m.mesi) {
+    for (const [slug, v] of Object.entries(mese.vendite)) {
+      perServizio[slug] = (perServizio[slug] ?? 0) + v;
+    }
+  }
+  const totale = Object.values(perServizio).reduce((s, v) => s + v, 0);
   const adv = m.mesi.reduce((s, x) => s + advConsentitoMese(x), 0);
   const advPubblicato = m.mesi.reduce((s, x) => s + x.advPubblicato, 0);
-  return { d2c, eventi, b2b, totale: d2c + eventi + b2b, adv, advPubblicato };
+  return { perServizio, totale, adv, advPubblicato };
 }
 
 // ADV consentito nel mese = vendite del mese × % impostata in /spese.
-export function advConsentitoMese(mese: MaisonBudget["mesi"][number]): number {
-  const vendite = mese.d2c + mese.eventi + mese.b2b;
-  return (vendite * mese.advPercent) / 100;
+export function advConsentitoMese(mese: MeseMaison): number {
+  return (venditeMese(mese) * mese.advPercent) / 100;
 }
 
 // ---------- Costo del personale ----------
@@ -311,9 +346,7 @@ export type PL = {
   livello: Livello;
   moltiplicatore: number;
   ricavi: number;
-  ricaviD2c: number;
-  ricaviEventi: number;
-  ricaviB2b: number;
+  ricaviPerServizio: Record<string, number>; // slug tipologia → ricavi
   cogs: number;
   cogsPct: number;
   margineLordo: number;
@@ -325,6 +358,13 @@ export type PL = {
   risultatoNetto: number;
   ebitdaPct: number;
 };
+
+// Margine di una tipologia. Una tipologia sconosciuta (dato vecchio rimasto in
+// un BudgetEntry) vale margine zero: meglio un margine prudenziale che ignorare
+// il ricavo e gonfiare il risultato.
+export function margineDi(dati: DatiAnno, slug: string): number {
+  return dati.tipologie.find((t) => t.slug === slug)?.marginePct ?? 0;
+}
 
 // Voci di costo configurate, sommate per tipo. Se `maisonId` è indicata si
 // prendono le voci globali (ripartite altrove) e quelle della maison.
@@ -347,15 +387,26 @@ export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: st
   const advBase = tot.reduce((s, t) => s + t.adv, 0);
   const venditeTotali = dati.maisons.reduce((s, m) => s + totaliMaison(m).totale, 0);
 
-  const cogsPct = sommaCosti(dati, "COGS_PCT", maisonSlug ? ids : undefined);
   const fissi = sommaCosti(dati, "FISSO_MENSILE", ids) * 12 + sommaCosti(dati, "FISSO_ANNUO", ids);
 
   // Nel P&L di una singola maison i costi comuni (struttura, personale non
   // attribuito, premi) si ripartiscono in proporzione ai ricavi.
   const quota = maisonSlug && venditeTotali > 0 ? venditeBase / venditeTotali : 1;
 
+  // Ricavi e costo del venduto per tipologia: ogni servizio ha il suo margine,
+  // quindi il COGS complessivo dipende dal mix di vendita, non da un'unica %.
+  const ricaviPerServizio: Record<string, number> = {};
+  for (const t of tot) {
+    for (const [slug, v] of Object.entries(t.perServizio)) {
+      ricaviPerServizio[slug] = (ricaviPerServizio[slug] ?? 0) + v * molt;
+    }
+  }
   const ricavi = venditeBase * molt;
-  const cogs = (ricavi * cogsPct) / 100;
+  const cogs = Object.entries(ricaviPerServizio).reduce(
+    (s, [slug, v]) => s + v * (1 - margineDi(dati, slug) / 100),
+    0
+  );
+  const cogsPct = ricavi > 0 ? (cogs / ricavi) * 100 : 0;
   const margineLordo = ricavi - cogs;
   const adv = advBase * molt;
   const personale = maisonSlug
@@ -369,9 +420,7 @@ export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: st
     livello,
     moltiplicatore: molt,
     ricavi,
-    ricaviD2c: tot.reduce((s, t) => s + t.d2c, 0) * molt,
-    ricaviEventi: tot.reduce((s, t) => s + t.eventi, 0) * molt,
-    ricaviB2b: tot.reduce((s, t) => s + t.b2b, 0) * molt,
+    ricaviPerServizio,
     cogs,
     cogsPct,
     margineLordo,
@@ -400,22 +449,28 @@ export type PLMese = {
 // fissi e il personale non seguono la stagionalità delle vendite).
 export function contoEconomicoMensile(dati: DatiAnno, livello: Livello): PLMese[] {
   const molt = moltiplicatore(dati, livello);
-  const cogsPct = sommaCosti(dati, "COGS_PCT");
   const fissiMese = sommaCosti(dati, "FISSO_MENSILE") + sommaCosti(dati, "FISSO_ANNUO") / 12;
 
   const righe: PLMese[] = [];
   for (let month = 1; month <= 12; month++) {
-    const ricavi =
-      dati.maisons.reduce((s, m) => {
-        const x = m.mesi.find((y) => y.month === month);
-        return s + (x ? x.d2c + x.eventi + x.b2b : 0);
-      }, 0) * molt;
+    // Il mix di vendita cambia da mese a mese, quindi anche il COGS del mese
+    // va ricalcolato tipologia per tipologia.
+    let ricavi = 0;
+    let cogs = 0;
+    for (const m of dati.maisons) {
+      const x = m.mesi.find((y) => y.month === month);
+      if (!x) continue;
+      for (const [slug, v] of Object.entries(x.vendite)) {
+        const r = v * molt;
+        ricavi += r;
+        cogs += r * (1 - margineDi(dati, slug) / 100);
+      }
+    }
     const adv =
       dati.maisons.reduce((s, m) => {
         const x = m.mesi.find((y) => y.month === month);
         return s + (x ? advConsentitoMese(x) : 0);
       }, 0) * molt;
-    const cogs = (ricavi * cogsPct) / 100;
     const personale = costoPersonaleMese(dati, month);
     const margineLordo = ricavi - cogs;
     righe.push({

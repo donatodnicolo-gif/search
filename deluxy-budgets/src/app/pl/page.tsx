@@ -16,12 +16,9 @@ type Riga = {
   nota?: string;
 };
 
-const RIGHE: Riga[] = [
-  { label: "Ricavi D2C", valore: (pl) => pl.ricaviD2c },
-  { label: "Ricavi Eventi", valore: (pl) => pl.ricaviEventi },
-  { label: "Ricavi B2B", valore: (pl) => pl.ricaviB2b },
+const RIGHE_FISSE: Riga[] = [
   { label: "Totale ricavi", valore: (pl) => pl.ricavi, tipo: "totale" },
-  { label: "Costo del venduto", valore: (pl) => pl.cogs, tipo: "costo", nota: "% su ricavi da Impostazioni" },
+  { label: "Costo del venduto", valore: (pl) => pl.cogs, tipo: "costo", nota: "per tipologia, dai margini impostati" },
   { label: "Margine lordo", valore: (pl) => pl.margineLordo, tipo: "totale" },
   { label: "Spesa pubblicitaria (ADV)", valore: (pl) => pl.adv, tipo: "costo", nota: "% sulle vendite per maison/mese" },
   { label: "Costo del personale", valore: (pl) => pl.personale, tipo: "costo", nota: "dipendenti, stagisti e consulenti" },
@@ -42,6 +39,17 @@ export default async function ContoEconomico({
 
   const pls = LIVELLI.map((l) => contoEconomico(dati, l.key));
   const plScelto = pls.find((p) => p.livello === livello)!;
+
+  // I ricavi si dettagliano per tipologia di servizio: l'elenco è quello
+  // configurato in /margini, non un insieme fisso di canali.
+  const RIGHE: Riga[] = [
+    ...dati.tipologie.map((t) => ({
+      label: `Ricavi ${t.nome}`,
+      nota: `margine ${t.marginePct.toLocaleString("it-IT")}%`,
+      valore: (pl: PL) => pl.ricaviPerServizio[t.slug] ?? 0,
+    })),
+    ...RIGHE_FISSE,
+  ];
   const mensile = contoEconomicoMensile(dati, livello);
   const mesiInPerdita = mensile.filter((m) => m.ebitda < 0).length;
 

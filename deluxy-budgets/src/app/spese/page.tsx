@@ -1,4 +1,4 @@
-import { ANNO_CORRENTE, caricaAnno } from "@/lib/calc";
+import { ANNO_CORRENTE, caricaAnno, venditeMese } from "@/lib/calc";
 import { SpeseEditor } from "@/components/SpeseEditor";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export default async function Spese() {
           nome: m.nome,
           mesi: m.mesi.map((x) => ({
             month: x.month,
-            vendite: x.d2c + x.eventi + x.b2b,
+            vendite: venditeMese(x),
             percent: x.advPercent,
             pubblicato: x.advPubblicato,
           })),

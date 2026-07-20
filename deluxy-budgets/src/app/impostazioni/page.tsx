@@ -15,8 +15,10 @@ export default async function Impostazioni() {
       premio: s?.premio ?? 0,
     };
   });
+  // Il costo del venduto non è più una percentuale unica: si imposta come
+  // margine per tipologia di servizio in /margini.
   const costi = dati.costi
-    .filter((c) => c.maisonId === null)
+    .filter((c) => c.maisonId === null && c.tipo !== "COGS_PCT")
     .map((c) => ({ id: c.id, tipo: c.tipo, label: c.label, valore: c.valore }));
 
   return (

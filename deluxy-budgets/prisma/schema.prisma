@@ -27,13 +27,26 @@ model Maison {
   advPercents AdvPercent[]
 }
 
+// Tipologia di servizio venduto (D2C, Eventi, B2B, e quelle aggiunte a mano).
+// Ogni tipologia porta il proprio margine: il costo del venduto del P&L è la
+// somma dei ricavi per tipologia al netto del rispettivo margine, non più una
+// percentuale unica di azienda.
+model TipologiaServizio {
+  id          String  @id @default(cuid())
+  slug        String  @unique // usato in BudgetEntry.canale
+  nome        String
+  marginePct  Float   @default(0) // margine lordo sulla tipologia
+  ordine      Int     @default(0)
+  note        String?
+}
+
 // Budget pubblicato (livello "raggiungibile"): vendite per maison × canale × mese.
 // Gli altri due livelli si ottengono con i moltiplicatori di ScenarioConfig.
 model BudgetEntry {
   id       String @id @default(cuid())
   year     Int
   month    Int // 1..12
-  canale   String // D2C | EVENTI | B2B
+  canale   String // slug di TipologiaServizio (D2C, EVENTI, B2B, …)
   vendite  Float  @default(0)
   maison   Maison @relation(fields: [maisonId], references: [id], onDelete: Cascade)
   maisonId String

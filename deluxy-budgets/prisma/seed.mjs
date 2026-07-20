@@ -21,14 +21,27 @@ const SCENARI = [
   { livello: "IRRAGGIUNGIBILE", moltiplicatore: 1.35, premio: 0, note: "+35% sul pubblicato (modificabile)" },
 ];
 
-// Costi di partenza: COGS 65% ricavato dal file "budget pubblicati"
-// (margine stimato 2026 ≈ 35% delle vendite). Costi fissi da impostare.
-const COSTI = [
-  { tipo: "COGS_PCT", label: "Costo del venduto (% su vendite)", valore: 65 },
-  { tipo: "FISSO_MENSILE", label: "Costi di struttura mensili", valore: 0 },
+// Costi di struttura da impostare. Il costo del venduto non è più una
+// percentuale unica: dipende dal margine di ciascuna tipologia di servizio.
+const COSTI = [{ tipo: "FISSO_MENSILE", label: "Costi di struttura mensili", valore: 0 }];
+
+// Tipologie di servizio con il margine di partenza: 35% è il margine stimato
+// 2026 dei budget pubblicati. Modificabili (e ampliabili) da /margini.
+const TIPOLOGIE = [
+  { slug: "D2C", nome: "D2C", marginePct: 35, ordine: 0 },
+  { slug: "EVENTI", nome: "Eventi", marginePct: 35, ordine: 1 },
+  { slug: "B2B", nome: "B2B", marginePct: 35, ordine: 2 },
 ];
 
 async function main() {
+  for (const t of TIPOLOGIE) {
+    await prisma.tipologiaServizio.upsert({
+      where: { slug: t.slug },
+      update: {}, // il margine impostato a mano non va sovrascritto
+      create: t,
+    });
+  }
+
   for (const [i, m] of data.maisons.entries()) {
     const maison = await prisma.maison.upsert({
       where: { slug: m.slug },

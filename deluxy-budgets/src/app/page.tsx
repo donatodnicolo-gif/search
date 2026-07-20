@@ -97,9 +97,9 @@ export default async function Dashboard() {
             <thead>
               <tr>
                 <th>Maison</th>
-                <th className="num">D2C</th>
-                <th className="num">Eventi</th>
-                <th className="num">B2B</th>
+                {dati.tipologie.map((t) => (
+                  <th className="num" key={t.slug}>{t.nome}</th>
+                ))}
                 <th className="num">Totale vendite</th>
                 <th className="num">ADV consentito</th>
                 <th className="num">Sfidante</th>
@@ -116,9 +116,9 @@ export default async function Dashboard() {
                     <td>
                       <Link href={`/maison/${m.slug}`} style={{ fontWeight: 600 }}>{m.nome}</Link>
                     </td>
-                    <td className="num">{eur(t.d2c)}</td>
-                    <td className="num">{eur(t.eventi)}</td>
-                    <td className="num">{eur(t.b2b)}</td>
+                    {dati.tipologie.map((tip) => (
+                      <td className="num" key={tip.slug}>{eur(t.perServizio[tip.slug] ?? 0)}</td>
+                    ))}
                     <td className="num" style={{ fontWeight: 600 }}>{eur(t.totale)}</td>
                     <td className="num">{eur(t.adv)}</td>
                     <td className="num muted">{eur(sfid)}</td>
@@ -128,7 +128,14 @@ export default async function Dashboard() {
               })}
               <tr className="tot">
                 <td>Totale</td>
-                {(["d2c", "eventi", "b2b", "totale", "adv"] as const).map((k) => (
+                {dati.tipologie.map((tip) => (
+                  <td className="num" key={tip.slug}>
+                    {eur(
+                      dati.maisons.reduce((s, m) => s + (totaliMaison(m).perServizio[tip.slug] ?? 0), 0)
+                    )}
+                  </td>
+                ))}
+                {(["totale", "adv"] as const).map((k) => (
                   <td className="num" key={k}>
                     {eur(dati.maisons.reduce((s, m) => s + totaliMaison(m)[k], 0))}
                   </td>

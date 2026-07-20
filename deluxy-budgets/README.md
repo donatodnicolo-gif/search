@@ -22,6 +22,12 @@ pubblicato), *sfidante* e *irraggiungibile*.
   addizionali e cuneo fiscale). È una stima di pianificazione con **parametri fiscali 2025**:
   non sostituisce il cedolino e va riverificata con la legge di bilancio dell'anno di budget
   (motore in `src/lib/calc.ts`, funzioni `irpefLorda`, `detrazioneLavoro`, `cuneoFiscale`).
+- **Margini** (`/margini`): il **margine lordo per tipologia di servizio** (D2C, Eventi, B2B e
+  quelle aggiunte a mano). Il costo del venduto del P&L non è più una percentuale unica: è la
+  somma dei ricavi di ogni tipologia al netto del suo margine, quindi **cambia col mix di
+  vendita**, anche mese per mese. Da qui si aggiungono nuove tipologie: nascono senza ricavi
+  ed entrano nel P&L quando gli si attribuisce budget. Una tipologia con ricavi a budget non
+  è eliminabile (i suoi ricavi sparirebbero dal conto senza che si veda).
 - **Team** (`/team`): le squadre aziendali (nome, responsabile, colore del badge, ordine)
   con **organico e costo del lavoro per team**, il peso di ciascuna persona sul totale della
   squadra e l'elenco di chi non è ancora assegnato. Le persone si assegnano dalla scheda in

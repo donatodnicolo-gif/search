@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   advConsentitoMese, ANNO_CORRENTE, caricaAnno, contoEconomico, LIVELLI,
-  moltiplicatore, totaliMaison, type Livello,
+  moltiplicatore, totaliMaison, venditeMese, type Livello,
 } from "@/lib/calc";
 import { eur, MESI, pct } from "@/lib/format";
 
@@ -82,9 +82,9 @@ export default async function MaisonDetail({
             <thead>
               <tr>
                 <th>Mese</th>
-                <th className="num">D2C</th>
-                <th className="num">Eventi</th>
-                <th className="num">B2B (lead gen)</th>
+                {dati.tipologie.map((tip) => (
+                  <th className="num" key={tip.slug}>{tip.nome}</th>
+                ))}
                 <th className="num">Totale</th>
                 <th className="num">% ADV</th>
                 <th className="num">ADV consentito</th>
@@ -93,13 +93,13 @@ export default async function MaisonDetail({
             </thead>
             <tbody>
               {maison.mesi.map((mese) => {
-                const tot = mese.d2c + mese.eventi + mese.b2b;
+                const tot = venditeMese(mese);
                 return (
                   <tr key={mese.month}>
                     <td style={{ fontWeight: 500 }}>{MESI[mese.month - 1]}</td>
-                    <td className="num">{eur(mese.d2c * molt)}</td>
-                    <td className="num">{eur(mese.eventi * molt)}</td>
-                    <td className="num">{eur(mese.b2b * molt)}</td>
+                    {dati.tipologie.map((tip) => (
+                      <td className="num" key={tip.slug}>{eur((mese.vendite[tip.slug] ?? 0) * molt)}</td>
+                    ))}
                     <td className="num" style={{ fontWeight: 600 }}>{eur(tot * molt)}</td>
                     <td className="num muted">{pct(mese.advPercent)}</td>
                     <td className="num">{eur(advConsentitoMese(mese) * molt)}</td>
@@ -109,9 +109,9 @@ export default async function MaisonDetail({
               })}
               <tr className="tot">
                 <td>Totale</td>
-                <td className="num">{eur(t.d2c * molt)}</td>
-                <td className="num">{eur(t.eventi * molt)}</td>
-                <td className="num">{eur(t.b2b * molt)}</td>
+                {dati.tipologie.map((tip) => (
+                  <td className="num" key={tip.slug}>{eur((t.perServizio[tip.slug] ?? 0) * molt)}</td>
+                ))}
                 <td className="num">{eur(t.totale * molt)}</td>
                 <td className="num">{t.totale > 0 ? pct((t.adv / t.totale) * 100) : "—"}</td>
                 <td className="num">{eur(t.adv * molt)}</td>

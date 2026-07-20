@@ -63,6 +63,13 @@ const icons = {
       <path d="M16 13.8c2.4.2 3.9 1.6 4.5 3.9" />
     </svg>
   ),
+  margini: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M5 19 19 5" />
+      <circle cx="7.5" cy="7.5" r="2.6" />
+      <circle cx="16.5" cy="16.5" r="2.6" />
+    </svg>
+  ),
   spese: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <circle cx="12" cy="12" r="8.5" />
@@ -97,6 +104,7 @@ const sections: { label: string; items: Item[] }[] = [
     label: "Conti",
     items: [
       { href: "/pl", label: "P&L aziendale", icon: icons.pl },
+      { href: "/margini", label: "Margini", icon: icons.margini },
       { href: "/spese", label: "Spese ADV", icon: icons.spese },
     ],
   },

@@ -26,9 +26,13 @@ export default async function MaisonIndex() {
               <div className="kpi-label">{m.nome}</div>
               <div className="kpi-value">{eur(t.totale)}</div>
               <div className="kpi-sub">
-                D2C {t.totale > 0 ? pct((t.d2c / t.totale) * 100, 0) : "—"} · Eventi{" "}
-                {t.totale > 0 ? pct((t.eventi / t.totale) * 100, 0) : "—"} · B2B{" "}
-                {t.totale > 0 ? pct((t.b2b / t.totale) * 100, 0) : "—"}
+                {dati.tipologie
+                  .filter((tip) => (t.perServizio[tip.slug] ?? 0) > 0)
+                  .map(
+                    (tip) =>
+                      `${tip.nome} ${pct(((t.perServizio[tip.slug] ?? 0) / t.totale) * 100, 0)}`
+                  )
+                  .join(" · ") || "nessun ricavo a budget"}
               </div>
             </Link>
           );
