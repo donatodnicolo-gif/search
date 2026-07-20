@@ -289,10 +289,15 @@ const AZIONI: AzioneApp[] = [
             const r = risposta as {
               fornitori?: {
                 nome?: string
+                indirizzo?: string
                 telefono?: string
                 distanzaKm?: number
+                minutiAuto?: number
                 distanzaTipo?: string
                 whatsapp?: string | null
+                sito?: string | null
+                apertoOra?: boolean | null
+                valutazione?: number | null
               }[]
               consegna?: { indirizzo?: string }
               categoria?: string
@@ -301,13 +306,19 @@ const AZIONI: AzioneApp[] = [
             if (lista.length === 0) {
               return { ok: true, messaggio: `Nessun ${r.categoria ?? 'fornitore'} trovato vicino alla consegna.`, link: FORNITORI_URL }
             }
+            // Una riga per fornitore, con tutto quello che serve per chiamarlo.
             const righe = lista.map((f, i) => {
-              const dist = f.distanzaKm != null ? ` — ${f.distanzaKm} km${f.distanzaTipo ? ` (${f.distanzaTipo})` : ''}` : ''
-              const tel = f.telefono ? ` · ${f.telefono}` : ''
-              return `${i + 1}. ${f.nome ?? '—'}${dist}${tel}`
+              const pezzi: string[] = [`${i + 1}. ${f.nome ?? '—'}`]
+              if (f.distanzaKm != null) pezzi.push(`${f.distanzaKm} km${f.minutiAuto != null ? ` · ${f.minutiAuto} min` : ''}${f.distanzaTipo === "linea d'aria" ? " (in linea d'aria)" : ''}`)
+              if (f.indirizzo) pezzi.push(f.indirizzo)
+              if (f.telefono) pezzi.push(`Tel: ${f.telefono}`)
+              if (f.whatsapp) pezzi.push(`WhatsApp: ${f.whatsapp}`)
+              if (f.valutazione != null) pezzi.push(`★ ${f.valutazione}`)
+              if (f.apertoOra === true) pezzi.push('aperto ora')
+              return pezzi.join('\n   ')
             })
-            const dove = r.consegna?.indirizzo ? `Consegna a ${r.consegna.indirizzo}. ` : ''
-            return { ok: true, messaggio: `${dove}${righe.join('  ')}`, link: FORNITORI_URL }
+            const dove = r.consegna?.indirizzo ? `Consegna a ${r.consegna.indirizzo}\n\n` : ''
+            return { ok: true, messaggio: `${dove}${righe.join('\n\n')}`, link: FORNITORI_URL }
           }
           if (status === 401 || status === 403)
             return {

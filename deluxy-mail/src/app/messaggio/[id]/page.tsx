@@ -16,6 +16,7 @@ import { richiediUtente } from '@/lib/sessione'
 import { traduciMessaggioSeServe, messaggiThread, leggiRiassuntoThread } from '@/lib/sync'
 import { chiaveThread } from '@/lib/thread'
 import { eContattoAI } from '@/lib/contattiAI'
+import { azioneDi } from '@/lib/appDeluxy'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // le azioni AI (analisi, riassunto thread) girano qui
@@ -65,6 +66,26 @@ export default async function DettaglioMessaggio({ params }: Props) {
   // Qui si mostra solo la proposta dell'AI: le bozze che hai iniziato tu si
   // riprendono dalla schermata di scrittura, dove le stavi scrivendo.
   const bozzaAI = messaggio.bozze.find((b) => b.origine === 'ai' && !b.inviata)
+
+  // Le risposte delle APP DELUXY richiamate da questa mail: si mostrano sotto,
+  // così quello che l'app ha risposto (es. i fornitori vicini) resta sulla mail.
+  let inviiApp: {
+    id: string
+    azioneId: string
+    esito: string
+    esitoTesto: string
+    link: string | null
+    creatoIl: Date
+  }[] = []
+  try {
+    inviiApp = await db.invioApp.findMany({
+      where: { utenteId: u.id, messaggioId: messaggio.id },
+      orderBy: { creatoIl: 'desc' },
+      select: { id: true, azioneId: true, esito: true, esitoTesto: true, link: true, creatoIl: true },
+    })
+  } catch {
+    /* tabella non ancora migrata */
+  }
 
   return (
     <>
@@ -289,6 +310,46 @@ export default async function DettaglioMessaggio({ params }: Props) {
             destinatario={messaggio.mittente}
             mittente={messaggio.account.email}
           />
+        </div>
+      )}
+
+      {inviiApp.length > 0 && (
+        <div className="card">
+          <div className="mail-subject" style={{ fontSize: 18, marginBottom: 12 }}>
+            Risposte dalle app
+          </div>
+          {inviiApp.map((iv) => {
+            const az = azioneDi(iv.azioneId)
+            return (
+              <div key={iv.id} className="invio-app">
+                <div className="invio-app-testa">
+                  <span className={`badge ${az?.colore ?? 'neutral'}`}>
+                    <span className="dot" />
+                    {az ? `${az.app} — ${az.nome}` : iv.azioneId}
+                  </span>
+                  <span className={`badge ${iv.esito === 'ok' ? 'green' : 'red'}`}>
+                    <span className="dot" />
+                    {iv.esito === 'ok' ? 'Riuscito' : 'Errore'}
+                  </span>
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    {iv.creatoIl.toLocaleString('it-IT', {
+                      timeZone: FUSO,
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                <div className="invio-app-testo">{iv.esitoTesto}</div>
+                {iv.link && (
+                  <a href={iv.link} target="_blank" rel="noreferrer" className="azione-riga" style={{ marginTop: 6, display: 'inline-block' }}>
+                    Apri nell’app →
+                  </a>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </>

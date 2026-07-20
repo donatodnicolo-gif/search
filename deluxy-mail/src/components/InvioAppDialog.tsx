@@ -136,15 +136,23 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
             style={{ marginTop: 10, fontSize: 13, color: esito.ok ? undefined : 'var(--red)' }}
           >
             {esito.ok && <span className="ai-mark">OK</span>}
-            <span>
-              {esito.messaggio}{' '}
+            <span style={{ whiteSpace: 'pre-wrap' }}>
+              {esito.messaggio}
               {esito.link && (
-                <a href={esito.link} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>
-                  Apri l’app
-                </a>
+                <>
+                  {'\n'}
+                  <a href={esito.link} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>
+                    Apri l’app
+                  </a>
+                </>
               )}
             </span>
           </div>
+        )}
+        {esito?.ok && (
+          <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            La risposta resta salvata sulla mail, in fondo, sotto «Risposte dalle app».
+          </p>
         )}
 
         <div className="form-footer" style={{ marginTop: 14 }}>

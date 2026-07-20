@@ -764,6 +764,16 @@ input:focus, select:focus, textarea:focus {
 .chiave-pallino { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 4px; }
 .chiave-pallino.ok { background: var(--green); }
 
+/* ---------- Risposte delle app sulla mail ---------- */
+.invio-app { padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+.invio-app:last-child { border-bottom: none; padding-bottom: 0; }
+.invio-app:first-child { padding-top: 0; }
+.invio-app-testa { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.invio-app-testo {
+  font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+  background: var(--fill); border-radius: var(--radius-m); padding: 12px 14px;
+}
+
 /* Righe dei risultati quando agganci una mail a una conversazione */
 .aggancio-riga {
   display: flex; align-items: center; gap: 12px;
