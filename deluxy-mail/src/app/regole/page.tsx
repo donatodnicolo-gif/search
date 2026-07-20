@@ -1,10 +1,8 @@
+import Link from 'next/link'
 import { db } from '@/lib/db'
-import { creaRegola, creaRegolaApp } from '@/lib/actions'
+import { creaRegola } from '@/lib/actions'
 import { AzioniRegola } from '@/components/AzioniRegola'
-import { AzioniRegolaApp } from '@/components/AzioniRegolaApp'
-import { descriviAzioni } from '@/lib/appDeluxy'
 import { richiediUtente } from '@/lib/sessione'
-import type { RegolaApp } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,20 +17,12 @@ export default async function Regole() {
     db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } }),
   ])
 
-  // Le regole APP DELUXY (lettura difensiva: la tabella può non esserci ancora).
-  let regoleApp: RegolaApp[] = []
+  // Solo il conteggio delle regole verso le app: la gestione è in Impostazioni App.
+  let regoleApp = 0
   try {
-    regoleApp = await db.regolaApp.findMany({
-      where: { utenteId: u.id },
-      orderBy: [{ priorita: 'desc' }, { creataIl: 'asc' }],
-    })
+    regoleApp = await db.regolaApp.count({ where: { utenteId: u.id } })
   } catch {
-    regoleApp = []
-  }
-  const azioniApp = descriviAzioni()
-  const nomeAzione = (id: string) => {
-    const a = azioniApp.find((x) => x.id === id)
-    return a ? `${a.app} — ${a.nome}` : id
+    regoleApp = 0
   }
 
   return (
@@ -233,124 +223,19 @@ export default async function Regole() {
         </form>
       </div>
 
-      {/* ---------- Regole APP DELUXY ---------- */}
+      {/* Le regole verso le app Deluxy vivono nella loro pagina dedicata. */}
       <h2 className="section-title" style={{ marginTop: 40 }}>
-        Regole APP Deluxy
+        Regole verso le app Deluxy
       </h2>
-      <p className="page-caption" style={{ marginBottom: 14 }}>
-        Quando mandi una mail alle app col trascinamento su «Automatico» (o col bottone «→ App»),
-        queste regole decidono quale funzione richiamare. L’AI prepara i dati, tu confermi sempre.
-      </p>
-
-      {regoleApp.map((r) => (
-        <div key={r.id} className="rule-card">
-          <div className="rule-head">
-            <div>
-              <div className="rule-name">{r.nome}</div>
-              <div className="mail-tags" style={{ marginTop: 6 }}>
-                <span className="badge gold">
-                  <span className="dot" />
-                  {nomeAzione(r.azioneId)}
-                </span>
-                <span className="badge neutral">priorità {r.priorita}</span>
-              </div>
-            </div>
-            <AzioniRegolaApp id={r.id} attiva={r.attiva} />
-          </div>
-          <div className="rule-cond">
-            Quando{' '}
-            {[
-              r.seMittente && (
-                <>
-                  il mittente contiene <code>{r.seMittente}</code>
-                </>
-              ),
-              r.seOggetto && (
-                <>
-                  l’oggetto contiene <code>{r.seOggetto}</code>
-                </>
-              ),
-              r.seContiene && (
-                <>
-                  il testo contiene <code>{r.seContiene}</code>
-                </>
-              ),
-            ]
-              .filter(Boolean)
-              .map((frammento, i, arr) => (
-                <span key={i}>
-                  {frammento}
-                  {i < arr.length - 1 ? ' e ' : ''}
-                </span>
-              ))}
-            {r.istruzioni && (
-              <div style={{ marginTop: 6 }}>
-                <span className="ai-mark" style={{ color: 'var(--gold-strong)', fontWeight: 600 }}>
-                  AI
-                </span>{' '}
-                {r.istruzioni}
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
-
-      <div className="card" style={{ marginTop: regoleApp.length ? 16 : 0 }}>
-        <form action={creaRegolaApp}>
-          <div className="form-grid">
-            <div className="full">
-              <label className="field-label">
-                Nome <span className="req">*</span>
-              </label>
-              <input type="text" name="nome" required placeholder="Preventivi hotel → Anagrafiche" />
-            </div>
-
-            <div>
-              <label className="field-label">Se il mittente contiene</label>
-              <input type="text" name="seMittente" placeholder="@hotel.it" />
-            </div>
-            <div>
-              <label className="field-label">Se l’oggetto contiene</label>
-              <input type="text" name="seOggetto" placeholder="preventivo" />
-            </div>
-            <div>
-              <label className="field-label">Se il testo contiene</label>
-              <input type="text" name="seContiene" />
-            </div>
-
-            <div>
-              <label className="field-label">
-                Funzione da richiamare <span className="req">*</span>
-              </label>
-              <select name="azioneId" required defaultValue={azioniApp[0]?.id}>
-                {azioniApp.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.app} — {a.nome}
-                    {a.configurata ? '' : ' (da collegare)'}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="field-label">Priorità della regola</label>
-              <input type="number" name="priorita" defaultValue={0} />
-            </div>
-
-            <div className="full">
-              <label className="field-label">Nota per l’AI (opzionale, in italiano)</label>
-              <input
-                type="text"
-                name="istruzioni"
-                placeholder="Es. la categoria è sempre “hotel”; la città se manca è Milano"
-              />
-            </div>
-          </div>
-          <div className="form-footer">
-            <button className="btn primary" type="submit">
-              Crea regola APP
-            </button>
-          </div>
-        </form>
+      <div className="card">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+          Le regole che mandano una mail a un’app (Anagrafiche, Finance, Fornitori) e le chiavi di
+          collegamento si trovano ora in{' '}
+          <Link href="/impostazioni-app" style={{ textDecoration: 'underline' }}>
+            Impostazioni App
+          </Link>
+          {regoleApp > 0 ? ` (ne hai ${regoleApp}).` : '.'}
+        </p>
       </div>
     </>
   )

@@ -744,6 +744,22 @@ input:focus, select:focus, textarea:focus {
 /* In sidebar la sottosezione è rientrata sotto la madre. */
 .nav-item.sotto { padding-left: 26px; font-size: 13px; }
 
+/* ---------- Impostazioni App: stato collegamento ---------- */
+.app-stato-griglia {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px; margin-bottom: 8px;
+}
+.app-stato { display: flex; flex-direction: column; gap: 12px; }
+.app-stato-testa { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.app-stato-funzioni { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.55; color: var(--text-secondary); }
+.app-stato-funzioni li { margin-bottom: 4px; }
+.app-stato-funzioni strong { color: var(--text-primary); }
+.app-stato-chiave { border-top: 1px solid var(--hairline); padding-top: 10px; }
+.app-var {
+  background: var(--fill); padding: 2px 7px; border-radius: var(--radius-s);
+  font-size: 12px; margin-right: 6px; display: inline-block;
+}
+
 /* Righe dei risultati quando agganci una mail a una conversazione */
 .aggancio-riga {
   display: flex; align-items: center; gap: 12px;

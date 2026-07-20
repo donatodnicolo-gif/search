@@ -70,6 +70,7 @@ export async function Sidebar() {
   const gestione: Voce[] = [
     { href: '/regole', label: 'Regole' },
     { href: '/sezioni', label: 'Sezioni' },
+    { href: '/impostazioni-app', label: 'Impostazioni App' },
     { href: '/impostazioni', label: 'Impostazioni' },
     ...(utente.ruolo === 'admin' ? [{ href: '/utenti', label: 'Utenti' }] : []),
   ]

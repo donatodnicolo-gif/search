@@ -46,7 +46,7 @@ npm run dev               # Next su http://localhost:3070
 - `OPENAI_API_KEY` (chiave `sk-proj-…`), `OPENAI_MODEL` (`gpt-4o-mini`).
 - `APP_SECRET` (firma cookie sessione, HMAC).
 - `APP_PASSWORD` (legacy), `CRON_SECRET` (cron `/api/sync`).
-- **APP DELUXY** (pannello verso le altre app): `ANAGRAFICHE_API_KEY` (chiave di **scrittura** — si genera in deluxy-anagrafiche con `npm run chiave -- deluxy-mail --scrittura`), `FINANCE_API_KEY` (la chiave `api.verificheKey` di deluxy-partner). Opzionali `ANAGRAFICHE_URL` / `FINANCE_URL` (default: gli URL Vercel di produzione). **Senza chiave la carta dell'app compare "da collegare"** e l'invio è bloccato con messaggio chiaro.
+- **APP DELUXY** (pannello verso le altre app): `ANAGRAFICHE_API_KEY` (chiave di **scrittura** — si genera in deluxy-anagrafiche con `npm run chiave -- deluxy-mail --scrittura`), `FINANCE_API_KEY` (la chiave `api.verificheKey` di deluxy-partner), `FORNITORI_PASSWORD` (password admin di search-deluxy: azione «Trova fornitore» → `GET /api/fornitori?brand&number` con header `x-app-password`/`x-app-user`). Opzionali `ANAGRAFICHE_URL` / `FINANCE_URL` / `FORNITORI_URL` (default: gli URL Vercel di produzione). **Senza chiave la carta dell'app compare "da collegare"** e l'invio è bloccato con messaggio chiaro. Chiavi e regole di smistamento si gestiscono in **Impostazioni App** (`/impostazioni-app`).
 - ⚠️ `TZ` è **riservato** su Vercel: il fuso è forzato nel codice (vedi §9).
 
 ### Deploy
@@ -209,6 +209,7 @@ deluxy-mail/
     rubrica/[email]/page.tsx  # contatto + PLUS AI + istruzioni + quadro AI
     attivita/page.tsx         # attività + NuovaAttivita (manuale + comando AI)
     regole/page.tsx           # regole (retrodata, attività su misura)
+    impostazioni-app/page.tsx # APP DELUXY: stato chiavi (Anagrafiche/Finance/Fornitori) + regole di smistamento
     impostazioni, sezioni, utenti, bozze, inviata, cestino, assistente/[id]
     api/sync/route.ts         # cron
   src/lib/                    # vedi §5

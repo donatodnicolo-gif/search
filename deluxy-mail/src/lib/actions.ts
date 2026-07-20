@@ -1086,7 +1086,9 @@ export async function eseguiInvioApp(
   azioneId: string,
   datiJson: string
 ): Promise<{ ok: boolean; messaggio: string; link?: string }> {
-  const utenteId = await uid()
+  const u = await utenteCorrente()
+  if (!u) return { ok: false, messaggio: 'Sessione scaduta: rientra.' }
+  const utenteId = u.id
   const m = await db.messaggio.findFirst({
     where: { id: messaggioId, utenteId },
     select: { id: true },
@@ -1104,7 +1106,7 @@ export async function eseguiInvioApp(
     return { ok: false, messaggio: 'I dati non sono un JSON valido: correggi e riprova.' }
   }
 
-  const esito = await azione.esegui(dati)
+  const esito = await azione.esegui(dati, { utenteEmail: u.email })
 
   try {
     await db.invioApp.create({

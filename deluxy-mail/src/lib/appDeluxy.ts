@@ -11,13 +11,18 @@ import type { RegolaApp } from '@prisma/client'
 
 const ANAGRAFICHE_URL = (process.env.ANAGRAFICHE_URL || 'https://deluxy-anagrafiche.vercel.app').replace(/\/$/, '')
 const FINANCE_URL = (process.env.FINANCE_URL || 'https://deluxy-partner.vercel.app').replace(/\/$/, '')
+const FORNITORI_URL = (process.env.FORNITORI_URL || 'https://search-deluxy.vercel.app').replace(/\/$/, '')
 
 const chiaveAnagrafiche = () => (process.env.ANAGRAFICHE_API_KEY || '').trim()
 const chiaveFinance = () => (process.env.FINANCE_API_KEY || '').trim()
+const chiaveFornitori = () => (process.env.FORNITORI_PASSWORD || '').trim()
 
 // ---------- Tipi ----------
 
 export type EsitoAzione = { ok: boolean; messaggio: string; link?: string }
+
+/** Contesto passato a un'azione: chi la sta eseguendo (per gli header/log). */
+export type ContestoAzione = { utenteEmail?: string }
 
 export type AzioneApp = {
   id: string
@@ -30,7 +35,7 @@ export type AzioneApp = {
   /** Guida per l'AI su come compilare i dati. */
   guida: string
   configurata: boolean
-  esegui: (dati: Record<string, unknown>) => Promise<EsitoAzione>
+  esegui: (dati: Record<string, unknown>, ctx: ContestoAzione) => Promise<EsitoAzione>
 }
 
 // ---------- Helpers HTTP ----------
@@ -246,6 +251,72 @@ const AZIONI: AzioneApp[] = [
       )
     },
   },
+  {
+    id: 'fornitori.trova',
+    app: 'Fornitori',
+    nome: 'Trova fornitore',
+    descrizione: 'Trova i fioristi/pasticcerie più vicini alla consegna di un ordine.',
+    colore: 'purple',
+    guida:
+      'La mail è una notifica d’ordine di un negozio Shopify. brand = il dominio del negozio (es. "deluxyflowers.com", "cakedesign.me"): prendilo dal mittente o dal testo. number = il numero d’ordine (solo le cifre, senza "#" o "Ordine"). Se uno dei due manca, lascialo vuoto: senza non si può cercare.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['brand', 'number'],
+      properties: {
+        brand: { type: 'string', description: 'Dominio del negozio, es. deluxyflowers.com.' },
+        number: { type: 'string', description: 'Numero dell’ordine, solo cifre.' },
+      },
+    },
+    get configurata() {
+      return chiaveFornitori().length > 0
+    },
+    async esegui(dati, ctx) {
+      const brand = String(dati.brand ?? '').trim()
+      const number = String(dati.number ?? '').replace(/[^\d]/g, '')
+      if (!brand || !number) return { ok: false, messaggio: 'Servono il negozio e il numero d’ordine.' }
+
+      return chiama(
+        `${FORNITORI_URL}/api/fornitori?brand=${encodeURIComponent(brand)}&number=${encodeURIComponent(number)}`,
+        {
+          headers: {
+            'x-app-password': chiaveFornitori(),
+            'x-app-user': ctx.utenteEmail || 'ai-mail',
+          },
+        },
+        (status, risposta) => {
+          if (status >= 200 && status < 300 && risposta && typeof risposta === 'object') {
+            const r = risposta as {
+              fornitori?: {
+                nome?: string
+                telefono?: string
+                distanzaKm?: number
+                distanzaTipo?: string
+                whatsapp?: string | null
+              }[]
+              consegna?: { indirizzo?: string }
+              categoria?: string
+            }
+            const lista = r.fornitori ?? []
+            if (lista.length === 0) {
+              return { ok: true, messaggio: `Nessun ${r.categoria ?? 'fornitore'} trovato vicino alla consegna.`, link: FORNITORI_URL }
+            }
+            const righe = lista.map((f, i) => {
+              const dist = f.distanzaKm != null ? ` — ${f.distanzaKm} km${f.distanzaTipo ? ` (${f.distanzaTipo})` : ''}` : ''
+              const tel = f.telefono ? ` · ${f.telefono}` : ''
+              return `${i + 1}. ${f.nome ?? '—'}${dist}${tel}`
+            })
+            const dove = r.consegna?.indirizzo ? `Consegna a ${r.consegna.indirizzo}. ` : ''
+            return { ok: true, messaggio: `${dove}${righe.join('  ')}`, link: FORNITORI_URL }
+          }
+          if (status === 401 || status === 403) return { ok: false, messaggio: 'Password dell’app Fornitori non valida.' }
+          if (status === 404) return { ok: false, messaggio: 'Ordine non trovato in Fornitori.' }
+          if (status === 422) return { ok: false, messaggio: testoErrore(risposta, 'Ordine senza indirizzo o non geocodificabile.') }
+          return { ok: false, messaggio: testoErrore(risposta, `Fornitori ha risposto ${status}.`) }
+        }
+      )
+    },
+  },
 ]
 
 export function tutteLeAzioni(): AzioneApp[] {
@@ -268,6 +339,54 @@ export type AzioneDescritta = {
 
 export function descriviAzioni(): AzioneDescritta[] {
   return AZIONI.map(({ id, app, nome, descrizione, colore, configurata }) => ({ id, app, nome, descrizione, colore, configurata }))
+}
+
+/** Lo stato di collegamento di ogni app: quale variabile serve e se è a posto.
+ *  Serve alla pagina Impostazioni App per guidare l'inserimento delle chiavi. */
+export type StatoApp = {
+  app: string
+  colore: string
+  configurata: boolean
+  /** Nomi delle variabili d'ambiente da impostare su Vercel per questa app. */
+  variabili: string[]
+  /** Le funzioni che questa app offre. */
+  azioni: { nome: string; descrizione: string }[]
+  /** A cosa serve la chiave, in una frase. */
+  comeSiOttiene: string
+}
+
+export function statoApp(): StatoApp[] {
+  // Raggruppa le azioni per app, mantenendo l'ordine del catalogo.
+  const perApp = new Map<string, AzioneApp[]>()
+  for (const a of AZIONI) {
+    if (!perApp.has(a.app)) perApp.set(a.app, [])
+    perApp.get(a.app)!.push(a)
+  }
+
+  const META: Record<string, { variabili: string[]; comeSiOttiene: string }> = {
+    Anagrafiche: {
+      variabili: ['ANAGRAFICHE_API_KEY'],
+      comeSiOttiene:
+        'Chiave di SCRITTURA generata dall’app Anagrafiche (comando «npm run chiave -- deluxy-mail --scrittura»).',
+    },
+    Finance: {
+      variabili: ['FINANCE_API_KEY'],
+      comeSiOttiene: 'La chiave API di Deluxy Finance (impostazione «api.verificheKey» dell’app).',
+    },
+    Fornitori: {
+      variabili: ['FORNITORI_PASSWORD'],
+      comeSiOttiene: 'La password amministratore dell’app Fornitori (search-deluxy).',
+    },
+  }
+
+  return [...perApp.entries()].map(([app, azioni]) => ({
+    app,
+    colore: azioni[0].colore,
+    configurata: azioni.every((a) => a.configurata),
+    variabili: META[app]?.variabili ?? [],
+    comeSiOttiene: META[app]?.comeSiOttiene ?? '',
+    azioni: azioni.map((a) => ({ nome: a.nome, descrizione: a.descrizione })),
+  }))
 }
 
 // ---------- Le regole APP DELUXY ----------
