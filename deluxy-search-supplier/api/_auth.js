@@ -70,11 +70,15 @@ async function authApiKey(chiave) {
 }
 
 // -> { utente, admin, cfg } oppure { error, status }
+const KEY_RE = /^dlxs_[a-f0-9]{8}_[a-f0-9]{32}$/;
 export async function authUser(req) {
   if (!process.env.APP_PASSWORD) return { error: 'Backend non configurato: manca APP_PASSWORD.', status: 500 };
   const apiKey = String(req.headers['x-api-key'] || '').trim();
-  if (apiKey) return authApiKey(apiKey);
   const pass = String(req.headers['x-app-password'] || '');
+  // una chiave dlxs_ è accettata anche se l'app la manda nel campo "password"
+  // (integrazioni con un solo campo credenziale, es. AI Mail)
+  const chiave = apiKey || (KEY_RE.test(pass) ? pass : '');
+  if (chiave) return authApiKey(chiave);
   const nome = String(req.headers['x-app-user'] || '').trim();
   if (pass && pass === process.env.APP_PASSWORD) {
     return { utente: nome || 'admin', admin: true, cfg: null };
