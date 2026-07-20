@@ -14,7 +14,8 @@
 ```bash
 cd C:\Users\nicol\app\deluxy-platform-next
 npm install
-npm run prisma:migrate   # DB dev SQLite (api/prisma/dev.db)
+docker compose up -d postgres   # ⚠️ dal 20/07 il DB e' PostgreSQL anche in dev (non piu' SQLite)
+npm run prisma:migrate   # applica la baseline Postgres
 npm run seed             # dati demo (idempotente)
 npm run dev:api          # http://localhost:3000/api/v1  — Swagger: /api/docs
 npm run dev:web          # http://localhost:4200
@@ -273,6 +274,11 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
 
 ## MANCA / PROSSIMI PASSI
 
+0. **[IN CORSO — 20/07] Deploy su Vercel** (branch `worktree-vercel-deploy`). **Fatto:** provider Prisma `sqlite` → `postgresql` con `binaryTargets` per il runtime Vercel; le 32 migrazioni SQLite sostituite da **una baseline** `00000000000000_init_postgres` (41 tabelle, 24 indici, 54 FK) generata con `prisma migrate diff`; handler serverless `api/src/vercel.ts` (bootstrap Nest cachato, niente `listen`/CORS/static); `vercel.json` (progetto unico: web su `/`, API su `/api/*` → **niente CORS**); `environment.prod.ts` + `fileReplacements`; `.env.example` e docker-compose allineati. Build API e web verdi, bundle prod senza `localhost`.
+   **[BLOCCATO — palla all'utente]** (a) creare il progetto **Supabase** e passare `DATABASE_URL` (pooler 6543 per il runtime, diretta 5432 per `migrate deploy`); (b) collegare il repo a **Vercel** (Root Directory = `deluxy-platform-next`) e impostare le env. Senza (a) non si puo' ne' migrare ne' seedare il DB remoto.
+   ⚠️ **Non ancora risolto — le ricevute si rompono su serverless**: `api/src/receipts/receipts.module.ts` salva con `diskStorage` in `uploads/receipts/` e `main.ts` le serve da `/uploads`. Su Vercel il filesystem e' **effimero**: i file caricati spariscono al primo redeploy. Vanno spostati su **Supabase Storage** prima di considerare il deploy completo. L'handler `vercel.ts` non monta `useStaticAssets` proprio per non dare l'illusione che funzioni.
+   ⚠️ **Cold start**: NestJS + Prisma su serverless paga ~1-3s a funzione fredda. Accettabile per staging; se questa diventa produzione, valutare un host container (Railway/Render) per l'API tenendo il web su Vercel.
+
 1. **[BLOCCATO — palla all'utente] Connessione al DB di produzione (MySQL, sola lettura)**: servono i 5 valori `MYSQL_*` (o replica) + raggiungibilità/tunnel. Vedi ANALISI-BACKEND-LEGACY. Poi `prisma db pull` per lo schema reale.
 2. **Allineare l'endpoint WooCommerce** al contratto reale: `POST /api/deliveries/sync/woo-order`, header `x-deluxy-partner-key`, payload+risposta identici (oggi usa `x-api-key` e `/woocommerce/orders`).
 3. ~~**Form di MODIFICA**~~ → **FATTO il 17/07** per tutte le sezioni (vedi FATTO).
@@ -287,9 +293,9 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
    - **Client-side** (`web/src/app/core/client-table.ts`): **Partner, Valet, Categorie, Servizi, Operatori** — liste piccole (≤243) usate soprattutto come tendine nei form: la conversione server-side avrebbe rotto ~14 punti di chiamata senza dare valore. Queste API restano array.
    - ⚠️ **Regola per il futuro**: se una lista cresce, spostarla su server-side e aggiornare **tutti** i consumatori (leggere `.items`, passare `pageSize=500` per le tendine).
 9-bis. **Tendina "Cliente esistente" nel form consegna**: carica `pageSize=500`, ma in produzione i clienti sono **4.092** → la tendina è **parziale**. Va sostituita con una **ricerca mentre si scrive** (usa `GET /customers?q=`). Stesso discorso, meno urgente, per i prodotti nel form consegna (8.503, `pageSize=500`).
-10. **⚠️ Ricerca case-insensitive su PostgreSQL**: in SQLite (dev) `contains` → `LIKE`, già case-insensitive; su **Postgres (produzione) `LIKE` è case-sensitive** → servirà `mode: 'insensitive'` in `textSearch()`, altrimenti la ricerca globale si comporterà diversamente in produzione.
+10. **🔴 ATTIVO dal 20/07 — Ricerca case-insensitive su PostgreSQL**: non è più un rischio futuro, il DB **è** Postgres anche in dev. `LIKE` su Postgres è case-sensitive → aggiungere `mode: 'insensitive'` in `textSearch()` (`api/src/common/list-query.ts`), altrimenti **la ricerca globale è già oggi rotta** rispetto a com'era su SQLite.
 11. **Image manager Shopify e descrizione per piattaforma**: la parte dati/form c'è (URL multipli + descrizione per piattaforma); manca l'**upload/sincronizzazione reale su Shopify** (stub).
-12. **`trackingToken` senza vincolo unique**: in SQLite avrebbe richiesto una migrazione interattiva con rebuild tabella; il token è casuale a 24 byte e la ricerca usa `findFirst`. **In PostgreSQL aggiungere l'indice unique.**
+12. **`trackingToken` senza vincolo unique** — **ora è banale da fare** (20/07): l'ostacolo era il rebuild tabella di SQLite, che non esiste più. Basta `@unique` nello schema + una migrazione. Non l'ho fatto nel lavoro Vercel per non allargarne il perimetro: è un cambio di schema a sé.
 7. **Rifiniture**: nel form valet rendere Telefono/Indirizzo obbligatori e CF sempre richiesto (come app reale).
 7-bis. **Da confermare con l'utente/app reale**: la semantica di `minOrderTime`/`maxOrderTime` — oggi usati sia come limite di inserimento (testo nel form Servizi) sia come intervallo di **generazione fasce di consegna** (elenco 08–10… nel form Consegna). Verificare su app.deluxy.it quale delle due (o entrambe) è quella vera.
 8. **In pausa**: analisi multi-agente del vecchio codice (cosa fa ogni funzione + come aggiornarla).

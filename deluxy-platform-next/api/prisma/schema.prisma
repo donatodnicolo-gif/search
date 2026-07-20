@@ -1,21 +1,22 @@
 // ============================================================
 // Deluxy Platform - Schema dati completo
 // ------------------------------------------------------------
-// Dev:  provider "sqlite"  + DATABASE_URL="file:./dev.db"
-// Prod: provider "postgresql" + DATABASE_URL="postgresql://..."
-//   (Prisma non permette di cambiare provider via env: per il
-//    passaggio a PostgreSQL modificare la riga `provider` qui
-//    sotto e rigenerare le migrazioni. Gli "enum" sono modellati
-//    come String per compatibilita' SQLite; i valori ammessi sono
-//    definiti in api/src/common/enums.ts e validati nei DTO.)
+// PostgreSQL ovunque (dev e prod): DATABASE_URL="postgresql://..."
+//   In locale si usa il Postgres di docker-compose; in cloud Supabase.
+//   Gli "enum" restano modellati come String (eredita' della fase
+//   SQLite, non ancora convertiti a enum nativi Postgres); i valori
+//   ammessi sono definiti in api/src/common/enums.ts e validati nei DTO.
 // ============================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // rhel-openssl-3.0.x serve al runtime serverless di Vercel: senza questo
+  // target il query engine non viene incluso nel bundle della funzione.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
