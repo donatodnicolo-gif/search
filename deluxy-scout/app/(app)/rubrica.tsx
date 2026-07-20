@@ -41,7 +41,7 @@ export default function Rubrica() {
   return (
     <View style={styles.container}>
       <View style={styles.head}>
-        <PageIntro testo="Tutti i contatti raccolti sul campo. Ogni scheda indica dov'è sincronizzato: su HubSpot (il CRM) e nel registro Anagrafiche. Cerca per nome, ruolo, negozio o telefono." />
+        <PageIntro testo="Tutti i contatti raccolti sul campo. Il badge conferma se il contatto è sincronizzato col registro Anagrafiche. Cerca per nome, ruolo, negozio o telefono." />
         <TextInput
           style={styles.search}
           value={query}
@@ -80,18 +80,11 @@ function Contatto({ contatto: c, onOpenPlace }: { contatto: ContattoConLuogo; on
         <Text style={styles.nome} numberOfLines={1}>
           {c.nome} {c.is_decisore ? <Ionicons name="star" size={13} color={colors.oro} /> : null}
         </Text>
-      </View>
-      {/* Dove è sincronizzato questo contatto: HubSpot (CRM) e registro Anagrafiche. */}
-      <View style={styles.sync}>
+        {/* Conferma che il contatto è sincronizzato col registro Anagrafiche. */}
         <StatusBadge
           small
-          label={c.hubspot_contact_id ? 'Su HubSpot' : 'Non ancora su HubSpot'}
-          colore={c.hubspot_contact_id ? colors.successo : colors.grigio}
-        />
-        <StatusBadge
-          small
-          label={c.place_nel_registro ? 'Nel registro Anagrafiche' : 'Fuori dal registro'}
-          colore={c.place_nel_registro ? colors.blue : colors.grigio}
+          label={c.place_nel_registro ? 'Sincronizzato con Anagrafiche' : 'Non nel registro'}
+          colore={c.place_nel_registro ? colors.successo : colors.grigio}
         />
       </View>
       {c.ruolo ? <Text style={styles.meta}>{c.ruolo}</Text> : null}
@@ -158,7 +151,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  sync: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
   nome: { flex: 1, fontSize: 16, fontWeight: '800', color: colors.navy },
   meta: { color: colors.testoSoft, fontSize: 13 },
   negozio: { color: colors.navy, fontSize: 14, fontWeight: '600', marginTop: 2 },
