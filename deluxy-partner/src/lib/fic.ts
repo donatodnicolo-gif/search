@@ -211,6 +211,81 @@ export async function ficFatture(opts?: {
   return out;
 }
 
+// Un intestatario selezionabile per una nuova fattura. `valore` distingue la
+// fonte: "id:<n>" = cliente in rubrica; "nome:<nome>" = intestatario già usato
+// in una fattura passata ma non salvato in rubrica (i dati fiscali si
+// recuperano da quella fattura al momento dell'emissione).
+export type FicClienteFatturabile = { valore: string; nome: string; piva: string | null; inRubrica: boolean };
+
+// Elenco degli intestatari fatturabili: unione della rubrica clienti e dei
+// clienti già comparsi nelle fatture emesse (così si può rifatturare anche chi,
+// come alcune insegne, non è mai stato salvato in rubrica). Dedup per nome.
+export async function ficClientiFatturabili(): Promise<FicClienteFatturabile[]> {
+  const { companyId } = await ficStato();
+  if (!companyId) throw new Error("Fatture in Cloud non collegato.");
+
+  const perNome = new Map<string, FicClienteFatturabile>();
+  const chiave = (n: string) => n.trim().toLowerCase().replace(/\s+/g, " ");
+
+  // 1) rubrica clienti (hanno un id stabile)
+  const rubrica = await ficClienti();
+  for (const c of rubrica) {
+    perNome.set(chiave(c.name), { valore: `id:${c.id}`, nome: c.name, piva: c.vat_number ?? null, inRubrica: true });
+  }
+
+  // 2) intestatari dalle fatture emesse (anche non in rubrica)
+  for (let page = 1; page <= 20; page++) {
+    const r = await ficFetch<{
+      data: { entity?: { name?: string | null; vat_number?: string | null } }[];
+      last_page?: number;
+    }>(
+      `/c/${companyId}/issued_documents?type=invoice&fields=entity&per_page=100&sort=-date&page=${page}`
+    );
+    for (const d of r.data) {
+      const nome = d.entity?.name?.trim();
+      if (!nome) continue;
+      const k = chiave(nome);
+      if (perNome.has(k)) continue; // già in rubrica: si preferisce l'id
+      perNome.set(k, { valore: `nome:${nome}`, nome, piva: d.entity?.vat_number ?? null, inRubrica: false });
+    }
+    if (!r.last_page || page >= r.last_page) break;
+  }
+
+  return [...perNome.values()].sort((a, b) => a.nome.localeCompare(b.nome, "it"));
+}
+
+// Recupera i dati fiscali completi di un intestatario dall'ultima fattura in cui
+// compare (per rifatturarlo senza salvarlo in rubrica). Il filtro `q` su
+// entity.name è inaffidabile via API, quindi si scorrono le fatture recenti
+// (dalla più recente) e si cerca il nome in memoria.
+export async function ficEntityUltimaFattura(nome: string): Promise<FicEntity | null> {
+  const { companyId } = await ficStato();
+  if (!companyId) throw new Error("Fatture in Cloud non collegato.");
+  const cerca = nome.trim().toLowerCase().replace(/\s+/g, " ");
+  for (let page = 1; page <= 20; page++) {
+    const r = await ficFetch<{ data: { entity?: FicEntity }[]; last_page?: number }>(
+      `/c/${companyId}/issued_documents?type=invoice&fields=entity&per_page=100&sort=-date&page=${page}`
+    );
+    for (const d of r.data) {
+      const e = d.entity;
+      if (e?.name && e.name.trim().toLowerCase().replace(/\s+/g, " ") === cerca) {
+        return {
+          name: e.name,
+          vat_number: e.vat_number ?? null,
+          tax_code: e.tax_code ?? null,
+          address_street: e.address_street ?? null,
+          address_postal_code: e.address_postal_code ?? null,
+          address_city: e.address_city ?? null,
+          address_province: e.address_province ?? null,
+          country: e.country ?? null,
+        };
+      }
+    }
+    if (!r.last_page || page >= r.last_page) break;
+  }
+  return null;
+}
+
 // Crea una fattura (NON inviata allo SDI: l'invio si fa da Fatture in Cloud
 // dopo il controllo). Il numero viene assegnato da Fatture in Cloud e
 // restituito qui.
@@ -247,11 +322,26 @@ export async function ficAliquote(): Promise<Map<number, number>> {
   return m;
 }
 
+// Dati fiscali di un intestatario "al volo" (non in rubrica): riusiamo quelli
+// di una fattura passata per rifatturare lo stesso cliente senza salvarlo.
+export type FicEntity = {
+  name?: string | null;
+  vat_number?: string | null;
+  tax_code?: string | null;
+  address_street?: string | null;
+  address_postal_code?: string | null;
+  address_city?: string | null;
+  address_province?: string | null;
+  country?: string | null;
+};
+
 // Crea una fattura su Fatture in Cloud. La fattura NON viene inviata allo SDI:
 // il controllo e l'invio restano su FIC; qui torna solo il numero assegnato.
+// Il cliente si indica con `clienteId` (rubrica) OPPURE `entity` (dati al volo).
 // Accetta una riga singola (descrizione + imponibile) o più righe.
 export async function ficCreaFattura(opts: {
-  clienteId: number;
+  clienteId?: number;
+  entity?: FicEntity;
   descrizione?: string;
   imponibile?: number;
   righe?: RigaFattura[];
@@ -259,6 +349,9 @@ export async function ficCreaFattura(opts: {
   data?: Date;
   scadenza?: Date | null;
 }): Promise<{ id: number; numero: string }> {
+  if (!opts.clienteId && !opts.entity) {
+    throw new Error("Indicare il cliente della fattura (id rubrica o dati entità).");
+  }
   const { companyId } = await ficStato();
   if (!companyId) throw new Error("Fatture in Cloud non collegato.");
   const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -286,7 +379,7 @@ export async function ficCreaFattura(opts: {
       body: JSON.stringify({
         data: {
           type: "invoice",
-          entity: { id: opts.clienteId },
+          entity: opts.entity ?? { id: opts.clienteId },
           date: dataDoc,
           visible_subject: opts.visibleSubject ?? "",
           items_list: righe.map((x) => ({

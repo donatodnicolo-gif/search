@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { ficStato, ficClienti, ficCreaFattura, type RigaFattura } from "@/lib/fic";
+import { ficStato, ficClientiFatturabili, ficEntityUltimaFattura, ficCreaFattura, type RigaFattura } from "@/lib/fic";
 import { RigheProForma } from "@/components/RigheProForma";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +11,9 @@ export const dynamic = "force-dynamic";
 // Il numero assegnato torna nell'elenco automaticamente.
 async function emettiFattura(fd: FormData) {
   "use server";
-  const clienteId = parseInt(String(fd.get("clienteId") ?? ""));
-  if (!clienteId) redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent("Scegli il cliente."));
+  // il cliente è "id:<n>" (rubrica) oppure "nome:<nome>" (visto in fatture passate)
+  const clienteVal = String(fd.get("clienteId") ?? "").trim();
+  if (!clienteVal) redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent("Scegli il cliente."));
 
   const oggetto = String(fd.get("oggetto") ?? "").trim();
   const scadenzaTxt = String(fd.get("scadenza") ?? "").trim();
@@ -43,9 +44,22 @@ async function emettiFattura(fd: FormData) {
     redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent("Inserisci almeno una riga con descrizione e prezzo."));
   }
 
+  // risolve il cliente: id rubrica oppure dati fiscali da una fattura passata
+  let clienteId: number | undefined;
+  let entity: Awaited<ReturnType<typeof ficEntityUltimaFattura>> | undefined;
+  if (clienteVal.startsWith("id:")) {
+    clienteId = parseInt(clienteVal.slice(3)) || undefined;
+  } else if (clienteVal.startsWith("nome:")) {
+    const nome = clienteVal.slice(5);
+    entity = (await ficEntityUltimaFattura(nome)) ?? { name: nome };
+  }
+  if (!clienteId && !entity) {
+    redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent("Cliente non valido."));
+  }
+
   let numero: string;
   try {
-    const res = await ficCreaFattura({ clienteId, righe, visibleSubject: oggetto, data, scadenza });
+    const res = await ficCreaFattura({ clienteId, entity: entity ?? undefined, righe, visibleSubject: oggetto, data, scadenza });
     numero = res.numero;
   } catch (e) {
     redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent((e as Error).message));
@@ -61,7 +75,7 @@ export default async function NuovaFatturaCloud({
 }) {
   const sp = await searchParams;
   const stato = await ficStato();
-  const clienti = stato.collegato ? await ficClienti().catch(() => []) : [];
+  const clienti = stato.collegato ? await ficClientiFatturabili().catch(() => []) : [];
   const oggi = new Date().toISOString().slice(0, 10);
 
   return (
@@ -101,10 +115,15 @@ export default async function NuovaFatturaCloud({
               <label className="field-label">Cliente su Fatture in Cloud <span className="req">*</span></label>
               <select name="clienteId" required defaultValue="">
                 <option value="" disabled>Seleziona cliente…</option>
-                {clienti.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {clienti.map((c) => (
+                  <option key={c.valore} value={c.valore}>
+                    {c.nome}{c.piva ? ` — ${c.piva}` : ""}{c.inRubrica ? "" : " (da fatture passate)"}
+                  </option>
+                ))}
               </select>
               <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
-                Il cliente dev&apos;essere già presente su Fatture in Cloud. Nuovo cliente? Crealo prima su FIC.
+                Include la rubrica e i clienti già fatturati (anche non salvati in rubrica): per questi si
+                riusano i dati fiscali dell&apos;ultima fattura. Cliente del tutto nuovo? Crealo prima su FIC.
               </p>
             </div>
             <div>
