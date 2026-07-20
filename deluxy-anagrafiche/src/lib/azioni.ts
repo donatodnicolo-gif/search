@@ -224,6 +224,17 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
       account: maiuscolo("account"),
       note: testo("note"),
       ultimaVisita: ultimaVisita ? new Date(ultimaVisita) : null,
+      // dati finanziari / fatturazione
+      pec: testo("pec"),
+      codiceSdi: maiuscolo("codiceSdi"),
+      iban: testo("iban")?.replace(/\s+/g, "").toUpperCase() ?? null,
+      banca: testo("banca"),
+      metodoPagamento: testo("metodoPagamento"),
+      condizioniPagamento: testo("condizioniPagamento"),
+      noteAmministrative: testo("noteAmministrative"),
+      amministrazioneNome: testo("amministrazioneNome"),
+      amministrazioneTelefono: testo("amministrazioneTelefono"),
+      amministrazioneEmail: testo("amministrazioneEmail"),
       contatti: { deleteMany: {}, create: contatti },
     },
   });

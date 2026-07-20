@@ -108,7 +108,12 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   riesce se il consenso è già stato dato); se non basta compare il bottone «Autorizza e salva
   in rubrica» (il popup Google richiede un gesto utente). Logica condivisa in
   `src/components/google-rubrica.ts` (usata anche dalla tabella di /contatti).
-- **`/partner/nuovo`** e **`/partner/:id/modifica`** — form creazione/modifica.
+- **`/partner/nuovo`** e **`/partner/:id/modifica`** — form creazione/modifica. La modifica
+  include la sezione **Dati finanziari**: PEC, codice SDI, IBAN (normalizzato senza spazi,
+  maiuscolo), banca, metodo/condizioni di pagamento, note amministrative e **contatto
+  amministrativo** (nome/telefono/email) — campi omonimi su `Partner`, mostrati nella scheda
+  nella sezione «Dati finanziari» (con P.IVA/CF/ragione sociale ripetuti lì per completezza).
+  Curati solo dalla UI: le API esterne non li scrivono.
 - **Sidebar** a sezioni espandibili (Registro·Tipologie·Stati·Interessi·Archivio·Sync), toggle a
   scomparsa (☰), preferenze in localStorage.
 

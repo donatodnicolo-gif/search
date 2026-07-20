@@ -36,6 +36,18 @@ model Partner {
   codiceFiscale  String?
   account        String? // commerciale che segue l'anagrafica (ELEONORA, GAIA, ...)
   ultimaVisita   DateTime?
+  // — Dati finanziari / fatturazione (curati dal team dalla UI) —
+  pec                 String?
+  codiceSdi           String? // codice destinatario per la fatturazione elettronica
+  iban                String?
+  banca               String?
+  metodoPagamento     String? // bonifico, RID/SEPA, carta, ...
+  condizioniPagamento String? // es. "30 gg d.f.", "pagamento anticipato"
+  noteAmministrative  String?
+  // Contatto amministrativo (fatturazione/pagamenti)
+  amministrazioneNome     String?
+  amministrazioneTelefono String?
+  amministrazioneEmail    String?
   // Tipologie di interesse commerciale (multi-scelta, catalogo in src/lib/interessi.ts)
   interessi      String[]   @default([])
   note           String?

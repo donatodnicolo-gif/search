@@ -118,6 +118,40 @@ export default async function Modifica({
           </section>
 
           <section className="scheda">
+            <h2 className="scheda-titolo">
+              Dati finanziari <span className="scheda-sub">fatturazione e pagamenti</span>
+            </h2>
+            <div className="modulo">
+              <Campo etichetta="PEC" nome="pec">
+                <input id="pec" name="pec" type="email" defaultValue={p.pec ?? ""} />
+              </Campo>
+              <Campo etichetta="Codice SDI" nome="codiceSdi" valore={p.codiceSdi} />
+              <Campo etichetta="IBAN" nome="iban" valore={p.iban} largo />
+              <Campo etichetta="Banca" nome="banca" valore={p.banca} />
+              <Campo etichetta="Metodo di pagamento" nome="metodoPagamento" valore={p.metodoPagamento} />
+              <Campo etichetta="Condizioni di pagamento" nome="condizioniPagamento" valore={p.condizioniPagamento} />
+              <Campo etichetta="Contatto amministrativo" nome="amministrazioneNome" valore={p.amministrazioneNome} />
+              <Campo etichetta="Telefono amministrazione" nome="amministrazioneTelefono" valore={p.amministrazioneTelefono} />
+              <Campo etichetta="Email amministrazione" nome="amministrazioneEmail">
+                <input
+                  id="amministrazioneEmail"
+                  name="amministrazioneEmail"
+                  type="email"
+                  defaultValue={p.amministrazioneEmail ?? ""}
+                />
+              </Campo>
+              <Campo etichetta="Note amministrative" nome="noteAmministrative" largo>
+                <textarea
+                  id="noteAmministrative"
+                  name="noteAmministrative"
+                  rows={3}
+                  defaultValue={p.noteAmministrative ?? ""}
+                />
+              </Campo>
+            </div>
+          </section>
+
+          <section className="scheda">
             <h2 className="scheda-titolo">Persone di riferimento</h2>
             <input type="hidden" name="righeContatti" value={righe.length} />
             {righe.map((c, i) => (

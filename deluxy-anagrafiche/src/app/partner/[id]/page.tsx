@@ -178,6 +178,36 @@ export default async function Dettaglio({
         </dl>
       </section>
 
+      <section className="scheda">
+        <h2 className="scheda-titolo">
+          Dati finanziari <span className="scheda-sub">fatturazione e pagamenti</span>
+        </h2>
+        {[p.ragioneSociale, p.pIva, p.codiceFiscale, p.pec, p.codiceSdi, p.iban, p.banca,
+          p.metodoPagamento, p.condizioniPagamento, p.noteAmministrative,
+          p.amministrazioneNome, p.amministrazioneTelefono, p.amministrazioneEmail,
+        ].every((v) => !v) ? (
+          <p className="testo-guida" style={{ margin: 0 }}>
+            Nessun dato finanziario ancora inserito — compila con ✎ Modifica.
+          </p>
+        ) : (
+          <dl className="griglia-campi">
+            <Campo etichetta="Ragione sociale" valore={p.ragioneSociale} />
+            <Campo etichetta="P. IVA" valore={p.pIva} />
+            <Campo etichetta="Codice fiscale" valore={p.codiceFiscale} />
+            <Campo etichetta="PEC" valore={p.pec} />
+            <Campo etichetta="Codice SDI" valore={p.codiceSdi} />
+            <Campo etichetta="IBAN" valore={p.iban} largo />
+            <Campo etichetta="Banca" valore={p.banca} />
+            <Campo etichetta="Metodo di pagamento" valore={p.metodoPagamento} />
+            <Campo etichetta="Condizioni di pagamento" valore={p.condizioniPagamento} />
+            <Campo etichetta="Contatto amministrativo" valore={p.amministrazioneNome} />
+            <Campo etichetta="Telefono amministrazione" valore={p.amministrazioneTelefono} />
+            <Campo etichetta="Email amministrazione" valore={p.amministrazioneEmail} />
+            <Campo etichetta="Note amministrative" valore={p.noteAmministrative} largo />
+          </dl>
+        )}
+      </section>
+
       {p.sedi.length > 0 && (
         <section className="scheda">
           <h2 className="scheda-titolo">
