@@ -71,11 +71,16 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   (categoria/città/stato/interesse), ordinamenti cliccabili, **sezione Novità** (top 10 tra
   data creazione e ultimo contatto), colonne Interessi/Ultimo contatto/Note, cambio
   stato/interessi in riga, archivia/ripristina, riconciliazione HubSpot (⇄), bottone **＋ Nuovo**.
-  **Gruppi aziendali** (`Partner.capogruppoId`, self-relation `capogruppo`/`sedi`, un solo
-  livello): un'insegna madre raccoglie le sue sedi (es. BOTTEGA VENETA → Milano, Roma); ogni
-  sede resta autonoma con referenti, stato, interessi e azioni propri. Le sedi non sono righe
-  a sé: stanno sotto la madre, apribili col ▸ (`GruppoEspandibile`). **Durante una ricerca
-  (`?q=`) l'elenco torna piatto**, così una sede resta trovabile per nome.
+  **Gruppi aziendali** — due meccanismi che si sommano:
+  1. **Automatico per insegna** (nessun dato da preparare): le anagrafiche con lo stesso `nome`
+     collassano in un'unica riga espandibile «NOME · N sedi · città…»; il ▸ mostra le sedi, ognuna
+     riga completa con stato/interessi/azioni proprie. La testata del gruppo è solo presentazione,
+     non è un'anagrafica. Raggruppamento fatto a render time in `src/app/page.tsx` (mappa per nome).
+  2. **Manuale** (`Partner.capogruppoId`, self-relation `capogruppo`/`sedi`, un livello) per le
+     insegne scritte diversamente (es. «BOTTEGA VENETA FLAGSHIP»): `⧉ Raggruppa` nella scheda.
+  Le sedi collegate a mano non compaiono come righe a sé (`where.capogruppoId = null`).
+  **Durante una ricerca (`?q=`) l'elenco torna piatto**, così una sede resta trovabile per nome.
+  Nota: la paginazione conta i record, non i gruppi — una pagina da 50 record mostra meno righe.
 - **`/dashboard`** — analisi con **macro-filtri** (tipologia/regione/stato/interesse in AND):
   KPI, funnel per stato, interessi, tipologie/regioni/città, contatti per mese, qualità dati.
 - **`/contatti`** — rubrica di tutti i referenti (Excel + HubSpot), ricerca, filtro fonte,

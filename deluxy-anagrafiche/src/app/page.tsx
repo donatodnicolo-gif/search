@@ -208,6 +208,53 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     </>
   );
 
+  // Riga di testata di un gruppo per insegna: riassume le sedi senza essere
+  // un'anagrafica (stato, interessi e azioni stanno sulle sedi, che restano
+  // record autonomi). Le città sono l'informazione utile a colpo d'occhio.
+  const CelleGruppo = ({ nome, membri }: { nome: string; membri: RigaPartner[] }) => {
+    const citta = [...new Set(membri.map((m) => m.citta).filter(Boolean))] as string[];
+    const categorie = [...new Set(membri.map((m) => m.categoria))];
+    return (
+      <>
+        <td>
+          <div className="cella-nome">{nome}</div>
+          <div className="cella-sub">
+            {membri.length} sedi{citta.length > 0 ? ` · ${citta.join(", ")}` : ""}
+          </div>
+        </td>
+        <td className="cella-muta">{categorie.length === 1 ? categorie[0] : `${categorie.length} tipologie`}</td>
+        <td className="cella-muta">{citta.length === 1 ? citta[0] : `${citta.length} città`}</td>
+        <td className="cella-muta">—</td>
+        <td className="cella-muta">—</td>
+        <td className="cella-muta">—</td>
+        <td className="cella-muta col-secondaria">—</td>
+        <td className="cella-muta">—</td>
+        <td className="cella-muta">—</td>
+        <td className="cella-muta col-secondaria">—</td>
+        <td></td>
+      </>
+    );
+  };
+
+  // Le anagrafiche con la stessa insegna si raggruppano da sole in una riga
+  // espandibile (BOTTEGA VENETA → Milano, Roma, Firenze, Capri). A questo si
+  // sommano le sedi collegate a mano con "⧉ Raggruppa" (nomi diversi, es. una
+  // flagship). Un solo record per insegna resta una riga normale.
+  type Gruppo = { chiave: string; nome: string; membri: RigaPartner[] };
+  const gruppi: Gruppo[] = [];
+  const indiceGruppo = new Map<string, number>();
+  for (const p of partner) {
+    const chiave = p.nome.trim().toUpperCase();
+    const i = indiceGruppo.get(chiave);
+    const conSedi = [p, ...p.sedi];
+    if (i === undefined) {
+      indiceGruppo.set(chiave, gruppi.length);
+      gruppi.push({ chiave, nome: p.nome, membri: conSedi });
+    } else {
+      gruppi[i].membri.push(...conSedi);
+    }
+  }
+
   const Intestazione = ({ campo, classe }: { campo: CampoOrdinamento; classe?: string }) => (
     <th className={classe}>
       <a className="th-ordina" href={linkOrdina(campo)}>
@@ -357,17 +404,17 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
               </tr>
             </thead>
             <tbody>
-              {partner.map((p) =>
-                p.sedi.length > 0 ? (
+              {gruppi.map((g) =>
+                g.membri.length > 1 ? (
                   <GruppoEspandibile
-                    key={p.id}
-                    celle={<Celle p={p} />}
-                    sedi={p.sedi.map((s) => ({ id: s.id, celle: <Celle p={s} sede /> }))}
+                    key={g.chiave}
+                    celle={<CelleGruppo nome={g.nome} membri={g.membri} />}
+                    sedi={g.membri.map((m) => ({ id: m.id, celle: <Celle p={m} sede /> }))}
                   />
                 ) : (
-                  <tr key={p.id}>
+                  <tr key={g.membri[0].id}>
                     <td className="cella-espandi" />
-                    <Celle p={p} />
+                    <Celle p={g.membri[0]} />
                   </tr>
                 ),
               )}
