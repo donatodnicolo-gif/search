@@ -88,6 +88,8 @@ solo dove siamo e come si lavora.
    **Salva in rubrica** (saveContact: dedupe People API / OAuth / ripiego .vcf).
    NB: l'auto-rubrica usa la stessa saveContact del pulsante manuale ma il percorso automatico
    non è ancora stato esercitato su una riconciliazione vera (l'unica in zona era già fatta).
+   In rubrica vanno anche i **referenti** del registro (`salvaReferentiInRubrica`, nome
+   `FORNITORE <NEGOZIO> — <NOME> (<RUOLO>)`, dedupe per numero, solo con OAuth).
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col

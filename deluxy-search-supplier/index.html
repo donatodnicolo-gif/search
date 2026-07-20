@@ -1860,7 +1860,7 @@ async function findContactByPhone(token, phone){
 }
 async function createGoogleContact(token, data){
   const body = {
-    names: [{ givenName: contactName(data) }],
+    names: [{ givenName: data.nomeContatto || contactName(data) }],
     organizations: [{ name: data.nome }],
     phoneNumbers: data.telefono ? [{ value: data.telefono, type: 'work' }] : [],
     emailAddresses: data.email ? [{ value: data.email, type: 'work' }] : [],
@@ -2028,6 +2028,36 @@ function apriRiconcilia(btn){
     </div>
     <div class="hint recon-msg" style="margin-top:6px"></div>`;
 }
+// Dopo la riconciliazione, in rubrica Google vanno anche i REFERENTI del registro,
+// come «FORNITORE <NEGOZIO> — <NOME> (<RUOLO>)», con dedupe per numero. Solo con
+// OAuth attivo (il token è già in cache: chiesto nel gesto del click di conferma).
+async function salvaReferentiInRubrica(reg, base){
+  try{
+    if(!(CONFIG.googleOauthClientId||'').trim()) return 0;
+    const refs = (reg.contatti||[]).filter(ct=>ct && ct.telefono);
+    if(!refs.length) return 0;
+    const token = await getContactsToken();
+    let salvati = 0;
+    for(const ct of refs){
+      try{
+        if(await findContactByPhone(token, ct.telefono)) continue;   // già in rubrica
+        const chi = [ct.nome, ct.ruolo ? '('+ct.ruolo+')' : ''].filter(Boolean).join(' ');
+        await createGoogleContact(token, {
+          nomeContatto: ('FORNITORE ' + String(base.nome || reg.nome || '').toUpperCase()
+                        + ' — ' + (chi || 'REFERENTE').toUpperCase()).trim(),
+          nome: base.nome || reg.nome,
+          categoria: base.categoria || reg.categoria || '',
+          telefono: ct.telefono, email: ct.email || '',
+          indirizzo: base.indirizzo || reg.indirizzo || '', sito: base.sito || ''
+        });
+        salvati++;
+        logEvento({ tipo:'rubrica', esito:'referente in rubrica: ' + (chi || ct.telefono),
+          negozio:{ nome: base.nome || reg.nome, telefono: ct.telefono, email: ct.email || '' } });
+      }catch(e){ console.warn('referente non salvato:', ct && ct.nome, e); }
+    }
+    return salvati;
+  }catch(e){ console.warn('salvataggio referenti saltato:', e); return 0; }
+}
 async function eseguiRiconcilia(btn){
   const card = btn.closest('.shop');
   const panel = card.querySelector('.recon-panel');
@@ -2074,6 +2104,11 @@ async function eseguiRiconcilia(btn){
       if(tokenRubricaP) await tokenRubricaP;   // token chiesto in-gesto: ora è in cache
       saveContact(sc);
     }
+    // e in rubrica vanno anche i REFERENTI del registro (persone di contatto)
+    salvaReferentiInRubrica(j.partner || scelto, CARD_DATA[pid] || {}).then(n=>{
+      if(n) panel.insertAdjacentHTML('beforeend',
+        `<div class="hint" style="color:var(--green)">💾 ${n} referente${n>1?'i':''} del registro salvat${n>1?'i':'o'} in rubrica Google.</div>`);
+    });
   }catch(err){
     btn.disabled = false;
     msg.innerHTML = '<span style="color:var(--red)">❌ '+esc(err.message)+'</span>';
