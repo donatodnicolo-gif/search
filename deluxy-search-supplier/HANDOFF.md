@@ -82,6 +82,12 @@ solo dove siamo e come si lavora.
    e accoda la nota. Reti di sicurezza per doppioni/omonimie (409 + rollback soft del creato).
    Collaudata in produzione: «Les fleurs de May» (Sainte-Maxime) riconciliata, riferimento e nota
    verificati nel registro.
+   In più (20/07 sera): le schede matchate/riconciliate mostrano i **contatti del registro**
+   (`enrichCardWithRegistry`: telefono → pulsante «Invia su WhatsApp — numero del registro»,
+   email, referenti; dedupe su ultime 9 cifre) e dopo la conferma parte da solo
+   **Salva in rubrica** (saveContact: dedupe People API / OAuth / ripiego .vcf).
+   NB: l'auto-rubrica usa la stessa saveContact del pulsante manuale ma il percorso automatico
+   non è ancora stato esercitato su una riconciliazione vera (l'unica in zona era già fatta).
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
