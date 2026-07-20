@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function FattureCloudPage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; q?: string }>;
+  searchParams: Promise<{ anno?: string; q?: string; emessa?: string }>;
 }) {
   const sp = await searchParams;
   const anno = sp.anno ? parseInt(sp.anno) : ANNO_CORRENTE;
@@ -43,12 +43,24 @@ export default async function FattureCloudPage({
             fattura servizi e usa &laquo;Emetti su FIC&raquo;.
           </p>
         </div>
-        <div className="page-actions">
+        <div className="page-actions" style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {stato.collegato && stato.companyName && (
             <span className="badge green"><span className="dot" />{stato.companyName}</span>
           )}
+          {stato.collegato && (
+            <Link href="/registrazioni/fatture/nuova" className="btn primary">+ Nuova fattura</Link>
+          )}
         </div>
       </div>
+
+      {sp.emessa && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green">
+            <span className="dot" />Fattura emessa — n. {decodeURIComponent(sp.emessa)}
+            {" "}(non inviata allo SDI: controllala e inviala da Fatture in Cloud)
+          </span>
+        </div>
+      )}
 
       {!stato.collegato ? (
         <div className="card" style={{ padding: 18 }}>
