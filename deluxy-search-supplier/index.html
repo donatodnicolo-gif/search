@@ -161,6 +161,25 @@
   .rawattrs table{width:100%; border-collapse:collapse; margin-top:8px; font-size:13px}
   .rawattrs td{border-bottom:1px solid var(--hairline); padding:5px 6px; vertical-align:top}
   .rawattrs td:first-child{color:var(--text-tertiary); white-space:nowrap; padding-right:12px}
+  /* stellina "contattato" sulle schede fornitore */
+  .star-btn{width:32px; height:32px; padding:0; border:1px solid var(--hairline-strong); background:var(--surface);
+        border-radius:50%; cursor:pointer; font-size:16px; line-height:1; color:var(--text-tertiary);
+        transition:background .18s var(--ease), color .18s var(--ease), transform .15s var(--ease)}
+  .star-btn:hover{background:var(--fill-hover)}
+  .star-btn:active{transform:scale(.9)}
+  .star-btn.on{color:var(--gold-strong); background:var(--gold-soft); border-color:rgba(184,150,62,.35)}
+  /* stato ricerca fornitore (pillole con dot) */
+  .stato-pill{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--hairline-strong);
+        background:var(--surface); color:var(--text-secondary); border-radius:var(--radius-pill);
+        padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer;
+        transition:background .18s var(--ease), color .18s var(--ease), border-color .18s var(--ease), transform .15s var(--ease)}
+  .stato-pill:active{transform:scale(.97)}
+  .stato-pill .dot{width:8px; height:8px; border-radius:50%; background:var(--text-tertiary)}
+  .stato-pill.active[data-stato="non iniziata"]{background:var(--fill-active); color:var(--text); border-color:transparent}
+  .stato-pill.active[data-stato="in corso"]{background:rgba(0,113,227,.1); color:var(--blue); border-color:rgba(0,113,227,.25)}
+  .stato-pill.active[data-stato="in corso"] .dot{background:var(--blue)}
+  .stato-pill.active[data-stato="trovato"]{background:rgba(36,138,61,.1); color:var(--green); border-color:rgba(36,138,61,.25)}
+  .stato-pill.active[data-stato="trovato"] .dot{background:var(--green)}
   .sendorder{margin-top:10px; width:100%; border:0; border-radius:var(--radius-pill); padding:12px; font-weight:600; cursor:pointer;
         background:var(--green); color:#fff; font-size:14px; transition:filter .15s var(--ease), transform .15s var(--ease)}
   .sendorder:hover{filter:brightness(1.06)} .sendorder:active{transform:scale(.98)}
@@ -446,6 +465,15 @@
         <div class="hint">Copialo e incollalo dove preferisci (WhatsApp, email, Instagram…), oppure usa i pulsanti «Invia» sulle schede qui sotto. Se lo modifichi a mano, verrà inviato il tuo testo.</div>
       </div>
 
+      <div style="margin-top:16px">
+        <label>Stato ricerca fornitore</label>
+        <div id="statoPills" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px">
+          <button type="button" class="stato-pill" data-stato="non iniziata"><span class="dot"></span>Non iniziata</button>
+          <button type="button" class="stato-pill" data-stato="in corso"><span class="dot"></span>In corso</button>
+          <button type="button" class="stato-pill" data-stato="trovato"><span class="dot"></span>Trovato</button>
+        </div>
+        <div class="hint" id="statoHint" style="margin-top:6px">Passa da solo a «In corso» al primo WhatsApp/email inviato. La ⭐ sulle schede segna i fornitori già contattati (visibile a tutti gli operatori).</div>
+      </div>
       <button class="btn" id="findFlorists" style="margin-top:16px">🔎 Trova fiorai vicino alla consegna</button>
       <div class="order-flag">Poi scegli un fiorario qui sotto e premi «Invia richiesta ordine» sulla sua scheda.</div>
     </div>
@@ -944,10 +972,12 @@ function registryCard(p){
   const el = document.createElement('div');
   el.className = 'shop registry' + (isPartner ? ' partner' : '');
   el.dataset.registry = '1';
+  el.dataset.sid = 'anag:' + (p.id || p.nome);
   el.innerHTML = `
     <div class="head">
       <h3>${isPartner?'🤝':'📋'} ${esc(p.nome)}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
+        <button type="button" class="star-btn" data-sid="${esc(el.dataset.sid)}" title="Segna come contattato">☆</button>
         <span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>
       </div>
     </div>
@@ -1172,6 +1202,7 @@ function populateOrder(o){
   }
   updateDeal();
   refreshOrderMessage(true);
+  loadStato();   // stato ricerca + stelle di QUESTO ordine (condivisi fra operatori)
 
   // campi grezzi (attributi ordine + proprietà righe)
   const rows = [];
@@ -1434,6 +1465,7 @@ $('#manualOrder').addEventListener('click', ()=>{
   $('#budgetHint').textContent = '';
   updateDeal();
   refreshOrderMessage(true);
+  loadStato();
   setOrderStatus('✍️ Modalità manuale attiva: compila i campi qui sotto, poi «Trova fiorai» e invia la richiesta.');
   $('#orderBox').scrollIntoView({behavior:'smooth', block:'start'});
 });
@@ -1457,6 +1489,9 @@ resultsEl.addEventListener('click', async e=>{
   const msg = currentMessage(lang);
   const waUrl = waChatUrl(phone, msg);
   const photo = $('#ord_photo').value.trim();
+  // il contatto è partito: ricerca «in corso» (se non già trovato) + stella sul fornitore
+  if(statoRicerca.stato !== 'trovato') setStatoRicerca('in corso');
+  starShop(btn.closest('.shop'));
   // 1) PRIMA la copia negli appunti, mentre questa pagina ha ancora il focus (requisito dell'API appunti).
   //    Il PNG è già pronto grazie al precarico, quindi si risolve in pochi ms e l'attivazione utente
   //    (5s) resta valida per la window.open subito dopo. (Su mobile gli appunti-immagine non sono
@@ -1483,6 +1518,8 @@ resultsEl.addEventListener('click', e=>{
   const lang = (card && card.dataset.lang) || currentLang || 'it';
   const subject = (SUBJECTWORD[lang]||'Richiesta ordine') + ' ' + $('#ordTag').textContent;
   let body = currentMessage(lang);
+  if(statoRicerca.stato !== 'trovato') setStatoRicerca('in corso');
+  starShop(card);
   const photo = $('#ord_photo').value.trim();
   if(photo) body += '\n\n' + (PHOTOWORD[lang]||'Foto') + ': ' + photo;
   window.location.href = 'mailto:' + encodeURIComponent(email)
@@ -1733,6 +1770,65 @@ async function loadStorico(){
   }
 }
 
+/* ------------------ stato ricerca + stelline "contattato" ------------------ */
+// Persistiti sul server (/api/stato, KV) per ordine: tutti gli operatori vedono
+// lo stesso stato e le stesse stelle. Chiave = brand#numero, o 'generale' senza ordine.
+let statoRicerca = { stato:'non iniziata', stelle:{} };
+function ordineKey(){
+  const num = ($('#ordTag').textContent.match(/#?(\d+)/)||[])[1] || '';
+  return num ? ($('#brand').value + '#' + num) : 'generale';
+}
+async function loadStato(){
+  try{
+    const r = await apiFetch('/api/stato?ordine=' + encodeURIComponent(ordineKey()));
+    const j = await r.json().catch(()=>({}));
+    if(r.ok && j.ok){ statoRicerca = { stato: j.stato || 'non iniziata', stelle: j.stelle || {} }; }
+  }catch(e){ /* offline o errore: si resta con lo stato locale */ }
+  renderStatoPills(); applyStars();
+}
+function saveStato(patch){
+  const body = Object.assign({ ordine: ordineKey(), quando: new Date().toISOString() }, patch);
+  apiFetch('/api/stato', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(()=>{});
+}
+function renderStatoPills(){
+  document.querySelectorAll('#statoPills .stato-pill')
+    .forEach(b=> b.classList.toggle('active', b.dataset.stato === statoRicerca.stato));
+}
+function setStatoRicerca(st){
+  if(statoRicerca.stato === st) return;
+  statoRicerca.stato = st;
+  renderStatoPills();
+  saveStato({ stato: st });
+}
+document.querySelectorAll('#statoPills .stato-pill').forEach(b=>
+  b.addEventListener('click', ()=> setStatoRicerca(b.dataset.stato)));
+// applica ★/☆ alle schede in base alle stelle salvate
+function applyStars(){
+  resultsEl.querySelectorAll('.star-btn').forEach(b=>{
+    const on = !!statoRicerca.stelle[b.dataset.sid];
+    b.classList.toggle('on', on);
+    b.textContent = on ? '★' : '☆';
+    b.title = on ? 'Contattato — clic per togliere il segno' : 'Segna come contattato';
+  });
+}
+function nomeDaScheda(card){ return ((card.querySelector('h3')||{}).textContent||'').replace(/^\S+\s/,'').trim(); }
+// segna un fornitore come contattato (senza doppioni); usato anche dagli invii automatici
+function starShop(card){
+  if(!card || !card.dataset.sid || statoRicerca.stelle[card.dataset.sid]) return;
+  statoRicerca.stelle[card.dataset.sid] = { nome: nomeDaScheda(card) };
+  saveStato({ stella: { id: card.dataset.sid, nome: nomeDaScheda(card), on: true } });
+  applyStars();
+}
+resultsEl.addEventListener('click', e=>{
+  const b = e.target.closest('.star-btn'); if(!b) return;
+  const card = b.closest('.shop');
+  const on = !statoRicerca.stelle[b.dataset.sid];
+  if(on) statoRicerca.stelle[b.dataset.sid] = { nome: nomeDaScheda(card) };
+  else delete statoRicerca.stelle[b.dataset.sid];
+  saveStato({ stella: { id: b.dataset.sid, nome: nomeDaScheda(card), on } });
+  applyStars();
+});
+
 /* ------------------ render ------------------ */
 function shopCard(d, cat, dist, pid){
   dist = dist || {};
@@ -1788,10 +1884,12 @@ function shopCard(d, cat, dist, pid){
   el.className = 'shop';
   el.dataset.wakind = kind;
   el.dataset.lang = shopLang;
+  el.dataset.sid = pid || d.place_id || '';
   el.innerHTML = `
     <div class="head">
       <h3>${meta.emoji} ${d.name}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
+        <button type="button" class="star-btn" data-sid="${esc(el.dataset.sid)}" title="Segna come contattato">☆</button>
         <span class="badge dist">${distBadge}</span>
         ${openBadge}
         ${waBadge}
@@ -1936,6 +2034,7 @@ async function run(){
                    : lastDriveSource==='OSRM'   ? ' · 🚗 distanza stradale (OSM)'
                    : ' · 📏 distanza in linea d\'aria (routing non disponibile)';
     setStatus(`✅ Trovati ${cards.length} negozi${distNote}${langNote}${anagNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
+    applyStars();   // ★ sui fornitori già contattati per quest'ordine
 
     // scraping email + Instagram in background (best effort)
     if(proxy){
