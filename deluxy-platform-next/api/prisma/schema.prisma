@@ -187,6 +187,7 @@ model ServiceType {
   partnerServices PartnerService[]
   valetServices   ValetService[]
   deliveries      Delivery[]
+  deliveryRules   DeliveryRule[]
 }
 
 // ------------------------------------------------------------
@@ -753,17 +754,42 @@ model SmsTemplate {
 // Estendibili a piu' partner tramite DeliveryRulePartner
 // ------------------------------------------------------------
 model DeliveryRule {
-  id                       String                @id @default(cuid())
-  name                     String
-  type                     String
-  deliveryCount            Int
-  periodStart              DateTime?
-  periodEnd                DateTime?
-  partnerBillingAdjustment Float                 @default(0)
-  valetPayAdjustment       Float                 @default(0)
-  active                   Boolean               @default(true)
-  partners                 DeliveryRulePartner[]
-  createdAt                DateTime              @default(now())
+  id   String @id @default(cuid())
+  name String
+
+  // Sull'app reale "Daily Number Rule" e "Total Number Rule" sono due Si/No
+  // indipendenti: una regola puo' garantire un numero giornaliero, un numero
+  // totale nel periodo, o entrambi. Ogni toggle ha il suo conteggio.
+  dailyRule  Boolean @default(false)
+  dailyCount Int     @default(0)
+  totalRule  Boolean @default(false)
+  totalCount Int     @default(0)
+
+  // Periodo di validita' e fascia oraria in cui la regola si applica.
+  periodStart DateTime?
+  periodEnd   DateTime?
+  timeFrom    String? // "HH:mm"
+  timeTo      String? // "HH:mm"
+
+  // Distanza (KM) entro cui vale la regola; opzionale.
+  kmDistance Float?
+
+  // Tipo di servizio a cui la regola e' legata (opzionale).
+  serviceTypeId String?
+  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id])
+
+  // Plus/Minus (anche negativi) su fatturazione partner e paga valet.
+  partnerBillingAdjustment Float @default(0)
+  valetPayAdjustment       Float @default(0)
+
+  // Toggle "Da fatturare" / "Da pagare" della consegna generata dalla regola.
+  toBill Boolean @default(true)
+  toPay  Boolean @default(true)
+
+  active    Boolean               @default(true)
+  partners  DeliveryRulePartner[]
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
 }
 
 model DeliveryRulePartner {

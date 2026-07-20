@@ -640,6 +640,45 @@
     "corporateNoteEm2": "vendita",
     "corporateNotePart4": "(il valore viene quindi calcolato come una Vendita per il partner destinatario)."
   },
+  "deliveryRules": {
+    "title": "Regole carnet",
+    "caption": "regole di consegna garantita",
+    "add": "Nuova regola",
+    "emptyTitle": "Nessuna regola carnet",
+    "emptyHint": "Crea la prima regola per garantire un numero di consegne.",
+    "daily": "Giornaliere",
+    "total": "Totali",
+    "newTitle": "Nuova regola carnet",
+    "editTitle": "Modifica regola carnet",
+    "col": {
+      "name": "Nome",
+      "rule": "Regola",
+      "period": "Periodo",
+      "service": "Servizio",
+      "adjust": "Plus/Minus (P·V)",
+      "partners": "Partner",
+      "status": "Stato"
+    },
+    "f": {
+      "name": "Nome regola",
+      "dailyRule": "Regola giornaliera (Daily Number Rule)",
+      "dailyCount": "N° consegne al giorno",
+      "totalRule": "Regola totale (Total Number Rule)",
+      "totalCount": "N° consegne totali",
+      "periodStart": "Valida dal",
+      "periodEnd": "Valida al",
+      "timeFrom": "Dalle ore",
+      "timeTo": "Alle ore",
+      "kmDistance": "Distanza KM",
+      "serviceType": "Tipo servizio",
+      "partnerAdjust": "Plus/Minus fatturazione partner (€)",
+      "valetAdjust": "Plus/Minus paga valet (€)",
+      "toBill": "Da fatturare",
+      "toPay": "Da pagare",
+      "partners": "Estendi ai partner",
+      "partnersHint": "Tieni premuto Ctrl/Cmd per selezionarne più di uno."
+    }
+  },
   "stub": {
     "caption": "Sezione in arrivo sulla nuova piattaforma.",
     "migratingTitle": "In migrazione dalla piattaforma legacy",

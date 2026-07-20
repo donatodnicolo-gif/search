@@ -51,6 +51,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'delivery-rules',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'], title: 'Regole carnet' },
+        loadComponent: () =>
+          import('./pages/delivery-rules.component').then(
+            (m) => m.DeliveryRulesComponent,
+          ),
+      },
+      {
         // Modifica consegna. Il partner è ammesso, ma l'API applica la regola
         // (solo consegne "da gestire" e con servizio diverso da VENDITA).
         path: 'deliveries/:id/edit',
@@ -368,7 +377,6 @@ export const routes: Routes = [
         { path: 'sales', title: 'Vendite', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
         { path: 'sms-templates', title: 'Modelli SMS', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
         { path: 'availability', title: 'Disponibilita', roles: ['VALET'] },
-        { path: 'delivery-rules', title: 'Regole carnet', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
         { path: 'provinces', title: 'Province e citta', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
         { path: 'finance', title: 'Finanza', roles: ['ADMIN'] },
       ].map((stub) => ({

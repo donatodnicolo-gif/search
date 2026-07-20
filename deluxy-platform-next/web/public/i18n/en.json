@@ -640,6 +640,45 @@
     "corporateNoteEm2": "sale",
     "corporateNotePart4": "(the value is then calculated as a Sale for the recipient partner)."
   },
+  "deliveryRules": {
+    "title": "Carnet rules",
+    "caption": "guaranteed-delivery rules",
+    "add": "New rule",
+    "emptyTitle": "No carnet rules",
+    "emptyHint": "Create the first rule to guarantee a number of deliveries.",
+    "daily": "Daily",
+    "total": "Total",
+    "newTitle": "New carnet rule",
+    "editTitle": "Edit carnet rule",
+    "col": {
+      "name": "Name",
+      "rule": "Rule",
+      "period": "Period",
+      "service": "Service",
+      "adjust": "Plus/Minus (P·V)",
+      "partners": "Partners",
+      "status": "Status"
+    },
+    "f": {
+      "name": "Rule name",
+      "dailyRule": "Daily Number Rule",
+      "dailyCount": "Deliveries per day",
+      "totalRule": "Total Number Rule",
+      "totalCount": "Total deliveries",
+      "periodStart": "Valid from",
+      "periodEnd": "Valid to",
+      "timeFrom": "From time",
+      "timeTo": "To time",
+      "kmDistance": "KM distance",
+      "serviceType": "Service type",
+      "partnerAdjust": "Partner billing plus/minus (€)",
+      "valetAdjust": "Valet pay plus/minus (€)",
+      "toBill": "To bill",
+      "toPay": "To pay",
+      "partners": "Extend to partners",
+      "partnersHint": "Hold Ctrl/Cmd to select more than one."
+    }
+  },
   "stub": {
     "caption": "Section coming soon to the new platform.",
     "migratingTitle": "Migrating from the legacy platform",

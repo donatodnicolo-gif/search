@@ -562,14 +562,23 @@ CREATE TABLE "SmsTemplate" (
 CREATE TABLE "DeliveryRule" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "type" TEXT NOT NULL,
-    "deliveryCount" INTEGER NOT NULL,
+    "dailyRule" BOOLEAN NOT NULL DEFAULT false,
+    "dailyCount" INTEGER NOT NULL DEFAULT 0,
+    "totalRule" BOOLEAN NOT NULL DEFAULT false,
+    "totalCount" INTEGER NOT NULL DEFAULT 0,
     "periodStart" TIMESTAMP(3),
     "periodEnd" TIMESTAMP(3),
+    "timeFrom" TEXT,
+    "timeTo" TEXT,
+    "kmDistance" DOUBLE PRECISION,
+    "serviceTypeId" TEXT,
     "partnerBillingAdjustment" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "valetPayAdjustment" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "toBill" BOOLEAN NOT NULL DEFAULT true,
+    "toPay" BOOLEAN NOT NULL DEFAULT true,
     "active" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "DeliveryRule_pkey" PRIMARY KEY ("id")
 );
@@ -927,6 +936,9 @@ ALTER TABLE "Activity" ADD CONSTRAINT "Activity_valetId_fkey" FOREIGN KEY ("vale
 
 -- AddForeignKey
 ALTER TABLE "SmsTemplate" ADD CONSTRAINT "SmsTemplate_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DeliveryRule" ADD CONSTRAINT "DeliveryRule_serviceTypeId_fkey" FOREIGN KEY ("serviceTypeId") REFERENCES "ServiceType"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "DeliveryRulePartner" ADD CONSTRAINT "DeliveryRulePartner_deliveryRuleId_fkey" FOREIGN KEY ("deliveryRuleId") REFERENCES "DeliveryRule"("id") ON DELETE CASCADE ON UPDATE CASCADE;
