@@ -65,13 +65,14 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
 
 ## 4. Funzionalità UI (pagine)
 
-- **`/`** Visione globale — elenco con ricerca "a parole" su tutti i campi + referenti, filtri
+- **`/`** Aziende (ex "Visione globale") — elenco con ricerca "a parole" su tutti i campi + referenti, filtri
   (categoria/città/stato/interesse), ordinamenti cliccabili, **sezione Novità** (top 10 tra
   data creazione e ultimo contatto), colonne Interessi/Ultimo contatto/Note, cambio
   stato/interessi in riga, archivia/ripristina, riconciliazione HubSpot (⇄), bottone **＋ Nuovo**.
 - **`/dashboard`** — analisi con **macro-filtri** (tipologia/regione/stato/interesse in AND):
   KPI, funnel per stato, interessi, tipologie/regioni/città, contatti per mese, qualità dati.
 - **`/contatti`** — rubrica di tutti i referenti (Excel + HubSpot), ricerca, filtro fonte,
+  colonna **Azienda** (link alla scheda), telefoni cliccabili (`tel:` → avvia la chiamata),
   colonna **Google** («Salva in Google» via People API + fallback .vcf), link al contatto HubSpot.
 - **`/sync-hubspot`** — confronto registro ↔ companies HubSpot (match per nome normalizzato +
   riferimenti): riepilogo, liste "solo HubSpot"/"solo registro"/"in entrambi", ricerca+ordinamenti,

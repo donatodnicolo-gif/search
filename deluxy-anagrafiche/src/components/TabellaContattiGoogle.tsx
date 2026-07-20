@@ -180,7 +180,7 @@ export function TabellaContattiGoogle({ contatti }: { contatti: RigaContatto[] }
               <th>Ruolo</th>
               <th>Telefono</th>
               <th>Email</th>
-              <th>Anagrafica</th>
+              <th>Azienda</th>
               <th>Fonte</th>
               <th>Google</th>
             </tr>
@@ -200,7 +200,13 @@ export function TabellaContattiGoogle({ contatti }: { contatti: RigaContatto[] }
                     )}
                   </td>
                   <td className="cella-muta">{c.ruolo ?? "—"}</td>
-                  <td className="cella-muta">{c.telefono ?? "—"}</td>
+                  <td className="cella-muta">
+                    {c.telefono ? (
+                      <a href={`tel:${c.telefono.replace(/[^\d+]/g, "")}`} title="Chiama">{c.telefono}</a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="cella-muta">{c.email ?? "—"}</td>
                   <td>
                     <a href={`/partner/${c.partnerId}`}>

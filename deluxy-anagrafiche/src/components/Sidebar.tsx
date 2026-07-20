@@ -5,7 +5,7 @@ import { IconaCategoria } from "./IconaCategoria";
 import { SbSezione } from "./SbSezione";
 
 // Sidebar di navigazione: tipologie, stati e interessi filtrano l'elenco;
-// "Visione globale" mostra tutto. I conteggi considerano solo le anagrafiche
+// "Aziende" mostra tutto. I conteggi considerano solo le anagrafiche
 // attive; le archiviate vivono nella sezione dedicata in fondo.
 export async function Sidebar({
   categoriaAttiva,
@@ -55,7 +55,7 @@ export async function Sidebar({
         <SbSezione titolo="Registro">
           <a className={`sb-item${globaleAttiva ? " attiva" : ""}`} href="/">
             <span className="sb-icona"><IconaCategoria categoria="GLOBALE" /></span>
-            <span className="sb-nome">Visione globale</span>
+            <span className="sb-nome">Aziende</span>
             <span className="sb-count">{totale}</span>
           </a>
           <a className={`sb-item${dashboardAttiva ? " attiva" : ""}`} href="/dashboard">

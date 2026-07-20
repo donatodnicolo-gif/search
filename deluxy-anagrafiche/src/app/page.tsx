@@ -194,7 +194,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                   ? ETICHETTE_STATO[filtri.stato as (typeof STATI)[number]]
                   : interesse
                     ? ETICHETTE_INTERESSE[interesse]
-                    : "Visione globale"}
+                    : "Aziende"}
           </h1>
           <p className="page-sub">
             {inArchivio
