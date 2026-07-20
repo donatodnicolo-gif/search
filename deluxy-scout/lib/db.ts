@@ -653,6 +653,26 @@ export async function aggiornaRataPagata(
 }
 
 /**
+ * Preferenza "emetti la pro-forma insieme alla richiesta" (Profilo → Pagamenti).
+ * Attiva di default: se la migrazione 0030 non c'è o il profilo manca, torna true.
+ */
+export async function fetchPreferenzaProforma(): Promise<boolean> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return true;
+  const { data, error } = await supabase.from('profiles').select('proforma_default').eq('id', u.user.id).single();
+  if (error) return true;
+  return (data as any)?.proforma_default ?? true;
+}
+
+/** Salva la preferenza pro-forma (tollerante se la migrazione 0030 non è applicata). */
+export async function salvaPreferenzaProforma(attiva: boolean): Promise<void> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return;
+  const { error } = await supabase.from('profiles').update({ proforma_default: attiva }).eq('id', u.user.id);
+  if (error) throw error;
+}
+
+/**
  * Salva sulla richiesta il riferimento della pro-forma emessa su Deluxy Partner.
  * Tollerante: se la migrazione 0029 (colonne proforma_*) non è ancora applicata,
  * il riferimento non si salva ma la richiesta resta valida.

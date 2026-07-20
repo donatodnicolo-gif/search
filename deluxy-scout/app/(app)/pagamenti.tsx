@@ -23,6 +23,7 @@ import { isAdmin } from '@/lib/admin';
 import {
   aggiornaRataPagata,
   aggiornaRichiestaPagamento,
+  fetchPreferenzaProforma,
   fetchRichiestePagamento,
   fetchTutteTrattative,
   inserisciRichiestaPagamento,
@@ -358,7 +359,8 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
   const [causale, setCausale] = useState('');
   const [scadenza, setScadenza] = useState<string | null>(null);
   const [rate, setRate] = useState<RataForm[]>([]);
-  const [conProforma, setConProforma] = useState(false);
+  // Attiva di default; si disattiva da Profilo → Pagamenti (preferenza per utente).
+  const [conProforma, setConProforma] = useState(true);
   const [avvisoProforma, setAvvisoProforma] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -371,6 +373,8 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
     if (caricate.current) return;
     caricate.current = true;
     fetchTutteTrattative().then(setTrattative).catch(() => setTrattative([]));
+    // Preferenza dell'utente (Profilo → Pagamenti): resta true se non impostata.
+    fetchPreferenzaProforma().then(setConProforma).catch(() => {});
   }, []);
 
   const risultati = useMemo(() => {
@@ -610,7 +614,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
                 <Text style={styles.proformaTitolo}>Emetti anche la pro-forma su Deluxy Partner</Text>
                 <Text style={styles.proformaNota}>
                   Il cliente dev'essere un partner del registro. L'importo è inteso IVA inclusa: in pro-forma
-                  l'imponibile viene scorporato (22%).
+                  l'imponibile viene scorporato (22%). Attiva di default — si disattiva da Profilo → Pagamenti.
                 </Text>
               </View>
             </Pressable>

@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { contaInCoda, flushCoda } from '@/lib/syncQueue';
-import { aggiornaNomeProfilo, fetchProfilo } from '@/lib/db';
+import { aggiornaNomeProfilo, fetchPreferenzaProforma, fetchProfilo, salvaPreferenzaProforma } from '@/lib/db';
 import { sincronizzaHubspot } from '@/lib/hubspot';
 import { esportaAttivitaCsv, esportaVisiteCsv } from '@/lib/export';
 
@@ -21,6 +21,7 @@ export default function Profilo() {
   const [esporto, setEsporto] = useState<null | 'attivita' | 'visite'>(null);
   const [nome, setNome] = useState('');
   const [salvoNome, setSalvoNome] = useState(false);
+  const [proformaDefault, setProformaDefault] = useState(true);
 
   async function sincronizzaContatti() {
     setSyncHS(true);
@@ -40,8 +41,22 @@ export default function Profilo() {
     if (uid) {
       const p = await fetchProfilo(uid);
       if (p) setNome(p.nome ?? '');
+      setProformaDefault(await fetchPreferenzaProforma());
     }
   }, [session?.user?.id]);
+
+  // Preferenza pro-forma: cambia subito in UI, salva in background; se il
+  // salvataggio fallisce (migrazione 0030 non applicata) ripristina e avvisa.
+  async function cambiaProformaDefault() {
+    const nuovo = !proformaDefault;
+    setProformaDefault(nuovo);
+    try {
+      await salvaPreferenzaProforma(nuovo);
+    } catch {
+      setProformaDefault(!nuovo);
+      Alert.alert('Impostazioni', 'Preferenza non salvata (riprova più tardi).');
+    }
+  }
 
   async function salvaNome() {
     const uid = session?.user?.id;
@@ -140,6 +155,24 @@ export default function Profilo() {
         </Pressable>
       </View>
 
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>PAGAMENTI</Text>
+        <Pressable style={styles.switchRow} onPress={cambiaProformaDefault}>
+          <Ionicons
+            name={proformaDefault ? 'checkbox' : 'square-outline'}
+            size={22}
+            color={proformaDefault ? colors.ink : colors.grigio}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowLabel}>Emetti la pro-forma su Deluxy Partner</Text>
+            <Text style={styles.meta}>
+              Quando crei una richiesta di pagamento la spunta è già attiva. Togliendola qui, resterà disattivata
+              per le nuove richieste (puoi comunque riattivarla caso per caso).
+            </Text>
+          </View>
+        </Pressable>
+      </View>
+
       <Pressable style={styles.card} onPress={() => router.push('/(app)/nascosti')}>
         <Text style={styles.cardLabel}>ATTIVITÀ</Text>
         <View style={styles.row}>
@@ -183,6 +216,7 @@ const styles = StyleSheet.create({
   email: { fontSize: 18, fontWeight: '800', color: colors.navy },
   meta: { color: colors.testoSoft, fontSize: 13, marginTop: 2 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
+  switchRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 4 },
   rowLabel: { color: colors.navy, fontSize: 15, fontWeight: '600' },
   rowValue: { color: colors.navy, fontSize: 18, fontWeight: '900' },
   freccia: { color: colors.oro, fontSize: 20, fontWeight: '800' },
