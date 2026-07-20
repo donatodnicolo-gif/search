@@ -66,8 +66,10 @@ export default async function handler(req, res) {
           giaRegistrati.add(brand + ':' + numero);
           importati++;
         }
-        // più recenti in alto (le date sono ISO: il confronto tra stringhe basta)
-        eventi.sort((a, b) => String(b.quando).localeCompare(String(a.quando)));
+        // più recenti in alto. NON confrontare le stringhe: le date del browser sono
+        // in UTC (…Z), quelle di Shopify in +02:00 — solo Date.parse le rende confrontabili.
+        // (Date.parse su una stringa salvata è deterministico: il divieto vale per new Date() "adesso".)
+        eventi.sort((a, b) => (Date.parse(b.quando) || 0) - (Date.parse(a.quando) || 0));
         if (eventi.length > MAX_EVENTI) eventi = eventi.slice(0, MAX_EVENTI);
         await kvCmd(['SET', KEY, JSON.stringify(eventi)]);
         return res.status(200).json({ ok: true, importati, totale: eventi.length });
