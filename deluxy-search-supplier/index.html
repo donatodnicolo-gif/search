@@ -1931,7 +1931,7 @@ async function saveContact(btn){
   }catch(err){
     console.warn('rubrica Google:', err);
     downloadVcf(data);
-    btn.textContent = '✅ Scaricato .vcf (rubrica Google non disponibile)';
+    btn.textContent = '✅ Scaricato .vcf — per la rubrica Google riprova e concedi l\'accesso';
     logEvento({ tipo:'rubrica', esito:'scaricato .vcf (OAuth non riuscito)', negozio:data });
   }
 }
@@ -2038,6 +2038,13 @@ async function eseguiRiconcilia(btn){
   const scelto = lastAnagList.find(p=>p.id===partnerId) || {};
   const dati = CARD_DATA[pid] || {};
   btn.disabled = true; msg.textContent = 'Comunico la riconciliazione al registro…';
+  // Il popup di autorizzazione della rubrica Google si può aprire SOLO dentro un click:
+  // lo chiediamo ORA (in-gesto), così quando dopo la risposta del server parte il
+  // salvataggio automatico il token è già in cache e nessun popup viene bloccato.
+  let tokenRubricaP = null;
+  if((CONFIG.googleOauthClientId||'').trim() && card.querySelector('.savecontact')){
+    tokenRubricaP = getContactsToken().catch(()=>null);
+  }
   try{
     const r = await apiFetch('/api/riconcilia', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -2064,6 +2071,7 @@ async function eseguiRiconcilia(btn){
     if(sc && !sc.disabled){
       const cd = CARD_DATA[pid], reg = j.partner || scelto;
       if(cd && !cd.telefono && reg.telefono) cd.telefono = reg.telefono;
+      if(tokenRubricaP) await tokenRubricaP;   // token chiesto in-gesto: ora è in cache
       saveContact(sc);
     }
   }catch(err){
