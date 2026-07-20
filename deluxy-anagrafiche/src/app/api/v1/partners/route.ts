@@ -2,9 +2,18 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
 import { calcolaMerge, mergeContatti, nomeSistema, provenienzaIniziale } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { whereRicerca } from "@/lib/ricerca";
+
+// La fatturazione è della società: se una scrittura ha toccato campi
+// finanziari, i valori vanno copiati sulle altre sedi della stessa insegna.
+async function propagaSeFinanziari(partnerId: string, scritti: Record<string, unknown>) {
+  if ((CAMPI_FINANZIARI as readonly string[]).some((c) => c in scritti)) {
+    await propagaDatiFinanziari(partnerId);
+  }
+}
 
 const INCLUDE = { contatti: true, riferimenti: true } as const;
 
@@ -157,6 +166,7 @@ export async function POST(req: NextRequest) {
       },
     });
     await registraRiferimenti(esistente.id, refs);
+    await propagaSeFinanziari(esistente.id, datiMerge);
     const aggiornato = await prisma.partner.findUnique({ where: { id: esistente.id }, include: INCLUDE });
     return NextResponse.json({
       esito: "merged",
@@ -183,6 +193,7 @@ export async function POST(req: NextRequest) {
     },
   });
   await registraRiferimenti(creato.id, refs);
+  await propagaSeFinanziari(creato.id, datiCreate);
   const creatoFull = await prisma.partner.findUnique({ where: { id: creato.id }, include: INCLUDE });
   return NextResponse.json({ esito: "creato", ...serializzaPartner(creatoFull!) }, { status: 201 });
 }

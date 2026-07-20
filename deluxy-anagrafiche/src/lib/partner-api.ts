@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { CAMPI_FINANZIARI } from "./insegna";
 import { isInteresse } from "./interessi";
 import { isStato } from "./stati";
 
@@ -22,6 +23,17 @@ const CAMPI_TESTO = [
   "contattiRaw",
   "platformId",
   "fonte",
+  // dati finanziari / fatturazione (condivisi tra le sedi della stessa insegna)
+  "pec",
+  "codiceSdi",
+  "iban",
+  "banca",
+  "metodoPagamento",
+  "condizioniPagamento",
+  "noteAmministrative",
+  "amministrazioneNome",
+  "amministrazioneTelefono",
+  "amministrazioneEmail",
 ] as const;
 
 export type ContattoInput = {
@@ -54,6 +66,9 @@ export function validaPartner(
   if ("nome" in dati && dati.nome === null) return { errore: "Il campo 'nome' non può essere vuoto" };
 
   if (dati.categoria) dati.categoria = String(dati.categoria).toUpperCase();
+  // Normalizzazioni finanziarie (stesse regole della UI)
+  if (dati.iban) dati.iban = String(dati.iban).replace(/\s+/g, "").toUpperCase();
+  if (dati.codiceSdi) dati.codiceSdi = String(dati.codiceSdi).toUpperCase();
   if (dati.stato && !isStato(String(dati.stato))) {
     return { errore: `Stato non valido: '${dati.stato}'` };
   }
@@ -101,6 +116,17 @@ type PartnerConContatti = Prisma.PartnerGetPayload<{ include: { contatti: true }
   riferimenti?: { sistema: string; idEsterno: string }[];
 };
 
+// Estrae dalla provenienza per campo solo i campi finanziari: per ciascuno
+// chi l'ha scritto (`sistema`) e la freschezza dichiarata (`asOf`).
+function provenienzaFinanziaria(prov: unknown): Record<string, { sistema: string; asOf?: string }> {
+  const p = (prov ?? {}) as Record<string, { sistema: string; asOf?: string }>;
+  const out: Record<string, { sistema: string; asOf?: string }> = {};
+  for (const campo of CAMPI_FINANZIARI) {
+    if (p[campo]) out[campo] = p[campo];
+  }
+  return out;
+}
+
 // Rappresentazione JSON esposta dalle API
 export function serializzaPartner(p: PartnerConContatti) {
   return {
@@ -118,6 +144,22 @@ export function serializzaPartner(p: PartnerConContatti) {
     telefono: p.telefono,
     pIva: p.pIva,
     codiceFiscale: p.codiceFiscale,
+    // Dati finanziari della società: condivisi tra tutte le sedi della stessa
+    // insegna. `aggiornamenti` dice chi li ha scritti e quando (asOf), così le
+    // app capiscono se il registro ha una versione più fresca della loro.
+    datiFinanziari: {
+      pec: p.pec,
+      codiceSdi: p.codiceSdi,
+      iban: p.iban,
+      banca: p.banca,
+      metodoPagamento: p.metodoPagamento,
+      condizioniPagamento: p.condizioniPagamento,
+      noteAmministrative: p.noteAmministrative,
+      amministrazioneNome: p.amministrazioneNome,
+      amministrazioneTelefono: p.amministrazioneTelefono,
+      amministrazioneEmail: p.amministrazioneEmail,
+      aggiornamenti: provenienzaFinanziaria(p.provenienza),
+    },
     account: p.account,
     ultimaVisita: p.ultimaVisita,
     interessi: p.interessi,

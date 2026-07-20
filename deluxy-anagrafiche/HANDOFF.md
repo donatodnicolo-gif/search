@@ -113,9 +113,13 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   maiuscolo), banca, metodo/condizioni di pagamento, note amministrative e **contatto
   amministrativo** (nome/telefono/email) — campi omonimi su `Partner`, mostrati nella scheda
   nella sezione «Dati finanziari» (con P.IVA/CF/ragione sociale ripetuti lì per completezza).
-  Curati solo dalla UI: le API esterne non li scrivono. **Non ancora esposti in lettura via
-  API** (serializzaPartner espone solo pIva/codiceFiscale) — passo successivo se serve a
-  deluxy-partner.
+  **Esposti e scrivibili via API** (20/07/2026): la risposta include il blocco `datiFinanziari`
+  (campi + `aggiornamenti` = provenienza {sistema, asOf} per campo, così le app verificano la
+  freschezza); il POST/PATCH li accetta come campi fattuali del merge (vince l'`asOf` più
+  fresco, vuoti si riempiono, `noteAmministrative` additiva, IBAN/SDI normalizzati) e dopo la
+  scrittura vengono propagati alle sedi (valori + timbri). Anche la UI timbra la provenienza
+  (`sistema: "ui"`, asOf = adesso) dei campi finanziari cambiati. Contratto per le app nel
+  README, sezione «Dati finanziari».
   **Condivisi a livello di insegna** (`src/lib/insegna.ts`, `CAMPI_FINANZIARI` = pIva,
   codiceFiscale, pec, codiceSdi, iban, banca, metodo/condizioni pagamento, note ammin.,
   contatto ammin.): la fatturazione è della società, non della singola sede. La scheda e il

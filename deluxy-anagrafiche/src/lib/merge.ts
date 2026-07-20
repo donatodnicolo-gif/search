@@ -37,6 +37,17 @@ const FATTUALI = [
   "pIva",
   "codiceFiscale",
   "ultimaVisita",
+  // dati finanziari / fatturazione (dopo la scrittura vengono propagati alle
+  // sedi della stessa insegna: la fatturazione è della società)
+  "pec",
+  "codiceSdi",
+  "iban",
+  "banca",
+  "metodoPagamento",
+  "condizioniPagamento",
+  "amministrazioneNome",
+  "amministrazioneTelefono",
+  "amministrazioneEmail",
 ] as const;
 
 // categoria "non ancora classificata": può essere riempita da una sorgente
@@ -92,10 +103,10 @@ export function calcolaMerge(
       continue;
     }
 
-    if (campo === "note") {
-      const attuale = esistente.note;
-      if (valore && attuale && !attuale.includes(String(valore))) dati.note = `${attuale}\n${valore}`;
-      else if (valore && !attuale) dati.note = valore;
+    if (campo === "note" || campo === "noteAmministrative") {
+      const attuale = esistente[campo] as string | null;
+      if (valore && attuale && !attuale.includes(String(valore))) dati[campo] = `${attuale}\n${valore}`;
+      else if (valore && !attuale) dati[campo] = valore;
       continue;
     }
 

@@ -39,6 +39,27 @@ anagrafici nelle vostre app — leggeteli da qui.
 - Non tenete una copia locale: rileggete. Se vi serve una cache, invalidatela
   spesso (in futuro arriveranno webhook sui cambi — vedi Fase 3 dell'architettura).
 
+### Dati finanziari (fatturazione) — lettura e scrittura
+
+Ogni partner risponde con un blocco **`datiFinanziari`**: `pec`, `codiceSdi`,
+`iban`, `banca`, `metodoPagamento`, `condizioniPagamento`, `noteAmministrative`,
+`amministrazioneNome/Telefono/Email` (il contatto amministrativo) e
+**`aggiornamenti`** — per ogni campo chi l'ha scritto (`sistema`) e quando
+(`asOf`). P.IVA e codice fiscale restano ai livelli alti della risposta.
+
+- **Sono condivisi tra le sedi della stessa insegna** (la fatturazione è della
+  società): scrivendoli su una sede valgono per tutte; leggendo una sede
+  qualsiasi si ottiene lo stesso blocco.
+- **Per capire se il registro ha dati più freschi dei vostri**: confrontate
+  `aggiornamenti.<campo>.asOf` con la vostra data. Se il vostro dato è più
+  recente, mandatelo.
+- **Per mandarli**: `POST /api/v1/partners` (chiave di scrittura) con i campi
+  finanziari nel body + `sistema`, `idEsterno` e soprattutto **`asOf`** (quando
+  il dato era vero da voi). Il merge applica il più fresco: un `asOf` più
+  vecchio di quello registrato viene ignorato (`applicati: []`), i campi vuoti
+  si riempiono sempre. IBAN e codice SDI vengono normalizzati (maiuscolo, IBAN
+  senza spazi). `noteAmministrative` è additiva (append, mai sovrascritta).
+
 ### Se scrivi (oggi solo la piattaforma consegne; le altre app "segnalano")
 
 - `POST /api/v1/partners` con la chiave di scrittura → **upsert** (201 = creato,

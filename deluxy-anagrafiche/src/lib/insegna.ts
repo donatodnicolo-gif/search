@@ -60,8 +60,10 @@ export async function datiFinanziariCondivisi(p: {
   return out;
 }
 
-// Dopo un salvataggio: copia i dati finanziari del record su tutte le altre
-// sedi della stessa insegna, così la fatturazione resta unica per la società.
+// Dopo un salvataggio: copia i dati finanziari del record (valori E timbri di
+// provenienza per campo) su tutte le altre sedi della stessa insegna, così la
+// fatturazione resta unica per la società e ogni sede risponde alle API con
+// gli stessi `aggiornamenti` (chi ha scritto il campo e quando).
 export async function propagaDatiFinanziari(partnerId: string): Promise<void> {
   const p = await prisma.partner.findUnique({
     where: { id: partnerId },
@@ -69,8 +71,24 @@ export async function propagaDatiFinanziari(partnerId: string): Promise<void> {
   });
   if (!p) return;
   const dati = Object.fromEntries(CAMPI_FINANZIARI.map((c) => [c, p[c]])) as DatiFinanziari;
-  await prisma.partner.updateMany({
+  const provOrigine = (p.provenienza ?? {}) as Record<string, unknown>;
+  const provFin = Object.fromEntries(
+    CAMPI_FINANZIARI.filter((c) => provOrigine[c]).map((c) => [c, provOrigine[c]]),
+  );
+  const sedi = await prisma.partner.findMany({
     where: { AND: [whereInsegna(nomeInsegna(p)), { NOT: { id: p.id } }] },
-    data: dati,
+    select: { id: true, provenienza: true },
   });
+  for (const s of sedi) {
+    await prisma.partner.update({
+      where: { id: s.id },
+      data: {
+        ...dati,
+        provenienza: {
+          ...((s.provenienza ?? {}) as Record<string, unknown>),
+          ...provFin,
+        } as Prisma.InputJsonValue,
+      },
+    });
+  }
 }

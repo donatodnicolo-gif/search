@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
@@ -208,9 +209,38 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
   }
 
   const ultimaVisita = testo("ultimaVisita");
+
+  // Timbro di provenienza (ui + adesso) sui campi finanziari che cambiano:
+  // così le API rispondono con `aggiornamenti` corretti e le app capiscono
+  // quando il team ha aggiornato la fatturazione.
+  const finInput: Record<string, string | null> = {
+    pIva: testo("pIva"),
+    codiceFiscale: testo("codiceFiscale"),
+    pec: testo("pec"),
+    codiceSdi: maiuscolo("codiceSdi"),
+    iban: testo("iban")?.replace(/\s+/g, "").toUpperCase() ?? null,
+    banca: testo("banca"),
+    metodoPagamento: testo("metodoPagamento"),
+    condizioniPagamento: testo("condizioniPagamento"),
+    noteAmministrative: testo("noteAmministrative"),
+    amministrazioneNome: testo("amministrazioneNome"),
+    amministrazioneTelefono: testo("amministrazioneTelefono"),
+    amministrazioneEmail: testo("amministrazioneEmail"),
+  };
+  const attuale = await prisma.partner.findUnique({ where: { id: partnerId } });
+  if (!attuale) redirect("/");
+  const provenienza = { ...((attuale.provenienza ?? {}) as Record<string, unknown>) };
+  const adesso = new Date().toISOString();
+  for (const [campo, valore] of Object.entries(finInput)) {
+    if (valore !== (attuale[campo as keyof typeof attuale] ?? null)) {
+      provenienza[campo] = { sistema: "ui", asOf: adesso };
+    }
+  }
+
   await prisma.partner.update({
     where: { id: partnerId },
     data: {
+      provenienza: provenienza as Prisma.InputJsonValue,
       nome,
       categoria,
       ragioneSociale: testo("ragioneSociale"),

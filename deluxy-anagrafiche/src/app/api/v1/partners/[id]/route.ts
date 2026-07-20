@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
 import { mergeContatti } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { ARCHIVIATA, registraPassaggio } from "@/lib/storico";
@@ -69,6 +70,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
     include: INCLUDE,
   });
+  // La fatturazione è della società: propaga i campi finanziari alle sedi
+  if ((CAMPI_FINANZIARI as readonly string[]).some((c) => c in dati)) {
+    await propagaDatiFinanziari(id);
+  }
   if (dati.stato) await registraPassaggio(id, esistente.stato, aggiornato.stato, client.nome);
   if (dati.attivo === false && esistente.attivo) {
     await registraPassaggio(id, aggiornato.stato, ARCHIVIATA, client.nome);
