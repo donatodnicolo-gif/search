@@ -103,6 +103,7 @@ export default function AppLayout() {
         <Drawer.Screen name="trattative" options={{ title: 'Trattative', drawerIcon: ({ color, size }) => <DrawerIcon name="briefcase-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni', drawerIcon: ({ color, size }) => <DrawerIcon name="git-network-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="rubrica" options={{ title: 'Rubrica', drawerIcon: ({ color, size }) => <DrawerIcon name="people-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="script" options={{ title: 'Script', drawerIcon: ({ color, size }) => <DrawerIcon name="document-text-outline" color={color} size={size ?? 22} /> }} />
         {/* Amministrazione */}
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti', drawerIcon: ({ color, size }) => <DrawerIcon name="cash-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard', drawerIcon: ({ color, size }) => <DrawerIcon name="stats-chart-outline" color={color} size={size ?? 22} /> }} />
@@ -127,6 +128,7 @@ export default function AppLayout() {
         <Drawer.Screen name="nascosti" options={dettaglio('Nascosti')} />
         <Drawer.Screen name="email-config" options={dettaglio('Email')} />
         <Drawer.Screen name="venditore/[ownerId]" options={dettaglio('Venditore')} />
+        <Drawer.Screen name="invio/[scriptId]" options={dettaglio('Invio email')} />
       </Drawer>
     </GestureHandlerRootView>
   );
