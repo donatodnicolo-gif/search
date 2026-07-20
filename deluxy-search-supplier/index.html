@@ -793,6 +793,19 @@ $('#navStorico').addEventListener('click', ()=>{
   loadStorico();
 });
 $('#storicoReload').addEventListener('click', loadStorico);
+// «Riapri richiesta»: ricarica l'ordine di quell'evento e riparte col flusso normale
+// (recupero → indirizzo → categoria dal brand → ricerca fornitori in automatico)
+$('#storicoBody').addEventListener('click', e=>{
+  const b = e.target.closest('.st-reopen'); if(!b) return;
+  const sel = $('#brand');
+  if([...sel.options].some(o=>o.value===b.dataset.brand)) sel.value = b.dataset.brand;
+  localStorage.setItem('brand', sel.value);
+  $('#orderNum').value = b.dataset.num;
+  setView(false);
+  const nav = document.querySelector('.nav-link[data-scroll=".ordercard"]');
+  if(nav) setActiveNav(nav);
+  fetchOrder();
+});
 $('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);
 $('#appOverlay').addEventListener('click', closeMenu);
@@ -1698,11 +1711,15 @@ async function loadStorico(){
       const n = e.negozio || {};
       const luogo = [n.citta, n.provincia ? '('+n.provincia+')' : ''].filter(Boolean).join(' ');
       const contatti = [n.telefono, n.email].filter(Boolean).join(' · ');
+      const riapri = (e.ordine && e.ordine.numero && e.ordine.brand)
+        ? `<button class="btn-dl st-reopen" style="margin-top:6px; padding:4px 12px; font-size:12px" data-brand="${esc(e.ordine.brand)}" data-num="${esc(e.ordine.numero)}">↻ Riapri richiesta</button>`
+        : '';
       return `<div class="st-row">
         <span class="st-when">${esc(fmtQuando(e.quando))}</span>
         <div class="st-main">
           <div class="st-shop">${esc(n.nome||'—')}${luogo ? ' <span style="font-weight:400; color:var(--text-tertiary)">'+esc(luogo)+'</span>' : ''}</div>
           <div class="st-det">${det.map(esc).join(' · ')}${contatti ? '<br>'+esc(contatti) : ''}</div>
+          ${riapri}
         </div>
         <span class="st-user">👤 ${esc(e.utente||'?')}</span>
       </div>`;
