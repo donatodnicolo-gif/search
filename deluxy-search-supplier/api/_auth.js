@@ -47,9 +47,33 @@ export async function readConfig() {
   try { return JSON.parse(raw); } catch (e) { return {}; }
 }
 
+/* ---- chiavi API (per AI e integrazioni): header x-api-key, formato dlxs_<id>_<segreto> ----
+   Salvate in KV 'apikeys:v1' come [{id, nome, salt, hash, creata}]: il segreto è hashato
+   (scrypt) e NON è recuperabile — viene mostrato solo alla creazione. */
+const APIKEYS_KEY = 'apikeys:v1';
+export async function readApiKeys() {
+  const raw = await kvCmd(['GET', APIKEYS_KEY]);
+  if (!raw) return [];
+  try { return JSON.parse(raw) || []; } catch (e) { return []; }
+}
+export async function writeApiKeys(list) {
+  await kvCmd(['SET', APIKEYS_KEY, JSON.stringify(list)]);
+}
+async function authApiKey(chiave) {
+  const m = String(chiave).match(/^dlxs_([a-f0-9]{8})_([a-f0-9]{32})$/);
+  if (!m) return { error: 'Chiave API malformata (attesa dlxs_<id>_<segreto>).', status: 401 };
+  const k = (await readApiKeys()).find(x => x && x.id === m[1]);
+  if (k && safeEq(hashPass(m[2], k.salt), k.hash)) {
+    return { utente: 'chiave:' + (k.nome || k.id), admin: false, cfg: null, viaChiave: true };
+  }
+  return { error: 'Chiave API non valida o revocata.', status: 401 };
+}
+
 // -> { utente, admin, cfg } oppure { error, status }
 export async function authUser(req) {
   if (!process.env.APP_PASSWORD) return { error: 'Backend non configurato: manca APP_PASSWORD.', status: 500 };
+  const apiKey = String(req.headers['x-api-key'] || '').trim();
+  if (apiKey) return authApiKey(apiKey);
   const pass = String(req.headers['x-app-password'] || '');
   const nome = String(req.headers['x-app-user'] || '').trim();
   if (pass && pass === process.env.APP_PASSWORD) {

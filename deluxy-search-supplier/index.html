@@ -346,6 +346,20 @@
         <div class="hint">Ogni operatore entra con <b>email + password personale</b> e le sue azioni compaiono nello Storico con la sua email. Password vuota = invariata; riga rimossa = utenza revocata. Il pass code principale resta quello dell'amministratore (unico che può salvare le impostazioni).</div>
       </div>
       <div>
+        <label style="font-size:13px; color:var(--text); font-weight:600">🔑 Chiavi API (per AI e integrazioni)</label>
+        <div id="keyRows" class="grid" style="margin-top:8px"></div>
+        <div style="display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:8px">
+          <input id="newKeyName" type="text" placeholder="nome chiave (es. claude, zapier)" autocomplete="off">
+          <button class="btn-dl" id="btnNewKey" type="button">🔑 Genera chiave</button>
+        </div>
+        <div id="newKeyOut" style="display:none; margin-top:8px; padding:12px; background:var(--gold-soft); border:1px solid rgba(184,150,62,.35); border-radius:var(--radius-m)">
+          <div style="font-weight:600; margin-bottom:6px">Chiave creata — copiala ORA, non sarà più visibile:</div>
+          <code id="newKeyVal" style="word-break:break-all; user-select:all"></code>
+          <button class="btn-dl" id="copyNewKey" type="button" style="margin-top:8px">📋 Copia</button>
+        </div>
+        <div class="hint">Le integrazioni chiamano le API con l'header <code>x-api-key</code> al posto di email+password; nello Storico compaiono come <b>chiave:&lt;nome&gt;</b>. Il segreto è salvato hashato: se lo perdi, revoca e genera una chiave nuova. Salvate e revocate subito (non serve «Salva impostazioni»).</div>
+      </div>
+      <div>
         <label style="font-size:13px; color:var(--text); font-weight:600">🛍️ Negozi Shopify</label>
         <div id="storeRows" class="grid" style="margin-top:8px"></div>
         <div class="hint">Il <b>token Shopify resta sul server</b>, non arriva mai al browser. Lascia il token vuoto per non modificarlo.
@@ -666,8 +680,55 @@ function renderUtenti(){
 }
 $('#addUserRow').addEventListener('click', ()=> $('#userRows').appendChild(utenteRow('')));
 
+/* ---- chiavi API (create/revocate subito via /api/chiavi, solo admin) ---- */
+async function loadKeys(){
+  const box = $('#keyRows'); if(!box) return;
+  try{
+    const r = await apiFetch('/api/chiavi');
+    const j = await r.json().catch(()=>({}));
+    if(r.status===403){ box.parentElement.style.display='none'; return; }   // non admin
+    if(!r.ok) throw new Error(j.error||('Errore '+r.status));
+    box.parentElement.style.display='';
+    box.innerHTML = (j.chiavi||[]).length ? '' : '<div class="hint">Nessuna chiave attiva.</div>';
+    (j.chiavi||[]).forEach(k=>{
+      const div = document.createElement('div');
+      div.style.cssText = 'display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center';
+      div.innerHTML = `<span><b>${esc(k.nome)}</b> <span style="color:var(--text-tertiary)">· dlxs_${esc(k.id)}_••••${k.creata?' · creata '+esc(fmtQuando(k.creata)):''}</span></span>
+        <button class="btn-dl k-rev" type="button" data-id="${esc(k.id)}">🗑 Revoca</button>`;
+      div.querySelector('.k-rev').addEventListener('click', async ()=>{
+        if(!confirm('Revocare la chiave «'+k.nome+'»? Chi la usa smetterà subito di funzionare.')) return;
+        await apiFetch('/api/chiavi', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ azione:'revoca', id:k.id }) });
+        loadKeys();
+      });
+      box.appendChild(div);
+    });
+  }catch(err){ box.innerHTML = '<div class="hint">⚠️ '+esc(err.message)+'</div>'; }
+}
+$('#btnNewKey').addEventListener('click', async ()=>{
+  const nome = $('#newKeyName').value.trim();
+  if(!nome){ alert('Dai un nome alla chiave (es. "claude").'); return; }
+  $('#btnNewKey').disabled = true;
+  try{
+    const r = await apiFetch('/api/chiavi', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ azione:'crea', nome, quando:new Date().toISOString() }) });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error||('Errore '+r.status));
+    $('#newKeyVal').textContent = j.chiave;
+    $('#newKeyOut').style.display = 'block';
+    $('#newKeyName').value = '';
+    loadKeys();
+  }catch(err){ alert('❌ '+err.message); }
+  finally{ $('#btnNewKey').disabled = false; }
+});
+$('#copyNewKey').addEventListener('click', async ()=>{
+  try{ await navigator.clipboard.writeText($('#newKeyVal').textContent); $('#copyNewKey').textContent='✅ Copiata'; }
+  catch(e){ /* selezionabile a mano: user-select:all */ }
+});
+
 function applyConfig(){
   renderUtenti();
+  loadKeys();   // sezione chiavi API (si nasconde da sola se non sei admin)
   $('#cfg_google').value = CONFIG.googleKey || '';
   $('#cfg_proxy').value  = CONFIG.proxy || '';
   $('#cfg_anag_url').value = CONFIG.anagUrl || '';
