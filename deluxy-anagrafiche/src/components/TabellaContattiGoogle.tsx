@@ -191,13 +191,16 @@ export function TabellaContattiGoogle({ contatti }: { contatti: RigaContatto[] }
               return (
                 <tr key={c.id}>
                   <td>
-                    {c.hubspotId ? (
-                      <a href={linkContattoHubspot(c.hubspotId)} target="_blank" rel="noreferrer" title="Apri in HubSpot">
-                        <div className="cella-nome">{c.nome ?? "—"} ↗</div>
+                    <span style={{ display: "inline-flex", gap: 6, alignItems: "baseline" }}>
+                      <a href={`/contatti/${c.id}`} title="Apri e modifica il contatto">
+                        <div className="cella-nome">{c.nome ?? "—"}</div>
                       </a>
-                    ) : (
-                      <div className="cella-nome">{c.nome ?? "—"}</div>
-                    )}
+                      {c.hubspotId && (
+                        <a href={linkContattoHubspot(c.hubspotId)} target="_blank" rel="noreferrer" title="Apri in HubSpot">
+                          ↗
+                        </a>
+                      )}
+                    </span>
                   </td>
                   <td className="cella-muta">{c.ruolo ?? "—"}</td>
                   <td className="cella-muta">

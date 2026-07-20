@@ -13,7 +13,7 @@ const PER_PAGINA = 60;
 const affiliatoReseller = (interessi: string[]) =>
   interessi.includes("affiliazione") || interessi.includes("vendor");
 
-type Ricerca = { q?: string; fonte?: string; pagina?: string };
+type Ricerca = { q?: string; fonte?: string; pagina?: string; salvato?: string; eliminato?: string };
 
 export default async function Contatti({ searchParams }: { searchParams: Promise<Ricerca> }) {
   const filtri = await searchParams;
@@ -104,6 +104,9 @@ export default async function Contatti({ searchParams }: { searchParams: Promise
           <div className="sync-kpi"><div className="sync-kpi-valore">{conEmail}</div><div className="sync-kpi-etichetta">Con email</div></div>
           <div className="sync-kpi"><div className="sync-kpi-valore">{daHubspot}</div><div className="sync-kpi-etichetta">Da HubSpot</div></div>
         </div>
+
+        {filtri.salvato && <div className="match-esito ok" style={{ marginBottom: 12 }}>Contatto salvato ✓</div>}
+        {filtri.eliminato && <div className="match-esito warn" style={{ marginBottom: 12 }}>Contatto eliminato</div>}
 
         <form className="filtri" method="get" action="/contatti">
           <input

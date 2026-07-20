@@ -73,7 +73,9 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   KPI, funnel per stato, interessi, tipologie/regioni/città, contatti per mese, qualità dati.
 - **`/contatti`** — rubrica di tutti i referenti (Excel + HubSpot), ricerca, filtro fonte,
   colonna **Azienda** (link alla scheda), telefoni cliccabili (`tel:` → avvia la chiamata),
-  colonna **Google** («Salva in Google» via People API + fallback .vcf), link al contatto HubSpot.
+  colonna **Google** («Salva in Google» via People API + fallback .vcf), link al contatto HubSpot (↗).
+- **`/contatti/:id`** — scheda del referente (click sul nome in /contatti): modifica
+  nome/ruolo/telefono/email (`aggiornaContatto`) ed eliminazione (`eliminaContatto`).
 - **`/sync-hubspot`** — confronto registro ↔ companies HubSpot (match per nome normalizzato +
   riferimenti): riepilogo, liste "solo HubSpot"/"solo registro"/"in entrambi", ricerca+ordinamenti,
   **⇄ riconcilia** (crea xref hubspot), **＋ importa** company come prospect DA CLASSIFICARE.

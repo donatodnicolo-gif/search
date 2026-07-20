@@ -226,6 +226,40 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
   redirect(`/partner/${partnerId}`);
 }
 
+// Salvataggio della scheda contatto (/contatti/:id): aggiorna il singolo
+// referente senza passare dal form completo dell'anagrafica.
+export async function aggiornaContatto(contattoId: string, fd: FormData) {
+  const testo = (k: string) => {
+    const v = String(fd.get(k) ?? "").trim();
+    return v || null;
+  };
+  const c = await prisma.contatto.update({
+    where: { id: contattoId },
+    data: {
+      ruolo: testo("ruolo")?.toUpperCase() ?? null,
+      nome: testo("nome"),
+      telefono: testo("telefono"),
+      email: testo("email"),
+    },
+    select: { partnerId: true },
+  });
+  revalidatePath("/contatti");
+  revalidatePath(`/partner/${c.partnerId}`);
+  redirect("/contatti?salvato=1");
+}
+
+// Elimina un referente dalla scheda contatto (il form chiede conferma via
+// campo dedicato: il bottone è separato dal salvataggio).
+export async function eliminaContatto(contattoId: string) {
+  const c = await prisma.contatto.delete({
+    where: { id: contattoId },
+    select: { partnerId: true },
+  });
+  revalidatePath("/contatti");
+  revalidatePath(`/partner/${c.partnerId}`);
+  redirect("/contatti?eliminato=1");
+}
+
 // Risolve a mano una richiesta di aggancio: collega l'anagrafica scelta e,
 // se la richiesta porta l'id dell'app, crea il riferimento esterno — così
 // quell'app da lì in poi risolve per id.
