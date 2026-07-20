@@ -775,6 +775,19 @@ input:focus, select:focus, textarea:focus {
   .page-head { margin-bottom: 14px; }
   .assistente { display: none; }
   /* I filtri e le priorità restano su una fascia scorrevole, senza mangiare
-     tre righe di altezza. */
-  .page-actions.filters { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+     tre righe di altezza. Va da bordo a bordo dello schermo, così si capisce
+     che continua invece di sembrare tagliata a metà. */
+  .page-actions.filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: calc(100% + 32px);
+    margin: 0 -16px;
+    padding: 2px 16px 2px;
+    /* La barra di scorrimento su un nastro di pillole è solo rumore. */
+    scrollbar-width: none;
+  }
+  .page-actions.filters::-webkit-scrollbar { display: none; }
+  /* Senza questo le pillole si stringono e il testo va a capo ("Non letti"). */
+  .page-actions.filters > * { flex: 0 0 auto; white-space: nowrap; }
 }
