@@ -1971,6 +1971,41 @@ resultsEl.addEventListener('click', e=>{
    Comunica al registro anagrafiche che la scheda Google e un contatto esistente sono la
    stessa realtà: /api/riconcilia registra il riferimento (place_id) e fonde i dati freschi. */
 let lastAnagList = [];   // contatti del registro trovati dall'ultima ricerca (candidati)
+// Porta sulla scheda Google i contatti che ABBIAMO GIÀ nel registro: telefono con
+// pulsante d'invio WhatsApp diretto, email, referenti. Dedupe con i numeri/email
+// già mostrati dalla scheda (confronto sulle ultime 9 cifre).
+function telDigits(t){ return String(t||'').replace(/[^\d]/g,''); }
+function enrichCardWithRegistry(card, p){
+  if(!p || card.dataset.enriched) return;
+  card.dataset.enriched = '1';
+  const contacts = card.querySelector('.contacts'); if(!contacts) return;
+  const rows = [], sendRows = [];
+  const giaTel = new Set([...card.querySelectorAll('a.tel, a.wa')]
+    .map(a=>telDigits(a.getAttribute('href')).slice(-9)).filter(Boolean));
+  const addTel = (tel, chi)=>{
+    const d = telDigits(tel);
+    if(d.length < 8 || giaTel.has(d.slice(-9))) return;
+    giaTel.add(d.slice(-9));
+    rows.push(`<a class="tel" href="tel:${esc(tel)}">📞 ${esc(tel)}${chi?' · '+esc(chi):''}</a>`
+            + `<a class="wa" href="${waChatUrl(d)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+    sendRows.push(`<button class="sendorder" data-phone="${d}" data-lang="${card.dataset.lang||'it'}">📤 Invia richiesta su WhatsApp — numero del registro${chi?' ('+esc(chi)+')':''}</button>`);
+  };
+  addTel(p.telefono, '');
+  (p.contatti||[]).forEach(ct=> addTel(ct.telefono, ct.nome||ct.ruolo||''));
+  const giaMail = new Set([...card.querySelectorAll('a.mail')]
+    .map(a=>(a.getAttribute('href')||'').replace('mailto:','').toLowerCase()));
+  const addMail = em=>{
+    if(!em || giaMail.has(String(em).toLowerCase())) return;
+    giaMail.add(String(em).toLowerCase());
+    rows.push(`<a class="mail" href="mailto:${esc(em)}">✉️ ${esc(em)}</a>`);
+    if(!card.querySelector('.sendemail')) sendRows.push(`<button class="sendemail" data-email="${esc(em)}">📧 Invia richiesta via email — dal registro</button>`);
+  };
+  addMail(p.email);
+  (p.contatti||[]).forEach(ct=> addMail(ct.email));
+  if(!rows.length) return;
+  contacts.insertAdjacentHTML('afterend',
+    `<div class="contacts" style="margin-top:8px"><span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)">🗂 dal registro</span>${rows.join('')}</div>${sendRows.join('')}`);
+}
 function apriRiconcilia(btn){
   const card = btn.closest('.shop');
   const panel = card.querySelector('.recon-panel');
@@ -2022,6 +2057,15 @@ async function eseguiRiconcilia(btn){
     if(col && !card.querySelector('.badge-recon')) col.insertAdjacentHTML('afterbegin',
       '<span class="badge badge-recon" style="color:var(--green); background:rgba(36,138,61,.1)">🔗 nel registro</span>');
     logEvento({ tipo:'segnalazione', esito:'riconciliato con «'+(scelto.nome||partnerId)+'» (registro)', negozio: negozioDaScheda(card) });
+    // contatti del registro sulla scheda (telefono → WhatsApp diretto, email, referenti)
+    enrichCardWithRegistry(card, j.partner || scelto);
+    // riconciliato = fornitore nostro: va anche in rubrica (dedupe/OAuth/vcf li gestisce saveContact)
+    const sc = card.querySelector('.savecontact');
+    if(sc && !sc.disabled){
+      const cd = CARD_DATA[pid], reg = j.partner || scelto;
+      if(cd && !cd.telefono && reg.telefono) cd.telefono = reg.telefono;
+      saveContact(sc);
+    }
   }catch(err){
     btn.disabled = false;
     msg.innerHTML = '<span style="color:var(--red)">❌ '+esc(err.message)+'</span>';
@@ -2345,6 +2389,7 @@ async function run(){
         if(!p) return;
         matchedIds.add(p.id);
         cardEl.dataset.regId = p.id;   // candidato preselezionato per «Riconcilia»
+        enrichCardWithRegistry(cardEl, p);   // telefono/email del registro → WhatsApp diretto
         const isPartner = isPartnerAttivo(p);
         if(isPartner) cardEl.classList.add('matched-partner');
         const col = cardEl.querySelector('.head > div');
