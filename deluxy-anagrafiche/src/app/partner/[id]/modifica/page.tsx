@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { aggiornaPartner } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
+import { datiFinanziariCondivisi } from "@/lib/insegna";
 
 export const dynamic = "force-dynamic";
 
@@ -44,10 +45,24 @@ export default async function Modifica({
   const { id } = await params;
   const sp = await searchParams;
   const [p, categorie] = await Promise.all([
-    prisma.partner.findUnique({ where: { id }, include: { contatti: true } }),
+    prisma.partner.findUnique({ where: { id }, include: { contatti: true, capogruppo: { select: { nome: true } } } }),
     prisma.partner.groupBy({ by: ["categoria"], where: { attivo: true }, orderBy: { categoria: "asc" } }),
   ]);
   if (!p) notFound();
+
+  // Dati finanziari condivisi dall'insegna: si compilano una volta e valgono
+  // per tutte le sedi della stessa società.
+  const fin = await datiFinanziariCondivisi(p);
+  const haSedi = await prisma.partner.count({
+    where: {
+      attivo: true,
+      NOT: { id: p.id },
+      OR: [
+        { nome: { equals: (p.capogruppo?.nome ?? p.nome).trim(), mode: "insensitive" } },
+        { capogruppoId: p.id },
+      ],
+    },
+  });
 
   // Referenti esistenti più due righe vuote per aggiungerne
   const righe = [...p.contatti, ...Array.from({ length: 2 }, () => null)];
@@ -100,8 +115,8 @@ export default async function Modifica({
                 <input id="email" name="email" type="email" defaultValue={p.email ?? ""} />
               </Campo>
               <Campo etichetta="Telefono" nome="telefono" valore={p.telefono} />
-              <Campo etichetta="P. IVA" nome="pIva" valore={p.pIva} />
-              <Campo etichetta="Codice fiscale" nome="codiceFiscale" valore={p.codiceFiscale} />
+              <Campo etichetta="P. IVA" nome="pIva" valore={fin.pIva} />
+              <Campo etichetta="Codice fiscale" nome="codiceFiscale" valore={fin.codiceFiscale} />
               <Campo etichetta="Account commerciale" nome="account" valore={p.account} />
               <Campo etichetta="Ultimo contatto" nome="ultimaVisita">
                 <input
@@ -121,23 +136,29 @@ export default async function Modifica({
             <h2 className="scheda-titolo">
               Dati finanziari <span className="scheda-sub">fatturazione e pagamenti</span>
             </h2>
+            {haSedi > 0 && (
+              <p className="testo-guida" style={{ marginTop: 0 }}>
+                Sono i dati di fatturazione della società: salvandoli valgono per tutte le{" "}
+                {haSedi + 1} sedi di questa insegna.
+              </p>
+            )}
             <div className="modulo">
               <Campo etichetta="PEC" nome="pec">
-                <input id="pec" name="pec" type="email" defaultValue={p.pec ?? ""} />
+                <input id="pec" name="pec" type="email" defaultValue={fin.pec ?? ""} />
               </Campo>
-              <Campo etichetta="Codice SDI" nome="codiceSdi" valore={p.codiceSdi} />
-              <Campo etichetta="IBAN" nome="iban" valore={p.iban} largo />
-              <Campo etichetta="Banca" nome="banca" valore={p.banca} />
-              <Campo etichetta="Metodo di pagamento" nome="metodoPagamento" valore={p.metodoPagamento} />
-              <Campo etichetta="Condizioni di pagamento" nome="condizioniPagamento" valore={p.condizioniPagamento} />
-              <Campo etichetta="Contatto amministrativo" nome="amministrazioneNome" valore={p.amministrazioneNome} />
-              <Campo etichetta="Telefono amministrazione" nome="amministrazioneTelefono" valore={p.amministrazioneTelefono} />
+              <Campo etichetta="Codice SDI" nome="codiceSdi" valore={fin.codiceSdi} />
+              <Campo etichetta="IBAN" nome="iban" valore={fin.iban} largo />
+              <Campo etichetta="Banca" nome="banca" valore={fin.banca} />
+              <Campo etichetta="Metodo di pagamento" nome="metodoPagamento" valore={fin.metodoPagamento} />
+              <Campo etichetta="Condizioni di pagamento" nome="condizioniPagamento" valore={fin.condizioniPagamento} />
+              <Campo etichetta="Contatto amministrativo" nome="amministrazioneNome" valore={fin.amministrazioneNome} />
+              <Campo etichetta="Telefono amministrazione" nome="amministrazioneTelefono" valore={fin.amministrazioneTelefono} />
               <Campo etichetta="Email amministrazione" nome="amministrazioneEmail">
                 <input
                   id="amministrazioneEmail"
                   name="amministrazioneEmail"
                   type="email"
-                  defaultValue={p.amministrazioneEmail ?? ""}
+                  defaultValue={fin.amministrazioneEmail ?? ""}
                 />
               </Campo>
               <Campo etichetta="Note amministrative" nome="noteAmministrative" largo>
@@ -145,7 +166,7 @@ export default async function Modifica({
                   id="noteAmministrative"
                   name="noteAmministrative"
                   rows={3}
-                  defaultValue={p.noteAmministrative ?? ""}
+                  defaultValue={fin.noteAmministrative ?? ""}
                 />
               </Campo>
             </div>

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
+import { propagaDatiFinanziari } from "./insegna";
 import { isInteresse } from "./interessi";
 import { isStato } from "./stati";
 import { ARCHIVIATA, registraPassaggio } from "./storico";
@@ -238,6 +239,9 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
       contatti: { deleteMany: {}, create: contatti },
     },
   });
+  // La fatturazione è della società: propaga i dati finanziari a tutte le sedi
+  // della stessa insegna, così restano un unico set condiviso.
+  await propagaDatiFinanziari(partnerId);
   revalidatePath("/");
   revalidatePath(`/partner/${partnerId}`);
   redirect(`/partner/${partnerId}`);

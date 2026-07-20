@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato, raggruppaSotto, staccaContatto } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
+import { datiFinanziariCondivisi } from "@/lib/insegna";
 import { ETICHETTE_STATO, isStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,11 @@ export default async function Dettaglio({
     },
   });
   if (!p) notFound();
+
+  // Fatturazione a livello di società: i dati finanziari sono condivisi da
+  // tutte le sedi della stessa insegna (non del singolo record).
+  const fin = await datiFinanziariCondivisi(p);
+  const haSedi = p.sedi.length > 0 || Boolean(p.capogruppo);
 
   // Appena diventata cliente: i referenti vanno in rubrica Google in automatico
   const affiliatoReseller = p.interessi.includes("affiliazione") || p.interessi.includes("vendor");
@@ -156,8 +162,8 @@ export default async function Dettaglio({
         <h2 className="scheda-titolo">Anagrafica</h2>
         <dl className="griglia-campi">
           <Campo etichetta="Ragione sociale" valore={p.ragioneSociale} />
-          <Campo etichetta="P. IVA" valore={p.pIva} />
-          <Campo etichetta="Codice fiscale" valore={p.codiceFiscale} />
+          <Campo etichetta="P. IVA" valore={fin.pIva} />
+          <Campo etichetta="Codice fiscale" valore={fin.codiceFiscale} />
           <Campo etichetta="Indirizzo" valore={p.indirizzo} />
           <Campo etichetta="Città" valore={p.citta} />
           <Campo etichetta="Provincia" valore={p.provincia} />
@@ -180,11 +186,14 @@ export default async function Dettaglio({
 
       <section className="scheda">
         <h2 className="scheda-titolo">
-          Dati finanziari <span className="scheda-sub">fatturazione e pagamenti</span>
+          Dati finanziari{" "}
+          <span className="scheda-sub">
+            fatturazione e pagamenti{haSedi ? " · condivisi con le sedi dell'insegna" : ""}
+          </span>
         </h2>
-        {[p.ragioneSociale, p.pIva, p.codiceFiscale, p.pec, p.codiceSdi, p.iban, p.banca,
-          p.metodoPagamento, p.condizioniPagamento, p.noteAmministrative,
-          p.amministrazioneNome, p.amministrazioneTelefono, p.amministrazioneEmail,
+        {[p.ragioneSociale, fin.pIva, fin.codiceFiscale, fin.pec, fin.codiceSdi, fin.iban, fin.banca,
+          fin.metodoPagamento, fin.condizioniPagamento, fin.noteAmministrative,
+          fin.amministrazioneNome, fin.amministrazioneTelefono, fin.amministrazioneEmail,
         ].every((v) => !v) ? (
           <p className="testo-guida" style={{ margin: 0 }}>
             Nessun dato finanziario ancora inserito — compila con ✎ Modifica.
@@ -192,18 +201,18 @@ export default async function Dettaglio({
         ) : (
           <dl className="griglia-campi">
             <Campo etichetta="Ragione sociale" valore={p.ragioneSociale} />
-            <Campo etichetta="P. IVA" valore={p.pIva} />
-            <Campo etichetta="Codice fiscale" valore={p.codiceFiscale} />
-            <Campo etichetta="PEC" valore={p.pec} />
-            <Campo etichetta="Codice SDI" valore={p.codiceSdi} />
-            <Campo etichetta="IBAN" valore={p.iban} largo />
-            <Campo etichetta="Banca" valore={p.banca} />
-            <Campo etichetta="Metodo di pagamento" valore={p.metodoPagamento} />
-            <Campo etichetta="Condizioni di pagamento" valore={p.condizioniPagamento} />
-            <Campo etichetta="Contatto amministrativo" valore={p.amministrazioneNome} />
-            <Campo etichetta="Telefono amministrazione" valore={p.amministrazioneTelefono} />
-            <Campo etichetta="Email amministrazione" valore={p.amministrazioneEmail} />
-            <Campo etichetta="Note amministrative" valore={p.noteAmministrative} largo />
+            <Campo etichetta="P. IVA" valore={fin.pIva} />
+            <Campo etichetta="Codice fiscale" valore={fin.codiceFiscale} />
+            <Campo etichetta="PEC" valore={fin.pec} />
+            <Campo etichetta="Codice SDI" valore={fin.codiceSdi} />
+            <Campo etichetta="IBAN" valore={fin.iban} largo />
+            <Campo etichetta="Banca" valore={fin.banca} />
+            <Campo etichetta="Metodo di pagamento" valore={fin.metodoPagamento} />
+            <Campo etichetta="Condizioni di pagamento" valore={fin.condizioniPagamento} />
+            <Campo etichetta="Contatto amministrativo" valore={fin.amministrazioneNome} />
+            <Campo etichetta="Telefono amministrazione" valore={fin.amministrazioneTelefono} />
+            <Campo etichetta="Email amministrazione" valore={fin.amministrazioneEmail} />
+            <Campo etichetta="Note amministrative" valore={fin.noteAmministrative} largo />
           </dl>
         )}
       </section>

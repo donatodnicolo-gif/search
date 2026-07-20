@@ -113,7 +113,17 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   maiuscolo), banca, metodo/condizioni di pagamento, note amministrative e **contatto
   amministrativo** (nome/telefono/email) — campi omonimi su `Partner`, mostrati nella scheda
   nella sezione «Dati finanziari» (con P.IVA/CF/ragione sociale ripetuti lì per completezza).
-  Curati solo dalla UI: le API esterne non li scrivono.
+  Curati solo dalla UI: le API esterne non li scrivono. **Non ancora esposti in lettura via
+  API** (serializzaPartner espone solo pIva/codiceFiscale) — passo successivo se serve a
+  deluxy-partner.
+  **Condivisi a livello di insegna** (`src/lib/insegna.ts`, `CAMPI_FINANZIARI` = pIva,
+  codiceFiscale, pec, codiceSdi, iban, banca, metodo/condizioni pagamento, note ammin.,
+  contatto ammin.): la fatturazione è della società, non della singola sede. La scheda e il
+  form li leggono via `datiFinanziariCondivisi` (merge per campo tra le sedi della stessa
+  insegna = stesso nome, o sedi collegate a mano alla madre con quel nome); al salvataggio
+  `aggiornaPartner` chiama `propagaDatiFinanziari` che li copia su tutte le sedi (updateMany).
+  Compili una volta su una sede → valgono per Milano/Roma/Capri. NON condivisi: ragioneSociale,
+  indirizzo, città, telefono/email, stato, interessi, referenti (restano per-sede).
 - **Sidebar** a sezioni espandibili (Registro·Tipologie·Stati·Interessi·Archivio·Sync), toggle a
   scomparsa (☰), preferenze in localStorage.
 
