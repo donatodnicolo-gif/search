@@ -1,6 +1,6 @@
 # Deluxy Partner — Handoff / Stato del prodotto
 
-**Ultimo aggiornamento:** 20 luglio 2026 (nuova sezione Pro-forma) · branch `scout-ui` (origin).
+**Ultimo aggiornamento:** 20 luglio 2026 (pro-forma, contatto amministrativo, emissione FIC, cron Qonto, fix regione) · branch `scout-ui` (origin).
 Questo è il documento "parti da qui": stato reale del prodotto, funzioni, API, integrazioni, dati e come lavorarci. La fonte di verità funzionale storica resta [PROGETTO.md](PROGETTO.md); questo file è il quadro corrente più completo.
 
 ---
@@ -71,20 +71,23 @@ Convenzione bonifici: `> 0` inviato al partner, `< 0` ricevuto. `RiepilogoMese` 
 | Route | Cosa fa |
 |---|---|
 | `/` Dashboard | KPI anno + bonifici da fare + fatture scadute; bottone "Paga" rapido |
-| `/partner`, `/partner/[id]`, `/partner/nuovo`, `/partner/[id]/modifica` | Lista (con totale e delta vs 2025), scheda con Recap AI, anagrafica centralizzata, Fee nel tempo, Rolling, movimenti mensili con registrazione pagamenti e note, totale YTD |
+| `/partner`, `/partner/[id]`, `/partner/nuovo`, `/partner/[id]/modifica` | Lista (con totale e delta vs 2025), scheda con Recap AI, anagrafica centralizzata, **contatto amministrativo** (campi `amm*`, importabile dal registro Anagrafiche) con **elenco fatture aperte e invio sollecito diretto**, Fee nel tempo, Rolling, movimenti mensili con registrazione pagamenti e note, totale YTD |
 | `/fatture`, `/fatture/[id]`, `/fatture/nuova` | Servizi a fatturazione; scheda record editabile; tipologia obbligatoria dal "Piano per Area" |
 | `/vendite`, `/vendite/[id]`, `/vendite/nuova` | Vendite come vendor; scheda con modifica fee/incasso |
 | `/proforma`, `/proforma/nuova`, `/proforma/[id]`, `/proforma/[id]/modifica`, `/proforma/[id]/invia` | **Pro-forma ad hoc**: righe libere con totali live, numerazione `PF n/anno` per anno, documento stampabile (Stampa/PDF del browser, `@media print`), invio email (SMTP o mailto, testo precompilato modificabile). Stati: bozza → inviata → **fatturata** (con n° fattura definitiva) oppure **annullata**; bozze modificabili/eliminabili, stati sempre reversibili. Intestazione mittente da Impostazioni → "Intestazione documenti" (chiavi `azienda.*`). Logica: `src/lib/proforma.ts` + `proforma-actions.ts`, editor righe `RigheProForma.tsx` |
 | `/saldi` | Riconciliazione mensile per partner, export SEPA/CSV |
 | `/transazioni` | **Import transazioni**: upload CSV/XLSX (parser tollerante, incluso Vivid) o **Sincronizza da Qonto**; riconciliazione con match a 1 click, discrepanze, non riconosciute, ricerca morbida, "attesi mancanti" |
-| `/scadenzario` | Fatture da incassare (con "Invia sollecito" + "Emetti su FIC"), bonifici pendenti, commissioni da emettere |
+| `/scadenzario` | Fatture da incassare (con "Invia sollecito" + "Emetti su FIC"), bonifici pendenti, commissioni da emettere. **Ricerca** (partner/n. fattura/tipologia/IBAN) su tutte e tre le tabelle e **colonne ordinabili indipendenti** per tabella (default: nome partner) |
 | `/report`, `/confronti`, `/analisi` | Report per tipologia/città/categoria + forecast; Confronti 2026 vs 2025 (mese/trimestre/anno/personalizzato); Analisi finanziaria per scadenza con split saldato/da saldare e liquidità Qonto live |
 | `/fic/emetti` | Emissione fattura commissioni su Fatture in Cloud (non inviata allo SDI; numero di ritorno) |
+| `/fic/fattura?proforma=<id>` \| `?fattura=<id>` | **Emissione fattura vera su FIC** da una pro-forma (che passa a `fatturata`) o da una fattura servizi senza numero (che riceve numero ed emissione). Anteprima righe, cliente FIC preselezionato per somiglianza, scadenza; supporta più righe e aliquote ≠ 22% (mappate da `/info/vat_types`; se il permesso manca si ferma con messaggio esplicito invece di applicare l'IVA sbagliata) |
 | `/solleciti/[id]` | Anteprima e invio sollecito di pagamento (SMTP o mailto) |
 | `/impostazioni` | Ordinante SEPA, SMTP (Register.it), Qonto, Fatture in Cloud (Collega OAuth), accesso |
 | `/verifiche` | Gestione chiave API pubblica + documentazione + storico richieste |
 
-Sidebar riducibile a icone (preferenza in localStorage).
+Sidebar riducibile a icone (preferenza in localStorage), con sezione **Registrazioni** → sottomenu Fatture (Servizi a fatturazione / Pro-forma) e Vendite come vendor.
+
+**Prestazioni**: le funzioni girano in `fra1` (Francoforte) accanto al Postgres Supabase — `vercel.json`. Prima erano su `iad1` (Washington) e ogni query attraversava l'Atlantico: era **quella** la causa della lentezza (2,3 s per le 4 query del riepilogo, con soli 2 ms di elaborazione). Se si tocca la regione o si migra il DB, tenerli nella stessa area.
 
 ## 7. API pubbliche (per gli altri progetti Deluxy)
 
@@ -100,7 +103,7 @@ Esiti: 200 trovato · 404 non trovato (con `candidati`) · 401 chiave errata · 
 
 ## 8. Integrazioni (stato)
 
-- **Qonto** ✅ collegato (org DELUXY S.R.L., 2 conti). API terze parti a chiave (`qonto.*` nel DB). "Sincronizza da Qonto" in `/transazioni` scarica i movimenti completati (dedup per hash). `src/lib/qonto.ts`.
+- **Qonto** ✅ collegato (org DELUXY S.R.L., 2 conti). API terze parti a chiave (`qonto.*` nel DB). "Sincronizza da Qonto" in `/transazioni` scarica i movimenti completati (dedup per hash). **Sincronizzazione automatica**: cron Vercel `/api/cron/qonto` ogni notte alle 5 (`vercel.json`), protetto da `CRON_SECRET` (senza segreto → 503). Scarica soltanto: **nessuna registrazione automatica**, i match restano da confermare in `/transazioni`; data/ora dell'ultimo scarico in `qonto.ultimaSync`, mostrata in pagina. `src/lib/qonto.ts`, `src/lib/transazioni-actions.ts` (`scaricaMovimentiQonto`).
 - **Fatture in Cloud** ✅ collegato (app "FINANCE", azienda "Deluxy srl", id 712328). OAuth con refresh automatico (`fic.*` nel DB). Emissione fatture commissioni non-SDI con numero di ritorno; lettura clienti e fatture. `src/lib/fic.ts`.
 - **OpenAI** ✅ Recap AI nella scheda partner (`/api/recap`, `src/lib/recap.ts`). Note mensili incluse nel prompt.
 - **SMTP solleciti** (Register.it): preset `authsmtp.deluxy.it:587`, utente `smtp@deluxy.it`; **manca password + mittente** (da inserire in Impostazioni). `src/lib/mail.ts`.
