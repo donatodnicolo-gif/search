@@ -118,6 +118,7 @@ const sections: { label: string; items: Item[] }[] = [
     items: [
       { href: "/registrazioni/fatture", label: "Fatture", icon: icons.fattura },
       { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
+      { href: "/registrazioni/riconciliazione", label: "Riconciliazione clienti", icon: icons.confronti },
     ],
   },
   {

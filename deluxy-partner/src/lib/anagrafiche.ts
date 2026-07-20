@@ -102,3 +102,63 @@ export async function risolviAnagrafica(
   }
   return cercaAnagrafica(nome);
 }
+
+// ————— Scrittura sul registro (riconciliazione confermata dall'operatore) —————
+// Il registro è la fonte di verità e accetta scritture multi-sorgente con merge
+// per campo (i campi curati dal team restano bloccati). Questa app scrive SOLO
+// su conferma esplicita per record, con una chiave DEDICATA di scrittura
+// (ANAGRAFICHE_WRITE_KEY, diversa da quella di lettura). Senza chiave la
+// scrittura è disattivata e la conferma lo segnala.
+
+export function scritturaAnagraficheAttiva(): boolean {
+  return Boolean(process.env.ANAGRAFICHE_WRITE_KEY);
+}
+
+// Campi anagrafici che la riconciliazione FIC può proporre al registro.
+export type CampiAnagrafica = Partial<{
+  pIva: string;
+  codiceFiscale: string;
+  indirizzo: string;
+  citta: string;
+  provincia: string;
+  email: string;
+  ragioneSociale: string;
+}>;
+
+// Aggiorna un partner nel registro (PATCH per id) con i campi confermati.
+// `asOf` = quando il dato era vero (ora): il merge applica il più fresco.
+export async function aggiornaAnagrafica(
+  anagraficaId: string,
+  campi: CampiAnagrafica
+): Promise<{ ok: true } | { ok: false; errore: string }> {
+  const key = process.env.ANAGRAFICHE_WRITE_KEY;
+  if (!key) {
+    return { ok: false, errore: "Scrittura su Anagrafiche non configurata (manca ANAGRAFICHE_WRITE_KEY)." };
+  }
+  const puliti = Object.fromEntries(
+    Object.entries(campi).filter(([, v]) => v != null && String(v).trim() !== "")
+  );
+  if (Object.keys(puliti).length === 0) {
+    return { ok: false, errore: "Nessun campo da aggiornare." };
+  }
+  try {
+    const res = await fetch(`${urlAnagrafiche()}/api/v1/partners/${encodeURIComponent(anagraficaId)}`, {
+      method: "PATCH",
+      headers: { "x-api-key": key, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...puliti,
+        sistema: "deluxy-partner",
+        fonte: "deluxy-partner",
+        asOf: new Date().toISOString(),
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      return { ok: false, errore: `Registro ha risposto ${res.status}: ${t.slice(0, 160)}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, errore: `Registro non raggiungibile: ${(e as Error).message}` };
+  }
+}

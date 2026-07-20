@@ -218,6 +218,21 @@ model PagamentoDiretto {
   @@index([stato, createdAt])
 }
 
+// Esito della riconciliazione di un cliente Fatture in Cloud con un partner /
+// registro Anagrafiche. Traccia cosa è stato confermato (e inviato al registro)
+// o ignorato, per non riproporlo e per audit. Chiave = nome cliente FIC.
+model RiconciliazioneAnagrafica {
+  id           String   @id @default(cuid())
+  ficNome      String   @unique
+  partnerId    String?
+  anagraficaId String?
+  stato        String // confermata | ignorata
+  campiInviati String? // riepilogo dei campi proposti al registro
+  esito        String? // ok | messaggio d'errore dell'ultimo invio
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 // Impostazioni dell'app (chiave/valore): dati ordinante SEPA, preferenze
 model Impostazione {
   chiave String @id

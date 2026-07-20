@@ -211,6 +211,76 @@ export async function ficFatture(opts?: {
   return out;
 }
 
+// Cliente FIC con i dati fiscali completi (per la riconciliazione anagrafica).
+export type FicClienteFiscale = {
+  nome: string;
+  piva: string | null;
+  codiceFiscale: string | null;
+  indirizzo: string | null;
+  citta: string | null;
+  cap: string | null;
+  provincia: string | null;
+  email: string | null;
+};
+
+function normPiva(v: string | null | undefined): string | null {
+  const s = (v ?? "").replace(/\s/g, "").replace(/^IT/i, "").trim();
+  return s || null;
+}
+
+// Elenco dei clienti FIC con dati fiscali, unendo rubrica e intestatari delle
+// fatture emesse (dedup per nome). Serve alla riconciliazione col registro.
+export async function ficClientiFiscali(): Promise<FicClienteFiscale[]> {
+  const { companyId } = await ficStato();
+  if (!companyId) throw new Error("Fatture in Cloud non collegato.");
+  const perNome = new Map<string, FicClienteFiscale>();
+  const chiave = (n: string) => n.trim().toLowerCase().replace(/\s+/g, " ");
+  const aggiungi = (e: FicEntity | undefined) => {
+    const nome = e?.name?.trim();
+    if (!nome) return;
+    const k = chiave(nome);
+    const esistente = perNome.get(k);
+    const nuovo: FicClienteFiscale = {
+      nome,
+      piva: normPiva(e?.vat_number),
+      codiceFiscale: e?.tax_code?.trim() || null,
+      indirizzo: e?.address_street?.trim() || null,
+      citta: e?.address_city?.trim() || null,
+      cap: e?.address_postal_code?.trim() || null,
+      provincia: e?.address_province?.trim() || null,
+      email: null,
+    };
+    // preferisci l'entry più completa (più campi valorizzati)
+    if (!esistente) perNome.set(k, nuovo);
+    else {
+      const conta = (x: FicClienteFiscale) => Object.values(x).filter(Boolean).length;
+      if (conta(nuovo) > conta(esistente)) perNome.set(k, nuovo);
+    }
+  };
+
+  // rubrica (con indirizzo/email)
+  const rubrica = await ficFetch<{ data: (FicEntity & { email?: string | null })[] }>(
+    `/c/${companyId}/entities/clients?fields=name,vat_number,tax_code,address_street,address_city,address_postal_code,address_province,email&per_page=100&page=1`
+  );
+  for (const e of rubrica.data ?? []) {
+    aggiungi(e);
+    const k = chiave(e.name ?? "");
+    const cur = perNome.get(k);
+    if (cur && e.email?.trim()) cur.email = e.email.trim();
+  }
+
+  // intestatari dalle fatture (anche non in rubrica)
+  for (let page = 1; page <= 20; page++) {
+    const r = await ficFetch<{ data: { entity?: FicEntity }[]; last_page?: number }>(
+      `/c/${companyId}/issued_documents?type=invoice&fields=entity&per_page=100&sort=-date&page=${page}`
+    );
+    for (const d of r.data) aggiungi(d.entity);
+    if (!r.last_page || page >= r.last_page) break;
+  }
+
+  return [...perNome.values()].sort((a, b) => a.nome.localeCompare(b.nome, "it"));
+}
+
 // Un intestatario selezionabile per una nuova fattura. `valore` distingue la
 // fonte: "id:<n>" = cliente in rubrica; "nome:<nome>" = intestatario già usato
 // in una fattura passata ma non salvato in rubrica (i dati fiscali si
