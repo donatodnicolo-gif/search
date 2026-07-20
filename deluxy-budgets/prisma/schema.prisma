@@ -100,6 +100,18 @@ model TargetLinea {
   @@unique([year, lineaId, month])
 }
 
+// Team aziendale (Commerciale, Operations, Marketing…): raggruppa le persone
+// per leggere il costo del lavoro per squadra e sapere chi ne risponde.
+model Team {
+  id            String       @id @default(cuid())
+  nome          String       @unique
+  responsabile  String?
+  colore        String? // badge: green | gold | blue | purple | orange | neutral
+  ordine        Int          @default(0)
+  note          String?
+  persone       Dipendente[]
+}
+
 // Persone a costo: dipendenti (RAL + contributi), stagisti (rimborso) e
 // consulenti (compenso). `mesi` è la lista dei mesi in cui il costo c'è
 // davvero (assunzioni infra-anno, stage di 6 mesi, consulenze a progetto).
@@ -117,6 +129,9 @@ model Dipendente {
   mesi          String  @default("[1,2,3,4,5,6,7,8,9,10,11,12]") // JSON: mesi di competenza
   maisonId      String? // null = costo di struttura, non attribuito a una maison
   note          String?
+  // Sciogliere un team non deve cancellare le persone: restano senza team.
+  team          Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamId        String?
 }
 
 // Proposta di budget inviata da un utente di livello Responsabile.

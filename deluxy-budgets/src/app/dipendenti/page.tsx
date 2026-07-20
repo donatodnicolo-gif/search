@@ -21,6 +21,7 @@ export default async function Dipendenti() {
         year={dati.year}
         persone={dati.persone}
         maisons={dati.maisons.map((m) => ({ id: m.id, nome: m.nome }))}
+        team={dati.team.map((t) => ({ id: t.id, nome: t.nome, colore: t.colore }))}
       />
     </>
   );

@@ -22,6 +22,7 @@ function normalizza(body: Record<string, unknown>) {
     contributiPct: Math.min(200, Math.max(0, Number(body.contributiPct) || 0)),
     mesi: JSON.stringify(mesi),
     maisonId: body.maisonId ? String(body.maisonId) : null,
+    teamId: body.teamId ? String(body.teamId) : null,
     note: body.note ? String(body.note).trim() : null,
   };
 }

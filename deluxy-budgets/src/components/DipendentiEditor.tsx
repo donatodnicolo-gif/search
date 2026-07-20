@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { costoPersonaAnno, costoPersonaMese, lordoAnnuo, TIPI_PERSONA, type Persona } from "@/lib/calc";
 import { eur, MESI, pct } from "@/lib/format";
 
 type MaisonOpt = { id: string; nome: string };
+type TeamOpt = { id: string; nome: string; colore: string | null };
 
 const VUOTO = {
   id: "",
@@ -19,6 +21,7 @@ const VUOTO = {
   contributiPct: 38,
   mesi: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
   maisonId: "",
+  teamId: "",
   note: "",
 };
 
@@ -34,10 +37,12 @@ export function DipendentiEditor({
   year,
   persone,
   maisons,
+  team,
 }: {
   year: number;
   persone: Persona[];
   maisons: MaisonOpt[];
+  team: TeamOpt[];
 }) {
   const router = useRouter();
   const [form, setForm] = useState<typeof VUOTO | null>(null);
@@ -51,6 +56,7 @@ export function DipendentiEditor({
     costo: persone.filter((p) => p.tipo === t.key).reduce((s, p) => s + costoPersonaAnno(p), 0),
   }));
   const nomeMaison = (id: string | null) => maisons.find((m) => m.id === id)?.nome ?? "Struttura";
+  const teamDi = (id: string | null) => team.find((t) => t.id === id);
 
   function apriNuovo() {
     setErrore(null);
@@ -71,6 +77,7 @@ export function DipendentiEditor({
       contributiPct: p.contributiPct,
       mesi: p.mesi,
       maisonId: p.maisonId ?? "",
+      teamId: p.teamId ?? "",
       note: p.note ?? "",
     });
   }
@@ -94,6 +101,7 @@ export function DipendentiEditor({
         ...form,
         year,
         maisonId: form.maisonId || null,
+        teamId: form.teamId || null,
         ruolo: form.ruolo || null,
         note: form.note || null,
       }),
@@ -127,6 +135,7 @@ export function DipendentiEditor({
         contributiPct: form.contributiPct,
         mesi: form.mesi,
         maisonId: null,
+        teamId: null,
         note: null,
       }
     : null;
@@ -173,6 +182,7 @@ export function DipendentiEditor({
                 <tr>
                   <th>Nome</th>
                   <th>Tipo</th>
+                  <th>Team</th>
                   <th>Attribuzione</th>
                   <th className="num">Tabellare</th>
                   <th className="num">Superminimo</th>
@@ -198,6 +208,16 @@ export function DipendentiEditor({
                         <span className={`badge ${t?.badge ?? "neutral"}`}>
                           <span className="dot" />{t?.label ?? p.tipo}
                         </span>
+                      </td>
+                      <td>
+                        {teamDi(p.teamId) ? (
+                          <span className={`badge ${teamDi(p.teamId)!.colore ?? "neutral"}`}>
+                            <span className="dot" />
+                            {teamDi(p.teamId)!.nome}
+                          </span>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
                       </td>
                       <td className="muted">{nomeMaison(p.maisonId)}</td>
                       <td className="num">
@@ -233,7 +253,7 @@ export function DipendentiEditor({
                   );
                 })}
                 <tr className="tot">
-                  <td colSpan={6}>Totale costo del personale</td>
+                  <td colSpan={7}>Totale costo del personale</td>
                   <td className="num">{eur(persone.reduce((s, p) => s + lordoAnnuo(p), 0))}</td>
                   <td colSpan={3} />
                   <td className="num">{eur(totaleAnno)}</td>
@@ -357,6 +377,20 @@ export function DipendentiEditor({
                 value={form.contributiPct}
                 onChange={(e) => setForm({ ...form, contributiPct: Number(e.target.value) || 0 })}
               />
+            </div>
+            <div>
+              <label className="field-label">Team</label>
+              <select value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })}>
+                <option value="">Nessun team</option>
+                {team.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nome}</option>
+                ))}
+              </select>
+              {team.length === 0 && (
+                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>
+                  Nessun team ancora: creane uno in <Link href="/team" style={{ color: "var(--blue)" }}>Team</Link>.
+                </div>
+              )}
             </div>
             <div>
               <label className="field-label">Attribuzione</label>

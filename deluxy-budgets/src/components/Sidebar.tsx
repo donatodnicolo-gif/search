@@ -47,6 +47,14 @@ const icons = {
       <path d="m15.5 6.5 5-3.5M20.5 3l-3.6.4M20.5 3l.4 3.6" />
     </svg>
   ),
+  team: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <circle cx="12" cy="6" r="2.6" />
+      <circle cx="5.5" cy="17" r="2.6" />
+      <circle cx="18.5" cy="17" r="2.6" />
+      <path d="M12 8.6v3.4M12 12H7.2a1.7 1.7 0 0 0-1.7 1.7v.7M12 12h4.8a1.7 1.7 0 0 1 1.7 1.7v.7" />
+    </svg>
+  ),
   dipendenti: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <circle cx="9" cy="7.5" r="3.2" />
@@ -89,8 +97,14 @@ const sections: { label: string; items: Item[] }[] = [
     label: "Conti",
     items: [
       { href: "/pl", label: "P&L aziendale", icon: icons.pl },
-      { href: "/dipendenti", label: "Dipendenti", icon: icons.dipendenti },
       { href: "/spese", label: "Spese ADV", icon: icons.spese },
+    ],
+  },
+  {
+    label: "Organizzazione",
+    items: [
+      { href: "/dipendenti", label: "Dipendenti", icon: icons.dipendenti },
+      { href: "/team", label: "Team", icon: icons.team },
     ],
   },
   {

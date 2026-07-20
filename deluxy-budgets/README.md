@@ -17,6 +17,10 @@ pubblicato), *sfidante* e *irraggiungibile*.
   indicano **superminimo individuale** e **% di part-time**: il lordo effettivo è
   `(tabellare + superminimo) × % tempo`, riproporzionato come da CCNL, e gli oneri si
   applicano sopra. Il costo azienda entra automaticamente nel P&L, anche mese per mese.
+- **Team** (`/team`): le squadre aziendali (nome, responsabile, colore del badge, ordine)
+  con **organico e costo del lavoro per team**, il peso di ciascuna persona sul totale della
+  squadra e l'elenco di chi non è ancora assegnato. Le persone si assegnano dalla scheda in
+  Dipendenti. Sciogliere un team **non cancella le persone**: restano a budget senza team.
 - **Maison** (`/maison`, `/maison/[slug]`): per ogni brand (Deluxy.it, CakeDesign.me,
   Deluxyflowers.com, Business B2B, Experience) la vista mensile **D2C · Eventi · B2B
   (lead generation)** con selettore del livello.

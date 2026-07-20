@@ -35,6 +35,16 @@ export type Persona = {
   contributiPct: number;
   mesi: number[];
   maisonId: string | null;
+  teamId: string | null;
+  note: string | null;
+};
+
+export type TeamBudget = {
+  id: string;
+  nome: string;
+  responsabile: string | null;
+  colore: string | null;
+  ordine: number;
   note: string | null;
 };
 
@@ -53,16 +63,18 @@ export type DatiAnno = {
   scenari: { livello: Livello; moltiplicatore: number; premio: number; note: string | null }[];
   costi: { id: string; tipo: string; label: string; valore: number; maisonId: string | null }[];
   persone: Persona[];
+  team: TeamBudget[];
 };
 
 export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
-  const [maisons, entries, advs, scenari, costi, dipendenti] = await Promise.all([
+  const [maisons, entries, advs, scenari, costi, dipendenti, team] = await Promise.all([
     prisma.maison.findMany({ orderBy: { ordine: "asc" } }),
     prisma.budgetEntry.findMany({ where: { year } }),
     prisma.advPercent.findMany({ where: { year } }),
     prisma.scenarioConfig.findMany({ where: { year } }),
     prisma.costConfig.findMany({ where: { year } }),
     prisma.dipendente.findMany({ where: { year }, orderBy: { nome: "asc" } }),
+    prisma.team.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
   ]);
 
   const out: MaisonBudget[] = maisons.map((m) => {
@@ -105,7 +117,16 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       contributiPct: d.contributiPct,
       mesi: leggiMesi(d.mesi),
       maisonId: d.maisonId,
+      teamId: d.teamId,
       note: d.note,
+    })),
+    team: team.map((t) => ({
+      id: t.id,
+      nome: t.nome,
+      responsabile: t.responsabile,
+      colore: t.colore,
+      ordine: t.ordine,
+      note: t.note,
     })),
   };
 }
@@ -170,6 +191,17 @@ export function costoPersonaAnno(p: Persona): number {
 export function costoPersonale(dati: DatiAnno, maisonId?: string | null): number {
   const persone = maisonId ? dati.persone.filter((p) => p.maisonId === maisonId) : dati.persone;
   return persone.reduce((s, p) => s + costoPersonaAnno(p), 0);
+}
+
+// Costo del lavoro di un team. `null` = persone senza team assegnato.
+export function costoTeam(dati: DatiAnno, teamId: string | null): number {
+  return dati.persone
+    .filter((p) => p.teamId === teamId)
+    .reduce((s, p) => s + costoPersonaAnno(p), 0);
+}
+
+export function personeDelTeam(dati: DatiAnno, teamId: string | null): Persona[] {
+  return dati.persone.filter((p) => p.teamId === teamId);
 }
 
 export function costoPersonaleMese(dati: DatiAnno, month: number, maisonId?: string | null): number {
