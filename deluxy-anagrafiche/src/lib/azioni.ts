@@ -24,6 +24,12 @@ export async function cambiaStato(partnerId: string, fd: FormData) {
   await registraPassaggio(partnerId, attuale.stato, nuovo, "ui");
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
+  // Diventata cliente ("attivo" = Partner): la scheda si riapre con il
+  // salvataggio automatico dei referenti nella rubrica Google (serve il
+  // browser dell'operatore per l'OAuth, quindi lo fa la pagina).
+  if (nuovo === "attivo" && attuale.stato !== "attivo") {
+    redirect(`/partner/${partnerId}?rubrica=1`);
+  }
 }
 
 // Aggiunge o toglie una tipologia di interesse (multi-scelta).

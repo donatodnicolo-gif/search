@@ -86,6 +86,13 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   **Risolvi** (crea xref) le ambigue, **Modifica** quelle già agganciate, **Ignora** il rumore.
 - **`/partner/:id`** — scheda: anagrafica, pillole stato + menu interessi, ✎ Modifica, archivia,
   sezione **Contatti** (Excel+HubSpot con link al CRM), Note, Dati del tracker, **Storia** (timeline).
+  **Diventata cliente → rubrica Google in automatico**: quando lo stato passa a `attivo`
+  (etichetta «Partner»), `cambiaStato` fa redirect a `?rubrica=1` e il pannello
+  `SalvaRubricaAuto` salva tutti i referenti nella rubrica dell'operatore (verifica per numero,
+  crea solo se assenti). Primo tentativo **silenzioso** (`getToken(true)` → GIS `prompt: ""`,
+  riesce se il consenso è già stato dato); se non basta compare il bottone «Autorizza e salva
+  in rubrica» (il popup Google richiede un gesto utente). Logica condivisa in
+  `src/components/google-rubrica.ts` (usata anche dalla tabella di /contatti).
 - **`/partner/nuovo`** e **`/partner/:id/modifica`** — form creazione/modifica.
 - **Sidebar** a sezioni espandibili (Registro·Tipologie·Stati·Interessi·Archivio·Sync), toggle a
   scomparsa (☰), preferenze in localStorage.

@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
+import type { RigaContatto } from "@/components/google-rubrica";
 import { MenuInteressi } from "@/components/MenuInteressi";
+import { SalvaRubricaAuto } from "@/components/SalvaRubricaAuto";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato } from "@/lib/azioni";
@@ -19,13 +21,46 @@ function Campo({ etichetta, valore, largo }: { etichetta: string; valore?: strin
   );
 }
 
-export default async function Dettaglio({ params }: { params: Promise<{ id: string }> }) {
+export default async function Dettaglio({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ rubrica?: string }>;
+}) {
   const { id } = await params;
+  const { rubrica } = await searchParams;
   const p = await prisma.partner.findUnique({
     where: { id },
     include: { contatti: true, passaggi: { orderBy: { creatoIl: "desc" } } },
   });
   if (!p) notFound();
+
+  // Appena diventata cliente: i referenti vanno in rubrica Google in automatico
+  const affiliatoReseller = p.interessi.includes("affiliazione") || p.interessi.includes("vendor");
+  const righeRubrica: RigaContatto[] =
+    rubrica === "1" && p.stato === "attivo"
+      ? p.contatti.map((c) => ({
+          id: c.id,
+          nome: c.nome,
+          ruolo: c.ruolo,
+          telefono: c.telefono,
+          email: c.email,
+          fonte: c.fonte,
+          hubspotId: c.hubspotId,
+          nomeRubrica: c.nomeRubrica,
+          partnerId: p.id,
+          partnerNome: p.nome,
+          categoria: p.categoria,
+          citta: p.citta,
+          stato: p.stato,
+          statoLabel: isStato(p.stato) ? ETICHETTE_STATO[p.stato] : p.stato,
+          provincia: p.provincia,
+          indirizzo: p.indirizzo,
+          ragioneSociale: p.ragioneSociale,
+          affiliatoReseller,
+        }))
+      : [];
 
   const extra: Record<string, unknown> = p.datiExtra ? JSON.parse(p.datiExtra) : {};
 
@@ -83,6 +118,8 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
           </div>
         </div>
       </div>
+
+      {righeRubrica.length > 0 && <SalvaRubricaAuto contatti={righeRubrica} />}
 
       <section className="scheda">
         <h2 className="scheda-titolo">Anagrafica</h2>
