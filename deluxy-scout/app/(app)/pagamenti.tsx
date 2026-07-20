@@ -64,6 +64,7 @@ export default function Pagamenti() {
   const [loading, setLoading] = useState(true);
   const [formAperto, setFormAperto] = useState(false);
   const [espansa, setEspansa] = useState<string | null>(null);
+  const [storicoAperto, setStoricoAperto] = useState(false);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -86,6 +87,15 @@ export default function Pagamenti() {
     const incassato = righe.reduce((s, r) => s + r.importo_incassato, 0);
     return { daIncassare, incassato };
   }, [righe]);
+
+  // Le annullate escono dalla lista operativa e finiscono nello Storico in fondo.
+  const { attive, annullate } = useMemo(
+    () => ({
+      attive: righe.filter((r) => r.stato !== 'annullata'),
+      annullate: righe.filter((r) => r.stato === 'annullata'),
+    }),
+    [righe],
+  );
 
   return (
     <View style={styles.container}>
@@ -110,7 +120,10 @@ export default function Pagamenti() {
             onAzione={() => setFormAperto(true)}
           />
         ) : null}
-        {righe.map((r) => (
+        {!loading && righe.length > 0 && attive.length === 0 ? (
+          <Text style={styles.notaVuota}>Nessuna richiesta attiva: sono tutte nello Storico qui sotto.</Text>
+        ) : null}
+        {attive.map((r) => (
           <RigaPagamento
             key={r.id}
             r={r}
@@ -120,6 +133,31 @@ export default function Pagamenti() {
             onSalva={carica}
           />
         ))}
+
+        {/* Storico: le richieste annullate, fuori dalla lista operativa. */}
+        {annullate.length > 0 ? (
+          <>
+            <Pressable style={styles.storicoHead} onPress={() => setStoricoAperto((v) => !v)}>
+              <Ionicons name="archive-outline" size={15} color={colors.testoSoft} />
+              <Text style={styles.storicoTitolo}>
+                Storico · {annullate.length} annullat{annullate.length === 1 ? 'a' : 'e'}
+              </Text>
+              <Ionicons name={storicoAperto ? 'chevron-up' : 'chevron-down'} size={15} color={colors.grigio} />
+            </Pressable>
+            {storicoAperto
+              ? annullate.map((r) => (
+                  <RigaPagamento
+                    key={r.id}
+                    r={r}
+                    mostraOwner={admin}
+                    espansa={espansa === r.id}
+                    onToggle={() => setEspansa(espansa === r.id ? null : r.id)}
+                    onSalva={carica}
+                  />
+                ))
+              : null}
+          </>
+        ) : null}
       </ScrollView>
 
       <Pressable style={styles.fab} onPress={() => setFormAperto(true)}>
@@ -195,7 +233,9 @@ function RigaPagamento({
           <Text style={styles.meta}><Ionicons name="person-circle-outline" size={12} color={colors.testoSoft} /> {r.owner_nome}</Text>
         ) : null}
         <Text style={styles.data}>{r.created_at.slice(0, 10).split('-').reverse().join('/')}</Text>
+        <Ionicons name={espansa ? 'chevron-up' : 'chevron-down'} size={15} color={colors.grigio} />
       </View>
+      {!espansa ? <Text style={styles.hint}>Tocca per aggiornare stato e incassi</Text> : null}
 
       {espansa ? (
         <View style={styles.espansa}>
@@ -241,7 +281,7 @@ function RigaPagamento({
             </>
           ) : (
             <>
-              <Text style={styles.label}>Esito</Text>
+              <Text style={styles.label}>Stato dell'incasso</Text>
               <View style={styles.statiRow}>
                 {STATI.map((s) => (
                   <Pressable
@@ -516,7 +556,19 @@ const styles = StyleSheet.create({
   head: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro },
   sub: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.md },
   list: { padding: spacing.md, paddingBottom: 96, gap: spacing.sm },
-  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
+  notaVuota: { color: colors.grigio, fontSize: 13, textAlign: 'center', marginVertical: spacing.sm },
+  hint: { color: colors.grigio, fontSize: 11 },
+  storicoHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.fill,
+    borderRadius: radius.md,
+  },
+  storicoTitolo: { flex: 1, color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 6 },
   cardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   cliente: { fontWeight: '800', color: colors.navy, fontSize: 15 },
