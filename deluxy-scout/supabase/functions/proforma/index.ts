@@ -7,9 +7,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const BASE = Deno.env.get('PARTNER_URL') ?? 'https://deluxy-partner.vercel.app';
 
+// NB: il client web invia anche `apikey` (e supabase-js aggiunge `x-client-info`):
+// se non sono elencati qui il preflight fallisce e il browser dà "Failed to fetch".
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 function json(body: unknown, status = 200) {

@@ -16,15 +16,21 @@ async function chiama<T>(body: unknown): Promise<T> {
   const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/proforma`;
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: env.supabaseAnonKey(),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: env.supabaseAnonKey(),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // Errore di rete/CORS: il browser non dà dettagli ("Failed to fetch").
+    throw new Error('servizio pro-forma non raggiungibile (connessione assente o servizio non attivo).');
+  }
   const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
     const dettaglio = payload?.errore ?? payload?.error ?? `HTTP ${res.status}`;
