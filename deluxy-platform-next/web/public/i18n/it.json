@@ -122,6 +122,11 @@
     "collapseMenu": "Riduci menu",
     "expandMenu": "Espandi menu"
   },
+  "notifications": {
+    "title": "Notifiche",
+    "empty": "Nessuna notifica",
+    "markAllRead": "Segna tutte lette"
+  },
   "lang": {
     "it": "Italiano",
     "en": "Inglese",

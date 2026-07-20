@@ -5,6 +5,8 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { TranslatePipe } from '@ngx-translate/core';
 import { AuthService } from '../core/auth.service';
 import { Role } from '../core/models';
+import { NotificationsService } from '../core/notifications.service';
+import { NotificationBellComponent } from '../core/notification-bell.component';
 import { LanguageSwitcherComponent } from './language-switcher.component';
 
 interface NavItem {
@@ -91,7 +93,14 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, LanguageSwitcherComponent],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    TranslatePipe,
+    LanguageSwitcherComponent,
+    NotificationBellComponent,
+  ],
   template: `
     <div class="shell">
       <!-- Selettore lingua (fisso in alto a destra) -->
@@ -155,6 +164,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
             </div>
             <div class="user-role">{{ roleLabel() | translate }}</div>
           </div>
+          <app-notification-bell />
           <button class="logout" (click)="auth.logout()" [title]="'shell.logout' | translate">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 4.5H7A1.5 1.5 0 0 0 5.5 6v12A1.5 1.5 0 0 0 7 19.5h7M10.5 12H20m0 0-3-3m3 3-3 3"/>
@@ -507,6 +517,7 @@ export class ShellComponent {
   readonly auth = inject(AuthService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly router = inject(Router);
+  private readonly notifications = inject(NotificationsService);
 
   private readonly iconCache = new Map<string, SafeHtml>();
 
@@ -539,6 +550,9 @@ export class ShellComponent {
     this.router.events
       .pipe(filter((e) => e instanceof NavigationEnd))
       .subscribe(() => this.menuOpen.set(false));
+    // La shell e' montata solo ad utente autenticato: qui parte il polling
+    // del contatore notifiche in header.
+    this.notifications.startPolling();
   }
 
   toggle(): void {

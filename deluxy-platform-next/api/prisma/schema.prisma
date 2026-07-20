@@ -51,8 +51,53 @@ model User {
   operation    Operation? @relation(fields: [operationId], references: [id])
   savedViews   SavedView[]
   events       UserEvent[]
+  notifications      Notification[]
+  pushSubscriptions  PushSubscription[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// ============================================================
+// Notifiche (equivalente del modulo `web-push-notification`
+// del backend legacy, contatore in header + storico).
+// ============================================================
+
+/// Una notifica destinata a un utente. Resta a storico anche dopo la lettura:
+/// il contatore in header conta solo quelle con readAt = null.
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Valori in NotificationType (api/src/common/enums.ts).
+  type   String
+  title  String
+  body   String
+  /// Entita' che ha generato la notifica, per portare l'utente al dettaglio
+  /// al click (es. "delivery" + id della consegna).
+  entityType String?
+  entityId   String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  // Il contatore delle non lette e' la query piu' frequente dell'app.
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+/// Iscrizione Web Push di un browser (una per dispositivo/browser).
+/// L'endpoint e' l'identificatore univoco assegnato dal push service.
+model PushSubscription {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint String @unique
+  /// Chiavi del client per cifrare il payload (standard Web Push).
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // Registro delle azioni sugli utenti (audit): chi ha invitato/attivato/

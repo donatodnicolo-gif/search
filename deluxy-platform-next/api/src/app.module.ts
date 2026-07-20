@@ -10,6 +10,7 @@ import { CustomersModule } from './customers/customers.module';
 import { DeliveriesModule } from './deliveries/deliveries.module';
 import { DeliveryRulesModule } from './delivery-rules/delivery-rules.module';
 import { FinanceModule } from './finance/finance.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PartnersModule } from './partners/partners.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -54,6 +55,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     SettingsModule,
     OperationsModule,
     SavedViewsModule,
+    NotificationsModule,
     CalculationsModule,
     FinanceModule,
     WoocommerceModule,

@@ -328,6 +328,15 @@ Tab SHOPIFY PRODOTTI in Prodotti e piattaforme di vendita collegate (`shopifysal
 
 Stripe (pagamenti online), Qonto (banking dal Profilo), Google Maps (geocoding, mappa consegne, calcolo distanze), SMS + WhatsApp (notifiche), Web Push (notifiche in app, contatore nell'header).
 
+#### Notifiche — nuovo ambiente (20/07) **[NUOVO]**
+
+Portato il sistema di notifiche dell'app reale nel nuovo ambiente: campanello con contatore accanto al profilo/logout (contatore = solo non lette), tendina con lo storico e "segna tutte lette", click su una notifica di consegna che porta al dettaglio. Il contatore si aggiorna in polling (60s).
+
+- **Canale attivo: Web Push** (VAPID, libreria `web-push`, come il legacy) + notifiche in-app persistite a DB (modelli `Notification` e `PushSubscription`). Il push al browser usa il service worker `web/public/sw-push.js`; l'iscrizione (permesso + `subscribe`) è in `NotificationsService.enablePush()`, da agganciare a un bottone in Profilo.
+- **Trigger sui cambi stato consegna** (§5): quando una consegna passa a *in consegna* / *consegnata* / *non consegnata*, **Admin e Operation** attivi ricevono la notifica (chi ha fatto l'azione escluso). Aggancio in `deliveries.service.ts` → `updateStatus`.
+- **Non ancora portati**: SMS, WhatsApp, Mail (servono credenziali Twilio/WATI/SMTP) e il job notturno `checkingPartnerContract` per la scadenza contratto. L'interfaccia `NotificationsService.notifyUsers()` è già pronta a ospitarli.
+- Senza chiavi VAPID configurate il sistema resta funzionante con le sole notifiche in-app (nessun push al browser).
+
 ## 7-bis. Servizi e Calcoli (pricing) — sezione interna
 
 I **servizi** si definiscono in **Amministrazione → Servizi** (nuovo ambiente): nome, tipo, e **destinazione** (Partner / Valet / entrambi). Le **tariffe** si impostano nella scheda del singolo partner/valet. Nell'app reale sono in *Setup → Servizi Partner* (`/servizi`) e *Valet → Servizi Valet* (`/valet/servizi`).
