@@ -180,6 +180,10 @@ model Messaggio {
   uid       Int
   messageId String?
   thread    String?
+  // Aggancio MANUALE a una conversazione: quando due mail parlano della stessa
+  // cosa ma non hanno né catena di risposte né oggetto in comune, l'utente le
+  // unisce e condividono questo codice. Vince su tutto: è una scelta esplicita.
+  threadManuale String?
   direzione String  @default("entrata")
 
   mittente     String
@@ -224,6 +228,7 @@ model Messaggio {
   @@unique([accountId, uid])
   @@index([utenteId, data])
   @@index([utenteId, sezioneId, data])
+  @@index([utenteId, threadManuale])
 }
 
 // Un'attività, da un messaggio o dal quadro di un contatto o dall'Assistente.

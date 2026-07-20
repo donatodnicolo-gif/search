@@ -36,6 +36,9 @@ const stmts = [
        AND m."messageId" IS NOT NULL
        AND m."utenteId" = k."utenteId" AND m."messageId" = k."messageId"
        AND (k."uid" < m."uid" OR (k."uid" = m."uid" AND k."id" < m."id"))`,
+  // Aggancio manuale delle mail a una conversazione.
+  `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "threadManuale" TEXT`,
+  `CREATE INDEX IF NOT EXISTS "Messaggio_utenteId_threadManuale_idx" ON "Messaggio"("utenteId","threadManuale")`,
   // Calendario: appuntamenti + token del feed iCal sull'utente.
   `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "tokenCalendario" TEXT NOT NULL DEFAULT ''`,
   `CREATE TABLE IF NOT EXISTS "Evento" (

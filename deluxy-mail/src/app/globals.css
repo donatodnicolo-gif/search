@@ -724,6 +724,14 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
+/* Righe dei risultati quando agganci una mail a una conversazione */
+.aggancio-riga {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border: 1px solid var(--hairline);
+  border-radius: var(--radius-m); margin-bottom: 8px;
+}
+.aggancio-riga:hover { background: var(--fill); }
+
 /* ---------- Calendario ---------- */
 .cal-mese { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; min-width: 130px; text-align: center; }
 .cal-card { padding: 10px; }

@@ -843,6 +843,91 @@ export async function eliminaBozza(id: string) {
   revalidatePath('/', 'layout')
 }
 
+// ---------- Aggancio manuale delle mail a una conversazione ----------
+
+export type CandidatoAggancio = {
+  id: string
+  mittente: string
+  mittenteNome: string | null
+  oggetto: string
+  data: Date
+  giaNelThread: boolean
+}
+
+/** Cerca fra le tue mail quelle da agganciare a questa conversazione. */
+export async function cercaDaAgganciare(
+  messaggioId: string,
+  query: string
+): Promise<CandidatoAggancio[]> {
+  const utenteId = await uid()
+  const q = query.trim()
+  if (q.length < 2) return []
+
+  const nelThread = new Set((await messaggiThread(utenteId, messaggioId)).map((m) => m.id))
+
+  const trovati = await db.messaggio.findMany({
+    where: {
+      utenteId,
+      cestinato: false,
+      OR: [
+        { oggetto: { contains: q, mode: 'insensitive' } },
+        { mittente: { contains: q, mode: 'insensitive' } },
+        { mittenteNome: { contains: q, mode: 'insensitive' } },
+      ],
+    },
+    orderBy: { data: 'desc' },
+    take: 15,
+    select: { id: true, mittente: true, mittenteNome: true, oggetto: true, data: true },
+  })
+
+  return trovati
+    .filter((m) => m.id !== messaggioId)
+    .map((m) => ({ ...m, giaNelThread: nelThread.has(m.id) }))
+}
+
+/**
+ * Aggancia una mail alla conversazione di un'altra: da qui in poi l'AI le
+ * legge insieme. Se una delle due è già in un gruppo manuale si riusa quel
+ * codice, così i gruppi si fondono invece di spezzarsi.
+ */
+export async function agganciaAlThread(
+  messaggioId: string,
+  daAgganciareId: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const [base, altro] = await Promise.all([
+    db.messaggio.findFirst({ where: { id: messaggioId, utenteId }, select: { id: true, threadManuale: true } }),
+    db.messaggio.findFirst({ where: { id: daAgganciareId, utenteId }, select: { id: true, threadManuale: true } }),
+  ])
+  if (!base || !altro) return { ok: false, messaggio: 'Messaggio non trovato.' }
+
+  const codice = base.threadManuale || altro.threadManuale || randomBytes(12).toString('base64url')
+
+  // Tutta la conversazione di partenza entra nel gruppo: agganciando una mail
+  // a un thread ci si aspetta che valga per il thread, non per un messaggio.
+  const idsBase = (await messaggiThread(utenteId, messaggioId)).map((m) => m.id)
+  const idsAltro = (await messaggiThread(utenteId, daAgganciareId)).map((m) => m.id)
+
+  await db.messaggio.updateMany({
+    where: { utenteId, id: { in: [...new Set([...idsBase, ...idsAltro, base.id, altro.id])] } },
+    data: { threadManuale: codice },
+  })
+
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: 'Mail agganciata: ora l’AI le legge insieme.' }
+}
+
+/** Stacca una mail dal gruppo manuale (torna ai legami naturali). */
+export async function staccaDalThread(messaggioId: string): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  await db.messaggio.updateMany({
+    where: { id: messaggioId, utenteId },
+    data: { threadManuale: null },
+  })
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: 'Mail staccata dalla conversazione.' }
+}
+
 // ---------- Calendario ----------
 
 export async function creaEvento(form: FormData): Promise<{ ok: boolean; messaggio: string }> {

@@ -174,6 +174,16 @@ export async function analizzaMessaggioOra(
   const daRegole = applicaRegole(regole, messaggio)
   const mirate = await istruzioniMirate(utenteId, { mittente: m.mittente, messaggioId: m.id })
 
+  // L'AI vede TUTTA la conversazione, non solo l'ultima mail: senza la storia
+  // non sa cosa è già stato chiesto o promesso, e crea attività per cose già
+  // fatte. Comprende le mail agganciate a mano al thread.
+  let precedenti: Messaggio[] = []
+  try {
+    precedenti = (await messaggiThread(utenteId, m.id)).filter((x) => x.id !== m.id)
+  } catch {
+    /* senza storia si analizza comunque la singola mail */
+  }
+
   try {
     const analisi = await analizzaMessaggio({
       messaggio,
@@ -182,6 +192,15 @@ export async function analizzaMessaggioOra(
       contestoAzienda: ctx.contestoAzienda,
       firma: ctx.firma,
       oggi: new Date(),
+      precedenti: precedenti.map((p) => ({
+        direzione: p.direzione,
+        mittente: p.mittente,
+        mittenteNome: p.mittenteNome,
+        oggetto: p.oggetto,
+        data: p.data,
+        // Se tradotta, all'AI si dà l'italiano: è la versione che capisce meglio.
+        corpoTesto: p.corpoTradotto || p.corpoTesto,
+      })),
     })
 
     const sezioneAI = analisi.sezione
@@ -819,23 +838,41 @@ export async function messaggiThread(utenteId: string, messaggioId: string): Pro
     where: { utenteId, cestinato: false },
     orderBy: { data: 'desc' },
     take: 400,
-    select: { id: true, thread: true, oggetto: true, data: true },
+    select: { id: true, thread: true, oggetto: true, data: true, threadManuale: true },
   })
 
   const dentroFinestra = candidati.some((c) => c.id === messaggioId)
   if (!dentroFinestra) {
-    // Messaggio fuori dalla finestra recente: lo restituiamo da solo.
+    // Messaggio fuori dalla finestra recente: lo restituiamo da solo, ma le
+    // mail agganciate a mano vanno recuperate comunque (sono una scelta
+    // esplicita e possono essere vecchie quanto si vuole).
     const solo = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId } })
-    return solo ? [solo] : []
+    if (!solo) return []
+    if (!solo.threadManuale) return [solo]
+    return db.messaggio.findMany({
+      where: { utenteId, cestinato: false, threadManuale: solo.threadManuale },
+      orderBy: { data: 'asc' },
+    })
   }
 
   const gruppi = raggruppa(candidati)
   const gruppo = gruppi.find((g) => g.some((m) => m.id === messaggioId))
-  const ids = (gruppo ?? []).map((m) => m.id)
-  if (ids.length === 0) return []
+  const ids = new Set((gruppo ?? []).map((m) => m.id))
+  if (ids.size === 0) return []
+
+  // Le mail agganciate a mano entrano SEMPRE, anche se più vecchie della
+  // finestra dei 400 candidati.
+  const manuali = [...new Set((gruppo ?? []).map((m) => m.threadManuale).filter(Boolean))] as string[]
+  if (manuali.length > 0) {
+    const fuoriFinestra = await db.messaggio.findMany({
+      where: { utenteId, cestinato: false, threadManuale: { in: manuali } },
+      select: { id: true },
+    })
+    for (const m of fuoriFinestra) ids.add(m.id)
+  }
 
   const messaggi = await db.messaggio.findMany({
-    where: { id: { in: ids }, utenteId },
+    where: { id: { in: [...ids] }, utenteId },
     orderBy: { data: 'asc' },
   })
   return messaggi

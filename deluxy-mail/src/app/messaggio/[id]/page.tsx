@@ -10,6 +10,7 @@ import { CorpoMessaggio } from '@/components/CorpoMessaggio'
 import { RiassuntoConversazione } from '@/components/RiassuntoConversazione'
 import { BottoneContattoAI } from '@/components/BottoneContattoAI'
 import { EditorIstruzioni } from '@/components/EditorIstruzioni'
+import { AgganciaMail } from '@/components/AgganciaMail'
 import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
 import { richiediUtente } from '@/lib/sessione'
 import { traduciMessaggioSeServe, messaggiThread, leggiRiassuntoThread } from '@/lib/sync'
@@ -197,10 +198,31 @@ export default async function DettaglioMessaggio({ params }: Props) {
         />
       </div>
 
+      {conversazione.length === 1 && (
+        <div className="card">
+          <div className="mail-subject" style={{ fontSize: 18, marginBottom: 10 }}>
+            Conversazione
+          </div>
+          <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginBottom: 12 }}>
+            Questa mail è da sola. Se un’altra mail parla della stessa cosa, agganciala qui:
+            quando dai una priorità, l’AI le legge insieme.
+          </p>
+          <AgganciaMail messaggioId={messaggio.id} agganciata={Boolean(messaggio.threadManuale)} />
+        </div>
+      )}
+
       {conversazione.length > 1 && (
         <div className="card">
           <div className="mail-subject" style={{ fontSize: 18, marginBottom: 4 }}>
             Conversazione · {conversazione.length} messaggi
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+            Quando dai una priorità, l’AI analizza l’ultima mail avendo letto tutta questa
+            conversazione.
+          </p>
+
+          <div style={{ marginBottom: 14 }}>
+            <AgganciaMail messaggioId={messaggio.id} agganciata={Boolean(messaggio.threadManuale)} />
           </div>
 
           <EditorIstruzioni tipo="thread" target={messaggio.id} valore={istruzioniThread} />

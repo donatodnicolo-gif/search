@@ -37,6 +37,8 @@ export type Raggruppabile = {
   thread: string | null // radice della catena (Message-ID del capostipite)
   oggetto: string
   data: Date
+  /** Aggancio deciso a mano dall'utente: unisce anche mail senza altri legami. */
+  threadManuale?: string | null
 }
 
 /**
@@ -59,9 +61,18 @@ export function raggruppa<T extends Raggruppabile>(messaggi: T[]): T[][] {
 
   const primoPerRadice = new Map<string, string>()
   const primoPerOggetto = new Map<string, string>()
+  const primoPerManuale = new Map<string, string>()
 
   for (const m of messaggi) {
     find(m.id)
+
+    // aggancio manuale → stesso thread. È una scelta esplicita dell'utente:
+    // vale anche quando non c'è nessun altro legame fra le due mail.
+    if (m.threadManuale) {
+      const giaM = primoPerManuale.get(m.threadManuale)
+      if (giaM) union(m.id, giaM)
+      else primoPerManuale.set(m.threadManuale, m.id)
+    }
 
     // stessa radice → stesso thread (la catena di risposte)
     const radice = m.thread || m.id
