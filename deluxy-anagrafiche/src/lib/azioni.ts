@@ -240,6 +240,7 @@ export async function aggiornaContatto(contattoId: string, fd: FormData) {
       nome: testo("nome"),
       telefono: testo("telefono"),
       email: testo("email"),
+      nomeRubrica: testo("nomeRubrica"),
     },
     select: { partnerId: true },
   });

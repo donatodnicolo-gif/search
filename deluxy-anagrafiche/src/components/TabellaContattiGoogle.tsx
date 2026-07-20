@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { GOOGLE_OAUTH_CLIENT_ID } from "@/lib/google";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
+import { nomeRubricaDefault } from "@/lib/rubrica";
 
 export type RigaContatto = {
   id: string;
@@ -12,6 +13,7 @@ export type RigaContatto = {
   email: string | null;
   fonte: string | null;
   hubspotId: string | null;
+  nomeRubrica: string | null;
   partnerId: string;
   partnerNome: string;
   categoria: string | null;
@@ -67,12 +69,10 @@ async function getToken(): Promise<string> {
   });
 }
 
-// Nome in rubrica: [STATO] [NOME] (+ provincia se affiliato/reseller)
+// Nome in rubrica: il "Nome su rubrica" della scheda contatto se compilato,
+// altrimenti [STATO] [AZIENDA] [CITTÀ] [Nome contatto].
 function contactName(r: RigaContatto): string {
-  const stato = (r.statoLabel || "").toUpperCase();
-  const nome = (r.nome || r.partnerNome || "").trim();
-  const prov = r.affiliatoReseller && r.provincia ? " " + r.provincia.toUpperCase() : "";
-  return [stato, nome].filter(Boolean).join(" ") + prov;
+  return r.nomeRubrica?.trim() || nomeRubricaDefault(r);
 }
 
 // Cerca il numero in rubrica (People API searchContacts, con warm-up)
@@ -170,7 +170,8 @@ export function TabellaContattiGoogle({ contatti }: { contatti: RigaContatto[] }
       <p className="testo-guida" style={{ marginBottom: 12 }}>
         «Salva in Google» verifica il numero nella rubrica dell&apos;account con cui acconsenti nel browser
         (primo click: consenso Google) e crea il contatto solo se manca, come{" "}
-        <code>[STATO] NOME</code> (con provincia per affiliati e reseller). In mancanza di OAuth, «.vcf» scarica il file.
+        <code>[STATO] [AZIENDA] [CITTÀ] [Nome contatto]</code> — o col «Nome su rubrica» impostato nella
+        scheda del contatto. In mancanza di OAuth, «.vcf» scarica il file.
       </p>
       <div className="tabella-wrap">
         <table>

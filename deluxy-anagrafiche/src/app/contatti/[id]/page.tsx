@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
+import { nomeRubricaDefault } from "@/lib/rubrica";
 import { aggiornaContatto, eliminaContatto } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
+import { ETICHETTE_STATO, isStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
 
@@ -34,12 +36,21 @@ export default async function SchedaContatto({ params }: { params: Promise<{ id:
   const { id } = await params;
   const contatto = await prisma.contatto.findUnique({
     where: { id },
-    include: { partner: { select: { id: true, nome: true, categoria: true, citta: true } } },
+    include: { partner: { select: { id: true, nome: true, categoria: true, citta: true, stato: true } } },
   });
   if (!contatto) notFound();
 
   const aggiorna = aggiornaContatto.bind(null, contatto.id);
   const elimina = eliminaContatto.bind(null, contatto.id);
+
+  const rubricaDefault = nomeRubricaDefault({
+    statoLabel: isStato(contatto.partner.stato)
+      ? ETICHETTE_STATO[contatto.partner.stato]
+      : contatto.partner.stato,
+    partnerNome: contatto.partner.nome,
+    citta: contatto.partner.citta,
+    nome: contatto.nome,
+  });
 
   return (
     <div className="layout">
@@ -75,6 +86,20 @@ export default async function SchedaContatto({ params }: { params: Promise<{ id:
               <Campo etichetta="Ruolo" nome="ruolo" valore={contatto.ruolo} />
               <Campo etichetta="Telefono" nome="telefono" valore={contatto.telefono} tipo="tel" />
               <Campo etichetta="Email" nome="email" valore={contatto.email} tipo="email" largo />
+              <div className="campo-modulo largo">
+                <label htmlFor="nomeRubrica">Nome su rubrica</label>
+                <input
+                  id="nomeRubrica"
+                  name="nomeRubrica"
+                  type="text"
+                  defaultValue={contatto.nomeRubrica ?? ""}
+                  placeholder={rubricaDefault}
+                />
+                <p className="testo-guida" style={{ marginTop: 4 }}>
+                  Nome con cui «Salva in Google» crea il contatto. Se lasci vuoto:{" "}
+                  <code>{rubricaDefault}</code>
+                </p>
+              </div>
             </div>
           </section>
           <div className="azioni-modulo">

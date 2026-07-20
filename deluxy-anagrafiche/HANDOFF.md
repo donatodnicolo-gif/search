@@ -45,7 +45,8 @@ opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se assente la UI è aperta).
   `platformId` @unique, `hubspotId` @unique, `provenienzaCampi` (JSON: chi/quando per campo),
   `fonte` (excel·platform·manuale·ui·hubspot), `attivo` (soft delete).
 - **Contatto** — referenti (persone): `ruolo·nome·telefono·email·fonte·hubspotId` (id del
-  contatto nel CRM, per aprirlo). Fonti: Excel + HubSpot.
+  contatto nel CRM, per aprirlo) · `nomeRubrica` (nome per la rubrica Google; se vuoto si
+  usa `[STATO] [AZIENDA] [CITTÀ] [Nome contatto]`). Fonti: Excel + HubSpot.
 - **RiferimentoEsterno** — xref `(sistema, idEsterno)` @unique → partner. Generalizza
   platformId/hubspotId: è la "lingua comune di id" tra le app.
 - **RichiestaMatch** — storico delle richieste di aggancio (`/api/v1/partners/match`): sistema,
@@ -75,7 +76,9 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   colonna **Azienda** (link alla scheda), telefoni cliccabili (`tel:` → avvia la chiamata),
   colonna **Google** («Salva in Google» via People API + fallback .vcf), link al contatto HubSpot (↗).
 - **`/contatti/:id`** — scheda del referente (click sul nome in /contatti): modifica
-  nome/ruolo/telefono/email (`aggiornaContatto`) ed eliminazione (`eliminaContatto`).
+  nome/ruolo/telefono/email + **Nome su rubrica** (`aggiornaContatto`) ed eliminazione
+  (`eliminaContatto`). Il nome Google è `Contatto.nomeRubrica` se compilato, altrimenti
+  `[STATO] [AZIENDA] [CITTÀ] [Nome contatto]` (`src/lib/rubrica.ts`).
 - **`/sync-hubspot`** — confronto registro ↔ companies HubSpot (match per nome normalizzato +
   riferimenti): riepilogo, liste "solo HubSpot"/"solo registro"/"in entrambi", ricerca+ordinamenti,
   **⇄ riconcilia** (crea xref hubspot), **＋ importa** company come prospect DA CLASSIFICARE.
