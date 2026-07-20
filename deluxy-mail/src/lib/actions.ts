@@ -21,7 +21,8 @@ import {
 } from './sync'
 import { chiaveThread } from './thread'
 import { CODICI_PRIORITA, FUSO } from './format'
-import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione } from './ai'
+import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione } from './ai'
+import { raggruppa } from './thread'
 import { azioneDi, regolaAppPerMail, type AzioneDescritta } from './appDeluxy'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
@@ -1161,16 +1162,160 @@ export async function eliminaRegolaApp(id: string) {
 export async function creaSezione(form: FormData) {
   const utenteId = await uid()
   const ultima = await db.sezione.findFirst({ where: { utenteId }, orderBy: { ordine: 'desc' } })
+
+  // Sottosezione: il genitore dev'essere una sezione tua e di primo livello
+  // (la gerarchia si ferma a due livelli).
+  const genitoreId = opzionale(form, 'genitoreId')
+  const genitore = genitoreId
+    ? await db.sezione.findFirst({
+        where: { id: genitoreId, utenteId, genitoreId: null },
+        select: { id: true, colore: true },
+      })
+    : null
+
   await db.sezione.create({
     data: {
       utenteId,
       nome: testo(form, 'nome'),
       descrizione: testo(form, 'descrizione'),
-      colore: testo(form, 'colore') || 'blue',
+      // Una sottosezione eredita il colore del genitore: si legge come famiglia.
+      colore: genitore?.colore ?? (testo(form, 'colore') || 'blue'),
       ordine: (ultima?.ordine ?? 0) + 1,
+      genitoreId: genitore?.id ?? null,
     },
   })
   revalidatePath('/', 'layout')
+}
+
+/**
+ * L'AI fa il punto su una sezione (o sottosezione): per periodo ("cosa è
+ * successo negli ultimi N giorni") o per conversazione. Una sezione con
+ * sottosezioni comprende anche la posta delle figlie.
+ */
+export async function riassumiSezioneOra(
+  sezioneId: string,
+  taglio: 'giorni' | 'thread',
+  giorni = 7
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const sezione = await db.sezione.findFirst({
+    where: { id: sezioneId, utenteId },
+    select: { id: true, nome: true, descrizione: true },
+  })
+  if (!sezione) return { ok: false, messaggio: 'Sezione non trovata.' }
+
+  // La posta della sezione e delle sue sottosezioni.
+  const figlie = await db.sezione.findMany({
+    where: { utenteId, genitoreId: sezione.id },
+    select: { id: true },
+  })
+  const ids = [sezione.id, ...figlie.map((f) => f.id)]
+
+  const giorniValidi = Math.min(Math.max(Math.round(giorni) || 7, 1), 90)
+  const da = new Date(Date.now() - giorniValidi * 24 * 60 * 60 * 1000)
+
+  const messaggi = await db.messaggio.findMany({
+    where: {
+      utenteId,
+      cestinato: false,
+      sezioneId: { in: ids },
+      ...(taglio === 'giorni' ? { data: { gte: da } } : {}),
+    },
+    orderBy: { data: 'desc' },
+    take: taglio === 'giorni' ? 120 : 200,
+    select: {
+      id: true,
+      thread: true,
+      threadManuale: true,
+      oggetto: true,
+      data: true,
+      direzione: true,
+      mittente: true,
+      mittenteNome: true,
+      corpoTesto: true,
+      corpoTradotto: true,
+    },
+  })
+
+  if (messaggi.length === 0) {
+    return {
+      ok: false,
+      messaggio:
+        taglio === 'giorni'
+          ? `Nessuna mail in questa sezione negli ultimi ${giorniValidi} giorni.`
+          : 'Nessuna mail in questa sezione.',
+    }
+  }
+
+  const chi = (m: (typeof messaggi)[number]) => m.mittenteNome || m.mittente
+  const testoDi = (m: (typeof messaggi)[number]) => m.corpoTradotto || m.corpoTesto
+
+  // Per conversazione: un gruppo per thread, i più recenti prima. Per periodo:
+  // un gruppo solo, in ordine cronologico.
+  let gruppi: { titolo: string; messaggi: { direzione: string; chi: string; data: Date; testo: string }[] }[]
+  let threadVisti = 0
+
+  if (taglio === 'thread') {
+    const conversazioni = raggruppa(messaggi).slice(0, 12)
+    threadVisti = conversazioni.length
+    gruppi = conversazioni.map((g) => ({
+      titolo: g[g.length - 1].oggetto || '(senza oggetto)',
+      messaggi: g.slice(-6).map((m) => ({ direzione: m.direzione, chi: chi(m), data: m.data, testo: testoDi(m) })),
+    }))
+  } else {
+    const ordinati = [...messaggi].sort((a, b) => a.data.getTime() - b.data.getTime())
+    gruppi = [
+      {
+        titolo: `Ultimi ${giorniValidi} giorni`,
+        messaggi: ordinati.map((m) => ({
+          direzione: m.direzione,
+          chi: chi(m),
+          data: m.data,
+          testo: `${m.oggetto} — ${testoDi(m)}`,
+        })),
+      },
+    ]
+    threadVisti = raggruppa(messaggi).length
+  }
+
+  try {
+    const imp = await leggiImpostazioni()
+    const analisi = await riassumiSezione({
+      nomeSezione: sezione.nome,
+      descrizioneSezione: sezione.descrizione,
+      taglio,
+      giorni: giorniValidi,
+      gruppi,
+      contestoAzienda: imp[CHIAVI.contestoAzienda],
+      oggi: new Date(),
+    })
+
+    // Si tiene solo l'ultimo riassunto per sezione+taglio: quello vecchio è
+    // superato, non è storia da conservare.
+    await db.riassuntoSezione.deleteMany({ where: { utenteId, sezioneId: sezione.id, taglio } })
+    await db.riassuntoSezione.create({
+      data: {
+        utenteId,
+        sezioneId: sezione.id,
+        taglio,
+        giorni: giorniValidi,
+        testo: analisi.testo,
+        punti: analisi.punti.join('\n'),
+        messaggiVisti: messaggi.length,
+        threadVisti,
+      },
+    })
+
+    revalidatePath('/sezioni')
+    revalidatePath('/', 'layout')
+    return { ok: true, messaggio: 'Riassunto pronto.' }
+  } catch (e) {
+    const t = e instanceof Error ? e.message : 'Non riuscito.'
+    if (/connection error|fetch failed|ENOTFOUND|network/i.test(t))
+      return { ok: false, messaggio: 'Connessione a OpenAI non riuscita: riprova.' }
+    if (/401|API key/i.test(t)) return { ok: false, messaggio: 'Chiave OpenAI non valida.' }
+    return { ok: false, messaggio: t.slice(0, 140) }
+  }
 }
 
 export async function eliminaSezione(id: string) {

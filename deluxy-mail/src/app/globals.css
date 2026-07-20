@@ -724,6 +724,26 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
+/* ---------- Sezioni e sottosezioni ---------- */
+.sez-card { margin-bottom: 14px; }
+.sez-testa { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.sez-testa-lato { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+.sez-descrizione { font-size: 13px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5; }
+
+.sez-riassunto { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hairline); }
+.sez-riassunto-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sez-punti { margin: 10px 0 0; padding-left: 18px; font-size: 13.5px; line-height: 1.6; }
+.sez-punti li { margin-bottom: 4px; }
+
+/* Le sottosezioni: rientrate, con la linea che le lega alla madre. */
+.sez-figlie { margin-top: 16px; padding-left: 16px; border-left: 2px solid var(--hairline-strong); }
+.sez-figlia { padding: 14px 0; border-bottom: 1px solid var(--hairline); }
+.sez-figlia:last-child { border-bottom: none; padding-bottom: 0; }
+.sez-figlia:first-child { padding-top: 0; }
+
+/* In sidebar la sottosezione è rientrata sotto la madre. */
+.nav-item.sotto { padding-left: 26px; font-size: 13px; }
+
 /* Righe dei risultati quando agganci una mail a una conversazione */
 .aggancio-riga {
   display: flex; align-items: center; gap: 12px;

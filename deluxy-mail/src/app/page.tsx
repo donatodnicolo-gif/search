@@ -73,6 +73,21 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     ? await db.sezione.findFirst({ where: { id: sezione, utenteId: u.id } })
     : null
 
+  // Aprendo una sezione con sottosezioni si vede anche la loro posta: la
+  // sezione madre è il contenitore, non una casella parallela.
+  let idsSezione: string[] = sezione ? [sezione] : []
+  if (sezioneAttiva) {
+    try {
+      const figlie = await db.sezione.findMany({
+        where: { utenteId: u.id, genitoreId: sezioneAttiva.id },
+        select: { id: true },
+      })
+      idsSezione = [sezioneAttiva.id, ...figlie.map((f) => f.id)]
+    } catch {
+      /* colonna non ancora migrata: solo la sezione stessa */
+    }
+  }
+
   // La sezione SPAM si vede solo aprendola: nella posta in arrivo (e nella AI
   // Inbox) la posta indesiderata resta fuori.
   const spamSez = await db.sezione.findFirst({
@@ -97,7 +112,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       // seppellendo il resto. Nella AI Inbox invece si vede tutto il contatto,
       // in qualunque sezione (tranne SPAM).
       ...(sezione
-        ? { sezioneId: sezione }
+        ? { sezioneId: { in: idsSezione } }
         : vistaAI
           ? spamId
             ? { NOT: { sezioneId: spamId } }

@@ -36,6 +36,30 @@ const stmts = [
        AND m."messageId" IS NOT NULL
        AND m."utenteId" = k."utenteId" AND m."messageId" = k."messageId"
        AND (k."uid" < m."uid" OR (k."uid" = m."uid" AND k."id" < m."id"))`,
+  // Sottosezioni + riassunti AI per sezione.
+  `ALTER TABLE "Sezione" ADD COLUMN IF NOT EXISTS "genitoreId" TEXT`,
+  `CREATE INDEX IF NOT EXISTS "Sezione_utenteId_genitoreId_idx" ON "Sezione"("utenteId","genitoreId")`,
+  `CREATE TABLE IF NOT EXISTS "RiassuntoSezione" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "sezioneId" TEXT NOT NULL,
+     "taglio" TEXT NOT NULL, "giorni" INTEGER NOT NULL DEFAULT 7,
+     "testo" TEXT NOT NULL, "punti" TEXT NOT NULL DEFAULT '',
+     "messaggiVisti" INTEGER NOT NULL DEFAULT 0, "threadVisti" INTEGER NOT NULL DEFAULT 0,
+     "generatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS "RiassuntoSezione_utenteId_sezioneId_generatoIl_idx" ON "RiassuntoSezione"("utenteId","sezioneId","generatoIl")`,
+  `DO $$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='Sezione_genitoreId_fkey') THEN
+       ALTER TABLE "Sezione" ADD CONSTRAINT "Sezione_genitoreId_fkey"
+         FOREIGN KEY ("genitoreId") REFERENCES "Sezione"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='RiassuntoSezione_utenteId_fkey') THEN
+       ALTER TABLE "RiassuntoSezione" ADD CONSTRAINT "RiassuntoSezione_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='RiassuntoSezione_sezioneId_fkey') THEN
+       ALTER TABLE "RiassuntoSezione" ADD CONSTRAINT "RiassuntoSezione_sezioneId_fkey"
+         FOREIGN KEY ("sezioneId") REFERENCES "Sezione"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+   END $$`,
   // Traduzioni fatte a torto: mail in una lingua che l'utente ha spuntato come
   // "già letta" ma tradotte lo stesso (il vecchio codice si fidava del prompt).
   // Si butta solo la traduzione: la mail e la lingua rilevata restano.

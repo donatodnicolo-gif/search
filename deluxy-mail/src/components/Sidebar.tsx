@@ -13,7 +13,11 @@ async function datiSidebar(utenteId: string) {
       db.sezione.findMany({
         where: { utenteId },
         orderBy: { ordine: 'asc' },
-        include: {
+        select: {
+          id: true,
+          nome: true,
+          colore: true,
+          genitoreId: true,
           _count: {
             select: {
               messaggi: {
@@ -104,18 +108,26 @@ export async function Sidebar() {
       {sezioni.length > 0 && (
         <nav className="nav-section">
           <div className="nav-label">Sezioni</div>
-          {sezioni.map((s) => (
-            <Link key={s.id} href={`/?sezione=${s.id}`} className="nav-item">
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                <span
-                  className="dot"
-                  style={{ width: 7, height: 7, borderRadius: '50%', background: `var(--${s.colore})`, flex: '0 0 7px' }}
-                />
-                {s.nome}
-              </span>
-              {s._count.messaggi ? <span className="badge neutral">{s._count.messaggi}</span> : null}
-            </Link>
-          ))}
+          {/* Prima le principali, e sotto a ognuna le sue sottosezioni rientrate. */}
+          {sezioni
+            .filter((s) => !s.genitoreId)
+            .flatMap((s) => [s, ...sezioni.filter((f) => f.genitoreId === s.id)])
+            .map((s) => (
+              <Link
+                key={s.id}
+                href={`/?sezione=${s.id}`}
+                className={`nav-item ${s.genitoreId ? 'sotto' : ''}`}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+                  <span
+                    className="dot"
+                    style={{ width: 7, height: 7, borderRadius: '50%', background: `var(--${s.colore})`, flex: '0 0 7px' }}
+                  />
+                  {s.nome}
+                </span>
+                {s._count.messaggi ? <span className="badge neutral">{s._count.messaggi}</span> : null}
+              </Link>
+            ))}
         </nav>
       )}
 

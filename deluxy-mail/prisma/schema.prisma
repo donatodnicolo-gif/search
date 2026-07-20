@@ -56,6 +56,7 @@ model Utente {
   regoleApp  RegolaApp[]
   inviiApp   InvioApp[]
   eventi     Evento[]
+  riassuntiSezione RiassuntoSezione[]
 }
 
 // Un appuntamento del calendario. Può nascere a mano o da una mail (il link
@@ -129,11 +130,46 @@ model Sezione {
   colore      String   @default("blue")
   ordine      Int      @default(0)
   creataIl    DateTime @default(now())
+
+  // Gerarchia a due livelli: una sezione può avere sottosezioni (genitoreId
+  // valorizzato = è una sottosezione). Non si annida oltre: due livelli sono
+  // quanto serve per ordinare la posta senza perdercisi.
+  genitoreId    String?
+  genitore      Sezione?  @relation("SottoSezioni", fields: [genitoreId], references: [id], onDelete: Cascade)
+  sottosezioni  Sezione[] @relation("SottoSezioni")
+
   messaggi    Messaggio[]
   regole      Regola[]
+  riassunti   RiassuntoSezione[]
 
   @@unique([utenteId, nome])
   @@index([utenteId])
+  @@index([utenteId, genitoreId])
+}
+
+// Il riassunto AI di una sezione/sottosezione. Due tagli possibili:
+//  - "giorni": cosa è successo negli ultimi N giorni;
+//  - "thread": la situazione conversazione per conversazione.
+model RiassuntoSezione {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  sezioneId String
+  sezione   Sezione @relation(fields: [sezioneId], references: [id], onDelete: Cascade)
+
+  // giorni | thread
+  taglio  String
+  giorni  Int    @default(7)
+
+  testo         String @db.Text
+  punti         String @db.Text @default("") // un punto per riga
+  messaggiVisti Int    @default(0)
+  threadVisti   Int    @default(0)
+
+  generatoIl DateTime @default(now())
+
+  @@index([utenteId, sezioneId, generatoIl])
 }
 
 // Una regola impostata dall'utente (deterministica e/o linguistica).

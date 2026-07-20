@@ -68,7 +68,8 @@ Ogni tabella dati ha `utenteId` → **isolamento multi-utente** (ogni query è f
 
 - **Utente** — email, nome, passwordHash, ruolo (`admin`/`utente`), firma, `traduzioneAuto`, `lingueLette`, attivo.
 - **Account** — casella IMAP/SMTP (host/porte/utente/password cifrate), `ultimoUid`/`primoUid`/`storicoFinito`, `cartellaInviata`.
-- **Sezione** — colonne in cui l'AI allinea la posta (nome, descrizione, colore, ordine). Unica `[utenteId, nome]`. La sezione **SPAM** viene creata da sola (vedi §7).
+- **RiassuntoSezione** — il punto della situazione AI su una sezione: `taglio` (`giorni`/`thread`), `giorni`, testo, `punti` (uno per riga), conteggi. Se ne tiene uno per sezione+taglio (l'ultimo).
+- **Sezione** — colonne in cui l'AI allinea la posta; `genitoreId` = sottosezione (gerarchia a **due livelli**, la figlia eredita il colore) (nome, descrizione, colore, ordine). Unica `[utenteId, nome]`. La sezione **SPAM** viene creata da sola (vedi §7).
 - **Regola** — condizioni (`seMittente`/`seOggetto`/`seContiene`), `istruzioneAI`, `attivitaTesto` (attività su misura da creare), sezione, flag (`creaAttivita`, `creaBozza`, `segnaLetta`, `archivia`, `fermaQui`), `priorita`.
 - **Messaggio** — uid, messageId, `thread` (radice della catena di risposte), `threadManuale` (aggancio deciso a mano: unisce mail senza legami naturali, vince su tutto), `direzione` (`entrata`/`uscita`), mittente/destinatari, oggetto, data, corpoTesto/corpoHtml, `letto`/`archiviato`/`cestinato`, `sezioneId`/`smistatoDa` (`manuale`/`regola`/`ai`/`spam`), `priorita`/`prioritaDa`, `riassunto`, `serveRisposta`, `analizzatoIl`, `lingua`/`corpoTradotto`.
 - **Attivita** — titolo, dettaglio, scadenza, priorita, fatta, `creataDaAI`, link a `messaggio` o `contattoEmail`.
@@ -137,6 +138,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 ## 7. Funzionalità implementate
 
 - **Lettura IMAP** + scarico storico progressivo; invio SMTP con copia in "Inviata".
+- **Sottosezioni + riassunto AI per sezione** (20 lug): in `/sezioni` ogni sezione può avere sottosezioni (menu "Dentro a…"); l'albero si vede anche in sidebar (figlie rientrate) e aprendo la madre si vede **anche** la posta delle figlie. Su ogni sezione e sottosezione c'è il riassunto AI (`riassumiSezioneOra`) in due tagli: **per periodo** (1/3/7/14/30 giorni) o **per conversazione** (fino a 12 thread, ultimi 6 messaggi ciascuno). Il riassunto della madre comprende la posta delle figlie.
 - **Sezioni** configurabili + **Regole** (deterministiche e/o con istruzione AI) con **retrodatazione** allo storico e **attività su misura**.
 - **Priorità P0–P3** su ogni mail → scatena l'analisi AI (riassunto + attività + bozza + smistamento in sezione). **L'AI riceve TUTTA la conversazione** (20 lug): l'ultima mail è quella analizzata, i messaggi precedenti (max 8, accorciati, tradotti se serve) vanno nel prompt come contesto non fidato — così non crea attività per cose già fatte o già risposte.
 - **Aggancio manuale al thread** (20 lug): dal dettaglio di una mail, "⚭ Aggancia una mail" cerca per oggetto/mittente e unisce due conversazioni che non hanno né catena di risposte né oggetto in comune (`threadManuale`, `agganciaAlThread`/`staccaDalThread`). L'aggancio vale per l'intero thread di entrambe le mail e le mail agganciate entrano nel thread anche se più vecchie della finestra dei 400 candidati.
