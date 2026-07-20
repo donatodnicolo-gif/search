@@ -314,7 +314,19 @@ input:focus, select:focus, textarea:focus {
 .inbox-split { display: grid; grid-template-columns: 70% 30%; gap: 24px; align-items: start; }
 .inbox-split > * { min-width: 0; }
 
-.col-attivita { position: sticky; top: 40px; }
+/* La colonna destra (APP DELUXY + DA FARE) segue lo scorrimento come un blocco
+   unico: resta in vista mentre scorri la lista. Se è più alta della finestra,
+   scorre al suo interno. Solo desktop: sotto i 1100px la colonna sparisce. */
+.inbox-lato {
+  min-width: 0;
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
 .col-attivita-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px; margin-bottom: 10px; padding: 0 2px;

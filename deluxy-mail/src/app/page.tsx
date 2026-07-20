@@ -388,7 +388,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         )}
         </div>
 
-        <div style={{ minWidth: 0 }}>
+        <div className="inbox-lato">
           <CarteApp azioni={azioniApp} />
           <ColonnaAttivita utenteId={u.id} />
         </div>
