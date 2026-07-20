@@ -54,6 +54,10 @@ solo dove siamo e come si lavora.
    (anche schede del registro, id `anag:<id>`), condivisi fra operatori; il click su
    «Invia richiesta» WhatsApp/email mette da solo «in corso» + stella.
 11. **`/api/fornitori`** (20/07): top 3 fornitori per un ordine, per AI/plugin (comando `/fornitori`).
+12. **Chiavi API `dlxs_`** (20/07, `/api/chiavi`, KV `apikeys:v1`): header `x-api-key` accettato
+   da tutte le API; gestione in Impostazioni → «🔑 Chiavi API» (solo admin), segreto mostrato
+   una sola volta (salvato scrypt), revoca immediata, Storico firma `chiave:<nome>`.
+   Collaudo completo in produzione 20/07 (crea→usa→403 su admin→revoca→401).
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
