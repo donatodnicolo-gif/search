@@ -462,7 +462,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
                       style={styles.rataVal}
                       value={rt.valore}
                       onChangeText={(t) => setRate((rs) => rs.map((x) => (x.key === rt.key ? { ...x, valore: t } : x)))}
-                      placeholder={rt.modo === 'percentuale' ? 'es. 30' : 'es. 150'}
+                      placeholder="Valore"
                       placeholderTextColor={colors.grigio}
                       keyboardType="decimal-pad"
                     />
