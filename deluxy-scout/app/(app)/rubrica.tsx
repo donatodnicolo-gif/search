@@ -1,0 +1,174 @@
+// Rubrica: tutti i contatti registrati nell'app, condivisi con HubSpot.
+import { useCallback, useMemo, useState } from 'react';
+import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { colors, radius, spacing } from '@/lib/theme';
+import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
+
+export default function Rubrica() {
+  const router = useRouter();
+  const [contatti, setContatti] = useState<ContattoConLuogo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+
+  const carica = useCallback(async () => {
+    setLoading(true);
+    try {
+      setContatti(await fetchTuttiContatti());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      carica();
+    }, [carica]),
+  );
+
+  const dati = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return contatti;
+    return contatti.filter((c) =>
+      [c.nome, c.ruolo, c.place_nome, c.telefono, c.email]
+        .filter(Boolean)
+        .some((v) => (v as string).toLowerCase().includes(q)),
+    );
+  }, [contatti, query]);
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.head}>
+        <PageIntro testo="Tutti i contatti raccolti sul campo, sincronizzati con HubSpot. Cerca per nome, ruolo, negozio o telefono." />
+        <TextInput
+          style={styles.search}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Cerca per nome, ruolo, negozio, telefono…"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          clearButtonMode="while-editing"
+        />
+      </View>
+      <FlatList
+        data={dati}
+        keyExtractor={(c) => c.id}
+        contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
+        ListEmptyComponent={
+          <EmptyState
+            icona="people-outline"
+            titolo="Nessun contatto"
+            aiuto="I contatti che registri durante le visite compaiono qui e vengono sincronizzati con HubSpot."
+            loading={loading}
+          />
+        }
+        renderItem={({ item }) => (
+          <Contatto contatto={item} onOpenPlace={() => router.push(`/(app)/attivita/${item.place_id}`)} />
+        )}
+      />
+    </View>
+  );
+}
+
+function Contatto({ contatto: c, onOpenPlace }: { contatto: ContattoConLuogo; onOpenPlace: () => void }) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <Text style={styles.nome} numberOfLines={1}>
+          {c.nome} {c.is_decisore ? <Ionicons name="star" size={13} color={colors.oro} /> : null}
+        </Text>
+        {c.hubspot_contact_id ? (
+          <StatusBadge small label="Su HubSpot" colore={colors.successo} />
+        ) : (
+          <StatusBadge small label="Da sincronizzare" colore={colors.attenzione} />
+        )}
+      </View>
+      {c.ruolo ? <Text style={styles.meta}>{c.ruolo}</Text> : null}
+      {c.place_nome ? (
+        <Pressable onPress={onOpenPlace}>
+          <Text style={styles.negozio}>
+            <Ionicons name="storefront-outline" size={14} color={colors.navy} /> {c.place_nome}
+          </Text>
+        </Pressable>
+      ) : null}
+      {c.place_linea ? (
+        <View style={styles.lineaTag}>
+          <Text style={styles.lineaTagTxt}>{c.place_linea}</Text>
+        </View>
+      ) : null}
+      <View style={styles.azioni}>
+        {c.telefono ? (
+          <Pressable style={styles.azione} onPress={() => Linking.openURL(`tel:${c.telefono}`)}>
+            <Text style={styles.azioneTxt}>
+              <Ionicons name="call-outline" size={13} color={colors.oro} /> {c.telefono}
+            </Text>
+          </Pressable>
+        ) : null}
+        {c.email ? (
+          <Pressable style={styles.azione} onPress={() => Linking.openURL(`mailto:${c.email}`)}>
+            <Text style={styles.azioneTxt}>
+              <Ionicons name="mail-outline" size={13} color={colors.oro} /> {c.email}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.sfondo },
+  head: {
+    backgroundColor: colors.sfondo,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.grigioChiaro,
+    paddingTop: spacing.sm,
+  },
+  search: {
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.testo,
+  },
+  list: { padding: spacing.md, gap: spacing.sm },
+  card: {
+    backgroundColor: colors.bianco,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    gap: 4,
+  },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  nome: { flex: 1, fontSize: 16, fontWeight: '800', color: colors.navy },
+  meta: { color: colors.testoSoft, fontSize: 13 },
+  negozio: { color: colors.navy, fontSize: 14, fontWeight: '600', marginTop: 2 },
+  lineaTag: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.goldSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginTop: 2,
+  },
+  lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12 },
+  azioni: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
+  azione: {
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+  },
+  azioneTxt: { color: colors.oro, fontWeight: '700', fontSize: 13 },
+});

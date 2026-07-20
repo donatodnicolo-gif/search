@@ -1,0 +1,888 @@
+// ============================================================
+// Deluxy Platform - Schema dati completo
+// ------------------------------------------------------------
+// Dev:  provider "sqlite"  + DATABASE_URL="file:./dev.db"
+// Prod: provider "postgresql" + DATABASE_URL="postgresql://..."
+//   (Prisma non permette di cambiare provider via env: per il
+//    passaggio a PostgreSQL modificare la riga `provider` qui
+//    sotto e rigenerare le migrazioni. Gli "enum" sono modellati
+//    come String per compatibilita' SQLite; i valori ammessi sono
+//    definiti in api/src/common/enums.ts e validati nei DTO.)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+// Utenti e ruoli
+// role: ADMIN | OPERATION | PARTNER | VALET | PROJECT_MANAGER
+// isSupport: admin "support" -> vede Finanza / marginalita'
+// ------------------------------------------------------------
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?  // null finché l'utente non accetta l'invito e sceglie la password
+  firstName    String
+  lastName     String
+  role         String
+  isSupport    Boolean  @default(false)
+  // Stato dell'ACCESSO (separato dall'operatività dell'anagrafica):
+  //  invited   -> creato, non ha ancora scelto la password (non può entrare)
+  //  active    -> può accedere
+  //  suspended -> sospeso temporaneo (non può entrare, torna attivabile)
+  //  archived  -> cessato (non può entrare; il record resta per lo storico)
+  status       String   @default("invited")
+  // Invito: token monouso a scadenza con cui la persona sceglie la password
+  inviteToken          String?   @unique
+  inviteTokenExpiresAt DateTime?
+  activatedAt          DateTime?
+  partnerId    String?
+  partner      Partner? @relation(fields: [partnerId], references: [id])
+  valetId      String?  @unique
+  valet        Valet?   @relation(fields: [valetId], references: [id])
+  operationId  String?    @unique
+  operation    Operation? @relation(fields: [operationId], references: [id])
+  savedViews   SavedView[]
+  events       UserEvent[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Registro delle azioni sugli utenti (audit): chi ha invitato/attivato/
+// sospeso/archiviato chi, quando e con quale nota.
+model UserEvent {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String   // created | invited | activated | suspended | archived | reactivated | role_changed
+  actorId    String?  // id dell'utente che ha compiuto l'azione (null = sistema)
+  actorEmail String?
+  note       String?
+  createdAt  DateTime @default(now())
+}
+
+/**
+ * Vista di visualizzazione rapida salvata dall'utente su una lista:
+ * memorizza ricerca/ordinamento/paginazione/filtri per richiamarli con un clic.
+ * Legata all'utente (segue l'account, non il browser).
+ */
+model SavedView {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Sezione: deliveries | products | customers | partners | valets | categories | services | operators
+  section   String
+  name      String
+  // JSON con lo stato della lista: { q, sort, dir, pageSize, ...filtri specifici }
+  config    String
+  // Vista condivisa con tutto il team (non solo con chi l'ha creata)
+  shared    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, section])
+}
+
+// ------------------------------------------------------------
+// Geografia: province e citta'
+// ------------------------------------------------------------
+model Province {
+  id                String             @id @default(cuid())
+  name              String
+  code              String             @unique // es. "MI"
+  cities            City[]
+  partnerProvinces  PartnerProvince[]
+  valetProvinces    ValetProvince[]
+  categoryDiscounts CategoryDiscount[]
+  sales             Sale[]
+}
+
+model City {
+  id         String   @id @default(cuid())
+  name       String
+  provinceId String
+  province   Province @relation(fields: [provinceId], references: [id])
+}
+
+// ------------------------------------------------------------
+// Tipi di servizio
+// pricingModel: PREZZO_FISSO | A_ORA | VENDITA | CORPORATE | MAGAZZINO
+// MAGAZZINO: basePrice + perPiecePrice + transportPrice
+// A_ORA: minimo 1 ora (minHours)
+// Il matching automatico avviene per pricingModel:
+//   servizio prezzo fisso del partner <-> salario prezzo fisso del valet
+// ------------------------------------------------------------
+model ServiceType {
+  id              String           @id @default(cuid())
+  name            String
+  code            String           @unique
+  pricingModel    String // VENDITA | PREZZO_FISSO | A_ORA | MAGAZZINO | CORPORATE
+  scope           String           @default("partner") // partner | valet | both
+  basePrice       Float? // magazzino: prezzo fisso
+  perPiecePrice   Float? // magazzino: prezzo a pezzo
+  transportPrice  Float? // magazzino: prezzo consegna
+  deliveryPrice   Float? // magazzino: prezzo consegna (nuovo)
+  minHours        Int?             @default(1)
+  // Setup prenotazione (usato dalle regole di richiesta servizio)
+  noticeDays      Int? // giorni di preavviso
+  slotHours       Int? // fascia oraria: 1 | 2 | 4 (ore)
+  maxOrderTime    String? // ora massima inserimento giornaliero "HH:MM" (fine generazione fasce consegna)
+  minOrderTime    String? // ora minima inserimento giornaliero "HH:MM" (inizio generazione fasce consegna)
+  allowFlexibleTime Boolean        @default(false) // consente la fascia di consegna flessibile (dalle–alle)
+  notes           String?
+  hideCustomerInfo Boolean         @default(false)
+  active          Boolean          @default(true)
+  partnerServices PartnerService[]
+  valetServices   ValetService[]
+  deliveries      Delivery[]
+}
+
+// ------------------------------------------------------------
+// Partner (negozi)
+// ------------------------------------------------------------
+model Partner {
+  id                  String            @id @default(cuid())
+  insegna             String
+  businessName        String? // ragione sociale
+  email               String            @unique
+  vatNumber           String? // P.IVA
+  fiscalCode          String? // CF
+  address             String?
+  phone               String?
+  contactName         String? // referente
+  invoicingEnabled    Boolean           @default(false)
+  invoiceEmail        String?
+  smsTemplatesEnabled Boolean           @default(false)
+  notificationsEnabled Boolean          @default(true)
+  documentation       String?
+  notes               String?
+  woocommerceApiKey   String?           @unique
+  // Stato pagamenti del partner (legacy): active | inactive | blocked
+  paymentStatus       String            @default("active")
+  // Metodo di pagamento (legacy): bankTransfer | creditCard | directDebitMandate
+  paymentMethod       String?
+  // Referente: nome (contactName) + cognome
+  contactSurname      String?
+  // Notifiche granulari (come nell'app reale)
+  whatsappNotifications Boolean         @default(false)
+  mailNotifications   Boolean           @default(false)
+  // Pagamenti e contratto
+  bankAccount         String? // IBAN
+  bankAccountName     String? // intestatario conto
+  sdiCode             String? // codice SDI fatturazione elettronica
+  certifiedEmail      String? // PEC
+  contractStart       DateTime?
+  contractEnd         DateTime?
+  // Notifiche extra
+  activityReminder    Boolean           @default(false) // promemoria attività
+  // KM a livello partner (soglia inclusa entro il comune + extra fuori città)
+  kmIncluded          Float?
+  extraOutOfCityPrice Float?
+  // Tipo codice di consegna (quando deliveryCodeRequired): UNIQUE_PER_DELIVERY | UNIQUE_PER_CUSTOMER
+  deliveryCodeCheckType String          @default("UNIQUE_PER_DELIVERY")
+  // Indirizzo di ritiro multiplo (+ lista indirizzi come JSON per compat. SQLite)
+  isMultiPickup       Boolean           @default(false)
+  pickupAddresses     String? // JSON array di indirizzi di ritiro aggiuntivi
+  // Campi di vendita
+  storeUrl            String?
+  imageUrl            String?
+  // Sicurezza
+  valetIdentityCheck  Boolean           @default(false)
+  deliveryCodeRequired Boolean          @default(false)
+  // Partner magazzino
+  isWarehouse         Boolean           @default(false)
+  active              Boolean           @default(true)
+  provinces           PartnerProvince[]
+  services            PartnerService[]
+  categories          PartnerCategory[]
+  openingHours        OpeningHour[]
+  dayExceptions       PartnerDayException[]
+  products            Product[]
+  deliveries          Delivery[]
+  customers           Customer[]
+  users               User[]
+  smsTemplates        SmsTemplate[]
+  sales               Sale[]
+  deliveryRules       DeliveryRulePartner[]
+  invoices            Invoice[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+}
+
+model PartnerProvince {
+  id         String   @id @default(cuid())
+  partnerId  String
+  provinceId String
+  partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  province   Province @relation(fields: [provinceId], references: [id])
+
+  @@unique([partnerId, provinceId])
+}
+
+// Servizi abilitati per partner: prezzo, KM inclusi, extra fuori citta', extra KM
+model PartnerService {
+  id                  String      @id @default(cuid())
+  partnerId           String
+  serviceTypeId       String
+  price               Float
+  includedKm          Float       @default(0)
+  extraKmPrice        Float       @default(0)
+  extraOutOfCityPrice Float       @default(0)
+  partner             Partner     @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  serviceType         ServiceType @relation(fields: [serviceTypeId], references: [id])
+
+  @@unique([partnerId, serviceTypeId])
+}
+
+// Categorie di prodotto vendute dal partner, con priorita' di smistamento vendite
+model PartnerCategory {
+  id         String   @id @default(cuid())
+  partnerId  String
+  categoryId String
+  priority   Int      @default(0) // ordine nella lista priorita' smistamento vendite
+  partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([partnerId, categoryId])
+}
+
+// Orari di apertura settimanali (dayOfWeek: 0=domenica ... 6=sabato)
+model OpeningHour {
+  id        String  @id @default(cuid())
+  partnerId String
+  dayOfWeek Int
+  openTime  String? // "09:00"
+  closeTime String? // "19:30"
+  closed    Boolean @default(false)
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+}
+
+// Eccezioni per DATA specifica (chiusura straordinaria o orario speciale):
+// vincono sull'orario settimanale per quel giorno. Una riga per (partner, data).
+model PartnerDayException {
+  id        String   @id @default(cuid())
+  partnerId String
+  date      DateTime // giorno specifico (mezzanotte UTC)
+  closed    Boolean  @default(false)
+  openTime  String? // "09:00" (orario speciale, se non chiuso)
+  closeTime String? // "13:00"
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, date])
+}
+
+// ------------------------------------------------------------
+// Valet (corrieri)
+// ------------------------------------------------------------
+// NB: nella piattaforma legacy il valet si chiama internamente "expert"
+// (es. endpoint /api/experts/...). Qui usiamo "valet" come nel linguaggio
+// di business.
+model Valet {
+  id                  String            @id @default(cuid())
+  firstName           String
+  lastName            String
+  email               String            @unique
+  phone               String?
+  address             String?
+  hasVat              Boolean           @default(false) // flag P.IVA
+  vatNumber           String?
+  fiscalCode          String?
+  birthPlace          String?
+  birthDate           DateTime?
+  iban                String?
+  isTeamLeader        Boolean           @default(false)
+  // Team leader: province dove può assegnare + partner associati + partner esclusi (JSON array di id, compat. SQLite)
+  teamLeaderProvinces String?
+  teamLeaderPartners  String?
+  teamLeaderExcludedPartners String? // partner esclusi dallo scope del team leader
+  vehicle             String? // mezzo: Auto | Bicicletta | Furgone | Moto/Scooter
+  withholdingPercent  Float             @default(0) // % ritenuta rimborso
+  // Stipendio
+  salaryFrequency     String            @default("monthly") // monthly | weekly
+  weeklyDepositLimit  Float?
+  // KM a livello valet
+  minimumKmIncluded   Float? // soglia KM inclusi entro il comune
+  extraOutOfCityPrice Float? // rimborso extra fuori dal comune
+  notes               String?
+  notifyByEmail       Boolean           @default(true)
+  notifyByWhatsapp    Boolean           @default(false)
+  active              Boolean           @default(true)
+  provinces           ValetProvince[]
+  services            ValetService[]
+  deliveries          Delivery[]
+  activities          Activity[]
+  availabilities      ValetAvailability[]
+  salaries            Salary[]
+  payments            Payment[]
+  user                User?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+}
+
+model ValetProvince {
+  id         String   @id @default(cuid())
+  valetId    String
+  provinceId String
+  valet      Valet    @relation(fields: [valetId], references: [id], onDelete: Cascade)
+  province   Province @relation(fields: [provinceId], references: [id])
+
+  @@unique([valetId, provinceId])
+}
+
+// Servizi con salario per valet (matching per pricingModel con PartnerService)
+model ValetService {
+  id            String      @id @default(cuid())
+  valetId       String
+  serviceTypeId String
+  salary        Float
+  salaryPerItem Float? // per i servizi magazzino (salario a pezzo)
+  extraKmPrice  Float? // Extra KM/€
+  valet         Valet       @relation(fields: [valetId], references: [id], onDelete: Cascade)
+  serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
+
+  @@unique([valetId, serviceTypeId])
+}
+
+// Disponibilita' del valet per DATA specifica (impostata dal valet dal calendario):
+// available=false -> non disponibile; timeFrom/timeTo -> disponibile solo in fascia.
+model ValetAvailability {
+  id        String   @id @default(cuid())
+  valetId   String
+  date      DateTime
+  timeFrom  String? // "08:00"
+  timeTo    String? // "20:00"
+  available Boolean  @default(true)
+  note      String?
+  valet     Valet    @relation(fields: [valetId], references: [id], onDelete: Cascade)
+
+  @@unique([valetId, date])
+}
+
+// ------------------------------------------------------------
+// Prodotti e categorie
+// type: UNICO | NON_UNICO | SUPERPRODOTTO
+// - UNICO: appartiene a un partner
+// - NON_UNICO: es. fiori, vendibile da piu' partner
+// - SUPERPRODOTTO: combinazione di altri prodotti (ProductComponent)
+// isAutoDiscounted + parentProductId: prodotti scontati generati
+//   automaticamente dagli sconti % per categoria/provincia
+// ------------------------------------------------------------
+model Category {
+  id               String             @id @default(cuid())
+  name             String             @unique
+  notes            String?
+  aiPrompt         String? // prompt per generazione AI (es. torte)
+  products         Product[]
+  discounts        CategoryDiscount[] // sconto % per provincia
+  fields           CategoryField[] // campi testuali extra per i prodotti della categoria
+  partnerCategories PartnerCategory[]
+}
+
+// Campo testuale extra definito a livello categoria.
+// fieldType: optional | required | admin (solo admin)
+model CategoryField {
+  id         String   @id @default(cuid())
+  categoryId String
+  name       String
+  fieldType  String   @default("optional")
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+
+// Sconto % per categoria e provincia -> genera prodotti scontati automatici
+model CategoryDiscount {
+  id              String   @id @default(cuid())
+  categoryId      String
+  provinceId      String
+  discountPercent Float
+  category        Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  province        Province @relation(fields: [provinceId], references: [id])
+
+  @@unique([categoryId, provinceId])
+}
+
+model Product {
+  id                      String             @id @default(cuid())
+  name                    String
+  description             String?
+  shortDesc               String? // "Plus del prodotto" (max 80 char)
+  price                   Float
+  publicPrice             Float? // prezzo pubblico
+  sku                     String?
+  prepDays                Int? // giorni di preparazione
+  line                    String? // linea/brand
+  imageUrl                String? // immagine principale
+  images                  String? // JSON array di URL immagine (galleria/Shopify)
+  platformDescriptions    String? // JSON { piattaforma: descrizione } per SELECT PLATFORMS
+  approved                Boolean            @default(false)
+  type                    String // UNICO | NON_UNICO | SUPERPRODOTTO
+  partnerId               String?
+  partner                 Partner?           @relation(fields: [partnerId], references: [id])
+  categoryId              String?
+  category                Category?          @relation(fields: [categoryId], references: [id])
+  visibleToOtherPartners  Boolean            @default(false)
+  // Flag prodotto (come app reale)
+  notEditable             Boolean            @default(false) // non modificabile
+  controlStock            Boolean            @default(false) // controlla stock
+  stock                   Int? // giacenza (se controlStock)
+  notPhysical             Boolean            @default(false) // prodotto non fisico
+  isSuperProvince         Boolean            @default(false) // super provincia
+  useAlternateName        Boolean            @default(false)
+  alternateName           String? // nome alternativo del prodotto
+  // Piattaforme di vendita abilitate (JSON array: deluxy|cakes|flowers|business|experience|dotcom)
+  platforms               String?
+  // Varianti
+  hasVariants             Boolean            @default(false)
+  optionTitle             String? // titolo opzione varianti (es. "Dimensione")
+  variants                ProductVariant[]
+  // Partner aggiuntivi che vendono il prodotto (oltre al partner proprietario)
+  partnerLinks            ProductPartnerLink[]
+  isAutoDiscounted        Boolean            @default(false)
+  parentProductId         String?
+  parentProduct           Product?           @relation("DiscountedVariants", fields: [parentProductId], references: [id])
+  discountedVariants      Product[]          @relation("DiscountedVariants")
+  components              ProductComponent[] @relation("SuperProduct")
+  usedInSuperProducts     ProductComponent[] @relation("ComponentProduct")
+  fields                  ProductField[]
+  deliveryProducts        DeliveryProduct[]
+  sales                   Sale[]
+  active                  Boolean            @default(true)
+  // Archiviato: stato SEPARATO da `active`. Un prodotto disattivato resta
+  // visibile nella lista principale; uno archiviato va nella sezione Archivio.
+  archived                Boolean            @default(false)
+  archivedAt              DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+}
+
+// Variante di prodotto (es. taglia S/M/L), con proprio prezzo e SKU
+model ProductVariant {
+  id           String  @id @default(cuid())
+  productId    String
+  name         String // valore opzione (es. "Media")
+  price        Float?
+  publicPrice  Float? // prezzo pubblico variante
+  sku          String? // SKU variante (auto: <SKU prodotto>-NN progressivo)
+  imageUrl     String? // immagine della variante
+  prepDays     Int? // giorni di preparazione variante
+  controlStock Boolean @default(false) // controlla stock variante
+  stock        Int? // giacenza variante
+  active       Boolean @default(true)
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// Associazione prodotto <-> partner aggiuntivo (PRODUCTS PARTNER)
+model ProductPartnerLink {
+  id        String  @id @default(cuid())
+  productId String
+  partnerId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, partnerId])
+}
+
+// Componenti di un superprodotto
+model ProductComponent {
+  id                 String  @id @default(cuid())
+  superProductId     String
+  componentProductId String
+  quantity           Int     @default(1)
+  superProduct       Product @relation("SuperProduct", fields: [superProductId], references: [id], onDelete: Cascade)
+  componentProduct   Product @relation("ComponentProduct", fields: [componentProductId], references: [id])
+
+  @@unique([superProductId, componentProductId])
+}
+
+// Campi testuali del prodotto (obbligatori / opzionali / solo-admin)
+model ProductField {
+  id        String  @id @default(cuid())
+  productId String
+  name      String
+  required  Boolean @default(false)
+  adminOnly Boolean @default(false)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------------------------
+// Clienti
+// ------------------------------------------------------------
+model Customer {
+  id         String     @id @default(cuid())
+  firstName  String
+  lastName   String
+  email      String?
+  phone      String?
+  address    String?
+  notes      String?
+  partnerId  String?
+  partner    Partner?   @relation(fields: [partnerId], references: [id])
+  deliveries Delivery[]
+  sales      Sale[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+// ------------------------------------------------------------
+// Consegne
+// status: created | assigned | in_preparation | accepted |
+//         in_delivery | delivered | not_delivered | cancelled |
+//         cancellation_requested | not_accepted |
+//         delivered_time_approved | delivered_time_not_approved
+// DDT: lo stesso ddtNumber su piu' ritiri (DeliveryPickup) = una consegna
+// ------------------------------------------------------------
+model Delivery {
+  id                 String            @id @default(cuid())
+  // Numero progressivo leggibile (assegnato dal service: max(code)+1;
+  // autoincrement su campo non-id non e' supportato da SQLite)
+  code               Int               @unique
+  date               DateTime // giorno della consegna
+  serviceTypeId      String
+  serviceType        ServiceType       @relation(fields: [serviceTypeId], references: [id])
+  partnerId          String
+  partner            Partner           @relation(fields: [partnerId], references: [id])
+  valetId            String?
+  valet              Valet?            @relation(fields: [valetId], references: [id])
+  customerId         String?
+  customer           Customer?         @relation(fields: [customerId], references: [id])
+  status             String            @default("created")
+  paymentStatus      String            @default("default") // default | paid | toBePaid
+  // Token del link pubblico di monitoraggio (bottone MONITORARE).
+  // Casuale e opaco: niente @unique per evitare il rebuild tabella in SQLite,
+  // la ricerca usa findFirst.
+  trackingToken      String?
+  // Conferma di consegna (dal link pubblico "consegnata"): chi ha ritirato.
+  receivedBy         String?
+  // Fascia oraria consegna + ritiro (se non flessibile => fascia di 1 ora)
+  deliveryTimeFrom   String? // "09:00"
+  deliveryTimeTo     String? // "13:00"
+  deliveryFlexible   Boolean           @default(false)
+  pickupTimeFrom     String? // "10:00"
+  pickupTimeTo       String? // "12:00"
+  pickupFlexible     Boolean           @default(false)
+  pickupAddress      String?
+  // Destinatario
+  recipientFirstName String
+  recipientLastName  String
+  recipientAddress   String
+  // Coordinate geocodificate dell'indirizzo destinatario (per la mappa consegne).
+  // Popolate una volta alla creazione/modifica; null se non geocodificabile.
+  latitude           Float?
+  longitude          Float?
+  recipientIntercom  String? // citofono
+  recipientPhone     String?
+  recipientEmail     String?
+  // Mittente
+  senderFirstName    String?
+  senderLastName     String?
+  senderPhone        String?
+  // Pagamento alla consegna (contanti detratti dallo stipendio del valet)
+  paymentOnDelivery  Boolean           @default(false)
+  paymentAmount      Float?
+  tryAndReturn       Boolean           @default(false)
+  deliveryCodeRequired Boolean         @default(false)
+  // Note
+  notes              String?
+  internalNotes      String? // visibili solo ad admin/operation/valet
+  ddtNumber          String?
+  ddtFile            String? // file/URL del DDT
+  // Distanza e extra (calcolo automatico ritiro -> consegna)
+  distanceKm         Float?
+  extraKm            Float             @default(0)
+  extraOutOfCity     Boolean           @default(false)
+  // Vendita Deluxy + valet servizio
+  deluxyDelivery     Boolean           @default(false) // "Vendita Deluxy"
+  valetServiceId     String? // "Valet Servizio" (id ValetService/ServiceType)
+  // Economia (LISTINO: da fatturare / da pagare)
+  billable           Boolean           @default(true) // da fatturare
+  payable            Boolean           @default(true) // da pagare
+  price              Float? // prezzo per il partner
+  additionalPrice    Float? // plus/minus prezzo partner
+  valetSalary        Float? // paga del valet
+  valetAdditionalPrice Float? // plus/minus paga valet
+  isFlexiblePrice    Boolean           @default(false)
+  flexiblePrice      String? // prezzo flessibile (JSON/testo)
+  hours              Float? // per servizi a ora
+  personalizeSaleNotes String? // personalizzazione
+  // SMS: numero telefonico + trigger
+  smsPhoneNo         String?
+  smsOnCreated       Boolean           @default(false)
+  smsOnDeparted      Boolean           @default(false)
+  smsOnArrived       Boolean           @default(false)
+  products           DeliveryProduct[]
+  pickups            DeliveryPickup[]
+  activities         Activity[]
+  logs               DeliveryLog[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+}
+
+model DeliveryProduct {
+  id             String   @id @default(cuid())
+  deliveryId     String
+  productId      String
+  quantity       Int      @default(1)
+  price          Float? // prezzo del prodotto in questa consegna (override se flessibile)
+  flexiblePrice  Boolean  @default(false) // consente la modifica del prezzo prodotto
+  fieldValues    String? // JSON {nomeCampo: valore} per i ProductField
+  delivery       Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  product        Product  @relation(fields: [productId], references: [id])
+}
+
+// Ritiri multipli sotto lo stesso DDT
+model DeliveryPickup {
+  id         String   @id @default(cuid())
+  deliveryId String
+  address    String
+  timeFrom   String?
+  timeTo     String?
+  ddtNumber  String?
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+}
+
+// Log della consegna: inserita / partita / effettuata / cambi stato
+model DeliveryLog {
+  id         String   @id @default(cuid())
+  deliveryId String
+  type       String // created | departed | delivered | status_change | note
+  message    String
+  userId     String?
+  createdAt  DateTime @default(now())
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------------------------
+// Attivita' (ogni consegna genera attivita' di ritiro + consegna)
+// type: PICKUP | DELIVERY - ordinabili per orario ("reorder with time")
+// Il team leader vede anche le attivita' degli altri valet delle sue province
+// ------------------------------------------------------------
+model Activity {
+  id          String   @id @default(cuid())
+  deliveryId  String
+  delivery    Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  valetId     String?
+  valet       Valet?   @relation(fields: [valetId], references: [id])
+  type        String // PICKUP | DELIVERY
+  status      String   @default("pending") // pending | done | skipped
+  scheduledAt DateTime?
+  timeFrom    String?
+  timeTo      String?
+  address     String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------------------------------------
+// Modelli SMS per brand
+// brand: DELUXY | DELUXY_FLOWERS | CAKEDESIGN_ME | BUSINESS_DELUXY |
+//        DELUXY_EXPERIENCE | DELUXY_DOT_COM
+// trigger: CREATED | DEPARTED | ARRIVED
+// partnerId valorizzato = modello personalizzato del partner (se abilitato)
+// ------------------------------------------------------------
+model SmsTemplate {
+  id        String   @id @default(cuid())
+  brand     String
+  trigger   String
+  name      String
+  text      String
+  partnerId String?
+  partner   Partner? @relation(fields: [partnerId], references: [id])
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ------------------------------------------------------------
+// Regole carnet consegne
+// type: DAILY_COUNT (numero giornaliero) | TOTAL_COUNT (totale nel periodo)
+// partnerBillingAdjustment / valetPayAdjustment: plus/minus applicati
+// Estendibili a piu' partner tramite DeliveryRulePartner
+// ------------------------------------------------------------
+model DeliveryRule {
+  id                       String                @id @default(cuid())
+  name                     String
+  type                     String
+  deliveryCount            Int
+  periodStart              DateTime?
+  periodEnd                DateTime?
+  partnerBillingAdjustment Float                 @default(0)
+  valetPayAdjustment       Float                 @default(0)
+  active                   Boolean               @default(true)
+  partners                 DeliveryRulePartner[]
+  createdAt                DateTime              @default(now())
+}
+
+model DeliveryRulePartner {
+  id             String       @id @default(cuid())
+  deliveryRuleId String
+  partnerId      String
+  deliveryRule   DeliveryRule @relation(fields: [deliveryRuleId], references: [id], onDelete: Cascade)
+  partner        Partner      @relation(fields: [partnerId], references: [id])
+
+  @@unique([deliveryRuleId, partnerId])
+}
+
+// ------------------------------------------------------------
+// Stipendi valet
+// Flusso: DRAFT -> SENT -> RECEIPT_PENDING (ricevuta da firmare)
+//         -> APPROVED -> PAID
+// documentType: PROFORMA_INVOICE (valet con P.IVA) | WITHHOLDING_RECEIPT
+// cashDeductions: contanti incassati alla consegna, detratti
+// ------------------------------------------------------------
+model Salary {
+  id             String    @id @default(cuid())
+  valetId        String
+  valet          Valet     @relation(fields: [valetId], references: [id])
+  periodStart    DateTime
+  periodEnd      DateTime
+  grossAmount    Float
+  cashDeductions Float     @default(0)
+  netAmount      Float
+  documentType   String // PROFORMA_INVOICE | WITHHOLDING_RECEIPT
+  status         String    @default("DRAFT")
+  // Archiviato: lo stipendio inviato esce dalla lista attivi ed entra in Archivio.
+  archived       Boolean   @default(false)
+  sentAt         DateTime?
+  approvedAt     DateTime?
+  paidAt         DateTime?
+  receipts       Receipt[]
+  claims         Payment[] // reclami aperti dal valet su questo stipendio
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// Ricevute (da firmare -> firmate)
+model Receipt {
+  id       String    @id @default(cuid())
+  salaryId String
+  salary   Salary    @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+  number   String?
+  fileUrl  String?
+  signed   Boolean   @default(false)
+  signedAt DateTime?
+  createdAt DateTime @default(now())
+}
+
+// ------------------------------------------------------------
+// Pagamenti: rimborsi richiesti dai valet, reclami
+// type: REIMBURSEMENT | CLAIM
+// status: REQUESTED | APPROVED | REJECTED | PAID
+// ------------------------------------------------------------
+model Payment {
+  id          String   @id @default(cuid())
+  valetId     String
+  valet       Valet    @relation(fields: [valetId], references: [id])
+  // Reclamo aperto su una riga di stipendio (es. rimborso Area C). Facoltativo.
+  salaryId    String?
+  salary      Salary?  @relation(fields: [salaryId], references: [id], onDelete: SetNull)
+  type        String
+  amount      Float
+  description String?
+  status      String   @default("REQUESTED")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------------------------------------
+// Fatturazione partner: fattura periodica delle consegne "da fatturare".
+// Somma di price + additionalPrice delle consegne billable ed effettuate.
+// status: DRAFT (bozza) | ISSUED (emessa, va in storico) | PAID (pagata)
+// ------------------------------------------------------------
+model Invoice {
+  id              String    @id @default(cuid())
+  partnerId       String
+  partner         Partner   @relation(fields: [partnerId], references: [id])
+  number          String? // FAT-<anno>-<n>
+  periodStart     DateTime
+  periodEnd       DateTime
+  totalAmount     Float     @default(0)
+  deliveriesCount Int       @default(0)
+  status          String    @default("DRAFT")
+  // Emettendo la fattura esce dalle bozze ed entra nello Storico.
+  archived        Boolean   @default(false)
+  issuedAt        DateTime?
+  paidAt          DateTime?
+  lines           InvoiceLine[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// Riga di fattura: una consegna fatturata (snapshot al momento della generazione).
+model InvoiceLine {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  deliveryId  String? // riferimento alla consegna (facoltativo)
+  date        DateTime
+  recipient   String
+  description String?
+  amount      Float    @default(0)
+  createdAt   DateTime @default(now())
+}
+
+// ------------------------------------------------------------
+// Vendite (da app.deluxy.it)
+// Smistamento: prodotto UNICO -> partner della provincia se aperto;
+// NON_UNICO -> lista priorita' partner per provincia+categoria.
+// Sconto arrotondato a 0/5.
+// ------------------------------------------------------------
+model Sale {
+  id              String    @id @default(cuid())
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id])
+  partnerId       String? // partner assegnato dallo smistamento
+  partner         Partner?  @relation(fields: [partnerId], references: [id])
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  provinceId      String
+  province        Province  @relation(fields: [provinceId], references: [id])
+  brand           String    @default("DELUXY")
+  amount          Float
+  discountPercent Float     @default(0)
+  status          String    @default("created") // created | dispatched | completed | cancelled
+  source          String    @default("app") // app | woocommerce
+  externalOrderId String? // id ordine WooCommerce
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// Impostazioni applicative (chiave-valore) gestite dall'admin in Configurazione →
+// Impostazioni: chiavi API di servizi esterni (es. Google Maps) e simili.
+// I valori vivono SOLO nel database: mai in file di codice o commit (regola 3).
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// Staff d'ufficio. Il flag isProjectManager lo qualifica come Project Manager
+// (come Operation ma senza Consegne e Attività).
+model Operation {
+  id               String   @id @default(cuid())
+  firstName        String
+  lastName         String
+  email            String   @unique
+  phone            String?
+  address          String?
+  notifyWhatsapp   Boolean  @default(false)
+  notifyMail       Boolean  @default(true)
+  // Ruolo operatore (controlla la visibilità delle sezioni):
+  //  operation        -> base (vede Operatività, non Amministrazione)
+  //  finance          -> vede anche la sezione Amministrazione
+  //  project_manager  -> NON vede la sezione Operatività
+  //  customer_service -> NON vede la sezione Amministrazione
+  operationRole    String   @default("operation")
+  notes            String?
+  active           Boolean  @default(true)
+  user             User?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}

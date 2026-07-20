@@ -1,0 +1,6 @@
+# Output di build web/export (rigenerabili, non versionare)
+dist/
+dist-web/
+dist-check/
+web-build/
+.vercel/

@@ -1,0 +1,144 @@
+// Deluxy Anagrafiche — schema dati
+// Registro centralizzato dei partner B2B: fonte di verità per tutte le app Deluxy.
+// Le altre app leggono via API; solo la piattaforma consegne (app.deluxy.it) scrive.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Postgres condiviso delle app Deluxy (stesso cluster di hub/partner),
+  // schema "anagrafiche". Per rigenerare il .env locale:
+  //   node scripts/configura-db-condiviso.mjs <env-di-un-altra-app>
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
+}
+
+model Partner {
+  id             String     @id @default(cuid())
+  nome           String // insegna / nome prospect
+  ragioneSociale String?
+  // Categoria libera normalizzata in maiuscolo: BOUTIQUE, FIORISTA, PASTICCERIA,
+  // RISTORANTE, CATERING, GIFTING, CONCIERGE, ...
+  categoria      String     @default("ALTRO")
+  tipoProspect   String? // valore grezzo "TIPO PROSPECT" del tracker Excel
+  // prospect | in_contatto | in_attesa | in_trattativa | da_ricontattare |
+  // attivo (= partner) | non_interessato | dismesso — vedi src/lib/stati.ts
+  stato          String     @default("prospect")
+  citta          String?
+  provincia      String?
+  regione        String?
+  indirizzo      String?
+  email          String?
+  telefono       String?
+  pIva           String?
+  codiceFiscale  String?
+  account        String? // commerciale che segue l'anagrafica (ELEONORA, GAIA, ...)
+  ultimaVisita   DateTime?
+  // Tipologie di interesse commerciale (multi-scelta, catalogo in src/lib/interessi.ts)
+  interessi      String[]   @default([])
+  note           String?
+  contattiRaw    String? // blocco contatti originale dell'Excel (testo libero)
+  // Extra specifici del foglio di provenienza (stime, fee, ...), JSON serializzato
+  datiExtra      String?
+  contatti       Contatto[]
+  passaggi       PassaggioStato[]
+  riferimenti    RiferimentoEsterno[]
+  // Collegamento con la piattaforma consegne: id del Partner su app.deluxy.it
+  platformId     String?    @unique
+  // Riconciliazione manuale con HubSpot: id della company nel CRM
+  hubspotId      String?    @unique
+  // Provenienza per campo dei valori fattuali: { campo: { sistema, asOf } }.
+  // Alimenta il merge "vince il più fresco / la sorgente più autorevole".
+  provenienza    Json?
+  // excel | platform | manuale | ui | hubspot | <nome sorgente API>
+  fonte          String     @default("manuale")
+  attivo         Boolean    @default(true)
+  creatoIl       DateTime   @default(now())
+  aggiornatoIl   DateTime   @updatedAt
+
+  @@index([categoria])
+  @@index([stato])
+  @@index([citta])
+  @@index([nome])
+}
+
+// Persone di riferimento del partner (parse del blocco CONTATTI dell'Excel
+// o inviate dalle API)
+model Contatto {
+  id        String  @id @default(cuid())
+  partnerId String
+  ruolo     String? // TITOLARE, STORE MANAGER, SALES ASSISTANT, ...
+  nome      String?
+  telefono  String?
+  email     String?
+  fonte     String? // sorgente che ha inserito il referente (per il merge)
+  hubspotId String? // id del contatto nel CRM HubSpot (per aprirlo)
+  nomeRubrica String? // nome con cui salvarlo in rubrica Google; se vuoto: [STATO] [AZIENDA] [CITTÀ] [Nome]
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId])
+}
+
+// Riconciliazione con i sistemi esterni: mappa "id di quell'app" -> partner.
+// Generalizza platformId/hubspotId e rende Anagrafiche il risolutore di id
+// per tutto l'ecosistema: GET /api/v1/partners/by-ref/:sistema/:idEsterno.
+model RiferimentoEsterno {
+  id        String   @id @default(cuid())
+  partnerId String
+  sistema   String // platform | hubspot | scout | suppliers | partner | search | ...
+  idEsterno String
+  creatoIl  DateTime @default(now())
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([sistema, idEsterno])
+  @@index([partnerId])
+}
+
+// Storico dei passaggi di stato (e archiviazioni/ripristini) di un'anagrafica.
+// "archiviata" è un valore speciale di da/a per gli eventi di archivio.
+model PassaggioStato {
+  id        String   @id @default(cuid())
+  partnerId String
+  da        String
+  a         String
+  origine   String // "ui" oppure il nome della chiave API (deluxy-platform, ...)
+  creatoIl  DateTime @default(now())
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId, creatoIl])
+}
+
+// Storico delle richieste di aggancio (GET /api/v1/partners/match): un'app
+// che non ha ancora l'id confermato chiede "chi è questo partner?". Registra
+// tipo di match, esito, app richiedente — e permette al team di risolvere a
+// mano le associazioni ambigue, creando il riferimento esterno.
+model RichiestaMatch {
+  id         String   @id @default(cuid())
+  sistema    String // app richiedente
+  idEsterno  String? // id di quel partner nell'app (se fornito): serve per creare il collegamento
+  tipo       String // piva | codice_fiscale | nome_citta | nome | vuota
+  query      String // parametri leggibili della richiesta
+  esito      String // agganciata | candidati | nessuna
+  confidenza String // alta | media | nessuna
+  partnerId  String? // partner risolto (match certo) o scelto in revisione
+  risolto    Boolean  @default(false) // il team ha confermato/creato il collegamento
+  ip         String?
+  creatoIl   DateTime @default(now())
+
+  @@index([creatoIl])
+  @@index([sistema])
+}
+
+// Chiavi API delle app client. La chiave in chiaro non viene mai salvata:
+// si conserva solo lo SHA-256 (vedi scripts/crea-chiave.mjs).
+model ApiKey {
+  id        String    @id @default(cuid())
+  nome      String    @unique // app client: deluxy-platform, deluxy-partner, ...
+  hash      String    @unique // sha256 esadecimale della chiave
+  scrittura Boolean   @default(false) // true = può creare/modificare/disattivare
+  attiva    Boolean   @default(true)
+  creataIl  DateTime  @default(now())
+  ultimoUso DateTime?
+}

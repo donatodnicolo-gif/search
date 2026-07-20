@@ -1,0 +1,1372 @@
+{
+  "app": {
+    "tagline": "White-glove delivery, since 2019."
+  },
+  "login": {
+    "title": "Deluxy",
+    "subtitle": "Sign in to the white-glove delivery platform.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…"
+  },
+  "nav": {
+    "section": {
+      "operativita": "Operations",
+      "utenti": "Users",
+      "prodotti": "Products",
+      "amministrazione": "Administration",
+      "configurazione": "Configuration"
+    },
+    "consegne": "Deliveries",
+    "calendario": "Calendar",
+    "attivita": "Activities",
+    "vendite": "Sales",
+    "partner": "Partners",
+    "valet": "Valets",
+    "clienti": "Customers",
+    "operatori": "Operators",
+    "prodotti": "Products",
+    "categorie": "Categories",
+    "servizi": "Services",
+    "calcoli": "Calculations",
+    "fatturazione": "Invoicing",
+    "stipendi": "Salaries",
+    "ricevute": "Receipts",
+    "pagamenti": "Payments",
+    "regoleCarnet": "Carnet rules",
+    "finanza": "Finance",
+    "modelliSms": "SMS templates",
+    "disponibilita": "Availability",
+    "province": "Provinces & cities",
+    "utentiRuoli": "Users & roles",
+    "impostazioni": "Settings"
+  },
+  "users": {
+    "title": "Users",
+    "caption": "Manage access: who can sign in, with which role and status. Operativity (receiving work) is managed in the Partner/Valet/Operator records.",
+    "new": "New user",
+    "empty": "No users.",
+    "inviteReady": "Invite ready",
+    "inviteShare": "Share this link with the person: they'll open it to choose a password and activate the account.",
+    "col": {
+      "status": "Status",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "linked": "Record",
+      "actions": "Actions"
+    },
+    "form": {
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "role": "Role",
+      "inviteHint": "The user is created as \"invited\": they'll get a link to choose their password. No password set by the admin.",
+      "createInvite": "Create and generate invite"
+    },
+    "action": {
+      "copyInvite": "Copy invite link",
+      "reinvite": "Re-invite",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "archive": "Archive",
+      "copy": "Copy"
+    }
+  },
+  "acceptInvite": {
+    "loading": "Checking the invite…",
+    "invalidTitle": "Invalid invite",
+    "title": "Set your password",
+    "welcome": "Hi {{name}}, create your password to sign in",
+    "password": "Password (min. 8 characters)",
+    "confirm": "Confirm password",
+    "submit": "Activate account and sign in"
+  },
+  "settings": {
+    "title": "Settings",
+    "caption": "API keys for external services. Values are stored only in the platform database.",
+    "apiKeys": {
+      "title": "API keys",
+      "sub": "Visible and editable by the administrator only.",
+      "googleMaps": "Google Maps API key",
+      "googleMapsPlaceholder": "AIza…",
+      "googleMapsHint": "SECRET key, used only server-side to geocode addresses (delivery province + coordinates). Needs the \"Geocoding\" API enabled. Without a key, the province is inferred from the address text.",
+      "googleMapsBrowser": "Google Maps browser key",
+      "googleMapsBrowserHint": "Key for the in-browser MAP (visible in page source by nature): keep it SEPARATE from the secret one and restrict it by HTTP referrer and to the \"Maps JavaScript API\" only. Used by the map panel in Deliveries.",
+      "show": "Show",
+      "hide": "Hide"
+    },
+    "saved": "Settings saved ✓",
+    "test": {
+      "title": "Geocoding test",
+      "sub": "Verify the key: enter an address and check the detected province.",
+      "placeholder": "E.g. Via Montenapoleone 8, Milano",
+      "button": "Test",
+      "testing": "Testing…",
+      "found": "Province detected: {{code}}",
+      "noKey": "No key saved: save the Google Maps API key first.",
+      "notFound": "Address not recognized or invalid key"
+    }
+  },
+  "role": {
+    "ADMIN": "Administrator",
+    "OPERATION": "Operation",
+    "PARTNER": "Partner",
+    "VALET": "Valet",
+    "PROJECT_MANAGER": "Project Manager"
+  },
+  "shell": {
+    "logout": "Log out",
+    "openMenu": "Open menu",
+    "collapseMenu": "Collapse menu",
+    "expandMenu": "Expand menu"
+  },
+  "lang": {
+    "it": "Italian",
+    "en": "English",
+    "choose": "Language"
+  },
+  "common": {
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "notAssigned": "Unassigned",
+    "flexible": "flexible",
+    "add": "Add",
+    "edit": "Edit",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "duplicate": "Duplicate",
+    "back": "Back",
+    "search": "Search",
+    "yes": "Yes",
+    "no": "No",
+    "active": "Active",
+    "inactive": "Inactive",
+    "all": "All",
+    "none": "None",
+    "optional": "optional",
+    "required": "required",
+    "loadError": "Error loading data",
+    "saveError": "Error while saving",
+    "comingSoon": "Coming soon"
+  },
+  "enums": {
+    "productType": {
+      "UNICO": "Single",
+      "NON_UNICO": "Non-single",
+      "SUPERPRODOTTO": "Super product"
+    },
+    "servicePricing": {
+      "VENDITA": "Sale",
+      "PREZZO_FISSO": "Fixed price",
+      "A_ORA": "Hourly",
+      "MAGAZZINO": "Warehouse",
+      "CORPORATE": "Corporate"
+    },
+    "servicePricingLong": {
+      "VENDITA": "Sale",
+      "PREZZO_FISSO": "Fixed price",
+      "A_ORA": "Hourly",
+      "MAGAZZINO": "Warehouse",
+      "CORPORATE": "Corporate"
+    },
+    "serviceScope": {
+      "partner": "Partner",
+      "valet": "Valet",
+      "both": "Partner & Valet"
+    },
+    "vehicle": {
+      "Auto": "Car",
+      "Bicicletta": "Bicycle",
+      "Furgone": "Van",
+      "Moto/Scooter": "Motorbike/Scooter"
+    },
+    "salaryFrequency": {
+      "monthly": "Monthly",
+      "weekly": "Weekly"
+    },
+    "operationRole": {
+      "operation": "Operation",
+      "finance": "Finance",
+      "project_manager": "Project Manager",
+      "customer_service": "Customer Service"
+    },
+    "operationRoleHint": {
+      "operation": "Basic office role.",
+      "finance": "Also sees the Administration section.",
+      "project_manager": "Does not see the Operations section.",
+      "customer_service": "Does not see the Administration section."
+    },
+    "deliveryPaymentStatus": {
+      "default": "To be defined",
+      "paid": "Paid",
+      "toBePaid": "To be paid"
+    },
+    "paymentMethod": {
+      "bankTransfer": "Bank transfer",
+      "creditCard": "Credit card",
+      "directDebitMandate": "Direct debit (SDD)"
+    },
+    "paymentStatus": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "blocked": "Blocked"
+    }
+  },
+  "status": {
+    "delivery": {
+      "created": "To handle",
+      "assigned": "In progress",
+      "in_preparation": "In preparation",
+      "accepted": "Accepted",
+      "in_delivery": "Out for delivery",
+      "delivered": "Delivered",
+      "not_delivered": "Not delivered",
+      "cancelled": "Cancelled",
+      "cancellation_requested": "Cancellation requested",
+      "not_accepted": "Not accepted",
+      "delivered_time_approved": "Delivered (time approved)",
+      "delivered_time_not_approved": "Delivered (time pending approval)"
+    }
+  },
+  "calendar": {
+    "title": "Calendar",
+    "caption": "Days with orders are marked. Click a day to see the deliveries.",
+    "today": "Today",
+    "pickDay": "Select a day to see the deliveries.",
+    "goToDay": "Go to day →",
+    "order": "order",
+    "orders": "orders",
+    "loading": "Loading…",
+    "noOrders": "No orders on this day.",
+    "closed": "Closed",
+    "closedLegend": "Closing day (from your opening hours)",
+    "closedNote": "The store is closed on this day.",
+    "exc": {
+      "title": "Closure / special hours for this day",
+      "normal": "Normal",
+      "blocked": "Closed",
+      "timed": "Special hours",
+      "tag": "Closed",
+      "notePlaceholder": "Note (optional)",
+      "remove": "Remove",
+      "save": "Save"
+    },
+    "avail": {
+      "title": "Availability for this day",
+      "normal": "Available",
+      "blocked": "Unavailable",
+      "timed": "Available in a time range",
+      "tag": "Off"
+    },
+    "wd": { "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun" }
+  },
+  "payments": {
+    "title": "Payments",
+    "caption": "Valet reimbursements and claims (e.g. Area C reimbursement). The valet requests them, admin/operation approve and pay.",
+    "allValets": "All valets",
+    "new": "New request",
+    "empty": "No requests.",
+    "form": {
+      "valet": "Valet",
+      "pickValet": "Select valet…",
+      "type": "Type",
+      "amount": "Amount (€)",
+      "description": "Description",
+      "descPlaceholder": "E.g. Area C reimbursement on 12/07",
+      "submit": "Send request",
+      "required": "Fill in amount (and valet).",
+      "done": "Request sent ✓"
+    },
+    "col": {
+      "valet": "Valet",
+      "type": "Type",
+      "amount": "Amount",
+      "description": "Description",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "type": {
+      "REIMBURSEMENT": "Reimbursement",
+      "CLAIM": "Claim",
+      "SALARY": "Salary"
+    },
+    "action": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "markPaid": "Mark paid"
+    }
+  },
+  "invoices": {
+    "title": "Invoicing",
+    "caption": "Generate and manage partner invoices: one line per billable delivery in the period.",
+    "allPartners": "All partners",
+    "generate": "Generate invoice",
+    "empty": "No invoices.",
+    "export": "Export",
+    "reopened": "Invoice reopened ✓",
+    "tab": {
+      "active": "Drafts",
+      "archive": "History"
+    },
+    "fin": {
+      "paid": "Paid",
+      "unpaid": "Unpaid"
+    },
+    "gen": {
+      "partner": "Partner",
+      "pickPartner": "Select partner…",
+      "from": "Period — from",
+      "to": "Period — to",
+      "hint": "One line per partner delivery marked \"to bill\" in the period (any status except cancelled/undelivered). Amount = price + surcharge.",
+      "run": "Generate",
+      "required": "Select partner and period.",
+      "done": "Invoice generated ✓"
+    },
+    "col": {
+      "partner": "Partner",
+      "number": "Number",
+      "period": "Period",
+      "deliveries": "Deliveries",
+      "total": "Total",
+      "status": "Status",
+      "financial": "Payment status",
+      "actions": "Actions"
+    },
+    "line": {
+      "date": "Date",
+      "recipient": "Recipient",
+      "description": "Address",
+      "amount": "Amount"
+    },
+    "noLines": "No billable deliveries in this invoice.",
+    "action": {
+      "issue": "Issue",
+      "markPaid": "Mark paid",
+      "reopen": "Reopen",
+      "detail": "Detail",
+      "hideDetail": "Hide"
+    }
+  },
+  "salaries": {
+    "title": "Salaries",
+    "caption": "Generate and manage valet salaries: pro-forma (with VAT) or withholding receipt.",
+    "allValets": "All valets",
+    "generate": "Generate salaries",
+    "empty": "No salaries.",
+    "reopened": "Salary reopened ✓",
+    "export": "Export",
+    "claimOpen": "Claim open",
+    "awaitSignature": "Awaiting signature",
+    "tab": {
+      "active": "Active",
+      "archive": "Archive"
+    },
+    "fin": {
+      "paid": "Paid",
+      "unpaid": "Unpaid"
+    },
+    "reclamo": {
+      "title": "New claim on this salary",
+      "amount": "Amount €",
+      "desc": "Description (e.g. Area C reimbursement)",
+      "send": "Send claim",
+      "required": "Enter a valid amount.",
+      "done": "Claim sent ✓"
+    },
+    "gen": {
+      "valet": "Valet",
+      "pickValet": "Select valet…",
+      "from": "Period — from",
+      "to": "Period — to",
+      "hint": "Sums the pay of deliveries completed in the period, minus cash collected on delivery. The document (pro-forma or receipt) depends on the valet's VAT status.",
+      "freqWeekly": "Suggested period: current week (weekly salary frequency).",
+      "freqMonthly": "Suggested period: current month (monthly salary frequency).",
+      "run": "Generate",
+      "required": "Select valet and period.",
+      "done": "Salary generated ✓"
+    },
+    "col": {
+      "valet": "Valet",
+      "period": "Period",
+      "gross": "Gross",
+      "cash": "Cash",
+      "net": "Net",
+      "document": "Document",
+      "status": "Status",
+      "financial": "Financial status",
+      "actions": "Actions"
+    },
+    "doc": {
+      "PROFORMA_INVOICE": "Pro-forma invoice",
+      "WITHHOLDING_RECEIPT": "Withholding receipt"
+    },
+    "action": {
+      "send": "Send",
+      "genReceipt": "Generate receipt",
+      "approve": "Approve",
+      "markPaid": "Mark paid",
+      "reopen": "Reopen",
+      "reclamo": "Claim"
+    }
+  },
+  "receipts": {
+    "title": "Receipts",
+    "caption": "Receipts generated when salaries are sent: the valet re-uploads them signed for approval and payment.",
+    "empty": "No receipts.",
+    "signed": "Signed",
+    "toSign": "To sign",
+    "open": "Open",
+    "signAction": "Upload signed",
+    "upload": "Upload",
+    "pickFile": "Choose file from PC…",
+    "or": "or",
+    "filePlaceholder": "https://… link to the signed receipt",
+    "fileRequired": "Choose a file from your PC or paste a link.",
+    "signedOk": "Receipt signed ✓",
+    "pay": "Pay",
+    "paid": "Paid",
+    "paidOk": "Salary paid ✓",
+    "tab": {
+      "pending": "To sign",
+      "signed": "Signed"
+    },
+    "col": {
+      "valet": "Valet",
+      "period": "Period",
+      "number": "Number",
+      "document": "Document",
+      "status": "Receipt status",
+      "file": "File",
+      "actions": "Actions"
+    }
+  },
+  "deliveries": {
+    "title": "Deliveries",
+    "caption": "All the network's deliveries, in real time.",
+    "allStatuses": "All statuses",
+    "add": "+ Add delivery",
+    "map": {
+      "show": "Show map",
+      "hide": "Hide map",
+      "loading": "Loading map…",
+      "noKey": "Map not configured: add the Google Maps browser key in Settings.",
+      "goToSettings": "Go to Settings",
+      "noPoints": "No geolocated deliveries for the current filters.",
+      "error": "Could not load the map.",
+      "capped": "Showing the first 3000 deliveries."
+    },
+    "loading": "Loading deliveries…",
+    "loadError": "Error loading deliveries",
+    "emptyTitle": "No delivery found.",
+    "emptyHint": "Adjust the filters or add a new delivery.",
+    "col": {
+      "date": "Date",
+      "service": "Service",
+      "partner": "Partner",
+      "recipient": "Recipient",
+      "address": "Address",
+      "pickup": "Pickup",
+      "valet": "Valet",
+      "status": "Status",
+      "price": "Price",
+      "delivery": "Delivery",
+      "actions": "Actions"
+    },
+    "legend": "Legend",
+    "actions": {
+      "details": "Details",
+      "edit": "Edit",
+      "assign": "Assign",
+      "monitor": "Monitor",
+      "additionalValet": "Additional valet +/-"
+    },
+    "assign": {
+      "title": "Assign valet",
+      "forDelivery": "Delivery #{{code}} · province",
+      "noProvince": "province not recognized",
+      "noValets": "No valet enabled for this province.",
+      "choose": "Assign"
+    },
+    "additional": {
+      "title": "Additional valet +/-",
+      "hint": "Plus or minus on the valet's pay for delivery #{{code}}. Use a negative value for a minus.",
+      "amount": "Amount (€)"
+    }
+  },
+  "partners": {
+    "title": "Partners",
+    "caption": "partners in the network.",
+    "searchPlaceholder": "Search…",
+    "add": "Add partner",
+    "loading": "Loading partners…",
+    "loadError": "Error loading partners",
+    "emptyTitle": "No partner found.",
+    "emptyHint": "Add one with “Add partner”.",
+    "col": {
+      "insegna": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "provinces": "Provinces",
+      "categories": "Categories",
+      "payment": "Payment",
+      "status": "Status"
+    }
+  },
+  "valets": {
+    "title": "Valets",
+    "caption": "valets in the network.",
+    "searchPlaceholder": "Search…",
+    "add": "Add valet",
+    "loading": "Loading valets…",
+    "loadError": "Error loading valets",
+    "emptyTitle": "No valet found.",
+    "emptyHint": "Add one with “Add valet”.",
+    "col": {
+      "lastName": "Last name",
+      "firstName": "First name",
+      "email": "Email",
+      "phone": "Phone",
+      "provinces": "Provinces",
+      "vehicle": "Vehicle",
+      "teamLeader": "Team leader",
+      "status": "Status"
+    }
+  },
+  "products": {
+    "title": "Products",
+    "caption": "products in the catalog.",
+    "searchPlaceholder": "Search…",
+    "add": "Add product",
+    "loading": "Loading…",
+    "emptyTitle": "No product.",
+    "emptyHint": "Add one.",
+    "approved": "Approved",
+    "pending": "Pending approval",
+    "col": {
+      "name": "Name",
+      "sku": "SKU",
+      "category": "Category",
+      "type": "Type",
+      "partner": "Partner",
+      "price": "Price",
+      "status": "Status"
+    },
+    "tabActive": "Products",
+    "tabArchive": "Archive",
+    "archive": "Archive",
+    "restore": "Restore"
+  },
+  "categories": {
+    "title": "Categories",
+    "caption": "product categories.",
+    "searchPlaceholder": "Search…",
+    "add": "Add category",
+    "loading": "Loading…",
+    "emptyTitle": "No category.",
+    "emptyHint": "Add one.",
+    "col": {
+      "name": "Name",
+      "notes": "Notes",
+      "fields": "Extra fields",
+      "discounts": "Province discounts"
+    }
+  },
+  "services": {
+    "title": "Services",
+    "caption": "services (partner and valet).",
+    "add": "Add service",
+    "loading": "Loading…",
+    "emptyTitle": "No service.",
+    "emptyHint": "Add one.",
+    "col": {
+      "name": "Name",
+      "type": "Type",
+      "scope": "Scope",
+      "notes": "Notes"
+    }
+  },
+  "operators": {
+    "title": "Operators",
+    "caption": "office operators.",
+    "searchPlaceholder": "Search…",
+    "add": "Add operator",
+    "loading": "Loading operators…",
+    "emptyTitle": "No operator.",
+    "emptyHint": "Add one with “Add operator”.",
+    "col": {
+      "lastName": "Last name",
+      "firstName": "First name",
+      "email": "Email",
+      "phone": "Phone",
+      "role": "Role",
+      "status": "Status"
+    }
+  },
+  "calcoli": {
+    "title": "Calculations",
+    "caption": "All service pricing formulas in one place. Try them below.",
+    "calculate": "Calculate",
+    "price": "Price",
+    "qty": "Qty",
+    "value": "Value",
+    "kmIncluded": "Km incl.",
+    "pricePerKmOutOfCity": "€ out/km",
+    "distance": "Distance",
+    "hours": "Hours",
+    "fixedPrice": "Fixed",
+    "perPiecePrice": "Per piece",
+    "deliveryPrice": "Delivery",
+    "inCity": "In city",
+    "formulaSale": "total = Σ (product price × qty) — includes flexible prices",
+    "formulaFixedCity": "in city: service value + price/km × max(0, distance − included km)",
+    "formulaFixedOutCity": "out of city: out-of-city price × distance",
+    "noteFixed": "Distance calculated via Google Maps (pickup → delivery). The value is shown in the Price list.",
+    "formulaHourly": "value = max(1, hours) × hourly price (minimum 1 hour). Shown in the Price list.",
+    "formulaWarehouse": "fixed price + per-piece price × qty + delivery price",
+    "corporateNotePart1": "It is not a pricing formula: the system",
+    "corporateNoteStrong": "replicates the delivery to another partner",
+    "corporateNoteComma": ", turning the service from",
+    "corporateNoteEm1": "fixed price",
+    "corporateNoteTo": "into",
+    "corporateNoteEm2": "sale",
+    "corporateNotePart4": "(the value is then calculated as a Sale for the recipient partner)."
+  },
+  "stub": {
+    "caption": "Section coming soon to the new platform.",
+    "migratingTitle": "Migrating from the legacy platform",
+    "availableSoonPart1": "The",
+    "availableSoonPart2": "section will be available here soon. The corresponding API endpoint is already active.",
+    "openApiDocs": "Open the API documentation"
+  },
+  "deliveryForm": {
+    "backToDeliveries": "Deliveries",
+    "title": "New delivery",
+    "caption": "Service, pickup, recipient, products and pricing.",
+    "submit": "Create delivery",
+    "section": {
+      "service": {
+        "title": "Service selection",
+        "sub": "Service first: it sets the notice period (earliest date) and the delivery time slots."
+      },
+      "timing": {
+        "title": "Delivery and pickup date",
+        "sub": "Delivery uses the service time slots; pickup has an automatic 1-hour slot unless flexible."
+      },
+      "assignment": {
+        "title": "Assignment",
+        "sub": "Valet and status (admin / operation)."
+      },
+      "people": {
+        "title": "Recipient and sender"
+      },
+      "order": {
+        "title": "Order management",
+        "sub": "Partner products are shown first."
+      },
+      "pricing": {
+        "title": "Pricing",
+        "sub": "If the price is left empty, it is calculated from the partner's service."
+      },
+      "docs": {
+        "title": "Documentation and notes"
+      }
+    },
+    "field": {
+      "service": "Service",
+      "recipientAddress": "Recipient address",
+      "date": "Delivery date",
+      "partner": "Partner",
+      "deliveryFrom": "Delivery from",
+      "deliveryTo": "Delivery to",
+      "deliverySlot": "Delivery time slot",
+      "pickupFrom": "Pickup from",
+      "pickupTo": "Pickup to",
+      "pickupTime": "Pickup time",
+      "valet": "Valet",
+      "status": "Delivery status",
+      "paymentStatus": "Payment status",
+      "valetService": "Valet service",
+      "existingCustomer": "Existing customer",
+      "recipientLastName": "Recipient last name",
+      "recipientFirstName": "Recipient first name",
+      "intercom": "Intercom",
+      "recipientPhone": "Recipient phone",
+      "recipientEmail": "Recipient email",
+      "senderLastName": "Sender last name",
+      "senderFirstName": "Sender first name",
+      "senderPhone": "Sender phone",
+      "smsPhone": "SMS phone (number)",
+      "ddtNumber": "DDT number",
+      "ddtFile": "DDT file (URL)",
+      "notes": "Notes",
+      "personalization": "Personalization",
+      "internalNotes": "Internal notes",
+      "internalNotesRoles": "(admin / operation / valet)",
+      "deliveryCodeRequired": "Delivery code required"
+    },
+    "placeholder": {
+      "selectService": "Select a service…",
+      "address": "Street …, ZIP City (PR)",
+      "selectPartner": "Select a partner…",
+      "selectSlot": "Select a slot…",
+      "selectTime": "Select a time…",
+      "selectProduct": "Product…",
+      "qty": "Qty",
+      "auto": "auto"
+    },
+    "hint": {
+      "provinceDetected": "Province {{code}} → only enabled partners/valets are shown",
+      "provinceUnknown": "Province not recognized: partners/valets not filtered by province.",
+      "notice": "Notice {{days}} d → from {{date}}",
+      "noPartners": "No partner with this service in the address province."
+    },
+    "timing": {
+      "selectServiceFirst": "Select a service first to set the delivery time slot.",
+      "deliveryFlexible": "Flexible delivery time slot",
+      "slotSize": "({{hours}}-hour slots)",
+      "noSlots": "No slot available: check the min/max time and the service slot.",
+      "pickupFlexible": "Flexible pickup time slot",
+      "pickupSlotSize": "(1-hour slot)"
+    },
+    "option": {
+      "automatic": "Automatic",
+      "automaticLower": "automatic",
+      "newRecipient": "new recipient"
+    },
+    "toggle": {
+      "deluxySale": "Deluxy sale",
+      "saveCustomer": "Save as a new customer in Customers"
+    },
+    "sms": {
+      "groupLabel": "Send SMS",
+      "onCreated": "On creation",
+      "onDeparted": "On departure",
+      "onArrived": "On arrival"
+    },
+    "order": {
+      "noProducts": "No product added.",
+      "generic": "generic",
+      "remove": "Remove",
+      "flexiblePrice": "Flexible price",
+      "priceEuro": "Price (€)",
+      "priceLabel": "Price:",
+      "addProduct": "Add product",
+      "paymentOnDelivery": "Payment on delivery",
+      "tryAndReturn": "Try and return the product",
+      "cashToCollect": "Cash to collect (€)"
+    },
+    "pricing": {
+      "billableGroup": "To be billed (partner)",
+      "billable": "To be billed",
+      "price": "Price (€)",
+      "plusMinus": "Plus / minus (€)",
+      "payableGroup": "To be paid (valet)",
+      "payable": "To be paid",
+      "valetSalary": "Valet salary (€)",
+      "flexiblePrice": "Flexible price",
+      "flexiblePriceDetail": "Flexible price details",
+      "flexiblePricePlaceholder": "E.g. from 20 to 50 €",
+      "hours": "Hours (hourly service)"
+    },
+    "savedNotice": {
+      "pre": "Delivery created ✓ — the values stay filled in: press",
+      "create": "Create",
+      "or": "or",
+      "post": "to create another one."
+    },
+    "error": {
+      "requiredFields": "Fill in date, partner, service, address and recipient first/last name.",
+      "customerNotSaved": "Customer not saved: ",
+      "genericShort": "error",
+      "createFailed": "Error while creating the delivery"
+    },
+    "editTitle": "Edit delivery"
+  },
+  "partnerForm": {
+    "title": "New partner",
+    "caption": "Profile, served provinces, services, payments and setup.",
+    "backToPartners": "Partners",
+    "general": {
+      "title": "General information",
+      "requiredNote": "Fields marked with * are required.",
+      "insegna": "Business sign *",
+      "insegnaPlaceholder": "E.g. Milan Central Florist",
+      "email": "Email *",
+      "emailPlaceholder": "orders@partner.it",
+      "businessName": "Legal name",
+      "businessNamePlaceholder": "Partner Ltd.",
+      "phone": "Phone",
+      "vatNumber": "VAT number",
+      "fiscalCode": "Tax code",
+      "address": "Main address",
+      "addressPlaceholder": "Street …, ZIP City (PR)",
+      "multiPickup": "Multiple pickup address",
+      "pickupHint": "Additional pickup addresses (you choose which one to use at delivery):",
+      "remove": "Remove",
+      "addPickup": "Add pickup address",
+      "contactName": "Contact first name",
+      "contactNamePlaceholder": "First name",
+      "contactSurname": "Contact last name",
+      "contactSurnamePlaceholder": "Last name"
+    },
+    "provinces": {
+      "title": "Served provinces",
+      "subtitle": "The partner will only be selectable for deliveries in these provinces.",
+      "empty": "No province configured."
+    },
+    "services": {
+      "title": "Enabled services",
+      "subtitle": "Price per service; KM included (within the municipality) and extra out of town.",
+      "empty": "No service added.",
+      "typePlaceholder": "Service type…",
+      "pricePlaceholder": "Price €",
+      "kmIncludedPlaceholder": "KM incl.",
+      "extraKmPlaceholder": "€/extra KM",
+      "extraOutOfCityPlaceholder": "Out-of-town extra",
+      "add": "Add service",
+      "kmIncludedPartner": "KM included (partner level)",
+      "extraOutOfCityPartner": "Out-of-town extra (€, partner level)"
+    },
+    "categories": {
+      "title": "Sold categories",
+      "subtitle": "They determine priority and discounts by province.",
+      "empty": "No category configured."
+    },
+    "openingHours": {
+      "title": "Opening hours",
+      "subtitle": "Weekly store schedule: used to suggest pickup/delivery time slots.",
+      "closed": "Closed",
+      "closedNote": "Closed all day",
+      "copyAll": "Copy Monday to all days",
+      "emptyDetail": "Hours not set yet.",
+      "days": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
+      }
+    },
+    "payments": {
+      "title": "Payments and invoicing",
+      "paymentMethod": "Payment method",
+      "paymentStatus": "Payment status",
+      "contractStart": "Contract — from",
+      "contractEnd": "Contract — to",
+      "bankAccount": "Bank account (IBAN)",
+      "bankAccountName": "Account holder",
+      "sdiCode": "SDI code",
+      "sdiCodePlaceholder": "Electronic invoicing",
+      "certifiedEmail": "PEC",
+      "invoiceEmail": "Invoice email",
+      "invoicingEnabled": "Enable invoicing"
+    },
+    "setup": {
+      "title": "Setup",
+      "subtitle": "Warehouse, security and notifications.",
+      "warehouseGroup": "Warehouse",
+      "isWarehouse": "Warehouse partner",
+      "securityGroup": "Security",
+      "valetIdentityCheck": "Valet identity check",
+      "deliveryCodeRequired": "Delivery code required",
+      "deliveryCodeType": "Code type",
+      "codeUniquePerDelivery": "Unique per delivery (different OTP each time)",
+      "codeUniquePerCustomer": "Unique per customer (fixed, PIN-like)",
+      "notificationsGroup": "Notifications",
+      "smsEnabled": "Ability to send SMS",
+      "whatsappNotifications": "WhatsApp notifications",
+      "mailNotifications": "Email notifications",
+      "activityReminder": "Activity reminder"
+    },
+    "sales": {
+      "title": "Sales and integrations",
+      "storeUrl": "Store URL",
+      "imageUrl": "Image (URL)",
+      "woocommerceApiKey": "WooCommerce API key",
+      "woocommerceApiKeyPlaceholder": "Key for the deluxy-send-order plugin",
+      "generate": "Generate",
+      "copy": "Copy",
+      "notes": "Notes"
+    },
+    "actions": {
+      "savedNote": "Partner created ✓ — the values stay filled in: press <strong>Create</strong> or <strong>Duplicate</strong> to create another one.",
+      "cancel": "Cancel",
+      "duplicate": "Duplicate",
+      "saving": "Saving…",
+      "create": "Create partner"
+    },
+    "errors": {
+      "requiredFields": "Business sign and email are required.",
+      "createFailed": "Error creating the partner"
+    },
+    "editTitle": "Edit partner"
+  },
+  "valetForm": {
+    "backToValets": "Valets",
+    "title": "New valet",
+    "caption": "Personal details, salary, provinces, services and setup.",
+    "requiredHint": "Fields marked with * are required.",
+    "createButton": "Create valet",
+    "remove": "Remove",
+    "provincesHint": "Provinces where the valet operates.",
+    "addProvince": "+ Add province…",
+    "provincesEmpty": "No province selected.",
+    "servicesHint": "Salary per service. Rule: only one hourly service and one fixed-price service.",
+    "servicesEmpty": "No service added.",
+    "serviceTypePlaceholder": "Service type…",
+    "addService": "+ Add service",
+    "setupHint": "Team leader, vehicle and notifications.",
+    "tlProvincesHint": "Provinces where they can assign deliveries:",
+    "tlProvincesEmpty": "None.",
+    "tlPartnersHint": "Associated partners:",
+    "addPartner": "+ Add partner…",
+    "tlPartnersEmpty": "None.",
+    "tlExcludedHint": "Excluded partners (outside the team leader's scope):",
+    "excludePartner": "+ Exclude partner…",
+    "tlExcludedEmpty": "None.",
+    "savedOk": "Valet created ✓ — the values stay filled in: press <strong>Create</strong> or <strong>Duplicate</strong> to create another one.",
+    "sections": {
+      "general": "General information",
+      "salary": "Salary",
+      "provinces": "Provinces covered",
+      "services": "Services",
+      "setup": "Setup",
+      "notes": "Notes"
+    },
+    "groups": {
+      "teamLeader": "Team leader",
+      "vehicle": "Vehicle",
+      "notifications": "Notifications"
+    },
+    "fields": {
+      "lastName": "Last name *",
+      "firstName": "First name *",
+      "email": "Email *",
+      "phone": "Phone",
+      "address": "Address",
+      "birthPlace": "Place of birth (and province)",
+      "birthDate": "Date of birth",
+      "hasVat": "VAT registered",
+      "vatNumber": "VAT number *",
+      "fiscalCode": "Tax code *",
+      "withholdingPercent": "Withholding percentage (%)",
+      "salaryFrequency": "Salary frequency *",
+      "weeklyDepositLimit": "Weekly deposit limit",
+      "iban": "Bank details (IBAN)",
+      "minimumKmIncluded": "Minimum KM included (within the municipality)",
+      "extraOutOfCityPrice": "Extra out of city (€)",
+      "isTeamLeader": "The valet is a team leader",
+      "notifyByWhatsapp": "WhatsApp notifications",
+      "notifyByEmail": "Email notifications"
+    },
+    "placeholders": {
+      "lastName": "Rossi",
+      "firstName": "Luca",
+      "email": "valet@deluxy.it",
+      "phone": "+39 …",
+      "address": "Street …, ZIP City (PR)",
+      "birthPlace": "Milano (MI)",
+      "salary": "Salary €",
+      "perItem": "€/item",
+      "extraKm": "€/extra KM"
+    },
+    "errors": {
+      "nameRequired": "First name, last name and email are required.",
+      "vatRequired": "With VAT enabled, the VAT number is required.",
+      "fiscalCodeRequired": "Without VAT, the tax code is required.",
+      "createError": "Error creating the valet",
+      "updateError": "Error saving the valet"
+    },
+    "editTitle": "Edit valet"
+  },
+  "productForm": {
+    "backToProducts": "Products",
+    "title": "New product",
+    "caption": "Details, price, type and custom fields.",
+    "submit": "Create product",
+    "skuAuto": "Generated automatically",
+    "noPartners": "No partners.",
+    "noFields": "No fields.",
+    "section": {
+      "details": {
+        "title": "Product details",
+        "requiredNote": "Fields marked * are required."
+      },
+      "platforms": {
+        "title": "Sales platforms",
+        "sub": "Where the product is published."
+      },
+      "additionalPartners": {
+        "title": "Additional partners",
+        "sub": "Other partners who can sell this product."
+      },
+      "variants": {
+        "title": "Variants",
+        "sub": "E.g. sizes or versions with their own price and SKU."
+      },
+      "customFields": {
+        "title": "Custom fields",
+        "sub": "E.g. card message, packaging notes."
+      },
+      "components": {
+        "title": "Components",
+        "sub": "Products that make up the superproduct."
+      },
+      "superProduct": {
+        "title": "Super product",
+        "sub": "Product combined from several products and province options."
+      },
+      "shopify": {
+        "title": "Shopify",
+        "sub": "Approval, sales platforms and product images."
+      }
+    },
+    "field": {
+      "name": "Name",
+      "category": "Category",
+      "type": "Type",
+      "partner": "Partner",
+      "line": "Line / brand",
+      "price": "Price (€)",
+      "publicPrice": "Public price (€)",
+      "prepDays": "Preparation days",
+      "imageUrl": "Image (URL)",
+      "shortDesc": "Product highlight",
+      "shortDescHint": "(max 80 characters)",
+      "description": "Description",
+      "alternateName": "Alternate product name",
+      "stock": "Stock",
+      "lineHint": "(values separated by ;)",
+      "alternateNameHint": "(name the partner sees in Deliveries)"
+    },
+    "placeholder": {
+      "name": "E.g. Red Roses Bouquet",
+      "selectCategory": "Select a category…"
+    },
+    "typeOption": {
+      "UNICO": "Unique (of one partner)",
+      "NON_UNICO": "Non-unique (e.g. flowers)",
+      "SUPERPRODOTTO": "Superproduct (combination)"
+    },
+    "option": {
+      "noPartner": "— none —"
+    },
+    "toggle": {
+      "useAlternateName": "Use alternate name",
+      "visibleToOtherPartners": "Visible to other partners",
+      "notEditable": "Not editable",
+      "notPhysical": "Non-physical",
+      "isSuperProvince": "Super province",
+      "controlStock": "Track stock",
+      "approved": "Approved",
+      "isUnique": "Unique product",
+      "isSuperProduct": "Super product"
+    },
+    "variants": {
+      "hasVariants": "The product has variants",
+      "optionTitle": "Option title",
+      "optionTitleHint": "(e.g. Size)",
+      "optionTitlePlaceholder": "Size",
+      "listHint": "Variants (the SKU is generated automatically):",
+      "namePlaceholder": "Variant name (e.g. Medium)",
+      "pricePlaceholder": "Price €",
+      "add": "+ Add variant",
+      "name": "Variant name",
+      "sku": "SKU",
+      "skuPlaceholder": "Variant SKU",
+      "prepDays": "Prep days",
+      "price": "Price",
+      "publicPrice": "Public price",
+      "controlStock": "Track stock",
+      "stock": "Stock",
+      "image": "Variant image",
+      "skuAuto": "SKU generated automatically (progressive)"
+    },
+    "customFields": {
+      "namePlaceholder": "Field name",
+      "required": "Required",
+      "adminOnly": "Admin only",
+      "add": "+ Add field"
+    },
+    "components": {
+      "selectProduct": "Product…",
+      "qtyPlaceholder": "Qty",
+      "add": "+ Add component"
+    },
+    "saved": {
+      "before": "Product created ✓ — the values stay filled in: press ",
+      "create": "Create",
+      "or": " or ",
+      "after": " to create another one (new SKU)."
+    },
+    "error": {
+      "requiredFields": "Name, category and price are required.",
+      "partnerRequired": "A Unique product requires a partner.",
+      "createFailed": "Error creating the product"
+    },
+    "images": {
+      "title": "Images",
+      "sub": "Product image gallery. The first one is the primary image.",
+      "placeholder": "https://…",
+      "primary": "Primary",
+      "add": "+ Add image"
+    },
+    "platforms": {
+      "descHint": "Description shown on each selected platform.",
+      "descFor": "Description ({{platform}})"
+    },
+    "editTitle": "Edit product"
+  },
+  "serviceForm": {
+    "backToServices": "Services",
+    "title": "New service",
+    "caption": "Define the service and choose whether it's for partners or valets. Rates are set on the partner/valet profile.",
+    "service": {
+      "title": "Service",
+      "requiredNote": "Fields marked with * are required.",
+      "name": "Service name *",
+      "namePlaceholder": "E.g. Standard Delivery",
+      "pricingModel": "Service type *",
+      "scope": "Destination",
+      "scopeBoth": "Both",
+      "magazzinoHint": "Warehouse service: fixed price + per-piece price + delivery price (base values, customizable per partner).",
+      "basePrice": "Fixed price (€)",
+      "perPiecePrice": "Per-piece price (€)",
+      "deliveryPrice": "Delivery price (€)",
+      "minHours": "Minimum hours",
+      "notes": "Notes",
+      "hideCustomerInfo": "Hide customer information"
+    },
+    "setup": {
+      "title": "Setup",
+      "subtitle": "Booking rules for the service (used when placing a request).",
+      "noticeDays": "Notice days",
+      "noticeDaysPlaceholder": "E.g. 1",
+      "slotHours": "Time slot",
+      "slotHours1": "1 hour",
+      "slotHours2": "2 hours",
+      "slotHours4": "4 hours",
+      "minOrderTime": "Minimum order time",
+      "maxOrderTime": "Maximum order time",
+      "allowFlexibleTime": "Allow flexible delivery time (from–to)",
+      "hint": "Before the minimum time and after the maximum time, the service cannot be requested for the chosen date. In the delivery form, slots run from <strong>Minimum time</strong> to <strong>Maximum time</strong> (default 06:00–22:00) in steps equal to the <strong>Time slot</strong>. If \"flexible time\" is enabled, delivery can specify a free from–to range; otherwise only a preset slot can be chosen. Pickup always keeps an optional flexible time."
+    },
+    "savedNotice": "Service created ✓ — the values stay filled in: press <strong>Create</strong> or <strong>Duplicate</strong> to create another one.",
+    "submit": "Create service",
+    "nameRequired": "Service name is required.",
+    "createError": "Error creating the service",
+    "editTitle": "Edit service"
+  },
+  "categoryForm": {
+    "backToCategories": "Categories",
+    "title": "New category",
+    "caption": "Extra product fields and % discounts by province.",
+    "info": {
+      "title": "Information",
+      "name": "Category name *",
+      "namePlaceholder": "E.g. Flowers",
+      "notes": "Notes",
+      "aiPrompt": "AI Prompt",
+      "aiPromptHint": "(AI generation, e.g. cakes)"
+    },
+    "fields": {
+      "title": "Extra fields",
+      "subtitle": "Text fields for products in this category.",
+      "empty": "No fields.",
+      "namePlaceholder": "Field name",
+      "optional": "Optional",
+      "required": "Required",
+      "adminOnly": "Admin only",
+      "add": "Add field"
+    },
+    "discounts": {
+      "title": "Discounts by province",
+      "subtitle": "Automatically generate discounted products (rounded to 0/5).",
+      "empty": "No discounts.",
+      "provincePlaceholder": "Province…",
+      "percentPlaceholder": "Discount %",
+      "add": "Add discount"
+    },
+    "savedNotice": "Category created ✓ — the values stay filled in: press <strong>Create</strong> or <strong>Duplicate</strong> to create another one.",
+    "submit": "Create category",
+    "nameRequired": "Category name is required.",
+    "createError": "Error creating the category",
+    "editTitle": "Edit category"
+  },
+  "operatorForm": {
+    "backToOperators": "Operators",
+    "title": "New operator",
+    "caption": "Office staff. The role determines which menu sections the operator sees.",
+    "general": {
+      "title": "General information",
+      "requiredNote": "Fields marked with * are required.",
+      "lastName": "Last name *",
+      "firstName": "First name *",
+      "email": "Email *",
+      "phone": "Phone *",
+      "address": "Address *",
+      "addressPlaceholder": "Street …, Postal code City (Province)"
+    },
+    "setup": {
+      "title": "Setup",
+      "subtitle": "Role and notifications.",
+      "role": "Role",
+      "notifications": "Notifications",
+      "notifyWhatsapp": "WhatsApp notifications",
+      "notifyMail": "Email notifications"
+    },
+    "notes": {
+      "title": "Notes"
+    },
+    "savedNotice": "Operator created ✓ — the values stay filled in: press <strong>Create</strong> or <strong>Duplicate</strong> to create another one.",
+    "submit": "Create operator",
+    "requiredFields": "First name, last name, and email are required.",
+    "createError": "Error creating the operator",
+    "editTitle": "Edit operator"
+  },
+  "deliveryDetail": {
+    "title": "Delivery #{{code}}",
+    "section": {
+      "timing": "Delivery and pickup",
+      "service": "Service",
+      "people": "Recipient and sender",
+      "order": "Order",
+      "docs": "Documents and notes",
+      "history": "Delivery history"
+    },
+    "pickupAddress": "Pickup address",
+    "pricingModel": "Service type",
+    "distance": "Distance",
+    "price": "Price",
+    "additionalPrice": "Plus / minus",
+    "valetSalary": "Valet salary",
+    "intercom": "Intercom",
+    "phone": "Phone",
+    "email": "Email",
+    "sender": "Sender",
+    "product": "Product",
+    "qty": "Qty",
+    "noProducts": "No product.",
+    "paymentOnDelivery": "Payment on delivery",
+    "tryAndReturn": "Try and return",
+    "paymentStatus": "Payment status",
+    "ddtNumber": "DDT number",
+    "ddtFile": "DDT file",
+    "notes": "Notes",
+    "personalization": "Personalization",
+    "internalNotes": "Internal notes",
+    "noLogs": "No history events.",
+    "act": {
+      "print": "Print",
+      "maps": "Maps",
+      "share": "Share",
+      "deliveredLink": "Delivery link",
+      "assign": "Assign",
+      "shareCopied": "Tracking link copied ✓",
+      "deliveredCopied": "Delivery confirmation link copied ✓"
+    }
+  },
+  "confirmDelivery": {
+    "title": "Confirm delivery #{{code}}",
+    "receivedBy": "Received by",
+    "receivedByPlaceholder": "Name of who received it",
+    "confirm": "Confirm delivery",
+    "done": "Delivery confirmed ✓ Thank you."
+  },
+  "tracking": {
+    "title": "Delivery #{{code}}",
+    "history": "Delivery status",
+    "notFound": "Delivery not found or link no longer valid."
+  },
+  "customers": {
+    "title": "Customers",
+    "caption": "customers on file.",
+    "searchPlaceholder": "Search…",
+    "add": "Add customer",
+    "loading": "Loading customers…",
+    "emptyTitle": "No customer found.",
+    "emptyHint": "Add one with “Add customer”.",
+    "col": {
+      "lastName": "Last name",
+      "firstName": "First name",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address"
+    }
+  },
+  "customerForm": {
+    "title": "New customer",
+    "editTitle": "Edit customer",
+    "caption": "Customer details.",
+    "section": {
+      "general": "General information"
+    },
+    "requiredNote": "Fields marked with * are required.",
+    "addressPlaceholder": "Street …, ZIP City (PR)",
+    "notes": "Notes",
+    "submit": "Create customer",
+    "error": {
+      "required": "First name and last name are required."
+    },
+    "partner": "Source partner",
+    "partnerHint": "(which partner the customer comes from)",
+    "noPartner": "— none —"
+  },
+  "customerDetail": {
+    "deliveries": "Customer deliveries",
+    "noDeliveries": "No delivery."
+  },
+  "operatorDetail": {
+    "address": "Address",
+    "loadError": "Error loading the operator"
+  },
+  "valetDetail": {
+    "vatNumber": "VAT number",
+    "fiscalCode": "Tax code",
+    "salaryFrequency": "Salary frequency",
+    "col": {
+      "salary": "Salary",
+      "perItem": "€/item",
+      "extraKm": "€/extra KM"
+    },
+    "teamLeaderProvinces": "Provinces where they can assign deliveries",
+    "teamLeaderPartners": "Associated partners",
+    "teamLeaderExcluded": "Excluded partners"
+  },
+  "productDetail": {
+    "noPlatforms": "No platform selected.",
+    "noImages": "No image.",
+    "noVariants": "No variant.",
+    "fieldName": "Field name"
+  },
+  "categoryDetail": {
+    "fieldName": "Field",
+    "fieldType": "Type",
+    "province": "Province",
+    "discount": "Discount",
+    "loadError": "Error loading the category"
+  },
+  "serviceDetail": {
+    "pricesTitle": "Prices",
+    "loadError": "Error loading the service"
+  },
+  "list": {
+    "pageOf": "Page {{page}} of {{pages}}",
+    "perPage": "per page"
+  },
+  "views": {
+    "title": "Views",
+    "save": "Save view",
+    "empty": "No saved view.",
+    "namePlaceholder": "View name",
+    "share": "Share",
+    "shareHint": "Make the view visible to the whole team",
+    "sharedHint": "View shared by the team"
+  }
+}
