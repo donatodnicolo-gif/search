@@ -1,7 +1,9 @@
 import { db } from '@/lib/db'
 import { creaRegolaApp } from '@/lib/actions'
 import { AzioniRegolaApp } from '@/components/AzioniRegolaApp'
+import { ChiaveAppForm } from '@/components/ChiaveAppForm'
 import { descriviAzioni, statoApp } from '@/lib/appDeluxy'
+import { leggiChiaviApp, statoChiaviApp } from '@/lib/chiaviApp'
 import { richiediUtente } from '@/lib/sessione'
 import type { RegolaApp } from '@prisma/client'
 
@@ -20,8 +22,11 @@ export default async function ImpostazioniApp() {
     regoleApp = []
   }
 
-  const azioniApp = descriviAzioni()
-  const app = statoApp()
+  const chiavi = await leggiChiaviApp()
+  const statoChiavi = await statoChiaviApp()
+  const azioniApp = descriviAzioni(chiavi)
+  const app = statoApp(chiavi)
+  const isAdmin = u.ruolo === 'admin'
   const nomeAzione = (id: string) => {
     const a = azioniApp.find((x) => x.id === id)
     return a ? `${a.app} — ${a.nome}` : id
@@ -44,8 +49,9 @@ export default async function ImpostazioniApp() {
         App collegate
       </h2>
       <p className="page-caption" style={{ marginBottom: 14 }}>
-        Le chiavi si impostano sul server (Vercel → Environment Variables): non passano da qui e
-        non sono visibili nell’app. Dopo averle aggiunte serve un nuovo deploy.
+        {isAdmin
+          ? 'Incolla qui la chiave di ogni app: viene cifrata sul server e vale per tutta l’azienda. In alternativa puoi impostarla come variabile d’ambiente su Vercel.'
+          : 'Lo stato di collegamento delle app. Le chiavi le imposta un amministratore.'}
       </p>
 
       <div className="app-stato-griglia">
@@ -70,21 +76,24 @@ export default async function ImpostazioniApp() {
               ))}
             </ul>
 
-            {!a.configurata && (
-              <div className="app-stato-chiave">
-                <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                  {a.comeSiOttiene}
-                </div>
-                <div style={{ fontSize: 12.5 }}>
-                  Variabile da impostare:{' '}
-                  {a.variabili.map((v) => (
-                    <code key={v} className="app-var">
-                      {v}
-                    </code>
-                  ))}
-                </div>
+            <div className="app-stato-chiave">
+              <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 10 }}>
+                {a.comeSiOttiene}
               </div>
-            )}
+              {isAdmin ? (
+                <ChiaveAppForm
+                  nome={a.nomeChiave}
+                  etichetta={a.app}
+                  impostataDaApp={statoChiavi[a.nomeChiave].daApp}
+                  daEnv={statoChiavi[a.nomeChiave].daEnv}
+                  variabileEnv={a.variabileEnv}
+                />
+              ) : (
+                <div style={{ fontSize: 12.5, color: 'var(--text-tertiary)' }}>
+                  {a.configurata ? 'Collegata.' : 'Non ancora collegata.'}
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>

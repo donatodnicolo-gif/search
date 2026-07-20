@@ -6,23 +6,29 @@
 // Niente parte da solo.
 
 import type { RegolaApp } from '@prisma/client'
+import type { ChiaviApp, NomeChiaveApp } from './chiaviApp'
 
 // ---------- Configurazione (env su Vercel; i default sono gli URL pubblici) ----------
+// Solo gli URL vengono dall'ambiente: non sono segreti. Le CHIAVI arrivano dal
+// resolver (chiaviApp.ts: DB cifrato → env) e sono passate a ogni azione via ctx.
 
 const ANAGRAFICHE_URL = (process.env.ANAGRAFICHE_URL || 'https://deluxy-anagrafiche.vercel.app').replace(/\/$/, '')
 const FINANCE_URL = (process.env.FINANCE_URL || 'https://deluxy-partner.vercel.app').replace(/\/$/, '')
 const FORNITORI_URL = (process.env.FORNITORI_URL || 'https://search-deluxy.vercel.app').replace(/\/$/, '')
 
-const chiaveAnagrafiche = () => (process.env.ANAGRAFICHE_API_KEY || '').trim()
-const chiaveFinance = () => (process.env.FINANCE_API_KEY || '').trim()
-const chiaveFornitori = () => (process.env.FORNITORI_PASSWORD || '').trim()
+/** Qual è la chiave (fra quelle di ChiaviApp) che serve a ciascuna app. */
+export const CHIAVE_DI_APP: Record<string, NomeChiaveApp> = {
+  Anagrafiche: 'anagrafiche',
+  Finance: 'finance',
+  Fornitori: 'fornitori',
+}
 
 // ---------- Tipi ----------
 
 export type EsitoAzione = { ok: boolean; messaggio: string; link?: string }
 
-/** Contesto passato a un'azione: chi la sta eseguendo (per gli header/log). */
-export type ContestoAzione = { utenteEmail?: string }
+/** Contesto passato a un'azione: chi la esegue (header/log) e la sua chiave. */
+export type ContestoAzione = { utenteEmail?: string; chiave: string }
 
 export type AzioneApp = {
   id: string
@@ -34,8 +40,13 @@ export type AzioneApp = {
   schema: Record<string, unknown>
   /** Guida per l'AI su come compilare i dati. */
   guida: string
-  configurata: boolean
   esegui: (dati: Record<string, unknown>, ctx: ContestoAzione) => Promise<EsitoAzione>
+}
+
+/** La chiave che serve a un'azione, o stringa vuota se l'app non ne mappa una. */
+export function chiaveDiAzione(azione: AzioneApp, chiavi: ChiaviApp): string {
+  const nome = CHIAVE_DI_APP[azione.app]
+  return nome ? chiavi[nome] : ''
 }
 
 // ---------- Helpers HTTP ----------
@@ -99,10 +110,7 @@ const AZIONI: AzioneApp[] = [
         note: { type: ['string', 'null'], description: 'Cosa chiede / contesto utile, in una frase.' },
       },
     },
-    get configurata() {
-      return chiaveAnagrafiche().length > 0
-    },
-    async esegui(dati) {
+    async esegui(dati, ctx) {
       const referente =
         typeof dati.referenteNome === 'string' && dati.referenteNome
           ? [{ nome: dati.referenteNome, ruolo: (dati.referenteRuolo as string) || '', telefono: '', email: (dati.email as string) || '' }]
@@ -126,7 +134,7 @@ const AZIONI: AzioneApp[] = [
         `${ANAGRAFICHE_URL}/api/v1/partners`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': chiaveAnagrafiche() },
+          headers: { 'Content-Type': 'application/json', 'x-api-key': ctx.chiave },
           body: JSON.stringify(body),
         },
         (status, risposta) => {
@@ -170,10 +178,7 @@ const AZIONI: AzioneApp[] = [
         },
       },
     },
-    get configurata() {
-      return chiaveFinance().length > 0
-    },
-    async esegui(dati) {
+    async esegui(dati, ctx) {
       const righe = Array.isArray(dati.righe) ? (dati.righe as Record<string, unknown>[]) : []
       if (righe.some((r) => r.prezzoUnitario == null))
         return { ok: false, messaggio: 'Manca il prezzo di una riga: completalo prima di inviare.' }
@@ -181,7 +186,7 @@ const AZIONI: AzioneApp[] = [
         `${FINANCE_URL}/api/proforma`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-Key': chiaveFinance(), 'X-App': 'deluxy-mail' },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': ctx.chiave, 'X-App': 'deluxy-mail' },
           body: JSON.stringify({
             partner: dati.partner,
             oggetto: dati.oggetto || undefined,
@@ -224,13 +229,10 @@ const AZIONI: AzioneApp[] = [
         partner: { type: 'string', description: 'Nome del partner da verificare.' },
       },
     },
-    get configurata() {
-      return chiaveFinance().length > 0
-    },
-    async esegui(dati) {
+    async esegui(dati, ctx) {
       return chiama(
         `${FINANCE_URL}/api/verifiche?partner=${encodeURIComponent(String(dati.partner ?? ''))}`,
-        { headers: { 'X-API-Key': chiaveFinance(), 'X-App': 'deluxy-mail' } },
+        { headers: { 'X-API-Key': ctx.chiave, 'X-App': 'deluxy-mail' } },
         (status, risposta) => {
           if (status >= 200 && status < 300 && risposta && typeof risposta === 'object') {
             // La risposta è un quadro sintetico: la mostriamo com'è, riga per riga.
@@ -268,9 +270,6 @@ const AZIONI: AzioneApp[] = [
         number: { type: 'string', description: 'Numero dell’ordine, solo cifre.' },
       },
     },
-    get configurata() {
-      return chiaveFornitori().length > 0
-    },
     async esegui(dati, ctx) {
       const brand = String(dati.brand ?? '').trim()
       const number = String(dati.number ?? '').replace(/[^\d]/g, '')
@@ -280,7 +279,7 @@ const AZIONI: AzioneApp[] = [
         `${FORNITORI_URL}/api/fornitori?brand=${encodeURIComponent(brand)}&number=${encodeURIComponent(number)}`,
         {
           headers: {
-            'x-app-password': chiaveFornitori(),
+            'x-app-password': ctx.chiave,
             'x-app-user': ctx.utenteEmail || 'ai-mail',
           },
         },
@@ -337,25 +336,51 @@ export type AzioneDescritta = {
   configurata: boolean
 }
 
-export function descriviAzioni(): AzioneDescritta[] {
-  return AZIONI.map(({ id, app, nome, descrizione, colore, configurata }) => ({ id, app, nome, descrizione, colore, configurata }))
+/** Descrive le azioni per i client component. `configurata` = la chiave della
+ *  sua app è presente (inserita nell'app o via env). */
+export function descriviAzioni(chiavi: ChiaviApp): AzioneDescritta[] {
+  return AZIONI.map(({ id, app, nome, descrizione, colore }) => ({
+    id,
+    app,
+    nome,
+    descrizione,
+    colore,
+    configurata: chiaveDiAzione({ app } as AzioneApp, chiavi).length > 0,
+  }))
 }
 
-/** Lo stato di collegamento di ogni app: quale variabile serve e se è a posto.
+/** Lo stato di collegamento di ogni app: quale chiave serve e se è a posto.
  *  Serve alla pagina Impostazioni App per guidare l'inserimento delle chiavi. */
 export type StatoApp = {
   app: string
+  nomeChiave: NomeChiaveApp
   colore: string
   configurata: boolean
-  /** Nomi delle variabili d'ambiente da impostare su Vercel per questa app. */
-  variabili: string[]
+  /** Nome della variabile d'ambiente equivalente (per chi preferisce Vercel). */
+  variabileEnv: string
   /** Le funzioni che questa app offre. */
   azioni: { nome: string; descrizione: string }[]
   /** A cosa serve la chiave, in una frase. */
   comeSiOttiene: string
 }
 
-export function statoApp(): StatoApp[] {
+const META_APP: Record<string, { variabileEnv: string; comeSiOttiene: string }> = {
+  Anagrafiche: {
+    variabileEnv: 'ANAGRAFICHE_API_KEY',
+    comeSiOttiene:
+      'Chiave di SCRITTURA generata dall’app Anagrafiche (comando «npm run chiave -- deluxy-mail --scrittura»).',
+  },
+  Finance: {
+    variabileEnv: 'FINANCE_API_KEY',
+    comeSiOttiene: 'La chiave API di Deluxy Finance (impostazione «api.verificheKey» dell’app).',
+  },
+  Fornitori: {
+    variabileEnv: 'FORNITORI_PASSWORD',
+    comeSiOttiene: 'La password amministratore dell’app Fornitori (search-deluxy).',
+  },
+}
+
+export function statoApp(chiavi: ChiaviApp): StatoApp[] {
   // Raggruppa le azioni per app, mantenendo l'ordine del catalogo.
   const perApp = new Map<string, AzioneApp[]>()
   for (const a of AZIONI) {
@@ -363,30 +388,18 @@ export function statoApp(): StatoApp[] {
     perApp.get(a.app)!.push(a)
   }
 
-  const META: Record<string, { variabili: string[]; comeSiOttiene: string }> = {
-    Anagrafiche: {
-      variabili: ['ANAGRAFICHE_API_KEY'],
-      comeSiOttiene:
-        'Chiave di SCRITTURA generata dall’app Anagrafiche (comando «npm run chiave -- deluxy-mail --scrittura»).',
-    },
-    Finance: {
-      variabili: ['FINANCE_API_KEY'],
-      comeSiOttiene: 'La chiave API di Deluxy Finance (impostazione «api.verificheKey» dell’app).',
-    },
-    Fornitori: {
-      variabili: ['FORNITORI_PASSWORD'],
-      comeSiOttiene: 'La password amministratore dell’app Fornitori (search-deluxy).',
-    },
-  }
-
-  return [...perApp.entries()].map(([app, azioni]) => ({
-    app,
-    colore: azioni[0].colore,
-    configurata: azioni.every((a) => a.configurata),
-    variabili: META[app]?.variabili ?? [],
-    comeSiOttiene: META[app]?.comeSiOttiene ?? '',
-    azioni: azioni.map((a) => ({ nome: a.nome, descrizione: a.descrizione })),
-  }))
+  return [...perApp.entries()].map(([app, azioni]) => {
+    const nomeChiave = CHIAVE_DI_APP[app]
+    return {
+      app,
+      nomeChiave,
+      colore: azioni[0].colore,
+      configurata: nomeChiave ? chiavi[nomeChiave].length > 0 : false,
+      variabileEnv: META_APP[app]?.variabileEnv ?? '',
+      comeSiOttiene: META_APP[app]?.comeSiOttiene ?? '',
+      azioni: azioni.map((a) => ({ nome: a.nome, descrizione: a.descrizione })),
+    }
+  })
 }
 
 // ---------- Le regole APP DELUXY ----------

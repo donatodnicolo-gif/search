@@ -12,6 +12,7 @@ import { InvioAppDialog } from '@/components/InvioAppDialog'
 import { BottoneApp } from '@/components/BottoneApp'
 import { MailDrag } from '@/components/MailDrag'
 import { descriviAzioni } from '@/lib/appDeluxy'
+import { leggiChiaviApp } from '@/lib/chiaviApp'
 import { RispostaAzioni } from '@/components/RispostaAzioni'
 import { richiediUtente } from '@/lib/sessione'
 import { raggruppa } from '@/lib/thread'
@@ -148,7 +149,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   const gruppi = raggruppa(messaggi).slice(0, 100)
 
   // Il pannello APP DELUXY: le funzioni delle altre app richiamabili da qui.
-  const azioniApp = descriviAzioni()
+  // Le chiavi (DB cifrato o env) decidono quali sono già collegate.
+  const azioniApp = descriviAzioni(await leggiChiaviApp())
 
   const filtri = [
     { chiave: '', label: 'Tutti' },

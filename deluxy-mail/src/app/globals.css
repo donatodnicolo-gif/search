@@ -759,6 +759,10 @@ input:focus, select:focus, textarea:focus {
   background: var(--fill); padding: 2px 7px; border-radius: var(--radius-s);
   font-size: 12px; margin-right: 6px; display: inline-block;
 }
+.chiave-form { }
+.chiave-stato-riga { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.chiave-pallino { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 4px; }
+.chiave-pallino.ok { background: var(--green); }
 
 /* Righe dei risultati quando agganci una mail a una conversazione */
 .aggancio-riga {

@@ -23,7 +23,8 @@ import { chiaveThread } from './thread'
 import { CODICI_PRIORITA, FUSO } from './format'
 import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione } from './ai'
 import { raggruppa } from './thread'
-import { azioneDi, regolaAppPerMail, type AzioneDescritta } from './appDeluxy'
+import { azioneDi, regolaAppPerMail, chiaveDiAzione, type AzioneDescritta } from './appDeluxy'
+import { leggiChiaviApp, salvaChiaveApp, type NomeChiaveApp } from './chiaviApp'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
 import { utenteCorrente } from './sessione'
@@ -1047,10 +1048,13 @@ export async function proponiPerApp(
 
   const azione = azioneDi(scelta)
   if (!azione) return { ok: false, messaggio: 'Azione sconosciuta.' }
-  if (!azione.configurata) {
+
+  const chiavi = await leggiChiaviApp()
+  const configurata = chiaveDiAzione(azione, chiavi).length > 0
+  if (!configurata) {
     return {
       ok: false,
-      messaggio: `${azione.app} non è collegata: manca la chiave API nelle variabili del server.`,
+      messaggio: `${azione.app} non è collegata: imposta la chiave in Impostazioni App.`,
     }
   }
 
@@ -1064,7 +1068,7 @@ export async function proponiPerApp(
       istruzioni: istruzioniRegola,
       contestoAzienda: imp[CHIAVI.contestoAzienda],
     })
-    const { id, app, nome, descrizione, colore, configurata } = azione
+    const { id, app, nome, descrizione, colore } = azione
     return {
       ok: true,
       messaggio: 'Dati pronti: controllali e conferma.',
@@ -1097,7 +1101,10 @@ export async function eseguiInvioApp(
 
   const azione = azioneDi(azioneId)
   if (!azione) return { ok: false, messaggio: 'Azione sconosciuta.' }
-  if (!azione.configurata) return { ok: false, messaggio: `${azione.app} non è collegata.` }
+
+  const chiavi = await leggiChiaviApp()
+  const chiave = chiaveDiAzione(azione, chiavi)
+  if (!chiave) return { ok: false, messaggio: `${azione.app} non è collegata.` }
 
   let dati: Record<string, unknown>
   try {
@@ -1106,7 +1113,7 @@ export async function eseguiInvioApp(
     return { ok: false, messaggio: 'I dati non sono un JSON valido: correggi e riprova.' }
   }
 
-  const esito = await azione.esegui(dati, { utenteEmail: u.email })
+  const esito = await azione.esegui(dati, { utenteEmail: u.email, chiave })
 
   try {
     await db.invioApp.create({
@@ -1146,17 +1153,37 @@ export async function creaRegolaApp(form: FormData) {
       priorita: Number(testo(form, 'priorita')) || 0,
     },
   })
-  revalidatePath('/regole')
+  revalidatePath('/impostazioni-app')
+}
+
+/**
+ * Salva la chiave API di un'app, inserita a mano in Impostazioni App. La cifra
+ * il codice (come le password IMAP): non passa in chiaro e vale per tutta
+ * l'azienda, quindi solo un admin la può impostare. Vuota = la si toglie.
+ */
+export async function salvaChiaveAppAction(
+  nome: string,
+  valore: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  const u = await utenteCorrente()
+  if (!u) return { ok: false, messaggio: 'Sessione scaduta: rientra.' }
+  if (u.ruolo !== 'admin') return { ok: false, messaggio: 'Solo un amministratore può cambiare le chiavi.' }
+  const nomi: NomeChiaveApp[] = ['anagrafiche', 'finance', 'fornitori']
+  if (!nomi.includes(nome as NomeChiaveApp)) return { ok: false, messaggio: 'App sconosciuta.' }
+
+  await salvaChiaveApp(nome as NomeChiaveApp, valore)
+  revalidatePath('/impostazioni-app')
+  return { ok: true, messaggio: valore.trim() ? 'Chiave salvata e collegata.' : 'Chiave rimossa.' }
 }
 
 export async function attivaRegolaApp(id: string, attiva: boolean) {
   await db.regolaApp.updateMany({ where: { id, utenteId: await uid() }, data: { attiva } })
-  revalidatePath('/regole')
+  revalidatePath('/impostazioni-app')
 }
 
 export async function eliminaRegolaApp(id: string) {
   await db.regolaApp.deleteMany({ where: { id, utenteId: await uid() } })
-  revalidatePath('/regole')
+  revalidatePath('/impostazioni-app')
 }
 
 // ---------- Sezioni ----------
