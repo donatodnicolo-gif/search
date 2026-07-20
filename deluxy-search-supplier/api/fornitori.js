@@ -55,7 +55,13 @@ export default async function handler(req, res) {
     const base = 'https://' + req.headers.host;
     const ordR = await fetch(base + '/api/order?brand=' + encodeURIComponent(brand)
       + '&number=' + encodeURIComponent(number) + '&ts=' + encodeURIComponent(String(req.query.ts || '')), {
-      headers: { 'x-app-password': req.headers['x-app-password'] || '', 'x-app-user': req.headers['x-app-user'] || '' },
+      // inoltra TUTTE le credenziali del chiamante (chiave API o email+password),
+      // altrimenti la chiamata interna a /api/order resta senza auth → 401
+      headers: {
+        'x-api-key': req.headers['x-api-key'] || '',
+        'x-app-password': req.headers['x-app-password'] || '',
+        'x-app-user': req.headers['x-app-user'] || '',
+      },
     });
     const ordine = await ordR.json().catch(() => ({}));
     if (!ordR.ok) return res.status(ordR.status).json({ error: ordine.error || 'Ordine non trovato.' });
