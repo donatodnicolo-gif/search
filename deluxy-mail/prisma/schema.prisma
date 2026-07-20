@@ -50,6 +50,8 @@ model Utente {
   thread    RiassuntoThread[]
   contattiAI ContattoAI[]
   istruzioniThread IstruzioneThread[]
+  regoleApp  RegolaApp[]
+  inviiApp   InvioApp[]
 }
 
 // Una casella di posta collegata (IMAP in lettura, SMTP in invio).
@@ -186,6 +188,7 @@ model Messaggio {
   attivita Attivita[]
   bozze    Bozza[]
   proposte PropostaArchivio[]
+  inviiApp InvioApp[]
 
   creatoIl DateTime @default(now())
 
@@ -341,6 +344,56 @@ model IstruzioneThread {
   aggiornatoIl DateTime @default(now()) @updatedAt
 
   @@unique([utenteId, chiave])
+}
+
+// APP DELUXY — regola che decide quale funzione di quale app va richiamata
+// quando una mail viene mandata alle app "in automatico". Stesse condizioni
+// esatte delle Regole della posta; vince la priorità più alta.
+model RegolaApp {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  nome     String
+  attiva   Boolean @default(true)
+  priorita Int     @default(0)
+
+  seMittente String?
+  seOggetto  String?
+  seContiene String?
+
+  // id dell'azione nel catalogo in src/lib/appDeluxy.ts (es. "anagrafiche.prospect").
+  azioneId String
+  // Nota in italiano passata all'AI quando prepara i dati per questa azione.
+  istruzioni String @default("") @db.Text
+
+  creataIl DateTime @default(now())
+
+  @@index([utenteId, attiva, priorita])
+}
+
+// Storico di quello che è stato mandato alle app: cosa, da quale mail, con
+// che esito. Serve a non rifare due volte la stessa cosa e a ritrovare il link.
+model InvioApp {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  messaggioId String?
+  messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: SetNull)
+
+  azioneId String
+  // ok | errore
+  esito       String
+  esitoTesto  String @db.Text
+  // I dati effettivamente inviati, in JSON: serve per capire cosa è partito.
+  dati String @default("") @db.Text
+  link String?
+
+  creatoIl DateTime @default(now())
+
+  @@index([utenteId, creatoIl])
+  @@index([messaggioId])
 }
 
 // Preferenze GLOBALI (condivise fra tutti): contesto aziendale dato all'AI.

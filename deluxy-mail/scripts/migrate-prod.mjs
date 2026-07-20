@@ -26,6 +26,36 @@ const stmts = [
      "istruzioni" TEXT NOT NULL,
      "aggiornatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "IstruzioneThread_utenteId_chiave_key" ON "IstruzioneThread"("utenteId","chiave")`,
+  // APP DELUXY: regole di smistamento verso le app + storico degli invii.
+  `CREATE TABLE IF NOT EXISTS "RegolaApp" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL,
+     "nome" TEXT NOT NULL, "attiva" BOOLEAN NOT NULL DEFAULT true,
+     "priorita" INTEGER NOT NULL DEFAULT 0,
+     "seMittente" TEXT, "seOggetto" TEXT, "seContiene" TEXT,
+     "azioneId" TEXT NOT NULL, "istruzioni" TEXT NOT NULL DEFAULT '',
+     "creataIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS "RegolaApp_utenteId_attiva_priorita_idx" ON "RegolaApp"("utenteId","attiva","priorita")`,
+  `CREATE TABLE IF NOT EXISTS "InvioApp" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "messaggioId" TEXT,
+     "azioneId" TEXT NOT NULL, "esito" TEXT NOT NULL,
+     "esitoTesto" TEXT NOT NULL, "dati" TEXT NOT NULL DEFAULT '', "link" TEXT,
+     "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS "InvioApp_utenteId_creatoIl_idx" ON "InvioApp"("utenteId","creatoIl")`,
+  `CREATE INDEX IF NOT EXISTS "InvioApp_messaggioId_idx" ON "InvioApp"("messaggioId")`,
+  `DO $$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='RegolaApp_utenteId_fkey') THEN
+       ALTER TABLE "RegolaApp" ADD CONSTRAINT "RegolaApp_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='InvioApp_utenteId_fkey') THEN
+       ALTER TABLE "InvioApp" ADD CONSTRAINT "InvioApp_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='InvioApp_messaggioId_fkey') THEN
+       ALTER TABLE "InvioApp" ADD CONSTRAINT "InvioApp_messaggioId_fkey"
+         FOREIGN KEY ("messaggioId") REFERENCES "Messaggio"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+     END IF;
+   END $$`,
   `DO $$ BEGIN
      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='RiassuntoThread_utenteId_fkey') THEN
        ALTER TABLE "RiassuntoThread" ADD CONSTRAINT "RiassuntoThread_utenteId_fkey"
