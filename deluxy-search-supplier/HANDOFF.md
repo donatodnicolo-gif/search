@@ -58,6 +58,12 @@ solo dove siamo e come si lavora.
    da tutte le API; gestione in Impostazioni → «🔑 Chiavi API» (solo admin), segreto mostrato
    una sola volta (salvato scrypt), revoca immediata, Storico firma `chiave:<nome>`.
    Collaudo completo in produzione 20/07 (crea→usa→403 su admin→revoca→401).
+13. **Sezione Contatti** (20/07): voce sidebar «Contatti», vista dedicata (`loadContatti`),
+   importa TUTTE le pagine da `/api/anagrafiche` e raggruppa per provincia. Filtri: tipo
+   (Partner=stato `attivo` / Fornitori=tutti gli altri stati), categoria (Fiorai/Pasticcerie),
+   ricerca testo. NB: il registro contiene 578 schede di MOLTE categorie B2B (boutique 316,
+   ristoranti, gioiellerie…), non solo fiorai (114) e pasticcerie (77): «Tutte le categorie»
+   le mostra tutte. Da decidere se limitare il default a fiorai+pasticcerie.
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
