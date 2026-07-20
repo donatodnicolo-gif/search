@@ -1,4 +1,4 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 17/07/2026, commit `bae6745`)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 20/07/2026, commit `466c9dc`)
 
 Per riprendere il lavoro su quest'app da una nuova sessione Claude. **Leggere prima
 [AI_SPEC.md](AI_SPEC.md)**: è la scheda tecnica completa e aggiornata; questo file dice
@@ -24,9 +24,10 @@ solo dove siamo e come si lavora.
 - Verifica sempre su https://search-deluxy.vercel.app dopo il push (`curl | grep <marker>`).
 
 ## Stato attuale (tutto live e verificato)
-1. **Login con utenze**: nome utente + pass code. `APP_PASSWORD` (env Vercel) = amministratore,
-   unico che salva le Impostazioni; utenze operative in Impostazioni → «Utenze dell'app»
-   (config KV, password mai al browser). Header `x-app-password` + `x-app-user`.
+1. **Login con utenze**: **email + password** (19/07). `APP_PASSWORD` (env Vercel) = amministratore,
+   unico che salva le Impostazioni; utenze operative in Impostazioni → «Utenze dell'app».
+   Le password utenze sono **hashate (scrypt+salt, 20/07)**: in KV solo `{nome, salt, passHash}`,
+   migrazione automatica delle voci legacy. Header `x-app-password` + `x-app-user`.
 2. **Viste**: Smistamento/Ricerca (operativa, 2 colonne: impostazioni a sinistra, risultati a
    destra), Impostazioni (solo card Admin, nascosta altrove), **Storico richieste**.
    Sidebar a scomparsa anche su desktop.
@@ -48,18 +49,23 @@ solo dove siamo e come si lavora.
    (si applicano dopo il login) — per il bottone nelle altre app.
 
 ## Cose in sospeso
-- **OAuth Client ID Google** per la rubrica: creato nel progetto Google «My Maps Project»
-  (`braided-box-423507-f3`, account deividcala@gmail.com), nome client «Deluxy search rubrica»:
-  `639032328429-16kj92rbb0ppigt8ps6oe0ds9lbfd45r.apps.googleusercontent.com`.
-  Da incollare in Impostazioni → «Google OAuth Client ID» (solo l'admin può salvare).
-  Verificare inoltre su Google Cloud che: People API sia abilitata, l'origine JavaScript
-  `https://search-deluxy.vercel.app` sia sul client, e gli account operatori siano tra i
-  test user (app OAuth in modalità test).
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
-  pass code amministratore + un nome qualsiasi).
+  pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
+  aggiunte come **test user** dell'app OAuth (vedi sotto).
 - **Bottone nelle altre app**: deciso il deep link, manca l'integrazione (in quale app?).
-- Nel registro c'è un probabile duplicato: «Essenza Fiorita» (Palermo) con stesso
-  indirizzo/sito di «G32 Piante e Fiori Palermo» e telefono olandese — da verificare.
+
+## OAuth Google rubrica — CONFIGURATO E VERIFICATO (20/07/2026)
+- Il client attivo è **«Deluxy search rubrica» `813248887384-kdksp8lq8p8pg4tou6b2q4i7r0avchjt`**
+  nel progetto **My Project 75759** (`xenon-jetty-502714-c9`) dell'account
+  **deluxy.delivery@gmail.com** — NON quello vecchio `639032328429-…` di deividcala
+  citato dai handoff precedenti (esiste ancora, ma non va usato).
+- Già in Impostazioni → «Google OAuth Client ID»; verificato su Google Cloud:
+  origini JS `search-deluxy.vercel.app` + `deluxy-anagrafiche.vercel.app` + `localhost:3060`,
+  **People API attivata**, app in modalità **Test** con test user
+  deluxy.delivery@gmail.com e donatod.nicolo@gmail.com (nuovi operatori → aggiungerli qui:
+  console.cloud.google.com/auth/audience?project=xenon-jetty-502714-c9).
+- Duplicato registro «Essenza Fiorita»: già rimosso; «G32 Piante e Fiori Palermo» ha
+  telefono italiano corretto. Niente da fare.
 
 ## Regole fisse
 - Modifiche SEMPRE nel worktree su `main` → commit → push → verifica live. Mai committare
