@@ -6,6 +6,7 @@ import nodemailer from 'nodemailer'
 import MailComposer from 'nodemailer/lib/mail-composer'
 import type { Account, Prisma } from '@prisma/client'
 import { alternative } from './condizioni'
+import { leggiEventoProposto } from './eventoProposto'
 import { db } from './db'
 import { cifra, decifra } from './crypto'
 import {
@@ -994,6 +995,68 @@ export async function rigeneraFeedCalendario(): Promise<{ ok: boolean; token: st
 export async function spegniFeedCalendario() {
   await db.utente.update({ where: { id: await uid() }, data: { tokenCalendario: '' } })
   revalidatePath('/calendario')
+}
+
+/** Converte "YYYY-MM-DDTHH:MM" (o "YYYY-MM-DD"), inteso in ora italiana, in un
+ *  istante UTC. Ripiega su una lettura grezza se il formato è inatteso. */
+function oraItalianaInUtc(iso: string): Date | null {
+  const m = iso.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/)
+  if (!m) {
+    const d = new Date(iso)
+    return isNaN(d.getTime()) ? null : d
+  }
+  const [Y, M, G, h, min] = [m[1], m[2], m[3], m[4] ?? '00', m[5] ?? '00'].map(Number)
+  const utcBase = Date.UTC(Y, M - 1, G, h, min)
+  const inRoma = new Date(utcBase).toLocaleString('en-US', { timeZone: FUSO })
+  const offset = utcBase - new Date(`${inRoma} UTC`).getTime()
+  return new Date(utcBase + offset)
+}
+
+/** Accetta la proposta di appuntamento dell'AI: crea l'evento e lo lega alla
+ *  mail. Poi la proposta si spegne (non si ripropone). */
+export async function accettaEventoProposto(
+  messaggioId: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const m = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    select: { eventoProposto: true },
+  })
+  const ev = leggiEventoProposto(m?.eventoProposto ?? null)
+  if (!ev) return { ok: false, messaggio: 'Nessun appuntamento da aggiungere.' }
+
+  const inizio = ev.giornataIntera
+    ? new Date(`${ev.inizio.slice(0, 10)}T00:00:00Z`)
+    : oraItalianaInUtc(ev.inizio)
+  if (!inizio) return { ok: false, messaggio: 'La data della proposta non è valida.' }
+  const fine = !ev.giornataIntera && ev.fine ? oraItalianaInUtc(ev.fine) : null
+
+  await db.evento.create({
+    data: {
+      utenteId,
+      titolo: ev.titolo,
+      luogo: ev.luogo || '',
+      inizio,
+      fine: fine && fine > inizio ? fine : null,
+      giornataIntera: ev.giornataIntera,
+      messaggioId,
+      creatoDaAI: true,
+    },
+  })
+  await db.messaggio.update({ where: { id: messaggioId }, data: { eventoProposto: null } })
+
+  revalidatePath('/calendario')
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: 'Aggiunto al calendario.' }
+}
+
+/** Scarta la proposta di appuntamento senza crearlo. */
+export async function ignoraEventoProposto(messaggioId: string): Promise<void> {
+  await db.messaggio.updateMany({
+    where: { id: messaggioId, utenteId: await uid() },
+    data: { eventoProposto: null },
+  })
+  revalidatePath('/', 'layout')
 }
 
 // ---------- APP DELUXY: dalla mail a una funzione di un'altra app ----------

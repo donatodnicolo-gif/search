@@ -252,6 +252,10 @@ model Messaggio {
   // straniera e la traduzione automatica è attiva.
   lingua        String?
   corpoTradotto String?   @db.Text
+  // Appuntamento proposto dall'AI (JSON): se la mail è un invito a una riunione,
+  // l'analisi lo compila e la pagina propone «Aggiungi al calendario». Si
+  // svuota quando l'utente accetta o ignora.
+  eventoProposto String?  @db.Text
 
   attivita Attivita[]
   bozze    Bozza[]

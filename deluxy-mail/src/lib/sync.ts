@@ -246,12 +246,25 @@ export async function analizzaMessaggioOra(
       : null
     const sezioneDecisa = m.smistatoDa === 'manuale' || m.smistatoDa === 'regola' || m.smistatoDa === 'spam'
 
+    // Se l'AI ha riconosciuto un appuntamento e non l'hai già messo in agenda,
+    // si tiene la proposta: la pagina mostrerà «Aggiungi al calendario».
+    let eventoProposto: string | null = null
+    if (analisi.evento) {
+      try {
+        const giaInAgenda = await db.evento.count({ where: { messaggioId: m.id } })
+        if (giaInAgenda === 0) eventoProposto = JSON.stringify(analisi.evento)
+      } catch {
+        eventoProposto = JSON.stringify(analisi.evento)
+      }
+    }
+
     await db.messaggio.update({
       where: { id: m.id },
       data: {
         ...(sezioneDecisa ? {} : { sezioneId: sezioneAI, smistatoDa: sezioneAI ? 'ai' : null }),
         riassunto: analisi.riassunto,
         serveRisposta: analisi.serveRisposta,
+        eventoProposto,
         analizzatoIl: new Date(),
         erroreAI: null,
       },

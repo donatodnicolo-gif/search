@@ -23,6 +23,14 @@ function client(): OpenAI {
   return clientCache
 }
 
+export type EventoProposto = {
+  titolo: string
+  inizio: string // ISO con ora (YYYY-MM-DDTHH:MM) in ora italiana
+  fine: string | null
+  luogo: string
+  giornataIntera: boolean
+}
+
 export type AnalisiMail = {
   sezione: string | null
   priorita: CodicePriorita
@@ -30,12 +38,13 @@ export type AnalisiMail = {
   serveRisposta: boolean
   attivita: { titolo: string; dettaglio: string; scadenza: string | null; priorita: string }[]
   bozza: { oggetto: string; corpo: string } | null
+  evento: EventoProposto | null
 }
 
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['sezione', 'priorita', 'riassunto', 'serveRisposta', 'attivita', 'bozza'],
+  required: ['sezione', 'priorita', 'riassunto', 'serveRisposta', 'attivita', 'bozza', 'evento'],
   properties: {
     sezione: {
       type: ['string', 'null'],
@@ -67,6 +76,20 @@ const SCHEMA = {
         corpo: { type: 'string' },
       },
     },
+    evento: {
+      type: ['object', 'null'],
+      additionalProperties: false,
+      required: ['titolo', 'inizio', 'fine', 'luogo', 'giornataIntera'],
+      description:
+        'Compila SOLO se la mail è un invito a una riunione/appuntamento con una DATA e (di norma) un’ORA precise. Altrimenti null. Non inventare la data: se non c’è, evento = null.',
+      properties: {
+        titolo: { type: 'string', description: 'Titolo breve dell’appuntamento.' },
+        inizio: { type: 'string', description: 'Inizio in ora italiana, formato YYYY-MM-DDTHH:MM.' },
+        fine: { type: ['string', 'null'], description: 'Fine YYYY-MM-DDTHH:MM se indicata, altrimenti null.' },
+        luogo: { type: 'string', description: 'Luogo o link della riunione (es. il link Teams/Zoom). Vuoto se assente.' },
+        giornataIntera: { type: 'boolean', description: 'true solo se è per tutto il giorno senza orario.' },
+      },
+    },
   },
 } as const
 
@@ -86,7 +109,8 @@ Come lavori:
 - Attività: solo azioni che deve fare l'utente, concrete e verificabili. Se la mail non chiede nulla, array vuoto. Mai attività inventate per riempire.
 - Scadenze: solo se la data è scritta o chiaramente deducibile dalla mail; altrimenti null.
 - Bozza: scrivila solo se serve una risposta. In italiano, tono professionale e asciutto, niente formule pompose. Non inventare mai dati che non hai (prezzi, date, disponibilità): se mancano, lascia un segnaposto tra parentesi quadre, es. [inserire data].
-- Newsletter, notifiche automatiche e pubblicità: priorità bassa, nessuna attività, nessuna bozza.`
+- Evento: se la mail è un invito a una riunione o un appuntamento con una DATA e un’ORA precise (anche un invito Teams/Zoom/Meet, o "ci vediamo martedì alle 15"), compila l'oggetto "evento" con titolo, inizio (ora italiana), eventuale fine, e nel luogo metti la sede o il link della riunione. Se non c'è una data certa, evento = null: non inventarla mai. Un semplice accenno vago ("sentiamoci presto") NON è un evento.
+- Newsletter, notifiche automatiche e pubblicità: priorità bassa, nessuna attività, nessuna bozza, nessun evento.`
 
 export async function analizzaMessaggio(opts: {
   messaggio: MessaggioScaricato

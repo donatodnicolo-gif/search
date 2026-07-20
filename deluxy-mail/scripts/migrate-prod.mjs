@@ -76,6 +76,8 @@ const stmts = [
      WHERE "corpoTradotto" IS NOT NULL
        AND left(lower(regexp_replace("corpoTradotto", '\\s+', ' ', 'g')), 300)
          = left(lower(regexp_replace("corpoTesto", '\\s+', ' ', 'g')), 300)`,
+  // Appuntamento proposto dall'AI su una mail (invito a riunione).
+  `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "eventoProposto" TEXT`,
   // Aggancio manuale delle mail a una conversazione.
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "threadManuale" TEXT`,
   `CREATE INDEX IF NOT EXISTS "Messaggio_utenteId_threadManuale_idx" ON "Messaggio"("utenteId","threadManuale")`,

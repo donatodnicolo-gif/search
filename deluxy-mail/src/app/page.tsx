@@ -326,7 +326,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
 
                   {/* Niente badge quando l'AI non ha girato: è la normalità,
                       non un guasto — parte solo se dai una priorità. */}
-                  {(m.sezione || m.corpoTradotto || m._count.attivita > 0 || m.bozze.length > 0 || m._count.inviiApp > 0) && (
+                  {(m.sezione || m.corpoTradotto || m._count.attivita > 0 || m.bozze.length > 0 || m._count.inviiApp > 0 || m.eventoProposto) && (
                     <div className="mail-tags" style={{ paddingLeft: 17 }}>
                       {m.corpoTradotto && (
                         <span className="badge gold">
@@ -338,6 +338,12 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                         <span className="badge purple">
                           <span className="dot" />
                           Risposta app
+                        </span>
+                      )}
+                      {m.eventoProposto && (
+                        <span className="badge blue">
+                          <span className="dot" />
+                          Appuntamento
                         </span>
                       )}
                       {m.sezione && (

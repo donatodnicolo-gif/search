@@ -157,6 +157,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 - **Anti-SPAM automatico all'arrivo** (euristiche gratuite + giudizio AI sui casi dubbi), prudente per non nascondere mail di lavoro; sezione SPAM **recuperabile** (mai cancellati).
 - **Multi-utente** con login (email+password), ruoli, admin che crea gli utenti.
 - **Mobile**: sidebar a scomparsa (drawer con hamburger); Assistente AI nascosto su mobile per far vedere subito la posta.
+- **Appuntamento proposto dall'AI** (20 lug): quando dai una priorità a una mail che è un invito a riunione/appuntamento (anche link Teams/Zoom/Meet), l'analisi estrae l'evento (`analizzaMessaggio` → campo `evento`) e lo salva in `Messaggio.eventoProposto`. La pagina del messaggio mostra la card «Appuntamento trovato dall'AI» con **Aggiungi al calendario** (`accettaEventoProposto` → crea `Evento` legato alla mail, ora in Europe/Rome→UTC) o **Ignora** (`ignoraEventoProposto`). In lista posta la mail ha il badge blu «Appuntamento». Niente inserimenti automatici: si conferma sempre. Parser/lettore in `lib/eventoProposto.ts` (fuori dalle server action perché sincrono).
 - **Calendario** (20 lug): pagina `/calendario` — vista mensile + prossimi 30 giorni, appuntamenti a mano (anche giornata intera), eliminazione con conferma. **Sincronizzazione con le altre agende** via feed iCal segreto (pannello in fondo alla pagina: accendi → copia il link → "Da URL" in Google Calendar / calendario iPhone / Outlook; rigenera o spegni quando vuoi). Su mobile la griglia mostra i giorni a pallini.
 
 ---

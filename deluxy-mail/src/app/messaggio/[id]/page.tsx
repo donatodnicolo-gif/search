@@ -17,6 +17,8 @@ import { traduciMessaggioSeServe, messaggiThread, leggiRiassuntoThread } from '@
 import { chiaveThread } from '@/lib/thread'
 import { eContattoAI } from '@/lib/contattiAI'
 import { azioneDi } from '@/lib/appDeluxy'
+import { leggiEventoProposto } from '@/lib/eventoProposto'
+import { PropostaEvento } from '@/components/PropostaEvento'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // le azioni AI (analisi, riassunto thread) girano qui
@@ -66,6 +68,9 @@ export default async function DettaglioMessaggio({ params }: Props) {
   // Qui si mostra solo la proposta dell'AI: le bozze che hai iniziato tu si
   // riprendono dalla schermata di scrittura, dove le stavi scrivendo.
   const bozzaAI = messaggio.bozze.find((b) => b.origine === 'ai' && !b.inviata)
+
+  // L'appuntamento che l'AI ha riconosciuto in questa mail, da accettare.
+  const eventoProposto = leggiEventoProposto(messaggio.eventoProposto)
 
   // Le risposte delle APP DELUXY richiamate da questa mail: si mostrano sotto,
   // così quello che l'app ha risposto (es. i fornitori vicini) resta sulla mail.
@@ -162,6 +167,8 @@ export default async function DettaglioMessaggio({ params }: Props) {
             analizzato={messaggio.analizzatoIl !== null}
           />
         </div>
+
+        {eventoProposto && <PropostaEvento messaggioId={messaggio.id} evento={eventoProposto} />}
 
         {messaggio.riassunto && (
           <div className="ai-box">
