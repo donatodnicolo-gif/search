@@ -1967,6 +1967,71 @@ resultsEl.addEventListener('click', e=>{
   const r = e.target.closest('.reportshop'); if(r){ reportShop(r); }
 });
 
+/* ------------------ RICONCILIA (fornitore Google ↔ contatto del registro) ------------------
+   Comunica al registro anagrafiche che la scheda Google e un contatto esistente sono la
+   stessa realtà: /api/riconcilia registra il riferimento (place_id) e fonde i dati freschi. */
+let lastAnagList = [];   // contatti del registro trovati dall'ultima ricerca (candidati)
+function apriRiconcilia(btn){
+  const card = btn.closest('.shop');
+  const panel = card.querySelector('.recon-panel');
+  if(!panel) return;
+  if(panel.style.display !== 'none'){ panel.style.display = 'none'; return; }   // toggle
+  if(!lastAnagList.length){
+    panel.style.display = 'block';
+    panel.innerHTML = '<div class="hint">Nessun contatto del registro in questa zona: se il negozio è nuovo usa «📣 Segnala al commerciale».</div>';
+    return;
+  }
+  const pre = card.dataset.regId || '';
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div class="hint" style="margin:0 0 6px">Con quale contatto del registro coincide questo negozio?</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      <select class="recon-sel" style="flex:1; min-width:200px">
+        ${lastAnagList.map(p=>`<option value="${esc(p.id)}" ${p.id===pre?'selected':''}>${isPartnerAttivo(p)?'🤝':'📋'} ${esc(p.nome)}${p.citta?' · '+esc(p.citta):''} (${esc(statoLabel(p))})</option>`).join('')}
+      </select>
+      <button class="btn-dl recon-go" type="button">✅ Conferma riconciliazione</button>
+    </div>
+    <div class="hint recon-msg" style="margin-top:6px"></div>`;
+}
+async function eseguiRiconcilia(btn){
+  const card = btn.closest('.shop');
+  const panel = card.querySelector('.recon-panel');
+  const sel = panel.querySelector('.recon-sel');
+  const msg = panel.querySelector('.recon-msg');
+  const pid = card.dataset.sid;                     // place_id Google
+  const partnerId = sel.value;
+  const scelto = lastAnagList.find(p=>p.id===partnerId) || {};
+  const dati = CARD_DATA[pid] || {};
+  btn.disabled = true; msg.textContent = 'Comunico la riconciliazione al registro…';
+  try{
+    const r = await apiFetch('/api/riconcilia', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        partnerId,
+        quando: new Date().toISOString(),
+        ordine: ordineCorrente(),
+        place: Object.assign({ idEsterno: pid }, dati),
+      }),
+    });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
+    panel.innerHTML = `<div class="hint" style="color:var(--green)">✅ Riconciliato con «${esc(scelto.nome||partnerId)}»: il registro ha salvato il riferimento e aggiornato i dati.</div>`;
+    const rb = card.querySelector('.reconshop');
+    if(rb){ rb.disabled = true; rb.textContent = '🔗 Riconciliato'; }
+    const col = card.querySelector('.head > div');
+    if(col && !card.querySelector('.badge-recon')) col.insertAdjacentHTML('afterbegin',
+      '<span class="badge badge-recon" style="color:var(--green); background:rgba(36,138,61,.1)">🔗 nel registro</span>');
+    logEvento({ tipo:'segnalazione', esito:'riconciliato con «'+(scelto.nome||partnerId)+'» (registro)', negozio: negozioDaScheda(card) });
+  }catch(err){
+    btn.disabled = false;
+    msg.innerHTML = '<span style="color:var(--red)">❌ '+esc(err.message)+'</span>';
+  }
+}
+resultsEl.addEventListener('click', e=>{
+  const o = e.target.closest('.reconshop'); if(o){ apriRiconcilia(o); return; }
+  const g = e.target.closest('.recon-go'); if(g){ eseguiRiconcilia(g); }
+});
+
 /* ------------------ STORICO RICHIESTE ------------------ */
 function ordineCorrente(){
   if(!orderLoaded) return null;
@@ -2174,7 +2239,9 @@ function shopCard(d, cat, dist, pid){
     ${pid ? `<div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
       <button class="btn-dl savecontact" data-pid="${pid}">💾 Salva in rubrica</button>
       <button class="btn-dl reportshop" data-pid="${pid}">📣 Segnala al commerciale</button>
-    </div>` : ''}
+      <button class="btn-dl reconshop" data-pid="${pid}">🔗 Riconcilia</button>
+    </div>
+    <div class="recon-panel" style="display:none; margin-top:8px"></div>` : ''}
     <div class="src">📍 Fonte contatti: <span class="verified">Google Places (scheda ufficiale)</span></div>
   `;
   return el;
@@ -2268,6 +2335,7 @@ async function run(){
     const anag = await anagPromise;
     if(anag.error){ anagNote = ' · ⚠️ registro anagrafiche non raggiungibile'; console.warn('registro anagrafiche:', anag.error); }
     else if(!anag.skipped){
+      lastAnagList = anag.list;   // serve al pannello «Riconcilia» sulle schede
       const matchedIds = new Set();
       const matchedCards = [];
       // match per nome con le schede Google
@@ -2276,6 +2344,7 @@ async function run(){
         const p = anag.list.find(x=>{ const k=normName(x.nome); return k.length>3 && name.length>3 && (k===name || name.includes(k) || k.includes(name)); });
         if(!p) return;
         matchedIds.add(p.id);
+        cardEl.dataset.regId = p.id;   // candidato preselezionato per «Riconcilia»
         const isPartner = isPartnerAttivo(p);
         if(isPartner) cardEl.classList.add('matched-partner');
         const col = cardEl.querySelector('.head > div');
