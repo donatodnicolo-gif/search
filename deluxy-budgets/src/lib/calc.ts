@@ -33,6 +33,9 @@ export type Persona = {
   partTimePct: number;
   periodicita: string;
   contributiPct: number;
+  mensilita: number;
+  inpsPct: number;
+  addizionaliPct: number;
   mesi: number[];
   maisonId: string | null;
   teamId: string | null;
@@ -115,6 +118,9 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       partTimePct: d.partTimePct,
       periodicita: d.periodicita,
       contributiPct: d.contributiPct,
+      mensilita: d.mensilita,
+      inpsPct: d.inpsPct,
+      addizionaliPct: d.addizionaliPct,
       mesi: leggiMesi(d.mesi),
       maisonId: d.maisonId,
       teamId: d.teamId,
@@ -191,6 +197,96 @@ export function costoPersonaAnno(p: Persona): number {
 export function costoPersonale(dati: DatiAnno, maisonId?: string | null): number {
   const persone = maisonId ? dati.persone.filter((p) => p.maisonId === maisonId) : dati.persone;
   return persone.reduce((s, p) => s + costoPersonaAnno(p), 0);
+}
+
+// ---------- Dal lordo al netto in busta (stima) ----------
+//
+// Stima di pianificazione, non un cedolino: IRPEF a scaglioni 2025
+// (23% / 35% / 43%), detrazione da lavoro dipendente art. 13 TUIR, contributi
+// a carico del dipendente e addizionali regionale+comunale come aliquota unica.
+// Non considera trattamento integrativo, detrazioni per familiari, fringe
+// benefit, premi di risultato a tassazione agevolata né conguagli.
+
+const SCAGLIONI = [
+  { fino: 28000, aliquota: 0.23 },
+  { fino: 50000, aliquota: 0.35 },
+  { fino: Infinity, aliquota: 0.43 },
+];
+
+export function irpefLorda(imponibile: number): number {
+  let imposta = 0;
+  let precedente = 0;
+  for (const s of SCAGLIONI) {
+    if (imponibile <= precedente) break;
+    imposta += (Math.min(imponibile, s.fino) - precedente) * s.aliquota;
+    precedente = s.fino;
+  }
+  return imposta;
+}
+
+// Detrazione per redditi da lavoro dipendente (art. 13 c.1 TUIR).
+export function detrazioneLavoro(reddito: number): number {
+  if (reddito <= 15000) return Math.max(690, 1955);
+  if (reddito <= 28000) return 1910 + 1190 * ((28000 - reddito) / 13000);
+  if (reddito <= 50000) return 1910 * ((50000 - reddito) / 22000);
+  return 0;
+}
+
+// Cuneo fiscale (legge di bilancio 2025): sotto i 20.000 € è una somma in
+// busta calcolata sul reddito di lavoro; tra 20.000 e 40.000 è un'ulteriore
+// detrazione che si azzera progressivamente.
+// ATTENZIONE: parametri 2025. Vanno riverificati con la legge di bilancio
+// dell'anno di budget prima di usare il netto per trattative o contratti.
+export function cuneoFiscale(reddito: number): number {
+  if (reddito <= 8500) return reddito * 0.071;
+  if (reddito <= 15000) return reddito * 0.053;
+  if (reddito <= 20000) return reddito * 0.048;
+  if (reddito <= 32000) return 1000;
+  if (reddito <= 40000) return 1000 * ((40000 - reddito) / 8000);
+  return 0;
+}
+
+export type Netto = {
+  lordoPeriodo: number;
+  contributi: number;
+  imponibile: number;
+  irpef: number;
+  addizionali: number;
+  cuneo: number;
+  nettoPeriodo: number;
+  nettoMese: number; // netto della singola busta paga
+  buste: number;
+};
+
+// Il netto ha senso per il lavoro dipendente: consulenti (fattura) e stagisti
+// (rimborso) seguono regole diverse, quindi lì non si stima.
+export function haNetto(p: Persona): boolean {
+  return p.tipo === "DIPENDENTE";
+}
+
+export function nettoBusta(p: Persona): Netto | null {
+  if (!haNetto(p)) return null;
+  // Chi lavora solo parte dell'anno matura reddito e detrazioni in proporzione.
+  const quotaAnno = p.mesi.length / 12;
+  const lordoPeriodo = lordoAnnuo(p) * quotaAnno;
+  const contributi = (lordoPeriodo * p.inpsPct) / 100;
+  const imponibile = lordoPeriodo - contributi;
+  const irpef = Math.max(0, irpefLorda(imponibile) - detrazioneLavoro(imponibile) * quotaAnno);
+  const addizionali = (imponibile * p.addizionaliPct) / 100;
+  const cuneo = cuneoFiscale(imponibile) * quotaAnno;
+  const nettoPeriodo = imponibile - irpef - addizionali + cuneo;
+  const buste = Math.max(1, p.mensilita * quotaAnno);
+  return {
+    lordoPeriodo,
+    contributi,
+    imponibile,
+    irpef,
+    addizionali,
+    cuneo,
+    nettoPeriodo,
+    nettoMese: nettoPeriodo / buste,
+    buste,
+  };
 }
 
 // Costo del lavoro di un team. `null` = persone senza team assegnato.

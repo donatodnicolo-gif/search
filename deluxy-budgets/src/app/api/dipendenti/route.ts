@@ -4,6 +4,14 @@ import { prisma } from "@/lib/db";
 const TIPI = ["DIPENDENTE", "STAGISTA", "CONSULENTE"];
 const PERIODICITA = ["ANNUO", "MENSILE"];
 
+// Numero entro un range, con fallback: `Number(undefined)` è NaN e `??` non lo
+// intercetta, quindi il controllo va fatto esplicitamente.
+function numero(v: unknown, min: number, max: number, fallback: number): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
 // Ripulisce il payload del form: i valori fuori scala qui diventerebbero
 // costi sbagliati nel P&L, quindi si normalizzano una volta sola.
 function normalizza(body: Record<string, unknown>) {
@@ -20,6 +28,9 @@ function normalizza(body: Record<string, unknown>) {
     partTimePct: Math.min(100, Math.max(1, Number(body.partTimePct) || 100)),
     periodicita: PERIODICITA.includes(String(body.periodicita)) ? String(body.periodicita) : "ANNUO",
     contributiPct: Math.min(200, Math.max(0, Number(body.contributiPct) || 0)),
+    mensilita: [12, 13, 14].includes(Number(body.mensilita)) ? Number(body.mensilita) : 14,
+    inpsPct: numero(body.inpsPct, 0, 50, 9.19),
+    addizionaliPct: numero(body.addizionaliPct, 0, 10, 2),
     mesi: JSON.stringify(mesi),
     maisonId: body.maisonId ? String(body.maisonId) : null,
     teamId: body.teamId ? String(body.teamId) : null,

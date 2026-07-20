@@ -17,6 +17,11 @@ pubblicato), *sfidante* e *irraggiungibile*.
   indicano **superminimo individuale** e **% di part-time**: il lordo effettivo è
   `(tabellare + superminimo) × % tempo`, riproporzionato come da CCNL, e gli oneri si
   applicano sopra. Il costo azienda entra automaticamente nel P&L, anche mese per mese.
+  Per i dipendenti si stima anche il **netto in busta** (mensilità 12/13/14, contributi a
+  carico del dipendente, IRPEF a scaglioni 23/35/43, detrazione da lavoro dipendente,
+  addizionali e cuneo fiscale). È una stima di pianificazione con **parametri fiscali 2025**:
+  non sostituisce il cedolino e va riverificata con la legge di bilancio dell'anno di budget
+  (motore in `src/lib/calc.ts`, funzioni `irpefLorda`, `detrazioneLavoro`, `cuneoFiscale`).
 - **Team** (`/team`): le squadre aziendali (nome, responsabile, colore del badge, ordine)
   con **organico e costo del lavoro per team**, il peso di ciascuna persona sul totale della
   squadra e l'elenco di chi non è ancora assegnato. Le persone si assegnano dalla scheda in

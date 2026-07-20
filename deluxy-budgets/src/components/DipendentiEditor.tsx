@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { costoPersonaAnno, costoPersonaMese, lordoAnnuo, TIPI_PERSONA, type Persona } from "@/lib/calc";
+import {
+  costoPersonaAnno, costoPersonaMese, lordoAnnuo, nettoBusta,
+  TIPI_PERSONA, type Persona,
+} from "@/lib/calc";
 import { eur, MESI, pct } from "@/lib/format";
 
 type MaisonOpt = { id: string; nome: string };
@@ -19,6 +22,9 @@ const VUOTO = {
   partTimePct: 100,
   periodicita: "ANNUO",
   contributiPct: 38,
+  mensilita: 14,
+  inpsPct: 9.19,
+  addizionaliPct: 2,
   mesi: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
   maisonId: "",
   teamId: "",
@@ -75,6 +81,9 @@ export function DipendentiEditor({
       partTimePct: p.partTimePct,
       periodicita: p.periodicita,
       contributiPct: p.contributiPct,
+      mensilita: p.mensilita,
+      inpsPct: p.inpsPct,
+      addizionaliPct: p.addizionaliPct,
       mesi: p.mesi,
       maisonId: p.maisonId ?? "",
       teamId: p.teamId ?? "",
@@ -133,6 +142,9 @@ export function DipendentiEditor({
         partTimePct: form.partTimePct,
         periodicita: form.periodicita,
         contributiPct: form.contributiPct,
+        mensilita: form.mensilita,
+        inpsPct: form.inpsPct,
+        addizionaliPct: form.addizionaliPct,
         mesi: form.mesi,
         maisonId: null,
         teamId: null,
@@ -141,6 +153,7 @@ export function DipendentiEditor({
     : null;
   const anteprima = bozza ? costoPersonaMese(bozza, form!.mesi[0] ?? 1) : 0;
   const lordoBozza = bozza ? lordoAnnuo(bozza) : 0;
+  const nettoBozza = bozza ? nettoBusta(bozza) : null;
 
   return (
     <>
@@ -188,6 +201,7 @@ export function DipendentiEditor({
                   <th className="num">Superminimo</th>
                   <th className="num">Tempo</th>
                   <th className="num">Lordo effettivo</th>
+                  <th className="num">Netto mese</th>
                   <th className="num">Oneri</th>
                   <th>Mesi</th>
                   <th className="num">Costo mese</th>
@@ -237,6 +251,20 @@ export function DipendentiEditor({
                         )}
                       </td>
                       <td className="num">{eur(lordoAnnuo(p))}</td>
+                      <td className="num">
+                        {(() => {
+                          const n = nettoBusta(p);
+                          if (!n) return <span className="muted" title="Stima prevista solo per il lavoro dipendente">—</span>;
+                          return (
+                            <>
+                              {eur(n.nettoMese)}
+                              <span className="muted" style={{ fontSize: 11.5, display: "block" }}>
+                                × {Math.round(n.buste)} mensilità
+                              </span>
+                            </>
+                          );
+                        })()}
+                      </td>
                       <td className="num muted">{p.contributiPct > 0 ? pct(p.contributiPct, 0) : "—"}</td>
                       <td className="muted" style={{ fontSize: 12 }}>
                         {p.mesi.length === 12 ? "tutto l'anno" : p.mesi.map((m) => MESI[m - 1]).join(" ")}
@@ -255,13 +283,21 @@ export function DipendentiEditor({
                 <tr className="tot">
                   <td colSpan={7}>Totale costo del personale</td>
                   <td className="num">{eur(persone.reduce((s, p) => s + lordoAnnuo(p), 0))}</td>
-                  <td colSpan={3} />
+                  <td colSpan={4} />
                   <td className="num">{eur(totaleAnno)}</td>
                   <td />
                 </tr>
               </tbody>
             </table>
           </div>
+          <p className="page-caption" style={{ padding: "14px 16px 16px", margin: 0 }}>
+            Il <strong>netto mese</strong> è una stima di pianificazione: contributi a carico del
+            dipendente, IRPEF a scaglioni 23/35/43, detrazione da lavoro dipendente, addizionali e
+            cuneo fiscale. <strong>Non sostituisce il cedolino</strong> e non considera detrazioni
+            per familiari a carico, fringe benefit, premi a tassazione agevolata né conguagli.
+            I parametri fiscali sono quelli 2025: vanno riverificati con la legge di bilancio
+            dell&apos;anno di budget prima di usarli in una trattativa. Si stima solo per il lavoro dipendente.
+          </p>
         </div>
       )}
 
@@ -378,6 +414,43 @@ export function DipendentiEditor({
                 onChange={(e) => setForm({ ...form, contributiPct: Number(e.target.value) || 0 })}
               />
             </div>
+            {form.tipo === "DIPENDENTE" && (
+              <>
+                <div>
+                  <label className="field-label">Mensilità</label>
+                  <select
+                    value={form.mensilita}
+                    onChange={(e) => setForm({ ...form, mensilita: Number(e.target.value) })}
+                  >
+                    <option value={14}>14 (CCNL Commercio)</option>
+                    <option value={13}>13</option>
+                    <option value={12}>12</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label">Contributi a carico del dipendente (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={0.01}
+                    value={form.inpsPct}
+                    onChange={(e) => setForm({ ...form, inpsPct: Number(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <label className="field-label">Addizionali regionale + comunale (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={10}
+                    step={0.1}
+                    value={form.addizionaliPct}
+                    onChange={(e) => setForm({ ...form, addizionaliPct: Number(e.target.value) || 0 })}
+                  />
+                </div>
+              </>
+            )}
             <div>
               <label className="field-label">Team</label>
               <select value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })}>
@@ -462,11 +535,20 @@ export function DipendentiEditor({
 
           <div className="form-footer">
             {errore && <span style={{ color: "var(--red)", fontSize: 13 }}>{errore}</span>}
-            <span className="muted" style={{ fontSize: 13.5 }}>
+            <span className="muted" style={{ fontSize: 13.5, textAlign: "right" }}>
               Lordo effettivo <strong style={{ color: "var(--text)" }}>{eur(lordoBozza)}</strong>/anno
               {form.partTimePct < 100 && ` (${pct(form.partTimePct, 1)} del pieno)`} · costo azienda{" "}
               <strong style={{ color: "var(--text)" }}>{eur(anteprima)}</strong>/mese ·{" "}
               <strong style={{ color: "var(--text)" }}>{eur(anteprima * form.mesi.length)}</strong> sull&apos;anno
+              {nettoBozza && (
+                <>
+                  <br />
+                  Netto stimato in busta{" "}
+                  <strong style={{ color: "var(--text)" }}>{eur(nettoBozza.nettoMese)}</strong> ×{" "}
+                  {Math.round(nettoBozza.buste)} mensilità ={" "}
+                  <strong style={{ color: "var(--text)" }}>{eur(nettoBozza.nettoPeriodo)}</strong> netti/anno
+                </>
+              )}
             </span>
             <button className="btn secondary" onClick={() => setForm(null)}>Annulla</button>
             <button className="btn primary" onClick={salva} disabled={salvo}>

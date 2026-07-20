@@ -126,6 +126,10 @@ model Dipendente {
   partTimePct   Float   @default(100) // 100 = tempo pieno; il lordo si riproporziona
   periodicita   String  @default("ANNUO") // ANNUO | MENSILE
   contributiPct Float   @default(0) // oneri sopra il lordo (dipendenti ~38%)
+  // Parametri per la stima del netto in busta (solo dipendenti)
+  mensilita     Int     @default(14) // 12 | 13 | 14 (CCNL Commercio: 14)
+  inpsPct       Float   @default(9.19) // contributi a carico del dipendente
+  addizionaliPct Float  @default(2) // addizionale regionale + comunale
   mesi          String  @default("[1,2,3,4,5,6,7,8,9,10,11,12]") // JSON: mesi di competenza
   maisonId      String? // null = costo di struttura, non attribuito a una maison
   note          String?
