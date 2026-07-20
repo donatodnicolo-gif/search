@@ -348,7 +348,11 @@ export async function creaAttivitaConProposta(comando: string): Promise<EsitoNuo
       return { ok: false, messaggio: 'Non ho ricavato attività: prova a essere più specifico.' }
     }
 
+    // Ogni attività è eseguibile: con un contatto l'AI risponde all'ultima sua
+    // mail; senza, scrive una mail nuova. Per il tasto "Procedi" si preferisce
+    // la prima attività CON contatto (proposta più mirata), altrimenti la prima.
     let eseguibileId: string | undefined
+    let eseguibileConContatto = false
     for (const a of piano.attivita) {
       // Il contatto vale solo se è davvero fra quelli conosciuti.
       const contatto =
@@ -366,7 +370,10 @@ export async function creaAttivitaConProposta(comando: string): Promise<EsitoNuo
           creataDaAI: true,
         },
       })
-      if (contatto && !eseguibileId) eseguibileId = creata.id
+      if (!eseguibileConContatto && (contatto || !eseguibileId)) {
+        eseguibileId = creata.id
+        eseguibileConContatto = Boolean(contatto)
+      }
     }
 
     revalidatePath('/attivita')

@@ -6,6 +6,7 @@ import {
   analizzaMessaggio,
   riassumiContatto,
   scriviRisposta,
+  scriviMailNuova,
   rilevaETraduci,
   riassumiThread,
   giudicaSpam,
@@ -341,12 +342,54 @@ export async function preparaEsecuzione(
   let messaggio = attivita.messaggio
   if (!messaggio && attivita.contattoEmail) {
     messaggio = await db.messaggio.findFirst({
-      where: { utenteId, mittente: attivita.contattoEmail, direzione: 'entrata', cestinato: false },
+      where: { utenteId, mittente: { equals: attivita.contattoEmail, mode: 'insensitive' }, direzione: 'entrata', cestinato: false },
       orderBy: { data: 'desc' },
     })
   }
+
+  // Attività senza una mail d'origine (es. creata dal dialogo "Nuova attività"):
+  // l'AI scrive una mail NUOVA che la porta a termine, e si apre in "Scrivi".
   if (!messaggio) {
-    return { ok: false, messaggio: 'Questa attività non nasce da una mail: non c’è nessuno a cui rispondere.' }
+    const ctx = await contestoAI(utenteId)
+    const recenti = await db.messaggio.findMany({
+      where: { utenteId, direzione: 'entrata', cestinato: false },
+      orderBy: { data: 'desc' },
+      distinct: ['mittente'],
+      take: 40,
+      select: { mittente: true, mittenteNome: true },
+    })
+
+    try {
+      const testo = await scriviMailNuova({
+        compito: attivita.titolo,
+        dettaglio: attivita.dettaglio,
+        contatti: recenti.map((r) => ({ email: r.mittente, nome: r.mittenteNome })),
+        contestoAzienda: ctx.contestoAzienda,
+        istruzioni: attivita.contattoEmail
+          ? [`Il destinatario è ${attivita.contattoEmail}.`]
+          : undefined,
+        firma: ctx.firma,
+        oggi: new Date(),
+      })
+
+      const bozza = await db.bozza.create({
+        data: {
+          utenteId,
+          messaggioId: null,
+          origine: 'ai',
+          modo: 'nuova',
+          a: attivita.contattoEmail || testo.a,
+          cc: testo.cc,
+          oggetto: testo.oggetto,
+          corpo: testo.corpo,
+          corpoAI: testo.corpo,
+        },
+      })
+
+      return { ok: true, messaggio: 'Mail pronta.', vaiA: `/scrivi?bozza=${bozza.id}` }
+    } catch (e) {
+      return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
+    }
   }
 
   const ctx = await contestoAI(utenteId)

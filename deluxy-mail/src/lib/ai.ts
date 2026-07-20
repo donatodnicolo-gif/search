@@ -1013,6 +1013,88 @@ ${messaggio.corpoTesto.slice(0, 4000)}
   return JSON.parse(json) as { oggetto: string; corpo: string }
 }
 
+// ---------- Scrivere una mail NUOVA che porta a termine un'attività ----------
+
+const SCHEMA_MAIL_NUOVA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['a', 'cc', 'oggetto', 'corpo'],
+  properties: {
+    a: {
+      type: 'string',
+      description:
+        'Destinatario: SOLO un indirizzo dall’elenco CONTATTI CONOSCIUTI (più indirizzi separati da virgola). Vuoto se non sei sicuro: lo compila l’utente.',
+    },
+    cc: { type: 'string', description: 'Eventuali indirizzi in copia (dall’elenco). Di norma vuoto.' },
+    oggetto: { type: 'string' },
+    corpo: { type: 'string' },
+  },
+} as const
+
+const SISTEMA_MAIL_NUOVA = `Sei l'assistente di posta di Deluxy. Scrivi una mail NUOVA (non è una risposta) che porta a termine un compito preciso.
+
+Come scrivi:
+- In italiano, tono professionale e asciutto. Niente formule pompose, niente "con la presente".
+- Vai al punto: la prima frase deve già dire perché scrivi.
+- Fai SOLO quello che dice il compito. Non aggiungere promesse, sconti o impegni che nessuno ti ha autorizzato a prendere.
+- MAI inventare dati che non hai — prezzi, date, disponibilità, link. Se il compito contiene un dato (un importo, un link di pagamento), usalo TALE E QUALE. Se un dato manca, segnaposto tra parentesi quadre: [inserire prezzo].
+- Destinatari: SOLO indirizzi presi dall'elenco dei contatti conosciuti. Se il compito non dice chiaramente a chi scrivere, lascia "a" vuoto: lo sceglie l'utente.`
+
+/** Scrive la mail nuova (senza originale a cui rispondere) che chiude un'attività. */
+export async function scriviMailNuova(opts: {
+  compito: string
+  dettaglio?: string | null
+  contatti: { email: string; nome: string | null }[]
+  contestoAzienda?: string
+  istruzioni?: string[]
+  firma?: string
+  oggi: Date
+}): Promise<{ a: string; cc: string; oggetto: string; corpo: string }> {
+  const elencoContatti =
+    opts.contatti.length === 0
+      ? '(nessuno)'
+      : opts.contatti.map((c) => `- ${c.nome ? `${c.nome} ` : ''}<${c.email}>`).join('\n')
+
+  const risposta = await client().chat.completions.create({
+    model: MODELLO,
+    temperature: 0.3,
+    response_format: {
+      type: 'json_schema',
+      json_schema: {
+        name: 'mail_nuova',
+        strict: true,
+        schema: SCHEMA_MAIL_NUOVA as unknown as Record<string, unknown>,
+      },
+    },
+    messages: [
+      { role: 'system', content: SISTEMA_MAIL_NUOVA },
+      {
+        role: 'user',
+        content: `Data di oggi: ${opts.oggi.toISOString().slice(0, 10)}
+
+IL COMPITO DA PORTARE A TERMINE:
+${opts.compito}${opts.dettaglio ? `\n${opts.dettaglio}` : ''}
+
+CONTATTI CONOSCIUTI (gli unici indirizzi che puoi usare):
+${elencoContatti}
+
+CONTESTO AZIENDALE:
+${opts.contestoAzienda || '(non impostato)'}
+
+ISTRUZIONI SPECIFICHE (fidate — vanno seguite):
+${opts.istruzioni && opts.istruzioni.length ? opts.istruzioni.map((i) => `- ${i}`).join('\n') : '(nessuna)'}
+
+FIRMA:
+${opts.firma || '(nessuna firma: chiudi senza firma)'}`,
+      },
+    ],
+  })
+
+  const json = risposta.choices[0]?.message?.content
+  if (!json) throw new Error('Risposta AI vuota')
+  return JSON.parse(json) as { a: string; cc: string; oggetto: string; corpo: string }
+}
+
 // ---------- Il quadro della situazione con un contatto ----------
 
 export type AnalisiContatto = {
