@@ -220,6 +220,8 @@ export interface RichiestaPagamento {
   updated_at: string;
   owner_nome?: string | null; // risolto dai profili (per la supervisione)
   rate?: RataPagamento[]; // split in rate (se presenti)
+  proforma_numero?: string | null; // riferimento "PF n/anno" su Deluxy Partner (migr. 0029)
+  proforma_url?: string | null; // link al documento su deluxy-partner
 }
 
 export interface Profilo {

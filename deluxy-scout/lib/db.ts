@@ -1,6 +1,6 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
-import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo, RichiestaPagamento, StatoAffiliazione, StatoPlace, Task, Visit } from '@/types';
+import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
 import { statoDaEsito } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
@@ -625,8 +625,15 @@ export async function inserisciRichiestaPagamento(r: {
   return { ...data, importo: Number(data.importo), importo_incassato: Number(data.importo_incassato) } as RichiestaPagamento;
 }
 
-/** Segna una rata pagata/non pagata e ricalcola il rollup della richiesta. */
-export async function aggiornaRataPagata(rata: { id: string; richiesta_id: string }, pagata: boolean): Promise<void> {
+/**
+ * Segna una rata pagata/non pagata e ricalcola il rollup della richiesta.
+ * Ritorna lo stato risultante, così il chiamante sa se l'incasso è completo
+ * (es. per comunicare il pagamento della pro-forma a Deluxy Partner).
+ */
+export async function aggiornaRataPagata(
+  rata: { id: string; richiesta_id: string },
+  pagata: boolean,
+): Promise<StatoPagamento> {
   const { error } = await supabase.from('rate_pagamento').update({ pagata }).eq('id', rata.id);
   if (error) throw error;
   // Ricalcola incassato/stato della richiesta dalle sue rate.
@@ -637,11 +644,25 @@ export async function aggiornaRataPagata(rata: { id: string; richiesta_id: strin
   const { data: req } = await supabase.from('richieste_pagamento').select('importo').eq('id', rata.richiesta_id).single();
   const incassato = (rate ?? []).filter((x: any) => x.pagata).reduce((s: number, x: any) => s + Number(x.importo), 0);
   const totale = Number(req?.importo ?? 0);
-  const stato = incassato <= 0 ? 'inviata' : incassato >= totale ? 'pagata' : 'parziale';
+  const stato: StatoPagamento = incassato <= 0 ? 'inviata' : incassato >= totale ? 'pagata' : 'parziale';
   await supabase
     .from('richieste_pagamento')
     .update({ importo_incassato: incassato, stato, updated_at: new Date().toISOString() })
     .eq('id', rata.richiesta_id);
+  return stato;
+}
+
+/**
+ * Salva sulla richiesta il riferimento della pro-forma emessa su Deluxy Partner.
+ * Tollerante: se la migrazione 0029 (colonne proforma_*) non è ancora applicata,
+ * il riferimento non si salva ma la richiesta resta valida.
+ */
+export async function salvaRiferimentoProforma(id: string, numero: string, url: string): Promise<void> {
+  const { error } = await supabase
+    .from('richieste_pagamento')
+    .update({ proforma_numero: numero, proforma_url: url, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error && !/proforma_/.test(error.message ?? '')) throw error;
 }
 
 /** Aggiorna l'esito/monitoraggio di una richiesta (stato, incassato, nota, scadenza). */

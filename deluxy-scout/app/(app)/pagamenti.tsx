@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -25,8 +26,10 @@ import {
   fetchRichiestePagamento,
   fetchTutteTrattative,
   inserisciRichiestaPagamento,
+  salvaRiferimentoProforma,
   type TrattativaConLuogo,
 } from '@/lib/db';
+import { confermaPagamentoProforma, creaProformaDaRichiesta } from '@/lib/partner';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 
 const LABEL: Record<StatoPagamento, string> = {
@@ -194,17 +197,32 @@ function RigaPagamento({
   const [incassato, setIncassato] = useState(String(r.importo_incassato || ''));
   const residuo = r.importo - r.importo_incassato;
 
+  // Incasso completo + pro-forma collegata → comunica il pagamento a Deluxy
+  // Partner (PATCH /api/proforma via Edge Function: la pro-forma passa a
+  // "fatturata"). Idempotente e best effort: se Partner non risponde l'incasso
+  // resta registrato qui e si può ritentare (o confermare da Deluxy Partner).
+  async function comunicaProforma(stato: StatoPagamento) {
+    if (stato !== 'pagata' || !r.proforma_numero) return;
+    try {
+      await confermaPagamentoProforma(r.proforma_numero);
+    } catch (e) {
+      console.warn(`Pro-forma ${r.proforma_numero}: conferma pagamento non riuscita`, e);
+    }
+  }
+
   async function cambiaStato(stato: StatoPagamento) {
     // Se segno "pagata", l'incassato = importo pieno; "parziale" lascia il valore.
     const patch: any = { stato };
     if (stato === 'pagata') patch.importo_incassato = r.importo;
     await aggiornaRichiestaPagamento(r.id, patch);
+    await comunicaProforma(stato);
     onSalva();
   }
   async function salvaIncassato() {
     const n = Number(incassato.replace(',', '.').replace(/[^\d.]/g, '')) || 0;
     const stato: StatoPagamento = n <= 0 ? r.stato : n >= r.importo ? 'pagata' : 'parziale';
     await aggiornaRichiestaPagamento(r.id, { importo_incassato: n, stato });
+    await comunicaProforma(stato);
     onSalva();
   }
 
@@ -229,6 +247,20 @@ function RigaPagamento({
         ) : r.scadenza ? (
           <Text style={styles.meta}>entro {ddmm(r.scadenza)}</Text>
         ) : null}
+        {r.proforma_numero ? (
+          <Pressable
+            style={styles.pfChip}
+            hitSlop={6}
+            onPress={(e) => {
+              (e as any)?.stopPropagation?.();
+              if (r.proforma_url) Linking.openURL(r.proforma_url);
+            }}
+            accessibilityLabel={`Apri pro-forma ${r.proforma_numero} su Deluxy Partner`}
+          >
+            <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
+            <Text style={styles.pfChipTxt}>{r.proforma_numero}</Text>
+          </Pressable>
+        ) : null}
         {mostraOwner && r.owner_nome ? (
           <Text style={styles.meta}><Ionicons name="person-circle-outline" size={12} color={colors.testoSoft} /> {r.owner_nome}</Text>
         ) : null}
@@ -247,7 +279,8 @@ function RigaPagamento({
                   key={rt.id}
                   style={styles.rataMon}
                   onPress={async () => {
-                    await aggiornaRataPagata({ id: rt.id, richiesta_id: r.id }, !rt.pagata);
+                    const stato = await aggiornaRataPagata({ id: rt.id, richiesta_id: r.id }, !rt.pagata);
+                    await comunicaProforma(stato);
                     onSalva();
                   }}
                 >
@@ -325,9 +358,14 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
   const [causale, setCausale] = useState('');
   const [scadenza, setScadenza] = useState<string | null>(null);
   const [rate, setRate] = useState<RataForm[]>([]);
+  const [conProforma, setConProforma] = useState(false);
+  const [avvisoProforma, setAvvisoProforma] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const caricate = useRef(false);
+  // Se la richiesta è già stata creata (ma la pro-forma no), non ricrearla.
+  const richiestaCreata = useRef(false);
+  const ultimaCreata = useRef<string | null>(null);
 
   useEffect(() => {
     if (caricate.current) return;
@@ -358,24 +396,51 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
     if (!valido || salvando) return;
     setSalvando(true);
     setErrore(null);
+    setAvvisoProforma(null);
     try {
-      await inserisciRichiestaPagamento({
-        cliente: cliente.trim(),
-        importo: totaleImporto,
-        causale: causale.trim() || null,
-        scadenza,
-        deal_id: scelta && !scelta.id.startsWith('hs_') && !scelta.id.startsWith('ana_') ? scelta.id : null,
-        place_id: scelta?.place_id || null,
-        rate: rate.length
-          ? rate.map((r) => ({
-              etichetta: r.etichetta.trim() || null,
-              modo: r.modo,
-              percentuale: r.modo === 'percentuale' ? Number(r.valore.replace(',', '.')) || 0 : null,
-              importo: importoRata(r, totaleImporto),
-              scadenza: r.scadenza,
-            }))
-          : undefined,
-      });
+      if (!richiestaCreata.current) {
+        await inserisciRichiestaPagamento({
+          cliente: cliente.trim(),
+          importo: totaleImporto,
+          causale: causale.trim() || null,
+          scadenza,
+          deal_id: scelta && !scelta.id.startsWith('hs_') && !scelta.id.startsWith('ana_') ? scelta.id : null,
+          place_id: scelta?.place_id || null,
+          rate: rate.length
+            ? rate.map((r) => ({
+                etichetta: r.etichetta.trim() || null,
+                modo: r.modo,
+                percentuale: r.modo === 'percentuale' ? Number(r.valore.replace(',', '.')) || 0 : null,
+                importo: importoRata(r, totaleImporto),
+                scadenza: r.scadenza,
+              }))
+            : undefined,
+        }).then((nuova) => {
+          richiestaCreata.current = true;
+          ultimaCreata.current = nuova.id;
+        });
+      }
+
+      // Pro-forma su Deluxy Partner (opzionale): la richiesta resta valida
+      // anche se l'emissione fallisce — si può ritentare o farla dall'app Partner.
+      if (conProforma) {
+        try {
+          const pf = await creaProformaDaRichiesta({
+            cliente: cliente.trim(),
+            importo: totaleImporto,
+            causale: causale.trim() || null,
+            scadenza,
+          });
+          if (ultimaCreata.current) await salvaRiferimentoProforma(ultimaCreata.current, pf.riferimento, pf.url);
+        } catch (e: any) {
+          setAvvisoProforma(
+            `Richiesta creata, ma pro-forma non emessa: ${e?.message ?? 'errore sconosciuto'} ` +
+              'Puoi ritentare con "Crea richiesta" o emetterla da Deluxy Partner.',
+          );
+          setSalvando(false);
+          return;
+        }
+      }
       onCreata();
     } catch (e: any) {
       setErrore(e?.message ?? 'Errore nel salvataggio');
@@ -534,6 +599,23 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
               </Text>
             ) : null}
 
+            {/* Pro-forma su Deluxy Partner (opzionale) */}
+            <Pressable style={styles.proformaRow} onPress={() => setConProforma((v) => !v)}>
+              <Ionicons
+                name={conProforma ? 'checkbox' : 'square-outline'}
+                size={20}
+                color={conProforma ? colors.ink : colors.grigio}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.proformaTitolo}>Emetti anche la pro-forma su Deluxy Partner</Text>
+                <Text style={styles.proformaNota}>
+                  Il cliente dev'essere un partner del registro. L'importo è inteso IVA inclusa: in pro-forma
+                  l'imponibile viene scorporato (22%).
+                </Text>
+              </View>
+            </Pressable>
+
+            {avvisoProforma ? <Text style={styles.errore}>{avvisoProforma}</Text> : null}
             {errore ? <Text style={styles.errore}>{errore}</Text> : null}
             <Pressable style={[styles.salva, (!valido || salvando) && styles.salvaOff]} disabled={!valido || salvando} onPress={salva}>
               {salvando ? <ActivityIndicator color={colors.bianco} /> : <Text style={styles.salvaTxt}>Crea richiesta</Text>}
@@ -605,6 +687,29 @@ const styles = StyleSheet.create({
   scelta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.oro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10 },
   sceltaNome: { fontWeight: '800', color: colors.testo, fontSize: 15 },
   sceltaMeta: { color: colors.testoSoft, fontSize: 12 },
+  pfChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.goldSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  pfChipTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 11 },
+  proformaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  proformaTitolo: { color: colors.testo, fontWeight: '700', fontSize: 14 },
+  proformaNota: { color: colors.grigio, fontSize: 12, lineHeight: 16, marginTop: 2 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
