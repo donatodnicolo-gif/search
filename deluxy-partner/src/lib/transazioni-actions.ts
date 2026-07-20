@@ -53,40 +53,57 @@ export async function importaEstratto(fd: FormData) {
 // Sincronizza i movimenti direttamente dall'API Qonto (tutti i conti,
 // movimenti completati). Stessa pipeline dell'import file: dedup per hash,
 // nessuna registrazione automatica.
-export async function sincronizzaQonto() {
+// Nucleo riutilizzabile: lo usano sia il bottone in pagina sia il cron notturno.
+// Scarica e deduplica; NON registra nulla: i movimenti restano "nuovi" e in
+// attesa di conferma dell'operatore in /transazioni.
+export async function scaricaMovimentiQonto(): Promise<{ nuove: number; totali: number; conti: number }> {
   let nuove = 0, totali = 0, conti = 0;
+  const org = await qontoOrganizzazione();
+  for (const conto of org.conti) {
+    if (conto.status && conto.status !== "active") continue;
+    conti++;
+    const txs = await qontoTransazioni(conto.iban);
+    totali += txs.length;
+    if (!txs.length) continue;
+    const res = await prisma.transazioneBancaria.createMany({
+      data: txs.map((t) => {
+        const data = new Date(t.settled_at ?? t.emitted_at);
+        const importo = t.side === "credit" ? Math.abs(t.amount) : -Math.abs(t.amount);
+        const descrizione = [t.label, t.reference].filter(Boolean).join(" — ") || "(senza descrizione)";
+        return {
+          data,
+          importo,
+          divisa: t.currency ?? "EUR",
+          descrizione: descrizione.slice(0, 500),
+          controparte: t.label?.slice(0, 200) ?? null,
+          hash: hashMovimento(data, importo, `qonto:${t.transaction_id}`),
+          fonte: `Qonto (${conto.iban.slice(-8)})`,
+        };
+      }),
+      skipDuplicates: true,
+    });
+    nuove += res.count;
+  }
+  // traccia dell'ultima sincronizzazione riuscita (mostrata in /transazioni)
+  await prisma.impostazione.upsert({
+    where: { chiave: "qonto.ultimaSync" },
+    create: { chiave: "qonto.ultimaSync", valore: new Date().toISOString() },
+    update: { valore: new Date().toISOString() },
+  });
+  return { nuove, totali, conti };
+}
+
+export async function sincronizzaQonto() {
+  let esito: { nuove: number; totali: number; conti: number };
   try {
-    const org = await qontoOrganizzazione();
-    for (const conto of org.conti) {
-      if (conto.status && conto.status !== "active") continue;
-      conti++;
-      const txs = await qontoTransazioni(conto.iban);
-      totali += txs.length;
-      if (!txs.length) continue;
-      const res = await prisma.transazioneBancaria.createMany({
-        data: txs.map((t) => {
-          const data = new Date(t.settled_at ?? t.emitted_at);
-          const importo = t.side === "credit" ? Math.abs(t.amount) : -Math.abs(t.amount);
-          const descrizione = [t.label, t.reference].filter(Boolean).join(" — ") || "(senza descrizione)";
-          return {
-            data,
-            importo,
-            divisa: t.currency ?? "EUR",
-            descrizione: descrizione.slice(0, 500),
-            controparte: t.label?.slice(0, 200) ?? null,
-            hash: hashMovimento(data, importo, `qonto:${t.transaction_id}`),
-            fonte: `Qonto (${conto.iban.slice(-8)})`,
-          };
-        }),
-        skipDuplicates: true,
-      });
-      nuove += res.count;
-    }
+    esito = await scaricaMovimentiQonto();
   } catch (e) {
     redirect("/transazioni?errore=" + encodeURIComponent((e as Error).message));
   }
   revalidate();
-  redirect(`/transazioni?import=ok&nuove=${nuove}&doppioni=${totali - nuove}&scartate=0`);
+  redirect(
+    `/transazioni?import=ok&nuove=${esito.nuove}&doppioni=${esito.totali - esito.nuove}&scartate=0`
+  );
 }
 
 // La transazione salda una fattura: fattura → pagata con la data del movimento

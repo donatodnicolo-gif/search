@@ -66,6 +66,11 @@ export default async function TransazioniPage({
   );
 
   const qonto = await qontoConfigurato();
+  // ultima sincronizzazione riuscita (bottone manuale o cron notturno)
+  const ultimaSyncRow = qonto
+    ? await prisma.impostazione.findUnique({ where: { chiave: "qonto.ultimaSync" } })
+    : null;
+  const ultimaSync = ultimaSyncRow ? new Date(ultimaSyncRow.valore) : null;
   const ctx = { partners, fattureAperte, daBonificare, associazioni };
   const nuove = transazioni.filter((t) => t.stato === "nuova");
   const registrate = transazioni.filter((t) => t.stato === "registrata");
@@ -156,10 +161,15 @@ export default async function TransazioniPage({
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
           {qonto && (
-            <form action={sincronizzaQonto} style={{ display: "flex", alignItems: "flex-end" }}>
-              <button className="btn primary" type="submit" title="Scarica i movimenti recenti direttamente dal conto Qonto">
+            <form action={sincronizzaQonto} style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              <button className="btn primary" type="submit" title="Scarica subito i movimenti recenti dal conto Qonto">
                 ⇅ Sincronizza da Qonto
               </button>
+              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                {ultimaSync
+                  ? `Ultima: ${dataIt(ultimaSync)} alle ${ultimaSync.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`
+                  : "Sincronizzazione automatica ogni notte alle 5"}
+              </span>
             </form>
           )}
           <form action={importaEstratto} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", flex: "1 1 340px" }}>
