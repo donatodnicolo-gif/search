@@ -28,11 +28,15 @@ export default async function Scadenzario({
   const cerca = (...campi: (string | null | undefined)[]) =>
     !q || campi.some((c) => (c ?? "").toLowerCase().includes(q));
 
-  const aperteRaw = await prisma.fatturaServizio.findMany({
-    where: { anno, pagata: false, imponibile: { gt: 0 } },
-    include: { partner: true, tipologia: true },
-    orderBy: [{ scadenza: "asc" }],
-  });
+  // Letture indipendenti in parallelo (una sola andata e ritorno verso il DB)
+  const [aperteRaw, tutti] = await Promise.all([
+    prisma.fatturaServizio.findMany({
+      where: { anno, pagata: false, imponibile: { gt: 0 } },
+      include: { partner: true, tipologia: true },
+      orderBy: [{ scadenza: "asc" }],
+    }),
+    riepilogoTutti(anno),
+  ]);
   const aperte = aperteRaw.filter((f) =>
     cerca(f.partner.nome, f.partner.ragioneSociale, f.numero, f.tipologia.nome, f.descrizione)
   );
@@ -50,7 +54,6 @@ export default async function Scadenzario({
   // default: nome partner (A→Z); scegliendo una colonna vale quella
   const fatture = ordina(aperte, campiF[sp.sort ?? ""] ?? campiF.partner, sp.sort ? sp.dir : "asc");
 
-  const tutti = await riepilogoTutti(anno);
   const bonificiTutti = tutti
     .flatMap((t) =>
       t.mesi

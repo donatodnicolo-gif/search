@@ -9,20 +9,23 @@ export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
   const anno = ANNO_CORRENTE;
-  const tutti = await riepilogoTutti(anno);
   const oggi = new Date();
+
+  // Le due letture sono indipendenti: in parallelo si paga una sola andata e
+  // ritorno verso il database invece di due in fila.
+  const [tutti, fattureAperte] = await Promise.all([
+    riepilogoTutti(anno),
+    prisma.fatturaServizio.findMany({
+      where: { anno, pagata: false, imponibile: { gt: 0 } },
+      include: { partner: true, tipologia: true },
+      orderBy: { scadenza: "asc" },
+    }),
+  ]);
 
   const totVendite = tutti.reduce((a, t) => a + t.rolling.vendite, 0);
   const totCommissioni = tutti.reduce((a, t) => a + t.rolling.commissioni, 0);
   const totServizi = tutti.reduce((a, t) => a + t.rolling.fatture, 0);
   const stima = tutti.reduce((a, t) => a + t.rolling.stimaChiusura, 0);
-
-  // Fatture servizi non pagate e scadute
-  const fattureAperte = await prisma.fatturaServizio.findMany({
-    where: { anno, pagata: false, imponibile: { gt: 0 } },
-    include: { partner: true, tipologia: true },
-    orderBy: { scadenza: "asc" },
-  });
   const scadute = fattureAperte.filter((f) => f.scadenza && f.scadenza < oggi);
   const totScaduto = scadute.reduce((a, f) => a + f.imponibile * (1 + f.aliquotaIva / 100), 0);
 
