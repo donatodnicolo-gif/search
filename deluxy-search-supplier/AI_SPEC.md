@@ -44,7 +44,6 @@ Oggetto JSON in KV alla chiave **`config:v1`**:
 | GET | `/api/fornitori?brand=&number=&categoria=&ts=` | **per AI/plugin**: recupera l'ordine, geocodifica la consegna e ritorna i **top 3 fornitori** vicini (nome, telefono, link `wa.me`, sito, aperto ora, valutazione, distanza stradale via OSRM con ripiego linea d'aria). `categoria` opzionale `fiorai|pasticcerie` (default dal brand: cakedesign→pasticcerie). Usa Geocoding+Places REST con la `googleKey` di cassaforte: funziona finché la chiave NON ha restrizione referrer |
 | POST | `/api/webhook?brand=` | riceve ordine da Shopify (HTTPS diretto **o** envelope Google Pub/Sub) e lo salva in KV `order:{brand}:{num}` (TTL 60gg) |
 | GET | `/api/oauth?shop=&pass=` | avvia OAuth Shopify; il callback salva il token Admin del negozio in `config:v1.stores` |
-| GET | `/api/fornitori?brand=&number=[&categoria=fiorai\|pasticcerie]` | **per AI/plugin**: recupera l'ordine, geocodifica la consegna e ritorna i **top 3 fornitori** vicini (nome, telefono, link wa.me, sito, aperto ora, valutazione, distanza stradale via OSRM). Usa la chiave Google della cassaforte lato server (niente restrizione referrer!). Registra il check nello Storico via `/api/order` interno |
 
 ## 6. Negozi Shopify (3)
 | brand (chiave app) | shop (.myshopify.com) | store handle admin |
