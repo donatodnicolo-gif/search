@@ -131,6 +131,11 @@ L'app è richiamabile da un bottone/link di qualsiasi altra app; i parametri si 
 2. **OAuth "matching hosts"**: `app_url` dell'app Shopify deve avere lo **stesso host** del `redirect_uri`. Se `app_url=https://example.com` e redirect `search-deluxy.vercel.app` → errore `invalid_request`. Imposta `app_url = https://search-deluxy.vercel.app`.
 3. **Match numero ordine ESATTO**: cercando l'ordine, accetta il risultato **solo se** `node.name` (togliendo i non-cifre) è uguale al numero richiesto. Ricerche larghe (`name:*`, testo libero) restituiscono l'ordine sbagliato.
 4. **Foto WhatsApp**: WhatsApp Web NON allega file via URL. Soluzione = copia negli appunti + Ctrl+V. E il testo si PERDE se alleghi la foto prima di inviarlo → istruisci "invia testo, POI allega foto".
+4-ter. **Popup OAuth rubrica = solo in-gesto** (bug risolto 20/07): `requestAccessToken()` di Google
+   apre un popup, e i popup passano solo dentro un click dell'utente. Ogni azione automatica che
+   può aver bisogno del token (es. salvataggio in rubrica dopo la riconciliazione) deve chiedere
+   il token AL CLICK (in parallelo alle chiamate al server), non dopo un await. Regola generale:
+   clipboard.write, window.open e requestAccessToken vanno TUTTI avviati nel gesto.
 4-bis. **La copia negli appunti richiede il FOCUS** (bug risolto il 16/07/2026): la versione precedente avviava `clipboard.write()` con una Promise e apriva WhatsApp nello stesso istante → quando l'immagine era pronta il focus era su WhatsApp e Chrome rifiutava con *"Document is not focused"*; il `catch` lo nascondeva e il fallback `window.open(foto)` dopo `await` veniva bloccato come popup. Da PC non si incollava nulla. Regola: **precarica la foto, copia PRIMA, apri WhatsApp DOPO** (§9-bis).
 5. **`new Date()`/`Math.random()`**: OK nel browser, ma NON nelle funzioni serverless se un domani girano in contesti che li vietano (usare valori passati).
 6. **Anteprima locale**: server statico PowerShell (`.claude/serve.ps1`, porta 5510) — serve `deluxy-search-supplier/`. In locale le `/api/*` NON esistono: la lock screen non si sblocca, per collaudare l'interfaccia si nasconde `#lockScreen` e si chiama `populateOrder({...})` da console. (Aggiornamento 16/07/2026: **Node 24 e npm ci sono** — `node --check api/*.js` per il lint di sintassi. Python no.)
