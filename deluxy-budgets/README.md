@@ -22,6 +22,13 @@ pubblicato), *sfidante* e *irraggiungibile*.
   addizionali e cuneo fiscale). È una stima di pianificazione con **parametri fiscali 2025**:
   non sostituisce il cedolino e va riverificata con la legge di bilancio dell'anno di budget
   (motore in `src/lib/calc.ts`, funzioni `irpefLorda`, `detrazioneLavoro`, `cuneoFiscale`).
+- **Consuntivo** (`/consuntivo`): gli importi **realmente fatturati** per tipologia di servizio,
+  richiamati dall'app **Finance** (`deluxy-partner`, endpoint `/api/tipologie`) con selettore di
+  periodo (anno / 1° / 2° semestre) e stato (tutte / saldate / aperte). Dove il nome della
+  tipologia in Finance coincide con una tipologia del budget, mostra **budget vs consuntivo e
+  scostamento** (budget annuale rapportato ai mesi del periodo). Richiede `FINANCE_API_KEY` in
+  `.env` (la stessa chiave di `/api/verifiche` di Finance, **segreto, mai committato**);
+  `FINANCE_API_URL` è opzionale. Senza chiave la pagina spiega come configurarla.
 - **Margini** (`/margini`): il **margine lordo per tipologia di servizio** (D2C, Eventi, B2B e
   quelle aggiunte a mano). Il costo del venduto del P&L non è più una percentuale unica: è la
   somma dei ricavi di ogni tipologia al netto del suo margine, quindi **cambia col mix di
