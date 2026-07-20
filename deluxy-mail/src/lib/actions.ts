@@ -20,7 +20,8 @@ import {
 } from './sync'
 import { chiaveThread } from './thread'
 import { CODICI_PRIORITA } from './format'
-import { traduciVerso, pianificaAttivita, pianificaConProposta } from './ai'
+import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione } from './ai'
+import { azioneDi, regolaAppPerMail, type AzioneDescritta } from './appDeluxy'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
 import { utenteCorrente } from './sessione'
@@ -839,6 +840,169 @@ export async function salvaMinuta(
 export async function eliminaBozza(id: string) {
   await db.bozza.deleteMany({ where: { id, utenteId: await uid() } })
   revalidatePath('/', 'layout')
+}
+
+// ---------- APP DELUXY: dalla mail a una funzione di un'altra app ----------
+
+export type PropostaApp = {
+  ok: boolean
+  messaggio: string
+  /** true quando manca una regola: il client fa scegliere l'azione a mano. */
+  scegli?: boolean
+  azione?: AzioneDescritta
+  /** I dati estratti dall'AI, in JSON leggibile (l'utente li può ritoccare). */
+  dati?: string
+}
+
+/**
+ * Prepara la proposta: quale azione (dalla regola APP DELUXY, o quella scelta
+ * a mano) e i dati estratti dalla mail con l'AI. NON invia nulla: l'invio
+ * avviene solo con eseguiInvioApp, dopo la conferma dell'utente.
+ */
+export async function proponiPerApp(
+  messaggioId: string,
+  azioneId?: string
+): Promise<PropostaApp> {
+  const utenteId = await uid()
+  const m = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    select: { mittente: true, mittenteNome: true, oggetto: true, data: true, corpoTesto: true },
+  })
+  if (!m) return { ok: false, messaggio: 'Messaggio non trovato.' }
+
+  // Senza azione esplicita decidono le regole APP DELUXY dell'utente.
+  let istruzioniRegola: string[] = []
+  let scelta = azioneId
+  if (!scelta) {
+    try {
+      const regole = await db.regolaApp.findMany({ where: { utenteId } })
+      const regola = regolaAppPerMail(regole, m)
+      if (regola) {
+        scelta = regola.azioneId
+        if (regola.istruzioni.trim()) istruzioniRegola = [regola.istruzioni.trim()]
+      }
+    } catch {
+      /* tabella non ancora migrata: si sceglie a mano */
+    }
+    if (!scelta) {
+      return {
+        ok: false,
+        scegli: true,
+        messaggio: 'Nessuna regola aggancia questa mail: scegli tu l’app.',
+      }
+    }
+  }
+
+  const azione = azioneDi(scelta)
+  if (!azione) return { ok: false, messaggio: 'Azione sconosciuta.' }
+  if (!azione.configurata) {
+    return {
+      ok: false,
+      messaggio: `${azione.app} non è collegata: manca la chiave API nelle variabili del server.`,
+    }
+  }
+
+  try {
+    const imp = await leggiImpostazioni()
+    const dati = await estraiDatiAzione({
+      messaggio: m,
+      nomeAzione: `${azione.app} — ${azione.nome}`,
+      guida: azione.guida,
+      schema: azione.schema,
+      istruzioni: istruzioniRegola,
+      contestoAzienda: imp[CHIAVI.contestoAzienda],
+    })
+    const { id, app, nome, descrizione, colore, configurata } = azione
+    return {
+      ok: true,
+      messaggio: 'Dati pronti: controllali e conferma.',
+      azione: { id, app, nome, descrizione, colore, configurata },
+      dati: JSON.stringify(dati, null, 2),
+    }
+  } catch (e) {
+    const t = e instanceof Error ? e.message : 'Non riuscito.'
+    if (/connection error|fetch failed|ENOTFOUND|network/i.test(t))
+      return { ok: false, messaggio: 'Connessione a OpenAI non riuscita: riprova.' }
+    if (/401|API key/i.test(t)) return { ok: false, messaggio: 'Chiave OpenAI non valida.' }
+    return { ok: false, messaggio: t.slice(0, 140) }
+  }
+}
+
+/** Esegue davvero la chiamata all'app, dopo la conferma dell'utente. */
+export async function eseguiInvioApp(
+  messaggioId: string,
+  azioneId: string,
+  datiJson: string
+): Promise<{ ok: boolean; messaggio: string; link?: string }> {
+  const utenteId = await uid()
+  const m = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    select: { id: true },
+  })
+  if (!m) return { ok: false, messaggio: 'Messaggio non trovato.' }
+
+  const azione = azioneDi(azioneId)
+  if (!azione) return { ok: false, messaggio: 'Azione sconosciuta.' }
+  if (!azione.configurata) return { ok: false, messaggio: `${azione.app} non è collegata.` }
+
+  let dati: Record<string, unknown>
+  try {
+    dati = JSON.parse(datiJson)
+  } catch {
+    return { ok: false, messaggio: 'I dati non sono un JSON valido: correggi e riprova.' }
+  }
+
+  const esito = await azione.esegui(dati)
+
+  try {
+    await db.invioApp.create({
+      data: {
+        utenteId,
+        messaggioId: m.id,
+        azioneId: azione.id,
+        esito: esito.ok ? 'ok' : 'errore',
+        esitoTesto: esito.messaggio,
+        dati: datiJson.slice(0, 8000),
+        link: esito.link ?? null,
+      },
+    })
+  } catch {
+    /* lo storico non deve bloccare l'esito */
+  }
+
+  revalidatePath('/', 'layout')
+  return esito
+}
+
+// ---------- Regole APP DELUXY ----------
+
+export async function creaRegolaApp(form: FormData) {
+  const utenteId = await uid()
+  const azioneId = testo(form, 'azioneId')
+  if (!azioneDi(azioneId)) return
+  await db.regolaApp.create({
+    data: {
+      utenteId,
+      nome: testo(form, 'nome'),
+      seMittente: opzionale(form, 'seMittente'),
+      seOggetto: opzionale(form, 'seOggetto'),
+      seContiene: opzionale(form, 'seContiene'),
+      azioneId,
+      istruzioni: testo(form, 'istruzioni'),
+      priorita: Number(testo(form, 'priorita')) || 0,
+    },
+  })
+  revalidatePath('/regole')
+}
+
+export async function attivaRegolaApp(id: string, attiva: boolean) {
+  await db.regolaApp.updateMany({ where: { id, utenteId: await uid() }, data: { attiva } })
+  revalidatePath('/regole')
+}
+
+export async function eliminaRegolaApp(id: string) {
+  await db.regolaApp.deleteMany({ where: { id, utenteId: await uid() } })
+  revalidatePath('/regole')
 }
 
 // ---------- Sezioni ----------

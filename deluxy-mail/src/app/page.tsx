@@ -7,6 +7,11 @@ import { ArchiviaDefinitivo } from '@/components/ArchiviaDefinitivo'
 import { AzioniRiga } from '@/components/AzioniRiga'
 import { AssistenteAI } from '@/components/AssistenteAI'
 import { NuoveAzioni } from '@/components/NuoveAzioni'
+import { CarteApp } from '@/components/CarteApp'
+import { InvioAppDialog } from '@/components/InvioAppDialog'
+import { BottoneApp } from '@/components/BottoneApp'
+import { MailDrag } from '@/components/MailDrag'
+import { descriviAzioni } from '@/lib/appDeluxy'
 import { RispostaAzioni } from '@/components/RispostaAzioni'
 import { richiediUtente } from '@/lib/sessione'
 import { raggruppa } from '@/lib/thread'
@@ -116,6 +121,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // risposte o stesso oggetto anche con destinatari diversi). Il volto della
   // riga è il messaggio più recente del thread.
   const gruppi = raggruppa(messaggi).slice(0, 100)
+
+  // Il pannello APP DELUXY: le funzioni delle altre app richiamabili da qui.
+  const azioniApp = descriviAzioni()
 
   const filtri = [
     { chiave: '', label: 'Tutti' },
@@ -250,8 +258,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
               const contattoAI = setAI.has(m.mittente.toLowerCase())
               return (
               // La riga non è più tutta un link: i pulsanti di priorità devono
-              // essere cliccabili senza aprire la mail.
-              <div key={m.id} className={`mail-row ${nonLetti ? 'non-letto' : ''}`}>
+              // essere cliccabili senza aprire la mail. È trascinabile sulle
+              // carte APP DELUXY a destra.
+              <MailDrag key={m.id} id={m.id} className={`mail-row ${nonLetti ? 'non-letto' : ''}`}>
                 <div className="mail-row-head">
                   <Link href={`/messaggio/${m.id}`} className="mail-row-link">
                   <div className="mail-top">
@@ -329,18 +338,24 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                   />
                   <div className="riga-azioni">
                     <AzioniRiga id={m.id} archiviato={m.archiviato} cestinato={m.cestinato} />
+                    <BottoneApp id={m.id} />
                     <ArchiviaDefinitivo id={m.id} mittente={m.mittente} />
                   </div>
                 </div>
-              </div>
+              </MailDrag>
               )
             })}
           </div>
         )}
         </div>
 
-        <ColonnaAttivita utenteId={u.id} />
+        <div style={{ minWidth: 0 }}>
+          <CarteApp azioni={azioniApp} />
+          <ColonnaAttivita utenteId={u.id} />
+        </div>
       </div>
+
+      <InvioAppDialog azioni={azioniApp} />
     </>
   )
 }

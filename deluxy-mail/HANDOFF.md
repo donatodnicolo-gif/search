@@ -46,6 +46,7 @@ npm run dev               # Next su http://localhost:3070
 - `OPENAI_API_KEY` (chiave `sk-proj-…`), `OPENAI_MODEL` (`gpt-4o-mini`).
 - `APP_SECRET` (firma cookie sessione, HMAC).
 - `APP_PASSWORD` (legacy), `CRON_SECRET` (cron `/api/sync`).
+- **APP DELUXY** (pannello verso le altre app): `ANAGRAFICHE_API_KEY` (chiave di **scrittura** — si genera in deluxy-anagrafiche con `npm run chiave -- deluxy-mail --scrittura`), `FINANCE_API_KEY` (la chiave `api.verificheKey` di deluxy-partner). Opzionali `ANAGRAFICHE_URL` / `FINANCE_URL` (default: gli URL Vercel di produzione). **Senza chiave la carta dell'app compare "da collegare"** e l'invio è bloccato con messaggio chiaro.
 - ⚠️ `TZ` è **riservato** su Vercel: il fuso è forzato nel codice (vedi §9).
 
 ### Deploy
@@ -142,6 +143,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 - **PLUS AI** sui contatti + **AI Inbox** (vista dedicata) vs **Tutte** (predefinita). SPAM escluso dalla posta in arrivo.
 - **Istruzioni AI mirate** per **contatto** e per **conversazione** (precedenza thread > contatto > globale), applicate a tutte le chiamate AI. Fidate, separate dal corpo mail.
 - **Attività**: create dall'AI, **a mano**, o da **comando in linguaggio naturale**; tutte eseguibili dall'AI (scrive la mail).
+- **APP DELUXY** (20 lug): pannello a destra della posta con una carta per funzione delle altre app — oggi **Anagrafiche → Registra contatto** (POST /api/v1/partners), **Finance → Crea proforma** (POST /api/proforma), **Finance → Verifica partner** (GET /api/verifiche). **Drag & drop** di una mail su una carta (o sulla carta "Automatico", dove decidono le **Regole APP DELUXY** in /regole: condizioni esatte + nota per l'AI + priorità); su **mobile** il bottone **"→ App"** su ogni riga. Flusso: l'AI estrae i dati dalla mail (json_schema strict, `estraiDatiAzione`; corpo non fidato, mai inventare) → l'utente li vede in un JSON modificabile e **conferma** → chiamata HTTP vera → esito + storico in `InvioApp`. Catalogo e client HTTP in `src/lib/appDeluxy.ts` (per aggiungere un'azione si aggiunge lì: schema, guida, esegui).
 - **Tasti "Nuova mail" e "Nuova attività"** in testa alla posta (20 lug): "Nuova mail" apre `/scrivi` (mail da zero, conversazione nuova, bozze riprendibili con badge "nuova mail"); "Nuova attività" apre il dialogo con l'AI che **chiede quale attività bisogna seguire**, la crea (agganciando solo contatti conosciuti) e **propone l'azione che può intraprendere** — col tasto "Procedi" prepara subito la bozza di mail. **Su mobile** (≤900px) i due tasti spariscono: c'è il **pulsante "+" fisso in basso a destra** che apre il foglio "Cosa vuoi creare?" (mail o attività) — tutto in `NuoveAzioni.tsx` (classi `.nuove-inline`/`.fab`/`.scelta-*`).
 - **Assistente AI** (oggi/settimana/mese): riassunto del periodo + attività + proposte di archiviazione (map-reduce).
 - **Anti-SPAM automatico all'arrivo** (euristiche gratuite + giudizio AI sui casi dubbi), prudente per non nascondere mail di lavoro; sezione SPAM **recuperabile** (mai cancellati).
