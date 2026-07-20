@@ -14,6 +14,12 @@ Le anagrafiche dei partner B2B vivono SOLO in `deluxy-anagrafiche/` (porta 3060)
 
 **Aggiungendo o rinominando un'app del repo, aggiornare il catalogo in [deluxy-hub/src/lib/apps.ts](deluxy-hub/src/lib/apps.ts)**, altrimenti l'app non è raggiungibile dal portale. Dettagli in [deluxy-hub/README.md](deluxy-hub/README.md).
 
+## Script operativi (catalogo unico)
+
+Tutti gli script del repo (deploy, migrazioni, import, setup chiavi, generazione asset) sono catalogati **per tipologia** in **[scripts/README.md](scripts/README.md)**, con il comando pronto da copiare e le variabili d'ambiente necessarie. Gli script restano nelle cartelle delle rispettive app: quello è l'**indice**.
+
+**Aggiungendo un nuovo script, aggiungerlo anche al catalogo** nello stesso commit. Nel catalogo vanno solo i *nomi* delle variabili e i link da cui prendere le chiavi — **mai valori di token o segreti**.
+
 ## Regole di lavoro (obbligatorie)
 
 Prima di lavorare, leggere **[deluxy-platform-next/docs/REGOLE-DI-LAVORO.md](deluxy-platform-next/docs/REGOLE-DI-LAVORO.md)** e l'**handoff** [deluxy-platform-next/docs/HANDOFF.md](deluxy-platform-next/docs/HANDOFF.md) (stato FATTO/MANCA, come riprendere). In sintesi:
