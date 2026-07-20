@@ -9,9 +9,12 @@ import { creaAttivitaConProposta, eseguiAttivita, type EsitoNuovaAttivita } from
  * I due tasti in testa alla posta: "Nuova mail" (si scrive da zero) e
  * "Nuova attività". Il secondo apre il dialogo con l'AI: chiede quale attività
  * bisogna seguire, la crea e propone l'azione che può intraprendere.
+ * Su mobile i due tasti spariscono: al loro posto c'è il pulsante "+" fisso in
+ * basso a destra, che prima chiede cosa creare (mail o attività).
  */
 export function NuoveAzioni() {
   const [aperto, setAperto] = useState(false)
+  const [scelta, setScelta] = useState(false)
   const [testo, setTesto] = useState('')
   const [esito, setEsito] = useState<EsitoNuovaAttivita | null>(null)
   const [inCorso, start] = useTransition()
@@ -45,12 +48,65 @@ export function NuoveAzioni() {
 
   return (
     <>
-      <Link href="/scrivi" className="btn primary small">
-        ✎ Nuova mail
-      </Link>
-      <button type="button" className="btn secondary small" onClick={() => setAperto(true)}>
-        + Nuova attività
+      {/* Desktop: i due tasti in linea coi filtri. Su mobile sono nascosti. */}
+      <span className="nuove-inline">
+        <Link href="/scrivi" className="btn primary small">
+          ✎ Nuova mail
+        </Link>
+        <button type="button" className="btn secondary small" onClick={() => setAperto(true)}>
+          + Nuova attività
+        </button>
+        <span className="nuove-sep" />
+      </span>
+
+      {/* Mobile: pulsante fisso in basso a destra. */}
+      <button type="button" className="fab" aria-label="Nuova" onClick={() => setScelta(true)}>
+        +
       </button>
+
+      {/* La scelta: mail o attività? */}
+      {scelta && (
+        <div className="modal-scrim bottom" onClick={() => setScelta(false)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-label="Cosa vuoi creare?"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-title">Cosa vuoi creare?</div>
+            <div className="scelta-nuova">
+              <button
+                type="button"
+                className="scelta-voce"
+                onClick={() => {
+                  setScelta(false)
+                  router.push('/scrivi')
+                }}
+              >
+                <span className="scelta-icona">✎</span>
+                <span>
+                  <span className="scelta-titolo">Nuova mail</span>
+                  <span className="scelta-sub">Scrivi una mail da zero</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="scelta-voce"
+                onClick={() => {
+                  setScelta(false)
+                  setAperto(true)
+                }}
+              >
+                <span className="scelta-icona oro">AI</span>
+                <span>
+                  <span className="scelta-titolo">Nuova attività</span>
+                  <span className="scelta-sub">L’AI chiede cosa seguire e propone l’azione</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {aperto && (
         <div className="modal-scrim" onClick={chiudi}>

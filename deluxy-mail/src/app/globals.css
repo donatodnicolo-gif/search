@@ -656,6 +656,49 @@ input:focus, select:focus, textarea:focus {
 }
 .ai-domanda .ai-mark { color: var(--gold-strong); font-weight: 600; flex: 0 0 auto; font-size: 11px; padding-top: 2px; }
 
+/* I tasti "Nuova mail"/"Nuova attività": in linea su desktop, FAB su mobile. */
+.nuove-inline { display: inline-flex; gap: 8px; align-items: center; }
+.nuove-sep { width: 1px; height: 22px; background: var(--hairline-strong); margin: 0 2px; }
+.fab { display: none; }
+
+/* Le due voci della scelta "Cosa vuoi creare?" */
+.scelta-nuova { display: grid; gap: 10px; }
+.scelta-voce {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  border: 1px solid var(--hairline); border-radius: var(--radius-m);
+  background: var(--surface); cursor: pointer;
+  padding: 14px 16px; width: 100%;
+}
+.scelta-voce:hover { background: var(--fill); }
+.scelta-icona {
+  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--ink); color: #fff; font-size: 16px;
+}
+.scelta-icona.oro { background: var(--gold-soft); color: var(--gold-strong); font-size: 13px; font-weight: 700; }
+.scelta-titolo { display: block; font-size: 15px; font-weight: 600; }
+.scelta-sub { display: block; font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+
+@media (max-width: 900px) {
+  .nuove-inline { display: none; }
+  .fab {
+    display: flex; align-items: center; justify-content: center;
+    position: fixed; right: 18px; bottom: 18px; z-index: 40;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--ink); color: #fff;
+    font-size: 28px; font-weight: 300; line-height: 1;
+    border: none; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  }
+  .fab:active { background: var(--ink-hover); }
+  /* La scelta sale dal fondo, come un foglio. */
+  .modal-scrim.bottom { align-items: flex-end; padding: 0; }
+  .modal-scrim.bottom .modal {
+    max-width: none; border-radius: var(--radius-l) var(--radius-l) 0 0;
+    border-bottom: none; padding-bottom: 28px;
+  }
+}
+
 /* ---------- Regole ---------- */
 .rule-card {
   border: 1px solid var(--hairline);

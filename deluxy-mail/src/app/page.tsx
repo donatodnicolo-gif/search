@@ -137,8 +137,6 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         <div className="page-actions filters">
           <NuoveAzioni />
 
-          <span style={{ width: 1, height: 22, background: 'var(--hairline-strong)', margin: '0 2px' }} />
-
           {filtri.map((f) => {
             const params = new URLSearchParams()
             if (sezione) params.set('sezione', sezione)
