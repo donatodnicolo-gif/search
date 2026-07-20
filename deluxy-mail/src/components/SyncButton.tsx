@@ -4,12 +4,16 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { sincronizzaOra } from '@/lib/actions'
 
-// Ogni quanto controllare la posta da solo: 30 secondi, così la posta nuova
-// compare quasi subito. Gira solo mentre la finestra è visibile.
-const OGNI_MS = 30 * 1000
 const CHIAVE_AUTO = 'aimail:auto'
 
-export function SyncButton() {
+/** Etichetta leggibile dell'intervallo ("30 sec", "1 min", "10 min"). */
+function etichetta(sec: number): string {
+  return sec < 60 ? `${sec} sec` : `${Math.round(sec / 60)} min`
+}
+
+// L'intervallo lo sceglie l'utente in Impostazioni ("Controlla la posta ogni").
+// Gira solo mentre la finestra è visibile.
+export function SyncButton({ intervalloSec = 60 }: { intervalloSec?: number }) {
   const [stato, setStato] = useState<string | null>(null)
   const [ultimo, setUltimo] = useState<Date | null>(null)
   const [auto, setAuto] = useState(true)
@@ -47,9 +51,9 @@ export function SyncButton() {
       // Niente sincronizzazioni a vuoto mentre la finestra è nascosta: si
       // riparte quando torni sull'app.
       if (document.visibilityState === 'visible') vaiRef.current()
-    }, OGNI_MS)
+    }, Math.max(30, intervalloSec) * 1000)
     return () => clearInterval(id)
-  }, [auto])
+  }, [auto, intervalloSec])
 
   return (
     <div style={{ padding: '0 10px 4px' }}>
@@ -74,7 +78,7 @@ export function SyncButton() {
           onChange={(e) => cambiaAuto(e.target.checked)}
           style={{ width: 14, height: 14, accentColor: 'var(--ink)' }}
         />
-        Automatico ogni 30 sec
+        Automatico ogni {etichetta(Math.max(30, intervalloSec))}
       </label>
 
       {stato && (

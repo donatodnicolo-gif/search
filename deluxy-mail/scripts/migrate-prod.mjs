@@ -76,6 +76,8 @@ const stmts = [
      WHERE "corpoTradotto" IS NOT NULL
        AND left(lower(regexp_replace("corpoTradotto", '\\s+', ' ', 'g')), 300)
          = left(lower(regexp_replace("corpoTesto", '\\s+', ' ', 'g')), 300)`,
+  // Intervallo di sincronizzazione automatica scelto dall'utente (secondi).
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "sincronizzaOgniSec" INTEGER NOT NULL DEFAULT 60`,
   // Appuntamento proposto dall'AI su una mail (invito a riunione).
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "eventoProposto" TEXT`,
   // Aggancio manuale delle mail a una conversazione.

@@ -36,6 +36,8 @@ model Utente {
   traduzioneAuto Boolean @default(false)
   // Lingue che l'utente legge senza bisogno di traduzione (una per virgola).
   lingueLette   String   @default("italiano")
+  // Ogni quanti secondi l'app aperta ricontrolla la posta da sola.
+  sincronizzaOgniSec Int @default(60)
   attivo       Boolean  @default(true)
   // Token segreto del feed iCal del calendario: chi lo conosce può LEGGERE
   // gli appuntamenti (Google/Apple/Outlook in abbonamento). Vuoto = feed spento.

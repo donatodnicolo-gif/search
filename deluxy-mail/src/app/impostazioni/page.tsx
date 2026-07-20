@@ -169,6 +169,25 @@ export default async function Impostazioni() {
             </div>
 
             <div className="full">
+              <label className="field-label">Controlla la posta ogni</label>
+              <select
+                name="sincronizzaOgniSec"
+                defaultValue={String(u.sincronizzaOgniSec ?? 60)}
+                style={{ width: 'auto', minWidth: 160 }}
+              >
+                <option value="30">30 secondi</option>
+                <option value="60">1 minuto</option>
+                <option value="120">2 minuti</option>
+                <option value="300">5 minuti</option>
+                <option value="600">10 minuti</option>
+              </select>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
+                Vale mentre l’app è aperta (la spunta “Automatico” nella barra a sinistra). Ad
+                app chiusa la posta si riallinea quando la riapri.
+              </div>
+            </div>
+
+            <div className="full">
               <label className="checkbox-row">
                 <input type="checkbox" name="traduzioneAuto" defaultChecked={u.traduzioneAuto} />
                 Traduzione automatica

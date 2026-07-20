@@ -85,7 +85,7 @@ export async function Sidebar() {
         </div>
       </div>
 
-      <SyncButton />
+      <SyncButton intervalloSec={utente.sincronizzaOgniSec ?? 60} />
 
       <nav className="nav-section">
         <div className="nav-label">Posta</div>

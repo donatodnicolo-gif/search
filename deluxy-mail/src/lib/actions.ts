@@ -1576,12 +1576,18 @@ export async function salvaImpostazioni(form: FormData) {
     .getAll('lingueLette')
     .map((v) => String(v).trim().toLowerCase())
     .filter(Boolean)
+
+  // L'intervallo di sincronizzazione: solo valori del menu, niente numeri liberi
+  // (sotto i 30s si martella il server IMAP senza guadagno).
+  const INTERVALLI = [30, 60, 120, 300, 600]
+  const intervallo = Number(testo(form, 'sincronizzaOgniSec'))
   await db.utente.update({
     where: { id: u.id },
     data: {
       firma: testo(form, 'firma'),
       traduzioneAuto: flag(form, 'traduzioneAuto'),
       lingueLette: lingue.length ? lingue.join(', ') : 'italiano',
+      ...(INTERVALLI.includes(intervallo) ? { sincronizzaOgniSec: intervallo } : {}),
     },
   })
   if (u.ruolo === 'admin' && form.has('contestoAzienda')) {
