@@ -53,11 +53,14 @@ export async function Sidebar() {
   const principali: Voce[] = [
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
     { href: '/attivita', label: 'Attività', badge: daFare },
-    { href: '/calendario', label: 'Calendario' },
     { href: '/bozze', label: 'Bozze', badge: bozze },
     { href: '/inviata', label: 'Posta inviata' },
-    { href: '/rubrica', label: 'Rubrica' },
     { href: '/cestino', label: 'Cestino', badge: cestinati },
+  ]
+
+  const applicazioni: Voce[] = [
+    { href: '/rubrica', label: 'Rubrica' },
+    { href: '/calendario', label: 'Calendario' },
   ]
 
   const gestione: Voce[] = [
@@ -85,6 +88,15 @@ export async function Sidebar() {
           <Link key={v.href} href={v.href} className="nav-item">
             <span style={{ flex: 1 }}>{v.label}</span>
             {v.badge ? <span className="badge neutral">{v.badge}</span> : null}
+          </Link>
+        ))}
+      </nav>
+
+      <nav className="nav-section">
+        <div className="nav-label">Applicazioni</div>
+        {applicazioni.map((v) => (
+          <Link key={v.href} href={v.href} className="nav-item">
+            <span style={{ flex: 1 }}>{v.label}</span>
           </Link>
         ))}
       </nav>
