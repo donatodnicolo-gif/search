@@ -99,7 +99,12 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     // analizzata, e ordinare per priorità la spingerebbe in fondo. Per vedere
     // le urgenze si usano i filtri P0…P3 qui sopra.
     orderBy: { data: 'desc' },
-    take: 100,
+    // Finestra larga: con molte notifiche automatiche (es. gli ordini) le
+    // ultime 100 sarebbero quasi tutte quelle, e il resto della posta
+    // sparirebbe. Si prende largo (senza i corpi, che pesano) e si taglia
+    // DOPO il raggruppamento in conversazioni.
+    take: 400,
+    omit: { corpoTesto: true, corpoHtml: true },
     include: {
       sezione: true,
       bozze: { where: { inviata: false }, select: { id: true } },
@@ -110,7 +115,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // Raggruppa la posta in conversazioni: una riga per thread (catena di
   // risposte o stesso oggetto anche con destinatari diversi). Il volto della
   // riga è il messaggio più recente del thread.
-  const gruppi = raggruppa(messaggi)
+  const gruppi = raggruppa(messaggi).slice(0, 100)
 
   const filtri = [
     { chiave: '', label: 'Tutti' },

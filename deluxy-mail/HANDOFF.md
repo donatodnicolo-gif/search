@@ -167,6 +167,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 - **Migrazioni**: solo idempotenti in `scripts/migrate-prod.mjs` (no `prisma migrate deploy`, host diretto Supabase IPv6-only). Le letture delle tabelle nuove sono **difensive** (try/catch → vuoto) così un deploy prima della migrazione non rompe la app.
 - **Deploy Hobby**: max 100/giorno per account; le Server Action AI hanno bisogno di `maxDuration=60` sulle pagine.
 - **Auto-refresh 30s**: client-side, solo con app aperta. Un refresh a app chiusa richiederebbe un cron più frequente (Pro).
+- **Sync inchiodato (RISOLTO 20 lug)**: `ultimoUid` avanzava solo a fine giro; su Vercel un giro con traduzioni + giudizi spam AI superava i 60s, la funzione veniva uccisa e il sync ripartiva sempre dallo stesso blocco (in posta comparivano quasi solo le mail "veloci da salvare", es. le notifiche dal proprio dominio). Ora il cursore avanza **messaggio per messaggio** (`avanzaCursore` in `salvaMessaggi`) e le chiamate AI per giro sono contingentate (5 giudizi spam + 5 traduzioni; il resto si recupera all'apertura). Inoltre la home prende 400 messaggi **senza i corpi** (`omit`) e taglia a 100 righe DOPO il raggruppamento, così le notifiche ad alto volume non spingono fuori il resto della posta.
 
 ---
 

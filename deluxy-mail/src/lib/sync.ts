@@ -511,7 +511,11 @@ async function salvaMessaggi(opts: {
   } catch {
     spamSezioneId = null // se qualcosa va storto, semplicemente non si filtra
   }
-  let budgetAI = 12
+  // Budget AI per giro di scarico: su Vercel il giro deve chiudersi entro il
+  // timeout, quindi le chiamate AI vanno contate. Quello che salta si recupera
+  // (spam: resta in posta; traduzione: si fa all'apertura del messaggio).
+  let budgetAI = 5
+  let budgetTraduzioni = 5
 
   const filtraSpam = async (msg: MessaggioScaricato, messaggioId: string) => {
     if (!spamSezioneId) return
@@ -561,6 +565,21 @@ async function salvaMessaggi(opts: {
     }
   }
 
+  // Cursore incrementale: su Vercel la funzione può essere uccisa a metà giro
+  // (timeout). Se ultimoUid avanzasse solo alla fine, il sync ripartirebbe
+  // sempre dallo stesso blocco senza fare mai progresso: quindi si avanza
+  // messaggio per messaggio, appena l'esito (salvato o scartato) è definitivo.
+  let cursore = 0
+  const avanzaCursore = async (uid: number) => {
+    if (primoFallito !== null || uid <= cursore) return
+    cursore = uid
+    try {
+      await db.account.update({ where: { id: accountId }, data: { ultimoUid: uid } })
+    } catch {
+      /* si sistema con l'update finale */
+    }
+  }
+
   for (const msg of messaggi) {
     const daRegole = applicaRegole(regole, msg)
 
@@ -604,8 +623,10 @@ async function salvaMessaggi(opts: {
 
         // Traduzione all'arrivo: se attiva, le mail nuove in lingua straniera
         // si traducono subito, così la lista le mostra già in italiano senza
-        // doverle aprire. Una traduzione fallita non blocca lo scarico.
-        if (traduzioneAuto && creato.direzione === 'entrata') {
+        // doverle aprire. Una traduzione fallita non blocca lo scarico; oltre
+        // il budget del giro si traduce comunque all'apertura.
+        if (traduzioneAuto && creato.direzione === 'entrata' && budgetTraduzioni > 0) {
+          budgetTraduzioni--
           try {
             await traduciMessaggioSeServe(creato.id, utenteId)
           } catch {
@@ -650,6 +671,10 @@ async function salvaMessaggi(opts: {
         break
       }
     }
+
+    // Esito definitivo (salvato, esistente o scartato): il cursore avanza ORA,
+    // così un eventuale timeout non butta via il lavoro fatto fin qui.
+    await avanzaCursore(msg.uid)
   }
 
   return { primoFallito }
