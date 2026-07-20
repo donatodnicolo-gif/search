@@ -82,13 +82,14 @@ Convenzione bonifici: `> 0` inviato al partner, `< 0` ricevuto. `RiepilogoMese` 
 | `/transazioni` | **Import transazioni**: upload CSV/XLSX (parser tollerante, incluso Vivid) o **Sincronizza da Qonto**; riconciliazione con match a 1 click, discrepanze, non riconosciute, ricerca morbida, "attesi mancanti" |
 | `/scadenzario` | Fatture da incassare (con "Invia sollecito" + "Emetti su FIC"), bonifici pendenti, commissioni da emettere. **Ricerca** (partner/n. fattura/tipologia/IBAN) su tutte e tre le tabelle e **colonne ordinabili indipendenti** per tabella (default: nome partner) |
 | `/report`, `/confronti`, `/analisi` | Report per tipologia/città/categoria + forecast; Confronti 2026 vs 2025 (mese/trimestre/anno/personalizzato); Analisi finanziaria per scadenza con split saldato/da saldare e liquidità Qonto live |
+| `/registrazioni/fatture` | **Elenco delle fatture reali emesse su Fatture in Cloud** (fonte: FIC, non il DB): numero, data, cliente, imponibile/IVA, stato incasso, link "Apri su FIC". Ricerca (cliente/numero) e filtro anno lato FIC. `ficFatture()` in `src/lib/fic.ts` |
 | `/fic/emetti` | Emissione fattura commissioni su Fatture in Cloud (non inviata allo SDI; numero di ritorno) |
 | `/fic/fattura?proforma=<id>` \| `?fattura=<id>` | **Emissione fattura vera su FIC** da una pro-forma (che passa a `fatturata`) o da una fattura servizi senza numero (che riceve numero ed emissione). Anteprima righe, cliente FIC preselezionato per somiglianza, scadenza; supporta più righe e aliquote ≠ 22% (mappate da `/info/vat_types`; se il permesso manca si ferma con messaggio esplicito invece di applicare l'IVA sbagliata) |
 | `/solleciti/[id]` | Anteprima e invio sollecito di pagamento (SMTP o mailto) |
 | `/impostazioni` | Ordinante SEPA, SMTP (Register.it), Qonto, Fatture in Cloud (Collega OAuth), accesso |
 | `/verifiche` | Gestione chiave API pubblica + documentazione + storico richieste |
 
-Sidebar riducibile a icone (preferenza in localStorage), con sezione **Registrazioni** → sottomenu Fatture (Servizi a fatturazione / Pro-forma) e Vendite come vendor.
+Sidebar riducibile a icone (preferenza in localStorage). **Operatività**: Dashboard, Servizi a fatturazione, Vendite come vendor. **Registrazioni**: Fatture (elenco fatture reali da Fatture in Cloud, `/registrazioni/fatture`) e Pro-forma.
 
 **Prestazioni**: le funzioni girano in `fra1` (Francoforte) accanto al Postgres Supabase — `vercel.json`. Prima erano su `iad1` (Washington) e ogni query attraversava l'Atlantico: era **quella** la causa della lentezza (2,3 s per le 4 query del riepilogo, con soli 2 ms di elaborazione). Se si tocca la regione o si migra il DB, tenerli nella stessa area.
 

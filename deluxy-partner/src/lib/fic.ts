@@ -133,6 +133,84 @@ export async function ficClienti(): Promise<FicCliente[]> {
   return clienti;
 }
 
+// Una fattura come arriva da Fatture in Cloud (campi normalizzati per l'elenco).
+export type FicFattura = {
+  id: number;
+  numero: string; // number + numeration (es. "212/2026")
+  data: string | null; // YYYY-MM-DD
+  cliente: string;
+  imponibile: number;
+  iva: number;
+  totale: number;
+  pagata: boolean; // amount_due == 0
+  scadenza: string | null; // prossima scadenza non pagata
+  urlDettaglio: string | null; // link al documento su Fatture in Cloud
+};
+
+// Elenco delle fatture emesse su Fatture in Cloud (paginato, dalla più recente).
+// `anno` filtra per anno di emissione; `q` cerca su cliente/numero.
+export async function ficFatture(opts?: {
+  anno?: number;
+  q?: string;
+  maxPagine?: number;
+}): Promise<FicFattura[]> {
+  const { companyId } = await ficStato();
+  if (!companyId) throw new Error("Fatture in Cloud non collegato.");
+
+  const filtri: string[] = [];
+  if (opts?.anno) {
+    filtri.push(`date >= '${opts.anno}-01-01'`);
+    filtri.push(`date <= '${opts.anno}-12-31'`);
+  }
+  if (opts?.q?.trim()) {
+    // ricerca su nome cliente o numero
+    const q = opts.q.trim().replace(/'/g, "");
+    filtri.push(`(entity.name contains '${q}' or numeration contains '${q}')`);
+  }
+  const query = filtri.length ? `&q=${encodeURIComponent(filtri.join(" and "))}` : "";
+  const fields =
+    "id,number,numeration,date,amount_net,amount_vat,amount_gross,amount_due,url,entity";
+
+  const out: FicFattura[] = [];
+  const maxPagine = opts?.maxPagine ?? 20;
+  for (let page = 1; page <= maxPagine; page++) {
+    const r = await ficFetch<{
+      data: {
+        id: number;
+        number: number;
+        numeration: string | null;
+        date: string | null;
+        amount_net: number;
+        amount_vat: number;
+        amount_gross: number;
+        amount_due: number;
+        url: string | null;
+        entity?: { name?: string | null };
+      }[];
+      last_page?: number;
+    }>(
+      `/c/${companyId}/issued_documents?type=invoice&fields=${fields}&sort=-date,-number&per_page=50&page=${page}${query}`
+    );
+    for (const d of r.data) {
+      const anno = (d.date ?? "").slice(0, 4);
+      out.push({
+        id: d.id,
+        numero: `${d.number}${d.numeration?.trim() ? d.numeration : anno ? `/${anno}` : ""}`,
+        data: d.date,
+        cliente: d.entity?.name ?? "—",
+        imponibile: d.amount_net,
+        iva: d.amount_vat,
+        totale: d.amount_gross,
+        pagata: (d.amount_due ?? 0) <= 0.005,
+        scadenza: null,
+        urlDettaglio: d.url ?? null,
+      });
+    }
+    if (!r.last_page || page >= r.last_page) break;
+  }
+  return out;
+}
+
 // Crea una fattura (NON inviata allo SDI: l'invio si fa da Fatture in Cloud
 // dopo il controllo). Il numero viene assegnato da Fatture in Cloud e
 // restituito qui.

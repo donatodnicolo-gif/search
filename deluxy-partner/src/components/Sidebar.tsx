@@ -107,21 +107,17 @@ const icons = {
 const sections: { label: string; items: Item[] }[] = [
   {
     label: "Operatività",
-    items: [{ href: "/", label: "Dashboard", icon: icons.dashboard }],
+    items: [
+      { href: "/", label: "Dashboard", icon: icons.dashboard },
+      { href: "/fatture", label: "Servizi a fatturazione", icon: icons.fattura },
+      { href: "/vendite", label: "Vendite come vendor", icon: icons.vendite },
+    ],
   },
   {
     label: "Registrazioni",
     items: [
-      {
-        href: "/fatture",
-        label: "Fatture",
-        icon: icons.fattura,
-        figli: [
-          { href: "/fatture", label: "Servizi a fatturazione", icon: icons.fattura },
-          { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
-        ],
-      },
-      { href: "/vendite", label: "Vendite come vendor", icon: icons.vendite },
+      { href: "/registrazioni/fatture", label: "Fatture", icon: icons.fattura },
+      { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
     ],
   },
   {
