@@ -7,6 +7,7 @@ import MailComposer from 'nodemailer/lib/mail-composer'
 import type { Account, Prisma } from '@prisma/client'
 import { alternative } from './condizioni'
 import { leggiEventoProposto } from './eventoProposto'
+import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
 import { db } from './db'
 import { cifra, decifra } from './crypto'
 import {
@@ -604,6 +605,7 @@ export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: 
 
     const account = bozza.messaggio.account
     const { corpo: corpoFinale, tradottoIn } = await traduciSeStraniera(
+      utenteId,
       bozza.messaggio.lingua,
       bozza.corpo
     )
@@ -752,7 +754,7 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     // lingua. Un inoltro invece si manda com'è.
     const { corpo: corpoFinale, tradottoIn } = inoltro
       ? { corpo, tradottoIn: null }
-      : await traduciSeStraniera(originale.lingua, corpo)
+      : await traduciSeStraniera(utenteId, originale.lingua, corpo)
 
     const daInviare: DaInviare = {
       a,
@@ -1609,13 +1611,22 @@ export async function salvaImpostazioni(form: FormData) {
  * italiano, o la lingua non è nota, non tocca niente.
  */
 async function traduciSeStraniera(
+  utenteId: string,
   linguaOriginale: string | null,
   corpoItaliano: string
 ): Promise<{ corpo: string; tradottoIn: string | null }> {
   const lingua = linguaOriginale?.trim()
-  if (!lingua || lingua.toLowerCase() === 'italiano') {
+  if (!lingua) return { corpo: corpoItaliano, tradottoIn: null }
+
+  // Se la lingua dell'originale è l'italiano o una che l'utente LEGGE (e quindi
+  // scrive), la risposta l'ha già scritta lui in quella lingua: non si tocca.
+  // Stessa regola della traduzione in arrivo — così l'inglese, se è fra le
+  // lingue lette, non viene tradotto né in entrata né in uscita.
+  const u = await db.utente.findUnique({ where: { id: utenteId }, select: { lingueLette: true } })
+  if (leggiSenzaTraduzione(lingua, lingueLetteDi(u?.lingueLette))) {
     return { corpo: corpoItaliano, tradottoIn: null }
   }
+
   try {
     const corpo = await traduciVerso({ testo: corpoItaliano, lingua })
     return { corpo, tradottoIn: lingua }

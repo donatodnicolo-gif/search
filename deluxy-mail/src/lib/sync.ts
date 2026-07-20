@@ -2,6 +2,7 @@ import type { Messaggio, Regola, Sezione } from '@prisma/client'
 import { db } from './db'
 import { scaricaNuovi, scaricaVecchi, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
+import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
 import {
   analizzaMessaggio,
   riassumiContatto,
@@ -39,17 +40,6 @@ function transitorio(e: unknown): boolean {
 }
 
 const attendi = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-/**
- * Vero se questa lingua NON va tradotta: è l'italiano, oppure una di quelle
- * che l'utente ha spuntato in Impostazioni. Il confronto è tollerante perché
- * l'AI può rispondere "inglese", "Inglese" o "inglese (britannico)".
- */
-function leggiSenzaTraduzione(lingua: string, lingueLette: string[]): boolean {
-  const l = lingua.trim().toLowerCase()
-  if (!l || l === 'italiano') return true
-  return lingueLette.some((letta) => l.includes(letta) || letta.includes(l))
-}
 
 /**
  * L'AI a volte rimette l'ORIGINALE nel campo traduzione (non traduce davvero).
@@ -98,10 +88,7 @@ export async function traduciMessaggioSeServe(
   if (!utente?.traduzioneAuto) return { lingua: null, corpoTradotto: null }
 
   try {
-    const lingueLette = utente.lingueLette
-      .split(',')
-      .map((l) => l.trim().toLowerCase())
-      .filter(Boolean)
+    const lingueLette = lingueLetteDi(utente.lingueLette)
 
     const esito = await rilevaETraduci({ testo: m.corpoTesto, lingueLette })
 
