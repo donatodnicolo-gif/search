@@ -26,6 +26,16 @@ const stmts = [
      "istruzioni" TEXT NOT NULL,
      "aggiornatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "IstruzioneThread_utenteId_chiave_key" ON "IstruzioneThread"("utenteId","chiave")`,
+  // Pulizia una-tantum delle mail arrivate in più copie (stesso Message-ID,
+  // uid diversi: alias/inoltri). Si tiene la copia con uid più basso; le
+  // attività/bozze delle copie cadono in cascata (erano duplicate anche loro).
+  // Idempotente: al secondo giro non trova più niente da cancellare.
+  `DELETE FROM "Messaggio" m
+     USING "Messaggio" k
+     WHERE m."direzione" = 'entrata' AND k."direzione" = 'entrata'
+       AND m."messageId" IS NOT NULL
+       AND m."utenteId" = k."utenteId" AND m."messageId" = k."messageId"
+       AND (k."uid" < m."uid" OR (k."uid" = m."uid" AND k."id" < m."id"))`,
   // APP DELUXY: regole di smistamento verso le app + storico degli invii.
   `CREATE TABLE IF NOT EXISTS "RegolaApp" (
      "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL,

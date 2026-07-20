@@ -498,14 +498,18 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
     account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
   }
 
-  // Niente di nuovo e tempo avanzato? Un blocco di storico: così la posta
-  // vecchia arriva da sola, senza dover premere niente in Impostazioni.
-  if (esito.scaricati === 0 && !account.storicoFinito && Date.now() - partenza < BUDGET_MS / 2) {
-    try {
-      const storico = await scaricaStorico(accountId, limite)
-      esito.scaricati += storico.scaricati
-    } catch {
-      /* lo storico non deve far fallire il sync */
+  // Niente di nuovo e tempo avanzato? Blocchi di storico a esaurimento: così
+  // la posta vecchia arriva da sola, senza dover premere niente, e in fretta
+  // (fino a ~35s di scarico per ogni "Aggiorna posta" o giro automatico).
+  if (esito.scaricati === 0 && !account.storicoFinito) {
+    for (let giro = 0; giro < 10 && Date.now() - partenza < BUDGET_MS; giro++) {
+      try {
+        const storico = await scaricaStorico(accountId, 40)
+        esito.scaricati += storico.scaricati
+        if (storico.finito || storico.errore) break
+      } catch {
+        break // lo storico non deve far fallire il sync
+      }
     }
   }
 
