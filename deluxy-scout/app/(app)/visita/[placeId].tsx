@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { EsitoVisita, Linea, Place } from '@/types';
@@ -46,6 +47,7 @@ export default function NuovaVisita() {
   const [notePost, setNotePost] = useState('');
   const [analisi, setAnalisi] = useState('');
   const [nextStep, setNextStep] = useState('');
+  const [concorrenti, setConcorrenti] = useState('');
   const [fotoUri, setFotoUri] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,6 +71,12 @@ export default function NuovaVisita() {
   const lineeCrossSell = useMemo(
     () => linee.filter((l) => LINEE_STANDBY.includes(l.nome)),
     [linee],
+  );
+
+  // Linee di interesse selezionate (primaria + cross-sell), come contesto ai concorrenti.
+  const interessi = useMemo(
+    () => [linea, ...crossSell].filter(Boolean).join(', '),
+    [linea, crossSell],
   );
 
   const toggleCross = useCallback((nome: string) => {
@@ -111,6 +119,7 @@ export default function NuovaVisita() {
       next_step: nextStep.trim(),
       linea_proposta: linea,
       cross_sell: crossSell.length ? crossSell : null,
+      concorrenti: concorrenti.trim() || null,
       foto_url: null as string | null,
       owner: userRes.user?.id ?? null,
     };
@@ -128,7 +137,7 @@ export default function NuovaVisita() {
         });
         await programmaRecapEmail({ esito, nomeAttivita: place.nome, placeId: place.id });
         Alert.alert('Salvata offline', 'La visita verrà sincronizzata al ritorno online.');
-        router.back();
+        router.replace(`/(app)/attivita/${place.id}`);
         return;
       }
 
@@ -146,7 +155,7 @@ export default function NuovaVisita() {
       // Tenta anche di svuotare eventuali visite rimaste in coda.
       flushCoda().catch(() => {});
       Alert.alert('Visita salvata', 'Sincronizzata su Supabase.');
-      router.back();
+      router.replace(`/(app)/attivita/${place.id}`);
     } catch (e: any) {
       // Fallback: se qualcosa va storto online, accoda comunque per non perdere dati.
       await accodaVisita({
@@ -156,8 +165,11 @@ export default function NuovaVisita() {
         createdAt: new Date().toISOString(),
         retries: 0,
       });
-      Alert.alert('Salvata in coda', `Errore online, messa in coda di sync.\n${e?.message ?? ''}`);
-      router.back();
+      Alert.alert(
+        'Salvata in coda',
+        `Il salvataggio online non è riuscito: la visita verrà inviata automaticamente appena possibile.${e?.message ? `\n(Dettaglio: ${e.message})` : ''}`,
+      );
+      router.replace(`/(app)/attivita/${place.id}`);
     } finally {
       setSalvataggio(false);
     }
@@ -176,7 +188,8 @@ export default function NuovaVisita() {
         <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.nome}>{place.nome}</Text>
           <Text style={styles.checkin}>
-            {pos ? '📍 Check-in acquisito' : '📍 Acquisizione posizione…'}
+            <Ionicons name="location-outline" size={14} color={colors.testoSoft} />{' '}
+            {pos ? 'Check-in acquisito' : 'Acquisizione posizione…'}
           </Text>
 
           {/* Ipotesi editabile */}
@@ -199,7 +212,7 @@ export default function NuovaVisita() {
           />
 
           {/* Cross-sell: linee in standby, sezione separata (mai come primaria) */}
-          <Label>Cross-sell (linee in standby)</Label>
+          <Label>Altre linee da proporre</Label>
           <View style={styles.chipWrap}>
             {lineeCrossSell.map((l) => (
               <Chip key={l.id} label={l.nome} on={crossSell.includes(l.nome)} onPress={() => toggleCross(l.nome)} standby />
@@ -218,6 +231,17 @@ export default function NuovaVisita() {
           <Label>Esito e analisi</Label>
           <TextInput style={[styles.input, styles.area]} value={analisi} onChangeText={setAnalisi} multiline placeholder="Analisi e prossime mosse…" placeholderTextColor={colors.grigio} />
 
+          <Label>Concorrenti già presenti</Label>
+          {interessi ? <Text style={styles.hint}>Per le linee di interesse: {interessi}</Text> : null}
+          <TextInput
+            style={[styles.input, styles.area]}
+            value={concorrenti}
+            onChangeText={setConcorrenti}
+            multiline
+            placeholder="Chi serve già il negozio? (es. Glovo per le consegne, Catering X…)"
+            placeholderTextColor={colors.grigio}
+          />
+
           <Label>Next step *</Label>
           <TextInput style={styles.input} value={nextStep} onChangeText={setNextStep} placeholder="Obbligatorio: il prossimo passo" placeholderTextColor={colors.grigio} />
 
@@ -225,7 +249,10 @@ export default function NuovaVisita() {
             {fotoUri ? (
               <Image source={{ uri: fotoUri }} style={styles.fotoImg} />
             ) : (
-              <Text style={styles.fotoTxt}>📷 Foto vetrina</Text>
+              <View style={styles.fotoVuota}>
+                <Ionicons name="camera-outline" size={22} color={colors.testoSoft} />
+                <Text style={styles.fotoTxt}>Foto vetrina</Text>
+              </View>
             )}
           </Pressable>
 
@@ -269,6 +296,7 @@ const styles = StyleSheet.create({
   nome: { fontSize: 22, fontWeight: '900', color: colors.navy },
   checkin: { color: colors.testoSoft, marginBottom: spacing.sm, fontWeight: '600' },
   label: { color: colors.navy, fontWeight: '800', fontSize: 14, marginTop: spacing.md, marginBottom: 6 },
+  hint: { color: colors.testoSoft, fontSize: 12, marginBottom: 6 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
@@ -306,14 +334,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
   },
   fotoImg: { width: '100%', height: '100%' },
+  fotoVuota: { alignItems: 'center', gap: 4 },
   fotoTxt: { color: colors.testoSoft, fontWeight: '700' },
+  // Azione primaria DS: pillola nera (ink), mai oro.
   salva: {
     marginTop: spacing.lg,
-    backgroundColor: colors.oro,
-    borderRadius: radius.md,
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
     paddingVertical: 18,
     alignItems: 'center',
   },
-  salvaOff: { opacity: 0.6 },
-  salvaTxt: { color: colors.navy, fontWeight: '900', fontSize: 18 },
+  salvaOff: { opacity: 0.55 },
+  salvaTxt: { color: colors.bianco, fontWeight: '600', fontSize: 17 },
 });

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import type { Visit } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { fetchVisit } from '@/lib/db';
+import { StatusBadge } from '@/components/ui';
 import { Loader } from '../../_layout';
 
 const LABEL_ESITO: Record<string, string> = {
@@ -11,6 +13,14 @@ const LABEL_ESITO: Record<string, string> = {
   da_richiamare: 'Da richiamare',
   non_target: 'Non target',
   chiuso: 'Chiuso',
+};
+
+// Colore semantico DS per l'esito visita (badge a pillola con dot).
+const COLORE_ESITO: Record<string, string> = {
+  interessato: colors.successo,
+  da_richiamare: colors.attenzione,
+  non_target: colors.grigio,
+  chiuso: colors.blue,
 };
 
 export default function DettaglioVisita() {
@@ -35,14 +45,20 @@ export default function DettaglioVisita() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.head}>
           <Text style={styles.data}>{new Date(visit.data).toLocaleString('it-IT')}</Text>
-          <View style={styles.esitoPill}>
-            <Text style={styles.esitoTxt}>{visit.esito ? LABEL_ESITO[visit.esito] : '—'}</Text>
-          </View>
+          <StatusBadge
+            label={visit.esito ? LABEL_ESITO[visit.esito] ?? visit.esito : '—'}
+            colore={visit.esito ? COLORE_ESITO[visit.esito] ?? colors.grigio : colors.grigio}
+          />
         </View>
-        {!visit.hubspot_synced ? <Text style={styles.pendingTxt}>⏳ In attesa di sync HubSpot</Text> : null}
+        {!visit.hubspot_synced ? (
+          <Text style={styles.pendingTxt}>
+            <Ionicons name="time-outline" size={13} color={colors.attenzione} /> In attesa di invio a HubSpot
+          </Text>
+        ) : null}
 
         {visit.linea_proposta ? <Campo label="Linea proposta" valore={visit.linea_proposta} /> : null}
         {visit.cross_sell?.length ? <Campo label="Cross-sell" valore={visit.cross_sell.join(', ')} /> : null}
+        {visit.concorrenti ? <Campo label="Concorrenti già presenti" valore={visit.concorrenti} /> : null}
         <Campo label="Briefing" valore={visit.briefing} />
         <Campo label="Note post meeting" valore={visit.note_post_meeting} />
         <Campo label="Esito e analisi" valore={visit.esito_analisi} />
@@ -74,8 +90,6 @@ const styles = StyleSheet.create({
   err: { padding: spacing.lg, color: colors.errore },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   data: { fontSize: 15, fontWeight: '800', color: colors.navy },
-  esitoPill: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5 },
-  esitoTxt: { color: colors.bianco, fontWeight: '800', fontSize: 12 },
   pendingTxt: { color: colors.attenzione, fontWeight: '700', marginTop: spacing.xs },
   campo: { marginTop: spacing.md },
   label: { color: colors.oro, fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, marginTop: spacing.md },

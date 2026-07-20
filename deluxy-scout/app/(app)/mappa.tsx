@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
@@ -119,7 +120,7 @@ export default function Mappa() {
         </MapView>
       ) : (
         <View style={styles.mapPlaceholder}>
-          <Text style={styles.mapPlaceholderIco}>🗺️</Text>
+          <Ionicons name="map-outline" size={44} color={colors.grigio} style={{ marginBottom: spacing.sm }} />
           <Text style={styles.mapPlaceholderTitolo}>Mappa non ancora configurata</Text>
           <Text style={styles.mapPlaceholderTxt}>
             Aggiungi le chiavi Google Maps per vedere i pin sul territorio. Intanto usa la scheda
@@ -165,13 +166,22 @@ export default function Mappa() {
           <>
             <Pressable style={styles.conteggioBtn} onPress={() => setPannelloAperto((v) => !v)}>
               <Text style={styles.conteggio}>
-                {giro.length} tappe {giro.length > 0 ? (pannelloAperto ? '▾' : '▸') : ''}
+                {giro.length} tappe{' '}
+                {giro.length > 0 ? (
+                  <Ionicons
+                    name={pannelloAperto ? 'chevron-down' : 'chevron-forward'}
+                    size={12}
+                    color={colors.navy}
+                  />
+                ) : null}
               </Text>
             </Pressable>
             <View style={styles.footerAzioni}>
               {giroNav ? (
                 <Pressable style={styles.btnNaviga} onPress={() => Linking.openURL(giroNav.url)}>
-                  <Text style={styles.btnNavigaTxt}>🧭 Naviga</Text>
+                  <Text style={styles.btnNavigaTxt}>
+                    <Ionicons name="navigate-outline" size={15} color={colors.bianco} /> Naviga
+                  </Text>
                 </Pressable>
               ) : null}
               <Pressable style={styles.btnChiudi} onPress={chiudiGiro}>
@@ -199,6 +209,8 @@ export default function Mappa() {
       <View style={styles.topOverlay} pointerEvents="box-none">
         <View style={styles.filterBar}>
           <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} />
+          {/* Legenda dei glifi disegnati sui pin (stato del negozio). */}
+          <Text style={styles.legenda}>Pin: ○ da visitare · ◐ visitato · ★ cliente · ✕ perso</Text>
         </View>
         <AddressSearch onSelect={onSelectDestinazione} onClear={() => setDestinazione(null)} />
       </View>
@@ -218,6 +230,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   topOverlay: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 30 },
   filterBar: { backgroundColor: colors.sfondo, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro },
+  legenda: { color: colors.grigio, fontSize: 11, paddingHorizontal: spacing.md, paddingBottom: 6 },
   map: { flex: 1 },
   mapPlaceholder: {
     flex: 1,
@@ -226,7 +239,6 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     backgroundColor: colors.sfondo,
   },
-  mapPlaceholderIco: { fontSize: 44, marginBottom: spacing.sm },
   mapPlaceholderTitolo: { fontSize: 18, fontWeight: '800', color: colors.navy, marginBottom: spacing.sm },
   mapPlaceholderTxt: { fontSize: 14, color: colors.testoSoft, textAlign: 'center', lineHeight: 20 },
   pin: {
@@ -263,10 +275,11 @@ const styles = StyleSheet.create({
   btnGiro: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
   btnGiroTxt: { color: colors.bianco, fontWeight: '800' },
   footerAzioni: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  btnNaviga: { backgroundColor: colors.oro, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
-  btnNavigaTxt: { color: colors.navy, fontWeight: '900' },
-  btnChiudi: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
-  btnChiudiTxt: { color: colors.bianco, fontWeight: '800' },
+  // Azione primaria DS: pillola nera (ink), mai oro.
+  btnNaviga: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  btnNavigaTxt: { color: colors.bianco, fontWeight: '600' },
+  btnChiudi: { backgroundColor: colors.fill, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  btnChiudiTxt: { color: colors.testo, fontWeight: '600' },
   // Pannello elenco tappe (sopra il footer).
   pannello: {
     position: 'absolute',

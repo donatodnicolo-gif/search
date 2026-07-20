@@ -16,6 +16,7 @@ function deal(p: Partial<Deal>): Deal {
     fase: p.fase ?? 'appointmentscheduled',
     valore_atteso: p.valore_atteso ?? null,
     next_action: null,
+    scadenza: null,
     owner: null,
     hubspot_deal_id: null,
   };

@@ -5,7 +5,7 @@ import { Loader } from '../_layout';
 export default function AuthLayout() {
   const { session, loading } = useAuth();
   if (loading) return <Loader />;
-  // Se già autenticato, non mostrare il login.
-  if (session) return <Redirect href="/(app)/mappa" />;
+  // Se già autenticato, vai alla schermata di default ("Oggi").
+  if (session) return <Redirect href="/(app)/oggi" />;
   return <Stack screenOptions={{ headerShown: false }} />;
 }

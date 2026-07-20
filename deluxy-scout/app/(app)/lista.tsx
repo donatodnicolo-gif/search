@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, labelStato, radius, spacing } from '@/lib/theme';
+import { colors, coloreStato, labelStato, radius, spacing } from '@/lib/theme';
+import { aggiornaNascosto } from '@/lib/db';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
+import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 
 const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
 
@@ -15,9 +18,20 @@ export default function Lista() {
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
   const [query, setQuery] = useState('');
 
+  async function nascondi(place: Place) {
+    try {
+      await aggiornaNascosto(place.id, true);
+      ricarica();
+    } catch (e: any) {
+      Alert.alert('Errore', e?.message ?? 'Impossibile rimuovere il target.');
+    }
+  }
+
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const f = applicaFiltri(places, filtri).filter((p) => {
+    const f = applicaFiltri(places, filtri)
+      .filter((p) => !p.nascosto) // i target "non interessanti" non compaiono qui
+      .filter((p) => {
       if (!q) return true;
       return (
         p.nome.toLowerCase().includes(q) ||
@@ -32,6 +46,7 @@ export default function Lista() {
 
   return (
     <View style={styles.container}>
+      <PageIntro testo="I negozi obiettivo da visitare, in ordine di priorità. Tocca un negozio per aprire la sua scheda; l'occhio barrato lo nasconde se non è interessante." />
       <View style={styles.filterBar}>
         <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} />
         <TextInput
@@ -50,20 +65,27 @@ export default function Lista() {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={ricarica} />}
         ListEmptyComponent={
-          <Text style={styles.vuoto}>
-            {loading ? 'Caricamento…' : 'Nessuna attività con questi filtri.'}
-          </Text>
+          <EmptyState
+            loading={loading}
+            icona="flag-outline"
+            titolo="Nessun negozio qui"
+            aiuto="Prova ad azzerare filtri o ricerca, scopri nuovi negozi dalla Mappa, oppure aggiungi un target a mano col bottone +."
+            azione="Vai alla Mappa"
+            onAzione={() => router.push('/(app)/mappa')}
+          />
         }
-        renderItem={({ item }) => <Riga place={item} onPress={() => router.push(`/(app)/attivita/${item.id}`)} />}
+        renderItem={({ item }) => (
+          <Riga place={item} onPress={() => router.push(`/(app)/attivita/${item.id}`)} onNascondi={() => nascondi(item)} />
+        )}
       />
       <Pressable style={styles.fab} onPress={() => router.push('/(app)/nuovo-target')} accessibilityLabel="Nuovo target">
-        <Text style={styles.fabTxt}>＋</Text>
+        <Ionicons name="add" size={30} color={colors.bianco} />
       </Pressable>
     </View>
   );
 }
 
-function Riga({ place, onPress }: { place: Place; onPress: () => void }) {
+function Riga({ place, onPress, onNascondi }: { place: Place; onPress: () => void; onNascondi: () => void }) {
   return (
     <Pressable style={styles.riga} onPress={onPress}>
       <View style={styles.rigaHead}>
@@ -71,7 +93,18 @@ function Riga({ place, onPress }: { place: Place; onPress: () => void }) {
         <Text style={styles.nome} numberOfLines={1}>
           {place.nome}
         </Text>
-        <Text style={styles.stato}>{labelStato[place.stato]}</Text>
+        <StatusBadge small label={labelStato[place.stato]} colore={coloreStato[place.stato]} />
+        <Pressable
+          style={styles.nascondi}
+          hitSlop={8}
+          onPress={(e) => {
+            (e as any)?.stopPropagation?.();
+            onNascondi();
+          }}
+          accessibilityLabel="Rimuovi target (nascondi)"
+        >
+          <Ionicons name="eye-off-outline" size={18} color={colors.grigio} />
+        </Pressable>
       </View>
       {place.linea_ipotizzata ? (
         <View style={styles.lineaTag}>
@@ -99,7 +132,6 @@ const styles = StyleSheet.create({
     color: colors.testo,
   },
   list: { padding: spacing.md, gap: spacing.sm },
-  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
   riga: {
     backgroundColor: colors.bianco,
     borderRadius: radius.md,
@@ -111,15 +143,16 @@ const styles = StyleSheet.create({
   rigaHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   nome: { flex: 1, fontSize: 16, fontWeight: '800', color: colors.navy },
   stato: { fontSize: 12, color: colors.testoSoft, fontWeight: '600' },
+  nascondi: { padding: 2 },
   // "Tipologia di interesse" = linea Deluxy, come tag oro.
   lineaTag: {
     alignSelf: 'flex-start',
-    backgroundColor: '#F3E9D6',
+    backgroundColor: colors.goldSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 3,
   },
-  lineaTagTxt: { color: colors.oro, fontWeight: '800', fontSize: 12 },
+  lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12 },
   indirizzo: { fontSize: 13, color: colors.grigio },
   fab: {
     position: 'absolute',

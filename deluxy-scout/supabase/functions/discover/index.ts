@@ -57,6 +57,74 @@ function categoriaDaTypes(types: string[]): string {
   return 'altro';
 }
 
+// Tipi Google interrogati singolarmente con `rankby=distance` (vedi nota nel handler).
+// Sono quelli che generano le linee Deluxy; l'ordine non conta (i risultati si uniscono).
+const TIPI_RICERCA = [
+  'clothing_store',
+  'jewelry_store',
+  'shoe_store',
+  'florist',
+  'bakery',
+  'restaurant',
+  'cafe',
+  'lodging',
+  'beauty_salon',
+  'lawyer',
+  'bank',
+];
+
+// Preset del filtro "cosa cerco" scelto dall'app (sottomenu Mappa).
+// 'affiliazioni' = solo affiliati (fioristi + pasticcerie); 'tutti' = flusso pieno.
+const PRESET_TIPI: Record<string, string[]> = {
+  affiliazioni: ['florist', 'bakery'],
+  fiori: ['florist'],
+  pasticcerie: ['bakery'],
+  tutti: TIPI_RICERCA,
+};
+
+/** Distanza in metri (Haversine). */
+function distanzaMetri(aLat: number, aLng: number, bLat?: number, bLng?: number): number {
+  if (!isFinite(bLat as number) || !isFinite(bLng as number)) return Infinity;
+  const R = 6371000;
+  const dLat = ((bLat! - aLat) * Math.PI) / 180;
+  const dLng = ((bLng! - aLng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat! * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/**
+ * Scorre le pagine di una Nearby. `dentro` (opzionale) serve alle query
+ * `rankby=distance`, che sono ordinate per distanza: appena l'ultimo risultato
+ * di una pagina esce dal raggio, le pagine dopo sono tutte più lontane → stop.
+ * Lancia se già la prima pagina fallisce (chiave/quota), così il chiamante decide.
+ */
+async function pagineNearby(
+  url0: string,
+  key: string,
+  maxPagine: number,
+  dentro?: (r: any) => boolean,
+): Promise<any[]> {
+  const out: any[] = [];
+  let url = url0;
+  for (let p = 0; p < maxPagine; p++) {
+    const g = await (await fetch(url)).json();
+    if (g.status !== 'OK' && g.status !== 'ZERO_RESULTS') {
+      if (p === 0) throw new Error(g.error_message ?? g.status);
+      break; // pagine successive fallite: tieni quello che hai
+    }
+    const res: any[] = g.results ?? [];
+    out.push(...res);
+    if (dentro && res.length && !dentro(res[res.length - 1])) break;
+    if (!g.next_page_token) break;
+    // Il pagetoken diventa valido dopo un breve ritardo lato Google.
+    await new Promise((r) => setTimeout(r, 2000));
+    url = `${NEARBY}?pagetoken=${g.next_page_token}&key=${key}`;
+  }
+  return out;
+}
+
 // Trova la regola per categoria: esatta → parziale → 'altro'.
 function regolaPerCategoria(categoria: string, regole: any[]) {
   const c = categoria.toLowerCase();
@@ -91,7 +159,14 @@ Deno.serve(async (req) => {
     const radius = Math.min(Math.max(Number(body.radius) || 300, 50), 2000);
     if (!isFinite(lat) || !isFinite(lng)) return json({ error: 'lat/lng mancanti' }, 400);
 
-    const cella = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+    // Filtro "cosa cerco" (sottomenu Mappa): default = affiliati (fioristi + pasticcerie).
+    const filtro = PRESET_TIPI[body.filtro as string] ? (body.filtro as string) : 'affiliazioni';
+    const tipiCercati = PRESET_TIPI[filtro];
+    const soloAffiliati = filtro !== 'tutti'; // con 'tutti' includiamo anche la generica
+
+    // La cache è per-filtro: cercare "solo fiori" non deve marcare la cella come
+    // "già scansionata per tutto". Cella = coordinate + filtro.
+    const cella = `${lat.toFixed(3)},${lng.toFixed(3)}@${filtro}`;
     const nowIso = new Date().toISOString();
     const soglia = new Date(Date.now() - CACHE_GIORNI * 86400_000).toISOString();
 
@@ -106,24 +181,44 @@ Deno.serve(async (req) => {
     const cached = Boolean(area && area.refresh_at > soglia);
 
     if (!cached) {
-      // Interroga Google Places Nearby con paginazione (fino a ~60 risultati, 3 pagine).
-      let risultati: any[] = [];
-      let pageUrl = `${NEARBY}?location=${lat},${lng}&radius=${radius}&language=it&key=${key}`;
-      for (let page = 0; page < 3; page++) {
-        const g = await (await fetch(pageUrl)).json();
-        if (g.status !== 'OK' && g.status !== 'ZERO_RESULTS') {
-          if (page === 0) return json({ error: g.error_message ?? g.status, status: g.status }, 502);
-          break; // pagine successive fallite: tieni quello che abbiamo
-        }
-        risultati = risultati.concat(g.results ?? []);
-        if (!g.next_page_token) break;
-        // Il pagetoken diventa valido dopo un breve ritardo lato Google.
-        await new Promise((r) => setTimeout(r, 2000));
-        pageUrl = `${NEARBY}?pagetoken=${g.next_page_token}&key=${key}`;
+      // Google Nearby, quando gli passi un `radius`, ordina per PROMINENZA e tronca a
+      // 60 risultati: in zone dense (Quadrilatero/San Babila) ci sono più di 60 esercizi
+      // anche entro 100 m, quindi le boutique piccole — proprio il nostro target — restano
+      // sistematicamente fuori (verificato: MooRER in Corso Venezia 2 non usciva).
+      // Rimedio: affiancare, per ogni tipo che ci interessa, una query `rankby=distance`
+      // che restituisce i più VICINI invece dei più famosi. Ogni tipo ha il suo budget di
+      // risultati, quindi i negozi sotto casa ci sono di sicuro.
+      const dentroRaggio = (r: any) =>
+        distanzaMetri(lat, lng, r.geometry?.location?.lat, r.geometry?.location?.lng) <= radius;
+
+      // Generica (prominenza): solo quando cerco "Tutti" — copre i tipi non elencati.
+      // Con un filtro (affiliati/fiori/pasticcerie) la si SALTA, altrimenti Google
+      // riporterebbe tutto il rumore vanificando il filtro.
+      const generica = soloAffiliati
+        ? Promise.resolve([] as any[])
+        : pagineNearby(`${NEARBY}?location=${lat},${lng}&radius=${radius}&language=it&key=${key}`, key, 3);
+
+      // Per tipo (distanza): in parallelo; `rankby=distance` non ammette `radius`.
+      const perTipo = tipiCercati.map((t) =>
+        pagineNearby(
+          `${NEARBY}?location=${lat},${lng}&rankby=distance&type=${t}&language=it&key=${key}`,
+          key,
+          2,
+          dentroRaggio,
+        ),
+      );
+
+      const esiti = await Promise.allSettled([generica, ...perTipo]);
+      // Se fallisce la generica è un problema vero (chiave/quota); i singoli tipi no.
+      if (esiti[0].status === 'rejected') {
+        const err = (esiti[0] as PromiseRejectedResult).reason;
+        return json({ error: String(err?.message ?? err) }, 502);
       }
-      // Dedup per place_id (le pagine possono sovrapporsi).
+      // `rankby=distance` ignora il raggio → filtriamo noi. Dedup per place_id.
       const visti = new Set<string>();
-      risultati = risultati.filter((r) => r.place_id && !visti.has(r.place_id) && visti.add(r.place_id));
+      const risultati = esiti
+        .flatMap((e) => (e.status === 'fulfilled' ? e.value : []))
+        .filter((r) => r.place_id && dentroRaggio(r) && !visti.has(r.place_id) && visti.add(r.place_id));
 
       if (risultati.length) {
         const ids = risultati.map((r) => r.place_id);
@@ -151,6 +246,8 @@ Deno.serve(async (req) => {
               categoria,
               google_types: types,
               google_place_id: r.place_id,
+              google_rating: typeof r.rating === 'number' ? r.rating : null,
+              google_reviews: typeof r.user_ratings_total === 'number' ? r.user_ratings_total : null,
               source: 'google',
               novita: true,
               priorita: regola?.priorita ?? 'P3',
@@ -164,11 +261,21 @@ Deno.serve(async (req) => {
         nuovi = nuoviRecord.length;
         if (nuoviRecord.length) await admin.from('places').insert(nuoviRecord);
 
-        // Rinfresca il timestamp dei già noti (senza toccare starred/stato/hubspot).
-        const notiIds = [...notiSet];
-        if (notiIds.length) {
-          await admin.from('places').update({ google_refresh_at: nowIso }).in('google_place_id', notiIds);
-        }
+        // Rinfresca timestamp + recensioni dei già noti (senza toccare starred/stato/hubspot).
+        // Le recensioni cambiano per negozio → update mirati in parallelo (poche decine).
+        const noti = risultati.filter((r) => notiSet.has(r.place_id));
+        await Promise.all(
+          noti.map((r) =>
+            admin
+              .from('places')
+              .update({
+                google_refresh_at: nowIso,
+                google_rating: typeof r.rating === 'number' ? r.rating : null,
+                google_reviews: typeof r.user_ratings_total === 'number' ? r.user_ratings_total : null,
+              })
+              .eq('google_place_id', r.place_id),
+          ),
+        );
       }
 
       // Registra il refresh della cella.
@@ -177,7 +284,15 @@ Deno.serve(async (req) => {
         .upsert({ cella, centro_lat: lat, centro_lng: lng, refresh_at: nowIso });
     }
 
-    // Restituisci tutte le attività vicine (da DB, ordinate per distanza).
+    // Abbina i negozi della zona al CRM HubSpot (flag contatto / trattativa aperta).
+    // Best-effort: se fallisce (es. tabelle CRM vuote) la scoperta prosegue.
+    try {
+      await admin.rpc('abbina_places_vicini', { p_lat: lat, p_lng: lng, p_raggio: radius });
+    } catch {
+      /* ignora: i flag HubSpot restano ai valori precedenti */
+    }
+
+    // Restituisci le attività vicine (da DB, ordinate per distanza).
     const { data: places, error } = await admin.rpc('places_vicini', {
       p_lat: lat,
       p_lng: lng,
@@ -185,7 +300,19 @@ Deno.serve(async (req) => {
     });
     if (error) return json({ error: error.message }, 500);
 
-    return json({ places: places ?? [], cached, nuovi });
+    // Coerenza col sottomenu: se ho filtrato la ricerca, filtro anche l'output per
+    // categoria (fioraio/pasticceria), così "solo fiori" mostra solo fioristi.
+    const CAT_FILTRO: Record<string, string[]> = {
+      affiliazioni: ['fioraio', 'pasticceria'],
+      fiori: ['fioraio'],
+      pasticcerie: ['pasticceria'],
+    };
+    const catAmmesse = CAT_FILTRO[filtro];
+    const risposta = catAmmesse
+      ? (places ?? []).filter((p: any) => catAmmesse.includes(p.categoria))
+      : (places ?? []);
+
+    return json({ places: risposta, cached, nuovi, filtro });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }

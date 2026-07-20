@@ -1,0 +1,256 @@
+// Deluxy Partner — schema dati
+// Sostituisce PARTNER.xlsx (Database clienti 2026): ogni foglio/blocco Excel
+// diventa un'entità normalizzata. Le colonne "DA NON TOCCARE FORMULA" del
+// foglio (commissioni, dovuto, saldi, rolling) qui sono SEMPRE calcolate dal
+// motore in src/lib/calc.ts, mai memorizzate a mano.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
+}
+
+// Partner commerciale (foglio "Database clienti 2026", colonne A-N)
+model Partner {
+  id                     String   @id @default(cuid())
+  nome                   String   @unique
+  ragioneSociale         String?
+  categoria              String? // Pasticceria, Fiori, Boutique, Ristorante...
+  citta                  String?
+  servizi                String? // etichette: Vendor, Consegne, Magazzino...
+  clienteAnno            String? // P.P. | Nuovo | Dismesso
+  feePercent             Float? // % commissione su vendite come vendor
+  debiti2025             Float    @default(0) // situazione debitoria al 31.12.2025
+  pdrDebito              String? // piano di rientro debito
+  crediti2025            Float    @default(0) // situazione creditizia al 31.12.2025
+  ggPagamento            Int      @default(0) // giorni pagamento fattura (0 = vista fattura)
+  compensazione          Boolean  @default(false) // crediti servizi compensati dagli incassi vendite
+  commissioniADetrazione Boolean  @default(false) // commissioni detratte dal pagamento incassi
+  addebitoDiretto        Boolean  @default(false)
+  cartaCreditoApp        Boolean  @default(false)
+  iban                   String? // per bonifici SEPA
+  email                  String?
+  telefono               String?
+  note                   String?
+  // Chiave di join con il registro Deluxy Anagrafiche (id del partner lì).
+  // Popolata una volta per riconciliazione; è la "lingua comune di id" tra le app.
+  anagraficaId           String?  @unique
+  attivo                 Boolean  @default(true)
+  fatture                FatturaServizio[]
+  vendite                VenditaVendor[]
+  saldi                  SaldoMensile[]
+  transazioni            TransazioneBancaria[]
+  proforme               ProForma[]
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+// Movimento dell'estratto conto importato da CSV/XLSX.
+// hash = impronta di (data, importo, descrizione) per non duplicare
+// ricaricando lo stesso estratto o periodi sovrapposti.
+model TransazioneBancaria {
+  id          String   @id @default(cuid())
+  data        DateTime
+  importo     Float // > 0 accredito, < 0 addebito
+  divisa      String   @default("EUR")
+  descrizione String
+  controparte String?
+  hash        String   @unique
+  fonte       String? // nome del file importato
+  stato       String   @default("nuova") // nuova | registrata | ignorata
+  esito       String? // annotazione dell'azione fatta (es. "fattura 181/2026 saldata")
+  partnerId   String?
+  partner     Partner? @relation(fields: [partnerId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([stato, data])
+}
+
+// Tipologia di servizio (aree del foglio "Piano Per Area")
+model TipologiaServizio {
+  id      String            @id @default(cuid())
+  nome    String            @unique
+  ordine  Int               @default(0)
+  fatture FatturaServizio[]
+}
+
+// Servizi a fatturazione: fattura a credito emessa da Deluxy verso il partner
+// (blocco mensile "Servizi A Fatturazione")
+model FatturaServizio {
+  id            String             @id @default(cuid())
+  partnerId     String
+  partner       Partner            @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  tipologiaId   String
+  tipologia     TipologiaServizio  @relation(fields: [tipologiaId], references: [id])
+  anno          Int
+  mese          Int // 1-12, mese di competenza
+  numero        String? // n° fattura FattureInCloud (es. 68/2026)
+  emissione     DateTime?
+  scadenza      DateTime?
+  imponibile    Float // netto IVA
+  aliquotaIva   Float              @default(22)
+  pagata        Boolean            @default(false)
+  dataPagamento DateTime?
+  descrizione   String?
+  sollecitoInviatoIl DateTime? // ultimo sollecito di pagamento inviato
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([partnerId, anno, mese])
+  @@index([pagata, scadenza])
+}
+
+// Servizi come vendor: vendite fatte da Deluxy per conto del partner
+// (blocco mensile "Servizi come VENDOR"). La commissione e il dovuto al
+// partner sono calcolati: commissione = incasso * fee%; dovuto = incasso -
+// commissione * (1 + IVA).
+model VenditaVendor {
+  id           String   @id @default(cuid())
+  partnerId    String
+  partner      Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  anno         Int
+  mese         Int // 1-12, mese di competenza
+  data         DateTime?
+  descrizione  String?
+  incassoLordo Float // importo venduto/incassato da Deluxy
+  feePercent   Float // snapshot della fee del partner al momento della vendita
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([partnerId, anno, mese])
+}
+
+// Chiusura mensile partner (blocchi "Extra" + "Saldi" del foglio):
+// extra monetari, fattura commissioni, bonifico e note.
+// Il saldo in compensazione e il residuo sono calcolati dal motore.
+model SaldoMensile {
+  id              String    @id @default(cuid())
+  partnerId       String
+  partner         Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  anno            Int
+  mese            Int // 1-12
+  commFattEmessa  Boolean   @default(false) // fattura commissioni emessa
+  commFattNumero  String? // n° fattura commissioni FattureInCloud
+  aggiunte        Float     @default(0) // importi extra a favore del partner
+  detrazioni      Float     @default(0) // importi da scalare al partner
+  dataPagamento   DateTime? // data in cui risulta saldato / incassato
+  bonificoImporto Float? // >0 inviato al partner, <0 ricevuto dal partner
+  bonificoData    DateTime?
+  chiuso          Boolean   @default(false)
+  note            String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([partnerId, anno, mese])
+}
+
+// Pro-forma: documento non fiscale inviato al partner prima della fattura vera.
+// Numerazione progressiva per anno (PF 1/2026, PF 2/2026…). Ciclo di vita:
+// bozza → inviata → fatturata (con n° della fattura definitiva) oppure annullata.
+// I totali (imponibile, IVA, totale documento) sono sempre calcolati dalle righe.
+model ProForma {
+  id            String    @id @default(cuid())
+  numero        Int // progressivo nell'anno
+  anno          Int // anno della numerazione
+  partnerId     String
+  partner       Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  data          DateTime // data del documento
+  scadenza      DateTime? // termine di pagamento proposto
+  oggetto       String? // causale in testa al documento
+  note          String? // note in calce (condizioni, coordinate, ecc.)
+  stato         String    @default("bozza") // bozza | inviata | fatturata | annullata
+  inviataIl     DateTime?
+  inviataA      String? // destinatario dell'ultimo invio
+  fatturaNumero String? // n° fattura definitiva (quando stato = fatturata)
+  fatturataIl   DateTime?
+  annullataIl   DateTime?
+  righe         ProFormaRiga[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([anno, numero])
+  @@index([stato, data])
+  @@index([partnerId])
+}
+
+// Riga di dettaglio della pro-forma: importo riga = quantita * prezzoUnitario.
+model ProFormaRiga {
+  id            String   @id @default(cuid())
+  proFormaId    String
+  proForma      ProForma @relation(fields: [proFormaId], references: [id], onDelete: Cascade)
+  ordine        Int      @default(0)
+  descrizione   String
+  quantita      Float    @default(1)
+  prezzoUnitario Float // netto IVA
+  aliquotaIva   Float    @default(22)
+}
+
+// Impostazioni dell'app (chiave/valore): dati ordinante SEPA, preferenze
+model Impostazione {
+  chiave String @id
+  valore String
+}
+
+// Storico delle fee di un partner: "dal mese/anno la fee diventa X%".
+// Una vendita per un dato mese prende la fee valida in quel mese (la tariffa più
+// recente con decorrenza <= mese), così lo storico resta invariato e i mesi
+// successivi si aggiornano da soli. Fallback: partner.feePercent.
+model TariffaPartner {
+  id         String   @id @default(cuid())
+  partnerId  String
+  dalAnno    Int
+  dalMese    Int // 1-12: la fee è valida DA questo mese in poi
+  feePercent Float
+  createdAt  DateTime @default(now())
+
+  @@unique([partnerId, dalAnno, dalMese])
+  @@index([partnerId])
+}
+
+// Regola di associazione: quando l'operatore assegna a mano un partner a un
+// movimento non riconosciuto, la controparte viene memorizzata qui così i
+// movimenti futuri dello stesso soggetto si riconoscono da soli.
+model AssociazioneControparte {
+  id          String   @id @default(cuid())
+  chiave      String   @unique // controparte normalizzata
+  partnerId   String
+  partnerNome String
+  esempio     String? // testo originale che ha generato la regola
+  usi         Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Storico delle richieste di verifica arrivate via API da altri progetti.
+model RichiestaVerifica {
+  id              String   @id @default(cuid())
+  origine         String? // app chiamante (header X-App o parametro)
+  queryPartner    String // cosa è stato cercato
+  partnerId       String?
+  partnerNome     String?
+  esito           String // trovato | non_trovato | non_autorizzato
+  rispostaSintesi String? // riassunto testuale della situazione tornata
+  ip              String?
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// Piano commerciale: actual 2025 / actual 2026 / forecast 2026
+// (foglio "Piano commerciale e Forecast")
+model Forecast {
+  id          String  @id @default(cuid())
+  partnerNome String
+  servizio    String
+  anno        Int // anno di riferimento del forecast (2026)
+  mese        Int
+  valPrecedente Float? // consuntivo anno precedente (2025)
+  actual      Float?
+  forecast    Float?
+
+  @@unique([partnerNome, servizio, anno, mese])
+}

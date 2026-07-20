@@ -1,0 +1,38 @@
+// Deluxy Hub — schema dati
+// Solo gli utenti stanno sul database. Il catalogo delle app e la mappa
+// ruolo → app vivono nel codice (src/lib/apps.ts), perché sono configurazione
+// di deploy (URL, icone) e non dati che l'utente modifica.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Postgres (Supabase). Il portale vive nello schema "hub" dello stesso database
+  // di deluxy-partner: le sue tabelle restano isolate da quelle di Partner, che
+  // stanno in "public". Lo schema si sceglie con ?schema=hub nelle URL, quindi
+  // un "prisma db push" del Hub non può toccare i dati di Partner.
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooler 6543 con ?pgbouncer=true&connection_limit=1&schema=hub
+  directUrl = env("DIRECT_URL") // pooler 5432 con ?schema=hub — per migrazioni/db push
+}
+
+model Utente {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  nome          String
+  // scrypt: "salt:hash" in esadecimale, vedi src/lib/password.ts
+  passwordHash  String
+  // admin | partner | commerciale — valori in src/lib/ruoli.ts.
+  // Governa i privilegi (solo admin gestisce gli utenti), NON più quali app si
+  // vedono: quelle sono la lista esplicita appAbilitate qui sotto.
+  ruolo         String
+  // ID delle app che questo utente può aprire (valori in src/lib/apps.ts).
+  // Ignorato per gli admin, che vedono comunque tutto il catalogo.
+  appAbilitate  String[]  @default([])
+  attivo        Boolean   @default(true)
+  creatoIl      DateTime  @default(now())
+  ultimoAccesso DateTime?
+
+  @@index([ruolo])
+}

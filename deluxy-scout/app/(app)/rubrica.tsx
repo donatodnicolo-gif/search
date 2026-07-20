@@ -1,8 +1,10 @@
 // Rubrica: tutti i contatti registrati nell'app, condivisi con HubSpot.
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
+import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
 
 export default function Rubrica() {
@@ -39,7 +41,7 @@ export default function Rubrica() {
   return (
     <View style={styles.container}>
       <View style={styles.head}>
-        <Text style={styles.sub}>Contatti registrati · sincronizzati con HubSpot</Text>
+        <PageIntro testo="Tutti i contatti raccolti sul campo, sincronizzati con HubSpot. Cerca per nome, ruolo, negozio o telefono." />
         <TextInput
           style={styles.search}
           value={query}
@@ -56,7 +58,12 @@ export default function Rubrica() {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
-          <Text style={styles.vuoto}>{loading ? 'Caricamento…' : 'Nessun contatto registrato.'}</Text>
+          <EmptyState
+            icona="people-outline"
+            titolo="Nessun contatto"
+            aiuto="I contatti che registri durante le visite compaiono qui e vengono sincronizzati con HubSpot."
+            loading={loading}
+          />
         }
         renderItem={({ item }) => (
           <Contatto contatto={item} onOpenPlace={() => router.push(`/(app)/attivita/${item.place_id}`)} />
@@ -71,18 +78,20 @@ function Contatto({ contatto: c, onOpenPlace }: { contatto: ContattoConLuogo; on
     <View style={styles.card}>
       <View style={styles.cardHead}>
         <Text style={styles.nome} numberOfLines={1}>
-          {c.nome} {c.is_decisore ? '⭐' : ''}
+          {c.nome} {c.is_decisore ? <Ionicons name="star" size={13} color={colors.oro} /> : null}
         </Text>
-        <View style={[styles.badge, c.hubspot_contact_id ? styles.badgeOk : styles.badgeAttesa]}>
-          <Text style={[styles.badgeTxt, c.hubspot_contact_id ? styles.badgeTxtOk : styles.badgeTxtAttesa]}>
-            {c.hubspot_contact_id ? 'HubSpot ✓' : 'da sync'}
-          </Text>
-        </View>
+        {c.hubspot_contact_id ? (
+          <StatusBadge small label="Su HubSpot" colore={colors.successo} />
+        ) : (
+          <StatusBadge small label="Da sincronizzare" colore={colors.attenzione} />
+        )}
       </View>
       {c.ruolo ? <Text style={styles.meta}>{c.ruolo}</Text> : null}
       {c.place_nome ? (
         <Pressable onPress={onOpenPlace}>
-          <Text style={styles.negozio}>🏬 {c.place_nome}</Text>
+          <Text style={styles.negozio}>
+            <Ionicons name="storefront-outline" size={14} color={colors.navy} /> {c.place_nome}
+          </Text>
         </Pressable>
       ) : null}
       {c.place_linea ? (
@@ -93,12 +102,16 @@ function Contatto({ contatto: c, onOpenPlace }: { contatto: ContattoConLuogo; on
       <View style={styles.azioni}>
         {c.telefono ? (
           <Pressable style={styles.azione} onPress={() => Linking.openURL(`tel:${c.telefono}`)}>
-            <Text style={styles.azioneTxt}>📞 {c.telefono}</Text>
+            <Text style={styles.azioneTxt}>
+              <Ionicons name="call-outline" size={13} color={colors.oro} /> {c.telefono}
+            </Text>
           </Pressable>
         ) : null}
         {c.email ? (
           <Pressable style={styles.azione} onPress={() => Linking.openURL(`mailto:${c.email}`)}>
-            <Text style={styles.azioneTxt}>✉️ {c.email}</Text>
+            <Text style={styles.azioneTxt}>
+              <Ionicons name="mail-outline" size={13} color={colors.oro} /> {c.email}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -114,13 +127,13 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.grigioChiaro,
     paddingTop: spacing.sm,
   },
-  sub: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.md, marginBottom: spacing.xs },
   search: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     borderRadius: radius.md,
     marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
@@ -128,7 +141,6 @@ const styles = StyleSheet.create({
     color: colors.testo,
   },
   list: { padding: spacing.md, gap: spacing.sm },
-  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
   card: {
     backgroundColor: colors.bianco,
     borderRadius: radius.md,
@@ -143,13 +155,13 @@ const styles = StyleSheet.create({
   negozio: { color: colors.navy, fontSize: 14, fontWeight: '600', marginTop: 2 },
   lineaTag: {
     alignSelf: 'flex-start',
-    backgroundColor: '#F3E9D6',
+    backgroundColor: colors.goldSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 3,
     marginTop: 2,
   },
-  lineaTagTxt: { color: colors.oro, fontWeight: '800', fontSize: 12 },
+  lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12 },
   azioni: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
   azione: {
     borderWidth: 1,
@@ -159,10 +171,4 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   azioneTxt: { color: colors.oro, fontWeight: '700', fontSize: 13 },
-  badge: { borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
-  badgeOk: { backgroundColor: '#E3F0EA' },
-  badgeAttesa: { backgroundColor: '#F3E9D6' },
-  badgeTxt: { fontSize: 11, fontWeight: '800' },
-  badgeTxtOk: { color: colors.successo },
-  badgeTxtAttesa: { color: colors.attenzione },
 });

@@ -2,7 +2,7 @@
 // (deluxy-design-system/tokens/theme.ts). Stile Apple: sfondi neutri, testo scuro,
 // UN accento oro usato poco, azioni primarie NERE (ink). I nomi storici (navy/oro/…)
 // restano per compatibilità con le schermate, ma i valori sono quelli del DS.
-import type { DealStage, Priorita, StatoPlace } from '@/types';
+import type { DealStage, Priorita, StatoAffiliazione, StatoPlace } from '@/types';
 
 export const colors = {
   // Superfici
@@ -83,6 +83,14 @@ export const labelStato: Record<StatoPlace, string> = {
   perso: 'Perso',
 };
 
+// Colore semantico DS per lo stato del negozio (per i badge a pillola con dot).
+export const coloreStato: Record<StatoPlace, string> = {
+  da_visitare: colors.attenzione, // da gestire
+  visitato: colors.blue, // in corso
+  cliente: colors.successo,
+  perso: colors.errore,
+};
+
 // Piccola icona sovrapposta al pin per lo stato.
 export const iconaStato: Record<StatoPlace, string> = {
   da_visitare: '○',
@@ -108,6 +116,23 @@ export function iconaLinea(linea: string | null | undefined): string {
   return (linea && lineaIcona[linea]) || '📍';
 }
 
+// Icone line-art (Ionicons) per tipologia — look premium, stile SF Symbols.
+export const lineaIconName: Record<string, string> = {
+  Consegne: 'cube-outline',
+  Catering: 'restaurant-outline',
+  'Regali aziendali': 'gift-outline',
+  Affiliazioni: 'people-outline',
+  'Re-seller': 'storefront-outline',
+  'Food Supplier': 'wine-outline',
+  Clientelling: 'person-outline',
+  Concierge: 'sparkles-outline',
+  Magazzino: 'file-tray-stacked-outline',
+};
+
+export function iconaLineaNome(linea: string | null | undefined): string {
+  return (linea && lineaIconName[linea]) || 'business-outline';
+}
+
 // Etichette leggibili per le fasi trattativa (dealstage HubSpot).
 export const labelFase: Record<DealStage, string> = {
   appointmentscheduled: 'Appuntamento fissato',
@@ -115,4 +140,36 @@ export const labelFase: Record<DealStage, string> = {
   contractsent: 'Proposta inviata',
   closedwon: 'Chiusa vinta',
   closedlost: 'Chiusa persa',
+};
+
+// Colore semantico DS per la fase (avanzamento pipeline → esito).
+export const coloreFase: Record<DealStage, string> = {
+  appointmentscheduled: colors.blue,
+  decisionmakerboughtin: colors.purple,
+  contractsent: colors.attenzione,
+  closedwon: colors.successo,
+  closedlost: colors.errore,
+};
+
+// Etichette + colore-dot per gli stati affiliazione (i 7 del registro Anagrafiche).
+export const labelAffiliazione: Record<StatoAffiliazione, string> = {
+  prospect: 'Prospect',
+  in_contatto: 'In contatto',
+  in_attesa: 'In attesa',
+  in_trattativa: 'In trattativa',
+  da_ricontattare: 'Da ricontattare',
+  attivo: 'Attivo',
+  non_interessato: 'Non interessato',
+  dismesso: 'Dismesso',
+};
+
+export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
+  prospect: colors.grigio,
+  in_contatto: colors.blue,
+  in_attesa: colors.attenzione,
+  in_trattativa: colors.oro,
+  da_ricontattare: colors.attenzione,
+  attivo: colors.successo,
+  non_interessato: colors.errore,
+  dismesso: colors.grigio,
 };

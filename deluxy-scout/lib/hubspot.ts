@@ -69,7 +69,132 @@ export function dealsPerPlace(placeId: string): Promise<Deal[]> {
   return callSync<Deal[]>('deals_for_place', { place_id: placeId });
 }
 
+export interface SyncDealResult {
+  hubspot_company_id: string;
+  hubspot_contact_id: string | null;
+  hubspot_deal_id: string;
+  contatti_sincronizzati: number;
+}
+
+/**
+ * Sincronizza una trattativa creata a mano: upsert Company + tutti i Contatti del
+ * negozio, crea il Deal con valore atteso (amount) e fase. Ritorna gli id HubSpot.
+ */
+export function syncTrattativa(dealId: string): Promise<SyncDealResult> {
+  return callSync<SyncDealResult>('sync_deal', { deal_id: dealId });
+}
+
+/**
+ * Allinea importi/fase dei deal locali con HubSpot (le trattative nate da una
+ * visita non hanno `amount`: se impostato su HubSpot, lo riporta su Supabase).
+ * Ritorna quanti deal sono stati aggiornati.
+ */
+export function aggiornaValoriTrattative(): Promise<{ aggiornati: number }> {
+  return callSync<{ aggiornati: number }>('refresh_deal_values', {});
+}
+
+/** Modifica un deal esistente su HubSpot (fase/valore/linea/next action) + mirror. */
+export function modificaTrattativaHubspot(
+  hubspotDealId: string,
+  patch: { linea?: string | null; fase?: string | null; valore_atteso?: number | null; next_action?: string | null },
+): Promise<{ ok: boolean; hubspot_deal_id: string }> {
+  return callSync('update_deal', { hubspot_deal_id: hubspotDealId, patch });
+}
+
 /** Utile per un eventuale re-sync manuale a partire dai dati locali. */
 export function syncVisitaPayload(visit: Visit): Promise<SyncVisitResult> {
   return callSync<SyncVisitResult>('sync_visit', { visit_id: visit.id });
+}
+
+// ── Conciliazione contatti con AI (Edge Function `hubspot-match`) ──────────────
+
+export interface ContattoAI {
+  hubspot_contact_id: string;
+  nome: string;
+  email: string | null;
+  telefono: string | null;
+  ruolo: string | null;
+}
+export interface MatchAI {
+  match: { hubspot_company_id: string; nome: string | null; indirizzo: string | null } | null;
+  contatti: ContattoAI[];
+  duplicati: { ids: string[]; motivo: string }[];
+  confidenza: 'alta' | 'media' | 'bassa' | 'nessuna';
+  nota: string;
+}
+
+/**
+ * Match veloce sulla copia LOCALE di HubSpot (tabelle hubspot_companies/contacts,
+ * popolate da sincronizzaHubspot). Usa la similarità trigram lato DB. Nessuna AI.
+ */
+export async function cercaContattiHubspot(
+  nome: string,
+  indirizzo: string | null,
+  escludi: string[] = [],
+): Promise<MatchAI> {
+  const { data: cand, error } = await supabase.rpc('cerca_azienda_hubspot', {
+    p_nome: nome,
+    p_indirizzo: indirizzo,
+    p_limit: 5,
+  });
+  if (error) throw new Error(error.message);
+  const best = ((cand ?? []) as any[]).find((c) => !escludi.includes(c.hubspot_id));
+  if (!best || Number(best.somiglianza) < 0.3) {
+    return { match: null, contatti: [], duplicati: [], confidenza: 'nessuna', nota: 'Nessuna azienda simile trovata su HubSpot.' };
+  }
+  const { data: contatti } = await supabase
+    .from('hubspot_contacts')
+    .select('hubspot_id, nome, email, telefono, ruolo')
+    .eq('company_hubspot_id', best.hubspot_id);
+  const sim = Number(best.somiglianza);
+  return {
+    match: { hubspot_company_id: best.hubspot_id, nome: best.nome, indirizzo: best.indirizzo },
+    contatti: (contatti ?? []).map((c: any) => ({
+      hubspot_contact_id: c.hubspot_id,
+      nome: c.nome ?? '',
+      email: c.email ?? null,
+      telefono: c.telefono ?? null,
+      ruolo: c.ruolo ?? null,
+    })),
+    duplicati: [],
+    confidenza: sim >= 0.7 ? 'alta' : sim >= 0.45 ? 'media' : 'bassa',
+    nota: `Corrispondenza ${Math.round(sim * 100)}% con "${best.nome}".`,
+  };
+}
+
+/** Avvia l'estrazione completa del CRM HubSpot nella copia locale. */
+export async function sincronizzaHubspot(): Promise<{ aziende: number; contatti: number }> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/hubspot-match`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: env.supabaseAnonKey(), ...(await authHeader()) },
+    body: JSON.stringify({ action: 'sync_crm' }),
+  });
+  if (!res.ok) throw new Error(`Sync HubSpot fallita (${res.status})`);
+  return (await res.json()) as { aziende: number; contatti: number };
+}
+
+/** Cerca in HubSpot l'azienda/contatti corrispondenti al negozio, con AI. */
+export async function trovaContattiAI(placeId: string): Promise<MatchAI> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/hubspot-match`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(await authHeader()),
+    },
+    body: JSON.stringify({ action: 'match_contacts', place_id: placeId }),
+  });
+  if (!res.ok) {
+    let msg = `Ricerca AI fallita (${res.status})`;
+    try {
+      const j = await res.json();
+      if (j?.error) msg = j.error;
+    } catch {
+      /* corpo non JSON */
+    }
+    throw new Error(msg);
+  }
+  return (await res.json()) as MatchAI;
 }

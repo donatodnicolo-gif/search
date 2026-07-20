@@ -1,0 +1,352 @@
+// AI MAIL 2.0 — schema dati
+//
+// Idea di fondo: la posta resta sul server IMAP (fonte di verità), qui teniamo
+// una copia indicizzata dei messaggi più il "livello intelligente" che l'app
+// aggiunge sopra: sezioni, regole, attività e bozze di risposta.
+//
+// Multi-utente: ogni riga di dati appartiene a un Utente (utenteId). Un utente
+// vede solo i propri dati — le query sono SEMPRE filtrate per utenteId. L'unica
+// cosa condivisa è il contesto aziendale dato all'AI (Impostazione globale).
+//
+// Le password IMAP/SMTP sono SEMPRE cifrate (AES-256-GCM, src/lib/crypto.ts):
+// nel database non finisce mai una password in chiaro. Le password degli utenti
+// sono hashate (scrypt, src/lib/auth.ts), mai reversibili.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
+}
+
+// Chi accede ad AI Mail. Gli utenti li crea un amministratore dentro l'app.
+model Utente {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  nome         String
+  passwordHash String // scrypt "salt.hash" — mai reversibile
+  ruolo        String   @default("utente") // admin | utente
+  firma        String   @default("") @db.Text // firma personale nelle bozze
+  // Traduzione automatica: se attiva, le mail in lingua straniera aperte
+  // vengono tradotte in italiano, e le risposte scritte in italiano vengono
+  // inviate nella lingua dell'originale.
+  traduzioneAuto Boolean @default(false)
+  // Lingue che l'utente legge senza bisogno di traduzione (una per virgola).
+  lingueLette   String   @default("italiano")
+  attivo       Boolean  @default(true)
+  creatoIl     DateTime @default(now())
+
+  account   Account[]
+  sezioni   Sezione[]
+  regole    Regola[]
+  messaggi  Messaggio[]
+  attivita  Attivita[]
+  bozze     Bozza[]
+  rapporti  RapportoAI[]
+  riassunti RiassuntoContatto[]
+  thread    RiassuntoThread[]
+  contattiAI ContattoAI[]
+  istruzioniThread IstruzioneThread[]
+}
+
+// Una casella di posta collegata (IMAP in lettura, SMTP in invio).
+model Account {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  nome         String // etichetta mostrata nell'app, es. "Deluxy Delivery"
+  email        String
+  // IMAP
+  imapHost     String
+  imapPort     Int     @default(993)
+  imapSicuro   Boolean @default(true) // TLS diretto sulla porta 993
+  imapUtente   String
+  imapPassword String // cifrata (mai in chiaro)
+  // SMTP
+  smtpHost     String
+  smtpPort     Int     @default(465)
+  smtpSicuro   Boolean @default(true)
+  smtpUtente   String
+  smtpPassword String // cifrata (mai in chiaro)
+  // Stato sincronizzazione
+  cartella        String  @default("INBOX")
+  cartellaInviata String?
+  ultimoUid       Int     @default(0)
+  primoUid        Int     @default(0)
+  storicoFinito   Boolean @default(false)
+  ultimoSync      DateTime?
+  ultimoErrore    String?
+  attivo          Boolean   @default(true)
+  creatoIl        DateTime  @default(now())
+  messaggi        Messaggio[]
+
+  @@unique([utenteId, email])
+  @@index([utenteId, attivo])
+}
+
+// Una sezione della posta: le colonne in cui l'AI allinea i messaggi.
+model Sezione {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  nome        String
+  descrizione String
+  colore      String   @default("blue")
+  ordine      Int      @default(0)
+  creataIl    DateTime @default(now())
+  messaggi    Messaggio[]
+  regole      Regola[]
+
+  @@unique([utenteId, nome])
+  @@index([utenteId])
+}
+
+// Una regola impostata dall'utente (deterministica e/o linguistica).
+model Regola {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  nome     String
+  attiva   Boolean @default(true)
+  priorita Int     @default(0)
+
+  seMittente String?
+  seOggetto  String?
+  seContiene String?
+
+  istruzioneAI String?
+  // Testo di un'attività da creare quando la regola scatta (opzionale). Se
+  // valorizzato, ogni messaggio agganciato genera questa attività su misura.
+  attivitaTesto String?
+
+  sezioneId    String?
+  sezione      Sezione? @relation(fields: [sezioneId], references: [id], onDelete: SetNull)
+  creaAttivita Boolean  @default(false)
+  creaBozza    Boolean  @default(false)
+  segnaLetta   Boolean  @default(false)
+  archivia     Boolean  @default(false)
+  fermaQui     Boolean  @default(false)
+
+  creataIl DateTime @default(now())
+
+  @@index([utenteId, attiva, priorita])
+}
+
+// Un messaggio scaricato dalla casella. utenteId denormalizzato dall'account,
+// così le liste (posta, rubrica) si filtrano per utente senza join.
+model Messaggio {
+  id        String  @id @default(cuid())
+  utenteId  String
+  utente    Utente  @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  uid       Int
+  messageId String?
+  thread    String?
+  direzione String  @default("entrata")
+
+  mittente     String
+  mittenteNome String?
+  destinatari  String
+  oggetto      String
+  data         DateTime
+  anteprima    String
+  corpoTesto   String  @db.Text
+  corpoHtml    String? @db.Text
+  allegati     Int     @default(0)
+
+  letto       Boolean   @default(false)
+  archiviato  Boolean   @default(false)
+  cestinato   Boolean   @default(false)
+  cestinatoIl DateTime?
+
+  sezioneId     String?
+  sezione       Sezione?  @relation(fields: [sezioneId], references: [id], onDelete: SetNull)
+  smistatoDa    String?
+  regolaId      String?
+  priorita      String?
+  prioritaDa    String?
+  riassunto     String?
+  serveRisposta Boolean   @default(false)
+  analizzatoIl  DateTime?
+  erroreAI      String?
+  // Traduzione: lingua rilevata del messaggio (null = non ancora controllato).
+  // corpoTradotto = traduzione in italiano, valorizzata solo se la lingua è
+  // straniera e la traduzione automatica è attiva.
+  lingua        String?
+  corpoTradotto String?   @db.Text
+
+  attivita Attivita[]
+  bozze    Bozza[]
+  proposte PropostaArchivio[]
+
+  creatoIl DateTime @default(now())
+
+  @@unique([accountId, uid])
+  @@index([utenteId, data])
+  @@index([utenteId, sezioneId, data])
+}
+
+// Un'attività, da un messaggio o dal quadro di un contatto o dall'Assistente.
+model Attivita {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  messaggioId   String?
+  messaggio     Messaggio?  @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
+  contattoEmail String?
+  rapportoId    String?
+  rapporto      RapportoAI? @relation(fields: [rapportoId], references: [id], onDelete: SetNull)
+
+  titolo     String
+  dettaglio  String?
+  scadenza   DateTime?
+  priorita   String    @default("P2")
+  fatta      Boolean   @default(false)
+  fattaIl    DateTime?
+  creataDaAI Boolean   @default(true)
+  creataIl   DateTime  @default(now())
+
+  @@index([utenteId, fatta, scadenza])
+}
+
+// Una risposta non ancora inviata (proposta dall'AI o iniziata dall'utente).
+model Bozza {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  messaggioId String?
+  messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
+  accountId   String?
+
+  origine String @default("ai")
+  modo    String @default("rispondi")
+
+  a       String @default("")
+  cc      String @default("")
+  oggetto String
+  corpo   String @db.Text
+  corpoAI String @default("") @db.Text
+
+  modificata   Boolean   @default(false)
+  inviata      Boolean   @default(false)
+  inviataIl    DateTime?
+  creataIl     DateTime  @default(now())
+  aggiornataIl DateTime  @default(now()) @updatedAt
+
+  @@index([utenteId, inviata, aggiornataIl])
+  @@index([messaggioId])
+}
+
+// Il quadro della situazione con un contatto, per utente.
+model RiassuntoContatto {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  email         String
+  situazione    String   @db.Text
+  taskAperti    String   @default("") @db.Text
+  messaggiVisti Int      @default(0)
+  azioniCreate  Int      @default(0)
+  aggiornatoIl  DateTime @default(now()) @updatedAt
+
+  @@unique([utenteId, email])
+}
+
+// Il risultato di un giro dell'Assistente (oggi/settimana/mese), per utente.
+model RapportoAI {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  periodo        String
+  riassunto      String   @db.Text
+  messaggiVisti  Int      @default(0)
+  troncato       Boolean  @default(false)
+  attivitaCreate Int      @default(0)
+  generatoIl     DateTime @default(now())
+  attivita       Attivita[]
+  proposte       PropostaArchivio[]
+
+  @@index([utenteId, generatoIl])
+}
+
+// Un messaggio che l'AI propone di archiviare (scoping via rapporto/messaggio).
+model PropostaArchivio {
+  id          String     @id @default(cuid())
+  rapportoId  String
+  rapporto    RapportoAI @relation(fields: [rapportoId], references: [id], onDelete: Cascade)
+  messaggioId String
+  messaggio   Messaggio  @relation(fields: [messaggioId], references: [id], onDelete: Cascade)
+  motivo      String
+  applicata   Boolean    @default(false)
+
+  @@index([rapportoId])
+}
+
+// Il riassunto "per punti di vista" di un thread: l'AI legge tutti i messaggi
+// della conversazione e dice cosa vuole/dice ogni parte. A richiesta, salvato.
+// chiave = id del messaggio capostipite (il più vecchio del thread).
+model RiassuntoThread {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  chiave        String
+  riassunto     String   @db.Text
+  partecipanti  Int      @default(0)
+  messaggiVisti Int      @default(0)
+  generatoIl    DateTime @default(now())
+
+  @@unique([utenteId, chiave])
+}
+
+// Un contatto marcato "AI" (il PLUS AI): le sue mail entrano nella AI Inbox e
+// su di lui l'AI fa il quadro della situazione (mail ricevute e inviate) per
+// definire le prossime attività. La presenza della riga = AI attiva.
+model ContattoAI {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  email    String
+  // Istruzioni AI personalizzate per questo contatto (es. "è il corriere:
+  // per lui conta solo la disponibilità mezzi"). Fidate: le scrive l'utente.
+  istruzioni String @default("") @db.Text
+  creatoIl DateTime @default(now())
+
+  @@unique([utenteId, email])
+  @@index([utenteId])
+}
+
+// Istruzioni AI legate a una conversazione (thread), la regola più specifica.
+// chiave = id del messaggio capostipite (la stessa del riassunto thread).
+model IstruzioneThread {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  chiave       String
+  istruzioni   String   @db.Text
+  aggiornatoIl DateTime @default(now()) @updatedAt
+
+  @@unique([utenteId, chiave])
+}
+
+// Preferenze GLOBALI (condivise fra tutti): contesto aziendale dato all'AI.
+// La firma invece è personale ed è su Utente.
+model Impostazione {
+  chiave       String   @id
+  valore       String   @db.Text
+  aggiornataIl DateTime @updatedAt
+}

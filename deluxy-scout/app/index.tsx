@@ -6,5 +6,6 @@ import { Loader } from './_layout';
 export default function Index() {
   const { session, loading } = useAuth();
   if (loading) return <Loader />;
-  return <Redirect href={session ? '/(app)/mappa' : '/(auth)/login'} />;
+  // Schermata di default all'accesso: "Oggi", l'assistente del commerciale.
+  return <Redirect href={session ? '/(app)/oggi' : '/(auth)/login'} />;
 }

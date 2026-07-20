@@ -12,7 +12,8 @@
 //   5. marca hubspot_synced=true e rimuove dalla coda
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import type { QueuedVisit, StatoPlace } from '@/types';
+import type { QueuedVisit } from '@/types';
+import { statoDaEsito } from '@/types';
 import { aggiornaStatoPlace, caricaFotoVetrina, inserisciVisita } from '@/lib/db';
 import { RateLimitError, syncVisita } from '@/lib/hubspot';
 import { env } from '@/lib/env';
@@ -20,13 +21,8 @@ import { env } from '@/lib/env';
 const CHIAVE_CODA = 'deluxy.sync.queue.v1';
 const MAX_RETRY = 5;
 
-// Stato di esito che deriva lo stato del place dopo la visita.
-export const statoDaEsito: Record<string, StatoPlace> = {
-  interessato: 'visitato',
-  da_richiamare: 'visitato',
-  non_target: 'perso',
-  chiuso: 'cliente',
-};
+// Regola esito→stato spostata in @/types (condivisa anche dalla visita rapida).
+export { statoDaEsito };
 
 async function leggiCoda(): Promise<QueuedVisit[]> {
   const raw = await AsyncStorage.getItem(CHIAVE_CODA);

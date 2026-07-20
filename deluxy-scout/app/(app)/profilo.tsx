@@ -1,22 +1,61 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { colors, radius, spacing } from '@/lib/theme';
+import { StatusBadge } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { contaInCoda, flushCoda } from '@/lib/syncQueue';
+import { aggiornaNomeProfilo, fetchProfilo } from '@/lib/db';
+import { sincronizzaHubspot } from '@/lib/hubspot';
 import { esportaAttivitaCsv, esportaVisiteCsv } from '@/lib/export';
 
 export default function Profilo() {
   const { session, signOut } = useAuth();
+  const router = useRouter();
   const [inCoda, setInCoda] = useState(0);
   const [sync, setSync] = useState(false);
+  const [syncHS, setSyncHS] = useState(false);
   const [esporto, setEsporto] = useState<null | 'attivita' | 'visite'>(null);
+  const [nome, setNome] = useState('');
+  const [salvoNome, setSalvoNome] = useState(false);
+
+  async function sincronizzaContatti() {
+    setSyncHS(true);
+    try {
+      const r = await sincronizzaHubspot();
+      Alert.alert('HubSpot', `Sincronizzati ${r.aziende} aziende e ${r.contatti} contatti.`);
+    } catch (e: any) {
+      Alert.alert('Errore', e?.message ?? 'Riprova più tardi.');
+    } finally {
+      setSyncHS(false);
+    }
+  }
 
   const aggiorna = useCallback(async () => {
     setInCoda(await contaInCoda());
-  }, []);
+    const uid = session?.user?.id;
+    if (uid) {
+      const p = await fetchProfilo(uid);
+      if (p) setNome(p.nome ?? '');
+    }
+  }, [session?.user?.id]);
+
+  async function salvaNome() {
+    const uid = session?.user?.id;
+    if (!uid) return;
+    setSalvoNome(true);
+    try {
+      await aggiornaNomeProfilo(uid, nome);
+      Alert.alert('Profilo', 'Nome aggiornato.');
+    } catch {
+      Alert.alert('Profilo', 'Impossibile salvare il nome (riprova più tardi).');
+    } finally {
+      setSalvoNome(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -59,6 +98,20 @@ export default function Profilo() {
         <Text style={styles.cardLabel}>ACCOUNT</Text>
         <Text style={styles.email}>{email}</Text>
         <Text style={styles.meta}>Venditore Deluxy Scout</Text>
+        <Text style={[styles.cardLabel, { marginTop: spacing.md }]}>IL TUO NOME</Text>
+        <View style={styles.nomeRow}>
+          <TextInput
+            style={styles.nomeInput}
+            value={nome}
+            onChangeText={setNome}
+            placeholder="Nome e cognome"
+            placeholderTextColor={colors.grigio}
+          />
+          <Pressable style={[styles.nomeBtn, salvoNome && styles.btnOff]} onPress={salvaNome} disabled={salvoNome}>
+            {salvoNome ? <ActivityIndicator color={colors.bianco} /> : <Text style={styles.btnTxt}>Salva</Text>}
+          </Pressable>
+        </View>
+        <Text style={styles.meta}>Comparirà nella dashboard di Team dell'amministratore.</Text>
       </View>
 
       <View style={styles.card}>
@@ -76,11 +129,26 @@ export default function Profilo() {
         <Text style={styles.cardLabel}>INTEGRAZIONI</Text>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>HubSpot</Text>
-          <Text style={[styles.pill, hubspotOk ? styles.pillOk : styles.pillOff]}>
-            {hubspotOk ? 'Collegato' : 'Non configurato'}
-          </Text>
+          <StatusBadge
+            small
+            label={hubspotOk ? 'Collegato' : 'Non configurato'}
+            colore={hubspotOk ? colors.successo : colors.grigio}
+          />
         </View>
+        <Pressable style={[styles.btn, syncHS && styles.btnOff]} onPress={sincronizzaContatti} disabled={syncHS}>
+          <Text style={styles.btnTxt}>{syncHS ? 'Sincronizzo…' : 'Sincronizza contatti da HubSpot'}</Text>
+        </Pressable>
       </View>
+
+      <Pressable style={styles.card} onPress={() => router.push('/(app)/nascosti')}>
+        <Text style={styles.cardLabel}>ATTIVITÀ</Text>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>
+            <Ionicons name="eye-off-outline" size={15} color={colors.navy} /> Nascosti (non interessanti)
+          </Text>
+          <Text style={styles.freccia}>›</Text>
+        </View>
+      </Pressable>
 
       <View style={styles.card}>
         <Text style={styles.cardLabel}>ESPORTA (CSV)</Text>
@@ -111,15 +179,26 @@ const styles = StyleSheet.create({
     borderColor: colors.grigioChiaro,
     padding: spacing.md,
   },
-  cardLabel: { color: colors.oro, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginBottom: spacing.sm },
+  cardLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '600', letterSpacing: 0.7, marginBottom: spacing.sm },
   email: { fontSize: 18, fontWeight: '800', color: colors.navy },
   meta: { color: colors.testoSoft, fontSize: 13, marginTop: 2 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   rowLabel: { color: colors.navy, fontSize: 15, fontWeight: '600' },
   rowValue: { color: colors.navy, fontSize: 18, fontWeight: '900' },
-  pill: { fontSize: 12, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden' },
-  pillOk: { backgroundColor: colors.successo, color: colors.bianco },
-  pillOff: { backgroundColor: colors.grigioChiaro, color: colors.testoSoft },
+  freccia: { color: colors.oro, fontSize: 20, fontWeight: '800' },
+  nomeRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center', marginTop: spacing.xs },
+  nomeInput: {
+    flex: 1,
+    backgroundColor: colors.sfondo,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: colors.testo,
+  },
+  nomeBtn: { backgroundColor: colors.ink, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 12 },
   btn: { backgroundColor: colors.navy, borderRadius: radius.md, paddingVertical: 13, alignItems: 'center', marginTop: spacing.sm },
   btnOff: { opacity: 0.5 },
   btnTxt: { color: colors.bianco, fontWeight: '800' },

@@ -37,5 +37,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   linea: { color: colors.bianco, fontSize: 18, fontWeight: '700' },
-  aggancio: { color: '#D8DCE6', fontSize: 14, marginTop: 4, lineHeight: 20 },
+  // Testo secondario su fondo scuro (token DS surface-translucent).
+  aggancio: { color: 'rgba(255,255,255,0.72)', fontSize: 14, marginTop: 4, lineHeight: 20 },
 });

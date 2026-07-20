@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { inserisciContatto } from '@/lib/db';
@@ -42,7 +43,9 @@ export default function NuovoContatto() {
         email: email.trim() || null,
         is_decisore: isDecisore,
       });
-      router.back();
+      // Il layout è un Drawer (niente stack lineare): router.back() tornerebbe
+      // alla Mappa. Torniamo esplicitamente al dettaglio del negozio.
+      router.replace(`/(app)/attivita/${placeId}`);
     } catch (e: any) {
       Alert.alert('Errore', e?.message ?? 'Impossibile salvare il contatto.');
     } finally {
@@ -68,7 +71,9 @@ export default function NuovoContatto() {
           <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="nome@azienda.it" placeholderTextColor={colors.grigio} />
 
           <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>È il decisore ⭐</Text>
+            <Text style={styles.switchLabel}>
+              È il decisore <Ionicons name="star" size={14} color={colors.oro} />
+            </Text>
             <Switch
               value={isDecisore}
               onValueChange={setIsDecisore}
@@ -113,13 +118,14 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   switchLabel: { color: colors.navy, fontWeight: '700', fontSize: 16 },
+  // Azione primaria DS: pillola nera (ink), mai oro.
   salva: {
     marginTop: spacing.lg,
-    backgroundColor: colors.oro,
-    borderRadius: radius.md,
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
     paddingVertical: 18,
     alignItems: 'center',
   },
-  salvaOff: { opacity: 0.6 },
-  salvaTxt: { color: colors.navy, fontWeight: '900', fontSize: 18 },
+  salvaOff: { opacity: 0.55 },
+  salvaTxt: { color: colors.bianco, fontWeight: '600', fontSize: 17 },
 });

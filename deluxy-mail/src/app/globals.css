@@ -1,0 +1,793 @@
+@import "./tokens.css";
+
+/* Deluxy Partner — implementazione del Deluxy Design System v1.0
+   (deluxy-design-system/DESIGN-SYSTEM.md). Solo var(--…) dei token. */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* ---------- Shell ---------- */
+.shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 250px;
+  flex: 0 0 250px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  background: var(--surface-translucent);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-right: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 12px 16px;
+  overflow-y: auto;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; padding: 4px 10px 18px; }
+.brand-logo {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: linear-gradient(145deg, #1d1f26, #3a3d47);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: var(--gold);
+  font-family: var(--font-logo);
+  font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+}
+.brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+.brand-sub { font-size: 12px; color: var(--text-secondary); }
+
+.nav-section { margin-top: 14px; }
+.nav-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-tertiary);
+  padding: 6px 10px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--radius-m);
+  font-size: 13.5px; color: var(--text);
+  transition: background 150ms var(--ease);
+}
+.nav-item:hover { background: var(--fill-hover); }
+.nav-item.active { background: var(--fill-active); font-weight: 600; }
+.nav-item svg { width: 19px; height: 19px; stroke: var(--text-secondary); flex: 0 0 19px; }
+.nav-item.active svg { stroke: var(--gold); }
+
+.sidebar-footer {
+  margin-top: auto; padding: 12px 10px 0;
+  border-top: 1px solid var(--hairline);
+  display: flex; align-items: center; gap: 10px;
+}
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--gold-soft); color: var(--gold-strong);
+  font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.main { flex: 1; min-width: 0; padding: 40px 44px 60px; }
+
+/* ---------- Pagina ---------- */
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.page-title { font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
+.page-caption { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+.page-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+.section-title { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; margin: 28px 0 12px; }
+
+/* ---------- Card ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  padding: 24px;
+}
+.card + .card { margin-top: 16px; }
+.card.tight { padding: 0; overflow: hidden; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-l); box-shadow: var(--shadow-card); padding: 20px 24px; }
+.kpi-label { font-size: 12.5px; color: var(--text-secondary); }
+.kpi-value { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.kpi-sub { font-size: 12.5px; color: var(--text-tertiary); margin-top: 4px; }
+.kpi-value.pos { color: var(--green); }
+.kpi-value.neg { color: var(--orange); }
+
+/* ---------- Tabelle ---------- */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th {
+  text-align: left; font-size: 12px; font-weight: 500; color: var(--text-tertiary);
+  padding: 12px 16px; border-bottom: 1px solid var(--hairline);
+  position: sticky; top: 0; background: var(--surface); white-space: nowrap;
+}
+td { padding: 11px 16px; border-bottom: 1px solid var(--hairline); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tbody tr { transition: background 150ms var(--ease); }
+tbody tr:hover { background: rgba(120, 120, 128, 0.05); }
+tr.row-link { cursor: pointer; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td .muted, .muted { color: var(--text-tertiary); }
+td.pos { color: var(--green); }
+td.neg { color: var(--red); }
+
+/* ---------- Badge ---------- */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: var(--radius-pill);
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+}
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.green { background: rgba(36, 138, 61, 0.11); color: var(--green); }
+.badge.orange { background: rgba(201, 52, 0, 0.1); color: var(--orange); }
+.badge.blue { background: rgba(0, 113, 227, 0.1); color: var(--blue); }
+.badge.red { background: rgba(215, 0, 21, 0.09); color: var(--red); }
+.badge.purple { background: rgba(109, 63, 196, 0.1); color: var(--purple); }
+.badge.gold { background: var(--gold-soft); color: var(--gold-strong); }
+.badge.neutral { background: var(--fill); color: var(--text-secondary); }
+
+/* ---------- Bottoni ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: none; cursor: pointer;
+  border-radius: var(--radius-pill);
+  padding: 8px 18px; font-size: 13.5px; font-weight: 500;
+  font-family: var(--font-sans);
+  transition: background 180ms var(--ease), transform 150ms var(--ease);
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.55; cursor: default; }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: var(--ink-hover); }
+.btn.secondary { background: var(--fill); color: var(--text); }
+.btn.secondary:hover { background: var(--fill-hover); }
+.btn.danger { background: var(--fill); color: var(--red); }
+.btn.small { padding: 5px 13px; font-size: 12.5px; }
+
+/* ---------- Form ---------- */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 20px; }
+.form-grid .full { grid-column: 1 / -1; }
+label.field-label { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+label.field-label .req { color: var(--red); }
+input[type="text"], input[type="number"], input[type="date"], input[type="email"], select, textarea {
+  width: 100%;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  padding: 9px 12px;
+  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
+}
+.checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 14px; padding-top: 6px; }
+.form-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+
+/* filtri in testa alle liste */
+.filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.filters select, .filters input { width: auto; min-width: 140px; padding: 7px 11px; font-size: 13px; }
+
+/* ---------- Empty state ---------- */
+.empty { text-align: center; padding: 48px 32px; }
+.empty-icon {
+  width: 44px; height: 44px; border-radius: var(--radius-m);
+  background: var(--gold-soft); color: var(--gold-strong);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 20px; margin-bottom: 14px;
+}
+.empty-title { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+.empty-text { font-size: 14px; color: var(--text-secondary); margin-top: 6px; }
+
+.info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 24px; }
+.info-item .k { font-size: 12px; color: var(--text-tertiary); }
+.info-item .v { font-size: 14.5px; margin-top: 2px; }
+
+/* ---------- Lista messaggi ---------- */
+.mail-list { display: flex; flex-direction: column; }
+.mail-row {
+  display: block;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--hairline);
+  transition: background 150ms var(--ease);
+}
+.mail-row:last-child { border-bottom: none; }
+.mail-row:hover { background: rgba(120, 120, 128, 0.05); }
+.mail-row.non-letto { background: rgba(0, 113, 227, 0.03); }
+.mail-row.selezionato { background: var(--fill-active); }
+/* Solo questa parte apre la mail: i pulsanti di priorità stanno fuori. */
+.mail-row-link { display: block; cursor: pointer; flex: 1; min-width: 0; }
+
+/* Testa della riga: il messaggio a sinistra, data e azioni di risposta in
+   alto a destra. Sono fuori dal link perché un link dentro un link non esiste. */
+.mail-row-head { display: flex; align-items: flex-start; gap: 16px; }
+.mail-row-side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.risposta-azioni { display: flex; gap: 5px; }
+.risposta-btn {
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 150ms var(--ease), color 150ms var(--ease),
+    border-color 150ms var(--ease);
+}
+.risposta-btn:hover { background: var(--ink); color: #fff; border-color: transparent; }
+
+/* Su schermo stretto le tre azioni andrebbero a capo sopra il testo: meglio
+   passare dal dettaglio del messaggio, dove ci sono per esteso. */
+@media (max-width: 700px) {
+  .risposta-azioni { display: none; }
+}
+
+.mail-top { display: flex; align-items: center; gap: 10px; }
+.mail-mittente { font-size: 14px; font-weight: 500; flex: 1; min-width: 0; }
+.mail-row.non-letto .mail-mittente { font-weight: 600; }
+/* Pastiglia col numero di messaggi di una conversazione (thread). */
+.thread-count {
+  flex-shrink: 0;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--fill);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+}
+.thread-item:hover { background: var(--fill) !important; }
+
+/* Il "PLUS AI" su un contatto: pillola neutra, oro quando è attivo. */
+.ai-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--hairline-strong); background: var(--surface);
+  font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-secondary);
+}
+.ai-toggle:hover { border-color: var(--gold); }
+.ai-toggle.small { padding: 3px 9px; font-size: 12px; }
+.ai-toggle .ai-toggle-mark {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 1px 5px; border-radius: 999px; background: var(--fill); color: var(--text-tertiary);
+}
+.ai-toggle.on { border-color: var(--gold); color: var(--gold-strong); background: var(--gold-soft); }
+.ai-toggle.on .ai-toggle-mark { background: var(--gold); color: #fff; }
+.ai-toggle:disabled { opacity: 0.6; cursor: default; }
+
+/* Selettore delle due viste della posta: AI Inbox / Tutte. */
+.vista-tabs { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 16px;
+  background: var(--fill); border-radius: 999px; }
+.vista-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 16px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  color: var(--text-secondary); text-decoration: none;
+}
+.vista-tab.attivo { background: var(--surface); color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08); font-weight: 600; }
+.vista-tab .ai-toggle-mark { background: var(--gold-soft); color: var(--gold-strong); }
+/* La pastiglia "AI" accanto al mittente di un contatto col PLUS AI. */
+.mail-top .ai-toggle-mark { background: var(--gold-soft); color: var(--gold-strong); flex: 0 0 auto; }
+.mail-data { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
+.mail-oggetto {
+  font-size: 14px; margin-top: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mail-riassunto {
+  font-size: 13px; color: var(--text-secondary); margin-top: 4px;
+  display: flex; align-items: flex-start; gap: 6px;
+}
+.mail-riassunto .ai-mark { color: var(--gold-strong); font-weight: 600; flex: 0 0 auto; }
+.mail-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+/* ---------- Posta in arrivo a due colonne ---------- */
+/* 70% posta, 30% attività: le cose da fare restano sott'occhio mentre leggi. */
+.inbox-split { display: grid; grid-template-columns: 70% 30%; gap: 24px; align-items: start; }
+.inbox-split > * { min-width: 0; }
+
+.col-attivita { position: sticky; top: 40px; }
+.col-attivita-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 10px; padding: 0 2px;
+}
+
+.col-task {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+.col-task:last-child { border-bottom: none; }
+.col-task-titolo { font-size: 13.5px; line-height: 1.4; }
+.col-task-titolo a:hover { text-decoration: underline; }
+.col-task-meta {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 6px; font-size: 12px; flex-wrap: wrap;
+}
+.col-task-meta .scaduta { color: var(--red); }
+
+/* Sotto i 1100px la colonna sparisce: su schermo stretto ruberebbe spazio
+   alla posta, e le attività hanno già una pagina tutta loro. */
+@media (max-width: 1100px) {
+  .inbox-split { grid-template-columns: 1fr; }
+  .col-attivita { display: none; }
+}
+
+/* ---------- Pulsanti di priorità (P0…P3) ---------- */
+.prio-group { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.prio-btn {
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  padding: 3px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background 150ms var(--ease), color 150ms var(--ease),
+    border-color 150ms var(--ease), transform 150ms var(--ease);
+}
+.prio-btn:hover { background: var(--fill-hover); }
+.prio-btn:active { transform: scale(0.96); }
+
+/* Spento il livello si vede appena; acceso prende il colore del suo stato. */
+.prio-btn.attivo { color: #fff; border-color: transparent; }
+.prio-btn.red.attivo { background: var(--red); }
+.prio-btn.orange.attivo { background: var(--orange); }
+.prio-btn.blue.attivo { background: var(--blue); }
+.prio-btn.neutral.attivo { background: var(--text-secondary); }
+
+.prio-nota { font-size: 12px; color: var(--text-tertiary); margin-left: 2px; }
+
+/* "Archivia definitivo" sotto i pulsanti di priorità: discreto finché non
+   serve, perché crea una regola permanente e non va premuto per sbaglio. */
+.archivia-def {
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  padding: 2px 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 150ms var(--ease);
+}
+.archivia-def:hover { color: var(--red); }
+.archivia-def:disabled { opacity: 0.55; cursor: default; }
+.archivia-def.si { color: var(--red); font-weight: 600; }
+
+.archivia-def-conferma {
+  display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; color: var(--text-secondary);
+}
+.riga-azioni { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+
+/* Azioni reversibili della riga: stesso peso visivo di "Archivia definitivo",
+   ma neutre — quella è rossa perché è l'unica che lascia un segno. */
+.azione-riga {
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  padding: 2px 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 150ms var(--ease);
+}
+.azione-riga:hover { color: var(--text); }
+.azione-riga:disabled { opacity: 0.55; cursor: default; }
+
+/* pallino non letto */
+.dot-unread { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); flex: 0 0 7px; }
+.dot-spacer { width: 7px; flex: 0 0 7px; }
+
+/* ---------- Rubrica: i più frequenti ---------- */
+.frequenti-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+/* La scheda contiene il link al contatto e, sotto, il pulsante AI: il pulsante
+   non può stare dentro il link, o cliccarlo aprirebbe la scheda. */
+.frequente-card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  padding: 14px 16px 12px;
+  transition: transform 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+.frequente-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-float); }
+.frequente { display: flex; align-items: center; gap: 12px; }
+.frequente-ai { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+.frequente-nome {
+  display: block; font-size: 14px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.frequente-mail {
+  display: block; font-size: 12px; color: var(--text-tertiary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.frequente-conta { display: block; font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+/* Pulsante AI della rubrica: oro, perché è l'unico punto in cui si chiede al
+   modello di lavorare — e costa. Deve vedersi, non nascondersi. */
+.ai-wrap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ai-btn {
+  border: 1px solid rgba(184, 150, 62, 0.35);
+  background: var(--gold-soft);
+  color: var(--gold-strong);
+  border-radius: var(--radius-pill);
+  padding: 3px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background 150ms var(--ease), color 150ms var(--ease), transform 150ms var(--ease);
+}
+.ai-btn:hover { background: var(--gold); color: #fff; border-color: transparent; }
+.ai-btn:active { transform: scale(0.96); }
+.ai-btn:disabled { opacity: 0.6; cursor: default; }
+/* Già analizzato: resta disponibile per rifare il punto, ma non richiama. */
+.ai-btn.fatto { background: transparent; color: var(--text-tertiary); border-color: var(--hairline-strong); }
+.ai-btn.fatto:hover { background: var(--gold-soft); color: var(--gold-strong); }
+.ai-esito { font-size: 11.5px; color: var(--text-secondary); }
+
+/* ---------- Assistente AI (in cima alla posta) ---------- */
+.assistente {
+  background: linear-gradient(135deg, var(--gold-soft), rgba(184, 150, 62, 0.04));
+  border: 1px solid rgba(184, 150, 62, 0.22);
+  border-radius: var(--radius-l);
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+.assistente-titolo { font-size: 15px; font-weight: 600; }
+.assistente-sotto { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.assistente-bottoni { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.assistente-btn {
+  flex: 1;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-m);
+  padding: 12px 16px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-sans);
+  transition: border-color 150ms var(--ease), transform 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+.assistente-btn:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card);
+}
+.assistente-btn:disabled { opacity: 0.6; cursor: default; }
+.assistente-btn-label { font-size: 14px; font-weight: 600; }
+.assistente-btn-sotto { font-size: 12px; color: var(--text-tertiary); }
+.assistente-conferma {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; margin-top: 14px; flex-wrap: wrap;
+  font-size: 13.5px; color: var(--text-secondary);
+}
+.assistente-stato { font-size: 13px; color: var(--text-secondary); margin-top: 12px; }
+
+/* Checklist di archiviazione del report */
+.checklist-testa {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 18px; border-bottom: 1px solid var(--hairline); flex-wrap: wrap;
+}
+.checklist-riga {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 18px; border-bottom: 1px solid var(--hairline); cursor: pointer;
+  transition: background 150ms var(--ease);
+}
+.checklist-riga:last-child { border-bottom: none; }
+.checklist-riga:hover { background: rgba(120, 120, 128, 0.05); }
+.checklist-riga.off { opacity: 0.5; }
+.checklist-riga input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--ink); }
+.checklist-oggetto { display: block; font-size: 14px; }
+.checklist-meta { display: block; font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ---------- Pannello AI a destra ---------- */
+.pannello-velo {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(1px);
+  z-index: 60;
+  animation: velo-in 180ms var(--ease);
+}
+@keyframes velo-in { from { opacity: 0; } to { opacity: 1; } }
+
+.pannello {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 440px;
+  max-width: 100vw;
+  z-index: 61;
+  background: var(--surface);
+  border-left: 1px solid var(--hairline);
+  box-shadow: var(--shadow-float);
+  display: flex;
+  flex-direction: column;
+  animation: pannello-in 220ms var(--ease);
+}
+@keyframes pannello-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.pannello-testa {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+.pannello-contatto {
+  font-size: 16px; font-weight: 600; letter-spacing: -0.01em; margin-top: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pannello-chiudi {
+  flex: 0 0 auto;
+  border: none; background: var(--fill); color: var(--text-secondary);
+  width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 14px;
+  transition: background 150ms var(--ease);
+}
+.pannello-chiudi:hover { background: var(--fill-hover); }
+
+.pannello-corpo { flex: 1; overflow-y: auto; padding: 20px 22px; }
+.pannello-situazione { font-size: 15px; line-height: 1.55; }
+.pannello-sezione {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-tertiary); margin: 22px 0 10px;
+}
+.pannello-lista { margin: 0 0 0 18px; font-size: 14px; line-height: 1.5; }
+.pannello-lista li { margin-top: 5px; }
+.pannello-vuoto { font-size: 14px; color: var(--text-secondary); }
+
+.pannello-azione {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.pannello-azione-titolo { font-size: 14px; font-weight: 500; }
+.pannello-azione-det { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; }
+
+.pannello-piede {
+  border-top: 1px solid var(--hairline);
+  padding: 14px 22px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+
+@media (max-width: 520px) {
+  .pannello { width: 100vw; border-left: none; }
+}
+
+/* ---------- Dettaglio messaggio ---------- */
+.mail-head { padding-bottom: 18px; border-bottom: 1px solid var(--hairline); margin-bottom: 18px; }
+.mail-subject { font-size: 24px; font-weight: 600; letter-spacing: -0.022em; }
+.mail-meta { font-size: 13px; color: var(--text-secondary); margin-top: 8px; }
+.mail-body {
+  font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+}
+
+/* riquadro con quello che ha capito l'AI */
+.ai-box {
+  background: var(--gold-soft);
+  border: 1px solid rgba(184, 150, 62, 0.22);
+  border-radius: var(--radius-l);
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+.ai-box-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--gold-strong); margin-bottom: 8px;
+}
+.ai-box-text { font-size: 14px; }
+
+.draft-box { margin-top: 18px; }
+.draft-box textarea { min-height: 220px; line-height: 1.6; resize: vertical; }
+
+/* ---------- Finestra "Nuova attività" (dialogo con l'AI) ---------- */
+.modal-scrim {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0, 0, 0, 0.32);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 10vh 16px 16px;
+}
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  padding: 20px 22px;
+  width: 100%; max-width: 560px;
+  max-height: 80vh; overflow-y: auto;
+}
+.modal-title {
+  font-size: 17px; font-weight: 600; letter-spacing: -0.017em;
+  margin-bottom: 12px;
+}
+
+/* La domanda (e la proposta) dell'AI nel dialogo: stesso oro dell'ai-box. */
+.ai-domanda {
+  display: flex; gap: 8px; align-items: flex-start;
+  background: var(--gold-soft);
+  border: 1px solid rgba(184, 150, 62, 0.22);
+  border-radius: var(--radius-m);
+  padding: 10px 12px;
+  font-size: 13.5px; line-height: 1.5;
+  margin-bottom: 12px;
+}
+.ai-domanda .ai-mark { color: var(--gold-strong); font-weight: 600; flex: 0 0 auto; font-size: 11px; padding-top: 2px; }
+
+/* I tasti "Nuova mail"/"Nuova attività": in linea su desktop, FAB su mobile. */
+.nuove-inline { display: inline-flex; gap: 8px; align-items: center; }
+.nuove-sep { width: 1px; height: 22px; background: var(--hairline-strong); margin: 0 2px; }
+.fab { display: none; }
+
+/* Le due voci della scelta "Cosa vuoi creare?" */
+.scelta-nuova { display: grid; gap: 10px; }
+.scelta-voce {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  border: 1px solid var(--hairline); border-radius: var(--radius-m);
+  background: var(--surface); cursor: pointer;
+  padding: 14px 16px; width: 100%;
+}
+.scelta-voce:hover { background: var(--fill); }
+.scelta-icona {
+  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--ink); color: #fff; font-size: 16px;
+}
+.scelta-icona.oro { background: var(--gold-soft); color: var(--gold-strong); font-size: 13px; font-weight: 700; }
+.scelta-titolo { display: block; font-size: 15px; font-weight: 600; }
+.scelta-sub { display: block; font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+
+@media (max-width: 900px) {
+  .nuove-inline { display: none; }
+  .fab {
+    display: flex; align-items: center; justify-content: center;
+    position: fixed; right: 18px; bottom: 18px; z-index: 40;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--ink); color: #fff;
+    font-size: 28px; font-weight: 300; line-height: 1;
+    border: none; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  }
+  .fab:active { background: var(--ink-hover); }
+  /* La scelta sale dal fondo, come un foglio. */
+  .modal-scrim.bottom { align-items: flex-end; padding: 0; }
+  .modal-scrim.bottom .modal {
+    max-width: none; border-radius: var(--radius-l) var(--radius-l) 0 0;
+    border-bottom: none; padding-bottom: 28px;
+  }
+}
+
+/* ---------- Regole ---------- */
+.rule-card {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  padding: 18px 20px;
+  margin-bottom: 12px;
+  background: var(--surface);
+}
+.rule-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.rule-name { font-size: 15px; font-weight: 600; }
+.rule-cond { font-size: 13px; color: var(--text-secondary); margin-top: 8px; line-height: 1.6; }
+.rule-cond code {
+  background: var(--fill); padding: 1px 6px; border-radius: var(--radius-s);
+  font-size: 12.5px;
+}
+
+/* ---------- Attività ---------- */
+.task-row { display: flex; align-items: flex-start; gap: 12px; padding: 13px 20px; border-bottom: 1px solid var(--hairline); }
+.task-row:last-child { border-bottom: none; }
+.task-row.fatta .task-titolo { text-decoration: line-through; color: var(--text-tertiary); }
+.task-titolo { font-size: 14px; font-weight: 500; }
+.task-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; }
+.task-side { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* Barra mobile con hamburger: nascosta su desktop. */
+.mobile-bar { display: none; }
+.nav-scrim { display: none; }
+
+@media (max-width: 900px) {
+  /* Barra fissa in alto con l'hamburger. */
+  .mobile-bar {
+    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 30;
+    height: 54px; padding: 0 14px;
+    background: var(--surface-translucent);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .mobile-title { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
+  .hamburger {
+    display: inline-flex; flex-direction: column; justify-content: center; gap: 4px;
+    width: 40px; height: 40px; padding: 9px; margin-left: -8px;
+    border: none; background: none; cursor: pointer;
+  }
+  .hamburger span {
+    display: block; height: 2px; width: 100%; border-radius: 2px;
+    background: var(--text-primary);
+  }
+
+  /* La sidebar diventa un cassetto fuori schermo che scivola dentro. */
+  .shell { flex-direction: column; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; height: 100dvh; width: 82vw; max-width: 300px;
+    flex: none; z-index: 50;
+    transform: translateX(-100%); transition: transform 0.25s ease;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.18);
+  }
+  .shell.nav-open .sidebar { transform: translateX(0); }
+  .sidebar-footer { display: flex; }
+
+  /* Sfondo scuro che chiude il cassetto al tocco. */
+  .nav-scrim {
+    display: block; position: fixed; inset: 0; z-index: 45;
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  .main { padding: 20px 16px 40px; }
+  .mail-subject { font-size: 20px; }
+
+  /* Su telefono la priorità è vedere la posta: intestazione più compatta e
+     Assistente AI nascosto (resta su desktop), così le mail salgono subito. */
+  .page-title { font-size: 24px; }
+  .page-head { margin-bottom: 14px; }
+  .assistente { display: none; }
+  /* I filtri e le priorità restano su una fascia scorrevole, senza mangiare
+     tre righe di altezza. Va da bordo a bordo dello schermo, così si capisce
+     che continua invece di sembrare tagliata a metà. */
+  .page-actions.filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: calc(100% + 32px);
+    margin: 0 -16px;
+    padding: 2px 16px 2px;
+    /* La barra di scorrimento su un nastro di pillole è solo rumore. */
+    scrollbar-width: none;
+  }
+  .page-actions.filters::-webkit-scrollbar { display: none; }
+  /* Senza questo le pillole si stringono e il testo va a capo ("Non letti"). */
+  .page-actions.filters > * { flex: 0 0 auto; white-space: nowrap; }
+}
