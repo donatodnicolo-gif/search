@@ -761,7 +761,7 @@ function closeMenu(){ $('#sidebar').classList.remove('open'); $('#appOverlay').c
 function toggleMenu(){ $('#sidebar').classList.toggle('open'); $('#appOverlay').classList.toggle('open'); }
 const PAGE_TITLES = { operativa: ['Smistamento ordini', 'Recupera un ordine e invialo al fiorario o pasticceria più vicino, via WhatsApp o email.'],
                       impostazioni: ['Impostazioni', 'Chiavi, utenze e collegamenti dell\'app, salvati sul server.'],
-                      storico: ['Storico richieste', 'Richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
+                      storico: ['Storico richieste', 'Check ordini Shopify, richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
 // vista: false/'operativa' | true/'impostazioni' | 'storico'
 function setView(vista){
   if(vista === true) vista = 'impostazioni';
@@ -1111,7 +1111,8 @@ async function fetchOrder(){
   $('#fetchOrder').disabled = true;
   setOrderStatus('Recupero ordine '+number+' da '+brand+'…');
   try{
-    const url = '/api/order?brand='+encodeURIComponent(brand)+'&number='+encodeURIComponent(number);
+    const url = '/api/order?brand='+encodeURIComponent(brand)+'&number='+encodeURIComponent(number)
+              + '&ts='+encodeURIComponent(new Date().toISOString());   // per lo Storico (il server non usa new Date())
     const r = await apiFetch(url);
     let data; try{ data = await r.json(); }catch(e){ data = {}; }
     if(!r.ok || data.found===false){
@@ -1668,7 +1669,7 @@ function logEvento(evt){
     apiFetch('/api/storico', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(()=>{});
   }catch(e){}
 }
-const ST_TIPO = { richiesta:'📤 Richiesta ordine', rubrica:'💾 Rubrica', segnalazione:'📣 Segnalazione' };
+const ST_TIPO = { richiesta:'📤 Richiesta ordine', rubrica:'💾 Rubrica', segnalazione:'📣 Segnalazione', check:'🔎 Check ordine' };
 function fmtQuando(iso){
   const d = new Date(iso);
   if(isNaN(d)) return iso || '';

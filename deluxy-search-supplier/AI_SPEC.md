@@ -40,7 +40,7 @@ Oggetto JSON in KV alla chiave **`config:v1`**:
 |---|---|---|
 | GET | `/api/config` | ritorna config "sanitizzata" (senza token) |
 | POST | `/api/config` | salva config; body `{googleKey,proxy,stores:[{brand,shop,token}]}`. **token vuoto = mantiene quello esistente** |
-| GET | `/api/order?brand=&number=&debug=` | ordine per numero. Prima cerca in KV (webhook), poi via Shopify Admin col token. `debug=1` elenca i nomi ordini recenti |
+| GET | `/api/order?brand=&number=&ts=&debug=` | ordine per numero. Prima cerca in KV (webhook), poi via Shopify Admin col token. `debug=1` elenca i nomi ordini recenti. **Ogni check viene registrato nello Storico** (tipo `check`, esito trovato/non trovato, `ts` = timestamp ISO dal browser) |
 | POST | `/api/webhook?brand=` | riceve ordine da Shopify (HTTPS diretto **o** envelope Google Pub/Sub) e lo salva in KV `order:{brand}:{num}` (TTL 60gg) |
 | GET | `/api/oauth?shop=&pass=` | avvia OAuth Shopify; il callback salva il token Admin del negozio in `config:v1.stores` |
 
