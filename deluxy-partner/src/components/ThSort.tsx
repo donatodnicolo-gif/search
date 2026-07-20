@@ -1,27 +1,38 @@
 import Link from "next/link";
 
 // Intestazione di colonna ordinabile: click alterna asc/desc mantenendo i filtri.
+// `chiave` distingue tabelle diverse nella stessa pagina (usa sortX/dirX invece
+// di sort/dir), così ogni tabella si ordina senza toccare le altre.
 export function ThSort({
   label,
   campo,
   sp,
   path,
   num,
+  chiave = "",
+  defaultAttivo,
 }: {
   label: string;
   campo: string;
   sp: Record<string, string | undefined>;
   path: string;
   num?: boolean;
+  chiave?: string;
+  // colonna evidenziata quando nessun ordinamento è stato scelto (default di pagina)
+  defaultAttivo?: boolean;
 }) {
-  const attivo = sp.sort === campo;
-  const dir = attivo && sp.dir === "asc" ? "desc" : "asc";
+  const kSort = `sort${chiave}`;
+  const kDir = `dir${chiave}`;
+  const sortCorrente = sp[kSort];
+  const dirCorrente = sp[kDir];
+  const attivo = sortCorrente ? sortCorrente === campo : Boolean(defaultAttivo);
+  const dir = attivo && (dirCorrente ?? "asc") === "asc" ? "desc" : "asc";
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(sp)) {
-    if (v != null && v !== "" && k !== "sort" && k !== "dir") params.set(k, v);
+    if (v != null && v !== "" && k !== kSort && k !== kDir) params.set(k, v);
   }
-  params.set("sort", campo);
-  params.set("dir", dir);
+  params.set(kSort, campo);
+  params.set(kDir, dir);
   return (
     <th className={num ? "num" : undefined}>
       <Link
@@ -33,7 +44,7 @@ export function ThSort({
         }}
       >
         {label}
-        {attivo ? (sp.dir === "asc" ? " ↑" : " ↓") : ""}
+        {attivo ? ((dirCorrente ?? "asc") === "asc" ? " ↑" : " ↓") : ""}
       </Link>
     </th>
   );

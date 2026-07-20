@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { ivato, nomeMese, MESI } from "@/lib/calc";
 import { updateFattura, segnaFatturaPagata, deleteFattura } from "@/lib/actions";
+import { ScadenzaRapida } from "@/components/ScadenzaRapida";
 
 export const dynamic = "force-dynamic";
 
@@ -140,14 +141,10 @@ export default async function FatturaDetail({
             <label className="field-label">Aliquota IVA %</label>
             <input type="number" name="aliquotaIva" step="1" defaultValue={fattura.aliquotaIva} />
           </div>
-          <div>
-            <label className="field-label">Emissione</label>
-            <input type="date" name="emissione" defaultValue={dataIso(fattura.emissione)} />
-          </div>
-          <div>
-            <label className="field-label">Scadenza</label>
-            <input type="date" name="scadenza" defaultValue={dataIso(fattura.scadenza)} />
-          </div>
+          <ScadenzaRapida
+            emissioneIniziale={dataIso(fattura.emissione)}
+            scadenzaIniziale={dataIso(fattura.scadenza)}
+          />
           <div className="checkbox-row">
             <input type="checkbox" id="pagata" name="pagata" defaultChecked={fattura.pagata} />
             <label htmlFor="pagata">Saldata</label>

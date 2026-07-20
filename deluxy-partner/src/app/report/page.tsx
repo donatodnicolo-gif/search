@@ -14,6 +14,39 @@ function aggrega<T>(items: T[], key: (t: T) => string, val: (t: T) => number) {
   return [...map.entries()].sort((a, b) => b[1] - a[1]);
 }
 
+// Quota percentuale sul totale (una cifra decimale sotto il 10%, intera sopra).
+function quota(v: number, totale: number): string {
+  if (!totale) return "—";
+  const p = (v / totale) * 100;
+  return `${p < 10 ? p.toFixed(1) : Math.round(p)}%`;
+}
+
+// Variazione % rispetto a un valore di riferimento (col segno).
+function variazione(v: number, base: number): string {
+  if (!base) return v ? "n.d." : "—";
+  const p = ((v - base) / base) * 100;
+  return `${p > 0 ? "+" : ""}${Math.round(p)}%`;
+}
+
+// Riga di tabella "chiave · valore · quota %", con barra di quota.
+function RigaQuota({ k, v, totale }: { k: string; v: number; totale: number }) {
+  const p = totale ? (v / totale) * 100 : 0;
+  return (
+    <tr>
+      <td>{k}</td>
+      <td className="num">{euro(v)}</td>
+      <td className="num" style={{ width: 110 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+          <span className="quota-barra" aria-hidden>
+            <span style={{ width: `${Math.min(p, 100)}%` }} />
+          </span>
+          <span style={{ minWidth: 42, display: "inline-block" }}>{quota(v, totale)}</span>
+        </span>
+      </td>
+    </tr>
+  );
+}
+
 export default async function ReportPage() {
   const anno = ANNO_CORRENTE;
   const tutti = await riepilogoTutti(anno);
@@ -38,14 +71,25 @@ export default async function ReportPage() {
     return { mese, vendite, servizi, commissioni };
   });
   const maxMese = Math.max(...perMese.map((m) => m.vendite + m.servizi), 1);
+  const totAnno = perMese.reduce((a, m) => a + m.vendite + m.servizi, 0);
 
-  // Forecast vs actual (dal piano commerciale)
-  const fcPerCliente = new Map<string, { forecast: number; actual: number; prec: number }>();
+  // Totali di riferimento per le quote percentuali
+  const totTipologia = perTipologia.reduce((a, [, v]) => a + v, 0);
+  const totCitta = perCitta.reduce((a, [, v]) => a + v, 0);
+  const totCategoria = perCategoria.reduce((a, [, v]) => a + v, 0);
+  const totComplessivo = tutti.reduce((a, t) => a + t.rolling.vendite + t.rolling.fatture, 0);
+
+  // Forecast vs actual (dal piano commerciale). `precYtd` somma l'anno
+  // precedente SOLO fino all'ultimo mese con dati actual, così il confronto
+  // "vs anno precedente" mette a paragone periodi omogenei (non YTD vs anno intero).
+  const ultimoMeseActual = forecast.reduce((m, f) => ((f.actual ?? 0) > 0 ? Math.max(m, f.mese) : m), 0);
+  const fcPerCliente = new Map<string, { forecast: number; actual: number; prec: number; precYtd: number }>();
   for (const f of forecast) {
-    const cur = fcPerCliente.get(f.partnerNome) ?? { forecast: 0, actual: 0, prec: 0 };
+    const cur = fcPerCliente.get(f.partnerNome) ?? { forecast: 0, actual: 0, prec: 0, precYtd: 0 };
     cur.forecast += f.forecast ?? 0;
     cur.actual += f.actual ?? 0;
     cur.prec += f.valPrecedente ?? 0;
+    if (f.mese <= ultimoMeseActual) cur.precYtd += f.valPrecedente ?? 0;
     fcPerCliente.set(f.partnerNome, cur);
   }
   const fcRighe = [...fcPerCliente.entries()]
@@ -54,6 +98,7 @@ export default async function ReportPage() {
   const totFc = fcRighe.reduce((a, [, v]) => a + v.forecast, 0);
   const totAct = fcRighe.reduce((a, [, v]) => a + v.actual, 0);
   const totPrec = fcRighe.reduce((a, [, v]) => a + v.prec, 0);
+  const totPrecYtd = fcRighe.reduce((a, [, v]) => a + v.precYtd, 0);
 
   // Top partner per valore complessivo
   const top = [...tutti]
@@ -76,7 +121,11 @@ export default async function ReportPage() {
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>Mese</th><th style={{ width: "42%" }}></th><th className="num">Vendite</th><th className="num">Servizi</th><th className="num">Commissioni</th></tr>
+              <tr>
+                <th>Mese</th><th style={{ width: "36%" }}></th>
+                <th className="num">Vendite</th><th className="num">Servizi</th>
+                <th className="num">Commissioni</th><th className="num">% anno</th>
+              </tr>
             </thead>
             <tbody>
               {perMese.map((m) => (
@@ -91,8 +140,16 @@ export default async function ReportPage() {
                   <td className="num">{euro(m.vendite)}</td>
                   <td className="num">{euro(m.servizi)}</td>
                   <td className="num pos">{euro(m.commissioni)}</td>
+                  <td className="num muted">{quota(m.vendite + m.servizi, totAnno)}</td>
                 </tr>
               ))}
+              <tr style={{ background: "var(--bg)", fontWeight: 600 }}>
+                <td>Totale</td><td></td>
+                <td className="num">{euro(perMese.reduce((a, m) => a + m.vendite, 0))}</td>
+                <td className="num">{euro(perMese.reduce((a, m) => a + m.servizi, 0))}</td>
+                <td className="num pos">{euro(perMese.reduce((a, m) => a + m.commissioni, 0))}</td>
+                <td className="num">100%</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -106,11 +163,14 @@ export default async function ReportPage() {
           <h2 className="section-title" style={{ marginTop: 0 }}>Servizi per tipologia</h2>
           <div className="card tight">
             <table>
-              <thead><tr><th>Tipologia (Piano per Area)</th><th className="num">Fatturato netto</th></tr></thead>
+              <thead><tr><th>Tipologia (Piano per Area)</th><th className="num">Fatturato netto</th><th className="num">%</th></tr></thead>
               <tbody>
                 {perTipologia.map(([k, v]) => (
-                  <tr key={k}><td>{k}</td><td className="num">{euro(v)}</td></tr>
+                  <RigaQuota key={k} k={k} v={v} totale={totTipologia} />
                 ))}
+                <tr style={{ background: "var(--bg)", fontWeight: 600 }}>
+                  <td>Totale</td><td className="num">{euro(totTipologia)}</td><td className="num">100%</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -119,11 +179,18 @@ export default async function ReportPage() {
           <h2 className="section-title" style={{ marginTop: 0 }}>Valore per città</h2>
           <div className="card tight">
             <table>
-              <thead><tr><th>Città</th><th className="num">Vendite + servizi</th></tr></thead>
+              <thead><tr><th>Città</th><th className="num">Vendite + servizi</th><th className="num">%</th></tr></thead>
               <tbody>
                 {perCitta.slice(0, 10).map(([k, v]) => (
-                  <tr key={k}><td>{k}</td><td className="num">{euro(v)}</td></tr>
+                  <RigaQuota key={k} k={k} v={v} totale={totCitta} />
                 ))}
+                {perCitta.length > 10 && (
+                  <tr className="muted">
+                    <td>Altre {perCitta.length - 10} città</td>
+                    <td className="num">{euro(perCitta.slice(10).reduce((a, [, v]) => a + v, 0))}</td>
+                    <td className="num">{quota(perCitta.slice(10).reduce((a, [, v]) => a + v, 0), totCitta)}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -132,11 +199,18 @@ export default async function ReportPage() {
           <h2 className="section-title" style={{ marginTop: 0 }}>Valore per categoria</h2>
           <div className="card tight">
             <table>
-              <thead><tr><th>Categoria</th><th className="num">Vendite + servizi</th></tr></thead>
+              <thead><tr><th>Categoria</th><th className="num">Vendite + servizi</th><th className="num">%</th></tr></thead>
               <tbody>
                 {perCategoria.slice(0, 10).map(([k, v]) => (
-                  <tr key={k}><td>{k}</td><td className="num">{euro(v)}</td></tr>
+                  <RigaQuota key={k} k={k} v={v} totale={totCategoria} />
                 ))}
+                {perCategoria.length > 10 && (
+                  <tr className="muted">
+                    <td>Altre {perCategoria.length - 10} categorie</td>
+                    <td className="num">{euro(perCategoria.slice(10).reduce((a, [, v]) => a + v, 0))}</td>
+                    <td className="num">{quota(perCategoria.slice(10).reduce((a, [, v]) => a + v, 0), totCategoria)}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -154,18 +228,29 @@ export default async function ReportPage() {
                 <th className="num">Servizi</th>
                 <th className="num">Commissioni</th>
                 <th className="num">Stima chiusura</th>
+                <th className="num">% sul totale</th>
+                <th className="num">% cumulata</th>
               </tr>
             </thead>
             <tbody>
-              {top.map((t) => (
-                <tr key={t.partner.id}>
-                  <td style={{ fontWeight: 500 }}>{t.partner.nome}</td>
-                  <td className="num">{euro(t.rolling.vendite)}</td>
-                  <td className="num">{euro(t.rolling.fatture)}</td>
-                  <td className="num pos">{euro(t.rolling.commissioni)}</td>
-                  <td className="num">{euro(t.rolling.stimaChiusura)}</td>
-                </tr>
-              ))}
+              {(() => {
+                let cumulato = 0;
+                return top.map((t) => {
+                  const valore = t.rolling.vendite + t.rolling.fatture;
+                  cumulato += valore;
+                  return (
+                    <tr key={t.partner.id}>
+                      <td style={{ fontWeight: 500 }}>{t.partner.nome}</td>
+                      <td className="num">{euro(t.rolling.vendite)}</td>
+                      <td className="num">{euro(t.rolling.fatture)}</td>
+                      <td className="num pos">{euro(t.rolling.commissioni)}</td>
+                      <td className="num">{euro(t.rolling.stimaChiusura)}</td>
+                      <td className="num">{quota(valore, totComplessivo)}</td>
+                      <td className="num muted">{quota(cumulato, totComplessivo)}</td>
+                    </tr>
+                  );
+                });
+              })()}
             </tbody>
           </table>
         </div>
@@ -182,28 +267,49 @@ export default async function ReportPage() {
                 <th className="num">Actual {anno}</th>
                 <th className="num">Forecast {anno}</th>
                 <th className="num">Avanzamento</th>
+                <th className="num">vs {anno - 1} (stesso periodo)</th>
+                <th className="num">% sul forecast</th>
               </tr>
             </thead>
             <tbody>
-              {fcRighe.map(([nome, v]) => (
-                <tr key={nome}>
-                  <td>{nome}</td>
-                  <td className="num muted">{euro(v.prec)}</td>
-                  <td className="num">{euro(v.actual)}</td>
-                  <td className="num">{euro(v.forecast)}</td>
-                  <td className="num">{v.forecast ? `${Math.round((v.actual / v.forecast) * 100)}%` : "—"}</td>
-                </tr>
-              ))}
+              {fcRighe.map(([nome, v]) => {
+                const avanz = v.forecast ? Math.round((v.actual / v.forecast) * 100) : null;
+                const cresc = variazione(v.actual, v.precYtd);
+                return (
+                  <tr key={nome}>
+                    <td>{nome}</td>
+                    <td className="num muted">{euro(v.prec)}</td>
+                    <td className="num">{euro(v.actual)}</td>
+                    <td className="num">{euro(v.forecast)}</td>
+                    <td className={`num ${avanz != null && avanz >= 100 ? "pos" : ""}`}>
+                      {avanz != null ? `${avanz}%` : "—"}
+                    </td>
+                    <td className={`num ${cresc.startsWith("+") ? "pos" : cresc.startsWith("-") ? "neg" : "muted"}`}>
+                      {cresc}
+                    </td>
+                    <td className="num muted">{quota(v.forecast, totFc)}</td>
+                  </tr>
+                );
+              })}
               <tr style={{ background: "var(--bg)", fontWeight: 600 }}>
                 <td>Totale</td>
                 <td className="num">{euro(totPrec)}</td>
                 <td className="num">{euro(totAct)}</td>
                 <td className="num">{euro(totFc)}</td>
                 <td className="num">{totFc ? `${Math.round((totAct / totFc) * 100)}%` : "—"}</td>
+                <td className="num">{variazione(totAct, totPrecYtd)}</td>
+                <td className="num">100%</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 10, padding: "0 16px 4px" }}>
+          <strong>Avanzamento</strong> = actual sul forecast dell&apos;intero anno · <strong>vs {anno - 1}</strong> =
+          crescita dell&apos;actual confrontata con lo <em>stesso periodo</em> dell&apos;anno precedente
+          {ultimoMeseActual ? ` (gennaio–${MESI[ultimoMeseActual - 1].toLowerCase()})` : ""} ·{" "}
+          <strong>% sul forecast</strong> = peso del cliente sul forecast totale. La colonna
+          &laquo;Consuntivo {anno - 1}&raquo; resta l&apos;anno intero.
+        </p>
       </div>
     </>
   );

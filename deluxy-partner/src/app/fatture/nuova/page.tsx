@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { createFattura } from "@/lib/actions";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { MESI } from "@/lib/calc";
+import { ScadenzaRapida } from "@/components/ScadenzaRapida";
 
 export const dynamic = "force-dynamic";
 
@@ -68,14 +69,7 @@ export default async function NuovaFattura({
             <label className="field-label">N° fattura (FattureInCloud)</label>
             <input type="text" name="numero" placeholder="es. 68/2026" />
           </div>
-          <div>
-            <label className="field-label">Data emissione</label>
-            <input type="date" name="emissione" />
-          </div>
-          <div>
-            <label className="field-label">Scadenza (vuota = automatica da GG pagamento)</label>
-            <input type="date" name="scadenza" />
-          </div>
+          <ScadenzaRapida />
           <div className="full">
             <label className="field-label">Descrizione</label>
             <input type="text" name="descrizione" placeholder="es. Consegne guanti bianchi settimana 12" />

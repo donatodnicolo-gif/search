@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-type Item = { href: string; label: string; icon: React.ReactNode };
+// Una voce di menu può avere sottovoci (es. Fatture → Servizi / Pro-forma):
+// il gruppo si apre da solo quando sei dentro una delle sue pagine.
+type Item = { href: string; label: string; icon: React.ReactNode; figli?: Item[] };
 
 const stroke = {
   fill: "none",
@@ -99,10 +101,20 @@ const icons = {
 const sections: { label: string; items: Item[] }[] = [
   {
     label: "Operatività",
+    items: [{ href: "/", label: "Dashboard", icon: icons.dashboard }],
+  },
+  {
+    label: "Registrazioni",
     items: [
-      { href: "/", label: "Dashboard", icon: icons.dashboard },
-      { href: "/fatture", label: "Servizi a fatturazione", icon: icons.fattura },
-      { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
+      {
+        href: "/fatture",
+        label: "Fatture",
+        icon: icons.fattura,
+        figli: [
+          { href: "/fatture", label: "Servizi a fatturazione", icon: icons.fattura },
+          { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
+        ],
+      },
       { href: "/vendite", label: "Vendite come vendor", icon: icons.vendite },
     ],
   },
@@ -175,17 +187,36 @@ export function Sidebar() {
       {sections.map((s) => (
         <div className="nav-section" key={s.label}>
           <div className="nav-label solo-estesa">{s.label}</div>
-          {s.items.map((it) => (
-            <Link
-              key={it.href}
-              href={it.href}
-              className={`nav-item${isActive(it.href) ? " active" : ""}`}
-              title={chiusa ? it.label : undefined}
-            >
-              {it.icon}
-              <span className="solo-estesa">{it.label}</span>
-            </Link>
-          ))}
+          {s.items.map((it) => {
+            const figli = it.figli ?? [];
+            // il gruppo è "aperto" quando sei su una delle sue pagine
+            const apertoGruppo = figli.some((f) => isActive(f.href));
+            return (
+              <div key={it.href}>
+                <Link
+                  href={figli[0]?.href ?? it.href}
+                  className={`nav-item${(figli.length ? apertoGruppo : isActive(it.href)) ? " active" : ""}`}
+                  title={chiusa ? it.label : undefined}
+                >
+                  {it.icon}
+                  <span className="solo-estesa">{it.label}</span>
+                </Link>
+                {figli.length > 0 && !chiusa && (
+                  <div className="nav-figli">
+                    {figli.map((f) => (
+                      <Link
+                        key={f.href}
+                        href={f.href}
+                        className={`nav-item figlio${isActive(f.href) ? " active" : ""}`}
+                      >
+                        <span className="solo-estesa">{f.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ))}
 

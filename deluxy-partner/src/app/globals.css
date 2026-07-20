@@ -362,3 +362,21 @@ input:focus, select:focus, textarea:focus {
     max-width: none; padding: 10mm 6mm;
   }
 }
+
+/* Termini di pagamento rapidi (scadenza fattura) */
+.termini { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.termini .btn.small { padding: 5px 11px; font-size: 12.5px; }
+
+/* Barra di quota percentuale nei report */
+.quota-barra {
+  display: inline-block; width: 40px; height: 6px; border-radius: 3px;
+  background: var(--fill); overflow: hidden; vertical-align: middle;
+}
+.quota-barra > span { display: block; height: 100%; background: var(--gold); border-radius: 3px; }
+
+/* Sottovoci di menu (es. Fatture → Servizi a fatturazione / Pro-forma) */
+.nav-figli { margin: 2px 0 4px 10px; padding-left: 12px; border-left: 1px solid var(--hairline); }
+.nav-item.figlio {
+  padding: 6px 10px; font-size: 13px; color: var(--text-secondary);
+}
+.nav-item.figlio.active { color: var(--text); background: var(--fill-active); font-weight: 600; }

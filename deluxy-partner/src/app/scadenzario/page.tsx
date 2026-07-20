@@ -4,41 +4,96 @@ import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
 import { nomeMese, ivato } from "@/lib/calc";
 import { segnaFatturaPagata } from "@/lib/actions";
+import { ThSort, ordina } from "@/components/ThSort";
 
 export const dynamic = "force-dynamic";
 
-// Scadenzario: tutto ciò che è in sospeso, ordinato per urgenza.
+// Scadenzario: tutto ciò che è in sospeso. Ricerca per partner/numero e
+// colonne ordinabili; l'ordine di default di ogni tabella è il nome partner.
 export default async function Scadenzario({
   searchParams,
 }: {
-  searchParams: Promise<{ sollecito?: string }>;
+  searchParams: Promise<{
+    sollecito?: string;
+    q?: string;
+    sort?: string; dir?: string; // fatture da incassare
+    sortB?: string; dirB?: string; // bonifici
+    sortC?: string; dirC?: string; // commissioni
+  }>;
 }) {
   const sp = await searchParams;
   const anno = ANNO_CORRENTE;
   const oggi = new Date();
+  const q = (sp.q ?? "").trim().toLowerCase();
+  const cerca = (...campi: (string | null | undefined)[]) =>
+    !q || campi.some((c) => (c ?? "").toLowerCase().includes(q));
 
-  const aperte = await prisma.fatturaServizio.findMany({
+  const aperteRaw = await prisma.fatturaServizio.findMany({
     where: { anno, pagata: false, imponibile: { gt: 0 } },
     include: { partner: true, tipologia: true },
     orderBy: [{ scadenza: "asc" }],
   });
+  const aperte = aperteRaw.filter((f) =>
+    cerca(f.partner.nome, f.partner.ragioneSociale, f.numero, f.tipologia.nome, f.descrizione)
+  );
   const scadute = aperte.filter((f) => f.scadenza && f.scadenza < oggi);
-  const inScadenza = aperte.filter((f) => !f.scadenza || f.scadenza >= oggi);
+
+  type F = (typeof aperte)[number];
+  const campiF: Record<string, (f: F) => string | number | Date | null> = {
+    partner: (f) => f.partner.nome,
+    mese: (f) => f.mese,
+    numero: (f) => f.numero,
+    tipologia: (f) => f.tipologia.nome,
+    scadenza: (f) => f.scadenza,
+    importo: (f) => ivato(f),
+  };
+  // default: nome partner (A→Z); scegliendo una colonna vale quella
+  const fatture = ordina(aperte, campiF[sp.sort ?? ""] ?? campiF.partner, sp.sort ? sp.dir : "asc");
 
   const tutti = await riepilogoTutti(anno);
-  const bonificiPendenti = tutti
+  const bonificiTutti = tutti
     .flatMap((t) =>
       t.mesi
         .filter((m) => m.riepilogo.daBonificare >= 0.01)
         .map((m) => ({ partner: t.partner, mese: m.mese, r: m.riepilogo }))
     )
-    .sort((a, b) => a.mese - b.mese || b.r.daBonificare - a.r.daBonificare);
+    .filter((x) => cerca(x.partner.nome, x.partner.ragioneSociale, x.partner.iban));
 
-  const commDaEmettere = tutti.flatMap((t) =>
-    t.mesi
-      .filter((m) => m.riepilogo.vendite > 0 && !m.saldo?.commFattEmessa)
-      .map((m) => ({ partner: t.partner, mese: m.mese, r: m.riepilogo }))
+  type B = (typeof bonificiTutti)[number];
+  const campiB: Record<string, (b: B) => string | number | null> = {
+    partner: (b) => b.partner.nome,
+    mese: (b) => b.mese,
+    residuo: (b) => b.r.daBonificare,
+    iban: (b) => b.partner.iban,
+  };
+  const bonificiPendenti = ordina(
+    bonificiTutti,
+    campiB[sp.sortB ?? ""] ?? campiB.partner,
+    sp.sortB ? sp.dirB : "asc"
   );
+
+  const commTutte = tutti
+    .flatMap((t) =>
+      t.mesi
+        .filter((m) => m.riepilogo.vendite > 0 && !m.saldo?.commFattEmessa)
+        .map((m) => ({ partner: t.partner, mese: m.mese, r: m.riepilogo }))
+    )
+    .filter((x) => cerca(x.partner.nome, x.partner.ragioneSociale));
+
+  type C = (typeof commTutte)[number];
+  const campiC: Record<string, (c: C) => string | number | null> = {
+    partner: (c) => c.partner.nome,
+    mese: (c) => c.mese,
+    vendite: (c) => c.r.vendite,
+    commissioni: (c) => c.r.commissioni,
+  };
+  const commDaEmettere = ordina(
+    commTutte,
+    campiC[sp.sortC ?? ""] ?? campiC.partner,
+    sp.sortC ? sp.dirC : "asc"
+  );
+
+  const trovati = fatture.length + bonificiPendenti.length + commDaEmettere.length;
 
   return (
     <>
@@ -54,6 +109,28 @@ export default async function Scadenzario({
             </span>
           )}
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+        <form className="filters" method="get">
+          <input
+            type="search"
+            name="q"
+            defaultValue={sp.q ?? ""}
+            placeholder="Cerca partner, n° fattura, tipologia…"
+            style={{ minWidth: 280, flex: "1 1 280px" }}
+            aria-label="Cerca nello scadenzario"
+          />
+          <button className="btn secondary small" type="submit">Cerca</button>
+          {q && (
+            <>
+              <Link className="btn secondary small" href="/scadenzario">Azzera</Link>
+              <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                {trovati} risultati per &laquo;{sp.q}&raquo;
+              </span>
+            </>
+          )}
+        </form>
       </div>
 
       <div className="kpi-grid">
@@ -76,23 +153,30 @@ export default async function Scadenzario({
 
       <h2 className="section-title">Fatture servizi da incassare</h2>
       <div className="card tight">
-        {aperte.length === 0 ? (
+        {fatture.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">✓</div>
-            <div className="empty-title">Tutto incassato</div>
-            <div className="empty-text">Non ci sono fatture servizi aperte.</div>
+            <div className="empty-title">{q ? "Nessun risultato" : "Tutto incassato"}</div>
+            <div className="empty-text">
+              {q ? "Nessuna fattura aperta corrisponde alla ricerca." : "Non ci sono fatture servizi aperte."}
+            </div>
           </div>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Partner</th><th>Mese</th><th>N°</th><th>Tipologia</th>
-                  <th>Scadenza</th><th className="num">IVA incl.</th><th></th>
+                  <ThSort label="Partner" campo="partner" sp={sp} path="/scadenzario" defaultAttivo />
+                  <ThSort label="Mese" campo="mese" sp={sp} path="/scadenzario" />
+                  <ThSort label="N°" campo="numero" sp={sp} path="/scadenzario" />
+                  <ThSort label="Tipologia" campo="tipologia" sp={sp} path="/scadenzario" />
+                  <ThSort label="Scadenza" campo="scadenza" sp={sp} path="/scadenzario" />
+                  <ThSort label="IVA incl." campo="importo" sp={sp} path="/scadenzario" num />
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {[...scadute, ...inScadenza].map((f) => (
+                {fatture.map((f) => (
                   <tr key={f.id}>
                     <td><Link href={`/partner/${f.partnerId}`} style={{ fontWeight: 500 }}>{f.partner.nome}</Link></td>
                     <td>{nomeMese(f.mese)}</td>
@@ -142,17 +226,21 @@ export default async function Scadenzario({
         {bonificiPendenti.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">✓</div>
-            <div className="empty-title">Nessun bonifico pendente</div>
-            <div className="empty-text">Tutti i dovuti ai partner risultano saldati.</div>
+            <div className="empty-title">{q ? "Nessun risultato" : "Nessun bonifico pendente"}</div>
+            <div className="empty-text">
+              {q ? "Nessun bonifico pendente corrisponde alla ricerca." : "Tutti i dovuti ai partner risultano saldati."}
+            </div>
           </div>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Partner</th><th>Mese</th>
-                  <th className="num">Residuo da bonificare</th>
-                  <th>IBAN</th><th></th>
+                  <ThSort label="Partner" campo="partner" sp={sp} path="/scadenzario" chiave="B" defaultAttivo />
+                  <ThSort label="Mese" campo="mese" sp={sp} path="/scadenzario" chiave="B" />
+                  <ThSort label="Residuo da bonificare" campo="residuo" sp={sp} path="/scadenzario" chiave="B" num />
+                  <ThSort label="IBAN" campo="iban" sp={sp} path="/scadenzario" chiave="B" />
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -180,17 +268,23 @@ export default async function Scadenzario({
         {commDaEmettere.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">✓</div>
-            <div className="empty-title">Nessuna fattura commissioni in sospeso</div>
-            <div className="empty-text">Tutte le vendite del periodo hanno la fattura commissioni emessa.</div>
+            <div className="empty-title">{q ? "Nessun risultato" : "Nessuna fattura commissioni in sospeso"}</div>
+            <div className="empty-text">
+              {q
+                ? "Nessuna commissione da emettere corrisponde alla ricerca."
+                : "Tutte le vendite del periodo hanno la fattura commissioni emessa."}
+            </div>
           </div>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Partner</th><th>Mese</th>
-                  <th className="num">Vendite</th>
-                  <th className="num">Commissioni da fatturare</th><th></th>
+                  <ThSort label="Partner" campo="partner" sp={sp} path="/scadenzario" chiave="C" defaultAttivo />
+                  <ThSort label="Mese" campo="mese" sp={sp} path="/scadenzario" chiave="C" />
+                  <ThSort label="Vendite" campo="vendite" sp={sp} path="/scadenzario" chiave="C" num />
+                  <ThSort label="Commissioni da fatturare" campo="commissioni" sp={sp} path="/scadenzario" chiave="C" num />
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
