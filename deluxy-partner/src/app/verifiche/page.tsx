@@ -177,6 +177,66 @@ const dati = await res.json();
         </p>
       </div>
 
+      <h2 className="section-title">Pro-forma (lettura, creazione e conferma pagamento)</h2>
+      <div className="card">
+        <p style={{ fontSize: 14, marginBottom: 6 }}>
+          <strong>Endpoint:</strong> <code>GET {BASE_URL}/api/proforma?numero=1/2026</code>{" "}
+          (oppure <code>?id=&lt;id&gt;</code>, oppure <code>?partner=&lt;nome o id&gt;&amp;stato=inviata</code> per l&apos;elenco)
+        </p>
+        <p style={{ fontSize: 14, marginBottom: 6 }}>
+          <strong>Endpoint:</strong> <code>POST {BASE_URL}/api/proforma</code> — crea una pro-forma <em>in bozza</em>
+        </p>
+        <p style={{ fontSize: 14, marginBottom: 6 }}>
+          <strong>Endpoint:</strong> <code>PATCH {BASE_URL}/api/proforma</code> — <strong>conferma il pagamento</strong>:
+          la pro-forma passa a <em>fatturata</em>
+        </p>
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 14 }}>
+          Stessa chiave (<code>X-API-Key</code>). La pro-forma creata via API nasce in bozza con numero
+          <code> PF n/anno</code> assegnato automaticamente: invio al partner e annullo restano azioni
+          dell&apos;operatore nella sezione Pro-forma dell&apos;app; la <strong>conferma di pagamento</strong> è invece
+          invocabile anche dalle altre app Deluxy (es. Scout quando registra un incasso ricevuto). La conferma è
+          idempotente (già fatturata → 200 con <code>avviso</code>); una pro-forma annullata risponde 422.
+        </p>
+
+        <div style={{ fontSize: 12.5, color: "var(--text-tertiary)", marginBottom: 4 }}>Esempio curl (conferma pagamento)</div>
+        <pre style={{ background: "var(--bg)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: 14, overflowX: "auto", fontSize: 12.5, lineHeight: 1.5, marginBottom: 14 }}>{`curl -s -X PATCH "${BASE_URL}/api/proforma" \\
+  -H "X-API-Key: ${esempioChiave}" -H "X-App: deluxy-scout" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "numero": "1/2026", "fatturaNumero": "181/2026" }'`}</pre>
+
+        <div style={{ fontSize: 12.5, color: "var(--text-tertiary)", marginBottom: 4 }}>Esempio curl (creazione)</div>
+        <pre style={{ background: "var(--bg)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: 14, overflowX: "auto", fontSize: 12.5, lineHeight: 1.5 }}>{`curl -s -X POST "${BASE_URL}/api/proforma" \\
+  -H "X-API-Key: ${esempioChiave}" -H "X-App: deluxy-mail" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "partner": "CLIVATI",
+    "oggetto": "Servizi di consegna evento",
+    "scadenza": "2026-08-05",
+    "righe": [
+      { "descrizione": "Consegne guanti bianchi — Giugno 2026", "prezzoUnitario": 1250 },
+      { "descrizione": "Allestimento floreale", "quantita": 2, "prezzoUnitario": 180.5 }
+    ]
+  }'`}</pre>
+
+        <div style={{ fontSize: 12.5, color: "var(--text-tertiary)", margin: "14px 0 4px" }}>Risposta (201 creata / 200 in lettura)</div>
+        <pre style={{ background: "var(--bg)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: 14, overflowX: "auto", fontSize: 12.5, lineHeight: 1.5 }}>{`{
+  "id": "...",
+  "riferimento": "PF 2/2026",
+  "partner": { "id": "...", "nome": "CLIVATI" },
+  "data": "2026-07-20", "scadenza": "2026-08-05",
+  "oggetto": "Servizi di consegna evento",
+  "stato": "bozza",                  // bozza | inviata | fatturata | annullata
+  "fatturaNumero": null,             // n° fattura definitiva quando fatturata
+  "righe": [ { "descrizione": "...", "quantita": 1, "prezzoUnitario": 1250, "aliquotaIva": 22, "importo": 1250 } ],
+  "imponibile": 1611, "iva": 354.42, "totale": 1965.42,
+  "url": "${BASE_URL}/proforma/<id>" // pagina del documento nell'app
+}`}</pre>
+        <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+          In lettura il campo chiave è <code>stato</code>: <code>fatturata</code> (con <code>fatturaNumero</code>)
+          significa confermata, <code>annullata</code> chiusa senza seguito.
+        </p>
+      </div>
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <h2 className="section-title">
           Storico richieste ({conteggio}) · {trovate} trovate · {nonTrovate} non trovate · {negate} negate
