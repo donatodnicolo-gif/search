@@ -37,6 +37,25 @@
   .storicocard{display:none}
   .content.view-storico .ordercard, .content.view-storico .searchbar, .content.view-storico .col-right, .content.view-storico .config{display:none}
   .content.view-storico .storicocard{display:block}
+  .contatticard{display:none}
+  .content.view-contatti .ordercard, .content.view-contatti .searchbar, .content.view-contatti .col-right, .content.view-contatti .config, .content.view-contatti .storicocard{display:none}
+  .content.view-contatti .contatticard{display:block}
+  /* elenco contatti per provincia */
+  .prov-group{margin-top:20px}
+  .prov-head{display:flex; align-items:baseline; gap:8px; padding:0 2px 8px; border-bottom:1px solid var(--hairline); margin-bottom:12px}
+  .prov-head h3{margin:0; font-size:15px; font-weight:600; letter-spacing:-.01em}
+  .prov-head .cnt{font-size:12px; color:var(--text-tertiary)}
+  .ct-grid{display:grid; gap:12px}
+  @media(min-width:720px){ .ct-grid{grid-template-columns:1fr 1fr} }
+  .ct-card{background:var(--surface); border:1px solid var(--hairline); border-radius:var(--radius-l); box-shadow:var(--shadow-card); padding:16px}
+  .ct-card .top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px}
+  .ct-card h4{margin:0; font-size:15px; font-weight:600; letter-spacing:-.01em}
+  .ct-card .cat{font-size:12px; color:var(--text-secondary); margin-top:2px}
+  .ct-card .addr{font-size:13px; color:var(--text-secondary); margin-top:6px}
+  .ct-card .note{font-size:12px; color:var(--text-tertiary); margin-top:6px; line-height:1.4}
+  .ct-card .contacts{margin-top:10px}
+  .ct-ref{font-size:12px; color:var(--text-secondary); margin-top:8px; border-top:1px solid var(--hairline); padding-top:8px}
+  .contatticard .chips .chip{flex:0 0 auto; min-width:0; padding:8px 14px; font-size:13px}
   .st-row{display:grid; grid-template-columns:auto 1fr auto; gap:4px 14px; padding:12px 2px; border-top:1px solid var(--hairline); align-items:baseline}
   .st-row:first-child{border-top:none}
   .st-when{font-size:12px; color:var(--text-tertiary); white-space:nowrap}
@@ -283,6 +302,7 @@
       <div class="nav-section">Operatività</div>
       <a class="nav-link active" data-scroll=".ordercard"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="2.5"/><path d="M4 11h16M12 7v13M8 7l1.5-3h5L16 7"/></svg></span><span>Smistamento</span></a>
       <a class="nav-link" data-scroll=".searchbar"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.6-3.6"/></svg></span><span>Ricerca negozi</span></a>
+      <a class="nav-link" id="navContatti"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v13H4z"/><path d="M8 9.5h8M8 13h5"/></svg></span><span>Contatti</span></a>
       <a class="nav-link" id="navStorico"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><span>Storico richieste</span></a>
       <div class="nav-section">Configurazione</div>
       <a class="nav-link" id="navAdmin"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.2M12 18.3v2.2M4.8 7l1.9 1.1M17.3 15.9l1.9 1.1M4.8 17l1.9-1.1M17.3 8.1l1.9-1.1M3.5 12h2.2M18.3 12h2.2"/></svg></span><span>Impostazioni</span></a>
@@ -542,6 +562,28 @@
       <div class="results" id="results"></div>
     </div><!-- /col-right -->
     </div><!-- /cols -->
+
+    <!-- CONTATTI (partner + fornitori dal registro anagrafiche, per provincia) -->
+    <div class="card contatticard" id="contattiCard">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px">
+        <div class="hint" id="contattiInfo" style="margin:0"></div>
+        <button class="btn-dl" id="contattiReload" type="button">↻ Aggiorna</button>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px">
+        <div class="chips" id="ctTipo" style="display:flex; gap:6px">
+          <button class="chip active" data-tipo="tutti" type="button">Tutti</button>
+          <button class="chip" data-tipo="partner" type="button">🤝 Partner</button>
+          <button class="chip" data-tipo="fornitore" type="button">📋 Fornitori</button>
+        </div>
+        <div class="chips" id="ctCat" style="display:flex; gap:6px">
+          <button class="chip active" data-cat="tutte" type="button">Tutte le categorie</button>
+          <button class="chip" data-cat="FIORISTA" type="button">🌸 Fiorai</button>
+          <button class="chip" data-cat="PASTICCERIA" type="button">🎂 Pasticcerie</button>
+        </div>
+        <input id="ctSearch" type="text" placeholder="Cerca nome, città…" style="flex:1; min-width:160px">
+      </div>
+      <div id="contattiBody"><div class="hint">Carico i contatti…</div></div>
+    </div>
 
     <!-- STORICO RICHIESTE (vista dedicata) -->
     <div class="card storicocard" id="storicoCard">
@@ -850,6 +892,7 @@ function closeMenu(){ $('#sidebar').classList.remove('open'); $('#appOverlay').c
 function toggleMenu(){ $('#sidebar').classList.toggle('open'); $('#appOverlay').classList.toggle('open'); }
 const PAGE_TITLES = { operativa: ['Smistamento ordini', 'Recupera un ordine e invialo al fiorario o pasticceria più vicino, via WhatsApp o email.'],
                       impostazioni: ['Impostazioni', 'Chiavi, utenze e collegamenti dell\'app, salvati sul server.'],
+                      contatti: ['Contatti', 'Partner e fornitori dal registro anagrafiche Deluxy, raggruppati per provincia.'],
                       storico: ['Storico richieste', 'Check ordini Shopify, richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
 // vista: false/'operativa' | true/'impostazioni' | 'storico'
 function setView(vista){
@@ -858,6 +901,7 @@ function setView(vista){
   const content = document.querySelector('.content');
   content.classList.toggle('view-settings', vista==='impostazioni');
   content.classList.toggle('view-storico', vista==='storico');
+  content.classList.toggle('view-contatti', vista==='contatti');
   $('#config').classList.toggle('show', vista==='impostazioni');
   if(vista==='impostazioni') $('#config').open = true;
   const t = PAGE_TITLES[vista];
@@ -874,6 +918,12 @@ $('#navAdmin').addEventListener('click', ()=>{
   setView('impostazioni');
   window.scrollTo({top:0, behavior:'smooth'});
   setActiveNav($('#navAdmin')); closeMenu();
+});
+$('#navContatti').addEventListener('click', ()=>{
+  setView('contatti');
+  window.scrollTo({top:0, behavior:'smooth'});
+  setActiveNav($('#navContatti')); closeMenu();
+  loadContatti();
 });
 $('#navStorico').addEventListener('click', ()=>{
   setView('storico');
@@ -895,6 +945,119 @@ $('#storicoBody').addEventListener('click', e=>{
   if(nav) setActiveNav(nav);
   fetchOrder();
 });
+
+/* ------------------ CONTATTI (partner + fornitori dal registro, per provincia) ------------------ */
+let ctData = null;                                   // cache di tutti i contatti del registro
+const ctFiltro = { tipo:'tutti', cat:'tutte', q:'' }; // partner|fornitore, categoria, ricerca testo
+const CT_CAT = { FIORISTA:'🌸 Fiorista', PASTICCERIA:'🎂 Pasticceria' };
+// scarica TUTTE le pagine dal proxy /api/anagrafiche (la chiave resta sul server)
+async function anagAllPages(){
+  const out = [];
+  for(let page=1; page<=25; page++){
+    const qs = new URLSearchParams({ perPage:'200', page:String(page) });
+    const r = await apiFetch('/api/anagrafiche?' + qs);
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('HTTP '+r.status));
+    if(j.skipped) return { skipped:true, list:[] };
+    const dati = j.dati || [];
+    out.push(...dati);
+    if(dati.length < 200) break;                     // ultima pagina
+  }
+  return { list: out };
+}
+async function loadContatti(force){
+  const body = $('#contattiBody');
+  if(ctData && !force){ renderContatti(); return; }
+  body.innerHTML = '<div class="hint">Carico i contatti…</div>';
+  try{
+    const res = await anagAllPages();
+    if(res.skipped){
+      ctData = [];
+      body.innerHTML = '<div class="hint">Il registro anagrafiche non è collegato. Aggiungi la <b>chiave di sola lettura</b> in Impostazioni → «Registro anagrafiche».</div>';
+      $('#contattiInfo').textContent = '';
+      return;
+    }
+    ctData = res.list;
+    renderContatti();
+  }catch(err){
+    body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>';
+  }
+}
+function ctIsPartner(p){ return isPartnerAttivo(p); }
+function renderContatti(){
+  const body = $('#contattiBody');
+  const q = ctFiltro.q.trim().toLowerCase();
+  const list = (ctData||[]).filter(p=>{
+    if(ctFiltro.tipo==='partner'   && !ctIsPartner(p)) return false;
+    if(ctFiltro.tipo==='fornitore' &&  ctIsPartner(p)) return false;
+    if(ctFiltro.cat!=='tutte' && String(p.categoria||'').toUpperCase()!==ctFiltro.cat) return false;
+    if(q){
+      const blob = [p.nome, p.ragioneSociale, p.citta, p.provincia, p.indirizzo, p.telefono, p.email].filter(Boolean).join(' ').toLowerCase();
+      if(!blob.includes(q)) return false;
+    }
+    return true;
+  });
+  const nP = list.filter(ctIsPartner).length;
+  $('#contattiInfo').textContent = list.length
+    ? `${list.length} contatti · ${nP} partner · ${list.length-nP} fornitori`
+    : '';
+  if(!list.length){ body.innerHTML = '<div class="hint">Nessun contatto con questi filtri.</div>'; return; }
+  // raggruppa per provincia (schede senza provincia in coda sotto "—")
+  const gruppi = {};
+  list.forEach(p=>{ const k = (p.provincia||'').toUpperCase() || '—'; (gruppi[k] = gruppi[k]||[]).push(p); });
+  const chiavi = Object.keys(gruppi).sort((a,b)=> a==='—'?1 : b==='—'?-1 : a.localeCompare(b));
+  body.innerHTML = chiavi.map(prov=>{
+    const cards = gruppi[prov]
+      .sort((a,b)=> String(a.nome||'').localeCompare(String(b.nome||'')))
+      .map(ctCard).join('');
+    return `<div class="prov-group">
+      <div class="prov-head"><h3>${prov==='—'?'Provincia non indicata':'📍 '+esc(prov)}</h3><span class="cnt">${gruppi[prov].length} contatti</span></div>
+      <div class="ct-grid">${cards}</div>
+    </div>`;
+  }).join('');
+}
+function ctCard(p){
+  const partner = ctIsPartner(p);
+  const digits = (p.telefono||'').replace(/[^\d]/g,'');
+  const hasWa = digits.length >= 8;
+  const c = [];
+  if(p.telefono) c.push(`<a class="tel" href="tel:${esc(p.telefono)}">📞 ${esc(p.telefono)}</a>`);
+  if(hasWa)      c.push(`<a class="wa" href="${waChatUrl(digits)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+  if(p.email)    c.push(`<a class="mail" href="mailto:${esc(p.email)}">✉️ ${esc(p.email)}</a>`);
+  if(!c.length)  c.push('<span class="none">Nessun contatto nel registro</span>');
+  const refs = (p.contatti||[]).map(ct=>{
+    const chi = [ct.nome, ct.ruolo].filter(Boolean).join(' · ');
+    const bits = [];
+    if(ct.telefono) bits.push(`<a class="tel" href="tel:${esc(ct.telefono)}">📞 ${esc(ct.telefono)}</a>`);
+    if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">✉️ ${esc(ct.email)}</a>`);
+    if(!chi && !bits.length) return '';
+    return `<div class="ct-ref">👤 ${esc(chi||'referente')} ${bits.length?'<div class="contacts" style="margin-top:4px">'+bits.join('')+'</div>':''}</div>`;
+  }).join('');
+  const badge = partner
+    ? '<span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)">🤝 Partner</span>'
+    : `<span class="badge" style="color:var(--blue); background:rgba(0,113,227,.08)">📋 ${esc(statoLabel(p))}</span>`;
+  const luogo = [p.indirizzo, p.citta].filter(Boolean).join(' · ');
+  return `<div class="ct-card">
+    <div class="top">
+      <div>
+        <h4>${partner?'🤝':'📋'} ${esc(p.nome||'—')}</h4>
+        <div class="cat">${esc(CT_CAT[String(p.categoria||'').toUpperCase()] || p.categoria || '')}</div>
+      </div>
+      ${badge}
+    </div>
+    ${luogo?`<div class="addr">${esc(luogo)}</div>`:''}
+    <div class="contacts">${c.join('')}</div>
+    ${refs}
+    ${p.note?`<div class="note">📝 ${esc(String(p.note).slice(0,160))}</div>`:''}
+  </div>`;
+}
+$('#contattiReload').addEventListener('click', ()=> loadContatti(true));
+$('#ctTipo').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
+  ctFiltro.tipo=b.dataset.tipo; document.querySelectorAll('#ctTipo .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
+$('#ctCat').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
+  ctFiltro.cat=b.dataset.cat; document.querySelectorAll('#ctCat .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
+$('#ctSearch').addEventListener('input', ()=>{ ctFiltro.q=$('#ctSearch').value; renderContatti(); });
+
 $('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);
 $('#appOverlay').addEventListener('click', closeMenu);
