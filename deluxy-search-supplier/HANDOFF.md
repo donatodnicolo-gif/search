@@ -47,6 +47,13 @@ solo dove siamo e come si lavora.
    rubrica, segnalazioni — con utenza, negozio, esito, ordine.
 8. **Deep link**: `?brand=…&ordine=…` oppure `?indirizzo=…&categoria=fiorai|pasticcerie`
    (si applicano dopo il login) — per il bottone nelle altre app.
+9. **Storico con i check ordine** (20/07): ogni `/api/order` registra un evento `check`;
+   import una tantum dei 60gg passati fatto (184 ordini); «↻ Riapri richiesta» su ogni evento.
+10. **Stato ricerca + stelline** (20/07, `/api/stato`, KV `statoricerca:v1`): per ordine
+   (`brand#numero`) stato `non iniziata/in corso/trovato` + ★ sui fornitori contattati
+   (anche schede del registro, id `anag:<id>`), condivisi fra operatori; il click su
+   «Invia richiesta» WhatsApp/email mette da solo «in corso» + stella.
+11. **`/api/fornitori`** (20/07): top 3 fornitori per un ordine, per AI/plugin (comando `/fornitori`).
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
