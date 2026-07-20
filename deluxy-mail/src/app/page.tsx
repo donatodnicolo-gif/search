@@ -123,8 +123,13 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       ...(stato === 'da-rispondere' ? { serveRisposta: true } : {}),
       ...(p ? { priorita: p } : {}),
       // AI Inbox: SOLO le mail dei contatti col PLUS AI. Le mail nuove degli
-      // altri restano in "In arrivo".
-      ...(vistaAI ? { mittente: { in: emailAI } } : {}),
+      // altri restano in "In arrivo". Confronto CASE-INSENSITIVE: il mittente è
+      // salvato com'è nell'indirizzo (la parte prima della @ può avere maiuscole,
+      // es. "Martina.Calia@…"), mentre i contatti AI sono minuscoli — un "in"
+      // secco non aggancerebbe.
+      ...(vistaAI
+        ? { OR: emailAI.map((e) => ({ mittente: { equals: e, mode: 'insensitive' as const } })) }
+        : {}),
     },
     // Sempre in ordine di arrivo: una mail appena arrivata non è ancora stata
     // analizzata, e ordinare per priorità la spingerebbe in fondo. Per vedere
