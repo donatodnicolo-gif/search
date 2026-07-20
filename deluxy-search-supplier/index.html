@@ -1218,6 +1218,10 @@ $('#ord_items').addEventListener('input', updateDlButton);
 
 function syncLangUI(){
   const sel = $('#ordLang'); if(sel) sel.value = currentLang;
+  // impostare sel.value da codice NON scatena l'evento 'change': il testo copiabile
+  // va rigenerato esplicitamente, altrimenti resta nella lingua precedente (bug #2555:
+  // consegna in Francia ma messaggio in italiano). refreshOrderMessage rispetta msgDirty.
+  refreshOrderMessage();
 }
 const CARDWORD = { it:'Bigliettino', en:'Card message', fr:'Message carte', de:'Kartentext', es:'Tarjeta' };
 const SUBJECTWORD = { it:'Richiesta ordine', en:'Order request', fr:'Demande de commande', de:'Bestellanfrage', es:'Solicitud de pedido' };
