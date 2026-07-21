@@ -12,6 +12,7 @@ export type MovimentoEstratto = {
   importo: number; // > 0 accredito, < 0 addebito
   descrizione: string;
   controparte: string | null;
+  ibanControparte: string | null; // IBAN del beneficiario/ordinante (bonifici SEPA)
   hash: string;
 };
 
@@ -27,6 +28,14 @@ const SIN_DARE = ["dare", "uscite", "addebiti", "addebito", "debit", "money out"
 const SIN_AVERE = ["avere", "entrate", "accrediti", "accredito", "credit", "money in", "in"];
 const SIN_DESC = ["descrizione operazione", "descrizione estesa", "descrizione", "causale", "dettagli", "description", "operazione", "note", "reference"];
 const SIN_CONTROPARTE = ["ordinante", "beneficiario", "controparte", "nome controparte", "counterparty", "payee", "payer", "denominazione"];
+const SIN_IBAN = ["iban", "iban controparte", "iban beneficiario", "iban ordinante", "iban destinatario", "counterparty iban", "beneficiary iban", "recipient iban", "partner iban", "counterparty account", "beneficiary account"];
+
+// Estrae un IBAN valido da un testo (colonna dedicata o dalla descrizione).
+function estraiIban(...testi: (string | null | undefined)[]): string | null {
+  const t = testi.filter(Boolean).join(" ").replace(/\s/g, " ");
+  const m = t.match(/\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b/i);
+  return m ? m[0].toUpperCase() : null;
+}
 
 function norm(s: unknown): string {
   return String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -127,7 +136,7 @@ export function parseEstratto(buffer: Buffer, nomeFile: string): EsitoParse {
 
   // trova la riga di intestazione nelle prime 15 righe
   let headerIdx = -1;
-  let col = { data: -1, importo: -1, dare: -1, avere: -1, desc: -1, contro: -1 };
+  let col = { data: -1, importo: -1, dare: -1, avere: -1, desc: -1, contro: -1, iban: -1 };
   for (let i = 0; i < Math.min(15, righe.length); i++) {
     const hs = (righe[i] ?? []).map(norm);
     const c = {
@@ -137,6 +146,7 @@ export function parseEstratto(buffer: Buffer, nomeFile: string): EsitoParse {
       avere: trovaColonna(hs, SIN_AVERE),
       desc: trovaColonna(hs, SIN_DESC),
       contro: trovaColonna(hs, SIN_CONTROPARTE),
+      iban: trovaColonna(hs, SIN_IBAN),
     };
     if (c.data >= 0 && (c.importo >= 0 || c.avere >= 0 || c.dare >= 0)) {
       headerIdx = i; col = c; break;
@@ -165,6 +175,9 @@ export function parseEstratto(buffer: Buffer, nomeFile: string): EsitoParse {
     }
     const descrizione = col.desc >= 0 ? String(r[col.desc] ?? "").trim() : "";
     const controparte = col.contro >= 0 ? String(r[col.contro] ?? "").trim() || null : null;
+    // IBAN: dalla colonna dedicata se c'è, altrimenti tentato dalla descrizione
+    const ibanCol = col.iban >= 0 ? String(r[col.iban] ?? "") : "";
+    const ibanControparte = estraiIban(ibanCol) ?? estraiIban(descrizione, controparte);
 
     if (!data || importo == null || importo === 0) { scartate++; continue; }
     movimenti.push({
@@ -172,6 +185,7 @@ export function parseEstratto(buffer: Buffer, nomeFile: string): EsitoParse {
       importo,
       descrizione: descrizione || controparte || "(senza descrizione)",
       controparte,
+      ibanControparte,
       hash: hashMovimento(data, importo, descrizione + (controparte ?? "")),
     });
   }

@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 export default async function TransazioniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ import?: string; nuove?: string; doppioni?: string; scartate?: string; errore?: string; cerca?: string }>;
+  searchParams: Promise<{ import?: string; nuove?: string; doppioni?: string; scartate?: string; iban?: string; errore?: string; cerca?: string }>;
 }) {
   const sp = await searchParams;
 
@@ -149,6 +149,7 @@ export default async function TransazioniPage({
             Import completato: {sp.nuove} nuove transazioni
             {Number(sp.doppioni) > 0 ? ` · ${sp.doppioni} già presenti (ignorate)` : ""}
             {Number(sp.scartate) > 0 ? ` · ${sp.scartate} righe scartate` : ""}
+            {Number(sp.iban) > 0 ? ` · ${sp.iban} IBAN recuperati dai bonifici` : ""}
           </span>
         </div>
       )}

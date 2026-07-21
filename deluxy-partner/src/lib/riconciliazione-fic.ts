@@ -58,17 +58,28 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
   ]);
   const statoPerNome = new Map(stati.map((s) => [s.ficNome, s]));
 
-  // IBAN dai beneficiari dei bonifici Qonto (best effort): chi abbiamo pagato.
-  let beneficiari: { nome: string; iban: string; trusted: boolean }[] = [];
+  // IBAN dai bonifici fatti: beneficiari Qonto (best effort) + IBAN presenti nei
+  // movimenti importati (es. bonifici dell'estratto Vivid). Uniti in un'unica
+  // lista {nome, iban} su cui abbinare il partner per nome.
+  let fonti: { nome: string; iban: string; trusted: boolean }[] = [];
   try {
-    if (await qontoConfigurato()) beneficiari = await qontoBeneficiari();
+    if (await qontoConfigurato()) fonti = await qontoBeneficiari();
   } catch {
-    beneficiari = [];
+    fonti = [];
   }
-  // IBAN del beneficiario il cui nome corrisponde al partner (preferendo i trusted)
+  const movConIban = await prisma.transazioneBancaria.findMany({
+    where: { ibanControparte: { not: null } },
+    select: { controparte: true, descrizione: true, ibanControparte: true },
+    take: 5000,
+  });
+  for (const m of movConIban) {
+    const nome = (m.controparte ?? m.descrizione ?? "").trim();
+    if (nome && m.ibanControparte) fonti.push({ nome, iban: m.ibanControparte, trusted: false });
+  }
+  // IBAN il cui nome (beneficiario/controparte) corrisponde al partner (preferendo i trusted Qonto)
   const ibanPerPartner = (partner: Partner | null): string | null => {
     if (!partner) return null;
-    const candidati = beneficiari
+    const candidati = fonti
       .filter((b) => matchPartner(b.nome, [partner]) != null)
       .sort((a, b) => Number(b.trusted) - Number(a.trusted));
     return candidati[0]?.iban ?? null;

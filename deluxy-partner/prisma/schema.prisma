@@ -65,6 +65,7 @@ model TransazioneBancaria {
   divisa      String   @default("EUR")
   descrizione String
   controparte String?
+  ibanControparte String? // IBAN del beneficiario/ordinante (bonifici SEPA), se nell'estratto
   hash        String   @unique
   fonte       String? // nome del file importato
   stato       String   @default("nuova") // nuova | registrata | ignorata

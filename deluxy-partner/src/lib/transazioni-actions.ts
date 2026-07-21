@@ -38,16 +38,34 @@ export async function importaEstratto(fd: FormData) {
       importo: m.importo,
       descrizione: m.descrizione.slice(0, 500),
       controparte: m.controparte?.slice(0, 200) ?? null,
+      ibanControparte: m.ibanControparte,
       hash: m.hash,
       fonte: file.name,
     })),
     skipDuplicates: true,
   });
 
+  // Riallinea l'IBAN anche sui movimenti già presenti (un ricarico dello stesso
+  // estratto serve proprio a recuperare gli IBAN che prima scartavamo).
+  let ibanAggiunti = 0;
+  for (const m of movimenti.movimenti) {
+    if (!m.ibanControparte) continue;
+    const u = await prisma.transazioneBancaria.updateMany({
+      where: { hash: m.hash, ibanControparte: null },
+      data: { ibanControparte: m.ibanControparte },
+    });
+    ibanAggiunti += u.count;
+  }
+
   revalidate();
-  redirect(
-    `/transazioni?import=ok&nuove=${res.count}&doppioni=${movimenti.movimenti.length - res.count}&scartate=${movimenti.scartate}`
-  );
+  const qs = new URLSearchParams({
+    import: "ok",
+    nuove: String(res.count),
+    doppioni: String(movimenti.movimenti.length - res.count),
+    scartate: String(movimenti.scartate),
+  });
+  if (ibanAggiunti) qs.set("iban", String(ibanAggiunti));
+  redirect(`/transazioni?${qs.toString()}`);
 }
 
 // Sincronizza i movimenti direttamente dall'API Qonto (tutti i conti,
