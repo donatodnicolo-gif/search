@@ -15,6 +15,6 @@ export const config = {
   // autentica col CRON_TOKEN) e /api/calendario (feed iCal col suo token:
   // Google/Apple/Outlook non hanno un cookie da mostrare).
   matcher: [
-    '/((?!login|api/sync|api/calendario|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-).*)',
+    '/((?!login|api/sync|api/calendario|api/v1|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-).*)',
   ],
 }

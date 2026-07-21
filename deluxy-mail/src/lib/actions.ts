@@ -890,6 +890,35 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
   }
 }
 
+/**
+ * Invio di una mail dall'API (chiamata da un'altra app/agente, non dalla UI):
+ * prende l'utente esplicito, non la sessione. Testo semplice, dal primo account
+ * dell'utente. Registra l'inviata come dalla UI.
+ */
+export async function inviaMailApi(
+  utenteId: string,
+  dati: { a: string; cc?: string; oggetto: string; corpo: string }
+): Promise<{ ok: boolean; messaggio: string }> {
+  try {
+    const a = (dati.a ?? '').trim()
+    const oggetto = (dati.oggetto ?? '').trim()
+    const corpo = (dati.corpo ?? '').trim()
+    if (!a) return { ok: false, messaggio: 'Manca il destinatario (a).' }
+    if (!corpo) return { ok: false, messaggio: 'Il messaggio (corpo) è vuoto.' }
+
+    const account = await db.account.findFirst({ where: { utenteId } })
+    if (!account) return { ok: false, messaggio: 'Nessuna casella collegata per questo utente.' }
+
+    const daInviare: DaInviare = { a, cc: dati.cc, oggetto, corpo, inRispostaA: null }
+    const { raw, messageId } = await spedisci(account, daInviare)
+    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, null)
+
+    return { ok: true, messaggio: `Messaggio inviato a ${a}.${avviso ? ` ${avviso}` : ''}` }
+  } catch (e) {
+    return { ok: false, messaggio: `Invio non riuscito: ${e instanceof Error ? e.message : 'errore'}` }
+  }
+}
+
 export async function salvaMinuta(
   form: FormData
 ): Promise<{ ok: boolean; messaggio: string; id?: string }> {

@@ -130,6 +130,10 @@ Tutte scoped per utente via `uid()`. Le principali:
 - **Calendario:** `creaEvento` (orari in ora italiana → UTC), `eliminaEvento`, `rigeneraFeedCalendario` / `spegniFeedCalendario` (token del feed iCal). Rotta pubblica **`/api/calendario?token=…`** (esclusa dal middleware): feed iCalendar RFC 5545 generato da `lib/ics.ts`, sola lettura, da abbonare in Google/Apple/Outlook.
 - **Utenti (auth-actions.ts):** `accedi`, `creaPrimoAdmin`, `esci`, `creaUtente`, `cambiaStatoUtente`, `reimpostaPassword`, `eliminaUtente`, `salvaFirma`.
 
+**API pubbliche `/api/v1/*`** (per altre app Deluxy/agenti, escluse dal middleware; auth in `lib/apiAuth.ts`): chiave unica **`API_TOKEN`** (env) come header `x-api-key` o `Authorization: Bearer`, + `x-utente: <email>` per scegliere l'utente/casella.
+  - **`POST /api/v1/invia`** — invia una mail (`inviaMailApi` in actions.ts, riusa `spedisci`/`registraInviato`). Body JSON `{a, cc?, oggetto, corpo}` (testo semplice).
+  - **`GET /api/v1/contatto?email=<contatto>`** — Renè fa il punto della situazione con un contatto (`analizzaContattoOra`): `{situazione, inSospeso[], prossimeAzioni[], messaggiVisti, aggiornatoIl}` sui messaggi già scaricati.
+
 Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby può girare **1 volta al giorno** (`vercel.json`). L'auto-refresh a 30s è **client-side** (SyncButton), gira solo con la app aperta e in primo piano.
 
 **`maxDuration = 60`** è impostato sulle pagine che scatenano l'AI (`/`, `/messaggio/[id]`, `/rubrica/[email]`, `/assistente/[id]`) — necessario perché le Server Action NON ereditano il maxDuration del layout, e a 10s (default Vercel) l'analisi AI verrebbe uccisa a metà.
