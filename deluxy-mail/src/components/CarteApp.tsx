@@ -38,21 +38,11 @@ export function CarteApp({ azioni }: { azioni: AzioneDescritta[] }) {
     <div className="carte-app">
       <div className="col-attivita-head">
         <span className="nav-label" style={{ padding: 0 }}>
-          APP Deluxy
+          APP AI Deluxy
         </span>
-        <Link href="/regole" className="azione-riga" title="Le regole decidono l’app quando usi “Automatico”.">
+        <Link href="/regole" className="azione-riga" title="Le regole APP DELUXY">
           Regole
         </Link>
-      </div>
-
-      <div className={`app-card automatica ${sopra === 'auto' ? 'sopra' : ''}`} {...gestori('auto')}>
-        <div className="app-card-nome">
-          <span className="ai-mark" style={{ color: 'var(--gold-strong)', fontWeight: 600 }}>AI</span>{' '}
-          Automatico
-        </div>
-        <div className="app-card-desc">
-          Trascina qui una mail: decidono le tue regole APP DELUXY.
-        </div>
       </div>
 
       {azioni.map((a) => (
