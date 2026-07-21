@@ -80,47 +80,70 @@ function BtnIndietro() {
   );
 }
 
-// Contenuto del drawer: intestazione brand (logo D) + voci raggruppate per
-// sezione, con etichetta MAIUSCOLA (Design System). La voce Team compare solo
-// all'amministratore della rete.
+// Contenuto del drawer: brand (logo D) + voci raggruppate per sezione (etichetta
+// MAIUSCOLA, DS) + footer utente (avatar iniziali, nome/ruolo, logout). La voce
+// Team compare solo all'amministratore della rete.
 function ContenutoDrawer({ admin, ...props }: any) {
+  const { session, signOut } = useAuth();
   const state = props.state;
   const attuale: string | undefined = state?.routes?.[state.index]?.name;
+  const email = session?.user?.email ?? '';
+  const iniziali = email ? email.replace(/@.*/, '').slice(0, 2).toUpperCase() : 'DX';
+  const nome = email ? email.replace(/@.*/, '') : 'Utente';
+
   return (
-    <DrawerContentScrollView {...props} contentContainerStyle={styles.scroll}>
-      <View style={styles.brand}>
-        <View style={styles.logoQuad}>
-          <Text style={styles.logoD}>D</Text>
-        </View>
-        <View>
-          <Text style={styles.logo}>DELUXY</Text>
-          <Text style={styles.sub}>Scout</Text>
-        </View>
-      </View>
-      {SEZIONI.map((sez) => {
-        const voci = sez.voci.filter((v) => !v.soloAdmin || admin);
-        if (!voci.length) return null;
-        return (
-          <View key={sez.titolo} style={styles.sezione}>
-            <Text style={styles.sezioneTitolo}>{sez.titolo}</Text>
-            {voci.map((v) => (
-              <DrawerItem
-                key={v.name}
-                label={v.label}
-                focused={attuale === v.name}
-                onPress={() => props.navigation.navigate(v.name)}
-                icon={({ color, size }) => <Ionicons name={v.icon} size={size ?? 22} color={color} />}
-                activeTintColor={colors.oro}
-                inactiveTintColor={colors.testoSoft}
-                activeBackgroundColor={colors.fillActive}
-                labelStyle={styles.voceLabel}
-                style={styles.voce}
-              />
-            ))}
+    <View style={styles.drawerRoot}>
+      <DrawerContentScrollView {...props} contentContainerStyle={styles.scroll}>
+        <View style={styles.brand}>
+          <View style={styles.logoQuad}>
+            <Text style={styles.logoD}>D</Text>
           </View>
-        );
-      })}
-    </DrawerContentScrollView>
+          <View>
+            <Text style={styles.logo}>DELUXY</Text>
+            <Text style={styles.sub}>Scout</Text>
+          </View>
+        </View>
+        {SEZIONI.map((sez) => {
+          const voci = sez.voci.filter((v) => !v.soloAdmin || admin);
+          if (!voci.length) return null;
+          return (
+            <View key={sez.titolo} style={styles.sezione}>
+              <Text style={styles.sezioneTitolo}>{sez.titolo}</Text>
+              {voci.map((v) => (
+                <DrawerItem
+                  key={v.name}
+                  label={v.label}
+                  focused={attuale === v.name}
+                  onPress={() => props.navigation.navigate(v.name)}
+                  icon={({ color }) => <Ionicons name={v.icon} size={20} color={color} />}
+                  activeTintColor={colors.oro}
+                  inactiveTintColor={colors.testoSoft}
+                  activeBackgroundColor={colors.fillActive}
+                  labelStyle={styles.voceLabel}
+                  style={styles.voce}
+                />
+              ))}
+            </View>
+          );
+        })}
+      </DrawerContentScrollView>
+
+      {/* Footer utente (DS): avatar iniziali su gold-soft, nome + ruolo, logout. */}
+      <View style={styles.footer}>
+        <Pressable style={styles.utente} onPress={() => props.navigation.navigate('profilo')}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarTxt}>{iniziali}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.utenteNome} numberOfLines={1}>{nome}</Text>
+            <Text style={styles.utenteRuolo}>{admin ? 'Amministratore' : 'Venditore'}</Text>
+          </View>
+        </Pressable>
+        <Pressable style={styles.logoutBtn} onPress={signOut} accessibilityLabel="Esci">
+          <Ionicons name="log-out-outline" size={20} color={colors.testoSoft} />
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -148,7 +171,7 @@ export default function AppLayout() {
           headerShadowVisible: false,
           headerLeft: () => <BtnMenu />,
           drawerType: 'front',
-          drawerStyle: { backgroundColor: colors.bianco, width: 268, borderRightColor: colors.grigioChiaro },
+          drawerStyle: { backgroundColor: colors.bianco, width: 264, borderRightWidth: 1, borderRightColor: colors.grigioChiaro },
         }}
       >
         {/* L'ordine e le icone del menu sono definiti in SEZIONI (drawer content). */}
@@ -185,7 +208,8 @@ export default function AppLayout() {
 
 const styles = StyleSheet.create({
   headerBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  scroll: { paddingTop: 0, paddingBottom: spacing.lg },
+  drawerRoot: { flex: 1, backgroundColor: colors.bianco },
+  scroll: { paddingTop: 0, paddingBottom: spacing.sm },
   // Sezioni del menu (etichetta MAIUSCOLA DS + voci).
   sezione: { marginTop: spacing.sm, marginBottom: 2 },
   sezioneTitolo: {
@@ -195,30 +219,55 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
     textTransform: 'uppercase',
     paddingHorizontal: spacing.md,
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  voce: { borderRadius: radius.md, marginHorizontal: 4, marginVertical: 0 },
-  voceLabel: { fontSize: 15, fontWeight: '600', marginLeft: -12 },
+  // Voce: DS → icona 20 + label 14/600, righe compatte allineate.
+  voce: { borderRadius: radius.md, marginHorizontal: 8, marginVertical: 1 },
+  voceLabel: { fontSize: 14, fontWeight: '600', marginLeft: -16, letterSpacing: -0.1 },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.md,
     marginBottom: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.grigioChiaro,
   },
   logoQuad: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 11,
     backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoD: { color: colors.oro, fontSize: 26, fontWeight: '700', fontFamily: 'Georgia, serif' },
-  logo: { color: colors.testo, fontSize: 18, fontWeight: '700', letterSpacing: 2 },
+  logoD: { color: colors.oro, fontSize: 25, fontWeight: '700', fontFamily: 'Georgia, serif' },
+  logo: { color: colors.testo, fontSize: 17, fontWeight: '700', letterSpacing: 2 },
   sub: { color: colors.testoSoft, fontSize: 12 },
+  // Footer utente (DS): avatar iniziali su gold-soft + nome/ruolo + logout.
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.grigioChiaro,
+    backgroundColor: colors.bianco,
+  },
+  utente: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.goldSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarTxt: { color: colors.goldStrong, fontWeight: '800', fontSize: 13 },
+  utenteNome: { color: colors.testo, fontWeight: '600', fontSize: 13.5, textTransform: 'capitalize' },
+  utenteRuolo: { color: colors.testoSoft, fontSize: 11.5 },
+  logoutBtn: { padding: 8, borderRadius: radius.sm },
 });
