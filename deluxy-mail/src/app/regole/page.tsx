@@ -1,14 +1,22 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
-import { creaRegola } from '@/lib/actions'
+import { creaRegola, aggiornaRegola } from '@/lib/actions'
 import { AzioniRegola } from '@/components/AzioniRegola'
 import { ValoreCondizione } from '@/components/ValoreCondizione'
 import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
-export default async function Regole() {
+type Props = { searchParams: Promise<{ modifica?: string }> }
+
+export default async function Regole({ searchParams }: Props) {
+  const { modifica } = await searchParams
   const u = await richiediUtente()
+  // In modifica: la regola da correggere (solo se è dell'utente). Il form in
+  // fondo si riempie coi suoi valori e salva le modifiche invece di crearne una.
+  const inModifica = modifica
+    ? await db.regola.findFirst({ where: { id: modifica, utenteId: u.id } })
+    : null
   const [regole, sezioni] = await Promise.all([
     db.regola.findMany({
       where: { utenteId: u.id },
@@ -70,7 +78,12 @@ export default async function Regole() {
                   <span className="badge neutral">priorità {r.priorita}</span>
                 </div>
               </div>
-              <AzioniRegola id={r.id} attiva={r.attiva} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Link href={`/regole?modifica=${r.id}#form-regola`} className="azione-riga">
+                  Modifica
+                </Link>
+                <AzioniRegola id={r.id} attiva={r.attiva} />
+              </div>
             </div>
 
             <div className="rule-cond">
@@ -118,28 +131,31 @@ export default async function Regole() {
         ))
       )}
 
-      <h2 className="section-title">Nuova regola</h2>
+      <h2 className="section-title" id="form-regola">
+        {inModifica ? `Modifica regola «${inModifica.nome}»` : 'Nuova regola'}
+      </h2>
       <div className="card">
-        <form action={creaRegola}>
+        <form key={inModifica?.id ?? 'nuova'} action={inModifica ? aggiornaRegola : creaRegola}>
+          {inModifica && <input type="hidden" name="id" value={inModifica.id} />}
           <div className="form-grid">
             <div className="full">
               <label className="field-label">
                 Nome <span className="req">*</span>
               </label>
-              <input type="text" name="nome" required placeholder="Ordini dai fornitori" />
+              <input type="text" name="nome" required placeholder="Ordini dai fornitori" defaultValue={inModifica?.nome ?? ''} />
             </div>
 
             <div>
               <label className="field-label">Se il mittente contiene</label>
-              <input type="text" name="seMittente" placeholder="@fornitore.it" />
+              <input type="text" name="seMittente" placeholder="@fornitore.it" defaultValue={inModifica?.seMittente ?? ''} />
             </div>
             <div>
               <label className="field-label">Se l’oggetto contiene</label>
-              <input type="text" name="seOggetto" placeholder="fattura, ricevuta" />
+              <input type="text" name="seOggetto" placeholder="fattura, ricevuta" defaultValue={inModifica?.seOggetto ?? ''} />
             </div>
             <div>
               <label className="field-label">Se il testo contiene</label>
-              <input type="text" name="seContiene" />
+              <input type="text" name="seContiene" defaultValue={inModifica?.seContiene ?? ''} />
             </div>
             <div className="full" style={{ marginTop: -6 }}>
               <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
@@ -154,6 +170,7 @@ export default async function Regole() {
                 name="istruzioneAI"
                 rows={3}
                 placeholder="Se il cliente lamenta un ritardo, priorità alta e bozza di scuse con una data di consegna nuova."
+                defaultValue={inModifica?.istruzioneAI ?? ''}
               />
               <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
                 Se lasci vuote le tre condizioni qui sopra, questa istruzione vale per ogni
@@ -167,6 +184,7 @@ export default async function Regole() {
                 type="text"
                 name="attivitaTesto"
                 placeholder="Es. Verificare l’ordine e confermare la data di consegna"
+                defaultValue={inModifica?.attivitaTesto ?? ''}
               />
               <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
                 Se compilato, ogni messaggio agganciato dalla regola crea questa attività (poi
@@ -176,7 +194,7 @@ export default async function Regole() {
 
             <div>
               <label className="field-label">Sposta nella sezione</label>
-              <select name="sezioneId" defaultValue="">
+              <select name="sezioneId" defaultValue={inModifica?.sezioneId ?? ''}>
                 <option value="">— nessuna, decide l’AI —</option>
                 {sezioni.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -187,25 +205,25 @@ export default async function Regole() {
             </div>
             <div>
               <label className="field-label">Priorità della regola</label>
-              <input type="number" name="priorita" defaultValue={0} />
+              <input type="number" name="priorita" defaultValue={inModifica?.priorita ?? 0} />
             </div>
 
             <div className="full">
               <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                 <label className="checkbox-row">
-                  <input type="checkbox" name="creaAttivita" /> Crea sempre un’attività
+                  <input type="checkbox" name="creaAttivita" defaultChecked={inModifica?.creaAttivita ?? false} /> Crea sempre un’attività
                 </label>
                 <label className="checkbox-row">
-                  <input type="checkbox" name="creaBozza" /> Prepara sempre una bozza
+                  <input type="checkbox" name="creaBozza" defaultChecked={inModifica?.creaBozza ?? false} /> Prepara sempre una bozza
                 </label>
                 <label className="checkbox-row">
-                  <input type="checkbox" name="segnaLetta" /> Segna già letta
+                  <input type="checkbox" name="segnaLetta" defaultChecked={inModifica?.segnaLetta ?? false} /> Segna già letta
                 </label>
                 <label className="checkbox-row">
-                  <input type="checkbox" name="archivia" /> Archivia subito
+                  <input type="checkbox" name="archivia" defaultChecked={inModifica?.archivia ?? false} /> Archivia subito
                 </label>
                 <label className="checkbox-row">
-                  <input type="checkbox" name="fermaQui" /> Non valutare altre regole
+                  <input type="checkbox" name="fermaQui" defaultChecked={inModifica?.fermaQui ?? false} /> Non valutare altre regole
                 </label>
               </div>
             </div>
@@ -223,8 +241,13 @@ export default async function Regole() {
             </div>
           </div>
           <div className="form-footer">
+            {inModifica && (
+              <Link href="/regole" className="btn secondary">
+                Annulla
+              </Link>
+            )}
             <button className="btn primary" type="submit">
-              Crea regola
+              {inModifica ? 'Salva modifiche' : 'Crea regola'}
             </button>
           </div>
         </form>

@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { randomBytes } from 'node:crypto'
 import nodemailer from 'nodemailer'
 import MailComposer from 'nodemailer/lib/mail-composer'
@@ -1883,6 +1884,48 @@ export async function creaRegola(form: FormData) {
 
   revalidatePath('/regole')
   revalidatePath('/', 'layout')
+}
+
+/** Modifica una regola esistente (stessi campi della creazione). */
+export async function aggiornaRegola(form: FormData) {
+  const utenteId = await uid()
+  const id = testo(form, 'id')
+  if (!id) return
+  const mia = await db.regola.findFirst({ where: { id, utenteId }, select: { id: true } })
+  if (!mia) return
+
+  const sezioneId = opzionale(form, 'sezioneId')
+  const sezioneValida = sezioneId
+    ? await db.sezione.findFirst({ where: { id: sezioneId, utenteId }, select: { id: true } })
+    : null
+
+  const regola = await db.regola.update({
+    where: { id },
+    data: {
+      nome: testo(form, 'nome'),
+      priorita: Number(testo(form, 'priorita') || 0),
+      seMittente: opzionale(form, 'seMittente'),
+      seOggetto: opzionale(form, 'seOggetto'),
+      seContiene: opzionale(form, 'seContiene'),
+      istruzioneAI: opzionale(form, 'istruzioneAI'),
+      attivitaTesto: opzionale(form, 'attivitaTesto'),
+      sezioneId: sezioneValida?.id ?? null,
+      creaAttivita: flag(form, 'creaAttivita'),
+      creaBozza: flag(form, 'creaBozza'),
+      segnaLetta: flag(form, 'segnaLetta'),
+      archivia: flag(form, 'archivia'),
+      fermaQui: flag(form, 'fermaQui'),
+    },
+  })
+
+  // Come per la creazione: la retrodata (parti deterministiche) è opzionale.
+  if (flag(form, 'retrodata')) {
+    await retrodataRegola(utenteId, regola)
+  }
+
+  revalidatePath('/regole')
+  revalidatePath('/', 'layout')
+  redirect('/regole') // esce dalla modalità modifica (via il ?modifica=)
 }
 
 /** Applica le azioni deterministiche di una regola alla posta già presente.
