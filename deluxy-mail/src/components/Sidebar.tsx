@@ -59,10 +59,10 @@ export async function Sidebar() {
 
   const principali: Voce[] = [
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
+    // Tutte le conversazioni raggruppate in thread.
+    { href: '/thread', label: 'Thread' },
     { href: '/bozze', label: 'Bozze', badge: bozze },
     { href: '/inviata', label: 'Posta inviata' },
-    // La casella dei quadri conversazione fatti dall'AI, col link al thread.
-    { href: '/riassunti', label: 'Riassunti', badge: riassunti },
     // La posta archiviata: messa via ma tenuta (non è nel Cestino). È il filtro
     // "Archiviati" della posta in arrivo, qui come voce a sé per ritrovarla.
     { href: '/?stato=archiviati', label: 'Archivio' },
@@ -72,6 +72,8 @@ export async function Sidebar() {
   const applicazioni: Voce[] = [
     { href: '/attivita', label: 'Attività', badge: daFare },
     { href: '/rene', label: 'Renè AI' },
+    // I quadri conversazione fatti dall'AI, col link al thread.
+    { href: '/riassunti', label: 'Riassunti', badge: riassunti },
     { href: '/rubrica', label: 'Rubrica' },
     { href: '/calendario', label: 'Calendario' },
   ]

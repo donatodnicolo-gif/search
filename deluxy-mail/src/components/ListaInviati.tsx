@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { dataBreve } from '@/lib/format'
 import { cestinaMessaggio, spostaInSezione, azioneMassa } from '@/lib/actions'
+import { AgganciaBottone, AgganciaDialog } from './AgganciaRiga'
 
 export type RigaInviata = {
   id: string
@@ -73,6 +74,7 @@ export function ListaInviati({
   }
 
   return (
+    <>
     <div className="mail-list">
       <div className="mail-select-bar">
         <label className="mail-select-all">
@@ -165,6 +167,8 @@ export function ListaInviati({
               >
                 Cestina
               </button>
+              {/* Associa questa mail inviata a un thread esistente. */}
+              <AgganciaBottone id={m.id} />
               {sezioni.length > 0 && (
                 <select
                   className="mail-select-sposta"
@@ -186,5 +190,8 @@ export function ListaInviati({
         </div>
       ))}
     </div>
+    {/* Il dialogo di aggancio, montato una volta per la lista. */}
+    <AgganciaDialog />
+    </>
   )
 }
