@@ -19,7 +19,9 @@ export type RisultatoMatch = {
 
 // Risoluzione dell'identità per il "primo contatto senza id", in ordine di
 // certezza: P.IVA → codice fiscale → nome+città. È il gemello in lettura della
-// cascata di scrittura del POST.
+// cascata di scrittura del POST. Ogni criterio che NON aggancia ricade sul
+// successivo (così una P.IVA che non è nel registro non chiude la ricerca:
+// si prova comunque per nome).
 export async function risolviMatch(input: {
   pIva?: string | null;
   codiceFiscale?: string | null;
@@ -31,18 +33,17 @@ export async function risolviMatch(input: {
   const nome = input.nome?.trim();
   const citta = input.citta?.trim();
 
+  // P.IVA — identità forte: se aggancia, si chiude qui.
   if (pIva) {
     const match = await prisma.partner.findFirst({ where: { pIva, attivo: true } });
-    return match
-      ? { tipo: "piva", esito: "agganciata", confidenza: "alta", match, candidati: [] }
-      : { tipo: "piva", esito: "nessuna", confidenza: "nessuna", match: null, candidati: [] };
+    if (match) return { tipo: "piva", esito: "agganciata", confidenza: "alta", match, candidati: [] };
   }
+  // Codice fiscale — identità forte.
   if (cf) {
     const match = await prisma.partner.findFirst({ where: { codiceFiscale: cf, attivo: true } });
-    return match
-      ? { tipo: "codice_fiscale", esito: "agganciata", confidenza: "alta", match, candidati: [] }
-      : { tipo: "codice_fiscale", esito: "nessuna", confidenza: "nessuna", match: null, candidati: [] };
+    if (match) return { tipo: "codice_fiscale", esito: "agganciata", confidenza: "alta", match, candidati: [] };
   }
+  // Nome (+ città) — ricade qui se P.IVA/CF non hanno agganciato.
   if (nome) {
     const tipo: TipoMatch = citta ? "nome_citta" : "nome";
     const trovati = await prisma.partner.findMany({
@@ -59,9 +60,11 @@ export async function risolviMatch(input: {
     if (esatti.length > 1) return { tipo, esito: "candidati", confidenza: "media", match: null, candidati: esatti };
     if (trovati.length === 1) return { tipo, esito: "agganciata", confidenza: "media", match: trovati[0], candidati: [] };
     if (trovati.length > 1) return { tipo, esito: "candidati", confidenza: "nessuna", match: null, candidati: trovati };
-    return { tipo, esito: "nessuna", confidenza: "nessuna", match: null, candidati: [] };
   }
-  return { tipo: "vuota", esito: "nessuna", confidenza: "nessuna", match: null, candidati: [] };
+
+  // Niente ha agganciato: esito "nessuna" col tipo del criterio più forte fornito.
+  const tipo: TipoMatch = pIva ? "piva" : cf ? "codice_fiscale" : nome ? (citta ? "nome_citta" : "nome") : "vuota";
+  return { tipo, esito: "nessuna", confidenza: "nessuna", match: null, candidati: [] };
 }
 
 // Vista sintetica di un partner per la risposta di match
