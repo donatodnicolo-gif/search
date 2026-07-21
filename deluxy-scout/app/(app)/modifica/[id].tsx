@@ -141,7 +141,7 @@ export default function ModificaAttivita() {
           <Text style={styles.label}>Priorità</Text>
           <View style={styles.chipWrap}>
             {PRIORITA.map((p) => (
-              <Pressable key={p} onPress={() => setPriorita(p)} style={[styles.chip, priorita === p && styles.chipOn]}>
+              <Pressable key={p} onPress={() => setPriorita(p)} style={[styles.chip, styles.chipPrio, priorita === p && styles.chipPrioOn]}>
                 <PriorityBadge priorita={p} small />
               </Pressable>
             ))}
@@ -211,6 +211,10 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: radius.pill,
   },
+  // Priorità: NON riempire di navy (il badge interno non si leggerebbe), ma
+  // evidenziare la selezione con un anello scuro su sfondo chiaro.
+  chipPrio: { paddingHorizontal: 10 },
+  chipPrioOn: { borderColor: colors.navy, borderWidth: 2, backgroundColor: colors.fillActive },
   chipStato: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
