@@ -782,6 +782,49 @@ input:focus, select:focus, textarea:focus {
 .chiave-pallino { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 4px; }
 .chiave-pallino.ok { background: var(--green); }
 
+/* ---------- Editor formattato + allegati ---------- */
+.rt-editor {
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  overflow: hidden;
+}
+.rt-toolbar {
+  display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+  padding: 6px 8px; border-bottom: 1px solid var(--hairline);
+  background: var(--fill);
+}
+.rt-btn {
+  min-width: 30px; height: 28px; padding: 0 8px;
+  border: none; background: none; border-radius: var(--radius-s);
+  font-size: 13px; color: var(--text); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.rt-btn:hover { background: var(--fill-hover); }
+.rt-sep { width: 1px; height: 18px; background: var(--hairline-strong); margin: 0 4px; }
+.rt-area {
+  padding: 14px 16px; font-size: 15px; line-height: 1.6;
+  outline: none; overflow-y: auto; max-height: 60vh;
+  word-break: break-word;
+}
+.rt-area:empty::before { content: 'Scrivi il messaggio…'; color: var(--text-tertiary); }
+.rt-area a { color: var(--blue); text-decoration: underline; }
+.rt-area ul, .rt-area ol { margin: 6px 0; padding-left: 24px; }
+
+.allegati { display: flex; flex-direction: column; gap: 10px; }
+.allegati-lista { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.allegato-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--fill); border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill); padding: 4px 6px 4px 12px;
+  font-size: 12.5px;
+}
+.allegato-x {
+  border: none; background: none; cursor: pointer; color: var(--text-tertiary);
+  font-size: 16px; line-height: 1; padding: 0 4px;
+}
+.allegato-x:hover { color: var(--red); }
+
 /* ---------- Risposte delle app sulla mail ---------- */
 .invio-app { padding: 12px 0; border-bottom: 1px solid var(--hairline); }
 .invio-app:last-child { border-bottom: none; padding-bottom: 0; }

@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { inviaNuovaMail, salvaMinuta } from '@/lib/actions'
+import { EditorRicco } from './EditorRicco'
+import { Allegati } from './Allegati'
 
 type Props = {
   da: string
@@ -17,6 +19,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId }: Props) {
   const [cc, setCc] = useState(iniziale.cc)
   const [oggetto, setOggetto] = useState(iniziale.oggetto)
   const [corpo, setCorpo] = useState(iniziale.corpo)
+  const [allegati, setAllegati] = useState<File[]>([])
   const [stato, setStato] = useState<{ ok: boolean; messaggio: string } | null>(null)
   // L'invio è irreversibile: prima di partire si conferma.
   const [conferma, setConferma] = useState(false)
@@ -26,7 +29,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId }: Props) {
   const [inCorso, startTransition] = useTransition()
   const router = useRouter()
 
-  function campi() {
+  function campi(conAllegati: boolean) {
     const form = new FormData()
     if (idBozza) form.set('bozzaId', idBozza)
     form.set('modo', 'nuova')
@@ -34,13 +37,14 @@ export function ComposizioneNuova({ da, iniziale, bozzaId }: Props) {
     form.set('cc', cc)
     form.set('oggetto', oggetto)
     form.set('corpo', corpo)
+    if (conAllegati) for (const f of allegati) form.append('allegati', f)
     return form
   }
 
   function salva() {
     setStato(null)
     startTransition(async () => {
-      const esito = await salvaMinuta(campi())
+      const esito = await salvaMinuta(campi(false))
       setStato(esito)
       if (esito.id) setIdBozza(esito.id)
       router.refresh()
@@ -50,7 +54,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId }: Props) {
   function invia() {
     setStato(null)
     startTransition(async () => {
-      const esito = await inviaNuovaMail(campi())
+      const esito = await inviaNuovaMail(campi(true))
       setStato(esito)
       setConferma(false)
       if (esito.ok) {
@@ -93,11 +97,11 @@ export function ComposizioneNuova({ da, iniziale, bozzaId }: Props) {
 
         <div className="full">
           <label className="field-label">Messaggio</label>
-          <textarea
-            value={corpo}
-            onChange={(e) => setCorpo(e.target.value)}
-            style={{ minHeight: 300, lineHeight: 1.6 }}
-          />
+          <EditorRicco valoreIniziale={iniziale.corpo} onChange={setCorpo} />
+        </div>
+
+        <div className="full">
+          <Allegati files={allegati} onChange={setAllegati} />
         </div>
       </div>
 

@@ -8,6 +8,35 @@ import type { Account, Prisma } from '@prisma/client'
 import { alternative } from './condizioni'
 import { leggiEventoProposto } from './eventoProposto'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
+import { htmlAPlain, sembraHtml, plainAHtml } from './htmlMail'
+
+const MAX_ALLEGATI_BYTE = 20 * 1024 * 1024
+
+/** Legge gli allegati (campo "allegati") dal FormData come Buffer. */
+async function leggiAllegati(form: FormData): Promise<AllegatoInvio[]> {
+  const files = form.getAll('allegati').filter((v): v is File => v instanceof File && v.size > 0)
+  let totale = 0
+  const out: AllegatoInvio[] = []
+  for (const f of files) {
+    totale += f.size
+    if (totale > MAX_ALLEGATI_BYTE) throw new Error('Allegati troppo pesanti (max 20 MB in tutto).')
+    out.push({
+      filename: f.name,
+      content: Buffer.from(await f.arrayBuffer()),
+      contentType: f.type || undefined,
+    })
+  }
+  return out
+}
+
+/** Dal corpo del form ricava HTML (se formattato) e testo semplice. */
+function corpoDaForm(grezzo: string): { html: string | undefined; testo: string } {
+  const s = grezzo ?? ''
+  if (sembraHtml(s)) return { html: s, testo: htmlAPlain(s) }
+  // Testo semplice: lo si manda come testo, con un HTML minimo per i client
+  // che preferiscono l'HTML (a-capo preservati).
+  return { html: plainAHtml(s), testo: s }
+}
 import { db } from './db'
 import { cifra, decifra } from './crypto'
 import {
@@ -592,7 +621,7 @@ export async function salvaBozza(id: string, oggetto: string, corpo: string) {
   revalidatePath('/', 'layout')
 }
 
-export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: string }> {
+export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boolean; messaggio: string }> {
   try {
     const utenteId = await uid()
     const bozza = await db.bozza.findFirst({
@@ -604,16 +633,18 @@ export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: 
     if (!bozza.messaggio) return { ok: false, messaggio: 'Bozza senza messaggio d’origine.' }
 
     const account = bozza.messaggio.account
-    const { corpo: corpoFinale, tradottoIn } = await traduciSeStraniera(
-      utenteId,
-      bozza.messaggio.lingua,
-      bozza.corpo
-    )
+    const { html, testo: testoPiano } = corpoDaForm(bozza.corpo)
+    const allegati = form ? await leggiAllegati(form) : []
+    // Se serve tradurre (lingua non letta) si manda solo testo tradotto.
+    const t = await traduciSeStraniera(utenteId, bozza.messaggio.lingua, testoPiano)
+    const tradottoIn = t.tradottoIn
     const daInviare: DaInviare = {
       a: bozza.a || bozza.messaggio.mittente,
       cc: bozza.cc,
       oggetto: bozza.oggetto,
-      corpo: corpoFinale,
+      corpo: t.tradottoIn ? t.corpo : testoPiano,
+      corpoHtml: t.tradottoIn ? undefined : html,
+      allegati,
       inRispostaA: bozza.messaggio.messageId,
     }
 
@@ -637,11 +668,15 @@ export async function inviaBozza(id: string): Promise<{ ok: boolean; messaggio: 
 
 // ---------- Scrivere e inviare ----------
 
+type AllegatoInvio = { filename: string; content: Buffer; contentType?: string }
+
 type DaInviare = {
   a: string
   cc?: string
   oggetto: string
-  corpo: string
+  corpo: string // testo semplice (per il multipart text/plain e la traduzione)
+  corpoHtml?: string // corpo formattato; se assente si invia solo testo
+  allegati?: AllegatoInvio[]
   inRispostaA?: string | null
 }
 
@@ -652,6 +687,8 @@ async function spedisci(account: Account, m: DaInviare): Promise<{ raw: Buffer; 
     cc: m.cc || undefined,
     subject: m.oggetto,
     text: m.corpo,
+    ...(m.corpoHtml ? { html: m.corpoHtml } : {}),
+    ...(m.allegati && m.allegati.length ? { attachments: m.allegati } : {}),
     inReplyTo: m.inRispostaA ?? undefined,
     references: m.inRispostaA ?? undefined,
   })
@@ -722,6 +759,8 @@ async function registraInviato(
       data: new Date(),
       anteprima: m.corpo.replace(/\s+/g, ' ').slice(0, 200),
       corpoTesto: m.corpo,
+      corpoHtml: m.corpoHtml ?? null,
+      allegati: m.allegati?.length ?? 0,
       letto: true,
     },
   })
@@ -736,10 +775,11 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     const a = testo(form, 'a')
     const cc = testo(form, 'cc')
     const oggetto = testo(form, 'oggetto')
-    const corpo = testo(form, 'corpo')
+    const { html, testo: testoPiano } = corpoDaForm(testo(form, 'corpo'))
+    const allegati = await leggiAllegati(form)
 
     if (!a) return { ok: false, messaggio: 'Manca il destinatario.' }
-    if (!corpo) return { ok: false, messaggio: 'Il messaggio è vuoto.' }
+    if (!testoPiano && allegati.length === 0) return { ok: false, messaggio: 'Il messaggio è vuoto.' }
 
     const originale = await db.messaggio.findFirst({
       where: { id: messaggioId, utenteId },
@@ -750,17 +790,28 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     const account = originale.account
     const inoltro = testo(form, 'modo') === 'inoltra'
 
-    // Rispondendo a una mail straniera: scritta in italiano, inviata nella sua
-    // lingua. Un inoltro invece si manda com'è.
-    const { corpo: corpoFinale, tradottoIn } = inoltro
-      ? { corpo, tradottoIn: null }
-      : await traduciSeStraniera(utenteId, originale.lingua, corpo)
+    // Rispondendo a una mail straniera (in una lingua che non leggi): scritta in
+    // italiano, tradotta all'invio. Se si traduce, si manda SOLO testo: la
+    // formattazione non sopravvive alla traduzione. Un inoltro va com'è.
+    let corpoTesto = testoPiano
+    let corpoHtml = html
+    let tradottoIn: string | null = null
+    if (!inoltro) {
+      const t = await traduciSeStraniera(utenteId, originale.lingua, testoPiano)
+      if (t.tradottoIn) {
+        corpoTesto = t.corpo
+        corpoHtml = undefined
+        tradottoIn = t.tradottoIn
+      }
+    }
 
     const daInviare: DaInviare = {
       a,
       cc,
       oggetto,
-      corpo: corpoFinale,
+      corpo: corpoTesto,
+      corpoHtml,
+      allegati,
       inRispostaA: inoltro ? null : originale.messageId,
     }
 
@@ -793,15 +844,16 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
     const a = testo(form, 'a')
     const cc = testo(form, 'cc')
     const oggetto = testo(form, 'oggetto')
-    const corpo = testo(form, 'corpo')
+    const { html, testo: testoPiano } = corpoDaForm(testo(form, 'corpo'))
+    const allegati = await leggiAllegati(form)
 
     if (!a) return { ok: false, messaggio: 'Manca il destinatario.' }
-    if (!corpo) return { ok: false, messaggio: 'Il messaggio è vuoto.' }
+    if (!testoPiano && allegati.length === 0) return { ok: false, messaggio: 'Il messaggio è vuoto.' }
 
     const account = await db.account.findFirst({ where: { utenteId } })
     if (!account) return { ok: false, messaggio: 'Nessuna casella collegata: aggiungila in Impostazioni.' }
 
-    const daInviare: DaInviare = { a, cc, oggetto, corpo, inRispostaA: null }
+    const daInviare: DaInviare = { a, cc, oggetto, corpo: testoPiano, corpoHtml: html, allegati, inRispostaA: null }
     const { raw, messageId } = await spedisci(account, daInviare)
     const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, null)
 

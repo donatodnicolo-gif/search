@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { inviaBozza, salvaBozza } from '@/lib/actions'
+import { EditorRicco } from './EditorRicco'
+import { Allegati } from './Allegati'
 
 type Props = {
   bozza: { id: string; oggetto: string; corpo: string; inviata: boolean; modificata: boolean }
@@ -13,6 +15,7 @@ type Props = {
 export function BozzaEditor({ bozza, destinatario, mittente }: Props) {
   const [oggetto, setOggetto] = useState(bozza.oggetto)
   const [corpo, setCorpo] = useState(bozza.corpo)
+  const [allegati, setAllegati] = useState<File[]>([])
   const [stato, setStato] = useState<string | null>(null)
   // L'invio è irreversibile: prima di partire chiediamo conferma esplicita.
   const [confermaInvio, setConfermaInvio] = useState(false)
@@ -47,7 +50,9 @@ export function BozzaEditor({ bozza, destinatario, mittente }: Props) {
     setStato(null)
     startTransition(async () => {
       await salvaBozza(bozza.id, oggetto, corpo)
-      const esito = await inviaBozza(bozza.id)
+      const form = new FormData()
+      for (const f of allegati) form.append('allegati', f)
+      const esito = await inviaBozza(bozza.id, form)
       setStato(esito.messaggio)
       setConfermaInvio(false)
       router.refresh()
@@ -78,7 +83,10 @@ export function BozzaEditor({ bozza, destinatario, mittente }: Props) {
         </div>
         <div className="full">
           <label className="field-label">Testo</label>
-          <textarea value={corpo} onChange={(e) => setCorpo(e.target.value)} />
+          <EditorRicco valoreIniziale={bozza.corpo} onChange={setCorpo} minAltezza={220} />
+        </div>
+        <div className="full">
+          <Allegati files={allegati} onChange={setAllegati} />
         </div>
       </div>
 
