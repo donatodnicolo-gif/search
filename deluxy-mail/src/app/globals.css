@@ -782,6 +782,9 @@ input:focus, select:focus, textarea:focus {
 .chiave-pallino { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 4px; }
 .chiave-pallino.ok { background: var(--green); }
 
+/* Fondo lista: pulsante/sentinella per caricare altre conversazioni. */
+.mail-carica { display: flex; justify-content: center; padding: 16px; }
+
 /* ---------- Avviso "verde" (es. messaggio inviato) ---------- */
 .flash {
   position: fixed; top: 18px; left: 50%; transform: translateX(-50%);

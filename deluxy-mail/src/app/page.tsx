@@ -1,20 +1,16 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
-import { dataBreve, PRIORITA } from '@/lib/format'
-import { PrioritaButtons } from '@/components/PrioritaButtons'
+import { PRIORITA } from '@/lib/format'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
-import { ArchiviaDefinitivo } from '@/components/ArchiviaDefinitivo'
-import { AzioniRiga } from '@/components/AzioniRiga'
 import { NuoveAzioni } from '@/components/NuoveAzioni'
 import { CarteApp } from '@/components/CarteApp'
 import { InvioAppDialog } from '@/components/InvioAppDialog'
-import { BottoneApp } from '@/components/BottoneApp'
-import { DelegaReneBottone, DelegaReneDialog } from '@/components/DelegaRene'
-import { AgganciaBottone, AgganciaDialog } from '@/components/AgganciaRiga'
-import { MailDrag } from '@/components/MailDrag'
+import { DelegaReneDialog } from '@/components/DelegaRene'
+import { AgganciaDialog } from '@/components/AgganciaRiga'
+import { ListaMail } from '@/components/ListaMail'
+import type { RigaData } from '@/components/RigaMail'
 import { descriviAzioni } from '@/lib/appDeluxy'
 import { leggiChiaviApp } from '@/lib/chiaviApp'
-import { RispostaAzioni } from '@/components/RispostaAzioni'
 import { richiediUtente } from '@/lib/sessione'
 import { raggruppa } from '@/lib/thread'
 import { emailContattiAI } from '@/lib/contattiAI'
@@ -151,8 +147,37 @@ export default async function PostaInArrivo({ searchParams }: Props) {
 
   // Raggruppa la posta in conversazioni: una riga per thread (catena di
   // risposte o stesso oggetto anche con destinatari diversi). Il volto della
-  // riga è il messaggio più recente del thread.
-  const gruppi = raggruppa(messaggi).slice(0, 100)
+  // riga è il messaggio più recente del thread. La lista si carica poi 25 alla
+  // volta lato client, così l'apertura resta leggera anche con molta posta.
+  const gruppi = raggruppa(messaggi).slice(0, 300)
+  const righe: RigaData[] = gruppi.map((g) => {
+    const m = g[g.length - 1] // il volto: il messaggio più recente del thread
+    return {
+      id: m.id,
+      mittente: m.mittente,
+      mittenteNome: m.mittenteNome,
+      oggetto: m.oggetto,
+      data: m.data,
+      riassunto: m.riassunto,
+      anteprima: m.anteprima,
+      corpoTradotto: m.corpoTradotto,
+      lingua: m.lingua,
+      sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
+      bozze: m.bozze.length,
+      attivita: m._count.attivita,
+      inviiApp: m._count.inviiApp,
+      eventoProposto: Boolean(m.eventoProposto),
+      archiviato: m.archiviato,
+      cestinato: m.cestinato,
+      priorita: m.priorita,
+      prioritaDa: m.prioritaDa,
+      analizzato: m.analizzatoIl !== null,
+      nel: g.length,
+      parti: new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size,
+      nonLetti: g.some((x) => !x.letto),
+      contattoAI: setAI.has(m.mittente.toLowerCase()),
+    }
+  })
 
   // Il pannello APP DELUXY: le funzioni delle altre app richiamabili da qui.
   // Le chiavi (DB cifrato o env) decidono quali sono già collegate.
@@ -278,125 +303,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             </p>
           </div>
         ) : (
-          <div className="mail-list">
-            {gruppi.map((g) => {
-              // Il volto della conversazione è il messaggio più recente; i
-              // pulsanti agiscono su di esso. La catena è già ordinata dal più
-              // vecchio al più recente.
-              const m = g[g.length - 1]
-              const nel = g.length
-              const parti = new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size
-              const nonLetti = g.some((x) => !x.letto)
-              const contattoAI = setAI.has(m.mittente.toLowerCase())
-              return (
-              // La riga non è più tutta un link: i pulsanti di priorità devono
-              // essere cliccabili senza aprire la mail. È trascinabile sulle
-              // carte APP DELUXY a destra.
-              <MailDrag key={m.id} id={m.id} className={`mail-row ${nonLetti ? 'non-letto' : ''}`}>
-                <div className="mail-row-head">
-                  <Link href={`/messaggio/${m.id}`} className="mail-row-link">
-                  <div className="mail-top">
-                    <span className={nonLetti ? 'dot-unread' : 'dot-spacer'} />
-                    <span className="mail-mittente">{m.mittenteNome || m.mittente}</span>
-                    {contattoAI && (
-                      <span className="ai-toggle-mark" title="Contatto AI (PLUS AI attivo)">
-                        AI
-                      </span>
-                    )}
-                    {nel > 1 && (
-                      <span className="thread-count" title={`${nel} messaggi · ${parti} ${parti === 1 ? 'parte' : 'parti'}`}>
-                        {nel}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mail-oggetto" style={{ paddingLeft: 17 }}>
-                    {m.oggetto}
-                  </div>
-
-                  {m.riassunto ? (
-                    <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
-                      <span className="ai-mark">AI</span>
-                      <span>{m.riassunto}</span>
-                    </div>
-                  ) : (
-                    <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
-                      {/* Se tradotta, l'anteprima mostra l'italiano, non la lingua originale. */}
-                      <span className="muted">
-                        {m.corpoTradotto
-                          ? m.corpoTradotto.replace(/\s+/g, ' ').slice(0, 200)
-                          : m.anteprima}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Niente badge quando l'AI non ha girato: è la normalità,
-                      non un guasto — parte solo se dai una priorità. */}
-                  {(m.sezione || m.corpoTradotto || m._count.attivita > 0 || m.bozze.length > 0 || m._count.inviiApp > 0 || m.eventoProposto) && (
-                    <div className="mail-tags" style={{ paddingLeft: 17 }}>
-                      {m.corpoTradotto && (
-                        <span className="badge gold">
-                          <span className="dot" />
-                          Tradotto{m.lingua ? ` dal ${m.lingua}` : ''}
-                        </span>
-                      )}
-                      {m._count.inviiApp > 0 && (
-                        <span className="badge purple">
-                          <span className="dot" />
-                          Risposta app
-                        </span>
-                      )}
-                      {m.eventoProposto && (
-                        <span className="badge blue">
-                          <span className="dot" />
-                          Appuntamento
-                        </span>
-                      )}
-                      {m.sezione && (
-                        <span className={`badge ${m.sezione.colore}`}>
-                          <span className="dot" />
-                          {m.sezione.nome}
-                        </span>
-                      )}
-                      {m._count.attivita > 0 && (
-                        <span className="badge neutral">
-                          {m._count.attivita} attività
-                        </span>
-                      )}
-                      {m.bozze.length > 0 && <span className="badge gold">Bozza pronta</span>}
-                    </div>
-                  )}
-                  </Link>
-
-                  <div className="mail-row-side">
-                    <span className="mail-data">{dataBreve(m.data)}</span>
-                    <RispostaAzioni id={m.id} />
-                  </div>
-                </div>
-
-                <div style={{ paddingLeft: 17 }}>
-                  <PrioritaButtons
-                    id={m.id}
-                    priorita={m.priorita}
-                    prioritaDa={m.prioritaDa}
-                    analizzato={m.analizzatoIl !== null}
-                  />
-                  <div className="riga-azioni">
-                    <AzioniRiga id={m.id} archiviato={m.archiviato} cestinato={m.cestinato} />
-                    <DelegaReneBottone id={m.id} />
-                    <AgganciaBottone id={m.id} />
-                    {nel > 1 && (
-                      <Link href={`/messaggio/${m.id}?ampia=1`} className="azione-riga" title="Apri la conversazione con anche le mail correlate">
-                        Apri completo
-                      </Link>
-                    )}
-                    <BottoneApp id={m.id} />
-                    <ArchiviaDefinitivo id={m.id} mittente={m.mittente} />
-                  </div>
-                </div>
-              </MailDrag>
-              )
-            })}
-          </div>
+          <ListaMail righe={righe} />
         )}
         </div>
 

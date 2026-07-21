@@ -1,0 +1,133 @@
+'use client'
+
+import Link from 'next/link'
+import { dataBreve } from '@/lib/format'
+import { PrioritaButtons } from './PrioritaButtons'
+import { AzioniRiga } from './AzioniRiga'
+import { ArchiviaDefinitivo } from './ArchiviaDefinitivo'
+import { RispostaAzioni } from './RispostaAzioni'
+import { BottoneApp } from './BottoneApp'
+import { DelegaReneBottone } from './DelegaRene'
+import { AgganciaBottone } from './AgganciaRiga'
+import { MailDrag } from './MailDrag'
+
+/** I dati (leggeri, già raggruppati) che servono a disegnare una riga. */
+export type RigaData = {
+  id: string
+  mittente: string
+  mittenteNome: string | null
+  oggetto: string
+  data: Date
+  riassunto: string | null
+  anteprima: string
+  corpoTradotto: string | null
+  lingua: string | null
+  sezione: { nome: string; colore: string } | null
+  bozze: number
+  attivita: number
+  inviiApp: number
+  eventoProposto: boolean
+  archiviato: boolean
+  cestinato: boolean
+  priorita: string | null
+  prioritaDa: string | null
+  analizzato: boolean
+  nel: number
+  parti: number
+  nonLetti: boolean
+  contattoAI: boolean
+}
+
+/** Una riga della posta in arrivo. Client: monta i pulsanti interattivi. */
+export function RigaMail({ r }: { r: RigaData }) {
+  return (
+    <MailDrag id={r.id} className={`mail-row ${r.nonLetti ? 'non-letto' : ''}`}>
+      <div className="mail-row-head">
+        <Link href={`/messaggio/${r.id}`} className="mail-row-link">
+          <div className="mail-top">
+            <span className={r.nonLetti ? 'dot-unread' : 'dot-spacer'} />
+            <span className="mail-mittente">{r.mittenteNome || r.mittente}</span>
+            {r.contattoAI && (
+              <span className="ai-toggle-mark" title="Contatto AI (PLUS AI attivo)">
+                AI
+              </span>
+            )}
+            {r.nel > 1 && (
+              <span className="thread-count" title={`${r.nel} messaggi · ${r.parti} ${r.parti === 1 ? 'parte' : 'parti'}`}>
+                {r.nel}
+              </span>
+            )}
+          </div>
+          <div className="mail-oggetto" style={{ paddingLeft: 17 }}>
+            {r.oggetto}
+          </div>
+
+          {r.riassunto ? (
+            <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
+              <span className="ai-mark">AI</span>
+              <span>{r.riassunto}</span>
+            </div>
+          ) : (
+            <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
+              <span className="muted">
+                {r.corpoTradotto ? r.corpoTradotto.replace(/\s+/g, ' ').slice(0, 200) : r.anteprima}
+              </span>
+            </div>
+          )}
+
+          {(r.sezione || r.corpoTradotto || r.attivita > 0 || r.bozze > 0 || r.inviiApp > 0 || r.eventoProposto) && (
+            <div className="mail-tags" style={{ paddingLeft: 17 }}>
+              {r.corpoTradotto && (
+                <span className="badge gold">
+                  <span className="dot" />
+                  Tradotto{r.lingua ? ` dal ${r.lingua}` : ''}
+                </span>
+              )}
+              {r.inviiApp > 0 && (
+                <span className="badge purple">
+                  <span className="dot" />
+                  Risposta app
+                </span>
+              )}
+              {r.eventoProposto && (
+                <span className="badge blue">
+                  <span className="dot" />
+                  Appuntamento
+                </span>
+              )}
+              {r.sezione && (
+                <span className={`badge ${r.sezione.colore}`}>
+                  <span className="dot" />
+                  {r.sezione.nome}
+                </span>
+              )}
+              {r.attivita > 0 && <span className="badge neutral">{r.attivita} attività</span>}
+              {r.bozze > 0 && <span className="badge gold">Bozza pronta</span>}
+            </div>
+          )}
+        </Link>
+
+        <div className="mail-row-side">
+          <span className="mail-data">{dataBreve(r.data)}</span>
+          <RispostaAzioni id={r.id} />
+        </div>
+      </div>
+
+      <div style={{ paddingLeft: 17 }}>
+        <PrioritaButtons id={r.id} priorita={r.priorita} prioritaDa={r.prioritaDa} analizzato={r.analizzato} />
+        <div className="riga-azioni">
+          <AzioniRiga id={r.id} archiviato={r.archiviato} cestinato={r.cestinato} />
+          <DelegaReneBottone id={r.id} />
+          <AgganciaBottone id={r.id} />
+          {r.nel > 1 && (
+            <Link href={`/messaggio/${r.id}?ampia=1`} className="azione-riga" title="Apri la conversazione con anche le mail correlate">
+              Apri completo
+            </Link>
+          )}
+          <BottoneApp id={r.id} />
+          <ArchiviaDefinitivo id={r.id} mittente={r.mittente} />
+        </div>
+      </div>
+    </MailDrag>
+  )
+}
