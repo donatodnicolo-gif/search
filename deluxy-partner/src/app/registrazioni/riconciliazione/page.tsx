@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ficStato } from "@/lib/fic";
 import { scritturaAnagraficheAttiva } from "@/lib/anagrafiche";
 import { costruisciRiconciliazione, campiProposti, type EsitoRiga } from "@/lib/riconciliazione-fic";
-import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, salvaDatiBancari } from "@/lib/riconciliazione-actions";
+import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, salvaDatiBancari, creaInAnagrafiche } from "@/lib/riconciliazione-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +102,7 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
 export default async function RiconciliazionePage({
   searchParams,
 }: {
-  searchParams: Promise<{ banca?: string; errore?: string }>;
+  searchParams: Promise<{ banca?: string; creato?: string; errore?: string }>;
 }) {
   const sp = await searchParams;
   const stato = await ficStato();
@@ -146,6 +146,11 @@ export default async function RiconciliazionePage({
       {sp.banca && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
           <span className="badge green"><span className="dot" />Dati bancari salvati — {decodeURIComponent(sp.banca)}</span>
+        </div>
+      )}
+      {sp.creato && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />&laquo;{decodeURIComponent(sp.creato)}&raquo; creato nel registro Anagrafiche e collegato</span>
         </div>
       )}
       {sp.errore && (
@@ -216,23 +221,36 @@ export default async function RiconciliazionePage({
       {/* ————— Abbinati ma partner non collegato al registro ————— */}
       {daCollegare.length > 0 && (
         <>
-          <h2 className="section-title">Partner non collegati al registro</h2>
+          <h2 className="section-title">Partner non nel registro — creabili</h2>
           <div className="card" style={{ padding: 14, marginBottom: 8 }}>
             <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-              Questi clienti FIC sono abbinati a un partner Deluxy, ma il partner non ha ancora un
-              <code> anagraficaId</code> (collegamento al registro): prima va collegato, poi si potrà aggiornare.
+              Questi clienti FIC sono abbinati a un partner Deluxy che <strong>non è ancora nel registro</strong>
+              Anagrafiche. Con &laquo;Crea in Anagrafiche&raquo; lo crei (o lo agganci se già presente per
+              nome+città) con i dati di FIC, e resta collegato al partner.
             </p>
           </div>
           <div className="card tight">
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Cliente FIC</th><th>Partner Deluxy</th><th>P.IVA da FIC</th></tr></thead>
+                <thead><tr><th>Cliente FIC</th><th>Partner Deluxy</th><th>P.IVA da FIC</th><th></th></tr></thead>
                 <tbody>
                   {daCollegare.map((r) => (
                     <tr key={r.ficNome}>
                       <td>{r.ficNome}</td>
                       <td><Link href={`/partner/${r.partner!.id}`} style={{ color: "var(--blue)" }}>{r.partner!.nome}</Link></td>
                       <td>{r.dati.piva ?? "—"}</td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        <form action={creaInAnagrafiche.bind(null, r.partner!.id, JSON.stringify(campiProposti(r.dati)))} style={{ display: "inline" }}>
+                          <button
+                            className="btn small primary"
+                            type="submit"
+                            disabled={!scrittura}
+                            title={scrittura ? "Crea questo partner nel registro Anagrafiche" : "Serve la chiave di scrittura"}
+                          >
+                            Crea in Anagrafiche
+                          </button>
+                        </form>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

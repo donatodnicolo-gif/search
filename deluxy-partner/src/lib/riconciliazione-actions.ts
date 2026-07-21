@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { aggiornaAnagrafica, type CampiAnagrafica } from "./anagrafiche";
+import { aggiornaAnagrafica, creaAnagrafica, type CampiAnagrafica } from "./anagrafiche";
 import { ibanValido } from "./impostazioni";
 
 // Conferma la riconciliazione di un cliente FIC e INVIA i campi al registro
@@ -46,6 +46,45 @@ export async function confermaRiconciliazione(
   });
 
   revalidatePath("/registrazioni/riconciliazione", "layout");
+}
+
+// Crea il partner nel registro Anagrafiche (o lo aggancia se già esiste per
+// nome+città) con i dati osservati, e collega l'id al partner Deluxy
+// (anagraficaId). Da usare per i partner abbinati ma non ancora nel registro.
+export async function creaInAnagrafiche(partnerId: string, campiJson: string) {
+  const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
+  if (!partner) redirect("/registrazioni/riconciliazione?errore=" + encodeURIComponent("Partner non trovato."));
+  if (partner.anagraficaId) {
+    // già collegato: niente da creare
+    redirect("/registrazioni/riconciliazione");
+  }
+  let campi: CampiAnagrafica = {};
+  try {
+    campi = JSON.parse(campiJson);
+  } catch {
+    campi = {};
+  }
+  const res = await creaAnagrafica({
+    nome: partner.nome,
+    ragioneSociale: partner.ragioneSociale,
+    citta: partner.citta,
+    categoria: partner.categoria,
+    idEsterno: partner.id,
+    campi,
+  });
+  if (!res.ok) {
+    redirect("/registrazioni/riconciliazione?errore=" + encodeURIComponent(res.errore));
+  }
+  // collega l'anagrafica creata al partner Deluxy
+  await prisma.partner.update({ where: { id: partnerId }, data: { anagraficaId: res.id } });
+  await prisma.riconciliazioneAnagrafica.upsert({
+    where: { ficNome: partner.nome },
+    create: { ficNome: partner.nome, partnerId, anagraficaId: res.id, stato: "confermata", campiInviati: Object.keys(campi).join(", ") || null, esito: `${res.esito} nel registro` },
+    update: { anagraficaId: res.id, stato: "confermata", esito: `${res.esito} nel registro` },
+  });
+  revalidatePath("/registrazioni/riconciliazione", "layout");
+  revalidatePath(`/partner/${partnerId}`, "layout");
+  redirect(`/registrazioni/riconciliazione?creato=${encodeURIComponent(partner.nome)}`);
 }
 
 // Salva i dati bancari (IBAN, banca) di un partner: li scrive sul partner (per i

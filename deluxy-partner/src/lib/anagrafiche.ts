@@ -171,3 +171,52 @@ export async function aggiornaAnagrafica(
     return { ok: false, errore: `Registro non raggiungibile: ${(e as Error).message}` };
   }
 }
+
+// Crea (o aggancia, se già esiste per nome+città) un partner nel registro con i
+// dati osservati, via POST /api/v1/partners (upsert-merge). Ritorna l'id del
+// record nel registro, da collegare al partner Deluxy (anagraficaId).
+export async function creaAnagrafica(opts: {
+  nome: string;
+  ragioneSociale?: string | null;
+  citta?: string | null;
+  provincia?: string | null;
+  categoria?: string | null;
+  idEsterno: string; // partnerId Deluxy: identità stabile per non duplicare
+  campi?: CampiAnagrafica;
+}): Promise<{ ok: true; id: string; esito: string } | { ok: false; errore: string }> {
+  const key = process.env.ANAGRAFICHE_WRITE_KEY;
+  if (!key) return { ok: false, errore: "Scrittura su Anagrafiche non configurata (manca ANAGRAFICHE_WRITE_KEY)." };
+  if (!opts.nome?.trim()) return { ok: false, errore: "Nome obbligatorio per creare l'anagrafica." };
+
+  const campi = Object.fromEntries(
+    Object.entries(opts.campi ?? {}).filter(([, v]) => v != null && String(v).trim() !== "")
+  );
+  try {
+    const res = await fetch(`${urlAnagrafiche()}/api/v1/partners`, {
+      method: "POST",
+      headers: { "x-api-key": key, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nome: opts.nome.trim(),
+        ...(opts.ragioneSociale ? { ragioneSociale: opts.ragioneSociale } : {}),
+        ...(opts.citta ? { citta: opts.citta } : {}),
+        ...(opts.provincia ? { provincia: opts.provincia } : {}),
+        ...(opts.categoria ? { categoria: opts.categoria } : {}),
+        ...campi,
+        sistema: "deluxy-partner",
+        idEsterno: opts.idEsterno,
+        fonte: "deluxy-partner",
+        asOf: new Date().toISOString(),
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      return { ok: false, errore: `Registro ha risposto ${res.status}: ${t.slice(0, 160)}` };
+    }
+    const j = await res.json();
+    if (!j?.id) return { ok: false, errore: "Il registro non ha restituito l'id del record." };
+    return { ok: true, id: j.id, esito: j.esito ?? "ok" };
+  } catch (e) {
+    return { ok: false, errore: `Registro non raggiungibile: ${(e as Error).message}` };
+  }
+}
