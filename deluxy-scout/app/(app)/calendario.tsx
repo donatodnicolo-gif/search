@@ -1,6 +1,9 @@
-// Calendario: griglia mensile con i pallini nei giorni che hanno "appuntamenti"
-// (task con scadenza + follow-up trattative con scadenza), giorno selezionato con
-// l'elenco, filtro per venditore e SYNC con calendari esterni (feed iCal).
+// Calendario: griglia mensile moderna e responsiva.
+// - Su schermo largo (desktop): calendario grande con gli EVENTI dentro le celle
+//   e il pannello del giorno affiancato → tutto visibile su una pagina.
+// - Su mobile: griglia compatta con pallino conteggio + elenco del giorno sotto.
+// Eventi = task con scadenza + follow-up trattative con scadenza. Filtro venditore
+// e SYNC con calendari esterni (feed iCal).
 import { useCallback, useMemo, useState } from 'react';
 import {
   Modal,
@@ -11,6 +14,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,6 +34,7 @@ interface Evento {
 }
 
 const GIORNI_SET = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+const GIORNI_LUNGHI = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -41,6 +46,8 @@ function isoOggi(): string {
 
 export default function Calendario() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 900; // desktop: calendario grande + pannello affiancato
   const [eventi, setEventi] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
   const [venditore, setVenditore] = useState<string>('tutti');
@@ -97,6 +104,10 @@ export default function Calendario() {
 
   const oggi = isoOggi();
   const eventiGiorno = perGiorno.get(giornoSel) ?? [];
+  const totMese = useMemo(() => {
+    const pref = `${cursore.anno}-${pad(cursore.mese + 1)}-`;
+    return filtrati.filter((e) => e.data.startsWith(pref)).length;
+  }, [filtrati, cursore]);
 
   function cambiaMese(delta: number) {
     setCursore((c) => {
@@ -104,6 +115,109 @@ export default function Calendario() {
       return { anno: d.getFullYear(), mese: d.getMonth() };
     });
   }
+  function vaiOggi() {
+    const d = new Date();
+    setCursore({ anno: d.getFullYear(), mese: d.getMonth() });
+    setGiornoSel(isoOggi());
+  }
+
+  // ── Calendario (griglia) ────────────────────────────────────────────────────
+  const calendario = (
+    <View style={isWide ? styles.calPane : undefined}>
+      <View style={styles.meseRow}>
+        <View style={styles.meseSx}>
+          <Text style={styles.meseTxt}>
+            {MESI[cursore.mese]} {cursore.anno}
+          </Text>
+          <Text style={styles.meseSub}>{totMese} in agenda</Text>
+        </View>
+        <View style={styles.navGruppo}>
+          <Pressable onPress={vaiOggi} style={styles.oggiBtn}>
+            <Text style={styles.oggiTxt}>Oggi</Text>
+          </Pressable>
+          <Pressable onPress={() => cambiaMese(-1)} hitSlop={8} style={styles.navBtn}>
+            <Ionicons name="chevron-back" size={20} color={colors.testo} />
+          </Pressable>
+          <Pressable onPress={() => cambiaMese(1)} hitSlop={8} style={styles.navBtn}>
+            <Ionicons name="chevron-forward" size={20} color={colors.testo} />
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={[styles.calCard, isWide && styles.calCardWide]}>
+        <View style={styles.grigliaHead}>
+          {GIORNI_SET.map((g) => (
+            <Text key={g} style={styles.giornoSet}>{g}</Text>
+          ))}
+        </View>
+        <View style={styles.griglia}>
+          {celle.map((g, idx) => {
+            if (g == null) return <View key={`v${idx}`} style={[styles.cella, isWide ? styles.cellaWide : styles.cellaSquare]} />;
+            const iso = isoOf(cursore.anno, cursore.mese, g);
+            const evs = perGiorno.get(iso);
+            const isOggiCell = iso === oggi;
+            const isSel = iso === giornoSel;
+            const scaduto = Boolean(evs && iso < oggi);
+            return (
+              <Pressable key={iso} style={[styles.cella, isWide ? styles.cellaWide : styles.cellaSquare]} onPress={() => setGiornoSel(iso)}>
+                <View style={[styles.cellaBox, isWide && styles.cellaBoxWide, isSel && styles.cellaSel, isOggiCell && !isSel && styles.cellaOggi]}>
+                  <Text style={[styles.cellaNum, isSel && styles.cellaNumSel, isOggiCell && !isSel && styles.cellaNumOggi]}>{g}</Text>
+                  {isWide ? (
+                    <View style={styles.cellEventi}>
+                      {(evs ?? []).slice(0, 3).map((e) => (
+                        <View
+                          key={e.id}
+                          style={[styles.cellChip, e.tipo === 'task' ? styles.cellChipTask : styles.cellChipDeal, scaduto && styles.cellChipScaduto]}
+                        >
+                          <Text style={[styles.cellChipTxt, isSel && { color: colors.bianco }]} numberOfLines={1}>{e.titolo}</Text>
+                        </View>
+                      ))}
+                      {evs && evs.length > 3 ? <Text style={[styles.cellPiu, isSel && { color: colors.bianco }]}>+{evs.length - 3}</Text> : null}
+                    </View>
+                  ) : evs ? (
+                    <View style={[styles.pallino, { backgroundColor: isSel ? colors.bianco : scaduto ? colors.errore : colors.oro }]}>
+                      <Text style={[styles.pallinoTxt, { color: isSel ? colors.navy : colors.bianco }]}>{evs.length}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+
+  // ── Pannello del giorno selezionato ─────────────────────────────────────────
+  const pannelloGiorno = (
+    <View style={isWide ? styles.dayPane : styles.dayStack}>
+      <Text style={styles.giornoSelTitolo}>{etichettaGiornoSel(giornoSel)}</Text>
+      {eventiGiorno.length === 0 ? (
+        <View style={styles.vuotoBox}>
+          <Ionicons name="calendar-clear-outline" size={22} color={colors.grigio} />
+          <Text style={styles.vuoto}>Nessun appuntamento in questo giorno. Le scadenze di task e trattative compaiono qui automaticamente.</Text>
+        </View>
+      ) : (
+        eventiGiorno.map((e) => (
+          <Pressable
+            key={e.id}
+            style={styles.evento}
+            disabled={!e.placeId}
+            onPress={() => e.placeId && router.push(`/(app)/attivita/${e.placeId}`)}
+          >
+            <View style={[styles.tipoIcona, e.tipo === 'task' ? styles.tipoTask : styles.tipoDeal]}>
+              <Ionicons name={e.tipo === 'task' ? 'checkbox-outline' : 'briefcase-outline'} size={15} color={colors.bianco} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.eTitolo} numberOfLines={1}>{e.titolo}</Text>
+              {e.negozio ? <Text style={styles.eMeta} numberOfLines={1}>{e.negozio}</Text> : null}
+            </View>
+            {e.owner ? <Text style={styles.eOwner} numberOfLines={1}>{e.owner}</Text> : null}
+          </Pressable>
+        ))
+      )}
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -121,72 +235,16 @@ export default function Calendario() {
         contentContainerStyle={styles.body}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
       >
-        {/* Intestazione mese + navigazione */}
-        <View style={styles.meseRow}>
-          <Pressable onPress={() => cambiaMese(-1)} hitSlop={10} style={styles.navBtn}>
-            <Ionicons name="chevron-back" size={22} color={colors.testo} />
-          </Pressable>
-          <Text style={styles.meseTxt}>
-            {MESI[cursore.mese]} {cursore.anno}
-          </Text>
-          <Pressable onPress={() => cambiaMese(1)} hitSlop={10} style={styles.navBtn}>
-            <Ionicons name="chevron-forward" size={22} color={colors.testo} />
-          </Pressable>
-        </View>
-
-        {/* Griglia */}
-        <View style={styles.grigliaHead}>
-          {GIORNI_SET.map((g) => (
-            <Text key={g} style={styles.giornoSet}>{g}</Text>
-          ))}
-        </View>
-        <View style={styles.griglia}>
-          {celle.map((g, idx) => {
-            if (g == null) return <View key={`v${idx}`} style={styles.cella} />;
-            const iso = isoOf(cursore.anno, cursore.mese, g);
-            const evs = perGiorno.get(iso);
-            const isOggi = iso === oggi;
-            const isSel = iso === giornoSel;
-            const scaduto = evs && iso < oggi;
-            return (
-              <Pressable key={iso} style={styles.cella} onPress={() => setGiornoSel(iso)}>
-                <View style={[styles.cellaBox, isSel && styles.cellaSel, isOggi && !isSel && styles.cellaOggi]}>
-                  <Text style={[styles.cellaNum, isSel && styles.cellaNumSel]}>{g}</Text>
-                  {evs ? (
-                    <View style={[styles.pallino, { backgroundColor: isSel ? colors.bianco : scaduto ? colors.errore : colors.oro }]}>
-                      <Text style={[styles.pallinoTxt, { color: isSel ? colors.navy : colors.bianco }]}>{evs.length}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Giorno selezionato */}
-        <Text style={styles.giornoSelTitolo}>{etichettaGiornoSel(giornoSel)}</Text>
-        {eventiGiorno.length === 0 ? (
-          <Text style={styles.vuoto}>
-            Nessun appuntamento in questo giorno. Le scadenze di task e trattative compaiono qui automaticamente.
-          </Text>
+        {isWide ? (
+          <View style={styles.wideRow}>
+            {calendario}
+            {pannelloGiorno}
+          </View>
         ) : (
-          eventiGiorno.map((e) => (
-            <Pressable
-              key={e.id}
-              style={styles.evento}
-              disabled={!e.placeId}
-              onPress={() => e.placeId && router.push(`/(app)/attivita/${e.placeId}`)}
-            >
-              <View style={[styles.tipoIcona, e.tipo === 'task' ? styles.tipoTask : styles.tipoDeal]}>
-                <Ionicons name={e.tipo === 'task' ? 'checkbox-outline' : 'briefcase-outline'} size={15} color={colors.bianco} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.eTitolo} numberOfLines={1}>{e.titolo}</Text>
-                {e.negozio ? <Text style={styles.eMeta} numberOfLines={1}>{e.negozio}</Text> : null}
-              </View>
-              <Text style={styles.eOwner} numberOfLines={1}>{e.owner ?? '—'}</Text>
-            </Pressable>
-          ))
+          <>
+            {calendario}
+            {pannelloGiorno}
+          </>
         )}
       </ScrollView>
 
@@ -202,8 +260,8 @@ export default function Calendario() {
 
 function etichettaGiornoSel(iso: string): string {
   const d = new Date(iso + 'T00:00:00');
-  const set = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
-  return `${set[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()].toLowerCase()}`;
+  const idx = (d.getDay() + 6) % 7; // lunedì-first
+  return `${GIORNI_LUNGHI[idx]} ${d.getDate()} ${MESI[d.getMonth()].toLowerCase()}`;
 }
 
 function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
@@ -283,22 +341,52 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
   body: { padding: spacing.md, paddingBottom: 96 },
+
+  // Layout desktop: calendario + pannello affiancati.
+  wideRow: { flexDirection: 'row', gap: spacing.lg, alignItems: 'flex-start', maxWidth: 1180, alignSelf: 'center', width: '100%' },
+  calPane: { flex: 1 },
+  dayPane: { width: 340, gap: spacing.xs },
+  dayStack: { marginTop: spacing.md },
+
   meseRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
-  navBtn: { padding: 6 },
-  meseTxt: { fontSize: 17, fontWeight: '800', color: colors.testo },
+  meseSx: { gap: 1 },
+  meseTxt: { fontSize: 22, fontWeight: '800', color: colors.testo, letterSpacing: -0.4 },
+  meseSub: { fontSize: 12, color: colors.testoSoft, fontWeight: '600' },
+  navGruppo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  oggiBtn: { backgroundColor: colors.fill, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7, marginRight: 2 },
+  oggiTxt: { color: colors.testo, fontWeight: '600', fontSize: 13 },
+  navBtn: { padding: 6, borderRadius: radius.sm, backgroundColor: colors.fill },
+
+  calCard: { backgroundColor: colors.bianco, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.sm },
+  calCardWide: { padding: spacing.md, ...shadow.card },
   grigliaHead: { flexDirection: 'row' },
-  giornoSet: { flex: 1, textAlign: 'center', color: colors.grigio, fontWeight: '800', fontSize: 11, paddingBottom: 6 },
+  giornoSet: { flex: 1, textAlign: 'center', color: colors.grigio, fontWeight: '800', fontSize: 11, paddingBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 },
   griglia: { flexDirection: 'row', flexWrap: 'wrap' },
-  cella: { width: `${100 / 7}%`, aspectRatio: 1, padding: 2 },
+  cella: { width: `${100 / 7}%`, padding: 2 },
+  cellaSquare: { aspectRatio: 1 },
+  cellaWide: { minHeight: 104 },
   cellaBox: { flex: 1, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  cellaSel: { backgroundColor: colors.navy },
+  cellaBoxWide: { alignItems: 'stretch', justifyContent: 'flex-start', padding: 5, borderWidth: 1, borderColor: colors.grigioChiaro, gap: 3 },
+  cellaSel: { backgroundColor: colors.navy, borderColor: colors.navy },
   cellaOggi: { borderWidth: 1.5, borderColor: colors.oro },
   cellaNum: { color: colors.testo, fontWeight: '600', fontSize: 14 },
   cellaNumSel: { color: colors.bianco, fontWeight: '800' },
+  cellaNumOggi: { color: colors.goldStrong, fontWeight: '800' },
+  // Chip evento dentro la cella (desktop)
+  cellEventi: { gap: 2 },
+  cellChip: { borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
+  cellChipTask: { backgroundColor: 'rgba(17,19,24,0.08)' },
+  cellChipDeal: { backgroundColor: colors.goldSoft },
+  cellChipScaduto: { backgroundColor: 'rgba(215,0,21,0.10)' },
+  cellChipTxt: { fontSize: 11, fontWeight: '600', color: colors.testo },
+  cellPiu: { fontSize: 10, fontWeight: '700', color: colors.testoSoft, paddingLeft: 3 },
+  // Pallino conteggio (mobile)
   pallino: { minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
   pallinoTxt: { fontSize: 10, fontWeight: '900' },
-  giornoSelTitolo: { marginTop: spacing.md, marginBottom: spacing.sm, fontWeight: '600', color: colors.testoSoft, fontSize: 13, textTransform: 'capitalize' },
-  vuoto: { color: colors.grigio, fontStyle: 'italic', fontSize: 13 },
+
+  giornoSelTitolo: { marginTop: spacing.md, marginBottom: spacing.sm, fontWeight: '700', color: colors.testo, fontSize: 16, textTransform: 'capitalize', letterSpacing: -0.2 },
+  vuotoBox: { alignItems: 'center', gap: 8, paddingVertical: spacing.xl, paddingHorizontal: spacing.md },
+  vuoto: { color: colors.grigio, fontSize: 13, textAlign: 'center', lineHeight: 18 },
   evento: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -340,6 +428,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.lg,
     gap: spacing.sm,
+    maxWidth: 560,
+    width: '100%',
+    alignSelf: 'center',
   },
   sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sheetTitolo: { fontSize: 18, fontWeight: '900', color: colors.testo },
