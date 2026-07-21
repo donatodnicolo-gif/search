@@ -105,7 +105,7 @@ async function inviaProva(fd: FormData) {
 export default async function ImpostazioniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ salvato?: string; errore?: string; azienda?: string; dettaglio?: string }>;
+  searchParams: Promise<{ salvato?: string; errore?: string; azienda?: string; dettaglio?: string; collegato?: string }>;
 }) {
   const sp = await searchParams;
   const imp = await leggiImpostazioni();
@@ -145,6 +145,13 @@ export default async function ImpostazioniPage({
               : sp.errore === "prova-destinatario"
                 ? "Indica un destinatario per l'email di prova."
                 : decodeURIComponent(sp.errore)}
+          </span>
+        </div>
+      )}
+      {sp.collegato && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green">
+            <span className="dot" />Negozio «{decodeURIComponent(sp.collegato)}» collegato a Shopify — token salvato
           </span>
         </div>
       )}
@@ -290,7 +297,15 @@ export default async function ImpostazioniPage({
                         : <span className="badge red"><span className="dot" />mancante</span>}
                     </td>
                     <td style={{ fontSize: 12.5 }}>{n.ultimaSync ? dataIt(n.ultimaSync) : "mai"}</td>
-                    <td style={{ textAlign: "right" }}>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      <a
+                        className="btn small secondary"
+                        href={`/api/shopify/authorize?brand=${encodeURIComponent(n.brand)}&shop=${encodeURIComponent(n.dominio)}`}
+                        style={{ marginRight: 6 }}
+                        title="Autorizza su Shopify e salva il token via OAuth"
+                      >
+                        {n.token ? "Ricollega" : "Collega con Shopify"}
+                      </a>
                       <form action={rimuoviNegozioShopify.bind(null, n.id)} style={{ display: "inline" }}>
                         <button className="btn small danger" type="submit">Rimuovi</button>
                       </form>
@@ -324,9 +339,11 @@ export default async function ImpostazioniPage({
           </div>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 14 }}>
-          Il token si ottiene dall&apos;admin Shopify (app personalizzata con scope <code>read_orders</code>) oppure
-          riusando quello già generato per l&apos;app di smistamento. Viene salvato cifrato e usato solo lato server;
-          alla creazione lo verifichiamo contro il negozio. I 3 negozi noti: <code>fb72b1-2.myshopify.com</code> (deluxyflowers.com),
+          <strong>Modo consigliato</strong>: salva il negozio con <strong>solo Brand e Dominio</strong> (token vuoto),
+          poi clicca <strong>«Collega con Shopify»</strong> nella riga qui sopra: autorizzi l&apos;app sul negozio e il
+          token viene preso e salvato in automatico (OAuth, scope <code>read_orders</code>). In alternativa puoi
+          incollare qui un token <code>shpat_…</code> a mano. Il token è salvato cifrato e usato solo lato server.
+          I 3 negozi noti: <code>fb72b1-2.myshopify.com</code> (deluxyflowers.com),
           <code> deluxygifts.myshopify.com</code> (deluxy.it), <code>cakedesign-5921.myshopify.com</code> (cakedesign.me).
         </p>
         <div className="form-footer">
