@@ -59,6 +59,9 @@ export async function Sidebar() {
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
     { href: '/bozze', label: 'Bozze', badge: bozze },
     { href: '/inviata', label: 'Posta inviata' },
+    // La posta archiviata: messa via ma tenuta (non è nel Cestino). È il filtro
+    // "Archiviati" della posta in arrivo, qui come voce a sé per ritrovarla.
+    { href: '/?stato=archiviati', label: 'Archivio' },
     { href: '/cestino', label: 'Cestino', badge: cestinati },
   ]
 
