@@ -4,7 +4,6 @@ import { utenteCorrente } from '@/lib/sessione'
 import { esci } from '@/lib/auth-actions'
 import { iniziali } from '@/lib/contatti'
 import { SyncButton } from './SyncButton'
-import { StoricoAuto } from './StoricoAuto'
 
 type Voce = { href: string; label: string; badge?: number }
 
@@ -97,8 +96,9 @@ export async function Sidebar() {
         </div>
       </div>
 
+      {/* Lo storico non si scarica più in background: si prende on-demand in
+          fondo alla lista ("Cerca messaggi più vecchi sul server"). */}
       <SyncButton intervalloSec={utente.sincronizzaOgniSec ?? 300} />
-      <StoricoAuto attivo={utente.scaricaStoricoAuto} />
 
       <nav className="nav-section">
         <div className="nav-label">Posta</div>

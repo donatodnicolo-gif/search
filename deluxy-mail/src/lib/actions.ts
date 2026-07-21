@@ -2293,8 +2293,9 @@ export async function salvaImpostazioni(form: FormData) {
     where: { id: u.id },
     data: {
       // La firma NON si tocca qui: si gestisce dal form dedicato (salvaFirmaDati).
+      // Lo scarico storico in background non esiste più come impostazione: lo
+      // storico si prende on-demand in fondo alla lista.
       traduzioneAuto: flag(form, 'traduzioneAuto'),
-      scaricaStoricoAuto: flag(form, 'scaricaStoricoAuto'),
       lingueLette: lingue.length ? lingue.join(', ') : 'italiano',
       ...(INTERVALLI.includes(intervallo) ? { sincronizzaOgniSec: intervallo } : {}),
     },

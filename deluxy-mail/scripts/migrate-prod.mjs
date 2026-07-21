@@ -131,6 +131,9 @@ const stmts = [
   `UPDATE "Utente" SET "sincronizzaOgniSec" = 300 WHERE "sincronizzaOgniSec" = 60`,
   // Scarico automatico di tutta la posta di sempre (storico) in background.
   `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "scaricaStoricoAuto" BOOLEAN NOT NULL DEFAULT false`,
+  // L'impostazione è stata RITIRATA (lo storico si prende on-demand in fondo
+  // alla lista): spunta tolta a tutti, così il drain in background non riparte.
+  `UPDATE "Utente" SET "scaricaStoricoAuto" = false WHERE "scaricaStoricoAuto" = true`,
   // Dati della firma (JSON) per riaprire il form di modifica.
   `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "firmaDati" TEXT NOT NULL DEFAULT ''`,
   // Cursori per lo storico della cartella "Inviata" (scarico inviati in background).
