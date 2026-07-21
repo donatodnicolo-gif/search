@@ -1,21 +1,22 @@
 // ============================================================
 // Deluxy Platform - Schema dati completo
 // ------------------------------------------------------------
-// Dev:  provider "sqlite"  + DATABASE_URL="file:./dev.db"
-// Prod: provider "postgresql" + DATABASE_URL="postgresql://..."
-//   (Prisma non permette di cambiare provider via env: per il
-//    passaggio a PostgreSQL modificare la riga `provider` qui
-//    sotto e rigenerare le migrazioni. Gli "enum" sono modellati
-//    come String per compatibilita' SQLite; i valori ammessi sono
-//    definiti in api/src/common/enums.ts e validati nei DTO.)
+// PostgreSQL ovunque (dev e prod): DATABASE_URL="postgresql://..."
+//   In locale si usa il Postgres di docker-compose; in cloud Supabase.
+//   Gli "enum" restano modellati come String (eredita' della fase
+//   SQLite, non ancora convertiti a enum nativi Postgres); i valori
+//   ammessi sono definiti in api/src/common/enums.ts e validati nei DTO.
 // ============================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // rhel-openssl-3.0.x serve al runtime serverless di Vercel: senza questo
+  // target il query engine non viene incluso nel bundle della funzione.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -50,8 +51,53 @@ model User {
   operation    Operation? @relation(fields: [operationId], references: [id])
   savedViews   SavedView[]
   events       UserEvent[]
+  notifications      Notification[]
+  pushSubscriptions  PushSubscription[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// ============================================================
+// Notifiche (equivalente del modulo `web-push-notification`
+// del backend legacy, contatore in header + storico).
+// ============================================================
+
+/// Una notifica destinata a un utente. Resta a storico anche dopo la lettura:
+/// il contatore in header conta solo quelle con readAt = null.
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Valori in NotificationType (api/src/common/enums.ts).
+  type   String
+  title  String
+  body   String
+  /// Entita' che ha generato la notifica, per portare l'utente al dettaglio
+  /// al click (es. "delivery" + id della consegna).
+  entityType String?
+  entityId   String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  // Il contatore delle non lette e' la query piu' frequente dell'app.
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+/// Iscrizione Web Push di un browser (una per dispositivo/browser).
+/// L'endpoint e' l'identificatore univoco assegnato dal push service.
+model PushSubscription {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint String @unique
+  /// Chiavi del client per cifrare il payload (standard Web Push).
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // Registro delle azioni sugli utenti (audit): chi ha invitato/attivato/
@@ -141,6 +187,7 @@ model ServiceType {
   partnerServices PartnerService[]
   valetServices   ValetService[]
   deliveries      Delivery[]
+  deliveryRules   DeliveryRule[]
 }
 
 // ------------------------------------------------------------
@@ -184,6 +231,8 @@ model Partner {
   // KM a livello partner (soglia inclusa entro il comune + extra fuori città)
   kmIncluded          Float?
   extraOutOfCityPrice Float?
+  // Commissione del partner (Fee%): usata dalla Finanza per Fee value = Fee% x prezzo partner.
+  commissionPercent   Float             @default(0)
   // Tipo codice di consegna (quando deliveryCodeRequired): UNIQUE_PER_DELIVERY | UNIQUE_PER_CUSTOMER
   deliveryCodeCheckType String          @default("UNIQUE_PER_DELIVERY")
   // Indirizzo di ritiro multiplo (+ lista indirizzi come JSON per compat. SQLite)
@@ -605,6 +654,7 @@ model Delivery {
   payable            Boolean           @default(true) // da pagare
   price              Float? // prezzo per il partner
   additionalPrice    Float? // plus/minus prezzo partner
+  deliveryPrice      Float? // "Consegna prezzo": tariffa consegna al cliente (Finanza)
   valetSalary        Float? // paga del valet
   valetAdditionalPrice Float? // plus/minus paga valet
   isFlexiblePrice    Boolean           @default(false)
@@ -707,17 +757,42 @@ model SmsTemplate {
 // Estendibili a piu' partner tramite DeliveryRulePartner
 // ------------------------------------------------------------
 model DeliveryRule {
-  id                       String                @id @default(cuid())
-  name                     String
-  type                     String
-  deliveryCount            Int
-  periodStart              DateTime?
-  periodEnd                DateTime?
-  partnerBillingAdjustment Float                 @default(0)
-  valetPayAdjustment       Float                 @default(0)
-  active                   Boolean               @default(true)
-  partners                 DeliveryRulePartner[]
-  createdAt                DateTime              @default(now())
+  id   String @id @default(cuid())
+  name String
+
+  // Sull'app reale "Daily Number Rule" e "Total Number Rule" sono due Si/No
+  // indipendenti: una regola puo' garantire un numero giornaliero, un numero
+  // totale nel periodo, o entrambi. Ogni toggle ha il suo conteggio.
+  dailyRule  Boolean @default(false)
+  dailyCount Int     @default(0)
+  totalRule  Boolean @default(false)
+  totalCount Int     @default(0)
+
+  // Periodo di validita' e fascia oraria in cui la regola si applica.
+  periodStart DateTime?
+  periodEnd   DateTime?
+  timeFrom    String? // "HH:mm"
+  timeTo      String? // "HH:mm"
+
+  // Distanza (KM) entro cui vale la regola; opzionale.
+  kmDistance Float?
+
+  // Tipo di servizio a cui la regola e' legata (opzionale).
+  serviceTypeId String?
+  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id])
+
+  // Plus/Minus (anche negativi) su fatturazione partner e paga valet.
+  partnerBillingAdjustment Float @default(0)
+  valetPayAdjustment       Float @default(0)
+
+  // Toggle "Da fatturare" / "Da pagare" della consegna generata dalla regola.
+  toBill Boolean @default(true)
+  toPay  Boolean @default(true)
+
+  active    Boolean               @default(true)
+  partners  DeliveryRulePartner[]
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
 }
 
 model DeliveryRulePartner {

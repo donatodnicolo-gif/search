@@ -1,0 +1,28 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/src/vercel.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "api/prisma/**",
+          "node_modules/.prisma/**",
+          "node_modules/@prisma/client/**"
+        ]
+      }
+    },
+    {
+      "src": "web/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist/web/browser" }
+    }
+  ],
+  "routes": [
+    { "src": "/api/v1/(.*)", "dest": "/api/src/vercel.ts" },
+    { "src": "/api/docs(.*)", "dest": "/api/src/vercel.ts" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}

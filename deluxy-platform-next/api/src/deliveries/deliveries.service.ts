@@ -6,7 +6,14 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { JwtUser } from '../common/decorators';
-import { ActivityType, DeliveryStatus, PricingModel, Role } from '../common/enums';
+import {
+  ActivityType,
+  DeliveryStatus,
+  NotificationType,
+  PricingModel,
+  Role,
+} from '../common/enums';
+import { NotificationsService } from '../notifications/notifications.module';
 import {
   PagedResult,
   buildOrderBy,
@@ -34,6 +41,7 @@ export class DeliveriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Filtro di visibilita' in base al ruolo. */
@@ -406,7 +414,7 @@ export class DeliveriesService {
           ? 'delivered'
           : 'status_change';
 
-    return this.prisma.delivery.update({
+    const updated = await this.prisma.delivery.update({
       where: { id: delivery.id },
       data: {
         status,
@@ -419,6 +427,48 @@ export class DeliveriesService {
         },
       },
       include: DELIVERY_INCLUDE,
+    });
+
+    await this.notifyStatusChange(updated, status, user);
+    return updated;
+  }
+
+  /**
+   * Avvisa Admin e Operation sui tre momenti del processo di consegna
+   * (§5 di COME-FUNZIONA-APP-DELUXY.md: ritiro / consegnato / non consegnato).
+   * Chi ha fatto l'azione non riceve la notifica del proprio gesto.
+   */
+  private async notifyStatusChange(
+    delivery: { id: string; code: number; partner: { insegna: string } | null },
+    status: DeliveryStatus,
+    user: JwtUser,
+  ): Promise<void> {
+    const byStatus: Partial<Record<DeliveryStatus, { type: NotificationType; title: string }>> = {
+      [DeliveryStatus.IN_DELIVERY]: {
+        type: NotificationType.DELIVERY_IN_DELIVERY,
+        title: 'Consegna ritirata',
+      },
+      [DeliveryStatus.DELIVERED]: {
+        type: NotificationType.DELIVERY_DELIVERED,
+        title: 'Consegna completata',
+      },
+      [DeliveryStatus.NOT_DELIVERED]: {
+        type: NotificationType.DELIVERY_NOT_DELIVERED,
+        title: 'Consegna NON riuscita',
+      },
+    };
+    const event = byStatus[status];
+    if (!event) return;
+
+    const riferimento = `#${delivery.code}`;
+    const partner = delivery.partner?.insegna ? ` — ${delivery.partner.insegna}` : '';
+    const recipients = await this.notifications.adminAndOperationIds(user.sub);
+    await this.notifications.notifyUsers(recipients, {
+      type: event.type,
+      title: event.title,
+      body: `Consegna ${riferimento}${partner}`,
+      entityType: 'delivery',
+      entityId: delivery.id,
     });
   }
 

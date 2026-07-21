@@ -122,6 +122,11 @@
     "collapseMenu": "Riduci menu",
     "expandMenu": "Espandi menu"
   },
+  "notifications": {
+    "title": "Notifiche",
+    "empty": "Nessuna notifica",
+    "markAllRead": "Segna tutte lette"
+  },
   "lang": {
     "it": "Italiano",
     "en": "Inglese",
@@ -635,6 +640,93 @@
     "corporateNoteEm2": "vendita",
     "corporateNotePart4": "(il valore viene quindi calcolato come una Vendita per il partner destinatario)."
   },
+  "deliveryRules": {
+    "title": "Regole carnet",
+    "caption": "regole di consegna garantita",
+    "add": "Nuova regola",
+    "emptyTitle": "Nessuna regola carnet",
+    "emptyHint": "Crea la prima regola per garantire un numero di consegne.",
+    "daily": "Giornaliere",
+    "total": "Totali",
+    "newTitle": "Nuova regola carnet",
+    "editTitle": "Modifica regola carnet",
+    "col": {
+      "name": "Nome",
+      "rule": "Regola",
+      "period": "Periodo",
+      "service": "Servizio",
+      "adjust": "Plus/Minus (P·V)",
+      "partners": "Partner",
+      "status": "Stato"
+    },
+    "f": {
+      "name": "Nome regola",
+      "dailyRule": "Regola giornaliera (Daily Number Rule)",
+      "dailyCount": "N° consegne al giorno",
+      "totalRule": "Regola totale (Total Number Rule)",
+      "totalCount": "N° consegne totali",
+      "periodStart": "Valida dal",
+      "periodEnd": "Valida al",
+      "timeFrom": "Dalle ore",
+      "timeTo": "Alle ore",
+      "kmDistance": "Distanza KM",
+      "serviceType": "Tipo servizio",
+      "partnerAdjust": "Plus/Minus fatturazione partner (€)",
+      "valetAdjust": "Plus/Minus paga valet (€)",
+      "toBill": "Da fatturare",
+      "toPay": "Da pagare",
+      "partners": "Estendi ai partner",
+      "partnersHint": "Tieni premuto Ctrl/Cmd per selezionarne più di uno.",
+      "partnerLocked": "questo partner resta sempre incluso"
+    }
+  },
+  "partnerDetail": {
+    "carnet": {
+      "none": "Nessuna regola carnet attiva per questo partner.",
+      "remaining": "Rimaste",
+      "used": "Usate",
+      "today": "Oggi",
+      "perDay": "al giorno"
+    }
+  },
+  "finance": {
+    "title": "Finanza",
+    "caption": "Corrispettivi e margini dell'azienda",
+    "from": "Dal",
+    "to": "Al",
+    "export": "Esporta",
+    "empty": "Nessun corrispettivo nel periodo.",
+    "total": "Totale",
+    "assumption": "Formule verificate sull'app reale (fee = fee% × prezzo partner; +IVA 22%; commissione incassi 3%). Riga per consegna: manca ancora il legame Vendita↔Consegna.",
+    "tab": { "corrispettivi": "Corrispettivi", "margini": "Margini" },
+    "c": {
+      "status": "Stato",
+      "delivery": "ID Consegna",
+      "date": "Data consegna",
+      "product": "Prodotto",
+      "category": "Categoria",
+      "partner": "Partner",
+      "publicPrice": "Prezzo pubblico",
+      "deliveryFee": "Consegna prezzo",
+      "saleValue": "Valore vendite",
+      "partnerPrice": "Prezzo partner",
+      "feePercent": "Fee %",
+      "feeValue": "Fee value",
+      "feeWithVat": "Fee+IVA",
+      "deliveryCost": "Costo consegna",
+      "firstMargin": "Primo margine",
+      "firstMarginPercent": "Primo margine %",
+      "takings": "Corrispettivo",
+      "vat": "IVA",
+      "incassiCommission": "Commissione incassi",
+      "totalMargin": "Margine totale",
+      "totalMarginPercent": "Margine totale %",
+      "partnerPayout": "Incasso partner"
+    },
+    "m": {
+      "deliveries": "Consegne"
+    }
+  },
   "stub": {
     "caption": "Sezione in arrivo sulla nuova piattaforma.",
     "migratingTitle": "In migrazione dalla piattaforma legacy",
@@ -764,6 +856,7 @@
       "billable": "Da fatturare",
       "price": "Prezzo (€)",
       "plusMinus": "Plus / minus (€)",
+      "deliveryPrice": "Consegna prezzo (€)",
       "payableGroup": "Da pagare (valet)",
       "payable": "Da pagare",
       "valetSalary": "Valet salario (€)",
@@ -829,7 +922,8 @@
       "extraOutOfCityPlaceholder": "Extra f.città",
       "add": "Aggiungi servizio",
       "kmIncludedPartner": "KM inclusi (a livello partner)",
-      "extraOutOfCityPartner": "Extra fuori città (€, a livello partner)"
+      "extraOutOfCityPartner": "Extra fuori città (€, a livello partner)",
+      "commissionPercent": "Commissione Fee (%)"
     },
     "categories": {
       "title": "Categorie vendute",

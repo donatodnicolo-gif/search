@@ -234,6 +234,11 @@ export class CreateDeliveryDto {
   @IsNumber()
   additionalPrice?: number;
 
+  @ApiPropertyOptional({ description: 'Consegna prezzo: tariffa consegna al cliente (Finanza)' })
+  @IsOptional()
+  @IsNumber()
+  deliveryPrice?: number;
+
   @ApiPropertyOptional({ description: 'Paga del valet (da pagare)' })
   @IsOptional()
   @IsNumber()

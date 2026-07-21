@@ -122,6 +122,11 @@
     "collapseMenu": "Collapse menu",
     "expandMenu": "Expand menu"
   },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications",
+    "markAllRead": "Mark all read"
+  },
   "lang": {
     "it": "Italian",
     "en": "English",
@@ -635,6 +640,93 @@
     "corporateNoteEm2": "sale",
     "corporateNotePart4": "(the value is then calculated as a Sale for the recipient partner)."
   },
+  "deliveryRules": {
+    "title": "Carnet rules",
+    "caption": "guaranteed-delivery rules",
+    "add": "New rule",
+    "emptyTitle": "No carnet rules",
+    "emptyHint": "Create the first rule to guarantee a number of deliveries.",
+    "daily": "Daily",
+    "total": "Total",
+    "newTitle": "New carnet rule",
+    "editTitle": "Edit carnet rule",
+    "col": {
+      "name": "Name",
+      "rule": "Rule",
+      "period": "Period",
+      "service": "Service",
+      "adjust": "Plus/Minus (P·V)",
+      "partners": "Partners",
+      "status": "Status"
+    },
+    "f": {
+      "name": "Rule name",
+      "dailyRule": "Daily Number Rule",
+      "dailyCount": "Deliveries per day",
+      "totalRule": "Total Number Rule",
+      "totalCount": "Total deliveries",
+      "periodStart": "Valid from",
+      "periodEnd": "Valid to",
+      "timeFrom": "From time",
+      "timeTo": "To time",
+      "kmDistance": "KM distance",
+      "serviceType": "Service type",
+      "partnerAdjust": "Partner billing plus/minus (€)",
+      "valetAdjust": "Valet pay plus/minus (€)",
+      "toBill": "To bill",
+      "toPay": "To pay",
+      "partners": "Extend to partners",
+      "partnersHint": "Hold Ctrl/Cmd to select more than one.",
+      "partnerLocked": "this partner stays always included"
+    }
+  },
+  "partnerDetail": {
+    "carnet": {
+      "none": "No active carnet rule for this partner.",
+      "remaining": "Remaining",
+      "used": "Used",
+      "today": "Today",
+      "perDay": "per day"
+    }
+  },
+  "finance": {
+    "title": "Finance",
+    "caption": "Company takings and margins",
+    "from": "From",
+    "to": "To",
+    "export": "Export",
+    "empty": "No takings in this period.",
+    "total": "Total",
+    "assumption": "Formulas verified against the real app (fee = fee% × partner price; +VAT 22%; collection commission 3%). Row per delivery: the Sale↔Delivery link is still missing.",
+    "tab": { "corrispettivi": "Takings", "margini": "Margins" },
+    "c": {
+      "status": "Status",
+      "delivery": "Delivery ID",
+      "date": "Delivery date",
+      "product": "Product",
+      "category": "Category",
+      "partner": "Partner",
+      "publicPrice": "Public price",
+      "deliveryFee": "Delivery price",
+      "saleValue": "Sale value",
+      "partnerPrice": "Partner price",
+      "feePercent": "Fee %",
+      "feeValue": "Fee value",
+      "feeWithVat": "Fee+VAT",
+      "deliveryCost": "Delivery cost",
+      "firstMargin": "First margin",
+      "firstMarginPercent": "First margin %",
+      "takings": "Takings",
+      "vat": "VAT",
+      "incassiCommission": "Collection commission",
+      "totalMargin": "Total margin",
+      "totalMarginPercent": "Total margin %",
+      "partnerPayout": "Partner payout"
+    },
+    "m": {
+      "deliveries": "Deliveries"
+    }
+  },
   "stub": {
     "caption": "Section coming soon to the new platform.",
     "migratingTitle": "Migrating from the legacy platform",
@@ -764,6 +856,7 @@
       "billable": "To be billed",
       "price": "Price (€)",
       "plusMinus": "Plus / minus (€)",
+      "deliveryPrice": "Delivery price (€)",
       "payableGroup": "To be paid (valet)",
       "payable": "To be paid",
       "valetSalary": "Valet salary (€)",
@@ -829,7 +922,8 @@
       "extraOutOfCityPlaceholder": "Out-of-town extra",
       "add": "Add service",
       "kmIncludedPartner": "KM included (partner level)",
-      "extraOutOfCityPartner": "Out-of-town extra (€, partner level)"
+      "extraOutOfCityPartner": "Out-of-town extra (€, partner level)",
+      "commissionPercent": "Fee commission (%)"
     },
     "categories": {
       "title": "Sold categories",

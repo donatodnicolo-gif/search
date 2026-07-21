@@ -29,8 +29,6 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      # In container si usa PostgreSQL: ricordarsi di impostare
-      # provider = "postgresql" in api/prisma/schema.prisma prima della build.
       DATABASE_URL: postgresql://deluxy:deluxy@postgres:5432/deluxy?schema=public
       JWT_SECRET: cambia-questo-segreto-in-produzione
       JWT_EXPIRES_IN: 8h

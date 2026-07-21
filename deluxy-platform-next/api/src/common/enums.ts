@@ -132,3 +132,13 @@ export enum DeliveryRuleType {
   DAILY_COUNT = 'DAILY_COUNT',
   TOTAL_COUNT = 'TOTAL_COUNT',
 }
+
+// Notifiche in-app / Web Push. I primi tre replicano i punti in cui l'app
+// reale avvisa Admin e Operation durante il processo di consegna (§5 del
+// manuale COME-FUNZIONA-APP-DELUXY.md).
+export enum NotificationType {
+  DELIVERY_IN_DELIVERY = 'delivery_in_delivery',
+  DELIVERY_DELIVERED = 'delivery_delivered',
+  DELIVERY_NOT_DELIVERED = 'delivery_not_delivered',
+  PARTNER_CONTRACT_EXPIRING = 'partner_contract_expiring',
+}

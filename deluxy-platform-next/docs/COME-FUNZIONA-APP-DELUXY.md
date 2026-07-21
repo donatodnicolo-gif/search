@@ -182,7 +182,7 @@ Filtri pagamento: metodo (**Bank Transfer / Credit Card / Direct Debit Mandate**
 - **Fatturazione** (`/partner/fattura`): selezione partner + GENERA FATTURA, STORICO, ESPORTA. Riepiloga la fatturazione del partner (visibile solo Admin; il partner la vede se abilitato).
 - **Orari Apertura** (`/partner/availability/list`): lista disponibilità per data: partner, province coperte, fascia oraria, Available Sì/No. Ogni partner imposta i propri orari; consultabili anche via link pubblico `https://app.deluxy.it/partner/[id]/availability`.
 - **Priorità** (`/partner/priority/list`): 27 regole attive. Per Provincia + Categoria Prodotto si definisce la lista ordinata di partner prioritari per le vendite di prodotti non unici (es. MI/Fiori → Maryflor, Angolo Fiorito, Fiorista Tonino…).
-- **Consegne Regole** (`/partner/delivery/rules`): regole per carnet e servizi con numero di consegne garantito. Campi: Daily Number Rule (Sì/No), Total Number Rule (Sì/No), periodo di validità, time range, partner, KM distance, numero giornaliero di consegne, numero totale di consegne, Plus/Minus prezzo partner, Plus/Minus paga valet, tipo servizio, Da fatturare, Da pagare. Le regole si possono estendere a più partner (sezione Estensione).
+- **Consegne Regole** (`/partner/delivery/rules`): regole per carnet e servizi con numero di consegne garantito. Campi: Daily Number Rule (Sì/No), Total Number Rule (Sì/No), periodo di validità, time range, partner, KM distance, numero giornaliero di consegne, numero totale di consegne, Plus/Minus prezzo partner, Plus/Minus paga valet, tipo servizio, Da fatturare, Da pagare. Le regole si possono estendere a più partner (sezione Estensione). **[PORTATA nel nuovo ambiente il 20/07]** — sezione **Regole carnet** (`/delivery-rules`, ADMIN/OPERATION/PM): lista + form modale con tutti i campi sopra; Daily e Total come due Sì/No indipendenti; estensione multi-partner via multi-select. Backend `delivery-rules` con CRUD completo (modello `DeliveryRule`). **La scheda partner** mostra i carnet attivi del partner con le **consegne rimaste** e permette di **modificarli o aggiungerne** direttamente da lì (il partner resta sempre incluso). ⚠️ La *applicazione* della regola al calcolo consegne (garantire i numeri, applicare i plus/minus in fatturazione/paga) non è ancora agganciata: per ora è anagrafica delle regole. **Da verificare sullo schermo reale** (accesso admin): esattezza ed etichette dei campi, e cosa fa la "sezione Estensione".
 - **Invoice List** (`/partner/invoices`): elenco fatture per partner. **[NUOVO]**
 - **Carte** (`/partner/cards`): gestione carte associate ai partner (es. Jamtech Technologies, Deluxy Flowers) con NUOVO CARTE — collegata ai pagamenti con carta. **[NUOVO]**
 
@@ -266,6 +266,31 @@ Visibile solo agli admin abilitati (es. utente "support").
 - Tab **CORRISPETTIVI**: per ogni vendita: Stato, ID Vendita, ID Consegna, Data consegna, Prodotto, Categoria, Valore vendite, Prezzo pubblico, Prezzo consegna, Partner, Prezzo partner, Fee %, Fee value, Fee+IVA, Costo consegna, Primo margine, Primo margine %. Con ESPORTA.
 - Tab **MARGINI**: margini totali dell'azienda.
 
+**Formule reali (verificate su app.deluxy.it il 21/07, sessione admin).** La tab **CORRISPETTIVI** ha una riga **per vendita** (colonne `ID VENDITA` e `ID CONSEGNE` distinte) con queste colonne e formule (verificate al centesimo su più righe):
+
+| Colonna | Formula |
+|---|---|
+| Valore vendite | Prezzo pubblico + Consegna prezzo |
+| Prezzo pubblico | (dato, dal prodotto) |
+| Consegna prezzo | (dato, tariffa consegna al cliente) |
+| Prezzo partner | (dato) |
+| **Fee %** | **commissione del singolo partner** |
+| Fee value | Fee % × Prezzo partner |
+| Fee + IVA | Fee value × 1,22 |
+| Costo consegna | paga del valet |
+| Primo margine | Valore vendite − Prezzo partner + Fee value |
+| Primo margine % | Primo margine / Valore vendite |
+| Corrispettivo | Valore vendite − Prezzo partner |
+| IVA | Corrispettivo × 22% |
+| Commissione incassi | Valore vendite × 3% |
+| Margine totale | Primo margine − Costo consegna − IVA − Commissione incassi |
+| Margine totale % | Margine totale / Valore vendite |
+| Incasso partner | Prezzo partner − (Fee + IVA) |
+
+In fondo una riga **Totale** che somma le colonne in euro. La tab **MARGINI** è invece una tabella **per consegna** con colonne operative (Vendita, Platform, Valet, Tipo servizio, Da fatturare/Da pagare, Prezzo, +/− Prezzo, Valet salario, +/− Prezzo stipendi, Margine totale, %). Entrambe le tab: filtro Stato, filtri per-colonna con operatori (`= < > >= <=`), elementi/pagina, ESPORTA, RICERCA/RESET.
+
+**[PORTATA nel nuovo ambiente — riallineata alle formule reali il 21/07]** — sezione **Finanza** (`/finance`, solo ADMIN). Per supportare le formule reali sono stati aggiunti allo schema: **`Partner.commissionPercent`** (la Fee%) e **`Delivery.deliveryPrice`** (la "Consegna prezzo"). IVA 22% e commissione incassi 3% sono costanti in `finance.module.ts` (candidate a diventare impostazioni). Nota residua: la riga dei Corrispettivi nel nuovo ambiente è per **consegna** (con i suoi prodotti aggregati), non ancora per vendita — manca il legame Vendita↔Consegna.
+
 ### 3.9 Setup
 
 - **Modelli SMS** (`/admin/smstemplates`): 31 modelli; tipi Created / Departed / Arrived; assegnati ad Admin o a partner specifici (es. Boutique Chanel); placeholder disponibili: `[name]`, `[day]`, `[between_time]`. Brand: Deluxy, DeluxyFlowers, CakeDesign.Me, BusinessDeluxy, Deluxy Experience, Deluxy Dot Com.
@@ -327,6 +352,15 @@ Tab SHOPIFY PRODOTTI in Prodotti e piattaforme di vendita collegate (`shopifysal
 ### Altre integrazioni rilevate
 
 Stripe (pagamenti online), Qonto (banking dal Profilo), Google Maps (geocoding, mappa consegne, calcolo distanze), SMS + WhatsApp (notifiche), Web Push (notifiche in app, contatore nell'header).
+
+#### Notifiche — nuovo ambiente (20/07) **[NUOVO]**
+
+Portato il sistema di notifiche dell'app reale nel nuovo ambiente: campanello con contatore accanto al profilo/logout (contatore = solo non lette), tendina con lo storico e "segna tutte lette", click su una notifica di consegna che porta al dettaglio. Il contatore si aggiorna in polling (60s).
+
+- **Canale attivo: Web Push** (VAPID, libreria `web-push`, come il legacy) + notifiche in-app persistite a DB (modelli `Notification` e `PushSubscription`). Il push al browser usa il service worker `web/public/sw-push.js`; l'iscrizione (permesso + `subscribe`) è in `NotificationsService.enablePush()`, da agganciare a un bottone in Profilo.
+- **Trigger sui cambi stato consegna** (§5): quando una consegna passa a *in consegna* / *consegnata* / *non consegnata*, **Admin e Operation** attivi ricevono la notifica (chi ha fatto l'azione escluso). Aggancio in `deliveries.service.ts` → `updateStatus`.
+- **Non ancora portati**: SMS, WhatsApp, Mail (servono credenziali Twilio/WATI/SMTP) e il job notturno `checkingPartnerContract` per la scadenza contratto. L'interfaccia `NotificationsService.notifyUsers()` è già pronta a ospitarli.
+- Senza chiavi VAPID configurate il sistema resta funzionante con le sole notifiche in-app (nessun push al browser).
 
 ## 7-bis. Servizi e Calcoli (pricing) — sezione interna
 
