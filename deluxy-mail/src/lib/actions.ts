@@ -764,6 +764,35 @@ export async function segnalaNonSpam(id: string): Promise<{ ok: boolean; messagg
   return { ok: true, messaggio: 'Spostata in Posta in arrivo: non è spam.' }
 }
 
+/**
+ * Segna una mail come SPAM: la sposta nella sezione SPAM (creandola se manca).
+ * Marcata 'manuale' e letta, così esce dalla posta in arrivo e non gonfia i
+ * non letti. La si recupera aprendo lo SPAM ("Non è spam").
+ */
+export async function segnalaSpam(id: string): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  let spam = await db.sezione.findFirst({ where: { utenteId, nome: 'SPAM' }, select: { id: true } })
+  if (!spam) {
+    const max = await db.sezione.aggregate({ where: { utenteId }, _max: { ordine: true } })
+    spam = await db.sezione.create({
+      data: {
+        utenteId,
+        nome: 'SPAM',
+        descrizione: 'Posta indesiderata',
+        colore: 'red',
+        ordine: (max._max.ordine ?? 0) + 1,
+      },
+      select: { id: true },
+    })
+  }
+  await db.messaggio.updateMany({
+    where: { id, utenteId },
+    data: { sezioneId: spam.id, smistatoDa: 'manuale', letto: true },
+  })
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: 'Spostata nello SPAM.' }
+}
+
 // ---------- Allegati (letti on-demand dal server) ----------
 
 /** L'elenco degli allegati di un messaggio, letto dal server al momento. */

@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { dataBreve } from '@/lib/format'
 import { PrioritaButtons } from './PrioritaButtons'
 import { AzioniRiga } from './AzioniRiga'
-import { ArchiviaDefinitivo } from './ArchiviaDefinitivo'
 import { BottoneNonSpam } from './BottoneNonSpam'
 import { SpostaSezione } from './SpostaSezione'
 import { RispostaAzioni } from './RispostaAzioni'
@@ -188,7 +187,14 @@ export function RigaMail({
       <div style={{ paddingLeft: 17 }}>
         <PrioritaButtons id={r.id} priorita={r.priorita} prioritaDa={r.prioritaDa} analizzato={r.analizzato} />
         <div className="riga-azioni">
-          <AzioniRiga id={r.id} archiviato={r.archiviato} cestinato={r.cestinato} onFatto={() => setNascosto(true)} />
+          <AzioniRiga
+            id={r.id}
+            archiviato={r.archiviato}
+            cestinato={r.cestinato}
+            mittente={r.mittente}
+            giaInSpam={r.sezione?.nome === 'SPAM'}
+            onFatto={() => setNascosto(true)}
+          />
           <DelegaReneBottone id={r.id} />
           <AgganciaBottone id={r.id} />
           {r.nel > 1 && (
@@ -199,7 +205,6 @@ export function RigaMail({
           <BottoneApp id={r.id} />
           {r.sezione?.nome === 'SPAM' && <BottoneNonSpam id={r.id} />}
           {!r.inviata && <SpostaSezione id={r.id} sezioneAttuale={r.sezioneId ?? null} sezioni={sezioni} />}
-          <ArchiviaDefinitivo id={r.id} mittente={r.mittente} />
         </div>
       </div>
     </MailDrag>

@@ -1,38 +1,58 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { archiviaMessaggio, cestinaMessaggio, ripristinaMessaggio } from '@/lib/actions'
+import {
+  archiviaMessaggio,
+  archiviaDefinitivo,
+  cestinaMessaggio,
+  ripristinaMessaggio,
+  segnalaSpam,
+} from '@/lib/actions'
 
 /**
- * Archivia / Cestina direttamente dalla lista, senza aprire il messaggio.
+ * Archivia / Cestina / Spam direttamente dalla lista, senza aprire il messaggio.
  *
- * Entrambe sono reversibili — l'archiviato si rivede col filtro "Archiviati",
- * il cestinato si ripristina dal Cestino — quindi non chiedono conferma:
- * un'azione che si disfa con un click non merita un passaggio in più.
- * "Archivia definitivo" invece la chiede, perché crea una regola permanente.
+ * "Archivia" è UNO solo: archivia subito questa mail (reversibile, si rivede
+ * negli Archiviati) e poi chiede se vale «per sempre» — cioè se archiviare anche
+ * tutti i prossimi messaggi di quel mittente creando la regola. Così non ci sono
+ * due bottoni (archivia / archivia definitivo): prima l'azione, poi la scelta.
+ *
+ * Ogni click va fermato (preventDefault): la riga è un link, altrimenti aprirebbe
+ * la mail invece di eseguire l'azione.
  */
 export function AzioniRiga({
   id,
   archiviato,
   cestinato,
+  mittente,
+  giaInSpam = false,
   onFatto,
 }: {
   id: string
   archiviato: boolean
   cestinato: boolean
-  /** Chiamato SUBITO (ottimistico) quando la mail esce dalla lista: la riga
-   *  sparisce all'istante, senza aspettare il refresh dal server. */
+  /** Mittente: serve per la domanda «Sempre da …?» dopo l'archiviazione. */
+  mittente?: string
+  /** La mail è già nella sezione SPAM: niente bottone "Spam". */
+  giaInSpam?: boolean
+  /** Chiamato quando la mail esce dalla lista (rimozione ottimistica). */
   onFatto?: () => void
 }) {
   const [inCorso, startTransition] = useTransition()
+  // Dopo aver archiviato, si chiede se rendere l'archiviazione permanente.
+  const [chiediSempre, setChiediSempre] = useState(false)
   const router = useRouter()
 
-  function esegui(e: React.MouseEvent, azione: () => Promise<void>, esce = false) {
-    // La riga è un link: senza fermare il click si aprirebbe la mail.
+  function ferma(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
-    if (esce) onFatto?.() // sparisce subito
+  }
+
+  // Azione che fa USCIRE la riga: sparisce subito, poi si riallinea il server.
+  function eseguiEsci(e: React.MouseEvent, azione: () => Promise<unknown>) {
+    ferma(e)
+    onFatto?.()
     startTransition(async () => {
       await azione()
       router.refresh()
@@ -45,10 +65,53 @@ export function AzioniRiga({
         type="button"
         className="azione-riga"
         disabled={inCorso}
-        onClick={(e) => esegui(e, () => ripristinaMessaggio(id))}
+        onClick={(e) => eseguiEsci(e, () => ripristinaMessaggio(id))}
       >
         Ripristina
       </button>
+    )
+  }
+
+  // Fase 2: la mail è già archiviata, chiediamo se vale per sempre.
+  if (chiediSempre) {
+    return (
+      <span className="archivia-def-conferma" onClick={ferma}>
+        <span>
+          Archiviata. Sempre da{' '}
+          {mittente ? <strong>{mittente}</strong> : 'questo mittente'}?
+        </span>
+        <button
+          type="button"
+          className="archivia-def"
+          disabled={inCorso}
+          title="Solo questa mail (resta negli Archiviati)"
+          onClick={(e) => {
+            ferma(e)
+            onFatto?.()
+            startTransition(async () => {
+              router.refresh()
+            })
+          }}
+        >
+          No, solo questa
+        </button>
+        <button
+          type="button"
+          className="archivia-def si"
+          disabled={inCorso}
+          title={`Archivia anche tutti i prossimi messaggi da ${mittente ?? 'questo mittente'}, creando una regola`}
+          onClick={(e) => {
+            ferma(e)
+            startTransition(async () => {
+              await archiviaDefinitivo(id)
+              onFatto?.()
+              router.refresh()
+            })
+          }}
+        >
+          {inCorso ? 'Creo la regola…' : 'Sì, sempre'}
+        </button>
+      </span>
     )
   }
 
@@ -60,7 +123,16 @@ export function AzioniRiga({
           className="azione-riga"
           disabled={inCorso}
           title="Togli dalla posta in arrivo (resta negli Archiviati)"
-          onClick={(e) => esegui(e, () => archiviaMessaggio(id), true)}
+          onClick={(e) => {
+            ferma(e)
+            // Archivia subito, poi chiedi se per sempre. La riga NON sparisce
+            // ancora (serve mostrare la domanda) e NON si fa refresh: lo si fa
+            // dopo la risposta.
+            startTransition(async () => {
+              await archiviaMessaggio(id)
+              setChiediSempre(true)
+            })
+          }}
         >
           Archivia
         </button>
@@ -70,10 +142,21 @@ export function AzioniRiga({
         className="azione-riga"
         disabled={inCorso}
         title="Sposta nel cestino di AI Mail (la mail resta sul server)"
-        onClick={(e) => esegui(e, () => cestinaMessaggio(id), true)}
+        onClick={(e) => eseguiEsci(e, () => cestinaMessaggio(id))}
       >
         Cestina
       </button>
+      {!giaInSpam && (
+        <button
+          type="button"
+          className="azione-riga"
+          disabled={inCorso}
+          title="Sposta nello SPAM (posta indesiderata)"
+          onClick={(e) => eseguiEsci(e, () => segnalaSpam(id))}
+        >
+          Spam
+        </button>
+      )}
     </>
   )
 }
