@@ -3,7 +3,6 @@
 // telefono e registra la chiamata) e lo "step" di stato (i 7 valori del registro).
 import { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Linking,
   Pressable,
@@ -18,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing } from '@/lib/theme';
 import { aggiornaStarred, aggiornaStatoAffiliazione, fetchAffiliazioni, registraChiamata } from '@/lib/db';
+import { avvisa } from '@/lib/dialoghi';
 import { STATI_AFFILIAZIONE, type AffiliazioneRow, type StatoAffiliazione } from '@/types';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 import { EmptyState, PageIntro } from '@/components/ui';
@@ -77,14 +77,14 @@ export default function Affiliazioni() {
 
   async function chiama(r: AffiliazioneRow) {
     if (!r.telefono) {
-      Alert.alert('Nessun numero', 'Questa affiliazione non ha un telefono in rubrica.');
+      avvisa('Nessun numero', 'Questa affiliazione non ha un telefono in rubrica.');
       return;
     }
     // Registra la chiamata (best-effort) e apri il dialer.
     registraChiamata(r.id).then(carica).catch(() => {});
     const tel = r.telefono.replace(/[^\d+]/g, '');
     Linking.openURL(`tel:${tel}`).catch(() =>
-      Alert.alert('Impossibile chiamare', 'Compone il numero manualmente: ' + r.telefono),
+      avvisa('Impossibile chiamare', 'Compone il numero manualmente: ' + r.telefono),
     );
   }
 
@@ -93,7 +93,7 @@ export default function Affiliazioni() {
     try {
       await aggiornaStatoAffiliazione(r.id, stato);
     } catch (e: any) {
-      Alert.alert('Errore', e?.message ?? 'Stato non salvato.');
+      avvisa('Errore', e?.message ?? 'Stato non salvato.');
       carica();
     }
   }

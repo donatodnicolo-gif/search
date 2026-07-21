@@ -3,10 +3,11 @@
 // 3) conferma e invia dalla tua casella. Ogni email è personalizzata per il
 // contatto ({nome}/{negozio}) e l'esito è mostrato per destinatario.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
+import { conferma, avvisa } from '@/lib/dialoghi';
 import { fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
 import { anteprima, fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
 import { Loader } from '../../_layout';
@@ -67,15 +68,13 @@ export default function InvioScript() {
     });
   }
 
-  async function invia() {
+  function invia() {
     // Azione esterna e irreversibile: riepilogo esplicito prima di partire.
-    Alert.alert(
-      'Confermi l\'invio?',
+    conferma(
+      "Confermi l'invio?",
       `Verrà inviata un'email a ${selezionati.length} contatt${selezionati.length === 1 ? 'o' : 'i'} dalla tua casella.`,
-      [
-        { text: 'Annulla', style: 'cancel' },
-        { text: `Invia a ${selezionati.length}`, style: 'default', onPress: eseguiInvio },
-      ],
+      eseguiInvio,
+      { testoConferma: `Invia a ${selezionati.length}` },
     );
   }
 
@@ -85,17 +84,17 @@ export default function InvioScript() {
       const destinatari = selezionati.map((c) => ({ email: c.email as string, nome: c.nome, negozio: c.place_nome }));
       const r = await inviaEmailContatti(oggetto, corpo, destinatari);
       if (r.reason === 'smtp_non_configurato') {
-        Alert.alert('Casella non collegata', 'Collega la tua email da Profilo → La mia email, poi riprova.');
+        avvisa('Casella non collegata', 'Collega la tua email da Profilo → La mia email, poi riprova.');
         return;
       }
       const falliti = r.falliti?.length ?? 0;
-      Alert.alert(
+      avvisa(
         'Invio completato',
         `Inviate ${r.inviate} su ${r.totale}.` + (falliti ? `\nNon riuscite: ${falliti} (email errata o rifiutata).` : ''),
-        [{ text: 'OK', onPress: () => router.back() }],
+        () => router.back(),
       );
     } catch (e: any) {
-      Alert.alert('Errore', e?.message ?? 'Invio non riuscito.');
+      avvisa('Errore', e?.message ?? 'Invio non riuscito.');
     } finally {
       setInviando(false);
     }

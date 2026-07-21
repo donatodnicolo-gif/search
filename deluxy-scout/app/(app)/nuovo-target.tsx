@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,6 +15,7 @@ import type { CategoryRule } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { caricaRegole, regolaPerCategoria } from '@/lib/categoryRules';
 import { inserisciPlace } from '@/lib/db';
+import { avvisa } from '@/lib/dialoghi';
 import { posizioneCorrente, type Coord } from '@/lib/location';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
 import { LineaSelector } from '@/components/LineaSelector';
@@ -60,11 +60,11 @@ export default function NuovoTarget() {
 
   async function salva() {
     if (!nome.trim()) {
-      Alert.alert('Nome mancante', 'Inserisci il nome dell’attività.');
+      avvisa('Nome mancante', 'Inserisci il nome dell’attività.');
       return;
     }
     if (!pos) {
-      Alert.alert('Posizione non disponibile', 'Attendi il check-in GPS o riprova.');
+      avvisa('Posizione non disponibile', 'Attendi il check-in GPS o riprova.');
       return;
     }
     setSalvataggio(true);
@@ -85,7 +85,7 @@ export default function NuovoTarget() {
       });
       router.replace(`/(app)/attivita/${place.id}`);
     } catch (e: any) {
-      Alert.alert('Errore', e?.message ?? 'Impossibile salvare il target.');
+      avvisa('Errore', e?.message ?? 'Impossibile salvare il target.');
     } finally {
       setSalvataggio(false);
     }

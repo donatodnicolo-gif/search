@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { inserisciContatto } from '@/lib/db';
+import { avvisa } from '@/lib/dialoghi';
 
 export default function NuovoContatto() {
   const { placeId } = useLocalSearchParams<{ placeId: string }>();
@@ -30,7 +30,7 @@ export default function NuovoContatto() {
   async function salva() {
     if (!placeId) return;
     if (!nome.trim()) {
-      Alert.alert('Nome mancante', 'Inserisci il nome del contatto.');
+      avvisa('Nome mancante', 'Inserisci il nome del contatto.');
       return;
     }
     setSalvataggio(true);
@@ -47,7 +47,7 @@ export default function NuovoContatto() {
       // alla Mappa. Torniamo esplicitamente al dettaglio del negozio.
       router.replace(`/(app)/attivita/${placeId}`);
     } catch (e: any) {
-      Alert.alert('Errore', e?.message ?? 'Impossibile salvare il contatto.');
+      avvisa('Errore', e?.message ?? 'Impossibile salvare il contatto.');
     } finally {
       setSalvataggio(false);
     }

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,6 +13,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { CategoryRule, Place, Priorita, StatoPlace } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
 import { aggiornaPlace, fetchPlace } from '@/lib/db';
+import { avvisa } from '@/lib/dialoghi';
 import { caricaRegole } from '@/lib/categoryRules';
 import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
@@ -65,7 +65,7 @@ export default function ModificaAttivita() {
   async function salva() {
     if (!place) return;
     if (!nome.trim()) {
-      Alert.alert('Nome mancante', 'Il nome non può essere vuoto.');
+      avvisa('Nome mancante', 'Il nome non può essere vuoto.');
       return;
     }
     setSalvataggio(true);
@@ -83,7 +83,7 @@ export default function ModificaAttivita() {
       // Drawer senza stack lineare: torniamo al dettaglio, non alla Mappa.
       router.replace(`/(app)/attivita/${place.id}`);
     } catch (e: any) {
-      Alert.alert('Errore', e?.message ?? 'Impossibile salvare le modifiche.');
+      avvisa('Errore', e?.message ?? 'Impossibile salvare le modifiche.');
     } finally {
       setSalvataggio(false);
     }

@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
 import { colors, coloreStato, labelStato, radius, shadow, spacing } from '@/lib/theme';
 import { aggiornaNascosto } from '@/lib/db';
+import { avvisa } from '@/lib/dialoghi';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
@@ -23,7 +24,7 @@ export default function Lista() {
       await aggiornaNascosto(place.id, true);
       ricarica();
     } catch (e: any) {
-      Alert.alert('Errore', e?.message ?? 'Impossibile rimuovere il target.');
+      avvisa('Errore', e?.message ?? 'Impossibile rimuovere il target.');
     }
   }
 

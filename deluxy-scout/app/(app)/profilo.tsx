@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -11,6 +11,7 @@ import { contaInCoda, flushCoda } from '@/lib/syncQueue';
 import { aggiornaNomeProfilo, fetchPreferenzaProforma, fetchProfilo, salvaPreferenzaProforma } from '@/lib/db';
 import { sincronizzaHubspot } from '@/lib/hubspot';
 import { esportaAttivitaCsv, esportaVisiteCsv } from '@/lib/export';
+import { avvisa } from '@/lib/dialoghi';
 
 export default function Profilo() {
   const { session, signOut } = useAuth();
@@ -27,9 +28,9 @@ export default function Profilo() {
     setSyncHS(true);
     try {
       const r = await sincronizzaHubspot();
-      Alert.alert('HubSpot', `Sincronizzati ${r.aziende} aziende e ${r.contatti} contatti.`);
+      avvisa('HubSpot', `Sincronizzati ${r.aziende} aziende e ${r.contatti} contatti.`);
     } catch (e: any) {
-      Alert.alert('Errore', e?.message ?? 'Riprova più tardi.');
+      avvisa('Errore', e?.message ?? 'Riprova più tardi.');
     } finally {
       setSyncHS(false);
     }
@@ -54,7 +55,7 @@ export default function Profilo() {
       await salvaPreferenzaProforma(nuovo);
     } catch {
       setProformaDefault(!nuovo);
-      Alert.alert('Impostazioni', 'Preferenza non salvata (riprova più tardi).');
+      avvisa('Impostazioni', 'Preferenza non salvata (riprova più tardi).');
     }
   }
 
@@ -64,9 +65,9 @@ export default function Profilo() {
     setSalvoNome(true);
     try {
       await aggiornaNomeProfilo(uid, nome);
-      Alert.alert('Profilo', 'Nome aggiornato.');
+      avvisa('Profilo', 'Nome aggiornato.');
     } catch {
-      Alert.alert('Profilo', 'Impossibile salvare il nome (riprova più tardi).');
+      avvisa('Profilo', 'Impossibile salvare il nome (riprova più tardi).');
     } finally {
       setSalvoNome(false);
     }
@@ -82,9 +83,9 @@ export default function Profilo() {
     setSync(true);
     try {
       const r = await flushCoda();
-      Alert.alert('Sincronizzazione', `Inviate ${r.synced} visite. In coda: ${r.rimasti}.`);
+      avvisa('Sincronizzazione', `Inviate ${r.synced} visite. In coda: ${r.rimasti}.`);
     } catch (e: any) {
-      Alert.alert('Errore sync', e?.message ?? 'Riprova quando sei online.');
+      avvisa('Errore sync', e?.message ?? 'Riprova quando sei online.');
     } finally {
       setSync(false);
       aggiorna();
@@ -95,9 +96,9 @@ export default function Profilo() {
     setEsporto(tipo);
     try {
       const n = tipo === 'attivita' ? await esportaAttivitaCsv() : await esportaVisiteCsv();
-      Alert.alert('Export pronto', `${n} righe esportate in CSV.`);
+      avvisa('Export pronto', `${n} righe esportate in CSV.`);
     } catch (e: any) {
-      Alert.alert('Errore export', e?.message ?? 'Impossibile esportare.');
+      avvisa('Errore export', e?.message ?? 'Impossibile esportare.');
     } finally {
       setEsporto(null);
     }

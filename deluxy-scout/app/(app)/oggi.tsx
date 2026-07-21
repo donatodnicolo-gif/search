@@ -2,7 +2,7 @@
 // Aggrega: agenda di oggi (task + follow-up in scadenza), ritardi, richiami,
 // task aperti; azioni rapide verso le sezioni operative.
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Task } from '@/types';
@@ -18,6 +18,7 @@ import {
   type TrattativaConLuogo,
 } from '@/lib/db';
 import { daRicontattare, type Richiamo } from '@/lib/metrics';
+import { avvisa } from '@/lib/dialoghi';
 
 const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 const GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
@@ -84,12 +85,12 @@ export default function Oggi() {
     setInviando(true);
     try {
       const r = await inviaPromemoriaEmail();
-      if (r.sent) Alert.alert('Inviato', 'Riepilogo inviato alla tua email.');
-      else if (r.reason === 'niente_in_scadenza') Alert.alert('Tutto in ordine', 'Niente in scadenza: nessuna email necessaria.');
-      else if (r.reason === 'smtp_non_configurato') Alert.alert('Email non attiva', 'L’invio email non è ancora configurato (SMTP).');
-      else Alert.alert('Non inviato', r.reason ?? 'Riprova più tardi.');
+      if (r.sent) avvisa('Inviato', 'Riepilogo inviato alla tua email.');
+      else if (r.reason === 'niente_in_scadenza') avvisa('Tutto in ordine', 'Niente in scadenza: nessuna email necessaria.');
+      else if (r.reason === 'smtp_non_configurato') avvisa('Email non attiva', 'L’invio email non è ancora configurato (SMTP).');
+      else avvisa('Non inviato', r.reason ?? 'Riprova più tardi.');
     } catch {
-      Alert.alert('Errore', 'Invio non riuscito, riprova.');
+      avvisa('Errore', 'Invio non riuscito, riprova.');
     } finally {
       setInviando(false);
     }

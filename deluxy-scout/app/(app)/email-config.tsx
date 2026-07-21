@@ -2,12 +2,13 @@
 // invia notifiche e promemoria per conto del venditore. La password si inserisce
 // qui, viene cifrata server-side e non è più leggibile.
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { StatusBadge } from '@/components/ui';
 import { rimuoviSmtp, salvaSmtp, statoSmtp, verificaSmtp } from '@/lib/smtp';
+import { conferma, avvisa } from '@/lib/dialoghi';
 
 // Preset comodo: la maggior parte delle caselle Register.it usa questo host.
 const HOST_DEFAULT = 'authsmtp.register.it';
@@ -51,7 +52,7 @@ export default function EmailConfig() {
 
   async function salva() {
     if (!host.trim() || !utente.trim() || !password) {
-      Alert.alert('Dati mancanti', 'Compila host, email e password.');
+      avvisa('Dati mancanti', 'Compila host, email e password.');
       return;
     }
     setSalvando(true);
@@ -64,10 +65,10 @@ export default function EmailConfig() {
         mittente: mittente.trim() || undefined,
       });
       setPassword('');
-      Alert.alert('Salvato', 'Casella collegata. Ora invia un test per confermare che funzioni.');
+      avvisa('Salvato', 'Casella collegata. Ora invia un test per confermare che funzioni.');
       carica();
     } catch (e: any) {
-      Alert.alert('Errore', e?.message ?? 'Impossibile salvare.');
+      avvisa('Errore', e?.message ?? 'Impossibile salvare.');
     } finally {
       setSalvando(false);
     }
@@ -78,37 +79,30 @@ export default function EmailConfig() {
     try {
       const r = await verificaSmtp();
       if (r.ok) {
-        Alert.alert('Funziona', `Email di prova inviata a ${r.inviata_a}. Controlla la casella.`);
+        avvisa('Funziona', `Email di prova inviata a ${r.inviata_a}. Controlla la casella.`);
         carica();
       } else if (r.reason === 'non_configurato') {
-        Alert.alert('Prima salva', 'Salva le credenziali, poi invia il test.');
+        avvisa('Prima salva', 'Salva le credenziali, poi invia il test.');
       } else {
-        Alert.alert('Invio non riuscito', r.dettaglio ?? 'Controlla email, password e host.');
+        avvisa('Invio non riuscito', r.dettaglio ?? 'Controlla email, password e host.');
       }
     } catch (e: any) {
-      Alert.alert('Errore', e?.message ?? 'Verifica non riuscita.');
+      avvisa('Errore', e?.message ?? 'Verifica non riuscita.');
     } finally {
       setVerificando(false);
     }
   }
 
   function rimuovi() {
-    Alert.alert('Scollega casella', 'Le notifiche e i promemoria via email smetteranno di partire. Confermi?', [
-      { text: 'Annulla', style: 'cancel' },
-      {
-        text: 'Scollega',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await rimuoviSmtp();
-            setPassword('');
-            carica();
-          } catch (e: any) {
-            Alert.alert('Errore', e?.message ?? 'Riprova più tardi.');
-          }
-        },
-      },
-    ]);
+    conferma('Scollega casella', 'Le notifiche e i promemoria via email smetteranno di partire. Confermi?', async () => {
+      try {
+        await rimuoviSmtp();
+        setPassword('');
+        carica();
+      } catch (e: any) {
+        avvisa('Errore', e?.message ?? 'Riprova più tardi.');
+      }
+    }, { testoConferma: 'Scollega', distruttivo: true });
   }
 
   return (

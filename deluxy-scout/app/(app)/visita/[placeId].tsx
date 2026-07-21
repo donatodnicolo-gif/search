@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +17,7 @@ import type { EsitoVisita, Linea, Place } from '@/types';
 import { LINEE_STANDBY } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { fetchLinee, fetchPlace, aggiornaStatoPlace, caricaFotoVetrina, inserisciVisita } from '@/lib/db';
+import { avvisa } from '@/lib/dialoghi';
 import { posizioneCorrente, type Coord } from '@/lib/location';
 import { accodaVisita, flushCoda, isOnline, statoDaEsito } from '@/lib/syncQueue';
 import { syncVisita } from '@/lib/hubspot';
@@ -86,7 +86,7 @@ export default function NuovaVisita() {
   async function scegliFoto() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permesso fotocamera negato');
+      avvisa('Permesso fotocamera negato');
       return;
     }
     const res = await ImagePicker.launchCameraAsync({ quality: 0.6 });
@@ -97,11 +97,11 @@ export default function NuovaVisita() {
     if (!place) return;
     // Next-step OBBLIGATORIO (regola Fase 3).
     if (!nextStep.trim()) {
-      Alert.alert('Next step obbligatorio', 'Inserisci il prossimo passo prima di salvare.');
+      avvisa('Next step obbligatorio', 'Inserisci il prossimo passo prima di salvare.');
       return;
     }
     if (!esito) {
-      Alert.alert('Esito mancante', 'Seleziona un esito della visita.');
+      avvisa('Esito mancante', 'Seleziona un esito della visita.');
       return;
     }
     setSalvataggio(true);
@@ -136,7 +136,7 @@ export default function NuovaVisita() {
           retries: 0,
         });
         await programmaRecapEmail({ esito, nomeAttivita: place.nome, placeId: place.id });
-        Alert.alert('Salvata offline', 'La visita verrà sincronizzata al ritorno online.');
+        avvisa('Salvata offline', 'La visita verrà sincronizzata al ritorno online.');
         router.replace(`/(app)/attivita/${place.id}`);
         return;
       }
@@ -154,7 +154,7 @@ export default function NuovaVisita() {
       await programmaRecapEmail({ esito, nomeAttivita: place.nome, placeId: place.id });
       // Tenta anche di svuotare eventuali visite rimaste in coda.
       flushCoda().catch(() => {});
-      Alert.alert('Visita salvata', 'Sincronizzata su Supabase.');
+      avvisa('Visita salvata', 'Sincronizzata su Supabase.');
       router.replace(`/(app)/attivita/${place.id}`);
     } catch (e: any) {
       // Fallback: se qualcosa va storto online, accoda comunque per non perdere dati.
@@ -165,7 +165,7 @@ export default function NuovaVisita() {
         createdAt: new Date().toISOString(),
         retries: 0,
       });
-      Alert.alert(
+      avvisa(
         'Salvata in coda',
         `Il salvataggio online non è riuscito: la visita verrà inviata automaticamente appena possibile.${e?.message ? `\n(Dettaglio: ${e.message})` : ''}`,
       );

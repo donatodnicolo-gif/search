@@ -9,6 +9,7 @@ import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
+import { conferma, avvisa } from '@/lib/dialoghi';
 import { eliminaScript, fetchScript, LABEL_TIPO, salvaScript, type ScriptEmail, type TipoScript } from '@/lib/script';
 
 const TIPI: TipoScript[] = ['prospezione', 'follow_up', 'avviso', 'altro'];
@@ -50,22 +51,20 @@ export default function Script() {
     return lista.filter((s) => [s.titolo, s.oggetto, s.corpo].filter(Boolean).some((v) => (v as string).toLowerCase().includes(q)));
   }, [lista, query]);
 
-  async function elimina(s: ScriptEmail) {
-    Alert.alert('Eliminare lo script?', `"${s.titolo}" verrà rimosso dalla libreria.`, [
-      { text: 'Annulla', style: 'cancel' },
-      {
-        text: 'Elimina',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await eliminaScript(s.id);
-            carica();
-          } catch (e: any) {
-            Alert.alert('Errore', e?.message ?? 'Non eliminato (forse non è tuo).');
-          }
-        },
+  function elimina(s: ScriptEmail) {
+    conferma(
+      'Eliminare lo script?',
+      `"${s.titolo}" verrà rimosso dalla libreria.`,
+      async () => {
+        try {
+          await eliminaScript(s.id);
+          carica();
+        } catch (e: any) {
+          avvisa('Errore', e?.message ?? 'Non eliminato (forse non è tuo).');
+        }
       },
-    ]);
+      { testoConferma: 'Elimina', distruttivo: true },
+    );
   }
 
   return (
