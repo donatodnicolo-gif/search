@@ -129,6 +129,13 @@ export default async function Dettaglio({
             <a className="btn btn-secondario" href={`/partner/${p.id}/modifica`} style={{ fontSize: 12.5, padding: "6px 14px" }}>
               ✎ Modifica
             </a>
+            {/* Innesco manuale del salvataggio referenti in rubrica Google:
+                utile per i clienti diventati Attivi fuori dalla UI (Excel/API). */}
+            {p.stato === "attivo" && p.contatti.length > 0 && (
+              <a className="btn btn-secondario" href={`/partner/${p.id}?rubrica=1`} style={{ fontSize: 12.5, padding: "6px 14px" }}>
+                ☎ Salva in rubrica
+              </a>
+            )}
             {/* Una sede non può avere sedi proprie: il gruppo è a un livello */}
             {p.attivo && !p.capogruppo && p.sedi.length === 0 && (
               <GestioneGruppo partnerId={p.id} nome={p.nome} />
