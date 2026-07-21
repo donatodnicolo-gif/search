@@ -127,6 +127,112 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         />
       </div>
 
+      {/* La conversazione (aggancia mail, istruzioni AI, punti di vista) va in
+          cima, subito dopo le azioni: è il contesto con cui l'AI legge la mail,
+          quindi si vede prima del corpo. */}
+      {conversazione.length === 1 && (
+        <div className="card">
+          <div className="mail-subject" style={{ fontSize: 18, marginBottom: 10 }}>
+            Conversazione
+          </div>
+          <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginBottom: 12 }}>
+            Questa mail è da sola. Se un’altra mail parla della stessa cosa, agganciala qui:
+            quando dai una priorità, l’AI le legge insieme. Oppure apri la{' '}
+            <Link href={`/messaggio/${id}?ampia=1`} style={{ textDecoration: 'underline' }}>
+              vista con le mail correlate
+            </Link>{' '}
+            (scambiate con le stesse persone).
+          </p>
+          <AgganciaMail messaggioId={messaggio.id} agganciata={Boolean(messaggio.threadManuale)} />
+        </div>
+      )}
+
+      {conversazione.length > 1 && (
+        <div className="card">
+          <div
+            className="mail-subject"
+            style={{ fontSize: 18, marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}
+          >
+            <span>
+              {ampia ? 'Conversazione completa' : 'Conversazione'} · {conversazione.length} messaggi
+              {ampia && conversazione.length > strette && (
+                <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>
+                  {' '}
+                  ({conversazione.length - strette} correlate)
+                </span>
+              )}
+            </span>
+            {/* Questo thread ⇄ Con le correlate (le mail scambiate con le stesse persone). */}
+            <span className="vista-tabs" style={{ margin: 0 }}>
+              <Link href={`/messaggio/${id}`} className={`vista-tab ${!ampia ? 'attivo' : ''}`}>
+                Questo thread
+              </Link>
+              <Link href={`/messaggio/${id}?ampia=1`} className={`vista-tab ${ampia ? 'attivo' : ''}`}>
+                Con le correlate
+              </Link>
+            </span>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+            {ampia
+              ? 'Oltre alla catena di risposte, anche le altre mail scambiate con le stesse persone.'
+              : 'Quando dai una priorità, l’AI analizza l’ultima mail avendo letto tutta questa conversazione.'}
+          </p>
+
+          <div style={{ marginBottom: 14 }}>
+            <AgganciaMail messaggioId={messaggio.id} agganciata={Boolean(messaggio.threadManuale)} />
+          </div>
+
+          <EditorIstruzioni tipo="thread" target={messaggio.id} valore={istruzioniThread} />
+
+          <RiassuntoConversazione
+            messaggioId={messaggio.id}
+            iniziale={
+              riassuntoThread
+                ? {
+                    analisi: riassuntoThread.analisi,
+                    partecipanti: riassuntoThread.partecipanti,
+                    messaggiVisti: riassuntoThread.messaggiVisti,
+                    generatoIl: riassuntoThread.generatoIl,
+                  }
+                : null
+            }
+          />
+
+          <div className="thread-list" style={{ marginTop: 14 }}>
+            {conversazione.map((c) => {
+              const attuale = c.id === messaggio.id
+              return (
+                <Link
+                  key={c.id}
+                  href={`/messaggio/${c.id}`}
+                  className="thread-item"
+                  style={{
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'baseline',
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    background: attuale ? 'var(--fill)' : 'transparent',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                  }}
+                >
+                  <span style={{ fontWeight: 600, minWidth: 140, flexShrink: 0 }}>
+                    {c.direzione === 'uscita' ? 'Tu' : c.mittenteNome || c.mittente}
+                  </span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.oggetto}
+                  </span>
+                  <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>
+                    {dataLunga(c.data)}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="mail-head">
           <h1 className="mail-subject">{messaggio.oggetto}</h1>
@@ -247,109 +353,6 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           <AllegatiMessaggio messaggioId={messaggio.id} quanti={messaggio.allegati} />
         )}
       </div>
-
-      {conversazione.length === 1 && (
-        <div className="card">
-          <div className="mail-subject" style={{ fontSize: 18, marginBottom: 10 }}>
-            Conversazione
-          </div>
-          <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginBottom: 12 }}>
-            Questa mail è da sola. Se un’altra mail parla della stessa cosa, agganciala qui:
-            quando dai una priorità, l’AI le legge insieme. Oppure apri la{' '}
-            <Link href={`/messaggio/${id}?ampia=1`} style={{ textDecoration: 'underline' }}>
-              vista con le mail correlate
-            </Link>{' '}
-            (scambiate con le stesse persone).
-          </p>
-          <AgganciaMail messaggioId={messaggio.id} agganciata={Boolean(messaggio.threadManuale)} />
-        </div>
-      )}
-
-      {conversazione.length > 1 && (
-        <div className="card">
-          <div
-            className="mail-subject"
-            style={{ fontSize: 18, marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}
-          >
-            <span>
-              {ampia ? 'Conversazione completa' : 'Conversazione'} · {conversazione.length} messaggi
-              {ampia && conversazione.length > strette && (
-                <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>
-                  {' '}
-                  ({conversazione.length - strette} correlate)
-                </span>
-              )}
-            </span>
-            {/* Questo thread ⇄ Con le correlate (le mail scambiate con le stesse persone). */}
-            <span className="vista-tabs" style={{ margin: 0 }}>
-              <Link href={`/messaggio/${id}`} className={`vista-tab ${!ampia ? 'attivo' : ''}`}>
-                Questo thread
-              </Link>
-              <Link href={`/messaggio/${id}?ampia=1`} className={`vista-tab ${ampia ? 'attivo' : ''}`}>
-                Con le correlate
-              </Link>
-            </span>
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
-            {ampia
-              ? 'Oltre alla catena di risposte, anche le altre mail scambiate con le stesse persone.'
-              : 'Quando dai una priorità, l’AI analizza l’ultima mail avendo letto tutta questa conversazione.'}
-          </p>
-
-          <div style={{ marginBottom: 14 }}>
-            <AgganciaMail messaggioId={messaggio.id} agganciata={Boolean(messaggio.threadManuale)} />
-          </div>
-
-          <EditorIstruzioni tipo="thread" target={messaggio.id} valore={istruzioniThread} />
-
-          <RiassuntoConversazione
-            messaggioId={messaggio.id}
-            iniziale={
-              riassuntoThread
-                ? {
-                    analisi: riassuntoThread.analisi,
-                    partecipanti: riassuntoThread.partecipanti,
-                    messaggiVisti: riassuntoThread.messaggiVisti,
-                    generatoIl: riassuntoThread.generatoIl,
-                  }
-                : null
-            }
-          />
-
-          <div className="thread-list" style={{ marginTop: 14 }}>
-            {conversazione.map((c) => {
-              const attuale = c.id === messaggio.id
-              return (
-                <Link
-                  key={c.id}
-                  href={`/messaggio/${c.id}`}
-                  className="thread-item"
-                  style={{
-                    display: 'flex',
-                    gap: 12,
-                    alignItems: 'baseline',
-                    padding: '8px 10px',
-                    borderRadius: 10,
-                    background: attuale ? 'var(--fill)' : 'transparent',
-                    textDecoration: 'none',
-                    color: 'inherit',
-                  }}
-                >
-                  <span style={{ fontWeight: 600, minWidth: 140, flexShrink: 0 }}>
-                    {c.direzione === 'uscita' ? 'Tu' : c.mittenteNome || c.mittente}
-                  </span>
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {c.oggetto}
-                  </span>
-                  <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>
-                    {dataLunga(c.data)}
-                  </span>
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {bozzaAI && (
         <div className="card draft-box">
