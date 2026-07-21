@@ -77,11 +77,13 @@ export interface RiepilogoFinanziario {
   anno: number;
   annoPrec: number;
   base?: string; // descrizione dell'aggregato (es. "vendite vendor + servizi fatturati")
+  fonte?: 'fic' | string; // "fic" = dato dedotto dalle fatture su Fatture in Cloud
   fatturato: number; // anno corrente (year-to-date)
   fatturatoPrec: number; // stesso periodo anno precedente
   variazionePct: number | null; // % vs anno precedente
   mesi: number[]; // 12 valori, indice 0 = gennaio
   mesiPrec?: number[];
+  anni?: { anno: number; totale: number; fatture: number }[]; // riepilogo per anno (fallback FIC, 3 anni)
   url?: string; // pagina del partner su deluxy-partner
 }
 

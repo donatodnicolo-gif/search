@@ -2,6 +2,60 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { chiaveApiValida, appOrigine, ipRichiesta } from "@/lib/apiauth";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
+import { ficFatture, ficStato } from "@/lib/fic";
+
+// Fallback su Fatture in Cloud: se il cliente NON è un partner del FINANCE, cerca
+// le fatture a lui intestate negli ultimi 3 anni e ne fa il riepilogo (stesso
+// formato della card Finance, con fonte "fic"). Ritorna null se FIC non è
+// collegato o non ci sono fatture per quel nome.
+function normNome(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, " ").trim();
+}
+async function riepilogoDaFic(cliente: string, anno: number) {
+  const { collegato } = await ficStato().catch(() => ({ collegato: false }));
+  if (!collegato) return null;
+  const target = normNome(cliente);
+  if (!target) return null;
+  const anni = [anno, anno - 1, anno - 2];
+  const perAnno: { anno: number; totale: number; fatture: number; mesi: number[] }[] = [];
+  for (const y of anni) {
+    const tutte = await ficFatture({ anno: y, q: cliente, maxPagine: 5 }).catch(() => []);
+    // Filtro client-side: il `q` di FIC è tollerante, tengo solo le fatture il
+    // cui intestatario corrisponde davvero al cliente cercato.
+    const mie = tutte.filter((f) => {
+      const n = normNome(f.cliente);
+      return n && (n.includes(target) || target.includes(n));
+    });
+    const mesi = new Array(12).fill(0) as number[];
+    let totale = 0;
+    for (const f of mie) {
+      totale += f.totale;
+      const m = f.data ? parseInt(f.data.slice(5, 7), 10) - 1 : -1;
+      if (m >= 0 && m < 12) mesi[m] += f.totale;
+    }
+    perAnno.push({ anno: y, totale, fatture: mie.length, mesi });
+  }
+  const totale3 = perAnno.reduce((a, p) => a + p.totale, 0);
+  if (totale3 <= 0) return null; // nessuna fattura per questo cliente
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const corr = perAnno.find((p) => p.anno === anno)!;
+  const prec = perAnno.find((p) => p.anno === anno - 1)!;
+  const variazionePct = prec.totale > 0 ? ((corr.totale - prec.totale) / prec.totale) * 100 : null;
+  return {
+    partner: null,
+    anno,
+    annoPrec: anno - 1,
+    base: "fatture su Fatture in Cloud (ultimi 3 anni)",
+    fonte: "fic" as const,
+    fatturato: round2(corr.totale),
+    fatturatoPrec: round2(prec.totale),
+    variazionePct: variazionePct == null ? null : round2(variazionePct),
+    mesi: corr.mesi.map(round2),
+    mesiPrec: prec.mesi.map(round2),
+    anni: perAnno.map((p) => ({ anno: p.anno, totale: round2(p.totale), fatture: p.fatture })),
+    url: "https://secure.fattureincloud.it/",
+  };
+}
 
 // API pubblica: riepilogo finanziario di un partner, per la card "Finance" delle
 // altre app Deluxy (es. Scout, sulla scheda cliente).
@@ -64,6 +118,12 @@ export async function GET(req: NextRequest) {
 
   const { partner, candidati } = await trovaPartner(partnerRif);
   if (!partner) {
+    // Non è un partner del FINANCE: prova su Fatture in Cloud (ultimi 3 anni).
+    const fic = await riepilogoDaFic(partnerRif, anno).catch(() => null);
+    if (fic) {
+      await log(req, partnerRif, "trovato_fic", `${partnerRif}: fatturato FIC ${fic.fatturato} (${anno})`);
+      return NextResponse.json(fic);
+    }
     await log(req, partnerRif, "non_trovato", candidati.length ? `simili: ${candidati.join(", ")}` : undefined);
     return NextResponse.json(
       { errore: "Partner non trovato.", candidati },

@@ -57,12 +57,13 @@ export function FinanceCard({ nomeCliente, mostra }: { nomeCliente: string; most
   const max = Math.max(1, ...mesi);
   const varPct = r?.variazionePct;
   const su = (varPct ?? 0) >= 0;
+  const daFic = r?.fonte === 'fic';
 
   return (
     <View style={styles.card}>
       <View style={styles.head}>
-        <Ionicons name="trending-up-outline" size={16} color={colors.goldStrong} />
-        <Text style={styles.titolo}>Finance{r?.anno ? ` · ${r.anno}` : ''}</Text>
+        <Ionicons name={daFic ? 'document-text-outline' : 'trending-up-outline'} size={16} color={colors.goldStrong} />
+        <Text style={styles.titolo}>{daFic ? 'Fatture in Cloud' : 'Finance'}{r?.anno ? ` · ${r.anno}` : ''}</Text>
       </View>
 
       <View style={styles.kpiRow}>
@@ -94,7 +95,20 @@ export function FinanceCard({ nomeCliente, mostra }: { nomeCliente: string; most
         </View>
       ) : null}
 
-      <Text style={styles.nota}>{r?.base ? `${r.base} · ` : ''}Dati da Deluxy Partner.</Text>
+      {/* Fallback FIC: riepilogo fatturato per ciascuno degli ultimi 3 anni. */}
+      {daFic && r?.anni?.length ? (
+        <View style={styles.anniBox}>
+          {r.anni.map((a) => (
+            <View key={a.anno} style={styles.annoRow}>
+              <Text style={styles.annoLbl}>{a.anno}</Text>
+              <Text style={styles.annoVal}>{eur(a.totale)}</Text>
+              <Text style={styles.annoNota}>{a.fatture} fatt.</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <Text style={styles.nota}>{r?.base ? `${r.base} · ` : ''}{daFic ? 'Fatture in Cloud via Deluxy Partner.' : 'Dati da Deluxy Partner.'}</Text>
     </View>
   );
 }
@@ -115,4 +129,9 @@ const styles = StyleSheet.create({
   bar: { width: '100%', backgroundColor: colors.gold, borderRadius: 4, minHeight: 2 },
   barLabel: { color: colors.grigio, fontSize: 9, fontWeight: '600' },
   nota: { color: colors.grigio, fontSize: 11, fontStyle: 'italic' },
+  anniBox: { borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: 6, gap: 3 },
+  annoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  annoLbl: { color: colors.testoSoft, fontWeight: '700', fontSize: 13, width: 44 },
+  annoVal: { color: colors.testo, fontWeight: '800', fontSize: 13, flex: 1 },
+  annoNota: { color: colors.grigio, fontSize: 11 },
 });
