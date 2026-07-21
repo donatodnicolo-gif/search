@@ -194,7 +194,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     // ultime 100 sarebbero quasi tutte quelle, e il resto della posta
     // sparirebbe. Si prende largo (senza i corpi, che pesano) e si taglia
     // DOPO il raggruppamento in conversazioni.
-    take: 1000,
+    take: 2000,
     omit: { corpoTesto: true, corpoHtml: true },
     include: {
       sezione: true,
@@ -207,7 +207,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // risposte o stesso oggetto anche con destinatari diversi). Il volto della
   // riga è il messaggio più recente del thread. La lista si carica poi 25 alla
   // volta lato client, così l'apertura resta leggera anche con molta posta.
-  const gruppi = raggruppa(messaggi).slice(0, 600)
+  const gruppi = raggruppa(messaggi).slice(0, 1200)
 
   // Iconcina "risposto": una mail ha una nostra risposta se nel suo thread c'è
   // un messaggio in USCITA. (Gli inoltri aprono una conversazione nuova, quindi
