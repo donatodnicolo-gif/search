@@ -55,7 +55,10 @@ Ogni partner risponde con un blocco **`datiFinanziari`**: `pec`, `codiceSdi`,
   recente, mandatelo.
 - **Per mandarli**: `POST /api/v1/partners` (chiave di scrittura) con i campi
   finanziari nel body + `sistema`, `idEsterno` e soprattutto **`asOf`** (quando
-  il dato era vero da voi). Il merge applica il più fresco: un `asOf` più
+  il dato era vero da voi). Potete mandarli **piatti** (`iban`, `pec`, …) **o
+  annidati** sotto `datiFinanziari: {...}` — la stessa forma che leggete: il
+  registro accetta entrambe. (`aggiornamenti` è di sola lettura, ignorato in
+  scrittura.) Il merge applica il più fresco: un `asOf` più
   vecchio di quello registrato viene ignorato (`applicati: []`), i campi vuoti
   si riempiono sempre. IBAN e codice SDI vengono normalizzati (maiuscolo, IBAN
   senza spazi). `noteAmministrative` è additiva (append, mai sovrascritta).
