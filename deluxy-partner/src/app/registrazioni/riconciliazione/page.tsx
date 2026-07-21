@@ -2,9 +2,11 @@ import Link from "next/link";
 import { ficStato } from "@/lib/fic";
 import { scritturaAnagraficheAttiva } from "@/lib/anagrafiche";
 import { costruisciRiconciliazione, campiProposti, type EsitoRiga } from "@/lib/riconciliazione-fic";
-import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, salvaDatiBancari, creaInAnagrafiche } from "@/lib/riconciliazione-actions";
+import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, salvaDatiBancari, creaInAnagrafiche, aggiornaDatiEsterniRiconciliazione } from "@/lib/riconciliazione-actions";
 
 export const dynamic = "force-dynamic";
+// La prima costruzione (cache fredda) interroga FIC e Qonto: diamo margine ampio.
+export const maxDuration = 60;
 
 function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) {
   const campi = campiProposti(r.dati);
@@ -140,6 +142,13 @@ export default async function RiconciliazionePage({
             Abbina i clienti di <strong>Fatture in Cloud</strong> ai partner Deluxy e porta i loro dati fiscali
             (P.IVA, CF, indirizzo) nel registro <strong>Anagrafiche</strong>, su tua conferma.
           </p>
+        </div>
+        <div className="page-actions">
+          <form action={aggiornaDatiEsterniRiconciliazione}>
+            <button className="btn secondary" type="submit" title="Ricarica clienti FIC e beneficiari Qonto (dati in cache 10 min)">
+              Aggiorna dati
+            </button>
+          </form>
         </div>
       </div>
 

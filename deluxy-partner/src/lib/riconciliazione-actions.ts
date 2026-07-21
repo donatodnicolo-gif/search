@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { aggiornaAnagrafica, creaAnagrafica, type CampiAnagrafica } from "./anagrafiche";
@@ -128,4 +128,14 @@ export async function ignoraRiconciliazione(ficNome: string, partnerId?: string)
 export async function riapriRiconciliazione(ficNome: string) {
   await prisma.riconciliazioneAnagrafica.deleteMany({ where: { ficNome } });
   revalidatePath("/registrazioni/riconciliazione", "layout");
+}
+
+// Forza il ricarico dei dati esterni in cache (clienti FIC + beneficiari Qonto):
+// utile dopo aver aggiunto un cliente in FIC o un beneficiario in Qonto, senza
+// aspettare la scadenza dei 10 minuti.
+export async function aggiornaDatiEsterniRiconciliazione() {
+  revalidateTag("ric-fic");
+  revalidateTag("ric-qonto");
+  revalidatePath("/registrazioni/riconciliazione", "layout");
+  redirect("/registrazioni/riconciliazione?aggiornato=1");
 }

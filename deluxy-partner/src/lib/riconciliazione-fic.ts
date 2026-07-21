@@ -1,8 +1,31 @@
 import type { Partner } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { prisma } from "./db";
 import { ficClientiFiscali, type FicClienteFiscale } from "./fic";
 import { matchPartner } from "./riconciliazione";
-import { qontoBeneficiari, qontoConfigurato } from "./qonto";
+import { qontoBeneficiari, qontoConfigurato, type QontoBeneficiario } from "./qonto";
+
+// I due dati esterni pesanti della pagina di riconciliazione — clienti FIC
+// (rubrica + fatture) e beneficiari Qonto (IBAN dei bonifici fatti) — cambiano di
+// rado ma costano decine di chiamate API sequenziali. Li memorizziamo per 10
+// minuti: così il render (e soprattutto il rebuild dopo ogni Salva/Conferma) è
+// veloce, mentre i dati mutabili (partner, stato riconciliazione, IBAN salvato)
+// restano freschi perché letti dal DB a ogni render.
+const clientiFicCache = unstable_cache(async () => ficClientiFiscali(), ["ric-fic-clienti"], {
+  revalidate: 600,
+  tags: ["ric-fic"],
+});
+const beneficiariQontoCache = unstable_cache(
+  async (): Promise<QontoBeneficiario[]> => {
+    try {
+      return (await qontoConfigurato()) ? await qontoBeneficiari() : [];
+    } catch {
+      return [];
+    }
+  },
+  ["ric-qonto-beneficiari"],
+  { revalidate: 600, tags: ["ric-qonto"] }
+);
 
 // Riconciliazione dei clienti Fatture in Cloud con i partner Deluxy (e, tramite
 // il loro anagraficaId, col registro Anagrafiche). FIC è la fonte ricca di dati
@@ -55,27 +78,25 @@ export function campiProposti(d: FicClienteFiscale) {
 }
 
 export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
-  const [clienti, partners, stati] = await Promise.all([
-    ficClientiFiscali(),
+  // Tutto in parallelo: i due dati esterni pesanti sono in cache (10 min), i tre
+  // dati DB sono freschi. Prima erano in serie → decine di round-trip a ogni render.
+  const [clienti, partners, stati, beneficiariQonto, movConIban] = await Promise.all([
+    clientiFicCache(),
     prisma.partner.findMany(),
     prisma.riconciliazioneAnagrafica.findMany(),
+    beneficiariQontoCache(),
+    prisma.transazioneBancaria.findMany({
+      where: { ibanControparte: { not: null } },
+      select: { controparte: true, descrizione: true, ibanControparte: true },
+      take: 5000,
+    }),
   ]);
   const statoPerNome = new Map(stati.map((s) => [s.ficNome, s]));
 
   // IBAN dai bonifici fatti: beneficiari Qonto (best effort) + IBAN presenti nei
   // movimenti importati (es. bonifici dell'estratto Vivid). Uniti in un'unica
   // lista {nome, iban} su cui abbinare il partner per nome.
-  let fonti: { nome: string; iban: string; trusted: boolean }[] = [];
-  try {
-    if (await qontoConfigurato()) fonti = await qontoBeneficiari();
-  } catch {
-    fonti = [];
-  }
-  const movConIban = await prisma.transazioneBancaria.findMany({
-    where: { ibanControparte: { not: null } },
-    select: { controparte: true, descrizione: true, ibanControparte: true },
-    take: 5000,
-  });
+  const fonti: { nome: string; iban: string; trusted: boolean }[] = [...beneficiariQonto];
   for (const m of movConIban) {
     const nome = (m.controparte ?? m.descrizione ?? "").trim();
     if (nome && m.ibanControparte) fonti.push({ nome, iban: m.ibanControparte, trusted: false });
