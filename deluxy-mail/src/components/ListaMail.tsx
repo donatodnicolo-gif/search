@@ -10,7 +10,13 @@ const PASSO = 25
  * volta man mano che scorri (o col pulsante). Così l'apertura è leggera anche
  * con molta posta — si idratano solo le righe visibili.
  */
-export function ListaMail({ righe }: { righe: RigaData[] }) {
+export function ListaMail({
+  righe,
+  sezioni = [],
+}: {
+  righe: RigaData[]
+  sezioni?: { id: string; nome: string }[]
+}) {
   const [mostrate, setMostrate] = useState(PASSO)
   const sentinella = useRef<HTMLDivElement>(null)
 
@@ -35,7 +41,7 @@ export function ListaMail({ righe }: { righe: RigaData[] }) {
   return (
     <div className="mail-list">
       {visibili.map((r) => (
-        <RigaMail key={r.id} r={r} />
+        <RigaMail key={r.id} r={r} sezioni={sezioni} />
       ))}
 
       {restano > 0 && (

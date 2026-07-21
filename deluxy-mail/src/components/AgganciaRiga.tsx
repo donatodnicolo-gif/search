@@ -55,8 +55,11 @@ export function AgganciaDialog() {
     start(async () => {
       const esito = await agganciaAlThread(messaggioId, id)
       setStato(esito.messaggio)
-      setRisultati(null)
-      setQuery('')
+      // Non si chiude né si azzera: si ricarica la stessa ricerca così la mail
+      // agganciata diventa «già nel thread» e puoi agganciarne subito altre.
+      if (query.trim().length >= 2) {
+        setRisultati(await cercaDaAgganciare(messaggioId, query))
+      }
       router.refresh()
     })
 

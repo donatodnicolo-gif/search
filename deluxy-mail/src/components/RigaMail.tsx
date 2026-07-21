@@ -6,6 +6,7 @@ import { PrioritaButtons } from './PrioritaButtons'
 import { AzioniRiga } from './AzioniRiga'
 import { ArchiviaDefinitivo } from './ArchiviaDefinitivo'
 import { BottoneNonSpam } from './BottoneNonSpam'
+import { SpostaSezione } from './SpostaSezione'
 import { RispostaAzioni } from './RispostaAzioni'
 import { BottoneApp } from './BottoneApp'
 import { DelegaReneBottone } from './DelegaRene'
@@ -46,6 +47,8 @@ export type RigaData = {
   snippet?: string | null
   /** Solo in ricerca: la parola da evidenziare nello snippet. */
   evidenzia?: string | null
+  /** Id della sezione attuale (per lo spostamento rapido). */
+  sezioneId?: string | null
 }
 
 // Rende un testo con la parola cercata evidenziata (<mark>).
@@ -63,7 +66,7 @@ function evidenzia(testo: string, termine?: string | null) {
 }
 
 /** Una riga della posta in arrivo. Client: monta i pulsanti interattivi. */
-export function RigaMail({ r }: { r: RigaData }) {
+export function RigaMail({ r, sezioni = [] }: { r: RigaData; sezioni?: { id: string; nome: string }[] }) {
   return (
     <MailDrag id={r.id} className={`mail-row ${r.nonLetti ? 'non-letto' : ''}`}>
       <div className="mail-row-head">
@@ -164,6 +167,7 @@ export function RigaMail({ r }: { r: RigaData }) {
           )}
           <BottoneApp id={r.id} />
           {r.sezione?.nome === 'SPAM' && <BottoneNonSpam id={r.id} />}
+          {!r.inviata && <SpostaSezione id={r.id} sezioneAttuale={r.sezioneId ?? null} sezioni={sezioni} />}
           <ArchiviaDefinitivo id={r.id} mittente={r.mittente} />
         </div>
       </div>

@@ -8,7 +8,7 @@ import { ReneAvvia } from '@/components/ReneAvvia'
 import { ComandoRene } from '@/components/ComandoRene'
 import { RenePropostaCard } from '@/components/RenePropostaCard'
 import { ReneApprovaTutte, ReneConseguenzaSwitch } from '@/components/ReneStrumenti'
-import { dataBreve } from '@/lib/format'
+import { dataBreve, FUSO } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // il giro di Renè (analisi AI) parte da qui
@@ -43,11 +43,28 @@ function descriviProposta(tipo: string, dati: Record<string, unknown>): { titolo
         titolo: `Attività: ${s('titolo')}`,
         sotto: [s('dettaglio'), s('scadenza') && `entro ${s('scadenza')}`, s('priorita')].filter(Boolean).join(' · '),
       }
-    case 'evento':
+    case 'evento': {
+      const iso = s('inizio')
+      const quando = iso
+        ? (() => {
+            const d = new Date(iso)
+            return isNaN(d.getTime())
+              ? iso
+              : d.toLocaleString('it-IT', {
+                  timeZone: FUSO,
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+          })()
+        : ''
       return {
-        titolo: `In calendario: ${s('titolo')}`,
-        sotto: [s('inizio'), s('luogo')].filter(Boolean).join(' · '),
+        titolo: `Metti in calendario: ${s('titolo')}`,
+        sotto: [quando, s('luogo')].filter(Boolean).join(' · '),
       }
+    }
     default:
       return { titolo: tipo, sotto: '' }
   }

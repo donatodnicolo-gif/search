@@ -62,6 +62,12 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   const emailAI = await emailContattiAI(u.id)
   const setAI = new Set(emailAI)
 
+  // Le sezioni per lo spostamento rapido dalla riga (SPAM esclusa: da lì si esce
+  // con «Non è spam», non ci si sposta a mano).
+  const sezioniPerSposta = (
+    await db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' }, select: { id: true, nome: true } })
+  ).filter((s) => s.nome !== 'SPAM')
+
   const account = await db.account.count({ where: { utenteId: u.id } })
   if (account === 0) {
     return (
@@ -220,6 +226,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       corpoTradotto: m.corpoTradotto,
       lingua: m.lingua,
       sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
+      sezioneId: m.sezioneId,
       bozze: m.bozze.length,
       attivita: m._count.attivita,
       inviiApp: m._count.inviiApp,
@@ -401,7 +408,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             </p>
           </div>
         ) : (
-          <ListaMail righe={righe} />
+          <ListaMail righe={righe} sezioni={sezioniPerSposta} />
         )}
         </div>
 

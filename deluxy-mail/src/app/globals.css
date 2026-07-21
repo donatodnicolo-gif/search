@@ -542,6 +542,19 @@ mark.ricerca-hit {
 .azione-riga:hover { color: var(--text); }
 .azione-riga:disabled { opacity: 0.55; cursor: default; }
 
+/* Menu rapido "Sposta in…" nella riga: piccolo, in tono con le azioni. */
+.sposta-sezione {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-tertiary);
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 3px 8px;
+  width: auto;
+  cursor: pointer;
+}
+
 /* pallino non letto */
 .dot-unread { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); flex: 0 0 7px; }
 .dot-spacer { width: 7px; flex: 0 0 7px; }
