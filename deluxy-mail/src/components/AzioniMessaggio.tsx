@@ -10,7 +10,7 @@ import {
   segnaLetto,
   spostaInSezione,
 } from '@/lib/actions'
-import { DelegaRene } from './DelegaRene'
+import { DelegaReneBottone, DelegaReneDialog } from './DelegaRene'
 
 type Props = {
   id: string
@@ -53,7 +53,8 @@ export function AzioniMessaggio({
         Inoltra
       </Link>
 
-      <DelegaRene messaggioId={id} variante="bottone" />
+      <DelegaReneBottone id={id} variante="bottone" />
+      <DelegaReneDialog />
 
       <select
         value={sezioneId ?? ''}
