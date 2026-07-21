@@ -86,6 +86,7 @@ export async function sincronizzaNegozioRegistro(dati: {
   indirizzo: string | null;
   categoria: string | null;
   stato: string | null; // StatoPlace: da_visitare/visitato/cliente/perso
+  statoRegistro?: string | null; // StatoAffiliazione (8 stati) — se presente ha priorità
   linee: string[];
 }): Promise<{ ok: boolean; reason?: string }> {
   try {

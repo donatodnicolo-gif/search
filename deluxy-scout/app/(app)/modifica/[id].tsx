@@ -10,9 +10,10 @@ import {
   View,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { CategoryRule, Place, Priorita, StatoPlace } from '@/types';
-import { colors, labelStato, radius, spacing } from '@/lib/theme';
-import { aggiornaPlace, fetchPlace } from '@/lib/db';
+import type { CategoryRule, Place, Priorita, StatoAffiliazione } from '@/types';
+import { STATI_AFFILIAZIONE, affiliazioneDaStatoPlace, statoPlaceDaAffiliazione } from '@/types';
+import { coloreAffiliazione, colors, labelAffiliazione, radius, spacing } from '@/lib/theme';
+import { aggiornaPlace, fetchPlace, sincronizzaPlaceRegistro } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { caricaRegole } from '@/lib/categoryRules';
 import { LineaSelector } from '@/components/LineaSelector';
@@ -20,7 +21,6 @@ import { PriorityBadge } from '@/components/PriorityBadge';
 import { Loader } from '../../_layout';
 
 const PRIORITA: Priorita[] = ['P1', 'P2', 'P3'];
-const STATI: StatoPlace[] = ['da_visitare', 'visitato', 'cliente', 'perso'];
 
 export default function ModificaAttivita() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,7 +35,9 @@ export default function ModificaAttivita() {
   const [zona, setZona] = useState('');
   const [categoria, setCategoria] = useState<string | null>(null);
   const [priorita, setPriorita] = useState<Priorita>('P3');
-  const [stato, setStato] = useState<StatoPlace>('da_visitare');
+  // Stato = gli 8 stati di Anagrafiche (StatoAffiliazione). Lo stato di pipeline
+  // interno di Scout viene derivato al salvataggio.
+  const [statoAff, setStatoAff] = useState<StatoAffiliazione>('prospect');
   const [linee, setLinee] = useState<string[]>([]);
 
   useEffect(() => {
@@ -50,7 +52,8 @@ export default function ModificaAttivita() {
         setZona(p.zona ?? '');
         setCategoria(p.categoria);
         setPriorita(p.priorita);
-        setStato(p.stato);
+        // Stato "vero" da Anagrafiche se presente, altrimenti derivato dallo stato di pipeline.
+        setStatoAff(p.stato_affiliazione ?? affiliazioneDaStatoPlace[p.stato] ?? 'prospect');
         setLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : []));
       }
       setLoading(false);
@@ -76,10 +79,14 @@ export default function ModificaAttivita() {
         zona: zona.trim() || null,
         categoria,
         priorita,
-        stato,
+        stato_affiliazione: statoAff,
+        // Deriva lo stato di pipeline dallo stato di Anagrafiche (percorso/filtri coerenti).
+        stato: statoPlaceDaAffiliazione[statoAff],
         linea_ipotizzata: linee[0] ?? null,
         linee_ipotizzate: linee,
       });
+      // Propaga lo stato (e gli interessi) al registro Anagrafiche.
+      sincronizzaPlaceRegistro(place.id).catch(() => {});
       // Drawer senza stack lineare: torniamo al dettaglio, non alla Mappa.
       router.replace(`/(app)/attivita/${place.id}`);
     } catch (e: any) {
@@ -127,9 +134,15 @@ export default function ModificaAttivita() {
 
           <Text style={styles.label}>Stato</Text>
           <View style={styles.chipWrap}>
-            {STATI.map((s) => (
-              <Chip key={s} label={labelStato[s]} on={stato === s} onPress={() => setStato(s)} />
-            ))}
+            {STATI_AFFILIAZIONE.map((s) => {
+              const on = statoAff === s;
+              return (
+                <Pressable key={s} onPress={() => setStatoAff(s)} style={[styles.chip, styles.chipStato, on && styles.chipOn]}>
+                  <View style={[styles.dot, { backgroundColor: on ? colors.bianco : coloreAffiliazione[s] }]} />
+                  <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{labelAffiliazione[s]}</Text>
+                </Pressable>
+              );
+            })}
           </View>
 
           <Pressable style={[styles.salva, salvataggio && styles.salvaOff]} onPress={salva} disabled={salvataggio}>
@@ -173,6 +186,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: radius.pill,
   },
+  chipStato: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },

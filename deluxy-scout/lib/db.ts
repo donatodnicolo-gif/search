@@ -126,7 +126,7 @@ export async function sincronizzaPlaceRegistro(placeId: string): Promise<void> {
   try {
     const { data: p } = await supabase
       .from('places')
-      .select('nome, zona, indirizzo, categoria, stato, linea_ipotizzata, linee_ipotizzate')
+      .select('nome, zona, indirizzo, categoria, stato, stato_affiliazione, linea_ipotizzata, linee_ipotizzate')
       .eq('id', placeId)
       .single();
     if (!p) return;
@@ -138,6 +138,9 @@ export async function sincronizzaPlaceRegistro(placeId: string): Promise<void> {
       indirizzo: p.indirizzo ?? null,
       categoria: p.categoria ?? null,
       stato: p.stato ?? null,
+      // Stato "vero" di Anagrafiche (8 valori): se impostato ha priorità sulla
+      // derivazione dai 4 stati di pipeline.
+      statoRegistro: p.stato_affiliazione ?? null,
       linee,
     });
   } catch {
@@ -205,7 +208,7 @@ export async function fetchClienti(): Promise<Cliente[]> {
 export async function aggiornaPlace(
   id: string,
   patch: Partial<
-    Pick<Place, 'nome' | 'indirizzo' | 'zona' | 'categoria' | 'settore' | 'priorita' | 'stato' | 'linea_ipotizzata' | 'linee_ipotizzate' | 'aggancio_apertura'>
+    Pick<Place, 'nome' | 'indirizzo' | 'zona' | 'categoria' | 'settore' | 'priorita' | 'stato' | 'stato_affiliazione' | 'linea_ipotizzata' | 'linee_ipotizzate' | 'aggancio_apertura'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('places').update(patch).eq('id', id);

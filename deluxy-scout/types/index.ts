@@ -29,6 +29,30 @@ export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
   'dismesso',
 ];
 
+// Ponte tra i due modelli di stato: il registro Anagrafiche ha 8 stati
+// (StatoAffiliazione), la pipeline interna di Scout ne ha 4 (StatoPlace). Quando
+// si imposta lo stato "vero" (quello di Anagrafiche) si deriva anche lo stato di
+// pipeline, così percorso/filtri restano coerenti.
+export const statoPlaceDaAffiliazione: Record<StatoAffiliazione, StatoPlace> = {
+  prospect: 'da_visitare',
+  in_contatto: 'visitato',
+  in_attesa: 'visitato',
+  in_trattativa: 'visitato',
+  da_ricontattare: 'visitato',
+  attivo: 'cliente',
+  non_interessato: 'perso',
+  dismesso: 'perso',
+};
+
+// Stato Anagrafiche di default quando un negozio ha solo lo stato di pipeline
+// (nessuno stato registro ancora impostato).
+export const affiliazioneDaStatoPlace: Record<StatoPlace, StatoAffiliazione> = {
+  da_visitare: 'prospect',
+  visitato: 'in_contatto',
+  cliente: 'attivo',
+  perso: 'non_interessato',
+};
+
 // Contatto della scheda, per la lista Affiliazioni (numero da chiamare + referente).
 export interface AffiliazioneRow {
   id: string;
@@ -104,7 +128,8 @@ export interface Place {
   linee_ipotizzate?: string[] | null; // tipologia di interesse MULTIPLA
   aggancio_apertura: string | null;
   fuoco_espansione: string | null;
-  stato: StatoPlace;
+  stato: StatoPlace; // stato di pipeline interno (derivato)
+  stato_affiliazione?: StatoAffiliazione | null; // stato "vero" = gli 8 stati di Anagrafiche
   zona: string | null;
   hubspot_company_id: string | null;
   created_at: string;

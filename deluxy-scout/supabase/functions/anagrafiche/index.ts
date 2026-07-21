@@ -82,7 +82,17 @@ Deno.serve(async (req) => {
         categoria: body.categoria ?? null,
         asOf: new Date().toISOString(),
       };
-      if (body.stato && STATO[String(body.stato)]) payload.stato = STATO[String(body.stato)];
+      // Stato: se arriva lo stato "vero" di Anagrafiche (8 valori) si usa
+      // direttamente; altrimenti si mappa dai 4 stati di pipeline di Scout.
+      const STATI_REGISTRO = new Set([
+        'prospect', 'in_contatto', 'in_attesa', 'in_trattativa',
+        'da_ricontattare', 'attivo', 'non_interessato', 'dismesso',
+      ]);
+      if (body.statoRegistro && STATI_REGISTRO.has(String(body.statoRegistro))) {
+        payload.stato = String(body.statoRegistro);
+      } else if (body.stato && STATO[String(body.stato)]) {
+        payload.stato = STATO[String(body.stato)];
+      }
       // Mappa le linee di Scout (label) → chiavi interessi del registro, speculare
       // alla lettura lato app. Finché i cataloghi non sono identici, così il
       // round-trip resta stabile (una linea può espandersi in più chiavi).
