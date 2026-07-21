@@ -23,10 +23,12 @@ import { PropostaEvento } from '@/components/PropostaEvento'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // le azioni AI (analisi, riassunto thread) girano qui
 
-type Props = { params: Promise<{ id: string }> }
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ ampia?: string }> }
 
-export default async function DettaglioMessaggio({ params }: Props) {
+export default async function DettaglioMessaggio({ params, searchParams }: Props) {
   const { id } = await params
+  const { ampia: ampiaGrezzo } = await searchParams
+  const ampia = ampiaGrezzo === '1'
   const u = await richiediUtente()
 
   const messaggio = await db.messaggio.findFirst({
@@ -40,10 +42,11 @@ export default async function DettaglioMessaggio({ params }: Props) {
 
   const sezioni = await db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } })
 
-  // La conversazione a cui appartiene questo messaggio (catena di risposte o
-  // stesso oggetto). Se ha più di un messaggio, mostriamo il thread e il
-  // riassunto per punti di vista già salvato, se c'è.
-  const conversazione = await messaggiThread(u.id, messaggio.id)
+  // La conversazione a cui appartiene questo messaggio. Vista "completa"
+  // (ampia): comprende anche le mail scambiate con le stesse persone.
+  const conversazione = await messaggiThread(u.id, messaggio.id, ampia)
+  // Quante correlate in più rispetto al thread stretto (per l'etichetta).
+  const strette = ampia ? (await messaggiThread(u.id, messaggio.id, false)).length : conversazione.length
   const chiaveConv = conversazione.length > 1 ? chiaveThread(conversazione) : null
   const riassuntoThread = chiaveConv ? await leggiRiassuntoThread(u.id, chiaveConv) : null
   let istruzioniThread = ''
@@ -233,7 +236,11 @@ export default async function DettaglioMessaggio({ params }: Props) {
           </div>
           <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginBottom: 12 }}>
             Questa mail è da sola. Se un’altra mail parla della stessa cosa, agganciala qui:
-            quando dai una priorità, l’AI le legge insieme.
+            quando dai una priorità, l’AI le legge insieme. Oppure apri la{' '}
+            <Link href={`/messaggio/${id}?ampia=1`} style={{ textDecoration: 'underline' }}>
+              vista con le mail correlate
+            </Link>{' '}
+            (scambiate con le stesse persone).
           </p>
           <AgganciaMail messaggioId={messaggio.id} agganciata={Boolean(messaggio.threadManuale)} />
         </div>
@@ -241,12 +248,33 @@ export default async function DettaglioMessaggio({ params }: Props) {
 
       {conversazione.length > 1 && (
         <div className="card">
-          <div className="mail-subject" style={{ fontSize: 18, marginBottom: 4 }}>
-            Conversazione · {conversazione.length} messaggi
+          <div
+            className="mail-subject"
+            style={{ fontSize: 18, marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}
+          >
+            <span>
+              {ampia ? 'Conversazione completa' : 'Conversazione'} · {conversazione.length} messaggi
+              {ampia && conversazione.length > strette && (
+                <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>
+                  {' '}
+                  ({conversazione.length - strette} correlate)
+                </span>
+              )}
+            </span>
+            {/* Questo thread ⇄ Con le correlate (le mail scambiate con le stesse persone). */}
+            <span className="vista-tabs" style={{ margin: 0 }}>
+              <Link href={`/messaggio/${id}`} className={`vista-tab ${!ampia ? 'attivo' : ''}`}>
+                Questo thread
+              </Link>
+              <Link href={`/messaggio/${id}?ampia=1`} className={`vista-tab ${ampia ? 'attivo' : ''}`}>
+                Con le correlate
+              </Link>
+            </span>
           </div>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
-            Quando dai una priorità, l’AI analizza l’ultima mail avendo letto tutta questa
-            conversazione.
+            {ampia
+              ? 'Oltre alla catena di risposte, anche le altre mail scambiate con le stesse persone.'
+              : 'Quando dai una priorità, l’AI analizza l’ultima mail avendo letto tutta questa conversazione.'}
           </p>
 
           <div style={{ marginBottom: 14 }}>

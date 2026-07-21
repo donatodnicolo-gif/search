@@ -10,6 +10,7 @@ import { CarteApp } from '@/components/CarteApp'
 import { InvioAppDialog } from '@/components/InvioAppDialog'
 import { BottoneApp } from '@/components/BottoneApp'
 import { DelegaRene } from '@/components/DelegaRene'
+import { AgganciaRiga } from '@/components/AgganciaRiga'
 import { MailDrag } from '@/components/MailDrag'
 import { descriviAzioni } from '@/lib/appDeluxy'
 import { leggiChiaviApp } from '@/lib/chiaviApp'
@@ -382,6 +383,12 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                   <div className="riga-azioni">
                     <AzioniRiga id={m.id} archiviato={m.archiviato} cestinato={m.cestinato} />
                     <DelegaRene messaggioId={m.id} />
+                    <AgganciaRiga messaggioId={m.id} />
+                    {nel > 1 && (
+                      <Link href={`/messaggio/${m.id}?ampia=1`} className="azione-riga" title="Apri la conversazione con anche le mail correlate">
+                        Apri completo
+                      </Link>
+                    )}
                     <BottoneApp id={m.id} />
                     <ArchiviaDefinitivo id={m.id} mittente={m.mittente} />
                   </div>

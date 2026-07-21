@@ -979,7 +979,19 @@ export type RiassuntoThreadSalvato = {
  * (catena di risposte + oggetto specifico), così la conversazione mostrata è
  * identica a quella raggruppata in lista. Include anche la posta inviata.
  */
-export async function messaggiThread(utenteId: string, messaggioId: string): Promise<Messaggio[]> {
+/**
+ * I messaggi della conversazione a cui appartiene un messaggio.
+ *  - `ampia = false` (predefinito): il thread STRETTO — catena di risposte,
+ *    stesso oggetto specifico, agganci manuali.
+ *  - `ampia = true`: la vista COMPLETA — al thread aggiunge tutte le mail
+ *    scambiate con le stesse persone (le "correlate"), per avere il quadro
+ *    intero del rapporto. Deterministico: le persone del thread, non una stima.
+ */
+export async function messaggiThread(
+  utenteId: string,
+  messaggioId: string,
+  ampia = false
+): Promise<Messaggio[]> {
   // Finestra di candidati (leggera): id/thread/oggetto/data bastano a raggruppare.
   const candidati = await db.messaggio.findMany({
     where: { utenteId, cestinato: false },
@@ -989,33 +1001,77 @@ export async function messaggiThread(utenteId: string, messaggioId: string): Pro
   })
 
   const dentroFinestra = candidati.some((c) => c.id === messaggioId)
+  const ids = new Set<string>()
+
   if (!dentroFinestra) {
     // Messaggio fuori dalla finestra recente: lo restituiamo da solo, ma le
     // mail agganciate a mano vanno recuperate comunque (sono una scelta
     // esplicita e possono essere vecchie quanto si vuole).
     const solo = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId } })
     if (!solo) return []
-    if (!solo.threadManuale) return [solo]
-    return db.messaggio.findMany({
-      where: { utenteId, cestinato: false, threadManuale: solo.threadManuale },
-      orderBy: { data: 'asc' },
-    })
-  }
+    ids.add(solo.id)
+    if (solo.threadManuale) {
+      const altre = await db.messaggio.findMany({
+        where: { utenteId, cestinato: false, threadManuale: solo.threadManuale },
+        select: { id: true },
+      })
+      for (const m of altre) ids.add(m.id)
+    }
+  } else {
+    const gruppi = raggruppa(candidati)
+    const gruppo = gruppi.find((g) => g.some((m) => m.id === messaggioId)) ?? []
+    for (const m of gruppo) ids.add(m.id)
 
-  const gruppi = raggruppa(candidati)
-  const gruppo = gruppi.find((g) => g.some((m) => m.id === messaggioId))
-  const ids = new Set((gruppo ?? []).map((m) => m.id))
+    // Le mail agganciate a mano entrano SEMPRE, anche se più vecchie della
+    // finestra dei 400 candidati.
+    const manuali = [...new Set(gruppo.map((m) => m.threadManuale).filter(Boolean))] as string[]
+    if (manuali.length > 0) {
+      const fuoriFinestra = await db.messaggio.findMany({
+        where: { utenteId, cestinato: false, threadManuale: { in: manuali } },
+        select: { id: true },
+      })
+      for (const m of fuoriFinestra) ids.add(m.id)
+    }
+  }
   if (ids.size === 0) return []
 
-  // Le mail agganciate a mano entrano SEMPRE, anche se più vecchie della
-  // finestra dei 400 candidati.
-  const manuali = [...new Set((gruppo ?? []).map((m) => m.threadManuale).filter(Boolean))] as string[]
-  if (manuali.length > 0) {
-    const fuoriFinestra = await db.messaggio.findMany({
-      where: { utenteId, cestinato: false, threadManuale: { in: manuali } },
-      select: { id: true },
+  // Vista completa: aggiungi le mail scambiate con le stesse persone del thread.
+  if (ampia) {
+    const base = await db.messaggio.findMany({
+      where: { id: { in: [...ids] }, utenteId },
+      select: { mittente: true, destinatari: true, direzione: true },
     })
-    for (const m of fuoriFinestra) ids.add(m.id)
+    const mieEmail = new Set(
+      (await db.account.findMany({ where: { utenteId }, select: { email: true } })).map((a) => a.email.toLowerCase())
+    )
+    // Le controparti: chi ci ha scritto e chi abbiamo scritto (tolti i nostri indirizzi).
+    const controparti = new Set<string>()
+    for (const m of base) {
+      if (m.direzione === 'entrata') controparti.add(m.mittente.toLowerCase())
+      for (const d of m.destinatari.split(',').map((x) => x.trim().toLowerCase())) {
+        if (d && !mieEmail.has(d)) controparti.add(d)
+      }
+    }
+    controparti.delete('')
+    for (const e of mieEmail) controparti.delete(e)
+
+    if (controparti.size > 0) {
+      const lista = [...controparti]
+      const correlate = await db.messaggio.findMany({
+        where: {
+          utenteId,
+          cestinato: false,
+          OR: [
+            { mittente: { in: lista, mode: 'insensitive' } },
+            ...lista.map((e) => ({ destinatari: { contains: e, mode: 'insensitive' as const } })),
+          ],
+        },
+        orderBy: { data: 'desc' },
+        take: 60,
+        select: { id: true },
+      })
+      for (const m of correlate) ids.add(m.id)
+    }
   }
 
   const messaggi = await db.messaggio.findMany({
