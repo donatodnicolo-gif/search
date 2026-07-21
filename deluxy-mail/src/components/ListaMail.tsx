@@ -44,8 +44,16 @@ export function ListaMail({
       const finestra = window.innerHeight || document.documentElement.clientHeight
       return el.getBoundingClientRect().top <= finestra + 600
     }
+    // Throttle con requestAnimationFrame: lo scroll spara decine di eventi al
+    // secondo e misurare il layout (getBoundingClientRect) a ognuno costa CPU.
+    let inCoda = false
     const forse = () => {
-      if (vicino()) carica()
+      if (inCoda) return
+      inCoda = true
+      requestAnimationFrame(() => {
+        inCoda = false
+        if (vicino()) carica()
+      })
     }
 
     const obs = new IntersectionObserver(

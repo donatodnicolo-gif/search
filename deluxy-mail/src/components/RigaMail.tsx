@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import Link from 'next/link'
 import { dataBreve } from '@/lib/format'
 import { PrioritaButtons } from './PrioritaButtons'
@@ -65,8 +65,11 @@ function evidenzia(testo: string, termine?: string | null) {
   )
 }
 
-/** Una riga della posta in arrivo. Client: monta i pulsanti interattivi. */
-export function RigaMail({
+/** Una riga della posta in arrivo. Client: monta i pulsanti interattivi.
+ *  MEMOIZZATA: con centinaia di righe montate, ogni cambio di stato della lista
+ *  (una spunta, il caricamento di un blocco) ri-renderizzerebbe tutte le righe;
+ *  così si ridisegnano solo quelle davvero cambiate. */
+export const RigaMail = memo(function RigaMail({
   r,
   sezioni = [],
   selezionato = false,
@@ -209,4 +212,4 @@ export function RigaMail({
       </div>
     </MailDrag>
   )
-}
+})

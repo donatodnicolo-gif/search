@@ -31,18 +31,37 @@ export function SyncButton({ intervalloSec = 300 }: { intervalloSec?: number }) 
   // `inCorsoRef` evita che due giri si sovrappongano.
   const inCorsoRef = useRef(false)
 
+  // Quando abbiamo fatto l'ultimo router.refresh(): ogni refresh ri-renderizza
+  // TUTTA la pagina (query + lista), quindi durante un drain lungo va diluito.
+  const ultimoRefreshRef = useRef(0)
+  const refreshOgniTanto = useCallback(
+    (forza = false) => {
+      const ora = Date.now()
+      if (forza || ora - ultimoRefreshRef.current > 15_000) {
+        ultimoRefreshRef.current = ora
+        router.refresh()
+      }
+    },
+    [router]
+  )
+
   // Un singolo giro breve: chiede la posta nuova (budget ~7s lato server, il
   // cursore avanza da solo) e torna quanti messaggi ha scaricato.
-  const unGiro = useCallback(async (): Promise<number> => {
-    const res = await fetch('/api/leggi-posta', { method: 'POST' })
-    const esito = (await res.json().catch(() => ({}))) as { messaggio?: string; nuovi?: number }
-    setStato(esito.messaggio ?? null)
-    setUltimo(new Date())
-    const nuovi = esito.nuovi ?? 0
-    // Aggiorna la lista SOLO se è arrivato qualcosa: un refresh a vuoto non serve.
-    if (nuovi > 0) router.refresh()
-    return nuovi
-  }, [router])
+  // `subito`: se true, un giro con novità aggiorna subito la lista (pulsante e
+  // timer); se false (drain), il refresh è diluito e ci pensa il chiamante.
+  const unGiro = useCallback(
+    async (subito = true): Promise<number> => {
+      const res = await fetch('/api/leggi-posta', { method: 'POST' })
+      const esito = (await res.json().catch(() => ({}))) as { messaggio?: string; nuovi?: number }
+      setStato(esito.messaggio ?? null)
+      setUltimo(new Date())
+      const nuovi = esito.nuovi ?? 0
+      // Aggiorna la lista SOLO se è arrivato qualcosa: un refresh a vuoto non serve.
+      if (nuovi > 0) refreshOgniTanto(subito)
+      return nuovi
+    },
+    [refreshOgniTanto]
+  )
 
   // Giro singolo (pulsante "Aggiorna posta" e timer): non si sovrappone.
   const vai = useCallback(async () => {
@@ -67,19 +86,24 @@ export function SyncButton({ intervalloSec = 300 }: { intervalloSec?: number }) 
     if (inCorsoRef.current) return
     inCorsoRef.current = true
     setInCorso(true)
+    let totale = 0
     try {
       for (let giro = 0; giro < 50; giro++) {
         if (document.visibilityState !== 'visible') break
-        const nuovi = await unGiro()
+        // Refresh diluito durante il drain: ri-renderizzare tutto a ogni giro
+        // consuma CPU inutilmente. Uno finale allinea la lista.
+        const nuovi = await unGiro(false)
+        totale += nuovi
         if (nuovi <= 0) break // arretrato esaurito
       }
     } catch {
       setStato('Lettura non riuscita: riprovo al prossimo giro.')
     } finally {
+      if (totale > 0) refreshOgniTanto(true)
       inCorsoRef.current = false
       setInCorso(false)
     }
-  }, [unGiro])
+  }, [unGiro, refreshOgniTanto])
 
   // I giri stanno in ref: rifare gli effetti a ogni render li farebbe ripartire
   // da capo di continuo.
