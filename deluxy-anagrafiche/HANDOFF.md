@@ -149,10 +149,28 @@ Pubbliche `/api/v1` — auth header `x-api-key: <chiave>` (o `Authorization: Bea
 Interne `/api/interno/*` (solo UI, cookie di sessione, NON per le app): `cerca-partner`, `cerca-hubspot`.
 
 **Chiavi**: una per app, in `<app>/.env` (gitignored), mai committare i valori. Rigenera con
-`npm run chiave -- <nome-app> [--scrittura]` (stampa la chiave una volta; nel DB solo l'hash).
-Le app con chiave già generata: `deluxy-platform` (scrittura), `deluxy-partner`,
-`deluxy-suppliers`, `deluxy-scout` (lettura). Il **nome** della chiave = la sorgente nella
-provenienza/ranking. La cascata d'identità in scrittura: xref → platformId → P.IVA/CF → nome+città.
+`npm run chiave -- <nome-app> [--scrittura]` (stampa la chiave una volta; nel DB solo l'hash;
+la upsert è per `nome`, quindi rigenerare **ruota** l'hash: la vecchia chiave smette di valere).
+Le app con chiave: `deluxy-platform` (scrittura), **`deluxy-partner` (scrittura dal 20/07/2026**,
+ruotata da lettura → la vecchia read key non vale più, aggiornare `ANAGRAFICHE_API_KEY` in
+deluxy-partner sia per lettura che scrittura), `deluxy-suppliers`, `deluxy-scout` (lettura). Il
+**nome** della chiave = la sorgente nella provenienza/ranking. La cascata d'identità in scrittura:
+xref → platformId → P.IVA/CF → nome+città.
+
+### Integrazione deluxy-partner ↔ FIC (Fatture in Cloud) — piano
+Obiettivo: i clienti di fatturazione FIC portano identità fiscale + dati finanziari nel registro.
+**Scoperta chiave (20/07/2026): 0 anagrafiche su 578 hanno la P.IVA** — la riconciliazione per
+P.IVA oggi dà 0 match. Quindi il bootstrap è **per NOME**, ed è FIC (che ha le P.IVA) ad arricchire
+il registro, non il contrario. Flusso sicuro (evita doppioni: il POST matcha per nome+città
+ESATTO, mentre `/match` è fuzzy):
+1. Per ogni cliente FIC: `GET /api/v1/partners/match?nome=<nome>&idEsterno=<idFic>&sistema=partner`
+   → `esito` agganciata/candidati/nessuna + confidenza. Ogni chiamata è loggata in `RichiestaMatch`.
+2. Il team rivede gli ambigui nella pagina **/match** e risolve (crea xref `partner`→id FIC).
+3. Da lì `POST /api/v1/partners` **con `idEsterno`** (risolve per xref, esatto) + `pIva` + blocco
+   finanziario + `asOf`: scrive identità fiscale e fatturazione, propagate alle sedi dell'insegna.
+   I "nessuna" si importano come nuove anagrafiche-cliente.
+Misura pendente (solo lato partner, i nomi FIC vivono in Fatture in Cloud): quanti clienti FIC
+trovano un match nel registro. Lato registro misurato: 578 attivi, 316 boutique, **0 con P.IVA**.
 
 ## 6. Integrazioni
 
