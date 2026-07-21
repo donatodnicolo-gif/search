@@ -13,6 +13,8 @@ export async function getLinee(): Promise<string[]> {
     const res = await fetch(MASTER, {
       headers: { "x-api-key": key },
       next: { revalidate: 3600 },
+      // Il master non deve mai bloccare le pagine: se è lento, fallback statico.
+      signal: AbortSignal.timeout(2500),
     });
     if (!res.ok) throw new Error(String(res.status));
     const json = (await res.json()) as { linee?: { nome?: string }[] };
