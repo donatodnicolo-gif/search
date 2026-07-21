@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toggleInteresse } from "@/lib/azioni";
-import { COLORE_INTERESSE, ETICHETTE_INTERESSE, INTERESSI, isInteresse } from "@/lib/interessi";
+import { coloreInteresse, INTERESSI } from "@/lib/interessi";
 
 // Tipologie di interesse in stile "Stato": pillole con dot colorato e menu a
 // scelta multipla — ogni click aggiunge o toglie un interesse. Il menu resta
@@ -13,14 +13,19 @@ export function MenuInteressi({
   partnerId,
   interessi,
   compatto = false,
+  linee,
 }: {
   partnerId: string;
   interessi: string[];
   compatto?: boolean;
+  linee?: string[];
 }) {
   const ancora = useRef<HTMLElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const attivi = interessi.filter(isInteresse);
+  // Catalogo selezionabile: linee live dal master se passate, altrimenti il
+  // fallback statico. Gli attivi mostrano comunque tutti i valori memorizzati.
+  const catalogo = linee && linee.length ? linee : [...INTERESSI];
+  const attivi = interessi;
 
   return (
     <details
@@ -42,13 +47,13 @@ export function MenuInteressi({
         ) : (
           <span className="interessi-pillole">
             {(compatto ? attivi.slice(0, 2) : attivi).map((i) => (
-              <span className="pill-interesse" key={i} style={{ color: COLORE_INTERESSE[i] }}>
+              <span className="pill-interesse" key={i} style={{ color: coloreInteresse(i) }}>
                 <span className="dot" />
-                <span className="stato-label">{ETICHETTE_INTERESSE[i]}</span>
+                <span className="stato-label">{i}</span>
               </span>
             ))}
             {compatto && attivi.length > 2 && (
-              <span className="pill-interesse" title={attivi.slice(2).map((i) => ETICHETTE_INTERESSE[i]).join(", ")}>
+              <span className="pill-interesse" title={attivi.slice(2).join(", ")}>
                 <span className="stato-label">+{attivi.length - 2}</span>
               </span>
             )}
@@ -61,7 +66,7 @@ export function MenuInteressi({
         style={pos ? { position: "fixed", top: pos.top, left: pos.left } : undefined}
       >
         <form action={toggleInteresse.bind(null, partnerId)}>
-          {INTERESSI.map((i) => {
+          {catalogo.map((i) => {
             const attivo = attivi.includes(i);
             return (
               <button
@@ -70,11 +75,11 @@ export function MenuInteressi({
                 name="interesse"
                 value={i}
                 className="menu-stato-voce"
-                style={{ color: COLORE_INTERESSE[i] }}
+                style={{ color: coloreInteresse(i) }}
                 title={attivo ? "Rimuovi" : "Aggiungi"}
               >
                 <span className="dot" />
-                <span className="stato-label">{ETICHETTE_INTERESSE[i]}</span>
+                <span className="stato-label">{i}</span>
                 {attivo && <span className="interesse-spunta">✓</span>}
               </button>
             );

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ETICHETTE_INTERESSE, INTERESSI } from "@/lib/interessi";
 import { ETICHETTE_STATO, STATI } from "@/lib/stati";
 
 // Barra di macro-filtri della dashboard: ogni scelta aggiorna subito tutti i
@@ -10,10 +9,12 @@ import { ETICHETTE_STATO, STATI } from "@/lib/stati";
 export function FiltriDashboard({
   categorie,
   regioni,
+  interessi,
   valori,
 }: {
   categorie: string[];
   regioni: string[];
+  interessi: string[];
   valori: { categoria?: string; regione?: string; stato?: string; interesse?: string };
 }) {
   const router = useRouter();
@@ -49,8 +50,8 @@ export function FiltriDashboard({
       </select>
       <select value={valori.interesse ?? ""} onChange={(e) => cambia("interesse", e.target.value)}>
         <option value="">Tutti gli interessi</option>
-        {INTERESSI.map((i) => (
-          <option key={i} value={i}>{ETICHETTE_INTERESSE[i]}</option>
+        {interessi.map((i) => (
+          <option key={i} value={i}>{i}</option>
         ))}
       </select>
       {attivi > 0 && (

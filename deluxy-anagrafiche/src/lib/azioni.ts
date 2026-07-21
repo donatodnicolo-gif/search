@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { isCategoria } from "./categorie";
 import { prisma } from "./db";
 import { propagaDatiFinanziari } from "./insegna";
-import { isInteresse } from "./interessi";
+import { getLinee } from "./linee";
 import { isStato } from "./stati";
 import { ARCHIVIATA, registraPassaggio } from "./storico";
 
@@ -39,8 +39,12 @@ export async function cambiaStato(partnerId: string, fd: FormData) {
 // Un solo statement atomico: click rapidi ravvicinati non si perdono a vicenda
 // come accadrebbe con leggi-array-poi-riscrivi.
 export async function toggleInteresse(partnerId: string, fd: FormData) {
-  const valore = String(fd.get("interesse") ?? "");
-  if (!isInteresse(valore)) return;
+  const valore = String(fd.get("interesse") ?? "").trim();
+  // La linea deve esistere nel catalogo master (Scout); un valore già presente
+  // sul record resta togglabile anche se archiviato lato master (per rimuoverlo).
+  const linee = await getLinee();
+  const attuali = await prisma.partner.findUnique({ where: { id: partnerId }, select: { interessi: true } });
+  if (!valore || (!linee.includes(valore) && !(attuali?.interessi ?? []).includes(valore))) return;
   // Schema qualificato esplicitamente: via pgbouncer il search_path non è
   // garantito e "Partner" senza schema può risolvere nella tabella di
   // un'altra app del cluster (successo in produzione: errore 42703).

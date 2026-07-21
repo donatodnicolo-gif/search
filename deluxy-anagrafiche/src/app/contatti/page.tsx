@@ -2,16 +2,12 @@ import type { Prisma } from "@prisma/client";
 import { Sidebar } from "@/components/Sidebar";
 import { TabellaContattiGoogle, type RigaContatto } from "@/components/TabellaContattiGoogle";
 import { prisma } from "@/lib/db";
+import { eAffiliatoReseller } from "@/lib/interessi";
 import { ETICHETTE_STATO, isStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
 
 const PER_PAGINA = 60;
-
-// Un'anagrafica è affiliato/reseller se ha l'interesse relativo → nel nome
-// del contatto Google si aggiunge la provincia.
-const affiliatoReseller = (interessi: string[]) =>
-  interessi.includes("affiliazione") || interessi.includes("vendor");
 
 type Ricerca = { q?: string; fonte?: string; pagina?: string; salvato?: string; eliminato?: string };
 
@@ -73,7 +69,7 @@ export default async function Contatti({ searchParams }: { searchParams: Promise
     provincia: c.partner.provincia,
     indirizzo: c.partner.indirizzo,
     ragioneSociale: c.partner.ragioneSociale,
-    affiliatoReseller: affiliatoReseller(c.partner.interessi),
+    affiliatoReseller: eAffiliatoReseller(c.partner.interessi),
   }));
 
   const pagineTotali = Math.max(1, Math.ceil(totale / PER_PAGINA));

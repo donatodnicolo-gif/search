@@ -5,7 +5,6 @@ import { MenuStato } from "@/components/MenuStato";
 import { Riconcilia } from "@/components/Riconcilia";
 import { etichetta, Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato } from "@/lib/azioni";
-import { ETICHETTE_INTERESSE, isInteresse } from "@/lib/interessi";
 import { prisma } from "@/lib/db";
 import { whereRicerca } from "@/lib/ricerca";
 import { ETICHETTE_STATO, STATI } from "@/lib/stati";
@@ -46,7 +45,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     filtri.ordina && filtri.ordina in COLONNE_ORDINABILI ? (filtri.ordina as CampoOrdinamento) : "nome";
   const dir: "asc" | "desc" = filtri.dir === "desc" ? "desc" : "asc";
 
-  const interesse = filtri.interesse && isInteresse(filtri.interesse) ? filtri.interesse : undefined;
+  const interesse = filtri.interesse?.trim() || undefined;
 
   const where: Prisma.PartnerWhereInput = { attivo: !inArchivio };
   if (filtri.q) where.AND = whereRicerca(filtri.q);
@@ -283,7 +282,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                 : filtri.stato && STATI.includes(filtri.stato as (typeof STATI)[number])
                   ? ETICHETTE_STATO[filtri.stato as (typeof STATI)[number]]
                   : interesse
-                    ? ETICHETTE_INTERESSE[interesse]
+                    ? interesse
                     : "Aziende"}
           </h1>
           <p className="page-sub">

@@ -1,6 +1,5 @@
 import { Prisma } from "@prisma/client";
 import { CAMPI_FINANZIARI } from "./insegna";
-import { isInteresse } from "./interessi";
 import { isStato } from "./stati";
 
 // Campi scalari accettati in scrittura dalle API (POST/PATCH).
@@ -103,10 +102,12 @@ export function validaPartner(
 
   if ("interessi" in body) {
     if (!Array.isArray(body.interessi)) return { errore: "'interessi' deve essere una lista" };
-    // valori fuori catalogo scartati in silenzio (catalogo in src/lib/interessi.ts)
-    dati.interessi = (body.interessi as unknown[])
-      .map((v) => String(v).trim().toLowerCase().replace(/[\s-]+/g, "_"))
-      .filter(isInteresse);
+    // Le linee sono i nomi canonici del master Scout: si accettano così come
+    // arrivano (Scout manda "Consegne", "Eventi & Catering", …), solo ripuliti
+    // e deduplicati. Il catalogo vive in Scout, non qui.
+    dati.interessi = [
+      ...new Set((body.interessi as unknown[]).map((v) => String(v).trim()).filter(Boolean)),
+    ];
   }
 
   let contatti: ContattoInput[] | undefined;

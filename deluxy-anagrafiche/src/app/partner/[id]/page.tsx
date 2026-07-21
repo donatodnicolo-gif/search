@@ -9,6 +9,7 @@ import { impostaArchiviato, raggruppaSotto, staccaContatto } from "@/lib/azioni"
 import { prisma } from "@/lib/db";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
 import { datiFinanziariCondivisi } from "@/lib/insegna";
+import { eAffiliatoReseller } from "@/lib/interessi";
 import { ETICHETTE_STATO, isStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +54,7 @@ export default async function Dettaglio({
   const haSedi = p.sedi.length > 0 || Boolean(p.capogruppo);
 
   // Appena diventata cliente: i referenti vanno in rubrica Google in automatico
-  const affiliatoReseller = p.interessi.includes("affiliazione") || p.interessi.includes("vendor");
+  const affiliatoReseller = eAffiliatoReseller(p.interessi);
   const righeRubrica: RigaContatto[] =
     rubrica === "1" && p.stato === "attivo"
       ? p.contatti.map((c) => ({

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { COLORE_INTERESSE, ETICHETTE_INTERESSE, INTERESSI, type Interesse } from "@/lib/interessi";
+import { coloreInteresse } from "@/lib/interessi";
+import { getLinee } from "@/lib/linee";
 import { COLORE_STATO, ETICHETTE_STATO, STATI } from "@/lib/stati";
 import { IconaCategoria } from "./IconaCategoria";
 import { SbSezione } from "./SbSezione";
@@ -45,6 +46,7 @@ export async function Sidebar({
       SELECT unnest("interessi") AS interesse, count(*) AS totale
       FROM "anagrafiche"."Partner" WHERE "attivo" GROUP BY 1`,
   ]);
+  const linee = await getLinee();
   const daRisolvere = await prisma.richiestaMatch.count({ where: { risolto: false, esito: { not: "agganciata" } } });
   // Referenti da riassegnare: quelli sotto anagrafiche "DA CLASSIFICARE"
   const daRiconciliare = await prisma.contatto.count({
@@ -105,14 +107,14 @@ export async function Sidebar({
         </SbSezione>
 
         <SbSezione titolo="Interessi">
-          {INTERESSI.map((i: Interesse) => (
+          {linee.map((i) => (
             <a
               key={i}
               className={`sb-item${interesseAttivo === i ? " attiva" : ""}`}
-              href={`/?interesse=${i}`}
+              href={`/?interesse=${encodeURIComponent(i)}`}
             >
-              <span className="sb-icona"><span className="sb-dot" style={{ background: COLORE_INTERESSE[i] }} /></span>
-              <span className="sb-nome">{ETICHETTE_INTERESSE[i]}</span>
+              <span className="sb-icona"><span className="sb-dot" style={{ background: coloreInteresse(i) }} /></span>
+              <span className="sb-nome">{i}</span>
               <span className="sb-count">{perInteresse.get(i) ?? 0}</span>
             </a>
           ))}

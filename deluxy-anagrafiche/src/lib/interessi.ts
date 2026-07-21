@@ -1,42 +1,42 @@
-// Tipologie di interesse commerciale di un'anagrafica (multi-scelta).
-// Catalogo nato dai valori reali della colonna "TIPOLOGIA INTERESSE" del
-// tracker Excel, più "consegne" e "affiliazione" per i flussi della piattaforma.
+// Linee di interesse commerciale (multi-scelta). Il MASTER è Deluxy Scout:
+// `src/lib/linee.ts` le legge live dalla sua API. Questa lista è il FALLBACK,
+// allineato alle 9 linee master, usata quando il master non risponde o nei
+// contesti senza fetch (client). Il valore memorizzato è il nome canonico.
 export const INTERESSI = [
-  "consegne",
-  "affiliazione",
-  "gifting",
-  "catering",
-  "eventi",
-  "pr_activation",
-  "in_store",
-  "vendor",
+  "Affiliazioni",
+  "Clientelling",
+  "Concierge",
+  "Consegne",
+  "Eventi & Catering",
+  "Food Supplier",
+  "Gifting",
+  "Magazzino",
+  "Re-seller",
 ] as const;
 
-export type Interesse = (typeof INTERESSI)[number];
+// Catalogo dinamico: una linea è una stringa qualsiasi (il nome canonico Scout).
+export type Interesse = string;
 
-export const ETICHETTE_INTERESSE: Record<Interesse, string> = {
-  consegne: "Consegne",
-  affiliazione: "Affiliazione",
-  gifting: "Gifting",
-  catering: "Catering",
-  eventi: "Eventi",
-  pr_activation: "PR / Activation",
-  in_store: "Decorazioni in-store",
-  vendor: "Vendor Deluxy",
-};
+// Colore stabile per una linea, derivato dal nome: vale anche per linee nuove
+// aggiunte in Scout, senza doverle mappare a mano.
+const PALETTE_INTERESSE = [
+  "var(--gold)",
+  "var(--gold-strong)",
+  "var(--purple)",
+  "var(--orange)",
+  "var(--blue)",
+  "var(--green)",
+  "var(--red)",
+  "var(--text-secondary)",
+];
+export function coloreInteresse(nome: string): string {
+  let h = 0;
+  for (let i = 0; i < nome.length; i++) h = (h * 31 + nome.charCodeAt(i)) >>> 0;
+  return PALETTE_INTERESSE[h % PALETTE_INTERESSE.length];
+}
 
-// Colore del dot (token del design system), stesso linguaggio dei badge stato
-export const COLORE_INTERESSE: Record<Interesse, string> = {
-  consegne: "var(--gold)",
-  affiliazione: "var(--gold-strong)",
-  gifting: "var(--purple)",
-  catering: "var(--orange)",
-  eventi: "var(--blue)",
-  pr_activation: "var(--green)",
-  in_store: "var(--red)",
-  vendor: "var(--text-secondary)",
-};
-
-export function isInteresse(v: string): v is Interesse {
-  return (INTERESSI as readonly string[]).includes(v);
+// Linee che indicano affiliato/reseller (per il nome in rubrica Google:
+// a questi si aggiunge la provincia).
+export function eAffiliatoReseller(interessi: string[]): boolean {
+  return interessi.includes("Affiliazioni") || interessi.includes("Re-seller");
 }

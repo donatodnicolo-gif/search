@@ -2,7 +2,8 @@ import { Prisma } from "@prisma/client";
 import { FiltriDashboard } from "@/components/FiltriDashboard";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
-import { COLORE_INTERESSE, ETICHETTE_INTERESSE, INTERESSI, isInteresse } from "@/lib/interessi";
+import { coloreInteresse } from "@/lib/interessi";
+import { getLinee } from "@/lib/linee";
 import { COLORE_STATO, ETICHETTE_STATO, STATI, isStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
@@ -48,7 +49,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const categoria = sp.categoria || undefined;
   const regione = sp.regione || undefined;
   const stato = sp.stato && isStato(sp.stato) ? sp.stato : undefined;
-  const interesse = sp.interesse && isInteresse(sp.interesse) ? sp.interesse : undefined;
+  const interesse = sp.interesse?.trim() || undefined;
+  const linee = await getLinee();
   const filtriAttivi = [categoria, regione, stato, interesse].filter(Boolean).length;
 
   // Filtro Prisma (groupBy/count) e filtro SQL (query raw), stessi criteri
@@ -117,7 +119,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   );
   const interesseConteggio = new Map(perInteresse.map((i) => [i.interesse, Number(i.totale)]));
   const maxStato = Math.max(...STATI.map((s) => statoConteggio.get(s) ?? 0), 1);
-  const maxInteresse = Math.max(...INTERESSI.map((i) => interesseConteggio.get(i) ?? 0), 1);
+  const maxInteresse = Math.max(...linee.map((i) => interesseConteggio.get(i) ?? 0), 1);
 
   const TOP = 8;
   const categorieTop = perCategoria.slice(0, TOP);
@@ -167,6 +169,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <FiltriDashboard
           categorie={opzioniCategorie.map((c) => c.categoria)}
           regioni={opzioniRegioni.map((r) => r.regione!).filter(Boolean)}
+          interessi={linee}
           valori={{ categoria, regione, stato, interesse }}
         />
 
@@ -199,14 +202,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
           <section className="scheda">
             <h2 className="scheda-titolo">Interessi commerciali</h2>
-            {INTERESSI.map((i) => (
+            {linee.map((i) => (
               <Barra
                 key={i}
-                etichetta={ETICHETTE_INTERESSE[i]}
+                etichetta={i}
                 valore={interesseConteggio.get(i) ?? 0}
                 massimo={maxInteresse}
-                colore={COLORE_INTERESSE[i]}
-                href={`/?interesse=${i}`}
+                colore={coloreInteresse(i)}
+                href={`/?interesse=${encodeURIComponent(i)}`}
               />
             ))}
             <p className="testo-guida" style={{ marginTop: 10 }}>

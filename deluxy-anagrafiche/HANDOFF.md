@@ -198,6 +198,16 @@ trovano un match nel registro. Lato registro misurato: 578 attivi, 316 boutique,
 
 ## 6. Integrazioni
 
+- **Linee di interesse — MASTER è Deluxy Scout** (22/07/2026): il catalogo interessi non è più
+  hardcodato. `src/lib/linee.ts` `getLinee()` legge live `GET …supabase…/functions/v1/linee?soloAttive=1`
+  con `x-api-key: LINEE_API_KEY` (secret .env + Vercel), cache 1h, fallback al catalogo statico
+  allineato in `src/lib/interessi.ts` (9 nomi canonici). Il valore memorizzato in `Partner.interessi[]`
+  è il **nome canonico** ("Consegne", "Eventi & Catering", …); colore derivato dal nome
+  (`coloreInteresse`). Migrazione dati fatta (slug→nomi: catering+eventi→Eventi & Catering,
+  in_store+pr_activation→Clientelling, vendor→Food Supplier, ecc.). Sidebar/dashboard leggono live;
+  MenuInteressi usa il fallback statico se non riceve `linee`. `eAffiliatoReseller` = Affiliazioni|Re-seller.
+  Le API accettano i nomi canonici così come arrivano (Scout li manda già giusti).
+
 - **HubSpot CRM** (token `HUBSPOT_ACCESS_TOKEN`, portale **147623810**, region **app-eu1**):
   Sync companies (`src/lib/hubspot.ts`), import contatti (`npm run import:hubspot-contatti`:
   aggancia le persone ai partner via azienda per id/nome, dedup), link ai record
