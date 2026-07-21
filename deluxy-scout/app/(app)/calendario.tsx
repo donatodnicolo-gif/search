@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { PageIntro } from '@/components/ui';
 import { fetchCalToken, fetchTask, fetchTutteTrattative, urlFeedCalendario } from '@/lib/db';
 
@@ -329,11 +329,7 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingRight: 18,
     paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
+    ...shadow.float,
   },
   fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },

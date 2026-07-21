@@ -6,7 +6,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { Deal, Place, Profilo, Visit } from '@/types';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { fetchAllDeals, fetchAllVisits, fetchPlaces, fetchProfiles } from '@/lib/db';
@@ -196,14 +196,10 @@ const styles = StyleSheet.create({
 
   vCard: {
     backgroundColor: colors.bianco,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    ...shadow.card,
   },
   vHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm, gap: spacing.sm },
   vHeadRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },

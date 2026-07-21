@@ -6,7 +6,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import type { Task } from '@/types';
-import { colors, coloreProprita, radius, spacing } from '@/lib/theme';
+import { colors, coloreProprita, radius, shadow, spacing } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { completaTask, eliminaTask, fetchTask } from '@/lib/db';
@@ -259,11 +259,7 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingRight: 18,
     paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
+    ...shadow.float,
   },
   fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
 });

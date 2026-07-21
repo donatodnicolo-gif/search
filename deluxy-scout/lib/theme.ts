@@ -8,6 +8,7 @@ export const colors = {
   // Superfici
   sfondo: '#F5F5F7', // bg pagina (mai bianco pieno)
   bianco: '#FFFFFF', // surface
+  surfaceTranslucent: 'rgba(255, 255, 255, 0.72)', // barre/overlay in vetro (DS)
   // Testo
   testo: '#1D1D1F', // text
   testoSoft: '#6E6E73', // text-secondary
@@ -48,7 +49,8 @@ export const radius = {
   sm: 8,
   md: 12,
   lg: 18,
-  pill: 999,
+  xl: 24, // card hero/login (DS)
+  pill: 980, // valore canonico DS
 } as const;
 
 // Due sole ombre (DS): card e float. Morbide, mai dure.

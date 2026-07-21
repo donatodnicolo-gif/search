@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, coloreProprita, iconaStato, radius, spacing } from '@/lib/theme';
+import { colors, coloreProprita, iconaStato, radius, shadow, spacing } from '@/lib/theme';
 import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/location';
 import { urlNavigazioneGiro } from '@/lib/nav';
 import { ordinaGiro } from '@/lib/giro';
@@ -264,11 +264,7 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.md,
     paddingRight: spacing.xs,
     paddingVertical: spacing.xs,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    ...shadow.float,
   },
   conteggio: { color: colors.navy, fontWeight: '700', fontSize: 13 },
   conteggioBtn: { paddingVertical: 6, paddingRight: spacing.sm },
@@ -290,11 +286,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
     borderRadius: radius.lg,
     paddingVertical: spacing.sm,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    ...shadow.float,
   },
   pannelloHead: {
     flexDirection: 'row',

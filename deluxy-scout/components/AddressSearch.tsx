@@ -4,7 +4,7 @@
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { autocompleteIndirizzo, dettagliLuogo, type GeocodeResult, type Predizione } from '@/lib/geocode';
 
 export function AddressSearch({
@@ -132,11 +132,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    ...shadow.float,
   },
   pred: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro },
   predTxt: { color: colors.navy, fontSize: 14 },

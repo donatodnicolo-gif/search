@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, spacing } from '@/lib/theme';
+import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, shadow, spacing } from '@/lib/theme';
 import {
   aggiornaDeal,
   cercaPlaces,
@@ -833,11 +833,7 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingRight: 18,
     paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
+    ...shadow.float,
   },
   fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
 

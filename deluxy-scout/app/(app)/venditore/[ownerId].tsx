@@ -13,7 +13,7 @@ import {
 import { Redirect, Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { Place, Profilo, Visit } from '@/types';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { aggiornaNomeProfilo, fetchAllVisits, fetchPlaces, fetchProfilo } from '@/lib/db';
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
 
   headCard: {
     backgroundColor: colors.bianco,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
@@ -269,14 +269,10 @@ const styles = StyleSheet.create({
 
   giorno: {
     backgroundColor: colors.bianco,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    ...shadow.card,
   },
   giornoHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: spacing.sm },
   giornoData: { color: colors.navy, fontWeight: '800', fontSize: 16, textTransform: 'capitalize' },

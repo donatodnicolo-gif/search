@@ -7,7 +7,7 @@ import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from '
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, spacing } from '@/lib/theme';
+import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { EmptyState, StatusBadge } from '@/components/ui';
 import { LineaIcon } from '@/components/LineaIcon';
 import {
@@ -254,16 +254,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: colors.bianco,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    ...shadow.card,
   },
-  icona: { width: 46, height: 46, borderRadius: 13, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
+  icona: { width: 46, height: 46, borderRadius: radius.md, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1, gap: 3 },
   titoloRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   nome: { flexShrink: 1, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },

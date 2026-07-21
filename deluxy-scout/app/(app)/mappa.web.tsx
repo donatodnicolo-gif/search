@@ -7,7 +7,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, us
 import { useRouter } from 'expo-router';
 import { LINEE_ATTIVE, type Place } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
-import { coloreStato, colors, labelStato, radius, spacing } from '@/lib/theme';
+import { coloreStato, colors, labelStato, radius, shadow, spacing } from '@/lib/theme';
 import { LineaIcon } from '@/components/LineaIcon';
 import { EmptyState, tinta } from '@/components/ui';
 
@@ -591,14 +591,10 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     gap: 8,
     backgroundColor: colors.bianco,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    ...shadow.card,
   },
   // Su mobile la card diventa a colonna: testo sopra (nome per esteso), icone sotto.
   cardMobile: { gap: 6 },
@@ -609,7 +605,7 @@ const styles = StyleSheet.create({
   icona: {
     width: 46,
     height: 46,
-    borderRadius: 13,
+    borderRadius: radius.md,
     backgroundColor: colors.goldSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -657,20 +653,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    borderRadius: 22,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.lg,
     paddingLeft: spacing.lg,
     paddingRight: 6,
     paddingVertical: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    ...shadow.float,
   },
   dockTxt: { color: colors.navy, fontWeight: '700', fontSize: 14, flexShrink: 1 },
   dockAzioni: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  btnNaviga: { backgroundColor: colors.fill, borderRadius: 18, paddingHorizontal: spacing.md, paddingVertical: 11 },
+  btnNaviga: { backgroundColor: colors.fill, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 11 },
   btnNavigaTxt: { color: colors.testo, fontWeight: '600' },
   btnGiro: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 11 },
   btnGiroOn: { backgroundColor: colors.fillActive },

@@ -3,7 +3,7 @@ import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, coloreStato, labelStato, radius, spacing } from '@/lib/theme';
+import { colors, coloreStato, labelStato, radius, shadow, spacing } from '@/lib/theme';
 import { aggiornaNascosto } from '@/lib/db';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
@@ -164,11 +164,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    ...shadow.float,
   },
   fabTxt: { color: colors.bianco, fontSize: 30, fontWeight: '400', marginTop: -2 },
 });
