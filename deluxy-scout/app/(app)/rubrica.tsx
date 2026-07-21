@@ -15,6 +15,25 @@ export default function Rubrica() {
   const [query, setQuery] = useState('');
   const [statoFiltro, setStatoFiltro] = useState<StatoPlace | null>(null);
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
+  const [zonaFiltro, setZonaFiltro] = useState<string | null>(null);
+  // Toggle rapidi (multipli, combinabili): utili per preparare una campagna.
+  const [toggles, setToggles] = useState<Set<'decisori' | 'email' | 'telefono' | 'registro'>>(new Set());
+
+  const attivo = (t: 'decisori' | 'email' | 'telefono' | 'registro') => toggles.has(t);
+  const togglaFiltro = (t: 'decisori' | 'email' | 'telefono' | 'registro') =>
+    setToggles((cur) => {
+      const n = new Set(cur);
+      n.has(t) ? n.delete(t) : n.add(t);
+      return n;
+    });
+  const filtriAttivi = Boolean(statoFiltro || lineaFiltro || zonaFiltro || toggles.size || query.trim());
+  function azzeraFiltri() {
+    setStatoFiltro(null);
+    setLineaFiltro(null);
+    setZonaFiltro(null);
+    setToggles(new Set());
+    setQuery('');
+  }
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -31,32 +50,41 @@ export default function Rubrica() {
     }, [carica]),
   );
 
-  // Opzioni dei filtri: solo gli stati e gli interessi (linee) presenti fra i contatti.
-  const { statiPresenti, lineePresenti } = useMemo(() => {
+  // Opzioni dei filtri: solo gli stati, gli interessi e le zone presenti fra i contatti.
+  const { statiPresenti, lineePresenti, zonePresenti } = useMemo(() => {
     const stati = new Set<StatoPlace>();
     const linee = new Set<string>();
+    const zone = new Set<string>();
     for (const c of contatti) {
       if (c.place_stato) stati.add(c.place_stato);
       if (c.place_linea) linee.add(c.place_linea);
+      if (c.place_zona) zone.add(c.place_zona);
     }
     const ORDINE: StatoPlace[] = ['da_visitare', 'visitato', 'cliente', 'perso'];
     return {
       statiPresenti: ORDINE.filter((s) => stati.has(s)),
       lineePresenti: [...linee].sort(),
+      zonePresenti: [...zone].sort(),
     };
   }, [contatti]);
 
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const emailValida = (e: string | null) => Boolean(e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
     return contatti.filter((c) => {
       if (statoFiltro && c.place_stato !== statoFiltro) return false;
       if (lineaFiltro && c.place_linea !== lineaFiltro) return false;
+      if (zonaFiltro && c.place_zona !== zonaFiltro) return false;
+      if (toggles.has('decisori') && !c.is_decisore) return false;
+      if (toggles.has('email') && !emailValida(c.email)) return false;
+      if (toggles.has('telefono') && !c.telefono) return false;
+      if (toggles.has('registro') && !c.place_nel_registro) return false;
       if (!q) return true;
       return [c.nome, c.ruolo, c.place_nome, c.telefono, c.email]
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(q));
     });
-  }, [contatti, query, statoFiltro, lineaFiltro]);
+  }, [contatti, query, statoFiltro, lineaFiltro, zonaFiltro, toggles]);
 
   return (
     <View style={styles.container}>
@@ -71,7 +99,8 @@ export default function Rubrica() {
           autoCapitalize="none"
           clearButtonMode="while-editing"
         />
-        {statiPresenti.length || lineePresenti.length ? (
+        {/* Filtri esclusivi (uno per gruppo): stato / interessi / zona. */}
+        {statiPresenti.length || lineePresenti.length || zonePresenti.length ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
             {statiPresenti.length ? (
               <GruppoFiltro
@@ -91,8 +120,32 @@ export default function Rubrica() {
                 onTap={(v) => setLineaFiltro((cur) => (cur === v ? null : v))}
               />
             ) : null}
+            {zonePresenti.length ? (
+              <GruppoFiltro
+                titolo="Zona"
+                valori={zonePresenti}
+                attivo={zonaFiltro}
+                onTap={(v) => setZonaFiltro((cur) => (cur === v ? null : v))}
+              />
+            ) : null}
           </ScrollView>
         ) : null}
+
+        {/* Toggle rapidi (combinabili): utili per preparare una campagna. */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.toggleRow}>
+          <ToggleChip icona="star" label="Decisori" on={attivo('decisori')} onTap={() => togglaFiltro('decisori')} />
+          <ToggleChip icona="mail-outline" label="Con email" on={attivo('email')} onTap={() => togglaFiltro('email')} />
+          <ToggleChip icona="call-outline" label="Con telefono" on={attivo('telefono')} onTap={() => togglaFiltro('telefono')} />
+          <ToggleChip icona="library-outline" label="Nel registro" on={attivo('registro')} onTap={() => togglaFiltro('registro')} />
+          {filtriAttivi ? (
+            <Pressable style={styles.azzera} onPress={azzeraFiltri} hitSlop={6}>
+              <Ionicons name="close-circle" size={14} color={colors.testoSoft} />
+              <Text style={styles.azzeraTxt}>Azzera</Text>
+            </Pressable>
+          ) : null}
+        </ScrollView>
+
+        {filtriAttivi ? <Text style={styles.conteggio}>{dati.length} contatt{dati.length === 1 ? 'o' : 'i'}</Text> : null}
       </View>
       <FlatList
         data={dati}
@@ -100,17 +153,13 @@ export default function Rubrica() {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
-          statoFiltro || lineaFiltro || query.trim() ? (
+          filtriAttivi ? (
             <EmptyState
               icona="filter-outline"
               titolo="Nessun contatto con questi filtri"
-              aiuto="Prova ad azzerare stato, interessi o la ricerca."
+              aiuto="Prova ad allentare stato, interessi, zona o i filtri rapidi."
               azione="Azzera filtri"
-              onAzione={() => {
-                setStatoFiltro(null);
-                setLineaFiltro(null);
-                setQuery('');
-              }}
+              onAzione={azzeraFiltri}
             />
           ) : (
             <EmptyState
@@ -163,6 +212,26 @@ function GruppoFiltro({
         })}
       </View>
     </View>
+  );
+}
+
+// Chip toggle rapido (attivo/spento, combinabile con gli altri).
+function ToggleChip({
+  icona,
+  label,
+  on,
+  onTap,
+}: {
+  icona: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  on: boolean;
+  onTap: () => void;
+}) {
+  return (
+    <Pressable style={[styles.toggle, on && styles.toggleOn]} onPress={onTap}>
+      <Ionicons name={icona} size={13} color={on ? colors.bianco : colors.testoSoft} />
+      <Text style={[styles.toggleTxt, on && styles.toggleTxtOn]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -254,6 +323,23 @@ const styles = StyleSheet.create({
   chipDot: { width: 6, height: 6, borderRadius: 3 },
   chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
   chipTxtOn: { color: colors.bianco },
+  // Toggle rapidi
+  toggleRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: 6 },
+  toggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.fill,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  toggleOn: { backgroundColor: colors.ink },
+  toggleTxt: { color: colors.testoSoft, fontSize: 13, fontWeight: '600' },
+  toggleTxtOn: { color: colors.bianco },
+  azzera: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 6 },
+  azzeraTxt: { color: colors.testoSoft, fontSize: 13, fontWeight: '600' },
+  conteggio: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   list: { padding: spacing.md, gap: spacing.sm },
   card: {
     backgroundColor: colors.bianco,
