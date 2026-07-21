@@ -17,6 +17,24 @@ datasource db {
   directUrl = env("DIRECT_URL") // pooler 5432 con ?schema=hub — per migrazioni/db push
 }
 
+// Chiavi/segreti dei progetti (pagina /chiavi, solo admin). Il valore è cifrato
+// con AES-256-GCM (src/lib/cifratura.ts) usando HUB_CHIAVI_SECRET: sul database
+// non c'è mai nulla in chiaro. `suffisso` (ultimi 4 caratteri) serve solo a
+// riconoscere la chiave in lista senza doverla decifrare.
+model Chiave {
+  id            String   @id @default(cuid())
+  progetto      String // a quale app/progetto appartiene (es. "deluxy-mail")
+  nome          String // nome della variabile (es. "OPENAI_API_KEY")
+  valoreCifrato String // "iv:tag:dati" in esadecimale
+  suffisso      String // ultimi 4 caratteri in chiaro, per riconoscerla in lista
+  note          String   @default("")
+  creatoIl      DateTime @default(now())
+  aggiornatoIl  DateTime @updatedAt
+
+  @@unique([progetto, nome])
+  @@index([progetto])
+}
+
 model Utente {
   id            String    @id @default(cuid())
   email         String    @unique
