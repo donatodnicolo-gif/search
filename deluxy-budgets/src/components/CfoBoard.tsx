@@ -37,6 +37,13 @@ export function CfoBoard({
   const [assegna, setAssegna] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  // Proposte AI per controparte (categoria + confidenza + motivo)
+  const [proposte, setProposte] = useState<
+    Record<string, { categoriaId: string | null; confidenza: string; motivo: string }>
+  >({});
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState<string | null>(null);
+  const idPerNome = new Map(categorie.map((c) => [c.nome, c.id] as const));
 
   const nonCategorizzate = righe.find((r) => r.categoriaId === null);
   // Con centinaia di controparti la tabella diventa ingestibile: si mostrano le
@@ -85,6 +92,61 @@ export function CfoBoard({
     });
     setBusy(false);
     if (res.ok) router.refresh();
+  }
+
+  // Chiede all'AI di ipotizzare la categoria per le controparti mostrate. Le
+  // proposte pre-compilano le tendine (con confidenza e motivo): l'utente
+  // conferma, non si applica niente in automatico.
+  async function chiediProposteAI() {
+    setAiBusy(true);
+    setAiMsg(null);
+    const res = await fetch("/api/cfo/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        controparti: daMostrare,
+        categorie: categorie.map((c) => ({ nome: c.nome, tipoPL: c.tipoPL })),
+      }),
+    });
+    setAiBusy(false);
+    const body = await res.json().catch(() => null);
+    if (!body?.ok) {
+      setAiMsg(body?.error ?? "Proposte AI non riuscite.");
+      return;
+    }
+    const nuoveProp: typeof proposte = {};
+    const nuoveAssegna: Record<string, string> = { ...assegna };
+    let conCategoria = 0;
+    for (const p of body.proposte as { controparte: string; categoria: string | null; confidenza: string; motivo: string }[]) {
+      const catId = p.categoria ? idPerNome.get(p.categoria) ?? null : null;
+      nuoveProp[p.controparte] = { categoriaId: catId, confidenza: p.confidenza, motivo: p.motivo };
+      if (catId) {
+        nuoveAssegna[p.controparte] = catId; // preseleziona la tendina
+        conCategoria++;
+      }
+    }
+    setProposte(nuoveProp);
+    setAssegna(nuoveAssegna);
+    setAiMsg(`AI: ${conCategoria} proposte su ${daMostrare.length} controparti. Controlla e conferma.`);
+  }
+
+  // Conferma in blocco tutte le proposte ad alta confidenza (crea le regole).
+  async function accettaAlte() {
+    const daCreare = daMostrare
+      .filter((c) => proposte[c.controparte]?.categoriaId && proposte[c.controparte]?.confidenza === "alta")
+      .map((c) => ({ match: c.controparte, categoriaId: proposte[c.controparte].categoriaId! }));
+    if (daCreare.length === 0) return;
+    if (!confirm(`Confermare ${daCreare.length} riconciliazioni ad alta confidenza? Crea altrettante regole.`)) return;
+    setBusy(true);
+    for (const r of daCreare) {
+      await fetch("/api/cfo/regole", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ match: r.match, esatto: true, categoriaId: r.categoriaId }),
+      });
+    }
+    setBusy(false);
+    router.refresh();
   }
 
   async function eliminaCategoria(c: Riga) {
@@ -195,7 +257,22 @@ export function CfoBoard({
 
       {nonCategorizzate && nonCategorizzate.controparti.length > 0 && (
         <>
-          <h2 className="section-title">Da categorizzare — {eur(nonCategorizzate.uscite)}</h2>
+          <div className="page-head" style={{ marginBottom: 12 }}>
+            <h2 className="section-title" style={{ margin: 0 }}>
+              Da categorizzare — {eur(nonCategorizzate.uscite)}
+            </h2>
+            <div className="page-actions">
+              {aiMsg && <span className="muted" style={{ fontSize: 13 }}>{aiMsg}</span>}
+              <button className="btn secondary" onClick={chiediProposteAI} disabled={aiBusy}>
+                {aiBusy ? "L'AI sta analizzando…" : "✦ Proponi con AI"}
+              </button>
+              {Object.values(proposte).some((p) => p.categoriaId && p.confidenza === "alta") && (
+                <button className="btn primary" onClick={accettaAlte} disabled={busy}>
+                  Accetta le alte confidenze
+                </button>
+              )}
+            </div>
+          </div>
           <div className="card tight">
             <div className="table-wrap">
               <table>
@@ -203,37 +280,59 @@ export function CfoBoard({
                   <tr>
                     <th>Controparte</th>
                     <th className="num">Uscite</th>
+                    <th>Proposta AI</th>
                     <th>Assegna a categoria</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {daMostrare.map((c) => (
-                    <tr key={c.controparte}>
-                      <td style={{ fontWeight: 500 }}>{c.controparte}</td>
-                      <td className="num">{eur(c.uscite)}</td>
-                      <td style={{ minWidth: 220 }}>
-                        <select
-                          value={assegna[c.controparte] ?? ""}
-                          onChange={(e) => setAssegna((p) => ({ ...p, [c.controparte]: e.target.value }))}
-                        >
-                          <option value="">Scegli…</option>
-                          {categorie.map((cat) => (
-                            <option key={cat.id} value={cat.id}>{cat.nome}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <button
-                          className="btn primary small"
-                          disabled={!assegna[c.controparte] || busy}
-                          onClick={() => assegnaControparte(c.controparte)}
-                        >
-                          Assegna
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {daMostrare.map((c) => {
+                    const prop = proposte[c.controparte];
+                    const badge =
+                      prop?.confidenza === "alta" ? "green" : prop?.confidenza === "media" ? "gold" : "neutral";
+                    return (
+                      <tr key={c.controparte}>
+                        <td style={{ fontWeight: 500 }}>{c.controparte}</td>
+                        <td className="num">{eur(c.uscite)}</td>
+                        <td style={{ minWidth: 180 }}>
+                          {prop ? (
+                            prop.categoriaId ? (
+                              <span className={`badge ${badge}`} title={prop.motivo}>
+                                <span className="dot" />
+                                {categorie.find((x) => x.id === prop.categoriaId)?.nome} · {prop.confidenza}
+                              </span>
+                            ) : (
+                              <span className="muted" style={{ fontSize: 12.5 }} title={prop.motivo}>
+                                incerta
+                              </span>
+                            )
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                        </td>
+                        <td style={{ minWidth: 220 }}>
+                          <select
+                            value={assegna[c.controparte] ?? ""}
+                            onChange={(e) => setAssegna((p) => ({ ...p, [c.controparte]: e.target.value }))}
+                          >
+                            <option value="">Scegli…</option>
+                            {categorie.map((cat) => (
+                              <option key={cat.id} value={cat.id}>{cat.nome}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <button
+                            className="btn primary small"
+                            disabled={!assegna[c.controparte] || busy}
+                            onClick={() => assegnaControparte(c.controparte)}
+                          >
+                            Assegna
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -243,7 +342,9 @@ export function CfoBoard({
               <>Mostrate le prime {TETTO_DA_CATEGORIZZARE} controparti per importo; restano{" "}
               <strong>{restanti}</strong> voci minori per {eur(importoRestante)}. </>
             )}
-            Assegnare una controparte crea una regola permanente: la prossima volta sarà categorizzata da sola.
+            <strong>Proponi con AI</strong> ipotizza la categoria di ogni controparte (con confidenza e motivo);
+            resta a te confermare. Assegnare una controparte crea una regola permanente: la prossima volta sarà
+            categorizzata da sola.
           </p>
         </>
       )}

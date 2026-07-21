@@ -29,7 +29,12 @@ pubblicato), *sfidante* e *irraggiungibile*.
   una regola permanente). Ogni categoria è agganciata a una voce di P&L (COGS/ADV/Personale/
   Struttura/Esclusa). Le controparti da categorizzare sono mostrate per importo (le prime 100),
   con nota su quante restano. Richiede `FINANCE_API_KEY` e l'API `/api/spese` di Finance (live).
-  Categorie e regole si aggiungono/rimuovono.
+  Categorie e regole si aggiungono/rimuovono. **Proposte con AI**: un bottone chiede a OpenAI
+  di ipotizzare la categoria di ogni controparte non classificata (con confidenza e motivo); le
+  proposte pre-compilano le tendine e si confermano una a una o in blocco (solo le alte
+  confidenze). L'AI propone, l'utente conferma: nulla è applicato in automatico. Richiede
+  `OPENAI_API_KEY` (segreto, come le altre app Deluxy); senza chiave il resto del CFO funziona
+  e il bottone spiega come attivarla.
 - **Consuntivo** (`/consuntivo`): gli importi **realmente fatturati** per tipologia di servizio,
   richiamati dall'app **Finance** (`deluxy-partner`, endpoint `/api/tipologie`) con selettore di
   periodo (anno / 1° / 2° semestre) e stato (tutte / saldate / aperte). Il fatturato reale si
