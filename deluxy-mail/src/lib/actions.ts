@@ -698,6 +698,57 @@ export async function spostaInSezione(id: string, sezioneId: string | null) {
 }
 
 /**
+ * Azione su PIÙ mail insieme (selezione multipla dalla lista): archivia, cestina,
+ * segna letta/non letta, o sposta in una sezione. Ogni azione fa lo stesso della
+ * versione a mail singola, ma su tutti gli id selezionati in un colpo solo.
+ */
+export type AzioneMassa = 'archivia' | 'cestina' | 'letto' | 'nonletto' | 'sposta'
+
+export async function azioneMassa(
+  ids: string[],
+  azione: AzioneMassa,
+  sezioneId?: string | null
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const puliti = [...new Set(ids)].filter(Boolean)
+  if (puliti.length === 0) return { ok: false, messaggio: 'Nessuna mail selezionata.' }
+  const where = { id: { in: puliti }, utenteId }
+
+  let n = 0
+  switch (azione) {
+    case 'archivia':
+      n = (await db.messaggio.updateMany({ where, data: { archiviato: true, letto: true } })).count
+      break
+    case 'cestina':
+      n = (await db.messaggio.updateMany({ where, data: { cestinato: true, cestinatoIl: new Date(), letto: true } })).count
+      break
+    case 'letto':
+      n = (await db.messaggio.updateMany({ where, data: { letto: true } })).count
+      break
+    case 'nonletto':
+      n = (await db.messaggio.updateMany({ where, data: { letto: false } })).count
+      break
+    case 'sposta': {
+      // La sezione, se indicata, dev'essere dell'utente (come nello spostamento singolo).
+      if (sezioneId) {
+        const mia = await db.sezione.findFirst({ where: { id: sezioneId, utenteId } })
+        if (!mia) return { ok: false, messaggio: 'Sezione non trovata.' }
+      }
+      n = (await db.messaggio.updateMany({
+        where,
+        data: { sezioneId: sezioneId ?? null, smistatoDa: sezioneId ? 'manuale' : null },
+      })).count
+      break
+    }
+    default:
+      return { ok: false, messaggio: 'Azione non valida.' }
+  }
+
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: `${n} mail aggiornate.` }
+}
+
+/**
  * Segna una mail come NON spam: la tira fuori dalla sezione SPAM, la riporta in
  * Posta in arrivo e la marca 'manuale' così l'AI non la rispedisce nello SPAM.
  * Da qui in poi il mittente è un contatto "noto" (ha un messaggio in archivio),

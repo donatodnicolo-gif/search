@@ -67,14 +67,40 @@ function evidenzia(testo: string, termine?: string | null) {
 }
 
 /** Una riga della posta in arrivo. Client: monta i pulsanti interattivi. */
-export function RigaMail({ r, sezioni = [] }: { r: RigaData; sezioni?: { id: string; nome: string }[] }) {
+export function RigaMail({
+  r,
+  sezioni = [],
+  selezionato = false,
+  onSelezione,
+}: {
+  r: RigaData
+  sezioni?: { id: string; nome: string }[]
+  /** Selezione multipla: la riga è spuntata. */
+  selezionato?: boolean
+  /** Chiamato quando si spunta/despunta la casella della riga. */
+  onSelezione?: (id: string, valore: boolean) => void
+}) {
   // Rimozione ottimistica: appena archivi/cestini la riga sparisce all'istante,
   // il server si riallinea al refresh successivo.
   const [nascosto, setNascosto] = useState(false)
   if (nascosto) return null
   return (
-    <MailDrag id={r.id} className={`mail-row ${r.nonLetti ? 'non-letto' : ''}`}>
+    <MailDrag id={r.id} className={`mail-row ${r.nonLetti ? 'non-letto' : ''} ${selezionato ? 'selezionato' : ''}`}>
       <div className="mail-row-head">
+        {onSelezione && (
+          <label
+            className="mail-check"
+            title="Seleziona"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={selezionato}
+              onChange={(e) => onSelezione(r.id, e.target.checked)}
+              aria-label="Seleziona questa mail"
+            />
+          </label>
+        )}
         <Link href={`/messaggio/${r.id}`} className="mail-row-link">
           <div className="mail-top">
             <span className={r.nonLetti ? 'dot-unread' : 'dot-spacer'} />
