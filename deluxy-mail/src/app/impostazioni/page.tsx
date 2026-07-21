@@ -189,6 +189,19 @@ export default async function Impostazioni() {
 
             <div className="full">
               <label className="checkbox-row">
+                <input type="checkbox" name="scaricaStoricoAuto" defaultChecked={u.scaricaStoricoAuto} />
+                Scarica tutta la posta di sempre (in background)
+              </label>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6, lineHeight: 1.5 }}>
+                Con l’app aperta, scarico a poco a poco anche la posta più vecchia fino a
+                completare la casella, senza bloccare l’uso dell’app. Una volta scaricata tutta,
+                si ferma da solo. Utile la prima volta o dopo aver collegato una casella con molto
+                archivio.
+              </div>
+            </div>
+
+            <div className="full">
+              <label className="checkbox-row">
                 <input type="checkbox" name="traduzioneAuto" defaultChecked={u.traduzioneAuto} />
                 Traduzione automatica
               </label>

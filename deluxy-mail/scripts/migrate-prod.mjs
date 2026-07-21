@@ -129,6 +129,8 @@ const stmts = [
   // vecchio default (60): chi ha scelto un altro valore non viene toccato.
   `ALTER TABLE "Utente" ALTER COLUMN "sincronizzaOgniSec" SET DEFAULT 300`,
   `UPDATE "Utente" SET "sincronizzaOgniSec" = 300 WHERE "sincronizzaOgniSec" = 60`,
+  // Scarico automatico di tutta la posta di sempre (storico) in background.
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "scaricaStoricoAuto" BOOLEAN NOT NULL DEFAULT false`,
   // Appuntamento proposto dall'AI su una mail (invito a riunione).
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "eventoProposto" TEXT`,
   // Aggancio manuale delle mail a una conversazione.

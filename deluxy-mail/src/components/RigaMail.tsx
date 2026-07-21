@@ -39,6 +39,24 @@ export type RigaData = {
   /** Solo nei risultati di ricerca: true se è una mail che hai inviato tu. */
   inviata?: boolean
   destinatari?: string
+  /** Solo in ricerca: pezzetto di testo attorno alla parola cercata. */
+  snippet?: string | null
+  /** Solo in ricerca: la parola da evidenziare nello snippet. */
+  evidenzia?: string | null
+}
+
+// Rende un testo con la parola cercata evidenziata (<mark>).
+function evidenzia(testo: string, termine?: string | null) {
+  const t = (termine ?? '').trim()
+  if (!t) return testo
+  const re = new RegExp(`(${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'ig')
+  return testo.split(re).map((p, i) =>
+    p.toLowerCase() === t.toLowerCase() ? (
+      <mark key={i} className="ricerca-hit">{p}</mark>
+    ) : (
+      <span key={i}>{p}</span>
+    )
+  )
 }
 
 /** Una riga della posta in arrivo. Client: monta i pulsanti interattivi. */
@@ -68,7 +86,13 @@ export function RigaMail({ r }: { r: RigaData }) {
             {r.oggetto}
           </div>
 
-          {r.riassunto ? (
+          {r.snippet ? (
+            // In ricerca: lo snippet col termine evidenziato, così si vede DOVE
+            // compare la parola cercata (di solito nel corpo, non nell'oggetto).
+            <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
+              <span className="muted">{evidenzia(r.snippet, r.evidenzia)}</span>
+            </div>
+          ) : r.riassunto ? (
             <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
               <span className="ai-mark">AI</span>
               <span>{r.riassunto}</span>

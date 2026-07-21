@@ -227,6 +227,9 @@ input:focus, select:focus, textarea:focus {
 
 .risposta-azioni { display: flex; gap: 5px; }
 .risposta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: 1px solid var(--hairline-strong);
   background: var(--surface);
   color: var(--text-secondary);
@@ -240,10 +243,25 @@ input:focus, select:focus, textarea:focus {
 }
 .risposta-btn:hover { background: var(--ink); color: #fff; border-color: transparent; }
 
-/* Su schermo stretto le tre azioni andrebbero a capo sopra il testo: meglio
-   passare dal dettaglio del messaggio, dove ci sono per esteso. */
+/* Evidenziazione della parola cercata nello snippet dei risultati di ricerca. */
+mark.ricerca-hit {
+  background: rgba(184, 150, 62, 0.22);
+  color: inherit;
+  font-weight: 600;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+/* Su desktop bastano le etichette; l'iconcina compare solo su mobile. */
+.risposta-icona { display: none; }
+.risposta-icona svg { width: 15px; height: 15px; display: block; }
+
+/* Su schermo stretto le etichette andrebbero a capo sopra il testo: si passa
+   alle sole iconcine, così Rispondi/A tutti/Inoltra restano raggiungibili. */
 @media (max-width: 700px) {
-  .risposta-azioni { display: none; }
+  .risposta-azioni { display: flex; }
+  .risposta-testo { display: none; }
+  .risposta-icona { display: inline-flex; }
+  .risposta-btn { padding: 7px; }
 }
 
 .mail-top { display: flex; align-items: center; gap: 10px; }

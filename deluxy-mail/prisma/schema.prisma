@@ -38,6 +38,9 @@ model Utente {
   lingueLette   String   @default("italiano")
   // Ogni quanti secondi l'app aperta ricontrolla la posta da sola.
   sincronizzaOgniSec Int @default(300)
+  // Se attiva, l'app aperta scarica in BACKGROUND tutta la posta di sempre (lo
+  // storico) fino a completare la casella, senza bloccare l'uso.
+  scaricaStoricoAuto Boolean @default(false)
   attivo       Boolean  @default(true)
   // Token segreto del feed iCal del calendario: chi lo conosce può LEGGERE
   // gli appuntamenti (Google/Apple/Outlook in abbonamento). Vuoto = feed spento.

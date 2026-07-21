@@ -4,6 +4,7 @@ import { utenteCorrente } from '@/lib/sessione'
 import { esci } from '@/lib/auth-actions'
 import { iniziali } from '@/lib/contatti'
 import { SyncButton } from './SyncButton'
+import { StoricoAuto } from './StoricoAuto'
 
 type Voce = { href: string; label: string; badge?: number }
 
@@ -87,6 +88,7 @@ export async function Sidebar() {
       </div>
 
       <SyncButton intervalloSec={utente.sincronizzaOgniSec ?? 300} />
+      <StoricoAuto attivo={utente.scaricaStoricoAuto} />
 
       <nav className="nav-section">
         <div className="nav-label">Posta</div>

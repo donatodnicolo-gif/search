@@ -66,7 +66,7 @@ Il build gira `prisma generate && node scripts/migrate-prod.mjs && next build`.
 
 Ogni tabella dati ha `utenteId` → **isolamento multi-utente** (ogni query è filtrata per utente). Password IMAP/SMTP cifrate (AES-256-GCM). Password utenti hashate (scrypt).
 
-- **Utente** — email, nome, passwordHash, ruolo (`admin`/`utente`), firma, `traduzioneAuto`, `lingueLette`, attivo.
+- **Utente** — email, nome, passwordHash, ruolo (`admin`/`utente`), firma, `traduzioneAuto`, `lingueLette`, `sincronizzaOgniSec`, `scaricaStoricoAuto` (scarico di tutto lo storico in background), `tokenCalendario`, attivo.
 - **Account** — casella IMAP/SMTP (host/porte/utente/password cifrate), `ultimoUid`/`primoUid`/`storicoFinito`, `cartellaInviata`.
 - **RiassuntoSezione** — il punto della situazione AI su una sezione: `taglio` (`giorni`/`thread`), `giorni`, testo, `punti` (uno per riga), conteggi. Se ne tiene uno per sezione+taglio (l'ultimo).
 - **Sezione** — colonne in cui l'AI allinea la posta; `genitoreId` = sottosezione (gerarchia a **due livelli**, la figlia eredita il colore) (nome, descrizione, colore, ordine). Unica `[utenteId, nome]`. La sezione **SPAM** viene creata da sola (vedi §7).
@@ -135,6 +135,10 @@ Tutte scoped per utente via `uid()`. Le principali:
   - **`POST /api/v1/invia`** — invia una mail (`inviaMailApi` in actions.ts, riusa `spedisci`/`registraInviato`). Body JSON `{a, cc?, oggetto, corpo}` (testo semplice).
   - **`GET /api/v1/contatto?email=<contatto>`** — Renè fa il punto della situazione con un contatto (`analizzaContattoOra`): `{situazione, inSospeso[], prossimeAzioni[], messaggiVisti, aggiornatoIl}` sui messaggi già scaricati.
 
+Rotte di lettura in background (fetch, non Server Action, così non bloccano i clic):
+- **`POST /api/leggi-posta`** — un giro breve di posta NUOVA. `SyncButton` la chiama all'apertura **in loop** (drena tutto l'arretrato nuovo) e poi a intervalli.
+- **`POST /api/scarica-storico`** — un blocco (80) di posta VECCHIA per l'account che ne ha ancora; torna `{ scaricati, finito }`. Il componente `StoricoAuto` la chiama in loop, in background, se l'utente ha attivato `scaricaStoricoAuto` (Impostazioni), finché la casella non è completa.
+
 Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby può girare **1 volta al giorno** (`vercel.json`). L'auto-refresh a 30s è **client-side** (SyncButton), gira solo con la app aperta e in primo piano.
 
 **`maxDuration = 60`** è impostato sulle pagine che scatenano l'AI (`/`, `/messaggio/[id]`, `/rubrica/[email]`, `/assistente/[id]`) — necessario perché le Server Action NON ereditano il maxDuration del layout, e a 10s (default Vercel) l'analisi AI verrebbe uccisa a metà.
@@ -144,6 +148,10 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 ## 7. Funzionalità implementate
 
 - **Lettura IMAP** + scarico storico progressivo; invio SMTP con copia in "Inviata".
+- **Scarico posta nuova all'apertura** (21 lug): aprendo l'app, `SyncButton` drena in background TUTTA la posta nuova arretrata (ripete il giro breve `/api/leggi-posta` finché non arriva più niente), senza bloccare l'uso; si ferma se lasci la scheda. Rispetta la spunta "Automatico". Il timer periodico resta un giro singolo.
+- **Scarico di tutto lo storico in background** (21 lug): impostazione `Utente.scaricaStoricoAuto` (Impostazioni → "Scarica tutta la posta di sempre"). Se attiva, con l'app aperta il componente `StoricoAuto` chiama `/api/scarica-storico` in loop (un blocco alla volta, con 8s di ritardo iniziale per dare precedenza alla posta nuova e una pausa fra i blocchi) finché la casella non è completa (`storicoFinito`). Non blocca l'app; riprende alla prossima apertura. Riusa `scaricaStorico()` (cursore `primoUid`).
+- **Risposta/Inoltro su mobile con iconcine** (21 lug): nella lista, `RispostaAzioni` (Rispondi/A tutti/Inoltra) prima era `display:none` su schermo stretto → su mobile mancavano. Ora ogni azione ha icona + etichetta: desktop mostra il testo, mobile (≤700px) solo l'iconcina (SVG). Vedi `.risposta-icona`/`.risposta-testo` in globals.css.
+- **Ricerca: snippet con la parola evidenziata** (21 lug): i risultati mostravano l'anteprima generica, per cui non si capiva perché una mail (es. "Re: ORDINE TIFFANY") uscisse cercando "zegna" (la parola era nel corpo, anche nella parte citata di risposte/inoltri). Ora ogni risultato mostra uno **snippet attorno alla parola trovata, evidenziata** (`snippetRicerca` in page.tsx cerca in corpo/traduzione/oggetto/destinatari/nome/mittente; `evidenzia()` in RigaMail avvolge il match in `<mark class="ricerca-hit">`). La garanzia resta: una mail esce SOLO se contiene davvero la parola (il filtro SQL `contains` + `raggruppa` che raggruppa solo i match).
 - **Perf posta in arrivo** (20 lug, sera): (1) «Delega Renè» e «Aggancia» nelle righe erano componenti client con stato + modale ciascuno → ~200 istanze in una lista da 100 righe. Ora pulsanti-evento (`DelegaReneBottone`/`AgganciaBottone`, zero hook) + UN dialogo condiviso per pagina (`DelegaReneDialog`/`AgganciaDialog`), come `BottoneApp`/`InvioAppDialog`. (2) **Caricamento progressivo**: il server calcola tutte le righe raggruppate come dati leggeri (`RigaData` in `RigaMail.tsx`) e le passa a `ListaMail` (client) che ne monta **25 alla volta** con IntersectionObserver (+ pulsante «Carica altre»). Così si idratano solo le righe viste. Il vecchio JSX di riga inline in page.tsx è ora in `RigaMail`. Cap alzato a 300 gruppi.
 - **Aggancio thread e vista completa dalla riga** (20 lug, sera): nella riga della posta ci sono ora «Aggancia» (modale `AgganciaRiga`, riusa `cercaDaAgganciare`/`agganciaAlThread` — prima solo dalla pagina messaggio) e, sui thread (nel>1), «Apri completo» → `/messaggio/[id]?ampia=1`. Nella pagina messaggio un toggle **«Questo thread ⇄ Con le correlate»**: `messaggiThread(utenteId, id, ampia)` — con `ampia` aggiunge al thread stretto TUTTE le mail scambiate con le stesse persone (controparti del thread, deterministico, cap 60), etichettate «(N correlate)».
 - **Delega Renè** (20 lug, sera): su ogni mail (azione «Delega Renè» nella riga della posta e bottone nella pagina messaggio) apri un dialogo con due rami. **«Prepara la risposta»**: scrivi a parole cosa rispondere e Renè fa la bozza (stile + istruzioni mirate). **«＋ Metti in agenda»**: Renè ricava data/ora/luogo dalla mail (o dall'indicazione, es. «la call è giovedì alle 15») e crea l'evento in Calendario legato alla mail — `estraiAppuntamento` (ai.ts) + `preparaEventoDelegato` (sync.ts, conversione Europe/Rome→UTC); se non c'è una data certa non inventa e lo dice; conferma con banner Flash. `preparaRispostaDelegata` in sync.ts (riusa `scriviRisposta`, sostituisce l'eventuale bozza AI precedente) → apre `/messaggio/[id]/scrivi?bozza=…`. Non invia: la controlli e la mandi tu. Componente `DelegaRene.tsx` (varianti riga/bottone).
@@ -235,11 +243,14 @@ deluxy-mail/
     impostazioni-app/page.tsx # APP DELUXY: stato chiavi (Anagrafiche/Finance/Fornitori) + regole di smistamento
     impostazioni, sezioni, utenti, bozze, inviata, cestino, assistente/[id]
     api/sync/route.ts         # cron
+    api/leggi-posta/route.ts  # posta NUOVA in background (SyncButton)
+    api/scarica-storico/route.ts # storico in background (StoricoAuto)
   src/lib/                    # vedi §5
   src/components/             # UI (Shell, Sidebar, PrioritaButtons, EditorIstruzioni,
                               #     NuovaAttivita, NuoveAzioni [tasti + dialogo AI],
                               #     ComposizioneNuova, RiassuntoConversazione,
-                              #     TraduzioneAllApertura [traduzione in background], …)
+                              #     TraduzioneAllApertura [traduzione in background],
+                              #     SyncButton/StoricoAuto [scarico posta/storico in background], …)
 ```
 
 ---

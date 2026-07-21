@@ -26,6 +26,29 @@ type Props = {
   searchParams: Promise<{ sezione?: string; stato?: string; p?: string; vista?: string; q?: string }>
 }
 
+/**
+ * In ricerca: estrae un pezzetto di testo attorno alla PRIMA occorrenza del
+ * termine cercato, così la riga fa vedere DOVE compare (di solito nel corpo,
+ * non nell'oggetto). Scandisce i campi nell'ordine in cui è più utile vederlo;
+ * torna null solo se il termine non è in nessuno (non dovrebbe succedere: la
+ * mail è nei risultati proprio perché lo contiene).
+ */
+function snippetRicerca(campi: (string | null | undefined)[], termine: string, contorno = 90): string | null {
+  const t = termine.toLowerCase()
+  for (const campo of campi) {
+    if (!campo) continue
+    const i = campo.toLowerCase().indexOf(t)
+    if (i === -1) continue
+    const inizio = Math.max(0, i - contorno)
+    const fine = Math.min(campo.length, i + termine.length + contorno)
+    let s = campo.slice(inizio, fine).replace(/\s+/g, ' ').trim()
+    if (inizio > 0) s = '… ' + s
+    if (fine < campo.length) s = s + ' …'
+    return s
+  }
+  return null
+}
+
 export default async function PostaInArrivo({ searchParams }: Props) {
   const { sezione, stato, p, vista, q: qGrezzo } = await searchParams
   const q = (qGrezzo ?? '').trim()
@@ -199,6 +222,32 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       destinatari: m.destinatari,
     }
   })
+
+  // In ricerca: per far vedere DOVE compare la parola cercata, prendo il corpo
+  // delle sole mail mostrate (i corpi sono esclusi dalla query leggera) e ne
+  // ricavo uno snippet evidenziato. Così ogni risultato mostra la parola.
+  if (ricerca) {
+    const corpi = await db.messaggio.findMany({
+      where: { id: { in: righe.map((r) => r.id) }, utenteId: u.id },
+      select: {
+        id: true,
+        corpoTesto: true,
+        corpoTradotto: true,
+        oggetto: true,
+        destinatari: true,
+        mittenteNome: true,
+        mittente: true,
+      },
+    })
+    const perId = new Map(corpi.map((c) => [c.id, c]))
+    for (const r of righe) {
+      const c = perId.get(r.id)
+      r.snippet = c
+        ? snippetRicerca([c.corpoTesto, c.corpoTradotto, c.oggetto, c.destinatari, c.mittenteNome, c.mittente], q)
+        : null
+      r.evidenzia = q
+    }
+  }
 
   // Il pannello APP DELUXY: le funzioni delle altre app richiamabili da qui.
   // Le chiavi (DB cifrato o env) decidono quali sono già collegate.

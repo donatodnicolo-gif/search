@@ -99,6 +99,15 @@ a ciò che è ancora in sospeso. E capisce se gli stai chiedendo una **risposta*
 originale citata sotto, destinatario scelto fra i contatti se lo riconosce) invece di una
 risposta al mittente. Non invia mai da solo: la controlli e la mandi tu.
 
+## 6a. Scarico della posta in background
+
+Quando apri l'app, la posta **nuova** arretrata si scarica da sola, un blocco alla
+volta, mentre continui a usare l'app (non si blocca nulla). In **Impostazioni** puoi
+anche attivare **"Scarica tutta la posta di sempre (in background)"**: con l'app aperta
+scarica a poco a poco anche l'archivio più vecchio, fino a completare la casella, e poi
+si ferma da solo. Utile la prima volta o dopo aver collegato una casella con molto
+archivio.
+
 ## 6b. Aprire una mail è istantaneo
 
 Aprire un messaggio non aspetta l'AI. La mail compare **subito** con il suo contenuto; se

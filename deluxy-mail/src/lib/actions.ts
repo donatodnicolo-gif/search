@@ -1863,6 +1863,7 @@ export async function salvaImpostazioni(form: FormData) {
     data: {
       firma: testo(form, 'firma'),
       traduzioneAuto: flag(form, 'traduzioneAuto'),
+      scaricaStoricoAuto: flag(form, 'scaricaStoricoAuto'),
       lingueLette: lingue.length ? lingue.join(', ') : 'italiano',
       ...(INTERVALLI.includes(intervallo) ? { sincronizzaOgniSec: intervallo } : {}),
     },
