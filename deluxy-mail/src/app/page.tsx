@@ -168,10 +168,12 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             : {}
           : vistaNonSmistate
             ? { sezioneId: null, analizzatoIl: null }
-            // "In arrivo": solo la posta ANCORA DA SMISTARE (senza sezione).
-            // Quella già in una sezione sta nella sua cartella (barra a lato):
-            // così le sezioni ad alto volume non seppelliscono il resto.
-            : { sezioneId: null }),
+            // "In arrivo": TUTTA la posta (anche quella già smistata, che in riga
+            // mostra il badge della sua sezione), tranne lo SPAM. Il Cestino è
+            // già escluso a monte (cestinato: false).
+            : spamId
+              ? { NOT: { sezioneId: spamId } }
+              : {}),
       ...(stato === 'non-letti' ? { letto: false } : {}),
       ...(stato === 'da-rispondere' ? { serveRisposta: true } : {}),
       ...(p ? { priorita: p } : {}),
@@ -192,7 +194,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     // ultime 100 sarebbero quasi tutte quelle, e il resto della posta
     // sparirebbe. Si prende largo (senza i corpi, che pesano) e si taglia
     // DOPO il raggruppamento in conversazioni.
-    take: 400,
+    take: 1000,
     omit: { corpoTesto: true, corpoHtml: true },
     include: {
       sezione: true,
@@ -205,7 +207,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // risposte o stesso oggetto anche con destinatari diversi). Il volto della
   // riga è il messaggio più recente del thread. La lista si carica poi 25 alla
   // volta lato client, così l'apertura resta leggera anche con molta posta.
-  const gruppi = raggruppa(messaggi).slice(0, 300)
+  const gruppi = raggruppa(messaggi).slice(0, 600)
 
   // Iconcina "risposto": una mail ha una nostra risposta se nel suo thread c'è
   // un messaggio in USCITA. (Gli inoltri aprono una conversazione nuova, quindi
@@ -312,7 +314,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                   ? 'Solo i contatti col PLUS AI, con tutte le funzioni AI.'
                   : vistaNonSmistate
                     ? 'La posta che l’AI non ha ancora letto (senza priorità) e non è in una sezione: il grezzo da gestire.'
-                    : 'La posta ancora da smistare. Quella già in una sezione la trovi nella barra a lato.'}
+                    : 'Tutta la posta in arrivo: quella già in una sezione porta il badge della sezione. SPAM e Cestino esclusi.'}
           </p>
           <div style={{ marginTop: 12, maxWidth: 460 }}>
             <RicercaMail iniziale={ricerca ? q : ''} />

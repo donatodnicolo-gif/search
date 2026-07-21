@@ -75,6 +75,26 @@ export function inoltrato(messaggio: Messaggio): string {
 }
 
 /**
+ * Inoltro in HTML: mantiene la FORMATTAZIONE dell'originale (immagini, tabelle,
+ * link, ricevute…) invece di appiattirla a testo. L'HTML viene ripulito prima.
+ */
+function inoltratoHtml(messaggio: Messaggio): string {
+  const testa = [
+    '---------- Messaggio inoltrato ----------',
+    `Da: ${messaggio.mittenteNome || ''} <${messaggio.mittente}>`,
+    `Data: ${dataLunga(messaggio.data)}`,
+    `Oggetto: ${messaggio.oggetto}`,
+    `A: ${messaggio.destinatari}`,
+  ]
+    .map((r) => `<div>${escapeHtml(r)}</div>`)
+    .join('')
+  const originale = messaggio.corpoHtml
+    ? sanitizzaHtml(messaggio.corpoHtml)
+    : plainAHtml(messaggio.corpoTesto)
+  return `<br><div style="color:#555">${testa}</div><br>${originale}`
+}
+
+/**
  * Prepara i campi della finestra di scrittura a partire dal messaggio e dal
  * modo scelto.
  *
@@ -110,6 +130,18 @@ export function preparaRisposta(opts: {
   }
 
   if (modo === 'inoltra') {
+    // In HTML (originale HTML o firma Deluxy HTML) l'inoltro mantiene la
+    // formattazione dell'originale; altrimenti si resta al testo semplice.
+    if (html) {
+      const spazio = '<p><br></p>'
+      const firmaHtml = firma ? (sembraHtml(firma) ? firma : plainAHtml(firma)) : ''
+      return {
+        a: '',
+        cc: '',
+        oggetto: prefissa(messaggio.oggetto, 'Fwd'),
+        corpo: `${spazio}${firmaHtml}${inoltratoHtml(messaggio)}`,
+      }
+    }
     const coda = firma ? `\n\n${firma}` : ''
     return {
       a: '',
