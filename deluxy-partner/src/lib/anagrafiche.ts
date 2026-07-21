@@ -191,6 +191,9 @@ export async function creaAnagrafica(opts: {
   const campi = Object.fromEntries(
     Object.entries(opts.campi ?? {}).filter(([, v]) => v != null && String(v).trim() !== "")
   );
+  // segnalazione di provenienza (le note del registro sono additive)
+  const oggi = new Date().toLocaleDateString("it-IT");
+  const notaProvenienza = `Anagrafica creata da Deluxy Partner — riconciliazione con Fatture in Cloud (${oggi}).`;
   try {
     const res = await fetch(`${urlAnagrafiche()}/api/v1/partners`, {
       method: "POST",
@@ -202,6 +205,7 @@ export async function creaAnagrafica(opts: {
         ...(opts.provincia ? { provincia: opts.provincia } : {}),
         ...(opts.categoria ? { categoria: opts.categoria } : {}),
         ...campi,
+        note: notaProvenienza,
         sistema: "deluxy-partner",
         idEsterno: opts.idEsterno,
         fonte: "deluxy-partner",
