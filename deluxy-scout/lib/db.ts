@@ -1,7 +1,7 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
 import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
-import { statoDaEsito } from '@/types';
+import { LINEE_ATTIVE, statoDaEsito } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
 import { notificaArchiviazioneReferente } from '@/lib/anagrafiche';
@@ -32,6 +32,82 @@ export async function fetchLinee(): Promise<Linea[]> {
   const { data, error } = await supabase.from('lines').select('*').order('nome');
   if (error) throw error;
   return (data ?? []) as Linea[];
+}
+
+// ── Linee di interesse (Scout è il MASTER; admin le gestisce con sottolinee) ────
+
+export interface LineaInteresse {
+  id: string;
+  nome: string;
+  attiva_bool: boolean;
+  archiviata: boolean;
+  parent_id: string | null;
+  ordine: number;
+  icona: string | null;
+  pitch: string | null;
+  sottolinee?: LineaInteresse[]; // valorizzato solo per le linee top-level
+}
+
+/** Albero delle linee: top-level attive+inattive (non archiviate) con le sottolinee. */
+export async function fetchLineeInteresse(): Promise<LineaInteresse[]> {
+  const { data, error } = await supabase
+    .from('lines')
+    .select('id, nome, attiva_bool, archiviata, parent_id, ordine, icona, pitch')
+    .eq('archiviata', false)
+    .order('ordine')
+    .order('nome');
+  if (error) throw error;
+  const righe = (data ?? []) as LineaInteresse[];
+  const top = righe.filter((r) => !r.parent_id);
+  const figli = righe.filter((r) => r.parent_id);
+  return top.map((t) => ({ ...t, sottolinee: figli.filter((f) => f.parent_id === t.id) }));
+}
+
+/**
+ * Nomi delle linee ATTIVE top-level, per i selettori dell'app. Tollerante:
+ * se la migrazione/DB non risponde, ripiega sulle costanti LINEE_ATTIVE.
+ */
+export async function fetchNomiLineeAttive(): Promise<string[]> {
+  try {
+    const linee = await fetchLineeInteresse();
+    const nomi = linee.filter((l) => l.attiva_bool).map((l) => l.nome);
+    return nomi.length ? nomi : [...LINEE_ATTIVE];
+  } catch {
+    return [...LINEE_ATTIVE];
+  }
+}
+
+/** Crea una linea o una sottolinea (parent_id valorizzato). Solo admin (RLS). */
+export async function creaLinea(l: {
+  nome: string;
+  parent_id?: string | null;
+  icona?: string | null;
+  pitch?: string | null;
+  attiva_bool?: boolean;
+}): Promise<void> {
+  const { error } = await supabase.from('lines').insert({
+    nome: l.nome.trim(),
+    parent_id: l.parent_id ?? null,
+    icona: l.icona ?? null,
+    pitch: l.pitch ?? null,
+    attiva_bool: l.attiva_bool ?? true,
+  });
+  if (error) throw error;
+}
+
+/** Modifica una linea/sottolinea (nome, icona, pitch, attiva, ordine). Solo admin. */
+export async function aggiornaLinea(
+  id: string,
+  patch: Partial<Pick<LineaInteresse, 'nome' | 'icona' | 'pitch' | 'attiva_bool' | 'ordine'>>,
+): Promise<void> {
+  const { error } = await supabase.from('lines').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+/** Archivia una linea (soft-delete) e le sue sottolinee. Solo admin. */
+export async function archiviaLinea(id: string): Promise<void> {
+  const { error } = await supabase.from('lines').update({ archiviata: true }).or(`id.eq.${id},parent_id.eq.${id}`);
+  if (error) throw error;
 }
 
 export async function fetchPlaces(): Promise<Place[]> {

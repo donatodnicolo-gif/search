@@ -6,6 +6,7 @@ import Constants from 'expo-constants';
 import { colors, radius, spacing } from '@/lib/theme';
 import { StatusBadge } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
 import { env } from '@/lib/env';
 import { contaInCoda, flushCoda } from '@/lib/syncQueue';
 import { aggiornaNomeProfilo, fetchPreferenzaProforma, fetchProfilo, salvaPreferenzaProforma } from '@/lib/db';
@@ -15,6 +16,7 @@ import { avvisa } from '@/lib/dialoghi';
 
 export default function Profilo() {
   const { session, signOut } = useAuth();
+  const admin = isAdmin(session?.user?.email);
   const router = useRouter();
   const [inCoda, setInCoda] = useState(0);
   const [sync, setSync] = useState(false);
@@ -173,6 +175,18 @@ export default function Profilo() {
           </View>
         </Pressable>
       </View>
+
+      {admin ? (
+        <Pressable style={styles.card} onPress={() => router.push('/(app)/linee-interesse')}>
+          <Text style={styles.cardLabel}>AMMINISTRAZIONE</Text>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>
+              <Ionicons name="pricetags-outline" size={15} color={colors.navy} /> Linee di interesse (master)
+            </Text>
+            <Text style={styles.freccia}>›</Text>
+          </View>
+        </Pressable>
+      ) : null}
 
       <Pressable style={styles.card} onPress={() => router.push('/(app)/email-config')}>
         <Text style={styles.cardLabel}>EMAIL</Text>
