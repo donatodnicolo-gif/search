@@ -8,13 +8,22 @@ import { useRouter } from 'next/navigation'
  * destinatario, oggetto, testo). Invia a /?q=… ; il ramo di ricerca è nella
  * pagina della posta.
  */
-export function RicercaMail({ iniziale = '' }: { iniziale?: string }) {
+export function RicercaMail({
+  iniziale = '',
+  base = '/',
+  placeholder = 'Cerca nella posta (ricevute e inviate)…',
+}: {
+  iniziale?: string
+  /** Dove mandare la ricerca: '/' per la posta, '/inviata' per gli inviati. */
+  base?: string
+  placeholder?: string
+}) {
   const [q, setQ] = useState(iniziale)
   const router = useRouter()
 
   const cerca = () => {
     const v = q.trim()
-    router.push(v.length >= 2 ? `/?q=${encodeURIComponent(v)}` : '/')
+    router.push(v.length >= 2 ? `${base}?q=${encodeURIComponent(v)}` : base)
   }
 
   return (
@@ -32,7 +41,7 @@ export function RicercaMail({ iniziale = '' }: { iniziale?: string }) {
         type="search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Cerca nella posta (ricevute e inviate)…"
+        placeholder={placeholder}
         aria-label="Cerca nella posta"
       />
       {iniziale && (
@@ -42,7 +51,7 @@ export function RicercaMail({ iniziale = '' }: { iniziale?: string }) {
           aria-label="Azzera la ricerca"
           onClick={() => {
             setQ('')
-            router.push('/')
+            router.push(base)
           }}
         >
           ✕

@@ -243,6 +243,21 @@ input:focus, select:focus, textarea:focus {
 }
 .risposta-btn:hover { background: var(--ink); color: #fff; border-color: transparent; }
 
+/* Segno "risposto" sulla riga di posta: hai già risposto a questa mail. */
+.risposto-mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(52, 199, 89, 0.14);
+  color: var(--green, #2fae5a);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* Autocompletamento destinatari dalla rubrica (campo A / Cc in scrittura). */
 .rubrica-suggerimenti {
   position: absolute;

@@ -191,6 +191,22 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // riga è il messaggio più recente del thread. La lista si carica poi 25 alla
   // volta lato client, così l'apertura resta leggera anche con molta posta.
   const gruppi = raggruppa(messaggi).slice(0, 300)
+
+  // Iconcina "risposto": una mail ha una nostra risposta se nel suo thread c'è
+  // un messaggio in USCITA. (Gli inoltri aprono una conversazione nuova, quindi
+  // non risultano legati all'originale: qui si segna solo "risposto".)
+  const rootsVisti = messaggi
+    .map((m) => m.thread || m.messageId)
+    .filter((x): x is string => Boolean(x))
+  const threadRisposti = new Set<string>()
+  if (rootsVisti.length) {
+    const uscite = await db.messaggio.findMany({
+      where: { utenteId: u.id, direzione: 'uscita', thread: { in: rootsVisti } },
+      select: { thread: true },
+    })
+    for (const o of uscite) if (o.thread) threadRisposti.add(o.thread)
+  }
+
   const righe: RigaData[] = gruppi.map((g) => {
     const m = g[g.length - 1] // il volto: il messaggio più recente del thread
     return {
@@ -217,6 +233,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       parti: new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size,
       nonLetti: g.some((x) => !x.letto),
       contattoAI: setAI.has(m.mittente.toLowerCase()),
+      risposto: threadRisposti.has(m.thread || m.messageId || ''),
       // In ricerca compaiono anche le mail INVIATE: le mostriamo col "a …".
       inviata: m.direzione === 'uscita',
       destinatari: m.destinatari,

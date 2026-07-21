@@ -2,13 +2,32 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { dataBreve } from '@/lib/format'
 import { richiediUtente } from '@/lib/sessione'
+import { RicercaMail } from '@/components/RicercaMail'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PostaInviata() {
+type Props = { searchParams: Promise<{ q?: string }> }
+
+export default async function PostaInviata({ searchParams }: Props) {
+  const { q: qGrezzo } = await searchParams
+  const q = (qGrezzo ?? '').trim()
+  const ricerca = q.length >= 2
   const u = await richiediUtente()
   const messaggi = await db.messaggio.findMany({
-    where: { utenteId: u.id, direzione: 'uscita', cestinato: false },
+    where: {
+      utenteId: u.id,
+      direzione: 'uscita',
+      cestinato: false,
+      ...(ricerca
+        ? {
+            OR: [
+              { oggetto: { contains: q, mode: 'insensitive' as const } },
+              { destinatari: { contains: q, mode: 'insensitive' as const } },
+              { corpoTesto: { contains: q, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { data: 'desc' },
     take: 200,
   })
@@ -25,14 +44,21 @@ export default async function PostaInviata() {
         </div>
       </div>
 
+      <div style={{ marginBottom: 16 }}>
+        <RicercaMail iniziale={ricerca ? q : ''} base="/inviata" placeholder="Cerca negli inviati (destinatario, oggetto, testo)…" />
+      </div>
+
       <div className="card tight">
         {messaggi.length === 0 ? (
           <div className="empty">
-            <div className="empty-icon">↗</div>
-            <div className="empty-title">Non hai ancora inviato niente</div>
+            <div className="empty-icon">{ricerca ? '⌕' : '↗'}</div>
+            <div className="empty-title">
+              {ricerca ? 'Nessun inviato trovato' : 'Non hai ancora inviato niente'}
+            </div>
             <p className="empty-text">
-              Qui compaiono le risposte e gli inoltri che parti da AI Mail. Quello che hai
-              mandato da altri programmi resta nella tua casella, non qui.
+              {ricerca
+                ? `Nessuna mail inviata corrisponde a «${q}».`
+                : 'Qui compaiono le risposte e gli inoltri che parti da AI Mail. Quello che hai mandato da altri programmi resta nella tua casella, non qui.'}
             </p>
           </div>
         ) : (
