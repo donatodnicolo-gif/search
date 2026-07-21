@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { ibanValido } from "./impostazioni";
+import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 
 function s(fd: FormData, k: string): string | null {
   const v = fd.get(k);
@@ -82,9 +83,18 @@ export async function aggiornaPagamentoDiretto(id: string, fd: FormData) {
 export async function segnaPagamentoEseguito(id: string, fd?: FormData) {
   const dataTxt = fd ? s(fd, "data") : null;
   const data = dataTxt ? new Date(dataTxt + "T00:00:00.000Z") : new Date();
-  await prisma.pagamentoDiretto.update({
+  const p = await prisma.pagamentoDiretto.update({
     where: { id },
     data: { stato: "pagato", dataPagamento: isNaN(data.getTime()) ? new Date() : data },
+  });
+  await registraPagamento({
+    tipo: "pagamento_diretto",
+    direzione: "out",
+    importo: p.importo,
+    data: p.dataPagamento ?? new Date(),
+    origineId: p.id,
+    controparte: p.beneficiario,
+    descrizione: `Pagamento diretto a ${p.beneficiario}${p.fornitore ? ` (${p.fornitore})` : ""}`,
   });
   revalida(id);
   redirect(`/pagamenti/${id}`);
@@ -92,18 +102,21 @@ export async function segnaPagamentoEseguito(id: string, fd?: FormData) {
 
 export async function annullaPagamentoDiretto(id: string) {
   await prisma.pagamentoDiretto.update({ where: { id }, data: { stato: "annullato" } });
+  await rimuoviPagamento("pagamento_diretto", id);
   revalida(id);
   redirect(`/pagamenti/${id}`);
 }
 
 export async function riapriPagamentoDiretto(id: string) {
   await prisma.pagamentoDiretto.update({ where: { id }, data: { stato: "predisposto", dataPagamento: null } });
+  await rimuoviPagamento("pagamento_diretto", id);
   revalida(id);
   redirect(`/pagamenti/${id}`);
 }
 
 export async function eliminaPagamentoDiretto(id: string) {
   await prisma.pagamentoDiretto.delete({ where: { id } });
+  await rimuoviPagamento("pagamento_diretto", id);
   revalida();
   redirect("/pagamenti");
 }

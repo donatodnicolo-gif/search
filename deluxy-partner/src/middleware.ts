@@ -44,6 +44,6 @@ export const config = {
   // tutto tranne login, callback OAuth, API pubblica di verifica (auth a chiave),
   // asset statici e file pubblici
   matcher: [
-    "/((?!login|api/fic/callback|api/verifiche|api/fatture|api/proforma|api/tipologie|api/spese|api/cron|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|api/fic/callback|api/verifiche|api/fatture|api/proforma|api/tipologie|api/incassi|api/spese|api/cron|_next/static|_next/image|favicon.ico).*)",
   ],
 };

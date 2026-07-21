@@ -281,6 +281,34 @@ model OrdineShopify {
   @@index([categoriaPagamento])
 }
 
+// Registro centrale dei pagamenti riconciliati: ogni incasso/pagamento
+// riconosciuto (ordine Shopify, fattura pagata, pagamento diretto, bonifico
+// partner) ottiene un RIFERIMENTO univoco e stabile (PAY-<anno>-<progressivo>),
+// così le altre app possono citarlo. Idempotente per (origineTipo, origineId):
+// lo stesso record d'origine non genera due riferimenti.
+model Pagamento {
+  id          String   @id @default(cuid())
+  riferimento String   @unique // es. PAY-2026-000123
+  numero      Int // progressivo nell'anno
+  anno        Int
+  tipo        String // ordine_shopify | fattura_servizi | pagamento_diretto | bonifico_partner | incasso_partner
+  direzione   String // in (incasso) | out (pagamento in uscita)
+  importo     Float
+  divisa      String   @default("EUR")
+  data        DateTime // data del pagamento/incasso
+  controparte String? // partner/cliente/fornitore
+  partnerId   String?
+  descrizione String?
+  origineTipo String // tipo del record che ha generato il pagamento
+  origineId   String // id del record d'origine
+  createdAt   DateTime @default(now())
+
+  @@unique([origineTipo, origineId])
+  @@unique([anno, numero])
+  @@index([tipo, data])
+  @@index([partnerId])
+}
+
 // Impostazioni dell'app (chiave/valore): dati ordinante SEPA, preferenze
 model Impostazione {
   chiave String @id

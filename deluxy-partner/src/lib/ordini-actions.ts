@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { verificaNegozio } from "./shopify";
 import { eseguiSyncOrdini } from "./ordini-sync";
+import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 
 function revalida() {
   revalidatePath("/ordini", "layout");
@@ -58,7 +59,7 @@ export async function sincronizzaOrdini(giorni = 90) {
 // ————— Riconciliazione —————
 // Abbina un ordine a bonifico a un movimento bancario.
 export async function riconciliaOrdine(ordineId: string, transazioneId: string) {
-  await prisma.$transaction([
+  const [ordine] = await prisma.$transaction([
     prisma.ordineShopify.update({
       where: { id: ordineId },
       data: { statoRicon: "riconciliato", transazioneId, riconciliatoIl: new Date() },
@@ -68,14 +69,34 @@ export async function riconciliaOrdine(ordineId: string, transazioneId: string) 
       data: { stato: "registrata", esito: "ordine Shopify riconciliato" },
     }),
   ]);
+  await registraPagamento({
+    tipo: "ordine_shopify",
+    direzione: "in",
+    importo: ordine.totale,
+    data: ordine.riconciliatoIl ?? new Date(),
+    origineId: ordine.id,
+    controparte: ordine.clienteNome ?? ordine.brand,
+    descrizione: `Ordine ${ordine.nome} (${ordine.brand})`,
+    divisa: ordine.valuta,
+  });
   revalida();
 }
 
 // Marca un ordine come incassato a mano (contrassegno/altro), senza movimento.
 export async function segnaOrdineIncassato(ordineId: string) {
-  await prisma.ordineShopify.update({
+  const ordine = await prisma.ordineShopify.update({
     where: { id: ordineId },
     data: { statoRicon: "riconciliato", riconciliatoIl: new Date() },
+  });
+  await registraPagamento({
+    tipo: "ordine_shopify",
+    direzione: "in",
+    importo: ordine.totale,
+    data: ordine.riconciliatoIl ?? new Date(),
+    origineId: ordine.id,
+    controparte: ordine.clienteNome ?? ordine.brand,
+    descrizione: `Ordine ${ordine.nome} (${ordine.brand})`,
+    divisa: ordine.valuta,
   });
   revalida();
 }
@@ -98,5 +119,6 @@ export async function riapriOrdine(ordineId: string) {
       data: { stato: "nuova", esito: null },
     }).catch(() => {});
   }
+  await rimuoviPagamento("ordine_shopify", ordineId);
   revalida();
 }

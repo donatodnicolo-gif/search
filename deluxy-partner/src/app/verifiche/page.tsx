@@ -177,6 +177,35 @@ const dati = await res.json();
         </p>
       </div>
 
+      <h2 className="section-title">Pagamenti riconciliati (riferimento univoco)</h2>
+      <div className="card">
+        <p style={{ fontSize: 14, marginBottom: 6 }}>
+          <strong>Endpoint:</strong> <code>GET {BASE_URL}/api/incassi?riferimento=PAY-2026-000001</code>
+        </p>
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 14 }}>
+          Ogni incasso/pagamento riconciliato (ordine Shopify, fattura pagata, pagamento diretto, bonifico partner)
+          ha un <strong>riferimento univoco stabile</strong> <code>PAY-&lt;anno&gt;-&lt;progressivo&gt;</code>. Altri filtri:{" "}
+          <code>?partner=&lt;nome o id&gt;</code>, <code>?dal=&amp;al=&amp;tipo=&amp;direzione=</code>,{" "}
+          <code>?origine=ordine_shopify:&lt;id&gt;</code> (dà il riferimento di un record d&apos;origine). Stessa chiave <code>X-API-Key</code>.
+        </p>
+        <div style={{ fontSize: 12.5, color: "var(--text-tertiary)", marginBottom: 4 }}>Esempio curl + risposta</div>
+        <pre style={{ background: "var(--bg)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: 14, overflowX: "auto", fontSize: 12.5, lineHeight: 1.5 }}>{`curl -s "${BASE_URL}/api/incassi?partner=CLIVATI" -H "X-API-Key: ${esempioChiave}"
+
+{ "partner": { "id": "...", "nome": "CLIVATI" },
+  "pagamenti": [ {
+    "riferimento": "PAY-2026-000123",
+    "tipo": "fattura_servizi",         // | ordine_shopify | pagamento_diretto | bonifico_partner
+    "direzione": "in",                 // in = incasso · out = pagamento in uscita
+    "importo": 2384.01, "divisa": "EUR", "data": "2026-07-21",
+    "controparte": "CLIVATI", "partnerId": "...",
+    "origine": { "tipo": "fattura_servizi", "id": "..." },   // record che ha generato il pagamento
+    "registratoIl": "2026-07-21T..." } ] }`}</pre>
+        <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+          Il riferimento è <strong>stabile e idempotente</strong>: lo stesso incasso non genera due riferimenti; se la
+          riconciliazione viene annullata, il pagamento viene rimosso (404).
+        </p>
+      </div>
+
       <h2 className="section-title">Totali servizi per tipologia (per periodo)</h2>
       <div className="card">
         <p style={{ fontSize: 14, marginBottom: 6 }}>
