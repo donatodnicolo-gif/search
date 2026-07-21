@@ -266,7 +266,30 @@ Visibile solo agli admin abilitati (es. utente "support").
 - Tab **CORRISPETTIVI**: per ogni vendita: Stato, ID Vendita, ID Consegna, Data consegna, Prodotto, Categoria, Valore vendite, Prezzo pubblico, Prezzo consegna, Partner, Prezzo partner, Fee %, Fee value, Fee+IVA, Costo consegna, Primo margine, Primo margine %. Con ESPORTA.
 - Tab **MARGINI**: margini totali dell'azienda.
 
-**[PORTATA nel nuovo ambiente il 20/07]** — sezione **Finanza** (`/finance`, solo ADMIN) con le due tab: **Corrispettivi** (una riga per consegna a buon fine, export CSV, filtri data) e **Margini** (totali del periodo). ⚠️ Nel nuovo schema **non esiste una fee/commissione esplicita** né un legame Vendite↔Consegne, quindi la riga è per **consegna** (non per vendita) e le colonne fee/margine sono **derivate**: `fee = valore vendite − prezzo partner`, `fee+IVA = fee ×1,22`, `costo consegna = paga valet`, `primo margine = fee − costo`. **Da confrontare con lo schermo reale** (accesso admin) per capire la vera definizione di fee e se i corrispettivi vanno per vendita anziché per consegna.
+**Formule reali (verificate su app.deluxy.it il 21/07, sessione admin).** La tab **CORRISPETTIVI** ha una riga **per vendita** (colonne `ID VENDITA` e `ID CONSEGNE` distinte) con queste colonne e formule (verificate al centesimo su più righe):
+
+| Colonna | Formula |
+|---|---|
+| Valore vendite | Prezzo pubblico + Consegna prezzo |
+| Prezzo pubblico | (dato, dal prodotto) |
+| Consegna prezzo | (dato, tariffa consegna al cliente) |
+| Prezzo partner | (dato) |
+| **Fee %** | **commissione del singolo partner** |
+| Fee value | Fee % × Prezzo partner |
+| Fee + IVA | Fee value × 1,22 |
+| Costo consegna | paga del valet |
+| Primo margine | Valore vendite − Prezzo partner + Fee value |
+| Primo margine % | Primo margine / Valore vendite |
+| Corrispettivo | Valore vendite − Prezzo partner |
+| IVA | Corrispettivo × 22% |
+| Commissione incassi | Valore vendite × 3% |
+| Margine totale | Primo margine − Costo consegna − IVA − Commissione incassi |
+| Margine totale % | Margine totale / Valore vendite |
+| Incasso partner | Prezzo partner − (Fee + IVA) |
+
+In fondo una riga **Totale** che somma le colonne in euro. La tab **MARGINI** è invece una tabella **per consegna** con colonne operative (Vendita, Platform, Valet, Tipo servizio, Da fatturare/Da pagare, Prezzo, +/− Prezzo, Valet salario, +/− Prezzo stipendi, Margine totale, %). Entrambe le tab: filtro Stato, filtri per-colonna con operatori (`= < > >= <=`), elementi/pagina, ESPORTA, RICERCA/RESET.
+
+**[PORTATA nel nuovo ambiente — riallineata alle formule reali il 21/07]** — sezione **Finanza** (`/finance`, solo ADMIN). Per supportare le formule reali sono stati aggiunti allo schema: **`Partner.commissionPercent`** (la Fee%) e **`Delivery.deliveryPrice`** (la "Consegna prezzo"). IVA 22% e commissione incassi 3% sono costanti in `finance.module.ts` (candidate a diventare impostazioni). Nota residua: la riga dei Corrispettivi nel nuovo ambiente è per **consegna** (con i suoi prodotti aggregati), non ancora per vendita — manca il legame Vendita↔Consegna.
 
 ### 3.9 Setup
 

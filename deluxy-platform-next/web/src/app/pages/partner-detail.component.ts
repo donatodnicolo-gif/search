@@ -19,6 +19,7 @@ interface PartnerDetail {
   contactSurname?: string;
   paymentMethod?: string;
   paymentStatus?: string;
+  commissionPercent?: number;
   active: boolean;
   isWarehouse?: boolean;
   storeUrl?: string;
@@ -118,6 +119,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
               <dt>{{ 'partnerForm.payments.sdiCode' | translate }}</dt><dd>{{ p.sdiCode || '—' }}</dd>
               <dt>{{ 'partnerForm.payments.certifiedEmail' | translate }}</dt><dd>{{ p.certifiedEmail || '—' }}</dd>
               <dt>{{ 'partnerForm.payments.invoiceEmail' | translate }}</dt><dd>{{ p.invoiceEmail || '—' }}</dd>
+              <dt>{{ 'partnerForm.services.commissionPercent' | translate }}</dt><dd>{{ p.commissionPercent ?? 0 }}%</dd>
             </dl>
           </section>
 

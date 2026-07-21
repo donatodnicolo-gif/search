@@ -143,6 +143,8 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             <input class="field num" type="number" name="kmIncluded" [(ngModel)]="model.kmIncluded" /></label>
           <label class="fld"><span>{{ 'partnerForm.services.extraOutOfCityPartner' | translate }}</span>
             <input class="field num" type="number" step="0.01" name="extraOutOfCityPrice" [(ngModel)]="model.extraOutOfCityPrice" /></label>
+          <label class="fld"><span>{{ 'partnerForm.services.commissionPercent' | translate }}</span>
+            <input class="field num" type="number" step="0.01" name="commissionPercent" [(ngModel)]="model.commissionPercent" /></label>
         </div>
       </section>
 
@@ -396,6 +398,7 @@ export class PartnerFormComponent {
     invoicingEnabled: false,
     kmIncluded: null as number | null,
     extraOutOfCityPrice: null as number | null,
+    commissionPercent: null as number | null,
     isWarehouse: false,
     valetIdentityCheck: false,
     deliveryCodeRequired: false,
@@ -555,6 +558,7 @@ export class PartnerFormComponent {
     }
     if (m.kmIncluded != null) payload['kmIncluded'] = Number(m.kmIncluded);
     if (m.extraOutOfCityPrice != null) payload['extraOutOfCityPrice'] = Number(m.extraOutOfCityPrice);
+    if (m.commissionPercent != null) payload['commissionPercent'] = Number(m.commissionPercent);
     // In modifica le collezioni vanno inviate SEMPRE, anche vuote: altrimenti
     // svuotarle non le cancellerebbe (l'API aggiorna solo le chiavi presenti).
     const isEdit = !!this.editId();

@@ -249,6 +249,8 @@ interface ProductRow {
                 <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price" [placeholder]="'deliveryForm.placeholder.auto' | translate" /></label>
               <label class="fld"><span>{{ 'deliveryForm.pricing.plusMinus' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="additionalPrice" [(ngModel)]="model.additionalPrice" /></label>
+              <label class="fld"><span>{{ 'deliveryForm.pricing.deliveryPrice' | translate }}</span>
+                <input class="field num" type="number" step="0.01" name="deliveryPrice" [(ngModel)]="model.deliveryPrice" /></label>
             </div>
           </div>
           <div>
@@ -419,6 +421,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     payable: true,
     price: null as number | null,
     additionalPrice: null as number | null,
+    deliveryPrice: null as number | null,
     valetSalary: null as number | null,
     valetAdditionalPrice: null as number | null,
     isFlexiblePrice: false,
@@ -572,7 +575,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     ] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = !!d[key];
     }
-    for (const key of ['paymentAmount', 'price', 'additionalPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {
+    for (const key of ['paymentAmount', 'price', 'additionalPrice', 'deliveryPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = d[key];
     }
     // Prodotti della consegna
@@ -804,7 +807,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       payload['pickupTimeFrom'] = m.pickupTimeFrom;
       payload['pickupTimeTo'] = m.pickupFlexible ? m.pickupTimeTo : this.plusOneHour(m.pickupTimeFrom);
     }
-    for (const key of ['paymentAmount', 'price', 'additionalPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {
+    for (const key of ['paymentAmount', 'price', 'additionalPrice', 'deliveryPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {
       const v = m[key];
       if (v != null) payload[key] = Number(v);
     }

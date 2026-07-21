@@ -39,6 +39,11 @@ export class PartnerServiceDto {
   @IsOptional()
   @IsNumber()
   extraOutOfCityPrice?: number;
+
+  @ApiPropertyOptional({ default: 0, description: 'Commissione partner (Fee%) usata dalla Finanza' })
+  @IsOptional()
+  @IsNumber()
+  commissionPercent?: number;
 }
 
 export class OpeningHourDto {

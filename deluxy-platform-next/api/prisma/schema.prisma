@@ -231,6 +231,8 @@ model Partner {
   // KM a livello partner (soglia inclusa entro il comune + extra fuori città)
   kmIncluded          Float?
   extraOutOfCityPrice Float?
+  // Commissione del partner (Fee%): usata dalla Finanza per Fee value = Fee% x prezzo partner.
+  commissionPercent   Float             @default(0)
   // Tipo codice di consegna (quando deliveryCodeRequired): UNIQUE_PER_DELIVERY | UNIQUE_PER_CUSTOMER
   deliveryCodeCheckType String          @default("UNIQUE_PER_DELIVERY")
   // Indirizzo di ritiro multiplo (+ lista indirizzi come JSON per compat. SQLite)
@@ -652,6 +654,7 @@ model Delivery {
   payable            Boolean           @default(true) // da pagare
   price              Float? // prezzo per il partner
   additionalPrice    Float? // plus/minus prezzo partner
+  deliveryPrice      Float? // "Consegna prezzo": tariffa consegna al cliente (Finanza)
   valetSalary        Float? // paga del valet
   valetAdditionalPrice Float? // plus/minus paga valet
   isFlexiblePrice    Boolean           @default(false)

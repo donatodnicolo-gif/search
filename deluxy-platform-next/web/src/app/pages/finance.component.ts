@@ -13,8 +13,9 @@ interface CorrispettivoRow {
   product: string;
   category: string | null;
   partner: string;
-  saleValue: number;
   publicPrice: number;
+  deliveryFee: number;
+  saleValue: number;
   partnerPrice: number;
   feePercent: number;
   feeValue: number;
@@ -22,25 +23,38 @@ interface CorrispettivoRow {
   deliveryCost: number;
   firstMargin: number;
   firstMarginPercent: number;
+  takings: number;
+  vat: number;
+  incassiCommission: number;
+  totalMargin: number;
+  totalMarginPercent: number;
+  partnerPayout: number;
 }
 
 interface Summary {
   deliveries: number;
-  saleValue: number;
   publicPrice: number;
+  deliveryFee: number;
+  saleValue: number;
   partnerPrice: number;
   feeValue: number;
   feeWithVat: number;
   deliveryCost: number;
   firstMargin: number;
   firstMarginPercent: number;
+  takings: number;
+  vat: number;
+  incassiCommission: number;
+  totalMargin: number;
+  totalMarginPercent: number;
+  partnerPayout: number;
 }
 
 /**
- * Finanza (§3.8 dell'app reale): tab CORRISPETTIVI (una riga per consegna con
- * i valori economici e il primo margine) e tab MARGINI (i totali). Riservata
- * agli admin. Le formule di fee/margine sono derivate (vedi finance.module.ts):
- * da confermare sullo schermo reale.
+ * Finanza (§3.8 dell'app reale): tab CORRISPETTIVI (una riga per consegna a
+ * buon fine con i valori economici e i margini, riga Totale in fondo) e tab
+ * MARGINI (i totali del periodo). Riservata agli admin. Le formule sono quelle
+ * verificate sull'app reale (vedi finance.module.ts e il manuale).
  */
 @Component({
   selector: 'app-finance',
@@ -74,13 +88,16 @@ interface Summary {
       @if (summary(); as s) {
         <div class="cards">
           <div class="stat"><span class="k">{{ 'finance.m.deliveries' | translate }}</span><span class="v">{{ s.deliveries }}</span></div>
-          <div class="stat"><span class="k">{{ 'finance.m.saleValue' | translate }}</span><span class="v">{{ euro(s.saleValue) }}</span></div>
-          <div class="stat"><span class="k">{{ 'finance.m.partnerPrice' | translate }}</span><span class="v">{{ euro(s.partnerPrice) }}</span></div>
-          <div class="stat"><span class="k">{{ 'finance.m.feeValue' | translate }}</span><span class="v">{{ euro(s.feeValue) }}</span></div>
-          <div class="stat"><span class="k">{{ 'finance.m.deliveryCost' | translate }}</span><span class="v">{{ euro(s.deliveryCost) }}</span></div>
-          <div class="stat hi"><span class="k">{{ 'finance.m.firstMargin' | translate }}</span><span class="v" [class.neg]="s.firstMargin < 0">{{ euro(s.firstMargin) }}</span><span class="pct">{{ s.firstMarginPercent | number: '1.0-1' }}%</span></div>
+          <div class="stat"><span class="k">{{ 'finance.c.saleValue' | translate }}</span><span class="v">{{ euro(s.saleValue) }}</span></div>
+          <div class="stat"><span class="k">{{ 'finance.c.partnerPrice' | translate }}</span><span class="v">{{ euro(s.partnerPrice) }}</span></div>
+          <div class="stat"><span class="k">{{ 'finance.c.feeValue' | translate }}</span><span class="v">{{ euro(s.feeValue) }}</span></div>
+          <div class="stat"><span class="k">{{ 'finance.c.deliveryCost' | translate }}</span><span class="v">{{ euro(s.deliveryCost) }}</span></div>
+          <div class="stat"><span class="k">{{ 'finance.c.firstMargin' | translate }}</span><span class="v">{{ euro(s.firstMargin) }}</span><span class="pct">{{ s.firstMarginPercent | number: '1.0-2' }}%</span></div>
+          <div class="stat"><span class="k">{{ 'finance.c.vat' | translate }}</span><span class="v">{{ euro(s.vat) }}</span></div>
+          <div class="stat"><span class="k">{{ 'finance.c.incassiCommission' | translate }}</span><span class="v">{{ euro(s.incassiCommission) }}</span></div>
+          <div class="stat hi"><span class="k">{{ 'finance.c.totalMargin' | translate }}</span><span class="v" [class.neg]="s.totalMargin < 0">{{ euro(s.totalMargin) }}</span><span class="pct">{{ s.totalMarginPercent | number: '1.0-2' }}%</span></div>
+          <div class="stat"><span class="k">{{ 'finance.c.partnerPayout' | translate }}</span><span class="v">{{ euro(s.partnerPayout) }}</span></div>
         </div>
-        <p class="assumption">{{ 'finance.assumption' | translate }}</p>
       }
     } @else {
       @if (rows().length === 0) {
@@ -96,8 +113,9 @@ interface Summary {
                 <th>{{ 'finance.c.product' | translate }}</th>
                 <th>{{ 'finance.c.category' | translate }}</th>
                 <th>{{ 'finance.c.partner' | translate }}</th>
-                <th class="num">{{ 'finance.c.saleValue' | translate }}</th>
                 <th class="num">{{ 'finance.c.publicPrice' | translate }}</th>
+                <th class="num">{{ 'finance.c.deliveryFee' | translate }}</th>
+                <th class="num">{{ 'finance.c.saleValue' | translate }}</th>
                 <th class="num">{{ 'finance.c.partnerPrice' | translate }}</th>
                 <th class="num">{{ 'finance.c.feePercent' | translate }}</th>
                 <th class="num">{{ 'finance.c.feeValue' | translate }}</th>
@@ -105,6 +123,12 @@ interface Summary {
                 <th class="num">{{ 'finance.c.deliveryCost' | translate }}</th>
                 <th class="num">{{ 'finance.c.firstMargin' | translate }}</th>
                 <th class="num">{{ 'finance.c.firstMarginPercent' | translate }}</th>
+                <th class="num">{{ 'finance.c.takings' | translate }}</th>
+                <th class="num">{{ 'finance.c.vat' | translate }}</th>
+                <th class="num">{{ 'finance.c.incassiCommission' | translate }}</th>
+                <th class="num">{{ 'finance.c.totalMargin' | translate }}</th>
+                <th class="num">{{ 'finance.c.totalMarginPercent' | translate }}</th>
+                <th class="num">{{ 'finance.c.partnerPayout' | translate }}</th>
               </tr>
             </thead>
             <tbody>
@@ -116,18 +140,48 @@ interface Summary {
                   <td>{{ r.product }}</td>
                   <td>{{ r.category ?? '—' }}</td>
                   <td>{{ r.partner }}</td>
-                  <td class="num">{{ euro(r.saleValue) }}</td>
                   <td class="num">{{ euro(r.publicPrice) }}</td>
+                  <td class="num">{{ euro(r.deliveryFee) }}</td>
+                  <td class="num">{{ euro(r.saleValue) }}</td>
                   <td class="num">{{ euro(r.partnerPrice) }}</td>
-                  <td class="num">{{ r.feePercent | number: '1.0-1' }}%</td>
+                  <td class="num">{{ r.feePercent | number: '1.0-0' }}%</td>
                   <td class="num">{{ euro(r.feeValue) }}</td>
                   <td class="num">{{ euro(r.feeWithVat) }}</td>
                   <td class="num">{{ euro(r.deliveryCost) }}</td>
-                  <td class="num" [class.neg]="r.firstMargin < 0">{{ euro(r.firstMargin) }}</td>
-                  <td class="num">{{ r.firstMarginPercent | number: '1.0-1' }}%</td>
+                  <td class="num">{{ euro(r.firstMargin) }}</td>
+                  <td class="num">{{ r.firstMarginPercent | number: '1.0-2' }}%</td>
+                  <td class="num">{{ euro(r.takings) }}</td>
+                  <td class="num">{{ euro(r.vat) }}</td>
+                  <td class="num">{{ euro(r.incassiCommission) }}</td>
+                  <td class="num" [class.neg]="r.totalMargin < 0">{{ euro(r.totalMargin) }}</td>
+                  <td class="num">{{ r.totalMarginPercent | number: '1.0-2' }}%</td>
+                  <td class="num">{{ euro(r.partnerPayout) }}</td>
                 </tr>
               }
             </tbody>
+            @if (summary(); as s) {
+              <tfoot>
+                <tr class="totals">
+                  <td colspan="6">{{ 'finance.total' | translate }}</td>
+                  <td class="num">{{ euro(s.publicPrice) }}</td>
+                  <td class="num">{{ euro(s.deliveryFee) }}</td>
+                  <td class="num">{{ euro(s.saleValue) }}</td>
+                  <td class="num">{{ euro(s.partnerPrice) }}</td>
+                  <td class="num"></td>
+                  <td class="num">{{ euro(s.feeValue) }}</td>
+                  <td class="num">{{ euro(s.feeWithVat) }}</td>
+                  <td class="num">{{ euro(s.deliveryCost) }}</td>
+                  <td class="num">{{ euro(s.firstMargin) }}</td>
+                  <td class="num">{{ s.firstMarginPercent | number: '1.0-2' }}%</td>
+                  <td class="num">{{ euro(s.takings) }}</td>
+                  <td class="num">{{ euro(s.vat) }}</td>
+                  <td class="num">{{ euro(s.incassiCommission) }}</td>
+                  <td class="num">{{ euro(s.totalMargin) }}</td>
+                  <td class="num">{{ s.totalMarginPercent | number: '1.0-2' }}%</td>
+                  <td class="num">{{ euro(s.partnerPayout) }}</td>
+                </tr>
+              </tfoot>
+            }
           </table>
         </div>
         <p class="assumption">{{ 'finance.assumption' | translate }}</p>
@@ -149,12 +203,13 @@ interface Summary {
       .stat .v.neg { color: var(--red); }
       .stat .pct { font-size: 12px; color: var(--text-secondary); }
       .table-wrap { overflow-x: auto; }
-      table.fin { width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
-      table.fin th, table.fin td { padding: 8px 10px; border-bottom: 1px solid var(--hairline); text-align: left; }
-      table.fin th { color: var(--text-tertiary); font-weight: 500; font-size: 11.5px; }
+      table.fin { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+      table.fin th, table.fin td { padding: 7px 9px; border-bottom: 1px solid var(--hairline); text-align: left; }
+      table.fin th { color: var(--text-tertiary); font-weight: 500; font-size: 11px; }
       table.fin .num { text-align: right; font-variant-numeric: tabular-nums; }
       table.fin .mono { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
       table.fin .neg { color: var(--red); }
+      table.fin tfoot .totals td { border-top: 2px solid var(--hairline-strong); font-weight: 650; }
       .pill { display: inline-block; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--fill); font-size: 11px; font-weight: 600; }
       .assumption { margin-top: 12px; font-size: 12px; color: var(--text-tertiary); font-style: italic; }
       .error-card { padding: 14px 16px; border-radius: var(--radius-m); background: rgba(215,0,21,0.08); color: var(--red); }
@@ -190,8 +245,6 @@ export class FinanceComponent {
     this.loading.set(true);
     this.error.set(null);
     const p = this.params();
-    // Carica sempre entrambe le tab: i numeri sono pochi e cosi' passare da
-    // Corrispettivi a Margini e' immediato.
     this.http.get<CorrispettivoRow[]>(`${this.api}/finance/corrispettivi`, { params: p }).subscribe({
       next: (d) => {
         this.rows.set(d);
@@ -216,16 +269,19 @@ export class FinanceComponent {
     const t = (k: string) => this.translate.instant(k);
     const head = [
       t('finance.c.status'), t('finance.c.delivery'), t('finance.c.date'), t('finance.c.product'),
-      t('finance.c.category'), t('finance.c.partner'), t('finance.c.saleValue'), t('finance.c.publicPrice'),
-      t('finance.c.partnerPrice'), t('finance.c.feePercent'), t('finance.c.feeValue'), t('finance.c.feeWithVat'),
-      t('finance.c.deliveryCost'), t('finance.c.firstMargin'), t('finance.c.firstMarginPercent'),
+      t('finance.c.category'), t('finance.c.partner'), t('finance.c.publicPrice'), t('finance.c.deliveryFee'),
+      t('finance.c.saleValue'), t('finance.c.partnerPrice'), t('finance.c.feePercent'), t('finance.c.feeValue'),
+      t('finance.c.feeWithVat'), t('finance.c.deliveryCost'), t('finance.c.firstMargin'), t('finance.c.firstMarginPercent'),
+      t('finance.c.takings'), t('finance.c.vat'), t('finance.c.incassiCommission'), t('finance.c.totalMargin'),
+      t('finance.c.totalMarginPercent'), t('finance.c.partnerPayout'),
     ];
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const rows = this.rows().map((r) => [
-      r.status, `#${r.deliveryCode}`, r.date.slice(0, 10), r.product, r.category ?? '',
-      r.partner, r.saleValue.toFixed(2), r.publicPrice.toFixed(2), r.partnerPrice.toFixed(2),
-      r.feePercent.toFixed(1), r.feeValue.toFixed(2), r.feeWithVat.toFixed(2),
-      r.deliveryCost.toFixed(2), r.firstMargin.toFixed(2), r.firstMarginPercent.toFixed(1),
+      r.status, `#${r.deliveryCode}`, r.date.slice(0, 10), r.product, r.category ?? '', r.partner,
+      r.publicPrice.toFixed(2), r.deliveryFee.toFixed(2), r.saleValue.toFixed(2), r.partnerPrice.toFixed(2),
+      r.feePercent.toFixed(0), r.feeValue.toFixed(2), r.feeWithVat.toFixed(2), r.deliveryCost.toFixed(2),
+      r.firstMargin.toFixed(2), r.firstMarginPercent.toFixed(2), r.takings.toFixed(2), r.vat.toFixed(2),
+      r.incassiCommission.toFixed(2), r.totalMargin.toFixed(2), r.totalMarginPercent.toFixed(2), r.partnerPayout.toFixed(2),
     ]);
     const csv = [head, ...rows].map((r) => r.map(esc).join(';')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });

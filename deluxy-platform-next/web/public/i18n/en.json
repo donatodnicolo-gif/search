@@ -696,7 +696,8 @@
     "to": "To",
     "export": "Export",
     "empty": "No takings in this period.",
-    "assumption": "Note: fees and margins are derived (fee = sale value − partner price; +VAT 22%; margin = fee − delivery cost). To be confirmed against the real app.",
+    "total": "Total",
+    "assumption": "Formulas verified against the real app (fee = fee% × partner price; +VAT 22%; collection commission 3%). Row per delivery: the Sale↔Delivery link is still missing.",
     "tab": { "corrispettivi": "Takings", "margini": "Margins" },
     "c": {
       "status": "Status",
@@ -705,23 +706,25 @@
       "product": "Product",
       "category": "Category",
       "partner": "Partner",
-      "saleValue": "Sale value",
       "publicPrice": "Public price",
+      "deliveryFee": "Delivery price",
+      "saleValue": "Sale value",
       "partnerPrice": "Partner price",
       "feePercent": "Fee %",
       "feeValue": "Fee value",
       "feeWithVat": "Fee+VAT",
       "deliveryCost": "Delivery cost",
       "firstMargin": "First margin",
-      "firstMarginPercent": "First margin %"
+      "firstMarginPercent": "First margin %",
+      "takings": "Takings",
+      "vat": "VAT",
+      "incassiCommission": "Collection commission",
+      "totalMargin": "Total margin",
+      "totalMarginPercent": "Total margin %",
+      "partnerPayout": "Partner payout"
     },
     "m": {
-      "deliveries": "Deliveries",
-      "saleValue": "Sale value",
-      "partnerPrice": "Partner price",
-      "feeValue": "Total fee",
-      "deliveryCost": "Delivery cost",
-      "firstMargin": "First margin"
+      "deliveries": "Deliveries"
     }
   },
   "stub": {
@@ -853,6 +856,7 @@
       "billable": "To be billed",
       "price": "Price (€)",
       "plusMinus": "Plus / minus (€)",
+      "deliveryPrice": "Delivery price (€)",
       "payableGroup": "To be paid (valet)",
       "payable": "To be paid",
       "valetSalary": "Valet salary (€)",
@@ -918,7 +922,8 @@
       "extraOutOfCityPlaceholder": "Out-of-town extra",
       "add": "Add service",
       "kmIncludedPartner": "KM included (partner level)",
-      "extraOutOfCityPartner": "Out-of-town extra (€, partner level)"
+      "extraOutOfCityPartner": "Out-of-town extra (€, partner level)",
+      "commissionPercent": "Fee commission (%)"
     },
     "categories": {
       "title": "Sold categories",
