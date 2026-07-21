@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { PartnerForm } from "@/components/PartnerForm";
+import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { updatePartner } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,16 @@ export default async function ModificaPartner({ params }: { params: Promise<{ id
         </div>
       </div>
       <PartnerForm partner={partner} action={action} submitLabel="Salva modifiche" />
+
+      <div className="card" style={{ padding: 14, margin: "16px 0 4px", background: "var(--bg)" }}>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
+          I campi qui sopra sono la <strong>configurazione finanziaria locale</strong> di questo partner (fee,
+          crediti/debiti, IBAN per i bonifici, contatto per solleciti). I <strong>dati anagrafici e fiscali</strong>{" "}
+          (P.IVA, CF, SDI, PEC, indirizzo…) sono centralizzati nel registro <strong>Anagrafiche</strong> — qui sotto
+          li vedi in sola lettura e si modificano lì, così non vengono duplicati fra le app.
+        </p>
+      </div>
+      <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} />
     </>
   );
 }
