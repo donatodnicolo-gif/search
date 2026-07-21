@@ -4,6 +4,8 @@ import { richiediUtente } from '@/lib/sessione'
 import { dataBreve } from '@/lib/format'
 import { raggruppa } from '@/lib/thread'
 import { RicercaMail } from '@/components/RicercaMail'
+import { AzioniThread } from '@/components/AzioniThread'
+import { AgganciaDialog } from '@/components/AgganciaRiga'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -130,11 +132,15 @@ export default async function Thread({ searchParams }: Props) {
                     <span className="mail-data">{dataBreve(volto.data)}</span>
                   </div>
                 </div>
+                <AzioniThread messaggioId={volto.id} />
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Il dialogo di aggancio, montato una volta per la pagina. */}
+      <AgganciaDialog />
     </>
   )
 }

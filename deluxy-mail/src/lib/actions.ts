@@ -638,6 +638,19 @@ export async function cestinaMessaggio(id: string) {
   revalidatePath('/', 'layout')
 }
 
+/** Cestina TUTTE le mail di un thread (dato un messaggio qualsiasi del thread). */
+export async function cestinaThread(messaggioId: string): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const ids = (await messaggiThread(utenteId, messaggioId)).map((m) => m.id)
+  if (ids.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
+  const r = await db.messaggio.updateMany({
+    where: { id: { in: ids }, utenteId },
+    data: { cestinato: true, cestinatoIl: new Date(), letto: true },
+  })
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: `${r.count} mail del thread spostate nel cestino.` }
+}
+
 export async function ripristinaMessaggio(id: string) {
   await db.messaggio.updateMany({
     where: { id, utenteId: await uid() },
