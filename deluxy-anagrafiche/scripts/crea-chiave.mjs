@@ -15,9 +15,10 @@ const argomenti = process.argv.slice(2).filter((a) => a !== "--");
 const nome = argomenti.find((a) => !a.startsWith("--"));
 const scrittura = argomenti.includes("--scrittura");
 const scritturaReferenti = argomenti.includes("--scrittura-referenti");
+const scritturaPartner = argomenti.includes("--scrittura-partner");
 
 if (!nome) {
-  console.error("Uso: npm run chiave -- <nome-app> [--scrittura | --scrittura-referenti]");
+  console.error("Uso: npm run chiave -- <nome-app> [--scrittura | --scrittura-partner | --scrittura-referenti]");
   process.exit(1);
 }
 
@@ -26,15 +27,17 @@ const hash = createHash("sha256").update(chiave).digest("hex");
 
 await prisma.apiKey.upsert({
   where: { nome },
-  create: { nome, hash, scrittura, scritturaReferenti },
-  update: { hash, scrittura, scritturaReferenti, attiva: true },
+  create: { nome, hash, scrittura, scritturaReferenti, scritturaPartner },
+  update: { hash, scrittura, scritturaReferenti, scritturaPartner, attiva: true },
 });
 
 const permesso = scrittura
   ? "lettura+scrittura"
-  : scritturaReferenti
-    ? "lettura + archivio referenti"
-    : "sola lettura";
+  : scritturaPartner
+    ? "lettura + upsert partner (POST, con stato/interessi)"
+    : scritturaReferenti
+      ? "lettura + archivio referenti"
+      : "sola lettura";
 console.log(`Chiave API per "${nome}" (${permesso}):`);
 console.log();
 console.log(`  ${chiave}`);

@@ -6,7 +6,13 @@ import { prisma } from "./db";
 // Nel database c'è solo lo SHA-256 della chiave. Le chiavi si creano con
 // `npm run chiave -- <nome-app> [--scrittura]`.
 
-export type ClientApi = { id: string; nome: string; scrittura: boolean; scritturaReferenti: boolean };
+export type ClientApi = {
+  id: string;
+  nome: string;
+  scrittura: boolean;
+  scritturaReferenti: boolean;
+  scritturaPartner: boolean;
+};
 
 export function erroreApi(status: number, messaggio: string) {
   return NextResponse.json({ errore: messaggio }, { status });
@@ -22,7 +28,7 @@ function estraiChiave(req: NextRequest): string | null {
 
 export async function autentica(
   req: NextRequest,
-  opzioni: { scrittura?: boolean; referenti?: boolean } = {},
+  opzioni: { scrittura?: boolean; referenti?: boolean; partner?: boolean } = {},
 ): Promise<ClientApi | NextResponse> {
   const chiave = estraiChiave(req);
   if (!chiave) {
@@ -31,10 +37,15 @@ export async function autentica(
   const hash = createHash("sha256").update(chiave).digest("hex");
   const record = await prisma.apiKey.findUnique({ where: { hash } });
   if (!record || !record.attiva) return erroreApi(401, "Chiave API non valida");
+  // Scrittura piena (PATCH/DELETE partner): solo chiavi `scrittura`.
   if (opzioni.scrittura && !record.scrittura) {
     return erroreApi(403, "Questa chiave è di sola lettura");
   }
-  // Scope referenti: passa una chiave di scrittura piena O una ristretta ai referenti.
+  // Upsert partner (POST): chiave di scrittura piena O scope partner (POST-only).
+  if (opzioni.partner && !record.scrittura && !record.scritturaPartner) {
+    return erroreApi(403, "Questa chiave non può creare/aggiornare i partner");
+  }
+  // Archivio referenti: chiave di scrittura piena O scope referenti.
   if (opzioni.referenti && !record.scrittura && !record.scritturaReferenti) {
     return erroreApi(403, "Questa chiave non può scrivere sui referenti");
   }
@@ -47,5 +58,6 @@ export async function autentica(
     nome: record.nome,
     scrittura: record.scrittura,
     scritturaReferenti: record.scritturaReferenti,
+    scritturaPartner: record.scritturaPartner,
   };
 }

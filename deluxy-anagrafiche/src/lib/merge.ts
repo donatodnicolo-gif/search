@@ -73,6 +73,7 @@ export function calcolaMerge(
   incoming: Record<string, unknown>,
   sistema: string,
   asOf?: string,
+  opzioni: { sbloccaCurati?: boolean } = {},
 ): EsitoMerge {
   const prov: Provenienza = (esistente.provenienza as Provenienza) ?? {};
   const nuovaProv: Provenienza = { ...prov };
@@ -87,7 +88,14 @@ export function calcolaMerge(
     if (valore === undefined) continue;
 
     if ((BLOCCATI_DURI as readonly string[]).includes(campo)) {
-      ignorati.push(campo);
+      // Di norma stato/interessi sono curati dal team e ignorati. Un driver di
+      // prima parte (es. Scout, che dichiara "cliente") può invece impostarli.
+      if (opzioni.sbloccaCurati && valore != null) {
+        dati[campo] = valore;
+        timbro(campo);
+      } else {
+        ignorati.push(campo);
+      }
       continue;
     }
 

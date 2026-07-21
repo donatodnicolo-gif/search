@@ -6,6 +6,7 @@ import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
 import { calcolaMerge, mergeContatti, nomeSistema, provenienzaIniziale } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { whereRicerca } from "@/lib/ricerca";
+import { registraPassaggio } from "@/lib/storico";
 
 // La fatturazione è della società: se una scrittura ha toccato campi
 // finanziari, i valori vanno copiati sulle altre sedi della stessa insegna.
@@ -84,8 +85,11 @@ export async function GET(req: NextRequest) {
 // vince il più fresco/autorevole; note e referenti = additivi). Body opzionale:
 // `sistema`, `idEsterno` (l'id dell'app chiamante), `asOf` (freschezza ISO).
 export async function POST(req: NextRequest) {
-  const client = await autentica(req, { scrittura: true });
+  const client = await autentica(req, { partner: true });
   if (client instanceof NextResponse) return client;
+  // Un driver di prima parte (scope partner, es. Scout) può impostare
+  // stato/interessi; le chiavi di scrittura generica no (restano curati dal team).
+  const sbloccaCurati = client.scritturaPartner;
 
   let body: Record<string, unknown>;
   try {
@@ -148,7 +152,7 @@ export async function POST(req: NextRequest) {
     delete mergeInput.fonte;
     delete mergeInput.attivo;
 
-    const { dati: datiMerge, provenienza, ignorati } = calcolaMerge(esistente, mergeInput, sistema, asOf);
+    const { dati: datiMerge, provenienza, ignorati } = calcolaMerge(esistente, mergeInput, sistema, asOf, { sbloccaCurati });
 
     let contattiWrite: Prisma.ContattoUpdateManyWithoutPartnerNestedInput | undefined;
     if (contatti) {
@@ -166,6 +170,10 @@ export async function POST(req: NextRequest) {
       },
     });
     await registraRiferimenti(esistente.id, refs);
+    // Audit del cambio stato se un driver di prima parte lo ha modificato
+    if (typeof datiMerge.stato === "string" && datiMerge.stato !== esistente.stato) {
+      await registraPassaggio(esistente.id, esistente.stato, datiMerge.stato, sistema);
+    }
     await propagaSeFinanziari(esistente.id, datiMerge);
     const aggiornato = await prisma.partner.findUnique({ where: { id: esistente.id }, include: INCLUDE });
     return NextResponse.json({
@@ -176,11 +184,14 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Nessun aggancio: nuova anagrafica. Nasce come prospect: stato, interessi e
-  // account sono decisioni del team, non li imposta la sorgente esterna.
+  // Nessun aggancio: nuova anagrafica. Di norma nasce come prospect (stato,
+  // interessi e account li decide il team). Un driver di prima parte (Scout)
+  // può invece dichiararne stato e interessi già alla creazione.
   const datiCreate = { ...dati };
-  delete datiCreate.stato;
-  delete datiCreate.interessi;
+  if (!sbloccaCurati) {
+    delete datiCreate.stato;
+    delete datiCreate.interessi;
+  }
   delete datiCreate.account;
   delete datiCreate.attivo;
   const fonte = typeof dati.fonte === "string" && dati.fonte ? dati.fonte : sistema === "platform" ? "platform" : sistema;
@@ -193,6 +204,10 @@ export async function POST(req: NextRequest) {
     },
   });
   await registraRiferimenti(creato.id, refs);
+  // Audit: se nasce già con uno stato non-prospect (driver di prima parte)
+  if (typeof datiCreate.stato === "string" && datiCreate.stato !== "prospect") {
+    await registraPassaggio(creato.id, "creazione", datiCreate.stato, sistema);
+  }
   await propagaSeFinanziari(creato.id, datiCreate);
   const creatoFull = await prisma.partner.findUnique({ where: { id: creato.id }, include: INCLUDE });
   return NextResponse.json({ esito: "creato", ...serializzaPartner(creatoFull!) }, { status: 201 });

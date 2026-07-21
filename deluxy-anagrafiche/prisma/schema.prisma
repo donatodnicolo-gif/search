@@ -158,8 +158,9 @@ model ApiKey {
   id        String    @id @default(cuid())
   nome      String    @unique // app client: deluxy-platform, deluxy-partner, ...
   hash      String    @unique // sha256 esadecimale della chiave
-  scrittura Boolean   @default(false) // true = può creare/modificare/disattivare il partner
+  scrittura Boolean   @default(false) // true = può creare/modificare/disattivare il partner (PATCH/DELETE inclusi)
   scritturaReferenti Boolean @default(false) // true = può solo archiviare i referenti (scope ristretto, es. Scout)
+  scritturaPartner   Boolean @default(false) // true = solo POST upsert dei partner (no PATCH/DELETE) + può settare stato/interessi (driver di prima parte, es. Scout)
   attiva    Boolean   @default(true)
   creataIl  DateTime  @default(now())
   ultimoUso DateTime?
