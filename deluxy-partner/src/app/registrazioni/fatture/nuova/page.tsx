@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { ficStato, ficClientiFatturabili, ficEntityUltimaFattura, ficCreaFattura, type RigaFattura } from "@/lib/fic";
+import { ficStato, ficClientiFatturabili, ficEntityUltimaFattura, ficCreaFattura, type RigaFattura, type FicEntity } from "@/lib/fic";
 import { RigheProForma } from "@/components/RigheProForma";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 // Il numero assegnato torna nell'elenco automaticamente.
 async function emettiFattura(fd: FormData) {
   "use server";
-  // il cliente è "id:<n>" (rubrica) oppure "nome:<nome>" (visto in fatture passate)
+  // il cliente è "id:<n>" (rubrica), "nome:<nome>" (visto in fatture passate),
+  // oppure vuoto = cliente nuovo (dati compilati a mano più sotto).
   const clienteVal = String(fd.get("clienteId") ?? "").trim();
-  if (!clienteVal) redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent("Scegli il cliente."));
 
   const oggetto = String(fd.get("oggetto") ?? "").trim();
   const scadenzaTxt = String(fd.get("scadenza") ?? "").trim();
@@ -44,17 +44,41 @@ async function emettiFattura(fd: FormData) {
     redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent("Inserisci almeno una riga con descrizione e prezzo."));
   }
 
-  // risolve il cliente: id rubrica oppure dati fiscali da una fattura passata
+  // risolve il cliente: id rubrica, dati da una fattura passata, o cliente nuovo
   let clienteId: number | undefined;
-  let entity: Awaited<ReturnType<typeof ficEntityUltimaFattura>> | undefined;
+  let entity: FicEntity | undefined;
   if (clienteVal.startsWith("id:")) {
     clienteId = parseInt(clienteVal.slice(3)) || undefined;
   } else if (clienteVal.startsWith("nome:")) {
     const nome = clienteVal.slice(5);
     entity = (await ficEntityUltimaFattura(nome)) ?? { name: nome };
+  } else {
+    // Cliente nuovo: dati inseriti a mano. FIC lo crea al volo con la fattura
+    // (nessuna necessità di censirlo prima in rubrica).
+    const t = (k: string) => String(fd.get(k) ?? "").trim();
+    const nuovoNome = t("nuovoNome");
+    if (nuovoNome) {
+      const piva = t("nuovoPiva");
+      const cf = t("nuovoCf");
+      const sdi = t("nuovoSdi").toUpperCase();
+      const pec = t("nuovoPec");
+      entity = {
+        name: nuovoNome,
+        ...(piva ? { vat_number: piva } : {}),
+        ...(cf ? { tax_code: cf } : {}),
+        ...(t("nuovoIndirizzo") ? { address_street: t("nuovoIndirizzo") } : {}),
+        ...(t("nuovoCap") ? { address_postal_code: t("nuovoCap") } : {}),
+        ...(t("nuovoCitta") ? { address_city: t("nuovoCitta") } : {}),
+        ...(t("nuovoProvincia") ? { address_province: t("nuovoProvincia") } : {}),
+        country: t("nuovoPaese") || "Italia",
+        ...(sdi ? { ei_code: sdi } : {}),
+        ...(pec ? { certified_email: pec } : {}),
+        ...(t("nuovoEmail") ? { email: t("nuovoEmail") } : {}),
+      };
+    }
   }
   if (!clienteId && !entity) {
-    redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent("Cliente non valido."));
+    redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent("Scegli un cliente dall'elenco oppure compila almeno la ragione sociale in «Cliente nuovo»."));
   }
 
   let numero: string;
@@ -112,9 +136,9 @@ export default async function NuovaFatturaCloud({
         <form action={emettiFattura} className="card">
           <div className="form-grid">
             <div>
-              <label className="field-label">Cliente su Fatture in Cloud <span className="req">*</span></label>
-              <select name="clienteId" required defaultValue="">
-                <option value="" disabled>Seleziona cliente…</option>
+              <label className="field-label">Cliente su Fatture in Cloud</label>
+              <select name="clienteId" defaultValue="">
+                <option value="">Seleziona cliente…</option>
                 {clienti.map((c) => (
                   <option key={c.valore} value={c.valore}>
                     {c.nome}{c.piva ? ` — ${c.piva}` : ""}{c.inRubrica ? "" : " (da fatture passate)"}
@@ -122,8 +146,8 @@ export default async function NuovaFatturaCloud({
                 ))}
               </select>
               <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
-                Include la rubrica e i clienti già fatturati (anche non salvati in rubrica): per questi si
-                riusano i dati fiscali dell&apos;ultima fattura. Cliente del tutto nuovo? Crealo prima su FIC.
+                Include la rubrica e i clienti già fatturati (anche non salvati in rubrica). Se il cliente
+                <strong> non è in elenco</strong>, usa «Cliente nuovo» qui sotto.
               </p>
             </div>
             <div>
@@ -134,6 +158,65 @@ export default async function NuovaFatturaCloud({
               <label className="field-label">Scadenza pagamento</label>
               <input type="date" name="scadenza" />
             </div>
+
+            <div className="full">
+              <details style={{ border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: "10px 14px", background: "var(--bg)" }}>
+                <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 500 }}>
+                  ➕ Cliente nuovo (non ancora in Fatture in Cloud)
+                </summary>
+                <p className="muted" style={{ fontSize: 12.5, margin: "8px 0 12px" }}>
+                  Compila qui <strong>solo</strong> se il cliente non è nell&apos;elenco sopra: FIC lo crea al volo
+                  con la fattura. Lascia il menu su «Seleziona cliente…».
+                </p>
+                <div className="form-grid">
+                  <div className="full">
+                    <label className="field-label">Ragione sociale / Nome <span className="req">*</span></label>
+                    <input type="text" name="nuovoNome" placeholder="Es. ROSSI SRL" />
+                  </div>
+                  <div>
+                    <label className="field-label">P. IVA</label>
+                    <input type="text" name="nuovoPiva" placeholder="es. 01234567890" />
+                  </div>
+                  <div>
+                    <label className="field-label">Codice fiscale</label>
+                    <input type="text" name="nuovoCf" />
+                  </div>
+                  <div>
+                    <label className="field-label">Indirizzo</label>
+                    <input type="text" name="nuovoIndirizzo" placeholder="Via …" />
+                  </div>
+                  <div>
+                    <label className="field-label">CAP</label>
+                    <input type="text" name="nuovoCap" />
+                  </div>
+                  <div>
+                    <label className="field-label">Città</label>
+                    <input type="text" name="nuovoCitta" />
+                  </div>
+                  <div>
+                    <label className="field-label">Provincia</label>
+                    <input type="text" name="nuovoProvincia" placeholder="es. MI" />
+                  </div>
+                  <div>
+                    <label className="field-label">Paese</label>
+                    <input type="text" name="nuovoPaese" defaultValue="Italia" />
+                  </div>
+                  <div>
+                    <label className="field-label">Codice destinatario (SDI)</label>
+                    <input type="text" name="nuovoSdi" placeholder="7 caratteri" />
+                  </div>
+                  <div>
+                    <label className="field-label">PEC</label>
+                    <input type="email" name="nuovoPec" />
+                  </div>
+                  <div>
+                    <label className="field-label">Email</label>
+                    <input type="email" name="nuovoEmail" />
+                  </div>
+                </div>
+              </details>
+            </div>
+
             <div className="full">
               <label className="field-label">Oggetto visibile in fattura</label>
               <input type="text" name="oggetto" placeholder="es. Servizi di consegna giugno 2026" />
