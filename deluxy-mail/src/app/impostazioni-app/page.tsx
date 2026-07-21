@@ -3,8 +3,10 @@ import { creaRegolaApp } from '@/lib/actions'
 import { AzioniRegolaApp } from '@/components/AzioniRegolaApp'
 import { ChiaveAppForm } from '@/components/ChiaveAppForm'
 import { ValoreCondizione } from '@/components/ValoreCondizione'
+import { TokenApi } from '@/components/TokenApi'
 import { descriviAzioni, statoApp } from '@/lib/appDeluxy'
 import { leggiChiaviApp, statoChiaviApp } from '@/lib/chiaviApp'
+import { tokenApiConfigurato } from '@/lib/apiAuth'
 import { richiediUtente } from '@/lib/sessione'
 import type { RegolaApp } from '@prisma/client'
 
@@ -28,6 +30,7 @@ export default async function ImpostazioniApp() {
   const azioniApp = descriviAzioni(chiavi)
   const app = statoApp(chiavi)
   const isAdmin = u.ruolo === 'admin'
+  const tokenApi = isAdmin ? await tokenApiConfigurato() : { token: '', fonte: 'nessuno' as const }
   const nomeAzione = (id: string) => {
     const a = azioniApp.find((x) => x.id === id)
     return a ? `${a.app} — ${a.nome}` : id
@@ -44,6 +47,26 @@ export default async function ImpostazioniApp() {
           </p>
         </div>
       </div>
+
+      {/* ---------- Token con cui le ALTRE app chiamano AI Mail ---------- */}
+      {isAdmin && (
+        <>
+          <h2 className="section-title" style={{ marginTop: 0 }}>
+            Token API di AI Mail
+          </h2>
+          <p className="page-caption" style={{ marginBottom: 14 }}>
+            La chiave che le altre app (Scout, script, agenti) devono passare per usare le API di
+            AI Mail — inviare una mail (<code className="app-var">POST /api/v1/invia</code>) o farsi
+            fare da Renè il punto della situazione con un contatto
+            (<code className="app-var">GET /api/v1/contatto</code>). Va nell’header{' '}
+            <code className="app-var">x-api-key</code>, con <code className="app-var">x-utente</code>{' '}
+            = l’email dell’utente AI Mail.
+          </p>
+          <div className="card" style={{ marginBottom: 24 }}>
+            <TokenApi token={tokenApi.token} fonte={tokenApi.fonte} />
+          </div>
+        </>
+      )}
 
       {/* ---------- Stato collegamento (chiavi API) ---------- */}
       <h2 className="section-title" style={{ marginTop: 0 }}>

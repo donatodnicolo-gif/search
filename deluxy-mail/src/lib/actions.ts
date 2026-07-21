@@ -61,6 +61,7 @@ import { azioneDi, regolaAppPerMail, chiaveDiAzione, type AzioneDescritta } from
 import { leggiChiaviApp, salvaChiaveApp, type NomeChiaveApp } from './chiaviApp'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
+import { CHIAVE_TOKEN_API } from './apiAuth'
 import { utenteCorrente } from './sessione'
 
 function testo(form: FormData, campo: string): string {
@@ -917,6 +918,27 @@ export async function inviaMailApi(
   } catch (e) {
     return { ok: false, messaggio: `Invio non riuscito: ${e instanceof Error ? e.message : 'errore'}` }
   }
+}
+
+/** Genera (o rigenera) il token delle API di AI Mail. Solo admin. Il token
+ *  nuovo invalida il vecchio: le app che lo usano vanno riaggiornate. */
+export async function generaTokenApi(): Promise<{ ok: boolean; token?: string; messaggio: string }> {
+  const u = await utenteCorrente()
+  if (!u || u.ruolo !== 'admin') return { ok: false, messaggio: 'Solo un amministratore può gestire il token API.' }
+  const token = `dxm_${randomBytes(24).toString('base64url')}`
+  await scriviImpostazione(CHIAVE_TOKEN_API, cifra(token))
+  revalidatePath('/impostazioni-app')
+  return { ok: true, token, messaggio: 'Token generato. Copialo nelle app che devono chiamare AI Mail.' }
+}
+
+/** Spegne le API: cancella il token dal DB (se non c'è API_TOKEN nell'env,
+ *  le rotte tornano a rispondere 503). Solo admin. */
+export async function revocaTokenApi(): Promise<{ ok: boolean; messaggio: string }> {
+  const u = await utenteCorrente()
+  if (!u || u.ruolo !== 'admin') return { ok: false, messaggio: 'Solo un amministratore.' }
+  await db.impostazione.deleteMany({ where: { chiave: CHIAVE_TOKEN_API } })
+  revalidatePath('/impostazioni-app')
+  return { ok: true, messaggio: 'Token revocato.' }
 }
 
 export async function salvaMinuta(

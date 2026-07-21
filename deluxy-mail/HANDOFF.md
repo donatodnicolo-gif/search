@@ -130,7 +130,7 @@ Tutte scoped per utente via `uid()`. Le principali:
 - **Calendario:** `creaEvento` (orari in ora italiana → UTC), `eliminaEvento`, `rigeneraFeedCalendario` / `spegniFeedCalendario` (token del feed iCal). Rotta pubblica **`/api/calendario?token=…`** (esclusa dal middleware): feed iCalendar RFC 5545 generato da `lib/ics.ts`, sola lettura, da abbonare in Google/Apple/Outlook.
 - **Utenti (auth-actions.ts):** `accedi`, `creaPrimoAdmin`, `esci`, `creaUtente`, `cambiaStatoUtente`, `reimpostaPassword`, `eliminaUtente`, `salvaFirma`.
 
-**API pubbliche `/api/v1/*`** (per altre app Deluxy/agenti, escluse dal middleware; auth in `lib/apiAuth.ts`): chiave unica **`API_TOKEN`** (env) come header `x-api-key` o `Authorization: Bearer`, + `x-utente: <email>` per scegliere l'utente/casella.
+**API pubbliche `/api/v1/*`** (per altre app Deluxy/agenti, escluse dal middleware; auth in `lib/apiAuth.ts`): chiave unica come header `x-api-key` o `Authorization: Bearer`, + `x-utente: <email>` per scegliere l'utente/casella. Il token si **genera dall'app** (Impostazioni App → «Token API di AI Mail», admin: `generaTokenApi`/`revocaTokenApi`, salvato CIFRATO in Impostazione `api.token`) oppure via env `API_TOKEN` (il DB ha precedenza). `tokenApiConfigurato()` risolve token+fonte.
   - **`POST /api/v1/invia`** — invia una mail (`inviaMailApi` in actions.ts, riusa `spedisci`/`registraInviato`). Body JSON `{a, cc?, oggetto, corpo}` (testo semplice).
   - **`GET /api/v1/contatto?email=<contatto>`** — Renè fa il punto della situazione con un contatto (`analizzaContattoOra`): `{situazione, inSospeso[], prossimeAzioni[], messaggiVisti, aggiornatoIl}` sui messaggi già scaricati.
 
