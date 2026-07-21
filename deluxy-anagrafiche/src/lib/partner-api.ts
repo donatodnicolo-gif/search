@@ -56,6 +56,17 @@ export function validaPartner(
   body: Record<string, unknown>,
   perCreazione: boolean,
 ): { dati: Prisma.PartnerUncheckedCreateInput; contatti?: ContattoInput[] } | ErroreValidazione {
+  // Simmetria lettura/scrittura: la risposta annida i campi finanziari sotto
+  // `datiFinanziari`; accettiamo la stessa forma in ingresso (oltre a quella
+  // piatta) sollevandone i campi al primo livello — così un'app può rispedire
+  // esattamente ciò che ha letto.
+  if (body.datiFinanziari && typeof body.datiFinanziari === "object") {
+    const nidi = body.datiFinanziari as Record<string, unknown>;
+    for (const campo of CAMPI_FINANZIARI) {
+      if (campo in nidi && !(campo in body)) body = { ...body, [campo]: nidi[campo] };
+    }
+  }
+
   const dati: Record<string, unknown> = {};
 
   for (const campo of CAMPI_TESTO) {
