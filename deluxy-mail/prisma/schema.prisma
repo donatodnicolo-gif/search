@@ -29,7 +29,8 @@ model Utente {
   nome         String
   passwordHash String // scrypt "salt.hash" — mai reversibile
   ruolo        String   @default("utente") // admin | utente
-  firma        String   @default("") @db.Text // firma personale nelle bozze
+  firma        String   @default("") @db.Text // firma personale nelle bozze (HTML generato)
+  firmaDati    String   @default("") @db.Text // i campi della firma (JSON) per riaprire il form
   // Traduzione automatica: se attiva, le mail in lingua straniera aperte
   // vengono tradotte in italiano, e le risposte scritte in italiano vengono
   // inviate nella lingua dell'originale.

@@ -1,6 +1,6 @@
 import type { Messaggio } from '@prisma/client'
 import { dataLunga } from './format'
-import { plainAHtml } from './htmlMail'
+import { plainAHtml, sembraHtml } from './htmlMail'
 import { sanitizzaHtml } from './sanitizzaHtml'
 
 function escapeHtml(s: string): string {
@@ -90,16 +90,19 @@ export function preparaRisposta(opts: {
   const { messaggio, modo, mioIndirizzo, firma } = opts
   const io = mioIndirizzo.toLowerCase()
 
-  // Se l'originale è HTML, la risposta si scrive in HTML e la citazione mantiene
-  // la formattazione (l'editor rende l'HTML). Altrimenti resta tutto testo.
-  const html = Boolean(messaggio.corpoHtml)
+  // Si scrive in HTML se l'originale è HTML OPPURE se la firma è HTML (la firma
+  // Deluxy generata): in entrambi i casi la citazione va resa come HTML, così la
+  // firma non appare come codice e l'originale mantiene la formattazione.
+  const html = Boolean(messaggio.corpoHtml) || sembraHtml(firma ?? '')
   // Corpo della risposta: uno spazio in cima dove scrivere, poi la firma, poi
   // l'originale citato. In HTML lo spazio è un paragrafo vuoto; in testo le
   // solite righe vuote (comportamento invariato).
   const corpoRisposta = () => {
     if (html) {
       const spazio = '<p><br></p>'
-      const firmaHtml = firma ? plainAHtml(firma) : ''
+      // Se la firma è già HTML (firma Deluxy generata), si usa così com'è;
+      // altrimenti si converte il testo in HTML.
+      const firmaHtml = firma ? (sembraHtml(firma) ? firma : plainAHtml(firma)) : ''
       return `${spazio}${firmaHtml}${citaHtml(messaggio)}`
     }
     const coda = firma ? `\n\n${firma}` : ''

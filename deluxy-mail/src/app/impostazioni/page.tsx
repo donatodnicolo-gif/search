@@ -5,6 +5,8 @@ import { FormAccount } from '@/components/FormAccount'
 import { EliminaAccount } from '@/components/EliminaAccount'
 import { ScaricaStorico } from '@/components/ScaricaStorico'
 import { NotifichePush } from '@/components/NotifichePush'
+import { salvaFirmaDati } from '@/lib/actions'
+import { leggiFirmaDati } from '@/lib/firma'
 import { dataLunga } from '@/lib/format'
 import { richiediUtente } from '@/lib/sessione'
 
@@ -26,6 +28,12 @@ export default async function Impostazioni() {
     leggiImpostazioni(),
   ])
   const isAdmin = u.ruolo === 'admin'
+
+  // Dati della firma per il form dedicato: se l'email è ancora vuota (primo
+  // accesso / creazione account), si precompila con quella dell'utente.
+  const firmaDati = leggiFirmaDati(u.firmaDati)
+  if (!firmaDati.email) firmaDati.email = u.email
+  if (!firmaDati.nome) firmaDati.nome = u.nome
 
   const aiPronta = Boolean(process.env.OPENAI_API_KEY)
   const modello = process.env.OPENAI_MODEL || 'gpt-4o-mini'
@@ -160,16 +168,6 @@ export default async function Impostazioni() {
               </div>
             </div>
             <div className="full">
-              <label className="field-label">La tua firma per le bozze</label>
-              <textarea
-                name="firma"
-                rows={3}
-                defaultValue={u.firma}
-                placeholder={'Nicolò Donato\nDeluxy\n+39 ...'}
-              />
-            </div>
-
-            <div className="full">
               <label className="field-label">Controlla la posta ogni</label>
               <select
                 name="sincronizzaOgniSec"
@@ -236,6 +234,47 @@ export default async function Impostazioni() {
           <div className="form-footer">
             <button className="btn primary" type="submit">
               Salva
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <h2 className="section-title">La tua firma</h2>
+      <div className="card">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 }}>
+          Compila i tuoi dati: la firma Deluxy (con logo) si genera da sola e finisce in fondo alle
+          mail che scrivi. La puoi cambiare quando vuoi.
+        </p>
+        <form action={salvaFirmaDati}>
+          <div className="form-grid">
+            <div>
+              <label className="field-label">Nome e cognome</label>
+              <input type="text" name="nome" defaultValue={firmaDati.nome} placeholder="Eleonora Mannini" />
+            </div>
+            <div>
+              <label className="field-label">Ruolo</label>
+              <input type="text" name="ruolo" defaultValue={firmaDati.ruolo} placeholder="Chief Commercial Officer" />
+            </div>
+            <div>
+              <label className="field-label">Reparto / azienda</label>
+              <input type="text" name="reparto" defaultValue={firmaDati.reparto} placeholder="Deluxy White Gloves" />
+            </div>
+            <div>
+              <label className="field-label">Email</label>
+              <input type="text" name="email" defaultValue={firmaDati.email} placeholder="nome@deluxy.it" />
+            </div>
+            <div>
+              <label className="field-label">Telefono</label>
+              <input type="text" name="telefono" defaultValue={firmaDati.telefono} placeholder="+39 339 1068285" />
+            </div>
+            <div>
+              <label className="field-label">Sito</label>
+              <input type="text" name="sito" defaultValue={firmaDati.sito} placeholder="www.deluxy.it" />
+            </div>
+          </div>
+          <div className="form-footer" style={{ marginTop: 14 }}>
+            <button className="btn primary" type="submit">
+              Salva firma
             </button>
           </div>
         </form>

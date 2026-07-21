@@ -65,6 +65,7 @@ import { provaConnessione, salvaInInviata, trovaCartellaInviata, eliminaDalServe
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
 import { CHIAVE_TOKEN_API } from './apiAuth'
 import { utenteCorrente } from './sessione'
+import { costruisciFirma, type FirmaDati } from './firma'
 
 function testo(form: FormData, campo: string): string {
   return String(form.get(campo) ?? '').trim()
@@ -2122,7 +2123,7 @@ export async function salvaImpostazioni(form: FormData) {
   await db.utente.update({
     where: { id: u.id },
     data: {
-      firma: testo(form, 'firma'),
+      // La firma NON si tocca qui: si gestisce dal form dedicato (salvaFirmaDati).
       traduzioneAuto: flag(form, 'traduzioneAuto'),
       scaricaStoricoAuto: flag(form, 'scaricaStoricoAuto'),
       lingueLette: lingue.length ? lingue.join(', ') : 'italiano',
@@ -2133,6 +2134,27 @@ export async function salvaImpostazioni(form: FormData) {
     await scriviImpostazione('contesto_azienda', testo(form, 'contestoAzienda'))
   }
   revalidatePath('/impostazioni')
+}
+
+/** Salva i dati della firma dal form dedicato: genera l'HTML (Utente.firma) e
+ *  conserva i campi (Utente.firmaDati) per riaprire il form. */
+export async function salvaFirmaDati(form: FormData): Promise<void> {
+  const u = await utenteCorrente()
+  if (!u) return
+  const dati: FirmaDati = {
+    nome: testo(form, 'nome'),
+    ruolo: testo(form, 'ruolo'),
+    reparto: testo(form, 'reparto'),
+    email: testo(form, 'email'),
+    telefono: testo(form, 'telefono'),
+    sito: testo(form, 'sito'),
+  }
+  await db.utente.update({
+    where: { id: u.id },
+    data: { firma: costruisciFirma(dati), firmaDati: JSON.stringify(dati) },
+  })
+  revalidatePath('/impostazioni')
+  revalidatePath('/', 'layout')
 }
 
 /**

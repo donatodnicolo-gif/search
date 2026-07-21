@@ -131,6 +131,8 @@ const stmts = [
   `UPDATE "Utente" SET "sincronizzaOgniSec" = 300 WHERE "sincronizzaOgniSec" = 60`,
   // Scarico automatico di tutta la posta di sempre (storico) in background.
   `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "scaricaStoricoAuto" BOOLEAN NOT NULL DEFAULT false`,
+  // Dati della firma (JSON) per riaprire il form di modifica.
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "firmaDati" TEXT NOT NULL DEFAULT ''`,
   // Cursori per lo storico della cartella "Inviata" (scarico inviati in background).
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "ultimoUidInviata" INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "primoUidInviata" INTEGER NOT NULL DEFAULT 0`,
