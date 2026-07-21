@@ -176,14 +176,22 @@ export async function applicaPropostaRene(
       const messaggioId = s('messaggioId')
       const sezioneId = await sezioneDaNome(s('sezioneNome'))
       if (!messaggioId || !sezioneId) return { ok: false, messaggio: 'Smistamento incompleto.' }
+      // "Non smistata a mano" deve includere le mail ANCORA da smistare
+      // (smistatoDa NULL): in SQL `NULL != 'manuale'` non è vero, quindi un
+      // semplice NOT le escluderebbe — proprio quelle da sistemare.
       const r = await db.messaggio.updateMany({
-        // Mai sopra una scelta fatta a mano.
-        where: { id: messaggioId, utenteId, NOT: { smistatoDa: 'manuale' } },
+        where: {
+          id: messaggioId,
+          utenteId,
+          OR: [{ smistatoDa: null }, { smistatoDa: { not: 'manuale' } }],
+        },
         data: { sezioneId, smistatoDa: 'ai' },
       })
-      return r.count > 0
-        ? { ok: true, messaggio: `Mail smistata in «${s('sezioneNome')}».` }
-        : { ok: false, messaggio: 'Mail non trovata (o smistata a mano).' }
+      if (r.count > 0) return { ok: true, messaggio: `Mail smistata in «${s('sezioneNome')}».` }
+      // Distinguo i due casi per un messaggio utile.
+      const esiste = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId }, select: { smistatoDa: true } })
+      if (!esiste) return { ok: false, messaggio: 'Mail non più disponibile.' }
+      return { ok: false, messaggio: 'Mail smistata a mano: non la tocco.' }
     }
 
     case 'attivita': {

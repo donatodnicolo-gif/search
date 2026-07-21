@@ -1680,13 +1680,18 @@ async function retrodataRegola(
     gruppoOr('corpoTesto', r.seContiene),
   ].filter(Boolean) as Prisma.MessaggioWhereInput[]
 
+  // Non sovrascrivere lo smistamento fatto a mano — ma includendo le mail
+  // ANCORA da smistare (smistatoDa NULL): in SQL `NULL != 'manuale'` non è
+  // vero, quindi un NOT secco le escluderebbe, cioè proprio quelle da sistemare.
+  if (data.sezioneId) {
+    and.push({ OR: [{ smistatoDa: null }, { smistatoDa: { not: 'manuale' } }] })
+  }
+
   const where: Prisma.MessaggioWhereInput = {
     utenteId,
     direzione: 'entrata',
     cestinato: false,
     ...(and.length ? { AND: and } : {}),
-    // Non sovrascrivere lo smistamento fatto a mano.
-    ...(data.sezioneId ? { NOT: { smistatoDa: 'manuale' } } : {}),
   }
 
   const res = await db.messaggio.updateMany({ where, data })
