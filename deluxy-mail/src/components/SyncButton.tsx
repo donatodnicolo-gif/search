@@ -1,8 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { sincronizzaOra } from '@/lib/actions'
 
 const CHIAVE_AUTO = 'aimail:auto'
 
@@ -17,7 +16,7 @@ export function SyncButton({ intervalloSec = 300 }: { intervalloSec?: number }) 
   const [stato, setStato] = useState<string | null>(null)
   const [ultimo, setUltimo] = useState<Date | null>(null)
   const [auto, setAuto] = useState(true)
-  const [inCorso, startTransition] = useTransition()
+  const [inCorso, setInCorso] = useState(false)
   const router = useRouter()
 
   // La preferenza vive nel browser: è una scelta di questo dispositivo, non
@@ -31,13 +30,28 @@ export function SyncButton({ intervalloSec = 300 }: { intervalloSec?: number }) 
     window.localStorage.setItem(CHIAVE_AUTO, acceso ? 'on' : 'off')
   }
 
-  const vai = useCallback(() => {
-    startTransition(async () => {
-      const esito = await sincronizzaOra()
-      setStato(esito.messaggio)
+  // Lettura via FETCH a una rotta (non Server Action): così non entra nella
+  // coda navigazioni+azioni di Next e l'app resta cliccabile mentre legge.
+  // `inCorso` è un ref per evitare che due giri si sovrappongano.
+  const inCorsoRef = useRef(false)
+  const vai = useCallback(async () => {
+    if (inCorsoRef.current) return // niente giri sovrapposti
+    inCorsoRef.current = true
+    setInCorso(true)
+    try {
+      const res = await fetch('/api/leggi-posta', { method: 'POST' })
+      const esito = (await res.json().catch(() => ({}))) as { messaggio?: string; nuovi?: number }
+      setStato(esito.messaggio ?? null)
       setUltimo(new Date())
-      router.refresh()
-    })
+      // Aggiorna la lista SOLO se è arrivato qualcosa: un refresh a vuoto
+      // costa e non serve.
+      if (esito.nuovi && esito.nuovi > 0) router.refresh()
+    } catch {
+      setStato('Lettura non riuscita: riprovo al prossimo giro.')
+    } finally {
+      inCorsoRef.current = false
+      setInCorso(false)
+    }
   }, [router])
 
   // Il timer sta in un ref: rifare l'intervallo a ogni render lo farebbe

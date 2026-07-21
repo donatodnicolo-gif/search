@@ -715,11 +715,17 @@ export async function leggiQuadroContatto(utenteId: string, email: string): Prom
 }
 
 /** Sincronizza una casella: scarica i nuovi messaggi e applica le regole. */
-export async function sincronizzaAccount(accountId: string, limite = 25): Promise<EsitoSync> {
+export async function sincronizzaAccount(
+  accountId: string,
+  limite = 25,
+  // `esaurisci`: true (cron) svuota nuovi + storico fino a ~35s. false (il
+  // pulsante / auto-refresh) fa un giro BREVE — solo posta nuova, niente
+  // storico — così l'interfaccia non resta bloccata durante la lettura. Il
+  // cursore incrementale garantisce che il resto si recuperi ai giri dopo.
+  esaurisci = true
+): Promise<EsitoSync> {
   const partenza = Date.now()
-  // La Server Action ha 60s su Vercel: il giro si ferma per tempo, il cursore
-  // incrementale garantisce che il lavoro fatto resti acquisito.
-  const BUDGET_MS = 35_000
+  const BUDGET_MS = esaurisci ? 35_000 : 7_000
 
   let account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
   const esito: EsitoSync = { tipo: 'scarico', account: account.email, scaricati: 0, nonSalvati: 0, scartati: 0 }
@@ -784,10 +790,9 @@ export async function sincronizzaAccount(accountId: string, limite = 25): Promis
     account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
   }
 
-  // Niente di nuovo e tempo avanzato? Blocchi di storico a esaurimento: così
-  // la posta vecchia arriva da sola, senza dover premere niente, e in fretta
-  // (fino a ~35s di scarico per ogni "Aggiorna posta" o giro automatico).
-  if (esito.scaricati === 0 && !account.storicoFinito) {
+  // Lo storico si scarica solo nei giri COMPLETI (cron): nel giro breve
+  // (pulsante/auto) lo saltiamo, così la lettura è rapida e non blocca la UI.
+  if (esaurisci && esito.scaricati === 0 && !account.storicoFinito) {
     for (let giro = 0; giro < 10 && Date.now() - partenza < BUDGET_MS; giro++) {
       try {
         const storico = await scaricaStorico(accountId, 40)
@@ -1309,10 +1314,11 @@ export async function sincronizzaTutti(): Promise<EsitoSync[]> {
   return esiti
 }
 
-/** Solo le caselle di un utente — per il pulsante "Aggiorna posta". */
+/** Solo le caselle di un utente — per il pulsante "Aggiorna posta".
+ *  Giro BREVE (esaurisci=false): legge la posta nuova senza bloccare la UI. */
 export async function sincronizzaUtente(utenteId: string): Promise<EsitoSync[]> {
   const account = await db.account.findMany({ where: { utenteId, attivo: true } })
   const esiti: EsitoSync[] = []
-  for (const a of account) esiti.push(await sincronizzaAccount(a.id))
+  for (const a of account) esiti.push(await sincronizzaAccount(a.id, 25, false))
   return esiti
 }
