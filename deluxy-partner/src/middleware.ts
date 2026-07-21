@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
+import { SESSION_COOKIE, ruoloDaSessione } from "@/lib/auth";
+
+// Metodi che non modificano dati: le letture e la navigazione sono sempre GET/HEAD.
+// Le mutazioni dell'app passano da server actions (POST): bloccando i POST si
+// blocca ogni scrittura per il profilo di sola lettura, in un punto solo.
+const METODI_LETTURA = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export async function middleware(req: NextRequest) {
   // Ritorno OAuth da Fatture in Cloud: la Redirect URL registrata è la root
@@ -19,11 +24,20 @@ export async function middleware(req: NextRequest) {
   if (!password) return NextResponse.next(); // sviluppo locale: aperta
 
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;
-  if (cookie && cookie === (await sessionToken(password))) {
-    return NextResponse.next();
+  const ruolo = await ruoloDaSessione(cookie);
+  if (!ruolo) {
+    return NextResponse.redirect(new URL("/login", req.url));
   }
-  const login = new URL("/login", req.url);
-  return NextResponse.redirect(login);
+
+  // Sola lettura: consenti solo le richieste di lettura; ogni scrittura (POST,
+  // PUT, PATCH, DELETE — incluse le server actions) viene rifiutata.
+  if (ruolo === "sola_lettura" && !METODI_LETTURA.has(req.method)) {
+    return NextResponse.json(
+      { errore: "Accesso di sola lettura: non è consentito modificare i dati." },
+      { status: 403 }
+    );
+  }
+  return NextResponse.next();
 }
 
 export const config = {

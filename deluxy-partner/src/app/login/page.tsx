@@ -5,12 +5,15 @@ import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
 async function login(fd: FormData) {
   "use server";
   const password = process.env.PARTNER_APP_PASSWORD;
+  const readonly = process.env.PARTNER_APP_PASSWORD_READONLY;
   const tentativo = String(fd.get("password") ?? "");
-  if (!password || tentativo !== password) {
+  // accetta la password piena o quella di sola lettura; il cookie codifica il ruolo
+  const usata = password && tentativo === password ? password : readonly && tentativo === readonly ? readonly : null;
+  if (!usata) {
     redirect("/login?errore=1");
   }
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, await sessionToken(password), {
+  jar.set(SESSION_COOKIE, await sessionToken(usata), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
