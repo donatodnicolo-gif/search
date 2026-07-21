@@ -48,7 +48,8 @@ export function NuoveAzioni() {
 
   return (
     <>
-      {/* Desktop: i due tasti in linea coi filtri. Su mobile sono nascosti. */}
+      {/* Desktop: i tasti in linea coi filtri. Su mobile sono nascosti
+          (Renè sta nella barra in alto, Nuova mail/attività nel +). */}
       <span className="nuove-inline">
         <Link href="/scrivi" className="btn primary small">
           ✎ Nuova mail
@@ -56,6 +57,9 @@ export function NuoveAzioni() {
         <button type="button" className="btn secondary small" onClick={() => setAperto(true)}>
           + Nuova attività
         </button>
+        <Link href="/rene" className="btn secondary small btn-rene" title="Renè AI: l’agente che tiene la casella in ordine">
+          <span className="ai-toggle-mark">AI</span> Renè
+        </Link>
         <span className="nuove-sep" />
       </span>
 

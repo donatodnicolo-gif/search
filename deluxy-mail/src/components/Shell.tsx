@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 /**
@@ -63,6 +64,11 @@ export function Shell({
           <span />
         </button>
         <span className="mobile-title">AI Mail</span>
+        {/* Renè sempre a un tocco, anche su telefono. */}
+        <Link href="/rene" className="mobile-rene" aria-label="Apri Renè AI">
+          <span className="ai-toggle-mark">AI</span>
+          Renè
+        </Link>
       </header>
 
       <div className={`shell ${aperto ? 'nav-open' : ''}`}>

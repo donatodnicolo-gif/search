@@ -695,6 +695,12 @@ input:focus, select:focus, textarea:focus {
 
 /* I tasti "Nuova mail"/"Nuova attività": in linea su desktop, FAB su mobile. */
 .nuove-inline { display: inline-flex; gap: 8px; align-items: center; }
+/* Il tasto di Renè: leggero tocco oro, è l'agente della casa. */
+.btn-rene { border: 1px solid rgba(184, 150, 62, 0.35); background: var(--gold-soft); }
+.btn-rene:hover { background: var(--gold-soft); border-color: var(--gold-strong); }
+
+/* Renè nella barra mobile in alto: visibile solo su telefono. */
+.mobile-rene { display: none; }
 .nuove-sep { width: 1px; height: 22px; background: var(--hairline-strong); margin: 0 2px; }
 .fab { display: none; }
 
@@ -890,6 +896,14 @@ input:focus, select:focus, textarea:focus {
     border-bottom: 1px solid var(--hairline);
   }
   .mobile-title { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
+  /* Renè a destra della barra: sempre a un tocco. */
+  .mobile-rene {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-left: auto;
+    font-size: 13px; font-weight: 600;
+    padding: 6px 12px; border-radius: var(--radius-pill);
+    background: var(--gold-soft); border: 1px solid rgba(184, 150, 62, 0.35);
+  }
   .hamburger {
     display: inline-flex; flex-direction: column; justify-content: center; gap: 4px;
     width: 40px; height: 40px; padding: 9px; margin-left: -8px;
