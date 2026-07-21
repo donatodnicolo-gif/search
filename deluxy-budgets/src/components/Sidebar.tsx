@@ -55,6 +55,12 @@ const icons = {
       <path d="M12 8.6v3.4M12 12H7.2a1.7 1.7 0 0 0-1.7 1.7v.7M12 12h4.8a1.7 1.7 0 0 1 1.7 1.7v.7" />
     </svg>
   ),
+  cfo: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M3 4.5h18M4.5 4.5v13a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-13" />
+      <path d="M8 9.5l3 3 5-5.5" />
+    </svg>
+  ),
   consuntivo: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <path d="M4 20V4h11l5 5v11z" />
@@ -119,6 +125,7 @@ const sections: { label: string; items: Item[] }[] = [
     label: "Conti",
     items: [
       { href: "/pl", label: "P&L aziendale", icon: icons.pl },
+      { href: "/cfo", label: "CFO — costi da banca", icon: icons.cfo },
       { href: "/consuntivo", label: "Consuntivo (Finance)", icon: icons.consuntivo },
       { href: "/margini", label: "Margini", icon: icons.margini },
       { href: "/spese", label: "Spese ADV", icon: icons.spese },

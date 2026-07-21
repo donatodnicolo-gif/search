@@ -180,6 +180,30 @@ model Dipendente {
   teamId        String?
 }
 
+// CFO — ricostruzione dei costi dagli addebiti bancari.
+// Categoria di costo in cui si riclassificano le uscite di banca (Struttura,
+// Personale, Marketing, Fornitori, Tasse…). tipoPL indica dove confluisce nel
+// conto economico.
+model CategoriaCosto {
+  id     String        @id @default(cuid())
+  nome   String        @unique
+  tipoPL String        @default("STRUTTURA") // COGS | ADV | PERSONALE | STRUTTURA | ESCLUSA
+  colore String?
+  ordine Int           @default(0)
+  regole RegolaCosto[]
+}
+
+// Regola di riclassificazione: se la controparte dell'addebito contiene (o
+// è uguale a) `match`, la spesa va in questa categoria. Le regole più lunghe
+// vincono, così una regola specifica batte una generica.
+model RegolaCosto {
+  id          String         @id @default(cuid())
+  match       String // testo cercato nella controparte
+  esatto      Boolean        @default(false) // true = uguaglianza, false = "contiene"
+  categoria   CategoriaCosto @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  categoriaId String
+}
+
 // Proposta di budget inviata da un utente di livello Responsabile.
 model PropostaBudget {
   id         String   @id @default(cuid())

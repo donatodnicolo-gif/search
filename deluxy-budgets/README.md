@@ -22,6 +22,13 @@ pubblicato), *sfidante* e *irraggiungibile*.
   addizionali e cuneo fiscale). È una stima di pianificazione con **parametri fiscali 2025**:
   non sostituisce il cedolino e va riverificata con la legge di bilancio dell'anno di budget
   (motore in `src/lib/calc.ts`, funzioni `irpefLorda`, `detrazioneLavoro`, `cuneoFiscale`).
+- **CFO** (`/cfo`): scarica gli **addebiti bancari** dall'app Finance (`/api/spese`, uscite per
+  controparte e per mese) e li **riclassifica in categorie di costo** tramite regole
+  (controparte → categoria, il match più specifico vince). Ricostruisce la struttura dei costi,
+  mostra la % di copertura e le controparti **da categorizzare** con assegnazione rapida (crea
+  una regola permanente). Ogni categoria è agganciata a una voce di P&L (COGS/ADV/Personale/
+  Struttura/Esclusa). Richiede `FINANCE_API_KEY` e la nuova API `/api/spese` **deployata su
+  Finance**. Categorie e regole si aggiungono/rimuovono.
 - **Consuntivo** (`/consuntivo`): gli importi **realmente fatturati** per tipologia di servizio,
   richiamati dall'app **Finance** (`deluxy-partner`, endpoint `/api/tipologie`) con selettore di
   periodo (anno / 1° / 2° semestre) e stato (tutte / saldate / aperte). Il fatturato reale si
@@ -92,8 +99,12 @@ con mesi di competenza), dettaglio maison D2C/Eventi/B2B, team commerciale per l
 clienti, invio e lista proposte, spese ADV con % per mese personalizzabili, impostazioni
 scenari/premi/costi, catalogo Hub aggiornato (id `budgets`, `APP_URL_BUDGETS`).
 
-**MANCA**: consuntivi/actual accanto al budget (integrazione monitoraggio), premi per
-singolo responsabile (oggi monte premi totale), approvazione/consolidamento delle
-proposte nel budget ufficiale, autenticazione via Hub, deploy (Vercel + Postgres),
-budget pluriennale 2027-30 (già presente nei file pubblicati), P&L per singola linea
-commerciale, tredicesima/quattordicesima e TFR come voci distinte del costo del lavoro.
+**MANCA**:
+- **Deploy** (Vercel + Postgres) e **autenticazione via Hub**: oggi gira solo in locale su SQLite.
+- **Anno unico 2026**: nessun selettore d'anno; il pluriennale 2027-30 (già nei file pubblicati) non è caricato.
+- **Proposte budget**: si raccolgono ma non si **approvano/consolidano** nel budget ufficiale.
+- **Premi per singolo responsabile**: oggi è un monte premi totale per livello, non ripartito per persona/team.
+- **Consuntivo**: confronto solo dove la mappatura Finance è impostata; manca il **dettaglio mensile** dell'actual (l'API dà il periodo, non il mese-per-mese) e le vendite D2C reali (non passano da Finance).
+- **Piattaforme ADV**: split **globale** d'azienda, non per singola maison; nessun raccordo con lo speso reale.
+- **Costo del lavoro**: tredicesima/quattordicesima e TFR non sono voci distinte; nessun consuntivo del personale.
+- **P&L**: per singola **linea commerciale** non c'è (le linee hanno solo il budget vendite, non un conto economico).

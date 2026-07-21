@@ -40,6 +40,76 @@ export function financeConfigurato(): boolean {
   return Boolean(process.env.FINANCE_API_KEY);
 }
 
+// ---------- Spese bancarie (addebiti) per il CFO ----------
+
+export type SpesaControparte = {
+  controparte: string;
+  uscite: number;
+  movimenti: number;
+  quota: number;
+  perMese: number[]; // 12 valori
+};
+
+export type SpeseBanca = {
+  anno: number;
+  periodo: { dal: number; al: number; etichetta: string };
+  controparti: SpesaControparte[];
+  totali: { uscite: number; movimenti: number; perMese: number[] };
+};
+
+export type SpeseResult =
+  | { ok: true; dati: SpeseBanca }
+  | { ok: false; errore: string; configurato: boolean };
+
+export async function fetchSpeseBanca(f: {
+  anno: number;
+  dal?: number;
+  al?: number;
+  mese?: number | null;
+  includiIgnorate?: boolean;
+}): Promise<SpeseResult> {
+  const key = process.env.FINANCE_API_KEY;
+  if (!key) {
+    return {
+      ok: false,
+      configurato: false,
+      errore: "Chiave Finance non configurata. Imposta FINANCE_API_KEY nel file .env.",
+    };
+  }
+  const qs = new URLSearchParams({ anno: String(f.anno) });
+  if (f.mese) qs.set("mese", String(f.mese));
+  else {
+    if (f.dal) qs.set("dal", String(f.dal));
+    if (f.al) qs.set("al", String(f.al));
+  }
+  if (f.includiIgnorate) qs.set("stato", "tutte");
+
+  try {
+    const res = await fetch(`${BASE}/api/spese?${qs.toString()}`, {
+      headers: { "X-API-Key": key, "X-App": "deluxy-budgets" },
+      cache: "no-store",
+    });
+    if (res.status === 401) {
+      return { ok: false, configurato: true, errore: "Chiave Finance non valida (401): controlla FINANCE_API_KEY." };
+    }
+    if (res.status === 404) {
+      return {
+        ok: false,
+        configurato: true,
+        errore: "Endpoint /api/spese non ancora disponibile su Finance: va deployata la nuova versione.",
+      };
+    }
+    if (!res.ok) return { ok: false, configurato: true, errore: `Finance ha risposto ${res.status}.` };
+    const dati = (await res.json()) as SpeseBanca;
+    if (!Array.isArray(dati?.controparti)) {
+      return { ok: false, configurato: true, errore: "Risposta di Finance non riconosciuta." };
+    }
+    return { ok: true, dati };
+  } catch {
+    return { ok: false, configurato: true, errore: "Finance non raggiungibile: riprova più tardi." };
+  }
+}
+
 export async function fetchConsuntivo(f: FiltroConsuntivo): Promise<ConsuntivoResult> {
   const key = process.env.FINANCE_API_KEY;
   if (!key) {
