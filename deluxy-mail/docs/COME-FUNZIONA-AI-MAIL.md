@@ -1,6 +1,6 @@
 # Come funziona AI MAIL 2.0
 
-Documento di riferimento dell'app `deluxy-mail`. Aggiornato al 17 luglio 2026.
+Documento di riferimento dell'app `deluxy-mail`. Aggiornato al 21 luglio 2026.
 
 ---
 
@@ -91,6 +91,21 @@ di più e a correggere il contesto in Impostazioni.
 
 L'invio (`inviaBozza` in `src/lib/actions.ts`) passa da SMTP e richiede due click di
 conferma. È l'unica azione dell'app che esce verso il mondo.
+
+**Delega Renè.** Su ogni mail puoi dare a Renè un'istruzione a parole e lui prepara la
+bozza. Renè legge **tutta la conversazione** (non solo l'ultimo messaggio), così risponde
+a ciò che è ancora in sospeso. E capisce se gli stai chiedendo una **risposta** o un
+**inoltro**: se scrivi «inoltra questa a …», prepara un inoltro (oggetto `Fwd:`, mail
+originale citata sotto, destinatario scelto fra i contatti se lo riconosce) invece di una
+risposta al mittente. Non invia mai da solo: la controlli e la mandi tu.
+
+## 6b. Aprire una mail è istantaneo
+
+Aprire un messaggio non aspetta l'AI. La mail compare **subito** con il suo contenuto; se
+è in una lingua straniera e la traduzione automatica è attiva, la traduzione viene
+calcolata **in background** e appare un attimo dopo (prima invece la prima apertura di
+ogni mail restava bloccata sulla chiamata di traduzione). Tutte le letture della pagina
+girano in parallelo, non una dopo l'altra.
 
 ## 7. Sicurezza
 

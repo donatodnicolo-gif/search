@@ -50,6 +50,7 @@ import {
   riassumiThreadOra,
   scaricaStorico,
   sincronizzaUtente,
+  traduciMessaggioSeServe,
   type QuadroContatto,
   type RiassuntoThreadSalvato,
 } from './sync'
@@ -270,6 +271,22 @@ export async function delegaRene(
   const esito = await preparaRispostaDelegata(messaggioId, istruzione, await uid())
   revalidatePath('/', 'layout')
   return esito
+}
+
+/**
+ * Traduce (se serve) un messaggio in background, dopo che la mail è già stata
+ * aperta: la logica decide da sola se c'è qualcosa da tradurre. Serve a NON
+ * bloccare l'apertura della mail sulla chiamata all'AI (vedi
+ * TraduzioneAllApertura). Non usa revalidatePath: la pagina si aggiorna da sé.
+ */
+export async function traduciMessaggio(
+  messaggioId: string
+): Promise<{ ok: boolean; lingua: string | null }> {
+  const { lingua } = await traduciMessaggioSeServe(messaggioId, await uid())
+  // `lingua` valorizzata = c'è qualcosa di nuovo da mostrare (traduzione o
+  // semplicemente lingua rilevata). Null = niente da fare / errore: il client
+  // NON aggiorna, così non si innesca un ciclo di ritentativi.
+  return { ok: true, lingua }
 }
 
 /** Delega a Renè un appuntamento a partire da una mail (+ eventuale indicazione). */

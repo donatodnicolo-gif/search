@@ -13,7 +13,8 @@ import { EditorIstruzioni } from '@/components/EditorIstruzioni'
 import { AgganciaMail } from '@/components/AgganciaMail'
 import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
 import { richiediUtente } from '@/lib/sessione'
-import { traduciMessaggioSeServe, messaggiThread, leggiRiassuntoThread } from '@/lib/sync'
+import { messaggiThread, leggiRiassuntoThread } from '@/lib/sync'
+import { TraduzioneAllApertura } from '@/components/TraduzioneAllApertura'
 import { chiaveThread } from '@/lib/thread'
 import { eContattoAI } from '@/lib/contattiAI'
 import { azioneDi } from '@/lib/appDeluxy'
@@ -37,36 +38,67 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
   })
   if (!messaggio) notFound()
 
-  // Traduzione automatica all'apertura (una volta, poi memorizzata).
-  const { lingua, corpoTradotto } = await traduciMessaggioSeServe(messaggio.id, u.id)
-
-  const sezioni = await db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } })
-
-  // La conversazione a cui appartiene questo messaggio. Vista "completa"
-  // (ampia): comprende anche le mail scambiate con le stesse persone.
-  const conversazione = await messaggiThread(u.id, messaggio.id, ampia)
-  // Quante correlate in più rispetto al thread stretto (per l'etichetta).
-  const strette = ampia ? (await messaggiThread(u.id, messaggio.id, false)).length : conversazione.length
-  const chiaveConv = conversazione.length > 1 ? chiaveThread(conversazione) : null
-  const riassuntoThread = chiaveConv ? await leggiRiassuntoThread(u.id, chiaveConv) : null
-  let istruzioniThread = ''
-  if (chiaveConv) {
-    try {
-      const it = await db.istruzioneThread.findUnique({
-        where: { utenteId_chiave: { utenteId: u.id, chiave: chiaveConv } },
-        select: { istruzioni: true },
-      })
-      istruzioniThread = it?.istruzioni ?? ''
-    } catch {
-      /* tabella non ancora migrata: nessuna istruzione */
-    }
-  }
-
   // Il contatto ha il PLUS AI? (solo per la posta in arrivo: il mittente è il
   // contatto). Serve a mostrare il toggle e, se attivo, il quadro della situazione.
   const contattoEmail = messaggio.mittente.toLowerCase()
-  const contattoAI =
-    messaggio.direzione === 'entrata' ? await eContattoAI(u.id, contattoEmail) : false
+
+  // Aprire una mail deve essere ISTANTANEO: tutte le letture indipendenti girano
+  // in parallelo (prima erano una dietro l'altra) e la traduzione automatica NON
+  // è più qui — la chiamata all'AI bloccava il render. Ora si mostra subito
+  // l'originale e, se serve, la traduzione arriva dopo in background
+  // (TraduzioneAllApertura).
+  type InvioAppRiga = {
+    id: string
+    azioneId: string
+    esito: string
+    esitoTesto: string
+    link: string | null
+    creatoIl: Date
+  }
+  const [sezioni, conversazione, conversazioneStretta, contattoAI, inviiApp] = await Promise.all([
+    db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } }),
+    // La conversazione a cui appartiene questo messaggio. Vista "completa"
+    // (ampia): comprende anche le mail scambiate con le stesse persone.
+    messaggiThread(u.id, messaggio.id, ampia),
+    // Solo in vista "ampia" serve anche il thread stretto (per contare le correlate).
+    ampia ? messaggiThread(u.id, messaggio.id, false) : Promise.resolve(null),
+    messaggio.direzione === 'entrata' ? eContattoAI(u.id, contattoEmail) : Promise.resolve(false),
+    // Le risposte delle APP DELUXY richiamate da questa mail (tabella opzionale).
+    db.invioApp
+      .findMany({
+        where: { utenteId: u.id, messaggioId: messaggio.id },
+        orderBy: { creatoIl: 'desc' },
+        select: { id: true, azioneId: true, esito: true, esitoTesto: true, link: true, creatoIl: true },
+      })
+      .catch(() => [] as InvioAppRiga[]),
+  ])
+
+  // Traduzione: si usa quella già salvata. Se manca (mail in arrivo mai
+  // controllata) e la traduzione automatica è attiva, si calcola dopo il render.
+  const lingua = messaggio.lingua
+  const corpoTradotto = messaggio.corpoTradotto
+  const traduciDopo = lingua === null && messaggio.direzione === 'entrata' && u.traduzioneAuto
+
+  // Quante correlate in più rispetto al thread stretto (per l'etichetta).
+  const strette = ampia ? (conversazioneStretta?.length ?? conversazione.length) : conversazione.length
+  const chiaveConv = conversazione.length > 1 ? chiaveThread(conversazione) : null
+
+  let riassuntoThread: Awaited<ReturnType<typeof leggiRiassuntoThread>> = null
+  let istruzioniThread = ''
+  if (chiaveConv) {
+    const [rt, it] = await Promise.all([
+      leggiRiassuntoThread(u.id, chiaveConv),
+      db.istruzioneThread
+        .findUnique({
+          where: { utenteId_chiave: { utenteId: u.id, chiave: chiaveConv } },
+          select: { istruzioni: true },
+        })
+        .then((r) => r?.istruzioni ?? '')
+        .catch(() => ''), // tabella non ancora migrata: nessuna istruzione
+    ])
+    riassuntoThread = rt
+    istruzioniThread = it
+  }
 
   // Qui si mostra solo la proposta dell'AI: le bozze che hai iniziato tu si
   // riprendono dalla schermata di scrittura, dove le stavi scrivendo.
@@ -74,26 +106,6 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
   // L'appuntamento che l'AI ha riconosciuto in questa mail, da accettare.
   const eventoProposto = leggiEventoProposto(messaggio.eventoProposto)
-
-  // Le risposte delle APP DELUXY richiamate da questa mail: si mostrano sotto,
-  // così quello che l'app ha risposto (es. i fornitori vicini) resta sulla mail.
-  let inviiApp: {
-    id: string
-    azioneId: string
-    esito: string
-    esitoTesto: string
-    link: string | null
-    creatoIl: Date
-  }[] = []
-  try {
-    inviiApp = await db.invioApp.findMany({
-      where: { utenteId: u.id, messaggioId: messaggio.id },
-      orderBy: { creatoIl: 'desc' },
-      select: { id: true, azioneId: true, esito: true, esitoTesto: true, link: true, creatoIl: true },
-    })
-  } catch {
-    /* tabella non ancora migrata */
-  }
 
   return (
     <>
@@ -227,6 +239,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           tradotto={corpoTradotto}
           lingua={lingua}
         />
+        {traduciDopo && <TraduzioneAllApertura messaggioId={messaggio.id} />}
       </div>
 
       {conversazione.length === 1 && (
