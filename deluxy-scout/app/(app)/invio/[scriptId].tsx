@@ -2,15 +2,34 @@
 // Rubrica (solo chi ha un'email), 2) rivedi oggetto e testo (modificabili),
 // 3) conferma e invia dalla tua casella. Ogni email è personalizzata per il
 // contatto ({nome}/{negozio}) e l'esito è mostrato per destinatario.
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { conferma, avvisa } from '@/lib/dialoghi';
 import { fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
-import { anteprima, fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
+import { fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
+import { applicaVariabili, htmlDaTesto, sembraHtml, testoSemplice, variabiliManuali, type DatiContatto } from '@/lib/variabili';
+import { RichTextEditor } from '@/components/RichTextEditor';
 import { Loader } from '../../_layout';
+
+// Anteprima del corpo: HTML renderizzato sul web, testo piano su nativo.
+function AnteprimaCorpo({ html }: { html: string }) {
+  if (Platform.OS === 'web') {
+    return <div style={{ fontSize: 14, lineHeight: 1.5, color: colors.testo }} dangerouslySetInnerHTML={{ __html: html }} />;
+  }
+  return <Text style={styles.anteprimaCorpo}>{testoSemplice(html)}</Text>;
+}
+
+const datiContatto = (c: ContattoConLuogo): DatiContatto => ({
+  nome: c.nome,
+  negozio: c.place_nome,
+  ruolo: c.ruolo,
+  email: c.email,
+  telefono: c.telefono,
+  zona: c.place_zona,
+});
 
 export default function InvioScript() {
   const { scriptId } = useLocalSearchParams<{ scriptId: string }>();
@@ -23,8 +42,16 @@ export default function InvioScript() {
   const [query, setQuery] = useState('');
   const [oggetto, setOggetto] = useState('');
   const [corpo, setCorpo] = useState('');
+  const [variabili, setVariabili] = useState<Record<string, string>>({}); // manuali, per-invio (chiave-lower)
   const [fase, setFase] = useState<'scelta' | 'revisione'>('scelta');
   const [inviando, setInviando] = useState(false);
+
+  // Variabili manuali presenti nel testo/oggetto ([data], [evento]…): da compilare.
+  const manualiKeys = useMemo(() => variabiliManuali(oggetto, corpo), [oggetto, corpo]);
+  const varMancanti = useMemo(
+    () => manualiKeys.filter((k) => !(variabili[k.toLowerCase()] ?? '').trim()),
+    [manualiKeys, variabili],
+  );
 
   useEffect(() => {
     (async () => {
@@ -81,8 +108,15 @@ export default function InvioScript() {
   async function eseguiInvio() {
     setInviando(true);
     try {
-      const destinatari = selezionati.map((c) => ({ email: c.email as string, nome: c.nome, negozio: c.place_nome }));
-      const r = await inviaEmailContatti(oggetto, corpo, destinatari);
+      const destinatari = selezionati.map((c) => ({
+        email: c.email as string,
+        nome: c.nome,
+        negozio: c.place_nome,
+        ruolo: c.ruolo,
+        telefono: c.telefono,
+        zona: c.place_zona,
+      }));
+      const r = await inviaEmailContatti(oggetto, corpo, destinatari, variabili);
       if (r.reason === 'smtp_non_configurato') {
         avvisa('Casella non collegata', 'Collega la tua email da Profilo → La mia email, poi riprova.');
         return;
@@ -136,14 +170,33 @@ export default function InvioScript() {
               <TextInput style={styles.input} value={oggetto} onChangeText={setOggetto} placeholder="Oggetto dell'email" placeholderTextColor={colors.grigio} />
 
               <Text style={styles.sezione}>Testo</Text>
-              <TextInput style={[styles.input, styles.textarea]} value={corpo} onChangeText={setCorpo} multiline textAlignVertical="top" />
-              <Text style={styles.hint}>{'{nome}'} e {'{negozio}'} vengono sostituiti per ogni contatto.</Text>
+              <RichTextEditor valueHtml={corpo} onChangeHtml={setCorpo} minHeight={180} />
+              <Text style={styles.hint}>[nome], [negozio]… si riempiono dal contatto. Le altre variabili si compilano qui sotto.</Text>
+
+              {/* Variabili manuali ([data], [evento]…): uguali per tutti i destinatari */}
+              {manualiKeys.length ? (
+                <>
+                  <Text style={styles.sezione}>Variabili da compilare</Text>
+                  {manualiKeys.map((k) => (
+                    <View key={k} style={styles.varRow}>
+                      <Text style={styles.varChiave}>[{k}]</Text>
+                      <TextInput
+                        style={styles.varInput}
+                        value={variabili[k.toLowerCase()] ?? ''}
+                        onChangeText={(t) => setVariabili((cur) => ({ ...cur, [k.toLowerCase()]: t }))}
+                        placeholder={`Valore per [${k}]`}
+                        placeholderTextColor={colors.grigio}
+                      />
+                    </View>
+                  ))}
+                </>
+              ) : null}
 
               {primo ? (
                 <View style={styles.anteprima}>
                   <Text style={styles.anteprimaLabel}>Anteprima per {primo.nome || primo.email}</Text>
-                  {oggetto ? <Text style={styles.anteprimaOgg}>{anteprima(oggetto, primo.nome, primo.place_nome)}</Text> : null}
-                  <Text style={styles.anteprimaCorpo}>{anteprima(corpo, primo.nome, primo.place_nome)}</Text>
+                  {oggetto ? <Text style={styles.anteprimaOgg}>{applicaVariabili(oggetto, datiContatto(primo), variabili)}</Text> : null}
+                  <AnteprimaCorpo html={applicaVariabili(sembraHtml(corpo) ? corpo : htmlDaTesto(corpo), datiContatto(primo), variabili)} />
                 </View>
               ) : null}
             </View>
@@ -153,8 +206,18 @@ export default function InvioScript() {
           <Pressable style={styles.btnIndietro} onPress={() => setFase('scelta')} disabled={inviando}>
             <Text style={styles.btnIndietroTxt}>Indietro</Text>
           </Pressable>
-          <Pressable style={[styles.btnInvia, inviando && styles.off]} onPress={invia} disabled={inviando || !corpo.trim()}>
-            {inviando ? <ActivityIndicator color={colors.bianco} /> : <Text style={styles.btnInviaTxt}>Invia a {selezionati.length}</Text>}
+          <Pressable
+            style={[styles.btnInvia, (inviando || varMancanti.length > 0) && styles.off]}
+            onPress={invia}
+            disabled={inviando || !corpo.trim() || varMancanti.length > 0}
+          >
+            {inviando ? (
+              <ActivityIndicator color={colors.bianco} />
+            ) : (
+              <Text style={styles.btnInviaTxt}>
+                {varMancanti.length ? `Compila [${varMancanti[0]}]` : `Invia a ${selezionati.length}`}
+              </Text>
+            )}
           </Pressable>
         </View>
       </View>
@@ -237,8 +300,10 @@ const styles = StyleSheet.create({
   destChipTxt: { color: colors.testo, fontSize: 12, fontWeight: '600' },
   altri: { color: colors.testoSoft, fontSize: 12, fontWeight: '700' },
   input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 11, fontSize: 15, color: colors.testo },
-  textarea: { minHeight: 180 },
-  hint: { color: colors.grigio, fontSize: 12 },
+  hint: { color: colors.grigio, fontSize: 12, marginTop: 4 },
+  varRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  varChiave: { color: colors.goldStrong, fontWeight: '800', fontSize: 13, minWidth: 90 },
+  varInput: { flex: 1, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 9, fontSize: 14, color: colors.testo },
   anteprima: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, marginTop: spacing.sm, gap: 4 },
   anteprimaLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   anteprimaOgg: { color: colors.testo, fontSize: 14, fontWeight: '700' },

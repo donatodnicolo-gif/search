@@ -58,13 +58,6 @@ export async function eliminaScript(id: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Sostituisce i segnaposto per l'anteprima lato client (stessa logica del server). */
-export function anteprima(testo: string, nome?: string | null, negozio?: string | null): string {
-  return (testo ?? '')
-    .replace(/\{nome\}/gi, (nome ?? '').trim() || 'Gentile cliente')
-    .replace(/\{negozio\}/gi, (negozio ?? '').trim() || '');
-}
-
 export interface EsitoInvio {
   inviate: number;
   totale: number;
@@ -74,11 +67,25 @@ export interface EsitoInvio {
   error?: string;
 }
 
-/** Invia l'email a più destinatari dalla casella personale. */
+export interface DestinatarioInvio {
+  email: string;
+  nome?: string | null;
+  negozio?: string | null;
+  ruolo?: string | null;
+  telefono?: string | null;
+  zona?: string | null;
+}
+
+/**
+ * Invia l'email (HTML) a più destinatari dalla casella personale.
+ * `variabili` = mappa {chiave-lower: valore} delle variabili MANUALI ([data]…),
+ * uguali per tutti; quelle di contatto ([nome]…) le riempie il server.
+ */
 export async function inviaEmailContatti(
   oggetto: string,
   corpo: string,
-  destinatari: { email: string; nome?: string | null; negozio?: string | null }[],
+  destinatari: DestinatarioInvio[],
+  variabili?: Record<string, string>,
 ): Promise<EsitoInvio> {
   const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/invio-email`;
   const { data } = await supabase.auth.getSession();
@@ -92,7 +99,7 @@ export async function inviaEmailContatti(
         apikey: env.supabaseAnonKey(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ oggetto, corpo, destinatari }),
+      body: JSON.stringify({ oggetto, corpo, destinatari, variabili: variabili ?? {} }),
     });
   } catch {
     throw new Error('Servizio di invio non raggiungibile.');

@@ -11,6 +11,8 @@ import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { conferma, avvisa } from '@/lib/dialoghi';
 import { eliminaScript, fetchScript, LABEL_TIPO, salvaScript, type ScriptEmail, type TipoScript } from '@/lib/script';
+import { RichTextEditor } from '@/components/RichTextEditor';
+import { testoSemplice } from '@/lib/variabili';
 
 const TIPI: TipoScript[] = ['prospezione', 'follow_up', 'avviso', 'altro'];
 const COLORE_TIPO: Record<TipoScript, string> = {
@@ -106,7 +108,7 @@ export default function Script() {
                 <Text style={styles.titolo} numberOfLines={1}>{item.titolo}</Text>
               </View>
               {item.oggetto ? <Text style={styles.oggetto} numberOfLines={1}>Oggetto: {item.oggetto}</Text> : null}
-              <Text style={styles.corpo} numberOfLines={3}>{item.corpo}</Text>
+              <Text style={styles.corpo} numberOfLines={3}>{testoSemplice(item.corpo)}</Text>
               <View style={styles.azioni}>
                 <Pressable style={styles.btnInvia} onPress={() => router.push(`/(app)/invio/${item.id}`)}>
                   <Ionicons name="paper-plane-outline" size={15} color={colors.bianco} />
@@ -195,19 +197,19 @@ function EditorModal({ script, onClose, onSalvato }: { script?: ScriptEmail; onC
             </View>
 
             <Text style={styles.label}>Oggetto</Text>
-            <TextInput style={styles.input} value={oggetto} onChangeText={setOggetto} placeholder="Es. Deluxy per {negozio}" placeholderTextColor={colors.grigio} />
+            <TextInput style={styles.input} value={oggetto} onChangeText={setOggetto} placeholder="Es. Deluxy per [negozio]" placeholderTextColor={colors.grigio} />
 
             <Text style={styles.label}>Testo *</Text>
-            <TextInput
-              style={[styles.input, styles.textarea]}
-              value={corpo}
-              onChangeText={setCorpo}
-              placeholder={'Gentile {nome},\n\nsiamo Deluxy…'}
-              placeholderTextColor={colors.grigio}
-              multiline
-              textAlignVertical="top"
+            <RichTextEditor
+              valueHtml={corpo}
+              onChangeHtml={setCorpo}
+              placeholder={'Gentile [nome], siamo Deluxy…'}
+              minHeight={220}
             />
-            <Text style={styles.hint}>Segnaposto: {'{nome}'} = referente, {'{negozio}'} = nome del negozio. Vengono sostituiti a ogni invio.</Text>
+            <Text style={styles.hint}>
+              Usa la barra per grassetto, corsivo, elenchi e link. Variabili tra [ ]: [nome], [negozio]… si riempiono
+              dal contatto; altre come [data] le compili prima dell'invio.
+            </Text>
 
             {errore ? <Text style={styles.errore}>{errore}</Text> : null}
             <Pressable style={[styles.salva, salvando && styles.salvaOff]} onPress={salva} disabled={salvando}>
@@ -250,7 +252,6 @@ const styles = StyleSheet.create({
   sheetTitolo: { fontSize: 18, fontWeight: '900', color: colors.testo },
   label: { fontSize: 12, fontWeight: '700', color: colors.testoSoft, marginTop: 4 },
   input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 11, fontSize: 15, color: colors.testo },
-  textarea: { minHeight: 160 },
   hint: { color: colors.grigio, fontSize: 12, lineHeight: 16 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },

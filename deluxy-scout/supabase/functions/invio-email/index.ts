@@ -1,6 +1,7 @@
 // Edge Function `invio-email` (Deno): invia un'email di prospezione a UNO o PIÙ
-// contatti, dalla casella personale del venditore (Register.it), personalizzando
-// i segnaposto {nome} e {negozio} per ciascun destinatario.
+// contatti, dalla casella personale del venditore (Register.it). Il corpo è HTML
+// (formattazione dallo Script) e i segnaposto tra [ ] vengono personalizzati per
+// destinatario ([nome], [negozio]…) + variabili manuali uguali per tutti ([data]…).
 //
 // Sicurezza: la password SMTP non transita mai (sta cifrata in smtp_account,
 // letta solo dal service_role via credenzialiPerUtente). L'utente dev'essere
@@ -20,10 +21,43 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...cors } });
 }
 
-function personalizza(testo: string, d: { nome?: string | null; negozio?: string | null }): string {
-  return (testo ?? '')
-    .replace(/\{nome\}/gi, (d.nome ?? '').trim() || 'Gentile cliente')
-    .replace(/\{negozio\}/gi, (d.negozio ?? '').trim() || '');
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function sostituisci(testo: string, chiave: string, valore: string): string {
+  const c = escapeRe(chiave);
+  return testo
+    .replace(new RegExp(`\\[\\s*${c}\\s*\\]`, 'gi'), valore)
+    .replace(new RegExp(`\\{\\s*${c}\\s*\\}`, 'gi'), valore); // retro-compat {nome}/{negozio}
+}
+
+type Dest = { email: string; nome?: string | null; negozio?: string | null; ruolo?: string | null; telefono?: string | null; zona?: string | null };
+
+/** Sostituisce le variabili di contatto + quelle manuali (uguali per tutti). */
+function personalizza(testo: string, d: Dest, manuali: Record<string, string>): string {
+  let out = testo ?? '';
+  out = sostituisci(out, 'nome', (d.nome ?? '').trim() || 'Gentile cliente');
+  out = sostituisci(out, 'negozio', (d.negozio ?? '').trim());
+  out = sostituisci(out, 'ruolo', (d.ruolo ?? '').trim());
+  out = sostituisci(out, 'email', (d.email ?? '').trim());
+  out = sostituisci(out, 'telefono', (d.telefono ?? '').trim());
+  out = sostituisci(out, 'zona', (d.zona ?? '').trim());
+  for (const [k, v] of Object.entries(manuali)) out = sostituisci(out, k, v);
+  return out;
+}
+
+const sembraHtml = (s: string) => /<[a-z][\s\S]*>/i.test(s);
+/** Testo piano → HTML (a capo → <br>) per i modelli vecchi non formattati. */
+function comeHtml(s: string): string {
+  return sembraHtml(s) ? s : s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+}
+/** HTML → testo piano (fallback per client che non mostrano l'HTML). */
+function comeTesto(html: string): string {
+  return html
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 const emailValida = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
@@ -40,7 +74,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const oggetto: string = String(body.oggetto ?? '').trim();
     const corpo: string = String(body.corpo ?? '');
-    const destinatari: { email: string; nome?: string | null; negozio?: string | null }[] = Array.isArray(body.destinatari) ? body.destinatari : [];
+    const destinatari: Dest[] = Array.isArray(body.destinatari) ? body.destinatari : [];
+    // Variabili manuali (uguali per tutti): { chiave-lower: valore }.
+    const manuali: Record<string, string> = body.variabili && typeof body.variabili === 'object' ? body.variabili : {};
 
     if (!corpo.trim()) return json({ error: 'Il testo dell\'email è vuoto.' }, 400);
     const validi = destinatari.filter((d) => d?.email && emailValida(String(d.email)));
@@ -58,11 +94,13 @@ Deno.serve(async (req) => {
     const esiti: { email: string; ok: boolean; errore?: string }[] = [];
     for (const d of validi) {
       try {
+        const html = comeHtml(personalizza(corpo, d, manuali));
         await client.send({
           from: cred.from,
           to: String(d.email),
-          subject: personalizza(oggetto || 'Deluxy', d) || 'Deluxy',
-          content: personalizza(corpo, d),
+          subject: personalizza(oggetto || 'Deluxy', d, manuali) || 'Deluxy',
+          html,
+          content: comeTesto(html), // fallback testo per i client senza HTML
         });
         esiti.push({ email: String(d.email), ok: true });
       } catch (e) {
