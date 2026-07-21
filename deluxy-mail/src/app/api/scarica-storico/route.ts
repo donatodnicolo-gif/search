@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { scaricaStorico } from '@/lib/sync'
+import { scaricaStorico, sincronizzaInviata } from '@/lib/sync'
 
 // POST /api/scarica-storico — scarica UN blocco di posta vecchia (storico) per
 // l'utente loggato, un account alla volta. Torna { scaricati, finito }:
@@ -27,22 +27,32 @@ export async function POST() {
   try {
     const account = await db.account.findMany({
       where: { utenteId: userId, attivo: true },
-      select: { id: true, storicoFinito: true },
+      select: { id: true, storicoFinito: true, storicoInviataFinito: true },
     })
 
     let scaricati = 0
-    // Un blocco per l'account che ha ancora storico da prendere. Ci si ferma al
-    // primo che scarica qualcosa: il client richiama subito per il prossimo
-    // blocco, così ogni chiamata resta breve e l'app non rallenta.
+    // Un blocco alla volta: prima si finisce lo storico della INBOX, poi quello
+    // della cartella "Inviata". Ci si ferma appena si scarica qualcosa: il
+    // client richiama subito, così ogni chiamata resta breve e l'app non rallenta.
     for (const a of account) {
-      if (a.storicoFinito) continue
-      const esito = await scaricaStorico(a.id, BLOCCO)
-      scaricati += esito.scaricati
-      if (esito.scaricati > 0) break
+      if (!a.storicoFinito) {
+        const esito = await scaricaStorico(a.id, BLOCCO)
+        scaricati += esito.scaricati
+        if (esito.scaricati > 0) break
+      }
+      if (!a.storicoInviataFinito) {
+        const esito = await sincronizzaInviata(a.id, true)
+        scaricati += esito.scaricati
+        if (esito.scaricati > 0) break
+      }
     }
 
     const restanti = await db.account.count({
-      where: { utenteId: userId, attivo: true, storicoFinito: false },
+      where: {
+        utenteId: userId,
+        attivo: true,
+        OR: [{ storicoFinito: false }, { storicoInviataFinito: false }],
+      },
     })
 
     return NextResponse.json({ ok: true, scaricati, finito: restanti === 0 })

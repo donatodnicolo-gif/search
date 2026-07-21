@@ -189,6 +189,25 @@ export async function salvaInInviata(
   }
 }
 
+/**
+ * Cancella DAL SERVER i messaggi (per UID) in una cartella: li marca \Deleted
+ * ed espunge. IRREVERSIBILE. Solo UID reali (> 0): gli UID negativi sono copie
+ * locali senza corrispondenza sul server. Ritorna quanti ne ha cancellati.
+ */
+export async function eliminaDalServer(account: Account, cartella: string, uids: number[]): Promise<number> {
+  const reali = uids.filter((u) => u > 0)
+  if (reali.length === 0) return 0
+  const client = connessione(account)
+  await client.connect()
+  try {
+    await client.mailboxOpen(cartella, { readOnly: false })
+    await client.messageDelete(reali, { uid: true })
+    return reali.length
+  } finally {
+    await client.logout()
+  }
+}
+
 /** Apre e chiude una connessione per verificare host, porta e credenziali. */
 export async function provaConnessione(account: Account): Promise<void> {
   const client = connessione(account)
@@ -241,23 +260,28 @@ async function converti(uid: number, source: Buffer, letto: boolean): Promise<Me
  */
 export async function scaricaVecchi(
   account: Account,
-  limite = 25
+  limite = 25,
+  // Per default lo storico della INBOX; con `opts` si legge un'altra cartella
+  // (es. la "Inviata") con un cursore `primoUid` suo.
+  opts?: { cartella?: string; primoUid?: number }
 ): Promise<{ messaggi: MessaggioScaricato[]; primoUid: number; finito: boolean }> {
-  if (account.primoUid <= 1) {
-    return { messaggi: [], primoUid: account.primoUid, finito: true }
+  const cartella = opts?.cartella ?? account.cartella
+  const primoUidCur = opts?.primoUid ?? account.primoUid
+  if (primoUidCur <= 1) {
+    return { messaggi: [], primoUid: primoUidCur, finito: true }
   }
 
   const client = connessione(account)
   await client.connect()
 
   try {
-    await client.mailboxOpen(account.cartella, { readOnly: true })
+    await client.mailboxOpen(cartella, { readOnly: true })
 
     // search dice quali UID esistono davvero: la numerazione ha buchi dove i
     // messaggi sono stati cancellati, quindi non si può contare a ritroso.
-    const esistenti = await client.search({ uid: `1:${account.primoUid - 1}` }, { uid: true })
+    const esistenti = await client.search({ uid: `1:${primoUidCur - 1}` }, { uid: true })
     if (!esistenti || esistenti.length === 0) {
-      return { messaggi: [], primoUid: account.primoUid, finito: true }
+      return { messaggi: [], primoUid: primoUidCur, finito: true }
     }
 
     // I più recenti fra i vecchi: gli ultimi della lista.
@@ -293,18 +317,23 @@ export async function scaricaVecchi(
 export async function scaricaNuovi(
   account: Account,
   limite = 50,
-  giaPresenti?: (uids: number[]) => Promise<Set<number>>
+  giaPresenti?: (uids: number[]) => Promise<Set<number>>,
+  // Per default la INBOX; con `opts` si legge un'altra cartella (es. "Inviata")
+  // col suo cursore `ultimoUid`.
+  opts?: { cartella?: string; ultimoUid?: number }
 ): Promise<{ messaggi: MessaggioScaricato[]; ultimoUid: number; primoUid: number; restanti: number }> {
+  const cartella = opts?.cartella ?? account.cartella
+  const ultimoUidCur = opts?.ultimoUid ?? account.ultimoUid
   const client = connessione(account)
   await client.connect()
 
   try {
-    const mailbox = await client.mailboxOpen(account.cartella, { readOnly: true })
+    const mailbox = await client.mailboxOpen(cartella, { readOnly: true })
 
     // Prima sincronizzazione: partiamo dagli ultimi `limite` messaggi invece
     // che dall'inizio della casella.
     const daUid =
-      account.ultimoUid > 0 ? account.ultimoUid + 1 : Math.max(1, (mailbox.uidNext ?? 1) - limite)
+      ultimoUidCur > 0 ? ultimoUidCur + 1 : Math.max(1, (mailbox.uidNext ?? 1) - limite)
 
     // Prima una search leggera: quali UID esistono davvero da qui in poi
     // (senza corpi). `daUid:*` può restituire anche l'ultimo messaggio quando
@@ -314,7 +343,7 @@ export async function scaricaNuovi(
       .sort((a, b) => a - b)
 
     if (esistenti.length === 0) {
-      return { messaggi: [], ultimoUid: account.ultimoUid, primoUid: 0, restanti: 0 }
+      return { messaggi: [], ultimoUid: ultimoUidCur, primoUid: 0, restanti: 0 }
     }
 
     // Gli UID già in DB non si riscaricano: contano solo per il cursore.
@@ -337,7 +366,7 @@ export async function scaricaNuovi(
     // o scaricato in questo giro): al primo buco si ferma, così non si salta
     // nessuna mail.
     const coperti = new Set<number>([...salvati, ...daScaricare])
-    let ultimoUid = account.ultimoUid
+    let ultimoUid = ultimoUidCur
     for (const u of esistenti) {
       if (!coperti.has(u)) break
       ultimoUid = u

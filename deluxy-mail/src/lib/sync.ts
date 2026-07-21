@@ -1,6 +1,6 @@
 import type { Messaggio, Regola, Sezione } from '@prisma/client'
 import { db } from './db'
-import { scaricaNuovi, scaricaVecchi, type MessaggioScaricato } from './imap'
+import { scaricaNuovi, scaricaVecchi, trovaCartellaInviata, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
 import {
@@ -1034,6 +1034,120 @@ async function salvaMessaggi(opts: {
   }
 
   return { primoFallito }
+}
+
+/**
+ * Salva i messaggi INVIATI scaricati dal server (cartella "Inviata") come
+ * direzione 'uscita'. Dedup per messageId: le copie fatte dall'app hanno lo
+ * stesso messageId ma uid negativo — a quelle si aggiorna l'uid a quello reale
+ * (così diventano cancellabili dal server). Niente regole/spam/analisi.
+ */
+async function salvaInviati(utenteId: string, accountId: string, messaggi: MessaggioScaricato[]): Promise<number> {
+  let salvati = 0
+  for (const m of messaggi) {
+    try {
+      const esistente = m.messageId
+        ? await db.messaggio.findFirst({ where: { accountId, messageId: m.messageId }, select: { id: true, uid: true } })
+        : null
+      if (esistente) {
+        if (esistente.uid <= 0 && m.uid > 0) {
+          await db.messaggio.updateMany({ where: { id: esistente.id }, data: { uid: m.uid } })
+        }
+        continue
+      }
+      await db.messaggio.create({
+        data: {
+          utenteId,
+          accountId,
+          uid: m.uid,
+          messageId: m.messageId,
+          thread: m.thread,
+          direzione: 'uscita',
+          mittente: m.mittente,
+          mittenteNome: m.mittenteNome,
+          destinatari: m.destinatari,
+          oggetto: m.oggetto,
+          data: m.data,
+          anteprima: m.anteprima,
+          corpoTesto: m.corpoTesto,
+          corpoHtml: m.corpoHtml,
+          allegati: m.allegati,
+          letto: true,
+        },
+      })
+      salvati++
+    } catch {
+      /* conflitto uid unico o riga concorrente: si salta */
+    }
+  }
+  return salvati
+}
+
+/**
+ * Sincronizza la cartella "Inviata": posta inviata NUOVA + (a esaurimento) lo
+ * STORICO degli inviati più vecchi. Giri brevi, pensata per girare in
+ * background senza bloccare l'app. Se la casella non ha una cartella inviata,
+ * non fa nulla.
+ */
+export async function sincronizzaInviata(accountId: string, esaurisci = false): Promise<EsitoSync> {
+  const partenza = Date.now()
+  const BUDGET_MS = esaurisci ? 30_000 : 6_000
+  let account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
+  const esito: EsitoSync = { tipo: 'storico', account: account.email, scaricati: 0, nonSalvati: 0, scartati: 0 }
+
+  let cartella = account.cartellaInviata
+  if (!cartella) {
+    try {
+      cartella = await trovaCartellaInviata(account)
+      if (cartella) await db.account.update({ where: { id: account.id }, data: { cartellaInviata: cartella } })
+    } catch {
+      /* rete: si riprova al prossimo giro */
+    }
+  }
+  if (!cartella) return { ...esito, finito: true }
+
+  const giaPresenti = async (uids: number[]) => {
+    const presenti = await db.messaggio.findMany({ where: { accountId, uid: { in: uids } }, select: { uid: true } })
+    return new Set(presenti.map((m) => m.uid))
+  }
+
+  // Inviati NUOVI (uid oltre il cursore della cartella Inviata).
+  try {
+    const nuovi = await scaricaNuovi(account, 25, giaPresenti, { cartella, ultimoUid: account.ultimoUidInviata })
+    esito.scaricati += await salvaInviati(account.utenteId, accountId, nuovi.messaggi)
+    if (nuovi.ultimoUid > account.ultimoUidInviata) {
+      await db.account.updateMany({
+        where: { id: accountId, ultimoUidInviata: { lt: nuovi.ultimoUid } },
+        data: { ultimoUidInviata: nuovi.ultimoUid },
+      })
+    }
+    if (account.primoUidInviata === 0 && nuovi.primoUid > 0) {
+      await db.account.update({ where: { id: accountId }, data: { primoUidInviata: nuovi.primoUid } })
+    }
+    account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
+  } catch (e) {
+    return { ...esito, errore: e instanceof Error ? e.message : String(e) }
+  }
+
+  // Storico inviati più vecchi (solo a esaurimento): un blocco alla volta.
+  if (esaurisci && !account.storicoInviataFinito) {
+    for (let giro = 0; giro < 10 && Date.now() - partenza < BUDGET_MS; giro++) {
+      try {
+        const vecchi = await scaricaVecchi(account, 40, { cartella, primoUid: account.primoUidInviata })
+        esito.scaricati += await salvaInviati(account.utenteId, accountId, vecchi.messaggi)
+        await db.account.update({
+          where: { id: accountId },
+          data: { primoUidInviata: vecchi.primoUid, storicoInviataFinito: vecchi.finito },
+        })
+        if (vecchi.finito || vecchi.messaggi.length === 0) break
+        account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
+      } catch {
+        break
+      }
+    }
+  }
+
+  return esito
 }
 
 export async function scaricaStorico(accountId: string, limite = 25): Promise<EsitoSync> {

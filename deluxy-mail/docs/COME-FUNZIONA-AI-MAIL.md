@@ -15,8 +15,10 @@ Tre principi che decidono ogni dubbio di progettazione:
 1. **La casella resta la fonte di verità.** AI Mail non è l'archivio della tua posta:
    tiene una copia indicizzata per lavorarci sopra. Se cancelli l'app, la posta è
    ancora sul server IMAP.
-2. **L'AI propone, tu disponi.** Nessuna mail parte da sola. Nessun messaggio viene
-   cancellato. Al massimo viene archiviato dentro AI Mail.
+2. **L'AI propone, tu disponi.** Nessuna mail parte da sola. Niente si cancella
+   automaticamente: al massimo l'AI archivia. L'unico caso di cancellazione vera
+   è **manuale ed esplicito** — quando **svuoti il Cestino**, i messaggi vengono
+   rimossi anche dal server della casella (irreversibile).
 3. **Le tue regole battono l'AI.** Se hai scritto una condizione esatta, il modello non
    può contraddirla.
 

@@ -60,7 +60,7 @@ import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione
 import { raggruppa } from './thread'
 import { azioneDi, regolaAppPerMail, chiaveDiAzione, type AzioneDescritta } from './appDeluxy'
 import { leggiChiaviApp, salvaChiaveApp, type NomeChiaveApp } from './chiaviApp'
-import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
+import { provaConnessione, salvaInInviata, trovaCartellaInviata, eliminaDalServer } from './imap'
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
 import { CHIAVE_TOKEN_API } from './apiAuth'
 import { utenteCorrente } from './sessione'
@@ -633,11 +633,48 @@ export async function ripristinaMessaggio(id: string) {
 
 export async function svuotaCestino(): Promise<{ ok: boolean; messaggio: string }> {
   try {
-    const r = await db.messaggio.deleteMany({ where: { cestinato: true, utenteId: await uid() } })
+    const utenteId = await uid()
+    const cestinati = await db.messaggio.findMany({
+      where: { cestinato: true, utenteId },
+      select: { uid: true, direzione: true, accountId: true },
+    })
+
+    // Cancellazione DAL SERVER (irreversibile): raccolgo gli UID reali per
+    // account e cartella — la posta in entrata sta nella INBOX, gli inviati
+    // nella cartella "Inviata". Gli UID negativi (copie locali senza riscontro
+    // sul server) si saltano.
+    const perAccount = new Map<string, { inbox: number[]; inviata: number[] }>()
+    for (const m of cestinati) {
+      if (m.uid <= 0) continue
+      const g = perAccount.get(m.accountId) ?? { inbox: [], inviata: [] }
+      if (m.direzione === 'uscita') g.inviata.push(m.uid)
+      else g.inbox.push(m.uid)
+      perAccount.set(m.accountId, g)
+    }
+
+    let suServer = 0
+    const errori: string[] = []
+    for (const [accountId, g] of perAccount) {
+      const account = await db.account.findUnique({ where: { id: accountId } })
+      if (!account) continue
+      try {
+        if (g.inbox.length) suServer += await eliminaDalServer(account, account.cartella, g.inbox)
+        if (g.inviata.length && account.cartellaInviata) {
+          suServer += await eliminaDalServer(account, account.cartellaInviata, g.inviata)
+        }
+      } catch {
+        errori.push(account.email)
+      }
+    }
+
+    const r = await db.messaggio.deleteMany({ where: { cestinato: true, utenteId } })
     revalidatePath('/', 'layout')
+    const nota = errori.length
+      ? ` Attenzione: sul server di ${errori.join(', ')} la cancellazione non è riuscita (riprova).`
+      : ''
     return {
-      ok: true,
-      messaggio: `Cestino svuotato: ${r.count} messaggi rimossi da AI Mail. Sul server della casella sono ancora lì.`,
+      ok: errori.length === 0,
+      messaggio: `Cestino svuotato: ${r.count} rimossi da AI Mail, ${suServer} cancellati anche dal server (definitivo).${nota}`,
     }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }

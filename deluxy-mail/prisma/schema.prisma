@@ -118,6 +118,10 @@ model Account {
   ultimoUid       Int     @default(0)
   primoUid        Int     @default(0)
   storicoFinito   Boolean @default(false)
+  // Cursori per la cartella "Inviata" (storico degli inviati scaricato in background).
+  ultimoUidInviata     Int     @default(0)
+  primoUidInviata      Int     @default(0)
+  storicoInviataFinito Boolean @default(false)
   ultimoSync      DateTime?
   ultimoErrore    String?
   attivo          Boolean   @default(true)
