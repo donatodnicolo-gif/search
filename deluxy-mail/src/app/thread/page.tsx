@@ -56,7 +56,11 @@ export default async function Thread({ searchParams }: Props) {
     },
   })
 
-  const gruppi = raggruppa(messaggi).slice(0, 800)
+  // Un THREAD è una conversazione VERA: più di un messaggio. Le mail singole
+  // (1 messaggio) non sono thread e restano fuori da questa vista.
+  const gruppi = raggruppa(messaggi)
+    .filter((g) => g.length > 1)
+    .slice(0, 800)
 
   const righe = gruppi.map((g) => {
     const volto = g[g.length - 1] // il più recente
@@ -71,8 +75,8 @@ export default async function Thread({ searchParams }: Props) {
         <div>
           <h1 className="page-title">Thread</h1>
           <p className="page-caption">
-            Tutte le conversazioni raggruppate: una riga per thread. Aprila per vedere tutti i
-            messaggi (SPAM e Cestino esclusi).
+            Solo le conversazioni VERE (più di un messaggio): una riga per thread. Aprila per
+            vedere tutti i messaggi. Le mail singole restano fuori (SPAM e Cestino esclusi).
           </p>
         </div>
       </div>
