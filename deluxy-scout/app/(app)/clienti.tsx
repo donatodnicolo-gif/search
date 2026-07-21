@@ -78,7 +78,7 @@ export default function Clienti() {
               <Gruppo titolo="Zona" valori={zonePresenti} attivo={zonaFiltro} onTap={(v) => setZonaFiltro((c) => (c === v ? null : v))} />
             ) : null}
             {lineePresenti.length ? (
-              <Gruppo titolo="Interessi" valori={lineePresenti} attivo={lineaFiltro} onTap={(v) => setLineaFiltro((c) => (c === v ? null : v))} />
+              <Gruppo titolo="Tipologia di interesse" valori={lineePresenti} attivo={lineaFiltro} onTap={(v) => setLineaFiltro((c) => (c === v ? null : v))} />
             ) : null}
           </ScrollView>
         ) : null}
