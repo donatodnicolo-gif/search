@@ -16,6 +16,7 @@ export async function Sidebar({
   dashboardAttiva = false,
   matchAttivo = false,
   contattiAttiva = false,
+  riconciliazioneAttiva = false,
 }: {
   categoriaAttiva?: string | null;
   statoAttivo?: string | null;
@@ -25,6 +26,7 @@ export async function Sidebar({
   dashboardAttiva?: boolean;
   matchAttivo?: boolean;
   contattiAttiva?: boolean;
+  riconciliazioneAttiva?: boolean;
 }) {
   const [categorie, archiviate, statiConteggio, interessiConteggio] = await Promise.all([
     prisma.partner.groupBy({
@@ -42,12 +44,16 @@ export async function Sidebar({
       FROM "anagrafiche"."Partner" WHERE "attivo" GROUP BY 1`,
   ]);
   const daRisolvere = await prisma.richiestaMatch.count({ where: { risolto: false, esito: { not: "agganciata" } } });
+  // Referenti da riassegnare: quelli sotto anagrafiche "DA CLASSIFICARE"
+  const daRiconciliare = await prisma.contatto.count({
+    where: { archiviato: false, partner: { attivo: true, categoria: "DA CLASSIFICARE" } },
+  });
   const totale = categorie.reduce((somma, c) => somma + c._count._all, 0);
   const perStato = new Map(statiConteggio.map((s) => [s.stato, s._count._all]));
   const perInteresse = new Map(interessiConteggio.map((i) => [i.interesse, Number(i.totale)]));
 
   const globaleAttiva =
-    !categoriaAttiva && !statoAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva;
+    !categoriaAttiva && !statoAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva;
 
   return (
     <aside className="sidebar">
@@ -127,6 +133,11 @@ export async function Sidebar({
             <span className="sb-icona"><IconaCategoria categoria="MATCH" /></span>
             <span className="sb-nome">Richieste di aggancio</span>
             {daRisolvere > 0 && <span className="sb-count">{daRisolvere}</span>}
+          </a>
+          <a className={`sb-item${riconciliazioneAttiva ? " attiva" : ""}`} href="/riconciliazione">
+            <span className="sb-icona"><IconaCategoria categoria="MATCH" /></span>
+            <span className="sb-nome">Riconciliazione</span>
+            {daRiconciliare > 0 && <span className="sb-count">{daRiconciliare}</span>}
           </a>
         </SbSezione>
       </nav>

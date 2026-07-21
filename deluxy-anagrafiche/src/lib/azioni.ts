@@ -300,6 +300,20 @@ export async function aggiornaContatto(contattoId: string, fd: FormData) {
   redirect("/contatti?salvato=1");
 }
 
+// Riconciliazione referenti: sposta un contatto sotto l'anagrafica giusta
+// (es. da un contenitore/holding all'insegna corretta). Non duplica, muove.
+export async function spostaContatto(contattoId: string, nuovoPartnerId: string) {
+  const c = await prisma.contatto.findUnique({ where: { id: contattoId }, select: { partnerId: true } });
+  if (!c) return;
+  const dest = await prisma.partner.findUnique({ where: { id: nuovoPartnerId }, select: { id: true } });
+  if (!dest) return;
+  await prisma.contatto.update({ where: { id: contattoId }, data: { partnerId: nuovoPartnerId } });
+  revalidatePath("/riconciliazione");
+  revalidatePath("/contatti");
+  revalidatePath(`/partner/${c.partnerId}`);
+  revalidatePath(`/partner/${nuovoPartnerId}`);
+}
+
 // Elimina un referente dalla scheda contatto (il form chiede conferma via
 // campo dedicato: il bottone è separato dal salvataggio).
 export async function eliminaContatto(contattoId: string) {

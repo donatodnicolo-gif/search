@@ -95,6 +95,10 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   **⇄ riconcilia** (crea xref hubspot), **＋ importa** company come prospect DA CLASSIFICARE.
 - **`/match`** — storico delle richieste di aggancio delle app (tipo, esito, app, confidenza);
   **Risolvi** (crea xref) le ambigue, **Modifica** quelle già agganciate, **Ignora** il rumore.
+- **`/riconciliazione`** — smistamento dei **referenti** finiti sotto anagrafiche «DA CLASSIFICARE»
+  (contenitore «Contatti senza azienda (HubSpot)» + gruppi/holding creati dal sync): ogni riga ha
+  «Riassegna →» (modale con ricerca `/api/interno/cerca-partner`) che **sposta** il contatto
+  all'insegna giusta (`spostaContatto`, non duplica). Sidebar «Riconciliazione» con conteggio.
 - **`/partner/:id`** — scheda: anagrafica, pillole stato + menu interessi, ✎ Modifica, archivia,
   sezione **Contatti** (Excel+HubSpot con link al CRM, telefono cliccabile, **✕ rimuove il
   referente** dall'azienda → `staccaContatto`), Note, Dati del tracker, **Storia** (timeline).
