@@ -111,6 +111,18 @@ export default async function Rene() {
     // Tabelle non ancora migrate: la pagina si apre lo stesso.
   }
 
+  // Le sezioni, per limitare i comandi "Chiedi a Renè" a una sola sezione.
+  let sezioni: { id: string; nome: string }[] = []
+  try {
+    sezioni = await db.sezione.findMany({
+      where: { utenteId: u.id },
+      orderBy: { ordine: 'asc' },
+      select: { id: true, nome: true },
+    })
+  } catch {
+    sezioni = []
+  }
+
   let urgenti: UrgenteSenzaRisposta[] = []
   try {
     urgenti = analisi ? (JSON.parse(analisi.urgenti) as UrgenteSenzaRisposta[]) : []
@@ -140,7 +152,7 @@ export default async function Rene() {
 
       <ReneAvvia />
 
-      <ComandoRene />
+      <ComandoRene sezioni={sezioni} />
 
       {analisi && (
         <div className="ai-box">

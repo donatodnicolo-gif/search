@@ -848,12 +848,20 @@ export async function rimuoviIscrizionePush(endpoint: string): Promise<{ ok: boo
 
 // ---------- Comando in linguaggio naturale su un lotto di mail ----------
 
-type FiltroLotto = { criterio: 'mittente' | 'oggetto'; valore: string }
+type FiltroLotto = {
+  criterio: 'mittente' | 'oggetto'
+  valore: string
+  // Ambito di ricerca: undefined = ovunque; una stringa = quella sezione;
+  // null = solo le mail SENZA sezione (da smistare).
+  sezioneId?: string | null
+}
 
 /** Il WHERE (sempre scoped per utente, mai il cestino) per un comando di lotto. */
 function whereLotto(utenteId: string, f: FiltroLotto) {
   const v = f.valore.trim()
-  const base = { utenteId, cestinato: false }
+  const base: Record<string, unknown> = { utenteId, cestinato: false }
+  // Se è indicata una sezione (o "senza sezione"), si cerca solo lì.
+  if (f.sezioneId !== undefined) base.sezioneId = f.sezioneId
   if (f.criterio === 'mittente') {
     return {
       ...base,
@@ -866,12 +874,23 @@ function whereLotto(utenteId: string, f: FiltroLotto) {
   return { ...base, oggetto: { contains: v, mode: 'insensitive' as const } }
 }
 
+/** Etichetta dell'ambito di ricerca per i messaggi di anteprima/esito. */
+async function etichettaAmbito(utenteId: string, sezioneId?: string | null): Promise<string> {
+  if (sezioneId === undefined) return ''
+  if (sezioneId === null) return ' (tra le mail senza sezione)'
+  const s = await db.sezione.findFirst({ where: { id: sezioneId, utenteId }, select: { nome: true } })
+  return s ? ` (nella sezione «${s.nome}»)` : ''
+}
+
 /**
  * Anteprima di un comando ("cancella tutte le mail di Mario"): interpreta il
  * testo e CONTA quante mail verrebbero toccate, senza toccarle. Serve a far
  * confermare all'utente prima di un'azione di massa.
  */
-export async function comandoPostaAnteprima(comando: string): Promise<{
+export async function comandoPostaAnteprima(
+  comando: string,
+  sezioneId?: string | null
+): Promise<{
   ok: boolean
   messaggio: string
   azione?: 'cestina' | 'archivia'
@@ -888,10 +907,11 @@ export async function comandoPostaAnteprima(comando: string): Promise<{
         'Non ho capito su quali mail agire. Prova: «cancella tutte le mail di mario@…» oppure «archivia le mail con oggetto sollecito».',
     }
   }
-  const filtro: FiltroLotto = { criterio: p.criterio, valore: p.valore }
+  const filtro: FiltroLotto = { criterio: p.criterio, valore: p.valore, sezioneId }
   const quanti = await db.messaggio.count({ where: whereLotto(utenteId, filtro) })
   const verbo = p.azione === 'cestina' ? 'cestinare' : 'archiviare'
   const dove = p.criterio === 'mittente' ? 'di' : 'con oggetto'
+  const ambito = await etichettaAmbito(utenteId, sezioneId)
   return {
     ok: true,
     azione: p.azione,
@@ -900,8 +920,8 @@ export async function comandoPostaAnteprima(comando: string): Promise<{
     quanti,
     messaggio:
       quanti === 0
-        ? `Nessuna mail ${dove} «${p.valore}»: non c'è niente da ${verbo}.`
-        : `Sto per ${verbo} ${quanti} mail ${dove} «${p.valore}». Confermi?`,
+        ? `Nessuna mail ${dove} «${p.valore}»${ambito}: non c'è niente da ${verbo}.`
+        : `Sto per ${verbo} ${quanti} mail ${dove} «${p.valore}»${ambito}. Confermi?`,
   }
 }
 
@@ -909,21 +929,23 @@ export async function comandoPostaAnteprima(comando: string): Promise<{
 export async function comandoPostaEsegui(
   azione: 'cestina' | 'archivia',
   criterio: 'mittente' | 'oggetto',
-  valore: string
+  valore: string,
+  sezioneId?: string | null
 ): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
   if (!['cestina', 'archivia'].includes(azione) || !['mittente', 'oggetto'].includes(criterio) || !valore.trim()) {
     return { ok: false, messaggio: 'Comando non valido.' }
   }
-  const where = whereLotto(utenteId, { criterio, valore })
+  const where = whereLotto(utenteId, { criterio, valore, sezioneId })
+  const ambito = await etichettaAmbito(utenteId, sezioneId)
   if (azione === 'cestina') {
     const r = await db.messaggio.updateMany({ where, data: { cestinato: true, cestinatoIl: new Date() } })
     revalidatePath('/', 'layout')
-    return { ok: true, messaggio: `Cestinate ${r.count} mail. Le trovi nel Cestino se ti servono.` }
+    return { ok: true, messaggio: `Cestinate ${r.count} mail${ambito}. Le trovi nel Cestino se ti servono.` }
   }
   const r = await db.messaggio.updateMany({ where, data: { archiviato: true } })
   revalidatePath('/', 'layout')
-  return { ok: true, messaggio: `Archiviate ${r.count} mail.` }
+  return { ok: true, messaggio: `Archiviate ${r.count} mail${ambito}.` }
 }
 
 // ---------- Attività ----------

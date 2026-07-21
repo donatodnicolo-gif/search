@@ -20,23 +20,28 @@ type Anteprima = {
  * distruttivo di colpo: prima MOSTRA quante mail toccherebbe e chiede conferma.
  * Cestinare = recuperabile dal Cestino.
  */
-export function ComandoRene() {
+export function ComandoRene({ sezioni = [] }: { sezioni?: { id: string; nome: string }[] }) {
   const [testo, setTesto] = useState('')
+  // Ambito di ricerca: '' = ovunque, '__null__' = senza sezione, altrimenti l'id.
+  const [ambito, setAmbito] = useState('')
   const [ant, setAnt] = useState<Anteprima | null>(null)
   const [inCorso, start] = useTransition()
   const router = useRouter()
 
+  // '' → undefined (ovunque); '__null__' → null (senza sezione); altrimenti l'id.
+  const sezioneId = ambito === '' ? undefined : ambito === '__null__' ? null : ambito
+
   const chiedi = () =>
     start(async () => {
       setAnt(null)
-      const r = await comandoPostaAnteprima(testo)
+      const r = await comandoPostaAnteprima(testo, sezioneId)
       setAnt(r)
     })
 
   const conferma = () =>
     start(async () => {
       if (!ant?.azione || !ant.criterio || !ant.valore) return
-      const r = await comandoPostaEsegui(ant.azione, ant.criterio, ant.valore)
+      const r = await comandoPostaEsegui(ant.azione, ant.criterio, ant.valore, sezioneId)
       mostraFlash(r.messaggio)
       setAnt(null)
       setTesto('')
@@ -53,10 +58,28 @@ export function ComandoRene() {
       </div>
       <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
         Comandi su un gruppo di mail. Es. «cancella tutte le mail di mario@rossi.it», «cestina le
-        mail di LimoLane», «archivia le mail con oggetto sollecito». Prima di agire ti dico quante
-        ne tocco e chiedo conferma (il cestino è recuperabile).
+        mail di LimoLane», «archivia le mail con oggetto sollecito». Puoi limitare la ricerca a una
+        sezione col menu qui sotto. Prima di agire ti dico quante ne tocco e chiedo conferma (il
+        cestino è recuperabile).
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <select
+          value={ambito}
+          onChange={(e) => {
+            setAmbito(e.target.value)
+            setAnt(null)
+          }}
+          title="Dove cercare le mail del comando"
+          style={{ width: 'auto', minWidth: 150, padding: '10px 12px', fontSize: 13.5 }}
+        >
+          <option value="">In tutte le sezioni</option>
+          <option value="__null__">Senza sezione (da smistare)</option>
+          {sezioni.map((s) => (
+            <option key={s.id} value={s.id}>
+              Sezione: {s.nome}
+            </option>
+          ))}
+        </select>
         <input
           type="text"
           value={testo}
