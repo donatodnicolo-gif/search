@@ -5,6 +5,7 @@
   "description": "Deluxy Platform API (NestJS 11 + Prisma)",
   "scripts": {
     "build": "prisma generate && nest build",
+    "postinstall": "prisma generate",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "prisma:generate": "prisma generate",

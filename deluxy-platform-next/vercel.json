@@ -6,7 +6,11 @@
       "src": "api/src/vercel.ts",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["api/prisma/**", "api/node_modules/.prisma/**"]
+        "includeFiles": [
+          "api/prisma/**",
+          "node_modules/.prisma/**",
+          "node_modules/@prisma/client/**"
+        ]
       }
     },
     {
