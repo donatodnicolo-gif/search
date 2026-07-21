@@ -1040,6 +1040,15 @@ export async function cambiaConseguenzaRene(id: string, attiva: boolean) {
   revalidatePath('/rene')
 }
 
+/** Lo stile con cui Renè scrive e risponde alle mail (condiviso, admin). */
+export async function salvaStileRene(form: FormData): Promise<void> {
+  const u = await utenteCorrente()
+  if (!u || u.ruolo !== 'admin') return
+  await scriviImpostazione(CHIAVI.stileScrittura, String(form.get('stile') ?? '').slice(0, 2000))
+  revalidatePath('/rene')
+  revalidatePath('/', 'layout')
+}
+
 /** Il taccuino di Renè lo puoi correggere a mano: resta compatto. */
 export async function salvaMemoriaRene(form: FormData): Promise<void> {
   const utenteId = await uid()

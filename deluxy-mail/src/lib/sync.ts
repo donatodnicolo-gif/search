@@ -13,7 +13,7 @@ import {
   giudicaSpam,
   type AnalisiThread,
 } from './ai'
-import { CHIAVI, leggiImpostazioni } from './impostazioni'
+import { CHIAVI, leggiImpostazioni, STILE_DEFAULT } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
 import { raggruppa, chiaveThread } from './thread'
 import { valutaSpam } from './spam'
@@ -156,12 +156,19 @@ export async function istruzioniMirate(
 }
 
 /** Il contesto aziendale (condiviso) e la firma personale dell'utente. */
-async function contestoAI(utenteId: string): Promise<{ contestoAzienda?: string; firma?: string }> {
+async function contestoAI(
+  utenteId: string
+): Promise<{ contestoAzienda?: string; firma?: string; stileScrittura?: string }> {
   const [impostazioni, utente] = await Promise.all([
     leggiImpostazioni(),
     db.utente.findUnique({ where: { id: utenteId }, select: { firma: true } }),
   ])
-  return { contestoAzienda: impostazioni[CHIAVI.contestoAzienda], firma: utente?.firma || undefined }
+  return {
+    contestoAzienda: impostazioni[CHIAVI.contestoAzienda],
+    firma: utente?.firma || undefined,
+    // Lo stile lo decide Renè (referente): se non impostato, il default educato.
+    stileScrittura: impostazioni[CHIAVI.stileScrittura]?.trim() || STILE_DEFAULT,
+  }
 }
 
 /**
@@ -216,6 +223,7 @@ export async function analizzaMessaggioOra(
       sezioni,
       istruzioniAI: [...daRegole.istruzioniAI, ...mirate],
       contestoAzienda: ctx.contestoAzienda,
+      stileScrittura: ctx.stileScrittura,
       firma: ctx.firma,
       oggi: new Date(),
       precedenti: precedenti.map((p) => ({
@@ -352,6 +360,7 @@ export async function preparaEsecuzione(
         dettaglio: attivita.dettaglio,
         contatti: recenti.map((r) => ({ email: r.mittente, nome: r.mittenteNome })),
         contestoAzienda: ctx.contestoAzienda,
+        stileScrittura: ctx.stileScrittura,
         istruzioni: attivita.contattoEmail
           ? [`Il destinatario è ${attivita.contattoEmail}.`]
           : undefined,
@@ -388,6 +397,7 @@ export async function preparaEsecuzione(
       compito: attivita.titolo,
       dettaglio: attivita.dettaglio,
       contestoAzienda: ctx.contestoAzienda,
+      stileScrittura: ctx.stileScrittura,
       istruzioni: mirate,
       firma: ctx.firma,
       oggi: new Date(),

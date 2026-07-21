@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
-import { salvaMemoriaRene } from '@/lib/actions'
+import { salvaMemoriaRene, salvaStileRene } from '@/lib/actions'
+import { CHIAVI, STILE_DEFAULT, leggiImpostazioni } from '@/lib/impostazioni'
 import { TIPI_RENE, type UrgenteSenzaRisposta } from '@/lib/rene'
 import { ReneAvvia } from '@/components/ReneAvvia'
 import { RenePropostaCard } from '@/components/RenePropostaCard'
@@ -53,6 +54,14 @@ function descriviProposta(tipo: string, dati: Record<string, unknown>): { titolo
 
 export default async function Rene() {
   const u = await richiediUtente()
+
+  const isAdmin = u.ruolo === 'admin'
+  let stile = ''
+  try {
+    stile = (await leggiImpostazioni())[CHIAVI.stileScrittura] ?? ''
+  } catch {
+    stile = ''
+  }
 
   let memoria = ''
   let analisi: { id: string; periodo: string; riassunto: string; urgenti: string; creataIl: Date } | null = null
@@ -237,6 +246,38 @@ export default async function Rene() {
           </div>
         </>
       )}
+
+      <h2 className="section-title">Come scrivo le mail</h2>
+      <div className="card">
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>
+          Le regole che Renè segue OGNI volta che scrive o risponde a una mail — anche quando
+          esegui un’attività. Valgono per tutta la casella (referente unico). Se lasci vuoto,
+          vale lo stile predefinito qui sotto: mail educata e completa, con saluto e chiusura.
+        </p>
+        <form action={salvaStileRene}>
+          <textarea
+            name="stile"
+            rows={7}
+            disabled={!isAdmin}
+            defaultValue={stile}
+            maxLength={2000}
+            placeholder={STILE_DEFAULT}
+            style={{ width: '100%', fontSize: 13.5, lineHeight: 1.6 }}
+          />
+          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
+            {isAdmin
+              ? 'Es. “Dai del Lei ai clienti nuovi”, “firma sempre a nome del team”, “per i partner tono più informale”.'
+              : 'Solo un amministratore può cambiare lo stile condiviso.'}
+          </div>
+          {isAdmin && (
+            <div className="form-footer" style={{ marginTop: 10 }}>
+              <button className="btn secondary small" type="submit">
+                Salva stile
+              </button>
+            </div>
+          )}
+        </form>
+      </div>
 
       <h2 className="section-title">Il taccuino di Renè</h2>
       <div className="card">

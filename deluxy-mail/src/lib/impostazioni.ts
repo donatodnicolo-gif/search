@@ -6,7 +6,17 @@ import { db } from './db'
 
 export const CHIAVI = {
   contestoAzienda: 'contesto_azienda',
+  // Come Renè scrive e risponde alle mail: tono, saluti, chiusura, regole di
+  // stile. Condiviso (referente unico della casella). Se vuoto vale il default.
+  stileScrittura: 'stile_scrittura',
 } as const
+
+// Lo stile predefinito, se l'utente non l'ha impostato: una mail educata e
+// completa (saluto + corpo + chiusura + firma), non un telegramma.
+export const STILE_DEFAULT = `- Apri SEMPRE con un saluto adatto al destinatario: "Gentile [nome]," se lo conosci, altrimenti "Buongiorno,".
+- Corpo chiaro e cortese, che va al punto senza essere brusco.
+- Chiudi SEMPRE con una formula di commiato ("Cordiali saluti," / "Un caro saluto,") seguita dalla firma.
+- Tono professionale e caldo, mai freddo o telegrafico. Niente formule pompose ("con la presente"), ma la cortesia non si taglia.`
 
 export async function leggiImpostazioni(): Promise<Record<string, string>> {
   const righe = await db.impostazione.findMany()
