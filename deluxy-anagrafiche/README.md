@@ -78,10 +78,14 @@ Ogni partner risponde con un blocco **`datiFinanziari`**: `pec`, `codiceSdi`,
 
 ### Regole d'ingaggio (attive)
 
-- **Primo contatto senza id**: `GET /partners/match?pIva=…` (o `nome`+`citta`,
-  passando anche `idEsterno`) → vi dice il match sicuro o i candidati con la
-  confidenza. Le richieste finiscono nella pagina *Richieste di aggancio*, dove
-  il team risolve gli ambigui e crea il riferimento; da lì risolvete per id.
+- **Primo contatto senza id**: `GET /partners/match?pIva=…&codiceFiscale=…&nome=…&citta=…`
+  (passando anche `idEsterno`) → il match sicuro o i candidati con la confidenza.
+  **Mandate più criteri insieme**: è una **cascata** — P.IVA → codice fiscale →
+  nome+città; se un criterio forte (P.IVA/CF) non è nel registro, **ricade** sul
+  nome. Quindi conviene mandare *sempre anche `nome`* (+`citta`): oggi la P.IVA nel
+  registro è quasi ovunque vuota, quindi da sola non aggancia nulla. Le richieste
+  finiscono nella pagina *Richieste di aggancio*, dove il team risolve gli ambigui
+  e crea il riferimento; da lì risolvete per id.
 - Nel POST mandate `sistema` (o si deduce dalla vostra chiave) e `idEsterno` (il
   vostro id per quel partner): registro il riferimento e vi riconosco alla
   prossima. Poi risolvete con `GET /partners/by-ref/:sistema/:idEsterno`.
