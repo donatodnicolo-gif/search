@@ -13,6 +13,7 @@
 //   supabase functions deploy hubspot-match --project-ref fdsziebgkljfsugqqbqd
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref fdsziebgkljfsugqqbqd
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { istruzioniEleonor } from '../_shared/eleonor.ts';
 
 const HUBSPOT = 'https://api.hubapi.com';
 const ANTHROPIC = 'https://api.anthropic.com/v1/messages';
@@ -188,15 +189,16 @@ Deno.serve(async (req) => {
       return json({ match: null, contatti: [], duplicati: [], confidenza: 'nessuna', nota: 'Nessuna azienda simile trovata su HubSpot.' });
     }
 
-    // 3) Conciliazione con Claude.
-    const sys =
-      'Sei un assistente CRM. Ti do un NEGOZIO reale (da Google) e alcune AZIENDE candidate da HubSpot con i loro contatti. ' +
-      'Compiti: (1) scegli quale azienda HubSpot è lo stesso negozio (match anche se nome/indirizzo non identici; null se nessuna); ' +
-      '(2) elenca i contatti che appartengono a quell\'azienda; (3) segnala gruppi di contatti che sembrano DUPLICATI (stessa persona) da unire. ' +
+    // 3) Conciliazione con l'AI (Eleonor).
+    const sys = istruzioniEleonor(
+      'COMPITO (conciliazione CRM): ti do un NEGOZIO reale (da Google) e alcune AZIENDE candidate da HubSpot con i loro contatti. ' +
+      '(1) scegli quale azienda HubSpot è lo stesso negozio (match anche se nome/indirizzo non identici; null se nessuna); ' +
+      "(2) elenca i contatti che appartengono a quell'azienda; (3) segnala gruppi di contatti che sembrano DUPLICATI (stessa persona) da unire. " +
       'Rispondi SOLO con JSON valido, senza testo attorno, nella forma: ' +
       '{"match_company_id": string|null, "confidenza": "alta"|"media"|"bassa"|"nessuna", ' +
       '"contatti": [{"hubspot_contact_id": string, "nome": string, "email": string|null, "telefono": string|null, "ruolo": string|null}], ' +
-      '"duplicati": [{"ids": [string], "motivo": string}], "nota": string}';
+      '"duplicati": [{"ids": [string], "motivo": string}], "nota": string}',
+    );
     const userMsg = JSON.stringify({
       negozio: { nome: place.nome, indirizzo: place.indirizzo, categoria: place.categoria },
       aziende_candidate: candidati,

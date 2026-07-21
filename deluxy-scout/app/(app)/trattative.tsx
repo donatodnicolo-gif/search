@@ -260,7 +260,7 @@ function AssistenteCard({ trattative, contesto }: { trattative: TrattativaConLuo
       <View style={styles.aiHead}>
         <View style={styles.aiTitoloRow}>
           <Ionicons name="sparkles-outline" size={16} color={colors.goldStrong} />
-          <Text style={styles.aiTitolo}>Assistente</Text>
+          <Text style={styles.aiTitolo}>Eleonor</Text>
         </View>
         <Pressable style={styles.aiBtn} onPress={genera} disabled={stato === 'loading'}>
           {stato === 'loading' ? (
@@ -273,7 +273,7 @@ function AssistenteCard({ trattative, contesto }: { trattative: TrattativaConLuo
 
       {stato === 'idle' ? (
         <Text style={styles.aiHint}>
-          Un riepilogo di come vanno le {trattative.length} trattative {contesto ? 'filtrate' : 'in elenco'}: cosa
+          Eleonor riassume come vanno le {trattative.length} trattative {contesto ? 'filtrate' : 'in elenco'}: cosa
           sta andando bene e cosa richiede attenzione.
         </Text>
       ) : null}
@@ -282,7 +282,7 @@ function AssistenteCard({ trattative, contesto }: { trattative: TrattativaConLuo
 
       {stato === 'fatto' && r ? (
         r.disponibile === false || r.reason === 'ai_non_configurata' ? (
-          <Text style={styles.aiHint}>Assistente AI non ancora attivo (manca la chiave del modello).</Text>
+          <Text style={styles.aiHint}>Eleonor non è ancora attiva (manca la chiave del modello AI).</Text>
         ) : r.vuoto ? (
           <Text style={styles.aiHint}>Nessuna trattativa da riassumere con questi filtri.</Text>
         ) : (
@@ -316,7 +316,7 @@ function AssistenteCard({ trattative, contesto }: { trattative: TrattativaConLuo
                 ))}
               </>
             ) : null}
-            <Text style={styles.aiNota}>Sintesi generata dall'AI — verifica sempre prima di agire.</Text>
+            <Text style={styles.aiNota}>Sintesi generata da Eleonor — verifica sempre prima di agire.</Text>
           </View>
         )
       ) : null}

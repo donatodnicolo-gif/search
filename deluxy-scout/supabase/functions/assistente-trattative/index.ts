@@ -6,6 +6,7 @@
 // Sicurezza: chiave AI come secret, mai nel bundle. Inerte se non configurata.
 // Secret: OPENAI_API_KEY (da impostare); opzionale OPENAI_MODEL. L'utente dev'essere loggato.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { istruzioniEleonor } from '../_shared/eleonor.ts';
 
 const OPENAI = 'https://api.openai.com/v1/chat/completions';
 const MODEL = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini'; // veloce ed economico
@@ -53,14 +54,15 @@ Deno.serve(async (req) => {
       in_ritardo: trattative.filter((d) => d.scadenza && d.scadenza < new Date().toISOString().slice(0, 10) && d.fase !== 'closedwon' && d.fase !== 'closedlost').length,
     };
 
-    const sys =
-      'Sei l\'assistente commerciale di Deluxy (consegne di lusso, Milano). Ricevi un elenco di trattative ' +
-      'con la loro fase, valore atteso, linea, scadenza follow-up ed eventuale ritardo. ' +
-      'Rispondi SOLO con un oggetto JSON valido, in italiano, tono professionale e concreto, senza markdown. ' +
+    const sys = istruzioniEleonor(
+      'COMPITO: riassumi lo stato della pipeline. Ricevi un elenco di trattative con fase, valore atteso, ' +
+      'linea, scadenza follow-up ed eventuale ritardo. ' +
+      'Rispondi SOLO con un oggetto JSON valido, senza markdown. ' +
       'Schema: {"sintesi": string (2-3 frasi sullo stato generale, cita i numeri chiave), ' +
       '"azioni": string[] (3-5 azioni prioritarie concrete, la più urgente per prima, nomina i negozi), ' +
       '"attenzione": string[] (0-3 rischi o trattative ferme/in ritardo da recuperare, con il perché)}. ' +
-      'Sii specifico e brevissimo per voce. Non inventare dati non presenti.';
+      'Sii specifico e brevissimo per voce.',
+    );
 
     const userMsg = JSON.stringify({
       aggregati,
