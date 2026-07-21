@@ -6,6 +6,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, coloreStato, labelStato, radius, spacing } from '@/lib/theme';
 import type { StatoPlace } from '@/types';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { PercorsoCliente } from '@/components/PercorsoCliente';
 import { fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
 
 export default function Rubrica() {
@@ -262,6 +263,10 @@ function Contatto({ contatto: c, onOpenPlace }: { contatto: ContattoConLuogo; on
           <Text style={styles.lineaTagTxt}>{c.place_linea}</Text>
         </View>
       ) : null}
+      {/* Storyline: a che punto è questo negozio nel percorso verso cliente. */}
+      <View style={styles.percorso}>
+        <PercorsoCliente stato={c.place_stato} inTrattativa={c.place_in_trattativa} />
+      </View>
       <View style={styles.azioni}>
         {c.telefono ? (
           <Pressable style={styles.azione} onPress={() => Linking.openURL(`tel:${c.telefono}`)}>
@@ -362,6 +367,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12 },
+  percorso: { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.grigioChiaro },
   azioni: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
   azione: {
     borderWidth: 1,

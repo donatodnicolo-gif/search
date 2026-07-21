@@ -10,6 +10,7 @@ import { env } from '@/lib/env';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
 import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
+import { PercorsoCliente } from '@/components/PercorsoCliente';
 import { TaskFormModal } from '@/components/TaskFormModal';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 import { Loader } from '../../_layout';
@@ -175,6 +176,17 @@ export default function SchedaAttivita() {
         {place.indirizzo ? <Text style={styles.meta}>{place.indirizzo}</Text> : null}
         {place.categoria ? <Text style={styles.meta}>Categoria: {place.categoria}</Text> : null}
         {place.zona ? <Text style={styles.meta}>Zona: {place.zona}</Text> : null}
+
+        {/* Storyline: percorso commerciale verso il cliente. */}
+        <View style={styles.percorso}>
+          <Text style={styles.percorsoTitolo}>Percorso verso cliente</Text>
+          <PercorsoCliente
+            stato={place.stato}
+            inTrattativa={
+              Boolean(place.hubspot_deal_aperta) || deal.some((d) => d.fase !== 'closedwon' && d.fase !== 'closedlost')
+            }
+          />
+        </View>
 
         <View style={styles.azioniRow}>
           <Pressable
@@ -378,6 +390,15 @@ function Sezione({ titolo, children }: { titolo: string; children: ReactNode }) 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
+  percorso: {
+    marginTop: spacing.md,
+    backgroundColor: colors.bianco,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    padding: spacing.md,
+  },
+  percorsoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: spacing.md },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   err: { color: colors.errore },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

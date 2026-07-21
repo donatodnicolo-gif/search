@@ -12,6 +12,7 @@ export interface ContattoConLuogo extends Contact {
   place_linea: string | null;
   place_stato: StatoPlace | null; // stato del negozio (da_visitare/visitato/cliente/perso)
   place_zona: string | null; // zona/area del negozio (per il filtro territoriale)
+  place_in_trattativa: boolean; // il negozio ha una trattativa aperta (per la storyline)
   place_nel_registro: boolean; // il negozio è collegato al registro Anagrafiche (anagrafiche_id presente)
 }
 
@@ -208,7 +209,7 @@ export async function aggiornaNomeProfilo(id: string, nome: string): Promise<voi
 export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
   const { data, error } = await supabase
     .from('contacts')
-    .select('*, places(nome, indirizzo, linea_ipotizzata, stato, zona, anagrafiche_id)')
+    .select('*, places(nome, indirizzo, linea_ipotizzata, stato, zona, hubspot_deal_aperta, anagrafiche_id)')
     .order('nome');
   if (error) throw error;
   return (data ?? []).map((r: any) => ({
@@ -218,6 +219,7 @@ export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
     place_linea: r.places?.linea_ipotizzata ?? null,
     place_stato: r.places?.stato ?? null,
     place_zona: r.places?.zona ?? null,
+    place_in_trattativa: Boolean(r.places?.hubspot_deal_aperta),
     place_nel_registro: Boolean(r.places?.anagrafiche_id),
   })) as ContattoConLuogo[];
 }
