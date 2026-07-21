@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/db";
+import { risolviAnagrafica } from "@/lib/anagrafiche";
 import { ficStato, ficClientiFatturabili, ficEntityUltimaFattura, ficCreaFattura, type RigaFattura, type FicEntity } from "@/lib/fic";
 import { RigheProForma } from "@/components/RigheProForma";
 
@@ -52,6 +54,31 @@ async function emettiFattura(fd: FormData) {
   } else if (clienteVal.startsWith("nome:")) {
     const nome = clienteVal.slice(5);
     entity = (await ficEntityUltimaFattura(nome)) ?? { name: nome };
+  } else if (clienteVal.startsWith("partner:")) {
+    // Partner registrato in Deluxy Partner (Finance): costruisce l'entità FIC dai
+    // suoi dati anagrafici letti dal registro Anagrafiche (fiscali) + cache locale.
+    const partner = await prisma.partner.findUnique({ where: { id: clienteVal.slice(8) } });
+    if (partner) {
+      const a = await risolviAnagrafica(partner.nome, partner.anagraficaId);
+      const fin = a?.datiFinanziari;
+      const raw = a?.indirizzo ?? "";
+      const street = raw.split(",")[0]?.trim() || raw;
+      const cap = raw.match(/\b\d{5}\b/)?.[0] ?? "";
+      const email = a?.email || partner.email || "";
+      entity = {
+        name: a?.ragioneSociale || partner.nome,
+        ...(a?.pIva ? { vat_number: a.pIva } : {}),
+        ...(a?.codiceFiscale ? { tax_code: a.codiceFiscale } : {}),
+        ...(street ? { address_street: street } : {}),
+        ...(cap ? { address_postal_code: cap } : {}),
+        ...(a?.citta ? { address_city: a.citta } : {}),
+        ...(a?.provincia ? { address_province: a.provincia } : {}),
+        country: "Italia",
+        ...(fin?.codiceSdi ? { ei_code: fin.codiceSdi } : {}),
+        ...(fin?.pec ? { certified_email: fin.pec } : {}),
+        ...(email ? { email } : {}),
+      };
+    }
   } else {
     // Cliente nuovo: dati inseriti a mano. FIC lo crea al volo con la fattura
     // (nessuna necessità di censirlo prima in rubrica).
@@ -98,7 +125,10 @@ export default async function NuovaFatturaCloud({
   searchParams: Promise<{ errore?: string }>;
 }) {
   const sp = await searchParams;
-  const stato = await ficStato();
+  const [stato, partners] = await Promise.all([
+    ficStato(),
+    prisma.partner.findMany({ where: { attivo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+  ]);
   const clienti = stato.collegato ? await ficClientiFatturabili().catch(() => []) : [];
   const oggi = new Date().toISOString().slice(0, 10);
 
@@ -139,15 +169,25 @@ export default async function NuovaFatturaCloud({
               <label className="field-label">Cliente su Fatture in Cloud</label>
               <select name="clienteId" defaultValue="">
                 <option value="">Seleziona cliente…</option>
-                {clienti.map((c) => (
-                  <option key={c.valore} value={c.valore}>
-                    {c.nome}{c.piva ? ` — ${c.piva}` : ""}{c.inRubrica ? "" : " (da fatture passate)"}
-                  </option>
-                ))}
+                {partners.length > 0 && (
+                  <optgroup label="Clienti Deluxy (Finance)">
+                    {partners.map((p) => (
+                      <option key={p.id} value={`partner:${p.id}`}>{p.nome}</option>
+                    ))}
+                  </optgroup>
+                )}
+                <optgroup label="Fatture in Cloud (rubrica + già fatturati)">
+                  {clienti.map((c) => (
+                    <option key={c.valore} value={c.valore}>
+                      {c.nome}{c.piva ? ` — ${c.piva}` : ""}{c.inRubrica ? "" : " (da fatture passate)"}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
               <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
-                Include la rubrica e i clienti già fatturati (anche non salvati in rubrica). Se il cliente
-                <strong> non è in elenco</strong>, usa «Cliente nuovo» qui sotto.
+                Puoi scegliere un <strong>partner Deluxy</strong> (i suoi dati fiscali arrivano dal registro
+                Anagrafiche), un cliente già in <strong>Fatture in Cloud</strong>, oppure — se non è in elenco —
+                compilare «Cliente nuovo» qui sotto.
               </p>
             </div>
             <div>
