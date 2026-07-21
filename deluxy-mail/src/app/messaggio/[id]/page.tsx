@@ -13,6 +13,7 @@ import { BottoneNonSpam } from '@/components/BottoneNonSpam'
 import { EditorIstruzioni } from '@/components/EditorIstruzioni'
 import { AgganciaMail } from '@/components/AgganciaMail'
 import { StaccaRiga } from '@/components/StaccaRiga'
+import { RispostaAzioni } from '@/components/RispostaAzioni'
 import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
 import { richiediUtente } from '@/lib/sessione'
 import { messaggiThread, leggiRiassuntoThread } from '@/lib/sync'
@@ -246,9 +247,14 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
                       {dataLunga(c.data)}
                     </span>
                   </Link>
-                  {/* La mail aperta si stacca col bottone in alto; qui si staccano
-                      le ALTRE, quelle finite nel thread per sbaglio. */}
-                  {!attuale && <StaccaRiga messaggioId={c.id} />}
+                  {/* Rispondi / A tutti / Inoltra su OGNI messaggio del thread:
+                      così puoi ripartire da una qualsiasi mail della catena. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <RispostaAzioni id={c.id} />
+                    {/* La mail aperta si stacca col bottone in alto; qui si staccano
+                        le ALTRE, quelle finite nel thread per sbaglio. */}
+                    {!attuale && <StaccaRiga messaggioId={c.id} />}
+                  </div>
                 </div>
               )
             })}
