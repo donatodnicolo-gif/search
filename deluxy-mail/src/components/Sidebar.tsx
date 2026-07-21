@@ -4,6 +4,7 @@ import { utenteCorrente } from '@/lib/sessione'
 import { esci } from '@/lib/auth-actions'
 import { iniziali } from '@/lib/contatti'
 import { SyncButton } from './SyncButton'
+import { PrimoCarico } from './PrimoCarico'
 
 type Voce = { href: string; label: string; badge?: number }
 
@@ -96,9 +97,11 @@ export async function Sidebar() {
         </div>
       </div>
 
-      {/* Lo storico non si scarica più in background: si prende on-demand in
-          fondo alla lista ("Cerca messaggi più vecchi sul server"). */}
       <SyncButton intervalloSec={utente.sincronizzaOgniSec ?? 300} />
+      {/* Primo carico: su una casella appena collegata scarica in background le
+          ultime 500 ricevute + 500 inviate, poi si spegne da solo. Il resto
+          dello storico è on-demand (fondo lista / ricerca sul server). */}
+      <PrimoCarico />
 
       <nav className="nav-section">
         <div className="nav-label">Posta</div>
