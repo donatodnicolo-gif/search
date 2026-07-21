@@ -62,7 +62,11 @@ pubblicato), *sfidante* e *irraggiungibile*.
 - **Maison** (`/maison`, `/maison/[slug]`): per ogni brand (Deluxy.it, CakeDesign.me,
   Deluxyflowers.com, Business B2B, Experience) la vista mensile **D2C · Eventi · B2B
   (lead generation)** con selettore del livello.
-- **Team commerciale** (`/commerciale`): budget per **linee** (Affiliazioni, Consegne
+- **Team commerciale** (`/commerciale`): le **linee di vendita** (con sottolinee) sono richiamate
+  live da **Scout**, che ne è il master (edge function Supabase `linee`, chiave `LINEE_API_KEY`
+  dal vault del Hub). Il budget per linea (valore/clienti) resta in Budgets e si aggancia alle
+  linee di Scout **per nome**; dove non combacia, la colonna resta “—”. Se Scout non è
+  raggiungibile o la chiave manca, la pagina ripiega sulle linee a budget locali. budget per **linee** (Affiliazioni, Consegne
   Corporate, Catering & Eventi, Torte e Mono, Regalistica, Retail Marketing & Concierge,
   Eventi & Altro, Magazzino) e **nuovi clienti** per mese.
 - **Proposte budget** (`/proposte`): ogni utente di livello Responsabile invia la propria
