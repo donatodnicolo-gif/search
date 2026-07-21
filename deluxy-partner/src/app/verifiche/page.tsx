@@ -177,6 +177,38 @@ const dati = await res.json();
         </p>
       </div>
 
+      <h2 className="section-title">Riepilogo finanziario del partner (card «Finance»)</h2>
+      <div className="card">
+        <p style={{ fontSize: 14, marginBottom: 6 }}>
+          <strong>Endpoint:</strong> <code>GET {BASE_URL}/api/riepilogo-finanziario?partner=&lt;nome o id&gt;</code>
+        </p>
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 14 }}>
+          Per la card «Finance» sulla scheda cliente delle altre app (es. Scout). Stessa chiave{" "}
+          (<code>X-API-Key</code>). «Fatturato» = <strong>vendite vendor (incasso lordo) + servizi fatturati (netto
+          IVA)</strong>, YTD, confrontato con lo stesso periodo dell&apos;anno prima. <code>mesi</code> è
+          l&apos;andamento (12 valori, gen→dic) per il mini-grafico. Facoltativo <code>&amp;anno=2025</code>.
+        </p>
+        <div style={{ fontSize: 12.5, color: "var(--text-tertiary)", marginBottom: 4 }}>Esempio curl</div>
+        <pre style={{ background: "var(--bg)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: 14, overflowX: "auto", fontSize: 12.5, lineHeight: 1.5 }}>{`curl -s "${BASE_URL}/api/riepilogo-finanziario?partner=CLIVATI" \\
+  -H "X-API-Key: ${esempioChiave}" -H "X-App: deluxy-scout"`}</pre>
+        <div style={{ fontSize: 12.5, color: "var(--text-tertiary)", margin: "14px 0 4px" }}>Risposta (200 se trovato)</div>
+        <pre style={{ background: "var(--bg)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: 14, overflowX: "auto", fontSize: 12.5, lineHeight: 1.5 }}>{`{
+  "partner": { "id": "...", "nome": "CLIVATI" },
+  "anno": 2026, "annoPrec": 2025,
+  "base": "vendite vendor (incasso lordo) + servizi fatturati (netto IVA)",
+  "fatturato": 12345.67,        // YTD anno corrente
+  "fatturatoPrec": 10000.00,    // stesso periodo anno prima
+  "variazionePct": 23.46,       // null se manca il confronto
+  "periodo": { "daMese": 1, "aMese": 7 },
+  "mesi": [ ... 12 valori ... ],       // andamento anno corrente
+  "mesiPrec": [ ... 12 valori ... ],
+  "url": "https://deluxy-partner.vercel.app/partner/..."
+}`}</pre>
+        <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+          Se il nome non è univoco risponde <code>404</code> con <code>candidati</code> (nomi simili) per disambiguare.
+        </p>
+      </div>
+
       <h2 className="section-title">Tasks finance (condivisi in rete)</h2>
       <div className="card">
         <p style={{ fontSize: 14, marginBottom: 6 }}>
