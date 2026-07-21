@@ -4,7 +4,7 @@ import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo
 import { LINEE_ATTIVE, statoDaEsito } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
-import { notificaArchiviazioneReferente } from '@/lib/anagrafiche';
+import { notificaArchiviazioneReferente, sincronizzaNegozioRegistro } from '@/lib/anagrafiche';
 
 /** Contatto arricchito con nome/indirizzo/linea del negozio (per la Rubrica globale). */
 export interface ContattoConLuogo extends Contact {
@@ -116,6 +116,35 @@ export async function fetchPlaces(): Promise<Place[]> {
   return (data ?? []) as Place[];
 }
 
+/**
+ * Sincronizza un negozio verso il registro Anagrafiche (crea/aggiorna il partner
+ * con stato + interessi). Best-effort e NON bloccante: si chiama dopo creazione
+ * e cambi di stato del negozio. Inerte finché Anagrafiche non abilita la
+ * scrittura partner per Scout.
+ */
+export async function sincronizzaPlaceRegistro(placeId: string): Promise<void> {
+  try {
+    const { data: p } = await supabase
+      .from('places')
+      .select('nome, zona, indirizzo, categoria, stato, linea_ipotizzata, linee_ipotizzate')
+      .eq('id', placeId)
+      .single();
+    if (!p) return;
+    const linee = (p.linee_ipotizzate?.length ? p.linee_ipotizzate : p.linea_ipotizzata ? [p.linea_ipotizzata] : []) as string[];
+    await sincronizzaNegozioRegistro({
+      placeId,
+      nome: p.nome,
+      citta: p.zona ?? null,
+      indirizzo: p.indirizzo ?? null,
+      categoria: p.categoria ?? null,
+      stato: p.stato ?? null,
+      linee,
+    });
+  } catch {
+    /* best-effort: non deve mai far fallire l'azione dell'utente */
+  }
+}
+
 /** Crea un nuovo target sul territorio (scoperto in mobilità). */
 export async function inserisciPlace(p: {
   nome: string;
@@ -136,6 +165,7 @@ export async function inserisciPlace(p: {
     .select('*')
     .single();
   if (error) throw error;
+  sincronizzaPlaceRegistro(data.id).catch(() => {}); // best-effort verso Anagrafiche
   return data as Place;
 }
 
@@ -547,6 +577,7 @@ export async function inserisciDeal(d: {
 export async function aggiornaStatoPlace(placeId: string, stato: StatoPlace): Promise<void> {
   const { error } = await supabase.from('places').update({ stato }).eq('id', placeId);
   if (error) throw error;
+  sincronizzaPlaceRegistro(placeId).catch(() => {}); // best-effort verso Anagrafiche
 }
 
 /** Marca/smarca un negozio come interessante (⭐ → entra nel giro). Azzera "novità". */
@@ -959,6 +990,7 @@ export async function registraVisitaRapida(
     .update({ stato: statoDaEsito[opts.esito], da_completare: false, novita: false })
     .eq('id', placeId);
   if (error) throw error;
+  sincronizzaPlaceRegistro(placeId).catch(() => {}); // best-effort verso Anagrafiche
 
   // Best effort: porta subito la visita su HubSpot (company+contact+deal).
   // Se fallisce resta hubspot_synced=false e verrà ripresa dai sync successivi.

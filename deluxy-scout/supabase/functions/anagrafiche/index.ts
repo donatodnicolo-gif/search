@@ -58,6 +58,41 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // SCRITTURA: crea/aggiorna il PARTNER nel registro a partire da un negozio
+    // Scout (upsert-merge per riferimento esterno scout+place_id). Serve una
+    // chiave con scope di scrittura partner (`ANAGRAFICHE_PARTNER_KEY`). Inerte
+    // finché non è impostata: { ok:false, reason:'non_configurato' }.
+    if (body.action === 'upsert_partner') {
+      const partnerKey = Deno.env.get('ANAGRAFICHE_PARTNER_KEY');
+      if (!partnerKey) return json({ ok: false, reason: 'non_configurato' });
+      // Mappa lo stato Scout → stato del registro.
+      const STATO: Record<string, string> = {
+        da_visitare: 'prospect',
+        visitato: 'in_contatto',
+        cliente: 'attivo',
+        perso: 'non_interessato',
+      };
+      const payload: Record<string, unknown> = {
+        sistema: 'scout',
+        idEsterno: String(body.placeId ?? ''),
+        nome: body.nome ?? null,
+        citta: body.citta ?? null,
+        indirizzo: body.indirizzo ?? null,
+        categoria: body.categoria ?? null,
+        asOf: new Date().toISOString(),
+      };
+      if (body.stato && STATO[String(body.stato)]) payload.stato = STATO[String(body.stato)];
+      if (Array.isArray(body.linee) && body.linee.length) payload.interessi = body.linee;
+      const res = await fetch(`${BASE}/api/v1/partners`, {
+        method: 'POST',
+        headers: { 'x-api-key': partnerKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const txt = await res.text();
+      if (!res.ok) return json({ ok: false, reason: `registro_${res.status}`, dettaglio: txt.slice(0, 200) });
+      return json({ ok: true });
+    }
+
     let path = '';
     if (body.action === 'cerca') {
       const p = new URLSearchParams();

@@ -74,6 +74,28 @@ export async function notificaArchiviazioneReferente(dati: {
 }
 
 /**
+ * Sincronizza un NEGOZIO Scout verso il registro come partner (crea o aggiorna
+ * stato/interessi, upsert-merge per riferimento esterno scout+placeId). Best-effort:
+ * inerte finché Anagrafiche non abilita la scrittura partner per Scout (secret
+ * ANAGRAFICHE_PARTNER_KEY): la funzione risponde { ok:false } senza far fallire nulla.
+ */
+export async function sincronizzaNegozioRegistro(dati: {
+  placeId: string;
+  nome: string;
+  citta: string | null;
+  indirizzo: string | null;
+  categoria: string | null;
+  stato: string | null; // StatoPlace: da_visitare/visitato/cliente/perso
+  linee: string[];
+}): Promise<{ ok: boolean; reason?: string }> {
+  try {
+    return await chiama<{ ok: boolean; reason?: string }>({ action: 'upsert_partner', ...dati });
+  } catch {
+    return { ok: false, reason: 'non_raggiungibile' };
+  }
+}
+
+/**
  * Cerca nel registro il partner corrispondente a un negozio (per nome, con la
  * città come contesto). Ritorna la corrispondenza per nome normalizzato, o la
  * prima se non c'è un match esatto (con confidenza bassa lato UI).
