@@ -21,6 +21,8 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
       <td style={{ fontSize: 12.5 }}>
         {r.dati.piva ? <div>P.IVA <strong>{r.dati.piva}</strong></div> : null}
         {r.dati.codiceFiscale && r.dati.codiceFiscale !== r.dati.piva ? <div>CF {r.dati.codiceFiscale}</div> : null}
+        {r.dati.codiceSdi ? <div>SDI <strong>{r.dati.codiceSdi}</strong></div> : null}
+        {r.dati.pec ? <div>PEC {r.dati.pec}</div> : null}
         {(r.dati.indirizzo || r.dati.citta) ? (
           <div style={{ color: "var(--text-secondary)" }}>
             {[r.dati.indirizzo, [r.dati.cap, r.dati.citta].filter(Boolean).join(" "), r.dati.provincia].filter(Boolean).join(", ")}

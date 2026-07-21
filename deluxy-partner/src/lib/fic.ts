@@ -221,6 +221,10 @@ export type FicClienteFiscale = {
   cap: string | null;
   provincia: string | null;
   email: string | null;
+  pec: string | null; // certified_email
+  codiceSdi: string | null; // ei_code
+  telefono: string | null;
+  referente: string | null;
 };
 
 function normPiva(v: string | null | undefined): string | null {
@@ -235,6 +239,11 @@ export async function ficClientiFiscali(): Promise<FicClienteFiscale[]> {
   if (!companyId) throw new Error("Fatture in Cloud non collegato.");
   const perNome = new Map<string, FicClienteFiscale>();
   const chiave = (n: string) => n.trim().toLowerCase().replace(/\s+/g, " ");
+  // ei_code = "0000000" è il placeholder FIC per "nessun codice SDI"
+  const sdi = (v: string | null | undefined) => {
+    const s = (v ?? "").trim().toUpperCase();
+    return s && s !== "0000000" ? s : null;
+  };
   const aggiungi = (e: FicEntity | undefined) => {
     const nome = e?.name?.trim();
     if (!nome) return;
@@ -248,7 +257,11 @@ export async function ficClientiFiscali(): Promise<FicClienteFiscale[]> {
       citta: e?.address_city?.trim() || null,
       cap: e?.address_postal_code?.trim() || null,
       provincia: e?.address_province?.trim() || null,
-      email: null,
+      email: e?.email?.trim() || null,
+      pec: e?.certified_email?.trim() || null,
+      codiceSdi: sdi(e?.ei_code),
+      telefono: e?.phone?.trim() || null,
+      referente: e?.referent?.trim() || null,
     };
     // preferisci l'entry più completa (più campi valorizzati)
     if (!esistente) perNome.set(k, nuovo);
@@ -258,16 +271,11 @@ export async function ficClientiFiscali(): Promise<FicClienteFiscale[]> {
     }
   };
 
-  // rubrica (con indirizzo/email)
-  const rubrica = await ficFetch<{ data: (FicEntity & { email?: string | null })[] }>(
-    `/c/${companyId}/entities/clients?fields=name,vat_number,tax_code,address_street,address_city,address_postal_code,address_province,email&per_page=100&page=1`
+  // rubrica (con indirizzo, email, PEC, SDI, telefono, referente)
+  const rubrica = await ficFetch<{ data: FicEntity[] }>(
+    `/c/${companyId}/entities/clients?fields=name,vat_number,tax_code,address_street,address_city,address_postal_code,address_province,email,certified_email,ei_code,phone,referent&per_page=100&page=1`
   );
-  for (const e of rubrica.data ?? []) {
-    aggiungi(e);
-    const k = chiave(e.name ?? "");
-    const cur = perNome.get(k);
-    if (cur && e.email?.trim()) cur.email = e.email.trim();
-  }
+  for (const e of rubrica.data ?? []) aggiungi(e);
 
   // intestatari dalle fatture (anche non in rubrica)
   for (let page = 1; page <= 20; page++) {
@@ -403,6 +411,11 @@ export type FicEntity = {
   address_city?: string | null;
   address_province?: string | null;
   country?: string | null;
+  certified_email?: string | null; // PEC
+  ei_code?: string | null; // codice destinatario SDI
+  email?: string | null;
+  phone?: string | null;
+  referent?: string | null; // contatto/referente
 };
 
 // Crea una fattura su Fatture in Cloud. La fattura NON viene inviata allo SDI:

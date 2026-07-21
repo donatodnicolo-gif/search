@@ -115,6 +115,8 @@ export function scritturaAnagraficheAttiva(): boolean {
 }
 
 // Campi anagrafici che la riconciliazione FIC può proporre al registro.
+// I campi finanziari (pec, codiceSdi, amministrazione*) il registro li accetta
+// anche "piatti" e li smista nel blocco datiFinanziari (merge per campo, asOf).
 export type CampiAnagrafica = Partial<{
   pIva: string;
   codiceFiscale: string;
@@ -123,6 +125,11 @@ export type CampiAnagrafica = Partial<{
   provincia: string;
   email: string;
   ragioneSociale: string;
+  pec: string;
+  codiceSdi: string;
+  amministrazioneNome: string;
+  amministrazioneTelefono: string;
+  amministrazioneEmail: string;
 }>;
 
 // Aggiorna un partner nel registro (PATCH per id) con i campi confermati.

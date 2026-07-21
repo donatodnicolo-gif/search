@@ -24,7 +24,9 @@ export type Riconciliazione = {
   senzaMatch: EsitoRiga[]; // clienti FIC senza partner corrispondente
 };
 
-// Campi che FIC può proporre al registro per un cliente conciliato.
+// Campi che FIC può proporre al registro per un cliente conciliato: i dati
+// fiscali (livelli alti) e quelli finanziari che FIC possiede (PEC, codice SDI,
+// contatto amministrativo). IBAN/banca/metodo pagamento NON stanno in FIC.
 export function campiProposti(d: FicClienteFiscale) {
   const indirizzo = [d.indirizzo, [d.cap, d.citta].filter(Boolean).join(" "), d.provincia ? `(${d.provincia})` : ""]
     .filter(Boolean)
@@ -37,6 +39,12 @@ export function campiProposti(d: FicClienteFiscale) {
     ...(d.citta ? { citta: d.citta } : {}),
     ...(d.provincia ? { provincia: d.provincia } : {}),
     ...(d.email ? { email: d.email } : {}),
+    // dati finanziari da FIC (vanno nel blocco datiFinanziari del registro)
+    ...(d.pec ? { pec: d.pec } : {}),
+    ...(d.codiceSdi ? { codiceSdi: d.codiceSdi } : {}),
+    ...(d.referente ? { amministrazioneNome: d.referente } : {}),
+    ...(d.telefono ? { amministrazioneTelefono: d.telefono } : {}),
+    ...(d.email ? { amministrazioneEmail: d.email } : {}),
   };
 }
 
