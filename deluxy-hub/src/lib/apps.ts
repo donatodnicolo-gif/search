@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "tasks";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -97,6 +97,16 @@ export function catalogoApp(): AppDeluxy[] {
       icona: "mail",
       url: url(process.env.APP_URL_MAIL, "http://localhost:3070"),
       ruoli: ["admin"],
+    },
+    {
+      id: "tasks",
+      nome: "Tasks",
+      sottotitolo: "Attività condivise",
+      descrizione:
+        "L'elenco unico delle cose da fare di ogni persona: ogni app ci manda le sue attività e tutte le rileggono da qui.",
+      icona: "tasks",
+      url: url(process.env.APP_URL_TASKS, "http://localhost:3090"),
+      ruoli: ["admin", "commerciale", "partner"],
     },
   ];
 

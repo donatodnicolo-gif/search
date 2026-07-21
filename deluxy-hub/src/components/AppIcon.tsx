@@ -65,6 +65,14 @@ const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
       <path d="M19.5 3.5v4M17.5 5.5h4" {...TRATTO} />
     </>
   ),
+  // Lista con spunte: le attività condivise fra le app
+  tasks: (
+    <>
+      <path d="m4 7 1.6 1.6L8.5 5.7" {...TRATTO} />
+      <path d="m4 15.5 1.6 1.6 2.9-2.9" {...TRATTO} />
+      <path d="M11.5 7.2h8.5M11.5 15.7h8.5" {...TRATTO} />
+    </>
+  ),
 };
 
 export function AppIcon({ icona }: { icona: AppDeluxy["icona"] }) {
