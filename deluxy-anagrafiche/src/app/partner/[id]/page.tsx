@@ -10,6 +10,7 @@ import { prisma } from "@/lib/db";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
 import { datiFinanziariCondivisi } from "@/lib/insegna";
 import { eAffiliatoReseller } from "@/lib/interessi";
+import { getLinee } from "@/lib/linee";
 import { ETICHETTE_STATO, isStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,7 @@ export default async function Dettaglio({
   // tutte le sedi della stessa insegna (non del singolo record).
   const fin = await datiFinanziariCondivisi(p);
   const haSedi = p.sedi.length > 0 || Boolean(p.capogruppo);
+  const linee = await getLinee();
 
   // Appena diventata cliente: i referenti vanno in rubrica Google in automatico
   const affiliatoReseller = eAffiliatoReseller(p.interessi);
@@ -112,7 +114,7 @@ export default async function Dettaglio({
           {p.attivo && (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span className="etichetta-interessi">Interessi</span>
-              <MenuInteressi partnerId={p.id} interessi={p.interessi} />
+              <MenuInteressi partnerId={p.id} interessi={p.interessi} linee={linee} />
             </div>
           )}
           {p.attivo ? (

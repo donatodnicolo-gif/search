@@ -6,6 +6,7 @@ import { Riconcilia } from "@/components/Riconcilia";
 import { etichetta, Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
+import { getLinee } from "@/lib/linee";
 import { whereRicerca } from "@/lib/ricerca";
 import { ETICHETTE_STATO, STATI } from "@/lib/stati";
 
@@ -46,6 +47,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
   const dir: "asc" | "desc" = filtri.dir === "desc" ? "desc" : "asc";
 
   const interesse = filtri.interesse?.trim() || undefined;
+  const linee = await getLinee();
 
   const where: Prisma.PartnerWhereInput = { attivo: !inArchivio };
   if (filtri.q) where.AND = whereRicerca(filtri.q);
@@ -187,7 +189,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       <td className="cella-muta">{p.citta ?? "—"}</td>
       <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
       <td><MenuStato partnerId={p.id} stato={p.stato} archiviato={inArchivio} /></td>
-      <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto /></td>
+      <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto linee={linee} /></td>
       <td className="cella-muta col-secondaria">{p.account ?? "—"}</td>
       <td className="cella-muta">{p.ultimaVisita ? dataIt(p.ultimaVisita) : "—"}</td>
       <td className="cella-muta">
@@ -359,7 +361,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     <td className="cella-muta">{p.citta ?? "—"}</td>
                     <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
                     <td><MenuStato partnerId={p.id} stato={p.stato} /></td>
-                    <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto /></td>
+                    <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto linee={linee} /></td>
                     <td className="cella-muta">{p.ultimaVisita ? dataIt(p.ultimaVisita) : "—"}</td>
                     <td className="cella-muta">
                       {p.note ? (
