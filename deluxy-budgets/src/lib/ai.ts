@@ -38,6 +38,91 @@ export type EsitoProposte =
   | { ok: true; proposte: PropostaAI[] }
   | { ok: false; errore: string; configurata: boolean };
 
+// ---- Studio del piano di categorie a partire dagli addebiti reali ----
+
+export type CategoriaProposta = {
+  nome: string;
+  tipoPL: string; // COGS | ADV | PERSONALE | STRUTTURA | ESCLUSA
+  motivo: string;
+  controparti: string[]; // nomi esatti tra quelli forniti
+};
+
+export type EsitoCategorie =
+  | { ok: true; categorie: CategoriaProposta[] }
+  | { ok: false; errore: string; configurata: boolean };
+
+const TIPI_PL_VALIDI = ["COGS", "ADV", "PERSONALE", "STRUTTURA", "ESCLUSA"];
+
+// L'AI legge le controparti bancarie (nome + importo) e PROGETTA un piano di
+// categorie di costo che le organizzi tutte, assegnando ad ognuna la voce di
+// P&L. Non scrive nulla: restituisce la proposta, che l'utente conferma.
+export async function studiaCategorie(
+  controparti: { controparte: string; uscite: number }[],
+  esistenti: { nome: string; tipoPL: string }[]
+): Promise<EsitoCategorie> {
+  const cli = await client();
+  if (!cli) {
+    return { ok: false, configurata: false, errore: "Chiave OpenAI non trovata nel Hub (né in locale)." };
+  }
+  if (controparti.length === 0) return { ok: true, categorie: [] };
+
+  const nomiInput = new Set(controparti.map((c) => c.controparte));
+  const elenco = controparti
+    .map((c, i) => `${i + 1}. ${c.controparte} — ${Math.round(c.uscite)} €`)
+    .join("\n");
+  const giaEsistenti = esistenti.length
+    ? `Categorie già esistenti (riusale se calzano, non duplicarle):\n${esistenti.map((e) => `- ${e.nome} (${e.tipoPL})`).join("\n")}\n\n`
+    : "";
+
+  const sistema =
+    "Sei il CFO di Deluxy, azienda italiana di consegne di fiori e torte in guanti bianchi. " +
+    "Ti do l'elenco reale delle controparti dei bonifici in uscita, con gli importi. " +
+    "Progetta un PIANO DI CATEGORIE DI COSTO che le organizzi tutte, in modo che un imprenditore " +
+    "capisca dove vanno i soldi. Raggruppa le controparti simili sotto la stessa categoria (es. i vari " +
+    "fioristi e pasticcerie sotto 'Fornitori fiori e torte'; Google/Meta/TikTok sotto 'Pubblicità'; " +
+    "Agenzia Entrate/INPS/F24 sotto 'Tasse e contributi'; affitti/utenze/software sotto voci di struttura; " +
+    "commissioni e interessi bancari sotto oneri finanziari). " +
+    "Per ogni categoria indica la voce di conto economico (tipoPL): COGS = costo del venduto/fornitori di " +
+    "prodotto; ADV = pubblicità; PERSONALE = stipendi/compensi; STRUTTURA = affitti, utenze, software, " +
+    "servizi generali; ESCLUSA = movimenti che non sono costi economici (oneri finanziari, giroconti, " +
+    "rimborsi). Fai 8–16 categorie, nomi in italiano specifici ma non frammentati, e assegna OGNI " +
+    "controparte importante a una categoria (usa i nomi esatti che ti ho dato). Motivo brevissimo per categoria.";
+
+  const utente =
+    `${giaEsistenti}CONTROPARTI (nome — uscita):\n${elenco}\n\n` +
+    'Rispondi SOLO con JSON: {"categorie":[{"nome":"<categoria>","tipoPL":"COGS|ADV|PERSONALE|STRUTTURA|ESCLUSA","motivo":"<breve>","controparti":["<nome esatto>", …]}]}';
+
+  try {
+    const risposta = await cli.chat.completions.create({
+      model: MODELLO,
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: sistema },
+        { role: "user", content: utente },
+      ],
+    });
+    const testo = risposta.choices[0]?.message?.content ?? "{}";
+    const dati = JSON.parse(testo) as { categorie?: unknown };
+    const categorie: CategoriaProposta[] = Array.isArray(dati.categorie)
+      ? (dati.categorie as Record<string, unknown>[])
+          .map((c) => ({
+            nome: String(c.nome ?? "").trim().slice(0, 60),
+            tipoPL: TIPI_PL_VALIDI.includes(String(c.tipoPL)) ? String(c.tipoPL) : "STRUTTURA",
+            motivo: String(c.motivo ?? "").slice(0, 120),
+            controparti: Array.isArray(c.controparti)
+              ? [...new Set((c.controparti as unknown[]).map(String))].filter((n) => nomiInput.has(n))
+              : [],
+          }))
+          .filter((c) => c.nome)
+      : [];
+    return { ok: true, categorie };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "errore sconosciuto";
+    return { ok: false, configurata: true, errore: `Chiamata AI non riuscita: ${msg}` };
+  }
+}
+
 type ControparteIn = { controparte: string; uscite: number };
 type CategoriaIn = { nome: string; tipoPL: string };
 

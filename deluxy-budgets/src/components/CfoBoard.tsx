@@ -44,6 +44,12 @@ export function CfoBoard({
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState<string | null>(null);
   const idPerNome = new Map(categorie.map((c) => [c.nome, c.id] as const));
+  // Piano di categorie proposto dall'AI a partire dalle controparti reali.
+  const [pianoAI, setPianoAI] = useState<
+    { nome: string; tipoPL: string; motivo: string; controparti: string[] }[] | null
+  >(null);
+  const [pianoBusy, setPianoBusy] = useState(false);
+  const [pianoMsg, setPianoMsg] = useState<string | null>(null);
 
   const nonCategorizzate = righe.find((r) => r.categoriaId === null);
   // Con centinaia di controparti la tabella diventa ingestibile: si mostrano le
@@ -57,6 +63,44 @@ export function CfoBoard({
   );
   const categorizzato = righe.filter((r) => r.categoriaId !== null).reduce((s, r) => s + r.uscite, 0);
   const coperturaPct = totali.uscite > 0 ? (categorizzato / totali.uscite) * 100 : 0;
+  // Uscita per controparte (per mostrare i totali del piano proposto).
+  const uscitePerContro = new Map<string, number>();
+  for (const r of righe) for (const c of r.controparti) uscitePerContro.set(c.controparte, (uscitePerContro.get(c.controparte) ?? 0) + c.uscite);
+  const totalePiano = (nomi: string[]) => nomi.reduce((s, n) => s + (uscitePerContro.get(n) ?? 0), 0);
+
+  // L'AI studia le controparti non categorizzate e propone un piano di categorie.
+  async function studiaCategorieAI() {
+    setPianoBusy(true);
+    setPianoMsg(null);
+    const res = await fetch("/api/cfo/ai-categorie", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        controparti: (nonCategorizzate?.controparti ?? []).slice(0, 150),
+        esistenti: categorie.map((c) => ({ nome: c.nome, tipoPL: c.tipoPL })),
+      }),
+    });
+    setPianoBusy(false);
+    const body = await res.json().catch(() => null);
+    if (!body?.ok) { setPianoMsg(body?.error ?? "Studio AI non riuscito."); return; }
+    setPianoAI(body.categorie);
+    setPianoMsg(`${body.categorie.length} categorie proposte. Controlla e crea.`);
+  }
+
+  // Crea in blocco tutte le categorie proposte (categorie + regole).
+  async function creaPiano() {
+    if (!pianoAI?.length) return;
+    if (!confirm(`Creare ${pianoAI.length} categorie e categorizzare le controparti proposte?`)) return;
+    setPianoBusy(true);
+    const res = await fetch("/api/cfo/applica", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categorie: pianoAI }),
+    });
+    setPianoBusy(false);
+    if (res.ok) { setPianoAI(null); router.refresh(); }
+    else setPianoMsg("Creazione non riuscita.");
+  }
 
   async function creaCategoria() {
     if (!nuova?.nome.trim()) {
@@ -180,10 +224,71 @@ export function CfoBoard({
 
       <div className="page-head" style={{ marginBottom: 12 }}>
         <h2 className="section-title" style={{ margin: 0 }}>Costi per categoria</h2>
-        <button className="btn secondary" onClick={() => { setErrore(null); setNuova({ nome: "", tipoPL: "STRUTTURA" }); }}>
-          Aggiungi categoria
-        </button>
+        <div className="page-actions">
+          {pianoMsg && <span className="muted" style={{ fontSize: 13 }}>{pianoMsg}</span>}
+          <button className="btn secondary" onClick={studiaCategorieAI} disabled={pianoBusy || !nonCategorizzate}>
+            {pianoBusy ? "L'AI sta studiando…" : "✦ Studia categorie con AI"}
+          </button>
+          <button className="btn secondary" onClick={() => { setErrore(null); setNuova({ nome: "", tipoPL: "STRUTTURA" }); }}>
+            Aggiungi categoria
+          </button>
+        </div>
       </div>
+
+      {pianoAI && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="page-head" style={{ marginBottom: 10 }}>
+            <h3 className="section-title" style={{ margin: 0 }}>
+              Piano proposto dall&apos;AI — {pianoAI.length} categorie
+            </h3>
+            <div className="page-actions">
+              <button className="btn secondary" onClick={() => setPianoAI(null)} disabled={pianoBusy}>Scarta</button>
+              <button className="btn primary" onClick={creaPiano} disabled={pianoBusy}>
+                {pianoBusy ? "Creazione…" : "Crea tutte le categorie"}
+              </button>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Categoria</th>
+                  <th>Voce P&amp;L</th>
+                  <th className="num">Uscite</th>
+                  <th className="num">Controparti</th>
+                  <th>Esempi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pianoAI
+                  .map((c) => ({ ...c, tot: totalePiano(c.controparti) }))
+                  .sort((a, b) => b.tot - a.tot)
+                  .map((c) => (
+                    <tr key={c.nome}>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{c.nome}</div>
+                        {c.motivo && <div className="muted" style={{ fontSize: 11.5 }}>{c.motivo}</div>}
+                      </td>
+                      <td>
+                        <span className={`badge ${tipoBadge(c.tipoPL)}`}><span className="dot" />{tipoLabel(c.tipoPL)}</span>
+                      </td>
+                      <td className="num" style={{ fontWeight: 600 }}>{eur(c.tot)}</td>
+                      <td className="num muted">{c.controparti.length}</td>
+                      <td className="muted" style={{ fontSize: 12 }}>
+                        {c.controparti.slice(0, 3).join(", ")}{c.controparti.length > 3 ? "…" : ""}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="page-caption" style={{ marginTop: 12 }}>
+            L&apos;AI ha studiato le controparti reali e proposto queste categorie con la voce di P&amp;L.
+            &quot;Crea tutte&quot; le crea e categorizza le controparti; potrai comunque modificarle. Le categorie
+            con lo stesso nome di una esistente vengono riusate.
+          </p>
+        </div>
+      )}
 
       <div className="card tight">
         <div className="table-wrap">
