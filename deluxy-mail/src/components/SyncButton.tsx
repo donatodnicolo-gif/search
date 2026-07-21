@@ -108,6 +108,24 @@ export function SyncButton({ intervalloSec = 300 }: { intervalloSec?: number }) 
     return () => clearInterval(id)
   }, [auto, intervalloSec])
 
+  // OGNI VOLTA che torni sull'app (scheda riportata in primo piano o finestra
+  // rimessa a fuoco), scarica subito la posta arretrata. Copre i casi in cui il
+  // mount non riscatta: scheda lasciata aperta in background, ritorno da un'altra
+  // app, navigazione interna senza reload. `drena` ha il lucchetto `inCorsoRef`,
+  // quindi non si sovrappone al giro d'apertura né al timer.
+  useEffect(() => {
+    if (!auto) return
+    const alRitorno = () => {
+      if (document.visibilityState === 'visible') drenaRef.current()
+    }
+    document.addEventListener('visibilitychange', alRitorno)
+    window.addEventListener('focus', alRitorno)
+    return () => {
+      document.removeEventListener('visibilitychange', alRitorno)
+      window.removeEventListener('focus', alRitorno)
+    }
+  }, [auto])
+
   return (
     <div style={{ padding: '0 10px 4px' }}>
       <button className="btn primary" onClick={vai} disabled={inCorso} style={{ width: '100%' }}>
