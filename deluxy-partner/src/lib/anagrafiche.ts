@@ -127,6 +127,8 @@ export type CampiAnagrafica = Partial<{
   ragioneSociale: string;
   pec: string;
   codiceSdi: string;
+  iban: string;
+  banca: string;
   amministrazioneNome: string;
   amministrazioneTelefono: string;
   amministrazioneEmail: string;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ficStato } from "@/lib/fic";
 import { scritturaAnagraficheAttiva } from "@/lib/anagrafiche";
 import { costruisciRiconciliazione, campiProposti, type EsitoRiga } from "@/lib/riconciliazione-fic";
-import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione } from "@/lib/riconciliazione-actions";
+import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, salvaDatiBancari } from "@/lib/riconciliazione-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,25 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
           </div>
         ) : null}
         {!nCampi && <span className="muted">nessun dato fiscale da FIC</span>}
+      </td>
+      <td style={{ fontSize: 12.5, minWidth: 220 }}>
+        {/* Dati bancari: l'IBAN non è ricavabile dai bonifici (Qonto/movimenti non
+            lo espongono), quindi si inserisce a mano una volta e va su partner + registro. */}
+        <form action={salvaDatiBancari.bind(null, r.partner!.id, anagraficaId)} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <input
+            type="text"
+            name="iban"
+            defaultValue={r.partner!.iban ?? ""}
+            placeholder="IBAN del partner"
+            style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, padding: "5px 8px" }}
+          />
+          <div style={{ display: "flex", gap: 6 }}>
+            <input type="text" name="banca" placeholder="Banca (facoltativo)" style={{ fontSize: 12, padding: "5px 8px", flex: 1 }} />
+            <button className="btn small secondary" type="submit" disabled={!scrittura} title={scrittura ? "Salva IBAN sul partner e nel registro" : "Serve la chiave di scrittura"}>
+              Salva
+            </button>
+          </div>
+        </form>
       </td>
       <td>
         {r.stato === "confermata" ? (
@@ -77,7 +96,12 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
   );
 }
 
-export default async function RiconciliazionePage() {
+export default async function RiconciliazionePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ banca?: string; errore?: string }>;
+}) {
+  const sp = await searchParams;
   const stato = await ficStato();
   if (!stato.collegato) {
     return (
@@ -115,6 +139,17 @@ export default async function RiconciliazionePage() {
           </p>
         </div>
       </div>
+
+      {sp.banca && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />Dati bancari salvati — {decodeURIComponent(sp.banca)}</span>
+        </div>
+      )}
+      {sp.errore && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.errore)}</span>
+        </div>
+      )}
 
       {!scrittura && (
         <div className="card" style={{ padding: 14, marginBottom: 16, background: "rgba(201,52,0,0.07)" }}>
@@ -162,6 +197,7 @@ export default async function RiconciliazionePage() {
                 <tr>
                   <th>Cliente FIC ↔ Partner</th>
                   <th>Dati fiscali da FIC</th>
+                  <th>Dati bancari (IBAN)</th>
                   <th>Stato</th>
                   <th></th>
                 </tr>
