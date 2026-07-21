@@ -11,10 +11,11 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Tutto tranne: il login, gli asset, il manifest della PWA, /api/sync (si
+  // Tutto tranne: il login, gli asset, il manifest della PWA, il service worker
+  // (sw.js: dev'essere sempre servito come JS, non protetto), /api/sync (si
   // autentica col CRON_TOKEN) e /api/calendario (feed iCal col suo token:
   // Google/Apple/Outlook non hanno un cookie da mostrare).
   matcher: [
-    '/((?!login|api/sync|api/calendario|api/v1|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-).*)',
+    '/((?!login|api/sync|api/calendario|api/v1|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icon-).*)',
   ],
 }
