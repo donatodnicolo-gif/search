@@ -247,6 +247,60 @@ export async function applicaPropostaRene(
   }
 }
 
+/**
+ * Da una proposta di SMISTAMENTO («metti questa mail in Ordini») crea una REGOLA
+ * deterministica sul MITTENTE: da qui in poi le mail di quel mittente vanno da
+ * sole in quella sezione, senza passare da Renè. È il "fai sempre così" degli
+ * smistamenti. Idempotente: se la regola c'è già, non la duplica.
+ */
+export async function creaRegolaDaSmista(
+  utenteId: string,
+  dati: Record<string, unknown>
+): Promise<{ ok: boolean; messaggio: string }> {
+  const messaggioId = typeof dati.messaggioId === 'string' ? dati.messaggioId : ''
+  const sezioneNome = typeof dati.sezioneNome === 'string' ? dati.sezioneNome : ''
+  if (!messaggioId || !sezioneNome) return { ok: false, messaggio: 'Dati insufficienti per la regola.' }
+
+  const msg = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    select: { mittente: true, mittenteNome: true },
+  })
+  if (!msg) return { ok: false, messaggio: 'Mail non trovata per la regola.' }
+
+  const sezione = await db.sezione.findFirst({
+    where: { utenteId, nome: sezioneNome },
+    select: { id: true },
+  })
+  if (!sezione) return { ok: false, messaggio: 'Sezione non trovata per la regola.' }
+
+  const seMittente = msg.mittente.trim()
+  if (!seMittente) return { ok: false, messaggio: 'Mittente assente: regola non creata.' }
+
+  // Niente doppioni: se c'è già una regola su questo mittente verso questa sezione.
+  const gia = await db.regola.findFirst({
+    where: { utenteId, sezioneId: sezione.id, seMittente: { equals: seMittente, mode: 'insensitive' } },
+    select: { id: true },
+  })
+  if (gia) return { ok: true, messaggio: 'Regola già presente per questo mittente.' }
+
+  await db.regola.create({
+    data: {
+      utenteId,
+      nome: `${msg.mittenteNome || seMittente} → ${sezioneNome}`,
+      seMittente,
+      seOggetto: null,
+      seContiene: null,
+      sezioneId: sezione.id,
+      archivia: false,
+      priorita: 0,
+    },
+  })
+  return {
+    ok: true,
+    messaggio: `Regola creata: le prossime mail da ${msg.mittenteNome || seMittente} andranno in «${sezioneNome}».`,
+  }
+}
+
 export const TIPI_RENE: Record<string, string> = {
   sezione: 'Creare sezioni',
   regola: 'Creare regole di smistamento',

@@ -131,10 +131,14 @@ export function RenePropostaCard({
         className="btn secondary small"
         type="button"
         disabled={inCorso}
-        title="Approva e rendi questo TIPO di azione una conseguenza: d’ora in poi Renè lo farà da solo"
+        title={
+          tipo === 'smista'
+            ? 'Approva e crea una regola sul mittente: le prossime mail di questo mittente andranno da sole in questa sezione'
+            : 'Approva e rendi questo TIPO di azione una conseguenza: d’ora in poi Renè lo farà da solo'
+        }
         onClick={() => decidi(true, true)}
       >
-        Approva, e fai sempre così
+        {tipo === 'smista' ? 'Approva, e crea la regola' : 'Approva, e fai sempre così'}
       </button>
       <button className="btn secondary small" type="button" disabled={inCorso} onClick={() => decidi(false)}>
         No

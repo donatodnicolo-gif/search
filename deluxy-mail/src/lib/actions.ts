@@ -1457,7 +1457,7 @@ export async function decidiPropostaRene(
     return { ok: true, messaggio: 'Proposta scartata (non verrà riproposta).' }
   }
 
-  const { applicaPropostaRene, TIPI_RENE } = await import('./rene')
+  const { applicaPropostaRene, creaRegolaDaSmista, TIPI_RENE } = await import('./rene')
   let dati: Record<string, unknown> = {}
   try {
     dati = JSON.parse(proposta.dati)
@@ -1470,17 +1470,27 @@ export async function decidiPropostaRene(
     data: { stato: esito.ok ? 'applicata' : 'errore', esitoTesto: esito.messaggio },
   })
 
+  let extra = ''
   if (esito.ok && eConseguenza) {
-    await db.reneConseguenza.upsert({
-      where: { utenteId_tipo: { utenteId, tipo: proposta.tipo } },
-      create: { utenteId, tipo: proposta.tipo, descrizione: TIPI_RENE[proposta.tipo] ?? proposta.tipo },
-      update: { attiva: true },
-    })
+    if (proposta.tipo === 'smista') {
+      // "Fai sempre così" su uno SMISTAMENTO = una REGOLA deterministica sul
+      // mittente (le prossime mail di quel mittente vanno da sole in sezione),
+      // non la conseguenza generica sul tipo.
+      const reg = await creaRegolaDaSmista(utenteId, dati)
+      if (reg.ok) extra = ` ${reg.messaggio}`
+    } else {
+      // Gli altri tipi: la scelta "sempre" resta una conseguenza sul tipo.
+      await db.reneConseguenza.upsert({
+        where: { utenteId_tipo: { utenteId, tipo: proposta.tipo } },
+        create: { utenteId, tipo: proposta.tipo, descrizione: TIPI_RENE[proposta.tipo] ?? proposta.tipo },
+        update: { attiva: true },
+      })
+    }
   }
 
   revalidatePath('/rene')
   revalidatePath('/', 'layout')
-  return esito
+  return extra ? { ...esito, messaggio: `${esito.messaggio}${extra}` } : esito
 }
 
 /** Approva in blocco tutte le proposte in attesa di un'analisi. */
