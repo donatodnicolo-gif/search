@@ -309,6 +309,26 @@ model Pagamento {
   @@index([partnerId])
 }
 
+// Attività finance da portare a termine: cose da fare legate all'amministrazione
+// (sollecitare un pagamento, emettere una fattura, verificare un incasso…).
+// Collegabile opzionalmente a un partner o a un riferimento (fattura/PAY-…).
+model TaskFinance {
+  id           String    @id @default(cuid())
+  titolo       String
+  note         String?
+  stato        String    @default("aperto") // aperto | in_corso | fatto
+  priorita     String    @default("media") // bassa | media | alta
+  scadenza     DateTime?
+  partnerId    String?
+  partnerNome  String? // snapshot per l'elenco senza join
+  riferimento  String? // riferimento libero: n° fattura, PAY-…, pro-forma…
+  completatoIl DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([stato, scadenza])
+}
+
 // Impostazioni dell'app (chiave/valore): dati ordinante SEPA, preferenze
 model Impostazione {
   chiave String @id

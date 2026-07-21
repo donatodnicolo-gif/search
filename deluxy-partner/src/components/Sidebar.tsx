@@ -50,6 +50,12 @@ const icons = {
       <path d="M8.5 7V5.5a3.5 3.5 0 0 1 7 0V7" />
     </svg>
   ),
+  tasks: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="M8.5 12l2.2 2.2 4.5-4.8" />
+    </svg>
+  ),
   vendite: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <path d="M4 5h2l2.2 11h9.6L20 8H7" />
@@ -135,6 +141,7 @@ const sections: { label: string; items: Item[] }[] = [
   {
     label: "Amministrazione",
     items: [
+      { href: "/tasks", label: "Tasks finance", icon: icons.tasks },
       { href: "/saldi", label: "Saldi e bonifici", icon: icons.saldi },
       { href: "/pagamenti", label: "Pagamenti diretti", icon: icons.pagamenti },
       { href: "/transazioni", label: "Import transazioni", icon: icons.transazioni },
