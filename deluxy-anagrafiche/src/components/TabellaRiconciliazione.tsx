@@ -12,11 +12,23 @@ export type RigaRiconc = {
   email: string | null;
   telefono: string | null;
   hubspotId: string | null;
+  fonte: string | null;
   partnerId: string;
   partnerNome: string;
   partnerCitta: string | null;
   suggeriti: Suggerito[];
 };
+
+// Provenienza leggibile del referente (campo Contatto.fonte)
+const ETICHETTA_FONTE: Record<string, string> = {
+  hubspot: "HubSpot",
+  excel: "Excel",
+  ui: "Registro",
+  platform: "Piattaforma",
+  scout: "Scout",
+  suppliers: "Suppliers",
+};
+const nomeFonte = (f: string | null) => (f ? (ETICHETTA_FONTE[f] ?? f) : "Excel");
 
 type RisultatoPartner = { id: string; nome: string; categoria: string; citta: string | null };
 
@@ -66,6 +78,7 @@ export function TabellaRiconciliazione({ righe }: { righe: RigaRiconc[] }) {
                 <input type="checkbox" checked={tutti} onChange={toggleTutti} aria-label="Seleziona tutti" />
               </th>
               <th>Referente</th>
+              <th>Fonte</th>
               <th>Ruolo</th>
               <th>Contatti</th>
               <th>Anagrafica attuale</th>
@@ -87,6 +100,7 @@ export function TabellaRiconciliazione({ righe }: { righe: RigaRiconc[] }) {
                     <div className="cella-nome">{r.nome ?? "—"}</div>
                   )}
                 </td>
+                <td><span className="badge neutro" title={`fonte: ${r.fonte ?? "excel"}`}>{nomeFonte(r.fonte)}</span></td>
                 <td className="cella-muta">{r.ruolo ?? "—"}</td>
                 <td className="cella-muta">{[r.email, r.telefono].filter(Boolean).join(" · ") || "—"}</td>
                 <td>

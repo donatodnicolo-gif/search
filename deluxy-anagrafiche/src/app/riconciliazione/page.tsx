@@ -82,6 +82,7 @@ export default async function Riconciliazione({ searchParams }: { searchParams: 
     email: c.email,
     telefono: c.telefono,
     hubspotId: c.hubspotId,
+    fonte: c.fonte,
     partnerId: c.partner.id,
     partnerNome: c.partner.nome,
     partnerCitta: c.partner.citta,
