@@ -24,7 +24,19 @@ export type Tipologia = {
   marginePct: number;
   ordine: number;
   note: string | null;
+  vociFinance: string[]; // nomi tipologie Finance mappate su questa voce
 };
+
+// Legge la lista di voci Finance (JSON array) tollerando dati vecchi/vuoti.
+export function leggiVociFinance(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) ? v.map((x) => String(x).trim()).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
 
 export const TIPI_PERSONA = [
   { key: "DIPENDENTE", label: "Dipendente", badge: "blue" },
@@ -160,6 +172,7 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       marginePct: t.marginePct,
       ordine: t.ordine,
       note: t.note,
+      vociFinance: leggiVociFinance(t.vociFinance),
     })),
   };
 }

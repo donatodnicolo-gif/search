@@ -28,6 +28,16 @@ export async function PUT(req: Request) {
 
   for (const v of voci) {
     if (typeof v?.id !== "string") continue;
+    // vociFinance arriva come stringa "A, B, C" dal form: la normalizzo in JSON
+    // array pulito (null se svuotata). Assente nel payload = non la tocco.
+    let vociFinance: string | null | undefined = undefined;
+    if (typeof v.vociFinance === "string") {
+      const lista = v.vociFinance
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      vociFinance = lista.length ? JSON.stringify(lista) : null;
+    }
     await prisma.tipologiaServizio
       .update({
         where: { id: v.id },
@@ -35,6 +45,7 @@ export async function PUT(req: Request) {
           marginePct: margine(v.marginePct),
           nome: typeof v.nome === "string" && v.nome.trim() ? v.nome.trim() : undefined,
           note: typeof v.note === "string" ? v.note.trim() || null : undefined,
+          vociFinance,
         },
       })
       .catch(() => null);

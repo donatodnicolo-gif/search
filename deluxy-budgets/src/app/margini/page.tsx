@@ -35,6 +35,7 @@ export default async function Margini() {
           marginePct: t.marginePct,
           note: t.note,
           ricavi: ricavi[t.slug] ?? 0,
+          vociFinance: t.vociFinance,
         }))}
       />
     </>

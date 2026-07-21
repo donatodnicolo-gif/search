@@ -38,6 +38,11 @@ model TipologiaServizio {
   marginePct  Float   @default(0) // margine lordo sulla tipologia
   ordine      Int     @default(0)
   note        String?
+  // Nomi delle tipologie dell'app Finance che confluiscono in questa voce di
+  // budget per il consuntivo (JSON array). Più categorie di fatturazione
+  // possono mappare su un'unica voce di budget (es. il B2B raccoglie Consegne,
+  // Food Supplier, Magazzino…). Vuoto = confronto per nome identico.
+  vociFinance String?
 }
 
 // Budget pubblicato (livello "raggiungibile"): vendite per maison × canale × mese.

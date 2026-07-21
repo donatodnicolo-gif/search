@@ -24,9 +24,12 @@ pubblicato), *sfidante* e *irraggiungibile*.
   (motore in `src/lib/calc.ts`, funzioni `irpefLorda`, `detrazioneLavoro`, `cuneoFiscale`).
 - **Consuntivo** (`/consuntivo`): gli importi **realmente fatturati** per tipologia di servizio,
   richiamati dall'app **Finance** (`deluxy-partner`, endpoint `/api/tipologie`) con selettore di
-  periodo (anno / 1° / 2° semestre) e stato (tutte / saldate / aperte). Dove il nome della
-  tipologia in Finance coincide con una tipologia del budget, mostra **budget vs consuntivo e
-  scostamento** (budget annuale rapportato ai mesi del periodo). Richiede `FINANCE_API_KEY` in
+  periodo (anno / 1° / 2° semestre) e stato (tutte / saldate / aperte). Il fatturato reale si
+  **raggruppa per voce di budget** secondo la mappatura impostata in Margini (campo "Voci in
+  Finance": più categorie di Finance possono confluire in una voce — es. il B2B raccoglie
+  Consegne, Food Supplier, Magazzino, Affiliazioni, Clientelling), con **budget vs consuntivo,
+  scostamento e % realizzato**. Il fatturato non associato ad alcuna voce è elencato a parte,
+  così nulla è nascosto. Richiede `FINANCE_API_KEY` in
   `.env` (la stessa chiave di `/api/verifiche` di Finance, **segreto, mai committato**);
   `FINANCE_API_URL` è opzionale. Senza chiave la pagina spiega come configurarla.
 - **Margini** (`/margini`): il **margine lordo per tipologia di servizio** (D2C, Eventi, B2B e

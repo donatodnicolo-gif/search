@@ -11,12 +11,17 @@ type Riga = {
   marginePct: number;
   note: string | null;
   ricavi: number;
+  vociFinance: string[];
 };
 
 export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
   const router = useRouter();
   const [margini, setMargini] = useState<Record<string, number>>(() =>
     Object.fromEntries(tipologie.map((t) => [t.id, t.marginePct]))
+  );
+  // Mappatura verso le tipologie di Finance, come testo "A, B, C" per riga.
+  const [voci, setVoci] = useState<Record<string, string>>(() =>
+    Object.fromEntries(tipologie.map((t) => [t.id, t.vociFinance.join(", ")]))
   );
   const [nuovo, setNuovo] = useState<{ nome: string; marginePct: number } | null>(null);
   const [salvo, setSalvo] = useState(false);
@@ -39,7 +44,11 @@ export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        tipologie: tipologie.map((t) => ({ id: t.id, marginePct: margini[t.id] ?? t.marginePct })),
+        tipologie: tipologie.map((t) => ({
+          id: t.id,
+          marginePct: margini[t.id] ?? t.marginePct,
+          vociFinance: voci[t.id] ?? "",
+        })),
       }),
     });
     setSalvo(false);
@@ -127,6 +136,7 @@ export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
                 <th className="num">Margine %</th>
                 <th className="num">Margine €</th>
                 <th className="num">Costo del venduto</th>
+                <th>Voci in Finance (consuntivo)</th>
                 <th />
               </tr>
             </thead>
@@ -161,6 +171,15 @@ export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
                     </td>
                     <td className="num">{eur(margineEur)}</td>
                     <td className="num muted">{eur(t.ricavi - margineEur)}</td>
+                    <td style={{ minWidth: 220 }}>
+                      <input
+                        type="text"
+                        value={voci[t.id] ?? ""}
+                        onChange={(e) => setVoci((prev) => ({ ...prev, [t.id]: e.target.value }))}
+                        placeholder="es. Consegne, Food Supplier"
+                        style={{ fontSize: 13 }}
+                      />
+                    </td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       <button
                         className="btn secondary small"
@@ -181,6 +200,7 @@ export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
                 <td className="num">{pct(totali.mediaPct)}</td>
                 <td className="num">{eur(totali.margine)}</td>
                 <td className="num">{eur(totali.cogs)}</td>
+                <td />
                 <td />
               </tr>
             </tbody>
@@ -227,10 +247,17 @@ export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
         </div>
       )}
 
+      <p className="page-caption" style={{ marginTop: 14 }}>
+        <strong>Voci in Finance</strong>: i nomi delle tipologie dell&apos;app Finance che confluiscono in
+        questa voce di budget, separati da virgola (es. il B2B raccoglie <em>Consegne, Food Supplier,
+        Magazzino…</em>). Servono al <a href="/consuntivo" style={{ color: "var(--blue)" }}>Consuntivo</a> per
+        confrontare budget e fatturato reale. Lasciando il campo vuoto, il confronto avviene per nome identico.
+      </p>
+
       <div className="form-footer">
         {esito && <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{esito}</span>}
         <button className="btn primary" onClick={salva} disabled={salvo}>
-          {salvo ? "Salvataggio…" : "Salva margini"}
+          {salvo ? "Salvataggio…" : "Salva margini e mappature"}
         </button>
       </div>
     </>
