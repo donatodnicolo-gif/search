@@ -28,8 +28,10 @@ export function AgganciaMail({ messaggioId, agganciata }: { messaggioId: string;
     start(async () => {
       const esito = await agganciaAlThread(messaggioId, id)
       setStato(esito.messaggio)
-      setRisultati(null)
-      setQuery('')
+      // Resta aperto e ricarica la ricerca: puoi agganciare più mail di fila.
+      if (query.trim().length >= 2) {
+        setRisultati(await cercaDaAgganciare(messaggioId, query))
+      }
       router.refresh()
     })
 

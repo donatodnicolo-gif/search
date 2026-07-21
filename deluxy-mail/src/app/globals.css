@@ -84,6 +84,19 @@ a { color: inherit; text-decoration: none; }
 .page-caption { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
 .page-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
+/* Barra di azioni del messaggio: bottoni RAGGRUPPATI per funzione (rispondere /
+   organizzare / stato-cestino / definitivo), con separatori, così non sono una
+   fila indistinta. Va a capo in modo pulito. */
+.azioni-messaggio { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; width: 100%; }
+.azioni-gruppo { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.azioni-gruppo.azioni-fine { margin-left: auto; }
+.azioni-sep { width: 1px; align-self: stretch; min-height: 22px; background: var(--hairline-strong); }
+@media (max-width: 760px) {
+  /* Su schermo stretto i separatori e l'allineamento a destra confondono. */
+  .azioni-sep { display: none; }
+  .azioni-gruppo.azioni-fine { margin-left: 0; }
+}
+
 .section-title { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; margin: 28px 0 12px; }
 
 /* ---------- Card ---------- */
