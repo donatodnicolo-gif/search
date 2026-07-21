@@ -10,7 +10,7 @@ type Voce = { href: string; label: string; badge?: number }
 
 async function datiSidebar(utenteId: string) {
   try {
-    const [sezioni, daFare, nonLette, cestinati, bozze] = await Promise.all([
+    const [sezioni, daFare, nonLette, cestinati, bozze, riassunti] = await Promise.all([
       db.sezione.findMany({
         where: { utenteId },
         orderBy: { ordine: 'asc' },
@@ -42,10 +42,12 @@ async function datiSidebar(utenteId: string) {
       }),
       db.messaggio.count({ where: { utenteId, cestinato: true } }),
       db.bozza.count({ where: { utenteId, inviata: false } }),
+      // La tabella dei riassunti potrebbe non esistere ancora: in caso, 0.
+      db.riassuntoThread.count({ where: { utenteId } }).catch(() => 0),
     ])
-    return { sezioni, daFare, nonLette, cestinati, bozze }
+    return { sezioni, daFare, nonLette, cestinati, bozze, riassunti }
   } catch {
-    return { sezioni: [], daFare: 0, nonLette: 0, cestinati: 0, bozze: 0 }
+    return { sezioni: [], daFare: 0, nonLette: 0, cestinati: 0, bozze: 0, riassunti: 0 }
   }
 }
 
@@ -53,12 +55,14 @@ export async function Sidebar() {
   const utente = await utenteCorrente()
   if (!utente) return null // la pagina reindirizza al login; niente sidebar
 
-  const { sezioni, daFare, nonLette, cestinati, bozze } = await datiSidebar(utente.id)
+  const { sezioni, daFare, nonLette, cestinati, bozze, riassunti } = await datiSidebar(utente.id)
 
   const principali: Voce[] = [
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
     { href: '/bozze', label: 'Bozze', badge: bozze },
     { href: '/inviata', label: 'Posta inviata' },
+    // La casella dei quadri conversazione fatti dall'AI, col link al thread.
+    { href: '/riassunti', label: 'Riassunti', badge: riassunti },
     // La posta archiviata: messa via ma tenuta (non è nel Cestino). È il filtro
     // "Archiviati" della posta in arrivo, qui come voce a sé per ritrovarla.
     { href: '/?stato=archiviati', label: 'Archivio' },
