@@ -7,7 +7,8 @@ import { colors, coloreStato, labelStato, radius, spacing } from '@/lib/theme';
 import type { StatoPlace } from '@/types';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { PercorsoCliente } from '@/components/PercorsoCliente';
-import { fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
+import { archiviaContatto, fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
+import { avvisa } from '@/lib/dialoghi';
 
 export default function Rubrica() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function Rubrica() {
   const [statoFiltro, setStatoFiltro] = useState<StatoPlace | null>(null);
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
   const [zonaFiltro, setZonaFiltro] = useState<string | null>(null);
+  const [mostraArchiviati, setMostraArchiviati] = useState(false); // di default gli archiviati sono nascosti
   // Toggle rapidi (multipli, combinabili): utili per preparare una campagna.
   const [toggles, setToggles] = useState<Set<'decisori' | 'email' | 'telefono' | 'registro'>>(new Set());
 
@@ -69,10 +71,14 @@ export default function Rubrica() {
     };
   }, [contatti]);
 
+  const nArchiviati = useMemo(() => contatti.filter((c) => c.archiviato).length, [contatti]);
+
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
     const emailValida = (e: string | null) => Boolean(e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
     return contatti.filter((c) => {
+      // Gli archiviati sono nascosti finché non si attiva "Archiviati".
+      if (mostraArchiviati ? !c.archiviato : c.archiviato) return false;
       if (statoFiltro && c.place_stato !== statoFiltro) return false;
       if (lineaFiltro && c.place_linea !== lineaFiltro) return false;
       if (zonaFiltro && c.place_zona !== zonaFiltro) return false;
@@ -85,7 +91,19 @@ export default function Rubrica() {
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(q));
     });
-  }, [contatti, query, statoFiltro, lineaFiltro, zonaFiltro, toggles]);
+  }, [contatti, query, statoFiltro, lineaFiltro, zonaFiltro, toggles, mostraArchiviati]);
+
+  async function archivia(c: ContattoConLuogo) {
+    const nuovo = !c.archiviato;
+    // Ottimistico: aggiorna subito la lista, poi persiste + notifica Anagrafiche.
+    setContatti((cur) => cur.map((x) => (x.id === c.id ? { ...x, archiviato: nuovo } : x)));
+    try {
+      await archiviaContatto(c, nuovo);
+    } catch (e: any) {
+      setContatti((cur) => cur.map((x) => (x.id === c.id ? { ...x, archiviato: c.archiviato } : x)));
+      avvisa('Errore', e?.message ?? 'Operazione non riuscita.');
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -138,6 +156,14 @@ export default function Rubrica() {
           <ToggleChip icona="mail-outline" label="Con email" on={attivo('email')} onTap={() => togglaFiltro('email')} />
           <ToggleChip icona="call-outline" label="Con telefono" on={attivo('telefono')} onTap={() => togglaFiltro('telefono')} />
           <ToggleChip icona="library-outline" label="Nel registro" on={attivo('registro')} onTap={() => togglaFiltro('registro')} />
+          {nArchiviati ? (
+            <ToggleChip
+              icona="archive-outline"
+              label={`Archiviati (${nArchiviati})`}
+              on={mostraArchiviati}
+              onTap={() => setMostraArchiviati((v) => !v)}
+            />
+          ) : null}
           {filtriAttivi ? (
             <Pressable style={styles.azzera} onPress={azzeraFiltri} hitSlop={6}>
               <Ionicons name="close-circle" size={14} color={colors.testoSoft} />
@@ -172,7 +198,11 @@ export default function Rubrica() {
           )
         }
         renderItem={({ item }) => (
-          <Contatto contatto={item} onOpenPlace={() => router.push(`/(app)/attivita/${item.place_id}`)} />
+          <Contatto
+            contatto={item}
+            onOpenPlace={() => router.push(`/(app)/attivita/${item.place_id}`)}
+            onArchivia={() => archivia(item)}
+          />
         )}
       />
     </View>
@@ -236,9 +266,17 @@ function ToggleChip({
   );
 }
 
-function Contatto({ contatto: c, onOpenPlace }: { contatto: ContattoConLuogo; onOpenPlace: () => void }) {
+function Contatto({
+  contatto: c,
+  onOpenPlace,
+  onArchivia,
+}: {
+  contatto: ContattoConLuogo;
+  onOpenPlace: () => void;
+  onArchivia: () => void;
+}) {
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, c.archiviato && styles.cardArchiviato]}>
       <View style={styles.cardHead}>
         <Text style={styles.nome} numberOfLines={1}>
           {c.nome} {c.is_decisore ? <Ionicons name="star" size={13} color={colors.oro} /> : null}
@@ -249,7 +287,16 @@ function Contatto({ contatto: c, onOpenPlace }: { contatto: ContattoConLuogo; on
           label={c.place_nel_registro ? 'Sincronizzato con Anagrafiche' : 'Non nel registro'}
           colore={c.place_nel_registro ? colors.successo : colors.grigio}
         />
+        <Pressable
+          style={styles.archiviaBtn}
+          hitSlop={8}
+          onPress={onArchivia}
+          accessibilityLabel={c.archiviato ? 'Ripristina contatto' : 'Archivia contatto'}
+        >
+          <Ionicons name={c.archiviato ? 'arrow-undo-outline' : 'archive-outline'} size={16} color={colors.grigio} />
+        </Pressable>
       </View>
+      {c.archiviato ? <Text style={styles.archiviatoTag}>Archiviato · comunicato ad Anagrafiche</Text> : null}
       {c.ruolo ? <Text style={styles.meta}>{c.ruolo}</Text> : null}
       {c.place_nome ? (
         <Pressable onPress={onOpenPlace}>
@@ -354,8 +401,11 @@ const styles = StyleSheet.create({
     borderColor: colors.grigioChiaro,
     gap: 4,
   },
+  cardArchiviato: { opacity: 0.6 },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   nome: { flex: 1, fontSize: 16, fontWeight: '800', color: colors.navy },
+  archiviaBtn: { padding: 2 },
+  archiviatoTag: { color: colors.grigio, fontSize: 11, fontStyle: 'italic', marginTop: 2 },
   meta: { color: colors.testoSoft, fontSize: 13 },
   negozio: { color: colors.navy, fontSize: 14, fontWeight: '600', marginTop: 2 },
   lineaTag: {

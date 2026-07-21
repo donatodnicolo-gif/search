@@ -31,6 +31,33 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
 
+    // SCRITTURA: archivia/ripristina un referente del partner. Richiede una
+    // chiave di SCRITTURA dedicata (`ANAGRAFICHE_WRITE_KEY`) e l'endpoint sul
+    // registro. Finché non ci sono, resta inerte (l'archiviazione locale in
+    // Scout è già avvenuta): { ok:false, reason:'non_configurato' }.
+    if (body.action === 'archivia_referente') {
+      const writeKey = Deno.env.get('ANAGRAFICHE_WRITE_KEY');
+      if (!writeKey) return json({ ok: false, reason: 'non_configurato' });
+      const res = await fetch(`${BASE}/api/v1/referenti/archivia`, {
+        method: 'POST',
+        headers: { 'x-api-key': writeKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          // Identità del partner: riferimento esterno di Scout (place_id).
+          riferimento: { sistema: 'scout', idEsterno: body.placeId },
+          // Contesto per il match del partner se il riferimento non esiste ancora.
+          negozio: body.negozio ?? null,
+          citta: body.citta ?? null,
+          // Referente da archiviare (match per email/telefono/nome dentro il partner).
+          referente: { nome: body.nome ?? null, email: body.email ?? null, telefono: body.telefono ?? null },
+          archiviato: Boolean(body.archiviato),
+          origine: 'deluxy-scout',
+        }),
+      });
+      const txt = await res.text();
+      if (!res.ok) return json({ ok: false, reason: `registro_${res.status}`, dettaglio: txt.slice(0, 200) });
+      return json({ ok: true });
+    }
+
     let path = '';
     if (body.action === 'cerca') {
       const p = new URLSearchParams();

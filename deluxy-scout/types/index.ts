@@ -134,6 +134,7 @@ export interface Contact {
   email: string | null;
   is_decisore: boolean;
   hubspot_contact_id: string | null;
+  archiviato?: boolean; // referente archiviato (fuori dall'elenco attivo di Rubrica)
 }
 
 export interface Visit {

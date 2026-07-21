@@ -50,6 +50,30 @@ function normalizza(s: string | null | undefined): string {
 }
 
 /**
+ * Comunica ad Anagrafiche l'archiviazione (o il ripristino) di un REFERENTE.
+ * Best-effort: identifica il partner col riferimento esterno di Scout (place_id)
+ * e il referente per email/telefono/nome; il registro segna il referente come
+ * archiviato. Inerte finché Anagrafiche non espone l'endpoint + chiave scrittura
+ * (la Edge Function risponde { ok:false, reason:'non_configurato' } senza errori).
+ */
+export async function notificaArchiviazioneReferente(dati: {
+  placeId: string;
+  nome: string;
+  email: string | null;
+  telefono: string | null;
+  negozio: string | null;
+  citta: string | null;
+  archiviato: boolean;
+}): Promise<{ ok: boolean; reason?: string }> {
+  try {
+    return await chiama<{ ok: boolean; reason?: string }>({ action: 'archivia_referente', ...dati });
+  } catch {
+    // Non blocca l'archiviazione locale: si potrà risincronizzare più avanti.
+    return { ok: false, reason: 'non_raggiungibile' };
+  }
+}
+
+/**
  * Cerca nel registro il partner corrispondente a un negozio (per nome, con la
  * città come contesto). Ritorna la corrispondenza per nome normalizzato, o la
  * prima se non c'è un match esatto (con confidenza bassa lato UI).

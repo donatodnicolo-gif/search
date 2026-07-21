@@ -4,6 +4,7 @@ import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo
 import { statoDaEsito } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
+import { notificaArchiviazioneReferente } from '@/lib/anagrafiche';
 
 /** Contatto arricchito con nome/indirizzo/linea del negozio (per la Rubrica globale). */
 export interface ContattoConLuogo extends Contact {
@@ -222,6 +223,27 @@ export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
     place_in_trattativa: Boolean(r.places?.hubspot_deal_aperta),
     place_nel_registro: Boolean(r.places?.anagrafiche_id),
   })) as ContattoConLuogo[];
+}
+
+/**
+ * Archivia (o ripristina) un contatto: sparisce dall'elenco attivo di Rubrica.
+ * Comunica l'archiviazione anche ad Anagrafiche (best-effort, non blocca).
+ */
+export async function archiviaContatto(
+  c: { id: string; place_id: string; nome: string; email: string | null; telefono: string | null; place_nome?: string | null; place_zona?: string | null },
+  archiviato: boolean,
+): Promise<void> {
+  const { error } = await supabase.from('contacts').update({ archiviato }).eq('id', c.id);
+  if (error) throw error;
+  notificaArchiviazioneReferente({
+    placeId: c.place_id,
+    nome: c.nome,
+    email: c.email,
+    telefono: c.telefono,
+    negozio: c.place_nome ?? null,
+    citta: c.place_zona ?? null,
+    archiviato,
+  }).catch(() => {});
 }
 
 /** Normalizza un nome per il match (minuscolo, senza accenti/punteggiatura). */
