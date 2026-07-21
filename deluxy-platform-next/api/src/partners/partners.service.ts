@@ -86,6 +86,79 @@ export class PartnersService {
     return partner;
   }
 
+  /**
+   * Import massivo dei partner ATTIVI dal registro Anagrafiche. Per ogni
+   * attivo non ancora presente in piattaforma (dedup per platformId/email/P.IVA)
+   * crea il partner con i dati disponibili e lo ricollega al registro
+   * (sincronizza → il registro salva il platformId). I campi specifici della
+   * piattaforma (pagamenti, servizi, contratto…) non esistono in Anagrafiche:
+   * restano vuoti/default e si completano poi dalla scheda partner.
+   */
+  async importFromAnagrafiche(actor?: JwtUser) {
+    const attivi = await this.anagrafiche.fetchAttivi();
+    const summary = { totale: attivi.length, importati: 0, saltati: 0, errori: [] as string[] };
+    if (attivi.length === 0) return summary;
+
+    // Indici per il dedup (una lettura sola).
+    const esistenti = await this.prisma.partner.findMany({
+      select: { id: true, email: true, vatNumber: true },
+    });
+    const perId = new Set(esistenti.map((p) => p.id));
+    const perEmail = new Set(esistenti.map((p) => p.email.toLowerCase()));
+    const perPiva = new Set(esistenti.filter((p) => p.vatNumber).map((p) => p.vatNumber!.toUpperCase()));
+
+    // Categorie/province della piattaforma per risolvere i nomi.
+    const [categorie, province] = await Promise.all([
+      this.prisma.category.findMany({ select: { id: true, name: true } }),
+      this.prisma.province.findMany({ select: { id: true, code: true, name: true } }),
+    ]);
+    const catByName = new Map(categorie.map((c) => [c.name.toUpperCase(), c.id]));
+    const provByKey = new Map<string, string>();
+    for (const pr of province) {
+      provByKey.set(pr.code.toUpperCase(), pr.id);
+      provByKey.set(pr.name.toUpperCase(), pr.id);
+    }
+
+    for (const a of attivi) {
+      try {
+        // Dedup: gia' collegato, o stessa email/P.IVA gia' in piattaforma.
+        if (a.platformId && perId.has(a.platformId)) { summary.saltati++; continue; }
+        const email = (a.email?.trim() || `import-${a.id}@no-email.deluxy`).toLowerCase();
+        const piva = a.pIva?.trim().toUpperCase();
+        if (perEmail.has(email) || (piva && perPiva.has(piva))) { summary.saltati++; continue; }
+
+        const categoryId = a.categoria ? catByName.get(a.categoria.toUpperCase()) : undefined;
+        const provinceId = a.provincia ? provByKey.get(a.provincia.trim().toUpperCase()) : undefined;
+        const contatto = a.contatti?.[0];
+
+        const partner = await this.prisma.partner.create({
+          data: {
+            insegna: a.nome,
+            businessName: a.ragioneSociale ?? undefined,
+            email,
+            vatNumber: a.pIva ?? undefined,
+            fiscalCode: a.codiceFiscale ?? undefined,
+            address: a.indirizzo ?? undefined,
+            phone: a.telefono ?? undefined,
+            contactName: contatto?.nome ?? undefined,
+            notes: a.note ?? undefined,
+            provinces: provinceId ? { create: [{ provinceId }] } : undefined,
+            categories: categoryId ? { create: [{ categoryId, priority: 0 }] } : undefined,
+          },
+          include: PARTNER_INCLUDE,
+        });
+        perEmail.add(email);
+        if (piva) perPiva.add(piva);
+        // Ricollega al registro (upsert per nome+citta → salva il platformId).
+        this.anagrafiche.sincronizza(partner);
+        summary.importati++;
+      } catch (err) {
+        summary.errori.push(`${a.nome}: ${(err as Error).message}`);
+      }
+    }
+    return summary;
+  }
+
   async update(id: string, dto: UpdatePartnerDto, user: JwtUser) {
     if (user.role === Role.PARTNER && user.partnerId !== id) {
       throw new ForbiddenException('Accesso non consentito');

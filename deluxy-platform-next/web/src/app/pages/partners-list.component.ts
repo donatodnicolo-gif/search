@@ -27,9 +27,15 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
           [ngModel]="table.query()"
           (ngModelChange)="table.query.set($event)"
         />
+        @if (canEdit()) {
+          <button class="btn btn-secondary" [disabled]="importing()" (click)="importFromAnagrafiche()">
+            {{ (importing() ? 'partners.importing' : 'partners.importFromRegistry') | translate }}
+          </button>
+        }
         <a routerLink="/partners/new" class="btn btn-primary">+ {{ 'partners.add' | translate }}</a>
       </div>
     </div>
+    @if (importResult()) { <div class="card state-card ok">{{ importResult() }}</div> }
 
     @if (loading()) {
       <div class="card state-card">{{ 'partners.loading' | translate }}</div>
@@ -170,7 +176,15 @@ export class PartnersListComponent {
 
   readonly filtered = computed(() => this.table.view(this.partners()));
 
+  readonly importing = signal(false);
+  readonly importResult = signal<string | null>(null);
+
   constructor() {
+    this.load();
+  }
+
+  private load(): void {
+    this.loading.set(true);
     this.http.get<Partner[]>(`${environment.apiUrl}/partners`).subscribe({
       next: (d) => {
         this.partners.set(d);
@@ -181,6 +195,34 @@ export class PartnersListComponent {
         this.error.set(err?.error?.message ?? this.translate.instant('partners.loadError'));
       },
     });
+  }
+
+  /** Importa gli attivi dal registro Anagrafiche, poi ricarica la lista. */
+  importFromAnagrafiche(): void {
+    this.importing.set(true);
+    this.importResult.set(null);
+    this.http
+      .post<{ totale: number; importati: number; saltati: number; errori: string[] }>(
+        `${environment.apiUrl}/partners/import/anagrafiche`,
+        {},
+      )
+      .subscribe({
+        next: (r) => {
+          this.importing.set(false);
+          this.importResult.set(
+            this.translate.instant('partners.importDone', {
+              importati: r.importati,
+              saltati: r.saltati,
+              totale: r.totale,
+            }),
+          );
+          this.load();
+        },
+        error: (err) => {
+          this.importing.set(false);
+          this.importResult.set(err?.error?.message ?? 'Errore durante l\'import');
+        },
+      });
   }
 
   namesOf(p: Partner): string {

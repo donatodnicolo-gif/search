@@ -40,6 +40,13 @@ export class PartnersController {
     return this.partnersService.create(dto, actor);
   }
 
+  @Post('import/anagrafiche')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Importa i partner ATTIVI dal registro Anagrafiche' })
+  importFromAnagrafiche(@CurrentUser() actor: JwtUser) {
+    return this.partnersService.importFromAnagrafiche(actor);
+  }
+
   @Put(':id')
   @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
   @ApiOperation({ summary: 'Aggiorna partner (il partner solo i propri dati limitati)' })
