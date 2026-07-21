@@ -124,7 +124,11 @@ const stmts = [
      END IF;
    END $$`,
   // Intervallo di sincronizzazione automatica scelto dall'utente (secondi).
-  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "sincronizzaOgniSec" INTEGER NOT NULL DEFAULT 60`,
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "sincronizzaOgniSec" INTEGER NOT NULL DEFAULT 300`,
+  // Default portato a 5 minuti per tutti. Sposta a 300 solo chi era ancora sul
+  // vecchio default (60): chi ha scelto un altro valore non viene toccato.
+  `ALTER TABLE "Utente" ALTER COLUMN "sincronizzaOgniSec" SET DEFAULT 300`,
+  `UPDATE "Utente" SET "sincronizzaOgniSec" = 300 WHERE "sincronizzaOgniSec" = 60`,
   // Appuntamento proposto dall'AI su una mail (invito a riunione).
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "eventoProposto" TEXT`,
   // Aggancio manuale delle mail a una conversazione.

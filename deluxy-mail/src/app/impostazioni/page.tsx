@@ -172,7 +172,7 @@ export default async function Impostazioni() {
               <label className="field-label">Controlla la posta ogni</label>
               <select
                 name="sincronizzaOgniSec"
-                defaultValue={String(u.sincronizzaOgniSec ?? 60)}
+                defaultValue={String(u.sincronizzaOgniSec ?? 300)}
                 style={{ width: 'auto', minWidth: 160 }}
               >
                 <option value="30">30 secondi</option>

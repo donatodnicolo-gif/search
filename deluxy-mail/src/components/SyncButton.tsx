@@ -13,7 +13,7 @@ function etichetta(sec: number): string {
 
 // L'intervallo lo sceglie l'utente in Impostazioni ("Controlla la posta ogni").
 // Gira solo mentre la finestra è visibile.
-export function SyncButton({ intervalloSec = 60 }: { intervalloSec?: number }) {
+export function SyncButton({ intervalloSec = 300 }: { intervalloSec?: number }) {
   const [stato, setStato] = useState<string | null>(null)
   const [ultimo, setUltimo] = useState<Date | null>(null)
   const [auto, setAuto] = useState(true)
