@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { RigaMail, type RigaData } from './RigaMail'
+import { CercaVecchie } from './CercaVecchie'
 import { azioneMassa, type AzioneMassa } from '@/lib/actions'
 
 const PASSO = 50
@@ -16,9 +17,13 @@ const PASSO = 50
 export function ListaMail({
   righe,
   sezioni = [],
+  cercaVecchie = false,
 }: {
   righe: RigaData[]
   sezioni?: { id: string; nome: string }[]
+  /** La casella ha ancora storico non scaricato: in fondo alla lista si va a
+   *  prendere on-demand un blocco di mail più vecchie dal server. */
+  cercaVecchie?: boolean
 }) {
   const [mostrate, setMostrate] = useState(PASSO)
   const [selezione, setSelezione] = useState<Set<string>>(new Set())
@@ -183,6 +188,10 @@ export function ListaMail({
           </button>
         </div>
       )}
+
+      {/* Finite le righe locali: se sul server c'è storico non ancora scaricato,
+          lo si va a prendere on-demand (scroll o click), un blocco per volta. */}
+      {restano <= 0 && cercaVecchie && <CercaVecchie />}
     </div>
   )
 }

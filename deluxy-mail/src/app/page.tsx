@@ -73,6 +73,21 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   ).filter((s) => s.nome !== 'SPAM')
 
   const account = await db.account.count({ where: { utenteId: u.id } })
+
+  // C'è ancora storico non scaricato? Allora in fondo alla lista si può andare
+  // a prendere on-demand la posta più vecchia dal server (senza bisogno dello
+  // scarico automatico in background).
+  const storicoIncompleto = await db.account
+    .count({
+      where: {
+        utenteId: u.id,
+        attivo: true,
+        OR: [{ storicoFinito: false }, { storicoInviataFinito: false }],
+      },
+    })
+    .then((n) => n > 0)
+    .catch(() => false) // colonne non ancora migrate: niente ricerca on-demand
+
   if (account === 0) {
     return (
       <>
@@ -428,7 +443,12 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             </p>
           </div>
         ) : (
-          <ListaMail righe={righe} sezioni={sezioniPerSposta} />
+          <ListaMail
+            righe={righe}
+            sezioni={sezioniPerSposta}
+            // In ricerca no: scaricare blocchi vecchi a caso non c'entra coi risultati.
+            cercaVecchie={!ricerca && storicoIncompleto}
+          />
         )}
         </div>
 
