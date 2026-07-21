@@ -8,6 +8,27 @@ import { Injectable, Logger } from '@nestjs/common';
 // La sync e' best-effort e non blocca mai l'operazione sulla piattaforma:
 // se il registro e' spento o la chiave manca, si logga e si prosegue.
 
+// Shape del partner restituito dal registro (serializzaPartner lato anagrafiche).
+export type AnagraficaPartner = {
+  id: string;
+  nome: string;
+  ragioneSociale?: string | null;
+  categoria?: string | null;
+  stato?: string | null;
+  citta?: string | null;
+  provincia?: string | null;
+  regione?: string | null;
+  indirizzo?: string | null;
+  email?: string | null;
+  telefono?: string | null;
+  pIva?: string | null;
+  codiceFiscale?: string | null;
+  note?: string | null;
+  contatti?: { ruolo?: string | null; nome?: string | null; telefono?: string | null; email?: string | null }[];
+  platformId?: string | null;
+  attivo?: boolean;
+};
+
 type PartnerPiattaforma = {
   id: string;
   insegna: string;
@@ -33,6 +54,39 @@ export class AnagraficheSyncService {
 
   private get apiKey(): string | undefined {
     return process.env.ANAGRAFICHE_API_KEY;
+  }
+
+  /**
+   * Legge dal registro tutti i partner ATTIVI (stato=attivo), paginando.
+   * Usato dall'import massivo. Ritorna [] se la chiave manca o il registro
+   * non risponde (best-effort, non solleva).
+   */
+  async fetchAttivi(): Promise<AnagraficaPartner[]> {
+    if (!this.apiKey) {
+      this.logger.warn('ANAGRAFICHE_API_KEY non impostata: import saltato');
+      return [];
+    }
+    const perPage = 200;
+    const tutti: AnagraficaPartner[] = [];
+    for (let page = 1; page <= 100; page++) {
+      const url = `${this.baseUrl}/api/v1/partners?stato=attivo&perPage=${perPage}&page=${page}`;
+      let body: { dati?: AnagraficaPartner[]; totale?: number } | null = null;
+      try {
+        const res = await fetch(url, { headers: { 'x-api-key': this.apiKey } });
+        if (!res.ok) {
+          this.logger.warn(`Lettura anagrafiche fallita (pagina ${page}): HTTP ${res.status}`);
+          break;
+        }
+        body = await res.json();
+      } catch (err) {
+        this.logger.warn(`Registro anagrafiche non raggiungibile: ${(err as Error).message}`);
+        break;
+      }
+      const dati = body?.dati ?? [];
+      tutti.push(...dati);
+      if (dati.length < perPage) break; // ultima pagina
+    }
+    return tutti;
   }
 
   // Fire-and-forget: da chiamare senza await dopo create/update/deactivate.

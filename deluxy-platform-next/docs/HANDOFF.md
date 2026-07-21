@@ -178,6 +178,13 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - **Verificato E2E**: mock del registro su :3060 + API con `ANAGRAFICHE_API_KEY` fittizia → creando un partner arriva **POST #1** (`stato: attivo`, `fonte: platform`, contatti, x-api-key corretto); disattivandolo arriva **POST #2** (`stato: dismesso`, `attivo: false`). `nest build` pulito. Partner e utente di test ripuliti dal DB.
 - ⚠️ **Segnalazione**: nella copia `scoutwt` il file `api/.env.example` contiene una **chiave `ANAGRAFICHE_API_KEY` reale committata** (`dlxk_…`) — è una fuga di segreto da revocare/ripulire (qui ho committato solo un placeholder vuoto).
 
+### 22/07/2026 — Import massivo dai partner ATTIVI di Anagrafiche
+
+- **Nuovo**: `PartnersService.importFromAnagrafiche()` + endpoint `POST /partners/import/anagrafiche` (ADMIN/OPERATION). Legge tutti gli attivi via `AnagraficheSyncService.fetchAttivi()` (`GET /api/v1/partners?stato=attivo`, paginato 200), mappa i campi del registro sul Partner (insegna←nome, businessName←ragioneSociale, email/vatNumber/fiscalCode/address/phone/notes, categoria→Category per nome, provincia→Province per codice/nome, primo contatto→contactName), **deduplica** per platformId già collegato / email / P.IVA, crea in piattaforma e **ricollega** al registro (`sincronizza` → salva il platformId). Email mancante → placeholder `import-<id>@no-email.deluxy` (vincolo unique). Summary `{totale, importati, saltati, errori}`.
+- **UI**: pulsante **"Importa da Anagrafiche"** nella lista partner (ADMIN/OPERATION), mostra l'esito e ricarica. i18n IT/EN.
+- **Export in creazione (già esistente)**: creando/aggiornando un partner parte `sincronizza` (upsert = crea se non esiste, aggiorna altrimenti). Quindi il punto 2 ("porta in anagrafica se non esistente") era già coperto dall'upsert.
+- ⚠️ **Serve `ANAGRAFICHE_API_KEY`** (lettura+scrittura, generata su anagrafiche) sia in locale sia nelle **env di Vercel**: senza, import e sync ritornano a vuoto (best-effort). Testato a runtime: endpoint ok, summary corretto, PARTNER→403; l'import reale va provato con la chiave configurata.
+
 ### 18/07/2026 (8) — Stipendi allineati all'app reale: Ricevute+firma, Reclamo, Esporta, Frequenza (feedback)
 
 Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la mia pagina con `/valet/stipendi` reale (manuale righe 204-205) e implementati i 4 pezzi mancanti (l'utente ha risposto "tutti"):
