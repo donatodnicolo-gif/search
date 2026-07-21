@@ -18,6 +18,7 @@ import { CHIAVI, leggiImpostazioni, STILE_DEFAULT } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
 import { raggruppa, chiaveThread } from './thread'
 import { prefissa, inoltrato } from './rispondi'
+import { elencoContatti } from './contatti'
 import { valutaSpam } from './spam'
 
 export type EsitoSync = {
@@ -348,19 +349,14 @@ export async function preparaEsecuzione(
   // l'AI scrive una mail NUOVA che la porta a termine, e si apre in "Scrivi".
   if (!messaggio) {
     const ctx = await contestoAI(utenteId)
-    const recenti = await db.messaggio.findMany({
-      where: { utenteId, direzione: 'entrata', cestinato: false },
-      orderBy: { data: 'desc' },
-      distinct: ['mittente'],
-      take: 40,
-      select: { mittente: true, mittenteNome: true },
-    })
+    // Rubrica completa: se il compito nomina i destinatari, l'AI li risolve qui.
+    const rubrica = await elencoContatti(utenteId)
 
     try {
       const testo = await scriviMailNuova({
         compito: attivita.titolo,
         dettaglio: attivita.dettaglio,
-        contatti: recenti.map((r) => ({ email: r.mittente, nome: r.mittenteNome })),
+        contatti: rubrica.map((c) => ({ email: c.email, nome: c.nome })),
         contestoAzienda: ctx.contestoAzienda,
         stileScrittura: ctx.stileScrittura,
         istruzioni: attivita.contattoEmail
@@ -446,14 +442,10 @@ export async function preparaRispostaDelegata(
   // La conversazione intera (non solo l'ultima mail), così Renè riprende il
   // thread e risponde a ciò che è rimasto in sospeso.
   const thread = await messaggiThread(utenteId, messaggio.id)
-  // Contatti recenti: servono se il compito è un inoltro ("gira questa a…").
-  const recenti = await db.messaggio.findMany({
-    where: { utenteId, cestinato: false },
-    orderBy: { data: 'desc' },
-    distinct: ['mittente'],
-    take: 60,
-    select: { mittente: true, mittenteNome: true },
-  })
+  // La RUBRICA completa (fino a 200 contatti), non solo i mittenti recenti: se il
+  // compito dice di mandare/recap a persone precise ("a Renato, Eleonora e
+  // Martina"), Renè deve poter risolvere quei nomi in indirizzi.
+  const rubrica = await elencoContatti(utenteId)
 
   try {
     const testo = await scriviRisposta({
@@ -468,7 +460,7 @@ export async function preparaRispostaDelegata(
         corpoTesto: m.corpoTesto,
       })),
       permettiInoltro: true,
-      contatti: recenti.map((r) => ({ email: r.mittente, nome: r.mittenteNome })),
+      contatti: rubrica.map((c) => ({ email: c.email, nome: c.nome })),
       contestoAzienda: ctx.contestoAzienda,
       stileScrittura: ctx.stileScrittura,
       istruzioni: mirate,
@@ -505,13 +497,18 @@ export async function preparaRispostaDelegata(
       }
     }
 
+    // Se il compito indicava destinatari precisi (recap/mail a persone in
+    // rubrica), Renè li ha messi in `testo.a`: si usano QUELLI. Altrimenti è una
+    // risposta normale a chi ha scritto.
+    const destinatari = testo.a?.trim() || messaggio.mittente
+    const aAltri = destinatari.toLowerCase() !== messaggio.mittente.toLowerCase()
     const bozza = await db.bozza.create({
       data: {
         utenteId,
         messaggioId: messaggio.id,
         origine: 'ai',
         modo: 'rispondi',
-        a: messaggio.mittente,
+        a: destinatari,
         oggetto: testo.oggetto,
         corpo: testo.corpo,
         corpoAI: testo.corpo,
@@ -520,7 +517,7 @@ export async function preparaRispostaDelegata(
 
     return {
       ok: true,
-      messaggio: 'Renè ha preparato la risposta.',
+      messaggio: aAltri ? `Renè ha preparato la mail per ${destinatari}.` : 'Renè ha preparato la risposta.',
       vaiA: `/messaggio/${messaggio.id}/scrivi?modo=rispondi&bozza=${bozza.id}`,
     }
   } catch (e) {
