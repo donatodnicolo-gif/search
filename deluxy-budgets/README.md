@@ -32,6 +32,10 @@ pubblicato), *sfidante* e *irraggiungibile*.
   così nulla è nascosto. Richiede `FINANCE_API_KEY` in
   `.env` (la stessa chiave di `/api/verifiche` di Finance, **segreto, mai committato**);
   `FINANCE_API_URL` è opzionale. Senza chiave la pagina spiega come configurarla.
+- **Piattaforme ADV** (`/piattaforme`): ripartizione del budget pubblicitario tra le **piattaforme**
+  (Google, Meta, TikTok e altre **aggiungibili/rimovibili**). Si impostano le **% per mese** — diverse
+  mese per mese — e l'**importo per piattaforma si calcola da solo** (= budget ADV del mese × %). La
+  riga "Totale %" segnala se un mese non copre il 100%. Il budget ADV mensile è quello di Spese ADV.
 - **Margini** (`/margini`): il **margine lordo per tipologia di servizio** (D2C, Eventi, B2B e
   quelle aggiunte a mano). Il costo del venduto del P&L non è più una percentuale unica: è la
   somma dei ricavi di ogni tipologia al netto del suo margine, quindi **cambia col mix di

@@ -96,6 +96,30 @@ model AdvPercent {
   @@unique([year, maisonId, month])
 }
 
+// Piattaforma pubblicitaria (Google, Meta, TikTok, …): aggiungibile a piacere.
+// Il budget ADV di ogni mese si ripartisce tra le piattaforme con le % di
+// PiattaformaSplit, diverse mese per mese.
+model PiattaformaAdv {
+  id     String             @id @default(cuid())
+  nome   String             @unique
+  colore String? // badge: green | gold | blue | purple | orange | neutral
+  ordine Int                @default(0)
+  note   String?
+  split  PiattaformaSplit[]
+}
+
+// % di budget ADV assegnata a una piattaforma in un dato mese.
+model PiattaformaSplit {
+  id            String         @id @default(cuid())
+  year          Int
+  month         Int
+  percent       Float          @default(0)
+  piattaforma   PiattaformaAdv @relation(fields: [piattaformaId], references: [id], onDelete: Cascade)
+  piattaformaId String
+
+  @@unique([year, piattaformaId, month])
+}
+
 // Linee del team commerciale (Affiliazioni, Consegne Corporate, Catering & Eventi…)
 model LineaCommerciale {
   id      String        @id @default(cuid())

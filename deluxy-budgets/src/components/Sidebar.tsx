@@ -77,6 +77,14 @@ const icons = {
       <circle cx="16.5" cy="16.5" r="2.6" />
     </svg>
   ),
+  piattaforme: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <rect x="3" y="4" width="8" height="8" rx="1.5" />
+      <rect x="13" y="4" width="8" height="5" rx="1.5" />
+      <rect x="3" y="15" width="8" height="5" rx="1.5" />
+      <rect x="13" y="12" width="8" height="8" rx="1.5" />
+    </svg>
+  ),
   spese: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <circle cx="12" cy="12" r="8.5" />
@@ -114,6 +122,7 @@ const sections: { label: string; items: Item[] }[] = [
       { href: "/consuntivo", label: "Consuntivo (Finance)", icon: icons.consuntivo },
       { href: "/margini", label: "Margini", icon: icons.margini },
       { href: "/spese", label: "Spese ADV", icon: icons.spese },
+      { href: "/piattaforme", label: "Piattaforme ADV", icon: icons.piattaforme },
     ],
   },
   {

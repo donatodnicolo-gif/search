@@ -33,6 +33,15 @@ const TIPOLOGIE = [
   { slug: "B2B", nome: "B2B", marginePct: 35, ordine: 2 },
 ];
 
+// Piattaforme pubblicitarie con lo split di partenza (dal Monitoraggio: Google
+// ~70%, Meta ~20%, TikTok ~10%), uguale su tutti i mesi. Modificabile e
+// ampliabile da /piattaforme, con % diverse mese per mese.
+const PIATTAFORME = [
+  { nome: "Google", colore: "blue", ordine: 0, percentDefault: 70 },
+  { nome: "Meta", colore: "purple", ordine: 1, percentDefault: 20 },
+  { nome: "TikTok", colore: "neutral", ordine: 2, percentDefault: 10 },
+];
+
 async function main() {
   for (const t of TIPOLOGIE) {
     await prisma.tipologiaServizio.upsert({
@@ -40,6 +49,21 @@ async function main() {
       update: {}, // il margine impostato a mano non va sovrascritto
       create: t,
     });
+  }
+
+  for (const p of PIATTAFORME) {
+    const piattaforma = await prisma.piattaformaAdv.upsert({
+      where: { nome: p.nome },
+      update: {},
+      create: { nome: p.nome, colore: p.colore, ordine: p.ordine },
+    });
+    for (let m = 1; m <= 12; m++) {
+      await prisma.piattaformaSplit.upsert({
+        where: { year_piattaformaId_month: { year: YEAR, piattaformaId: piattaforma.id, month: m } },
+        update: {},
+        create: { year: YEAR, piattaformaId: piattaforma.id, month: m, percent: p.percentDefault },
+      });
+    }
   }
 
   for (const [i, m] of data.maisons.entries()) {

@@ -80,6 +80,16 @@ export type MeseMaison = {
   advPubblicato: number;
 };
 
+export type PiattaformaAdv = {
+  id: string;
+  nome: string;
+  colore: string | null;
+  ordine: number;
+  note: string | null;
+  // % per mese (1..12): quanta parte del budget ADV del mese va qui
+  split: Record<number, number>;
+};
+
 export type MaisonBudget = {
   id: string;
   slug: string;
@@ -96,19 +106,23 @@ export type DatiAnno = {
   persone: Persona[];
   team: TeamBudget[];
   tipologie: Tipologia[];
+  piattaforme: PiattaformaAdv[];
 };
 
 export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
-  const [maisons, entries, advs, scenari, costi, dipendenti, team, tipologie] = await Promise.all([
-    prisma.maison.findMany({ orderBy: { ordine: "asc" } }),
-    prisma.budgetEntry.findMany({ where: { year } }),
-    prisma.advPercent.findMany({ where: { year } }),
-    prisma.scenarioConfig.findMany({ where: { year } }),
-    prisma.costConfig.findMany({ where: { year } }),
-    prisma.dipendente.findMany({ where: { year }, orderBy: { nome: "asc" } }),
-    prisma.team.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
-    prisma.tipologiaServizio.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
-  ]);
+  const [maisons, entries, advs, scenari, costi, dipendenti, team, tipologie, piattaforme, split] =
+    await Promise.all([
+      prisma.maison.findMany({ orderBy: { ordine: "asc" } }),
+      prisma.budgetEntry.findMany({ where: { year } }),
+      prisma.advPercent.findMany({ where: { year } }),
+      prisma.scenarioConfig.findMany({ where: { year } }),
+      prisma.costConfig.findMany({ where: { year } }),
+      prisma.dipendente.findMany({ where: { year }, orderBy: { nome: "asc" } }),
+      prisma.team.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
+      prisma.tipologiaServizio.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
+      prisma.piattaformaAdv.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
+      prisma.piattaformaSplit.findMany({ where: { year } }),
+    ]);
 
   const out: MaisonBudget[] = maisons.map((m) => {
     const mesi: MeseMaison[] = [];
@@ -174,6 +188,13 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       note: t.note,
       vociFinance: leggiVociFinance(t.vociFinance),
     })),
+    piattaforme: piattaforme.map((p) => {
+      const s: Record<number, number> = {};
+      for (let m = 1; m <= 12; m++) {
+        s[m] = split.find((x) => x.piattaformaId === p.id && x.month === m)?.percent ?? 0;
+      }
+      return { id: p.id, nome: p.nome, colore: p.colore, ordine: p.ordine, note: p.note, split: s };
+    }),
   };
 }
 
@@ -216,6 +237,21 @@ export function totaliMaison(m: MaisonBudget) {
 // ADV consentito nel mese = vendite del mese × % impostata in /spese.
 export function advConsentitoMese(mese: MeseMaison): number {
   return (venditeMese(mese) * mese.advPercent) / 100;
+}
+
+// Budget ADV dell'intera azienda in un mese (somma su tutte le maison): è la
+// base che si ripartisce tra le piattaforme in /piattaforme.
+export function advBudgetMese(dati: DatiAnno, month: number): number {
+  return dati.maisons.reduce((s, m) => {
+    const x = m.mesi.find((y) => y.month === month);
+    return s + (x ? advConsentitoMese(x) : 0);
+  }, 0);
+}
+
+export function advBudgetAnno(dati: DatiAnno): number {
+  let tot = 0;
+  for (let m = 1; m <= 12; m++) tot += advBudgetMese(dati, m);
+  return tot;
 }
 
 // ---------- Costo del personale ----------
