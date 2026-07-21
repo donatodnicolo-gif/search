@@ -9,6 +9,7 @@ import { Rianalizza } from '@/components/Rianalizza'
 import { CorpoMessaggio } from '@/components/CorpoMessaggio'
 import { RiassuntoConversazione } from '@/components/RiassuntoConversazione'
 import { BottoneContattoAI } from '@/components/BottoneContattoAI'
+import { BottoneNonSpam } from '@/components/BottoneNonSpam'
 import { EditorIstruzioni } from '@/components/EditorIstruzioni'
 import { AgganciaMail } from '@/components/AgganciaMail'
 import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
@@ -158,6 +159,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
                 {messaggio.sezione.nome}
               </span>
             )}
+            {messaggio.sezione?.nome === 'SPAM' && <BottoneNonSpam id={messaggio.id} />}
             {messaggio.smistatoDa && (
               <span className="badge neutral">
                 smistato da{' '}

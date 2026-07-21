@@ -658,6 +658,22 @@ export async function spostaInSezione(id: string, sezioneId: string | null) {
   revalidatePath('/', 'layout')
 }
 
+/**
+ * Segna una mail come NON spam: la tira fuori dalla sezione SPAM, la riporta in
+ * Posta in arrivo e la marca 'manuale' così l'AI non la rispedisce nello SPAM.
+ * Da qui in poi il mittente è un contatto "noto" (ha un messaggio in archivio),
+ * quindi le sue prossime mail non finiranno più in spam automaticamente.
+ */
+export async function segnalaNonSpam(id: string): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  await db.messaggio.updateMany({
+    where: { id, utenteId },
+    data: { sezioneId: null, smistatoDa: 'manuale', archiviato: false },
+  })
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: 'Spostata in Posta in arrivo: non è spam.' }
+}
+
 // ---------- Attività ----------
 
 export async function segnaAttivita(id: string, fatta: boolean) {

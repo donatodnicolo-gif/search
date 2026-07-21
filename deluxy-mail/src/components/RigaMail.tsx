@@ -5,6 +5,7 @@ import { dataBreve } from '@/lib/format'
 import { PrioritaButtons } from './PrioritaButtons'
 import { AzioniRiga } from './AzioniRiga'
 import { ArchiviaDefinitivo } from './ArchiviaDefinitivo'
+import { BottoneNonSpam } from './BottoneNonSpam'
 import { RispostaAzioni } from './RispostaAzioni'
 import { BottoneApp } from './BottoneApp'
 import { DelegaReneBottone } from './DelegaRene'
@@ -155,6 +156,7 @@ export function RigaMail({ r }: { r: RigaData }) {
             </Link>
           )}
           <BottoneApp id={r.id} />
+          {r.sezione?.nome === 'SPAM' && <BottoneNonSpam id={r.id} />}
           <ArchiviaDefinitivo id={r.id} mittente={r.mittente} />
         </div>
       </div>
