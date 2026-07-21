@@ -24,10 +24,12 @@ export function AnagraficaRegistroCard({
   nome,
   citta,
   compatta,
+  onInteressi,
 }: {
   nome: string;
   citta?: string | null;
   compatta?: boolean;
+  onInteressi?: (interessi: string[]) => void; // interessi del registro (chiavi grezze)
 }) {
   const [loading, setLoading] = useState(true);
   const [partner, setPartner] = useState<PartnerRegistro | null>(null);
@@ -43,6 +45,7 @@ export function AnagraficaRegistroCard({
         if (!vivo) return;
         setPartner(r.partner);
         setEsatto(r.esatto);
+        if (r.partner) onInteressi?.(r.partner.interessi ?? []);
       })
       .catch(() => vivo && setErrore(true))
       .finally(() => vivo && setLoading(false));

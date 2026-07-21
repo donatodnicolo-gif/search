@@ -1,10 +1,11 @@
-import { useCallback, useState, type ReactNode } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Contact, Deal, Place, Visit } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
-import { aggiornaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto } from '@/lib/db';
+import { aggiornaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro } from '@/lib/db';
+import { avvisa } from '@/lib/dialoghi';
 import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
@@ -24,10 +25,40 @@ const LABEL_ESITO: Record<string, string> = {
   chiuso: 'Chiuso',
 };
 
+// Mappa gli interessi del registro (chiavi) alle linee di Scout (label). Serve
+// finché i due cataloghi non sono allineati; a valle diventa identità.
+const REGISTRO_A_LINEA: Record<string, string> = {
+  consegne: 'Consegne',
+  affiliazione: 'Affiliazioni',
+  affiliazioni: 'Affiliazioni',
+  gifting: 'Gifting',
+  catering: 'Eventi & Catering',
+  eventi: 'Eventi & Catering',
+  'eventi & catering': 'Eventi & Catering',
+  pr_activation: 'Concierge',
+  in_store: 'Clientelling',
+  vendor: 'Food Supplier',
+  reseller: 'Re-seller',
+  're-seller': 'Re-seller',
+};
+function lineeDaRegistro(interessi: string[]): string[] {
+  const out = new Set<string>();
+  for (const i of interessi) out.add(REGISTRO_A_LINEA[i.trim().toLowerCase()] ?? i);
+  return [...out];
+}
+const stessaTipologia = (a: string[], b: string[]) =>
+  JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+
 export default function SchedaAttivita() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [place, setPlace] = useState<Place | null>(null);
+  // Tipologia di interesse: modificabile con bottone Salva (aggiorna Scout + registro).
+  const [linee, setLinee] = useState<string[]>([]);
+  const [lineeSalvate, setLineeSalvate] = useState<string[]>([]);
+  const [salvandoLinee, setSalvandoLinee] = useState(false);
+  const utenteHaEditato = useRef(false);
+  const registroApplicato = useRef(false);
   const [contatti, setContatti] = useState<Contact[]>([]);
   const [visite, setVisite] = useState<Visit[]>([]);
   const [deal, setDeal] = useState<Deal[]>([]);
@@ -71,6 +102,13 @@ export default function SchedaAttivita() {
       fetchAziendeScartate(id),
     ]);
     setPlace(p);
+    // Tipologia di interesse: parte dal valore salvato; il registro (Anagrafiche)
+    // può poi sovrascriverlo come default finché l'utente non modifica a mano.
+    const inizLinee = p?.linee_ipotizzate ?? (p?.linea_ipotizzata ? [p.linea_ipotizzata] : []);
+    setLinee(inizLinee);
+    setLineeSalvate(inizLinee);
+    utenteHaEditato.current = false;
+    registroApplicato.current = false;
     setContatti(c);
     setVisite(v);
     setScartati(sc);
@@ -144,15 +182,48 @@ export default function SchedaAttivita() {
     }
   }
 
-  // Imposta/cambia la tipologia di interesse (linee, multipla) direttamente da qui.
-  async function salvaLinee(linee: string[]) {
-    if (!place) return;
+  // Default dal registro: quando la card Anagrafiche carica gli interessi, li
+  // usa come tipologia di default — ma SOLO se l'utente non ha ancora toccato la
+  // selezione e una volta sola per negozio. Imposta `linee` (ciò che si vede)
+  // lasciando `lineeSalvate` al valore di Scout: se differiscono, compare il
+  // bottone Salva per allineare Scout e Anagrafiche.
+  const defaultDaRegistro = useCallback((interessi: string[]) => {
+    if (utenteHaEditato.current || registroApplicato.current) return;
+    const mappate = lineeDaRegistro(interessi);
+    if (!mappate.length) return;
+    registroApplicato.current = true;
+    setLinee((att) => (stessaTipologia(att, mappate) ? att : mappate));
+  }, []);
+
+  // L'utente cambia la selezione a mano: aggiorna solo lo stato locale (il
+  // salvataggio verso Scout + registro avviene col bottone Salva).
+  const cambiaLinee = useCallback((nuove: string[]) => {
+    utenteHaEditato.current = true;
+    setLinee(nuove);
+  }, []);
+
+  const lineeDaSalvare = !stessaTipologia(linee, lineeSalvate);
+
+  // Salva la tipologia: la scrive su Scout e la propaga al registro Anagrafiche
+  // (sincronizzaPlaceRegistro → upsert_partner con gli interessi).
+  async function salvaTipologia() {
+    if (!place || salvandoLinee) return;
     const primaria = linee[0] ?? null;
-    setPlace({ ...place, linee_ipotizzate: linee, linea_ipotizzata: primaria });
+    setSalvandoLinee(true);
     try {
       await aggiornaPlace(place.id, { linee_ipotizzate: linee, linea_ipotizzata: primaria });
-    } catch {
-      /* riprova al prossimo focus */
+      setPlace({ ...place, linee_ipotizzate: linee, linea_ipotizzata: primaria });
+      setLineeSalvate(linee);
+      // Propaga al registro (best-effort: se offline, resta salvato in Scout).
+      try {
+        await sincronizzaPlaceRegistro(place.id);
+      } catch {
+        /* registro non raggiungibile: la tipologia è comunque salvata in Scout */
+      }
+    } catch (e) {
+      avvisa('Salvataggio non riuscito', (e as Error)?.message ?? 'Riprova.');
+    } finally {
+      setSalvandoLinee(false);
     }
   }
 
@@ -213,18 +284,33 @@ export default function SchedaAttivita() {
           <BoxIpotesi linea={place.linea_ipotizzata} aggancio={place.aggancio_apertura} />
         </View>
 
-        <AnagraficaRegistroCard nome={place.nome} citta={place.zona} />
+        <AnagraficaRegistroCard nome={place.nome} citta={place.zona} onInteressi={defaultDaRegistro} />
 
         {/* FINANCE: fatturato + andamento del cliente (solo per clienti/partner). */}
         <View style={{ marginTop: spacing.md }}>
           <FinanceCard nomeCliente={place.nome} mostra={place.stato === 'cliente' || place.anagrafiche_stato === 'attivo'} />
         </View>
 
-        <Text style={styles.interesseLbl}>Tipologia di interesse — scegline una o più</Text>
-        <LineaSelector
-          value={place.linee_ipotizzate ?? (place.linea_ipotizzata ? [place.linea_ipotizzata] : [])}
-          onChange={salvaLinee}
-        />
+        <View style={styles.interesseHead}>
+          <Text style={styles.interesseLbl}>Tipologia di interesse — scegline una o più</Text>
+          <Text style={styles.interesseNota}>Default dal registro Anagrafiche · modificabile</Text>
+        </View>
+        <LineaSelector value={linee} onChange={cambiaLinee} />
+        {lineeDaSalvare ? (
+          <Pressable
+            style={[styles.btnSalvaLinee, salvandoLinee && { opacity: 0.6 }]}
+            onPress={salvaTipologia}
+            disabled={salvandoLinee}
+          >
+            {salvandoLinee ? (
+              <ActivityIndicator size="small" color={colors.bianco} />
+            ) : (
+              <Text style={styles.btnSalvaLineeTxt}>
+                <Ionicons name="save-outline" size={15} color={colors.bianco} /> Salva e aggiorna Anagrafiche
+              </Text>
+            )}
+          </Pressable>
+        ) : null}
 
         <View style={styles.azioniRow}>
           <Pressable style={[styles.btnVisita, { flex: 1, marginTop: 0 }]} onPress={() => router.push(`/(app)/visita/${place.id}`)}>
@@ -452,15 +538,24 @@ const styles = StyleSheet.create({
   },
   vuoto: { color: colors.grigio, fontStyle: 'italic' },
   vuotoAiuto: { color: colors.grigio, fontSize: 12.5, marginTop: 2 },
+  interesseHead: { marginTop: spacing.lg, marginBottom: spacing.sm, gap: 2 },
   interesseLbl: {
     fontSize: 13,
     fontWeight: '800',
     color: colors.oro,
     letterSpacing: 1,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
     textTransform: 'uppercase',
   },
+  interesseNota: { fontSize: 12, color: colors.grigio, fontStyle: 'italic' },
+  btnSalvaLinee: {
+    marginTop: spacing.md,
+    backgroundColor: colors.navy,
+    borderRadius: radius.pill,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnSalvaLineeTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
   btnSecondario: {
     borderWidth: 1.5,
     borderColor: colors.navy,

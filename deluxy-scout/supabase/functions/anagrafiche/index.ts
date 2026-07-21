@@ -83,7 +83,33 @@ Deno.serve(async (req) => {
         asOf: new Date().toISOString(),
       };
       if (body.stato && STATO[String(body.stato)]) payload.stato = STATO[String(body.stato)];
-      if (Array.isArray(body.linee) && body.linee.length) payload.interessi = body.linee;
+      // Mappa le linee di Scout (label) → chiavi interessi del registro, speculare
+      // alla lettura lato app. Finché i cataloghi non sono identici, così il
+      // round-trip resta stabile (una linea può espandersi in più chiavi).
+      const LINEA_A_INTERESSE: Record<string, string[]> = {
+        consegne: ['consegne'],
+        affiliazioni: ['affiliazione'],
+        affiliazione: ['affiliazione'],
+        gifting: ['gifting'],
+        'eventi & catering': ['eventi', 'catering'],
+        eventi: ['eventi'],
+        catering: ['catering'],
+        concierge: ['pr_activation'],
+        clientelling: ['in_store'],
+        'food supplier': ['vendor'],
+        vendor: ['vendor'],
+        're-seller': ['reseller'],
+        reseller: ['reseller'],
+      };
+      if (Array.isArray(body.linee) && body.linee.length) {
+        const chiavi = new Set<string>();
+        for (const l of body.linee) {
+          const k = LINEA_A_INTERESSE[String(l).trim().toLowerCase()];
+          if (k) k.forEach((x) => chiavi.add(x));
+          else chiavi.add(String(l).trim().toLowerCase());
+        }
+        payload.interessi = [...chiavi];
+      }
       const res = await fetch(`${BASE}/api/v1/partners`, {
         method: 'POST',
         headers: { 'x-api-key': partnerKey, 'Content-Type': 'application/json' },
