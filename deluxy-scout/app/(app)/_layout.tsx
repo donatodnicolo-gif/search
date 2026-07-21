@@ -1,6 +1,6 @@
 import { Redirect, router, useNavigation } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions } from '@react-navigation/native';
@@ -21,7 +21,7 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     titolo: 'Operatività',
     voci: [
       { name: 'oggi', label: 'Oggi', icon: 'sunny-outline' },
-      { name: 'task', label: 'I miei task', icon: 'checkbox-outline' },
+      { name: 'task', label: 'I miei task', icon: 'checkmark-circle-outline' },
       { name: 'calendario', label: 'Calendario', icon: 'calendar-outline' },
       { name: 'da-completare', label: 'Da fare', icon: 'time-outline' },
     ],
@@ -32,21 +32,21 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       { name: 'mappa', label: 'Mappa', icon: 'map-outline' },
       { name: 'lista', label: 'Target', icon: 'flag-outline' },
       { name: 'rubrica', label: 'Rubrica', icon: 'people-outline' },
-      { name: 'script', label: 'Script', icon: 'document-text-outline' },
+      { name: 'script', label: 'Script', icon: 'mail-outline' },
     ],
   },
   {
     titolo: 'Pipeline',
     voci: [
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
-      { name: 'affiliazioni', label: 'Affiliazioni', icon: 'git-network-outline' },
-      { name: 'pagamenti', label: 'Pagamenti', icon: 'cash-outline' },
+      { name: 'affiliazioni', label: 'Affiliazioni', icon: 'ribbon-outline' },
+      { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
     ],
   },
   {
     titolo: 'Andamento',
     voci: [
-      { name: 'dashboard', label: 'Dashboard', icon: 'stats-chart-outline' },
+      { name: 'dashboard', label: 'Dashboard', icon: 'analytics-outline' },
       { name: 'team', label: 'Team', icon: 'people-circle-outline', soloAdmin: true },
     ],
   },
@@ -149,6 +149,8 @@ function ContenutoDrawer({ admin, ...props }: any) {
 
 export default function AppLayout() {
   const { session, loading } = useAuth();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 900; // desktop: sidebar SEMPRE visibile (permanente)
   if (loading) return <Loader />;
   if (!session) return <Redirect href="/(auth)/login" />;
   const admin = isAdmin(session.user?.email);
@@ -169,8 +171,9 @@ export default function AppLayout() {
           headerTintColor: colors.testo,
           headerTitleStyle: { fontWeight: '600', letterSpacing: -0.3 },
           headerShadowVisible: false,
-          headerLeft: () => <BtnMenu />,
-          drawerType: 'front',
+          // Su desktop la sidebar è permanente: niente ☰ (nulla da aprire/chiudere).
+          headerLeft: isWide ? () => null : () => <BtnMenu />,
+          drawerType: isWide ? 'permanent' : 'front',
           drawerStyle: { backgroundColor: colors.bianco, width: 264, borderRightWidth: 1, borderRightColor: colors.grigioChiaro },
         }}
       >
