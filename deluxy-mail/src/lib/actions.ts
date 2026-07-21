@@ -156,6 +156,19 @@ export async function archiviaMessaggio(id: string) {
   revalidatePath('/', 'layout')
 }
 
+/**
+ * Archivia SENZA rinfrescare la pagina. Serve al flusso "Archivia → Sempre?":
+ * se rivalidassimo subito, la lista si aggiornerebbe e la riga (con la domanda)
+ * sparirebbe prima che l'utente possa rispondere. Il refresh lo fa il chiamante
+ * DOPO la risposta.
+ */
+export async function archiviaSenzaAggiornare(id: string) {
+  await db.messaggio.updateMany({
+    where: { id, utenteId: await uid() },
+    data: { archiviato: true, letto: true },
+  })
+}
+
 export async function archiviaDefinitivo(id: string): Promise<{ ok: boolean; messaggio: string }> {
   try {
     const utenteId = await uid()

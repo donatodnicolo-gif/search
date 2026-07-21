@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  archiviaMessaggio,
+  archiviaSenzaAggiornare,
   archiviaDefinitivo,
   cestinaMessaggio,
   ripristinaMessaggio,
@@ -125,11 +125,11 @@ export function AzioniRiga({
           title="Togli dalla posta in arrivo (resta negli Archiviati)"
           onClick={(e) => {
             ferma(e)
-            // Archivia subito, poi chiedi se per sempre. La riga NON sparisce
-            // ancora (serve mostrare la domanda) e NON si fa refresh: lo si fa
-            // dopo la risposta.
+            // Archivia subito (SENZA refresh: altrimenti la lista si aggiorna e
+            // la riga con la domanda sparisce), poi chiedi se per sempre. Il
+            // refresh lo si fa dopo la risposta.
             startTransition(async () => {
-              await archiviaMessaggio(id)
+              await archiviaSenzaAggiornare(id)
               setChiediSempre(true)
             })
           }}

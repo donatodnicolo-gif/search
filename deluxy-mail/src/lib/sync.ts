@@ -1453,7 +1453,53 @@ export async function sincronizzaTutti(): Promise<EsitoSync[]> {
       }
     }
   }
+  // Manutenzione periodica (una volta per giro): archivio vecchio → cestino,
+  // SPAM molto vecchio → cancellato. Non deve far fallire la sincronizzazione.
+  try {
+    await manutenzioneRetention()
+  } catch {
+    /* la manutenzione è best-effort */
+  }
   return esiti
+}
+
+// Regole di conservazione della posta (retention). In giorni.
+const RETENZIONE = {
+  // L'archivio dopo N giorni finisce nel Cestino (resta recuperabile da lì).
+  archivioInCestinoGiorni: 30,
+  // Lo SPAM dopo N giorni viene cancellato dall'app (definitivo).
+  spamCancellaGiorni: 90,
+}
+
+/**
+ * Pulizia periodica della posta (gira nel cron, per tutti gli utenti):
+ *  1. le mail in ARCHIVIO più vecchie di 30 giorni vanno nel CESTINO (di lì si
+ *     recuperano ancora, o si svuotano);
+ *  2. le mail in SPAM più vecchie di 90 giorni vengono CANCELLATE dall'app.
+ * La "data" di riferimento è quella della mail. Idempotente: chi è già stato
+ * sistemato non rientra nei filtri.
+ */
+export async function manutenzioneRetention(): Promise<{ archivioInCestino: number; spamCancellati: number }> {
+  const ora = Date.now()
+  const soglia = (giorni: number) => new Date(ora - giorni * 24 * 60 * 60 * 1000)
+
+  const arch = await db.messaggio.updateMany({
+    where: {
+      archiviato: true,
+      cestinato: false,
+      data: { lt: soglia(RETENZIONE.archivioInCestinoGiorni) },
+    },
+    data: { cestinato: true, cestinatoIl: new Date() },
+  })
+
+  const spam = await db.messaggio.deleteMany({
+    where: {
+      sezione: { nome: 'SPAM' },
+      data: { lt: soglia(RETENZIONE.spamCancellaGiorni) },
+    },
+  })
+
+  return { archivioInCestino: arch.count, spamCancellati: spam.count }
 }
 
 /** Solo le caselle di un utente — per il pulsante "Aggiorna posta".

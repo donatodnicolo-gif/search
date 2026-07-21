@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   archiviaDefinitivo,
-  archiviaMessaggio,
+  archiviaSenzaAggiornare,
   cestinaMessaggio,
   segnaLetto,
   segnalaSpam,
@@ -113,9 +113,10 @@ export function AzioniMessaggio({
             disabled={inCorso}
             title="Togli dalla posta in arrivo (resta negli Archiviati)"
             onClick={() =>
-              // Archivia subito, poi chiedi se per sempre (restando qui).
+              // Archivia subito (SENZA refresh, così la domanda resta), poi
+              // chiedi se per sempre restando qui.
               startTransition(async () => {
-                await archiviaMessaggio(id)
+                await archiviaSenzaAggiornare(id)
                 setChiediSempre(true)
               })
             }
