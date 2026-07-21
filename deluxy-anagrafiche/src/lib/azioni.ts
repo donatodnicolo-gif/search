@@ -3,6 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isCategoria } from "./categorie";
 import { prisma } from "./db";
 import { propagaDatiFinanziari } from "./insegna";
 import { isInteresse } from "./interessi";
@@ -68,7 +69,7 @@ export async function creaPartner(fd: FormData) {
 
   const nome = testo("nome");
   const categoria = maiuscolo("categoria");
-  if (!nome || !categoria) redirect("/partner/nuovo?errore=1");
+  if (!nome || !categoria || !isCategoria(categoria)) redirect("/partner/nuovo?errore=1");
 
   const stato = String(fd.get("stato") ?? "");
   const citta = maiuscolo("citta");

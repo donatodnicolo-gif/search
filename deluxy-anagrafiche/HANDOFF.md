@@ -117,7 +117,12 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   riesce se il consenso è già stato dato); se non basta compare il bottone «Autorizza e salva
   in rubrica» (il popup Google richiede un gesto utente). Logica condivisa in
   `src/components/google-rubrica.ts` (usata anche dalla tabella di /contatti).
-- **`/partner/nuovo`** e **`/partner/:id/modifica`** — form creazione/modifica. La modifica
+- **`/partner/nuovo`** e **`/partner/:id/modifica`** — form creazione/modifica. La **categoria**
+  è un **select obbligatorio** dal catalogo chiuso `src/lib/categorie.ts` (16 voci, incl. CORPORATE
+  e DA CLASSIFICARE); niente più testo libero. In modifica, se il record ha una categoria fuori
+  catalogo (scritta da un'app) viene aggiunta in cima per non perderla. `creaPartner` valida
+  `isCategoria`. NB: le API esterne possono ancora mandare categorie fuori catalogo (finiscono così
+  come sono; il merge le accetta solo se il record è vuoto/DA CLASSIFICARE/ALTRO). La modifica
   include la sezione **Dati finanziari**: PEC, codice SDI, IBAN (normalizzato senza spazi,
   maiuscolo), banca, metodo/condizioni di pagamento, note amministrative e **contatto
   amministrativo** (nome/telefono/email) — campi omonimi su `Partner`, mostrati nella scheda

@@ -1,6 +1,6 @@
 import { Sidebar } from "@/components/Sidebar";
+import { CATEGORIE, isCategoria } from "@/lib/categorie";
 import { creaPartner } from "@/lib/azioni";
-import { prisma } from "@/lib/db";
 import { ETICHETTE_STATO, STATI } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
@@ -38,11 +38,7 @@ export default async function Nuovo({
   searchParams: Promise<{ errore?: string; categoria?: string }>;
 }) {
   const sp = await searchParams;
-  const categorie = await prisma.partner.groupBy({
-    by: ["categoria"],
-    where: { attivo: true },
-    orderBy: { categoria: "asc" },
-  });
+  const catPreset = sp.categoria && isCategoria(sp.categoria.toUpperCase()) ? sp.categoria.toUpperCase() : "";
 
   return (
     <div className="layout">
@@ -73,22 +69,12 @@ export default async function Nuovo({
                 <input id="nome" name="nome" type="text" required autoFocus placeholder="es. FIORAIO ROSSI" />
               </Campo>
               <Campo etichetta="Categoria" nome="categoria" obbligatorio>
-                <>
-                  <input
-                    id="categoria"
-                    name="categoria"
-                    type="text"
-                    required
-                    list="lista-categorie"
-                    defaultValue={sp.categoria ?? ""}
-                    placeholder="es. FIORISTA"
-                  />
-                  <datalist id="lista-categorie">
-                    {categorie.map((c) => (
-                      <option key={c.categoria} value={c.categoria} />
-                    ))}
-                  </datalist>
-                </>
+                <select id="categoria" name="categoria" required defaultValue={catPreset}>
+                  <option value="" disabled>Scegli una categoria…</option>
+                  {CATEGORIE.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </Campo>
               <Campo etichetta="Stato" nome="stato">
                 <select id="stato" name="stato" defaultValue="prospect">

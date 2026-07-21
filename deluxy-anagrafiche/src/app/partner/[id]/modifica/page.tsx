@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
+import { CATEGORIE, isCategoria } from "@/lib/categorie";
 import { aggiornaPartner } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { datiFinanziariCondivisi } from "@/lib/insegna";
@@ -44,11 +45,15 @@ export default async function Modifica({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const [p, categorie] = await Promise.all([
-    prisma.partner.findUnique({ where: { id }, include: { contatti: true, capogruppo: { select: { nome: true } } } }),
-    prisma.partner.groupBy({ by: ["categoria"], where: { attivo: true }, orderBy: { categoria: "asc" } }),
-  ]);
+  const p = await prisma.partner.findUnique({
+    where: { id },
+    include: { contatti: true, capogruppo: { select: { nome: true } } },
+  });
   if (!p) notFound();
+
+  // Opzioni categoria: il catalogo chiuso, più il valore attuale se fuori
+  // catalogo (es. scritto da un'app), così non lo si perde aprendo la scheda.
+  const opzioniCategoria = isCategoria(p.categoria) ? [...CATEGORIE] : [p.categoria, ...CATEGORIE];
 
   // Dati finanziari condivisi dall'insegna: si compilano una volta e valgono
   // per tutte le sedi della stessa società.
@@ -90,21 +95,11 @@ export default async function Modifica({
                 <input id="nome" name="nome" type="text" required defaultValue={p.nome} />
               </Campo>
               <Campo etichetta="Categoria" nome="categoria" obbligatorio>
-                <>
-                  <input
-                    id="categoria"
-                    name="categoria"
-                    type="text"
-                    required
-                    list="lista-categorie"
-                    defaultValue={p.categoria}
-                  />
-                  <datalist id="lista-categorie">
-                    {categorie.map((c) => (
-                      <option key={c.categoria} value={c.categoria} />
-                    ))}
-                  </datalist>
-                </>
+                <select id="categoria" name="categoria" required defaultValue={p.categoria}>
+                  {opzioniCategoria.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </Campo>
               <Campo etichetta="Ragione sociale" nome="ragioneSociale" valore={p.ragioneSociale} />
               <Campo etichetta="Città" nome="citta" valore={p.citta} />
