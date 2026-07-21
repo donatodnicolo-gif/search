@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { inviaBozza, salvaBozza } from '@/lib/actions'
+import { eliminaBozza, inviaBozza, salvaBozza } from '@/lib/actions'
 import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
 import { mostraFlash } from './Flash'
@@ -20,6 +20,8 @@ export function BozzaEditor({ bozza, destinatario, mittente }: Props) {
   const [stato, setStato] = useState<string | null>(null)
   // L'invio è irreversibile: prima di partire chiediamo conferma esplicita.
   const [confermaInvio, setConfermaInvio] = useState(false)
+  // Anche buttare via la bozza si conferma: è comodo ma non deve partire per sbaglio.
+  const [confermaElimina, setConfermaElimina] = useState(false)
   const [inCorso, startTransition] = useTransition()
   const router = useRouter()
 
@@ -57,6 +59,16 @@ export function BozzaEditor({ bozza, destinatario, mittente }: Props) {
       setStato(esito.messaggio)
       setConfermaInvio(false)
       if (esito.ok) mostraFlash(esito.messaggio)
+      router.refresh()
+    })
+  }
+
+  function elimina() {
+    setStato(null)
+    startTransition(async () => {
+      await eliminaBozza(bozza.id)
+      setConfermaElimina(false)
+      mostraFlash('Bozza eliminata.')
       router.refresh()
     })
   }
@@ -114,6 +126,25 @@ export function BozzaEditor({ bozza, destinatario, mittente }: Props) {
             Invia risposta
           </button>
         )}
+
+        {/* Buttare via la bozza (nascosto mentre si conferma l'invio, per non
+            affollare). Con conferma inline: Elimina → No / Sì. */}
+        {!confermaInvio &&
+          (confermaElimina ? (
+            <>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Butto via la bozza?</span>
+              <button className="btn secondary" onClick={() => setConfermaElimina(false)} disabled={inCorso}>
+                No
+              </button>
+              <button className="btn danger" onClick={elimina} disabled={inCorso}>
+                {inCorso ? 'Elimino…' : 'Sì, elimina'}
+              </button>
+            </>
+          ) : (
+            <button className="btn danger" onClick={() => setConfermaElimina(true)} disabled={inCorso}>
+              Elimina
+            </button>
+          ))}
       </div>
     </>
   )
