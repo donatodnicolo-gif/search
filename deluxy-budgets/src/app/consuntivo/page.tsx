@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ANNO_CORRENTE, caricaAnno, contoEconomico } from "@/lib/calc";
-import { fetchConsuntivo } from "@/lib/finance";
+import { fetchConsuntivo, fetchSpeseBanca } from "@/lib/finance";
+import { caricaCategorie, ricostruisci } from "@/lib/cfo";
 import { eur, pct } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -25,17 +26,19 @@ export default async function ConsuntivoPage({
   const periodo = PERIODI.find((p) => p.key === sp.periodo) ?? PERIODI[0];
   const stato = (STATI.find((s) => s.key === sp.stato)?.key ?? "tutte") as "tutte" | "pagate" | "aperte";
 
-  const [res, dati] = await Promise.all([
+  const [res, spese, categorie, dati] = await Promise.all([
     fetchConsuntivo({ anno: ANNO_CORRENTE, dal: periodo.dal, al: periodo.al, stato }),
+    fetchSpeseBanca({ anno: ANNO_CORRENTE, dal: periodo.dal, al: periodo.al }),
+    caricaCategorie(),
     caricaAnno(ANNO_CORRENTE),
   ]);
 
-  // Budget dei ricavi per tipologia (dal budget pubblicato, livello raggiungibile).
+  // Budget del periodo (dal budget pubblicato, livello raggiungibile) rapportato
+  // ai mesi scelti.
   const pl = contoEconomico(dati, "RAGGIUNGIBILE");
-  // Il budget dell'anno intero va rapportato al periodo scelto (quota mesi).
   const quotaPeriodo = (periodo.al - periodo.dal + 1) / 12;
 
-  // Fatturato reale per nome di tipologia Finance (chiave normalizzata).
+  // ---- Ricavi reali per voce di budget (da Finance, via mappatura Margini) ----
   const fatturatoPerNome = new Map<string, { nome: string; imponibile: number; fatture: number }>();
   if (res.ok) {
     for (const t of res.dati.tipologie) {
@@ -46,10 +49,6 @@ export default async function ConsuntivoPage({
       });
     }
   }
-
-  // Ogni voce di budget raccoglie il fatturato delle sue voci Finance mappate
-  // (o, se nessuna è indicata, della voce con lo stesso nome). Tengo traccia
-  // dei nomi Finance consumati, così mostro a parte quelli non mappati.
   const consumati = new Set<string>();
   const confronto = dati.tipologie.map((t) => {
     const nomiFinance = t.vociFinance.length ? t.vociFinance : [t.nome];
@@ -66,23 +65,54 @@ export default async function ConsuntivoPage({
         consumati.add(k);
       }
     }
-    const budgetPeriodo = (pl.ricaviPerServizio[t.slug] ?? 0) * quotaPeriodo;
     return {
       nome: t.nome,
       slug: t.slug,
-      budgetPeriodo,
+      budgetPeriodo: (pl.ricaviPerServizio[t.slug] ?? 0) * quotaPeriodo,
       consuntivo,
       fatture,
       collegati,
       mappata: collegati.length > 0,
-      scostamento: consuntivo - budgetPeriodo,
     };
   });
-
-  // Voci fatturate in Finance non associate ad alcuna voce di budget.
   const nonMappate = res.ok
     ? res.dati.tipologie.filter((t) => !consumati.has(t.tipologia.trim().toLowerCase()))
     : [];
+  const ricaviCons = confronto.reduce((s, c) => s + c.consuntivo, 0);
+
+  // ---- Costi reali per voce di P&L (dalla banca, categorizzati nel CFO) ----
+  const costi = { COGS: 0, ADV: 0, PERSONALE: 0, STRUTTURA: 0 };
+  let nonCategorizzato = 0;
+  let esclusi = 0;
+  if (spese.ok) {
+    for (const r of ricostruisci(spese.dati.controparti, categorie)) {
+      const tp = r.categoria?.tipoPL;
+      if (!tp) nonCategorizzato += r.uscite;
+      else if (tp === "ESCLUSA") esclusi += r.uscite;
+      else if (tp in costi) costi[tp as keyof typeof costi] += r.uscite;
+    }
+  }
+
+  // ---- Conto economico consuntivo ----
+  const margineLordoCons = ricaviCons - costi.COGS;
+  const ebitdaCons = margineLordoCons - costi.ADV - costi.PERSONALE - costi.STRUTTURA;
+
+  type RigaPL = { label: string; nota?: string; cons: number; budget: number; tipo: "ricavo" | "costo" | "totale" };
+  const righePL: RigaPL[] = [
+    { label: "Totale ricavi", cons: ricaviCons, budget: pl.ricavi * quotaPeriodo, tipo: "totale" },
+    { label: "Costo del venduto", nota: "banca · Fornitori/COGS", cons: costi.COGS, budget: pl.cogs * quotaPeriodo, tipo: "costo" },
+    { label: "Margine lordo", cons: margineLordoCons, budget: pl.margineLordo * quotaPeriodo, tipo: "totale" },
+    { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: pl.adv * quotaPeriodo, tipo: "costo" },
+    { label: "Costo del personale", nota: "banca · Personale", cons: costi.PERSONALE, budget: pl.personale * quotaPeriodo, tipo: "costo" },
+    { label: "Costi di struttura", nota: "banca · Struttura", cons: costi.STRUTTURA, budget: pl.costiFissi * quotaPeriodo, tipo: "costo" },
+    { label: "EBITDA", cons: ebitdaCons, budget: pl.ebitda * quotaPeriodo, tipo: "totale" },
+  ];
+
+  // Scostamento "buono": più ricavi/margine o meno costi. Colora di conseguenza.
+  const buono = (r: RigaPL) => {
+    const d = r.cons - r.budget;
+    return r.tipo === "costo" ? d <= 0 : d >= 0;
+  };
 
   return (
     <>
@@ -90,8 +120,8 @@ export default async function ConsuntivoPage({
         <div>
           <h1 className="page-title">Consuntivo</h1>
           <p className="page-caption">
-            Importi realmente fatturati richiamati dall&apos;app Finance, raggruppati per voce di budget
-            secondo la mappatura impostata in Margini e confrontati col budget del periodo.
+            Il conto economico reale, con le stesse voci del P&amp;L a budget: ricavi da Finance, costi dalla
+            categorizzazione bancaria del CFO. A fianco il budget del periodo e lo scostamento.
           </p>
         </div>
         <div className="page-actions">
@@ -117,36 +147,85 @@ export default async function ConsuntivoPage({
           <div className="empty-icon">↯</div>
           <div className="empty-title">{res.configurato ? "Finance non disponibile" : "Collega l'app Finance"}</div>
           <div className="empty-text">{res.errore}</div>
-          {!res.configurato && (
-            <div className="empty-text" style={{ marginTop: 10 }}>
-              La chiave è la stessa di <code>/api/verifiche</code> di Finance. Va messa in <code>.env</code> come{" "}
-              <code>FINANCE_API_KEY</code> (in produzione, tra le variabili d&apos;ambiente del progetto), mai committata.
-            </div>
-          )}
         </div>
       ) : (
         <>
           <div className="kpi-grid">
             <div className="kpi">
-              <div className="kpi-label">Imponibile fatturato — {res.dati.periodo.etichetta}</div>
-              <div className="kpi-value">{eur(res.dati.totali.imponibile)}</div>
+              <div className="kpi-label">Ricavi reali — {res.dati.periodo.etichetta}</div>
+              <div className="kpi-value">{eur(ricaviCons)}</div>
+              <div className="kpi-sub">imponibile · {res.dati.totali.fatture} fatture</div>
+            </div>
+            <div className="kpi">
+              <div className="kpi-label">EBITDA consuntivo</div>
+              <div className={`kpi-value ${ebitdaCons >= 0 ? "pos" : "neg"}`}>{eur(ebitdaCons)}</div>
+              <div className="kpi-sub">{ricaviCons > 0 ? pct((ebitdaCons / ricaviCons) * 100) : "—"} sui ricavi</div>
+            </div>
+            <div className="kpi">
+              <div className="kpi-label">Costi categorizzati (banca)</div>
+              <div className="kpi-value">{eur(costi.COGS + costi.ADV + costi.PERSONALE + costi.STRUTTURA)}</div>
               <div className="kpi-sub">
-                {res.dati.stato} · {res.dati.totali.fatture} fatture
+                {spese.ok
+                  ? `${eur(nonCategorizzato)} ancora da categorizzare`
+                  : "spese banca non disponibili"}
               </div>
-            </div>
-            <div className="kpi">
-              <div className="kpi-label">Totale IVA inclusa</div>
-              <div className="kpi-value">{eur(res.dati.totali.totale)}</div>
-              <div className="kpi-sub">IVA {eur(res.dati.totali.iva)}</div>
-            </div>
-            <div className="kpi">
-              <div className="kpi-label">Tipologie fatturate</div>
-              <div className="kpi-value">{res.dati.tipologie.length}</div>
-              <div className="kpi-sub">ordinate per imponibile</div>
             </div>
           </div>
 
-          <h2 className="section-title">Budget vs consuntivo, per voce di budget</h2>
+          <h2 className="section-title">Conto economico — consuntivo vs budget</h2>
+          <div className="card tight">
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Voce</th>
+                    <th className="num">Consuntivo</th>
+                    <th className="num">Budget periodo</th>
+                    <th className="num">Scostamento</th>
+                    <th className="num">Realizzato</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {righePL.map((r) => {
+                    const forte = r.tipo === "totale";
+                    const scost = r.cons - r.budget;
+                    return (
+                      <tr key={r.label} className={r.label === "EBITDA" ? "tot" : undefined}>
+                        <td style={{ fontWeight: forte ? 600 : 400 }}>
+                          {r.label}
+                          {r.nota && <div className="muted" style={{ fontSize: 11.5 }}>{r.nota}</div>}
+                        </td>
+                        <td className="num" style={{ fontWeight: forte ? 600 : 400 }}>
+                          {r.tipo === "costo" ? `− ${eur(r.cons)}` : eur(r.cons)}
+                        </td>
+                        <td className="num muted">
+                          {r.tipo === "costo" ? `− ${eur(r.budget)}` : eur(r.budget)}
+                        </td>
+                        <td className={`num ${buono(r) ? "pos" : "neg"}`}>
+                          {scost >= 0 ? "+" : ""}{eur(scost)}
+                        </td>
+                        <td className="num muted">
+                          {r.budget > 0 ? pct((r.cons / r.budget) * 100, 0) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p className="page-caption" style={{ marginTop: 14 }}>
+            I <strong>ricavi</strong> sono l&apos;imponibile fatturato in Finance mappato alle voci di budget in{" "}
+            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>. I <strong>costi</strong> sono
+            le uscite di banca categorizzate nel <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>{" "}
+            per voce di P&amp;L: {spese.ok ? `restano ${eur(nonCategorizzato)} da categorizzare` : "spese banca non disponibili"}
+            {esclusi > 0 && `, ${eur(esclusi)} esclusi (oneri finanziari)`}, quindi finché la categorizzazione non è
+            completa i costi reali sono sottostimati e l&apos;EBITDA è ottimistico. Nota: i ricavi sono al netto IVA
+            (competenza), le uscite di banca sono di cassa (IVA inclusa): è un consuntivo gestionale, non un bilancio.
+          </p>
+
+          <h2 className="section-title">Ricavi reali per voce di budget</h2>
           <div className="card tight">
             <div className="table-wrap">
               <table>
@@ -157,7 +236,6 @@ export default async function ConsuntivoPage({
                     <th className="num">Budget periodo</th>
                     <th className="num">Consuntivo</th>
                     <th className="num">Scostamento</th>
-                    <th className="num">Realizzato</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -171,65 +249,33 @@ export default async function ConsuntivoPage({
                       <td className="num" style={{ fontWeight: 600 }}>
                         {c.mappata ? eur(c.consuntivo) : <span className="muted">—</span>}
                       </td>
-                      <td className={`num ${!c.mappata ? "" : c.scostamento >= 0 ? "pos" : "neg"}`}>
-                        {c.mappata ? `${c.scostamento >= 0 ? "+" : ""}${eur(c.scostamento)}` : <span className="muted">—</span>}
-                      </td>
-                      <td className="num muted">
-                        {c.mappata && c.budgetPeriodo > 0 ? pct((c.consuntivo / c.budgetPeriodo) * 100, 0) : "—"}
+                      <td className={`num ${!c.mappata ? "" : c.consuntivo - c.budgetPeriodo >= 0 ? "pos" : "neg"}`}>
+                        {c.mappata ? `${c.consuntivo - c.budgetPeriodo >= 0 ? "+" : ""}${eur(c.consuntivo - c.budgetPeriodo)}` : <span className="muted">—</span>}
                       </td>
                     </tr>
                   ))}
+                  <tr className="tot">
+                    <td>Totale ricavi</td>
+                    <td />
+                    <td className="num">{eur(pl.ricavi * quotaPeriodo)}</td>
+                    <td className="num">{eur(ricaviCons)}</td>
+                    <td className={`num ${ricaviCons - pl.ricavi * quotaPeriodo >= 0 ? "pos" : "neg"}`}>
+                      {ricaviCons - pl.ricavi * quotaPeriodo >= 0 ? "+" : ""}{eur(ricaviCons - pl.ricavi * quotaPeriodo)}
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
           {nonMappate.length > 0 && (
-            <>
-              <h2 className="section-title">Fatturato non associato a una voce di budget</h2>
-              <div className="card tight">
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Tipologia (Finance)</th>
-                        <th className="num">Imponibile</th>
-                        <th className="num">IVA</th>
-                        <th className="num">Totale</th>
-                        <th className="num">Fatture</th>
-                        <th className="num">Quota</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {nonMappate.map((t) => (
-                        <tr key={t.tipologia}>
-                          <td style={{ fontWeight: 500 }}>{t.tipologia}</td>
-                          <td className="num" style={{ fontWeight: 600 }}>{eur(t.imponibile)}</td>
-                          <td className="num muted">{eur(t.iva)}</td>
-                          <td className="num">{eur(t.totale)}</td>
-                          <td className="num muted">{t.fatture}</td>
-                          <td className="num muted">{pct(t.quota)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <p className="page-caption" style={{ marginTop: 12 }}>
-                Queste tipologie sono fatturate in Finance ma non collegate ad alcuna voce di budget.
-                Associale in <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>, campo
-                &quot;Voci in Finance&quot;, perché entrino nel confronto.
-              </p>
-            </>
+            <p className="page-caption" style={{ marginTop: 12 }}>
+              {nonMappate.length} tipologie fatturate in Finance non sono collegate a una voce di budget
+              (per {eur(nonMappate.reduce((s, t) => s + t.imponibile, 0))}). Associale in{" "}
+              <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>, campo &quot;Voci in Finance&quot;,
+              perché entrino nei ricavi consuntivi.
+            </p>
           )}
-
-          <p className="page-caption" style={{ marginTop: 18 }}>
-            Il <strong>budget periodo</strong> è il budget annuale della voce rapportato ai mesi del periodo
-            scelto ({pct(quotaPeriodo * 100, 0)} dell&apos;anno). Il <strong>consuntivo</strong> somma il
-            fatturato reale delle tipologie di Finance associate alla voce in{" "}
-            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>. Dati aggiornati a ogni
-            apertura della pagina.
-          </p>
         </>
       )}
     </>
