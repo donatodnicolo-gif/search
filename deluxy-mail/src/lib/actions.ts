@@ -1277,22 +1277,29 @@ export async function agganciaAlThread(
 
   await db.messaggio.updateMany({
     where: { utenteId, id: { in: [...new Set([...idsBase, ...idsAltro, base.id, altro.id])] } },
-    data: { threadManuale: codice },
+    // Agganciando si annulla anche un eventuale "sganciato" precedente: è la
+    // scelta opposta, e va rispettata.
+    data: { threadManuale: codice, scollegato: false },
   })
 
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: 'Mail agganciata: ora l’AI le legge insieme.' }
 }
 
-/** Stacca una mail dal gruppo manuale (torna ai legami naturali). */
+/**
+ * Sgancia UNA mail dalla conversazione. La isola davvero: toglie l'aggancio
+ * manuale E la marca come "scollegata", così non si riunisce nemmeno per la
+ * catena di risposte o l'oggetto in comune (che l'avevano trascinata nel thread
+ * sbagliato). Per rimetterla in un thread si usa «Aggancia».
+ */
 export async function staccaDalThread(messaggioId: string): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
   await db.messaggio.updateMany({
     where: { id: messaggioId, utenteId },
-    data: { threadManuale: null },
+    data: { threadManuale: null, scollegato: true },
   })
   revalidatePath('/', 'layout')
-  return { ok: true, messaggio: 'Mail staccata dalla conversazione.' }
+  return { ok: true, messaggio: 'Mail sganciata dalla conversazione.' }
 }
 
 // ---------- Renè AI ----------

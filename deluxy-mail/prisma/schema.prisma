@@ -249,6 +249,11 @@ model Messaggio {
   // cosa ma non hanno né catena di risposte né oggetto in comune, l'utente le
   // unisce e condividono questo codice. Vince su tutto: è una scelta esplicita.
   threadManuale String?
+  // Sganciato A MANO da una conversazione: quando la catena di risposte (o
+  // l'oggetto) unisce mail che parlano di cose diverse, l'utente stacca la
+  // singola mail e questa NON si unisce più per legami naturali (resta legata
+  // solo da un eventuale aggancio manuale esplicito).
+  scollegato    Boolean @default(false)
   direzione String  @default("entrata")
 
   mittente     String

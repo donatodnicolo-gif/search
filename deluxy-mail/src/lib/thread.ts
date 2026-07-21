@@ -39,6 +39,9 @@ export type Raggruppabile = {
   data: Date
   /** Aggancio deciso a mano dall'utente: unisce anche mail senza altri legami. */
   threadManuale?: string | null
+  /** Sganciata a mano: non si unisce per legami naturali (catena/oggetto);
+   *  resta legata solo da un eventuale aggancio manuale esplicito. */
+  scollegato?: boolean | null
 }
 
 /**
@@ -73,6 +76,11 @@ export function raggruppa<T extends Raggruppabile>(messaggi: T[]): T[][] {
       if (giaM) union(m.id, giaM)
       else primoPerManuale.set(m.threadManuale, m.id)
     }
+
+    // Una mail SGANCIATA a mano non si unisce per legami naturali: si ferma qui
+    // (l'aggancio manuale sopra vale comunque, se c'è). Così esce da un thread
+    // in cui la catena di risposte o l'oggetto l'avevano trascinata per sbaglio.
+    if (m.scollegato) continue
 
     // stessa radice → stesso thread (la catena di risposte)
     const radice = m.thread || m.id

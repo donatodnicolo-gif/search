@@ -1251,7 +1251,7 @@ export async function messaggiThread(
     where: { utenteId, cestinato: false },
     orderBy: { data: 'desc' },
     take: 400,
-    select: { id: true, thread: true, oggetto: true, data: true, threadManuale: true },
+    select: { id: true, thread: true, oggetto: true, data: true, threadManuale: true, scollegato: true },
   })
 
   const dentroFinestra = candidati.some((c) => c.id === messaggioId)

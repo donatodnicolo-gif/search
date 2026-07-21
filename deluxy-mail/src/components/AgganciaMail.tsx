@@ -10,7 +10,17 @@ import { dataBreve } from '@/lib/format'
  * insieme, così ha la situazione completa anche quando la catena di risposte
  * si è rotta o l'oggetto è cambiato.
  */
-export function AgganciaMail({ messaggioId, agganciata }: { messaggioId: string; agganciata: boolean }) {
+export function AgganciaMail({
+  messaggioId,
+  agganciata,
+  staccabile = false,
+}: {
+  messaggioId: string
+  agganciata: boolean
+  /** La conversazione ha più di una mail: la corrente si può sganciare anche se
+   *  il legame è naturale (catena di risposte), non solo se agganciata a mano. */
+  staccabile?: boolean
+}) {
   const [aperto, setAperto] = useState(false)
   const [query, setQuery] = useState('')
   const [risultati, setRisultati] = useState<CandidatoAggancio[] | null>(null)
@@ -48,7 +58,7 @@ export function AgganciaMail({ messaggioId, agganciata }: { messaggioId: string;
         <button type="button" className="btn secondary small" onClick={() => setAperto((v) => !v)}>
           {aperto ? 'Chiudi' : '⚭ Aggancia una mail'}
         </button>
-        {agganciata && (
+        {(agganciata || staccabile) && (
           <button type="button" className="btn secondary small" onClick={stacca} disabled={inCorso}>
             Stacca da questa conversazione
           </button>
