@@ -37,6 +37,25 @@
   .storicocard{display:none}
   .content.view-storico .ordercard, .content.view-storico .searchbar, .content.view-storico .col-right, .content.view-storico .config{display:none}
   .content.view-storico .storicocard{display:block}
+  .contatticard{display:none}
+  .content.view-contatti .ordercard, .content.view-contatti .searchbar, .content.view-contatti .col-right, .content.view-contatti .config, .content.view-contatti .storicocard{display:none}
+  .content.view-contatti .contatticard{display:block}
+  /* elenco contatti per provincia */
+  .prov-group{margin-top:20px}
+  .prov-head{display:flex; align-items:baseline; gap:8px; padding:0 2px 8px; border-bottom:1px solid var(--hairline); margin-bottom:12px}
+  .prov-head h3{margin:0; font-size:15px; font-weight:600; letter-spacing:-.01em}
+  .prov-head .cnt{font-size:12px; color:var(--text-tertiary)}
+  .ct-grid{display:grid; gap:12px}
+  @media(min-width:720px){ .ct-grid{grid-template-columns:1fr 1fr} }
+  .ct-card{background:var(--surface); border:1px solid var(--hairline); border-radius:var(--radius-l); box-shadow:var(--shadow-card); padding:16px}
+  .ct-card .top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px}
+  .ct-card h4{margin:0; font-size:15px; font-weight:600; letter-spacing:-.01em}
+  .ct-card .cat{font-size:12px; color:var(--text-secondary); margin-top:2px}
+  .ct-card .addr{font-size:13px; color:var(--text-secondary); margin-top:6px}
+  .ct-card .note{font-size:12px; color:var(--text-tertiary); margin-top:6px; line-height:1.4}
+  .ct-card .contacts{margin-top:10px}
+  .ct-ref{font-size:12px; color:var(--text-secondary); margin-top:8px; border-top:1px solid var(--hairline); padding-top:8px}
+  .contatticard .chips .chip{flex:0 0 auto; min-width:0; padding:8px 14px; font-size:13px}
   .st-row{display:grid; grid-template-columns:auto 1fr auto; gap:4px 14px; padding:12px 2px; border-top:1px solid var(--hairline); align-items:baseline}
   .st-row:first-child{border-top:none}
   .st-when{font-size:12px; color:var(--text-tertiary); white-space:nowrap}
@@ -161,6 +180,25 @@
   .rawattrs table{width:100%; border-collapse:collapse; margin-top:8px; font-size:13px}
   .rawattrs td{border-bottom:1px solid var(--hairline); padding:5px 6px; vertical-align:top}
   .rawattrs td:first-child{color:var(--text-tertiary); white-space:nowrap; padding-right:12px}
+  /* stellina "contattato" sulle schede fornitore */
+  .star-btn{width:32px; height:32px; padding:0; border:1px solid var(--hairline-strong); background:var(--surface);
+        border-radius:50%; cursor:pointer; font-size:16px; line-height:1; color:var(--text-tertiary);
+        transition:background .18s var(--ease), color .18s var(--ease), transform .15s var(--ease)}
+  .star-btn:hover{background:var(--fill-hover)}
+  .star-btn:active{transform:scale(.9)}
+  .star-btn.on{color:var(--gold-strong); background:var(--gold-soft); border-color:rgba(184,150,62,.35)}
+  /* stato ricerca fornitore (pillole con dot) */
+  .stato-pill{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--hairline-strong);
+        background:var(--surface); color:var(--text-secondary); border-radius:var(--radius-pill);
+        padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer;
+        transition:background .18s var(--ease), color .18s var(--ease), border-color .18s var(--ease), transform .15s var(--ease)}
+  .stato-pill:active{transform:scale(.97)}
+  .stato-pill .dot{width:8px; height:8px; border-radius:50%; background:var(--text-tertiary)}
+  .stato-pill.active[data-stato="non iniziata"]{background:var(--fill-active); color:var(--text); border-color:transparent}
+  .stato-pill.active[data-stato="in corso"]{background:rgba(0,113,227,.1); color:var(--blue); border-color:rgba(0,113,227,.25)}
+  .stato-pill.active[data-stato="in corso"] .dot{background:var(--blue)}
+  .stato-pill.active[data-stato="trovato"]{background:rgba(36,138,61,.1); color:var(--green); border-color:rgba(36,138,61,.25)}
+  .stato-pill.active[data-stato="trovato"] .dot{background:var(--green)}
   .sendorder{margin-top:10px; width:100%; border:0; border-radius:var(--radius-pill); padding:12px; font-weight:600; cursor:pointer;
         background:var(--green); color:#fff; font-size:14px; transition:filter .15s var(--ease), transform .15s var(--ease)}
   .sendorder:hover{filter:brightness(1.06)} .sendorder:active{transform:scale(.98)}
@@ -264,6 +302,7 @@
       <div class="nav-section">Operatività</div>
       <a class="nav-link active" data-scroll=".ordercard"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="2.5"/><path d="M4 11h16M12 7v13M8 7l1.5-3h5L16 7"/></svg></span><span>Smistamento</span></a>
       <a class="nav-link" data-scroll=".searchbar"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.6-3.6"/></svg></span><span>Ricerca negozi</span></a>
+      <a class="nav-link" id="navContatti"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v13H4z"/><path d="M8 9.5h8M8 13h5"/></svg></span><span>Contatti</span></a>
       <a class="nav-link" id="navStorico"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><span>Storico richieste</span></a>
       <div class="nav-section">Configurazione</div>
       <a class="nav-link" id="navAdmin"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.2M12 18.3v2.2M4.8 7l1.9 1.1M17.3 15.9l1.9 1.1M4.8 17l1.9-1.1M17.3 8.1l1.9-1.1M3.5 12h2.2M18.3 12h2.2"/></svg></span><span>Impostazioni</span></a>
@@ -325,6 +364,20 @@
         <div id="userRows" class="grid" style="margin-top:8px"></div>
         <button class="btn-dl" id="addUserRow" type="button" style="margin-top:8px">➕ Aggiungi utenza</button>
         <div class="hint">Ogni operatore entra con <b>email + password personale</b> e le sue azioni compaiono nello Storico con la sua email. Password vuota = invariata; riga rimossa = utenza revocata. Il pass code principale resta quello dell'amministratore (unico che può salvare le impostazioni).</div>
+      </div>
+      <div>
+        <label style="font-size:13px; color:var(--text); font-weight:600">🔑 Chiavi API (per AI e integrazioni)</label>
+        <div id="keyRows" class="grid" style="margin-top:8px"></div>
+        <div style="display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:8px">
+          <input id="newKeyName" type="text" placeholder="nome chiave (es. claude, zapier)" autocomplete="off">
+          <button class="btn-dl" id="btnNewKey" type="button">🔑 Genera chiave</button>
+        </div>
+        <div id="newKeyOut" style="display:none; margin-top:8px; padding:12px; background:var(--gold-soft); border:1px solid rgba(184,150,62,.35); border-radius:var(--radius-m)">
+          <div style="font-weight:600; margin-bottom:6px">Chiave creata — copiala ORA, non sarà più visibile:</div>
+          <code id="newKeyVal" style="word-break:break-all; user-select:all"></code>
+          <button class="btn-dl" id="copyNewKey" type="button" style="margin-top:8px">📋 Copia</button>
+        </div>
+        <div class="hint">Le integrazioni chiamano le API con l'header <code>x-api-key</code> al posto di email+password; nello Storico compaiono come <b>chiave:&lt;nome&gt;</b>. Il segreto è salvato hashato: se lo perdi, revoca e genera una chiave nuova. Salvate e revocate subito (non serve «Salva impostazioni»).</div>
       </div>
       <div>
         <label style="font-size:13px; color:var(--text); font-weight:600">🛍️ Negozi Shopify</label>
@@ -446,6 +499,15 @@
         <div class="hint">Copialo e incollalo dove preferisci (WhatsApp, email, Instagram…), oppure usa i pulsanti «Invia» sulle schede qui sotto. Se lo modifichi a mano, verrà inviato il tuo testo.</div>
       </div>
 
+      <div style="margin-top:16px">
+        <label>Stato ricerca fornitore</label>
+        <div id="statoPills" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px">
+          <button type="button" class="stato-pill" data-stato="non iniziata"><span class="dot"></span>Non iniziata</button>
+          <button type="button" class="stato-pill" data-stato="in corso"><span class="dot"></span>In corso</button>
+          <button type="button" class="stato-pill" data-stato="trovato"><span class="dot"></span>Trovato</button>
+        </div>
+        <div class="hint" id="statoHint" style="margin-top:6px">Passa da solo a «In corso» al primo WhatsApp/email inviato. La ⭐ sulle schede segna i fornitori già contattati (visibile a tutti gli operatori).</div>
+      </div>
       <button class="btn" id="findFlorists" style="margin-top:16px">🔎 Trova fiorai vicino alla consegna</button>
       <div class="order-flag">Poi scegli un fiorario qui sotto e premi «Invia richiesta ordine» sulla sua scheda.</div>
     </div>
@@ -500,6 +562,28 @@
       <div class="results" id="results"></div>
     </div><!-- /col-right -->
     </div><!-- /cols -->
+
+    <!-- CONTATTI (partner + fornitori dal registro anagrafiche, per provincia) -->
+    <div class="card contatticard" id="contattiCard">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px">
+        <div class="hint" id="contattiInfo" style="margin:0"></div>
+        <button class="btn-dl" id="contattiReload" type="button">↻ Aggiorna</button>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px">
+        <div class="chips" id="ctTipo" style="display:flex; gap:6px">
+          <button class="chip active" data-tipo="tutti" type="button">Tutti</button>
+          <button class="chip" data-tipo="partner" type="button">🤝 Partner</button>
+          <button class="chip" data-tipo="fornitore" type="button">📋 Fornitori</button>
+        </div>
+        <div class="chips" id="ctCat" style="display:flex; gap:6px">
+          <button class="chip active" data-cat="tutte" type="button">Tutte le categorie</button>
+          <button class="chip" data-cat="FIORISTA" type="button">🌸 Fiorai</button>
+          <button class="chip" data-cat="PASTICCERIA" type="button">🎂 Pasticcerie</button>
+        </div>
+        <input id="ctSearch" type="text" placeholder="Cerca nome, città…" style="flex:1; min-width:160px">
+      </div>
+      <div id="contattiBody"><div class="hint">Carico i contatti…</div></div>
+    </div>
 
     <!-- STORICO RICHIESTE (vista dedicata) -->
     <div class="card storicocard" id="storicoCard">
@@ -603,6 +687,7 @@ const API_BASE = (location.hostname==='localhost'||location.hostname==='127.0.0.
 const KNOWN_BRANDS = ['deluxy.it','deluxyflowers.com','cakedesign.me'];
 let PASS = sessionStorage.getItem('pass') || '';
 let USER = sessionStorage.getItem('user') || '';
+let SESSION = sessionStorage.getItem('session') || '';   // handoff da un'altra app (link monouso)
 let CONFIG = { googleKey:'', proxy:'', anagUrl:'', anagKey:'', stores:[] };
 function cssId(b){ return b.replace(/[^a-z0-9]/gi,'_'); }
 
@@ -618,7 +703,10 @@ $('#storeRows').innerHTML = KNOWN_BRANDS.map(b=>`
 
 function apiFetch(path, opts){
   opts = opts || {};
-  opts.headers = Object.assign({ 'x-app-password': PASS, 'x-app-user': USER }, opts.headers || {});
+  const h = { 'x-app-user': USER };
+  if(SESSION) h['x-app-session'] = SESSION;   // sessione da handoff (niente password)
+  else h['x-app-password'] = PASS;
+  opts.headers = Object.assign(h, opts.headers || {});
   return fetch(API_BASE + path, opts);
 }
 function utenteRow(nome){
@@ -638,8 +726,55 @@ function renderUtenti(){
 }
 $('#addUserRow').addEventListener('click', ()=> $('#userRows').appendChild(utenteRow('')));
 
+/* ---- chiavi API (create/revocate subito via /api/chiavi, solo admin) ---- */
+async function loadKeys(){
+  const box = $('#keyRows'); if(!box) return;
+  try{
+    const r = await apiFetch('/api/chiavi');
+    const j = await r.json().catch(()=>({}));
+    if(r.status===403){ box.parentElement.style.display='none'; return; }   // non admin
+    if(!r.ok) throw new Error(j.error||('Errore '+r.status));
+    box.parentElement.style.display='';
+    box.innerHTML = (j.chiavi||[]).length ? '' : '<div class="hint">Nessuna chiave attiva.</div>';
+    (j.chiavi||[]).forEach(k=>{
+      const div = document.createElement('div');
+      div.style.cssText = 'display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center';
+      div.innerHTML = `<span><b>${esc(k.nome)}</b> <span style="color:var(--text-tertiary)">· dlxs_${esc(k.id)}_••••${k.creata?' · creata '+esc(fmtQuando(k.creata)):''}</span></span>
+        <button class="btn-dl k-rev" type="button" data-id="${esc(k.id)}">🗑 Revoca</button>`;
+      div.querySelector('.k-rev').addEventListener('click', async ()=>{
+        if(!confirm('Revocare la chiave «'+k.nome+'»? Chi la usa smetterà subito di funzionare.')) return;
+        await apiFetch('/api/chiavi', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ azione:'revoca', id:k.id }) });
+        loadKeys();
+      });
+      box.appendChild(div);
+    });
+  }catch(err){ box.innerHTML = '<div class="hint">⚠️ '+esc(err.message)+'</div>'; }
+}
+$('#btnNewKey').addEventListener('click', async ()=>{
+  const nome = $('#newKeyName').value.trim();
+  if(!nome){ alert('Dai un nome alla chiave (es. "claude").'); return; }
+  $('#btnNewKey').disabled = true;
+  try{
+    const r = await apiFetch('/api/chiavi', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ azione:'crea', nome, quando:new Date().toISOString() }) });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error||('Errore '+r.status));
+    $('#newKeyVal').textContent = j.chiave;
+    $('#newKeyOut').style.display = 'block';
+    $('#newKeyName').value = '';
+    loadKeys();
+  }catch(err){ alert('❌ '+err.message); }
+  finally{ $('#btnNewKey').disabled = false; }
+});
+$('#copyNewKey').addEventListener('click', async ()=>{
+  try{ await navigator.clipboard.writeText($('#newKeyVal').textContent); $('#copyNewKey').textContent='✅ Copiata'; }
+  catch(e){ /* selezionabile a mano: user-select:all */ }
+});
+
 function applyConfig(){
   renderUtenti();
+  loadKeys();   // sezione chiavi API (si nasconde da sola se non sei admin)
   $('#cfg_google').value = CONFIG.googleKey || '';
   $('#cfg_proxy').value  = CONFIG.proxy || '';
   $('#cfg_anag_url').value = CONFIG.anagUrl || '';
@@ -690,7 +825,47 @@ async function unlock(){
 $('#passBtn').addEventListener('click', unlock);
 $('#passInput').addEventListener('keydown', e=>{ if(e.key==='Enter') unlock(); });
 $('#userInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#passInput').focus(); });
-if(PASS && USER){ unlock(); }   // sessione già sbloccata
+
+// entra con una sessione temporanea (da handoff): niente password, credenziale = SESSION
+async function unlockSession(sess, utente){
+  SESSION = sess; PASS = ''; USER = utente || 'link';
+  sessionStorage.setItem('session', sess);
+  sessionStorage.setItem('user', USER);
+  sessionStorage.removeItem('pass');
+  try{
+    await loadConfig();
+    $('#lockScreen').style.display='none';
+    $('#passErr').textContent='';
+    $('.user-name').textContent = USER;
+    $('.avatar').textContent = USER.slice(0,2).toUpperCase();
+    applyDeepLink();
+    return true;
+  }catch(e){
+    SESSION=''; sessionStorage.removeItem('session');
+    $('#passErr').textContent='❌ Link non valido o scaduto. '+e.message;
+    return false;
+  }
+}
+// scambia il codice ?t=… (monouso) per una sessione, poi lo toglie dall'URL
+async function handoff(){
+  const q = new URLSearchParams(location.search);
+  const code = q.get('t');
+  if(!code) return false;
+  try{
+    const r = await fetch(API_BASE + '/api/link?code=' + encodeURIComponent(code) + '&ts=' + encodeURIComponent(new Date().toISOString()));
+    const j = await r.json().catch(()=>({}));
+    q.delete('t');   // consumato: non deve restare nella cronologia
+    history.replaceState(null, '', location.pathname + (q.toString() ? '?'+q.toString() : ''));
+    if(!r.ok || !j.ok) return false;
+    return await unlockSession(j.session, j.utente);
+  }catch(e){ return false; }
+}
+// avvio: prima l'handoff, poi una sessione ripresa, poi il login classico
+(async ()=>{
+  if(await handoff()) return;
+  if(SESSION && USER){ if(await unlockSession(SESSION, USER)) return; }
+  if(PASS && USER){ unlock(); }
+})();
 
 /* ------------------ DEEP LINK (richiamo da altre app) ------------------
    L'app si può aprire da un bottone di un'altra app con parametri in URL:
@@ -761,7 +936,8 @@ function closeMenu(){ $('#sidebar').classList.remove('open'); $('#appOverlay').c
 function toggleMenu(){ $('#sidebar').classList.toggle('open'); $('#appOverlay').classList.toggle('open'); }
 const PAGE_TITLES = { operativa: ['Smistamento ordini', 'Recupera un ordine e invialo al fiorario o pasticceria più vicino, via WhatsApp o email.'],
                       impostazioni: ['Impostazioni', 'Chiavi, utenze e collegamenti dell\'app, salvati sul server.'],
-                      storico: ['Storico richieste', 'Richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
+                      contatti: ['Contatti', 'Partner e fornitori dal registro anagrafiche Deluxy, raggruppati per provincia.'],
+                      storico: ['Storico richieste', 'Check ordini Shopify, richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
 // vista: false/'operativa' | true/'impostazioni' | 'storico'
 function setView(vista){
   if(vista === true) vista = 'impostazioni';
@@ -769,6 +945,7 @@ function setView(vista){
   const content = document.querySelector('.content');
   content.classList.toggle('view-settings', vista==='impostazioni');
   content.classList.toggle('view-storico', vista==='storico');
+  content.classList.toggle('view-contatti', vista==='contatti');
   $('#config').classList.toggle('show', vista==='impostazioni');
   if(vista==='impostazioni') $('#config').open = true;
   const t = PAGE_TITLES[vista];
@@ -786,6 +963,12 @@ $('#navAdmin').addEventListener('click', ()=>{
   window.scrollTo({top:0, behavior:'smooth'});
   setActiveNav($('#navAdmin')); closeMenu();
 });
+$('#navContatti').addEventListener('click', ()=>{
+  setView('contatti');
+  window.scrollTo({top:0, behavior:'smooth'});
+  setActiveNav($('#navContatti')); closeMenu();
+  loadContatti();
+});
 $('#navStorico').addEventListener('click', ()=>{
   setView('storico');
   window.scrollTo({top:0, behavior:'smooth'});
@@ -793,7 +976,133 @@ $('#navStorico').addEventListener('click', ()=>{
   loadStorico();
 });
 $('#storicoReload').addEventListener('click', loadStorico);
-$('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); location.reload(); });
+// «Riapri richiesta»: ricarica l'ordine di quell'evento e riparte col flusso normale
+// (recupero → indirizzo → categoria dal brand → ricerca fornitori in automatico)
+$('#storicoBody').addEventListener('click', e=>{
+  const b = e.target.closest('.st-reopen'); if(!b) return;
+  const sel = $('#brand');
+  if([...sel.options].some(o=>o.value===b.dataset.brand)) sel.value = b.dataset.brand;
+  localStorage.setItem('brand', sel.value);
+  $('#orderNum').value = b.dataset.num;
+  setView(false);
+  const nav = document.querySelector('.nav-link[data-scroll=".ordercard"]');
+  if(nav) setActiveNav(nav);
+  fetchOrder();
+});
+
+/* ------------------ CONTATTI (partner + fornitori dal registro, per provincia) ------------------ */
+let ctData = null;                                   // cache di tutti i contatti del registro
+const ctFiltro = { tipo:'tutti', cat:'tutte', q:'' }; // partner|fornitore, categoria, ricerca testo
+const CT_CAT = { FIORISTA:'🌸 Fiorista', PASTICCERIA:'🎂 Pasticceria' };
+// scarica TUTTE le pagine dal proxy /api/anagrafiche (la chiave resta sul server)
+async function anagAllPages(){
+  const out = [];
+  for(let page=1; page<=25; page++){
+    const qs = new URLSearchParams({ perPage:'200', page:String(page) });
+    const r = await apiFetch('/api/anagrafiche?' + qs);
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('HTTP '+r.status));
+    if(j.skipped) return { skipped:true, list:[] };
+    const dati = j.dati || [];
+    out.push(...dati);
+    if(dati.length < 200) break;                     // ultima pagina
+  }
+  return { list: out };
+}
+async function loadContatti(force){
+  const body = $('#contattiBody');
+  if(ctData && !force){ renderContatti(); return; }
+  body.innerHTML = '<div class="hint">Carico i contatti…</div>';
+  try{
+    const res = await anagAllPages();
+    if(res.skipped){
+      ctData = [];
+      body.innerHTML = '<div class="hint">Il registro anagrafiche non è collegato. Aggiungi la <b>chiave di sola lettura</b> in Impostazioni → «Registro anagrafiche».</div>';
+      $('#contattiInfo').textContent = '';
+      return;
+    }
+    ctData = res.list;
+    renderContatti();
+  }catch(err){
+    body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>';
+  }
+}
+function ctIsPartner(p){ return isPartnerAttivo(p); }
+function renderContatti(){
+  const body = $('#contattiBody');
+  const q = ctFiltro.q.trim().toLowerCase();
+  const list = (ctData||[]).filter(p=>{
+    if(ctFiltro.tipo==='partner'   && !ctIsPartner(p)) return false;
+    if(ctFiltro.tipo==='fornitore' &&  ctIsPartner(p)) return false;
+    if(ctFiltro.cat!=='tutte' && String(p.categoria||'').toUpperCase()!==ctFiltro.cat) return false;
+    if(q){
+      const blob = [p.nome, p.ragioneSociale, p.citta, p.provincia, p.indirizzo, p.telefono, p.email].filter(Boolean).join(' ').toLowerCase();
+      if(!blob.includes(q)) return false;
+    }
+    return true;
+  });
+  const nP = list.filter(ctIsPartner).length;
+  $('#contattiInfo').textContent = list.length
+    ? `${list.length} contatti · ${nP} partner · ${list.length-nP} fornitori`
+    : '';
+  if(!list.length){ body.innerHTML = '<div class="hint">Nessun contatto con questi filtri.</div>'; return; }
+  // raggruppa per provincia (schede senza provincia in coda sotto "—")
+  const gruppi = {};
+  list.forEach(p=>{ const k = (p.provincia||'').toUpperCase() || '—'; (gruppi[k] = gruppi[k]||[]).push(p); });
+  const chiavi = Object.keys(gruppi).sort((a,b)=> a==='—'?1 : b==='—'?-1 : a.localeCompare(b));
+  body.innerHTML = chiavi.map(prov=>{
+    const cards = gruppi[prov]
+      .sort((a,b)=> String(a.nome||'').localeCompare(String(b.nome||'')))
+      .map(ctCard).join('');
+    return `<div class="prov-group">
+      <div class="prov-head"><h3>${prov==='—'?'Provincia non indicata':'📍 '+esc(prov)}</h3><span class="cnt">${gruppi[prov].length} contatti</span></div>
+      <div class="ct-grid">${cards}</div>
+    </div>`;
+  }).join('');
+}
+function ctCard(p){
+  const partner = ctIsPartner(p);
+  const digits = (p.telefono||'').replace(/[^\d]/g,'');
+  const hasWa = digits.length >= 8;
+  const c = [];
+  if(p.telefono) c.push(`<a class="tel" href="tel:${esc(p.telefono)}">📞 ${esc(p.telefono)}</a>`);
+  if(hasWa)      c.push(`<a class="wa" href="${waChatUrl(digits)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+  if(p.email)    c.push(`<a class="mail" href="mailto:${esc(p.email)}">✉️ ${esc(p.email)}</a>`);
+  if(!c.length)  c.push('<span class="none">Nessun contatto nel registro</span>');
+  const refs = (p.contatti||[]).map(ct=>{
+    const chi = [ct.nome, ct.ruolo].filter(Boolean).join(' · ');
+    const bits = [];
+    if(ct.telefono) bits.push(`<a class="tel" href="tel:${esc(ct.telefono)}">📞 ${esc(ct.telefono)}</a>`);
+    if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">✉️ ${esc(ct.email)}</a>`);
+    if(!chi && !bits.length) return '';
+    return `<div class="ct-ref">👤 ${esc(chi||'referente')} ${bits.length?'<div class="contacts" style="margin-top:4px">'+bits.join('')+'</div>':''}</div>`;
+  }).join('');
+  const badge = partner
+    ? '<span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)">🤝 Partner</span>'
+    : `<span class="badge" style="color:var(--blue); background:rgba(0,113,227,.08)">📋 ${esc(statoLabel(p))}</span>`;
+  const luogo = [p.indirizzo, p.citta].filter(Boolean).join(' · ');
+  return `<div class="ct-card">
+    <div class="top">
+      <div>
+        <h4>${partner?'🤝':'📋'} ${esc(p.nome||'—')}</h4>
+        <div class="cat">${esc(CT_CAT[String(p.categoria||'').toUpperCase()] || p.categoria || '')}</div>
+      </div>
+      ${badge}
+    </div>
+    ${luogo?`<div class="addr">${esc(luogo)}</div>`:''}
+    <div class="contacts">${c.join('')}</div>
+    ${refs}
+    ${p.note?`<div class="note">📝 ${esc(String(p.note).slice(0,160))}</div>`:''}
+  </div>`;
+}
+$('#contattiReload').addEventListener('click', ()=> loadContatti(true));
+$('#ctTipo').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
+  ctFiltro.tipo=b.dataset.tipo; document.querySelectorAll('#ctTipo .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
+$('#ctCat').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
+  ctFiltro.cat=b.dataset.cat; document.querySelectorAll('#ctCat .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
+$('#ctSearch').addEventListener('input', ()=>{ ctFiltro.q=$('#ctSearch').value; renderContatti(); });
+
+$('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); sessionStorage.removeItem('session'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);
 $('#appOverlay').addEventListener('click', closeMenu);
 // sidebar a scomparsa su desktop (lo stato resta tra le sessioni)
@@ -931,10 +1240,12 @@ function registryCard(p){
   const el = document.createElement('div');
   el.className = 'shop registry' + (isPartner ? ' partner' : '');
   el.dataset.registry = '1';
+  el.dataset.sid = 'anag:' + (p.id || p.nome);
   el.innerHTML = `
     <div class="head">
       <h3>${isPartner?'🤝':'📋'} ${esc(p.nome)}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
+        <button type="button" class="star-btn" data-sid="${esc(el.dataset.sid)}" title="Segna come contattato">☆</button>
         <span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>
       </div>
     </div>
@@ -1106,12 +1417,13 @@ async function fetchOrder(){
   localStorage.setItem('brand', brand);
   $('#orderBox').style.display='none'; orderLoaded=false;
   if(!number){ setOrderStatus('Inserisci il numero ordine.', true); return; }
-  if(!PASS){ setOrderStatus('Sessione scaduta: rientra col pass code.', true); location.reload(); return; }
+  if(!PASS && !SESSION){ setOrderStatus('Sessione scaduta: rientra col pass code.', true); location.reload(); return; }
 
   $('#fetchOrder').disabled = true;
   setOrderStatus('Recupero ordine '+number+' da '+brand+'…');
   try{
-    const url = '/api/order?brand='+encodeURIComponent(brand)+'&number='+encodeURIComponent(number);
+    const url = '/api/order?brand='+encodeURIComponent(brand)+'&number='+encodeURIComponent(number)
+              + '&ts='+encodeURIComponent(new Date().toISOString());   // per lo Storico (il server non usa new Date())
     const r = await apiFetch(url);
     let data; try{ data = await r.json(); }catch(e){ data = {}; }
     if(!r.ok || data.found===false){
@@ -1158,6 +1470,7 @@ function populateOrder(o){
   }
   updateDeal();
   refreshOrderMessage(true);
+  loadStato();   // stato ricerca + stelle di QUESTO ordine (condivisi fra operatori)
 
   // campi grezzi (attributi ordine + proprietà righe)
   const rows = [];
@@ -1204,6 +1517,10 @@ $('#ord_items').addEventListener('input', updateDlButton);
 
 function syncLangUI(){
   const sel = $('#ordLang'); if(sel) sel.value = currentLang;
+  // impostare sel.value da codice NON scatena l'evento 'change': il testo copiabile
+  // va rigenerato esplicitamente, altrimenti resta nella lingua precedente (bug #2555:
+  // consegna in Francia ma messaggio in italiano). refreshOrderMessage rispetta msgDirty.
+  refreshOrderMessage();
 }
 const CARDWORD = { it:'Bigliettino', en:'Card message', fr:'Message carte', de:'Kartentext', es:'Tarjeta' };
 const SUBJECTWORD = { it:'Richiesta ordine', en:'Order request', fr:'Demande de commande', de:'Bestellanfrage', es:'Solicitud de pedido' };
@@ -1416,6 +1733,7 @@ $('#manualOrder').addEventListener('click', ()=>{
   $('#budgetHint').textContent = '';
   updateDeal();
   refreshOrderMessage(true);
+  loadStato();
   setOrderStatus('✍️ Modalità manuale attiva: compila i campi qui sotto, poi «Trova fiorai» e invia la richiesta.');
   $('#orderBox').scrollIntoView({behavior:'smooth', block:'start'});
 });
@@ -1439,6 +1757,9 @@ resultsEl.addEventListener('click', async e=>{
   const msg = currentMessage(lang);
   const waUrl = waChatUrl(phone, msg);
   const photo = $('#ord_photo').value.trim();
+  // il contatto è partito: ricerca «in corso» (se non già trovato) + stella sul fornitore
+  if(statoRicerca.stato !== 'trovato') setStatoRicerca('in corso');
+  starShop(btn.closest('.shop'));
   // 1) PRIMA la copia negli appunti, mentre questa pagina ha ancora il focus (requisito dell'API appunti).
   //    Il PNG è già pronto grazie al precarico, quindi si risolve in pochi ms e l'attivazione utente
   //    (5s) resta valida per la window.open subito dopo. (Su mobile gli appunti-immagine non sono
@@ -1465,6 +1786,8 @@ resultsEl.addEventListener('click', e=>{
   const lang = (card && card.dataset.lang) || currentLang || 'it';
   const subject = (SUBJECTWORD[lang]||'Richiesta ordine') + ' ' + $('#ordTag').textContent;
   let body = currentMessage(lang);
+  if(statoRicerca.stato !== 'trovato') setStatoRicerca('in corso');
+  starShop(card);
   const photo = $('#ord_photo').value.trim();
   if(photo) body += '\n\n' + (PHOTOWORD[lang]||'Foto') + ': ' + photo;
   window.location.href = 'mailto:' + encodeURIComponent(email)
@@ -1537,7 +1860,7 @@ async function findContactByPhone(token, phone){
 }
 async function createGoogleContact(token, data){
   const body = {
-    names: [{ givenName: contactName(data) }],
+    names: [{ givenName: data.nomeContatto || contactName(data) }],
     organizations: [{ name: data.nome }],
     phoneNumbers: data.telefono ? [{ value: data.telefono, type: 'work' }] : [],
     emailAddresses: data.email ? [{ value: data.email, type: 'work' }] : [],
@@ -1608,7 +1931,7 @@ async function saveContact(btn){
   }catch(err){
     console.warn('rubrica Google:', err);
     downloadVcf(data);
-    btn.textContent = '✅ Scaricato .vcf (rubrica Google non disponibile)';
+    btn.textContent = '✅ Scaricato .vcf — per la rubrica Google riprova e concedi l\'accesso';
     logEvento({ tipo:'rubrica', esito:'scaricato .vcf (OAuth non riuscito)', negozio:data });
   }
 }
@@ -1644,6 +1967,158 @@ resultsEl.addEventListener('click', e=>{
   const r = e.target.closest('.reportshop'); if(r){ reportShop(r); }
 });
 
+/* ------------------ RICONCILIA (fornitore Google ↔ contatto del registro) ------------------
+   Comunica al registro anagrafiche che la scheda Google e un contatto esistente sono la
+   stessa realtà: /api/riconcilia registra il riferimento (place_id) e fonde i dati freschi. */
+let lastAnagList = [];   // contatti del registro trovati dall'ultima ricerca (candidati)
+// Porta sulla scheda Google i contatti che ABBIAMO GIÀ nel registro: telefono con
+// pulsante d'invio WhatsApp diretto, email, referenti. Dedupe con i numeri/email
+// già mostrati dalla scheda (confronto sulle ultime 9 cifre).
+function telDigits(t){ return String(t||'').replace(/[^\d]/g,''); }
+function enrichCardWithRegistry(card, p){
+  if(!p || card.dataset.enriched) return;
+  card.dataset.enriched = '1';
+  const contacts = card.querySelector('.contacts'); if(!contacts) return;
+  const rows = [], sendRows = [];
+  const giaTel = new Set([...card.querySelectorAll('a.tel, a.wa')]
+    .map(a=>telDigits(a.getAttribute('href')).slice(-9)).filter(Boolean));
+  const addTel = (tel, chi)=>{
+    const d = telDigits(tel);
+    if(d.length < 8 || giaTel.has(d.slice(-9))) return;
+    giaTel.add(d.slice(-9));
+    rows.push(`<a class="tel" href="tel:${esc(tel)}">📞 ${esc(tel)}${chi?' · '+esc(chi):''}</a>`
+            + `<a class="wa" href="${waChatUrl(d)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+    sendRows.push(`<button class="sendorder" data-phone="${d}" data-lang="${card.dataset.lang||'it'}">📤 Invia richiesta su WhatsApp — numero del registro${chi?' ('+esc(chi)+')':''}</button>`);
+  };
+  addTel(p.telefono, '');
+  (p.contatti||[]).forEach(ct=> addTel(ct.telefono, ct.nome||ct.ruolo||''));
+  const giaMail = new Set([...card.querySelectorAll('a.mail')]
+    .map(a=>(a.getAttribute('href')||'').replace('mailto:','').toLowerCase()));
+  const addMail = em=>{
+    if(!em || giaMail.has(String(em).toLowerCase())) return;
+    giaMail.add(String(em).toLowerCase());
+    rows.push(`<a class="mail" href="mailto:${esc(em)}">✉️ ${esc(em)}</a>`);
+    if(!card.querySelector('.sendemail')) sendRows.push(`<button class="sendemail" data-email="${esc(em)}">📧 Invia richiesta via email — dal registro</button>`);
+  };
+  addMail(p.email);
+  (p.contatti||[]).forEach(ct=> addMail(ct.email));
+  if(!rows.length) return;
+  contacts.insertAdjacentHTML('afterend',
+    `<div class="contacts" style="margin-top:8px"><span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)">🗂 dal registro</span>${rows.join('')}</div>${sendRows.join('')}`);
+}
+function apriRiconcilia(btn){
+  const card = btn.closest('.shop');
+  const panel = card.querySelector('.recon-panel');
+  if(!panel) return;
+  if(panel.style.display !== 'none'){ panel.style.display = 'none'; return; }   // toggle
+  if(!lastAnagList.length){
+    panel.style.display = 'block';
+    panel.innerHTML = '<div class="hint">Nessun contatto del registro in questa zona: se il negozio è nuovo usa «📣 Segnala al commerciale».</div>';
+    return;
+  }
+  const pre = card.dataset.regId || '';
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div class="hint" style="margin:0 0 6px">Con quale contatto del registro coincide questo negozio?</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      <select class="recon-sel" style="flex:1; min-width:200px">
+        ${lastAnagList.map(p=>`<option value="${esc(p.id)}" ${p.id===pre?'selected':''}>${isPartnerAttivo(p)?'🤝':'📋'} ${esc(p.nome)}${p.citta?' · '+esc(p.citta):''} (${esc(statoLabel(p))})</option>`).join('')}
+      </select>
+      <button class="btn-dl recon-go" type="button">✅ Conferma riconciliazione</button>
+    </div>
+    <div class="hint recon-msg" style="margin-top:6px"></div>`;
+}
+// Dopo la riconciliazione, in rubrica Google vanno anche i REFERENTI del registro,
+// come «FORNITORE <NEGOZIO> — <NOME> (<RUOLO>)», con dedupe per numero. Solo con
+// OAuth attivo (il token è già in cache: chiesto nel gesto del click di conferma).
+async function salvaReferentiInRubrica(reg, base){
+  try{
+    if(!(CONFIG.googleOauthClientId||'').trim()) return 0;
+    const refs = (reg.contatti||[]).filter(ct=>ct && ct.telefono);
+    if(!refs.length) return 0;
+    const token = await getContactsToken();
+    let salvati = 0;
+    for(const ct of refs){
+      try{
+        if(await findContactByPhone(token, ct.telefono)) continue;   // già in rubrica
+        const chi = [ct.nome, ct.ruolo ? '('+ct.ruolo+')' : ''].filter(Boolean).join(' ');
+        await createGoogleContact(token, {
+          nomeContatto: ('FORNITORE ' + String(base.nome || reg.nome || '').toUpperCase()
+                        + ' — ' + (chi || 'REFERENTE').toUpperCase()).trim(),
+          nome: base.nome || reg.nome,
+          categoria: base.categoria || reg.categoria || '',
+          telefono: ct.telefono, email: ct.email || '',
+          indirizzo: base.indirizzo || reg.indirizzo || '', sito: base.sito || ''
+        });
+        salvati++;
+        logEvento({ tipo:'rubrica', esito:'referente in rubrica: ' + (chi || ct.telefono),
+          negozio:{ nome: base.nome || reg.nome, telefono: ct.telefono, email: ct.email || '' } });
+      }catch(e){ console.warn('referente non salvato:', ct && ct.nome, e); }
+    }
+    return salvati;
+  }catch(e){ console.warn('salvataggio referenti saltato:', e); return 0; }
+}
+async function eseguiRiconcilia(btn){
+  const card = btn.closest('.shop');
+  const panel = card.querySelector('.recon-panel');
+  const sel = panel.querySelector('.recon-sel');
+  const msg = panel.querySelector('.recon-msg');
+  const pid = card.dataset.sid;                     // place_id Google
+  const partnerId = sel.value;
+  const scelto = lastAnagList.find(p=>p.id===partnerId) || {};
+  const dati = CARD_DATA[pid] || {};
+  btn.disabled = true; msg.textContent = 'Comunico la riconciliazione al registro…';
+  // Il popup di autorizzazione della rubrica Google si può aprire SOLO dentro un click:
+  // lo chiediamo ORA (in-gesto), così quando dopo la risposta del server parte il
+  // salvataggio automatico il token è già in cache e nessun popup viene bloccato.
+  let tokenRubricaP = null;
+  if((CONFIG.googleOauthClientId||'').trim() && card.querySelector('.savecontact')){
+    tokenRubricaP = getContactsToken().catch(()=>null);
+  }
+  try{
+    const r = await apiFetch('/api/riconcilia', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        partnerId,
+        quando: new Date().toISOString(),
+        ordine: ordineCorrente(),
+        place: Object.assign({ idEsterno: pid }, dati),
+      }),
+    });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
+    panel.innerHTML = `<div class="hint" style="color:var(--green)">✅ Riconciliato con «${esc(scelto.nome||partnerId)}»: il registro ha salvato il riferimento e aggiornato i dati.</div>`;
+    const rb = card.querySelector('.reconshop');
+    if(rb){ rb.disabled = true; rb.textContent = '🔗 Riconciliato'; }
+    const col = card.querySelector('.head > div');
+    if(col && !card.querySelector('.badge-recon')) col.insertAdjacentHTML('afterbegin',
+      '<span class="badge badge-recon" style="color:var(--green); background:rgba(36,138,61,.1)">🔗 nel registro</span>');
+    logEvento({ tipo:'segnalazione', esito:'riconciliato con «'+(scelto.nome||partnerId)+'» (registro)', negozio: negozioDaScheda(card) });
+    // contatti del registro sulla scheda (telefono → WhatsApp diretto, email, referenti)
+    enrichCardWithRegistry(card, j.partner || scelto);
+    // riconciliato = fornitore nostro: va anche in rubrica (dedupe/OAuth/vcf li gestisce saveContact)
+    const sc = card.querySelector('.savecontact');
+    if(sc && !sc.disabled){
+      const cd = CARD_DATA[pid], reg = j.partner || scelto;
+      if(cd && !cd.telefono && reg.telefono) cd.telefono = reg.telefono;
+      if(tokenRubricaP) await tokenRubricaP;   // token chiesto in-gesto: ora è in cache
+      saveContact(sc);
+    }
+    // e in rubrica vanno anche i REFERENTI del registro (persone di contatto)
+    salvaReferentiInRubrica(j.partner || scelto, CARD_DATA[pid] || {}).then(n=>{
+      if(n) panel.insertAdjacentHTML('beforeend',
+        `<div class="hint" style="color:var(--green)">💾 ${n} referente${n>1?'i':''} del registro salvat${n>1?'i':'o'} in rubrica Google.</div>`);
+    });
+  }catch(err){
+    btn.disabled = false;
+    msg.innerHTML = '<span style="color:var(--red)">❌ '+esc(err.message)+'</span>';
+  }
+}
+resultsEl.addEventListener('click', e=>{
+  const o = e.target.closest('.reconshop'); if(o){ apriRiconcilia(o); return; }
+  const g = e.target.closest('.recon-go'); if(g){ eseguiRiconcilia(g); }
+});
+
 /* ------------------ STORICO RICHIESTE ------------------ */
 function ordineCorrente(){
   if(!orderLoaded) return null;
@@ -1668,7 +2143,7 @@ function logEvento(evt){
     apiFetch('/api/storico', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(()=>{});
   }catch(e){}
 }
-const ST_TIPO = { richiesta:'📤 Richiesta ordine', rubrica:'💾 Rubrica', segnalazione:'📣 Segnalazione' };
+const ST_TIPO = { richiesta:'📤 Richiesta ordine', rubrica:'💾 Rubrica', segnalazione:'📣 Segnalazione', check:'🔎 Check ordine' };
 function fmtQuando(iso){
   const d = new Date(iso);
   if(isNaN(d)) return iso || '';
@@ -1697,11 +2172,15 @@ async function loadStorico(){
       const n = e.negozio || {};
       const luogo = [n.citta, n.provincia ? '('+n.provincia+')' : ''].filter(Boolean).join(' ');
       const contatti = [n.telefono, n.email].filter(Boolean).join(' · ');
+      const riapri = (e.ordine && e.ordine.numero && e.ordine.brand)
+        ? `<button class="btn-dl st-reopen" style="margin-top:6px; padding:4px 12px; font-size:12px" data-brand="${esc(e.ordine.brand)}" data-num="${esc(e.ordine.numero)}">↻ Riapri richiesta</button>`
+        : '';
       return `<div class="st-row">
         <span class="st-when">${esc(fmtQuando(e.quando))}</span>
         <div class="st-main">
           <div class="st-shop">${esc(n.nome||'—')}${luogo ? ' <span style="font-weight:400; color:var(--text-tertiary)">'+esc(luogo)+'</span>' : ''}</div>
           <div class="st-det">${det.map(esc).join(' · ')}${contatti ? '<br>'+esc(contatti) : ''}</div>
+          ${riapri}
         </div>
         <span class="st-user">👤 ${esc(e.utente||'?')}</span>
       </div>`;
@@ -1710,6 +2189,65 @@ async function loadStorico(){
     body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>';
   }
 }
+
+/* ------------------ stato ricerca + stelline "contattato" ------------------ */
+// Persistiti sul server (/api/stato, KV) per ordine: tutti gli operatori vedono
+// lo stesso stato e le stesse stelle. Chiave = brand#numero, o 'generale' senza ordine.
+let statoRicerca = { stato:'non iniziata', stelle:{} };
+function ordineKey(){
+  const num = ($('#ordTag').textContent.match(/#?(\d+)/)||[])[1] || '';
+  return num ? ($('#brand').value + '#' + num) : 'generale';
+}
+async function loadStato(){
+  try{
+    const r = await apiFetch('/api/stato?ordine=' + encodeURIComponent(ordineKey()));
+    const j = await r.json().catch(()=>({}));
+    if(r.ok && j.ok){ statoRicerca = { stato: j.stato || 'non iniziata', stelle: j.stelle || {} }; }
+  }catch(e){ /* offline o errore: si resta con lo stato locale */ }
+  renderStatoPills(); applyStars();
+}
+function saveStato(patch){
+  const body = Object.assign({ ordine: ordineKey(), quando: new Date().toISOString() }, patch);
+  apiFetch('/api/stato', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(()=>{});
+}
+function renderStatoPills(){
+  document.querySelectorAll('#statoPills .stato-pill')
+    .forEach(b=> b.classList.toggle('active', b.dataset.stato === statoRicerca.stato));
+}
+function setStatoRicerca(st){
+  if(statoRicerca.stato === st) return;
+  statoRicerca.stato = st;
+  renderStatoPills();
+  saveStato({ stato: st });
+}
+document.querySelectorAll('#statoPills .stato-pill').forEach(b=>
+  b.addEventListener('click', ()=> setStatoRicerca(b.dataset.stato)));
+// applica ★/☆ alle schede in base alle stelle salvate
+function applyStars(){
+  resultsEl.querySelectorAll('.star-btn').forEach(b=>{
+    const on = !!statoRicerca.stelle[b.dataset.sid];
+    b.classList.toggle('on', on);
+    b.textContent = on ? '★' : '☆';
+    b.title = on ? 'Contattato — clic per togliere il segno' : 'Segna come contattato';
+  });
+}
+function nomeDaScheda(card){ return ((card.querySelector('h3')||{}).textContent||'').replace(/^\S+\s/,'').trim(); }
+// segna un fornitore come contattato (senza doppioni); usato anche dagli invii automatici
+function starShop(card){
+  if(!card || !card.dataset.sid || statoRicerca.stelle[card.dataset.sid]) return;
+  statoRicerca.stelle[card.dataset.sid] = { nome: nomeDaScheda(card) };
+  saveStato({ stella: { id: card.dataset.sid, nome: nomeDaScheda(card), on: true } });
+  applyStars();
+}
+resultsEl.addEventListener('click', e=>{
+  const b = e.target.closest('.star-btn'); if(!b) return;
+  const card = b.closest('.shop');
+  const on = !statoRicerca.stelle[b.dataset.sid];
+  if(on) statoRicerca.stelle[b.dataset.sid] = { nome: nomeDaScheda(card) };
+  else delete statoRicerca.stelle[b.dataset.sid];
+  saveStato({ stella: { id: b.dataset.sid, nome: nomeDaScheda(card), on } });
+  applyStars();
+});
 
 /* ------------------ render ------------------ */
 function shopCard(d, cat, dist, pid){
@@ -1766,10 +2304,12 @@ function shopCard(d, cat, dist, pid){
   el.className = 'shop';
   el.dataset.wakind = kind;
   el.dataset.lang = shopLang;
+  el.dataset.sid = pid || d.place_id || '';
   el.innerHTML = `
     <div class="head">
       <h3>${meta.emoji} ${d.name}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
+        <button type="button" class="star-btn" data-sid="${esc(el.dataset.sid)}" title="Segna come contattato">☆</button>
         <span class="badge dist">${distBadge}</span>
         ${openBadge}
         ${waBadge}
@@ -1786,7 +2326,9 @@ function shopCard(d, cat, dist, pid){
     ${pid ? `<div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
       <button class="btn-dl savecontact" data-pid="${pid}">💾 Salva in rubrica</button>
       <button class="btn-dl reportshop" data-pid="${pid}">📣 Segnala al commerciale</button>
-    </div>` : ''}
+      <button class="btn-dl reconshop" data-pid="${pid}">🔗 Riconcilia</button>
+    </div>
+    <div class="recon-panel" style="display:none; margin-top:8px"></div>` : ''}
     <div class="src">📍 Fonte contatti: <span class="verified">Google Places (scheda ufficiale)</span></div>
   `;
   return el;
@@ -1880,6 +2422,7 @@ async function run(){
     const anag = await anagPromise;
     if(anag.error){ anagNote = ' · ⚠️ registro anagrafiche non raggiungibile'; console.warn('registro anagrafiche:', anag.error); }
     else if(!anag.skipped){
+      lastAnagList = anag.list;   // serve al pannello «Riconcilia» sulle schede
       const matchedIds = new Set();
       const matchedCards = [];
       // match per nome con le schede Google
@@ -1888,6 +2431,8 @@ async function run(){
         const p = anag.list.find(x=>{ const k=normName(x.nome); return k.length>3 && name.length>3 && (k===name || name.includes(k) || k.includes(name)); });
         if(!p) return;
         matchedIds.add(p.id);
+        cardEl.dataset.regId = p.id;   // candidato preselezionato per «Riconcilia»
+        enrichCardWithRegistry(cardEl, p);   // telefono/email del registro → WhatsApp diretto
         const isPartner = isPartnerAttivo(p);
         if(isPartner) cardEl.classList.add('matched-partner');
         const col = cardEl.querySelector('.head > div');
@@ -1914,6 +2459,7 @@ async function run(){
                    : lastDriveSource==='OSRM'   ? ' · 🚗 distanza stradale (OSM)'
                    : ' · 📏 distanza in linea d\'aria (routing non disponibile)';
     setStatus(`✅ Trovati ${cards.length} negozi${distNote}${langNote}${anagNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
+    applyStars();   // ★ sui fornitori già contattati per quest'ordine
 
     // scraping email + Instagram in background (best effort)
     if(proxy){

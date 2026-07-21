@@ -7,7 +7,7 @@
 //   SHOP_DELUXYFLOWERS     es. deluxyflowers.myshopify.com TOKEN_DELUXYFLOWERS
 //   SHOP_CAKEDESIGN        es. cakedesign.myshopify.com    TOKEN_CAKEDESIGN
 
-import { authUser } from './_auth.js';
+import { authUser, kvCmd } from './_auth.js';
 
 const API_VERSION = '2024-10';
 
@@ -171,6 +171,24 @@ function normalize(brand, o) {
   };
 }
 
+// registra il check nello Storico richieste (best effort: mai bloccare la risposta).
+// `quando` arriva dal browser (query ts) — niente new Date() nelle funzioni serverless.
+async function logCheck(utente, quando, brand, numero, esito, valore) {
+  try {
+    const raw = await kvCmd(['GET', 'storico:v1']);
+    let eventi = [];
+    if (raw) { try { eventi = JSON.parse(raw) || []; } catch (e) { eventi = []; } }
+    eventi.unshift({
+      tipo: 'check', quando: String(quando || '').slice(0, 40), utente,
+      canale: 'shopify', esito: String(esito).slice(0, 80),
+      negozio: { nome: '', telefono: '', email: '', citta: '', provincia: '' },
+      ordine: { numero: String(numero).slice(0, 20), valore: String(valore || '').slice(0, 20), brand: String(brand).slice(0, 40) },
+    });
+    if (eventi.length > 500) eventi = eventi.slice(0, 500);
+    await kvCmd(['SET', 'storico:v1', JSON.stringify(eventi)]);
+  } catch (e) { /* lo storico non deve mai far fallire il recupero ordine */ }
+}
+
 export default async function handler(req, res) {
   // CORS (utile se il front-end sta su un dominio diverso, es. github.io)
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -188,6 +206,7 @@ export default async function handler(req, res) {
     if (!brand) return res.status(400).json({ error: 'Brand mancante.' });
     if (!number) return res.status(400).json({ error: 'Numero ordine mancante.' });
     const numNoHash = number.replace(/^#/, '').trim();
+    const ts = String(req.query.ts || '');   // timestamp del check, dal browser
 
     // 1) prima cerca fra gli ordini ricevuti via webhook (nessun token necessario)
     const cached = await kvGet(`order:${brand}:${numNoHash}`);
@@ -222,6 +241,7 @@ export default async function handler(req, res) {
           data.photoNote = 'Foto non recuperata da Shopify: ' + (e.message || String(e));
         }
       }
+      await logCheck(auth.utente, ts, brand, numNoHash, 'ordine trovato (magazzino webhook)', data.amountPaid);
       return res.status(200).json(data);
     }
 
@@ -229,7 +249,12 @@ export default async function handler(req, res) {
     const store = await storeFor(brand);
     if (store) {
       const order = await findOrder(store.shop, store.token, number);
-      if (order) return res.status(200).json(normalize(brand, order));
+      if (order) {
+        const data = normalize(brand, order);
+        await logCheck(auth.utente, ts, brand, numNoHash, 'ordine trovato (Shopify)', data.amountPaid);
+        return res.status(200).json(data);
+      }
+      await logCheck(auth.utente, ts, brand, numNoHash, 'ordine NON trovato', '');
       if (req.query.debug) {
         const recent = await recentOrderNames(store.shop, store.token);
         return res.status(404).json({ found: false, error: `Ordine ${number} non trovato su ${brand}.`, shop: store.shop, recentOrderNames: recent });
@@ -238,6 +263,7 @@ export default async function handler(req, res) {
     }
 
     // 3) niente webhook né token
+    await logCheck(auth.utente, ts, brand, numNoHash, 'ordine NON trovato (nessun webhook/token)', '');
     return res.status(404).json({ found: false, error: `Ordine ${number} non ancora ricevuto via webhook (o attiva il token Shopify, oppure usa "Compila a mano").` });
   } catch (err) {
     return res.status(500).json({ error: 'Errore server: ' + (err.message || String(err)) });

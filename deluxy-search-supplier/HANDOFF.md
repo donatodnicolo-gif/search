@@ -47,6 +47,49 @@ solo dove siamo e come si lavora.
    rubrica, segnalazioni — con utenza, negozio, esito, ordine.
 8. **Deep link**: `?brand=…&ordine=…` oppure `?indirizzo=…&categoria=fiorai|pasticcerie`
    (si applicano dopo il login) — per il bottone nelle altre app.
+9. **Storico con i check ordine** (20/07): ogni `/api/order` registra un evento `check`;
+   import una tantum dei 60gg passati fatto (184 ordini); «↻ Riapri richiesta» su ogni evento.
+10. **Stato ricerca + stelline** (20/07, `/api/stato`, KV `statoricerca:v1`): per ordine
+   (`brand#numero`) stato `non iniziata/in corso/trovato` + ★ sui fornitori contattati
+   (anche schede del registro, id `anag:<id>`), condivisi fra operatori; il click su
+   «Invia richiesta» WhatsApp/email mette da solo «in corso» + stella.
+11. **`/api/fornitori`** (20/07): top 3 fornitori per un ordine, per AI/plugin (comando `/fornitori`).
+12. **Chiavi API `dlxs_`** (20/07, `/api/chiavi`, KV `apikeys:v1`): header `x-api-key` accettato
+   da tutte le API; gestione in Impostazioni → «🔑 Chiavi API» (solo admin), segreto mostrato
+   una sola volta (salvato scrypt), revoca immediata, Storico firma `chiave:<nome>`.
+   Collaudo completo in produzione 20/07 (crea→usa→403 su admin→revoca→401).
+   Una chiave dlxs_ è accettata anche nel campo `x-app-password` (app con un solo campo).
+13. **Handoff senza login** (20/07, `/api/link`): un'app con chiave API fa POST /api/link →
+   codice monouso (KV `linkcode:` TTL 300s); apre `/?t=<code>&brand=&ordine=`; il browser fa
+   GET /api/link?code= → sessione (KV `session:` TTL 1h, header `x-app-session`) e la ricerca
+   parte già sbloccata. Collaudato end-to-end nel browser (sblocco + ordine + ricerca, no login).
+   ⚠️ **Insidia risolta**: `fetchOrder` aveva `if(!PASS) location.reload()` → con la sessione
+   (PASS vuoto) andava in loop di reload infinito. Ora `if(!PASS && !SESSION)`. Ogni guard futuro
+   su `PASS` deve considerare anche `SESSION`.
+14. **Nota Vercel firewall**: burst di richieste (loop/test) da un IP fanno scattare una *System
+   Rule* automatica «Challenge» su quell'IP (pagina "Vercel Security Checkpoint"). I browser la
+   passano da soli; `curl` no. È temporanea e per-IP, decade da sola. Non è un toggle manuale.
+13. **Sezione Contatti** (20/07): voce sidebar «Contatti», vista dedicata (`loadContatti`),
+   importa TUTTE le pagine da `/api/anagrafiche` e raggruppa per provincia. Filtri: tipo
+   (Partner=stato `attivo` / Fornitori=tutti gli altri stati), categoria (Fiorai/Pasticcerie),
+   ricerca testo. NB: il registro contiene 578 schede di MOLTE categorie B2B (boutique 316,
+   ristoranti, gioiellerie…), non solo fiorai (114) e pasticcerie (77): «Tutte le categorie»
+   le mostra tutte. Da decidere se limitare il default a fiorai+pasticcerie.
+
+15. **Riconciliazione fornitore ↔ registro** (20/07, `/api/riconcilia`): pulsante «🔗 Riconcilia»
+   sulle schede Google → si sceglie il contatto del registro (preselezionato dal match per nome)
+   → il registro salva il riferimento esterno (deluxy-suppliers + place_id), fonde i dati freschi
+   e accoda la nota. Reti di sicurezza per doppioni/omonimie (409 + rollback soft del creato).
+   Collaudata in produzione: «Les fleurs de May» (Sainte-Maxime) riconciliata, riferimento e nota
+   verificati nel registro.
+   In più (20/07 sera): le schede matchate/riconciliate mostrano i **contatti del registro**
+   (`enrichCardWithRegistry`: telefono → pulsante «Invia su WhatsApp — numero del registro»,
+   email, referenti; dedupe su ultime 9 cifre) e dopo la conferma parte da solo
+   **Salva in rubrica** (saveContact: dedupe People API / OAuth / ripiego .vcf).
+   NB: l'auto-rubrica usa la stessa saveContact del pulsante manuale ma il percorso automatico
+   non è ancora stato esercitato su una riconciliazione vera (l'unica in zona era già fatta).
+   In rubrica vanno anche i **referenti** del registro (`salvaReferentiInRubrica`, nome
+   `FORNITORE <NEGOZIO> — <NOME> (<RUOLO>)`, dedupe per numero, solo con OAuth).
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col

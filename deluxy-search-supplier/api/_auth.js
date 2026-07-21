@@ -47,10 +47,45 @@ export async function readConfig() {
   try { return JSON.parse(raw); } catch (e) { return {}; }
 }
 
+/* ---- chiavi API (per AI e integrazioni): header x-api-key, formato dlxs_<id>_<segreto> ----
+   Salvate in KV 'apikeys:v1' come [{id, nome, salt, hash, creata}]: il segreto è hashato
+   (scrypt) e NON è recuperabile — viene mostrato solo alla creazione. */
+const APIKEYS_KEY = 'apikeys:v1';
+export async function readApiKeys() {
+  const raw = await kvCmd(['GET', APIKEYS_KEY]);
+  if (!raw) return [];
+  try { return JSON.parse(raw) || []; } catch (e) { return []; }
+}
+export async function writeApiKeys(list) {
+  await kvCmd(['SET', APIKEYS_KEY, JSON.stringify(list)]);
+}
+async function authApiKey(chiave) {
+  const m = String(chiave).match(/^dlxs_([a-f0-9]{8})_([a-f0-9]{32})$/);
+  if (!m) return { error: 'Chiave API malformata (attesa dlxs_<id>_<segreto>).', status: 401 };
+  const k = (await readApiKeys()).find(x => x && x.id === m[1]);
+  if (k && safeEq(hashPass(m[2], k.salt), k.hash)) {
+    return { utente: 'chiave:' + (k.nome || k.id), admin: false, cfg: null, viaChiave: true };
+  }
+  return { error: 'Chiave API non valida o revocata.', status: 401 };
+}
+
 // -> { utente, admin, cfg } oppure { error, status }
+const KEY_RE = /^dlxs_[a-f0-9]{8}_[a-f0-9]{32}$/;
 export async function authUser(req) {
   if (!process.env.APP_PASSWORD) return { error: 'Backend non configurato: manca APP_PASSWORD.', status: 500 };
+  const apiKey = String(req.headers['x-api-key'] || '').trim();
   const pass = String(req.headers['x-app-password'] || '');
+  // una chiave dlxs_ è accettata anche se l'app la manda nel campo "password"
+  // (integrazioni con un solo campo credenziale, es. AI Mail)
+  const chiave = apiKey || (KEY_RE.test(pass) ? pass : '');
+  if (chiave) return authApiKey(chiave);
+  // sessione temporanea da handoff (link monouso, vedi api/link.js)
+  const sess = String(req.headers['x-app-session'] || '').trim();
+  if (sess) {
+    const raw = await kvCmd(['GET', 'session:' + sess]);
+    if (raw) { let i = {}; try { i = JSON.parse(raw); } catch (e) { /* ignora */ } return { utente: i.utente || 'link', admin: false, cfg: null }; }
+    return { error: 'Sessione scaduta: riapri il link dall\'app.', status: 401 };
+  }
   const nome = String(req.headers['x-app-user'] || '').trim();
   if (pass && pass === process.env.APP_PASSWORD) {
     return { utente: nome || 'admin', admin: true, cfg: null };
