@@ -4,7 +4,8 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions } from '@react-navigation/native';
-import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
+import { DrawerContentScrollView } from '@react-navigation/drawer';
+import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -56,17 +57,48 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
   },
 ];
 
-// Pulsante ☰ nell'header: apre/chiude il menu laterale. Testuale così è
-// sempre visibile anche sul web (l'icona di default usa un font non caricato).
-function BtnMenu() {
+// Pulsante ☰ nell'header. Su desktop la sidebar è permanente: il pulsante la
+// COLLASSA (solo icone) o la ESPANDE (icone + testo). Su mobile apre/chiude
+// l'overlay. Testuale così è sempre visibile anche sul web.
+function BtnMenu({ isWide, onToggleEspansa }: { isWide: boolean; onToggleEspansa: () => void }) {
   const nav = useNavigation();
   return (
     <Pressable
-      onPress={() => nav.dispatch(DrawerActions.toggleDrawer())}
+      onPress={() => (isWide ? onToggleEspansa() : nav.dispatch(DrawerActions.toggleDrawer()))}
       style={styles.headerBtn}
-      accessibilityLabel="Apri menu"
+      accessibilityLabel={isWide ? 'Espandi/riduci menu' : 'Apri menu'}
     >
       <Ionicons name="menu-outline" size={26} color={colors.testo} />
+    </Pressable>
+  );
+}
+
+// Una voce del menu: riga icona + testo (spazio corretto). In modalità rail
+// (collassata) mostra solo l'icona centrata. Attiva = sfondo fill-active +
+// icona/testo oro.
+function VoceMenu({
+  voce,
+  focused,
+  espansa,
+  onPress,
+}: {
+  voce: Voce;
+  focused: boolean;
+  espansa: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityLabel={voce.label}
+      style={[styles.voce, espansa ? styles.voceEspansa : styles.voceRail, focused && styles.voceOn]}
+    >
+      <Ionicons name={voce.icon} size={20} color={focused ? colors.oro : colors.testoSoft} />
+      {espansa ? (
+        <Text style={[styles.voceLabel, focused && styles.voceLabelOn]} numberOfLines={1}>
+          {voce.label}
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -83,7 +115,7 @@ function BtnIndietro() {
 // Contenuto del drawer: brand (logo D) + voci raggruppate per sezione (etichetta
 // MAIUSCOLA, DS) + footer utente (avatar iniziali, nome/ruolo, logout). La voce
 // Team compare solo all'amministratore della rete.
-function ContenutoDrawer({ admin, ...props }: any) {
+function ContenutoDrawer({ admin, espansa = true, onToggle, ...props }: any) {
   const { session, signOut } = useAuth();
   const state = props.state;
   const attuale: string | undefined = state?.routes?.[state.index]?.name;
@@ -94,34 +126,32 @@ function ContenutoDrawer({ admin, ...props }: any) {
   return (
     <View style={styles.drawerRoot}>
       <DrawerContentScrollView {...props} contentContainerStyle={styles.scroll}>
-        <View style={styles.brand}>
+        {/* Brand + toggle collassa (solo desktop, quando onToggle è passato) */}
+        <View style={[styles.brand, !espansa && styles.brandRail]}>
           <View style={styles.logoQuad}>
             <Text style={styles.logoD}>D</Text>
           </View>
-          <View>
-            <Text style={styles.logo}>DELUXY</Text>
-            <Text style={styles.sub}>Scout</Text>
-          </View>
+          {espansa ? (
+            <View style={{ flex: 1 }}>
+              <Text style={styles.logo}>DELUXY</Text>
+              <Text style={styles.sub}>Scout</Text>
+            </View>
+          ) : null}
+          {onToggle ? (
+            <Pressable onPress={onToggle} hitSlop={8} style={styles.collassaBtn} accessibilityLabel={espansa ? 'Riduci menu' : 'Espandi menu'}>
+              <Ionicons name={espansa ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.testoSoft} />
+            </Pressable>
+          ) : null}
         </View>
+
         {SEZIONI.map((sez) => {
           const voci = sez.voci.filter((v) => !v.soloAdmin || admin);
           if (!voci.length) return null;
           return (
             <View key={sez.titolo} style={styles.sezione}>
-              <Text style={styles.sezioneTitolo}>{sez.titolo}</Text>
+              {espansa ? <Text style={styles.sezioneTitolo}>{sez.titolo}</Text> : <View style={styles.railDivider} />}
               {voci.map((v) => (
-                <DrawerItem
-                  key={v.name}
-                  label={v.label}
-                  focused={attuale === v.name}
-                  onPress={() => props.navigation.navigate(v.name)}
-                  icon={({ color }) => <Ionicons name={v.icon} size={20} color={color} />}
-                  activeTintColor={colors.oro}
-                  inactiveTintColor={colors.testoSoft}
-                  activeBackgroundColor={colors.fillActive}
-                  labelStyle={styles.voceLabel}
-                  style={styles.voce}
-                />
+                <VoceMenu key={v.name} voce={v} focused={attuale === v.name} espansa={espansa} onPress={() => props.navigation.navigate(v.name)} />
               ))}
             </View>
           );
@@ -129,19 +159,23 @@ function ContenutoDrawer({ admin, ...props }: any) {
       </DrawerContentScrollView>
 
       {/* Footer utente (DS): avatar iniziali su gold-soft, nome + ruolo, logout. */}
-      <View style={styles.footer}>
-        <Pressable style={styles.utente} onPress={() => props.navigation.navigate('profilo')}>
+      <View style={[styles.footer, !espansa && styles.footerRail]}>
+        <Pressable style={[styles.utente, espansa && { flex: 1 }]} onPress={() => props.navigation.navigate('profilo')} accessibilityLabel="Profilo">
           <View style={styles.avatar}>
             <Text style={styles.avatarTxt}>{iniziali}</Text>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.utenteNome} numberOfLines={1}>{nome}</Text>
-            <Text style={styles.utenteRuolo}>{admin ? 'Amministratore' : 'Venditore'}</Text>
-          </View>
+          {espansa ? (
+            <View style={{ flex: 1 }}>
+              <Text style={styles.utenteNome} numberOfLines={1}>{nome}</Text>
+              <Text style={styles.utenteRuolo}>{admin ? 'Amministratore' : 'Venditore'}</Text>
+            </View>
+          ) : null}
         </Pressable>
-        <Pressable style={styles.logoutBtn} onPress={signOut} accessibilityLabel="Esci">
-          <Ionicons name="log-out-outline" size={20} color={colors.testoSoft} />
-        </Pressable>
+        {espansa ? (
+          <Pressable style={styles.logoutBtn} onPress={signOut} accessibilityLabel="Esci">
+            <Ionicons name="log-out-outline" size={20} color={colors.testoSoft} />
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -150,10 +184,15 @@ function ContenutoDrawer({ admin, ...props }: any) {
 export default function AppLayout() {
   const { session, loading } = useAuth();
   const { width } = useWindowDimensions();
-  const isWide = width >= 900; // desktop: sidebar SEMPRE visibile (permanente)
+  const isWide = width >= 900; // desktop: sidebar permanente, collassabile a rail
+  const [espansaState, setEspansaState] = useState(true);
   if (loading) return <Loader />;
   if (!session) return <Redirect href="/(auth)/login" />;
   const admin = isAdmin(session.user?.email);
+
+  // Su mobile la sidebar è un overlay: quando aperta è sempre espansa.
+  const espansa = isWide ? espansaState : true;
+  const toggleEspansa = () => setEspansaState((v) => !v);
 
   // Schermata di dettaglio: fuori dal menu + freccia indietro al posto del ☰.
   const dettaglio = (title: string) => ({
@@ -165,16 +204,16 @@ export default function AppLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
-        drawerContent={(props) => <ContenutoDrawer {...props} admin={admin} />}
+        drawerContent={(props) => <ContenutoDrawer {...props} admin={admin} espansa={espansa} onToggle={isWide ? toggleEspansa : undefined} />}
         screenOptions={{
           headerStyle: { backgroundColor: colors.bianco },
           headerTintColor: colors.testo,
           headerTitleStyle: { fontWeight: '600', letterSpacing: -0.3 },
           headerShadowVisible: false,
-          // Su desktop la sidebar è permanente: niente ☰ (nulla da aprire/chiudere).
-          headerLeft: isWide ? () => null : () => <BtnMenu />,
+          headerLeft: () => <BtnMenu isWide={isWide} onToggleEspansa={toggleEspansa} />,
+          // Desktop: permanente (sempre visibile, collassa a rail). Mobile: overlay.
           drawerType: isWide ? 'permanent' : 'front',
-          drawerStyle: { backgroundColor: colors.bianco, width: 264, borderRightWidth: 1, borderRightColor: colors.grigioChiaro },
+          drawerStyle: { backgroundColor: colors.bianco, width: isWide && !espansaState ? 76 : 264, borderRightWidth: 1, borderRightColor: colors.grigioChiaro },
         }}
       >
         {/* L'ordine e le icone del menu sono definiti in SEZIONI (drawer content). */}
@@ -224,9 +263,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: 4,
   },
-  // Voce: DS → icona 20 + label 14/600, righe compatte allineate.
-  voce: { borderRadius: radius.md, marginHorizontal: 8, marginVertical: 1 },
-  voceLabel: { fontSize: 14, fontWeight: '600', marginLeft: -16, letterSpacing: -0.1 },
+  // Voce: riga icona + testo con spazio corretto. Rail = solo icona centrata.
+  voce: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.md, marginHorizontal: 8, marginVertical: 1 },
+  voceEspansa: { gap: spacing.sm, paddingHorizontal: 12, paddingVertical: 10 },
+  voceRail: { justifyContent: 'center', paddingVertical: 11, marginHorizontal: 10 },
+  voceOn: { backgroundColor: colors.fillActive },
+  voceLabel: { fontSize: 14, fontWeight: '600', color: colors.testoSoft, letterSpacing: -0.1 },
+  voceLabelOn: { color: colors.oro, fontWeight: '700' },
+  railDivider: { height: 1, backgroundColor: colors.grigioChiaro, marginHorizontal: 14, marginBottom: 4, marginTop: 2 },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -238,6 +282,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.grigioChiaro,
   },
+  brandRail: { justifyContent: 'center', paddingHorizontal: 0, gap: 4 },
+  collassaBtn: { padding: 6, borderRadius: radius.sm },
   logoQuad: {
     width: 42,
     height: 42,
@@ -260,7 +306,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.grigioChiaro,
     backgroundColor: colors.bianco,
   },
-  utente: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  footerRail: { justifyContent: 'center', paddingHorizontal: 0 },
+  utente: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   avatar: {
     width: 36,
     height: 36,
