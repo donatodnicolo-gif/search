@@ -1402,6 +1402,15 @@ export async function salvaStileRene(form: FormData): Promise<void> {
   revalidatePath('/', 'layout')
 }
 
+/** La guida su come gestire i tipi di richiesta: l'AI la applica all'analisi. */
+export async function salvaGuidaGestione(form: FormData): Promise<void> {
+  const u = await utenteCorrente()
+  if (!u || u.ruolo !== 'admin') return
+  await scriviImpostazione(CHIAVI.guidaGestione, String(form.get('guida') ?? '').slice(0, 3000))
+  revalidatePath('/rene')
+  revalidatePath('/', 'layout')
+}
+
 /** Il taccuino di Renè lo puoi correggere a mano: resta compatto. */
 export async function salvaMemoriaRene(form: FormData): Promise<void> {
   const utenteId = await uid()

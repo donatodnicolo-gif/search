@@ -545,6 +545,34 @@ mark.ricerca-hit {
 .azione-riga:hover { color: var(--text); }
 .azione-riga:disabled { opacity: 0.55; cursor: default; }
 
+/* Storico priorità in Renè AI. */
+.storico-prio { display: flex; flex-direction: column; }
+.storico-riga {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 4px;
+  border-top: 1px solid var(--hairline);
+  text-decoration: none;
+  color: inherit;
+}
+.storico-riga:first-child { border-top: none; }
+.storico-riga:hover { background: var(--fill); border-radius: 8px; }
+.storico-testo { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.storico-ogg { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.storico-da { font-size: 12px; color: var(--text-secondary); }
+.storico-data { font-size: 12px; flex-shrink: 0; }
+
+/* Statistiche. */
+.stat-griglia { display: flex; gap: 24px; flex-wrap: wrap; }
+.stat-cella { display: flex; align-items: center; gap: 10px; }
+.stat-numero { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.stat-barra-riga { display: flex; align-items: center; gap: 12px; padding: 7px 0; }
+.stat-barra-nome { width: 150px; flex-shrink: 0; font-size: 13px; }
+.stat-barra-out { flex: 1; height: 10px; background: var(--fill); border-radius: 999px; overflow: hidden; }
+.stat-barra-in { display: block; height: 100%; background: var(--ink); border-radius: 999px; }
+.stat-barra-val { width: 90px; flex-shrink: 0; text-align: right; font-size: 12.5px; color: var(--text-secondary); }
+
 /* Allegati sotto il messaggio (scaricati on-demand dal server). */
 .allegati-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hairline); }
 .allegati-titolo { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }

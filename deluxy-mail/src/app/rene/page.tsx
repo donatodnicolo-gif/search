@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
-import { salvaMemoriaRene, salvaStileRene } from '@/lib/actions'
+import { salvaMemoriaRene, salvaStileRene, salvaGuidaGestione } from '@/lib/actions'
 import { CHIAVI, STILE_DEFAULT, leggiImpostazioni } from '@/lib/impostazioni'
+import { StoricoPriorita } from '@/components/StoricoPriorita'
 import { TIPI_RENE, type UrgenteSenzaRisposta } from '@/lib/rene'
 import { ReneAvvia } from '@/components/ReneAvvia'
 import { ComandoRene } from '@/components/ComandoRene'
@@ -75,10 +76,14 @@ export default async function Rene() {
 
   const isAdmin = u.ruolo === 'admin'
   let stile = ''
+  let guida = ''
   try {
-    stile = (await leggiImpostazioni())[CHIAVI.stileScrittura] ?? ''
+    const imp = await leggiImpostazioni()
+    stile = imp[CHIAVI.stileScrittura] ?? ''
+    guida = imp[CHIAVI.guidaGestione] ?? ''
   } catch {
     stile = ''
+    guida = ''
   }
 
   let memoria = ''
@@ -266,6 +271,46 @@ export default async function Rene() {
           </div>
         </>
       )}
+
+      <h2 className="section-title">Come gestire le richieste</h2>
+      <div className="card">
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>
+          Di' a Renè come trattare i vari <strong>tipi di richiesta</strong>: la legge quando
+          analizza una mail, così le prossime simili le smista e le prioritizza come vuoi tu.
+          Una indicazione per riga.
+        </p>
+        <form action={salvaGuidaGestione}>
+          <textarea
+            name="guida"
+            rows={6}
+            disabled={!isAdmin}
+            defaultValue={guida}
+            maxLength={3000}
+            placeholder={'Es.\nOrdini dei siti: priorità P1, sezione «Ordini», crea attività di conferma.\nSolleciti di pagamento: priorità P0.\nRichieste di preventivo: priorità P1, bozza di risposta.'}
+            style={{ width: '100%', fontSize: 13.5, lineHeight: 1.6 }}
+          />
+          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
+            {isAdmin
+              ? 'Vale per tutta la casella e influenza l’analisi (priorità, sezione, attività/bozza).'
+              : 'Solo un amministratore può cambiare la guida condivisa.'}
+          </div>
+          {isAdmin && (
+            <div className="form-footer" style={{ marginTop: 10 }}>
+              <button className="btn secondary small" type="submit">
+                Salva guida
+              </button>
+            </div>
+          )}
+        </form>
+      </div>
+
+      <h2 className="section-title">Storico priorità — come sono state gestite</h2>
+      <div className="card">
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+          Le mail a cui hai dato una priorità e come sono finite (risposte, attività, archiviate…).
+        </p>
+        <StoricoPriorita utenteId={u.id} />
+      </div>
 
       <h2 className="section-title">Come scrivo le mail</h2>
       <div className="card">

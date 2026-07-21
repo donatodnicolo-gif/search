@@ -9,6 +9,11 @@ export const CHIAVI = {
   // Come Renè scrive e risponde alle mail: tono, saluti, chiusura, regole di
   // stile. Condiviso (referente unico della casella). Se vuoto vale il default.
   stileScrittura: 'stile_scrittura',
+  // Come gestire i vari TIPI di richiesta (priorità, sezione, cosa fare): l'AI
+  // la legge quando analizza una mail, così le prossime simili le tratta come
+  // hai detto. Es. «Ordini: priorità P1, sezione Ordini, crea attività di
+  // conferma. Solleciti pagamento: P0.»
+  guidaGestione: 'guida_gestione',
 } as const
 
 // Lo stile predefinito, se l'utente non l'ha impostato: una mail educata e

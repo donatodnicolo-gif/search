@@ -162,7 +162,7 @@ export async function istruzioniMirate(
 /** Il contesto aziendale (condiviso) e la firma personale dell'utente. */
 async function contestoAI(
   utenteId: string
-): Promise<{ contestoAzienda?: string; firma?: string; stileScrittura?: string }> {
+): Promise<{ contestoAzienda?: string; firma?: string; stileScrittura?: string; guidaGestione?: string }> {
   const [impostazioni, utente] = await Promise.all([
     leggiImpostazioni(),
     db.utente.findUnique({ where: { id: utenteId }, select: { firma: true } }),
@@ -172,6 +172,8 @@ async function contestoAI(
     firma: utente?.firma || undefined,
     // Lo stile lo decide Renè (referente): se non impostato, il default educato.
     stileScrittura: impostazioni[CHIAVI.stileScrittura]?.trim() || STILE_DEFAULT,
+    // La guida su come gestire i tipi di richiesta (per l'analisi).
+    guidaGestione: impostazioni[CHIAVI.guidaGestione]?.trim() || undefined,
   }
 }
 
@@ -225,7 +227,11 @@ export async function analizzaMessaggioOra(
     const analisi = await analizzaMessaggio({
       messaggio,
       sezioni,
-      istruzioniAI: [...daRegole.istruzioniAI, ...mirate],
+      istruzioniAI: [
+        ...daRegole.istruzioniAI,
+        ...mirate,
+        ...(ctx.guidaGestione ? [`Guida di gestione (come trattare i tipi di richiesta):\n${ctx.guidaGestione}`] : []),
+      ],
       contestoAzienda: ctx.contestoAzienda,
       stileScrittura: ctx.stileScrittura,
       firma: ctx.firma,

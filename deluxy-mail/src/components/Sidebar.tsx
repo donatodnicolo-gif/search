@@ -70,6 +70,7 @@ export async function Sidebar() {
   ]
 
   const gestione: Voce[] = [
+    { href: '/statistiche', label: 'Statistiche' },
     { href: '/regole', label: 'Regole' },
     { href: '/sezioni', label: 'Sezioni' },
     { href: '/impostazioni-app', label: 'Impostazioni App' },
