@@ -1,0 +1,84 @@
+/*
+ * Deluxy Scout — layer CSS moderno per il web (react-native-web).
+ * Si applica SOLO sul web; su nativo (iOS/Android) l'import di un .css è un no-op.
+ * I colori/raggi vengono dai token del Design System (tokens.css, importato prima).
+ * Le schermate restano stilizzate da lib/theme.ts: qui c'è solo la base del documento.
+ */
+
+:root {
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* I campi ereditano il font di sistema (niente serif del browser). */
+input,
+textarea,
+select,
+button {
+  font-family: var(--font-sans);
+}
+
+/* Focus visibile solo da tastiera, con l'accento oro del brand (accessibilità). */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: var(--radius-s);
+}
+
+/* Scrollbar sottili e discrete, stile Apple. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--fill-active) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--fill-active);
+  border-radius: var(--radius-pill);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 128, 0.35);
+  background-clip: content-box;
+  border: 3px solid transparent;
+}
+
+/* Rispetta chi preferisce ridurre il movimento. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

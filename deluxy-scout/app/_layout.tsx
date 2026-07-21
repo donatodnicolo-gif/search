@@ -1,3 +1,7 @@
+// CSS globale (solo web; no-op su nativo). tokens.css PRIMA: definisce le var(--…)
+// del Design System nel DOM; global.css aggiunge il reset moderno (focus, scrollbar…).
+import './tokens.css';
+import './global.css';
 import { useEffect } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { Stack } from 'expo-router';
