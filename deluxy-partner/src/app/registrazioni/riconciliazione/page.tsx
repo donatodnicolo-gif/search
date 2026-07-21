@@ -31,16 +31,19 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
         {!nCampi && <span className="muted">nessun dato fiscale da FIC</span>}
       </td>
       <td style={{ fontSize: 12.5, minWidth: 220 }}>
-        {/* Dati bancari: l'IBAN non è ricavabile dai bonifici (Qonto/movimenti non
-            lo espongono), quindi si inserisce a mano una volta e va su partner + registro. */}
+        {/* IBAN dai beneficiari dei bonifici Qonto, precompilato quando il nome
+            del beneficiario corrisponde al partner. Modificabile prima di salvare. */}
         <form action={salvaDatiBancari.bind(null, r.partner!.id, anagraficaId)} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <input
             type="text"
             name="iban"
-            defaultValue={r.partner!.iban ?? ""}
+            defaultValue={r.partner!.iban ?? r.ibanSuggerito ?? ""}
             placeholder="IBAN del partner"
             style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, padding: "5px 8px" }}
           />
+          {!r.partner!.iban && r.ibanSuggerito && (
+            <span style={{ fontSize: 11, color: "var(--gold-strong, #8a6d2f)" }}>⤷ dai bonifici Qonto — verifica</span>
+          )}
           <div style={{ display: "flex", gap: 6 }}>
             <input type="text" name="banca" placeholder="Banca (facoltativo)" style={{ fontSize: 12, padding: "5px 8px", flex: 1 }} />
             <button className="btn small secondary" type="submit" disabled={!scrittura} title={scrittura ? "Salva IBAN sul partner e nel registro" : "Serve la chiave di scrittura"}>

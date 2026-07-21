@@ -83,3 +83,23 @@ export async function qontoTransazioni(iban: string, maxPagine = 30): Promise<Qo
   }
   return tutte;
 }
+
+// Beneficiari dei bonifici (rubrica destinatari di Qonto): è QUI che vive l'IBAN
+// di chi abbiamo pagato — i movimenti (/transactions) riportano solo il nome.
+export type QontoBeneficiario = { nome: string; iban: string; trusted: boolean };
+
+export async function qontoBeneficiari(maxPagine = 20): Promise<QontoBeneficiario[]> {
+  const out: QontoBeneficiario[] = [];
+  for (let pagina = 1; pagina <= maxPagine; pagina++) {
+    const r = await qontoFetch<{
+      beneficiaries: { name: string; trusted?: boolean; bank_account?: { iban?: string | null } | null }[];
+      meta?: { next_page: number | null };
+    }>(`/beneficiaries?per_page=100&current_page=${pagina}`);
+    for (const b of r.beneficiaries ?? []) {
+      const iban = b.bank_account?.iban?.replace(/\s/g, "").toUpperCase();
+      if (b.name && iban) out.push({ nome: b.name.trim(), iban, trusted: Boolean(b.trusted) });
+    }
+    if (!r.meta?.next_page) break;
+  }
+  return out;
+}

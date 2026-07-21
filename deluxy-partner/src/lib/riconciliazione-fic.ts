@@ -2,6 +2,7 @@ import type { Partner } from "@prisma/client";
 import { prisma } from "./db";
 import { ficClientiFiscali, type FicClienteFiscale } from "./fic";
 import { matchPartner } from "./riconciliazione";
+import { qontoBeneficiari, qontoConfigurato } from "./qonto";
 
 // Riconciliazione dei clienti Fatture in Cloud con i partner Deluxy (e, tramite
 // il loro anagraficaId, col registro Anagrafiche). FIC è la fonte ricca di dati
@@ -16,6 +17,7 @@ export type EsitoRiga = {
   collegatoRegistro: boolean; // il partner ha anagraficaId
   stato: "confermata" | "ignorata" | null; // da RiconciliazioneAnagrafica
   esitoUltimoInvio: string | null;
+  ibanSuggerito: string | null; // IBAN del beneficiario Qonto (bonifici) col nome del partner
 };
 
 export type Riconciliazione = {
@@ -56,6 +58,22 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
   ]);
   const statoPerNome = new Map(stati.map((s) => [s.ficNome, s]));
 
+  // IBAN dai beneficiari dei bonifici Qonto (best effort): chi abbiamo pagato.
+  let beneficiari: { nome: string; iban: string; trusted: boolean }[] = [];
+  try {
+    if (await qontoConfigurato()) beneficiari = await qontoBeneficiari();
+  } catch {
+    beneficiari = [];
+  }
+  // IBAN del beneficiario il cui nome corrisponde al partner (preferendo i trusted)
+  const ibanPerPartner = (partner: Partner | null): string | null => {
+    if (!partner) return null;
+    const candidati = beneficiari
+      .filter((b) => matchPartner(b.nome, [partner]) != null)
+      .sort((a, b) => Number(b.trusted) - Number(a.trusted));
+    return candidati[0]?.iban ?? null;
+  };
+
   const conciliati: EsitoRiga[] = [];
   const daCollegare: EsitoRiga[] = [];
   const senzaMatch: EsitoRiga[] = [];
@@ -70,6 +88,7 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
       collegatoRegistro: Boolean(partner?.anagraficaId),
       stato: (st?.stato as "confermata" | "ignorata" | undefined) ?? null,
       esitoUltimoInvio: st?.esito ?? null,
+      ibanSuggerito: ibanPerPartner(partner),
     };
     if (!partner) senzaMatch.push(riga);
     else if (partner.anagraficaId) conciliati.push(riga);
