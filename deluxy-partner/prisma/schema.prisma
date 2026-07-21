@@ -233,6 +233,53 @@ model RiconciliazioneAnagrafica {
   updatedAt    DateTime @updatedAt
 }
 
+// Negozio Shopify collegato (uno per brand). Il token Admin (shpat_...) è
+// salvato qui e usato server-side per scaricare gli ordini via Admin API.
+model NegozioShopify {
+  id        String          @id @default(cuid())
+  brand     String          @unique // es. deluxyflowers.com
+  dominio   String // es. fb72b1-2.myshopify.com
+  token     String // Admin API access token (shpat_...)
+  attivo    Boolean         @default(true)
+  ultimaSync DateTime?
+  ordini    OrdineShopify[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+// Ordine Shopify scaricato, con lo stato di riconciliazione con l'incasso.
+// categoriaPagamento: bonifico | carta | contrassegno | altro — decide il flusso:
+//  - bonifico  -> match 1:1 con un movimento bancario (TransazioneBancaria)
+//  - carta     -> incassato via gateway (payout aggregato, riconciliato a blocco)
+//  - contrassegno/altro -> incasso differito, da spuntare a mano
+model OrdineShopify {
+  id                 String         @id @default(cuid())
+  negozioId          String
+  negozio            NegozioShopify @relation(fields: [negozioId], references: [id], onDelete: Cascade)
+  brand              String
+  orderId            String // gid Shopify (globale, univoco per negozio)
+  nome               String // es. #1234
+  data               DateTime
+  totale             Float
+  valuta             String         @default("EUR")
+  financialStatus    String? // PAID | PENDING | PARTIALLY_PAID | REFUNDED...
+  gateway            String? // nomi gateway concatenati
+  categoriaPagamento String         @default("altro") // bonifico | carta | contrassegno | altro
+  clienteNome        String?
+  clienteEmail       String?
+  note               String?
+  // riconciliazione
+  statoRicon         String         @default("da_riconciliare") // da_riconciliare | riconciliato | incassato_gateway | ignorato
+  transazioneId      String? // movimento bancario abbinato (se bonifico)
+  riconciliatoIl     DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@unique([negozioId, orderId])
+  @@index([statoRicon, data])
+  @@index([categoriaPagamento])
+}
+
 // Impostazioni dell'app (chiave/valore): dati ordinante SEPA, preferenze
 model Impostazione {
   chiave String @id

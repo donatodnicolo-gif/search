@@ -44,6 +44,12 @@ const icons = {
       <path d="M14 3v4h4M9 12h6M9 16h6" />
     </svg>
   ),
+  ordini: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M5 7h14l-1.2 9.5a2 2 0 0 1-2 1.7H8.2a2 2 0 0 1-2-1.7L5 7z" />
+      <path d="M8.5 7V5.5a3.5 3.5 0 0 1 7 0V7" />
+    </svg>
+  ),
   vendite: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <path d="M4 5h2l2.2 11h9.6L20 8H7" />
@@ -118,6 +124,7 @@ const sections: { label: string; items: Item[] }[] = [
     items: [
       { href: "/registrazioni/fatture", label: "Fatture", icon: icons.fattura },
       { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
+      { href: "/ordini", label: "Orders", icon: icons.ordini },
       { href: "/registrazioni/riconciliazione", label: "Riconciliazione clienti", icon: icons.confronti },
     ],
   },

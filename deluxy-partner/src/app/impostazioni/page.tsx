@@ -1,9 +1,13 @@
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
 import { CHIAVI, leggiImpostazioni, salvaImpostazione, ibanValido } from "@/lib/impostazioni";
 import { inviaEmail } from "@/lib/mail";
 import { ficStato } from "@/lib/fic";
 import { qontoOrganizzazione, qontoConfigurato } from "@/lib/qonto";
+import { salvaNegozioShopify, rimuoviNegozioShopify } from "@/lib/ordini-actions";
+import { dataIt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -105,6 +109,7 @@ export default async function ImpostazioniPage({
   const sp = await searchParams;
   const imp = await leggiImpostazioni();
   const fic = await ficStato();
+  const negoziShopify = await prisma.negozioShopify.findMany({ orderBy: { brand: "asc" } });
 
   return (
     <>
@@ -261,6 +266,66 @@ export default async function ImpostazioniPage({
           </form>
         </div>
       )}
+
+      <h2 className="section-title">Negozi Shopify (Orders)</h2>
+      <div className="card" style={{ marginBottom: 16 }}>
+        {negoziShopify.length === 0 ? (
+          <p style={{ fontSize: 13.5, color: "var(--text-secondary)" }}>
+            Nessun negozio collegato. Aggiungi qui i tuoi negozi Shopify per scaricare gli ordini nella sezione
+            &laquo;Orders&raquo; e riconciliarli con gli incassi.
+          </p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Brand</th><th>Dominio</th><th>Token</th><th>Ultima sync</th><th></th></tr></thead>
+              <tbody>
+                {negoziShopify.map((n) => (
+                  <tr key={n.id}>
+                    <td style={{ fontWeight: 500 }}>{n.brand}</td>
+                    <td style={{ fontSize: 12.5 }}>{n.dominio}</td>
+                    <td>
+                      {n.token
+                        ? <span className="badge green"><span className="dot" />presente</span>
+                        : <span className="badge red"><span className="dot" />mancante</span>}
+                    </td>
+                    <td style={{ fontSize: 12.5 }}>{n.ultimaSync ? dataIt(n.ultimaSync) : "mai"}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <form action={rimuoviNegozioShopify.bind(null, n.id)} style={{ display: "inline" }}>
+                        <button className="btn small danger" type="submit">Rimuovi</button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <form action={salvaNegozioShopify} className="card">
+        <div className="form-grid">
+          <div>
+            <label className="field-label">Brand (identificativo) <span className="req">*</span></label>
+            <input type="text" name="brand" required placeholder="es. deluxyflowers.com" />
+          </div>
+          <div>
+            <label className="field-label">Dominio .myshopify.com <span className="req">*</span></label>
+            <input type="text" name="dominio" required placeholder="es. fb72b1-2.myshopify.com" />
+          </div>
+          <div className="full">
+            <label className="field-label">Token Admin API (shpat_…)</label>
+            <input type="password" name="token" autoComplete="new-password" placeholder="shpat_… (lascia vuoto per non cambiarlo su un negozio esistente)" />
+          </div>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 14 }}>
+          Il token si ottiene dall&apos;admin Shopify (app personalizzata con scope <code>read_orders</code>) oppure
+          riusando quello già generato per l&apos;app di smistamento. Viene salvato cifrato e usato solo lato server;
+          alla creazione lo verifichiamo contro il negozio. I 3 negozi noti: <code>fb72b1-2.myshopify.com</code> (deluxyflowers.com),
+          <code> deluxygifts.myshopify.com</code> (deluxy.it), <code>cakedesign-5921.myshopify.com</code> (cakedesign.me).
+        </p>
+        <div className="form-footer">
+          <button type="submit" className="btn primary">Salva negozio</button>
+        </div>
+      </form>
 
       <h2 className="section-title">Email solleciti (SMTP)</h2>
       <form action={salvaSmtp} className="card">
