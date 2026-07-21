@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { caricaAnno, contoEconomico, contoEconomicoMensile } from "@/lib/calc";
+import { caricaAnno, contoEconomicoMensile, costoPersonaleMese } from "@/lib/calc";
 import { fetchConsuntivo, fetchSpeseBanca } from "@/lib/finance";
 import { caricaCategorie, ricostruisci } from "@/lib/cfo";
 import { eur, MESI, pct } from "@/lib/format";
@@ -126,8 +126,14 @@ export default async function ConsuntivoPage({
     });
   }
 
+  // Costo del personale: dall'anagrafica Dipendenti (payroll, deterministico),
+  // non dalla categorizzazione bancaria — così non resta a zero finché i
+  // bonifici non sono classificati e non si conta due volte.
+  const personaleMese = (m: number) => costoPersonaleMese(dati, m);
+  const personaleCons = mesiPeriodo.reduce((s, m) => s + personaleMese(m), 0);
+
   const margineLordoCons = ricaviCons - costi.COGS;
-  const ebitdaCons = margineLordoCons - costi.ADV - costi.PERSONALE - costi.STRUTTURA;
+  const ebitdaCons = margineLordoCons - costi.ADV - personaleCons - costi.STRUTTURA;
 
   type RigaPL = { label: string; nota?: string; cons: number; budget: number; tipo: "ricavo" | "costo" | "totale" };
   const righePL: RigaPL[] = [
@@ -135,7 +141,7 @@ export default async function ConsuntivoPage({
     { label: "Costo del venduto", nota: "banca · Fornitori/COGS", cons: costi.COGS, budget: B("cogs"), tipo: "costo" },
     { label: "Margine lordo", cons: margineLordoCons, budget: B("margineLordo"), tipo: "totale" },
     { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), tipo: "costo" },
-    { label: "Costo del personale", nota: "banca · Personale", cons: costi.PERSONALE, budget: B("personale"), tipo: "costo" },
+    { label: "Costo del personale", nota: "anagrafica Dipendenti", cons: personaleCons, budget: B("personale"), tipo: "costo" },
     { label: "Costi di struttura", nota: "banca · Struttura", cons: costi.STRUTTURA, budget: B("costiFissi"), tipo: "costo" },
     { label: "EBITDA", cons: ebitdaCons, budget: B("ebitda"), tipo: "totale" },
   ];
@@ -144,13 +150,13 @@ export default async function ConsuntivoPage({
   const ricaviM = (m: number) => ricaviMese[m] ?? 0;
   const costoM = (tp: keyof typeof costi, m: number) => costiMese[tp][m - 1] ?? 0;
   const margineM = (m: number) => ricaviM(m) - costoM("COGS", m);
-  const ebitdaM = (m: number) => margineM(m) - costoM("ADV", m) - costoM("PERSONALE", m) - costoM("STRUTTURA", m);
+  const ebitdaM = (m: number) => margineM(m) - costoM("ADV", m) - personaleMese(m) - costoM("STRUTTURA", m);
   const righeMens: { label: string; costo?: boolean; forte?: boolean; get: (m: number) => number }[] = [
     { label: "Ricavi", get: ricaviM },
     { label: "Costo del venduto", costo: true, get: (m) => costoM("COGS", m) },
     { label: "Margine lordo", forte: true, get: margineM },
     { label: "ADV", costo: true, get: (m) => costoM("ADV", m) },
-    { label: "Personale", costo: true, get: (m) => costoM("PERSONALE", m) },
+    { label: "Personale", costo: true, get: personaleMese },
     { label: "Struttura", costo: true, get: (m) => costoM("STRUTTURA", m) },
   ];
 
@@ -216,10 +222,11 @@ export default async function ConsuntivoPage({
               <div className="kpi-sub">{ricaviCons > 0 ? pct((ebitdaCons / ricaviCons) * 100) : "—"} sui ricavi</div>
             </div>
             <div className="kpi">
-              <div className="kpi-label">Costi categorizzati (banca)</div>
-              <div className="kpi-value">{eur(costi.COGS + costi.ADV + costi.PERSONALE + costi.STRUTTURA)}</div>
+              <div className="kpi-label">Costi consuntivo (totale)</div>
+              <div className="kpi-value">{eur(costi.COGS + costi.ADV + personaleCons + costi.STRUTTURA)}</div>
               <div className="kpi-sub">
-                {spese.ok ? `${eur(nonCategorizzato)} ancora da categorizzare` : "spese banca non disponibili"}
+                personale {eur(personaleCons)} da roster ·{" "}
+                {spese.ok ? `${eur(nonCategorizzato)} banca da categorizzare` : "spese banca n/d"}
               </div>
             </div>
           </div>
@@ -298,12 +305,15 @@ export default async function ConsuntivoPage({
 
           <p className="page-caption" style={{ marginTop: 14 }}>
             Ricavi = imponibile fatturato in Finance mappato alle voci di budget in{" "}
-            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>. Costi = uscite di banca
-            categorizzate nel <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link> per voce di P&amp;L
+            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>. Il <strong>costo del
+            personale</strong> viene dall&apos;anagrafica{" "}
+            <Link href="/dipendenti" style={{ color: "var(--blue)" }}>Dipendenti</Link> (payroll, per i mesi
+            chiusi), non dalla banca. Gli <strong>altri costi</strong> (COGS, ADV, struttura) sono le uscite di
+            banca categorizzate nel <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>
             {spese.ok ? ` (${eur(nonCategorizzato)} ancora da categorizzare` : " (spese banca non disponibili"}
-            {esclusi > 0 ? `, ${eur(esclusi)} esclusi` : ""}): finché la categorizzazione non è completa i costi
-            reali sono sottostimati. Il budget di confronto è la somma del budget dei soli mesi chiusi. Ricavi al
-            netto IVA, uscite di cassa IVA inclusa: consuntivo gestionale.
+            {esclusi > 0 ? `, ${eur(esclusi)} esclusi` : ""}): finché non li classifichi restano sottostimati.
+            Budget di confronto = somma dei soli mesi chiusi. Ricavi al netto IVA, uscite di cassa IVA inclusa:
+            consuntivo gestionale.
           </p>
 
           <h2 className="section-title">Ricavi reali per voce di budget</h2>
