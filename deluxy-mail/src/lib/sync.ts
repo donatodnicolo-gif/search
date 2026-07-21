@@ -1047,12 +1047,23 @@ async function salvaInviati(utenteId: string, accountId: string, messaggi: Messa
   let salvati = 0
   for (const m of messaggi) {
     try {
+      // SOLO fra gli inviati (direzione 'uscita'): non deve mai toccare una mail
+      // in entrata con lo stesso Message-ID (aggiornarne l'uid la corromperebbe).
       const esistente = m.messageId
-        ? await db.messaggio.findFirst({ where: { accountId, messageId: m.messageId }, select: { id: true, uid: true } })
+        ? await db.messaggio.findFirst({
+            where: { accountId, messageId: m.messageId, direzione: 'uscita' },
+            select: { id: true, uid: true },
+          })
         : null
       if (esistente) {
         if (esistente.uid <= 0 && m.uid > 0) {
-          await db.messaggio.updateMany({ where: { id: esistente.id }, data: { uid: m.uid } })
+          // L'uid reale può collidere con quello di una mail in entrata (spazi di
+          // numerazione diversi per cartella): in tal caso si lascia com'è.
+          try {
+            await db.messaggio.updateMany({ where: { id: esistente.id }, data: { uid: m.uid } })
+          } catch {
+            /* collisione uid: si tiene l'uid attuale */
+          }
         }
         continue
       }
