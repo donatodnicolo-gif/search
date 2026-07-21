@@ -17,6 +17,17 @@ const ETICHETTE_ESITO: Record<string, { testo: string; classe: string }> = {
   candidati: { testo: "Da risolvere", classe: "warn" },
   nessuna: { testo: "Nessun match", classe: "no" },
 };
+// Nome leggibile dell'app che ha fatto la richiesta (dal `sistema` normalizzato)
+const ETICHETTE_APP: Record<string, string> = {
+  partner: "Deluxy Partner",
+  scout: "Deluxy Scout",
+  suppliers: "Deluxy Suppliers",
+  search: "Deluxy Search",
+  platform: "Piattaforma consegne",
+  hubspot: "HubSpot",
+  ui: "Registro (UI)",
+};
+const nomeApp = (s: string) => ETICHETTE_APP[s] ?? s;
 
 export default async function Match() {
   const [richieste, totali, daRisolvere, agganciate, nessuna, partnerNomi] = await Promise.all([
@@ -78,7 +89,7 @@ export default async function Match() {
                 return (
                   <tr key={r.id}>
                     <td className="cella-muta" style={{ whiteSpace: "nowrap" }}>{dataOra(r.creatoIl)}</td>
-                    <td><span className="badge neutro">{r.sistema}</span></td>
+                    <td><span className="badge neutro" title={`sistema: ${r.sistema}`}>{nomeApp(r.sistema)}</span></td>
                     <td className="cella-muta">{ETICHETTE_TIPO[r.tipo] ?? r.tipo}</td>
                     <td className="cella-muta"><span className="cella-note" title={r.query}>{r.query}</span></td>
                     <td>
