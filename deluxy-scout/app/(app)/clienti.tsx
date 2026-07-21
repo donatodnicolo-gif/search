@@ -1,7 +1,7 @@
 // Sezione "Clienti": i negozi già acquisiti — clienti in Scout (stato "cliente")
 // o partner attivi nel registro Anagrafiche. Filtri per zona e interessi.
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -73,14 +73,14 @@ export default function Clienti() {
           clearButtonMode="while-editing"
         />
         {zonePresenti.length || lineePresenti.length ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+          <View style={styles.filtri}>
             {zonePresenti.length ? (
               <Gruppo titolo="Zona" valori={zonePresenti} attivo={zonaFiltro} onTap={(v) => setZonaFiltro((c) => (c === v ? null : v))} />
             ) : null}
             {lineePresenti.length ? (
               <Gruppo titolo="Tipologia di interesse" valori={lineePresenti} attivo={lineaFiltro} onTap={(v) => setLineaFiltro((c) => (c === v ? null : v))} />
             ) : null}
-          </ScrollView>
+          </View>
         ) : null}
       </View>
 
@@ -158,10 +158,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md,
     marginHorizontal: spacing.md, marginBottom: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 10, fontSize: 15, color: colors.testo,
   },
-  filtri: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.md },
-  gruppo: { marginRight: spacing.sm },
+  filtri: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm },
+  gruppo: { marginBottom: 2 },
   gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', marginBottom: 4 },
-  chips: { flexDirection: 'row', gap: 6 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { backgroundColor: colors.bianco, borderColor: colors.grigioChiaro, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
