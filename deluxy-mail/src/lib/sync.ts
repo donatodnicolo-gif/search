@@ -1,6 +1,6 @@
 import type { Messaggio, Regola, Sezione } from '@prisma/client'
 import { db } from './db'
-import { scaricaNuovi, scaricaVecchi, trovaCartellaInviata, type MessaggioScaricato } from './imap'
+import { scaricaNuovi, scaricaVecchi, cercaSulServer, trovaCartellaInviata, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
 import {
@@ -1166,6 +1166,71 @@ export async function sincronizzaInviata(accountId: string, esaurisci = false): 
   }
 
   return esito
+}
+
+/**
+ * RICERCA ANCHE SUL SERVER: quando l'utente cerca, l'IMAP guarda tutta la
+ * casella (anche la posta mai scaricata) e le mail trovate vengono IMPORTATE
+ * nel database — così la ricerca locale che segue le vede. INBOX + "Inviata".
+ * Best-effort: se un server è lento o non supporta la ricerca, si resta sui
+ * risultati locali senza errori.
+ */
+export async function cercaEImporta(utenteId: string, query: string): Promise<{ importati: number }> {
+  const q = query.trim()
+  if (q.length < 2) return { importati: 0 }
+
+  const accounts = await db.account.findMany({ where: { utenteId, attivo: true } })
+  if (accounts.length === 0) return { importati: 0 }
+
+  const [regole, pref] = await Promise.all([
+    db.regola.findMany({ where: { utenteId } }),
+    db.utente.findUnique({ where: { id: utenteId }, select: { traduzioneAuto: true } }),
+  ])
+
+  let importati = 0
+  for (const account of accounts) {
+    const giaPresenti = async (uids: number[]) => {
+      const presenti = await db.messaggio.findMany({
+        where: { accountId: account.id, uid: { in: uids } },
+        select: { uid: true },
+      })
+      return new Set(presenti.map((m) => m.uid))
+    }
+
+    // Posta in arrivo (INBOX).
+    try {
+      const trovate = await cercaSulServer(account, q, giaPresenti)
+      if (trovate.length > 0) {
+        const esito: EsitoSync = { tipo: 'scarico', account: account.email, scaricati: 0, nonSalvati: 0, scartati: 0 }
+        // NIENTE avanzaUltimoUid: gli UID della ricerca sono sparsi, il cursore
+        // dei "nuovi" non va toccato.
+        await salvaMessaggi({
+          utenteId,
+          accountId: account.id,
+          messaggi: trovate,
+          regole,
+          traduzioneAuto: pref?.traduzioneAuto ?? false,
+          dominioProprio: (account.email.split('@')[1] || '').toLowerCase(),
+          esito,
+        })
+        importati += esito.scaricati
+      }
+    } catch {
+      /* server lento o SEARCH non supportata: restano i risultati locali */
+    }
+
+    // Cartella "Inviata" (se nota).
+    if (account.cartellaInviata) {
+      try {
+        const trovate = await cercaSulServer(account, q, giaPresenti, { cartella: account.cartellaInviata })
+        if (trovate.length > 0) importati += await salvaInviati(utenteId, account.id, trovate)
+      } catch {
+        /* idem */
+      }
+    }
+  }
+
+  return { importati }
 }
 
 export async function scaricaStorico(accountId: string, limite = 25): Promise<EsitoSync> {

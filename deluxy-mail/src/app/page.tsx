@@ -4,6 +4,7 @@ import { PRIORITA } from '@/lib/format'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
 import { NuoveAzioni } from '@/components/NuoveAzioni'
 import { RicercaMail } from '@/components/RicercaMail'
+import { CercaServer } from '@/components/CercaServer'
 import { CarteApp } from '@/components/CarteApp'
 import { InvioAppDialog } from '@/components/InvioAppDialog'
 import { DelegaReneDialog } from '@/components/DelegaRene'
@@ -333,6 +334,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
           </p>
           <div style={{ marginTop: 12, maxWidth: 460 }}>
             <RicercaMail iniziale={ricerca ? q : ''} />
+            {/* In ricerca: il server IMAP cerca anche nella posta mai scaricata
+                e importa quel che trova (la lista si aggiorna da sola). */}
+            {ricerca && <CercaServer q={q} />}
           </div>
         </div>
         <div className="page-actions filters">

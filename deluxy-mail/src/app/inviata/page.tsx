@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
 import { RicercaMail } from '@/components/RicercaMail'
+import { CercaServer } from '@/components/CercaServer'
 import { ListaInviati, type RigaInviata } from '@/components/ListaInviati'
 
 export const dynamic = 'force-dynamic'
@@ -59,6 +60,8 @@ export default async function PostaInviata({ searchParams }: Props) {
 
       <div style={{ marginBottom: 16 }}>
         <RicercaMail iniziale={ricerca ? q : ''} base="/inviata" placeholder="Cerca negli inviati (destinatario, oggetto, testo)…" />
+        {/* La ricerca guarda anche la posta mai scaricata, sul server. */}
+        {ricerca && <CercaServer q={q} />}
       </div>
 
       <div className="card tight">

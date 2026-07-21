@@ -308,6 +308,55 @@ async function converti(uid: number, source: Buffer, letto: boolean): Promise<Me
 }
 
 /**
+ * RICERCA SUL SERVER: fa cercare all'IMAP (che vede tutta la cartella, anche la
+ * posta mai scaricata) le mail che contengono il testo in oggetto, mittente,
+ * destinatario o corpo. Scarica solo quelle che NON abbiamo già (giaPresenti),
+ * le più recenti prima, fino a `limite`.
+ */
+export async function cercaSulServer(
+  account: Account,
+  query: string,
+  giaPresenti: (uids: number[]) => Promise<Set<number>>,
+  opts?: { cartella?: string; limite?: number }
+): Promise<MessaggioScaricato[]> {
+  const cartella = opts?.cartella ?? account.cartella
+  const limite = opts?.limite ?? 30
+  const client = connessione(account)
+  await client.connect()
+
+  try {
+    await client.mailboxOpen(cartella, { readOnly: true })
+
+    const trovati =
+      (await client.search(
+        { or: [{ subject: query }, { from: query }, { to: query }, { body: query }] },
+        { uid: true }
+      )) || []
+    if (trovati.length === 0) return []
+
+    const salvati = await giaPresenti(trovati)
+    const daPrendere = trovati
+      .filter((u) => !salvati.has(u))
+      .sort((a, b) => b - a)
+      .slice(0, limite)
+    if (daPrendere.length === 0) return []
+
+    const messaggi: MessaggioScaricato[] = []
+    for await (const msg of client.fetch(
+      daPrendere.join(','),
+      { uid: true, source: true, flags: true },
+      { uid: true }
+    )) {
+      if (!msg.source) continue
+      messaggi.push(await converti(msg.uid, msg.source, Boolean(msg.flags?.has('\\Seen'))))
+    }
+    return messaggi
+  } finally {
+    await client.logout()
+  }
+}
+
+/**
  * Scarica lo storico: i messaggi PRECEDENTI a quelli che abbiamo già
  * (UID < primoUid), dal più recente andando indietro, a blocchi.
  *
