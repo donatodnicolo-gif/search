@@ -242,7 +242,76 @@ export class DeliveryRulesService {
     await this.prisma.deliveryRule.delete({ where: { id } });
     return { deleted: true };
   }
+
+  /**
+   * Regole carnet attive che includono un partner, con il consumo calcolato:
+   * quante consegne del partner hanno gia' "usato" il carnet e quante ne
+   * restano. Usato nella scheda partner.
+   *
+   * Cosa consuma una consegna: appartiene al partner, rientra nel periodo
+   * della regola (per il totale) o e' di oggi (per il giornaliero), ed e' del
+   * tipo servizio della regola se specificato. Le consegne annullate o non
+   * accettate NON consumano il carnet.
+   */
+  async forPartner(partnerId: string) {
+    const rules = await this.prisma.deliveryRule.findMany({
+      where: { active: true, partners: { some: { partnerId } } },
+      include: RULE_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+    return Promise.all(
+      rules.map(async (rule) => {
+        const base = {
+          partnerId,
+          status: { notIn: [...NON_CONSUMING_STATUSES] },
+          ...(rule.serviceTypeId ? { serviceTypeId: rule.serviceTypeId } : {}),
+        };
+
+        let totalUsed: number | null = null;
+        let totalRemaining: number | null = null;
+        if (rule.totalRule) {
+          totalUsed = await this.prisma.delivery.count({
+            where: {
+              ...base,
+              ...(rule.periodStart || rule.periodEnd
+                ? {
+                    date: {
+                      ...(rule.periodStart ? { gte: rule.periodStart } : {}),
+                      ...(rule.periodEnd ? { lte: rule.periodEnd } : {}),
+                    },
+                  }
+                : {}),
+            },
+          });
+          totalRemaining = Math.max(0, rule.totalCount - totalUsed);
+        }
+
+        let dailyUsedToday: number | null = null;
+        let dailyRemainingToday: number | null = null;
+        if (rule.dailyRule) {
+          dailyUsedToday = await this.prisma.delivery.count({
+            where: { ...base, date: { gte: startOfToday, lt: startOfTomorrow } },
+          });
+          dailyRemainingToday = Math.max(0, rule.dailyCount - dailyUsedToday);
+        }
+
+        return {
+          ...rule,
+          usage: { totalUsed, totalRemaining, dailyUsedToday, dailyRemainingToday },
+        };
+      }),
+    );
+  }
 }
+
+/** Stati che non consumano il carnet (consegna annullata o non accettata). */
+const NON_CONSUMING_STATUSES = ['cancelled', 'not_accepted', 'cancellation_requested'] as const;
 
 /** Rimuove le chiavi undefined per non azzerare per errore campi non inviati in update. */
 function pruneUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
@@ -264,6 +333,12 @@ export class DeliveryRulesController {
   @ApiOperation({ summary: 'Lista regole carnet' })
   findAll() {
     return this.service.findAll();
+  }
+
+  @Get('partner/:partnerId')
+  @ApiOperation({ summary: 'Regole carnet di un partner con consegne rimaste' })
+  forPartner(@Param('partnerId') partnerId: string) {
+    return this.service.forPartner(partnerId);
   }
 
   @Get(':id')

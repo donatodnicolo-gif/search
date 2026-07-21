@@ -32,6 +32,24 @@ interface PartnerDetail {
   openingHours?: { dayOfWeek: number; openTime?: string | null; closeTime?: string | null; closed?: boolean }[];
 }
 
+interface CarnetRule {
+  id: string;
+  name: string;
+  dailyRule: boolean;
+  dailyCount: number;
+  totalRule: boolean;
+  totalCount: number;
+  periodStart: string | null;
+  periodEnd: string | null;
+  serviceType: { id: string; name: string } | null;
+  usage: {
+    totalUsed: number | null;
+    totalRemaining: number | null;
+    dailyUsedToday: number | null;
+    dailyRemainingToday: number | null;
+  };
+}
+
 /** Giorni in ordine lun→dom con la loro chiave i18n (dayOfWeek DB: 0=dom…6=sab). */
 const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
   { dayOfWeek: 1, key: 'mon' },
@@ -157,6 +175,44 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             } @else { <p class="muted">{{ 'partnerForm.services.empty' | translate }}</p> }
           </section>
 
+          <section class="card block span-2">
+            <h2>{{ 'deliveryRules.title' | translate }}</h2>
+            @if (carnetRules().length) {
+              <div class="carnet-grid">
+                @for (r of carnetRules(); track r.id) {
+                  <div class="carnet">
+                    <div class="carnet-head">
+                      <span class="carnet-name">{{ r.name }}</span>
+                      @if (r.serviceType) { <span class="chip">{{ r.serviceType.name }}</span> }
+                    </div>
+                    <div class="carnet-body">
+                      @if (r.totalRule) {
+                        <div class="gauge">
+                          <div class="gauge-top">
+                            <span class="muted">{{ 'partnerDetail.carnet.remaining' | translate }}</span>
+                            <span class="big" [class.zero]="r.usage.totalRemaining === 0">{{ r.usage.totalRemaining }}</span>
+                            <span class="muted">/ {{ r.totalCount }}</span>
+                          </div>
+                          <div class="bar"><span class="bar-fill" [style.width.%]="pct(r.usage.totalRemaining, r.totalCount)"></span></div>
+                          <span class="sub muted">{{ 'partnerDetail.carnet.used' | translate }}: {{ r.usage.totalUsed }}{{ periodLabel(r) }}</span>
+                        </div>
+                      }
+                      @if (r.dailyRule) {
+                        <div class="daily">
+                          <span class="muted">{{ 'partnerDetail.carnet.today' | translate }}</span>
+                          <span class="big sm" [class.zero]="r.usage.dailyRemainingToday === 0">{{ r.usage.dailyRemainingToday }}</span>
+                          <span class="muted">/ {{ r.dailyCount }} {{ 'partnerDetail.carnet.perDay' | translate }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <p class="muted">{{ 'partnerDetail.carnet.none' | translate }}</p>
+            }
+          </section>
+
           @if (p.notes) {
             <section class="card block span-2">
               <h2>{{ 'partnerForm.sales.notes' | translate }}</h2>
@@ -200,6 +256,19 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .pill.on { background: rgba(36,138,61,0.12); color: var(--green); }
       .state-card { padding: 32px; color: var(--text-secondary); }
       .state-card.err { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); }
+      .carnet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+      .carnet { border: 1px solid var(--hairline); border-radius: var(--radius-m); padding: 14px 16px; }
+      .carnet-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+      .carnet-name { font-weight: 600; font-size: 14px; }
+      .carnet-body { display: flex; flex-direction: column; gap: 12px; }
+      .gauge-top { display: flex; align-items: baseline; gap: 6px; }
+      .big { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+      .big.sm { font-size: 20px; }
+      .big.zero { color: var(--red); }
+      .bar { height: 6px; border-radius: 980px; background: var(--fill); overflow: hidden; margin: 6px 0 4px; }
+      .bar-fill { display: block; height: 100%; background: var(--green); border-radius: 980px; }
+      .sub { font-size: 12px; }
+      .daily { display: flex; align-items: baseline; gap: 6px; }
       @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
     `,
   ],
@@ -210,8 +279,22 @@ export class PartnerDetailComponent {
   private readonly auth = inject(AuthService);
 
   readonly partner = signal<PartnerDetail | null>(null);
+  readonly carnetRules = signal<CarnetRule[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+
+  /** Percentuale della barra = quota rimasta sul totale. */
+  pct(remaining: number | null, total: number): number {
+    if (!total || remaining === null) return 0;
+    return Math.round((remaining / total) * 100);
+  }
+
+  /** " nel periodo dd/mm–dd/mm" se la regola ha un periodo, altrimenti "". */
+  periodLabel(r: CarnetRule): string {
+    if (!r.periodStart && !r.periodEnd) return '';
+    const f = (d: string | null) => (d ? new Date(d).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) : '…');
+    return ` (${f(r.periodStart)}–${f(r.periodEnd)})`;
+  }
 
   /** Modifica partner: admin, operation, project manager e il partner stesso. */
   canEdit(): boolean {
@@ -243,6 +326,12 @@ export class PartnerDetailComponent {
         this.loading.set(false);
         this.error.set(err?.error?.message ?? 'Errore nel caricamento del partner');
       },
+    });
+    // Regole carnet del partner con le consegne rimaste (best-effort: se
+    // fallisce, la scheda partner si carica lo stesso senza la sezione).
+    this.http.get<CarnetRule[]>(`${environment.apiUrl}/delivery-rules/partner/${id}`).subscribe({
+      next: (rules) => this.carnetRules.set(rules),
+      error: () => {},
     });
   }
 }

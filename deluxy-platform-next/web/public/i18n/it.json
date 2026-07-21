@@ -679,6 +679,15 @@
       "partnersHint": "Tieni premuto Ctrl/Cmd per selezionarne più di uno."
     }
   },
+  "partnerDetail": {
+    "carnet": {
+      "none": "Nessuna regola carnet attiva per questo partner.",
+      "remaining": "Rimaste",
+      "used": "Usate",
+      "today": "Oggi",
+      "perDay": "al giorno"
+    }
+  },
   "stub": {
     "caption": "Sezione in arrivo sulla nuova piattaforma.",
     "migratingTitle": "In migrazione dalla piattaforma legacy",
