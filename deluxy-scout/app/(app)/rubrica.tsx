@@ -1,9 +1,10 @@
 // Rubrica: tutti i contatti registrati nell'app, condivisi con HubSpot.
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, coloreStato, labelStato, radius, spacing } from '@/lib/theme';
+import type { StatoPlace } from '@/types';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
 
@@ -12,6 +13,8 @@ export default function Rubrica() {
   const [contatti, setContatti] = useState<ContattoConLuogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [statoFiltro, setStatoFiltro] = useState<StatoPlace | null>(null);
+  const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -28,20 +31,37 @@ export default function Rubrica() {
     }, [carica]),
   );
 
+  // Opzioni dei filtri: solo gli stati e gli interessi (linee) presenti fra i contatti.
+  const { statiPresenti, lineePresenti } = useMemo(() => {
+    const stati = new Set<StatoPlace>();
+    const linee = new Set<string>();
+    for (const c of contatti) {
+      if (c.place_stato) stati.add(c.place_stato);
+      if (c.place_linea) linee.add(c.place_linea);
+    }
+    const ORDINE: StatoPlace[] = ['da_visitare', 'visitato', 'cliente', 'perso'];
+    return {
+      statiPresenti: ORDINE.filter((s) => stati.has(s)),
+      lineePresenti: [...linee].sort(),
+    };
+  }, [contatti]);
+
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return contatti;
-    return contatti.filter((c) =>
-      [c.nome, c.ruolo, c.place_nome, c.telefono, c.email]
+    return contatti.filter((c) => {
+      if (statoFiltro && c.place_stato !== statoFiltro) return false;
+      if (lineaFiltro && c.place_linea !== lineaFiltro) return false;
+      if (!q) return true;
+      return [c.nome, c.ruolo, c.place_nome, c.telefono, c.email]
         .filter(Boolean)
-        .some((v) => (v as string).toLowerCase().includes(q)),
-    );
-  }, [contatti, query]);
+        .some((v) => (v as string).toLowerCase().includes(q));
+    });
+  }, [contatti, query, statoFiltro, lineaFiltro]);
 
   return (
     <View style={styles.container}>
       <View style={styles.head}>
-        <PageIntro testo="Tutti i contatti raccolti sul campo. Il badge conferma se il contatto è sincronizzato col registro Anagrafiche. Cerca per nome, ruolo, negozio o telefono." />
+        <PageIntro testo="Tutti i contatti raccolti sul campo. Filtra per stato del negozio o per interessi, e cerca per nome, ruolo, negozio o telefono. Il badge conferma la sincronizzazione col registro Anagrafiche." />
         <TextInput
           style={styles.search}
           value={query}
@@ -51,6 +71,28 @@ export default function Rubrica() {
           autoCapitalize="none"
           clearButtonMode="while-editing"
         />
+        {statiPresenti.length || lineePresenti.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+            {statiPresenti.length ? (
+              <GruppoFiltro
+                titolo="Stato"
+                valori={statiPresenti}
+                attivo={statoFiltro}
+                onTap={(v) => setStatoFiltro((cur) => (cur === v ? null : (v as StatoPlace)))}
+                label={(v) => labelStato[v as StatoPlace]}
+                colore={(v) => coloreStato[v as StatoPlace]}
+              />
+            ) : null}
+            {lineePresenti.length ? (
+              <GruppoFiltro
+                titolo="Interessi"
+                valori={lineePresenti}
+                attivo={lineaFiltro}
+                onTap={(v) => setLineaFiltro((cur) => (cur === v ? null : v))}
+              />
+            ) : null}
+          </ScrollView>
+        ) : null}
       </View>
       <FlatList
         data={dati}
@@ -58,17 +100,68 @@ export default function Rubrica() {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
-          <EmptyState
-            icona="people-outline"
-            titolo="Nessun contatto"
-            aiuto="I contatti che registri durante le visite compaiono qui e vengono sincronizzati con HubSpot."
-            loading={loading}
-          />
+          statoFiltro || lineaFiltro || query.trim() ? (
+            <EmptyState
+              icona="filter-outline"
+              titolo="Nessun contatto con questi filtri"
+              aiuto="Prova ad azzerare stato, interessi o la ricerca."
+              azione="Azzera filtri"
+              onAzione={() => {
+                setStatoFiltro(null);
+                setLineaFiltro(null);
+                setQuery('');
+              }}
+            />
+          ) : (
+            <EmptyState
+              icona="people-outline"
+              titolo="Nessun contatto"
+              aiuto="I contatti che registri durante le visite compaiono qui e vengono sincronizzati con HubSpot."
+              loading={loading}
+            />
+          )
         }
         renderItem={({ item }) => (
           <Contatto contatto={item} onOpenPlace={() => router.push(`/(app)/attivita/${item.place_id}`)} />
         )}
       />
+    </View>
+  );
+}
+
+// Gruppo di chip filtro (uno solo attivo per gruppo; ritap = azzera). I chip
+// stato usano un dot col colore semantico DS.
+function GruppoFiltro({
+  titolo,
+  valori,
+  attivo,
+  onTap,
+  label,
+  colore,
+}: {
+  titolo: string;
+  valori: string[];
+  attivo: string | null;
+  onTap: (v: string) => void;
+  label?: (v: string) => string;
+  colore?: (v: string) => string;
+}) {
+  return (
+    <View style={styles.gruppo}>
+      <Text style={styles.gruppoTitolo}>{titolo}</Text>
+      <View style={styles.chips}>
+        {valori.map((v) => {
+          const on = attivo === v;
+          return (
+            <Pressable key={v} onPress={() => onTap(v)} style={[styles.chip, on && styles.chipOn]}>
+              {colore ? <View style={[styles.chipDot, { backgroundColor: colore(v) }]} /> : null}
+              <Text style={[styles.chipTxt, on && styles.chipTxtOn]} numberOfLines={1}>
+                {label ? label(v) : v}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -141,6 +234,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.testo,
   },
+  // Barra filtri (stato + interessi)
+  filtri: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.md },
+  gruppo: { marginRight: spacing.sm },
+  gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', marginBottom: 4 },
+  chips: { flexDirection: 'row', gap: 6 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.bianco,
+    borderColor: colors.grigioChiaro,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+  },
+  chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  chipDot: { width: 6, height: 6, borderRadius: 3 },
+  chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
+  chipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, gap: spacing.sm },
   card: {
     backgroundColor: colors.bianco,

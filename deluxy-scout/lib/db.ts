@@ -10,6 +10,7 @@ export interface ContattoConLuogo extends Contact {
   place_nome: string | null;
   place_indirizzo: string | null;
   place_linea: string | null;
+  place_stato: StatoPlace | null; // stato del negozio (da_visitare/visitato/cliente/perso)
   place_nel_registro: boolean; // il negozio è collegato al registro Anagrafiche (anagrafiche_id presente)
 }
 
@@ -206,7 +207,7 @@ export async function aggiornaNomeProfilo(id: string, nome: string): Promise<voi
 export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
   const { data, error } = await supabase
     .from('contacts')
-    .select('*, places(nome, indirizzo, linea_ipotizzata, anagrafiche_id)')
+    .select('*, places(nome, indirizzo, linea_ipotizzata, stato, anagrafiche_id)')
     .order('nome');
   if (error) throw error;
   return (data ?? []).map((r: any) => ({
@@ -214,6 +215,7 @@ export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
     place_nome: r.places?.nome ?? null,
     place_indirizzo: r.places?.indirizzo ?? null,
     place_linea: r.places?.linea_ipotizzata ?? null,
+    place_stato: r.places?.stato ?? null,
     place_nel_registro: Boolean(r.places?.anagrafiche_id),
   })) as ContattoConLuogo[];
 }
