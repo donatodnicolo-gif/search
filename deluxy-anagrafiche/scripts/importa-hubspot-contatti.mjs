@@ -9,12 +9,18 @@
 // contatto viene scartato. In cambio possono nascere anagrafiche di gruppo/
 // holding (es. "Aeffe Group") da riordinare poi.
 //
-// Uso: node scripts/importa-hubspot-contatti.mjs [--crea-aziende]
+// Con --importa-orfani: i contatti HubSpot SENZA azienda associata vengono
+// comunque importati, agganciati a un'anagrafica-contenitore unica
+// "Contatti senza azienda (HubSpot)" (da riassegnare a mano).
+//
+// Uso: node scripts/importa-hubspot-contatti.mjs [--crea-aziende] [--importa-orfani]
 import { PrismaClient } from "@prisma/client";
 import { readFileSync } from "fs";
 
 const prisma = new PrismaClient();
 const creaAziende = process.argv.includes("--crea-aziende");
+const importaOrfani = process.argv.includes("--importa-orfani");
+const NOME_BUCKET = "Contatti senza azienda (HubSpot)";
 const token =
   process.env.HUBSPOT_ACCESS_TOKEN ||
   readFileSync(new URL("../.env", import.meta.url), "utf8").match(/HUBSPOT_ACCESS_TOKEN="([^"]+)"/)?.[1];
@@ -112,6 +118,27 @@ async function partnerPerCompany(companyId) {
   return rec;
 }
 
+// Anagrafica-contenitore per i referenti senza azienda (creata solo se serve).
+let bucket = null;
+async function getBucket() {
+  if (bucket) return bucket;
+  let b = await prisma.partner.findFirst({ where: { nome: NOME_BUCKET }, include: { contatti: true } });
+  if (!b)
+    b = await prisma.partner.create({
+      data: {
+        nome: NOME_BUCKET,
+        categoria: "DA CLASSIFICARE",
+        stato: "prospect",
+        fonte: "hubspot",
+        note: "Referenti importati da HubSpot senza azienda associata — da riassegnare all'anagrafica giusta.",
+      },
+      include: { contatti: true },
+    });
+  bucket = b;
+  partnerById.set(b.id, b);
+  return b;
+}
+
 // 3. Contatti HubSpot → accumula per partner
 const daAggiungere = new Map(); // partnerId -> [contatti]
 let totContatti = 0;
@@ -130,10 +157,23 @@ let senzaAzienda = 0;
       const pr = r.properties;
       const nome = [pr.firstname, pr.lastname].filter(Boolean).join(" ").trim() || (pr.email ? pr.email.split("@")[0] : "");
       if (!nome && !pr.phone && !pr.email) continue;
+      const contatto = {
+        ruolo: pr.jobtitle || null,
+        nome: nome || null,
+        telefono: pr.phone || null,
+        email: pr.email || null,
+        hubspotId: r.id,
+      };
       const companyIds = [...new Set((r.associations?.companies?.results || []).map((x) => x.id))];
       if (companyIds.length === 0) {
-        senzaAzienda++;
-        continue; // un referente senza azienda non ha dove stare nel registro
+        if (!importaOrfani) {
+          senzaAzienda++;
+          continue; // un referente senza azienda non ha dove stare nel registro
+        }
+        const b = await getBucket();
+        if (!daAggiungere.has(b.id)) daAggiungere.set(b.id, []);
+        daAggiungere.get(b.id).push(contatto);
+        continue;
       }
       const partnersVisti = new Set();
       for (const cid of companyIds) {
@@ -141,13 +181,7 @@ let senzaAzienda = 0;
         if (!p || partnersVisti.has(p.id)) continue;
         partnersVisti.add(p.id);
         if (!daAggiungere.has(p.id)) daAggiungere.set(p.id, []);
-        daAggiungere.get(p.id).push({
-          ruolo: pr.jobtitle || null,
-          nome: nome || null,
-          telefono: pr.phone || null,
-          email: pr.email || null,
-          hubspotId: r.id,
-        });
+        daAggiungere.get(p.id).push(contatto);
       }
     }
     after = j.paging?.next?.after;
