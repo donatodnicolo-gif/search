@@ -31,20 +31,24 @@ export async function POST() {
     })
 
     let scaricati = 0
-    // Un blocco alla volta: prima si finisce lo storico della INBOX, poi quello
-    // della cartella "Inviata". Ci si ferma appena si scarica qualcosa: il
-    // client richiama subito, così ogni chiamata resta breve e l'app non rallenta.
+    // Per ogni account si avanza SIA la INBOX SIA la cartella "Inviata" nella
+    // stessa chiamata: così lo storico degli inviati NON deve aspettare che la
+    // posta in arrivo sia finita (prima era gated dietro un break, e con molta
+    // posta in arrivo gli inviati passati non arrivavano mai). Ci si ferma dopo
+    // il primo account che ha scaricato qualcosa: il client richiama subito.
     for (const a of account) {
+      let fatto = false
       if (!a.storicoFinito) {
         const esito = await scaricaStorico(a.id, BLOCCO)
         scaricati += esito.scaricati
-        if (esito.scaricati > 0) break
+        if (esito.scaricati > 0) fatto = true
       }
       if (!a.storicoInviataFinito) {
         const esito = await sincronizzaInviata(a.id, true)
         scaricati += esito.scaricati
-        if (esito.scaricati > 0) break
+        if (esito.scaricati > 0) fatto = true
       }
+      if (fatto) break
     }
 
     const restanti = await db.account.count({

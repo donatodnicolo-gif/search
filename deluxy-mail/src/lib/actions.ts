@@ -1084,7 +1084,10 @@ async function registraInviato(
   m: DaInviare,
   raw: Buffer,
   messageId: string,
-  threadRadice: string | null
+  threadRadice: string | null,
+  // Sezione ereditata dall'originale: rispondendo a una mail già in una sezione,
+  // anche la risposta finisce nella stessa (così il thread resta insieme).
+  sezioneId: string | null = null
 ): Promise<string | null> {
   let avviso: string | null = null
 
@@ -1129,6 +1132,8 @@ async function registraInviato(
       corpoHtml: m.corpoHtml ?? null,
       allegati: m.allegati?.length ?? 0,
       letto: true,
+      sezioneId,
+      smistatoDa: sezioneId ? 'manuale' : null,
     },
   })
 
@@ -1186,7 +1191,10 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     // Un inoltro apre una conversazione nuova; una risposta resta nel thread
     // dell'originale (la sua radice, o il suo Message-ID se ne è il capostipite).
     const threadRadice = inoltro ? null : originale.thread || originale.messageId
-    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, threadRadice)
+    // Rispondendo, la mia mail eredita la sezione dell'originale (un inoltro no:
+    // apre una conversazione nuova).
+    const sezioneEreditata = inoltro ? null : originale.sezioneId
+    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, threadRadice, sezioneEreditata)
 
     if (!inoltro) {
       await db.messaggio.update({ where: { id: messaggioId }, data: { letto: true, serveRisposta: false } })

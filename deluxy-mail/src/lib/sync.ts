@@ -12,7 +12,7 @@ import {
   rilevaETraduci,
   riassumiThread,
   giudicaSpam,
-  type AnalisiThread,
+  type AnalisiThreadVista,
 } from './ai'
 import { CHIAVI, leggiImpostazioni, STILE_DEFAULT } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
@@ -1221,7 +1221,7 @@ export async function scaricaStorico(accountId: string, limite = 25): Promise<Es
 
 export type RiassuntoThreadSalvato = {
   chiave: string
-  analisi: AnalisiThread
+  analisi: AnalisiThreadVista
   partecipanti: number
   messaggiVisti: number
   generatoIl: Date
@@ -1379,17 +1379,26 @@ export async function riassumiThreadOra(
       oggi: new Date(),
     })
 
+    // Gli indici [n] dell'AI diventano id di messaggio (per i link "apri").
+    const idDa = (i: number): string | null =>
+      Number.isInteger(i) && i >= 0 && i < messaggi.length ? messaggi[i].id : null
+    const vista: AnalisiThreadVista = {
+      sintesi: analisi.sintesi,
+      parti: analisi.parti.map((p) => ({ chi: p.chi, punto: p.punto, msgId: idDa(p.msgIdx) })),
+      inSospeso: analisi.inSospeso.map((s) => ({ cosa: s.cosa, chi: s.chi, msgId: idDa(s.msgIdx) })),
+    }
+
     const salvato = await db.riassuntoThread.upsert({
       where: { utenteId_chiave: { utenteId, chiave } },
       create: {
         utenteId,
         chiave,
-        riassunto: JSON.stringify(analisi),
+        riassunto: JSON.stringify(vista),
         partecipanti,
         messaggiVisti: messaggi.length,
       },
       update: {
-        riassunto: JSON.stringify(analisi),
+        riassunto: JSON.stringify(vista),
         partecipanti,
         messaggiVisti: messaggi.length,
         generatoIl: new Date(),
@@ -1399,7 +1408,7 @@ export async function riassumiThreadOra(
     return {
       ok: true,
       messaggio: `Letti ${messaggi.length} messaggi di ${partecipanti} ${partecipanti === 1 ? 'parte' : 'parti'}.`,
-      riassunto: { chiave, analisi, partecipanti, messaggiVisti: messaggi.length, generatoIl: salvato.generatoIl },
+      riassunto: { chiave, analisi: vista, partecipanti, messaggiVisti: messaggi.length, generatoIl: salvato.generatoIl },
     }
   } catch (e) {
     return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
@@ -1420,9 +1429,9 @@ export async function leggiRiassuntoThread(
     return null
   }
   if (!r) return null
-  let analisi: AnalisiThread
+  let analisi: AnalisiThreadVista
   try {
-    analisi = JSON.parse(r.riassunto) as AnalisiThread
+    analisi = JSON.parse(r.riassunto) as AnalisiThreadVista
   } catch {
     return null
   }

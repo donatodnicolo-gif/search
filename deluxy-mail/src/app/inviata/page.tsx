@@ -1,8 +1,7 @@
-import Link from 'next/link'
 import { db } from '@/lib/db'
-import { dataBreve } from '@/lib/format'
 import { richiediUtente } from '@/lib/sessione'
 import { RicercaMail } from '@/components/RicercaMail'
+import { ListaInviati, type RigaInviata } from '@/components/ListaInviati'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,24 +12,38 @@ export default async function PostaInviata({ searchParams }: Props) {
   const q = (qGrezzo ?? '').trim()
   const ricerca = q.length >= 2
   const u = await richiediUtente()
-  const messaggi = await db.messaggio.findMany({
-    where: {
-      utenteId: u.id,
-      direzione: 'uscita',
-      cestinato: false,
-      ...(ricerca
-        ? {
-            OR: [
-              { oggetto: { contains: q, mode: 'insensitive' as const } },
-              { destinatari: { contains: q, mode: 'insensitive' as const } },
-              { corpoTesto: { contains: q, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { data: 'desc' },
-    take: 200,
-  })
+  const [messaggi, sezioni] = await Promise.all([
+    db.messaggio.findMany({
+      where: {
+        utenteId: u.id,
+        direzione: 'uscita',
+        cestinato: false,
+        ...(ricerca
+          ? {
+              OR: [
+                { oggetto: { contains: q, mode: 'insensitive' as const } },
+                { destinatari: { contains: q, mode: 'insensitive' as const } },
+                { corpoTesto: { contains: q, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { data: 'desc' },
+      take: 500,
+      include: { sezione: { select: { nome: true, colore: true } } },
+    }),
+    db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' }, select: { id: true, nome: true } }),
+  ])
+
+  const righe: RigaInviata[] = messaggi.map((m) => ({
+    id: m.id,
+    destinatari: m.destinatari,
+    oggetto: m.oggetto,
+    anteprima: m.anteprima,
+    data: m.data,
+    sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
+    sezioneId: m.sezioneId,
+  }))
 
   return (
     <>
@@ -62,29 +75,7 @@ export default async function PostaInviata({ searchParams }: Props) {
             </p>
           </div>
         ) : (
-          <div className="mail-list">
-            {messaggi.map((m) => (
-              <div key={m.id} className="mail-row">
-                <div className="mail-row-head">
-                  <Link href={`/messaggio/${m.id}`} className="mail-row-link">
-                    <div className="mail-top">
-                      <span className="dot-spacer" />
-                      <span className="mail-mittente">a {m.destinatari}</span>
-                    </div>
-                    <div className="mail-oggetto" style={{ paddingLeft: 17 }}>
-                      {m.oggetto}
-                    </div>
-                    <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
-                      <span className="muted">{m.anteprima}</span>
-                    </div>
-                  </Link>
-                  <div className="mail-row-side">
-                    <span className="mail-data">{dataBreve(m.data)}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <ListaInviati righe={righe} sezioni={sezioni} />
         )}
       </div>
     </>

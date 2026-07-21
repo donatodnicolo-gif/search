@@ -1,12 +1,31 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { riassumiConversazione } from '@/lib/actions'
 
+// I riassunti nuovi hanno msgId (per il link "apri") e, in sospeso, "chi".
+// I vecchi possono avere inSospeso come semplici stringhe: si gestiscono entrambi.
+type Parte = { chi: string; punto: string; msgId?: string | null }
+type Sospeso = string | { cosa: string; chi?: string; msgId?: string | null }
 type Analisi = {
   sintesi: string
-  parti: { chi: string; punto: string }[]
-  inSospeso: string[]
+  parti: Parte[]
+  inSospeso: Sospeso[]
+}
+
+/** Il link "→ apri" al messaggio dove sta il passaggio (se lo conosciamo). */
+function ApriMsg({ msgId }: { msgId?: string | null }) {
+  if (!msgId) return null
+  return (
+    <Link
+      href={`/messaggio/${msgId}`}
+      style={{ marginLeft: 6, fontSize: 12.5, textDecoration: 'underline', whiteSpace: 'nowrap' }}
+      title="Apri la mail dove c’è questo passaggio"
+    >
+      → apri
+    </Link>
+  )
 }
 type Salvato = {
   analisi: Analisi
@@ -66,6 +85,7 @@ export function RiassuntoConversazione({
               {dati.analisi.parti.map((p, i) => (
                 <div key={i}>
                   <strong>{p.chi}</strong>: {p.punto}
+                  <ApriMsg msgId={p.msgId} />
                 </div>
               ))}
             </div>
@@ -75,9 +95,23 @@ export function RiassuntoConversazione({
             <div style={{ marginTop: 12 }}>
               <div style={{ fontWeight: 600 }}>In sospeso</div>
               <ul style={{ margin: '4px 0 0 18px' }}>
-                {dati.analisi.inSospeso.map((s, i) => (
-                  <li key={i} style={{ marginTop: 2 }}>{s}</li>
-                ))}
+                {dati.analisi.inSospeso.map((s, i) => {
+                  // Vecchi riassunti: stringa. Nuovi: { cosa, chi, msgId }.
+                  if (typeof s === 'string') {
+                    return <li key={i} style={{ marginTop: 2 }}>{s}</li>
+                  }
+                  return (
+                    <li key={i} style={{ marginTop: 2 }}>
+                      {s.cosa}
+                      {s.chi && (
+                        <span className="muted">
+                          {' '}— si aspetta da <strong>{s.chi}</strong>
+                        </span>
+                      )}
+                      <ApriMsg msgId={s.msgId} />
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           )}
