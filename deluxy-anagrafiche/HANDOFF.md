@@ -152,9 +152,15 @@ Interne `/api/interno/*` (solo UI, cookie di sessione, NON per le app): `cerca-p
 **Chiavi**: una per app, in `<app>/.env` (gitignored), mai committare i valori. Rigenera con
 `npm run chiave -- <nome-app> [--scrittura]` (stampa la chiave una volta; nel DB solo l'hash;
 la upsert è per `nome`, quindi rigenerare **ruota** l'hash: la vecchia chiave smette di valere).
-Scope chiavi: `scrittura` (partner completo) e **`scritturaReferenti`** (solo archivio referenti,
-`--scrittura-referenti`, es. `deluxy-scout-referenti` per l'endpoint /referenti/archivia — non
-tocca il golden record). `autentica(req, {referenti:true})` passa con scrittura piena O referenti.
+Scope chiavi (3 oltre la sola lettura):
+- **`scrittura`** — partner completo, PATCH/DELETE inclusi (deluxy-platform, deluxy-partner).
+- **`scritturaPartner`** (`--scrittura-partner`, es. `deluxy-scout-partner`) — **solo `POST /partners`**
+  (no PATCH/DELETE → 403) E può impostare **stato/interessi** (driver di prima parte: Scout dichiara
+  «cliente»→attivo, con audit in `PassaggioStato`). Le chiavi `scrittura` generiche NON sbloccano i
+  curati (restano proposte). Sblocco gestito in `calcolaMerge(..., {sbloccaCurati})` + create path;
+  `autentica(req, {partner:true})` passa con scrittura piena O scritturaPartner.
+- **`scritturaReferenti`** (`--scrittura-referenti`, es. `deluxy-scout-referenti`) — solo
+  /referenti/archivia. `autentica(req, {referenti:true})` passa con scrittura piena O referenti.
 Le app con chiave: `deluxy-platform` (scrittura), **`deluxy-partner` (scrittura dal 20/07/2026**,
 ruotata da lettura → la vecchia read key non vale più, aggiornare `ANAGRAFICHE_API_KEY` in
 deluxy-partner sia per lettura che scrittura), `deluxy-suppliers`, `deluxy-scout` (lettura). Il

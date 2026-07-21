@@ -1,3 +1,19 @@
+> ✅ **EVASA dal registro il 21/07/2026.** Live su `https://deluxy-anagrafiche.vercel.app`.
+> 1. **Chiave** `deluxy-scout-partner` con **scope POST-only** (`scritturaPartner`): può fare
+>    `POST /api/v1/partners` ma **non** PATCH/DELETE (verificato: entrambi → 403). Consegnata a parte
+>    → impostala come `ANAGRAFICHE_PARTNER_KEY`.
+> 2. **Endpoint**: nessuno nuovo, `POST /api/v1/partners` come da vostro body. Identità per
+>    `sistema=scout`+`idEsterno` (crea → poi merge). Testato create e update.
+> 3. **Stato/interessi SBLOCCATI per Scout**: normalmente sono curati dal team e ignorati; per la
+>    chiave `scritturaPartner` (Scout) si applicano. `cliente→attivo` funziona davvero, con **audit
+>    in `PassaggioStato`** (origine `scout`). Verificato: `prospect→attivo` loggato.
+> 4. **Mappatura stato confermata** (cliente→attivo ok). **Interessi**: mandate le chiavi esatte del
+>    catalogo — `consegne · affiliazione · gifting · catering · eventi · pr_activation · in_store · vendor`
+>    (minuscole). «Consegne»→`consegne` combacia; nomi fuori catalogo scartati. Se una vostra linea
+>    non c'è, ditemelo e la aggiungo (siete master delle linee).
+> ⚠️ Il `POST` richiede **sempre `nome`**, anche negli update: mandate il body completo ogni volta
+> (come nel vostro esempio) — un POST col solo `stato` viene rifiutato (400).
+
 # Richiesta a Deluxy Anagrafiche — sincronizzazione negozi da Scout
 
 Deluxy Scout deve **portare nel registro i negozi lavorati**: quando in Scout un
