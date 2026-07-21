@@ -13,6 +13,7 @@ import { PriorityBadge } from '@/components/PriorityBadge';
 import { PercorsoCliente } from '@/components/PercorsoCliente';
 import { TaskFormModal } from '@/components/TaskFormModal';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
+import { FinanceCard } from '@/components/FinanceCard';
 import { Loader } from '../../_layout';
 
 // Etichette leggibili per l'esito visita (mai il valore tecnico con underscore).
@@ -213,6 +214,11 @@ export default function SchedaAttivita() {
         </View>
 
         <AnagraficaRegistroCard nome={place.nome} citta={place.zona} />
+
+        {/* FINANCE: fatturato + andamento del cliente (solo per clienti/partner). */}
+        <View style={{ marginTop: spacing.md }}>
+          <FinanceCard nomeCliente={place.nome} mostra={place.stato === 'cliente' || place.anagrafiche_stato === 'attivo'} />
+        </View>
 
         <Text style={styles.interesseLbl}>Tipologia di interesse — scegline una o più</Text>
         <LineaSelector

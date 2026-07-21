@@ -1,9 +1,10 @@
-// Edge Function `proforma` (Deno): proxy verso l'API pro-forma di Deluxy
-// Partner. Custodisce la chiave `PARTNER_API_KEY` come secret (mai nel bundle
-// dell'app) e inoltra le azioni:
-//   { azione: 'crea',     partner, oggetto?, scadenza?, note?, righe: [...] }  → POST /api/proforma
-//   { azione: 'conferma', numero | id, fatturaNumero? }                        → PATCH /api/proforma
+// Edge Function `proforma` (Deno): proxy verso Deluxy Partner (FINANCE).
+// Custodisce la chiave `PARTNER_API_KEY` (dal vault hub, fallback env) e inoltra:
+//   { azione: 'crea',      partner, oggetto?, scadenza?, note?, righe: [...] } → POST  /api/proforma
+//   { azione: 'conferma',  numero | id, fatturaNumero? }                       → PATCH /api/proforma
+//   { azione: 'riepilogo', partner }                                           → GET   /api/riepilogo-finanziario
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { chiaveHub } from '../_shared/chiavi.ts';
 
 const BASE = Deno.env.get('PARTNER_URL') ?? 'https://deluxy-partner.vercel.app';
 
@@ -21,7 +22,7 @@ function json(body: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    const key = Deno.env.get('PARTNER_API_KEY');
+    const key = await chiaveHub('PARTNER_API_KEY'); // vault hub, fallback env
     if (!key) return json({ error: 'PARTNER_API_KEY non configurata' }, 500);
 
     // Autenticazione: chi chiama dev'essere un utente Scout loggato.
@@ -60,6 +61,11 @@ Deno.serve(async (req) => {
           fatturaNumero: body.fatturaNumero ?? undefined,
         }),
       });
+    } else if (body.azione === 'riepilogo') {
+      // Riepilogo finanziario del cliente (fatturato + andamento). L'app gestisce
+      // con grazia se l'endpoint non esiste ancora su Partner.
+      const p = new URLSearchParams({ partner: String(body.partner ?? '') });
+      res = await fetch(`${BASE}/api/riepilogo-finanziario?${p.toString()}`, { headers });
     } else {
       return json({ error: `Azione sconosciuta: ${body.azione}` }, 400);
     }
