@@ -145,12 +145,16 @@ Pubbliche `/api/v1` — auth header `x-api-key: <chiave>` (o `Authorization: Bea
 | POST | `/api/v1/partners` | scrittura | Upsert-merge; body opzionale `sistema`,`idEsterno`,`asOf` |
 | PATCH | `/api/v1/partners/:id` | scrittura | Aggiornamento parziale mirato |
 | DELETE | `/api/v1/partners/:id` | scrittura | Soft delete (attivo=false) |
+| POST | `/api/v1/referenti/archivia` | referenti | Archivia/ripristina un referente (Scout): `{riferimento?{sistema,idEsterno}, negozio?, citta?, referente{email?,telefono?,nome?}, archiviato?}` → trova partner (xref→negozio+città) e referente (email>tel>nome), setta `Contatto.archiviato`. `200 {ok:true}` / `404 {ok:false, reason}` |
 
 Interne `/api/interno/*` (solo UI, cookie di sessione, NON per le app): `cerca-partner`, `cerca-hubspot`.
 
 **Chiavi**: una per app, in `<app>/.env` (gitignored), mai committare i valori. Rigenera con
 `npm run chiave -- <nome-app> [--scrittura]` (stampa la chiave una volta; nel DB solo l'hash;
 la upsert è per `nome`, quindi rigenerare **ruota** l'hash: la vecchia chiave smette di valere).
+Scope chiavi: `scrittura` (partner completo) e **`scritturaReferenti`** (solo archivio referenti,
+`--scrittura-referenti`, es. `deluxy-scout-referenti` per l'endpoint /referenti/archivia — non
+tocca il golden record). `autentica(req, {referenti:true})` passa con scrittura piena O referenti.
 Le app con chiave: `deluxy-platform` (scrittura), **`deluxy-partner` (scrittura dal 20/07/2026**,
 ruotata da lettura → la vecchia read key non vale più, aggiornare `ANAGRAFICHE_API_KEY` in
 deluxy-partner sia per lettura che scrittura), `deluxy-suppliers`, `deluxy-scout` (lettura). Il

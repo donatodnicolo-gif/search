@@ -1,3 +1,16 @@
+> ✅ **EVASA dal registro il 21/07/2026.** Le tre cose ci sono, live su
+> `https://deluxy-anagrafiche.vercel.app`:
+> 1. `Contatto.archiviato` (+ `archiviatoIl`) sul modello — i referenti archiviati
+>    spariscono da rubrica /contatti e dalla scheda partner.
+> 2. Endpoint `POST /api/v1/referenti/archivia` come da spec (xref `scout`+idEsterno →
+>    negozio+città in fallback; referente per email>telefono>nome; idempotente;
+>    `200 {ok:true}` / `404 {ok:false, reason:"partner_non_trovato"|"referente_non_trovato"}`).
+>    Testato in produzione end-to-end.
+> 3. Chiave con scope ristretto ai referenti (`scritturaReferenti`): **`deluxy-scout-referenti`**.
+>    Non può scrivere il partner (verificato: POST /partners → 403). La chiave è stata
+>    consegnata a parte (non in questo file): impostala come secret `ANAGRAFICHE_WRITE_KEY`.
+> Body accettato esattamente come sotto. Nessuna modifica lato Scout necessaria.
+
 # Richiesta a Deluxy Anagrafiche — archiviazione di un referente da Scout
 
 Deluxy Scout, dalla Rubrica, permette di **archiviare un contatto (referente)** di
