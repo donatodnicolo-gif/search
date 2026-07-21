@@ -3,6 +3,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, Vi
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Contact, Deal, Place, Visit } from '@/types';
+import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
 import { aggiornaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
@@ -104,7 +105,7 @@ export default function SchedaAttivita() {
     setPlace(p);
     // Tipologia di interesse: parte dal valore salvato; il registro (Anagrafiche)
     // può poi sovrascriverlo come default finché l'utente non modifica a mano.
-    const inizLinee = p?.linee_ipotizzate ?? (p?.linea_ipotizzata ? [p.linea_ipotizzata] : []);
+    const inizLinee = canonizzaLinee(p?.linee_ipotizzate ?? (p?.linea_ipotizzata ? [p.linea_ipotizzata] : []));
     setLinee(inizLinee);
     setLineeSalvate(inizLinee);
     utenteHaEditato.current = false;
@@ -310,7 +311,7 @@ export default function SchedaAttivita() {
           <Text style={styles.interesseLbl}>Tipologia di interesse — scegline una o più</Text>
           <Text style={styles.interesseNota}>Default dal registro Anagrafiche · modificabile</Text>
         </View>
-        <LineaSelector value={linee} onChange={cambiaLinee} />
+        <LineaSelector value={linee} onChange={cambiaLinee} soloCanoniche />
         {lineeDaSalvare ? (
           <Pressable
             style={[styles.btnSalvaLinee, salvandoLinee && { opacity: 0.6 }]}

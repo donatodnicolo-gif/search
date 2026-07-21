@@ -115,6 +115,28 @@ export const LINEE: LineaNome[] = [
 // Linee attive: usabili come tipologia di interesse primaria (esclude le standby).
 export const LINEE_ATTIVE: LineaNome[] = LINEE.filter((l) => !LINEE_STANDBY.includes(l));
 
+// Alias di linee LEGACY → nome canonico del catalogo attuale (allineato ad
+// Anagrafiche). Serve a non mostrare più valori vecchi come "Regali aziendali"
+// o "Catering", ricondotti alla linea canonica corrispondente.
+const ALIAS_LINEE: Record<string, string> = {
+  'regali aziendali': 'Gifting',
+  regali: 'Gifting',
+  gifting: 'Gifting',
+  catering: 'Eventi & Catering',
+  eventi: 'Eventi & Catering',
+  'eventi & catering': 'Eventi & Catering',
+};
+
+/** Riconduce una lista di linee ai nomi canonici del catalogo (dedup, ordine invariato). */
+export function canonizzaLinee(linee: string[] | null | undefined): string[] {
+  const out: string[] = [];
+  for (const l of linee ?? []) {
+    const c = ALIAS_LINEE[l.trim().toLowerCase()] ?? l.trim();
+    if (c && !out.includes(c)) out.push(c);
+  }
+  return out;
+}
+
 export interface Place {
   id: string;
   nome: string;

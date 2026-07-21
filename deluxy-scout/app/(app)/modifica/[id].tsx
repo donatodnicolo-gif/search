@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { CategoryRule, Place, Priorita, Profilo, StatoAffiliazione } from '@/types';
-import { STATI_AFFILIAZIONE, affiliazioneDaStatoPlace, statoPlaceDaAffiliazione } from '@/types';
+import { STATI_AFFILIAZIONE, affiliazioneDaStatoPlace, canonizzaLinee, statoPlaceDaAffiliazione } from '@/types';
 import { coloreAffiliazione, colors, labelAffiliazione, radius, spacing } from '@/lib/theme';
 import { aggiornaPlace, fetchPlace, fetchProfiles, nomeDaProfilo, sincronizzaPlaceRegistro } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
@@ -59,7 +59,8 @@ export default function ModificaAttivita() {
         // Stato "vero" da Anagrafiche se presente, altrimenti derivato dallo stato di pipeline.
         setStatoAff(p.stato_affiliazione ?? affiliazioneDaStatoPlace[p.stato] ?? 'prospect');
         setAccount(p.anagrafiche_account ?? null);
-        setLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : []));
+        // Riconduci eventuali linee legacy (es. "Regali aziendali") ai nomi del catalogo.
+        setLinee(canonizzaLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : [])));
       }
       setLoading(false);
     })();
@@ -136,7 +137,7 @@ export default function ModificaAttivita() {
           </View>
 
           <Text style={styles.label}>Tipologia di interesse (linea)</Text>
-          <LineaSelector value={linee} onChange={setLinee} />
+          <LineaSelector value={linee} onChange={setLinee} soloCanoniche />
 
           <Text style={styles.label}>Priorità</Text>
           <View style={styles.chipWrap}>

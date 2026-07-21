@@ -10,9 +10,13 @@ import { colors, radius } from '@/lib/theme';
 export function LineaSelector({
   value,
   onChange,
+  soloCanoniche,
 }: {
   value: string[];
   onChange: (linee: string[]) => void;
+  // Mostra SOLO le linee del catalogo (= Anagrafiche): non aggiunge chip per
+  // valori legacy fuori catalogo. Il chiamante passa già valori canonici.
+  soloCanoniche?: boolean;
 }) {
   const [linee, setLinee] = useState<string[]>([...LINEE_ATTIVE]);
   useEffect(() => {
@@ -28,8 +32,9 @@ export function LineaSelector({
   function toggle(l: string) {
     onChange(value.includes(l) ? value.filter((x) => x !== l) : [...value, l]);
   }
-  // Include anche linee già selezionate ma non più attive (per non perderle).
-  const daMostrare = [...new Set([...linee, ...value])];
+  // Di norma include anche linee già selezionate ma non più attive (per non
+  // perderle). In modalità soloCanoniche si mostrano SOLO le linee del catalogo.
+  const daMostrare = soloCanoniche ? linee : [...new Set([...linee, ...value])];
   return (
     <View style={styles.wrap}>
       {daMostrare.map((l) => {
