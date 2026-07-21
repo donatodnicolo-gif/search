@@ -59,6 +59,10 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // sezione) e "AI Inbox" (solo i contatti col PLUS AI, in qualunque sezione).
   // Dentro una sezione la distinzione non serve.
   const vistaAI = !sezione && vista === 'ai'
+  // "Non smistate": la posta ancora grezza, che l'AI non ha ancora letto (nessuna
+  // priorità/analisi) e non è in una sezione. È il sottoinsieme di "In arrivo"
+  // che aspetta di essere gestito.
+  const vistaNonSmistate = !sezione && vista === 'nonsmistate'
   const emailAI = await emailContattiAI(u.id)
   const setAI = new Set(emailAI)
 
@@ -162,7 +166,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
           ? spamId
             ? { NOT: { sezioneId: spamId } }
             : {}
-          : { sezioneId: null }),
+          : vistaNonSmistate
+            ? { sezioneId: null, analizzatoIl: null }
+            : { sezioneId: null }),
       ...(stato === 'non-letti' ? { letto: false } : {}),
       ...(stato === 'da-rispondere' ? { serveRisposta: true } : {}),
       ...(p ? { priorita: p } : {}),
@@ -289,7 +295,10 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       <div className="page-head">
         <div style={{ minWidth: 0, flex: 1 }}>
           <h1 className="page-title">
-            {ricerca ? 'Ricerca' : (sezioneAttiva?.nome ?? (vistaAI ? 'AI Inbox' : 'Posta in arrivo'))}
+            {ricerca
+              ? 'Ricerca'
+              : (sezioneAttiva?.nome ??
+                (vistaAI ? 'AI Inbox' : vistaNonSmistate ? 'Non smistate' : 'Posta in arrivo'))}
           </h1>
           <p className="page-caption">
             {ricerca
@@ -298,7 +307,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                 ? sezioneAttiva.descrizione
                 : vistaAI
                   ? 'Solo i contatti col PLUS AI, con tutte le funzioni AI.'
-                  : 'La posta ancora da smistare. Quella già in una sezione la trovi nella barra a lato.'}
+                  : vistaNonSmistate
+                    ? 'La posta che l’AI non ha ancora letto (senza priorità) e non è in una sezione: il grezzo da gestire.'
+                    : 'La posta ancora da smistare. Quella già in una sezione la trovi nella barra a lato.'}
           </p>
           <div style={{ marginTop: 12, maxWidth: 460 }}>
             <RicercaMail iniziale={ricerca ? q : ''} />
@@ -311,6 +322,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             const params = new URLSearchParams()
             if (sezione) params.set('sezione', sezione)
             if (vistaAI) params.set('vista', 'ai')
+            if (vistaNonSmistate) params.set('vista', 'nonsmistate')
             if (p) params.set('p', p)
             if (f.chiave) params.set('stato', f.chiave)
             const attivo = (stato ?? '') === f.chiave
@@ -331,6 +343,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             const params = new URLSearchParams()
             if (sezione) params.set('sezione', sezione)
             if (vistaAI) params.set('vista', 'ai')
+            if (vistaNonSmistate) params.set('vista', 'nonsmistate')
             if (stato) params.set('stato', stato)
             const attivo = p === liv.codice
             // Ripremere il filtro attivo lo toglie.
@@ -353,11 +366,13 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       {!sezione && !ricerca && (
         <div className="vista-tabs">
           {[
-            { chiave: 'all', label: 'In arrivo', attivo: !vistaAI },
+            { chiave: 'all', label: 'In arrivo', attivo: !vistaAI && !vistaNonSmistate },
+            { chiave: 'nonsmistate', label: 'Non smistate', attivo: vistaNonSmistate },
             { chiave: 'ai', label: 'AI Inbox', attivo: vistaAI },
           ].map((v) => {
             const params = new URLSearchParams()
             if (v.chiave === 'ai') params.set('vista', 'ai')
+            if (v.chiave === 'nonsmistate') params.set('vista', 'nonsmistate')
             if (stato) params.set('stato', stato)
             if (p) params.set('p', p)
             const qs = params.toString()
