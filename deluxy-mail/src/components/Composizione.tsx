@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { inviaMessaggio, salvaMinuta } from '@/lib/actions'
 import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
+import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
 import { mettiFlash } from './Flash'
 import type { Modo } from '@/lib/rispondi'
 
@@ -16,9 +17,11 @@ type Props = {
   tornaA: string
   /** Valorizzato quando si sta riprendendo una bozza già salvata. */
   bozzaId?: string
+  /** La rubrica, per suggerire i destinatari mentre scrivi. */
+  contatti?: ContattoRubrica[]
 }
 
-export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId }: Props) {
+export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId, contatti = [] }: Props) {
   const [a, setA] = useState(iniziale.a)
   const [cc, setCc] = useState(iniziale.cc)
   const [oggetto, setOggetto] = useState(iniziale.oggetto)
@@ -83,11 +86,11 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId 
           <label className="field-label">
             A <span className="req">*</span>
           </label>
-          <input
-            type="text"
+          <CampoDestinatari
             value={a}
-            onChange={(e) => setA(e.target.value)}
-            placeholder={modo === 'inoltra' ? 'A chi lo inoltri?' : ''}
+            onChange={setA}
+            contatti={contatti}
+            placeholder={modo === 'inoltra' ? 'A chi lo inoltri? (scrivi un nome per cercarlo in rubrica)' : 'Nome o email (dalla rubrica)'}
             autoFocus={modo === 'inoltra'}
           />
         </div>
@@ -95,7 +98,7 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId 
         {(modo === 'tutti' || cc) && (
           <div className="full">
             <label className="field-label">Cc</label>
-            <input type="text" value={cc} onChange={(e) => setCc(e.target.value)} />
+            <CampoDestinatari value={cc} onChange={setCc} contatti={contatti} />
           </div>
         )}
 

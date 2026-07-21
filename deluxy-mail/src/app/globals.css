@@ -243,6 +243,41 @@ input:focus, select:focus, textarea:focus {
 }
 .risposta-btn:hover { background: var(--ink); color: #fff; border-color: transparent; }
 
+/* Autocompletamento destinatari dalla rubrica (campo A / Cc in scrittura). */
+.rubrica-suggerimenti {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow-menu, 0 8px 24px rgba(0, 0, 0, 0.12));
+  padding: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.rubrica-voce {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.rubrica-voce:hover,
+.rubrica-voce.attiva {
+  background: var(--fill);
+}
+.rubrica-voce .muted {
+  color: var(--text-secondary);
+}
+
 /* Evidenziazione della parola cercata nello snippet dei risultati di ricerca. */
 mark.ricerca-hit {
   background: rgba(184, 150, 62, 0.22);

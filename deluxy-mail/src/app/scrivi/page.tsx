@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { ComposizioneNuova } from '@/components/ComposizioneNuova'
 import { richiediUtente } from '@/lib/sessione'
+import { elencoContatti } from '@/lib/contatti'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +49,8 @@ export default async function Scrivi({ searchParams }: Props) {
     ? { a: bozza.a, cc: bozza.cc, oggetto: bozza.oggetto, corpo: bozza.corpo }
     : { a: a ?? '', cc: '', oggetto: '', corpo: u.firma ? `\n\n${u.firma}` : '' }
 
+  const contatti = (await elencoContatti(u.id)).map((c) => ({ email: c.email, nome: c.nome }))
+
   return (
     <>
       <div className="page-head">
@@ -66,6 +69,7 @@ export default async function Scrivi({ searchParams }: Props) {
         da={`${account.nome} <${account.email}>`}
         iniziale={iniziale}
         bozzaId={bozza?.id}
+        contatti={contatti}
       />
     </>
   )

@@ -6,6 +6,7 @@ import { Composizione } from '@/components/Composizione'
 import { richiediUtente } from '@/lib/sessione'
 import { traduciMessaggioSeServe } from '@/lib/sync'
 import { leggiSenzaTraduzione, lingueLetteDi } from '@/lib/lingue'
+import { elencoContatti } from '@/lib/contatti'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,6 +50,8 @@ export default async function Scrivi({ params, searchParams }: Props) {
   const rispostaTradotta =
     modo !== 'inoltra' && !leggiSenzaTraduzione(lingua, lingueLetteDi(u.lingueLette)) ? lingua : null
 
+  const contatti = (await elencoContatti(u.id)).map((c) => ({ email: c.email, nome: c.nome }))
+
   return (
     <>
       <div className="page-head">
@@ -83,6 +86,7 @@ export default async function Scrivi({ params, searchParams }: Props) {
         iniziale={iniziale}
         tornaA={`/messaggio/${id}`}
         bozzaId={bozza?.id}
+        contatti={contatti}
       />
     </>
   )
