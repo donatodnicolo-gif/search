@@ -6,7 +6,7 @@ import { prisma } from "./db";
 // Nel database c'è solo lo SHA-256 della chiave. Le chiavi si creano con
 // `npm run chiave -- <nome-app> [--scrittura]`.
 
-export type ClientApi = { id: string; nome: string; scrittura: boolean };
+export type ClientApi = { id: string; nome: string; scrittura: boolean; scritturaReferenti: boolean };
 
 export function erroreApi(status: number, messaggio: string) {
   return NextResponse.json({ errore: messaggio }, { status });
@@ -22,7 +22,7 @@ function estraiChiave(req: NextRequest): string | null {
 
 export async function autentica(
   req: NextRequest,
-  opzioni: { scrittura?: boolean } = {},
+  opzioni: { scrittura?: boolean; referenti?: boolean } = {},
 ): Promise<ClientApi | NextResponse> {
   const chiave = estraiChiave(req);
   if (!chiave) {
@@ -34,9 +34,18 @@ export async function autentica(
   if (opzioni.scrittura && !record.scrittura) {
     return erroreApi(403, "Questa chiave è di sola lettura");
   }
+  // Scope referenti: passa una chiave di scrittura piena O una ristretta ai referenti.
+  if (opzioni.referenti && !record.scrittura && !record.scritturaReferenti) {
+    return erroreApi(403, "Questa chiave non può scrivere sui referenti");
+  }
   // Traccia l'ultimo uso senza bloccare la risposta
   prisma.apiKey
     .update({ where: { id: record.id }, data: { ultimoUso: new Date() } })
     .catch(() => {});
-  return { id: record.id, nome: record.nome, scrittura: record.scrittura };
+  return {
+    id: record.id,
+    nome: record.nome,
+    scrittura: record.scrittura,
+    scritturaReferenti: record.scritturaReferenti,
+  };
 }

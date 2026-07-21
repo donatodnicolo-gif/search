@@ -19,7 +19,7 @@ export default async function Contatti({ searchParams }: { searchParams: Promise
   const filtri = await searchParams;
   const pagina = Math.max(1, Number(filtri.pagina) || 1);
 
-  const where: Prisma.ContattoWhereInput = { partner: { attivo: true } };
+  const where: Prisma.ContattoWhereInput = { partner: { attivo: true }, archiviato: false };
   if (filtri.q) {
     const q = filtri.q;
     where.OR = [
@@ -49,10 +49,10 @@ export default async function Contatti({ searchParams }: { searchParams: Promise
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
     }),
-    prisma.contatto.count({ where: { partner: { attivo: true } } }),
-    prisma.contatto.count({ where: { partner: { attivo: true }, telefono: { not: null } } }),
-    prisma.contatto.count({ where: { partner: { attivo: true }, email: { not: null } } }),
-    prisma.contatto.count({ where: { partner: { attivo: true }, fonte: "hubspot" } }),
+    prisma.contatto.count({ where: { partner: { attivo: true }, archiviato: false } }),
+    prisma.contatto.count({ where: { partner: { attivo: true }, archiviato: false, telefono: { not: null } } }),
+    prisma.contatto.count({ where: { partner: { attivo: true }, archiviato: false, email: { not: null } } }),
+    prisma.contatto.count({ where: { partner: { attivo: true }, archiviato: false, fonte: "hubspot" } }),
   ]);
 
   const righe: RigaContatto[] = contatti.map((c) => ({

@@ -95,6 +95,8 @@ model Contatto {
   fonte     String? // sorgente che ha inserito il referente (per il merge)
   hubspotId String? // id del contatto nel CRM HubSpot (per aprirlo)
   nomeRubrica String? // nome con cui salvarlo in rubrica Google; se vuoto: [STATO] [AZIENDA] [CITTÀ] [Nome]
+  archiviato   Boolean   @default(false) // referente archiviato (es. da Scout): escluso da rubrica/elenchi
+  archiviatoIl DateTime?
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   @@index([partnerId])
@@ -156,7 +158,8 @@ model ApiKey {
   id        String    @id @default(cuid())
   nome      String    @unique // app client: deluxy-platform, deluxy-partner, ...
   hash      String    @unique // sha256 esadecimale della chiave
-  scrittura Boolean   @default(false) // true = può creare/modificare/disattivare
+  scrittura Boolean   @default(false) // true = può creare/modificare/disattivare il partner
+  scritturaReferenti Boolean @default(false) // true = può solo archiviare i referenti (scope ristretto, es. Scout)
   attiva    Boolean   @default(true)
   creataIl  DateTime  @default(now())
   ultimoUso DateTime?

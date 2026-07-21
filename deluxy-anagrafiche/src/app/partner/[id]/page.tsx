@@ -35,7 +35,7 @@ export default async function Dettaglio({
   const p = await prisma.partner.findUnique({
     where: { id },
     include: {
-      contatti: true,
+      contatti: { where: { archiviato: false } },
       passaggi: { orderBy: { creatoIl: "desc" } },
       capogruppo: { select: { id: true, nome: true, citta: true } },
       sedi: {
