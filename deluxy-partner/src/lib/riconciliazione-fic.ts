@@ -35,6 +35,10 @@ export function campiProposti(d: FicClienteFiscale) {
     .join(", ")
     .trim();
   return {
+    // il nome fiscale del cliente FIC (intestazione della fattura) è la ragione
+    // sociale: nel registro il "nome" è l'insegna, la "ragioneSociale" è la
+    // denominazione legale. Finora non veniva propagata → restava vuota ovunque.
+    ...(d.nome ? { ragioneSociale: d.nome } : {}),
     ...(d.piva ? { pIva: d.piva } : {}),
     ...(d.codiceFiscale ? { codiceFiscale: d.codiceFiscale } : {}),
     ...(indirizzo ? { indirizzo } : {}),
