@@ -71,28 +71,29 @@ export async function confermaPagamentoProforma(numero: string): Promise<void> {
 
 // ── Riepilogo finanziario del cliente (fatturato + andamento) da FINANCE ────────
 
+// Forma reale della risposta di /api/riepilogo-finanziario di Deluxy Partner.
 export interface RiepilogoFinanziario {
-  trovato: boolean;
-  partner?: string;
-  anno?: number;
-  fatturato?: number; // anno corrente
-  fatturatoPrec?: number; // anno precedente
-  variazionePct?: number | null; // % vs anno precedente
-  mesi?: { mese: number; valore: number }[]; // andamento mensile anno corrente
-  aggiornato?: string;
+  partner: { id: string; nome: string } | null;
+  anno: number;
+  annoPrec: number;
+  base?: string; // descrizione dell'aggregato (es. "vendite vendor + servizi fatturati")
+  fatturato: number; // anno corrente (year-to-date)
+  fatturatoPrec: number; // stesso periodo anno precedente
+  variazionePct: number | null; // % vs anno precedente
+  mesi: number[]; // 12 valori, indice 0 = gennaio
+  mesiPrec?: number[];
+  url?: string; // pagina del partner su deluxy-partner
 }
 
 /**
  * Chiede a Deluxy Partner (FINANCE) quanto sta facendo un cliente: fatturato
- * dell'anno + andamento mensile. Tollerante: ritorna null se l'endpoint non è
- * ancora disponibile o il cliente non è nel FINANCE — la UI semplicemente non
- * mostra la card.
+ * dell'anno + andamento mensile. Tollerante: ritorna null se il cliente non è
+ * nel FINANCE (404) o l'endpoint non è raggiungibile — la UI non mostra la card.
  */
 export async function riepilogoFinanziario(cliente: string): Promise<RiepilogoFinanziario | null> {
   try {
-    const r = await chiama<RiepilogoFinanziario & { disponibile?: boolean }>({ azione: 'riepilogo', partner: cliente });
-    if (r?.disponibile === false || r?.trovato === false) return r?.trovato === false ? { trovato: false } : null;
-    return r ?? null;
+    const r = await chiama<RiepilogoFinanziario>({ azione: 'riepilogo', partner: cliente });
+    return r && r.fatturato != null ? r : null;
   } catch {
     return null;
   }

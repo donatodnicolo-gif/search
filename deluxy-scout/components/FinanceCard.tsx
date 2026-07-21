@@ -24,7 +24,7 @@ export function FinanceCard({ nomeCliente, mostra }: { nomeCliente: string; most
     riepilogoFinanziario(nomeCliente)
       .then((res) => {
         if (!vivo) return;
-        if (res?.trovato && (res.fatturato != null || (res.mesi?.length ?? 0) > 0)) {
+        if (res && res.fatturato != null) {
           setR(res);
           setStato('ok');
         } else {
@@ -54,7 +54,7 @@ export function FinanceCard({ nomeCliente, mostra }: { nomeCliente: string; most
   }
 
   const mesi = r?.mesi ?? [];
-  const max = Math.max(1, ...mesi.map((m) => m.valore));
+  const max = Math.max(1, ...mesi);
   const varPct = r?.variazionePct;
   const su = (varPct ?? 0) >= 0;
 
@@ -83,18 +83,18 @@ export function FinanceCard({ nomeCliente, mostra }: { nomeCliente: string; most
 
       {mesi.length ? (
         <View style={styles.chart}>
-          {mesi.map((m) => (
-            <View key={m.mese} style={styles.barCol}>
+          {mesi.map((v, i) => (
+            <View key={i} style={styles.barCol}>
               <View style={styles.barTrack}>
-                <View style={[styles.bar, { height: `${Math.round((m.valore / max) * 100)}%` }]} />
+                <View style={[styles.bar, { height: `${Math.round((v / max) * 100)}%` }]} />
               </View>
-              <Text style={styles.barLabel}>{MESI[(m.mese - 1) % 12]}</Text>
+              <Text style={styles.barLabel}>{MESI[i % 12]}</Text>
             </View>
           ))}
         </View>
       ) : null}
 
-      <Text style={styles.nota}>Dati da Deluxy Partner (Finance).</Text>
+      <Text style={styles.nota}>{r?.base ? `${r.base} · ` : ''}Dati da Deluxy Partner.</Text>
     </View>
   );
 }
