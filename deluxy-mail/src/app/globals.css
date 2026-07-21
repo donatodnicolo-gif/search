@@ -785,6 +785,25 @@ input:focus, select:focus, textarea:focus {
 /* Fondo lista: pulsante/sentinella per caricare altre conversazioni. */
 .mail-carica { display: flex; justify-content: center; padding: 16px; }
 
+/* ---------- Barra di ricerca ---------- */
+.ricerca-mail {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill); padding: 6px 14px;
+}
+.ricerca-mail:focus-within { border-color: var(--gold-strong); }
+.ricerca-icona { color: var(--text-tertiary); font-size: 17px; flex: 0 0 auto; }
+.ricerca-mail input {
+  flex: 1; min-width: 0; border: none; background: none; padding: 2px 0;
+  font-size: 14px; outline: none;
+}
+.ricerca-mail input::-webkit-search-cancel-button { display: none; }
+.ricerca-pulisci {
+  border: none; background: none; cursor: pointer;
+  color: var(--text-tertiary); font-size: 14px; padding: 2px 4px; flex: 0 0 auto;
+}
+.ricerca-pulisci:hover { color: var(--text-primary); }
+
 /* ---------- Avviso "verde" (es. messaggio inviato) ---------- */
 .flash {
   position: fixed; top: 18px; left: 50%; transform: translateX(-50%);

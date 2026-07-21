@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { PRIORITA } from '@/lib/format'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
 import { NuoveAzioni } from '@/components/NuoveAzioni'
+import { RicercaMail } from '@/components/RicercaMail'
 import { CarteApp } from '@/components/CarteApp'
 import { InvioAppDialog } from '@/components/InvioAppDialog'
 import { DelegaReneDialog } from '@/components/DelegaRene'
@@ -22,11 +23,13 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 type Props = {
-  searchParams: Promise<{ sezione?: string; stato?: string; p?: string; vista?: string }>
+  searchParams: Promise<{ sezione?: string; stato?: string; p?: string; vista?: string; q?: string }>
 }
 
 export default async function PostaInArrivo({ searchParams }: Props) {
-  const { sezione, stato, p, vista } = await searchParams
+  const { sezione, stato, p, vista, q: qGrezzo } = await searchParams
+  const q = (qGrezzo ?? '').trim()
+  const ricerca = q.length >= 2
   const u = await richiediUtente()
 
   // Due viste: "In arrivo" (predefinita: la posta non ancora smistata in una
@@ -94,8 +97,23 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   })
   const spamId = spamSez?.id ?? null
 
+  // In RICERCA la posta si guarda tutta: ricevute e inviate, in qualunque
+  // sezione (tranne il cestino). I filtri sezione/vista non si applicano.
+  const whereRicerca = {
+    utenteId: u.id,
+    cestinato: false,
+    OR: [
+      { oggetto: { contains: q, mode: 'insensitive' as const } },
+      { mittente: { contains: q, mode: 'insensitive' as const } },
+      { mittenteNome: { contains: q, mode: 'insensitive' as const } },
+      { destinatari: { contains: q, mode: 'insensitive' as const } },
+      { corpoTesto: { contains: q, mode: 'insensitive' as const } },
+      { corpoTradotto: { contains: q, mode: 'insensitive' as const } },
+    ],
+  }
+
   const messaggi = await db.messaggio.findMany({
-    where: {
+    where: ricerca ? whereRicerca : {
       utenteId: u.id,
       // Il cestino ha una pagina sua: qui non si vede mai, nemmeno fra gli
       // archiviati o filtrando per sezione.
@@ -176,6 +194,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       parti: new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size,
       nonLetti: g.some((x) => !x.letto),
       contattoAI: setAI.has(m.mittente.toLowerCase()),
+      // In ricerca compaiono anche le mail INVIATE: le mostriamo col "a …".
+      inviata: m.direzione === 'uscita',
+      destinatari: m.destinatari,
     }
   })
 
@@ -193,22 +214,27 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   return (
     <>
       <div className="page-head">
-        <div>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <h1 className="page-title">
-            {sezioneAttiva?.nome ?? (vistaAI ? 'AI Inbox' : 'Posta in arrivo')}
+            {ricerca ? 'Ricerca' : (sezioneAttiva?.nome ?? (vistaAI ? 'AI Inbox' : 'Posta in arrivo'))}
           </h1>
           <p className="page-caption">
-            {sezioneAttiva
-              ? sezioneAttiva.descrizione
-              : vistaAI
-                ? 'Solo i contatti col PLUS AI, con tutte le funzioni AI.'
-                : 'La posta ancora da smistare. Quella già in una sezione la trovi nella barra a lato.'}
+            {ricerca
+              ? `Risultati per «${q}» — ricevute e inviate.`
+              : sezioneAttiva
+                ? sezioneAttiva.descrizione
+                : vistaAI
+                  ? 'Solo i contatti col PLUS AI, con tutte le funzioni AI.'
+                  : 'La posta ancora da smistare. Quella già in una sezione la trovi nella barra a lato.'}
           </p>
+          <div style={{ marginTop: 12, maxWidth: 460 }}>
+            <RicercaMail iniziale={ricerca ? q : ''} />
+          </div>
         </div>
         <div className="page-actions filters">
           <NuoveAzioni />
 
-          {filtri.map((f) => {
+          {!ricerca && filtri.map((f) => {
             const params = new URLSearchParams()
             if (sezione) params.set('sezione', sezione)
             if (vistaAI) params.set('vista', 'ai')
@@ -226,9 +252,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             )
           })}
 
-          <span style={{ width: 1, height: 22, background: 'var(--hairline-strong)', margin: '0 2px' }} />
+          {!ricerca && <span style={{ width: 1, height: 22, background: 'var(--hairline-strong)', margin: '0 2px' }} />}
 
-          {PRIORITA.map((liv) => {
+          {!ricerca && PRIORITA.map((liv) => {
             const params = new URLSearchParams()
             if (sezione) params.set('sezione', sezione)
             if (vistaAI) params.set('vista', 'ai')
@@ -250,8 +276,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         </div>
       </div>
 
-      {/* Le due viste: AI Inbox e Tutte. Dentro una sezione non compaiono. */}
-      {!sezione && (
+      {/* Le due viste: AI Inbox e Tutte. Dentro una sezione o in ricerca no. */}
+      {!sezione && !ricerca && (
         <div className="vista-tabs">
           {[
             { chiave: 'all', label: 'In arrivo', attivo: !vistaAI },
@@ -283,12 +309,18 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         <div className="card tight">
         {messaggi.length === 0 ? (
           <div className="empty">
-            <div className="empty-icon">{vistaAI && emailAI.length === 0 ? 'AI' : '✓'}</div>
+            <div className="empty-icon">{ricerca ? '⌕' : vistaAI && emailAI.length === 0 ? 'AI' : '✓'}</div>
             <div className="empty-title">
-              {vistaAI && emailAI.length === 0 ? 'Nessun contatto col PLUS AI' : 'Niente da vedere qui'}
+              {ricerca
+                ? 'Nessun risultato'
+                : vistaAI && emailAI.length === 0
+                  ? 'Nessun contatto col PLUS AI'
+                  : 'Niente da vedere qui'}
             </div>
             <p className="empty-text">
-              {vistaAI && emailAI.length === 0 ? (
+              {ricerca ? (
+                <>Nessuna mail (ricevuta o inviata) contiene «{q}».</>
+              ) : vistaAI && emailAI.length === 0 ? (
                 <>
                   Apri una mail (o una scheda in Rubrica) e premi <strong>+ AI</strong> per
                   seguirne il contatto qui. Intanto trovi la posta in{' '}

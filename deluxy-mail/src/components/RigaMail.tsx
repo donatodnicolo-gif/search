@@ -36,6 +36,9 @@ export type RigaData = {
   parti: number
   nonLetti: boolean
   contattoAI: boolean
+  /** Solo nei risultati di ricerca: true se è una mail che hai inviato tu. */
+  inviata?: boolean
+  destinatari?: string
 }
 
 /** Una riga della posta in arrivo. Client: monta i pulsanti interattivi. */
@@ -46,7 +49,10 @@ export function RigaMail({ r }: { r: RigaData }) {
         <Link href={`/messaggio/${r.id}`} className="mail-row-link">
           <div className="mail-top">
             <span className={r.nonLetti ? 'dot-unread' : 'dot-spacer'} />
-            <span className="mail-mittente">{r.mittenteNome || r.mittente}</span>
+            <span className="mail-mittente">
+              {r.inviata ? `a ${r.destinatari || '—'}` : r.mittenteNome || r.mittente}
+            </span>
+            {r.inviata && <span className="badge neutral">inviata</span>}
             {r.contattoAI && (
               <span className="ai-toggle-mark" title="Contatto AI (PLUS AI attivo)">
                 AI

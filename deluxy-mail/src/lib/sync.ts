@@ -17,6 +17,7 @@ import {
 import { CHIAVI, leggiImpostazioni, STILE_DEFAULT } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
 import { raggruppa, chiaveThread } from './thread'
+import { prefissa, inoltrato } from './rispondi'
 import { valutaSpam } from './spam'
 
 export type EsitoSync = {
@@ -442,11 +443,32 @@ export async function preparaRispostaDelegata(
   const ctx = await contestoAI(utenteId)
   const mirate = await istruzioniMirate(utenteId, { mittente: messaggio.mittente, messaggioId: messaggio.id })
 
+  // La conversazione intera (non solo l'ultima mail), così Renè riprende il
+  // thread e risponde a ciò che è rimasto in sospeso.
+  const thread = await messaggiThread(utenteId, messaggio.id)
+  // Contatti recenti: servono se il compito è un inoltro ("gira questa a…").
+  const recenti = await db.messaggio.findMany({
+    where: { utenteId, cestinato: false },
+    orderBy: { data: 'desc' },
+    distinct: ['mittente'],
+    take: 60,
+    select: { mittente: true, mittenteNome: true },
+  })
+
   try {
     const testo = await scriviRisposta({
       messaggio,
       compito,
-      dettaglio: 'Rispondi seguendo esattamente questa indicazione.',
+      dettaglio: 'Segui esattamente questa indicazione.',
+      thread: thread.map((m) => ({
+        direzione: m.direzione,
+        mittente: m.mittente,
+        mittenteNome: m.mittenteNome,
+        data: m.data,
+        corpoTesto: m.corpoTesto,
+      })),
+      permettiInoltro: true,
+      contatti: recenti.map((r) => ({ email: r.mittente, nome: r.mittenteNome })),
       contestoAzienda: ctx.contestoAzienda,
       stileScrittura: ctx.stileScrittura,
       istruzioni: mirate,
@@ -456,6 +478,33 @@ export async function preparaRispostaDelegata(
 
     // Si sostituisce l'eventuale bozza AI precedente su questa mail: ne resta una.
     await db.bozza.deleteMany({ where: { utenteId, messaggioId: messaggio.id, origine: 'ai', inviata: false } })
+
+    if (testo.modo === 'inoltra') {
+      // Inoltro: oggetto "Fwd: …", nota di Renè + originale citato sotto, come un
+      // inoltro fatto a mano. Il destinatario è quello trovato tra i contatti (o
+      // vuoto: lo sceglie l'utente).
+      const corpoInoltro = `${testo.corpo}\n${inoltrato(messaggio)}`
+      const bozza = await db.bozza.create({
+        data: {
+          utenteId,
+          messaggioId: messaggio.id,
+          origine: 'ai',
+          modo: 'inoltra',
+          a: testo.a || '',
+          oggetto: prefissa(messaggio.oggetto, 'Fwd'),
+          corpo: corpoInoltro,
+          corpoAI: corpoInoltro,
+        },
+      })
+      return {
+        ok: true,
+        messaggio: testo.a
+          ? `Renè ha preparato l’inoltro a ${testo.a}.`
+          : 'Renè ha preparato l’inoltro: scegli tu a chi mandarlo.',
+        vaiA: `/messaggio/${messaggio.id}/scrivi?modo=inoltra&bozza=${bozza.id}`,
+      }
+    }
+
     const bozza = await db.bozza.create({
       data: {
         utenteId,

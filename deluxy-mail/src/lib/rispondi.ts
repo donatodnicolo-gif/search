@@ -14,7 +14,7 @@ export function modoValido(m: string | undefined): Modo {
 }
 
 /** "Re: " e "Fwd: " non si accumulano: "Re: Re: Re: ..." non lo vuole nessuno. */
-function prefissa(oggetto: string, prefisso: 'Re' | 'Fwd'): string {
+export function prefissa(oggetto: string, prefisso: 'Re' | 'Fwd'): string {
   const pulito = oggetto.replace(/^((re|r|fwd|fw|i)\s*:\s*)+/i, '').trim()
   return `${prefisso}: ${pulito}`
 }
@@ -41,7 +41,7 @@ function cita(messaggio: Messaggio): string {
   return `\n\n${intestazione}\n${corpo}`
 }
 
-function inoltrato(messaggio: Messaggio): string {
+export function inoltrato(messaggio: Messaggio): string {
   return [
     '\n\n---------- Messaggio inoltrato ----------',
     `Da: ${messaggio.mittenteNome || ''} <${messaggio.mittente}>`,
