@@ -167,7 +167,10 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             ? { NOT: { sezioneId: spamId } }
             : {}
           : vistaNonSmistate
-            ? { sezioneId: null, analizzatoIl: null }
+            // "Non smistate" = la posta in arrivo MENO quella già in una sezione:
+            // tutto ciò che non ha ancora una sezione (lo SPAM ha la sua sezione,
+            // quindi resta fuori da sé). Nessun vincolo sull'analisi AI.
+            ? { sezioneId: null }
             // "In arrivo": TUTTA la posta (anche quella già smistata, che in riga
             // mostra il badge della sua sezione), tranne lo SPAM. Il Cestino è
             // già escluso a monte (cestinato: false).
@@ -313,7 +316,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                 : vistaAI
                   ? 'Solo i contatti col PLUS AI, con tutte le funzioni AI.'
                   : vistaNonSmistate
-                    ? 'La posta che l’AI non ha ancora letto (senza priorità) e non è in una sezione: il grezzo da gestire.'
+                    ? 'La posta in arrivo non ancora messa in una sezione: il grezzo da smistare.'
                     : 'Tutta la posta in arrivo: quella già in una sezione porta il badge della sezione. SPAM e Cestino esclusi.'}
           </p>
           <div style={{ marginTop: 12, maxWidth: 460 }}>
