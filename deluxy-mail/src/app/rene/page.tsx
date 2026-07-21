@@ -212,7 +212,7 @@ export default async function Rene() {
                 <span className="badge neutral">{TIPI_RENE[p.tipo] ?? p.tipo}</span>
               </div>
               <div style={{ marginTop: 10 }}>
-                <RenePropostaCard id={p.id} />
+                <RenePropostaCard id={p.id} tipo={p.tipo} dati={dati} />
               </div>
             </div>
           )

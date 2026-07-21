@@ -1316,6 +1316,21 @@ export async function avviaRene(
 }
 
 /** Decide una proposta di Renè. `eConseguenza`: da ora quel tipo lo fa da solo. */
+/** Modifica i dati di una proposta di Renè PRIMA di approvarla: così l'utente
+ *  la corregge e poi la esegue con i valori giusti. */
+export async function modificaPropostaRene(
+  id: string,
+  dati: Record<string, unknown>
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const proposta = await db.reneProposta.findFirst({ where: { id, utenteId } })
+  if (!proposta) return { ok: false, messaggio: 'Proposta non trovata.' }
+  if (proposta.stato !== 'proposta') return { ok: false, messaggio: 'Proposta già decisa.' }
+  await db.reneProposta.update({ where: { id }, data: { dati: JSON.stringify(dati) } })
+  revalidatePath('/rene')
+  return { ok: true, messaggio: 'Proposta aggiornata.' }
+}
+
 export async function decidiPropostaRene(
   id: string,
   approva: boolean,
