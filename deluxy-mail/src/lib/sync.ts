@@ -422,6 +422,62 @@ export async function preparaEsecuzione(
   }
 }
 
+/**
+ * Delega a Renè: gli dai un'istruzione a parole ("declina con garbo", "chiedi
+ * il listino") e lui scrive la bozza di risposta a quella mail seguendo lo
+ * stile e le istruzioni mirate. Non invia: apre la bozza, la controlli tu.
+ */
+export async function preparaRispostaDelegata(
+  messaggioId: string,
+  istruzione: string,
+  utenteId: string
+): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
+  const compito = istruzione.trim()
+  if (!compito) return { ok: false, messaggio: 'Scrivi cosa deve rispondere Renè.' }
+
+  const messaggio = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId } })
+  if (!messaggio) return { ok: false, messaggio: 'Messaggio non trovato.' }
+
+  const ctx = await contestoAI(utenteId)
+  const mirate = await istruzioniMirate(utenteId, { mittente: messaggio.mittente, messaggioId: messaggio.id })
+
+  try {
+    const testo = await scriviRisposta({
+      messaggio,
+      compito,
+      dettaglio: 'Rispondi seguendo esattamente questa indicazione.',
+      contestoAzienda: ctx.contestoAzienda,
+      stileScrittura: ctx.stileScrittura,
+      istruzioni: mirate,
+      firma: ctx.firma,
+      oggi: new Date(),
+    })
+
+    // Si sostituisce l'eventuale bozza AI precedente su questa mail: ne resta una.
+    await db.bozza.deleteMany({ where: { utenteId, messaggioId: messaggio.id, origine: 'ai', inviata: false } })
+    const bozza = await db.bozza.create({
+      data: {
+        utenteId,
+        messaggioId: messaggio.id,
+        origine: 'ai',
+        modo: 'rispondi',
+        a: messaggio.mittente,
+        oggetto: testo.oggetto,
+        corpo: testo.corpo,
+        corpoAI: testo.corpo,
+      },
+    })
+
+    return {
+      ok: true,
+      messaggio: 'Renè ha preparato la risposta.',
+      vaiA: `/messaggio/${messaggio.id}/scrivi?modo=rispondi&bozza=${bozza.id}`,
+    }
+  } catch (e) {
+    return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
+  }
+}
+
 export type QuadroContatto = {
   situazione: string
   taskAperti: string[]

@@ -45,6 +45,7 @@ import {
   leggiQuadroContatto,
   messaggiThread,
   preparaEsecuzione,
+  preparaRispostaDelegata,
   riassumiThreadOra,
   scaricaStorico,
   sincronizzaUtente,
@@ -255,6 +256,16 @@ export async function eseguiAttivita(
   id: string
 ): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
   const esito = await preparaEsecuzione(id, await uid())
+  revalidatePath('/', 'layout')
+  return esito
+}
+
+/** Delega a Renè la risposta a una mail, con un'istruzione a parole. */
+export async function delegaRene(
+  messaggioId: string,
+  istruzione: string
+): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
+  const esito = await preparaRispostaDelegata(messaggioId, istruzione, await uid())
   revalidatePath('/', 'layout')
   return esito
 }
