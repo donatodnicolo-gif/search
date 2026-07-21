@@ -1190,6 +1190,60 @@ export async function classificaDelega(istruzione: string): Promise<'risposta' |
   }
 }
 
+// ---------- Comando in linguaggio naturale su un LOTTO di mail ----------
+
+const SCHEMA_COMANDO_POSTA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['azione', 'criterio', 'valore'],
+  properties: {
+    azione: {
+      type: 'string',
+      enum: ['cestina', 'archivia', 'nessuna'],
+      description:
+        "'cestina' se l'utente vuole cancellare/eliminare/buttare via delle mail; 'archivia' se vuole archiviarle; 'nessuna' se non è un comando di questo tipo.",
+    },
+    criterio: {
+      type: 'string',
+      enum: ['mittente', 'oggetto', 'nessuno'],
+      description:
+        "'mittente' se agisce sulle mail DI qualcuno (persona/indirizzo); 'oggetto' se agisce sulle mail CON un certo oggetto/argomento; 'nessuno' se non chiaro.",
+    },
+    valore: {
+      type: 'string',
+      description:
+        "Il valore del criterio: il nome/indirizzo del mittente, oppure il testo dell'oggetto. Vuoto se non chiaro.",
+    },
+  },
+} as const
+
+export type ComandoPosta = { azione: 'cestina' | 'archivia' | 'nessuna'; criterio: 'mittente' | 'oggetto' | 'nessuno'; valore: string }
+
+/** Interpreta un comando tipo "cancella tutte le mail di Mario" / "archivia le mail con oggetto sollecito". */
+export async function interpretaComandoPosta(comando: string): Promise<ComandoPosta> {
+  const c = comando.trim()
+  if (!c) return { azione: 'nessuna', criterio: 'nessuno', valore: '' }
+  try {
+    const risposta = await client().chat.completions.create({
+      model: MODELLO,
+      temperature: 0,
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'comando', strict: true, schema: SCHEMA_COMANDO_POSTA as unknown as Record<string, unknown> },
+      },
+      messages: [
+        { role: 'system', content: "Interpreta il comando dato all'assistente di posta su un gruppo di mail. Estrai azione, criterio e valore." },
+        { role: 'user', content: `Comando: ${c}` },
+      ],
+    })
+    const json = risposta.choices[0]?.message?.content
+    if (!json) return { azione: 'nessuna', criterio: 'nessuno', valore: '' }
+    return JSON.parse(json) as ComandoPosta
+  } catch {
+    return { azione: 'nessuna', criterio: 'nessuno', valore: '' }
+  }
+}
+
 // ---------- Scrivere la risposta che porta a termine un'attività ----------
 
 const SCHEMA_RISPOSTA = {

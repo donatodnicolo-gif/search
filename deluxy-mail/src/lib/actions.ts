@@ -56,7 +56,7 @@ import {
 } from './sync'
 import { chiaveThread } from './thread'
 import { CODICI_PRIORITA, FUSO } from './format'
-import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione, classificaDelega } from './ai'
+import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione, classificaDelega, interpretaComandoPosta } from './ai'
 import { raggruppa } from './thread'
 import { azioneDi, regolaAppPerMail, chiaveDiAzione, type AzioneDescritta } from './appDeluxy'
 import { leggiChiaviApp, salvaChiaveApp, type NomeChiaveApp } from './chiaviApp'
@@ -672,6 +672,86 @@ export async function segnalaNonSpam(id: string): Promise<{ ok: boolean; messagg
   })
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: 'Spostata in Posta in arrivo: non è spam.' }
+}
+
+// ---------- Comando in linguaggio naturale su un lotto di mail ----------
+
+type FiltroLotto = { criterio: 'mittente' | 'oggetto'; valore: string }
+
+/** Il WHERE (sempre scoped per utente, mai il cestino) per un comando di lotto. */
+function whereLotto(utenteId: string, f: FiltroLotto) {
+  const v = f.valore.trim()
+  const base = { utenteId, cestinato: false }
+  if (f.criterio === 'mittente') {
+    return {
+      ...base,
+      OR: [
+        { mittente: { contains: v, mode: 'insensitive' as const } },
+        { mittenteNome: { contains: v, mode: 'insensitive' as const } },
+      ],
+    }
+  }
+  return { ...base, oggetto: { contains: v, mode: 'insensitive' as const } }
+}
+
+/**
+ * Anteprima di un comando ("cancella tutte le mail di Mario"): interpreta il
+ * testo e CONTA quante mail verrebbero toccate, senza toccarle. Serve a far
+ * confermare all'utente prima di un'azione di massa.
+ */
+export async function comandoPostaAnteprima(comando: string): Promise<{
+  ok: boolean
+  messaggio: string
+  azione?: 'cestina' | 'archivia'
+  criterio?: 'mittente' | 'oggetto'
+  valore?: string
+  quanti?: number
+}> {
+  const utenteId = await uid()
+  const p = await interpretaComandoPosta(comando)
+  if (p.azione === 'nessuna' || p.criterio === 'nessuno' || !p.valore.trim()) {
+    return {
+      ok: false,
+      messaggio:
+        'Non ho capito su quali mail agire. Prova: «cancella tutte le mail di mario@…» oppure «archivia le mail con oggetto sollecito».',
+    }
+  }
+  const filtro: FiltroLotto = { criterio: p.criterio, valore: p.valore }
+  const quanti = await db.messaggio.count({ where: whereLotto(utenteId, filtro) })
+  const verbo = p.azione === 'cestina' ? 'cestinare' : 'archiviare'
+  const dove = p.criterio === 'mittente' ? 'di' : 'con oggetto'
+  return {
+    ok: true,
+    azione: p.azione,
+    criterio: p.criterio,
+    valore: p.valore,
+    quanti,
+    messaggio:
+      quanti === 0
+        ? `Nessuna mail ${dove} «${p.valore}»: non c'è niente da ${verbo}.`
+        : `Sto per ${verbo} ${quanti} mail ${dove} «${p.valore}». Confermi?`,
+  }
+}
+
+/** Esegue davvero il comando di lotto (dopo conferma). Cestina = recuperabile. */
+export async function comandoPostaEsegui(
+  azione: 'cestina' | 'archivia',
+  criterio: 'mittente' | 'oggetto',
+  valore: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  if (!['cestina', 'archivia'].includes(azione) || !['mittente', 'oggetto'].includes(criterio) || !valore.trim()) {
+    return { ok: false, messaggio: 'Comando non valido.' }
+  }
+  const where = whereLotto(utenteId, { criterio, valore })
+  if (azione === 'cestina') {
+    const r = await db.messaggio.updateMany({ where, data: { cestinato: true, cestinatoIl: new Date() } })
+    revalidatePath('/', 'layout')
+    return { ok: true, messaggio: `Cestinate ${r.count} mail. Le trovi nel Cestino se ti servono.` }
+  }
+  const r = await db.messaggio.updateMany({ where, data: { archiviato: true } })
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: `Archiviate ${r.count} mail.` }
 }
 
 // ---------- Attività ----------

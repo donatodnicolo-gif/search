@@ -24,9 +24,9 @@ export function CercaContatti({ valore }: { valore: string }) {
       type="text"
       value={testo}
       onChange={(e) => setTesto(e.target.value)}
-      placeholder="Cerca per nome o indirizzo…"
+      placeholder="Cerca un contatto per nome o indirizzo…"
       aria-label="Cerca contatti"
-      style={{ width: 280, padding: '7px 12px', fontSize: 13.5 }}
+      style={{ width: '100%', maxWidth: 520, padding: '11px 16px', fontSize: 14 }}
     />
   )
 }

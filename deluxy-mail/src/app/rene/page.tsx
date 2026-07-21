@@ -5,6 +5,7 @@ import { salvaMemoriaRene, salvaStileRene } from '@/lib/actions'
 import { CHIAVI, STILE_DEFAULT, leggiImpostazioni } from '@/lib/impostazioni'
 import { TIPI_RENE, type UrgenteSenzaRisposta } from '@/lib/rene'
 import { ReneAvvia } from '@/components/ReneAvvia'
+import { ComandoRene } from '@/components/ComandoRene'
 import { RenePropostaCard } from '@/components/RenePropostaCard'
 import { ReneApprovaTutte, ReneConseguenzaSwitch } from '@/components/ReneStrumenti'
 import { dataBreve } from '@/lib/format'
@@ -116,6 +117,8 @@ export default async function Rene() {
       </div>
 
       <ReneAvvia />
+
+      <ComandoRene />
 
       {analisi && (
         <div className="ai-box">

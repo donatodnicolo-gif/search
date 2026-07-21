@@ -33,13 +33,14 @@ export default async function Rubrica({ searchParams }: Props) {
         <div>
           <h1 className="page-title">Rubrica</h1>
           <p className="page-caption">
-            Chi ti scrive, registrato da solo dalla posta. Apri un contatto per vedere tutti i
-            suoi messaggi.
+            Chi ti scrive e chi scrivi, registrato da solo dalla posta. Apri un contatto per vedere
+            tutti i suoi messaggi.
           </p>
         </div>
-        <div className="page-actions">
-          <CercaContatti valore={q ?? ''} />
-        </div>
+      </div>
+
+      <div style={{ margin: '4px 0 20px' }}>
+        <CercaContatti valore={q ?? ''} />
       </div>
 
       {frequenti.length > 0 && (

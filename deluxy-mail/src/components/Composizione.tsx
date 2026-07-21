@@ -95,7 +95,7 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
           />
         </div>
 
-        {(modo === 'tutti' || cc) && (
+        {(modo === 'tutti' || modo === 'inoltra' || cc) && (
           <div className="full">
             <label className="field-label">Cc</label>
             <CampoDestinatari value={cc} onChange={setCc} contatti={contatti} />
