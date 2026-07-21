@@ -112,41 +112,63 @@ const icons = {
   ),
 };
 
-const sections: { label: string; items: Item[] }[] = [
+// Due aree nette: BUDGET (pianificazione) e CONSUNTIVO (dati reali), più la
+// configurazione. L'appartenenza deve restare allineata con areaDi() in
+// src/lib/aree.ts, che etichetta le pagine.
+type Gruppo = { label?: string; items: Item[] };
+type AreaNav = { area: string; badge: string; gruppi: Gruppo[] };
+
+const nav: AreaNav[] = [
   {
-    label: "Budget",
-    items: [
-      { href: "/", label: "Dashboard", icon: icons.dashboard },
-      { href: "/maison", label: "Maison", icon: icons.maison },
-      { href: "/commerciale", label: "Team commerciale", icon: icons.commerciale },
+    area: "Budget",
+    badge: "blue",
+    gruppi: [
+      {
+        items: [
+          { href: "/", label: "Dashboard", icon: icons.dashboard },
+          { href: "/pl", label: "P&L aziendale", icon: icons.pl },
+        ],
+      },
+      {
+        label: "Ricavi",
+        items: [
+          { href: "/maison", label: "Maison", icon: icons.maison },
+          { href: "/commerciale", label: "Team commerciale", icon: icons.commerciale },
+          { href: "/margini", label: "Margini", icon: icons.margini },
+        ],
+      },
+      {
+        label: "Spese e persone",
+        items: [
+          { href: "/spese", label: "Spese ADV", icon: icons.spese },
+          { href: "/piattaforme", label: "Piattaforme ADV", icon: icons.piattaforme },
+          { href: "/dipendenti", label: "Dipendenti", icon: icons.dipendenti },
+          { href: "/team", label: "Team", icon: icons.team },
+        ],
+      },
+      {
+        label: "Processo",
+        items: [{ href: "/proposte", label: "Proposte budget", icon: icons.proposte }],
+      },
     ],
   },
   {
-    label: "Conti",
-    items: [
-      { href: "/pl", label: "P&L aziendale", icon: icons.pl },
-      { href: "/cfo", label: "CFO — costi da banca", icon: icons.cfo },
-      { href: "/consuntivo", label: "Consuntivo (Finance)", icon: icons.consuntivo },
-      { href: "/margini", label: "Margini", icon: icons.margini },
-      { href: "/spese", label: "Spese ADV", icon: icons.spese },
-      { href: "/piattaforme", label: "Piattaforme ADV", icon: icons.piattaforme },
+    area: "Consuntivo",
+    badge: "green",
+    gruppi: [
+      {
+        items: [
+          { href: "/consuntivo", label: "Fatturato reale", icon: icons.consuntivo },
+          { href: "/cfo", label: "Costi reali (CFO)", icon: icons.cfo },
+        ],
+      },
     ],
   },
   {
-    label: "Organizzazione",
-    items: [
-      { href: "/dipendenti", label: "Dipendenti", icon: icons.dipendenti },
-      { href: "/team", label: "Team", icon: icons.team },
-    ],
-  },
-  {
-    label: "Processo",
-    items: [{ href: "/proposte", label: "Proposte budget", icon: icons.proposte }],
-  },
-  {
-    label: "Configurazione",
-    items: [
-      { href: "/impostazioni", label: "Scenari, premi e costi", icon: icons.impostazioni },
+    area: "Configurazione",
+    badge: "neutral",
+    gruppi: [
+      { items: [{ href: "/impostazioni", label: "Scenari, premi e costi", icon: icons.impostazioni }] },
     ],
   },
 ];
@@ -166,18 +188,26 @@ export function Sidebar() {
         </div>
       </div>
 
-      {sections.map((s) => (
-        <div className="nav-section" key={s.label}>
-          <div className="nav-label">{s.label}</div>
-          {s.items.map((it) => (
-            <Link
-              key={it.href}
-              href={it.href}
-              className={`nav-item${isActive(it.href) ? " active" : ""}`}
-            >
-              {it.icon}
-              <span>{it.label}</span>
-            </Link>
+      {nav.map((a) => (
+        <div className="nav-area" key={a.area}>
+          <div className="nav-area-head">
+            <span className={`dot dot-${a.badge}`} />
+            {a.area}
+          </div>
+          {a.gruppi.map((g, gi) => (
+            <div className="nav-section" key={g.label ?? gi}>
+              {g.label && <div className="nav-label">{g.label}</div>}
+              {g.items.map((it) => (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  className={`nav-item${isActive(it.href) ? " active" : ""}`}
+                >
+                  {it.icon}
+                  <span>{it.label}</span>
+                </Link>
+              ))}
+            </div>
           ))}
         </div>
       ))}

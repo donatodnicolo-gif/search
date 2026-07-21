@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
+import { AreaBadge } from "@/components/AreaBadge";
 
 export const metadata: Metadata = {
   title: "Deluxy Budgets",
@@ -13,7 +14,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="shell">
           <Sidebar />
-          <main className="main">{children}</main>
+          <main className="main">
+            <AreaBadge />
+            {children}
+          </main>
         </div>
       </body>
     </html>
