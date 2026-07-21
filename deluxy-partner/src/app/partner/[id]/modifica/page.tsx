@@ -36,7 +36,7 @@ export default async function ModificaPartner({ params }: { params: Promise<{ id
         partner={partner}
         action={action}
         submitLabel="Salva modifiche"
-        ragioneSocialeRegistro={anagrafica?.ragioneSociale ?? null}
+        anagrafica={anagrafica}
       />
 
       <div className="card" style={{ padding: 14, margin: "16px 0 4px", background: "var(--bg)" }}>

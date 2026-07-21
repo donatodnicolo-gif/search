@@ -140,6 +140,7 @@ export type CampiAnagrafica = Partial<{
   citta: string;
   provincia: string;
   email: string;
+  telefono: string;
   ragioneSociale: string;
   pec: string;
   codiceSdi: string;

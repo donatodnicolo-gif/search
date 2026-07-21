@@ -1,22 +1,33 @@
 import type { Partner } from "@prisma/client";
+import type { Anagrafica } from "@/lib/anagrafiche";
 
 // Form anagrafica partner (usato da /partner/nuovo e /partner/[id]/modifica)
 export function PartnerForm({
   partner,
   action,
   submitLabel,
-  ragioneSocialeRegistro,
+  anagrafica,
 }: {
   partner?: Partner | null;
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
-  // Denominazione legale letta dal registro Anagrafiche: mostrata in sola lettura
-  // (fonte di verità centralizzata, non modificabile qui). Vuota finché il
-  // partner non è riconciliato.
-  ragioneSocialeRegistro?: string | null;
+  // Record del registro Anagrafiche (fonte di verità dei dati anagrafici). Quando
+  // presente, i campi anagrafici (ragione sociale, IBAN, email, telefono, contatto
+  // amministrativo) sono precompilati da qui; al salvataggio tornano nel registro.
+  anagrafica?: Anagrafica | null;
 }) {
   const p = partner;
-  const ragioneSociale = ragioneSocialeRegistro ?? p?.ragioneSociale ?? "";
+  const fin = anagrafica?.datiFinanziari;
+  // ragione sociale: sola lettura dal registro; gli altri anagrafici: editabili
+  // ma precompilati dal registro (fallback alla cache locale).
+  const ragioneSociale = anagrafica?.ragioneSociale ?? p?.ragioneSociale ?? "";
+  const ibanReg = fin?.iban ?? p?.iban ?? "";
+  const emailReg = anagrafica?.email ?? p?.email ?? "";
+  const telefonoReg = anagrafica?.telefono ?? p?.telefono ?? "";
+  const ammNomeReg = fin?.amministrazioneNome ?? p?.ammNome ?? "";
+  const ammEmailReg = fin?.amministrazioneEmail ?? p?.ammEmail ?? "";
+  const ammTelefonoReg = fin?.amministrazioneTelefono ?? p?.ammTelefono ?? "";
+  const collegato = Boolean(anagrafica);
   return (
     <form action={action} className="card">
       <div className="form-grid">
@@ -80,16 +91,22 @@ export function PartnerForm({
           <input type="text" name="pdrDebito" defaultValue={p?.pdrDebito ?? ""} />
         </div>
         <div>
-          <label className="field-label">IBAN (per bonifici SEPA)</label>
-          <input type="text" name="iban" defaultValue={p?.iban ?? ""} placeholder="IT00 X000 0000 0000 0000 0000 000" />
+          <label className="field-label">
+            IBAN (per bonifici SEPA){collegato && <span className="muted" style={{ fontWeight: 400, fontSize: 11.5 }}> · nel registro</span>}
+          </label>
+          <input type="text" name="iban" defaultValue={ibanReg} placeholder="IT00 X000 0000 0000 0000 0000 000" />
         </div>
         <div>
-          <label className="field-label">Email</label>
-          <input type="email" name="email" defaultValue={p?.email ?? ""} />
+          <label className="field-label">
+            Email{collegato && <span className="muted" style={{ fontWeight: 400, fontSize: 11.5 }}> · nel registro</span>}
+          </label>
+          <input type="email" name="email" defaultValue={emailReg} />
         </div>
         <div>
-          <label className="field-label">Telefono</label>
-          <input type="text" name="telefono" defaultValue={p?.telefono ?? ""} />
+          <label className="field-label">
+            Telefono{collegato && <span className="muted" style={{ fontWeight: 400, fontSize: 11.5 }}> · nel registro</span>}
+          </label>
+          <input type="text" name="telefono" defaultValue={telefonoReg} />
         </div>
 
         <div className="full" style={{ marginTop: 4 }}>
@@ -98,24 +115,32 @@ export function PartnerForm({
           </div>
           <p className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>
             Chi si occupa dei pagamenti: è il destinatario predefinito di solleciti e pro-forma.
-            Dalla scheda partner puoi importarlo dal registro Anagrafiche.
+            {collegato
+              ? " Nome, email e telefono sono precompilati dal registro Anagrafiche e, al salvataggio, vi tornano scritti."
+              : " Dalla scheda partner puoi importarlo dal registro Anagrafiche."}
           </p>
         </div>
         <div>
-          <label className="field-label">Nome referente</label>
-          <input type="text" name="ammNome" defaultValue={p?.ammNome ?? ""} placeholder="es. Maria Rossi" />
+          <label className="field-label">
+            Nome referente{collegato && <span className="muted" style={{ fontWeight: 400, fontSize: 11.5 }}> · nel registro</span>}
+          </label>
+          <input type="text" name="ammNome" defaultValue={ammNomeReg} placeholder="es. Maria Rossi" />
         </div>
         <div>
           <label className="field-label">Ruolo</label>
           <input type="text" name="ammRuolo" defaultValue={p?.ammRuolo ?? ""} placeholder="es. Amministrazione" />
         </div>
         <div>
-          <label className="field-label">Email amministrazione</label>
-          <input type="email" name="ammEmail" defaultValue={p?.ammEmail ?? ""} placeholder="amministrazione@…" />
+          <label className="field-label">
+            Email amministrazione{collegato && <span className="muted" style={{ fontWeight: 400, fontSize: 11.5 }}> · nel registro</span>}
+          </label>
+          <input type="email" name="ammEmail" defaultValue={ammEmailReg} placeholder="amministrazione@…" />
         </div>
         <div>
-          <label className="field-label">Telefono amministrazione</label>
-          <input type="text" name="ammTelefono" defaultValue={p?.ammTelefono ?? ""} />
+          <label className="field-label">
+            Telefono amministrazione{collegato && <span className="muted" style={{ fontWeight: 400, fontSize: 11.5 }}> · nel registro</span>}
+          </label>
+          <input type="text" name="ammTelefono" defaultValue={ammTelefonoReg} />
         </div>
         <div className="checkbox-row">
           <input type="checkbox" id="compensazione" name="compensazione" defaultChecked={p?.compensazione ?? false} />

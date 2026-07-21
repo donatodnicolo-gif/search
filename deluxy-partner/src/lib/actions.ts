@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { feeApplicabile, feeDaTariffe } from "./fee";
-import { risolviAnagrafica, contattoAmministrativo } from "./anagrafiche";
+import { risolviAnagrafica, contattoAmministrativo, aggiornaAnagrafica, scritturaAnagraficheAttiva, type CampiAnagrafica } from "./anagrafiche";
 import { ivato, nomeMese } from "./calc";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 import type { SaldoMensile } from "@prisma/client";
@@ -103,7 +103,25 @@ export async function createPartner(fd: FormData) {
 export async function updatePartner(id: string, fd: FormData) {
   const data = partnerData(fd);
   if (!data.nome) throw new Error("Nome obbligatorio");
-  await prisma.partner.update({ where: { id }, data });
+  const partner = await prisma.partner.update({ where: { id }, data });
+  // I dati anagrafici (IBAN, email, telefono, contatto amministrativo) sono
+  // centralizzati: se il partner è collegato al registro e la scrittura è
+  // attiva, li portiamo in Anagrafiche (fonte di verità). La copia locale resta
+  // come cache operativa (solleciti/SEPA), allineata al momento del salvataggio.
+  if (partner.anagraficaId && scritturaAnagraficheAttiva()) {
+    const campi: CampiAnagrafica = {
+      ...(data.iban ? { iban: data.iban } : {}),
+      ...(data.email ? { email: data.email } : {}),
+      ...(data.telefono ? { telefono: data.telefono } : {}),
+      ...(data.ammNome ? { amministrazioneNome: data.ammNome } : {}),
+      ...(data.ammEmail ? { amministrazioneEmail: data.ammEmail } : {}),
+      ...(data.ammTelefono ? { amministrazioneTelefono: data.ammTelefono } : {}),
+    };
+    if (Object.keys(campi).length > 0) {
+      // best-effort: se il registro è irraggiungibile non blocchiamo il salvataggio locale
+      await aggiornaAnagrafica(partner.anagraficaId, campi).catch(() => {});
+    }
+  }
   revalidateAll();
   redirect(`/partner/${id}`);
 }
