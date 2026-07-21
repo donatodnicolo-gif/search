@@ -13,7 +13,8 @@ export default async function Attivita() {
   const [daFare, fatte] = await Promise.all([
     db.attivita.findMany({
       where: { utenteId: u.id, fatta: false },
-      orderBy: [{ scadenza: 'asc' }, { creataIl: 'desc' }],
+      // Le più recenti in cima: ordine per data di creazione, discendente.
+      orderBy: { creataIl: 'desc' },
       include: { messaggio: { select: { id: true, oggetto: true, mittente: true } } },
     }),
     db.attivita.findMany({
@@ -92,6 +93,10 @@ export default async function Attivita() {
                     title={livello(a.priorita)?.quando}
                   >
                     {a.priorita}
+                  </span>
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    creata il{' '}
+                    {a.creataIl.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short' })}
                   </span>
                   {/* Esegui solo se c'è una mail a cui rispondere: un'attività
                       scritta a mano senza origine non ha nulla da eseguire. */}

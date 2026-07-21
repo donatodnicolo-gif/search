@@ -12,7 +12,8 @@ import { coloreDiPriorita, priorita as livello, FUSO } from '@/lib/format'
 export async function ColonnaAttivita({ utenteId }: { utenteId: string }) {
   const attivita = await db.attivita.findMany({
     where: { utenteId, fatta: false },
-    orderBy: [{ scadenza: 'asc' }, { priorita: 'asc' }],
+    // Le più recenti in cima: ordine per data di creazione, discendente.
+    orderBy: { creataIl: 'desc' },
     take: 15,
     include: { messaggio: { select: { id: true } } },
   })
@@ -70,6 +71,10 @@ export async function ColonnaAttivita({ utenteId }: { utenteId: string }) {
                         })}
                       </span>
                     )}
+                    <span className="muted">
+                      creata il{' '}
+                      {a.creataIl.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short' })}
+                    </span>
                   </div>
                   {/* Esegui: l'AI scrive la mail che chiude l'attività. Solo se
                       c'è una mail o un contatto a cui rispondere. */}
