@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { scaricaOrdini, verificaNegozio } from "./shopify";
+import { verificaNegozio } from "./shopify";
+import { eseguiSyncOrdini } from "./ordini-sync";
 
 function revalida() {
   revalidatePath("/ordini", "layout");
@@ -47,61 +48,7 @@ export async function rimuoviNegozioShopify(id: string) {
 // aggiorna. Gli ordini a carta già pagati vengono marcati "incassato_gateway"
 // (l'incasso è avvenuto lato gateway; il payout si riconcilia a blocco).
 export async function sincronizzaOrdini(giorni = 90) {
-  const negozi = await prisma.negozioShopify.findMany({ where: { attivo: true } });
-  const dal = new Date(Date.now() - giorni * 86400000);
-  let nuovi = 0, aggiornati = 0, errori: string[] = [];
-
-  for (const neg of negozi) {
-    if (!neg.token) { errori.push(`${neg.brand}: token mancante`); continue; }
-    let ordini;
-    try {
-      ordini = await scaricaOrdini(neg.dominio, neg.token, dal);
-    } catch (e) {
-      errori.push(`${neg.brand}: ${(e as Error).message}`);
-      continue;
-    }
-    for (const o of ordini) {
-      const paidCarta = o.categoriaPagamento === "carta" && (o.financialStatus ?? "").toUpperCase() === "PAID";
-      const esistente = await prisma.ordineShopify.findUnique({
-        where: { negozioId_orderId: { negozioId: neg.id, orderId: o.orderId } },
-      });
-      const datiBase = {
-        brand: neg.brand,
-        nome: o.nome,
-        data: o.data,
-        totale: o.totale,
-        valuta: o.valuta,
-        financialStatus: o.financialStatus,
-        gateway: o.gateway,
-        categoriaPagamento: o.categoriaPagamento,
-        clienteNome: o.clienteNome,
-        clienteEmail: o.clienteEmail,
-        note: o.note,
-      };
-      if (!esistente) {
-        await prisma.ordineShopify.create({
-          data: {
-            negozioId: neg.id,
-            orderId: o.orderId,
-            ...datiBase,
-            statoRicon: paidCarta ? "incassato_gateway" : "da_riconciliare",
-            riconciliatoIl: paidCarta ? new Date() : null,
-          },
-        });
-        nuovi++;
-      } else {
-        // aggiorna i dati; NON tocca lo stato se già riconciliato/ignorato a mano
-        const nuovoStato =
-          esistente.statoRicon === "da_riconciliare" && paidCarta ? "incassato_gateway" : esistente.statoRicon;
-        await prisma.ordineShopify.update({
-          where: { id: esistente.id },
-          data: { ...datiBase, statoRicon: nuovoStato },
-        });
-        aggiornati++;
-      }
-    }
-    await prisma.negozioShopify.update({ where: { id: neg.id }, data: { ultimaSync: new Date() } });
-  }
+  const { nuovi, aggiornati, errori } = await eseguiSyncOrdini(giorni);
   revalida();
   const qs = new URLSearchParams({ sync: "ok", nuovi: String(nuovi), agg: String(aggiornati) });
   if (errori.length) qs.set("errori", errori.join(" · "));

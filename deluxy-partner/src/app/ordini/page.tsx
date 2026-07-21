@@ -47,6 +47,10 @@ export default async function OrdiniPage({
 
   const nomeNegozio = (id: string) => negozi.find((n) => n.id === id)?.brand ?? "—";
   const senzaToken = negozi.filter((n) => !n.token);
+  const ultimaSync = negozi
+    .map((n) => n.ultimaSync)
+    .filter((d): d is Date => Boolean(d))
+    .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
 
   return (
     <>
@@ -60,10 +64,15 @@ export default async function OrdiniPage({
         </div>
         <div className="page-actions" style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {negozi.length > 0 && (
-            <form action={sincronizzaOrdini.bind(null, 90)}>
+            <form action={sincronizzaOrdini.bind(null, 90)} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <button className="btn primary" type="submit" title="Scarica gli ordini degli ultimi 90 giorni da tutti i negozi">
                 ⇅ Scarica ordini
               </button>
+              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                {ultimaSync
+                  ? `Ultima: ${dataIt(ultimaSync)} · sync automatica ogni notte`
+                  : "Sincronizzazione automatica ogni notte alle 5:30"}
+              </span>
             </form>
           )}
         </div>

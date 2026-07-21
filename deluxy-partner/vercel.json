@@ -5,6 +5,10 @@
     {
       "path": "/api/cron/qonto",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/ordini",
+      "schedule": "30 5 * * *"
     }
   ]
 }
