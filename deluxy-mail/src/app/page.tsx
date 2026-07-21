@@ -168,7 +168,11 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             : {}
           : vistaNonSmistate
             ? { sezioneId: null, analizzatoIl: null }
-            : { sezioneId: null }),
+            // "In arrivo": TUTTA la posta (anche quella già smistata, che mostra
+            // il badge della sua sezione nella riga), tranne lo SPAM.
+            : spamId
+              ? { NOT: { sezioneId: spamId } }
+              : {}),
       ...(stato === 'non-letti' ? { letto: false } : {}),
       ...(stato === 'da-rispondere' ? { serveRisposta: true } : {}),
       ...(p ? { priorita: p } : {}),
@@ -309,7 +313,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                   ? 'Solo i contatti col PLUS AI, con tutte le funzioni AI.'
                   : vistaNonSmistate
                     ? 'La posta che l’AI non ha ancora letto (senza priorità) e non è in una sezione: il grezzo da gestire.'
-                    : 'La posta ancora da smistare. Quella già in una sezione la trovi nella barra a lato.'}
+                    : 'Tutta la posta in arrivo: quella già in una sezione porta il badge della sezione. SPAM escluso.'}
           </p>
           <div style={{ marginTop: 12, maxWidth: 460 }}>
             <RicercaMail iniziale={ricerca ? q : ''} />
