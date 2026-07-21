@@ -1,10 +1,12 @@
 // Cassaforte centrale: i segreti "di business" vengono presi da deluxy-hub
 // (endpoint /api/chiavi) invece di essere duplicati come secret in ogni app.
 //
-// Un solo secret bootstrap serve a Scout: HUB_KEYS_TOKEN (+ opz. HUB_KEYS_URL).
-// Tutto il resto (chiavi Anagrafiche, OpenAI, Partner, HubSpot…) vive nel hub.
+// Un solo secret bootstrap serve a Scout: HUB_CHIAVI_TOKEN — un token di servizio
+// PER-PROGETTO generato dalla pagina /chiavi del hub (sezione "Token di servizio",
+// con scope sul progetto deluxy-scout). Tutto il resto (chiavi Anagrafiche,
+// OpenAI, Partner, HubSpot…) vive nel hub.
 //
-// Precedenza: se HUB_KEYS_TOKEN è impostato, vince il valore dal hub (fonte di
+// Precedenza: se HUB_CHIAVI_TOKEN è impostato, vince il valore dal hub (fonte di
 // verità), con fallback a Deno.env; se non è impostato, si usa Deno.env (fase di
 // transizione / sviluppo locale). Cache in memoria (i valori ruotano di rado).
 const HUB = (Deno.env.get('HUB_KEYS_URL') ?? 'https://deluxy-hub.vercel.app').replace(/\/$/, '');
@@ -18,16 +20,16 @@ const cache = new Map<string, { valore: string; scad: number }>();
  * sull'env, così le funzioni degradano con grazia.
  */
 export async function chiaveHub(nome: string): Promise<string | undefined> {
-  const token = Deno.env.get('HUB_KEYS_TOKEN');
+  const token = Deno.env.get('HUB_CHIAVI_TOKEN');
   const locale = Deno.env.get(nome);
-  if (!token) return locale; // vault spento → env
+  if (!token) return locale; // vault non configurato → env
 
   const c = cache.get(nome);
   if (c && c.scad > Date.now()) return c.valore || locale;
 
   try {
     const res = await fetch(`${HUB}/api/chiavi?progetto=${PROGETTO}&nome=${encodeURIComponent(nome)}`, {
-      headers: { 'X-Hub-Token': token },
+      headers: { 'x-api-key': token },
     });
     if (res.ok) {
       const body = await res.json().catch(() => ({}));
