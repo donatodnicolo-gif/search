@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { inviaMessaggio, salvaMinuta } from '@/lib/actions'
 import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
+import { mettiFlash } from './Flash'
 import type { Modo } from '@/lib/rispondi'
 
 type Props = {
@@ -63,6 +64,7 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId 
       setStato(esito)
       setConferma(false)
       if (esito.ok) {
+        mettiFlash(esito.messaggio)
         router.push(tornaA)
         router.refresh()
       }

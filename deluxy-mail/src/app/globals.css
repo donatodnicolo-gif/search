@@ -782,6 +782,28 @@ input:focus, select:focus, textarea:focus {
 .chiave-pallino { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 4px; }
 .chiave-pallino.ok { background: var(--green); }
 
+/* ---------- Avviso "verde" (es. messaggio inviato) ---------- */
+.flash {
+  position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+  z-index: 200;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--green, #1a7f37); color: #fff;
+  padding: 11px 18px; border-radius: var(--radius-pill);
+  font-size: 14px; font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  cursor: pointer; max-width: 90vw;
+  animation: flash-giu 0.22s ease;
+}
+.flash-icona {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25); font-size: 12px; flex: 0 0 20px;
+}
+@keyframes flash-giu {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 /* ---------- Editor formattato + allegati ---------- */
 .rt-editor {
   border: 1px solid var(--hairline-strong);

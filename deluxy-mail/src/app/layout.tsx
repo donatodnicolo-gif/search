@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Sidebar } from '@/components/Sidebar'
 import { Shell } from '@/components/Shell'
+import { Flash } from '@/components/Flash'
 import { utenteCorrente } from '@/lib/sessione'
 
 export const metadata: Metadata = {
@@ -29,6 +30,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="it">
       <body>
+        <Flash />
         <Shell mostraNav={!!utente} sidebar={utente ? <Sidebar /> : null}>
           {children}
         </Shell>

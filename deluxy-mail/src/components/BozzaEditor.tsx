@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { inviaBozza, salvaBozza } from '@/lib/actions'
 import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
+import { mostraFlash } from './Flash'
 
 type Props = {
   bozza: { id: string; oggetto: string; corpo: string; inviata: boolean; modificata: boolean }
@@ -55,6 +56,7 @@ export function BozzaEditor({ bozza, destinatario, mittente }: Props) {
       const esito = await inviaBozza(bozza.id, form)
       setStato(esito.messaggio)
       setConfermaInvio(false)
+      if (esito.ok) mostraFlash(esito.messaggio)
       router.refresh()
     })
   }

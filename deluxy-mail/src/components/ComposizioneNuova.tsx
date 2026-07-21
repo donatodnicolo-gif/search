@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { inviaNuovaMail, salvaMinuta } from '@/lib/actions'
 import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
+import { mettiFlash } from './Flash'
 
 type Props = {
   da: string
@@ -58,6 +59,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId }: Props) {
       setStato(esito)
       setConferma(false)
       if (esito.ok) {
+        mettiFlash(esito.messaggio)
         router.push('/inviata')
         router.refresh()
       }
