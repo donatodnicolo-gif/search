@@ -1,0 +1,181 @@
+// Sezione "Clienti": i negozi già acquisiti — clienti in Scout (stato "cliente")
+// o partner attivi nel registro Anagrafiche. Filtri per zona e interessi.
+import { useCallback, useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { colors, radius, spacing } from '@/lib/theme';
+import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { fetchClienti, type Cliente } from '@/lib/db';
+
+export default function Clienti() {
+  const router = useRouter();
+  const [clienti, setClienti] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [zonaFiltro, setZonaFiltro] = useState<string | null>(null);
+  const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
+
+  const carica = useCallback(async () => {
+    setLoading(true);
+    try {
+      setClienti(await fetchClienti());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      carica();
+    }, [carica]),
+  );
+
+  const { zonePresenti, lineePresenti } = useMemo(() => {
+    const zone = new Set<string>();
+    const linee = new Set<string>();
+    for (const c of clienti) {
+      if (c.zona) zone.add(c.zona);
+      for (const l of c.linee) linee.add(l);
+    }
+    return { zonePresenti: [...zone].sort(), lineePresenti: [...linee].sort() };
+  }, [clienti]);
+
+  const dati = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return clienti.filter((c) => {
+      if (zonaFiltro && c.zona !== zonaFiltro) return false;
+      if (lineaFiltro && !c.linee.includes(lineaFiltro)) return false;
+      if (!q) return true;
+      return [c.nome, c.indirizzo, c.zona, c.categoria, ...c.linee].filter(Boolean).some((v) => (v as string).toLowerCase().includes(q));
+    });
+  }, [clienti, query, zonaFiltro, lineaFiltro]);
+
+  const filtriAttivi = Boolean(query.trim() || zonaFiltro || lineaFiltro);
+  function azzera() {
+    setQuery('');
+    setZonaFiltro(null);
+    setLineaFiltro(null);
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.head}>
+        <PageIntro testo="I negozi già acquisiti: clienti Deluxy e partner attivi nel registro. Tocca un cliente per aprirne la scheda." />
+        <Text style={styles.sub}>{clienti.length} clienti{filtriAttivi ? ` · ${dati.length} filtrati` : ''}</Text>
+        <TextInput
+          style={styles.search}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Cerca per nome, zona, categoria, linea…"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          clearButtonMode="while-editing"
+        />
+        {zonePresenti.length || lineePresenti.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+            {zonePresenti.length ? (
+              <Gruppo titolo="Zona" valori={zonePresenti} attivo={zonaFiltro} onTap={(v) => setZonaFiltro((c) => (c === v ? null : v))} />
+            ) : null}
+            {lineePresenti.length ? (
+              <Gruppo titolo="Interessi" valori={lineePresenti} attivo={lineaFiltro} onTap={(v) => setLineaFiltro((c) => (c === v ? null : v))} />
+            ) : null}
+          </ScrollView>
+        ) : null}
+      </View>
+
+      <FlatList
+        data={dati}
+        keyExtractor={(c) => c.id}
+        contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
+        ListEmptyComponent={
+          filtriAttivi ? (
+            <EmptyState icona="filter-outline" titolo="Nessun cliente con questi filtri" aiuto="Prova ad azzerare zona, interessi o la ricerca." azione="Azzera filtri" onAzione={azzera} />
+          ) : (
+            <EmptyState
+              loading={loading}
+              icona="ribbon-outline"
+              titolo="Ancora nessun cliente"
+              aiuto="Quando chiudi una trattativa e porti un negozio a 'Cliente', compare qui (insieme ai partner attivi del registro)."
+            />
+          )
+        }
+        renderItem={({ item }) => (
+          <Pressable style={styles.card} onPress={() => router.push(`/(app)/attivita/${item.id}`)}>
+            <View style={styles.iconaBox}>
+              <Ionicons name="storefront-outline" size={20} color={colors.goldStrong} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.nome} numberOfLines={1}>{item.nome}</Text>
+              <Text style={styles.meta} numberOfLines={1}>
+                {[item.zona, item.categoria].filter(Boolean).join(' · ') || item.indirizzo || '—'}
+              </Text>
+              {item.linee.length ? (
+                <View style={styles.lineeRow}>
+                  {item.linee.slice(0, 3).map((l) => (
+                    <View key={l} style={styles.lineaTag}>
+                      <Text style={styles.lineaTagTxt}>{l}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.badgeCol}>
+              {item.cliente_scout ? <StatusBadge small label="Cliente" colore={colors.successo} /> : null}
+              {item.partner_registro ? <StatusBadge small label="Partner" colore={colors.blue} /> : null}
+            </View>
+          </Pressable>
+        )}
+      />
+    </View>
+  );
+}
+
+function Gruppo({ titolo, valori, attivo, onTap }: { titolo: string; valori: string[]; attivo: string | null; onTap: (v: string) => void }) {
+  return (
+    <View style={styles.gruppo}>
+      <Text style={styles.gruppoTitolo}>{titolo}</Text>
+      <View style={styles.chips}>
+        {valori.map((v) => {
+          const on = attivo === v;
+          return (
+            <Pressable key={v} onPress={() => onTap(v)} style={[styles.chip, on && styles.chipOn]}>
+              <Text style={[styles.chipTxt, on && styles.chipTxtOn]} numberOfLines={1}>{v}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.sfondo },
+  head: { backgroundColor: colors.sfondo, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro, paddingTop: spacing.sm },
+  sub: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.md, marginBottom: spacing.xs },
+  search: {
+    backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md,
+    marginHorizontal: spacing.md, marginBottom: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 10, fontSize: 15, color: colors.testo,
+  },
+  filtri: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.md },
+  gruppo: { marginRight: spacing.sm },
+  gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', marginBottom: 4 },
+  chips: { flexDirection: 'row', gap: 6 },
+  chip: { backgroundColor: colors.bianco, borderColor: colors.grigioChiaro, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
+  chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
+  chipTxtOn: { color: colors.bianco },
+  list: { padding: spacing.md, gap: spacing.sm },
+  card: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md,
+  },
+  iconaBox: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
+  nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
+  meta: { color: colors.testoSoft, fontSize: 13, marginTop: 1 },
+  lineeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  lineaTag: { backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 11 },
+  badgeCol: { alignItems: 'flex-end', gap: 4 },
+});

@@ -40,6 +40,7 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     titolo: 'Pipeline',
     voci: [
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
+      { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
       { name: 'affiliazioni', label: 'Affiliazioni', icon: 'ribbon-outline' },
       { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
     ],
@@ -226,6 +227,7 @@ export default function AppLayout() {
         <Drawer.Screen name="rubrica" options={{ title: 'Rubrica' }} />
         <Drawer.Screen name="script" options={{ title: 'Script' }} />
         <Drawer.Screen name="trattative" options={{ title: 'Trattative' }} />
+        <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
         <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni' }} />
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard' }} />

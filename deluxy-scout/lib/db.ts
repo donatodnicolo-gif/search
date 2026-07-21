@@ -169,6 +169,38 @@ export async function inserisciPlace(p: {
   return data as Place;
 }
 
+/** Un cliente/partner nella sezione Clienti. */
+export interface Cliente {
+  id: string;
+  nome: string;
+  indirizzo: string | null;
+  zona: string | null;
+  categoria: string | null;
+  linee: string[];
+  cliente_scout: boolean; // stato = 'cliente' in Scout
+  partner_registro: boolean; // partner 'attivo' nel registro Anagrafiche
+}
+
+/** Tutti i clienti: negozi cliente in Scout OPPURE partner attivi nel registro. */
+export async function fetchClienti(): Promise<Cliente[]> {
+  const { data, error } = await supabase
+    .from('places')
+    .select('id, nome, indirizzo, zona, categoria, linea_ipotizzata, linee_ipotizzate, stato, anagrafiche_stato')
+    .or('stato.eq.cliente,anagrafiche_stato.eq.attivo')
+    .order('nome');
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    nome: r.nome,
+    indirizzo: r.indirizzo ?? null,
+    zona: r.zona ?? null,
+    categoria: r.categoria ?? null,
+    linee: r.linee_ipotizzate?.length ? r.linee_ipotizzate : r.linea_ipotizzata ? [r.linea_ipotizzata] : [],
+    cliente_scout: r.stato === 'cliente',
+    partner_registro: r.anagrafiche_stato === 'attivo',
+  })) as Cliente[];
+}
+
 /** Aggiorna i campi editabili di un'attività (correzione dati sul campo). */
 export async function aggiornaPlace(
   id: string,
