@@ -205,6 +205,10 @@ export default function AppLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
+        // Default del Drawer = 'firstRoute': il back tornava SEMPRE alla prima
+        // schermata ("Oggi"). Con 'history' torna all'ultima visitata davvero,
+        // così ‹ Indietro riporta alla schermata precedente per tutte le rotte.
+        backBehavior="history"
         drawerContent={(props) => <ContenutoDrawer {...props} admin={admin} espansa={espansa} onToggle={isWide ? toggleEspansa : undefined} />}
         screenOptions={{
           headerStyle: { backgroundColor: colors.bianco },

@@ -204,6 +204,21 @@ export default function SchedaAttivita() {
 
   const lineeDaSalvare = !stessaTipologia(linee, lineeSalvate);
 
+  // Non proporre "+ Aggiungi" per contatti che abbiamo GIÀ in rubrica locale:
+  // confronto per telefono, email o nome normalizzati (così "Ivan Arioli" e il
+  // suggerimento HubSpot con lo stesso numero non risultano come nuovo contatto).
+  const contattiDaAggiungere = (matchAI?.contatti ?? []).filter((c) => {
+    const tel = (c.telefono ?? '').replace(/\D/g, '');
+    const mail = (c.email ?? '').trim().toLowerCase();
+    const nome = (c.nome ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+    return !contatti.some((x) => {
+      if (tel && (x.telefono ?? '').replace(/\D/g, '') === tel) return true;
+      if (mail && (x.email ?? '').trim().toLowerCase() === mail) return true;
+      if (nome && (x.nome ?? '').trim().toLowerCase().replace(/\s+/g, ' ') === nome) return true;
+      return false;
+    });
+  });
+
   // Salva la tipologia: la scrive su Scout e la propaga al registro Anagrafiche
   // (sincronizzaPlaceRegistro → upsert_partner con gli interessi).
   async function salvaTipologia() {
@@ -385,7 +400,10 @@ export default function SchedaAttivita() {
                 <Text style={styles.vuoto}>Nessuna azienda HubSpot corrispondente.</Text>
               )}
               {matchAI.nota ? <Text style={styles.aiNota}>{matchAI.nota}</Text> : null}
-              {matchAI.contatti.map((c) => (
+              {matchAI.match && !contattiDaAggiungere.length ? (
+                <Text style={styles.aiNota}>Tutti i contatti trovati sono già in rubrica.</Text>
+              ) : null}
+              {contattiDaAggiungere.map((c) => (
                 <View key={c.hubspot_contact_id} style={styles.aiContatto}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.contattoNome}>{c.nome || 'Contatto'}</Text>
