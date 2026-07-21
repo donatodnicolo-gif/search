@@ -18,7 +18,7 @@ export const ETICHETTE_STATO: Record<Stato, string> = {
   in_attesa: "In attesa",
   in_trattativa: "In trattativa",
   da_ricontattare: "Da ricontattare",
-  attivo: "Partner",
+  attivo: "Attivo",
   non_interessato: "Non interessato",
   dismesso: "Dismesso",
 };
