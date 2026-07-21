@@ -1,0 +1,181 @@
+// Deluxy Tasks — schema dati
+// Registro centralizzato delle attività (task) di un utente: ogni app
+// dell'ecosistema Deluxy vi manda le task che riguardano una persona, e
+// tutte le app le rileggono da qui. Così l'utente ha UN elenco unico di cose
+// da fare, indipendentemente dall'app che l'ha generata.
+//
+// Le altre app leggono via API (chiave x-api-key). Le scritture avvengono
+// server-to-server con una chiave di scrittura per app. L'utente è
+// identificato dall'email (la stessa del Deluxy Hub).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Postgres condiviso delle app Deluxy (stesso cluster di hub/anagrafiche),
+  // schema "tasks". Per rigenerare il .env locale:
+  //   npm run db:condiviso -- <percorso-env-di-un-altra-app>
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
+}
+
+// Una task condivisa. Nasce da un'app (`sistema`) che conosce il suo id
+// interno (`idEsterno`): la coppia (sistema, idEsterno) è l'identità stabile
+// con cui la stessa app aggiorna la task senza creare doppioni.
+model Task {
+  id            String    @id @default(cuid())
+  // App di origine: platform | scout | mail | partner | budgets | anagrafiche |
+  // suppliers | search | hub | ... (vedi src/lib/sistemi.ts)
+  sistema       String
+  // Id della task nell'app di origine (per l'upsert). Può mancare se la task
+  // è nata direttamente qui dalla UI.
+  idEsterno     String?
+
+  // — A chi appartiene la task (chiave condivisa tra le app: l'email del Hub) —
+  utenteEmail   String
+  utenteNome    String? // nome leggibile dell'assegnatario (facoltativo)
+
+  titolo        String
+  descrizione   String?
+
+  // aperta | in_corso | completata | annullata — vedi src/lib/stati.ts
+  stato         String    @default("aperta")
+
+  // — Priorità e scadenza EFFETTIVE (del livello scelto) —
+  // Una task può avere più livelli di priorità, ognuno con la sua data (vedi
+  // TaskLivello): es. "media → 30 lug (ideale)", "urgente → 22 lug (limite)".
+  // `priorita` e `scadenza` qui sotto rispecchiano SEMPRE il livello scelto, così
+  // le app che non gestiscono i livelli leggono comunque un valore singolo.
+  // bassa | media | alta | urgente — vedi src/lib/priorita.ts
+  priorita      String    @default("media")
+  scadenza      DateTime? // quando è dovuta (del livello scelto)
+  // Livello attualmente scelto (id di un TaskLivello). Null = nessun livello
+  // multiplo, valgono i campi priorita/scadenza qui sopra come unico livello.
+  livelloSceltoId String?
+
+  completataIl  DateTime? // valorizzata quando stato diventa "completata"
+
+  // Chi/che cosa ha creato la task (email o nome; facoltativo)
+  creataDa      String?
+
+  // Deep link per riaprire la task nell'app di origine (facoltativo)
+  link          String?
+
+  // Contesto opzionale: a cosa si riferisce la task (un partner, una consegna,
+  // una mail, ...). Serve solo a mostrare "di cosa parla" e a linkare.
+  contestoTipo      String? // partner | consegna | mail | ordine | trattativa | ...
+  contestoId        String? // id di quell'entità nel sistema di origine
+  contestoEtichetta String? // testo leggibile (es. "BOTTEGA VENETA — Milano")
+
+  // Livelli di priorità con date diverse (0..n). Se vuoto, vale il livello unico
+  // dato da priorita/scadenza.
+  livelli       TaskLivello[]
+
+  // Etichette libere per raggruppare/filtrare
+  tag           String[]  @default([])
+
+  // Metadati extra specifici dell'app di origine (JSON libero)
+  extra         Json?
+
+  // — Sincronizzazione —
+  // Revisione interna di Tasks: parte da 1 e cresce a ogni modifica. È il
+  // cursore con cui un progetto chiede "cosa è cambiato dopo la revisione N?"
+  // (GET /api/v1/tasks/changes?since=N).
+  revisione     Int       @default(1)
+  // Stato di aggiornamento che il progetto di origine ci comunica: la SUA
+  // versione/marcatore della task (stringa libera: un numero, un hash, un ETag).
+  // Serve a riconoscere se una scrittura porta davvero qualcosa di nuovo.
+  revisioneOrigine    String?
+  // Freschezza dichiarata dall'origine: quando il dato era vero da loro. Una
+  // scrittura con `asOf` più vecchio di questo viene ignorata (niente regressioni).
+  aggiornatoDaOrigine DateTime?
+  // Chi ha fatto l'ultima modifica: il `sistema` di origine, "ui" (UI del team),
+  // o il nome di un'altra app. Decide se far partire il callback verso l'origine.
+  ultimoAttore  String?
+
+  attiva        Boolean   @default(true) // false = archiviata (soft delete)
+  creataIl      DateTime  @default(now())
+  aggiornataIl  DateTime  @updatedAt
+
+  @@unique([sistema, idEsterno])
+  @@index([utenteEmail, stato])
+  @@index([sistema])
+  @@index([stato])
+  @@index([scadenza])
+  @@index([revisione])
+}
+
+// Un livello di priorità di una task, con la sua data. Una task può averne più
+// d'uno (es. la data "ideale" a priorità media e la data "limite" a priorità
+// urgente). Il team sceglie quale è attivo: il livello scelto determina
+// priorita/scadenza effettive della task (vedi Task.livelloSceltoId).
+model TaskLivello {
+  id        String    @id @default(cuid())
+  taskId    String
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  // bassa | media | alta | urgente
+  priorita  String
+  data      DateTime? // scadenza a questo livello di priorità
+  nota      String? // etichetta del livello: "ideale", "limite", ...
+  ordine    Int       @default(0)
+
+  @@index([taskId])
+}
+
+// Squadra: un gruppo di persone (per email del Hub) che condividono la vista
+// delle task. Un utente NON admin vede le proprie task + quelle di chi è nella
+// sua stessa squadra. Gli admin vedono tutto. La gestione (chi sta in quale
+// squadra) si fa con `npm run squadra` finché non c'è una UI dedicata.
+model Squadra {
+  id           String          @id @default(cuid())
+  nome         String          @unique
+  membri       MembroSquadra[]
+  creataIl     DateTime        @default(now())
+  aggiornataIl DateTime        @updatedAt
+}
+
+model MembroSquadra {
+  id          String   @id @default(cuid())
+  squadraId   String
+  squadra     Squadra  @relation(fields: [squadraId], references: [id], onDelete: Cascade)
+  utenteEmail String // email del Hub
+  creatoIl    DateTime @default(now())
+
+  @@unique([squadraId, utenteEmail])
+  @@index([utenteEmail])
+}
+
+// Registro dei progetti/app che dialogano con Tasks. Oltre a dare un nome
+// leggibile al `sistema`, tiene l'URL di callback (webhook) con cui Tasks
+// "richiama" il progetto quando una sua task cambia qui (es. il team la
+// completa dalla UI condivisa) e il segreto per firmare la chiamata.
+model Progetto {
+  id            String    @id @default(cuid())
+  sistema       String    @unique // chiave: platform | scout | mail | partner | ...
+  nome          String // etichetta leggibile
+  // Webhook che Tasks chiama (POST firmato) quando una task del progetto cambia.
+  // Se assente, nessun callback: il progetto sincronizza solo in pull (changes).
+  callbackUrl   String?
+  // Segreto per firmare i callback (HMAC-SHA256 nell'header x-tasks-signature).
+  callbackSegreto String?
+  attivo        Boolean   @default(true)
+  // Ultimo cursore (revisione) confermato dal progetto in pull: puramente
+  // informativo, per capire quanto è indietro con la sincronizzazione.
+  ultimoCursore Int?
+  creatoIl      DateTime  @default(now())
+  aggiornatoIl  DateTime  @updatedAt
+}
+
+// Chiavi API delle app client. La chiave in chiaro non viene mai salvata:
+// si conserva solo lo SHA-256 (vedi scripts/crea-chiave.mjs).
+model ApiKey {
+  id        String    @id @default(cuid())
+  nome      String    @unique // app client: deluxy-platform, deluxy-scout, ...
+  hash      String    @unique // sha256 esadecimale della chiave
+  scrittura Boolean   @default(false) // true = può creare/modificare/archiviare
+  attiva    Boolean   @default(true)
+  creataIl  DateTime  @default(now())
+  ultimoUso DateTime?
+}

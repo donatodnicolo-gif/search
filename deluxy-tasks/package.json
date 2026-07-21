@@ -1,0 +1,36 @@
+{
+  "name": "deluxy-tasks",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deluxy Tasks — registro centralizzato delle attività (task) di un utente, condiviso tra tutte le app Deluxy",
+  "scripts": {
+    "dev": "next dev -p 3090",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
+    "start": "next start -p 3090",
+    "db:push": "prisma db push",
+    "chiave": "node scripts/crea-chiave.mjs",
+    "progetto": "node scripts/registra-progetto.mjs",
+    "squadra": "node scripts/squadra.mjs",
+    "db:condiviso": "node scripts/configura-db-condiviso.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.5.0",
+    "next": "^15.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "prisma": "^6.5.0",
+    "typescript": "^5.7.3"
+  },
+  "allowScripts": {
+    "prisma@6.19.3": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true
+  }
+}

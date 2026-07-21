@@ -1,0 +1,179 @@
+@import "./tokens.css";
+
+/* Deluxy Tasks — implementazione del Deluxy Design System v1.0
+   (deluxy-design-system/DESIGN-SYSTEM.md). Solo var(--…) dei token. */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* ---------- Barra superiore ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 24px;
+  background: var(--surface-translucent);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-logo {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: linear-gradient(145deg, #1d1f26, #3a3d47);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: var(--gold);
+  font-family: var(--font-logo);
+  font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+  flex: 0 0 auto;
+}
+.brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+.brand-sub { font-size: 12px; color: var(--text-secondary); }
+
+/* ---------- Contenitore ---------- */
+.wrap { max-width: 920px; margin: 0 auto; padding: 28px 24px 80px; }
+
+.page-title { font-size: 26px; font-weight: 600; letter-spacing: -0.022em; }
+.page-sub { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+
+/* ---------- Bottoni ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font: inherit; font-size: 14px; font-weight: 500;
+  color: #fff; background: var(--ink);
+  border: 0; border-radius: var(--radius-pill);
+  padding: 9px 18px; cursor: pointer;
+  transition: background 120ms var(--ease), transform 120ms var(--ease);
+}
+.btn:hover { background: var(--ink-hover); }
+.btn:active { transform: scale(0.98); }
+.btn.ghost { background: var(--fill); color: var(--text); }
+.btn.ghost:hover { background: var(--fill-hover); }
+
+/* ---------- Filtri ---------- */
+.filtri {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin: 22px 0 18px;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--text-secondary);
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill); padding: 6px 13px; cursor: pointer;
+  transition: background 120ms var(--ease), color 120ms var(--ease), border-color 120ms var(--ease);
+}
+.chip:hover { background: var(--fill); color: var(--text); }
+.chip.attivo { background: var(--ink); color: #fff; border-color: var(--ink); }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+
+.cerca {
+  flex: 1; min-width: 180px;
+  font: inherit; font-size: 14px; color: var(--text);
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill); padding: 8px 15px; outline: none;
+}
+.cerca:focus { border-color: var(--hairline-strong); }
+
+/* ---------- Gruppo (per persona) ---------- */
+.gruppo { margin-top: 26px; }
+.gruppo-testa {
+  display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px;
+  padding: 0 4px;
+}
+.gruppo-nome { font-size: 15px; font-weight: 600; }
+.gruppo-email { font-size: 13px; color: var(--text-tertiary); }
+.gruppo-conta { font-size: 12px; color: var(--text-tertiary); margin-left: auto; }
+
+/* ---------- Card task ---------- */
+.lista { display: flex; flex-direction: column; gap: 10px; }
+.task {
+  display: flex; align-items: flex-start; gap: 14px;
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-l); padding: 14px 16px;
+  box-shadow: var(--shadow-card);
+  transition: border-color 120ms var(--ease);
+}
+.task:hover { border-color: var(--hairline-strong); }
+.task.chiusa { opacity: 0.55; }
+.task.chiusa .task-titolo { text-decoration: line-through; }
+
+.task-corpo { flex: 1; min-width: 0; }
+.task-titolo { font-size: 15px; font-weight: 550; letter-spacing: -0.01em; }
+.task-desc { font-size: 13.5px; color: var(--text-secondary); margin-top: 3px; }
+.task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 9px; }
+
+/* Badge a pillola con dot (stato / provenienza / priorità) */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; color: var(--text-secondary);
+  background: var(--fill); border-radius: var(--radius-pill); padding: 3px 10px;
+}
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+.scad { font-size: 12px; color: var(--text-tertiary); }
+.scad.rossa { color: var(--red); font-weight: 500; }
+.contesto { font-size: 12px; color: var(--text-tertiary); }
+
+/* Azioni sulla card */
+.task-azioni { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
+.check {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 1.5px solid var(--hairline-strong); background: transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: transparent; transition: all 120ms var(--ease); flex: 0 0 auto;
+  margin-top: 1px;
+}
+.check:hover { border-color: var(--green); color: var(--green); }
+.check.fatta { background: var(--green); border-color: var(--green); color: #fff; }
+.mini {
+  font-size: 12px; color: var(--text-tertiary); background: transparent;
+  border: 0; cursor: pointer; padding: 2px 4px; border-radius: 6px;
+}
+.mini:hover { color: var(--text); background: var(--fill); }
+
+/* Livelli di priorità con date diverse */
+.livelli { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.livello {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 12px; color: var(--text-secondary);
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill); padding: 3px 10px; cursor: pointer;
+  transition: border-color 120ms var(--ease), background 120ms var(--ease);
+}
+.livello:hover:not(:disabled) { border-color: var(--hairline-strong); }
+.livello.attivo { border-color: var(--ink); background: var(--fill-active); color: var(--text); font-weight: 550; }
+.livello:disabled { cursor: default; }
+.livello .dot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+.livello-data { color: var(--text-tertiary); }
+.livello-nota { color: var(--text-tertiary); font-style: italic; }
+
+/* Barra utente (chi sta guardando) */
+.utente-barra {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 6px; font-size: 13px; color: var(--text-secondary);
+}
+.utente-ruolo {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--gold-strong); background: var(--gold-soft);
+  border-radius: var(--radius-pill); padding: 2px 9px;
+}
+
+/* ---------- Vuoto ---------- */
+.vuoto {
+  text-align: center; color: var(--text-tertiary); font-size: 14px;
+  padding: 60px 20px;
+}
