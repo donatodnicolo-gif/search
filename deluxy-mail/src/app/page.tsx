@@ -123,12 +123,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   }
 
   // La sezione SPAM si vede solo aprendola: nella posta in arrivo (e nella AI
-  // Inbox) la posta indesiderata resta fuori.
-  const spamSez = await db.sezione.findFirst({
-    where: { utenteId: u.id, nome: 'SPAM' },
-    select: { id: true },
-  })
-  const spamId = spamSez?.id ?? null
+  // Inbox) la posta indesiderata resta fuori — escluso col filtro sulla
+  // relazione sezione.nome più sotto (NON con l'id, per non perdere i NULL).
 
   // In RICERCA la posta si guarda tutta: ricevute e inviate, in qualunque
   // sezione (tranne il cestino). I filtri sezione/vista non si applicano.
@@ -162,21 +158,22 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       // in qualunque sezione (tranne SPAM).
       ...(sezione
         ? { sezioneId: { in: idsSezione } }
+        // ⚠️ Lo SPAM si esclude col filtro sulla RELAZIONE (sezione.nome), NON
+        // con "NOT sezioneId = spamId" su campo scalare: quest'ultimo, per le
+        // righe con sezioneId NULL (la posta NON smistata), dà NULL invece di
+        // TRUE e le ESCLUDE — nascondendo così quasi tutta la posta in arrivo.
+        // Il filtro-relazione include correttamente anche le mail senza sezione.
         : vistaAI
-          ? spamId
-            ? { NOT: { sezioneId: spamId } }
-            : {}
+          // AI Inbox: le mail dei contatti AI+, SPAM escluso.
+          ? { NOT: { sezione: { nome: 'SPAM' } } }
           : vistaNonSmistate
             // "Non smistate" = la posta in arrivo MENO quella già in una sezione:
-            // tutto ciò che non ha ancora una sezione (lo SPAM ha la sua sezione,
-            // quindi resta fuori da sé). Nessun vincolo sull'analisi AI.
+            // tutto ciò che non ha ancora una sezione. Nessun vincolo sull'analisi AI.
             ? { sezioneId: null }
             // "In arrivo": TUTTA la posta (anche quella già smistata, che in riga
             // mostra il badge della sua sezione), tranne lo SPAM. Il Cestino è
             // già escluso a monte (cestinato: false).
-            : spamId
-              ? { NOT: { sezioneId: spamId } }
-              : {}),
+            : { NOT: { sezione: { nome: 'SPAM' } } }),
       ...(stato === 'non-letti' ? { letto: false } : {}),
       ...(stato === 'da-rispondere' ? { serveRisposta: true } : {}),
       ...(p ? { priorita: p } : {}),
