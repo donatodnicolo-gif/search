@@ -27,8 +27,9 @@ pubblicato), *sfidante* e *irraggiungibile*.
   (controparte → categoria, il match più specifico vince). Ricostruisce la struttura dei costi,
   mostra la % di copertura e le controparti **da categorizzare** con assegnazione rapida (crea
   una regola permanente). Ogni categoria è agganciata a una voce di P&L (COGS/ADV/Personale/
-  Struttura/Esclusa). Richiede `FINANCE_API_KEY` e la nuova API `/api/spese` **deployata su
-  Finance**. Categorie e regole si aggiungono/rimuovono.
+  Struttura/Esclusa). Le controparti da categorizzare sono mostrate per importo (le prime 100),
+  con nota su quante restano. Richiede `FINANCE_API_KEY` e l'API `/api/spese` di Finance (live).
+  Categorie e regole si aggiungono/rimuovono.
 - **Consuntivo** (`/consuntivo`): gli importi **realmente fatturati** per tipologia di servizio,
   richiamati dall'app **Finance** (`deluxy-partner`, endpoint `/api/tipologie`) con selettore di
   periodo (anno / 1° / 2° semestre) e stato (tutte / saldate / aperte). Il fatturato reale si

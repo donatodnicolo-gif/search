@@ -39,6 +39,15 @@ export function CfoBoard({
   const [errore, setErrore] = useState<string | null>(null);
 
   const nonCategorizzate = righe.find((r) => r.categoriaId === null);
+  // Con centinaia di controparti la tabella diventa ingestibile: si mostrano le
+  // più costose (dove sta quasi tutto l'importo) e si dice quante restano.
+  const TETTO_DA_CATEGORIZZARE = 100;
+  const daMostrare = nonCategorizzate?.controparti.slice(0, TETTO_DA_CATEGORIZZARE) ?? [];
+  const restanti = (nonCategorizzate?.controparti.length ?? 0) - daMostrare.length;
+  const importoRestante = (nonCategorizzate?.controparti.slice(TETTO_DA_CATEGORIZZARE) ?? []).reduce(
+    (s, c) => s + c.uscite,
+    0
+  );
   const categorizzato = righe.filter((r) => r.categoriaId !== null).reduce((s, r) => s + r.uscite, 0);
   const coperturaPct = totali.uscite > 0 ? (categorizzato / totali.uscite) * 100 : 0;
 
@@ -199,7 +208,7 @@ export function CfoBoard({
                   </tr>
                 </thead>
                 <tbody>
-                  {nonCategorizzate.controparti.map((c) => (
+                  {daMostrare.map((c) => (
                     <tr key={c.controparte}>
                       <td style={{ fontWeight: 500 }}>{c.controparte}</td>
                       <td className="num">{eur(c.uscite)}</td>
@@ -230,6 +239,10 @@ export function CfoBoard({
             </div>
           </div>
           <p className="page-caption" style={{ marginTop: 12 }}>
+            {restanti > 0 && (
+              <>Mostrate le prime {TETTO_DA_CATEGORIZZARE} controparti per importo; restano{" "}
+              <strong>{restanti}</strong> voci minori per {eur(importoRestante)}. </>
+            )}
             Assegnare una controparte crea una regola permanente: la prossima volta sarà categorizzata da sola.
           </p>
         </>
