@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { aggiornaAnagrafica, creaAnagrafica, type CampiAnagrafica } from "./anagrafiche";
+import { campiPropostiPerNome } from "./riconciliazione-fic";
 import { ibanValido } from "./impostazioni";
 
 // Conferma la riconciliazione di un cliente FIC e INVIA i campi al registro
@@ -15,11 +16,17 @@ export async function confermaRiconciliazione(
   anagraficaId: string,
   campiJson: string
 ) {
-  let campi: CampiAnagrafica = {};
-  try {
-    campi = JSON.parse(campiJson);
-  } catch {
-    campi = {};
+  // Ricalcola SEMPRE i campi lato server dai dati FIC correnti: così la conferma
+  // usa la logica aggiornata (es. include la ragione sociale) anche se la pagina
+  // nel browser è una versione vecchia. Fallback al payload della pagina solo se
+  // il cliente FIC non è più reperibile.
+  let campi: CampiAnagrafica = await campiPropostiPerNome(ficNome);
+  if (Object.keys(campi).length === 0) {
+    try {
+      campi = JSON.parse(campiJson);
+    } catch {
+      campi = {};
+    }
   }
 
   const res = await aggiornaAnagrafica(anagraficaId, campi);

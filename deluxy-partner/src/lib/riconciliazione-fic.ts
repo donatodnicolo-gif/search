@@ -77,6 +77,16 @@ export function campiProposti(d: FicClienteFiscale) {
   };
 }
 
+// Ricalcola i campi da proporre partendo dal nome del cliente FIC, leggendo i
+// dati FIC correnti (in cache). Serve alle server action per NON dipendere dal
+// payload della pagina nel browser, che può essere una versione vecchia priva di
+// campi introdotti dopo (es. la ragione sociale).
+export async function campiPropostiPerNome(ficNome: string) {
+  const clienti = await clientiFicCache();
+  const d = clienti.find((c) => c.nome === ficNome);
+  return d ? campiProposti(d) : {};
+}
+
 export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
   // Tutto in parallelo: i due dati esterni pesanti sono in cache (10 min), i tre
   // dati DB sono freschi. Prima erano in serie → decine di round-trip a ogni render.
