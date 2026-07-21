@@ -3,6 +3,7 @@
 // (mai nel bundle dell'app) e inoltra le query. Regola d'oro del registro:
 // le app leggono, non tengono copie — questa funzione permette la lettura live.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { chiaveHub } from '../_shared/chiavi.ts';
 
 const BASE = Deno.env.get('ANAGRAFICHE_URL') ?? 'https://deluxy-anagrafiche.vercel.app';
 
@@ -20,7 +21,7 @@ function json(body: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    const key = Deno.env.get('ANAGRAFICHE_API_KEY');
+    const key = await chiaveHub('ANAGRAFICHE_API_KEY'); // dalla cassaforte hub, fallback env
     if (!key) return json({ error: 'ANAGRAFICHE_API_KEY non configurata' }, 500);
 
     // Autenticazione: chi chiama dev'essere un utente Scout loggato.
@@ -36,7 +37,7 @@ Deno.serve(async (req) => {
     // registro. Finché non ci sono, resta inerte (l'archiviazione locale in
     // Scout è già avvenuta): { ok:false, reason:'non_configurato' }.
     if (body.action === 'archivia_referente') {
-      const writeKey = Deno.env.get('ANAGRAFICHE_WRITE_KEY');
+      const writeKey = await chiaveHub('ANAGRAFICHE_WRITE_KEY');
       if (!writeKey) return json({ ok: false, reason: 'non_configurato' });
       const res = await fetch(`${BASE}/api/v1/referenti/archivia`, {
         method: 'POST',
@@ -63,7 +64,7 @@ Deno.serve(async (req) => {
     // chiave con scope di scrittura partner (`ANAGRAFICHE_PARTNER_KEY`). Inerte
     // finché non è impostata: { ok:false, reason:'non_configurato' }.
     if (body.action === 'upsert_partner') {
-      const partnerKey = Deno.env.get('ANAGRAFICHE_PARTNER_KEY');
+      const partnerKey = await chiaveHub('ANAGRAFICHE_PARTNER_KEY');
       if (!partnerKey) return json({ ok: false, reason: 'non_configurato' });
       // Mappa lo stato Scout → stato del registro.
       const STATO: Record<string, string> = {
