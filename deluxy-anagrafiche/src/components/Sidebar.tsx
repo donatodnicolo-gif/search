@@ -17,6 +17,7 @@ export async function Sidebar({
   matchAttivo = false,
   contattiAttiva = false,
   riconciliazioneAttiva = false,
+  identitaAttiva = false,
 }: {
   categoriaAttiva?: string | null;
   statoAttivo?: string | null;
@@ -27,6 +28,7 @@ export async function Sidebar({
   matchAttivo?: boolean;
   contattiAttiva?: boolean;
   riconciliazioneAttiva?: boolean;
+  identitaAttiva?: boolean;
 }) {
   const [categorie, archiviate, statiConteggio, interessiConteggio] = await Promise.all([
     prisma.partner.groupBy({
@@ -53,7 +55,7 @@ export async function Sidebar({
   const perInteresse = new Map(interessiConteggio.map((i) => [i.interesse, Number(i.totale)]));
 
   const globaleAttiva =
-    !categoriaAttiva && !statoAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva;
+    !categoriaAttiva && !statoAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva;
 
   return (
     <aside className="sidebar">
@@ -124,7 +126,11 @@ export async function Sidebar({
           </a>
         </SbSezione>
 
-        <SbSezione titolo="Sync">
+        <SbSezione titolo="Identità aziende">
+          <a className={`sb-item${identitaAttiva ? " attiva" : ""}`} href="/identita-aziende">
+            <span className="sb-icona"><IconaCategoria categoria="DASHBOARD" /></span>
+            <span className="sb-nome">Panoramica</span>
+          </a>
           <a className={`sb-item${hubspotAttivo ? " attiva" : ""}`} href="/sync-hubspot">
             <span className="sb-icona"><IconaCategoria categoria="SYNC" /></span>
             <span className="sb-nome">Sync HubSpot</span>

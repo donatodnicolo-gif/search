@@ -314,6 +314,17 @@ export async function spostaContatto(contattoId: string, nuovoPartnerId: string)
   revalidatePath(`/partner/${nuovoPartnerId}`);
 }
 
+// Riassegnazione multipla: sposta più referenti alla stessa anagrafica in colpo solo.
+export async function spostaContattiMulti(contattoIds: string[], nuovoPartnerId: string) {
+  if (!contattoIds.length) return;
+  const dest = await prisma.partner.findUnique({ where: { id: nuovoPartnerId }, select: { id: true } });
+  if (!dest) return;
+  await prisma.contatto.updateMany({ where: { id: { in: contattoIds } }, data: { partnerId: nuovoPartnerId } });
+  revalidatePath("/riconciliazione");
+  revalidatePath("/contatti");
+  revalidatePath(`/partner/${nuovoPartnerId}`);
+}
+
 // Elimina un referente dalla scheda contatto (il form chiede conferma via
 // campo dedicato: il bottone è separato dal salvataggio).
 export async function eliminaContatto(contattoId: string) {

@@ -1,12 +1,28 @@
 import type { Prisma } from "@prisma/client";
 import { Sidebar } from "@/components/Sidebar";
-import { SpostaContatto } from "@/components/SpostaContatto";
+import { type RigaRiconc, TabellaRiconciliazione } from "@/components/TabellaRiconciliazione";
 import { prisma } from "@/lib/db";
-import { linkContattoHubspot } from "@/lib/hubspot-link";
+import { whereRicerca } from "@/lib/ricerca";
 
 export const dynamic = "force-dynamic";
 
 const PER_PAGINA = 40;
+
+// Provider generici: il dominio non identifica l'azienda, niente suggerimento.
+const DOMINI_GENERICI = new Set([
+  "gmail.com", "googlemail.com", "hotmail.com", "hotmail.it", "outlook.com", "outlook.it",
+  "live.com", "live.it", "yahoo.com", "yahoo.it", "icloud.com", "me.com", "libero.it",
+  "virgilio.it", "tin.it", "alice.it", "tiscali.it", "fastwebnet.it", "aruba.it", "pec.it",
+]);
+
+// Radice del dominio email utile a indovinare l'insegna (es. cristina@aeffe.com → "aeffe")
+function radiceDominio(email: string | null): string | null {
+  const dom = email?.split("@")[1]?.toLowerCase().trim();
+  if (!dom || DOMINI_GENERICI.has(dom)) return null;
+  const parti = dom.split(".");
+  const radice = parti.length >= 2 ? parti[parti.length - 2] : parti[0];
+  return radice && radice.length >= 3 ? radice : null;
+}
 
 type Ricerca = { q?: string; pagina?: string };
 
@@ -41,6 +57,36 @@ export default async function Riconciliazione({ searchParams }: { searchParams: 
       take: PER_PAGINA,
     }),
   ]);
+
+  // Suggerimenti d'insegna dal dominio email — calcolati una volta per radice
+  // distinta (molti contatti condividono il dominio), solo verso anagrafiche
+  // "vere" (non altri contenitori DA CLASSIFICARE).
+  const radici = [...new Set(contatti.map((c) => radiceDominio(c.email)).filter(Boolean))] as string[];
+  const perRadice = new Map<string, RigaRiconc["suggeriti"]>();
+  await Promise.all(
+    radici.map(async (r) => {
+      const cand = await prisma.partner.findMany({
+        where: { attivo: true, categoria: { not: "DA CLASSIFICARE" }, AND: whereRicerca(r) },
+        select: { id: true, nome: true, categoria: true, citta: true },
+        orderBy: { nome: "asc" },
+        take: 2,
+      });
+      perRadice.set(r, cand);
+    }),
+  );
+
+  const righe: RigaRiconc[] = contatti.map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    ruolo: c.ruolo,
+    email: c.email,
+    telefono: c.telefono,
+    hubspotId: c.hubspotId,
+    partnerId: c.partner.id,
+    partnerNome: c.partner.nome,
+    partnerCitta: c.partner.citta,
+    suggeriti: (radiceDominio(c.email) && perRadice.get(radiceDominio(c.email)!)) || [],
+  }));
 
   const pagineTotali = Math.max(1, Math.ceil(totale / PER_PAGINA));
   const linkPagina = (n: number) => {
@@ -78,47 +124,7 @@ export default async function Riconciliazione({ searchParams }: { searchParams: 
         {contatti.length === 0 ? (
           <div className="vuoto">Nessun referente da riconciliare{filtri.q ? " con questi filtri" : ""}. 🎉</div>
         ) : (
-          <div className="tabella-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Referente</th>
-                  <th>Ruolo</th>
-                  <th>Contatti</th>
-                  <th>Anagrafica attuale</th>
-                  <th aria-label="Azione"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {contatti.map((c) => (
-                  <tr key={c.id}>
-                    <td>
-                      {c.hubspotId ? (
-                        <a href={linkContattoHubspot(c.hubspotId)} target="_blank" rel="noreferrer" title="Apri in HubSpot">
-                          <div className="cella-nome">{c.nome ?? "—"} ↗</div>
-                        </a>
-                      ) : (
-                        <div className="cella-nome">{c.nome ?? "—"}</div>
-                      )}
-                    </td>
-                    <td className="cella-muta">{c.ruolo ?? "—"}</td>
-                    <td className="cella-muta">
-                      {[c.email, c.telefono].filter(Boolean).join(" · ") || "—"}
-                    </td>
-                    <td>
-                      <a href={`/partner/${c.partner.id}`}>
-                        <div className="cella-nome">{c.partner.nome}</div>
-                        {c.partner.citta && <div className="cella-sub">{c.partner.citta}</div>}
-                      </a>
-                    </td>
-                    <td>
-                      <SpostaContatto contattoId={c.id} nomeContatto={c.nome ?? "referente"} partnerAttualeId={c.partner.id} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TabellaRiconciliazione righe={righe} />
         )}
 
         <div className="paginazione">

@@ -537,6 +537,34 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
 .modale-voce-nome { font-weight: 500; font-size: 14px; }
 .modale-voce-sub { font-size: 12.5px; color: var(--text-secondary); }
 
+/* ---------- Cruscotto Identità aziende ---------- */
+.griglia-identita {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.card-identita { display: block; text-decoration: none; color: inherit; transition: box-shadow .15s, transform .15s; }
+.card-identita:hover { box-shadow: 0 6px 20px rgba(0,0,0,.10); transform: translateY(-2px); }
+.card-identita-num { font-size: 34px; font-weight: 700; letter-spacing: -.02em; margin-top: 6px; }
+.card-identita-etic { font-size: 13px; color: var(--text-secondary); }
+
+/* ---------- Riconciliazione referenti ---------- */
+.barra-selezione {
+  position: sticky; top: 8px; z-index: 5;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; margin-bottom: 12px;
+  background: var(--text); color: #fff;
+  border-radius: 12px; font-size: 13.5px; font-weight: 500;
+  box-shadow: 0 4px 14px rgba(0,0,0,.14);
+}
+.chip-suggerito {
+  padding: 4px 11px; border-radius: 999px;
+  border: 1px solid var(--gold); background: rgba(184,150,62,.08);
+  color: var(--gold-strong); font-size: 12.5px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.chip-suggerito:hover { background: rgba(184,150,62,.16); }
+.chip-suggerito:disabled { opacity: .5; cursor: default; }
+
 /* ---------- Richieste di aggancio (match) ---------- */
 .btn.small { padding: 5px 12px; font-size: 12.5px; }
 .badge.neutro {

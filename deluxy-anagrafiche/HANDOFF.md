@@ -95,10 +95,15 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   **⇄ riconcilia** (crea xref hubspot), **＋ importa** company come prospect DA CLASSIFICARE.
 - **`/match`** — storico delle richieste di aggancio delle app (tipo, esito, app, confidenza);
   **Risolvi** (crea xref) le ambigue, **Modifica** quelle già agganciate, **Ignora** il rumore.
-- **`/riconciliazione`** — smistamento dei **referenti** finiti sotto anagrafiche «DA CLASSIFICARE»
-  (contenitore «Contatti senza azienda (HubSpot)» + gruppi/holding creati dal sync): ogni riga ha
-  «Riassegna →» (modale con ricerca `/api/interno/cerca-partner`) che **sposta** il contatto
-  all'insegna giusta (`spostaContatto`, non duplica). Sidebar «Riconciliazione» con conteggio.
+- **`/identita-aziende`** — cruscotto che raccoglie le tre viste dell'identità: Sync HubSpot
+  (N/tot collegate), Richieste di aggancio (da risolvere), Riconciliazione (referenti da riassegnare).
+  Sidebar sezione **«Identità aziende»** (ex «Sync»): Panoramica · Sync HubSpot · Richieste di aggancio · Riconciliazione.
+- **`/riconciliazione`** — smistamento dei **referenti** sotto anagrafiche «DA CLASSIFICARE»
+  (contenitore «Contatti senza azienda (HubSpot)» + gruppi/holding creati dal sync).
+  `TabellaRiconciliazione` (client): **chip di suggerimento** dell'insegna dal dominio email
+  (radice dominio, esclusi i provider generici → `whereRicerca`, solo anagrafiche non-DA CLASSIFICARE);
+  **selezione multipla** con barra e spostamento in blocco (`spostaContattiMulti`, updateMany);
+  «Altra…» apre la modale di ricerca. Azioni: `spostaContatto` / `spostaContattiMulti` (non duplicano).
 - **`/partner/:id`** — scheda: anagrafica, pillole stato + menu interessi, ✎ Modifica, archivia,
   sezione **Contatti** (Excel+HubSpot con link al CRM, telefono cliccabile, **✕ rimuove il
   referente** dall'azienda → `staccaContatto`), Note, Dati del tracker, **Storia** (timeline).
