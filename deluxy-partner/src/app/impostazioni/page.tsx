@@ -7,6 +7,7 @@ import { inviaEmail } from "@/lib/mail";
 import { ficStato } from "@/lib/fic";
 import { qontoOrganizzazione, qontoConfigurato } from "@/lib/qonto";
 import { salvaNegozioShopify, rimuoviNegozioShopify } from "@/lib/ordini-actions";
+import { PrecompilaNegozi } from "@/components/PrecompilaNegozi";
 import { dataIt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -301,7 +302,13 @@ export default async function ImpostazioniPage({
           </div>
         )}
       </div>
-      <form action={salvaNegozioShopify} className="card">
+      <form id="form-negozio" action={salvaNegozioShopify} className="card">
+        <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Aggiungi un negozio</h3>
+        <p className="muted" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
+          Puoi aggiungerne <strong>quanti vuoi</strong>: ogni negozio ha un <strong>Brand diverso</strong> (è la chiave).
+          Salva, e il negozio compare nell&apos;elenco qui sopra; ripeti per il prossimo. Stesso Brand = sovrascrive.
+        </p>
+        <PrecompilaNegozi />
         <div className="form-grid">
           <div>
             <label className="field-label">Brand (identificativo) <span className="req">*</span></label>
