@@ -61,7 +61,7 @@ import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione
 import { raggruppa } from './thread'
 import { azioneDi, regolaAppPerMail, chiaveDiAzione, type AzioneDescritta } from './appDeluxy'
 import { leggiChiaviApp, salvaChiaveApp, type NomeChiaveApp } from './chiaviApp'
-import { provaConnessione, salvaInInviata, trovaCartellaInviata, eliminaDalServer } from './imap'
+import { provaConnessione, salvaInInviata, trovaCartellaInviata, eliminaDalServer, leggiAllegati as leggiAllegatiImap } from './imap'
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
 import { CHIAVE_TOKEN_API } from './apiAuth'
 import { utenteCorrente } from './sessione'
@@ -710,6 +710,26 @@ export async function segnalaNonSpam(id: string): Promise<{ ok: boolean; messagg
   })
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: 'Spostata in Posta in arrivo: non è spam.' }
+}
+
+// ---------- Allegati (letti on-demand dal server) ----------
+
+/** L'elenco degli allegati di un messaggio, letto dal server al momento. */
+export async function elencoAllegati(
+  messaggioId: string
+): Promise<{ nome: string; tipo: string; dimensione: number }[]> {
+  const utenteId = await uid()
+  const m = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    include: { account: true },
+  })
+  if (!m || m.uid <= 0) return []
+  const cartella = m.direzione === 'uscita' ? m.account.cartellaInviata || undefined : m.account.cartella
+  try {
+    return await leggiAllegatiImap(m.account, m.uid, cartella)
+  } catch {
+    return []
+  }
 }
 
 // ---------- Notifiche push ----------

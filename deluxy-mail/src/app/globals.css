@@ -523,7 +523,7 @@ mark.ricerca-hit {
   display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;
   font-size: 12px; color: var(--text-secondary);
 }
-.riga-azioni { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+.riga-azioni { display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; margin-top: 8px; }
 
 /* Azioni reversibili della riga: stesso peso visivo di "Archivia definitivo",
    ma neutre — quella è rossa perché è l'unica che lascia un segno. */
@@ -533,7 +533,10 @@ mark.ricerca-hit {
   color: var(--text-tertiary);
   font-family: var(--font-sans);
   font-size: 12px;
-  padding: 2px 0;
+  /* Padding orizzontale: area di clic più ampia e SEPARATA da quella accanto,
+     così "Cestina" non prende anche "Archivia" (e viceversa). */
+  padding: 4px 6px;
+  margin: 0 -2px;
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -541,6 +544,26 @@ mark.ricerca-hit {
 }
 .azione-riga:hover { color: var(--text); }
 .azione-riga:disabled { opacity: 0.55; cursor: default; }
+
+/* Allegati sotto il messaggio (scaricati on-demand dal server). */
+.allegati-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hairline); }
+.allegati-titolo { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }
+.allegati-lista { display: flex; flex-direction: column; gap: 8px; }
+.allegato-voce {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  text-decoration: none;
+  color: var(--text-primary);
+}
+.allegato-voce:hover { background: var(--fill); }
+.allegato-nome { font-size: 13.5px; font-weight: 500; word-break: break-word; min-width: 0; }
+.allegato-dim { font-size: 12px; color: var(--text-secondary); flex-shrink: 0; white-space: nowrap; }
 
 /* Menu rapido "Sposta in…" nella riga: piccolo, in tono con le azioni. */
 .sposta-sezione {

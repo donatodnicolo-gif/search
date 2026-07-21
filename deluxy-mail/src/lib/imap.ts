@@ -208,6 +208,62 @@ export async function eliminaDalServer(account: Account, cartella: string, uids:
   }
 }
 
+/** L'elenco degli allegati di un messaggio (nome/tipo/dimensione), letto ON-DEMAND
+ *  dal server: non si conservano i file, si scaricano quando servono. */
+export async function leggiAllegati(
+  account: Account,
+  uid: number,
+  cartella?: string
+): Promise<{ nome: string; tipo: string; dimensione: number }[]> {
+  if (uid <= 0) return []
+  const client = connessione(account)
+  await client.connect()
+  try {
+    await client.mailboxOpen(cartella || account.cartella, { readOnly: true })
+    for await (const msg of client.fetch({ uid: String(uid) }, { uid: true, source: true }, { uid: true })) {
+      if (!msg.source) continue
+      const parsed = await simpleParser(msg.source)
+      return (parsed.attachments ?? []).map((a, i) => ({
+        nome: a.filename || `allegato-${i + 1}`,
+        tipo: a.contentType || 'application/octet-stream',
+        dimensione: a.size || (a.content ? a.content.length : 0),
+      }))
+    }
+    return []
+  } finally {
+    await client.logout()
+  }
+}
+
+/** Scarica UN allegato (per indice) dal server, per servirlo al download. */
+export async function leggiAllegato(
+  account: Account,
+  uid: number,
+  indice: number,
+  cartella?: string
+): Promise<{ nome: string; tipo: string; contenuto: Buffer } | null> {
+  if (uid <= 0) return null
+  const client = connessione(account)
+  await client.connect()
+  try {
+    await client.mailboxOpen(cartella || account.cartella, { readOnly: true })
+    for await (const msg of client.fetch({ uid: String(uid) }, { uid: true, source: true }, { uid: true })) {
+      if (!msg.source) continue
+      const parsed = await simpleParser(msg.source)
+      const a = (parsed.attachments ?? [])[indice]
+      if (!a) return null
+      return {
+        nome: a.filename || `allegato-${indice + 1}`,
+        tipo: a.contentType || 'application/octet-stream',
+        contenuto: a.content as Buffer,
+      }
+    }
+    return null
+  } finally {
+    await client.logout()
+  }
+}
+
 /** Apre e chiude una connessione per verificare host, porta e credenziali. */
 export async function provaConnessione(account: Account): Promise<void> {
   const client = connessione(account)

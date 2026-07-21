@@ -16,6 +16,7 @@ import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
 import { richiediUtente } from '@/lib/sessione'
 import { messaggiThread, leggiRiassuntoThread } from '@/lib/sync'
 import { TraduzioneAllApertura } from '@/components/TraduzioneAllApertura'
+import { AllegatiMessaggio } from '@/components/AllegatiMessaggio'
 import { chiaveThread } from '@/lib/thread'
 import { eContattoAI } from '@/lib/contattiAI'
 import { azioneDi } from '@/lib/appDeluxy'
@@ -242,6 +243,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           lingua={lingua}
         />
         {traduciDopo && <TraduzioneAllApertura messaggioId={messaggio.id} />}
+        {messaggio.allegati > 0 && (
+          <AllegatiMessaggio messaggioId={messaggio.id} quanti={messaggio.allegati} />
+        )}
       </div>
 
       {conversazione.length === 1 && (
