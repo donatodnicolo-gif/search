@@ -3,6 +3,14 @@ import { prisma } from "./db";
 import { riepilogoMese, rolling, type RiepilogoMese, type Rolling } from "./calc";
 
 export const ANNO_CORRENTE = 2026;
+// Anni selezionabili nelle viste (dal più recente). Aggiornare quando si apre un anno nuovo.
+export const ANNI_DISPONIBILI = [2026, 2025];
+
+// Normalizza un anno ricevuto da querystring: valido solo se tra quelli disponibili.
+export function annoValido(v: string | undefined): number {
+  const n = v ? parseInt(v) : NaN;
+  return ANNI_DISPONIBILI.includes(n) ? n : ANNO_CORRENTE;
+}
 
 export type MeseParziale = { mese: number; riepilogo: RiepilogoMese; saldo: SaldoRecord | null };
 export type SaldoRecord = NonNullable<Awaited<ReturnType<typeof prisma.saldoMensile.findFirst>>>;

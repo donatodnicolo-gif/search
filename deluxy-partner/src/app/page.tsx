@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
+import { riepilogoTutti, ANNI_DISPONIBILI, annoValido } from "@/lib/queries";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { nomeMese } from "@/lib/calc";
@@ -7,8 +7,13 @@ import { registraBonifico } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function Dashboard() {
-  const anno = ANNO_CORRENTE;
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ anno?: string }>;
+}) {
+  const sp = await searchParams;
+  const anno = annoValido(sp.anno);
   const oggi = new Date();
 
   // Le due letture sono indipendenti: in parallelo si paga una sola andata e
@@ -52,7 +57,18 @@ export default async function Dashboard() {
             Situazione finanziaria partner {anno} — rolling, incassi e bonifici da gestire.
           </p>
         </div>
-        <div className="page-actions">
+        <div className="page-actions" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div className="anno-switch" role="group" aria-label="Anno">
+            {ANNI_DISPONIBILI.map((a) => (
+              <Link
+                key={a}
+                href={a === ANNI_DISPONIBILI[0] ? "/" : `/?anno=${a}`}
+                className={`anno-btn${a === anno ? " attivo" : ""}`}
+              >
+                {a}
+              </Link>
+            ))}
+          </div>
           <Link href="/fatture/nuova" className="btn secondary">+ Fattura servizi</Link>
           <Link href="/vendite/nuova" className="btn primary">+ Vendita vendor</Link>
         </div>

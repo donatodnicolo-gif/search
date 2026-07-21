@@ -380,3 +380,12 @@ input:focus, select:focus, textarea:focus {
   padding: 6px 10px; font-size: 13px; color: var(--text-secondary);
 }
 .nav-item.figlio.active { color: var(--text); background: var(--fill-active); font-weight: 600; }
+
+/* Selettore anno (segmented) — Dashboard */
+.anno-switch { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--fill); border: 1px solid var(--hairline); }
+.anno-btn {
+  padding: 5px 14px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  color: var(--text-secondary); transition: background 150ms var(--ease), color 150ms var(--ease);
+}
+.anno-btn:hover { color: var(--text); }
+.anno-btn.attivo { background: var(--ink); color: #fff; font-weight: 600; }
