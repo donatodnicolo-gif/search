@@ -1407,11 +1407,12 @@ export async function staccaDalThread(messaggioId: string): Promise<{ ok: boolea
 // ---------- Renè AI ----------
 
 export async function avviaRene(
-  periodo: string
+  periodo: string,
+  sezioneId?: string | null
 ): Promise<{ ok: boolean; messaggio: string; analisiId?: string }> {
   const { eseguiRene, periodoValidoRene } = await import('./rene')
   try {
-    const esito = await eseguiRene(await uid(), periodoValidoRene(periodo))
+    const esito = await eseguiRene(await uid(), periodoValidoRene(periodo), sezioneId)
     revalidatePath('/rene')
     revalidatePath('/', 'layout')
     return esito

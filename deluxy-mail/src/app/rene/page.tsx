@@ -150,7 +150,7 @@ export default async function Rene() {
         </div>
       </div>
 
-      <ReneAvvia />
+      <ReneAvvia sezioni={sezioni} />
 
       <ComandoRene sezioni={sezioni} />
 

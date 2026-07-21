@@ -63,7 +63,11 @@ function firmaDi(tipo: string, dati: Record<string, unknown>): string {
  * in arrivo, non archiviate/cestinate, senza una nostra mail successiva nella
  * stessa conversazione. Calcolo deterministico, zero token.
  */
-export async function urgentiSenzaRisposta(utenteId: string, da: Date): Promise<UrgenteSenzaRisposta[]> {
+export async function urgentiSenzaRisposta(
+  utenteId: string,
+  da: Date,
+  sezioneId?: string | null
+): Promise<UrgenteSenzaRisposta[]> {
   const candidate = await db.messaggio.findMany({
     where: {
       utenteId,
@@ -71,6 +75,7 @@ export async function urgentiSenzaRisposta(utenteId: string, da: Date): Promise<
       cestinato: false,
       archiviato: false,
       data: { gte: da },
+      ...(sezioneId !== undefined ? { sezioneId } : {}),
       OR: [{ priorita: { in: ['P0', 'P1'] } }, { serveRisposta: true }],
     },
     orderBy: { data: 'desc' },
@@ -253,14 +258,18 @@ export const TIPI_RENE: Record<string, string> = {
 /** Il giro completo di Renè sul periodo scelto. */
 export async function eseguiRene(
   utenteId: string,
-  periodo: PeriodoRene
+  periodo: PeriodoRene,
+  // Ambito: undefined = tutta la posta; una stringa = solo quella sezione;
+  // null = solo le mail senza sezione (da smistare).
+  sezioneId?: string | null
 ): Promise<{ ok: boolean; messaggio: string; analisiId?: string }> {
   const da = new Date(Date.now() - GIORNI[periodo] * 24 * 60 * 60 * 1000)
 
   // La posta del periodo: in arrivo, nelle sezioni, SPAM e cestino insieme —
-  // Renè deve vedere anche cosa è finito dove non doveva.
+  // Renè deve vedere anche cosa è finito dove non doveva. Se è indicata una
+  // sezione, il giro si concentra solo su quella.
   const messaggi = await db.messaggio.findMany({
-    where: { utenteId, direzione: 'entrata', data: { gte: da } },
+    where: { utenteId, direzione: 'entrata', data: { gte: da }, ...(sezioneId !== undefined ? { sezioneId } : {}) },
     orderBy: { data: 'desc' },
     take: 150,
     select: {
@@ -303,8 +312,8 @@ export async function eseguiRene(
     oggi: new Date(),
   })
 
-  // Urgenze: calcolate qui, non dal modello.
-  const urgenti = await urgentiSenzaRisposta(utenteId, da)
+  // Urgenze: calcolate qui, non dal modello. Stesso ambito del giro.
+  const urgenti = await urgentiSenzaRisposta(utenteId, da, sezioneId)
 
   const record = await db.reneAnalisi.create({
     data: { utenteId, periodo, riassunto: analisi.riassunto, urgenti: JSON.stringify(urgenti) },
