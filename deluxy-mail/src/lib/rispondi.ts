@@ -1,5 +1,11 @@
 import type { Messaggio } from '@prisma/client'
 import { dataLunga } from './format'
+import { plainAHtml } from './htmlMail'
+import { sanitizzaHtml } from './sanitizzaHtml'
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
 
 export type Modo = 'rispondi' | 'tutti' | 'inoltra'
 
@@ -41,6 +47,21 @@ function cita(messaggio: Messaggio): string {
   return `\n\n${intestazione}\n${corpo}`
 }
 
+/**
+ * Citazione in HTML: mantiene la FORMATTAZIONE dell'originale (grassetti, link,
+ * tabelle) dentro un blockquote, invece di appiattirlo a testo con "> ".
+ * L'HTML dell'originale viene ripulito (niente script) prima di inserirlo.
+ */
+function citaHtml(messaggio: Messaggio): string {
+  const intestazione = `Il ${dataLunga(messaggio.data)}, ${
+    messaggio.mittenteNome || messaggio.mittente
+  } <${messaggio.mittente}> ha scritto:`
+  const originale = messaggio.corpoHtml
+    ? sanitizzaHtml(messaggio.corpoHtml)
+    : plainAHtml(messaggio.corpoTesto)
+  return `<br><div>${escapeHtml(intestazione)}</div><blockquote style="margin:0;padding-left:12px;border-left:2px solid #d0d0d0;color:#555">${originale}</blockquote>`
+}
+
 export function inoltrato(messaggio: Messaggio): string {
   return [
     '\n\n---------- Messaggio inoltrato ----------',
@@ -68,9 +89,25 @@ export function preparaRisposta(opts: {
 }): { a: string; cc: string; oggetto: string; corpo: string } {
   const { messaggio, modo, mioIndirizzo, firma } = opts
   const io = mioIndirizzo.toLowerCase()
-  const coda = firma ? `\n\n${firma}` : ''
+
+  // Se l'originale è HTML, la risposta si scrive in HTML e la citazione mantiene
+  // la formattazione (l'editor rende l'HTML). Altrimenti resta tutto testo.
+  const html = Boolean(messaggio.corpoHtml)
+  // Corpo della risposta: uno spazio in cima dove scrivere, poi la firma, poi
+  // l'originale citato. In HTML lo spazio è un paragrafo vuoto; in testo le
+  // solite righe vuote (comportamento invariato).
+  const corpoRisposta = () => {
+    if (html) {
+      const spazio = '<p><br></p>'
+      const firmaHtml = firma ? plainAHtml(firma) : ''
+      return `${spazio}${firmaHtml}${citaHtml(messaggio)}`
+    }
+    const coda = firma ? `\n\n${firma}` : ''
+    return `${coda}${cita(messaggio)}`
+  }
 
   if (modo === 'inoltra') {
+    const coda = firma ? `\n\n${firma}` : ''
     return {
       a: '',
       cc: '',
@@ -90,7 +127,7 @@ export function preparaRisposta(opts: {
       a: altri.join(', '),
       cc: '',
       oggetto: prefissa(messaggio.oggetto, 'Re'),
-      corpo: `${coda}${cita(messaggio)}`,
+      corpo: corpoRisposta(),
     }
   }
 
@@ -103,6 +140,6 @@ export function preparaRisposta(opts: {
     a: messaggio.mittente,
     cc,
     oggetto: prefissa(messaggio.oggetto, 'Re'),
-    corpo: `${coda}${cita(messaggio)}`,
+    corpo: corpoRisposta(),
   }
 }

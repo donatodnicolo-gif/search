@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { delegaRene, delegaReneEvento } from '@/lib/actions'
+import { delegaReneAuto } from '@/lib/actions'
 import { mostraFlash } from './Flash'
 
 /**
@@ -51,28 +51,23 @@ export function DelegaReneDialog() {
 
   if (!messaggioId) return null
 
-  const prepara = () =>
+  // Un solo ingresso: Renè legge l'istruzione e decide da solo se preparare una
+  // mail (rispondi/riassumi/recap/inoltra) o mettere in agenda un appuntamento.
+  const procedi = () =>
     start(async () => {
       setErrore(null)
-      const r = await delegaRene(messaggioId, istruzione)
-      if (r.ok && r.vaiA) {
-        setMessaggioId(null)
+      const r = await delegaReneAuto(messaggioId, istruzione)
+      if (!r.ok) {
+        setErrore(r.messaggio)
+        return
+      }
+      setMessaggioId(null)
+      if (r.tipo === 'risposta' && r.vaiA) {
         router.push(r.vaiA)
       } else {
-        setErrore(r.messaggio)
-      }
-    })
-
-  const inAgenda = () =>
-    start(async () => {
-      setErrore(null)
-      const r = await delegaReneEvento(messaggioId, istruzione)
-      if (r.ok) {
-        setMessaggioId(null)
+        // Evento messo in agenda: resta sulla mail, conferma col banner.
         mostraFlash(r.messaggio)
         router.refresh()
-      } else {
-        setErrore(r.messaggio)
       }
     })
 
@@ -85,19 +80,20 @@ export function DelegaReneDialog() {
         <div className="ai-domanda">
           <span className="ai-mark">AI</span>
           <span>
-            Dimmi cosa fare: <strong>rispondere</strong> (dammi il senso, a saluti e tono penso io)
-            oppure <strong>mettere in agenda</strong> l’appuntamento di questa mail.
+            Scrivi a parole cosa vuoi: <strong>rispondere</strong>, <strong>riassumere</strong>,{' '}
+            <strong>fare un recap a</strong> qualcuno, <strong>inoltrare</strong> o{' '}
+            <strong>mettere in agenda</strong>. A capire cosa fare ci penso io.
           </span>
         </div>
         <textarea
           value={istruzione}
           onChange={(e) => setIstruzione(e.target.value)}
-          placeholder="Rispondi: “Declina con garbo” · “Chiedi il listino”.  In agenda: “La call è giovedì alle 15” · lascia vuoto e prendo data e ora dalla mail."
+          placeholder="Es. “Declina con garbo” · “Riassumi e manda a Renato ed Eleonora” · “Metti in agenda: call giovedì alle 15”."
           rows={3}
           autoFocus
           style={{ width: '100%', resize: 'vertical', fontSize: 14 }}
           onKeyDown={(e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && istruzione.trim()) prepara()
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && istruzione.trim()) procedi()
           }}
         />
         {errore && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 8 }}>{errore}</div>}
@@ -105,11 +101,8 @@ export function DelegaReneDialog() {
           <button className="btn secondary" type="button" onClick={() => setMessaggioId(null)} disabled={inCorso}>
             Annulla
           </button>
-          <button className="btn secondary" type="button" onClick={inAgenda} disabled={inCorso}>
-            {inCorso ? '…' : '＋ Metti in agenda'}
-          </button>
-          <button className="btn primary" type="button" onClick={prepara} disabled={inCorso || !istruzione.trim()}>
-            {inCorso ? 'Renè scrive…' : 'Prepara la risposta'}
+          <button className="btn primary" type="button" onClick={procedi} disabled={inCorso || !istruzione.trim()}>
+            {inCorso ? 'Renè ci pensa…' : 'Procedi'}
           </button>
         </div>
       </div>

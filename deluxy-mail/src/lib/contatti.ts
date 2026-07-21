@@ -53,13 +53,54 @@ export async function elencoContatti(utenteId: string, cerca?: string): Promise<
   })
   const rispostePer = new Map(daRispondere.map((r) => [r.mittente, r._count._all]))
 
-  return gruppi.map((g) => ({
+  const daMittenti: Contatto[] = gruppi.map((g) => ({
     email: g.mittente,
     nome: nomePer.get(g.mittente) ?? null,
     messaggi: g._count._all,
     ultimo: g._max.data ?? new Date(0),
     daRispondere: rispostePer.get(g.mittente) ?? 0,
   }))
+
+  // Anche chi hai SCRITTO tu entra in rubrica: i destinatari delle mail inviate,
+  // non solo chi ti ha scritto. Così un contatto a cui mandi una mail resta
+  // salvato (e Renè può usarlo come destinatario di un recap). Non serve un
+  // salvataggio esplicito: la mail inviata registra già i destinatari.
+  const giaPresenti = new Set(daMittenti.map((c) => c.email.toLowerCase()))
+  const mieEmail = new Set(
+    (await db.account.findMany({ where: { utenteId }, select: { email: true } })).map((a) => a.email.toLowerCase())
+  )
+  const inviate = await db.messaggio.findMany({
+    where: { utenteId, direzione: 'uscita' },
+    select: { destinatari: true, data: true },
+    orderBy: { data: 'desc' },
+    take: 500,
+  })
+  const reEmail = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi
+  const filtroTesto = testo?.toLowerCase()
+  const rec = new Map<string, { email: string; messaggi: number; ultimo: Date }>()
+  for (const m of inviate) {
+    for (const raw of m.destinatari.match(reEmail) ?? []) {
+      const email = raw.toLowerCase()
+      if (mieEmail.has(email) || giaPresenti.has(email)) continue
+      if (filtroTesto && !email.includes(filtroTesto)) continue
+      const e = rec.get(email)
+      if (e) {
+        e.messaggi++
+        if (m.data > e.ultimo) e.ultimo = m.data
+      } else {
+        rec.set(email, { email: raw, messaggi: 1, ultimo: m.data })
+      }
+    }
+  }
+  const daInvii: Contatto[] = [...rec.values()].map((r) => ({
+    email: r.email,
+    nome: null,
+    messaggi: r.messaggi,
+    ultimo: r.ultimo,
+    daRispondere: 0,
+  }))
+
+  return [...daMittenti, ...daInvii].sort((a, b) => b.ultimo.getTime() - a.ultimo.getTime())
 }
 
 export function iniziali(nome: string | null, email: string): string {

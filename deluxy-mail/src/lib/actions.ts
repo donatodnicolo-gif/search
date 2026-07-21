@@ -56,7 +56,7 @@ import {
 } from './sync'
 import { chiaveThread } from './thread'
 import { CODICI_PRIORITA, FUSO } from './format'
-import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione } from './ai'
+import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione, classificaDelega } from './ai'
 import { raggruppa } from './thread'
 import { azioneDi, regolaAppPerMail, chiaveDiAzione, type AzioneDescritta } from './appDeluxy'
 import { leggiChiaviApp, salvaChiaveApp, type NomeChiaveApp } from './chiaviApp'
@@ -298,6 +298,29 @@ export async function delegaReneEvento(
   revalidatePath('/calendario')
   revalidatePath('/', 'layout')
   return esito
+}
+
+/**
+ * Delega a Renè LEGGENDO l'istruzione: decide da solo se preparare una mail
+ * (rispondi/riassumi/recap/inoltra) o mettere in agenda un appuntamento. Un solo
+ * ingresso, niente pulsanti da scegliere. `tipo` dice al client cosa fare col
+ * risultato (navigare alla bozza, o aggiornare per l'evento).
+ */
+export async function delegaReneAuto(
+  messaggioId: string,
+  istruzione: string
+): Promise<{ ok: boolean; messaggio: string; vaiA?: string; tipo: 'risposta' | 'agenda' }> {
+  const utenteId = await uid()
+  const azione = await classificaDelega(istruzione)
+  if (azione === 'agenda') {
+    const esito = await preparaEventoDelegato(messaggioId, istruzione, utenteId)
+    revalidatePath('/calendario')
+    revalidatePath('/', 'layout')
+    return { ...esito, tipo: 'agenda' }
+  }
+  const esito = await preparaRispostaDelegata(messaggioId, istruzione, utenteId)
+  revalidatePath('/', 'layout')
+  return { ...esito, tipo: 'risposta' }
 }
 
 /** Crea un'attività scritta da te. Se la colleghi a un contatto, l'AI potrà

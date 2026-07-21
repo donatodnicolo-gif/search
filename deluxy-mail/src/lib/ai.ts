@@ -1149,6 +1149,47 @@ ${opts.messaggio.corpoTesto.slice(0, 5000)}
   }
 }
 
+// ---------- Delega Renè: capire cosa vuole l'utente dall'istruzione ----------
+
+const SCHEMA_INTENTO_DELEGA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['azione'],
+  properties: {
+    azione: {
+      type: 'string',
+      enum: ['risposta', 'agenda'],
+      description:
+        "'agenda' SOLO se l'utente chiede di mettere in calendario/agenda un appuntamento (es. «metti in agenda», «appuntamento», «calendario», «call/riunione giovedì alle 15», una data/ora da fissare). 'risposta' per TUTTO il resto: rispondere, riassumere, fare un recap, inoltrare, scrivere una mail.",
+    },
+  },
+} as const
+
+/** Legge l'istruzione data a Renè e decide se preparare una MAIL o un EVENTO. */
+export async function classificaDelega(istruzione: string): Promise<'risposta' | 'agenda'> {
+  const istr = istruzione.trim()
+  if (!istr) return 'risposta'
+  try {
+    const risposta = await client().chat.completions.create({
+      model: MODELLO,
+      temperature: 0,
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'intento', strict: true, schema: SCHEMA_INTENTO_DELEGA as unknown as Record<string, unknown> },
+      },
+      messages: [
+        { role: 'system', content: "Classifica l'istruzione data all'assistente di posta. Rispondi solo con l'azione." },
+        { role: 'user', content: `Istruzione: ${istr}` },
+      ],
+    })
+    const json = risposta.choices[0]?.message?.content
+    if (!json) return 'risposta'
+    return (JSON.parse(json) as { azione: 'risposta' | 'agenda' }).azione
+  } catch {
+    return 'risposta' // nel dubbio, prepara una mail
+  }
+}
+
 // ---------- Scrivere la risposta che porta a termine un'attività ----------
 
 const SCHEMA_RISPOSTA = {
