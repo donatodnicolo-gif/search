@@ -689,6 +689,41 @@
       "perDay": "al giorno"
     }
   },
+  "finance": {
+    "title": "Finanza",
+    "caption": "Corrispettivi e margini dell'azienda",
+    "from": "Dal",
+    "to": "Al",
+    "export": "Esporta",
+    "empty": "Nessun corrispettivo nel periodo.",
+    "assumption": "Nota: fee e margini sono derivati (fee = valore vendite − prezzo partner; +IVA 22%; margine = fee − costo consegna). Da confermare con l'app reale.",
+    "tab": { "corrispettivi": "Corrispettivi", "margini": "Margini" },
+    "c": {
+      "status": "Stato",
+      "delivery": "ID Consegna",
+      "date": "Data consegna",
+      "product": "Prodotto",
+      "category": "Categoria",
+      "partner": "Partner",
+      "saleValue": "Valore vendite",
+      "publicPrice": "Prezzo pubblico",
+      "partnerPrice": "Prezzo partner",
+      "feePercent": "Fee %",
+      "feeValue": "Fee value",
+      "feeWithVat": "Fee+IVA",
+      "deliveryCost": "Costo consegna",
+      "firstMargin": "Primo margine",
+      "firstMarginPercent": "Primo margine %"
+    },
+    "m": {
+      "deliveries": "Consegne",
+      "saleValue": "Valore vendite",
+      "partnerPrice": "Prezzo partner",
+      "feeValue": "Fee totale",
+      "deliveryCost": "Costo consegne",
+      "firstMargin": "Primo margine"
+    }
+  },
   "stub": {
     "caption": "Sezione in arrivo sulla nuova piattaforma.",
     "migratingTitle": "In migrazione dalla piattaforma legacy",

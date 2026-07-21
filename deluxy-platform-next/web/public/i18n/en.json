@@ -689,6 +689,41 @@
       "perDay": "per day"
     }
   },
+  "finance": {
+    "title": "Finance",
+    "caption": "Company takings and margins",
+    "from": "From",
+    "to": "To",
+    "export": "Export",
+    "empty": "No takings in this period.",
+    "assumption": "Note: fees and margins are derived (fee = sale value − partner price; +VAT 22%; margin = fee − delivery cost). To be confirmed against the real app.",
+    "tab": { "corrispettivi": "Takings", "margini": "Margins" },
+    "c": {
+      "status": "Status",
+      "delivery": "Delivery ID",
+      "date": "Delivery date",
+      "product": "Product",
+      "category": "Category",
+      "partner": "Partner",
+      "saleValue": "Sale value",
+      "publicPrice": "Public price",
+      "partnerPrice": "Partner price",
+      "feePercent": "Fee %",
+      "feeValue": "Fee value",
+      "feeWithVat": "Fee+VAT",
+      "deliveryCost": "Delivery cost",
+      "firstMargin": "First margin",
+      "firstMarginPercent": "First margin %"
+    },
+    "m": {
+      "deliveries": "Deliveries",
+      "saleValue": "Sale value",
+      "partnerPrice": "Partner price",
+      "feeValue": "Total fee",
+      "deliveryCost": "Delivery cost",
+      "firstMargin": "First margin"
+    }
+  },
   "stub": {
     "caption": "Section coming soon to the new platform.",
     "migratingTitle": "Migrating from the legacy platform",

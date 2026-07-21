@@ -266,6 +266,8 @@ Visibile solo agli admin abilitati (es. utente "support").
 - Tab **CORRISPETTIVI**: per ogni vendita: Stato, ID Vendita, ID Consegna, Data consegna, Prodotto, Categoria, Valore vendite, Prezzo pubblico, Prezzo consegna, Partner, Prezzo partner, Fee %, Fee value, Fee+IVA, Costo consegna, Primo margine, Primo margine %. Con ESPORTA.
 - Tab **MARGINI**: margini totali dell'azienda.
 
+**[PORTATA nel nuovo ambiente il 20/07]** — sezione **Finanza** (`/finance`, solo ADMIN) con le due tab: **Corrispettivi** (una riga per consegna a buon fine, export CSV, filtri data) e **Margini** (totali del periodo). ⚠️ Nel nuovo schema **non esiste una fee/commissione esplicita** né un legame Vendite↔Consegne, quindi la riga è per **consegna** (non per vendita) e le colonne fee/margine sono **derivate**: `fee = valore vendite − prezzo partner`, `fee+IVA = fee ×1,22`, `costo consegna = paga valet`, `primo margine = fee − costo`. **Da confrontare con lo schermo reale** (accesso admin) per capire la vera definizione di fee e se i corrispettivi vanno per vendita anziché per consegna.
+
 ### 3.9 Setup
 
 - **Modelli SMS** (`/admin/smstemplates`): 31 modelli; tipi Created / Departed / Arrived; assegnati ad Admin o a partner specifici (es. Boutique Chanel); placeholder disponibili: `[name]`, `[day]`, `[between_time]`. Brand: Deluxy, DeluxyFlowers, CakeDesign.Me, BusinessDeluxy, Deluxy Experience, Deluxy Dot Com.
