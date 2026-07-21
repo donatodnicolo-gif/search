@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { dataIt } from "@/lib/format";
+import { dataIt, euro } from "@/lib/format";
+import { ivato } from "@/lib/calc";
+import { ANNO_CORRENTE } from "@/lib/queries";
 import { STATI_TASK, PRIORITA_TASK } from "@/lib/tasks";
 import { creaTask, cambiaStatoTask, eliminaTask } from "@/lib/tasks-actions";
 
@@ -12,7 +14,8 @@ export default async function TasksPage({
   searchParams: Promise<{ stato?: string; priorita?: string; creato?: string; errore?: string }>;
 }) {
   const sp = await searchParams;
-  const [tasks, partners] = await Promise.all([
+  const oggi = new Date();
+  const [tasks, partners, scaduteRaw] = await Promise.all([
     prisma.taskFinance.findMany({
       where: {
         ...(sp.stato ? { stato: sp.stato } : {}),
@@ -21,9 +24,22 @@ export default async function TasksPage({
       orderBy: [{ stato: "asc" }],
     }),
     prisma.partner.findMany({ where: { attivo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    // fatture scadute non pagate → candidate a un task di sollecito
+    prisma.fatturaServizio.findMany({
+      where: { anno: ANNO_CORRENTE, pagata: false, imponibile: { gt: 0 }, scadenza: { lt: oggi } },
+      include: { partner: true },
+      orderBy: { scadenza: "asc" },
+    }),
   ]);
 
-  const oggi = new Date();
+  // suggerimenti: fatture scadute per cui non c'è già un task aperto con quel riferimento
+  const riferimentiConTask = new Set(
+    tasks.filter((t) => t.stato !== "fatto" && t.riferimento).map((t) => t.riferimento!)
+  );
+  const suggerimenti = scaduteRaw
+    .filter((f) => f.numero && !riferimentiConTask.has(f.numero))
+    .slice(0, 12);
+
   const fra7 = new Date(Date.now() + 7 * 86400000);
   // ordina: prima aperti/in corso per scadenza e priorità, poi i fatti
   const pesoStato = (s: string) => (s === "fatto" ? 2 : s === "in_corso" ? 1 : 0);
@@ -77,6 +93,48 @@ export default async function TasksPage({
           <div className="kpi-sub">nell&apos;elenco corrente</div>
         </div>
       </div>
+
+      {/* Suggeriti dal finance: fatture scadute da sollecitare */}
+      {suggerimenti.length > 0 && (
+        <>
+          <h2 className="section-title">Suggeriti dal finance — fatture scadute da sollecitare ({suggerimenti.length})</h2>
+          <div className="card tight" style={{ marginBottom: 16 }}>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Fattura</th><th>Partner</th><th>Scaduta il</th><th className="num">IVA incl.</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {suggerimenti.map((f) => {
+                    const titolo = `Sollecitare fattura ${f.numero} — ${f.partner.nome}`;
+                    const scad = f.scadenza ? f.scadenza.toISOString().slice(0, 10) : "";
+                    return (
+                      <tr key={f.id}>
+                        <td style={{ fontWeight: 500 }}>{f.numero}</td>
+                        <td style={{ fontSize: 12.5 }}>{f.partner.nome}</td>
+                        <td><span className="badge red"><span className="dot" />{dataIt(f.scadenza)}</span></td>
+                        <td className="num">{euro(ivato(f))}</td>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          <form action={creaTask} style={{ display: "inline" }}>
+                            <input type="hidden" name="titolo" value={titolo} />
+                            <input type="hidden" name="partnerId" value={f.partnerId} />
+                            <input type="hidden" name="riferimento" value={f.numero ?? ""} />
+                            <input type="hidden" name="priorita" value="alta" />
+                            <input type="hidden" name="scadenza" value={scad} />
+                            <button className="btn small primary" type="submit" title="Apri un task di sollecito precompilato">
+                              Apri come task
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Nuovo task */}
       <form action={creaTask} className="card" style={{ marginBottom: 16 }}>
