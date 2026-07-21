@@ -146,6 +146,7 @@ export interface Place {
   google_rating?: number | null; // voto Google 0-5 (recensioni)
   google_reviews?: number | null; // numero di recensioni Google
   anagrafiche_stato?: string | null; // stato dal registro (attivo=partner, in_trattativa, ...)
+  anagrafiche_account?: string | null; // account = venditore che segue il cliente (sync verso Anagrafiche)
   hubspot_sync_at?: string | null;
   google_refresh_at?: string | null;
 }

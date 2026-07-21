@@ -10,10 +10,10 @@ import {
   View,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { CategoryRule, Place, Priorita, StatoAffiliazione } from '@/types';
+import type { CategoryRule, Place, Priorita, Profilo, StatoAffiliazione } from '@/types';
 import { STATI_AFFILIAZIONE, affiliazioneDaStatoPlace, statoPlaceDaAffiliazione } from '@/types';
 import { coloreAffiliazione, colors, labelAffiliazione, radius, spacing } from '@/lib/theme';
-import { aggiornaPlace, fetchPlace, sincronizzaPlaceRegistro } from '@/lib/db';
+import { aggiornaPlace, fetchPlace, fetchProfiles, nomeDaProfilo, sincronizzaPlaceRegistro } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { caricaRegole } from '@/lib/categoryRules';
 import { LineaSelector } from '@/components/LineaSelector';
@@ -27,6 +27,7 @@ export default function ModificaAttivita() {
   const router = useRouter();
   const [place, setPlace] = useState<Place | null>(null);
   const [regole, setRegole] = useState<Omit<CategoryRule, 'id'>[]>([]);
+  const [profili, setProfili] = useState<Profilo[]>([]);
   const [loading, setLoading] = useState(true);
   const [salvataggio, setSalvataggio] = useState(false);
 
@@ -38,13 +39,16 @@ export default function ModificaAttivita() {
   // Stato = gli 8 stati di Anagrafiche (StatoAffiliazione). Lo stato di pipeline
   // interno di Scout viene derivato al salvataggio.
   const [statoAff, setStatoAff] = useState<StatoAffiliazione>('prospect');
+  // Account = venditore che segue il cliente (memorizzato come nome, = campo del registro).
+  const [account, setAccount] = useState<string | null>(null);
   const [linee, setLinee] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
       if (!id) return;
-      const [p, r] = await Promise.all([fetchPlace(id), caricaRegole()]);
+      const [p, r, prof] = await Promise.all([fetchPlace(id), caricaRegole(), fetchProfiles()]);
       setRegole(r);
+      setProfili(prof);
       if (p) {
         setPlace(p);
         setNome(p.nome);
@@ -54,6 +58,7 @@ export default function ModificaAttivita() {
         setPriorita(p.priorita);
         // Stato "vero" da Anagrafiche se presente, altrimenti derivato dallo stato di pipeline.
         setStatoAff(p.stato_affiliazione ?? affiliazioneDaStatoPlace[p.stato] ?? 'prospect');
+        setAccount(p.anagrafiche_account ?? null);
         setLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : []));
       }
       setLoading(false);
@@ -64,6 +69,15 @@ export default function ModificaAttivita() {
     () => Array.from(new Set(regole.map((r) => r.categoria))).sort(),
     [regole],
   );
+
+  // Venditori assegnabili come account: i membri del team (per nome). Se il
+  // cliente ha già un account che non è tra i profili (es. impostato nel registro),
+  // lo aggiungo comunque così resta visibile e selezionato.
+  const venditori = useMemo(() => {
+    const nomi = profili.map(nomeDaProfilo);
+    if (account && !nomi.includes(account)) nomi.push(account);
+    return Array.from(new Set(nomi)).sort();
+  }, [profili, account]);
 
   async function salva() {
     if (!place) return;
@@ -82,6 +96,7 @@ export default function ModificaAttivita() {
         stato_affiliazione: statoAff,
         // Deriva lo stato di pipeline dallo stato di Anagrafiche (percorso/filtri coerenti).
         stato: statoPlaceDaAffiliazione[statoAff],
+        anagrafiche_account: account,
         linea_ipotizzata: linee[0] ?? null,
         linee_ipotizzate: linee,
       });
@@ -145,6 +160,15 @@ export default function ModificaAttivita() {
             })}
           </View>
 
+          <Text style={styles.label}>Account (venditore)</Text>
+          <Text style={styles.hint}>Il venditore che segue questo cliente. Al salvataggio viene aggiornato anche su Anagrafiche.</Text>
+          <View style={styles.chipWrap}>
+            <Chip label="Nessuno" on={!account} onPress={() => setAccount(null)} />
+            {venditori.map((v) => (
+              <Chip key={v} label={v} on={account === v} onPress={() => setAccount(v)} />
+            ))}
+          </View>
+
           <Pressable style={[styles.salva, salvataggio && styles.salvaOff]} onPress={salva} disabled={salvataggio}>
             <Text style={styles.salvaTxt}>{salvataggio ? 'Salvataggio…' : 'Salva modifiche'}</Text>
           </Pressable>
@@ -167,6 +191,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xl },
   err: { padding: spacing.lg, color: colors.errore },
   label: { color: colors.oro, fontWeight: '800', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginTop: spacing.lg, marginBottom: 6 },
+  hint: { color: colors.grigio, fontSize: 12, marginTop: -2, marginBottom: 8 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,

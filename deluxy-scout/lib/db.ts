@@ -126,7 +126,7 @@ export async function sincronizzaPlaceRegistro(placeId: string): Promise<void> {
   try {
     const { data: p } = await supabase
       .from('places')
-      .select('nome, zona, indirizzo, categoria, stato, stato_affiliazione, linea_ipotizzata, linee_ipotizzate')
+      .select('nome, zona, indirizzo, categoria, stato, stato_affiliazione, anagrafiche_account, linea_ipotizzata, linee_ipotizzate')
       .eq('id', placeId)
       .single();
     if (!p) return;
@@ -141,6 +141,8 @@ export async function sincronizzaPlaceRegistro(placeId: string): Promise<void> {
       // Stato "vero" di Anagrafiche (8 valori): se impostato ha priorità sulla
       // derivazione dai 4 stati di pipeline.
       statoRegistro: p.stato_affiliazione ?? null,
+      // Account = venditore che segue il cliente (aggiornato anche su Anagrafiche).
+      account: p.anagrafiche_account ?? null,
       linee,
     });
   } catch {
@@ -208,7 +210,7 @@ export async function fetchClienti(): Promise<Cliente[]> {
 export async function aggiornaPlace(
   id: string,
   patch: Partial<
-    Pick<Place, 'nome' | 'indirizzo' | 'zona' | 'categoria' | 'settore' | 'priorita' | 'stato' | 'stato_affiliazione' | 'linea_ipotizzata' | 'linee_ipotizzate' | 'aggancio_apertura'>
+    Pick<Place, 'nome' | 'indirizzo' | 'zona' | 'categoria' | 'settore' | 'priorita' | 'stato' | 'stato_affiliazione' | 'anagrafiche_account' | 'linea_ipotizzata' | 'linee_ipotizzate' | 'aggancio_apertura'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('places').update(patch).eq('id', id);
@@ -551,7 +553,7 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
 }
 
 /** Nome visualizzato di un venditore: nome → prefisso email → "Utente xxxxxx". */
-function nomeDaProfilo(p: Profilo): string {
+export function nomeDaProfilo(p: Profilo): string {
   if (p.nome?.trim()) return p.nome.trim();
   if (p.email) return p.email.split('@')[0];
   return `Utente ${p.id.slice(0, 6)}`;

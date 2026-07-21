@@ -111,6 +111,8 @@ Deno.serve(async (req) => {
         're-seller': ['reseller'],
         reseller: ['reseller'],
       };
+      // Account = venditore che segue il cliente. Stringa vuota = azzera.
+      if (typeof body.account === 'string') payload.account = body.account.trim() || null;
       if (Array.isArray(body.linee) && body.linee.length) {
         const chiavi = new Set<string>();
         for (const l of body.linee) {
