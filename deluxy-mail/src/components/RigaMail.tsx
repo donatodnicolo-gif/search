@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { dataBreve } from '@/lib/format'
 import { PrioritaButtons } from './PrioritaButtons'
@@ -67,6 +68,10 @@ function evidenzia(testo: string, termine?: string | null) {
 
 /** Una riga della posta in arrivo. Client: monta i pulsanti interattivi. */
 export function RigaMail({ r, sezioni = [] }: { r: RigaData; sezioni?: { id: string; nome: string }[] }) {
+  // Rimozione ottimistica: appena archivi/cestini la riga sparisce all'istante,
+  // il server si riallinea al refresh successivo.
+  const [nascosto, setNascosto] = useState(false)
+  if (nascosto) return null
   return (
     <MailDrag id={r.id} className={`mail-row ${r.nonLetti ? 'non-letto' : ''}`}>
       <div className="mail-row-head">
@@ -157,7 +162,7 @@ export function RigaMail({ r, sezioni = [] }: { r: RigaData; sezioni?: { id: str
       <div style={{ paddingLeft: 17 }}>
         <PrioritaButtons id={r.id} priorita={r.priorita} prioritaDa={r.prioritaDa} analizzato={r.analizzato} />
         <div className="riga-azioni">
-          <AzioniRiga id={r.id} archiviato={r.archiviato} cestinato={r.cestinato} />
+          <AzioniRiga id={r.id} archiviato={r.archiviato} cestinato={r.cestinato} onFatto={() => setNascosto(true)} />
           <DelegaReneBottone id={r.id} />
           <AgganciaBottone id={r.id} />
           {r.nel > 1 && (

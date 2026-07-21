@@ -1461,15 +1461,9 @@ export async function sincronizzaTutti(): Promise<EsitoSync[]> {
 export async function sincronizzaUtente(utenteId: string): Promise<EsitoSync[]> {
   const account = await db.account.findMany({ where: { utenteId, attivo: true } })
   const esiti: EsitoSync[] = []
-  for (const a of account) {
-    esiti.push(await sincronizzaAccount(a.id, 25, false))
-    // Anche gli INVIATI nuovi a ogni giro (giro breve, non a esaurimento): così
-    // la posta inviata compare senza aspettare il drain dello storico.
-    try {
-      esiti.push(await sincronizzaInviata(a.id, false))
-    } catch {
-      /* la cartella Inviata non deve far fallire la lettura della posta */
-    }
-  }
+  // Solo la posta in ARRIVO nel giro frequente: veloce (una connessione IMAP) e
+  // senza toccare la cartella Inviata. Gli inviati si scaricano nel drain di
+  // background (impostazione "Scarica tutta la posta di sempre").
+  for (const a of account) esiti.push(await sincronizzaAccount(a.id, 25, false))
   return esiti
 }
