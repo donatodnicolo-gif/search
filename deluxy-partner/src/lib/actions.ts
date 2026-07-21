@@ -65,7 +65,8 @@ function revalidateAll() {
 function partnerData(fd: FormData) {
   return {
     nome: s(fd, "nome") ?? "",
-    ragioneSociale: s(fd, "ragioneSociale"),
+    // ragioneSociale NON si scrive da qui: è centralizzata nel registro
+    // Anagrafiche (mostrata in sola lettura nel form). Evita copie divergenti.
     categoria: s(fd, "categoria"),
     citta: s(fd, "citta"),
     servizi: s(fd, "servizi"),

@@ -5,12 +5,18 @@ export function PartnerForm({
   partner,
   action,
   submitLabel,
+  ragioneSocialeRegistro,
 }: {
   partner?: Partner | null;
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
+  // Denominazione legale letta dal registro Anagrafiche: mostrata in sola lettura
+  // (fonte di verità centralizzata, non modificabile qui). Vuota finché il
+  // partner non è riconciliato.
+  ragioneSocialeRegistro?: string | null;
 }) {
   const p = partner;
+  const ragioneSociale = ragioneSocialeRegistro ?? p?.ragioneSociale ?? "";
   return (
     <form action={action} className="card">
       <div className="form-grid">
@@ -19,8 +25,19 @@ export function PartnerForm({
           <input type="text" name="nome" required defaultValue={p?.nome ?? ""} placeholder="Es. PASTICCERIA ROSSI (ROSSI SRL)" />
         </div>
         <div>
-          <label className="field-label">Ragione sociale</label>
-          <input type="text" name="ragioneSociale" defaultValue={p?.ragioneSociale ?? ""} />
+          <label className="field-label">
+            Ragione sociale{" "}
+            <span className="muted" style={{ fontWeight: 400, fontSize: 11.5 }}>· dal registro</span>
+          </label>
+          <input
+            type="text"
+            value={ragioneSociale}
+            readOnly
+            disabled
+            placeholder="dal registro Anagrafiche (dopo la riconciliazione)"
+            title="La denominazione legale è centralizzata nel registro Anagrafiche e si modifica lì, non qui."
+            style={{ background: "var(--bg)", color: "var(--text-secondary)", cursor: "not-allowed" }}
+          />
         </div>
         <div>
           <label className="field-label">Categoria</label>
