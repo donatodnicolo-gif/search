@@ -4,6 +4,7 @@ import { leggiImpostazioni, CHIAVI } from '@/lib/impostazioni'
 import { FormAccount } from '@/components/FormAccount'
 import { EliminaAccount } from '@/components/EliminaAccount'
 import { ScaricaStorico } from '@/components/ScaricaStorico'
+import { NotifichePush } from '@/components/NotifichePush'
 import { dataLunga } from '@/lib/format'
 import { richiediUtente } from '@/lib/sessione'
 
@@ -238,6 +239,17 @@ export default async function Impostazioni() {
             </button>
           </div>
         </form>
+      </div>
+
+      <h2 className="section-title">Notifiche sul telefono</h2>
+      <div className="card">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
+          Ricevi una notifica quando arriva posta nuova, anche con l’app chiusa. Si attiva per
+          questo dispositivo (attivala su ogni telefono/PC che vuoi). Su iPhone: aggiungi prima
+          l’app alla schermata Home. Le notifiche arrivano quando il controllo automatico della
+          posta gira: più è frequente il cron, più sono tempestive.
+        </p>
+        <NotifichePush />
       </div>
     </>
   )

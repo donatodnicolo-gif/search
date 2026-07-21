@@ -66,6 +66,21 @@ model Utente {
   reneAnalisi      ReneAnalisi[]
   reneProposte     ReneProposta[]
   reneConseguenze  ReneConseguenza[]
+  pushIscrizioni   PushIscrizione[]
+}
+
+// Un dispositivo iscritto alle notifiche push (Web Push). Un utente può averne
+// più d'uno (telefono, desktop). L'endpoint è l'indirizzo unico del push service.
+model PushIscrizione {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  endpoint String @unique
+  p256dh   String // chiave pubblica del client (cifratura del payload)
+  auth     String // segreto di autenticazione del client
+  creatoIl DateTime @default(now())
+
+  @@index([utenteId])
 }
 
 // Un appuntamento del calendario. Può nascere a mano o da una mail (il link

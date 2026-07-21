@@ -20,6 +20,7 @@ import { raggruppa, chiaveThread } from './thread'
 import { prefissa, inoltrato } from './rispondi'
 import { elencoContatti } from './contatti'
 import { valutaSpam } from './spam'
+import { notificaNuoveMail } from './push'
 
 export type EsitoSync = {
   tipo: 'scarico' | 'storico'
@@ -1421,7 +1422,20 @@ export async function leggiRiassuntoThread(
 export async function sincronizzaTutti(): Promise<EsitoSync[]> {
   const account = await db.account.findMany({ where: { attivo: true } })
   const esiti: EsitoSync[] = []
-  for (const a of account) esiti.push(await sincronizzaAccount(a.id))
+  for (const a of account) {
+    const prima = new Date()
+    const esito = await sincronizzaAccount(a.id)
+    esiti.push(esito)
+    // Notifica push: è il giro "automatico" (cron), cioè quando l'utente NON è
+    // sull'app — il momento giusto per avvisarlo delle mail nuove.
+    if (esito.scaricati > 0) {
+      try {
+        await notificaNuoveMail(a.utenteId, a.id, prima)
+      } catch {
+        /* le notifiche non devono far fallire la sincronizzazione */
+      }
+    }
+  }
   return esiti
 }
 

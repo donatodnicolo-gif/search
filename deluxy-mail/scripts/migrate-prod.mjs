@@ -135,6 +135,18 @@ const stmts = [
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "ultimoUidInviata" INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "primoUidInviata" INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "storicoInviataFinito" BOOLEAN NOT NULL DEFAULT false`,
+  // Iscrizioni alle notifiche push (Web Push).
+  `CREATE TABLE IF NOT EXISTS "PushIscrizione" (
+     "id" TEXT PRIMARY KEY,
+     "utenteId" TEXT NOT NULL,
+     "endpoint" TEXT NOT NULL UNIQUE,
+     "p256dh" TEXT NOT NULL,
+     "auth" TEXT NOT NULL,
+     "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     CONSTRAINT "PushIscrizione_utenteId_fkey"
+       FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE
+   )`,
+  `CREATE INDEX IF NOT EXISTS "PushIscrizione_utenteId_idx" ON "PushIscrizione"("utenteId")`,
   // Appuntamento proposto dall'AI su una mail (invito a riunione).
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "eventoProposto" TEXT`,
   // Aggancio manuale delle mail a una conversazione.

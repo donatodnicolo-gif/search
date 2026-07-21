@@ -712,6 +712,39 @@ export async function segnalaNonSpam(id: string): Promise<{ ok: boolean; messagg
   return { ok: true, messaggio: 'Spostata in Posta in arrivo: non è spam.' }
 }
 
+// ---------- Notifiche push ----------
+
+/** Salva (o aggiorna) l'iscrizione push di QUESTO dispositivo per l'utente. */
+export async function salvaIscrizionePush(sub: {
+  endpoint: string
+  keys: { p256dh: string; auth: string }
+}): Promise<{ ok: boolean }> {
+  const utenteId = await uid()
+  if (!sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) return { ok: false }
+  try {
+    await db.pushIscrizione.upsert({
+      where: { endpoint: sub.endpoint },
+      create: { utenteId, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
+      update: { utenteId, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
+    })
+    return { ok: true }
+  } catch {
+    return { ok: false }
+  }
+}
+
+/** Toglie l'iscrizione push di questo dispositivo (disattiva le notifiche qui). */
+export async function rimuoviIscrizionePush(endpoint: string): Promise<{ ok: boolean }> {
+  const utenteId = await uid()
+  if (!endpoint) return { ok: false }
+  try {
+    await db.pushIscrizione.deleteMany({ where: { endpoint, utenteId } })
+    return { ok: true }
+  } catch {
+    return { ok: false }
+  }
+}
+
 // ---------- Comando in linguaggio naturale su un lotto di mail ----------
 
 type FiltroLotto = { criterio: 'mittente' | 'oggetto'; valore: string }
