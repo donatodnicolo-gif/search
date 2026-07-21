@@ -2,10 +2,10 @@ import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import type { Contact, Deal, Place, Visit } from '@/types';
+import type { Contact, Deal, Place, Task, Visit } from '@/types';
 import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
-import { aggiornaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro } from '@/lib/db';
+import { aggiornaPlace, completaTask, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
@@ -70,6 +70,8 @@ export default function SchedaAttivita() {
   const [scartati, setScartati] = useState<string[]>([]);
   const [aziendeScartate, setAziendeScartate] = useState<string[]>([]);
   const [taskAperto, setTaskAperto] = useState(false);
+  const [taskPlace, setTaskPlace] = useState<Task[]>([]);
+  const [taskInModifica, setTaskInModifica] = useState<Task | null>(null);
 
   // Conciliazione: cerca nella copia locale HubSpot azienda/contatti del negozio,
   // escludendo le aziende già rifiutate e i contatti "non pertinenti".
@@ -94,15 +96,17 @@ export default function SchedaAttivita() {
     setMatchAI(null);
     setMatchErrore(null);
     setMatchLoading(false);
-    const [p, c, v, d, sc, az] = await Promise.all([
+    const [p, c, v, d, sc, az, tk] = await Promise.all([
       fetchPlace(id),
       fetchContatti(id),
       fetchVisitePlace(id),
       fetchDealPlace(id),
       fetchContattiScartati(id),
       fetchAziendeScartate(id),
+      fetchTaskPlace(id).catch(() => []),
     ]);
     setPlace(p);
+    setTaskPlace(tk);
     // Tipologia di interesse: parte dal valore salvato; il registro (Anagrafiche)
     // può poi sovrascriverlo come default finché l'utente non modifica a mano.
     const inizLinee = canonizzaLinee(p?.linee_ipotizzate ?? (p?.linea_ipotizzata ? [p.linea_ipotizzata] : []));
@@ -134,6 +138,25 @@ export default function SchedaAttivita() {
       carica();
     }, [carica]),
   );
+
+  // Ricarica i soli task del negozio (dopo creazione/modifica/completamento).
+  const ricaricaTask = useCallback(async () => {
+    if (!id) return;
+    setTaskPlace(await fetchTaskPlace(id).catch(() => []));
+  }, [id]);
+
+  // Segna un task come completato / da fare (aggiornamento ottimistico).
+  async function toggleTask(t: Task) {
+    const completata = !t.completata;
+    setTaskPlace((lista) => lista.map((x) => (x.id === t.id ? { ...x, completata } : x)));
+    try {
+      await completaTask(t.id, completata);
+      ricaricaTask();
+    } catch {
+      // Ripristina in caso di errore.
+      setTaskPlace((lista) => lista.map((x) => (x.id === t.id ? { ...x, completata: !completata } : x)));
+    }
+  }
 
   // #3: marca un contatto come "non pertinente" e nascondilo (per sempre).
   async function scarta(c: ContattoAI) {
@@ -332,18 +355,46 @@ export default function SchedaAttivita() {
           <Pressable style={[styles.btnVisita, { flex: 1, marginTop: 0 }]} onPress={() => router.push(`/(app)/visita/${place.id}`)}>
             <Text style={styles.btnVisitaTxt}>+ Nuova visita</Text>
           </Pressable>
-          <Pressable style={styles.btnTask} onPress={() => setTaskAperto(true)}>
+          <Pressable style={styles.btnTask} onPress={() => { setTaskInModifica(null); setTaskAperto(true); }}>
             <Ionicons name="checkbox-outline" size={16} color={colors.navy} />
             <Text style={styles.btnTaskTxt}>Task</Text>
           </Pressable>
         </View>
 
+        {/* Task del negozio: quelli creati col bottone "Task" qui sopra. */}
+        <Sezione titolo={`Task${taskPlace.length ? ` (${taskPlace.filter((t) => !t.completata).length} da fare)` : ''}`}>
+          {taskPlace.length === 0 ? (
+            <Text style={styles.vuoto}>Nessun task per questo negozio. Creane uno col bottone «Task».</Text>
+          ) : (
+            taskPlace.map((t) => (
+              <View key={t.id} style={styles.taskRow}>
+                <Pressable onPress={() => toggleTask(t)} hitSlop={8} accessibilityLabel={t.completata ? 'Riapri' : 'Completa'}>
+                  <Ionicons
+                    name={t.completata ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={22}
+                    color={t.completata ? colors.successo : colors.grigio}
+                  />
+                </Pressable>
+                <Pressable style={{ flex: 1 }} onPress={() => { setTaskInModifica(t); setTaskAperto(true); }}>
+                  <Text style={[styles.taskTitolo, t.completata && styles.taskFatto]} numberOfLines={2}>{t.titolo}</Text>
+                  <Text style={styles.taskMeta} numberOfLines={1}>
+                    {[t.priorita, t.scadenza ? `scad. ${t.scadenza}` : null, t.owner_nome ? `→ ${t.owner_nome}` : null]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </Pressable>
+              </View>
+            ))
+          )}
+        </Sezione>
+
         {taskAperto ? (
           <TaskFormModal
+            task={taskInModifica ?? undefined}
             placeId={place.id}
             placeNome={place.nome}
-            onClose={() => setTaskAperto(false)}
-            onSalvato={() => setTaskAperto(false)}
+            onClose={() => { setTaskAperto(false); setTaskInModifica(null); }}
+            onSalvato={() => { setTaskAperto(false); setTaskInModifica(null); ricaricaTask(); }}
           />
         ) : null}
 
@@ -640,6 +691,10 @@ const styles = StyleSheet.create({
   aiDup: { color: colors.attenzione, fontSize: 12, fontWeight: '600', marginTop: spacing.xs },
   contatto: { backgroundColor: colors.bianco, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
   contattoNome: { fontWeight: '800', color: colors.navy },
+  taskRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.bianco, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
+  taskTitolo: { fontWeight: '700', color: colors.testo, fontSize: 14 },
+  taskFatto: { textDecorationLine: 'line-through', color: colors.grigio },
+  taskMeta: { color: colors.testoSoft, fontSize: 12, marginTop: 2 },
   link: { color: colors.oro, fontWeight: '700', marginTop: 2 },
   deal: { backgroundColor: colors.bianco, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
   dealLinea: { fontWeight: '800', color: colors.navy },

@@ -662,6 +662,30 @@ export function fetchMieiTask(): Promise<Task[]> {
   return fetchTask(true);
 }
 
+/** I task collegati a un negozio (RLS: quelli che l'utente può vedere). */
+export async function fetchTaskPlace(placeId: string): Promise<Task[]> {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*, places(nome)')
+    .eq('place_id', placeId)
+    .order('completata', { ascending: true })
+    .order('scadenza', { ascending: true, nullsFirst: false })
+    .order('priorita', { ascending: true })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const righe = (data ?? []).map((r: any) => ({ ...r, place_nome: r.places?.nome ?? null })) as Task[];
+  const ids = [...new Set(righe.flatMap((t) => [t.owner, t.creato_da]).filter(Boolean))] as string[];
+  if (ids.length) {
+    const profili = await fetchProfiles();
+    const nome = new Map(profili.map((p) => [p.id, nomeDaProfilo(p)]));
+    for (const t of righe) {
+      t.owner_nome = t.owner ? nome.get(t.owner) ?? null : null;
+      t.creato_da_nome = t.creato_da ? nome.get(t.creato_da) ?? null : null;
+    }
+  }
+  return righe;
+}
+
 /** Crea un task; `owner` = assegnatario (default: l'utente corrente). */
 export async function inserisciTask(t: {
   titolo: string;
