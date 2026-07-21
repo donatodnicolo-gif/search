@@ -102,6 +102,49 @@ export default async function Rene() {
       where: { utenteId: u.id, stato: 'proposta' },
       orderBy: { creataIl: 'asc' },
     })
+    // Le proposte di smistamento legate a una mail che NON esiste più (cestino
+    // svuotato, doppione ripulito, retention) scadono da sole: mostrarle
+    // porterebbe solo a un errore all'approvazione.
+    const smiste = proposte.filter((p) => p.tipo === 'smista')
+    if (smiste.length > 0) {
+      const idsMail = smiste
+        .map((p) => {
+          try {
+            return String((JSON.parse(p.dati) as { messaggioId?: string }).messaggioId ?? '')
+          } catch {
+            return ''
+          }
+        })
+        .filter(Boolean)
+      const vive = new Set(
+        (
+          await db.messaggio.findMany({
+            where: { id: { in: idsMail }, utenteId: u.id },
+            select: { id: true },
+          })
+        ).map((m) => m.id)
+      )
+      const scadute = smiste.filter((p) => {
+        try {
+          const id = (JSON.parse(p.dati) as { messaggioId?: string }).messaggioId
+          return !id || !vive.has(id)
+        } catch {
+          return true
+        }
+      })
+      if (scadute.length > 0) {
+        await db.reneProposta.updateMany({
+          where: { id: { in: scadute.map((s) => s.id) }, utenteId: u.id },
+          data: {
+            stato: 'scaduta',
+            esitoTesto: 'La mail non è più in AI Mail (cancellata o ripulita): niente da smistare.',
+          },
+        })
+        const viaIds = new Set(scadute.map((s) => s.id))
+        proposte = proposte.filter((p) => !viaIds.has(p.id))
+      }
+    }
+
     recenti = await db.reneProposta.findMany({
       where: { utenteId: u.id, stato: { in: ['applicata', 'errore'] } },
       orderBy: { creataIl: 'desc' },

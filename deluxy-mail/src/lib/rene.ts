@@ -195,7 +195,12 @@ export async function applicaPropostaRene(
       if (r.count > 0) return { ok: true, messaggio: `Mail smistata in «${s('sezioneNome')}».` }
       // Distinguo i due casi per un messaggio utile.
       const esiste = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId }, select: { smistatoDa: true } })
-      if (!esiste) return { ok: false, messaggio: 'Mail non più disponibile.' }
+      if (!esiste)
+        return {
+          ok: false,
+          messaggio:
+            'La mail non è più in AI Mail (cestino svuotato, doppione ripulito o retention): niente da smistare.',
+        }
       return { ok: false, messaggio: 'Mail smistata a mano: non la tocco.' }
     }
 
