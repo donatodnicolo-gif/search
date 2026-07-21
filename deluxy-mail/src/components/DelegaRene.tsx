@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { delegaRene } from '@/lib/actions'
+import { delegaRene, delegaReneEvento } from '@/lib/actions'
+import { mostraFlash } from './Flash'
 
 /**
  * Il pulsante "Delega Renè" nella riga o nella pagina messaggio: NON tiene
@@ -62,6 +63,19 @@ export function DelegaReneDialog() {
       }
     })
 
+  const inAgenda = () =>
+    start(async () => {
+      setErrore(null)
+      const r = await delegaReneEvento(messaggioId, istruzione)
+      if (r.ok) {
+        setMessaggioId(null)
+        mostraFlash(r.messaggio)
+        router.refresh()
+      } else {
+        setErrore(r.messaggio)
+      }
+    })
+
   return (
     <div className="modal-scrim" onClick={() => setMessaggioId(null)}>
       <div className="modal" role="dialog" aria-label="Delega Renè" onClick={(e) => e.stopPropagation()}>
@@ -70,12 +84,15 @@ export function DelegaReneDialog() {
         </div>
         <div className="ai-domanda">
           <span className="ai-mark">AI</span>
-          <span>Cosa devo rispondere? Dimmi il senso, al resto (saluti, tono, forma) penso io.</span>
+          <span>
+            Dimmi cosa fare: <strong>rispondere</strong> (dammi il senso, a saluti e tono penso io)
+            oppure <strong>mettere in agenda</strong> l’appuntamento di questa mail.
+          </span>
         </div>
         <textarea
           value={istruzione}
           onChange={(e) => setIstruzione(e.target.value)}
-          placeholder="Es. “Declina con garbo, non è nel nostro target” · “Chiedi il listino e i tempi” · “Accetta e proponi giovedì alle 15”"
+          placeholder="Rispondi: “Declina con garbo” · “Chiedi il listino”.  In agenda: “La call è giovedì alle 15” · lascia vuoto e prendo data e ora dalla mail."
           rows={3}
           autoFocus
           style={{ width: '100%', resize: 'vertical', fontSize: 14 }}
@@ -84,9 +101,12 @@ export function DelegaReneDialog() {
           }}
         />
         {errore && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 8 }}>{errore}</div>}
-        <div className="form-footer" style={{ marginTop: 14 }}>
+        <div className="form-footer" style={{ marginTop: 14, flexWrap: 'wrap' }}>
           <button className="btn secondary" type="button" onClick={() => setMessaggioId(null)} disabled={inCorso}>
             Annulla
+          </button>
+          <button className="btn secondary" type="button" onClick={inAgenda} disabled={inCorso}>
+            {inCorso ? '…' : '＋ Metti in agenda'}
           </button>
           <button className="btn primary" type="button" onClick={prepara} disabled={inCorso || !istruzione.trim()}>
             {inCorso ? 'Renè scrive…' : 'Prepara la risposta'}

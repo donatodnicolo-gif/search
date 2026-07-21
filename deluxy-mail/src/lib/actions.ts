@@ -46,6 +46,7 @@ import {
   messaggiThread,
   preparaEsecuzione,
   preparaRispostaDelegata,
+  preparaEventoDelegato,
   riassumiThreadOra,
   scaricaStorico,
   sincronizzaUtente,
@@ -266,6 +267,17 @@ export async function delegaRene(
   istruzione: string
 ): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
   const esito = await preparaRispostaDelegata(messaggioId, istruzione, await uid())
+  revalidatePath('/', 'layout')
+  return esito
+}
+
+/** Delega a Renè un appuntamento a partire da una mail (+ eventuale indicazione). */
+export async function delegaReneEvento(
+  messaggioId: string,
+  indicazione: string
+): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
+  const esito = await preparaEventoDelegato(messaggioId, indicazione, await uid())
+  revalidatePath('/calendario')
   revalidatePath('/', 'layout')
   return esito
 }

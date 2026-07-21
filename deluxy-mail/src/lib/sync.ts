@@ -8,6 +8,7 @@ import {
   riassumiContatto,
   scriviRisposta,
   scriviMailNuova,
+  estraiAppuntamento,
   rilevaETraduci,
   riassumiThread,
   giudicaSpam,
@@ -473,6 +474,76 @@ export async function preparaRispostaDelegata(
       messaggio: 'Renè ha preparato la risposta.',
       vaiA: `/messaggio/${messaggio.id}/scrivi?modo=rispondi&bozza=${bozza.id}`,
     }
+  } catch (e) {
+    return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
+  }
+}
+
+/** "YYYY-MM-DDTHH:MM" (ora italiana) → istante UTC. */
+function oraItalianaInUtcSync(iso: string): Date | null {
+  const m = iso.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/)
+  if (!m) return null
+  const [Y, M, G, h, min] = [m[1], m[2], m[3], m[4] ?? '00', m[5] ?? '00'].map(Number)
+  const utcBase = Date.UTC(Y, M - 1, G, h, min)
+  const inRoma = new Date(utcBase).toLocaleString('en-US', { timeZone: 'Europe/Rome' })
+  const offset = utcBase - new Date(`${inRoma} UTC`).getTime()
+  return new Date(utcBase + offset)
+}
+
+/**
+ * Delega a Renè un appuntamento: da una mail (e un'eventuale indicazione, es.
+ * "la call è giovedì alle 15") ricava data/ora/luogo e lo mette in calendario,
+ * legato alla mail. Se non c'è una data certa, non inventa: lo dice.
+ */
+export async function preparaEventoDelegato(
+  messaggioId: string,
+  indicazione: string,
+  utenteId: string
+): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
+  const messaggio = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId } })
+  if (!messaggio) return { ok: false, messaggio: 'Messaggio non trovato.' }
+
+  const imp = await leggiImpostazioni()
+
+  try {
+    const ev = await estraiAppuntamento({
+      messaggio,
+      indicazione,
+      contestoAzienda: imp[CHIAVI.contestoAzienda],
+      oggi: new Date(),
+    })
+    if (!ev.trovato || !ev.inizio) {
+      return { ok: false, messaggio: ev.nota || 'Non ho trovato una data certa: aggiungila tu in Calendario.' }
+    }
+
+    const inizio = ev.giornataIntera
+      ? new Date(`${ev.inizio.slice(0, 10)}T00:00:00Z`)
+      : oraItalianaInUtcSync(ev.inizio)
+    if (!inizio || isNaN(inizio.getTime())) {
+      return { ok: false, messaggio: 'La data ricavata non è valida: aggiungila tu in Calendario.' }
+    }
+    const fine = !ev.giornataIntera && ev.fine ? oraItalianaInUtcSync(ev.fine) : null
+
+    await db.evento.create({
+      data: {
+        utenteId,
+        titolo: ev.titolo || messaggio.oggetto,
+        luogo: ev.luogo || '',
+        inizio,
+        fine: fine && fine > inizio ? fine : null,
+        giornataIntera: ev.giornataIntera,
+        messaggioId: messaggio.id,
+        creatoDaAI: true,
+      },
+    })
+
+    const quando = inizio.toLocaleString('it-IT', {
+      timeZone: 'Europe/Rome',
+      day: 'numeric',
+      month: 'short',
+      ...(ev.giornataIntera ? {} : { hour: '2-digit', minute: '2-digit' }),
+    })
+    return { ok: true, messaggio: `In agenda: «${ev.titolo}» il ${quando}.`, vaiA: '/calendario' }
   } catch (e) {
     return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
   }
