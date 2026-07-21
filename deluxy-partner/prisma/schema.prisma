@@ -322,10 +322,15 @@ model TaskFinance {
   partnerId    String?
   partnerNome  String? // snapshot per l'elenco senza join
   riferimento  String? // riferimento libero: n° fattura, PAY-…, pro-forma…
+  // condivisione con le altre app: chi ha creato il task e con quale id interno,
+  // così un'app che crea/aggiorna lo stesso task non genera doppioni.
+  origineApp   String? // app che ha aperto il task via API (es. deluxy-mail)
+  idEsterno    String? // id del task nell'app d'origine
   completatoIl DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  @@unique([origineApp, idEsterno])
   @@index([stato, scadenza])
 }
 

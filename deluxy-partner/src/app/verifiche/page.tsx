@@ -177,6 +177,30 @@ const dati = await res.json();
         </p>
       </div>
 
+      <h2 className="section-title">Tasks finance (condivisi in rete)</h2>
+      <div className="card">
+        <p style={{ fontSize: 14, marginBottom: 6 }}>
+          <strong>Endpoint:</strong> <code>GET {BASE_URL}/api/tasks</code> · <code>POST {BASE_URL}/api/tasks</code> ·{" "}
+          <code>PATCH {BASE_URL}/api/tasks</code>
+        </p>
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 14 }}>
+          Le attività finance sono leggibili e apribili dalle altre app. GET con filtri{" "}
+          <code>?stato=&amp;priorita=&amp;partner=</code> (o <code>?id=</code>). POST crea un task; se mandi
+          <code> idEsterno</code> (col tuo <code>X-App</code>) è <strong>idempotente</strong> — la stessa app non
+          duplica. PATCH cambia lo stato. Stessa chiave <code>X-API-Key</code>.
+        </p>
+        <div style={{ fontSize: 12.5, color: "var(--text-tertiary)", marginBottom: 4 }}>Esempio: apri un task da un&apos;altra app</div>
+        <pre style={{ background: "var(--bg)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: 14, overflowX: "auto", fontSize: 12.5, lineHeight: 1.5 }}>{`curl -s -X POST "${BASE_URL}/api/tasks" \\
+  -H "X-API-Key: ${esempioChiave}" -H "X-App: deluxy-mail" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "titolo": "Verificare bonifico Chanel", "priorita": "alta",
+        "partner": "CHANEL MILANO", "riferimento": "PAY-2026-000009",
+        "idEsterno": "mail-123" }'
+
+# → { "id":"...", "stato":"aperto", "priorita":"alta", "origineApp":"deluxy-mail", ... }
+# stato: PATCH { "id":"...", "stato":"fatto" }   (aperto | in_corso | fatto)`}</pre>
+      </div>
+
       <h2 className="section-title">Pagamenti riconciliati (riferimento univoco)</h2>
       <div className="card">
         <p style={{ fontSize: 14, marginBottom: 6 }}>
