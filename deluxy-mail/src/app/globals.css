@@ -308,10 +308,38 @@ mark.ricerca-hit {
 /* Su schermo stretto le etichette andrebbero a capo sopra il testo: si passa
    alle sole iconcine, così Rispondi/A tutti/Inoltra restano raggiungibili. */
 @media (max-width: 700px) {
-  .risposta-azioni { display: flex; }
+  .risposta-azioni { display: flex; gap: 8px; }
   .risposta-testo { display: none; }
   .risposta-icona { display: inline-flex; }
-  .risposta-btn { padding: 7px; }
+  /* Target comodi al tocco: iconcine da ~40px, ben distanziate, così non si
+     schiaccia quella accanto. */
+  .risposta-btn {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  /* Azioni della riga: su mobile diventano chip con area di tocco ampia e
+     spaziate, invece di link testuali minuscoli e attaccati (facili da sbagliare). */
+  .riga-azioni { gap: 8px; margin-top: 12px; }
+  .azione-riga,
+  .archivia-def {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 13px;
+    text-decoration: none;
+    background: var(--fill);
+    border-radius: 999px;
+    line-height: 1;
+  }
+  .archivia-def-conferma {
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
 }
 
 .mail-top { display: flex; align-items: center; gap: 10px; }
