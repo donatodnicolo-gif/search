@@ -1198,20 +1198,18 @@ mark.ricerca-hit {
      Assistente AI nascosto (resta su desktop), così le mail salgono subito. */
   .page-title { font-size: 24px; }
   .page-head { margin-bottom: 14px; }
-  /* I filtri e le priorità restano su una fascia scorrevole, senza mangiare
-     tre righe di altezza. Va da bordo a bordo dello schermo, così si capisce
-     che continua invece di sembrare tagliata a metà. */
+  /* Su mobile i filtri (Tutti/Non letti/… e P0–P3) VANNO A CAPO, così si vedono
+     tutti senza scorrere di lato. Le pillole non si stringono (il testo resta
+     su una riga), semplicemente passano alla riga sotto. */
   .page-actions.filters {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    width: calc(100% + 32px);
-    margin: 0 -16px;
-    padding: 2px 16px 2px;
-    /* La barra di scorrimento su un nastro di pillole è solo rumore. */
-    scrollbar-width: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    overflow: visible;
+    width: 100%;
+    margin: 0;
+    padding: 0;
   }
-  .page-actions.filters::-webkit-scrollbar { display: none; }
-  /* Senza questo le pillole si stringono e il testo va a capo ("Non letti"). */
   .page-actions.filters > * { flex: 0 0 auto; white-space: nowrap; }
+  /* Il separatore verticale fra filtri e priorità: a capo non serve. */
+  .page-actions.filters > span[style] { display: none; }
 }
