@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ANNO_CORRENTE, caricaAnno, contoEconomico } from "@/lib/calc";
+import { caricaAnno, contoEconomico, contoEconomicoMensile } from "@/lib/calc";
 import { fetchConsuntivo, fetchSpeseBanca } from "@/lib/finance";
 import { caricaCategorie, ricostruisci } from "@/lib/cfo";
 import { eur, MESI, pct } from "@/lib/format";
@@ -25,40 +25,58 @@ const STATI = [
 export default async function ConsuntivoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string; stato?: string }>;
+  searchParams: Promise<{ periodo?: string; stato?: string; anno?: string }>;
 }) {
   const sp = await searchParams;
   const periodo = PERIODI.find((p) => p.key === sp.periodo) ?? PERIODI[0];
   const stato = (STATI.find((s) => s.key === sp.stato)?.key ?? "tutte") as "tutte" | "pagate" | "aperte";
+
+  // Anno selezionabile. Il consuntivo si ferma all'ultimo mese CHIUSO: il mese
+  // in corso è incompleto, quindi lo si esclude.
+  const oggi = new Date();
+  const annoInCorso = oggi.getUTCFullYear();
+  const meseInCorso = oggi.getUTCMonth() + 1; // 1..12
+  const ANNI = [annoInCorso - 2, annoInCorso - 1, annoInCorso];
+  const anno = ANNI.includes(Number(sp.anno)) ? Number(sp.anno) : annoInCorso;
+
+  // Ultimo mese disponibile per l'anno scelto: anni passati = 12, anno in corso
+  // = mese precedente a quello attuale, anni futuri = 0 (niente chiuso).
+  const meseLimite = anno < annoInCorso ? 12 : anno > annoInCorso ? 0 : meseInCorso - 1;
+  const dal = periodo.dal;
+  const al = Math.min(periodo.al, meseLimite);
   const mesiPeriodo: number[] = [];
-  for (let m = periodo.dal; m <= periodo.al; m++) mesiPeriodo.push(m);
+  for (let m = dal; m <= al; m++) mesiPeriodo.push(m);
+  const vuoto = mesiPeriodo.length === 0;
 
   const [res, spese, categorie, dati] = await Promise.all([
-    fetchConsuntivo({ anno: ANNO_CORRENTE, dal: periodo.dal, al: periodo.al, stato }),
-    fetchSpeseBanca({ anno: ANNO_CORRENTE, dal: periodo.dal, al: periodo.al }),
+    vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchConsuntivo({ anno, dal, al, stato }),
+    vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchSpeseBanca({ anno, dal, al }),
     caricaCategorie(),
-    caricaAnno(ANNO_CORRENTE),
+    caricaAnno(anno),
   ]);
 
-  // Budget del periodo (livello raggiungibile) rapportato ai mesi scelti.
-  const pl = contoEconomico(dati, "RAGGIUNGIBILE");
-  const quotaPeriodo = mesiPeriodo.length / 12;
+  // Budget dei mesi chiusi: si somma il budget mensile (non si rapporta
+  // l'annuale), così la stagionalità non falsa il confronto.
+  const bm = contoEconomicoMensile(dati, "RAGGIUNGIBILE");
+  const B = (campo: keyof (typeof bm)[number]) => mesiPeriodo.reduce((s, m) => s + bm[m - 1][campo], 0);
+  const budgetVoce = (slug: string) =>
+    dati.maisons.reduce(
+      (s, m) =>
+        s + mesiPeriodo.reduce((a, mm) => a + (m.mesi.find((y) => y.month === mm)?.vendite[slug] ?? 0), 0),
+      0
+    );
 
-  // Nomi Finance mappati a una voce di budget (per riconoscere i ricavi veri).
+  // Nomi Finance mappati a una voce di budget.
   const nomiMappati = new Set<string>();
   for (const t of dati.tipologie) {
     for (const n of t.vociFinance.length ? t.vociFinance : [t.nome]) nomiMappati.add(normalizzaNome(n));
   }
 
-  // ---- Ricavi reali per voce di budget (aggregato di periodo, da Finance) ----
+  // ---- Ricavi reali per voce di budget (aggregato dei mesi chiusi) ----
   const fatturatoPerNome = new Map<string, { nome: string; imponibile: number; fatture: number }>();
   if (res.ok) {
     for (const t of res.dati.tipologie) {
-      fatturatoPerNome.set(normalizzaNome(t.tipologia), {
-        nome: t.tipologia,
-        imponibile: t.imponibile,
-        fatture: t.fatture,
-      });
+      fatturatoPerNome.set(normalizzaNome(t.tipologia), { nome: t.tipologia, imponibile: t.imponibile, fatture: t.fatture });
     }
   }
   const consumati = new Set<string>();
@@ -69,25 +87,13 @@ export default async function ConsuntivoPage({
     for (const nome of nomiFinance) {
       const k = normalizzaNome(nome);
       const f = fatturatoPerNome.get(k);
-      if (f) {
-        consuntivo += f.imponibile;
-        collegati.push(f.nome);
-        consumati.add(k);
-      }
+      if (f) { consuntivo += f.imponibile; collegati.push(f.nome); consumati.add(k); }
     }
-    return {
-      nome: t.nome,
-      slug: t.slug,
-      budgetPeriodo: (pl.ricaviPerServizio[t.slug] ?? 0) * quotaPeriodo,
-      consuntivo,
-      collegati,
-      mappata: collegati.length > 0,
-    };
+    return { nome: t.nome, slug: t.slug, budgetPeriodo: budgetVoce(t.slug), consuntivo, collegati, mappata: collegati.length > 0 };
   });
-  const nonMappate = res.ok
-    ? res.dati.tipologie.filter((t) => !consumati.has(normalizzaNome(t.tipologia)))
-    : [];
+  const nonMappate = res.ok ? res.dati.tipologie.filter((t) => !consumati.has(normalizzaNome(t.tipologia))) : [];
   const ricaviCons = confronto.reduce((s, c) => s + c.consuntivo, 0);
+  const budgetRicavi = confronto.reduce((s, c) => s + c.budgetPeriodo, 0);
 
   // ---- Costi reali per voce di P&L, con ripartizione per mese (dalla banca) ----
   const costi = { COGS: 0, ADV: 0, PERSONALE: 0, STRUTTURA: 0 };
@@ -108,42 +114,33 @@ export default async function ConsuntivoPage({
     }
   }
 
-  // ---- Ricavi per mese: una chiamata Finance per ogni mese del periodo ----
+  // ---- Ricavi per mese: una chiamata Finance per ogni mese chiuso ----
   const ricaviMese: Record<number, number> = {};
-  if (res.ok) {
-    const perMese = await Promise.all(
-      mesiPeriodo.map((m) => fetchConsuntivo({ anno: ANNO_CORRENTE, mese: m, stato }))
-    );
+  if (res.ok && !vuoto) {
+    const perMese = await Promise.all(mesiPeriodo.map((m) => fetchConsuntivo({ anno, mese: m, stato })));
     mesiPeriodo.forEach((m, idx) => {
       const r = perMese[idx];
       ricaviMese[m] = r.ok
-        ? r.dati.tipologie
-            .filter((t) => nomiMappati.has(normalizzaNome(t.tipologia)))
-            .reduce((s, t) => s + t.imponibile, 0)
+        ? r.dati.tipologie.filter((t) => nomiMappati.has(normalizzaNome(t.tipologia))).reduce((s, t) => s + t.imponibile, 0)
         : 0;
     });
   }
 
-  // ---- Conto economico consuntivo (aggregato di periodo) ----
   const margineLordoCons = ricaviCons - costi.COGS;
   const ebitdaCons = margineLordoCons - costi.ADV - costi.PERSONALE - costi.STRUTTURA;
 
   type RigaPL = { label: string; nota?: string; cons: number; budget: number; tipo: "ricavo" | "costo" | "totale" };
   const righePL: RigaPL[] = [
-    { label: "Totale ricavi", cons: ricaviCons, budget: pl.ricavi * quotaPeriodo, tipo: "totale" },
-    { label: "Costo del venduto", nota: "banca · Fornitori/COGS", cons: costi.COGS, budget: pl.cogs * quotaPeriodo, tipo: "costo" },
-    { label: "Margine lordo", cons: margineLordoCons, budget: pl.margineLordo * quotaPeriodo, tipo: "totale" },
-    { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: pl.adv * quotaPeriodo, tipo: "costo" },
-    { label: "Costo del personale", nota: "banca · Personale", cons: costi.PERSONALE, budget: pl.personale * quotaPeriodo, tipo: "costo" },
-    { label: "Costi di struttura", nota: "banca · Struttura", cons: costi.STRUTTURA, budget: pl.costiFissi * quotaPeriodo, tipo: "costo" },
-    { label: "EBITDA", cons: ebitdaCons, budget: pl.ebitda * quotaPeriodo, tipo: "totale" },
+    { label: "Totale ricavi", cons: ricaviCons, budget: budgetRicavi, tipo: "totale" },
+    { label: "Costo del venduto", nota: "banca · Fornitori/COGS", cons: costi.COGS, budget: B("cogs"), tipo: "costo" },
+    { label: "Margine lordo", cons: margineLordoCons, budget: B("margineLordo"), tipo: "totale" },
+    { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), tipo: "costo" },
+    { label: "Costo del personale", nota: "banca · Personale", cons: costi.PERSONALE, budget: B("personale"), tipo: "costo" },
+    { label: "Costi di struttura", nota: "banca · Struttura", cons: costi.STRUTTURA, budget: B("costiFissi"), tipo: "costo" },
+    { label: "EBITDA", cons: ebitdaCons, budget: B("ebitda"), tipo: "totale" },
   ];
-  const buono = (r: RigaPL) => {
-    const d = r.cons - r.budget;
-    return r.tipo === "costo" ? d <= 0 : d >= 0;
-  };
+  const buono = (r: RigaPL) => (r.tipo === "costo" ? r.cons - r.budget <= 0 : r.cons - r.budget >= 0);
 
-  // ---- Righe del P&L mensile (solo i mesi del periodo) ----
   const ricaviM = (m: number) => ricaviMese[m] ?? 0;
   const costoM = (tp: keyof typeof costi, m: number) => costiMese[tp][m - 1] ?? 0;
   const margineM = (m: number) => ricaviM(m) - costoM("COGS", m);
@@ -157,35 +154,49 @@ export default async function ConsuntivoPage({
     { label: "Struttura", costo: true, get: (m) => costoM("STRUTTURA", m) },
   ];
 
+  const link = (p: { periodo?: string; stato?: string; anno?: number }) =>
+    `/consuntivo?periodo=${p.periodo ?? periodo.key}&stato=${p.stato ?? stato}&anno=${p.anno ?? anno}`;
+  const ultimoChiuso = meseLimite >= 1 ? `${MESI[meseLimite - 1]} ${anno}` : "—";
+
   return (
     <>
       <div className="page-head">
         <div>
           <h1 className="page-title">Consuntivo</h1>
           <p className="page-caption">
-            Il conto economico reale, con le stesse voci del P&amp;L a budget: ricavi da Finance, costi dalla
-            categorizzazione bancaria del CFO. Analisi per anno, trimestre o semestre, con lo split mensile.
+            Il conto economico reale, con le stesse voci del P&amp;L a budget. Si ferma all&apos;ultimo mese
+            chiuso{anno === annoInCorso && meseLimite >= 1 ? ` (${ultimoChiuso})` : ""}: il mese in corso è escluso perché incompleto.
           </p>
         </div>
         <div className="page-actions">
           <div className="seg">
+            {ANNI.map((y) => (
+              <Link key={y} href={link({ anno: y })} className={y === anno ? "on" : ""}>{y}</Link>
+            ))}
+          </div>
+          <div className="seg">
             {PERIODI.map((p) => (
-              <Link key={p.key} href={`/consuntivo?periodo=${p.key}&stato=${stato}`} className={p.key === periodo.key ? "on" : ""}>
-                {p.label}
-              </Link>
+              <Link key={p.key} href={link({ periodo: p.key })} className={p.key === periodo.key ? "on" : ""}>{p.label}</Link>
             ))}
           </div>
           <div className="seg">
             {STATI.map((s) => (
-              <Link key={s.key} href={`/consuntivo?periodo=${periodo.key}&stato=${s.key}`} className={s.key === stato ? "on" : ""}>
-                {s.label}
-              </Link>
+              <Link key={s.key} href={link({ stato: s.key })} className={s.key === stato ? "on" : ""}>{s.label}</Link>
             ))}
           </div>
         </div>
       </div>
 
-      {!res.ok ? (
+      {vuoto ? (
+        <div className="card empty">
+          <div className="empty-icon">◷</div>
+          <div className="empty-title">Nessun mese chiuso in questo periodo</div>
+          <div className="empty-text">
+            Per il {anno} l&apos;ultimo mese chiuso è {ultimoChiuso}. Il periodo {periodo.label} non contiene mesi
+            già conclusi: scegli un periodo o un anno precedente.
+          </div>
+        </div>
+      ) : !res.ok ? (
         <div className="card empty">
           <div className="empty-icon">↯</div>
           <div className="empty-title">{res.configurato ? "Finance non disponibile" : "Collega l'app Finance"}</div>
@@ -250,7 +261,7 @@ export default async function ConsuntivoPage({
             </div>
           </div>
 
-          <h2 className="section-title">Split mensile ({periodo.label})</h2>
+          <h2 className="section-title">Split mensile ({periodo.label} {anno})</h2>
           <div className="card tight">
             <div className="table-wrap">
               <table>
@@ -278,9 +289,7 @@ export default async function ConsuntivoPage({
                     {mesiPeriodo.map((m) => (
                       <td className={`num ${ebitdaM(m) >= 0 ? "pos" : "neg"}`} key={m}>{eur(ebitdaM(m))}</td>
                     ))}
-                    <td className={`num ${ebitdaCons >= 0 ? "pos" : "neg"}`}>
-                      {eur(mesiPeriodo.reduce((s, m) => s + ebitdaM(m), 0))}
-                    </td>
+                    <td className={`num ${ebitdaCons >= 0 ? "pos" : "neg"}`}>{eur(mesiPeriodo.reduce((s, m) => s + ebitdaM(m), 0))}</td>
                   </tr>
                 </tbody>
               </table>
@@ -288,13 +297,13 @@ export default async function ConsuntivoPage({
           </div>
 
           <p className="page-caption" style={{ marginTop: 14 }}>
-            I <strong>ricavi</strong> sono l&apos;imponibile fatturato in Finance mappato alle voci di budget in{" "}
-            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>. I <strong>costi</strong> sono le
-            uscite di banca categorizzate nel <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link> per voce
-            di P&amp;L: {spese.ok ? `restano ${eur(nonCategorizzato)} da categorizzare` : "spese banca non disponibili"}
-            {esclusi > 0 && `, ${eur(esclusi)} esclusi (oneri finanziari)`}, quindi finché la categorizzazione non è
-            completa i costi reali sono sottostimati e l&apos;EBITDA è ottimistico. Ricavi al netto IVA (competenza),
-            uscite di cassa (IVA inclusa): consuntivo gestionale, non bilancio.
+            Ricavi = imponibile fatturato in Finance mappato alle voci di budget in{" "}
+            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>. Costi = uscite di banca
+            categorizzate nel <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link> per voce di P&amp;L
+            {spese.ok ? ` (${eur(nonCategorizzato)} ancora da categorizzare` : " (spese banca non disponibili"}
+            {esclusi > 0 ? `, ${eur(esclusi)} esclusi` : ""}): finché la categorizzazione non è completa i costi
+            reali sono sottostimati. Il budget di confronto è la somma del budget dei soli mesi chiusi. Ricavi al
+            netto IVA, uscite di cassa IVA inclusa: consuntivo gestionale.
           </p>
 
           <h2 className="section-title">Ricavi reali per voce di budget</h2>
@@ -329,10 +338,10 @@ export default async function ConsuntivoPage({
                   <tr className="tot">
                     <td>Totale ricavi</td>
                     <td />
-                    <td className="num">{eur(pl.ricavi * quotaPeriodo)}</td>
+                    <td className="num">{eur(budgetRicavi)}</td>
                     <td className="num">{eur(ricaviCons)}</td>
-                    <td className={`num ${ricaviCons - pl.ricavi * quotaPeriodo >= 0 ? "pos" : "neg"}`}>
-                      {ricaviCons - pl.ricavi * quotaPeriodo >= 0 ? "+" : ""}{eur(ricaviCons - pl.ricavi * quotaPeriodo)}
+                    <td className={`num ${ricaviCons - budgetRicavi >= 0 ? "pos" : "neg"}`}>
+                      {ricaviCons - budgetRicavi >= 0 ? "+" : ""}{eur(ricaviCons - budgetRicavi)}
                     </td>
                   </tr>
                 </tbody>
