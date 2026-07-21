@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
+import { DeliveryRuleFormComponent } from './delivery-rule-form.component';
 
 interface PartnerDetail {
   id: string;
@@ -65,7 +66,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
 @Component({
   selector: 'app-partner-detail',
   standalone: true,
-  imports: [RouterLink, TranslatePipe],
+  imports: [RouterLink, TranslatePipe, DeliveryRuleFormComponent],
   template: `
     <div class="form-head">
       <a routerLink="/partners" class="back">← {{ 'partners.title' | translate }}</a>
@@ -176,7 +177,12 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           </section>
 
           <section class="card block span-2">
-            <h2>{{ 'deliveryRules.title' | translate }}</h2>
+            <div class="sec-head">
+              <h2>{{ 'deliveryRules.title' | translate }}</h2>
+              @if (canEditRules()) {
+                <button class="btn btn-secondary sm" (click)="addRule(p.id)">+ {{ 'deliveryRules.add' | translate }}</button>
+              }
+            </div>
             @if (carnetRules().length) {
               <div class="carnet-grid">
                 @for (r of carnetRules(); track r.id) {
@@ -184,6 +190,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                     <div class="carnet-head">
                       <span class="carnet-name">{{ r.name }}</span>
                       @if (r.serviceType) { <span class="chip">{{ r.serviceType.name }}</span> }
+                      @if (canEditRules()) {
+                        <button class="btn-icon" (click)="editRule(r.id, p.id)" [title]="'common.edit' | translate">✎</button>
+                      }
                     </div>
                     <div class="carnet-body">
                       @if (r.totalRule) {
@@ -222,6 +231,15 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
         </div>
       }
     }
+
+    @if (ruleFormOpen()) {
+      <app-delivery-rule-form
+        [ruleId]="editRuleId()"
+        [lockPartnerId]="lockPartnerId()"
+        (saved)="onRuleSaved()"
+        (closed)="ruleFormOpen.set(false)"
+      />
+    }
   `,
   styles: [
     `
@@ -258,6 +276,11 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .state-card.err { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); }
       .carnet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
       .carnet { border: 1px solid var(--hairline); border-radius: var(--radius-m); padding: 14px 16px; }
+      .sec-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+      .sec-head h2 { margin: 0; }
+      .btn.sm { padding: 5px 12px; font-size: 13px; }
+      .btn-icon { border: none; background: none; cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: var(--radius-s); color: var(--text-secondary); margin-left: auto; }
+      .btn-icon:hover { background: var(--fill); color: var(--text); }
       .carnet-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
       .carnet-name { font-weight: 600; font-size: 14px; }
       .carnet-body { display: flex; flex-direction: column; gap: 12px; }
@@ -282,6 +305,42 @@ export class PartnerDetailComponent {
   readonly carnetRules = signal<CarnetRule[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+
+  // Modale regola carnet (crea/modifica) da questa scheda.
+  readonly ruleFormOpen = signal(false);
+  readonly editRuleId = signal<string | null>(null);
+  readonly lockPartnerId = signal<string | null>(null);
+
+  /** Solo chi puo' gestire le regole (l'API le limita ad ADMIN/OPERATION/PM). */
+  canEditRules(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER';
+  }
+
+  addRule(partnerId: string): void {
+    this.editRuleId.set(null);
+    this.lockPartnerId.set(partnerId);
+    this.ruleFormOpen.set(true);
+  }
+
+  editRule(ruleId: string, partnerId: string): void {
+    this.editRuleId.set(ruleId);
+    this.lockPartnerId.set(partnerId);
+    this.ruleFormOpen.set(true);
+  }
+
+  onRuleSaved(): void {
+    this.ruleFormOpen.set(false);
+    const id = this.partner()?.id;
+    if (id) this.loadCarnet(id);
+  }
+
+  private loadCarnet(id: string): void {
+    this.http.get<CarnetRule[]>(`${environment.apiUrl}/delivery-rules/partner/${id}`).subscribe({
+      next: (rules) => this.carnetRules.set(rules),
+      error: () => {},
+    });
+  }
 
   /** Percentuale della barra = quota rimasta sul totale. */
   pct(remaining: number | null, total: number): number {
@@ -329,9 +388,6 @@ export class PartnerDetailComponent {
     });
     // Regole carnet del partner con le consegne rimaste (best-effort: se
     // fallisce, la scheda partner si carica lo stesso senza la sezione).
-    this.http.get<CarnetRule[]>(`${environment.apiUrl}/delivery-rules/partner/${id}`).subscribe({
-      next: (rules) => this.carnetRules.set(rules),
-      error: () => {},
-    });
+    if (id) this.loadCarnet(id);
   }
 }

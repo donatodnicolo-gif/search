@@ -676,7 +676,8 @@
       "toBill": "Da fatturare",
       "toPay": "Da pagare",
       "partners": "Estendi ai partner",
-      "partnersHint": "Tieni premuto Ctrl/Cmd per selezionarne più di uno."
+      "partnersHint": "Tieni premuto Ctrl/Cmd per selezionarne più di uno.",
+      "partnerLocked": "questo partner resta sempre incluso"
     }
   },
   "partnerDetail": {

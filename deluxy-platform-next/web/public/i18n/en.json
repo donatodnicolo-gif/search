@@ -676,7 +676,8 @@
       "toBill": "To bill",
       "toPay": "To pay",
       "partners": "Extend to partners",
-      "partnersHint": "Hold Ctrl/Cmd to select more than one."
+      "partnersHint": "Hold Ctrl/Cmd to select more than one.",
+      "partnerLocked": "this partner stays always included"
     }
   },
   "partnerDetail": {
