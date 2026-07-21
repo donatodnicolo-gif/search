@@ -109,6 +109,7 @@ export default async function ImpostazioniApp() {
                   nome={a.nomeChiave}
                   etichetta={a.app}
                   impostataDaApp={statoChiavi[a.nomeChiave].daApp}
+                  daHub={statoChiavi[a.nomeChiave].daHub}
                   daEnv={statoChiavi[a.nomeChiave].daEnv}
                   variabileEnv={a.variabileEnv}
                 />

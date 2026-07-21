@@ -13,17 +13,19 @@ export function ChiaveAppForm({
   nome,
   etichetta,
   impostataDaApp,
+  daHub = false,
   daEnv,
   variabileEnv,
 }: {
   nome: string
   etichetta: string
   impostataDaApp: boolean
+  daHub?: boolean
   daEnv: boolean
   variabileEnv: string
 }) {
   const [valore, setValore] = useState('')
-  const [modifica, setModifica] = useState(!impostataDaApp && !daEnv)
+  const [modifica, setModifica] = useState(!impostataDaApp && !daHub && !daEnv)
   const [stato, setStato] = useState<{ ok: boolean; testo: string } | null>(null)
   const [inCorso, start] = useTransition()
   const router = useRouter()
@@ -56,6 +58,8 @@ export function ChiaveAppForm({
           <span style={{ fontSize: 13 }}>
             {impostataDaApp ? (
               <>Chiave impostata qui nell’app <span className="chiave-pallino ok" /></>
+            ) : daHub ? (
+              <>Presa dalla cassaforte di deluxy-hub <span className="chiave-pallino ok" /></>
             ) : daEnv ? (
               <>Collegata tramite la variabile del server <code className="app-var">{variabileEnv}</code></>
             ) : (
