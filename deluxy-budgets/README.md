@@ -83,6 +83,16 @@ Experience €22.500; linee €504.000 / 317 attivazioni.
 Il COGS di partenza (65%) deriva dal margine stimato 2026 dei budget pubblicati (≈35%).
 Il motore di calcolo è `src/lib/calc.ts` (mai valori derivati a DB).
 
+## Chiavi (cassaforte del Hub)
+
+Le chiavi (`FINANCE_API_KEY`, `OPENAI_API_KEY`, …) non stanno nel `.env` di questa app: si
+chiedono al **Hub** (pagina `/chiavi`, progetto `deluxy-budgets`) tramite `GET /api/chiavi`,
+autenticandosi con il token di servizio `HUB_KEYS_TOKEN` (uguale a quello del Hub). Il client è
+`src/lib/chiavi.ts`: scarica le chiavi del progetto una volta (cache 5 min) e le usa a runtime.
+In sviluppo una chiave presente nel `.env` locale ha la **precedenza** sul Hub, così si può
+lavorare offline. Serve quindi solo `HUB_URL` + `HUB_KEYS_TOKEN` in produzione; tutto il resto
+vive nel vault.
+
 ## Stack e avvio
 
 Next.js 15 + React 19 + Prisma. In sviluppo il DB è **SQLite** (`prisma/dev.db`, zero

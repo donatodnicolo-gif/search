@@ -5,6 +5,8 @@
 // in .env (FINANCE_API_KEY), mai committata. L'URL base è configurabile
 // (FINANCE_API_URL) e in mancanza punta alla produzione.
 
+import { chiave } from "./chiavi";
+
 const BASE = process.env.FINANCE_API_URL ?? "https://deluxy-partner.vercel.app";
 
 export type ConsuntivoTipologia = {
@@ -36,8 +38,8 @@ export type FiltroConsuntivo = {
   stato?: "tutte" | "pagate" | "aperte";
 };
 
-export function financeConfigurato(): boolean {
-  return Boolean(process.env.FINANCE_API_KEY);
+export async function financeConfigurato(): Promise<boolean> {
+  return Boolean(await chiave("FINANCE_API_KEY"));
 }
 
 // ---------- Spese bancarie (addebiti) per il CFO ----------
@@ -68,7 +70,7 @@ export async function fetchSpeseBanca(f: {
   mese?: number | null;
   includiIgnorate?: boolean;
 }): Promise<SpeseResult> {
-  const key = process.env.FINANCE_API_KEY;
+  const key = await chiave("FINANCE_API_KEY");
   if (!key) {
     return {
       ok: false,
@@ -111,7 +113,7 @@ export async function fetchSpeseBanca(f: {
 }
 
 export async function fetchConsuntivo(f: FiltroConsuntivo): Promise<ConsuntivoResult> {
-  const key = process.env.FINANCE_API_KEY;
+  const key = await chiave("FINANCE_API_KEY");
   if (!key) {
     return {
       ok: false,

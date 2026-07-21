@@ -8,19 +8,21 @@
 // OPENAI_API_KEY, modello in OPENAI_MODEL (default gpt-4o-mini). Segreti in
 // .env, mai committati.
 import OpenAI from "openai";
+import { chiave as chiaveVault } from "./chiavi";
 
 const MODELLO = (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
 
 let clientCache: OpenAI | null = null;
-function client(): OpenAI | null {
-  const chiave = (process.env.OPENAI_API_KEY || "").replace(/\s+/g, "");
-  if (!chiave) return null;
-  clientCache ??= new OpenAI({ apiKey: chiave, timeout: 60_000, maxRetries: 2 });
+// La chiave OpenAI arriva dalla cassaforte del Hub (o dall'env locale in dev).
+async function client(): Promise<OpenAI | null> {
+  const apiKey = (await chiaveVault("OPENAI_API_KEY"))?.replace(/\s+/g, "");
+  if (!apiKey) return null;
+  clientCache ??= new OpenAI({ apiKey, timeout: 60_000, maxRetries: 2 });
   return clientCache;
 }
 
-export function aiConfigurata(): boolean {
-  return Boolean((process.env.OPENAI_API_KEY || "").trim());
+export async function aiConfigurata(): Promise<boolean> {
+  return Boolean(await chiaveVault("OPENAI_API_KEY"));
 }
 
 export type Confidenza = "alta" | "media" | "bassa";
@@ -44,12 +46,12 @@ export async function proponiRiconciliazioni(
   controparti: ControparteIn[],
   categorie: CategoriaIn[]
 ): Promise<EsitoProposte> {
-  const cli = client();
+  const cli = await client();
   if (!cli) {
     return {
       ok: false,
       configurata: false,
-      errore: "OPENAI_API_KEY non configurata: le proposte AI sono spente. Vedi .env.example.",
+      errore: "Chiave OpenAI non trovata nel Hub (né in locale): le proposte AI sono spente.",
     };
   }
   if (controparti.length === 0) return { ok: true, proposte: [] };
