@@ -145,11 +145,11 @@ export function ListaMail({
                 <option value="__null__">Nessuna sezione (da smistare)</option>
               </select>
             )}
-            <button type="button" className="btn secondary small" disabled={inCorso} onClick={() => esegui('letto')}>
-              Segna letta
+            <button type="button" className="btn secondary small" disabled={inCorso} title="Segna come letta" onClick={() => esegui('letto')}>
+              Letta
             </button>
-            <button type="button" className="btn secondary small" disabled={inCorso} onClick={() => esegui('nonletto')}>
-              Segna non letta
+            <button type="button" className="btn secondary small" disabled={inCorso} title="Segna come non letta" onClick={() => esegui('nonletto')}>
+              Non letta
             </button>
             <button type="button" className="btn secondary small" disabled={inCorso} onClick={azzera}>
               Annulla

@@ -215,12 +215,14 @@ input:focus, select:focus, textarea:focus {
 /* ---------- Lista messaggi ---------- */
 .mail-list { display: flex; flex-direction: column; }
 
-/* Barra della selezione multipla in cima alla lista. */
+/* Barra della selezione multipla in cima alla lista: SEMPRE su una riga sola.
+   Se lo spazio è poco, scorre in orizzontale invece di andare a capo. */
 .mail-select-bar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 12px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   padding: 10px 20px;
   border-bottom: 1px solid var(--hairline);
   background: var(--surface);
@@ -233,9 +235,12 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 .mail-select-all input { width: 16px; height: 16px; accent-color: var(--ink); cursor: pointer; }
-.mail-select-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mail-select-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; flex: 0 0 auto; }
+.mail-select-azioni .btn { white-space: nowrap; flex: 0 0 auto; }
 .mail-select-sposta {
   border: 1px solid var(--hairline-strong);
   background: var(--surface);
@@ -244,6 +249,8 @@ input:focus, select:focus, textarea:focus {
   font-size: 12.5px;
   color: var(--text);
   cursor: pointer;
+  flex: 0 0 auto;
+  max-width: 150px;
 }
 
 /* La casella di spunta su ogni riga (a sinistra, in linea col mittente). */
