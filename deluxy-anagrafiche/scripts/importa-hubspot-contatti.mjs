@@ -4,11 +4,17 @@
 // (come il sync), solo se il nome mappa a un unico partner. Idempotente:
 // i referenti già presenti (per email/telefono/nome) non vengono duplicati.
 //
-// Uso: node scripts/importa-hubspot-contatti.mjs
+// Con --crea-aziende: se l'azienda HubSpot non esiste nel registro, viene
+// CREATA come anagrafica (prospect, DA CLASSIFICARE, fonte hubspot) così NESSUN
+// contatto viene scartato. In cambio possono nascere anagrafiche di gruppo/
+// holding (es. "Aeffe Group") da riordinare poi.
+//
+// Uso: node scripts/importa-hubspot-contatti.mjs [--crea-aziende]
 import { PrismaClient } from "@prisma/client";
 import { readFileSync } from "fs";
 
 const prisma = new PrismaClient();
+const creaAziende = process.argv.includes("--crea-aziende");
 const token =
   process.env.HUBSPOT_ACCESS_TOKEN ||
   readFileSync(new URL("../.env", import.meta.url), "utf8").match(/HUBSPOT_ACCESS_TOKEN="([^"]+)"/)?.[1];
@@ -31,17 +37,24 @@ async function hsGet(url) {
   return res.json();
 }
 
-// 1. Companies: id -> nome
-const companyNome = new Map();
+// 1. Companies: id -> { nome, city, domain, phone }
+const companyMeta = new Map();
 {
   let after;
   do {
     const u = new URL("https://api.hubapi.com/crm/v3/objects/companies");
     u.searchParams.set("limit", "100");
-    u.searchParams.set("properties", "name");
+    u.searchParams.set("properties", "name,city,domain,phone");
     if (after) u.searchParams.set("after", after);
     const j = await hsGet(u);
-    for (const r of j.results) if (r.properties.name) companyNome.set(r.id, r.properties.name);
+    for (const r of j.results)
+      if (r.properties.name)
+        companyMeta.set(r.id, {
+          nome: r.properties.name,
+          city: r.properties.city || null,
+          domain: r.properties.domain || null,
+          phone: r.properties.phone || null,
+        });
     after = j.paging?.next?.after;
   } while (after);
 }
@@ -51,10 +64,11 @@ const partner = await prisma.partner.findMany({
   where: { attivo: true },
   select: { id: true, nome: true, hubspotId: true, contatti: true },
 });
+const partnerById = new Map(partner.map((p) => [p.id, p]));
 const perHubspotId = new Map();
 partner.forEach((p) => p.hubspotId && perHubspotId.set(p.hubspotId, p));
 (await prisma.riferimentoEsterno.findMany({ where: { sistema: "hubspot" } })).forEach((x) => {
-  const p = partner.find((pp) => pp.id === x.partnerId);
+  const p = partnerById.get(x.partnerId);
   if (p) perHubspotId.set(x.idEsterno, p);
 });
 const perNome = new Map();
@@ -66,16 +80,42 @@ for (const p of partner) {
 }
 ambigui.forEach((k) => perNome.delete(k)); // nomi non univoci: non si aggancia alla cieca
 
-function partnerPerCompany(companyId) {
+let aziendeCreate = 0;
+
+// Risolve (e, con --crea-aziende, crea) l'anagrafica dell'azienda HubSpot.
+async function partnerPerCompany(companyId) {
   if (perHubspotId.has(companyId)) return perHubspotId.get(companyId);
-  const nome = companyNome.get(companyId);
-  if (!nome) return null;
-  return perNome.get(norm(nome)) ?? null;
+  const meta = companyMeta.get(companyId);
+  if (!meta) return null;
+  const perN = perNome.get(norm(meta.nome));
+  if (perN) return perN;
+  if (!creaAziende) return null;
+  // Crea l'anagrafica dalla company HubSpot (come il bottone "importa" del sync)
+  const creato = await prisma.partner.create({
+    data: {
+      nome: meta.nome,
+      categoria: "DA CLASSIFICARE",
+      stato: "prospect",
+      citta: meta.city ? meta.city.toUpperCase() : null,
+      telefono: meta.phone,
+      note: meta.domain ? `Sito: ${meta.domain}` : null,
+      fonte: "hubspot",
+      hubspotId: companyId,
+    },
+    select: { id: true, nome: true, hubspotId: true },
+  });
+  const rec = { ...creato, contatti: [] };
+  partnerById.set(rec.id, rec);
+  perHubspotId.set(companyId, rec);
+  perNome.set(norm(meta.nome), rec);
+  aziendeCreate++;
+  return rec;
 }
 
 // 3. Contatti HubSpot → accumula per partner
 const daAggiungere = new Map(); // partnerId -> [contatti]
 let totContatti = 0;
+let senzaAzienda = 0;
 {
   let after;
   do {
@@ -91,9 +131,13 @@ let totContatti = 0;
       const nome = [pr.firstname, pr.lastname].filter(Boolean).join(" ").trim() || (pr.email ? pr.email.split("@")[0] : "");
       if (!nome && !pr.phone && !pr.email) continue;
       const companyIds = [...new Set((r.associations?.companies?.results || []).map((x) => x.id))];
+      if (companyIds.length === 0) {
+        senzaAzienda++;
+        continue; // un referente senza azienda non ha dove stare nel registro
+      }
       const partnersVisti = new Set();
       for (const cid of companyIds) {
-        const p = partnerPerCompany(cid);
+        const p = await partnerPerCompany(cid);
         if (!p || partnersVisti.has(p.id)) continue;
         partnersVisti.add(p.id);
         if (!daAggiungere.has(p.id)) daAggiungere.set(p.id, []);
@@ -115,10 +159,10 @@ let totContatti = 0;
 let aggiunti = 0;
 let arricchiti = 0;
 let partnerToccati = 0;
-for (const p of partner) {
-  const nuovi = daAggiungere.get(p.id);
-  if (!nuovi?.length) continue;
-  const perChiaveEsistente = new Map(p.contatti.map((c) => [chiave(c), c]).filter(([k]) => k));
+for (const [partnerId, nuovi] of daAggiungere) {
+  const p = partnerById.get(partnerId);
+  if (!p || !nuovi?.length) continue;
+  const perChiaveEsistente = new Map((p.contatti || []).map((c) => [chiave(c), c]).filter(([k]) => k));
   const daCreare = [];
   let toccato = false;
   for (const c of nuovi) {
@@ -136,7 +180,7 @@ for (const p of partner) {
     daCreare.push({ ...c, fonte: "hubspot" });
   }
   if (daCreare.length) {
-    await prisma.partner.update({ where: { id: p.id }, data: { contatti: { create: daCreare } } });
+    await prisma.partner.update({ where: { id: partnerId }, data: { contatti: { create: daCreare } } });
     aggiunti += daCreare.length;
     toccato = true;
   }
@@ -144,6 +188,7 @@ for (const p of partner) {
 }
 
 console.log(
-  `Contatti HubSpot letti: ${totContatti} | aggiunti: ${aggiunti} | id agganciati a esistenti: ${arricchiti} | su ${partnerToccati} partner`,
+  `Contatti HubSpot letti: ${totContatti} | senza azienda (saltati): ${senzaAzienda} | ` +
+    `aziende create: ${aziendeCreate} | referenti aggiunti: ${aggiunti} | id agganciati a esistenti: ${arricchiti} | su ${partnerToccati} partner`,
 );
 await prisma.$disconnect();

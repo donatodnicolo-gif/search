@@ -215,7 +215,10 @@ trovano un match nel registro. Lato registro misurato: 578 attivi, 316 boutique,
 
 ## 8. Script (`package.json`)
 
-`db:push`, `import:excel`, `import:hubspot-contatti`, `export:vcard`, `chiave`,
+`db:push`, `import:excel`, `import:hubspot-contatti` (con `--crea-aziende`: crea l'anagrafica
+mancante dalla company HubSpot così nessun contatto viene scartato — genera prospect «DA
+CLASSIFICARE» a livello di gruppo/holding da riordinare; i contatti senza azienda associata
+restano non importabili), `export:vcard`, `chiave`,
 `scripts/configura-db-condiviso.mjs`, `scripts/crea-chiave.mjs`, `scripts/esporta-vcard-google.mjs`,
 `scripts/importa-hubspot-contatti.mjs`.
 
