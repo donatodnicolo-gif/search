@@ -13,6 +13,21 @@ export type ContattoAnagrafica = {
   email: string | null;
 };
 
+// Blocco finanziario del registro (dati amministrativi/di pagamento). Il registro
+// lo espone come oggetto annidato "datiFinanziari"; qui interessano i campi che
+// la riconciliazione può alimentare.
+export type DatiFinanziari = {
+  pec: string | null;
+  codiceSdi: string | null;
+  iban: string | null;
+  banca: string | null;
+  metodoPagamento: string | null;
+  condizioniPagamento: string | null;
+  amministrazioneNome: string | null;
+  amministrazioneTelefono: string | null;
+  amministrazioneEmail: string | null;
+};
+
 export type Anagrafica = {
   id: string;
   nome: string;
@@ -27,6 +42,7 @@ export type Anagrafica = {
   telefono: string | null;
   pIva: string | null;
   codiceFiscale: string | null;
+  datiFinanziari: DatiFinanziari | null;
   account: string | null;
   contatti: ContattoAnagrafica[];
   platformId: string | null;

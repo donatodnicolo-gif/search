@@ -79,12 +79,34 @@ export async function AnagraficaCard({
             <div className="info-grid">
               <Voce k="Ragione sociale" v={anagrafica.ragioneSociale} />
               <Voce k="P. IVA" v={anagrafica.pIva} />
+              <Voce k="Codice fiscale" v={anagrafica.codiceFiscale} />
               <Voce k="Indirizzo" v={anagrafica.indirizzo} />
               <Voce k="Città" v={[anagrafica.citta, anagrafica.provincia].filter(Boolean).join(" · ")} />
               <Voce k="Email" v={anagrafica.email} />
               <Voce k="Telefono" v={anagrafica.telefono} />
               <Voce k="Account commerciale" v={anagrafica.account} />
             </div>
+            {(() => {
+              const f = anagrafica.datiFinanziari;
+              if (!f) return null;
+              const amm = [f.amministrazioneNome, f.amministrazioneTelefono, f.amministrazioneEmail]
+                .filter(Boolean)
+                .join(" · ");
+              const haFin = f.pec || f.codiceSdi || f.iban || f.banca || amm;
+              if (!haFin) return null;
+              return (
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--hairline)" }}>
+                  <div className="k" style={{ marginBottom: 8 }}>Dati amministrativi / fatturazione</div>
+                  <div className="info-grid">
+                    <Voce k="PEC" v={f.pec} />
+                    <Voce k="Codice SDI" v={f.codiceSdi} />
+                    <Voce k="IBAN" v={f.iban} />
+                    <Voce k="Banca" v={f.banca} />
+                    <Voce k="Contatto amministrativo" v={amm || null} />
+                  </div>
+                </div>
+              );
+            })()}
             {anagrafica.contatti.length > 0 && (
               <div style={{ marginTop: 14 }}>
                 <div className="k" style={{ marginBottom: 6 }}>Persone di riferimento</div>
