@@ -116,12 +116,11 @@ export async function sincronizzaQonto() {
   try {
     esito = await scaricaMovimentiQonto();
   } catch (e) {
-    redirect("/transazioni?errore=" + encodeURIComponent((e as Error).message));
+    redirect("/transazioni?errore=" + encodeURIComponent(`Sincronizzazione Qonto fallita: ${(e as Error).message}`));
   }
   revalidate();
-  redirect(
-    `/transazioni?import=ok&nuove=${esito.nuove}&doppioni=${esito.totali - esito.nuove}&scartate=0`
-  );
+  // messaggio dedicato alla sync Qonto (distinto dall'import da file)
+  redirect(`/transazioni?qonto=ok&nuove=${esito.nuove}&conti=${esito.conti}&totali=${esito.totali}`);
 }
 
 // La transazione salda una fattura: fattura → pagata con la data del movimento

@@ -17,13 +17,14 @@ import {
   eliminaTransazioniNonRegistrate,
 } from "@/lib/transazioni-actions";
 import { qontoConfigurato } from "@/lib/qonto";
+import { BottoneSincronizzaQonto } from "@/components/BottoneSincronizzaQonto";
 
 export const dynamic = "force-dynamic";
 
 export default async function TransazioniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ import?: string; nuove?: string; doppioni?: string; scartate?: string; iban?: string; errore?: string; cerca?: string }>;
+  searchParams: Promise<{ import?: string; nuove?: string; doppioni?: string; scartate?: string; iban?: string; errore?: string; cerca?: string; qonto?: string; conti?: string; totali?: string }>;
 }) {
   const sp = await searchParams;
 
@@ -153,6 +154,16 @@ export default async function TransazioniPage({
           </span>
         </div>
       )}
+      {sp.qonto === "ok" && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />
+            Sincronizzazione Qonto completata: {sp.nuove} nuovi movimenti
+            {Number(sp.conti) > 0 ? ` da ${sp.conti} cont${Number(sp.conti) === 1 ? "o" : "i"}` : ""}
+            {Number(sp.totali) > 0 ? ` · ${sp.totali} esaminati` : ""}
+            {Number(sp.nuove) === 0 ? " (nessun movimento nuovo: era già tutto aggiornato)" : ""}
+          </span>
+        </div>
+      )}
       {sp.errore && (
         <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
           <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.errore)}</span>
@@ -163,9 +174,7 @@ export default async function TransazioniPage({
         <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
           {qonto && (
             <form action={sincronizzaQonto} style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <button className="btn primary" type="submit" title="Scarica subito i movimenti recenti dal conto Qonto">
-                ⇅ Sincronizza da Qonto
-              </button>
+              <BottoneSincronizzaQonto />
               <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
                 {ultimaSync
                   ? `Ultima: ${dataIt(ultimaSync)} alle ${ultimaSync.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`
