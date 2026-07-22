@@ -1,4 +1,4 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 20/07/2026, commit `466c9dc`)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 22/07/2026, commit `f05d1b3`)
 
 Per riprendere il lavoro su quest'app da una nuova sessione Claude. **Leggere prima
 [AI_SPEC.md](AI_SPEC.md)**: è la scheda tecnica completa e aggiornata; questo file dice
@@ -90,6 +90,12 @@ solo dove siamo e come si lavora.
    non è ancora stato esercitato su una riconciliazione vera (l'unica in zona era già fatta).
    In rubrica vanno anche i **referenti** del registro (`salvaReferentiInRubrica`, nome
    `FORNITORE <NEGOZIO> — <NOME> (<RUOLO>)`, dedupe per numero, solo con OAuth).
+
+16. **WhatsApp per i referenti nelle schede del registro** (22/07, `f05d1b3`): in `registryCard`
+   anche i telefoni dei **referenti** hanno link 💬 WhatsApp + pulsante «📤 Invia richiesta
+   ordine» (prima solo `tel:`/`mailto:`; WhatsApp esisteva solo per il telefono aziendale).
+   Stessa normalizzazione di `enrichCardWithRegistry` (prefisso 39 sui cellulari IT, ≥8 cifre,
+   dedupe su ultime 9 cifre); il ripiego «📧 Invia via email» compare solo senza alcun numero WA.
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
