@@ -36,9 +36,12 @@ Deno.serve(async (req) => {
 
     const contatto = String(body.email ?? '').trim();
     if (!contatto) return json({ ok: false, errore: 'Manca email del contatto' }, 400);
-    const limite = Math.min(Math.max(Number(body.limite ?? 10) || 10, 1), 30);
+    const limite = Math.min(Math.max(Number(body.limite ?? 30) || 30, 1), 100);
 
     const p = new URLSearchParams({ email: contatto, limite: String(limite) });
+    if (body.da) p.set('da', String(body.da));
+    if (body.a) p.set('a', String(body.a));
+    if (body.server) p.set('server', '1');
     const res = await fetch(`${BASE}/api/v1/messaggi?${p.toString()}`, {
       headers: { 'x-api-key': key, 'x-utente': email },
     });

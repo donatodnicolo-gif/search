@@ -14,12 +14,19 @@ export interface MailMessaggio {
   allegati: number;
 }
 
+export interface OpzioniMail {
+  da?: string; // ISO: inizio finestra (default: 30 giorni fa)
+  a?: string; // ISO: fine finestra (default: ora)
+  server?: boolean; // cerca anche sul server IMAP (lento): usare in background
+  limite?: number;
+}
+
 /**
- * Ultime mail ricevute dal contatto (per la scheda cliente). Tollerante: ritorna
- * [] se AI Mail non è raggiungibile, la casella non ha quel mittente, o l'utente
- * Scout non ha una casella su AI Mail.
+ * Mail ricevute dal contatto in una finestra temporale (default: ultimi 30
+ * giorni). Con `server:false` è veloce (solo DB locale); con `server:true`
+ * interroga anche il server IMAP (lento). Tollerante: ritorna [] su errore.
  */
-export async function mailDaContatto(email: string, limite = 10): Promise<MailMessaggio[]> {
+export async function mailDaContatto(email: string, opts: OpzioniMail = {}): Promise<MailMessaggio[]> {
   if (!email.trim()) return [];
   const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/mail`;
   const { data } = await supabase.auth.getSession();
@@ -32,7 +39,14 @@ export async function mailDaContatto(email: string, limite = 10): Promise<MailMe
         apikey: env.supabaseAnonKey(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ azione: 'messaggi', email: email.trim(), limite }),
+      body: JSON.stringify({
+        azione: 'messaggi',
+        email: email.trim(),
+        da: opts.da,
+        a: opts.a,
+        server: opts.server ? 1 : undefined,
+        limite: opts.limite ?? 30,
+      }),
     });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok || !payload?.ok) return [];
