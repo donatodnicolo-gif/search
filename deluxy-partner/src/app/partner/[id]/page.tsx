@@ -539,14 +539,27 @@ export default async function PartnerDetail({
                 </span>
               </span>
               <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                {daBonificareYtd < 0.01 && daIncassareYtd < 0.01 && (
-                  <span className="badge green"><span className="dot" />Tutto pareggiato</span>
-                )}
-                {daBonificareYtd >= 0.01 && (
-                  <span className="badge orange"><span className="dot" />Da bonificare {euro(daBonificareYtd)}</span>
-                )}
-                {daIncassareYtd >= 0.01 && (
-                  <span className="badge orange"><span className="dot" />Da incassare {euro(daIncassareYtd)}</span>
+                {partner.compensazione ? (
+                  // in compensazione crediti e debiti si annullano: un solo netto
+                  Math.abs(daIncassareYtd - daBonificareYtd) < 0.01 ? (
+                    <span className="badge green"><span className="dot" />Compensato — pari</span>
+                  ) : daIncassareYtd - daBonificareYtd > 0 ? (
+                    <span className="badge orange"><span className="dot" />Da incassare {euro(daIncassareYtd - daBonificareYtd)} (netto)</span>
+                  ) : (
+                    <span className="badge orange"><span className="dot" />Da bonificare {euro(daBonificareYtd - daIncassareYtd)} (netto)</span>
+                  )
+                ) : (
+                  <>
+                    {daBonificareYtd < 0.01 && daIncassareYtd < 0.01 && (
+                      <span className="badge green"><span className="dot" />Tutto pareggiato</span>
+                    )}
+                    {daBonificareYtd >= 0.01 && (
+                      <span className="badge orange"><span className="dot" />Da bonificare {euro(daBonificareYtd)}</span>
+                    )}
+                    {daIncassareYtd >= 0.01 && (
+                      <span className="badge orange"><span className="dot" />Da incassare {euro(daIncassareYtd)}</span>
+                    )}
+                  </>
                 )}
               </span>
             </div>
@@ -564,20 +577,35 @@ export default async function PartnerDetail({
                       <td>IVA inclusa {euro(sum((r) => r.serviziIvato))}</td>
                       <td className="num">{euro(sum((r) => r.serviziNetto))} <span className="muted">netto IVA</span></td>
                     </tr>
-                    <tr style={{ background: "var(--bg)" }}>
-                      <td className="muted">Da bonificare al partner</td>
-                      <td>Già bonificato {euro(rolling.pagatoAlPartner)}</td>
-                      <td className={`num ${daBonificareYtd >= 0.01 ? "neg" : ""}`} style={{ fontWeight: 600 }}>
-                        {euro(daBonificareYtd)}
-                      </td>
-                    </tr>
-                    <tr style={{ background: "var(--bg)" }}>
-                      <td className="muted">Da incassare dal partner</td>
-                      <td>Già incassato {euro(rolling.incassatoDalPartner)}</td>
-                      <td className={`num ${daIncassareYtd >= 0.01 ? "pos" : ""}`} style={{ fontWeight: 600 }}>
-                        {euro(daIncassareYtd)}
-                      </td>
-                    </tr>
+                    {partner.compensazione ? (
+                      <tr style={{ background: "var(--bg)" }}>
+                        <td className="muted">Saldo compensato (netto)</td>
+                        <td>Già incassato {euro(rolling.incassatoDalPartner)} · già bonificato {euro(rolling.pagatoAlPartner)}</td>
+                        <td className={`num ${daIncassareYtd - daBonificareYtd > 0.01 ? "pos" : daIncassareYtd - daBonificareYtd < -0.01 ? "neg" : ""}`} style={{ fontWeight: 600 }}>
+                          {euro(daIncassareYtd - daBonificareYtd)}{" "}
+                          <span className="muted">
+                            {daIncassareYtd - daBonificareYtd > 0.01 ? "(il partner ci deve)" : daIncassareYtd - daBonificareYtd < -0.01 ? "(dobbiamo bonificare)" : "(pari)"}
+                          </span>
+                        </td>
+                      </tr>
+                    ) : (
+                      <>
+                        <tr style={{ background: "var(--bg)" }}>
+                          <td className="muted">Da bonificare al partner</td>
+                          <td>Già bonificato {euro(rolling.pagatoAlPartner)}</td>
+                          <td className={`num ${daBonificareYtd >= 0.01 ? "neg" : ""}`} style={{ fontWeight: 600 }}>
+                            {euro(daBonificareYtd)}
+                          </td>
+                        </tr>
+                        <tr style={{ background: "var(--bg)" }}>
+                          <td className="muted">Da incassare dal partner</td>
+                          <td>Già incassato {euro(rolling.incassatoDalPartner)}</td>
+                          <td className={`num ${daIncassareYtd >= 0.01 ? "pos" : ""}`} style={{ fontWeight: 600 }}>
+                            {euro(daIncassareYtd)}
+                          </td>
+                        </tr>
+                      </>
+                    )}
                   </tbody>
                 </table>
               </div>
