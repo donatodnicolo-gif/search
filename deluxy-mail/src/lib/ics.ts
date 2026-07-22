@@ -32,6 +32,54 @@ function piega(riga: string): string {
   return pezzi.join('\r\n')
 }
 
+/**
+ * L'INVITO iCal (METHOD:REQUEST) per una mail d'invito: è quello che fa
+ * comparire i pulsanti Sì/No nativi in Gmail, Outlook e Apple Mail.
+ * `organizzatore` è chi invita (la casella dell'utente), `invitati` gli
+ * indirizzi che devono rispondere (RSVP).
+ */
+export function invitoIcs(
+  e: Evento,
+  organizzatore: { nome: string; email: string },
+  invitati: string[]
+): string {
+  const righe: string[] = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Deluxy//AI Mail//IT',
+    'CALSCALE:GREGORIAN',
+    'METHOD:REQUEST',
+    'BEGIN:VEVENT',
+  ]
+  righe.push(piega(`UID:${e.id}@deluxy-mail`))
+  righe.push(`DTSTAMP:${dataOra(new Date())}`)
+  righe.push('SEQUENCE:0')
+  righe.push('STATUS:CONFIRMED')
+  if (e.giornataIntera) {
+    righe.push(`DTSTART;VALUE=DATE:${soloData(e.inizio)}`)
+    const fine = new Date((e.fine ?? e.inizio).getTime() + 24 * 60 * 60 * 1000)
+    righe.push(`DTEND;VALUE=DATE:${soloData(fine)}`)
+  } else {
+    righe.push(`DTSTART:${dataOra(e.inizio)}`)
+    righe.push(`DTEND:${dataOra(e.fine ?? new Date(e.inizio.getTime() + 60 * 60 * 1000))}`)
+  }
+  righe.push(piega(`SUMMARY:${testoIcs(e.titolo)}`))
+  if (e.luogo) righe.push(piega(`LOCATION:${testoIcs(e.luogo)}`))
+  if (e.descrizione) righe.push(piega(`DESCRIPTION:${testoIcs(e.descrizione)}`))
+  righe.push(
+    piega(`ORGANIZER;CN=${testoIcs(organizzatore.nome)}:mailto:${organizzatore.email}`)
+  )
+  for (const email of invitati) {
+    righe.push(
+      piega(
+        `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${testoIcs(email)}:mailto:${email}`
+      )
+    )
+  }
+  righe.push('END:VEVENT', 'END:VCALENDAR')
+  return righe.join('\r\n') + '\r\n'
+}
+
 export function calendarioIcs(eventi: Evento[], nomeUtente: string): string {
   const righe: string[] = [
     'BEGIN:VCALENDAR',

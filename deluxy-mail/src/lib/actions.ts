@@ -66,6 +66,7 @@ import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
 import { CHIAVE_TOKEN_API } from './apiAuth'
 import { utenteCorrente } from './sessione'
 import { costruisciFirma, type FirmaDati } from './firma'
+import { invitoIcs } from './ics'
 
 function testo(form: FormData, campo: string): string {
   return String(form.get(campo) ?? '').trim()
@@ -1083,6 +1084,8 @@ type DaInviare = {
   corpoHtml?: string // corpo formattato; se assente si invia solo testo
   allegati?: AllegatoInvio[]
   inRispostaA?: string | null
+  /** Invito iCal (METHOD:REQUEST): fa comparire i Sì/No nativi nei client. */
+  ics?: string
 }
 
 async function spedisci(account: Account, m: DaInviare): Promise<{ raw: Buffer; messageId: string }> {
@@ -1094,6 +1097,7 @@ async function spedisci(account: Account, m: DaInviare): Promise<{ raw: Buffer; 
     text: m.corpo,
     ...(m.corpoHtml ? { html: m.corpoHtml } : {}),
     ...(m.allegati && m.allegati.length ? { attachments: m.allegati } : {}),
+    ...(m.ics ? { icalEvent: { method: 'REQUEST', content: m.ics } } : {}),
     inReplyTo: m.inRispostaA ?? undefined,
     references: m.inRispostaA ?? undefined,
   })
@@ -1620,6 +1624,100 @@ export async function salvaMemoriaRene(form: FormData): Promise<void> {
 
 // ---------- Calendario ----------
 
+// L'indirizzo pubblico dell'app: serve per i link Accetta/Rifiuta nelle mail
+// d'invito (devono funzionare da qualsiasi client di posta).
+const URL_APP = (process.env.APP_URL || 'https://deluxy-mail.vercel.app').replace(/\/$/, '')
+
+/** Indirizzi email validi da un campo "per virgola". */
+function emailDaLista(lista: string): string[] {
+  return [
+    ...new Set(
+      lista
+        .split(/[,;]/)
+        .map((x) => x.trim().toLowerCase())
+        .filter((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))
+    ),
+  ]
+}
+
+/**
+ * Manda la MAIL D'INVITO per un evento a tutti gli invitati: allegato iCal
+ * standard (METHOD:REQUEST → Sì/No nativi in Gmail/Outlook/Apple) + link
+ * "Accetta / Rifiuta" nel corpo che registrano la risposta nell'app.
+ * La copia resta in Posta inviata come ogni altra mail.
+ */
+async function inviaInvitoEvento(utenteId: string, eventoId: string): Promise<string | null> {
+  const evento = await db.evento.findFirst({ where: { id: eventoId, utenteId } })
+  if (!evento) return null
+  const invitati = emailDaLista(evento.invitati)
+  if (invitati.length === 0) return null
+
+  const account = await db.account.findFirst({ where: { utenteId, attivo: true } })
+  if (!account) return 'Nessuna casella collegata: invito non inviato.'
+
+  // Il token dei link di risposta: uno per evento, generato al primo invio.
+  let token = evento.tokenInvito
+  if (!token) {
+    token = randomBytes(18).toString('base64url')
+    await db.evento.update({ where: { id: evento.id }, data: { tokenInvito: token } })
+  }
+
+  const quando = evento.giornataIntera
+    ? evento.inizio.toLocaleDateString('it-IT', { timeZone: FUSO, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : evento.inizio.toLocaleString('it-IT', { timeZone: FUSO, weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+
+  const ics = invitoIcs(evento, { nome: account.nome, email: account.email }, invitati)
+
+  const errori: string[] = []
+  for (const email of invitati) {
+    const link = (r: 'si' | 'no') =>
+      `${URL_APP}/api/invito?e=${evento.id}&t=${token}&chi=${encodeURIComponent(email)}&r=${r}`
+    const corpoTesto = [
+      `${account.nome} ti invita: ${evento.titolo}`,
+      `Quando: ${quando}`,
+      evento.luogo ? `Dove: ${evento.luogo}` : '',
+      evento.descrizione ? `Note: ${evento.descrizione}` : '',
+      '',
+      `Accetta: ${link('si')}`,
+      `Rifiuta: ${link('no')}`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+    const corpoHtml = `
+      <div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.6">
+        <p><strong>${account.nome}</strong> ti invita:</p>
+        <p style="font-size:17px;font-weight:600;margin:6px 0">${evento.titolo}</p>
+        <p style="margin:4px 0">📅 ${quando}${evento.luogo ? `<br>📍 ${evento.luogo}` : ''}</p>
+        ${evento.descrizione ? `<p style="color:#555">${evento.descrizione}</p>` : ''}
+        <p style="margin-top:18px">
+          <a href="${link('si')}" style="background:#111;color:#fff;padding:10px 22px;border-radius:999px;text-decoration:none;display:inline-block">Accetta</a>
+          &nbsp;&nbsp;
+          <a href="${link('no')}" style="border:1px solid #ccc;color:#333;padding:10px 22px;border-radius:999px;text-decoration:none;display:inline-block">Rifiuta</a>
+        </p>
+        <p style="color:#999;font-size:12px;margin-top:16px">Puoi rispondere anche coi pulsanti del tuo programma di posta (invito in allegato).</p>
+      </div>`
+
+    try {
+      const daInviare: DaInviare = {
+        a: email,
+        oggetto: `Invito: ${evento.titolo} — ${quando}`,
+        corpo: corpoTesto,
+        corpoHtml,
+        ics,
+      }
+      const { raw, messageId } = await spedisci(account, daInviare)
+      await registraInviato(utenteId, account, daInviare, raw, messageId, null)
+    } catch {
+      errori.push(email)
+    }
+  }
+
+  revalidatePath('/calendario')
+  if (errori.length === invitati.length) return 'Invito NON inviato: invio non riuscito.'
+  if (errori.length > 0) return `Invito inviato, ma non a: ${errori.join(', ')}.`
+  return `Invito inviato a ${invitati.join(', ')}.`
+}
+
 export async function creaEvento(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
   const titolo = testo(form, 'titolo')
@@ -1647,7 +1745,8 @@ export async function creaEvento(form: FormData): Promise<{ ok: boolean; messagg
   const fine = giornataIntera ? null : oraFine ? locale(oraFine) : null
   if (fine && fine < inizio) return { ok: false, messaggio: 'La fine è prima dell’inizio.' }
 
-  await db.evento.create({
+  const invitati = emailDaLista(testo(form, 'invitati'))
+  const creato = await db.evento.create({
     data: {
       utenteId,
       titolo,
@@ -1657,10 +1756,17 @@ export async function creaEvento(form: FormData): Promise<{ ok: boolean; messagg
       fine,
       giornataIntera,
       messaggioId: opzionale(form, 'messaggioId'),
+      invitati: invitati.join(', '),
     },
+    select: { id: true },
   })
+
+  // Con gli invitati parte subito la mail d'invito (iCal + link Accetta/Rifiuta).
+  let notaInvito: string | null = null
+  if (invitati.length > 0) notaInvito = await inviaInvitoEvento(utenteId, creato.id)
+
   revalidatePath('/calendario')
-  return { ok: true, messaggio: 'Appuntamento salvato.' }
+  return { ok: true, messaggio: `Appuntamento salvato.${notaInvito ? ` ${notaInvito}` : ''}` }
 }
 
 export async function eliminaEvento(id: string) {
@@ -1706,7 +1812,7 @@ export async function accettaEventoProposto(
   const utenteId = await uid()
   const m = await db.messaggio.findFirst({
     where: { id: messaggioId, utenteId },
-    select: { eventoProposto: true },
+    select: { eventoProposto: true, mittente: true, direzione: true },
   })
   const ev = leggiEventoProposto(m?.eventoProposto ?? null)
   if (!ev) return { ok: false, messaggio: 'Nessun appuntamento da aggiungere.' }
@@ -1717,7 +1823,11 @@ export async function accettaEventoProposto(
   if (!inizio) return { ok: false, messaggio: 'La data della proposta non è valida.' }
   const fine = !ev.giornataIntera && ev.fine ? oraItalianaInUtc(ev.fine) : null
 
-  await db.evento.create({
+  // L'appuntamento nasce da una mail: la controparte è il mittente, e accettando
+  // gli parte la mail d'invito (iCal + Accetta/Rifiuta), così ha la conferma.
+  const invitato = m?.direzione === 'entrata' ? emailDaLista(m.mittente).join(', ') : ''
+
+  const creato = await db.evento.create({
     data: {
       utenteId,
       titolo: ev.titolo,
@@ -1727,13 +1837,18 @@ export async function accettaEventoProposto(
       giornataIntera: ev.giornataIntera,
       messaggioId,
       creatoDaAI: true,
+      invitati: invitato,
     },
+    select: { id: true },
   })
   await db.messaggio.update({ where: { id: messaggioId }, data: { eventoProposto: null } })
 
+  let notaInvito: string | null = null
+  if (invitato) notaInvito = await inviaInvitoEvento(utenteId, creato.id)
+
   revalidatePath('/calendario')
   revalidatePath('/', 'layout')
-  return { ok: true, messaggio: 'Aggiunto al calendario.' }
+  return { ok: true, messaggio: `Aggiunto al calendario.${notaInvito ? ` ${notaInvito}` : ''}` }
 }
 
 /** Scarta la proposta di appuntamento senza crearlo. */

@@ -86,6 +86,15 @@ export function NuovoEvento() {
             <label className="field-label">Note</label>
             <input type="text" name="descrizione" placeholder="Dettagli utili (opzionale)" />
           </div>
+
+          <div className="full">
+            <label className="field-label">Invita (email, separate da virgola)</label>
+            <input type="text" name="invitati" placeholder="Es. mario@rossi.it, anna@bianchi.it (opzionale)" />
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
+              A ogni invitato parte subito la mail d’invito con Accetta/Rifiuta (e
+              l’invito-calendario che Gmail e Outlook riconoscono).
+            </div>
+          </div>
         </div>
 
         {stato && !stato.ok && (

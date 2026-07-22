@@ -203,6 +203,27 @@ export default async function Calendario({ searchParams }: Props) {
                     {[e.luogo, e.descrizione].filter(Boolean).join(' · ').slice(0, 140)}
                   </div>
                 )}
+                {/* Le risposte agli inviti: accettato / rifiutato / in attesa. */}
+                {e.invitati && (
+                  <div className="mail-tags" style={{ marginTop: 6 }}>
+                    {e.invitati.split(',').map((email) => {
+                      const chi = email.trim().toLowerCase()
+                      if (!chi) return null
+                      let r: string | undefined
+                      try {
+                        r = (JSON.parse(e.risposteInvito || '{}') as Record<string, string>)[chi]
+                      } catch {
+                        r = undefined
+                      }
+                      return (
+                        <span key={chi} className={`badge ${r === 'si' ? 'green' : r === 'no' ? 'red' : 'neutral'}`}>
+                          <span className="dot" />
+                          {chi} {r === 'si' ? '· accettato' : r === 'no' ? '· rifiutato' : '· in attesa'}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
               <div className="task-side">
                 <EliminaEvento id={e.id} />

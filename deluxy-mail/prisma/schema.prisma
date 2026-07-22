@@ -102,6 +102,12 @@ model Evento {
   messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: SetNull)
   creatoDaAI  Boolean    @default(false)
 
+  // Invito via mail: gli indirizzi invitati (per virgola), il token dei link
+  // Accetta/Rifiuta nella mail, e le risposte raccolte (JSON email -> si|no).
+  invitati       String @default("")
+  tokenInvito    String @default("")
+  risposteInvito String @default("") @db.Text
+
   creatoIl     DateTime @default(now())
   aggiornatoIl DateTime @default(now()) @updatedAt
 

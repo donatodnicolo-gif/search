@@ -159,6 +159,10 @@ const stmts = [
   `CREATE INDEX IF NOT EXISTS "Messaggio_utenteId_threadManuale_idx" ON "Messaggio"("utenteId","threadManuale")`,
   // Sgancio manuale di una mail da una conversazione (isola dal legame naturale).
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "scollegato" BOOLEAN NOT NULL DEFAULT false`,
+  // Inviti via mail sugli eventi: invitati, token dei link, risposte raccolte.
+  `ALTER TABLE "Evento" ADD COLUMN IF NOT EXISTS "invitati" TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE "Evento" ADD COLUMN IF NOT EXISTS "tokenInvito" TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE "Evento" ADD COLUMN IF NOT EXISTS "risposteInvito" TEXT NOT NULL DEFAULT ''`,
   // Calendario: appuntamenti + token del feed iCal sull'utente.
   `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "tokenCalendario" TEXT NOT NULL DEFAULT ''`,
   `CREATE TABLE IF NOT EXISTS "Evento" (
