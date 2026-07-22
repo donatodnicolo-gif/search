@@ -15,6 +15,7 @@ import { PercorsoCliente } from '@/components/PercorsoCliente';
 import { TaskFormModal } from '@/components/TaskFormModal';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 import { FinanceCard } from '@/components/FinanceCard';
+import { MailContattoCard } from '@/components/MailContattoCard';
 import { Loader } from '../../_layout';
 
 // Etichette leggibili per l'esito visita (mai il valore tecnico con underscore).
@@ -372,6 +373,9 @@ export default function SchedaAttivita() {
         <View style={{ marginTop: spacing.md }}>
           <FinanceCard nomeCliente={place.nome} mostra={place.stato === 'cliente' || place.anagrafiche_stato === 'attivo'} />
         </View>
+
+        {/* Ultime mail ricevute dai contatti del negozio (da AI Mail). */}
+        <MailContattoCard emails={contatti.map((c) => c.email ?? '').filter(Boolean)} />
 
         <View style={styles.interesseHead}>
           <Text style={styles.interesseLbl}>Tipologia di interesse — scegline una o più</Text>
