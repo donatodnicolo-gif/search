@@ -28,6 +28,7 @@ import {
 } from '@/lib/metrics';
 import { BarChart } from '@/components/BarChart';
 import { AssistenteCard } from '@/components/AssistenteCard';
+import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { PageIntro } from '@/components/ui';
 import { StatCard } from '@/components/StatCard';
 import { SyncBadge } from '@/components/SyncBadge';
@@ -90,10 +91,6 @@ export default function Dashboard() {
   }
 
   // Opzioni filtri
-  const zoneOpt = useMemo(
-    () => Array.from(new Set(places.map((p) => p.zona).filter(Boolean))).sort() as string[],
-    [places],
-  );
   const venditoriOpt = useMemo(() => {
     const map = new Map(profili.map((p) => [p.id, p]));
     return profili.map((p) => ({ id: p.id, nome: nomeVenditore(p.id, map) }));
@@ -106,7 +103,7 @@ export default function Dashboard() {
   const dealsF = useMemo(
     () =>
       deals.filter((d) => {
-        if (zona !== 'tutte' && (d.place_zona ?? null) !== zona) return false;
+        if (!passaFiltroCitta(d.place_zona, zona === 'tutte' ? null : zona)) return false;
         if (venditore !== 'tutti' && (d.owner ?? null) !== venditore) return false;
         if (linea !== 'tutte' && (d.linea ?? null) !== linea) return false;
         if (fase !== 'tutte' && d.fase !== fase) return false;
@@ -118,7 +115,7 @@ export default function Dashboard() {
     () =>
       visits.filter((v) => {
         if (venditore !== 'tutti' && (v.owner ?? null) !== venditore) return false;
-        if (zona !== 'tutte' && (zonaPerPlace.get(v.place_id) ?? null) !== zona) return false;
+        if (!passaFiltroCitta(zonaPerPlace.get(v.place_id), zona === 'tutte' ? null : zona)) return false;
         return true;
       }),
     [visits, venditore, zona, zonaPerPlace],
@@ -126,7 +123,7 @@ export default function Dashboard() {
   const placesF = useMemo(
     () =>
       places.filter((p) => {
-        if (zona !== 'tutte' && (p.zona ?? null) !== zona) return false;
+        if (!passaFiltroCitta(p.zona, zona === 'tutte' ? null : zona)) return false;
         if (linea !== 'tutte' && (p.linea_ipotizzata ?? null) !== linea) return false;
         return true;
       }),
@@ -180,10 +177,14 @@ export default function Dashboard() {
             </Pressable>
           ) : null}
         </View>
-        <FiltroRiga label="Zona">
-          <Chip label="Tutte" on={zona === 'tutte'} onPress={() => setZona('tutte')} />
-          {zoneOpt.map((z) => (
-            <Chip key={z} label={z} on={zona === z} onPress={() => setZona(z)} />
+        <FiltroRiga label="Città">
+          {OPZIONI_CITTA.map((z) => (
+            <Chip
+              key={z}
+              label={z}
+              on={z === 'Tutte' ? zona === 'tutte' : zona === z}
+              onPress={() => setZona(z === 'Tutte' ? 'tutte' : z)}
+            />
           ))}
         </FiltroRiga>
         {venditoriOpt.length > 0 ? (

@@ -9,6 +9,7 @@ import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { PercorsoCliente } from '@/components/PercorsoCliente';
 import { archiviaContatto, fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
+import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 
 export default function Rubrica() {
   const router = useRouter();
@@ -53,21 +54,18 @@ export default function Rubrica() {
     }, [carica]),
   );
 
-  // Opzioni dei filtri: solo gli stati, gli interessi e le zone presenti fra i contatti.
-  const { statiPresenti, lineePresenti, zonePresenti } = useMemo(() => {
+  // Opzioni dei filtri: solo gli stati e gli interessi presenti fra i contatti.
+  const { statiPresenti, lineePresenti } = useMemo(() => {
     const stati = new Set<StatoPlace>();
     const linee = new Set<string>();
-    const zone = new Set<string>();
     for (const c of contatti) {
       if (c.place_stato) stati.add(c.place_stato);
       if (c.place_linea) linee.add(c.place_linea);
-      if (c.place_zona) zone.add(c.place_zona);
     }
     const ORDINE: StatoPlace[] = ['da_visitare', 'visitato', 'cliente', 'perso'];
     return {
       statiPresenti: ORDINE.filter((s) => stati.has(s)),
       lineePresenti: [...linee].sort(),
-      zonePresenti: [...zone].sort(),
     };
   }, [contatti]);
 
@@ -81,7 +79,7 @@ export default function Rubrica() {
       if (mostraArchiviati ? !c.archiviato : c.archiviato) return false;
       if (statoFiltro && c.place_stato !== statoFiltro) return false;
       if (lineaFiltro && c.place_linea !== lineaFiltro) return false;
-      if (zonaFiltro && c.place_zona !== zonaFiltro) return false;
+      if (!passaFiltroCitta(c.place_zona, zonaFiltro)) return false;
       if (toggles.has('decisori') && !c.is_decisore) return false;
       if (toggles.has('email') && !emailValida(c.email)) return false;
       if (toggles.has('telefono') && !c.telefono) return false;
@@ -118,37 +116,33 @@ export default function Rubrica() {
           autoCapitalize="none"
           clearButtonMode="while-editing"
         />
-        {/* Filtri esclusivi (uno per gruppo): stato / interessi / zona. */}
-        {statiPresenti.length || lineePresenti.length || zonePresenti.length ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
-            {statiPresenti.length ? (
-              <GruppoFiltro
-                titolo="Stato"
-                valori={statiPresenti}
-                attivo={statoFiltro}
-                onTap={(v) => setStatoFiltro((cur) => (cur === v ? null : (v as StatoPlace)))}
-                label={(v) => labelStato[v as StatoPlace]}
-                colore={(v) => coloreStato[v as StatoPlace]}
-              />
-            ) : null}
-            {lineePresenti.length ? (
-              <GruppoFiltro
-                titolo="Interessi"
-                valori={lineePresenti}
-                attivo={lineaFiltro}
-                onTap={(v) => setLineaFiltro((cur) => (cur === v ? null : v))}
-              />
-            ) : null}
-            {zonePresenti.length ? (
-              <GruppoFiltro
-                titolo="Zona"
-                valori={zonePresenti}
-                attivo={zonaFiltro}
-                onTap={(v) => setZonaFiltro((cur) => (cur === v ? null : v))}
-              />
-            ) : null}
-          </ScrollView>
-        ) : null}
+        {/* Filtri esclusivi (uno per gruppo): stato / interessi / città. */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+          {statiPresenti.length ? (
+            <GruppoFiltro
+              titolo="Stato"
+              valori={statiPresenti}
+              attivo={statoFiltro}
+              onTap={(v) => setStatoFiltro((cur) => (cur === v ? null : (v as StatoPlace)))}
+              label={(v) => labelStato[v as StatoPlace]}
+              colore={(v) => coloreStato[v as StatoPlace]}
+            />
+          ) : null}
+          {lineePresenti.length ? (
+            <GruppoFiltro
+              titolo="Interessi"
+              valori={lineePresenti}
+              attivo={lineaFiltro}
+              onTap={(v) => setLineaFiltro((cur) => (cur === v ? null : v))}
+            />
+          ) : null}
+          <GruppoFiltro
+            titolo="Città"
+            valori={OPZIONI_CITTA as unknown as string[]}
+            attivo={zonaFiltro ?? 'Tutte'}
+            onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (cur) => (cur === v ? null : v))}
+          />
+        </ScrollView>
 
         {/* Toggle rapidi (combinabili): utili per preparare una campagna. */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.toggleRow}>
