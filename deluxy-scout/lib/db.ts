@@ -414,6 +414,49 @@ export async function fetchAllDeals(): Promise<Deal[]> {
   return (data ?? []) as Deal[];
 }
 
+// ── Storico visite (per giorno, con account, negozio e via) ─────────────────────
+
+export interface VisitaStorico {
+  id: string;
+  data: string; // ISO
+  esito: EsitoVisita | null;
+  owner: string | null;
+  owner_nome: string | null; // venditore (account) risolto
+  place_id: string;
+  place_nome: string;
+  place_indirizzo: string | null; // via
+  place_zona: string | null;
+}
+
+/** Storico di tutte le visite (RLS: condivise), col negozio e la via, per la
+ *  sezione Andamento → Storico. Risolve il nome del venditore (account). */
+export async function fetchStorico(limite = 1000): Promise<VisitaStorico[]> {
+  const { data, error } = await supabase
+    .from('visits')
+    .select('id, data, esito, owner, place_id, places(nome, indirizzo, zona)')
+    .order('data', { ascending: false })
+    .limit(limite);
+  if (error) throw error;
+  const righe = (data ?? []).map((r: any) => ({
+    id: r.id,
+    data: r.data,
+    esito: r.esito ?? null,
+    owner: r.owner ?? null,
+    owner_nome: null,
+    place_id: r.place_id,
+    place_nome: r.places?.nome ?? 'Negozio',
+    place_indirizzo: r.places?.indirizzo ?? null,
+    place_zona: r.places?.zona ?? null,
+  })) as VisitaStorico[];
+  const ids = [...new Set(righe.map((r) => r.owner).filter(Boolean))] as string[];
+  if (ids.length) {
+    const profili = await fetchProfiles();
+    const nome = new Map(profili.map((p) => [p.id, nomeDaProfilo(p)]));
+    for (const r of righe) r.owner_nome = r.owner ? nome.get(r.owner) ?? null : null;
+  }
+  return righe;
+}
+
 /** Profili utente (owner → nome/email), per la dashboard di Team. Tollerante:
  *  se la migrazione 0014 non è applicata, ritorna [] e la UI usa un nome di ripiego. */
 export async function fetchProfiles(): Promise<Profilo[]> {

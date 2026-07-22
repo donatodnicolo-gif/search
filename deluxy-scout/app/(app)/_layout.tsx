@@ -50,6 +50,7 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     titolo: 'Andamento',
     voci: [
       { name: 'dashboard', label: 'Dashboard', icon: 'analytics-outline' },
+      { name: 'storico', label: 'Storico', icon: 'time-outline' },
       { name: 'team', label: 'Team', icon: 'people-circle-outline', soloAdmin: true },
     ],
   },
@@ -264,6 +265,7 @@ export default function AppLayout() {
         <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni' }} />
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard' }} />
+        <Drawer.Screen name="storico" options={{ title: 'Storico' }} />
         <Drawer.Screen name="team" options={{ title: 'Team' }} />
         <Drawer.Screen name="profilo" options={{ title: 'Profilo' }} />
 
