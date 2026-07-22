@@ -52,7 +52,7 @@ export type PartnerTrovato = {
   link: string
 }
 
-const linkPartner = (id: string) => `${ANAGRAFICHE_URL}/partner/${id}`
+export const linkPartner = (id: string) => `${ANAGRAFICHE_URL}/partner/${id}`
 
 async function getPartners(query: string): Promise<PartnerApi[]> {
   const k = await chiaveLettura()

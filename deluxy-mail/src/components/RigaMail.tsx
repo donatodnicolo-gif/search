@@ -49,6 +49,8 @@ export type RigaData = {
   evidenzia?: string | null
   /** Id della sezione attuale (per lo spostamento rapido). */
   sezioneId?: string | null
+  /** Se il mittente è un CLIENTE del registro Anagrafiche: il nome dell'azienda. */
+  clienteNome?: string | null
 }
 
 // Rende un testo con la parola cercata evidenziata (<mark>).
@@ -113,6 +115,12 @@ export const RigaMail = memo(function RigaMail({
             {r.contattoAI && (
               <span className="ai-toggle-mark" title="Contatto AI (PLUS AI attivo)">
                 AI
+              </span>
+            )}
+            {r.clienteNome && (
+              <span className="badge green" title="Cliente del registro Anagrafiche">
+                <span className="dot" />
+                {r.clienteNome}
               </span>
             )}
             {r.nel > 1 && (
