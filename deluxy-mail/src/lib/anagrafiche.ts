@@ -9,13 +9,27 @@ import { leggiChiaviApp } from './chiaviApp'
 
 const ANAGRAFICHE_URL = (process.env.ANAGRAFICHE_URL || 'https://deluxy-anagrafiche.vercel.app').replace(/\/$/, '')
 
-async function chiave(): Promise<string> {
+// Le chiavi vivono nelle env di Vercel (mai nel codice):
+//   ANAGRAFICHE_PARTNER_KEY  → sola lettura (elenco/ricerca/riconciliazione)
+//   ANAGRAFICHE_WRITE_KEY    → scrittura (associare un'email a un'azienda)
+// In mancanza, si ripiega sulla chiave "anagrafiche" del vault del Hub.
+async function chiaveLettura(): Promise<string> {
+  const env = (process.env.ANAGRAFICHE_PARTNER_KEY || process.env.ANAGRAFICHE_API_KEY || '').trim()
+  if (env) return env
   try {
     const chiavi = await leggiChiaviApp()
     return chiavi.anagrafiche || ''
   } catch {
     return ''
   }
+}
+
+async function chiaveScrittura(): Promise<string> {
+  const env = (process.env.ANAGRAFICHE_WRITE_KEY || '').trim()
+  if (env) return env
+  // Se non c'è una chiave di scrittura dedicata, si tenta con quella di lettura
+  // (il server rifiuterà con 401/403 se non ha i permessi).
+  return chiaveLettura()
 }
 
 type ContattoApi = { email?: string | null }
@@ -41,7 +55,7 @@ export type PartnerTrovato = {
 const linkPartner = (id: string) => `${ANAGRAFICHE_URL}/partner/${id}`
 
 async function getPartners(query: string): Promise<PartnerApi[]> {
-  const k = await chiave()
+  const k = await chiaveLettura()
   if (!k) return []
   try {
     const res = await fetch(`${ANAGRAFICHE_URL}/api/v1/partners?${query}`, {
@@ -93,7 +107,7 @@ export async function indiceClienti(): Promise<IndiceClienti> {
   if (cache && Date.now() - cache.at < TTL) return cache
   const perEmail = new Map<string, { id: string; nome: string }>()
   const perDominio = new Map<string, { id: string; nome: string }>()
-  const k = await chiave()
+  const k = await chiaveLettura()
   if (k) {
     for (let page = 1; page <= 20; page++) {
       const dati = await getPartners(`stato=attivo&perPage=100&page=${page}`)
@@ -140,7 +154,7 @@ export async function associaEmailAPartner(
   email: string,
   nome?: string
 ): Promise<{ ok: boolean; messaggio: string }> {
-  const k = await chiave()
+  const k = await chiaveScrittura()
   if (!k) return { ok: false, messaggio: 'Anagrafiche non collegata: manca la chiave.' }
   try {
     const res = await fetch(`${ANAGRAFICHE_URL}/api/v1/partners/${encodeURIComponent(partnerId)}`, {
