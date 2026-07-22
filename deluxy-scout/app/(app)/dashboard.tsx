@@ -33,6 +33,13 @@ import { PageIntro } from '@/components/ui';
 import { StatCard } from '@/components/StatCard';
 import { SyncBadge } from '@/components/SyncBadge';
 
+const PERIODI: { label: string; giorni: number }[] = [
+  { label: '7 giorni', giorni: 7 },
+  { label: '30 giorni', giorni: 30 },
+  { label: '90 giorni', giorni: 90 },
+  { label: 'Tutto', giorni: 0 },
+];
+
 const FASI: DealStage[] = [
   'appointmentscheduled',
   'decisionmakerboughtin',
@@ -57,6 +64,7 @@ export default function Dashboard() {
   const [venditore, setVenditore] = useState<string>('tutti'); // ownerId
   const [linea, setLinea] = useState<string>('tutte');
   const [fase, setFase] = useState<string>('tutte'); // stato trattativa
+  const [periodoGiorni, setPeriodoGiorni] = useState(30); // periodo per la prospezione (visite)
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -112,13 +120,16 @@ export default function Dashboard() {
     [deals, zona, venditore, linea, fase],
   );
   const visitsF = useMemo(
-    () =>
-      visits.filter((v) => {
+    () => {
+      const soglia = periodoGiorni ? Date.now() - periodoGiorni * 24 * 60 * 60 * 1000 : 0;
+      return visits.filter((v) => {
+        if (soglia && new Date(v.data).getTime() < soglia) return false;
         if (venditore !== 'tutti' && (v.owner ?? null) !== venditore) return false;
         if (!passaFiltroCitta(zonaPerPlace.get(v.place_id), zona === 'tutte' ? null : zona)) return false;
         return true;
-      }),
-    [visits, venditore, zona, zonaPerPlace],
+      });
+    },
+    [visits, venditore, zona, zonaPerPlace, periodoGiorni],
   );
   const placesF = useMemo(
     () =>
@@ -143,6 +154,7 @@ export default function Dashboard() {
   const valLineaBar = useMemo(() => valorePerLinea(dealsF), [dealsF]);
 
   const filtriAttivi = zona !== 'tutte' || venditore !== 'tutti' || linea !== 'tutte' || fase !== 'tutte';
+  const periodoLabel = PERIODI.find((p) => p.giorni === periodoGiorni)?.label ?? 'Tutto';
 
   return (
     <View style={styles.container}>
@@ -156,9 +168,6 @@ export default function Dashboard() {
           <SyncBadge count={inCoda} />
         </Pressable>
       ) : null}
-
-      {/* Eleonor: sintesi AI dell'andamento delle trattative (rispetta i filtri). */}
-      <AssistenteCard trattative={dealsF} />
 
       {/* ── Filtri ── */}
       <View style={styles.filtri}>
@@ -177,6 +186,11 @@ export default function Dashboard() {
             </Pressable>
           ) : null}
         </View>
+        <FiltroRiga label="Periodo (prospezione)">
+          {PERIODI.map((p) => (
+            <Chip key={p.label} label={p.label} on={periodoGiorni === p.giorni} onPress={() => setPeriodoGiorni(p.giorni)} />
+          ))}
+        </FiltroRiga>
         <FiltroRiga label="Città">
           {OPZIONI_CITTA.map((z) => (
             <Chip
@@ -209,26 +223,26 @@ export default function Dashboard() {
         </FiltroRiga>
       </View>
 
-      {/* ── Trattative ── */}
-      <Text style={styles.sezioneTitolo}>Trattative</Text>
+      {/* ── Andamento: colpo d'occhio diviso Prospezione / Trattative ── */}
+      <Text style={styles.sezioneTitolo}>Andamento</Text>
       <View style={styles.cards}>
-        <StatCard label="Pipeline aperto" valore={eur(val.aperto)} sub={`${val.nAperti} trattative`} accent />
-        <StatCard label="Vinto" valore={eur(val.vinto)} sub={`${val.nVinti} chiuse`} />
-        <StatCard label="Win rate" valore={`${win.pct}%`} sub={`${win.num}/${win.den}`} />
-        <StatCard label="Perso" valore={eur(val.perso)} sub={`${val.nPersi} chiuse`} />
+        <StatCard
+          label="Prospezione"
+          valore={String(visitsF.length)}
+          sub={`visite ${periodoLabel.toLowerCase()} · ${richiami.length} da ricontattare`}
+          accent
+        />
+        <StatCard label="Trattative" valore={eur(val.aperto)} sub={`pipeline aperto · win ${win.pct}%`} accent />
       </View>
-      <BarChart titolo="Trattative per stato" data={faseBar} />
-      <View style={{ height: spacing.md }} />
-      <BarChart titolo="Valore atteso per linea (€)" data={valLineaBar} />
 
-      {/* ── Attività sul campo ── */}
-      <Text style={[styles.sezioneTitolo, { marginTop: spacing.lg }]}>Attività sul campo</Text>
+      {/* ── PROSPEZIONE (filtrata per periodo) ── */}
+      <Text style={[styles.sezioneTitolo, { marginTop: spacing.lg }]}>Prospezione</Text>
       <View style={styles.cards}>
-        <StatCard label="Visite ultimi 7 giorni" valore={visiteUltimi7Giorni(visitsF)} sub={`${visitsF.length} totali`} accent />
+        <StatCard label={`Visite (${periodoLabel})`} valore={visitsF.length} sub={`${visiteUltimi7Giorni(visitsF)} negli ultimi 7 gg`} accent />
         <StatCard label="Da ricontattare" valore={richiami.length} sub={inRitardo ? `${inRitardo} in ritardo` : undefined} />
       </View>
       <BarChart titolo="Visite per settimana" data={visitePerSettimana(visitsF)} />
-
+      <View style={{ height: spacing.md }} />
       <Sezione titolo="Copertura zone">
         {cop.length === 0 ? (
           <Text style={styles.vuoto}>Nessuna zona ancora: assegna una zona alle attività per vedere la copertura.</Text>
@@ -246,6 +260,20 @@ export default function Dashboard() {
           ))
         )}
       </Sezione>
+
+      {/* ── TRATTATIVE (stato attuale della pipeline) ── */}
+      <Text style={[styles.sezioneTitolo, { marginTop: spacing.lg }]}>Trattative</Text>
+      <Text style={styles.notaSnapshot}>Stato attuale della pipeline (non dipende dal periodo).</Text>
+      <AssistenteCard trattative={dealsF} />
+      <View style={styles.cards}>
+        <StatCard label="Pipeline aperto" valore={eur(val.aperto)} sub={`${val.nAperti} trattative`} accent />
+        <StatCard label="Vinto" valore={eur(val.vinto)} sub={`${val.nVinti} chiuse`} />
+        <StatCard label="Win rate" valore={`${win.pct}%`} sub={`${win.num}/${win.den}`} />
+        <StatCard label="Perso" valore={eur(val.perso)} sub={`${val.nPersi} chiuse`} />
+      </View>
+      <BarChart titolo="Trattative per stato" data={faseBar} />
+      <View style={{ height: spacing.md }} />
+      <BarChart titolo="Valore atteso per linea (€)" data={valLineaBar} />
 
       <Sezione titolo={`Chiuse perse da recuperare (${perse.length})`}>
         {perse.length === 0 ? (
@@ -310,6 +338,7 @@ const styles = StyleSheet.create({
   cards: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
   sezione: { marginTop: spacing.lg },
   sezioneTitolo: { fontSize: 11, fontWeight: '600', color: colors.testoSoft, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: spacing.sm },
+  notaSnapshot: { color: colors.grigio, fontSize: 12, fontStyle: 'italic', marginTop: -4, marginBottom: spacing.sm },
   vuoto: { color: colors.grigio, fontStyle: 'italic' },
 
   // Filtri

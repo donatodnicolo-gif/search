@@ -41,11 +41,19 @@ const oraDi = (iso: string) => {
   }
 };
 
+const PERIODI: { label: string; giorni: number }[] = [
+  { label: '7 giorni', giorni: 7 },
+  { label: '30 giorni', giorni: 30 },
+  { label: '90 giorni', giorni: 90 },
+  { label: 'Tutto', giorni: 0 },
+];
+
 export default function Storico() {
   const [visite, setVisite] = useState<VisitaStorico[]>([]);
   const [loading, setLoading] = useState(true);
   const [accountFiltro, setAccountFiltro] = useState<string | null>(null);
   const [cittaFiltro, setCittaFiltro] = useState<string | null>(null);
+  const [periodoGiorni, setPeriodoGiorni] = useState(30); // default: ultimi 30 giorni
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -69,7 +77,9 @@ export default function Storico() {
 
   // Applica i filtri e raggruppa per GIORNO (già ordinate desc dal server).
   const sezioni = useMemo(() => {
+    const soglia = periodoGiorni ? Date.now() - periodoGiorni * 24 * 60 * 60 * 1000 : 0;
     const filtrate = visite.filter((v) => {
+      if (soglia && new Date(v.data).getTime() < soglia) return false;
       if (accountFiltro && v.owner_nome !== accountFiltro) return false;
       if (!passaFiltroCitta(v.place_zona, cittaFiltro)) return false;
       return true;
@@ -84,7 +94,7 @@ export default function Storico() {
       titolo: giornoLabel(righe[0].data),
       data: righe,
     }));
-  }, [visite, accountFiltro, cittaFiltro]);
+  }, [visite, accountFiltro, cittaFiltro, periodoGiorni]);
 
   const totale = useMemo(
     () => sezioni.reduce((n, s) => n + s.data.length, 0),
@@ -97,6 +107,12 @@ export default function Storico() {
         <PageIntro testo="Lo storico delle visite: per giorno, con il venditore, il negozio e la via. Usa i filtri per account o città." />
         <Text style={styles.sub}>{totale} visite{accountFiltro || cittaFiltro ? ' (filtrate)' : ''}</Text>
         <View style={styles.filtri}>
+          <Gruppo
+            titolo="Periodo"
+            valori={PERIODI.map((p) => p.label)}
+            attivo={PERIODI.find((p) => p.giorni === periodoGiorni)?.label ?? 'Tutto'}
+            onTap={(label) => setPeriodoGiorni(PERIODI.find((p) => p.label === label)?.giorni ?? 0)}
+          />
           <Gruppo titolo="Account" valori={accountPresenti} attivo={accountFiltro} onTap={(v) => setAccountFiltro((c) => (c === v ? null : v))} />
           <Gruppo
             titolo="Città"
