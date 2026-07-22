@@ -162,6 +162,9 @@ export default function Dashboard() {
         </Pressable>
       ) : null}
 
+      {/* Eleonor: sintesi AI in cima alla Dashboard. */}
+      <AssistenteCard trattative={dealsF} />
+
       {/* ── Filtri ── */}
       <View style={styles.filtri}>
         <View style={styles.filtriHead}>
@@ -253,7 +256,6 @@ export default function Dashboard() {
       {/* ── TRATTATIVE (stato attuale della pipeline) ── */}
       <Text style={[styles.sezioneTitolo, { marginTop: spacing.lg }]}>Trattative</Text>
       <Text style={styles.notaSnapshot}>Stato attuale della pipeline (non dipende dal periodo).</Text>
-      <AssistenteCard trattative={dealsF} />
       <View style={styles.cards}>
         <StatCard label="Pipeline aperto" valore={eur(val.aperto)} sub={`${val.nAperti} trattative`} accent />
         <StatCard label="Vinto" valore={eur(val.vinto)} sub={`${val.nVinti} chiuse`} />
