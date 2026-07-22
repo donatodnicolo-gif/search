@@ -346,6 +346,43 @@ export async function deleteVendita(id: string) {
   revalidateAll();
 }
 
+// ---------- Voci extra del mese (aggiunte/detrazioni) ----------
+// Le singole voci vivono in ExtraSaldo; i totali aggiunte/detrazioni su
+// SaldoMensile sono una cache ricalcolata a ogni modifica (i calcoli del motore
+// continuano a leggere quei due campi).
+async function ricalcolaExtra(partnerId: string, anno: number, mese: number) {
+  const items = await prisma.extraSaldo.findMany({ where: { partnerId, anno, mese } });
+  const aggiunte = items.filter((x) => x.importo > 0).reduce((a, x) => a + x.importo, 0);
+  const detrazioni = items.filter((x) => x.importo < 0).reduce((a, x) => a - x.importo, 0); // positivo
+  await prisma.saldoMensile.upsert({
+    where: { partnerId_anno_mese: { partnerId, anno, mese } },
+    create: { partnerId, anno, mese, aggiunte, detrazioni },
+    update: { aggiunte, detrazioni },
+  });
+}
+
+export async function aggiungiExtra(partnerId: string, anno: number, mese: number, fd: FormData) {
+  const descrizione = String(fd.get("descrizione") ?? "").trim() || null;
+  const importo = n(fd, "importo");
+  if (importo == null || importo === 0) {
+    redirect(`/partner/${partnerId}?extra=importo#mese-${mese}`);
+  }
+  await prisma.extraSaldo.create({ data: { partnerId, anno, mese, descrizione, importo } });
+  await ricalcolaExtra(partnerId, anno, mese);
+  revalidateAll();
+  redirect(`/partner/${partnerId}#mese-${mese}`);
+}
+
+export async function eliminaExtra(id: string, partnerId: string) {
+  const ex = await prisma.extraSaldo.findUnique({ where: { id } });
+  if (ex) {
+    await prisma.extraSaldo.delete({ where: { id } });
+    await ricalcolaExtra(ex.partnerId, ex.anno, ex.mese);
+  }
+  revalidateAll();
+  redirect(`/partner/${partnerId}${ex ? `#mese-${ex.mese}` : ""}`);
+}
+
 // ---------- Saldo mensile / bonifici ----------
 
 export async function upsertSaldo(fd: FormData) {

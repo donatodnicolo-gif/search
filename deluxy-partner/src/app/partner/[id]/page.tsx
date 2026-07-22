@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, commissione, dovutoVendita, ivato, MESI } from "@/lib/calc";
-import { segnaFatturaPagata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa } from "@/lib/actions";
+import { segnaFatturaPagata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
@@ -34,7 +34,7 @@ export default async function PartnerDetail({
 
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
-  const [{ mesi, rolling }, prec, tariffe, fattureAperte] = await Promise.all([
+  const [{ mesi, rolling }, prec, tariffe, fattureAperte, extra] = await Promise.all([
     riepilogoPartner(id, anno),
     riepilogoPartner(id, annoPrec),
     prisma.tariffaPartner.findMany({ where: { partnerId: id }, orderBy: [{ dalAnno: "desc" }, { dalMese: "desc" }] }),
@@ -42,7 +42,15 @@ export default async function PartnerDetail({
       where: { partnerId: id, pagata: false, imponibile: { gt: 0 } },
       orderBy: [{ scadenza: "asc" }],
     }),
+    prisma.extraSaldo.findMany({ where: { partnerId: id, anno }, orderBy: { createdAt: "asc" } }),
   ]);
+  // voci extra raggruppate per mese, per la gestione nel blocco mensile
+  const extraPerMese = new Map<number, typeof extra>();
+  for (const e of extra) {
+    const arr = extraPerMese.get(e.mese) ?? [];
+    arr.push(e);
+    extraPerMese.set(e.mese, arr);
+  }
   const mesiConDati = mesi.filter(
     (m) => m.fatture.length || m.vendite.length || m.saldo
   );
@@ -359,13 +367,28 @@ export default async function PartnerDetail({
                       <td className="num">{euro(v.incassoLordo)} <span className="muted">→ dovuto {euro(dovutoVendita(v))}</span></td>
                     </tr>
                   ))}
-                  {(r.aggiunte !== 0 || r.detrazioni !== 0) && (
-                    <tr>
-                      <td className="muted">Extra</td>
-                      <td colSpan={3}>Aggiunte {euro(r.aggiunte)} · Detrazioni {euro(r.detrazioni)}</td>
-                      <td className="num">{euro(r.aggiunte - r.detrazioni)}</td>
-                    </tr>
-                  )}
+                  <tr>
+                    <td className="muted" style={{ verticalAlign: "top" }}>Extra</td>
+                    <td colSpan={3}>
+                      {(extraPerMese.get(mese) ?? []).map((e) => (
+                        <div key={e.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "2px 0", fontSize: 13 }}>
+                          <span style={{ color: e.importo >= 0 ? "var(--green)" : "var(--red)", fontWeight: 500, minWidth: 78 }} className="num">
+                            {e.importo >= 0 ? "+" : ""}{euro(e.importo)}
+                          </span>
+                          <span style={{ color: "var(--text-secondary)" }}>{e.descrizione ?? (e.importo >= 0 ? "aggiunta" : "detrazione")}</span>
+                          <form action={eliminaExtra.bind(null, e.id, id)} style={{ display: "inline", marginLeft: "auto" }}>
+                            <button className="btn small danger" type="submit" title="Elimina questa voce extra">Elimina</button>
+                          </form>
+                        </div>
+                      ))}
+                      <form action={aggiungiExtra.bind(null, id, anno, mese)} style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+                        <input type="text" name="descrizione" placeholder="descrizione (facoltativa)" style={{ fontSize: 12.5, padding: "5px 8px", flex: "1 1 160px" }} />
+                        <input type="number" name="importo" step="0.01" placeholder="+ o − €" title="Positivo = aggiunta a favore del partner · Negativo = detrazione" style={{ fontSize: 12.5, padding: "5px 8px", width: 110 }} required />
+                        <button className="btn small secondary" type="submit">Aggiungi extra</button>
+                      </form>
+                    </td>
+                    <td className="num" style={{ verticalAlign: "top", fontWeight: 600 }}>{euro(r.aggiunte - r.detrazioni)}</td>
+                  </tr>
                   {r.compensazione ? (
                     <tr style={{ background: "var(--bg)" }}>
                       <td className="muted">Saldo del mese (compensazione)</td>

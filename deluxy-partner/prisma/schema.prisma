@@ -161,6 +161,21 @@ model SaldoMensile {
   @@index([anno])
 }
 
+// Voce extra del mese (blocco "Extra"): importo con segno — >0 aggiunta a favore
+// del partner, <0 detrazione. Sono le singole voci; i totali aggiunte/detrazioni
+// su SaldoMensile restano come cache sincronizzata (per non cambiare i calcoli).
+model ExtraSaldo {
+  id          String   @id @default(cuid())
+  partnerId   String
+  anno        Int
+  mese        Int // 1-12
+  descrizione String?
+  importo     Float // >0 aggiunta, <0 detrazione
+  createdAt   DateTime @default(now())
+
+  @@index([partnerId, anno, mese])
+}
+
 // Pro-forma: documento non fiscale inviato al partner prima della fattura vera.
 // Numerazione progressiva per anno (PF 1/2026, PF 2/2026…). Ciclo di vita:
 // bozza → inviata → fatturata (con n° della fattura definitiva) oppure annullata.
