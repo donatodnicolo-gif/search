@@ -465,6 +465,10 @@ export async function ficCreaFattura(opts: {
       body: JSON.stringify({
         data: {
           type: "invoice",
+          // fattura ELETTRONICA: altrimenti FIC la crea "non elettronica" (non
+          // predisposta per lo SDI). Resta comunque NON inviata: l'invio allo SDI
+          // si fa da Fatture in Cloud dopo il controllo.
+          e_invoice: true,
           entity: opts.entity ?? { id: opts.clienteId },
           date: dataDoc,
           visible_subject: opts.visibleSubject ?? "",
