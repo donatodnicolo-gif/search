@@ -1,10 +1,25 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { ANNO_CORRENTE } from "@/lib/queries";
-import { ficStato, ficFattureCached, type FicFattura } from "@/lib/fic";
+import { ficStato, ficFattureCached, ficSegnaFatturaPagata, type FicFattura } from "@/lib/fic";
 
 export const dynamic = "force-dynamic";
+
+// Cambia lo stato di incasso di una fattura direttamente su Fatture in Cloud
+// (saldata ↔ da incassare), senza aprire FIC.
+async function cambiaStatoFattura(id: number, pagata: boolean) {
+  "use server";
+  try {
+    await ficSegnaFatturaPagata(id, pagata);
+  } catch (e) {
+    redirect("/registrazioni/fatture?errore=" + encodeURIComponent((e as Error).message));
+  }
+  revalidatePath("/registrazioni/fatture", "layout");
+  redirect(`/registrazioni/fatture?statoOk=${pagata ? "saldata" : "daincassare"}`);
+}
 
 // Elenco delle fatture VERE emesse su Fatture in Cloud (fonte: FIC, non il DB
 // locale). Da qui si aprono i documenti su Fatture in Cloud e si vede lo stato
@@ -12,7 +27,7 @@ export const dynamic = "force-dynamic";
 export default async function FattureCloudPage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; q?: string; emessa?: string }>;
+  searchParams: Promise<{ anno?: string; q?: string; emessa?: string; errore?: string; statoOk?: string }>;
 }) {
   const sp = await searchParams;
   const anno = sp.anno ? parseInt(sp.anno) : ANNO_CORRENTE;
@@ -59,6 +74,16 @@ export default async function FattureCloudPage({
             <span className="dot" />Fattura emessa — n. {decodeURIComponent(sp.emessa)}
             {" "}(non inviata allo SDI: controllala e inviala da Fatture in Cloud)
           </span>
+        </div>
+      )}
+      {sp.statoOk && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />Stato aggiornato su Fatture in Cloud: fattura {sp.statoOk === "saldata" ? "segnata saldata" : "riportata da incassare"}</span>
+        </div>
+      )}
+      {sp.errore && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.errore)}</span>
         </div>
       )}
 
@@ -135,11 +160,25 @@ export default async function FattureCloudPage({
                         <td className="num">{euro(f.imponibile)}</td>
                         <td className="num">{euro(f.totale)}</td>
                         <td>
-                          {f.pagata ? (
-                            <span className="badge green"><span className="dot" />Saldata</span>
-                          ) : (
-                            <span className="badge orange"><span className="dot" />Da incassare</span>
-                          )}
+                          <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            {f.pagata ? (
+                              <span className="badge green"><span className="dot" />Saldata</span>
+                            ) : (
+                              <span className="badge orange"><span className="dot" />Da incassare</span>
+                            )}
+                            {!f.pagata && f.scadenza && (
+                              <span className="muted" style={{ fontSize: 12 }}>scad. {dataIt(f.scadenza)}</span>
+                            )}
+                            <form action={cambiaStatoFattura.bind(null, f.id, !f.pagata)} style={{ display: "inline" }}>
+                              <button
+                                className="btn small secondary"
+                                type="submit"
+                                title={f.pagata ? "Segna come da incassare (su Fatture in Cloud)" : "Segna come saldata (su Fatture in Cloud)"}
+                              >
+                                {f.pagata ? "Riapri" : "Segna saldata"}
+                              </button>
+                            </form>
+                          </span>
                         </td>
                         <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
                           {/* Apri il DOCUMENTO nell'app Fatture in Cloud (se già

@@ -171,8 +171,10 @@ export async function ficFatture(opts?: {
     filtri.push(`(entity.name contains '${q}' or numeration contains '${q}')`);
   }
   const query = filtri.length ? `&q=${encodeURIComponent(filtri.join(" and "))}` : "";
+  // NB: nella lista FIC `amount_due` NON viene restituito (torna undefined) → lo
+  // stato pagamento va calcolato dai `payments_list`, che invece ci sono.
   const fields =
-    "id,number,numeration,date,amount_net,amount_vat,amount_gross,amount_due,url,entity";
+    "id,number,numeration,date,amount_net,amount_vat,amount_gross,payments_list,url,entity";
 
   const out: FicFattura[] = [];
   const maxPagine = opts?.maxPagine ?? 20;
@@ -186,7 +188,7 @@ export async function ficFatture(opts?: {
         amount_net: number;
         amount_vat: number;
         amount_gross: number;
-        amount_due: number;
+        payments_list?: { amount: number; due_date: string | null; status: string }[];
         url: string | null;
         entity?: { name?: string | null };
       }[];
@@ -196,6 +198,16 @@ export async function ficFatture(opts?: {
     );
     for (const d of r.data) {
       const anno = (d.date ?? "").slice(0, 4);
+      const pagamenti = d.payments_list ?? [];
+      // "Saldata" = tutti i pagamenti in stato pagato (paid/settled). Qualsiasi
+      // not_paid/reversed → ancora da incassare. Nessun pagamento → da incassare.
+      const daPagare = pagamenti
+        .filter((x) => x.status !== "paid" && x.status !== "settled")
+        .reduce((a, x) => a + (x.amount ?? 0), 0);
+      const pagata = pagamenti.length > 0 && daPagare <= 0.005;
+      const prossima = pagamenti
+        .filter((x) => x.status === "not_paid")
+        .sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? ""))[0];
       out.push({
         id: d.id,
         numero: `${d.number}${d.numeration?.trim() ? d.numeration : anno ? `/${anno}` : ""}`,
@@ -204,8 +216,8 @@ export async function ficFatture(opts?: {
         imponibile: d.amount_net,
         iva: d.amount_vat,
         totale: d.amount_gross,
-        pagata: (d.amount_due ?? 0) <= 0.005,
-        scadenza: null,
+        pagata,
+        scadenza: prossima?.due_date ?? null,
         urlDettaglio: d.url ?? null,
       });
     }
@@ -527,3 +539,30 @@ export const ficFattureCached = unstable_cache(
   ["fic-fatture"],
   { revalidate: 300, tags: ["fic"] }
 );
+
+// Cambia lo stato di incasso di una fattura su Fatture in Cloud: segna i suoi
+// pagamenti come "paid" (saldata) o "not_paid" (da incassare). Aggiorna solo il
+// tracciamento pagamenti, non il documento fiscale.
+export async function ficSegnaFatturaPagata(id: number, pagata: boolean): Promise<void> {
+  const { companyId } = await ficStato();
+  if (!companyId) throw new Error("Fatture in Cloud non collegato.");
+  const oggi = new Date().toISOString().slice(0, 10);
+  const cur = await ficFetch<{
+    data: { payments_list?: { amount: number; due_date: string | null; status: string }[]; amount_gross?: number };
+  }>(`/c/${companyId}/issued_documents/${id}?fields=payments_list,amount_gross`);
+  let payments = cur.data.payments_list ?? [];
+  if (payments.length === 0) {
+    payments = [{ amount: cur.data.amount_gross ?? 0, due_date: oggi, status: "not_paid" }];
+  }
+  const nuovi = payments.map((p) => ({
+    amount: p.amount,
+    due_date: p.due_date ?? oggi,
+    status: pagata ? "paid" : "not_paid",
+    ...(pagata ? { paid_date: oggi } : {}),
+  }));
+  await ficFetch(`/c/${companyId}/issued_documents/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ data: { payments_list: nuovi } }),
+  });
+  revalidateTag("fic");
+}
