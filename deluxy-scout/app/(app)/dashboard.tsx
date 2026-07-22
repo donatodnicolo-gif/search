@@ -27,6 +27,7 @@ import {
   winRate,
 } from '@/lib/metrics';
 import { BarChart } from '@/components/BarChart';
+import { AssistenteCard } from '@/components/AssistenteCard';
 import { PageIntro } from '@/components/ui';
 import { StatCard } from '@/components/StatCard';
 import { SyncBadge } from '@/components/SyncBadge';
@@ -158,6 +159,9 @@ export default function Dashboard() {
           <SyncBadge count={inCoda} />
         </Pressable>
       ) : null}
+
+      {/* Eleonor: sintesi AI dell'andamento delle trattative (rispetta i filtri). */}
+      <AssistenteCard trattative={dealsF} />
 
       {/* ── Filtri ── */}
       <View style={styles.filtri}>

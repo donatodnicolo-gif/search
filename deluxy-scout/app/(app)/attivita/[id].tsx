@@ -9,7 +9,6 @@ import { aggiornaPlace, completaTask, fetchAziendeScartate, fetchContatti, fetch
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
-import { BoxIpotesi } from '@/components/BoxIpotesi';
 import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { PercorsoCliente } from '@/components/PercorsoCliente';
@@ -365,10 +364,6 @@ export default function SchedaAttivita() {
               <Ionicons name="create-outline" size={15} color={colors.navy} /> Modifica
             </Text>
           </Pressable>
-        </View>
-
-        <View style={{ marginTop: spacing.md }}>
-          <BoxIpotesi linea={place.linea_ipotizzata} aggancio={place.aggancio_apertura} />
         </View>
 
         <AnagraficaRegistroCard nome={place.nome} citta={place.zona} onInteressi={defaultDaRegistro} />

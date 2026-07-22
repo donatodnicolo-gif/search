@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Place } from '@/types';
 import { fetchPlaces } from '@/lib/db';
 import { caricaRegole, popolaIpotesiMancanti } from '@/lib/categoryRules';
+import { passaFiltroCitta } from '@/lib/citta';
 import type { FiltriMappa } from '@/components/Filters';
 
 export function usePlaces() {
@@ -38,6 +39,8 @@ export function usePlaces() {
       zone: uniq(places.map((p) => p.zona)),
       settori: uniq(places.map((p) => p.settore)),
       linee: uniq(places.map((p) => p.linea_ipotizzata)),
+      account: uniq(places.map((p) => p.anagrafiche_account ?? null)),
+      creatori: uniq(places.map((p) => p.creato_da_nome ?? null)),
     };
   }, [places]);
 
@@ -50,13 +53,15 @@ export function applicaFiltri(places: Place[], f: FiltriMappa): Place[] {
   return places.filter((p) => {
     if (f.priorita && p.priorita !== f.priorita) return false;
     if (f.stato && p.stato !== f.stato) return false;
-    if (f.zona && p.zona !== f.zona) return false;
+    if (!passaFiltroCitta(p.zona, f.zona)) return false; // f.zona = bucket città
     if (f.settore && p.settore !== f.settore) return false;
     if (f.linea && p.linea_ipotizzata !== f.linea) return false;
+    if (f.account && (p.anagrafiche_account ?? null) !== f.account) return false;
+    if (f.creatore && (p.creato_da_nome ?? null) !== f.creatore) return false;
     return true;
   });
 }
 
 export function haFiltriAttivi(f: FiltriMappa): boolean {
-  return Boolean(f.priorita || f.stato || f.zona || f.settore || f.linea);
+  return Boolean(f.priorita || f.stato || f.zona || f.settore || f.linea || f.account || f.creatore);
 }

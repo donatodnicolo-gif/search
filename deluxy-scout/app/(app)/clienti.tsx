@@ -7,6 +7,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { fetchClienti, type Cliente } from '@/lib/db';
+import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 
 export default function Clienti() {
   const router = useRouter();
@@ -31,20 +32,16 @@ export default function Clienti() {
     }, [carica]),
   );
 
-  const { zonePresenti, lineePresenti } = useMemo(() => {
-    const zone = new Set<string>();
+  const { lineePresenti } = useMemo(() => {
     const linee = new Set<string>();
-    for (const c of clienti) {
-      if (c.zona) zone.add(c.zona);
-      for (const l of c.linee) linee.add(l);
-    }
-    return { zonePresenti: [...zone].sort(), lineePresenti: [...linee].sort() };
+    for (const c of clienti) for (const l of c.linee) linee.add(l);
+    return { lineePresenti: [...linee].sort() };
   }, [clienti]);
 
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
     return clienti.filter((c) => {
-      if (zonaFiltro && c.zona !== zonaFiltro) return false;
+      if (!passaFiltroCitta(c.zona, zonaFiltro)) return false;
       if (lineaFiltro && !c.linee.includes(lineaFiltro)) return false;
       if (!q) return true;
       return [c.nome, c.indirizzo, c.zona, c.categoria, ...c.linee].filter(Boolean).some((v) => (v as string).toLowerCase().includes(q));
@@ -72,16 +69,17 @@ export default function Clienti() {
           autoCapitalize="none"
           clearButtonMode="while-editing"
         />
-        {zonePresenti.length || lineePresenti.length ? (
-          <View style={styles.filtri}>
-            {zonePresenti.length ? (
-              <Gruppo titolo="Zona" valori={zonePresenti} attivo={zonaFiltro} onTap={(v) => setZonaFiltro((c) => (c === v ? null : v))} />
-            ) : null}
-            {lineePresenti.length ? (
-              <Gruppo titolo="Tipologia di interesse" valori={lineePresenti} attivo={lineaFiltro} onTap={(v) => setLineaFiltro((c) => (c === v ? null : v))} />
-            ) : null}
-          </View>
-        ) : null}
+        <View style={styles.filtri}>
+          <Gruppo
+            titolo="Città"
+            valori={OPZIONI_CITTA as unknown as string[]}
+            attivo={zonaFiltro ?? 'Tutte'}
+            onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (c) => (c === v ? null : v))}
+          />
+          {lineePresenti.length ? (
+            <Gruppo titolo="Tipologia di interesse" valori={lineePresenti} attivo={lineaFiltro} onTap={(v) => setLineaFiltro((c) => (c === v ? null : v))} />
+          ) : null}
+        </View>
       </View>
 
       <FlatList

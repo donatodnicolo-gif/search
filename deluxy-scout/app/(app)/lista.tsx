@@ -7,6 +7,8 @@ import { colors, coloreStato, labelStato, radius, shadow, spacing } from '@/lib/
 import { aggiornaNascosto } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
+import { useAuth } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
@@ -15,6 +17,8 @@ const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
 
 export default function Lista() {
   const router = useRouter();
+  const { session } = useAuth();
+  const admin = isAdmin(session?.user?.email);
   const { places, loading, opzioni, ricarica } = usePlaces();
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
   const [query, setQuery] = useState('');
@@ -49,7 +53,7 @@ export default function Lista() {
     <View style={styles.container}>
       <PageIntro testo="I negozi obiettivo da visitare, in ordine di priorità. Tocca un negozio per aprire la sua scheda; l'occhio barrato lo nasconde se non è interessante." />
       <View style={styles.filterBar}>
-        <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} />
+        <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} admin={admin} />
         <TextInput
           style={styles.search}
           value={query}

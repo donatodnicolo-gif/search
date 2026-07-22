@@ -1,13 +1,16 @@
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { StatoPlace } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
+import { OPZIONI_CITTA } from '@/lib/citta';
 
 export interface FiltriMappa {
-  zona: string | null;
+  zona: string | null; // ora è un bucket città: Milano/Roma/Firenze/Altre (null = Tutte)
   priorita: string | null;
   settore: string | null;
   linea: string | null;
   stato: string | null;
+  account: string | null; // solo admin: venditore che segue (anagrafiche_account)
+  creatore: string | null; // solo admin: chi ha inserito il target (creato_da_nome)
 }
 
 export const FILTRI_VUOTI: FiltriMappa = {
@@ -16,12 +19,15 @@ export const FILTRI_VUOTI: FiltriMappa = {
   settore: null,
   linea: null,
   stato: null,
+  account: null,
+  creatore: null,
 };
 
 interface Props {
   filtri: FiltriMappa;
-  opzioni: { zone: string[]; settori: string[]; linee: string[] };
+  opzioni: { zone: string[]; settori: string[]; linee: string[]; account?: string[]; creatori?: string[] };
   onChange: (f: FiltriMappa) => void;
+  admin?: boolean; // mostra i filtri per utente (account, creatore)
 }
 
 const PRIORITA = ['P1', 'P2', 'P3'];
@@ -32,9 +38,13 @@ const LABEL_PRIORITA: Record<string, string> = { P1: 'P1 · Alta', P2: 'P2 · Me
 const labelChipStato = (v: string) => labelStato[v as StatoPlace] ?? v;
 
 /** Barra filtri orizzontale in cima alla mappa/lista. */
-export function Filters({ filtri, opzioni, onChange }: Props) {
+export function Filters({ filtri, opzioni, onChange, admin }: Props) {
   function toggle(key: keyof FiltriMappa, val: string) {
     onChange({ ...filtri, [key]: filtri[key] === val ? null : val });
+  }
+  // Città: "Tutte" azzera il filtro; gli altri impostano il bucket.
+  function scegliCitta(v: string) {
+    onChange({ ...filtri, zona: v === 'Tutte' ? null : filtri.zona === v ? null : v });
   }
 
   return (
@@ -57,9 +67,20 @@ export function Filters({ filtri, opzioni, onChange }: Props) {
         onTap={(v) => toggle('stato', v)}
         label={labelChipStato}
       />
-      <Gruppo titolo="Zona" valori={opzioni.zone} attivo={filtri.zona} onTap={(v) => toggle('zona', v)} />
+      <Gruppo
+        titolo="Città"
+        valori={OPZIONI_CITTA as unknown as string[]}
+        attivo={filtri.zona ?? 'Tutte'}
+        onTap={scegliCitta}
+      />
       <Gruppo titolo="Settore" valori={opzioni.settori} attivo={filtri.settore} onTap={(v) => toggle('settore', v)} />
       <Gruppo titolo="Linea" valori={opzioni.linee} attivo={filtri.linea} onTap={(v) => toggle('linea', v)} />
+      {admin ? (
+        <>
+          <Gruppo titolo="Account" valori={opzioni.account ?? []} attivo={filtri.account} onTap={(v) => toggle('account', v)} />
+          <Gruppo titolo="Inserito da" valori={opzioni.creatori ?? []} attivo={filtri.creatore} onTap={(v) => toggle('creatore', v)} />
+        </>
+      ) : null}
     </ScrollView>
   );
 }
