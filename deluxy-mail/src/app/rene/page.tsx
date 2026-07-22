@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
-import { salvaMemoriaRene, salvaStileRene, salvaGuidaGestione } from '@/lib/actions'
+import { salvaMemoriaRene, salvaStileRene } from '@/lib/actions'
+import { GuidaGestione } from '@/components/GuidaGestione'
 import { CHIAVI, STILE_DEFAULT, leggiImpostazioni } from '@/lib/impostazioni'
 import { StoricoPriorita } from '@/components/StoricoPriorita'
 import { TIPI_RENE, type UrgenteSenzaRisposta } from '@/lib/rene'
@@ -334,29 +335,7 @@ export default async function Rene() {
           analizza una mail, così le prossime simili le smista e le prioritizza come vuoi tu.
           Una indicazione per riga.
         </p>
-        <form action={salvaGuidaGestione}>
-          <textarea
-            name="guida"
-            rows={6}
-            disabled={!isAdmin}
-            defaultValue={guida}
-            maxLength={3000}
-            placeholder={'Es.\nOrdini dei siti: priorità P1, sezione «Ordini», crea attività di conferma.\nSolleciti di pagamento: priorità P0.\nRichieste di preventivo: priorità P1, bozza di risposta.'}
-            style={{ width: '100%', fontSize: 13.5, lineHeight: 1.6 }}
-          />
-          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
-            {isAdmin
-              ? 'Vale per tutta la casella e influenza l’analisi (priorità, sezione, attività/bozza).'
-              : 'Solo un amministratore può cambiare la guida condivisa.'}
-          </div>
-          {isAdmin && (
-            <div className="form-footer" style={{ marginTop: 10 }}>
-              <button className="btn secondary small" type="submit">
-                Salva guida
-              </button>
-            </div>
-          )}
-        </form>
+        <GuidaGestione valore={guida} isAdmin={isAdmin} />
       </div>
 
       <h2 className="section-title">Storico priorità — come sono state gestite</h2>
