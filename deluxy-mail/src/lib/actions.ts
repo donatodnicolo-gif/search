@@ -1568,6 +1568,30 @@ export async function staccaDalThread(messaggioId: string): Promise<{ ok: boolea
   return { ok: true, messaggio: 'Mail sganciata dalla conversazione.' }
 }
 
+// ---------- Anagrafiche (registro centralizzato) ----------
+
+/** Cerca aziende in Anagrafiche (per la UI di associazione della Rubrica). */
+export async function cercaPartnerAnagrafiche(
+  q: string
+): Promise<{ id: string; nome: string; stato: string | null; citta: string | null; categoria: string | null }[]> {
+  await uid() // solo utenti loggati
+  const { cercaPartner } = await import('./anagrafiche')
+  return (await cercaPartner(q)).map(({ id, nome, stato, citta, categoria }) => ({ id, nome, stato, citta, categoria }))
+}
+
+/** Associa un'email a un'azienda esistente in Anagrafiche. */
+export async function associaContattoAnagrafiche(
+  partnerId: string,
+  email: string,
+  nome?: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  await uid()
+  const { associaEmailAPartner } = await import('./anagrafiche')
+  const esito = await associaEmailAPartner(partnerId, email, nome)
+  if (esito.ok) revalidatePath(`/rubrica/${encodeURIComponent(email)}`)
+  return esito
+}
+
 // ---------- Sequenze di follow-up ----------
 
 export type PassoInput = { giorniAttesa: number; oggetto: string; corpo: string; ramo?: 'A' | 'B' }

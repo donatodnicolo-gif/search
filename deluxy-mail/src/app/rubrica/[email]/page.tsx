@@ -11,6 +11,8 @@ import { CheckAttivita } from '@/components/CheckAttivita'
 import { richiediUtente } from '@/lib/sessione'
 import { datiContattoAI } from '@/lib/contattiAI'
 import { EditorIstruzioni } from '@/components/EditorIstruzioni'
+import { partnerPerEmail } from '@/lib/anagrafiche'
+import { AnagraficheContatto } from '@/components/AnagraficheContatto'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // il quadro AI del contatto gira qui
@@ -52,6 +54,9 @@ export default async function Contatto({ params }: Props) {
     orderBy: [{ scadenza: 'asc' }, { priorita: 'asc' }],
   })
 
+  // Questo contatto è un'azienda in Anagrafiche? (e un cliente?)
+  const partnerAnagrafiche = await partnerPerEmail(email).catch(() => null)
+
   return (
     <>
       <div className="page-head">
@@ -78,6 +83,17 @@ export default async function Contatto({ params }: Props) {
           <BottoneAI email={email} aggiornatoIl={riassunto?.aggiornatoIl ?? null} />
         </div>
       </div>
+
+      <AnagraficheContatto
+        email={email.toLowerCase()}
+        nome={nome}
+        partner={
+          partnerAnagrafiche
+            ? { nome: partnerAnagrafiche.nome, stato: partnerAnagrafiche.stato, citta: partnerAnagrafiche.citta, link: partnerAnagrafiche.link }
+            : null
+        }
+        link={partnerAnagrafiche?.link ?? ''}
+      />
 
       <div className="card" style={{ marginBottom: 18 }}>
         <EditorIstruzioni tipo="contatto" target={email.toLowerCase()} valore={istruzioniContatto} />

@@ -61,6 +61,8 @@ export async function Sidebar() {
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
     // Tutte le conversazioni raggruppate in thread.
     { href: '/thread', label: 'Thread' },
+    // La posta dei clienti del registro Anagrafiche (per email o dominio).
+    { href: '/clienti', label: 'Clienti' },
     // I modelli di follow-up da agganciare all'invio di una mail.
     { href: '/sequenze', label: 'Sequenze' },
     { href: '/bozze', label: 'Bozze', badge: bozze },
