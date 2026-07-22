@@ -20,9 +20,11 @@ type Props = {
   bozzaId?: string
   /** La rubrica, per suggerire i destinatari mentre scrivi. */
   contatti?: ContattoRubrica[]
+  /** Le sequenze di follow-up disponibili (da agganciare all'invio). */
+  sequenze?: { id: string; nome: string }[]
 }
 
-export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId, contatti = [] }: Props) {
+export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId, contatti = [], sequenze = [] }: Props) {
   const [a, setA] = useState(iniziale.a)
   const [cc, setCc] = useState(iniziale.cc)
   const [oggetto, setOggetto] = useState(iniziale.oggetto)
@@ -30,6 +32,8 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
   const [allegati, setAllegati] = useState<File[]>([])
   // Priorità (facoltativa) da dare alla mail che parte: resta sull'inviata.
   const [priorita, setPriorita] = useState('')
+  // Sequenza di follow-up da avviare dopo l'invio (facoltativa).
+  const [sequenzaId, setSequenzaId] = useState('')
   const [stato, setStato] = useState<{ ok: boolean; messaggio: string } | null>(null)
   // L'invio è irreversibile: prima di partire si conferma.
   const [conferma, setConferma] = useState(false)
@@ -49,6 +53,7 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
     form.set('oggetto', oggetto)
     form.set('corpo', corpo)
     if (priorita) form.set('priorita', priorita)
+    if (sequenzaId) form.set('sequenzaId', sequenzaId)
     // Gli allegati viaggiano solo con l'invio: le bozze non li conservano.
     if (conAllegati) for (const f of allegati) form.append('allegati', f)
     return form
@@ -137,6 +142,28 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
             ))}
           </div>
         </div>
+
+        {sequenze.length > 0 && (
+          <div className="full">
+            <label className="field-label">Sequenza dopo l’invio (opzionale)</label>
+            <select
+              value={sequenzaId}
+              onChange={(e) => setSequenzaId(e.target.value)}
+              style={{ width: 'auto', minWidth: 220 }}
+            >
+              <option value="">Nessuna</option>
+              {sequenze.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nome}
+                </option>
+              ))}
+            </select>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
+              Se il destinatario non risponde, partono da soli i follow-up della sequenza
+              (si gestiscono in Posta → Sequenze).
+            </div>
+          </div>
+        )}
       </div>
 
       {stato && (

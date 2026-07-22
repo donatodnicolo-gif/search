@@ -1248,6 +1248,19 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
       utenteId, account, daInviare, raw, messageId, threadRadice, sezioneEreditata, prioritaScelta
     )
 
+    // Sequenza di follow-up agganciata all'invio (facoltativa).
+    let notaSequenza: string | null = null
+    const seqId = testo(form, 'sequenzaId')
+    if (seqId) {
+      notaSequenza = await iscriviASequenza({
+        utenteId,
+        sequenzaId: seqId,
+        destinatari: a,
+        oggetto,
+        thread: threadRadice || messageId,
+      })
+    }
+
     if (!inoltro) {
       await db.messaggio.update({ where: { id: messaggioId }, data: { letto: true, serveRisposta: false } })
     }
@@ -1257,7 +1270,10 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
 
     revalidatePath('/', 'layout')
     const nota = tradottoIn ? ` Tradotto in ${tradottoIn} prima dell’invio.` : ''
-    return { ok: true, messaggio: `Messaggio inviato a ${a}.${nota}${avviso ? ` ${avviso}` : ''}` }
+    return {
+      ok: true,
+      messaggio: `Messaggio inviato a ${a}.${nota}${avviso ? ` ${avviso}` : ''}${notaSequenza ? ` ${notaSequenza}` : ''}`,
+    }
   } catch (e) {
     return { ok: false, messaggio: `Invio non riuscito: ${e instanceof Error ? e.message : 'errore'}` }
   }
@@ -1287,11 +1303,27 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
       : null
     const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, null, null, prioritaScelta)
 
+    // Sequenza di follow-up agganciata all'invio (facoltativa).
+    let notaSequenza: string | null = null
+    const seqId = testo(form, 'sequenzaId')
+    if (seqId) {
+      notaSequenza = await iscriviASequenza({
+        utenteId,
+        sequenzaId: seqId,
+        destinatari: a,
+        oggetto,
+        thread: messageId,
+      })
+    }
+
     const bozzaId = testo(form, 'bozzaId')
     if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId, utenteId } })
 
     revalidatePath('/', 'layout')
-    return { ok: true, messaggio: `Messaggio inviato a ${a}.${avviso ? ` ${avviso}` : ''}` }
+    return {
+      ok: true,
+      messaggio: `Messaggio inviato a ${a}.${avviso ? ` ${avviso}` : ''}${notaSequenza ? ` ${notaSequenza}` : ''}`,
+    }
   } catch (e) {
     return { ok: false, messaggio: `Invio non riuscito: ${e instanceof Error ? e.message : 'errore'}` }
   }
@@ -1478,6 +1510,110 @@ export async function staccaDalThread(messaggioId: string): Promise<{ ok: boolea
   })
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: 'Mail sganciata dalla conversazione.' }
+}
+
+// ---------- Sequenze di follow-up ----------
+
+export type PassoInput = { giorniAttesa: number; oggetto: string; corpo: string }
+
+/** Crea o aggiorna una sequenza coi suoi passi (i passi si riscrivono tutti). */
+export async function salvaSequenza(dati: {
+  id?: string
+  nome: string
+  descrizione: string
+  passi: PassoInput[]
+}): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const nome = dati.nome.trim()
+  if (!nome) return { ok: false, messaggio: 'Serve un nome per la sequenza.' }
+  const passi = (dati.passi ?? [])
+    .map((p) => ({
+      giorniAttesa: Math.max(1, Math.min(60, Number(p.giorniAttesa) || 3)),
+      oggetto: (p.oggetto ?? '').trim(),
+      corpo: (p.corpo ?? '').trim(),
+    }))
+    .filter((p) => p.oggetto || p.corpo)
+  if (passi.length === 0) return { ok: false, messaggio: 'Serve almeno un passo (oggetto e testo).' }
+
+  let sequenzaId = dati.id ?? ''
+  if (sequenzaId) {
+    const mia = await db.sequenza.findFirst({ where: { id: sequenzaId, utenteId }, select: { id: true } })
+    if (!mia) return { ok: false, messaggio: 'Sequenza non trovata.' }
+    await db.sequenza.update({
+      where: { id: sequenzaId },
+      data: { nome, descrizione: dati.descrizione.trim() },
+    })
+    await db.sequenzaPasso.deleteMany({ where: { sequenzaId } })
+  } else {
+    const creata = await db.sequenza.create({
+      data: { utenteId, nome, descrizione: dati.descrizione.trim() },
+      select: { id: true },
+    })
+    sequenzaId = creata.id
+  }
+  await db.sequenzaPasso.createMany({
+    data: passi.map((p, i) => ({ sequenzaId, ordine: i, ...p })),
+  })
+  revalidatePath('/sequenze')
+  return { ok: true, messaggio: `Sequenza «${nome}» salvata (${passi.length} pass${passi.length === 1 ? 'o' : 'i'}).` }
+}
+
+/** Elimina una sequenza (i passi e le iscrizioni cadono in cascata). */
+export async function eliminaSequenza(id: string): Promise<void> {
+  await db.sequenza.deleteMany({ where: { id, utenteId: await uid() } })
+  revalidatePath('/sequenze')
+}
+
+/** Ferma a mano l'iscrizione di un destinatario a una sequenza. */
+export async function fermaIscrizioneSequenza(id: string): Promise<void> {
+  await db.sequenzaIscrizione.updateMany({
+    where: { id, utenteId: await uid(), stato: 'attiva' },
+    data: { stato: 'fermata', esito: 'Fermata a mano.', prossimoInvio: null },
+  })
+  revalidatePath('/sequenze')
+}
+
+/**
+ * Iscrive il destinatario a una sequenza subito dopo l'invio di una mail:
+ * il primo follow-up parte dopo l'attesa del passo 1 (se non risponde prima).
+ */
+async function iscriviASequenza(opts: {
+  utenteId: string
+  sequenzaId: string
+  destinatari: string // il campo "a" com'è
+  oggetto: string
+  thread: string | null
+}): Promise<string | null> {
+  const sequenza = await db.sequenza.findFirst({
+    where: { id: opts.sequenzaId, utenteId: opts.utenteId, attiva: true },
+    include: { passi: { orderBy: { ordine: 'asc' }, take: 1 } },
+  })
+  if (!sequenza || sequenza.passi.length === 0) return null
+
+  // Il primo indirizzo del campo "a" è il destinatario della sequenza.
+  const primo = emailDaLista(opts.destinatari)[0]
+  if (!primo) return null
+
+  // Il nome dalla rubrica (se lo conosciamo) rende {{nome}} più caldo.
+  const noto = await db.messaggio.findFirst({
+    where: { utenteId: opts.utenteId, mittente: { equals: primo, mode: 'insensitive' }, mittenteNome: { not: null } },
+    orderBy: { data: 'desc' },
+    select: { mittenteNome: true },
+  })
+
+  const attesa = Math.max(1, sequenza.passi[0].giorniAttesa)
+  await db.sequenzaIscrizione.create({
+    data: {
+      utenteId: opts.utenteId,
+      sequenzaId: sequenza.id,
+      destinatario: primo,
+      nomeDestinatario: noto?.mittenteNome ?? '',
+      oggettoIniziale: opts.oggetto,
+      thread: opts.thread,
+      prossimoInvio: new Date(Date.now() + attesa * 24 * 60 * 60 * 1000),
+    },
+  })
+  return `Sequenza «${sequenza.nome}» avviata per ${primo}: primo follow-up fra ${attesa} giorn${attesa === 1 ? 'o' : 'i'} se non risponde.`
 }
 
 // ---------- Renè AI ----------

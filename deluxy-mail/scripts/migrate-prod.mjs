@@ -159,6 +159,44 @@ const stmts = [
   `CREATE INDEX IF NOT EXISTS "Messaggio_utenteId_threadManuale_idx" ON "Messaggio"("utenteId","threadManuale")`,
   // Sgancio manuale di una mail da una conversazione (isola dal legame naturale).
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "scollegato" BOOLEAN NOT NULL DEFAULT false`,
+  // Sequenze di follow-up: modelli a passi + iscrizioni dei destinatari.
+  `CREATE TABLE IF NOT EXISTS "Sequenza" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL,
+     "nome" TEXT NOT NULL, "descrizione" TEXT NOT NULL DEFAULT '',
+     "attiva" BOOLEAN NOT NULL DEFAULT true,
+     "creataIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS "Sequenza_utenteId_idx" ON "Sequenza"("utenteId")`,
+  `CREATE TABLE IF NOT EXISTS "SequenzaPasso" (
+     "id" TEXT PRIMARY KEY, "sequenzaId" TEXT NOT NULL,
+     "ordine" INTEGER NOT NULL, "giorniAttesa" INTEGER NOT NULL DEFAULT 3,
+     "oggetto" TEXT NOT NULL, "corpo" TEXT NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS "SequenzaPasso_sequenzaId_ordine_idx" ON "SequenzaPasso"("sequenzaId","ordine")`,
+  `CREATE TABLE IF NOT EXISTS "SequenzaIscrizione" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "sequenzaId" TEXT NOT NULL,
+     "destinatario" TEXT NOT NULL, "nomeDestinatario" TEXT NOT NULL DEFAULT '',
+     "oggettoIniziale" TEXT NOT NULL DEFAULT '', "thread" TEXT,
+     "passoFatto" INTEGER NOT NULL DEFAULT 0, "prossimoInvio" TIMESTAMP(3),
+     "stato" TEXT NOT NULL DEFAULT 'attiva', "esito" TEXT NOT NULL DEFAULT '',
+     "creataIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS "SequenzaIscrizione_utenteId_stato_prossimoInvio_idx" ON "SequenzaIscrizione"("utenteId","stato","prossimoInvio")`,
+  `DO $$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='Sequenza_utenteId_fkey') THEN
+       ALTER TABLE "Sequenza" ADD CONSTRAINT "Sequenza_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='SequenzaPasso_sequenzaId_fkey') THEN
+       ALTER TABLE "SequenzaPasso" ADD CONSTRAINT "SequenzaPasso_sequenzaId_fkey"
+         FOREIGN KEY ("sequenzaId") REFERENCES "Sequenza"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='SequenzaIscrizione_utenteId_fkey') THEN
+       ALTER TABLE "SequenzaIscrizione" ADD CONSTRAINT "SequenzaIscrizione_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='SequenzaIscrizione_sequenzaId_fkey') THEN
+       ALTER TABLE "SequenzaIscrizione" ADD CONSTRAINT "SequenzaIscrizione_sequenzaId_fkey"
+         FOREIGN KEY ("sequenzaId") REFERENCES "Sequenza"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+   END $$`,
   // Inviti via mail sugli eventi: invitati, token dei link, risposte raccolte.
   `ALTER TABLE "Evento" ADD COLUMN IF NOT EXISTS "invitati" TEXT NOT NULL DEFAULT ''`,
   `ALTER TABLE "Evento" ADD COLUMN IF NOT EXISTS "tokenInvito" TEXT NOT NULL DEFAULT ''`,

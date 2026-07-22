@@ -1534,6 +1534,15 @@ export async function sincronizzaTutti(): Promise<EsitoSync[]> {
   } catch {
     /* la manutenzione è best-effort */
   }
+  // Sequenze di follow-up: manda i passi in scadenza (stop se hanno risposto).
+  // Va DOPO la sincronizzazione: così le risposte appena arrivate fermano le
+  // sequenze prima che parta il follow-up.
+  try {
+    const { processaSequenze } = await import('./sequenze')
+    await processaSequenze()
+  } catch {
+    /* best-effort */
+  }
   return esiti
 }
 

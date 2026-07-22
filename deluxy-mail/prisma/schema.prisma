@@ -68,6 +68,66 @@ model Utente {
   reneProposte     ReneProposta[]
   reneConseguenze  ReneConseguenza[]
   pushIscrizioni   PushIscrizione[]
+  sequenze           Sequenza[]
+  sequenzaIscrizioni SequenzaIscrizione[]
+}
+
+// Una SEQUENZA: un modello di follow-up in più passi. All'invio di una mail
+// la si aggancia: se il destinatario non risponde, i passi partono da soli
+// (col cron), ognuno dopo la sua attesa. I testi dei passi sono MODELLI con
+// variabili: {{nome}}, {{email}}, {{oggetto}}.
+model Sequenza {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  nome        String
+  descrizione String  @default("")
+  attiva      Boolean @default(true)
+  creataIl    DateTime @default(now())
+
+  passi      SequenzaPasso[]
+  iscrizioni SequenzaIscrizione[]
+
+  @@index([utenteId])
+}
+
+// Un passo della sequenza: dopo quanti giorni parte e cosa dice.
+model SequenzaPasso {
+  id         String   @id @default(cuid())
+  sequenzaId String
+  sequenza   Sequenza @relation(fields: [sequenzaId], references: [id], onDelete: Cascade)
+
+  ordine       Int
+  giorniAttesa Int    @default(3) // giorni dopo il passo precedente (o l'invio iniziale)
+  oggetto      String
+  corpo        String @db.Text
+
+  @@index([sequenzaId, ordine])
+}
+
+// Un destinatario dentro una sequenza: parte all'invio della mail iniziale.
+// Si ferma da sola se il destinatario risponde, o a passi finiti, o a mano.
+model SequenzaIscrizione {
+  id         String   @id @default(cuid())
+  utenteId   String
+  utente     Utente   @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  sequenzaId String
+  sequenza   Sequenza @relation(fields: [sequenzaId], references: [id], onDelete: Cascade)
+
+  destinatario     String
+  nomeDestinatario String  @default("")
+  oggettoIniziale  String  @default("")
+  // La radice della conversazione: i follow-up si accodano allo stesso thread.
+  thread           String?
+
+  passoFatto    Int       @default(0) // quanti passi già inviati
+  prossimoInvio DateTime?
+  stato         String    @default("attiva") // attiva | completata | fermata
+  esito         String    @default("")
+  creataIl      DateTime  @default(now())
+
+  @@index([utenteId, stato, prossimoInvio])
 }
 
 // Un dispositivo iscritto alle notifiche push (Web Push). Un utente può averne

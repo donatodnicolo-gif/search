@@ -51,6 +51,18 @@ export default async function Scrivi({ searchParams }: Props) {
 
   const contatti = (await elencoContatti(u.id)).map((c) => ({ email: c.email, nome: c.nome }))
 
+  // Le sequenze di follow-up da poter agganciare all'invio.
+  let sequenze: { id: string; nome: string }[] = []
+  try {
+    sequenze = await db.sequenza.findMany({
+      where: { utenteId: u.id, attiva: true },
+      orderBy: { creataIl: 'asc' },
+      select: { id: true, nome: true },
+    })
+  } catch {
+    sequenze = []
+  }
+
   return (
     <>
       <div className="page-head">
@@ -70,6 +82,7 @@ export default async function Scrivi({ searchParams }: Props) {
         iniziale={iniziale}
         bozzaId={bozza?.id}
         contatti={contatti}
+        sequenze={sequenze}
       />
     </>
   )
