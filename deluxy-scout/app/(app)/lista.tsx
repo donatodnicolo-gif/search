@@ -113,6 +113,11 @@ function Riga({ place, onPress, onNascondi }: { place: Place; onPress: () => voi
         </View>
       ) : null}
       {place.indirizzo ? <Text style={styles.indirizzo} numberOfLines={1}>{place.indirizzo}</Text> : null}
+      {place.creato_da_nome ? (
+        <Text style={styles.inserito} numberOfLines={1}>
+          <Ionicons name="person-outline" size={11} color={colors.grigio} /> Inserito da {place.creato_da_nome}
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -155,6 +160,7 @@ const styles = StyleSheet.create({
   },
   lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12 },
   indirizzo: { fontSize: 13, color: colors.grigio },
+  inserito: { fontSize: 12, color: colors.grigio, fontWeight: '600' },
   fab: {
     position: 'absolute',
     right: spacing.lg,

@@ -152,6 +152,8 @@ export interface Place {
   fuoco_espansione: string | null;
   stato: StatoPlace; // stato di pipeline interno (derivato)
   stato_affiliazione?: StatoAffiliazione | null; // stato "vero" = gli 8 stati di Anagrafiche
+  creato_da?: string | null; // uuid dell'utente che ha inserito il target
+  creato_da_nome?: string | null; // nome del creatore, risolto dai profili
   zona: string | null;
   hubspot_company_id: string | null;
   created_at: string;

@@ -113,7 +113,15 @@ export async function archiviaLinea(id: string): Promise<void> {
 export async function fetchPlaces(): Promise<Place[]> {
   const { data, error } = await supabase.from('places').select('*');
   if (error) throw error;
-  return (data ?? []) as Place[];
+  const righe = (data ?? []) as Place[];
+  // Risolvi il nome di chi ha inserito ogni target (dai profili).
+  const ids = [...new Set(righe.map((p) => p.creato_da).filter(Boolean))] as string[];
+  if (ids.length) {
+    const profili = await fetchProfiles().catch(() => [] as Profilo[]);
+    const nome = new Map(profili.map((p) => [p.id, nomeDaProfilo(p)]));
+    for (const p of righe) p.creato_da_nome = p.creato_da ? nome.get(p.creato_da) ?? null : null;
+  }
+  return righe;
 }
 
 /**
