@@ -18,7 +18,7 @@ export default async function Sequenze() {
     id: string
     nome: string
     descrizione: string
-    passi: { giorniAttesa: number; oggetto: string; corpo: string; ordine: number }[]
+    passi: { giorniAttesa: number; oggetto: string; corpo: string; ordine: number; ramo: string }[]
     iscrizioni: { stato: string }[]
   }[] = []
   let iscrizioni: {
@@ -26,6 +26,7 @@ export default async function Sequenze() {
     destinatario: string
     stato: string
     esito: string
+    ramo: string
     passoFatto: number
     prossimoInvio: Date | null
     creataIl: Date
@@ -58,9 +59,10 @@ export default async function Sequenze() {
         <div>
           <h1 className="page-title">Sequenze</h1>
           <p className="page-caption">
-            I modelli di follow-up: all’invio di una mail ne agganci una e, se il destinatario
-            non risponde, i passi partono da soli. Variabili nei modelli: {'{{nome}}'},{' '}
-            {'{{email}}'}, {'{{oggetto}}'}.
+            I modelli di follow-up: all’invio di una mail ne agganci una. Se il destinatario NON
+            risponde partono i passi del <strong>percorso A</strong>; appena risponde parte il{' '}
+            <strong>percorso B</strong>. Variabili nei modelli: {'{{nome}}'}, {'{{email}}'},{' '}
+            {'{{oggetto}}'}.
           </p>
         </div>
       </div>
@@ -86,7 +88,12 @@ export default async function Sequenze() {
               id: s.id,
               nome: s.nome,
               descrizione: s.descrizione,
-              passi: s.passi.map((p) => ({ giorniAttesa: p.giorniAttesa, oggetto: p.oggetto, corpo: p.corpo })),
+              passi: s.passi.map((p) => ({
+                giorniAttesa: p.giorniAttesa,
+                oggetto: p.oggetto,
+                corpo: p.corpo,
+                ramo: p.ramo === 'B' ? 'B' : 'A',
+              })),
               iscritteAttive: s.iscrizioni.length,
             }}
           />
@@ -105,7 +112,8 @@ export default async function Sequenze() {
                     <span className="muted" style={{ fontWeight: 400 }}>· {i.sequenza.nome}</span>
                   </div>
                   <div className="task-sub">
-                    {i.passoFatto}/{i.sequenza.passi.length} passi inviati
+                    percorso {i.ramo === 'B' ? 'B (ha risposto)' : 'A (attende risposta)'} ·{' '}
+                    {i.passoFatto} pass{i.passoFatto === 1 ? 'o' : 'i'} inviat{i.passoFatto === 1 ? 'o' : 'i'}
                     {i.stato === 'attiva' && i.prossimoInvio
                       ? ` · prossimo: ${i.prossimoInvio.toLocaleString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
                       : ''}

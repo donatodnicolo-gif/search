@@ -179,6 +179,9 @@ const stmts = [
      "stato" TEXT NOT NULL DEFAULT 'attiva', "esito" TEXT NOT NULL DEFAULT '',
      "creataIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE INDEX IF NOT EXISTS "SequenzaIscrizione_utenteId_stato_prossimoInvio_idx" ON "SequenzaIscrizione"("utenteId","stato","prossimoInvio")`,
+  // Percorsi A/B: ramo su passo e su iscrizione (A = se non risponde, B = se risponde).
+  `ALTER TABLE "SequenzaPasso" ADD COLUMN IF NOT EXISTS "ramo" TEXT NOT NULL DEFAULT 'A'`,
+  `ALTER TABLE "SequenzaIscrizione" ADD COLUMN IF NOT EXISTS "ramo" TEXT NOT NULL DEFAULT 'A'`,
   `DO $$ BEGIN
      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='Sequenza_utenteId_fkey') THEN
        ALTER TABLE "Sequenza" ADD CONSTRAINT "Sequenza_utenteId_fkey"

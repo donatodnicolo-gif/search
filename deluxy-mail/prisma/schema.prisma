@@ -99,9 +99,12 @@ model SequenzaPasso {
   sequenza   Sequenza @relation(fields: [sequenzaId], references: [id], onDelete: Cascade)
 
   ordine       Int
-  giorniAttesa Int    @default(3) // giorni dopo il passo precedente (o l'invio iniziale)
+  giorniAttesa Int    @default(3) // giorni dopo il passo precedente (o l'evento di partenza)
   oggetto      String
   corpo        String @db.Text
+  // Il PERCORSO del passo: "A" = se il destinatario NON risponde (follow-up);
+  // "B" = se il destinatario RISPONDE (parte al posto di A).
+  ramo         String @default("A")
 
   @@index([sequenzaId, ordine])
 }
@@ -121,7 +124,8 @@ model SequenzaIscrizione {
   // La radice della conversazione: i follow-up si accodano allo stesso thread.
   thread           String?
 
-  passoFatto    Int       @default(0) // quanti passi già inviati
+  passoFatto    Int       @default(0) // quanti passi già inviati nel ramo corrente
+  ramo          String    @default("A") // A = attende risposta; B = ha risposto
   prossimoInvio DateTime?
   stato         String    @default("attiva") // attiva | completata | fermata
   esito         String    @default("")

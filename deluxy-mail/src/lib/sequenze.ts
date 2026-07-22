@@ -101,12 +101,22 @@ async function inviaPasso(
   })
 }
 
+const GIORNO = 24 * 60 * 60 * 1000
+// Finito il percorso A senza risposta, per quanti giorni si continua a
+// controllare una risposta per far scattare il percorso B.
+const FINESTRA_RISPOSTA_GIORNI = 21
+
+const fra = (giorni: number) => new Date(Date.now() + Math.max(0, giorni) * GIORNO)
+
 /**
- * Il giro delle sequenze (dal cron): manda i passi in scadenza. Per ogni
- * iscrizione attiva col prossimo invio maturato:
- *  1. se il destinatario ha RISPOSTO dopo l'iscrizione → fermata;
- *  2. altrimenti manda il passo, e programma il successivo (o completa).
- * Un tetto per giro tiene la chiamata breve.
+ * Il giro delle sequenze (dal cron): fa avanzare le iscrizioni mature.
+ *
+ * Percorsi:
+ *  - Ramo A ("se non risponde"): i follow-up partono a scadenza finché il
+ *    destinatario non risponde.
+ *  - Ramo B ("se risponde"): appena arriva una risposta, si passa a questo
+ *    ramo e partono i suoi passi (al posto del follow-up).
+ *  Senza passi B, la risposta ferma semplicemente la sequenza.
  */
 export async function processaSequenze(): Promise<{ inviati: number }> {
   let daFare: {
@@ -118,6 +128,7 @@ export async function processaSequenze(): Promise<{ inviati: number }> {
     oggettoIniziale: string
     thread: string | null
     passoFatto: number
+    ramo: string
     creataIl: Date
   }[] = []
   try {
@@ -133,39 +144,12 @@ export async function processaSequenze(): Promise<{ inviati: number }> {
   let inviati = 0
   for (const isc of daFare) {
     try {
-      // 1) Ha risposto? Qualsiasi mail IN ENTRATA dal destinatario dopo
-      //    l'iscrizione ferma la sequenza: il follow-up non serve più.
-      const risposta = await db.messaggio.findFirst({
-        where: {
-          utenteId: isc.utenteId,
-          direzione: 'entrata',
-          cestinato: false,
-          mittente: { equals: isc.destinatario, mode: 'insensitive' },
-          data: { gt: isc.creataIl },
-        },
-        select: { id: true },
-      })
-      if (risposta) {
-        await db.sequenzaIscrizione.update({
-          where: { id: isc.id },
-          data: { stato: 'fermata', esito: 'Il destinatario ha risposto: sequenza fermata.', prossimoInvio: null },
-        })
-        continue
-      }
-
-      // 2) Il passo da mandare.
       const passi = await db.sequenzaPasso.findMany({
         where: { sequenzaId: isc.sequenzaId },
         orderBy: { ordine: 'asc' },
       })
-      const passo = passi[isc.passoFatto]
-      if (!passo) {
-        await db.sequenzaIscrizione.update({
-          where: { id: isc.id },
-          data: { stato: 'completata', esito: 'Tutti i passi inviati.', prossimoInvio: null },
-        })
-        continue
-      }
+      const passiA = passi.filter((p) => p.ramo !== 'B')
+      const passiB = passi.filter((p) => p.ramo === 'B')
 
       const [account, utente] = await Promise.all([
         db.account.findFirst({ where: { utenteId: isc.utenteId, attivo: true } }),
@@ -184,31 +168,101 @@ export async function processaSequenze(): Promise<{ inviati: number }> {
         email: isc.destinatario,
         oggetto: isc.oggettoIniziale,
       }
-      await inviaPasso(account, {
-        a: isc.destinatario,
-        oggetto: sostituisciVariabili(passo.oggetto, variabili),
-        corpo: sostituisciVariabili(passo.corpo, variabili),
-        firma: utente?.firma ?? '',
-        thread: isc.thread,
-      })
-      inviati++
+      const manda = async (p: { oggetto: string; corpo: string }) => {
+        await inviaPasso(account, {
+          a: isc.destinatario,
+          oggetto: sostituisciVariabili(p.oggetto, variabili),
+          corpo: sostituisciVariabili(p.corpo, variabili),
+          firma: utente?.firma ?? '',
+          thread: isc.thread,
+        })
+        inviati++
+      }
 
-      // 3) Avanti: programma il prossimo passo, o completa.
-      const prossimo = passi[isc.passoFatto + 1]
-      await db.sequenzaIscrizione.update({
-        where: { id: isc.id },
-        data: prossimo
-          ? {
-              passoFatto: isc.passoFatto + 1,
-              prossimoInvio: new Date(Date.now() + Math.max(1, prossimo.giorniAttesa) * 24 * 60 * 60 * 1000),
-            }
-          : {
-              passoFatto: isc.passoFatto + 1,
-              stato: 'completata',
-              esito: 'Tutti i passi inviati.',
-              prossimoInvio: null,
-            },
+      // --- Ramo B: il destinatario ha già risposto, si svolgono i suoi passi. ---
+      if (isc.ramo === 'B') {
+        const p = passiB[isc.passoFatto]
+        if (!p) {
+          await db.sequenzaIscrizione.update({
+            where: { id: isc.id },
+            data: { stato: 'completata', esito: 'Percorso B completato.', prossimoInvio: null },
+          })
+          continue
+        }
+        await manda(p)
+        const prossimo = passiB[isc.passoFatto + 1]
+        await db.sequenzaIscrizione.update({
+          where: { id: isc.id },
+          data: prossimo
+            ? { passoFatto: isc.passoFatto + 1, prossimoInvio: fra(prossimo.giorniAttesa) }
+            : { passoFatto: isc.passoFatto + 1, stato: 'completata', esito: 'Percorso B completato.', prossimoInvio: null },
+        })
+        continue
+      }
+
+      // --- Ramo A: prima si guarda se il destinatario ha RISPOSTO. ---
+      const risposta = await db.messaggio.findFirst({
+        where: {
+          utenteId: isc.utenteId,
+          direzione: 'entrata',
+          cestinato: false,
+          mittente: { equals: isc.destinatario, mode: 'insensitive' },
+          data: { gt: isc.creataIl },
+        },
+        select: { id: true },
       })
+      if (risposta) {
+        if (passiB.length > 0) {
+          // Passa al percorso B: parte il primo passo dopo la sua attesa.
+          await db.sequenzaIscrizione.update({
+            where: { id: isc.id },
+            data: { ramo: 'B', passoFatto: 0, prossimoInvio: fra(passiB[0].giorniAttesa), esito: 'Ha risposto: avviato il percorso B.' },
+          })
+        } else {
+          await db.sequenzaIscrizione.update({
+            where: { id: isc.id },
+            data: { stato: 'fermata', esito: 'Il destinatario ha risposto: sequenza fermata.', prossimoInvio: null },
+          })
+        }
+        continue
+      }
+
+      // Nessuna risposta: il prossimo passo A (se c'è).
+      const pA = passiA[isc.passoFatto]
+      if (!pA) {
+        // Percorso A esaurito. Se c'è un percorso B, si continua a controllare
+        // una risposta per un po' (potrebbe ancora arrivare); poi si completa.
+        const scadenza = new Date(isc.creataIl.getTime() + FINESTRA_RISPOSTA_GIORNI * GIORNO)
+        if (passiB.length > 0 && new Date() < scadenza) {
+          await db.sequenzaIscrizione.update({ where: { id: isc.id }, data: { prossimoInvio: fra(2) } })
+        } else {
+          await db.sequenzaIscrizione.update({
+            where: { id: isc.id },
+            data: { stato: 'completata', esito: 'Nessuna risposta: percorso A concluso.', prossimoInvio: null },
+          })
+        }
+        continue
+      }
+
+      await manda(pA)
+      const prossimoA = passiA[isc.passoFatto + 1]
+      if (prossimoA) {
+        await db.sequenzaIscrizione.update({
+          where: { id: isc.id },
+          data: { passoFatto: isc.passoFatto + 1, prossimoInvio: fra(prossimoA.giorniAttesa) },
+        })
+      } else if (passiB.length > 0) {
+        // Finito A ma c'è B: si resta attivi per intercettare una risposta.
+        await db.sequenzaIscrizione.update({
+          where: { id: isc.id },
+          data: { passoFatto: isc.passoFatto + 1, prossimoInvio: fra(2) },
+        })
+      } else {
+        await db.sequenzaIscrizione.update({
+          where: { id: isc.id },
+          data: { passoFatto: isc.passoFatto + 1, stato: 'completata', esito: 'Nessuna risposta: percorso A concluso.', prossimoInvio: null },
+        })
+      }
     } catch (e) {
       // Un'iscrizione rotta non blocca le altre: si segna e si va avanti.
       await db.sequenzaIscrizione

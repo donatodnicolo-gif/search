@@ -1514,7 +1514,7 @@ export async function staccaDalThread(messaggioId: string): Promise<{ ok: boolea
 
 // ---------- Sequenze di follow-up ----------
 
-export type PassoInput = { giorniAttesa: number; oggetto: string; corpo: string }
+export type PassoInput = { giorniAttesa: number; oggetto: string; corpo: string; ramo?: 'A' | 'B' }
 
 /** Crea o aggiorna una sequenza coi suoi passi (i passi si riscrivono tutti). */
 export async function salvaSequenza(dati: {
@@ -1528,9 +1528,10 @@ export async function salvaSequenza(dati: {
   if (!nome) return { ok: false, messaggio: 'Serve un nome per la sequenza.' }
   const passi = (dati.passi ?? [])
     .map((p) => ({
-      giorniAttesa: Math.max(1, Math.min(60, Number(p.giorniAttesa) || 3)),
+      giorniAttesa: Math.max(0, Math.min(60, Number(p.giorniAttesa) || 0)),
       oggetto: (p.oggetto ?? '').trim(),
       corpo: (p.corpo ?? '').trim(),
+      ramo: p.ramo === 'B' ? 'B' : 'A',
     }))
     .filter((p) => p.oggetto || p.corpo)
   if (passi.length === 0) return { ok: false, messaggio: 'Serve almeno un passo (oggetto e testo).' }
@@ -1586,7 +1587,7 @@ async function iscriviASequenza(opts: {
 }): Promise<string | null> {
   const sequenza = await db.sequenza.findFirst({
     where: { id: opts.sequenzaId, utenteId: opts.utenteId, attiva: true },
-    include: { passi: { orderBy: { ordine: 'asc' }, take: 1 } },
+    include: { passi: { orderBy: { ordine: 'asc' } } },
   })
   if (!sequenza || sequenza.passi.length === 0) return null
 
@@ -1601,7 +1602,12 @@ async function iscriviASequenza(opts: {
     select: { mittenteNome: true },
   })
 
-  const attesa = Math.max(1, sequenza.passi[0].giorniAttesa)
+  // Si parte sul ramo A: il primo follow-up è il primo passo "se non risponde".
+  // Se ci sono SOLO passi "se risponde" (B), si mette un controllo ravvicinato
+  // per intercettare la risposta e avviare il percorso B.
+  const primoA = sequenza.passi.find((p) => p.ramo !== 'B')
+  const attesa = primoA ? Math.max(0, primoA.giorniAttesa) : 1
+  const GIORNO = 24 * 60 * 60 * 1000
   await db.sequenzaIscrizione.create({
     data: {
       utenteId: opts.utenteId,
@@ -1610,10 +1616,12 @@ async function iscriviASequenza(opts: {
       nomeDestinatario: noto?.mittenteNome ?? '',
       oggettoIniziale: opts.oggetto,
       thread: opts.thread,
-      prossimoInvio: new Date(Date.now() + attesa * 24 * 60 * 60 * 1000),
+      prossimoInvio: new Date(Date.now() + attesa * GIORNO),
     },
   })
-  return `Sequenza «${sequenza.nome}» avviata per ${primo}: primo follow-up fra ${attesa} giorn${attesa === 1 ? 'o' : 'i'} se non risponde.`
+  return primoA
+    ? `Sequenza «${sequenza.nome}» avviata per ${primo}: primo follow-up fra ${attesa} giorn${attesa === 1 ? 'o' : 'i'} se non risponde.`
+    : `Sequenza «${sequenza.nome}» avviata per ${primo}: parte solo se risponde (percorso B).`
 }
 
 // ---------- Renè AI ----------
