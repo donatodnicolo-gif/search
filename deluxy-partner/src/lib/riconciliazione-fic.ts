@@ -125,8 +125,13 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
   const senzaMatch: EsitoRiga[] = [];
 
   for (const dati of clienti) {
-    const partner = matchPartner(dati.nome, partners);
     const st = statoPerNome.get(dati.nome);
+    // Un abbinamento manuale salvato (st.partnerId) ha priorità sull'auto-match
+    // per nome: così un cliente "solo FIC" riconciliato a mano con un partner
+    // FINANCE passa dai "senza conciliazione" ai conciliati.
+    const partner =
+      (st?.partnerId ? partners.find((p) => p.id === st.partnerId) ?? null : null) ??
+      matchPartner(dati.nome, partners);
     const riga: EsitoRiga = {
       ficNome: dati.nome,
       dati,

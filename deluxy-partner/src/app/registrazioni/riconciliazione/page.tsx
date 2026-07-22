@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { prisma } from "@/lib/db";
 import { ficStato } from "@/lib/fic";
 import { scritturaAnagraficheAttiva } from "@/lib/anagrafiche";
 import { costruisciRiconciliazione, campiProposti, type EsitoRiga } from "@/lib/riconciliazione-fic";
-import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, salvaDatiBancari, creaInAnagrafiche, aggiornaDatiEsterniRiconciliazione } from "@/lib/riconciliazione-actions";
+import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, salvaDatiBancari, creaInAnagrafiche, aggiornaDatiEsterniRiconciliazione, riconciliaManuale } from "@/lib/riconciliazione-actions";
 
 export const dynamic = "force-dynamic";
 // La prima costruzione (cache fredda) interroga FIC e Qonto: diamo margine ampio.
@@ -104,9 +105,10 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
 export default async function RiconciliazionePage({
   searchParams,
 }: {
-  searchParams: Promise<{ banca?: string; creato?: string; errore?: string }>;
+  searchParams: Promise<{ banca?: string; creato?: string; errore?: string; q?: string }>;
 }) {
   const sp = await searchParams;
+  const q = (sp.q ?? "").trim().toLowerCase();
   const stato = await ficStato();
   if (!stato.collegato) {
     return (
@@ -127,10 +129,21 @@ export default async function RiconciliazionePage({
     );
   }
 
-  const [{ conciliati, daCollegare, senzaMatch }, scrittura] = await Promise.all([
+  const [ric, scrittura, partners] = await Promise.all([
     costruisciRiconciliazione(),
     Promise.resolve(scritturaAnagraficheAttiva()),
+    prisma.partner.findMany({ where: { attivo: true }, orderBy: { nome: "asc" }, select: { nome: true } }),
   ]);
+  // filtro di ricerca su nome cliente FIC, partner, P.IVA, città
+  const matchQ = (r: EsitoRiga) =>
+    !q ||
+    r.ficNome.toLowerCase().includes(q) ||
+    (r.partner?.nome.toLowerCase().includes(q) ?? false) ||
+    (r.dati.piva?.toLowerCase().includes(q) ?? false) ||
+    (r.dati.citta?.toLowerCase().includes(q) ?? false);
+  const conciliati = ric.conciliati.filter(matchQ);
+  const daCollegare = ric.daCollegare.filter(matchQ);
+  const senzaMatch = ric.senzaMatch.filter(matchQ);
   const daConfermare = conciliati.filter((r) => r.stato === null);
 
   return (
@@ -151,6 +164,23 @@ export default async function RiconciliazionePage({
           </form>
         </div>
       </div>
+
+      <form method="get" className="card" style={{ padding: 14, marginBottom: 16, display: "flex", gap: 10, alignItems: "center" }}>
+        <input
+          type="text"
+          name="q"
+          defaultValue={sp.q ?? ""}
+          placeholder="Cerca per cliente FIC, partner, P.IVA o città…"
+          style={{ flex: 1 }}
+        />
+        <button className="btn secondary" type="submit">Cerca</button>
+        {q && <Link href="/registrazioni/riconciliazione" className="btn secondary">Azzera</Link>}
+      </form>
+
+      {/* elenco partner per l'abbinamento manuale dei clienti solo-FIC */}
+      <datalist id="partners-datalist">
+        {partners.map((p) => <option key={p.nome} value={p.nome} />)}
+      </datalist>
 
       {sp.banca && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
@@ -273,21 +303,41 @@ export default async function RiconciliazionePage({
       <h2 className="section-title">Clienti FIC senza conciliazione ({senzaMatch.length})</h2>
       <div className="card" style={{ padding: 14, marginBottom: 8 }}>
         <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-          Clienti di Fatture in Cloud che <strong>non corrispondono a nessun partner</strong> Deluxy: in genere
-          maison e aziende a cui fatturi i servizi, non partner del registro. Verifica se qualcuno andrebbe invece
-          creato come partner.
+          Clienti di Fatture in Cloud che <strong>non corrispondono automaticamente a nessun partner</strong> Deluxy.
+          Se in realtà uno di questi <strong>è</strong> un partner del FINANCE (nome scritto diverso su FIC), abbinalo
+          a mano nella colonna &laquo;Abbina a un partner&raquo;: i suoi dati fiscali finiscono nel registro e la riga
+          passa ai conciliati.
         </p>
       </div>
       <div className="card tight">
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Cliente FIC</th><th>P.IVA</th><th>Sede</th></tr></thead>
+            <thead><tr><th>Cliente FIC</th><th>P.IVA</th><th>Sede</th><th>Abbina a un partner FINANCE</th></tr></thead>
             <tbody>
               {senzaMatch.map((r) => (
                 <tr key={r.ficNome}>
                   <td style={{ fontWeight: 500 }}>{r.ficNome}</td>
                   <td>{r.dati.piva ?? "—"}</td>
                   <td className="muted">{[r.dati.citta, r.dati.provincia].filter(Boolean).join(" ") || "—"}</td>
+                  <td style={{ minWidth: 240 }}>
+                    <form action={riconciliaManuale.bind(null, r.ficNome)} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input
+                        type="text"
+                        name="partner"
+                        list="partners-datalist"
+                        placeholder="Scrivi il nome del partner…"
+                        style={{ fontSize: 12.5, padding: "5px 8px", flex: 1 }}
+                      />
+                      <button
+                        className="btn small primary"
+                        type="submit"
+                        disabled={!scrittura}
+                        title={scrittura ? "Abbina al partner e porta i dati fiscali nel registro" : "Serve la chiave di scrittura"}
+                      >
+                        Riconcilia
+                      </button>
+                    </form>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -137,6 +137,60 @@ export async function riapriRiconciliazione(ficNome: string) {
   revalidatePath("/registrazioni/riconciliazione", "layout");
 }
 
+// Abbina MANUALMENTE un cliente "solo FIC" (senza match automatico) a un partner
+// FINANCE scelto dall'operatore, e ne porta i dati fiscali nel registro. Se il
+// partner è già nel registro aggiorna; altrimenti lo crea e lo collega.
+export async function riconciliaManuale(ficNome: string, fd: FormData) {
+  const rif = String(fd.get("partner") ?? "").trim();
+  const err = (m: string) => redirect("/registrazioni/riconciliazione?errore=" + encodeURIComponent(m));
+  if (!rif) err("Scegli un partner FINANCE da abbinare al cliente FIC.");
+  // risolvi il partner per id, poi per nome esatto, poi per nome parziale univoco
+  let partnerOk =
+    (await prisma.partner.findUnique({ where: { id: rif } })) ??
+    (await prisma.partner.findFirst({ where: { nome: { equals: rif, mode: "insensitive" } } }));
+  if (!partnerOk) {
+    const sim = await prisma.partner.findMany({ where: { nome: { contains: rif, mode: "insensitive" } }, take: 2 });
+    partnerOk = sim.length === 1 ? sim[0] : null;
+  }
+  if (!partnerOk) {
+    redirect("/registrazioni/riconciliazione?errore=" + encodeURIComponent(`Nessun partner FINANCE corrisponde a «${rif}». Scrivi il nome esatto.`));
+  }
+  const partner = partnerOk; // non-null: sopra abbiamo già fatto redirect se null
+
+  const campi: CampiAnagrafica = await campiPropostiPerNome(ficNome);
+  const campiInviati = Object.keys(campi).join(", ") || null;
+
+  if (partner.anagraficaId) {
+    const res = await aggiornaAnagrafica(partner.anagraficaId, campi);
+    await prisma.riconciliazioneAnagrafica.upsert({
+      where: { ficNome },
+      create: { ficNome, partnerId: partner.id, anagraficaId: partner.anagraficaId, stato: res.ok ? "confermata" : "ignorata", campiInviati, esito: res.ok ? "ok" : res.errore },
+      update: { partnerId: partner.id, anagraficaId: partner.anagraficaId, ...(res.ok ? { stato: "confermata" } : {}), campiInviati, esito: res.ok ? "ok" : res.errore },
+    });
+    if (!res.ok) err(res.errore);
+  } else {
+    const res = await creaAnagrafica({
+      nome: partner.nome,
+      ragioneSociale: partner.ragioneSociale,
+      citta: partner.citta,
+      categoria: partner.categoria,
+      idEsterno: partner.id,
+      campi,
+    });
+    if (!res.ok) {
+      redirect("/registrazioni/riconciliazione?errore=" + encodeURIComponent(res.errore));
+    }
+    await prisma.partner.update({ where: { id: partner.id }, data: { anagraficaId: res.id } });
+    await prisma.riconciliazioneAnagrafica.upsert({
+      where: { ficNome },
+      create: { ficNome, partnerId: partner.id, anagraficaId: res.id, stato: "confermata", campiInviati, esito: `${res.esito} nel registro` },
+      update: { partnerId: partner.id, anagraficaId: res.id, stato: "confermata", esito: `${res.esito} nel registro` },
+    });
+  }
+  revalidatePath("/registrazioni/riconciliazione", "layout");
+  redirect(`/registrazioni/riconciliazione?creato=${encodeURIComponent(`${ficNome} → ${partner.nome}`)}`);
+}
+
 // Forza il ricarico dei dati esterni in cache (clienti FIC + beneficiari Qonto):
 // utile dopo aver aggiunto un cliente in FIC o un beneficiario in Qonto, senza
 // aspettare la scadenza dei 10 minuti.

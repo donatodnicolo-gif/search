@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { risolviAnagrafica } from "@/lib/anagrafiche";
 import { ficStato, ficClientiFatturabiliCached, ficEntityUltimaFattura, ficCreaFattura, type RigaFattura, type FicEntity } from "@/lib/fic";
 import { RigheProForma } from "@/components/RigheProForma";
+import { TerminiPagamento } from "@/components/TerminiPagamento";
 
 export const dynamic = "force-dynamic";
 
@@ -194,10 +195,7 @@ export default async function NuovaFatturaCloud({
               <label className="field-label">Data documento</label>
               <input type="date" name="data" defaultValue={oggi} />
             </div>
-            <div>
-              <label className="field-label">Scadenza pagamento</label>
-              <input type="date" name="scadenza" />
-            </div>
+            <TerminiPagamento oggi={oggi} />
 
             <div className="full">
               <details style={{ border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: "10px 14px", background: "var(--bg)" }}>
