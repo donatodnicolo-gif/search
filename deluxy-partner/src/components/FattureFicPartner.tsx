@@ -29,10 +29,18 @@ export async function FattureFicPartner({ partnerId, partnerNome }: { partnerId:
   } catch {
     return null;
   }
-  const mie = fatture.filter((f) => {
+  const matchNome = fatture.filter((f) => {
     const c = norm(f.cliente);
     return c && nomi.some((n) => c === n || c.includes(n) || n.includes(c));
   });
+  // escludi le fatture già registrate come "Servizio a fatturazione" (per numero):
+  // quelle contano già nel Rolling, qui mostriamo solo le fatture FIC non agganciate.
+  const registrate = await prisma.fatturaServizio.findMany({
+    where: { partnerId, numero: { not: null } },
+    select: { numero: true },
+  });
+  const numeriReg = new Set(registrate.map((r) => r.numero));
+  const mie = matchNome.filter((f) => !numeriReg.has(f.numero));
   if (mie.length === 0) return null;
 
   const tot = mie.reduce((a, f) => a + f.totale, 0);

@@ -27,7 +27,7 @@ async function cambiaStatoFattura(id: number, pagata: boolean) {
 export default async function FattureCloudPage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; q?: string; emessa?: string; errore?: string; statoOk?: string }>;
+  searchParams: Promise<{ anno?: string; q?: string; emessa?: string; errore?: string; statoOk?: string; servizio?: string }>;
 }) {
   const sp = await searchParams;
   const anno = sp.anno ? parseInt(sp.anno) : ANNO_CORRENTE;
@@ -72,6 +72,7 @@ export default async function FattureCloudPage({
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
           <span className="badge green">
             <span className="dot" />Fattura emessa — n. {decodeURIComponent(sp.emessa)}
+            {sp.servizio ? " · registrata come servizio del partner (entra nei conteggi)" : ""}
             {" "}(non inviata allo SDI: controllala e inviala da Fatture in Cloud)
           </span>
         </div>

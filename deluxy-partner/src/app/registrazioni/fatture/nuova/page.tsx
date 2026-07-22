@@ -117,7 +117,48 @@ async function emettiFattura(fd: FormData) {
     redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent((e as Error).message));
   }
   revalidatePath("/registrazioni/fatture", "layout");
-  redirect(`/registrazioni/fatture?emessa=${encodeURIComponent(numero)}`);
+
+  // Se il cliente è un partner FINANCE, registra la fattura anche come
+  // "Servizio a fatturazione" del partner, così entra nei conteggi (fatturato,
+  // dovuto). numero = numero FIC (evita doppioni con la sezione FIC nella scheda).
+  const tipologiaId = String(fd.get("tipologiaId") ?? "").trim();
+  let partnerId: string | null = null;
+  if (clienteVal.startsWith("partner:")) {
+    partnerId = clienteVal.slice(8);
+  } else if (entity?.name) {
+    const ric = await prisma.riconciliazioneAnagrafica.findFirst({
+      where: { ficNome: { equals: entity.name, mode: "insensitive" }, NOT: { partnerId: null } },
+      select: { partnerId: true },
+    });
+    partnerId =
+      ric?.partnerId ??
+      (await prisma.partner.findFirst({ where: { nome: { equals: entity.name, mode: "insensitive" } }, select: { id: true } }))?.id ??
+      null;
+  }
+  let registrata = false;
+  if (partnerId && tipologiaId) {
+    try {
+      const imponibile = righe.reduce((a, r) => a + (r.quantita ?? 1) * r.prezzoUnitario, 0);
+      await prisma.fatturaServizio.create({
+        data: {
+          partnerId,
+          tipologiaId,
+          anno: data.getUTCFullYear(),
+          mese: data.getUTCMonth() + 1,
+          numero,
+          imponibile: +imponibile.toFixed(2),
+          aliquotaIva: righe[0]?.aliquotaIva ?? 22,
+          scadenza: scadenza ?? undefined,
+          descrizione: oggetto || null,
+        },
+      });
+      registrata = true;
+      for (const pth of ["/", "/partner", "/fatture", "/saldi", "/scadenzario", "/report"]) revalidatePath(pth, "layout");
+    } catch {
+      // la fattura FIC è comunque creata; la registrazione locale si può rifare a mano
+    }
+  }
+  redirect(`/registrazioni/fatture?emessa=${encodeURIComponent(numero)}${registrata ? "&servizio=1" : ""}`);
 }
 
 export default async function NuovaFatturaCloud({
@@ -126,10 +167,12 @@ export default async function NuovaFatturaCloud({
   searchParams: Promise<{ errore?: string }>;
 }) {
   const sp = await searchParams;
-  const [stato, partners] = await Promise.all([
+  const [stato, partners, tipologie] = await Promise.all([
     ficStato(),
     prisma.partner.findMany({ where: { attivo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    prisma.tipologiaServizio.findMany({ orderBy: { ordine: "asc" }, select: { id: true, nome: true } }),
   ]);
+  const tipDefault = tipologie.find((t) => /altro/i.test(t.nome))?.id ?? tipologie[0]?.id ?? "";
   const clienti = stato.collegato ? await ficClientiFatturabiliCached().catch(() => []) : [];
   const oggi = new Date().toISOString().slice(0, 10);
 
@@ -258,6 +301,22 @@ export default async function NuovaFatturaCloud({
             <div className="full">
               <label className="field-label">Oggetto visibile in fattura</label>
               <input type="text" name="oggetto" placeholder="es. Servizi di consegna giugno 2026" />
+            </div>
+
+            <div className="full">
+              <label className="field-label">
+                Tipologia servizio{" "}
+                <span className="muted" style={{ fontWeight: 400, fontSize: 11.5 }}>· usata solo se il cliente è un partner Deluxy</span>
+              </label>
+              <select name="tipologiaId" defaultValue={tipDefault} style={{ maxWidth: 320 }}>
+                {tipologie.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nome}</option>
+                ))}
+              </select>
+              <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                Se il cliente è un <strong>partner</strong>, la fattura viene registrata anche come «Servizio a
+                fatturazione» in questa tipologia, così entra nei conteggi del partner (fatturato, dovuto…).
+              </p>
             </div>
 
             <RigheProForma />
