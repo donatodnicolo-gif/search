@@ -198,6 +198,10 @@ model Account {
   smtpSicuro   Boolean @default(true)
   smtpUtente   String
   smtpPassword String // cifrata (mai in chiaro)
+  // Alcuni provider (es. register.it) presentano un certificato TLS per un
+  // dominio diverso dall'host (*.securemail.pro): con questo flag si salta la
+  // verifica del nome sul certificato per QUESTA casella (IMAP e SMTP).
+  ignoraCertTls Boolean @default(false)
   // Stato sincronizzazione
   cartella        String  @default("INBOX")
   cartellaInviata String?

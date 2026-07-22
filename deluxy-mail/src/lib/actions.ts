@@ -1145,6 +1145,8 @@ async function spedisci(account: Account, m: DaInviare): Promise<{ raw: Buffer; 
     port: account.smtpPort,
     secure: account.smtpSicuro,
     auth: { user: account.smtpUtente, pass: decifra(account.smtpPassword) },
+    // Certificato per un altro dominio (register.it): salta la verifica del nome.
+    ...(account.ignoraCertTls ? { tls: { rejectUnauthorized: false } } : {}),
   })
   await transporter.sendMail({
     envelope: { from: account.email, to: [m.a, ...(m.cc ? m.cc.split(',').map((x) => x.trim()) : [])] },
@@ -2658,6 +2660,7 @@ export async function creaAccount(form: FormData): Promise<{ ok: boolean; messag
       smtpUtente: testo(form, 'smtpUtente') || testo(form, 'email'),
       smtpPassword: cifra(testo(form, 'smtpPassword') || testo(form, 'imapPassword')),
       cartella: testo(form, 'cartella') || 'INBOX',
+      ignoraCertTls: flag(form, 'ignoraCertTls'),
     }
 
     // Meglio scoprire ora che host o password sono sbagliati, non al primo sync.

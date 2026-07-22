@@ -139,6 +139,9 @@ function connessione(account: Account): ImapFlow {
     secure: account.imapSicuro,
     auth: { user: account.imapUtente, pass: decifra(account.imapPassword) },
     logger: false,
+    // Provider con certificato per un altro dominio (register.it → securemail.pro):
+    // si salta la verifica del NOME sul certificato (la connessione resta cifrata).
+    ...(account.ignoraCertTls ? { tls: { rejectUnauthorized: false } } : {}),
   })
 }
 

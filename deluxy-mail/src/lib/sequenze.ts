@@ -59,6 +59,7 @@ async function inviaPasso(
     port: account.smtpPort,
     secure: account.smtpSicuro,
     auth: { user: account.smtpUtente, pass: decifra(account.smtpPassword) },
+    ...(account.ignoraCertTls ? { tls: { rejectUnauthorized: false } } : {}),
   })
   await transporter.sendMail({ envelope: { from: account.email, to: [opts.a] }, raw })
 

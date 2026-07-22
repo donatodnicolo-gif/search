@@ -22,9 +22,17 @@ const PRESET: Record<string, { imapHost: string; smtpHost: string; nota?: string
     smtpHost: 'smtp.office365.com',
     nota: 'Su Microsoft 365 l’accesso IMAP con password va abilitato dall’amministratore.',
   },
-  Register: { imapHost: 'imap.register.it', smtpHost: 'smtp.register.it' },
+  Register: {
+    imapHost: 'imap.register.it',
+    smtpHost: 'smtp.register.it',
+    nota: 'register.it usa un certificato per *.securemail.pro: la spunta “Ignora verifica certificato” qui sotto è già attiva (connessione comunque cifrata).',
+  },
   Altro: { imapHost: '', smtpHost: '' },
 }
+
+// I provider il cui certificato è intestato a un dominio diverso dall'host:
+// per questi la verifica del NOME sul certificato va saltata di default.
+const CERT_DA_IGNORARE = new Set(['Register'])
 
 const PRESET_INIZIALE = 'SecureMail (deluxy.it)'
 
@@ -32,6 +40,7 @@ export function FormAccount() {
   const [provider, setProvider] = useState(PRESET_INIZIALE)
   const [imapHost, setImapHost] = useState(PRESET[PRESET_INIZIALE].imapHost)
   const [smtpHost, setSmtpHost] = useState(PRESET[PRESET_INIZIALE].smtpHost)
+  const [ignoraCert, setIgnoraCert] = useState(CERT_DA_IGNORARE.has(PRESET_INIZIALE))
   const [stato, setStato] = useState<{ ok: boolean; messaggio: string } | null>(null)
   const [inCorso, startTransition] = useTransition()
   const router = useRouter()
@@ -40,6 +49,7 @@ export function FormAccount() {
     setProvider(nome)
     setImapHost(PRESET[nome].imapHost)
     setSmtpHost(PRESET[nome].smtpHost)
+    setIgnoraCert(CERT_DA_IGNORARE.has(nome))
   }
 
   function invia(form: FormData) {
@@ -121,6 +131,23 @@ export function FormAccount() {
         <div className="full">
           <label className="field-label">Cartella da leggere</label>
           <input type="text" name="cartella" defaultValue="INBOX" />
+        </div>
+
+        <div className="full">
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              name="ignoraCertTls"
+              checked={ignoraCert}
+              onChange={(e) => setIgnoraCert(e.target.checked)}
+            />
+            Ignora la verifica del certificato TLS
+          </label>
+          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>
+            Attivala se il collegamento fallisce con “Hostname/IP does not match certificate”
+            (il provider ha un certificato per un altro dominio, es. register.it → securemail.pro).
+            La connessione resta cifrata.
+          </div>
         </div>
       </div>
 

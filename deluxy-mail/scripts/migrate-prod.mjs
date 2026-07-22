@@ -136,6 +136,8 @@ const stmts = [
   `UPDATE "Utente" SET "scaricaStoricoAuto" = false WHERE "scaricaStoricoAuto" = true`,
   // Dati della firma (JSON) per riaprire il form di modifica.
   `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "firmaDati" TEXT NOT NULL DEFAULT ''`,
+  // Flag "ignora verifica certificato TLS" per casella (register.it & simili).
+  `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "ignoraCertTls" BOOLEAN NOT NULL DEFAULT false`,
   // Cursori per lo storico della cartella "Inviata" (scarico inviati in background).
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "ultimoUidInviata" INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "primoUidInviata" INTEGER NOT NULL DEFAULT 0`,
