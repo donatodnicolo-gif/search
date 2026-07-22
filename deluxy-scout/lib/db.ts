@@ -134,19 +134,76 @@ export async function trovaDuplicati(place: Place): Promise<Place[]> {
   const aggiungi = (rows: Place[] | null | undefined) => {
     for (const r of rows ?? []) if (r.id !== place.id && !r.nascosto) out.set(r.id, r);
   };
-  // Stesso indirizzo (ilike senza wildcard = confronto case-insensitive esatto).
+  // Stesso indirizzo, MA solo se l'indirizzo è specifico (contiene un numero
+  // civico): indirizzi generici come "Italy"/"Milano" sono condivisi da decine
+  // di negozi importati e non indicano un duplicato.
   const indirizzo = place.indirizzo?.trim();
-  if (indirizzo) {
+  if (indirizzo && /\d/.test(indirizzo) && indirizzo.length >= 6) {
     const { data } = await supabase.from('places').select('*').ilike('indirizzo', indirizzo).neq('id', place.id).limit(25);
     aggiungi(data as Place[]);
   }
-  // Nome con lo stesso prefisso significativo (prima parola, ≥3 caratteri).
-  const primo = (place.nome ?? '').trim().split(/[\s\-–—]+/)[0];
+  // Nome con lo stesso prefisso significativo (prima parola alfanumerica, ≥3
+  // caratteri) E stessa città: evita match tra omonimi di città diverse.
+  const primo = (place.nome ?? '').replace(/[^\p{L}\p{N}\s]/gu, ' ').trim().split(/\s+/)[0];
   if (primo && primo.length >= 3) {
-    const { data } = await supabase.from('places').select('*').ilike('nome', `${primo}%`).neq('id', place.id).limit(25);
+    let q = supabase.from('places').select('*').ilike('nome', `${primo}%`).neq('id', place.id).limit(25);
+    if (place.zona?.trim()) q = q.eq('zona', place.zona.trim());
+    const { data } = await q;
     aggiungi(data as Place[]);
   }
+  // Escludi le coppie già segnate come "non duplicati".
+  if (out.size) {
+    const { data: ign } = await supabase
+      .from('duplicati_ignorati')
+      .select('place_min, place_max')
+      .or(`place_min.eq.${place.id},place_max.eq.${place.id}`);
+    for (const r of ign ?? []) {
+      const altro = r.place_min === place.id ? r.place_max : r.place_min;
+      out.delete(altro);
+    }
+  }
   return [...out.values()];
+}
+
+/** Segna una coppia di target come "NON duplicati" (suggerimento ignorato). */
+export async function ignoraDuplicato(a: string, b: string): Promise<void> {
+  const [place_min, place_max] = a < b ? [a, b] : [b, a];
+  const { error } = await supabase.from('duplicati_ignorati').upsert({ place_min, place_max });
+  if (error) throw error;
+}
+
+// ── Indirizzi preferiti (per tornare in fretta su una zona in Mappa) ────────────
+
+export interface IndirizzoPreferito {
+  id: string;
+  etichetta: string;
+  indirizzo: string;
+  lat: number;
+  lng: number;
+}
+
+export async function fetchPreferiti(): Promise<IndirizzoPreferito[]> {
+  const { data, error } = await supabase
+    .from('indirizzi_preferiti')
+    .select('id, etichetta, indirizzo, lat, lng')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as IndirizzoPreferito[];
+}
+
+export async function salvaPreferito(p: { etichetta: string; indirizzo: string; lat: number; lng: number }): Promise<void> {
+  const { error } = await supabase.from('indirizzi_preferiti').insert({
+    etichetta: p.etichetta.trim() || p.indirizzo.trim(),
+    indirizzo: p.indirizzo.trim(),
+    lat: p.lat,
+    lng: p.lng,
+  });
+  if (error) throw error;
+}
+
+export async function eliminaPreferito(id: string): Promise<void> {
+  const { error } = await supabase.from('indirizzi_preferiti').delete().eq('id', id);
+  if (error) throw error;
 }
 
 /**

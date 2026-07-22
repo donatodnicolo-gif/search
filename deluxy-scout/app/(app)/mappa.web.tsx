@@ -4,7 +4,7 @@
 // Layout curato in stile Apple: liste raggruppate, icone tipologia, filtri a pillole.
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LINEE_ATTIVE, type Place } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import { coloreStato, colors, labelStato, radius, shadow, spacing } from '@/lib/theme';
@@ -17,6 +17,8 @@ import { urlNavigazione, urlNavigazioneGiro } from '@/lib/nav';
 import type { GeocodeResult } from '@/lib/geocode';
 import { scopriNegozi, type FiltroScoperta, type ScopertaResult } from '@/lib/discover';
 import { aggiornaNascosto, aggiornaStarred, aggiornaStatoPlace } from '@/lib/db';
+import { aggiungiPreferito } from '@/lib/preferiti';
+import { avvisa } from '@/lib/dialoghi';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
 import { AddressSearch } from '@/components/AddressSearch';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
@@ -53,6 +55,8 @@ export default function MappaWeb() {
   const [pos, setPos] = useState<Coord | null>(null);
   const [giroAttivo, setGiroAttivo] = useState(false);
   const [destinazione, setDestinazione] = useState<Coord | null>(null);
+  const [indirizzoScelto, setIndirizzoScelto] = useState<{ indirizzo: string; lat: number; lng: number } | null>(null);
+  const params = useLocalSearchParams<{ lat?: string; lng?: string; indirizzo?: string }>();
   const [scoperti, setScoperti] = useState<Place[]>([]);
   const [scopLoading, setScopLoading] = useState(false);
   const [scopInfo, setScopInfo] = useState<ScopertaResult | null>(null);
@@ -66,6 +70,17 @@ export default function MappaWeb() {
   useEffect(() => {
     posizioneCorrente().then(setPos);
   }, []);
+
+  // Apertura da un preferito della barra laterale (?lat&lng&indirizzo): centra qui.
+  useEffect(() => {
+    const lat = parseFloat(String(params.lat ?? ''));
+    const lng = parseFloat(String(params.lng ?? ''));
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      setDestinazione({ lat, lng });
+      setIndirizzoScelto({ indirizzo: String(params.indirizzo ?? ''), lat, lng });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.lat, params.lng]);
 
   // Riconcilia l'ordine del giro coi negozi caricati: mantiene l'ordine scelto,
   // aggiunge in fondo eventuali stellati non presenti, toglie i non-stellati.
@@ -104,6 +119,7 @@ export default function MappaWeb() {
   // pulsante "Cerca negozi qui" (la scoperta costa chiamate a Google: meglio esplicita).
   function onSelectDestinazione(r: GeocodeResult) {
     setDestinazione({ lat: r.lat, lng: r.lng });
+    setIndirizzoScelto({ indirizzo: r.formatted_address, lat: r.lat, lng: r.lng });
     setGiroAttivo(false);
     setFiltri(FILTRI_VUOTI);
     setScoperti([]);
@@ -117,8 +133,24 @@ export default function MappaWeb() {
     if (destinazione) cerca(destinazione);
   }
 
+  async function salvaInPreferiti() {
+    if (!indirizzoScelto) return;
+    try {
+      await aggiungiPreferito({
+        etichetta: indirizzoScelto.indirizzo,
+        indirizzo: indirizzoScelto.indirizzo,
+        lat: indirizzoScelto.lat,
+        lng: indirizzoScelto.lng,
+      });
+      avvisa('Salvato', 'Indirizzo aggiunto ai preferiti (menu a sinistra).');
+    } catch (e) {
+      avvisa('Errore', (e as Error)?.message ?? 'Impossibile salvare.');
+    }
+  }
+
   function azzera() {
     setDestinazione(null);
+    setIndirizzoScelto(null);
     setScoperti([]);
     setScopInfo(null);
     setScopErrore(null);
@@ -237,15 +269,23 @@ export default function MappaWeb() {
 
       {/* La scoperta parte solo su richiesta esplicita (costa chiamate a Google). */}
       {destinazione ? (
-        <Pressable
-          style={[styles.btnCerca, scopLoading && styles.btnCercaOff]}
-          onPress={() => cerca(destinazione)}
-          disabled={scopLoading}
-        >
-          <Text style={styles.btnCercaTxt}>
-            {scopLoading ? 'Cerco negozi…' : scopInfo ? 'Cerca di nuovo qui' : 'Cerca negozi qui'}
-          </Text>
-        </Pressable>
+        <View style={styles.cercaRow}>
+          <Pressable
+            style={[styles.btnCerca, { flex: 1, marginHorizontal: 0, marginBottom: 0 }, scopLoading && styles.btnCercaOff]}
+            onPress={() => cerca(destinazione)}
+            disabled={scopLoading}
+          >
+            <Text style={styles.btnCercaTxt}>
+              {scopLoading ? 'Cerco negozi…' : scopInfo ? 'Cerca di nuovo qui' : 'Cerca negozi qui'}
+            </Text>
+          </Pressable>
+          {indirizzoScelto ? (
+            <Pressable style={styles.btnPreferito} onPress={salvaInPreferiti} accessibilityLabel="Salva tra i preferiti">
+              <Ionicons name="bookmark-outline" size={18} color={colors.navy} />
+              <Text style={styles.btnPreferitoTxt}>Salva</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
 
       {/* Ordina la scoperta dando precedenza a una linea di vendita (o Tutte). */}
@@ -553,6 +593,18 @@ const styles = StyleSheet.create({
   },
   btnCercaOff: { opacity: 0.55 },
   btnCercaTxt: { color: colors.bianco, fontWeight: '600', fontSize: 15 },
+  cercaRow: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.sm, marginHorizontal: spacing.md, marginBottom: spacing.sm },
+  btnPreferito: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.bianco,
+    borderWidth: 1.5,
+    borderColor: colors.navy,
+    borderRadius: radius.pill,
+    paddingHorizontal: 16,
+  },
+  btnPreferitoTxt: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   subRow: { paddingHorizontal: spacing.md, paddingTop: 6, gap: 6, alignItems: 'center' },
   subChip: {
     alignSelf: 'center',

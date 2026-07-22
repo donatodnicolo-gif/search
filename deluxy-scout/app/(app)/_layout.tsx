@@ -8,6 +8,7 @@ import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
+import { usePreferiti, rimuoviPreferito } from '@/lib/preferiti';
 import { colors, radius, spacing } from '@/lib/theme';
 import { Loader } from '../_layout';
 
@@ -113,6 +114,29 @@ function BtnIndietro() {
   );
 }
 
+// Sotto-menu "Preferiti": gli indirizzi salvati dalla Mappa. Tap = apre la Mappa
+// centrata lì; la × lo rimuove. Non compare se non ce ne sono.
+function SezionePreferiti({ onVai }: { onVai: (p: { lat: number; lng: number; indirizzo: string }) => void }) {
+  const preferiti = usePreferiti();
+  if (!preferiti.length) return null;
+  return (
+    <View style={styles.sezione}>
+      <Text style={styles.sezioneTitolo}>Preferiti</Text>
+      {preferiti.map((p) => (
+        <View key={p.id} style={styles.prefRow}>
+          <Pressable style={styles.prefTap} onPress={() => onVai({ lat: p.lat, lng: p.lng, indirizzo: p.indirizzo })}>
+            <Ionicons name="bookmark" size={16} color={colors.oro} />
+            <Text style={styles.prefLabel} numberOfLines={1}>{p.etichetta}</Text>
+          </Pressable>
+          <Pressable hitSlop={8} onPress={() => rimuoviPreferito(p.id)} accessibilityLabel="Rimuovi preferito">
+            <Ionicons name="close" size={16} color={colors.testoSoft} />
+          </Pressable>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // Contenuto del drawer: brand (logo D) + voci raggruppate per sezione (etichetta
 // MAIUSCOLA, DS) + footer utente (avatar iniziali, nome/ruolo, logout). La voce
 // Team compare solo all'amministratore della rete.
@@ -157,6 +181,9 @@ function ContenutoDrawer({ admin, espansa = true, onToggle, ...props }: any) {
             </View>
           );
         })}
+
+        {/* Preferiti: indirizzi salvati dalla Mappa. Solo a menu espanso. */}
+        {espansa ? <SezionePreferiti onVai={(p) => props.navigation.navigate('mappa', { lat: String(p.lat), lng: String(p.lng), indirizzo: p.indirizzo })} /> : null}
       </DrawerContentScrollView>
 
       {/* Footer utente (DS): avatar iniziali su gold-soft, nome + ruolo, logout. */}
@@ -278,6 +305,9 @@ const styles = StyleSheet.create({
   voceLabel: { fontSize: 14, fontWeight: '600', color: colors.testoSoft, letterSpacing: -0.1 },
   voceLabelOn: { color: colors.oro, fontWeight: '700' },
   railDivider: { height: 1, backgroundColor: colors.grigioChiaro, marginHorizontal: 14, marginBottom: 4, marginTop: 2 },
+  prefRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.md },
+  prefTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minWidth: 0 },
+  prefLabel: { flex: 1, fontSize: 13.5, fontWeight: '600', color: colors.testoSoft, letterSpacing: -0.1 },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -5,7 +5,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import type { Contact, Deal, Place, Task, Visit } from '@/types';
 import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
-import { aggiornaPlace, completaTask, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati, unisciPlaces } from '@/lib/db';
+import { aggiornaNascosto, aggiornaPlace, completaTask, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, ignoraDuplicato, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati, unisciPlaces } from '@/lib/db';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
@@ -166,6 +166,27 @@ export default function SchedaAttivita() {
     );
   }
 
+  // Ignora un suggerimento di duplicato: la coppia non verrà più proposta.
+  async function ignora(dup: Place) {
+    if (!place) return;
+    setDuplicati((lista) => lista.filter((x) => x.id !== dup.id));
+    try {
+      await ignoraDuplicato(place.id, dup.id);
+    } catch {
+      /* riprova al prossimo caricamento */
+    }
+  }
+
+  // Nascondi un target dal suggerimento (stesso "occhio barrato" della lista Target).
+  async function nascondiDuplicato(dup: Place) {
+    setDuplicati((lista) => lista.filter((x) => x.id !== dup.id));
+    try {
+      await aggiornaNascosto(dup.id, true);
+    } catch {
+      /* riprova al prossimo caricamento */
+    }
+  }
+
   // Ricarica i soli task del negozio (dopo creazione/modifica/completamento).
   const ricaricaTask = useCallback(async () => {
     if (!id) return;
@@ -324,13 +345,24 @@ export default function SchedaAttivita() {
             <Text style={styles.dupAiuto}>Unendoli, i dati del duplicato passano a «{place.nome}» e il duplicato viene eliminato.</Text>
             {duplicati.map((d) => (
               <View key={d.id} style={styles.dupRow}>
-                <Pressable style={{ flex: 1 }} onPress={() => router.push(`/(app)/attivita/${d.id}`)}>
-                  <Text style={styles.dupNome} numberOfLines={1}>{d.nome}</Text>
-                  <Text style={styles.dupMeta} numberOfLines={1}>{[d.indirizzo, labelStato[d.stato]].filter(Boolean).join(' · ')}</Text>
-                </Pressable>
-                <Pressable style={[styles.btnUnisci, unendo && { opacity: 0.5 }]} onPress={() => unisci(d)} disabled={unendo}>
-                  {unendo ? <ActivityIndicator size="small" color={colors.bianco} /> : <Text style={styles.btnUnisciTxt}>Unisci qui</Text>}
-                </Pressable>
+                <View style={styles.dupRowTop}>
+                  <Pressable style={{ flex: 1 }} onPress={() => router.push(`/(app)/attivita/${d.id}`)}>
+                    <Text style={styles.dupNome} numberOfLines={1}>{d.nome}</Text>
+                    <Text style={styles.dupMeta} numberOfLines={1}>{[d.indirizzo, labelStato[d.stato]].filter(Boolean).join(' · ')}</Text>
+                  </Pressable>
+                  <Pressable style={[styles.btnUnisci, unendo && { opacity: 0.5 }]} onPress={() => unisci(d)} disabled={unendo}>
+                    {unendo ? <ActivityIndicator size="small" color={colors.bianco} /> : <Text style={styles.btnUnisciTxt}>Unisci qui</Text>}
+                  </Pressable>
+                </View>
+                <View style={styles.dupAzioni}>
+                  <Pressable hitSlop={6} onPress={() => ignora(d)}>
+                    <Text style={styles.dupAzione}>Ignora suggerimento</Text>
+                  </Pressable>
+                  <Text style={styles.dupSep}>·</Text>
+                  <Pressable hitSlop={6} onPress={() => nascondiDuplicato(d)}>
+                    <Text style={styles.dupAzione}>Nascondi da target</Text>
+                  </Pressable>
+                </View>
               </View>
             ))}
           </View>
@@ -741,9 +773,13 @@ const styles = StyleSheet.create({
   dupBox: { marginTop: spacing.md, backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.attenzione, padding: spacing.md, gap: 6 },
   dupTitolo: { color: colors.attenzione, fontWeight: '800', fontSize: 13, letterSpacing: 0.3 },
   dupAiuto: { color: colors.testoSoft, fontSize: 12 },
-  dupRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: 8, marginTop: 2 },
+  dupRow: { borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: 8, marginTop: 2, gap: 6 },
+  dupRowTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dupNome: { color: colors.navy, fontWeight: '800', fontSize: 14 },
   dupMeta: { color: colors.grigio, fontSize: 12, marginTop: 1 },
+  dupAzioni: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dupAzione: { color: colors.testoSoft, fontSize: 12.5, fontWeight: '700' },
+  dupSep: { color: colors.grigio },
   btnUnisci: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
   btnUnisciTxt: { color: colors.bianco, fontWeight: '800', fontSize: 13 },
   taskRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.bianco, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
