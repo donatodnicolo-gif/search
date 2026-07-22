@@ -1228,12 +1228,24 @@ function registryCard(p){
   if(p.email) c.push(`<a class="mail" href="mailto:${esc(p.email)}">✉️ ${esc(p.email)}</a>`);
   if(!c.length) c.push('<span class="none">Nessun contatto nel registro</span>');
   const luogo = [p.indirizzo, p.citta, p.provincia?('('+p.provincia+')'):''].filter(Boolean).join(' · ');
-  // referenti (persone di contatto) dal registro
+  // referenti (persone di contatto) dal registro: anche i loro numeri hanno
+  // link WhatsApp + pulsante d'invio ordine (dedupe sulle ultime 9 cifre)
+  const giaTel = new Set(hasWa ? [waDigits.slice(-9)] : []);
+  const sendRefs = [];
   const refs = (p.contatti||[]).map(ct=>{
     const bits = [];
-    if(ct.telefono) bits.push(`<a class="tel" href="tel:${esc(ct.telefono)}">📞 ${esc(ct.telefono)}</a>`);
-    if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">✉️ ${esc(ct.email)}</a>`);
     const chi = [ct.nome, ct.ruolo].filter(Boolean).join(' · ');
+    if(ct.telefono){
+      bits.push(`<a class="tel" href="tel:${esc(ct.telefono)}">📞 ${esc(ct.telefono)}</a>`);
+      const d = String(ct.telefono).replace(/[^\d]/g,'');
+      const wd = d ? (d.length<=10 && d[0]==='3' ? '39'+d : d) : '';
+      if(wd.length>=8 && !giaTel.has(wd.slice(-9))){
+        giaTel.add(wd.slice(-9));
+        bits.push(`<a class="wa" href="${waChatUrl(wd)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+        sendRefs.push(`<button class="sendorder" data-phone="${wd}" data-lang="it">📤 Invia richiesta ordine su WhatsApp${IS_MOBILE?'':' Web'}${chi?' — '+esc(chi):''}</button>`);
+      }
+    }
+    if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">✉️ ${esc(ct.email)}</a>`);
     if(!bits.length && !chi) return '';
     return `<div class="meta" style="margin:8px 0 4px">👤 ${esc(chi||'referente')}</div>${bits.length?`<div class="contacts">${bits.join('')}</div>`:''}`;
   }).join('');
@@ -1253,7 +1265,8 @@ function registryCard(p){
     <div class="contacts">${c.join('')}</div>
     ${refs}
     ${hasWa ? `<button class="sendorder" data-phone="${waDigits}" data-lang="it">📤 Invia richiesta ordine su WhatsApp${IS_MOBILE?'':' Web'}</button>` : ''}
-    ${(!hasWa && p.email) ? `<button class="sendemail" data-email="${esc(p.email)}">📧 Invia richiesta via email</button>` : ''}
+    ${sendRefs.join('')}
+    ${(!hasWa && !sendRefs.length && p.email) ? `<button class="sendemail" data-email="${esc(p.email)}">📧 Invia richiesta via email</button>` : ''}
     <div class="src">📍 Fonte: <span class="verified">registro anagrafiche Deluxy</span>${p.account?' · account: '+esc(p.account):''}</div>
   `;
   return el;
