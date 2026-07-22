@@ -111,6 +111,8 @@ solo dove siamo e come si lavora.
    `applyWaFilter`; con = `wakind==='mobile'`, senza = fissi o senza numero). Le schede del
    registro restano sempre visibili. NB: le pillole usano la classe **`.wchip`** (stesso stile
    di `.chip`) apposta per NON prendere i listener globali di `.chip` (toggle categorie).
+   Il filtro è in DUE punti sincronizzati (`setWaFiltro`): nel form di ricerca (`#waFilter`)
+   e in cima ai risultati (`#waFilterResults`, appare dopo la prima ricerca).
 
 19. **Fix scoping chip categorie** (22/07): il listener «toggle categorie» e i selettori del
    deep link / `setCategoryForBrand` ora usano **`.catbtns .chip`** (solo le chip della

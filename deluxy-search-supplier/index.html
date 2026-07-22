@@ -567,6 +567,12 @@
 
     <div class="col-right">
       <div class="status" id="status"></div>
+      <!-- filtro WhatsApp anche qui, in cima ai risultati (gemello di quello nel form) -->
+      <div id="waFilterResults" style="display:none; gap:6px; margin:10px 0">
+        <button class="wchip active" data-wa="tutti" type="button">Tutti</button>
+        <button class="wchip" data-wa="con" type="button">📱 Con WhatsApp</button>
+        <button class="wchip" data-wa="senza" type="button">☎️ Senza WhatsApp</button>
+      </div>
       <div class="results" id="results"></div>
     </div><!-- /col-right -->
     </div><!-- /cols -->
@@ -1744,11 +1750,18 @@ function applyWaFilter(){
   });
   return shown;
 }
-$('#waFilter').addEventListener('click', e=>{
-  const b = e.target.closest('.wchip'); if(!b) return;
-  waFiltro = b.dataset.wa;
-  document.querySelectorAll('#waFilter .wchip').forEach(x=>x.classList.toggle('active', x===b));
+// due gruppi di pillole gemelli (form di ricerca + cima ai risultati), sempre in sincrono
+function setWaFiltro(val){
+  waFiltro = val;
+  document.querySelectorAll('#waFilter .wchip, #waFilterResults .wchip')
+    .forEach(x=>x.classList.toggle('active', x.dataset.wa===val));
   applyWaFilter();
+}
+['#waFilter','#waFilterResults'].forEach(sel=>{
+  $(sel).addEventListener('click', e=>{
+    const b = e.target.closest('.wchip'); if(!b) return;
+    setWaFiltro(b.dataset.wa);
+  });
 });
 
 $('#fetchOrder').addEventListener('click', fetchOrder);
@@ -2528,6 +2541,7 @@ async function run(){
     }
 
     applyWaFilter();
+    $('#waFilterResults').style.display = 'flex';   // il filtro gemello sopra i risultati
     const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
     const distNote = lastDriveSource==='Google' ? ' · 🚗 distanza stradale'
                    : lastDriveSource==='OSRM'   ? ' · 🚗 distanza stradale (OSM)'
