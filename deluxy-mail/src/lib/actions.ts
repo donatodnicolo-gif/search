@@ -860,6 +860,31 @@ export async function salvaIscrizionePush(sub: {
   }
 }
 
+/** Manda una notifica di PROVA a tutti i dispositivi iscritti dell'utente:
+ *  serve a verificare la catena (chiavi VAPID → iscrizione → consegna). */
+export async function notificaProva(): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  let quante = 0
+  try {
+    quante = await db.pushIscrizione.count({ where: { utenteId } })
+  } catch {
+    return { ok: false, messaggio: 'Tabella delle iscrizioni non ancora pronta.' }
+  }
+  if (quante === 0) {
+    return { ok: false, messaggio: 'Nessun dispositivo iscritto: attiva prima le notifiche qui sotto.' }
+  }
+  const { inviaPush } = await import('./push')
+  await inviaPush(utenteId, {
+    titolo: 'Notifica di prova',
+    corpo: 'Se la leggi, le notifiche di AI Mail funzionano su questo dispositivo. ✓',
+    url: '/',
+  })
+  return {
+    ok: true,
+    messaggio: `Inviata a ${quante} dispositivo${quante === 1 ? '' : 'i'} iscritt${quante === 1 ? 'o' : 'i'}. Se non arriva, controlla i permessi di notifica del browser/telefono.`,
+  }
+}
+
 /** Toglie l'iscrizione push di questo dispositivo (disattiva le notifiche qui). */
 export async function rimuoviIscrizionePush(endpoint: string): Promise<{ ok: boolean }> {
   const utenteId = await uid()

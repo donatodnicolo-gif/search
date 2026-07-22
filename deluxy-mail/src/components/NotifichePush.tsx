@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { salvaIscrizionePush, rimuoviIscrizionePush } from '@/lib/actions'
+import { salvaIscrizionePush, rimuoviIscrizionePush, notificaProva } from '@/lib/actions'
 
 const CHIAVE_PUBBLICA = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
 
@@ -102,16 +102,36 @@ export function NotifichePush() {
     )
   }
 
+  async function prova() {
+    setStato(null)
+    setInCorso(true)
+    try {
+      const esito = await notificaProva()
+      setStato(esito.messaggio)
+    } catch {
+      setStato('Invio di prova non riuscito. Riprova.')
+    } finally {
+      setInCorso(false)
+    }
+  }
+
   return (
     <div>
-      <button
-        type="button"
-        className={`btn ${attivo ? 'secondary' : 'primary'}`}
-        onClick={attivo ? disattiva : attiva}
-        disabled={inCorso}
-      >
-        {inCorso ? '…' : attivo ? 'Disattiva su questo dispositivo' : 'Attiva le notifiche'}
-      </button>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className={`btn ${attivo ? 'secondary' : 'primary'}`}
+          onClick={attivo ? disattiva : attiva}
+          disabled={inCorso}
+        >
+          {inCorso ? '…' : attivo ? 'Disattiva su questo dispositivo' : 'Attiva le notifiche'}
+        </button>
+        {/* La prova va a TUTTI i dispositivi iscritti: se arriva, la catena
+            (chiavi VAPID → iscrizione → consegna) funziona. */}
+        <button type="button" className="btn secondary" onClick={prova} disabled={inCorso}>
+          Invia notifica di prova
+        </button>
+      </div>
       {stato && (
         <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 8 }}>{stato}</div>
       )}
