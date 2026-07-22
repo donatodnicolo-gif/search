@@ -5,8 +5,8 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import type { Contact, Deal, Place, Task, Visit } from '@/types';
 import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
-import { aggiornaPlace, completaTask, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro } from '@/lib/db';
-import { avvisa } from '@/lib/dialoghi';
+import { aggiornaPlace, completaTask, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati, unisciPlaces } from '@/lib/db';
+import { avvisa, conferma } from '@/lib/dialoghi';
 import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
@@ -72,6 +72,8 @@ export default function SchedaAttivita() {
   const [taskAperto, setTaskAperto] = useState(false);
   const [taskPlace, setTaskPlace] = useState<Task[]>([]);
   const [taskInModifica, setTaskInModifica] = useState<Task | null>(null);
+  const [duplicati, setDuplicati] = useState<Place[]>([]);
+  const [unendo, setUnendo] = useState(false);
 
   // Conciliazione: cerca nella copia locale HubSpot azienda/contatti del negozio,
   // escludendo le aziende già rifiutate e i contatti "non pertinenti".
@@ -129,6 +131,8 @@ export default function SchedaAttivita() {
     }
     setDeal(deals);
     setLoading(false);
+    // Possibili duplicati (stesso indirizzo o nome simile), per proporre l'unione.
+    setDuplicati(p ? await trovaDuplicati(p).catch(() => []) : []);
     // #2: se il negozio è già abbinato a un'azienda HubSpot, mostra subito i contatti.
     if (p?.hubspot_company_id) eseguiMatch(p, sc, az);
   }, [id]);
@@ -138,6 +142,29 @@ export default function SchedaAttivita() {
       carica();
     }, [carica]),
   );
+
+  // Unisci un duplicato in QUESTO target: i dati del duplicato passano qui e il
+  // duplicato viene eliminato. Operazione distruttiva → chiede conferma.
+  function unisci(dup: Place) {
+    if (!place || unendo) return;
+    conferma(
+      'Unire i target?',
+      `«${dup.nome}» verrà unito a «${place.nome}»: contatti, visite, trattative e task del duplicato passano qui e «${dup.nome}» viene eliminato. L'azione non è reversibile.`,
+      async () => {
+        setUnendo(true);
+        try {
+          await unisciPlaces(dup.id, place.id);
+          setDuplicati((lista) => lista.filter((x) => x.id !== dup.id));
+          await carica();
+        } catch (e) {
+          avvisa('Unione non riuscita', (e as Error)?.message ?? 'Riprova.');
+        } finally {
+          setUnendo(false);
+        }
+      },
+      { testoConferma: 'Unisci', distruttivo: true },
+    );
+  }
 
   // Ricarica i soli task del negozio (dopo creazione/modifica/completamento).
   const ricaricaTask = useCallback(async () => {
@@ -287,6 +314,27 @@ export default function SchedaAttivita() {
         {place.indirizzo ? <Text style={styles.meta}>{place.indirizzo}</Text> : null}
         {place.categoria ? <Text style={styles.meta}>Categoria: {place.categoria}</Text> : null}
         {place.zona ? <Text style={styles.meta}>Zona: {place.zona}</Text> : null}
+
+        {/* Possibili duplicati: stesso indirizzo o nome simile → proponi l'unione. */}
+        {duplicati.length ? (
+          <View style={styles.dupBox}>
+            <Text style={styles.dupTitolo}>
+              <Ionicons name="git-merge-outline" size={14} color={colors.attenzione} /> Possibile duplicato
+            </Text>
+            <Text style={styles.dupAiuto}>Unendoli, i dati del duplicato passano a «{place.nome}» e il duplicato viene eliminato.</Text>
+            {duplicati.map((d) => (
+              <View key={d.id} style={styles.dupRow}>
+                <Pressable style={{ flex: 1 }} onPress={() => router.push(`/(app)/attivita/${d.id}`)}>
+                  <Text style={styles.dupNome} numberOfLines={1}>{d.nome}</Text>
+                  <Text style={styles.dupMeta} numberOfLines={1}>{[d.indirizzo, labelStato[d.stato]].filter(Boolean).join(' · ')}</Text>
+                </Pressable>
+                <Pressable style={[styles.btnUnisci, unendo && { opacity: 0.5 }]} onPress={() => unisci(d)} disabled={unendo}>
+                  {unendo ? <ActivityIndicator size="small" color={colors.bianco} /> : <Text style={styles.btnUnisciTxt}>Unisci qui</Text>}
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {/* Storyline: percorso commerciale verso il cliente. */}
         <View style={styles.percorso}>
@@ -691,6 +739,14 @@ const styles = StyleSheet.create({
   aiDup: { color: colors.attenzione, fontSize: 12, fontWeight: '600', marginTop: spacing.xs },
   contatto: { backgroundColor: colors.bianco, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
   contattoNome: { fontWeight: '800', color: colors.navy },
+  dupBox: { marginTop: spacing.md, backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.attenzione, padding: spacing.md, gap: 6 },
+  dupTitolo: { color: colors.attenzione, fontWeight: '800', fontSize: 13, letterSpacing: 0.3 },
+  dupAiuto: { color: colors.testoSoft, fontSize: 12 },
+  dupRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: 8, marginTop: 2 },
+  dupNome: { color: colors.navy, fontWeight: '800', fontSize: 14 },
+  dupMeta: { color: colors.grigio, fontSize: 12, marginTop: 1 },
+  btnUnisci: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
+  btnUnisciTxt: { color: colors.bianco, fontWeight: '800', fontSize: 13 },
   taskRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.bianco, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
   taskTitolo: { fontWeight: '700', color: colors.testo, fontSize: 14 },
   taskFatto: { textDecorationLine: 'line-through', color: colors.grigio },

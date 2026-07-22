@@ -125,6 +125,41 @@ export async function fetchPlaces(): Promise<Place[]> {
 }
 
 /**
+ * Trova i possibili duplicati di un target: stesso indirizzo (case-insensitive)
+ * o nome con lo stesso prefisso (es. "AMIRI" e "AMIRI - Milan"). Esclude se
+ * stesso e i target nascosti.
+ */
+export async function trovaDuplicati(place: Place): Promise<Place[]> {
+  const out = new Map<string, Place>();
+  const aggiungi = (rows: Place[] | null | undefined) => {
+    for (const r of rows ?? []) if (r.id !== place.id && !r.nascosto) out.set(r.id, r);
+  };
+  // Stesso indirizzo (ilike senza wildcard = confronto case-insensitive esatto).
+  const indirizzo = place.indirizzo?.trim();
+  if (indirizzo) {
+    const { data } = await supabase.from('places').select('*').ilike('indirizzo', indirizzo).neq('id', place.id).limit(25);
+    aggiungi(data as Place[]);
+  }
+  // Nome con lo stesso prefisso significativo (prima parola, ≥3 caratteri).
+  const primo = (place.nome ?? '').trim().split(/[\s\-–—]+/)[0];
+  if (primo && primo.length >= 3) {
+    const { data } = await supabase.from('places').select('*').ilike('nome', `${primo}%`).neq('id', place.id).limit(25);
+    aggiungi(data as Place[]);
+  }
+  return [...out.values()];
+}
+
+/**
+ * Unisce due target duplicati: sposta contatti/visite/trattative/chiamate/task/
+ * pagamenti dal duplicato (`da`) al target che resta (`verso`), completa i campi
+ * mancanti ed elimina il duplicato. Transazionale via RPC `unisci_places`.
+ */
+export async function unisciPlaces(da: string, verso: string): Promise<void> {
+  const { error } = await supabase.rpc('unisci_places', { p_da: da, p_verso: verso });
+  if (error) throw error;
+}
+
+/**
  * Sincronizza un negozio verso il registro Anagrafiche (crea/aggiorna il partner
  * con stato + interessi). Best-effort e NON bloccante: si chiama dopo creazione
  * e cambi di stato del negozio. Inerte finché Anagrafiche non abilita la
