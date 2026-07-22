@@ -196,6 +196,9 @@ export const RigaMail = memo(function RigaMail({
             cestinato={r.cestinato}
             mittente={r.mittente}
             giaInSpam={r.sezione?.nome === 'SPAM'}
+            // In posta in arrivo la riga è una CONVERSAZIONE: archivia/cestina/
+            // spam agiscono su tutte le mail del thread (se no ricompare).
+            perThread
             onFatto={() => setNascosto(true)}
           />
           <DelegaReneBottone id={r.id} />

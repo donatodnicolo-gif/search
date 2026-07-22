@@ -4,10 +4,13 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   archiviaSenzaAggiornare,
+  archiviaThreadSenzaAggiornare,
   archiviaDefinitivo,
   cestinaMessaggio,
+  cestinaThread,
   ripristinaMessaggio,
   segnalaSpam,
+  segnalaSpamThread,
 } from '@/lib/actions'
 
 /**
@@ -27,6 +30,7 @@ export function AzioniRiga({
   cestinato,
   mittente,
   giaInSpam = false,
+  perThread = false,
   onFatto,
 }: {
   id: string
@@ -36,6 +40,10 @@ export function AzioniRiga({
   mittente?: string
   /** La mail è già nella sezione SPAM: niente bottone "Spam". */
   giaInSpam?: boolean
+  /** In posta in arrivo la riga è un THREAD: archivia/cestina/spam agiscono su
+   *  TUTTE le mail della conversazione, non solo sull'ultima (che altrimenti
+   *  ricomparirebbe con un altro messaggio). */
+  perThread?: boolean
   /** Chiamato quando la mail esce dalla lista (rimozione ottimistica). */
   onFatto?: () => void
 }) {
@@ -129,7 +137,7 @@ export function AzioniRiga({
             // la riga con la domanda sparisce), poi chiedi se per sempre. Il
             // refresh lo si fa dopo la risposta.
             startTransition(async () => {
-              await archiviaSenzaAggiornare(id)
+              await (perThread ? archiviaThreadSenzaAggiornare(id) : archiviaSenzaAggiornare(id))
               setChiediSempre(true)
             })
           }}
@@ -142,7 +150,7 @@ export function AzioniRiga({
         className="azione-riga"
         disabled={inCorso}
         title="Sposta nel cestino di AI Mail (la mail resta sul server)"
-        onClick={(e) => eseguiEsci(e, () => cestinaMessaggio(id))}
+        onClick={(e) => eseguiEsci(e, () => (perThread ? cestinaThread(id) : cestinaMessaggio(id)))}
       >
         Cestina
       </button>
@@ -152,7 +160,7 @@ export function AzioniRiga({
           className="azione-riga"
           disabled={inCorso}
           title="Sposta nello SPAM (posta indesiderata)"
-          onClick={(e) => eseguiEsci(e, () => segnalaSpam(id))}
+          onClick={(e) => eseguiEsci(e, () => (perThread ? segnalaSpamThread(id) : segnalaSpam(id)))}
         >
           Spam
         </button>

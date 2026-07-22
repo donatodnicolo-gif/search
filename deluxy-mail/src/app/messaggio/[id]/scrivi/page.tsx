@@ -4,7 +4,6 @@ import { db } from '@/lib/db'
 import { modoValido, preparaRisposta, TITOLI } from '@/lib/rispondi'
 import { Composizione } from '@/components/Composizione'
 import { richiediUtente } from '@/lib/sessione'
-import { traduciMessaggioSeServe } from '@/lib/sync'
 import { leggiSenzaTraduzione, lingueLetteDi } from '@/lib/lingue'
 import { elencoContatti } from '@/lib/contatti'
 
@@ -43,12 +42,14 @@ export default async function Scrivi({ params, searchParams }: Props) {
       })
 
   // Se la mail è straniera E in una lingua che l'utente NON legge, la risposta
-  // si scrive in italiano e si traduce all'invio. Se invece la lingua è fra
-  // quelle lette (es. l'inglese), l'utente risponde direttamente: niente banner
-  // e niente traduzione — stessa regola della traduzione in arrivo.
-  const { lingua } = await traduciMessaggioSeServe(messaggio.id, u.id)
+  // si scrive in italiano e si traduce all'invio. Si usa la lingua GIÀ NOTA del
+  // messaggio: NON si fa una traduzione AI qui (bloccava l'apertura della
+  // pagina). La traduzione all'invio la fa comunque inviaMessaggio.
+  const lingua = messaggio.lingua
   const rispostaTradotta =
-    modo !== 'inoltra' && !leggiSenzaTraduzione(lingua, lingueLetteDi(u.lingueLette)) ? lingua : null
+    modo !== 'inoltra' && lingua !== null && !leggiSenzaTraduzione(lingua, lingueLetteDi(u.lingueLette))
+      ? lingua
+      : null
 
   const contatti = (await elencoContatti(u.id)).map((c) => ({ email: c.email, nome: c.nome }))
 

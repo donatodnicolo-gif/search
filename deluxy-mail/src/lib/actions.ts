@@ -652,6 +652,40 @@ export async function cestinaThread(messaggioId: string): Promise<{ ok: boolean;
   return { ok: true, messaggio: `${r.count} mail del thread spostate nel cestino.` }
 }
 
+/** Archivia TUTTE le mail del thread, SENZA rinfrescare (flusso "Archivia →
+ *  Sempre?"): in posta in arrivo una riga è un thread, quindi archiviare deve
+ *  togliere l'intera conversazione, non solo il messaggio più recente. */
+export async function archiviaThreadSenzaAggiornare(messaggioId: string) {
+  const utenteId = await uid()
+  const ids = (await messaggiThread(utenteId, messaggioId)).map((m) => m.id)
+  if (ids.length === 0) return
+  await db.messaggio.updateMany({
+    where: { id: { in: ids }, utenteId },
+    data: { archiviato: true, letto: true },
+  })
+}
+
+/** Sposta nello SPAM TUTTE le mail del thread (crea la sezione SPAM se manca). */
+export async function segnalaSpamThread(messaggioId: string): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const ids = (await messaggiThread(utenteId, messaggioId)).map((m) => m.id)
+  if (ids.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
+  let spam = await db.sezione.findFirst({ where: { utenteId, nome: 'SPAM' }, select: { id: true } })
+  if (!spam) {
+    const max = await db.sezione.aggregate({ where: { utenteId }, _max: { ordine: true } })
+    spam = await db.sezione.create({
+      data: { utenteId, nome: 'SPAM', descrizione: 'Posta indesiderata', colore: 'red', ordine: (max._max.ordine ?? 0) + 1 },
+      select: { id: true },
+    })
+  }
+  const r = await db.messaggio.updateMany({
+    where: { id: { in: ids }, utenteId },
+    data: { sezioneId: spam.id, smistatoDa: 'manuale', letto: true },
+  })
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: `${r.count} mail del thread nello SPAM.` }
+}
+
 export async function ripristinaMessaggio(id: string) {
   await db.messaggio.updateMany({
     where: { id, utenteId: await uid() },
@@ -1261,6 +1295,18 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
       })
     }
 
+    // Se ho dato una priorità, la mail inviata viene ANALIZZATA dall'AI (come
+    // quando dai la priorità a una mail in arrivo): riassunto ed eventuali
+    // attività. Best-effort: non deve far fallire l'invio.
+    if (prioritaScelta) {
+      try {
+        const inviato = await db.messaggio.findFirst({ where: { utenteId, messageId }, select: { id: true } })
+        if (inviato) await analizzaMessaggioOra(inviato.id, utenteId)
+      } catch {
+        /* l'analisi si può rifare da "Rianalizza" */
+      }
+    }
+
     if (!inoltro) {
       await db.messaggio.update({ where: { id: messaggioId }, data: { letto: true, serveRisposta: false } })
     }
@@ -1314,6 +1360,16 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
         oggetto,
         thread: messageId,
       })
+    }
+
+    // Priorità → analisi AI della mail inviata (best-effort).
+    if (prioritaScelta) {
+      try {
+        const inviato = await db.messaggio.findFirst({ where: { utenteId, messageId }, select: { id: true } })
+        if (inviato) await analizzaMessaggioOra(inviato.id, utenteId)
+      } catch {
+        /* si può rifare da "Rianalizza" */
+      }
     }
 
     const bozzaId = testo(form, 'bozzaId')
