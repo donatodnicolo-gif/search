@@ -29,16 +29,11 @@ import {
 import { BarChart } from '@/components/BarChart';
 import { AssistenteCard } from '@/components/AssistenteCard';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
+import { PERIODO_DEFAULT, inPeriodo, labelPeriodo, type Periodo } from '@/lib/periodo';
+import { PeriodoSelector } from '@/components/PeriodoSelector';
 import { PageIntro } from '@/components/ui';
 import { StatCard } from '@/components/StatCard';
 import { SyncBadge } from '@/components/SyncBadge';
-
-const PERIODI: { label: string; giorni: number }[] = [
-  { label: '7 giorni', giorni: 7 },
-  { label: '30 giorni', giorni: 30 },
-  { label: '90 giorni', giorni: 90 },
-  { label: 'Tutto', giorni: 0 },
-];
 
 const FASI: DealStage[] = [
   'appointmentscheduled',
@@ -64,7 +59,7 @@ export default function Dashboard() {
   const [venditore, setVenditore] = useState<string>('tutti'); // ownerId
   const [linea, setLinea] = useState<string>('tutte');
   const [fase, setFase] = useState<string>('tutte'); // stato trattativa
-  const [periodoGiorni, setPeriodoGiorni] = useState(30); // periodo per la prospezione (visite)
+  const [periodo, setPeriodo] = useState<Periodo>(PERIODO_DEFAULT); // periodo per la prospezione (visite)
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -120,16 +115,14 @@ export default function Dashboard() {
     [deals, zona, venditore, linea, fase],
   );
   const visitsF = useMemo(
-    () => {
-      const soglia = periodoGiorni ? Date.now() - periodoGiorni * 24 * 60 * 60 * 1000 : 0;
-      return visits.filter((v) => {
-        if (soglia && new Date(v.data).getTime() < soglia) return false;
+    () =>
+      visits.filter((v) => {
+        if (!inPeriodo(v.data, periodo)) return false;
         if (venditore !== 'tutti' && (v.owner ?? null) !== venditore) return false;
         if (!passaFiltroCitta(zonaPerPlace.get(v.place_id), zona === 'tutte' ? null : zona)) return false;
         return true;
-      });
-    },
-    [visits, venditore, zona, zonaPerPlace, periodoGiorni],
+      }),
+    [visits, venditore, zona, zonaPerPlace, periodo],
   );
   const placesF = useMemo(
     () =>
@@ -154,7 +147,7 @@ export default function Dashboard() {
   const valLineaBar = useMemo(() => valorePerLinea(dealsF), [dealsF]);
 
   const filtriAttivi = zona !== 'tutte' || venditore !== 'tutti' || linea !== 'tutte' || fase !== 'tutte';
-  const periodoLabel = PERIODI.find((p) => p.giorni === periodoGiorni)?.label ?? 'Tutto';
+  const periodoLabel = labelPeriodo(periodo);
 
   return (
     <View style={styles.container}>
@@ -186,11 +179,7 @@ export default function Dashboard() {
             </Pressable>
           ) : null}
         </View>
-        <FiltroRiga label="Periodo (prospezione)">
-          {PERIODI.map((p) => (
-            <Chip key={p.label} label={p.label} on={periodoGiorni === p.giorni} onPress={() => setPeriodoGiorni(p.giorni)} />
-          ))}
-        </FiltroRiga>
+        <PeriodoSelector titolo="Periodo (prospezione)" periodo={periodo} onChange={setPeriodo} />
         <FiltroRiga label="Città">
           {OPZIONI_CITTA.map((z) => (
             <Chip
@@ -241,7 +230,7 @@ export default function Dashboard() {
         <StatCard label={`Visite (${periodoLabel})`} valore={visitsF.length} sub={`${visiteUltimi7Giorni(visitsF)} negli ultimi 7 gg`} accent />
         <StatCard label="Da ricontattare" valore={richiami.length} sub={inRitardo ? `${inRitardo} in ritardo` : undefined} />
       </View>
-      <BarChart titolo="Visite per settimana" data={visitePerSettimana(visitsF)} />
+      <BarChart titolo="Visite per settimana" data={visitePerSettimana(visitsF)} height={130} />
       <View style={{ height: spacing.md }} />
       <Sezione titolo="Copertura zone">
         {cop.length === 0 ? (
@@ -271,9 +260,9 @@ export default function Dashboard() {
         <StatCard label="Win rate" valore={`${win.pct}%`} sub={`${win.num}/${win.den}`} />
         <StatCard label="Perso" valore={eur(val.perso)} sub={`${val.nPersi} chiuse`} />
       </View>
-      <BarChart titolo="Trattative per stato" data={faseBar} />
+      <BarChart titolo="Trattative per stato" data={faseBar} height={130} />
       <View style={{ height: spacing.md }} />
-      <BarChart titolo="Valore atteso per linea (€)" data={valLineaBar} />
+      <BarChart titolo="Valore atteso per linea (€)" data={valLineaBar} height={130} />
 
       <Sezione titolo={`Chiuse perse da recuperare (${perse.length})`}>
         {perse.length === 0 ? (
