@@ -8,6 +8,7 @@ import { nomeMese, commissione, dovutoVendita, ivato, MESI } from "@/lib/calc";
 import { segnaFatturaPagata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
+import { FattureFicPartner } from "@/components/FattureFicPartner";
 import { ContattoAmministrativo } from "@/components/ContattoAmministrativo";
 import { PagamentoMese } from "@/components/PagamentoMese";
 import { RecapAI } from "@/components/RecapAI";
@@ -135,6 +136,10 @@ export default async function PartnerDetail({
         }
       >
         <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <FattureFicPartner partnerId={id} partnerNome={partner.nome} />
       </Suspense>
 
       <h2 className="section-title">Fee nel tempo</h2>
