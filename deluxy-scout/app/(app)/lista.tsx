@@ -113,10 +113,20 @@ function Riga({ place, onPress, onNascondi }: { place: Place; onPress: () => voi
         </View>
       ) : null}
       {place.indirizzo ? <Text style={styles.indirizzo} numberOfLines={1}>{place.indirizzo}</Text> : null}
-      {place.creato_da_nome ? (
-        <Text style={styles.inserito} numberOfLines={1}>
-          <Ionicons name="person-outline" size={11} color={colors.grigio} /> Inserito da {place.creato_da_nome}
-        </Text>
+      {(place.anagrafiche_account || place.creato_da_nome) ? (
+        <View style={styles.metaPersone}>
+          {place.anagrafiche_account ? (
+            <View style={styles.accountTag}>
+              <Ionicons name="briefcase-outline" size={11} color={colors.goldStrong} />
+              <Text style={styles.accountTagTxt} numberOfLines={1}>Account: {place.anagrafiche_account}</Text>
+            </View>
+          ) : null}
+          {place.creato_da_nome ? (
+            <Text style={styles.inserito} numberOfLines={1}>
+              <Ionicons name="person-outline" size={11} color={colors.grigio} /> Inserito da {place.creato_da_nome}
+            </Text>
+          ) : null}
+        </View>
       ) : null}
     </Pressable>
   );
@@ -160,6 +170,17 @@ const styles = StyleSheet.create({
   },
   lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12 },
   indirizzo: { fontSize: 13, color: colors.grigio },
+  metaPersone: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 2 },
+  accountTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.goldSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  accountTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12 },
   inserito: { fontSize: 12, color: colors.grigio, fontWeight: '600' },
   fab: {
     position: 'absolute',
