@@ -216,19 +216,53 @@ export async function updateFattura(id: string, fd: FormData) {
   redirect(`/fatture/${id}?salvato=1`);
 }
 
+// Storna dal saldo del mese l'incasso registrato automaticamente da «Saldata»
+// (solo se era stato registrato: incassoRegistrato=true). Riporta bonificoImporto
+// al valore precedente; se torna ~0 lo azzera del tutto.
+async function stornaIncassoAuto(f: { partnerId: string; anno: number; mese: number; incassoRegistrato: boolean; imponibile: number; aliquotaIva: number; pagata: boolean }) {
+  if (!f.incassoRegistrato) return;
+  const s = await prisma.saldoMensile.findUnique({
+    where: { partnerId_anno_mese: { partnerId: f.partnerId, anno: f.anno, mese: f.mese } },
+  });
+  if (!s) return;
+  const nuovo = +(((s.bonificoImporto ?? 0) + ivato(f)).toFixed(2));
+  const saldo = await prisma.saldoMensile.update({
+    where: { id: s.id },
+    data: { bonificoImporto: Math.abs(nuovo) < 0.005 ? null : nuovo, ...(Math.abs(nuovo) < 0.005 ? { bonificoData: null } : {}) },
+  });
+  await aggiornaPagamentoDaSaldo(saldo);
+}
+
+// «Saldata» = bonifico ricevuto in banca per la fattura. Per i partner in
+// COMPENSAZIONE registra anche l'incasso (IVATO) sul saldo del mese: così i soldi
+// veri contano nel residuo e il dovuto vendite resta interamente da pagare
+// (es. maggio: saldata la 488 → incassato 488, e al partner dobbiamo 154,22).
+// Per i partner a partite separate basta il flag pagata (comportamento invariato).
 export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagamento?: string) {
+  const prima = await prisma.fatturaServizio.findUnique({ where: { id }, include: { partner: true } });
+  if (!prima) return;
+  // storna un eventuale incasso auto precedente (cambio stato pulito)
+  await stornaIncassoAuto(prima);
+
+  const dp = pagata ? (dataPagamento ? new Date(dataPagamento + "T00:00:00.000Z") : new Date()) : null;
+  const autoIncasso = pagata && prima.partner.compensazione;
   const f = await prisma.fatturaServizio.update({
     where: { id },
-    data: {
-      pagata,
-      dataPagamento: pagata
-        ? dataPagamento
-          ? new Date(dataPagamento + "T00:00:00.000Z")
-          : new Date()
-        : null,
-    },
+    data: { pagata, compensata: false, dataPagamento: dp, incassoRegistrato: autoIncasso },
     include: { partner: true },
   });
+  if (autoIncasso) {
+    const s = await prisma.saldoMensile.findUnique({
+      where: { partnerId_anno_mese: { partnerId: f.partnerId, anno: f.anno, mese: f.mese } },
+    });
+    const nuovo = +(((s?.bonificoImporto ?? 0) - ivato(f)).toFixed(2));
+    const saldo = await prisma.saldoMensile.upsert({
+      where: { partnerId_anno_mese: { partnerId: f.partnerId, anno: f.anno, mese: f.mese } },
+      create: { partnerId: f.partnerId, anno: f.anno, mese: f.mese, bonificoImporto: nuovo, bonificoData: dp },
+      update: { bonificoImporto: nuovo, bonificoData: dp },
+    });
+    await aggiornaPagamentoDaSaldo(saldo);
+  }
   if (pagata) {
     await registraPagamento({
       tipo: "fattura_servizi",
@@ -243,6 +277,22 @@ export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagame
   } else {
     await rimuoviPagamento("fattura_servizi", f.id);
   }
+  revalidateAll();
+}
+
+// «Compensata» = quell'importo NON arriva in banca: resta un credito verso il
+// partner che viene scalato dai prossimi importi a lui dovuti finché è coperto.
+// Nessun incasso registrato: il motore (fatture IVATE − dovuto vendite) fa già
+// la compensazione; il flag documenta la scelta e toglie la fattura da «da incassare».
+export async function segnaFatturaCompensata(id: string, compensata: boolean) {
+  const prima = await prisma.fatturaServizio.findUnique({ where: { id } });
+  if (!prima) return;
+  await stornaIncassoAuto(prima);
+  await prisma.fatturaServizio.update({
+    where: { id },
+    data: { compensata, pagata: false, dataPagamento: null, incassoRegistrato: false },
+  });
+  await rimuoviPagamento("fattura_servizi", id);
   revalidateAll();
 }
 

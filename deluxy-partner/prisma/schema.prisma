@@ -103,6 +103,12 @@ model FatturaServizio {
   imponibile    Float // netto IVA
   aliquotaIva   Float              @default(22)
   pagata        Boolean            @default(false)
+  // In compensazione: la fattura NON viene pagata in banca, ma scalata dai
+  // prossimi importi dovuti al partner finché non è coperta.
+  compensata    Boolean            @default(false)
+  // true se "Saldata" ha registrato in automatico l'incasso (IVATO) sul saldo
+  // del mese: serve per stornarlo correttamente se si riapre la fattura.
+  incassoRegistrato Boolean        @default(false)
   dataPagamento DateTime?
   descrizione   String?
   sollecitoInviatoIl DateTime? // ultimo sollecito di pagamento inviato

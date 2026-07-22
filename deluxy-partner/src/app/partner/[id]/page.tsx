@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, commissione, dovutoVendita, ivato, MESI } from "@/lib/calc";
-import { segnaFatturaPagata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
+import { segnaFatturaPagata, segnaFatturaCompensata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
@@ -308,22 +308,52 @@ export default async function PartnerDetail({
                       <td>
                         <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                           {f.pagata ? (
-                            <span className="badge green">
-                              <span className="dot" />
-                              Saldata{f.dataPagamento ? ` ${dataIt(f.dataPagamento)}` : ""}
-                            </span>
+                            <>
+                              <span className="badge green">
+                                <span className="dot" />
+                                Saldata{f.dataPagamento ? ` ${dataIt(f.dataPagamento)}` : ""}
+                              </span>
+                              <form action={segnaFatturaPagata.bind(null, f.id, false, undefined)}>
+                                <button className="btn small secondary" type="submit" title="Riporta da incassare (storna anche l'incasso registrato)">
+                                  Riapri
+                                </button>
+                              </form>
+                            </>
+                          ) : f.compensata ? (
+                            <>
+                              <span className="badge blue">
+                                <span className="dot" />
+                                In compensazione
+                              </span>
+                              <form action={segnaFatturaCompensata.bind(null, f.id, false)}>
+                                <button className="btn small secondary" type="submit" title="Riporta da incassare">
+                                  Riapri
+                                </button>
+                              </form>
+                            </>
                           ) : (
-                            <span className="badge orange"><span className="dot" />Da incassare</span>
+                            <>
+                              <span className="badge orange"><span className="dot" />Da incassare</span>
+                              <form action={segnaFatturaPagata.bind(null, f.id, true, undefined)} style={{ display: "inline" }}>
+                                <button
+                                  className="btn small secondary"
+                                  type="submit"
+                                  title="Bonifico RICEVUTO in banca: registra l'incasso; il dovuto vendite resta interamente da pagare al partner"
+                                >
+                                  Saldata
+                                </button>
+                              </form>
+                              <form action={segnaFatturaCompensata.bind(null, f.id, true)} style={{ display: "inline" }}>
+                                <button
+                                  className="btn small secondary"
+                                  type="submit"
+                                  title="NIENTE bonifico: l'importo viene scalato dai prossimi dovuti al partner finché è coperto"
+                                >
+                                  Compensata
+                                </button>
+                              </form>
+                            </>
                           )}
-                          <form action={segnaFatturaPagata.bind(null, f.id, !f.pagata, undefined)}>
-                            <button
-                              className="btn small secondary"
-                              type="submit"
-                              title={f.pagata ? "Segna di nuovo da incassare" : "Il partner ha saldato questa fattura (data odierna)"}
-                            >
-                              {f.pagata ? "Riapri" : "Hanno saldato"}
-                            </button>
-                          </form>
                         </span>
                       </td>
                       <td className="num">
