@@ -1485,9 +1485,15 @@ export type CandidatoAggancio = {
   oggetto: string
   data: Date
   giaNelThread: boolean
+  /** Quanti messaggi nel thread di questa mail (1 = mail singola). */
+  nel: number
 }
 
-/** Cerca fra le tue mail quelle da agganciare a questa conversazione. */
+/**
+ * Cerca fra le tue mail quelle da agganciare a questa conversazione. I risultati
+ * sono RAGGRUPPATI in thread (una voce per conversazione, non per singolo
+ * messaggio) e le conversazioni VERE (più messaggi) vengono mostrate PER PRIME.
+ */
 export async function cercaDaAgganciare(
   messaggioId: string,
   query: string
@@ -1498,6 +1504,8 @@ export async function cercaDaAgganciare(
 
   const nelThread = new Set((await messaggiThread(utenteId, messaggioId)).map((m) => m.id))
 
+  // Finestra larga: prendo abbastanza mail da ricostruire i thread, poi
+  // raggruppo. I campi servono al raggruppamento (thread/oggetto/manuale/scollegato).
   const trovati = await db.messaggio.findMany({
     where: {
       utenteId,
@@ -1509,13 +1517,36 @@ export async function cercaDaAgganciare(
       ],
     },
     orderBy: { data: 'desc' },
-    take: 15,
-    select: { id: true, mittente: true, mittenteNome: true, oggetto: true, data: true },
+    take: 120,
+    select: {
+      id: true, mittente: true, mittenteNome: true, oggetto: true, data: true,
+      thread: true, threadManuale: true, scollegato: true,
+    },
   })
 
-  return trovati
-    .filter((m) => m.id !== messaggioId)
-    .map((m) => ({ ...m, giaNelThread: nelThread.has(m.id) }))
+  const gruppi = raggruppa(trovati)
+  const candidati = gruppi
+    .map((g) => {
+      // Il "volto" del thread: il messaggio più recente NON già nella
+      // conversazione di partenza (se tutti lo sono, si salta il gruppo).
+      const fuori = g.filter((m) => !nelThread.has(m.id) && m.id !== messaggioId)
+      if (fuori.length === 0) return null
+      const volto = fuori[fuori.length - 1]
+      return {
+        id: volto.id,
+        mittente: volto.mittente,
+        mittenteNome: volto.mittenteNome,
+        oggetto: volto.oggetto,
+        data: volto.data,
+        giaNelThread: false,
+        nel: g.length,
+      }
+    })
+    .filter((x): x is CandidatoAggancio => x !== null)
+
+  // I thread veri (più messaggi) prima; a parità, i più recenti.
+  candidati.sort((a, b) => b.nel - a.nel || b.data.getTime() - a.data.getTime())
+  return candidati.slice(0, 20)
 }
 
 /**

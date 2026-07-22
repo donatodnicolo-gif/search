@@ -104,7 +104,12 @@ export function AgganciaMail({
                 risultati.map((r) => (
                   <div key={r.id} className="aggancio-riga">
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{r.oggetto || '(senza oggetto)'}</div>
+                      <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span>{r.oggetto || '(senza oggetto)'}</span>
+                        {r.nel > 1 && (
+                          <span className="badge neutral" style={{ flexShrink: 0 }}>{r.nel} messaggi</span>
+                        )}
+                      </div>
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
                         {r.mittenteNome || r.mittente} · {dataBreve(r.data)}
                       </div>
