@@ -22,10 +22,7 @@ export function MailContattoCard({ emails }: { emails: string[] }) {
   const [msg, setMsg] = useState<MailMessaggio[]>([]);
 
   useEffect(() => {
-    if (!distinte.length) {
-      setStato('vuoto');
-      return;
-    }
+    if (!distinte.length) return; // nessun contatto con email da controllare
     let vivo = true;
     setStato('loading');
     Promise.all(distinte.map((e) => mailDaContatto(e, 10)))
@@ -44,8 +41,8 @@ export function MailContattoCard({ emails }: { emails: string[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chiave]);
 
-  // Niente contatti con email o nessuna mail: la sezione non compare.
-  if (stato === 'vuoto') return null;
+  // Nessun contatto con email: la sezione non compare affatto.
+  if (!distinte.length) return null;
 
   return (
     <View style={styles.card}>
@@ -55,6 +52,8 @@ export function MailContattoCard({ emails }: { emails: string[] }) {
       </View>
       {stato === 'loading' ? (
         <ActivityIndicator color={colors.testoSoft} size="small" style={{ alignSelf: 'flex-start', marginTop: 4 }} />
+      ) : stato === 'vuoto' ? (
+        <Text style={styles.vuoto}>Nessuna conversazione recente con questo contatto (controllato anche sul server di posta).</Text>
       ) : (
         msg.map((m) => (
           <Pressable
@@ -73,7 +72,7 @@ export function MailContattoCard({ emails }: { emails: string[] }) {
           </Pressable>
         ))
       )}
-      <Text style={styles.nota}>Ultime mail ricevute · da AI Mail.</Text>
+      {stato === 'ok' ? <Text style={styles.nota}>Ultime mail ricevute · da AI Mail.</Text> : null}
     </View>
   );
 }
@@ -90,4 +89,5 @@ const styles = StyleSheet.create({
   nonLetto: { color: colors.testo, fontWeight: '800' },
   anteprima: { color: colors.grigio, fontSize: 12.5 },
   nota: { color: colors.grigio, fontSize: 11, fontStyle: 'italic' },
+  vuoto: { color: colors.grigio, fontSize: 13, fontStyle: 'italic' },
 });
