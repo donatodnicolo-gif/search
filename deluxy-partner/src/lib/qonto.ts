@@ -29,6 +29,8 @@ async function qontoFetch<T>(path: string): Promise<T> {
   }
   const res = await fetch(`${BASE}${path}`, {
     headers: { Authorization: `${login}:${secretKey}` },
+    // timeout: una richiesta Qonto appesa non deve bloccare il render della pagina
+    signal: AbortSignal.timeout(12000),
   });
   if (res.status === 401) {
     throw new Error("Credenziali Qonto non valide (401): ricontrolla login e secret key.");

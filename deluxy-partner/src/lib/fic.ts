@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "./db";
 
 // Integrazione Fatture in Cloud (API v2) — app "FINANCE".
@@ -102,6 +103,7 @@ async function ficAccessToken(): Promise<string> {
 
 export async function ficFetch<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   const token = await ficAccessToken();
+  // timeout: una richiesta FIC appesa non deve bloccare l'intero render della pagina
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
@@ -109,6 +111,7 @@ export async function ficFetch<T = unknown>(path: string, init?: RequestInit): P
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
+    signal: init?.signal ?? AbortSignal.timeout(12000),
   });
   if (!res.ok) {
     throw new Error(`Fatture in Cloud ${path} → ${res.status}: ${(await res.text()).slice(0, 300)}`);
@@ -499,3 +502,22 @@ export async function ficSelezionaAzienda(): Promise<{ id: number; name: string 
   await salva("fic.companyName", scelta.name);
   return scelta;
 }
+
+// ————— Cache dei listati FIC (per le pagine che li mostrano) —————
+// I clienti FIC e le fatture emesse cambiano di rado ma costano molte chiamate
+// paginate in serie: qui le memorizziamo 5 minuti così il render (e i ricarichi)
+// sono immediati. Le usano le pagine di sola lettura; le azioni (creazione,
+// riconciliazione) continuano a usare le versioni non cachate per avere dati freschi.
+export const ficClientiCached = unstable_cache(async () => ficClienti(), ["fic-clienti"], {
+  revalidate: 300,
+  tags: ["fic"],
+});
+export const ficClientiFatturabiliCached = unstable_cache(async () => ficClientiFatturabili(), ["fic-clienti-fatturabili"], {
+  revalidate: 300,
+  tags: ["fic"],
+});
+export const ficFattureCached = unstable_cache(
+  async (opts?: { anno?: number; q?: string; maxPagine?: number }) => ficFatture(opts),
+  ["fic-fatture"],
+  { revalidate: 300, tags: ["fic"] }
+);

@@ -75,6 +75,8 @@ model TransazioneBancaria {
   createdAt   DateTime @default(now())
 
   @@index([stato, data])
+  @@index([partnerId])
+  @@index([importo])
 }
 
 // Tipologia di servizio (aree del foglio "Piano Per Area")
@@ -109,6 +111,8 @@ model FatturaServizio {
 
   @@index([partnerId, anno, mese])
   @@index([pagata, scadenza])
+  @@index([anno])
+  @@index([tipologiaId])
 }
 
 // Servizi come vendor: vendite fatte da Deluxy per conto del partner
@@ -129,6 +133,7 @@ model VenditaVendor {
   updatedAt    DateTime @updatedAt
 
   @@index([partnerId, anno, mese])
+  @@index([anno])
 }
 
 // Chiusura mensile partner (blocchi "Extra" + "Saldi" del foglio):
@@ -153,6 +158,7 @@ model SaldoMensile {
   updatedAt       DateTime  @updatedAt
 
   @@unique([partnerId, anno, mese])
+  @@index([anno])
 }
 
 // Pro-forma: documento non fiscale inviato al partner prima della fattura vera.
@@ -194,6 +200,8 @@ model ProFormaRiga {
   quantita      Float    @default(1)
   prezzoUnitario Float // netto IVA
   aliquotaIva   Float    @default(22)
+
+  @@index([proFormaId])
 }
 
 // Pagamento diretto a un fornitore: i dati beneficiario vengono letti da una

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
@@ -123,7 +124,18 @@ export default async function PartnerDetail({
 
       <ContattoAmministrativo partner={partner} fattureAperte={fattureAperte} />
 
-      <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} />
+      <Suspense
+        fallback={
+          <>
+            <h2 className="section-title">Anagrafica dal registro centralizzato</h2>
+            <div className="card">
+              <span className="muted" style={{ fontSize: 13.5 }}>Carico l&apos;anagrafica dal registro…</span>
+            </div>
+          </>
+        }
+      >
+        <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} />
+      </Suspense>
 
       <h2 className="section-title">Fee nel tempo</h2>
       <div className="card">

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { risolviAnagrafica } from "@/lib/anagrafiche";
-import { ficStato, ficClientiFatturabili, ficEntityUltimaFattura, ficCreaFattura, type RigaFattura, type FicEntity } from "@/lib/fic";
+import { ficStato, ficClientiFatturabiliCached, ficEntityUltimaFattura, ficCreaFattura, type RigaFattura, type FicEntity } from "@/lib/fic";
 import { RigheProForma } from "@/components/RigheProForma";
 
 export const dynamic = "force-dynamic";
@@ -129,7 +129,7 @@ export default async function NuovaFatturaCloud({
     ficStato(),
     prisma.partner.findMany({ where: { attivo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
   ]);
-  const clienti = stato.collegato ? await ficClientiFatturabili().catch(() => []) : [];
+  const clienti = stato.collegato ? await ficClientiFatturabiliCached().catch(() => []) : [];
   const oggi = new Date().toISOString().slice(0, 10);
 
   return (

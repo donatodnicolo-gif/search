@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { ivato, nomeMese } from "@/lib/calc";
 import { totaliProForma, importoRiga, rifProForma } from "@/lib/proforma";
-import { ficStato, ficClienti, ficCreaFattura, type RigaFattura } from "@/lib/fic";
+import { ficStato, ficClientiCached, ficCreaFattura, type RigaFattura } from "@/lib/fic";
 import { matchPartner } from "@/lib/riconciliazione";
 import type { Partner } from "@prisma/client";
 
@@ -144,7 +144,7 @@ export default async function EmettiFatturaPage({
   }
 
   const tot = totaliProForma(righe);
-  const clienti = stato.collegato ? await ficClienti().catch(() => []) : [];
+  const clienti = stato.collegato ? await ficClientiCached().catch(() => []) : [];
   // preseleziona il cliente FIC col nome più simile al partner (match a parole
   // intere in entrambi i versi: "MOSCATI SRL" ↔ "BELLAVIA (MOSCATI SRL)")
   const comePartner = (nome: string) => ({ nome }) as Partner;

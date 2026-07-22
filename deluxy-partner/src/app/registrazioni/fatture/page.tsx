@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { ANNO_CORRENTE } from "@/lib/queries";
-import { ficStato, ficFatture, type FicFattura } from "@/lib/fic";
+import { ficStato, ficFattureCached, type FicFattura } from "@/lib/fic";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export default async function FattureCloudPage({
   let errore: string | null = null;
   if (stato.collegato) {
     try {
-      fatture = await ficFatture({ anno, q: q || undefined });
+      fatture = await ficFattureCached({ anno, q: q || undefined });
     } catch (e) {
       errore = (e as Error).message;
     }

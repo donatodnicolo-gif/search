@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { riepilogoPartner } from "@/lib/queries";
 import { euro } from "@/lib/format";
 import { nomeMese } from "@/lib/calc";
-import { ficStato, ficClienti, ficCreaFattura } from "@/lib/fic";
+import { ficStato, ficClientiCached, ficCreaFattura } from "@/lib/fic";
 import { matchPartner } from "@/lib/riconciliazione";
 import type { Partner } from "@prisma/client";
 
@@ -64,11 +64,11 @@ export default async function EmettiPage({
   const r = mesi[mese - 1].riepilogo;
   const saldo = mesi[mese - 1].saldo;
 
-  let clienti: Awaited<ReturnType<typeof ficClienti>> = [];
+  let clienti: Awaited<ReturnType<typeof ficClientiCached>> = [];
   let erroreFic: string | null = null;
   if (fic.collegato) {
     try {
-      clienti = await ficClienti();
+      clienti = await ficClientiCached();
     } catch (e) {
       erroreFic = (e as Error).message;
     }
