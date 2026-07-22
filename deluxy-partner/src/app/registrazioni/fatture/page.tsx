@@ -141,10 +141,29 @@ export default async function FattureCloudPage({
                             <span className="badge orange"><span className="dot" />Da incassare</span>
                           )}
                         </td>
-                        <td style={{ whiteSpace: "nowrap" }}>
+                        <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
+                          {/* Apri il DOCUMENTO nell'app Fatture in Cloud (se già
+                              inviata è in sola lettura, altrimenti modificabile/inviabile).
+                              Il PDF resta a portata come link separato. */}
+                          <a
+                            className="btn small secondary"
+                            href={`https://secure.fattureincloud.it/invoices/view/${f.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ marginRight: 6 }}
+                            title="Apri la fattura in Fatture in Cloud"
+                          >
+                            Apri su FIC
+                          </a>
                           {f.urlDettaglio && (
-                            <a className="btn small secondary" href={f.urlDettaglio} target="_blank" rel="noopener noreferrer">
-                              Apri su FIC
+                            <a
+                              href={f.urlDettaglio}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ fontSize: 12.5, color: "var(--blue)" }}
+                              title="Apri il PDF della fattura"
+                            >
+                              PDF
                             </a>
                           )}
                         </td>
