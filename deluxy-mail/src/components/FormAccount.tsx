@@ -34,6 +34,12 @@ const PRESET: Record<string, { imapHost: string; smtpHost: string; nota?: string
 // per questi la verifica del NOME sul certificato va saltata di default.
 const CERT_DA_IGNORARE = new Set(['Register'])
 
+// Host noti col certificato "sbagliato" (intestato a un altro dominio): per
+// questi conviene attivare da soli l'opzione, qualunque preset sia scelto.
+function hostConCertDiverso(host: string): boolean {
+  return /register\.it$/i.test(host.trim())
+}
+
 const PRESET_INIZIALE = 'SecureMail (deluxy.it)'
 
 export function FormAccount() {
@@ -103,7 +109,11 @@ export function FormAccount() {
             name="imapHost"
             required
             value={imapHost}
-            onChange={(e) => setImapHost(e.target.value)}
+            onChange={(e) => {
+              setImapHost(e.target.value)
+              // Host register.it → attiva da sola l'opzione "ignora certificato".
+              if (hostConCertDiverso(e.target.value)) setIgnoraCert(true)
+            }}
           />
         </div>
         <div>
