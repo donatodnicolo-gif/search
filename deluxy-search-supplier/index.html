@@ -76,10 +76,12 @@
   @media(min-width:640px){.row-2{grid-template-columns:1fr 1fr}.row-3{grid-template-columns:2fr 1fr 1fr}}
   .searchbar{margin-top:14px}
   .catbtns{display:flex; gap:8px; flex-wrap:wrap}
-  .chip{flex:1; min-width:130px; text-align:center; padding:11px; border-radius:var(--radius-pill); cursor:pointer;
+  .chip,.wchip{flex:1; min-width:130px; text-align:center; padding:11px; border-radius:var(--radius-pill); cursor:pointer;
         border:1px solid var(--hairline-strong); background:var(--surface); color:var(--text-secondary); font-weight:600;
         user-select:none; transition:.15s var(--ease)}
-  .chip.active{color:#fff; background:var(--ink); border-color:transparent}
+  .chip.active,.wchip.active{color:#fff; background:var(--ink); border-color:transparent}
+  /* .wchip = stessa pillola di .chip ma SENZA i listener globali delle categorie */
+  .wchip{min-width:0; padding:9px 12px; font-size:13px}
   .btn{border:0; border-radius:var(--radius-pill); padding:13px 18px; font-size:15px; font-weight:600; cursor:pointer;
        background:var(--ink); color:#fff; width:100%; transition:background .18s var(--ease), transform .15s var(--ease)}
   .btn:hover{background:var(--ink-hover)}
@@ -546,9 +548,15 @@
       </div>
     </div>
 
-    <label style="display:flex; align-items:center; gap:8px; margin-top:12px; cursor:pointer; font-size:13px; color:var(--text)">
-      <input type="checkbox" id="onlyWa" style="width:auto"> 📱 Mostra solo probabili WhatsApp (cellulari)
-    </label>
+    <div style="margin-top:12px">
+      <label>WhatsApp</label>
+      <div id="waFilter" style="display:flex; gap:6px">
+        <button class="wchip active" data-wa="tutti" type="button">Tutti</button>
+        <button class="wchip" data-wa="con" type="button">📱 Con WhatsApp</button>
+        <button class="wchip" data-wa="senza" type="button">☎️ Senza WhatsApp</button>
+      </div>
+      <div class="hint" style="margin-top:4px">«Con» = cellulari (WhatsApp probabile); «Senza» = fissi o senza numero. Le schede del registro restano sempre visibili.</div>
+    </div>
 
     <div style="margin-top:14px">
       <button class="btn" id="go">🔎 Cerca in zona</button>
@@ -1720,19 +1728,28 @@ function updateDeal(){
   }
   prefetchPhoto(url);
 }
-// filtro "solo probabili WhatsApp"
+// filtro WhatsApp: tutti / con (cellulare = WhatsApp probabile) / senza (fisso o niente numero)
+let waFiltro = 'tutti';
 function applyWaFilter(){
-  const only = $('#onlyWa').checked;
   let shown=0;
   resultsEl.querySelectorAll('.shop').forEach(el=>{
     // le schede del registro anagrafiche restano sempre visibili
-    const hide = only && !el.dataset.registry && el.dataset.wakind!=='mobile';
+    let hide = false;
+    if(!el.dataset.registry){
+      if(waFiltro==='con')   hide = el.dataset.wakind!=='mobile';
+      if(waFiltro==='senza') hide = el.dataset.wakind==='mobile';
+    }
     el.style.display = hide ? 'none' : '';
     if(!hide) shown++;
   });
   return shown;
 }
-$('#onlyWa').addEventListener('change', applyWaFilter);
+$('#waFilter').addEventListener('click', e=>{
+  const b = e.target.closest('.wchip'); if(!b) return;
+  waFiltro = b.dataset.wa;
+  document.querySelectorAll('#waFilter .wchip').forEach(x=>x.classList.toggle('active', x===b));
+  applyWaFilter();
+});
 
 $('#fetchOrder').addEventListener('click', fetchOrder);
 $('#orderNum').addEventListener('keydown', e=>{ if(e.key==='Enter') fetchOrder(); });

@@ -106,6 +106,12 @@ solo dove siamo e come si lavora.
    le schede Google matchate con riferimento esatto (idEsterno=place_id) hanno il badge
    «🔗 riconciliata».
 
+18. **Filtro WhatsApp a 3 stati** (22/07): il checkbox «solo probabili WhatsApp» è diventato
+   la scelta «Tutti / 📱 Con WhatsApp / ☎️ Senza WhatsApp» (`#waFilter`, `waFiltro`,
+   `applyWaFilter`; con = `wakind==='mobile'`, senza = fissi o senza numero). Le schede del
+   registro restano sempre visibili. NB: le pillole usano la classe **`.wchip`** (stesso stile
+   di `.chip`) apposta per NON prendere i listener globali di `.chip` (toggle categorie).
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
