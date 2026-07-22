@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { dataIt, euro } from "@/lib/format";
 import { ivato } from "@/lib/calc";
 import { ANNO_CORRENTE } from "@/lib/queries";
-import { STATI_TASK, PRIORITA_TASK } from "@/lib/tasks";
+import { STATI_TASK, PRIORITA_TASK, normPriorita, pesoPriorita } from "@/lib/tasks";
 import { creaTask, cambiaStatoTask, eliminaTask } from "@/lib/tasks-actions";
 
 export const dynamic = "force-dynamic";
@@ -43,13 +43,12 @@ export default async function TasksPage({
   const fra7 = new Date(Date.now() + 7 * 86400000);
   // ordina: prima aperti/in corso per scadenza e priorità, poi i fatti
   const pesoStato = (s: string) => (s === "fatto" ? 2 : s === "in_corso" ? 1 : 0);
-  const pesoPri = (p: string) => (p === "alta" ? 0 : p === "media" ? 1 : 2);
   const ordinati = [...tasks].sort((a, b) => {
     if (pesoStato(a.stato) !== pesoStato(b.stato)) return pesoStato(a.stato) - pesoStato(b.stato);
     const sa = a.scadenza?.getTime() ?? Infinity;
     const sb = b.scadenza?.getTime() ?? Infinity;
     if (sa !== sb) return sa - sb;
-    return pesoPri(a.priorita) - pesoPri(b.priorita);
+    return pesoPriorita(a.priorita) - pesoPriorita(b.priorita);
   });
 
   const aperti = tasks.filter((t) => t.stato !== "fatto");
@@ -119,7 +118,7 @@ export default async function TasksPage({
                             <input type="hidden" name="titolo" value={titolo} />
                             <input type="hidden" name="partnerId" value={f.partnerId} />
                             <input type="hidden" name="riferimento" value={f.numero ?? ""} />
-                            <input type="hidden" name="priorita" value="alta" />
+                            <input type="hidden" name="priorita" value="P0" />
                             <input type="hidden" name="scadenza" value={scad} />
                             <button className="btn small primary" type="submit" title="Apri un task di sollecito precompilato">
                               Apri come task
@@ -146,9 +145,13 @@ export default async function TasksPage({
           </div>
           <div>
             <label className="field-label">Priorità</label>
-            <select name="priorita" defaultValue="media">
+            <select name="priorita" defaultValue="P1">
               {Object.entries(PRIORITA_TASK).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="field-label">Assegnata a</label>
+            <input type="text" name="assegnatario" placeholder="es. Nicolò / nome o email" />
           </div>
           <div>
             <label className="field-label">Scadenza</label>
@@ -201,14 +204,14 @@ export default async function TasksPage({
             <table>
               <thead>
                 <tr>
-                  <th>Task</th><th>Partner</th><th>Riferimento</th>
+                  <th>Task</th><th>Assegnata a</th><th>Partner</th><th>Riferimento</th>
                   <th>Priorità</th><th>Scadenza</th><th>Stato</th><th></th>
                 </tr>
               </thead>
               <tbody>
                 {ordinati.map((t) => {
                   const st = STATI_TASK[t.stato] ?? STATI_TASK.aperto;
-                  const pri = PRIORITA_TASK[t.priorita] ?? PRIORITA_TASK.media;
+                  const pri = PRIORITA_TASK[normPriorita(t.priorita)];
                   const scaduto = t.stato !== "fatto" && t.scadenza && t.scadenza < oggi;
                   return (
                     <tr key={t.id} style={t.stato === "fatto" ? { opacity: 0.6 } : undefined}>
@@ -216,6 +219,7 @@ export default async function TasksPage({
                         <div style={{ fontWeight: 500, textDecoration: t.stato === "fatto" ? "line-through" : undefined }}>{t.titolo}</div>
                         {t.note && <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t.note}</div>}
                       </td>
+                      <td style={{ fontSize: 12.5 }}>{t.assegnatario ?? "—"}</td>
                       <td style={{ fontSize: 12.5 }}>
                         {t.partnerId ? <Link href={`/partner/${t.partnerId}`} style={{ color: "var(--blue)" }}>{t.partnerNome}</Link> : "—"}
                       </td>

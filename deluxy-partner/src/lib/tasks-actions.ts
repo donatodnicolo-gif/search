@@ -26,7 +26,8 @@ export async function creaTask(fd: FormData) {
     data: {
       titolo,
       note: s(fd, "note"),
-      priorita: s(fd, "priorita") ?? "media",
+      priorita: s(fd, "priorita") ?? "P1",
+      assegnatario: s(fd, "assegnatario"),
       scadenza: d(fd, "scadenza"),
       partnerId,
       partnerNome: partner?.nome ?? null,

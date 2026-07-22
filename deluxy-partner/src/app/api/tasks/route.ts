@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { chiaveApiValida, appOrigine, ipRichiesta } from "@/lib/apiauth";
+import { normPriorita } from "@/lib/tasks";
 
 // API pubblica: attività finance (task) condivise con gli altri progetti Deluxy.
 //
@@ -21,7 +22,8 @@ function pubblico(t: NonNullable<Task>) {
     titolo: t.titolo,
     note: t.note,
     stato: t.stato,
-    priorita: t.priorita,
+    priorita: normPriorita(t.priorita), // P0 | P1 | P2
+    assegnatario: t.assegnatario,
     scadenza: t.scadenza?.toISOString().slice(0, 10) ?? null,
     partner: t.partnerId ? { id: t.partnerId, nome: t.partnerNome } : null,
     riferimento: t.riferimento,
@@ -54,7 +56,7 @@ export async function GET(req: NextRequest) {
   }
   const partner = await risolviPartner(sp.get("partner")?.trim());
   const stato = sp.get("stato")?.trim() || undefined;
-  const priorita = sp.get("priorita")?.trim() || undefined;
+  const priorita = sp.get("priorita")?.trim() ? normPriorita(sp.get("priorita")) : undefined;
   const tasks = await prisma.taskFinance.findMany({
     where: {
       ...(stato ? { stato } : {}),
@@ -75,6 +77,7 @@ export async function POST(req: NextRequest) {
     titolo?: string;
     note?: string;
     priorita?: string;
+    assegnatario?: string;
     scadenza?: string;
     partner?: string;
     riferimento?: string;
@@ -90,12 +93,14 @@ export async function POST(req: NextRequest) {
 
   const origineApp = appOrigine(req);
   const partner = await risolviPartner(body.partner);
-  const priorita = ["alta", "media", "bassa"].includes(body.priorita ?? "") ? body.priorita! : "media";
+  // accetta P0/P1/P2 (o i vecchi alta/media/bassa, mappati)
+  const priorita = normPriorita(body.priorita);
   const scadenza = body.scadenza ? new Date(body.scadenza + "T00:00:00.000Z") : null;
   const dati = {
     titolo,
     note: body.note?.trim() || null,
     priorita,
+    assegnatario: body.assegnatario?.trim() || null,
     scadenza: scadenza && !isNaN(scadenza.getTime()) ? scadenza : null,
     partnerId: partner?.id ?? null,
     partnerNome: partner?.nome ?? null,

@@ -346,7 +346,8 @@ model TaskFinance {
   titolo       String
   note         String?
   stato        String    @default("aperto") // aperto | in_corso | fatto
-  priorita     String    @default("media") // bassa | media | alta
+  priorita     String    @default("P1") // P0 (urgente) | P1 (media) | P2 (bassa)
+  assegnatario String? // a chi è attribuita l'attività (nome o email)
   scadenza     DateTime?
   partnerId    String?
   partnerNome  String? // snapshot per l'elenco senza join
