@@ -120,16 +120,15 @@ function SezionePreferiti({ onVai }: { onVai: (p: { lat: number; lng: number; in
   const preferiti = usePreferiti();
   if (!preferiti.length) return null;
   return (
-    <View style={styles.sezione}>
-      <Text style={styles.sezioneTitolo}>Preferiti</Text>
+    <View style={styles.prefWrap}>
       {preferiti.map((p) => (
         <View key={p.id} style={styles.prefRow}>
           <Pressable style={styles.prefTap} onPress={() => onVai({ lat: p.lat, lng: p.lng, indirizzo: p.indirizzo })}>
-            <Ionicons name="bookmark" size={16} color={colors.oro} />
+            <Ionicons name="bookmark" size={14} color={colors.oro} />
             <Text style={styles.prefLabel} numberOfLines={1}>{p.etichetta}</Text>
           </Pressable>
           <Pressable hitSlop={8} onPress={() => rimuoviPreferito(p.id)} accessibilityLabel="Rimuovi preferito">
-            <Ionicons name="close" size={16} color={colors.testoSoft} />
+            <Ionicons name="close" size={15} color={colors.testoSoft} />
           </Pressable>
         </View>
       ))}
@@ -176,14 +175,17 @@ function ContenutoDrawer({ admin, espansa = true, onToggle, ...props }: any) {
             <View key={sez.titolo} style={styles.sezione}>
               {espansa ? <Text style={styles.sezioneTitolo}>{sez.titolo}</Text> : <View style={styles.railDivider} />}
               {voci.map((v) => (
-                <VoceMenu key={v.name} voce={v} focused={attuale === v.name} espansa={espansa} onPress={() => props.navigation.navigate(v.name)} />
+                <View key={v.name}>
+                  <VoceMenu voce={v} focused={attuale === v.name} espansa={espansa} onPress={() => props.navigation.navigate(v.name)} />
+                  {/* Preferiti: annidati sotto la voce "Mappa" (solo a menu espanso). */}
+                  {v.name === 'mappa' && espansa ? (
+                    <SezionePreferiti onVai={(p) => props.navigation.navigate('mappa', { lat: String(p.lat), lng: String(p.lng), indirizzo: p.indirizzo })} />
+                  ) : null}
+                </View>
               ))}
             </View>
           );
         })}
-
-        {/* Preferiti: indirizzi salvati dalla Mappa. Solo a menu espanso. */}
-        {espansa ? <SezionePreferiti onVai={(p) => props.navigation.navigate('mappa', { lat: String(p.lat), lng: String(p.lng), indirizzo: p.indirizzo })} /> : null}
       </DrawerContentScrollView>
 
       {/* Footer utente (DS): avatar iniziali su gold-soft, nome + ruolo, logout. */}
@@ -305,9 +307,11 @@ const styles = StyleSheet.create({
   voceLabel: { fontSize: 14, fontWeight: '600', color: colors.testoSoft, letterSpacing: -0.1 },
   voceLabelOn: { color: colors.oro, fontWeight: '700' },
   railDivider: { height: 1, backgroundColor: colors.grigioChiaro, marginHorizontal: 14, marginBottom: 4, marginTop: 2 },
-  prefRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.md },
-  prefTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minWidth: 0 },
-  prefLabel: { flex: 1, fontSize: 13.5, fontWeight: '600', color: colors.testoSoft, letterSpacing: -0.1 },
+  // Preferiti annidati sotto "Mappa": rientrati, con filo verticale a sinistra.
+  prefWrap: { marginLeft: 24, marginRight: 8, borderLeftWidth: 1, borderLeftColor: colors.grigioChiaro, paddingLeft: 6, marginBottom: 2 },
+  prefRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 6, borderRadius: radius.sm },
+  prefTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7, minWidth: 0 },
+  prefLabel: { flex: 1, fontSize: 13, fontWeight: '600', color: colors.testoSoft, letterSpacing: -0.1 },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
