@@ -25,7 +25,7 @@ export default async function PartnerDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ amm?: string; fic?: string }>;
+  searchParams: Promise<{ amm?: string; fic?: string; ficreg?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -127,6 +127,18 @@ export default async function PartnerDetail({
             <span className="badge orange">
               <span className="dot" />Nessun contatto amministrativo trovato nel registro Anagrafiche
             </span>
+          )}
+        </div>
+      )}
+
+      {sp.ficreg && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          {sp.ficreg === "ok" ? (
+            <span className="badge green"><span className="dot" />Fattura FIC registrata come «Servizio a fatturazione» — ora è nei conteggi</span>
+          ) : sp.ficreg === "gia" ? (
+            <span className="badge neutral"><span className="dot" />Quella fattura era già registrata come servizio</span>
+          ) : (
+            <span className="badge orange"><span className="dot" />Dati insufficienti per registrare la fattura</span>
           )}
         </div>
       )}

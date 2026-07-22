@@ -301,6 +301,31 @@ export async function deleteFattura(id: string) {
   revalidateAll();
 }
 
+// Registra una fattura ESISTENTE su Fatture in Cloud come "Servizio a fatturazione"
+// del partner (backfill delle fatture create prima dell'aggancio automatico o non
+// collegate). Idempotente per numero: se esiste già non duplica.
+export async function registraFicComeServizio(partnerId: string, fd: FormData) {
+  const numero = String(fd.get("numero") ?? "").trim() || null;
+  const tipologiaId = String(fd.get("tipologiaId") ?? "").trim();
+  const imponibile = n(fd, "imponibile");
+  const aliquotaIva = n(fd, "aliquotaIva") ?? 22;
+  const anno = n(fd, "anno");
+  const mese = n(fd, "mese");
+  const descrizione = String(fd.get("descrizione") ?? "").trim() || null;
+  if (!tipologiaId || imponibile == null || !anno || !mese) {
+    redirect(`/partner/${partnerId}?ficreg=errore`);
+  }
+  if (numero) {
+    const esiste = await prisma.fatturaServizio.findFirst({ where: { partnerId, numero } });
+    if (esiste) redirect(`/partner/${partnerId}?ficreg=gia#mese-${mese}`);
+  }
+  await prisma.fatturaServizio.create({
+    data: { partnerId, tipologiaId, anno, mese, numero, imponibile, aliquotaIva, descrizione },
+  });
+  revalidateAll();
+  redirect(`/partner/${partnerId}?ficreg=ok#mese-${mese}`);
+}
+
 // ---------- Vendite vendor ----------
 
 export async function createVendita(fd: FormData) {
