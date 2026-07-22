@@ -7,6 +7,7 @@ import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
 import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
 import { mettiFlash } from './Flash'
+import { PRIORITA } from '@/lib/format'
 import type { Modo } from '@/lib/rispondi'
 
 type Props = {
@@ -27,6 +28,8 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
   const [oggetto, setOggetto] = useState(iniziale.oggetto)
   const [corpo, setCorpo] = useState(iniziale.corpo)
   const [allegati, setAllegati] = useState<File[]>([])
+  // Priorità (facoltativa) da dare alla mail che parte: resta sull'inviata.
+  const [priorita, setPriorita] = useState('')
   const [stato, setStato] = useState<{ ok: boolean; messaggio: string } | null>(null)
   // L'invio è irreversibile: prima di partire si conferma.
   const [conferma, setConferma] = useState(false)
@@ -45,6 +48,7 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
     form.set('cc', cc)
     form.set('oggetto', oggetto)
     form.set('corpo', corpo)
+    if (priorita) form.set('priorita', priorita)
     // Gli allegati viaggiano solo con l'invio: le bozze non li conservano.
     if (conAllegati) for (const f of allegati) form.append('allegati', f)
     return form
@@ -114,6 +118,24 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
 
         <div className="full">
           <Allegati files={allegati} onChange={setAllegati} />
+        </div>
+
+        <div className="full">
+          <label className="field-label">Priorità (opzionale)</label>
+          <div className="prio-group" style={{ marginTop: 4 }}>
+            {PRIORITA.map((l) => (
+              <button
+                key={l.codice}
+                type="button"
+                className={`prio-btn ${l.colore} ${priorita === l.codice ? 'attivo' : ''}`}
+                title={l.quando}
+                // Ripremere quella attiva la toglie.
+                onClick={() => setPriorita((p) => (p === l.codice ? '' : l.codice))}
+              >
+                {l.codice}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

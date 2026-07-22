@@ -1129,7 +1129,9 @@ async function registraInviato(
   threadRadice: string | null,
   // Sezione ereditata dall'originale: rispondendo a una mail già in una sezione,
   // anche la risposta finisce nella stessa (così il thread resta insieme).
-  sezioneId: string | null = null
+  sezioneId: string | null = null,
+  // Priorità scelta al momento dell'invio (P0…P3): resta sulla mail inviata.
+  priorita: string | null = null
 ): Promise<string | null> {
   let avviso: string | null = null
 
@@ -1176,6 +1178,8 @@ async function registraInviato(
       letto: true,
       sezioneId,
       smistatoDa: sezioneId ? 'manuale' : null,
+      priorita,
+      prioritaDa: priorita ? 'manuale' : null,
     },
   })
 
@@ -1236,7 +1240,13 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     // Rispondendo, la mia mail eredita la sezione dell'originale (un inoltro no:
     // apre una conversazione nuova).
     const sezioneEreditata = inoltro ? null : originale.sezioneId
-    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, threadRadice, sezioneEreditata)
+    // La priorità scelta al momento dell'invio (facoltativa).
+    const prioritaScelta = CODICI_PRIORITA.includes(testo(form, 'priorita') as never)
+      ? testo(form, 'priorita')
+      : null
+    const avviso = await registraInviato(
+      utenteId, account, daInviare, raw, messageId, threadRadice, sezioneEreditata, prioritaScelta
+    )
 
     if (!inoltro) {
       await db.messaggio.update({ where: { id: messaggioId }, data: { letto: true, serveRisposta: false } })
@@ -1272,7 +1282,10 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
 
     const daInviare: DaInviare = { a, cc, oggetto, corpo: testoPiano, corpoHtml: html, allegati, inRispostaA: null }
     const { raw, messageId } = await spedisci(account, daInviare)
-    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, null)
+    const prioritaScelta = CODICI_PRIORITA.includes(testo(form, 'priorita') as never)
+      ? testo(form, 'priorita')
+      : null
+    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, null, null, prioritaScelta)
 
     const bozzaId = testo(form, 'bozzaId')
     if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId, utenteId } })
