@@ -97,6 +97,15 @@ solo dove siamo e come si lavora.
    Stessa normalizzazione di `enrichCardWithRegistry` (prefisso 39 sui cellulari IT, ≥8 cifre,
    dedupe su ultime 9 cifre); il ripiego «📧 Invia via email» compare solo senza alcun numero WA.
 
+17. **Ordini recenti + riconciliazione sulle schede già nostre** (22/07): a ogni ricerca parte
+   in parallelo un GET /api/storico; su schede del registro e schede Google matchate compare
+   «📦 N richieste ordine inviate — ultima …· #num · brand · canale» (`annotaOrdiniRecenti`,
+   match per nome normalizzato o telefono ultime 9 cifre, solo eventi `richiesta`) oppure
+   «Nessuna richiesta ordine recente». In più: le schede del registro dicono nel footer se
+   sono 🔗 riconciliate con una scheda Google (`p.riferimenti` con sistema `deluxy-suppliers`);
+   le schede Google matchate con riferimento esatto (idEsterno=place_id) hanno il badge
+   «🔗 riconciliata».
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche

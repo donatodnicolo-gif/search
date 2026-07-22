@@ -1219,6 +1219,8 @@ function normName(s){
 // scheda di un partner/prospect del registro, mostrata in cima ai risultati
 function registryCard(p){
   const isPartner = isPartnerAttivo(p);
+  // già riconciliata con una scheda Google? (riferimento esterno di quest'app)
+  const riconc = (p.riferimenti||[]).some(r=>r.sistema==='deluxy-suppliers');
   const digits = (p.telefono||'').replace(/[^\d]/g,'');
   const waDigits = digits ? (digits.length<=10 && digits[0]==='3' ? '39'+digits : digits) : '';
   const hasWa = waDigits.length >= 8;
@@ -1267,7 +1269,7 @@ function registryCard(p){
     ${hasWa ? `<button class="sendorder" data-phone="${waDigits}" data-lang="it">📤 Invia richiesta ordine su WhatsApp${IS_MOBILE?'':' Web'}</button>` : ''}
     ${sendRefs.join('')}
     ${(!hasWa && !sendRefs.length && p.email) ? `<button class="sendemail" data-email="${esc(p.email)}">📧 Invia richiesta via email</button>` : ''}
-    <div class="src">📍 Fonte: <span class="verified">registro anagrafiche Deluxy</span>${p.account?' · account: '+esc(p.account):''}</div>
+    <div class="src">📍 Fonte: <span class="verified">registro anagrafiche Deluxy</span>${p.account?' · account: '+esc(p.account):''} · ${riconc?'<span style="color:var(--green)">🔗 riconciliata con la scheda Google</span>':'🔗 non riconciliata con una scheda Google'}</div>
   `;
   return el;
 }
@@ -2019,6 +2021,42 @@ function enrichCardWithRegistry(card, p){
   contacts.insertAdjacentHTML('afterend',
     `<div class="contacts" style="margin-top:8px"><span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)">🗂 dal registro</span>${rows.join('')}</div>${sendRows.join('')}`);
 }
+// «Usato per ordini recenti»: cerca nello Storico le richieste ordine già inviate
+// a questo negozio (match per nome normalizzato o per numero, ultime 9 cifre)
+// e lo scrive sulla scheda, con l'ultimo ordine e il canale usato.
+function annotaOrdiniRecenti(card, eventi){
+  if(card.dataset.usoAnnotato) return;
+  card.dataset.usoAnnotato = '1';
+  const nn = normName(negozioDaScheda(card).nome);
+  const suff = new Set([...card.querySelectorAll('a.tel')]
+    .map(a=>telDigits(a.getAttribute('href')).slice(-9)).filter(s=>s.length>=8));
+  const evs = (eventi||[]).filter(e=>{
+    if(e.tipo!=='richiesta') return false;
+    const n = e.negozio || {};
+    const en = normName(n.nome||'');
+    if(nn.length>3 && en.length>3 && (en===nn || en.includes(nn) || nn.includes(en))) return true;
+    const et = telDigits(n.telefono||'').slice(-9);
+    return et.length>=8 && suff.has(et);
+  });
+  const div = document.createElement('div');
+  div.className = 'meta';
+  div.style.marginTop = '6px';
+  if(!evs.length){
+    div.style.color = 'var(--text-tertiary)';
+    div.textContent = '📦 Nessuna richiesta ordine recente a questo negozio.';
+  } else {
+    const last = evs[0], o = last.ordine || {};   // lo storico è già dal più recente
+    const nOrdini = new Set(evs.filter(e=>e.ordine&&e.ordine.numero).map(e=>(e.ordine.brand||'')+'#'+e.ordine.numero)).size;
+    const canale = last.canale==='whatsapp' ? 'WhatsApp' : last.canale==='email' ? 'Email' : last.canale;
+    div.innerHTML = `📦 <b>${evs.length===1?'1 richiesta ordine inviata':evs.length+' richieste ordine inviate'}</b>`
+      + (nOrdini>1 ? ` (${nOrdini} ordini)` : '')
+      + ` — ultima ${esc(fmtQuando(last.quando))}`
+      + (o.numero ? ` · #${esc(o.numero)}` : '') + (o.brand ? ' · '+esc(o.brand) : '')
+      + (canale ? ' · '+esc(canale) : '');
+  }
+  const src = card.querySelector('.src');
+  if(src) card.insertBefore(div, src); else card.appendChild(div);
+}
 function apriRiconcilia(btn){
   const card = btn.closest('.shop');
   const panel = card.querySelector('.recon-panel');
@@ -2377,6 +2415,8 @@ async function run(){
 
     // in parallelo alla ricerca Google: partner/prospect già nostri in questa città/provincia
     const anagPromise = anagLookup(geo, [...cats]).catch(err=>({ error: err.message, list:[] }));
+    // e lo Storico, per scrivere sulle schede già nostre se sono state usate per ordini recenti
+    const storicoPromise = apiFetch('/api/storico').then(r=>r.json()).then(j=>j.eventi||[]).catch(()=>[]);
 
     setStatus('Cerco i negozi più vicini…');
     const service = new google.maps.places.PlacesService(document.createElement('div'));
@@ -2449,8 +2489,10 @@ async function run(){
         const isPartner = isPartnerAttivo(p);
         if(isPartner) cardEl.classList.add('matched-partner');
         const col = cardEl.querySelector('.head > div');
+        const riconc = (p.riferimenti||[]).some(r=>r.sistema==='deluxy-suppliers' && r.idEsterno===cardEl.dataset.sid);
         if(col) col.insertAdjacentHTML('afterbegin',
-          `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>`);
+          `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>`
+          + (riconc ? '<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">🔗 riconciliata</span>' : ''));
         // già censito: inutile segnalarlo di nuovo al commerciale
         const rep = cardEl.querySelector('.reportshop');
         if(rep){ rep.disabled = true; rep.textContent = 'ℹ️ Già nel registro · '+statoLabel(p); }
@@ -2459,6 +2501,8 @@ async function run(){
       // schede del registro non presenti tra i risultati Google + schede Google matchate, tutte in cima
       const regCards = anag.list.filter(p=>!matchedIds.has(p.id)).map(registryCard);
       resultsEl.prepend(...regCards, ...matchedCards);
+      // sulle schede già nostre: «usato per ordini recenti?» dallo Storico (best effort)
+      storicoPromise.then(eventi=>{ [...regCards, ...matchedCards].forEach(c=>annotaOrdiniRecenti(c, eventi)); });
       const nPartner = anag.list.filter(isPartnerAttivo).length;
       const nAltri = anag.list.length - nPartner;
       anagNote = anag.list.length
