@@ -16,12 +16,14 @@ import { condizioneSoddisfatta } from './condizioni'
 const ANAGRAFICHE_URL = (process.env.ANAGRAFICHE_URL || 'https://deluxy-anagrafiche.vercel.app').replace(/\/$/, '')
 const FINANCE_URL = (process.env.FINANCE_URL || 'https://deluxy-partner.vercel.app').replace(/\/$/, '')
 const FORNITORI_URL = (process.env.FORNITORI_URL || 'https://search-deluxy.vercel.app').replace(/\/$/, '')
+const COMMERCIALE_URL = (process.env.COMMERCIALE_URL || 'https://fdsziebgkljfsugqqbqd.supabase.co/functions/v1').replace(/\/$/, '')
 
 /** Qual è la chiave (fra quelle di ChiaviApp) che serve a ciascuna app. */
 export const CHIAVE_DI_APP: Record<string, NomeChiaveApp> = {
   Anagrafiche: 'anagrafiche',
   Finance: 'finance',
   Fornitori: 'fornitori',
+  Commerciale: 'commerciale',
 }
 
 // ---------- Tipi ----------
@@ -333,6 +335,60 @@ const AZIONI: AzioneApp[] = [
       )
     },
   },
+  {
+    id: 'commerciale.trattativa',
+    app: 'Commerciale',
+    nome: 'Apri trattativa',
+    descrizione: 'Apre una nuova trattativa nel CRM commerciale per il negozio.',
+    colore: 'green',
+    guida:
+      'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = la linea commerciale (es. Affiliazioni, Consegne, Eventi) se citata, altrimenti null. valoreAtteso = importo previsto SOLO se scritto (numero, senza simboli), altrimenti null. fase = fase della trattativa se chiara, altrimenti null (default lato app). scadenza = data del follow-up (AAAA-MM-GG) se c’è. nextAction = la prossima azione da fare, in una frase.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['negozio', 'linea', 'valoreAtteso', 'fase', 'scadenza', 'nextAction'],
+      properties: {
+        negozio: { type: 'string', description: 'Nome del negozio/attività della trattativa.' },
+        linea: { type: ['string', 'null'], description: 'Linea commerciale (es. Affiliazioni).' },
+        valoreAtteso: { type: ['number', 'null'], description: 'Valore previsto in euro, solo se scritto.' },
+        fase: { type: ['string', 'null'], description: 'Fase della trattativa, se chiara.' },
+        scadenza: { type: ['string', 'null'], description: 'Data follow-up AAAA-MM-GG.' },
+        nextAction: { type: ['string', 'null'], description: 'Prossima azione da fare.' },
+      },
+    },
+    async esegui(dati, ctx) {
+      const negozio = typeof dati.negozio === 'string' ? dati.negozio.trim() : ''
+      if (!negozio) return { ok: false, messaggio: 'Manca il negozio della trattativa.' }
+      const body: Record<string, unknown> = {
+        azione: 'apri',
+        negozio,
+        linea: dati.linea || undefined,
+        valoreAtteso: typeof dati.valoreAtteso === 'number' ? dati.valoreAtteso : undefined,
+        fase: dati.fase || undefined,
+        scadenza: dati.scadenza || undefined,
+        nextAction: dati.nextAction || undefined,
+      }
+      return chiama(
+        `${COMMERCIALE_URL}/trattativa`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': ctx.chiave },
+          body: JSON.stringify(body),
+        },
+        (status, risposta) => {
+          const link =
+            risposta && typeof risposta === 'object'
+              ? ((risposta as Record<string, unknown>).link as string) ?? ((risposta as Record<string, unknown>).url as string) ?? undefined
+              : undefined
+          if (status === 200 || status === 201) return { ok: true, messaggio: `Trattativa aperta per «${negozio}».`, link }
+          if (status === 401 || status === 403)
+            return { ok: false, messaggio: 'Chiave Commerciale non valida: controllala in Impostazioni App.' }
+          if (status === 404) return { ok: false, messaggio: testoErrore(risposta, 'Negozio non trovato in Commerciale.') }
+          return { ok: false, messaggio: testoErrore(risposta, `Commerciale ha risposto ${status}.`) }
+        }
+      )
+    },
+  },
 ]
 
 export function tutteLeAzioni(): AzioneApp[] {
@@ -395,6 +451,11 @@ const META_APP: Record<string, { variabileEnv: string; comeSiOttiene: string }> 
     variabileEnv: 'FORNITORI_PASSWORD',
     comeSiOttiene:
       'La password AMMINISTRATORE dell’app Fornitori (search-deluxy) — quella che sblocca tutte le utenze, non il tuo codice utente personale. È la stessa che useresti nel comando curl «x-app-password».',
+  },
+  Commerciale: {
+    variabileEnv: 'COMMERCIALE_API_KEY',
+    comeSiOttiene:
+      'La chiave x-api-key della Edge Function «trattativa» dell’app Commerciale (Supabase). Va nella cassaforte del Hub o come env COMMERCIALE_API_KEY.',
   },
 }
 
