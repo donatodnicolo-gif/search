@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { prisma } from "./db";
 
 // Integrazione Fatture in Cloud (API v2) — app "FINANCE".
@@ -474,17 +474,19 @@ export async function ficCreaFattura(opts: {
             net_price: +x.prezzoUnitario.toFixed(2),
             vat: { id: idAliquota(x.aliquotaIva ?? 22) },
           })),
-          ...(opts.scadenza
-            ? {
-                payments_list: [
-                  { amount: +totale.toFixed(2), due_date: iso(opts.scadenza), status: "not_paid" },
-                ],
-              }
-            : {}),
+          // Inviamo SEMPRE una scadenza di pagamento "not_paid": senza payments_list
+          // Fatture in Cloud crea il documento come già saldato (amount_due = 0) e
+          // comparirebbe "Saldata" appena creato. Se non c'è una scadenza esplicita,
+          // usiamo la data documento (da incassare subito).
+          payments_list: [
+            { amount: +totale.toFixed(2), due_date: opts.scadenza ? iso(opts.scadenza) : dataDoc, status: "not_paid" },
+          ],
         },
       }),
     }
   );
+  // la nuova fattura deve comparire subito negli elenchi cachati (ficFattureCached)
+  revalidateTag("fic");
   const d = r.data;
   const anno = (d.date ?? dataDoc).slice(0, 4);
   return { id: d.id, numero: `${d.number}${d.numeration?.trim() ? d.numeration : `/${anno}`}` };
