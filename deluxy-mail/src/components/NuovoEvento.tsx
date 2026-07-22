@@ -3,11 +3,14 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { creaEvento } from '@/lib/actions'
+import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
 
 /** Il modulo per annotare un appuntamento nel calendario. */
-export function NuovoEvento() {
+export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] }) {
   const [aperto, setAperto] = useState(false)
   const [giornataIntera, setGiornataIntera] = useState(false)
+  // Gli invitati: campo controllato con l'autocompletamento dalla rubrica.
+  const [invitati, setInvitati] = useState('')
   const [stato, setStato] = useState<{ ok: boolean; testo: string } | null>(null)
   const [inCorso, start] = useTransition()
   const form = useRef<HTMLFormElement>(null)
@@ -20,6 +23,7 @@ export function NuovoEvento() {
       setStato({ ok: esito.ok, testo: esito.messaggio })
       if (esito.ok) {
         form.current?.reset()
+        setInvitati('')
         setAperto(false)
         router.refresh()
       }
@@ -88,8 +92,16 @@ export function NuovoEvento() {
           </div>
 
           <div className="full">
-            <label className="field-label">Invita (email, separate da virgola)</label>
-            <input type="text" name="invitati" placeholder="Es. mario@rossi.it, anna@bianchi.it (opzionale)" />
+            <label className="field-label">Invita (dalla rubrica, o scrivi l’email)</label>
+            {/* Autocompletamento dalla rubrica, come nei destinatari di una mail.
+                Il valore viaggia nel form con l'input nascosto. */}
+            <CampoDestinatari
+              value={invitati}
+              onChange={setInvitati}
+              contatti={contatti}
+              placeholder="Es. mario@rossi.it, anna@bianchi.it (opzionale)"
+            />
+            <input type="hidden" name="invitati" value={invitati} />
             <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
               A ogni invitato parte subito la mail d’invito con Accetta/Rifiuta (e
               l’invito-calendario che Gmail e Outlook riconoscono).

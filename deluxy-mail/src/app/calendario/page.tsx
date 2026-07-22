@@ -5,6 +5,7 @@ import { FUSO, coloreDiPriorita, priorita as livello } from '@/lib/format'
 import { NuovoEvento } from '@/components/NuovoEvento'
 import { EliminaEvento } from '@/components/EliminaEvento'
 import { FeedCalendario } from '@/components/FeedCalendario'
+import { elencoContatti } from '@/lib/contatti'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +28,14 @@ const MESI = [
 export default async function Calendario({ searchParams }: Props) {
   const { m } = await searchParams
   const u = await richiediUtente()
+
+  // La rubrica per l'autocompletamento del campo "Invita" del nuovo evento.
+  let contatti: { email: string; nome: string | null }[] = []
+  try {
+    contatti = (await elencoContatti(u.id)).map((c) => ({ email: c.email, nome: c.nome }))
+  } catch {
+    contatti = []
+  }
 
   // Il mese mostrato: ?m=YYYY-MM, altrimenti quello corrente (in ora italiana).
   const oggiIt = giornoIt(new Date())
@@ -141,7 +150,7 @@ export default async function Calendario({ searchParams }: Props) {
         </div>
       </div>
 
-      <NuovoEvento />
+      <NuovoEvento contatti={contatti} />
 
       <div className="card cal-card">
         <div className="cal-griglia">
