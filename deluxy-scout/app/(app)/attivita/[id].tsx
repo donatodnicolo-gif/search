@@ -2,7 +2,7 @@ import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import type { Contact, Deal, Place, Task, Visit } from '@/types';
+import type { Contact, Deal, Place, Priorita, Task, Visit } from '@/types';
 import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
 import { aggiornaNascosto, aggiornaPlace, completaTask, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, ignoraDuplicato, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati, unisciPlaces } from '@/lib/db';
@@ -164,6 +164,18 @@ export default function SchedaAttivita() {
       },
       { testoConferma: 'Unisci', distruttivo: true },
     );
+  }
+
+  // Cambia la priorità direttamente dalla scheda (aggiornamento ottimistico).
+  async function cambiaPriorita(p: Priorita) {
+    if (!place || place.priorita === p) return;
+    const prec = place.priorita;
+    setPlace({ ...place, priorita: p });
+    try {
+      await aggiornaPlace(place.id, { priorita: p });
+    } catch {
+      setPlace((pl) => (pl ? { ...pl, priorita: prec } : pl));
+    }
   }
 
   // Ignora un suggerimento di duplicato: la coppia non verrà più proposta.
@@ -328,7 +340,13 @@ export default function SchedaAttivita() {
       <Stack.Screen options={{ title: place.nome }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.head}>
-          <PriorityBadge priorita={place.priorita} />
+          <View style={styles.prioRow}>
+            {(['P1', 'P2', 'P3'] as Priorita[]).map((p) => (
+              <Pressable key={p} onPress={() => cambiaPriorita(p)} style={place.priorita === p ? undefined : styles.prioOff} accessibilityLabel={`Priorità ${p}`}>
+                <PriorityBadge priorita={p} small />
+              </Pressable>
+            ))}
+          </View>
           <Text style={styles.stato}>{labelStato[place.stato]}</Text>
         </View>
         <Text style={styles.nome}>{place.nome}</Text>
@@ -643,6 +661,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   err: { color: colors.errore },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  prioRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  prioOff: { opacity: 0.35 },
   stato: { color: colors.testoSoft, fontWeight: '700' },
   nome: { fontSize: 24, fontWeight: '900', color: colors.navy, marginTop: spacing.sm },
   meta: { color: colors.testoSoft, fontSize: 14, marginTop: 2 },
