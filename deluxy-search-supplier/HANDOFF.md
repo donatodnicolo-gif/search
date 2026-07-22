@@ -1,4 +1,4 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 22/07/2026, commit `f05d1b3`)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 22/07/2026)
 
 Per riprendere il lavoro su quest'app da una nuova sessione Claude. **Leggere prima
 [AI_SPEC.md](AI_SPEC.md)**: è la scheda tecnica completa e aggiornata; questo file dice
@@ -111,6 +111,13 @@ solo dove siamo e come si lavora.
    `applyWaFilter`; con = `wakind==='mobile'`, senza = fissi o senza numero). Le schede del
    registro restano sempre visibili. NB: le pillole usano la classe **`.wchip`** (stesso stile
    di `.chip`) apposta per NON prendere i listener globali di `.chip` (toggle categorie).
+
+19. **Fix scoping chip categorie** (22/07): il listener «toggle categorie» e i selettori del
+   deep link / `setCategoryForBrand` ora usano **`.catbtns .chip`** (solo le chip della
+   ricerca). Prima `document.querySelectorAll('.chip')` prendeva anche le chip dei filtri
+   Contatti (`#ctTipo`/`#ctCat`), inquinando il set `cats` con valori spuri (`undefined`,
+   `'tutte'`, `'FIORISTA'`) e togliendo/mettendo `.active` sui filtri Contatti. Regola:
+   ogni nuovo selettore sulle chip della ricerca va scopato a `.catbtns .chip`.
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col

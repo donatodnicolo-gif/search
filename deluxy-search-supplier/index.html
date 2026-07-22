@@ -892,7 +892,7 @@ function applyDeepLink(){
   if(cat.startsWith('fior') || cat.startsWith('pasticc')){
     const want = cat.startsWith('pasticc') ? 'pasticceria' : 'fioraio';
     cats.clear(); cats.add(want);
-    document.querySelectorAll('.chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
+    document.querySelectorAll('.catbtns .chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
   }
   const ordine = (q.get('ordine') || q.get('order') || '').trim();
   const indirizzo = (q.get('indirizzo') || q.get('address') || '').trim();
@@ -1121,8 +1121,8 @@ $('#btnSide').addEventListener('click', ()=>{
 });
 applySide();
 
-// toggle categorie
-document.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => {
+// toggle categorie (solo le chip della ricerca: quelle dei Contatti hanno i loro listener)
+document.querySelectorAll('.catbtns .chip').forEach(ch => ch.addEventListener('click', () => {
   const c = ch.dataset.cat;
   if(cats.has(c) && cats.size>1){ cats.delete(c); ch.classList.remove('active'); }
   else { cats.add(c); ch.classList.add('active'); }
@@ -1517,7 +1517,7 @@ function populateOrder(o){
 function setCategoryForBrand(brand){
   const want = (brand === 'cakedesign.me') ? 'pasticceria' : 'fioraio';
   cats.clear(); cats.add(want);
-  document.querySelectorAll('.chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
+  document.querySelectorAll('.catbtns .chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
 }
 
 function updateThumb(){
