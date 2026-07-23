@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
+import { raggruppa } from '@/lib/thread'
 import { RicercaMail } from '@/components/RicercaMail'
 import { CercaServer } from '@/components/CercaServer'
 import { ListaInviati, type RigaInviata } from '@/components/ListaInviati'
@@ -40,15 +41,25 @@ export default async function PostaInviata({ searchParams }: Props) {
     db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' }, select: { id: true, nome: true } }),
   ])
 
-  const righe: RigaInviata[] = messaggi.map((m) => ({
-    id: m.id,
-    destinatari: m.destinatari,
-    oggetto: m.oggetto,
-    anteprima: m.anteprima,
-    data: m.data,
-    sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
-    sezioneId: m.sezioneId,
-  }))
+  // Anche qui la posta si legge a CONVERSAZIONI: più risposte mie nello stesso
+  // scambio fanno una riga sola (come in posta in arrivo), col numero accanto.
+  // Il volto della riga è la mia mail più recente della conversazione.
+  const gruppi = raggruppa(messaggi)
+
+  const righe: RigaInviata[] = gruppi.map((g) => {
+    const m = g[g.length - 1]
+    return {
+      id: m.id,
+      ids: g.map((x) => x.id),
+      nel: g.length,
+      destinatari: m.destinatari,
+      oggetto: m.oggetto,
+      anteprima: m.anteprima,
+      data: m.data,
+      sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
+      sezioneId: m.sezioneId,
+    }
+  })
 
   return (
     <>
@@ -56,8 +67,9 @@ export default async function PostaInviata({ searchParams }: Props) {
         <div>
           <h1 className="page-title">Posta inviata</h1>
           <p className="page-caption">
-            Le mail spedite da AI Mail. Ne resta una copia anche nella cartella “Inviata” della
-            casella, così le rivedi da qualsiasi altro client.
+            Le mail spedite da AI Mail, raccolte per conversazione (il numero accanto al
+            destinatario dice quante tue mail ci sono in quello scambio). Ne resta una copia anche
+            nella cartella “Inviata” della casella, così le rivedi da qualsiasi altro client.
           </p>
         </div>
       </div>

@@ -8,7 +8,13 @@ import { cestinaMessaggio, spostaInSezione, azioneMassa } from '@/lib/actions'
 import { AgganciaBottone, AgganciaDialog } from './AgganciaRiga'
 
 export type RigaInviata = {
+  /** Il "volto" della riga: la mail più recente della conversazione. */
   id: string
+  /** TUTTE le mie mail della conversazione: le azioni agiscono su queste, se no
+   *  cestinandone una la riga ricomparirebbe con la precedente. */
+  ids: string[]
+  /** Quante mie mail ci sono in questa conversazione (1 = mail singola). */
+  nel: number
   destinatari: string
   oggetto: string
   anteprima: string
@@ -56,7 +62,9 @@ export function ListaInviati({
   const azzera = () => setSelezione(new Set())
 
   const massa = (azione: 'cestina' | 'sposta', sezioneId?: string | null) => {
-    const ids = [...selezione]
+    // La selezione tiene gli id delle RIGHE (il volto della conversazione):
+    // l'azione va invece su tutte le mail dei gruppi selezionati.
+    const ids = visibili.filter((r) => selezione.has(r.id)).flatMap((r) => r.ids)
     if (ids.length === 0) return
     start(async () => {
       await azioneMassa(ids, azione, sezioneId)
@@ -137,6 +145,14 @@ export function ListaInviati({
               <div className="mail-top">
                 <span className="dot-spacer" />
                 <span className="mail-mittente">a {m.destinatari}</span>
+                {m.nel > 1 && (
+                  <span
+                    className="thread-count"
+                    title={`${m.nel} tue mail in questa conversazione`}
+                  >
+                    {m.nel}
+                  </span>
+                )}
                 {m.sezione && (
                   <span className={`badge ${m.sezione.colore}`}>
                     <span className="dot" />
@@ -162,8 +178,12 @@ export function ListaInviati({
                 type="button"
                 className="azione-riga"
                 disabled={inCorso}
-                title="Sposta nel cestino di AI Mail"
-                onClick={() => singola(m.id, () => cestinaMessaggio(m.id), true)}
+                title={m.nel > 1 ? `Cestina tutte le ${m.nel} mail della conversazione` : 'Sposta nel cestino di AI Mail'}
+                // Su una conversazione si cestina l'intero gruppo: cestinando
+                // solo il volto, la riga tornerebbe con la mail precedente.
+                onClick={() =>
+                  singola(m.id, () => (m.nel > 1 ? azioneMassa(m.ids, 'cestina') : cestinaMessaggio(m.id)), true)
+                }
               >
                 Cestina
               </button>
@@ -174,8 +194,14 @@ export function ListaInviati({
                   className="mail-select-sposta"
                   value={m.sezioneId ?? ''}
                   disabled={inCorso}
-                  onChange={(e) => singola(m.id, () => spostaInSezione(m.id, e.target.value || null))}
-                  aria-label="Sposta questa mail in una sezione"
+                  onChange={(e) =>
+                    singola(m.id, () =>
+                      m.nel > 1
+                        ? azioneMassa(m.ids, 'sposta', e.target.value || null)
+                        : spostaInSezione(m.id, e.target.value || null)
+                    )
+                  }
+                  aria-label={m.nel > 1 ? 'Sposta la conversazione in una sezione' : 'Sposta questa mail in una sezione'}
                 >
                   <option value="">Sposta in…</option>
                   {sezioni.map((s) => (
