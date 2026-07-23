@@ -10,6 +10,7 @@ import {
   ETICHETTA_ESITO,
   ETICHETTA_TIPO_ANALISI,
   formattaData,
+  SOGLIA_POOL_MINIMO,
 } from "@/lib/dominio";
 import { iconaCanale } from "@/lib/salute";
 
@@ -62,11 +63,44 @@ export default async function PaginaStatoAccount({
     const chiave = `${a.brand}|${tematicaDi(a.titolo, a.tipo)}`;
     if (!corrente.has(chiave)) corrente.set(chiave, a);
   }
-  const brandInGriglia = BRANDS.filter((b) => audit.some((a) => a.brand === b));
+
+  // Pubblici: lo stato non viene da un documento ma dal registro stesso —
+  // un brand è "in ordine" se non ha pubblici obsoleti, da creare o pool
+  // sotto la soglia minima di utilizzabilità.
+  const pubblici = await prisma.pubblico.findMany({
+    select: { brand: true, stato: true, dimensione: true, tipo: true, verificatoIl: true },
+  });
+  const statoPubblici = (b: string) => {
+    const del = pubblici.filter((x) => x.brand === b);
+    if (del.length === 0) return null;
+    const daFare = del.filter((x) => x.stato === "da_creare" || x.stato === "obsoleto").length;
+    const daVerificare = del.filter((x) => x.stato === "da_verificare").length;
+    const piccoli = del.filter(
+      (x) => x.dimensione != null && x.dimensione < SOGLIA_POOL_MINIMO && x.tipo !== "esclusione"
+    ).length;
+    const ultima = del
+      .map((x) => x.verificatoIl)
+      .filter((d): d is Date => d != null)
+      .sort((a, b2) => b2.getTime() - a.getTime())[0] ?? null;
+    const esito = daFare > 0 || piccoli > 1 ? "critico" : daVerificare > 0 || piccoli > 0 ? "attenzione" : "ok";
+    const dettagli = [
+      `${del.length} pubblici`,
+      daFare ? `${daFare} da creare o obsoleti` : null,
+      daVerificare ? `${daVerificare} da verificare` : null,
+      piccoli ? `${piccoli} pool sotto ${SOGLIA_POOL_MINIMO}` : null,
+    ].filter(Boolean);
+    return { esito, ultima, dettaglio: dettagli.join(" · "), n: del.length };
+  };
+
+  const brandInGriglia = BRANDS.filter(
+    (b) => audit.some((a) => a.brand === b) || pubblici.some((x) => x.brand === b)
+  );
   const tematicheInGriglia = TEMATICHE.filter((t) =>
     brandInGriglia.some((b) => corrente.has(`${b}|${t.chiave}`))
   );
-  const criticita = [...corrente.values()].filter((a) => a.esito === "critico").length;
+  const criticita =
+    [...corrente.values()].filter((a) => a.esito === "critico").length +
+    brandInGriglia.filter((b) => statoPubblici(b)?.esito === "critico").length;
 
   return (
     <div className="layout">
@@ -151,6 +185,42 @@ export default async function PaginaStatoAccount({
                       })}
                     </tr>
                   ))}
+                  {/* Pubblici: stato calcolato dal registro, non da un documento */}
+                  <tr>
+                    <td>
+                      <span className="tematica-nome">
+                        <span className="tessera-icona" style={{ width: 28, height: 28 }}>
+                          <Icona nome="pubblici" />
+                        </span>
+                        Pubblici &amp; CRM
+                      </span>
+                    </td>
+                    {brandInGriglia.map((b) => {
+                      const s = statoPubblici(b);
+                      if (!s) {
+                        return (
+                          <td key={b}>
+                            <span className="quadro-vuoto">nessun pubblico</span>
+                          </td>
+                        );
+                      }
+                      const colore = COLORE_ESITO[s.esito] ?? "var(--text-tertiary)";
+                      return (
+                        <td key={b}>
+                          <a className="quadro-stato" href={`/pubblici?brand=${b}`} style={{ borderColor: colore }} title={s.dettaglio}>
+                            <span className="quadro-esito" style={{ color: colore }}>
+                              <span className="dot" />
+                              {ETICHETTA_ESITO[s.esito] ?? s.esito}
+                            </span>
+                            <span className="quadro-data">
+                              {s.ultima ? formattaData(s.ultima) : "mai verificato"}
+                            </span>
+                            <span className="quadro-azioni">{s.n} pubblici</span>
+                          </a>
+                        </td>
+                      );
+                    })}
+                  </tr>
                 </tbody>
               </table>
             </div>

@@ -2,6 +2,7 @@ import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import {
+  BRANDS,
   COLORE_BRAND,
   ETICHETTA_BRAND,
   ETICHETTA_CANALE,
@@ -22,14 +23,15 @@ const ORDINE_CANALE = ["google_ads", "meta_ads", "tiktok", "email", "sito", "seo
 export default async function PaginaCampagne({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; canale?: string; q?: string }>;
+  searchParams: Promise<{ stato?: string; canale?: string; brand?: string; q?: string }>;
 }) {
-  const { stato, canale, q } = await searchParams;
+  const { stato, canale, brand, q } = await searchParams;
   const giorni30 = new Date(Date.now() - 30 * 86_400_000);
   const campagne = await prisma.campagna.findMany({
     where: {
       ...(stato ? { stato } : {}),
       ...(canale ? { canale } : {}),
+      ...(brand ? { brand } : {}),
       ...(q ? { nome: { contains: q } } : {}),
     },
     include: {
@@ -43,7 +45,7 @@ export default async function PaginaCampagne({
 
   return (
     <div className="layout">
-      <Sidebar attiva="campagne" canaleAttivo={canale} />
+      <Sidebar attiva="campagne" canaleAttivo={canale} brandAttivo={brand} />
       <main className="main" style={{ maxWidth: 1700 }}>
         <div className="page-head">
           <div>
@@ -61,6 +63,12 @@ export default async function PaginaCampagne({
 
         <form className="filtri" method="get">
           <input type="search" name="q" placeholder="Cerca una campagna…" defaultValue={q ?? ""} />
+          <select name="brand" defaultValue={brand ?? ""}>
+            <option value="">Tutti i brand</option>
+            {BRANDS.map((b) => (
+              <option key={b} value={b}>{ETICHETTA_BRAND[b]}</option>
+            ))}
+          </select>
           <select name="canale" defaultValue={canale ?? ""}>
             <option value="">Tutti i canali</option>
             <option value="google_ads">Google Ads</option>

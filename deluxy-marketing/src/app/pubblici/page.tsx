@@ -30,8 +30,11 @@ const ICONA_PIATTAFORMA: Record<string, string> = {
   altro: "pagina",
 };
 
-// Pubblici: liste clienti, lookalike, retargeting e segmenti CRM, per
-// piattaforma e brand. Canonico su Drive (00.4 Mappa Pubblici del sistema CRM).
+const ORDINE_BRAND = ["flowers", "gifts", "cake", "cross"];
+const ORDINE_PIATTAFORMA = ["meta", "google", "tiktok", "klaviyo", "shopify", "altro"];
+
+// Pubblici: una colonna per brand, dentro raggruppati per piattaforma con la
+// sua icona. Canonico su Drive (Mappa Pubblici del sistema CRM).
 export default async function PaginaPubblici({
   searchParams,
 }: {
@@ -45,13 +48,11 @@ export default async function PaginaPubblici({
       ...(p.stato ? { stato: p.stato } : {}),
       ...(p.q ? { OR: [{ nome: { contains: p.q } }, { note: { contains: p.q } }] } : {}),
     },
-    orderBy: [{ piattaforma: "asc" }, { brand: "asc" }, { nome: "asc" }],
+    orderBy: [{ piattaforma: "asc" }, { nome: "asc" }],
     include: { misure: { orderBy: { data: "desc" }, take: 2 } },
   });
 
-  const piattaformeInPagina = PIATTAFORME_PUBBLICO.filter((pf) =>
-    pubblici.some((x) => x.piattaforma === pf)
-  );
+  const brandInPagina = ORDINE_BRAND.filter((b) => pubblici.some((x) => x.brand === b));
   const piccoli = pubblici.filter(
     (x) => x.dimensione != null && x.dimensione < SOGLIA_POOL_MINIMO && x.tipo !== "esclusione"
   );
@@ -68,9 +69,9 @@ export default async function PaginaPubblici({
           <div>
             <h1 className="page-title">Pubblici</h1>
             <p className="page-sub">
-              Liste clienti, lookalike, retargeting e segmenti CRM per piattaforma e brand: quanto
-              sono grandi, in che stato sono e quando sono stati verificati. Il canonico è la Mappa
-              Pubblici del sistema CRM su Drive; i pubblici li crea solo quel sistema.
+              Una colonna per brand: dentro, liste clienti, lookalike, retargeting e segmenti CRM
+              raggruppati per piattaforma. Il canonico è la Mappa Pubblici del sistema CRM su
+              Drive; i pubblici li crea solo quel sistema.
             </p>
           </div>
           <a className="btn" href="#nuovo">Registra pubblico</a>
@@ -133,93 +134,112 @@ export default async function PaginaPubblici({
           <button className="btn small" type="submit">Filtra</button>
         </form>
 
-        {pubblici.length === 0 && (
+        {pubblici.length === 0 ? (
           <div className="vuoto">
-            Nessun pubblico censito con questi filtri: registrane uno qui sotto o caricali dal
-            Drive con <b>npm run db:seed-pubblici</b>.
+            Nessun pubblico censito con questi filtri: registrane uno qui sotto.
+          </div>
+        ) : (
+          <div className="colonne-brand">
+            {brandInPagina.map((brand) => {
+              const del = pubblici
+                .filter((x) => x.brand === brand)
+                .sort(
+                  (a, b) =>
+                    ORDINE_PIATTAFORMA.indexOf(a.piattaforma) - ORDINE_PIATTAFORMA.indexOf(b.piattaforma) ||
+                    (b.dimensione ?? 0) - (a.dimensione ?? 0)
+                );
+              const contatti = del
+                .filter((x) => x.tipo === "cliente" || x.tipo === "segmento")
+                .reduce((s, x) => s + (x.dimensione ?? 0), 0);
+              let piattaformaPrec = "";
+              return (
+                <div className="colonna-brand" key={brand}>
+                  <div className="colonna-brand-testata">
+                    <span className="board-titolo">
+                      <span className="sb-dot" style={{ background: COLORE_BRAND[brand], width: 9, height: 9 }} />
+                      {ETICHETTA_BRAND[brand]}
+                    </span>
+                    <span className="board-conta">
+                      {del.length} · {formattaNumero(contatti)} contatti
+                    </span>
+                  </div>
+                  {del.map((x) => {
+                    const precedente = x.misure[1]?.dimensione ?? null;
+                    const variazione =
+                      x.dimensione != null && precedente != null && precedente > 0
+                        ? x.dimensione / precedente - 1
+                        : null;
+                    const piccolo =
+                      x.dimensione != null && x.dimensione < SOGLIA_POOL_MINIMO && x.tipo !== "esclusione";
+                    const nuovaPiattaforma = x.piattaforma !== piattaformaPrec;
+                    piattaformaPrec = x.piattaforma;
+                    return (
+                      <div key={x.id}>
+                        {nuovaPiattaforma && (
+                          <div className="canale-divisore">
+                            <Icona nome={ICONA_PIATTAFORMA[x.piattaforma] ?? "pagina"} />
+                            {ETICHETTA_PIATTAFORMA[x.piattaforma] ?? x.piattaforma}
+                          </div>
+                        )}
+                        <div className="card-campagna" style={{ cursor: "default" }}>
+                          <div className="card-campagna-alto">
+                            <span className="card-campagna-icona" title={ETICHETTA_PIATTAFORMA[x.piattaforma]}>
+                              <Icona nome={ICONA_PIATTAFORMA[x.piattaforma] ?? "pagina"} />
+                            </span>
+                            <span className="card-campagna-nome">{x.nome}</span>
+                          </div>
+                          <div className="card-campagna-tag">
+                            <span className="tag-neutro">{ETICHETTA_TIPO_PUBBLICO[x.tipo] ?? x.tipo}</span>
+                            {piccolo && (
+                              <span className="tag-salute" style={{ color: "var(--orange)" }} title={`Sotto i ${SOGLIA_POOL_MINIMO} utenti: pool che satura in fretta`}>
+                                <span className="dot" />
+                                Pool piccolo
+                              </span>
+                            )}
+                          </div>
+                          {x.note && <div className="card-campagna-obiettivo">{x.note}</div>}
+                          <div className="card-campagna-kpi">
+                            <span>
+                              <b style={piccolo ? { color: "var(--orange)" } : undefined}>
+                                {x.dimensione != null ? formattaNumero(x.dimensione) : "—"}
+                              </b>
+                              <i>utenti</i>
+                            </span>
+                            {variazione != null && (
+                              <span>
+                                <b style={{ color: variazione >= 0 ? "var(--green)" : "var(--red)" }}>
+                                  {variazione >= 0 ? "+" : ""}{(variazione * 100).toFixed(0)}%
+                                </b>
+                                <i>vs prima</i>
+                              </span>
+                            )}
+                            <span>
+                              <b style={{ fontSize: 12 }}>{formattaData(x.verificatoIl)}</b>
+                              <i>verificato</i>
+                            </span>
+                          </div>
+                          <form action={cambiaStatoPubblico} style={{ marginTop: 9 }}>
+                            <input type="hidden" name="id" value={x.id} />
+                            <SelettoreStato
+                              valore={x.stato}
+                              colore={COLORE_STATO_PUBBLICO[x.stato]}
+                              opzioni={STATI_PUBBLICO.map((s) => ({
+                                valore: s,
+                                etichetta: ETICHETTA_STATO_PUBBLICO[s],
+                              }))}
+                            />
+                          </form>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {piattaformeInPagina.map((pf) => {
-          const del = pubblici.filter((x) => x.piattaforma === pf);
-          return (
-            <section className="scheda" key={pf} style={{ padding: 0 }}>
-              <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 24px 0" }}>
-                <span className="tessera-icona" style={{ width: 30, height: 30 }}>
-                  <Icona nome={ICONA_PIATTAFORMA[pf] ?? "pagina"} />
-                </span>
-                {ETICHETTA_PIATTAFORMA[pf]} ({del.length})
-              </div>
-              <div style={{ overflowX: "auto", paddingBottom: 6 }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Pubblico</th>
-                      <th>Brand</th>
-                      <th>Tipo</th>
-                      <th className="num">Dimensione</th>
-                      <th style={{ minWidth: 150 }}>Stato</th>
-                      <th>Verificato</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {del.map((x) => {
-                      const precedente = x.misure[1]?.dimensione ?? null;
-                      const variazione =
-                        x.dimensione != null && precedente != null && precedente > 0
-                          ? x.dimensione / precedente - 1
-                          : null;
-                      const piccolo = x.dimensione != null && x.dimensione < SOGLIA_POOL_MINIMO && x.tipo !== "esclusione";
-                      return (
-                        <tr key={x.id}>
-                          <td style={{ maxWidth: 320 }}>
-                            <div className="cella-nome">{x.nome}</div>
-                            {x.note && (
-                              <div className="cella-sub" style={{ whiteSpace: "normal" }}>{x.note}</div>
-                            )}
-                          </td>
-                          <td>
-                            <span className="tag-salute" style={{ color: COLORE_BRAND[x.brand] ?? "var(--text-tertiary)" }}>
-                              <span className="dot" />
-                              {ETICHETTA_BRAND[x.brand] ?? x.brand}
-                            </span>
-                          </td>
-                          <td className="cella-muta">{ETICHETTA_TIPO_PUBBLICO[x.tipo] ?? x.tipo}</td>
-                          <td className="num">
-                            <b style={piccolo ? { color: "var(--orange)" } : undefined}>
-                              {x.dimensione != null ? formattaNumero(x.dimensione) : "—"}
-                            </b>
-                            {variazione != null && (
-                              <div className="cella-sub num" style={{ color: variazione >= 0 ? "var(--green)" : "var(--red)" }}>
-                                {variazione >= 0 ? "+" : ""}{(variazione * 100).toFixed(0)}%
-                              </div>
-                            )}
-                          </td>
-                          <td>
-                            <form action={cambiaStatoPubblico}>
-                              <input type="hidden" name="id" value={x.id} />
-                              <SelettoreStato
-                                valore={x.stato}
-                                colore={COLORE_STATO_PUBBLICO[x.stato]}
-                                opzioni={STATI_PUBBLICO.map((s) => ({
-                                  valore: s,
-                                  etichetta: ETICHETTA_STATO_PUBBLICO[s],
-                                }))}
-                              />
-                            </form>
-                          </td>
-                          <td className="cella-muta">{formattaData(x.verificatoIl)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          );
-        })}
-
-        <section className="scheda" id="nuovo">
+        <section className="scheda" id="nuovo" style={{ marginTop: 18 }}>
           <div className="scheda-titolo">Registra o aggiorna un pubblico</div>
           <p className="cella-sub" style={{ marginBottom: 14 }}>
             Nome e piattaforma sono la chiave: rimandando lo stesso pubblico se ne aggiorna la
@@ -228,7 +248,7 @@ export default async function PaginaPubblici({
           <form className="modulo" action={salvaPubblico}>
             <div className="campo-modulo largo">
               <label>Nome <span className="obbligatorio">*</span></label>
-              <input name="nome" required placeholder="Es. CM GLOBALE clienti 365g" />
+              <input name="nome" required placeholder="Es. GLOBALE CM clienti 365g" />
             </div>
             <div className="campo-modulo">
               <label>Piattaforma</label>
