@@ -9,14 +9,37 @@ import { prisma } from "./db";
 
 export const DRIVE_DIR_DEFAULT = "G:\\Il mio Drive\\ADV DELUXY SRL";
 export const CHIAVE_CARTELLA = "drive.cartella";
+export const CHIAVE_APIKEY = "drive.apikey";
 
 // La cartella si sceglie in Impostazioni; se non è mai stata scelta valgono
-// la variabile d'ambiente e poi il percorso di default.
+// la variabile d'ambiente e poi il percorso di default. Può essere un percorso
+// locale (Google Drive per Desktop) OPPURE un link/ID di cartella Google Drive:
+// nel secondo caso la sync legge via API e funziona da qualsiasi dispositivo.
 export async function driveDir(): Promise<string> {
   const salvata = await prisma.impostazione
     .findUnique({ where: { chiave: CHIAVE_CARTELLA } })
     .catch(() => null);
   return salvata?.valore || process.env.DRIVE_ADV_DIR || DRIVE_DIR_DEFAULT;
+}
+
+async function driveApiKey(): Promise<string | null> {
+  const salvata = await prisma.impostazione
+    .findUnique({ where: { chiave: CHIAVE_APIKEY } })
+    .catch(() => null);
+  return salvata?.valore || process.env.GOOGLE_DRIVE_API_KEY || null;
+}
+
+// Riconosce se l'impostazione è un Google Drive (link o ID cartella) invece di
+// un percorso su disco, ed estrae l'id della cartella.
+export function idCartellaDrive(valore: string): string | null {
+  const v = valore.trim();
+  const daUrl = v.match(/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/([A-Za-z0-9_-]{20,})/);
+  if (daUrl) return daUrl[1];
+  const daOpen = v.match(/[?&]id=([A-Za-z0-9_-]{20,})/);
+  if (daOpen) return daOpen[1];
+  // Solo id nudo (nessuna barra, nessun backslash, lunghezza tipica)
+  if (/^[A-Za-z0-9_-]{25,}$/.test(v)) return v;
+  return null;
 }
 
 // Estensioni indicizzate: documenti di lavoro, non asset binari pesanti.
@@ -61,6 +84,10 @@ export type EsitoSync = {
 
 export async function sincronizzaDrive(): Promise<EsitoSync> {
   const radice = await driveDir();
+  // Se l'impostazione è un Google Drive online, si sincronizza via API.
+  const idDrive = idCartellaDrive(radice);
+  if (idDrive) return sincronizzaDriveApi(idDrive);
+
   const esito: EsitoSync = { radice, trovati: 0, nuovi: 0, aggiornati: 0, rimossi: 0 };
 
   try {
@@ -131,7 +158,12 @@ export async function sincronizzaDrive(): Promise<EsitoSync> {
 
   await visita(radice);
 
-  // File spariti dal Drive: l'indice li dimentica (il Drive resta la verità).
+  await scordaFileSpariti(visti, esito);
+  return esito;
+}
+
+// File spariti dal Drive: l'indice li dimentica (il Drive resta la verità).
+async function scordaFileSpariti(visti: Set<string>, esito: EsitoSync) {
   const tutti = await prisma.documentoDrive.findMany({ select: { id: true, percorso: true } });
   for (const doc of tutti) {
     if (!visti.has(doc.percorso)) {
@@ -139,6 +171,123 @@ export async function sincronizzaDrive(): Promise<EsitoSync> {
       esito.rimossi++;
     }
   }
+}
 
+// ---------- Sincronizzazione via API Google Drive ----------
+// Funziona da qualsiasi server/dispositivo: legge la cartella condivisa
+// "chiunque abbia il link" con una chiave API Google (sola lettura). Serve
+// GOOGLE_DRIVE_API_KEY (o l'impostazione drive.apikey). L'app non scrive mai.
+
+type FileDrive = { id: string; name: string; mimeType: string; size?: string; modifiedTime?: string };
+
+const MIME_CARTELLA = "application/vnd.google-apps.folder";
+// Estensione dedotta dal MIME per i documenti nativi Google (che non hanno estensione nel nome).
+const ESTENSIONE_MIME: Record<string, string> = {
+  "application/vnd.google-apps.document": ".gdoc",
+  "application/vnd.google-apps.spreadsheet": ".gsheet",
+  "application/vnd.google-apps.presentation": ".gslides",
+  "application/pdf": ".pdf",
+  "text/markdown": ".md",
+  "text/plain": ".txt",
+  "text/csv": ".csv",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+};
+
+function estensioneDa(nome: string, mime: string): string {
+  const daNome = nome.includes(".") ? nome.slice(nome.lastIndexOf(".")).toLowerCase() : "";
+  if (daNome && ESTENSIONI.has(daNome)) return daNome;
+  return ESTENSIONE_MIME[mime] ?? daNome;
+}
+
+export async function sincronizzaDriveApi(idRadice: string): Promise<EsitoSync> {
+  const esito: EsitoSync = { radice: `drive:${idRadice}`, trovati: 0, nuovi: 0, aggiornati: 0, rimossi: 0 };
+  const apiKey = await driveApiKey();
+  if (!apiKey) {
+    esito.errore =
+      "Manca la chiave API Google Drive: impostala in Impostazioni (o GOOGLE_DRIVE_API_KEY). La cartella dev'essere condivisa “chiunque abbia il link può visualizzare”.";
+    return esito;
+  }
+
+  async function elenca(idCartella: string): Promise<FileDrive[]> {
+    const risultati: FileDrive[] = [];
+    let pageToken: string | undefined;
+    do {
+      const url = new URL("https://www.googleapis.com/drive/v3/files");
+      url.searchParams.set("q", `'${idCartella}' in parents and trashed=false`);
+      url.searchParams.set("fields", "nextPageToken,files(id,name,mimeType,size,modifiedTime)");
+      url.searchParams.set("pageSize", "1000");
+      url.searchParams.set("key", apiKey!);
+      url.searchParams.set("supportsAllDrives", "true");
+      url.searchParams.set("includeItemsFromAllDrives", "true");
+      if (pageToken) url.searchParams.set("pageToken", pageToken);
+      const r = await fetch(url);
+      if (!r.ok) {
+        throw new Error(`Drive API ${r.status}: ${(await r.text()).slice(0, 200)}`);
+      }
+      const dati = (await r.json()) as { files?: FileDrive[]; nextPageToken?: string };
+      risultati.push(...(dati.files ?? []));
+      pageToken = dati.nextPageToken;
+    } while (pageToken);
+    return risultati;
+  }
+
+  const visti = new Set<string>();
+
+  async function visita(idCartella: string, prefisso: string) {
+    let voci: FileDrive[];
+    try {
+      voci = await elenca(idCartella);
+    } catch (e) {
+      // errore alla radice = fatale; su sottocartelle si prosegue
+      if (prefisso === "") esito.errore = (e as Error).message;
+      return;
+    }
+    for (const voce of voci) {
+      if (daSaltare(voce.name)) continue;
+      const relativo = prefisso ? `${prefisso}/${voce.name}` : voce.name;
+      if (voce.mimeType === MIME_CARTELLA) {
+        await visita(voce.id, relativo);
+        continue;
+      }
+      const estensione = estensioneDa(voce.name, voce.mimeType);
+      if (!ESTENSIONI.has(estensione)) continue;
+      visti.add(relativo);
+      esito.trovati++;
+
+      const { brand, categoria } = classifica(relativo);
+      const modificatoIl = voce.modifiedTime ? new Date(voce.modifiedTime) : new Date();
+      const dati = {
+        nome: voce.name,
+        cartella: prefisso,
+        estensione,
+        brand,
+        categoria,
+        dimensione: voce.size ? Number(voce.size) : 0,
+        modificatoIl,
+        sincronizzatoIl: new Date(),
+      };
+      const esistente = await prisma.documentoDrive.findUnique({ where: { percorso: relativo } });
+      if (!esistente) {
+        await prisma.documentoDrive.create({ data: { percorso: relativo, ...dati } });
+        esito.nuovi++;
+      } else if (
+        esistente.dimensione !== dati.dimensione ||
+        esistente.modificatoIl.getTime() !== modificatoIl.getTime()
+      ) {
+        await prisma.documentoDrive.update({ where: { percorso: relativo }, data: dati });
+        esito.aggiornati++;
+      } else {
+        await prisma.documentoDrive.update({
+          where: { percorso: relativo },
+          data: { sincronizzatoIl: new Date() },
+        });
+      }
+    }
+  }
+
+  await visita(idRadice, "");
+  if (esito.errore) return esito; // radice irraggiungibile: non cancellare l'indice
+  await scordaFileSpariti(visti, esito);
   return esito;
 }

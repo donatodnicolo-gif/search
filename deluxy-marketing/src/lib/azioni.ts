@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { STATI_AZIONE, STATI_CAMPAGNA } from "./dominio";
-import { CHIAVE_CARTELLA, sincronizzaDrive } from "./drive";
+import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
 import { registra } from "./registro";
 
 // Server action della UI. Le stesse operazioni esistono anche via /api/v1
@@ -417,6 +417,17 @@ export async function salvaCartellaDrive(fd: FormData) {
   revalidatePath("/impostazioni");
   revalidatePath("/drive");
   redirect("/impostazioni?salvato=cartella");
+}
+
+export async function salvaApiKeyDrive(fd: FormData) {
+  const chiaveApi = testo(fd, "apikey");
+  await prisma.impostazione.upsert({
+    where: { chiave: CHIAVE_APIKEY },
+    create: { chiave: CHIAVE_APIKEY, valore: chiaveApi ?? "" },
+    update: { valore: chiaveApi ?? "" },
+  });
+  await registra({ autore: "utente", tipo: "modifica", entita: "drive", titolo: "Chiave API Google Drive aggiornata" });
+  redirect("/impostazioni?salvato=apikey");
 }
 
 // ---------- Account pubblicitari ----------

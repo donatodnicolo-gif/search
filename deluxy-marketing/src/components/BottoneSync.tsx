@@ -9,7 +9,14 @@ export async function BottoneSync({ etichetta = "Sincronizza" }: { etichetta?: s
   const ultima = await prisma.registroEvento
     .findFirst({ where: { entita: "drive", tipo: "sync" }, orderBy: { creatoIl: "desc" } })
     .catch(() => null);
-  const fallita = ultima?.dettaglio?.toLowerCase().includes("non raggiungibile");
+  const fallita =
+    ultima?.dettaglio?.toLowerCase().includes("non raggiungibile") ||
+    ultima?.dettaglio?.toLowerCase().includes("manca la chiave") ||
+    ultima?.dettaglio?.toLowerCase().includes("drive api");
+  // Messaggio breve: gli errori lunghi (con URL) andrebbero a capo sul bottone.
+  const messaggio = fallita
+    ? "Sincronizzazione non riuscita — vedi Impostazioni"
+    : ultima?.dettaglio ?? "eseguita";
 
   return (
     <div className="sync-blocco">
@@ -29,10 +36,10 @@ export async function BottoneSync({ etichetta = "Sincronizza" }: { etichetta?: s
         </button>
       </form>
       {ultima && (
-        <div className="sync-esito" style={fallita ? { color: "var(--red)" } : undefined}>
+        <div className="sync-esito" style={fallita ? { color: "var(--red)" } : undefined} title={ultima.dettaglio ?? ""}>
           {fallita ? "⚠ " : "✓ "}
-          {ultima.dettaglio ?? "eseguita"}
-          <br />
+          {messaggio}
+          {" · "}
           <span style={{ color: "var(--text-tertiary)" }}>{formattaDataOra(ultima.creatoIl)}</span>
         </div>
       )}

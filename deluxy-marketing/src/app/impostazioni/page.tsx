@@ -1,8 +1,8 @@
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
-import { attivaAccount, rimuoviAccount, salvaAccount, salvaCartellaDrive } from "@/lib/azioni";
+import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
-import { driveDir } from "@/lib/drive";
+import { CHIAVE_APIKEY, driveDir, idCartellaDrive } from "@/lib/drive";
 import {
   BRANDS,
   COLORE_BRAND,
@@ -25,6 +25,7 @@ const PIATTAFORME_ACCOUNT: { chiave: string; nome: string; icona: string; esempi
 const CONFERME: Record<string, string> = {
   cartella: "Cartella salvata: la prossima sincronizzazione leggerà da qui.",
   account: "Account salvato.",
+  apikey: "Chiave API salvata: ora la sincronizzazione può leggere Google Drive online.",
 };
 
 export default async function PaginaImpostazioni({
@@ -33,7 +34,7 @@ export default async function PaginaImpostazioni({
   searchParams: Promise<{ salvato?: string }>;
 }) {
   const { salvato } = await searchParams;
-  const [cartella, documenti, account, ultimaSync] = await Promise.all([
+  const [cartella, documenti, account, ultimaSync, impApiKey] = await Promise.all([
     driveDir(),
     prisma.documentoDrive.count(),
     prisma.accountAdv.findMany({ orderBy: [{ piattaforma: "asc" }, { nome: "asc" }] }),
@@ -41,11 +42,15 @@ export default async function PaginaImpostazioni({
       orderBy: { sincronizzatoIl: "desc" },
       select: { sincronizzatoIl: true },
     }),
+    prisma.impostazione.findUnique({ where: { chiave: CHIAVE_APIKEY } }).catch(() => null),
   ]);
 
   const piattaformeConAccount = PIATTAFORME_ACCOUNT.filter((pf) =>
     account.some((a) => a.piattaforma === pf.chiave)
   );
+  const idDrive = idCartellaDrive(cartella);
+  const online = Boolean(idDrive);
+  const haApiKey = Boolean(impApiKey?.valore);
 
   return (
     <div className="layout">
@@ -72,12 +77,14 @@ export default async function PaginaImpostazioni({
         <section className="scheda">
           <div className="scheda-titolo">Cartella da sincronizzare</div>
           <p className="cella-sub" style={{ marginBottom: 14 }}>
-            Percorso della cartella ufficiale sul computer (Google Drive per Desktop). L&apos;app la
-            legge soltanto: non scrive mai dentro il Drive.
+            Puoi indicare una <b>cartella locale</b> (Google Drive per Desktop, es. <code>G:\Il mio Drive\ADV DELUXY SRL</code>)
+            oppure incollare il <b>link della cartella Google Drive</b>: nel secondo caso la
+            sincronizzazione legge online e funziona da qualsiasi dispositivo. L&apos;app legge
+            soltanto, non scrive mai dentro il Drive.
           </p>
           <form className="modulo" action={salvaCartellaDrive}>
             <div className="campo-modulo largo">
-              <label>Percorso della cartella</label>
+              <label>Cartella locale o link Google Drive</label>
               <input name="cartella" defaultValue={cartella} spellCheck={false} />
             </div>
             <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
@@ -85,12 +92,48 @@ export default async function PaginaImpostazioni({
             </div>
           </form>
           <div className="cella-sub" style={{ marginTop: 10 }}>
+            Modalità attuale:{" "}
+            <b style={{ color: online ? "var(--blue)" : "var(--green)" }}>
+              {online ? "Google Drive online (via API)" : "Cartella locale sul computer"}
+            </b>
+            {" · "}
             {documenti} documenti indicizzati
             {ultimaSync ? ` · ultima sincronizzazione ${formattaDataOra(ultimaSync.sincronizzatoIl)}` : ""}
             {" · "}
             <a href="/drive" style={{ color: "var(--blue)" }}>vai ai documenti</a>
           </div>
         </section>
+
+        {online && (
+          <section className="scheda">
+            <div className="scheda-titolo">Chiave API Google Drive</div>
+            <div className="nota-info" style={{ marginBottom: 14 }}>
+              <span className="nota-icona">◈</span>
+              <span>
+                Per leggere la cartella online servono due cose, una volta sola: (1) la cartella su
+                Drive dev&apos;essere condivisa <b>“Chiunque abbia il link → Visualizzatore”</b>; (2) una
+                chiave API di Google (Google Cloud → API e servizi → Credenziali → Chiave API, con
+                l&apos;API “Google Drive” abilitata). La chiave è di sola lettura sui file pubblici e
+                resta salvata qui. {haApiKey ? "✓ Una chiave è già impostata." : "Nessuna chiave impostata: la sincronizzazione online non parte finché non la aggiungi."}
+              </span>
+            </div>
+            <form className="modulo" action={salvaApiKeyDrive}>
+              <div className="campo-modulo largo">
+                <label>Chiave API</label>
+                <input
+                  name="apikey"
+                  type="password"
+                  placeholder={haApiKey ? "•••••••••• (già impostata, lascia vuoto per non cambiarla)" : "AIza…"}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
+                <button className="btn" type="submit">Salva chiave</button>
+              </div>
+            </form>
+          </section>
+        )}
 
         <section className="scheda">
           <div className="scheda-titolo">Account collegati ({account.length})</div>

@@ -502,8 +502,11 @@ tbody tr:hover { background: var(--fill); }
 .selettore-stato:hover { background-color: var(--fill); }
 
 /* ---------- Bottone sincronizza con esito ---------- */
-.sync-blocco { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.sync-esito { font-size: 11.5px; color: var(--green); text-align: right; line-height: 1.35; max-width: 260px; }
+.sync-blocco { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: 0 0 auto; }
+.sync-esito {
+  font-size: 11.5px; color: var(--green); text-align: right; line-height: 1.35;
+  max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* ---------- Conferma di salvataggio ---------- */
 .conferma {
@@ -512,3 +515,6 @@ tbody tr:hover { background: var(--fill); }
   border-radius: var(--radius-m); font-size: 13.5px; color: var(--text);
 }
 .conferma .segno { color: var(--green); font-weight: 700; }
+
+/* Azioni in testata: vanno a capo su schermi stretti, niente sovrapposizioni */
+.page-head { align-items: flex-start; }
