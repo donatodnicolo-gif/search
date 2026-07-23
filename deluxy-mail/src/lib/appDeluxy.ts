@@ -33,6 +33,20 @@ export type EsitoAzione = { ok: boolean; messaggio: string; link?: string }
 /** Contesto passato a un'azione: chi la esegue (header/log) e la sua chiave. */
 export type ContestoAzione = { utenteEmail?: string; chiave: string }
 
+/** Un campo del FORM con cui l'utente controlla i dati prima dell'invio.
+ *  Senza `campi` il dialogo mostra il JSON grezzo (serve per le azioni con
+ *  dati annidati, es. le righe di una proforma). */
+export type CampoAzione = {
+  /** La chiave dentro il JSON dei dati. */
+  nome: string
+  etichetta: string
+  tipo?: 'testo' | 'email' | 'telefono' | 'lungo'
+  aiuto?: string
+  obbligatorio?: boolean
+  /** Su schermo largo: quanto occupa (2 = tutta la riga). */
+  largo?: boolean
+}
+
 export type AzioneApp = {
   id: string
   app: string // nome dell'app di destinazione (come nel portale)
@@ -41,6 +55,11 @@ export type AzioneApp = {
   colore: string // colore del badge (classi del design system)
   /** JSON Schema strict dei dati che l'AI estrae dalla mail. */
   schema: Record<string, unknown>
+  /** I campi del form di conferma. Assente = si mostra il JSON. */
+  campi?: CampoAzione[]
+  /** true se l'azione permette di agganciare i dati a un'azienda già presente
+   *  in Anagrafiche (il dialogo mostra la ricerca dell'azienda). */
+  cercaAzienda?: boolean
   /** Guida per l'AI su come compilare i dati. */
   guida: string
   esegui: (dati: Record<string, unknown>, ctx: ContestoAzione) => Promise<EsitoAzione>
@@ -95,6 +114,22 @@ const AZIONI: AzioneApp[] = [
     colore: 'blue',
     guida:
       'Estrai i dati anagrafici dell’AZIENDA che scrive (non di Deluxy). nome = ragione sociale o nome commerciale. Se un dato non è nella mail, null: MAI inventare.',
+    // Il form di conferma (al posto del JSON grezzo) e la ricerca dell'azienda
+    // già presente in Anagrafiche a cui agganciare il contatto.
+    cercaAzienda: true,
+    campi: [
+      { nome: 'nome', etichetta: 'Azienda', obbligatorio: true, largo: true },
+      { nome: 'categoria', etichetta: 'Categoria', aiuto: 'Es. hotel, ristorante, fioraio' },
+      { nome: 'pIva', etichetta: 'Partita IVA' },
+      { nome: 'email', etichetta: 'Email', tipo: 'email' },
+      { nome: 'telefono', etichetta: 'Telefono', tipo: 'telefono' },
+      { nome: 'indirizzo', etichetta: 'Indirizzo', largo: true },
+      { nome: 'citta', etichetta: 'Città' },
+      { nome: 'provincia', etichetta: 'Provincia', aiuto: 'Sigla, es. MI' },
+      { nome: 'referenteNome', etichetta: 'Referente' },
+      { nome: 'referenteRuolo', etichetta: 'Ruolo del referente' },
+      { nome: 'note', etichetta: 'Note', tipo: 'lungo', largo: true },
+    ],
     schema: {
       type: 'object',
       additionalProperties: false,
@@ -118,6 +153,46 @@ const AZIONI: AzioneApp[] = [
         typeof dati.referenteNome === 'string' && dati.referenteNome
           ? [{ nome: dati.referenteNome, ruolo: (dati.referenteRuolo as string) || '', telefono: '', email: (dati.email as string) || '' }]
           : undefined
+
+      // AGGANCIO a un'azienda già in Anagrafiche (scelta dall'utente nel form):
+      // non si crea un doppione, si aggiorna QUELLA scheda (PATCH). `partnerId`
+      // non sta nello schema dell'AI: lo aggiunge solo l'utente dal dialogo.
+      const partnerId = typeof dati.partnerId === 'string' ? dati.partnerId.trim() : ''
+      if (partnerId) {
+        const patch: Record<string, unknown> = {
+          contatti: referente ?? (dati.email ? [{ nome: '', ruolo: '', telefono: '', email: dati.email }] : undefined),
+          // Sui dati dell'azienda si manda solo ciò che è valorizzato: il
+          // registro fa merge per campo e non deve ricevere null a raffica.
+          categoria: dati.categoria || undefined,
+          citta: dati.citta || undefined,
+          provincia: dati.provincia || undefined,
+          indirizzo: dati.indirizzo || undefined,
+          telefono: dati.telefono || undefined,
+          pIva: dati.pIva || undefined,
+          note: dati.note || undefined,
+        }
+        return chiama(
+          `${ANAGRAFICHE_URL}/api/v1/partners/${encodeURIComponent(partnerId)}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': ctx.chiave },
+            body: JSON.stringify(patch),
+          },
+          (status, risposta) => {
+            if (status >= 200 && status < 300)
+              return {
+                ok: true,
+                messaggio: `Contatto agganciato all’azienda già presente in Anagrafiche.`,
+                link: `${ANAGRAFICHE_URL}/partner/${partnerId}`,
+              }
+            if (status === 401 || status === 403)
+              return { ok: false, messaggio: 'Chiave Anagrafiche non valida o di sola lettura (serve la chiave di scrittura).' }
+            if (status === 404) return { ok: false, messaggio: 'L’azienda scelta non esiste più in Anagrafiche.' }
+            return { ok: false, messaggio: testoErrore(risposta, `Anagrafiche ha risposto ${status}.`) }
+          }
+        )
+      }
+
       const body: Record<string, unknown> = {
         nome: dati.nome,
         categoria: dati.categoria || undefined,
@@ -407,17 +482,23 @@ export type AzioneDescritta = {
   descrizione: string
   colore: string
   configurata: boolean
+  /** I campi del form di conferma (assenti = si mostra il JSON). */
+  campi?: CampoAzione[]
+  /** Mostra la ricerca dell'azienda già presente in Anagrafiche. */
+  cercaAzienda?: boolean
 }
 
 /** Descrive le azioni per i client component. `configurata` = la chiave della
  *  sua app è presente (inserita nell'app o via env). */
 export function descriviAzioni(chiavi: ChiaviApp): AzioneDescritta[] {
-  return AZIONI.map(({ id, app, nome, descrizione, colore }) => ({
+  return AZIONI.map(({ id, app, nome, descrizione, colore, campi, cercaAzienda }) => ({
     id,
     app,
     nome,
     descrizione,
     colore,
+    campi,
+    cercaAzienda,
     configurata: chiaveDiAzione({ app } as AzioneApp, chiavi).length > 0,
   }))
 }

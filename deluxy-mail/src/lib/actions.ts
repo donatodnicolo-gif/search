@@ -2523,11 +2523,13 @@ export async function proponiPerApp(
       istruzioni: istruzioniRegola,
       contestoAzienda: imp[CHIAVI.contestoAzienda],
     })
-    const { id, app, nome, descrizione, colore } = azione
+    const { id, app, nome, descrizione, colore, campi, cercaAzienda } = azione
     return {
       ok: true,
       messaggio: 'Dati pronti: controllali e conferma.',
-      azione: { id, app, nome, descrizione, colore, configurata },
+      // `campi`/`cercaAzienda` servono al dialogo per mostrare il FORM invece
+      // del JSON grezzo e, dove previsto, la ricerca dell'azienda.
+      azione: { id, app, nome, descrizione, colore, configurata, campi, cercaAzienda },
       dati: JSON.stringify(dati, null, 2),
     }
   } catch (e) {

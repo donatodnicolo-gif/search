@@ -1153,6 +1153,12 @@ mark.ricerca-hit {
   border-bottom: 1px solid var(--hairline);
 }
 
+/* Riquadro «Azienda già in Anagrafiche» nel modulo delle APP DELUXY */
+.aggancio-azienda {
+  border: 1px solid var(--hairline); border-radius: var(--radius-m);
+  padding: 12px 14px; background: var(--fill-soft, var(--fill));
+}
+
 /* La conversazione già scelta in fase di scrittura (inoltro / mail nuova) */
 .aggancio-scelto { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
