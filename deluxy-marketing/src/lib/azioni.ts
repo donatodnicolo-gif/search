@@ -416,6 +416,7 @@ export async function salvaCartellaDrive(fd: FormData) {
   });
   revalidatePath("/impostazioni");
   revalidatePath("/drive");
+  redirect("/impostazioni?salvato=cartella");
 }
 
 // ---------- Account pubblicitari ----------
@@ -444,6 +445,7 @@ export async function salvaAccount(fd: FormData) {
     titolo: `Account collegato: ${nome} (${idEsterno})`,
   });
   revalidatePath("/impostazioni");
+  redirect("/impostazioni?salvato=account");
 }
 
 export async function rimuoviAccount(fd: FormData) {

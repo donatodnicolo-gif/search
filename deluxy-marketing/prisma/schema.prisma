@@ -444,3 +444,61 @@ model AccountAdv {
   @@unique([piattaforma, idEsterno])
   @@index([brand])
 }
+
+// ============ Ordini (da Shopify) ============
+
+// Un ordine scaricato da uno dei negozi Shopify. Serve a mettere le vendite
+// accanto alla spesa pubblicitaria: quanto rende davvero ogni offerta.
+model Ordine {
+  id          String   @id @default(cuid())
+  // negozio di provenienza (handle myshopify o dominio)
+  negozio     String
+  brand       String   @default("gifts")
+  // numero visibile dell'ordine (es. #12581)
+  numero      String
+  idEsterno   String // id Shopify
+  data        DateTime
+  totale      Float?
+  // valore netto merce (esclusi spedizione e tasse) se disponibile
+  netto       Float?
+  spedizione  Float?
+  sconto      Float?
+  valuta      String   @default("EUR")
+  // pagato | rimborsato | parzialmente_rimborsato | annullato
+  stato       String   @default("pagato")
+  cliente     String?
+  email       String?
+  citta       String?
+  paese       String?
+  // canale di provenienza dichiarato da Shopify/UTM, quando c'è
+  origine     String?
+  utmSource   String?
+  utmCampagna String?
+  righe       RigaOrdine[]
+  creatoIl    DateTime @default(now())
+
+  @@unique([negozio, idEsterno])
+  @@index([data])
+  @@index([brand])
+}
+
+// Una riga d'ordine: è il livello a cui si valuta la singola offerta.
+model RigaOrdine {
+  id        String  @id @default(cuid())
+  ordineId  String
+  ordine    Ordine  @relation(fields: [ordineId], references: [id], onDelete: Cascade)
+  titolo    String
+  sku       String?
+  vendor    String?
+  // tipo prodotto dichiarato su Shopify (Fiori d'Arte, Originali Deluxy, …)
+  tipo      String?
+  quantita  Int     @default(1)
+  prezzo    Float?  // prezzo unitario
+  totale    Float?  // prezzo * quantità al netto degli sconti di riga
+  // categoria normalizzata dall'app (fiori, torte, colazioni…)
+  categoria String?
+
+  @@index([ordineId])
+  @@index([titolo])
+  @@index([categoria])
+}

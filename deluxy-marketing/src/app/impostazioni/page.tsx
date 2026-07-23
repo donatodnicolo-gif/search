@@ -22,7 +22,17 @@ const PIATTAFORME_ACCOUNT: { chiave: string; nome: string; icona: string; esempi
   { chiave: "altro", nome: "Altro", icona: "pagina", esempio: "" },
 ];
 
-export default async function PaginaImpostazioni() {
+const CONFERME: Record<string, string> = {
+  cartella: "Cartella salvata: la prossima sincronizzazione leggerà da qui.",
+  account: "Account salvato.",
+};
+
+export default async function PaginaImpostazioni({
+  searchParams,
+}: {
+  searchParams: Promise<{ salvato?: string }>;
+}) {
+  const { salvato } = await searchParams;
   const [cartella, documenti, account, ultimaSync] = await Promise.all([
     driveDir(),
     prisma.documentoDrive.count(),
@@ -51,6 +61,13 @@ export default async function PaginaImpostazioni() {
             </p>
           </div>
         </div>
+
+        {salvato && CONFERME[salvato] && (
+          <div className="conferma">
+            <span className="segno">✓</span>
+            {CONFERME[salvato]}
+          </div>
+        )}
 
         <section className="scheda">
           <div className="scheda-titolo">Cartella da sincronizzare</div>

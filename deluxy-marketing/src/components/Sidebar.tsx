@@ -5,7 +5,7 @@ import { SbSezione } from "./SbSezione";
 
 export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "landing" | "copy" | "keywords"
-  | "meta" | "pubblici" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni";
+  | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -20,7 +20,7 @@ export async function Sidebar({
 }) {
   const [
     nAnalisi, nAudit, nAzioniAperte, nCampagneVive, nLanding, nTestAperti, nDocumenti,
-    aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale, nPubblici,
+    aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale, nPubblici, nOrdini,
   ] = await Promise.all([
     prisma.analisi.count(),
     prisma.analisi.count({
@@ -53,6 +53,7 @@ export async function Sidebar({
       _count: { _all: true },
     }),
     prisma.pubblico.count(),
+    prisma.ordine.count(),
   ]);
 
   const conta = (
@@ -113,6 +114,11 @@ export async function Sidebar({
           {voceCanale("audit", "meta_ads", "/audit?canale=meta_ads", "audit", "Audit Meta", conta(auditCanale, "meta_ads"))}
           {voceCanale("campagne", "meta_ads", "/campagne?canale=meta_ads", "campagne", "Campagne Meta", conta(campagneCanale, "meta_ads"))}
           {voce("meta", "/meta", "meta", "Test & AIDA", nTestAperti)}
+        </SbSezione>
+
+        <SbSezione titolo="Vendite">
+          {voce("ordini", "/ordini", "ordini", "Ordini", nOrdini)}
+          {voce("offerte", "/offerte", "vendite", "Analisi per offerta")}
         </SbSezione>
 
         <SbSezione titolo="Budget">

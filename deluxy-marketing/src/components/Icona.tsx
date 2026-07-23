@@ -186,6 +186,14 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M15.5 5.4a3.2 3.2 0 0 1 0 5.4M17 14.9c2 .6 3.5 2.4 3.5 4.6" />
     </>
   ),
+  // Carrello: ordini
+  ordini: (
+    <>
+      <path d="M3 4.5h2.2l2.3 10.2h9.6l2.1-7.4H6.4" />
+      <circle cx="9.5" cy="19" r="1.4" />
+      <circle cx="16.5" cy="19" r="1.4" />
+    </>
+  ),
   // Ingranaggio: impostazioni
   impostazioni: (
     <>
