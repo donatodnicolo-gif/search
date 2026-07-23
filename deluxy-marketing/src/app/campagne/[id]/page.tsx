@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { GuardrailCampagna } from "@/components/GuardrailCampagna";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { Scadenza } from "@/components/Scadenza";
@@ -23,8 +24,15 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function SchedaCampagna({ params }: { params: Promise<{ id: string }> }) {
+export default async function SchedaCampagna({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ bloccata?: string; salvata?: string }>;
+}) {
   const { id } = await params;
+  const { bloccata, salvata } = await searchParams;
   const campagna = await prisma.campagna.findUnique({
     where: { id },
     include: {
@@ -102,6 +110,8 @@ export default async function SchedaCampagna({ params }: { params: Promise<{ id:
             ))}
           </form>
         </section>
+
+        <GuardrailCampagna campagnaId={campagna.id} bloccata={bloccata} salvata={salvata} />
 
         <div className="due-colonne">
           <div>

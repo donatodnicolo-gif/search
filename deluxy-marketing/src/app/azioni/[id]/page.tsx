@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/Badge";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
-import { aggiungiFeedback, cambiaStatoAzione } from "@/lib/azioni";
+import { aggiungiFeedback, cambiaStatoAzione, chiudiAzioneConPaperTrail, esitoVerificaAzione } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
   COLORE_BRAND,
@@ -53,6 +53,10 @@ export default async function SchedaAzione({ params }: { params: Promise<{ id: s
               <Badge testo={ETICHETTA_BRAND[azione.brand] ?? azione.brand} colore={COLORE_BRAND[azione.brand] ?? "var(--text-tertiary)"} />
               <Badge testo={`Priorità ${ETICHETTA_PRIORITA[azione.priorita] ?? azione.priorita}`} colore={COLORE_PRIORITA[azione.priorita] ?? "var(--text-tertiary)"} />
               <Badge testo={`Owner: ${ETICHETTA_OWNER[azione.owner] ?? azione.owner}`} colore="var(--text-secondary)" />
+              {azione.riaperture > 0 && (
+                <Badge testo={`Riaperta ${azione.riaperture}×`} colore="var(--red)" />
+              )}
+              {azione.verificataIl && <Badge testo="Verificata" colore="var(--green)" />}
               {azione.scadenza && (
                 <span>
                   Scadenza: <Scadenza data={azione.scadenza} chiusa={chiusa} />
@@ -82,6 +86,54 @@ export default async function SchedaAzione({ params }: { params: Promise<{ id: s
             ))}
           </form>
         </section>
+
+
+        {STATI_AZIONE_APERTI.includes(azione.stato) && (
+          <section className="scheda">
+            <div className="scheda-titolo">Chiudi con paper-trail (regola 00.3)</div>
+            <p className="cella-sub" style={{ marginBottom: 12 }}>
+              Completamento ≠ efficacia: la chiusura registra PRIMA/DOPO e genera da sola la
+              verifica a +72h. Solo dopo quella l&apos;azione è davvero VERIFICATA.
+            </p>
+            <form className="modulo" action={chiudiAzioneConPaperTrail}>
+              <input type="hidden" name="id" value={azione.id} />
+              <div className="campo-modulo">
+                <label>Prima</label>
+                <input name="prima" placeholder="stato esatto prima della modifica" />
+              </div>
+              <div className="campo-modulo">
+                <label>Dopo</label>
+                <input name="dopo" placeholder="stato esatto dopo" />
+              </div>
+              <div className="campo-modulo largo">
+                <label>Esito</label>
+                <input name="esito" placeholder="Come è andata, in una riga" />
+              </div>
+              <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
+                <button className="btn" type="submit">Segna FATTA + crea verifica +72h</button>
+              </div>
+            </form>
+          </section>
+        )}
+
+        {azione.stato === "fatta" && !azione.verificataIl && (
+          <section className="scheda">
+            <div className="scheda-titolo">Verifica di efficacia (FATTA ≠ VERIFICATA)</div>
+            <form className="modulo" action={esitoVerificaAzione} style={{ gridTemplateColumns: "2fr auto auto" }}>
+              <input type="hidden" name="id" value={azione.id} />
+              <div className="campo-modulo">
+                <label>Nota di verifica</label>
+                <input name="nota" placeholder="I numeri confermano l effetto?" />
+              </div>
+              <div className="azioni-modulo" style={{ alignSelf: "end" }}>
+                <button className="btn small" name="esitoVerifica" value="verificata">✓ Verificata</button>
+              </div>
+              <div className="azioni-modulo" style={{ alignSelf: "end" }}>
+                <button className="btn small btn-secondario" name="esitoVerifica" value="riaperta">Riapri</button>
+              </div>
+            </form>
+          </section>
+        )}
 
         <div className="due-colonne">
           <div>

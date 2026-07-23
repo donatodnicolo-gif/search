@@ -23,27 +23,27 @@ datasource db {
 // creativi o landing, report settimanale… La sintesi è testo/markdown; il
 // documento completo vive su Drive (fileDrive = percorso relativo).
 model Analisi {
-  id          String    @id @default(cuid())
+  id           String   @id @default(cuid())
   // catalogo TIPI_ANALISI in dominio.ts: audit_google | audit_meta | analisi_performance |
   // revisione_creativi | revisione_landing | report_settimanale | analisi_pubblici | analisi | altro
-  tipo        String    @default("analisi")
-  titolo      String
+  tipo         String   @default("analisi")
+  titolo       String
   // catalogo BRANDS: flowers | cake | gifts | cross
-  brand       String    @default("cross")
+  brand        String   @default("cross")
   // catalogo CANALI: google_ads | meta_ads | email | sito | seo | crm | social | altro
-  canale      String?
+  canale       String?
   // Sintesi operativa (markdown semplice): cosa è emerso, in breve.
-  sintesi     String
+  sintesi      String
   // ok | attenzione | critico — il "semaforo" dell'analisi
-  esito       String?
+  esito        String?
   // Percorso del documento completo dentro "ADV DELUXY SRL" (relativo alla cartella)
-  fileDrive   String?
-  dataAnalisi DateTime  @default(now())
+  fileDrive    String?
+  dataAnalisi  DateTime @default(now())
   // chi ha depositato: claude_code | custode | manuale | demo
-  origine     String    @default("claude_code")
-  note        String?
-  azioni      Azione[]
-  creataIl    DateTime  @default(now())
+  origine      String   @default("claude_code")
+  note         String?
+  azioni       Azione[]
+  creataIl     DateTime @default(now())
   aggiornataIl DateTime @updatedAt
 
   @@index([brand])
@@ -55,28 +55,39 @@ model Analisi {
 // mano. Gli stati ricalcano i gemelli dei piani: todo | in_corso | fatta |
 // superata | bloccata. La storia completa vive in EventoAzione.
 model Azione {
-  id          String    @id @default(cuid())
-  titolo      String
-  descrizione String?
-  brand       String    @default("cross")
-  canale      String?
-  stato       String    @default("todo")
+  id            String         @id @default(cuid())
+  titolo        String
+  descrizione   String?
+  brand         String         @default("cross")
+  canale        String?
+  stato         String         @default("todo")
   // alta | media | bassa
-  priorita    String    @default("media")
+  priorita      String         @default("media")
   // chi deve eseguirla: ai | utente
-  owner       String    @default("ai")
-  scadenza    DateTime?
+  owner         String         @default("ai")
+  scadenza      DateTime?
   // Com'è andata a finire (compilato alla chiusura)
-  esito       String?
+  esito         String?
+  // Change control (doc 11): L0 osservazione · L1 leggera · L2 significativa · L3 strutturale
+  livello       String?
+  // Piano di rollback obbligatorio per L2/L3 su campagne traino
+  rollbackPiano String?
+  // Chiusura a doppio stato (00.3): FATTO con paper-trail, poi VERIFICATA o RIAPERTA
+  prima         String?
+  dopo          String?
+  fattoIl       DateTime?
+  verificataIl  DateTime?
+  esitoVerifica String?
+  riaperture    Int            @default(0)
   // Riferimento al gemello/piano su Drive da cui proviene, se c'è
-  fileDrive   String?
-  analisiId   String?
-  analisi     Analisi?  @relation(fields: [analisiId], references: [id], onDelete: SetNull)
-  campagnaId  String?
-  campagna    Campagna? @relation(fields: [campagnaId], references: [id], onDelete: SetNull)
-  eventi      EventoAzione[]
-  creataIl    DateTime  @default(now())
-  aggiornataIl DateTime @updatedAt
+  fileDrive     String?
+  analisiId     String?
+  analisi       Analisi?       @relation(fields: [analisiId], references: [id], onDelete: SetNull)
+  campagnaId    String?
+  campagna      Campagna?      @relation(fields: [campagnaId], references: [id], onDelete: SetNull)
+  eventi        EventoAzione[]
+  creataIl      DateTime       @default(now())
+  aggiornataIl  DateTime       @updatedAt
 
   @@index([stato])
   @@index([brand])
@@ -105,26 +116,33 @@ model EventoAzione {
 // Una campagna pubblicitaria (Google, Meta, email…): il registro vivo con
 // stato, budget e obiettivo. Le metriche giornaliere stanno in MetricaCampagna.
 model Campagna {
-  id          String    @id @default(cuid())
-  nome        String
-  brand       String    @default("flowers")
-  canale      String    @default("google_ads")
+  id                String            @id @default(cuid())
+  nome              String
+  brand             String            @default("flowers")
+  canale            String            @default("google_ads")
   // bozza | in_apprendimento | attiva | in_pausa | conclusa
-  stato       String    @default("attiva")
-  obiettivo   String?
+  stato             String            @default("attiva")
+  // classe di protezione (doc 11): traino | standard | sperimentale
+  classe            String            @default("standard")
+  obiettivo         String?
   budgetGiornaliero Float?
+  // CPA target per pacing e regole se/allora (doc 10 §7)
+  cpaTarget         Float?
   // id della campagna sulla piattaforma esterna (Google/Meta)
-  idEsterno   String?
-  inizio      DateTime?
-  fine        DateTime?
-  note        String?
+  idEsterno         String?
+  inizio            DateTime?
+  fine              DateTime?
+  note              String?
   // landing principale a cui la campagna manda il traffico
-  landingId   String?
-  landing     LandingPage? @relation(fields: [landingId], references: [id], onDelete: SetNull)
-  metriche    MetricaCampagna[]
-  azioni      Azione[]
-  creataIl    DateTime  @default(now())
-  aggiornataIl DateTime @updatedAt
+  landingId         String?
+  landing           LandingPage?      @relation(fields: [landingId], references: [id], onDelete: SetNull)
+  metriche          MetricaCampagna[]
+  azioni            Azione[]
+  alert             Alert[]
+  modifiche         Modifica[]
+  incidenti         Incidente[]
+  creataIl          DateTime          @default(now())
+  aggiornataIl      DateTime          @updatedAt
 
   @@index([brand])
   @@index([stato])
@@ -152,18 +170,18 @@ model MetricaCampagna {
 // in locale con Google Drive per Desktop. L'app NON scrive mai su Drive:
 // legge e indicizza per rendere i documenti cercabili e collegabili.
 model DocumentoDrive {
-  id             String   @id @default(cuid())
+  id              String   @id @default(cuid())
   // percorso relativo alla radice della cartella ufficiale, con "/"
-  percorso       String   @unique
-  nome           String
-  cartella       String
-  estensione     String
+  percorso        String   @unique
+  nome            String
+  cartella        String
+  estensione      String
   // flowers | cake | gifts | cross | pubblici | performance | altro
-  brand          String   @default("altro")
+  brand           String   @default("altro")
   // definitivi | analisi | piani | audit | archivio | pubblici | creativita | seo | altro
-  categoria      String   @default("altro")
-  dimensione     Int      @default(0)
-  modificatoIl   DateTime
+  categoria       String   @default("altro")
+  dimensione      Int      @default(0)
+  modificatoIl    DateTime
   sincronizzatoIl DateTime @default(now())
 
   @@index([brand])
@@ -187,25 +205,25 @@ model ApiKey {
 
 // Vendite e budget ADV mensili per sito (foglio "SALES GLOBAL 26 - REVISED").
 model VenditaMensile {
-  id         String @id @default(cuid())
-  anno       Int
-  mese       Int // 1-12
+  id        String   @id @default(cuid())
+  anno      Int
+  mese      Int // 1-12
   // gifts (deluxy.it) | cake (cakedesign.me) | flowers (deluxyflowers.com)
-  sito       String
-  vendite    Float?
-  b2b        Float?
-  eventi     Float?
-  totale     Float?
-  budgetAdv  Float?
-  quotaAnno  Float?
-  creataIl   DateTime @default(now())
+  sito      String
+  vendite   Float?
+  b2b       Float?
+  eventi    Float?
+  totale    Float?
+  budgetAdv Float?
+  quotaAnno Float?
+  creataIl  DateTime @default(now())
 
   @@unique([anno, mese, sito])
 }
 
 // Budget ADV mensile con ripartizione per canale/campagna (foglio "Budget adv").
 model BudgetMensile {
-  id              String @id @default(cuid())
+  id              String   @id @default(cuid())
   anno            Int
   mese            Int
   sito            String
@@ -250,28 +268,28 @@ model SettimanaMkt {
 
 // Un asset di copy: titolo/descrizione RSA, primary text Meta, keyword…
 model CopyAnnuncio {
-  id        String  @id @default(cuid())
-  brand     String
-  canale    String  @default("google_ads")
-  campagna  String
-  gruppo    String?
-  lingua    String? // it | en | fr | es
+  id           String   @id @default(cuid())
+  brand        String
+  canale       String   @default("google_ads")
+  campagna     String
+  gruppo       String?
+  lingua       String? // it | en | fr | es
   // titolo | descrizione | primary_text | headline_meta | keyword | sitelink | nota | altro
-  tipo      String
-  posizione Int?
-  testo     String
-  caratteri Int?
-  finalUrl  String?
+  tipo         String
+  posizione    Int?
+  testo        String
+  caratteri    Int?
+  finalUrl     String?
   // Copy: attivo | bozza | in_pausa | da_riscrivere | archiviato
   // Keyword: attiva | da_valutare | in_pausa | negativa | esclusa | vincente
-  stato     String  @default("attivo")
+  stato        String   @default("attivo")
   // Nota di lavoro sulla keyword (perché è stata messa in pausa, ecc.)
-  notaStato String?
+  notaStato    String?
   // per le keyword: resa e spesa (dal monitoraggio)
-  incasso   Float?
-  spesa     Float?
-  note      String?
-  creataIl  DateTime @default(now())
+  incasso      Float?
+  spesa        Float?
+  note         String?
+  creataIl     DateTime @default(now())
   aggiornataIl DateTime @updatedAt
 
   @@index([brand, campagna])
@@ -280,28 +298,28 @@ model CopyAnnuncio {
 // ============ Test Meta (backlog pianificabile in anticipo) ============
 
 model TestMeta {
-  id               String    @id @default(cuid())
-  titolo           String
-  brand            String    @default("cross") // flowers | cake | gifts | cross
+  id                String    @id @default(cuid())
+  titolo            String
+  brand             String    @default("cross") // flowers | cake | gifts | cross
   // A | I | D | X | retention | trasversale (fase AIDA)
-  fase             String?
-  ipotesi          String
-  variabile        String? // hook, seed pubblico, struttura ad set, finestra, formato…
-  pubblico         String?
-  formato          String?
-  metricaSuccesso  String? // costo LPV, costo ATC, ROAS vs break-even…
-  guardrail        String?
+  fase              String?
+  ipotesi           String
+  variabile         String? // hook, seed pubblico, struttura ad set, finestra, formato…
+  pubblico          String?
+  formato           String?
+  metricaSuccesso   String? // costo LPV, costo ATC, ROAS vs break-even…
+  guardrail         String?
   budgetGiornaliero Float?
-  dataInizio       DateTime?
-  dataVerifica     DateTime?
+  dataInizio        DateTime?
+  dataVerifica      DateTime?
   // idea | pianificato | in_corso | concluso | promosso | respinto
-  stato            String    @default("idea")
-  esito            String?
-  lezione          String?
-  fonte            String? // documento di provenienza (es. 8.3)
-  note             String?
-  creataIl         DateTime  @default(now())
-  aggiornataIl     DateTime  @updatedAt
+  stato             String    @default("idea")
+  esito             String?
+  lezione           String?
+  fonte             String? // documento di provenienza (es. 8.3)
+  note              String?
+  creataIl          DateTime  @default(now())
+  aggiornataIl      DateTime  @updatedAt
 
   @@index([stato])
   @@index([brand])
@@ -312,24 +330,25 @@ model TestMeta {
 // Registro delle landing: configurazione (la 00.4 del Drive resta il canonico;
 // qui lo schema navigabile con campagne associate e performance).
 model LandingPage {
-  id           String   @id @default(cuid())
-  url          String   @unique // path completo, es. deluxyflowers.com/pages/…
+  id           String             @id @default(cuid())
+  url          String             @unique // path completo, es. deluxyflowers.com/pages/…
   nome         String?
-  brand        String   @default("cross")
+  brand        String             @default("cross")
   lingua       String? // it | en | fr | es
   // dedicata | collection | pdp | home | lead
   tipo         String?
   scopo        String?
   gemellaUrl   String? // versione IT<->EN
   // attiva | mismatch | da_verificare | dismessa
-  stato        String   @default("attiva")
+  stato        String             @default("attiva")
   verificataIl DateTime?
   scorecard    Int? // voto /100 (guida 9.2)
   note         String?
   campagne     Campagna[]
   metriche     MetricaLanding[]
-  creataIl     DateTime @default(now())
-  aggiornataIl DateTime @updatedAt
+  scorecards   LandingScorecard[]
+  creataIl     DateTime           @default(now())
+  aggiornataIl DateTime           @updatedAt
 
   @@index([brand])
 }
@@ -348,7 +367,7 @@ model MetricaLanding {
   ricavi           Float?
   tassoConversione Float?
   note             String?
-  creataIl         DateTime @default(now())
+  creataIl         DateTime    @default(now())
 
   @@unique([landingId, periodo, canale])
 }
@@ -358,15 +377,15 @@ model MetricaLanding {
 // Ogni scrittura nell'app lascia una voce qui: il gemello digitale
 // dello "00.2 Registro Modifiche" del Drive.
 model RegistroEvento {
-  id       String   @id @default(cuid())
-  creatoIl DateTime @default(now())
-  autore   String   @default("utente") // utente | chiave API | sistema | import
+  id        String   @id @default(cuid())
+  creatoIl  DateTime @default(now())
+  autore    String   @default("utente") // utente | chiave API | sistema | import
   // creazione | modifica | stato | feedback | import | sync
-  tipo     String
+  tipo      String
   // analisi | azione | campagna | metrica | landing | copy | test_meta | drive | vendite | budget | settimana
-  entita   String
-  entitaId String?
-  titolo   String
+  entita    String
+  entitaId  String?
+  titolo    String
   dettaglio String?
 
   @@index([creatoIl])
@@ -379,23 +398,23 @@ model RegistroEvento {
 // Il canonico resta la "00.4 Mappa Pubblici e Segmenti" del sistema CRM su
 // Drive: qui vive lo specchio navigabile, con la storia delle dimensioni.
 model Pubblico {
-  id           String   @id @default(cuid())
+  id           String           @id @default(cuid())
   nome         String
   // meta | google | tiktok | klaviyo | shopify | altro
-  piattaforma  String   @default("meta")
-  brand        String   @default("cross")
+  piattaforma  String           @default("meta")
+  brand        String           @default("cross")
   // cliente | lookalike | retargeting | interessi | esclusione | segmento | altro
-  tipo         String   @default("cliente")
+  tipo         String           @default("cliente")
   // ultima dimensione nota (utenti/contatti)
   dimensione   Int?
   // attivo | da_creare | da_verificare | obsoleto | in_aggiornamento
-  stato        String   @default("da_verificare")
+  stato        String           @default("da_verificare")
   verificatoIl DateTime?
   fonte        String? // documento di provenienza su Drive
   note         String?
   misure       MisuraPubblico[]
-  creatoIl     DateTime @default(now())
-  aggiornatoIl DateTime @updatedAt
+  creatoIl     DateTime         @default(now())
+  aggiornatoIl DateTime         @updatedAt
 
   @@unique([nome, piattaforma])
   @@index([brand])
@@ -450,10 +469,10 @@ model AccountAdv {
 // Un ordine scaricato da uno dei negozi Shopify. Serve a mettere le vendite
 // accanto alla spesa pubblicitaria: quanto rende davvero ogni offerta.
 model Ordine {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   // negozio di provenienza (handle myshopify o dominio)
   negozio     String
-  brand       String   @default("gifts")
+  brand       String       @default("gifts")
   // numero visibile dell'ordine (es. #12581)
   numero      String
   idEsterno   String // id Shopify
@@ -463,9 +482,9 @@ model Ordine {
   netto       Float?
   spedizione  Float?
   sconto      Float?
-  valuta      String   @default("EUR")
+  valuta      String       @default("EUR")
   // pagato | rimborsato | parzialmente_rimborsato | annullato
-  stato       String   @default("pagato")
+  stato       String       @default("pagato")
   cliente     String?
   email       String?
   citta       String?
@@ -475,7 +494,7 @@ model Ordine {
   utmSource   String?
   utmCampagna String?
   righe       RigaOrdine[]
-  creatoIl    DateTime @default(now())
+  creatoIl    DateTime     @default(now())
 
   @@unique([negozio, idEsterno])
   @@index([data])
@@ -493,12 +512,187 @@ model RigaOrdine {
   // tipo prodotto dichiarato su Shopify (Fiori d'Arte, Originali Deluxy, …)
   tipo      String?
   quantita  Int     @default(1)
-  prezzo    Float?  // prezzo unitario
-  totale    Float?  // prezzo * quantità al netto degli sconti di riga
+  prezzo    Float? // prezzo unitario
+  totale    Float? // prezzo * quantità al netto degli sconti di riga
   // categoria normalizzata dall'app (fiori, torte, colazioni…)
   categoria String?
 
   @@index([ordineId])
   @@index([titolo])
   @@index([categoria])
+}
+
+// ============ Guardrail e governance (Definitivi 00.3/00.5/10/11) ============
+
+// Alert automatici sulle campagne (doc 11 §4): A1 acquisto muto, A2 erogazione,
+// A3 redditività, A5 segnali deboli. Valutati sulle metriche giornaliere.
+model Alert {
+  id         String   @id @default(cuid())
+  campagnaId String
+  campagna   Campagna @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
+  tipo       String // A1 | A2 | A3 | A5
+  livello    String // rosso | arancio | giallo
+  messaggio  String
+  // giorno di riferimento: evita duplicati per lo stesso giorno
+  giorno     DateTime
+  stato      String   @default("aperto") // aperto | annotato | risolto
+  creatoIl   DateTime @default(now())
+
+  @@unique([campagnaId, tipo, giorno])
+  @@index([stato])
+}
+
+// Storico errori ERR-* (00.5): registro append-only degli incidenti.
+// Una voce APERTA mette in freeze gli oggetti che riguarda.
+model Incidente {
+  id             String    @id @default(cuid())
+  codice         String    @unique // ERR-2026-001, mai riusato
+  titolo         String
+  stato          String    @default("aperto") // aperto | chiuso
+  verdetto       String?
+  contesto       String?
+  timeline       String?
+  impatto        String?
+  cause          String?
+  erroriProcesso String?
+  rimedi         String?
+  // oggetti coinvolti in testo libero (nomi campagne, liste, documenti)
+  oggetti        String?
+  campagnaId     String?
+  campagna       Campagna? @relation(fields: [campagnaId], references: [id], onDelete: SetNull)
+  apertoIl       DateTime  @default(now())
+  chiusoIl       DateTime?
+
+  @@index([stato])
+}
+
+// Modifiche alle campagne con change control (doc 11 §2-3): livello L0-L3,
+// PRIMA/DOPO, rollback. Da qui si calcolano blackout 72h e giudicabilità.
+model Modifica {
+  id             String   @id @default(cuid())
+  campagnaId     String
+  campagna       Campagna @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
+  livello        String   @default("L1") // L0 | L1 | L2 | L3
+  descrizione    String
+  prima          String?
+  dopo           String?
+  deltaBudgetPct Float?
+  rollbackPiano  String?
+  autore         String   @default("utente")
+  eseguitaIl     DateTime @default(now())
+
+  @@index([campagnaId])
+}
+
+// Memoria condivisa (00.3): lezioni apprese append-only. Le voci non si
+// modificano mai: una voce nuova può "superare" una vecchia citandola.
+model MemoriaVoce {
+  id       String   @id @default(cuid())
+  data     DateTime @default(now())
+  autore   String   @default("utente")
+  // metodo | decisioni | trappole
+  sezione  String   @default("metodo")
+  brand    String?
+  testo    String
+  stato    String   @default("attiva") // attiva | storico | consolidata
+  superaId String?
+  creataIl DateTime @default(now())
+
+  @@index([stato])
+}
+
+// Incongruenze documenti ↔ realtà (MODELLO Incongruenze.md), con verdetto.
+model Incongruenza {
+  id                String    @id @default(cuid())
+  progetto          String    @default("app")
+  documento         String
+  dice              String
+  risulta           String
+  evidenza          String?
+  azioneConsigliata String?
+  priorita          String    @default("P1") // P0 | P1 | P2
+  stato             String    @default("aperta") // aperta | vera | parziale | respinta | integrata
+  creataIl          DateTime  @default(now())
+  verdettoIl        DateTime?
+}
+
+// Cadenze ricorrenti (doc 5 §8.1, doc 10 §7, ISTRUZIONI PROGETTO):
+// checkpoint del lunedì, manutenzione mensile, re-upload liste…
+model Cadenza {
+  id         String              @id @default(cuid())
+  nome       String              @unique
+  // settimanale | bisettimanale | mensile | trimestrale | annuale
+  frequenza  String
+  checklist  String?
+  fonte      String?
+  attiva     Boolean             @default(true)
+  occorrenze CadenzaOccorrenza[]
+}
+
+model CadenzaOccorrenza {
+  id         String    @id @default(cuid())
+  cadenzaId  String
+  cadenza    Cadenza   @relation(fields: [cadenzaId], references: [id], onDelete: Cascade)
+  prevista   DateTime
+  eseguitaIl DateTime?
+  esito      String?
+
+  @@unique([cadenzaId, prevista])
+}
+
+// Occasioni del gifting (doc 8.2 §3.1, doc 4 §2.2): picchi con finestre calde
+// da accorciare a T-21/T-14 e ripristinare a T+7; niente tCPA nei picchi.
+model Occasione {
+  id       String   @id @default(cuid())
+  nome     String
+  data     DateTime
+  brand    String   @default("cross")
+  note     String?
+  creataIl DateTime @default(now())
+
+  @@unique([nome, data])
+}
+
+// Creativi Meta per la rotazione (doc 8.3): età, fase, stato.
+// "I vincenti non si toccano."
+model Creativo {
+  id         String    @id @default(cuid())
+  nome       String
+  brand      String    @default("cross")
+  // A | ID | X
+  fase       String    @default("A")
+  // in_coda | attivo | vincente | sostituito | bocciato
+  stato      String    @default("in_coda")
+  lanciatoIl DateTime?
+  note       String?
+  creatoIl   DateTime  @default(now())
+
+  @@index([stato])
+}
+
+// Scorecard landing 13 criteri /100 (doc 9.2 §10) con pre-check tecnico.
+model LandingScorecard {
+  id        String      @id @default(cuid())
+  landingId String
+  landing   LandingPage @relation(fields: [landingId], references: [id], onDelete: Cascade)
+  data      DateTime    @default(now())
+  // JSON: { criterio: punteggio 0-5 } per i 13 criteri
+  criteri   String
+  voto      Int
+  fascia    String // critica | da_migliorare | buona | eccellente
+  note      String?
+}
+
+// Copy Score /100 (doc 7 §6.6): 5 criteri pesati + penalità parole tossiche.
+model CopyScore {
+  id         String   @id @default(cuid())
+  brand      String
+  testoCopy  String
+  // JSON: { attention, interest, desire, action, igiene } 0-5
+  criteri    String
+  penalita   Int      @default(0)
+  score      Int
+  giudizio   String // eccellente | buono | sufficiente | da_rifare
+  faseDebole String?
+  creataIl   DateTime @default(now())
 }

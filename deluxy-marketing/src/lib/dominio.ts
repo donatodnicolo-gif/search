@@ -369,3 +369,83 @@ export const COLORE_STATO_PUBBLICO: Record<string, string> = {
 
 // Sotto queste soglie il pubblico non è utilizzabile/efficace (regole Meta).
 export const SOGLIA_POOL_MINIMO = 1000;
+
+// ---------- Guardrail e governance (Definitivi 00.x, 10, 11) ----------
+
+export const CLASSI_CAMPAGNA = ["traino", "standard", "sperimentale"] as const;
+export const ETICHETTA_CLASSE: Record<string, string> = {
+  traino: "Traino",
+  standard: "Standard",
+  sperimentale: "Sperimentale",
+};
+export const COLORE_CLASSE: Record<string, string> = {
+  traino: "var(--gold-strong)",
+  standard: "var(--text-secondary)",
+  sperimentale: "var(--purple)",
+};
+
+export const LIVELLI_MODIFICA = ["L0", "L1", "L2", "L3"] as const;
+export const ETICHETTA_LIVELLO: Record<string, string> = {
+  L0: "L0 — Osservazione",
+  L1: "L1 — Leggera",
+  L2: "L2 — Significativa",
+  L3: "L3 — Strutturale",
+};
+
+export const COLORE_ALERT: Record<string, string> = {
+  rosso: "var(--red)",
+  arancio: "var(--orange)",
+  giallo: "var(--gold-strong)",
+};
+
+export const SEZIONI_MEMORIA = ["metodo", "decisioni", "trappole"] as const;
+export const ETICHETTA_SEZIONE_MEMORIA: Record<string, string> = {
+  metodo: "Metodo di lavoro",
+  decisioni: "Decisioni trasversali",
+  trappole: "Trappole tecniche",
+};
+
+export const PRIORITA_INCONGRUENZA: Record<string, string> = {
+  P0: "P0 — Blocca decisioni corrette",
+  P1: "P1 — Importante",
+  P2: "P2 — Minore",
+};
+export const STATI_INCONGRUENZA = ["aperta", "vera", "parziale", "respinta", "integrata"] as const;
+export const ETICHETTA_STATO_INCONGRUENZA: Record<string, string> = {
+  aperta: "Aperta",
+  vera: "Verificata: vera",
+  parziale: "Verificata: parziale",
+  respinta: "Non confermata",
+  integrata: "Integrata nei documenti",
+};
+export const COLORE_STATO_INCONGRUENZA: Record<string, string> = {
+  aperta: "var(--orange)",
+  vera: "var(--red)",
+  parziale: "var(--gold-strong)",
+  respinta: "var(--text-tertiary)",
+  integrata: "var(--green)",
+};
+
+export const FREQUENZE_CADENZA: Record<string, string> = {
+  settimanale: "Ogni settimana (lunedì)",
+  bisettimanale: "Ogni 2 settimane",
+  mensile: "Ogni mese (il 1°)",
+  trimestrale: "Ogni trimestre",
+  annuale: "Ogni anno",
+};
+
+export const STATI_CREATIVO = ["in_coda", "attivo", "vincente", "sostituito", "bocciato"] as const;
+export const ETICHETTA_STATO_CREATIVO: Record<string, string> = {
+  in_coda: "In coda",
+  attivo: "Attivo",
+  vincente: "Vincente",
+  sostituito: "Sostituito",
+  bocciato: "Bocciato",
+};
+export const COLORE_STATO_CREATIVO: Record<string, string> = {
+  in_coda: "var(--blue)",
+  attivo: "var(--gold-strong)",
+  vincente: "var(--green)",
+  sostituito: "var(--text-tertiary)",
+  bocciato: "var(--red)",
+};

@@ -15,7 +15,8 @@
     "sync-drive": "node scripts/sync-drive.mjs",
     "import:monitoraggio": "node scripts/import-monitoraggio.mjs",
     "db:seed-adv": "node prisma/seed-adv.mjs",
-    "import:ordini": "node scripts/import-ordini-shopify.mjs"
+    "import:ordini": "node scripts/import-ordini-shopify.mjs",
+    "db:seed-governance": "node prisma/seed-governance.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.mjs"

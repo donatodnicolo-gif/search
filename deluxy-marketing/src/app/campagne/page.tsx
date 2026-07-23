@@ -12,6 +12,7 @@ import {
   STATI_CAMPAGNA,
 } from "@/lib/dominio";
 import { categoriaCampagna, iconaCanale, saluteCampagna } from "@/lib/salute";
+import { COLORE_CLASSE, ETICHETTA_CLASSE } from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
 
@@ -115,7 +116,7 @@ export default async function PaginaCampagne({
                     const spesa = c.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
                     const ricavi = c.metriche.reduce((s, m) => s + (m.ricavi ?? 0), 0);
                     const r = roas(ricavi, spesa);
-                    const salute = saluteCampagna(c.stato, r, spesa);
+                    const salute = saluteCampagna(c.stato, r, spesa, c.brand);
                     const categoria = categoriaCampagna(`${c.nome} ${c.landing?.url ?? ""} ${c.obiettivo ?? ""}`);
                     const nuovoCanale = c.canale !== canalePrec;
                     canalePrec = c.canale;
@@ -140,6 +141,12 @@ export default async function PaginaCampagne({
                               {salute.etichetta}
                             </span>
                             <span className="tag-neutro">{categoria.nome}</span>
+                            {c.classe !== "standard" && (
+                              <span className="tag-salute" style={{ color: COLORE_CLASSE[c.classe] }} title={c.classe === "traino" ? "Campagna protetta (doc 11): modifiche solo con change control" : "Campagna sperimentale"}>
+                                <span className="dot" />
+                                {c.classe === "traino" ? "🛡 Traino" : ETICHETTA_CLASSE[c.classe]}
+                              </span>
+                            )}
                           </div>
                           {c.obiettivo && <div className="card-campagna-obiettivo">◎ {c.obiettivo}</div>}
                           {c.landing && (

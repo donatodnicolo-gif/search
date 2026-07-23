@@ -5,7 +5,8 @@ import { SbSezione } from "./SbSezione";
 
 export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "landing" | "copy" | "keywords"
-  | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni";
+  | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni"
+  | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -20,7 +21,7 @@ export async function Sidebar({
 }) {
   const [
     nAnalisi, nAudit, nAzioniAperte, nCampagneVive, nLanding, nTestAperti, nDocumenti,
-    aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale, nPubblici, nOrdini,
+    aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale, nPubblici, nOrdini, nErroriAperti, nIncongruenzeAperte,
   ] = await Promise.all([
     prisma.analisi.count(),
     prisma.analisi.count({
@@ -54,6 +55,8 @@ export async function Sidebar({
     }),
     prisma.pubblico.count(),
     prisma.ordine.count(),
+    prisma.incidente.count({ where: { stato: "aperto" } }),
+    prisma.incongruenza.count({ where: { stato: "aperta" } }),
   ]);
 
   const conta = (
@@ -128,6 +131,14 @@ export async function Sidebar({
 
         <SbSezione titolo="Monitoraggio">
           {voce("mkt", "/mkt", "metriche", "MKT vs 2025")}
+        </SbSezione>
+
+        <SbSezione titolo="Governance">
+          {voce("occasioni", "/occasioni", "vendite", "Occasioni")}
+          {voce("cadenze", "/cadenze", "storico", "Cadenze")}
+          {voce("errori", "/errori", "audit", "Storico errori", nErroriAperti)}
+          {voce("memoria", "/memoria", "analisi", "Memoria condivisa")}
+          {voce("incongruenze", "/incongruenze", "pagina", "Incongruenze", nIncongruenzeAperte)}
         </SbSezione>
 
         <SbSezione titolo="Archivio">

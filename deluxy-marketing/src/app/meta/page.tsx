@@ -1,4 +1,5 @@
 import { Badge } from "@/components/Badge";
+import { RotazioneCreativa } from "@/components/RotazioneCreativa";
 import { Sidebar } from "@/components/Sidebar";
 import { cambiaStatoTestMeta, creaTestMeta } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
@@ -159,6 +160,8 @@ export default async function PaginaMeta({
             );
           })}
         </div>
+
+        <RotazioneCreativa />
 
         <section className="scheda" style={{ marginTop: 18 }}>
           <div className="scheda-titolo">Proponi un nuovo test</div>

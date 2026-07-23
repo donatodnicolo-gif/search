@@ -54,7 +54,7 @@ export default async function Dashboard() {
   const giorni30 = new Date(oggi.getTime() - 30 * 86_400_000);
   const giorni14 = new Date(oggi.getTime() - 13 * 86_400_000);
 
-  const [aperte, scadute, nAnalisi30, campagneAttive, azioniUrgenti, ultimeAnalisi, metriche14] =
+  const [aperte, scadute, nAnalisi30, campagneAttive, azioniUrgenti, ultimeAnalisi, metriche14, alertAperti, fatteNonVerificate] =
     await Promise.all([
       prisma.azione.count({ where: { stato: { in: STATI_AZIONE_APERTI } } }),
       prisma.azione.count({
@@ -72,6 +72,18 @@ export default async function Dashboard() {
       prisma.metricaCampagna.findMany({
         where: { data: { gte: giorni14 } },
         select: { data: true, spesa: true },
+      }),
+      prisma.alert.findMany({
+        where: { stato: "aperto", creatoIl: { gte: new Date(Date.now() - 7 * 86_400_000) } },
+        include: { campagna: { select: { id: true, nome: true } } },
+        orderBy: { creatoIl: "desc" },
+        take: 8,
+      }),
+      prisma.azione.findMany({
+        where: { stato: "fatta", verificataIl: null, fattoIl: { not: null } },
+        orderBy: { fattoIl: "desc" },
+        take: 6,
+        select: { id: true, titolo: true, fattoIl: true },
       }),
     ]);
 
@@ -172,6 +184,26 @@ export default async function Dashboard() {
             );
           })}
         </div>
+
+        {(alertAperti.length > 0 || fatteNonVerificate.length > 0) && (
+          <section className="scheda">
+            <div className="scheda-titolo">Guardrail — cose che chiedono attenzione</div>
+            {alertAperti.map((a) => (
+              <div key={a.id} className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 5 }}>
+                <b style={{ color: a.livello === "rosso" ? "var(--red)" : a.livello === "arancio" ? "var(--orange)" : "var(--gold-strong)" }}>{a.tipo}</b>{" "}
+                <a href={`/campagne/${a.campagna.id}`} style={{ color: "var(--blue)" }}>{a.campagna.nome}</a>: {a.messaggio}
+              </div>
+            ))}
+            {fatteNonVerificate.length > 0 && (
+              <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 8 }}>
+                <b>Fatte ma non verificate</b> (completamento ≠ efficacia):{" "}
+                {fatteNonVerificate.map((f, i) => (
+                  <span key={f.id}>{i > 0 ? " · " : ""}<a href={`/azioni/${f.id}`} style={{ color: "var(--blue)" }}>{f.titolo}</a></span>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         <div className="due-colonne">
           <section className="scheda">

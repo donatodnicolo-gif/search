@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/Badge";
+import { ScorecardLanding } from "@/components/ScorecardLanding";
 import { Sidebar } from "@/components/Sidebar";
 import { aggiungiMetricaLanding, cambiaStatoLanding } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
@@ -80,6 +81,8 @@ export default async function SchedaLanding({ params }: { params: Promise<{ id: 
             {landing.scorecard != null && ` · scorecard ${landing.scorecard}/100`}
           </p>
         </section>
+
+        <ScorecardLanding landingId={landing.id} />
 
         <div className="due-colonne">
           <div>

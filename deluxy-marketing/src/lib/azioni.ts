@@ -489,3 +489,346 @@ export async function attivaAccount(fd: FormData) {
   });
   revalidatePath("/impostazioni");
 }
+
+// ---------- Change control: modifiche alle campagne (doc 11) ----------
+
+export async function registraModifica(fd: FormData) {
+  const campagnaId = testo(fd, "campagnaId");
+  const descrizione = testo(fd, "descrizione");
+  if (!campagnaId || !descrizione) return;
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    include: { modifiche: { orderBy: { eseguitaIl: "desc" }, take: 1 } },
+  });
+  if (!campagna) return;
+
+  const livello = testo(fd, "livello") ?? "L1";
+  const deltaBudgetPct = numeroDa(fd, "deltaBudgetPct");
+  const rollbackPiano = testo(fd, "rollbackPiano");
+  const { validaModifica } = await import("./guardrail");
+  const esito = validaModifica({
+    classe: campagna.classe,
+    livello,
+    deltaBudgetPct,
+    rollbackPiano,
+    ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+  });
+  if (esito.blocchi.length > 0) {
+    // Bloccata: si registra il tentativo nello storico e si torna con l'errore.
+    await registra({
+      autore: "utente", tipo: "modifica", entita: "campagna", entitaId: campagnaId,
+      titolo: `Modifica BLOCCATA dal change control su "${campagna.nome}"`,
+      dettaglio: esito.blocchi.join(" · "),
+    });
+    redirect(`/campagne/${campagnaId}?bloccata=${encodeURIComponent(esito.blocchi[0])}`);
+  }
+
+  await prisma.modifica.create({
+    data: {
+      campagnaId, livello, descrizione,
+      prima: testo(fd, "prima"), dopo: testo(fd, "dopo"),
+      deltaBudgetPct, rollbackPiano,
+    },
+  });
+  // Verifiche obbligatorie post-modifica a +24h e +72h (doc 11 §3.5)
+  for (const ore of [24, 72]) {
+    await prisma.azione.create({
+      data: {
+        titolo: `Verifica +${ore}h dopo "${descrizione}" su ${campagna.nome}`,
+        brand: campagna.brand,
+        canale: campagna.canale,
+        priorita: ore === 24 ? "alta" : "media",
+        owner: "utente",
+        scadenza: new Date(Date.now() + ore * 3600_000),
+        campagnaId,
+        eventi: { create: { tipo: "creazione", autore: "sistema", testo: `Promemoria generato dal change control (verifica a +${ore}h)` } },
+      },
+    });
+  }
+  await registra({
+    autore: "utente", tipo: "modifica", entita: "campagna", entitaId: campagnaId,
+    titolo: `Modifica ${livello} su "${campagna.nome}": ${descrizione}`,
+    dettaglio: esito.avvisi.join(" · ") || null,
+  });
+  revalidatePath(`/campagne/${campagnaId}`);
+  redirect(`/campagne/${campagnaId}?salvata=modifica`);
+}
+
+export async function cambiaClasseCampagna(fd: FormData) {
+  const id = testo(fd, "id");
+  const classe = testo(fd, "classe");
+  if (!id || !classe) return;
+  const campagna = await prisma.campagna.update({ where: { id }, data: { classe } });
+  await registra({ autore: "utente", tipo: "stato", entita: "campagna", entitaId: id, titolo: `Campagna "${campagna.nome}" → classe ${classe}` });
+  revalidatePath(`/campagne/${id}`);
+  revalidatePath("/campagne");
+}
+
+// ---------- Storico errori ERR-* (00.5) ----------
+
+export async function creaIncidente(fd: FormData) {
+  const titolo = testo(fd, "titolo");
+  if (!titolo) return;
+  const anno = new Date().getFullYear();
+  const conteggio = await prisma.incidente.count({ where: { codice: { startsWith: `ERR-${anno}` } } });
+  const codice = `ERR-${anno}-${String(conteggio + 1).padStart(3, "0")}`;
+  const incidente = await prisma.incidente.create({
+    data: {
+      codice, titolo,
+      contesto: testo(fd, "contesto"),
+      timeline: testo(fd, "timeline"),
+      impatto: testo(fd, "impatto"),
+      cause: testo(fd, "cause"),
+      erroriProcesso: testo(fd, "erroriProcesso"),
+      rimedi: testo(fd, "rimedi"),
+      oggetti: testo(fd, "oggetti"),
+      campagnaId: testo(fd, "campagnaId"),
+    },
+  });
+  await registra({ autore: "utente", tipo: "creazione", entita: "incidente", entitaId: incidente.id, titolo: `${codice} aperto: ${titolo}` });
+  revalidatePath("/errori");
+  redirect("/errori");
+}
+
+export async function chiudiIncidente(fd: FormData) {
+  const id = testo(fd, "id");
+  const verdetto = testo(fd, "verdetto");
+  if (!id) return;
+  const incidente = await prisma.incidente.update({
+    where: { id },
+    data: { stato: "chiuso", verdetto, chiusoIl: new Date() },
+  });
+  await registra({ autore: "utente", tipo: "stato", entita: "incidente", entitaId: id, titolo: `${incidente.codice} chiuso`, dettaglio: verdetto });
+  revalidatePath("/errori");
+}
+
+// ---------- Memoria condivisa (00.3): append-only ----------
+
+export async function aggiungiMemoria(fd: FormData) {
+  const testoVoce = testo(fd, "testo");
+  if (!testoVoce) return;
+  const voce = await prisma.memoriaVoce.create({
+    data: {
+      testo: testoVoce,
+      sezione: testo(fd, "sezione") ?? "metodo",
+      brand: testo(fd, "brand"),
+      autore: testo(fd, "autore") ?? "utente",
+      superaId: testo(fd, "superaId"),
+    },
+  });
+  // Se supera una voce, quella passa in Storico (mai cancellata).
+  if (voce.superaId) {
+    await prisma.memoriaVoce.update({ where: { id: voce.superaId }, data: { stato: "storico" } }).catch(() => {});
+  }
+  await registra({ autore: "utente", tipo: "creazione", entita: "memoria", entitaId: voce.id, titolo: "Nuova lezione in memoria condivisa", dettaglio: testoVoce.slice(0, 140) });
+  revalidatePath("/memoria");
+}
+
+export async function consolidaMemoria(fd: FormData) {
+  const id = testo(fd, "id");
+  const stato = testo(fd, "stato");
+  if (!id || !stato) return;
+  await prisma.memoriaVoce.update({ where: { id }, data: { stato } });
+  revalidatePath("/memoria");
+}
+
+// ---------- Incongruenze documenti <-> realtà ----------
+
+export async function creaIncongruenza(fd: FormData) {
+  const documento = testo(fd, "documento");
+  const dice = testo(fd, "dice");
+  const risulta = testo(fd, "risulta");
+  if (!documento || !dice || !risulta) return;
+  const voce = await prisma.incongruenza.create({
+    data: {
+      documento, dice, risulta,
+      evidenza: testo(fd, "evidenza"),
+      azioneConsigliata: testo(fd, "azioneConsigliata"),
+      priorita: testo(fd, "priorita") ?? "P1",
+    },
+  });
+  await registra({ autore: "utente", tipo: "creazione", entita: "incongruenza", entitaId: voce.id, titolo: `Incongruenza ${voce.priorita} su ${documento}` });
+  revalidatePath("/incongruenze");
+}
+
+export async function verdettoIncongruenza(fd: FormData) {
+  const id = testo(fd, "id");
+  const stato = testo(fd, "stato");
+  if (!id || !stato) return;
+  const voce = await prisma.incongruenza.update({ where: { id }, data: { stato, verdettoIl: new Date() } });
+  // Verdetto VERA o PARZIALE: azione di correzione nel kanban (dal modello Incongruenze)
+  if (stato === "vera" || stato === "parziale") {
+    await prisma.azione.create({
+      data: {
+        titolo: `Correggere ${voce.documento} (incongruenza ${stato === "vera" ? "verificata" : "parziale"})`,
+        descrizione: `Il documento dice: ${voce.dice}\nLa realtà: ${voce.risulta}${voce.azioneConsigliata ? `\nAzione consigliata: ${voce.azioneConsigliata}` : ""}`,
+        brand: "cross",
+        priorita: voce.priorita === "P0" ? "alta" : "media",
+        owner: "ai",
+        eventi: { create: { tipo: "creazione", autore: "sistema", testo: "Generata dal verdetto sull'incongruenza" } },
+      },
+    });
+  }
+  await registra({ autore: "utente", tipo: "stato", entita: "incongruenza", entitaId: id, titolo: `Incongruenza su ${voce.documento} → ${stato}` });
+  revalidatePath("/incongruenze");
+}
+
+// ---------- Cadenze ricorrenti ----------
+
+export async function spuntaOccorrenza(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  await prisma.cadenzaOccorrenza.update({
+    where: { id },
+    data: { eseguitaIl: new Date(), esito: testo(fd, "esito") },
+  });
+  revalidatePath("/cadenze");
+}
+
+// ---------- Chiusura a doppio stato (00.3) ----------
+
+export async function chiudiAzioneConPaperTrail(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const azione = await prisma.azione.findUnique({ where: { id } });
+  if (!azione) return;
+  await prisma.azione.update({
+    where: { id },
+    data: {
+      stato: "fatta",
+      fattoIl: new Date(),
+      prima: testo(fd, "prima"),
+      dopo: testo(fd, "dopo"),
+      esito: testo(fd, "esito") ?? azione.esito,
+      eventi: { create: { tipo: "stato", da: azione.stato, a: "fatta", autore: "utente", testo: "Chiusa con paper-trail PRIMA/DOPO" } },
+    },
+  });
+  // Completamento diverso da efficacia: nasce la verifica (00.3 regola chiusura azione)
+  await prisma.azione.create({
+    data: {
+      titolo: `Verifica efficacia: ${azione.titolo}`,
+      brand: azione.brand,
+      canale: azione.canale,
+      priorita: "media",
+      owner: "utente",
+      scadenza: new Date(Date.now() + 72 * 3600_000),
+      campagnaId: azione.campagnaId,
+      analisiId: azione.analisiId,
+      eventi: { create: { tipo: "creazione", autore: "sistema", testo: `Verifica a +72h della chiusura di "${azione.titolo}"` } },
+    },
+  });
+  await registra({ autore: "utente", tipo: "stato", entita: "azione", entitaId: id, titolo: `Azione fatta con paper-trail: ${azione.titolo}` });
+  revalidatePath(`/azioni/${id}`);
+  revalidatePath("/azioni");
+}
+
+export async function esitoVerificaAzione(fd: FormData) {
+  const id = testo(fd, "id");
+  const esito = testo(fd, "esitoVerifica"); // verificata | riaperta
+  if (!id || !esito) return;
+  const azione = await prisma.azione.findUnique({ where: { id } });
+  if (!azione) return;
+  if (esito === "verificata") {
+    await prisma.azione.update({
+      where: { id },
+      data: {
+        verificataIl: new Date(),
+        esitoVerifica: testo(fd, "nota") ?? "confermata",
+        eventi: { create: { tipo: "nota", autore: "utente", testo: "VERIFICATA: efficacia confermata" } },
+      },
+    });
+  } else {
+    await prisma.azione.update({
+      where: { id },
+      data: {
+        stato: "in_corso",
+        riaperture: azione.riaperture + 1,
+        esitoVerifica: testo(fd, "nota") ?? "non confermata",
+        eventi: { create: { tipo: "stato", da: "fatta", a: "in_corso", autore: "utente", testo: `RIAPERTA (${azione.riaperture + 1}ª volta): efficacia non confermata` } },
+      },
+    });
+  }
+  await registra({ autore: "utente", tipo: "stato", entita: "azione", entitaId: id, titolo: `Verifica azione "${azione.titolo}": ${esito}` });
+  revalidatePath(`/azioni/${id}`);
+  revalidatePath("/azioni");
+}
+
+// ---------- Creativi Meta (rotazione, doc 8.3) ----------
+
+export async function salvaCreativo(fd: FormData) {
+  const nome = testo(fd, "nome");
+  if (!nome) return;
+  await prisma.creativo.create({
+    data: {
+      nome,
+      brand: testo(fd, "brand") ?? "cross",
+      fase: testo(fd, "fase") ?? "A",
+      stato: testo(fd, "stato") ?? "in_coda",
+      lanciatoIl: dataDa(fd, "lanciatoIl"),
+      note: testo(fd, "note"),
+    },
+  });
+  revalidatePath("/meta");
+}
+
+export async function cambiaStatoCreativo(fd: FormData) {
+  const id = testo(fd, "id");
+  const stato = testo(fd, "stato");
+  if (!id || !stato) return;
+  const dati: { stato: string; lanciatoIl?: Date } = { stato };
+  if (stato === "attivo") dati.lanciatoIl = new Date();
+  await prisma.creativo.update({ where: { id }, data: dati });
+  revalidatePath("/meta");
+}
+
+// ---------- Occasioni (doc 8.2 §3.1) ----------
+
+export async function creaOccasione(fd: FormData) {
+  const nome = testo(fd, "nome");
+  const data = dataDa(fd, "data");
+  if (!nome || !data) return;
+  const occasione = await prisma.occasione.create({
+    data: { nome, data, brand: testo(fd, "brand") ?? "cross", note: testo(fd, "note") },
+  });
+  // Task automatici: T-21 e T-14 preparazione, T+7 ripristino (doc 8.2 §3.1)
+  const compiti = [
+    { giorni: -21, titolo: `T-21 ${nome}: alzare budget fase A e brief creativi d'occasione`, descrizione: "Doc 8.2 §3.1: alzare il budget A 2-3 settimane prima, così i pool I/D/X sono pieni quando il picco arriva. Doc 8.3: creativi d'occasione pronti 2-3 settimane prima." },
+    { giorni: -14, titolo: `T-14 ${nome}: accorciare le finestre calde (VC/ATC 30-14g, engagers 365-30/60g)`, descrizione: "Doc 8.2 §3.1. Niente nuovi tCPA in finestra di picco (doc 4 §2.2)." },
+    { giorni: 7, titolo: `T+7 ${nome}: ripristinare le finestre standard dei pubblici`, descrizione: "Doc 8.2 §3.1: dopo il picco riportare le finestre calde ai valori standard." },
+  ];
+  for (const c of compiti) {
+    await prisma.azione.create({
+      data: {
+        titolo: c.titolo,
+        descrizione: c.descrizione,
+        brand: occasione.brand,
+        canale: "meta_ads",
+        priorita: "alta",
+        owner: "ai",
+        scadenza: new Date(data.getTime() + c.giorni * 86_400_000),
+        eventi: { create: { tipo: "creazione", autore: "sistema", testo: `Generata dall'occasione "${nome}" (${data.toLocaleDateString("it-IT")})` } },
+      },
+    });
+  }
+  await registra({ autore: "utente", tipo: "creazione", entita: "occasione", entitaId: occasione.id, titolo: `Occasione "${nome}" con 3 task automatici (T-21, T-14, T+7)` });
+  revalidatePath("/occasioni");
+}
+
+// ---------- Scorecard landing (doc 9.2 §10) ----------
+
+export async function salvaScorecardLanding(fd: FormData) {
+  const landingId = testo(fd, "landingId");
+  if (!landingId) return;
+  const { CRITERI_LANDING, votoLanding } = await import("./copy-lint");
+  const criteri: Record<string, number> = {};
+  for (const c of CRITERI_LANDING) {
+    criteri[c.chiave] = Math.max(0, Math.min(5, numeroDa(fd, c.chiave) ?? 0));
+  }
+  const { voto, fascia } = votoLanding(criteri);
+  await prisma.landingScorecard.create({
+    data: { landingId, criteri: JSON.stringify(criteri), voto, fascia, note: testo(fd, "note") },
+  });
+  await prisma.landingPage.update({ where: { id: landingId }, data: { scorecard: voto, verificataIl: new Date() } });
+  await registra({ autore: "utente", tipo: "modifica", entita: "landing", entitaId: landingId, titolo: "Scorecard landing compilata", dettaglio: "voto " + voto + "/100 (" + fascia + ")" });
+  revalidatePath("/landing/" + landingId);
+}

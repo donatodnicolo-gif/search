@@ -1,14 +1,18 @@
 // Come sta andando una campagna, in una parola: dallo stato più i numeri.
-// Le soglie ricalcano il linguaggio dei Definitivi (ROAS target 4, break-even
-// intorno a 2): sopra target "performa", sotto break-even "critica".
+// Le soglie sono parametriche per brand (doc 10 §11: break-even = 1/margine):
+// Gifts BE 3,3 · Flowers BE 2,5 · Cake BE 2,0. Target = 1,5× il break-even.
+import { breakEvenRoas } from "./guardrail";
 
 export type Salute = { etichetta: string; colore: string; spiega: string };
 
 export function saluteCampagna(
   stato: string,
   roas: number | null,
-  spesa: number
+  spesa: number,
+  brand: string = "cross"
 ): Salute {
+  const be = breakEvenRoas(brand);
+  const target = be * 1.5;
   if (stato === "in_apprendimento") {
     return {
       etichetta: "In apprendimento",
@@ -33,13 +37,13 @@ export function saluteCampagna(
       spiega: "Attiva ma senza metriche registrate negli ultimi 30 giorni",
     };
   }
-  if (roas >= 4) {
-    return { etichetta: "Performa", colore: "var(--green)", spiega: `ROAS ${roas.toFixed(1)}× sopra il target di 4×` };
+  if (roas >= target) {
+    return { etichetta: "Performa", colore: "var(--green)", spiega: `ROAS ${roas.toFixed(1)}× sopra il target del brand (${target.toFixed(1)}× = 1,5× break-even)` };
   }
-  if (roas >= 2) {
-    return { etichetta: "Nella media", colore: "var(--blue)", spiega: `ROAS ${roas.toFixed(1)}×: sopra il break-even ma sotto il target` };
+  if (roas >= be) {
+    return { etichetta: "Nella media", colore: "var(--blue)", spiega: `ROAS ${roas.toFixed(1)}×: sopra il break-even del brand (${be.toFixed(1)}×) ma sotto il target (${target.toFixed(1)}×)` };
   }
-  return { etichetta: "Critica", colore: "var(--red)", spiega: `ROAS ${roas.toFixed(1)}× sotto il break-even` };
+  return { etichetta: "Critica", colore: "var(--red)", spiega: `ROAS ${roas.toFixed(1)}× sotto il break-even del brand (${be.toFixed(1)}× = 1/margine, doc 10 §11)` };
 }
 
 // Categoria merceologica dedotta da nome campagna e landing → icona a tema.
