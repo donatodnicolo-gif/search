@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
-import { raggruppa } from '@/lib/thread'
+import { raggruppa, chiaveThread } from '@/lib/thread'
+import { nomiPerChiavi } from '@/lib/nomiThread'
 import { RicercaMail } from '@/components/RicercaMail'
 import { CercaServer } from '@/components/CercaServer'
 import { ListaInviati, type RigaInviata } from '@/components/ListaInviati'
@@ -46,12 +47,16 @@ export default async function PostaInviata({ searchParams }: Props) {
   // Il volto della riga è la mia mail più recente della conversazione.
   const gruppi = raggruppa(messaggi)
 
+  // Il nome dato a mano alle conversazioni (una query per tutta la pagina).
+  const nomi = await nomiPerChiavi(u.id, gruppi.map((g) => chiaveThread(g)))
+
   const righe: RigaInviata[] = gruppi.map((g) => {
     const m = g[g.length - 1]
     return {
       id: m.id,
       ids: g.map((x) => x.id),
       nel: g.length,
+      nomeThread: nomi.get(chiaveThread(g)) ?? null,
       destinatari: m.destinatari,
       oggetto: m.oggetto,
       anteprima: m.anteprima,

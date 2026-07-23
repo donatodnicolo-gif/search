@@ -15,6 +15,8 @@ export type RigaInviata = {
   ids: string[]
   /** Quante mie mail ci sono in questa conversazione (1 = mail singola). */
   nel: number
+  /** Il nome dato a mano alla conversazione (null se non ne ha). */
+  nomeThread?: string | null
   destinatari: string
   oggetto: string
   anteprima: string
@@ -151,6 +153,12 @@ export function ListaInviati({
                     title={`${m.nel} tue mail in questa conversazione`}
                   >
                     {m.nel}
+                  </span>
+                )}
+                {m.nomeThread && (
+                  <span className="badge gold" title="Nome dato alla conversazione">
+                    <span className="dot" />
+                    {m.nomeThread}
                   </span>
                 )}
                 {m.sezione && (

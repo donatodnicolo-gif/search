@@ -59,6 +59,7 @@ model Utente {
   thread    RiassuntoThread[]
   contattiAI ContattoAI[]
   istruzioniThread IstruzioneThread[]
+  nomiThread       NomeThread[]
   regoleApp  RegolaApp[]
   inviiApp   InvioApp[]
   eventi     Evento[]
@@ -516,6 +517,21 @@ model ContattoAI {
 
 // Istruzioni AI legate a una conversazione (thread), la regola più specifica.
 // chiave = id del messaggio capostipite (la stessa del riassunto thread).
+// Il NOME che l'utente dà a una conversazione ("Trasferte LimoLane"): serve a
+// ritrovarla anche quando l'oggetto non dice niente. Stessa chiave degli altri
+// dati di thread (l'id del messaggio capostipite).
+model NomeThread {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  chiave       String
+  nome         String
+  aggiornatoIl DateTime @default(now()) @updatedAt
+
+  @@unique([utenteId, chiave])
+}
+
 model IstruzioneThread {
   id       String @id @default(cuid())
   utenteId String

@@ -15,8 +15,9 @@ import type { RigaData } from '@/components/RigaMail'
 import { descriviAzioni } from '@/lib/appDeluxy'
 import { leggiChiaviApp } from '@/lib/chiaviApp'
 import { richiediUtente } from '@/lib/sessione'
-import { raggruppa } from '@/lib/thread'
+import { raggruppa, chiaveThread } from '@/lib/thread'
 import { emailContattiAI } from '@/lib/contattiAI'
+import { nomiPerChiavi } from '@/lib/nomiThread'
 import { indiceClienti } from '@/lib/anagrafiche'
 
 export const dynamic = 'force-dynamic'
@@ -246,14 +247,21 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   const rootsVisti = messaggi
     .map((m) => m.thread || m.messageId)
     .filter((x): x is string => Boolean(x))
+  const chiaviGruppi = gruppi.map((g) => chiaveThread(g))
+
+  // Le due letture che dipendono dai gruppi vanno insieme, non in fila.
+  const [uscite, nomiConv] = await Promise.all([
+    rootsVisti.length
+      ? db.messaggio.findMany({
+          where: { utenteId: u.id, direzione: 'uscita', thread: { in: rootsVisti } },
+          select: { thread: true },
+        })
+      : Promise.resolve([]),
+    // Il nome dato a mano alle conversazioni (badge oro nella riga).
+    nomiPerChiavi(u.id, chiaviGruppi),
+  ])
   const threadRisposti = new Set<string>()
-  if (rootsVisti.length) {
-    const uscite = await db.messaggio.findMany({
-      where: { utenteId: u.id, direzione: 'uscita', thread: { in: rootsVisti } },
-      select: { thread: true },
-    })
-    for (const o of uscite) if (o.thread) threadRisposti.add(o.thread)
-  }
+  for (const o of uscite) if (o.thread) threadRisposti.add(o.thread)
 
   // Il cliente (azienda attiva in Anagrafiche) del mittente, per email esatta
   // o per dominio aziendale — stessa regola della pagina /clienti.
@@ -265,9 +273,10 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     return cli ? cli.nome : null
   }
 
-  const righe: RigaData[] = gruppi.map((g) => {
+  const righe: RigaData[] = gruppi.map((g, i) => {
     const m = g[g.length - 1] // il volto: il messaggio più recente del thread
     return {
+      nomeThread: nomiConv.get(chiaviGruppi[i]) ?? null,
       id: m.id,
       mittente: m.mittente,
       mittenteNome: m.mittenteNome,

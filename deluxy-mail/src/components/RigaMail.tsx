@@ -51,6 +51,8 @@ export type RigaData = {
   sezioneId?: string | null
   /** Se il mittente è un CLIENTE del registro Anagrafiche: il nome dell'azienda. */
   clienteNome?: string | null
+  /** Il nome dato a mano alla conversazione (null se non ne ha). */
+  nomeThread?: string | null
 }
 
 // Rende un testo con la parola cercata evidenziata (<mark>).
@@ -121,6 +123,12 @@ export const RigaMail = memo(function RigaMail({
               <span className="badge green" title="Cliente del registro Anagrafiche">
                 <span className="dot" />
                 {r.clienteNome}
+              </span>
+            )}
+            {r.nomeThread && (
+              <span className="badge gold" title="Nome dato alla conversazione">
+                <span className="dot" />
+                {r.nomeThread}
               </span>
             )}
             {r.nel > 1 && (

@@ -56,6 +56,7 @@ import {
   type RiassuntoThreadSalvato,
 } from './sync'
 import { chiaveThread } from './thread'
+import { nomiPerChiavi, chiaviPerNome } from './nomiThread'
 import { CODICI_PRIORITA, FUSO } from './format'
 import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione, classificaDelega, interpretaComandoPosta, estraiAppuntamentoDaTesto } from './ai'
 import { raggruppa } from './thread'
@@ -586,6 +587,38 @@ export async function salvaIstruzioniThread(
   }
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: pulito ? 'Istruzioni salvate.' : 'Istruzioni rimosse.' }
+}
+
+/**
+ * Dà (o toglie) un NOME alla conversazione. L'oggetto di una mail spesso non
+ * dice niente ("Re: IMPORTANTE: 106654/26 …"): il nome serve a ritrovare lo
+ * scambio e a cercarlo per nome nella pagina Thread.
+ */
+export async function salvaNomeThread(
+  messaggioId: string,
+  nome: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const conversazione = await messaggiThread(utenteId, messaggioId)
+  if (conversazione.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
+  const chiave = chiaveThread(conversazione)
+
+  const pulito = nome.trim().slice(0, 120)
+  try {
+    if (!pulito) {
+      await db.nomeThread.deleteMany({ where: { utenteId, chiave } })
+    } else {
+      await db.nomeThread.upsert({
+        where: { utenteId_chiave: { utenteId, chiave } },
+        create: { utenteId, chiave, nome: pulito },
+        update: { nome: pulito },
+      })
+    }
+  } catch {
+    return { ok: false, messaggio: 'Non riesco a salvare il nome (tabella non ancora pronta).' }
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: pulito ? `Conversazione chiamata «${pulito}».` : 'Nome rimosso.' }
 }
 
 // ---------- Assistente AI ----------
@@ -1559,6 +1592,8 @@ export type CandidatoAggancio = {
   giaNelThread: boolean
   /** Quanti messaggi nel thread di questa mail (1 = mail singola). */
   nel: number
+  /** Il nome dato a mano alla conversazione (null se non ne ha). */
+  nome: string | null
 }
 
 /**
@@ -1580,6 +1615,11 @@ export async function cercaDaAgganciare(
     messaggioId ? (await messaggiThread(utenteId, messaggioId)).map((m) => m.id) : []
   )
 
+  // Si cerca anche fra i NOMI dati alle conversazioni: la chiave del nome è
+  // l'id del messaggio capostipite, quindi basta includerlo fra i risultati
+  // perché il suo thread esca.
+  const chiaviNome = await chiaviPerNome(utenteId, q)
+
   // Finestra larga: prendo abbastanza mail da ricostruire i thread, poi
   // raggruppo. I campi servono al raggruppamento (thread/oggetto/manuale/scollegato).
   const trovati = await db.messaggio.findMany({
@@ -1590,6 +1630,7 @@ export async function cercaDaAgganciare(
         { oggetto: { contains: q, mode: 'insensitive' } },
         { mittente: { contains: q, mode: 'insensitive' } },
         { mittenteNome: { contains: q, mode: 'insensitive' } },
+        ...(chiaviNome.length ? [{ id: { in: chiaviNome } }] : []),
       ],
     },
     orderBy: { data: 'desc' },
@@ -1601,6 +1642,7 @@ export async function cercaDaAgganciare(
   })
 
   const gruppi = raggruppa(trovati)
+  const nomi = await nomiPerChiavi(utenteId, gruppi.map((g) => chiaveThread(g)))
   const candidati = gruppi
     .map((g) => {
       // Il "volto" del thread: il messaggio più recente NON già nella
@@ -1616,6 +1658,7 @@ export async function cercaDaAgganciare(
         data: volto.data,
         giaNelThread: false,
         nel: g.length,
+        nome: nomi.get(chiaveThread(g)) ?? null,
       }
     })
     .filter((x): x is CandidatoAggancio => x !== null)

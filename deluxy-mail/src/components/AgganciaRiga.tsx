@@ -101,7 +101,13 @@ export function AgganciaDialog() {
               risultati.map((r) => (
                 <div key={r.id} className="aggancio-riga">
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {r.nome && (
+                        <span className="badge gold" style={{ flexShrink: 0 }}>
+                          <span className="dot" />
+                          {r.nome}
+                        </span>
+                      )}
                       <span>{r.oggetto || '(senza oggetto)'}</span>
                       {r.nel > 1 && (
                         <span className="badge neutral" style={{ flexShrink: 0 }}>{r.nel} messaggi</span>

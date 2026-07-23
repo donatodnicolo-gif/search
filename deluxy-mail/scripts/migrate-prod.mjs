@@ -26,6 +26,12 @@ const stmts = [
      "istruzioni" TEXT NOT NULL,
      "aggiornatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "IstruzioneThread_utenteId_chiave_key" ON "IstruzioneThread"("utenteId","chiave")`,
+  // Nome dato a mano a una conversazione (per ritrovarla e cercarla).
+  `CREATE TABLE IF NOT EXISTS "NomeThread" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "chiave" TEXT NOT NULL,
+     "nome" TEXT NOT NULL,
+     "aggiornatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "NomeThread_utenteId_chiave_key" ON "NomeThread"("utenteId","chiave")`,
   // Pulizia una-tantum delle mail arrivate in più copie (stesso Message-ID,
   // uid diversi: alias/inoltri). Si tiene la copia con uid più basso; le
   // attività/bozze delle copie cadono in cascata (erano duplicate anche loro).
@@ -269,6 +275,10 @@ const stmts = [
      END IF;
      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='IstruzioneThread_utenteId_fkey') THEN
        ALTER TABLE "IstruzioneThread" ADD CONSTRAINT "IstruzioneThread_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='NomeThread_utenteId_fkey') THEN
+       ALTER TABLE "NomeThread" ADD CONSTRAINT "NomeThread_utenteId_fkey"
          FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
      END IF;
    END $$`,

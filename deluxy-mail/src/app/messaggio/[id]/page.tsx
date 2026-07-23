@@ -20,6 +20,8 @@ import { messaggiThread, leggiRiassuntoThread } from '@/lib/sync'
 import { TraduzioneAllApertura } from '@/components/TraduzioneAllApertura'
 import { AllegatiMessaggio } from '@/components/AllegatiMessaggio'
 import { chiaveThread } from '@/lib/thread'
+import { nomeDiThread } from '@/lib/nomiThread'
+import { NomeThreadForm } from '@/components/NomeThreadForm'
 import { eContattoAI } from '@/lib/contattiAI'
 import { azioneDi } from '@/lib/appDeluxy'
 import { leggiEventoProposto } from '@/lib/eventoProposto'
@@ -89,8 +91,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
   let riassuntoThread: Awaited<ReturnType<typeof leggiRiassuntoThread>> = null
   let istruzioniThread = ''
+  let nomeConv = ''
   if (chiaveConv) {
-    const [rt, it] = await Promise.all([
+    const [rt, it, nt] = await Promise.all([
       leggiRiassuntoThread(u.id, chiaveConv),
       db.istruzioneThread
         .findUnique({
@@ -99,9 +102,11 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         })
         .then((r) => r?.istruzioni ?? '')
         .catch(() => ''), // tabella non ancora migrata: nessuna istruzione
+      nomeDiThread(u.id, chiaveConv),
     ])
     riassuntoThread = rt
     istruzioniThread = it
+    nomeConv = nt ?? ''
   }
 
   // Qui si mostra solo la proposta dell'AI: le bozze che hai iniziato tu si
@@ -179,6 +184,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
               ? 'Oltre alla catena di risposte, anche le altre mail scambiate con le stesse persone.'
               : 'Quando dai una priorità, l’AI analizza l’ultima mail avendo letto tutta questa conversazione.'}
           </p>
+
+          {/* Il nome che dai tu alla conversazione: si vede nelle liste e si
+              può cercare fra i thread. */}
+          <NomeThreadForm messaggioId={messaggio.id} valore={nomeConv} />
 
           <div style={{ marginBottom: 14 }}>
             <AgganciaMail

@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
 import { dataBreve } from '@/lib/format'
-import { raggruppa } from '@/lib/thread'
+import { raggruppa, chiaveThread } from '@/lib/thread'
+import { nomiPerChiavi, chiaviPerNome } from '@/lib/nomiThread'
 import { RicercaMail } from '@/components/RicercaMail'
 import { AzioniThread } from '@/components/AzioniThread'
 import { AgganciaDialog } from '@/components/AgganciaRiga'
@@ -24,51 +25,90 @@ export default async function Thread({ searchParams }: Props) {
   const ricerca = q.length >= 2
   const u = await richiediUtente()
 
-  const messaggi = await db.messaggio.findMany({
-    where: {
-      utenteId: u.id,
-      cestinato: false,
-      // SPAM fuori (filtro sulla relazione, così restano le mail senza sezione).
-      NOT: { sezione: { nome: 'SPAM' } },
-      ...(ricerca
-        ? {
-            OR: [
-              { oggetto: { contains: q, mode: 'insensitive' as const } },
-              { mittente: { contains: q, mode: 'insensitive' as const } },
-              { mittenteNome: { contains: q, mode: 'insensitive' as const } },
-              { destinatari: { contains: q, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { data: 'desc' },
-    take: 2000,
-    select: {
-      id: true,
-      thread: true,
-      threadManuale: true,
-      scollegato: true,
-      oggetto: true,
-      data: true,
-      mittente: true,
-      mittenteNome: true,
-      direzione: true,
-      letto: true,
-      sezione: { select: { nome: true, colore: true } },
-    },
-  })
+  const base = {
+    utenteId: u.id,
+    cestinato: false,
+    // SPAM fuori (filtro sulla relazione, così restano le mail senza sezione).
+    NOT: { sezione: { nome: 'SPAM' } },
+  }
+  const campi = {
+    id: true,
+    thread: true,
+    threadManuale: true,
+    scollegato: true,
+    oggetto: true,
+    data: true,
+    mittente: true,
+    mittenteNome: true,
+    destinatari: true,
+    direzione: true,
+    letto: true,
+    sezione: { select: { nome: true, colore: true } },
+  } as const
+
+  const condizioniTesto = [
+    { oggetto: { contains: q, mode: 'insensitive' as const } },
+    { mittente: { contains: q, mode: 'insensitive' as const } },
+    { mittenteNome: { contains: q, mode: 'insensitive' as const } },
+    { destinatari: { contains: q, mode: 'insensitive' as const } },
+  ]
+
+  // ⚠️ In ricerca NON si filtra solo in SQL: un thread va mostrato INTERO (con
+  // il conteggio giusto) anche se a combaciare è una sola delle sue mail — e un
+  // thread trovato per NOME non ha nessuna mail che contiene la parola. Quindi:
+  // si carica la finestra recente, si raggruppa, e si filtrano i GRUPPI.
+  // Le mail che combaciano ma sono più vecchie della finestra si aggiungono a
+  // parte, così una ricerca vecchia continua a trovarle.
+  const [finestra, fuoriFinestra, chiaviNome] = await Promise.all([
+    db.messaggio.findMany({ where: base, orderBy: { data: 'desc' }, take: 2000, select: campi }),
+    ricerca
+      ? db.messaggio.findMany({
+          where: { ...base, OR: condizioniTesto },
+          orderBy: { data: 'desc' },
+          take: 300,
+          select: campi,
+        })
+      : Promise.resolve([]),
+    ricerca ? chiaviPerNome(u.id, q) : Promise.resolve([]),
+  ])
+
+  const perId = new Map([...finestra, ...fuoriFinestra].map((m) => [m.id, m]))
+  const tutti = [...perId.values()]
 
   // Un THREAD è una conversazione VERA: più di un messaggio. Le mail singole
   // (1 messaggio) non sono thread e restano fuori da questa vista.
-  const gruppi = raggruppa(messaggi)
-    .filter((g) => g.length > 1)
-    .slice(0, 800)
+  const gruppiTutti = raggruppa(tutti).filter((g) => g.length > 1)
+
+  // Il nome dato a mano a ogni conversazione (una sola query per tutta la pagina).
+  const chiavi = gruppiTutti.map((g) => chiaveThread(g))
+  const nomi = await nomiPerChiavi(u.id, chiavi)
+
+  const setNome = new Set(chiaviNome)
+  const combacia = (testo: string | null | undefined) =>
+    Boolean(testo && testo.toLowerCase().includes(q.toLowerCase()))
+
+  const gruppi = (
+    ricerca
+      ? gruppiTutti.filter((g, i) => {
+          // Per NOME della conversazione…
+          if (setNome.has(chiavi[i]) || combacia(nomi.get(chiavi[i]))) return true
+          // …oppure per il contenuto di una qualsiasi mail del thread.
+          return g.some(
+            (m) =>
+              combacia(m.oggetto) ||
+              combacia(m.mittente) ||
+              combacia(m.mittenteNome) ||
+              combacia(m.destinatari)
+          )
+        })
+      : gruppiTutti
+  ).slice(0, 800)
 
   const righe = gruppi.map((g) => {
     const volto = g[g.length - 1] // il più recente
     const parti = new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size
     const nonLetti = g.some((x) => x.direzione === 'entrata' && !x.letto)
-    return { volto, count: g.length, parti, nonLetti }
+    return { volto, count: g.length, parti, nonLetti, nome: nomi.get(chiaveThread(g)) ?? null }
   })
 
   return (
@@ -78,13 +118,18 @@ export default async function Thread({ searchParams }: Props) {
           <h1 className="page-title">Thread</h1>
           <p className="page-caption">
             Solo le conversazioni VERE (più di un messaggio): una riga per thread. Aprila per
-            vedere tutti i messaggi. Le mail singole restano fuori (SPAM e Cestino esclusi).
+            vedere tutti i messaggi e per <strong>darle un nome</strong> (poi la ritrovi cercando
+            quel nome qui). Le mail singole restano fuori (SPAM e Cestino esclusi).
           </p>
         </div>
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <RicercaMail iniziale={ricerca ? q : ''} base="/thread" placeholder="Cerca fra i thread (oggetto, persona)…" />
+        <RicercaMail
+          iniziale={ricerca ? q : ''}
+          base="/thread"
+          placeholder="Cerca fra i thread (nome dato da te, oggetto, persona)…"
+        />
       </div>
 
       <div className="card tight">
@@ -98,7 +143,7 @@ export default async function Thread({ searchParams }: Props) {
           </div>
         ) : (
           <div className="mail-list">
-            {righe.map(({ volto, count, parti, nonLetti }) => (
+            {righe.map(({ volto, count, parti, nonLetti, nome }) => (
               <div key={volto.id} className={`mail-row ${nonLetti ? 'non-letto' : ''}`}>
                 <div className="mail-row-head">
                   <Link href={`/messaggio/${volto.id}`} className="mail-row-link">
@@ -119,7 +164,17 @@ export default async function Thread({ searchParams }: Props) {
                         </span>
                       )}
                     </div>
-                    <div className="mail-oggetto" style={{ paddingLeft: 17 }}>
+                    {/* Il nome dato a mano: è quello che si riconosce a colpo
+                        d'occhio, quindi va sopra l'oggetto. */}
+                    {nome && (
+                      <div className="mail-oggetto" style={{ paddingLeft: 17 }}>
+                        <span className="badge gold">
+                          <span className="dot" />
+                          {nome}
+                        </span>
+                      </div>
+                    )}
+                    <div className="mail-oggetto" style={{ paddingLeft: 17, fontWeight: nome ? 400 : undefined }}>
                       {volto.oggetto}
                     </div>
                     <div className="mail-tags" style={{ paddingLeft: 17 }}>
