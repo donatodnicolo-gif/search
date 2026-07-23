@@ -44,7 +44,7 @@ quella qui sopra, leggibile nel file `.env` locale.
 
 ---
 
-## 3. Le 11 app del portale
+## 3. Le 12 app del portale
 
 Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 
@@ -59,6 +59,7 @@ Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 | Consegne | `https://deluxy-delivery.vercel.app` | solo admin | |
 | Finance | `https://deluxy-partner.vercel.app` | admin, partner | id interno = `partner`, **`sso: true`** |
 | Maison | `https://deluxy-os.base44.app/` | tutti i ruoli | Deluxy OS su base44 |
+| Marketing | `APP_URL_MARKETING` ?? `http://localhost:3130` | solo admin | visibile anche in prod |
 | Merchandising | `APP_URL_MERCHANDISING` ?? `http://localhost:3120` | admin, commerciale | visibile anche in prod |
 | Ricerca fornitori | `https://search-deluxy.vercel.app` | admin, commerciale | id interno = `search` |
 
