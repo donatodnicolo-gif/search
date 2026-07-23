@@ -16,6 +16,7 @@ export default function Clienti() {
   const [query, setQuery] = useState('');
   const [zonaFiltro, setZonaFiltro] = useState<string | null>(null);
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
+  const [accountFiltro, setAccountFiltro] = useState<string | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -32,10 +33,14 @@ export default function Clienti() {
     }, [carica]),
   );
 
-  const { lineePresenti } = useMemo(() => {
+  const { lineePresenti, accountPresenti } = useMemo(() => {
     const linee = new Set<string>();
-    for (const c of clienti) for (const l of c.linee) linee.add(l);
-    return { lineePresenti: [...linee].sort() };
+    const account = new Set<string>();
+    for (const c of clienti) {
+      for (const l of c.linee) linee.add(l);
+      if (c.account) account.add(c.account);
+    }
+    return { lineePresenti: [...linee].sort(), accountPresenti: [...account].sort() };
   }, [clienti]);
 
   const dati = useMemo(() => {
@@ -43,16 +48,18 @@ export default function Clienti() {
     return clienti.filter((c) => {
       if (!passaFiltroCitta(c.zona, zonaFiltro)) return false;
       if (lineaFiltro && !c.linee.includes(lineaFiltro)) return false;
+      if (accountFiltro && (c.account ?? '') !== accountFiltro) return false;
       if (!q) return true;
       return [c.nome, c.indirizzo, c.zona, c.categoria, ...c.linee].filter(Boolean).some((v) => (v as string).toLowerCase().includes(q));
     });
-  }, [clienti, query, zonaFiltro, lineaFiltro]);
+  }, [clienti, query, zonaFiltro, lineaFiltro, accountFiltro]);
 
-  const filtriAttivi = Boolean(query.trim() || zonaFiltro || lineaFiltro);
+  const filtriAttivi = Boolean(query.trim() || zonaFiltro || lineaFiltro || accountFiltro);
   function azzera() {
     setQuery('');
     setZonaFiltro(null);
     setLineaFiltro(null);
+    setAccountFiltro(null);
   }
 
   return (
@@ -76,6 +83,9 @@ export default function Clienti() {
             attivo={zonaFiltro ?? 'Tutte'}
             onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (c) => (c === v ? null : v))}
           />
+          {accountPresenti.length ? (
+            <Gruppo titolo="Account" valori={accountPresenti} attivo={accountFiltro} onTap={(v) => setAccountFiltro((c) => (c === v ? null : v))} />
+          ) : null}
           {lineePresenti.length ? (
             <Gruppo titolo="Tipologia di interesse" valori={lineePresenti} attivo={lineaFiltro} onTap={(v) => setLineaFiltro((c) => (c === v ? null : v))} />
           ) : null}
@@ -108,6 +118,10 @@ export default function Clienti() {
               <Text style={styles.nome} numberOfLines={1}>{item.nome}</Text>
               <Text style={styles.meta} numberOfLines={1}>
                 {[item.zona, item.categoria].filter(Boolean).join(' · ') || item.indirizzo || '—'}
+              </Text>
+              <Text style={styles.account} numberOfLines={1}>
+                <Ionicons name="briefcase-outline" size={11} color={colors.grigio} />{' '}
+                {item.account ? `Account: ${item.account}` : 'Account non assegnato'}
               </Text>
               {item.linee.length ? (
                 <View style={styles.lineeRow}>
@@ -172,6 +186,7 @@ const styles = StyleSheet.create({
   iconaBox: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
   nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   meta: { color: colors.testoSoft, fontSize: 13, marginTop: 1 },
+  account: { color: colors.grigio, fontSize: 12, marginTop: 2 },
   lineeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
   lineaTag: { backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 11 },

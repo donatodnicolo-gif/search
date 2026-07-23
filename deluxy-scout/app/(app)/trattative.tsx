@@ -29,6 +29,7 @@ import { env } from '@/lib/env';
 import { type Contact, type DealStage, type StatoAffiliazione } from '@/types';
 import { LineaSelector } from '@/components/LineaSelector';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 
 interface Sezione {
   title: string;
@@ -61,6 +62,8 @@ export default function Trattative() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [faseFiltro, setFaseFiltro] = useState<DealStage | 'tutte'>('tutte');
+  const [cittaFiltro, setCittaFiltro] = useState<string | null>(null);
+  const [accountFiltro, setAccountFiltro] = useState<string | null>(null);
   const [formAperto, setFormAperto] = useState(false);
   const [editDeal, setEditDeal] = useState<TrattativaConLuogo | null>(null);
 
@@ -98,16 +101,24 @@ export default function Trattative() {
     return FASI.filter((f) => set.has(f));
   }, [deals]);
 
+  // Account presenti fra le trattative (chi segue il cliente, dal registro).
+  const accountPresenti = useMemo(
+    () => [...new Set(deals.map((d) => d.place_account).filter(Boolean) as string[])].sort(),
+    [deals],
+  );
+
   const filtrate = useMemo(() => {
     const q = query.trim().toLowerCase();
     return deals.filter((d) => {
       if (faseFiltro !== 'tutte' && d.fase !== faseFiltro) return false;
+      if (!passaFiltroCitta(d.place_zona, cittaFiltro)) return false;
+      if (accountFiltro && (d.place_account ?? '') !== accountFiltro) return false;
       if (!q) return true;
-      return [d.place_nome, d.linea, d.titolo, labelFase[d.fase]]
+      return [d.place_nome, d.linea, d.titolo, d.place_account, d.place_zona, labelFase[d.fase]]
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(q));
     });
-  }, [deals, query, faseFiltro]);
+  }, [deals, query, faseFiltro, cittaFiltro, accountFiltro]);
 
   const sezioni = useMemo<Sezione[]>(() => {
     const map = new Map<string, Sezione>();
@@ -159,6 +170,32 @@ export default function Trattative() {
             />
           ))}
         </ScrollView>
+        {/* Città: le tre principali + "Altre", come in Target, Clienti e Rubrica. */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+          <Text style={styles.filtroEtichetta}>Città</Text>
+          {(OPZIONI_CITTA as unknown as string[]).map((c) => (
+            <FiltroChip
+              key={c}
+              label={c}
+              on={(cittaFiltro ?? 'Tutte') === c}
+              onPress={() => setCittaFiltro(c === 'Tutte' ? null : c)}
+            />
+          ))}
+        </ScrollView>
+        {accountPresenti.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+            <Text style={styles.filtroEtichetta}>Account</Text>
+            <FiltroChip label="Tutti" on={!accountFiltro} onPress={() => setAccountFiltro(null)} />
+            {accountPresenti.map((a) => (
+              <FiltroChip
+                key={a}
+                label={a}
+                on={accountFiltro === a}
+                onPress={() => setAccountFiltro((c) => (c === a ? null : a))}
+              />
+            ))}
+          </ScrollView>
+        ) : null}
       </View>
       <SectionList
         sections={sezioni}
@@ -244,6 +281,20 @@ function RegistroBadge({ stato, partner }: { stato: string; partner?: boolean })
   );
 }
 
+/** Da quando è aperta la trattativa. Le righe che arrivano da HubSpot o dal
+ *  registro non portano una data, e quelle Scout aperte prima della migrazione
+ *  0039 non ce l'hanno: in quei casi si dice che non si sa, non si inventa. */
+function dataApertura(deal: TrattativaConLuogo): string {
+  if (!deal.created_at) return 'data non registrata';
+  const d = new Date(deal.created_at);
+  if (isNaN(d.getTime())) return 'data non registrata';
+  const giorni = Math.floor((Date.now() - d.getTime()) / 86400000);
+  const quando = d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' });
+  if (giorni <= 0) return `aperta oggi (${quando})`;
+  if (giorni === 1) return `aperta ieri (${quando})`;
+  return `aperta il ${quando} · ${giorni} giorni fa`;
+}
+
 function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => void }) {
   const lineaTxt = deal.linee?.length ? deal.linee.join(', ') : deal.linea;
   const titolo = deal.titolo ?? lineaTxt ?? 'Trattativa';
@@ -284,6 +335,16 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
           <Text style={styles.origine}>dal registro</Text>
         ) : deal.hubspot_deal_id ? (
           <Text style={styles.hs}>su HubSpot ✓</Text>
+        ) : null}
+      </View>
+      <View style={styles.ownerRow}>
+        <Ionicons name="calendar-outline" size={14} color={colors.grigio} />
+        <Text style={styles.dataTxt}>{dataApertura(deal)}</Text>
+        {deal.place_account ? (
+          <>
+            <Ionicons name="briefcase-outline" size={14} color={colors.grigio} style={{ marginLeft: 6 }} />
+            <Text style={styles.dataTxt}>Account: {deal.place_account}</Text>
+          </>
         ) : null}
       </View>
       {deal.owner_nome ? (
@@ -695,6 +756,8 @@ const styles = StyleSheet.create({
   nextAction: { color: colors.testoSoft, fontSize: 13 },
   ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ownerTxt: { color: colors.testoSoft, fontSize: 12, fontWeight: '700' },
+  dataTxt: { color: colors.grigio, fontSize: 12 },
+  filtroEtichetta: { color: colors.grigio, fontSize: 12, fontWeight: '700', alignSelf: 'center', marginRight: 2 },
 
   // FAB
   fab: {

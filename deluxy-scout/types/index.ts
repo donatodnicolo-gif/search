@@ -218,6 +218,9 @@ export interface Deal {
   scadenza: string | null; // data di scadenza del follow-up (YYYY-MM-DD)
   owner: string | null;
   hubspot_deal_id: string | null;
+  // Quando la trattativa è stata aperta (migr. 0039). Assente sulle trattative
+  // aperte prima di quella data e su quelle che arrivano da HubSpot/registro.
+  created_at?: string | null;
 }
 
 // Task personale del venditore (tasklist privata con priorità e scadenza).
