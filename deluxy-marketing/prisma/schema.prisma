@@ -5,18 +5,19 @@
 // le loro metriche. La FONTE DI VERITÀ documentale resta la cartella Google
 // Drive "ADV DELUXY SRL": l'app la indicizza (DocumentoDrive) e non la scrive.
 //
-// Sviluppo locale su SQLite (nessun segreto). In produzione si passa al
-// Postgres condiviso Deluxy: cambiare provider in "postgresql" e la url.
-// Per compatibilità SQLite niente enum né array: gli stati sono stringhe
-// normalizzate con cataloghi in src/lib/dominio.ts.
+// Postgres condiviso delle app Deluxy (stesso cluster di hub/anagrafiche),
+// schema "marketing". In locale si può restare su SQLite cambiando provider
+// e url: lo schema è compatibile con entrambi (niente enum né array, gli
+// stati sono stringhe normalizzate con cataloghi in src/lib/dominio.ts).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni e db push
 }
 
 // Un'analisi depositata: audit Google/Meta, analisi performance, revisione

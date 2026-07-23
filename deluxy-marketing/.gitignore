@@ -30,3 +30,6 @@ npm-debug.log*
 
 # cache typescript
 tsconfig.tsbuildinfo
+
+# export dei dati (puo contenere email dei clienti): mai committare
+dati-marketing*.json
