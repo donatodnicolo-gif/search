@@ -91,7 +91,12 @@ export default async function PaginaCopy({
                         {titoli.map((t) => (
                           <li key={t.id}>
                             <span className="storia-data">H{t.posizione}</span>
-                            <span className="storia-testo">{t.testo}</span>
+                            <span className="storia-testo">{t.testo} {t.rendimento && (
+                              <span className="tag-salute" style={{ color: t.rendimento === 'BEST' ? 'var(--green)' : t.rendimento === 'GOOD' ? 'var(--blue)' : t.rendimento === 'LOW' ? 'var(--red)' : 'var(--text-tertiary)' }} title="Etichetta di rendimento assegnata da Google a questo asset">
+                                <span className="dot" />
+                                {t.rendimento}
+                              </span>
+                            )}</span>
                             <span className="storia-autore" style={(t.caratteri ?? 0) > 30 ? { color: "var(--red)", fontWeight: 600 } : undefined}>
                               {t.caratteri} car.
                             </span>
@@ -107,7 +112,12 @@ export default async function PaginaCopy({
                         {descrizioni.map((d) => (
                           <li key={d.id}>
                             <span className="storia-data">D{d.posizione}</span>
-                            <span className="storia-testo">{d.testo}</span>
+                            <span className="storia-testo">{d.testo} {d.rendimento && (
+                              <span className="tag-salute" style={{ color: d.rendimento === 'BEST' ? 'var(--green)' : d.rendimento === 'GOOD' ? 'var(--blue)' : d.rendimento === 'LOW' ? 'var(--red)' : 'var(--text-tertiary)' }} title="Etichetta di rendimento assegnata da Google a questo asset">
+                                <span className="dot" />
+                                {d.rendimento}
+                              </span>
+                            )}</span>
                             <span className="storia-autore" style={(d.caratteri ?? 0) > 90 ? { color: "var(--red)", fontWeight: 600 } : undefined}>
                               {d.caratteri} car.
                             </span>

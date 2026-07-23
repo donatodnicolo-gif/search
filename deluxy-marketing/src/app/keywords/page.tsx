@@ -7,6 +7,7 @@ import {
   COLORE_STATO_KEYWORD,
   ETICHETTA_STATO_KEYWORD,
   formattaEuro,
+  formattaNumero,
   STATI_KEYWORD,
 } from "@/lib/dominio";
 import { giudizioKeyword } from "@/lib/salute";
@@ -50,6 +51,10 @@ type KwAggregata = {
   incasso: number;
   spesa: number;
   resa: number | null;
+  clic: number;
+  conversioni: number;
+  qualita: number | null;
+  viva: boolean;
 };
 
 // Keywords per tema: si sceglie un tema e lo si espande. La stessa keyword su
@@ -88,10 +93,18 @@ export default async function PaginaKeywords({
       incasso: 0,
       spesa: 0,
       resa: null,
+      clic: 0,
+      conversioni: 0,
+      qualita: null,
+      viva: false,
     };
     if (!agg.campagne.includes(k.campagna)) agg.campagne.push(k.campagna);
     agg.incasso += k.incasso ?? 0;
     agg.spesa += k.spesa ?? 0;
+    agg.clic += k.clic ?? 0;
+    agg.conversioni += k.conversioni ?? 0;
+    if (k.punteggioQualita != null) agg.qualita = Math.max(agg.qualita ?? 0, k.punteggioQualita);
+    if (k.metricheAl) agg.viva = true;
     perTesto.set(chiave, agg);
   }
   let tutte = [...perTesto.values()].map((k) => ({
@@ -239,6 +252,9 @@ export default async function PaginaKeywords({
                       <th style={{ minWidth: 140 }}>Stato</th>
                       <th>Campagne</th>
                       <th className="num"><a href={link({ ordina: "incasso" })}>Incasso {ordina === "incasso" ? "↓" : ""}</a></th>
+                      <th className="num">Clic</th>
+                      <th className="num">Conv.</th>
+                      <th className="num" title="Punteggio di qualità Google (1-10)">QS</th>
                       <th className="num"><a href={link({ ordina: "spesa" })}>Spesa {ordina === "spesa" ? "↓" : ""}</a></th>
                       <th className="num"><a href={link({ ordina: "resa" })}>Resa {ordina === "resa" ? "↓" : ""}</a></th>
                     </tr>
@@ -274,6 +290,11 @@ export default async function PaginaKeywords({
                         </td>
                         <td className="num" style={{ color: k.incasso > 0 ? "var(--green)" : "var(--text-tertiary)", fontWeight: k.incasso > 0 ? 600 : 400 }}>
                           {formattaEuro(k.incasso)}
+                        </td>
+                        <td className="num cella-muta">{k.clic > 0 ? formattaNumero(k.clic) : "—"}</td>
+                        <td className="num cella-muta">{k.conversioni > 0 ? k.conversioni.toFixed(1) : "—"}</td>
+                        <td className="num" style={k.qualita != null && k.qualita < 5 ? { color: "var(--red)", fontWeight: 600 } : undefined}>
+                          {k.qualita ?? "—"}
                         </td>
                         <td className="num cella-muta">{formattaEuro(k.spesa)}</td>
                         <td className="num" style={k.resa != null && k.resa < 1 && k.spesa > 30 ? { color: "var(--red)", fontWeight: 600 } : undefined}>

@@ -285,9 +285,23 @@ model CopyAnnuncio {
   stato        String   @default("attivo")
   // Nota di lavoro sulla keyword (perché è stata messa in pausa, ecc.)
   notaStato    String?
-  // per le keyword: resa e spesa (dal monitoraggio)
+  // Resa e spesa: dal Monitoraggio o, se collegato, da Google Ads
   incasso      Float?
   spesa        Float?
+  // Metriche vive da Google Ads (script giornaliero)
+  clic             Int?
+  impressioni      Int?
+  conversioni      Float?
+  punteggioQualita Int?
+  // Etichetta di rendimento degli asset RSA: BEST | GOOD | LOW | LEARNING
+  rendimento       String?
+  // Stato sulla piattaforma (ENABLED/PAUSED): distinto dallo stato deciso qui,
+  // che resta una scelta dell'utente e non va mai sovrascritta dall'import.
+  statoPiattaforma String?
+  // Id del criterio/asset su Google: riconosce la stessa riga nel tempo
+  idEsterno        String?
+  metricheAl       DateTime?
+  fonte            String?
   note         String?
   creataIl     DateTime @default(now())
   aggiornataIl DateTime @updatedAt
