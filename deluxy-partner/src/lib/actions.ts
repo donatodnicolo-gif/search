@@ -200,7 +200,7 @@ export async function updateFattura(id: string, fd: FormData) {
   const prima = await prisma.fatturaServizio.findUnique({ where: { id }, select: { pagata: true } });
   const pagata = b(fd, "pagata");
   const dataPagamento = pagata ? d(fd, "dataPagamento") : null;
-  const f = await prisma.fatturaServizio.update({
+  await prisma.fatturaServizio.update({
     where: { id },
     data: {
       tipologiaId,
@@ -216,9 +216,11 @@ export async function updateFattura(id: string, fd: FormData) {
       descrizione: s(fd, "descrizione"),
     },
   });
-  // se qui è cambiata la spunta «pagata», allinea anche Fatture in Cloud
+  // Se qui è cambiata la spunta «pagata», ripassa dalla funzione unica: così la
+  // modifica dalla scheda vale quanto il pulsante «Saldata» (saldo del mese,
+  // registro Pagamenti, Fatture in Cloud) e non resta un flag isolato.
   if (prima && prima.pagata !== pagata) {
-    await ficAllineaStatoFattura(f.numero, pagata, { anno: f.anno, data: dataPagamento });
+    await segnaFatturaPagata(id, pagata, dataPagamento ?? undefined);
   }
   revalidateAll();
   redirect(`/fatture/${id}?salvato=1`);
@@ -246,13 +248,26 @@ async function stornaIncassoAuto(f: { partnerId: string; anno: number; mese: num
 // veri contano nel residuo e il dovuto vendite resta interamente da pagare
 // (es. maggio: saldata la 488 → incassato 488, e al partner dobbiamo 154,22).
 // Per i partner a partite separate basta il flag pagata (comportamento invariato).
-export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagamento?: string) {
+//
+// ⚠️ UNICO PUNTO in cui una fattura servizi cambia stato di incasso: qui dentro
+// si aggiorna TUTTO ciò che dipende dall'incasso (flag + data, saldo del mese e
+// bonifico per i partner in compensazione, registro Pagamenti, Fatture in Cloud,
+// cache delle pagine). Ogni altra funzione che deve segnare pagata una fattura
+// (riconciliazione bancaria, modifica dalla scheda) DEVE chiamare questa, non
+// scrivere il flag a mano: è così che nascono le sezioni disallineate.
+export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagamento?: string | Date) {
   const prima = await prisma.fatturaServizio.findUnique({ where: { id }, include: { partner: true } });
   if (!prima) return;
   // storna un eventuale incasso auto precedente (cambio stato pulito)
   await stornaIncassoAuto(prima);
 
-  const dp = pagata ? (dataPagamento ? new Date(dataPagamento + "T00:00:00.000Z") : new Date()) : null;
+  const dp = pagata
+    ? dataPagamento
+      ? dataPagamento instanceof Date
+        ? dataPagamento
+        : new Date(dataPagamento + "T00:00:00.000Z")
+      : new Date()
+    : null;
   const autoIncasso = pagata && prima.partner.compensazione;
   const f = await prisma.fatturaServizio.update({
     where: { id },
@@ -298,11 +313,14 @@ export async function segnaFatturaCompensata(id: string, compensata: boolean) {
   const prima = await prisma.fatturaServizio.findUnique({ where: { id } });
   if (!prima) return;
   await stornaIncassoAuto(prima);
-  await prisma.fatturaServizio.update({
+  const f = await prisma.fatturaServizio.update({
     where: { id },
     data: { compensata, pagata: false, dataPagamento: null, incassoRegistrato: false },
   });
   await rimuoviPagamento("fattura_servizi", id);
+  // compensata = non incassata in banca → su FIC deve restare da incassare
+  // (serve se prima era segnata saldata: altrimenti là resterebbe «pagata»).
+  if (prima.pagata) await ficAllineaStatoFattura(f.numero, false, { anno: f.anno });
   revalidateAll();
 }
 

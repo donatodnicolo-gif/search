@@ -6,7 +6,7 @@ import { prisma } from "./db";
 import { parseEstratto, hashMovimento } from "./estratto";
 import { chiaveControparte } from "./riconciliazione";
 import { qontoOrganizzazione, qontoTransazioni } from "./qonto";
-import { ficAllineaStatoFattura } from "./fic";
+import { segnaFatturaPagata } from "./actions";
 
 function revalidate() {
   for (const p of ["/", "/transazioni", "/fatture", "/scadenzario", "/saldi", "/partner"]) {
@@ -131,10 +131,11 @@ export async function registraTransazioneFattura(txId: string, fatturaId: string
     prisma.fatturaServizio.findUnique({ where: { id: fatturaId }, include: { partner: true } }),
   ]);
   if (!tx || !fattura) return;
-  await prisma.fatturaServizio.update({
-    where: { id: fatturaId },
-    data: { pagata: true, dataPagamento: tx.data },
-  });
+  // Passa dalla funzione unica: segna pagata + data, registra l'incasso sul saldo
+  // del mese (partner in compensazione), aggiorna il registro Pagamenti e allinea
+  // Fatture in Cloud. Prima qui si scriveva solo il flag e le altre sezioni
+  // restavano indietro (fattura «Da incassare» su FIC).
+  await segnaFatturaPagata(fatturaId, true, tx.data);
   await prisma.transazioneBancaria.update({
     where: { id: txId },
     data: {
@@ -143,8 +144,6 @@ export async function registraTransazioneFattura(txId: string, fatturaId: string
       esito: `Fattura ${fattura.numero ?? "s.n."} di ${fattura.partner.nome} segnata saldata`,
     },
   });
-  // la fattura risulta saldata anche su Fatture in Cloud, con la data del movimento
-  await ficAllineaStatoFattura(fattura.numero, true, { anno: fattura.anno, data: tx.data });
   revalidate();
 }
 
