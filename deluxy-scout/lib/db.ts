@@ -794,7 +794,22 @@ export async function cercaPlaces(term: string, limit = 20): Promise<PlaceLite[]
 /** Modifica una trattativa Scout (tabella `deals`). */
 export async function aggiornaDeal(
   id: string,
-  patch: Partial<Pick<Deal, 'linea' | 'linee' | 'fase' | 'valore_atteso' | 'next_action' | 'scadenza'>>,
+  patch: Partial<
+    Pick<
+      Deal,
+      | 'linea'
+      | 'linee'
+      | 'fase'
+      | 'valore_atteso'
+      | 'next_action'
+      | 'scadenza'
+      | 'oggetto'
+      | 'canale'
+      | 'motivo_perso'
+      | 'riprendere_il'
+      | 'chiusa_il'
+    >
+  >,
 ): Promise<void> {
   const { error } = await supabase.from('deals').update(patch).eq('id', id);
   if (error) throw error;
@@ -809,6 +824,8 @@ export async function inserisciDeal(d: {
   valore_atteso: number | null;
   next_action: string | null;
   scadenza?: string | null;
+  oggetto?: string | null;
+  canale?: Deal['canale'];
 }): Promise<Deal> {
   const { data: u } = await supabase.auth.getUser();
   const { data, error } = await supabase
@@ -1176,6 +1193,20 @@ export async function aggiornaStatoAffiliazione(
 ): Promise<void> {
   const { error } = await supabase.from('places').update({ stato_affiliazione: stato }).eq('id', placeId);
   if (error) throw error;
+}
+
+/** Quante chiamate ha fatto l'utente da una certa data (KPI settimana in Home). */
+export async function contaChiamateDal(dalISO: string): Promise<number> {
+  const { data: u } = await supabase.auth.getUser();
+  const uid = u.user?.id;
+  if (!uid) return 0;
+  const { count, error } = await supabase
+    .from('chiamate')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner', uid)
+    .gte('created_at', dalISO);
+  if (error) return 0;
+  return count ?? 0;
 }
 
 /** Registra una chiamata effettuata (chi la fa lo mette l'RLS/owner di default). */

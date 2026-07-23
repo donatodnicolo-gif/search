@@ -221,7 +221,33 @@ export interface Deal {
   // Quando la trattativa è stata aperta (migr. 0039). Assente sulle trattative
   // aperte prima di quella data e su quelle che arrivano da HubSpot/registro.
   created_at?: string | null;
+  // Memoria della trattativa (migr. 0040, docs/VISIONE-COMMERCIALE.md):
+  oggetto?: string | null; // per cosa è (es. "consegne weekend")
+  canale?: CanaleTrattativa | null; // quale attività l'ha generata
+  motivo_perso?: MotivoPerso | null; // perché è persa → strategia di ripresa
+  riprendere_il?: string | null; // quando ricompare in Home (YYYY-MM-DD)
+  chiusa_il?: string | null; // quando è stata vinta/persa
 }
+
+// I 3 canali di acquisizione (+ altro): territorio, telefono, web.
+export type CanaleTrattativa = 'territorio' | 'telefono' | 'web' | 'altro';
+export const CANALI: { valore: CanaleTrattativa; label: string }[] = [
+  { valore: 'territorio', label: 'Territorio' },
+  { valore: 'telefono', label: 'Telefono' },
+  { valore: 'web', label: 'Web' },
+  { valore: 'altro', label: 'Altro' },
+];
+
+// Perché una trattativa si perde. Il motivo decide come (e se) riprenderla.
+export type MotivoPerso = 'prezzo' | 'tempistica' | 'concorrente' | 'non_risponde' | 'non_target' | 'altro';
+export const MOTIVI_PERSO: { valore: MotivoPerso; label: string; riprendibile: boolean }[] = [
+  { valore: 'prezzo', label: 'Prezzo', riprendibile: true },
+  { valore: 'tempistica', label: 'Tempistica', riprendibile: true },
+  { valore: 'concorrente', label: 'Concorrente', riprendibile: true },
+  { valore: 'non_risponde', label: 'Non risponde', riprendibile: true },
+  { valore: 'non_target', label: 'Non target', riprendibile: false },
+  { valore: 'altro', label: 'Altro', riprendibile: true },
+];
 
 // Task personale del venditore (tasklist privata con priorità e scadenza).
 export interface Task {

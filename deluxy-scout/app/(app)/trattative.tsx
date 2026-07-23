@@ -26,7 +26,7 @@ import {
 } from '@/lib/db';
 import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } from '@/lib/hubspot';
 import { env } from '@/lib/env';
-import { type Contact, type DealStage, type StatoAffiliazione } from '@/types';
+import { CANALI, MOTIVI_PERSO, type CanaleTrattativa, type Contact, type DealStage, type MotivoPerso, type StatoAffiliazione } from '@/types';
 import { LineaSelector } from '@/components/LineaSelector';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
@@ -44,6 +44,10 @@ const FASI: DealStage[] = [
   'closedwon',
   'closedlost',
 ];
+
+function isoOggiTratt(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 // Data ISO (YYYY-MM-DD) a N giorni da oggi, e formattazione GG/MM/AAAA.
 function isoTraGiorni(n: number): string {
@@ -353,9 +357,20 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
           <Text style={styles.ownerTxt}>{deal.owner_nome}</Text>
         </View>
       ) : null}
+      {deal.oggetto ? <Text style={styles.oggettoTxt} numberOfLines={1}>Per: {deal.oggetto}</Text> : null}
+      {deal.fase === 'closedlost' && (deal.motivo_perso || deal.riprendere_il) ? (
+        <Text style={styles.persaTxt} numberOfLines={1}>
+          {deal.motivo_perso ? `Persa per ${labelMotivo(deal.motivo_perso)}` : 'Persa'}
+          {deal.riprendere_il ? ` · da riprendere il ${formattaData(deal.riprendere_il)}` : ''}
+        </Text>
+      ) : null}
       {deal.next_action ? <Text style={styles.nextAction}>Prossima azione: {deal.next_action}</Text> : null}
     </Pressable>
   );
+}
+
+function labelMotivo(v: string): string {
+  return MOTIVI_PERSO.find((m) => m.valore === v)?.label.toLowerCase() ?? v;
 }
 
 // ── Form crea/modifica trattativa (sincronizzato con negozio + contatti) ───────
@@ -383,6 +398,10 @@ function TrattativaModal({
   const [valore, setValore] = useState(deal?.valore_atteso != null ? String(deal.valore_atteso) : '');
   const [nextAction, setNextAction] = useState(deal?.next_action ?? '');
   const [scadenza, setScadenza] = useState<string | null>(deal?.scadenza ?? null);
+  const [oggetto, setOggetto] = useState(deal?.oggetto ?? '');
+  const [canale, setCanale] = useState<CanaleTrattativa>((deal?.canale as CanaleTrattativa) ?? 'territorio');
+  const [motivoPerso, setMotivoPerso] = useState<MotivoPerso | null>((deal?.motivo_perso as MotivoPerso) ?? null);
+  const [riprendereIl, setRiprendereIl] = useState<string | null>(deal?.riprendere_il ?? null);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -427,6 +446,8 @@ function TrattativaModal({
     setErrore(null);
     try {
       const valNum = valore.trim() ? Number(valore.replace(/[^\d]/g, '')) : null;
+      const chiusa = fase === 'closedwon' || fase === 'closedlost';
+      const eraChiusa = deal?.fase === 'closedwon' || deal?.fase === 'closedlost';
       const patch = {
         linea: linee[0] ?? null,
         linee,
@@ -434,6 +455,13 @@ function TrattativaModal({
         valore_atteso: valNum != null && isFinite(valNum) ? valNum : null,
         next_action: nextAction.trim() || null,
         scadenza,
+        oggetto: oggetto.trim() || null,
+        canale,
+        // La memoria delle perse: motivo + quando riprovarci. Se la trattativa
+        // viene riaperta, la memoria si azzera.
+        motivo_perso: fase === 'closedlost' ? motivoPerso : null,
+        riprendere_il: fase === 'closedlost' ? riprendereIl : null,
+        chiusa_il: chiusa ? (eraChiusa ? deal?.chiusa_il ?? isoOggiTratt() : isoOggiTratt()) : null,
       };
 
       if (inModifica && deal) {
@@ -577,6 +605,30 @@ function TrattativaModal({
             <Text style={styles.campoLabel}>Linee (una o più)</Text>
             <LineaSelector value={linee} onChange={setLinee} />
 
+            {/* Per cosa è la trattativa: senza, fra sei mesi nessuno ricorda perché eravamo lì */}
+            <Text style={styles.campoLabel}>Oggetto (per cosa è)</Text>
+            <TextInput
+              style={styles.input}
+              value={oggetto}
+              onChangeText={setOggetto}
+              placeholder="es. consegne weekend, vetrine natalizie…"
+              placeholderTextColor={colors.grigio}
+            />
+
+            {/* Canale di acquisizione: quale attività l'ha generata */}
+            <Text style={styles.campoLabel}>Canale</Text>
+            <View style={styles.chipRow}>
+              {CANALI.map((c) => (
+                <Pressable
+                  key={c.valore}
+                  style={[styles.chip, canale === c.valore && styles.chipOn]}
+                  onPress={() => setCanale(c.valore)}
+                >
+                  <Text style={[styles.chipTxt, canale === c.valore && styles.chipTxtOn]}>{c.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+
             {/* Fase */}
             <Text style={styles.campoLabel}>Fase</Text>
             <View style={styles.chipRow}>
@@ -590,6 +642,52 @@ function TrattativaModal({
                 </Pressable>
               ))}
             </View>
+
+            {/* Persa: il motivo decide la strategia di ripresa (pipeline differita) */}
+            {fase === 'closedlost' ? (
+              <>
+                <Text style={styles.campoLabel}>Perché è persa?</Text>
+                <View style={styles.chipRow}>
+                  {MOTIVI_PERSO.map((m) => (
+                    <Pressable
+                      key={m.valore}
+                      style={[styles.chip, motivoPerso === m.valore && styles.chipOn]}
+                      onPress={() => {
+                        setMotivoPerso(m.valore);
+                        // Default di ripresa: 90 giorni, ma un "non target" non si riprende.
+                        setRiprendereIl(m.riprendibile ? riprendereIl ?? isoTraGiorni(90) : null);
+                      }}
+                    >
+                      <Text style={[styles.chipTxt, motivoPerso === m.valore && styles.chipTxtOn]}>{m.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={styles.campoLabel}>Quando riprovarci?</Text>
+                <View style={styles.chipRow}>
+                  <Pressable style={[styles.chip, !riprendereIl && styles.chipOn]} onPress={() => setRiprendereIl(null)}>
+                    <Text style={[styles.chipTxt, !riprendereIl && styles.chipTxtOn]}>Mai</Text>
+                  </Pressable>
+                  {[
+                    { label: 'Fra 1 mese', giorni: 30 },
+                    { label: 'Fra 3 mesi', giorni: 90 },
+                    { label: 'Fra 6 mesi', giorni: 180 },
+                  ].map((o) => {
+                    const iso = isoTraGiorni(o.giorni);
+                    const on = riprendereIl === iso;
+                    return (
+                      <Pressable key={o.giorni} style={[styles.chip, on && styles.chipOn]} onPress={() => setRiprendereIl(iso)}>
+                        <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{o.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {riprendereIl ? (
+                  <Text style={styles.notaRegistro}>
+                    Ricomparirà in Home, sezione «Da riprendere», il {formattaData(riprendereIl)}.
+                  </Text>
+                ) : null}
+              </>
+            ) : null}
 
             {/* Valore */}
             <Text style={styles.campoLabel}>Valore atteso (€)</Text>
@@ -757,6 +855,8 @@ const styles = StyleSheet.create({
   ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ownerTxt: { color: colors.testoSoft, fontSize: 12, fontWeight: '700' },
   dataTxt: { color: colors.grigio, fontSize: 12 },
+  oggettoTxt: { color: colors.testoSoft, fontSize: 12.5, fontStyle: 'italic' },
+  persaTxt: { color: colors.errore, fontSize: 12, fontWeight: '700' },
   filtroEtichetta: { color: colors.grigio, fontSize: 12, fontWeight: '700', alignSelf: 'center', marginRight: 2 },
 
   // FAB

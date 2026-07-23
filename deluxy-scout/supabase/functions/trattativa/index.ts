@@ -136,6 +136,7 @@ Deno.serve(async (req) => {
     const linea = typeof body.linea === 'string' && body.linea.trim() ? body.linea.trim() : null;
     const scadenza = typeof body.scadenza === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.scadenza) ? body.scadenza : null;
     const nextAction = typeof body.nextAction === 'string' && body.nextAction.trim() ? body.nextAction.trim() : null;
+    const oggetto = typeof body.oggetto === 'string' && body.oggetto.trim() ? body.oggetto.trim() : null;
 
     const { data: creata, error } = await admin
       .from('deals')
@@ -147,6 +148,10 @@ Deno.serve(async (req) => {
         valore_atteso: valore,
         next_action: nextAction,
         scadenza,
+        // Per cosa è la trattativa: se il chiamante non lo dice, la prossima
+        // azione è comunque una traccia migliore di niente.
+        oggetto: oggetto ?? nextAction,
+        canale: 'web', // arriva da fuori (AI Mail, lead internet): canale web
         owner: null, // nessun utente dietro la chiamata: si assegna dall'app
         hubspot_deal_id: null,
       })
