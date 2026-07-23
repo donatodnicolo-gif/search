@@ -8,6 +8,23 @@ import { PrimoCarico } from './PrimoCarico'
 
 type Voce = { href: string; label: string; badge?: number }
 
+/** Un gruppo di voci del menu. Prima lo stesso blocco era ricopiato per ogni
+ *  gruppo: cambiare una riga voleva dire cambiarla in tre punti. */
+function Gruppo({ titolo, voci }: { titolo: string; voci: Voce[] }) {
+  if (voci.length === 0) return null
+  return (
+    <nav className="nav-section">
+      <div className="nav-label">{titolo}</div>
+      {voci.map((v) => (
+        <Link key={v.href} href={v.href} className="nav-item">
+          <span style={{ flex: 1 }}>{v.label}</span>
+          {v.badge ? <span className="badge neutral">{v.badge}</span> : null}
+        </Link>
+      ))}
+    </nav>
+  )
+}
+
 async function datiSidebar(utenteId: string) {
   try {
     const [sezioni, daFare, nonLette, cestinati, bozze, riassunti] = await Promise.all([
@@ -57,36 +74,45 @@ export async function Sidebar() {
 
   const { sezioni, daFare, nonLette, cestinati, bozze, riassunti } = await datiSidebar(utente.id)
 
-  const principali: Voce[] = [
+  // Il menu in cinque gruppi, ognuno con un criterio chiaro:
+  //   POSTA        — dove STA la posta (le caselle: in arrivo, bozze, inviata…)
+  //   STRUMENTI    — altri MODI di guardare la stessa posta (thread, clienti…)
+  //   APPLICAZIONI — cose che lavorano PER TE (Renè, attività, calendario…)
+  //   SEZIONI      — le colonne in cui smisti la posta (dinamiche)
+  //   GESTIONE     — come si configura l'app
+  // Dentro ogni gruppo l'ordine è per frequenza d'uso, non alfabetico.
+  const posta: Voce[] = [
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
-    // Tutte le conversazioni raggruppate in thread.
-    { href: '/thread', label: 'Thread' },
-    // La posta dei clienti del registro Anagrafiche (per email o dominio).
-    { href: '/clienti', label: 'Clienti' },
     { href: '/bozze', label: 'Bozze', badge: bozze },
     { href: '/inviata', label: 'Posta inviata' },
-    // La posta archiviata: messa via ma tenuta (non è nel Cestino). È il filtro
+    // Archiviata = messa via ma tenuta (non è nel Cestino). È il filtro
     // "Archiviati" della posta in arrivo, qui come voce a sé per ritrovarla.
     { href: '/?stato=archiviati', label: 'Archivio' },
     { href: '/cestino', label: 'Cestino', badge: cestinati },
   ]
 
-  const applicazioni: Voce[] = [
-    { href: '/attivita', label: 'Attività', badge: daFare },
-    { href: '/rene', label: 'Renè AI' },
-    // I modelli di follow-up da agganciare all'invio di una mail: è uno
-    // strumento, non una casella — sta con le applicazioni.
-    { href: '/sequenze', label: 'Sequenze' },
+  const strumenti: Voce[] = [
+    // Tutte le conversazioni raggruppate in thread.
+    { href: '/thread', label: 'Thread' },
+    // La posta dei clienti del registro Anagrafiche (per email o dominio).
+    { href: '/clienti', label: 'Clienti' },
     // I quadri conversazione fatti dall'AI, col link al thread.
     { href: '/riassunti', label: 'Riassunti', badge: riassunti },
     { href: '/rubrica', label: 'Rubrica' },
+  ]
+
+  const applicazioni: Voce[] = [
+    { href: '/rene', label: 'Renè AI' },
+    { href: '/attivita', label: 'Attività', badge: daFare },
     { href: '/calendario', label: 'Calendario' },
+    // I modelli di follow-up da agganciare all'invio di una mail.
+    { href: '/sequenze', label: 'Sequenze' },
   ]
 
   const gestione: Voce[] = [
-    { href: '/statistiche', label: 'Statistiche' },
     { href: '/regole', label: 'Regole' },
     { href: '/sezioni', label: 'Sezioni' },
+    { href: '/statistiche', label: 'Statistiche' },
     { href: '/impostazioni-app', label: 'Impostazioni App' },
     { href: '/impostazioni', label: 'Impostazioni' },
     ...(utente.ruolo === 'admin' ? [{ href: '/utenti', label: 'Utenti' }] : []),
@@ -108,25 +134,9 @@ export async function Sidebar() {
           dello storico è on-demand (fondo lista / ricerca sul server). */}
       <PrimoCarico />
 
-      <nav className="nav-section">
-        <div className="nav-label">Posta</div>
-        {principali.map((v) => (
-          <Link key={v.href} href={v.href} className="nav-item">
-            <span style={{ flex: 1 }}>{v.label}</span>
-            {v.badge ? <span className="badge neutral">{v.badge}</span> : null}
-          </Link>
-        ))}
-      </nav>
-
-      <nav className="nav-section">
-        <div className="nav-label">Applicazioni</div>
-        {applicazioni.map((v) => (
-          <Link key={v.href} href={v.href} className="nav-item">
-            <span style={{ flex: 1 }}>{v.label}</span>
-            {v.badge ? <span className="badge neutral">{v.badge}</span> : null}
-          </Link>
-        ))}
-      </nav>
+      <Gruppo titolo="Posta" voci={posta} />
+      <Gruppo titolo="Strumenti" voci={strumenti} />
+      <Gruppo titolo="Applicazioni" voci={applicazioni} />
 
       {sezioni.length > 0 && (
         <nav className="nav-section">
@@ -154,14 +164,7 @@ export async function Sidebar() {
         </nav>
       )}
 
-      <nav className="nav-section">
-        <div className="nav-label">Gestione</div>
-        {gestione.map((v) => (
-          <Link key={v.href} href={v.href} className="nav-item">
-            <span style={{ flex: 1 }}>{v.label}</span>
-          </Link>
-        ))}
-      </nav>
+      <Gruppo titolo="Gestione" voci={gestione} />
 
       <div className="sidebar-footer">
         <span className="avatar">{iniziali(utente.nome, utente.email)}</span>
