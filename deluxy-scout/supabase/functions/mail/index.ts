@@ -29,14 +29,22 @@ Deno.serve(async (req) => {
     const key = Deno.env.get('MAIL_API_TOKEN') ?? (await chiaveHub('MAIL_API_TOKEN'));
     if (!key) return json({ ok: false, errore: 'MAIL_API_TOKEN non configurata' }, 500);
 
-    // Il chiamante dev'essere un utente Scout loggato: la sua email = casella.
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+    // Chi chiama: di norma un utente Scout loggato (la sua email = casella su
+    // cui leggere). L'import delle richieste non dipende da chi lo lancia, così
+    // vale anche una chiave server-to-server (cron, automazioni).
     const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
     const { data: userData } = await admin.auth.getUser(jwt);
     const email = userData?.user?.email;
-    if (!email) return json({ ok: false, errore: 'Non autenticato' }, 401);
+    const chiaveApi = (req.headers.get('x-api-key') ?? '').trim();
+    const daServizio = Boolean(chiaveApi) && chiaveApi === Deno.env.get('COMMERCIALE_API_KEY');
 
     const body = await req.json().catch(() => ({}));
+    // L'azione "richieste" accetta anche la chiave; tutto il resto vuole l'utente.
+    if (!email && !(daServizio && body.azione === 'richieste')) {
+      return json({ ok: false, errore: 'Non autenticato' }, 401);
+    }
 
     // ── Richieste Web: la posta della casella commerciale diventa lead ────────
     if (body.azione === 'richieste') {
@@ -50,10 +58,13 @@ Deno.serve(async (req) => {
       });
       const dati = await res.json().catch(() => null);
       if (!res.ok || !dati?.ok) {
-        return json(
-          { ok: false, errore: dati?.errore ?? `AI Mail ha risposto ${res.status} per la casella ${casella}.` },
-          res.status === 404 ? 404 : 502,
-        );
+        // 404 = in AI Mail non c'è un utente attivo con quella email: è la causa
+        // più probabile, e dal messaggio grezzo non si capirebbe cosa fare.
+        const errore =
+          res.status === 404
+            ? `In AI Mail non c'è una casella attiva «${casella}». Creala fra gli utenti di AI Mail (o cambia il secret MAIL_CASELLA_RICHIESTE), poi riprova.`
+            : (dati?.errore ?? `AI Mail ha risposto ${res.status} per la casella ${casella}.`);
+        return json({ ok: false, errore, casella }, res.status === 404 ? 404 : 502);
       }
 
       const messaggi: any[] = Array.isArray(dati.messaggi) ? dati.messaggi : [];
@@ -86,6 +97,8 @@ Deno.serve(async (req) => {
     }
 
     if (body.azione !== 'messaggi') return json({ ok: false, errore: `Azione sconosciuta: ${body.azione}` }, 400);
+    // Da qui in poi serve l'utente: la casella da leggere è la sua.
+    if (!email) return json({ ok: false, errore: 'Non autenticato' }, 401);
 
     const contatto = String(body.email ?? '').trim();
     if (!contatto) return json({ ok: false, errore: 'Manca email del contatto' }, 400);
