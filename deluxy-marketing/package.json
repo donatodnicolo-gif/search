@@ -1,0 +1,38 @@
+{
+  "name": "deluxy-marketing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deluxy Marketing — la memoria operativa dell'advertising: analisi, audit, azioni con storia e feedback, campagne con metriche, indice della cartella Drive ADV DELUXY SRL",
+  "scripts": {
+    "dev": "next dev -p 3130",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
+    "start": "next start -p 3130",
+    "db:push": "prisma db push",
+    "db:seed": "node prisma/seed.mjs",
+    "db:reset": "prisma db push --force-reset && node prisma/seed.mjs",
+    "chiave": "node scripts/chiave.mjs",
+    "sync-drive": "node scripts/sync-drive.mjs"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.5.0",
+    "next": "^15.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "prisma": "^6.5.0",
+    "typescript": "^5.7.3"
+  },
+  "allowScripts": {
+    "prisma@6.19.3": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true
+  }
+}

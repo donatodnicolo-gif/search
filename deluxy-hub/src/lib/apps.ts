@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -95,6 +95,18 @@ export function catalogoApp(): AppDeluxy[] {
       // APP_URL_MERCHANDISING, puntando all'istanza locale finché non c'è un URL pubblico.
       url: process.env.APP_URL_MERCHANDISING ?? "http://localhost:3120",
       ruoli: ["admin", "commerciale"],
+    },
+    {
+      id: "marketing",
+      nome: "Marketing",
+      sottotitolo: "Analisi & campagne ADV",
+      descrizione:
+        "La memoria operativa dell'advertising: analisi e audit, azioni con storia e feedback, campagne con metriche e i documenti della cartella ADV DELUXY SRL.",
+      icona: "marketing",
+      // Eccezione voluta: la tessera resta visibile anche in produzione senza
+      // APP_URL_MARKETING, puntando all'istanza locale finché non c'è un URL pubblico.
+      url: process.env.APP_URL_MARKETING ?? "http://localhost:3130",
+      ruoli: ["admin"],
     },
     {
       id: "budgets",

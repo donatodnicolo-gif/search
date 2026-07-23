@@ -91,6 +91,14 @@ const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
       <path d="M12 9.2 4 15.2a1 1 0 0 0 .6 1.8h14.8a1 1 0 0 0 .6-1.8L12 9.2z" {...TRATTO} />
     </>
   ),
+  // Megafono: l'advertising con analisi, azioni e campagne
+  marketing: (
+    <>
+      <path d="M4 10v4l10 4V6z" {...TRATTO} />
+      <path d="M14 6v12M18 9.5a3.5 3.5 0 0 1 0 5" {...TRATTO} />
+      <path d="M6 14v4.5" {...TRATTO} />
+    </>
+  ),
   // Busta con scintilla: posta letta e smistata dall'AI
   mail: (
     <>

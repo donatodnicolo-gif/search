@@ -1,0 +1,181 @@
+// Deluxy Marketing — schema dati
+// La memoria operativa dell'advertising Deluxy: qui si depositano le analisi
+// e gli audit prodotti dalle sessioni Claude (custode e progetti brand), le
+// azioni che ne derivano — con storia completa e feedback — e le campagne con
+// le loro metriche. La FONTE DI VERITÀ documentale resta la cartella Google
+// Drive "ADV DELUXY SRL": l'app la indicizza (DocumentoDrive) e non la scrive.
+//
+// Sviluppo locale su SQLite (nessun segreto). In produzione si passa al
+// Postgres condiviso Deluxy: cambiare provider in "postgresql" e la url.
+// Per compatibilità SQLite niente enum né array: gli stati sono stringhe
+// normalizzate con cataloghi in src/lib/dominio.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Un'analisi depositata: audit Google/Meta, analisi performance, revisione
+// creativi o landing, report settimanale… La sintesi è testo/markdown; il
+// documento completo vive su Drive (fileDrive = percorso relativo).
+model Analisi {
+  id          String    @id @default(cuid())
+  // catalogo TIPI_ANALISI in dominio.ts: audit_google | audit_meta | analisi_performance |
+  // revisione_creativi | revisione_landing | report_settimanale | analisi_pubblici | analisi | altro
+  tipo        String    @default("analisi")
+  titolo      String
+  // catalogo BRANDS: flowers | cake | gifts | cross
+  brand       String    @default("cross")
+  // catalogo CANALI: google_ads | meta_ads | email | sito | seo | crm | social | altro
+  canale      String?
+  // Sintesi operativa (markdown semplice): cosa è emerso, in breve.
+  sintesi     String
+  // ok | attenzione | critico — il "semaforo" dell'analisi
+  esito       String?
+  // Percorso del documento completo dentro "ADV DELUXY SRL" (relativo alla cartella)
+  fileDrive   String?
+  dataAnalisi DateTime  @default(now())
+  // chi ha depositato: claude_code | custode | manuale | demo
+  origine     String    @default("claude_code")
+  note        String?
+  azioni      Azione[]
+  creataIl    DateTime  @default(now())
+  aggiornataIl DateTime @updatedAt
+
+  @@index([brand])
+  @@index([tipo])
+  @@index([dataAnalisi])
+}
+
+// Un'azione operativa (task): nasce da un'analisi, da un piano su Drive o a
+// mano. Gli stati ricalcano i gemelli dei piani: todo | in_corso | fatta |
+// superata | bloccata. La storia completa vive in EventoAzione.
+model Azione {
+  id          String    @id @default(cuid())
+  titolo      String
+  descrizione String?
+  brand       String    @default("cross")
+  canale      String?
+  stato       String    @default("todo")
+  // alta | media | bassa
+  priorita    String    @default("media")
+  // chi deve eseguirla: ai | utente
+  owner       String    @default("ai")
+  scadenza    DateTime?
+  // Com'è andata a finire (compilato alla chiusura)
+  esito       String?
+  // Riferimento al gemello/piano su Drive da cui proviene, se c'è
+  fileDrive   String?
+  analisiId   String?
+  analisi     Analisi?  @relation(fields: [analisiId], references: [id], onDelete: SetNull)
+  campagnaId  String?
+  campagna    Campagna? @relation(fields: [campagnaId], references: [id], onDelete: SetNull)
+  eventi      EventoAzione[]
+  creataIl    DateTime  @default(now())
+  aggiornataIl DateTime @updatedAt
+
+  @@index([stato])
+  @@index([brand])
+  @@index([scadenza])
+}
+
+// La storia di un'azione: creazione, cambi di stato, feedback e note.
+// È il registro che rende l'app la memoria delle decisioni prese.
+model EventoAzione {
+  id       String   @id @default(cuid())
+  azioneId String
+  azione   Azione   @relation(fields: [azioneId], references: [id], onDelete: Cascade)
+  // creazione | stato | feedback | nota
+  tipo     String
+  // per tipo "stato": da → a
+  da       String?
+  a        String?
+  testo    String?
+  // chi scrive: utente | claude_code | custode | sistema
+  autore   String   @default("utente")
+  creatoIl DateTime @default(now())
+
+  @@index([azioneId])
+}
+
+// Una campagna pubblicitaria (Google, Meta, email…): il registro vivo con
+// stato, budget e obiettivo. Le metriche giornaliere stanno in MetricaCampagna.
+model Campagna {
+  id          String    @id @default(cuid())
+  nome        String
+  brand       String    @default("flowers")
+  canale      String    @default("google_ads")
+  // bozza | in_apprendimento | attiva | in_pausa | conclusa
+  stato       String    @default("attiva")
+  obiettivo   String?
+  budgetGiornaliero Float?
+  // id della campagna sulla piattaforma esterna (Google/Meta)
+  idEsterno   String?
+  inizio      DateTime?
+  fine        DateTime?
+  note        String?
+  metriche    MetricaCampagna[]
+  azioni      Azione[]
+  creataIl    DateTime  @default(now())
+  aggiornataIl DateTime @updatedAt
+
+  @@index([brand])
+  @@index([stato])
+}
+
+// Snapshot giornaliero dei KPI di una campagna: alimenta le dashboard.
+// Upsert per (campagna, giorno): rimandare gli stessi dati non duplica.
+model MetricaCampagna {
+  id          String   @id @default(cuid())
+  campagnaId  String
+  campagna    Campagna @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
+  data        DateTime
+  spesa       Float?
+  impression  Int?
+  click       Int?
+  conversioni Float?
+  ricavi      Float?
+  creataIl    DateTime @default(now())
+
+  @@unique([campagnaId, data])
+  @@index([data])
+}
+
+// Indice (sola lettura) della cartella Drive "ADV DELUXY SRL" sincronizzata
+// in locale con Google Drive per Desktop. L'app NON scrive mai su Drive:
+// legge e indicizza per rendere i documenti cercabili e collegabili.
+model DocumentoDrive {
+  id             String   @id @default(cuid())
+  // percorso relativo alla radice della cartella ufficiale, con "/"
+  percorso       String   @unique
+  nome           String
+  cartella       String
+  estensione     String
+  // flowers | cake | gifts | cross | pubblici | performance | altro
+  brand          String   @default("altro")
+  // definitivi | analisi | piani | audit | archivio | pubblici | creativita | seo | altro
+  categoria      String   @default("altro")
+  dimensione     Int      @default(0)
+  modificatoIl   DateTime
+  sincronizzatoIl DateTime @default(now())
+
+  @@index([brand])
+  @@index([categoria])
+  @@index([modificatoIl])
+}
+
+// Chiavi API per le sessioni Claude (custode, progetti brand) e le altre app.
+// Nel database c'è solo lo SHA-256; si creano con `npm run chiave -- <nome>`.
+model ApiKey {
+  id        String    @id @default(cuid())
+  nome      String
+  hash      String    @unique
+  scrittura Boolean   @default(true)
+  attiva    Boolean   @default(true)
+  creataIl  DateTime  @default(now())
+  ultimoUso DateTime?
+}

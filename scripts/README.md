@@ -154,9 +154,33 @@ cd deluxy-partner && npm run sync:stato-analisi
 - **Serve**: `DATABASE_URL` nel `.env` di deluxy-partner, più `ANAGRAFICHE_URL` e `ANAGRAFICHE_WRITE_KEY` (in mancanza usa `ANAGRAFICHE_API_KEY`, che dal 20/07/2026 ha scrittura piena)
 - **Nota**: idempotente — chi ha già lo stato giusto viene saltato. Aggancia il partner al registro per `anagraficaId`, altrimenti per nome esatto (o per sola insegna se il risultato è univoco, eventualmente disambiguato dalla città) e salva il collegamento trovato. Gli ambigui non vengono toccati: si risolvono a mano in `/match` del registro.
 
+### sync-drive.mjs — deluxy-marketing
+Indicizza in **sola lettura** la cartella locale Google Drive «ADV DELUXY SRL» (Google Drive per Desktop) nell'app Marketing: brand e categoria dedotti dal percorso, rimozione dall'indice dei file spariti dal Drive.
+
+```bash
+# dalla radice del repo
+cd deluxy-marketing && npm run sync-drive
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app; `DRIVE_ADV_DIR` se la cartella non è `G:\Il mio Drive\ADV DELUXY SRL`
+- **Nota**: idempotente; la cartella Drive **non viene mai scritta**. Stessa sync disponibile dal bottone «Sincronizza ora» nella pagina Documenti Drive dell'app.
+
 ---
 
 ## 4. Setup e configurazione
+
+### chiave.mjs — deluxy-marketing
+Crea una chiave API per le API `/api/v1` dell'app Marketing (le usano le sessioni Claude ADV per depositare analisi, azioni e metriche).
+
+```bash
+# dalla radice del repo — lettura + scrittura (default)
+cd deluxy-marketing && npm run chiave -- <nome-client>
+# sola lettura
+cd deluxy-marketing && npm run chiave -- <nome-client> --sola-lettura
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: la chiave (`dmk_...`) viene stampata **una sola volta** — nel database resta solo lo SHA-256. Header: `x-api-key`.
 
 ### crea-chiave.mjs — deluxy-anagrafiche
 Crea (o rigenera) una chiave API per un'app client del registro anagrafiche.
