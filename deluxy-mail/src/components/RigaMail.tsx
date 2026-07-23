@@ -11,6 +11,7 @@ import { RispostaAzioni } from './RispostaAzioni'
 import { BottoneApp } from './BottoneApp'
 import { DelegaReneBottone } from './DelegaRene'
 import { AgganciaBottone } from './AgganciaRiga'
+import { NomeThreadBottone } from './NomeThreadRiga'
 import { MailDrag } from './MailDrag'
 
 /** I dati (leggeri, già raggruppati) che servono a disegnare una riga. */
@@ -219,6 +220,8 @@ export const RigaMail = memo(function RigaMail({
           />
           <DelegaReneBottone id={r.id} />
           <AgganciaBottone id={r.id} />
+          {/* Dai (o cambi) il nome alla conversazione senza aprirla. */}
+          <NomeThreadBottone id={r.id} nome={r.nomeThread} />
           {r.nel > 1 && (
             <Link href={`/messaggio/${r.id}?ampia=1`} className="azione-riga" title="Apri la conversazione con anche le mail correlate">
               Apri completo

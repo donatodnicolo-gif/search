@@ -1173,7 +1173,12 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
 
     const { raw, messageId } = await spedisci(account, daInviare)
     const threadRadice = bozza.messaggio.thread || bozza.messaggio.messageId
-    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, threadRadice)
+    // La risposta si aggancia SEMPRE alla mail d'origine (ultimo parametro):
+    // così la conversazione si forma anche quando gli header o l'oggetto non
+    // bastano a collegarle. Vedi `registraInviato`.
+    const avviso = await registraInviato(
+      utenteId, account, daInviare, raw, messageId, threadRadice, null, null, bozza.messaggio.id
+    )
 
     await db.bozza.update({ where: { id }, data: { inviata: true, inviataIl: new Date() } })
     await db.messaggio.update({
@@ -1306,9 +1311,11 @@ async function registraInviato(
     },
   })
 
-  // Aggancio scelto mentre si scriveva: la mail appena spedita entra nella
-  // conversazione indicata (stesso meccanismo del pulsante «Aggancia» sulle
-  // righe). Best-effort: se fallisce, la mail è comunque partita e registrata.
+  // La mail appena spedita entra nella conversazione indicata (stesso
+  // meccanismo del pulsante «Aggancia» sulle righe): per una RISPOSTA è sempre
+  // la mail d'origine — così il thread si forma anche quando header e oggetto
+  // non bastano — per un inoltro/mail nuova solo se l'hai scelta tu mentre
+  // scrivevi. Best-effort: se fallisce, la mail è comunque partita e registrata.
   if (agganciaA) {
     try {
       await agganciaAlThread(inviato.id, agganciaA)
@@ -1378,9 +1385,12 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     const prioritaScelta = CODICI_PRIORITA.includes(testo(form, 'priorita') as never)
       ? testo(form, 'priorita')
       : null
-    // Conversazione scelta a mano mentre si scriveva (di norma su un inoltro,
-    // che altrimenti aprirebbe uno scambio nuovo).
-    const agganciaA = testo(form, 'agganciaA') || null
+    // A quale conversazione lega la mail che parte:
+    // - se l'hai scelta a mano mentre scrivevi (di norma su un INOLTRO, che
+    //   altrimenti aprirebbe uno scambio nuovo), vince quella;
+    // - RISPONDENDO, si aggancia SEMPRE alla mail d'origine: la conversazione
+    //   si forma da sola anche quando header e oggetto non bastano a legarle.
+    const agganciaA = testo(form, 'agganciaA') || (inoltro ? null : messaggioId)
     const avviso = await registraInviato(
       utenteId, account, daInviare, raw, messageId, threadRadice, sezioneEreditata, prioritaScelta, agganciaA
     )

@@ -10,6 +10,7 @@ import { CarteApp } from '@/components/CarteApp'
 import { InvioAppDialog } from '@/components/InvioAppDialog'
 import { DelegaReneDialog } from '@/components/DelegaRene'
 import { AgganciaDialog } from '@/components/AgganciaRiga'
+import { NomeThreadDialog } from '@/components/NomeThreadRiga'
 import { ListaMail } from '@/components/ListaMail'
 import type { RigaData } from '@/components/RigaMail'
 import { descriviAzioni } from '@/lib/appDeluxy'
@@ -505,6 +506,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       <InvioAppDialog azioni={azioniApp} />
       <DelegaReneDialog />
       <AgganciaDialog />
+      <NomeThreadDialog />
     </>
   )
 }

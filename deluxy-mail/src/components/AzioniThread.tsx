@@ -4,13 +4,14 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { cestinaThread, riassumiConversazione } from '@/lib/actions'
 import { AgganciaBottone } from './AgganciaRiga'
+import { NomeThreadBottone } from './NomeThreadRiga'
 
 /**
  * Le azioni su un intero thread (nella lista Thread): riassunto rapido, aggancia
  * altre mail, e cestina tutte le mail del thread. `messaggioId` è un messaggio
  * qualsiasi del thread (il volto della riga).
  */
-export function AzioniThread({ messaggioId }: { messaggioId: string }) {
+export function AzioniThread({ messaggioId, nome }: { messaggioId: string; nome?: string | null }) {
   const [inCorso, start] = useTransition()
   const [sintesi, setSintesi] = useState<string | null>(null)
   const [errore, setErrore] = useState<string | null>(null)
@@ -41,6 +42,7 @@ export function AzioniThread({ messaggioId }: { messaggioId: string }) {
           {inCorso && !via ? 'Riassumo…' : sintesi ? 'Rigenera riassunto' : 'Riassunto rapido'}
         </button>
         <AgganciaBottone id={messaggioId} />
+        <NomeThreadBottone id={messaggioId} nome={nome} />
         <button
           type="button"
           className="azione-riga"

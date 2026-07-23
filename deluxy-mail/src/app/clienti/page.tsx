@@ -1,11 +1,15 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
-import { raggruppa } from '@/lib/thread'
+import { raggruppa, chiaveThread } from '@/lib/thread'
+import { nomiPerChiavi } from '@/lib/nomiThread'
 import { indiceClienti, linkPartner } from '@/lib/anagrafiche'
 import { emailContattiAI } from '@/lib/contattiAI'
 import { RicercaMail } from '@/components/RicercaMail'
 import { ListaMail } from '@/components/ListaMail'
+import { AgganciaDialog } from '@/components/AgganciaRiga'
+import { DelegaReneDialog } from '@/components/DelegaRene'
+import { NomeThreadDialog } from '@/components/NomeThreadRiga'
 import type { RigaData } from '@/components/RigaMail'
 
 export const dynamic = 'force-dynamic'
@@ -85,9 +89,13 @@ export default async function Clienti({ searchParams }: Props) {
     for (const o of uscite) if (o.thread) threadRisposti.add(o.thread)
   }
 
+  // Il nome dato a mano alle conversazioni (una query per tutta la pagina).
+  const nomiConv = await nomiPerChiavi(u.id, gruppi.map((g) => chiaveThread(g)))
+
   const costruisciRiga = (g: (typeof gruppi)[number], nomeCliente: string): RigaData => {
     const m = g[g.length - 1]
     return {
+      nomeThread: nomiConv.get(chiaveThread(g)) ?? null,
       id: m.id,
       mittente: m.mittente,
       mittenteNome: m.mittenteNome,
@@ -193,6 +201,12 @@ export default async function Clienti({ searchParams }: Props) {
           )}
         </>
       )}
+
+      {/* Le righe qui sono le stesse della posta in arrivo: senza questi
+          dialoghi «Aggancia», «Delega Renè» e «Nome» non aprivano niente. */}
+      <AgganciaDialog />
+      <DelegaReneDialog />
+      <NomeThreadDialog />
     </>
   )
 }

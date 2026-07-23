@@ -7,6 +7,7 @@ import { nomiPerChiavi, chiaviPerNome } from '@/lib/nomiThread'
 import { RicercaMail } from '@/components/RicercaMail'
 import { AzioniThread } from '@/components/AzioniThread'
 import { AgganciaDialog } from '@/components/AgganciaRiga'
+import { NomeThreadDialog } from '@/components/NomeThreadRiga'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -187,7 +188,7 @@ export default async function Thread({ searchParams }: Props) {
                     <span className="mail-data">{dataBreve(volto.data)}</span>
                   </div>
                 </div>
-                <AzioniThread messaggioId={volto.id} />
+                <AzioniThread messaggioId={volto.id} nome={nome} />
               </div>
             ))}
           </div>
@@ -196,6 +197,7 @@ export default async function Thread({ searchParams }: Props) {
 
       {/* Il dialogo di aggancio, montato una volta per la pagina. */}
       <AgganciaDialog />
+      <NomeThreadDialog />
     </>
   )
 }

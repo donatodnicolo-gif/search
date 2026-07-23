@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { dataBreve } from '@/lib/format'
 import { cestinaMessaggio, spostaInSezione, azioneMassa } from '@/lib/actions'
 import { AgganciaBottone, AgganciaDialog } from './AgganciaRiga'
+import { NomeThreadBottone, NomeThreadDialog } from './NomeThreadRiga'
 
 export type RigaInviata = {
   /** Il "volto" della riga: la mail più recente della conversazione. */
@@ -197,6 +198,7 @@ export function ListaInviati({
               </button>
               {/* Associa questa mail inviata a un thread esistente. */}
               <AgganciaBottone id={m.id} />
+              <NomeThreadBottone id={m.id} nome={m.nomeThread} />
               {sezioni.length > 0 && (
                 <select
                   className="mail-select-sposta"
@@ -224,8 +226,9 @@ export function ListaInviati({
         </div>
       ))}
     </div>
-    {/* Il dialogo di aggancio, montato una volta per la lista. */}
+    {/* I dialoghi, montati una volta per la lista. */}
     <AgganciaDialog />
+    <NomeThreadDialog />
     </>
   )
 }
