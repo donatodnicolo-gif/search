@@ -18,6 +18,7 @@ import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, r
 import {
   aggiornaDeal,
   cercaPlaces,
+  creaOrdineDaDeal,
   fetchContatti,
   fetchTutteTrattative,
   inserisciDeal,
@@ -498,6 +499,22 @@ function TrattativaModal({
           } catch {
             /* la trattativa è salva su Supabase; il sync si recupera dopo */
           }
+        }
+      }
+      // La vinta genera l'ordine (idempotente su deal_id): il funnel finisce
+      // in un ordine, non in una fase. Best-effort: la vinta resta valida.
+      if (fase === 'closedwon' && place) {
+        const dealId = inModifica && deal && deal.origine !== 'anagrafiche' ? deal.id : null;
+        if (dealId && !dealId.startsWith('hs_')) {
+          await creaOrdineDaDeal({
+            id: dealId,
+            place_id: place.id,
+            valore_atteso: patch.valore_atteso,
+            oggetto: patch.oggetto,
+            canale: patch.canale,
+            linea: patch.linea,
+            place_nome: place.nome,
+          }).catch(() => {});
         }
       }
       onSalvata();

@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/auth';
 import {
   contaChiamateDal,
   fetchAllVisits,
+  fetchLeads,
   fetchPlaces,
   fetchProfilo,
   fetchTask,
@@ -23,6 +24,8 @@ import {
   type TrattativaConLuogo,
 } from '@/lib/db';
 import { daRicontattare, type Richiamo } from '@/lib/metrics';
+import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
+import type { Lead } from '@/types';
 import { avvisa } from '@/lib/dialoghi';
 
 const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
@@ -46,6 +49,7 @@ export default function Oggi() {
   const [trattative, setTrattative] = useState<TrattativaConLuogo[]>([]);
   const [giro, setGiro] = useState<Place[]>([]);
   const [richiami, setRichiami] = useState<Richiamo[]>([]);
+  const [leadNuovi, setLeadNuovi] = useState<Lead[]>([]);
   const [kpi, setKpi] = useState({ visite: 0, chiamate: 0, aperte: 0, pipeline: 0 });
   const [loading, setLoading] = useState(true);
   const [inviando, setInviando] = useState(false);
@@ -55,14 +59,16 @@ export default function Oggi() {
     try {
       const uid = session?.user?.id;
       const settimanaFa = isoGiorniFa(7);
-      const [t, tr, places, visits, chiamate7g, prof] = await Promise.all([
+      const [t, tr, places, visits, chiamate7g, prof, tuttiLead] = await Promise.all([
         fetchTask(true),
         fetchTutteTrattative(),
         fetchPlaces(),
         fetchAllVisits(),
         contaChiamateDal(settimanaFa),
         uid ? fetchProfilo(uid) : Promise.resolve(null),
+        fetchLeads().catch(() => []),
       ]);
+      setLeadNuovi(tuttiLead.filter((l) => l.stato === 'nuovo'));
       setTasks(t.filter((x) => !x.completata));
       setTrattative(tr);
       setRichiami(daRicontattare(places, visits));
@@ -127,7 +133,7 @@ export default function Oggi() {
 
   const d = new Date();
   const dataLunga = `${GIORNI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]}`;
-  const cose = giro.length + richiamiOrdinati.length + daMuovere.length + daRiprendere.length + taskOggi.length;
+  const cose = giro.length + richiamiOrdinati.length + leadNuovi.length + daMuovere.length + daRiprendere.length + taskOggi.length;
 
   async function promemoria() {
     setInviando(true);
@@ -150,11 +156,10 @@ export default function Oggi() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
     >
-      {/* Saluto + il conto di cosa c'è da fare per vendere */}
-      <View style={styles.hero}>
-        <Text style={styles.saluto}>{nome ? `Ciao ${nome}` : 'Ciao'} 👋</Text>
-        <Text style={styles.data}>{dataLunga}</Text>
-        <Text style={styles.riassunto}>
+      {/* Testata sobria: niente blocchi scenografici, si va dritti alle azioni */}
+      <View style={styles.testata}>
+        <Text style={styles.data}>{dataLunga}{nome ? ` · ${nome}` : ''}</Text>
+        <Text style={styles.titolo}>
           {loading
             ? 'Preparo la giornata…'
             : cose
@@ -208,6 +213,35 @@ export default function Oggi() {
           </Pressable>
         ))}
       </Canale>
+
+      {/* 1c. WEB — lead da qualificare (rispondere entro 2 giorni) */}
+      {leadNuovi.length ? (
+        <Canale
+          icona="globe-outline"
+          titolo="Web — lead da qualificare"
+          conteggio={leadNuovi.length}
+          cta="Apri i Lead web"
+          onCta={() => router.push('/(app)/lead')}
+          vuoto=""
+        >
+          {leadNuovi.slice(0, 4).map((l) => {
+            const eta = Math.floor((Date.now() - new Date(l.created_at).getTime()) / 86400_000);
+            const ritardo = eta >= GIORNI_RISPOSTA_LEAD;
+            return (
+              <Pressable key={l.id} style={styles.riga} onPress={() => router.push('/(app)/lead')}>
+                <Ionicons name="globe-outline" size={16} color={ritardo ? colors.errore : colors.navy} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rigaTitolo} numberOfLines={1}>{l.nome}</Text>
+                  {l.messaggio ? <Text style={styles.rigaSotto} numberOfLines={1}>{l.messaggio}</Text> : null}
+                </View>
+                <Text style={[styles.rigaMeta, ritardo && styles.ritardo]}>
+                  {eta === 0 ? 'oggi' : `${eta}g fa`}{ritardo ? ' · ritardo' : ''}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </Canale>
+      ) : null}
 
       {/* 2. Trattative da muovere: prima i soldi fermi */}
       <Canale
@@ -334,10 +368,9 @@ function Canale({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
-  hero: { backgroundColor: colors.ink, borderRadius: radius.lg, padding: spacing.lg, gap: 4 },
-  saluto: { color: colors.bianco, fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
-  data: { color: 'rgba(255,255,255,0.7)', fontSize: 13, textTransform: 'capitalize' },
-  riassunto: { color: colors.oro, fontSize: 13, fontWeight: '700', marginTop: 4 },
+  testata: { gap: 2, paddingTop: 2 },
+  data: { color: colors.testoSoft, fontSize: 13, textTransform: 'capitalize' },
+  titolo: { color: colors.navy, fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
   kpiRow: { flexDirection: 'row', gap: spacing.sm },
   kpi: {
     flex: 1,

@@ -18,32 +18,42 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 // MAIUSCOLA). L'ordine segue la giornata del venditore: cosa fai oggi →
 // trovi i clienti → li porti avanti → misuri → account.
 type Voce = { name: string; label: string; icon: IconName; soloAdmin?: boolean };
+// Il menù segue il flusso di vendita (docs/VISIONE-COMMERCIALE.md):
+// cosa faccio ORA → i CANALI dove nascono le occasioni → la VENDITA (funnel:
+// trattative → ordini → clienti) → gli strumenti di supporto → i risultati.
 const SEZIONI: { titolo: string; voci: Voce[] }[] = [
   {
-    titolo: 'Operatività',
+    titolo: 'Vendere oggi',
     voci: [
       { name: 'oggi', label: 'Oggi', icon: 'sunny-outline' },
-      { name: 'task', label: 'I miei task', icon: 'checkmark-circle-outline' },
-      { name: 'calendario', label: 'Calendario', icon: 'calendar-outline' },
       { name: 'da-completare', label: 'Da fare', icon: 'time-outline' },
     ],
   },
   {
-    titolo: 'Prospezione',
+    titolo: 'Canali',
     voci: [
-      { name: 'mappa', label: 'Mappa', icon: 'map-outline' },
+      { name: 'mappa', label: 'Territorio · Mappa', icon: 'map-outline' },
       { name: 'lista', label: 'Target', icon: 'flag-outline' },
-      { name: 'rubrica', label: 'Rubrica', icon: 'people-outline' },
-      { name: 'script', label: 'Script', icon: 'mail-outline' },
+      { name: 'affiliazioni', label: 'Chiamate · Affiliazioni', icon: 'call-outline' },
+      { name: 'lead', label: 'Lead web', icon: 'globe-outline' },
     ],
   },
   {
-    titolo: 'Pipeline',
+    titolo: 'Vendita',
     voci: [
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
+      { name: 'ordini', label: 'Ordini', icon: 'receipt-outline' },
       { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
-      { name: 'affiliazioni', label: 'Affiliazioni', icon: 'ribbon-outline' },
       { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
+    ],
+  },
+  {
+    titolo: 'Strumenti',
+    voci: [
+      { name: 'rubrica', label: 'Rubrica', icon: 'people-outline' },
+      { name: 'script', label: 'Script', icon: 'mail-outline' },
+      { name: 'task', label: 'I miei task', icon: 'checkmark-circle-outline' },
+      { name: 'calendario', label: 'Calendario', icon: 'calendar-outline' },
     ],
   },
   {
@@ -261,6 +271,8 @@ export default function AppLayout() {
         <Drawer.Screen name="rubrica" options={{ title: 'Rubrica' }} />
         <Drawer.Screen name="script" options={{ title: 'Script' }} />
         <Drawer.Screen name="trattative" options={{ title: 'Trattative' }} />
+        <Drawer.Screen name="ordini" options={{ title: 'Ordini' }} />
+        <Drawer.Screen name="lead" options={{ title: 'Lead web' }} />
         <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
         <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni' }} />
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />

@@ -1,10 +1,11 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
-import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
+import type { AffiliazioneRow, Contact, Deal, EsitoVisita, FonteLead, Lead, Linea, Ordine, Place, Profilo, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
 import { LINEE_ATTIVE, statoDaEsito } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
 import { notificaArchiviazioneReferente, sincronizzaNegozioRegistro } from '@/lib/anagrafiche';
+import { GIORNI_FOLLOWUP_DEAL, GIORNI_FOLLOWUP_LEAD, traGiorni } from '@/lib/cadenze';
 
 /** Contatto arricchito con nome/indirizzo/linea del negozio (per la Rubrica globale). */
 export interface ContattoConLuogo extends Contact {
@@ -828,9 +829,13 @@ export async function inserisciDeal(d: {
   canale?: Deal['canale'];
 }): Promise<Deal> {
   const { data: u } = await supabase.auth.getUser();
+  // Cadenza: nessuna trattativa senza prossima scadenza. Se il chiamante non ne
+  // indica una (undefined), l'app la mette a +7 giorni; null esplicito = scelta
+  // consapevole di non averla, e si rispetta.
+  const scadenza = d.scadenza === undefined ? traGiorni(GIORNI_FOLLOWUP_DEAL) : d.scadenza;
   const { data, error } = await supabase
     .from('deals')
-    .insert({ ...d, owner: u.user?.id ?? null, hubspot_deal_id: null })
+    .insert({ ...d, scadenza, owner: u.user?.id ?? null, hubspot_deal_id: null })
     .select('*')
     .single();
   if (error) throw error;
@@ -858,6 +863,114 @@ export async function aggiornaStarred(placeId: string, starred: boolean): Promis
       await supabase.from('places').update({ creato_da: uid }).eq('id', placeId).is('creato_da', null);
     }
   }
+}
+
+// ── Ordini (il punto d'arrivo del funnel: cosa abbiamo chiuso) ────────────────
+
+/** Ordine arricchito col nome del negozio, per la schermata Ordini. */
+export interface OrdineConLuogo extends Ordine {
+  place_nome: string | null;
+}
+
+export async function fetchOrdini(): Promise<OrdineConLuogo[]> {
+  const { data, error } = await supabase
+    .from('ordini')
+    .select('*, places(nome)')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({ ...r, place_nome: r.places?.nome ?? null }));
+}
+
+/**
+ * La trattativa vinta genera l'ordine (idempotente: indice unico su deal_id).
+ * Best-effort nel flusso di salvataggio: se fallisce, la vinta resta valida.
+ */
+export async function creaOrdineDaDeal(deal: {
+  id: string;
+  place_id: string;
+  valore_atteso: number | null;
+  oggetto?: string | null;
+  canale?: string | null;
+  linea: string | null;
+  place_nome?: string | null;
+}): Promise<void> {
+  const { error } = await supabase.from('ordini').upsert(
+    {
+      deal_id: deal.id,
+      place_id: deal.place_id || null,
+      cliente: deal.place_nome ?? 'Cliente',
+      descrizione: deal.oggetto ?? null,
+      valore: deal.valore_atteso,
+      canale: deal.canale ?? null,
+      linea: deal.linea,
+    },
+    { onConflict: 'deal_id' },
+  );
+  if (error) throw error;
+}
+
+export async function aggiornaOrdine(
+  id: string,
+  patch: Partial<Pick<Ordine, 'stato' | 'incassato_il' | 'valore' | 'descrizione'>>,
+): Promise<void> {
+  const { error } = await supabase.from('ordini').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+// ── Lead web (coda di qualificazione prima della trattativa) ──────────────────
+
+export async function fetchLeads(): Promise<Lead[]> {
+  const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Lead[];
+}
+
+export async function creaLead(l: {
+  nome: string;
+  contatto?: string | null;
+  fonte: FonteLead;
+  messaggio?: string | null;
+}): Promise<void> {
+  const { error } = await supabase.from('leads').insert({
+    nome: l.nome.trim(),
+    contatto: l.contatto?.trim() || null,
+    fonte: l.fonte,
+    messaggio: l.messaggio?.trim() || null,
+  });
+  if (error) throw error;
+}
+
+export async function scartaLead(id: string): Promise<void> {
+  const { data: u } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from('leads')
+    .update({ stato: 'scartato', owner: u.user?.id ?? null, lavorato_il: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/**
+ * Qualifica un lead: nasce la trattativa (canale web, oggetto = la richiesta del
+ * lead) sul negozio scelto, e il lead ricorda quale trattativa ha generato.
+ */
+export async function qualificaLead(lead: Lead, placeId: string): Promise<Deal> {
+  const { data: u } = await supabase.auth.getUser();
+  const deal = await inserisciDeal({
+    place_id: placeId,
+    linea: null,
+    fase: 'appointmentscheduled',
+    valore_atteso: null,
+    scadenza: traGiorni(GIORNI_FOLLOWUP_LEAD), // cadenza web: primo follow-up a 3 giorni
+    next_action: lead.contatto ? `Ricontattare ${lead.nome} (${lead.contatto})` : `Ricontattare ${lead.nome}`,
+    oggetto: lead.messaggio?.slice(0, 120) || `Lead web: ${lead.nome}`,
+    canale: 'web',
+  });
+  const { error } = await supabase
+    .from('leads')
+    .update({ stato: 'qualificato', deal_id: deal.id, place_id: placeId, owner: u.user?.id ?? null, lavorato_il: new Date().toISOString() })
+    .eq('id', lead.id);
+  if (error) throw error;
+  return deal;
 }
 
 // ── Task personali (tasklist privata del venditore) ────────────────────────────

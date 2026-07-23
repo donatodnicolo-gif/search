@@ -140,6 +140,33 @@ export default function Dashboard() {
   const inRitardo = richiami.filter((r) => r.inRitardo).length;
   const cop = useMemo(() => coperturaZone(placesF), [placesF]);
   const perse = useMemo(() => chiusePerse(dealsF), [dealsF]);
+
+  // Perché perdiamo: le chiuse perse per motivo, con lo spaccato per canale.
+  // È il report che corregge pricing e targeting (docs/VISIONE-COMMERCIALE.md).
+  const motiviPersa = useMemo(() => {
+    const chiuse = dealsF.filter((d) => d.fase === 'closedlost');
+    const mappa = new Map<string, { n: number; canali: Map<string, number> }>();
+    for (const d of chiuse) {
+      const m = d.motivo_perso ?? 'non indicato';
+      if (!mappa.has(m)) mappa.set(m, { n: 0, canali: new Map() });
+      const r = mappa.get(m)!;
+      r.n += 1;
+      const c = d.canale ?? '—';
+      r.canali.set(c, (r.canali.get(c) ?? 0) + 1);
+    }
+    const tot = chiuse.length;
+    return {
+      tot,
+      righe: [...mappa.entries()]
+        .map(([motivo, r]) => ({
+          motivo: motivo.replace('_', ' '),
+          n: r.n,
+          pct: tot ? Math.round((r.n / tot) * 100) : 0,
+          canali: [...r.canali.entries()].map(([c, n]) => `${c} ${n}`).join(' · '),
+        }))
+        .sort((a, b) => b.n - a.n),
+    };
+  }, [dealsF]);
   const faseBar = useMemo(
     () => dealPerFase(dealsF).map((x) => ({ label: labelFase[x.fase], value: x.value })),
     [dealsF],
@@ -285,6 +312,23 @@ export default function Dashboard() {
             </View>
           ))
         )}
+      </Sezione>
+
+      <Sezione titolo={`Perché perdiamo (${motiviPersa.tot} perse)`}>
+        {motiviPersa.tot === 0 ? (
+          <Text style={styles.vuoto}>Nessuna trattativa persa nel filtro corrente.</Text>
+        ) : (
+          motiviPersa.righe.map((r) => (
+            <View key={r.motivo} style={styles.dealRow}>
+              <Text style={styles.dealLinea} numberOfLines={1}>{r.motivo}</Text>
+              <Text style={styles.meta} numberOfLines={1}>{r.canali}</Text>
+              <Text style={[styles.dealLinea, { flex: 0 }]}>{r.n} · {r.pct}%</Text>
+            </View>
+          ))
+        )}
+        <Text style={styles.vuoto}>
+          Un «prezzo» si riapre con un'offerta diversa, una «tempistica» si riapre da sola, un «non target» insegna a scegliere meglio i target.
+        </Text>
       </Sezione>
 
       <Pressable style={styles.logout} onPress={signOut}>

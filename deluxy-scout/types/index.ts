@@ -238,6 +238,38 @@ export const CANALI: { valore: CanaleTrattativa; label: string }[] = [
   { valore: 'altro', label: 'Altro' },
 ];
 
+// Ordine: il punto d'arrivo del funnel — cosa abbiamo chiuso davvero.
+export interface Ordine {
+  id: string;
+  deal_id: string | null;
+  place_id: string | null;
+  cliente: string;
+  descrizione: string | null;
+  valore: number | null;
+  canale: CanaleTrattativa | null;
+  linea: string | null;
+  stato: 'da_incassare' | 'incassato' | 'annullato';
+  incassato_il: string | null;
+  owner: string | null;
+  created_at: string;
+}
+
+// Lead da internet in coda di qualificazione, prima di diventare trattativa.
+export type FonteLead = 'sito' | 'mail' | 'social' | 'passaparola' | 'altro';
+export interface Lead {
+  id: string;
+  nome: string;
+  contatto: string | null;
+  fonte: FonteLead;
+  messaggio: string | null;
+  stato: 'nuovo' | 'qualificato' | 'scartato';
+  place_id: string | null;
+  deal_id: string | null;
+  owner: string | null;
+  created_at: string;
+  lavorato_il: string | null;
+}
+
 // Perché una trattativa si perde. Il motivo decide come (e se) riprenderla.
 export type MotivoPerso = 'prezzo' | 'tempistica' | 'concorrente' | 'non_risponde' | 'non_target' | 'altro';
 export const MOTIVI_PERSO: { valore: MotivoPerso; label: string; riprendibile: boolean }[] = [
