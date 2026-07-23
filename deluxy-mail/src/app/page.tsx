@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { PRIORITA } from '@/lib/format'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
 import { ColonnaCalendario } from '@/components/ColonnaCalendario'
+import { ColonnaTopThread } from '@/components/ColonnaTopThread'
 import { AnalisiAIInbox } from '@/components/AnalisiAIInbox'
 import { NuoveAzioni } from '@/components/NuoveAzioni'
 import { RicercaMail } from '@/components/RicercaMail'
@@ -528,7 +529,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         </div>
 
         <div className="inbox-lato">
-          {/* L'agenda in cima: i prossimi appuntamenti si vedono appena si apre la posta. */}
+          {/* Le conversazioni più corpose del mese: sopra l'agenda. */}
+          <ColonnaTopThread utenteId={u.id} />
+          {/* L'agenda: i prossimi appuntamenti si vedono appena si apre la posta. */}
           <ColonnaCalendario utenteId={u.id} />
           <CarteApp azioni={azioniApp} />
           <ColonnaAttivita utenteId={u.id} />
