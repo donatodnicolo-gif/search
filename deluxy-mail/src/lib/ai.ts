@@ -1173,6 +1173,56 @@ ${opts.messaggio.corpoTesto.slice(0, 5000)}
   }
 }
 
+// ---------- Estrarre un appuntamento da un TESTO libero (Chiedi a Renè) ----------
+
+const SISTEMA_APPUNTAMENTO_TESTO = `Sei Renè, l'assistente di Deluxy. Dal testo dell'utente ricavi un APPUNTAMENTO da mettere in agenda.
+
+REGOLE:
+- Il testo può contenere dati incollati (es. un invito Teams/Zoom): usali per titolo, orari e link.
+- MAI inventare la data: se nel testo non c'è una data certa (anche relativa: "domani", "giovedì"), trovato=false.
+- Ora italiana. Titolo breve e chiaro. Nel luogo metti la sede o il link della riunione.`
+
+/** Come `estraiAppuntamento`, ma senza una mail d'origine: solo il testo
+ *  dell'utente (es. «crea appuntamento per domani ore 12» + dati incollati). */
+export async function estraiAppuntamentoDaTesto(opts: {
+  testo: string
+  contestoAzienda?: string
+  oggi: Date
+}): Promise<{ trovato: boolean; titolo: string; inizio: string; fine: string | null; luogo: string; giornataIntera: boolean; nota: string }> {
+  const risposta = await client().chat.completions.create({
+    model: MODELLO,
+    temperature: 0,
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'appuntamento', strict: true, schema: SCHEMA_APPUNTAMENTO as unknown as Record<string, unknown> },
+    },
+    messages: [
+      { role: 'system', content: SISTEMA_APPUNTAMENTO_TESTO },
+      {
+        role: 'user',
+        content: `Data di oggi: ${opts.oggi.toISOString().slice(0, 10)} (${opts.oggi.toLocaleDateString('it-IT', { timeZone: 'Europe/Rome', weekday: 'long' })})
+
+CONTESTO AZIENDALE:
+${opts.contestoAzienda || '(non impostato)'}
+
+TESTO DELL'UTENTE:
+${opts.testo.slice(0, 5000)}`,
+      },
+    ],
+  })
+  const json = risposta.choices[0]?.message?.content
+  if (!json) throw new Error('Risposta AI vuota')
+  return JSON.parse(json) as {
+    trovato: boolean
+    titolo: string
+    inizio: string
+    fine: string | null
+    luogo: string
+    giornataIntera: boolean
+    nota: string
+  }
+}
+
 // ---------- Delega Renè: capire cosa vuole l'utente dall'istruzione ----------
 
 const SCHEMA_INTENTO_DELEGA = {
@@ -1223,9 +1273,9 @@ const SCHEMA_COMANDO_POSTA = {
   properties: {
     azione: {
       type: 'string',
-      enum: ['cestina', 'archivia', 'nessuna'],
+      enum: ['cestina', 'archivia', 'appuntamento', 'nessuna'],
       description:
-        "'cestina' se l'utente vuole cancellare/eliminare/buttare via delle mail; 'archivia' se vuole archiviarle; 'nessuna' se non è un comando di questo tipo.",
+        "'cestina' se l'utente vuole cancellare/eliminare/buttare via delle mail; 'archivia' se vuole archiviarle; 'appuntamento' se chiede di creare un appuntamento/evento/riunione in calendario (es. «crea appuntamento domani ore 12», anche con i dati di una riunione Teams/Zoom incollati); 'nessuna' se non è un comando di questo tipo.",
     },
     criterio: {
       type: 'string',
@@ -1241,7 +1291,7 @@ const SCHEMA_COMANDO_POSTA = {
   },
 } as const
 
-export type ComandoPosta = { azione: 'cestina' | 'archivia' | 'nessuna'; criterio: 'mittente' | 'oggetto' | 'nessuno'; valore: string }
+export type ComandoPosta = { azione: 'cestina' | 'archivia' | 'appuntamento' | 'nessuna'; criterio: 'mittente' | 'oggetto' | 'nessuno'; valore: string }
 
 /** Interpreta un comando tipo "cancella tutte le mail di Mario" / "archivia le mail con oggetto sollecito". */
 export async function interpretaComandoPosta(comando: string): Promise<ComandoPosta> {
@@ -1256,7 +1306,7 @@ export async function interpretaComandoPosta(comando: string): Promise<ComandoPo
         json_schema: { name: 'comando', strict: true, schema: SCHEMA_COMANDO_POSTA as unknown as Record<string, unknown> },
       },
       messages: [
-        { role: 'system', content: "Interpreta il comando dato all'assistente di posta su un gruppo di mail. Estrai azione, criterio e valore." },
+        { role: 'system', content: "Interpreta il comando dato all'assistente di posta: un'azione su un gruppo di mail (cestina/archivia) oppure la creazione di un appuntamento in calendario. Estrai azione, criterio e valore (per 'appuntamento': criterio 'nessuno' e valore vuoto)." },
         { role: 'user', content: `Comando: ${c}` },
       ],
     })

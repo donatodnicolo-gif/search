@@ -12,6 +12,8 @@ type Anteprima = {
   criterio?: 'mittente' | 'oggetto'
   valore?: string
   quanti?: number
+  /** Comando già eseguito (es. appuntamento creato): niente da confermare. */
+  fatto?: boolean
 }
 
 /**
@@ -35,6 +37,13 @@ export function ComandoRene({ sezioni = [] }: { sezioni?: { id: string; nome: st
     start(async () => {
       setAnt(null)
       const r = await comandoPostaAnteprima(testo, sezioneId)
+      // Comando già eseguito (es. «crea appuntamento…»): banner e via.
+      if (r.ok && r.fatto) {
+        mostraFlash(r.messaggio)
+        setTesto('')
+        router.refresh()
+        return
+      }
       setAnt(r)
     })
 
@@ -57,10 +66,11 @@ export function ComandoRene({ sezioni = [] }: { sezioni?: { id: string; nome: st
         <span className="ai-toggle-mark">AI</span> Chiedi a Renè
       </div>
       <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
-        Comandi su un gruppo di mail. Es. «cancella tutte le mail di mario@rossi.it», «cestina le
-        mail di LimoLane», «archivia le mail con oggetto sollecito». Puoi limitare la ricerca a una
-        sezione col menu qui sotto. Prima di agire ti dico quante ne tocco e chiedo conferma (il
-        cestino è recuperabile).
+        Comandi su un gruppo di mail — es. «cancella tutte le mail di mario@rossi.it», «archivia le
+        mail con oggetto sollecito» — oppure «crea un appuntamento domani alle 12» (anche incollando
+        i dati di una riunione Teams/Zoom). Puoi limitare la ricerca a una sezione col menu qui
+        sotto. Sulle mail, prima di agire ti dico quante ne tocco e chiedo conferma (il cestino è
+        recuperabile); gli appuntamenti finiscono subito in Calendario.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <select
