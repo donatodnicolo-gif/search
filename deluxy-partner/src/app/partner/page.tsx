@@ -2,6 +2,8 @@ import Link from "next/link";
 import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, pctIt } from "@/lib/format";
 import { ThSort, ordina } from "@/components/ThSort";
+import { BadgeCredito } from "@/components/BadgeCredito";
+import { schedeTutti, schedaVuota, GRAVITA } from "@/lib/stato-credito";
 
 export const dynamic = "force-dynamic";
 
@@ -29,13 +31,19 @@ function DeltaAnno({ cur, prev }: { cur: number; prev: number }) {
 export default async function PartnerList({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; citta?: string; categoria?: string; stato?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{
+    q?: string; citta?: string; categoria?: string; stato?: string;
+    credito?: string; sort?: string; dir?: string;
+  }>;
 }) {
   const sp = await searchParams;
-  const [tutti, prec] = await Promise.all([
+  const [tutti, prec, schede] = await Promise.all([
     riepilogoTutti(ANNO_CORRENTE),
     riepilogoTutti(ANNO_CORRENTE - 1),
+    schedeTutti(),
   ]);
+  const vuota = schedaVuota();
+  const credito = (id: string) => schede.get(id) ?? vuota;
 
   // confronto a parità di periodo: fino all'ultimo mese con movimenti nel 2026
   const meseMax = Math.max(
@@ -64,6 +72,8 @@ export default async function PartnerList({
     if (sp.categoria && p.categoria?.trim() !== sp.categoria) return false;
     if (sp.stato === "attivi" && p.clienteAnno === "Dismesso") return false;
     if (sp.stato === "dismessi" && p.clienteAnno !== "Dismesso") return false;
+    if (sp.credito === "arischio" && GRAVITA[credito(p.id).stato] < GRAVITA.ritardo) return false;
+    if (sp.credito && sp.credito !== "arischio" && credito(p.id).stato !== sp.credito) return false;
     return true;
   });
 
@@ -74,6 +84,8 @@ export default async function PartnerList({
     citta: (t) => t.partner.citta,
     servizi: (t) => t.partner.servizi,
     stato: (t) => t.partner.clienteAnno,
+    credito: (t) => GRAVITA[credito(t.partner.id).stato],
+    scaduto: (t) => credito(t.partner.id).scaduto,
     fee: (t) => t.partner.feePercent,
     vendite: (t) => t.rolling.vendite,
     servizio: (t) => t.rolling.fatture,
@@ -111,6 +123,16 @@ export default async function PartnerList({
             <option value="attivi">Attivi</option>
             <option value="dismessi">Dismessi</option>
           </select>
+          <select name="credito" defaultValue={sp.credito ?? ""} aria-label="Stato finanziario">
+            <option value="">Credito: tutti</option>
+            <option value="arischio">Solo a rischio (ritardo e oltre)</option>
+            <option value="regolare">Regolari</option>
+            <option value="monitorare">Da monitorare</option>
+            <option value="ritardo">In ritardo</option>
+            <option value="grave">Scaduto grave</option>
+            <option value="insoluto">Insoluti</option>
+            <option value="nessuna">Senza esposizione</option>
+          </select>
           <button className="btn secondary small" type="submit">Filtra</button>
         </form>
       </div>
@@ -125,6 +147,8 @@ export default async function PartnerList({
                 <ThSort label="Città" campo="citta" sp={sp} path="/partner" />
                 <ThSort label="Servizio" campo="servizi" sp={sp} path="/partner" />
                 <ThSort label="Stato" campo="stato" sp={sp} path="/partner" />
+                <ThSort label="Credito" campo="credito" sp={sp} path="/partner" />
+                <ThSort label="Scaduto" campo="scaduto" sp={sp} path="/partner" num />
                 <ThSort label="Fee" campo="fee" sp={sp} path="/partner" num />
                 <ThSort label="Vendite YTD" campo="vendite" sp={sp} path="/partner" num />
                 <ThSort label="Servizi YTD" campo="servizio" sp={sp} path="/partner" num />
@@ -139,6 +163,10 @@ export default async function PartnerList({
                   <td>{t.partner.citta ?? "—"}</td>
                   <td className="muted">{t.partner.servizi ?? "—"}</td>
                   <td>{badgeStato(t.partner.clienteAnno)}</td>
+                  <td><BadgeCredito s={credito(t.partner.id)} /></td>
+                  <td className={`num ${credito(t.partner.id).scaduto >= 0.01 ? "neg" : ""}`}>
+                    {credito(t.partner.id).scaduto >= 0.01 ? euro(credito(t.partner.id).scaduto) : "—"}
+                  </td>
                   <td className="num">{pctIt(t.partner.feePercent)}</td>
                   <td className="num">
                     {euro(t.rolling.vendite)}
@@ -164,6 +192,10 @@ export default async function PartnerList({
                   <tr style={{ background: "var(--bg)", fontWeight: 600 }}>
                     <td>Totale ({filtered.length} partner)</td>
                     <td colSpan={5}></td>
+                    <td className="num neg">
+                      {euro(somma((t) => credito(t.partner.id).scaduto))}
+                    </td>
+                    <td></td>
                     <td className="num">
                       {euro(totVendite)}
                       <DeltaAnno cur={totVendite} prev={totVenditePrec} />

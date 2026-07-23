@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { chiaveApiValida, appOrigine, ipRichiesta } from "@/lib/apiauth";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { ficFatture, ficStato } from "@/lib/fic";
+import { schedaPartner, GRAVITA } from "@/lib/stato-credito";
 
 // Fallback su Fatture in Cloud: se il cliente NON è un partner del FINANCE, cerca
 // le fatture a lui intestate negli ultimi 3 anni e ne fa il riepilogo (stesso
@@ -152,10 +153,25 @@ export async function GET(req: NextRequest) {
   const round2 = (n: number) => Math.round(n * 100) / 100;
   await log(req, partnerRif, "trovato", `${partner.nome}: fatturato ${round2(fatturato)} (${anno})`, partner);
 
+  // Sintesi degli stati del cliente, così la card Finance delle altre app può
+  // mostrare "com'è" il cliente senza una seconda chiamata. Il dettaglio completo
+  // (aging, comportamento di pagamento) è su /api/clienti/stato.
+  const credito = await schedaPartner(partner.id).catch(() => null);
+
   return NextResponse.json({
     partner: { id: partner.id, nome: partner.nome },
     anno,
     annoPrec,
+    statoAnalisi: { codice: partner.clienteAnno ?? null, attivo: partner.attivo },
+    statoFinanziario: credito && {
+      codice: credito.stato,
+      etichetta: credito.etichetta,
+      gravita: GRAVITA[credito.stato],
+      esposizione: round2(credito.esposizione),
+      scaduto: round2(credito.scaduto),
+      giorniRitardoMax: credito.giorniRitardoMax,
+      motivo: credito.motivo,
+    },
     base: "vendite vendor (incasso lordo) + servizi fatturati (netto IVA)",
     fatturato: round2(fatturato),
     fatturatoPrec: round2(fatturatoPrec),

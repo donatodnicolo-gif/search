@@ -10,6 +10,7 @@ import { feeDaTariffe } from "@/lib/fee";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
 import { ContattoAmministrativo } from "@/components/ContattoAmministrativo";
+import { CreditoCard } from "@/components/CreditoCard";
 import { MailPartnerCard } from "@/components/MailPartnerCard";
 import { aiMailConfigurata } from "@/lib/aimail";
 import { PagamentoMese } from "@/components/PagamentoMese";
@@ -144,6 +145,19 @@ export default async function PartnerDetail({
           )}
         </div>
       )}
+
+      <Suspense
+        fallback={
+          <>
+            <h2 className="section-title">Salute del credito</h2>
+            <div className="card">
+              <span className="muted" style={{ fontSize: 13.5 }}>Calcolo l&apos;aging del credito…</span>
+            </div>
+          </>
+        }
+      >
+        <CreditoCard partnerId={id} />
+      </Suspense>
 
       <ContattoAmministrativo partner={partner} fattureAperte={fattureAperte} />
 

@@ -5,6 +5,7 @@ import { euro, dataIt } from "@/lib/format";
 import { nomeMese, ivato } from "@/lib/calc";
 import { segnaFatturaPagata } from "@/lib/actions";
 import { ThSort, ordina } from "@/components/ThSort";
+import { schedeTutti, sommaAging, GRAVITA, type SchedaCredito } from "@/lib/stato-credito";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +99,19 @@ export default async function Scadenzario({
 
   const trovati = fatture.length + bonificiPendenti.length + commDaEmettere.length;
 
+  // Aging di tutto il portafoglio + i clienti da lavorare per primi (dal più grave).
+  const schede = await schedeTutti({ oggi });
+  const agingTot = sommaAging([...schede.values()].map((s) => s.aging));
+  const espostoTot =
+    agingTot.correnti + agingTot.f30 + agingTot.f60 + agingTot.f90 + agingTot.oltre90 + agingTot.senzaScadenza;
+  const aRischio = tutti
+    .map((t) => ({ partner: t.partner, scheda: schede.get(t.partner.id) }))
+    .filter((x): x is { partner: (typeof tutti)[number]["partner"]; scheda: SchedaCredito } =>
+      !!x.scheda && GRAVITA[x.scheda.stato] >= GRAVITA.ritardo
+    )
+    .sort((a, b) => GRAVITA[b.scheda.stato] - GRAVITA[a.scheda.stato] || b.scheda.scaduto - a.scheda.scaduto)
+    .slice(0, 8);
+
   return (
     <>
       <div className="page-head">
@@ -152,6 +166,53 @@ export default async function Scadenzario({
           <div className={`kpi-value ${commDaEmettere.length ? "neg" : "pos"}`}>{commDaEmettere.length}</div>
           <div className="kpi-sub">{euro(commDaEmettere.reduce((a, x) => a + x.r.commissioni, 0))} di commissioni</div>
         </div>
+      </div>
+
+      <h2 className="section-title">Aging del credito</h2>
+      <div className="card">
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 12 }}>
+          Il credito verso i clienti spaccato per anzianità: è la fascia oltre i 60 giorni quella
+          che va lavorata per prima. Lo stato di ogni cliente è nella colonna «Credito» dei{" "}
+          <Link href="/partner?credito=arischio" style={{ color: "var(--blue)" }}>partner a rischio</Link>.
+        </p>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Portafoglio</th>
+                <th className="num">A scadere</th>
+                <th className="num">1-30 gg</th>
+                <th className="num">31-60 gg</th>
+                <th className="num">61-90 gg</th>
+                <th className="num">oltre 90 gg</th>
+                <th className="num">Senza scadenza</th>
+                <th className="num">Totale</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="muted">Importi IVA inclusa</td>
+                <td className="num">{euro(agingTot.correnti)}</td>
+                <td className="num">{euro(agingTot.f30)}</td>
+                <td className={`num ${agingTot.f60 >= 0.01 ? "neg" : ""}`}>{euro(agingTot.f60)}</td>
+                <td className={`num ${agingTot.f90 >= 0.01 ? "neg" : ""}`}>{euro(agingTot.f90)}</td>
+                <td className={`num ${agingTot.oltre90 >= 0.01 ? "neg" : ""}`}>{euro(agingTot.oltre90)}</td>
+                <td className="num">{euro(agingTot.senzaScadenza)}</td>
+                <td className="num" style={{ fontWeight: 600 }}>{euro(espostoTot)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {aRischio.length > 0 && (
+          <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Da lavorare per primi:</span>
+            {aRischio.map(({ partner, scheda }) => (
+              <Link key={partner.id} href={`/partner/${partner.id}`} className={`badge ${scheda.colore}`} title={scheda.azione}>
+                <span className="dot" />{partner.nome} · {euro(scheda.scaduto)}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       <h2 className="section-title">Fatture servizi da incassare</h2>

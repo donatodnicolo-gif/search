@@ -98,7 +98,7 @@ Sidebar riducibile a icone (preferenza in localStorage). **Operatività**: Dashb
 
 ## 7. API pubbliche (per gli altri progetti Deluxy)
 
-Base `https://deluxy-partner.vercel.app`. Auth: header `X-API-Key: <chiave>` (unica, in `Impostazione.api.verificheKey`, gestita in `/verifiche`). Header facoltativo `X-App: <nome>` per lo storico. Ogni chiamata → tabella `RichiestaVerifica`. Rotte escluse dal middleware di sessione: `api/verifiche`, `api/fatture`, `api/proforma`, `api/tipologie`, `api/incassi`, `api/tasks`, `api/riepilogo-finanziario`, `api/cron`, `api/fic/callback`.
+Base `https://deluxy-partner.vercel.app`. Auth: header `X-API-Key: <chiave>` (unica, in `Impostazione.api.verificheKey`, gestita in `/verifiche`). Header facoltativo `X-App: <nome>` per lo storico. Ogni chiamata → tabella `RichiestaVerifica`. Rotte escluse dal middleware di sessione: `api/verifiche`, `api/fatture`, `api/proforma`, `api/tipologie`, `api/incassi`, `api/tasks`, `api/riepilogo-finanziario`, `api/clienti`, `api/cron`, `api/fic/callback`.
 
 1. **`GET /api/verifiche?partner=<nome o id>`** → situazione finanziaria partner (venditeYtd, serviziFatturatiYtd, commissioniYtd, dovutoAlPartner, daIncassare, daBonificare, residuo, fattureAperte{numero,totaleIvato,scaduto}, debiti/crediti2025). `src/lib/verifica.ts`.
 2. **`GET /api/fatture?numero=181/2026`** (o `?id=`) → stato pagamento fattura (`pagata`, `dataPagamento`, `scaduta`, `scadenza`, `competenza`, imponibile/aliquota/totale, tipologia, partner). Riconosce numeri raggruppati. `src/lib/verifica-fattura.ts`.
@@ -108,7 +108,38 @@ Base `https://deluxy-partner.vercel.app`. Auth: header `X-API-Key: <chiave>` (un
 6. **`GET /api/riepilogo-finanziario?partner=<nome|id>`** (`&anno=` facoltativo) → riepilogo per la card «Finance» delle altre app (Scout): `fatturato` (vendite vendor incasso lordo + servizi netto IVA, **YTD**), `fatturatoPrec` (stesso periodo anno prima), `variazionePct`, `mesi[]`/`mesiPrec[]` (12 valori gen→dic), `periodo{daMese,aMese}`. Riusa `riepilogoPartner`; risoluzione partner-per-nome come la pro-forma (404 con `candidati` se ambiguo). `src/app/api/riepilogo-finanziario/route.ts`.
 5. **`GET /api/proforma?numero=1/2026`** (o `?id=`, o `?partner=<nome|id>&stato=…` per l'elenco) → dettaglio/elenco pro-forma con righe, totali, `stato` e `fatturaNumero`. **`POST /api/proforma`** (body JSON: `partner`, `righe[{descrizione, prezzoUnitario, quantita?, aliquotaIva?}]`, `data?`, `scadenza?`, `oggetto?`, `note?`) → crea una pro-forma **in bozza** con numero `PF n/anno` automatico; invio e annullo restano nell'app. **`PATCH /api/proforma`** (body JSON: `id` **o** `numero` es. `"1/2026"`, `fatturaNumero?`) → **conferma il pagamento** dalle altre app: la pro-forma passa a `fatturata` (con `fatturataIl` + eventuale n° fattura definitiva). Idempotente (già fatturata → 200 con `avviso`); 422 se annullata (riaprirla dall'app). Es. Scout può chiamarla quando segna un incasso ricevuto. `src/app/api/proforma/route.ts`.
 
+7. **`GET /api/clienti/stato`** → **stati del cliente per tutte le app** (23/07/2026). Senza parametri torna l'elenco completo ordinato dal più a rischio; `?partner=<nome|id>` o `?anagraficaId=<id del registro Anagrafiche>` per uno solo; `?stato=insoluto,grave` filtra. Ogni cliente ha:
+   - `statoAnalisi` = `{codice: "P.P."|"Nuovo"|"Dismesso"|null, attivo}` — il campo commerciale della scheda partner;
+   - `statoFinanziario` = `{codice, etichetta, gravita 0-5, motivo, azione, esposizione, scaduto, aging{correnti,g1_30,g31_60,g61_90,oltre90,senzaScadenza}, giorniRitardoMax, ritardoMedioAperto, puntualitaPct, ritardoMedioStorico, fattureAperte, fattureScadute}`;
+   - `condizioni{giorniPagamento, compensazione}` e `url` alla scheda.
+   Sola lettura. `src/app/api/clienti/stato/route.ts`. Gli stessi due stati (in forma sintetica) sono ora anche dentro `/api/riepilogo-finanziario`, così la card Finance di Scout non deve fare due chiamate.
+
 Esiti: 200 trovato · 404 non trovato (con `candidati`) · 401 chiave errata · 400 parametro mancante. Auth condivisa in `src/lib/apiauth.ts`.
+
+## 7-bis. Stato finanziario del cliente (credit management) — 23/07/2026
+
+`src/lib/stato-credito.ts` è l'unica fonte: classifica ogni cliente come farebbe un CFO, su due dimensioni tenute separate.
+
+**Aging dell'esposizione** (fatture servizi aperte, IVATE; le `compensata` non sono esposizione perché si chiudono contro il dovuto vendite): a scadere · 1-30 · 31-60 · 61-90 · oltre 90 giorni.
+
+**Comportamento storico** (fatture già incassate degli ultimi 24 mesi): `puntualita` = quota di importo incassato entro scadenza, `ritardoMedioStorico` = giorni medi di ritardo pesati per importo.
+
+**Stati** (`GRAVITA` 0→5, decide la fascia più vecchia con importo materiale):
+
+| codice | etichetta | quando | badge |
+|---|---|---|---|
+| `nessuna` | Nessuna esposizione | niente di aperto | neutral |
+| `regolare` | Regolare | tutto a scadere e storico puntuale | green |
+| `monitorare` | Da monitorare | scaduto entro 30 gg **oppure** paga in media oltre 15 gg dopo la scadenza | gold |
+| `ritardo` | In ritardo | scaduto 31-60 gg | orange |
+| `grave` | Scaduto grave | scaduto 61-90 gg | red |
+| `insoluto` | Insoluto | scaduto oltre 90 gg | purple |
+
+Soglia di materialità **25 €** (`MATERIALITA`): sotto quella cifra uno scaduto non declassa il cliente — 17 € fermi da 90 giorni sono un residuo contabile, non un rischio. Ogni stato porta con sé `motivo` (perché) e `azione` (cosa farebbe un CFO domani: sollecito, rientro, blocco affidamento, messa in mora).
+
+Dove si vede: colonna **Credito** + **Scaduto** e filtro «Credito» in `/partner` (ordinabili), card **«Salute del credito»** nella scheda partner (`CreditoCard.tsx`), **Aging del credito** di portafoglio + «da lavorare per primi» in `/scadenzario`, e l'API `/api/clienti/stato`.
+
+⚠️ Le fatture **senza data di scadenza** non entrano nell'aging e sono contate a parte (`senzaScadenza`): oggi sono una quota grossa del portafoglio, la card lo dice esplicitamente. Manca ancora: fido/limite di credito per cliente, DSO di portafoglio e storico dello stato nel tempo.
 
 **API interne (NON per altri progetti, protette da login):** `/api/recap` (recap AI), `/api/sepa` (export bonifici pain.001 + CSV), `/api/fic/authorize`+`/api/fic/callback` (OAuth Fatture in Cloud).
 
