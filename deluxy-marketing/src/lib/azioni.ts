@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { STATI_AZIONE, STATI_CAMPAGNA } from "./dominio";
-import { sincronizzaDrive } from "./drive";
+import { CHIAVE_CARTELLA, sincronizzaDrive } from "./drive";
 import { registra } from "./registro";
 
 // Server action della UI. Le stesse operazioni esistono anche via /api/v1
@@ -200,6 +200,8 @@ export async function avviaSyncDrive() {
     dettaglio: esito.errore ?? `trovati ${esito.trovati} · nuovi ${esito.nuovi} · aggiornati ${esito.aggiornati} · rimossi ${esito.rimossi}`,
   });
   revalidatePath("/drive");
+  revalidatePath("/analisi");
+  revalidatePath("/audit");
   revalidatePath("/");
 }
 
@@ -393,4 +395,84 @@ export async function cambiaStatoPubblico(fd: FormData) {
     titolo: `Pubblico "${pubblico.nome}" → ${stato}`,
   });
   revalidatePath("/pubblici");
+}
+
+// ---------- Impostazioni ----------
+
+export async function salvaCartellaDrive(fd: FormData) {
+  const cartella = testo(fd, "cartella");
+  if (!cartella) return;
+  await prisma.impostazione.upsert({
+    where: { chiave: CHIAVE_CARTELLA },
+    create: { chiave: CHIAVE_CARTELLA, valore: cartella },
+    update: { valore: cartella },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "drive",
+    titolo: "Cartella Drive cambiata",
+    dettaglio: cartella,
+  });
+  revalidatePath("/impostazioni");
+  revalidatePath("/drive");
+}
+
+// ---------- Account pubblicitari ----------
+
+export async function salvaAccount(fd: FormData) {
+  const nome = testo(fd, "nome");
+  const idEsterno = testo(fd, "idEsterno");
+  const piattaforma = testo(fd, "piattaforma") ?? "google_ads";
+  if (!nome || !idEsterno) return;
+  const dati = {
+    nome,
+    brand: testo(fd, "brand") ?? "cross",
+    attivo: fd.get("attivo") !== "no",
+    note: testo(fd, "note"),
+  };
+  const account = await prisma.accountAdv.upsert({
+    where: { piattaforma_idEsterno: { piattaforma, idEsterno } },
+    create: { piattaforma, idEsterno, ...dati },
+    update: dati,
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "account",
+    entitaId: account.id,
+    titolo: `Account collegato: ${nome} (${idEsterno})`,
+  });
+  revalidatePath("/impostazioni");
+}
+
+export async function rimuoviAccount(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const account = await prisma.accountAdv.findUnique({ where: { id } });
+  if (!account) return;
+  await prisma.accountAdv.delete({ where: { id } });
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "account",
+    titolo: `Account rimosso: ${account.nome} (${account.idEsterno})`,
+  });
+  revalidatePath("/impostazioni");
+}
+
+export async function attivaAccount(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const account = await prisma.accountAdv.findUnique({ where: { id } });
+  if (!account) return;
+  await prisma.accountAdv.update({ where: { id }, data: { attivo: !account.attivo } });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "account",
+    entitaId: id,
+    titolo: `Account "${account.nome}" → ${account.attivo ? "disattivato" : "attivo"}`,
+  });
+  revalidatePath("/impostazioni");
 }

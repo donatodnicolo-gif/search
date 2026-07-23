@@ -1,4 +1,5 @@
 import { Badge } from "@/components/Badge";
+import { BottoneSync } from "@/components/BottoneSync";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import {
@@ -47,7 +48,10 @@ export default async function PaginaAnalisi({
               revisioni di creativi e landing, report settimanali.
             </p>
           </div>
-          <a className="btn" href="/analisi/nuova">Deposita analisi</a>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <BottoneSync />
+            <a className="btn" href="/analisi/nuova">Deposita analisi</a>
+          </div>
         </div>
 
         <form className="filtri" method="get">

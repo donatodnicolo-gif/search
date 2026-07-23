@@ -1,3 +1,4 @@
+import { BottoneSync } from "@/components/BottoneSync";
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
@@ -117,7 +118,10 @@ export default async function PaginaStatoAccount({
               verifiche.
             </p>
           </div>
-          <a className="btn" href="/analisi/nuova">Deposita verifica</a>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <BottoneSync />
+            <a className="btn" href="/analisi/nuova">Deposita verifica</a>
+          </div>
         </div>
 
         {criticita > 0 && (

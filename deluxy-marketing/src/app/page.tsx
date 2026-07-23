@@ -1,4 +1,5 @@
 import { Badge } from "@/components/Badge";
+import { BottoneSync } from "@/components/BottoneSync";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
@@ -115,7 +116,10 @@ export default async function Dashboard() {
               come vanno le campagne. Fonte documentale: cartella Drive “ADV DELUXY SRL”.
             </p>
           </div>
-          <a className="btn" href="/analisi/nuova">Deposita analisi</a>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <BottoneSync />
+            <a className="btn" href="/analisi/nuova">Deposita analisi</a>
+          </div>
         </div>
 
         <div className="kpi-riga">

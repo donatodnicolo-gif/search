@@ -26,6 +26,7 @@ export default async function PaginaDrive({
   searchParams: Promise<{ brand?: string; categoria?: string; q?: string }>;
 }) {
   const { brand, categoria, q } = await searchParams;
+  const cartella = await driveDir();
   const [documenti, totale, ultimaSync] = await Promise.all([
     prisma.documentoDrive.findMany({
       where: {
@@ -63,8 +64,9 @@ export default async function PaginaDrive({
         <div className="nota-info">
           <span className="nota-icona">◈</span>
           <span>
-            Cartella locale: <b>{driveDir()}</b> (Google Drive per Desktop). Per cambiarla impostare
-            <b> DRIVE_ADV_DIR</b> nel file .env. Sincronizzazione anche da terminale: <b>npm run sync-drive</b>.
+            Cartella letta: <b>{cartella}</b> (Google Drive per Desktop). Si cambia in{" "}
+            <a href="/impostazioni" style={{ color: "var(--blue)" }}>Impostazioni</a>. Sincronizzazione
+            anche da terminale: <b>npm run sync-drive</b>.
           </span>
         </div>
 

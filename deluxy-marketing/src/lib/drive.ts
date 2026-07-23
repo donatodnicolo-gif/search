@@ -8,9 +8,15 @@ import { prisma } from "./db";
 // La radice si imposta con DRIVE_ADV_DIR (default: G:\Il mio Drive\ADV DELUXY SRL).
 
 export const DRIVE_DIR_DEFAULT = "G:\\Il mio Drive\\ADV DELUXY SRL";
+export const CHIAVE_CARTELLA = "drive.cartella";
 
-export function driveDir(): string {
-  return process.env.DRIVE_ADV_DIR || DRIVE_DIR_DEFAULT;
+// La cartella si sceglie in Impostazioni; se non è mai stata scelta valgono
+// la variabile d'ambiente e poi il percorso di default.
+export async function driveDir(): Promise<string> {
+  const salvata = await prisma.impostazione
+    .findUnique({ where: { chiave: CHIAVE_CARTELLA } })
+    .catch(() => null);
+  return salvata?.valore || process.env.DRIVE_ADV_DIR || DRIVE_DIR_DEFAULT;
 }
 
 // Estensioni indicizzate: documenti di lavoro, non asset binari pesanti.
@@ -54,7 +60,7 @@ export type EsitoSync = {
 };
 
 export async function sincronizzaDrive(): Promise<EsitoSync> {
-  const radice = driveDir();
+  const radice = await driveDir();
   const esito: EsitoSync = { radice, trovati: 0, nuovi: 0, aggiornati: 0, rimossi: 0 };
 
   try {

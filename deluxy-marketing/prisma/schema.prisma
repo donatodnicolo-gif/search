@@ -413,3 +413,34 @@ model MisuraPubblico {
 
   @@unique([pubblicoId, data])
 }
+
+// ============ Impostazioni ============
+
+// Impostazioni dell'app in coppie chiave/valore (una riga per voce), così
+// una modifica non richiede una migrazione. Es. "drive.cartella".
+model Impostazione {
+  id           String   @id @default(cuid())
+  chiave       String   @unique
+  valore       String
+  aggiornataIl DateTime @updatedAt
+}
+
+// Un account pubblicitario collegato (Google Ads, Meta, TikTok…): serve a
+// sapere su quale account agisce ogni campagna e a passarlo alle sessioni
+// Claude che eseguono le modifiche.
+model AccountAdv {
+  id           String   @id @default(cuid())
+  nome         String
+  // google_ads | meta_ads | tiktok | ga4 | shopify | klaviyo | altro
+  piattaforma  String   @default("google_ads")
+  // identificativo sulla piattaforma (es. 825-518-1560, act_1040175814157216)
+  idEsterno    String
+  brand        String   @default("cross")
+  attivo       Boolean  @default(true)
+  note         String?
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@unique([piattaforma, idEsterno])
+  @@index([brand])
+}
