@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
-import { raggruppa, chiaveThread } from '@/lib/thread'
-import { nomiPerChiavi } from '@/lib/nomiThread'
+import { raggruppa } from '@/lib/thread'
+import { nomiPerGruppi } from '@/lib/nomiThread'
 import { RicercaMail } from '@/components/RicercaMail'
 import { CercaServer } from '@/components/CercaServer'
 import { ListaInviati, type RigaInviata } from '@/components/ListaInviati'
@@ -48,15 +48,16 @@ export default async function PostaInviata({ searchParams }: Props) {
   const gruppi = raggruppa(messaggi)
 
   // Il nome dato a mano alle conversazioni (una query per tutta la pagina).
-  const nomi = await nomiPerChiavi(u.id, gruppi.map((g) => chiaveThread(g)))
+  // Il nome si cerca su TUTTI i messaggi del gruppo (vedi nomiPerGruppi).
+  const nomi = await nomiPerGruppi(u.id, gruppi)
 
-  const righe: RigaInviata[] = gruppi.map((g) => {
+  const righe: RigaInviata[] = gruppi.map((g, i) => {
     const m = g[g.length - 1]
     return {
       id: m.id,
       ids: g.map((x) => x.id),
       nel: g.length,
-      nomeThread: nomi.get(chiaveThread(g)) ?? null,
+      nomeThread: nomi[i] ?? null,
       destinatari: m.destinatari,
       oggetto: m.oggetto,
       anteprima: m.anteprima,

@@ -102,7 +102,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         })
         .then((r) => r?.istruzioni ?? '')
         .catch(() => ''), // tabella non ancora migrata: nessuna istruzione
-      nomeDiThread(u.id, chiaveConv),
+      // Il nome può essere finito su un'altra mail della conversazione (le
+      // chiavi cambiano agganciando mail vecchie): si cerca su tutte.
+      nomeDiThread(u.id, chiaveConv, conversazione.map((m) => m.id)),
     ])
     riassuntoThread = rt
     istruzioniThread = it

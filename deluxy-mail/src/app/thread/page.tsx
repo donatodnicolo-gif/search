@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
 import { dataBreve } from '@/lib/format'
-import { raggruppa, chiaveThread } from '@/lib/thread'
-import { nomiPerChiavi, chiaviPerNome } from '@/lib/nomiThread'
+import { raggruppa } from '@/lib/thread'
+import { nomiPerGruppi, chiaviPerNome } from '@/lib/nomiThread'
 import { RicercaMail } from '@/components/RicercaMail'
 import { AzioniThread } from '@/components/AzioniThread'
 import { AgganciaDialog } from '@/components/AgganciaRiga'
@@ -60,39 +60,70 @@ export default async function Thread({ searchParams }: Props) {
   // si carica la finestra recente, si raggruppa, e si filtrano i GRUPPI.
   // Le mail che combaciano ma sono più vecchie della finestra si aggiungono a
   // parte, così una ricerca vecchia continua a trovarle.
-  const [finestra, fuoriFinestra, chiaviNome] = await Promise.all([
+  // Le conversazioni il cui NOME combacia: la chiave salvata è l'id di una loro
+  // mail. Si risolve PRIMA, perché quelle mail vanno caricate comunque (anche
+  // se vecchie), altrimenti una conversazione battezzata e poi non più toccata
+  // non uscirebbe cercandone il nome.
+  const chiaviNome = ricerca ? await chiaviPerNome(u.id, q) : []
+
+  const [finestra, fuoriFinestra] = await Promise.all([
     db.messaggio.findMany({ where: base, orderBy: { data: 'desc' }, take: 2000, select: campi }),
     ricerca
       ? db.messaggio.findMany({
-          where: { ...base, OR: condizioniTesto },
+          where: {
+            ...base,
+            OR: [...condizioniTesto, ...(chiaviNome.length ? [{ id: { in: chiaviNome } }] : [])],
+          },
           orderBy: { data: 'desc' },
           take: 300,
           select: campi,
         })
       : Promise.resolve([]),
-    ricerca ? chiaviPerNome(u.id, q) : Promise.resolve([]),
   ])
 
-  const perId = new Map([...finestra, ...fuoriFinestra].map((m) => [m.id, m]))
+  // Di una conversazione trovata per nome servono TUTTE le mail, non solo
+  // quella che porta il nome: si recuperano le compagne agganciate a mano.
+  const manuali = [
+    ...new Set(
+      fuoriFinestra
+        .filter((m) => chiaviNome.includes(m.id) && m.threadManuale)
+        .map((m) => m.threadManuale as string)
+    ),
+  ]
+  const compagne = manuali.length
+    ? await db.messaggio.findMany({
+        where: { ...base, threadManuale: { in: manuali } },
+        select: campi,
+        take: 300,
+      })
+    : []
+
+  const perId = new Map([...finestra, ...fuoriFinestra, ...compagne].map((m) => [m.id, m]))
   const tutti = [...perId.values()]
 
   // Un THREAD è una conversazione VERA: più di un messaggio. Le mail singole
   // (1 messaggio) non sono thread e restano fuori da questa vista.
   const gruppiTutti = raggruppa(tutti).filter((g) => g.length > 1)
 
-  // Il nome dato a mano a ogni conversazione (una sola query per tutta la pagina).
-  const chiavi = gruppiTutti.map((g) => chiaveThread(g))
-  const nomi = await nomiPerChiavi(u.id, chiavi)
+  // Il nome dato a mano a ogni conversazione (una sola query per tutta la
+  // pagina). Si cerca su TUTTI i messaggi del gruppo: vedi nomiPerGruppi.
+  const nomi = await nomiPerGruppi(u.id, gruppiTutti)
 
+  // Le conversazioni trovate per NOME: la chiave salvata è l'id di una loro
+  // mail, quindi basta che il gruppo la contenga.
   const setNome = new Set(chiaviNome)
+  const gruppoHaChiaveNome = (g: { id: string }[]) => g.some((m) => setNome.has(m.id))
   const combacia = (testo: string | null | undefined) =>
     Boolean(testo && testo.toLowerCase().includes(q.toLowerCase()))
 
-  const gruppi = (
+  // Gruppo e suo nome viaggiano insieme: filtrando, gli indici non si perdono.
+  const conNome = gruppiTutti.map((g, i) => ({ g, nome: nomi[i] }))
+
+  const scelti = (
     ricerca
-      ? gruppiTutti.filter((g, i) => {
+      ? conNome.filter(({ g, nome }) => {
           // Per NOME della conversazione…
-          if (setNome.has(chiavi[i]) || combacia(nomi.get(chiavi[i]))) return true
+          if (gruppoHaChiaveNome(g) || combacia(nome)) return true
           // …oppure per il contenuto di una qualsiasi mail del thread.
           return g.some(
             (m) =>
@@ -102,14 +133,14 @@ export default async function Thread({ searchParams }: Props) {
               combacia(m.destinatari)
           )
         })
-      : gruppiTutti
+      : conNome
   ).slice(0, 800)
 
-  const righe = gruppi.map((g) => {
+  const righe = scelti.map(({ g, nome }) => {
     const volto = g[g.length - 1] // il più recente
     const parti = new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size
     const nonLetti = g.some((x) => x.direzione === 'entrata' && !x.letto)
-    return { volto, count: g.length, parti, nonLetti, nome: nomi.get(chiaveThread(g)) ?? null }
+    return { volto, count: g.length, parti, nonLetti, nome: nome ?? null }
   })
 
   return (

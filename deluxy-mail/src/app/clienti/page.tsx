@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
-import { raggruppa, chiaveThread } from '@/lib/thread'
-import { nomiPerChiavi } from '@/lib/nomiThread'
+import { raggruppa } from '@/lib/thread'
+import { nomiPerGruppi } from '@/lib/nomiThread'
 import { indiceClienti, linkPartner } from '@/lib/anagrafiche'
 import { emailContattiAI } from '@/lib/contattiAI'
 import { RicercaMail } from '@/components/RicercaMail'
@@ -90,12 +90,15 @@ export default async function Clienti({ searchParams }: Props) {
   }
 
   // Il nome dato a mano alle conversazioni (una query per tutta la pagina).
-  const nomiConv = await nomiPerChiavi(u.id, gruppi.map((g) => chiaveThread(g)))
+  // Il nome si cerca su TUTTI i messaggi del gruppo (vedi nomiPerGruppi).
+  const nomiConv = await nomiPerGruppi(u.id, gruppi)
+  // `costruisciRiga` riceve il gruppo, non l'indice: si indicizza col primo id.
+  const nomePerGruppo = new Map(gruppi.map((g, i) => [g[0].id, nomiConv[i]]))
 
   const costruisciRiga = (g: (typeof gruppi)[number], nomeCliente: string): RigaData => {
     const m = g[g.length - 1]
     return {
-      nomeThread: nomiConv.get(chiaveThread(g)) ?? null,
+      nomeThread: nomePerGruppo.get(g[0].id) ?? null,
       id: m.id,
       mittente: m.mittente,
       mittenteNome: m.mittenteNome,

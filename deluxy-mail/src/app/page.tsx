@@ -18,9 +18,9 @@ import type { RigaData } from '@/components/RigaMail'
 import { descriviAzioni } from '@/lib/appDeluxy'
 import { leggiChiaviApp } from '@/lib/chiaviApp'
 import { richiediUtente } from '@/lib/sessione'
-import { raggruppa, chiaveThread } from '@/lib/thread'
+import { raggruppa } from '@/lib/thread'
 import { emailContattiAI } from '@/lib/contattiAI'
-import { nomiPerChiavi } from '@/lib/nomiThread'
+import { nomiPerGruppi } from '@/lib/nomiThread'
 import { indiceClienti } from '@/lib/anagrafiche'
 
 export const dynamic = 'force-dynamic'
@@ -250,7 +250,6 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   const rootsVisti = messaggi
     .map((m) => m.thread || m.messageId)
     .filter((x): x is string => Boolean(x))
-  const chiaviGruppi = gruppi.map((g) => chiaveThread(g))
   // I codici di aggancio manuale presenti: servono a ritrovare gli INOLTRI, che
   // non hanno la radice del thread (aprono una catena nuova) e sono legati
   // all'originale solo dall'aggancio.
@@ -275,8 +274,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
           select: { thread: true, threadManuale: true },
         })
       : Promise.resolve([]),
-    // Il nome dato a mano alle conversazioni (badge oro nella riga).
-    nomiPerChiavi(u.id, chiaviGruppi),
+    // Il nome dato a mano alle conversazioni (badge oro nella riga). Si cerca
+    // su TUTTI i messaggi del gruppo: vedi il commento in nomiPerGruppi.
+    nomiPerGruppi(u.id, gruppi),
   ])
   const threadRisposti = new Set<string>()
   for (const o of uscite) if (o.thread) threadRisposti.add(o.thread)
@@ -300,7 +300,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   const righe: RigaData[] = gruppi.map((g, i) => {
     const m = g[g.length - 1] // il volto: il messaggio più recente del thread
     return {
-      nomeThread: nomiConv.get(chiaviGruppi[i]) ?? null,
+      nomeThread: nomiConv[i] ?? null,
       id: m.id,
       mittente: m.mittente,
       mittenteNome: m.mittenteNome,

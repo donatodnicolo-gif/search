@@ -96,7 +96,7 @@ import {
   type RiassuntoThreadSalvato,
 } from './sync'
 import { chiaveThread } from './thread'
-import { nomiPerChiavi, chiaviPerNome } from './nomiThread'
+import { nomiPerGruppi, chiaviPerNome } from './nomiThread'
 import { ricorrenzaDaForm, dateRicorrenza, descriviRicorrenza } from './ricorrenze'
 import { CODICI_PRIORITA, FUSO } from './format'
 import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione, classificaDelega, interpretaComandoPosta, estraiAppuntamentoDaTesto } from './ai'
@@ -645,14 +645,23 @@ export async function salvaNomeThread(
   const chiave = chiaveThread(conversazione)
 
   const pulito = nome.trim().slice(0, 120)
+  // Tutti i messaggi della conversazione: un nome può essersi depositato su una
+  // chiave diversa (la chiave è l'id del messaggio più vecchio, e agganciando
+  // mail vecchie cambia). Si ripulisce e si riscrive sulla chiave canonica, così
+  // la conversazione torna ad avere UN nome solo.
+  const membri = conversazione.map((m) => m.id)
   try {
-    if (!pulito) {
-      await db.nomeThread.deleteMany({ where: { utenteId, chiave } })
-    } else {
-      await db.nomeThread.upsert({
-        where: { utenteId_chiave: { utenteId, chiave } },
-        create: { utenteId, chiave, nome: pulito },
-        update: { nome: pulito },
+    await db.nomeThread.deleteMany({ where: { utenteId, chiave: { in: membri } } })
+    if (pulito) {
+      // ⚠️ Il nome si scrive su TUTTE le mail della conversazione, non solo
+      // sulla "chiave". Le liste caricano una finestra di posta recente: se il
+      // nome stesse solo sul messaggio più vecchio (che è quello che fa da
+      // chiave, e agganciando mail vecchie lo diventa una mail vecchia), fuori
+      // da quella finestra il nome non si troverebbe più — è esattamente così
+      // che un nome dato dopo un aggancio "spariva".
+      await db.nomeThread.createMany({
+        data: membri.map((id) => ({ utenteId, chiave: id, nome: pulito })),
+        skipDuplicates: true,
       })
     }
   } catch {
@@ -1768,9 +1777,10 @@ export async function cercaDaAgganciare(
   })
 
   const gruppi = raggruppa(trovati)
-  const nomi = await nomiPerChiavi(utenteId, gruppi.map((g) => chiaveThread(g)))
+  // Il nome si cerca su TUTTI i messaggi del gruppo (vedi nomiPerGruppi).
+  const nomi = await nomiPerGruppi(utenteId, gruppi)
   const candidati = gruppi
-    .map((g) => {
+    .map((g, iGruppo) => {
       // Il "volto" del thread: il messaggio più recente NON già nella
       // conversazione di partenza (se tutti lo sono, si salta il gruppo).
       const fuori = g.filter((m) => !nelThread.has(m.id) && m.id !== messaggioId)
@@ -1784,7 +1794,7 @@ export async function cercaDaAgganciare(
         data: volto.data,
         giaNelThread: false,
         nel: g.length,
-        nome: nomi.get(chiaveThread(g)) ?? null,
+        nome: nomi[iGruppo] ?? null,
       }
     })
     .filter((x): x is CandidatoAggancio => x !== null)
