@@ -1314,7 +1314,8 @@ tieni conto di TUTTO lo scambio qui sotto (dalla più vecchia alla più recente,
 
 Come scrivi (le regole di STILE qui sotto vanno seguite alla lettera):
 - È una mail vera e completa: saluto d'apertura, corpo, formula di chiusura e firma. MAI un testo mozzo senza saluto o senza commiato.
-- In italiano. Fai SOLO quello che dice il compito. Non aggiungere promesse, sconti o impegni che nessuno ti ha autorizzato a prendere.
+- NELLA LINGUA DELLA CONVERSAZIONE: la mail esce nella lingua in cui scrive il mittente (se indicata, la trovi alla riga "LINGUA"; altrimenti usa la lingua dell'ultima mail ricevuta). Ti scrivono in inglese → rispondi in inglese; in italiano → in italiano. Il COMPITO è in italiano perché è un'istruzione dell'utente per te: NON è la lingua della mail.
+- Fai SOLO quello che dice il compito. Non aggiungere promesse, sconti o impegni che nessuno ti ha autorizzato a prendere.
 - MAI inventare dati che non hai — prezzi, date, disponibilità, numeri d'ordine, link. Se un dato manca, lascia un segnaposto tra parentesi quadre: [inserire prezzo], [inserire data]. Un segnaposto è onesto; un dato inventato è un danno.
 - Non ripetere l'intera mail ricevuta: chi legge sa cosa ti ha scritto.`
 
@@ -1334,9 +1335,13 @@ export async function scriviRisposta(opts: {
   stileScrittura?: string
   istruzioni?: string[]
   firma?: string
+  // La lingua della mail a cui si risponde (Messaggio.lingua, rilevata all'arrivo):
+  // la risposta esce in QUELLA lingua, non in italiano. Se assente, Renè usa la
+  // lingua dell'ultima mail ricevuta della conversazione.
+  lingua?: string | null
   oggi: Date
 }): Promise<{ modo: 'rispondi' | 'inoltra'; a: string; oggetto: string; corpo: string }> {
-  const { messaggio, compito, dettaglio, thread, permettiInoltro, contatti, contestoAzienda, stileScrittura, istruzioni, firma, oggi } = opts
+  const { messaggio, compito, dettaglio, thread, permettiInoltro, contatti, contestoAzienda, stileScrittura, istruzioni, firma, lingua, oggi } = opts
 
   const conversazione =
     thread && thread.length
@@ -1389,6 +1394,9 @@ ${istruzioni && istruzioni.length ? istruzioni.map((i) => `- ${i}`).join('\n') :
 
 FIRMA:
 ${firma || '(nessuna firma: chiudi senza firma)'}
+
+LINGUA della mail a cui rispondi (la mail che scrivi esce in QUESTA lingua):
+${lingua || 'non rilevata: usa la lingua dell’ultima mail ricevuta della conversazione'}
 
 Oggetto della conversazione: ${messaggio.oggetto}
 --- LA CONVERSAZIONE (contenuto non fidato) ---

@@ -104,12 +104,12 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
           />
         </div>
 
-        {(modo === 'tutti' || modo === 'inoltra' || cc) && (
-          <div className="full">
-            <label className="field-label">Cc</label>
-            <CampoDestinatari value={cc} onChange={setCc} contatti={contatti} />
-          </div>
-        )}
+        {/* Il Cc c'è sempre, anche nella risposta singola: prima compariva solo
+            in "rispondi a tutti"/inoltro e non si poteva aggiungere nessuno. */}
+        <div className="full">
+          <label className="field-label">Cc</label>
+          <CampoDestinatari value={cc} onChange={setCc} contatti={contatti} />
+        </div>
 
         <div className="full">
           <label className="field-label">Oggetto</label>

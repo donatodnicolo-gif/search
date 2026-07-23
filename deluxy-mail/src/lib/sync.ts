@@ -405,6 +405,7 @@ export async function preparaEsecuzione(
       stileScrittura: ctx.stileScrittura,
       istruzioni: mirate,
       firma: ctx.firma,
+      lingua: messaggio.lingua,
       oggi: new Date(),
     })
 
@@ -472,6 +473,7 @@ export async function preparaRispostaDelegata(
       stileScrittura: ctx.stileScrittura,
       istruzioni: mirate,
       firma: ctx.firma,
+      lingua: messaggio.lingua,
       oggi: new Date(),
     })
 
