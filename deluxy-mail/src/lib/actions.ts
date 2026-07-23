@@ -57,7 +57,7 @@ import {
 } from './sync'
 import { chiaveThread } from './thread'
 import { CODICI_PRIORITA, FUSO } from './format'
-import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione, classificaDelega, interpretaComandoPosta } from './ai'
+import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione, classificaDelega, interpretaComandoPosta, estraiAppuntamentoDaTesto } from './ai'
 import { raggruppa } from './thread'
 import { azioneDi, regolaAppPerMail, chiaveDiAzione, type AzioneDescritta } from './appDeluxy'
 import { leggiChiaviApp, salvaChiaveApp, type NomeChiaveApp } from './chiaviApp'
@@ -983,14 +983,63 @@ export async function comandoPostaAnteprima(
   criterio?: 'mittente' | 'oggetto'
   valore?: string
   quanti?: number
+  /** True quando il comando è già stato eseguito (es. appuntamento creato):
+   *  niente da confermare. */
+  fatto?: boolean
 }> {
   const utenteId = await uid()
   const p = await interpretaComandoPosta(comando)
+
+  // «Crea appuntamento domani ore 12 …» (anche con i dati di una riunione
+  // Teams/Zoom incollati): non è un comando sulla posta, è un evento in agenda.
+  // Non distruttivo → si crea subito, come nella Delega Renè.
+  if (p.azione === 'appuntamento') {
+    try {
+      const imp = await leggiImpostazioni()
+      const ev = await estraiAppuntamentoDaTesto({
+        testo: comando,
+        contestoAzienda: imp[CHIAVI.contestoAzienda],
+        oggi: new Date(),
+      })
+      if (!ev.trovato || !ev.inizio) {
+        return { ok: false, messaggio: ev.nota || 'Non ho trovato una data certa: dimmi giorno e ora (es. «domani alle 12»).' }
+      }
+      const inizio = ev.giornataIntera ? new Date(`${ev.inizio.slice(0, 10)}T00:00:00Z`) : oraItalianaInUtc(ev.inizio)
+      if (!inizio || isNaN(inizio.getTime())) {
+        return { ok: false, messaggio: 'La data ricavata non è valida: dimmi giorno e ora (es. «domani alle 12»).' }
+      }
+      const fine = !ev.giornataIntera && ev.fine ? oraItalianaInUtc(ev.fine) : null
+      await db.evento.create({
+        data: {
+          utenteId,
+          titolo: ev.titolo || 'Appuntamento',
+          luogo: ev.luogo || '',
+          inizio,
+          fine: fine && fine > inizio ? fine : null,
+          giornataIntera: ev.giornataIntera,
+          creatoDaAI: true,
+        },
+      })
+      const quando = inizio.toLocaleString('it-IT', {
+        timeZone: FUSO,
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        ...(ev.giornataIntera ? {} : { hour: '2-digit', minute: '2-digit' }),
+      })
+      revalidatePath('/', 'layout')
+      return { ok: true, fatto: true, messaggio: `In agenda: «${ev.titolo || 'Appuntamento'}» ${quando}. Lo trovi in Calendario.` }
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e)
+      return { ok: false, messaggio: `Non sono riuscito a creare l'appuntamento: ${m.slice(0, 120)}` }
+    }
+  }
+
   if (p.azione === 'nessuna' || p.criterio === 'nessuno' || !p.valore.trim()) {
     return {
       ok: false,
       messaggio:
-        'Non ho capito su quali mail agire. Prova: «cancella tutte le mail di mario@…» oppure «archivia le mail con oggetto sollecito».',
+        'Non ho capito il comando. Prova: «cancella tutte le mail di mario@…», «archivia le mail con oggetto sollecito» oppure «crea un appuntamento domani alle 12».',
     }
   }
   const filtro: FiltroLotto = { criterio: p.criterio, valore: p.valore, sezioneId }
