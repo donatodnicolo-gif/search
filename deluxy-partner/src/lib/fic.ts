@@ -166,9 +166,12 @@ export async function ficFatture(opts?: {
     filtri.push(`date <= '${opts.anno}-12-31'`);
   }
   if (opts?.q?.trim()) {
-    // ricerca su nome cliente o numero
+    // ricerca su nome cliente o numero. `numeration` è la sigla della
+    // numerazione (spesso vuota): il numero vero è `number`, quindi se si cerca
+    // "474" va confrontato con quello, altrimenti non si trova nulla.
     const q = opts.q.trim().replace(/'/g, "");
-    filtri.push(`(entity.name contains '${q}' or numeration contains '${q}')`);
+    const perNumero = /^\d+$/.test(q) ? ` or number = ${parseInt(q)}` : "";
+    filtri.push(`(entity.name contains '${q}' or numeration contains '${q}'${perNumero})`);
   }
   const query = filtri.length ? `&q=${encodeURIComponent(filtri.join(" and "))}` : "";
   // NB: nella lista FIC `amount_due` NON viene restituito (torna undefined) → lo
@@ -547,24 +550,81 @@ export async function ficSegnaFatturaPagata(id: number, pagata: boolean, data?: 
   const { companyId } = await ficStato();
   if (!companyId) throw new Error("Fatture in Cloud non collegato.");
   const oggi = (data ?? new Date()).toISOString().slice(0, 10);
+  // NB: niente `fields=` qui — con la selezione dei campi FIC restituisce le
+  // scadenze incomplete (senza `due_date`) e riscrivendole si sposterebbe la
+  // scadenza della fattura. Serve il documento intero.
   const cur = await ficFetch<{
-    data: { payments_list?: { amount: number; due_date: string | null; status: string }[]; amount_gross?: number };
-  }>(`/c/${companyId}/issued_documents/${id}?fields=payments_list,amount_gross`);
+    data: { payments_list?: FicPagamento[]; amount_gross?: number };
+  }>(`/c/${companyId}/issued_documents/${id}`);
   let payments = cur.data.payments_list ?? [];
   if (payments.length === 0) {
     payments = [{ amount: cur.data.amount_gross ?? 0, due_date: oggi, status: "not_paid" }];
   }
+  // FIC rifiuta un pagamento "paid" senza conto di saldo (422 «É necessario
+  // impostare il conto di saldo nel pagamento»): se la scadenza non ne ha uno,
+  // si usa il conto predefinito dell'azienda.
+  const conto = pagata ? await ficContoSaldo(companyId) : null;
   const nuovi = payments.map((p) => ({
+    ...(p.id ? { id: p.id } : {}), // aggiorna la scadenza esistente, non la sostituisce
     amount: p.amount,
     due_date: p.due_date ?? oggi,
     status: pagata ? "paid" : "not_paid",
-    ...(pagata ? { paid_date: oggi } : {}),
+    ...(pagata
+      ? { paid_date: oggi, payment_account: p.payment_account ?? (conto ? { id: conto } : undefined) }
+      : { paid_date: null, payment_account: null }),
   }));
   await ficFetch(`/c/${companyId}/issued_documents/${id}`, {
     method: "PUT",
     body: JSON.stringify({ data: { payments_list: nuovi } }),
   });
   revalidateTag("fic");
+}
+
+// Una scadenza di pagamento come la tratta FIC.
+type FicPagamento = {
+  id?: number;
+  amount: number;
+  due_date: string | null;
+  status: string;
+  paid_date?: string | null;
+  payment_account?: { id: number } | null;
+};
+
+// Conto su cui registrare gli incassi segnati dall'app. Si sceglie una volta e
+// si memorizza in `fic.contoSaldo`: prima si prova l'elenco conti dell'azienda
+// (serve lo scope `settings:r`), altrimenti si riusa il conto già usato su una
+// fattura saldata a mano in FIC — così l'incasso finisce dove finiscono gli altri.
+async function ficContoSaldo(companyId: number): Promise<number | null> {
+  const m = await leggi(["fic.contoSaldo"]);
+  const salvato = m["fic.contoSaldo"] ? parseInt(m["fic.contoSaldo"]) : NaN;
+  if (Number.isFinite(salvato)) return salvato;
+  let conto: number | null = null;
+  try {
+    const r = await ficFetch<{ data: { id: number; virtual?: boolean }[] }>(
+      `/c/${companyId}/info/payment_accounts`
+    );
+    conto = r.data?.find((c) => !c.virtual)?.id ?? r.data?.[0]?.id ?? null;
+  } catch {
+    // scope non concesso: si guarda come sono state saldate le altre fatture
+  }
+  if (!conto) {
+    try {
+      const r = await ficFetch<{ data: { payments_list?: FicPagamento[] }[] }>(
+        `/c/${companyId}/issued_documents?type=invoice&fields=payments_list&sort=-date&per_page=50`
+      );
+      for (const d of r.data ?? []) {
+        const p = (d.payments_list ?? []).find((x) => x.status === "paid" && x.payment_account?.id);
+        if (p?.payment_account?.id) {
+          conto = p.payment_account.id;
+          break;
+        }
+      }
+    } catch {
+      // niente da fare: si lascia decidere a FIC (che risponderà 422)
+    }
+  }
+  if (conto) await salva("fic.contoSaldo", String(conto));
+  return conto;
 }
 
 // Trova su FIC il documento corrispondente a un numero interno tipo "474/2026"
@@ -603,7 +663,9 @@ export async function ficAllineaStatoFattura(
     if (!id) return false;
     await ficSegnaFatturaPagata(id, pagata, opts?.data ?? undefined);
     return true;
-  } catch {
+  } catch (e) {
+    // silenzioso per l'utente, ma tracciato nei log (Vercel) per capire perché
+    console.warn(`[fic] stato incasso non allineato per la fattura ${numero}:`, (e as Error).message);
     return false;
   }
 }
