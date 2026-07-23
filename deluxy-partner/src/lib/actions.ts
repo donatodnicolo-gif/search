@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { feeApplicabile, feeDaTariffe } from "./fee";
-import { risolviAnagrafica, contattoAmministrativo, aggiornaAnagrafica, scritturaAnagraficheAttiva, type CampiAnagrafica } from "./anagrafiche";
+import { risolviAnagrafica, contattoAmministrativo, aggiornaAnagrafica, scritturaAnagraficheAttiva, statoAnalisiDaClienteAnno, type CampiAnagrafica } from "./anagrafiche";
 import { ivato, nomeMese } from "./calc";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 import { ficAllineaStatoFattura } from "./fic";
@@ -117,6 +117,11 @@ export async function updatePartner(id: string, fd: FormData) {
       ...(data.ammNome ? { amministrazioneNome: data.ammNome } : {}),
       ...(data.ammEmail ? { amministrazioneEmail: data.ammEmail } : {}),
       ...(data.ammTelefono ? { amministrazioneTelefono: data.ammTelefono } : {}),
+      // "Cliente per l'anno" è il perimetro di analisi del cliente: nel
+      // registro è lo "stato analisi" dell'azienda, e FINANCE ne è la sorgente.
+      ...(statoAnalisiDaClienteAnno(data.clienteAnno)
+        ? { statoAnalisi: statoAnalisiDaClienteAnno(data.clienteAnno)! }
+        : {}),
     };
     if (Object.keys(campi).length > 0) {
       // best-effort: se il registro è irraggiungibile non blocchiamo il salvataggio locale

@@ -126,8 +126,14 @@ export async function risolviAnagrafica(
 // (ANAGRAFICHE_WRITE_KEY, diversa da quella di lettura). Senza chiave la
 // scrittura è disattivata e la conferma lo segnala.
 
+// Chiave di scrittura: quella dedicata se c'è, altrimenti la chiave dell'app
+// (dal 20/07/2026 `deluxy-partner` è stata ruotata a scrittura piena).
+export function chiaveScrittura(): string | undefined {
+  return process.env.ANAGRAFICHE_WRITE_KEY || process.env.ANAGRAFICHE_API_KEY;
+}
+
 export function scritturaAnagraficheAttiva(): boolean {
-  return Boolean(process.env.ANAGRAFICHE_WRITE_KEY);
+  return Boolean(chiaveScrittura());
 }
 
 // Campi anagrafici che la riconciliazione FIC può proporre al registro.
@@ -149,7 +155,22 @@ export type CampiAnagrafica = Partial<{
   amministrazioneNome: string;
   amministrazioneTelefono: string;
   amministrazioneEmail: string;
+  // Stato analisi del registro: è FINANCE la sorgente (campo "Cliente per
+  // l'anno"). Il registro accetta sia gli slug (pp/nuovo/dismesso) sia le
+  // etichette che usiamo qui ("P.P.", "Nuovo", "Dismesso").
+  statoAnalisi: string;
 }>;
+
+// "Cliente per l'anno" di FINANCE → stato analisi del registro.
+// P.P. = pari perimetro (c'era anche l'anno scorso), Nuovo = entrato
+// quest'anno, Dismesso = uscito. Vuoto = non analizzato: non si scrive nulla.
+export function statoAnalisiDaClienteAnno(clienteAnno: string | null | undefined): string | null {
+  const v = (clienteAnno ?? "").trim().toLowerCase().replace(/\./g, "");
+  if (v === "pp") return "pp";
+  if (v === "nuovo") return "nuovo";
+  if (v === "dismesso") return "dismesso";
+  return null;
+}
 
 // Aggiorna un partner nel registro (PATCH per id) con i campi confermati.
 // `asOf` = quando il dato era vero (ora): il merge applica il più fresco.
@@ -157,7 +178,7 @@ export async function aggiornaAnagrafica(
   anagraficaId: string,
   campi: CampiAnagrafica
 ): Promise<{ ok: true } | { ok: false; errore: string }> {
-  const key = process.env.ANAGRAFICHE_WRITE_KEY;
+  const key = chiaveScrittura();
   if (!key) {
     return { ok: false, errore: "Scrittura su Anagrafiche non configurata (manca ANAGRAFICHE_WRITE_KEY)." };
   }
@@ -201,7 +222,7 @@ export async function creaAnagrafica(opts: {
   idEsterno: string; // partnerId Deluxy: identità stabile per non duplicare
   campi?: CampiAnagrafica;
 }): Promise<{ ok: true; id: string; esito: string } | { ok: false; errore: string }> {
-  const key = process.env.ANAGRAFICHE_WRITE_KEY;
+  const key = chiaveScrittura();
   if (!key) return { ok: false, errore: "Scrittura su Anagrafiche non configurata (manca ANAGRAFICHE_WRITE_KEY)." };
   if (!opts.nome?.trim()) return { ok: false, errore: "Nome obbligatorio per creare l'anagrafica." };
 

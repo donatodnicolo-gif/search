@@ -255,11 +255,15 @@ trovano un match nel registro. Lato registro misurato: 578 attivi, 316 boutique,
    dalle app + UI di revisione; **Fase 3**: outbox/webhook sui cambi + Idempotency-Key.
 3. **Pulizia contatti Excel**: alcuni referenti dall'Excel hanno il campo `nome` sporco (testo
    libero). Passata di normalizzazione possibile sfruttando i dati HubSpot più strutturati.
-4. **Stati finanziario/analisi ↔ FINANCE**: il registro li accoglie (campi, UI, API, merge) ma
-   **deluxy-partner non li invia ancora**: manca il pezzo lato FINANCE che, quando cambia
-   `clienteAnno` (P.P./Nuovo/Dismesso) o la posizione di pagamento, faccia
-   `PATCH /api/v1/partners/:id` con `statoAnalisi`/`statoFinanziario` + `asOf`. Finché non c'è,
-   i due stati si curano a mano dalla UI del registro.
+4. **Stati finanziario/analisi ↔ FINANCE** (23/07/2026):
+   - **statoAnalisi: fatto lato FINANCE.** `deluxy-partner` lo manda al registro quando si salva
+     un partner (`updatePartner` → `aggiornaAnagrafica`, mappa `clienteAnno` → pp/nuovo/dismesso)
+     e c'è il travaso una-tantum `npm run sync:stato-analisi` (`--dry` per la prova). Il match usa
+     `anagraficaId`, poi il nome esatto, poi la sola insegna se univoca: i partner FINANCE senza
+     corrispondenza nel registro restano da riconciliare a mano.
+   - **statoFinanziario: ancora manuale.** Nessuna app lo scrive: manca la regola che, dai dati
+     di FINANCE (fatture scadute, piano di rientro `pdrDebito`, insoluti), decida
+     regolare/in_ritardo/insoluto/piano_di_rientro/bloccato. Oggi si cura dalla UI del registro.
 5. **deluxy-partner**: ha già `anagraficaId` e join per id (fatto). Le altre app (suppliers,
    scout, search) hanno la chiave ma non ancora l'integrazione in lettura.
 

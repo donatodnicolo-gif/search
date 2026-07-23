@@ -9,7 +9,8 @@
     "postinstall": "prisma generate",
     "start": "next start -p 3040",
     "db:push": "prisma db push",
-    "db:seed": "node prisma/seed.mjs"
+    "db:seed": "node prisma/seed.mjs",
+    "sync:stato-analisi": "node scripts/sync-stato-analisi.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",

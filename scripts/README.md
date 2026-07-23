@@ -129,6 +129,18 @@ cd deluxy-anagrafiche && npm run import:hubspot-contatti
 - **Serve**: `HUBSPOT_ACCESS_TOKEN` (variabile d'ambiente oppure riga `HUBSPOT_ACCESS_TOKEN="..."` nel `.env` dell'app; token da HubSpot → Impostazioni → Integrazioni → App private), più `DATABASE_URL` nel `.env`
 - **Nota**: idempotente — i referenti già presenti (per email/telefono/nome) non vengono duplicati. L'associazione contatto→azienda→partner si risolve prima per id, poi per nome azienda normalizzato solo se univoco.
 
+### sync-stato-analisi.mjs — deluxy-partner
+Porta il «Cliente per l'anno» di FINANCE (P.P. / Nuovo / Dismesso) nello **stato analisi** delle aziende del registro Anagrafiche.
+
+```bash
+# dalla radice del repo — prima la prova a vuoto, poi la scrittura
+cd deluxy-partner && npm run sync:stato-analisi -- --dry
+cd deluxy-partner && npm run sync:stato-analisi
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` di deluxy-partner, più `ANAGRAFICHE_URL` e `ANAGRAFICHE_WRITE_KEY` (in mancanza usa `ANAGRAFICHE_API_KEY`, che dal 20/07/2026 ha scrittura piena)
+- **Nota**: idempotente — chi ha già lo stato giusto viene saltato. Aggancia il partner al registro per `anagraficaId`, altrimenti per nome esatto (o per sola insegna se il risultato è univoco, eventualmente disambiguato dalla città) e salva il collegamento trovato. Gli ambigui non vengono toccati: si risolvono a mano in `/match` del registro.
+
 ---
 
 ## 4. Setup e configurazione
@@ -238,7 +250,7 @@ Una riga per app; il `cd` parte dalla radice del repo.
 | App | Porta | Comandi |
 | --- | --- | --- |
 | deluxy-hub | 3050 | `cd deluxy-hub && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run db:seed` |
-| deluxy-partner | 3040 | `cd deluxy-partner && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run db:seed` |
+| deluxy-partner | 3040 | `cd deluxy-partner && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run db:seed` · `npm run sync:stato-analisi` |
 | deluxy-anagrafiche | 3060 | `cd deluxy-anagrafiche && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run chiave -- <app>` · `npm run import:excel` · `npm run import:hubspot-contatti` · `npm run export:vcard` |
 | deluxy-mail | 3070 | `cd deluxy-mail && npm run dev` · `npm run build` (include la migrazione) · `npm start` · `npm run db:push` · `npm run db:seed` |
 | deluxy-budgets | 3080 | `cd deluxy-budgets && npm run dev` · `npm run build` · `npm start` · `npm run typecheck` · `npm run db:push` · `npm run db:seed` |
