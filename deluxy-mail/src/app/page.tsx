@@ -498,12 +498,10 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       {/* L'analisi periodica vive nella pagina di Renè AI (sidebar →
           Applicazioni): la posta in arrivo resta solo posta. */}
 
-      {/* L'AI legge in sottofondo le mail col PLUS AI (contatto o conversazione)
-          che non ha ancora letto. ⚠️ Gira in QUALUNQUE vista, non solo nella AI
-          Inbox: «sempre» vuol dire con l'app aperta, non solo su una scheda.
-          Le mail già analizzate non si rileggono, quindi di norma è un giro a
-          vuoto da una chiamata sola. */}
-      {!ricerca && <AnalisiAIInbox />}
+      {/* L'AI legge in sottofondo le mail col PLUS AI non ancora lette. Gira
+          SOLO nella AI Inbox (è la sua vista) e nelle conversazioni AI+: aprire
+          la posta «In arrivo» non deve chiamare l'AI a ogni volta. */}
+      {vistaAI && !ricerca && <AnalisiAIInbox />}
 
       <div className="inbox-split">
         <div className="card tight">
