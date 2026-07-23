@@ -9,6 +9,7 @@ import { ibanValido } from "./impostazioni";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 import { registra } from "./registro";
 import { euro } from "./format";
+import { richiediConferma } from "./conferme";
 
 function s(fd: FormData, k: string): string | null {
   const v = fd.get(k);
@@ -86,28 +87,20 @@ export async function aggiornaPagamentoDiretto(id: string, fd: FormData) {
 }
 
 // Segna il pagamento come eseguito (dopo aver autorizzato il bonifico in banca).
+// È un'uscita di denaro → serve il codice di conferma via email.
 export async function segnaPagamentoEseguito(id: string, fd?: FormData) {
   const dataTxt = fd ? s(fd, "data") : null;
   const data = dataTxt ? new Date(dataTxt + "T00:00:00.000Z") : new Date();
-  const p = await prisma.pagamentoDiretto.update({
-    where: { id },
-    data: { stato: "pagato", dataPagamento: isNaN(data.getTime()) ? new Date() : data },
-  });
-  await registraPagamento({
-    tipo: "pagamento_diretto",
-    direzione: "out",
-    importo: p.importo,
-    data: p.dataPagamento ?? new Date(),
-    origineId: p.id,
-    controparte: p.beneficiario,
+  const p = await prisma.pagamentoDiretto.findUnique({ where: { id } });
+  if (!p) throw new Error("Pagamento non trovato.");
+  const esito = await richiediConferma({
+    azione: { tipo: "pagamento_diretto", id, dataIso: (isNaN(data.getTime()) ? new Date() : data).toISOString() },
     descrizione: `Pagamento diretto a ${p.beneficiario}${p.fornitore ? ` (${p.fornitore})` : ""}`,
+    importo: p.importo,
+    ritornoUrl: `/pagamenti/${id}`,
   });
-  await registra({
-    azione: `Pagamento diretto a ${p.beneficiario} segnato eseguito (${euro(p.importo)})`,
-    categoria: "pagamenti", entita: "pagamento_diretto", entitaId: p.id,
-  });
-  revalida(id);
-  redirect(`/pagamenti/${id}`);
+  if (!esito.ok) redirect(`/pagamenti/${id}?errorePagamento=${encodeURIComponent(esito.errore)}`);
+  redirect(`/conferma/${esito.id}`);
 }
 
 export async function annullaPagamentoDiretto(id: string) {

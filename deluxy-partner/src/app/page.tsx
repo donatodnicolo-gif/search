@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string }>;
+  searchParams: Promise<{ anno?: string; errorePagamento?: string; pagato?: string; annullato?: string }>;
 }) {
   const sp = await searchParams;
   const anno = annoValido(sp.anno);
@@ -73,6 +73,22 @@ export default async function Dashboard({
           <Link href="/vendite/nuova" className="btn primary">+ Vendita vendor</Link>
         </div>
       </div>
+
+      {sp.pagato && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />Pagamento confermato e registrato</span>
+        </div>
+      )}
+      {sp.annullato && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge neutral"><span className="dot" />Pagamento annullato: non è stato registrato nulla</span>
+        </div>
+      )}
+      {sp.errorePagamento && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.errorePagamento)}</span>
+        </div>
+      )}
 
       <div className="kpi-grid">
         <div className="kpi">
@@ -147,7 +163,7 @@ export default async function Dashboard({
                           <button
                             className="btn small primary"
                             type="submit"
-                            title={`Annota il pagamento di ${euro(x.r.daBonificare)} al partner con data odierna: il mese risulta pareggiato e sparisce da questa lista. NON invia nessun bonifico alla banca. Si annulla dalla scheda del partner.`}
+                            title={`Chiede un codice via email e, una volta confermato, annota il pagamento di ${euro(x.r.daBonificare)} al partner con data odierna. NON invia nessun bonifico alla banca.`}
                           >
                             Paga
                           </button>

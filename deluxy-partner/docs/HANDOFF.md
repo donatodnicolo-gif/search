@@ -153,6 +153,16 @@ Dove si vede: colonna **Credito** + **Scaduto** e filtro «Credito» in `/partne
 
 **API interne (NON per altri progetti, protette da login):** `/api/recap` (recap AI), `/api/sepa` (export bonifici pain.001 + CSV), `/api/fic/authorize`+`/api/fic/callback` (OAuth Fatture in Cloud).
 
+### Conferma dei pagamenti con codice via email (23/07/2026)
+
+Registrare un'**uscita di denaro** non è più immediato: l'app congela l'operazione, manda un **codice di 6 cifre** via email e la esegue solo dopo che il codice è stato digitato in `/conferma/[id]`.
+
+- **Cosa passa dal codice**: «Paga» rapido in dashboard, «Abbiamo pagato» nella scheda partner, pagamento diretto segnato eseguito. **NON** passa la registrazione di un incasso *ricevuto* (non muove soldi nostri).
+- **Destinatario**: `Impostazione conferme.email`, default **nicolo.donato@deluxy.it**, modificabile in Impostazioni → «Conferma dei pagamenti».
+- **Regole**: codice valido **15 minuti**, usabile **una volta sola**, **5 tentativi** poi la richiesta si brucia; in chiaro non è mai salvato (solo SHA-256); `confermatoIl` si scrive *prima* di eseguire, così un doppio invio non registra due volte.
+- ⚠️ **Fallisce chiuso**: se SMTP non è configurato (o l'invio va in errore) il pagamento **non si registra** e compare un avviso rosso. Oggi in produzione `smtp.host` e `smtp.user` ci sono ma **mancano password e mittente** → i pagamenti sono bloccati finché non si compilano in Impostazioni. È voluto: un controllo che fallisce aperto non è un controllo.
+- **Architettura**: `src/lib/conferme.ts` (richiesta, verifica, dispatcher) + `src/lib/pagamenti-core.ts`, che contiene l'esecuzione vera ed è volutamente **senza `"use server"`** — se stesse fra le server action sarebbe un endpoint e il controllo si scavalcherebbe chiamandolo diretto. Modello `ConfermaPagamento`.
+
 ### Registro modifiche / audit log (23/07/2026)
 
 `/impostazioni/logs` elenca **chi ha cambiato cosa e quando**, con ricerca a testo libero (azione/partner/operatore/dettaglio) e filtri per **area** e **operatore**, paginato. Modello `RegistroModifica`; le voci si scrivono da `registra()` in `src/lib/registro.ts` — un helper che **non fa mai fallire l'azione** se il log va storto.

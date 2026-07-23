@@ -29,7 +29,10 @@ export default async function PartnerDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ amm?: string; fic?: string; ficreg?: string; mail?: string; nota?: string; mese?: string }>;
+  searchParams: Promise<{
+    amm?: string; fic?: string; ficreg?: string; mail?: string; nota?: string; mese?: string;
+    errorePagamento?: string; pagato?: string;
+  }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -140,6 +143,17 @@ export default async function PartnerDetail({
           <p style={{ marginTop: 14, fontSize: 13.5, color: "var(--text-secondary)" }}>{partner.note}</p>
         )}
       </div>
+
+      {sp.pagato && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />Pagamento confermato e registrato</span>
+        </div>
+      )}
+      {sp.errorePagamento && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.errorePagamento)}</span>
+        </div>
+      )}
 
       {sp.amm && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>

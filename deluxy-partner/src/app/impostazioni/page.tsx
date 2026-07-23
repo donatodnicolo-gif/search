@@ -3,7 +3,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { CHIAVI, leggiImpostazioni, salvaImpostazione, ibanValido } from "@/lib/impostazioni";
-import { inviaEmail } from "@/lib/mail";
+import { inviaEmail, smtpConfigurato } from "@/lib/mail";
+import { CHIAVE_EMAIL_CONFERME, EMAIL_CONFERME_DEFAULT } from "@/lib/conferme";
 import { ficStato } from "@/lib/fic";
 import { qontoOrganizzazione, qontoConfigurato } from "@/lib/qonto";
 import { salvaNegozioShopify, rimuoviNegozioShopify } from "@/lib/ordini-actions";
@@ -37,6 +38,14 @@ async function salvaAzienda(fd: FormData) {
   await salvaImpostazione(CHIAVI.aziendaPiva, String(fd.get("aziendaPiva") ?? ""));
   await salvaImpostazione(CHIAVI.aziendaContatti, String(fd.get("aziendaContatti") ?? ""));
   await registra({ azione: "Modificata l'intestazione dei documenti (pro-forma)", categoria: "impostazioni" });
+  revalidatePath("/impostazioni");
+  redirect("/impostazioni?salvato=1");
+}
+
+async function salvaConferme(fd: FormData) {
+  "use server";
+  await salvaImpostazione(CHIAVE_EMAIL_CONFERME, String(fd.get("confermeEmail") ?? "").trim());
+  await registra({ azione: "Modificata l'email di conferma dei pagamenti", categoria: "impostazioni" });
   revalidatePath("/impostazioni");
   redirect("/impostazioni?salvato=1");
 }
@@ -115,6 +124,8 @@ export default async function ImpostazioniPage({
   const imp = await leggiImpostazioni();
   const fic = await ficStato();
   const negoziShopify = await prisma.negozioShopify.findMany({ orderBy: { brand: "asc" } });
+  // senza SMTP il codice di conferma non può partire: i pagamenti restano bloccati
+  const smtpOk = await smtpConfigurato();
 
   return (
     <>
@@ -356,6 +367,38 @@ export default async function ImpostazioniPage({
         </p>
         <div className="form-footer">
           <button type="submit" className="btn primary">Salva negozio</button>
+        </div>
+      </form>
+
+      <h2 className="section-title">Conferma dei pagamenti</h2>
+      <form action={salvaConferme} className="card">
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 12 }}>
+          Prima di registrare un&apos;<strong>uscita di denaro</strong> (bonifico a un partner, pagamento
+          diretto a un fornitore) l&apos;app manda un <strong>codice di 6 cifre</strong> a questo indirizzo e
+          aspetta che venga digitato. Il codice vale 15 minuti e una volta sola.
+          {!smtpOk && (
+            <>
+              {" "}
+              <strong style={{ color: "var(--red)" }}>
+                Attenzione: SMTP non è configurato, quindi il codice non può partire e i pagamenti
+                restano bloccati. Compila la sezione qui sotto (password casella e mittente).
+              </strong>
+            </>
+          )}
+        </p>
+        <div className="form-grid">
+          <div>
+            <label className="field-label">Email a cui mandare i codici</label>
+            <input
+              type="email"
+              name="confermeEmail"
+              defaultValue={imp["conferme.email"] ?? ""}
+              placeholder={EMAIL_CONFERME_DEFAULT}
+            />
+          </div>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <button className="btn primary" type="submit">Salva</button>
         </div>
       </form>
 

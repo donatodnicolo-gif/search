@@ -55,6 +55,29 @@ model Partner {
   updatedAt              DateTime @updatedAt
 }
 
+// Conferma a due passaggi dei pagamenti: prima di registrare un'uscita di denaro
+// l'app manda un codice via email e aspetta che venga digitato. Qui vive la
+// richiesta in attesa: l'azione da eseguire è congelata in `payload` e viene
+// lanciata SOLO dopo che il codice è stato confermato.
+model ConfermaPagamento {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  azione      String // chiave dell'operazione da eseguire (vedi src/lib/conferme.ts)
+  payload     String // JSON con i parametri dell'operazione
+  descrizione String // frase leggibile mostrata nell'email e nella pagina
+  importo     Float? // importo in gioco, per email e registro
+  email       String // destinatario del codice
+  codiceHash  String // SHA-256 del codice: in chiaro non viene mai salvato
+  scadeIl     DateTime
+  tentativi   Int       @default(0)
+  confermatoIl DateTime?
+  annullatoIl DateTime?
+  richiestaDa String? // operatore che ha chiesto il pagamento
+  ritornoUrl  String? // dove tornare dopo la conferma
+
+  @@index([createdAt])
+}
+
 // Registro delle modifiche (audit log): ogni cambiamento fatto nell'app da un
 // operatore. `utente` è il nome di chi ha fatto l'azione (dal SSO del Hub, o
 // l'etichetta del profilo per l'accesso a password); `azione` è una frase

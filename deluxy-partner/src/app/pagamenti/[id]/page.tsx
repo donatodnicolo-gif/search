@@ -18,7 +18,7 @@ export default async function PagamentoDirettoDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ creato?: string; salvato?: string }>;
+  searchParams: Promise<{ creato?: string; salvato?: string; errorePagamento?: string; pagato?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -49,9 +49,17 @@ export default async function PagamentoDirettoDetail({
         </div>
       </div>
 
-      {(sp.creato || sp.salvato) && (
+      {(sp.creato || sp.salvato || sp.pagato) && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
-          <span className="badge green"><span className="dot" />{sp.creato ? "Bonifico predisposto" : "Modifiche salvate"}</span>
+          <span className="badge green">
+            <span className="dot" />
+            {sp.pagato ? "Pagamento confermato e registrato" : sp.creato ? "Bonifico predisposto" : "Modifiche salvate"}
+          </span>
+        </div>
+      )}
+      {sp.errorePagamento && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.errorePagamento)}</span>
         </div>
       )}
 
