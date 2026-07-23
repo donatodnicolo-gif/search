@@ -1153,6 +1153,10 @@ mark.ricerca-hit {
   border-bottom: 1px solid var(--hairline);
 }
 
+/* Conversazione chiusa: resta leggibile ma non tira l'occhio. */
+.mail-row.thread-chiuso .mail-oggetto,
+.mail-row.thread-chiuso .mail-mittente { opacity: 0.65; }
+
 /* Azione di riga «AI+» accesa: si deve distinguere a colpo d'occhio. */
 .azione-riga.ai-attiva { color: var(--gold-strong); font-weight: 600; }
 

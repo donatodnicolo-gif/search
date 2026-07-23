@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { dataBreve } from '@/lib/format'
 import { raggruppa } from '@/lib/thread'
 import { nomiPerGruppi } from '@/lib/nomiThread'
+import { idsThreadChiusi } from '@/lib/threadChiusi'
 
 /**
  * TOP THREAD: le conversazioni più corpose degli ultimi 30 giorni — quelle in
@@ -55,10 +56,14 @@ export async function ColonnaTopThread({ utenteId }: { utenteId: string }) {
     return null // niente da mostrare: la posta resta quella che conta
   }
 
+  // Le conversazioni CHIUSE non contano: la pratica è finita, non deve stare
+  // in cima alla posta anche se ha fatto molto traffico.
+  const chiusi = new Set(await idsThreadChiusi(utenteId))
+
   // Conversazioni vere (più di un messaggio), le più corpose in cima; a parità
   // di messaggi vince quella con l'ultimo scambio più recente.
   const gruppi = raggruppa(messaggi)
-    .filter((g) => g.length > 1)
+    .filter((g) => g.length > 1 && !g.some((m) => chiusi.has(m.id)))
     .sort((a, b) => b.length - a.length || b[b.length - 1].data.getTime() - a[a.length - 1].data.getTime())
     .slice(0, 5)
 

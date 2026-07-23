@@ -5,6 +5,7 @@ import { dataBreve } from '@/lib/format'
 import { raggruppa } from '@/lib/thread'
 import { nomiPerGruppi, chiaviPerNome } from '@/lib/nomiThread'
 import { idsThreadAI } from '@/lib/threadAI'
+import { idsThreadChiusi } from '@/lib/threadChiusi'
 import { RicercaMail } from '@/components/RicercaMail'
 import { AzioniThread } from '@/components/AzioniThread'
 import { AgganciaDialog } from '@/components/AgganciaRiga'
@@ -109,9 +110,15 @@ export default async function Thread({ searchParams }: Props) {
   // Il nome dato a mano a ogni conversazione (una sola query per tutta la
   // pagina). Si cerca su TUTTI i messaggi del gruppo: vedi nomiPerGruppi.
   // Insieme, le conversazioni col PLUS AI (anche lì il segno sta su ogni mail).
-  const [nomi, idsAI] = await Promise.all([nomiPerGruppi(u.id, gruppiTutti), idsThreadAI(u.id)])
+  const [nomi, idsAI, idsChiusi] = await Promise.all([
+    nomiPerGruppi(u.id, gruppiTutti),
+    idsThreadAI(u.id),
+    idsThreadChiusi(u.id),
+  ])
   const setAI = new Set(idsAI)
   const gruppoHaAI = (g: { id: string }[]) => g.some((m) => setAI.has(m.id))
+  const setChiusi = new Set(idsChiusi)
+  const gruppoChiuso = (g: { id: string }[]) => g.some((m) => setChiusi.has(m.id))
 
   // Le conversazioni trovate per NOME: la chiave salvata è l'id di una loro
   // mail, quindi basta che il gruppo la contenga.
@@ -144,7 +151,15 @@ export default async function Thread({ searchParams }: Props) {
     const volto = g[g.length - 1] // il più recente
     const parti = new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size
     const nonLetti = g.some((x) => x.direzione === 'entrata' && !x.letto)
-    return { volto, count: g.length, parti, nonLetti, nome: nome ?? null, ai: gruppoHaAI(g) }
+    return {
+      volto,
+      count: g.length,
+      parti,
+      nonLetti,
+      nome: nome ?? null,
+      ai: gruppoHaAI(g),
+      chiuso: gruppoChiuso(g),
+    }
   })
 
   return (
@@ -179,8 +194,8 @@ export default async function Thread({ searchParams }: Props) {
           </div>
         ) : (
           <div className="mail-list">
-            {righe.map(({ volto, count, parti, nonLetti, nome, ai }) => (
-              <div key={volto.id} className={`mail-row ${nonLetti ? 'non-letto' : ''}`}>
+            {righe.map(({ volto, count, parti, nonLetti, nome, ai, chiuso }) => (
+              <div key={volto.id} className={`mail-row ${nonLetti ? 'non-letto' : ''} ${chiuso ? 'thread-chiuso' : ''}`}>
                 <div className="mail-row-head">
                   <Link href={`/messaggio/${volto.id}`} className="mail-row-link">
                     <div className="mail-top">
@@ -192,6 +207,13 @@ export default async function Thread({ searchParams }: Props) {
                       {ai && (
                         <span className="ai-toggle-mark" title="PLUS AI attivo su questa conversazione">
                           AI
+                        </span>
+                      )}
+                      {/* Pratica finita: fuori dai Top thread, e qui si vede. */}
+                      {chiuso && (
+                        <span className="badge neutral" title="Conversazione chiusa: non compare più fra i Top thread">
+                          <span className="dot" />
+                          Chiuso
                         </span>
                       )}
                       {count > 1 && (
@@ -229,7 +251,7 @@ export default async function Thread({ searchParams }: Props) {
                     <span className="mail-data">{dataBreve(volto.data)}</span>
                   </div>
                 </div>
-                <AzioniThread messaggioId={volto.id} nome={nome} aiAttivo={ai} />
+                <AzioniThread messaggioId={volto.id} nome={nome} aiAttivo={ai} chiuso={chiuso} />
               </div>
             ))}
           </div>

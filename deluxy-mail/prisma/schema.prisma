@@ -61,6 +61,7 @@ model Utente {
   istruzioniThread IstruzioneThread[]
   nomiThread       NomeThread[]
   threadAI         ThreadAI[]
+  threadChiusi     ThreadChiuso[]
   allegatiCaricati AllegatoCaricato[]
   regoleApp  RegolaApp[]
   inviiApp   InvioApp[]
@@ -568,6 +569,22 @@ model AllegatoCaricato {
 // agganciando mail vecchie, mentre le liste caricano solo la posta recente.
 // Segnando tutti i membri, l'appartenenza si riconosce da qualunque mail.
 model ThreadAI {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  /** Id di una mail della conversazione. */
+  chiave   String
+  creatoIl DateTime @default(now())
+
+  @@unique([utenteId, chiave])
+}
+
+// Conversazione CHIUSA: la pratica è finita. Non compare più fra i «Top
+// thread» e in elenco porta l'etichetta «Chiuso». Come per ThreadAI, il segno
+// sta su OGNI mail del thread (la chiave del thread cambia agganciando mail
+// vecchie: segnando i membri, la conversazione si riconosce sempre).
+model ThreadChiuso {
   id       String @id @default(cuid())
   utenteId String
   utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)

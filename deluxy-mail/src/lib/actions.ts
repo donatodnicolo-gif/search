@@ -669,6 +669,39 @@ export async function cambiaThreadAI(
 }
 
 /**
+ * Segna la conversazione come CHIUSA (o la riapre): la pratica è finita.
+ * Sparisce dai «Top thread» e in elenco porta l'etichetta «Chiuso». Non è un
+ * archivio: le mail restano dove sono e una risposta nuova si vede lo stesso.
+ */
+export async function cambiaThreadChiuso(
+  messaggioId: string,
+  chiuso: boolean
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const conversazione = await messaggiThread(utenteId, messaggioId)
+  if (conversazione.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
+  const membri = conversazione.map((m) => m.id)
+
+  try {
+    await db.threadChiuso.deleteMany({ where: { utenteId, chiave: { in: membri } } })
+    if (chiuso) {
+      await db.threadChiuso.createMany({
+        data: membri.map((id) => ({ utenteId, chiave: id })),
+        skipDuplicates: true,
+      })
+    }
+  } catch {
+    return { ok: false, messaggio: 'Non riesco a salvare (tabella non ancora pronta).' }
+  }
+
+  revalidatePath('/', 'layout')
+  return {
+    ok: true,
+    messaggio: chiuso ? 'Conversazione segnata come chiusa.' : 'Conversazione riaperta.',
+  }
+}
+
+/**
  * Dà (o toglie) un NOME alla conversazione. L'oggetto di una mail spesso non
  * dice niente ("Re: IMPORTANTE: 106654/26 …"): il nome serve a ritrovare lo
  * scambio e a cercarlo per nome nella pagina Thread.

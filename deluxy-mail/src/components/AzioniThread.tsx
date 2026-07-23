@@ -6,6 +6,7 @@ import { cestinaThread, riassumiConversazione } from '@/lib/actions'
 import { AgganciaBottone } from './AgganciaRiga'
 import { NomeThreadBottone } from './NomeThreadRiga'
 import { ThreadAIToggle } from './ThreadAIToggle'
+import { ChiudiThread } from './ChiudiThread'
 
 /**
  * Le azioni su un intero thread (nella lista Thread): riassunto rapido, aggancia
@@ -16,11 +17,14 @@ export function AzioniThread({
   messaggioId,
   nome,
   aiAttivo = false,
+  chiuso = false,
 }: {
   messaggioId: string
   nome?: string | null
   /** True se la conversazione ha già il PLUS AI. */
   aiAttivo?: boolean
+  /** True se la conversazione è segnata come chiusa. */
+  chiuso?: boolean
 }) {
   const [inCorso, start] = useTransition()
   const [sintesi, setSintesi] = useState<string | null>(null)
@@ -55,6 +59,8 @@ export function AzioniThread({
         <ThreadAIToggle messaggioId={messaggioId} attivo={aiAttivo} variante="riga" />
         <AgganciaBottone id={messaggioId} />
         <NomeThreadBottone id={messaggioId} nome={nome} />
+        {/* Pratica finita: esce dai Top thread e prende l'etichetta «Chiuso». */}
+        <ChiudiThread messaggioId={messaggioId} chiuso={chiuso} variante="riga" />
         <button
           type="button"
           className="azione-riga"

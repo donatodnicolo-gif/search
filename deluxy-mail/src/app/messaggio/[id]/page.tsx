@@ -26,6 +26,8 @@ import { CestinaThread } from '@/components/CestinaThread'
 import { InvitoCalendario } from '@/components/InvitoCalendario'
 import { AnalisiAIInbox } from '@/components/AnalisiAIInbox'
 import { threadHaAI } from '@/lib/threadAI'
+import { threadEChiuso } from '@/lib/threadChiusi'
+import { ChiudiThread } from '@/components/ChiudiThread'
 import { eContattoAI } from '@/lib/contattiAI'
 import { azioneDi } from '@/lib/appDeluxy'
 import { leggiEventoProposto } from '@/lib/eventoProposto'
@@ -96,20 +98,24 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
   let riassuntoThread: Awaited<ReturnType<typeof leggiRiassuntoThread>> = null
   let nomeConv = ''
   let threadAI = false
+  let threadChiuso = false
   if (chiaveConv) {
     // Le istruzioni AI del thread non si leggono più qui: il form è stato
     // tolto (si usa «Delega Renè») e chi le applica le rilegge da sé.
-    const [rt, nt, tai] = await Promise.all([
+    const [rt, nt, tai, tch] = await Promise.all([
       leggiRiassuntoThread(u.id, chiaveConv),
       // Il nome può essere finito su un'altra mail della conversazione (le
       // chiavi cambiano agganciando mail vecchie): si cerca su tutte.
       nomeDiThread(u.id, chiaveConv, conversazione.map((m) => m.id)),
       // PLUS AI sulla conversazione (segnato su tutte le sue mail).
       threadHaAI(u.id, conversazione.map((m) => m.id)),
+      // Conversazione chiusa (stessa logica: segno su tutte le sue mail).
+      threadEChiuso(u.id, conversazione.map((m) => m.id)),
     ])
     riassuntoThread = rt
     nomeConv = nt ?? ''
     threadAI = tai
+    threadChiuso = tch
   }
 
   // Qui si mostra solo la proposta dell'AI: le bozze che hai iniziato tu si
@@ -195,6 +201,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           {/* PLUS AI sulla conversazione + cestinamento di tutto il thread. */}
           <div style={{ marginBottom: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <ThreadAIToggle messaggioId={messaggio.id} attivo={threadAI} />
+            <ChiudiThread messaggioId={messaggio.id} chiuso={threadChiuso} />
             <CestinaThread messaggioId={messaggio.id} quante={conversazione.length} />
           </div>
 
