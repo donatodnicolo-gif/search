@@ -1107,6 +1107,44 @@ mark.ricerca-hit {
 }
 .aggancio-riga:hover { background: var(--fill); }
 
+/* ---------- Finestra di scrittura in basso a destra (desktop) ---------- */
+.finestra-scrivi {
+  position: fixed; right: 24px; bottom: 0; z-index: 60;
+  width: min(640px, calc(100vw - 48px));
+  max-height: calc(100vh - 40px);
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-bottom: none;
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+}
+.finestra-testa {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 14px; background: var(--fill);
+  border-bottom: 1px solid var(--hairline);
+  flex-shrink: 0;
+}
+.finestra-titolo { font-size: 13.5px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.finestra-oggetto { font-weight: 400; color: var(--text-secondary); }
+.finestra-azioni { display: flex; gap: 4px; flex-shrink: 0; }
+.finestra-icona {
+  background: none; border: none; cursor: pointer; font-size: 12px;
+  color: var(--text-secondary); padding: 4px 8px; border-radius: var(--radius-s);
+}
+.finestra-icona:hover { background: var(--hairline); color: var(--text-primary); }
+/* Il corpo scorre da solo: la finestra non cresce oltre lo schermo. */
+.finestra-corpo { overflow-y: auto; padding: 14px; }
+/* Dentro la finestra la Composizione non deve sembrare una scheda dentro una scheda. */
+.finestra-corpo .card { border: none; box-shadow: none; padding: 0; background: transparent; }
+.finestra-scrivi.ridotta { max-height: none; }
+
+@media (max-width: 900px) {
+  /* Su schermo stretto non si usa: le righe portano alla pagina intera. */
+  .finestra-scrivi { display: none; }
+}
+
 /* Barra azioni in CIMA alla composizione: gli stessi pulsanti del fondo, per
    non dover scorrere tutta la mail per mandarla. */
 .form-azioni-alto {

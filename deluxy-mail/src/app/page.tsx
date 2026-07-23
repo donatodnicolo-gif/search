@@ -11,6 +11,7 @@ import { InvioAppDialog } from '@/components/InvioAppDialog'
 import { DelegaReneDialog } from '@/components/DelegaRene'
 import { AgganciaDialog } from '@/components/AgganciaRiga'
 import { NomeThreadDialog } from '@/components/NomeThreadRiga'
+import { FinestraScrivi } from '@/components/FinestraScrivi'
 import { ListaMail } from '@/components/ListaMail'
 import type { RigaData } from '@/components/RigaMail'
 import { descriviAzioni } from '@/lib/appDeluxy'
@@ -533,6 +534,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       <DelegaReneDialog />
       <AgganciaDialog />
       <NomeThreadDialog />
+      {/* Rispondi/Inoltra dalle righe aprono qui, senza cambiare pagina. */}
+      <FinestraScrivi />
     </>
   )
 }

@@ -1,11 +1,15 @@
+'use client'
+
 import Link from 'next/link'
+import { apriFinestraScrivi, finestraDisponibile } from './FinestraScrivi'
 
 /**
  * Rispondi / Rispondi a tutti / Inoltra in alto a destra di ogni riga di posta.
  *
- * Sono link veri, non pulsanti con onClick: portano a una pagina, quindi
- * funzionano anche col tasto centrale o "apri in una nuova scheda". Stanno
- * fuori dal link che apre la mail — un link dentro un altro link non si può.
+ * Restano link VERI (href alla pagina di scrittura): così il tasto centrale,
+ * "apri in una nuova scheda" e il click con Ctrl/Cmd continuano a funzionare.
+ * Sul click normale, però, se in pagina c'è la finestra di scrittura (desktop,
+ * posta in arrivo) si apre QUELLA e non si cambia pagina.
  *
  * Su desktop mostrano il testo; su mobile solo l'iconcina (vedi globals.css):
  * così le tre azioni ci stanno anche sullo schermo stretto invece di sparire.
@@ -34,35 +38,36 @@ const IconaInoltra = (
 )
 
 export function RispostaAzioni({ id }: { id: string }) {
+  // Click normale (senza Ctrl/Cmd/Shift, tasto sinistro) → finestra, se c'è.
+  const apri = (e: React.MouseEvent, modo: string) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+    if (!finestraDisponibile()) return
+    e.preventDefault()
+    e.stopPropagation()
+    apriFinestraScrivi(id, modo)
+  }
+
+  const voci = [
+    { modo: 'rispondi', icona: IconaRispondi, testo: 'Rispondi', titolo: 'Rispondi al mittente' },
+    { modo: 'tutti', icona: IconaATutti, testo: 'A tutti', titolo: 'Rispondi a tutti i destinatari' },
+    { modo: 'inoltra', icona: IconaInoltra, testo: 'Inoltra', titolo: 'Inoltra a qualcun altro' },
+  ]
+
   return (
     <div className="risposta-azioni">
-      <Link
-        href={`/messaggio/${id}/scrivi?modo=rispondi`}
-        className="risposta-btn"
-        title="Rispondi al mittente"
-        aria-label="Rispondi"
-      >
-        <span className="risposta-icona" aria-hidden>{IconaRispondi}</span>
-        <span className="risposta-testo">Rispondi</span>
-      </Link>
-      <Link
-        href={`/messaggio/${id}/scrivi?modo=tutti`}
-        className="risposta-btn"
-        title="Rispondi a tutti i destinatari"
-        aria-label="Rispondi a tutti"
-      >
-        <span className="risposta-icona" aria-hidden>{IconaATutti}</span>
-        <span className="risposta-testo">A tutti</span>
-      </Link>
-      <Link
-        href={`/messaggio/${id}/scrivi?modo=inoltra`}
-        className="risposta-btn"
-        title="Inoltra a qualcun altro"
-        aria-label="Inoltra"
-      >
-        <span className="risposta-icona" aria-hidden>{IconaInoltra}</span>
-        <span className="risposta-testo">Inoltra</span>
-      </Link>
+      {voci.map((v) => (
+        <Link
+          key={v.modo}
+          href={`/messaggio/${id}/scrivi?modo=${v.modo}`}
+          className="risposta-btn"
+          title={v.titolo}
+          aria-label={v.testo}
+          onClick={(e) => apri(e, v.modo)}
+        >
+          <span className="risposta-icona" aria-hidden>{v.icona}</span>
+          <span className="risposta-testo">{v.testo}</span>
+        </Link>
+      ))}
     </div>
   )
 }

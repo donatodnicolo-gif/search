@@ -7,7 +7,7 @@ import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
 import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
 import { AgganciaCompose, type ScelraAggancio } from './AgganciaCompose'
-import { mettiFlash } from './Flash'
+import { mettiFlash, mostraFlash } from './Flash'
 import { PRIORITA } from '@/lib/format'
 import type { Modo } from '@/lib/rispondi'
 
@@ -23,9 +23,22 @@ type Props = {
   contatti?: ContattoRubrica[]
   /** Le sequenze di follow-up disponibili (da agganciare all'invio). */
   sequenze?: { id: string; nome: string }[]
+  /** Chiamata quando si è finito (inviato o annullato): la usa la finestra di
+   *  scrittura per chiudersi. Se c'è, sostituisce il ritorno a `tornaA`. */
+  onFatto?: () => void
 }
 
-export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId, contatti = [], sequenze = [] }: Props) {
+export function Composizione({
+  messaggioId,
+  modo,
+  da,
+  iniziale,
+  tornaA,
+  bozzaId,
+  contatti = [],
+  sequenze = [],
+  onFatto,
+}: Props) {
   const [a, setA] = useState(iniziale.a)
   const [cc, setCc] = useState(iniziale.cc)
   const [oggetto, setOggetto] = useState(iniziale.oggetto)
@@ -81,8 +94,15 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
       setStato(esito)
       setConferma(false)
       if (esito.ok) {
-        mettiFlash(esito.messaggio)
-        router.push(tornaA)
+        // Nella finestra si resta dove si è: niente navigazione, solo il
+        // banner e la lista che si aggiorna.
+        if (onFatto) {
+          mostraFlash(esito.messaggio)
+          onFatto()
+        } else {
+          mettiFlash(esito.messaggio)
+          router.push(tornaA)
+        }
         router.refresh()
       }
     })
@@ -92,7 +112,12 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
   // fino in fondo per mandare una mail lunga) e in fondo, dove stavano.
   const azioni = (
     <>
-      <button className="btn secondary" onClick={() => router.push(tornaA)} disabled={inCorso} type="button">
+      <button
+        className="btn secondary"
+        onClick={() => (onFatto ? onFatto() : router.push(tornaA))}
+        disabled={inCorso}
+        type="button"
+      >
         Annulla
       </button>
 

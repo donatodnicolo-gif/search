@@ -9,6 +9,8 @@ import type { Account, Prisma } from '@prisma/client'
 import { alternative } from './condizioni'
 import { leggiEventoProposto } from './eventoProposto'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
+import { preparaRisposta, modoValido, type Modo } from './rispondi'
+import { elencoContatti } from './contatti'
 import { htmlAPlain, sembraHtml, plainAHtml } from './htmlMail'
 
 const MAX_ALLEGATI_BYTE = 20 * 1024 * 1024
@@ -1328,6 +1330,70 @@ async function registraInviato(
   }
 
   return avviso
+}
+
+/**
+ * I dati per scrivere una risposta/inoltro SENZA cambiare pagina (la finestra
+ * in basso a destra della posta in arrivo). È lo stesso lavoro che fa la pagina
+ * `/messaggio/[id]/scrivi`, ma restituito al client.
+ */
+export async function preparaComposizione(
+  messaggioId: string,
+  modoGrezzo: string
+): Promise<{
+  ok: boolean
+  messaggio?: string
+  modo?: Modo
+  da?: string
+  oggettoOriginale?: string
+  iniziale?: { a: string; cc: string; oggetto: string; corpo: string }
+  contatti?: { email: string; nome: string | null }[]
+  sequenze?: { id: string; nome: string }[]
+  tradurreIn?: string | null
+}> {
+  const utenteId = await uid()
+  const u = await db.utente.findUnique({ where: { id: utenteId } })
+  if (!u) return { ok: false, messaggio: 'Utente non trovato.' }
+
+  const modo = modoValido(modoGrezzo)
+  const messaggio = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    include: { account: true },
+  })
+  if (!messaggio) return { ok: false, messaggio: 'Messaggio non trovato.' }
+
+  const iniziale = preparaRisposta({
+    messaggio,
+    modo,
+    mioIndirizzo: messaggio.account.email,
+    firma: u.firma || undefined,
+  })
+
+  // Stesso avviso della pagina intera: se la mail è in una lingua che non leggi,
+  // scrivi in italiano e la traduzione parte all'invio.
+  const lingua = messaggio.lingua
+  const tradurreIn =
+    modo !== 'inoltra' && lingua !== null && !leggiSenzaTraduzione(lingua, lingueLetteDi(u.lingueLette))
+      ? lingua
+      : null
+
+  const [contatti, sequenze] = await Promise.all([
+    elencoContatti(utenteId).then((c) => c.map((x) => ({ email: x.email, nome: x.nome }))),
+    db.sequenza
+      .findMany({ where: { utenteId, attiva: true }, orderBy: { creataIl: 'asc' }, select: { id: true, nome: true } })
+      .catch(() => [] as { id: string; nome: string }[]),
+  ])
+
+  return {
+    ok: true,
+    modo,
+    da: `${messaggio.account.nome} <${messaggio.account.email}>`,
+    oggettoOriginale: messaggio.oggetto,
+    iniziale,
+    contatti,
+    sequenze,
+    tradurreIn,
+  }
 }
 
 export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
