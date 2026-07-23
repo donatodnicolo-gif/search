@@ -25,6 +25,22 @@ export const servonoAPezzi = (files: File[]) => pesoTotale(files) > SOGLIA_CARIC
  * (campo `allegatiGruppo`). Lancia un errore col motivo se qualcosa va storto:
  * chi chiama lo mostra e NON invia una mail monca.
  */
+/** Un CORPO oltre questa dimensione non passa dentro la richiesta di invio:
+ *  succede con gli inoltri che si portano dietro le immagini incorporate. */
+export const SOGLIA_CORPO = 1.5 * 1024 * 1024
+
+export const corpoTroppoGrande = (corpo: string) => new Blob([corpo]).size > SOGLIA_CORPO
+
+/**
+ * Carica il CORPO della mail a pezzi e torna il codice del gruppo (campo
+ * `corpoGruppo` del form). Serve per gli inoltri pesanti: senza, né l'invio né
+ * il salvataggio della bozza arrivavano al server.
+ */
+export async function caricaCorpoGrande(corpo: string): Promise<string> {
+  const file = new File([corpo], 'corpo.html', { type: 'text/html' })
+  return caricaAllegatiGrandi([file])
+}
+
 export async function caricaAllegatiGrandi(
   files: File[],
   onAvanzamento?: (fatti: number, totali: number) => void

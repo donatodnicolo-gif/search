@@ -31,8 +31,8 @@ export function useBozzaAuto({
   /** Salva davvero e torna l'id della bozza (o null se non riuscito). */
   salva: () => Promise<string | null>
   attesaMs?: number
-}): { stato: 'fermo' | 'salvo' | 'salvata'; quando: string | null } {
-  const [stato, setStato] = useState<'fermo' | 'salvo' | 'salvata'>('fermo')
+}): { stato: 'fermo' | 'salvo' | 'salvata' | 'errore'; quando: string | null } {
+  const [stato, setStato] = useState<'fermo' | 'salvo' | 'salvata' | 'errore'>('fermo')
   const [quando, setQuando] = useState<string | null>(null)
   // `salva` cambia a ogni render (legge lo stato corrente): la si tiene in un
   // ref così l'effetto non riparte per quello, ma usa sempre l'ultima versione.
@@ -49,10 +49,12 @@ export function useBozzaAuto({
           setStato('salvata')
           setQuando(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }))
         } else {
-          setStato('fermo')
+          setStato('errore')
         }
       } catch {
-        setStato('fermo') // niente allarmi: si riprova al prossimo cambiamento
+        // ⚠️ MAI muto: se il salvataggio non riesce l'utente deve vederlo,
+        // altrimenti crede che la bozza ci sia e invece non c'è.
+        setStato('errore')
       }
     }, attesaMs)
     return () => clearTimeout(t)

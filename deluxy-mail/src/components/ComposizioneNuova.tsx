@@ -9,7 +9,7 @@ import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
 import { AgganciaCompose, type ScelraAggancio } from './AgganciaCompose'
 import { mettiFlash } from './Flash'
 import { useBozzaAuto } from './useBozzaAuto'
-import { caricaAllegatiGrandi, servonoAPezzi } from './caricaAllegati'
+import { caricaAllegatiGrandi, servonoAPezzi, caricaCorpoGrande, corpoTroppoGrande } from './caricaAllegati'
 import { PRIORITA } from '@/lib/format'
 
 type Props = {
@@ -65,12 +65,31 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
     return form
   }
 
+  /** Il form pronto: se il CORPO è troppo grande per una sola richiesta lo si
+   *  carica prima a pezzi (altrimenti non arriva né l'invio né la bozza). */
+  async function formPronto(conAllegati: boolean, giaCaricati = false): Promise<FormData> {
+    const form = campi(conAllegati, giaCaricati)
+    if (corpoTroppoGrande(corpo)) {
+      const gruppo = await caricaCorpoGrande(corpo)
+      form.set('corpoGruppo', gruppo)
+      form.set('corpo', '')
+    }
+    return form
+  }
+
   function salva() {
     setStato(null)
     startTransition(async () => {
-      const esito = await salvaMinuta(campi(false))
-      setStato(esito)
-      if (esito.id) setIdBozza(esito.id)
+      try {
+        const esito = await salvaMinuta(await formPronto(false))
+        setStato(esito)
+        if (esito.id) setIdBozza(esito.id)
+      } catch (e) {
+        setStato({
+          ok: false,
+          messaggio: `Bozza non salvata: ${e instanceof Error ? e.message.slice(0, 140) : 'errore'}`,
+        })
+      }
       router.refresh()
     })
   }
@@ -86,7 +105,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
     contenuto: `${a} ${cc} ${oggetto} ${corpo}`,
     cambiato,
     salva: async () => {
-      const esito = await salvaMinuta(campi(false))
+      const esito = await salvaMinuta(await formPronto(false))
       if (esito.id) setIdBozza(esito.id)
       return esito.id ?? (esito.ok ? (idBozza ?? null) : null)
     },
@@ -113,7 +132,17 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
         setCaricamento(null)
       }
 
-      const form = campi(true, gruppo !== null)
+      let form: FormData
+      try {
+        form = await formPronto(true, gruppo !== null)
+      } catch (e) {
+        setConferma(false)
+        setStato({
+          ok: false,
+          messaggio: `Non riesco a caricare il testo della mail: ${e instanceof Error ? e.message.slice(0, 120) : 'errore'}`,
+        })
+        return
+      }
       if (gruppo) form.set('allegatiGruppo', gruppo)
 
       let esito: { ok: boolean; messaggio: string }
@@ -157,7 +186,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
 
       {!caricamento && auto.stato !== 'fermo' && (
         <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-          {auto.stato === 'salvo' ? 'Salvo…' : `Bozza salvata${auto.quando ? ` ${auto.quando}` : ''}`}
+          {auto.stato === 'salvo' ? 'Salvo…' : auto.stato === 'errore' ? '⚠ Bozza NON salvata' : `Bozza salvata${auto.quando ? ` ${auto.quando}` : ''}`}
         </span>
       )}
 

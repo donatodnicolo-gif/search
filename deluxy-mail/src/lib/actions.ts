@@ -45,12 +45,29 @@ async function leggiAllegati(form: FormData, utenteId?: string): Promise<Allegat
   return out
 }
 
-/** A invio concluso, i pezzi caricati non servono più. */
+/** A invio concluso, i pezzi caricati non servono più (corpo e allegati). */
 async function ripulisciAllegatiGrandi(form: FormData, utenteId: string): Promise<void> {
-  const gruppo = testo(form, 'allegatiGruppo')
-  if (!gruppo) return
   const { scartaGruppo } = await import('./allegatiGrandi')
-  await scartaGruppo(utenteId, gruppo)
+  for (const campo of ['allegatiGruppo', 'corpoGruppo']) {
+    const gruppo = testo(form, campo)
+    if (gruppo) await scartaGruppo(utenteId, gruppo)
+  }
+}
+
+/**
+ * Il CORPO della mail. Di norma è un campo del form, ma un inoltro con immagini
+ * incorporate può pesare parecchi MB: in quel caso il browser lo ha caricato
+ * PRIMA a pezzi (il corpo di una richiesta non può superare 4,5 MB su Vercel) e
+ * qui lo si ricompone. Senza questo, una mail lunga non partiva affatto.
+ */
+async function leggiCorpo(form: FormData, utenteId?: string): Promise<string> {
+  const gruppo = testo(form, 'corpoGruppo')
+  if (gruppo && utenteId) {
+    const { allegatiDelGruppo } = await import('./allegatiGrandi')
+    const parti = await allegatiDelGruppo(utenteId, gruppo)
+    if (parti.length > 0) return parti[0].content.toString('utf8')
+  }
+  return testo(form, 'corpo')
 }
 
 /** Dal corpo del form ricava HTML (se formattato) e testo semplice. */
@@ -1424,7 +1441,7 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     const a = testo(form, 'a')
     const cc = testo(form, 'cc')
     const oggetto = testo(form, 'oggetto')
-    const { html, testo: testoPiano } = corpoDaForm(testo(form, 'corpo'))
+    const { html, testo: testoPiano } = corpoDaForm(await leggiCorpo(form, utenteId))
     const allegati = await leggiAllegati(form, utenteId)
 
     if (!a) return { ok: false, messaggio: 'Manca il destinatario.' }
@@ -1538,7 +1555,7 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
     const a = testo(form, 'a')
     const cc = testo(form, 'cc')
     const oggetto = testo(form, 'oggetto')
-    const { html, testo: testoPiano } = corpoDaForm(testo(form, 'corpo'))
+    const { html, testo: testoPiano } = corpoDaForm(await leggiCorpo(form, utenteId))
     const allegati = await leggiAllegati(form, utenteId)
 
     if (!a) return { ok: false, messaggio: 'Manca il destinatario.' }
@@ -1655,7 +1672,9 @@ export async function salvaMinuta(
       a: testo(form, 'a'),
       cc: testo(form, 'cc'),
       oggetto: testo(form, 'oggetto'),
-      corpo: testo(form, 'corpo'),
+      // Corpo anche dai pezzi caricati: un inoltro con immagini incorporate
+      // supera il tetto della richiesta e la bozza non si salvava (in silenzio).
+      corpo: await leggiCorpo(form, utenteId),
       modo: testo(form, 'modo') || 'rispondi',
       origine: 'utente',
     }
@@ -1672,6 +1691,9 @@ export async function salvaMinuta(
         data: { ...dati, utenteId, messaggioId: messaggioId || null, corpoAI: '' },
       })
     }
+
+    // Il corpo è ora nella bozza: i pezzi caricati non servono più.
+    await ripulisciAllegatiGrandi(form, utenteId)
 
     revalidatePath('/', 'layout')
     return { ok: true, messaggio: 'Bozza salvata. La trovi in Bozze.', id: bozza.id }
