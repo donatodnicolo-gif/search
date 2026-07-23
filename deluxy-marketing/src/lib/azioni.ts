@@ -884,14 +884,24 @@ export async function creaOperazione(fd: FormData) {
   if (campagna.incidenti.length > 0) {
     redirect(`/campagne/${campagnaId}?bloccata=${encodeURIComponent(`Freeze ${campagna.incidenti[0].codice}: incidente aperto su questa campagna`)}`);
   }
-  const { validaModifica } = await import("./guardrail");
+  const { validaModifica, addBeforePause } = await import("./guardrail");
   const esito = validaModifica({
     classe: campagna.classe,
     livello,
     deltaBudgetPct: deltaPct,
     rollbackPiano: testo(fd, "rollbackPiano"),
     ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+    l2Settimana: numeroDa(fd, "l2Settimana") ?? 0,
   });
+  // Add-before-pause (doc 11, da ERR-2026-001): su una traino il vincente non
+  // si ferma finche il sostituto non e collaudato.
+  const abp = addBeforePause({
+    classe: campagna.classe,
+    tipo,
+    sostitutoApprovatoIl: dataDa(fd, "sostitutoApprovatoIl"),
+    sostitutoGiorniDati: numeroDa(fd, "sostitutoGiorniDati"),
+  });
+  if (abp) esito.blocchi.push(abp);
   if (esito.blocchi.length > 0) {
     redirect(`/campagne/${campagnaId}?bloccata=${encodeURIComponent(esito.blocchi[0])}`);
   }

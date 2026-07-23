@@ -129,6 +129,13 @@ model Campagna {
   budgetGiornaliero Float?
   // CPA target per pacing e regole se/allora (doc 10 §7)
   cpaTarget         Float?
+  // Strategia di offerta letta dalla piattaforma: serve al CHECK OBBLIGATORIO
+  // VALORE vs NUMERO delle ISTRUZIONI (dal 16/7/2026). Es. TARGET_ROAS,
+  // MAXIMIZE_CONVERSION_VALUE (valore) · TARGET_CPA, MAXIMIZE_CONVERSIONS (numero)
+  strategiaOfferta  String?
+  // Annunci in revisione da oltre 24h: alimenta l alert A4 (doc 11 §4)
+  annunciInReview   Int?
+  annunciTotali     Int?
   // id della campagna sulla piattaforma esterna (Google/Meta)
   idEsterno         String?
   inizio            DateTime?

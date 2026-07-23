@@ -53,6 +53,7 @@ function leggiMetriche() {
   var righe = [];
   var query =
     "SELECT campaign.id, campaign.name, campaign.status, " +
+    "campaign.bidding_strategy_type, " +
     "campaign_budget.amount_micros, segments.date, " +
     "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
     "metrics.conversions, metrics.conversions_value " +
@@ -75,6 +76,7 @@ function leggiMetriche() {
       conversioni: arrotonda(Number(r.metrics.conversions || 0)),
       ricavi: arrotonda(Number(r.metrics.conversionsValue || 0)),
       stato: r.campaign.status === "PAUSED" ? "in_pausa" : "attiva",
+      strategiaOfferta: r.campaign.biddingStrategyType || null,
       budgetGiornaliero: budget > 0 ? arrotonda(budget) : null,
     });
   }
@@ -468,4 +470,105 @@ function riferisci(idOperazione, riuscita, dettaglio, prima, dopo) {
     payload: JSON.stringify({ riuscita: riuscita, dettaglio: dettaglio, prima: prima, dopo: dopo }),
     muteHttpExceptions: true,
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARTE 5 — STATO DI APPROVAZIONE DEGLI ANNUNCI (alert A4)
+   Il doc 11 §4 chiede di controllare se più del 50% degli annunci attivi è in
+   revisione o limitato da oltre 24 ore. È l'unico alert che non si legge dalle
+   metriche: serve lo stato di policy di ogni annuncio.
+   Da eseguire insieme a main(), o come script suo ogni giorno.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function mainApprovazioni() {
+  var account = AdsApp.currentAccount();
+  var perCampagna = leggiApprovazioni();
+  var righe = [];
+  for (var nome in perCampagna) {
+    if (!Object.prototype.hasOwnProperty.call(perCampagna, nome)) continue;
+    righe.push({
+      idCampagna: perCampagna[nome].id,
+      nome: nome,
+      // La data serve all'endpoint: qui vale oggi, i conteggi sono istantanei
+      data: oggiIso(),
+      annunciTotali: perCampagna[nome].totali,
+      annunciInReview: perCampagna[nome].inReview,
+    });
+  }
+
+  Logger.log("Campagne con annunci: " + righe.length);
+  for (var i = 0; i < righe.length; i++) {
+    if (righe[i].annunciInReview > 0) {
+      Logger.log(
+        "  " + righe[i].nome + ": " + righe[i].annunciInReview + "/" + righe[i].annunciTotali + " in revisione"
+      );
+    }
+  }
+
+  if (CHIAVE_API.indexOf("INCOLLA") !== -1) {
+    Logger.log("Chiave API non configurata: mi fermo qui.");
+    return;
+  }
+  for (var j = 0; j < righe.length; j += 200) {
+    postaIngest(righe.slice(j, j + 200), account.getCustomerId());
+  }
+}
+
+/**
+ * Conta, per campagna, quanti annunci attivi sono in revisione o limitati.
+ * approvalStatus: APPROVED | APPROVED_LIMITED | AREA_OF_INTEREST_ONLY |
+ * DISAPPROVED · reviewStatus: REVIEW_IN_PROGRESS | REVIEWED | UNDER_APPEAL
+ */
+function leggiApprovazioni() {
+  var perCampagna = {};
+  var query =
+    "SELECT campaign.id, campaign.name, ad_group_ad.ad.id, " +
+    "ad_group_ad.policy_summary.approval_status, " +
+    "ad_group_ad.policy_summary.review_status " +
+    "FROM ad_group_ad " +
+    "WHERE ad_group_ad.status = 'ENABLED' AND campaign.status = 'ENABLED'";
+
+  var risultati;
+  try {
+    risultati = AdsApp.search(query, { apiVersion: "v18" });
+  } catch (e) {
+    Logger.log("Impossibile leggere gli stati di approvazione: " + e);
+    return perCampagna;
+  }
+
+  while (risultati.hasNext()) {
+    var r = risultati.next();
+    var nome = r.campaign.name;
+    if (!perCampagna[nome]) {
+      perCampagna[nome] = { id: String(r.campaign.id), totali: 0, inReview: 0 };
+    }
+    perCampagna[nome].totali++;
+    var ps = r.adGroupAd.policySummary || {};
+    var limitato = ps.approvalStatus === "APPROVED_LIMITED" || ps.approvalStatus === "AREA_OF_INTEREST_ONLY";
+    var inEsame = ps.reviewStatus === "REVIEW_IN_PROGRESS" || ps.reviewStatus === "UNDER_APPEAL";
+    if (limitato || inEsame) perCampagna[nome].inReview++;
+  }
+  return perCampagna;
+}
+
+function postaIngest(righe, customerId) {
+  var corpo = { canale: "google_ads", account: customerId, righe: righe };
+  if (BRAND) corpo.brand = BRAND;
+  var risposta = UrlFetchApp.fetch(URL_APP + "/api/v1/ingest", {
+    method: "post",
+    contentType: "application/json",
+    headers: { "x-api-key": CHIAVE_API },
+    payload: JSON.stringify(corpo),
+    muteHttpExceptions: true,
+  });
+  Logger.log("Approvazioni inviate: " + risposta.getResponseCode() + " " + risposta.getContentText().slice(0, 150));
+}
+
+function oggiIso() {
+  var d = new Date();
+  var m = String(d.getMonth() + 1);
+  var g = String(d.getDate());
+  if (m.length < 2) m = "0" + m;
+  if (g.length < 2) g = "0" + g;
+  return d.getFullYear() + "-" + m + "-" + g;
 }

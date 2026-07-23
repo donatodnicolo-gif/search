@@ -19,6 +19,8 @@ import {
   regoleSeAllora,
   roasRealeStimato,
   valutaAlert,
+  alertA4,
+  valoreONumero,
   type MetricaGiorno,
 } from "@/lib/guardrail";
 
@@ -62,6 +64,8 @@ export async function GuardrailCampagna({
 
   // Alert (doc 11 §4): valutati adesso, persistiti una volta al giorno.
   const rilevati = valutaAlert(metriche, traino);
+  const a4 = alertA4(campagna.annunciInReview, campagna.annunciTotali);
+  if (a4) rilevati.push(a4);
   const oggi = new Date();
   oggi.setUTCHours(0, 0, 0, 0);
   for (const a of rilevati) {
@@ -106,6 +110,7 @@ export async function GuardrailCampagna({
   const cpa30 = conv30 > 0 ? spesa30 / conv30 : null;
   const app = apprendimento(campagna.budgetGiornaliero, cpa30);
   const gate = gateBidding(conv30, ricavi30 > 0);
+  const vn = valoreONumero(campagna.strategiaOfferta, conv30, ricavi30);
   const roas30 = spesa30 > 0 ? ricavi30 / spesa30 : null;
   const reale = roas30 != null ? roasRealeStimato(roas30) : null;
 
@@ -144,6 +149,18 @@ export async function GuardrailCampagna({
           <span className="tag-salute" style={{ color: giud.stato === "blackout" ? "var(--orange)" : "var(--green)" }} title="Doc 10 §1.4: 72 ore di blackout dopo ogni modifica a offerte/budget — i dati in finestra non valgono come giudizio">
             <span className="dot" />
             {giud.stato === "blackout" ? `In blackout fino a ${formattaDataOra(giud.fino)}` : "Giudicabile"}
+          </span>
+        </div>
+
+
+        <div className="nota-info" style={vn.daCambiare ? { borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" } : undefined}>
+          <span className="nota-icona" style={vn.daCambiare ? { color: "var(--orange)" } : undefined}>◈</span>
+          <span>
+            <b>Check VALORE vs NUMERO</b> (obbligatorio dal 16/7/2026 su ogni campagna attiva):{" "}
+            <b style={{ color: vn.tipo === "valore" ? "var(--green)" : vn.tipo === "numero" ? "var(--blue)" : "var(--text-tertiary)" }}>
+              {vn.etichetta}
+            </b>
+            {campagna.strategiaOfferta ? ` (${campagna.strategiaOfferta})` : ""}. {vn.raccomandazione}
           </span>
         </div>
 
@@ -243,6 +260,7 @@ export async function GuardrailCampagna({
         </p>
         <form className="modulo" action={creaOperazione}>
           <input type="hidden" name="campagnaId" value={campagna.id} />
+          <input type="hidden" name="l2Settimana" value={l2Settimana} />
           <div className="campo-modulo">
             <label>Operazione</label>
             <select name="tipo" defaultValue="pausa_campagna">
@@ -263,6 +281,21 @@ export async function GuardrailCampagna({
             <label>Piano di rollback {traino ? "(obbligatorio su traino per L2/L3)" : ""}</label>
             <input name="rollbackPiano" placeholder="Come si torna indietro se peggiora" />
           </div>
+          {traino && (
+            <div className="campo-modulo largo">
+              <label>Add-before-pause — solo per mettere in pausa (doc 11, da ERR-2026-001)</label>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <label style={{ fontSize: 12, display: "flex", flexDirection: "column", gap: 3 }}>
+                  Sostituto approvato il
+                  <input name="sostitutoApprovatoIl" type="date" style={{ font: "inherit", padding: "7px 10px", borderRadius: 8, border: "1px solid var(--hairline-strong)" }} />
+                </label>
+                <label style={{ fontSize: 12, display: "flex", flexDirection: "column", gap: 3 }}>
+                  Giorni di dati del sostituto
+                  <input name="sostitutoGiorniDati" type="number" min="0" style={{ width: 120, font: "inherit", padding: "7px 10px", borderRadius: 8, border: "1px solid var(--hairline-strong)" }} />
+                </label>
+              </div>
+            </div>
+          )}
           <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
             <button className="btn" type="submit">Metti in coda</button>
           </div>

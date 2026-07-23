@@ -198,6 +198,8 @@ export function validaModifica(opts: {
   deltaBudgetPct: number | null;
   rollbackPiano: string | null;
   ultimaModifica: Date | null;
+  // quante L2/L3 sono gia state fatte questa settimana su questa campagna
+  l2Settimana?: number;
   adesso?: Date;
 }): { blocchi: string[]; avvisi: string[] } {
   const blocchi: string[] = [];
@@ -223,6 +225,11 @@ export function validaModifica(opts: {
     }
     if ((opts.livello === "L2" || opts.livello === "L3") && !opts.rollbackPiano?.trim()) {
       blocchi.push("Modifica L2/L3 su TRAINO senza piano di rollback: obbligatorio (stato PRIMA, trigger di ripristino, azione esatta).");
+    }
+    if ((opts.livello === "L2" || opts.livello === "L3") && (opts.l2Settimana ?? 0) >= 1) {
+      blocchi.push(
+        `Su una TRAINO si fa al massimo UNA modifica L2/L3 a settimana: questa settimana ne risultano già ${opts.l2Settimana} (doc 11 §2).`
+      );
     }
     if (opts.livello === "L3") {
       avvisi.push("L3 su TRAINO: mai in diretta — solo esperimento 50/50 o deroga esplicita con rollback plan (doc 11 §2).");
@@ -275,6 +282,108 @@ export function triggerFatigue(metriche: MetricaGiorno[]): string | null {
   const cpmPrima = cpm(storico);
   if (cpmOra != null && cpmPrima != null && cpmPrima > 0 && cpmOra >= cpmPrima * 1.2 && ora != null && prima != null && ora > prima) {
     return `CPM +${Math.round((cpmOra / cpmPrima - 1) * 100)}% con costi in salita: possibile fatigue I+D`;
+  }
+  return null;
+}
+
+// ---------- CHECK OBBLIGATORIO: VALORE vs NUMERO (ISTRUZIONI, dal 16/7/2026) ----------
+// In ogni audit, per OGNI campagna attiva, va registrato se l'obiettivo
+// ottimizza per VALORE o per NUMERO, con raccomandazione motivata.
+// Il valore si sceglie solo con valori di conversione affidabili e volume
+// sufficiente: su Google tROAS da ≥15 conversioni con valore in 30 giorni.
+
+export type ValoreNumero = {
+  tipo: "valore" | "numero" | "manuale" | "sconosciuto";
+  etichetta: string;
+  raccomandazione: string;
+  // true quando la strategia andrebbe cambiata
+  daCambiare: boolean;
+};
+
+const STRATEGIE_VALORE = ["TARGET_ROAS", "MAXIMIZE_CONVERSION_VALUE"];
+const STRATEGIE_NUMERO = ["TARGET_CPA", "MAXIMIZE_CONVERSIONS"];
+
+export function valoreONumero(
+  strategia: string | null,
+  conv30: number,
+  ricavi30: number
+): ValoreNumero {
+  const idoneaAlValore = conv30 >= 15 && ricavi30 > 0;
+  if (!strategia) {
+    return {
+      tipo: "sconosciuto",
+      etichetta: "Strategia non letta",
+      raccomandazione:
+        "La strategia di offerta non è ancora arrivata dalla piattaforma: il check VALORE vs NUMERO non è compilabile. Lancia lo script di Google Ads.",
+      daCambiare: false,
+    };
+  }
+  if (STRATEGIE_VALORE.includes(strategia)) {
+    return {
+      tipo: "valore",
+      etichetta: "Ottimizza per VALORE",
+      raccomandazione: idoneaAlValore
+        ? `Corretta: ${conv30} conversioni con valore negli ultimi 30 giorni (soglia 15).`
+        : `Attenzione: ottimizza per valore ma ha solo ${conv30} conversioni con valore in 30 giorni (servono ≥15). Con questi volumi il valore è rumore: valutare il ritorno a Massimizza conversioni.`,
+      daCambiare: !idoneaAlValore,
+    };
+  }
+  if (STRATEGIE_NUMERO.includes(strategia)) {
+    return {
+      tipo: "numero",
+      etichetta: "Ottimizza per NUMERO",
+      raccomandazione: idoneaAlValore
+        ? `Candidata al passaggio a VALORE: ha ${conv30} conversioni con valore in 30 giorni (soglia ≥15). Ricorda che il cambio resetta l'apprendimento — passa dal foglio "Aggiornamento Campagne".`
+        : `Corretta per ora: ${conv30} conversioni con valore in 30 giorni, sotto la soglia di 15 per il tROAS.`,
+      daCambiare: idoneaAlValore,
+    };
+  }
+  return {
+    tipo: "manuale",
+    etichetta: `Strategia ${strategia}`,
+    raccomandazione:
+      "Strategia manuale o non automatica: valutare il passaggio a una strategia automatica se il volume di conversioni lo consente.",
+    daCambiare: false,
+  };
+}
+
+// ---------- A4: annunci in revisione (doc 11 §4) ----------
+// ">50% degli annunci attivi in review/limited per >24h" — arancione.
+export function alertA4(inReview: number | null, totali: number | null): AlertRilevato | null {
+  if (!inReview || !totali || totali === 0) return null;
+  if (inReview / totali > 0.5) {
+    return {
+      tipo: "A4",
+      livello: "arancio",
+      messaggio: `Review: ${inReview} annunci su ${totali} sono in revisione o limitati da oltre 24h (soglia 50%)`,
+    };
+  }
+  return null;
+}
+
+// ---------- Add-before-pause (doc 11 §2, ERR-2026-001) ----------
+// "Il vincente non si pausa finché il sostituto non è Approved da ≥48h con
+// ≥7 giorni di dati." Vale sulle campagne traino.
+export function addBeforePause(opts: {
+  classe: string;
+  tipo: string;
+  sostitutoApprovatoIl: Date | null;
+  sostitutoGiorniDati: number | null;
+  adesso?: Date;
+}): string | null {
+  if (opts.classe !== "traino") return null;
+  if (!["pausa_campagna", "pausa_keyword"].includes(opts.tipo)) return null;
+
+  const adesso = opts.adesso ?? new Date();
+  if (!opts.sostitutoApprovatoIl) {
+    return "Add-before-pause (doc 11, nato da ERR-2026-001): su una traino non si mette in pausa il vincente senza un sostituto già attivo. Dichiara il sostituto e da quando è approvato.";
+  }
+  const ore = (adesso.getTime() - opts.sostitutoApprovatoIl.getTime()) / 3600_000;
+  if (ore < 48) {
+    return `Add-before-pause: il sostituto è approvato da ${Math.round(ore)}h, ne servono almeno 48.`;
+  }
+  if ((opts.sostitutoGiorniDati ?? 0) < 7) {
+    return `Add-before-pause: il sostituto ha ${opts.sostitutoGiorniDati ?? 0} giorni di dati, ne servono almeno 7.`;
   }
   return null;
 }

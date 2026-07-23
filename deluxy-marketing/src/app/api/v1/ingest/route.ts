@@ -83,21 +83,32 @@ export async function POST(req: NextRequest) {
             brand: brandDa(String(r.nome)),
             stato: r.stato ?? "attiva",
             budgetGiornaliero: numero(r.budgetGiornaliero),
+            strategiaOfferta: r.strategiaOfferta ? String(r.strategiaOfferta) : null,
+            annunciTotali: r.annunciTotali != null ? Math.round(Number(r.annunciTotali)) : null,
+            annunciInReview: r.annunciInReview != null ? Math.round(Number(r.annunciInReview)) : null,
             note: `Creata automaticamente dall'import ${canale}${body.account ? ` (account ${body.account})` : ""}`,
           },
         });
         campagneCreate++;
       }
-    } else if (r.stato || r.budgetGiornaliero != null) {
+    } else if (r.stato || r.budgetGiornaliero != null || r.strategiaOfferta || r.annunciTotali != null) {
       await prisma.campagna.update({
         where: { id: campagna.id },
         data: {
           ...(r.stato ? { stato: r.stato } : {}),
           ...(r.budgetGiornaliero != null ? { budgetGiornaliero: numero(r.budgetGiornaliero) } : {}),
+          ...(r.strategiaOfferta ? { strategiaOfferta: String(r.strategiaOfferta) } : {}),
+          ...(r.annunciTotali != null ? { annunciTotali: Math.round(Number(r.annunciTotali)) } : {}),
+          ...(r.annunciInReview != null ? { annunciInReview: Math.round(Number(r.annunciInReview)) } : {}),
         },
       });
     }
 
+    // Le righe che portano solo i conteggi di approvazione non hanno metriche
+    if (r.spesa == null && r.impression == null && r.click == null && r.annunciTotali != null) {
+      metricheSalvate++;
+      continue;
+    }
     const valori = {
       spesa: numero(r.spesa),
       impression: numero(r.impression) != null ? Math.round(numero(r.impression)!) : null,
