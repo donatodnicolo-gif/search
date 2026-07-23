@@ -314,3 +314,34 @@ tbody tr:hover { background: var(--fill); }
 .tabella-calendario .riga-forte td { background: var(--gold-soft); }
 .tabella-calendario tbody tr:hover { background: var(--fill); }
 .tabella-calendario tbody tr.riga-forte:hover td { background: var(--gold-soft); }
+
+/* ---------- Card test Meta ---------- */
+.colonna-spiega { font-size: 11px; color: var(--text-tertiary); margin-top: 3px; line-height: 1.4; max-width: 220px; }
+.test-campo { display: flex; flex-direction: column; margin-top: 7px; }
+.test-etichetta { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-tertiary); }
+.test-valore { font-size: 12.5px; line-height: 1.45; white-space: normal; }
+
+/* ---------- Card landing a tema ---------- */
+.griglia-landing { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); }
+.card-landing {
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-l); box-shadow: var(--shadow-card); padding: 14px 16px;
+  transition: box-shadow .18s var(--ease), transform .18s var(--ease);
+}
+.card-landing:hover { box-shadow: var(--shadow-float); transform: translateY(-2px); }
+.card-landing-mismatch { border-color: rgba(201, 52, 0, .45); }
+.card-landing-testata { display: flex; align-items: flex-start; gap: 10px; }
+.card-landing-icona {
+  flex: 0 0 auto; width: 40px; height: 40px; border-radius: var(--radius-m);
+  background: var(--fill); display: flex; align-items: center; justify-content: center;
+}
+.card-landing-icona svg { width: 21px; height: 21px; }
+.card-landing-tema { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.card-landing-url { display: block; font-weight: 600; font-size: 13.5px; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.card-landing-scopo { font-size: 12.5px; color: var(--text-secondary); line-height: 1.45; }
+.card-landing-piede {
+  display: flex; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 8px;
+  border-top: 1px solid var(--hairline); font-size: 12px; color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}

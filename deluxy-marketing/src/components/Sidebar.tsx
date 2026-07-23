@@ -4,7 +4,7 @@ import { Icona } from "./Icona";
 import { SbSezione } from "./SbSezione";
 
 export type VoceSidebar =
-  | "home" | "analisi" | "audit" | "azioni" | "campagne" | "landing" | "copy"
+  | "home" | "analisi" | "audit" | "azioni" | "campagne" | "landing" | "copy" | "keywords"
   | "meta" | "drive" | "storico" | "vendite" | "budget" | "mkt";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente;
@@ -54,6 +54,7 @@ export async function Sidebar({
           {voce("campagne", "/campagne", "campagne", "Campagne", nCampagneVive)}
           {voce("landing", "/landing", "landing", "Landing page", nLanding)}
           {voce("copy", "/copy", "copy", "Copy & annunci")}
+          {voce("keywords", "/keywords", "analisi", "Keywords")}
           {voce("meta", "/meta", "meta", "Meta & test", nTestAperti)}
         </SbSezione>
 

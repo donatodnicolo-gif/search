@@ -141,10 +141,31 @@ export async function cambiaStatoCampagna(fd: FormData) {
   const id = testo(fd, "id");
   const stato = testo(fd, "stato");
   if (!id || !stato || !(STATI_CAMPAGNA as readonly string[]).includes(stato)) return;
+  const prima = await prisma.campagna.findUnique({ where: { id } });
+  if (!prima || prima.stato === stato) return;
   const campagna = await prisma.campagna.update({ where: { id }, data: { stato } });
   await registra({ autore: "utente", tipo: "stato", entita: "campagna", entitaId: id, titolo: `Campagna "${campagna.nome}" → ${stato}` });
+  // Il cambio deciso nell'app va eseguito davvero sulla piattaforma: si mette
+  // in coda un'azione owner AI. Basta dire a una sessione Claude "esegui le
+  // azioni in coda dell'app marketing" (GET /api/v1/azioni?aperte=1).
+  if (["in_pausa", "attiva", "conclusa"].includes(stato)) {
+    const verbo = stato === "in_pausa" ? "mettere in pausa" : stato === "attiva" ? "riattivare" : "concludere";
+    await prisma.azione.create({
+      data: {
+        titolo: `Eseguire su ${campagna.canale === "meta_ads" ? "Meta" : "Google Ads"}: ${verbo} "${campagna.nome}"`,
+        descrizione: `Deciso dall'app Marketing il ${new Date().toLocaleDateString("it-IT")}: portare la campagna "${campagna.nome}" (${campagna.brand}) allo stato "${stato}" sulla piattaforma. Al termine chiudere questa azione come fatta con l'esito reale e aggiornare la Mappa 00.4 secondo protocollo.`,
+        brand: campagna.brand,
+        canale: campagna.canale,
+        priorita: "alta",
+        owner: "ai",
+        campagnaId: campagna.id,
+        eventi: { create: { tipo: "creazione", autore: "sistema", testo: "Generata dal cambio stato campagna nell'app" } },
+      },
+    });
+  }
   revalidatePath(`/campagne/${id}`);
   revalidatePath("/campagne");
+  revalidatePath("/azioni");
 }
 
 export async function aggiungiMetrica(fd: FormData) {

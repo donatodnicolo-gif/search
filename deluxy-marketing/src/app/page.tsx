@@ -18,6 +18,35 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function settimanaIso(d: Date): number {
+  const data = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const giorno = data.getUTCDay() || 7;
+  data.setUTCDate(data.getUTCDate() + 4 - giorno);
+  const inizioAnno = new Date(Date.UTC(data.getUTCFullYear(), 0, 1));
+  return Math.ceil(((data.getTime() - inizioAnno.getTime()) / 86_400_000 + 1) / 7);
+}
+
+// ROS (vendite / spesa MKT) sulle ultime 4 settimane registrate di uno scope,
+// con confronto sulle stesse settimane dell'anno prima.
+async function rosScope(scope: string): Promise<{ ros: number | null; delta: number | null }> {
+  const settimane = await prisma.settimanaMkt.findMany({
+    where: { scope, anno: 2026, vendite: { not: null } },
+    orderBy: { inizio: "desc" },
+    take: 4,
+  });
+  if (settimane.length === 0) return { ros: null, delta: null };
+  const spesa = settimane.reduce((s, w) => s + (w.google ?? 0) + (w.meta ?? 0), 0);
+  const vendite = settimane.reduce((s, w) => s + (w.vendite ?? 0), 0);
+  const ros = spesa > 0 ? vendite / spesa : null;
+  const numeri = settimane.map((w) => settimanaIso(w.inizio));
+  const prima = await prisma.settimanaMkt.findMany({ where: { scope, anno: 2025 } });
+  const primaFiltrate = prima.filter((w) => numeri.includes(settimanaIso(w.inizio)));
+  const spesaPrima = primaFiltrate.reduce((s, w) => s + (w.google ?? 0) + (w.meta ?? 0), 0);
+  const venditePrima = primaFiltrate.reduce((s, w) => s + (w.vendite ?? 0), 0);
+  const rosPrima = spesaPrima > 0 ? venditePrima / spesaPrima : null;
+  return { ros, delta: ros != null && rosPrima != null && rosPrima > 0 ? ros / rosPrima - 1 : null };
+}
+
 export default async function Dashboard() {
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
@@ -61,6 +90,19 @@ export default async function Dashboard() {
   }));
   const spesa7 = puntiSpesa.slice(-7).reduce((s, p) => s + p.valore, 0);
 
+  const [rosTotale, rosGifts, rosFlowers, rosCake] = await Promise.all([
+    rosScope("totale"),
+    rosScope("gifts"),
+    rosScope("flowers"),
+    rosScope("cake"),
+  ]);
+  const rosPerScope: Record<string, { ros: number | null; delta: number | null }> = {
+    totale: rosTotale,
+    gifts: rosGifts,
+    flowers: rosFlowers,
+    cake: rosCake,
+  };
+
   return (
     <div className="layout">
       <Sidebar attiva="home" />
@@ -99,6 +141,32 @@ export default async function Dashboard() {
             <div className="kpi-valore">{formattaEuro(spesa7)}</div>
             <div className="kpi-etichetta">Spesa ADV ultimi 7 gg</div>
           </div>
+        </div>
+
+        <div className="kpi-riga">
+          {[
+            ["totale", "ROS Deluxy (totale)"],
+            ["gifts", "ROS Deluxy.it"],
+            ["flowers", "ROS Flowers"],
+            ["cake", "ROS Cake"],
+          ].map(([scope, etichetta]) => {
+            const r = rosPerScope[scope];
+            return (
+              <a className="kpi" key={scope} href={`/mkt?scope=${scope}`}>
+                <div className="kpi-valore" style={r?.ros != null ? { color: r.ros >= 5 ? "var(--green)" : r.ros >= 3 ? "var(--text)" : "var(--red)" } : undefined}>
+                  {r?.ros != null ? `${r.ros.toFixed(1)}×` : "—"}
+                </div>
+                <div className="kpi-etichetta">
+                  {etichetta}
+                  {r?.delta != null && (
+                    <span style={{ color: r.delta >= 0 ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
+                      {" "}· {r.delta >= 0 ? "+" : ""}{(r.delta * 100).toFixed(0)}% vs 2025
+                    </span>
+                  )}
+                </div>
+              </a>
+            );
+          })}
         </div>
 
         <div className="due-colonne">

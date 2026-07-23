@@ -1,7 +1,7 @@
 import { Badge } from "@/components/Badge";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
-import { BRANDS, COLORE_BRAND, ETICHETTA_BRAND, formattaEuro } from "@/lib/dominio";
+import { BRANDS, COLORE_BRAND, ETICHETTA_BRAND } from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,7 @@ export default async function PaginaCopy({
   const { brand, campagna, q } = await searchParams;
   const tutti = await prisma.copyAnnuncio.findMany({
     where: {
+      tipo: { not: "keyword" },
       ...(brand ? { brand } : {}),
       ...(campagna ? { campagna } : {}),
       ...(q ? { testo: { contains: q } } : {}),
@@ -39,9 +40,9 @@ export default async function PaginaCopy({
           <div>
             <h1 className="page-title">Copy &amp; annunci</h1>
             <p className="page-sub">
-              I testi degli annunci per campagna: titoli e descrizioni RSA con conteggio caratteri,
-              keyword con resa e spesa. Le regole di tono e claim per brand vivono nei Definitivi
-              (7.2 Tono di Voce, 7.3 Claim e Consegna).
+              I testi degli annunci per campagna: titoli e descrizioni RSA con il conteggio dei
+              caratteri (in rosso quelli fuori limite). Le keyword hanno una sezione dedicata; le
+              regole di tono e claim vivono nei Definitivi (7.2 Tono di Voce, 7.3 Claim e Consegna).
             </p>
           </div>
         </div>
@@ -70,7 +71,6 @@ export default async function PaginaCopy({
         {[...perCampagna.entries()].map(([nomeCampagna, asset]) => {
           const titoli = asset.filter((a) => a.tipo === "titolo");
           const descrizioni = asset.filter((a) => a.tipo === "descrizione");
-          const keyword = asset.filter((a) => a.tipo === "keyword");
           const note = asset.filter((a) => a.tipo === "nota");
           const brandCampagna = asset[0]?.brand ?? "cross";
           return (
@@ -83,8 +83,7 @@ export default async function PaginaCopy({
                 ))}
                 {asset[0]?.lingua && <span style={{ textTransform: "uppercase", color: "var(--text-tertiary)" }}>{asset[0].lingua}</span>}
               </div>
-              <div className="due-colonne">
-                <div>
+              <div>
                   {titoli.length > 0 && (
                     <>
                       <div className="cella-sub" style={{ marginBottom: 6 }}>TITOLI ({titoli.length}, max 30 caratteri)</div>
@@ -117,44 +116,6 @@ export default async function PaginaCopy({
                       </ul>
                     </>
                   )}
-                </div>
-                <div>
-                  {keyword.length > 0 && (
-                    <>
-                      <div className="cella-sub" style={{ marginBottom: 6 }}>KEYWORD ({keyword.length}) — resa e spesa</div>
-                      <div style={{ overflowX: "auto" }}>
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Keyword</th>
-                              <th className="num">Incasso</th>
-                              <th className="num">Spesa</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {keyword
-                              .sort((a, b) => (b.incasso ?? 0) - (a.incasso ?? 0))
-                              .slice(0, 15)
-                              .map((k) => (
-                                <tr key={k.id}>
-                                  <td>{k.testo}</td>
-                                  <td className="num" style={{ color: (k.incasso ?? 0) > 0 ? "var(--green)" : "var(--text-tertiary)" }}>
-                                    {formattaEuro(k.incasso)}
-                                  </td>
-                                  <td className="num cella-muta">{formattaEuro(k.spesa)}</td>
-                                </tr>
-                              ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      {keyword.length > 15 && (
-                        <div className="cella-sub" style={{ marginTop: 6 }}>
-                          Mostrate le prime 15 per incasso ({keyword.length} totali).
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
               </div>
             </section>
           );
