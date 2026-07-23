@@ -167,6 +167,14 @@ model Evento {
   messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: SetNull)
   creatoDaAI  Boolean    @default(false)
 
+  // RICORRENZA. Le occorrenze sono righe VERE (una per data), legate dallo
+  // stesso `serieId`: così tutto ciò che già legge gli eventi per intervallo di
+  // date (griglia, prossimi, feed iCal, colonna in posta) funziona senza sapere
+  // nulla delle ripetizioni. `regola` è la descrizione leggibile ("ogni 2
+  // giorni", "ultimo giorno feriale del mese") mostrata sulla scheda.
+  serieId String?
+  regola  String  @default("")
+
   // Invito via mail: gli indirizzi invitati (per virgola), il token dei link
   // Accetta/Rifiuta nella mail, e le risposte raccolte (JSON email -> si|no).
   invitati       String @default("")

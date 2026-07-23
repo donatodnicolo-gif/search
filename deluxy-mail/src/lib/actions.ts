@@ -57,6 +57,7 @@ import {
 } from './sync'
 import { chiaveThread } from './thread'
 import { nomiPerChiavi, chiaviPerNome } from './nomiThread'
+import { ricorrenzaDaForm, dateRicorrenza, descriviRicorrenza } from './ricorrenze'
 import { CODICI_PRIORITA, FUSO } from './format'
 import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione, classificaDelega, interpretaComandoPosta, estraiAppuntamentoDaTesto } from './ai'
 import { raggruppa } from './thread'
@@ -2116,49 +2117,125 @@ export async function creaEvento(form: FormData): Promise<{ ok: boolean; messagg
   const oraInizio = testo(form, 'oraInizio') // HH:MM
   const oraFine = testo(form, 'oraFine')
 
-  // Le date arrivano come ora italiana: si memorizzano in UTC. Il fuso di
-  // Roma è +2 d'estate/+1 d'inverno: lo calcola il formatter, non a mano.
-  const locale = (o: string) => {
-    const [h, m] = o.split(':').map(Number)
-    const [Y, M, G] = giorno.split('-').map(Number)
-    // Trova l'offset del fuso Europe/Rome per quel giorno.
-    const utcBase = Date.UTC(Y, M - 1, G, h ?? 0, m ?? 0)
-    const inRoma = new Date(utcBase).toLocaleString('en-US', { timeZone: FUSO })
-    const offset = utcBase - new Date(`${inRoma} UTC`).getTime()
-    return new Date(utcBase + offset)
-  }
-
-  const inizio = giornataIntera ? new Date(`${giorno}T00:00:00Z`) : locale(oraInizio || '09:00')
-  const fine = giornataIntera ? null : oraFine ? locale(oraFine) : null
+  const inizio = giornataIntera ? new Date(`${giorno}T00:00:00Z`) : oraItalianaInUtc(`${giorno}T${oraInizio || '09:00'}`)!
+  const fine = giornataIntera ? null : oraFine ? oraItalianaInUtc(`${giorno}T${oraFine}`) : null
   if (fine && fine < inizio) return { ok: false, messaggio: 'La fine è prima dell’inizio.' }
 
+  // Ricorrenza: le occorrenze sono righe vere, una per data, con lo stesso
+  // serieId. Senza ripetizione la lista contiene solo il giorno scelto.
+  const ricorrenza = ricorrenzaDaForm((campo) => testo(form, campo))
+  const date = dateRicorrenza(giorno, ricorrenza)
+  const regola = descriviRicorrenza(ricorrenza)
+  const serieId = date.length > 1 ? randomBytes(9).toString('base64url') : null
+
   const invitati = emailDaLista(testo(form, 'invitati'))
-  const creato = await db.evento.create({
-    data: {
-      utenteId,
-      titolo,
-      descrizione: testo(form, 'descrizione'),
-      luogo: testo(form, 'luogo'),
-      inizio,
-      fine,
-      giornataIntera,
-      messaggioId: opzionale(form, 'messaggioId'),
-      invitati: invitati.join(', '),
-    },
-    select: { id: true },
-  })
+  const comune = {
+    utenteId,
+    titolo,
+    descrizione: testo(form, 'descrizione'),
+    luogo: testo(form, 'luogo'),
+    giornataIntera,
+    messaggioId: opzionale(form, 'messaggioId'),
+    invitati: invitati.join(', '),
+    serieId,
+    regola,
+  }
+
+  // La prima occorrenza si crea a parte: è quella a cui si agganciano gli
+  // inviti (non si mandano N mail per N ripetizioni).
+  const creato = await db.evento.create({ data: { ...comune, inizio, fine }, select: { id: true } })
+
+  if (date.length > 1) {
+    const altre = date.slice(1).map((g) => ({
+      ...comune,
+      inizio: giornataIntera ? new Date(`${g}T00:00:00Z`) : oraItalianaInUtc(`${g}T${oraInizio || '09:00'}`)!,
+      fine: giornataIntera || !oraFine ? null : oraItalianaInUtc(`${g}T${oraFine}`),
+    }))
+    await db.evento.createMany({ data: altre })
+  }
 
   // Con gli invitati parte subito la mail d'invito (iCal + link Accetta/Rifiuta).
   let notaInvito: string | null = null
   if (invitati.length > 0) notaInvito = await inviaInvitoEvento(utenteId, creato.id)
 
-  revalidatePath('/calendario')
-  return { ok: true, messaggio: `Appuntamento salvato.${notaInvito ? ` ${notaInvito}` : ''}` }
+  revalidatePath('/', 'layout')
+  const quante = date.length > 1 ? ` Ripetuto ${date.length} volte (${regola.toLowerCase()}).` : ''
+  return { ok: true, messaggio: `Appuntamento salvato.${quante}${notaInvito ? ` ${notaInvito}` : ''}` }
 }
 
-export async function eliminaEvento(id: string) {
-  await db.evento.deleteMany({ where: { id, utenteId: await uid() } })
-  revalidatePath('/calendario')
+/**
+ * Modifica un appuntamento. `ambito='serie'` applica titolo, luogo, note e
+ * ORARIO a tutte le occorrenze della serie (ognuna resta nel suo giorno);
+ * `questo` tocca solo quello aperto — compresa la data.
+ */
+export async function modificaEvento(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const id = testo(form, 'id')
+  const evento = await db.evento.findFirst({ where: { id, utenteId } })
+  if (!evento) return { ok: false, messaggio: 'Appuntamento non trovato.' }
+
+  const titolo = testo(form, 'titolo')
+  if (!titolo) return { ok: false, messaggio: 'Serve un titolo.' }
+  const giorno = testo(form, 'giorno')
+  if (!giorno) return { ok: false, messaggio: 'Serve la data.' }
+
+  const giornataIntera = flag(form, 'giornataIntera')
+  const oraInizio = testo(form, 'oraInizio') || '09:00'
+  const oraFine = testo(form, 'oraFine')
+  const tuttaSerie = testo(form, 'ambito') === 'serie' && Boolean(evento.serieId)
+
+  const inizio = giornataIntera ? new Date(`${giorno}T00:00:00Z`) : oraItalianaInUtc(`${giorno}T${oraInizio}`)!
+  const fine = giornataIntera ? null : oraFine ? oraItalianaInUtc(`${giorno}T${oraFine}`) : null
+  if (fine && fine < inizio) return { ok: false, messaggio: 'La fine è prima dell’inizio.' }
+
+  const testi = {
+    titolo,
+    descrizione: testo(form, 'descrizione'),
+    luogo: testo(form, 'luogo'),
+    giornataIntera,
+  }
+
+  if (!tuttaSerie) {
+    await db.evento.update({ where: { id: evento.id }, data: { ...testi, inizio, fine } })
+    revalidatePath('/', 'layout')
+    return { ok: true, messaggio: 'Appuntamento aggiornato.' }
+  }
+
+  // Tutta la serie: ogni occorrenza tiene il SUO giorno e prende il nuovo
+  // orario. (Spostare anche le date vorrebbe dire rifare la serie: si toglie e
+  // si ricrea, ed è più onesto che indovinare.)
+  const occorrenze = await db.evento.findMany({
+    where: { utenteId, serieId: evento.serieId },
+    select: { id: true, inizio: true },
+  })
+  for (const o of occorrenze) {
+    const g = o.inizio.toLocaleDateString('sv-SE', { timeZone: FUSO })
+    await db.evento.update({
+      where: { id: o.id },
+      data: {
+        ...testi,
+        inizio: giornataIntera ? new Date(`${g}T00:00:00Z`) : oraItalianaInUtc(`${g}T${oraInizio}`)!,
+        fine: giornataIntera || !oraFine ? null : oraItalianaInUtc(`${g}T${oraFine}`),
+      },
+    })
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: `Aggiornate ${occorrenze.length} occorrenze della serie.` }
+}
+
+/** Elimina un appuntamento: solo quello, oppure tutta la serie ricorrente. */
+export async function eliminaEvento(id: string, ambito: 'questo' | 'serie' = 'questo') {
+  const utenteId = await uid()
+  if (ambito === 'serie') {
+    const e = await db.evento.findFirst({ where: { id, utenteId }, select: { serieId: true } })
+    if (e?.serieId) {
+      await db.evento.deleteMany({ where: { utenteId, serieId: e.serieId } })
+      revalidatePath('/', 'layout')
+      return
+    }
+  }
+  await db.evento.deleteMany({ where: { id, utenteId } })
+  revalidatePath('/', 'layout')
 }
 
 /** Accende (o rigenera) il feed iCal: un token nuovo invalida il vecchio link. */

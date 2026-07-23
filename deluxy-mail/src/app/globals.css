@@ -1128,12 +1128,26 @@ mark.ricerca-hit {
 .cal-cella.oggi { border-color: var(--gold-strong); background: var(--gold-soft); }
 .cal-numero { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
 .cal-cella.oggi .cal-numero { color: var(--gold-strong); }
+/* L'appuntamento nella griglia: è un pulsante (apre la scheda), ma deve
+   restare identico alla chip di prima — niente bordi o sfondi da <button>. */
 .cal-evento {
+  display: block; width: 100%; text-align: left;
+  font: inherit; color: inherit; border: none; cursor: pointer;
   font-size: 11.5px; line-height: 1.35; border-radius: var(--radius-s);
   background: var(--fill); padding: 2px 6px; margin-bottom: 3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.cal-evento:hover { background: var(--hairline-strong); }
 .cal-evento .cal-ora { color: var(--text-tertiary); font-weight: 600; margin-right: 4px; }
+/* Segnalino degli appuntamenti che si ripetono. */
+.cal-ripete { margin-left: 4px; color: var(--gold-strong); font-weight: 700; }
+
+/* Il titolo cliccabile in "Prossimi appuntamenti". */
+.link-evento {
+  font: inherit; color: inherit; background: none; border: none; padding: 0;
+  cursor: pointer; text-align: left;
+}
+.link-evento:hover { text-decoration: underline; }
 
 /* Le attività in scadenza nel giorno: chip con un pallino colore-priorità. */
 .cal-task {

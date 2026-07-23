@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
 import { FUSO, coloreDiPriorita, priorita as livello } from '@/lib/format'
 import { NuovoEvento } from '@/components/NuovoEvento'
+import { EventoDettaglio, EventoApribile, type DatiEvento } from '@/components/EventoDettaglio'
 import { EliminaEvento } from '@/components/EliminaEvento'
 import { FeedCalendario } from '@/components/FeedCalendario'
 import { elencoContatti } from '@/lib/contatti'
@@ -122,6 +123,35 @@ export default async function Calendario({ searchParams }: Props) {
 
   // La griglia: da lunedì della prima settimana a domenica dell'ultima.
   const primoDelMese = new Date(Date.UTC(anno, mese - 1, 1))
+  // I dati che la scheda di dettaglio si aspetta: giorno e ore già in ora
+  // italiana, così il modale non deve fare conti sui fusi.
+  const datiEvento = (e: {
+    id: string
+    titolo: string
+    descrizione: string
+    luogo: string
+    inizio: Date
+    fine: Date | null
+    giornataIntera: boolean
+    serieId?: string | null
+    regola?: string
+    invitati: string
+    messaggioId: string | null
+  }): DatiEvento => ({
+    id: e.id,
+    titolo: e.titolo,
+    descrizione: e.descrizione,
+    luogo: e.luogo,
+    giorno: giornoIt(e.inizio),
+    oraInizio: e.giornataIntera ? '' : oraIt(e.inizio),
+    oraFine: !e.giornataIntera && e.fine ? oraIt(e.fine) : '',
+    giornataIntera: e.giornataIntera,
+    serieId: e.serieId ?? null,
+    regola: e.regola ?? '',
+    invitati: e.invitati,
+    messaggioId: e.messaggioId,
+  })
+
   const slittamento = (primoDelMese.getUTCDay() + 6) % 7 // lun=0 … dom=6
   const giorniNelMese = new Date(Date.UTC(anno, mese, 0)).getUTCDate()
   const celle: { giorno: number | null; chiave: string }[] = []
@@ -164,10 +194,17 @@ export default async function Calendario({ searchParams }: Props) {
               <div key={c.chiave} className={`cal-cella ${c.chiave === oggiIt ? 'oggi' : ''}`}>
                 <div className="cal-numero">{c.giorno}</div>
                 {(perGiorno.get(c.chiave) ?? []).map((e) => (
-                  <div key={e.id} className="cal-evento" title={`${e.titolo}${e.luogo ? ` · ${e.luogo}` : ''}`}>
+                  // Cliccando si apre la scheda: dettaglio, modifica, elimina.
+                  <EventoApribile
+                    key={e.id}
+                    dati={datiEvento(e)}
+                    className="cal-evento"
+                    title={`${e.titolo}${e.luogo ? ` · ${e.luogo}` : ''} — clicca per aprire`}
+                  >
                     {!e.giornataIntera && <span className="cal-ora">{oraIt(e.inizio)}</span>}
                     {e.titolo}
-                  </div>
+                    {e.serieId && <span className="cal-ripete" title="Appuntamento ricorrente">⟳</span>}
+                  </EventoApribile>
                 ))}
                 {(taskPerGiorno.get(c.chiave) ?? []).map((t) => (
                   <Link
@@ -206,7 +243,18 @@ export default async function Calendario({ searchParams }: Props) {
                 </div>
               </div>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div className="task-titolo">{e.titolo}</div>
+                <div className="task-titolo">
+                  {/* Il titolo apre la scheda: dettaglio, modifica, elimina. */}
+                  <EventoApribile dati={datiEvento(e)} className="link-evento" title="Apri la scheda dell’appuntamento">
+                    {e.titolo}
+                  </EventoApribile>
+                  {e.serieId && (
+                    <span className="badge gold" style={{ marginLeft: 8 }} title={e.regola || 'Appuntamento ricorrente'}>
+                      <span className="dot" />
+                      si ripete
+                    </span>
+                  )}
+                </div>
                 {(e.luogo || e.descrizione) && (
                   <div className="task-sub">
                     {[e.luogo, e.descrizione].filter(Boolean).join(' · ').slice(0, 140)}
@@ -235,6 +283,9 @@ export default async function Calendario({ searchParams }: Props) {
                 )}
               </div>
               <div className="task-side">
+                <EventoApribile dati={datiEvento(e)} className="azione-riga" title="Modifica o elimina">
+                  Apri
+                </EventoApribile>
                 <EliminaEvento id={e.id} />
               </div>
             </div>
@@ -287,6 +338,9 @@ export default async function Calendario({ searchParams }: Props) {
       <div className="card">
         <FeedCalendario token={tokenCalendario} />
       </div>
+
+      {/* La scheda dell'appuntamento: montata una volta per la pagina. */}
+      <EventoDettaglio />
     </>
   )
 }

@@ -26,6 +26,10 @@ const stmts = [
      "istruzioni" TEXT NOT NULL,
      "aggiornatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "IstruzioneThread_utenteId_chiave_key" ON "IstruzioneThread"("utenteId","chiave")`,
+  // Appuntamenti ricorrenti: le occorrenze sono righe vere legate da serieId.
+  `ALTER TABLE "Evento" ADD COLUMN IF NOT EXISTS "serieId" TEXT`,
+  `ALTER TABLE "Evento" ADD COLUMN IF NOT EXISTS "regola" TEXT NOT NULL DEFAULT ''`,
+  `CREATE INDEX IF NOT EXISTS "Evento_serieId_idx" ON "Evento"("serieId")`,
   // Nome dato a mano a una conversazione (per ritrovarla e cercarla).
   `CREATE TABLE IF NOT EXISTS "NomeThread" (
      "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "chiave" TEXT NOT NULL,

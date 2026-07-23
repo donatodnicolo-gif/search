@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { creaEvento } from '@/lib/actions'
 import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
+import { Ricorrenza } from './Ricorrenza'
 
 /** Il modulo per annotare un appuntamento nel calendario. */
 export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] }) {
@@ -90,6 +91,10 @@ export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] })
             <label className="field-label">Note</label>
             <input type="text" name="descrizione" placeholder="Dettagli utili (opzionale)" />
           </div>
+
+          <Ricorrenza />
+
+
 
           <div className="full">
             <label className="field-label">Invita (dalla rubrica, o scrivi l’email)</label>
