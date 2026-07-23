@@ -160,6 +160,10 @@ model SaldoMensile {
   bonificoData    DateTime?
   chiuso          Boolean   @default(false)
   note            String?
+  // Quando la nota è stata scritta/modificata l'ultima volta: serve al recap AI
+  // per capire se quello che dice è ancora attuale (updatedAt cambia anche per
+  // i pagamenti, quindi non basta).
+  noteAggiornateIl DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

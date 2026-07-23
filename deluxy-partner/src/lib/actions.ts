@@ -581,10 +581,12 @@ export async function salvaNoteMese(
   fd: FormData
 ) {
   const note = s(fd, "note");
+  // la data serve al recap AI per giudicare se la nota è ancora attuale
+  const noteAggiornateIl = note?.trim() ? new Date() : null;
   await prisma.saldoMensile.upsert({
     where: { partnerId_anno_mese: { partnerId, anno, mese } },
-    create: { partnerId, anno, mese, note },
-    update: { note },
+    create: { partnerId, anno, mese, note, noteAggiornateIl },
+    update: { note, noteAggiornateIl },
   });
   revalidateAll();
 }

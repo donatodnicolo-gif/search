@@ -347,6 +347,13 @@ export default async function PartnerDetail({
               })()}
             </span>
             <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {/* stellina: questo mese ha una nota dell'operatore (il testo è nel
+                  tooltip, la nota vera si legge e si modifica in fondo al blocco) */}
+              {saldo?.note?.trim() && (
+                <span className="badge gold" title={`Nota del mese: ${saldo.note.trim()}`}>
+                  ★ Nota
+                </span>
+              )}
               {r.pareggiato && <span className="badge green"><span className="dot" />Pareggiato</span>}
               {r.daBonificare >= 0.01 && (
                 <span className="badge orange"><span className="dot" />Da bonificare {euro(r.daBonificare)}</span>
@@ -560,6 +567,7 @@ export default async function PartnerDetail({
               bonificoImporto={saldo?.bonificoImporto ?? null}
               bonificoData={saldo?.bonificoData ?? null}
               note={saldo?.note ?? null}
+              noteAggiornateIl={saldo?.noteAggiornateIl ?? null}
             />
           </div>
         </div>

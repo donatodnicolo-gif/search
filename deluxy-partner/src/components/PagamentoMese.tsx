@@ -15,6 +15,7 @@ export function PagamentoMese({
   bonificoImporto,
   bonificoData,
   note,
+  noteAggiornateIl,
 }: {
   partnerId: string;
   anno: number;
@@ -24,6 +25,7 @@ export function PagamentoMese({
   bonificoImporto: number | null;
   bonificoData: Date | null;
   note: string | null;
+  noteAggiornateIl?: Date | null;
 }) {
   const oggi = new Date().toISOString().slice(0, 10);
   const inviato = registraPagamentoMese.bind(null, partnerId, anno, mese, "inviato");
@@ -34,6 +36,10 @@ export function PagamentoMese({
   const pareggiato = daBonificare < 0.01 && daIncassare < 0.01;
   const registrato = bonificoImporto != null && Math.abs(bonificoImporto) >= 0.005;
   const notaTrim = note?.trim() || null;
+  // una nota vecchia di oltre 90 giorni parla di una situazione che nel frattempo
+  // può essersi risolta: si apre già espansa e il recap AI la mette in verifica
+  const vecchia =
+    !!noteAggiornateIl && Date.now() - new Date(noteAggiornateIl).getTime() > 90 * 86400000;
 
   return (
     <div className="month-footer">
@@ -102,17 +108,23 @@ export function PagamentoMese({
         )}
       </div>
 
-      <details className="note-details">
+      <details className="note-details" open={!!notaTrim && vecchia}>
         <summary>
-          <span aria-hidden>✎</span>
+          <span aria-hidden>{notaTrim ? "★" : "✎"}</span>
           {notaTrim ? (
             <>
               Nota: <span className="note-testo">{notaTrim}</span>
+              {noteAggiornateIl && (
+                <span className="muted" style={{ fontSize: 12 }}>
+                  {" "}· scritta il {dataIt(noteAggiornateIl)}
+                  {vecchia && " — l'AI la verificherà"}
+                </span>
+              )}
               <span className="note-azione">modifica</span>
             </>
           ) : (
             <>
-              Aggiungi una nota del mese <span className="muted">(inclusa nel recap AI)</span>
+              Aggiungi una nota del mese <span className="muted">(inclusa nel recap AI, che ne verifica l&apos;attualità)</span>
             </>
           )}
         </summary>

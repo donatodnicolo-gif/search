@@ -1,7 +1,14 @@
 import { euro } from "./format";
 import { nomeMese, type RiepilogoMese, type Rolling } from "./calc";
 
-type MeseRiep = { mese: number; riepilogo: RiepilogoMese; saldo?: { note: string | null } | null };
+type MeseRiep = {
+  mese: number;
+  riepilogo: RiepilogoMese;
+  saldo?: { note: string | null; noteAggiornateIl?: Date | null } | null;
+};
+
+const dataBreve = (d: Date | null | undefined) =>
+  d ? new Date(d).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" }) : null;
 
 // Costruisce il prompt testuale da incollare in ChatGPT: istruzioni (esperto di
 // finance) + tutta la situazione crediti/debiti mese per mese, risultati e
@@ -31,8 +38,18 @@ export function costruisciRecapPrompt(opts: {
   L.push("3. Segnalazione di anomalie, rischi (es. crediti scaduti, esposizione crescente) e mesi critici.");
   L.push("4. 2-3 raccomandazioni operative concrete.");
   L.push(
-    "Tieni conto delle NOTE operatore riportate su alcuni mesi: spiegano accordi, contestazioni " +
-      "o situazioni particolari e vanno considerate nel giudizio."
+    "5. VERIFICA DELLE NOTE: una sezione finale «Note del mese» in cui, per OGNI nota operatore " +
+      "riportata sotto, dici se è ANCORA VALIDA, SUPERATA o DA VERIFICARE, motivandolo con i numeri " +
+      "del mese e con quelli attuali."
+  );
+  L.push(
+    "Le NOTE operatore spiegano accordi, contestazioni o situazioni particolari del mese e vanno " +
+      "considerate nel giudizio, ma sono state scritte in un momento preciso (trovi la data accanto " +
+      "a ciascuna) e possono essere invecchiate: se i numeri dicono che la cosa si è risolta " +
+      "(es. «rateizzazione concordata» ma il mese ora è pareggiato, oppure «fattura contestata» ma " +
+      "risulta saldata) segnala la nota come SUPERATA e proponi come riscriverla o che vada tolta. " +
+      "Se invece i numeri la confermano, dillo. Se non è verificabile dai dati, chiedi la conferma " +
+      "all'operatore indicando cosa controllare."
   );
   L.push("Usa un tono da report direzionale, con numeri puntuali. Evita giri di parole.");
   L.push("");
@@ -74,7 +91,10 @@ export function costruisciRecapPrompt(opts: {
     L.push(
       `  => Da bonificare al partner: ${euro(r.daBonificare)} | Da incassare dal partner: ${euro(r.daIncassare)} | ${r.pareggiato ? "PAREGGIATO" : "APERTO"}`
     );
-    if (nota) L.push(`  NOTA operatore: ${nota}`);
+    if (nota) {
+      const quando = dataBreve(saldo?.noteAggiornateIl);
+      L.push(`  NOTA operatore${quando ? ` (scritta il ${quando})` : " (data non registrata)"}: ${nota}`);
+    }
   }
 
   L.push("");
@@ -85,6 +105,8 @@ export function costruisciRecapPrompt(opts: {
   L.push(`Dovuto al partner: ${euro(rolling.incassiNettoCommissioni)}`);
   L.push(`Gia' bonificato al partner: ${euro(rolling.pagatoAlPartner)} | gia' incassato dal partner: ${euro(rolling.incassatoDalPartner)}`);
   L.push(`ESPOSIZIONE APERTA: da bonificare ${euro(rolling.daBonificare)} | da incassare ${euro(rolling.daIncassare)}`);
+  L.push("");
+  L.push(`Data di oggi: ${dataBreve(new Date())} — usala per valutare quanto sono vecchie le note.`);
   L.push("");
   L.push("Produci ora il recap.");
 
