@@ -33,9 +33,16 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     titolo: 'Canali',
     voci: [
       { name: 'mappa', label: 'Territorio · Mappa', icon: 'map-outline' },
-      { name: 'lista', label: 'Target', icon: 'flag-outline' },
       { name: 'affiliazioni', label: 'Chiamate · Affiliazioni', icon: 'call-outline' },
-      { name: 'lead', label: 'Lead web', icon: 'globe-outline' },
+    ],
+  },
+  {
+    // I lead: i nomi su cui lavorare, prima che diventino trattative —
+    // i target scelti sul territorio e le richieste arrivate dal web.
+    titolo: 'Lead',
+    voci: [
+      { name: 'lista', label: 'Target', icon: 'flag-outline' },
+      { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
     ],
   },
   {
@@ -43,13 +50,13 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     voci: [
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
       { name: 'ordini', label: 'Ordini', icon: 'receipt-outline' },
-      { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
       { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
     ],
   },
   {
     titolo: 'Strumenti',
     voci: [
+      { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
       { name: 'rubrica', label: 'Rubrica', icon: 'people-outline' },
       { name: 'script', label: 'Script', icon: 'mail-outline' },
       { name: 'task', label: 'I miei task', icon: 'checkmark-circle-outline' },
@@ -272,7 +279,7 @@ export default function AppLayout() {
         <Drawer.Screen name="script" options={{ title: 'Script' }} />
         <Drawer.Screen name="trattative" options={{ title: 'Trattative' }} />
         <Drawer.Screen name="ordini" options={{ title: 'Ordini' }} />
-        <Drawer.Screen name="lead" options={{ title: 'Lead web' }} />
+        <Drawer.Screen name="lead" options={{ title: 'Richieste Web' }} />
         <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
         <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni' }} />
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />

@@ -218,9 +218,9 @@ export default function Oggi() {
       {leadNuovi.length ? (
         <Canale
           icona="globe-outline"
-          titolo="Web — lead da qualificare"
+          titolo="Web — richieste da qualificare"
           conteggio={leadNuovi.length}
-          cta="Apri i Lead web"
+          cta="Apri le Richieste Web"
           onCta={() => router.push('/(app)/lead')}
           vuoto=""
         >

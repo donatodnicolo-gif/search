@@ -64,7 +64,7 @@ export default function LeadWeb() {
   return (
     <View style={styles.container}>
       <View style={styles.head}>
-        <PageIntro testo="I lead arrivati da internet (sito, mail, social): qualificali agganciandoli a un negozio — nasce la trattativa, canale web — oppure scartali. Rispondere entro 2 giorni: sul web chi tarda perde." />
+        <PageIntro testo="Le richieste arrivate dal web (sito, mail, social): qualificale agganciandole a un negozio — nasce la trattativa, canale web — oppure scartali. Rispondere entro 2 giorni: sul web chi tarda perde." />
         <View style={styles.chips}>
           {[
             { v: 'nuovo', label: `Nuovi${nNuovi ? ` (${nNuovi})` : ''}` },
@@ -87,8 +87,8 @@ export default function LeadWeb() {
           <EmptyState
             loading={loading}
             icona="globe-outline"
-            titolo={statoFiltro === 'nuovo' ? 'Nessun lead da qualificare' : 'Niente qui'}
-            aiuto="I lead arrivano dal sito (via API) o si inseriscono col bottone +. Ogni lead qualificato diventa una trattativa sul canale web."
+            titolo={statoFiltro === 'nuovo' ? 'Nessuna richiesta da qualificare' : 'Niente qui'}
+            aiuto="Le richieste arrivano dal sito (via API) o si inseriscono col bottone +. Ogni richiesta qualificata diventa una trattativa sul canale web."
           />
         }
         renderItem={({ item }) => {
@@ -129,7 +129,7 @@ export default function LeadWeb() {
 
       <Pressable style={styles.fab} onPress={() => setFormAperto(true)}>
         <Ionicons name="add" size={22} color={colors.bianco} />
-        <Text style={styles.fabTxt}>Nuovo lead</Text>
+        <Text style={styles.fabTxt}>Nuova richiesta</Text>
       </Pressable>
 
       {formAperto ? <NuovoLeadModal onClose={() => setFormAperto(false)} onSalvato={() => { setFormAperto(false); carica(); }} /> : null}
@@ -140,7 +140,7 @@ export default function LeadWeb() {
           onFatto={() => {
             setDaQualificare(null);
             carica();
-            avvisa('Trattativa aperta', 'Il lead è qualificato: trova la trattativa (canale web) in Trattative.');
+            avvisa('Trattativa aperta', 'Richiesta qualificata: trova la trattativa (canale web) in Trattative.');
           }}
         />
       ) : null}
@@ -175,7 +175,7 @@ function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitolo}>Nuovo lead</Text>
+            <Text style={styles.sheetTitolo}>Nuova richiesta</Text>
             <Pressable onPress={onClose} hitSlop={10}>
               <Ionicons name="close" size={24} color={colors.testoSoft} />
             </Pressable>
@@ -196,7 +196,7 @@ function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato
           <TextInput style={[styles.input, { minHeight: 60 }]} value={messaggio} onChangeText={setMessaggio} placeholder="es. preventivo consegne weekend" placeholderTextColor={colors.grigio} multiline />
           {errore ? <Text style={styles.errore}>{errore}</Text> : null}
           <Pressable style={[styles.btn, styles.btnLargo, (!nome.trim() || salvando) && { opacity: 0.5 }]} disabled={!nome.trim() || salvando} onPress={salva}>
-            <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : 'Salva lead'}</Text>
+            <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : 'Salva richiesta'}</Text>
           </Pressable>
         </View>
       </View>
