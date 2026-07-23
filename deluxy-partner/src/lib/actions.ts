@@ -585,6 +585,11 @@ export async function registraBonifico(
     update: { bonificoImporto: nuovoImporto, bonificoData: data, dataPagamento: esistente?.dataPagamento ?? data },
   });
   await aggiornaPagamentoDaSaldo(saldo);
+  const pnome = (await prisma.partner.findUnique({ where: { id: partnerId }, select: { nome: true } }))?.nome ?? null;
+  await registra({
+    azione: `Registrato bonifico al partner ${euro(importo)} (${nomeMese(mese)} ${anno}) — «Paga» rapido`,
+    categoria: "pagamenti", entita: "partner", entitaId: partnerId, partner: pnome,
+  });
   revalidateAll();
 }
 
@@ -662,6 +667,12 @@ export async function azzeraPagamentoMese(partnerId: string, anno: number, mese:
     data: { bonificoImporto: null, bonificoData: null, dataPagamento: null, chiuso: false },
   });
   if (saldo) await rimuoviPagamento("bonifico_partner", saldo.id);
+  const pnome = (await prisma.partner.findUnique({ where: { id: partnerId }, select: { nome: true } }))?.nome ?? null;
+  await registra({
+    azione: `Annullati i pagamenti registrati per ${nomeMese(mese)} ${anno}`,
+    categoria: "pagamenti", entita: "partner", entitaId: partnerId, partner: pnome,
+    dettaglio: saldo?.bonificoImporto ? `Era registrato ${euro(Math.abs(saldo.bonificoImporto))}` : null,
+  });
   revalidateAll();
 }
 
@@ -696,5 +707,9 @@ export async function segnaFattureMesePagate(
       await rimuoviPagamento("fattura_servizi", f.id);
     }
   }
+  await registra({
+    azione: `${fatture.length} fatture di ${nomeMese(mese)} ${anno} ${pagata ? "segnate saldate" : "riaperte"}`,
+    categoria: "fatture", entita: "partner", entitaId: partnerId, partner: fatture[0]?.partner.nome ?? null,
+  });
   revalidateAll();
 }

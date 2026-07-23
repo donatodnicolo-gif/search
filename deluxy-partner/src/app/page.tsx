@@ -141,10 +141,13 @@ export default async function Dashboard({
                             undefined
                           )}
                         >
+                          {/* NON esegue il bonifico: annota nell'app che il
+                              partner è stato pagato. Il titolo lo dice esplicito
+                              perché il pulsante agisce al primo clic. */}
                           <button
                             className="btn small primary"
                             type="submit"
-                            title={`Registra bonifico di ${euro(x.r.daBonificare)} con data odierna (il mese risulterà pareggiato)`}
+                            title={`Annota il pagamento di ${euro(x.r.daBonificare)} al partner con data odierna: il mese risulta pareggiato e sparisce da questa lista. NON invia nessun bonifico alla banca. Si annulla dalla scheda del partner.`}
                           >
                             Paga
                           </button>
