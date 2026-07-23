@@ -299,31 +299,48 @@ export async function assicuraPlace(p: Place): Promise<string> {
   if (!gid) return p.id;
 
   const { data: userRes } = await supabase.auth.getUser();
+
+  // Niente upsert con onConflict: l'indice unico su google_place_id è PARZIALE
+  // ("where google_place_id is not null") e Postgres non lo accetta in ON
+  // CONFLICT. Si guarda prima se il negozio esiste già, poi si inserisce.
+  const esistente = async () => {
+    const { data } = await supabase.from('places').select('id').eq('google_place_id', gid).maybeSingle();
+    return data?.id as string | undefined;
+  };
+  const gia = await esistente();
+  if (gia) return gia;
+
   const { data, error } = await supabase
     .from('places')
-    .upsert(
-      {
-        nome: p.nome,
-        indirizzo: p.indirizzo,
-        lat: p.lat,
-        lng: p.lng,
-        categoria: p.categoria,
-        priorita: p.priorita,
-        linea_ipotizzata: p.linea_ipotizzata,
-        aggancio_apertura: p.aggancio_apertura,
-        google_place_id: gid,
-        google_types: p.google_types ?? null,
-        google_rating: p.google_rating ?? null,
-        google_reviews: p.google_reviews ?? null,
-        source: 'google',
-        stato: 'da_visitare',
-        creato_da: userRes.user?.id ?? null,
-      },
-      { onConflict: 'google_place_id' },
-    )
+    .insert({
+      nome: p.nome,
+      indirizzo: p.indirizzo,
+      lat: p.lat,
+      lng: p.lng,
+      categoria: p.categoria,
+      priorita: p.priorita,
+      linea_ipotizzata: p.linea_ipotizzata,
+      aggancio_apertura: p.aggancio_apertura,
+      google_place_id: gid,
+      google_types: p.google_types ?? null,
+      google_rating: p.google_rating ?? null,
+      google_reviews: p.google_reviews ?? null,
+      source: 'google',
+      stato: 'da_visitare',
+      creato_da: userRes.user?.id ?? null,
+    })
     .select('id')
     .single();
-  if (error) throw error;
+
+  if (error) {
+    // Due venditori l'hanno preso nello stesso istante: vince chi è arrivato
+    // prima, l'altro riusa la sua riga invece di vedere un errore.
+    if (error.code === '23505') {
+      const altrui = await esistente();
+      if (altrui) return altrui;
+    }
+    throw error;
+  }
   sincronizzaPlaceRegistro(data.id).catch(() => {}); // best-effort verso Anagrafiche
   return data.id as string;
 }
@@ -894,18 +911,20 @@ export async function creaOrdineDaDeal(deal: {
   linea: string | null;
   place_nome?: string | null;
 }): Promise<void> {
-  const { error } = await supabase.from('ordini').upsert(
-    {
-      deal_id: deal.id,
-      place_id: deal.place_id || null,
-      cliente: deal.place_nome ?? 'Cliente',
-      descrizione: deal.oggetto ?? null,
-      valore: deal.valore_atteso,
-      canale: deal.canale ?? null,
-      linea: deal.linea,
-    },
-    { onConflict: 'deal_id' },
-  );
+  // Come per assicuraPlace: l'indice unico su deal_id è parziale, quindi niente
+  // ON CONFLICT. Se l'ordine di questa trattativa c'è già, si aggiorna.
+  const riga = {
+    place_id: deal.place_id || null,
+    cliente: deal.place_nome ?? 'Cliente',
+    descrizione: deal.oggetto ?? null,
+    valore: deal.valore_atteso,
+    canale: deal.canale ?? null,
+    linea: deal.linea,
+  };
+  const { data: gia } = await supabase.from('ordini').select('id').eq('deal_id', deal.id).maybeSingle();
+  const { error } = gia
+    ? await supabase.from('ordini').update(riga).eq('id', gia.id)
+    : await supabase.from('ordini').insert({ ...riga, deal_id: deal.id });
   if (error) throw error;
 }
 
