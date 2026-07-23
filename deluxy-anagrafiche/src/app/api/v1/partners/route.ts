@@ -6,6 +6,7 @@ import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
 import { calcolaMerge, mergeContatti, nomeSistema, provenienzaIniziale } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { whereRicerca } from "@/lib/ricerca";
+import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, normalizzaStatoAnalisi } from "@/lib/stati";
 import { registraPassaggio } from "@/lib/storico";
 
 // La fatturazione è della società: se una scrittura ha toccato campi
@@ -35,8 +36,9 @@ async function registraRiferimenti(
 
 // GET /api/v1/partners — elenco con filtri e paginazione.
 // Filtri: q (ricerca a parole su tutti i campi e i contatti), categoria, citta,
-// provincia, regione, stato, fonte, platformId, attivo (default: solo attivi;
-// attivo=tutti per tutto).
+// provincia, regione, stato (commerciale), statoFinanziario, statoAnalisi
+// (`nessuno` = mai analizzata), fonte, platformId, attivo (default: solo
+// attivi; attivo=tutti per tutto).
 export async function GET(req: NextRequest) {
   const client = await autentica(req);
   if (client instanceof NextResponse) return client;
@@ -46,10 +48,27 @@ export async function GET(req: NextRequest) {
 
   const q = p.get("q")?.trim();
   if (q) where.AND = whereRicerca(q);
-  for (const campo of ["categoria", "citta", "provincia", "regione", "stato", "fonte"] as const) {
+  for (const campo of [
+    "categoria",
+    "citta",
+    "provincia",
+    "regione",
+    "stato",
+    "statoFinanziario",
+    "fonte",
+  ] as const) {
     const v = p.get(campo)?.trim();
     if (v) where[campo] = campo === "categoria" ? v.toUpperCase() : v;
   }
+  // Stato analisi: accetta gli slug del registro, le forme di FINANCE
+  // ("P.P.", "Nuovo", …) e `nessuno` per le anagrafiche mai analizzate.
+  const statoAnalisi = p.get("statoAnalisi")?.trim();
+  if (statoAnalisi) {
+    where.statoAnalisi = statoAnalisi === "nessuno" ? null : normalizzaStatoAnalisi(statoAnalisi) ?? statoAnalisi;
+  }
+  // `statoCommerciale` è il sinonimo esplicito di `stato`
+  const statoCommerciale = p.get("statoCommerciale")?.trim();
+  if (statoCommerciale && !where.stato) where.stato = statoCommerciale;
   const platformId = p.get("platformId")?.trim();
   if (platformId) where.platformId = platformId;
 
@@ -170,9 +189,32 @@ export async function POST(req: NextRequest) {
       },
     });
     await registraRiferimenti(esistente.id, refs);
-    // Audit del cambio stato se un driver di prima parte lo ha modificato
+    // Audit dei cambi di stato: commerciale (solo driver di prima parte),
+    // finanziario e analisi (FINANCE) finiscono tutti nella stessa storia.
     if (typeof datiMerge.stato === "string" && datiMerge.stato !== esistente.stato) {
       await registraPassaggio(esistente.id, esistente.stato, datiMerge.stato, sistema);
+    }
+    if (
+      typeof datiMerge.statoFinanziario === "string" &&
+      datiMerge.statoFinanziario !== esistente.statoFinanziario
+    ) {
+      await registraPassaggio(
+        esistente.id,
+        `${PREFISSO_FINANZIARIO}${esistente.statoFinanziario}`,
+        `${PREFISSO_FINANZIARIO}${datiMerge.statoFinanziario}`,
+        sistema,
+      );
+    }
+    if (
+      typeof datiMerge.statoAnalisi === "string" &&
+      datiMerge.statoAnalisi !== esistente.statoAnalisi
+    ) {
+      await registraPassaggio(
+        esistente.id,
+        `${PREFISSO_ANALISI}${esistente.statoAnalisi ?? ""}`,
+        `${PREFISSO_ANALISI}${datiMerge.statoAnalisi}`,
+        sistema,
+      );
     }
     await propagaSeFinanziari(esistente.id, datiMerge);
     const aggiornato = await prisma.partner.findUnique({ where: { id: esistente.id }, include: INCLUDE });

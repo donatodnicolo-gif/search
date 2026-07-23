@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { CAMPI_FINANZIARI } from "./insegna";
-import { isStato } from "./stati";
+import { isStato, isStatoFinanziario, normalizzaStatoAnalisi } from "./stati";
 
 // Campi scalari accettati in scrittura dalle API (POST/PATCH).
 const CAMPI_TESTO = [
@@ -8,7 +8,10 @@ const CAMPI_TESTO = [
   "ragioneSociale",
   "categoria",
   "tipoProspect",
+  // i tre stati dell'azienda: commerciale (storico `stato`), finanziario, analisi
   "stato",
+  "statoFinanziario",
+  "statoAnalisi",
   "citta",
   "provincia",
   "regione",
@@ -66,6 +69,12 @@ export function validaPartner(
     }
   }
 
+  // `stato` è lo stato COMMERCIALE: `statoCommerciale` è il suo sinonimo
+  // esplicito, per le app che scrivono le tre dimensioni con nomi simmetrici.
+  if ("statoCommerciale" in body && !("stato" in body)) {
+    body = { ...body, stato: body.statoCommerciale };
+  }
+
   const dati: Record<string, unknown> = {};
 
   for (const campo of CAMPI_TESTO) {
@@ -81,6 +90,15 @@ export function validaPartner(
   if (dati.codiceSdi) dati.codiceSdi = String(dati.codiceSdi).toUpperCase();
   if (dati.stato && !isStato(String(dati.stato))) {
     return { errore: `Stato non valido: '${dati.stato}'` };
+  }
+  if (dati.statoFinanziario && !isStatoFinanziario(String(dati.statoFinanziario))) {
+    return { errore: `Stato finanziario non valido: '${dati.statoFinanziario}'` };
+  }
+  if (dati.statoAnalisi) {
+    // FINANCE manda "P.P." / "Nuovo" / "Dismesso": si normalizza sullo slug
+    const normalizzato = normalizzaStatoAnalisi(String(dati.statoAnalisi));
+    if (!normalizzato) return { errore: `Stato analisi non valido: '${dati.statoAnalisi}'` };
+    dati.statoAnalisi = normalizzato;
   }
 
   if ("ultimaVisita" in body) {
@@ -147,7 +165,13 @@ export function serializzaPartner(p: PartnerConContatti) {
     ragioneSociale: p.ragioneSociale,
     categoria: p.categoria,
     tipoProspect: p.tipoProspect,
+    // Le tre dimensioni di stato dell'azienda. `stato` resta il nome storico
+    // dello stato commerciale (compatibilità); `statoCommerciale` è l'alias
+    // esplicito con cui leggerle simmetricamente.
     stato: p.stato,
+    statoCommerciale: p.stato,
+    statoFinanziario: p.statoFinanziario,
+    statoAnalisi: p.statoAnalisi,
     citta: p.citta,
     provincia: p.provincia,
     regione: p.regione,

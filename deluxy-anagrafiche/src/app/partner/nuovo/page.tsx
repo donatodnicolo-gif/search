@@ -1,7 +1,15 @@
 import { Sidebar } from "@/components/Sidebar";
 import { CATEGORIE, isCategoria } from "@/lib/categorie";
 import { creaPartner } from "@/lib/azioni";
-import { ETICHETTE_STATO, STATI } from "@/lib/stati";
+import {
+  DESCRIZIONI_STATO_ANALISI,
+  ETICHETTE_STATO,
+  ETICHETTE_STATO_FINANZIARIO,
+  STATI,
+  STATI_ANALISI,
+  STATI_FINANZIARI,
+  STATO_FINANZIARIO_PREDEFINITO,
+} from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
 
@@ -76,10 +84,29 @@ export default async function Nuovo({
                   ))}
                 </select>
               </Campo>
-              <Campo etichetta="Stato" nome="stato">
+              <Campo etichetta="Stato commerciale" nome="stato">
                 <select id="stato" name="stato" defaultValue="prospect">
                   {STATI.map((s) => (
                     <option key={s} value={s}>{ETICHETTE_STATO[s]}</option>
+                  ))}
+                </select>
+              </Campo>
+              <Campo etichetta="Stato finanziario" nome="statoFinanziario">
+                <select
+                  id="statoFinanziario"
+                  name="statoFinanziario"
+                  defaultValue={STATO_FINANZIARIO_PREDEFINITO}
+                >
+                  {STATI_FINANZIARI.map((s) => (
+                    <option key={s} value={s}>{ETICHETTE_STATO_FINANZIARIO[s]}</option>
+                  ))}
+                </select>
+              </Campo>
+              <Campo etichetta="Stato analisi" nome="statoAnalisi">
+                <select id="statoAnalisi" name="statoAnalisi" defaultValue="">
+                  <option value="">Non analizzata</option>
+                  {STATI_ANALISI.map((s) => (
+                    <option key={s} value={s}>{DESCRIZIONI_STATO_ANALISI[s]}</option>
                   ))}
                 </select>
               </Campo>

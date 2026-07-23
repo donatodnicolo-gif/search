@@ -6,7 +6,14 @@ import { redirect } from "next/navigation";
 import { isCategoria } from "./categorie";
 import { prisma } from "./db";
 import { propagaDatiFinanziari } from "./insegna";
-import { isStato } from "./stati";
+import {
+  PREFISSO_ANALISI,
+  PREFISSO_FINANZIARIO,
+  STATO_FINANZIARIO_PREDEFINITO,
+  isStato,
+  isStatoAnalisi,
+  isStatoFinanziario,
+} from "./stati";
 import { ARCHIVIATA, registraPassaggio } from "./storico";
 
 // Cambio di stato dalla scheda partner (UI interna). Le app esterne passano
@@ -32,6 +39,49 @@ export async function cambiaStato(partnerId: string, fd: FormData) {
   if (nuovo === "attivo" && attuale.stato !== "attivo") {
     redirect(`/partner/${partnerId}?rubrica=1`);
   }
+}
+
+// Cambio dello stato FINANZIARIO (come paga l'azienda). Indipendente dallo
+// stato commerciale: un partner attivo può essere insoluto e viceversa.
+export async function cambiaStatoFinanziario(partnerId: string, fd: FormData) {
+  const nuovo = String(fd.get("statoFinanziario") ?? "");
+  if (!isStatoFinanziario(nuovo)) return;
+  const attuale = await prisma.partner.findUnique({
+    where: { id: partnerId },
+    select: { statoFinanziario: true },
+  });
+  if (!attuale) return;
+  await prisma.partner.update({ where: { id: partnerId }, data: { statoFinanziario: nuovo } });
+  await registraPassaggio(
+    partnerId,
+    `${PREFISSO_FINANZIARIO}${attuale.statoFinanziario}`,
+    `${PREFISSO_FINANZIARIO}${nuovo}`,
+    "ui",
+  );
+  revalidatePath(`/partner/${partnerId}`);
+  revalidatePath("/");
+}
+
+// Cambio dello stato ANALISI (perimetro dell'anno: P.P. / Nuovo / Dismesso).
+// Valore vuoto = "non analizzata", si torna indietro senza dover archiviare.
+export async function cambiaStatoAnalisi(partnerId: string, fd: FormData) {
+  const grezzo = String(fd.get("statoAnalisi") ?? "");
+  const nuovo = grezzo === "" ? null : isStatoAnalisi(grezzo) ? grezzo : undefined;
+  if (nuovo === undefined) return;
+  const attuale = await prisma.partner.findUnique({
+    where: { id: partnerId },
+    select: { statoAnalisi: true },
+  });
+  if (!attuale) return;
+  await prisma.partner.update({ where: { id: partnerId }, data: { statoAnalisi: nuovo } });
+  await registraPassaggio(
+    partnerId,
+    `${PREFISSO_ANALISI}${attuale.statoAnalisi ?? ""}`,
+    `${PREFISSO_ANALISI}${nuovo ?? ""}`,
+    "ui",
+  );
+  revalidatePath(`/partner/${partnerId}`);
+  revalidatePath("/");
 }
 
 // Aggiunge o toglie una tipologia di interesse (multi-scelta).
@@ -73,6 +123,8 @@ export async function creaPartner(fd: FormData) {
   if (!nome || !categoria || !isCategoria(categoria)) redirect("/partner/nuovo?errore=1");
 
   const stato = String(fd.get("stato") ?? "");
+  const statoFinanziario = String(fd.get("statoFinanziario") ?? "");
+  const statoAnalisi = String(fd.get("statoAnalisi") ?? "");
   const citta = maiuscolo("citta");
 
   const esistente = await prisma.partner.findFirst({
@@ -99,6 +151,10 @@ export async function creaPartner(fd: FormData) {
       nome,
       categoria,
       stato: isStato(stato) ? stato : "prospect",
+      statoFinanziario: isStatoFinanziario(statoFinanziario)
+        ? statoFinanziario
+        : STATO_FINANZIARIO_PREDEFINITO,
+      statoAnalisi: isStatoAnalisi(statoAnalisi) ? statoAnalisi : null,
       citta,
       provincia: maiuscolo("provincia"),
       regione: maiuscolo("regione"),

@@ -9,6 +9,7 @@ export type Provenienza = Record<string, { sistema: string; asOf?: string }>;
 const FIDUCIA: Record<string, number> = {
   ui: 100, // team, dalla UI del registro — ha sempre l'ultima parola
   platform: 80, // piattaforma consegne (verità operativa/fatturazione)
+  partner: 70, // FINANCE: fisco, incassi, stato finanziario e perimetro di analisi
   scout: 60, // rilevato sul campo
   suppliers: 55,
   hubspot: 40, // CRM / marketing
@@ -21,8 +22,10 @@ export function fiducia(sistema?: string | null): number {
   return FIDUCIA[sistema] ?? 20; // sorgente sconosciuta: bassa, ma > 0
 }
 
-// Curati dal team: le scritture esterne non li toccano (stato, interessi) o li
-// riempiono solo se vuoti (account). categoria è gestita a parte.
+// Curati dal team: le scritture esterne non li toccano (stato commerciale,
+// interessi) o li riempiono solo se vuoti (account). categoria è gestita a
+// parte. Stato finanziario e stato analisi NON sono qui: nascono in FINANCE,
+// quindi seguono la regola fattuale (vince il più fresco / il più autorevole).
 const BLOCCATI_DURI = ["stato", "interessi"] as const;
 // Fattuali: vince il più fresco / la sorgente più autorevole.
 const FATTUALI = [
@@ -37,6 +40,10 @@ const FATTUALI = [
   "pIva",
   "codiceFiscale",
   "ultimaVisita",
+  // stati non commerciali: FINANCE è la sorgente naturale, la UI del registro
+  // (fiducia 100) resta comunque l'ultima parola
+  "statoFinanziario",
+  "statoAnalisi",
   // dati finanziari / fatturazione (dopo la scrittura vengono propagati alle
   // sedi della stessa insegna: la fatturazione è della società)
   "pec",
@@ -52,6 +59,14 @@ const FATTUALI = [
 
 // categoria "non ancora classificata": può essere riempita da una sorgente
 const CATEGORIA_VUOTA = new Set(["", "ALTRO", "DA CLASSIFICARE"]);
+
+// "da_verificare" è il valore di partenza dello stato finanziario: vale come
+// casella vuota, altrimenti nessuna app riuscirebbe mai a scriverlo la prima
+// volta senza vincere il confronto di autorevolezza.
+function vuotoPerMerge(campo: string, valore: unknown): boolean {
+  if (valore == null || valore === "") return true;
+  return campo === "statoFinanziario" && valore === "da_verificare";
+}
 
 type Esistente = {
   categoria: string;
@@ -120,7 +135,7 @@ export function calcolaMerge(
 
     if ((FATTUALI as readonly string[]).includes(campo)) {
       const attuale = esistente[campo];
-      if (attuale == null || attuale === "") {
+      if (vuotoPerMerge(campo, attuale)) {
         dati[campo] = valore;
         timbro(campo);
       } else if (valore != null && valore !== attuale) {

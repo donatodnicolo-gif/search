@@ -33,8 +33,9 @@ function Campo({
   );
 }
 
-// Modifica dei dati anagrafici (bottone "Modifica" della scheda). Stato,
-// interessi e archivio si gestiscono dalla scheda; qui tutto il resto,
+// Modifica dei dati anagrafici (bottone "Modifica" della scheda). I tre stati
+// (commerciale, finanziario, analisi), gli interessi e l'archivio si
+// gestiscono con le pillole della scheda; qui tutto il resto,
 // referenti compresi (le righe svuotate vengono rimosse).
 export default async function Modifica({
   params,

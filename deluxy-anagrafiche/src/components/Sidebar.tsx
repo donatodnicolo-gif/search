@@ -1,7 +1,17 @@
 import { prisma } from "@/lib/db";
 import { coloreInteresse } from "@/lib/interessi";
 import { getLinee } from "@/lib/linee";
-import { COLORE_STATO, ETICHETTE_STATO, STATI } from "@/lib/stati";
+import {
+  COLORE_STATO,
+  COLORE_STATO_ANALISI,
+  COLORE_STATO_FINANZIARIO,
+  ETICHETTE_STATO,
+  ETICHETTE_STATO_ANALISI,
+  ETICHETTE_STATO_FINANZIARIO,
+  STATI,
+  STATI_ANALISI,
+  STATI_FINANZIARI,
+} from "@/lib/stati";
 import { IconaCategoria } from "./IconaCategoria";
 import { SbSezione } from "./SbSezione";
 
@@ -11,6 +21,8 @@ import { SbSezione } from "./SbSezione";
 export async function Sidebar({
   categoriaAttiva,
   statoAttivo,
+  statoFinanziarioAttivo,
+  statoAnalisiAttivo,
   interesseAttivo,
   archivioAttivo = false,
   hubspotAttivo = false,
@@ -22,6 +34,8 @@ export async function Sidebar({
 }: {
   categoriaAttiva?: string | null;
   statoAttivo?: string | null;
+  statoFinanziarioAttivo?: string | null;
+  statoAnalisiAttivo?: string | null;
   interesseAttivo?: string | null;
   archivioAttivo?: boolean;
   hubspotAttivo?: boolean;
@@ -31,7 +45,14 @@ export async function Sidebar({
   riconciliazioneAttiva?: boolean;
   identitaAttiva?: boolean;
 }) {
-  const [categorie, archiviate, statiConteggio, interessiConteggio] = await Promise.all([
+  const [
+    categorie,
+    archiviate,
+    statiConteggio,
+    statiFinanziariConteggio,
+    statiAnalisiConteggio,
+    interessiConteggio,
+  ] = await Promise.all([
     prisma.partner.groupBy({
       by: ["categoria"],
       where: { attivo: true },
@@ -40,6 +61,8 @@ export async function Sidebar({
     }),
     prisma.partner.count({ where: { attivo: false } }),
     prisma.partner.groupBy({ by: ["stato"], where: { attivo: true }, _count: { _all: true } }),
+    prisma.partner.groupBy({ by: ["statoFinanziario"], where: { attivo: true }, _count: { _all: true } }),
+    prisma.partner.groupBy({ by: ["statoAnalisi"], where: { attivo: true }, _count: { _all: true } }),
     // Gli interessi sono un array: si contano i singoli valori con unnest.
     // Schema sempre qualificato nelle query dirette (pgbouncer).
     prisma.$queryRaw<{ interesse: string; totale: bigint }[]>`
@@ -54,10 +77,12 @@ export async function Sidebar({
   });
   const totale = categorie.reduce((somma, c) => somma + c._count._all, 0);
   const perStato = new Map(statiConteggio.map((s) => [s.stato, s._count._all]));
+  const perStatoFinanziario = new Map(statiFinanziariConteggio.map((s) => [s.statoFinanziario, s._count._all]));
+  const perStatoAnalisi = new Map(statiAnalisiConteggio.map((s) => [s.statoAnalisi ?? "nessuno", s._count._all]));
   const perInteresse = new Map(interessiConteggio.map((i) => [i.interesse, Number(i.totale)]));
 
   const globaleAttiva =
-    !categoriaAttiva && !statoAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva;
+    !categoriaAttiva && !statoAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva;
 
   return (
     <aside className="sidebar">
@@ -92,7 +117,7 @@ export async function Sidebar({
           ))}
         </SbSezione>
 
-        <SbSezione titolo="Stati">
+        <SbSezione titolo="Stati commerciali">
           {STATI.map((s) => (
             <a
               key={s}
@@ -104,6 +129,46 @@ export async function Sidebar({
               <span className="sb-count">{perStato.get(s) ?? 0}</span>
             </a>
           ))}
+        </SbSezione>
+
+        <SbSezione titolo="Stati finanziari">
+          {STATI_FINANZIARI.map((s) => (
+            <a
+              key={s}
+              className={`sb-item${statoFinanziarioAttivo === s ? " attiva" : ""}`}
+              href={`/?statoFinanziario=${s}`}
+            >
+              <span className="sb-icona">
+                <span className="sb-dot" style={{ background: COLORE_STATO_FINANZIARIO[s] }} />
+              </span>
+              <span className="sb-nome">{ETICHETTE_STATO_FINANZIARIO[s]}</span>
+              <span className="sb-count">{perStatoFinanziario.get(s) ?? 0}</span>
+            </a>
+          ))}
+        </SbSezione>
+
+        <SbSezione titolo="Stati analisi">
+          {STATI_ANALISI.map((s) => (
+            <a
+              key={s}
+              className={`sb-item${statoAnalisiAttivo === s ? " attiva" : ""}`}
+              href={`/?statoAnalisi=${s}`}
+            >
+              <span className="sb-icona">
+                <span className="sb-dot" style={{ background: COLORE_STATO_ANALISI[s] }} />
+              </span>
+              <span className="sb-nome">{ETICHETTE_STATO_ANALISI[s]}</span>
+              <span className="sb-count">{perStatoAnalisi.get(s) ?? 0}</span>
+            </a>
+          ))}
+          <a
+            className={`sb-item${statoAnalisiAttivo === "nessuno" ? " attiva" : ""}`}
+            href="/?statoAnalisi=nessuno"
+          >
+            <span className="sb-icona"><span className="sb-dot" style={{ background: "var(--text-tertiary)" }} /></span>
+            <span className="sb-nome">Non analizzate</span>
+            <span className="sb-count">{perStatoAnalisi.get("nessuno") ?? 0}</span>
+          </a>
         </SbSezione>
 
         <SbSezione titolo="Interessi">

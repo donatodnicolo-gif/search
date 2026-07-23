@@ -31,7 +31,7 @@ anagrafici nelle vostre app — leggeteli da qui.
 
 ### Se leggi (tutte le app)
 
-- `GET /api/v1/partners?q=&categoria=&citta=&provincia=&regione=&stato=&interesse=&page=&perPage=`
+- `GET /api/v1/partners?q=&categoria=&citta=&provincia=&regione=&stato=&statoFinanziario=&statoAnalisi=&interesse=&page=&perPage=`
   → `{ totale, dati: [...] }`. `q` è multi-parola su **tutti i campi** (anagrafica
   + referenti); i filtri si combinano in AND. Città e province sono in MAIUSCOLO.
 - `GET /api/v1/partners/:id` — accetta anche il vostro `platformId`.
@@ -93,9 +93,13 @@ Ogni partner risponde con un blocco **`datiFinanziari`**: `pec`, `codiceSdi`,
   referenti, data ultimo contatto). Includete `asOf` (ISO): un campo si
   sovrascrive solo se il vostro dato è più fresco, o se la vostra sorgente è più
   autorevole di quella che l'aveva scritto.
-- **Non impostate voi** `stato`, `interessi`, `account`: li cura il team e
-  vengono ignorati (li trovate in `in_revisione` nella risposta). Le nuove
-  anagrafiche nascono come `prospect`.
+- **Non impostate voi** `stato` (= stato **commerciale**), `interessi`, `account`:
+  li cura il team e vengono ignorati (li trovate in `in_revisione` nella
+  risposta). Le nuove anagrafiche nascono come `prospect`.
+- `statoFinanziario` e `statoAnalisi` invece **si scrivono**: nascono in FINANCE
+  (deluxy-partner), quindi seguono la regola dei campi fattuali (vince il più
+  fresco `asOf`, a parità la sorgente più autorevole; la UI del registro ha
+  sempre l'ultima parola). Valori in «Le tre dimensioni di stato».
 - **Note** in append, **referenti** in merge per identità (email>tel>nome):
   nessun'app cancella quelli inseriti da altre.
 
@@ -131,9 +135,23 @@ L'import è idempotente: rilanciandolo sostituisce solo le anagrafiche con
 
 ## Modello dati
 
+### Le tre dimensioni di stato
+
+Ogni azienda ha **tre stati indipendenti** (catalogo in `src/lib/stati.ts`):
+
+| Dimensione | Campo | Valori | Chi la governa |
+| --- | --- | --- | --- |
+| **Commerciale** | `stato` (alias in lettura/scrittura: `statoCommerciale`) | `prospect`, `in_contatto`, `in_attesa`, `in_trattativa`, `da_ricontattare`, `attivo` (= Partner), `non_interessato`, `dismesso` | il team commerciale (curato: le app non lo scrivono) |
+| **Finanziario** | `statoFinanziario` | `da_verificare` (predefinito), `regolare`, `in_ritardo`, `insoluto`, `piano_di_rientro`, `bloccato` | amministrazione / FINANCE |
+| **Analisi** | `statoAnalisi` | `pp` (P.P., pari perimetro), `nuovo`, `dismesso`; vuoto = mai analizzata | FINANCE (`Partner.clienteAnno` di deluxy-partner) |
+
+In scrittura `statoAnalisi` accetta anche le forme di FINANCE (`"P.P."`,
+`"Nuovo"`, `"Dismesso"`) e le normalizza sugli slug. I cambi delle tre
+dimensioni finiscono tutti in `PassaggioStato`, con prefisso `fin:` e `ana:`
+per le due non commerciali.
+
 `Partner`: nome, ragione sociale, categoria (BOUTIQUE, FIORISTA, PASTICCERIA, …),
-stato del ciclo di vita (`prospect`, `in_contatto`, `in_attesa`, `in_trattativa`,
-`da_ricontattare`, `attivo`, `non_interessato`, `dismesso`), `interessi` (array
+i tre stati qui sopra, `interessi` (array
 multi-scelta: consegne, affiliazione, gifting, catering, eventi, pr_activation,
 in_store, vendor), città/provincia/regione, indirizzo, email, telefono, P.IVA, CF,
 account commerciale, ultima visita, note, `datiExtra` (JSON con i campi specifici
@@ -182,8 +200,10 @@ Autenticazione: header `x-api-key: <chiave>` (oppure `Authorization: Bearer <chi
 | DELETE | `/api/v1/partners/:id` | scrittura | Disattiva (soft delete, `attivo=false`) |
 
 Filtri di `GET /partners`: `q` (multi-parola su tutti i campi e i contatti),
-`categoria`, `citta`, `provincia`, `regione`, `stato`, `fonte`, `platformId`,
-`attivo` (`false` = solo disattivati, `tutti` = tutti), `page`, `perPage` (max 200).
+`categoria`, `citta`, `provincia`, `regione`, `stato` (commerciale),
+`statoFinanziario`, `statoAnalisi` (`nessuno` = mai analizzate), `fonte`,
+`platformId`, `attivo` (`false` = solo disattivati, `tutti` = tutti), `page`,
+`perPage` (max 200).
 
 Risposta dell'elenco: `{ totale, pagina, perPagina, dati: [...] }`.
 

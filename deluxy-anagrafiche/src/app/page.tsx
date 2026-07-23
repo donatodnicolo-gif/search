@@ -2,13 +2,24 @@ import type { Prisma } from "@prisma/client";
 import { GruppoEspandibile } from "@/components/GruppoEspandibile";
 import { MenuInteressi } from "@/components/MenuInteressi";
 import { MenuStato } from "@/components/MenuStato";
+import { MenuStatoAzienda } from "@/components/MenuStatoAzienda";
 import { Riconcilia } from "@/components/Riconcilia";
 import { etichetta, Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { getLinee } from "@/lib/linee";
 import { whereRicerca } from "@/lib/ricerca";
-import { ETICHETTE_STATO, STATI } from "@/lib/stati";
+import {
+  DESCRIZIONI_STATO_ANALISI,
+  ETICHETTE_STATO,
+  ETICHETTE_STATO_ANALISI,
+  ETICHETTE_STATO_FINANZIARIO,
+  STATI,
+  STATI_ANALISI,
+  STATI_FINANZIARI,
+  isStatoAnalisi,
+  isStatoFinanziario,
+} from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +30,9 @@ const COLONNE_ORDINABILI = {
   nome: "Nome",
   categoria: "Categoria",
   citta: "Città",
-  stato: "Stato",
+  stato: "Stato commerciale",
+  statoFinanziario: "Stato finanziario",
+  statoAnalisi: "Stato analisi",
   account: "Account",
   ultimaVisita: "Ultimo contatto",
   creatoIl: "Creata",
@@ -31,6 +44,8 @@ type Ricerca = {
   categoria?: string;
   citta?: string;
   stato?: string;
+  statoFinanziario?: string;
+  statoAnalisi?: string;
   interesse?: string;
   pagina?: string;
   ordina?: string;
@@ -58,11 +73,24 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
   if (filtri.categoria) where.categoria = filtri.categoria;
   if (filtri.citta) where.citta = filtri.citta;
   if (filtri.stato) where.stato = filtri.stato;
+  if (filtri.statoFinanziario) where.statoFinanziario = filtri.statoFinanziario;
+  // "nessuno" = mai analizzata (colonna vuota nel registro)
+  if (filtri.statoAnalisi) {
+    where.statoAnalisi = filtri.statoAnalisi === "nessuno" ? null : filtri.statoAnalisi;
+  }
   if (interesse) where.interessi = { has: interesse };
 
   // La sezione "Novità" appare solo sulla visione globale pulita
   const conNovita =
-    !inArchivio && !filtri.categoria && !filtri.q && !filtri.citta && !filtri.stato && !interesse && pagina === 1;
+    !inArchivio &&
+    !filtri.categoria &&
+    !filtri.q &&
+    !filtri.citta &&
+    !filtri.stato &&
+    !filtri.statoFinanziario &&
+    !filtri.statoAnalisi &&
+    !interesse &&
+    pagina === 1;
 
   const [totale, partner, citta, novita] = await Promise.all([
     prisma.partner.count({ where }),
@@ -79,7 +107,9 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
           ? { nome: dir }
           : ordina === "ultimaVisita"
             ? [{ ultimaVisita: { sort: dir, nulls: "last" } }, { nome: "asc" }]
-            : [{ [ordina]: dir }, { nome: "asc" }],
+            : ordina === "statoAnalisi"
+              ? [{ statoAnalisi: { sort: dir, nulls: "last" } }, { nome: "asc" }]
+              : [{ [ordina]: dir }, { nome: "asc" }],
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
     }),
@@ -135,6 +165,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     if (filtri.categoria) p.set("categoria", filtri.categoria);
     if (filtri.citta) p.set("citta", filtri.citta);
     if (filtri.stato) p.set("stato", filtri.stato);
+    if (filtri.statoFinanziario) p.set("statoFinanziario", filtri.statoFinanziario);
+    if (filtri.statoAnalisi) p.set("statoAnalisi", filtri.statoAnalisi);
     if (interesse) p.set("interesse", interesse);
     return p;
   };
@@ -189,6 +221,22 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       <td className="cella-muta">{p.citta ?? "—"}</td>
       <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
       <td><MenuStato partnerId={p.id} stato={p.stato} archiviato={inArchivio} /></td>
+      <td>
+        <MenuStatoAzienda
+          partnerId={p.id}
+          dimensione="finanziario"
+          stato={p.statoFinanziario}
+          disabilitato={inArchivio}
+        />
+      </td>
+      <td>
+        <MenuStatoAzienda
+          partnerId={p.id}
+          dimensione="analisi"
+          stato={p.statoAnalisi}
+          disabilitato={inArchivio}
+        />
+      </td>
       <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto linee={linee} /></td>
       <td className="cella-muta col-secondaria">{p.account ?? "—"}</td>
       <td className="cella-muta">{p.ultimaVisita ? dataIt(p.ultimaVisita) : "—"}</td>
@@ -225,6 +273,9 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
         </td>
         <td className="cella-muta">{categorie.length === 1 ? categorie[0] : `${categorie.length} tipologie`}</td>
         <td className="cella-muta">{citta.length === 1 ? citta[0] : `${citta.length} città`}</td>
+        <td className="cella-muta">—</td>
+        <td className="cella-muta">—</td>
+        {/* stato finanziario e stato analisi: stanno sulle sedi, come gli altri */}
         <td className="cella-muta">—</td>
         <td className="cella-muta">—</td>
         <td className="cella-muta">—</td>
@@ -270,6 +321,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       <Sidebar
         categoriaAttiva={filtri.categoria ?? null}
         statoAttivo={!inArchivio ? (filtri.stato ?? null) : null}
+        statoFinanziarioAttivo={!inArchivio ? (filtri.statoFinanziario ?? null) : null}
+        statoAnalisiAttivo={!inArchivio ? (filtri.statoAnalisi ?? null) : null}
         interesseAttivo={interesse ?? null}
         archivioAttivo={inArchivio}
       />
@@ -283,9 +336,15 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                 ? etichetta(filtri.categoria)
                 : filtri.stato && STATI.includes(filtri.stato as (typeof STATI)[number])
                   ? ETICHETTE_STATO[filtri.stato as (typeof STATI)[number]]
-                  : interesse
-                    ? interesse
-                    : "Aziende"}
+                  : filtri.statoFinanziario && isStatoFinanziario(filtri.statoFinanziario)
+                    ? `Finanziario · ${ETICHETTE_STATO_FINANZIARIO[filtri.statoFinanziario]}`
+                    : filtri.statoAnalisi === "nessuno"
+                      ? "Analisi · Non analizzate"
+                      : filtri.statoAnalisi && isStatoAnalisi(filtri.statoAnalisi)
+                        ? `Analisi · ${ETICHETTE_STATO_ANALISI[filtri.statoAnalisi]}`
+                        : interesse
+                          ? interesse
+                          : "Aziende"}
           </h1>
           <p className="page-sub">
             {inArchivio
@@ -320,10 +379,23 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
           ))}
         </select>
         <select name="stato" defaultValue={filtri.stato ?? ""}>
-          <option value="">Tutti gli stati</option>
+          <option value="">Tutti gli stati commerciali</option>
           {STATI.map((s) => (
             <option key={s} value={s}>{ETICHETTE_STATO[s]}</option>
           ))}
+        </select>
+        <select name="statoFinanziario" defaultValue={filtri.statoFinanziario ?? ""}>
+          <option value="">Tutti gli stati finanziari</option>
+          {STATI_FINANZIARI.map((s) => (
+            <option key={s} value={s}>{ETICHETTE_STATO_FINANZIARIO[s]}</option>
+          ))}
+        </select>
+        <select name="statoAnalisi" defaultValue={filtri.statoAnalisi ?? ""}>
+          <option value="">Tutti gli stati analisi</option>
+          {STATI_ANALISI.map((s) => (
+            <option key={s} value={s}>{DESCRIZIONI_STATO_ANALISI[s]}</option>
+          ))}
+          <option value="nessuno">Non analizzate</option>
         </select>
         <button className="btn" type="submit">Filtra</button>
       </form>
@@ -341,7 +413,9 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                   <th>Categoria</th>
                   <th>Città</th>
                   <th>Telefono</th>
-                  <th>Stato</th>
+                  <th>Stato commerciale</th>
+                  <th>Stato finanziario</th>
+                  <th>Stato analisi</th>
                   <th>Interessi</th>
                   <th>Ultimo contatto</th>
                   <th>Note</th>
@@ -361,6 +435,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     <td className="cella-muta">{p.citta ?? "—"}</td>
                     <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
                     <td><MenuStato partnerId={p.id} stato={p.stato} /></td>
+                    <td><MenuStatoAzienda partnerId={p.id} dimensione="finanziario" stato={p.statoFinanziario} /></td>
+                    <td><MenuStatoAzienda partnerId={p.id} dimensione="analisi" stato={p.statoAnalisi} /></td>
                     <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto linee={linee} /></td>
                     <td className="cella-muta">{p.ultimaVisita ? dataIt(p.ultimaVisita) : "—"}</td>
                     <td className="cella-muta">
@@ -396,6 +472,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                 <Intestazione campo="citta" />
                 <th>Telefono</th>
                 <Intestazione campo="stato" />
+                <Intestazione campo="statoFinanziario" />
+                <Intestazione campo="statoAnalisi" />
                 <th>Interessi</th>
                 <Intestazione campo="account" classe="col-secondaria" />
                 <Intestazione campo="ultimaVisita" />

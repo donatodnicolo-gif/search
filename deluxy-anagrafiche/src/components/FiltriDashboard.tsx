@@ -1,7 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ETICHETTE_STATO, STATI } from "@/lib/stati";
+import {
+  DESCRIZIONI_STATO_ANALISI,
+  ETICHETTE_STATO,
+  ETICHETTE_STATO_FINANZIARIO,
+  STATI,
+  STATI_ANALISI,
+  STATI_FINANZIARI,
+} from "@/lib/stati";
 
 // Barra di macro-filtri della dashboard: ogni scelta aggiorna subito tutti i
 // grafici (navigazione con i parametri in querystring). I filtri si combinano
@@ -15,7 +22,14 @@ export function FiltriDashboard({
   categorie: string[];
   regioni: string[];
   interessi: string[];
-  valori: { categoria?: string; regione?: string; stato?: string; interesse?: string };
+  valori: {
+    categoria?: string;
+    regione?: string;
+    stato?: string;
+    statoFinanziario?: string;
+    statoAnalisi?: string;
+    interesse?: string;
+  };
 }) {
   const router = useRouter();
   const attivi = Object.values(valori).filter(Boolean).length;
@@ -43,10 +57,26 @@ export function FiltriDashboard({
         ))}
       </select>
       <select value={valori.stato ?? ""} onChange={(e) => cambia("stato", e.target.value)}>
-        <option value="">Tutti gli stati</option>
+        <option value="">Tutti gli stati commerciali</option>
         {STATI.map((s) => (
           <option key={s} value={s}>{ETICHETTE_STATO[s]}</option>
         ))}
+      </select>
+      <select
+        value={valori.statoFinanziario ?? ""}
+        onChange={(e) => cambia("statoFinanziario", e.target.value)}
+      >
+        <option value="">Tutti gli stati finanziari</option>
+        {STATI_FINANZIARI.map((s) => (
+          <option key={s} value={s}>{ETICHETTE_STATO_FINANZIARIO[s]}</option>
+        ))}
+      </select>
+      <select value={valori.statoAnalisi ?? ""} onChange={(e) => cambia("statoAnalisi", e.target.value)}>
+        <option value="">Tutti gli stati analisi</option>
+        {STATI_ANALISI.map((s) => (
+          <option key={s} value={s}>{DESCRIZIONI_STATO_ANALISI[s]}</option>
+        ))}
+        <option value="nessuno">Non analizzate</option>
       </select>
       <select value={valori.interesse ?? ""} onChange={(e) => cambia("interesse", e.target.value)}>
         <option value="">Tutti gli interessi</option>

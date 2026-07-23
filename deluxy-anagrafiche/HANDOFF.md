@@ -1,6 +1,6 @@
 # Deluxy Anagrafiche — Handoff / Stato del progetto
 
-> Documento per riprendere il lavoro da zero in una nuova sessione. Aggiornato il 19/07/2026.
+> Documento per riprendere il lavoro da zero in una nuova sessione. Aggiornato il 23/07/2026.
 > Leggi anche `README.md` (brief di integrazione per le altre app) e il `CLAUDE.md` alla radice del repo.
 
 ## 1. Cos'è, in una riga
@@ -37,8 +37,14 @@ opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se assente la UI è aperta).
 ## 3. Modello dati (Prisma, schema `anagrafiche`)
 
 - **Partner** — l'anagrafica. Campi chiave: `nome` (insegna), `ragioneSociale`, `categoria`
-  (MAIUSCOLO: BOUTIQUE/FIORISTA/PASTICCERIA/…/`DA CLASSIFICARE`), `stato` (ciclo di vita, vedi
-  `src/lib/stati.ts`: prospect·in_contatto·in_attesa·in_trattativa·da_ricontattare·attivo(=Partner)·non_interessato·dismesso),
+  (MAIUSCOLO: BOUTIQUE/FIORISTA/PASTICCERIA/…/`DA CLASSIFICARE`), **tre stati indipendenti**
+  (catalogo unico in `src/lib/stati.ts`, dal 23/07/2026):
+  · `stato` = **stato commerciale** (ex "stato", nome del campo invariato per compatibilità):
+  prospect·in_contatto·in_attesa·in_trattativa·da_ricontattare·attivo(=Partner)·non_interessato·dismesso;
+  · `statoFinanziario` = da_verificare(default)·regolare·in_ritardo·insoluto·piano_di_rientro·bloccato;
+  · `statoAnalisi` = pp(P.P., pari perimetro)·nuovo·dismesso, vuoto = mai analizzata — catalogo preso
+  da **FINANCE** (`Partner.clienteAnno` di deluxy-partner, "P.P./Nuovo/Dismesso": in API si accettano
+  anche quelle forme e si normalizzano),
   `citta`/`provincia`/`regione`, `indirizzo`, `email`, `telefono`, `pIva`, `codiceFiscale`,
   `account`, `ultimaVisita`, `interessi[]` (multi, `src/lib/interessi.ts`: consegne·affiliazione·
   gifting·catering·eventi·pr_activation·in_store·vendor), `note`, `datiExtra` (JSON tracker),
@@ -57,9 +63,11 @@ opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se assente la UI è aperta).
 
 ### Motore di merge multi-sorgente (`src/lib/merge.ts`) — Fase 1 dell'architettura
 Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione:
-- **Bloccati** (curati dal team): `stato`, `interessi` mai sovrascritti; `account`/`categoria`
+- **Bloccati** (curati dal team): `stato` (commerciale), `interessi` mai sovrascritti; `account`/`categoria`
   solo se vuoti (categoria: anche se `DA CLASSIFICARE`/`ALTRO`).
-- **Fattuali** (nome, ragioneSociale, città, indirizzo, email, telefono, pIva, CF, ultimaVisita):
+- **Fattuali** (nome, ragioneSociale, città, indirizzo, email, telefono, pIva, CF, ultimaVisita,
+  **statoFinanziario**, **statoAnalisi**: questi due nascono in FINANCE, quindi le app li scrivono —
+  `da_verificare` vale come casella vuota; fiducia `partner` = 70, sotto platform, sopra scout):
   **vince il più fresco** (`asOf`) o, a parità, la sorgente più **autorevole** (ranking di
   fiducia: ui 100 > platform 80 > scout 60 > suppliers 55 > hubspot 40 > … > sconosciuta 20).
   I campi vuoti si riempiono sempre. La provenienza per campo è in `provenienzaCampi`.
@@ -68,9 +76,12 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
 ## 4. Funzionalità UI (pagine)
 
 - **`/`** Aziende (ex "Visione globale") — elenco con ricerca "a parole" su tutti i campi + referenti, filtri
-  (categoria/città/stato/interesse), ordinamenti cliccabili, **sezione Novità** (top 10 tra
+  (categoria/città/**stato commerciale/stato finanziario/stato analisi**/interesse), ordinamenti
+  cliccabili, **sezione Novità** (top 10 tra
   data creazione e ultimo contatto), colonne Interessi/Ultimo contatto/Note, cambio
-  stato/interessi in riga, archivia/ripristina, riconciliazione HubSpot (⇄), bottone **＋ Nuovo**.
+  dei **tre stati** e degli interessi in riga (menu a tendina sul badge, `MenuStato` per il
+  commerciale e `MenuStatoAzienda` per finanziario/analisi), archivia/ripristina,
+  riconciliazione HubSpot (⇄), bottone **＋ Nuovo**.
   **Gruppi aziendali** — due meccanismi che si sommano:
   1. **Automatico per insegna** (nessun dato da preparare): le anagrafiche con lo stesso `nome`
      collassano in un'unica riga espandibile «NOME · N sedi · città…»; il ▸ mostra le sedi, ognuna
@@ -81,8 +92,10 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   Le sedi collegate a mano non compaiono come righe a sé (`where.capogruppoId = null`).
   **Durante una ricerca (`?q=`) l'elenco torna piatto**, così una sede resta trovabile per nome.
   Nota: la paginazione conta i record, non i gruppi — una pagina da 50 record mostra meno righe.
-- **`/dashboard`** — analisi con **macro-filtri** (tipologia/regione/stato/interesse in AND):
-  KPI, funnel per stato, interessi, tipologie/regioni/città, contatti per mese, qualità dati.
+- **`/dashboard`** — analisi con **macro-filtri** (tipologia/regione/stato commerciale/stato
+  finanziario/stato analisi/interesse in AND): KPI (compreso **A rischio incasso** = ritardo →
+  bloccato), funnel per stato commerciale, **stati finanziari**, **perimetro di analisi**,
+  interessi, tipologie/regioni/città, contatti per mese, qualità dati.
 - **`/contatti`** — rubrica di tutti i referenti (Excel + HubSpot), ricerca, filtro fonte,
   colonna **Azienda** (link alla scheda), telefoni cliccabili (`tel:` → avvia la chiamata),
   colonna **Google** («Salva in Google» via People API + fallback .vcf), link al contatto HubSpot (↗).
@@ -104,7 +117,8 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   (radice dominio, esclusi i provider generici → `whereRicerca`, solo anagrafiche non-DA CLASSIFICARE);
   **selezione multipla** con barra e spostamento in blocco (`spostaContattiMulti`, updateMany);
   «Altra…» apre la modale di ricerca. Azioni: `spostaContatto` / `spostaContattiMulti` (non duplicano).
-- **`/partner/:id`** — scheda: anagrafica, pillole stato + menu interessi, ✎ Modifica, archivia,
+- **`/partner/:id`** — scheda: anagrafica, **tre righe di pillole** (Commerciale · Finanziario ·
+  Analisi, `SelettoreStato` + `SelettoreStatoAzienda`) + menu interessi, ✎ Modifica, archivia,
   sezione **Contatti** (Excel+HubSpot con link al CRM, telefono cliccabile, **✕ rimuove il
   referente** dall'azienda → `staccaContatto`), Note, Dati del tracker, **Storia** (timeline).
   **Gruppi**: `⧉ Raggruppa` (`GestioneGruppo`) mette l'anagrafica sotto un'insegna madre;
@@ -142,7 +156,8 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   `aggiornaPartner` chiama `propagaDatiFinanziari` che li copia su tutte le sedi (updateMany).
   Compili una volta su una sede → valgono per Milano/Roma/Capri. NON condivisi: ragioneSociale,
   indirizzo, città, telefono/email, stato, interessi, referenti (restano per-sede).
-- **Sidebar** a sezioni espandibili (Registro·Tipologie·Stati·Interessi·Archivio·Sync), toggle a
+- **Sidebar** a sezioni espandibili (Registro·Tipologie·**Stati commerciali·Stati finanziari·Stati
+  analisi**·Interessi·Archivio·Identità aziende), con i conteggi per ogni stato, toggle a
   scomparsa (☰), preferenze in localStorage.
 
 ## 5. API (base `https://deluxy-anagrafiche.vercel.app`)
@@ -152,7 +167,7 @@ Pubbliche `/api/v1` — auth header `x-api-key: <chiave>` (o `Authorization: Bea
 | Metodo | Percorso | Permesso | Note |
 |---|---|---|---|
 | GET | `/api/v1/health` | — | Stato servizio |
-| GET | `/api/v1/partners` | lettura | Filtri: q, categoria, citta, provincia, regione, stato, interesse, fonte, platformId, attivo; page, perPage |
+| GET | `/api/v1/partners` | lettura | Filtri: q, categoria, citta, provincia, regione, stato (commerciale), statoFinanziario, statoAnalisi (`nessuno` = mai analizzate), interesse, fonte, platformId, attivo; page, perPage |
 | GET | `/api/v1/partners/:id` | lettura | id registro, platformId, o **qualsiasi** idEsterno via xref |
 | GET | `/api/v1/partners/by-ref/:sistema/:idEsterno` | lettura | Risolve dall'id di un'altra app |
 | GET | `/api/v1/partners/match` | lettura | `?pIva=&codiceFiscale=&nome=&citta=&idEsterno=` → match/candidati+confidenza; registra RichiestaMatch |
@@ -162,6 +177,12 @@ Pubbliche `/api/v1` — auth header `x-api-key: <chiave>` (o `Authorization: Bea
 | POST | `/api/v1/referenti/archivia` | referenti | Archivia/ripristina un referente (Scout): `{riferimento?{sistema,idEsterno}, negozio?, citta?, referente{email?,telefono?,nome?}, archiviato?}` → trova partner (xref→negozio+città) e referente (email>tel>nome), setta `Contatto.archiviato`. `200 {ok:true}` / `404 {ok:false, reason}` |
 
 Interne `/api/interno/*` (solo UI, cookie di sessione, NON per le app): `cerca-partner`, `cerca-hubspot`.
+
+**Stati nelle API (23/07/2026)**: la risposta espone `stato` (commerciale, nome storico),
+`statoCommerciale` (stesso valore, alias esplicito), `statoFinanziario` e `statoAnalisi`. In
+scrittura si accettano tutti e quattro i nomi; `statoAnalisi` accetta anche "P.P."/"Nuovo"/
+"Dismesso" di FINANCE. Ogni cambio finisce in `PassaggioStato` (prefissi `fin:` / `ana:`,
+resi leggibili da `nomeEventoStato`).
 
 **Chiavi**: una per app, in `<app>/.env` (gitignored), mai committare i valori. Rigenera con
 `npm run chiave -- <nome-app> [--scrittura]` (stampa la chiave una volta; nel DB solo l'hash;
@@ -234,7 +255,12 @@ trovano un match nel registro. Lato registro misurato: 578 attivi, 316 boutique,
    dalle app + UI di revisione; **Fase 3**: outbox/webhook sui cambi + Idempotency-Key.
 3. **Pulizia contatti Excel**: alcuni referenti dall'Excel hanno il campo `nome` sporco (testo
    libero). Passata di normalizzazione possibile sfruttando i dati HubSpot più strutturati.
-4. **deluxy-partner**: ha già `anagraficaId` e join per id (fatto). Le altre app (suppliers,
+4. **Stati finanziario/analisi ↔ FINANCE**: il registro li accoglie (campi, UI, API, merge) ma
+   **deluxy-partner non li invia ancora**: manca il pezzo lato FINANCE che, quando cambia
+   `clienteAnno` (P.P./Nuovo/Dismesso) o la posizione di pagamento, faccia
+   `PATCH /api/v1/partners/:id` con `statoAnalisi`/`statoFinanziario` + `asOf`. Finché non c'è,
+   i due stati si curano a mano dalla UI del registro.
+5. **deluxy-partner**: ha già `anagraficaId` e join per id (fatto). Le altre app (suppliers,
    scout, search) hanno la chiave ma non ancora l'integrazione in lettura.
 
 ## 8. Script (`package.json`)

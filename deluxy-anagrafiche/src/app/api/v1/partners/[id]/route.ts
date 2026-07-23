@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
 import { mergeContatti } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
+import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO } from "@/lib/stati";
 import { ARCHIVIATA, registraPassaggio } from "@/lib/storico";
 
 const INCLUDE = { contatti: true, riferimenti: true } as const;
@@ -75,6 +76,22 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     await propagaDatiFinanziari(id);
   }
   if (dati.stato) await registraPassaggio(id, esistente.stato, aggiornato.stato, client.nome);
+  if (dati.statoFinanziario) {
+    await registraPassaggio(
+      id,
+      `${PREFISSO_FINANZIARIO}${esistente.statoFinanziario}`,
+      `${PREFISSO_FINANZIARIO}${aggiornato.statoFinanziario}`,
+      client.nome,
+    );
+  }
+  if (dati.statoAnalisi) {
+    await registraPassaggio(
+      id,
+      `${PREFISSO_ANALISI}${esistente.statoAnalisi ?? ""}`,
+      `${PREFISSO_ANALISI}${aggiornato.statoAnalisi ?? ""}`,
+      client.nome,
+    );
+  }
   if (dati.attivo === false && esistente.attivo) {
     await registraPassaggio(id, aggiornato.stato, ARCHIVIATA, client.nome);
   } else if (dati.attivo === true && !esistente.attivo) {

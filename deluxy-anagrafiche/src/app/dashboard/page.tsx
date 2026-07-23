@@ -4,7 +4,20 @@ import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { coloreInteresse } from "@/lib/interessi";
 import { getLinee } from "@/lib/linee";
-import { COLORE_STATO, ETICHETTE_STATO, STATI, isStato } from "@/lib/stati";
+import {
+  COLORE_STATO,
+  COLORE_STATO_ANALISI,
+  COLORE_STATO_FINANZIARIO,
+  ETICHETTE_STATO,
+  ETICHETTE_STATO_ANALISI,
+  ETICHETTE_STATO_FINANZIARIO,
+  STATI,
+  STATI_ANALISI,
+  STATI_FINANZIARI,
+  isStato,
+  isStatoAnalisi,
+  isStatoFinanziario,
+} from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
 
@@ -42,28 +55,54 @@ function Barra({
   );
 }
 
-type Ricerca = { categoria?: string; regione?: string; stato?: string; interesse?: string };
+type Ricerca = {
+  categoria?: string;
+  regione?: string;
+  stato?: string;
+  statoFinanziario?: string;
+  statoAnalisi?: string;
+  interesse?: string;
+};
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<Ricerca> }) {
   const sp = await searchParams;
   const categoria = sp.categoria || undefined;
   const regione = sp.regione || undefined;
   const stato = sp.stato && isStato(sp.stato) ? sp.stato : undefined;
+  const statoFinanziario =
+    sp.statoFinanziario && isStatoFinanziario(sp.statoFinanziario) ? sp.statoFinanziario : undefined;
+  // "nessuno" = anagrafiche mai analizzate
+  const statoAnalisi =
+    sp.statoAnalisi === "nessuno" || (sp.statoAnalisi && isStatoAnalisi(sp.statoAnalisi))
+      ? sp.statoAnalisi
+      : undefined;
   const interesse = sp.interesse?.trim() || undefined;
   const linee = await getLinee();
-  const filtriAttivi = [categoria, regione, stato, interesse].filter(Boolean).length;
+  const filtriAttivi = [categoria, regione, stato, statoFinanziario, statoAnalisi, interesse].filter(
+    Boolean,
+  ).length;
 
   // Filtro Prisma (groupBy/count) e filtro SQL (query raw), stessi criteri
   const where: Prisma.PartnerWhereInput = { attivo: true };
   if (categoria) where.categoria = categoria;
   if (regione) where.regione = regione;
   if (stato) where.stato = stato;
+  if (statoFinanziario) where.statoFinanziario = statoFinanziario;
+  if (statoAnalisi) where.statoAnalisi = statoAnalisi === "nessuno" ? null : statoAnalisi;
   if (interesse) where.interessi = { has: interesse };
 
   const cond: Prisma.Sql[] = [Prisma.sql`"attivo"`];
   if (categoria) cond.push(Prisma.sql`"categoria" = ${categoria}`);
   if (regione) cond.push(Prisma.sql`"regione" = ${regione}`);
   if (stato) cond.push(Prisma.sql`"stato" = ${stato}`);
+  if (statoFinanziario) cond.push(Prisma.sql`"statoFinanziario" = ${statoFinanziario}`);
+  if (statoAnalisi) {
+    cond.push(
+      statoAnalisi === "nessuno"
+        ? Prisma.sql`"statoAnalisi" IS NULL`
+        : Prisma.sql`"statoAnalisi" = ${statoAnalisi}`,
+    );
+  }
   if (interesse) cond.push(Prisma.sql`${interesse} = ANY("interessi")`);
   const whereRaw = Prisma.join(cond, " AND ");
 
@@ -75,6 +114,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     opzioniRegioni,
     totale,
     perStato,
+    perStatoFinanziario,
+    perStatoAnalisi,
     perCategoria,
     perRegione,
     perCitta,
@@ -92,6 +133,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     prisma.partner.findMany({ where: { attivo: true, regione: { not: null } }, distinct: ["regione"], select: { regione: true }, orderBy: { regione: "asc" } }),
     prisma.partner.count({ where }),
     prisma.partner.groupBy({ by: ["stato"], where, _count: { _all: true } }),
+    prisma.partner.groupBy({ by: ["statoFinanziario"], where, _count: { _all: true } }),
+    prisma.partner.groupBy({ by: ["statoAnalisi"], where, _count: { _all: true } }),
     prisma.partner.groupBy({ by: ["categoria"], where, _count: { _all: true }, orderBy: { _count: { categoria: "desc" } } }),
     prisma.partner.groupBy({ by: ["regione"], where: regione ? where : { ...where, regione: { not: null } }, _count: { _all: true }, orderBy: { _count: { regione: "desc" } } }),
     prisma.partner.groupBy({ by: ["citta"], where: { ...where, citta: { not: null } }, _count: { _all: true }, orderBy: { _count: { citta: "desc" } }, take: 10 }),
@@ -117,8 +160,25 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     (somma, s) => somma + (statoConteggio.get(s) ?? 0),
     0,
   );
+  const finanziarioConteggio = new Map(
+    perStatoFinanziario.map((s) => [s.statoFinanziario, s._count._all]),
+  );
+  const analisiConteggio = new Map(
+    perStatoAnalisi.map((s) => [s.statoAnalisi ?? "nessuno", s._count._all]),
+  );
   const interesseConteggio = new Map(perInteresse.map((i) => [i.interesse, Number(i.totale)]));
   const maxStato = Math.max(...STATI.map((s) => statoConteggio.get(s) ?? 0), 1);
+  const maxFinanziario = Math.max(...STATI_FINANZIARI.map((s) => finanziarioConteggio.get(s) ?? 0), 1);
+  const maxAnalisi = Math.max(
+    ...STATI_ANALISI.map((s) => analisiConteggio.get(s) ?? 0),
+    analisiConteggio.get("nessuno") ?? 0,
+    1,
+  );
+  // A rischio incasso: tutto ciò che non è "regolare" né ancora da verificare
+  const aRischio = ["in_ritardo", "insoluto", "piano_di_rientro", "bloccato"].reduce(
+    (somma, s) => somma + (finanziarioConteggio.get(s) ?? 0),
+    0,
+  );
   const maxInteresse = Math.max(...linee.map((i) => interesseConteggio.get(i) ?? 0), 1);
 
   const TOP = 8;
@@ -152,6 +212,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         dashboardAttiva
         categoriaAttiva={categoria ?? null}
         statoAttivo={stato ?? null}
+        statoFinanziarioAttivo={statoFinanziario ?? null}
+        statoAnalisiAttivo={statoAnalisi ?? null}
         interesseAttivo={interesse ?? null}
       />
       <main className="main">
@@ -170,13 +232,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           categorie={opzioniCategorie.map((c) => c.categoria)}
           regioni={opzioniRegioni.map((r) => r.regione!).filter(Boolean)}
           interessi={linee}
-          valori={{ categoria, regione, stato, interesse }}
+          valori={{ categoria, regione, stato, statoFinanziario, statoAnalisi, interesse }}
         />
 
         <div className="sync-riepilogo" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
           <div className="sync-kpi"><div className="sync-kpi-valore">{totale}</div><div className="sync-kpi-etichetta">Anagrafiche{filtriAttivi > 0 ? " (filtro)" : " attive"}</div></div>
           <div className="sync-kpi"><div className="sync-kpi-valore">{statoConteggio.get("attivo") ?? 0}</div><div className="sync-kpi-etichetta">Partner operativi</div></div>
           <div className="sync-kpi"><div className="sync-kpi-valore">{pipeline}</div><div className="sync-kpi-etichetta">In pipeline (contatto → trattativa)</div></div>
+          <div className="sync-kpi"><div className="sync-kpi-valore">{aRischio}</div><div className="sync-kpi-etichetta">A rischio incasso (ritardo → bloccato)</div></div>
           <div className="sync-kpi"><div className="sync-kpi-valore">{nuove7}</div><div className="sync-kpi-etichetta">Nuove negli ultimi 7 giorni</div></div>
           <div className="sync-kpi"><div className="sync-kpi-valore">{contattate7}</div><div className="sync-kpi-etichetta">Contattate negli ultimi 7 giorni</div></div>
         </div>
@@ -186,7 +249,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         ) : (
         <div className="dash-grid">
           <section className="scheda">
-            <h2 className="scheda-titolo">Funnel per stato</h2>
+            <h2 className="scheda-titolo">Funnel per stato commerciale</h2>
             {STATI.map((s) => (
               <Barra
                 key={s}
@@ -198,6 +261,47 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 dettaglio={`${ETICHETTE_STATO[s]}: ${statoConteggio.get(s) ?? 0} (${pct(statoConteggio.get(s) ?? 0)}% della fetta)`}
               />
             ))}
+          </section>
+
+          <section className="scheda">
+            <h2 className="scheda-titolo">
+              Stati finanziari <span className="scheda-sub">come pagano</span>
+            </h2>
+            {STATI_FINANZIARI.map((s) => (
+              <Barra
+                key={s}
+                etichetta={ETICHETTE_STATO_FINANZIARIO[s]}
+                valore={finanziarioConteggio.get(s) ?? 0}
+                massimo={maxFinanziario}
+                colore={COLORE_STATO_FINANZIARIO[s]}
+                href={`/?statoFinanziario=${s}`}
+                dettaglio={`${ETICHETTE_STATO_FINANZIARIO[s]}: ${finanziarioConteggio.get(s) ?? 0} (${pct(finanziarioConteggio.get(s) ?? 0)}% della fetta)`}
+              />
+            ))}
+          </section>
+
+          <section className="scheda">
+            <h2 className="scheda-titolo">
+              Perimetro di analisi <span className="scheda-sub">catalogo FINANCE</span>
+            </h2>
+            {STATI_ANALISI.map((s) => (
+              <Barra
+                key={s}
+                etichetta={ETICHETTE_STATO_ANALISI[s]}
+                valore={analisiConteggio.get(s) ?? 0}
+                massimo={maxAnalisi}
+                colore={COLORE_STATO_ANALISI[s]}
+                href={`/?statoAnalisi=${s}`}
+                dettaglio={`${ETICHETTE_STATO_ANALISI[s]}: ${analisiConteggio.get(s) ?? 0} (${pct(analisiConteggio.get(s) ?? 0)}% della fetta)`}
+              />
+            ))}
+            <Barra
+              etichetta="Non analizzate"
+              valore={analisiConteggio.get("nessuno") ?? 0}
+              massimo={maxAnalisi}
+              colore="var(--fill-active)"
+              href="/?statoAnalisi=nessuno"
+            />
           </section>
 
           <section className="scheda">

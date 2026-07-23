@@ -4,6 +4,7 @@ import type { RigaContatto } from "@/components/google-rubrica";
 import { MenuInteressi } from "@/components/MenuInteressi";
 import { SalvaRubricaAuto } from "@/components/SalvaRubricaAuto";
 import { SelettoreStato } from "@/components/SelettoreStato";
+import { SelettoreStatoAzienda } from "@/components/SelettoreStatoAzienda";
 import { Sidebar } from "@/components/Sidebar";
 import { impostaArchiviato, raggruppaSotto, staccaContatto } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
@@ -11,7 +12,7 @@ import { linkContattoHubspot } from "@/lib/hubspot-link";
 import { datiFinanziariCondivisi } from "@/lib/insegna";
 import { eAffiliatoReseller } from "@/lib/interessi";
 import { getLinee } from "@/lib/linee";
-import { ETICHETTE_STATO, isStato } from "@/lib/stati";
+import { ETICHETTE_STATO, isStato, nomeEventoStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,8 @@ export default async function Dettaglio({
     ui: "dal registro",
     hubspot: "da HubSpot",
   };
+  // Nelle righe delle sedi conta lo stato commerciale; nello storico compaiono
+  // anche i passaggi finanziari e di analisi (prefissati) → nomeEventoStato.
   const nomeStato = (s: string) =>
     s === "archiviata" ? "Archiviata" : isStato(s) ? ETICHETTE_STATO[s] : s;
   const dataOra = (d: Date) =>
@@ -118,7 +121,28 @@ export default async function Dettaglio({
             </div>
           )}
           {p.attivo ? (
-            <SelettoreStato partnerId={p.id} statoAttuale={p.stato} />
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="etichetta-interessi">Commerciale</span>
+                <SelettoreStato partnerId={p.id} statoAttuale={p.stato} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="etichetta-interessi">Finanziario</span>
+                <SelettoreStatoAzienda
+                  partnerId={p.id}
+                  dimensione="finanziario"
+                  statoAttuale={p.statoFinanziario}
+                />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="etichetta-interessi">Analisi</span>
+                <SelettoreStatoAzienda
+                  partnerId={p.id}
+                  dimensione="analisi"
+                  statoAttuale={p.statoAnalisi}
+                />
+              </div>
+            </>
           ) : (
             <span className="badge" style={{ color: "var(--text-tertiary)" }}>
               <span className="dot" />
@@ -238,7 +262,7 @@ export default async function Dettaglio({
                 <tr>
                   <th>Sede</th>
                   <th>Città</th>
-                  <th>Stato</th>
+                  <th>Stato commerciale</th>
                   <th>Referenti</th>
                   <th aria-label="Azioni"></th>
                 </tr>
@@ -359,7 +383,8 @@ export default async function Dettaglio({
             <li key={ev.id}>
               <span className="storia-data">{dataOra(ev.creatoIl)}</span>
               <span>
-                {nomeStato(ev.da)} <span className="storia-freccia">→</span> <strong>{nomeStato(ev.a)}</strong>
+                {nomeEventoStato(ev.da)} <span className="storia-freccia">→</span>{" "}
+                <strong>{nomeEventoStato(ev.a)}</strong>
               </span>
               <span className="storia-origine">{ev.origine === "ui" ? "dal registro" : ev.origine}</span>
             </li>

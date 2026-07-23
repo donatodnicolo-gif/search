@@ -23,9 +23,16 @@ model Partner {
   // RISTORANTE, CATERING, GIFTING, CONCIERGE, ...
   categoria      String     @default("ALTRO")
   tipoProspect   String? // valore grezzo "TIPO PROSPECT" del tracker Excel
+  // Stato COMMERCIALE (ciclo di vita della relazione):
   // prospect | in_contatto | in_attesa | in_trattativa | da_ricontattare |
   // attivo (= partner) | non_interessato | dismesso — vedi src/lib/stati.ts
   stato          String     @default("prospect")
+  // Stato FINANZIARIO (come paga l'azienda, dimensione dell'amministrazione):
+  // da_verificare | regolare | in_ritardo | insoluto | piano_di_rientro | bloccato
+  statoFinanziario String   @default("da_verificare")
+  // Stato ANALISI (perimetro dell'anno, catalogo di FINANCE/deluxy-partner
+  // `clienteAnno`): pp (pari perimetro) | nuovo | dismesso. Vuoto = non analizzata.
+  statoAnalisi     String?
   citta          String?
   provincia      String?
   regione        String?
@@ -78,6 +85,8 @@ model Partner {
 
   @@index([categoria])
   @@index([stato])
+  @@index([statoFinanziario])
+  @@index([statoAnalisi])
   @@index([citta])
   @@index([nome])
   @@index([capogruppoId])
