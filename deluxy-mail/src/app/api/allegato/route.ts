@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { leggiAllegato } from '@/lib/imap'
+import { leggiAllegato, scaricaParte } from '@/lib/imap'
 
 // GET /api/allegato?messaggio=<id>&i=<indice>
 // Scarica ON-DEMAND un allegato dal server e lo serve. Autenticato dal cookie:
@@ -26,9 +26,28 @@ export async function GET(req: Request) {
   if (!m || m.uid <= 0) return new Response('Allegato non disponibile', { status: 404 })
 
   const cartella = m.direzione === 'uscita' ? m.account.cartellaInviata || undefined : m.account.cartella
-  let allegato
+
+  // Se il client passa la PARTE (l'indirizzo IMAP del pezzo, che l'elenco
+  // fornisce), si scarica solo quella: su una mail da decine di MB tirarsi
+  // dietro tutto il messaggio per un allegato è quello che la faceva scadere.
+  const parte = url.searchParams.get('parte') || ''
+  const nomeAtteso = url.searchParams.get('nome') || ''
+  const tipoAtteso = url.searchParams.get('tipo') || ''
+
+  let allegato: { nome: string; tipo: string; contenuto: Buffer } | null = null
   try {
-    allegato = await leggiAllegato(m.account, m.uid, indice, cartella)
+    if (parte) {
+      const dati = await scaricaParte(m.account, m.uid, parte, cartella)
+      if (dati) {
+        allegato = {
+          nome: nomeAtteso || `allegato-${indice + 1}`,
+          tipo: tipoAtteso || 'application/octet-stream',
+          contenuto: dati,
+        }
+      }
+    }
+    // Senza parte (o se non è arrivata): strada vecchia, per indice.
+    if (!allegato) allegato = await leggiAllegato(m.account, m.uid, indice, cartella)
   } catch {
     return new Response('Errore nel recupero dal server', { status: 502 })
   }

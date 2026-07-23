@@ -1013,7 +1013,7 @@ export async function segnalaSpam(id: string): Promise<{ ok: boolean; messaggio:
 /** L'elenco degli allegati di un messaggio, letto dal server al momento. */
 export async function elencoAllegati(
   messaggioId: string
-): Promise<{ nome: string; tipo: string; dimensione: number }[]> {
+): Promise<{ nome: string; tipo: string; dimensione: number; parte: string }[]> {
   const utenteId = await uid()
   const m = await db.messaggio.findFirst({
     where: { id: messaggioId, utenteId },
@@ -2333,6 +2333,20 @@ export async function leggiInvito(messaggioId: string): Promise<InvitoInMail | n
     include: { account: true },
   })
   if (!m || m.uid <= 0) return null
+
+  // ⚠️ NON ci si può fidare del conteggio allegati: la parte `text/calendar`
+  // di un invito Exchange spesso non viene contata come allegato, e con quel
+  // filtro il riquadro non compariva proprio sugli inviti veri. Si fa invece
+  // un controllo A COSTO ZERO sul testo già salvato, e solo se promette bene
+  // si va a leggere dal server (che costa una connessione IMAP).
+  // ⚠️ NON basta «ha allegati»: con quel criterio ogni mail con un file pesante
+  // si scaricava per intero solo per cercare un invito che non c'era (ed è così
+  // che l'elenco allegati restava a «Carico dal server…»). Servono parole spia
+  // vere: gli inviti le hanno sempre nel corpo.
+  const spia = `${m.oggetto} ${m.corpoTesto ?? ''}`.toLowerCase()
+  const sembraInvito =
+    /begin:vcalendar|invit|appuntamento|riunione|meeting|quando:|when:|organizzatore|organizer|partecipanti/.test(spia)
+  if (!sembraInvito) return null
 
   const { leggiTuttiAllegati } = await import('./imap')
   const { leggiIcs } = await import('./invitoRicevuto')

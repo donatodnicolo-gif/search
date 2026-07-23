@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { elencoAllegati } from '@/lib/actions'
 
-type Allegato = { nome: string; tipo: string; dimensione: number }
+type Allegato = { nome: string; tipo: string; dimensione: number; parte?: string }
 
 function dimensioneUmana(byte: number): string {
   if (!byte) return ''
@@ -67,7 +67,12 @@ export function AllegatiMessaggio({ messaggioId, quanti }: { messaggioId: string
             <a
               key={i}
               className="allegato-voce"
-              href={`/api/allegato?messaggio=${encodeURIComponent(messaggioId)}&i=${i}`}
+              // Con `parte` il server scarica SOLO quell'allegato (vedi
+              // scaricaParte): su mail pesanti fa la differenza fra secondi e
+              // una richiesta che scade.
+              href={`/api/allegato?messaggio=${encodeURIComponent(messaggioId)}&i=${i}${
+                a.parte ? `&parte=${encodeURIComponent(a.parte)}&nome=${encodeURIComponent(a.nome)}&tipo=${encodeURIComponent(a.tipo)}` : ''
+              }`}
               download={a.nome}
             >
               <span className="allegato-nome">{a.nome}</span>

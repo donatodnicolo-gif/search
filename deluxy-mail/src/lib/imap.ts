@@ -213,26 +213,88 @@ export async function eliminaDalServer(account: Account, cartella: string, uids:
 
 /** L'elenco degli allegati di un messaggio (nome/tipo/dimensione), letto ON-DEMAND
  *  dal server: non si conservano i file, si scaricano quando servono. */
+/** Un nodo della struttura del messaggio, come lo dà imapflow. */
+type NodoStruttura = {
+  part?: string
+  type?: string
+  parameters?: Record<string, string>
+  disposition?: string
+  dispositionParameters?: Record<string, string>
+  size?: number
+  childNodes?: NodoStruttura[]
+}
+
+/**
+ * L'elenco degli allegati SENZA scaricarli.
+ *
+ * ⚠️ Prima si scaricava l'intero messaggio e lo si dava in pasto al parser solo
+ * per sapere nomi e dimensioni: con una mail da decine di MB (un catalogo, un
+ * video) l'elenco restava a «Carico dal server…» finché la funzione non moriva.
+ * Qui si chiede al server solo la STRUTTURA (BODYSTRUCTURE): pochi byte, sempre
+ * istantanea. Torna anche `parte`, l'indirizzo IMAP del pezzo, così il download
+ * scarica QUELL'allegato e non tutta la mail.
+ */
 export async function leggiAllegati(
   account: Account,
   uid: number,
   cartella?: string
-): Promise<{ nome: string; tipo: string; dimensione: number }[]> {
+): Promise<{ nome: string; tipo: string; dimensione: number; parte: string }[]> {
   if (uid <= 0) return []
   const client = connessione(account)
   await client.connect()
   try {
     await client.mailboxOpen(cartella || account.cartella, { readOnly: true })
-    for await (const msg of client.fetch({ uid: String(uid) }, { uid: true, source: true }, { uid: true })) {
-      if (!msg.source) continue
-      const parsed = await simpleParser(msg.source)
-      return (parsed.attachments ?? []).map((a, i) => ({
-        nome: a.filename || `allegato-${i + 1}`,
-        tipo: a.contentType || 'application/octet-stream',
-        dimensione: a.size || (a.content ? a.content.length : 0),
-      }))
+    for await (const msg of client.fetch({ uid: String(uid) }, { uid: true, bodyStructure: true }, { uid: true })) {
+      const radice = msg.bodyStructure as NodoStruttura | undefined
+      if (!radice) continue
+
+      const trovati: { nome: string; tipo: string; dimensione: number; parte: string }[] = []
+      const visita = (n: NodoStruttura) => {
+        if (n.childNodes?.length) {
+          for (const f of n.childNodes) visita(f)
+          return
+        }
+        const tipo = (n.type || '').toLowerCase()
+        const nome = n.dispositionParameters?.filename || n.parameters?.name || ''
+        const allegato =
+          (n.disposition || '').toLowerCase() === 'attachment' ||
+          Boolean(nome) ||
+          tipo.startsWith('text/calendar')
+        // Il corpo della mail (testo/HTML senza nome) non è un allegato.
+        if (!allegato || !n.part) return
+        trovati.push({
+          nome: nome || `allegato-${trovati.length + 1}`,
+          tipo: tipo || 'application/octet-stream',
+          dimensione: n.size ?? 0,
+          parte: n.part,
+        })
+      }
+      visita(radice)
+      return trovati
     }
     return []
+  } finally {
+    await client.logout()
+  }
+}
+
+/** Scarica UNA parte del messaggio (un allegato) senza tirarsi dietro il resto. */
+export async function scaricaParte(
+  account: Account,
+  uid: number,
+  parte: string,
+  cartella?: string
+): Promise<Buffer | null> {
+  if (uid <= 0) return null
+  const client = connessione(account)
+  await client.connect()
+  try {
+    await client.mailboxOpen(cartella || account.cartella, { readOnly: true })
+    const scarico = await client.download(String(uid), parte, { uid: true })
+    if (!scarico?.content) return null
+    const pezzi: Buffer[] = []
+    for await (const c of scarico.content) pezzi.push(Buffer.from(c))
+    return Buffer.concat(pezzi)
   } finally {
     await client.logout()
   }

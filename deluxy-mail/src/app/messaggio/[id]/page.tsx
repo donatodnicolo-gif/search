@@ -354,7 +354,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
         {/* Invito di calendario vero (Outlook/Google): Accetta / Forse /
             Rifiuta. Si legge dal server dopo il render, come gli allegati. */}
-        {messaggio.allegati > 0 && <InvitoCalendario messaggioId={messaggio.id} />}
+        {messaggio.direzione === 'entrata' && <InvitoCalendario messaggioId={messaggio.id} />}
 
         {eventoProposto && <PropostaEvento messaggioId={messaggio.id} evento={eventoProposto} />}
 
