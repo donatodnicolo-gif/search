@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { PRIORITA } from '@/lib/format'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
+import { ColonnaCalendario } from '@/components/ColonnaCalendario'
 import { NuoveAzioni } from '@/components/NuoveAzioni'
 import { RicercaMail } from '@/components/RicercaMail'
 import { CercaServer } from '@/components/CercaServer'
@@ -475,6 +476,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         </div>
 
         <div className="inbox-lato">
+          {/* L'agenda in cima: i prossimi appuntamenti si vedono appena si apre la posta. */}
+          <ColonnaCalendario utenteId={u.id} />
           <CarteApp azioni={azioniApp} />
           <ColonnaAttivita utenteId={u.id} />
         </div>
