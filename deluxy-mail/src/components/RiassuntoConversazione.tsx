@@ -42,9 +42,13 @@ type Salvato = {
 export function RiassuntoConversazione({
   messaggioId,
   iniziale,
+  stato,
 }: {
   messaggioId: string
   iniziale: Salvato | null
+  /** Riga di stato della lettura automatica (PLUS AI): sta qui perché è qui
+   *  che se ne guarda il risultato. */
+  stato?: React.ReactNode
 }) {
   const [dati, setDati] = useState<Salvato | null>(iniziale)
   const [errore, setErrore] = useState<string | null>(null)
@@ -66,6 +70,9 @@ export function RiassuntoConversazione({
           {inCorso ? 'Leggo…' : dati ? 'Rigenera' : 'Riassumi la conversazione'}
         </button>
       </div>
+
+      {/* Cosa sta facendo l'AI da sola su questa conversazione (PLUS AI). */}
+      {stato}
 
       {errore && <div className="ai-box-text" style={{ color: 'var(--red)' }}>{errore}</div>}
 

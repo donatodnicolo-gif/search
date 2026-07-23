@@ -197,10 +197,6 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
             <CestinaThread messaggioId={messaggio.id} quante={conversazione.length} />
           </div>
 
-          {/* Se la conversazione ha il PLUS AI, l'AI la legge in sottofondo
-              appena la apri: mail non ancora analizzate e riassunto da rifare. */}
-          {threadAI && <AnalisiAIInbox sempreVisibile />}
-
           <div style={{ marginBottom: 14 }}>
             <AgganciaMail
               messaggioId={messaggio.id}
@@ -216,6 +212,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
           <RiassuntoConversazione
             messaggioId={messaggio.id}
+            // Se la conversazione ha il PLUS AI, l'AI la legge da sola appena
+            // la apri: lo stato va QUI, dov'è il risultato che si guarda.
+            stato={threadAI ? <AnalisiAIInbox sempreVisibile /> : null}
             iniziale={
               riassuntoThread
                 ? {
