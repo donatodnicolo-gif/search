@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { PRIORITA } from '@/lib/format'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
 import { ColonnaCalendario } from '@/components/ColonnaCalendario'
+import { AnalisiAIInbox } from '@/components/AnalisiAIInbox'
 import { NuoveAzioni } from '@/components/NuoveAzioni'
 import { RicercaMail } from '@/components/RicercaMail'
 import { CercaServer } from '@/components/CercaServer'
@@ -482,6 +483,10 @@ export default async function PostaInArrivo({ searchParams }: Props) {
 
       {/* L'analisi periodica vive nella pagina di Renè AI (sidebar →
           Applicazioni): la posta in arrivo resta solo posta. */}
+
+      {/* AI Inbox: l'AI legge in sottofondo le mail dei contatti col PLUS AI
+          che non ha ancora letto (quelle già analizzate non si rileggono). */}
+      {vistaAI && !ricerca && <AnalisiAIInbox />}
 
       <div className="inbox-split">
         <div className="card tight">
