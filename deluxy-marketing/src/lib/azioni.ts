@@ -336,3 +336,61 @@ export async function cambiaStatoKeyword(fd: FormData) {
   });
   revalidatePath("/keywords");
 }
+
+// ---------- Pubblici ----------
+
+export async function salvaPubblico(fd: FormData) {
+  const nome = testo(fd, "nome");
+  const piattaforma = testo(fd, "piattaforma") ?? "meta";
+  if (!nome) return;
+  const dimensione = numeroDa(fd, "dimensione");
+  const dati = {
+    brand: testo(fd, "brand") ?? "cross",
+    tipo: testo(fd, "tipo") ?? "cliente",
+    dimensione: dimensione != null ? Math.round(dimensione) : null,
+    stato: testo(fd, "stato") ?? "da_verificare",
+    note: testo(fd, "note"),
+    verificatoIl: new Date(),
+  };
+  const pubblico = await prisma.pubblico.upsert({
+    where: { nome_piattaforma: { nome, piattaforma } },
+    create: { nome, piattaforma, ...dati },
+    update: dati,
+  });
+  // La dimensione entra anche nello storico: i pool si consumano nel tempo.
+  if (dati.dimensione != null) {
+    const giorno = new Date();
+    giorno.setUTCHours(0, 0, 0, 0);
+    await prisma.misuraPubblico.upsert({
+      where: { pubblicoId_data: { pubblicoId: pubblico.id, data: giorno } },
+      create: { pubblicoId: pubblico.id, data: giorno, dimensione: dati.dimensione },
+      update: { dimensione: dati.dimensione },
+    });
+  }
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "pubblico",
+    entitaId: pubblico.id,
+    titolo: `Pubblico salvato: ${nome} (${piattaforma})`,
+  });
+  revalidatePath("/pubblici");
+}
+
+export async function cambiaStatoPubblico(fd: FormData) {
+  const id = testo(fd, "id");
+  const stato = testo(fd, "stato");
+  if (!id || !stato) return;
+  const pubblico = await prisma.pubblico.update({
+    where: { id },
+    data: { stato, verificatoIl: new Date() },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "pubblico",
+    entitaId: id,
+    titolo: `Pubblico "${pubblico.nome}" → ${stato}`,
+  });
+  revalidatePath("/pubblici");
+}

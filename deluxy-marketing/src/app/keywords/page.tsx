@@ -1,4 +1,5 @@
 import { Icona } from "@/components/Icona";
+import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
 import { cambiaStatoKeyword } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
@@ -8,6 +9,7 @@ import {
   formattaEuro,
   STATI_KEYWORD,
 } from "@/lib/dominio";
+import { giudizioKeyword } from "@/lib/salute";
 
 export const dynamic = "force-dynamic";
 
@@ -233,7 +235,8 @@ export default async function PaginaKeywords({
                   <thead>
                     <tr>
                       <th><a href={link({ ordina: "keyword" })}>Keyword {ordina === "keyword" ? "↓" : ""}</a></th>
-                      <th style={{ minWidth: 250 }}>Stato</th>
+                      <th style={{ minWidth: 150 }}>Valutazione</th>
+                      <th style={{ minWidth: 140 }}>Stato</th>
                       <th>Campagne</th>
                       <th className="num"><a href={link({ ordina: "incasso" })}>Incasso {ordina === "incasso" ? "↓" : ""}</a></th>
                       <th className="num"><a href={link({ ordina: "spesa" })}>Spesa {ordina === "spesa" ? "↓" : ""}</a></th>
@@ -241,27 +244,25 @@ export default async function PaginaKeywords({
                     </tr>
                   </thead>
                   <tbody>
-                    {del.map((k) => (
+                    {del.map((k) => {
+                      const g = giudizioKeyword(k.incasso, k.spesa);
+                      return (
                       <tr key={k.testo}>
                         <td className="cella-nome">{k.testo}</td>
                         <td>
-                          <form className="pill-scelta" action={cambiaStatoKeyword}>
+                          <span className="tag-salute" style={{ color: g.colore }} title={g.spiega}>
+                            <span className="dot" />
+                            {g.etichetta}
+                          </span>
+                        </td>
+                        <td>
+                          <form action={cambiaStatoKeyword}>
                             <input type="hidden" name="keyword" value={k.testo} />
-                            {STATI_KEYWORD.map((s) => (
-                              <button
-                                key={s}
-                                className={`pill-opt${k.stato === s ? " attuale" : ""}`}
-                                style={{ color: k.stato === s ? undefined : COLORE_STATO_KEYWORD[s] }}
-                                type="submit"
-                                name="stato"
-                                value={s}
-                                disabled={k.stato === s}
-                                title={ETICHETTA_STATO_KEYWORD[s]}
-                              >
-                                <span className="dot" />
-                                <span style={{ color: "var(--text)" }}>{ETICHETTA_STATO_KEYWORD[s]}</span>
-                              </button>
-                            ))}
+                            <SelettoreStato
+                              valore={k.stato}
+                              colore={COLORE_STATO_KEYWORD[k.stato]}
+                              opzioni={STATI_KEYWORD.map((s) => ({ valore: s, etichetta: ETICHETTA_STATO_KEYWORD[s] }))}
+                            />
                           </form>
                         </td>
                         <td>
@@ -279,7 +280,8 @@ export default async function PaginaKeywords({
                           {k.resa != null ? `${k.resa.toFixed(1)}×` : "—"}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

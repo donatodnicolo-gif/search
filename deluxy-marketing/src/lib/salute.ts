@@ -63,3 +63,83 @@ export function iconaCanale(canale: string): string {
   if (canale === "tiktok") return "tiktok";
   return "campagne";
 }
+
+// ---------- Valutazione automatica di una keyword ----------
+// Giudizio dai numeri, secondo le soglie della pratica search advertising:
+// il break-even di Deluxy sta intorno a 2× (margine ~50%), il target è 4×.
+// Sotto i 20 € di spesa non c'è statistica: si dichiara, non si giudica.
+
+export type GiudizioKeyword = {
+  etichetta: string;
+  colore: string;
+  spiega: string;
+  // stato consigliato: la pillola che l'app propone di applicare
+  consiglio: "vincente" | "attiva" | "da_valutare" | "in_pausa" | "esclusa";
+};
+
+export function giudizioKeyword(incasso: number, spesa: number): GiudizioKeyword {
+  const resa = spesa > 0 ? incasso / spesa : null;
+
+  if (spesa < 20 && incasso === 0) {
+    return {
+      etichetta: "Poco traffico",
+      colore: "var(--text-tertiary)",
+      spiega: "Sotto i 20 € di spesa non c'è abbastanza statistica per giudicare: lasciare correre e riguardare tra qualche settimana.",
+      consiglio: "attiva",
+    };
+  }
+  if (incasso === 0) {
+    return {
+      etichetta: "Spende a vuoto",
+      colore: "var(--red)",
+      spiega: `${spesa.toFixed(0)} € spesi e zero incasso: intento sbagliato o pagina non pertinente. Da escludere o riscrivere l'annuncio.`,
+      consiglio: spesa >= 100 ? "esclusa" : "in_pausa",
+    };
+  }
+  if (resa == null) {
+    return {
+      etichetta: "Da verificare",
+      colore: "var(--text-tertiary)",
+      spiega: "Incasso registrato senza spesa: dato incompleto, va verificato in piattaforma.",
+      consiglio: "da_valutare",
+    };
+  }
+  if (resa >= 8) {
+    return {
+      etichetta: "Da scalare",
+      colore: "var(--green)",
+      spiega: `Resa ${resa.toFixed(1)}×, molto sopra il target di 4×: alzare le offerte e presidiare la quota impressioni, è qui che c'è margine da prendere.`,
+      consiglio: "vincente",
+    };
+  }
+  if (resa >= 4) {
+    return {
+      etichetta: "Buona",
+      colore: "var(--green)",
+      spiega: `Resa ${resa.toFixed(1)}×: sopra il target di 4×. Tenerla attiva e proteggerla dalle variazioni di budget.`,
+      consiglio: "vincente",
+    };
+  }
+  if (resa >= 2) {
+    return {
+      etichetta: "Nella media",
+      colore: "var(--blue)",
+      spiega: `Resa ${resa.toFixed(1)}×: sopra il break-even ma sotto il target. Migliorare pertinenza dell'annuncio e landing prima di toccare le offerte.`,
+      consiglio: "attiva",
+    };
+  }
+  if (resa >= 1) {
+    return {
+      etichetta: "Marginale",
+      colore: "var(--orange)",
+      spiega: `Resa ${resa.toFixed(1)}×: intorno al pareggio, non produce margine. Abbassare le offerte, restringere la corrispondenza o mettere in pausa.`,
+      consiglio: "da_valutare",
+    };
+  }
+  return {
+    etichetta: "In perdita",
+    colore: "var(--red)",
+    spiega: `Resa ${resa.toFixed(1)}×: incassa meno di quanto costa. Va fermata, salvo che serva come ricerca di volume dichiarata.`,
+    consiglio: spesa >= 100 ? "esclusa" : "in_pausa",
+  };
+}

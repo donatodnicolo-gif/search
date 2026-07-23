@@ -5,7 +5,7 @@ import { SbSezione } from "./SbSezione";
 
 export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "landing" | "copy" | "keywords"
-  | "meta" | "drive" | "storico" | "vendite" | "budget" | "mkt";
+  | "meta" | "pubblici" | "drive" | "storico" | "vendite" | "budget" | "mkt";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -20,7 +20,7 @@ export async function Sidebar({
 }) {
   const [
     nAnalisi, nAudit, nAzioniAperte, nCampagneVive, nLanding, nTestAperti, nDocumenti,
-    aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale,
+    aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale, nPubblici,
   ] = await Promise.all([
     prisma.analisi.count(),
     prisma.analisi.count({
@@ -52,6 +52,7 @@ export async function Sidebar({
       where: { stato: { in: ["attiva", "in_apprendimento", "in_pausa"] } },
       _count: { _all: true },
     }),
+    prisma.pubblico.count(),
   ]);
 
   const conta = (
@@ -94,6 +95,7 @@ export async function Sidebar({
           {voce("azioni", "/azioni", "azioni", "Azioni", nAzioniAperte)}
           {voce("campagne", "/campagne", "campagne", "Campagne", nCampagneVive)}
           {voce("landing", "/landing", "landing", "Landing page", nLanding)}
+          {voce("pubblici", "/pubblici", "pubblici", "Pubblici", nPubblici)}
         </SbSezione>
 
         <SbSezione titolo="Google Ads">

@@ -189,7 +189,7 @@ async function importaSettimane(nomeFoglio, scope) {
 async function importaCopy(nomeFoglio, lingua) {
   const righe = foglio(nomeFoglio);
   if (!righe) return;
-  const blocchi = [0, 4, 8]; // tre campagne affiancate
+  const blocchi = [0, 4, 8, 12]; // quattro campagne affiancate
   for (const base of blocchi) {
     let campagna = null;
     let inKeywords = false;

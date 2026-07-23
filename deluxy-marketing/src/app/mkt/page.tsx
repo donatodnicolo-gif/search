@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import {
+  COLORE_BRAND,
   ETICHETTA_SCOPE,
   formattaEuro,
   formattaNumero,
@@ -28,6 +29,8 @@ function settimanaIso(d: Date): number {
   return Math.ceil(((data.getTime() - inizioAnno.getTime()) / 86_400_000 + 1) / 7);
 }
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
 type Riga = {
   google: number | null;
   meta: number | null;
@@ -36,65 +39,64 @@ type Riga = {
   nuoviClienti: number | null;
   note: string | null;
 };
-type Bucket = Riga & { chiave: string; etichetta: string };
+type Settimana = Riga & { inizio: Date };
 
-// Aggrega le settimane nel periodo scelto. La chiave identifica il periodo
-// (uguale tra anni diversi: è così che si confronta col 2025).
-function aggrega(
-  settimane: { inizio: Date; google: number | null; meta: number | null; vendite: number | null; ordini: number | null; nuoviClienti: number | null; note: string | null }[],
-  vista: Vista,
-  mese: number | null
-): Map<string, Bucket> {
-  const buckets = new Map<string, Bucket>();
-  for (const s of settimane) {
-    const m = s.inizio.getUTCMonth(); // 0-11
-    if (mese != null && vista === "settimane" && m !== mese) continue;
-    let chiave: string;
-    let etichetta: string;
-    if (vista === "settimane") {
-      const w = settimanaIso(s.inizio);
-      chiave = `W${String(w).padStart(2, "0")}`;
-      etichetta = `W${w} · dal ${s.inizio.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}`;
-    } else if (vista === "mesi") {
-      chiave = `M${String(m).padStart(2, "0")}`;
-      etichetta = MESI_IT[m];
-    } else if (vista === "trimestri") {
-      const q = Math.floor(m / 3) + 1;
-      chiave = `Q${q}`;
-      etichetta = `Q${q}`;
-    } else {
-      chiave = "anno";
-      etichetta = "Anno";
-    }
-    const b = buckets.get(chiave) ?? {
-      chiave, etichetta, google: null, meta: null, vendite: null, ordini: null, nuoviClienti: null, note: null,
+// Ogni settimana confluisce nella sua colonna, nel totale del mese, del
+// trimestre e dell'anno: una passata sola, tutte le granularità pronte.
+function aggregaTutto(settimane: Settimana[]): Map<string, Riga> {
+  const mappa = new Map<string, Riga>();
+  const somma = (chiave: string, s: Settimana) => {
+    const b = mappa.get(chiave) ?? {
+      google: null, meta: null, vendite: null, ordini: null, nuoviClienti: null, note: null,
     };
-    const somma = (a: number | null, v: number | null) => (v == null ? a : (a ?? 0) + v);
-    b.google = somma(b.google, s.google);
-    b.meta = somma(b.meta, s.meta);
-    b.vendite = somma(b.vendite, s.vendite);
-    b.ordini = somma(b.ordini, s.ordini);
-    b.nuoviClienti = somma(b.nuoviClienti, s.nuoviClienti);
+    const piu = (a: number | null, v: number | null) => (v == null ? a : (a ?? 0) + v);
+    b.google = piu(b.google, s.google);
+    b.meta = piu(b.meta, s.meta);
+    b.vendite = piu(b.vendite, s.vendite);
+    b.ordini = piu(b.ordini, s.ordini);
+    b.nuoviClienti = piu(b.nuoviClienti, s.nuoviClienti);
     if (s.note) b.note = b.note ? `${b.note} · ${s.note}` : s.note;
-    buckets.set(chiave, b);
+    mappa.set(chiave, b);
+  };
+  for (const s of settimane) {
+    const m = s.inizio.getUTCMonth();
+    somma(`W${pad(settimanaIso(s.inizio))}`, s);
+    somma(`M${pad(m)}`, s);
+    somma(`Q${Math.floor(m / 3) + 1}`, s);
+    somma("TOT", s);
   }
-  return buckets;
+  return mappa;
 }
 
-function Cella({ valore, prima, formato }: { valore: number | null; prima: number | null; formato: (n: number | null) => string }) {
+type Colonna = { chiave: string; etichetta: string; sotto?: string; tipo: "periodo" | "mese" | "totale" };
+
+const spesaMkt = (r: Riga | undefined) =>
+  r == null || (r.google == null && r.meta == null) ? null : (r.google ?? 0) + (r.meta ?? 0);
+
+function Cella({
+  valore,
+  prima,
+  formato,
+  tipo,
+}: {
+  valore: number | null;
+  prima: number | null;
+  formato: (n: number | null) => string;
+  tipo: Colonna["tipo"];
+}) {
   const delta = valore != null && prima != null && prima !== 0 ? valore / prima - 1 : null;
   return (
-    <td className="num">
+    <td className={`num${tipo === "mese" ? " col-mese" : tipo === "totale" ? " col-totale" : ""}`}>
       <b style={{ fontWeight: 600 }}>{formato(valore)}</b>
       <div className="cella-sub num" style={delta != null ? { color: delta >= 0 ? "var(--green)" : "var(--red)" } : undefined}>
-        {delta != null ? `${formattaPercento(delta)}` : " "}
+        {delta != null ? formattaPercento(delta) : " "}
       </div>
     </td>
   );
 }
 
-// MKT in stile calendario: periodi in colonna (vista a scelta), metriche in
-// riga, delta % vs stesso periodo dell'anno precedente sotto ogni valore.
+// MKT in stile calendario: periodi in colonna, con la colonna blu di fine mese
+// e la colonna totale in fondo. Sotto, la stessa lettura brand per brand.
 export default async function PaginaMkt({
   searchParams,
 }: {
@@ -106,33 +108,79 @@ export default async function PaginaMkt({
   const vista = (VISTE as readonly string[]).includes(p.vista ?? "") ? (p.vista as Vista) : "settimane";
   const mese = p.mese !== undefined && p.mese !== "" ? Number(p.mese) : null;
 
-  const [attuali, precedenti] = await Promise.all([
-    prisma.settimanaMkt.findMany({ where: { scope, anno }, orderBy: { inizio: "asc" } }),
-    prisma.settimanaMkt.findMany({ where: { scope, anno: anno - 1 }, orderBy: { inizio: "asc" } }),
-  ]);
+  const tutte = await prisma.settimanaMkt.findMany({
+    where: { anno: { in: [anno, anno - 1] } },
+    orderBy: { inizio: "asc" },
+  });
+  const perScope = (s: string, a: number) =>
+    tutte.filter((r) => r.scope === s && r.anno === a && (mese == null || r.inizio.getUTCMonth() === mese));
 
-  const bucketsOra = aggrega(attuali, vista, mese);
-  const bucketsPrima = aggrega(precedenti, vista, mese);
-  const colonne = [...bucketsOra.values()].sort((a, b) => a.chiave.localeCompare(b.chiave));
+  const ora = aggregaTutto(perScope(scope, anno));
+  const prima = aggregaTutto(perScope(scope, anno - 1));
 
-  const righeTabella: {
-    nome: string;
-    campo: (b: Riga) => number | null;
-    formato: (n: number | null) => string;
-  }[] = [
-    { nome: "Google", campo: (b) => b.google, formato: formattaEuro },
-    { nome: "Meta", campo: (b) => b.meta, formato: formattaEuro },
-    { nome: "Totale MKT", campo: (b) => (b.google == null && b.meta == null ? null : (b.google ?? 0) + (b.meta ?? 0)), formato: formattaEuro },
-    { nome: "Vendite", campo: (b) => b.vendite, formato: formattaEuro },
-    { nome: "Ordini", campo: (b) => b.ordini, formato: formattaNumero },
-    { nome: "Medio ordine", campo: (b) => (b.vendite != null && b.ordini ? b.vendite / b.ordini : null), formato: formattaEuro },
-    { nome: "Costo conv.", campo: (b) => (b.ordini ? ((b.google ?? 0) + (b.meta ?? 0)) / b.ordini || null : null), formato: formattaEuro },
-    { nome: "Nuovi clienti", campo: (b) => b.nuoviClienti, formato: formattaNumero },
-    { nome: "ROS (vendite/spesa)", campo: (b) => {
-        const spesa = (b.google ?? 0) + (b.meta ?? 0);
-        return spesa > 0 && b.vendite != null ? b.vendite / spesa : null;
-      }, formato: (n) => (n == null ? "—" : `${n.toFixed(1)}×`) },
+  // Colonne: settimane (con fine mese intercalati), mesi, trimestri o solo il totale.
+  const colonne: Colonna[] = [];
+  if (vista === "settimane") {
+    let mesePrec: number | null = null;
+    for (const s of perScope(scope, anno)) {
+      const m = s.inizio.getUTCMonth();
+      if (mesePrec !== null && m !== mesePrec) {
+        colonne.push({ chiave: `M${pad(mesePrec)}`, etichetta: MESI_IT[mesePrec], sotto: "fine mese", tipo: "mese" });
+      }
+      mesePrec = m;
+      const w = settimanaIso(s.inizio);
+      colonne.push({
+        chiave: `W${pad(w)}`,
+        etichetta: `W${w}`,
+        sotto: s.inizio.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }),
+        tipo: "periodo",
+      });
+    }
+    if (mesePrec !== null) {
+      colonne.push({ chiave: `M${pad(mesePrec)}`, etichetta: MESI_IT[mesePrec], sotto: "fine mese", tipo: "mese" });
+    }
+  } else if (vista === "mesi") {
+    for (let m = 0; m < 12; m++) {
+      if (ora.has(`M${pad(m)}`)) colonne.push({ chiave: `M${pad(m)}`, etichetta: MESI_IT[m], tipo: "periodo" });
+    }
+  } else if (vista === "trimestri") {
+    for (let q = 1; q <= 4; q++) {
+      if (ora.has(`Q${q}`)) colonne.push({ chiave: `Q${q}`, etichetta: `Q${q}`, tipo: "periodo" });
+    }
+  }
+  colonne.push({ chiave: "TOT", etichetta: "Totale", sotto: String(anno), tipo: "totale" });
+
+  const righe: { nome: string; campo: (r: Riga) => number | null; formato: (n: number | null) => string }[] = [
+    { nome: "Google", campo: (r) => r.google, formato: formattaEuro },
+    { nome: "Meta", campo: (r) => r.meta, formato: formattaEuro },
+    { nome: "Totale MKT", campo: (r) => spesaMkt(r), formato: formattaEuro },
+    { nome: "Vendite", campo: (r) => r.vendite, formato: formattaEuro },
+    { nome: "Ordini", campo: (r) => r.ordini, formato: formattaNumero },
+    { nome: "Medio ordine", campo: (r) => (r.vendite != null && r.ordini ? r.vendite / r.ordini : null), formato: formattaEuro },
+    { nome: "Costo conv.", campo: (r) => (r.ordini ? (spesaMkt(r) ?? 0) / r.ordini || null : null), formato: formattaEuro },
+    { nome: "Nuovi clienti", campo: (r) => r.nuoviClienti, formato: formattaNumero },
+    {
+      nome: "ROS (vendite/spesa)",
+      campo: (r) => {
+        const s = spesaMkt(r);
+        return s && s > 0 && r.vendite != null ? r.vendite / s : null;
+      },
+      formato: (n) => (n == null ? "—" : `${n.toFixed(1)}×`),
+    },
   ];
+
+  // Lettura per brand: gli stessi periodi, una riga di spesa, vendite e ROS
+  // per ciascun brand. Serve a vedere chi tira e chi frena dentro il totale.
+  const BRAND_SCOPE = [
+    { scope: "gifts", nome: "Deluxy.it", colore: COLORE_BRAND.gifts },
+    { scope: "flowers", nome: "Flowers", colore: COLORE_BRAND.flowers },
+    { scope: "cake", nome: "Cake", colore: COLORE_BRAND.cake },
+  ];
+  const datiBrand = BRAND_SCOPE.map((b) => ({
+    ...b,
+    ora: aggregaTutto(perScope(b.scope, anno)),
+    prima: aggregaTutto(perScope(b.scope, anno - 1)),
+  })).filter((b) => b.ora.size > 0);
 
   return (
     <div className="layout">
@@ -143,8 +191,8 @@ export default async function PaginaMkt({
             <h1 className="page-title">MKT {anno} vs {anno - 1} — {ETICHETTA_SCOPE[scope]}</h1>
             <p className="page-sub">
               Periodi in colonna, metriche in riga. Sotto ogni valore il confronto % con lo stesso
-              periodo dell&apos;anno precedente (verde = meglio, rosso = peggio). Cambia vista per
-              vedere settimane, mesi, trimestri o l&apos;anno intero.
+              periodo dell&apos;anno precedente. Le colonne in <b>azzurro</b> sono i totali di fine
+              mese, l&apos;ultima è il totale del periodo mostrato.
             </p>
           </div>
         </div>
@@ -161,7 +209,7 @@ export default async function PaginaMkt({
             ))}
           </select>
           <select name="mese" defaultValue={mese != null ? String(mese) : ""}>
-            <option value="">Tutti i mesi (solo vista settimane)</option>
+            <option value="">Tutti i mesi</option>
             {MESI_IT.map((m, i) => (
               <option key={m} value={i}>{m}</option>
             ))}
@@ -173,57 +221,147 @@ export default async function PaginaMkt({
           <button className="btn small" type="submit">Vai</button>
         </form>
 
-        {colonne.length === 0 ? (
+        {ora.size === 0 ? (
           <div className="vuoto">Nessun dato per questa combinazione di scope, anno e periodo.</div>
         ) : (
-          <section className="scheda" style={{ padding: 0 }}>
-            <div style={{ overflowX: "auto" }}>
-              <table className="tabella-calendario">
-                <thead>
-                  <tr>
-                    <th style={{ minWidth: 150 }}>Metrica</th>
-                    {colonne.map((c) => (
-                      <th className="num" key={c.chiave} title={c.etichetta}>
-                        {vista === "settimane" ? c.chiave.replace(/^W0?/, "W") : c.etichetta}
-                        {vista === "settimane" && (
-                          <div style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
-                            {c.etichetta.split("· ")[1]}
-                          </div>
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {righeTabella.map((r) => (
-                    <tr key={r.nome}>
-                      <td className="cella-nome">{r.nome}</td>
-                      {colonne.map((c) => (
-                        <Cella
-                          key={c.chiave}
-                          valore={r.campo(c)}
-                          prima={bucketsPrima.has(c.chiave) ? r.campo(bucketsPrima.get(c.chiave)!) : null}
-                          formato={r.formato}
-                        />
-                      ))}
-                    </tr>
-                  ))}
-                  {vista === "settimane" && colonne.some((c) => c.note) && (
+          <>
+            <section className="scheda" style={{ padding: 0 }}>
+              <div className="scheda-titolo" style={{ padding: "18px 24px 0" }}>
+                {ETICHETTA_SCOPE[scope]}
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table className="tabella-calendario">
+                  <thead>
                     <tr>
-                      <td className="cella-muta">Azioni</td>
-                      {colonne.map((c) => (
-                        <td key={c.chiave} title={c.note ?? ""} style={{ maxWidth: 140 }}>
-                          <span className="cella-sub" style={{ whiteSpace: "normal" }}>
-                            {c.note ? (c.note.length > 60 ? c.note.slice(0, 60) + "…" : c.note) : ""}
-                          </span>
-                        </td>
+                      <th style={{ minWidth: 150 }}>Metrica</th>
+                      {colonne.map((c, i) => (
+                        <th
+                          className={`num${c.tipo === "mese" ? " col-mese" : c.tipo === "totale" ? " col-totale" : ""}`}
+                          key={`${c.chiave}-${i}`}
+                        >
+                          {c.etichetta}
+                          {c.sotto && (
+                            <div style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>{c.sotto}</div>
+                          )}
+                        </th>
                       ))}
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                  </thead>
+                  <tbody>
+                    {righe.map((r) => (
+                      <tr key={r.nome}>
+                        <td className="cella-nome">{r.nome}</td>
+                        {colonne.map((c, i) => (
+                          <Cella
+                            key={`${c.chiave}-${i}`}
+                            valore={ora.has(c.chiave) ? r.campo(ora.get(c.chiave)!) : null}
+                            prima={prima.has(c.chiave) ? r.campo(prima.get(c.chiave)!) : null}
+                            formato={r.formato}
+                            tipo={c.tipo}
+                          />
+                        ))}
+                      </tr>
+                    ))}
+                    {vista === "settimane" && (
+                      <tr>
+                        <td className="cella-muta">Azioni</td>
+                        {colonne.map((c, i) => {
+                          const nota = ora.get(c.chiave)?.note ?? null;
+                          return (
+                            <td
+                              key={`${c.chiave}-${i}`}
+                              title={nota ?? ""}
+                              className={c.tipo === "mese" ? "col-mese" : c.tipo === "totale" ? "col-totale" : ""}
+                              style={{ maxWidth: 150 }}
+                            >
+                              <span className="cella-sub" style={{ whiteSpace: "normal" }}>
+                                {nota ? (nota.length > 70 ? `${nota.slice(0, 70)}…` : nota) : ""}
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="scheda" style={{ padding: 0 }}>
+              <div className="scheda-titolo" style={{ padding: "18px 24px 0" }}>
+                Dentro il totale — brand per brand
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table className="tabella-calendario">
+                  <thead>
+                    <tr>
+                      <th style={{ minWidth: 150 }}>Brand</th>
+                      {colonne.map((c, i) => (
+                        <th
+                          className={`num${c.tipo === "mese" ? " col-mese" : c.tipo === "totale" ? " col-totale" : ""}`}
+                          key={`${c.chiave}-${i}`}
+                        >
+                          {c.etichetta}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {datiBrand.map((b) => (
+                      <>
+                        <tr className="riga-forte" key={`${b.scope}-mkt`}>
+                          <td className="cella-nome">
+                            <span className="sb-dot" style={{ display: "inline-block", width: 8, height: 8, background: b.colore, marginRight: 8 }} />
+                            {b.nome} — spesa MKT
+                          </td>
+                          {colonne.map((c, i) => (
+                            <Cella
+                              key={`${c.chiave}-${i}`}
+                              valore={b.ora.has(c.chiave) ? spesaMkt(b.ora.get(c.chiave)) : null}
+                              prima={b.prima.has(c.chiave) ? spesaMkt(b.prima.get(c.chiave)) : null}
+                              formato={formattaEuro}
+                              tipo={c.tipo}
+                            />
+                          ))}
+                        </tr>
+                        <tr key={`${b.scope}-vendite`}>
+                          <td className="cella-muta">{b.nome} — vendite</td>
+                          {colonne.map((c, i) => (
+                            <Cella
+                              key={`${c.chiave}-${i}`}
+                              valore={b.ora.get(c.chiave)?.vendite ?? null}
+                              prima={b.prima.get(c.chiave)?.vendite ?? null}
+                              formato={formattaEuro}
+                              tipo={c.tipo}
+                            />
+                          ))}
+                        </tr>
+                        <tr key={`${b.scope}-ros`}>
+                          <td className="cella-muta">{b.nome} — ROS</td>
+                          {colonne.map((c, i) => {
+                            const calcolaRos = (m: Map<string, Riga>) => {
+                              const r = m.get(c.chiave);
+                              const s = spesaMkt(r);
+                              return r && s && s > 0 && r.vendite != null ? r.vendite / s : null;
+                            };
+                            return (
+                              <Cella
+                                key={`${c.chiave}-${i}`}
+                                valore={calcolaRos(b.ora)}
+                                prima={calcolaRos(b.prima)}
+                                formato={(n) => (n == null ? "—" : `${n.toFixed(1)}×`)}
+                                tipo={c.tipo}
+                              />
+                            );
+                          })}
+                        </tr>
+                      </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
         )}
       </main>
     </div>

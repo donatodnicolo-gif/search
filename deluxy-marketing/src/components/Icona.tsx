@@ -178,6 +178,14 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M14 3.5V8h4.5" />
     </>
   ),
+  // Gruppo di persone: pubblici e liste
+  pubblici: (
+    <>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+      <path d="M15.5 5.4a3.2 3.2 0 0 1 0 5.4M17 14.9c2 .6 3.5 2.4 3.5 4.6" />
+    </>
+  ),
   // Orologio all'indietro: storico
   storico: (
     <>

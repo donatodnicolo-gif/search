@@ -285,6 +285,7 @@ export const ETICHETTA_ENTITA_REGISTRO: Record<string, string> = {
   vendite: "Vendite",
   budget: "Budget",
   settimana: "Settimana MKT",
+  pubblico: "Pubblico",
 };
 
 export function formattaPercento(n: number | null | undefined): string {
@@ -312,3 +313,59 @@ export const COLORE_STATO_KEYWORD: Record<string, string> = {
   in_pausa: "var(--orange)",
   esclusa: "var(--red)",
 };
+
+// ---------- Pubblici (CRM & audience) ----------
+
+export const PIATTAFORME_PUBBLICO = ["meta", "google", "tiktok", "klaviyo", "shopify", "altro"] as const;
+export const ETICHETTA_PIATTAFORMA: Record<string, string> = {
+  meta: "Meta",
+  google: "Google",
+  tiktok: "TikTok",
+  klaviyo: "Klaviyo",
+  shopify: "Shopify",
+  altro: "Altro",
+};
+
+export const TIPI_PUBBLICO = [
+  "cliente",
+  "lookalike",
+  "retargeting",
+  "interessi",
+  "esclusione",
+  "segmento",
+  "altro",
+] as const;
+export const ETICHETTA_TIPO_PUBBLICO: Record<string, string> = {
+  cliente: "Lista clienti",
+  lookalike: "Lookalike",
+  retargeting: "Retargeting",
+  interessi: "Interessi",
+  esclusione: "Esclusione",
+  segmento: "Segmento CRM",
+  altro: "Altro",
+};
+
+export const STATI_PUBBLICO = [
+  "attivo",
+  "in_aggiornamento",
+  "da_verificare",
+  "da_creare",
+  "obsoleto",
+] as const;
+export const ETICHETTA_STATO_PUBBLICO: Record<string, string> = {
+  attivo: "Attivo",
+  in_aggiornamento: "In aggiornamento",
+  da_verificare: "Da verificare",
+  da_creare: "Da creare",
+  obsoleto: "Obsoleto",
+};
+export const COLORE_STATO_PUBBLICO: Record<string, string> = {
+  attivo: "var(--green)",
+  in_aggiornamento: "var(--gold-strong)",
+  da_verificare: "var(--blue)",
+  da_creare: "var(--purple)",
+  obsoleto: "var(--text-tertiary)",
+};
+
+// Sotto queste soglie il pubblico non è utilizzabile/efficace (regole Meta).
+export const SOGLIA_POOL_MINIMO = 1000;

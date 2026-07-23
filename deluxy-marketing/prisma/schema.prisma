@@ -372,3 +372,44 @@ model RegistroEvento {
   @@index([creatoIl])
   @@index([entita])
 }
+
+// ============ Pubblici (CRM & audience) ============
+
+// Un pubblico, una lista o un segmento su una piattaforma pubblicitaria o CRM.
+// Il canonico resta la "00.4 Mappa Pubblici e Segmenti" del sistema CRM su
+// Drive: qui vive lo specchio navigabile, con la storia delle dimensioni.
+model Pubblico {
+  id           String   @id @default(cuid())
+  nome         String
+  // meta | google | tiktok | klaviyo | shopify | altro
+  piattaforma  String   @default("meta")
+  brand        String   @default("cross")
+  // cliente | lookalike | retargeting | interessi | esclusione | segmento | altro
+  tipo         String   @default("cliente")
+  // ultima dimensione nota (utenti/contatti)
+  dimensione   Int?
+  // attivo | da_creare | da_verificare | obsoleto | in_aggiornamento
+  stato        String   @default("da_verificare")
+  verificatoIl DateTime?
+  fonte        String? // documento di provenienza su Drive
+  note         String?
+  misure       MisuraPubblico[]
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@unique([nome, piattaforma])
+  @@index([brand])
+  @@index([piattaforma])
+}
+
+// Storico della dimensione di un pubblico: i pool si consumano, va visto nel tempo.
+model MisuraPubblico {
+  id         String   @id @default(cuid())
+  pubblicoId String
+  pubblico   Pubblico @relation(fields: [pubblicoId], references: [id], onDelete: Cascade)
+  data       DateTime
+  dimensione Int
+  note       String?
+
+  @@unique([pubblicoId, data])
+}
