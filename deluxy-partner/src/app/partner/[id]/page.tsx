@@ -11,6 +11,7 @@ import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
 import { ContattoAmministrativo } from "@/components/ContattoAmministrativo";
 import { CreditoCard } from "@/components/CreditoCard";
+import { analisiPartner } from "@/lib/stato-analisi";
 import { MailPartnerCard } from "@/components/MailPartnerCard";
 import { aiMailConfigurata } from "@/lib/aimail";
 import { PagamentoMese } from "@/components/PagamentoMese";
@@ -37,7 +38,7 @@ export default async function PartnerDetail({
 
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
-  const [{ mesi, rolling }, prec, tariffe, fattureAperte, extra] = await Promise.all([
+  const [{ mesi, rolling }, prec, tariffe, fattureAperte, extra, analisi] = await Promise.all([
     riepilogoPartner(id, anno),
     riepilogoPartner(id, annoPrec),
     prisma.tariffaPartner.findMany({ where: { partnerId: id }, orderBy: [{ dalAnno: "desc" }, { dalMese: "desc" }] }),
@@ -46,6 +47,7 @@ export default async function PartnerDetail({
       orderBy: [{ scadenza: "asc" }],
     }),
     prisma.extraSaldo.findMany({ where: { partnerId: id, anno }, orderBy: { createdAt: "asc" } }),
+    analisiPartner(id),
   ]);
   // voci extra raggruppate per mese, per la gestione nel blocco mensile
   const extraPerMese = new Map<number, typeof extra>();
@@ -109,7 +111,24 @@ export default async function PartnerDetail({
       <div className="card">
         <div className="info-grid">
           <div className="info-item"><div className="k">Fee su vendite</div><div className="v">{pctIt(partner.feePercent)}</div></div>
-          <div className="info-item"><div className="k">Cliente per l&apos;anno</div><div className="v">{partner.clienteAnno ?? "—"}</div></div>
+          <div className="info-item">
+            <div className="k">Cliente per l&apos;anno</div>
+            <div className="v">
+              {partner.clienteAnno ?? "—"}
+              {/* se i movimenti dicono altro, lo si vede subito: le regole sono
+                  in Impostazioni → Regole degli stati, il campo resta manuale */}
+              {analisi.discordante && (
+                <Link
+                  href="/impostazioni/stati"
+                  className="badge orange"
+                  style={{ marginLeft: 8, fontSize: 11.5 }}
+                  title={`${analisi.motivo} Le regole si cambiano in Impostazioni → Regole degli stati.`}
+                >
+                  <span className="dot" />dai movimenti: {analisi.calcolato}
+                </Link>
+              )}
+            </div>
+          </div>
           <div className="info-item"><div className="k">GG pagamento fatture</div><div className="v">{partner.ggPagamento}</div></div>
           <div className="info-item"><div className="k">Compensazione</div><div className="v">{siNo(partner.compensazione)}</div></div>
           <div className="info-item"><div className="k">Commissioni a detrazione</div><div className="v">{siNo(partner.commissioniADetrazione)}</div></div>

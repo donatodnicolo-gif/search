@@ -6,6 +6,7 @@ import { nomeMese, ivato } from "@/lib/calc";
 import { segnaFatturaPagata } from "@/lib/actions";
 import { ThSort, ordina } from "@/components/ThSort";
 import { schedeTutti, sommaAging, GRAVITA, type SchedaCredito } from "@/lib/stato-credito";
+import { leggiRegole } from "@/lib/regole-stati";
 
 export const dynamic = "force-dynamic";
 
@@ -100,7 +101,9 @@ export default async function Scadenzario({
   const trovati = fatture.length + bonificiPendenti.length + commDaEmettere.length;
 
   // Aging di tutto il portafoglio + i clienti da lavorare per primi (dal più grave).
-  const schede = await schedeTutti({ oggi });
+  // Le fasce sono quelle configurate in Impostazioni → Regole degli stati.
+  const { credito: regole } = await leggiRegole();
+  const schede = await schedeTutti({ oggi, regole });
   const agingTot = sommaAging([...schede.values()].map((s) => s.aging));
   const espostoTot =
     agingTot.correnti + agingTot.f30 + agingTot.f60 + agingTot.f90 + agingTot.oltre90 + agingTot.senzaScadenza;
@@ -181,10 +184,10 @@ export default async function Scadenzario({
               <tr>
                 <th>Portafoglio</th>
                 <th className="num">A scadere</th>
-                <th className="num">1-30 gg</th>
-                <th className="num">31-60 gg</th>
-                <th className="num">61-90 gg</th>
-                <th className="num">oltre 90 gg</th>
+                <th className="num">1-{regole.fascia1} gg</th>
+                <th className="num">{regole.fascia1 + 1}-{regole.fascia2} gg</th>
+                <th className="num">{regole.fascia2 + 1}-{regole.fascia3} gg</th>
+                <th className="num">oltre {regole.fascia3} gg</th>
                 <th className="num">Senza scadenza</th>
                 <th className="num">Totale</th>
               </tr>

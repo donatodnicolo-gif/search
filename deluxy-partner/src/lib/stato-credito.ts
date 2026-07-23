@@ -16,20 +16,16 @@
 // - si ragiona sempre su importi IVATI (è quello che entra in banca);
 // - le fatture `compensata` NON sono esposizione: si chiudono compensando il
 //   dovuto vendite, non con un bonifico;
-// - sotto la soglia di materialità (MATERIALITA) uno scaduto non declassa il
-//   cliente: 17 € scaduti da 90 giorni sono un residuo contabile, non un rischio.
+// - sotto la soglia di materialità uno scaduto non declassa il cliente: 17 €
+//   scaduti da 90 giorni sono un residuo contabile, non un rischio.
+//
+// ⚠️ Le CONDIZIONI (fasce, materialità, tolleranze) NON stanno qui: sono regole
+// modificabili dall'app in Impostazioni → Regole degli stati e vivono in
+// `src/lib/regole-stati.ts`. Qui c'è solo il motore che le applica.
 
 import { ivato } from "./calc";
 import { prisma } from "./db";
-
-/** Fatture aperte/chiuse sotto questa cifra non fanno cambiare stato. */
-export const MATERIALITA = 25;
-
-/** Confini delle fasce di scaduto, in giorni. */
-export const FASCE = { primo: 30, secondo: 60, terzo: 90 } as const;
-
-/** Ritardo medio storico (giorni) oltre il quale un cliente puntuale diventa "da monitorare". */
-export const RITARDO_TOLLERATO = 15;
+import { leggiRegole, REGOLE_CREDITO_DEFAULT, type RegoleCredito } from "./regole-stati";
 
 export type FatturaCredito = {
   id: string;
@@ -88,17 +84,21 @@ export type SchedaCredito = {
 
 const giorni = (da: Date, a: Date) => Math.floor((a.getTime() - da.getTime()) / 86400000);
 
-/** Aging del credito aperto di un insieme di fatture. */
-export function aging(fatture: FatturaCredito[], oggi = new Date()): Aging {
+/** Aging del credito aperto di un insieme di fatture, con le regole in vigore. */
+export function aging(
+  fatture: FatturaCredito[],
+  oggi = new Date(),
+  regole: RegoleCredito = REGOLE_CREDITO_DEFAULT
+): Aging {
   const a: Aging = { correnti: 0, f30: 0, f60: 0, f90: 0, oltre90: 0, senzaScadenza: 0 };
   for (const f of aperte(fatture)) {
     const v = ivato(f);
     if (!f.scadenza) { a.senzaScadenza += v; continue; }
     const g = giorni(f.scadenza, oggi);
     if (g <= 0) a.correnti += v;
-    else if (g <= FASCE.primo) a.f30 += v;
-    else if (g <= FASCE.secondo) a.f60 += v;
-    else if (g <= FASCE.terzo) a.f90 += v;
+    else if (g <= regole.fascia1) a.f30 += v;
+    else if (g <= regole.fascia2) a.f60 += v;
+    else if (g <= regole.fascia3) a.f90 += v;
     else a.oltre90 += v;
   }
   return a;
@@ -123,9 +123,13 @@ function mediaPesata(valori: { g: number; peso: number }[]): number | null {
  * (aperte e chiuse) del periodo che si vuole considerare: le aperte fanno
  * l'esposizione, le chiuse il comportamento di pagamento.
  */
-export function schedaCredito(fatture: FatturaCredito[], oggi = new Date()): SchedaCredito {
+export function schedaCredito(
+  fatture: FatturaCredito[],
+  oggi = new Date(),
+  regole: RegoleCredito = REGOLE_CREDITO_DEFAULT
+): SchedaCredito {
   const ap = aperte(fatture);
-  const ag = aging(fatture, oggi);
+  const ag = aging(fatture, oggi, regole);
   const esposizione = ag.correnti + ag.f30 + ag.f60 + ag.f90 + ag.oltre90 + ag.senzaScadenza;
   const scaduto = ag.f30 + ag.f60 + ag.f90 + ag.oltre90;
 
@@ -144,25 +148,25 @@ export function schedaCredito(fatture: FatturaCredito[], oggi = new Date()): Sch
   );
 
   // Lo stato lo decide la fascia più vecchia con importo materiale.
-  const materiale = (v: number) => v >= MATERIALITA;
+  const materiale = (v: number) => v >= regole.materialita;
   let stato: StatoCredito;
   let motivo: string;
-  if (esposizione < MATERIALITA && scaduto < MATERIALITA) {
+  if (esposizione < regole.materialita && scaduto < regole.materialita) {
     stato = "nessuna";
     motivo = "Nessun credito aperto significativo.";
   } else if (materiale(ag.oltre90)) {
     stato = "insoluto";
-    motivo = `${arrotonda(ag.oltre90)} scaduti da oltre 90 giorni.`;
+    motivo = `${arrotonda(ag.oltre90)} scaduti da oltre ${regole.fascia3} giorni.`;
   } else if (materiale(ag.f90)) {
     stato = "grave";
-    motivo = `${arrotonda(ag.f90)} scaduti da 61-90 giorni.`;
+    motivo = `${arrotonda(ag.f90)} scaduti da ${regole.fascia2 + 1}-${regole.fascia3} giorni.`;
   } else if (materiale(ag.f60)) {
     stato = "ritardo";
-    motivo = `${arrotonda(ag.f60)} scaduti da 31-60 giorni.`;
+    motivo = `${arrotonda(ag.f60)} scaduti da ${regole.fascia1 + 1}-${regole.fascia2} giorni.`;
   } else if (materiale(ag.f30)) {
     stato = "monitorare";
-    motivo = `${arrotonda(ag.f30)} scaduti entro i 30 giorni.`;
-  } else if (ritardoMedioStorico !== null && ritardoMedioStorico > RITARDO_TOLLERATO) {
+    motivo = `${arrotonda(ag.f30)} scaduti entro i ${regole.fascia1} giorni.`;
+  } else if (ritardoMedioStorico !== null && ritardoMedioStorico > regole.ritardoTollerato) {
     stato = "monitorare";
     motivo = `Niente di scaduto, ma paga in media ${ritardoMedioStorico} giorni dopo la scadenza.`;
   } else {
@@ -251,24 +255,32 @@ function daMesiFa(mesi: number, oggi = new Date()): Date {
   return d;
 }
 
+// Le regole in vigore vengono lette dal DB se non passate: chi chiama non deve
+// sapere che esistono, ma può forzarle (la pagina Impostazioni le usa per far
+// vedere l'effetto di una soglia diversa prima di salvarla).
+
 /** Scheda credito di un singolo partner. */
 export async function schedaPartner(
   partnerId: string,
-  opts?: { mesi?: number; oggi?: Date }
+  opts?: { oggi?: Date; regole?: RegoleCredito }
 ): Promise<SchedaCredito> {
   const oggi = opts?.oggi ?? new Date();
-  const dal = daMesiFa(opts?.mesi ?? 24, oggi);
+  const regole = opts?.regole ?? (await leggiRegole()).credito;
+  const dal = daMesiFa(regole.mesiStorico, oggi);
   const fatture = await prisma.fatturaServizio.findMany({
     where: { partnerId, imponibile: { gt: 0 }, OR: [{ pagata: false }, { emissione: { gte: dal } }, { emissione: null }] },
     select: CAMPI,
   });
-  return schedaCredito(fatture, oggi);
+  return schedaCredito(fatture, oggi, regole);
 }
 
 /** Schede credito di tutti i partner, per id (una sola lettura). */
-export async function schedeTutti(opts?: { mesi?: number; oggi?: Date }): Promise<Map<string, SchedaCredito>> {
+export async function schedeTutti(
+  opts?: { oggi?: Date; regole?: RegoleCredito }
+): Promise<Map<string, SchedaCredito>> {
   const oggi = opts?.oggi ?? new Date();
-  const dal = daMesiFa(opts?.mesi ?? 24, oggi);
+  const regole = opts?.regole ?? (await leggiRegole()).credito;
+  const dal = daMesiFa(regole.mesiStorico, oggi);
   const fatture = await prisma.fatturaServizio.findMany({
     where: { imponibile: { gt: 0 }, OR: [{ pagata: false }, { emissione: { gte: dal } }, { emissione: null }] },
     select: { ...CAMPI, partnerId: true },
@@ -279,7 +291,7 @@ export async function schedeTutti(opts?: { mesi?: number; oggi?: Date }): Promis
     if (arr) arr.push(f);
     else perPartner.set(f.partnerId, [f]);
   }
-  return new Map([...perPartner].map(([id, ff]) => [id, schedaCredito(ff, oggi)]));
+  return new Map([...perPartner].map(([id, ff]) => [id, schedaCredito(ff, oggi, regole)]));
 }
 
 /** Scheda "vuota" per i partner senza nessuna fattura nel periodo. */

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { chiaveApiValida, appOrigine, ipRichiesta } from "@/lib/apiauth";
 import { schedeTutti, schedaVuota, GRAVITA, type SchedaCredito } from "@/lib/stato-credito";
+import { analisiTutti, type SchedaAnalisi } from "@/lib/stato-analisi";
+import { leggiRegole } from "@/lib/regole-stati";
 
 // API pubblica: STATO DEL CLIENTE per le altre app Deluxy (Scout, Anagrafiche,
 // AI Mail, Hub…). Due stati, che rispondono a due domande diverse:
@@ -30,14 +32,21 @@ function risposta(
     id: string; nome: string; ragioneSociale: string | null; anagraficaId: string | null;
     clienteAnno: string | null; attivo: boolean; ggPagamento: number; compensazione: boolean;
   },
-  s: SchedaCredito
+  s: SchedaCredito,
+  a?: SchedaAnalisi
 ) {
   return {
     partner: { id: p.id, nome: p.nome, ragioneSociale: p.ragioneSociale, anagraficaId: p.anagraficaId },
     statoAnalisi: {
-      // "P.P." = partner in portafoglio; gli altri valori sono "Nuovo" e "Dismesso"
+      // "P.P." = partner in portafoglio; gli altri valori sono "Nuovo" e "Dismesso".
+      // `codice` è il dato ufficiale (scritto nella scheda partner); `calcolato` è
+      // quello che risulta dai movimenti con le regole in vigore.
       codice: p.clienteAnno ?? null,
       attivo: p.attivo,
+      calcolato: a?.calcolato ?? null,
+      discordante: a?.discordante ?? false,
+      ultimoMovimento: a?.ultimoMovimento ?? null,
+      motivo: a?.motivo ?? null,
     },
     statoFinanziario: {
       codice: s.stato,               // nessuna | regolare | monitorare | ritardo | grave | insoluto
@@ -93,18 +102,19 @@ export async function GET(req: NextRequest) {
       await log(req, query, "non_trovato");
       return NextResponse.json({ errore: "Cliente non trovato nel FINANCE." }, { status: 404 });
     }
-    const schede = await schedeTutti();
+    const [schede, analisi] = await Promise.all([schedeTutti(), analisiTutti()]);
     const s = schede.get(partner.id) ?? schedaVuota();
     await log(req, query, "trovato", `${partner.nome}: ${s.stato} (${Math.round(s.esposizione)} € esposti)`, partner);
-    return NextResponse.json(risposta(partner, s));
+    return NextResponse.json(risposta(partner, s, analisi.get(partner.id)));
   }
 
   // ---- elenco completo ----
-  const [partners, schede] = await Promise.all([
+  const [partners, schede, analisi] = await Promise.all([
     prisma.partner.findMany({ orderBy: { nome: "asc" }, select }),
     schedeTutti(),
+    analisiTutti(),
   ]);
-  let clienti = partners.map((p) => risposta(p, schede.get(p.id) ?? schedaVuota()));
+  let clienti = partners.map((p) => risposta(p, schede.get(p.id) ?? schedaVuota(), analisi.get(p.id)));
   if (filtroStato.length) clienti = clienti.filter((c) => filtroStato.includes(c.statoFinanziario.codice));
   // dal più a rischio: prima la gravità, poi l'importo scaduto
   clienti.sort(
@@ -114,10 +124,14 @@ export async function GET(req: NextRequest) {
   );
 
   const somma = (f: (c: (typeof clienti)[number]) => number) => r2(clienti.reduce((a, c) => a + f(c), 0));
+  // Le condizioni con cui gli stati sono stati calcolati: chi consuma l'API sa
+  // esattamente cosa significa "insoluto" oggi (le soglie si cambiano dall'app).
+  const regole = await leggiRegole();
   await log(req, filtroStato.join(",") || "tutti", "trovato", `${clienti.length} clienti`);
   return NextResponse.json({
     aggiornatoAl: new Date().toISOString(),
-    base: "fatture servizi degli ultimi 24 mesi (importi IVA inclusa); le fatture compensate non sono esposizione",
+    base: `fatture servizi degli ultimi ${regole.credito.mesiStorico} mesi (importi IVA inclusa); le fatture compensate non sono esposizione`,
+    regole,
     totali: {
       clienti: clienti.length,
       esposizione: somma((c) => c.statoFinanziario.esposizione),

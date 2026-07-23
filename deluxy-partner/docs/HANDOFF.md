@@ -90,6 +90,7 @@ Convenzione bonifici: `> 0` inviato al partner, `< 0` ricevuto. `RiepilogoMese` 
 | `/fic/fattura?proforma=<id>` \| `?fattura=<id>` | **Emissione fattura vera su FIC** da una pro-forma (che passa a `fatturata`) o da una fattura servizi senza numero (che riceve numero ed emissione). Anteprima righe, cliente FIC preselezionato per somiglianza, scadenza; supporta più righe e aliquote ≠ 22% (mappate da `/info/vat_types`; se il permesso manca si ferma con messaggio esplicito invece di applicare l'IVA sbagliata) |
 | `/solleciti/[id]` | Anteprima e invio sollecito di pagamento (SMTP o mailto) |
 | `/impostazioni` | Ordinante SEPA, SMTP (Register.it), Qonto, Fatture in Cloud (Collega OAuth), accesso |
+| `/impostazioni/stati` | **Regole degli stati del cliente**: soglie dello stato finanziario (materialità, fasce di scaduto, ritardo tollerato, storico) e dello stato analisi (mesi per «Nuovo»/«Dismesso»), con anteprima dell'effetto sui clienti di oggi e ripristino dei default. Vedi §7-bis |
 | `/verifiche` | Gestione chiave API pubblica + documentazione + storico richieste |
 
 Sidebar riducibile a icone (preferenza in localStorage). **Operatività**: Dashboard, Servizi a fatturazione, Vendite come vendor. **Registrazioni**: Fatture (elenco fatture reali da Fatture in Cloud, `/registrazioni/fatture`) e Pro-forma.
@@ -109,9 +110,9 @@ Base `https://deluxy-partner.vercel.app`. Auth: header `X-API-Key: <chiave>` (un
 5. **`GET /api/proforma?numero=1/2026`** (o `?id=`, o `?partner=<nome|id>&stato=…` per l'elenco) → dettaglio/elenco pro-forma con righe, totali, `stato` e `fatturaNumero`. **`POST /api/proforma`** (body JSON: `partner`, `righe[{descrizione, prezzoUnitario, quantita?, aliquotaIva?}]`, `data?`, `scadenza?`, `oggetto?`, `note?`) → crea una pro-forma **in bozza** con numero `PF n/anno` automatico; invio e annullo restano nell'app. **`PATCH /api/proforma`** (body JSON: `id` **o** `numero` es. `"1/2026"`, `fatturaNumero?`) → **conferma il pagamento** dalle altre app: la pro-forma passa a `fatturata` (con `fatturataIl` + eventuale n° fattura definitiva). Idempotente (già fatturata → 200 con `avviso`); 422 se annullata (riaprirla dall'app). Es. Scout può chiamarla quando segna un incasso ricevuto. `src/app/api/proforma/route.ts`.
 
 7. **`GET /api/clienti/stato`** → **stati del cliente per tutte le app** (23/07/2026). Senza parametri torna l'elenco completo ordinato dal più a rischio; `?partner=<nome|id>` o `?anagraficaId=<id del registro Anagrafiche>` per uno solo; `?stato=insoluto,grave` filtra. Ogni cliente ha:
-   - `statoAnalisi` = `{codice: "P.P."|"Nuovo"|"Dismesso"|null, attivo}` — il campo commerciale della scheda partner;
+   - `statoAnalisi` = `{codice: "P.P."|"Nuovo"|"Dismesso"|null, attivo, calcolato, discordante, ultimoMovimento, motivo}` — `codice` è il campo scritto a mano (fonte di verità), `calcolato` è quello che risulta dai movimenti con le regole in vigore;
    - `statoFinanziario` = `{codice, etichetta, gravita 0-5, motivo, azione, esposizione, scaduto, aging{correnti,g1_30,g31_60,g61_90,oltre90,senzaScadenza}, giorniRitardoMax, ritardoMedioAperto, puntualitaPct, ritardoMedioStorico, fattureAperte, fattureScadute}`;
-   - `condizioni{giorniPagamento, compensazione}` e `url` alla scheda.
+   - `condizioni{giorniPagamento, compensazione}` e `url` alla scheda; nell'elenco c'è anche `regole` = le soglie con cui gli stati sono stati calcolati, così chi consuma l'API sa cosa vuol dire «insoluto» oggi.
    Sola lettura. `src/app/api/clienti/stato/route.ts`. Gli stessi due stati (in forma sintetica) sono ora anche dentro `/api/riepilogo-finanziario`, così la card Finance di Scout non deve fare due chiamate.
 
 Esiti: 200 trovato · 404 non trovato (con `candidati`) · 401 chiave errata · 400 parametro mancante. Auth condivisa in `src/lib/apiauth.ts`.
@@ -135,7 +136,16 @@ Esiti: 200 trovato · 404 non trovato (con `candidati`) · 401 chiave errata · 
 | `grave` | Scaduto grave | scaduto 61-90 gg | red |
 | `insoluto` | Insoluto | scaduto oltre 90 gg | purple |
 
-Soglia di materialità **25 €** (`MATERIALITA`): sotto quella cifra uno scaduto non declassa il cliente — 17 € fermi da 90 giorni sono un residuo contabile, non un rischio. Ogni stato porta con sé `motivo` (perché) e `azione` (cosa farebbe un CFO domani: sollecito, rientro, blocco affidamento, messa in mora).
+Soglia di materialità **25 €**: sotto quella cifra uno scaduto non declassa il cliente — 17 € fermi da 90 giorni sono un residuo contabile, non un rischio. Ogni stato porta con sé `motivo` (perché) e `azione` (cosa farebbe un CFO domani: sollecito, rientro, blocco affidamento, messa in mora).
+
+### Le condizioni si cambiano dall'app (niente codice) — `/impostazioni/stati`
+
+**`src/lib/regole-stati.ts` è l'unico posto dove vivono le soglie**, salvate in `Impostazione` con chiavi `regole.credito.*` / `regole.analisi.*`; chiave assente = default (i valori qui sopra). Si modificano in **Impostazioni → Regole degli stati** (`src/app/impostazioni/stati/page.tsx`), che sotto ogni gruppo mostra **l'effetto reale sui clienti di oggi** (quanti clienti e quanto esposto per stato) e ha «Ripristina default». Cambiando una regola si invalidano le viste: elenco partner, scadenzario, scheda cliente e API.
+
+- **Credito**: `materialita` (€), `fascia1`/`fascia2`/`fascia3` (giorni, tenute crescenti a forza), `ritardoTollerato` (giorni), `mesiStorico` (finestra dello storico).
+- **Analisi (P.P./Nuovo/Dismesso)**: `mesiNuovo`, `mesiDismesso`. `src/lib/stato-analisi.ts` calcola lo stato **dai movimenti reali** (fatture servizi + vendite vendor) e lo confronta con il campo `Partner.clienteAnno` scritto a mano: **non lo sovrascrive**, segnala solo le differenze (tabella «Da rivedere» nella pagina regole, badge arancio nella scheda partner). ⚠️ Il ledger parte dal 2025: i clienti attivi da prima risultano «Nuovo» finché non si allarga lo storico.
+
+Il motore (`stato-credito.ts`) accetta le regole come parametro e le legge dal DB se non passate: `schedaPartner(id, {regole})`, `schedeTutti({regole})`, `schedaCredito(fatture, oggi, regole)`.
 
 Dove si vede: colonna **Credito** + **Scaduto** e filtro «Credito» in `/partner` (ordinabili), card **«Salute del credito»** nella scheda partner (`CreditoCard.tsx`), **Aging del credito** di portafoglio + «da lavorare per primi» in `/scadenzario`, e l'API `/api/clienti/stato`.
 

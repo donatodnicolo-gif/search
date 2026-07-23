@@ -118,8 +118,11 @@ export default async function ImpostazioniPage({
         <div>
           <h1 className="page-title">Impostazioni</h1>
           <p className="page-caption">
-            Dati dell&apos;ordinante per le distinte SEPA e gestione dell&apos;accesso.
+            Dati dell&apos;ordinante per le distinte SEPA, regole degli stati cliente e gestione dell&apos;accesso.
           </p>
+        </div>
+        <div className="page-actions">
+          <Link href="/impostazioni/stati" className="btn secondary">Regole degli stati →</Link>
         </div>
       </div>
 

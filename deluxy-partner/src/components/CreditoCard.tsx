@@ -1,19 +1,22 @@
 import { euro } from "@/lib/format";
-import { schedaPartner, FASCE } from "@/lib/stato-credito";
+import { schedaPartner } from "@/lib/stato-credito";
+import { leggiRegole } from "@/lib/regole-stati";
 import { BadgeCredito } from "./BadgeCredito";
 
 // Scheda "salute del credito" di un cliente: come la leggerebbe un CFO in
 // riunione — stato, esposizione, aging (a scadere / 1-30 / 31-60 / 61-90 / >90),
 // comportamento storico di pagamento e azione consigliata.
 export async function CreditoCard({ partnerId }: { partnerId: string }) {
-  const s = await schedaPartner(partnerId);
+  // Le fasce sono quelle configurate in Impostazioni → Regole degli stati.
+  const { credito: r } = await leggiRegole();
+  const s = await schedaPartner(partnerId, { regole: r });
 
   const fasce = [
     { k: "A scadere", v: s.aging.correnti, forte: false },
-    { k: `1-${FASCE.primo} gg`, v: s.aging.f30, forte: false },
-    { k: `${FASCE.primo + 1}-${FASCE.secondo} gg`, v: s.aging.f60, forte: true },
-    { k: `${FASCE.secondo + 1}-${FASCE.terzo} gg`, v: s.aging.f90, forte: true },
-    { k: `oltre ${FASCE.terzo} gg`, v: s.aging.oltre90, forte: true },
+    { k: `1-${r.fascia1} gg`, v: s.aging.f30, forte: false },
+    { k: `${r.fascia1 + 1}-${r.fascia2} gg`, v: s.aging.f60, forte: true },
+    { k: `${r.fascia2 + 1}-${r.fascia3} gg`, v: s.aging.f90, forte: true },
+    { k: `oltre ${r.fascia3} gg`, v: s.aging.oltre90, forte: true },
   ];
 
   return (
