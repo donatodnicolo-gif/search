@@ -122,7 +122,19 @@ export async function POST() {
 
     const restanoMessaggi = await db.messaggio.count({ where: dove })
     const restano = restanoMessaggi + Math.max(0, daRiassumere.length - (fatti > 0 ? 1 : 0))
-    return NextResponse.json({ ok: true, fatti, restano })
+    // `dettaglio` serve a capire cosa sta facendo (o perché non fa niente):
+    // senza, «tutto già letto» e «non parte» sono indistinguibili a schermo.
+    return NextResponse.json({
+      ok: true,
+      fatti,
+      restano,
+      dettaglio: {
+        contattiAI: emailAI.length,
+        mailThreadAI: idsAI.length,
+        mailDaLeggere: restanoMessaggi,
+        riassuntiDaRifare: daRiassumere.length,
+      },
+    })
   } catch (e) {
     const m = e instanceof Error ? e.message : 'errore'
     return NextResponse.json({ ok: false, messaggio: m.slice(0, 160) }, { status: 500 })

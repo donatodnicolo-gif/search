@@ -1,68 +1,124 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+type Esito = {
+  ok: boolean
+  fatti?: number
+  restano?: number
+  messaggio?: string
+  dettaglio?: {
+    contattiAI: number
+    mailThreadAI: number
+    mailDaLeggere: number
+    riassuntiDaRifare: number
+  }
+}
+
 /**
- * Fa leggere all'AI, in sottofondo, le mail dei contatti col PLUS AI che non
- * ha ancora letto. Gira solo con la AI Inbox aperta e in primo piano: chiama
- * `/api/analizza-ai-inbox` a piccoli blocchi finché non resta niente.
+ * Fa leggere all'AI, in sottofondo, quello che ha il PLUS AI (contatti e
+ * conversazioni) e che non ha ancora letto: mail non analizzate e riassunti di
+ * conversazione da rifare. Chiama `/api/analizza-ai-inbox` a piccoli blocchi
+ * finché non resta niente.
  *
- * Non blocca nulla: è una fetch (non una Server Action), i clic restano liberi
- * e la lista si aggiorna quando il giro è finito.
+ * ⚠️ Con `sempreVisibile` mostra SEMPRE cosa sta succedendo — anche «non c'è
+ * niente da leggere». Senza, «ha già letto tutto» e «non è partito» sono
+ * indistinguibili a schermo, ed è impossibile capire se funziona.
  */
-export function AnalisiAIInbox() {
-  const [stato, setStato] = useState<{ fatti: number; restano: number } | null>(null)
+export function AnalisiAIInbox({ sempreVisibile = false }: { sempreVisibile?: boolean }) {
+  const [stato, setStato] = useState<'attesa' | 'lavoro' | 'finito' | 'errore'>('attesa')
+  const [fatti, setFatti] = useState(0)
+  const [restano, setRestano] = useState(0)
+  const [errore, setErrore] = useState<string | null>(null)
   const attivo = useRef(true)
   const router = useRouter()
 
-  useEffect(() => {
-    attivo.current = true
-    let fattiTotali = 0
+  const giro = useCallback(
+    async (forzato: boolean) => {
+      setErrore(null)
+      setStato('lavoro')
+      let totali = 0
+      // Al massimo qualche blocco per volta: il resto al giro successivo.
+      for (let n = 0; n < 20; n++) {
+        if (!attivo.current) return
+        if (!forzato && document.visibilityState !== 'visible') break
 
-    const giro = async () => {
-      // Fermarsi se la scheda passa in secondo piano: l'analisi costa, e la si
-      // fa solo per chi sta davvero guardando la AI Inbox.
-      while (attivo.current && document.visibilityState === 'visible') {
-        let dati: { ok: boolean; fatti?: number; restano?: number } | null = null
+        let dati: Esito | null = null
         try {
           const res = await fetch('/api/analizza-ai-inbox', { method: 'POST' })
-          dati = await res.json()
-        } catch {
-          return // rete giù: si riproverà alla prossima apertura
-        }
-        if (!dati?.ok) return
-        fattiTotali += dati.fatti ?? 0
-        setStato({ fatti: fattiTotali, restano: dati.restano ?? 0 })
-
-        if (!dati.restano) {
-          if (fattiTotali > 0 && attivo.current) router.refresh()
+          if (!res.ok) {
+            const corpo = (await res.json().catch(() => null)) as Esito | null
+            setErrore(corpo?.messaggio || `Il server ha risposto ${res.status}.`)
+            setStato('errore')
+            return
+          }
+          dati = (await res.json()) as Esito
+        } catch (e) {
+          setErrore(e instanceof Error ? e.message : 'Rete non raggiungibile.')
+          setStato('errore')
           return
         }
-        // Se un giro non ha concluso niente ma ne restano, è inutile insistere
-        // (AI non disponibile): si riprova alla prossima apertura.
-        if ((dati.fatti ?? 0) === 0) return
 
-        // Un attimo di respiro fra un blocco e l'altro.
-        await new Promise((r) => setTimeout(r, 1200))
+        if (!dati.ok) {
+          setErrore(dati.messaggio || 'Non riuscito.')
+          setStato('errore')
+          return
+        }
+
+        totali += dati.fatti ?? 0
+        setFatti(totali)
+        setRestano(dati.restano ?? 0)
+
+        if (!dati.restano) break
+        // Un giro che non conclude niente pur avendo lavoro da fare significa
+        // che l'AI non è disponibile (chiave/quota): si dice, non si insiste.
+        if ((dati.fatti ?? 0) === 0) {
+          setErrore('L’AI non ha potuto leggere (chiave OpenAI o quota?). Riprova più tardi.')
+          setStato('errore')
+          return
+        }
+        await new Promise((r) => setTimeout(r, 800))
       }
-    }
 
-    // Ritardo iniziale: prima si mostra la posta, poi si lavora.
-    const avvio = setTimeout(giro, 2000)
+      setStato('finito')
+      if (totali > 0 && attivo.current) router.refresh()
+    },
+    [router]
+  )
+
+  useEffect(() => {
+    attivo.current = true
+    // Ritardo breve: prima si mostra la pagina, poi si lavora.
+    const avvio = setTimeout(() => void giro(false), 1500)
     return () => {
       attivo.current = false
       clearTimeout(avvio)
     }
-  }, [router])
+  }, [giro])
 
-  if (!stato || (stato.restano === 0 && stato.fatti === 0)) return null
+  const lavorando = stato === 'lavoro'
+  const nienteDaFare = stato === 'finito' && fatti === 0 && restano === 0
+
+  // Senza `sempreVisibile` si resta muti quando non c'è nulla da dire.
+  if (!sempreVisibile && (stato === 'attesa' || nienteDaFare)) return null
 
   return (
-    <div style={{ fontSize: 12.5, color: 'var(--text-tertiary)', margin: '0 0 10px' }}>
-      {stato.restano > 0
-        ? `L’AI sta leggendo le conversazioni col PLUS AI… ne restano ${stato.restano}.`
-        : `L’AI ha letto ${stato.fatti} ${stato.fatti === 1 ? 'elemento' : 'elementi'} col PLUS AI.`}
+    <div style={{ fontSize: 12.5, margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <span style={{ color: stato === 'errore' ? 'var(--red)' : 'var(--text-tertiary)' }}>
+        {stato === 'attesa' && 'Controllo se c’è da leggere…'}
+        {lavorando && `L’AI sta leggendo…${restano ? ` ne restano ${restano}` : ''}`}
+        {stato === 'finito' &&
+          (fatti > 0
+            ? `L’AI ha letto ${fatti} ${fatti === 1 ? 'elemento' : 'elementi'}.`
+            : 'L’AI ha già letto tutto quello che ha il PLUS AI.')}
+        {stato === 'errore' && errore}
+      </span>
+      {!lavorando && (
+        <button type="button" className="azione-riga" onClick={() => void giro(true)}>
+          Fai leggere ora
+        </button>
+      )}
     </div>
   )
 }

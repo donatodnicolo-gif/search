@@ -199,7 +199,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
           {/* Se la conversazione ha il PLUS AI, l'AI la legge in sottofondo
               appena la apri: mail non ancora analizzate e riassunto da rifare. */}
-          {threadAI && <AnalisiAIInbox />}
+          {threadAI && <AnalisiAIInbox sempreVisibile />}
 
           <div style={{ marginBottom: 14 }}>
             <AgganciaMail
