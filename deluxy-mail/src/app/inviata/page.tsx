@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
 import { raggruppa } from '@/lib/thread'
-import { nomiPerGruppi } from '@/lib/nomiThread'
+import { nomiPerGruppi, chiaviPerNome } from '@/lib/nomiThread'
 import { RicercaMail } from '@/components/RicercaMail'
 import { CercaServer } from '@/components/CercaServer'
 import { ListaInviati, type RigaInviata } from '@/components/ListaInviati'
@@ -15,6 +15,10 @@ export default async function PostaInviata({ searchParams }: Props) {
   const q = (qGrezzo ?? '').trim()
   const ricerca = q.length >= 2
   const u = await richiediUtente()
+  // Cercando si trovano anche le conversazioni a cui hai dato un NOME: la
+  // chiave del nome è l'id di una loro mail, quindi basta includerla.
+  const chiaviNome = ricerca ? await chiaviPerNome(u.id, q) : []
+
   const [messaggi, sezioni] = await Promise.all([
     db.messaggio.findMany({
       where: {
@@ -27,6 +31,7 @@ export default async function PostaInviata({ searchParams }: Props) {
                 { oggetto: { contains: q, mode: 'insensitive' as const } },
                 { destinatari: { contains: q, mode: 'insensitive' as const } },
                 { corpoTesto: { contains: q, mode: 'insensitive' as const } },
+                ...(chiaviNome.length ? [{ id: { in: chiaviNome } }] : []),
               ],
             }
           : {}),
@@ -42,21 +47,57 @@ export default async function PostaInviata({ searchParams }: Props) {
     db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' }, select: { id: true, nome: true } }),
   ])
 
-  // Anche qui la posta si legge a CONVERSAZIONI: più risposte mie nello stesso
-  // scambio fanno una riga sola (come in posta in arrivo), col numero accanto.
-  // Il volto della riga è la mia mail più recente della conversazione.
-  const gruppi = raggruppa(messaggi)
+  // ⚠️ Il raggruppamento va fatto su TUTTA la posta, non solo sugli inviati:
+  // raggruppando solo le mie mail, una risposta dentro uno scambio di venti
+  // messaggi risultava "1" e non si capiva che faceva parte di una
+  // conversazione. Qui si prende una finestra di posta (leggera, solo i campi
+  // per raggruppare), si raggruppa, e si tengono i gruppi che contengono
+  // almeno una MIA mail.
+  const contorno = await db.messaggio.findMany({
+    where: { utenteId: u.id, cestinato: false },
+    orderBy: { data: 'desc' },
+    take: 2000,
+    select: {
+      id: true, thread: true, threadManuale: true, scollegato: true,
+      oggetto: true, data: true, direzione: true,
+    },
+  })
+
+  const idsInviate = new Set(messaggi.map((m) => m.id))
+  const perId = new Map(contorno.map((m) => [m.id, m]))
+  // Le mie mail fuori dalla finestra del contorno vanno aggiunte a mano.
+  for (const m of messaggi) {
+    if (!perId.has(m.id)) {
+      perId.set(m.id, {
+        id: m.id, thread: m.thread, threadManuale: m.threadManuale, scollegato: m.scollegato,
+        oggetto: m.oggetto, data: m.data, direzione: m.direzione,
+      })
+    }
+  }
+
+  const gruppi = raggruppa([...perId.values()]).filter((g) => g.some((x) => idsInviate.has(x.id)))
 
   // Il nome dato a mano alle conversazioni (una query per tutta la pagina).
   // Il nome si cerca su TUTTI i messaggi del gruppo (vedi nomiPerGruppi).
   const nomi = await nomiPerGruppi(u.id, gruppi)
 
-  const righe: RigaInviata[] = gruppi.map((g, i) => {
-    const m = g[g.length - 1]
-    return {
+  // Il volto della riga è la MIA mail più recente del gruppo (è posta inviata).
+  const datiInviate = new Map(messaggi.map((m) => [m.id, m]))
+
+  const righe: RigaInviata[] = gruppi.flatMap((g, i) => {
+    const mieNelGruppo = g.filter((x) => idsInviate.has(x.id))
+    const volto = mieNelGruppo[mieNelGruppo.length - 1]
+    const m = datiInviate.get(volto.id)
+    if (!m) return []
+    return [{
       id: m.id,
-      ids: g.map((x) => x.id),
-      nel: g.length,
+      // Le azioni agiscono solo sulle MIE mail: cestinare la conversazione
+      // intera da qui toglierebbe anche la posta ricevuta, che non è ciò che
+      // si chiede in "Posta inviata".
+      ids: mieNelGruppo.map((x) => x.id),
+      nel: mieNelGruppo.length,
+      /** Quanti messaggi ha lo scambio in tutto (miei + ricevuti). */
+      nelThread: g.length,
       nomeThread: nomi[i] ?? null,
       destinatari: m.destinatari,
       oggetto: m.oggetto,
@@ -64,7 +105,7 @@ export default async function PostaInviata({ searchParams }: Props) {
       data: m.data,
       sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
       sezioneId: m.sezioneId,
-    }
+    }]
   })
 
   return (

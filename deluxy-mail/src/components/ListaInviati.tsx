@@ -16,6 +16,8 @@ export type RigaInviata = {
   ids: string[]
   /** Quante mie mail ci sono in questa conversazione (1 = mail singola). */
   nel: number
+  /** Quanti messaggi ha lo scambio in tutto (miei + ricevuti). */
+  nelThread?: number
   /** Il nome dato a mano alla conversazione (null se non ne ha). */
   nomeThread?: string | null
   destinatari: string
@@ -148,12 +150,15 @@ export function ListaInviati({
               <div className="mail-top">
                 <span className="dot-spacer" />
                 <span className="mail-mittente">a {m.destinatari}</span>
-                {m.nel > 1 && (
+                {/* Il numero è la CONVERSAZIONE intera (mie + ricevute): dice
+                    che la mail fa parte di uno scambio, non quante ne ho
+                    scritte io. Il dettaglio sta nel titolo al passaggio. */}
+                {(m.nelThread ?? m.nel) > 1 && (
                   <span
                     className="thread-count"
-                    title={`${m.nel} tue mail in questa conversazione`}
+                    title={`${m.nelThread ?? m.nel} messaggi nella conversazione${m.nel > 1 ? ` · ${m.nel} tuoi` : ''}`}
                   >
-                    {m.nel}
+                    {m.nelThread ?? m.nel}
                   </span>
                 )}
                 {m.nomeThread && (
