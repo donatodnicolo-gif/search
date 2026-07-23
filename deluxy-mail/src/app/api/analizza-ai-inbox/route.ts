@@ -4,6 +4,7 @@ import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { analizzaMessaggioOra } from '@/lib/sync'
 import { emailContattiAI } from '@/lib/contattiAI'
+import { idsThreadAI } from '@/lib/threadAI'
 
 // POST /api/analizza-ai-inbox
 // I contatti col PLUS AI vanno LETTI dall'AI sempre: qui si analizza un piccolo
@@ -32,10 +33,13 @@ export async function POST() {
   }
 
   try {
-    const emailAI = await emailContattiAI(userId)
-    if (emailAI.length === 0) return NextResponse.json({ ok: true, fatti: 0, restano: 0 })
+    // PLUS AI per CONTATTO e per CONVERSAZIONE: entrambi vanno letti sempre.
+    const [emailAI, idsAI] = await Promise.all([emailContattiAI(userId), idsThreadAI(userId)])
+    if (emailAI.length === 0 && idsAI.length === 0) {
+      return NextResponse.json({ ok: true, fatti: 0, restano: 0 })
+    }
 
-    // Le mail dei contatti AI mai analizzate. Il confronto sul mittente è
+    // Le mail col PLUS AI mai analizzate. Il confronto sul mittente è
     // CASE-INSENSITIVE: l'indirizzo è salvato com'è nella mail, i contatti AI
     // sono minuscoli (stessa accortezza della vista AI Inbox).
     const dove = {
@@ -45,7 +49,10 @@ export async function POST() {
       archiviato: false,
       analizzatoIl: null,
       NOT: { sezione: { nome: 'SPAM' } },
-      OR: emailAI.map((e) => ({ mittente: { equals: e, mode: 'insensitive' as const } })),
+      OR: [
+        ...emailAI.map((e) => ({ mittente: { equals: e, mode: 'insensitive' as const } })),
+        ...(idsAI.length ? [{ id: { in: idsAI } }] : []),
+      ],
     }
 
     const daFare = await db.messaggio.findMany({

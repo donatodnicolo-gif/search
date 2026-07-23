@@ -631,6 +631,44 @@ export async function salvaIstruzioniThread(
 }
 
 /**
+ * Accende (o spegne) il PLUS AI su una CONVERSAZIONE: da qui in poi l'AI legge
+ * sempre le sue mail e il thread compare nella AI Inbox.
+ *
+ * Come per il nome, il segno va su TUTTE le mail del thread: la chiave del
+ * thread cambia agganciando mail vecchie, e le liste vedono solo la posta
+ * recente — segnando ogni membro, la conversazione si riconosce sempre.
+ */
+export async function cambiaThreadAI(
+  messaggioId: string,
+  attivo: boolean
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const conversazione = await messaggiThread(utenteId, messaggioId)
+  if (conversazione.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
+  const membri = conversazione.map((m) => m.id)
+
+  try {
+    await db.threadAI.deleteMany({ where: { utenteId, chiave: { in: membri } } })
+    if (attivo) {
+      await db.threadAI.createMany({
+        data: membri.map((id) => ({ utenteId, chiave: id })),
+        skipDuplicates: true,
+      })
+    }
+  } catch {
+    return { ok: false, messaggio: 'Non riesco a salvare (tabella non ancora pronta).' }
+  }
+
+  revalidatePath('/', 'layout')
+  return {
+    ok: true,
+    messaggio: attivo
+      ? 'PLUS AI attivo: l’AI leggerà sempre questa conversazione.'
+      : 'PLUS AI tolto da questa conversazione.',
+  }
+}
+
+/**
  * Dà (o toglie) un NOME alla conversazione. L'oggetto di una mail spesso non
  * dice niente ("Re: IMPORTANTE: 106654/26 …"): il nome serve a ritrovare lo
  * scambio e a cercarlo per nome nella pagina Thread.

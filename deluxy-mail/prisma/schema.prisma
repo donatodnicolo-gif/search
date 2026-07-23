@@ -60,6 +60,7 @@ model Utente {
   contattiAI ContattoAI[]
   istruzioniThread IstruzioneThread[]
   nomiThread       NomeThread[]
+  threadAI         ThreadAI[]
   allegatiCaricati AllegatoCaricato[]
   regoleApp  RegolaApp[]
   inviiApp   InvioApp[]
@@ -557,6 +558,25 @@ model AllegatoCaricato {
   creatoIl DateTime @default(now())
 
   @@index([utenteId, gruppo])
+}
+
+// PLUS AI su una CONVERSAZIONE (come ContattoAI, ma per un thread): l'AI legge
+// sempre le sue mail e la conversazione entra nella AI Inbox.
+//
+// ⚠️ Come per NomeThread, si scrive una riga per OGNI mail del thread, non una
+// sola sulla "chiave": la chiave è l'id del messaggio più vecchio e cambia
+// agganciando mail vecchie, mentre le liste caricano solo la posta recente.
+// Segnando tutti i membri, l'appartenenza si riconosce da qualunque mail.
+model ThreadAI {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  /** Id di una mail della conversazione. */
+  chiave   String
+  creatoIl DateTime @default(now())
+
+  @@unique([utenteId, chiave])
 }
 
 model NomeThread {

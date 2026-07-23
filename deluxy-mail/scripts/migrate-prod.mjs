@@ -41,6 +41,11 @@ const stmts = [
      "nome" TEXT NOT NULL, "tipo" TEXT NOT NULL DEFAULT '', "dati" BYTEA NOT NULL,
      "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE INDEX IF NOT EXISTS "AllegatoCaricato_utenteId_gruppo_idx" ON "AllegatoCaricato"("utenteId","gruppo")`,
+  // PLUS AI su una conversazione (una riga per ogni mail del thread).
+  `CREATE TABLE IF NOT EXISTS "ThreadAI" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "chiave" TEXT NOT NULL,
+     "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "ThreadAI_utenteId_chiave_key" ON "ThreadAI"("utenteId","chiave")`,
   // Nome dato a mano a una conversazione (per ritrovarla e cercarla).
   `CREATE TABLE IF NOT EXISTS "NomeThread" (
      "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "chiave" TEXT NOT NULL,
@@ -294,6 +299,10 @@ const stmts = [
      END IF;
      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='NomeThread_utenteId_fkey') THEN
        ALTER TABLE "NomeThread" ADD CONSTRAINT "NomeThread_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ThreadAI_utenteId_fkey') THEN
+       ALTER TABLE "ThreadAI" ADD CONSTRAINT "ThreadAI_utenteId_fkey"
          FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
      END IF;
      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='AllegatoCaricato_utenteId_fkey') THEN

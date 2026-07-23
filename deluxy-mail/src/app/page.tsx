@@ -22,6 +22,7 @@ import { richiediUtente } from '@/lib/sessione'
 import { raggruppa } from '@/lib/thread'
 import { emailContattiAI } from '@/lib/contattiAI'
 import { nomiPerGruppi } from '@/lib/nomiThread'
+import { idsThreadAI } from '@/lib/threadAI'
 import { indiceClienti } from '@/lib/anagrafiche'
 
 export const dynamic = 'force-dynamic'
@@ -76,9 +77,11 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // un viaggio di andata e ritorno, e in serie erano quasi dieci. Qui si fa
   // una sola ondata; restano poi solo la query della posta (che ha bisogno di
   // questi risultati) e quella delle risposte.
-  const [emailAI, tutteLeSezioni, account, storicoIncompleto, chiaviApp, sezioneAttiva, figlieSezione] =
+  const [emailAI, idsAI, tutteLeSezioni, account, storicoIncompleto, chiaviApp, sezioneAttiva, figlieSezione] =
     await Promise.all([
       emailContattiAI(u.id),
+      // Le mail delle conversazioni col PLUS AI (per la vista AI Inbox).
+      vista === 'ai' && !sezione ? idsThreadAI(u.id) : Promise.resolve([] as string[]),
       db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' }, select: { id: true, nome: true } }),
       db.account.count({ where: { utenteId: u.id } }),
       // C'è ancora storico non scaricato? Allora in fondo alla lista si può
@@ -104,6 +107,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     ])
 
   const setAI = new Set(emailAI)
+  // Nella AI Inbox "non c'è niente da seguire" solo se mancano SIA i contatti
+  // col PLUS AI SIA le conversazioni col PLUS AI.
+  const senzaAI = emailAI.length === 0 && idsAI.length === 0
 
   // Riconciliazione coi CLIENTI di Anagrafiche (come in /clienti): si avvia
   // subito e si aspetta solo alla fine. L'indice sta in memoria (30 min) e non
@@ -213,8 +219,15 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       // salvato com'è nell'indirizzo (la parte prima della @ può avere maiuscole,
       // es. "Martina.Calia@…"), mentre i contatti AI sono minuscoli — un "in"
       // secco non aggancerebbe.
+      // …e ANCHE le mail delle conversazioni col PLUS AI (il segno sta su ogni
+      // mail del thread, quindi basta guardare l'id).
       ...(vistaAI
-        ? { OR: emailAI.map((e) => ({ mittente: { equals: e, mode: 'insensitive' as const } })) }
+        ? {
+            OR: [
+              ...emailAI.map((e) => ({ mittente: { equals: e, mode: 'insensitive' as const } })),
+              ...(idsAI.length ? [{ id: { in: idsAI } }] : []),
+            ],
+          }
         : {}),
     },
     // Sempre in ordine di arrivo: una mail appena arrivata non è ancora stata
@@ -493,18 +506,18 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         <div className="card tight">
         {messaggi.length === 0 ? (
           <div className="empty">
-            <div className="empty-icon">{ricerca ? '⌕' : vistaAI && emailAI.length === 0 ? 'AI' : '✓'}</div>
+            <div className="empty-icon">{ricerca ? '⌕' : vistaAI && senzaAI ? 'AI' : '✓'}</div>
             <div className="empty-title">
               {ricerca
                 ? 'Nessun risultato'
-                : vistaAI && emailAI.length === 0
+                : vistaAI && senzaAI
                   ? 'Nessun contatto col PLUS AI'
                   : 'Niente da vedere qui'}
             </div>
             <p className="empty-text">
               {ricerca ? (
                 <>Nessuna mail (ricevuta o inviata) contiene «{q}».</>
-              ) : vistaAI && emailAI.length === 0 ? (
+              ) : vistaAI && senzaAI ? (
                 <>
                   Apri una mail (o una scheda in Rubrica) e premi <strong>+ AI</strong> per
                   seguirne il contatto qui. Intanto trovi la posta in{' '}

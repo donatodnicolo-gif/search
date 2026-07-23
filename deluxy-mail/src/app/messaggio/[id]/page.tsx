@@ -22,6 +22,8 @@ import { AllegatiMessaggio } from '@/components/AllegatiMessaggio'
 import { chiaveThread } from '@/lib/thread'
 import { nomeDiThread } from '@/lib/nomiThread'
 import { NomeThreadForm } from '@/components/NomeThreadForm'
+import { ThreadAIToggle } from '@/components/ThreadAIToggle'
+import { threadHaAI } from '@/lib/threadAI'
 import { eContattoAI } from '@/lib/contattiAI'
 import { azioneDi } from '@/lib/appDeluxy'
 import { leggiEventoProposto } from '@/lib/eventoProposto'
@@ -92,8 +94,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
   let riassuntoThread: Awaited<ReturnType<typeof leggiRiassuntoThread>> = null
   let istruzioniThread = ''
   let nomeConv = ''
+  let threadAI = false
   if (chiaveConv) {
-    const [rt, it, nt] = await Promise.all([
+    const [rt, it, nt, tai] = await Promise.all([
       leggiRiassuntoThread(u.id, chiaveConv),
       db.istruzioneThread
         .findUnique({
@@ -105,10 +108,13 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
       // Il nome può essere finito su un'altra mail della conversazione (le
       // chiavi cambiano agganciando mail vecchie): si cerca su tutte.
       nomeDiThread(u.id, chiaveConv, conversazione.map((m) => m.id)),
+      // PLUS AI sulla conversazione (segnato su tutte le sue mail).
+      threadHaAI(u.id, conversazione.map((m) => m.id)),
     ])
     riassuntoThread = rt
     istruzioniThread = it
     nomeConv = nt ?? ''
+    threadAI = tai
   }
 
   // Qui si mostra solo la proposta dell'AI: le bozze che hai iniziato tu si
@@ -190,6 +196,11 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           {/* Il nome che dai tu alla conversazione: si vede nelle liste e si
               può cercare fra i thread. */}
           <NomeThreadForm messaggioId={messaggio.id} valore={nomeConv} />
+
+          {/* PLUS AI sulla conversazione: l'AI la legge sempre. */}
+          <div style={{ marginBottom: 14 }}>
+            <ThreadAIToggle messaggioId={messaggio.id} attivo={threadAI} />
+          </div>
 
           <div style={{ marginBottom: 14 }}>
             <AgganciaMail
