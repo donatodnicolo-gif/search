@@ -3,6 +3,11 @@
 // vault hub) e chiede le ultime mail ricevute da un contatto per la scheda Scout.
 //   { azione: 'messaggi', email: '<contatto>', limite?: 10 } → GET /api/v1/messaggi
 // L'header x-utente (casella su cui operare) = email dell'utente Scout loggato.
+//
+//   { azione: 'richieste', limite?: 50 } → importa in `leads` la posta della
+// CASELLA COMMERCIALE (secret MAIL_CASELLA_RICHIESTE, default
+// commerciale@deluxy.it): ogni mail arrivata lì è una richiesta da lavorare.
+// Dedup sul Message-ID (`leads.mail_id`, migr. 0042).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { chiaveHub } from '../_shared/chiavi.ts';
 
@@ -32,6 +37,54 @@ Deno.serve(async (req) => {
     if (!email) return json({ ok: false, errore: 'Non autenticato' }, 401);
 
     const body = await req.json().catch(() => ({}));
+
+    // ── Richieste Web: la posta della casella commerciale diventa lead ────────
+    if (body.azione === 'richieste') {
+      const casella = Deno.env.get('MAIL_CASELLA_RICHIESTE') ?? 'commerciale@deluxy.it';
+      const limite = Math.min(Math.max(Number(body.limite ?? 50) || 50, 1), 100);
+      const p = new URLSearchParams({ casella: '1', limite: String(limite) });
+      if (body.da) p.set('da', String(body.da));
+
+      const res = await fetch(`${BASE}/api/v1/messaggi?${p.toString()}`, {
+        headers: { 'x-api-key': key, 'x-utente': casella },
+      });
+      const dati = await res.json().catch(() => null);
+      if (!res.ok || !dati?.ok) {
+        return json(
+          { ok: false, errore: dati?.errore ?? `AI Mail ha risposto ${res.status} per la casella ${casella}.` },
+          res.status === 404 ? 404 : 502,
+        );
+      }
+
+      const messaggi: any[] = Array.isArray(dati.messaggi) ? dati.messaggi : [];
+      // Le nostre stesse mail non sono richieste.
+      const inArrivo = messaggi.filter((m) => m.direzione !== 'uscita' && m.email !== casella);
+      const ids = inArrivo.map((m) => m.messageId).filter(Boolean);
+
+      let importati = 0;
+      if (ids.length) {
+        const { data: gia } = await admin.from('leads').select('mail_id').in('mail_id', ids);
+        const noti = new Set((gia ?? []).map((r: any) => r.mail_id));
+        const nuovi = inArrivo
+          .filter((m) => m.messageId && !noti.has(m.messageId))
+          .map((m) => ({
+            nome: m.da || m.email || 'Richiesta senza mittente',
+            contatto: m.email ?? null,
+            fonte: 'mail',
+            // L'oggetto dice cosa chiede; l'anteprima aggiunge il contesto.
+            messaggio: [m.oggetto, m.anteprima].filter(Boolean).join(' — ').slice(0, 2000) || null,
+            mail_id: m.messageId,
+          }));
+        if (nuovi.length) {
+          const { error } = await admin.from('leads').insert(nuovi);
+          if (error) return json({ ok: false, errore: error.message }, 500);
+          importati = nuovi.length;
+        }
+      }
+
+      return json({ ok: true, casella, lette: inArrivo.length, importate: importati });
+    }
+
     if (body.azione !== 'messaggi') return json({ ok: false, errore: `Azione sconosciuta: ${body.azione}` }, 400);
 
     const contatto = String(body.email ?? '').trim();

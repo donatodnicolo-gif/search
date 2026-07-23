@@ -7,6 +7,8 @@ import type { Prisma } from '@prisma/client'
 
 // GET /api/v1/messaggi?email=<contatto>&da=<ISO>&a=<ISO>&server=1&limite=30
 // GET /api/v1/messaggi?cliente=<nome o id Anagrafiche>&q=<testo>&direzione=tutte
+// GET /api/v1/messaggi?casella=1 → TUTTA la posta in arrivo dell'utente
+//   (serve a Scout per le «Richieste Web»: le mail a commerciale@deluxy.it)
 //
 // Le mail di un CONTATTO (?email=) oppure di un intero CLIENTE (?cliente=): nel
 // secondo caso si usa la stessa associazione mail↔cliente della sezione
@@ -29,9 +31,12 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const email = (url.searchParams.get('email') || '').trim().toLowerCase()
   const cliente = (url.searchParams.get('cliente') || '').trim()
-  if (!email && !cliente) {
+  // Tutta la casella: nessun filtro sulla controparte. Utile a chi tratta la
+  // posta in arrivo come una coda di richieste da lavorare.
+  const casella = url.searchParams.get('casella') === '1'
+  if (!email && !cliente && !casella) {
     return NextResponse.json(
-      { ok: false, errore: 'Manca il parametro ?email=<contatto> oppure ?cliente=<nome o id>.' },
+      { ok: false, errore: 'Manca il parametro ?email=<contatto>, ?cliente=<nome o id> oppure ?casella=1.' },
       { status: 400 }
     )
   }
@@ -42,7 +47,7 @@ export async function GET(request: Request) {
 
   // Se si cerca per cliente, gli indirizzi/domini arrivano dall'indice di Anagrafiche.
   let recapiti: { cliente: { id: string; nome: string }; email: string[]; domini: string[] } | null = null
-  if (!email) {
+  if (!email && !casella) {
     recapiti = await recapitiCliente(cliente).catch(() => null)
     if (!recapiti) {
       return NextResponse.json(
@@ -61,15 +66,15 @@ export async function GET(request: Request) {
     const d = new Date(v)
     return isNaN(d.getTime()) ? null : d
   }
-  const giorniDefault = email ? 30 : 365
+  const giorniDefault = casella ? 30 : email ? 30 : 365
   const a = parseData(url.searchParams.get('a')) ?? new Date()
   const da = parseData(url.searchParams.get('da')) ?? new Date(a.getTime() - giorniDefault * 24 * 60 * 60 * 1000)
 
   // Chi è la controparte: un solo indirizzo (contatto) oppure tutti gli
   // indirizzi/domini del cliente. In uscita la controparte sta nei destinatari.
   const controparte: Prisma.MessaggioWhereInput[] = []
-  const indirizzi = email ? [email] : recapiti!.email
-  const domini = email ? [] : recapiti!.domini
+  const indirizzi = email ? [email] : recapiti ? recapiti.email : []
+  const domini = email || !recapiti ? [] : recapiti.domini
   for (const e of indirizzi) {
     controparte.push({ mittente: { equals: e, mode: 'insensitive' } })
     if (tutteLeDirezioni) controparte.push({ destinatari: { contains: e, mode: 'insensitive' } })
@@ -84,7 +89,9 @@ export async function GET(request: Request) {
     cestinato: false,
     ...(tutteLeDirezioni ? {} : { direzione: 'entrata' }),
     data: { gte: da, lte: a },
-    OR: controparte,
+    // Con ?casella=1 non si filtra la controparte: si vuole tutta la posta.
+    ...(controparte.length ? { OR: controparte } : {}),
+    ...(casella ? { NOT: { sezione: { nome: 'SPAM' } }, archiviato: false } : {}),
     // il filtro testo è un AND separato: non deve allargare l'OR sulla controparte
     ...(q
       ? {
@@ -108,7 +115,7 @@ export async function GET(request: Request) {
       orderBy: { data: 'desc' },
       take: limite,
       select: {
-        id: true, mittente: true, mittenteNome: true, oggetto: true, direzione: true,
+        id: true, messageId: true, mittente: true, mittenteNome: true, oggetto: true, direzione: true,
         data: true, anteprima: true, letto: true, allegati: true,
       },
     })
@@ -135,6 +142,7 @@ export async function GET(request: Request) {
     cercatoSulServer,
     messaggi: righe.map((m) => ({
       id: m.id,
+      messageId: m.messageId,
       da: m.mittenteNome || m.mittente,
       email: m.mittente,
       oggetto: m.oggetto,

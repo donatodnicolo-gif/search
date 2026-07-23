@@ -12,6 +12,7 @@ import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { cercaPlaces, creaLead, fetchLeads, qualificaLead, scartaLead, type PlaceLite } from '@/lib/db';
 import type { FonteLead, Lead } from '@/types';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
+import { importaRichiesteDaMail } from '@/lib/mail';
 import { avvisa } from '@/lib/dialoghi';
 
 const FONTI: { valore: FonteLead; label: string }[] = [
@@ -33,6 +34,7 @@ export default function LeadWeb() {
   const [statoFiltro, setStatoFiltro] = useState<string>('nuovo');
   const [formAperto, setFormAperto] = useState(false);
   const [daQualificare, setDaQualificare] = useState<Lead | null>(null);
+  const [importando, setImportando] = useState(false);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -52,6 +54,26 @@ export default function LeadWeb() {
   const dati = useMemo(() => leads.filter((l) => l.stato === statoFiltro), [leads, statoFiltro]);
   const nNuovi = leads.filter((l) => l.stato === 'nuovo').length;
 
+  /** Tira dentro la posta della casella commerciale: ogni mail è una richiesta. */
+  async function importaDallaMail() {
+    if (importando) return;
+    setImportando(true);
+    try {
+      const { lette, importate } = await importaRichiesteDaMail();
+      await carica();
+      avvisa(
+        importate ? 'Richieste importate' : 'Nessuna nuova richiesta',
+        importate
+          ? `${importate} nuove richieste dalla casella commerciale (su ${lette} mail lette).`
+          : `Nessuna mail nuova da importare: le ${lette} lette erano già in elenco.`,
+      );
+    } catch (e: any) {
+      avvisa('Importazione non riuscita', e?.message ?? 'Riprova più tardi.');
+    } finally {
+      setImportando(false);
+    }
+  }
+
   async function scarta(l: Lead) {
     try {
       await scartaLead(l.id);
@@ -64,7 +86,13 @@ export default function LeadWeb() {
   return (
     <View style={styles.container}>
       <View style={styles.head}>
-        <PageIntro testo="Le richieste arrivate dal web (sito, mail, social): qualificale agganciandole a un negozio — nasce la trattativa, canale web — oppure scartali. Rispondere entro 2 giorni: sul web chi tarda perde." />
+        <PageIntro testo="Le richieste arrivate dal web e dalla casella commerciale: qualificale agganciandole a un negozio — nasce la trattativa, canale web — oppure scartale. Rispondere entro 2 giorni: sul web chi tarda perde." />
+        <Pressable style={[styles.btnImporta, importando && { opacity: 0.5 }]} disabled={importando} onPress={importaDallaMail}>
+          <Ionicons name="mail-outline" size={15} color={colors.navy} />
+          <Text style={styles.btnImportaTxt}>
+            {importando ? 'Leggo la posta…' : 'Importa da commerciale@deluxy.it'}
+          </Text>
+        </Pressable>
         <View style={styles.chips}>
           {[
             { v: 'nuovo', label: `Nuovi${nNuovi ? ` (${nNuovi})` : ''}` },
@@ -272,6 +300,8 @@ function QualificaModal({ lead, onClose, onFatto }: { lead: Lead; onClose: () =>
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: { padding: spacing.md, gap: spacing.sm },
+  btnImporta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingVertical: 9 },
+  btnImportaTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },

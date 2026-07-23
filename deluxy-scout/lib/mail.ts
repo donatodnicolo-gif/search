@@ -55,3 +55,29 @@ export async function mailDaContatto(email: string, opts: OpzioniMail = {}): Pro
     return [];
   }
 }
+
+/**
+ * Importa in «Richieste Web» la posta arrivata alla casella commerciale
+ * (secret MAIL_CASELLA_RICHIESTE su Supabase, default commerciale@deluxy.it).
+ * Ogni mail non ancora importata diventa un lead di fonte "mail"; il dedup è
+ * sul Message-ID, quindi si può rilanciare quante volte si vuole.
+ */
+export async function importaRichiesteDaMail(limite = 50): Promise<{ lette: number; importate: number }> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/mail`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ azione: 'richieste', limite }),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || !payload?.ok) {
+    throw new Error(payload?.errore ?? `Importazione non riuscita (${res.status}).`);
+  }
+  return { lette: Number(payload.lette ?? 0), importate: Number(payload.importate ?? 0) };
+}
