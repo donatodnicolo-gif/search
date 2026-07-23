@@ -39,9 +39,12 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     ],
   },
   {
-    // I lead: i nomi su cui lavorare, prima che diventino trattative.
-    titolo: 'Lead',
-    voci: [{ name: 'lista', label: 'Target', icon: 'flag-outline' }],
+    // I contatti su cui lavorare: i lead scelti (ex Target) e i clienti acquisiti.
+    titolo: 'Contatti',
+    voci: [
+      { name: 'lista', label: 'Lead', icon: 'flag-outline' },
+      { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
+    ],
   },
   {
     titolo: 'Vendita',
@@ -54,7 +57,6 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
   {
     titolo: 'Strumenti',
     voci: [
-      { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
       { name: 'rubrica', label: 'Rubrica', icon: 'people-outline' },
       { name: 'script', label: 'Script', icon: 'mail-outline' },
       { name: 'task', label: 'I miei task', icon: 'checkmark-circle-outline' },
@@ -272,7 +274,7 @@ export default function AppLayout() {
         <Drawer.Screen name="calendario" options={{ title: 'Calendario' }} />
         <Drawer.Screen name="da-completare" options={{ title: 'Da fare' }} />
         <Drawer.Screen name="mappa" options={{ title: 'Mappa' }} />
-        <Drawer.Screen name="lista" options={{ title: 'Target' }} />
+        <Drawer.Screen name="lista" options={{ title: 'Lead' }} />
         <Drawer.Screen name="rubrica" options={{ title: 'Rubrica' }} />
         <Drawer.Screen name="script" options={{ title: 'Script' }} />
         <Drawer.Screen name="trattative" options={{ title: 'Trattative' }} />
