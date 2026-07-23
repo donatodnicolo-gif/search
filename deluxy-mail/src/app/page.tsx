@@ -66,35 +66,48 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // priorità/analisi) e non è in una sezione. È il sottoinsieme di "In arrivo"
   // che aspetta di essere gestito.
   const vistaNonSmistate = !sezione && vista === 'nonsmistate'
-  const emailAI = await emailContattiAI(u.id)
+  // ⚠️ PRESTAZIONI — tutto ciò che non dipende da altro parte INSIEME.
+  // Vercel gira negli USA e il database è in Europa: ogni query in fila costa
+  // un viaggio di andata e ritorno, e in serie erano quasi dieci. Qui si fa
+  // una sola ondata; restano poi solo la query della posta (che ha bisogno di
+  // questi risultati) e quella delle risposte.
+  const [emailAI, tutteLeSezioni, account, storicoIncompleto, chiaviApp, sezioneAttiva, figlieSezione] =
+    await Promise.all([
+      emailContattiAI(u.id),
+      db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' }, select: { id: true, nome: true } }),
+      db.account.count({ where: { utenteId: u.id } }),
+      // C'è ancora storico non scaricato? Allora in fondo alla lista si può
+      // andare a prendere on-demand la posta più vecchia dal server.
+      db.account
+        .count({
+          where: {
+            utenteId: u.id,
+            attivo: true,
+            OR: [{ storicoFinito: false }, { storicoInviataFinito: false }],
+          },
+        })
+        .then((n) => n > 0)
+        .catch(() => false), // colonne non ancora migrate: niente ricerca on-demand
+      // Le chiavi delle APP DELUXY (in cache 5 minuti: non è una fetch a ogni giro).
+      leggiChiaviApp(),
+      sezione ? db.sezione.findFirst({ where: { id: sezione, utenteId: u.id } }) : Promise.resolve(null),
+      // Le sottosezioni: si chiedono subito insieme al resto e si usano solo se
+      // la sezione aperta esiste davvero.
+      sezione
+        ? db.sezione.findMany({ where: { utenteId: u.id, genitoreId: sezione }, select: { id: true } }).catch(() => [])
+        : Promise.resolve([]),
+    ])
+
   const setAI = new Set(emailAI)
 
   // Riconciliazione coi CLIENTI di Anagrafiche (come in /clienti): si avvia
-  // subito, in parallelo alle query sulla posta, e si aspetta solo alla fine.
-  // L'indice è in cache 10 minuti; se Anagrafiche non risponde, nessun badge.
+  // subito e si aspetta solo alla fine. L'indice sta in memoria (30 min) e non
+  // blocca mai la pagina: se non è pronto si va avanti senza badge.
   const clientiPromise = indiceClienti().catch(() => null)
 
   // Le sezioni per lo spostamento rapido dalla riga (SPAM esclusa: da lì si esce
   // con «Non è spam», non ci si sposta a mano).
-  const sezioniPerSposta = (
-    await db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' }, select: { id: true, nome: true } })
-  ).filter((s) => s.nome !== 'SPAM')
-
-  const account = await db.account.count({ where: { utenteId: u.id } })
-
-  // C'è ancora storico non scaricato? Allora in fondo alla lista si può andare
-  // a prendere on-demand la posta più vecchia dal server (senza bisogno dello
-  // scarico automatico in background).
-  const storicoIncompleto = await db.account
-    .count({
-      where: {
-        utenteId: u.id,
-        attivo: true,
-        OR: [{ storicoFinito: false }, { storicoInviataFinito: false }],
-      },
-    })
-    .then((n) => n > 0)
-    .catch(() => false) // colonne non ancora migrate: niente ricerca on-demand
+  const sezioniPerSposta = tutteLeSezioni.filter((s) => s.nome !== 'SPAM')
 
   if (account === 0) {
     return (
@@ -126,24 +139,14 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     )
   }
 
-  const sezioneAttiva = sezione
-    ? await db.sezione.findFirst({ where: { id: sezione, utenteId: u.id } })
-    : null
-
   // Aprendo una sezione con sottosezioni si vede anche la loro posta: la
-  // sezione madre è il contenitore, non una casella parallela.
-  let idsSezione: string[] = sezione ? [sezione] : []
-  if (sezioneAttiva) {
-    try {
-      const figlie = await db.sezione.findMany({
-        where: { utenteId: u.id, genitoreId: sezioneAttiva.id },
-        select: { id: true },
-      })
-      idsSezione = [sezioneAttiva.id, ...figlie.map((f) => f.id)]
-    } catch {
-      /* colonna non ancora migrata: solo la sezione stessa */
-    }
-  }
+  // sezione madre è il contenitore, non una casella parallela. (Sezione e
+  // sottosezioni sono già state chieste nell'ondata parallela qui sopra.)
+  const idsSezione: string[] = sezioneAttiva
+    ? [sezioneAttiva.id, ...figlieSezione.map((f) => f.id)]
+    : sezione
+      ? [sezione]
+      : []
 
   // La sezione SPAM si vede solo aprendola: nella posta in arrivo (e nella AI
   // Inbox) la posta indesiderata resta fuori — escluso col filtro sulla
@@ -217,10 +220,12 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     // ultime 100 sarebbero quasi tutte quelle, e il resto della posta
     // sparirebbe. Si prende largo (senza i corpi, che pesano) e si taglia
     // DOPO il raggruppamento in conversazioni.
-    take: 2000,
+    // 800 basta: con 2000 si pagava il trasporto dal database (e il tempo di
+    // raggruppamento) di mail che nessuno arriva mai a scorrere.
+    take: 800,
     omit: { corpoTesto: true, corpoHtml: true },
     include: {
-      sezione: true,
+      sezione: { select: { nome: true, colore: true } },
       bozze: { where: { inviata: false }, select: { id: true } },
       _count: { select: { attivita: true, inviiApp: true } },
     },
@@ -230,7 +235,10 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // risposte o stesso oggetto anche con destinatari diversi). Il volto della
   // riga è il messaggio più recente del thread. La lista si carica poi 25 alla
   // volta lato client, così l'apertura resta leggera anche con molta posta.
-  const gruppi = raggruppa(messaggi).slice(0, 1200)
+  // 300 conversazioni: oltre, si spediva al browser un elenco enorme che
+  // nessuno scorre (in fondo alla lista c'è comunque «Carica altre» e, per la
+  // posta vecchia, la ricerca sul server).
+  const gruppi = raggruppa(messaggi).slice(0, 300)
 
   // Iconcina "risposto": una mail ha una nostra risposta se nel suo thread c'è
   // un messaggio in USCITA. (Gli inoltri aprono una conversazione nuova, quindi
@@ -267,7 +275,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       data: m.data,
       riassunto: m.riassunto,
       anteprima: m.anteprima,
-      corpoTradotto: m.corpoTradotto,
+      // Solo l'anteprima della traduzione: la riga ne mostra 200 caratteri, e
+      // spedire al browser il corpo tradotto INTERO di ogni riga pesava.
+      corpoTradotto: m.corpoTradotto ? m.corpoTradotto.replace(/\s+/g, ' ').slice(0, 200) : null,
       lingua: m.lingua,
       sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
       sezioneId: m.sezioneId,
@@ -320,8 +330,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   }
 
   // Il pannello APP DELUXY: le funzioni delle altre app richiamabili da qui.
-  // Le chiavi (DB cifrato o env) decidono quali sono già collegate.
-  const azioniApp = descriviAzioni(await leggiChiaviApp())
+  // Le chiavi (già lette nell'ondata parallela) decidono quali sono collegate.
+  const azioniApp = descriviAzioni(chiaviApp)
 
   const filtri = [
     { chiave: '', label: 'Tutti' },

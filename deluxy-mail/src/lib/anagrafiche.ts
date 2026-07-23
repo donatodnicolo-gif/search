@@ -100,16 +100,23 @@ type IndiceClienti = {
   perDominio: Map<string, { id: string; nome: string }>
 }
 let cache: IndiceClienti | null = null
-const TTL = 10 * 60 * 1000 // 10 minuti
+let inCorso: Promise<IndiceClienti> | null = null
+const TTL = 30 * 60 * 1000 // 30 minuti: i clienti cambiano di rado
+// Quanto al massimo la POSTA può aspettare l'indice quando non è ancora in
+// memoria. Oltre, si va avanti senza badge e l'indice si finisce di costruire
+// in sottofondo: pronto alla navigazione successiva.
+const ATTESA_MAX = 1200
 
-/** Costruisce (o riusa dalla cache) l'indice dei clienti: email esatte e domini. */
-export async function indiceClienti(): Promise<IndiceClienti> {
-  if (cache && Date.now() - cache.at < TTL) return cache
+const VUOTO = (): IndiceClienti => ({ at: 0, perEmail: new Map(), perDominio: new Map() })
+
+/** Scarica davvero l'elenco dei clienti attivi e ne costruisce l'indice. */
+async function costruisciIndice(): Promise<IndiceClienti> {
   const perEmail = new Map<string, { id: string; nome: string }>()
   const perDominio = new Map<string, { id: string; nome: string }>()
   const k = await chiaveLettura()
   if (k) {
-    for (let page = 1; page <= 20; page++) {
+    // Cap a 10 pagine (1000 clienti): oltre, il costo non vale il badge.
+    for (let page = 1; page <= 10; page++) {
       const dati = await getPartners(`stato=attivo&perPage=100&page=${page}`)
       if (dati.length === 0) break
       for (const p of dati) {
@@ -130,6 +137,39 @@ export async function indiceClienti(): Promise<IndiceClienti> {
   }
   cache = { at: Date.now(), perEmail, perDominio }
   return cache
+}
+
+/**
+ * L'indice dei clienti: email esatte e domini. **Non blocca mai a lungo la
+ * pagina che lo usa**: se in memoria c'è una copia (anche scaduta) la ritorna
+ * subito e la aggiorna in sottofondo; se non c'è nulla aspetta al massimo
+ * ATTESA_MAX, poi va avanti senza. Una fetch di 10 pagine ad Anagrafiche dentro
+ * il render della posta costava secondi a ogni navigazione.
+ */
+export async function indiceClienti(): Promise<IndiceClienti> {
+  const fresca = cache && Date.now() - cache.at < TTL
+  if (fresca) return cache!
+
+  // Un solo aggiornamento alla volta, anche con più richieste in parallelo.
+  if (!inCorso) {
+    inCorso = costruisciIndice()
+      .catch(() => cache ?? VUOTO())
+      .finally(() => {
+        inCorso = null
+      })
+  }
+  const lavoro = inCorso
+
+  // C'è una copia vecchia: si usa quella e si aggiorna in sottofondo.
+  if (cache) return cache
+
+  // Primo giro assoluto: si concede solo un'attesa breve.
+  const scaduto = Symbol('scaduto')
+  const esito = await Promise.race([
+    lavoro,
+    new Promise<typeof scaduto>((r) => setTimeout(() => r(scaduto), ATTESA_MAX)),
+  ])
+  return esito === scaduto ? VUOTO() : (esito as IndiceClienti)
 }
 
 const DOMINI_GENERICI = new Set([

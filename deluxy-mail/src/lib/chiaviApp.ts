@@ -31,21 +31,38 @@ const PROGETTO_HUB = 'deluxy-mail'
  * mappa NOME→valore in chiaro, o {} se il hub non è configurato/raggiungibile
  * (in quel caso si usa il resto). Non fa mai fallire la lettura delle chiavi.
  */
+// Le chiavi cambiano molto di rado: si tengono in memoria 5 minuti. Senza
+// questa cache ogni apertura della posta in arrivo faceva una fetch al hub
+// (rete USA→Europa) DENTRO il render, e si vedeva.
+let cacheHub: { at: number; chiavi: Record<string, string> } | null = null
+const TTL_HUB = 5 * 60 * 1000
+
 async function chiaviDalHub(): Promise<Record<string, string>> {
   const token = (process.env.HUB_KEYS_TOKEN || '').trim()
   if (token.length < 16) return {} // cassaforte spenta finché non c'è il token
+  if (cacheHub && Date.now() - cacheHub.at < TTL_HUB) return cacheHub.chiavi
   const base = (process.env.HUB_URL || 'https://deluxy-hub.vercel.app').replace(/\/$/, '')
   try {
     const res = await fetch(`${base}/api/chiavi?progetto=${encodeURIComponent(PROGETTO_HUB)}`, {
       headers: { 'X-Hub-Token': token },
       cache: 'no-store',
+      // Il hub non deve mai far aspettare la posta: se tarda si usa il resto.
+      signal: AbortSignal.timeout(4000),
     })
-    if (!res.ok) return {}
+    if (!res.ok) return cacheHub?.chiavi ?? {}
     const dati = (await res.json()) as { chiavi?: Record<string, string> }
-    return dati.chiavi ?? {}
+    const chiavi = dati.chiavi ?? {}
+    cacheHub = { at: Date.now(), chiavi }
+    return chiavi
   } catch {
-    return {}
+    // Rete/hub giù: si riusa l'ultima risposta buona, se c'è.
+    return cacheHub?.chiavi ?? {}
   }
+}
+
+/** Da chiamare quando l'utente cambia una chiave: l'effetto è immediato. */
+export function svuotaCacheChiavi(): void {
+  cacheHub = null
 }
 
 /** Tutte le chiavi risolte (locale cifrato → hub → env). Vuota se non impostata. */

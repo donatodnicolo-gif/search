@@ -12,6 +12,8 @@ export default async function Statistiche() {
     where: { utenteId: u.id, prioritaDa: { not: null }, direzione: 'entrata' },
     orderBy: { data: 'desc' },
     take: 2000,
+    // Qui si contano solo gli esiti: i corpi (2000 mail!) non servono.
+    omit: { corpoTesto: true, corpoHtml: true },
     include: { attivita: { select: { fatta: true } }, bozze: { select: { inviata: true } } },
   })
 

@@ -13,6 +13,8 @@ export default async function Cestino() {
     where: { utenteId: u.id, cestinato: true },
     orderBy: { cestinatoIl: 'desc' },
     take: 200,
+    // La lista mostra solo riassunto/anteprima: i corpi non servono e pesano.
+    omit: { corpoTesto: true, corpoHtml: true },
   })
 
   return (

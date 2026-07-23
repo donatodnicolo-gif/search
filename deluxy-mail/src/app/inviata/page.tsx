@@ -30,7 +30,11 @@ export default async function PostaInviata({ searchParams }: Props) {
           : {}),
       },
       orderBy: { data: 'desc' },
-      take: 500,
+      take: 300,
+      // ⚠️ MAI portarsi dietro i corpi qui: la lista mostra solo l'anteprima.
+      // Con 500 mail complete (corpoHtml incluso) erano decine di MB dal DB a
+      // ogni apertura della pagina — era questa la lentezza della posta inviata.
+      omit: { corpoTesto: true, corpoHtml: true },
       include: { sezione: { select: { nome: true, colore: true } } },
     }),
     db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' }, select: { id: true, nome: true } }),
