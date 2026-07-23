@@ -8,6 +8,7 @@ import { Allegati } from './Allegati'
 import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
 import { AgganciaCompose, type ScelraAggancio } from './AgganciaCompose'
 import { mettiFlash } from './Flash'
+import { useBozzaAuto } from './useBozzaAuto'
 import { PRIORITA } from '@/lib/format'
 
 type Props = {
@@ -40,6 +41,8 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
   // Salvando due volte non si devono creare due bozze: dal primo salvataggio
   // in poi si aggiorna quella.
   const [idBozza, setIdBozza] = useState(bozzaId)
+  // Inviata: da qui in poi niente più salvataggi automatici.
+  const [inviato, setInviato] = useState(false)
   const [inCorso, startTransition] = useTransition()
   const router = useRouter()
 
@@ -68,6 +71,23 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
     })
   }
 
+  // Salvataggio automatico: la mail iniziata non si perde anche se cambi pagina
+  // senza premere «Salva bozza».
+  const cambiato =
+    a !== iniziale.a || cc !== iniziale.cc || oggetto !== iniziale.oggetto || corpo !== iniziale.corpo
+  const auto = useBozzaAuto({
+    // Dopo l'invio MAI più: la bozza è cancellata dal server e risalvarla
+    // lascerebbe la copia di una mail già partita.
+    attivo: !inCorso && !conferma && !inviato,
+    contenuto: `${a} ${cc} ${oggetto} ${corpo}`,
+    cambiato,
+    salva: async () => {
+      const esito = await salvaMinuta(campi(false))
+      if (esito.id) setIdBozza(esito.id)
+      return esito.id ?? (esito.ok ? (idBozza ?? null) : null)
+    },
+  })
+
   function invia() {
     setStato(null)
     startTransition(async () => {
@@ -75,6 +95,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
       setStato(esito)
       setConferma(false)
       if (esito.ok) {
+        setInviato(true)
         mettiFlash(esito.messaggio)
         router.push('/inviata')
         router.refresh()
@@ -93,6 +114,12 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
       <button className="btn secondary" onClick={salva} disabled={inCorso} type="button">
         Salva bozza
       </button>
+
+      {auto.stato !== 'fermo' && (
+        <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+          {auto.stato === 'salvo' ? 'Salvo…' : `Bozza salvata${auto.quando ? ` ${auto.quando}` : ''}`}
+        </span>
+      )}
 
       {conferma ? (
         <>
