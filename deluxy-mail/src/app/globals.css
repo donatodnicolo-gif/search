@@ -631,7 +631,11 @@ mark.ricerca-hit {
 
 /* Allegati sotto il messaggio (scaricati on-demand dal server). */
 .allegati-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hairline); }
-.allegati-titolo { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }
+/* Titolo allegati: a sinistra il conteggio, a destra «Scarica tutti». */
+.allegati-titolo {
+  font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
 .allegati-lista { display: flex; flex-direction: column; gap: 8px; }
 .allegato-voce {
   display: flex;
@@ -1102,6 +1106,9 @@ mark.ricerca-hit {
   border-radius: var(--radius-m); margin-bottom: 8px;
 }
 .aggancio-riga:hover { background: var(--fill); }
+
+/* La conversazione già scelta in fase di scrittura (inoltro / mail nuova) */
+.aggancio-scelto { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* ---------- Calendario ---------- */
 .cal-mese { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; min-width: 130px; text-align: center; }

@@ -1216,7 +1216,10 @@ async function registraInviato(
   // anche la risposta finisce nella stessa (così il thread resta insieme).
   sezioneId: string | null = null,
   // Priorità scelta al momento dell'invio (P0…P3): resta sulla mail inviata.
-  priorita: string | null = null
+  priorita: string | null = null,
+  // Conversazione scelta in fase di scrittura («Aggancia a una conversazione»):
+  // l'id di una mail di quel thread. Si applica DOPO aver registrato l'inviata.
+  agganciaA: string | null = null
 ): Promise<string | null> {
   let avviso: string | null = null
 
@@ -1241,7 +1244,8 @@ async function registraInviato(
   })
   const uidMsg = Math.min(-1, (ultimo?.uid ?? 0) - 1)
 
-  await db.messaggio.create({
+  const inviato = await db.messaggio.create({
+    select: { id: true },
     data: {
       utenteId,
       accountId: account.id,
@@ -1267,6 +1271,17 @@ async function registraInviato(
       prioritaDa: priorita ? 'manuale' : null,
     },
   })
+
+  // Aggancio scelto mentre si scriveva: la mail appena spedita entra nella
+  // conversazione indicata (stesso meccanismo del pulsante «Aggancia» sulle
+  // righe). Best-effort: se fallisce, la mail è comunque partita e registrata.
+  if (agganciaA) {
+    try {
+      await agganciaAlThread(inviato.id, agganciaA)
+    } catch {
+      avviso = avviso ?? 'Mail inviata, ma non sono riuscito ad agganciarla alla conversazione.'
+    }
+  }
 
   return avviso
 }
@@ -1329,8 +1344,11 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     const prioritaScelta = CODICI_PRIORITA.includes(testo(form, 'priorita') as never)
       ? testo(form, 'priorita')
       : null
+    // Conversazione scelta a mano mentre si scriveva (di norma su un inoltro,
+    // che altrimenti aprirebbe uno scambio nuovo).
+    const agganciaA = testo(form, 'agganciaA') || null
     const avviso = await registraInviato(
-      utenteId, account, daInviare, raw, messageId, threadRadice, sezioneEreditata, prioritaScelta
+      utenteId, account, daInviare, raw, messageId, threadRadice, sezioneEreditata, prioritaScelta, agganciaA
     )
 
     // Sequenza di follow-up agganciata all'invio (facoltativa).
@@ -1398,7 +1416,10 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
     const prioritaScelta = CODICI_PRIORITA.includes(testo(form, 'priorita') as never)
       ? testo(form, 'priorita')
       : null
-    const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, null, null, prioritaScelta)
+    const agganciaA = testo(form, 'agganciaA') || null
+    const avviso = await registraInviato(
+      utenteId, account, daInviare, raw, messageId, null, null, prioritaScelta, agganciaA
+    )
 
     // Sequenza di follow-up agganciata all'invio (facoltativa).
     let notaSequenza: string | null = null
@@ -1553,7 +1574,11 @@ export async function cercaDaAgganciare(
   const q = query.trim()
   if (q.length < 2) return []
 
-  const nelThread = new Set((await messaggiThread(utenteId, messaggioId)).map((m) => m.id))
+  // `messaggioId` vuoto = si sta SCRIVENDO una mail che ancora non esiste
+  // (inoltro/mail nuova): non c'è una conversazione di partenza da escludere.
+  const nelThread = new Set(
+    messaggioId ? (await messaggiThread(utenteId, messaggioId)).map((m) => m.id) : []
+  )
 
   // Finestra larga: prendo abbastanza mail da ricostruire i thread, poi
   // raggruppo. I campi servono al raggruppamento (thread/oggetto/manuale/scollegato).

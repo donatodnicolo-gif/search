@@ -6,6 +6,7 @@ import { inviaNuovaMail, salvaMinuta } from '@/lib/actions'
 import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
 import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
+import { AgganciaCompose, type ScelraAggancio } from './AgganciaCompose'
 import { mettiFlash } from './Flash'
 import { PRIORITA } from '@/lib/format'
 
@@ -31,6 +32,8 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
   const [priorita, setPriorita] = useState('')
   // Sequenza di follow-up da avviare dopo l'invio (facoltativa).
   const [sequenzaId, setSequenzaId] = useState('')
+  // Conversazione esistente in cui far finire questa mail (facoltativa).
+  const [aggancio, setAggancio] = useState<ScelraAggancio>(null)
   const [stato, setStato] = useState<{ ok: boolean; messaggio: string } | null>(null)
   // L'invio è irreversibile: prima di partire si conferma.
   const [conferma, setConferma] = useState(false)
@@ -50,6 +53,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
     form.set('corpo', corpo)
     if (priorita) form.set('priorita', priorita)
     if (sequenzaId) form.set('sequenzaId', sequenzaId)
+    if (aggancio) form.set('agganciaA', aggancio.id)
     if (conAllegati) for (const f of allegati) form.append('allegati', f)
     return form
   }
@@ -108,6 +112,10 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
           <label className="field-label">Oggetto</label>
           <input type="text" value={oggetto} onChange={(e) => setOggetto(e.target.value)} />
         </div>
+
+        {/* Una mail da zero apre una conversazione nuova: da qui la si può
+            invece far finire dentro uno scambio già esistente. */}
+        <AgganciaCompose scelta={aggancio} onScelta={setAggancio} />
 
         <div className="full">
           <label className="field-label">Messaggio</label>

@@ -267,6 +267,37 @@ export async function leggiAllegato(
   }
 }
 
+/**
+ * TUTTI gli allegati di un messaggio, con UNA sola connessione e UN solo
+ * scarico del sorgente. `leggiAllegato` prende un allegato per volta: usarla in
+ * ciclo per lo zip avrebbe aperto una connessione IMAP (e riscaricato l'intera
+ * mail) per ogni file.
+ */
+export async function leggiTuttiAllegati(
+  account: Account,
+  uid: number,
+  cartella?: string
+): Promise<{ nome: string; tipo: string; contenuto: Buffer }[]> {
+  if (uid <= 0) return []
+  const client = connessione(account)
+  await client.connect()
+  try {
+    await client.mailboxOpen(cartella || account.cartella, { readOnly: true })
+    for await (const msg of client.fetch({ uid: String(uid) }, { uid: true, source: true }, { uid: true })) {
+      if (!msg.source) continue
+      const parsed = await simpleParser(msg.source)
+      return (parsed.attachments ?? []).map((a, i) => ({
+        nome: a.filename || `allegato-${i + 1}`,
+        tipo: a.contentType || 'application/octet-stream',
+        contenuto: a.content as Buffer,
+      }))
+    }
+    return []
+  } finally {
+    await client.logout()
+  }
+}
+
 /** Apre e chiude una connessione per verificare host, porta e credenziali. */
 export async function provaConnessione(account: Account): Promise<void> {
   const client = connessione(account)

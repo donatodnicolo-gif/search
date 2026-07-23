@@ -38,7 +38,20 @@ export function AllegatiMessaggio({ messaggioId, quanti }: { messaggioId: string
   return (
     <div className="allegati-box">
       <div className="allegati-titolo">
-        📎 {quanti} allegat{quanti === 1 ? 'o' : 'i'}
+        <span>
+          📎 {quanti} allegat{quanti === 1 ? 'o' : 'i'}
+        </span>
+        {/* Con più di un allegato: tutto in un solo .zip, così non si clicca
+            venti volte. Lo zip si costruisce al momento sul server. */}
+        {allegati && allegati.length > 1 && (
+          <a
+            className="btn secondary small"
+            href={`/api/allegati-zip?messaggio=${encodeURIComponent(messaggioId)}`}
+            title="Scarica tutti gli allegati in un unico archivio .zip"
+          >
+            ⤓ Scarica tutti ({allegati.length})
+          </a>
+        )}
       </div>
       {allegati === null && !errore && (
         <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Carico dal server…</div>

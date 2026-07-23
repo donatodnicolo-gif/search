@@ -6,6 +6,7 @@ import { inviaMessaggio, salvaMinuta } from '@/lib/actions'
 import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
 import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
+import { AgganciaCompose, type ScelraAggancio } from './AgganciaCompose'
 import { mettiFlash } from './Flash'
 import { PRIORITA } from '@/lib/format'
 import type { Modo } from '@/lib/rispondi'
@@ -34,6 +35,9 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
   const [priorita, setPriorita] = useState('')
   // Sequenza di follow-up da avviare dopo l'invio (facoltativa).
   const [sequenzaId, setSequenzaId] = useState('')
+  // Conversazione a cui agganciare la mail che parte (solo per l'INOLTRO: una
+  // risposta sta già nel thread dell'originale).
+  const [aggancio, setAggancio] = useState<ScelraAggancio>(null)
   const [stato, setStato] = useState<{ ok: boolean; messaggio: string } | null>(null)
   // L'invio è irreversibile: prima di partire si conferma.
   const [conferma, setConferma] = useState(false)
@@ -54,6 +58,7 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
     form.set('corpo', corpo)
     if (priorita) form.set('priorita', priorita)
     if (sequenzaId) form.set('sequenzaId', sequenzaId)
+    if (aggancio) form.set('agganciaA', aggancio.id)
     // Gli allegati viaggiano solo con l'invio: le bozze non li conservano.
     if (conAllegati) for (const f of allegati) form.append('allegati', f)
     return form
@@ -115,6 +120,11 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
           <label className="field-label">Oggetto</label>
           <input type="text" value={oggetto} onChange={(e) => setOggetto(e.target.value)} />
         </div>
+
+        {/* Solo per l'INOLTRO: aprirebbe una conversazione nuova, e spesso lo si
+            vuole invece dentro uno scambio esistente. Una risposta no: sta già
+            nel thread dell'originale. */}
+        {modo === 'inoltra' && <AgganciaCompose scelta={aggancio} onScelta={setAggancio} />}
 
         <div className="full">
           <label className="field-label">Messaggio</label>
