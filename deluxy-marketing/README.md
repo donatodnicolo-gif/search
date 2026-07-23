@@ -55,6 +55,9 @@ Variabili in `.env` (mai committato):
 - **Budget ADV** — budget mensile con ripartizione per canale/campagna (quota % e €/giorno).
 - **MKT vs 2025** — spesa Google/Meta, vendite e KPI settimana per settimana con delta %
   sulla stessa settimana dell'anno precedente (totale e per brand).
+- **Guardrail** — classe TRAINO con change control L0-L3 (blackout 72h, verifiche +24/+72h), alert A1-A5, break-even ROAS per brand, pacing e regole se/allora, calcolatore apprendimento.
+- **Governance** — storico errori ERR-* con freeze, memoria condivisa append-only, incongruenze con verdetto, cadenze ricorrenti, occasioni con task T-21/T-14/T+7.
+- **Valida copy** (/copy/valida) — lint claim/parole per brand (7.2/7.3) + Copy Score /100; scorecard landing 13 criteri nella scheda landing; rotazione creativa in /meta.
 - **Documenti Drive** — indice in sola lettura della cartella ufficiale.
 - **Storico** — il registro globale di tutte le modifiche (gemello dello 00.2 su Drive).
 
