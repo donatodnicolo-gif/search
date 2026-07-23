@@ -57,9 +57,12 @@ export async function Sidebar({
           {voce("meta", "/meta", "meta", "Meta & test", nTestAperti)}
         </SbSezione>
 
-        <SbSezione titolo="Monitoraggio">
-          {voce("vendite", "/vendite", "vendite", "Vendite")}
+        <SbSezione titolo="Budget">
+          {voce("vendite", "/vendite", "vendite", "Budget vendite")}
           {voce("budget", "/budget", "budget", "Budget ADV")}
+        </SbSezione>
+
+        <SbSezione titolo="Monitoraggio">
           {voce("mkt", "/mkt", "metriche", "MKT vs 2025")}
         </SbSezione>
 

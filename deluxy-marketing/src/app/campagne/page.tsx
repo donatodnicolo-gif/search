@@ -2,7 +2,6 @@ import { Badge } from "@/components/Badge";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import {
-  BRANDS,
   COLORE_BRAND,
   COLORE_STATO_CAMPAGNA,
   ETICHETTA_BRAND,
@@ -15,43 +14,54 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const ORDINE_BRAND = ["flowers", "gifts", "cake", "cross"];
+const ORDINE_CANALE = ["google_ads", "meta_ads", "email", "sito", "seo", "crm", "social", "altro"];
+
+// Esplora campagne: una colonna per brand, una card per campagna con canale,
+// landing, obiettivo, budget e performance degli ultimi 30 giorni.
 export default async function PaginaCampagne({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; stato?: string }>;
+  searchParams: Promise<{ stato?: string; canale?: string; q?: string }>;
 }) {
-  const { brand, stato } = await searchParams;
+  const { stato, canale, q } = await searchParams;
   const giorni30 = new Date(Date.now() - 30 * 86_400_000);
   const campagne = await prisma.campagna.findMany({
-    where: { ...(brand ? { brand } : {}), ...(stato ? { stato } : {}) },
-    orderBy: [{ stato: "asc" }, { creataIl: "desc" }],
+    where: {
+      ...(stato ? { stato } : {}),
+      ...(canale ? { canale } : {}),
+      ...(q ? { nome: { contains: q } } : {}),
+    },
     include: {
       metriche: { where: { data: { gte: giorni30 } } },
+      landing: { select: { id: true, url: true, stato: true } },
       _count: { select: { azioni: true } },
     },
   });
 
+  const brands = ORDINE_BRAND.filter((b) => campagne.some((c) => c.brand === b));
+
   return (
     <div className="layout">
       <Sidebar attiva="campagne" />
-      <main className="main">
+      <main className="main" style={{ maxWidth: 1700 }}>
         <div className="page-head">
           <div>
             <h1 className="page-title">Campagne</h1>
             <p className="page-sub">
-              Il registro vivo delle campagne ADV con spesa, conversioni e ROAS degli ultimi 30
-              giorni. Le metriche arrivano dalle sessioni Claude via API o si inseriscono a mano.
+              Tutte le campagne per brand: canale, landing di destinazione, obiettivo, budget e
+              performance degli ultimi 30 giorni. Configurazione canonica nella Mappa 00.4.
             </p>
           </div>
           <a className="btn" href="/campagne/nuova">Nuova campagna</a>
         </div>
 
         <form className="filtri" method="get">
-          <select name="brand" defaultValue={brand ?? ""}>
-            <option value="">Tutti i brand</option>
-            {BRANDS.map((b) => (
-              <option key={b} value={b}>{ETICHETTA_BRAND[b]}</option>
-            ))}
+          <input type="search" name="q" placeholder="Cerca una campagna…" defaultValue={q ?? ""} />
+          <select name="canale" defaultValue={canale ?? ""}>
+            <option value="">Tutti i canali</option>
+            <option value="google_ads">Google Ads</option>
+            <option value="meta_ads">Meta Ads</option>
           </select>
           <select name="stato" defaultValue={stato ?? ""}>
             <option value="">Tutti gli stati</option>
@@ -63,54 +73,96 @@ export default async function PaginaCampagne({
         </form>
 
         {campagne.length === 0 ? (
-          <div className="vuoto">Nessuna campagna registrata: creane una o falla registrare via API.</div>
+          <div className="vuoto">Nessuna campagna con questi filtri.</div>
         ) : (
-          <div className="tabella-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Campagna</th>
-                  <th>Brand</th>
-                  <th>Canale</th>
-                  <th>Stato</th>
-                  <th className="num">Budget/g</th>
-                  <th className="num">Spesa 30gg</th>
-                  <th className="num">Conv. 30gg</th>
-                  <th className="num">ROAS 30gg</th>
-                  <th className="num">Azioni</th>
-                </tr>
-              </thead>
-              <tbody>
-                {campagne.map((c) => {
-                  const spesa = c.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
-                  const ricavi = c.metriche.reduce((s, m) => s + (m.ricavi ?? 0), 0);
-                  const conv = c.metriche.reduce((s, m) => s + (m.conversioni ?? 0), 0);
-                  const r = roas(ricavi, spesa);
-                  return (
-                    <tr key={c.id}>
-                      <td>
-                        <a href={`/campagne/${c.id}`}>
-                          <div className="cella-nome">{c.nome}</div>
-                          {c.obiettivo && <div className="cella-sub">{c.obiettivo}</div>}
+          <div className="board" style={{ gridAutoColumns: "minmax(300px, 1fr)" }}>
+            {brands.map((brand) => {
+              const del = campagne
+                .filter((c) => c.brand === brand)
+                .sort(
+                  (a, b) =>
+                    ORDINE_CANALE.indexOf(a.canale) - ORDINE_CANALE.indexOf(b.canale) ||
+                    (b.budgetGiornaliero ?? 0) - (a.budgetGiornaliero ?? 0)
+                );
+              const budgetGiorno = del
+                .filter((c) => c.stato === "attiva" || c.stato === "in_apprendimento")
+                .reduce((s, c) => s + (c.budgetGiornaliero ?? 0), 0);
+              let canalePrec = "";
+              return (
+                <div className="board-colonna" key={brand}>
+                  <div className="board-testata">
+                    <span className="board-titolo">
+                      <span className="sb-dot" style={{ background: COLORE_BRAND[brand], width: 9, height: 9 }} />
+                      {ETICHETTA_BRAND[brand]}
+                    </span>
+                    <span className="board-conta">
+                      {del.length} · {formattaEuro(budgetGiorno)}/g
+                    </span>
+                  </div>
+                  {del.map((c) => {
+                    const spesa = c.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
+                    const ricavi = c.metriche.reduce((s, m) => s + (m.ricavi ?? 0), 0);
+                    const r = roas(ricavi, spesa);
+                    const intestazioneCanale = c.canale !== canalePrec;
+                    canalePrec = c.canale;
+                    return (
+                      <div key={c.id}>
+                        {intestazioneCanale && (
+                          <div className="canale-divisore">{ETICHETTA_CANALE[c.canale] ?? c.canale}</div>
+                        )}
+                        <a className="board-card card-campagna" href={`/campagne/${c.id}`}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                            <span className="board-card-nome" style={{ minWidth: 0 }}>{c.nome}</span>
+                            <Badge
+                              testo={ETICHETTA_STATO_CAMPAGNA[c.stato] ?? c.stato}
+                              colore={COLORE_STATO_CAMPAGNA[c.stato] ?? "var(--text-tertiary)"}
+                            />
+                          </div>
+                          {c.obiettivo && (
+                            <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 3 }}>
+                              ◎ {c.obiettivo}
+                            </div>
+                          )}
+                          {c.landing && (
+                            <div
+                              className="cella-sub"
+                              style={{ marginTop: 3, color: c.landing.stato === "mismatch" ? "var(--orange)" : undefined }}
+                              title={c.landing.url}
+                            >
+                              ↳ {c.landing.url.replace(/^[^/]+/, "")}
+                              {c.landing.stato === "mismatch" ? " · mismatch" : ""}
+                            </div>
+                          )}
+                          <div className="card-campagna-kpi">
+                            <span>
+                              <b>{c.budgetGiornaliero != null ? `${formattaEuro(c.budgetGiornaliero)}/g` : "—"}</b>
+                              <i>budget</i>
+                            </span>
+                            <span>
+                              <b>{spesa > 0 ? formattaEuro(spesa) : "—"}</b>
+                              <i>spesa 30g</i>
+                            </span>
+                            <span>
+                              <b style={r != null ? { color: r >= 3 ? "var(--green)" : "var(--orange)" } : undefined}>
+                                {r != null ? `${r.toFixed(1)}×` : "—"}
+                              </b>
+                              <i>ROAS</i>
+                            </span>
+                            {c._count.azioni > 0 && (
+                              <span>
+                                <b>{c._count.azioni}</b>
+                                <i>azioni</i>
+                              </span>
+                            )}
+                          </div>
                         </a>
-                      </td>
-                      <td>
-                        <Badge testo={ETICHETTA_BRAND[c.brand] ?? c.brand} colore={COLORE_BRAND[c.brand] ?? "var(--text-tertiary)"} />
-                      </td>
-                      <td className="cella-muta">{ETICHETTA_CANALE[c.canale] ?? c.canale}</td>
-                      <td>
-                        <Badge testo={ETICHETTA_STATO_CAMPAGNA[c.stato] ?? c.stato} colore={COLORE_STATO_CAMPAGNA[c.stato] ?? "var(--text-tertiary)"} />
-                      </td>
-                      <td className="num">{formattaEuro(c.budgetGiornaliero)}</td>
-                      <td className="num">{spesa > 0 ? formattaEuro(spesa) : "—"}</td>
-                      <td className="num">{conv > 0 ? conv.toLocaleString("it-IT") : "—"}</td>
-                      <td className="num">{r != null ? `${r.toFixed(1)}×` : "—"}</td>
-                      <td className="num">{c._count.azioni || "—"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </div>
+                    );
+                  })}
+                  {del.length === 0 && <div className="vuoto-mini">Nessuna campagna</div>}
+                </div>
+              );
+            })}
           </div>
         )}
       </main>

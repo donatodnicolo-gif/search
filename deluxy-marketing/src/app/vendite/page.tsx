@@ -29,10 +29,11 @@ export default async function PaginaVendite({
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Vendite — Sales Global {anno}</h1>
+            <h1 className="page-title">Budget vendite — Sales Global {anno}</h1>
             <p className="page-sub">
-              Il piano vendite e budget ADV mensile per sito (foglio “SALES GLOBAL 26 - REVISED”
-              del Monitoraggio). Si aggiorna con <b>npm run import:monitoraggio</b>.
+              Il budget vendite mensile per sito con il budget ADV corrispondente (foglio
+              “SALES GLOBAL 26 - REVISED” del Monitoraggio). Si aggiorna con{" "}
+              <b>npm run import:monitoraggio</b>.
             </p>
           </div>
           <form className="filtri" method="get" style={{ marginBottom: 0 }}>
@@ -48,7 +49,7 @@ export default async function PaginaVendite({
         <div className="kpi-riga">
           <div className="kpi">
             <div className="kpi-valore">{formattaEuro(totaleVendite)}</div>
-            <div className="kpi-etichetta">Vendite previste {anno} (tutti i siti)</div>
+            <div className="kpi-etichetta">Budget vendite {anno} (tutti i siti)</div>
           </div>
           <div className="kpi">
             <div className="kpi-valore">{formattaEuro(totaleBudget)}</div>

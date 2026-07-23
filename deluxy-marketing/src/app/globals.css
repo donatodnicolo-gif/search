@@ -294,3 +294,23 @@ tbody tr:hover { background: var(--fill); }
 /* ---------- Riga scadenza ---------- */
 .scaduta { color: var(--red); font-weight: 600; }
 .in-scadenza { color: var(--orange); font-weight: 600; }
+
+/* ---------- Esplora campagne (colonne per brand) ---------- */
+.canale-divisore {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--text-tertiary); margin: 12px 4px 6px;
+}
+.board-colonna > div:first-of-type .canale-divisore { margin-top: 2px; }
+.card-campagna-kpi {
+  display: flex; gap: 14px; margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+}
+.card-campagna-kpi span { display: flex; flex-direction: column; min-width: 0; }
+.card-campagna-kpi b { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.card-campagna-kpi i { font-style: normal; font-size: 10.5px; color: var(--text-tertiary); }
+
+/* ---------- Tabella stile calendario (mesi in colonna) ---------- */
+.tabella-calendario th.num, .tabella-calendario td.num { min-width: 96px; }
+.tabella-calendario .riga-forte td { background: var(--gold-soft); }
+.tabella-calendario tbody tr:hover { background: var(--fill); }
+.tabella-calendario tbody tr.riga-forte:hover td { background: var(--gold-soft); }
