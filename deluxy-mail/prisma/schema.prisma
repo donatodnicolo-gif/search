@@ -371,6 +371,9 @@ model Messaggio {
   serveRisposta Boolean   @default(false)
   analizzatoIl  DateTime?
   erroreAI      String?
+  // Quando è partita la notifica push per questa mail: evita di notificarla due
+  // volte (il cron e l'eventuale giro interattivo non si pestano i piedi).
+  notificatoIl  DateTime?
   // Traduzione: lingua rilevata del messaggio (null = non ancora controllato).
   // corpoTradotto = traduzione in italiano, valorizzata solo se la lingua è
   // straniera e la traduzione automatica è attiva.

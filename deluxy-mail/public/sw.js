@@ -13,6 +13,10 @@ self.addEventListener('push', (event) => {
       body: dati.corpo || '',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
+      // tag diverso per ogni mail: le notifiche si IMPILANO invece di
+      // sostituirsi (senza tag alcuni sistemi le accorpavano in una sola).
+      tag: dati.tag || undefined,
+      renotify: Boolean(dati.tag),
       data: { url: dati.url || '/' },
     })
   )

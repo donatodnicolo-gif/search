@@ -46,6 +46,8 @@ const stmts = [
      "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "chiave" TEXT NOT NULL,
      "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "ThreadAI_utenteId_chiave_key" ON "ThreadAI"("utenteId","chiave")`,
+  // Marcatore anti-doppia-notifica push.
+  `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "notificatoIl" TIMESTAMP(3)`,
   // Conversazioni chiuse (fuori dai Top thread, etichetta «Chiuso»).
   `CREATE TABLE IF NOT EXISTS "ThreadChiuso" (
      "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "chiave" TEXT NOT NULL,
