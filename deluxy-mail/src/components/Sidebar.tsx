@@ -63,8 +63,6 @@ export async function Sidebar() {
     { href: '/thread', label: 'Thread' },
     // La posta dei clienti del registro Anagrafiche (per email o dominio).
     { href: '/clienti', label: 'Clienti' },
-    // I modelli di follow-up da agganciare all'invio di una mail.
-    { href: '/sequenze', label: 'Sequenze' },
     { href: '/bozze', label: 'Bozze', badge: bozze },
     { href: '/inviata', label: 'Posta inviata' },
     // La posta archiviata: messa via ma tenuta (non è nel Cestino). È il filtro
@@ -76,6 +74,9 @@ export async function Sidebar() {
   const applicazioni: Voce[] = [
     { href: '/attivita', label: 'Attività', badge: daFare },
     { href: '/rene', label: 'Renè AI' },
+    // I modelli di follow-up da agganciare all'invio di una mail: è uno
+    // strumento, non una casella — sta con le applicazioni.
+    { href: '/sequenze', label: 'Sequenze' },
     // I quadri conversazione fatti dall'AI, col link al thread.
     { href: '/riassunti', label: 'Riassunti', badge: riassunti },
     { href: '/rubrica', label: 'Rubrica' },
