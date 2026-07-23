@@ -433,6 +433,64 @@ export async function preparaEsecuzione(
  * il listino") e lui scrive la bozza di risposta a quella mail seguendo lo
  * stile e le istruzioni mirate. Non invia: apre la bozza, la controlli tu.
  */
+/**
+ * Il TESTO che Renè scriverebbe, senza creare bozze né spostarsi di pagina:
+ * serve a «Chiedi a Renè» dentro la schermata di scrittura, dove la mail la
+ * stai già componendo e vuoi solo che te la scriva (o riscriva) lui.
+ *
+ * Differenza da `preparaRispostaDelegata`: quella prepara una bozza e ti porta
+ * altrove; qui torna il corpo e basta, così finisce nell'editor aperto.
+ */
+export async function testoRispostaRene(
+  messaggioId: string,
+  istruzione: string,
+  utenteId: string,
+  bozzaAttuale?: string
+): Promise<{ ok: boolean; messaggio: string; corpo?: string }> {
+  const compito = istruzione.trim()
+  if (!compito) return { ok: false, messaggio: 'Scrivi cosa deve dire Renè.' }
+
+  const messaggio = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId } })
+  if (!messaggio) return { ok: false, messaggio: 'Messaggio non trovato.' }
+
+  const ctx = await contestoAI(utenteId)
+  const mirate = await istruzioniMirate(utenteId, { mittente: messaggio.mittente, messaggioId: messaggio.id })
+  const thread = await messaggiThread(utenteId, messaggio.id)
+  const rubrica = await elencoContatti(utenteId)
+
+  try {
+    const testo = await scriviRisposta({
+      messaggio,
+      compito,
+      // Se c'è già del testo scritto, Renè lo tiene presente: «rendilo più
+      // formale» o «aggiungi i prezzi» deve lavorare su quello, non da zero.
+      dettaglio: bozzaAttuale?.trim()
+        ? `Segui esattamente questa indicazione. C'è già una bozza in corso: tienine conto e riscrivila di conseguenza.\n--- BOZZA IN CORSO ---\n${bozzaAttuale.slice(0, 4000)}\n--- FINE BOZZA ---`
+        : 'Segui esattamente questa indicazione.',
+      thread: thread.map((m) => ({
+        direzione: m.direzione,
+        mittente: m.mittente,
+        mittenteNome: m.mittenteNome,
+        data: m.data,
+        corpoTesto: m.corpoTesto,
+      })),
+      // Qui il destinatario l'hai già scelto tu nella schermata: Renè scrive
+      // il testo, non decide a chi mandarlo.
+      permettiInoltro: false,
+      contatti: rubrica.map((c) => ({ email: c.email, nome: c.nome })),
+      contestoAzienda: ctx.contestoAzienda,
+      stileScrittura: ctx.stileScrittura,
+      istruzioni: mirate,
+      firma: ctx.firma,
+      lingua: messaggio.lingua,
+      oggi: new Date(),
+    })
+    return { ok: true, messaggio: 'Renè ha scritto la mail.', corpo: testo.corpo }
+  } catch (e) {
+    return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
+  }
+}
+
 export async function preparaRispostaDelegata(
   messaggioId: string,
   istruzione: string,

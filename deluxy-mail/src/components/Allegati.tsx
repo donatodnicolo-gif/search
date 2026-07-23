@@ -4,9 +4,13 @@
 export function Allegati({
   files,
   onChange,
+  /** Id del campo file: serve alla graffetta nella barra dell'editor, che è
+   *  una <label> legata a questo input (nessun ref, apre il selettore da sé). */
+  idInput,
 }: {
   files: File[]
   onChange: (files: File[]) => void
+  idInput?: string
 }) {
   const totaleMB = files.reduce((s, f) => s + f.size, 0) / (1024 * 1024)
 
@@ -18,6 +22,7 @@ export function Allegati({
           type="file"
           multiple
           hidden
+          id={idInput}
           onChange={(e) => {
             const nuovi = Array.from(e.target.files ?? [])
             if (nuovi.length) onChange([...files, ...nuovi])

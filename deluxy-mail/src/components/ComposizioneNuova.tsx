@@ -252,11 +252,11 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
 
         <div className="full">
           <label className="field-label">Messaggio</label>
-          <EditorRicco valoreIniziale={iniziale.corpo} onChange={setCorpo} />
+          <EditorRicco valoreIniziale={iniziale.corpo} onChange={setCorpo} idAllegati="allegati-nuova" />
         </div>
 
         <div className="full">
-          <Allegati files={allegati} onChange={setAllegati} />
+          <Allegati files={allegati} onChange={setAllegati} idInput="allegati-nuova" />
         </div>
 
         <div className="full">

@@ -1787,6 +1787,21 @@ export async function eliminaBozza(id: string) {
   revalidatePath('/', 'layout')
 }
 
+/**
+ * «Chiedi a Renè» dalla schermata di scrittura: torna il TESTO, che finisce
+ * nell'editor già aperto. Non crea bozze e non sposta di pagina (a differenza
+ * di «Delega Renè», che prepara una bozza e ti ci porta).
+ */
+export async function chiediARene(
+  messaggioId: string,
+  istruzione: string,
+  bozzaAttuale?: string
+): Promise<{ ok: boolean; messaggio: string; corpo?: string }> {
+  const utenteId = await uid()
+  const { testoRispostaRene } = await import('./sync')
+  return testoRispostaRene(messaggioId, istruzione, utenteId, bozzaAttuale)
+}
+
 // ---------- Aggancio manuale delle mail a una conversazione ----------
 
 export type CandidatoAggancio = {

@@ -13,10 +13,14 @@ export function EditorRicco({
   valoreIniziale,
   onChange,
   minAltezza = 300,
+  idAllegati,
 }: {
   valoreIniziale: string
   onChange: (html: string) => void
   minAltezza?: number
+  /** Id del campo file degli allegati: se c'è, nella barra compare la
+   *  graffetta accanto al link. */
+  idAllegati?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -74,6 +78,13 @@ export function EditorRicco({
         <button type="button" className="rt-btn" title="Inserisci link" onMouseDown={(e) => e.preventDefault()} onClick={inserisciLink}>
           🔗
         </button>
+        {/* Graffetta accanto al link: è una <label> legata al campo file degli
+            allegati (più sotto nella pagina), così apre il selettore da sé. */}
+        {idAllegati && (
+          <label className="rt-btn" htmlFor={idAllegati} title="Aggiungi allegato" style={{ cursor: 'pointer' }}>
+            📎
+          </label>
+        )}
         <B cmd="removeFormat" label="⌫" titolo="Togli la formattazione" />
       </div>
       <div
