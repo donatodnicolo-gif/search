@@ -1153,6 +1153,9 @@ mark.ricerca-hit {
   border-bottom: 1px solid var(--hairline);
 }
 
+/* Azione di riga «AI+» accesa: si deve distinguere a colpo d'occhio. */
+.azione-riga.ai-attiva { color: var(--gold-strong); font-weight: 600; }
+
 /* Riquadro «Azienda già in Anagrafiche» nel modulo delle APP DELUXY */
 .aggancio-azienda {
   border: 1px solid var(--hairline); border-radius: var(--radius-m);

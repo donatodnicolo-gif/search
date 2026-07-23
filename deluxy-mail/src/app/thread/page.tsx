@@ -4,6 +4,7 @@ import { richiediUtente } from '@/lib/sessione'
 import { dataBreve } from '@/lib/format'
 import { raggruppa } from '@/lib/thread'
 import { nomiPerGruppi, chiaviPerNome } from '@/lib/nomiThread'
+import { idsThreadAI } from '@/lib/threadAI'
 import { RicercaMail } from '@/components/RicercaMail'
 import { AzioniThread } from '@/components/AzioniThread'
 import { AgganciaDialog } from '@/components/AgganciaRiga'
@@ -107,7 +108,10 @@ export default async function Thread({ searchParams }: Props) {
 
   // Il nome dato a mano a ogni conversazione (una sola query per tutta la
   // pagina). Si cerca su TUTTI i messaggi del gruppo: vedi nomiPerGruppi.
-  const nomi = await nomiPerGruppi(u.id, gruppiTutti)
+  // Insieme, le conversazioni col PLUS AI (anche lì il segno sta su ogni mail).
+  const [nomi, idsAI] = await Promise.all([nomiPerGruppi(u.id, gruppiTutti), idsThreadAI(u.id)])
+  const setAI = new Set(idsAI)
+  const gruppoHaAI = (g: { id: string }[]) => g.some((m) => setAI.has(m.id))
 
   // Le conversazioni trovate per NOME: la chiave salvata è l'id di una loro
   // mail, quindi basta che il gruppo la contenga.
@@ -140,7 +144,7 @@ export default async function Thread({ searchParams }: Props) {
     const volto = g[g.length - 1] // il più recente
     const parti = new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size
     const nonLetti = g.some((x) => x.direzione === 'entrata' && !x.letto)
-    return { volto, count: g.length, parti, nonLetti, nome: nome ?? null }
+    return { volto, count: g.length, parti, nonLetti, nome: nome ?? null, ai: gruppoHaAI(g) }
   })
 
   return (
@@ -175,7 +179,7 @@ export default async function Thread({ searchParams }: Props) {
           </div>
         ) : (
           <div className="mail-list">
-            {righe.map(({ volto, count, parti, nonLetti, nome }) => (
+            {righe.map(({ volto, count, parti, nonLetti, nome, ai }) => (
               <div key={volto.id} className={`mail-row ${nonLetti ? 'non-letto' : ''}`}>
                 <div className="mail-row-head">
                   <Link href={`/messaggio/${volto.id}`} className="mail-row-link">
@@ -184,6 +188,12 @@ export default async function Thread({ searchParams }: Props) {
                       <span className="mail-mittente">
                         {volto.direzione === 'uscita' ? 'Tu' : volto.mittenteNome || volto.mittente}
                       </span>
+                      {/* Conversazione col PLUS AI: l'AI la legge sempre. */}
+                      {ai && (
+                        <span className="ai-toggle-mark" title="PLUS AI attivo su questa conversazione">
+                          AI
+                        </span>
+                      )}
                       {count > 1 && (
                         <span className="thread-count" title={`${count} messaggi · ${parti} ${parti === 1 ? 'parte' : 'parti'}`}>
                           {count}
@@ -219,7 +229,7 @@ export default async function Thread({ searchParams }: Props) {
                     <span className="mail-data">{dataBreve(volto.data)}</span>
                   </div>
                 </div>
-                <AzioniThread messaggioId={volto.id} nome={nome} />
+                <AzioniThread messaggioId={volto.id} nome={nome} aiAttivo={ai} />
               </div>
             ))}
           </div>

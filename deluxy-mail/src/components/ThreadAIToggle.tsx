@@ -11,7 +11,16 @@ import { mostraFlash } from './Flash'
  * Inbox. È il gemello del PLUS AI sui contatti, ma legato allo scambio invece
  * che alla persona: utile quando la trattativa conta, non il mittente.
  */
-export function ThreadAIToggle({ messaggioId, attivo }: { messaggioId: string; attivo: boolean }) {
+export function ThreadAIToggle({
+  messaggioId,
+  attivo,
+  variante = 'bottone',
+}: {
+  messaggioId: string
+  attivo: boolean
+  /** 'riga' = versione compatta per le azioni di una riga della lista. */
+  variante?: 'bottone' | 'riga'
+}) {
   const [acceso, setAcceso] = useState(attivo)
   const [inCorso, start] = useTransition()
   const router = useRouter()
@@ -29,17 +38,36 @@ export function ThreadAIToggle({ messaggioId, attivo }: { messaggioId: string; a
       }
     })
 
+  const titolo = acceso
+    ? 'L’AI legge sempre questa conversazione. Clicca per togliere il PLUS AI.'
+    : 'Fai leggere sempre questa conversazione all’AI (entra anche nella AI Inbox).'
+
+  // Versione compatta per le righe della lista Thread.
+  if (variante === 'riga') {
+    return (
+      <button
+        type="button"
+        className={`azione-riga ${acceso ? 'ai-attiva' : ''}`}
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          cambia()
+        }}
+        disabled={inCorso}
+        title={titolo}
+      >
+        {inCorso ? '…' : acceso ? '✓ AI+' : '+ AI'}
+      </button>
+    )
+  }
+
   return (
     <button
       type="button"
       className={acceso ? 'btn primary small' : 'btn secondary small'}
       onClick={cambia}
       disabled={inCorso}
-      title={
-        acceso
-          ? 'L’AI legge sempre questa conversazione. Clicca per togliere il PLUS AI.'
-          : 'Fai leggere sempre questa conversazione all’AI (entra anche nella AI Inbox).'
-      }
+      title={titolo}
     >
       {inCorso ? '…' : acceso ? '✓ AI+ attivo' : '+ AI su questa conversazione'}
     </button>

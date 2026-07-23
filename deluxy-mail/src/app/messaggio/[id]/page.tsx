@@ -23,6 +23,7 @@ import { chiaveThread } from '@/lib/thread'
 import { nomeDiThread } from '@/lib/nomiThread'
 import { NomeThreadForm } from '@/components/NomeThreadForm'
 import { ThreadAIToggle } from '@/components/ThreadAIToggle'
+import { CestinaThread } from '@/components/CestinaThread'
 import { threadHaAI } from '@/lib/threadAI'
 import { eContattoAI } from '@/lib/contattiAI'
 import { azioneDi } from '@/lib/appDeluxy'
@@ -197,9 +198,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
               può cercare fra i thread. */}
           <NomeThreadForm messaggioId={messaggio.id} valore={nomeConv} />
 
-          {/* PLUS AI sulla conversazione: l'AI la legge sempre. */}
-          <div style={{ marginBottom: 14 }}>
+          {/* PLUS AI sulla conversazione + cestinamento di tutto il thread. */}
+          <div style={{ marginBottom: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <ThreadAIToggle messaggioId={messaggio.id} attivo={threadAI} />
+            <CestinaThread messaggioId={messaggio.id} quante={conversazione.length} />
           </div>
 
           <div style={{ marginBottom: 14 }}>
