@@ -87,7 +87,12 @@ export default function Clienti() {
             <Gruppo titolo="Account" valori={accountPresenti} attivo={accountFiltro} onTap={(v) => setAccountFiltro((c) => (c === v ? null : v))} />
           ) : null}
           {lineePresenti.length ? (
-            <Gruppo titolo="Tipologia di interesse" valori={lineePresenti} attivo={lineaFiltro} onTap={(v) => setLineaFiltro((c) => (c === v ? null : v))} />
+            <Gruppo
+              titolo="Interessi"
+              valori={['Tutti', ...lineePresenti]}
+              attivo={lineaFiltro ?? 'Tutti'}
+              onTap={(v) => setLineaFiltro(v === 'Tutti' ? null : (c) => (c === v ? null : v))}
+            />
           ) : null}
         </View>
       </View>

@@ -32,6 +32,7 @@ export default function Ordini() {
   const [ordini, setOrdini] = useState<OrdineConLuogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [statoFiltro, setStatoFiltro] = useState<string | null>(null);
+  const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -48,9 +49,18 @@ export default function Ordini() {
     }, [carica]),
   );
 
+  // Tipologie di interesse presenti fra gli ordini.
+  const lineePresenti = useMemo(
+    () => [...new Set(ordini.map((o) => o.linea).filter(Boolean) as string[])].sort(),
+    [ordini],
+  );
+
   const dati = useMemo(
-    () => ordini.filter((o) => !statoFiltro || o.stato === statoFiltro),
-    [ordini, statoFiltro],
+    () =>
+      ordini.filter(
+        (o) => (!statoFiltro || o.stato === statoFiltro) && (!lineaFiltro || o.linea === lineaFiltro),
+      ),
+    [ordini, statoFiltro, lineaFiltro],
   );
 
   const totali = useMemo(() => {
@@ -88,6 +98,15 @@ export default function Ordini() {
             <Chip key={s.valore} label={s.label} on={statoFiltro === s.valore} onPress={() => setStatoFiltro((c) => (c === s.valore ? null : s.valore))} />
           ))}
         </View>
+        {lineePresenti.length ? (
+          <View style={styles.chips}>
+            <Text style={styles.gruppoTitolo}>Interessi</Text>
+            <Chip label="Tutti" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
+            {lineePresenti.map((l) => (
+              <Chip key={l} label={l} on={lineaFiltro === l} onPress={() => setLineaFiltro((c) => (c === l ? null : l))} />
+            ))}
+          </View>
+        ) : null}
       </View>
 
       <FlatList
@@ -157,7 +176,8 @@ const styles = StyleSheet.create({
   head: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.sfondo },
   sub: { color: colors.testoSoft, fontSize: 13 },
   subForte: { color: colors.navy, fontWeight: '800' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
+  gruppoTitolo: { color: colors.testoSoft, fontSize: 12, fontWeight: '700', marginRight: 2 },
   chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },

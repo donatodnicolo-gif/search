@@ -74,7 +74,13 @@ export function Filters({ filtri, opzioni, onChange, admin }: Props) {
         onTap={scegliCitta}
       />
       <Gruppo titolo="Settore" valori={opzioni.settori} attivo={filtri.settore} onTap={(v) => toggle('settore', v)} />
-      <Gruppo titolo="Linea" valori={opzioni.linee} attivo={filtri.linea} onTap={(v) => toggle('linea', v)} />
+      {/* Tipologia di interesse: "Tutti" come prima opzione, uniforme in tutta l'app. */}
+      <Gruppo
+        titolo="Interessi"
+        valori={['Tutti', ...opzioni.linee]}
+        attivo={filtri.linea ?? 'Tutti'}
+        onTap={(v) => onChange({ ...filtri, linea: v === 'Tutti' ? null : filtri.linea === v ? null : v })}
+      />
       {admin ? (
         <>
           <Gruppo titolo="Account" valori={opzioni.account ?? []} attivo={filtri.account} onTap={(v) => toggle('account', v)} />

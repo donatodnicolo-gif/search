@@ -68,6 +68,7 @@ export default function Trattative() {
   const [query, setQuery] = useState('');
   const [faseFiltro, setFaseFiltro] = useState<DealStage | 'tutte'>('tutte');
   const [cittaFiltro, setCittaFiltro] = useState<string | null>(null);
+  const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
   const [accountFiltro, setAccountFiltro] = useState<string | null>(null);
   const [formAperto, setFormAperto] = useState(false);
   const [editDeal, setEditDeal] = useState<TrattativaConLuogo | null>(null);
@@ -106,6 +107,13 @@ export default function Trattative() {
     return FASI.filter((f) => set.has(f));
   }, [deals]);
 
+  // Tipologie di interesse (linee) presenti fra le trattative.
+  const lineePresenti = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of deals) for (const l of d.linee?.length ? d.linee : d.linea ? [d.linea] : []) set.add(l);
+    return [...set].sort();
+  }, [deals]);
+
   // Account presenti fra le trattative (chi segue il cliente, dal registro).
   const accountPresenti = useMemo(
     () => [...new Set(deals.map((d) => d.place_account).filter(Boolean) as string[])].sort(),
@@ -118,12 +126,16 @@ export default function Trattative() {
       if (faseFiltro !== 'tutte' && d.fase !== faseFiltro) return false;
       if (!passaFiltroCitta(d.place_zona, cittaFiltro)) return false;
       if (accountFiltro && (d.place_account ?? '') !== accountFiltro) return false;
+      if (lineaFiltro) {
+        const linee = d.linee?.length ? d.linee : d.linea ? [d.linea] : [];
+        if (!linee.includes(lineaFiltro)) return false;
+      }
       if (!q) return true;
       return [d.place_nome, d.linea, d.titolo, d.place_account, d.place_zona, labelFase[d.fase]]
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(q));
     });
-  }, [deals, query, faseFiltro, cittaFiltro, accountFiltro]);
+  }, [deals, query, faseFiltro, cittaFiltro, accountFiltro, lineaFiltro]);
 
   const sezioni = useMemo<Sezione[]>(() => {
     const map = new Map<string, Sezione>();
@@ -187,6 +199,20 @@ export default function Trattative() {
             />
           ))}
         </ScrollView>
+        {lineePresenti.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+            <Text style={styles.filtroEtichetta}>Interessi</Text>
+            <FiltroChip label="Tutti" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
+            {lineePresenti.map((l) => (
+              <FiltroChip
+                key={l}
+                label={l}
+                on={lineaFiltro === l}
+                onPress={() => setLineaFiltro((c) => (c === l ? null : l))}
+              />
+            ))}
+          </ScrollView>
+        ) : null}
         {accountPresenti.length ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
             <Text style={styles.filtroEtichetta}>Account</Text>

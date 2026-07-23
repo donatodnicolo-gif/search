@@ -21,6 +21,7 @@ import { avvisa } from '@/lib/dialoghi';
 import { STATI_AFFILIAZIONE, type AffiliazioneRow, type StatoAffiliazione } from '@/types';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 import { EmptyState, PageIntro } from '@/components/ui';
+import { RicercaAffiliazioni } from '@/components/RicercaAffiliazioni';
 
 type FiltroAff = StatoAffiliazione | 'tutti' | 'selezionati';
 
@@ -46,6 +47,9 @@ export default function Affiliazioni() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [filtro, setFiltro] = useState<FiltroAff>('tutti');
+  // Due modi di lavorare le affiliazioni: l'ELENCO di quelle già censite e la
+  // RICERCA sul territorio (scoperta Google) per trovarne di nuove.
+  const [tab, setTab] = useState<'elenco' | 'ricerca'>('elenco');
   const nSel = useMemo(() => righe.filter((r) => r.starred).length, [righe]);
 
   const carica = useCallback(async () => {
@@ -112,6 +116,22 @@ export default function Affiliazioni() {
   return (
     <View style={styles.container}>
       <PageIntro testo="Fioristi e pasticcerie da reclutare come affiliati. La stella li mette tra i Selezionati da contattare; Chiama registra la chiamata e apre il telefono." />
+      <View style={styles.tabs}>
+        {([
+          { v: 'elenco' as const, label: 'Elenco', icona: 'list-outline' as const },
+          { v: 'ricerca' as const, label: 'Ricerca', icona: 'map-outline' as const },
+        ]).map((t) => (
+          <Pressable key={t.v} onPress={() => setTab(t.v)} style={[styles.tab, tab === t.v && styles.tabOn]}>
+            <Ionicons name={t.icona} size={15} color={tab === t.v ? colors.bianco : colors.testo} />
+            <Text style={[styles.tabTxt, tab === t.v && styles.tabTxtOn]}>{t.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {tab === 'ricerca' ? (
+        <RicercaAffiliazioni onPreso={carica} />
+      ) : (
+      <>
       <View style={styles.head}>
         <Text style={styles.sub}>
           {righe.length} affiliazioni · fioristi e pasticcerie da reclutare
@@ -158,6 +178,8 @@ export default function Affiliazioni() {
           />
         )}
       />
+      </>
+      )}
     </View>
   );
 }
@@ -246,6 +268,11 @@ function Card({
 }
 
 const styles = StyleSheet.create({
+  tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
+  tabOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  tabTxt: { color: colors.testo, fontWeight: '700', fontSize: 13 },
+  tabTxtOn: { color: colors.bianco },
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: { paddingTop: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro, backgroundColor: colors.sfondo },
   sub: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.md, marginBottom: spacing.sm },
