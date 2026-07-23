@@ -309,3 +309,30 @@ export async function aggiungiMetricaLanding(fd: FormData) {
   });
   revalidatePath(`/landing/${landingId}`);
 }
+
+// ---------- Keywords ----------
+
+// Lo stato si applica a tutte le righe con lo stesso testo (la stessa keyword
+// può stare su più campagne: la si governa come una cosa sola).
+export async function cambiaStatoKeyword(fd: FormData) {
+  const testoKeyword = testo(fd, "keyword");
+  const stato = testo(fd, "stato");
+  if (!testoKeyword || !stato) return;
+  const righe = await prisma.copyAnnuncio.findMany({
+    where: { tipo: "keyword", testo: testoKeyword },
+    select: { id: true },
+  });
+  if (righe.length === 0) return;
+  await prisma.copyAnnuncio.updateMany({
+    where: { id: { in: righe.map((r) => r.id) } },
+    data: { stato, notaStato: testo(fd, "notaStato") },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "copy",
+    titolo: `Keyword "${testoKeyword}" → ${stato}`,
+    dettaglio: righe.length > 1 ? `applicato a ${righe.length} campagne` : null,
+  });
+  revalidatePath("/keywords");
+}

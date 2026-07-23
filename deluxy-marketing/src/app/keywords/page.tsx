@@ -1,8 +1,13 @@
-import { Badge } from "@/components/Badge";
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
+import { cambiaStatoKeyword } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
-import { formattaEuro } from "@/lib/dominio";
+import {
+  COLORE_STATO_KEYWORD,
+  ETICHETTA_STATO_KEYWORD,
+  formattaEuro,
+  STATI_KEYWORD,
+} from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +19,7 @@ function categoriaKeyword(testo: string): string {
   if (/palloncin|balloon/.test(t)) return "palloncini";
   if (/regal|gift|box/.test(t)) return "regali";
   if (/rose|fior|flower|bouquet|piant|orchide|girasol|peoni|mazz/.test(t)) return "fiori";
-  if (/consegn|domicilio|delivery|spedi|invio|inviare|manda/.test(t)) return "consegna generica";
+  if (/consegn|domicilio|delivery|spedi|invio|inviare|manda/.test(t)) return "consegna";
   return "altro";
 }
 
@@ -24,7 +29,7 @@ const CATEGORIE: { chiave: string; nome: string; icona: string; colore: string }
   { chiave: "colazioni", nome: "Colazioni", icona: "colazione", colore: "var(--gold-strong)" },
   { chiave: "regali", nome: "Regali", icona: "regalo", colore: "var(--blue)" },
   { chiave: "palloncini", nome: "Palloncini", icona: "palloncino", colore: "var(--red)" },
-  { chiave: "consegna generica", nome: "Consegna generica", icona: "destinazioni", colore: "var(--green)" },
+  { chiave: "consegna", nome: "Consegna generica", icona: "destinazioni", colore: "var(--green)" },
   { chiave: "altro", nome: "Altro", icona: "pagina", colore: "var(--text-tertiary)" },
 ];
 
@@ -38,27 +43,29 @@ const ORDINAMENTI: Record<string, string> = {
 type KwAggregata = {
   testo: string;
   categoria: string;
+  stato: string;
   campagne: string[];
   incasso: number;
   spesa: number;
   resa: number | null;
 };
 
-// Keywords per categoria di prodotto: stessa keyword su più campagne = una
-// riga sola con le campagne raggruppate. Ordinabile, con performance.
+// Keywords per tema: si sceglie un tema e lo si espande. La stessa keyword su
+// più campagne è una riga sola; lo stato si governa da qui.
 export default async function PaginaKeywords({
   searchParams,
 }: {
-  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string }>;
+  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string; tema?: string; stato?: string }>;
 }) {
-  const { ordina: ordinaParam, q, campagna } = await searchParams;
-  const ordina = Object.keys(ORDINAMENTI).includes(ordinaParam ?? "") ? ordinaParam! : "incasso";
+  const p = await searchParams;
+  const ordina = Object.keys(ORDINAMENTI).includes(p.ordina ?? "") ? p.ordina! : "incasso";
+  const temaAperto = p.tema ?? null;
 
   const keyword = await prisma.copyAnnuncio.findMany({
     where: {
       tipo: "keyword",
-      ...(q ? { testo: { contains: q } } : {}),
-      ...(campagna ? { campagna } : {}),
+      ...(p.q ? { testo: { contains: p.q } } : {}),
+      ...(p.campagna ? { campagna: p.campagna } : {}),
     },
   });
   const campagneDisponibili = await prisma.copyAnnuncio.groupBy({
@@ -74,6 +81,7 @@ export default async function PaginaKeywords({
     const agg = perTesto.get(chiave) ?? {
       testo: k.testo.trim(),
       categoria: categoriaKeyword(k.testo),
+      stato: k.stato === "attivo" ? "attiva" : k.stato,
       campagne: [],
       incasso: 0,
       spesa: 0,
@@ -84,10 +92,11 @@ export default async function PaginaKeywords({
     agg.spesa += k.spesa ?? 0;
     perTesto.set(chiave, agg);
   }
-  const tutte = [...perTesto.values()].map((k) => ({
+  let tutte = [...perTesto.values()].map((k) => ({
     ...k,
     resa: k.spesa > 0 ? k.incasso / k.spesa : null,
   }));
+  if (p.stato) tutte = tutte.filter((k) => k.stato === p.stato);
 
   const confronta = (a: KwAggregata, b: KwAggregata) => {
     if (ordina === "keyword") return a.testo.localeCompare(b.testo);
@@ -99,12 +108,17 @@ export default async function PaginaKeywords({
   const totIncasso = tutte.reduce((s, k) => s + k.incasso, 0);
   const totSpesa = tutte.reduce((s, k) => s + k.spesa, 0);
 
-  const linkOrdina = (chiave: string) => {
-    const p = new URLSearchParams();
-    if (q) p.set("q", q);
-    if (campagna) p.set("campagna", campagna);
-    p.set("ordina", chiave);
-    return `/keywords?${p.toString()}`;
+  // link che conserva i filtri correnti cambiando un solo parametro
+  const link = (cambi: Record<string, string | null>) => {
+    const q = new URLSearchParams();
+    const base: Record<string, string | undefined> = {
+      q: p.q, campagna: p.campagna, ordina: p.ordina, tema: p.tema, stato: p.stato,
+    };
+    for (const [k, v] of Object.entries({ ...base, ...cambi })) {
+      if (v) q.set(k, v);
+    }
+    const s = q.toString();
+    return `/keywords${s ? `?${s}` : ""}`;
   };
 
   return (
@@ -115,9 +129,8 @@ export default async function PaginaKeywords({
           <div>
             <h1 className="page-title">Keywords</h1>
             <p className="page-sub">
-              Le parole chiave per categoria di prodotto, con incasso e spesa dal Monitoraggio. La
-              stessa keyword usata da più campagne è una riga sola: le campagne sono nella colonna
-              dedicata. Clicca le intestazioni per ordinare.
+              Le parole chiave raggruppate per tema: scegli un tema per aprirlo. La stessa keyword
+              usata da più campagne è una riga sola, e lo stato che imposti vale su tutte.
             </p>
           </div>
         </div>
@@ -142,11 +155,18 @@ export default async function PaginaKeywords({
         </div>
 
         <form className="filtri" method="get">
-          <input type="search" name="q" placeholder="Cerca una keyword…" defaultValue={q ?? ""} />
-          <select name="campagna" defaultValue={campagna ?? ""}>
+          {temaAperto && <input type="hidden" name="tema" value={temaAperto} />}
+          <input type="search" name="q" placeholder="Cerca una keyword…" defaultValue={p.q ?? ""} />
+          <select name="campagna" defaultValue={p.campagna ?? ""}>
             <option value="">Tutte le campagne</option>
             {campagneDisponibili.map((c) => (
               <option key={c.campagna} value={c.campagna}>{c.campagna}</option>
+            ))}
+          </select>
+          <select name="stato" defaultValue={p.stato ?? ""}>
+            <option value="">Tutti gli stati</option>
+            {STATI_KEYWORD.map((s) => (
+              <option key={s} value={s}>{ETICHETTA_STATO_KEYWORD[s]}</option>
             ))}
           </select>
           <select name="ordina" defaultValue={ordina}>
@@ -157,15 +177,48 @@ export default async function PaginaKeywords({
           <button className="btn small" type="submit">Applica</button>
         </form>
 
-        {CATEGORIE.map((cat) => {
+        {/* Scelta del tema: tessere cliccabili, quella aperta resta evidenziata */}
+        <div className="griglia-temi">
+          {CATEGORIE.map((cat) => {
+            const del = tutte.filter((k) => k.categoria === cat.chiave);
+            if (del.length === 0) return null;
+            const incasso = del.reduce((s, k) => s + k.incasso, 0);
+            const spesa = del.reduce((s, k) => s + k.spesa, 0);
+            const aperto = temaAperto === cat.chiave;
+            return (
+              <a
+                className={`tessera-tema${aperto ? " aperta" : ""}`}
+                key={cat.chiave}
+                href={link({ tema: aperto ? null : cat.chiave })}
+              >
+                <span className="tessera-icona" style={{ color: cat.colore }}>
+                  <Icona nome={cat.icona} />
+                </span>
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span className="tessera-nome">{cat.nome}</span>
+                  <span className="tessera-conta">{del.length} keyword</span>
+                </span>
+                <span className="tessera-resa">
+                  <b>{spesa > 0 ? `${(incasso / spesa).toFixed(1)}×` : "—"}</b>
+                  <i>{formattaEuro(incasso)}</i>
+                </span>
+              </a>
+            );
+          })}
+        </div>
+
+        {!temaAperto && (
+          <div className="vuoto">Scegli un tema qui sopra per vedere le sue keyword.</div>
+        )}
+
+        {CATEGORIE.filter((c) => c.chiave === temaAperto).map((cat) => {
           const del = tutte.filter((k) => k.categoria === cat.chiave).sort(confronta);
-          if (del.length === 0) return null;
           const incassoCat = del.reduce((s, k) => s + k.incasso, 0);
           const spesaCat = del.reduce((s, k) => s + k.spesa, 0);
           return (
             <section className="scheda" key={cat.chiave} style={{ padding: 0 }}>
-              <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 24px 0" }}>
-                <span className="card-landing-icona" style={{ color: cat.colore, width: 32, height: 32 }}>
+              <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 24px 0", flexWrap: "wrap" }}>
+                <span className="tessera-icona" style={{ color: cat.colore }}>
                   <Icona nome={cat.icona} />
                 </span>
                 {cat.nome} ({del.length})
@@ -173,16 +226,18 @@ export default async function PaginaKeywords({
                   {formattaEuro(incassoCat)} incasso · {formattaEuro(spesaCat)} spesa ·{" "}
                   {spesaCat > 0 ? `${(incassoCat / spesaCat).toFixed(1)}×` : "—"}
                 </span>
+                <a className="btn small btn-secondario" href={link({ tema: null })}>Chiudi</a>
               </div>
               <div style={{ overflowX: "auto", paddingBottom: 6 }}>
                 <table>
                   <thead>
                     <tr>
-                      <th><a href={linkOrdina("keyword")}>Keyword {ordina === "keyword" ? "↓" : ""}</a></th>
+                      <th><a href={link({ ordina: "keyword" })}>Keyword {ordina === "keyword" ? "↓" : ""}</a></th>
+                      <th style={{ minWidth: 250 }}>Stato</th>
                       <th>Campagne</th>
-                      <th className="num"><a href={linkOrdina("incasso")}>Incasso {ordina === "incasso" ? "↓" : ""}</a></th>
-                      <th className="num"><a href={linkOrdina("spesa")}>Spesa {ordina === "spesa" ? "↓" : ""}</a></th>
-                      <th className="num"><a href={linkOrdina("resa")}>Resa {ordina === "resa" ? "↓" : ""}</a></th>
+                      <th className="num"><a href={link({ ordina: "incasso" })}>Incasso {ordina === "incasso" ? "↓" : ""}</a></th>
+                      <th className="num"><a href={link({ ordina: "spesa" })}>Spesa {ordina === "spesa" ? "↓" : ""}</a></th>
+                      <th className="num"><a href={link({ ordina: "resa" })}>Resa {ordina === "resa" ? "↓" : ""}</a></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -190,9 +245,29 @@ export default async function PaginaKeywords({
                       <tr key={k.testo}>
                         <td className="cella-nome">{k.testo}</td>
                         <td>
+                          <form className="pill-scelta" action={cambiaStatoKeyword}>
+                            <input type="hidden" name="keyword" value={k.testo} />
+                            {STATI_KEYWORD.map((s) => (
+                              <button
+                                key={s}
+                                className={`pill-opt${k.stato === s ? " attuale" : ""}`}
+                                style={{ color: k.stato === s ? undefined : COLORE_STATO_KEYWORD[s] }}
+                                type="submit"
+                                name="stato"
+                                value={s}
+                                disabled={k.stato === s}
+                                title={ETICHETTA_STATO_KEYWORD[s]}
+                              >
+                                <span className="dot" />
+                                <span style={{ color: "var(--text)" }}>{ETICHETTA_STATO_KEYWORD[s]}</span>
+                              </button>
+                            ))}
+                          </form>
+                        </td>
+                        <td>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                             {k.campagne.map((c) => (
-                              <Badge key={c} testo={c} colore="var(--text-secondary)" />
+                              <span className="tag-neutro" key={c}>{c}</span>
                             ))}
                           </div>
                         </td>

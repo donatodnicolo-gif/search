@@ -58,27 +58,35 @@ export default async function PaginaAudit({
           <a className="btn" href="/analisi/nuova">Deposita audit</a>
         </div>
 
-        <div className="kpi-riga">
-          {[...correnti.values()].slice(0, 8).map((a) => (
-            <a className="kpi" key={a.id} href={`/analisi/${a.id}`}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <Badge testo={ETICHETTA_BRAND[a.brand] ?? a.brand} colore={COLORE_BRAND[a.brand] ?? "var(--text-tertiary)"} />
-                {a.esito && (
-                  <Badge testo={ETICHETTA_ESITO[a.esito] ?? a.esito} colore={COLORE_ESITO[a.esito] ?? "var(--text-tertiary)"} />
-                )}
-              </div>
-              <div className="kpi-etichetta" style={{ marginTop: 0 }}>
-                {ETICHETTA_TIPO_ANALISI[a.tipo] ?? a.tipo}
-              </div>
-              <div className="kpi-etichetta">{formattaData(a.dataAnalisi)}</div>
-            </a>
-          ))}
-          {correnti.size === 0 && (
-            <div className="vuoto" style={{ gridColumn: "1 / -1" }}>
-              Nessun audit depositato: il semaforo per brand comparirà qui.
-            </div>
-          )}
-        </div>
+        {correnti.size === 0 ? (
+          <div className="vuoto">Nessun audit depositato: il semaforo per brand comparirà qui.</div>
+        ) : (
+          <div className="griglia-semaforo">
+            {[...correnti.values()].map((a) => (
+              <a className="card-semaforo" key={a.id} href={`/analisi/${a.id}`}>
+                <span
+                  className="semaforo-barra"
+                  style={{ background: a.esito ? COLORE_ESITO[a.esito] ?? "var(--text-tertiary)" : "var(--fill-active)" }}
+                />
+                <div className="semaforo-corpo">
+                  <div className="semaforo-testata">
+                    <span className="semaforo-brand" style={{ color: COLORE_BRAND[a.brand] ?? "var(--text-tertiary)" }}>
+                      <span className="sb-dot" style={{ background: "currentColor", width: 7, height: 7 }} />
+                      {ETICHETTA_BRAND[a.brand] ?? a.brand}
+                    </span>
+                    <span className="cella-muta">{formattaData(a.dataAnalisi)}</span>
+                  </div>
+                  <div className="semaforo-tipo">{ETICHETTA_TIPO_ANALISI[a.tipo] ?? a.tipo}</div>
+                  {a.esito && (
+                    <div className="semaforo-esito" style={{ color: COLORE_ESITO[a.esito] ?? "var(--text-tertiary)" }}>
+                      {ETICHETTA_ESITO[a.esito] ?? a.esito}
+                    </div>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
 
         <form className="filtri" method="get">
           <select name="brand" defaultValue={brand ?? ""}>

@@ -295,26 +295,6 @@ tbody tr:hover { background: var(--fill); }
 .scaduta { color: var(--red); font-weight: 600; }
 .in-scadenza { color: var(--orange); font-weight: 600; }
 
-/* ---------- Esplora campagne (colonne per brand) ---------- */
-.canale-divisore {
-  font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
-  color: var(--text-tertiary); margin: 12px 4px 6px;
-}
-.board-colonna > div:first-of-type .canale-divisore { margin-top: 2px; }
-.card-campagna-kpi {
-  display: flex; gap: 14px; margin-top: 10px; padding-top: 8px;
-  border-top: 1px solid var(--hairline);
-}
-.card-campagna-kpi span { display: flex; flex-direction: column; min-width: 0; }
-.card-campagna-kpi b { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-.card-campagna-kpi i { font-style: normal; font-size: 10.5px; color: var(--text-tertiary); }
-
-/* ---------- Tabella stile calendario (mesi in colonna) ---------- */
-.tabella-calendario th.num, .tabella-calendario td.num { min-width: 96px; }
-.tabella-calendario .riga-forte td { background: var(--gold-soft); }
-.tabella-calendario tbody tr:hover { background: var(--fill); }
-.tabella-calendario tbody tr.riga-forte:hover td { background: var(--gold-soft); }
-
 /* ---------- Card test Meta ---------- */
 .colonna-spiega { font-size: 11px; color: var(--text-tertiary); margin-top: 3px; line-height: 1.4; max-width: 220px; }
 .test-campo { display: flex; flex-direction: column; margin-top: 7px; }
@@ -345,3 +325,133 @@ tbody tr:hover { background: var(--fill); }
   border-top: 1px solid var(--hairline); font-size: 12px; color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Semaforo audit (stato corrente per brand e tipo) ---------- */
+.griglia-semaforo {
+  display: grid; gap: 12px; margin-bottom: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+.card-semaforo {
+  display: flex; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-l); box-shadow: var(--shadow-card);
+  transition: box-shadow .18s var(--ease), transform .18s var(--ease);
+}
+.card-semaforo:hover { box-shadow: var(--shadow-float); transform: translateY(-2px); }
+.semaforo-barra { flex: 0 0 4px; }
+.semaforo-corpo { flex: 1; min-width: 0; padding: 13px 15px; }
+.semaforo-testata {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 11.5px; margin-bottom: 7px;
+}
+.semaforo-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.semaforo-tipo { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.35; }
+.semaforo-esito {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; margin-top: 5px;
+}
+
+/* ---------- Esplora campagne: colonne per brand ---------- */
+.colonne-brand {
+  display: grid; gap: 14px; align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+}
+.colonna-brand { background: var(--fill); border-radius: var(--radius-l); padding: 12px; min-width: 0; }
+.colonna-brand-testata {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 10px; padding: 0 4px;
+}
+.canale-divisore {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--text-tertiary); margin: 14px 4px 7px;
+}
+.canale-divisore svg { width: 14px; height: 14px; }
+.colonna-brand > div:first-of-type .canale-divisore { margin-top: 2px; }
+
+.card-campagna {
+  display: block; background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-m); box-shadow: var(--shadow-card);
+  padding: 12px 14px; margin-bottom: 9px;
+  transition: box-shadow .15s var(--ease), transform .15s var(--ease);
+}
+.card-campagna:hover { box-shadow: var(--shadow-float); transform: translateY(-2px); }
+.card-campagna-alto { display: flex; align-items: flex-start; gap: 10px; }
+.card-campagna-icona {
+  flex: 0 0 auto; width: 32px; height: 32px; border-radius: var(--radius-s);
+  background: var(--fill); color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+}
+.card-campagna-icona svg { width: 17px; height: 17px; }
+.card-campagna-nome {
+  flex: 1; min-width: 0; font-weight: 600; font-size: 13.5px; letter-spacing: -0.01em;
+  line-height: 1.35; overflow-wrap: anywhere;
+}
+.card-campagna-tag { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.tag-salute, .tag-neutro {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border-radius: var(--radius-pill);
+  font-size: 11.5px; font-weight: 600; white-space: nowrap;
+  background: var(--fill);
+}
+.tag-salute .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.tag-neutro { color: var(--text-secondary); font-weight: 500; }
+.card-campagna-obiettivo, .card-campagna-landing {
+  font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.card-campagna-kpi {
+  display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+}
+.card-campagna-kpi span { display: flex; flex-direction: column; min-width: 0; }
+.card-campagna-kpi b { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.card-campagna-kpi i { font-style: normal; font-size: 10.5px; color: var(--text-tertiary); }
+
+/* ---------- Testata di scheda (hero con barra di esito) ---------- */
+.scheda-hero {
+  display: flex; overflow: hidden; margin-bottom: 18px;
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-l); box-shadow: var(--shadow-card);
+}
+.hero-barra { flex: 0 0 5px; }
+.hero-corpo { flex: 1; min-width: 0; padding: 20px 24px; }
+.hero-tag { display: flex; flex-wrap: wrap; gap: 6px; }
+.hero-tag svg { width: 14px; height: 14px; }
+.hero-meta {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  font-size: 12.5px; color: var(--text-tertiary); margin-top: 8px;
+}
+.hero-esito {
+  flex: 0 0 auto; max-width: 230px; padding: 20px 24px 20px 0;
+  display: flex; flex-direction: column; justify-content: center; text-align: right;
+}
+.hero-esito-valore { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+.hero-esito-nota { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; line-height: 1.4; }
+@media (max-width: 800px) {
+  .scheda-hero { flex-wrap: wrap; }
+  .hero-esito { max-width: none; width: 100%; text-align: left; padding: 0 24px 20px; }
+}
+
+/* ---------- Tessere di tema (scelta ed espansione) ---------- */
+.griglia-temi {
+  display: grid; gap: 10px; margin-bottom: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.tessera-tema {
+  display: flex; align-items: center; gap: 11px; padding: 12px 14px;
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-l); box-shadow: var(--shadow-card);
+  transition: box-shadow .16s var(--ease), transform .16s var(--ease), border-color .16s var(--ease);
+}
+.tessera-tema:hover { box-shadow: var(--shadow-float); transform: translateY(-2px); }
+.tessera-tema.aperta { border-color: var(--gold); background: var(--gold-soft); }
+.tessera-icona {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: var(--radius-s);
+  background: var(--fill); display: flex; align-items: center; justify-content: center;
+}
+.tessera-icona svg { width: 18px; height: 18px; }
+.tessera-nome { display: block; font-weight: 600; font-size: 13.5px; letter-spacing: -0.01em; }
+.tessera-conta { display: block; font-size: 11.5px; color: var(--text-tertiary); }
+.tessera-resa { flex: 0 0 auto; text-align: right; }
+.tessera-resa b { display: block; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tessera-resa i { font-style: normal; font-size: 11px; color: var(--text-tertiary); }

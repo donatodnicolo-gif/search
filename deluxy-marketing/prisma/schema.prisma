@@ -262,8 +262,11 @@ model CopyAnnuncio {
   testo     String
   caratteri Int?
   finalUrl  String?
-  // attivo | bozza | in_pausa | da_riscrivere | archiviato
+  // Copy: attivo | bozza | in_pausa | da_riscrivere | archiviato
+  // Keyword: attiva | da_valutare | in_pausa | negativa | esclusa | vincente
   stato     String  @default("attivo")
+  // Nota di lavoro sulla keyword (perché è stata messa in pausa, ecc.)
+  notaStato String?
   // per le keyword: resa e spesa (dal monitoraggio)
   incasso   Float?
   spesa     Float?

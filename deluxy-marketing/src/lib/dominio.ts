@@ -292,3 +292,23 @@ export function formattaPercento(n: number | null | undefined): string {
   const segno = n > 0 ? "+" : "";
   return `${segno}${(n * 100).toFixed(0)}%`;
 }
+
+// Stati di una keyword (colonna `stato` di CopyAnnuncio quando tipo="keyword").
+export const STATI_KEYWORD = ["attiva", "vincente", "da_valutare", "in_pausa", "esclusa"] as const;
+export const ETICHETTA_STATO_KEYWORD: Record<string, string> = {
+  attiva: "Attiva",
+  vincente: "Vincente",
+  da_valutare: "Da valutare",
+  in_pausa: "In pausa",
+  esclusa: "Esclusa",
+  // valore ereditato dall'import, trattato come "attiva"
+  attivo: "Attiva",
+};
+export const COLORE_STATO_KEYWORD: Record<string, string> = {
+  attiva: "var(--blue)",
+  attivo: "var(--blue)",
+  vincente: "var(--green)",
+  da_valutare: "var(--gold-strong)",
+  in_pausa: "var(--orange)",
+  esclusa: "var(--red)",
+};
