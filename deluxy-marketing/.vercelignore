@@ -1,0 +1,10 @@
+# Mai in produzione: contiene email e nomi dei clienti
+dati-marketing*.json
+# Database di sviluppo
+prisma/*.db
+prisma/*.db-journal
+# Roba locale
+.env
+.env.local
+node_modules
+.next

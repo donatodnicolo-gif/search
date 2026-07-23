@@ -1,5 +1,10 @@
 # Deluxy Marketing
 
+**In produzione: https://deluxy-marketing.vercel.app** (progetto Vercel `deluxy-marketing`,
+Root Directory `deluxy-marketing`, Postgres condiviso Deluxy schema `marketing`).
+La UI e protetta da password unica (`MARKETING_APP_PASSWORD`); le API `/api/v1` restano
+aperte alle sole chiavi.
+
 La **memoria operativa dell'advertising Deluxy** (porta **3130**): qui si depositano le analisi e
 gli audit prodotti dalle sessioni Claude (custode "Digital Global Marketing" e progetti brand),
 le **azioni** che ne derivano — con storia completa e feedback — e le **campagne** con le loro
@@ -24,6 +29,16 @@ vanno bene solo per consultare. Flusso tipo di una sessione:
 3. A fine lavoro deposita qui la sintesi: `POST /api/v1/analisi` (con le azioni proposte),
    `PATCH /api/v1/azioni/:id` per chiudere le azioni eseguite, `POST /api/v1/campagne/:id/metriche`
    per aggiornare i numeri delle campagne.
+
+## Deploy
+
+
+
+Variabili gia impostate su Vercel (production, preview, development): `DATABASE_URL`,
+`DIRECT_URL`, `MARKETING_APP_PASSWORD`. Da aggiungere quando disponibile:
+`GOOGLE_DRIVE_API_KEY` (per la sync del Drive dal server).
+
+Per travasare il database fra ambienti: `npm run esporta` e `npm run importa -- <file>`.
 
 ## Avvio
 
