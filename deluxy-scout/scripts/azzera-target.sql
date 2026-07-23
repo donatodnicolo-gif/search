@@ -1,10 +1,15 @@
 -- Azzeramento di Target: cancella SOLO i negozi mai lavorati.
 --
--- Criterio (deciso con l'utente il 23/07/2026): stato = 'da_visitare' e nessuna
--- traccia di lavoro sopra — nessuna visita, trattativa, contatto, chiamata,
--- task, richiesta di pagamento — e non messo tra i preferiti (starred).
--- Restano quindi: clienti, negozi visitati/persi, tutto ciò che ha una
--- trattativa aperta o anche solo un contatto salvato.
+-- Criterio (deciso con l'utente il 23/07/2026): il negozio se ne va solo se
+-- **nessuna persona l'ha messo lì** (`creato_da is null` → viene dalla scoperta
+-- Google o da un import) ED è `stato = 'da_visitare'` senza nessuna traccia di
+-- lavoro sopra — nessuna visita, trattativa, contatto, chiamata, task,
+-- richiesta di pagamento — e non è tra i preferiti (starred).
+-- Restano quindi: tutto ciò che ha aggiunto un utente, i clienti, i negozi
+-- visitati/persi, e qualsiasi cosa con una trattativa o anche solo un contatto.
+--
+-- Nota: da oggi Target mostra **solo** i negozi con `creato_da`, quindi questa
+-- pulizia serve a liberare il database, non a svuotare la pagina.
 --
 -- ⚠️ IRREVERSIBILE, sul Supabase di produzione (ref fdsziebgkljfsugqqbqd).
 -- Prima di lanciarlo: eseguire `azzera-target-conteggio.sql` e leggere i numeri.
@@ -18,7 +23,8 @@ begin;
 create temporary table da_cancellare on commit drop as
 select p.id
 from places p
-where p.stato = 'da_visitare'
+where p.creato_da is null
+  and p.stato = 'da_visitare'
   and coalesce(p.starred, false) = false
   and not exists (select 1 from visits              v where v.place_id = p.id)
   and not exists (select 1 from deals               d where d.place_id = p.id)
@@ -36,6 +42,7 @@ delete from places p using da_cancellare x where p.id = x.id;
 
 select
   (select count(*) from places)                              as places_rimasti,
+  (select count(*) from places where creato_da is not null)  as in_target,
   (select count(*) from places where stato = 'da_visitare')  as da_visitare_rimasti,
   (select count(*) from places where stato = 'cliente')      as clienti,
   (select count(*) from deals)                               as trattative,

@@ -6,7 +6,8 @@
 with da_cancellare as (
   select p.id
   from places p
-  where p.stato = 'da_visitare'
+  where p.creato_da is null
+    and p.stato = 'da_visitare'
     and coalesce(p.starred, false) = false
     and not exists (select 1 from visits              v where v.place_id = p.id)
     and not exists (select 1 from deals               d where d.place_id = p.id)
@@ -17,6 +18,8 @@ with da_cancellare as (
 )
 select
   (select count(*) from places)              as places_totali,
+  (select count(*) from places
+     where creato_da is not null)            as aggiunti_da_una_persona, -- = quelli che si vedono in Target
   (select count(*) from da_cancellare)       as da_cancellare,
   (select count(*) from places
      where stato = 'da_visitare')            as da_visitare_totali,

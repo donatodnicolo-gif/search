@@ -764,6 +764,17 @@ export async function aggiornaStatoPlace(placeId: string, stato: StatoPlace): Pr
 export async function aggiornaStarred(placeId: string, starred: boolean): Promise<void> {
   const { error } = await supabase.from('places').update({ starred, novita: false }).eq('id', placeId);
   if (error) throw error;
+  // Mettere la stella = "questo negozio lo prendo come target". I record
+  // arrivati dalla scoperta Google o dagli import non hanno `creato_da`, e
+  // senza creatore non entrano più in Target: lo si registra qui, alla prima
+  // stella, senza mai sovrascrivere un creatore già presente.
+  if (starred) {
+    const { data } = await supabase.auth.getUser();
+    const uid = data.user?.id;
+    if (uid) {
+      await supabase.from('places').update({ creato_da: uid }).eq('id', placeId).is('creato_da', null);
+    }
+  }
 }
 
 // ── Task personali (tasklist privata del venditore) ────────────────────────────

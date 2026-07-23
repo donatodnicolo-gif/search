@@ -36,6 +36,11 @@ export default function Lista() {
     const q = query.trim().toLowerCase();
     const f = applicaFiltri(places, filtri)
       .filter((p) => !p.nascosto) // i target "non interessanti" non compaiono qui
+      // Target = SOLO i negozi messi in lista da una persona (decisione utente
+      // 23/07/2026). I record senza `creato_da` — scoperta Google e import da
+      // terminale — restano nel database e sulla Mappa, ma qui non entrano:
+      // erano migliaia e rendevano la lista inutilizzabile.
+      .filter((p) => Boolean(p.creato_da))
       .filter((p) => {
       if (!q) return true;
       return (
@@ -51,7 +56,7 @@ export default function Lista() {
 
   return (
     <View style={styles.container}>
-      <PageIntro testo="I negozi obiettivo da visitare, in ordine di priorità. Tocca un negozio per aprire la sua scheda; l'occhio barrato lo nasconde se non è interessante." />
+      <PageIntro testo="I negozi obiettivo da visitare, in ordine di priorità: qui entrano solo quelli aggiunti da una persona, dalla Mappa o col bottone +. Tocca un negozio per aprire la sua scheda; l'occhio barrato lo nasconde se non è interessante." />
       <View style={styles.filterBar}>
         <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} admin={admin} />
         <TextInput
@@ -73,8 +78,8 @@ export default function Lista() {
           <EmptyState
             loading={loading}
             icona="flag-outline"
-            titolo="Nessun negozio qui"
-            aiuto="Prova ad azzerare filtri o ricerca, scopri nuovi negozi dalla Mappa, oppure aggiungi un target a mano col bottone +."
+            titolo="Nessun target aggiunto"
+            aiuto="In Target entrano solo i negozi che aggiungi tu: scoprili dalla Mappa e mettili in lista, oppure creane uno col bottone +. Se pensavi di trovarne, prova ad azzerare filtri e ricerca."
             azione="Vai alla Mappa"
             onAzione={() => router.push('/(app)/mappa')}
           />
