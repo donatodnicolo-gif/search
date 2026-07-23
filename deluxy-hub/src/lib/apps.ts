@@ -103,9 +103,9 @@ export function catalogoApp(): AppDeluxy[] {
       descrizione:
         "La memoria operativa dell'advertising: analisi e audit, azioni con storia e feedback, campagne con metriche e i documenti della cartella ADV DELUXY SRL.",
       icona: "marketing",
-      // Eccezione voluta: la tessera resta visibile anche in produzione senza
-      // APP_URL_MARKETING, puntando all'istanza locale finché non c'è un URL pubblico.
-      url: process.env.APP_URL_MARKETING ?? "http://localhost:3130",
+      // L'app è pubblicata: si punta al sito di produzione, sovrascrivibile con
+      // APP_URL_MARKETING (es. http://localhost:3130 in sviluppo).
+      url: process.env.APP_URL_MARKETING ?? "https://deluxy-marketing.vercel.app",
       ruoli: ["admin"],
     },
     {
