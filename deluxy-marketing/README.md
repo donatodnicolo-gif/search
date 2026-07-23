@@ -41,12 +41,43 @@ Variabili in `.env` (mai committato):
 - `DRIVE_ADV_DIR` — radice locale della cartella ufficiale
   (default `G:\Il mio Drive\ADV DELUXY SRL`).
 
+## Sezioni
+
+- **Dashboard / Analisi / Audit / Azioni / Campagne** — il ciclo operativo: analisi depositate
+  (con semaforo), azioni con storia ed eventi di feedback, campagne con metriche e ROAS.
+- **Landing page** — registro delle landing con campagne associate, stati (attiva / mismatch /
+  da verificare) e performance per periodo. Config canonica: Mappa 00.4 su Drive.
+- **Copy & annunci** — titoli e descrizioni RSA per campagna con conteggio caratteri, keyword
+  con incasso/spesa (import dal Monitoraggio). Regole di tono/claim: Definitivi 7.2/7.3.
+- **Meta & test** — backlog dei test Meta pianificabili in anticipo (modello AIDA dei
+  Definitivi 8.x): ipotesi, variabile, metrica di successo, guardrail, board per stato.
+- **Vendite** — SALES GLOBAL: piano vendite + budget ADV mensile per sito.
+- **Budget ADV** — budget mensile con ripartizione per canale/campagna (quota % e €/giorno).
+- **MKT vs 2025** — spesa Google/Meta, vendite e KPI settimana per settimana con delta %
+  sulla stessa settimana dell'anno precedente (totale e per brand).
+- **Documenti Drive** — indice in sola lettura della cartella ufficiale.
+- **Storico** — il registro globale di tutte le modifiche (gemello dello 00.2 su Drive).
+
 ## Script
 
 - `npm run chiave -- <nome> [--sola-lettura]` — crea una chiave API (stampata una sola volta;
   nel db resta lo SHA-256). Header: `x-api-key` o `Authorization: Bearer`.
 - `npm run sync-drive` — indicizza la cartella Drive locale (equivalente al bottone
   "Sincronizza ora" della pagina Documenti Drive).
+- `npm run import:monitoraggio -- "<file.xlsx>"` — importa il Monitoraggio (vendite, budget,
+  settimane MKT 2025/2026, copy RSA). Idempotente.
+- `npm run db:seed-adv` — ricarica la conoscenza dei Definitivi (campagne 00.4, landing,
+  test Meta 8.x).
+- `node scripts/deposita-analisi.mjs '<json>'` — deposita un'analisi senza server (usato
+  dall'attività quotidiana).
+
+## Automazione quotidiana
+
+Un'attività programmata di Claude (08:31, `deluxy-marketing-sync-analisi-drive` in
+`~\.claude\scheduled-tasks`) ogni giorno: sincronizza il Drive, individua i documenti
+nuovi/modificati nelle 24h, li legge e deposita una sintesi AI come analisi (origine
+`analisi-quotidiana`). Gira quando l'app desktop è aperta; se chiusa, al prossimo avvio.
+In qualsiasi sessione si può comunque dire "sincronizza il drive marketing".
 
 ## API v1 (chiave obbligatoria)
 

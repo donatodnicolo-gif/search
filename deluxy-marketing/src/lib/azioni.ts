@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { STATI_AZIONE, STATI_CAMPAGNA } from "./dominio";
 import { sincronizzaDrive } from "./drive";
+import { registra } from "./registro";
 
 // Server action della UI. Le stesse operazioni esistono anche via /api/v1
 // (chiave API) per le sessioni Claude: qui c'è la versione per i form.
@@ -50,6 +51,7 @@ export async function creaAnalisi(fd: FormData) {
       note: testo(fd, "note"),
     },
   });
+  await registra({ autore: "utente", tipo: "creazione", entita: "analisi", entitaId: analisi.id, titolo: `Analisi depositata: ${titolo}` });
   revalidatePath("/");
   redirect(`/analisi/${analisi.id}`);
 }
@@ -74,6 +76,7 @@ export async function creaAzione(fd: FormData) {
       eventi: { create: { tipo: "creazione", autore: "utente", testo: "Azione creata dall'app" } },
     },
   });
+  await registra({ autore: "utente", tipo: "creazione", entita: "azione", entitaId: azione.id, titolo: `Azione creata: ${titolo}` });
   revalidatePath("/");
   redirect(`/azioni/${azione.id}`);
 }
@@ -92,6 +95,7 @@ export async function cambiaStatoAzione(fd: FormData) {
       eventi: { create: { tipo: "stato", da: azione.stato, a: stato, autore: "utente" } },
     },
   });
+  await registra({ autore: "utente", tipo: "stato", entita: "azione", entitaId: id, titolo: `Azione "${azione.titolo}": ${azione.stato} → ${stato}` });
   revalidatePath(`/azioni/${id}`);
   revalidatePath("/azioni");
   revalidatePath("/");
@@ -105,6 +109,7 @@ export async function aggiungiFeedback(fd: FormData) {
   await prisma.eventoAzione.create({
     data: { azioneId: id, tipo, testo: testoFeedback, autore: "utente" },
   });
+  await registra({ autore: "utente", tipo: "feedback", entita: "azione", entitaId: id, titolo: "Feedback su azione", dettaglio: testoFeedback });
   revalidatePath(`/azioni/${id}`);
 }
 
@@ -127,6 +132,7 @@ export async function creaCampagna(fd: FormData) {
       note: testo(fd, "note"),
     },
   });
+  await registra({ autore: "utente", tipo: "creazione", entita: "campagna", entitaId: campagna.id, titolo: `Campagna registrata: ${nome}` });
   revalidatePath("/");
   redirect(`/campagne/${campagna.id}`);
 }
@@ -135,7 +141,8 @@ export async function cambiaStatoCampagna(fd: FormData) {
   const id = testo(fd, "id");
   const stato = testo(fd, "stato");
   if (!id || !stato || !(STATI_CAMPAGNA as readonly string[]).includes(stato)) return;
-  await prisma.campagna.update({ where: { id }, data: { stato } });
+  const campagna = await prisma.campagna.update({ where: { id }, data: { stato } });
+  await registra({ autore: "utente", tipo: "stato", entita: "campagna", entitaId: id, titolo: `Campagna "${campagna.nome}" → ${stato}` });
   revalidatePath(`/campagne/${id}`);
   revalidatePath("/campagne");
 }
@@ -163,7 +170,121 @@ export async function aggiungiMetrica(fd: FormData) {
 // ---------- Drive ----------
 
 export async function avviaSyncDrive() {
-  await sincronizzaDrive();
+  const esito = await sincronizzaDrive();
+  await registra({
+    autore: "utente",
+    tipo: "sync",
+    entita: "drive",
+    titolo: "Sincronizzazione Drive",
+    dettaglio: esito.errore ?? `trovati ${esito.trovati} · nuovi ${esito.nuovi} · aggiornati ${esito.aggiornati} · rimossi ${esito.rimossi}`,
+  });
   revalidatePath("/drive");
   revalidatePath("/");
+}
+
+// ---------- Test Meta ----------
+
+export async function creaTestMeta(fd: FormData) {
+  const titolo = testo(fd, "titolo");
+  const ipotesi = testo(fd, "ipotesi");
+  if (!titolo || !ipotesi) return;
+  const test = await prisma.testMeta.create({
+    data: {
+      titolo,
+      ipotesi,
+      brand: testo(fd, "brand") ?? "cross",
+      fase: testo(fd, "fase"),
+      variabile: testo(fd, "variabile"),
+      pubblico: testo(fd, "pubblico"),
+      formato: testo(fd, "formato"),
+      metricaSuccesso: testo(fd, "metricaSuccesso"),
+      guardrail: testo(fd, "guardrail"),
+      budgetGiornaliero: numeroDa(fd, "budgetGiornaliero"),
+      dataInizio: dataDa(fd, "dataInizio"),
+      dataVerifica: dataDa(fd, "dataVerifica"),
+      stato: testo(fd, "stato") ?? "idea",
+      fonte: testo(fd, "fonte"),
+      note: testo(fd, "note"),
+    },
+  });
+  const { registra } = await import("./registro");
+  await registra({ autore: "utente", tipo: "creazione", entita: "test_meta", entitaId: test.id, titolo: `Nuovo test Meta: ${titolo}` });
+  revalidatePath("/meta");
+}
+
+export async function cambiaStatoTestMeta(fd: FormData) {
+  const id = testo(fd, "id");
+  const stato = testo(fd, "stato");
+  if (!id || !stato) return;
+  const test = await prisma.testMeta.update({
+    where: { id },
+    data: { stato, esito: testo(fd, "esito") ?? undefined, lezione: testo(fd, "lezione") ?? undefined },
+  });
+  const { registra } = await import("./registro");
+  await registra({ autore: "utente", tipo: "stato", entita: "test_meta", entitaId: id, titolo: `Test Meta "${test.titolo}" → ${stato}` });
+  revalidatePath("/meta");
+}
+
+// ---------- Landing ----------
+
+export async function creaLanding(fd: FormData) {
+  const url = testo(fd, "url");
+  if (!url) return;
+  const landing = await prisma.landingPage.upsert({
+    where: { url },
+    create: {
+      url,
+      nome: testo(fd, "nome"),
+      brand: testo(fd, "brand") ?? "cross",
+      lingua: testo(fd, "lingua"),
+      tipo: testo(fd, "tipo"),
+      scopo: testo(fd, "scopo"),
+      gemellaUrl: testo(fd, "gemellaUrl"),
+      stato: testo(fd, "stato") ?? "attiva",
+      note: testo(fd, "note"),
+    },
+    update: {
+      nome: testo(fd, "nome"),
+      scopo: testo(fd, "scopo"),
+      stato: testo(fd, "stato") ?? "attiva",
+      note: testo(fd, "note"),
+    },
+  });
+  const { registra } = await import("./registro");
+  await registra({ autore: "utente", tipo: "creazione", entita: "landing", entitaId: landing.id, titolo: `Landing registrata: ${url}` });
+  revalidatePath("/landing");
+  redirect(`/landing/${landing.id}`);
+}
+
+export async function cambiaStatoLanding(fd: FormData) {
+  const id = testo(fd, "id");
+  const stato = testo(fd, "stato");
+  if (!id || !stato) return;
+  const landing = await prisma.landingPage.update({ where: { id }, data: { stato, verificataIl: new Date() } });
+  const { registra } = await import("./registro");
+  await registra({ autore: "utente", tipo: "stato", entita: "landing", entitaId: id, titolo: `Landing ${landing.url} → ${stato}` });
+  revalidatePath(`/landing/${id}`);
+  revalidatePath("/landing");
+}
+
+export async function aggiungiMetricaLanding(fd: FormData) {
+  const landingId = testo(fd, "landingId");
+  const periodo = testo(fd, "periodo");
+  if (!landingId || !periodo) return;
+  const canale = testo(fd, "canale");
+  const valori = {
+    clic: numeroDa(fd, "clic") != null ? Math.round(numeroDa(fd, "clic")!) : null,
+    costo: numeroDa(fd, "costo"),
+    sessioni: numeroDa(fd, "sessioni") != null ? Math.round(numeroDa(fd, "sessioni")!) : null,
+    conversioni: numeroDa(fd, "conversioni"),
+    ricavi: numeroDa(fd, "ricavi"),
+    tassoConversione: numeroDa(fd, "tassoConversione"),
+    note: testo(fd, "note"),
+  };
+  await prisma.metricaLanding.upsert({
+    where: { landingId_periodo_canale: { landingId, periodo, canale: canale ?? "totale" } },
+    create: { landingId, periodo, canale: canale ?? "totale", ...valori },
+    update: valori,
+  });
+  revalidatePath(`/landing/${landingId}`);
 }

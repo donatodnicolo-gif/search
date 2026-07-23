@@ -154,6 +154,27 @@ cd deluxy-partner && npm run sync:stato-analisi
 - **Serve**: `DATABASE_URL` nel `.env` di deluxy-partner, più `ANAGRAFICHE_URL` e `ANAGRAFICHE_WRITE_KEY` (in mancanza usa `ANAGRAFICHE_API_KEY`, che dal 20/07/2026 ha scrittura piena)
 - **Nota**: idempotente — chi ha già lo stato giusto viene saltato. Aggancia il partner al registro per `anagraficaId`, altrimenti per nome esatto (o per sola insegna se il risultato è univoco, eventualmente disambiguato dalla città) e salva il collegamento trovato. Gli ambigui non vengono toccati: si risolvono a mano in `/match` del registro.
 
+### import-monitoraggio.mjs — deluxy-marketing
+Importa il file «Monitoraggio 2026.xlsx» nell'app Marketing: vendite e budget ADV mensili per sito, settimane MKT 2025/2026 (totale e per brand, per il confronto anno su anno), copy RSA con keyword.
+
+```bash
+# dalla radice del repo
+cd deluxy-marketing && npm run import:monitoraggio -- "C:\Users\nicol\Downloads\Monitoraggio 2026.xlsx"
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: idempotente (upsert su chiavi naturali): rilanciarlo con una versione aggiornata del file aggiorna i numeri senza duplicare.
+
+### deposita-analisi.mjs — deluxy-marketing
+Deposita un'analisi nell'app scrivendo direttamente nel database (senza server acceso). Usato dall'attività programmata quotidiana di analisi del Drive.
+
+```bash
+# dalla radice del repo
+cd deluxy-marketing && node scripts/deposita-analisi.mjs '{"titolo":"…","sintesi":"…","brand":"cross"}'
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+
 ### sync-drive.mjs — deluxy-marketing
 Indicizza in **sola lettura** la cartella locale Google Drive «ADV DELUXY SRL» (Google Drive per Desktop) nell'app Marketing: brand e categoria dedotti dal percorso, rimozione dall'indice dei file spariti dal Drive.
 

@@ -13,7 +13,12 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default function NuovaAnalisi() {
+export default async function NuovaAnalisi({
+  searchParams,
+}: {
+  searchParams: Promise<{ brand?: string }>;
+}) {
+  const { brand } = await searchParams;
   return (
     <div className="layout">
       <Sidebar attiva="analisi" />
@@ -46,7 +51,7 @@ export default function NuovaAnalisi() {
             </div>
             <div className="campo-modulo">
               <label>Brand</label>
-              <select name="brand" defaultValue="cross">
+              <select name="brand" defaultValue={brand ?? "cross"}>
                 {BRANDS.map((b) => (
                   <option key={b} value={b}>{ETICHETTA_BRAND[b]}</option>
                 ))}

@@ -30,6 +30,7 @@ export default async function SchedaCampagna({ params }: { params: Promise<{ id:
     include: {
       metriche: { orderBy: { data: "desc" }, take: 60 },
       azioni: { orderBy: { creataIl: "desc" } },
+      landing: true,
     },
   });
   if (!campagna) notFound();
@@ -198,6 +199,18 @@ export default async function SchedaCampagna({ params }: { params: Promise<{ id:
                 <dl className="campo">
                   <dt>Id piattaforma</dt>
                   <dd>{campagna.idEsterno ?? "—"}</dd>
+                </dl>
+                <dl className="campo">
+                  <dt>Landing di destinazione</dt>
+                  <dd>
+                    {campagna.landing ? (
+                      <a href={`/landing/${campagna.landing.id}`} style={{ color: "var(--blue)", overflowWrap: "anywhere" }}>
+                        {campagna.landing.url}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
                 </dl>
                 {campagna.note && (
                   <dl className="campo">

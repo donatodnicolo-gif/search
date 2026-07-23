@@ -12,7 +12,9 @@
     "db:seed": "node prisma/seed.mjs",
     "db:reset": "prisma db push --force-reset && node prisma/seed.mjs",
     "chiave": "node scripts/chiave.mjs",
-    "sync-drive": "node scripts/sync-drive.mjs"
+    "sync-drive": "node scripts/sync-drive.mjs",
+    "import:monitoraggio": "node scripts/import-monitoraggio.mjs",
+    "db:seed-adv": "node prisma/seed-adv.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.mjs"
@@ -21,7 +23,8 @@
     "@prisma/client": "^6.5.0",
     "next": "^15.3.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

@@ -118,6 +118,9 @@ model Campagna {
   inizio      DateTime?
   fine        DateTime?
   note        String?
+  // landing principale a cui la campagna manda il traffico
+  landingId   String?
+  landing     LandingPage? @relation(fields: [landingId], references: [id], onDelete: SetNull)
   metriche    MetricaCampagna[]
   azioni      Azione[]
   creataIl    DateTime  @default(now())
@@ -178,4 +181,191 @@ model ApiKey {
   attiva    Boolean   @default(true)
   creataIl  DateTime  @default(now())
   ultimoUso DateTime?
+}
+
+// ============ Monitoraggio (import da "Monitoraggio 2026.xlsx") ============
+
+// Vendite e budget ADV mensili per sito (foglio "SALES GLOBAL 26 - REVISED").
+model VenditaMensile {
+  id         String @id @default(cuid())
+  anno       Int
+  mese       Int // 1-12
+  // gifts (deluxy.it) | cake (cakedesign.me) | flowers (deluxyflowers.com)
+  sito       String
+  vendite    Float?
+  b2b        Float?
+  eventi     Float?
+  totale     Float?
+  budgetAdv  Float?
+  quotaAnno  Float?
+  creataIl   DateTime @default(now())
+
+  @@unique([anno, mese, sito])
+}
+
+// Budget ADV mensile con ripartizione per canale/campagna (foglio "Budget adv").
+model BudgetMensile {
+  id              String @id @default(cuid())
+  anno            Int
+  mese            Int
+  sito            String
+  venditaPrevista Float?
+  ros             Float?
+  budgetMese      Float?
+  budgetGiorno    Float?
+  // JSON { voce: { quota, giorno } } — es. "Fiori Milano ita": { quota: 0.3, giorno: 16.4 }
+  ripartizione    String?
+  creataIl        DateTime @default(now())
+
+  @@unique([anno, mese, sito])
+}
+
+// Settimana di marketing (fogli 2026/2025 e Deluxy/Flowers/CakeDM):
+// il cuore del confronto anno su anno.
+model SettimanaMkt {
+  id           String   @id @default(cuid())
+  anno         Int
+  inizio       DateTime // primo giorno della settimana
+  // totale | gifts | flowers | cake
+  scope        String
+  google       Float?
+  meta         Float?
+  totaleMkt    Float?
+  vendite      Float?
+  margine      Float?
+  risultato    Float?
+  ordini       Int?
+  mediaOrdine  Float?
+  costoConv    Float?
+  nuoviClienti Int?
+  // riga AZIONI del foglio: cosa è successo quella settimana
+  note         String?
+  creataIl     DateTime @default(now())
+
+  @@unique([anno, inizio, scope])
+  @@index([scope])
+}
+
+// ============ Copy & annunci ============
+
+// Un asset di copy: titolo/descrizione RSA, primary text Meta, keyword…
+model CopyAnnuncio {
+  id        String  @id @default(cuid())
+  brand     String
+  canale    String  @default("google_ads")
+  campagna  String
+  gruppo    String?
+  lingua    String? // it | en | fr | es
+  // titolo | descrizione | primary_text | headline_meta | keyword | sitelink | nota | altro
+  tipo      String
+  posizione Int?
+  testo     String
+  caratteri Int?
+  finalUrl  String?
+  // attivo | bozza | in_pausa | da_riscrivere | archiviato
+  stato     String  @default("attivo")
+  // per le keyword: resa e spesa (dal monitoraggio)
+  incasso   Float?
+  spesa     Float?
+  note      String?
+  creataIl  DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
+
+  @@index([brand, campagna])
+}
+
+// ============ Test Meta (backlog pianificabile in anticipo) ============
+
+model TestMeta {
+  id               String    @id @default(cuid())
+  titolo           String
+  brand            String    @default("cross") // flowers | cake | gifts | cross
+  // A | I | D | X | retention | trasversale (fase AIDA)
+  fase             String?
+  ipotesi          String
+  variabile        String? // hook, seed pubblico, struttura ad set, finestra, formato…
+  pubblico         String?
+  formato          String?
+  metricaSuccesso  String? // costo LPV, costo ATC, ROAS vs break-even…
+  guardrail        String?
+  budgetGiornaliero Float?
+  dataInizio       DateTime?
+  dataVerifica     DateTime?
+  // idea | pianificato | in_corso | concluso | promosso | respinto
+  stato            String    @default("idea")
+  esito            String?
+  lezione          String?
+  fonte            String? // documento di provenienza (es. 8.3)
+  note             String?
+  creataIl         DateTime  @default(now())
+  aggiornataIl     DateTime  @updatedAt
+
+  @@index([stato])
+  @@index([brand])
+}
+
+// ============ Landing page ============
+
+// Registro delle landing: configurazione (la 00.4 del Drive resta il canonico;
+// qui lo schema navigabile con campagne associate e performance).
+model LandingPage {
+  id           String   @id @default(cuid())
+  url          String   @unique // path completo, es. deluxyflowers.com/pages/…
+  nome         String?
+  brand        String   @default("cross")
+  lingua       String? // it | en | fr | es
+  // dedicata | collection | pdp | home | lead
+  tipo         String?
+  scopo        String?
+  gemellaUrl   String? // versione IT<->EN
+  // attiva | mismatch | da_verificare | dismessa
+  stato        String   @default("attiva")
+  verificataIl DateTime?
+  scorecard    Int? // voto /100 (guida 9.2)
+  note         String?
+  campagne     Campagna[]
+  metriche     MetricaLanding[]
+  creataIl     DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
+
+  @@index([brand])
+}
+
+// Performance di una landing in un periodo (es. "2026-07" o "2026-W29").
+model MetricaLanding {
+  id               String      @id @default(cuid())
+  landingId        String
+  landing          LandingPage @relation(fields: [landingId], references: [id], onDelete: Cascade)
+  periodo          String
+  canale           String? // google_ads | meta_ads | organico | totale
+  clic             Int?
+  costo            Float?
+  sessioni         Int?
+  conversioni      Float?
+  ricavi           Float?
+  tassoConversione Float?
+  note             String?
+  creataIl         DateTime @default(now())
+
+  @@unique([landingId, periodo, canale])
+}
+
+// ============ Storico (registro globale delle modifiche) ============
+
+// Ogni scrittura nell'app lascia una voce qui: il gemello digitale
+// dello "00.2 Registro Modifiche" del Drive.
+model RegistroEvento {
+  id       String   @id @default(cuid())
+  creatoIl DateTime @default(now())
+  autore   String   @default("utente") // utente | chiave API | sistema | import
+  // creazione | modifica | stato | feedback | import | sync
+  tipo     String
+  // analisi | azione | campagna | metrica | landing | copy | test_meta | drive | vendite | budget | settimana
+  entita   String
+  entitaId String?
+  titolo   String
+  dettaglio String?
+
+  @@index([creatoIl])
+  @@index([entita])
 }

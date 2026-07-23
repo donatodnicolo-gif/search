@@ -207,3 +207,88 @@ export function roas(ricavi: number | null | undefined, spesa: number | null | u
   if (ricavi == null || spesa == null || spesa <= 0) return null;
   return ricavi / spesa;
 }
+
+// ---------- Monitoraggio / nuove sezioni ----------
+
+export const SITI = ["gifts", "cake", "flowers"] as const;
+export const ETICHETTA_SITO: Record<string, string> = {
+  gifts: "Deluxy.it",
+  cake: "Cakedesign.me",
+  flowers: "Deluxyflowers.com",
+};
+
+export const SCOPE_MKT = ["totale", "gifts", "flowers", "cake"] as const;
+export const ETICHETTA_SCOPE: Record<string, string> = {
+  totale: "Deluxy (totale)",
+  gifts: "Deluxy.it (Gifts)",
+  flowers: "Flowers",
+  cake: "Cake",
+};
+
+export const MESI_IT = [
+  "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+  "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+];
+
+export const STATI_TEST_META = ["idea", "pianificato", "in_corso", "concluso", "promosso", "respinto"] as const;
+export const ETICHETTA_STATO_TEST: Record<string, string> = {
+  idea: "Idea",
+  pianificato: "Pianificato",
+  in_corso: "In corso",
+  concluso: "Concluso",
+  promosso: "Promosso",
+  respinto: "Respinto",
+};
+export const COLORE_STATO_TEST: Record<string, string> = {
+  idea: "var(--text-tertiary)",
+  pianificato: "var(--blue)",
+  in_corso: "var(--gold-strong)",
+  concluso: "var(--text-secondary)",
+  promosso: "var(--green)",
+  respinto: "var(--red)",
+};
+
+export const STATI_LANDING = ["attiva", "mismatch", "da_verificare", "dismessa"] as const;
+export const ETICHETTA_STATO_LANDING: Record<string, string> = {
+  attiva: "Attiva",
+  mismatch: "Mismatch",
+  da_verificare: "Da verificare",
+  dismessa: "Dismessa",
+};
+export const COLORE_STATO_LANDING: Record<string, string> = {
+  attiva: "var(--green)",
+  mismatch: "var(--orange)",
+  da_verificare: "var(--blue)",
+  dismessa: "var(--text-tertiary)",
+};
+
+export const ETICHETTA_TIPO_COPY: Record<string, string> = {
+  titolo: "Titolo RSA",
+  descrizione: "Descrizione RSA",
+  primary_text: "Primary text Meta",
+  headline_meta: "Headline Meta",
+  keyword: "Keyword",
+  sitelink: "Sitelink",
+  nota: "Nota",
+  altro: "Altro",
+};
+
+export const ETICHETTA_ENTITA_REGISTRO: Record<string, string> = {
+  analisi: "Analisi",
+  azione: "Azione",
+  campagna: "Campagna",
+  metrica: "Metrica",
+  landing: "Landing",
+  copy: "Copy",
+  test_meta: "Test Meta",
+  drive: "Drive",
+  vendite: "Vendite",
+  budget: "Budget",
+  settimana: "Settimana MKT",
+};
+
+export function formattaPercento(n: number | null | undefined): string {
+  if (n == null || !isFinite(n)) return "—";
+  const segno = n > 0 ? "+" : "";
+  return `${segno}${(n * 100).toFixed(0)}%`;
+}

@@ -35,6 +35,13 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M11 19h9" />
     </>
   ),
+  // Spunta in uno scudo: audit
+  audit: (
+    <>
+      <path d="M12 3.5 5 6v5.5c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z" />
+      <path d="m9 11.8 2.1 2.1L15.3 9.6" />
+    </>
+  ),
   // Megafono: campagne
   campagne: (
     <>
@@ -53,6 +60,49 @@ const PATHS: Record<string, React.ReactNode> = {
   metriche: (
     <>
       <path d="M4 19V5M20 19V9M12 19V3M4 19h16" />
+    </>
+  ),
+  // Etichetta prezzo: vendite
+  vendite: (
+    <>
+      <path d="M12.5 3.5H20v7.5l-8.5 8.5L3 11z" />
+      <circle cx="16" cy="7.5" r="1.3" />
+    </>
+  ),
+  // Salvadanaio semplificato: budget
+  budget: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 8v8M14.8 9.5c-.5-1-1.6-1.5-2.8-1.5-1.5 0-2.7.9-2.7 2s1 1.7 2.7 2c1.7.3 2.7 1 2.7 2s-1.2 2-2.7 2c-1.2 0-2.3-.5-2.8-1.5" />
+    </>
+  ),
+  // Cursore su pagina: landing
+  landing: (
+    <>
+      <rect x="3.5" y="4" width="17" height="12.5" rx="2" />
+      <path d="m12.5 10.5 6.5 2.6-2.9 1 -1 2.9z" />
+    </>
+  ),
+  // Penna: copy & annunci
+  copy: (
+    <>
+      <path d="m14.5 5 4.5 4.5L8.5 20H4v-4.5z" />
+      <path d="m12.5 7 4.5 4.5" />
+    </>
+  ),
+  // Provetta: test Meta
+  meta: (
+    <>
+      <path d="M9.5 3.5h5M10.5 3.5v6L5.6 18a2.4 2.4 0 0 0 2.1 3.5h8.6a2.4 2.4 0 0 0 2.1-3.5l-4.9-8.5v-6" />
+      <path d="M8 15h8" />
+    </>
+  ),
+  // Orologio all'indietro: storico
+  storico: (
+    <>
+      <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 8.9" />
+      <path d="M4.5 4.5v4.4h4.4" />
+      <path d="M12 8.5V12l2.8 1.8" />
     </>
   ),
 };
