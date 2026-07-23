@@ -3,7 +3,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, coloreStato, labelStato, radius, shadow, spacing } from '@/lib/theme';
+import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { aggiornaNascosto } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
@@ -12,6 +12,7 @@ import { isAdmin } from '@/lib/admin';
 import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { coloreLivello, LABEL_LIVELLO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
 
 const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
 
@@ -22,6 +23,8 @@ export default function Lista() {
   const { places, loading, opzioni, ricarica } = usePlaces();
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
   const [query, setQuery] = useState('');
+  // Il livello commerciale (lib/livelli.ts): prospect → lead → cliente.
+  const [livello, setLivello] = useState<Livello | null>(null);
 
   async function nascondi(place: Place) {
     try {
@@ -41,6 +44,7 @@ export default function Lista() {
       // terminale — restano nel database e sulla Mappa, ma qui non entrano:
       // erano migliaia e rendevano la lista inutilizzabile.
       .filter((p) => Boolean(p.creato_da))
+      .filter((p) => (livello ? livelloDi(p) === livello : true))
       .filter((p) => {
       if (!q) return true;
       return (
@@ -52,11 +56,33 @@ export default function Lista() {
       );
     });
     return [...f].sort((a, b) => RANK[a.priorita] - RANK[b.priorita] || a.nome.localeCompare(b.nome));
-  }, [places, filtri, query]);
+  }, [places, filtri, query, livello]);
+
+  // Quanti ce ne sono per livello (i numeri sui chip: dicono dove sta il lavoro).
+  const perLivello = useMemo(() => {
+    const c: Record<string, number> = { prospect: 0, lead: 0, cliente: 0, dormiente: 0, perso: 0 };
+    for (const p of places) {
+      if (p.nascosto || !p.creato_da) continue;
+      c[livelloDi(p)] += 1;
+    }
+    return c;
+  }, [places]);
 
   return (
     <View style={styles.container}>
-      <PageIntro testo="I negozi obiettivo da visitare, in ordine di priorità: qui entrano solo quelli aggiunti da una persona, dalla Mappa o col bottone +. Tocca un negozio per aprire la sua scheda; l'occhio barrato lo nasconde se non è interessante." />
+      <PageIntro testo="I negozi che qualcuno ha scelto di lavorare. PROSPECT: interessante, ancora da contattare. LEAD: contatto avviato. CLIENTE: ha chiuso una trattativa." />
+      <View style={styles.livelli}>
+        <ChipLivello label="Tutti" on={!livello} onPress={() => setLivello(null)} />
+        {LIVELLI.map((l) => (
+          <ChipLivello
+            key={l}
+            label={`${LABEL_LIVELLO[l]}${perLivello[l] ? ` (${perLivello[l]})` : ''}`}
+            on={livello === l}
+            colore={coloreLivello(l)}
+            onPress={() => setLivello((c) => (c === l ? null : l))}
+          />
+        ))}
+      </View>
       <View style={styles.filterBar}>
         <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} admin={admin} />
         <TextInput
@@ -78,8 +104,8 @@ export default function Lista() {
           <EmptyState
             loading={loading}
             icona="flag-outline"
-            titolo="Nessun target aggiunto"
-            aiuto="In Target entrano solo i negozi che aggiungi tu: scoprili dalla Mappa e mettili in lista, oppure creane uno col bottone +. Se pensavi di trovarne, prova ad azzerare filtri e ricerca."
+            titolo="Nessun negozio in lista"
+            aiuto="Qui entrano solo i negozi che scegli tu: mettili in lista dalla Mappa con la ⭐ (diventano PROSPECT), oppure creane uno col bottone +. Se pensavi di trovarne, prova ad azzerare filtri e ricerca."
             azione="Vai alla Mappa"
             onAzione={() => router.push('/(app)/mappa')}
           />
@@ -92,6 +118,17 @@ export default function Lista() {
         <Ionicons name="add" size={30} color={colors.bianco} />
       </Pressable>
     </View>
+  );
+}
+
+function ChipLivello({ label, on, colore, onPress }: { label: string; on: boolean; colore?: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.chipLiv, on && styles.chipLivOn, on && colore ? { backgroundColor: colore, borderColor: colore } : null]}
+    >
+      <Text style={[styles.chipLivTxt, on && styles.chipLivTxtOn]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -120,7 +157,7 @@ function Riga({ place, onPress, onNascondi }: { place: Place; onPress: () => voi
         <Text style={styles.nome} numberOfLines={1}>
           {place.nome}
         </Text>
-        <StatusBadge small label={labelStato[place.stato]} colore={coloreStato[place.stato]} />
+        <StatusBadge small label={LABEL_LIVELLO[livelloDi(place)]} colore={coloreLivello(livelloDi(place))} />
         <Pressable
           style={styles.nascondi}
           hitSlop={8}
@@ -156,6 +193,11 @@ function Riga({ place, onPress, onNascondi }: { place: Place; onPress: () => voi
 }
 
 const styles = StyleSheet.create({
+  livelli: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  chipLiv: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  chipLivOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  chipLivTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
+  chipLivTxtOn: { color: colors.bianco },
   container: { flex: 1, backgroundColor: colors.sfondo },
   filterBar: { backgroundColor: colors.sfondo, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro },
   search: {

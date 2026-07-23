@@ -39,10 +39,11 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     ],
   },
   {
-    // I contatti su cui lavorare: i lead scelti (ex Target) e i clienti acquisiti.
+    // I livelli del rapporto (lib/livelli.ts): prospect (scelto, da contattare)
+    // → lead (contatto avviato) → cliente (ha chiuso una trattativa).
     titolo: 'Contatti',
     voci: [
-      { name: 'lista', label: 'Lead', icon: 'flag-outline' },
+      { name: 'lista', label: 'Prospect e Lead', icon: 'flag-outline' },
       { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
     ],
   },
@@ -274,7 +275,7 @@ export default function AppLayout() {
         <Drawer.Screen name="calendario" options={{ title: 'Calendario' }} />
         <Drawer.Screen name="da-completare" options={{ title: 'Da fare' }} />
         <Drawer.Screen name="mappa" options={{ title: 'Mappa' }} />
-        <Drawer.Screen name="lista" options={{ title: 'Lead' }} />
+        <Drawer.Screen name="lista" options={{ title: 'Prospect e Lead' }} />
         <Drawer.Screen name="rubrica" options={{ title: 'Rubrica' }} />
         <Drawer.Screen name="script" options={{ title: 'Script' }} />
         <Drawer.Screen name="trattative" options={{ title: 'Trattative' }} />

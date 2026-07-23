@@ -20,6 +20,28 @@ trattativa → ordine** (vinta) oppure **persa, con memoria**. La trattativa reg
 suo `canale`: così la Dashboard può dire *quale attività produce fatturato*, che è la
 domanda a cui un direttore commerciale deve saper rispondere.
 
+## I livelli del rapporto
+
+Una sola scala, valida ovunque in app (`lib/livelli.ts`), **derivata** dai dati:
+non è un campo in più da aggiornare a mano.
+
+| Livello | Chi è | Come ci si arriva |
+|---|---|---|
+| **Prospect** | potenzialmente interessante, non ancora contattato | ⭐ dalla Mappa o bottone + |
+| **Lead** | il contatto è avviato | visita registrata, chiamata, richiesta web presa in carico, trattativa aperta |
+| **Cliente** | ha chiuso una trattativa | trattativa vinta → ordine |
+| **Dormiente** | ha lavorato con noi, poi si è fermato | stato `dismesso` nel registro Anagrafiche |
+| **Perso** | chiuso senza esito o non in target | esito visita, stato registro |
+
+I **dormienti** non sono persi: ci conoscono già, hanno comprato, e riattivarli
+costa molto meno che conquistare un nome nuovo. È la lista più redditizia che
+un'azienda abbia, e va guardata con la stessa disciplina della pipeline.
+
+Sopra ai livelli stanno le **trattative**: sono le conversazioni in corso su un
+lead, con valore e scadenza. Il livello dice *a che punto è il rapporto*, la
+trattativa *cosa ci stiamo giocando*. Tenerli distinti evita l'illusione di una
+pipeline piena che in realtà è solo una lista di nomi.
+
 ## La regola d'oro sulle perse
 
 Una trattativa persa non è spazzatura: è **pipeline differita**. Al momento della
