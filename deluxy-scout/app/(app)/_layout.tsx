@@ -297,6 +297,7 @@ export default function AppLayout() {
         <Drawer.Screen name="modifica/[id]" options={dettaglio('Modifica attività')} />
         <Drawer.Screen name="visita-dettaglio/[id]" options={dettaglio('Dettaglio visita')} />
         <Drawer.Screen name="nascosti" options={dettaglio('Nascosti')} />
+        <Drawer.Screen name="impostazioni" options={dettaglio('Impostazioni')} />
         <Drawer.Screen name="email-config" options={dettaglio('Email')} />
         <Drawer.Screen name="linee-interesse" options={dettaglio('Linee di interesse')} />
         <Drawer.Screen name="venditore/[ownerId]" options={dettaglio('Venditore')} />

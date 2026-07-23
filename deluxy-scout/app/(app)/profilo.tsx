@@ -188,6 +188,16 @@ export default function Profilo() {
         </Pressable>
       ) : null}
 
+      <Pressable style={styles.card} onPress={() => router.push('/(app)/impostazioni')}>
+        <Text style={styles.cardLabel}>IMPOSTAZIONI</Text>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>
+            <Ionicons name="settings-outline" size={15} color={colors.navy} /> Casella delle Richieste Web e altre regolazioni
+          </Text>
+          <Text style={styles.freccia}>›</Text>
+        </View>
+      </Pressable>
+
       <Pressable style={styles.card} onPress={() => router.push('/(app)/email-config')}>
         <Text style={styles.cardLabel}>EMAIL</Text>
         <View style={styles.row}>

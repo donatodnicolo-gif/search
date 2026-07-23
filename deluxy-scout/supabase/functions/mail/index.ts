@@ -48,7 +48,15 @@ Deno.serve(async (req) => {
 
     // ── Richieste Web: la posta della casella commerciale diventa lead ────────
     if (body.azione === 'richieste') {
-      const casella = Deno.env.get('MAIL_CASELLA_RICHIESTE') ?? 'commerciale@deluxy.it';
+      // La casella la decide l'app (Profilo → Impostazioni, tabella
+      // `impostazioni`); il secret resta come ripiego per i primi avvii.
+      const { data: imp } = await admin
+        .from('impostazioni')
+        .select('valore')
+        .eq('chiave', 'mail.casella_richieste')
+        .maybeSingle();
+      const casella =
+        (imp?.valore ?? '').trim() || Deno.env.get('MAIL_CASELLA_RICHIESTE') || 'commerciale@deluxy.it';
       const limite = Math.min(Math.max(Number(body.limite ?? 50) || 50, 1), 100);
       const p = new URLSearchParams({ casella: '1', limite: String(limite) });
       if (body.da) p.set('da', String(body.da));
@@ -62,7 +70,7 @@ Deno.serve(async (req) => {
         // più probabile, e dal messaggio grezzo non si capirebbe cosa fare.
         const errore =
           res.status === 404
-            ? `In AI Mail non c'è una casella attiva «${casella}». Creala fra gli utenti di AI Mail (o cambia il secret MAIL_CASELLA_RICHIESTE), poi riprova.`
+            ? `In AI Mail non c'è una casella attiva «${casella}». Creala fra gli utenti di AI Mail, oppure indica un'altra casella in Profilo → Impostazioni.`
             : (dati?.errore ?? `AI Mail ha risposto ${res.status} per la casella ${casella}.`);
         return json({ ok: false, errore, casella }, res.status === 404 ? 404 : 502);
       }

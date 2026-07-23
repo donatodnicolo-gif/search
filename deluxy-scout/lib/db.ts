@@ -1510,3 +1510,24 @@ function mimeDaUri(uri: string): string {
   if (ext === 'heic') return 'image/heic';
   return 'image/jpeg';
 }
+
+// ── Impostazioni dell'app (migr. 0043) ────────────────────────────────────────
+// Coppie chiave/valore modificabili da Profilo → Impostazioni. Solo l'admin
+// scrive (RLS). Qui NON vanno segreti: quelli restano nei secret delle Edge.
+
+export const CHIAVE_CASELLA_RICHIESTE = 'mail.casella_richieste';
+
+export async function leggiImpostazione(chiave: string): Promise<string | null> {
+  const { data, error } = await supabase.from('impostazioni').select('valore').eq('chiave', chiave).maybeSingle();
+  if (error) return null;
+  return data?.valore ?? null;
+}
+
+export async function salvaImpostazione(chiave: string, valore: string): Promise<void> {
+  const { data: u } = await supabase.auth.getUser();
+  const { error } = await supabase.from('impostazioni').upsert(
+    { chiave, valore: valore.trim(), aggiornato_il: new Date().toISOString(), aggiornato_da: u.user?.id ?? null },
+    { onConflict: 'chiave' },
+  );
+  if (error) throw error;
+}
