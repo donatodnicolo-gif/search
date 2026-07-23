@@ -589,6 +589,10 @@ export async function salvaNoteMese(
     update: { note, noteAggiornateIl },
   });
   revalidateAll();
+  // Torna sul mese con una conferma esplicita: salvando un testo identico a
+  // prima non cambiava niente a schermo e sembrava che il bottone non facesse
+  // nulla. Ora si vede sempre l'esito (salvata / rimossa).
+  redirect(`/partner/${partnerId}?nota=${note?.trim() ? "ok" : "vuota"}&mese=${mese}#mese-${mese}`);
 }
 
 // Annulla i pagamenti registrati per un mese (torna a "da saldare")

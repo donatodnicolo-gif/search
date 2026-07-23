@@ -29,7 +29,7 @@ export default async function PartnerDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ amm?: string; fic?: string; ficreg?: string; mail?: string }>;
+  searchParams: Promise<{ amm?: string; fic?: string; ficreg?: string; mail?: string; nota?: string; mese?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -352,6 +352,12 @@ export default async function PartnerDetail({
               {saldo?.note?.trim() && (
                 <span className="badge gold" title={`Nota del mese: ${saldo.note.trim()}`}>
                   ★ Nota
+                </span>
+              )}
+              {sp.nota && sp.mese === String(mese) && (
+                <span className="badge green">
+                  <span className="dot" />
+                  {sp.nota === "ok" ? "Nota salvata" : "Nota rimossa"}
                 </span>
               )}
               {r.pareggiato && <span className="badge green"><span className="dot" />Pareggiato</span>}
