@@ -5,6 +5,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
+import { registra } from "./registro";
 
 function s(fd: FormData, k: string): string | null {
   const v = fd.get(k);
@@ -77,6 +78,11 @@ export async function createProForma(fd: FormData) {
       note: s(fd, "note"),
       righe: { create: righe },
     },
+    include: { partner: { select: { nome: true } } },
+  });
+  await registra({
+    azione: `Creata pro-forma PF ${numero}/${anno}`,
+    categoria: "proforma", entita: "proforma", entitaId: p.id, partner: p.partner.nome,
   });
   revalidateProforma(p.id);
   redirect(`/proforma/${p.id}`);
@@ -116,7 +122,7 @@ export async function cambiaStatoProForma(id: string, stato: string, fd?: FormDa
     throw new Error("Stato non valido");
   }
   const ora = new Date();
-  await prisma.proForma.update({
+  const pf = await prisma.proForma.update({
     where: { id },
     data:
       stato === "fatturata"
@@ -126,6 +132,11 @@ export async function cambiaStatoProForma(id: string, stato: string, fd?: FormDa
           : stato === "inviata"
             ? { stato, inviataIl: ora, annullataIl: null, fatturataIl: null, fatturaNumero: null }
             : { stato, annullataIl: null, fatturataIl: null, fatturaNumero: null },
+    include: { partner: { select: { nome: true } } },
+  });
+  await registra({
+    azione: `Pro-forma PF ${pf.numero}/${pf.anno} → ${stato}`,
+    categoria: "proforma", entita: "proforma", entitaId: id, partner: pf.partner.nome,
   });
   revalidateProforma(id);
   redirect(`/proforma/${id}`);

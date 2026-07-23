@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
+import { registra } from "./registro";
 
 function s(fd: FormData, k: string): string | null {
   const v = fd.get(k);
@@ -34,6 +35,7 @@ export async function creaTask(fd: FormData) {
       riferimento: s(fd, "riferimento"),
     },
   });
+  await registra({ azione: `Creato task «${titolo}»`, categoria: "tasks", partner: partner?.nome ?? null });
   revalidatePath("/tasks", "layout");
   revalidatePath("/", "layout");
   redirect("/tasks?creato=1");
@@ -41,10 +43,11 @@ export async function creaTask(fd: FormData) {
 
 // Cambia lo stato (aperto → in_corso → fatto e ritorni).
 export async function cambiaStatoTask(id: string, stato: string) {
-  await prisma.taskFinance.update({
+  const t = await prisma.taskFinance.update({
     where: { id },
     data: { stato, completatoIl: stato === "fatto" ? new Date() : null },
   });
+  await registra({ azione: `Task «${t.titolo}» → ${stato}`, categoria: "tasks", partner: t.partnerNome });
   revalidatePath("/tasks", "layout");
   revalidatePath("/", "layout");
 }

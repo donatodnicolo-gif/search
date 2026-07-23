@@ -153,6 +153,14 @@ Dove si vede: colonna **Credito** + **Scaduto** e filtro «Credito» in `/partne
 
 **API interne (NON per altri progetti, protette da login):** `/api/recap` (recap AI), `/api/sepa` (export bonifici pain.001 + CSV), `/api/fic/authorize`+`/api/fic/callback` (OAuth Fatture in Cloud).
 
+### Registro modifiche / audit log (23/07/2026)
+
+`/impostazioni/logs` elenca **chi ha cambiato cosa e quando**, con ricerca a testo libero (azione/partner/operatore/dettaglio) e filtri per **area** e **operatore**, paginato. Modello `RegistroModifica`; le voci si scrivono da `registra()` in `src/lib/registro.ts` — un helper che **non fa mai fallire l'azione** se il log va storto.
+
+**Chi**: l'app entra con password di team, quindi di suo conosce solo il ruolo. Il **nome della persona** arriva dal Single Sign-On del Hub (il token porta `nome`, prima scartato): `/api/sso` ora lo salva nel cookie non-httpOnly `dp_utente`, che `attoreCorrente()` rilegge. Login a password → il cookie viene cancellato e l'azione risulta come «Accesso a password» / «Accesso sola lettura»; in locale senza password → «Sistema».
+
+**Cosa è tracciato**: le mutazioni di valore in `actions.ts` (partner crea/modifica, fatture crea/modifica/elimina/saldata/compensata, vendite crea/modifica/elimina, fee, note e pagamenti del mese), `transazioni-actions` (riconciliazioni), `proforma-actions` (crea + cambio stato), `pagamenti-actions` (predisposto + eseguito), `tasks-actions` (crea + stato), regole degli stati e i salvataggi principali di Impostazioni. Per aggiungerne altre: importare `registra({azione, categoria, entita?, entitaId?, partner?, dettaglio?})` e chiamarla prima del `redirect`. **Non ancora tracciate**: alcune azioni minori (ignora/ripristina transazione, elimina task/pro-forma, Shopify, riconciliazione anagrafiche).
+
 ## 8. Integrazioni (stato)
 
 - **Qonto** ✅ collegato (org DELUXY S.R.L., 2 conti). API terze parti a chiave (`qonto.*` nel DB). "Sincronizza da Qonto" in `/transazioni` scarica i movimenti completati (dedup per hash). **Sincronizzazione automatica**: cron Vercel `/api/cron/qonto` ogni notte alle 5 (`vercel.json`), protetto da `CRON_SECRET` (senza segreto → 503). Scarica soltanto: **nessuna registrazione automatica**, i match restano da confermare in `/transazioni`; data/ora dell'ultimo scarico in `qonto.ultimaSync`, mostrata in pagina. `src/lib/qonto.ts`, `src/lib/transazioni-actions.ts` (`scaricaMovimentiQonto`).

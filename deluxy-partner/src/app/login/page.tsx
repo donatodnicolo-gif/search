@@ -20,6 +20,9 @@ async function login(fd: FormData) {
     maxAge: 60 * 60 * 24 * 30, // 30 giorni
     path: "/",
   });
+  // Login a password: non c'è un nome persona. Rimuovi un eventuale nome SSO
+  // rimasto, così il registro modifiche non attribuisce le azioni a chi non è.
+  jar.delete("dp_utente");
   redirect("/");
 }
 

@@ -9,6 +9,7 @@ import { qontoOrganizzazione, qontoConfigurato } from "@/lib/qonto";
 import { salvaNegozioShopify, rimuoviNegozioShopify } from "@/lib/ordini-actions";
 import { PrecompilaNegozi } from "@/components/PrecompilaNegozi";
 import { dataIt } from "@/lib/format";
+import { registra } from "@/lib/registro";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ async function salva(fd: FormData) {
   await salvaImpostazione(CHIAVI.ordinanteNome, nome);
   await salvaImpostazione(CHIAVI.ordinanteIban, iban);
   await salvaImpostazione(CHIAVI.ordinanteBic, bic);
+  await registra({ azione: "Modificato l'ordinante dei bonifici SEPA", categoria: "impostazioni" });
   revalidatePath("/impostazioni");
   redirect("/impostazioni?salvato=1");
 }
@@ -34,6 +36,7 @@ async function salvaAzienda(fd: FormData) {
   await salvaImpostazione(CHIAVI.aziendaIndirizzo, String(fd.get("aziendaIndirizzo") ?? ""));
   await salvaImpostazione(CHIAVI.aziendaPiva, String(fd.get("aziendaPiva") ?? ""));
   await salvaImpostazione(CHIAVI.aziendaContatti, String(fd.get("aziendaContatti") ?? ""));
+  await registra({ azione: "Modificata l'intestazione dei documenti (pro-forma)", categoria: "impostazioni" });
   revalidatePath("/impostazioni");
   redirect("/impostazioni?salvato=1");
 }
@@ -51,6 +54,7 @@ async function salvaSmtp(fd: FormData) {
   await salvaImpostazione(CHIAVI.smtpFrom, from);
   if (pass.trim() !== "") await salvaImpostazione(CHIAVI.smtpPass, pass);
   if (fd.get("smtpPassCancella") === "on") await salvaImpostazione(CHIAVI.smtpPass, "");
+  await registra({ azione: "Modificata la configurazione SMTP (email solleciti)", categoria: "impostazioni" });
   revalidatePath("/impostazioni");
   redirect("/impostazioni?salvato=smtp");
 }
@@ -121,7 +125,8 @@ export default async function ImpostazioniPage({
             Dati dell&apos;ordinante per le distinte SEPA, regole degli stati cliente e gestione dell&apos;accesso.
           </p>
         </div>
-        <div className="page-actions">
+        <div className="page-actions" style={{ display: "flex", gap: 8 }}>
+          <Link href="/impostazioni/logs" className="btn secondary">Registro modifiche →</Link>
           <Link href="/impostazioni/stati" className="btn secondary">Regole degli stati →</Link>
         </div>
       </div>

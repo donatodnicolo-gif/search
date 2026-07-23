@@ -55,6 +55,28 @@ model Partner {
   updatedAt              DateTime @updatedAt
 }
 
+// Registro delle modifiche (audit log): ogni cambiamento fatto nell'app da un
+// operatore. `utente` è il nome di chi ha fatto l'azione (dal SSO del Hub, o
+// l'etichetta del profilo per l'accesso a password); `azione` è una frase
+// leggibile, `entita`/`entitaId` collegano alla cosa toccata per la ricerca.
+model RegistroModifica {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  utente    String // nome operatore o etichetta del profilo
+  utenteId  String? // uid del Hub, se disponibile
+  ruolo     String? // admin | sola_lettura
+  azione    String // frase leggibile: "Fattura 474/2026 segnata saldata"
+  categoria String // area: partner | fatture | vendite | pagamenti | impostazioni | …
+  entita    String? // tipo dell'oggetto: partner | fattura | vendita | …
+  entitaId  String? // id dell'oggetto toccato (per filtrare la sua storia)
+  partner   String? // nome del partner coinvolto, se pertinente (per la ricerca)
+  dettaglio String? // testo libero con i particolari (importi, prima/dopo…)
+
+  @@index([createdAt])
+  @@index([categoria, createdAt])
+  @@index([entita, entitaId])
+}
+
 // Movimento dell'estratto conto importato da CSV/XLSX.
 // hash = impronta di (data, importo, descrizione) per non duplicare
 // ricaricando lo stesso estratto o periodi sovrapposti.

@@ -10,6 +10,7 @@ import {
 import { schedeTutti, GRAVITA, type StatoCredito } from "@/lib/stato-credito";
 import { analisiTutti } from "@/lib/stato-analisi";
 import { prisma } from "@/lib/db";
+import { registra } from "@/lib/registro";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export const dynamic = "force-dynamic";
 async function salvaCredito(fd: FormData) {
   "use server";
   for (const { campo } of CAMPI_CREDITO) await salvaRegola("credito", campo, String(fd.get(campo) ?? ""));
+  await registra({ azione: "Modificate le regole dello stato finanziario (credito)", categoria: "impostazioni" });
   revalidateTutto();
   redirect("/impostazioni/stati?salvato=credito");
 }
@@ -28,6 +30,7 @@ async function salvaCredito(fd: FormData) {
 async function salvaAnalisi(fd: FormData) {
   "use server";
   for (const { campo } of CAMPI_ANALISI) await salvaRegola("analisi", campo, String(fd.get(campo) ?? ""));
+  await registra({ azione: "Modificate le regole dello stato analisi (P.P./Nuovo/Dismesso)", categoria: "impostazioni" });
   revalidateTutto();
   redirect("/impostazioni/stati?salvato=analisi");
 }
@@ -35,6 +38,7 @@ async function salvaAnalisi(fd: FormData) {
 async function ripristina(gruppo: "credito" | "analisi") {
   "use server";
   await ripristinaRegole(gruppo);
+  await registra({ azione: `Ripristinate ai default le regole dello stato ${gruppo === "credito" ? "finanziario" : "analisi"}`, categoria: "impostazioni" });
   revalidateTutto();
   redirect(`/impostazioni/stati?ripristinato=${gruppo}`);
 }

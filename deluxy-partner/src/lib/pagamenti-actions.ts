@@ -7,6 +7,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { ibanValido } from "./impostazioni";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
+import { registra } from "./registro";
+import { euro } from "./format";
 
 function s(fd: FormData, k: string): string | null {
   const v = fd.get(k);
@@ -46,6 +48,10 @@ export async function creaPagamentoDiretto(fd: FormData) {
       note: s(fd, "note"),
       ibanValido: ibanValido(iban),
     },
+  });
+  await registra({
+    azione: `Predisposto pagamento diretto a ${beneficiario} (${euro(importo)})`,
+    categoria: "pagamenti", entita: "pagamento_diretto", entitaId: p.id,
   });
   revalida(p.id);
   redirect(`/pagamenti/${p.id}?creato=1`);
@@ -95,6 +101,10 @@ export async function segnaPagamentoEseguito(id: string, fd?: FormData) {
     origineId: p.id,
     controparte: p.beneficiario,
     descrizione: `Pagamento diretto a ${p.beneficiario}${p.fornitore ? ` (${p.fornitore})` : ""}`,
+  });
+  await registra({
+    azione: `Pagamento diretto a ${p.beneficiario} segnato eseguito (${euro(p.importo)})`,
+    categoria: "pagamenti", entita: "pagamento_diretto", entitaId: p.id,
   });
   revalida(id);
   redirect(`/pagamenti/${id}`);

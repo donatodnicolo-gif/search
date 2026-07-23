@@ -7,6 +7,7 @@ import { parseEstratto, hashMovimento } from "./estratto";
 import { chiaveControparte } from "./riconciliazione";
 import { qontoOrganizzazione, qontoTransazioni } from "./qonto";
 import { segnaFatturaPagata } from "./actions";
+import { registra } from "./registro";
 
 function revalidate() {
   for (const p of ["/", "/transazioni", "/fatture", "/scadenzario", "/saldi", "/partner"]) {
@@ -144,6 +145,10 @@ export async function registraTransazioneFattura(txId: string, fatturaId: string
       esito: `Fattura ${fattura.numero ?? "s.n."} di ${fattura.partner.nome} segnata saldata`,
     },
   });
+  await registra({
+    azione: `Movimento bancario riconciliato con la fattura ${fattura.numero ?? "s.n."}`,
+    categoria: "transazioni", entita: "fattura", entitaId: fattura.id, partner: fattura.partner.nome,
+  });
   revalidate();
 }
 
@@ -181,6 +186,10 @@ export async function registraTransazionePagamento(
       partnerId,
       esito: `${importoFirmato > 0 ? "Bonifico inviato a" : "Incasso da"} ${partner.nome} — ${nomeMeseIt(meseEff)} ${anno}`,
     },
+  });
+  await registra({
+    azione: `Movimento bancario registrato come ${importoFirmato > 0 ? "bonifico al partner" : "incasso dal partner"} (${nomeMeseIt(meseEff)} ${anno})`,
+    categoria: "transazioni", entita: "partner", entitaId: partnerId, partner: partner.nome,
   });
   revalidate();
 }

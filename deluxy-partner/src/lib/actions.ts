@@ -9,6 +9,8 @@ import { risolviAnagrafica, contattoAmministrativo, aggiornaAnagrafica, scrittur
 import { ivato, nomeMese } from "./calc";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 import { ficAllineaStatoFattura } from "./fic";
+import { registra } from "./registro";
+import { euro } from "./format";
 import type { SaldoMensile } from "@prisma/client";
 
 // Riflette il bonifico di un mese-partner nel registro pagamenti: crea/aggiorna
@@ -97,6 +99,7 @@ export async function createPartner(fd: FormData) {
   const data = partnerData(fd);
   if (!data.nome) throw new Error("Nome obbligatorio");
   const p = await prisma.partner.create({ data });
+  await registra({ azione: `Creato partner ${p.nome}`, categoria: "partner", entita: "partner", entitaId: p.id, partner: p.nome });
   revalidateAll();
   redirect(`/partner/${p.id}`);
 }
@@ -128,6 +131,7 @@ export async function updatePartner(id: string, fd: FormData) {
       await aggiornaAnagrafica(partner.anagraficaId, campi).catch(() => {});
     }
   }
+  await registra({ azione: `Modificato partner ${partner.nome}`, categoria: "partner", entita: "partner", entitaId: id, partner: partner.nome });
   revalidateAll();
   redirect(`/partner/${id}`);
 }
@@ -174,7 +178,7 @@ export async function createFattura(fd: FormData) {
     const p = await prisma.partner.findUnique({ where: { id: partnerId } });
     scadenza = new Date(emissione.getTime() + (p?.ggPagamento ?? 0) * 86400000);
   }
-  await prisma.fatturaServizio.create({
+  const nuova = await prisma.fatturaServizio.create({
     data: {
       partnerId,
       tipologiaId,
@@ -189,6 +193,11 @@ export async function createFattura(fd: FormData) {
       dataPagamento: d(fd, "dataPagamento"),
       descrizione: s(fd, "descrizione"),
     },
+    include: { partner: { select: { nome: true } } },
+  });
+  await registra({
+    azione: `Creata fattura servizi ${nuova.numero ?? "s.n."} (${euro(imponibile)})`,
+    categoria: "fatture", entita: "fattura", entitaId: nuova.id, partner: nuova.partner.nome,
   });
   revalidateAll();
   redirect(`/fatture?anno=${anno}&mese=${mese}`);
@@ -227,6 +236,11 @@ export async function updateFattura(id: string, fd: FormData) {
   if (prima && prima.pagata !== pagata) {
     await segnaFatturaPagata(id, pagata, dataPagamento ?? undefined);
   }
+  const fatt = await prisma.fatturaServizio.findUnique({ where: { id }, include: { partner: { select: { nome: true } } } });
+  await registra({
+    azione: `Modificata fattura servizi ${fatt?.numero ?? "s.n."} (${euro(imponibile)})`,
+    categoria: "fatture", entita: "fattura", entitaId: id, partner: fatt?.partner.nome ?? null,
+  });
   revalidateAll();
   redirect(`/fatture/${id}?salvato=1`);
 }
@@ -307,6 +321,10 @@ export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagame
   }
   // stesso stato anche su Fatture in Cloud (se la fattura è stata emessa lì)
   await ficAllineaStatoFattura(f.numero, pagata, { anno: f.anno, data: dp });
+  await registra({
+    azione: `Fattura ${f.numero ?? "s.n."} ${pagata ? "segnata saldata" : "riaperta (da incassare)"}${pagata ? ` (${euro(ivato(f))})` : ""}`,
+    categoria: "fatture", entita: "fattura", entitaId: f.id, partner: f.partner.nome,
+  });
   revalidateAll();
 }
 
@@ -326,11 +344,20 @@ export async function segnaFatturaCompensata(id: string, compensata: boolean) {
   // compensata = non incassata in banca → su FIC deve restare da incassare
   // (serve se prima era segnata saldata: altrimenti là resterebbe «pagata»).
   if (prima.pagata) await ficAllineaStatoFattura(f.numero, false, { anno: f.anno });
+  await registra({
+    azione: `Fattura ${f.numero ?? "s.n."} ${compensata ? "segnata compensata" : "tolta dalla compensazione"}`,
+    categoria: "fatture", entita: "fattura", entitaId: f.id,
+  });
   revalidateAll();
 }
 
 export async function deleteFattura(id: string) {
+  const f = await prisma.fatturaServizio.findUnique({ where: { id }, include: { partner: { select: { nome: true } } } });
   await prisma.fatturaServizio.delete({ where: { id } });
+  await registra({
+    azione: `Eliminata fattura servizi ${f?.numero ?? "s.n."}`,
+    categoria: "fatture", entita: "fattura", entitaId: id, partner: f?.partner.nome ?? null,
+  });
   revalidateAll();
 }
 
@@ -374,7 +401,7 @@ export async function createVendita(fd: FormData) {
     // fee del mese di competenza dallo storico tariffe (o fee base del partner)
     feePercent = await feeApplicabile(partnerId, anno, mese);
   }
-  await prisma.venditaVendor.create({
+  const v = await prisma.venditaVendor.create({
     data: {
       partnerId,
       anno,
@@ -384,6 +411,11 @@ export async function createVendita(fd: FormData) {
       incassoLordo,
       feePercent,
     },
+    include: { partner: { select: { nome: true } } },
+  });
+  await registra({
+    azione: `Creata vendita vendor ${euro(incassoLordo)} (fee ${feePercent}%)`,
+    categoria: "vendite", entita: "vendita", entitaId: v.id, partner: v.partner.nome,
   });
   revalidateAll();
   redirect(`/vendite?anno=${anno}&mese=${mese}`);
@@ -400,9 +432,14 @@ export async function updateVendita(id: string, fd: FormData) {
   if (incassoLordo == null || !anno || !mese || feePercent == null) {
     throw new Error("Compilare incasso, periodo e fee");
   }
-  await prisma.venditaVendor.update({
+  const v = await prisma.venditaVendor.update({
     where: { id },
     data: { incassoLordo, anno, mese, feePercent, data: d(fd, "data"), descrizione: s(fd, "descrizione") },
+    include: { partner: { select: { nome: true } } },
+  });
+  await registra({
+    azione: `Modificata vendita vendor ${euro(incassoLordo)} (fee ${feePercent}%)`,
+    categoria: "vendite", entita: "vendita", entitaId: id, partner: v.partner.nome,
   });
   revalidateAll();
   redirect(`/vendite/${id}?salvato=1`);
@@ -439,6 +476,10 @@ export async function aggiungiTariffa(partnerId: string, fd: FormData) {
     create: { partnerId, dalAnno, dalMese, feePercent },
     update: { feePercent },
   });
+  await registra({
+    azione: `Fee ${feePercent}% dal ${dalMese}/${dalAnno}`,
+    categoria: "partner", entita: "partner", entitaId: partnerId,
+  });
   revalidateAll();
   redirect(`/partner/${partnerId}`);
 }
@@ -450,7 +491,12 @@ export async function eliminaTariffa(id: string, partnerId: string) {
 }
 
 export async function deleteVendita(id: string) {
+  const v = await prisma.venditaVendor.findUnique({ where: { id }, include: { partner: { select: { nome: true } } } });
   await prisma.venditaVendor.delete({ where: { id } });
+  await registra({
+    azione: `Eliminata vendita vendor${v ? ` ${euro(v.incassoLordo)}` : ""}`,
+    categoria: "vendite", entita: "vendita", entitaId: id, partner: v?.partner.nome ?? null,
+  });
   revalidateAll();
 }
 
@@ -569,6 +615,11 @@ export async function registraPagamentoMese(
     },
   });
   await aggiornaPagamentoDaSaldo(saldo);
+  const pnome = (await prisma.partner.findUnique({ where: { id: partnerId }, select: { nome: true } }))?.nome ?? null;
+  await registra({
+    azione: `Registrato ${direzione === "inviato" ? "bonifico al partner" : "incasso dal partner"} ${euro(Math.abs(importo))} (${nomeMese(mese)} ${anno})`,
+    categoria: "pagamenti", entita: "partner", entitaId: partnerId, partner: pnome,
+  });
   revalidateAll();
 }
 
@@ -587,6 +638,12 @@ export async function salvaNoteMese(
     where: { partnerId_anno_mese: { partnerId, anno, mese } },
     create: { partnerId, anno, mese, note, noteAggiornateIl },
     update: { note, noteAggiornateIl },
+  });
+  const pnome = (await prisma.partner.findUnique({ where: { id: partnerId }, select: { nome: true } }))?.nome ?? null;
+  await registra({
+    azione: `${note?.trim() ? "Salvata" : "Rimossa"} nota di ${nomeMese(mese)} ${anno}`,
+    categoria: "saldi", entita: "partner", entitaId: partnerId, partner: pnome,
+    dettaglio: note?.trim() || null,
   });
   revalidateAll();
   // Torna sul mese con una conferma esplicita: salvando un testo identico a
