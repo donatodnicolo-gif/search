@@ -300,6 +300,45 @@ export async function scaricaParte(
   }
 }
 
+/**
+ * Come `scaricaParte`, ma TRASMETTE il contenuto a flusso invece di caricarlo
+ * tutto in memoria.
+ *
+ * ⚠️ Perché: su Vercel una risposta bufferizzata non può superare ~4,5 MB — un
+ * catalogo li supera, e il download «non faceva niente». A flusso quel limite
+ * non si applica. La connessione resta APERTA finché lo stream non è finito:
+ * `chiudi()` va chiamata quando il consumo è concluso (anche in errore).
+ */
+export async function scaricaParteStream(
+  account: Account,
+  uid: number,
+  parte: string,
+  cartella?: string
+): Promise<{ stream: NodeJS.ReadableStream; chiudi: () => Promise<void> } | null> {
+  if (uid <= 0) return null
+  const client = connessione(account)
+  await client.connect()
+  const chiudi = async () => {
+    try {
+      await client.logout()
+    } catch {
+      /* la connessione può già essere caduta: non è un problema */
+    }
+  }
+  try {
+    await client.mailboxOpen(cartella || account.cartella, { readOnly: true })
+    const scarico = await client.download(String(uid), parte, { uid: true })
+    if (!scarico?.content) {
+      await chiudi()
+      return null
+    }
+    return { stream: scarico.content, chiudi }
+  } catch (e) {
+    await chiudi()
+    throw e
+  }
+}
+
 /** Scarica UN allegato (per indice) dal server, per servirlo al download. */
 export async function leggiAllegato(
   account: Account,

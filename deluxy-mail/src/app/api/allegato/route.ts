@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { leggiAllegato, scaricaParte } from '@/lib/imap'
+import { leggiAllegato, scaricaParteStream } from '@/lib/imap'
 
 // GET /api/allegato?messaggio=<id>&i=<indice>
 // Scarica ON-DEMAND un allegato dal server e lo serve. Autenticato dal cookie:
@@ -34,32 +34,58 @@ export async function GET(req: Request) {
   const nomeAtteso = url.searchParams.get('nome') || ''
   const tipoAtteso = url.searchParams.get('tipo') || ''
 
+  const intestazioni = (nome: string, tipo: string) => {
+    // Nome file "sicuro" nell'header (niente a-capo/virgolette) + versione UTF-8.
+    const nomeAscii = nome.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_')
+    return {
+      'Content-Type': tipo || 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${nomeAscii}"; filename*=UTF-8''${encodeURIComponent(nome)}`,
+      'Cache-Control': 'no-store',
+    }
+  }
+
+  // Con la PARTE si TRASMETTE a flusso: un allegato grande (un catalogo) supera
+  // il tetto ~4,5 MB di una risposta bufferizzata su Vercel, e «Scarica» non
+  // faceva nulla. A flusso quel limite non si applica.
+  if (parte) {
+    try {
+      const s = await scaricaParteStream(m.account, m.uid, parte, cartella)
+      if (s) {
+        const web = new ReadableStream<Uint8Array>({
+          start(controller) {
+            s.stream.on('data', (c: Buffer) => controller.enqueue(new Uint8Array(c)))
+            s.stream.on('end', () => {
+              controller.close()
+              void s.chiudi()
+            })
+            s.stream.on('error', (err) => {
+              controller.error(err)
+              void s.chiudi()
+            })
+          },
+          cancel() {
+            void s.chiudi() // il browser ha annullato: chiudi la connessione
+          },
+        })
+        return new Response(web, {
+          headers: intestazioni(nomeAtteso || `allegato-${indice + 1}`, tipoAtteso),
+        })
+      }
+    } catch {
+      return new Response('Errore nel recupero dal server', { status: 502 })
+    }
+  }
+
+  // Senza parte (o se non è arrivata): strada vecchia, per indice (bufferizzata).
   let allegato: { nome: string; tipo: string; contenuto: Buffer } | null = null
   try {
-    if (parte) {
-      const dati = await scaricaParte(m.account, m.uid, parte, cartella)
-      if (dati) {
-        allegato = {
-          nome: nomeAtteso || `allegato-${indice + 1}`,
-          tipo: tipoAtteso || 'application/octet-stream',
-          contenuto: dati,
-        }
-      }
-    }
-    // Senza parte (o se non è arrivata): strada vecchia, per indice.
-    if (!allegato) allegato = await leggiAllegato(m.account, m.uid, indice, cartella)
+    allegato = await leggiAllegato(m.account, m.uid, indice, cartella)
   } catch {
     return new Response('Errore nel recupero dal server', { status: 502 })
   }
   if (!allegato) return new Response('Allegato non trovato', { status: 404 })
 
-  // Nome file "sicuro" nell'header (niente a-capo/virgolette), + versione UTF-8.
-  const nomeAscii = allegato.nome.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_')
   return new Response(new Uint8Array(allegato.contenuto), {
-    headers: {
-      'Content-Type': allegato.tipo,
-      'Content-Disposition': `attachment; filename="${nomeAscii}"; filename*=UTF-8''${encodeURIComponent(allegato.nome)}`,
-      'Cache-Control': 'no-store',
-    },
+    headers: intestazioni(allegato.nome, allegato.tipo),
   })
 }
