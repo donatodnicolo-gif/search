@@ -59,7 +59,8 @@ export default async function PaginaCampagne({
               nella media, in apprendimento o critica.
             </p>
           </div>
-          <a className="btn" href="/campagne/nuova">Nuova campagna</a>
+          <a className="btn btn-secondario" href="/campagne/nuova">Censisci esistente</a>
+          <a className="btn" href="/campagne/lancia">Lancia su Google Ads</a>
         </div>
 
         <form className="filtri" method="get">

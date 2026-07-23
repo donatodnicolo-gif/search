@@ -929,3 +929,163 @@ export async function creaOperazione(fd: FormData) {
   });
   redirect("/operazioni");
 }
+
+// ---------- Operazioni keyword (nuova, negativa, pausa, attiva) ----------
+// Stessa coda approvata delle operazioni campagna. Livelli dal doc 11:
+// negativa puntuale = L0 (libera) · aggiunta keyword = L1 · pausa/attiva = L2.
+export async function creaOperazioneKeyword(fd: FormData) {
+  const tipo = testo(fd, "tipo");
+  const campagnaId = testo(fd, "campagnaId");
+  const kwTesto = testo(fd, "testo");
+  if (!tipo || !campagnaId || !kwTesto) return;
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    include: {
+      modifiche: { orderBy: { eseguitaIl: "desc" }, take: 5 },
+      incidenti: { where: { stato: "aperto" }, select: { codice: true } },
+    },
+  });
+  if (!campagna) return;
+
+  const livello = tipo === "negativa" ? "L0" : tipo === "nuova_keyword" ? "L1" : "L2";
+
+  if (campagna.incidenti.length > 0) {
+    redirect(`/keywords?bloccata=${encodeURIComponent(`Freeze ${campagna.incidenti[0].codice}: incidente aperto su ${campagna.nome}`)}`);
+  }
+  if (livello !== "L0") {
+    const inizioSettimana = new Date();
+    inizioSettimana.setDate(inizioSettimana.getDate() - ((inizioSettimana.getDay() + 6) % 7));
+    inizioSettimana.setHours(0, 0, 0, 0);
+    const l2Settimana = campagna.modifiche.filter(
+      (m) => (m.livello === "L2" || m.livello === "L3") && m.eseguitaIl >= inizioSettimana
+    ).length;
+    const { validaModifica } = await import("./guardrail");
+    const esito = validaModifica({
+      classe: campagna.classe,
+      livello,
+      deltaBudgetPct: null,
+      rollbackPiano: testo(fd, "rollbackPiano"),
+      ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+      l2Settimana,
+    });
+    if (esito.blocchi.length > 0) {
+      redirect(`/keywords?bloccata=${encodeURIComponent(esito.blocchi[0])}`);
+    }
+  }
+
+  const op = await prisma.operazioneAdv.create({
+    data: {
+      tipo,
+      canale: campagna.canale,
+      bersaglio: tipo === "pausa_keyword" || tipo === "attiva_keyword" ? kwTesto : campagna.nome,
+      idEsterno: tipo === "pausa_keyword" || tipo === "attiva_keyword" ? testo(fd, "idEsternoKeyword") : campagna.idEsterno,
+      parametri: JSON.stringify({
+        testo: kwTesto,
+        corrispondenza: testo(fd, "corrispondenza") ?? "broad",
+        gruppo: testo(fd, "gruppo"),
+      }),
+      motivo: testo(fd, "motivo"),
+      livello,
+      prima: tipo === "nuova_keyword" || tipo === "negativa" ? "assente" : "attiva",
+      campagnaId,
+    },
+  });
+  await registra({
+    autore: "utente", tipo: "creazione", entita: "operazione", entitaId: op.id,
+    titolo: `In coda (da approvare): ${tipo} "${kwTesto}" su ${campagna.nome}`,
+    dettaglio: op.motivo,
+  });
+  redirect("/operazioni");
+}
+
+// ---------- Lancio di una campagna nuova su Google Ads ----------
+// La campagna nasce nell'app come "bozza" e sulla piattaforma IN PAUSA (via
+// bulk upload dello script, dopo l'approvazione): la checklist 4.1 va passata
+// in interfaccia prima di accenderla. Il copy passa dal lint 7.2/7.3: le
+// parole vietate per il brand bloccano l'accodamento.
+export async function lanciaCampagna(fd: FormData) {
+  const nome = testo(fd, "nome");
+  const brand = testo(fd, "brand") ?? "gifts";
+  const budget = numeroDa(fd, "budget");
+  if (!nome || !budget || budget <= 0) {
+    redirect(`/campagne/lancia?errore=${encodeURIComponent("Servono almeno nome e budget giornaliero")}`);
+  }
+
+  const titoli = (testo(fd, "titoli") ?? "").split(/\r?\n/).map((r) => r.trim()).filter(Boolean);
+  const descrizioni = (testo(fd, "descrizioni") ?? "").split(/\r?\n/).map((r) => r.trim()).filter(Boolean);
+  const finalUrl = testo(fd, "finalUrl");
+
+  // Lint 7.2/7.3 su ogni titolo e descrizione: le violazioni "vietata" bloccano
+  const { lintCopy } = await import("./copy-lint");
+  const problemi: string[] = [];
+  for (const t of [...titoli, ...descrizioni]) {
+    for (const v of lintCopy(t, brand)) {
+      if (v.tipo === "vietato") {
+        problemi.push(`"${v.parola}" in «${t.slice(0, 40)}»: ${v.motivo}${v.sostituzione ? ` → ${v.sostituzione}` : ""}`);
+      }
+    }
+  }
+  if (problemi.length > 0) {
+    redirect(`/campagne/lancia?errore=${encodeURIComponent(`Copy bloccato dal lint 7.2/7.3 — ${problemi[0]}${problemi.length > 1 ? ` (e altre ${problemi.length - 1})` : ""}`)}`);
+  }
+  if (titoli.length > 0 && titoli.length < 3) {
+    redirect(`/campagne/lancia?errore=${encodeURIComponent("Un annuncio RSA vuole almeno 3 titoli (meglio 8-10)")}`);
+  }
+  if (titoli.length >= 3 && (descrizioni.length < 2 || !finalUrl)) {
+    redirect(`/campagne/lancia?errore=${encodeURIComponent("Con i titoli servono almeno 2 descrizioni e la URL finale")}`);
+  }
+  const troppoLunghi = titoli.filter((t) => t.length > 30).length + descrizioni.filter((d) => d.length > 90).length;
+  if (troppoLunghi > 0) {
+    redirect(`/campagne/lancia?errore=${encodeURIComponent("Limiti Google: titoli max 30 caratteri, descrizioni max 90")}`);
+  }
+
+  // Keyword: una per riga, "testo | corrispondenza" (broad se omessa)
+  const keywords = (testo(fd, "keywords") ?? "")
+    .split(/\r?\n/)
+    .map((r) => r.trim())
+    .filter(Boolean)
+    .map((r) => {
+      const [t, m] = r.split("|").map((x) => x.trim());
+      return { testo: t, corrispondenza: (m || "broad").toLowerCase() };
+    });
+
+  const campagna = await prisma.campagna.create({
+    data: {
+      nome,
+      brand,
+      canale: "google_ads",
+      stato: "bozza",
+      budgetGiornaliero: budget,
+      obiettivo: testo(fd, "obiettivo"),
+      note: "Creata dall'app: in coda per il lancio su Google Ads (nasce in pausa).",
+    },
+  });
+
+  const op = await prisma.operazioneAdv.create({
+    data: {
+      tipo: "nuova_campagna",
+      canale: "google_ads",
+      bersaglio: nome,
+      parametri: JSON.stringify({
+        nome,
+        budget,
+        gruppo: testo(fd, "gruppo") ?? "Gruppo 1",
+        keywords,
+        titoli,
+        descrizioni,
+        finalUrl,
+        strategia: testo(fd, "strategia"),
+      }),
+      motivo: testo(fd, "motivo"),
+      livello: "L2",
+      prima: "assente",
+      campagnaId: campagna.id,
+    },
+  });
+  await registra({
+    autore: "utente", tipo: "creazione", entita: "operazione", entitaId: op.id,
+    titolo: `In coda (da approvare): nuova campagna "${nome}"`,
+    dettaglio: `${keywords.length} keyword · ${titoli.length} titoli · ${descrizioni.length} descrizioni · ${budget} €/g`,
+  });
+  redirect("/operazioni");
+}

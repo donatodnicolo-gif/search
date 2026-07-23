@@ -401,6 +401,8 @@ function chiediOperazioni(customerId) {
 
 /** Esegue una singola operazione. Ogni ramo legge lo stato PRIMA di cambiarlo. */
 function esegui(op) {
+  var creazione = eseguiCreazione(op);
+  if (creazione) return creazione;
   var campagna;
   if (op.tipo === "pausa_campagna" || op.tipo === "attiva_campagna" || op.tipo === "budget" || op.tipo === "negativa") {
     campagna = trovaCampagna(op);
@@ -571,4 +573,121 @@ function oggiIso() {
   if (m.length < 2) m = "0" + m;
   if (g.length < 2) g = "0" + g;
   return d.getFullYear() + "-" + m + "-" + g;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARTE 6 — CREAZIONE: keyword nuove e campagne nuove
+   Le operazioni "nuova_keyword" e "nuova_campagna" arrivano dalla stessa coda
+   approvata di mainEsegui(). Le campagne si creano via bulk upload (l'unico
+   modo che gli Script hanno) e nascono SEMPRE IN PAUSA: la checklist 4.1 va
+   passata in interfaccia prima di accenderle.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function eseguiCreazione(op) {
+  if (op.tipo === "nuova_keyword") {
+    var campagna = trovaCampagna(op);
+    if (!campagna) throw new Error("Campagna non trovata: " + op.bersaglio);
+    var testo = op.parametri.testo;
+    if (!testo) throw new Error("Testo della keyword mancante");
+    var conMatch = formattaMatch(testo, op.parametri.corrispondenza);
+
+    // Il gruppo indicato, o il primo attivo della campagna
+    var gruppi = op.parametri.gruppo
+      ? campagna.adGroups().withCondition("ad_group.name = '" + apici(op.parametri.gruppo) + "'").get()
+      : campagna.adGroups().withCondition("ad_group.status = 'ENABLED'").get();
+    if (!gruppi.hasNext()) throw new Error("Nessun gruppo di annunci trovato nella campagna");
+    var gruppo = gruppi.next();
+
+    var esitoKw = gruppo.newKeywordBuilder().withText(conMatch).build();
+    if (!esitoKw.isSuccessful()) {
+      throw new Error("Keyword rifiutata: " + esitoKw.getErrors().join("; "));
+    }
+    return {
+      dettaglio: "keyword aggiunta in \"" + gruppo.getName() + "\": " + conMatch,
+      prima: "assente",
+      dopo: conMatch,
+    };
+  }
+
+  if (op.tipo === "nuova_campagna") {
+    var par = op.parametri;
+    if (!par.nome || !par.budget) throw new Error("Servono nome e budget");
+
+    var colonne = [
+      "Campaign", "Budget", "Campaign type", "Campaign state",
+      "Ad group", "Keyword", "Criterion type",
+      "Ad type", "Final URL",
+      "Headline 1", "Headline 2", "Headline 3", "Headline 4", "Headline 5",
+      "Headline 6", "Headline 7", "Headline 8", "Headline 9", "Headline 10",
+      "Description 1", "Description 2", "Description 3", "Description 4",
+    ];
+    var upload = AdsApp.bulkUploads().newCsvUpload(colonne, { moneyInMicros: false });
+
+    var gruppoNome = par.gruppo || "Gruppo 1";
+
+    // Riga campagna: nasce in pausa, sempre
+    upload.append({
+      "Campaign": par.nome,
+      "Budget": Number(par.budget),
+      "Campaign type": "Search",
+      "Campaign state": "paused",
+    });
+
+    // Keyword: [{testo, corrispondenza}]
+    var kws = par.keywords || [];
+    for (var i = 0; i < kws.length; i++) {
+      upload.append({
+        "Campaign": par.nome,
+        "Ad group": gruppoNome,
+        "Keyword": kws[i].testo,
+        "Criterion type": etichettaMatch(kws[i].corrispondenza),
+      });
+    }
+
+    // Annuncio RSA: titoli[] e descrizioni[]
+    var titoli = par.titoli || [];
+    var descrizioni = par.descrizioni || [];
+    if (titoli.length >= 3 && descrizioni.length >= 2 && par.finalUrl) {
+      var rigaAnnuncio = {
+        "Campaign": par.nome,
+        "Ad group": gruppoNome,
+        "Ad type": "Responsive search ad",
+        "Final URL": par.finalUrl,
+      };
+      for (var t = 0; t < Math.min(titoli.length, 10); t++) {
+        rigaAnnuncio["Headline " + (t + 1)] = titoli[t];
+      }
+      for (var d = 0; d < Math.min(descrizioni.length, 4); d++) {
+        rigaAnnuncio["Description " + (d + 1)] = descrizioni[d];
+      }
+      upload.append(rigaAnnuncio);
+    }
+
+    upload.apply();
+    return {
+      dettaglio:
+        "bulk upload inviato: campagna \"" + par.nome + "\" creata IN PAUSA con " +
+        kws.length + " keyword" + (titoli.length ? " e 1 annuncio RSA" : "") +
+        ". Passare la checklist 4.1 in interfaccia prima di attivarla.",
+      prima: "assente",
+      dopo: "creata in pausa (" + Number(par.budget) + " euro/g)",
+    };
+  }
+
+  return null; // non e una creazione: ci pensa esegui()
+}
+
+function formattaMatch(testo, corrispondenza) {
+  var m = String(corrispondenza || "broad").toLowerCase();
+  var pulito = String(testo).replace(/^[\[\"]+|[\]\"]+$/g, "");
+  if (m === "exact" || m === "esatta") return "[" + pulito + "]";
+  if (m === "phrase" || m === "frase") return '"' + pulito + '"';
+  return pulito;
+}
+
+function etichettaMatch(corrispondenza) {
+  var m = String(corrispondenza || "broad").toLowerCase();
+  if (m === "exact" || m === "esatta") return "Exact";
+  if (m === "phrase" || m === "frase") return "Phrase";
+  return "Broad";
 }

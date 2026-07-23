@@ -1,7 +1,7 @@
 import { Icona } from "@/components/Icona";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
-import { cambiaStatoKeyword } from "@/lib/azioni";
+import { cambiaStatoKeyword, creaOperazioneKeyword } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
   COLORE_STATO_KEYWORD,
@@ -62,7 +62,7 @@ type KwAggregata = {
 export default async function PaginaKeywords({
   searchParams,
 }: {
-  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string; tema?: string; stato?: string }>;
+  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string; tema?: string; stato?: string; bloccata?: string }>;
 }) {
   const p = await searchParams;
   const ordina = Object.keys(ORDINAMENTI).includes(p.ordina ?? "") ? p.ordina! : "incasso";
@@ -74,6 +74,11 @@ export default async function PaginaKeywords({
       ...(p.q ? { testo: { contains: p.q } } : {}),
       ...(p.campagna ? { campagna: p.campagna } : {}),
     },
+  });
+  const campagneCensite = await prisma.campagna.findMany({
+    where: { canale: "google_ads", stato: { in: ["attiva", "in_pausa"] } },
+    orderBy: { nome: "asc" },
+    select: { id: true, nome: true, classe: true },
   });
   const campagneDisponibili = await prisma.copyAnnuncio.groupBy({
     by: ["campagna"],
@@ -149,6 +154,72 @@ export default async function PaginaKeywords({
             </p>
           </div>
         </div>
+
+        {p.bloccata && (
+          <div className="nota-info" style={{ borderColor: "rgba(215,0,21,.35)", background: "rgba(215,0,21,.06)" }}>
+            <span className="nota-icona" style={{ color: "var(--red)" }}>⛔</span>
+            <span><b>Operazione bloccata dal guardrail:</b> {p.bloccata}</span>
+          </div>
+        )}
+
+        {campagneCensite.length > 0 && (
+          <section className="scheda">
+            <div className="scheda-titolo">Metti in coda su Google Ads</div>
+            <p className="cella-sub" style={{ marginBottom: 12 }}>
+              Aggiungi una keyword, una negativa, o metti in pausa/riattiva una keyword esistente.
+              Niente parte subito: l&apos;operazione va approvata in{" "}
+              <a href="/operazioni" style={{ color: "var(--blue)" }}>Operazioni</a> e la esegue lo
+              script alla prossima corsa. Livelli: negativa L0 · aggiunta L1 · pausa/riattiva L2.
+            </p>
+            <form className="modulo" action={creaOperazioneKeyword}>
+              <div className="campo-modulo">
+                <label>Operazione</label>
+                <select name="tipo" defaultValue="nuova_keyword">
+                  <option value="nuova_keyword">Aggiungi keyword</option>
+                  <option value="negativa">Aggiungi negativa</option>
+                  <option value="pausa_keyword">Metti in pausa keyword</option>
+                  <option value="attiva_keyword">Riattiva keyword</option>
+                </select>
+              </div>
+              <div className="campo-modulo">
+                <label>Campagna <span className="obbligatorio">*</span></label>
+                <select name="campagnaId" required defaultValue="">
+                  <option value="" disabled>Scegli…</option>
+                  {campagneCensite.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nome}{c.classe === "traino" ? " · TRAINO" : ""}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="campo-modulo largo">
+                <label>Keyword <span className="obbligatorio">*</span></label>
+                <input name="testo" required placeholder="es. consegna fiori roma" />
+              </div>
+              <div className="campo-modulo">
+                <label>Corrispondenza</label>
+                <select name="corrispondenza" defaultValue="broad">
+                  <option value="broad">Broad</option>
+                  <option value="phrase">Phrase</option>
+                  <option value="exact">Exact</option>
+                </select>
+              </div>
+              <div className="campo-modulo">
+                <label>Gruppo di annunci (per l&apos;aggiunta)</label>
+                <input name="gruppo" placeholder="vuoto = primo gruppo attivo" />
+              </div>
+              <div className="campo-modulo largo">
+                <label>Perché</label>
+                <input name="motivo" placeholder="Il motivo resta nello storico" />
+              </div>
+              <div className="campo-modulo largo">
+                <label>Rollback (per pausa/riattiva su traino)</label>
+                <input name="rollbackPiano" placeholder="Come si torna indietro se peggiora" />
+              </div>
+              <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
+                <button className="btn" type="submit">Metti in coda</button>
+              </div>
+            </form>
+          </section>
+        )}
 
         <div className="kpi-riga">
           <div className="kpi">

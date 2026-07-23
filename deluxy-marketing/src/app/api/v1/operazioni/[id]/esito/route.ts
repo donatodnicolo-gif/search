@@ -50,7 +50,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         },
       });
       // Lo stato dell'app segue quello reale della piattaforma
-      if (operazione.tipo === "pausa_campagna") {
+      if (operazione.tipo === "nuova_campagna") {
+        // Creata sulla piattaforma via bulk upload: nasce sempre in pausa
+        await prisma.campagna.update({ where: { id: campagna.id }, data: { stato: "in_pausa" } });
+      } else if (operazione.tipo === "pausa_campagna") {
         await prisma.campagna.update({ where: { id: campagna.id }, data: { stato: "in_pausa" } });
       } else if (operazione.tipo === "attiva_campagna") {
         await prisma.campagna.update({ where: { id: campagna.id }, data: { stato: "attiva" } });
