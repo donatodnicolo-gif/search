@@ -9,6 +9,7 @@ import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
 import { AgganciaCompose, type ScelraAggancio } from './AgganciaCompose'
 import { mettiFlash } from './Flash'
 import { useBozzaAuto } from './useBozzaAuto'
+import { caricaAllegatiGrandi, servonoAPezzi } from './caricaAllegati'
 import { PRIORITA } from '@/lib/format'
 
 type Props = {
@@ -43,10 +44,13 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
   const [idBozza, setIdBozza] = useState(bozzaId)
   // Inviata: da qui in poi niente più salvataggi automatici.
   const [inviato, setInviato] = useState(false)
+  // Avanzamento del caricamento degli allegati pesanti.
+  const [caricamento, setCaricamento] = useState<string | null>(null)
   const [inCorso, startTransition] = useTransition()
   const router = useRouter()
 
-  function campi(conAllegati: boolean) {
+  /** `giaCaricati` = allegati già spediti a pezzi: non vanno rimessi nel form. */
+  function campi(conAllegati: boolean, giaCaricati = false) {
     const form = new FormData()
     if (idBozza) form.set('bozzaId', idBozza)
     form.set('modo', 'nuova')
@@ -57,7 +61,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
     if (priorita) form.set('priorita', priorita)
     if (sequenzaId) form.set('sequenzaId', sequenzaId)
     if (aggancio) form.set('agganciaA', aggancio.id)
-    if (conAllegati) for (const f of allegati) form.append('allegati', f)
+    if (conAllegati && !giaCaricati) for (const f of allegati) form.append('allegati', f)
     return form
   }
 
@@ -91,7 +95,39 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
   function invia() {
     setStato(null)
     startTransition(async () => {
-      const esito = await inviaNuovaMail(campi(true))
+      // Allegati pesanti: caricati PRIMA, a pezzi (il corpo di una richiesta
+      // non può superare 4,5 MB, o la mail non parte affatto).
+      let gruppo: string | null = null
+      if (servonoAPezzi(allegati)) {
+        try {
+          setCaricamento('Carico gli allegati… 0%')
+          gruppo = await caricaAllegatiGrandi(allegati, (fatti, totali) =>
+            setCaricamento(`Carico gli allegati… ${Math.round((fatti / totali) * 100)}%`)
+          )
+        } catch (e) {
+          setCaricamento(null)
+          setConferma(false)
+          setStato({ ok: false, messaggio: e instanceof Error ? e.message : 'Caricamento non riuscito.' })
+          return
+        }
+        setCaricamento(null)
+      }
+
+      const form = campi(true, gruppo !== null)
+      if (gruppo) form.set('allegatiGruppo', gruppo)
+
+      let esito: { ok: boolean; messaggio: string }
+      try {
+        esito = await inviaNuovaMail(form)
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e)
+        esito = {
+          ok: false,
+          messaggio: /body|413|payload|too large|limit/i.test(m)
+            ? 'La mail è troppo pesante per essere inviata in un colpo solo: togli qualche allegato e riprova.'
+            : `Invio non riuscito: ${m.slice(0, 160)}`,
+        }
+      }
       setStato(esito)
       setConferma(false)
       if (esito.ok) {
@@ -115,7 +151,11 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
         Salva bozza
       </button>
 
-      {auto.stato !== 'fermo' && (
+      {caricamento && (
+        <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>{caricamento}</span>
+      )}
+
+      {!caricamento && auto.stato !== 'fermo' && (
         <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
           {auto.stato === 'salvo' ? 'Salvo…' : `Bozza salvata${auto.quando ? ` ${auto.quando}` : ''}`}
         </span>

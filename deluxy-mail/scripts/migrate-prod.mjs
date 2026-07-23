@@ -33,6 +33,14 @@ const stmts = [
   `ALTER TABLE "Evento" ADD COLUMN IF NOT EXISTS "serieId" TEXT`,
   `ALTER TABLE "Evento" ADD COLUMN IF NOT EXISTS "regola" TEXT NOT NULL DEFAULT ''`,
   `CREATE INDEX IF NOT EXISTS "Evento_serieId_idx" ON "Evento"("serieId")`,
+  // Allegati grandi caricati a pezzi (il corpo di una richiesta su Vercel non
+  // può superare 4,5 MB: i file grossi arrivano a blocchi e si ricompongono).
+  `CREATE TABLE IF NOT EXISTS "AllegatoCaricato" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "gruppo" TEXT NOT NULL,
+     "file" INTEGER NOT NULL, "parte" INTEGER NOT NULL,
+     "nome" TEXT NOT NULL, "tipo" TEXT NOT NULL DEFAULT '', "dati" BYTEA NOT NULL,
+     "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS "AllegatoCaricato_utenteId_gruppo_idx" ON "AllegatoCaricato"("utenteId","gruppo")`,
   // Nome dato a mano a una conversazione (per ritrovarla e cercarla).
   `CREATE TABLE IF NOT EXISTS "NomeThread" (
      "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "chiave" TEXT NOT NULL,
@@ -286,6 +294,10 @@ const stmts = [
      END IF;
      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='NomeThread_utenteId_fkey') THEN
        ALTER TABLE "NomeThread" ADD CONSTRAINT "NomeThread_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='AllegatoCaricato_utenteId_fkey') THEN
+       ALTER TABLE "AllegatoCaricato" ADD CONSTRAINT "AllegatoCaricato_utenteId_fkey"
          FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
      END IF;
    END $$`,

@@ -60,6 +60,7 @@ model Utente {
   contattiAI ContattoAI[]
   istruzioniThread IstruzioneThread[]
   nomiThread       NomeThread[]
+  allegatiCaricati AllegatoCaricato[]
   regoleApp  RegolaApp[]
   inviiApp   InvioApp[]
   eventi     Evento[]
@@ -532,6 +533,32 @@ model ContattoAI {
 // Il NOME che l'utente dà a una conversazione ("Trasferte LimoLane"): serve a
 // ritrovarla anche quando l'oggetto non dice niente. Stessa chiave degli altri
 // dati di thread (l'id del messaggio capostipite).
+// Allegati GRANDI, caricati a pezzi prima dell'invio.
+//
+// Perché esiste: su Vercel il corpo di UNA richiesta non può superare 4,5 MB
+// (limite di piattaforma, prima del nostro codice): mandare una mail con 10 MB
+// di allegati dentro la Server Action falliva con una schermata bianca. Ora il
+// browser carica i file a pezzi da ~3 MB su /api/allegato-carica, che li
+// deposita qui; al momento dell'invio il server li ricompone e li cancella.
+model AllegatoCaricato {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  /** Tutti i pezzi di una stessa scrittura condividono questo codice. */
+  gruppo String
+  /** Quale file (0,1,2…) e quale pezzo di quel file. */
+  file   Int
+  parte  Int
+  nome   String
+  tipo   String @default("")
+  dati   Bytes
+
+  creatoIl DateTime @default(now())
+
+  @@index([utenteId, gruppo])
+}
+
 model NomeThread {
   id       String @id @default(cuid())
   utenteId String

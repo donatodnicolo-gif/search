@@ -16,7 +16,7 @@ import { htmlAPlain, sembraHtml, plainAHtml } from './htmlMail'
 const MAX_ALLEGATI_BYTE = 20 * 1024 * 1024
 
 /** Legge gli allegati (campo "allegati") dal FormData come Buffer. */
-async function leggiAllegati(form: FormData): Promise<AllegatoInvio[]> {
+async function leggiAllegati(form: FormData, utenteId?: string): Promise<AllegatoInvio[]> {
   const files = form.getAll('allegati').filter((v): v is File => v instanceof File && v.size > 0)
   let totale = 0
   const out: AllegatoInvio[] = []
@@ -29,7 +29,28 @@ async function leggiAllegati(form: FormData): Promise<AllegatoInvio[]> {
       contentType: f.type || undefined,
     })
   }
+
+  // Allegati GRANDI: non viaggiano nel form (il corpo di una richiesta su
+  // Vercel non può superare 4,5 MB), sono stati caricati prima a pezzi. Qui si
+  // ricompongono e si uniscono agli altri.
+  const gruppo = testo(form, 'allegatiGruppo')
+  if (gruppo && utenteId) {
+    const { allegatiDelGruppo } = await import('./allegatiGrandi')
+    for (const a of await allegatiDelGruppo(utenteId, gruppo)) {
+      totale += a.content.length
+      if (totale > MAX_ALLEGATI_BYTE) throw new Error('Allegati troppo pesanti (max 20 MB in tutto).')
+      out.push(a)
+    }
+  }
   return out
+}
+
+/** A invio concluso, i pezzi caricati non servono più. */
+async function ripulisciAllegatiGrandi(form: FormData, utenteId: string): Promise<void> {
+  const gruppo = testo(form, 'allegatiGruppo')
+  if (!gruppo) return
+  const { scartaGruppo } = await import('./allegatiGrandi')
+  await scartaGruppo(utenteId, gruppo)
 }
 
 /** Dal corpo del form ricava HTML (se formattato) e testo semplice. */
@@ -1159,7 +1180,7 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
 
     const account = bozza.messaggio.account
     const { html, testo: testoPiano } = corpoDaForm(bozza.corpo)
-    const allegati = form ? await leggiAllegati(form) : []
+    const allegati = form ? await leggiAllegati(form, utenteId) : []
     // Se serve tradurre (lingua non letta) si manda solo testo tradotto.
     const t = await traduciSeStraniera(utenteId, bozza.messaggio.lingua, testoPiano)
     const tradottoIn = t.tradottoIn
@@ -1404,7 +1425,7 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     const cc = testo(form, 'cc')
     const oggetto = testo(form, 'oggetto')
     const { html, testo: testoPiano } = corpoDaForm(testo(form, 'corpo'))
-    const allegati = await leggiAllegati(form)
+    const allegati = await leggiAllegati(form, utenteId)
 
     if (!a) return { ok: false, messaggio: 'Manca il destinatario.' }
     if (!testoPiano && allegati.length === 0) return { ok: false, messaggio: 'Il messaggio è vuoto.' }
@@ -1496,6 +1517,7 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
 
     const bozzaId = testo(form, 'bozzaId')
     if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId, utenteId } })
+    await ripulisciAllegatiGrandi(form, utenteId)
 
     revalidatePath('/', 'layout')
     const nota = tradottoIn ? ` Tradotto in ${tradottoIn} prima dell’invio.` : ''
@@ -1517,7 +1539,7 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
     const cc = testo(form, 'cc')
     const oggetto = testo(form, 'oggetto')
     const { html, testo: testoPiano } = corpoDaForm(testo(form, 'corpo'))
-    const allegati = await leggiAllegati(form)
+    const allegati = await leggiAllegati(form, utenteId)
 
     if (!a) return { ok: false, messaggio: 'Manca il destinatario.' }
     if (!testoPiano && allegati.length === 0) return { ok: false, messaggio: 'Il messaggio è vuoto.' }
@@ -1560,6 +1582,7 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
 
     const bozzaId = testo(form, 'bozzaId')
     if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId, utenteId } })
+    await ripulisciAllegatiGrandi(form, utenteId)
 
     revalidatePath('/', 'layout')
     return {
