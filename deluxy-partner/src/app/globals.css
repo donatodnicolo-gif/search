@@ -102,7 +102,21 @@ a { color: inherit; text-decoration: none; }
 .sidebar-toggle:active { transform: scale(0.94); }
 .sidebar-toggle svg { stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .sidebar { position: sticky; }
+/* la sidebar non ritaglia (il bottone di riduzione sporge fuori dal bordo):
+   a scorrere è l'elenco delle voci, altrimenti le ultime sezioni del menu
+   finiscono sotto il bordo dello schermo e non si riescono a selezionare. */
 .sidebar, .sidebar.chiusa { overflow: visible; }
+.sidebar-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  /* la barra di scorrimento non deve stringere le voci */
+  margin-right: -6px;
+  padding-right: 6px;
+}
+.sidebar-nav::-webkit-scrollbar { width: 6px; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: var(--fill); border-radius: 3px; }
 
 .main { flex: 1; min-width: 0; padding: 40px 44px 60px; }
 
@@ -278,6 +292,9 @@ input:focus, select:focus, textarea:focus {
 @media (max-width: 900px) {
   .shell { flex-direction: column; }
   .sidebar { width: 100%; height: auto; position: static; flex-direction: row; flex-wrap: wrap; }
+  /* su mobile la sidebar è una fascia che si dispone in riga: niente scroll
+     interno, le sezioni tornano figlie dirette e vanno a capo da sole */
+  .sidebar-nav { display: contents; }
   .sidebar-footer { display: none; }
   .main { padding: 20px 16px 40px; }
 }

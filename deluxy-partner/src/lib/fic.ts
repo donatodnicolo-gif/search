@@ -101,22 +101,50 @@ async function ficAccessToken(): Promise<string> {
   return t.access_token;
 }
 
+/** Errore di Fatture in Cloud con lo stato HTTP, per distinguere il 429. */
+export class FicError extends Error {
+  constructor(readonly stato: number, readonly percorso: string, readonly dettaglio: string) {
+    super(`Fatture in Cloud ${percorso} → ${stato}: ${dettaglio}`);
+    this.name = "FicError";
+  }
+  /** true se FIC ha rifiutato per troppe richieste (rate limit). */
+  get troppeRichieste() {
+    return this.stato === 429;
+  }
+}
+
+const attendi = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// FIC applica un rate limit per minuto: sotto carico (più pagine paginate, più
+// schede aperte) risponde 429 TOO_MANY_REQUESTS. Invece di far fallire la pagina
+// si aspetta e si riprova, rispettando l'header Retry-After quando c'è.
+const TENTATIVI_429 = 3;
+
 export async function ficFetch<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   const token = await ficAccessToken();
-  // timeout: una richiesta FIC appesa non deve bloccare l'intero render della pagina
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-    signal: init?.signal ?? AbortSignal.timeout(12000),
-  });
-  if (!res.ok) {
-    throw new Error(`Fatture in Cloud ${path} → ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  for (let tentativo = 0; ; tentativo++) {
+    // timeout: una richiesta FIC appesa non deve bloccare l'intero render della pagina
+    const res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+      signal: init?.signal ?? AbortSignal.timeout(12000),
+    });
+    if (res.ok) return (await res.json()) as T;
+
+    const testo = (await res.text()).slice(0, 300);
+    const riprovabile = res.status === 429 || res.status === 503;
+    if (riprovabile && tentativo < TENTATIVI_429) {
+      const retryAfter = parseInt(res.headers.get("retry-after") ?? "");
+      const attesa = Number.isFinite(retryAfter) ? retryAfter * 1000 : 800 * 2 ** tentativo;
+      await attendi(Math.min(attesa, 5000));
+      continue;
+    }
+    throw new FicError(res.status, path, testo);
   }
-  return (await res.json()) as T;
 }
 
 export type FicCliente = { id: number; name: string; vat_number?: string | null };
@@ -182,6 +210,9 @@ export async function ficFatture(opts?: {
   const out: FicFattura[] = [];
   const maxPagine = opts?.maxPagine ?? 20;
   for (let page = 1; page <= maxPagine; page++) {
+    // una pausa fra una pagina e l'altra: sfilare 20 pagine di fila fa scattare
+    // il rate limit di FIC (429) e la pagina non si carica più
+    if (page > 1) await attendi(120);
     const r = await ficFetch<{
       data: {
         id: number;

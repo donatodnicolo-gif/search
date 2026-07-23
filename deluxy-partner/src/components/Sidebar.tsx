@@ -202,6 +202,10 @@ export function Sidebar() {
         </div>
       </div>
 
+      {/* Le voci stanno in un contenitore che scorre da solo: la sidebar è alta
+          quanto lo schermo e senza questo le ultime sezioni (CONFIGURAZIONE)
+          restavano tagliate fuori e non cliccabili. */}
+      <nav className="sidebar-nav">
       {sections.map((s) => (
         <div className="nav-section" key={s.label}>
           <div className="nav-label solo-estesa">{s.label}</div>
@@ -237,6 +241,7 @@ export function Sidebar() {
           })}
         </div>
       ))}
+      </nav>
 
       <div className="sidebar-footer">
         <div className="avatar">DX</div>

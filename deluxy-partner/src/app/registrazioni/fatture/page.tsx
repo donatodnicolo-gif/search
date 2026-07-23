@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { ANNO_CORRENTE } from "@/lib/queries";
-import { ficStato, ficFattureCached, ficSegnaFatturaPagata, type FicFattura } from "@/lib/fic";
+import { ficStato, ficFattureCached, ficSegnaFatturaPagata, FicError, type FicFattura } from "@/lib/fic";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +40,12 @@ export default async function FattureCloudPage({
     try {
       fatture = await ficFattureCached({ anno, q: q || undefined });
     } catch (e) {
-      errore = (e as Error).message;
+      // il rate limit di FIC è temporaneo: dirlo in italiano invece di
+      // sbattere in faccia la URL della chiamata
+      errore =
+        e instanceof FicError && e.troppeRichieste
+          ? "Fatture in Cloud ha momentaneamente limitato le richieste (troppe in poco tempo). Riprova fra un minuto: i dati sono lì, è solo il limite delle API."
+          : (e as Error).message;
     }
   }
 
