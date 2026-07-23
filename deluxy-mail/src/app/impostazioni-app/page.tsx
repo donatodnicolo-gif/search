@@ -58,7 +58,10 @@ export default async function ImpostazioniApp() {
             La chiave che le altre app (Scout, script, agenti) devono passare per usare le API di
             AI Mail — inviare una mail (<code className="app-var">POST /api/v1/invia</code>) o farsi
             fare da Renè il punto della situazione con un contatto
-            (<code className="app-var">GET /api/v1/contatto</code>). Va nell’header{' '}
+            (<code className="app-var">GET /api/v1/contatto</code>), oppure leggere la posta di un
+            contatto o di un intero cliente
+            (<code className="app-var">GET /api/v1/messaggi?cliente=…</code>, stessa associazione
+            mail↔cliente della sezione Clienti). Va nell’header{' '}
             <code className="app-var">x-api-key</code>, con <code className="app-var">x-utente</code>{' '}
             = l’email dell’utente AI Mail.
           </p>

@@ -147,6 +147,34 @@ export async function clientePerMittente(mittente: string): Promise<{ id: string
   return idx.perEmail.get(e) || idx.perDominio.get(e.split('@')[1] || '') || null
 }
 
+/** Il percorso inverso di clientePerMittente: dato un cliente (id di Anagrafiche
+ *  oppure nome, anche parziale), tutti gli indirizzi e i domini che l'indice gli
+ *  associa. Serve a pescare in un colpo solo TUTTA la posta di quell'azienda,
+ *  senza sapere da quale casella scrive la persona che ci ha scritto.
+ *
+ *  Attenzione: l'indice è costruito dagli indirizzi noti al registro, quindi un
+ *  cliente senza nessuna email in Anagrafiche non è trovabile (torna null). */
+export async function recapitiCliente(
+  rif: string
+): Promise<{ cliente: { id: string; nome: string }; email: string[]; domini: string[] } | null> {
+  const r = rif.trim().toLowerCase()
+  if (!r) return null
+  const idx = await indiceClienti()
+  const tutti = [...idx.perEmail.values(), ...idx.perDominio.values()]
+
+  // prima id esatto, poi nome esatto, infine nome parziale ("rossi" → "Fiori Rossi srl")
+  let cliente =
+    tutti.find((v) => v.id.toLowerCase() === r) ??
+    tutti.find((v) => v.nome.trim().toLowerCase() === r) ??
+    tutti.find((v) => v.nome.toLowerCase().includes(r)) ??
+    null
+  if (!cliente) return null
+
+  const email = [...idx.perEmail].filter(([, v]) => v.id === cliente!.id).map(([k]) => k)
+  const domini = [...idx.perDominio].filter(([, v]) => v.id === cliente!.id).map(([k]) => k)
+  return { cliente, email, domini }
+}
+
 /** Associa un'email (come contatto) a un'azienda esistente in Anagrafiche.
  *  Serve una chiave con permesso di scrittura. */
 export async function associaEmailAPartner(

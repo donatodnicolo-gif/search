@@ -2,10 +2,19 @@ import { NextResponse } from 'next/server'
 import { autenticaApi } from '@/lib/apiAuth'
 import { db } from '@/lib/db'
 import { cercaEImporta } from '@/lib/sync'
+import { recapitiCliente } from '@/lib/anagrafiche'
+import type { Prisma } from '@prisma/client'
 
 // GET /api/v1/messaggi?email=<contatto>&da=<ISO>&a=<ISO>&server=1&limite=30
-// Le mail RICEVUTE da quel contatto in una FINESTRA temporale (default: ultimi
-// 30 giorni). Due modalità, così la scheda Scout è veloce:
+// GET /api/v1/messaggi?cliente=<nome o id Anagrafiche>&q=<testo>&direzione=tutte
+//
+// Le mail di un CONTATTO (?email=) oppure di un intero CLIENTE (?cliente=): nel
+// secondo caso si usa la stessa associazione mail↔cliente della sezione
+// "Clienti" (indice di Anagrafiche: email esatte + domini non generici), così
+// si trova tutta la posta dell'azienda senza sapere da quale casella scrive la
+// persona. Finestra temporale di default: 30 giorni per contatto, 365 per cliente.
+//
+// Due modalità, così la scheda che chiama è veloce:
 //   - senza server=1: solo il DB locale (risposta immediata);
 //   - con server=1: prima cerca sul server IMAP e importa, poi risponde (lento,
 //     va chiamato in background dopo aver già mostrato i risultati locali).
@@ -19,48 +28,108 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const email = (url.searchParams.get('email') || '').trim().toLowerCase()
-  if (!email) {
-    return NextResponse.json({ ok: false, errore: 'Manca il parametro ?email=<contatto>.' }, { status: 400 })
+  const cliente = (url.searchParams.get('cliente') || '').trim()
+  if (!email && !cliente) {
+    return NextResponse.json(
+      { ok: false, errore: 'Manca il parametro ?email=<contatto> oppure ?cliente=<nome o id>.' },
+      { status: 400 }
+    )
   }
   const limite = Math.min(Math.max(parseInt(url.searchParams.get('limite') || '30', 10) || 30, 1), 100)
+  const q = (url.searchParams.get('q') || '').trim()
+  // di default solo la posta ricevuta; con direzione=tutte anche le nostre risposte
+  const tutteLeDirezioni = url.searchParams.get('direzione') === 'tutte'
 
-  // Finestra temporale: default ultimi 30 giorni.
+  // Se si cerca per cliente, gli indirizzi/domini arrivano dall'indice di Anagrafiche.
+  let recapiti: { cliente: { id: string; nome: string }; email: string[]; domini: string[] } | null = null
+  if (!email) {
+    recapiti = await recapitiCliente(cliente).catch(() => null)
+    if (!recapiti) {
+      return NextResponse.json(
+        {
+          ok: false,
+          errore: `Nessun cliente attivo in Anagrafiche corrispondente a "${cliente}" (o nessuna email associata).`,
+        },
+        { status: 404 }
+      )
+    }
+  }
+
+  // Finestra temporale: default 30 giorni per contatto, 365 per cliente.
   const parseData = (v: string | null): Date | null => {
     if (!v) return null
     const d = new Date(v)
     return isNaN(d.getTime()) ? null : d
   }
+  const giorniDefault = email ? 30 : 365
   const a = parseData(url.searchParams.get('a')) ?? new Date()
-  const da = parseData(url.searchParams.get('da')) ?? new Date(a.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const da = parseData(url.searchParams.get('da')) ?? new Date(a.getTime() - giorniDefault * 24 * 60 * 60 * 1000)
+
+  // Chi è la controparte: un solo indirizzo (contatto) oppure tutti gli
+  // indirizzi/domini del cliente. In uscita la controparte sta nei destinatari.
+  const controparte: Prisma.MessaggioWhereInput[] = []
+  const indirizzi = email ? [email] : recapiti!.email
+  const domini = email ? [] : recapiti!.domini
+  for (const e of indirizzi) {
+    controparte.push({ mittente: { equals: e, mode: 'insensitive' } })
+    if (tutteLeDirezioni) controparte.push({ destinatari: { contains: e, mode: 'insensitive' } })
+  }
+  for (const d of domini) {
+    controparte.push({ mittente: { endsWith: `@${d}`, mode: 'insensitive' } })
+    if (tutteLeDirezioni) controparte.push({ destinatari: { contains: `@${d}`, mode: 'insensitive' } })
+  }
+
+  const where: Prisma.MessaggioWhereInput = {
+    utenteId: auth.utenteId,
+    cestinato: false,
+    ...(tutteLeDirezioni ? {} : { direzione: 'entrata' }),
+    data: { gte: da, lte: a },
+    OR: controparte,
+    // il filtro testo è un AND separato: non deve allargare l'OR sulla controparte
+    ...(q
+      ? {
+          AND: [
+            {
+              OR: [
+                { oggetto: { contains: q, mode: 'insensitive' as const } },
+                { anteprima: { contains: q, mode: 'insensitive' as const } },
+                { mittenteNome: { contains: q, mode: 'insensitive' as const } },
+                { mittente: { contains: q, mode: 'insensitive' as const } },
+              ],
+            },
+          ],
+        }
+      : {}),
+  }
 
   const query = () =>
     db.messaggio.findMany({
-      where: {
-        utenteId: auth.utenteId,
-        direzione: 'entrata',
-        cestinato: false,
-        mittente: { equals: email, mode: 'insensitive' },
-        data: { gte: da, lte: a },
-      },
+      where,
       orderBy: { data: 'desc' },
       take: limite,
       select: {
-        id: true, mittente: true, mittenteNome: true, oggetto: true,
+        id: true, mittente: true, mittenteNome: true, oggetto: true, direzione: true,
         data: true, anteprima: true, letto: true, allegati: true,
       },
     })
 
-  // La ricerca sul server IMAP (lenta) solo se richiesta esplicitamente.
+  // La ricerca sul server IMAP (lenta) solo se richiesta esplicitamente. Per un
+  // cliente con molti indirizzi ci si ferma ai primi 5, per non sforare il tempo
+  // massimo della funzione.
   let cercatoSulServer = false
   if (url.searchParams.get('server') === '1') {
     cercatoSulServer = true
-    await cercaEImporta(auth.utenteId, email).catch(() => {})
+    for (const e of indirizzi.slice(0, 5)) {
+      await cercaEImporta(auth.utenteId, e).catch(() => {})
+    }
   }
 
   const righe = await query()
   return NextResponse.json({
     ok: true,
-    contatto: email,
+    contatto: email || null,
+    cliente: recapiti ? recapiti.cliente : null,
+    recapiti: recapiti ? { email: recapiti.email, domini: recapiti.domini } : null,
     da: da.toISOString(),
     a: a.toISOString(),
     cercatoSulServer,
@@ -70,6 +139,7 @@ export async function GET(request: Request) {
       email: m.mittente,
       oggetto: m.oggetto,
       data: m.data,
+      direzione: m.direzione,
       anteprima: m.anteprima,
       letto: m.letto,
       allegati: m.allegati,

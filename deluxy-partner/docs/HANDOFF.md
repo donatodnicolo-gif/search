@@ -44,6 +44,7 @@ Su Vercel (produzione) e nel `.env` locale:
 | `OPENAI_VISION_MODEL` | Vercel + .env (facoltativa) | Lettura AI foto IBAN in Pagamenti diretti (default `gpt-4o`, deve avere capacità vision) |
 | `CRON_SECRET` | Vercel | Autorizza il cron `/api/cron/qonto` (senza → 503, cron disattivo) |
 | `ANAGRAFICHE_URL`, `ANAGRAFICHE_API_KEY` | Vercel + .env | Lettura dal registro anagrafiche centralizzato (sola lettura) |
+| `MAIL_URL`, `MAIL_API_KEY`, `MAIL_UTENTE` | Vercel + .env (facoltative) | Card «Posta con il cliente» nella scheda partner. `MAIL_URL` default `https://deluxy-mail.vercel.app`; `MAIL_API_KEY` = token API di AI Mail (Impostazioni App → Token API); `MAIL_UTENTE` = email di login dell'utente AI Mail di cui leggere la casella. Se mancano, la card non compare |
 
 **Importante — credenziali NON in env, ma nel DB** (tabella `Impostazione`, chiave/valore): SMTP solleciti (`smtp.*`), Qonto (`qonto.*`), Fatture in Cloud (`fic.*` incluso access/refresh token), ordinante SEPA (`sepa.*`), chiave API pubblica (`api.verificheKey`). Si gestiscono dalla pagina **Impostazioni** e **/verifiche**, non toccando Vercel.
 
@@ -73,7 +74,7 @@ Convenzione bonifici: `> 0` inviato al partner, `< 0` ricevuto. `RiepilogoMese` 
 | Route | Cosa fa |
 |---|---|
 | `/` Dashboard | KPI anno + bonifici da fare + fatture scadute; bottone "Paga" rapido |
-| `/partner`, `/partner/[id]`, `/partner/nuovo`, `/partner/[id]/modifica` | Lista (con totale e delta vs 2025), scheda con Recap AI, anagrafica centralizzata, **contatto amministrativo** (campi `amm*`, importabile dal registro Anagrafiche) con **elenco fatture aperte e invio sollecito diretto**, Fee nel tempo, Rolling, movimenti mensili con registrazione pagamenti e note, totale YTD |
+| `/partner`, `/partner/[id]`, `/partner/nuovo`, `/partner/[id]/modifica` | Lista (con totale e delta vs 2025), scheda con Recap AI, anagrafica centralizzata, **contatto amministrativo** (campi `amm*`, importabile dal registro Anagrafiche) con **elenco fatture aperte e invio sollecito diretto**, Fee nel tempo, Rolling, movimenti mensili con registrazione pagamenti e note, totale YTD, **card «Posta con il cliente»** (le mail scambiate con quell'azienda, con casella di ricerca) |
 | `/fatture`, `/fatture/[id]`, `/fatture/nuova` | Servizi a fatturazione; scheda record editabile; tipologia obbligatoria dal "Piano per Area" |
 | `/vendite`, `/vendite/[id]`, `/vendite/nuova` | Vendite come vendor; scheda con modifica fee/incasso |
 | `/proforma`, `/proforma/nuova`, `/proforma/[id]`, `/proforma/[id]/modifica`, `/proforma/[id]/invia` | **Pro-forma ad hoc**: righe libere con totali live, numerazione `PF n/anno` per anno, documento stampabile (Stampa/PDF del browser, `@media print`), invio email (SMTP o mailto, testo precompilato modificabile). Stati: bozza → inviata → **fatturata** (con n° fattura definitiva) oppure **annullata**; bozze modificabili/eliminabili, stati sempre reversibili. Intestazione mittente da Impostazioni → "Intestazione documenti" (chiavi `azienda.*`). Logica: `src/lib/proforma.ts` + `proforma-actions.ts`, editor righe `RigheProForma.tsx` |
@@ -119,6 +120,7 @@ Esiti: 200 trovato · 404 non trovato (con `candidati`) · 401 chiave errata · 
 - **OpenAI** ✅ Recap AI nella scheda partner (`/api/recap`, `src/lib/recap.ts`). Note mensili incluse nel prompt.
 - **SMTP solleciti** (Register.it): preset `authsmtp.deluxy.it:587`, utente `smtp@deluxy.it`; **manca password + mittente** (da inserire in Impostazioni). `src/lib/mail.ts`.
 - **Deluxy Anagrafiche** (lettura): card "Anagrafica dal registro centralizzato" nella scheda partner (`src/lib/anagrafiche.ts`, `AnagraficaCard.tsx`, campo `Partner.anagraficaId`). Il registro è la fonte di verità anagrafica; qui si legge soltanto — vedi `deluxy-anagrafiche/README.md`.
+- **AI Mail** (lettura): card «Posta con il cliente» nella scheda partner (`src/lib/aimail.ts`, `MailPartnerCard.tsx`). Non ricostruisce nessuna regola di abbinamento: chiede ad AI Mail `GET /api/v1/messaggi?cliente=<anagraficaId o nome>&direzione=tutte&q=<testo>`, che usa la **stessa associazione mail↔cliente della sezione Clienti** (email esatte + domini non generici del registro Anagrafiche). Si passa l'`anagraficaId` quando il partner è collegato al registro, altrimenti il nome ripulito dalla ragione sociale fra parentesi. Ultimi 12 mesi, ricerca lato AI Mail con il parametro `?mail=` della scheda partner. Senza `MAIL_API_KEY`/`MAIL_UTENTE` la card non compare.
 - **Vivid**: nessuna API pubblica → si usa l'export CSV in `/transazioni` (formato riconosciuto: Completed date, Counterparty name, Reference, Payment amount).
 
 ## 9. Modello dati (Prisma)

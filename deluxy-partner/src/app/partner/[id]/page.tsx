@@ -10,6 +10,8 @@ import { feeDaTariffe } from "@/lib/fee";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
 import { ContattoAmministrativo } from "@/components/ContattoAmministrativo";
+import { MailPartnerCard } from "@/components/MailPartnerCard";
+import { aiMailConfigurata } from "@/lib/aimail";
 import { PagamentoMese } from "@/components/PagamentoMese";
 import { RecapAI } from "@/components/RecapAI";
 import { costruisciRecapPrompt } from "@/lib/recap";
@@ -25,7 +27,7 @@ export default async function PartnerDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ amm?: string; fic?: string; ficreg?: string }>;
+  searchParams: Promise<{ amm?: string; fic?: string; ficreg?: string; mail?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -157,6 +159,27 @@ export default async function PartnerDetail({
       >
         <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} />
       </Suspense>
+
+      {aiMailConfigurata() && (
+        <Suspense
+          key={`mail-${sp.mail ?? ""}`}
+          fallback={
+            <>
+              <h2 className="section-title">Posta con il cliente</h2>
+              <div className="card">
+                <span className="muted" style={{ fontSize: 13.5 }}>Cerco la posta su AI Mail…</span>
+              </div>
+            </>
+          }
+        >
+          <MailPartnerCard
+            partnerId={id}
+            nomePartner={partner.nome}
+            anagraficaId={partner.anagraficaId}
+            q={sp.mail}
+          />
+        </Suspense>
+      )}
 
       <Suspense fallback={null}>
         <FattureFicPartner partnerId={id} partnerNome={partner.nome} />

@@ -132,10 +132,36 @@ non è mai automatico: anche se un attacco passasse, si fermerebbe alla bozza.
 
 **Chiave OpenAI.** Solo lato server, mai spedita ai client desktop o Android.
 
+## 7-bis. L'associazione mail ↔ cliente (e chi la usa)
+
+La posta non viene spostata per cliente: l'associazione è **dinamica** e vive in
+`src/lib/anagrafiche.ts`. Si costruisce un indice dei clienti del registro
+Anagrafiche in stato **attivo** (cache 10 minuti) con:
+
+- le **email esatte** dell'azienda e dei suoi contatti;
+- i **domini** di quelle email, ma solo se **non generici** (gmail, libero,
+  outlook… sono esclusi: un cliente su Gmail si porterebbe dietro mezzo mondo).
+
+Da lì partono le due direzioni:
+
+- `clientePerMittente()` — dato un mittente, di che cliente è: alimenta la
+  sezione **Clienti** e il badge cliente nella posta in arrivo;
+- `recapitiCliente()` — dato un cliente (id di Anagrafiche o nome, anche
+  parziale), **tutti** i suoi indirizzi e domini.
+
+Su `recapitiCliente()` si appoggia l'API `GET /api/v1/messaggi?cliente=<id o
+nome>`: restituisce la posta di quell'azienda (default 12 mesi, `&q=` per
+filtrare il testo, `&direzione=tutte` per includere anche le nostre risposte).
+La usa il **FINANCE** (deluxy-partner) per mostrare, nella scheda partner, la
+card «Posta con il cliente» senza dover sapere da quale casella scrive la
+persona. Con `?email=<contatto>` resta il comportamento storico (un solo
+indirizzo, default 30 giorni) usato da Scout.
+
 ## 8. Struttura del codice
 
 | File | Cosa fa |
 |---|---|
+| `src/lib/anagrafiche.ts` | Indice clienti da Anagrafiche e associazione mail↔cliente |
 | `src/lib/imap.ts` | Collegamento IMAP e scarico dei messaggi nuovi |
 | `src/lib/regole.ts` | Motore delle regole deterministiche |
 | `src/lib/ai.ts` | Prompt e chiamata a OpenAI (output JSON vincolato) |
