@@ -17,6 +17,11 @@ type Esito = { fase: "attesa" | "lavoro" | "presente" | "aggiunto" | "errore"; t
 export function SalvaRubricaAuto({ contatti }: { contatti: RigaContatto[] }) {
   const [esiti, setEsiti] = useState<Record<string, Esito>>({});
   const [stato, setStato] = useState<"in_corso" | "fatto" | "consenso">("in_corso");
+  // Perché il tentativo silenzioso è fallito: senza questo il pannello dice
+  // solo "serve il consenso" e non si capisce se è Google a rifiutare
+  // (consenso scaduto: l'app OAuth in modalità test lo revoca ogni 7 giorni),
+  // il popup bloccato o l'operatore non loggato su Google in questo browser.
+  const [motivo, setMotivo] = useState<string | null>(null);
   const partito = useRef(false);
 
   // `automatico`: primo tentativo senza popup (riesce se il consenso Google
@@ -27,8 +32,9 @@ export function SalvaRubricaAuto({ contatti }: { contatti: RigaContatto[] }) {
     let token: string;
     try {
       token = await getToken(automatico);
-    } catch {
+    } catch (e) {
       // niente consenso silenzioso: lo si chiede col bottone (gesto utente)
+      setMotivo(e instanceof Error ? e.message : String(e));
       setStato("consenso");
       return;
     }
@@ -74,6 +80,14 @@ export function SalvaRubricaAuto({ contatti }: { contatti: RigaContatto[] }) {
             Autorizza Google una volta per salvare {contatti.length} referent
             {contatti.length === 1 ? "e" : "i"} in rubrica. Dalla prossima azienda che diventa
             cliente il salvataggio parte da solo.
+            {motivo && (
+              <>
+                {" "}
+                <span className="cella-fonte" title={motivo}>
+                  (Google: {motivo})
+                </span>
+              </>
+            )}
           </p>
           <button type="button" className="btn small" onClick={() => void salvaTutti()}>
             Autorizza e salva in rubrica
