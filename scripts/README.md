@@ -46,6 +46,19 @@ cd deluxy-scout && SUPABASE_PAT=<pat> node scripts/mgmt-query.mjs -e "select cou
 - **Serve**: `SUPABASE_PAT` (https://supabase.com/dashboard/account/tokens); opzionale `SUPABASE_REF` (default: project ref di Scout già nel codice)
 - **Nota**: esegue **qualsiasi** SQL, incluse `drop`/`delete` — leggere il file prima di lanciarlo.
 
+### azzera-target-conteggio.sql / azzera-target.sql — deluxy-scout
+Azzerano la pagina **Target** di Scout cancellando **solo i negozi mai lavorati**: `stato = 'da_visitare'`, non preferiti e senza nessuna visita, trattativa, contatto, chiamata, task o richiesta di pagamento. Clienti, negozi visitati e tutto ciò che ha una trattativa o un contatto restano.
+
+```bash
+# 1) prova a vuoto: dice quanti ne cancellerebbe, non tocca niente
+cd deluxy-scout && SUPABASE_PAT=<pat> node scripts/mgmt-query.mjs scripts/azzera-target-conteggio.sql
+# 2) cancellazione vera (irreversibile)
+cd deluxy-scout && SUPABASE_PAT=<pat> node scripts/mgmt-query.mjs scripts/azzera-target.sql
+```
+
+- **Serve**: `SUPABASE_PAT` (https://supabase.com/dashboard/account/tokens)
+- **Nota**: **irreversibile e in produzione** — lanciare sempre prima il conteggio. La lista si **ripopola** al primo giro di scoperta Google dalla Mappa e a ogni `import-anagrafiche.mjs`: se si vuole ripartire davvero da zero, non rilanciare l'import.
+
 ### migrate-prod.mjs — deluxy-mail
 Migrazione idempotente (create table/index/column `IF NOT EXISTS` + pulizia dei messaggi duplicati) applicata automaticamente a ogni build/deploy.
 
