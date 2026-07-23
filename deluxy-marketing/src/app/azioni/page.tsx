@@ -4,10 +4,12 @@ import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import {
   BRANDS,
+  CANALI,
   COLORE_BRAND,
   COLORE_PRIORITA,
   COLORE_STATO_AZIONE,
   ETICHETTA_BRAND,
+  ETICHETTA_CANALE,
   ETICHETTA_OWNER,
   ETICHETTA_PRIORITA,
   ETICHETTA_STATO_AZIONE,
@@ -16,17 +18,18 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// Board delle azioni per stato (kanban), filtrabile per brand e owner.
+// Board delle azioni per stato (kanban), filtrabile per canale, brand e owner.
 export default async function PaginaAzioni({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; owner?: string; q?: string }>;
+  searchParams: Promise<{ brand?: string; owner?: string; canale?: string; q?: string }>;
 }) {
-  const { brand, owner, q } = await searchParams;
+  const { brand, owner, canale, q } = await searchParams;
   const azioni = await prisma.azione.findMany({
     where: {
       ...(brand ? { brand } : {}),
       ...(owner ? { owner } : {}),
+      ...(canale ? { canale } : {}),
       ...(q ? { titolo: { contains: q } } : {}),
     },
     orderBy: [{ scadenza: { sort: "asc", nulls: "last" } }, { creataIl: "desc" }],
@@ -35,11 +38,13 @@ export default async function PaginaAzioni({
 
   return (
     <div className="layout">
-      <Sidebar attiva="azioni" brandAttivo={brand} />
+      <Sidebar attiva="azioni" brandAttivo={brand} canaleAttivo={canale} />
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Azioni</h1>
+            <h1 className="page-title">
+              Azioni{canale ? ` — ${ETICHETTA_CANALE[canale] ?? canale}` : ""}
+            </h1>
             <p className="page-sub">
               Le azioni intraprese e da intraprendere, con storia e feedback. Gli stati parlano la
               stessa lingua dei piani su Drive: da fare, in corso, fatta, superata, bloccata.
@@ -54,6 +59,12 @@ export default async function PaginaAzioni({
             <option value="">Tutti i brand</option>
             {BRANDS.map((b) => (
               <option key={b} value={b}>{ETICHETTA_BRAND[b]}</option>
+            ))}
+          </select>
+          <select name="canale" defaultValue={canale ?? ""}>
+            <option value="">Tutti i canali</option>
+            {CANALI.map((c) => (
+              <option key={c} value={c}>{ETICHETTA_CANALE[c]}</option>
             ))}
           </select>
           <select name="owner" defaultValue={owner ?? ""}>

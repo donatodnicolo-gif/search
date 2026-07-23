@@ -3,9 +3,11 @@ import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import {
   BRANDS,
+  CANALI,
   COLORE_BRAND,
   COLORE_ESITO,
   ETICHETTA_BRAND,
+  ETICHETTA_CANALE,
   ETICHETTA_ESITO,
   ETICHETTA_TIPO_ANALISI,
   formattaData,
@@ -17,13 +19,14 @@ export const dynamic = "force-dynamic";
 export default async function PaginaAnalisi({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; tipo?: string; q?: string }>;
+  searchParams: Promise<{ brand?: string; tipo?: string; canale?: string; q?: string }>;
 }) {
-  const { brand, tipo, q } = await searchParams;
+  const { brand, tipo, canale, q } = await searchParams;
   const analisi = await prisma.analisi.findMany({
     where: {
       ...(brand ? { brand } : {}),
       ...(tipo ? { tipo } : {}),
+      ...(canale ? { canale } : {}),
       ...(q ? { OR: [{ titolo: { contains: q } }, { sintesi: { contains: q } }] } : {}),
     },
     orderBy: { dataAnalisi: "desc" },
@@ -32,11 +35,13 @@ export default async function PaginaAnalisi({
 
   return (
     <div className="layout">
-      <Sidebar attiva="analisi" />
+      <Sidebar attiva="analisi" brandAttivo={brand} canaleAttivo={canale} />
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Analisi &amp; audit</h1>
+            <h1 className="page-title">
+              Analisi{canale ? ` — ${ETICHETTA_CANALE[canale] ?? canale}` : ""}
+            </h1>
             <p className="page-sub">
               Tutto ciò che le analisi hanno detto, nel tempo: audit Google e Meta, performance,
               revisioni di creativi e landing, report settimanali.
@@ -57,6 +62,12 @@ export default async function PaginaAnalisi({
             <option value="">Tutti i tipi</option>
             {TIPI_ANALISI.map((t) => (
               <option key={t} value={t}>{ETICHETTA_TIPO_ANALISI[t]}</option>
+            ))}
+          </select>
+          <select name="canale" defaultValue={canale ?? ""}>
+            <option value="">Tutti i canali</option>
+            {CANALI.map((c) => (
+              <option key={c} value={c}>{ETICHETTA_CANALE[c]}</option>
             ))}
           </select>
           <button className="btn small" type="submit">Filtra</button>

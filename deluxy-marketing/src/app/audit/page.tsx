@@ -20,13 +20,14 @@ const TIPI_AUDIT = ["audit_google", "audit_meta", "revisione_creativi", "revisio
 export default async function PaginaAudit({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; tipo?: string }>;
+  searchParams: Promise<{ brand?: string; tipo?: string; canale?: string }>;
 }) {
-  const { brand, tipo } = await searchParams;
+  const { brand, tipo, canale } = await searchParams;
   const audit = await prisma.analisi.findMany({
     where: {
       tipo: tipo ? tipo : { in: TIPI_AUDIT },
       ...(brand ? { brand } : {}),
+      ...(canale ? { canale } : {}),
     },
     orderBy: { dataAnalisi: "desc" },
     include: { _count: { select: { azioni: true } } },
@@ -41,11 +42,13 @@ export default async function PaginaAudit({
 
   return (
     <div className="layout">
-      <Sidebar attiva="audit" />
+      <Sidebar attiva="audit" brandAttivo={brand} canaleAttivo={canale} />
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Audit</h1>
+            <h1 className="page-title">
+              Audit{canale ? ` — ${ETICHETTA_CANALE[canale] ?? canale}` : ""}
+            </h1>
             <p className="page-sub">
               Le verifiche periodiche con il loro semaforo: audit Google e Meta, revisioni di
               creativi e landing. In alto lo stato corrente (l&apos;ultimo audit per brand e tipo),
@@ -89,6 +92,12 @@ export default async function PaginaAudit({
             {TIPI_AUDIT.map((t) => (
               <option key={t} value={t}>{ETICHETTA_TIPO_ANALISI[t]}</option>
             ))}
+          </select>
+          <select name="canale" defaultValue={canale ?? ""}>
+            <option value="">Tutti i canali</option>
+            <option value="google_ads">Google Ads</option>
+            <option value="meta_ads">Meta Ads</option>
+            <option value="sito">Sito / landing</option>
           </select>
           <button className="btn small" type="submit">Filtra</button>
         </form>
