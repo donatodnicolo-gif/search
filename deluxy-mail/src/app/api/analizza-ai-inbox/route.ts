@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { analizzaMessaggioOra } from '@/lib/sync'
+import { analizzaMessaggioOra, riassumiThreadOra } from '@/lib/sync'
+import { raggruppa, chiaveThread } from '@/lib/thread'
 import { emailContattiAI } from '@/lib/contattiAI'
 import { idsThreadAI } from '@/lib/threadAI'
 
@@ -24,6 +25,39 @@ export const maxDuration = 60
 // Poche per giro: ogni analisi è una chiamata a OpenAI (secondi), e la funzione
 // ha 60s. Il client ripassa finché non è finito.
 const PER_GIRO = 3
+
+/**
+ * Le conversazioni col PLUS AI il cui riassunto manca o è VECCHIO (generato
+ * quando la conversazione aveva meno messaggi di adesso). Torna, per ognuna,
+ * l'id di una sua mail da cui rigenerarlo.
+ */
+async function threadAIdaRiassumere(utenteId: string, idsAI: string[]): Promise<string[]> {
+  // Le mail dei thread AI, raggruppate: così si sa quanti messaggi ha ciascuno.
+  const messaggi = await db.messaggio.findMany({
+    where: { utenteId, id: { in: idsAI }, cestinato: false },
+    select: { id: true, thread: true, threadManuale: true, scollegato: true, oggetto: true, data: true },
+  })
+  if (messaggi.length === 0) return []
+
+  const gruppi = raggruppa(messaggi).filter((g) => g.length > 1)
+  if (gruppi.length === 0) return []
+
+  const chiavi = gruppi.map((g) => chiaveThread(g))
+  let visti = new Map<string, number>()
+  try {
+    const righe = await db.riassuntoThread.findMany({
+      where: { utenteId, chiave: { in: chiavi } },
+      select: { chiave: true, messaggiVisti: true },
+    })
+    visti = new Map(righe.map((r) => [r.chiave, r.messaggiVisti]))
+  } catch {
+    return [] // tabella non ancora migrata
+  }
+
+  return gruppi
+    .filter((g, i) => (visti.get(chiavi[i]) ?? 0) < g.length)
+    .map((g) => g[g.length - 1].id) // dal messaggio più recente del thread
+}
 
 export async function POST() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value
@@ -73,7 +107,21 @@ export async function POST() {
       }
     }
 
-    const restano = await db.messaggio.count({ where: dove })
+    // Finite le mail da leggere, si tiene aggiornato il RIASSUNTO delle
+    // conversazioni col PLUS AI: è la parte «riassunto aggiornato con l'ultima
+    // mail». Uno per giro, così la chiamata resta breve.
+    const daRiassumere = idsAI.length > 0 ? await threadAIdaRiassumere(userId, idsAI) : []
+    if (fatti === 0 && daRiassumere.length > 0) {
+      try {
+        await riassumiThreadOra(userId, daRiassumere[0])
+        fatti++
+      } catch {
+        /* si riprova al prossimo giro */
+      }
+    }
+
+    const restanoMessaggi = await db.messaggio.count({ where: dove })
+    const restano = restanoMessaggi + Math.max(0, daRiassumere.length - (fatti > 0 ? 1 : 0))
     return NextResponse.json({ ok: true, fatti, restano })
   } catch (e) {
     const m = e instanceof Error ? e.message : 'errore'

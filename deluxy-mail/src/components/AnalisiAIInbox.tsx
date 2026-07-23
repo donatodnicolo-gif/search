@@ -61,8 +61,8 @@ export function AnalisiAIInbox() {
   return (
     <div style={{ fontSize: 12.5, color: 'var(--text-tertiary)', margin: '0 0 10px' }}>
       {stato.restano > 0
-        ? `L’AI sta leggendo le mail dei contatti AI… ne restano ${stato.restano}.`
-        : `L’AI ha letto ${stato.fatti} ${stato.fatti === 1 ? 'mail' : 'mail'} dei contatti AI.`}
+        ? `L’AI sta leggendo le conversazioni col PLUS AI… ne restano ${stato.restano}.`
+        : `L’AI ha letto ${stato.fatti} ${stato.fatti === 1 ? 'elemento' : 'elementi'} col PLUS AI.`}
     </div>
   )
 }

@@ -10,7 +10,6 @@ import { CorpoMessaggio } from '@/components/CorpoMessaggio'
 import { RiassuntoConversazione } from '@/components/RiassuntoConversazione'
 import { BottoneContattoAI } from '@/components/BottoneContattoAI'
 import { BottoneNonSpam } from '@/components/BottoneNonSpam'
-import { EditorIstruzioni } from '@/components/EditorIstruzioni'
 import { AgganciaMail } from '@/components/AgganciaMail'
 import { StaccaRiga } from '@/components/StaccaRiga'
 import { RispostaAzioni } from '@/components/RispostaAzioni'
@@ -24,6 +23,7 @@ import { nomeDiThread } from '@/lib/nomiThread'
 import { NomeThreadForm } from '@/components/NomeThreadForm'
 import { ThreadAIToggle } from '@/components/ThreadAIToggle'
 import { CestinaThread } from '@/components/CestinaThread'
+import { AnalisiAIInbox } from '@/components/AnalisiAIInbox'
 import { threadHaAI } from '@/lib/threadAI'
 import { eContattoAI } from '@/lib/contattiAI'
 import { azioneDi } from '@/lib/appDeluxy'
@@ -93,19 +93,13 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
   const chiaveConv = conversazione.length > 1 ? chiaveThread(conversazione) : null
 
   let riassuntoThread: Awaited<ReturnType<typeof leggiRiassuntoThread>> = null
-  let istruzioniThread = ''
   let nomeConv = ''
   let threadAI = false
   if (chiaveConv) {
-    const [rt, it, nt, tai] = await Promise.all([
+    // Le istruzioni AI del thread non si leggono più qui: il form è stato
+    // tolto (si usa «Delega Renè») e chi le applica le rilegge da sé.
+    const [rt, nt, tai] = await Promise.all([
       leggiRiassuntoThread(u.id, chiaveConv),
-      db.istruzioneThread
-        .findUnique({
-          where: { utenteId_chiave: { utenteId: u.id, chiave: chiaveConv } },
-          select: { istruzioni: true },
-        })
-        .then((r) => r?.istruzioni ?? '')
-        .catch(() => ''), // tabella non ancora migrata: nessuna istruzione
       // Il nome può essere finito su un'altra mail della conversazione (le
       // chiavi cambiano agganciando mail vecchie): si cerca su tutte.
       nomeDiThread(u.id, chiaveConv, conversazione.map((m) => m.id)),
@@ -113,7 +107,6 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
       threadHaAI(u.id, conversazione.map((m) => m.id)),
     ])
     riassuntoThread = rt
-    istruzioniThread = it
     nomeConv = nt ?? ''
     threadAI = tai
   }
@@ -204,6 +197,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
             <CestinaThread messaggioId={messaggio.id} quante={conversazione.length} />
           </div>
 
+          {/* Se la conversazione ha il PLUS AI, l'AI la legge in sottofondo
+              appena la apri: mail non ancora analizzate e riassunto da rifare. */}
+          {threadAI && <AnalisiAIInbox />}
+
           <div style={{ marginBottom: 14 }}>
             <AgganciaMail
               messaggioId={messaggio.id}
@@ -212,7 +209,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
             />
           </div>
 
-          <EditorIstruzioni tipo="thread" target={messaggio.id} valore={istruzioniThread} />
+          {/* Il form «Istruzioni AI per questa conversazione» non si mostra più:
+              per dire all'AI cosa fare c'è «Delega Renè», che si scrive a
+              parole. Le istruzioni già salvate restano attive e continuano a
+              essere applicate (istruzioniMirate in sync.ts). */}
 
           <RiassuntoConversazione
             messaggioId={messaggio.id}
