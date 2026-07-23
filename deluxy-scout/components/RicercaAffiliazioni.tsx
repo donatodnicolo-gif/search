@@ -16,7 +16,12 @@ import type { GeocodeResult } from '@/lib/geocode';
 import type { Place } from '@/types';
 import { avvisa } from '@/lib/dialoghi';
 
+// Il raggio è FACOLTATIVO: di default è "Auto" e l'app allarga da sola finché
+// trova abbastanza negozi (utile in periferia, dove 600 m non bastano). Chi
+// vuole decidere sceglie una distanza precisa.
 const RAGGI = [300, 600, 1000, 2000];
+const AUTO_PASSI = [400, 800, 1500, 2000];
+const AUTO_ABBASTANZA = 8;
 const COSA: { valore: FiltroScoperta; label: string }[] = [
   { valore: 'affiliazioni', label: 'Fiori + Pasticcerie' },
   { valore: 'fiori', label: 'Solo fiori' },
@@ -26,19 +31,35 @@ const COSA: { valore: FiltroScoperta; label: string }[] = [
 export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
   const [centro, setCentro] = useState<Coord | null>(null);
   const [indirizzo, setIndirizzo] = useState<string | null>(null);
-  const [raggio, setRaggio] = useState(600);
+  const [raggio, setRaggio] = useState<number | null>(null); // null = Auto
+  const [raggioUsato, setRaggioUsato] = useState<number | null>(null);
   const [cosa, setCosa] = useState<FiltroScoperta>('affiliazioni');
   const [risultati, setRisultati] = useState<Place[]>([]);
   const [loading, setLoading] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [presi, setPresi] = useState<Set<string>>(new Set());
 
-  async function cerca(punto: Coord, r = raggio, c = cosa) {
+  async function cerca(punto: Coord, r: number | null = raggio, c = cosa) {
     setLoading(true);
     setErrore(null);
     try {
-      const esito = await scopriNegozi(punto.lat, punto.lng, r, c);
-      setRisultati(esito.places);
+      if (r != null) {
+        const esito = await scopriNegozi(punto.lat, punto.lng, r, c);
+        setRisultati(esito.places);
+        setRaggioUsato(r);
+      } else {
+        // Auto: si allarga finché non ci sono abbastanza negozi da lavorare.
+        let ultimi: Place[] = [];
+        let usato = AUTO_PASSI[0];
+        for (const passo of AUTO_PASSI) {
+          const esito = await scopriNegozi(punto.lat, punto.lng, passo, c);
+          ultimi = esito.places;
+          usato = passo;
+          if (ultimi.length >= AUTO_ABBASTANZA) break;
+        }
+        setRisultati(ultimi);
+        setRaggioUsato(usato);
+      }
     } catch (e: any) {
       setErrore(e?.message ?? 'Ricerca non riuscita.');
       setRisultati([]);
@@ -86,6 +107,14 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
         </ScrollView>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           <Text style={styles.etichetta}>Raggio</Text>
+          <Chip
+            label="Auto"
+            on={raggio === null}
+            onPress={() => {
+              setRaggio(null);
+              if (centro) cerca(centro, null, cosa);
+            }}
+          />
           {RAGGI.map((r) => (
             <Chip
               key={r}
@@ -102,6 +131,7 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
           <Text style={styles.zona} numberOfLines={1}>
             <Ionicons name="location-outline" size={12} color={colors.testoSoft} /> {indirizzo}
             {risultati.length ? ` · ${risultati.length} trovati` : ''}
+            {raggioUsato ? ` entro ${raggioUsato >= 1000 ? `${(raggioUsato / 1000).toFixed(1)} km` : `${raggioUsato} m`}` : ''}
           </Text>
         ) : null}
       </View>
@@ -125,7 +155,7 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
         <EmptyState
           icona="map-outline"
           titolo="Nessun negozio in questa zona"
-          aiuto="Prova ad allargare il raggio o a cambiare indirizzo."
+          aiuto="Con «Auto» ho già allargato fino a 2 km: prova un altro indirizzo o cambia cosa cercare."
         />
       ) : (
         <ScrollView contentContainerStyle={styles.lista}>
