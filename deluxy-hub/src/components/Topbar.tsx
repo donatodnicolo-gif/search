@@ -20,9 +20,14 @@ export function Topbar({ sessione }: { sessione: Sessione }) {
           {RUOLO_INFO[sessione.ruolo].etichetta}
         </span>
         {sessione.ruolo === "admin" && (
-          <Link href="/utenti" className="btn ghost">
-            Utenti
-          </Link>
+          <>
+            <Link href="/utenti" className="btn ghost">
+              Utenti
+            </Link>
+            <Link href="/chiavi" className="btn ghost">
+              Chiavi
+            </Link>
+          </>
         )}
         <Link href="/profilo" className="btn ghost">
           {sessione.nome}

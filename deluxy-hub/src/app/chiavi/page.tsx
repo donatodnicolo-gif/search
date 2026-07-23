@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { catalogoApp } from "@/lib/apps";
 import { decifra } from "@/lib/cifratura";
-import { aggiornaChiave, creaChiave, eliminaChiave } from "@/lib/chiavi-actions";
+import { aggiornaChiave, creaChiave, eliminaChiave, revocaToken } from "@/lib/chiavi-actions";
 import { prisma } from "@/lib/db";
 import { richiediAdmin } from "@/lib/sessione-server";
+import { TokenForm } from "./TokenForm";
 
 // Cassaforte delle chiavi dei progetti, solo admin. I valori stanno sul database
 // cifrati (AES-256-GCM); qui si vedono mascherati e si rivelano uno alla volta.
@@ -12,6 +13,8 @@ const MESSAGGI_OK: Record<string, string> = {
   creata: "Chiave salvata.",
   aggiornata: "Chiave aggiornata.",
   eliminata: "Chiave eliminata.",
+  "token-creato": "Token creato. Se non l'hai copiato, revocalo e generane un altro.",
+  "token-revocato": "Token revocato.",
 };
 
 const MESSAGGI_ERRORE: Record<string, string> = {
@@ -19,6 +22,8 @@ const MESSAGGI_ERRORE: Record<string, string> = {
   esiste: "Questo progetto ha già una chiave con questo nome: modificala dalla lista.",
   segreto:
     "HUB_CHIAVI_SECRET manca (o è troppo corto) nell'ambiente: senza, i valori non si possono cifrare.",
+  token: "Token non valido: dai un nome e premi «Genera token» prima di salvare.",
+  "token-esiste": "Questo token esiste già: generane un altro.",
 };
 
 function dataIt(d: Date) {
@@ -36,6 +41,7 @@ export default async function ChiaviPage({
   const chiavi = await prisma.chiave.findMany({
     orderBy: [{ progetto: "asc" }, { nome: "asc" }],
   });
+  const token = await prisma.tokenApi.findMany({ orderBy: [{ nome: "asc" }] });
 
   // Il valore si rivela una chiave alla volta (?mostra=id): si decifra solo
   // quella, le altre restano mascherate.
@@ -208,6 +214,71 @@ export default async function ChiaviPage({
                         </button>
                       </form>
                     </details>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="page-head" style={{ marginTop: 40 }}>
+        <h1 className="page-title">Token di servizio</h1>
+        <p className="page-sub">
+          Le altre app leggono le proprie chiavi da{" "}
+          <code>GET /api/chiavi?progetto=…</code> con uno di questi token
+          (header <code>x-api-key</code> o <code>Authorization: Bearer</code>). Ogni
+          token vede solo i progetti che gli assegni.
+        </p>
+      </div>
+
+      <div className="section-label">Nuovo token</div>
+      <div className="card">
+        <TokenForm progetti={progetti} />
+      </div>
+
+      <div className="section-label">{token.length} token</div>
+      <div className="card" style={{ padding: "20px 12px" }}>
+        {token.length === 0 ? (
+          <p style={{ color: "var(--text-tertiary)", fontSize: 13.5, margin: "4px 8px" }}>
+            Nessun token: generane uno qui sopra e mettilo nell'ambiente dell'app che deve leggere.
+          </p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Progetti</th>
+                <th>Ultimo uso</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {token.map((t) => (
+                <tr key={t.id}>
+                  <td style={{ fontWeight: 500 }}>{t.nome}</td>
+                  <td style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
+                    {t.progetti.length === 0 ? (
+                      <span className="badge gold">
+                        <span className="dot" />
+                        tutti i progetti
+                      </span>
+                    ) : (
+                      <span style={{ fontFamily: "ui-monospace, monospace" }}>
+                        {t.progetti.join(" · ")}
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+                    {t.ultimoUso ? dataIt(t.ultimoUso) : "mai"}
+                  </td>
+                  <td>
+                    <form action={revocaToken}>
+                      <input type="hidden" name="id" value={t.id} />
+                      <button type="submit" className="btn danger" style={{ justifyContent: "center" }}>
+                        Revoca
+                      </button>
+                    </form>
                   </td>
                 </tr>
               ))}

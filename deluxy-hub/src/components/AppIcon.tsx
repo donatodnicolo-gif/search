@@ -64,6 +64,33 @@ const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
       <path d="m15.5 6.5 5-3.5M20.5 3l-3.6.4M20.5 3l.4 3.6" {...TRATTO} />
     </>
   ),
+  // Elenco con spunte: il registro delle attività condiviso fra le app
+  tasks: (
+    <>
+      <path d="m4 6.5 1.5 1.5L8 5.5" {...TRATTO} />
+      <path d="M11 7h9" {...TRATTO} />
+      <path d="m4 12.5 1.5 1.5L8 11.5" {...TRATTO} />
+      <path d="M11 13h9" {...TRATTO} />
+      <path d="m4 18.5 1.5 1.5L8 17.5" {...TRATTO} />
+      <path d="M11 19h9" {...TRATTO} />
+    </>
+  ),
+  // Calendario: gli eventi datati di tutte le app
+  calendario: (
+    <>
+      <path d="M4.5 6h15v13.5h-15z" {...TRATTO} />
+      <path d="M4.5 10h15" {...TRATTO} />
+      <path d="M8 4v3.5M16 4v3.5" {...TRATTO} />
+      <path d="M8 13.5h2M8 16.5h2M14 13.5h2M14 16.5h2" {...TRATTO} />
+    </>
+  ),
+  // Appendiabiti: il prodotto gestito come una maison di moda
+  merchandising: (
+    <>
+      <path d="M12 5.2a1.6 1.6 0 0 1 1.6 1.6c0 1-1.6 1.2-1.6 2.4" {...TRATTO} />
+      <path d="M12 9.2 4 15.2a1 1 0 0 0 .6 1.8h14.8a1 1 0 0 0 .6-1.8L12 9.2z" {...TRATTO} />
+    </>
+  ),
   // Busta con scintilla: posta letta e smistata dall'AI
   mail: (
     <>

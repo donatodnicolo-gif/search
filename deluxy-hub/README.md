@@ -82,6 +82,7 @@ connection string Supabase con `?schema=hub` in fondo.
 | `DATABASE_URL` | Postgres Supabase, pooler 6543, con `?pgbouncer=true&connection_limit=1&schema=hub` |
 | `DIRECT_URL` | Postgres Supabase, pooler 5432, con `?schema=hub` — usata da `db push` |
 | `HUB_SESSION_SECRET` | firma il cookie di sessione. **Cambiarlo disconnette tutti.** Generalo con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `HUB_CHIAVI_SECRET` | **facoltativo.** cifra i valori della pagina `/chiavi` (AES-256-GCM, min 32 caratteri). Se assente si riusa `HUB_SESSION_SECRET`, così la cassaforte funziona senza configurare nulla. **Cambiarlo rende illeggibili le chiavi già salvate** |
 | `APP_URL_SEARCH` / `APP_URL_PARTNER` / `APP_URL_SCOUT` | dove puntano le icone |
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | primo admin creato dal seed (solo primo avvio) |
 
@@ -111,6 +112,42 @@ connection string Supabase con `?schema=hub` in fondo.
 | `/login` | pubblica | email + password |
 | `/profilo` | tutti | proprio ruolo, app abilitate, cambio password |
 | `/utenti` | solo admin | crea, sceglie app per utente, cambia ruolo/password, attiva/disattiva, elimina |
+| `/chiavi` | solo admin | cassaforte dei segreti dei progetti: valori cifrati sul database, mascherati in lista, rivelabili uno alla volta |
+
+### La pagina `/chiavi`
+
+Le chiavi API di tutti i progetti (OpenAI, HubSpot, Shopify, …) vivono in un
+posto solo invece che sparse nei `.env`: si salvano con progetto + nome +
+valore, il valore è cifrato **AES-256-GCM**
+([`src/lib/cifratura.ts`](src/lib/cifratura.ts)) e sul database non c'è mai
+nulla in chiaro (tabella `Chiave`, in lista si vedono solo gli ultimi 4
+caratteri). Il middleware blocca la rotta ai non-admin e ogni server action
+([`src/lib/chiavi-actions.ts`](src/lib/chiavi-actions.ts)) ricontrolla il ruolo.
+
+La chiave di cifratura deriva da `HUB_CHIAVI_SECRET` se impostato, **altrimenti
+da `HUB_SESSION_SECRET`** (già in produzione): così la cassaforte funziona senza
+configurare nulla di nuovo su Vercel. Restando sul fallback, però, ruotare
+`HUB_SESSION_SECRET` (che serve a disconnettere tutti) rende illeggibili le
+chiavi salvate — per disaccoppiarle imposta un `HUB_CHIAVI_SECRET` dedicato.
+
+#### API di lettura per le altre app
+
+Le app Deluxy leggono le proprie chiavi via HTTP invece di tenerle nel `.env`:
+
+```
+GET /api/chiavi?progetto=deluxy-scout
+Header: x-api-key: <token>        (oppure Authorization: Bearer <token>)
+→ { "progetto": "deluxy-scout", "chiavi": { "OPENAI_API_KEY": "sk-…", … } }
+```
+
+Con `&nome=OPENAI_API_KEY` restituisce solo quella. I **token di servizio** si
+generano dalla pagina `/chiavi` (sezione "Token di servizio"): il valore in
+chiaro si vede una volta sola, sul database resta solo il suo SHA-256
+([`src/lib/token-api.ts`](src/lib/token-api.ts), modello `TokenApi`). Ogni token
+è limitato ai progetti che gli assegni (nessuno = tutti) e si revoca dalla lista.
+L'app che consuma mette il token nel proprio ambiente (es. `HUB_CHIAVI_TOKEN`) e
+chiama l'endpoint. La rotta `/api/*` è esclusa dal middleware di sessione perché
+si autentica da sé; `route.ts` risponde con `Cache-Control: no-store`.
 
 ## 5. Deploy
 

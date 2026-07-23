@@ -27,7 +27,9 @@ export default async function HomePage() {
             <a
               key={a.id}
               className="app-card"
-              href={a.url}
+              // Le app con SSO passano dal Hub (/vai/<id>), che genera il token
+              // e reindirizza: così l'utente entra senza rifare il login.
+              href={a.sso ? `/vai/${a.id}` : a.url}
               target="_blank"
               rel="noreferrer noopener"
             >

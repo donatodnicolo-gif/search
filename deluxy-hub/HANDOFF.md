@@ -1,7 +1,7 @@
 # Deluxy Hub — Handoff per ripartire
 
 > Documento per una nuova sessione (anche altro account Claude) che riprende il
-> lavoro sul portale. Aggiornato: **18 luglio 2026**, commit `6870236`.
+> lavoro sul portale. Aggiornato: **23 luglio 2026**.
 > Leggi anche [README.md](README.md) (dettagli completi) e la memoria del progetto.
 
 ---
@@ -44,22 +44,30 @@ quella qui sopra, leggibile nel file `.env` locale.
 
 ---
 
-## 3. Le 7 app del portale
+## 3. Le 11 app del portale
 
 Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 
-| App (etichetta) | URL produzione | Chi la vede | Note |
+| App (etichetta) | URL | Chi la vede | Note |
 |---|---|---|---|
-| AI Mail | `https://deluxy-mail.vercel.app/` | solo admin | |
-| Anagrafiche | `https://deluxy-anagrafiche.vercel.app` | admin, commerciale | |
-| Commerciale Scout | `https://deluxy-scout.vercel.app/lista` | admin, commerciale | export web Expo |
-| Consegne | `http://localhost:4200/deliveries` | solo admin | ⚠️ **segnaposto**, non pubblica |
-| Finance | `https://deluxy-partner.vercel.app` | admin, partner | id interno = `partner` |
+| AI Mail | `APP_URL_MAIL` (dev 3070) | solo admin | |
+| Anagrafiche | `APP_URL_ANAGRAFICHE` (dev 3060) | admin, commerciale | |
+| Attività | `APP_URL_TASKS` ?? `http://localhost:3090` | solo admin | visibile anche in prod |
+| Budgets | `APP_URL_BUDGETS` ?? `http://localhost:3080` | solo admin | visibile anche in prod |
+| Calendario | `APP_URL_CALENDARIO` ?? `http://localhost:3110` | solo admin | visibile anche in prod |
+| Commerciale Scout | `https://deluxy-scout.vercel.app` | admin, commerciale | export web Expo |
+| Consegne | `https://deluxy-delivery.vercel.app` | solo admin | |
+| Finance | `https://deluxy-partner.vercel.app` | admin, partner | id interno = `partner`, **`sso: true`** |
 | Maison | `https://deluxy-os.base44.app/` | tutti i ruoli | Deluxy OS su base44 |
+| Merchandising | `APP_URL_MERCHANDISING` ?? `http://localhost:3120` | admin, commerciale | visibile anche in prod |
 | Ricerca fornitori | `https://search-deluxy.vercel.app` | admin, commerciale | id interno = `search` |
 
-- **Consegne** è l'unica ancora su `localhost`: quando la piattaforma avrà un
-  URL pubblico, imposta `APP_URL_CONSEGNE` su Vercel **e ripubblica**.
+- Regola generale: senza `APP_URL_*` l'app **sparisce in produzione** (helper `url()`
+  in `apps.ts`). Le app marcate "visibile anche in prod" sono **eccezioni volute**
+  (`process.env.X ?? "http://localhost:PORTA"`): la tessera resta e punta
+  all'istanza locale finché non c'è un URL pubblico.
+- Le app con `sso: true` in home puntano a **`/vai/<id>`** invece che all'URL
+  diretto: il Hub genera il token e reindirizza (vedi §9-bis).
 - I "Chi la vede" della tabella sono i **default di preselezione del ruolo**: con i
   permessi per-utente (sotto) l'accesso vero è deciso app-per-app.
 
@@ -153,12 +161,32 @@ npm run dev            # http://localhost:3050
 ## 9. Cosa manca / prossimi passi possibili
 
 - **Cambiare la password admin** (vedi §2).
-- **Consegne** non ha URL pubblico: aggiornare `APP_URL_CONSEGNE` + redeploy quando
-  la piattaforma sarà pubblicata.
+- **Go-live SSO** (§9-bis): impostare lo stesso `HUB_SSO_SECRET` (min 32 caratteri)
+  nelle env Vercel di **Hub e deluxy-partner**, poi redeploy di entrambi. Finché
+  il segreto manca, `/vai/<id>` degrada e apre l'app col suo login normale.
+- **URL pubblici mancanti**: Attività, Budgets, Calendario, Merchandising puntano
+  a `localhost`. Quando saranno pubblicate: `APP_URL_*` su Vercel + redeploy.
 - **Nessun recupero password autonomo**: lo reimposta un admin da `/utenti`.
 - **Creare gli utenti veri** del team da `/utenti` (finora esiste solo l'admin).
-- Eventuale **push** dell'ultimo commit su `origin/scout-ui` (l'utente non l'ha
-  ancora chiesto; branch condiviso con un'altra sessione, valutare prima).
+
+---
+
+## 9-bis. Novità 21–23 luglio 2026
+
+- **Cassaforte `/chiavi`** (solo admin): i segreti di tutti i progetti cifrati
+  AES-256-GCM (`src/lib/cifratura.ts`, tabella `Chiave`), chiave da
+  `HUB_CHIAVI_SECRET` con fallback su `HUB_SESSION_SECRET`. Link "Chiavi" nella
+  topbar admin. Dettagli nel [README](README.md).
+- **API di lettura per le altre app**: `GET /api/chiavi?progetto=<id>` con token
+  di servizio (`x-api-key` o `Bearer`), salvati come SHA-256 (modello `TokenApi`,
+  `src/lib/token-api.ts`), scope per progetto, generabili/revocabili da `/chiavi`.
+  Il middleware **esclude `/api/*`**: quelle rotte si autenticano da sole.
+- **SSO Hub→app** (`src/lib/sso.ts`, `src/app/vai/[app]`): token cifrato AES-GCM
+  con `HUB_SSO_SECRET` condiviso, l'app di destinazione lo scambia su
+  `/api/sso` e crea la propria sessione. Attivo su Finance (`sso: true`); lato
+  Partner: `src/lib/sso.ts` + `src/app/api/sso/route.ts` (admin → accesso pieno,
+  altri → sola lettura).
+- **Catalogo passato a 11 app** (vedi §3), con `APP_URL_CONSEGNE` ora pubblico.
 
 ---
 

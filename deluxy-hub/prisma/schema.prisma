@@ -35,6 +35,21 @@ model Chiave {
   @@index([progetto])
 }
 
+// Token di servizio per l'API di lettura delle chiavi (GET /api/chiavi). Ogni
+// app che deve leggere i propri segreti ne riceve uno. Sul database c'è solo lo
+// SHA-256 del token (come le chiavi API di Anagrafiche): il valore in chiaro si
+// vede una volta sola alla generazione. `progetti` limita cosa può leggere
+// (vuoto = tutti i progetti).
+model TokenApi {
+  id        String    @id @default(cuid())
+  nome      String // a chi appartiene, es. "deluxy-scout"
+  hash      String    @unique // sha256 del token in chiaro
+  progetti  String[]  @default([]) // progetti leggibili; vuoto = tutti
+  attivo    Boolean   @default(true)
+  creatoIl  DateTime  @default(now())
+  ultimoUso DateTime?
+}
+
 model Utente {
   id            String    @id @default(cuid())
   email         String    @unique

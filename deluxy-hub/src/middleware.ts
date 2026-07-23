@@ -27,5 +27,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!login|_next/static|_next/image|favicon.ico).*)"],
+  // "api" è escluso: le route API si autenticano da sole (token di servizio),
+  // non con il cookie di sessione — il middleware le reindirizzerebbe al login.
+  matcher: ["/((?!api|login|_next/static|_next/image|favicon.ico).*)"],
 };

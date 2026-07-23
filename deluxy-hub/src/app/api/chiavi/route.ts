@@ -1,52 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { decifra } from "@/lib/cifratura";
+import { prisma } from "@/lib/db";
+import { autenticaToken, erroreApi } from "@/lib/token-api";
 
-// Cassaforte centrale: le altre app Deluxy chiedono qui le proprie chiavi invece
-// di tenerle nel .env. È un endpoint server-to-server, autenticato con un token
-// di servizio (HUB_KEYS_TOKEN) — NON con la sessione utente.
-//
-//   GET /api/chiavi?progetto=deluxy-budgets            tutte le chiavi del progetto
-//   GET /api/chiavi?progetto=deluxy-budgets&nome=OPENAI_API_KEY   una sola
-//   Header: X-Hub-Token: <HUB_KEYS_TOKEN>
-//
-// Restituisce i valori IN CHIARO (decifrati): per questo l'auth a token è
-// obbligatoria e il token va trattato come un segreto di primo livello.
+// GET /api/chiavi?progetto=<id>[&nome=<NOME>]
+// Lettura delle chiavi di un progetto per le altre app Deluxy. Autenticazione
+// via token di servizio (header x-api-key o Authorization: Bearer), generato
+// dalla pagina /chiavi e limitato ai suoi progetti. Risposta:
+//   { "progetto": "deluxy-scout", "chiavi": { "OPENAI_API_KEY": "sk-…", … } }
+// I valori vengono decifrati al volo; nessuna cache (Cache-Control: no-store).
 
-function tokenValido(req: NextRequest): boolean {
-  const atteso = (process.env.HUB_KEYS_TOKEN || "").trim();
-  if (!atteso || atteso.length < 16) return false; // vault spento finché non configurato
-  const dato =
-    req.headers.get("x-hub-token")?.trim() ||
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
-  return dato === atteso;
-}
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  if (!tokenValido(req)) {
-    return NextResponse.json({ errore: "Token di servizio mancante o non valido (X-Hub-Token)." }, { status: 401 });
+  const auth = await autenticaToken(req);
+  if (auth instanceof NextResponse) return auth; // 401
+
+  const progetto = req.nextUrl.searchParams.get("progetto");
+  if (!progetto) return erroreApi(400, "Parametro 'progetto' mancante");
+
+  // Scope del token: progetti vuoto = tutti; altrimenti solo i suoi.
+  if (auth.progetti.length > 0 && !auth.progetti.includes(progetto)) {
+    return erroreApi(403, `Questo token non può leggere il progetto '${progetto}'`);
   }
 
-  const progetto = req.nextUrl.searchParams.get("progetto")?.trim();
-  const nome = req.nextUrl.searchParams.get("nome")?.trim();
-  if (!progetto) {
-    return NextResponse.json({ errore: "Parametro 'progetto' mancante." }, { status: 400 });
-  }
-
-  const where = nome ? { progetto, nome } : { progetto };
-  const righe = await prisma.chiave.findMany({ where });
+  const nome = req.nextUrl.searchParams.get("nome");
+  const righe = await prisma.chiave.findMany({
+    where: nome ? { progetto, nome } : { progetto },
+  });
 
   const chiavi: Record<string, string> = {};
-  for (const r of righe) {
+  for (const c of righe) {
     try {
-      chiavi[r.nome] = decifra(r.valoreCifrato);
+      chiavi[c.nome] = decifra(c.valoreCifrato);
     } catch {
-      // una chiave illeggibile (segreto di cifratura cambiato) non deve far
-      // fallire tutte le altre: la si salta.
+      // Chiave illeggibile (segreto di cifratura cambiato): la saltiamo.
     }
   }
 
-  // Nessun caching: i valori sono segreti e possono ruotare.
   return NextResponse.json(
     { progetto, chiavi },
     { headers: { "Cache-Control": "no-store" } }

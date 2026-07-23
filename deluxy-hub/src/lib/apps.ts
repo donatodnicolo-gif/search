@@ -8,11 +8,15 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
   mobile?: boolean;
+  // true = l'app accetta il Single Sign-On del Hub: aprendola l'utente entra
+  // senza rifare il login (il Hub le passa un token cifrato su /api/sso). Per
+  // forzare il login proprio dell'app, l'admin toglie questo flag.
+  sso?: boolean;
 };
 
 // Un'app si mostra solo se sappiamo dove mandare l'utente. In produzione l'URL
@@ -35,7 +39,9 @@ export function catalogoApp(): AppDeluxy[] {
       descrizione:
         "Il cuore operativo: consegne, attività, valletti e clienti delle spedizioni in guanti bianchi.",
       icona: "consegne",
-      url: url(process.env.APP_URL_CONSEGNE, "http://localhost:4200/deliveries"),
+      // Consegne ora ha un sito pubblico: punta lì di default (anche in
+      // produzione), restando sovrascrivibile via APP_URL_CONSEGNE.
+      url: process.env.APP_URL_CONSEGNE ?? "https://deluxy-delivery.vercel.app",
       ruoli: ["admin"],
     },
     {
@@ -57,6 +63,7 @@ export function catalogoApp(): AppDeluxy[] {
       icona: "partner",
       url: url(process.env.APP_URL_PARTNER, "http://localhost:3040"),
       ruoli: ["admin", "partner"],
+      sso: true, // pilota SSO: si entra dal Hub senza digitare la password di team
     },
     {
       id: "anagrafiche",
@@ -78,13 +85,27 @@ export function catalogoApp(): AppDeluxy[] {
       ruoli: ["admin", "partner", "commerciale"],
     },
     {
+      id: "merchandising",
+      nome: "Merchandising",
+      sottotitolo: "Prodotto & collezioni",
+      descrizione:
+        "Il prodotto a 360° come una maison: collezioni e stagioni, sviluppo (PLM), costi e margini, visual merchandising e pubblicazione su Shopify.",
+      icona: "merchandising",
+      // Eccezione voluta: la tessera resta visibile anche in produzione senza
+      // APP_URL_MERCHANDISING, puntando all'istanza locale finché non c'è un URL pubblico.
+      url: process.env.APP_URL_MERCHANDISING ?? "http://localhost:3120",
+      ruoli: ["admin", "commerciale"],
+    },
+    {
       id: "budgets",
       nome: "Budgets",
       sottotitolo: "Budget e P&L",
       descrizione:
         "Budget aziendali su 3 livelli (raggiungibile, sfidante, irraggiungibile) con P&L, premi, proposte dei responsabili e spese ADV.",
       icona: "budgets",
-      url: url(process.env.APP_URL_BUDGETS, "http://localhost:3080"),
+      // Eccezione voluta: la tessera resta visibile anche in produzione senza
+      // APP_URL_BUDGETS, puntando all'istanza locale finché non c'è un URL pubblico.
+      url: process.env.APP_URL_BUDGETS ?? "http://localhost:3080",
       ruoli: ["admin"],
     },
     {
@@ -94,9 +115,35 @@ export function catalogoApp(): AppDeluxy[] {
       descrizione:
         "Mappa delle attività di Milano con priorità, registrazione visite offline e invio a HubSpot.",
       icona: "scout",
-      url: url(process.env.APP_URL_SCOUT, "http://localhost:8081"),
+      // Scout ora ha una build web pubblica: punta lì di default (anche in
+      // produzione), restando sovrascrivibile via APP_URL_SCOUT.
+      url: process.env.APP_URL_SCOUT ?? "https://deluxy-scout.vercel.app",
       ruoli: ["admin", "commerciale"],
       mobile: true,
+    },
+    {
+      id: "tasks",
+      nome: "Attività",
+      sottotitolo: "Le attività di tutte le app",
+      descrizione:
+        "Il registro centralizzato delle attività: ogni app Deluxy vi scrive le sue, qui le vedi e le chiudi in un posto solo.",
+      icona: "tasks",
+      // Eccezione voluta: la tessera resta visibile anche in produzione senza
+      // APP_URL_TASKS, puntando all'istanza locale finché non c'è un URL pubblico.
+      url: process.env.APP_URL_TASKS ?? "http://localhost:3090",
+      ruoli: ["admin"],
+    },
+    {
+      id: "calendario",
+      nome: "Calendario",
+      sottotitolo: "Gli eventi di tutte le app",
+      descrizione:
+        "Il calendario centralizzato: gli eventi datati di ogni app Deluxy in un'unica vista, gemello del registro Attività.",
+      icona: "calendario",
+      // Eccezione voluta: la tessera resta visibile anche in produzione senza
+      // APP_URL_CALENDARIO, puntando all'istanza locale finché non c'è un URL pubblico.
+      url: process.env.APP_URL_CALENDARIO ?? "http://localhost:3110",
+      ruoli: ["admin"],
     },
     {
       id: "mail",
