@@ -2279,6 +2279,159 @@ async function inviaInvitoEvento(utenteId: string, eventoId: string): Promise<st
   return `Invito inviato a ${invitati.join(', ')}.`
 }
 
+// ---------- Inviti RICEVUTI (accetta / forse / rifiuta) ----------
+
+export type InvitoInMail = {
+  titolo: string
+  quando: string
+  luogo: string
+  organizzatore: string
+  metodo: string
+  /** True se quell'appuntamento è già nel calendario. */
+  giaInAgenda: boolean
+}
+
+/** L'invito iCalendar dentro una mail, se c'è. Legge la parte `text/calendar`
+ *  dal server (on-demand, come gli allegati): niente AI, i dati sono già lì. */
+export async function leggiInvito(messaggioId: string): Promise<InvitoInMail | null> {
+  const utenteId = await uid()
+  const m = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    include: { account: true },
+  })
+  if (!m || m.uid <= 0) return null
+
+  const { leggiTuttiAllegati } = await import('./imap')
+  const { leggiIcs } = await import('./invitoRicevuto')
+  const cartella = m.direzione === 'uscita' ? m.account.cartellaInviata || undefined : m.account.cartella
+
+  let parti: { nome: string; tipo: string; contenuto: Buffer }[] = []
+  try {
+    parti = await leggiTuttiAllegati(m.account, m.uid, cartella)
+  } catch {
+    return null
+  }
+
+  const calendario = parti.find(
+    (a) => /text\/calendar/i.test(a.tipo) || /\.ics$/i.test(a.nome)
+  )
+  if (!calendario) return null
+
+  const invito = leggiIcs(calendario.contenuto.toString('utf8'))
+  if (!invito) return null
+
+  const giaInAgenda =
+    (await db.evento.count({
+      where: { utenteId, inizio: invito.inizio, titolo: invito.titolo },
+    })) > 0
+
+  const quando = invito.giornataIntera
+    ? invito.inizio.toLocaleDateString('it-IT', { timeZone: FUSO, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : `${invito.inizio.toLocaleString('it-IT', { timeZone: FUSO, weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}${
+        invito.fine ? `–${invito.fine.toLocaleTimeString('it-IT', { timeZone: FUSO, hour: '2-digit', minute: '2-digit' })}` : ''
+      }`
+
+  return {
+    titolo: invito.titolo,
+    quando,
+    luogo: invito.luogo,
+    organizzatore: invito.organizzatoreNome || invito.organizzatoreEmail,
+    metodo: invito.metodo,
+    giaInAgenda,
+  }
+}
+
+/**
+ * Risponde a un invito ricevuto: mette l'appuntamento in agenda (se accettato o
+ * "forse") e manda all'organizzatore la risposta iCal (METHOD:REPLY), quella
+ * che fa aggiornare lo stato del partecipante nel SUO calendario.
+ */
+export async function rispondiInvito(
+  messaggioId: string,
+  stato: 'ACCEPTED' | 'DECLINED' | 'TENTATIVE'
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const m = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    include: { account: true },
+  })
+  if (!m || m.uid <= 0) return { ok: false, messaggio: 'Mail non più disponibile sul server.' }
+
+  const { leggiTuttiAllegati } = await import('./imap')
+  const { leggiIcs, rispostaIcs, PAROLE_RISPOSTA } = await import('./invitoRicevuto')
+  const cartella = m.direzione === 'uscita' ? m.account.cartellaInviata || undefined : m.account.cartella
+
+  let parti: { nome: string; tipo: string; contenuto: Buffer }[] = []
+  try {
+    parti = await leggiTuttiAllegati(m.account, m.uid, cartella)
+  } catch {
+    return { ok: false, messaggio: 'Non riesco a rileggere l’invito dal server.' }
+  }
+  const calendario = parti.find((a) => /text\/calendar/i.test(a.tipo) || /\.ics$/i.test(a.nome))
+  const invito = calendario ? leggiIcs(calendario.contenuto.toString('utf8')) : null
+  if (!invito) return { ok: false, messaggio: 'Questa mail non contiene un invito leggibile.' }
+
+  // 1) In agenda, se si partecipa. "Forse" ci va lo stesso: serve a non
+  //    dimenticarlo, e il titolo lo dice.
+  let notaAgenda = ''
+  if (stato !== 'DECLINED') {
+    const gia = await db.evento.count({
+      where: { utenteId, inizio: invito.inizio, titolo: invito.titolo },
+    })
+    if (gia === 0) {
+      await db.evento.create({
+        data: {
+          utenteId,
+          titolo: stato === 'TENTATIVE' ? `${invito.titolo} (forse)` : invito.titolo,
+          descrizione: invito.descrizione,
+          luogo: invito.luogo,
+          inizio: invito.inizio,
+          fine: invito.fine && invito.fine > invito.inizio ? invito.fine : null,
+          giornataIntera: invito.giornataIntera,
+          messaggioId: m.id,
+        },
+      })
+      notaAgenda = ' Aggiunto al calendario.'
+    } else {
+      notaAgenda = ' Era già in calendario.'
+    }
+  }
+
+  // 2) La risposta all'organizzatore. Se non c'è un organizzatore con email
+  //    (capita con gli inviti mal formati) si tiene comunque l'agenda.
+  if (!invito.organizzatoreEmail) {
+    revalidatePath('/', 'layout')
+    return {
+      ok: true,
+      messaggio: `${PAROLE_RISPOSTA[stato]}.${notaAgenda} L’invito non indica l’organizzatore: nessuna risposta inviata.`,
+    }
+  }
+
+  const ics = rispostaIcs(invito, { nome: m.account.nome, email: m.account.email }, stato)
+  const parola = PAROLE_RISPOSTA[stato]
+  const daInviare: DaInviare = {
+    a: invito.organizzatoreEmail,
+    oggetto: `${parola}: ${invito.titolo}`,
+    corpo: `${m.account.nome} ha risposto «${parola.toLowerCase()}» all’invito «${invito.titolo}».`,
+    ics,
+    inRispostaA: m.messageId,
+  }
+
+  try {
+    const { raw, messageId } = await spedisci(m.account, daInviare)
+    await registraInviato(utenteId, m.account, daInviare, raw, messageId, m.thread || m.messageId)
+  } catch (e) {
+    revalidatePath('/', 'layout')
+    return {
+      ok: false,
+      messaggio: `${parola} in locale, ma la risposta non è partita: ${e instanceof Error ? e.message.slice(0, 120) : 'errore'}`,
+    }
+  }
+
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: `${parola}.${notaAgenda} Risposta inviata a ${invito.organizzatoreEmail}.` }
+}
+
 export async function creaEvento(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
   const titolo = testo(form, 'titolo')

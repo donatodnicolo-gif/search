@@ -23,6 +23,7 @@ import { nomeDiThread } from '@/lib/nomiThread'
 import { NomeThreadForm } from '@/components/NomeThreadForm'
 import { ThreadAIToggle } from '@/components/ThreadAIToggle'
 import { CestinaThread } from '@/components/CestinaThread'
+import { InvitoCalendario } from '@/components/InvitoCalendario'
 import { AnalisiAIInbox } from '@/components/AnalisiAIInbox'
 import { threadHaAI } from '@/lib/threadAI'
 import { eContattoAI } from '@/lib/contattiAI'
@@ -343,6 +344,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
             analizzato={messaggio.analizzatoIl !== null}
           />
         </div>
+
+        {/* Invito di calendario vero (Outlook/Google): Accetta / Forse /
+            Rifiuta. Si legge dal server dopo il render, come gli allegati. */}
+        {messaggio.allegati > 0 && <InvitoCalendario messaggioId={messaggio.id} />}
 
         {eventoProposto && <PropostaEvento messaggioId={messaggio.id} evento={eventoProposto} />}
 
