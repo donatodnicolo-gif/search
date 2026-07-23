@@ -44,6 +44,16 @@ export default async function PaginaCadenze() {
     include: { occorrenze: { orderBy: { prevista: "desc" }, take: 6 } },
     orderBy: { nome: "asc" },
   });
+  // KPI del checkpoint (doc 10 §7): ~80% delle azioni aperte con aggiornamento settimanale
+  const lunedi = new Date();
+  lunedi.setDate(lunedi.getDate() - ((lunedi.getDay() + 6) % 7));
+  lunedi.setHours(0, 0, 0, 0);
+  const [aperteTot, aggiornateSett] = await Promise.all([
+    prisma.azione.count({ where: { stato: { in: ["todo", "in_corso", "bloccata"] } } }),
+    prisma.azione.count({ where: { stato: { in: ["todo", "in_corso", "bloccata"] }, aggiornataIl: { gte: lunedi } } }),
+  ]);
+  const percAggiornate = aperteTot > 0 ? Math.round((aggiornateSett / aperteTot) * 100) : null;
+
   const inRitardo = aggiornate.filter((c) =>
     c.occorrenze.some((o) => !o.eseguitaIl && o.prevista < new Date(Date.now() - 86_400_000))
   );
@@ -62,6 +72,17 @@ export default async function PaginaCadenze() {
             </p>
           </div>
         </div>
+
+        {percAggiornate != null && (
+          <div className="kpi-riga">
+            <div className="kpi">
+              <div className="kpi-valore" style={{ color: percAggiornate >= 80 ? "var(--green)" : "var(--orange)" }}>
+                {percAggiornate}%
+              </div>
+              <div className="kpi-etichetta">Azioni aperte aggiornate questa settimana (obiettivo 80%, doc 10 §7)</div>
+            </div>
+          </div>
+        )}
 
         {inRitardo.length > 0 && (
           <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>

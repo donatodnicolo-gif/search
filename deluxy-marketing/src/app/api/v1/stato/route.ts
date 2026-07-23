@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   oggi.setHours(0, 0, 0, 0);
   const giorni7 = new Date(oggi.getTime() - 6 * 86_400_000);
 
-  const [aperte, scadute, ultimeAnalisi, campagne, metriche7] = await Promise.all([
+  const [aperte, scadute, ultimeAnalisi, campagne, metriche7, alertAperti, incidentiAperti, incongruenzeP0, lezioniAttive, fatteNonVerificate] = await Promise.all([
     prisma.azione.groupBy({
       by: ["brand"],
       where: { stato: { in: STATI_AZIONE_APERTI } },
@@ -37,6 +37,30 @@ export async function GET(req: NextRequest) {
       where: { data: { gte: giorni7 } },
       _sum: { spesa: true, conversioni: true, ricavi: true },
     }),
+    prisma.alert.findMany({
+      where: { stato: "aperto", creatoIl: { gte: new Date(Date.now() - 7 * 86_400_000) } },
+      include: { campagna: { select: { id: true, nome: true, classe: true } } },
+      orderBy: { creatoIl: "desc" },
+    }),
+    prisma.incidente.findMany({
+      where: { stato: "aperto" },
+      select: { codice: true, titolo: true, oggetti: true, campagnaId: true },
+    }),
+    prisma.incongruenza.findMany({
+      where: { stato: "aperta", priorita: "P0" },
+      select: { documento: true, dice: true, risulta: true },
+    }),
+    prisma.memoriaVoce.findMany({
+      where: { stato: "attiva" },
+      orderBy: { data: "desc" },
+      take: 20,
+      select: { data: true, sezione: true, brand: true, testo: true },
+    }),
+    prisma.azione.findMany({
+      where: { stato: "fatta", verificataIl: null, fattoIl: { not: null } },
+      select: { id: true, titolo: true, fattoIl: true },
+      take: 10,
+    }),
   ]);
 
   return NextResponse.json({
@@ -44,6 +68,14 @@ export async function GET(req: NextRequest) {
     azioniScadute: scadute,
     ultimeAnalisi,
     campagneVive: campagne,
+    // Guardrail (doc 11 e 00.x): quello che una sessione DEVE sapere prima di toccare qualcosa
+    guardrail: {
+      alertAperti,
+      incidentiAperti,
+      incongruenzeP0Aperte: incongruenzeP0,
+      azioniFatteNonVerificate: fatteNonVerificate,
+    },
+    lezioniRecenti: lezioniAttive,
     ultimi7Giorni: {
       spesa: metriche7._sum.spesa ?? 0,
       conversioni: metriche7._sum.conversioni ?? 0,

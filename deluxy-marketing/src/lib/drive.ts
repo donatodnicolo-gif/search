@@ -83,10 +83,30 @@ export type EsitoSync = {
 };
 
 export async function sincronizzaDrive(): Promise<EsitoSync> {
-  const radice = await driveDir();
-  // Se l'impostazione è un Google Drive online, si sincronizza via API.
+  let radice = await driveDir();
+  // Se l'impostazione è un Google Drive online, si sincronizza via API…
   const idDrive = idCartellaDrive(radice);
-  if (idDrive) return sincronizzaDriveApi(idDrive);
+  if (idDrive) {
+    const apiKey = await (async () => {
+      const salvata = await prisma.impostazione
+        .findUnique({ where: { chiave: CHIAVE_APIKEY } })
+        .catch(() => null);
+      return salvata?.valore || process.env.GOOGLE_DRIVE_API_KEY || null;
+    })();
+    if (apiKey) return sincronizzaDriveApi(idDrive);
+    // …ma senza chiave API si ripiega sulla cartella locale, se c'è:
+    // meglio una sync locale riuscita che un errore ripetuto.
+    const locale = process.env.DRIVE_ADV_DIR || DRIVE_DIR_DEFAULT;
+    try {
+      await fs.access(locale);
+      radice = locale;
+    } catch {
+      return {
+        radice: `drive:${idDrive}`, trovati: 0, nuovi: 0, aggiornati: 0, rimossi: 0,
+        errore: "Modalità Google Drive online senza chiave API e nessuna cartella locale disponibile: aggiungi la chiave in Impostazioni.",
+      };
+    }
+  }
 
   const esito: EsitoSync = { radice, trovati: 0, nuovi: 0, aggiornati: 0, rimossi: 0 };
 

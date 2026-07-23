@@ -1,7 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import fs from "fs";
 const prisma = new PrismaClient();
-const dati = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const percorsi = process.argv.slice(2).flatMap((p) => {
+  const st = fs.statSync(p);
+  if (st.isDirectory()) return fs.readdirSync(p).filter((f) => f.endsWith(".json")).map((f) => p + "/" + f);
+  return [p];
+});
+const dati = percorsi.flatMap((p) => JSON.parse(fs.readFileSync(p, "utf8")));
+console.log("file letti:", percorsi.length, "· ordini nel lotto:", dati.length);
 function categoriaDa(titolo, tipo) {
   const t = `${titolo} ${tipo ?? ""}`.toLowerCase();
   if (/selections|riconsegna|spedizion|delivery|extra|gift card/.test(t)) return 'servizio';

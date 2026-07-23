@@ -90,6 +90,13 @@ export async function GuardrailCampagna({
     }
   }
 
+  const inizioSettimana = new Date();
+  inizioSettimana.setDate(inizioSettimana.getDate() - ((inizioSettimana.getDay() + 6) % 7));
+  inizioSettimana.setHours(0, 0, 0, 0);
+  const l2Settimana = campagna.modifiche.filter(
+    (m) => (m.livello === "L2" || m.livello === "L3") && m.eseguitaIl >= inizioSettimana
+  ).length;
+
   const ultimaModifica = campagna.modifiche[0]?.eseguitaIl ?? null;
   const giud = giudicabilita(ultimaModifica);
   const metriche7 = metriche.slice(-7);
