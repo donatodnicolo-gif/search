@@ -2,8 +2,13 @@
 //
 // Scoperta negozi sul territorio da Google Places, con CACHE per non sprecare
 // chiamate: se la zona è stata aggiornata da < 30 giorni si serve dal DB, altrimenti
-// si interroga Google, si classifica per linea Deluxy e si fa l'upsert in `places`.
-// I negozi mai visti prima vengono marcati `novita = true`.
+// si interroga Google e si classifica per linea Deluxy.
+//
+// I negozi scoperti NON diventano `places`: finiscono nella cache `google_negozi`
+// (migrazione 0038) e tornano al client con id `g:<google_place_id>`. Diventano un
+// target vero — riga in `places`, con `creato_da` — solo quando una persona li
+// prende dalla Mappa. Prima di questa scelta ogni giro di mappa scriveva migliaia
+// di righe che nessuno aveva voluto.
 //
 // Azione:
 //   { action: 'discover', lat, lng, radius? }  → { places, cached, nuovi }
@@ -222,46 +227,62 @@ Deno.serve(async (req) => {
 
       if (risultati.length) {
         const ids = risultati.map((r) => r.place_id);
+
+        // Chi è GIÀ un target vero (qualcuno l'ha preso, o viene da un import):
+        // quelli restano in `places` e si limitano a rinfrescare le recensioni.
         const { data: esistenti } = await admin
           .from('places')
           .select('google_place_id')
           .in('google_place_id', ids);
         const notiSet = new Set((esistenti ?? []).map((e: any) => e.google_place_id));
 
+        // Chi era già in cache: serve solo per contare le vere novità.
+        const { data: inCache } = await admin
+          .from('google_negozi')
+          .select('google_place_id')
+          .in('google_place_id', ids);
+        const cacheSet = new Set((inCache ?? []).map((e: any) => e.google_place_id));
+
         const { data: regole } = await admin
           .from('category_rules')
           .select('categoria, linea_ipotizzata, aggancio_apertura, priorita');
 
-        const nuoviRecord = risultati
+        // I negozi scoperti NON diventano `places`: finirebbero per essere
+        // migliaia di target che nessuno ha scelto. Vanno nella cache
+        // `google_negozi` e diventano un place vero solo quando una persona li
+        // prende (stella dalla Mappa) — vedi migrazione 0038.
+        const daCachare = risultati
           .filter((r) => !notiSet.has(r.place_id))
           .map((r) => {
             const types: string[] = r.types ?? [];
             const categoria = categoriaDaTypes(types);
             const regola = regolaPerCategoria(categoria, regole ?? []);
             return {
+              google_place_id: r.place_id,
               nome: r.name,
               indirizzo: r.vicinity ?? null,
               lat: r.geometry?.location?.lat,
               lng: r.geometry?.location?.lng,
               categoria,
               google_types: types,
-              google_place_id: r.place_id,
               google_rating: typeof r.rating === 'number' ? r.rating : null,
               google_reviews: typeof r.user_ratings_total === 'number' ? r.user_ratings_total : null,
-              source: 'google',
-              novita: true,
               priorita: regola?.priorita ?? 'P3',
               linea_ipotizzata: regola?.linea_ipotizzata ?? null,
               aggancio_apertura: regola?.aggancio_apertura ?? null,
-              google_refresh_at: nowIso,
+              refresh_at: nowIso,
             };
           })
           .filter((r) => isFinite(r.lat) && isFinite(r.lng));
 
-        nuovi = nuoviRecord.length;
-        if (nuoviRecord.length) await admin.from('places').insert(nuoviRecord);
+        nuovi = daCachare.filter((r) => !cacheSet.has(r.google_place_id)).length;
+        if (daCachare.length) {
+          // `nascosto` e `scoperto_il` non sono nell'upsert: un negozio già
+          // scartato a mano non deve tornare a galla a ogni rinfresco.
+          await admin.from('google_negozi').upsert(daCachare, { onConflict: 'google_place_id' });
+        }
 
-        // Rinfresca timestamp + recensioni dei già noti (senza toccare starred/stato/hubspot).
+        // Rinfresca timestamp + recensioni dei target veri (senza toccare starred/stato/hubspot).
         // Le recensioni cambiano per negozio → update mirati in parallelo (poche decine).
         const noti = risultati.filter((r) => notiSet.has(r.place_id));
         await Promise.all(
@@ -300,6 +321,56 @@ Deno.serve(async (req) => {
     });
     if (error) return json({ error: error.message }, 500);
 
+    // …più i negozi che stanno solo in cache (scoperti, mai presi da nessuno).
+    // Hanno id `g:<google_place_id>`: non sono righe di `places`, e il client lo
+    // sa — alla prima azione (stella, visita) li promuove a target veri.
+    const presi = new Set((places ?? []).map((p: any) => p.google_place_id).filter(Boolean));
+    const gradiLat = radius / 111_320;
+    const gradiLng = radius / (111_320 * Math.max(Math.cos((lat * Math.PI) / 180), 0.01));
+    const { data: cacheVicina } = await admin
+      .from('google_negozi')
+      .select('*')
+      .eq('nascosto', false)
+      .gte('lat', lat - gradiLat)
+      .lte('lat', lat + gradiLat)
+      .gte('lng', lng - gradiLng)
+      .lte('lng', lng + gradiLng);
+
+    const daCache = (cacheVicina ?? [])
+      .filter((g: any) => !presi.has(g.google_place_id) && distanzaMetri(lat, lng, g.lat, g.lng) <= radius)
+      .map((g: any) => ({
+        id: `g:${g.google_place_id}`,
+        nome: g.nome,
+        indirizzo: g.indirizzo,
+        lat: g.lat,
+        lng: g.lng,
+        settore: null,
+        categoria: g.categoria,
+        priorita: g.priorita ?? 'P3',
+        linea_ipotizzata: g.linea_ipotizzata,
+        aggancio_apertura: g.aggancio_apertura,
+        fuoco_espansione: null,
+        stato: 'da_visitare',
+        zona: null,
+        hubspot_company_id: null,
+        created_at: g.scoperto_il,
+        source: 'google',
+        google_place_id: g.google_place_id,
+        google_types: g.google_types,
+        google_rating: g.google_rating,
+        google_reviews: g.google_reviews,
+        starred: false,
+        novita: true,
+        da_completare: false,
+        nascosto: false,
+        hubspot_ha_contatto: false,
+        hubspot_deal_aperta: false,
+      }));
+
+    const tutti = [...(places ?? []), ...daCache].sort(
+      (a: any, b: any) => distanzaMetri(lat, lng, a.lat, a.lng) - distanzaMetri(lat, lng, b.lat, b.lng),
+    );
+
     // Coerenza col sottomenu: se ho filtrato la ricerca, filtro anche l'output per
     // categoria (fioraio/pasticceria), così "solo fiori" mostra solo fioristi.
     const CAT_FILTRO: Record<string, string[]> = {
@@ -308,9 +379,7 @@ Deno.serve(async (req) => {
       pasticcerie: ['pasticceria'],
     };
     const catAmmesse = CAT_FILTRO[filtro];
-    const risposta = catAmmesse
-      ? (places ?? []).filter((p: any) => catAmmesse.includes(p.categoria))
-      : (places ?? []);
+    const risposta = catAmmesse ? tutti.filter((p: any) => catAmmesse.includes(p.categoria)) : tutti;
 
     return json({ places: risposta, cached, nuovi, filtro });
   } catch (e) {

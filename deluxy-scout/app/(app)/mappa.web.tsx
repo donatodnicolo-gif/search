@@ -16,7 +16,7 @@ import { distanzaKm, MILANO, posizioneCorrente, type Coord } from '@/lib/locatio
 import { urlNavigazione, urlNavigazioneGiro } from '@/lib/nav';
 import type { GeocodeResult } from '@/lib/geocode';
 import { scopriNegozi, type FiltroScoperta, type ScopertaResult } from '@/lib/discover';
-import { aggiornaNascosto, aggiornaStarred, aggiornaStatoPlace } from '@/lib/db';
+import { aggiornaNascosto, aggiornaStarred, aggiornaStatoPlace, assicuraPlace, idScoperto } from '@/lib/db';
 import { aggiungiPreferito } from '@/lib/preferiti';
 import { avvisa } from '@/lib/dialoghi';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
@@ -160,6 +160,8 @@ export default function MappaWeb() {
   }
 
   // Stella = "da visitare": entra nel giro E porta lo stato a da_visitare.
+  // Su un negozio solo scoperto la stella è anche il momento in cui diventa un
+  // target vero (riga in `places`, intestata a chi l'ha preso).
   async function toggleStar(p: Place) {
     const nuovo = !p.starred;
     const statoNuovo = nuovo ? 'da_visitare' : p.stato;
@@ -169,8 +171,10 @@ export default function MappaWeb() {
     // Ordine del giro: se aggiungo la stella va in fondo (ordine di aggiunta); se la tolgo, esce.
     setGiroOrdine((ord) => (nuovo ? [...ord.filter((id) => id !== p.id), p.id] : ord.filter((id) => id !== p.id)));
     try {
-      await aggiornaStarred(p.id, nuovo);
-      if (nuovo && p.stato !== 'da_visitare') await aggiornaStatoPlace(p.id, 'da_visitare');
+      const id = await assicuraPlace(p);
+      if (id !== p.id) rimpiazzaId(p.id, id);
+      await aggiornaStarred(id, nuovo);
+      if (nuovo && p.stato !== 'da_visitare') await aggiornaStatoPlace(id, 'da_visitare');
     } catch {
       // Ripristina lo stato originale (stella, stato E badge novità).
       setScoperti((l) => l.map((x) => (x.id === p.id ? { ...x, starred: p.starred, stato: p.stato, novita: p.novita } : x)));
@@ -183,9 +187,39 @@ export default function MappaWeb() {
   async function segnaVisitato(p: Place) {
     setScoperti((l) => l.map((x) => (x.id === p.id ? { ...x, stato: 'visitato', starred: false } : x)));
     setGiroOrdine((ord) => ord.filter((id) => id !== p.id));
-    aggiornaStatoPlace(p.id, 'visitato').catch(() => {});
-    if (p.starred) aggiornaStarred(p.id, false).catch(() => {});
-    setVisitaPlace({ ...p, stato: 'visitato' });
+    // La visita va registrata su un target vero: se è solo scoperto, lo si crea ora.
+    let id = p.id;
+    try {
+      id = await assicuraPlace(p);
+      if (id !== p.id) rimpiazzaId(p.id, id);
+    } catch {
+      /* se la creazione fallisce si prosegue: il pop-up mostrerà l'errore al salvataggio */
+    }
+    aggiornaStatoPlace(id, 'visitato').catch(() => {});
+    if (p.starred) aggiornaStarred(id, false).catch(() => {});
+    setVisitaPlace({ ...p, id, stato: 'visitato' });
+  }
+
+  /** Aprire la scheda di un negozio è già prenderlo in carico: se è solo
+   *  scoperto lo si crea come target (altrimenti non avrebbe una scheda). */
+  async function apriScheda(p: Place) {
+    let id = p.id;
+    if (idScoperto(p.id)) {
+      try {
+        id = await assicuraPlace(p);
+        rimpiazzaId(p.id, id);
+      } catch {
+        return; // niente scheda se non si riesce a crearlo: meglio che un 404
+      }
+    }
+    router.push(`/(app)/attivita/${id}`);
+  }
+
+  /** Un negozio scoperto è appena diventato un target vero: il suo id provvisorio
+   *  `g:…` va sostituito ovunque (lista e ordine del giro). */
+  function rimpiazzaId(vecchio: string, nuovo: string) {
+    setScoperti((l) => l.map((x) => (x.id === vecchio ? { ...x, id: nuovo } : x)));
+    setGiroOrdine((ord) => ord.map((id) => (id === vecchio ? nuovo : id)));
   }
 
   // Sposta una tappa su/giù nell'ordine del giro.
@@ -383,7 +417,7 @@ export default function MappaWeb() {
             <Pressable
               key={p.id}
               style={[styles.card, isMobile && styles.cardMobile]}
-              onPress={() => router.push(`/(app)/attivita/${p.id}`)}
+              onPress={() => apriScheda(p)}
             >
               <View style={[styles.cardMain, isMobile && styles.cardMainMobile]}>
               {/* Riga alta: icona + testo. Su mobile occupa tutta la larghezza,

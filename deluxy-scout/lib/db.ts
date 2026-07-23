@@ -274,6 +274,58 @@ export async function inserisciPlace(p: {
   return data as Place;
 }
 
+// ── Negozi solo SCOPERTI (cache Google) ───────────────────────────────────────
+//
+// La scoperta non crea più target: i negozi trovati da Google vivono nella cache
+// `google_negozi` (migrazione 0038) e arrivano al client con id `g:<place_id>`.
+// Diventano un target vero — riga in `places`, con `creato_da` = chi l'ha preso —
+// alla prima azione di una persona: stella, visita, cambio stato.
+
+/** Se l'id è di un negozio ancora solo scoperto, il suo google_place_id; altrimenti null. */
+export function idScoperto(id: string): string | null {
+  return id.startsWith('g:') ? id.slice(2) : null;
+}
+
+/**
+ * Garantisce che il negozio esista in `places` e ne torna l'id vero.
+ * Per un target già esistente non fa nulla. Per un negozio solo scoperto crea la
+ * riga (upsert su `google_place_id`: due venditori che lo prendono insieme non
+ * creano un doppione) e la marca come presa da chi sta agendo.
+ */
+export async function assicuraPlace(p: Place): Promise<string> {
+  const gid = idScoperto(p.id);
+  if (!gid) return p.id;
+
+  const { data: userRes } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('places')
+    .upsert(
+      {
+        nome: p.nome,
+        indirizzo: p.indirizzo,
+        lat: p.lat,
+        lng: p.lng,
+        categoria: p.categoria,
+        priorita: p.priorita,
+        linea_ipotizzata: p.linea_ipotizzata,
+        aggancio_apertura: p.aggancio_apertura,
+        google_place_id: gid,
+        google_types: p.google_types ?? null,
+        google_rating: p.google_rating ?? null,
+        google_reviews: p.google_reviews ?? null,
+        source: 'google',
+        stato: 'da_visitare',
+        creato_da: userRes.user?.id ?? null,
+      },
+      { onConflict: 'google_place_id' },
+    )
+    .select('id')
+    .single();
+  if (error) throw error;
+  sincronizzaPlaceRegistro(data.id).catch(() => {}); // best-effort verso Anagrafiche
+  return data.id as string;
+}
+
 /** Un cliente/partner nella sezione Clienti. */
 export interface Cliente {
   id: string;
@@ -1124,8 +1176,18 @@ export async function registraChiamata(placeId: string, esito?: string, note?: s
   if (error) throw error;
 }
 
-/** "Non interessante": nasconde (o ripristina) un'attività dalla scoperta. */
+/** "Non interessante": nasconde (o ripristina) un'attività dalla scoperta.
+ *  Su un negozio ancora solo scoperto (`g:`) si segna nella cache Google: non
+ *  ha senso creare un target per dire che non ci interessa. */
 export async function aggiornaNascosto(placeId: string, nascosto: boolean): Promise<void> {
+  if (idScoperto(placeId)) {
+    const { error } = await supabase
+      .from('google_negozi')
+      .update({ nascosto })
+      .eq('google_place_id', idScoperto(placeId));
+    if (error) throw error;
+    return;
+  }
   const patch = nascosto ? { nascosto: true, starred: false, novita: false } : { nascosto: false };
   const { error } = await supabase.from('places').update(patch).eq('id', placeId);
   if (error) throw error;

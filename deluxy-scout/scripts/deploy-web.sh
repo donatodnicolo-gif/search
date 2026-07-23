@@ -18,6 +18,8 @@
 #
 # Uso (dal worktree deluxy-scout):
 #   VERCEL_TOKEN=<token> bash scripts/deploy-web.sh
+# Se la CLI Vercel è già loggata su questa macchina il token si può omettere:
+#   bash scripts/deploy-web.sh
 set -e
 
 # ID del progetto Vercel di Scout (team "deluxy"). Non segreti.
@@ -46,7 +48,12 @@ mkdir -p "$STAGE/.vercel"
 cp -r dist-web/. "$STAGE/"
 # Pinna il progetto per ID: niente inferenza dal nome cartella.
 printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > "$STAGE/.vercel/project.json"
-( cd "$STAGE" && npx vercel deploy --prod --yes --token "$VERCEL_TOKEN" )
+if [ -n "${VERCEL_TOKEN:-}" ]; then
+  ( cd "$STAGE" && npx vercel deploy --prod --yes --token "$VERCEL_TOKEN" )
+else
+  # Nessun token: si usa la sessione della CLI (npx vercel login già fatto).
+  ( cd "$STAGE" && npx vercel deploy --prod --yes )
+fi
 
 # L'app è una SPA: il testo runtime NON è nell'HTML statico. Uso il <title>,
 # che è statico e distingue Scout ("Deluxy Scout") dall'app fiorai
