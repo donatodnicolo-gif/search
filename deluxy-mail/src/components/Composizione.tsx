@@ -88,8 +88,45 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
     })
   }
 
+  // Gli stessi pulsanti si usano DUE volte: in cima (così non devi scorrere
+  // fino in fondo per mandare una mail lunga) e in fondo, dove stavano.
+  const azioni = (
+    <>
+      <button className="btn secondary" onClick={() => router.push(tornaA)} disabled={inCorso} type="button">
+        Annulla
+      </button>
+
+      <button className="btn secondary" onClick={salva} disabled={inCorso} type="button">
+        Salva bozza
+      </button>
+
+      {conferma ? (
+        <>
+          <button className="btn secondary" onClick={() => setConferma(false)} disabled={inCorso} type="button">
+            Torna a modificare
+          </button>
+          <button className="btn primary" onClick={invia} disabled={inCorso} type="button">
+            {inCorso ? 'Invio…' : `Confermi l’invio a ${a || '…'}?`}
+          </button>
+        </>
+      ) : (
+        <button
+          className="btn primary"
+          onClick={() => setConferma(true)}
+          disabled={inCorso || !a.trim()}
+          type="button"
+        >
+          Invia
+        </button>
+      )}
+    </>
+  )
+
   return (
     <div className="card">
+      {/* Barra azioni in alto: identica a quella in fondo. */}
+      <div className="form-azioni-alto">{azioni}</div>
+
       <div className="form-grid">
         <div className="full">
           <label className="field-label">Da</label>
@@ -188,45 +225,7 @@ export function Composizione({ messaggioId, modo, da, iniziale, tornaA, bozzaId,
         </div>
       )}
 
-      <div className="form-footer">
-        <button
-          className="btn secondary"
-          onClick={() => router.push(tornaA)}
-          disabled={inCorso}
-          type="button"
-        >
-          Annulla
-        </button>
-
-        <button className="btn secondary" onClick={salva} disabled={inCorso} type="button">
-          Salva bozza
-        </button>
-
-        {conferma ? (
-          <>
-            <button
-              className="btn secondary"
-              onClick={() => setConferma(false)}
-              disabled={inCorso}
-              type="button"
-            >
-              Torna a modificare
-            </button>
-            <button className="btn primary" onClick={invia} disabled={inCorso} type="button">
-              {inCorso ? 'Invio…' : `Confermi l’invio a ${a || '…'}?`}
-            </button>
-          </>
-        ) : (
-          <button
-            className="btn primary"
-            onClick={() => setConferma(true)}
-            disabled={inCorso || !a.trim()}
-            type="button"
-          >
-            Invia
-          </button>
-        )}
-      </div>
+      <div className="form-footer">{azioni}</div>
     </div>
   )
 }

@@ -249,13 +249,28 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     .map((m) => m.thread || m.messageId)
     .filter((x): x is string => Boolean(x))
   const chiaviGruppi = gruppi.map((g) => chiaveThread(g))
+  // I codici di aggancio manuale presenti: servono a ritrovare gli INOLTRI, che
+  // non hanno la radice del thread (aprono una catena nuova) e sono legati
+  // all'originale solo dall'aggancio.
+  const codiciManuali = [...new Set(messaggi.map((m) => m.threadManuale).filter((x): x is string => Boolean(x)))]
 
-  // Le due letture che dipendono dai gruppi vanno insieme, non in fila.
-  const [uscite, nomiConv] = await Promise.all([
+  // Le letture che dipendono dai gruppi vanno insieme, non in fila.
+  const [uscite, inoltri, nomiConv] = await Promise.all([
     rootsVisti.length
       ? db.messaggio.findMany({
           where: { utenteId: u.id, direzione: 'uscita', thread: { in: rootsVisti } },
           select: { thread: true },
+        })
+      : Promise.resolve([]),
+    rootsVisti.length || codiciManuali.length
+      ? db.messaggio.findMany({
+          where: {
+            utenteId: u.id,
+            direzione: 'uscita',
+            modoInvio: 'inoltra',
+            OR: [{ thread: { in: rootsVisti } }, { threadManuale: { in: codiciManuali } }],
+          },
+          select: { thread: true, threadManuale: true },
         })
       : Promise.resolve([]),
     // Il nome dato a mano alle conversazioni (badge oro nella riga).
@@ -263,6 +278,12 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   ])
   const threadRisposti = new Set<string>()
   for (const o of uscite) if (o.thread) threadRisposti.add(o.thread)
+  const radiciInoltrate = new Set<string>()
+  const agganciInoltrati = new Set<string>()
+  for (const o of inoltri) {
+    if (o.thread) radiciInoltrate.add(o.thread)
+    if (o.threadManuale) agganciInoltrati.add(o.threadManuale)
+  }
 
   // Il cliente (azienda attiva in Anagrafiche) del mittente, per email esatta
   // o per dominio aziendale — stessa regola della pagina /clienti.
@@ -305,6 +326,11 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       nonLetti: g.some((x) => !x.letto),
       contattoAI: setAI.has(m.mittente.toLowerCase()),
       risposto: threadRisposti.has(m.thread || m.messageId || ''),
+      // Inoltrata: c'è una nostra mail d'inoltro nella stessa conversazione
+      // (per radice o per aggancio manuale).
+      inoltrato:
+        radiciInoltrate.has(m.thread || m.messageId || '') ||
+        g.some((x) => x.threadManuale && agganciInoltrati.has(x.threadManuale)),
       // In ricerca compaiono anche le mail INVIATE: le mostriamo col "a …".
       inviata: m.direzione === 'uscita',
       destinatari: m.destinatari,

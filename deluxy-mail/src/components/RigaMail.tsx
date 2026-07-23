@@ -41,6 +41,8 @@ export type RigaData = {
   contattoAI: boolean
   /** True se a questa conversazione abbiamo già risposto (c'è una mail in uscita). */
   risposto?: boolean
+  /** True se questa conversazione è stata INOLTRATA a qualcuno. */
+  inoltrato?: boolean
   /** Solo nei risultati di ricerca: true se è una mail che hai inviato tu. */
   inviata?: boolean
   destinatari?: string
@@ -140,6 +142,11 @@ export const RigaMail = memo(function RigaMail({
             {!r.inviata && r.risposto && (
               <span className="risposto-mark" title="Hai già risposto a questa conversazione" aria-label="Risposto">
                 ↩
+              </span>
+            )}
+            {!r.inviata && r.inoltrato && (
+              <span className="risposto-mark" title="Hai inoltrato questa conversazione" aria-label="Inoltrato">
+                ↪
               </span>
             )}
           </div>

@@ -338,6 +338,10 @@ model Messaggio {
   // solo da un eventuale aggancio manuale esplicito).
   scollegato    Boolean @default(false)
   direzione String  @default("entrata")
+  // Solo sulle mail in USCITA: com'è partita — 'rispondi' | 'inoltra' | 'nuova'.
+  // Serve a mostrare in lista se una conversazione è stata inoltrata (↪), come
+  // già si mostra se è stata risposta (↩).
+  modoInvio String  @default("")
 
   mittente     String
   mittenteNome String?

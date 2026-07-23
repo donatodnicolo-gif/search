@@ -1177,7 +1177,7 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
     // così la conversazione si forma anche quando gli header o l'oggetto non
     // bastano a collegarle. Vedi `registraInviato`.
     const avviso = await registraInviato(
-      utenteId, account, daInviare, raw, messageId, threadRadice, null, null, bozza.messaggio.id
+      utenteId, account, daInviare, raw, messageId, threadRadice, null, null, bozza.messaggio.id, 'rispondi'
     )
 
     await db.bozza.update({ where: { id }, data: { inviata: true, inviataIl: new Date() } })
@@ -1258,7 +1258,9 @@ async function registraInviato(
   priorita: string | null = null,
   // Conversazione scelta in fase di scrittura («Aggancia a una conversazione»):
   // l'id di una mail di quel thread. Si applica DOPO aver registrato l'inviata.
-  agganciaA: string | null = null
+  agganciaA: string | null = null,
+  // Com'è partita: 'rispondi' | 'inoltra' | 'nuova' (per l'iconcina in lista).
+  modoInvio = ''
 ): Promise<string | null> {
   let avviso: string | null = null
 
@@ -1308,6 +1310,7 @@ async function registraInviato(
       smistatoDa: sezioneId ? 'manuale' : null,
       priorita,
       prioritaDa: priorita ? 'manuale' : null,
+      modoInvio,
     },
   })
 
@@ -1385,14 +1388,15 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     const prioritaScelta = CODICI_PRIORITA.includes(testo(form, 'priorita') as never)
       ? testo(form, 'priorita')
       : null
-    // A quale conversazione lega la mail che parte:
-    // - se l'hai scelta a mano mentre scrivevi (di norma su un INOLTRO, che
-    //   altrimenti aprirebbe uno scambio nuovo), vince quella;
-    // - RISPONDENDO, si aggancia SEMPRE alla mail d'origine: la conversazione
-    //   si forma da sola anche quando header e oggetto non bastano a legarle.
-    const agganciaA = testo(form, 'agganciaA') || (inoltro ? null : messaggioId)
+    // A quale conversazione lega la mail che parte: alla mail d'origine, sempre
+    // — sia rispondendo sia INOLTRANDO. Così il thread si forma da solo anche
+    // quando header e oggetto non basterebbero a legarle (un inoltro, per sua
+    // natura, aprirebbe uno scambio nuovo). Se mentre scrivevi hai scelto tu
+    // un'altra conversazione, vince quella.
+    const agganciaA = testo(form, 'agganciaA') || messaggioId
     const avviso = await registraInviato(
-      utenteId, account, daInviare, raw, messageId, threadRadice, sezioneEreditata, prioritaScelta, agganciaA
+      utenteId, account, daInviare, raw, messageId, threadRadice, sezioneEreditata, prioritaScelta, agganciaA,
+      inoltro ? 'inoltra' : 'rispondi'
     )
 
     // Sequenza di follow-up agganciata all'invio (facoltativa).
@@ -1462,7 +1466,7 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
       : null
     const agganciaA = testo(form, 'agganciaA') || null
     const avviso = await registraInviato(
-      utenteId, account, daInviare, raw, messageId, null, null, prioritaScelta, agganciaA
+      utenteId, account, daInviare, raw, messageId, null, null, prioritaScelta, agganciaA, 'nuova'
     )
 
     // Sequenza di follow-up agganciata all'invio (facoltativa).
@@ -2203,6 +2207,52 @@ export async function modificaEvento(form: FormData): Promise<{ ok: boolean; mes
     descrizione: testo(form, 'descrizione'),
     luogo: testo(form, 'luogo'),
     giornataIntera,
+  }
+
+  // ── Cambio della RIPETIZIONE (solo se richiesto esplicitamente) ──
+  // Vale «da qui in avanti»: le occorrenze future si rifanno, quelle già
+  // passate restano dove sono (cancellare la storia sarebbe un danno).
+  if (flag(form, 'cambiaRipetizione')) {
+    const ric = ricorrenzaDaForm((campo) => testo(form, campo))
+    if (evento.serieId) {
+      await db.evento.deleteMany({
+        where: { utenteId, serieId: evento.serieId, id: { not: evento.id }, inizio: { gte: evento.inizio } },
+      })
+    }
+
+    if (ric.tipo === 'no') {
+      await db.evento.update({
+        where: { id: evento.id },
+        data: { ...testi, inizio, fine, serieId: null, regola: '' },
+      })
+      revalidatePath('/', 'layout')
+      return { ok: true, messaggio: 'Da qui in avanti non si ripete più.' }
+    }
+
+    const date = dateRicorrenza(giorno, ric)
+    const regola = descriviRicorrenza(ric)
+    const serieId = evento.serieId ?? randomBytes(9).toString('base64url')
+    await db.evento.update({
+      where: { id: evento.id },
+      data: { ...testi, inizio, fine, serieId, regola },
+    })
+    if (date.length > 1) {
+      await db.evento.createMany({
+        data: date.slice(1).map((g) => ({
+          utenteId,
+          ...testi,
+          luogo: testi.luogo,
+          inizio: giornataIntera ? new Date(`${g}T00:00:00Z`) : oraItalianaInUtc(`${g}T${oraInizio}`)!,
+          fine: giornataIntera || !oraFine ? null : oraItalianaInUtc(`${g}T${oraFine}`),
+          serieId,
+          regola,
+          invitati: evento.invitati,
+          messaggioId: evento.messaggioId,
+        })),
+      })
+    }
+    revalidatePath('/', 'layout')
+    return { ok: true, messaggio: `Ripetizione aggiornata: ${regola.toLowerCase()} (${date.length} appuntamenti).` }
   }
 
   if (!tuttaSerie) {

@@ -26,6 +26,9 @@ const stmts = [
      "istruzioni" TEXT NOT NULL,
      "aggiornatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "IstruzioneThread_utenteId_chiave_key" ON "IstruzioneThread"("utenteId","chiave")`,
+  // Come è partita una mail in uscita: 'rispondi' | 'inoltra' | 'nuova'
+  // (per l'iconcina «inoltrato» nelle liste).
+  `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "modoInvio" TEXT NOT NULL DEFAULT ''`,
   // Appuntamenti ricorrenti: le occorrenze sono righe vere legate da serieId.
   `ALTER TABLE "Evento" ADD COLUMN IF NOT EXISTS "serieId" TEXT`,
   `ALTER TABLE "Evento" ADD COLUMN IF NOT EXISTS "regola" TEXT NOT NULL DEFAULT ''`,

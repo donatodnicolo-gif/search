@@ -10,6 +10,29 @@ import { Ricorrenza } from './Ricorrenza'
 export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] }) {
   const [aperto, setAperto] = useState(false)
   const [giornataIntera, setGiornataIntera] = useState(false)
+  // Un appuntamento dura un'ora, se non dici altro. Spostando l'inizio, la
+  // fine lo segue mantenendo la durata che avevi impostato.
+  const [oraInizio, setOraInizio] = useState('09:00')
+  const [oraFine, setOraFine] = useState('10:00')
+
+  const inMinuti = (o: string) => {
+    const [h, m] = o.split(':').map(Number)
+    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null
+  }
+  const daMinuti = (n: number) => {
+    const g = ((n % 1440) + 1440) % 1440 // resta dentro la giornata
+    return `${String(Math.floor(g / 60)).padStart(2, '0')}:${String(g % 60).padStart(2, '0')}`
+  }
+  const cambiaInizio = (nuovo: string) => {
+    const prima = inMinuti(oraInizio)
+    const dopo = inMinuti(nuovo)
+    const fine = inMinuti(oraFine)
+    setOraInizio(nuovo)
+    if (dopo === null) return
+    // Durata attuale (se sensata), altrimenti un'ora.
+    const durata = prima !== null && fine !== null && fine > prima ? fine - prima : 60
+    setOraFine(daMinuti(dopo + durata))
+  }
   // Gli invitati: campo controllato con l'autocompletamento dalla rubrica.
   const [invitati, setInvitati] = useState('')
   const [stato, setStato] = useState<{ ok: boolean; testo: string } | null>(null)
@@ -25,6 +48,9 @@ export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] })
       if (esito.ok) {
         form.current?.reset()
         setInvitati('')
+        // I campi controllati non li tocca reset(): si riportano a mano.
+        setOraInizio('09:00')
+        setOraFine('10:00')
         setAperto(false)
         router.refresh()
       }
@@ -78,11 +104,21 @@ export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] })
             <>
               <div>
                 <label className="field-label">Dalle</label>
-                <input type="time" name="oraInizio" defaultValue="09:00" />
+                <input
+                  type="time"
+                  name="oraInizio"
+                  value={oraInizio}
+                  onChange={(e) => cambiaInizio(e.target.value)}
+                />
               </div>
               <div>
                 <label className="field-label">Alle</label>
-                <input type="time" name="oraFine" />
+                <input
+                  type="time"
+                  name="oraFine"
+                  value={oraFine}
+                  onChange={(e) => setOraFine(e.target.value)}
+                />
               </div>
             </>
           )}

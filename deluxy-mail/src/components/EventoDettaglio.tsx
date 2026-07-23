@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { eliminaEvento, modificaEvento } from '@/lib/actions'
+import { Ricorrenza } from './Ricorrenza'
 import { mostraFlash } from './Flash'
 
 /** I dati dell'appuntamento che la scheda mostra e modifica. Giorno e ore
@@ -70,6 +71,8 @@ export function EventoDettaglio() {
   const [modifica, setModifica] = useState(false)
   const [ambito, setAmbito] = useState<'questo' | 'serie'>('questo')
   const [confermaElimina, setConfermaElimina] = useState(false)
+  // La ripetizione si rifà solo se lo chiedi esplicitamente (vedi il form).
+  const [cambiaRip, setCambiaRip] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, start] = useTransition()
   const router = useRouter()
@@ -80,6 +83,7 @@ export function EventoDettaglio() {
       setModifica(false)
       setAmbito('questo')
       setConfermaElimina(false)
+      setCambiaRip(false)
       setErrore(null)
     }
     window.addEventListener(EVENTO_APERTO, su)
@@ -264,6 +268,36 @@ export function EventoDettaglio() {
                 <label className="field-label">Note</label>
                 <input type="text" name="descrizione" defaultValue={dati.descrizione} />
               </div>
+
+              {/* Ripetizione: si tocca solo se lo chiedi, così salvare un
+                  cambio di titolo non rifà mai la serie per sbaglio. */}
+              <div className="full">
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    name="cambiaRipetizione"
+                    checked={cambiaRip}
+                    onChange={(e) => setCambiaRip(e.target.checked)}
+                  />
+                  {inSerie ? 'Cambia la ripetizione' : 'Fai ripetere questo appuntamento'}
+                </label>
+                {inSerie && !cambiaRip && dati.regola && (
+                  <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+                    Adesso: {dati.regola.toLowerCase()}.
+                  </div>
+                )}
+              </div>
+
+              {cambiaRip && (
+                <>
+                  <Ricorrenza />
+                  <div className="full" style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                    La nuova ripetizione vale da questo appuntamento in poi: le occorrenze
+                    successive vengono rifatte, quelle già passate restano dove sono.
+                    {inSerie && ' Scegli «Non si ripete» per farlo smettere di ripetersi.'}
+                  </div>
+                </>
+              )}
 
               {sceltaAmbito}
             </div>

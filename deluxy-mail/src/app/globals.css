@@ -1107,6 +1107,14 @@ mark.ricerca-hit {
 }
 .aggancio-riga:hover { background: var(--fill); }
 
+/* Barra azioni in CIMA alla composizione: gli stessi pulsanti del fondo, per
+   non dover scorrere tutta la mail per mandarla. */
+.form-azioni-alto {
+  display: flex; justify-content: flex-end; align-items: center; gap: 8px;
+  flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+
 /* La conversazione già scelta in fase di scrittura (inoltro / mail nuova) */
 .aggancio-scelto { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
