@@ -30,20 +30,18 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     ],
   },
   {
+    // I 3 canali di acquisizione: territorio, telefono, web.
     titolo: 'Canali',
     voci: [
       { name: 'mappa', label: 'Territorio · Mappa', icon: 'map-outline' },
       { name: 'affiliazioni', label: 'Chiamate · Affiliazioni', icon: 'call-outline' },
+      { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
     ],
   },
   {
-    // I lead: i nomi su cui lavorare, prima che diventino trattative —
-    // i target scelti sul territorio e le richieste arrivate dal web.
+    // I lead: i nomi su cui lavorare, prima che diventino trattative.
     titolo: 'Lead',
-    voci: [
-      { name: 'lista', label: 'Target', icon: 'flag-outline' },
-      { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
-    ],
+    voci: [{ name: 'lista', label: 'Target', icon: 'flag-outline' }],
   },
   {
     titolo: 'Vendita',
