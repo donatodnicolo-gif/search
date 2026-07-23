@@ -90,6 +90,23 @@ export default function Lista() {
   );
 }
 
+/** "il 12 lug 26": quando il target è entrato nella lista. */
+function dataInserimento(iso: string | null | undefined): string {
+  if (!iso) return 'in data non registrata';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'in data non registrata';
+  return `il ${d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' })}`;
+}
+
+/** Da quale account (utente) arriva il target. I record senza `creato_da` non
+ *  sono stati inseriti da una persona loggata: o li ha scoperti Google (Edge
+ *  Function, service role) o vengono dagli import iniziali da terminale. */
+function origineInserimento(place: Place): string {
+  if (place.creato_da_nome) return `da ${place.creato_da_nome}`;
+  if (place.source === 'google') return 'dalla scoperta Google';
+  return 'da import iniziale';
+}
+
 function Riga({ place, onPress, onNascondi }: { place: Place; onPress: () => void; onNascondi: () => void }) {
   return (
     <Pressable style={styles.riga} onPress={onPress}>
@@ -117,21 +134,18 @@ function Riga({ place, onPress, onNascondi }: { place: Place; onPress: () => voi
         </View>
       ) : null}
       {place.indirizzo ? <Text style={styles.indirizzo} numberOfLines={1}>{place.indirizzo}</Text> : null}
-      {(place.anagrafiche_account || place.creato_da_nome) ? (
-        <View style={styles.metaPersone}>
-          {place.anagrafiche_account ? (
-            <View style={styles.accountTag}>
-              <Ionicons name="briefcase-outline" size={11} color={colors.goldStrong} />
-              <Text style={styles.accountTagTxt} numberOfLines={1}>Account: {place.anagrafiche_account}</Text>
-            </View>
-          ) : null}
-          {place.creato_da_nome ? (
-            <Text style={styles.inserito} numberOfLines={1}>
-              <Ionicons name="person-outline" size={11} color={colors.grigio} /> Inserito da {place.creato_da_nome}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
+      <View style={styles.metaPersone}>
+        {place.anagrafiche_account ? (
+          <View style={styles.accountTag}>
+            <Ionicons name="briefcase-outline" size={11} color={colors.goldStrong} />
+            <Text style={styles.accountTagTxt} numberOfLines={1}>Account: {place.anagrafiche_account}</Text>
+          </View>
+        ) : null}
+        <Text style={styles.inserito} numberOfLines={1}>
+          <Ionicons name="person-outline" size={11} color={colors.grigio} /> Inserito{' '}
+          {dataInserimento(place.created_at)} · {origineInserimento(place)}
+        </Text>
+      </View>
     </Pressable>
   );
 }
