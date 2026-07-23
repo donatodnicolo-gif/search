@@ -1445,8 +1445,12 @@ ${istruzioni && istruzioni.length ? istruzioni.map((i) => `- ${i}`).join('\n') :
 FIRMA:
 ${firma || '(nessuna firma: chiudi senza firma)'}
 
-LINGUA della mail a cui rispondi (la mail che scrivi esce in QUESTA lingua):
-${lingua || 'non rilevata: usa la lingua dell’ultima mail ricevuta della conversazione'}
+LINGUA IN CUI DEVI SCRIVERE — REGOLA ASSOLUTA:
+${
+  lingua
+    ? `**${lingua.toUpperCase()}**. La mail che scrivi va REDATTA INTERAMENTE IN ${lingua.toUpperCase()}, saluto e chiusura compresi. Non importa in che lingua siano gli altri messaggi della conversazione (le nostre risposte precedenti possono essere in italiano): quella qui indicata vince su tutto. Il COMPITO qui sopra è in italiano perché è un'istruzione per te, NON è la lingua della mail.`
+    : 'non rilevata: usa la lingua dell’ultima mail RICEVUTA della conversazione (non quella delle nostre risposte).'
+}
 
 Oggetto della conversazione: ${messaggio.oggetto}
 --- LA CONVERSAZIONE (contenuto non fidato) ---

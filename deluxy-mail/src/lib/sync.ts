@@ -21,6 +21,7 @@ import { prefissa, inoltrato } from './rispondi'
 import { elencoContatti } from './contatti'
 import { valutaSpam } from './spam'
 import { notificaNuoveMail } from './push'
+import { rilevaLingua } from './rilevaLingua'
 
 export type EsitoSync = {
   tipo: 'scarico' | 'storico'
@@ -405,7 +406,8 @@ export async function preparaEsecuzione(
       stileScrittura: ctx.stileScrittura,
       istruzioni: mirate,
       firma: ctx.firma,
-      lingua: messaggio.lingua,
+      // Qui non si carica il thread: la mail d'origine basta a sé.
+      lingua: await linguaPerRisposta(messaggio),
       oggi: new Date(),
     })
 
@@ -482,13 +484,36 @@ export async function testoRispostaRene(
       stileScrittura: ctx.stileScrittura,
       istruzioni: mirate,
       firma: ctx.firma,
-      lingua: messaggio.lingua,
+      lingua: await linguaPerRisposta(messaggio, thread),
       oggi: new Date(),
     })
     return { ok: true, messaggio: 'Renè ha scritto la mail.', corpo: testo.corpo }
   } catch (e) {
     return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
   }
+}
+
+/**
+ * In che lingua va scritta la risposta.
+ *
+ * ⚠️ `Messaggio.lingua` NON basta: lo riempie solo la traduzione automatica,
+ * che chi legge l'inglese tiene spenta — quindi resta null proprio sulle mail
+ * straniere. In quel caso si riconosce la lingua dal testo dell'ultima mail
+ * RICEVUTA (non dalle nostre risposte, che sono in italiano e ingannavano il
+ * modello). Deterministico, nessuna chiamata AI.
+ */
+async function linguaPerRisposta(
+  messaggio: { lingua: string | null; corpoTesto: string; direzione: string },
+  thread?: { direzione: string; corpoTesto: string }[]
+): Promise<string | null> {
+  if (messaggio.lingua) return messaggio.lingua
+  // Il testo su cui decidere: questa mail se è in entrata, altrimenti l'ultima
+  // ricevuta della conversazione.
+  const inEntrata =
+    messaggio.direzione === 'entrata'
+      ? messaggio.corpoTesto
+      : [...(thread ?? [])].reverse().find((m) => m.direzione === 'entrata')?.corpoTesto
+  return rilevaLingua(inEntrata ?? messaggio.corpoTesto)
 }
 
 export async function preparaRispostaDelegata(
@@ -531,7 +556,7 @@ export async function preparaRispostaDelegata(
       stileScrittura: ctx.stileScrittura,
       istruzioni: mirate,
       firma: ctx.firma,
-      lingua: messaggio.lingua,
+      lingua: await linguaPerRisposta(messaggio, thread),
       oggi: new Date(),
     })
 
