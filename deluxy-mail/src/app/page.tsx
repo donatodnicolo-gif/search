@@ -16,6 +16,7 @@ import { leggiChiaviApp } from '@/lib/chiaviApp'
 import { richiediUtente } from '@/lib/sessione'
 import { raggruppa } from '@/lib/thread'
 import { emailContattiAI } from '@/lib/contattiAI'
+import { indiceClienti } from '@/lib/anagrafiche'
 
 export const dynamic = 'force-dynamic'
 // Le azioni AI (analisi alla priorità) girano su questa route: su Vercel il
@@ -66,6 +67,11 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   const vistaNonSmistate = !sezione && vista === 'nonsmistate'
   const emailAI = await emailContattiAI(u.id)
   const setAI = new Set(emailAI)
+
+  // Riconciliazione coi CLIENTI di Anagrafiche (come in /clienti): si avvia
+  // subito, in parallelo alle query sulla posta, e si aspetta solo alla fine.
+  // L'indice è in cache 10 minuti; se Anagrafiche non risponde, nessun badge.
+  const clientiPromise = indiceClienti().catch(() => null)
 
   // Le sezioni per lo spostamento rapido dalla riga (SPAM esclusa: da lì si esce
   // con «Non è spam», non ci si sposta a mano).
@@ -240,6 +246,16 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     for (const o of uscite) if (o.thread) threadRisposti.add(o.thread)
   }
 
+  // Il cliente (azienda attiva in Anagrafiche) del mittente, per email esatta
+  // o per dominio aziendale — stessa regola della pagina /clienti.
+  const idxClienti = await clientiPromise
+  const clienteDi = (mittente: string): string | null => {
+    if (!idxClienti) return null
+    const e = mittente.toLowerCase()
+    const cli = idxClienti.perEmail.get(e) || idxClienti.perDominio.get(e.split('@')[1] || '')
+    return cli ? cli.nome : null
+  }
+
   const righe: RigaData[] = gruppi.map((g) => {
     const m = g[g.length - 1] // il volto: il messaggio più recente del thread
     return {
@@ -271,6 +287,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       // In ricerca compaiono anche le mail INVIATE: le mostriamo col "a …".
       inviata: m.direzione === 'uscita',
       destinatari: m.destinatari,
+      // Badge verde col nome dell'azienda se il mittente è un cliente.
+      clienteNome: m.direzione === 'uscita' ? null : clienteDi(m.mittente),
     }
   })
 

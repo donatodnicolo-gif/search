@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **21 luglio 2026**.
+> Documento di ripartenza. Aggiornato: **23 luglio 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -147,6 +147,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 
 ## 7. Funzionalità implementate
 
+- **Badge cliente in posta in arrivo** (23 lug): se il mittente di una riga combacia con un CLIENTE di Anagrafiche (stato attivo, match per email esatta o dominio aziendale — stessa regola della pagina `/clienti`), la riga mostra il badge verde col nome dell'azienda. In `page.tsx`: `indiceClienti()` (lib/anagrafiche.ts, cache 10 min) parte in parallelo alle query e si aspetta solo alla costruzione delle righe; `RigaData.clienteNome` esisteva già in `RigaMail`. Se Anagrafiche non risponde o manca la chiave, nessun badge (nessun errore).
 - **Lettura IMAP** + scarico storico progressivo; invio SMTP con copia in "Inviata".
 - **Scarico posta nuova all'apertura** (21 lug): aprendo l'app, `SyncButton` drena in background TUTTA la posta nuova arretrata (ripete il giro breve `/api/leggi-posta` finché non arriva più niente), senza bloccare l'uso; si ferma se lasci la scheda. Rispetta la spunta "Automatico". Il timer periodico resta un giro singolo.
 - **Scarico di tutto lo storico in background** (21 lug): impostazione `Utente.scaricaStoricoAuto` (Impostazioni → "Scarica tutta la posta di sempre"). Se attiva, con l'app aperta il componente `StoricoAuto` chiama `/api/scarica-storico` in loop (un blocco alla volta, con 8s di ritardo iniziale per dare precedenza alla posta nuova e una pausa fra i blocchi) finché la casella non è completa (`storicoFinito`). Non blocca l'app; riprende alla prossima apertura. Riusa `scaricaStorico()` (cursore `primoUid`).
