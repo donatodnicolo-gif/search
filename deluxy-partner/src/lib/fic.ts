@@ -543,10 +543,10 @@ export const ficFattureCached = unstable_cache(
 // Cambia lo stato di incasso di una fattura su Fatture in Cloud: segna i suoi
 // pagamenti come "paid" (saldata) o "not_paid" (da incassare). Aggiorna solo il
 // tracciamento pagamenti, non il documento fiscale.
-export async function ficSegnaFatturaPagata(id: number, pagata: boolean): Promise<void> {
+export async function ficSegnaFatturaPagata(id: number, pagata: boolean, data?: Date): Promise<void> {
   const { companyId } = await ficStato();
   if (!companyId) throw new Error("Fatture in Cloud non collegato.");
-  const oggi = new Date().toISOString().slice(0, 10);
+  const oggi = (data ?? new Date()).toISOString().slice(0, 10);
   const cur = await ficFetch<{
     data: { payments_list?: { amount: number; due_date: string | null; status: string }[]; amount_gross?: number };
   }>(`/c/${companyId}/issued_documents/${id}?fields=payments_list,amount_gross`);
@@ -565,4 +565,45 @@ export async function ficSegnaFatturaPagata(id: number, pagata: boolean): Promis
     body: JSON.stringify({ data: { payments_list: nuovi } }),
   });
   revalidateTag("fic");
+}
+
+// Trova su FIC il documento corrispondente a un numero interno tipo "474/2026"
+// (o "474"): ritorna l'id FIC, oppure null se non c'è.
+export async function ficIdDaNumero(numero: string, annoFallback?: number): Promise<number | null> {
+  const { companyId } = await ficStato();
+  if (!companyId) return null;
+  const m = numero.trim().match(/^(\d+)\s*(?:\/\s*(\d{4}))?/);
+  if (!m) return null;
+  const num = parseInt(m[1]);
+  const anno = m[2] ? parseInt(m[2]) : annoFallback;
+  const filtri = [`number = ${num}`];
+  if (anno) filtri.push(`date >= '${anno}-01-01'`, `date <= '${anno}-12-31'`);
+  const r = await ficFetch<{ data: { id: number }[] }>(
+    `/c/${companyId}/issued_documents?type=invoice&fields=id&per_page=5&q=${encodeURIComponent(filtri.join(" and "))}`
+  );
+  return r.data.length === 1 ? r.data[0].id : null;
+}
+
+// Allinea a Fatture in Cloud lo stato di incasso deciso nell'app (fattura
+// segnata saldata a mano o dalla riconciliazione bancaria): senza questo la
+// fattura restava «Da incassare» su FIC e nell'elenco /registrazioni/fatture.
+// Non deve MAI far fallire l'azione locale: gli errori si ignorano (FIC non
+// collegato, numero non trovato, API giù) — al massimo lo stato resta da
+// allineare a mano dal pulsante «Segna saldata» dell'elenco fatture.
+export async function ficAllineaStatoFattura(
+  numero: string | null | undefined,
+  pagata: boolean,
+  opts?: { anno?: number; data?: Date | null }
+): Promise<boolean> {
+  if (!numero) return false;
+  try {
+    const stato = await ficStato();
+    if (!stato.collegato) return false;
+    const id = await ficIdDaNumero(numero, opts?.anno);
+    if (!id) return false;
+    await ficSegnaFatturaPagata(id, pagata, opts?.data ?? undefined);
+    return true;
+  } catch {
+    return false;
+  }
 }

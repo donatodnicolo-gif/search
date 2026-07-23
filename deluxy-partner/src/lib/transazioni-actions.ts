@@ -6,6 +6,7 @@ import { prisma } from "./db";
 import { parseEstratto, hashMovimento } from "./estratto";
 import { chiaveControparte } from "./riconciliazione";
 import { qontoOrganizzazione, qontoTransazioni } from "./qonto";
+import { ficAllineaStatoFattura } from "./fic";
 
 function revalidate() {
   for (const p of ["/", "/transazioni", "/fatture", "/scadenzario", "/saldi", "/partner"]) {
@@ -142,6 +143,8 @@ export async function registraTransazioneFattura(txId: string, fatturaId: string
       esito: `Fattura ${fattura.numero ?? "s.n."} di ${fattura.partner.nome} segnata saldata`,
     },
   });
+  // la fattura risulta saldata anche su Fatture in Cloud, con la data del movimento
+  await ficAllineaStatoFattura(fattura.numero, true, { anno: fattura.anno, data: tx.data });
   revalidate();
 }
 

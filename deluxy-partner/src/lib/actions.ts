@@ -8,6 +8,7 @@ import { feeApplicabile, feeDaTariffe } from "./fee";
 import { risolviAnagrafica, contattoAmministrativo, aggiornaAnagrafica, scritturaAnagraficheAttiva, type CampiAnagrafica } from "./anagrafiche";
 import { ivato, nomeMese } from "./calc";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
+import { ficAllineaStatoFattura } from "./fic";
 import type { SaldoMensile } from "@prisma/client";
 
 // Riflette il bonifico di un mese-partner nel registro pagamenti: crea/aggiorna
@@ -196,7 +197,10 @@ export async function updateFattura(id: string, fd: FormData) {
   if (imponibile == null || !anno || !mese || !tipologiaId) {
     throw new Error("Compilare tipologia, periodo e imponibile");
   }
-  await prisma.fatturaServizio.update({
+  const prima = await prisma.fatturaServizio.findUnique({ where: { id }, select: { pagata: true } });
+  const pagata = b(fd, "pagata");
+  const dataPagamento = pagata ? d(fd, "dataPagamento") : null;
+  const f = await prisma.fatturaServizio.update({
     where: { id },
     data: {
       tipologiaId,
@@ -207,11 +211,15 @@ export async function updateFattura(id: string, fd: FormData) {
       scadenza: d(fd, "scadenza"),
       imponibile,
       aliquotaIva: n(fd, "aliquotaIva") ?? 22,
-      pagata: b(fd, "pagata"),
-      dataPagamento: b(fd, "pagata") ? d(fd, "dataPagamento") : null,
+      pagata,
+      dataPagamento,
       descrizione: s(fd, "descrizione"),
     },
   });
+  // se qui è cambiata la spunta «pagata», allinea anche Fatture in Cloud
+  if (prima && prima.pagata !== pagata) {
+    await ficAllineaStatoFattura(f.numero, pagata, { anno: f.anno, data: dataPagamento });
+  }
   revalidateAll();
   redirect(`/fatture/${id}?salvato=1`);
 }
@@ -277,6 +285,8 @@ export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagame
   } else {
     await rimuoviPagamento("fattura_servizi", f.id);
   }
+  // stesso stato anche su Fatture in Cloud (se la fattura è stata emessa lì)
+  await ficAllineaStatoFattura(f.numero, pagata, { anno: f.anno, data: dp });
   revalidateAll();
 }
 
