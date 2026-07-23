@@ -302,6 +302,10 @@ model CopyAnnuncio {
   idEsterno        String?
   metricheAl       DateTime?
   fonte            String?
+  // Livello a cui l'asset è agganciato: account | campagna | gruppo
+  livello          String?
+  // Per le immagini: URL dell'anteprima
+  anteprima        String?
   note         String?
   creataIl     DateTime @default(now())
   aggiornataIl DateTime @updatedAt
@@ -709,4 +713,41 @@ model CopyScore {
   giudizio   String // eccellente | buono | sufficiente | da_rifare
   faseDebole String?
   creataIl   DateTime @default(now())
+}
+
+// ============ Scrittura verso le piattaforme (coda approvata) ============
+
+// L'app NON scrive mai in diretta su Google Ads. Ogni modifica diventa una
+// riga qui, che nasce "in_attesa": va approvata a mano prima che lo script
+// la possa prendere. È la traduzione tecnica della regola dei Definitivi
+// ("ESEGUE SOLO le azioni esplicitamente approvate", AGENDA PIANI) e del
+// change control del doc 11: il guardrail valida PRIMA di creare la riga.
+model OperazioneAdv {
+  id          String    @id @default(cuid())
+  // pausa_campagna | attiva_campagna | budget | pausa_keyword | attiva_keyword | negativa
+  tipo        String
+  canale      String    @default("google_ads")
+  account     String?
+  // Oggetto su cui agire, con l'id di piattaforma quando c'è
+  bersaglio   String
+  idEsterno   String?
+  // Parametri specifici (JSON): es. { "budget": 18.5 } o { "testo": "gratis" }
+  parametri   String?
+  motivo      String?
+  // in_attesa | approvata | eseguita | fallita | annullata
+  stato       String    @default("in_attesa")
+  livello     String    @default("L1")
+  // Stato prima dell'esecuzione: serve al rollback e al paper-trail
+  prima       String?
+  esito       String?
+  richiestaDa String    @default("utente")
+  approvataDa String?
+  approvataIl DateTime?
+  eseguitaIl  DateTime?
+  campagnaId  String?
+  azioneId    String?
+  creataIl    DateTime  @default(now())
+
+  @@index([stato])
+  @@index([canale])
 }

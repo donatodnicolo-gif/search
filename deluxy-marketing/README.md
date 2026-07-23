@@ -74,6 +74,27 @@ Variabili in `.env` (mai committato):
 - `node scripts/deposita-analisi.mjs '<json>'` — deposita un'analisi senza server (usato
   dall'attività quotidiana).
 
+## Collegamento a Google Ads
+
+Lo script `scripts/google-ads-script.js` si incolla in Google Ads (Strumenti → Azioni
+collettive → Script) e ha quattro funzioni indipendenti, da schedulare separatamente:
+
+| Funzione | Cosa fa | Quando |
+| --- | --- | --- |
+| `main()` | Metriche giornaliere di campagna (spesa, clic, conversioni, valore) | Ogni giorno |
+| `mainCopy()` | Keyword con QS e testi RSA con etichetta di rendimento | Ogni settimana |
+| `mainAsset()` | Sitelink, callout, snippet e immagini sui tre livelli | Ogni mese |
+| `mainEsegui()` | Esegue le operazioni **approvate** in /operazioni | Ogni ora |
+
+Non serve developer token né OAuth: lo script gira dentro Google Ads. Serve solo una
+chiave dell'app (`npm run chiave -- google-ads`) e che l'app sia raggiungibile da
+internet. Endpoint usati: `/api/v1/ingest`, `/api/v1/ingest/copy`, `/api/v1/operazioni`.
+
+**La scrittura passa sempre dall'approvazione**: una modifica decisa nell'app entra in
+coda come "da approvare", il guardrail la valida prima (blackout 72h, ±20% budget,
+freeze incidenti, mai ven-dom su traino), e solo dopo l'approvazione manuale lo script
+la esegue e riferisce. All'esito parte il blackout e nascono le verifiche +24h/+72h.
+
 ## Automazione quotidiana
 
 Un'attività programmata di Claude (08:31, `deluxy-marketing-sync-analisi-drive` in

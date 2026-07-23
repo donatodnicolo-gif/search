@@ -24,6 +24,11 @@ export default async function PaginaCopy({
     orderBy: [{ campagna: "asc" }, { tipo: "asc" }, { posizione: "asc" }],
   });
   const campagne = await prisma.copyAnnuncio.groupBy({ by: ["campagna"], orderBy: { campagna: "asc" } });
+  // Estensioni/asset: stanno su tre livelli (account, campagna, gruppo)
+  const estensioni = await prisma.copyAnnuncio.findMany({
+    where: { tipo: { in: ["sitelink", "callout", "snippet", "immagine"] } },
+    orderBy: [{ livello: "asc" }, { tipo: "asc" }, { testo: "asc" }],
+  });
 
   // raggruppa per campagna
   const perCampagna = new Map<string, typeof tutti>();
@@ -66,6 +71,60 @@ export default async function PaginaCopy({
 
         {perCampagna.size === 0 && (
           <div className="vuoto">Nessun copy: importare il Monitoraggio o depositare via API.</div>
+        )}
+
+
+        {estensioni.length > 0 && (
+          <section className="scheda">
+            <div className="scheda-titolo">Estensioni e asset ({estensioni.length})</div>
+            <p className="cella-sub" style={{ marginBottom: 12 }}>
+              Sitelink, callout, snippet e immagini, con il livello a cui sono agganciati:
+              account, campagna o gruppo di annunci. Un gruppo senza asset propri eredita
+              quelli della campagna.
+            </p>
+            <div style={{ overflowX: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Asset</th>
+                    <th>Tipo</th>
+                    <th>Livello</th>
+                    <th>Campagna / gruppo</th>
+                    <th>Destinazione</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {estensioni.map((e) => (
+                    <tr key={e.id}>
+                      <td style={{ maxWidth: 280 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                          {e.anteprima && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={e.anteprima} alt="" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 8, flex: "0 0 auto" }} />
+                          )}
+                          <span style={{ minWidth: 0 }}>
+                            <div className="cella-nome">{e.testo}</div>
+                            {e.note && <div className="cella-sub" style={{ whiteSpace: "normal" }}>{e.note}</div>}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="cella-muta">{e.tipo}</td>
+                      <td>
+                        <span className="tag-neutro">{e.livello ?? "—"}</span>
+                      </td>
+                      <td className="cella-muta">
+                        {e.campagna}
+                        {e.gruppo && <div className="cella-sub">{e.gruppo}</div>}
+                      </td>
+                      <td className="cella-muta" style={{ maxWidth: 240, overflowWrap: "anywhere" }}>
+                        {e.finalUrl ?? "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
 
         {[...perCampagna.entries()].map(([nomeCampagna, asset]) => {

@@ -251,3 +251,221 @@ function postaCopy(corpo, customerId, etichetta) {
     Logger.log("⚠ Errore HTTP " + codice + " su " + etichetta + ": " + risposta.getContentText().slice(0, 300));
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARTE 3 — ASSET: SITELINK, CALLOUT, SNIPPET, IMMAGINI
+   Gli asset in Google Ads stanno su tre livelli: account, campagna e gruppo
+   di annunci. Questo script li legge tutti e tre e dice a quale livello sono
+   agganciati — è la domanda che serve per capire se un gruppo ha i sitelink
+   suoi o eredita quelli della campagna.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function mainAsset() {
+  var account = AdsApp.currentAccount();
+  var asset = []
+    .concat(leggiAsset("customer_asset", "account"))
+    .concat(leggiAsset("campaign_asset", "campagna"))
+    .concat(leggiAsset("ad_group_asset", "gruppo"));
+
+  Logger.log("Asset letti: " + asset.length);
+  var perTipo = {};
+  for (var i = 0; i < asset.length; i++) {
+    var k = asset[i].tipo + " @ " + asset[i].livello;
+    perTipo[k] = (perTipo[k] || 0) + 1;
+  }
+  Logger.log("Riepilogo: " + JSON.stringify(perTipo));
+  if (asset.length > 0) Logger.log("Esempio: " + JSON.stringify(asset[0]));
+
+  if (CHIAVE_API.indexOf("INCOLLA") !== -1) {
+    Logger.log("⚠ Chiave API non configurata: mi fermo qui.");
+    return;
+  }
+  for (var j = 0; j < asset.length; j += 150) {
+    postaCopy({ annunci: asset.slice(j, j + 150) }, account.getCustomerId(), "asset");
+  }
+}
+
+/**
+ * Legge gli asset da una delle tre viste. Il contesto cambia col livello
+ * (customer_asset / campaign_asset / ad_group_asset) ma i campi dell'asset
+ * in sé sono gli stessi.
+ */
+function leggiAsset(vista, livello) {
+  var righe = [];
+  var campiContesto =
+    vista === "campaign_asset" ? "campaign.name, " :
+    vista === "ad_group_asset" ? "campaign.name, ad_group.name, " : "";
+
+  var query =
+    "SELECT " + campiContesto + "asset.id, asset.type, asset.name, " +
+    "asset.sitelink_asset.link_text, asset.sitelink_asset.description1, " +
+    "asset.sitelink_asset.description2, asset.final_urls, " +
+    "asset.callout_asset.callout_text, " +
+    "asset.structured_snippet_asset.header, asset.structured_snippet_asset.values, " +
+    "asset.image_asset.full_size.url, asset.image_asset.full_size.width_pixels, " +
+    "asset.image_asset.full_size.height_pixels " +
+    "FROM " + vista + " " +
+    "WHERE " + vista + ".status != 'REMOVED' " +
+    "AND asset.type IN ('SITELINK', 'CALLOUT', 'STRUCTURED_SNIPPET', 'IMAGE')";
+
+  var risultati;
+  try {
+    risultati = AdsApp.search(query, { apiVersion: "v18" });
+  } catch (e) {
+    Logger.log("Vista " + vista + " non disponibile: " + e);
+    return righe;
+  }
+
+  while (risultati.hasNext()) {
+    var r = risultati.next();
+    var a = r.asset;
+    var riga = {
+      idEsterno: String(a.id),
+      campagna: (r.campaign && r.campaign.name) || "(account)",
+      gruppo: (r.adGroup && r.adGroup.name) || null,
+      livello: livello,
+      statoPiattaforma: "ENABLED",
+    };
+
+    if (a.type === "SITELINK" && a.sitelinkAsset) {
+      riga.tipo = "sitelink";
+      riga.testo = a.sitelinkAsset.linkText;
+      riga.note = [a.sitelinkAsset.description1, a.sitelinkAsset.description2]
+        .filter(function (x) { return x; })
+        .join(" · ");
+      riga.finalUrl = a.finalUrls && a.finalUrls.length ? a.finalUrls[0] : null;
+    } else if (a.type === "CALLOUT" && a.calloutAsset) {
+      riga.tipo = "callout";
+      riga.testo = a.calloutAsset.calloutText;
+    } else if (a.type === "STRUCTURED_SNIPPET" && a.structuredSnippetAsset) {
+      riga.tipo = "snippet";
+      riga.testo = a.structuredSnippetAsset.header;
+      riga.note = (a.structuredSnippetAsset.values || []).join(" · ");
+    } else if (a.type === "IMAGE" && a.imageAsset) {
+      riga.tipo = "immagine";
+      riga.testo = a.name || ("Immagine " + a.id);
+      var dim = a.imageAsset.fullSize;
+      riga.anteprima = dim ? dim.url : null;
+      riga.note = dim ? dim.widthPixels + "x" + dim.heightPixels : null;
+    } else {
+      continue;
+    }
+    righe.push(riga);
+  }
+  return righe;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARTE 4 — ESECUZIONE DELLE OPERAZIONI APPROVATE (scrittura)
+   Questo script SCRIVE su Google Ads, ma solo ciò che è stato approvato a
+   mano nell'app. Non decide nulla da sé: chiede all'app "cosa devo fare?",
+   esegue, e riferisce. Se l'app non risponde, non fa niente.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function mainEsegui() {
+  var account = AdsApp.currentAccount();
+  var operazioni = chiediOperazioni(account.getCustomerId());
+
+  if (operazioni.length === 0) {
+    Logger.log("Nessuna operazione approvata da eseguire.");
+    return;
+  }
+  Logger.log("Operazioni approvate da eseguire: " + operazioni.length);
+
+  for (var i = 0; i < operazioni.length; i++) {
+    var op = operazioni[i];
+    try {
+      var esito = esegui(op);
+      riferisci(op.id, true, esito.dettaglio, esito.prima, esito.dopo);
+      Logger.log("OK " + op.tipo + " su " + op.bersaglio + " - " + esito.dettaglio);
+    } catch (e) {
+      riferisci(op.id, false, String(e), null, null);
+      Logger.log("ERRORE " + op.tipo + " su " + op.bersaglio + " - " + e);
+    }
+  }
+}
+
+function chiediOperazioni(customerId) {
+  var risposta = UrlFetchApp.fetch(
+    URL_APP + "/api/v1/operazioni?canale=google_ads&account=" + encodeURIComponent(customerId),
+    { headers: { "x-api-key": CHIAVE_API }, muteHttpExceptions: true }
+  );
+  if (risposta.getResponseCode() !== 200) {
+    Logger.log("L'app non risponde (" + risposta.getResponseCode() + "): non eseguo nulla.");
+    return [];
+  }
+  return JSON.parse(risposta.getContentText()).operazioni || [];
+}
+
+/** Esegue una singola operazione. Ogni ramo legge lo stato PRIMA di cambiarlo. */
+function esegui(op) {
+  var campagna;
+  if (op.tipo === "pausa_campagna" || op.tipo === "attiva_campagna" || op.tipo === "budget" || op.tipo === "negativa") {
+    campagna = trovaCampagna(op);
+    if (!campagna) throw new Error("Campagna non trovata: " + op.bersaglio);
+  }
+
+  if (op.tipo === "pausa_campagna") {
+    var eraAttiva = campagna.isEnabled();
+    campagna.pause();
+    return { dettaglio: "campagna messa in pausa", prima: eraAttiva ? "attiva" : "gia in pausa", dopo: "in pausa" };
+  }
+  if (op.tipo === "attiva_campagna") {
+    var eraPausa = campagna.isPaused();
+    campagna.enable();
+    return { dettaglio: "campagna riattivata", prima: eraPausa ? "in pausa" : "gia attiva", dopo: "attiva" };
+  }
+  if (op.tipo === "budget") {
+    var nuovo = Number(op.parametri.budget);
+    if (!nuovo || nuovo <= 0) throw new Error("Budget non valido");
+    var budget = campagna.getBudget();
+    var vecchio = budget.getAmount();
+    budget.setAmount(nuovo);
+    return { dettaglio: "budget " + vecchio + " -> " + nuovo + " euro/g", prima: vecchio + " euro/g", dopo: nuovo + " euro/g" };
+  }
+  if (op.tipo === "negativa") {
+    var testo = op.parametri.testo;
+    if (!testo) throw new Error("Testo della negativa mancante");
+    campagna.createNegativeKeyword(testo);
+    return { dettaglio: "negativa aggiunta: " + testo, prima: "assente", dopo: testo };
+  }
+  if (op.tipo === "pausa_keyword" || op.tipo === "attiva_keyword") {
+    var kw = trovaKeyword(op);
+    if (!kw) throw new Error("Keyword non trovata: " + op.bersaglio);
+    if (op.tipo === "pausa_keyword") {
+      kw.pause();
+      return { dettaglio: "keyword in pausa", prima: "attiva", dopo: "in pausa" };
+    }
+    kw.enable();
+    return { dettaglio: "keyword riattivata", prima: "in pausa", dopo: "attiva" };
+  }
+  throw new Error("Tipo di operazione non gestito: " + op.tipo);
+}
+
+function trovaCampagna(op) {
+  var it = op.idEsterno
+    ? AdsApp.campaigns().withIds([Number(op.idEsterno)]).get()
+    : AdsApp.campaigns().withCondition("campaign.name = '" + apici(op.bersaglio) + "'").get();
+  return it.hasNext() ? it.next() : null;
+}
+
+function trovaKeyword(op) {
+  var it = op.idEsterno
+    ? AdsApp.keywords().withCondition("ad_group_criterion.criterion_id = " + op.idEsterno).get()
+    : AdsApp.keywords().withCondition("ad_group_criterion.keyword.text = '" + apici(op.bersaglio) + "'").get();
+  return it.hasNext() ? it.next() : null;
+}
+
+function apici(s) {
+  return String(s).split("'").join("\\'");
+}
+
+function riferisci(idOperazione, riuscita, dettaglio, prima, dopo) {
+  UrlFetchApp.fetch(URL_APP + "/api/v1/operazioni/" + idOperazione + "/esito", {
+    method: "post",
+    contentType: "application/json",
+    headers: { "x-api-key": CHIAVE_API },
+    payload: JSON.stringify({ riuscita: riuscita, dettaglio: dettaglio, prima: prima, dopo: dopo }),
+    muteHttpExceptions: true,
+  });
+}

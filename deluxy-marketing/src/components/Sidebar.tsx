@@ -6,7 +6,7 @@ import { SbSezione } from "./SbSezione";
 export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "landing" | "copy" | "keywords"
   | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni"
-  | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni";
+  | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -21,7 +21,7 @@ export async function Sidebar({
 }) {
   const [
     nAnalisi, nAudit, nAzioniAperte, nCampagneVive, nLanding, nTestAperti, nDocumenti,
-    aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale, nPubblici, nOrdini, nErroriAperti, nIncongruenzeAperte,
+    aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale, nPubblici, nOrdini, nErroriAperti, nIncongruenzeAperte, nOperazioni,
   ] = await Promise.all([
     prisma.analisi.count(),
     prisma.analisi.count({
@@ -57,6 +57,7 @@ export async function Sidebar({
     prisma.ordine.count(),
     prisma.incidente.count({ where: { stato: "aperto" } }),
     prisma.incongruenza.count({ where: { stato: "aperta" } }),
+    prisma.operazioneAdv.count({ where: { stato: { in: ["in_attesa", "approvata"] } } }),
   ]);
 
   const conta = (
@@ -134,6 +135,7 @@ export async function Sidebar({
         </SbSezione>
 
         <SbSezione titolo="Governance">
+          {voce("operazioni", "/operazioni", "azioni", "Operazioni", nOperazioni)}
           {voce("occasioni", "/occasioni", "vendite", "Occasioni")}
           {voce("cadenze", "/cadenze", "storico", "Cadenze")}
           {voce("errori", "/errori", "audit", "Storico errori", nErroriAperti)}

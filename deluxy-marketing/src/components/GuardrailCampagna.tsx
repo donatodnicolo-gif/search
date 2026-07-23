@@ -1,4 +1,4 @@
-import { cambiaClasseCampagna, registraModifica } from "@/lib/azioni";
+import { cambiaClasseCampagna, creaOperazione, registraModifica } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
   CLASSI_CAMPAGNA,
@@ -232,8 +232,45 @@ export async function GuardrailCampagna({
         )}
       </section>
 
+
       <section className="scheda">
-        <div className="scheda-titolo">Registra una modifica (change control, doc 11)</div>
+        <div className="scheda-titolo">Chiedi allo script di eseguire (scrittura su Google Ads)</div>
+        <p className="cella-sub" style={{ marginBottom: 12 }}>
+          Qui non si esegue nulla: si mette in <b>coda</b>. L&apos;operazione resta in attesa finché
+          non la approvi in <a href="/operazioni" style={{ color: "var(--blue)" }}>Operazioni</a>;
+          solo allora lo script di Google Ads la prende, la esegue e riferisce. Il guardrail
+          controlla prima: se una regola è violata, l&apos;operazione non entra nemmeno in coda.
+        </p>
+        <form className="modulo" action={creaOperazione}>
+          <input type="hidden" name="campagnaId" value={campagna.id} />
+          <div className="campo-modulo">
+            <label>Operazione</label>
+            <select name="tipo" defaultValue="pausa_campagna">
+              <option value="pausa_campagna">Metti in pausa la campagna</option>
+              <option value="attiva_campagna">Riattiva la campagna</option>
+              <option value="budget">Cambia budget giornaliero</option>
+            </select>
+          </div>
+          <div className="campo-modulo">
+            <label>Nuovo budget €/g (solo per «cambia budget»)</label>
+            <input name="budget" type="number" step="0.5" min="0" placeholder={campagna.budgetGiornaliero != null ? String(campagna.budgetGiornaliero) : ""} />
+          </div>
+          <div className="campo-modulo largo">
+            <label>Perché</label>
+            <input name="motivo" placeholder="Il motivo resta nello storico accanto all&apos;operazione" />
+          </div>
+          <div className="campo-modulo largo">
+            <label>Piano di rollback {traino ? "(obbligatorio su traino per L2/L3)" : ""}</label>
+            <input name="rollbackPiano" placeholder="Come si torna indietro se peggiora" />
+          </div>
+          <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
+            <button className="btn" type="submit">Metti in coda</button>
+          </div>
+        </form>
+      </section>
+
+      <section className="scheda">
+        <div className="scheda-titolo">Registra una modifica gia fatta a mano (change control, doc 11)</div>
         <p className="cella-sub" style={{ marginBottom: 12 }}>
           Ogni modifica reale passa da qui: parte il blackout 72h e nascono le verifiche a +24h e
           +72h. Su una traino: max ±20% di budget, mai venerdì-domenica, L2/L3 solo con rollback.

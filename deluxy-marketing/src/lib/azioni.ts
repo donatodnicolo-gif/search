@@ -832,3 +832,90 @@ export async function salvaScorecardLanding(fd: FormData) {
   await registra({ autore: "utente", tipo: "modifica", entita: "landing", entitaId: landingId, titolo: "Scorecard landing compilata", dettaglio: "voto " + voto + "/100 (" + fascia + ")" });
   revalidatePath("/landing/" + landingId);
 }
+
+// ---------- Coda operazioni verso le piattaforme ----------
+
+export async function approvaOperazione(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const op = await prisma.operazioneAdv.update({
+    where: { id },
+    data: { stato: "approvata", approvataIl: new Date(), approvataDa: "utente" },
+  });
+  await registra({
+    autore: "utente", tipo: "stato", entita: "operazione", entitaId: id,
+    titolo: `Approvata: ${op.tipo} su ${op.bersaglio}`,
+    dettaglio: "Lo script la eseguirà alla prossima passata",
+  });
+  revalidatePath("/operazioni");
+}
+
+export async function annullaOperazione(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const op = await prisma.operazioneAdv.update({ where: { id }, data: { stato: "annullata" } });
+  await registra({
+    autore: "utente", tipo: "stato", entita: "operazione", entitaId: id,
+    titolo: `Annullata: ${op.tipo} su ${op.bersaglio}`,
+  });
+  revalidatePath("/operazioni");
+}
+
+export async function creaOperazione(fd: FormData) {
+  const tipo = testo(fd, "tipo");
+  const campagnaId = testo(fd, "campagnaId");
+  if (!tipo || !campagnaId) return;
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    include: {
+      modifiche: { orderBy: { eseguitaIl: "desc" }, take: 1 },
+      incidenti: { where: { stato: "aperto" }, select: { codice: true } },
+    },
+  });
+  if (!campagna) return;
+
+  const budget = numeroDa(fd, "budget");
+  const deltaPct =
+    budget != null && campagna.budgetGiornaliero
+      ? ((budget - campagna.budgetGiornaliero) / campagna.budgetGiornaliero) * 100
+      : null;
+  const livello = testo(fd, "livello") ?? (tipo === "budget" ? "L2" : "L1");
+
+  if (campagna.incidenti.length > 0) {
+    redirect(`/campagne/${campagnaId}?bloccata=${encodeURIComponent(`Freeze ${campagna.incidenti[0].codice}: incidente aperto su questa campagna`)}`);
+  }
+  const { validaModifica } = await import("./guardrail");
+  const esito = validaModifica({
+    classe: campagna.classe,
+    livello,
+    deltaBudgetPct: deltaPct,
+    rollbackPiano: testo(fd, "rollbackPiano"),
+    ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+  });
+  if (esito.blocchi.length > 0) {
+    redirect(`/campagne/${campagnaId}?bloccata=${encodeURIComponent(esito.blocchi[0])}`);
+  }
+
+  const op = await prisma.operazioneAdv.create({
+    data: {
+      tipo,
+      canale: campagna.canale,
+      bersaglio: campagna.nome,
+      idEsterno: campagna.idEsterno,
+      parametri: budget != null ? JSON.stringify({ budget }) : null,
+      motivo: testo(fd, "motivo"),
+      livello,
+      prima:
+        tipo === "budget"
+          ? `budget ${campagna.budgetGiornaliero ?? "?"} €/g`
+          : `stato ${campagna.stato}`,
+      campagnaId,
+    },
+  });
+  await registra({
+    autore: "utente", tipo: "creazione", entita: "operazione", entitaId: op.id,
+    titolo: `In coda (da approvare): ${tipo} su ${campagna.nome}`,
+    dettaglio: op.motivo,
+  });
+  redirect("/operazioni");
+}
