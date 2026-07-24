@@ -222,7 +222,12 @@ async function creaAttivitaUnica(dati: {
  */
 export async function analizzaMessaggioOra(
   messaggioId: string,
-  utenteId: string
+  utenteId: string,
+  // 'priorita' = l'hai chiesto tu dando una priorità: garantisce almeno un
+  // promemoria. 'auto' = lettura in sottofondo dei contatti/thread AI+: legge
+  // e riassume, ma crea un'attività SOLO se l'AI ne trova davvero una (niente
+  // task-tappabuchi «Gestire: …» per ogni mail).
+  origine: 'priorita' | 'auto' = 'priorita'
 ): Promise<{ ok: boolean; messaggio: string }> {
   const m = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId } })
   if (!m) return { ok: false, messaggio: 'Messaggio non trovato.' }
@@ -319,9 +324,15 @@ export async function analizzaMessaggioOra(
     await db.bozza.deleteMany({ where: { messaggioId: m.id, inviata: false } })
 
     const prioritaAttivita = CODICI_PRIORITA.includes(m.priorita as never) ? m.priorita! : 'P2'
-    const attivita = analisi.attivita.length
-      ? analisi.attivita
-      : [{ titolo: `Gestire: ${m.oggetto}`, dettaglio: analisi.riassunto, scadenza: null, priorita: prioritaAttivita }]
+    // Fallback «Gestire: …» SOLO se l'hai chiesto tu con una priorità. In lettura
+    // automatica (AI+) si creano solo le attività che l'AI ha trovato: leggere
+    // una mail non deve riempire la lista di cose da fare.
+    const attivita =
+      analisi.attivita.length > 0
+        ? analisi.attivita
+        : origine === 'priorita'
+          ? [{ titolo: `Gestire: ${m.oggetto}`, dettaglio: analisi.riassunto, scadenza: null, priorita: prioritaAttivita }]
+          : []
 
     for (const a of attivita) {
       await creaAttivitaUnica({

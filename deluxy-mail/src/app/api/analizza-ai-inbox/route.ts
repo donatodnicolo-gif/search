@@ -99,7 +99,9 @@ export async function POST() {
     let fatti = 0
     for (const m of daFare) {
       try {
-        const esito = await analizzaMessaggioOra(m.id, userId)
+        // 'auto': legge e riassume, ma niente attività-tappabuchi. Un task
+        // nasce solo se l'AI ne trova uno vero.
+        const esito = await analizzaMessaggioOra(m.id, userId, 'auto')
         if (esito.ok) fatti++
         else break // AI non disponibile (chiave/quota): inutile insistere ora
       } catch {
