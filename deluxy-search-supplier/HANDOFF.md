@@ -158,6 +158,12 @@ solo dove siamo e come si lavora.
    (`drivingDistances`: Distance Matrix → OSRM → ripiego 📏 linea d'aria). Non blocca la
    ricerca: gira in parallelo dopo il prepend. Schede senza indirizzo = nessun badge.
 
+24. **«↻ Riapri ricerca» per le ricerche solo-indirizzo** (24/07): `logEvento` ora allega anche
+   `ricerca {indirizzo, categoria}` (campo nuovo whitelisted in `api/storico.js`); nello
+   Storico gli eventi SENZA ordine ma con indirizzo hanno il pulsante «↻ Riapri ricerca»
+   (`.st-reopen-search`) che reimposta indirizzo+categoria e rilancia `run()`. Gli eventi
+   registrati prima di oggi non hanno il campo e restano senza pulsante.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche

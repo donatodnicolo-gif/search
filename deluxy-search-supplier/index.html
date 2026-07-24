@@ -1019,6 +1019,22 @@ $('#storicoReload').addEventListener('click', loadStorico);
 // «Riapri richiesta»: ricarica l'ordine di quell'evento e riparte col flusso normale
 // (recupero → indirizzo → categoria dal brand → ricerca fornitori in automatico)
 $('#storicoBody').addEventListener('click', e=>{
+  // ricerca fatta solo per indirizzo (senza ordine): riparte la stessa ricerca in zona
+  const r = e.target.closest('.st-reopen-search');
+  if(r){
+    $('#address').value = r.dataset.addr; localStorage.setItem('addr', r.dataset.addr);
+    const cat = (r.dataset.cat||'').toLowerCase();
+    if(cat.startsWith('fior') || cat.startsWith('pasticc')){
+      const want = cat.startsWith('pasticc') ? 'pasticceria' : 'fioraio';
+      cats.clear(); cats.add(want);
+      document.querySelectorAll('.catbtns .chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
+    }
+    setView(false);
+    const nav = document.querySelector('.nav-link[data-scroll=".ordercard"]');
+    if(nav) setActiveNav(nav);
+    run();
+    return;
+  }
   const b = e.target.closest('.st-reopen'); if(!b) return;
   const sel = $('#brand');
   if([...sel.options].some(o=>o.value===b.dataset.brand)) sel.value = b.dataset.brand;
@@ -2296,10 +2312,16 @@ function negozioDaScheda(el){
     telefono: telA ? (telA.getAttribute('href')||'').replace('tel:','') : '',
     email: mailA ? (mailA.getAttribute('href')||'').replace('mailto:','') : '' };
 }
+// la ricerca per zona in corso (per «Riapri ricerca» dallo Storico)
+function ricercaCorrente(){
+  const indirizzo = $('#address').value.trim();
+  if(!indirizzo) return null;
+  return { indirizzo, categoria: cats.size===1 ? (cats.has('pasticceria') ? 'pasticcerie' : 'fiorai') : '' };
+}
 // registra un evento nello storico sul server (best effort, non blocca l'interfaccia)
 function logEvento(evt){
   try{
-    const body = Object.assign({ quando: new Date().toISOString(), ordine: ordineCorrente() }, evt);
+    const body = Object.assign({ quando: new Date().toISOString(), ordine: ordineCorrente(), ricerca: ricercaCorrente() }, evt);
     apiFetch('/api/storico', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(()=>{});
   }catch(e){}
 }
@@ -2334,6 +2356,8 @@ async function loadStorico(){
       const contatti = [n.telefono, n.email].filter(Boolean).join(' · ');
       const riapri = (e.ordine && e.ordine.numero && e.ordine.brand)
         ? `<button class="btn-dl st-reopen" style="margin-top:6px; padding:4px 12px; font-size:12px" data-brand="${esc(e.ordine.brand)}" data-num="${esc(e.ordine.numero)}">↻ Riapri richiesta</button>`
+        : (e.ricerca && e.ricerca.indirizzo)
+        ? `<button class="btn-dl st-reopen-search" style="margin-top:6px; padding:4px 12px; font-size:12px" data-addr="${esc(e.ricerca.indirizzo)}" data-cat="${esc(e.ricerca.categoria||'')}">↻ Riapri ricerca</button>`
         : '';
       return `<div class="st-row">
         <span class="st-when">${esc(fmtQuando(e.quando))}</span>

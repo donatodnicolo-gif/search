@@ -98,6 +98,11 @@ export default async function handler(req, res) {
           valore: s(ordine.valore, 20),
           brand: s(ordine.brand, 40),
         } : null,
+        // ricerca per zona (senza ordine): serve a «Riapri ricerca» nello Storico
+        ricerca: (body.ricerca && body.ricerca.indirizzo) ? {
+          indirizzo: s(body.ricerca.indirizzo, 160),
+          categoria: s(body.ricerca.categoria, 20),
+        } : null,
       };
       eventi.unshift(evento);                       // più recenti in testa
       if (eventi.length > MAX_EVENTI) eventi = eventi.slice(0, MAX_EVENTI);
