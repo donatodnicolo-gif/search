@@ -1425,6 +1425,7 @@ async function registraInviato(
       corpoTesto: m.corpo,
       corpoHtml: m.corpoHtml ?? null,
       allegati: m.allegati?.length ?? 0,
+      dimensione: raw.length, // byte reali della mail spedita
       letto: true,
       sezioneId,
       smistatoDa: sezioneId ? 'manuale' : null,

@@ -355,6 +355,9 @@ model Messaggio {
   corpoTesto   String  @db.Text
   corpoHtml    String? @db.Text
   allegati     Int     @default(0)
+  // Dimensione in byte del messaggio grezzo (per l'ordinamento). Null = mail
+  // vecchia salvata prima di questo campo: si ordina come 0.
+  dimensione   Int?
 
   letto       Boolean   @default(false)
   archiviato  Boolean   @default(false)

@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { dataBreve } from '@/lib/format'
+import { BarraOrdinamento, confrontaRighe, type Ordine } from './Ordinamento'
 import { cestinaMessaggio, spostaInSezione, azioneMassa } from '@/lib/actions'
 import { AgganciaBottone, AgganciaDialog } from './AgganciaRiga'
 import { NomeThreadBottone, NomeThreadDialog } from './NomeThreadRiga'
@@ -26,6 +27,8 @@ export type RigaInviata = {
   data: Date
   sezione: { nome: string; colore: string } | null
   sezioneId: string | null
+  /** Byte della mail (per l'ordinamento per dimensione). */
+  dimensione?: number
 }
 
 /**
@@ -41,11 +44,19 @@ export function ListaInviati({
 }) {
   const [selezione, setSelezione] = useState<Set<string>>(new Set())
   const [nascosti, setNascosti] = useState<Set<string>>(new Set())
+  const [ordine, setOrdine] = useState<Ordine>({ campo: 'data', discendente: true })
   const [inCorso, start] = useTransition()
   const router = useRouter()
   const spuntaTutti = useRef<HTMLInputElement>(null)
 
-  const visibili = righe.filter((r) => !nascosti.has(r.id))
+  // In posta inviata il «mittente» dell'ordinamento è il destinatario.
+  const visibili = useMemo(
+    () =>
+      righe
+        .filter((r) => !nascosti.has(r.id))
+        .sort((a, b) => confrontaRighe(a, b, ordine, (r) => r.destinatari || '')),
+    [righe, nascosti, ordine]
+  )
 
   const toggle = useCallback((id: string, valore: boolean) => {
     setSelezione((s) => {
@@ -89,6 +100,8 @@ export function ListaInviati({
   return (
     <>
     <div className="mail-list">
+      <BarraOrdinamento valore={ordine} onCambia={setOrdine} etichettaMittente="Destinatario" />
+
       <div className="mail-select-bar">
         <label className="mail-select-all">
           <input

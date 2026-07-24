@@ -105,6 +105,7 @@ export default async function PostaInviata({ searchParams }: Props) {
       data: m.data,
       sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
       sezioneId: m.sezioneId,
+      dimensione: m.dimensione ?? 0,
     }]
   })
 

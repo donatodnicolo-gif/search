@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { RigaMail, type RigaData } from './RigaMail'
+import { BarraOrdinamento, confrontaRighe, type Ordine } from './Ordinamento'
 import { CercaVecchie } from './CercaVecchie'
 import { azioneMassa, type AzioneMassa } from '@/lib/actions'
 
@@ -27,12 +28,23 @@ export function ListaMail({
 }) {
   const [mostrate, setMostrate] = useState(PASSO)
   const [selezione, setSelezione] = useState<Set<string>>(new Set())
+  const [ordine, setOrdine] = useState<Ordine>({ campo: 'data', discendente: true })
   const [inCorso, start] = useTransition()
   const router = useRouter()
   const sentinella = useRef<HTMLDivElement>(null)
   const spuntaTutti = useRef<HTMLInputElement>(null)
 
-  const visibili = righe.slice(0, mostrate)
+  // Ordinamento lato client sulle righe già caricate: istantaneo, nessun giro
+  // al server. Il volto della riga (mittente/oggetto/data/dimensione) decide.
+  const righeOrdinate = useMemo(
+    () =>
+      [...righe].sort((a, b) =>
+        confrontaRighe(a, b, ordine, (r) => r.mittenteNome || r.mittente || '')
+      ),
+    [righe, ordine]
+  )
+
+  const visibili = righeOrdinate.slice(0, mostrate)
   const restano = righe.length - visibili.length
 
   const carica = useCallback(
@@ -114,6 +126,8 @@ export function ListaMail({
 
   return (
     <div className="mail-list">
+      <BarraOrdinamento valore={ordine} onCambia={setOrdine} />
+
       <div className="mail-select-bar">
         <label className="mail-select-all">
           <input

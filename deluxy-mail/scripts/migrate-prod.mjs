@@ -58,6 +58,8 @@ const stmts = [
        AND COALESCE(a."messaggioId", '') = COALESCE(b."messaggioId", '')
        AND COALESCE(a."contattoEmail", '') = COALESCE(b."contattoEmail", '')
        AND (a."creataIl" > b."creataIl" OR (a."creataIl" = b."creataIl" AND a."id" > b."id"))`,
+  // Dimensione in byte del messaggio (per l'ordinamento della posta).
+  `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "dimensione" INTEGER`,
   // Marcatore anti-doppia-notifica push.
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "notificatoIl" TIMESTAMP(3)`,
   // Conversazioni chiuse (fuori dai Top thread, etichetta «Chiuso»).

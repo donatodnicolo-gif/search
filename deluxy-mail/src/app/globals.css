@@ -1099,6 +1099,22 @@ mark.ricerca-hit {
   background: var(--fill); border-radius: var(--radius-m); padding: 12px 14px;
 }
 
+/* Barra di ordinamento della posta (data / mittente / oggetto / dimensione) */
+.ordina-barra {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 8px 12px; border-bottom: 1px solid var(--hairline);
+}
+.ordina-etichetta { font-size: 12.5px; color: var(--text-tertiary); margin-right: 2px; }
+.ordina-btn {
+  font-size: 12.5px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--hairline-strong); background: var(--surface);
+  color: var(--text-secondary); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.ordina-btn:hover { background: var(--fill); }
+.ordina-btn.attivo { background: var(--text); color: var(--surface); border-color: var(--text); }
+.ordina-freccia { font-weight: 700; }
+
 /* Righe dei risultati quando agganci una mail a una conversazione */
 .aggancio-riga {
   display: flex; align-items: center; gap: 12px;

@@ -352,6 +352,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       destinatari: m.destinatari,
       // Badge verde col nome dell'azienda se il mittente è un cliente.
       clienteNome: m.direzione === 'uscita' ? null : clienteDi(m.mittente),
+      // Per l'ordinamento: la dimensione del volto (la mail più recente).
+      dimensione: m.dimensione ?? 0,
     }
   })
 

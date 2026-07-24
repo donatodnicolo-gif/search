@@ -56,6 +56,8 @@ export type RigaData = {
   clienteNome?: string | null
   /** Il nome dato a mano alla conversazione (null se non ne ha). */
   nomeThread?: string | null
+  /** Byte del messaggio (per l'ordinamento per dimensione). */
+  dimensione?: number
 }
 
 // Rende un testo con la parola cercata evidenziata (<mark>).

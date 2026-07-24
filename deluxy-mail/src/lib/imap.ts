@@ -16,6 +16,8 @@ export type MessaggioScaricato = {
   corpoTesto: string
   corpoHtml: string | null
   allegati: number
+  /** Byte del messaggio grezzo (per l'ordinamento per dimensione). */
+  dimensione: number
   letto: boolean
 }
 
@@ -438,6 +440,7 @@ async function converti(uid: number, source: Buffer, letto: boolean): Promise<Me
     corpoTesto: testo,
     corpoHtml: html,
     allegati: parsed.attachments?.length ?? 0,
+    dimensione: source.length, // byte reali del messaggio grezzo
     letto,
   }
 }

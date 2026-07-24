@@ -251,6 +251,7 @@ export async function analizzaMessaggioOra(
     corpoTesto: m.corpoTesto,
     corpoHtml: m.corpoHtml,
     allegati: m.allegati,
+    dimensione: m.dimensione ?? 0,
     letto: m.letto,
   }
 
@@ -1105,6 +1106,7 @@ async function salvaMessaggi(opts: {
             corpoTesto: msg.corpoTesto,
             corpoHtml: msg.corpoHtml,
             allegati: msg.allegati,
+            dimensione: msg.dimensione,
             letto: msg.letto || daRegole.segnaLetta,
             archiviato: daRegole.archivia,
             sezioneId: daRegole.sezioneId,
@@ -1220,6 +1222,7 @@ async function salvaInviati(utenteId: string, accountId: string, messaggi: Messa
           corpoTesto: m.corpoTesto,
           corpoHtml: m.corpoHtml,
           allegati: m.allegati,
+          dimensione: m.dimensione,
           letto: true,
         },
       })
