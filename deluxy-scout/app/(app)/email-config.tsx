@@ -79,12 +79,25 @@ export default function EmailConfig() {
     try {
       const r = await verificaSmtp();
       if (r.ok) {
-        avvisa('Funziona', `Email di prova inviata a ${r.inviata_a}. Controlla la casella.`);
+        avvisa(
+          'Funziona',
+          `Email di prova inviata a ${r.inviata_a}.${r.host ? ` (via ${r.host})` : ''} Controlla la casella.`,
+        );
         carica();
       } else if (r.reason === 'non_configurato') {
         avvisa('Prima salva', 'Salva le credenziali, poi invia il test.');
       } else {
-        avvisa('Invio non riuscito', r.dettaglio ?? 'Controlla email, password e host.');
+        const d = (r.dettaglio ?? '').toLowerCase();
+        if (d.includes('certificate') || d.includes('notvalidforname') || d.includes('invalid peer')) {
+          avvisa(
+            'Certificato del server non valido',
+            'Il certificato di questo host non è valido per il suo nome. Prova come host «smtps.aruba.it» (Register.it usa l’infrastruttura Aruba), poi salva e riprova.',
+          );
+        } else if (d.includes('auth') || d.includes('535') || d.includes('credential')) {
+          avvisa('Accesso rifiutato', 'Email o password non accettate. Su Register.it l’SMTP autenticato dev’essere abilitato per la casella.');
+        } else {
+          avvisa('Invio non riuscito', r.dettaglio ?? 'Controlla email, password e host.');
+        }
       }
     } catch (e: any) {
       avvisa('Errore', e?.message ?? 'Verifica non riuscita.');

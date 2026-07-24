@@ -49,7 +49,7 @@ export function salvaSmtp(cfg: {
 }
 
 /** Invia un'email di prova alla propria casella per confermare le credenziali. */
-export function verificaSmtp(): Promise<{ ok: boolean; reason?: string; dettaglio?: string; inviata_a?: string }> {
+export function verificaSmtp(): Promise<{ ok: boolean; reason?: string; dettaglio?: string; inviata_a?: string; host?: string }> {
   return chiama({ azione: 'verifica' });
 }
 

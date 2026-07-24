@@ -1,3 +1,4 @@
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 // Credenziali SMTP PER UTENTE, condivise dalle Edge Function che mandano email.
 //
 // Perché così: ogni venditore invia dalla PROPRIA casella (Register.it), quindi
@@ -103,4 +104,59 @@ export async function credenzialiPerUtente(admin: any, ownerId: string | null): 
     };
   }
   return null;
+}
+
+
+// Host alternativi con lo STESSO backend ma un certificato TLS valido: Register.it
+// gira sull'infrastruttura Aruba, e il cert di authsmtp.register.it spesso non è
+// valido per quel nome ("NotValidForName"). Se capita, si riprova su Aruba con
+// le stesse credenziali (username = email intera).
+const HOST_FALLBACK: Record<string, string> = {
+  'authsmtp.register.it': 'smtps.aruba.it',
+  'smtp.register.it': 'smtps.aruba.it',
+};
+
+function isCertError(e: unknown): boolean {
+  const m = String((e as any)?.message ?? e).toLowerCase();
+  return m.includes('certificate') || m.includes('notvalidforname') || m.includes('invalid peer');
+}
+
+export interface EsitoInvio {
+  ok: boolean;
+  hostUsato?: string; // l'host che ha funzionato (può differire da cred.host per il fallback)
+  errore?: string;
+}
+
+/**
+ * Invia una mail con le credenziali date. Se il primo tentativo fallisce per un
+ * errore di CERTIFICATO e l'host ha un fallback noto (Register.it → Aruba),
+ * riprova una volta lì. Ritorna quale host ha funzionato, così il chiamante può
+ * salvarlo e usarlo direttamente le volte successive.
+ */
+export async function inviaMail(
+  cred: Credenziali,
+  msg: { to: string; subject: string; content: string; html?: string },
+): Promise<EsitoInvio> {
+  const hosts = [cred.host];
+  const fb = HOST_FALLBACK[cred.host.toLowerCase()];
+  if (fb) hosts.push(fb);
+
+  let ultimo: unknown = null;
+  for (let i = 0; i < hosts.length; i++) {
+    const host = hosts[i];
+    try {
+      const client = new SMTPClient({
+        connection: { hostname: host, port: cred.port, tls: cred.port === 465, auth: { username: cred.user, password: cred.pass } },
+      });
+      await client.send({ from: cred.from, to: msg.to, subject: msg.subject, content: msg.content, ...(msg.html ? { html: msg.html } : {}) });
+      await client.close();
+      return { ok: true, hostUsato: host };
+    } catch (e) {
+      ultimo = e;
+      // Si riprova col fallback SOLO se è un problema di certificato.
+      if (i < hosts.length - 1 && isCertError(e)) continue;
+      break;
+    }
+  }
+  return { ok: false, errore: String((ultimo as any)?.message ?? ultimo) };
 }

@@ -5,8 +5,7 @@
 // Come `notifica-task`: se i secret SMTP non sono configurati la funzione è
 // INERTE ({ sent: false, reason: 'smtp_non_configurato' }), nessun invio.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
-import { credenzialiPerUtente } from '../_shared/smtp.ts';
+import { credenzialiPerUtente, inviaMail } from '../_shared/smtp.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -67,11 +66,8 @@ Deno.serve(async (req) => {
       (nDeal ? `FOLLOW-UP TRATTATIVE (${nDeal})\n${righeDeal}\n\n` : '') +
       `Apri l'app: https://deluxy-scout.vercel.app\n`;
 
-    const client = new SMTPClient({
-      connection: { hostname: cred.host, port: cred.port, tls: cred.port === 465, auth: { username: cred.user, password: cred.pass } },
-    });
-    await client.send({ from: cred.from, to: profilo.email, subject: `Promemoria Scout: ${nTask + nDeal} cose in scadenza`, content: corpo });
-    await client.close();
+    const esito = await inviaMail(cred, { to: profilo.email, subject: `Promemoria Scout: ${nTask + nDeal} cose in scadenza`, content: corpo });
+    if (!esito.ok) return json({ sent: false, error: esito.errore }, 502);
 
     return json({ sent: true, to: profilo.email, task: nTask, followup: nDeal });
   } catch (e) {

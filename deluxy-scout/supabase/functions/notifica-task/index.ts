@@ -9,8 +9,7 @@
 // Secret richiesti per attivare l'invio:
 //   supabase secrets set SMTP_HOST=... SMTP_PORT=465 SMTP_USER=... SMTP_PASS=... SMTP_FROM=...
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
-import { credenzialiPerUtente } from '../_shared/smtp.ts';
+import { credenzialiPerUtente, inviaMail } from '../_shared/smtp.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -64,11 +63,8 @@ Deno.serve(async (req) => {
       `• Priorità: ${task.priorita}${scad}\n\n` +
       `Aprilo qui: https://deluxy-scout.vercel.app/task\n`;
 
-    const client = new SMTPClient({
-      connection: { hostname: cred.host, port: cred.port, tls: cred.port === 465, auth: { username: cred.user, password: cred.pass } },
-    });
-    await client.send({ from: cred.from, to: assegnatario.email, subject: oggetto, content: corpo });
-    await client.close();
+    const esito = await inviaMail(cred, { to: assegnatario.email, subject: oggetto, content: corpo });
+    if (!esito.ok) return json({ sent: false, error: esito.errore }, 502);
 
     return json({ sent: true, to: assegnatario.email });
   } catch (e) {

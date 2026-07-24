@@ -8,7 +8,7 @@
 //   { azione: 'rimuovi' }                         → cancella la casella
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
-import { cifra, credenzialiPerUtente } from '../_shared/smtp.ts';
+import { cifra, credenzialiPerUtente, inviaMail } from '../_shared/smtp.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -58,23 +58,21 @@ Deno.serve(async (req) => {
     if (body.azione === 'verifica') {
       const cred = await credenzialiPerUtente(admin, uid);
       if (!cred) return json({ ok: false, reason: 'non_configurato' });
-      try {
-        const client = new SMTPClient({
-          connection: { hostname: cred.host, port: cred.port, tls: cred.port === 465, auth: { username: cred.user, password: cred.pass } },
-        });
-        // Invio di prova all'indirizzo stesso dell'utente: conferma auth + recapito.
-        await client.send({
-          from: cred.from,
-          to: cred.user,
-          subject: 'Deluxy Scout — email collegata',
-          content: 'La tua casella è collegata a Deluxy Scout: le notifiche e i promemoria partiranno da qui.',
-        });
-        await client.close();
-        await admin.from('smtp_account').update({ verificato_il: new Date().toISOString() }).eq('owner', uid);
-        return json({ ok: true, inviata_a: cred.user });
-      } catch (e) {
-        return json({ ok: false, reason: 'invio_fallito', dettaglio: String((e as any)?.message ?? e) });
+      // Invio di prova all'indirizzo stesso dell'utente: conferma auth + recapito.
+      const esito = await inviaMail(cred, {
+        to: cred.user,
+        subject: 'Deluxy Scout — email collegata',
+        content: 'La tua casella è collegata a Deluxy Scout: le notifiche e i promemoria partiranno da qui.',
+      });
+      if (esito.ok) {
+        const patch: Record<string, unknown> = { verificato_il: new Date().toISOString() };
+        // Se ha funzionato un host diverso (fallback su Aruba), lo salviamo:
+        // le prossime volte parte diretto senza ritentare.
+        if (esito.hostUsato && esito.hostUsato !== cred.host) patch.host = esito.hostUsato;
+        await admin.from('smtp_account').update(patch).eq('owner', uid);
+        return json({ ok: true, inviata_a: cred.user, host: esito.hostUsato });
       }
+      return json({ ok: false, reason: 'invio_fallito', dettaglio: esito.errore });
     }
 
     if (body.azione === 'rimuovi') {

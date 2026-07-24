@@ -7,8 +7,7 @@
 // letta solo dal service_role via credenzialiPerUtente). L'utente dev'essere
 // loggato. Invio SEQUENZIALE con un tetto massimo, esito per destinatario.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
-import { credenzialiPerUtente } from '../_shared/smtp.ts';
+import { credenzialiPerUtente, inviaMail } from '../_shared/smtp.ts';
 
 const MAX_DESTINATARI = 60; // tetto prudente (limiti d'invio Register.it + antispam)
 
@@ -87,28 +86,27 @@ Deno.serve(async (req) => {
     const cred = await credenzialiPerUtente(admin, uid);
     if (!cred) return json({ error: 'Casella email non configurata. Collegala da Profilo → La mia email.', reason: 'smtp_non_configurato' }, 400);
 
-    const client = new SMTPClient({
-      connection: { hostname: cred.host, port: cred.port, tls: cred.port === 465, auth: { username: cred.user, password: cred.pass } },
-    });
-
+    // La casella "effettiva" può cambiare al primo invio (fallback Aruba se il
+    // cert di Register.it non è valido); da lì in poi si usa quella.
+    let credCorrente = cred;
     const esiti: { email: string; ok: boolean; errore?: string }[] = [];
     for (const d of validi) {
       try {
         const html = comeHtml(personalizza(corpo, d, manuali));
-        await client.send({
-          from: cred.from,
+        const esito = await inviaMail(credCorrente, {
           to: String(d.email),
           subject: personalizza(oggetto || 'Deluxy', d, manuali) || 'Deluxy',
           html,
-          content: comeTesto(html), // fallback testo per i client senza HTML
+          content: comeTesto(html),
         });
+        if (!esito.ok) throw new Error(esito.errore ?? 'invio non riuscito');
+        if (esito.hostUsato && esito.hostUsato !== credCorrente.host) credCorrente = { ...credCorrente, host: esito.hostUsato };
         esiti.push({ email: String(d.email), ok: true });
       } catch (e) {
         esiti.push({ email: String(d.email), ok: false, errore: String((e as any)?.message ?? e).slice(0, 140) });
       }
     }
     try {
-      await client.close();
     } catch {
       /* la connessione può già essere chiusa */
     }
