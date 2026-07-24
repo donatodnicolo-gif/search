@@ -22,6 +22,7 @@ export async function scopriNegozi(
   lng: number,
   radius = 300,
   filtro: FiltroScoperta = 'affiliazioni',
+  force = false,
 ): Promise<ScopertaResult> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -32,7 +33,7 @@ export async function scopriNegozi(
       apikey: env.supabaseAnonKey(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ action: 'discover', lat, lng, radius, filtro }),
+    body: JSON.stringify({ action: 'discover', lat, lng, radius, filtro, force }),
   });
   if (!res.ok) {
     let msg = `Scoperta fallita (${res.status})`;

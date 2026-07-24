@@ -17,7 +17,7 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 // Menu raggruppato per FLUSSO DI LAVORO commerciale (DS: sezioni con etichetta
 // MAIUSCOLA). L'ordine segue la giornata del venditore: cosa fai oggi →
 // trovi i clienti → li porti avanti → misuri → account.
-type Voce = { name: string; label: string; icon: IconName; soloAdmin?: boolean };
+type Voce = { name: string; label: string; icon: IconName; soloAdmin?: boolean; route?: string; params?: Record<string, string> };
 // Il menù segue il flusso di vendita (docs/VISIONE-COMMERCIALE.md):
 // cosa faccio ORA → i CANALI dove nascono le occasioni → la VENDITA (funnel:
 // trattative → ordini → clienti) → gli strumenti di supporto → i risultati.
@@ -39,12 +39,15 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     ],
   },
   {
-    // I livelli del rapporto (lib/livelli.ts): prospect (scelto, da contattare)
-    // → lead (contatto avviato) → cliente (ha chiuso una trattativa).
+    // I livelli del rapporto (lib/livelli.ts), ognuno la sua area: prospect
+    // (scelto, da contattare) → lead (contatto avviato) → cliente. Dormienti e
+    // persi stanno insieme in una scheda a parte: sono i rapporti da riattivare.
     titolo: 'Contatti',
     voci: [
-      { name: 'lista', label: 'Prospect e Lead', icon: 'flag-outline' },
+      { name: 'lista-prospect', route: 'lista', params: { vista: 'prospect' }, label: 'Prospect', icon: 'flag-outline' },
+      { name: 'lista-lead', route: 'lista', params: { vista: 'lead' }, label: 'Lead', icon: 'people-outline' },
       { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
+      { name: 'lista-inattivi', route: 'lista', params: { vista: 'inattivi' }, label: 'Dormienti e persi', icon: 'moon-outline' },
     ],
   },
   {
@@ -161,7 +164,19 @@ function SezionePreferiti({ onVai }: { onVai: (p: { lat: number; lng: number; in
 function ContenutoDrawer({ admin, espansa = true, onToggle, ...props }: any) {
   const { session, signOut } = useAuth();
   const state = props.state;
-  const attuale: string | undefined = state?.routes?.[state.index]?.name;
+  const rottaCorrente = state?.routes?.[state.index];
+  const attuale: string | undefined = rottaCorrente?.name;
+  // Vista corrente della pagina /lista (prospect/lead/inattivi), per accendere
+  // la voce giusta quando più voci puntano alla stessa schermata.
+  const vistaCorrente: string | undefined = (rottaCorrente?.params as any)?.vista;
+  // Una voce è "attiva" se combacia la schermata e — quando c'è — anche la vista.
+  const voceAttiva = (v: Voce) => {
+    const rotta = v.route ?? v.name;
+    if (rotta !== attuale) return false;
+    if (v.params?.vista) return v.params.vista === vistaCorrente;
+    // Voci senza vista (es. Clienti) non devono accendersi su una lista con vista.
+    return rotta !== 'lista' || !vistaCorrente;
+  };
   const email = session?.user?.email ?? '';
   const iniziali = email ? email.replace(/@.*/, '').slice(0, 2).toUpperCase() : 'DX';
   const nome = email ? email.replace(/@.*/, '') : 'Utente';
@@ -195,7 +210,7 @@ function ContenutoDrawer({ admin, espansa = true, onToggle, ...props }: any) {
               {espansa ? <Text style={styles.sezioneTitolo}>{sez.titolo}</Text> : <View style={styles.railDivider} />}
               {voci.map((v) => (
                 <View key={v.name}>
-                  <VoceMenu voce={v} focused={attuale === v.name} espansa={espansa} onPress={() => props.navigation.navigate(v.name)} />
+                  <VoceMenu voce={v} focused={voceAttiva(v)} espansa={espansa} onPress={() => props.navigation.navigate(v.route ?? v.name, v.params)} />
                   {/* Preferiti: annidati sotto la voce "Mappa" (solo a menu espanso). */}
                   {v.name === 'mappa' && espansa ? (
                     <SezionePreferiti onVai={(p) => props.navigation.navigate('mappa', { lat: String(p.lat), lng: String(p.lng), indirizzo: p.indirizzo })} />

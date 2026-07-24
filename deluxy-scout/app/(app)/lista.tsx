@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { Place } from '@/types';
 import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { aggiornaNascosto } from '@/lib/db';
@@ -14,6 +14,22 @@ import { PriorityBadge } from '@/components/PriorityBadge';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { coloreLivello, LABEL_LIVELLO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
 
+// Le "viste" del menu: ogni voce di Contatti apre /lista già filtrata.
+// "inattivi" = dormienti + persi, la scheda dei rapporti da riattivare.
+type Vista = 'prospect' | 'lead' | 'cliente' | 'inattivi';
+const LIVELLI_VISTA: Record<Vista, Livello[]> = {
+  prospect: ['prospect'],
+  lead: ['lead'],
+  cliente: ['cliente'],
+  inattivi: ['dormiente', 'perso'],
+};
+const TITOLO_VISTA: Record<Vista, string> = {
+  prospect: 'Prospect — potenzialmente interessanti, da contattare.',
+  lead: 'Lead — contatto avviato, il rapporto è iniziato.',
+  cliente: 'Clienti — hanno chiuso una trattativa.',
+  inattivi: 'Dormienti e persi — rapporti da riattivare o da capire perché non sono partiti.',
+};
+
 const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
 
 export default function Lista() {
@@ -22,9 +38,16 @@ export default function Lista() {
   const admin = isAdmin(session?.user?.email);
   const { places, loading, opzioni, ricarica } = usePlaces();
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
+  const { vista } = useLocalSearchParams<{ vista?: string }>();
+  const vistaCorr = (['prospect', 'lead', 'cliente', 'inattivi'] as Vista[]).includes(vista as Vista)
+    ? (vista as Vista)
+    : null;
+  const livelliVista = vistaCorr ? LIVELLI_VISTA[vistaCorr] : null;
   const [query, setQuery] = useState('');
-  // Il livello commerciale (lib/livelli.ts): prospect → lead → cliente.
+  // Dentro la vista si può ancora affinare per singolo livello (es. dormiente vs perso).
   const [livello, setLivello] = useState<Livello | null>(null);
+  // Cambiando voce di menu (vista) si azzera il sotto-filtro.
+  useEffect(() => setLivello(null), [vista]);
 
   async function nascondi(place: Place) {
     try {
@@ -44,6 +67,7 @@ export default function Lista() {
       // terminale — restano nel database e sulla Mappa, ma qui non entrano:
       // erano migliaia e rendevano la lista inutilizzabile.
       .filter((p) => Boolean(p.creato_da))
+      .filter((p) => (livelliVista ? livelliVista.includes(livelloDi(p)) : true))
       .filter((p) => (livello ? livelloDi(p) === livello : true))
       .filter((p) => {
       if (!q) return true;
@@ -56,7 +80,7 @@ export default function Lista() {
       );
     });
     return [...f].sort((a, b) => RANK[a.priorita] - RANK[b.priorita] || a.nome.localeCompare(b.nome));
-  }, [places, filtri, query, livello]);
+  }, [places, filtri, query, livello, livelliVista]);
 
   // Quanti ce ne sono per livello (i numeri sui chip: dicono dove sta il lavoro).
   const perLivello = useMemo(() => {
@@ -68,12 +92,23 @@ export default function Lista() {
     return c;
   }, [places]);
 
+  // I chip: dentro una vista mostro solo i suoi livelli, e solo se più d'uno.
+  const chipLivelli = livelliVista ?? LIVELLI;
+  const mostraChip = chipLivelli.length > 1;
+
   return (
     <View style={styles.container}>
-      <PageIntro testo="I negozi che qualcuno ha scelto di lavorare. PROSPECT: interessante, ancora da contattare. LEAD: contatto avviato. CLIENTE: ha chiuso una trattativa." />
+      <PageIntro
+        testo={
+          vistaCorr
+            ? TITOLO_VISTA[vistaCorr]
+            : 'I negozi che qualcuno ha scelto di lavorare. PROSPECT: interessante, da contattare. LEAD: contatto avviato. CLIENTE: ha chiuso una trattativa.'
+        }
+      />
+      {mostraChip ? (
       <View style={styles.livelli}>
         <ChipLivello label="Tutti" on={!livello} onPress={() => setLivello(null)} />
-        {LIVELLI.map((l) => (
+        {chipLivelli.map((l) => (
           <ChipLivello
             key={l}
             label={`${LABEL_LIVELLO[l]}${perLivello[l] ? ` (${perLivello[l]})` : ''}`}
@@ -83,6 +118,7 @@ export default function Lista() {
           />
         ))}
       </View>
+      ) : null}
       <View style={styles.filterBar}>
         <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} admin={admin} />
         <TextInput

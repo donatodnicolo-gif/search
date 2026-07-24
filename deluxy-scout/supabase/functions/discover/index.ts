@@ -182,8 +182,12 @@ Deno.serve(async (req) => {
       .eq('cella', cella)
       .maybeSingle();
 
+    // force = l'utente ha premuto "Cerca di nuovo qui": vuole risultati freschi,
+    // non la cache. Senza force vale la cache di CACHE_GIORNI per non sprecare
+    // chiamate a Google.
+    const force = body.force === true || body.force === 1;
     let nuovi = 0;
-    const cached = Boolean(area && area.refresh_at > soglia);
+    let cached = Boolean(area && area.refresh_at > soglia) && !force;
 
     if (!cached) {
       // Google Nearby, quando gli passi un `radius`, ordina per PROMINENZA e tronca a

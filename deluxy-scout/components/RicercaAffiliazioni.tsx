@@ -44,7 +44,7 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
     setErrore(null);
     try {
       if (r != null) {
-        const esito = await scopriNegozi(punto.lat, punto.lng, r, c);
+        const esito = await scopriNegozi(punto.lat, punto.lng, r, c, true);
         setRisultati(esito.places);
         setRaggioUsato(r);
       } else {
@@ -52,7 +52,7 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
         let ultimi: Place[] = [];
         let usato = AUTO_PASSI[0];
         for (const passo of AUTO_PASSI) {
-          const esito = await scopriNegozi(punto.lat, punto.lng, passo, c);
+          const esito = await scopriNegozi(punto.lat, punto.lng, passo, c, true);
           ultimi = esito.places;
           usato = passo;
           if (ultimi.length >= AUTO_ABBASTANZA) break;

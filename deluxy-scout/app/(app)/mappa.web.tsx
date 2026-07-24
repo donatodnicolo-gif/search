@@ -17,7 +17,7 @@ import { urlNavigazione, urlNavigazioneGiro } from '@/lib/nav';
 import type { GeocodeResult } from '@/lib/geocode';
 import { scopriNegozi, type FiltroScoperta, type ScopertaResult } from '@/lib/discover';
 import { aggiornaNascosto, aggiornaStarred, aggiornaStatoPlace, assicuraPlace, idScoperto } from '@/lib/db';
-import { aggiungiPreferito } from '@/lib/preferiti';
+import { aggiungiPreferito, rimuoviPreferito, usePreferiti } from '@/lib/preferiti';
 import { avvisa } from '@/lib/dialoghi';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
 import { AddressSearch } from '@/components/AddressSearch';
@@ -52,6 +52,7 @@ export default function MappaWeb() {
   const { width } = useWindowDimensions();
   const isMobile = width < 560; // sotto questa soglia: card a colonna, icone a capo
   const { loading } = usePlaces();
+  const preferiti = usePreferiti();
   const [pos, setPos] = useState<Coord | null>(null);
   const [giroAttivo, setGiroAttivo] = useState(false);
   const [destinazione, setDestinazione] = useState<Coord | null>(null);
@@ -96,6 +97,18 @@ export default function MappaWeb() {
 
   const origine: Coord = destinazione ?? pos ?? MILANO;
 
+  // Questo indirizzo è già salvato? Combacia per coordinate (~11 m) — così il
+  // bottone "Salva" si accende e diventa "Salvato / togli".
+  const preferitoCorrente = useMemo(() => {
+    if (!indirizzoScelto) return null;
+    return (
+      preferiti.find(
+        (f) =>
+          Math.abs(f.lat - indirizzoScelto.lat) < 1e-4 && Math.abs(f.lng - indirizzoScelto.lng) < 1e-4,
+      ) ?? null
+    );
+  }, [preferiti, indirizzoScelto]);
+
   async function cerca(c: Coord, f?: FiltroScoperta) {
     setScopErrore(null);
     setScopLoading(true);
@@ -103,7 +116,9 @@ export default function MappaWeb() {
       // Il sotto-filtro (fiori/pasticcerie/…) vale solo con la linea Affiliazioni attiva;
       // altrimenti la scoperta cerca tutti i tipi.
       const filtro = f ?? (lineaFocus === 'Affiliazioni' ? filtroScoperta : 'tutti');
-      const res = await scopriNegozi(c.lat, c.lng, 400, filtro);
+      // "Cerca di nuovo qui" è un'azione esplicita: force = risultati freschi,
+      // non la cache (che altrimenti in una zona già visitata ma vuota resta a 0).
+      const res = await scopriNegozi(c.lat, c.lng, 400, filtro, true);
       setScoperti(res.places);
       setScopInfo(res);
     } catch (e) {
@@ -136,15 +151,18 @@ export default function MappaWeb() {
   async function salvaInPreferiti() {
     if (!indirizzoScelto) return;
     try {
-      await aggiungiPreferito({
-        etichetta: indirizzoScelto.indirizzo,
-        indirizzo: indirizzoScelto.indirizzo,
-        lat: indirizzoScelto.lat,
-        lng: indirizzoScelto.lng,
-      });
-      avvisa('Salvato', 'Indirizzo aggiunto ai preferiti (menu a sinistra).');
+      if (preferitoCorrente) {
+        await rimuoviPreferito(preferitoCorrente.id);
+      } else {
+        await aggiungiPreferito({
+          etichetta: indirizzoScelto.indirizzo,
+          indirizzo: indirizzoScelto.indirizzo,
+          lat: indirizzoScelto.lat,
+          lng: indirizzoScelto.lng,
+        });
+      }
     } catch (e) {
-      avvisa('Errore', (e as Error)?.message ?? 'Impossibile salvare.');
+      avvisa('Errore', (e as Error)?.message ?? 'Operazione non riuscita.');
     }
   }
 
@@ -314,9 +332,19 @@ export default function MappaWeb() {
             </Text>
           </Pressable>
           {indirizzoScelto ? (
-            <Pressable style={styles.btnPreferito} onPress={salvaInPreferiti} accessibilityLabel="Salva tra i preferiti">
-              <Ionicons name="bookmark-outline" size={18} color={colors.navy} />
-              <Text style={styles.btnPreferitoTxt}>Salva</Text>
+            <Pressable
+              style={[styles.btnPreferito, preferitoCorrente && styles.btnPreferitoOn]}
+              onPress={salvaInPreferiti}
+              accessibilityLabel={preferitoCorrente ? 'Togli dai preferiti' : 'Salva tra i preferiti'}
+            >
+              <Ionicons
+                name={preferitoCorrente ? 'bookmark' : 'bookmark-outline'}
+                size={18}
+                color={preferitoCorrente ? colors.bianco : colors.navy}
+              />
+              <Text style={[styles.btnPreferitoTxt, preferitoCorrente && styles.btnPreferitoTxtOn]}>
+                {preferitoCorrente ? 'Salvato' : 'Salva'}
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -639,6 +667,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   btnPreferitoTxt: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  btnPreferitoOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  btnPreferitoTxtOn: { color: colors.bianco },
   subRow: { paddingHorizontal: spacing.md, paddingTop: 6, gap: 6, alignItems: 'center' },
   subChip: {
     alignSelf: 'center',
