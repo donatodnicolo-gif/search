@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
 import { aggiornaNascosto, aggiornaPlace, completaTask, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, ignoraDuplicato, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati, unisciPlaces } from '@/lib/db';
 import { avvisa, conferma } from '@/lib/dialoghi';
+import { urlNavigazione } from '@/lib/nav';
 import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
 import { LineaSelector } from '@/components/LineaSelector';
@@ -200,6 +201,17 @@ export default function SchedaAttivita() {
   }
 
   // Ricarica i soli task del negozio (dopo creazione/modifica/completamento).
+  // Recapiti "principali" del negozio: il primo contatto che ne ha uno.
+  // Decidono quali azioni rapide sono accese (chiama/whatsapp/email).
+  const telefonoPrincipale = useMemo(
+    () => contatti.find((c) => c.telefono && !c.archiviato)?.telefono ?? null,
+    [contatti],
+  );
+  const emailPrincipale = useMemo(
+    () => contatti.find((c) => c.email && !c.archiviato)?.email ?? null,
+    [contatti],
+  );
+
   const ricaricaTask = useCallback(async () => {
     if (!id) return;
     setTaskPlace(await fetchTaskPlace(id).catch(() => []));
@@ -448,14 +460,36 @@ export default function SchedaAttivita() {
           </Pressable>
         ) : null}
 
-        <View style={styles.azioniRow}>
-          <Pressable style={[styles.btnVisita, { flex: 1, marginTop: 0 }]} onPress={() => router.push(`/(app)/visita/${place.id}`)}>
-            <Text style={styles.btnVisitaTxt}>+ Nuova visita</Text>
-          </Pressable>
-          <Pressable style={styles.btnTask} onPress={() => { setTaskInModifica(null); setTaskAperto(true); }}>
-            <Ionicons name="checkbox-outline" size={16} color={colors.navy} />
-            <Text style={styles.btnTaskTxt}>Task</Text>
-          </Pressable>
+        {/* Barra azioni stile CRM: tutto quello che si può fare col negozio,
+            in un posto solo. Le azioni senza un recapito adatto sono spente. */}
+        <View style={styles.azioniGrid}>
+          <AzioneRapida icona="walk-outline" label="Visita" primaria onPress={() => router.push(`/(app)/visita/${place.id}`)} />
+          <AzioneRapida
+            icona="call-outline"
+            label="Chiama"
+            disabled={!telefonoPrincipale}
+            onPress={() => telefonoPrincipale && Linking.openURL(`tel:${telefonoPrincipale}`)}
+          />
+          <AzioneRapida
+            icona="logo-whatsapp"
+            label="WhatsApp"
+            disabled={!telefonoPrincipale}
+            onPress={() => telefonoPrincipale && Linking.openURL(`https://wa.me/${telefonoPrincipale.replace(/[^d]/g, '')}`)}
+          />
+          <AzioneRapida
+            icona="mail-outline"
+            label="Email"
+            disabled={!emailPrincipale}
+            onPress={() => emailPrincipale && Linking.openURL(`mailto:${emailPrincipale}`)}
+          />
+          <AzioneRapida icona="checkbox-outline" label="Task" onPress={() => { setTaskInModifica(null); setTaskAperto(true); }} />
+          <AzioneRapida icona="person-add-outline" label="Contatto" onPress={() => router.push(`/(app)/contatto/${place.id}`)} />
+          <AzioneRapida icona="briefcase-outline" label="Trattativa" onPress={() => router.push('/(app)/trattative')} />
+          <AzioneRapida
+            icona="navigate-outline"
+            label="Naviga"
+            onPress={() => Linking.openURL(urlNavigazione({ lat: place.lat, lng: place.lng }))}
+          />
         </View>
 
         {/* Task del negozio: quelli creati col bottone "Task" qui sopra. */}
@@ -646,7 +680,53 @@ function Sezione({ titolo, children }: { titolo: string; children: ReactNode }) 
   );
 }
 
+function AzioneRapida({
+  icona,
+  label,
+  onPress,
+  primaria,
+  disabled,
+}: {
+  icona: any;
+  label: string;
+  onPress: () => void;
+  primaria?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      style={[styles.azione, primaria && styles.azionePrimaria, disabled && styles.azioneOff]}
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={label}
+    >
+      <Ionicons name={icona} size={20} color={primaria ? colors.bianco : disabled ? colors.grigio : colors.navy} />
+      <Text style={[styles.azioneTxt, primaria && styles.azioneTxtPrimaria, disabled && styles.azioneTxtOff]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  azioniGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
+  azione: {
+    flexBasis: '22%',
+    flexGrow: 1,
+    minWidth: 86,
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+  },
+  azionePrimaria: { backgroundColor: colors.ink, borderColor: colors.ink },
+  azioneOff: { opacity: 0.45 },
+  azioneTxt: { color: colors.navy, fontWeight: '700', fontSize: 12.5 },
+  azioneTxtPrimaria: { color: colors.bianco },
+  azioneTxtOff: { color: colors.grigio },
   container: { flex: 1, backgroundColor: colors.sfondo },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
   percorso: {
