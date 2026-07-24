@@ -96,6 +96,8 @@ export async function Sidebar() {
     { href: '/thread', label: 'Thread' },
     // La posta dei clienti del registro Anagrafiche (per email o dominio).
     { href: '/clienti', label: 'Clienti' },
+    // Le cose da fare ricavate dalla posta: è materiale di lavoro sulla posta.
+    { href: '/attivita', label: 'Attività', badge: daFare },
     // I quadri conversazione fatti dall'AI, col link al thread.
     { href: '/riassunti', label: 'Riassunti', badge: riassunti },
     { href: '/rubrica', label: 'Rubrica' },
@@ -103,7 +105,6 @@ export async function Sidebar() {
 
   const applicazioni: Voce[] = [
     { href: '/rene', label: 'Renè AI' },
-    { href: '/attivita', label: 'Attività', badge: daFare },
     { href: '/calendario', label: 'Calendario' },
     // I modelli di follow-up da agganciare all'invio di una mail.
     { href: '/sequenze', label: 'Sequenze' },

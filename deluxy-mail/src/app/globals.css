@@ -1198,6 +1198,10 @@ mark.ricerca-hit {
 }
 .cal-evento:hover { background: var(--hairline-strong); }
 .cal-evento .cal-ora { color: var(--text-tertiary); font-weight: 600; margin-right: 4px; }
+
+/* Celle da oggi in poi: doppio clic per un nuovo appuntamento. */
+.cal-cella-apribile { cursor: pointer; }
+.cal-cella-apribile:hover { background: var(--fill); }
 /* Segnalino degli appuntamenti che si ripetono. */
 .cal-ripete { margin-left: 4px; color: var(--gold-strong); font-weight: 700; }
 

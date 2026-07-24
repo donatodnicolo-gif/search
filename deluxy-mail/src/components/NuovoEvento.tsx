@@ -1,15 +1,34 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { creaEvento } from '@/lib/actions'
 import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
 import { Ricorrenza } from './Ricorrenza'
 
+/** Doppio clic su un giorno del calendario → apre questo form su quella data. */
+export const NUOVO_EVENTO_GIORNO = 'aimail:nuovo-evento'
+
 /** Il modulo per annotare un appuntamento nel calendario. */
 export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] }) {
   const [aperto, setAperto] = useState(false)
+  // Giorno precompilato quando si apre con doppio clic su una cella.
+  const [giornoIniziale, setGiornoIniziale] = useState('')
   const [giornataIntera, setGiornataIntera] = useState(false)
+
+  // Apertura da doppio clic su una cella del calendario, con la data pronta.
+  useEffect(() => {
+    const su = (e: Event) => {
+      const giorno = (e as CustomEvent).detail?.giorno as string | undefined
+      if (!giorno) return
+      setGiornoIniziale(giorno)
+      setAperto(true)
+      // Porta il form in vista: la cella cliccata può essere sotto il fold.
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+    window.addEventListener(NUOVO_EVENTO_GIORNO, su)
+    return () => window.removeEventListener(NUOVO_EVENTO_GIORNO, su)
+  }, [])
   // Un appuntamento dura un'ora, se non dici altro. Spostando l'inizio, la
   // fine lo segue mantenendo la durata che avevi impostato.
   const [oraInizio, setOraInizio] = useState('09:00')
@@ -51,6 +70,7 @@ export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] })
         // I campi controllati non li tocca reset(): si riportano a mano.
         setOraInizio('09:00')
         setOraFine('10:00')
+        setGiornoIniziale('')
         setAperto(false)
         router.refresh()
       }
@@ -81,7 +101,9 @@ export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] })
           </div>
           <div>
             <label className="field-label">Giorno <span className="req">*</span></label>
-            <input type="date" name="giorno" required />
+            {/* `key` sul giorno: quando arriva da un doppio clic, l'input si
+                rimonta con la data giusta (defaultValue da solo non basta). */}
+            <input key={giornoIniziale} type="date" name="giorno" required defaultValue={giornoIniziale} />
           </div>
           <div>
             <label className="field-label">Luogo</label>

@@ -4,6 +4,7 @@ import { richiediUtente } from '@/lib/sessione'
 import { FUSO, coloreDiPriorita, priorita as livello } from '@/lib/format'
 import { NuovoEvento } from '@/components/NuovoEvento'
 import { EventoDettaglio, EventoApribile, type DatiEvento } from '@/components/EventoDettaglio'
+import { CellaGiorno } from '@/components/CellaGiorno'
 import { EliminaEvento } from '@/components/EliminaEvento'
 import { FeedCalendario } from '@/components/FeedCalendario'
 import { elencoContatti } from '@/lib/contatti'
@@ -191,8 +192,13 @@ export default async function Calendario({ searchParams }: Props) {
             c.giorno === null ? (
               <div key={c.chiave} className="cal-cella vuota" />
             ) : (
-              <div key={c.chiave} className={`cal-cella ${c.chiave === oggiIt ? 'oggi' : ''}`}>
-                <div className="cal-numero">{c.giorno}</div>
+              <CellaGiorno
+                key={c.chiave}
+                chiave={c.chiave}
+                giorno={c.giorno}
+                oggi={oggiIt}
+                className={`cal-cella ${c.chiave === oggiIt ? 'oggi' : ''}`}
+              >
                 {(perGiorno.get(c.chiave) ?? []).map((e) => (
                   // Cliccando si apre la scheda: dettaglio, modifica, elimina.
                   <EventoApribile
@@ -217,7 +223,7 @@ export default async function Calendario({ searchParams }: Props) {
                     {t.titolo}
                   </Link>
                 ))}
-              </div>
+              </CellaGiorno>
             )
           )}
         </div>
