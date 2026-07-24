@@ -26,7 +26,9 @@
 // ————————————————————————————— Configurazione —————————————————————————————
 var URL_APP = "https://deluxy-marketing.vercel.app"; // senza barra finale
 var CHIAVE_API = "dmk_INCOLLA_QUI_LA_CHIAVE"; // creata con: npm run chiave -- google-ads
-var GIORNI_INDIETRO = 7; // rimanda anche i giorni scorsi: le conversioni maturano tardi
+var GIORNI_INDIETRO = 7; // rimanda anche i giorni scorsi: le conversioni maturano tardi.
+// Per il PRIMO caricamento storico alzalo (es. 400: copre anche il 2025 per i
+// confronti anno-su-anno), esegui una volta, poi riportalo a 7.
 var BRAND = ""; // "" = dedotto dal nome campagna · oppure "flowers" | "cake" | "gifts"
 // ———————————————————————————————————————————————————————————————————————————
 
@@ -58,7 +60,7 @@ function leggiMetriche() {
     "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
     "metrics.conversions, metrics.conversions_value " +
     "FROM campaign " +
-    "WHERE segments.date DURING LAST_" + GIORNI_INDIETRO + "_DAYS " +
+    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_INDIETRO) + "' AND '" + dataIso(0) + "' " +
     "AND campaign.status IN ('ENABLED', 'PAUSED')";
 
   var risultati = AdsApp.search(query, { apiVersion: "v18" });
@@ -564,6 +566,16 @@ function postaIngest(righe, customerId) {
     muteHttpExceptions: true,
   });
   Logger.log("Approvazioni inviate: " + risposta.getResponseCode() + " " + risposta.getContentText().slice(0, 150));
+}
+
+function dataIso(deltaGiorni) {
+  var d = new Date();
+  d.setDate(d.getDate() + deltaGiorni);
+  var m = String(d.getMonth() + 1);
+  var g = String(d.getDate());
+  if (m.length < 2) m = "0" + m;
+  if (g.length < 2) g = "0" + g;
+  return d.getFullYear() + "-" + m + "-" + g;
 }
 
 function oggiIso() {
