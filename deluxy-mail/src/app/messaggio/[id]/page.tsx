@@ -24,7 +24,6 @@ import { NomeThreadForm } from '@/components/NomeThreadForm'
 import { ThreadAIToggle } from '@/components/ThreadAIToggle'
 import { CestinaThread } from '@/components/CestinaThread'
 import { InvitoCalendario } from '@/components/InvitoCalendario'
-import { AnalisiAIInbox } from '@/components/AnalisiAIInbox'
 import { threadHaAI } from '@/lib/threadAI'
 import { threadEChiuso } from '@/lib/threadChiusi'
 import { ChiudiThread } from '@/components/ChiudiThread'
@@ -220,9 +219,15 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
           <RiassuntoConversazione
             messaggioId={messaggio.id}
-            // Se la conversazione ha il PLUS AI, l'AI la legge da sola appena
-            // la apri: lo stato va QUI, dov'è il risultato che si guarda.
-            stato={threadAI ? <AnalisiAIInbox sempreVisibile /> : null}
+            // Riassunto VECCHIO = generato quando la conversazione aveva meno
+            // messaggi di adesso (o mai generato). Se il thread è AI+ e il
+            // riassunto è vecchio, il componente lo rigenera da solo — SOLO per
+            // QUESTA conversazione (non il conteggio globale della casella, che
+            // confondeva: "ne restano 189" mentre il thread ne ha 65).
+            autoAggiorna={
+              threadAI &&
+              (!riassuntoThread || riassuntoThread.messaggiVisti < conversazione.length)
+            }
             iniziale={
               riassuntoThread
                 ? {

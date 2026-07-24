@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { riassumiConversazione } from '@/lib/actions'
 
@@ -42,16 +42,17 @@ type Salvato = {
 export function RiassuntoConversazione({
   messaggioId,
   iniziale,
-  stato,
+  autoAggiorna = false,
 }: {
   messaggioId: string
   iniziale: Salvato | null
-  /** Riga di stato della lettura automatica (PLUS AI): sta qui perché è qui
-   *  che se ne guarda il risultato. */
-  stato?: React.ReactNode
+  /** True se il thread è AI+ e il riassunto è vecchio: lo rigenera da solo
+   *  all'apertura, SOLO per questa conversazione (niente conteggi globali). */
+  autoAggiorna?: boolean
 }) {
   const [dati, setDati] = useState<Salvato | null>(iniziale)
   const [errore, setErrore] = useState<string | null>(null)
+  const [autoInCorso, setAutoInCorso] = useState(false)
   const [inCorso, start] = useTransition()
 
   const genera = () =>
@@ -62,17 +63,43 @@ export function RiassuntoConversazione({
       else setErrore(esito.messaggio)
     })
 
+  // Aggiornamento automatico all'apertura, una volta sola: il thread è AI+ e il
+  // riassunto è vecchio (o manca). Riguarda SOLO questa conversazione.
+  const fatto = useRef(false)
+  useEffect(() => {
+    if (!autoAggiorna || fatto.current) return
+    fatto.current = true
+    let vivo = true
+    setAutoInCorso(true)
+    riassumiConversazione(messaggioId)
+      .then((esito) => {
+        if (vivo && esito.ok && esito.riassunto) setDati(esito.riassunto)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (vivo) setAutoInCorso(false)
+      })
+    return () => {
+      vivo = false
+    }
+  }, [autoAggiorna, messaggioId])
+
+  const lavora = inCorso || autoInCorso
+
   return (
     <div className="ai-box">
       <div className="ai-box-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <span>Punti di vista della conversazione</span>
-        <button className="btn secondary small" disabled={inCorso} onClick={genera}>
-          {inCorso ? 'Leggo…' : dati ? 'Rigenera' : 'Riassumi la conversazione'}
+        <button className="btn secondary small" disabled={lavora} onClick={genera}>
+          {lavora ? 'Leggo…' : dati ? 'Rigenera' : 'Riassumi la conversazione'}
         </button>
       </div>
 
-      {/* Cosa sta facendo l'AI da sola su questa conversazione (PLUS AI). */}
-      {stato}
+      {autoInCorso && (
+        <div className="ai-box-text" style={{ color: 'var(--text-tertiary)' }}>
+          L’AI sta aggiornando il riassunto di questa conversazione…
+        </div>
+      )}
 
       {errore && <div className="ai-box-text" style={{ color: 'var(--red)' }}>{errore}</div>}
 
