@@ -2671,6 +2671,9 @@ async function run(){
                    : ' · 📏 distanza in linea d\'aria (routing non disponibile)';
     setStatus(`✅ Trovati ${cards.length} negozi${distNote}${langNote}${anagNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
     applyStars();   // ★ sui fornitori già contattati per quest'ordine
+    // senza ordine le stelle vivono sotto la chiave 'generale': vanno ricaricate qui,
+    // perché loadStato() altrimenti parte solo quando si carica un ordine
+    if(!orderLoaded) loadStato();
 
     // le ricerche per sola zona (senza ordine) vanno nello Storico, così si possono
     // riaprire con «↻ Riapri ricerca»; con un ordine c'è già l'evento check di /api/order.

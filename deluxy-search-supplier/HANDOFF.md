@@ -174,6 +174,9 @@ solo dove siamo e come si lavora.
    mette da sola la ⭐ «contattato» (`starShop`, dedupe già incluso); con un ordine caricato
    lo stato ricerca passa a «in corso» (se non già «trovato»), come per «Invia richiesta
    ordine». Listener dedicato su `resultsEl` accanto a quello delle star-btn.
+   ⚠️ Insidia trovata in verifica: senza ordine le stelle vivono sotto la chiave `generale`
+   ma `loadStato()` partiva solo da `populateOrder`/modalità manuale → sparivano al reload.
+   Ora `run()` chiama `loadStato()` a fine ricerca quando non c'è un ordine.
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
