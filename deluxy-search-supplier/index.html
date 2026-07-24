@@ -540,6 +540,7 @@
           <option value="10" selected>10</option>
           <option value="15">15</option>
           <option value="20">20</option>
+          <option value="30">30</option>
         </select>
       </div>
       <div>
@@ -1141,6 +1142,14 @@ $('#btnSide').addEventListener('click', ()=>{
   applySide();
 });
 applySide();
+
+// il «Numero risultati» scelto resta per le ricerche successive (per browser, come la sidebar)
+(function(){
+  const sel = $('#limit');
+  const saved = localStorage.getItem('limitPref');
+  if(saved && [...sel.options].some(o=>o.value===saved)) sel.value = saved;
+  sel.addEventListener('change', ()=> localStorage.setItem('limitPref', sel.value));
+})();
 
 // toggle categorie (solo le chip della ricerca: quelle dei Contatti hanno i loro listener)
 document.querySelectorAll('.catbtns .chip').forEach(ch => ch.addEventListener('click', () => {

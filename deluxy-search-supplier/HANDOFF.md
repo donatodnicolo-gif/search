@@ -128,6 +128,12 @@ solo dove siamo e come si lavora.
    cakedesign #1725, consegna in via Odofredo Denari 36) — mentre lasciava passare panifici
    e bar. Dettagli in AI_SPEC §12.9. C'è anche un .gitignore nuovo (`.env*`, `.vercel`).
 
+21-bis. **Numero risultati: opzione 30 + scelta ricordata** (24/07): il select «Numero
+   risultati» arriva a 30 e la scelta resta in `localStorage.limitPref` (per browser, come
+   la sidebar). Caso reale: ordine cakedesign #1720 (Villa Vergano LC) — «Pasticceria
+   Gelateria Nessi» (Dolzago) era la 12ª per distanza stradale: le ricerche la trovavano,
+   ma il limite a 10 la tagliava. Non era colpa di keyword/tipo.
+
 21. **Parole chiave Google personalizzabili** (24/07): in ⚙️ Impostazioni due campi nuovi
    «Parole chiave Google — Fiorai / Pasticcerie» (`config:v1.kwFioraio/kwPasticceria`,
    visibili a tutte le utenze via GET /api/config, salvabili solo dall'admin). Più keyword
