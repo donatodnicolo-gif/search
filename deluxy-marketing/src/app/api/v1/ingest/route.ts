@@ -49,6 +49,18 @@ export async function POST(req: NextRequest) {
     return "cross";
   };
 
+  // Riconoscimento sfumato dei nomi: la 00.4 censisce con codici ("DC1 Fiori
+  // Milano ENG"), la piattaforma usa i nomi veri ("[Deluxy] - Fiori Milano
+  // ENG"). Senza questa normalizzazione ogni account creerebbe doppie.
+  const normalizza = (n: string) =>
+    n.toLowerCase()
+      .replace(/\[[^\]]*\]/g, "")
+      .replace(/\b(dc|df|dt|dg)\d+\b/g, "")
+      .replace(/english/g, "eng")
+      .replace(/italian/g, "ita")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+
   let campagneCreate = 0;
   let metricheSalvate = 0;
   const nonValide: string[] = [];
@@ -72,8 +84,31 @@ export async function POST(req: NextRequest) {
       // Può esistere già col solo nome (censita a mano o dal seed dei Definitivi):
       // in quel caso le si aggancia l'id invece di crearne una doppia.
       campagna = await prisma.campagna.findFirst({ where: { nome: String(r.nome), canale } });
+      if (!campagna) {
+        // Confronto normalizzato con le censite ancora senza id di piattaforma
+        const nRiga = normalizza(String(r.nome));
+        const censite = await prisma.campagna.findMany({ where: { canale, idEsterno: null } });
+        campagna =
+          censite.find((c) => {
+            const n = normalizza(c.nome);
+            return n.length > 3 && nRiga.length > 3 && (n === nRiga || n.includes(nRiga) || nRiga.includes(n));
+          }) ?? null;
+      }
       if (campagna) {
-        campagna = await prisma.campagna.update({ where: { id: campagna.id }, data: { idEsterno } });
+        // Il nome vero della piattaforma vince sul codice di censimento; il
+        // codice resta nelle note per ritrovarlo nella 00.4.
+        campagna = await prisma.campagna.update({
+          where: { id: campagna.id },
+          data: {
+            idEsterno,
+            ...(campagna.nome !== String(r.nome)
+              ? {
+                  nome: String(r.nome),
+                  note: `${campagna.note ? campagna.note + " · " : ""}Codice 00.4: ${campagna.nome}`,
+                }
+              : {}),
+          },
+        });
       } else {
         campagna = await prisma.campagna.create({
           data: {
