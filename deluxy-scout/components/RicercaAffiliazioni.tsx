@@ -6,14 +6,17 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing } from '@/lib/theme';
 import { AddressSearch } from '@/components/AddressSearch';
-import { EmptyState } from '@/components/ui';
+import { EmptyState, StatusBadge } from '@/components/ui';
+import type { StatoAffiliazione } from '@/types';
 import { scopriNegozi, type FiltroScoperta } from '@/lib/discover';
 import { aggiornaStarred, assicuraPlace } from '@/lib/db';
 import { distanzaKm, type Coord } from '@/lib/location';
 import type { GeocodeResult } from '@/lib/geocode';
 import type { Place } from '@/types';
+import { aggiungiPreferito, rimuoviPreferito, usePreferiti } from '@/lib/preferiti';
+import { useMemo } from 'react';
 import { avvisa } from '@/lib/dialoghi';
 
 // Il raggio è FACOLTATIVO: di default è "Auto" e l'app allarga da sola finché
@@ -29,8 +32,10 @@ const COSA: { valore: FiltroScoperta; label: string }[] = [
 ];
 
 export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
+  const preferiti = usePreferiti();
   const [centro, setCentro] = useState<Coord | null>(null);
   const [indirizzo, setIndirizzo] = useState<string | null>(null);
+  const [cercato, setCercato] = useState(false); // true dopo aver premuto "Cerca"
   const [raggio, setRaggio] = useState<number | null>(null); // null = Auto
   const [raggioUsato, setRaggioUsato] = useState<number | null>(null);
   const [cosa, setCosa] = useState<FiltroScoperta>('affiliazioni');
@@ -60,6 +65,7 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
         setRisultati(ultimi);
         setRaggioUsato(usato);
       }
+      setCercato(true);
     } catch (e: any) {
       setErrore(e?.message ?? 'Ricerca non riuscita.');
       setRisultati([]);
@@ -68,11 +74,33 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
     }
   }
 
+  // Scegliere l'indirizzo NON avvia la ricerca (la scoperta costa chiamate a
+  // Google): la prepara, poi si parte col pulsante "Cerca affiliazioni qui".
   function scegliIndirizzo(g: GeocodeResult) {
-    const punto = { lat: g.lat, lng: g.lng };
-    setCentro(punto);
+    setCentro({ lat: g.lat, lng: g.lng });
     setIndirizzo(g.formatted_address ?? null);
-    cerca(punto);
+    setCercato(false);
+    setRisultati([]);
+    setRaggioUsato(null);
+    setErrore(null);
+  }
+
+  // Questo indirizzo è già salvato fra i preferiti? (match per coordinate ~11 m)
+  const preferitoCorrente = useMemo(() => {
+    if (!centro) return null;
+    return (
+      preferiti.find((f) => Math.abs(f.lat - centro.lat) < 1e-4 && Math.abs(f.lng - centro.lng) < 1e-4) ?? null
+    );
+  }, [preferiti, centro]);
+
+  async function salvaLuogo() {
+    if (!centro || !indirizzo) return;
+    try {
+      if (preferitoCorrente) await rimuoviPreferito(preferitoCorrente.id);
+      else await aggiungiPreferito({ etichetta: indirizzo, indirizzo, lat: centro.lat, lng: centro.lng });
+    } catch (e: any) {
+      avvisa('Errore', e?.message ?? 'Operazione non riuscita.');
+    }
   }
 
   /** ⭐ = "questa la contatto": entra fra i Selezionati delle Affiliazioni. */
@@ -87,10 +115,51 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
     }
   }
 
+  // Sincronizzazione con Anagrafiche: i negozi che nel registro sono GIÀ clienti
+  // attivi non vanno riproposti da reclutare. Nascondiamo gli attivi e — per non
+  // mostrare un doppione "nuovo" da Google dello stesso negozio — anche i
+  // risultati Google (id "g:") il cui nome combacia con un attivo.
+  const normaNome = (n: string) => n.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const nomiAttivi = useMemo(
+    () => new Set(risultati.filter((r) => r.anagrafiche_stato === 'attivo').map((r) => normaNome(r.nome))),
+    [risultati],
+  );
+  const visibili = useMemo(
+    () =>
+      risultati.filter((r) => {
+        if (r.anagrafiche_stato === 'attivo') return false;
+        if (r.id.startsWith('g:') && nomiAttivi.has(normaNome(r.nome))) return false;
+        return true;
+      }),
+    [risultati, nomiAttivi],
+  );
+  const nascostiAttivi = risultati.length - visibili.length;
+
   return (
     <View style={styles.container}>
       <View style={styles.head}>
         <AddressSearch onSelect={scegliIndirizzo} placeholder="Cerca in che zona: indirizzo, via, quartiere…" />
+        {centro ? (
+          <View style={styles.cercaRow}>
+            <Pressable
+              style={[styles.btnCerca, loading && styles.btnOff]}
+              disabled={loading}
+              onPress={() => cerca(centro)}
+            >
+              <Text style={styles.btnCercaTxt}>
+                {loading ? 'Cerco negozi…' : cercato ? 'Cerca di nuovo qui' : 'Cerca affiliazioni qui'}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.btnSalva, preferitoCorrente && styles.btnSalvaOn]}
+              onPress={salvaLuogo}
+              accessibilityLabel={preferitoCorrente ? 'Togli dai preferiti' : 'Salva la località'}
+            >
+              <Ionicons name={preferitoCorrente ? 'bookmark' : 'bookmark-outline'} size={17} color={preferitoCorrente ? colors.bianco : colors.navy} />
+              <Text style={[styles.btnSalvaTxt, preferitoCorrente && styles.btnSalvaTxtOn]}>{preferitoCorrente ? 'Salvata' : 'Salva'}</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           <Text style={styles.etichetta}>Cosa</Text>
           {COSA.map((c) => (
@@ -100,7 +169,7 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
               on={cosa === c.valore}
               onPress={() => {
                 setCosa(c.valore);
-                if (centro) cerca(centro, raggio, c.valore);
+                if (centro && cercato) cerca(centro, raggio, c.valore);
               }}
             />
           ))}
@@ -122,7 +191,7 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
               on={raggio === r}
               onPress={() => {
                 setRaggio(r);
-                if (centro) cerca(centro, r, cosa);
+                if (centro && cercato) cerca(centro, r, cosa);
               }}
             />
           ))}
@@ -130,7 +199,8 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
         {indirizzo ? (
           <Text style={styles.zona} numberOfLines={1}>
             <Ionicons name="location-outline" size={12} color={colors.testoSoft} /> {indirizzo}
-            {risultati.length ? ` · ${risultati.length} trovati` : ''}
+            {visibili.length ? ` · ${visibili.length} da contattare` : ''}
+            {nascostiAttivi ? ` · ${nascostiAttivi} già clienti nascosti` : ''}
             {raggioUsato ? ` entro ${raggioUsato >= 1000 ? `${(raggioUsato / 1000).toFixed(1)} km` : `${raggioUsato} m`}` : ''}
           </Text>
         ) : null}
@@ -145,21 +215,25 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
         <View style={styles.centro}>
           <Text style={styles.errore}>{errore}</Text>
         </View>
-      ) : !centro ? (
+      ) : !centro || !cercato ? (
         <EmptyState
           icona="search-outline"
           titolo="Cerca affiliazioni sul territorio"
-          aiuto="Scrivi un indirizzo o una zona: trovo fioristi e pasticcerie lì attorno. Con la ⭐ li metti fra i Selezionati da chiamare."
+          aiuto="Scrivi un indirizzo o una zona e premi «Cerca affiliazioni qui»: trovo fioristi e pasticcerie lì attorno. Con la ⭐ li metti fra i Selezionati da chiamare."
         />
-      ) : risultati.length === 0 ? (
+      ) : visibili.length === 0 ? (
         <EmptyState
           icona="map-outline"
-          titolo="Nessun negozio in questa zona"
-          aiuto="Con «Auto» ho già allargato fino a 2 km: prova un altro indirizzo o cambia cosa cercare."
+          titolo={nascostiAttivi ? 'Solo clienti già attivi qui' : 'Nessun negozio in questa zona'}
+          aiuto={
+            nascostiAttivi
+              ? 'I negozi trovati sono già nostri clienti nel registro: niente di nuovo da reclutare qui.'
+              : 'Con «Auto» ho già allargato fino a 2 km: prova un altro indirizzo o cambia cosa cercare.'
+          }
         />
       ) : (
         <ScrollView contentContainerStyle={styles.lista}>
-          {risultati.map((p) => {
+          {visibili.map((p) => {
             const preso = presi.has(p.id) || p.starred;
             const km = centro ? distanzaKm(centro, { lat: p.lat, lng: p.lng }) : null;
             return (
@@ -173,6 +247,15 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
                     <Text style={styles.meta}>
                       ★ {p.google_rating}{p.google_reviews ? ` · ${p.google_reviews} recensioni` : ''}
                     </Text>
+                  ) : null}
+                  {p.anagrafiche_stato && p.anagrafiche_stato in labelAffiliazione ? (
+                    <View style={{ marginTop: 4, alignSelf: 'flex-start' }}>
+                      <StatusBadge
+                        small
+                        label={labelAffiliazione[p.anagrafiche_stato as StatoAffiliazione]}
+                        colore={coloreAffiliazione[p.anagrafiche_stato as StatoAffiliazione]}
+                      />
+                    </View>
                   ) : null}
                 </View>
                 <Pressable
@@ -204,6 +287,14 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   head: { gap: 6, paddingBottom: spacing.sm },
+  cercaRow: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, alignItems: 'stretch' },
+  btnCerca: { flex: 1, backgroundColor: colors.ink, borderRadius: radius.pill, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  btnCercaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
+  btnOff: { opacity: 0.6 },
+  btnSalva: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.bianco, borderWidth: 1.5, borderColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: 14 },
+  btnSalvaOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  btnSalvaTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
+  btnSalvaTxtOn: { color: colors.bianco },
   chips: { paddingHorizontal: spacing.md, gap: 6, alignItems: 'center' },
   etichetta: { color: colors.testoSoft, fontSize: 12, fontWeight: '700', marginRight: 2 },
   chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
