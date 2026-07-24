@@ -356,13 +356,15 @@ export interface Cliente {
   cliente_scout: boolean; // stato = 'cliente' in Scout
   partner_registro: boolean; // partner 'attivo' nel registro Anagrafiche
   account: string | null; // chi segue il cliente (dal registro Anagrafiche)
+  telefono: string | null; // primo recapito utile, per le azioni rapide
+  email: string | null;
 }
 
 /** Tutti i clienti: negozi cliente in Scout OPPURE partner attivi nel registro. */
 export async function fetchClienti(): Promise<Cliente[]> {
   const { data, error } = await supabase
     .from('places')
-    .select('id, nome, indirizzo, zona, categoria, linea_ipotizzata, linee_ipotizzate, stato, anagrafiche_stato, anagrafiche_account')
+    .select('id, nome, indirizzo, zona, categoria, linea_ipotizzata, linee_ipotizzate, stato, anagrafiche_stato, anagrafiche_account, contacts(telefono, email, archiviato)')
     .or('stato.eq.cliente,anagrafiche_stato.eq.attivo')
     .order('nome');
   if (error) throw error;
@@ -376,6 +378,9 @@ export async function fetchClienti(): Promise<Cliente[]> {
     cliente_scout: r.stato === 'cliente',
     partner_registro: r.anagrafiche_stato === 'attivo',
     account: r.anagrafiche_account ?? null,
+    // Primo recapito dei contatti non archiviati: accende Chiama/WhatsApp/Email.
+    telefono: (r.contacts ?? []).find((c: any) => c.telefono && !c.archiviato)?.telefono ?? null,
+    email: (r.contacts ?? []).find((c: any) => c.email && !c.archiviato)?.email ?? null,
   })) as Cliente[];
 }
 

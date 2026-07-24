@@ -1,7 +1,7 @@
 // Sezione "Clienti": i negozi già acquisiti — clienti in Scout (stato "cliente")
 // o partner attivi nel registro Anagrafiche. Filtri per zona e interessi.
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -141,11 +141,55 @@ export default function Clienti() {
             <View style={styles.badgeCol}>
               {item.cliente_scout ? <StatusBadge small label="Cliente" colore={colors.successo} /> : null}
               {item.partner_registro ? <StatusBadge small label="Partner" colore={colors.blue} /> : null}
+              {/* Azioni rapide: le stesse della scheda, a portata di lista. */}
+              <View style={styles.azioniRiga}>
+                <IconaAzione
+                  nome="call-outline"
+                  attiva={Boolean(item.telefono)}
+                  label="Chiama"
+                  onPress={() => item.telefono && Linking.openURL(`tel:${item.telefono}`)}
+                />
+                <IconaAzione
+                  nome="logo-whatsapp"
+                  attiva={Boolean(item.telefono)}
+                  label="WhatsApp"
+                  onPress={() => item.telefono && Linking.openURL(`https://wa.me/${item.telefono.replace(/[^0-9]/g, '')}`)}
+                />
+                <IconaAzione
+                  nome="mail-outline"
+                  attiva={Boolean(item.email)}
+                  label="Email"
+                  onPress={() => item.email && Linking.openURL(`mailto:${item.email}`)}
+                />
+                <IconaAzione
+                  nome="walk-outline"
+                  attiva
+                  label="Visita"
+                  onPress={() => router.push(`/(app)/visita/${item.id}`)}
+                />
+              </View>
             </View>
           </Pressable>
         )}
       />
     </View>
+  );
+}
+
+function IconaAzione({ nome, attiva, label, onPress }: { nome: any; attiva: boolean; label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      style={[styles.iconaAzione, !attiva && { opacity: 0.35 }]}
+      disabled={!attiva}
+      hitSlop={4}
+      onPress={(e) => {
+        (e as any)?.stopPropagation?.();
+        onPress();
+      }}
+      accessibilityLabel={label}
+    >
+      <Ionicons name={nome} size={16} color={colors.navy} />
+    </Pressable>
   );
 }
 
@@ -192,6 +236,8 @@ const styles = StyleSheet.create({
   nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   meta: { color: colors.testoSoft, fontSize: 13, marginTop: 1 },
   account: { color: colors.grigio, fontSize: 12, marginTop: 2 },
+  azioniRiga: { flexDirection: 'row', gap: 6, marginTop: 6 },
+  iconaAzione: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.sfondo, alignItems: 'center', justifyContent: 'center' },
   lineeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
   lineaTag: { backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 11 },

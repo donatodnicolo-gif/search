@@ -23,9 +23,11 @@ export type Livello = 'prospect' | 'lead' | 'cliente' | 'dormiente' | 'perso';
 /** L'ordine in cui mostrarli: il funnel, poi chi è uscito. */
 export const LIVELLI: Livello[] = ['prospect', 'lead', 'cliente', 'dormiente', 'perso'];
 
+// Etichette nel linguaggio del team (24/07/2026): "Selezionato" = scelto con la
+// stella ma mai contattato; "Prospect" = sentito o visitato (contatto avviato).
 export const LABEL_LIVELLO: Record<Livello, string> = {
-  prospect: 'Prospect',
-  lead: 'Lead',
+  prospect: 'Selezionato',
+  lead: 'Prospect',
   cliente: 'Cliente',
   dormiente: 'Dormiente',
   perso: 'Perso',

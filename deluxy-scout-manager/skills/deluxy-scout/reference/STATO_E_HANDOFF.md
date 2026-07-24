@@ -2,7 +2,12 @@
 
 Ultimo aggiornamento: **23 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
 
-> 🗂️ **Menu Contatti per livello + fix mappa vuota + Salva acceso (24 lug 2026)**:
+> 🧰 **Scheda negozio compatta + azioni per livello + città intera (24 lug 2026, sera)**:
+> - **Scheda negozio** (`attivita/[id].tsx`): via lo stepper «Percorso verso cliente» e i bottoni giganti Naviga/Modifica; meta in una riga; subito sotto il nome una **riga di pill compatte**: Visita (primaria) · Chiama · WhatsApp · Email · Task · Contatto · Trattativa · Naviga · Modifica. Chiama/WhatsApp/Email si accendono col primo recapito dei contatti. Fix bug regex WhatsApp (`[^d]`→`[^0-9]`).
+> - **Linguaggio livelli aggiornato (decisione utente)**: livello `prospect` si chiama **«Selezionato»** (⭐, mai contattato), livello `lead` si chiama **«Prospect»** (sentito o visitato). Menu Contatti: **Selezionati** (azione riga: Visita) · **Prospect** (azione riga: **Mail** → `ScegliScriptModal`: script dalla libreria o «Nuovo script» → `/invio/[scriptId]`) · **Clienti** (azioni rapide a icone sulla riga: chiama/whatsapp/email/visita — `fetchClienti` ora porta telefono+email dal primo contatto) · Dormienti e persi.
+> - **Ricerca affiliazioni**: senza raggio si cerca su **tutta la città** (12 km, chip «Tutta la città»; l'edge `discover` accetta ora fino a 15 km — le query per tipo sono rankby=distance, il costo non cresce col raggio).
+>
+> > 🗂️ **Menu Contatti per livello + fix mappa vuota + Salva acceso (24 lug 2026)**:
 > - **Contatti** ora ha 4 voci distinte, tutte su `/lista` con param `?vista=`: **Prospect** (`vista=prospect`), **Lead** (`vista=lead`), **Clienti** (`/clienti`), **Dormienti e persi** (`vista=inattivi` = dormiente+perso). `_layout.tsx`: `Voce` ha `route`+`params`, navigate li passa, focus via `voceAttiva` (confronta route+vista). `lista.tsx` legge `useLocalSearchParams().vista`, filtra per `LIVELLI_VISTA`, mostra i chip di livello solo se la vista ne ha più d'uno (inattivi → dormiente|perso).
 > - **Fix «non compaiono più i negozi» sulla Mappa**: la cella di una zona già scansionata (<30gg) serviva dalla cache senza richiamare Google; se lì non c'erano places → 0 risultati. `discover` ora accetta `force` (bypassa la cache di tempo); `scopriNegozi(...force)` e il pulsante **«Cerca di nuovo qui»** (mappa web) + la Ricerca affiliazioni lo passano `true`: azione esplicita = risultati freschi. Deployato.
 > - **Bottone «Salva» indirizzo**: ora è un toggle e si **accende** (pieno, «Salvato») se l'indirizzo scelto è già fra i preferiti (match per coordinate ~11 m). `usePreferiti` in `mappa.web.tsx`.

@@ -161,7 +161,9 @@ Deno.serve(async (req) => {
 
     const lat = Number(body.lat);
     const lng = Number(body.lng);
-    const radius = Math.min(Math.max(Number(body.radius) || 300, 50), 2000);
+    // Fino a 15 km: "tutta la città" della Ricerca affiliazioni. Le query per
+    // tipo sono rankby=distance, quindi il costo non cresce col raggio.
+    const radius = Math.min(Math.max(Number(body.radius) || 300, 50), 15000);
     if (!isFinite(lat) || !isFinite(lng)) return json({ error: 'lat/lng mancanti' }, 400);
 
     // Filtro "cosa cerco" (sottomenu Mappa): default = affiliati (fioristi + pasticcerie).

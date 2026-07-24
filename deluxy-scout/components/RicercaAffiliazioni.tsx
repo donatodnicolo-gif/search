@@ -19,12 +19,10 @@ import { aggiungiPreferito, rimuoviPreferito, usePreferiti } from '@/lib/preferi
 import { useMemo } from 'react';
 import { avvisa } from '@/lib/dialoghi';
 
-// Il raggio è FACOLTATIVO: di default è "Auto" e l'app allarga da sola finché
-// trova abbastanza negozi (utile in periferia, dove 600 m non bastano). Chi
-// vuole decidere sceglie una distanza precisa.
+// Il raggio è FACOLTATIVO: senza indicazione si cerca su TUTTA LA CITTÀ
+// (12 km dal punto scelto). Chi vuole restringere sceglie una distanza.
 const RAGGI = [300, 600, 1000, 2000];
-const AUTO_PASSI = [400, 800, 1500, 2000];
-const AUTO_ABBASTANZA = 8;
+const RAGGIO_CITTA = 12000;
 const COSA: { valore: FiltroScoperta; label: string }[] = [
   { valore: 'affiliazioni', label: 'Fiori + Pasticcerie' },
   { valore: 'fiori', label: 'Solo fiori' },
@@ -48,23 +46,11 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
     setLoading(true);
     setErrore(null);
     try {
-      if (r != null) {
-        const esito = await scopriNegozi(punto.lat, punto.lng, r, c, true);
-        setRisultati(esito.places);
-        setRaggioUsato(r);
-      } else {
-        // Auto: si allarga finché non ci sono abbastanza negozi da lavorare.
-        let ultimi: Place[] = [];
-        let usato = AUTO_PASSI[0];
-        for (const passo of AUTO_PASSI) {
-          const esito = await scopriNegozi(punto.lat, punto.lng, passo, c, true);
-          ultimi = esito.places;
-          usato = passo;
-          if (ultimi.length >= AUTO_ABBASTANZA) break;
-        }
-        setRisultati(ultimi);
-        setRaggioUsato(usato);
-      }
+      // Raggio non indicato = tutta la città in un colpo solo.
+      const effettivo = r ?? RAGGIO_CITTA;
+      const esito = await scopriNegozi(punto.lat, punto.lng, effettivo, c, true);
+      setRisultati(esito.places);
+      setRaggioUsato(effettivo);
       setCercato(true);
     } catch (e: any) {
       setErrore(e?.message ?? 'Ricerca non riuscita.');
@@ -177,7 +163,7 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           <Text style={styles.etichetta}>Raggio</Text>
           <Chip
-            label="Auto"
+            label="Tutta la città"
             on={raggio === null}
             onPress={() => {
               setRaggio(null);
@@ -201,7 +187,7 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
             <Ionicons name="location-outline" size={12} color={colors.testoSoft} /> {indirizzo}
             {visibili.length ? ` · ${visibili.length} da contattare` : ''}
             {nascostiAttivi ? ` · ${nascostiAttivi} già clienti nascosti` : ''}
-            {raggioUsato ? ` entro ${raggioUsato >= 1000 ? `${(raggioUsato / 1000).toFixed(1)} km` : `${raggioUsato} m`}` : ''}
+            {raggioUsato ? (raggioUsato >= RAGGIO_CITTA ? ' in tutta la città' : ` entro ${raggioUsato >= 1000 ? `${(raggioUsato / 1000).toFixed(1)} km` : `${raggioUsato} m`}`) : ''}
           </Text>
         ) : null}
       </View>
@@ -228,7 +214,7 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
           aiuto={
             nascostiAttivi
               ? 'I negozi trovati sono già nostri clienti nel registro: niente di nuovo da reclutare qui.'
-              : 'Con «Auto» ho già allargato fino a 2 km: prova un altro indirizzo o cambia cosa cercare.'
+              : 'Ho cercato in tutta la città: prova un altro punto di partenza o cambia cosa cercare.'
           }
         />
       ) : (

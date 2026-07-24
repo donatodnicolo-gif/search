@@ -13,6 +13,7 @@ import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { coloreLivello, LABEL_LIVELLO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
+import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 
 // Le "viste" del menu: ogni voce di Contatti apre /lista già filtrata.
 // "inattivi" = dormienti + persi, la scheda dei rapporti da riattivare.
@@ -24,8 +25,8 @@ const LIVELLI_VISTA: Record<Vista, Livello[]> = {
   inattivi: ['dormiente', 'perso'],
 };
 const TITOLO_VISTA: Record<Vista, string> = {
-  prospect: 'Prospect — potenzialmente interessanti, da contattare.',
-  lead: 'Lead — contatto avviato, il rapporto è iniziato.',
+  prospect: 'Selezionati — scelti con la ⭐, ancora da contattare: l’azione è la visita.',
+  lead: 'Prospect — sentiti o visitati: l’azione è tenere caldo il rapporto (mail con script).',
   cliente: 'Clienti — hanno chiuso una trattativa.',
   inattivi: 'Dormienti e persi — rapporti da riattivare o da capire perché non sono partiti.',
 };
@@ -48,6 +49,8 @@ export default function Lista() {
   const [livello, setLivello] = useState<Livello | null>(null);
   // Cambiando voce di menu (vista) si azzera il sotto-filtro.
   useEffect(() => setLivello(null), [vista]);
+  // "Invia mail" su un Prospect: scegli lo script (o creane uno) → schermata invio.
+  const [mailPlace, setMailPlace] = useState<Place | null>(null);
 
   async function nascondi(place: Place) {
     try {
@@ -102,7 +105,7 @@ export default function Lista() {
         testo={
           vistaCorr
             ? TITOLO_VISTA[vistaCorr]
-            : 'I negozi che qualcuno ha scelto di lavorare. PROSPECT: interessante, da contattare. LEAD: contatto avviato. CLIENTE: ha chiuso una trattativa.'
+            : 'I negozi che qualcuno ha scelto di lavorare. SELEZIONATO: con la ⭐, da contattare. PROSPECT: contatto avviato. CLIENTE: ha chiuso una trattativa.'
         }
       />
       {mostraChip ? (
@@ -147,12 +150,20 @@ export default function Lista() {
           />
         }
         renderItem={({ item }) => (
-          <Riga place={item} onPress={() => router.push(`/(app)/attivita/${item.id}`)} onNascondi={() => nascondi(item)} />
+          <Riga
+            place={item}
+            vista={vistaCorr}
+            onPress={() => router.push(`/(app)/attivita/${item.id}`)}
+            onNascondi={() => nascondi(item)}
+            onVisita={() => router.push(`/(app)/visita/${item.id}`)}
+            onMail={() => setMailPlace(item)}
+          />
         )}
       />
       <Pressable style={styles.fab} onPress={() => router.push('/(app)/nuovo-target')} accessibilityLabel="Nuovo target">
         <Ionicons name="add" size={30} color={colors.bianco} />
       </Pressable>
+      {mailPlace ? <ScegliScriptModal place={mailPlace} onClose={() => setMailPlace(null)} /> : null}
     </View>
   );
 }
@@ -185,7 +196,29 @@ function origineInserimento(place: Place): string {
   return 'da import iniziale';
 }
 
-function Riga({ place, onPress, onNascondi }: { place: Place; onPress: () => void; onNascondi: () => void }) {
+function Riga({
+  place,
+  vista,
+  onPress,
+  onNascondi,
+  onVisita,
+  onMail,
+}: {
+  place: Place;
+  vista: Vista | null;
+  onPress: () => void;
+  onNascondi: () => void;
+  onVisita: () => void;
+  onMail: () => void;
+}) {
+  // L'azione giusta per il livello: un Selezionato si VISITA, un Prospect si
+  // tiene caldo con una MAIL (script a scelta o nuovo).
+  const azione =
+    vista === 'prospect'
+      ? { label: 'Visita', icona: 'walk-outline' as const, onPress: onVisita }
+      : vista === 'lead'
+        ? { label: 'Mail', icona: 'mail-outline' as const, onPress: onMail }
+        : null;
   return (
     <Pressable style={styles.riga} onPress={onPress}>
       <View style={styles.rigaHead}>
@@ -194,6 +227,20 @@ function Riga({ place, onPress, onNascondi }: { place: Place; onPress: () => voi
           {place.nome}
         </Text>
         <StatusBadge small label={LABEL_LIVELLO[livelloDi(place)]} colore={coloreLivello(livelloDi(place))} />
+        {azione ? (
+          <Pressable
+            style={styles.rigaAzione}
+            hitSlop={6}
+            onPress={(e) => {
+              (e as any)?.stopPropagation?.();
+              azione.onPress();
+            }}
+            accessibilityLabel={azione.label}
+          >
+            <Ionicons name={azione.icona} size={14} color={colors.bianco} />
+            <Text style={styles.rigaAzioneTxt}>{azione.label}</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           style={styles.nascondi}
           hitSlop={8}
@@ -230,6 +277,8 @@ function Riga({ place, onPress, onNascondi }: { place: Place; onPress: () => voi
 
 const styles = StyleSheet.create({
   livelli: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  rigaAzione: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
+  rigaAzioneTxt: { color: colors.bianco, fontWeight: '700', fontSize: 12 },
   chipLiv: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipLivOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipLivTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },

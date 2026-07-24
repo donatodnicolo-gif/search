@@ -44,8 +44,8 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     // persi stanno insieme in una scheda a parte: sono i rapporti da riattivare.
     titolo: 'Contatti',
     voci: [
-      { name: 'lista-prospect', route: 'lista', params: { vista: 'prospect' }, label: 'Prospect', icon: 'flag-outline' },
-      { name: 'lista-lead', route: 'lista', params: { vista: 'lead' }, label: 'Lead', icon: 'people-outline' },
+      { name: 'lista-prospect', route: 'lista', params: { vista: 'prospect' }, label: 'Selezionati', icon: 'star-outline' },
+      { name: 'lista-lead', route: 'lista', params: { vista: 'lead' }, label: 'Prospect', icon: 'people-outline' },
       { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
       { name: 'lista-inattivi', route: 'lista', params: { vista: 'inattivi' }, label: 'Dormienti e persi', icon: 'moon-outline' },
     ],

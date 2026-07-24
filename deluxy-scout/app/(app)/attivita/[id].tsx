@@ -12,7 +12,6 @@ import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } fr
 import { env } from '@/lib/env';
 import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
-import { PercorsoCliente } from '@/components/PercorsoCliente';
 import { TaskFormModal } from '@/components/TaskFormModal';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 import { FinanceCard } from '@/components/FinanceCard';
@@ -362,9 +361,41 @@ export default function SchedaAttivita() {
           <Text style={styles.stato}>{labelStato[place.stato]}</Text>
         </View>
         <Text style={styles.nome}>{place.nome}</Text>
-        {place.indirizzo ? <Text style={styles.meta}>{place.indirizzo}</Text> : null}
-        {place.categoria ? <Text style={styles.meta}>Categoria: {place.categoria}</Text> : null}
-        {place.zona ? <Text style={styles.meta}>Zona: {place.zona}</Text> : null}
+        <Text style={styles.meta} numberOfLines={1}>
+          {[place.indirizzo, place.categoria, place.zona].filter(Boolean).join(' · ')}
+        </Text>
+
+        {/* Le azioni SUBITO sotto il nome: la scheda serve a vendere, non a leggere. */}
+        <View style={styles.azioniGrid}>
+          <AzioneRapida icona="walk-outline" label="Visita" primaria onPress={() => router.push(`/(app)/visita/${place.id}`)} />
+          <AzioneRapida
+            icona="call-outline"
+            label="Chiama"
+            disabled={!telefonoPrincipale}
+            onPress={() => telefonoPrincipale && Linking.openURL(`tel:${telefonoPrincipale}`)}
+          />
+          <AzioneRapida
+            icona="logo-whatsapp"
+            label="WhatsApp"
+            disabled={!telefonoPrincipale}
+            onPress={() => telefonoPrincipale && Linking.openURL(`https://wa.me/${telefonoPrincipale.replace(/[^0-9]/g, '')}`)}
+          />
+          <AzioneRapida
+            icona="mail-outline"
+            label="Email"
+            disabled={!emailPrincipale}
+            onPress={() => emailPrincipale && Linking.openURL(`mailto:${emailPrincipale}`)}
+          />
+          <AzioneRapida icona="checkbox-outline" label="Task" onPress={() => { setTaskInModifica(null); setTaskAperto(true); }} />
+          <AzioneRapida icona="person-add-outline" label="Contatto" onPress={() => router.push(`/(app)/contatto/${place.id}`)} />
+          <AzioneRapida icona="briefcase-outline" label="Trattativa" onPress={() => router.push('/(app)/trattative')} />
+          <AzioneRapida
+            icona="navigate-outline"
+            label="Naviga"
+            onPress={() => Linking.openURL(urlNavigazione({ lat: place.lat, lng: place.lng }))}
+          />
+          <AzioneRapida icona="create-outline" label="Modifica" onPress={() => router.push(`/(app)/modifica/${place.id}`)} />
+        </View>
 
         {/* Possibili duplicati: stesso indirizzo o nome simile → proponi l'unione. */}
         {duplicati.length ? (
@@ -398,37 +429,6 @@ export default function SchedaAttivita() {
           </View>
         ) : null}
 
-        {/* Storyline: percorso commerciale verso il cliente. */}
-        <View style={styles.percorso}>
-          <Text style={styles.percorsoTitolo}>Percorso verso cliente</Text>
-          <PercorsoCliente
-            stato={place.stato}
-            inTrattativa={
-              Boolean(place.hubspot_deal_aperta) || deal.some((d) => d.fase !== 'closedwon' && d.fase !== 'closedlost')
-            }
-          />
-        </View>
-
-        <View style={styles.azioniRow}>
-          <Pressable
-            style={[styles.btnNaviga, { flex: 1 }]}
-            onPress={() =>
-              Linking.openURL(
-                `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`,
-              )
-            }
-          >
-            <Text style={styles.btnNavigaTxt}>
-              <Ionicons name="navigate-outline" size={15} color={colors.navy} /> Naviga
-            </Text>
-          </Pressable>
-          <Pressable style={[styles.btnNaviga, { flex: 1 }]} onPress={() => router.push(`/(app)/modifica/${place.id}`)}>
-            <Text style={styles.btnNavigaTxt}>
-              <Ionicons name="create-outline" size={15} color={colors.navy} /> Modifica
-            </Text>
-          </Pressable>
-        </View>
-
         <AnagraficaRegistroCard nome={place.nome} citta={place.zona} onInteressi={defaultDaRegistro} />
 
         {/* FINANCE: fatturato + andamento del cliente (solo per clienti/partner). */}
@@ -459,38 +459,6 @@ export default function SchedaAttivita() {
             )}
           </Pressable>
         ) : null}
-
-        {/* Barra azioni stile CRM: tutto quello che si può fare col negozio,
-            in un posto solo. Le azioni senza un recapito adatto sono spente. */}
-        <View style={styles.azioniGrid}>
-          <AzioneRapida icona="walk-outline" label="Visita" primaria onPress={() => router.push(`/(app)/visita/${place.id}`)} />
-          <AzioneRapida
-            icona="call-outline"
-            label="Chiama"
-            disabled={!telefonoPrincipale}
-            onPress={() => telefonoPrincipale && Linking.openURL(`tel:${telefonoPrincipale}`)}
-          />
-          <AzioneRapida
-            icona="logo-whatsapp"
-            label="WhatsApp"
-            disabled={!telefonoPrincipale}
-            onPress={() => telefonoPrincipale && Linking.openURL(`https://wa.me/${telefonoPrincipale.replace(/[^d]/g, '')}`)}
-          />
-          <AzioneRapida
-            icona="mail-outline"
-            label="Email"
-            disabled={!emailPrincipale}
-            onPress={() => emailPrincipale && Linking.openURL(`mailto:${emailPrincipale}`)}
-          />
-          <AzioneRapida icona="checkbox-outline" label="Task" onPress={() => { setTaskInModifica(null); setTaskAperto(true); }} />
-          <AzioneRapida icona="person-add-outline" label="Contatto" onPress={() => router.push(`/(app)/contatto/${place.id}`)} />
-          <AzioneRapida icona="briefcase-outline" label="Trattativa" onPress={() => router.push('/(app)/trattative')} />
-          <AzioneRapida
-            icona="navigate-outline"
-            label="Naviga"
-            onPress={() => Linking.openURL(urlNavigazione({ lat: place.lat, lng: place.lng }))}
-          />
-        </View>
 
         {/* Task del negozio: quelli creati col bottone "Task" qui sopra. */}
         <Sezione titolo={`Task${taskPlace.length ? ` (${taskPlace.filter((t) => !t.completata).length} da fare)` : ''}`}>
@@ -700,7 +668,7 @@ function AzioneRapida({
       disabled={disabled}
       accessibilityLabel={label}
     >
-      <Ionicons name={icona} size={20} color={primaria ? colors.bianco : disabled ? colors.grigio : colors.navy} />
+      <Ionicons name={icona} size={15} color={primaria ? colors.bianco : disabled ? colors.grigio : colors.navy} />
       <Text style={[styles.azioneTxt, primaria && styles.azioneTxtPrimaria, disabled && styles.azioneTxtOff]}>
         {label}
       </Text>
@@ -709,18 +677,17 @@ function AzioneRapida({
 }
 
 const styles = StyleSheet.create({
-  azioniGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
+  azioniGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm, marginBottom: spacing.sm },
   azione: {
-    flexBasis: '22%',
-    flexGrow: 1,
-    minWidth: 86,
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    paddingVertical: 12,
+    borderRadius: radius.pill,
+    paddingVertical: 7,
+    paddingHorizontal: 11,
   },
   azionePrimaria: { backgroundColor: colors.ink, borderColor: colors.ink },
   azioneOff: { opacity: 0.45 },
