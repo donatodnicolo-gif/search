@@ -152,6 +152,12 @@ solo dove siamo e come si lavora.
    `brand`/`number` che sono locali di `fetchOrder` → ReferenceError sul caricamento ordine.
    In `populateOrder` esistono solo `o` e il DOM.
 
+23. **Distanza stradale anche sulle schede del registro** (24/07): `annotaDistanzeRegistro`
+   geocodifica (best effort) l'indirizzo censito di ogni scheda registro mostrata in cima e
+   aggiunge il badge «🚗 X km · Y min» con lo stesso motore delle schede Google
+   (`drivingDistances`: Distance Matrix → OSRM → ripiego 📏 linea d'aria). Non blocca la
+   ricerca: gira in parallelo dopo il prepend. Schede senza indirizzo = nessun badge.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche

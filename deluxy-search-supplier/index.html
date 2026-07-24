@@ -1325,6 +1325,33 @@ function registryCard(p){
   `;
   return el;
 }
+// distanza stradale (in auto) dalla consegna ANCHE sulle schede del registro:
+// l'indirizzo censito viene geocodificato (best effort, non blocca il resto) e si usa
+// lo stesso motore delle schede Google (Distance Matrix → ripiego OSRM → linea d'aria)
+async function annotaDistanzeRegistro(list, cards, origin){
+  try{
+    const geocoder = new google.maps.Geocoder();
+    const posiz = await Promise.all(list.map(p=>{
+      const addr = [p.indirizzo, p.citta, p.provincia].filter(Boolean).join(', ');
+      if(!addr) return Promise.resolve(null);
+      return new Promise(res=>geocoder.geocode({ address: addr, region: 'IT' },
+        (r,s)=>res(s==='OK' && r && r[0] ? r[0].geometry.location : null)));
+    }));
+    const idx = [], dests = [];
+    posiz.forEach((loc,i)=>{ if(loc){ idx.push(i); dests.push(loc); } });
+    if(!dests.length) return;
+    const elems = await drivingDistances(origin, dests);
+    idx.forEach((i,k)=>{
+      const el = elems && elems[k];
+      const txt = (el && el.status==='OK')
+        ? `🚗 ${el.distance.text}${el.duration?' · '+el.duration.text:''}`
+        : `📏 ${distanceStr(google.maps.geometry.spherical.computeDistanceBetween(origin, dests[k]))} (linea d'aria)`;
+      const col = cards[i].querySelector('.head > div');
+      if(col && !cards[i].querySelector('.badge-dist'))
+        col.insertAdjacentHTML('beforeend', `<span class="badge badge-dist">${txt}</span>`);
+    });
+  }catch(e){ console.warn('distanze registro:', e); }
+}
 
 /* ------------------ nearby search per categoria ------------------ */
 let lastPlacesStatus = null;
@@ -2588,8 +2615,11 @@ async function run(){
         matchedCards.push(cardEl);
       });
       // schede del registro non presenti tra i risultati Google + schede Google matchate, tutte in cima
-      const regCards = anag.list.filter(p=>!matchedIds.has(p.id)).map(registryCard);
+      const regList = anag.list.filter(p=>!matchedIds.has(p.id));
+      const regCards = regList.map(registryCard);
       resultsEl.prepend(...regCards, ...matchedCards);
+      // distanza stradale dalla consegna anche su queste schede (best effort, in parallelo)
+      annotaDistanzeRegistro(regList, regCards, origin);
       // sulle schede già nostre: «usato per ordini recenti?» dallo Storico (best effort)
       storicoPromise.then(eventi=>{ [...regCards, ...matchedCards].forEach(c=>annotaOrdiniRecenti(c, eventi)); });
       const nPartner = anag.list.filter(isPartnerAttivo).length;
