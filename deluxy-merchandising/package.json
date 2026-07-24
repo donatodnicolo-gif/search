@@ -1,0 +1,31 @@
+{
+  "name": "deluxy-merchandising",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deluxy Merchandising — gestione del prodotto a 360° come una maison di moda: collezioni e stagioni, sviluppo prodotto (PLM), costi e margini, visual merchandising, pubblicazione su Shopify",
+  "scripts": {
+    "dev": "next dev -p 3120",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
+    "start": "next start -p 3120",
+    "db:push": "prisma db push",
+    "db:seed": "node prisma/seed.mjs",
+    "db:reset": "prisma db push --force-reset && node prisma/seed.mjs"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.5.0",
+    "next": "^15.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "prisma": "^6.5.0",
+    "typescript": "^5.7.3"
+  }
+}

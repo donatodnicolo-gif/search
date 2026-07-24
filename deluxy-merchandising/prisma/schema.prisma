@@ -1,0 +1,151 @@
+// Deluxy Merchandising — schema dati
+// Gestione del prodotto a 360° come una maison di moda: collezioni e stagioni,
+// sviluppo prodotto (PLM), costi e margini, visual merchandising e pubblicazione
+// su Shopify (l'app è la fonte di verità a monte; Shopify resta il canale vendita).
+//
+// Sviluppo locale su SQLite (nessun segreto). In produzione si passa al Postgres
+// condiviso Deluxy: cambiare provider in "postgresql" e le due url d'ambiente.
+// Per compatibilità SQLite non si usano enum né array scalari: gli stati sono
+// stringhe normalizzate con cataloghi in src/lib/dominio.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Una collezione stagionale: l'unità con cui una maison organizza il prodotto.
+model Collezione {
+  id          String     @id @default(cuid())
+  nome        String // es. "Fioritura Notturna"
+  stagione    String // catalogo in dominio.ts: SS26, FW26, CRUISE26, HOLIDAY26, ...
+  anno        Int
+  tema        String? // concept creativo / mood della collezione
+  descrizione String?
+  // in_sviluppo | in_vendita | archiviata
+  stato       String     @default("in_sviluppo")
+  // Target di marginalità della collezione (%). Alimenta gli allarmi in Costi.
+  margineTarget Float?
+  dataLancio  DateTime?
+  copertina   String? // URL immagine di copertina (mood/lookbook)
+  note        String?
+  prodotti    Prodotto[]
+  creataIl    DateTime   @default(now())
+  aggiornataIl DateTime  @updatedAt
+
+  @@index([stato])
+  @@index([stagione])
+}
+
+// Il prodotto, gestito lungo tutto il suo ciclo di vita.
+model Prodotto {
+  id           String   @id @default(cuid())
+  codice       String   @unique // SKU / codice interno (es. FN-26-001)
+  nome         String
+  collezioneId String?
+  collezione   Collezione? @relation(fields: [collezioneId], references: [id], onDelete: SetNull)
+  // catalogo in dominio.ts: BOUQUET, COMPOSIZIONE, PIANTA, GIFT_BOX, EDIZIONE_LIMITATA, ACCESSORIO, HOME_FRAGRANCE
+  categoria    String   @default("BOUQUET")
+  // Fase del ciclo di vita (PLM): concept | prototipo | approvato | in_vendita | archiviato
+  fase         String   @default("concept")
+  descrizione  String?
+  // — Scheda creativa / PLM —
+  brief        String? // brief creativo iniziale
+  materiali    String? // materiali / fiori / componenti principali (testo)
+  palette      String? // gamma cromatica
+  noteSviluppo String?
+  fornitoreId  String?
+  fornitore    Fornitore? @relation(fields: [fornitoreId], references: [id], onDelete: SetNull)
+  // — Costi & margini (in euro; la variante può aggiungere delta) —
+  costoProduzione Float @default(0) // costo pieno di produzione/approvvigionamento
+  prezzoVendita   Float @default(0) // prezzo di listino consigliato
+  // — Visual merchandising —
+  immagine     String? // URL immagine still-life di prodotto
+  priorita     Int      @default(0) // priorità di esposizione (più alto = più in vista)
+  // — Sincronizzazione Shopify (canale di vendita a valle) —
+  shopifyStato   String  @default("non_pubblicato") // non_pubblicato | bozza | pubblicato
+  shopifyId      String? // id prodotto su Shopify una volta pubblicato
+  shopifySyncIl  DateTime?
+  varianti     Variante[]
+  tappe        TappaSviluppo[]
+  vetrine      VetrinaProdotto[]
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([collezioneId])
+  @@index([categoria])
+  @@index([fase])
+  @@index([shopifyStato])
+}
+
+// Varianti di un prodotto (formato/misura/colore), come una maison declina un capo.
+model Variante {
+  id         String   @id @default(cuid())
+  prodottoId String
+  prodotto   Prodotto @relation(fields: [prodottoId], references: [id], onDelete: Cascade)
+  nome       String // es. "Medium", "Deluxe", "Rosa cipria"
+  sku        String?  @unique
+  // Delta rispetto al prodotto base (possono essere negativi).
+  deltaCosto   Float @default(0)
+  deltaPrezzo  Float @default(0)
+  giacenza     Int   @default(0) // stock disponibile
+  creataIl   DateTime @default(now())
+
+  @@index([prodottoId])
+}
+
+// Storico delle fasi del ciclo di vita del prodotto (pipeline di sviluppo).
+model TappaSviluppo {
+  id         String   @id @default(cuid())
+  prodottoId String
+  prodotto   Prodotto @relation(fields: [prodottoId], references: [id], onDelete: Cascade)
+  da         String
+  a          String
+  nota       String?
+  origine    String   @default("ui")
+  creataIl   DateTime @default(now())
+
+  @@index([prodottoId, creataIl])
+}
+
+// Fornitori / atelier che producono o approvvigionano il prodotto.
+model Fornitore {
+  id        String     @id @default(cuid())
+  nome      String
+  tipo      String? // atelier, vivaio, importatore, packaging, ...
+  citta     String?
+  referente String?
+  email     String?
+  telefono  String?
+  note      String?
+  prodotti  Prodotto[]
+  creatoIl  DateTime   @default(now())
+}
+
+// Visual merchandising: un allestimento (vetrina / lookbook / capsula) in cui i
+// prodotti sono disposti in un ordine curato.
+model Vetrina {
+  id          String   @id @default(cuid())
+  nome        String
+  stagione    String?
+  tipo        String   @default("vetrina") // vetrina | lookbook | homepage | capsule
+  descrizione String?
+  prodotti    VetrinaProdotto[]
+  creataIl    DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
+}
+
+model VetrinaProdotto {
+  id         String   @id @default(cuid())
+  vetrinaId  String
+  vetrina    Vetrina  @relation(fields: [vetrinaId], references: [id], onDelete: Cascade)
+  prodottoId String
+  prodotto   Prodotto @relation(fields: [prodottoId], references: [id], onDelete: Cascade)
+  posizione  Int      @default(0) // ordine di esposizione nell'allestimento
+
+  @@unique([vetrinaId, prodottoId])
+  @@index([vetrinaId, posizione])
+}
