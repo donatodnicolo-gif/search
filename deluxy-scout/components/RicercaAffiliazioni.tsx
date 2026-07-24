@@ -3,7 +3,7 @@
 // partendo da un indirizzo. Chi interessa si prende con la ⭐: entra fra i
 // Selezionati da chiamare — e, se era solo un risultato Google, diventa in quel
 // momento un target vero intestato a chi l'ha preso (assicuraPlace).
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing } from '@/lib/theme';
@@ -29,11 +29,28 @@ const COSA: { valore: FiltroScoperta; label: string }[] = [
   { valore: 'pasticcerie', label: 'Solo pasticcerie' },
 ];
 
-export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
+export function RicercaAffiliazioni({
+  onPreso,
+  centroIniziale,
+}: {
+  onPreso: () => void;
+  centroIniziale?: { lat: number; lng: number; indirizzo: string } | null;
+}) {
   const preferiti = usePreferiti();
   const [centro, setCentro] = useState<Coord | null>(null);
   const [indirizzo, setIndirizzo] = useState<string | null>(null);
   const [cercato, setCercato] = useState(false); // true dopo aver premuto "Cerca"
+
+  // Aperta da un preferito del menu: parte già centrata lì, pronta a cercare.
+  useEffect(() => {
+    if (centroIniziale) {
+      setCentro({ lat: centroIniziale.lat, lng: centroIniziale.lng });
+      setIndirizzo(centroIniziale.indirizzo || null);
+      setCercato(false);
+      setRisultati([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centroIniziale?.lat, centroIniziale?.lng]);
   const [raggio, setRaggio] = useState<number | null>(null); // null = Auto
   const [raggioUsato, setRaggioUsato] = useState<number | null>(null);
   const [cosa, setCosa] = useState<FiltroScoperta>('affiliazioni');
@@ -75,7 +92,9 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
   const preferitoCorrente = useMemo(() => {
     if (!centro) return null;
     return (
-      preferiti.find((f) => Math.abs(f.lat - centro.lat) < 1e-4 && Math.abs(f.lng - centro.lng) < 1e-4) ?? null
+      preferiti.find(
+        (f) => f.contesto === 'affiliazioni' && Math.abs(f.lat - centro.lat) < 1e-4 && Math.abs(f.lng - centro.lng) < 1e-4,
+      ) ?? null
     );
   }, [preferiti, centro]);
 
@@ -83,7 +102,7 @@ export function RicercaAffiliazioni({ onPreso }: { onPreso: () => void }) {
     if (!centro || !indirizzo) return;
     try {
       if (preferitoCorrente) await rimuoviPreferito(preferitoCorrente.id);
-      else await aggiungiPreferito({ etichetta: indirizzo, indirizzo, lat: centro.lat, lng: centro.lng });
+      else await aggiungiPreferito({ etichetta: indirizzo, indirizzo, lat: centro.lat, lng: centro.lng, contesto: 'affiliazioni' });
     } catch (e: any) {
       avvisa('Errore', e?.message ?? 'Operazione non riuscita.');
     }

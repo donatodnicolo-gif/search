@@ -138,8 +138,17 @@ function BtnIndietro() {
 
 // Sotto-menu "Preferiti": gli indirizzi salvati dalla Mappa. Tap = apre la Mappa
 // centrata lì; la × lo rimuove. Non compare se non ce ne sono.
-function SezionePreferiti({ onVai }: { onVai: (p: { lat: number; lng: number; indirizzo: string }) => void }) {
-  const preferiti = usePreferiti();
+function SezionePreferiti({
+  onVai,
+  contesto,
+}: {
+  onVai: (p: { lat: number; lng: number; indirizzo: string }) => void;
+  contesto: 'mappa' | 'affiliazioni';
+}) {
+  const tutti = usePreferiti();
+  // Ogni lista sotto la sua voce: i salvataggi della Ricerca affiliazioni
+  // stanno sotto Affiliazioni, quelli della Mappa sotto la Mappa.
+  const preferiti = tutti.filter((p) => (p.contesto ?? 'mappa') === contesto);
   if (!preferiti.length) return null;
   return (
     <View style={styles.prefWrap}>
@@ -211,9 +220,18 @@ function ContenutoDrawer({ admin, espansa = true, onToggle, ...props }: any) {
               {voci.map((v) => (
                 <View key={v.name}>
                   <VoceMenu voce={v} focused={voceAttiva(v)} espansa={espansa} onPress={() => props.navigation.navigate(v.route ?? v.name, v.params)} />
-                  {/* Preferiti: annidati sotto la voce "Mappa" (solo a menu espanso). */}
+                  {/* Preferiti: annidati sotto la loro voce (solo a menu espanso). */}
                   {v.name === 'mappa' && espansa ? (
-                    <SezionePreferiti onVai={(p) => props.navigation.navigate('mappa', { lat: String(p.lat), lng: String(p.lng), indirizzo: p.indirizzo })} />
+                    <SezionePreferiti
+                      contesto="mappa"
+                      onVai={(p) => props.navigation.navigate('mappa', { lat: String(p.lat), lng: String(p.lng), indirizzo: p.indirizzo })}
+                    />
+                  ) : null}
+                  {v.name === 'affiliazioni' && espansa ? (
+                    <SezionePreferiti
+                      contesto="affiliazioni"
+                      onVai={(p) => props.navigation.navigate('affiliazioni', { lat: String(p.lat), lng: String(p.lng), indirizzo: p.indirizzo })}
+                    />
                   ) : null}
                 </View>
               ))}

@@ -28,7 +28,7 @@ export function usePreferiti(): IndirizzoPreferito[] {
   return v;
 }
 
-export async function aggiungiPreferito(p: { etichetta: string; indirizzo: string; lat: number; lng: number }): Promise<void> {
+export async function aggiungiPreferito(p: { etichetta: string; indirizzo: string; lat: number; lng: number; contesto?: 'mappa' | 'affiliazioni' }): Promise<void> {
   await salvaPreferito(p);
   await refresh();
 }

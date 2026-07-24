@@ -1,7 +1,7 @@
 // Affiliazioni: le attività della linea Re-seller (fioristi/pasticcerie) da reclutare
 // come affiliati su deluxy.it. Per ciascuna: dati anagrafici, bottone "Chiama" (apre il
 // telefono e registra la chiamata) e lo "step" di stato (i 7 valori del registro).
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Linking,
@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing } from '@/lib/theme';
 import { aggiornaStarred, aggiornaStatoAffiliazione, fetchAffiliazioni, registraChiamata } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
@@ -50,6 +50,17 @@ export default function Affiliazioni() {
   // Due modi di lavorare le affiliazioni: l'ELENCO di quelle già censite e la
   // RICERCA sul territorio (scoperta Google) per trovarne di nuove.
   const [tab, setTab] = useState<'elenco' | 'ricerca'>('elenco');
+  // Aperta da un preferito del menu (?lat&lng&indirizzo): vai alla Ricerca, centrata lì.
+  const params = useLocalSearchParams<{ lat?: string; lng?: string; indirizzo?: string }>();
+  const centroIniziale = useMemo(() => {
+    const lat = parseFloat(String(params.lat ?? ''));
+    const lng = parseFloat(String(params.lng ?? ''));
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng, indirizzo: String(params.indirizzo ?? '') };
+  }, [params.lat, params.lng, params.indirizzo]);
+  useEffect(() => {
+    if (centroIniziale) setTab('ricerca');
+  }, [centroIniziale]);
   const nSel = useMemo(() => righe.filter((r) => r.starred).length, [righe]);
 
   const carica = useCallback(async () => {
@@ -129,7 +140,7 @@ export default function Affiliazioni() {
       </View>
 
       {tab === 'ricerca' ? (
-        <RicercaAffiliazioni onPreso={carica} />
+        <RicercaAffiliazioni onPreso={carica} centroIniziale={centroIniziale} />
       ) : (
       <>
       <View style={styles.head}>

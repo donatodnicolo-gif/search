@@ -104,7 +104,9 @@ export default function MappaWeb() {
     return (
       preferiti.find(
         (f) =>
-          Math.abs(f.lat - indirizzoScelto.lat) < 1e-4 && Math.abs(f.lng - indirizzoScelto.lng) < 1e-4,
+          f.contesto !== 'affiliazioni' &&
+          Math.abs(f.lat - indirizzoScelto.lat) < 1e-4 &&
+          Math.abs(f.lng - indirizzoScelto.lng) < 1e-4,
       ) ?? null
     );
   }, [preferiti, indirizzoScelto]);

@@ -182,23 +182,31 @@ export interface IndirizzoPreferito {
   indirizzo: string;
   lat: number;
   lng: number;
+  contesto: 'mappa' | 'affiliazioni'; // da dove è stato salvato (e dove si riapre)
 }
 
 export async function fetchPreferiti(): Promise<IndirizzoPreferito[]> {
   const { data, error } = await supabase
     .from('indirizzi_preferiti')
-    .select('id, etichetta, indirizzo, lat, lng')
+    .select('id, etichetta, indirizzo, lat, lng, contesto')
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as IndirizzoPreferito[];
 }
 
-export async function salvaPreferito(p: { etichetta: string; indirizzo: string; lat: number; lng: number }): Promise<void> {
+export async function salvaPreferito(p: {
+  etichetta: string;
+  indirizzo: string;
+  lat: number;
+  lng: number;
+  contesto?: 'mappa' | 'affiliazioni';
+}): Promise<void> {
   const { error } = await supabase.from('indirizzi_preferiti').insert({
     etichetta: p.etichetta.trim() || p.indirizzo.trim(),
     indirizzo: p.indirizzo.trim(),
     lat: p.lat,
     lng: p.lng,
+    contesto: p.contesto ?? 'mappa',
   });
   if (error) throw error;
 }
