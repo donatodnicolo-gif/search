@@ -2433,6 +2433,15 @@ resultsEl.addEventListener('click', e=>{
   saveStato({ stella: { id: b.dataset.sid, nome: nomeDaScheda(card), on } });
   applyStars();
 });
+// aprire 💬 WhatsApp o 📞 chiamare dalla scheda = contatto avviato: stella automatica
+// (vale anche per i numeri dei referenti del registro); con un ordine caricato la
+// ricerca passa a «in corso», come per «Invia richiesta ordine»
+resultsEl.addEventListener('click', e=>{
+  const link = e.target.closest('a.wa, a.tel'); if(!link) return;
+  const card = e.target.closest('.shop'); if(!card) return;
+  if(orderLoaded && statoRicerca.stato !== 'trovato') setStatoRicerca('in corso');
+  starShop(card);
+});
 
 /* ------------------ render ------------------ */
 function shopCard(d, cat, dist, pid){

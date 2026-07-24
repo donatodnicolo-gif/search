@@ -169,6 +169,12 @@ solo dove siamo e come si lavora.
    Anti-doppioni per sessione (`ultimaRicercaLoggata`): stessa zona ripetuta = 1 evento.
    Con ordine caricato non si registra: c'è già il check di /api/order.
 
+25. **Stella automatica su WhatsApp/chiamata** (24/07): cliccare 💬 (link `a.wa`) o 📞
+   (`a.tel`) su qualsiasi scheda — comprese quelle del registro e i numeri dei referenti —
+   mette da sola la ⭐ «contattato» (`starShop`, dedupe già incluso); con un ordine caricato
+   lo stato ricerca passa a «in corso» (se non già «trovato»), come per «Invia richiesta
+   ordine». Listener dedicato su `resultsEl` accanto a quello delle star-btn.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
