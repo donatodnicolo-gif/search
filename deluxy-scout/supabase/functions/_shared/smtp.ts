@@ -107,13 +107,15 @@ export async function credenzialiPerUtente(admin: any, ownerId: string | null): 
 }
 
 
-// Host alternativi con lo STESSO backend ma un certificato TLS valido: Register.it
-// gira sull'infrastruttura Aruba, e il cert di authsmtp.register.it spesso non è
-// valido per quel nome ("NotValidForName"). Se capita, si riprova su Aruba con
+// Host alternativi con lo STESSO backend ma un certificato TLS valido: le caselle
+// Register.it girano su securemail.pro, e il cert di authsmtp.register.it non è
+// valido per quel nome ("NotValidForName"). L'host giusto è authsmtp.securemail.pro
+// (porta 465): se il primo tentativo fallisce per certificato, si riprova lì con
 // le stesse credenziali (username = email intera).
 const HOST_FALLBACK: Record<string, string> = {
-  'authsmtp.register.it': 'smtps.aruba.it',
-  'smtp.register.it': 'smtps.aruba.it',
+  'authsmtp.register.it': 'authsmtp.securemail.pro',
+  'smtp.register.it': 'authsmtp.securemail.pro',
+  'smtps.aruba.it': 'authsmtp.securemail.pro',
 };
 
 function isCertError(e: unknown): boolean {

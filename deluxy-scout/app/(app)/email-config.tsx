@@ -10,8 +10,8 @@ import { StatusBadge } from '@/components/ui';
 import { rimuoviSmtp, salvaSmtp, statoSmtp, verificaSmtp } from '@/lib/smtp';
 import { conferma, avvisa } from '@/lib/dialoghi';
 
-// Preset comodo: la maggior parte delle caselle Register.it usa questo host.
-const HOST_DEFAULT = 'authsmtp.register.it';
+// Preset: l'host SMTP delle caselle Register.it (backend securemail.pro).
+const HOST_DEFAULT = 'authsmtp.securemail.pro';
 
 export default function EmailConfig() {
   const router = useRouter();
@@ -91,7 +91,7 @@ export default function EmailConfig() {
         if (d.includes('certificate') || d.includes('notvalidforname') || d.includes('invalid peer')) {
           avvisa(
             'Certificato del server non valido',
-            'Il certificato di questo host non è valido per il suo nome. Prova come host «smtps.aruba.it» (Register.it usa l’infrastruttura Aruba), poi salva e riprova.',
+            'Il certificato di questo host non è valido per il suo nome. Usa come host «authsmtp.securemail.pro» (porta 465), poi salva e riprova.',
           );
         } else if (d.includes('auth') || d.includes('535') || d.includes('credential')) {
           avvisa('Accesso rifiutato', 'Email o password non accettate. Su Register.it l’SMTP autenticato dev’essere abilitato per la casella.');
