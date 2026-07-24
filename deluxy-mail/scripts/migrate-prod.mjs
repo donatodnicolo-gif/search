@@ -60,6 +60,11 @@ const stmts = [
        AND (a."creataIl" > b."creataIl" OR (a."creataIl" = b."creataIl" AND a."id" > b."id"))`,
   // Dimensione in byte del messaggio (per l'ordinamento della posta).
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "dimensione" INTEGER`,
+  // Alias dei contatti (un nome tuo per un indirizzo, capito anche dall'AI).
+  `CREATE TABLE IF NOT EXISTS "AliasContatto" (
+     "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "email" TEXT NOT NULL,
+     "alias" TEXT NOT NULL, "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "AliasContatto_utenteId_email_key" ON "AliasContatto"("utenteId","email")`,
   // Riempimento una-tantum sullo STORICO: le mail scaricate prima di questo
   // campo hanno dimensione nulla (= 0), quindi l'ordinamento per dimensione non
   // faceva niente. Qui si stima dai byte del corpo già salvati (testo + HTML):
@@ -329,6 +334,10 @@ const stmts = [
      END IF;
      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='NomeThread_utenteId_fkey') THEN
        ALTER TABLE "NomeThread" ADD CONSTRAINT "NomeThread_utenteId_fkey"
+         FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='AliasContatto_utenteId_fkey') THEN
+       ALTER TABLE "AliasContatto" ADD CONSTRAINT "AliasContatto_utenteId_fkey"
          FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
      END IF;
      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ThreadChiuso_utenteId_fkey') THEN

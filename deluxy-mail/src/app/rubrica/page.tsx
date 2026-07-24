@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { elencoContatti, iniziali } from '@/lib/contatti'
+import { EditaAlias } from '@/components/EditaAlias'
 import { dataBreve } from '@/lib/format'
 import { CercaContatti } from '@/components/CercaContatti'
 import { BottoneAI } from '@/components/BottoneAI'
@@ -89,6 +90,7 @@ export default async function Rubrica({ searchParams }: Props) {
               <thead>
                 <tr>
                   <th>Contatto</th>
+                  <th>Alias</th>
                   <th className="num">Messaggi</th>
                   <th className="num">Da rispondere</th>
                   <th className="num">Ultimo</th>
@@ -113,6 +115,9 @@ export default async function Rubrica({ searchParams }: Props) {
                           </span>
                         </span>
                       </Link>
+                    </td>
+                    <td>
+                      <EditaAlias email={c.email} alias={c.alias ?? ''} />
                     </td>
                     <td className="num">{c.messaggi}</td>
                     <td className="num">

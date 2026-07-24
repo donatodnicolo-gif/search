@@ -18,7 +18,7 @@ import { CHIAVI, leggiImpostazioni, STILE_DEFAULT } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
 import { raggruppa, chiaveThread } from './thread'
 import { prefissa, inoltrato } from './rispondi'
-import { elencoContatti } from './contatti'
+import { elencoContatti, contattiPerAI } from './contatti'
 import { valutaSpam } from './spam'
 import { notificaNuoveMail } from './push'
 import { rilevaLingua } from './rilevaLingua'
@@ -412,7 +412,7 @@ export async function preparaEsecuzione(
       const testo = await scriviMailNuova({
         compito: attivita.titolo,
         dettaglio: attivita.dettaglio,
-        contatti: rubrica.map((c) => ({ email: c.email, nome: c.nome })),
+        contatti: contattiPerAI(rubrica),
         contestoAzienda: ctx.contestoAzienda,
         stileScrittura: ctx.stileScrittura,
         istruzioni: attivita.contattoEmail
@@ -527,7 +527,7 @@ export async function testoRispostaRene(
       // Qui il destinatario l'hai già scelto tu nella schermata: Renè scrive
       // il testo, non decide a chi mandarlo.
       permettiInoltro: false,
-      contatti: rubrica.map((c) => ({ email: c.email, nome: c.nome })),
+      contatti: contattiPerAI(rubrica),
       contestoAzienda: ctx.contestoAzienda,
       stileScrittura: ctx.stileScrittura,
       istruzioni: mirate,
@@ -599,7 +599,7 @@ export async function preparaRispostaDelegata(
         corpoTesto: m.corpoTesto,
       })),
       permettiInoltro: true,
-      contatti: rubrica.map((c) => ({ email: c.email, nome: c.nome })),
+      contatti: contattiPerAI(rubrica),
       contestoAzienda: ctx.contestoAzienda,
       stileScrittura: ctx.stileScrittura,
       istruzioni: mirate,

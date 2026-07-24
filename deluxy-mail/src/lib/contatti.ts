@@ -3,9 +3,32 @@ import { db } from './db'
 export type Contatto = {
   email: string
   nome: string | null
+  /** Alias dato a mano (es. «Nicolò Deluxy»): capito anche dall'AI. */
+  alias?: string | null
   messaggi: number
   ultimo: Date
   daRispondere: number
+}
+
+/** La mappa email→alias dell'utente (email minuscola). Difensiva: senza tabella
+ *  migrata torna vuota. */
+export async function aliasContatti(utenteId: string): Promise<Map<string, string>> {
+  try {
+    const righe = await db.aliasContatto.findMany({ where: { utenteId }, select: { email: true, alias: true } })
+    return new Map(righe.map((r) => [r.email.toLowerCase(), r.alias]))
+  } catch {
+    return new Map()
+  }
+}
+
+/** La rubrica nella forma che serve all'AI: il «nome» include l'alias, così un
+ *  «invia a Nicolò Deluxy» combacia. */
+export function contattiPerAI(contatti: Contatto[]): { email: string; nome: string | null }[] {
+  return contatti.map((c) => ({
+    email: c.email,
+    // Alias davanti (è quello che l'utente dice), nome vero fra parentesi.
+    nome: c.alias ? (c.nome ? `${c.alias} (${c.nome})` : c.alias) : c.nome,
+  }))
 }
 
 /**
@@ -100,7 +123,26 @@ export async function elencoContatti(utenteId: string, cerca?: string): Promise<
     daRispondere: 0,
   }))
 
-  return [...daMittenti, ...daInvii].sort((a, b) => b.ultimo.getTime() - a.ultimo.getTime())
+  const tutti = [...daMittenti, ...daInvii].sort((a, b) => b.ultimo.getTime() - a.ultimo.getTime())
+
+  // Alias: uno per email. Entra nella rubrica e (via i chiamanti) anche nella
+  // lista che va all'AI, così «invia a Nicolò Deluxy» si risolve.
+  const alias = await aliasContatti(utenteId)
+  for (const c of tutti) c.alias = alias.get(c.email.toLowerCase()) ?? null
+
+  // In ricerca: se il testo combacia con un alias, il contatto deve uscire
+  // anche se l'alias non è nel nome/indirizzo.
+  if (testo) {
+    const t = testo.toLowerCase()
+    const giaInRubrica = new Set(tutti.map((c) => c.email.toLowerCase()))
+    for (const [email, al] of alias) {
+      if (al.toLowerCase().includes(t) && !giaInRubrica.has(email)) {
+        tutti.push({ email, nome: null, alias: al, messaggi: 0, ultimo: new Date(0), daRispondere: 0 })
+      }
+    }
+  }
+
+  return tutti
 }
 
 export function iniziali(nome: string | null, email: string): string {

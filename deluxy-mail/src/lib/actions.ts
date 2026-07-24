@@ -561,6 +561,33 @@ export async function rianalizza(id: string): Promise<{ ok: boolean; messaggio: 
  * AI Inbox e su di lui l'AI fa il quadro (mail ricevute e inviate) per
  * definire le prossime attività. Restituisce lo stato risultante.
  */
+/**
+ * Assegna (o toglie) un ALIAS a un contatto: un nome tuo per un indirizzo. Serve
+ * a ritrovarlo in rubrica e a farlo capire all'AI — dicendo «invia a Nicolò
+ * Deluxy» Renè risolve l'alias nell'indirizzo.
+ */
+export async function salvaAlias(email: string, alias: string): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const em = email.trim().toLowerCase()
+  if (!em) return { ok: false, messaggio: 'Indirizzo mancante.' }
+  const a = alias.trim().slice(0, 80)
+  try {
+    if (!a) {
+      await db.aliasContatto.deleteMany({ where: { utenteId, email: em } })
+    } else {
+      await db.aliasContatto.upsert({
+        where: { utenteId_email: { utenteId, email: em } },
+        create: { utenteId, email: em, alias: a },
+        update: { alias: a },
+      })
+    }
+  } catch {
+    return { ok: false, messaggio: 'Non riesco a salvare l’alias (tabella non ancora pronta).' }
+  }
+  revalidatePath('/rubrica')
+  return { ok: true, messaggio: a ? `Alias «${a}» assegnato.` : 'Alias rimosso.' }
+}
+
 export async function cambiaContattoAI(
   email: string,
   attiva: boolean
@@ -1151,19 +1178,39 @@ export async function comandoPostaAnteprima(
   // «Invia mail a info@… chiedendo …»: Renè SCRIVE la mail (non la manda: la
   // regola è che l'AI propone, tu invii) e la apre come bozza pronta.
   if (p.azione === 'invia') {
-    const dest = (p.destinatario || '').trim()
+    const destGrezzo = (p.destinatario || '').trim()
     const cosa = (p.istruzione || '').trim()
-    if (!dest) return { ok: false, messaggio: 'Non ho capito a chi mandarla: indica un indirizzo (es. «invia mail a info@…»).' }
+    if (!destGrezzo) return { ok: false, messaggio: 'Non ho capito a chi mandarla: indica un indirizzo o un nome in rubrica (es. «invia mail a info@…»).' }
     try {
       const account = await db.account.findFirst({ where: { utenteId } })
       if (!account) return { ok: false, messaggio: 'Nessuna casella collegata: aggiungila in Impostazioni.' }
       const imp = await leggiImpostazioni()
       const utente = await db.utente.findUnique({ where: { id: utenteId }, select: { firma: true } })
       const rubrica = await elencoContatti(utenteId)
+
+      // Il destinatario può essere un indirizzo o un NOME/ALIAS: se non è già
+      // un'email, si risolve contro alias e nomi della rubrica.
+      const { contattiPerAI } = await import('./contatti')
+      let dest = destGrezzo
+      if (!/@/.test(destGrezzo)) {
+        const t = destGrezzo.toLowerCase()
+        const trovato =
+          rubrica.find((c) => (c.alias ?? '').toLowerCase() === t) ||
+          rubrica.find((c) => (c.nome ?? '').toLowerCase() === t) ||
+          rubrica.find((c) => (c.alias ?? '').toLowerCase().includes(t)) ||
+          rubrica.find((c) => (c.nome ?? '').toLowerCase().includes(t))
+        if (trovato) dest = trovato.email
+        else
+          return {
+            ok: false,
+            messaggio: `Non trovo «${destGrezzo}» in rubrica: scrivi l'indirizzo email, o assegnagli un alias nella Rubrica.`,
+          }
+      }
+
       const testo = await scriviMailNuova({
         compito: cosa || `Scrivi una mail a ${dest}.`,
         dettaglio: `Manda la mail a: ${dest}.`,
-        contatti: rubrica.map((c) => ({ email: c.email, nome: c.nome })),
+        contatti: contattiPerAI(rubrica),
         contestoAzienda: imp[CHIAVI.contestoAzienda],
         stileScrittura: imp[CHIAVI.stileScrittura],
         firma: utente?.firma || '',

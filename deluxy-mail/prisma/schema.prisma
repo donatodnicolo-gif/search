@@ -63,6 +63,7 @@ model Utente {
   threadAI         ThreadAI[]
   threadChiusi     ThreadChiuso[]
   allegatiCaricati AllegatoCaricato[]
+  aliasContatti    AliasContatto[]
   regoleApp  RegolaApp[]
   inviiApp   InvioApp[]
   eventi     Evento[]
@@ -600,6 +601,21 @@ model ThreadChiuso {
   creatoIl DateTime @default(now())
 
   @@unique([utenteId, chiave])
+}
+
+// ALIAS di un contatto: un nome tuo per un indirizzo ("Nicolò Deluxy" per
+// nicolo.donato@deluxy.it). Serve a ritrovarlo in rubrica E a farlo capire
+// all'AI: dicendo «invia a Nicolò Deluxy» Renè risolve l'alias nell'indirizzo.
+model AliasContatto {
+  id       String @id @default(cuid())
+  utenteId String
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+
+  email    String // l'indirizzo (minuscolo)
+  alias    String
+  creatoIl DateTime @default(now())
+
+  @@unique([utenteId, email])
 }
 
 model NomeThread {
