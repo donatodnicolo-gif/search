@@ -63,7 +63,7 @@ function leggiMetriche() {
     "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_INDIETRO) + "' AND '" + dataIso(0) + "' " +
     "AND campaign.status IN ('ENABLED', 'PAUSED')";
 
-  var risultati = AdsApp.search(query, { apiVersion: "v18" });
+  var risultati = AdsApp.search(query);
   while (risultati.hasNext()) {
     var r = risultati.next();
     var spesa = Number(r.metrics.costMicros || 0) / 1000000;
@@ -163,7 +163,7 @@ function leggiKeywords() {
     "WHERE segments.date DURING LAST_" + GIORNI_COPY + "_DAYS " +
     "AND ad_group_criterion.status != 'REMOVED'";
 
-  var risultati = AdsApp.search(query, { apiVersion: "v18" });
+  var risultati = AdsApp.search(query);
   while (risultati.hasNext()) {
     var r = risultati.next();
     var qi = r.adGroupCriterion.qualityInfo;
@@ -201,7 +201,7 @@ function leggiAnnunci() {
     "AND ad_group_ad_asset_view.field_type IN ('HEADLINE', 'DESCRIPTION')";
 
   var visti = {};
-  var risultati = AdsApp.search(query, { apiVersion: "v18" });
+  var risultati = AdsApp.search(query);
   while (risultati.hasNext()) {
     var r = risultati.next();
     var testo = r.asset && r.asset.textAsset ? r.asset.textAsset.text : null;
@@ -314,7 +314,7 @@ function leggiAsset(vista, livello) {
 
   var risultati;
   try {
-    risultati = AdsApp.search(query, { apiVersion: "v18" });
+    risultati = AdsApp.search(query);
   } catch (e) {
     Logger.log("Vista " + vista + " non disponibile: " + e);
     return righe;
@@ -534,7 +534,7 @@ function leggiApprovazioni() {
 
   var risultati;
   try {
-    risultati = AdsApp.search(query, { apiVersion: "v18" });
+    risultati = AdsApp.search(query);
   } catch (e) {
     Logger.log("Impossibile leggere gli stati di approvazione: " + e);
     return perCampagna;
