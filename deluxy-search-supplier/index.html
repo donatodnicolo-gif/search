@@ -580,10 +580,13 @@
     <div class="col-right">
       <div class="status" id="status"></div>
       <!-- filtro WhatsApp anche qui, in cima ai risultati (gemello di quello nel form) -->
-      <div id="waFilterResults" style="display:none; gap:6px; margin:10px 0">
+      <div id="waFilterResults" style="display:none; gap:6px; margin:10px 0; align-items:center; flex-wrap:wrap">
         <button class="wchip active" data-wa="tutti" type="button">Tutti</button>
         <button class="wchip" data-wa="con" type="button">📱 Con WhatsApp</button>
         <button class="wchip" data-wa="senza" type="button">☎️ Senza WhatsApp</button>
+        <label style="margin-left:auto; display:flex; align-items:center; gap:6px; margin-bottom:0; white-space:nowrap">Risultati
+          <select id="limitResults" style="width:auto"></select>
+        </label>
       </div>
       <div class="results" id="results"></div>
     </div><!-- /col-right -->
@@ -1143,12 +1146,16 @@ $('#btnSide').addEventListener('click', ()=>{
 });
 applySide();
 
-// il «Numero risultati» scelto resta per le ricerche successive (per browser, come la sidebar)
+// il «Numero risultati» scelto resta per le ricerche successive (per browser, come la sidebar);
+// il gemello in cima ai risultati (#limitResults) è sincronizzato e al cambio rilancia la ricerca
 (function(){
-  const sel = $('#limit');
+  const sel = $('#limit'), twin = $('#limitResults');
+  twin.innerHTML = sel.innerHTML;
   const saved = localStorage.getItem('limitPref');
   if(saved && [...sel.options].some(o=>o.value===saved)) sel.value = saved;
-  sel.addEventListener('change', ()=> localStorage.setItem('limitPref', sel.value));
+  twin.value = sel.value;
+  sel.addEventListener('change', ()=>{ twin.value = sel.value; localStorage.setItem('limitPref', sel.value); });
+  twin.addEventListener('change', ()=>{ sel.value = twin.value; localStorage.setItem('limitPref', sel.value); run(); });
 })();
 
 // toggle categorie (solo le chip della ricerca: quelle dei Contatti hanno i loro listener)

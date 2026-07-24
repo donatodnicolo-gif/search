@@ -128,9 +128,11 @@ solo dove siamo e come si lavora.
    cakedesign #1725, consegna in via Odofredo Denari 36) — mentre lasciava passare panifici
    e bar. Dettagli in AI_SPEC §12.9. C'è anche un .gitignore nuovo (`.env*`, `.vercel`).
 
-21-bis. **Numero risultati: opzione 30 + scelta ricordata** (24/07): il select «Numero
-   risultati» arriva a 30 e la scelta resta in `localStorage.limitPref` (per browser, come
-   la sidebar). Caso reale: ordine cakedesign #1720 (Villa Vergano LC) — «Pasticceria
+21-bis. **Numero risultati: opzione 30 + scelta ricordata + gemello sui risultati** (24/07):
+   il select «Numero risultati» arriva a 30 e la scelta resta in `localStorage.limitPref`
+   (per browser, come la sidebar). In cima ai risultati, accanto al filtro WhatsApp, c'è il
+   select gemello `#limitResults` (compare dopo la prima ricerca, come `#waFilterResults`):
+   è sincronizzato col form e al cambio **rilancia subito la ricerca** (`run()`). Caso reale: ordine cakedesign #1720 (Villa Vergano LC) — «Pasticceria
    Gelateria Nessi» (Dolzago) era la 12ª per distanza stradale: le ricerche la trovavano,
    ma il limite a 10 la tagliava. Non era colpa di keyword/tipo.
 
