@@ -153,6 +153,15 @@ Dove si vede: colonna **Credito** + **Scaduto** e filtro «Credito» in `/partne
 
 **API interne (NON per altri progetti, protette da login):** `/api/recap` (recap AI), `/api/sepa` (export bonifici pain.001 + CSV), `/api/fic/authorize`+`/api/fic/callback` (OAuth Fatture in Cloud).
 
+### Saldo parziale delle fatture (23/07/2026)
+
+Una fattura servizi non è più solo pagata/non pagata: si può incassare **un acconto** e gestire il **residuo** in tutta l'app. Nuovo campo `FatturaServizio.incassato` (IVA inclusa); saldata ⇒ `incassato = totale`, riaperta ⇒ `incassato = 0`.
+
+- **Motore** (`calc.ts`): `residuoFattura(f) = pagata ? 0 : max(0, ivato − incassato)`, `incassatoFattura`, `parzialmenteIncassata`. `serviziNonPagati` ora somma il **residuo**, non tutto l'IVATO → dashboard, scadenzario, scheda partner, rolling e API riflettono i saldi parziali. Aging in `stato-credito.ts` idem.
+- **Azione** `incassaFatturaParziale(id, fd)` (in `actions.ts`): è un INCASSO (entrata) → **niente codice di conferma**; se copre tutto il residuo chiama `segnaFatturaPagata(true)`, altrimenti aggiorna `incassato`, registra/aggiorna il riferimento `Pagamento` (importo = incassato totale) e allinea FIC.
+- **Fatture in Cloud**: `ficAllineaIncassoParziale(numero, incassato, totale)` e `ficIncassaParzialePerId(ficId, importo)` riscrivono i `payments_list` come «parte paid / resto not_paid», così l'`amount_due` su FIC scende. `ficFatture` ora espone `residuo`/`incassato` (da `payments_list`).
+- **UI**: form «Registra un incasso» (tutto o acconto) nella scheda fattura; colonna **Residuo** + «Incassa…»/«Salda tutto» in scadenzario, dashboard (fatture scadute) e **`/registrazioni/fatture`** (che scrive l'acconto direttamente su FIC); badge oro «Incassata in parte» / «Residuo …» nella scheda partner e nelle liste.
+
 ### Conferma dei pagamenti con codice via email (23/07/2026)
 
 Registrare un'**uscita di denaro** non è più immediato: l'app congela l'operazione, manda un **codice di 6 cifre** via email e la esegue solo dopo che il codice è stato digitato in `/conferma/[id]`.

@@ -23,7 +23,7 @@
 // modificabili dall'app in Impostazioni → Regole degli stati e vivono in
 // `src/lib/regole-stati.ts`. Qui c'è solo il motore che le applica.
 
-import { ivato } from "./calc";
+import { ivato, residuoFattura } from "./calc";
 import { prisma } from "./db";
 import { leggiRegole, REGOLE_CREDITO_DEFAULT, type RegoleCredito } from "./regole-stati";
 
@@ -33,6 +33,7 @@ export type FatturaCredito = {
   imponibile: number;
   aliquotaIva: number;
   pagata: boolean;
+  incassato?: number | null; // incasso parziale già ricevuto (IVA inclusa)
   compensata: boolean;
   emissione: Date | null;
   scadenza: Date | null;
@@ -92,7 +93,9 @@ export function aging(
 ): Aging {
   const a: Aging = { correnti: 0, f30: 0, f60: 0, f90: 0, oltre90: 0, senzaScadenza: 0 };
   for (const f of aperte(fatture)) {
-    const v = ivato(f);
+    // con i saldi parziali l'esposizione è il RESIDUO, non tutto il totale
+    const v = residuoFattura(f);
+    if (v < 0.005) continue;
     if (!f.scadenza) { a.senzaScadenza += v; continue; }
     const g = giorni(f.scadenza, oggi);
     if (g <= 0) a.correnti += v;
@@ -136,7 +139,7 @@ export function schedaCredito(
   const scadute = ap.filter((f) => f.scadenza && giorni(f.scadenza, oggi) > 0);
   const giorniRitardoMax = Math.max(0, ...scadute.map((f) => giorni(f.scadenza!, oggi)));
   const ritardoMedioAperto =
-    mediaPesata(scadute.map((f) => ({ g: giorni(f.scadenza!, oggi), peso: ivato(f) }))) ?? 0;
+    mediaPesata(scadute.map((f) => ({ g: giorni(f.scadenza!, oggi), peso: residuoFattura(f) }))) ?? 0;
 
   // Storico: fatture incassate con data di pagamento e scadenza note.
   const chiuse = fatture.filter((f) => f.pagata && f.dataPagamento && f.scadenza && f.imponibile > 0);
@@ -246,7 +249,7 @@ function azioneConsigliata(stato: StatoCredito, scaduto: number): string {
 
 const CAMPI = {
   id: true, numero: true, imponibile: true, aliquotaIva: true,
-  pagata: true, compensata: true, emissione: true, scadenza: true, dataPagamento: true,
+  pagata: true, incassato: true, compensata: true, emissione: true, scadenza: true, dataPagamento: true,
 } as const;
 
 function daMesiFa(mesi: number, oggi = new Date()): Date {

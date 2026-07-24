@@ -148,6 +148,10 @@ model FatturaServizio {
   imponibile    Float // netto IVA
   aliquotaIva   Float              @default(22)
   pagata        Boolean            @default(false)
+  // Incasso PARZIALE già ricevuto su questa fattura, IVA inclusa. 0 = niente
+  // incassato; quando raggiunge il totale IVATO la fattura è saldata (pagata).
+  // Il residuo da incassare è (totale IVATO − incassato).
+  incassato     Float              @default(0)
   // In compensazione: la fattura NON viene pagata in banca, ma scalata dai
   // prossimi importi dovuti al partner finché non è coperta.
   compensata    Boolean            @default(false)

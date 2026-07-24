@@ -8,7 +8,7 @@ import { feeApplicabile, feeDaTariffe } from "./fee";
 import { risolviAnagrafica, contattoAmministrativo, aggiornaAnagrafica, scritturaAnagraficheAttiva, statoAnalisiDaClienteAnno, type CampiAnagrafica } from "./anagrafiche";
 import { ivato, nomeMese } from "./calc";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
-import { ficAllineaStatoFattura } from "./fic";
+import { ficAllineaStatoFattura, ficAllineaIncassoParziale } from "./fic";
 import { registra } from "./registro";
 import { euro } from "./format";
 import { aggiornaPagamentoDaSaldo, eseguiBonificoMese } from "./pagamenti-core";
@@ -269,7 +269,12 @@ export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagame
   const autoIncasso = pagata && prima.partner.compensazione;
   const f = await prisma.fatturaServizio.update({
     where: { id },
-    data: { pagata, compensata: false, dataPagamento: dp, incassoRegistrato: autoIncasso },
+    data: {
+      pagata, compensata: false, dataPagamento: dp, incassoRegistrato: autoIncasso,
+      // saldata → incassato pari al totale; riaperta → azzera l'incasso parziale,
+      // così il residuo torna pieno e coerente con lo stato.
+      incassato: pagata ? +ivato(prima).toFixed(2) : 0,
+    },
     include: { partner: true },
   });
   if (autoIncasso) {
@@ -328,6 +333,52 @@ export async function segnaFatturaCompensata(id: string, compensata: boolean) {
     categoria: "fatture", entita: "fattura", entitaId: f.id,
   });
   revalidateAll();
+}
+
+// Registra un INCASSO PARZIALE su una fattura: si è ricevuta una parte
+// dell'importo, il resto resta da incassare. È un'entrata di denaro (incasso dal
+// partner), quindi NON passa dal codice di conferma. Se l'incasso copre tutto il
+// residuo la fattura diventa saldata. `importo` è IVA inclusa.
+export async function incassaFatturaParziale(id: string, fd: FormData) {
+  const importo = n(fd, "importo");
+  const dataPag = d(fd, "dataPagamento") ?? new Date();
+  const f = await prisma.fatturaServizio.findUnique({ where: { id }, include: { partner: true } });
+  if (!f) return;
+  const totale = +ivato(f).toFixed(2);
+  if (importo == null || importo <= 0) {
+    redirect(`/fatture/${id}?erroreIncasso=${encodeURIComponent("Indica un importo maggiore di zero.")}`);
+  }
+  const giaIncassato = f.incassato ?? 0;
+  const nuovoIncassato = +Math.min(totale, giaIncassato + importo).toFixed(2);
+  const saldata = totale - nuovoIncassato <= 0.005;
+
+  // Se copre tutto il residuo, è una saldatura piena: passa dalla funzione unica
+  // (saldo del mese in compensazione, registro, FIC pieno, cache).
+  if (saldata) {
+    await segnaFatturaPagata(id, true, dataPag);
+    redirect(`/fatture/${id}?incasso=saldata`);
+  }
+
+  await prisma.fatturaServizio.update({ where: { id }, data: { incassato: nuovoIncassato } });
+  // riferimento nel registro Pagamenti: importo = incassato totale finora
+  await registraPagamento({
+    tipo: "fattura_servizi",
+    direzione: "in",
+    importo: nuovoIncassato,
+    data: dataPag,
+    origineId: f.id,
+    controparte: f.partner.nome,
+    partnerId: f.partnerId,
+    descrizione: `Acconto fattura ${f.numero ?? "s.n."} — ${f.partner.nome}`,
+  });
+  // su Fatture in Cloud: parte saldata, resto ancora da incassare
+  await ficAllineaIncassoParziale(f.numero, nuovoIncassato, totale, { anno: f.anno, data: dataPag });
+  await registra({
+    azione: `Incasso parziale su fattura ${f.numero ?? "s.n."}: ${euro(importo)} (residuo ${euro(totale - nuovoIncassato)})`,
+    categoria: "pagamenti", entita: "fattura", entitaId: f.id, partner: f.partner.nome,
+  });
+  revalidateAll();
+  redirect(`/fatture/${id}?incasso=parziale`);
 }
 
 export async function deleteFattura(id: string) {

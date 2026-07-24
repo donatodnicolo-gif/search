@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
-import { ivato, nomeMese, MESI } from "@/lib/calc";
-import { updateFattura, segnaFatturaPagata, deleteFattura } from "@/lib/actions";
+import { ivato, residuoFattura, incassatoFattura, parzialmenteIncassata, nomeMese, MESI } from "@/lib/calc";
+import { updateFattura, segnaFatturaPagata, deleteFattura, incassaFatturaParziale } from "@/lib/actions";
 import { ScadenzaRapida } from "@/components/ScadenzaRapida";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export default async function FatturaDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ salvato?: string; fic?: string }>;
+  searchParams: Promise<{ salvato?: string; fic?: string; incasso?: string; erroreIncasso?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -31,6 +31,11 @@ export default async function FatturaDetail({
   const scaduta = !fattura.pagata && fattura.scadenza && fattura.scadenza < oggi;
   const action = updateFattura.bind(null, id);
   const dataIso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
+  const totale = ivato(fattura);
+  const residuo = residuoFattura(fattura);
+  const giaIncassato = incassatoFattura(fattura);
+  const parziale = parzialmenteIncassata(fattura);
+  const oggiIso = oggi.toISOString().slice(0, 10);
 
   return (
     <>
@@ -52,6 +57,8 @@ export default async function FatturaDetail({
             <span className="badge green"><span className="dot" />
               Saldata{fattura.dataPagamento ? ` il ${dataIt(fattura.dataPagamento)}` : ""}
             </span>
+          ) : parziale ? (
+            <span className="badge gold"><span className="dot" />Incassata in parte · residuo {euro(residuo)}</span>
           ) : scaduta ? (
             <span className="badge red"><span className="dot" />Scaduta il {dataIt(fattura.scadenza)}</span>
           ) : (
@@ -85,6 +92,19 @@ export default async function FatturaDetail({
           </span>
         </div>
       )}
+      {sp.incasso && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green">
+            <span className="dot" />
+            {sp.incasso === "saldata" ? "Incasso registrato: fattura ora saldata" : "Incasso parziale registrato"}
+          </span>
+        </div>
+      )}
+      {sp.erroreIncasso && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.erroreIncasso)}</span>
+        </div>
+      )}
 
       <div className="kpi-grid">
         <div className="kpi">
@@ -93,8 +113,17 @@ export default async function FatturaDetail({
           <div className="kpi-sub">IVA {fattura.aliquotaIva}%</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Totale IVA inclusa</div>
-          <div className="kpi-value">{euro(ivato(fattura))}</div>
+          <div className="kpi-label">{fattura.pagata ? "Totale IVA inclusa" : "Residuo da incassare"}</div>
+          <div className={`kpi-value ${!fattura.pagata && residuo > 0.005 ? "neg" : ""}`}>
+            {euro(fattura.pagata ? totale : residuo)}
+          </div>
+          <div className="kpi-sub">
+            {fattura.pagata
+              ? "saldata"
+              : parziale
+                ? `su ${euro(totale)} · già incassato ${euro(giaIncassato)}`
+                : `totale ${euro(totale)}`}
+          </div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Scadenza</div>
@@ -105,11 +134,35 @@ export default async function FatturaDetail({
         </div>
       </div>
 
+      {!fattura.pagata && (
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+            <h2 className="section-title" style={{ margin: 0 }}>Registra un incasso</h2>
+            <span className="muted" style={{ fontSize: 13 }}>Residuo da incassare: <strong>{euro(residuo)}</strong></span>
+          </div>
+          <p style={{ fontSize: 13.5, color: "var(--text-secondary)", margin: "8px 0 12px" }}>
+            Incassa <strong>tutto</strong> (fattura saldata) oppure un <strong>acconto</strong>: il resto
+            rimane da incassare qui, nello scadenzario e nella scheda partner.
+          </p>
+          <form action={incassaFatturaParziale.bind(null, id)} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div>
+              <label className="field-label">Importo incassato € (IVA incl.)</label>
+              <input type="number" name="importo" step="0.01" min="0.01" max={residuo.toFixed(2)} defaultValue={residuo.toFixed(2)} required style={{ width: 160 }} />
+            </div>
+            <div>
+              <label className="field-label">Data</label>
+              <input type="date" name="dataPagamento" defaultValue={oggiIso} />
+            </div>
+            <button className="btn primary" type="submit">Registra incasso</button>
+          </form>
+        </div>
+      )}
+
       <div className="page-actions" style={{ marginBottom: 16 }}>
         {!fattura.pagata ? (
           <>
             <form action={segnaFatturaPagata.bind(null, id, true, undefined)}>
-              <button className="btn primary" type="submit">Segna saldata oggi</button>
+              <button className="btn secondary" type="submit" title="Segna l'intera fattura saldata con data odierna">Segna saldata oggi</button>
             </form>
             <Link href={`/solleciti/${id}`} className="btn secondary">Invia sollecito</Link>
           </>

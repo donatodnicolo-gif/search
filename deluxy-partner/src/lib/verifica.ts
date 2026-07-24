@@ -1,6 +1,6 @@
 import { prisma } from "./db";
 import { riepilogoPartner, ANNO_CORRENTE } from "./queries";
-import { ivato } from "./calc";
+import { ivato, residuoFattura } from "./calc";
 import { normalizza, tokenPartner } from "./riconciliazione";
 
 // Situazione finanziaria sintetica di un partner, condivisa dall'API di verifica
@@ -95,10 +95,11 @@ export async function verificaPartner(query: string): Promise<EsitoVerifica> {
   const { rolling, mesi, fatture } = await riepilogoPartner(partner.id, anno);
   const oggi = new Date();
   const fattureAperteList = fatture.filter((f) => !f.pagata && f.imponibile > 0);
-  const totaleIvato = fattureAperteList.reduce((a, f) => a + ivato(f), 0);
+  // con i saldi parziali gli importi aperti sono i RESIDUI da incassare
+  const totaleIvato = fattureAperteList.reduce((a, f) => a + residuoFattura(f), 0);
   const scaduto = fattureAperteList
     .filter((f) => f.scadenza && f.scadenza < oggi)
-    .reduce((a, f) => a + ivato(f), 0);
+    .reduce((a, f) => a + residuoFattura(f), 0);
   void mesi;
 
   return {

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
-import { nomeMese, commissione, dovutoVendita, ivato, MESI } from "@/lib/calc";
+import { nomeMese, commissione, dovutoVendita, ivato, residuoFattura, incassatoFattura, parzialmenteIncassata, MESI } from "@/lib/calc";
 import { segnaFatturaPagata, segnaFatturaCompensata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
@@ -428,14 +428,21 @@ export default async function PartnerDetail({
                             </>
                           ) : (
                             <>
-                              <span className="badge orange"><span className="dot" />Da incassare</span>
+                              {parzialmenteIncassata(f) ? (
+                                <span className="badge gold"><span className="dot" />Residuo {euro(residuoFattura(f))}</span>
+                              ) : (
+                                <span className="badge orange"><span className="dot" />Da incassare</span>
+                              )}
+                              <Link href={`/fatture/${f.id}`} className="btn small secondary" title="Registra un incasso totale o parziale">
+                                Incassa…
+                              </Link>
                               <form action={segnaFatturaPagata.bind(null, f.id, true, undefined)} style={{ display: "inline" }}>
                                 <button
                                   className="btn small secondary"
                                   type="submit"
-                                  title="Bonifico RICEVUTO in banca: registra l'incasso; il dovuto vendite resta interamente da pagare al partner"
+                                  title="Bonifico RICEVUTO in banca per l'intero importo: registra l'incasso; il dovuto vendite resta interamente da pagare al partner"
                                 >
-                                  Saldata
+                                  Salda tutto
                                 </button>
                               </form>
                               <form action={segnaFatturaCompensata.bind(null, f.id, true)} style={{ display: "inline" }}>
@@ -453,6 +460,9 @@ export default async function PartnerDetail({
                       </td>
                       <td className="num">
                         {euro(f.imponibile)} <span className="muted">+IVA → {euro(ivato(f))}</span>
+                        {parzialmenteIncassata(f) && (
+                          <div className="muted" style={{ fontSize: 11 }}>incassato {euro(incassatoFattura(f))}</div>
+                        )}
                       </td>
                     </tr>
                   ))}

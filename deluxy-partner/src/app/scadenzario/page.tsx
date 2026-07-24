@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
-import { nomeMese, ivato } from "@/lib/calc";
+import { nomeMese, ivato, residuoFattura, incassatoFattura, parzialmenteIncassata } from "@/lib/calc";
 import { segnaFatturaPagata } from "@/lib/actions";
 import { ThSort, ordina } from "@/components/ThSort";
 import { schedeTutti, sommaAging, GRAVITA, type SchedaCredito } from "@/lib/stato-credito";
@@ -51,7 +51,7 @@ export default async function Scadenzario({
     numero: (f) => f.numero,
     tipologia: (f) => f.tipologia.nome,
     scadenza: (f) => f.scadenza,
-    importo: (f) => ivato(f),
+    importo: (f) => residuoFattura(f),
   };
   // default: nome partner (A→Z); scegliendo una colonna vale quella
   const fatture = ordina(aperte, campiF[sp.sort ?? ""] ?? campiF.partner, sp.sort ? sp.dir : "asc");
@@ -157,7 +157,7 @@ export default async function Scadenzario({
         <div className="kpi">
           <div className="kpi-label">Fatture scadute</div>
           <div className={`kpi-value ${scadute.length ? "neg" : "pos"}`}>{scadute.length}</div>
-          <div className="kpi-sub">{euro(scadute.reduce((a, f) => a + ivato(f), 0))} IVA inclusa</div>
+          <div className="kpi-sub">{euro(scadute.reduce((a, f) => a + residuoFattura(f), 0))} residuo IVA inclusa</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Bonifici partner pendenti</div>
@@ -238,7 +238,7 @@ export default async function Scadenzario({
                   <ThSort label="N°" campo="numero" sp={sp} path="/scadenzario" />
                   <ThSort label="Tipologia" campo="tipologia" sp={sp} path="/scadenzario" />
                   <ThSort label="Scadenza" campo="scadenza" sp={sp} path="/scadenzario" />
-                  <ThSort label="IVA incl." campo="importo" sp={sp} path="/scadenzario" num />
+                  <ThSort label="Residuo (IVA incl.)" campo="importo" sp={sp} path="/scadenzario" num />
                   <th></th>
                 </tr>
               </thead>
@@ -260,11 +260,19 @@ export default async function Scadenzario({
                         <span className="badge blue"><span className="dot" />{dataIt(f.scadenza)}</span>
                       )}
                     </td>
-                    <td className="num">{euro(ivato(f))}</td>
+                    <td className="num">
+                      {euro(residuoFattura(f))}
+                      {parzialmenteIncassata(f) && (
+                        <div className="muted" style={{ fontSize: 11.5 }}>su {euro(ivato(f))} · incassato {euro(incassatoFattura(f))}</div>
+                      )}
+                    </td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+                        <Link className="btn small secondary" href={`/fatture/${f.id}`} title="Registra un incasso totale o parziale">
+                          Incassa…
+                        </Link>
                         <form action={segnaFatturaPagata.bind(null, f.id, true, undefined)} style={{ display: "inline" }}>
-                          <button className="btn small secondary" type="submit">Segna saldata</button>
+                          <button className="btn small secondary" type="submit" title="Segna tutta la fattura saldata">Salda tutto</button>
                         </form>
                         <Link
                           className="btn small primary"

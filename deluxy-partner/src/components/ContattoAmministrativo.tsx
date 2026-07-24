@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Partner } from "@prisma/client";
 import { dataIt, euro } from "@/lib/format";
-import { ivato } from "@/lib/calc";
+import { ivato, residuoFattura } from "@/lib/calc";
 import { risolviAnagrafica, contattoAmministrativo } from "@/lib/anagrafiche";
 import { importaContattoAmministrativo } from "@/lib/actions";
 
@@ -11,6 +11,7 @@ type FatturaAperta = {
   imponibile: number;
   aliquotaIva: number;
   pagata: boolean;
+  incassato?: number | null;
   scadenza: Date | null;
   sollecitoInviatoIl: Date | null;
 };
@@ -105,7 +106,7 @@ export async function ContattoAmministrativo({
               <strong>{fattureAperte.length}</strong> fatture aperte
               {scadute.length > 0 && (
                 <span className="badge red" style={{ marginLeft: 8 }}>
-                  <span className="dot" />{scadute.length} scadute · {euro(scadute.reduce((a, f) => a + ivato(f), 0))}
+                  <span className="dot" />{scadute.length} scadute · {euro(scadute.reduce((a, f) => a + residuoFattura(f), 0))}
                 </span>
               )}
               {destinatario ? (
@@ -135,7 +136,12 @@ export async function ContattoAmministrativo({
                           <span className="badge blue"><span className="dot" />{dataIt(f.scadenza)}</span>
                         )}
                       </td>
-                      <td className="num">{euro(ivato(f))}</td>
+                      <td className="num">
+                        {euro(residuoFattura(f))}
+                        {(f.incassato ?? 0) > 0.005 && (
+                          <div className="muted" style={{ fontSize: 11 }}>su {euro(ivato(f))}</div>
+                        )}
+                      </td>
                       <td className="muted">{f.sollecitoInviatoIl ? dataIt(f.sollecitoInviatoIl) : "mai"}</td>
                       <td style={{ whiteSpace: "nowrap" }}>
                         <Link className="btn small primary" href={`/solleciti/${f.id}?da=partner`}>

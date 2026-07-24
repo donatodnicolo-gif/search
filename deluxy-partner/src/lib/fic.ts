@@ -174,6 +174,8 @@ export type FicFattura = {
   iva: number;
   totale: number;
   pagata: boolean; // amount_due == 0
+  residuo: number; // quanto resta da incassare (IVA inclusa)
+  incassato: number; // quanto già incassato (IVA inclusa) — saldi parziali
   scadenza: string | null; // prossima scadenza non pagata
   urlDettaglio: string | null; // link al documento su Fatture in Cloud
 };
@@ -239,6 +241,8 @@ export async function ficFatture(opts?: {
         .filter((x) => x.status !== "paid" && x.status !== "settled")
         .reduce((a, x) => a + (x.amount ?? 0), 0);
       const pagata = pagamenti.length > 0 && daPagare <= 0.005;
+      // residuo = quanto resta da incassare (i saldi parziali lo abbassano)
+      const residuo = pagamenti.length > 0 ? Math.max(0, +daPagare.toFixed(2)) : d.amount_gross;
       const prossima = pagamenti
         .filter((x) => x.status === "not_paid")
         .sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? ""))[0];
@@ -251,6 +255,8 @@ export async function ficFatture(opts?: {
         iva: d.amount_vat,
         totale: d.amount_gross,
         pagata,
+        residuo,
+        incassato: +(d.amount_gross - residuo).toFixed(2),
         scadenza: prossima?.due_date ?? null,
         urlDettaglio: d.url ?? null,
       });
@@ -658,6 +664,42 @@ async function ficContoSaldo(companyId: number): Promise<number | null> {
   return conto;
 }
 
+// Registra un incasso PARZIALE su una fattura FIC identificata dal suo id: legge
+// lo stato attuale, aggiunge `importo` al già incassato e riscrive i pagamenti
+// come «parte pagata / resto da incassare». Se copre tutto, la fattura risulta
+// saldata. Ritorna il residuo dopo l'incasso, o null se qualcosa va storto.
+export async function ficIncassaParzialePerId(id: number, importo: number, data?: Date): Promise<number | null> {
+  const { companyId } = await ficStato();
+  if (!companyId) throw new Error("Fatture in Cloud non collegato.");
+  const oggi = (data ?? new Date()).toISOString().slice(0, 10);
+  const cur = await ficFetch<{
+    data: { payments_list?: FicPagamento[]; amount_gross?: number };
+  }>(`/c/${companyId}/issued_documents/${id}`);
+  const payments = cur.data.payments_list ?? [];
+  const totale = +(cur.data.amount_gross ?? 0).toFixed(2);
+  const daPagare = payments.length
+    ? payments.filter((p) => p.status !== "paid" && p.status !== "settled").reduce((a, p) => a + p.amount, 0)
+    : totale;
+  const giaPagato = +(totale - daPagare).toFixed(2);
+  const nuovoIncassato = +Math.min(totale, giaPagato + importo).toFixed(2);
+  const residuo = +(totale - nuovoIncassato).toFixed(2);
+  const scad = payments.find((p) => p.due_date)?.due_date ?? oggi;
+  const conto = await ficContoSaldo(companyId);
+  const righe =
+    residuo <= 0.005
+      ? [{ amount: totale, due_date: scad, status: "paid", paid_date: oggi, ...(conto ? { payment_account: { id: conto } } : {}) }]
+      : [
+          { amount: nuovoIncassato, due_date: scad, status: "paid", paid_date: oggi, ...(conto ? { payment_account: { id: conto } } : {}) },
+          { amount: residuo, due_date: scad, status: "not_paid" },
+        ];
+  await ficFetch(`/c/${companyId}/issued_documents/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ data: { payments_list: righe } }),
+  });
+  revalidateTag("fic");
+  return residuo;
+}
+
 // Trova su FIC il documento corrispondente a un numero interno tipo "474/2026"
 // (o "474"): ritorna l'id FIC, oppure null se non c'è.
 export async function ficIdDaNumero(numero: string, annoFallback?: number): Promise<number | null> {
@@ -697,6 +739,48 @@ export async function ficAllineaStatoFattura(
   } catch (e) {
     // silenzioso per l'utente, ma tracciato nei log (Vercel) per capire perché
     console.warn(`[fic] stato incasso non allineato per la fattura ${numero}:`, (e as Error).message);
+    return false;
+  }
+}
+
+// Riflette su Fatture in Cloud un INCASSO PARZIALE: la fattura resta aperta ma
+// con parte già saldata. Riscrive i payments_list come due righe pulite — una
+// «paid» pari all'incassato e una «not_paid» pari al residuo — così su FIC
+// l'importo dovuto (amount_due) scende. Best-effort e non bloccante come sopra.
+export async function ficAllineaIncassoParziale(
+  numero: string | null | undefined,
+  incassato: number,
+  totaleIvato: number,
+  opts?: { anno?: number; data?: Date | null }
+): Promise<boolean> {
+  if (!numero) return false;
+  const residuo = +(totaleIvato - incassato).toFixed(2);
+  // se copre tutto o niente, è il caso già gestito dallo stato pieno
+  if (incassato <= 0.005) return ficAllineaStatoFattura(numero, false, opts);
+  if (residuo <= 0.005) return ficAllineaStatoFattura(numero, true, opts);
+  try {
+    const stato = await ficStato();
+    if (!stato.collegato || !stato.companyId) return false;
+    const id = await ficIdDaNumero(numero, opts?.anno);
+    if (!id) return false;
+    const oggi = (opts?.data ?? new Date()).toISOString().slice(0, 10);
+    const cur = await ficFetch<{ data: { payments_list?: FicPagamento[] } }>(
+      `/c/${stato.companyId}/issued_documents/${id}`
+    );
+    const scad = cur.data.payments_list?.find((p) => p.due_date)?.due_date ?? oggi;
+    const conto = await ficContoSaldo(stato.companyId);
+    const nuovi = [
+      { amount: +incassato.toFixed(2), due_date: scad, status: "paid", paid_date: oggi, ...(conto ? { payment_account: { id: conto } } : {}) },
+      { amount: residuo, due_date: scad, status: "not_paid" },
+    ];
+    await ficFetch(`/c/${stato.companyId}/issued_documents/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ data: { payments_list: nuovi } }),
+    });
+    revalidateTag("fic");
+    return true;
+  } catch (e) {
+    console.warn(`[fic] incasso parziale non allineato per la fattura ${numero}:`, (e as Error).message);
     return false;
   }
 }

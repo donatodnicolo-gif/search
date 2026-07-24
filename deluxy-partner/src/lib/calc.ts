@@ -23,6 +23,8 @@ export type FatturaLike = {
   imponibile: number;
   aliquotaIva: number;
   pagata: boolean;
+  // incasso parziale già ricevuto (IVA inclusa); assente = 0 per i dati vecchi
+  incassato?: number | null;
 };
 
 export type VenditaLike = {
@@ -49,11 +51,29 @@ export function ivato(f: FatturaLike): number {
   return f.imponibile * (1 + f.aliquotaIva / 100);
 }
 
+// Quanto già incassato su una fattura, IVA inclusa (0 per i dati senza il campo).
+export function incassatoFattura(f: FatturaLike): number {
+  return f.incassato ?? 0;
+}
+
+// Residuo ancora da incassare su una fattura (IVA inclusa): 0 se saldata,
+// altrimenti totale IVATO meno l'eventuale incasso parziale. Mai negativo.
+export function residuoFattura(f: FatturaLike): number {
+  if (f.pagata) return 0;
+  const r = ivato(f) - incassatoFattura(f);
+  return r > 0.005 ? r : 0;
+}
+
+// true se la fattura ha un incasso parziale ma non è ancora saldata.
+export function parzialmenteIncassata(f: FatturaLike): boolean {
+  return !f.pagata && incassatoFattura(f) > 0.005;
+}
+
 export type RiepilogoMese = {
   compensazione: boolean;
   serviziNetto: number; // imponibile fatture servizi
   serviziIvato: number;
-  serviziNonPagati: number; // ivato delle fatture non saldate
+  serviziNonPagati: number; // RESIDUO da incassare delle fatture non saldate (IVATO − incassi parziali)
   vendite: number; // incasso lordo vendite come vendor
   commissioni: number; // netto IVA
   dovutoVendite: number; // dovuto al partner (netto commissioni ivate)
@@ -80,7 +100,9 @@ export function riepilogoMese(
 ): RiepilogoMese {
   const serviziNetto = fatture.reduce((a, f) => a + f.imponibile, 0);
   const serviziIvato = fatture.reduce((a, f) => a + ivato(f), 0);
-  const serviziNonPagati = fatture.filter((f) => !f.pagata).reduce((a, f) => a + ivato(f), 0);
+  // Residuo da incassare: conta solo la parte NON ancora incassata delle fatture
+  // aperte (con i saldi parziali, non tutto il totale IVATO).
+  const serviziNonPagati = fatture.reduce((a, f) => a + residuoFattura(f), 0);
   const venditeTot = vendite.reduce((a, v) => a + v.incassoLordo, 0);
   const commissioniTot = vendite.reduce((a, v) => a + commissione(v), 0);
   const dovutoVenditeTot = vendite.reduce((a, v) => a + dovutoVendita(v), 0);

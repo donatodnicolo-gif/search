@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { ANNO_CORRENTE } from "@/lib/queries";
-import { ficStato, ficFattureCached, ficSegnaFatturaPagata, FicError, type FicFattura } from "@/lib/fic";
+import { ficStato, ficFattureCached, ficSegnaFatturaPagata, ficIncassaParzialePerId, FicError, type FicFattura } from "@/lib/fic";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,24 @@ async function cambiaStatoFattura(id: number, pagata: boolean) {
   }
   revalidatePath("/registrazioni/fatture", "layout");
   redirect(`/registrazioni/fatture?statoOk=${pagata ? "saldata" : "daincassare"}`);
+}
+
+// Registra un incasso parziale su una fattura FIC: parte saldata, resto ancora
+// da incassare. L'importo è IVA inclusa.
+async function incassaParziale(id: number, fd: FormData) {
+  "use server";
+  const importo = parseFloat(String(fd.get("importo") ?? "").replace(",", "."));
+  if (!Number.isFinite(importo) || importo <= 0) {
+    redirect("/registrazioni/fatture?errore=" + encodeURIComponent("Indica un importo maggiore di zero."));
+  }
+  let residuo: number | null = null;
+  try {
+    residuo = await ficIncassaParzialePerId(id, importo);
+  } catch (e) {
+    redirect("/registrazioni/fatture?errore=" + encodeURIComponent((e as Error).message));
+  }
+  revalidatePath("/registrazioni/fatture", "layout");
+  redirect(`/registrazioni/fatture?statoOk=${residuo != null && residuo <= 0.005 ? "saldata" : "parziale"}`);
 }
 
 // Elenco delle fatture VERE emesse su Fatture in Cloud (fonte: FIC, non il DB
@@ -51,7 +69,7 @@ export default async function FattureCloudPage({
 
   const totImponibile = fatture.reduce((a, f) => a + f.imponibile, 0);
   const totLordo = fatture.reduce((a, f) => a + f.totale, 0);
-  const daIncassare = fatture.filter((f) => !f.pagata).reduce((a, f) => a + f.totale, 0);
+  const daIncassare = fatture.filter((f) => !f.pagata).reduce((a, f) => a + f.residuo, 0);
 
   return (
     <>
@@ -84,7 +102,7 @@ export default async function FattureCloudPage({
       )}
       {sp.statoOk && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
-          <span className="badge green"><span className="dot" />Stato aggiornato su Fatture in Cloud: fattura {sp.statoOk === "saldata" ? "segnata saldata" : "riportata da incassare"}</span>
+          <span className="badge green"><span className="dot" />Stato aggiornato su Fatture in Cloud: fattura {sp.statoOk === "saldata" ? "segnata saldata" : sp.statoOk === "parziale" ? "incassata in parte" : "riportata da incassare"}</span>
         </div>
       )}
       {sp.errore && (
@@ -115,7 +133,7 @@ export default async function FattureCloudPage({
               <div className="kpi-sub">{fatture.length} fatture · {euro(totLordo)} IVA inclusa</div>
             </div>
             <div className="kpi">
-              <div className="kpi-label">Da incassare</div>
+              <div className="kpi-label">Da incassare (residuo)</div>
               <div className={`kpi-value ${daIncassare > 0 ? "neg" : "pos"}`}>{euro(daIncassare)}</div>
               <div className="kpi-sub">{fatture.filter((f) => !f.pagata).length} fatture non saldate</div>
             </div>
@@ -153,7 +171,7 @@ export default async function FattureCloudPage({
                   <thead>
                     <tr>
                       <th>N° fattura</th><th>Data</th><th>Cliente</th>
-                      <th className="num">Imponibile</th><th className="num">IVA incl.</th>
+                      <th className="num">Imponibile</th><th className="num">IVA incl.</th><th className="num">Residuo</th>
                       <th>Stato</th><th></th>
                     </tr>
                   </thead>
@@ -165,10 +183,15 @@ export default async function FattureCloudPage({
                         <td>{f.cliente}</td>
                         <td className="num">{euro(f.imponibile)}</td>
                         <td className="num">{euro(f.totale)}</td>
+                        <td className={`num ${!f.pagata && f.residuo > 0.005 ? "neg" : ""}`}>
+                          {f.pagata ? "—" : euro(f.residuo)}
+                        </td>
                         <td>
                           <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                             {f.pagata ? (
                               <span className="badge green"><span className="dot" />Saldata</span>
+                            ) : f.incassato > 0.005 ? (
+                              <span className="badge gold"><span className="dot" />Incassata in parte</span>
                             ) : (
                               <span className="badge orange"><span className="dot" />Da incassare</span>
                             )}
@@ -179,11 +202,26 @@ export default async function FattureCloudPage({
                               <button
                                 className="btn small secondary"
                                 type="submit"
-                                title={f.pagata ? "Segna come da incassare (su Fatture in Cloud)" : "Segna come saldata (su Fatture in Cloud)"}
+                                title={f.pagata ? "Segna come da incassare (su Fatture in Cloud)" : "Segna l'intera fattura come saldata (su Fatture in Cloud)"}
                               >
-                                {f.pagata ? "Riapri" : "Segna saldata"}
+                                {f.pagata ? "Riapri" : "Salda tutto"}
                               </button>
                             </form>
+                            {!f.pagata && (
+                              <form action={incassaParziale.bind(null, f.id)} style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                                <input
+                                  type="number"
+                                  name="importo"
+                                  step="0.01"
+                                  min="0.01"
+                                  max={f.residuo.toFixed(2)}
+                                  placeholder="acconto €"
+                                  aria-label={`Incasso parziale fattura ${f.numero}`}
+                                  style={{ width: 96, fontSize: 12.5, padding: "5px 8px" }}
+                                />
+                                <button className="btn small secondary" type="submit" title="Registra un incasso parziale su Fatture in Cloud">Incassa</button>
+                              </form>
+                            )}
                           </span>
                         </td>
                         <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { riepilogoTutti, ANNI_DISPONIBILI, annoValido } from "@/lib/queries";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
-import { nomeMese } from "@/lib/calc";
+import { nomeMese, ivato, residuoFattura, parzialmenteIncassata } from "@/lib/calc";
 import { registraBonifico } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ export default async function Dashboard({
   const totServizi = tutti.reduce((a, t) => a + t.rolling.fatture, 0);
   const stima = tutti.reduce((a, t) => a + t.rolling.stimaChiusura, 0);
   const scadute = fattureAperte.filter((f) => f.scadenza && f.scadenza < oggi);
-  const totScaduto = scadute.reduce((a, f) => a + f.imponibile * (1 + f.aliquotaIva / 100), 0);
+  const totScaduto = scadute.reduce((a, f) => a + residuoFattura(f), 0);
 
   // Mesi con partite aperte. Per i partner senza compensazione le due direzioni
   // sono indipendenti: lo stesso mese puo' avere sia da bonificare sia da incassare.
@@ -195,7 +195,7 @@ export default async function Dashboard({
                   <th>N° fattura</th>
                   <th>Tipologia</th>
                   <th>Scadenza</th>
-                  <th className="num">Importo (IVA incl.)</th>
+                  <th className="num">Residuo (IVA incl.)</th>
                 </tr>
               </thead>
               <tbody>
@@ -205,7 +205,12 @@ export default async function Dashboard({
                     <td>{f.numero ?? "—"}</td>
                     <td>{f.tipologia.nome}</td>
                     <td><span className="badge red"><span className="dot" />{dataIt(f.scadenza)}</span></td>
-                    <td className="num">{euro(f.imponibile * (1 + f.aliquotaIva / 100))}</td>
+                    <td className="num">
+                      {euro(residuoFattura(f))}
+                      {parzialmenteIncassata(f) && (
+                        <div className="muted" style={{ fontSize: 11 }}>su {euro(ivato(f))}</div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
