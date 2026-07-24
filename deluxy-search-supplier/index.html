@@ -1290,20 +1290,28 @@ function registryCard(p){
 
 /* ------------------ nearby search per categoria ------------------ */
 let lastPlacesStatus = null;
+function nearbyOne(service, opts, cat){
+  return new Promise(resolve=>{
+    service.nearbySearch(opts, (results,status)=>{
+      lastPlacesStatus = status;
+      if(status===google.maps.places.PlacesServiceStatus.OK && results){
+        resolve(results.map(r=>({place:r, cat})));
+      } else resolve([]);
+    });
+  });
+}
+// Doppia ricerca per categoria: con keyword localizzata E solo per tipo, poi unione
+// (la dedup per place_id è a valle). La keyword da sola scarta schede vere — es.
+// «Le Torte di Giada» (Brescia): type bakery, ma Google non la associa a "pasticceria" —
+// mentre il tipo da solo aggiunge panifici/bar: unendo le due liste non si perde nessuno.
 function nearby(service, location, cat, lang){
   const meta = CAT_META[cat];
   const keyword = KEYWORDS[cat][lang] || KEYWORDS[cat].default;
-  return new Promise(resolve=>{
-    service.nearbySearch(
-      { location, rankBy: google.maps.places.RankBy.DISTANCE, type: meta.type, keyword },
-      (results,status)=>{
-        lastPlacesStatus = status;
-        if(status===google.maps.places.PlacesServiceStatus.OK && results){
-          resolve(results.map(r=>({place:r, cat})));
-        } else resolve([]);
-      }
-    );
-  });
+  const base = { location, rankBy: google.maps.places.RankBy.DISTANCE, type: meta.type };
+  return Promise.all([
+    nearbyOne(service, Object.assign({keyword}, base), cat),
+    nearbyOne(service, base, cat)
+  ]).then(liste=>liste[0].concat(liste[1]));
 }
 
 /* ------------------ dettagli negozio ------------------ */

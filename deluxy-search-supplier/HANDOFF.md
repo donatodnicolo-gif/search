@@ -1,4 +1,4 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 22/07/2026)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 24/07/2026)
 
 Per riprendere il lavoro su quest'app da una nuova sessione Claude. **Leggere prima
 [AI_SPEC.md](AI_SPEC.md)**: è la scheda tecnica completa e aggiornata; questo file dice
@@ -120,6 +120,13 @@ solo dove siamo e come si lavora.
    Contatti (`#ctTipo`/`#ctCat`), inquinando il set `cats` con valori spuri (`undefined`,
    `'tutte'`, `'FIORISTA'`) e togliendo/mettendo `.active` sui filtri Contatti. Regola:
    ogni nuovo selettore sulle chip della ricerca va scopato a `.catbtns .chip`.
+
+20. **Doppia nearbySearch (keyword + solo tipo)** (24/07): la ricerca Google per categoria ora fa
+   DUE nearbySearch — con keyword localizzata e solo per `type` — e unisce le liste (dedup per
+   place_id già a valle). Motivo: la keyword `pasticceria` scartava schede vere — «Le Torte di
+   Giada» (Brescia, type bakery) non usciva nemmeno a 0 m dalle sue coordinate (ordine
+   cakedesign #1725, consegna in via Odofredo Denari 36) — mentre lasciava passare panifici
+   e bar. Dettagli in AI_SPEC §12.9. C'è anche un .gitignore nuovo (`.env*`, `.vercel`).
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
