@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -156,6 +156,18 @@ export function catalogoApp(): AppDeluxy[] {
       // APP_URL_CALENDARIO, puntando all'istanza locale finché non c'è un URL pubblico.
       url: process.env.APP_URL_CALENDARIO ?? "http://localhost:3110",
       ruoli: ["admin"],
+    },
+    {
+      id: "messaggi",
+      nome: "Messaggi",
+      sottotitolo: "Inbox unificata",
+      descrizione:
+        "WhatsApp, Messenger, Instagram e la chat del sito in un'unica inbox: si legge e si risponde in un posto solo.",
+      icona: "messaggi",
+      // Eccezione voluta: la tessera resta visibile anche in produzione senza
+      // APP_URL_MESSAGGI, puntando all'istanza locale finché non c'è un URL pubblico.
+      url: process.env.APP_URL_MESSAGGI ?? "http://localhost:3140",
+      ruoli: ["admin", "commerciale"],
     },
     {
       id: "mail",

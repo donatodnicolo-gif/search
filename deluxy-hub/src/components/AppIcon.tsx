@@ -99,6 +99,16 @@ const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
       <path d="M6 14v4.5" {...TRATTO} />
     </>
   ),
+  // Fumetto di chat: l'inbox unificata dei messaggi (WhatsApp, Meta, sito)
+  messaggi: (
+    <>
+      <path
+        d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.9 8.9 0 0 1-3.2-.6L3 21l1.8-5.2a8 8 0 0 1-.8-3.5A8.4 8.4 0 0 1 12.5 4 8.4 8.4 0 0 1 21 11.5z"
+        {...TRATTO}
+      />
+      <path d="M8.5 10.5h7M8.5 13.5h4.5" {...TRATTO} />
+    </>
+  ),
   // Busta con scintilla: posta letta e smistata dall'AI
   mail: (
     <>

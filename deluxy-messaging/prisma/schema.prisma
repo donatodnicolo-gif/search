@@ -1,0 +1,73 @@
+// Deluxy Messaggi — schema dati
+//
+// Un'inbox unificata: le conversazioni arrivano da canali diversi (WhatsApp,
+// Messenger, Instagram via webhook Meta, più il widget di chat dei siti) ma
+// vivono tutte nelle stesse due tabelle: Conversazione e Messaggio.
+//
+// I token Meta sono salvati in Impostazione SEMPRE cifrati (AES-256-GCM,
+// src/lib/crypto.ts). Le password degli utenti sono hashate (scrypt), mai
+// reversibili.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per prisma db push
+}
+
+// Chi accede all'app. Il primo utente si crea dalla pagina di login
+// (bootstrap); gli altri li può creare un admin in seguito.
+model Utente {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  nome         String
+  passwordHash String // scrypt "salt.hash" — mai reversibile
+  ruolo        String   @default("admin") // admin | operatore
+  creatoIl     DateTime @default(now())
+}
+
+// Coppie chiave/valore di configurazione (token Meta cifrati, verify token,
+// titolo del widget…). Vedi src/lib/impostazioni.ts per le chiavi usate.
+model Impostazione {
+  chiave String @id
+  valore String @db.Text
+}
+
+// Una conversazione con una persona su un canale. idEsterno identifica la
+// persona sul canale: numero WhatsApp, PSID Messenger, IGSID Instagram o il
+// token segreto della sessione del widget.
+model Conversazione {
+  id                String   @id @default(cuid())
+  canale            String // whatsapp | messenger | instagram | widget
+  idEsterno         String
+  nome              String   @default("")
+  ultimoTesto       String   @default("") @db.Text
+  ultimoMessaggioIl DateTime @default(now())
+  nonLetti          Int      @default(0) // messaggi in arrivo non ancora letti dall'operatore
+  archiviata        Boolean  @default(false)
+  creatoIl          DateTime @default(now())
+
+  messaggi Messaggio[]
+
+  @@unique([canale, idEsterno])
+  @@index([ultimoMessaggioIl])
+}
+
+model Messaggio {
+  id              String   @id @default(cuid())
+  conversazioneId String
+  conversazione   Conversazione @relation(fields: [conversazioneId], references: [id], onDelete: Cascade)
+  direzione       String // in (dal cliente) | out (dall'operatore)
+  testo           String   @db.Text
+  tipo            String   @default("testo") // testo | media | nota
+  idEsterno       String   @default("") // id Meta del messaggio: dedup webhook e aggiornamenti di stato
+  stato           String   @default("") // inviato | consegnato | letto | errore ("" per i messaggi in arrivo)
+  errore          String   @default("") // motivo se stato = errore
+  creatoIl        DateTime @default(now())
+
+  @@index([conversazioneId, creatoIl])
+  @@index([idEsterno])
+}
