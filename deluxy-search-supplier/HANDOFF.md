@@ -144,10 +144,13 @@ solo dove siamo e come si lavora.
    di prima). AI_SPEC §4.
 
 22. **Refresh = ultima ricerca ripetuta** (24/07): `rememberSearch()` tiene l'URL allineato
-   all'ultima ricerca con `history.replaceState` — `?brand&ordine` quando si carica un ordine
-   (fetchOrder), `?indirizzo&categoria` per le ricerche per zona senza ordine (run). Al refresh
-   la sessione si riprende da sessionStorage e `applyDeepLink()` ripete la ricerca da sola.
-   L'inserimento manuale NON viene ricordato (al refresh l'ordine non esisterebbe su Shopify).
+   all'ultima ricerca con `history.replaceState` — `?brand&ordine` lo scrive `populateOrder`
+   (dai campi `o.brand`/`o.orderName`: ordine vero da Shopify/KV); `?indirizzo&categoria` lo
+   scrive `run()` quando l'URL non dice già `?ordine` (quindi anche in modalità manuale).
+   Al refresh la sessione si riprende da sessionStorage e `applyDeepLink()` ripete tutto.
+   ⚠️ Insidia corretta al volo: la prima versione usava in `populateOrder` le variabili
+   `brand`/`number` che sono locali di `fetchOrder` → ReferenceError sul caricamento ordine.
+   In `populateOrder` esistono solo `o` e il DOM.
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col

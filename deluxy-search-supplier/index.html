@@ -1520,7 +1520,8 @@ async function fetchOrder(){
 
 function populateOrder(o){
   orderLoaded = true;
-  rememberSearch({ brand, ordine: number.replace(/^#/,'') });
+  rememberSearch({ brand: o.brand || $('#brand').value,
+                   ordine: String(o.orderName || $('#orderNum').value || '').replace(/^#/,'').trim() });
   $('#orderBox').style.display='block';
   $('#ordTag').textContent = o.brand + ' · ' + (o.orderName||'');
   const paid = o.amountPaid || 0;
@@ -2482,9 +2483,9 @@ async function run(){
   if(!address){ setStatus('Inserisci un indirizzo o una zona.', true); return; }
   if(cats.size===0){ setStatus('Seleziona almeno una categoria (Fiorai / Pasticcerie).', true); return; }
 
-  // al refresh si riparte da qui: con un ordine caricato l'URL resta ?brand&ordine
-  // (rimesso da fetchOrder), altrimenti si salva la ricerca per indirizzo
-  if(!orderLoaded){
+  // al refresh si riparte da qui: se l'URL dice già ?ordine (messo da populateOrder)
+  // si lascia stare, altrimenti si ricorda la ricerca per indirizzo (anche in modalità manuale)
+  if(!new URLSearchParams(location.search).get('ordine')){
     rememberSearch({ indirizzo: address,
       categoria: cats.size===1 ? (cats.has('pasticceria') ? 'pasticcerie' : 'fiorai') : '' });
   }
