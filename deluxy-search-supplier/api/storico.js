@@ -75,8 +75,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, importati, totale: eventi.length });
       }
 
-      if (!['richiesta', 'rubrica', 'segnalazione', 'check'].includes(tipo)) {
-        return res.status(400).json({ error: "Tipo evento non valido (richiesta|rubrica|segnalazione|check)." });
+      if (!['richiesta', 'rubrica', 'segnalazione', 'check', 'ricerca'].includes(tipo)) {
+        return res.status(400).json({ error: "Tipo evento non valido (richiesta|rubrica|segnalazione|check|ricerca)." });
       }
       const negozio = body.negozio || {};
       const ordine = body.ordine || {};

@@ -163,6 +163,11 @@ solo dove siamo e come si lavora.
    Storico gli eventi SENZA ordine ma con indirizzo hanno il pulsante «↻ Riapri ricerca»
    (`.st-reopen-search`) che reimposta indirizzo+categoria e rilancia `run()`. Gli eventi
    registrati prima di oggi non hanno il campo e restano senza pulsante.
+   In più (stesso giorno): ogni ricerca per zona SENZA ordine registra da sola un evento
+   `tipo:'ricerca'` («🗺️ Ricerca in zona · trovati N negozi», nome = indirizzo cercato) —
+   prima una ricerca senza azioni non lasciava traccia e non c'era nulla da riaprire.
+   Anti-doppioni per sessione (`ultimaRicercaLoggata`): stessa zona ripetuta = 1 evento.
+   Con ordine caricato non si registra: c'è già il check di /api/order.
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col

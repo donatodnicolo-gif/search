@@ -2312,6 +2312,7 @@ function negozioDaScheda(el){
     telefono: telA ? (telA.getAttribute('href')||'').replace('tel:','') : '',
     email: mailA ? (mailA.getAttribute('href')||'').replace('mailto:','') : '' };
 }
+let ultimaRicercaLoggata = '';   // anti-doppioni per gli eventi 'ricerca' (per sessione)
 // la ricerca per zona in corso (per «Riapri ricerca» dallo Storico)
 function ricercaCorrente(){
   const indirizzo = $('#address').value.trim();
@@ -2325,7 +2326,7 @@ function logEvento(evt){
     apiFetch('/api/storico', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(()=>{});
   }catch(e){}
 }
-const ST_TIPO = { richiesta:'📤 Richiesta ordine', rubrica:'💾 Rubrica', segnalazione:'📣 Segnalazione', check:'🔎 Check ordine' };
+const ST_TIPO = { richiesta:'📤 Richiesta ordine', rubrica:'💾 Rubrica', segnalazione:'📣 Segnalazione', check:'🔎 Check ordine', ricerca:'🗺️ Ricerca in zona' };
 function fmtQuando(iso){
   const d = new Date(iso);
   if(isNaN(d)) return iso || '';
@@ -2661,6 +2662,15 @@ async function run(){
                    : ' · 📏 distanza in linea d\'aria (routing non disponibile)';
     setStatus(`✅ Trovati ${cards.length} negozi${distNote}${langNote}${anagNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
     applyStars();   // ★ sui fornitori già contattati per quest'ordine
+
+    // le ricerche per sola zona (senza ordine) vanno nello Storico, così si possono
+    // riaprire con «↻ Riapri ricerca»; con un ordine c'è già l'evento check di /api/order.
+    // Anti-doppioni: la stessa zona ripetuta in questa sessione (cambio n. risultati,
+    // filtri…) si registra una volta sola.
+    if(!orderLoaded && ultimaRicercaLoggata !== address){
+      ultimaRicercaLoggata = address;
+      logEvento({ tipo:'ricerca', esito:'trovati '+cards.length+' negozi', negozio:{ nome: address } });
+    }
 
     // scraping email + Instagram in background (best effort)
     if(proxy){
