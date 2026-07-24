@@ -28,6 +28,7 @@ interface Props {
   opzioni: { zone: string[]; settori: string[]; linee: string[]; account?: string[]; creatori?: string[] };
   onChange: (f: FiltriMappa) => void;
   admin?: boolean; // mostra i filtri per utente (account, creatore)
+  citta?: boolean; // false = nasconde il filtro Città (sulla Mappa è ridondante: hai già cercato l'indirizzo)
 }
 
 const PRIORITA = ['P1', 'P2', 'P3'];
@@ -38,7 +39,7 @@ const LABEL_PRIORITA: Record<string, string> = { P1: 'P1 · Alta', P2: 'P2 · Me
 const labelChipStato = (v: string) => labelStato[v as StatoPlace] ?? v;
 
 /** Barra filtri orizzontale in cima alla mappa/lista. */
-export function Filters({ filtri, opzioni, onChange, admin }: Props) {
+export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Props) {
   function toggle(key: keyof FiltriMappa, val: string) {
     onChange({ ...filtri, [key]: filtri[key] === val ? null : val });
   }
@@ -67,12 +68,14 @@ export function Filters({ filtri, opzioni, onChange, admin }: Props) {
         onTap={(v) => toggle('stato', v)}
         label={labelChipStato}
       />
-      <Gruppo
-        titolo="Città"
-        valori={OPZIONI_CITTA as unknown as string[]}
-        attivo={filtri.zona ?? 'Tutte'}
-        onTap={scegliCitta}
-      />
+      {citta ? (
+        <Gruppo
+          titolo="Città"
+          valori={OPZIONI_CITTA as unknown as string[]}
+          attivo={filtri.zona ?? 'Tutte'}
+          onTap={scegliCitta}
+        />
+      ) : null}
       <Gruppo titolo="Settore" valori={opzioni.settori} attivo={filtri.settore} onTap={(v) => toggle('settore', v)} />
       {/* Tipologia di interesse: "Tutti" come prima opzione, uniforme in tutta l'app. */}
       <Gruppo

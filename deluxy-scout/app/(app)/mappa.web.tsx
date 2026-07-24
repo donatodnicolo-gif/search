@@ -415,7 +415,7 @@ export default function MappaWeb() {
       {/* Filtri a gruppi etichettati (come la scheda Target): Priorità / Stato / Linea */}
       {destinazione && !giroAttivo ? (
         <View style={styles.filterBar}>
-          <Filters filtri={filtri} opzioni={opzioniFiltri} onChange={setFiltri} />
+          <Filters filtri={filtri} opzioni={opzioniFiltri} onChange={setFiltri} citta={false} />
         </View>
       ) : null}
 
