@@ -99,7 +99,7 @@ import { chiaveThread } from './thread'
 import { nomiPerGruppi, chiaviPerNome } from './nomiThread'
 import { ricorrenzaDaForm, dateRicorrenza, descriviRicorrenza } from './ricorrenze'
 import { CODICI_PRIORITA, FUSO } from './format'
-import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione, classificaDelega, interpretaComandoPosta, estraiAppuntamentoDaTesto } from './ai'
+import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione, classificaDelega, interpretaComandoPosta, estraiAppuntamentoDaTesto, scriviMailNuova } from './ai'
 import { raggruppa } from './thread'
 import { azioneDi, regolaAppPerMail, chiaveDiAzione, type AzioneDescritta } from './appDeluxy'
 import { leggiChiaviApp, salvaChiaveApp, type NomeChiaveApp } from './chiaviApp'
@@ -1142,9 +1142,58 @@ export async function comandoPostaAnteprima(
   /** True quando il comando è già stato eseguito (es. appuntamento creato):
    *  niente da confermare. */
   fatto?: boolean
+  /** Dove mandare l'utente (es. la bozza appena preparata da «invia mail a…»). */
+  vaiA?: string
 }> {
   const utenteId = await uid()
   const p = await interpretaComandoPosta(comando)
+
+  // «Invia mail a info@… chiedendo …»: Renè SCRIVE la mail (non la manda: la
+  // regola è che l'AI propone, tu invii) e la apre come bozza pronta.
+  if (p.azione === 'invia') {
+    const dest = (p.destinatario || '').trim()
+    const cosa = (p.istruzione || '').trim()
+    if (!dest) return { ok: false, messaggio: 'Non ho capito a chi mandarla: indica un indirizzo (es. «invia mail a info@…»).' }
+    try {
+      const account = await db.account.findFirst({ where: { utenteId } })
+      if (!account) return { ok: false, messaggio: 'Nessuna casella collegata: aggiungila in Impostazioni.' }
+      const imp = await leggiImpostazioni()
+      const utente = await db.utente.findUnique({ where: { id: utenteId }, select: { firma: true } })
+      const rubrica = await elencoContatti(utenteId)
+      const testo = await scriviMailNuova({
+        compito: cosa || `Scrivi una mail a ${dest}.`,
+        dettaglio: `Manda la mail a: ${dest}.`,
+        contatti: rubrica.map((c) => ({ email: c.email, nome: c.nome })),
+        contestoAzienda: imp[CHIAVI.contestoAzienda],
+        stileScrittura: imp[CHIAVI.stileScrittura],
+        firma: utente?.firma || '',
+        oggi: new Date(),
+      })
+      // Il destinatario l'hai detto tu: vince su quello che sceglierebbe l'AI.
+      const bozza = await db.bozza.create({
+        data: {
+          utenteId,
+          origine: 'ai',
+          modo: 'nuova',
+          a: dest,
+          oggetto: testo.oggetto || '(senza oggetto)',
+          corpo: testo.corpo,
+          corpoAI: testo.corpo,
+        },
+        select: { id: true },
+      })
+      revalidatePath('/', 'layout')
+      return {
+        ok: true,
+        fatto: true,
+        messaggio: `Ho preparato la mail per ${dest}: controllala e inviala tu.`,
+        vaiA: `/scrivi?bozza=${bozza.id}`,
+      }
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e)
+      return { ok: false, messaggio: `Non sono riuscito a scrivere la mail: ${m.slice(0, 120)}` }
+    }
+  }
 
   // «Crea appuntamento domani ore 12 …» (anche con i dati di una riunione
   // Teams/Zoom incollati): non è un comando sulla posta, è un evento in agenda.
@@ -1195,7 +1244,7 @@ export async function comandoPostaAnteprima(
     return {
       ok: false,
       messaggio:
-        'Non ho capito il comando. Prova: «cancella tutte le mail di mario@…», «archivia le mail con oggetto sollecito» oppure «crea un appuntamento domani alle 12».',
+        'Non ho capito il comando. Prova: «cancella tutte le mail di mario@…», «archivia le mail con oggetto sollecito», «crea un appuntamento domani alle 12» oppure «invia una mail a info@… chiedendo …».',
     }
   }
   const filtro: FiltroLotto = { criterio: p.criterio, valore: p.valore, sezioneId }

@@ -14,6 +14,8 @@ type Anteprima = {
   quanti?: number
   /** Comando già eseguito (es. appuntamento creato): niente da confermare. */
   fatto?: boolean
+  /** Dove mandare l'utente (es. la bozza preparata da «invia mail a…»). */
+  vaiA?: string
 }
 
 /**
@@ -41,7 +43,12 @@ export function ComandoRene({ sezioni = [] }: { sezioni?: { id: string; nome: st
       if (r.ok && r.fatto) {
         mostraFlash(r.messaggio)
         setTesto('')
-        router.refresh()
+        // «Invia mail a…»: apri la bozza pronta, così la controlli e la mandi.
+        if (r.vaiA) {
+          router.push(r.vaiA)
+        } else {
+          router.refresh()
+        }
         return
       }
       setAnt(r)
@@ -67,10 +74,11 @@ export function ComandoRene({ sezioni = [] }: { sezioni?: { id: string; nome: st
       </div>
       <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
         Comandi su un gruppo di mail — es. «cancella tutte le mail di mario@rossi.it», «archivia le
-        mail con oggetto sollecito» — oppure «crea un appuntamento domani alle 12» (anche incollando
-        i dati di una riunione Teams/Zoom). Puoi limitare la ricerca a una sezione col menu qui
-        sotto. Sulle mail, prima di agire ti dico quante ne tocco e chiedo conferma (il cestino è
-        recuperabile); gli appuntamenti finiscono subito in Calendario.
+        mail con oggetto sollecito» — «crea un appuntamento domani alle 12» (anche coi dati di una
+        riunione Teams/Zoom) — oppure «invia una mail a info@… chiedendo …» (Renè la scrive, tu la
+        controlli e la mandi). Puoi limitare la ricerca a una sezione col menu qui sotto. Sulle mail,
+        prima di agire ti dico quante ne tocco e chiedo conferma (il cestino è recuperabile); gli
+        appuntamenti finiscono subito in Calendario.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <select

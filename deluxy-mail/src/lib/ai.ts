@@ -1283,34 +1283,50 @@ export async function classificaDelega(istruzione: string): Promise<'risposta' |
 const SCHEMA_COMANDO_POSTA = {
   type: 'object',
   additionalProperties: false,
-  required: ['azione', 'criterio', 'valore'],
+  required: ['azione', 'criterio', 'valore', 'destinatario', 'istruzione'],
   properties: {
     azione: {
       type: 'string',
-      enum: ['cestina', 'archivia', 'appuntamento', 'nessuna'],
+      enum: ['cestina', 'archivia', 'appuntamento', 'invia', 'nessuna'],
       description:
-        "'cestina' se l'utente vuole cancellare/eliminare/buttare via delle mail; 'archivia' se vuole archiviarle; 'appuntamento' se chiede di creare un appuntamento/evento/riunione in calendario (es. «crea appuntamento domani ore 12», anche con i dati di una riunione Teams/Zoom incollati); 'nessuna' se non è un comando di questo tipo.",
+        "'cestina' se l'utente vuole cancellare/eliminare/buttare via delle mail; 'archivia' se vuole archiviarle; 'appuntamento' se chiede di creare un appuntamento/evento/riunione in calendario (es. «crea appuntamento domani ore 12», anche con i dati di una riunione Teams/Zoom incollati); 'invia' se chiede di SCRIVERE/MANDARE una mail NUOVA a qualcuno (es. «invia mail a info@… chiedendo …», «scrivi a Mario che …», «manda una mail a X per …»); 'nessuna' se non è un comando di questo tipo.",
     },
     criterio: {
       type: 'string',
       enum: ['mittente', 'oggetto', 'nessuno'],
       description:
-        "'mittente' se agisce sulle mail DI qualcuno (persona/indirizzo); 'oggetto' se agisce sulle mail CON un certo oggetto/argomento; 'nessuno' se non chiaro.",
+        "Solo per cestina/archivia: 'mittente' se agisce sulle mail DI qualcuno; 'oggetto' se agisce sulle mail CON un certo oggetto. 'nessuno' per invia/appuntamento o se non chiaro.",
     },
     valore: {
       type: 'string',
       description:
-        "Il valore del criterio: il nome/indirizzo del mittente, oppure il testo dell'oggetto. Vuoto se non chiaro.",
+        "Solo per cestina/archivia: il nome/indirizzo del mittente, oppure il testo dell'oggetto. Vuoto per gli altri.",
+    },
+    destinatario: {
+      type: 'string',
+      description:
+        "Solo per 'invia': l'indirizzo email (o il nome) del DESTINATARIO. Es. da «invia mail a info@x.it …» → «info@x.it». Vuoto per gli altri.",
+    },
+    istruzione: {
+      type: 'string',
+      description:
+        "Solo per 'invia': COSA deve dire la mail, con parole tue riprese dal comando (es. «chiedi una torta sacher a cuore per domani, più piccola possibile, e conferma del prezzo»). Vuoto per gli altri.",
     },
   },
 } as const
 
-export type ComandoPosta = { azione: 'cestina' | 'archivia' | 'appuntamento' | 'nessuna'; criterio: 'mittente' | 'oggetto' | 'nessuno'; valore: string }
+export type ComandoPosta = {
+  azione: 'cestina' | 'archivia' | 'appuntamento' | 'invia' | 'nessuna'
+  criterio: 'mittente' | 'oggetto' | 'nessuno'
+  valore: string
+  destinatario: string
+  istruzione: string
+}
 
 /** Interpreta un comando tipo "cancella tutte le mail di Mario" / "archivia le mail con oggetto sollecito". */
 export async function interpretaComandoPosta(comando: string): Promise<ComandoPosta> {
   const c = comando.trim()
-  if (!c) return { azione: 'nessuna', criterio: 'nessuno', valore: '' }
+  if (!c) return { azione: 'nessuna', criterio: 'nessuno', valore: '', destinatario: '', istruzione: '' }
   try {
     const risposta = await client().chat.completions.create({
       model: MODELLO,
@@ -1320,15 +1336,15 @@ export async function interpretaComandoPosta(comando: string): Promise<ComandoPo
         json_schema: { name: 'comando', strict: true, schema: SCHEMA_COMANDO_POSTA as unknown as Record<string, unknown> },
       },
       messages: [
-        { role: 'system', content: "Interpreta il comando dato all'assistente di posta: un'azione su un gruppo di mail (cestina/archivia) oppure la creazione di un appuntamento in calendario. Estrai azione, criterio e valore (per 'appuntamento': criterio 'nessuno' e valore vuoto)." },
+        { role: 'system', content: "Interpreta il comando dato all'assistente di posta: azione su un gruppo di mail (cestina/archivia), creazione di un appuntamento (appuntamento), oppure invio di una mail nuova a qualcuno (invia). Per 'invia' riempi destinatario e istruzione; per cestina/archivia riempi criterio e valore; gli altri campi vuoti." },
         { role: 'user', content: `Comando: ${c}` },
       ],
     })
     const json = risposta.choices[0]?.message?.content
-    if (!json) return { azione: 'nessuna', criterio: 'nessuno', valore: '' }
+    if (!json) return { azione: 'nessuna', criterio: 'nessuno', valore: '', destinatario: '', istruzione: '' }
     return JSON.parse(json) as ComandoPosta
   } catch {
-    return { azione: 'nessuna', criterio: 'nessuno', valore: '' }
+    return { azione: 'nessuna', criterio: 'nessuno', valore: '', destinatario: '', istruzione: '' }
   }
 }
 
