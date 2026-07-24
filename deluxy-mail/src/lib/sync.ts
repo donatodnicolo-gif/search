@@ -179,6 +179,44 @@ async function contestoAI(
 }
 
 /**
+ * Crea un'attività SOLO se non ne esiste già una identica e da fare per lo
+ * stesso messaggio (stesso titolo).
+ *
+ * ⚠️ Perché serve: l'analisi cancella-e-ricrea le attività in due passi non
+ * atomici. Se due analisi si sovrappongono (es. il lettore AI in sottofondo
+ * mentre tu dai una priorità) entrambe cancellano e poi ricreano → doppioni.
+ * Questo controllo rende la creazione idempotente e chiude quella corsa.
+ */
+async function creaAttivitaUnica(dati: {
+  utenteId: string
+  messaggioId?: string | null
+  titolo: string
+  dettaglio?: string | null
+  scadenza?: Date | null
+  priorita?: string
+  creataDaAI?: boolean
+}): Promise<void> {
+  if (dati.messaggioId) {
+    const esiste = await db.attivita.findFirst({
+      where: { utenteId: dati.utenteId, messaggioId: dati.messaggioId, titolo: dati.titolo, fatta: false },
+      select: { id: true },
+    })
+    if (esiste) return
+  }
+  await db.attivita.create({
+    data: {
+      utenteId: dati.utenteId,
+      messaggioId: dati.messaggioId ?? null,
+      titolo: dati.titolo,
+      dettaglio: dati.dettaglio ?? null,
+      scadenza: dati.scadenza ?? null,
+      priorita: dati.priorita ?? 'P2',
+      ...(dati.creataDaAI === false ? { creataDaAI: false } : {}),
+    },
+  })
+}
+
+/**
  * Analizza un messaggio con l'AI quando gli dai una priorità. Tutto ciò che
  * tocca (sezioni, regole, attività) è dell'utente proprietario del messaggio.
  */
@@ -286,15 +324,13 @@ export async function analizzaMessaggioOra(
       : [{ titolo: `Gestire: ${m.oggetto}`, dettaglio: analisi.riassunto, scadenza: null, priorita: prioritaAttivita }]
 
     for (const a of attivita) {
-      await db.attivita.create({
-        data: {
-          utenteId,
-          messaggioId: m.id,
-          titolo: a.titolo,
-          dettaglio: a.dettaglio || null,
-          scadenza: a.scadenza ? new Date(a.scadenza) : null,
-          priorita: prioritaAttivita,
-        },
+      await creaAttivitaUnica({
+        utenteId,
+        messaggioId: m.id,
+        titolo: a.titolo,
+        dettaglio: a.dettaglio || null,
+        scadenza: a.scadenza ? new Date(a.scadenza) : null,
+        priorita: prioritaAttivita,
       })
     }
 
@@ -1096,9 +1132,7 @@ async function salvaMessaggi(opts: {
         if (creato.direzione === 'entrata' && daRegole.attivitaDaCreare.length) {
           for (const titolo of daRegole.attivitaDaCreare) {
             try {
-              await db.attivita.create({
-                data: { utenteId, messaggioId: creato.id, titolo, creataDaAI: false, priorita: 'P2' },
-              })
+              await creaAttivitaUnica({ utenteId, messaggioId: creato.id, titolo, creataDaAI: false, priorita: 'P2' })
             } catch {
               /* un'attività fallita non blocca lo scarico */
             }

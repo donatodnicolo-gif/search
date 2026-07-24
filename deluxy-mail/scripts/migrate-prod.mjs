@@ -46,6 +46,18 @@ const stmts = [
      "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "chiave" TEXT NOT NULL,
      "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "ThreadAI_utenteId_chiave_key" ON "ThreadAI"("utenteId","chiave")`,
+  // Pulizia dei DOPPIONI di attività non fatte: stessa persona, stesso titolo,
+  // stessa mail (o stesso contatto). Si tiene la più vecchia (o, a parità,
+  // l'id minore) e si eliminano le copie. Non tocca le attività già FATTE.
+  // Idempotente: al secondo giro non trova più niente da cancellare.
+  `DELETE FROM "Attivita" a
+     USING "Attivita" b
+     WHERE a."fatta" = false AND b."fatta" = false
+       AND a."utenteId" = b."utenteId"
+       AND a."titolo" = b."titolo"
+       AND COALESCE(a."messaggioId", '') = COALESCE(b."messaggioId", '')
+       AND COALESCE(a."contattoEmail", '') = COALESCE(b."contattoEmail", '')
+       AND (a."creataIl" > b."creataIl" OR (a."creataIl" = b."creataIl" AND a."id" > b."id"))`,
   // Marcatore anti-doppia-notifica push.
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "notificatoIl" TIMESTAMP(3)`,
   // Conversazioni chiuse (fuori dai Top thread, etichetta «Chiuso»).
