@@ -853,19 +853,21 @@ export async function svuotaCestino(): Promise<{ ok: boolean; messaggio: string 
     const utenteId = await uid()
     const cestinati = await db.messaggio.findMany({
       where: { cestinato: true, utenteId },
-      select: { uid: true, direzione: true, accountId: true },
+      select: { uid: true, messageId: true, direzione: true, accountId: true },
     })
 
-    // Cancellazione DAL SERVER (irreversibile): raccolgo gli UID reali per
-    // account e cartella — la posta in entrata sta nella INBOX, gli inviati
-    // nella cartella "Inviata". Gli UID negativi (copie locali senza riscontro
-    // sul server) si saltano.
-    const perAccount = new Map<string, { inbox: number[]; inviata: number[] }>()
+    // Cancellazione DAL SERVER (irreversibile). La mail si trova per Message-ID
+    // (vedi eliminaDalServer): la posta in entrata sta nella INBOX, gli inviati
+    // nella cartella "Inviata". Le copie locali senza riscontro sul server (uid
+    // negativo E senza Message-ID) non hanno nulla da cancellare: si saltano.
+    type Rif = { uid: number; messageId: string | null }
+    const perAccount = new Map<string, { inbox: Rif[]; inviata: Rif[] }>()
     for (const m of cestinati) {
-      if (m.uid <= 0) continue
+      if (m.uid <= 0 && !m.messageId) continue
       const g = perAccount.get(m.accountId) ?? { inbox: [], inviata: [] }
-      if (m.direzione === 'uscita') g.inviata.push(m.uid)
-      else g.inbox.push(m.uid)
+      const rif = { uid: m.uid, messageId: m.messageId }
+      if (m.direzione === 'uscita') g.inviata.push(rif)
+      else g.inbox.push(rif)
       perAccount.set(m.accountId, g)
     }
 

@@ -199,15 +199,50 @@ export async function salvaInInviata(
  * ed espunge. IRREVERSIBILE. Solo UID reali (> 0): gli UID negativi sono copie
  * locali senza corrispondenza sul server. Ritorna quanti ne ha cancellati.
  */
-export async function eliminaDalServer(account: Account, cartella: string, uids: number[]): Promise<number> {
-  const reali = uids.filter((u) => u > 0)
-  if (reali.length === 0) return 0
+/**
+ * Cancella DAL SERVER (definitivo) le mail indicate, cercandole per Message-ID.
+ *
+ * ⚠️ Perché non basta l'UID memorizzato: il server può riassegnare gli UID
+ * (cambio di UIDVALIDITY) o la mail può essere finita in un'altra cartella. Un
+ * UID vecchio o non esiste più (non cancella nulla) o — pericoloso — punta a
+ * un'ALTRA mail (ne cancelli una sbagliata). Cercando per Message-ID si trova
+ * l'UID ATTUALE in QUELLA cartella: se non c'è, la mail non è lì e la si salta
+ * (niente cancellazioni a caso). L'UID memorizzato si usa solo come ripiego
+ * quando manca il Message-ID.
+ *
+ * Torna quante ne ha cancellate davvero (non quante ne ha tentate).
+ */
+export async function eliminaDalServer(
+  account: Account,
+  cartella: string,
+  mail: { uid: number; messageId: string | null }[]
+): Promise<number> {
+  if (mail.length === 0) return 0
   const client = connessione(account)
   await client.connect()
   try {
     await client.mailboxOpen(cartella, { readOnly: false })
-    await client.messageDelete(reali, { uid: true })
-    return reali.length
+
+    const daCancellare: number[] = []
+    for (const m of mail) {
+      if (m.messageId) {
+        try {
+          const trovati = (await client.search({ header: { 'message-id': m.messageId } }, { uid: true })) || []
+          for (const u of trovati) daCancellare.push(u)
+          // Trovato per Message-ID: NON si tocca l'UID memorizzato (potrebbe
+          // essere obsoleto e colpire un'altra mail).
+          continue
+        } catch {
+          /* la ricerca è fallita: si ripiega sull'UID sotto, se valido */
+        }
+      }
+      if (m.uid > 0) daCancellare.push(m.uid) // ripiego: mail senza Message-ID
+    }
+
+    const uniti = [...new Set(daCancellare)]
+    if (uniti.length === 0) return 0
+    const esito = await client.messageDelete(uniti, { uid: true })
+    return esito ? uniti.length : 0
   } finally {
     await client.logout()
   }
