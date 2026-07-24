@@ -62,6 +62,21 @@ export async function decifra(cifrato: string): Promise<string> {
  * 2) in mancanza, i secret globali SMTP_* (se un giorno si userà una casella unica);
  * 3) altrimenti null → la funzione chiamante resta inerte.
  */
+/**
+ * Il campo "From" di una mail dev'essere un INDIRIZZO valido. Il "mittente" che
+ * l'utente scrive è un NOME (es. "Nicolo"): va composto come `Nome <email>`,
+ * non usato al posto dell'indirizzo. Se il mittente è già una email, o è vuoto,
+ * si usa direttamente l'indirizzo della casella.
+ */
+function componiFrom(email: string, mittente?: string | null): string {
+  const nome = (mittente ?? '').trim();
+  if (!nome) return email;
+  if (nome.toLowerCase() === email.toLowerCase()) return email;
+  if (/^[^@s]+@[^@s]+.[^@s]+$/.test(nome)) return nome; // già un indirizzo
+  // Nome fra virgolette, indirizzo fra parentesi angolari (RFC 5322).
+  return `"${nome.replace(/"/g, '')}" <${email}>`;
+}
+
 export async function credenzialiPerUtente(admin: any, ownerId: string | null): Promise<Credenziali | null> {
   if (ownerId) {
     const { data } = await admin.from('smtp_account').select('*').eq('owner', ownerId).maybeSingle();
@@ -71,7 +86,7 @@ export async function credenzialiPerUtente(admin: any, ownerId: string | null): 
         port: Number(data.porta ?? 465),
         user: data.utente,
         pass: await decifra(data.password_cifrata),
-        from: data.mittente || data.utente,
+        from: componiFrom(data.utente, data.mittente),
       };
     }
   }
@@ -84,7 +99,7 @@ export async function credenzialiPerUtente(admin: any, ownerId: string | null): 
       user,
       pass,
       port: Number(Deno.env.get('SMTP_PORT') ?? '465'),
-      from: Deno.env.get('SMTP_FROM') ?? user,
+      from: componiFrom(user, Deno.env.get('SMTP_FROM')),
     };
   }
   return null;
