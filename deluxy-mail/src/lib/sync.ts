@@ -1543,6 +1543,20 @@ function contaPartecipanti(messaggi: Messaggio[]): number {
  * L'AI legge tutta la conversazione e ne fa il quadro "per punti di vista":
  * cosa vuole/dice ogni parte, cosa resta in sospeso. Salvato per riletture.
  */
+/** Il riassunto salvato reso in testo, da dare all'AI come punto di partenza
+ *  per l'aggiornamento incrementale. */
+function riassuntoInTesto(v: AnalisiThreadVista): string {
+  const parti = v.parti.map((p) => `- ${p.chi}: ${p.punto}`).join('\n')
+  const sospesi = v.inSospeso.map((s) => `- ${s.cosa}${s.chi ? ` (da ${s.chi})` : ''}`).join('\n')
+  return [
+    v.sintesi,
+    parti && `\nPer punti di vista:\n${parti}`,
+    sospesi && `\nIn sospeso:\n${sospesi}`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 export async function riassumiThreadOra(
   utenteId: string,
   messaggioId: string
@@ -1559,16 +1573,43 @@ export async function riassumiThreadOra(
     messaggioId: messaggi[0]?.id,
   })
 
+  // Riassunto incrementale: se ne esiste già uno fatto su MENO messaggi di ora,
+  // si dà all'AI quel riassunto + SOLO le mail nuove, invece di rimacinare tutto
+  // il thread. Su una conversazione lunga è molta meno roba da leggere per l'AI.
+  let precedente: string | undefined
+  let daIndice = 0
+  try {
+    const vecchio = await db.riassuntoThread.findUnique({
+      where: { utenteId_chiave: { utenteId, chiave } },
+      select: { riassunto: true, messaggiVisti: true },
+    })
+    // Vale solo se restano poche mail nuove: se ne mancano tante (o il vecchio
+    // conteggio è incoerente col thread di ora) si rifà tutto, è più sicuro.
+    const nuove = vecchio ? messaggi.length - vecchio.messaggiVisti : 0
+    if (vecchio && nuove > 0 && vecchio.messaggiVisti > 0 && nuove <= 8) {
+      const vista = JSON.parse(vecchio.riassunto) as AnalisiThreadVista
+      precedente = riassuntoInTesto(vista)
+      daIndice = vecchio.messaggiVisti
+    }
+  } catch {
+    /* niente riassunto precedente: si fa completo */
+  }
+
+  // In incrementale si passano solo le mail dopo l'ultimo riassunto; l'indice
+  // GLOBALE resta quello vero (per i link "apri").
+  const conIndice = messaggi.map((m, i) => ({
+    idx: i,
+    daMe: m.direzione === 'uscita',
+    chi: m.mittenteNome || m.mittente,
+    data: m.data,
+    oggetto: m.oggetto,
+    corpo: m.corpoTradotto || m.corpoTesto, // se tradotta, l'italiano
+  }))
+
   try {
     const analisi = await riassumiThread({
-      messaggi: messaggi.map((m) => ({
-        daMe: m.direzione === 'uscita',
-        chi: m.mittenteNome || m.mittente,
-        data: m.data,
-        oggetto: m.oggetto,
-        // Se tradotta, si dà all'AI l'italiano.
-        corpo: m.corpoTradotto || m.corpoTesto,
-      })),
+      messaggi: precedente ? conIndice.slice(daIndice) : conIndice,
+      precedente,
       contestoAzienda: ctx.contestoAzienda,
       istruzioni: mirate,
       oggi: new Date(),

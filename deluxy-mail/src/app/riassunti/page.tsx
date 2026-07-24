@@ -2,8 +2,12 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
 import { dataBreve } from '@/lib/format'
+import { RicercaMail } from '@/components/RicercaMail'
+import { chiaviPerNome } from '@/lib/nomiThread'
 
 export const dynamic = 'force-dynamic'
+
+type Props = { searchParams: Promise<{ q?: string }> }
 
 // La forma salvata del riassunto (compatibile coi vecchi: inSospeso può essere
 // una semplice stringa invece di un oggetto).
@@ -18,8 +22,11 @@ type Vista = {
  * delle conversazioni. Ogni voce linka il thread correlato (il capostipite,
  * la cui pagina mostra tutti i messaggi e il riassunto per esteso).
  */
-export default async function Riassunti() {
+export default async function Riassunti({ searchParams }: Props) {
   const u = await richiediUtente()
+  const { q: qGrezzo } = await searchParams
+  const q = (qGrezzo ?? '').trim()
+  const ricerca = q.length >= 2
 
   let riassunti: {
     id: string
@@ -30,8 +37,35 @@ export default async function Riassunti() {
     generatoIl: Date
   }[] = []
   try {
+    // In ricerca si guarda: il CONTENUTO del riassunto (il JSON salvato contiene
+    // sintesi/punti/sospesi), il NOME dato al thread e l'oggetto del capostipite.
+    let chiaviTitolo: string[] = []
+    let chiaviNome: string[] = []
+    if (ricerca) {
+      const [teste, nomi] = await Promise.all([
+        db.messaggio.findMany({
+          where: { utenteId: u.id, oggetto: { contains: q, mode: 'insensitive' } },
+          select: { id: true },
+          take: 500,
+        }),
+        chiaviPerNome(u.id, q),
+      ])
+      chiaviTitolo = teste.map((t) => t.id)
+      chiaviNome = nomi
+    }
     riassunti = await db.riassuntoThread.findMany({
-      where: { utenteId: u.id },
+      where: {
+        utenteId: u.id,
+        ...(ricerca
+          ? {
+              OR: [
+                { riassunto: { contains: q, mode: 'insensitive' as const } },
+                ...(chiaviTitolo.length ? [{ chiave: { in: chiaviTitolo } }] : []),
+                ...(chiaviNome.length ? [{ chiave: { in: chiaviNome } }] : []),
+              ],
+            }
+          : {}),
+      },
       orderBy: { generatoIl: 'desc' },
       take: 300,
     })
@@ -63,14 +97,23 @@ export default async function Riassunti() {
         </div>
       </div>
 
+      <div style={{ marginBottom: 16 }}>
+        <RicercaMail
+          iniziale={ricerca ? q : ''}
+          base="/riassunti"
+          placeholder="Cerca fra i riassunti (contenuto, nome del thread, oggetto)…"
+        />
+      </div>
+
       <div className="card tight">
         {riassunti.length === 0 ? (
           <div className="empty">
-            <div className="empty-icon">✦</div>
-            <div className="empty-title">Ancora nessun riassunto</div>
+            <div className="empty-icon">{ricerca ? '⌕' : '✦'}</div>
+            <div className="empty-title">{ricerca ? 'Nessun riassunto trovato' : 'Ancora nessun riassunto'}</div>
             <p className="empty-text">
-              Apri una conversazione con più messaggi e premi “Riassumi la conversazione”: il
-              quadro dell’AI verrà salvato qui, con il link al thread.
+              {ricerca
+                ? `Nessun riassunto corrisponde a «${q}».`
+                : 'Apri una conversazione con più messaggi e premi “Riassumi la conversazione”: il quadro dell’AI verrà salvato qui, con il link al thread.'}
             </p>
           </div>
         ) : (
