@@ -14,6 +14,7 @@ import { PriorityBadge } from '@/components/PriorityBadge';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { coloreLivello, LABEL_LIVELLO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
+import { VisitaModal } from '@/components/VisitaModal';
 
 // Le "viste" del menu: ogni voce di Contatti apre /lista già filtrata.
 // "inattivi" = dormienti + persi, la scheda dei rapporti da riattivare.
@@ -51,6 +52,8 @@ export default function Lista() {
   useEffect(() => setLivello(null), [vista]);
   // "Invia mail" su un Prospect: scegli lo script (o creane uno) → schermata invio.
   const [mailPlace, setMailPlace] = useState<Place | null>(null);
+  // La visita: stessa finestra della Mappa (VisitaModal), non una pagina a parte.
+  const [visitaPlace, setVisitaPlace] = useState<Place | null>(null);
 
   async function nascondi(place: Place) {
     try {
@@ -155,7 +158,7 @@ export default function Lista() {
             vista={vistaCorr}
             onPress={() => router.push(`/(app)/attivita/${item.id}`)}
             onNascondi={() => nascondi(item)}
-            onVisita={() => router.push(`/(app)/visita/${item.id}`)}
+            onVisita={() => setVisitaPlace(item)}
             onMail={() => setMailPlace(item)}
           />
         )}
@@ -164,6 +167,7 @@ export default function Lista() {
         <Ionicons name="add" size={30} color={colors.bianco} />
       </Pressable>
       {mailPlace ? <ScegliScriptModal place={mailPlace} onClose={() => setMailPlace(null)} /> : null}
+      <VisitaModal place={visitaPlace} onClose={() => setVisitaPlace(null)} onDone={() => { setVisitaPlace(null); ricarica(); }} />
     </View>
   );
 }
