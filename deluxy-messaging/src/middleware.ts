@@ -16,6 +16,6 @@ export const config = {
   // i webhook Meta (autenticati dal verify token e dalla firma X-Hub-Signature)
   // e gli asset.
   matcher: [
-    '/((?!login|widget|api/widget|api/webhooks|_next/static|_next/image|favicon.ico).*)',
+    '/((?!login|registrati|widget|api/widget|api/webhooks|_next/static|_next/image|favicon.ico).*)',
   ],
 }

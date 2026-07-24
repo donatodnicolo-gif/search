@@ -27,8 +27,9 @@ Token. Il widget non ha invio esterno: il visitatore riceve col polling.
 flottante e apre un iframe su `/widget`; la sessione del visitatore è un token casuale
 salvato nel suo browser, la conversazione appare in inbox come canale "Sito".
 
-**Accesso.** Login con email e password (sessione firmata, come deluxy-mail). Alla prima
-apertura, senza utenti, la pagina di login crea il primo amministratore.
+**Accesso.** Due pagine con link incrociati: `/login` per entrare e `/registrati` per
+creare l'account (sessione firmata, come deluxy-mail). Il primo account registrato è
+l'amministratore; i successivi nascono con ruolo operatore.
 
 ## Variabili d'ambiente
 

@@ -30,23 +30,32 @@ export async function entra(formData: FormData) {
   redirect('/')
 }
 
-// Bootstrap: finché non esiste nessun utente, il form del login crea il primo
-// amministratore. Appena c'è un utente questa via si chiude da sola.
-export async function creaPrimoAdmin(formData: FormData) {
-  const quanti = await db.utente.count()
-  if (quanti > 0) redirect('/login?errore=' + encodeURIComponent('Esiste già un utente: accedi.'))
-
+// Registrazione: il PRIMO utente registrato diventa amministratore (bootstrap
+// della prima apertura), i successivi nascono operatori.
+export async function registrati(formData: FormData) {
   const nome = String(formData.get('nome') ?? '').trim()
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const password = String(formData.get('password') ?? '')
   if (!nome || !email || password.length < 8) {
     redirect(
-      '/login?errore=' + encodeURIComponent('Servono nome, email e una password di almeno 8 caratteri.')
+      '/registrati?errore=' +
+        encodeURIComponent('Servono nome, email e una password di almeno 8 caratteri.')
     )
   }
 
+  const esistente = await db.utente.findUnique({ where: { email } })
+  if (esistente) {
+    redirect('/registrati?errore=' + encodeURIComponent('Questa email è già registrata: accedi.'))
+  }
+
+  const quanti = await db.utente.count()
   const utente = await db.utente.create({
-    data: { nome, email, passwordHash: hashPassword(password), ruolo: 'admin' },
+    data: {
+      nome,
+      email,
+      passwordHash: hashPassword(password),
+      ruolo: quanti === 0 ? 'admin' : 'operatore',
+    },
   })
   await apriSessione(utente.id)
   redirect('/')

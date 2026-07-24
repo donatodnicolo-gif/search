@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
-import { entra } from './actions'
+import { registrati } from '../login/actions'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PaginaLogin({
+export default async function PaginaRegistrati({
   searchParams,
 }: {
   searchParams: Promise<{ errore?: string }>
@@ -19,38 +19,41 @@ export default async function PaginaLogin({
           Deluxy <span style={{ color: 'var(--gold)' }}>Messaggi</span>
         </div>
         <div className="sotto">
-          WhatsApp, Messenger, Instagram e chat del sito in un posto solo.
+          {nessunUtente
+            ? 'Prima apertura: il primo account creato è l’amministratore.'
+            : 'Crea il tuo account operatore.'}
         </div>
 
         {errore ? <div className="avviso-errore">{errore}</div> : null}
-        {nessunUtente ? (
-          <div className="avviso-ok">
-            Prima apertura: non esiste ancora nessun utente.{' '}
-            <Link href="/registrati" style={{ textDecoration: 'underline' }}>
-              Registrati
-            </Link>{' '}
-            per creare l&apos;amministratore.
-          </div>
-        ) : null}
 
-        <form action={entra}>
+        <form action={registrati}>
+          <label className="campo">
+            <span>Nome</span>
+            <input name="nome" required autoComplete="name" />
+          </label>
           <label className="campo">
             <span>Email</span>
             <input name="email" type="email" required autoComplete="email" />
           </label>
           <label className="campo">
-            <span>Password</span>
-            <input name="password" type="password" required autoComplete="current-password" />
+            <span>Password (minimo 8 caratteri)</span>
+            <input
+              name="password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+            />
           </label>
           <button className="bottone" style={{ width: '100%', justifyContent: 'center' }}>
-            Accedi
+            {nessunUtente ? 'Crea l’amministratore e accedi' : 'Crea l’account e accedi'}
           </button>
         </form>
 
         <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Non hai un account?{' '}
-          <Link href="/registrati" style={{ color: 'var(--text)', textDecoration: 'underline' }}>
-            Registrati
+          Hai già un account?{' '}
+          <Link href="/login" style={{ color: 'var(--text)', textDecoration: 'underline' }}>
+            Accedi
           </Link>
         </p>
       </div>

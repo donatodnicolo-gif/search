@@ -18,7 +18,9 @@ Ultimo aggiornamento: 24/07/2026
   autenticate dal token di sessione del visitatore.
 - Impostazioni: token canali (cifrati, "vuoto = non toccare"), verify token, App Secret,
   titolo/benvenuto widget, URL webhook e snippet pronti da copiare.
-- Login con bootstrap del primo admin; middleware a sessione firmata.
+- Login (`/login`) e registrazione (`/registrati`) come pagine separate con link
+  incrociati: il primo account registrato è l'amministratore (bootstrap), i successivi
+  nascono operatori; middleware a sessione firmata.
 - Tessera "Messaggi" nel catalogo del Hub (`deluxy-hub/src/lib/apps.ts`, icona nuova).
 
 ## MANCA
