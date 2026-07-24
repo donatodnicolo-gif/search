@@ -60,6 +60,15 @@ const stmts = [
        AND (a."creataIl" > b."creataIl" OR (a."creataIl" = b."creataIl" AND a."id" > b."id"))`,
   // Dimensione in byte del messaggio (per l'ordinamento della posta).
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "dimensione" INTEGER`,
+  // Riempimento una-tantum sullo STORICO: le mail scaricate prima di questo
+  // campo hanno dimensione nulla (= 0), quindi l'ordinamento per dimensione non
+  // faceva niente. Qui si stima dai byte del corpo già salvati (testo + HTML):
+  // non è il byte esatto della mail grezza, ma dà un ordine sensato. Le nuove
+  // mail continuano a memorizzare la dimensione reale. Idempotente: gira solo
+  // sulle righe ancora NULL.
+  `UPDATE "Messaggio"
+     SET "dimensione" = octet_length("corpoTesto") + COALESCE(octet_length("corpoHtml"), 0)
+     WHERE "dimensione" IS NULL`,
   // Marcatore anti-doppia-notifica push.
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "notificatoIl" TIMESTAMP(3)`,
   // Conversazioni chiuse (fuori dai Top thread, etichetta «Chiuso»).
