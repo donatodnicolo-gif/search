@@ -81,6 +81,26 @@ cd deluxy-mail && node --env-file=.env scripts/migrate-prod.mjs
 
 ---
 
+### esporta-dati.mjs / importa-dati.mjs — deluxy-marketing
+Travaso completo del database Marketing (es. da SQLite di sviluppo al Postgres di produzione): esporta tutto in un JSON e lo ricarica altrove senza duplicare (idempotente). L'ordine delle tabelle sta in `tabelle.mjs`.
+
+```bash
+cd deluxy-marketing && npm run esporta                         # → dati-marketing.json
+cd deluxy-marketing && npm run importa -- dati-marketing.json  # nel DB puntato dal .env
+```
+
+- **Serve**: `DATABASE_URL` (e `DIRECT_URL` su Postgres) nel `.env` dell'app
+- **Nota**: il file esportato contiene email dei clienti → è in `.gitignore`, **mai committarlo**
+
+### configura-db-condiviso.mjs — deluxy-marketing
+Configura il `.env` dell'app Marketing copiando le stringhe del Postgres condiviso Deluxy da un'altra app e impostando lo schema dedicato `marketing`. Non stampa mai le credenziali.
+
+```bash
+cd deluxy-marketing && npm run configura-db -- ../deluxy-hub/.env
+```
+
+- **Serve**: il `.env` di un'altra app Deluxy già sul cluster condiviso (hub, anagrafiche…)
+
 ## 3. Import e sincronizzazione dati
 
 ### import-places.mjs — deluxy-scout
@@ -187,6 +207,22 @@ cd deluxy-marketing && npm run sync-drive
 - **Nota**: idempotente; la cartella Drive **non viene mai scritta**. Stessa sync disponibile dal bottone «Sincronizza ora» nella pagina Documenti Drive dell'app.
 
 ---
+
+### import-ordini-shopify.mjs / carica-ordini-lotto.mjs — deluxy-marketing
+Import degli ordini Shopify nella sezione Ordini: il primo interroga l'Admin API dei negozi configurati, il secondo carica file JSON di ordini già scaricati (anche una cartella intera di pagine).
+
+```bash
+cd deluxy-marketing && node scripts/import-ordini-shopify.mjs
+cd deluxy-marketing && node scripts/carica-ordini-lotto.mjs <file-o-cartella>
+```
+
+- **Serve**: `DATABASE_URL`; per l'Admin API `SHOPIFY_NEGOZI` + `SHOPIFY_TOKEN_<NEGOZIO>` ([token](https://admin.shopify.com) → App e canali di vendita → Sviluppa app)
+
+### google-ads-script.js — deluxy-marketing
+NON si lancia da terminale: si **incolla in Google Ads** (Strumenti → Azioni collettive → Script), una copia per account. Sei funzioni da schedulare: `main()` metriche giornaliere · `mainCopy()` keyword+annunci · `mainAsset()` sitelink/immagini · `mainApprovazioni()` stati di review (alert A4) · `mainEsegui()` esegue le operazioni **approvate** in /operazioni (pausa, budget, keyword, negative, campagne nuove in pausa via bulk upload).
+
+- **Serve**: in testa al file `URL_APP` (l'app in produzione) e `CHIAVE_API` (da `npm run chiave -- google-ads`)
+- **Nota**: la scrittura passa SOLO dalla coda approvata a mano nell'app; lo script non decide nulla da solo
 
 ## 4. Setup e configurazione
 
