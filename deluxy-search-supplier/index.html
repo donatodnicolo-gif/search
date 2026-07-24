@@ -904,6 +904,13 @@ async function handoff(){
    ?indirizzo=Via Roma 1, Milano&categoria=fiorai|pasticcerie → ricerca diretta
    I parametri si applicano DOPO il login (che resta obbligatorio). */
 let deepLinkDone = false;
+// tiene l'URL allineato all'ultima ricerca (replaceState, niente cronologia):
+// al refresh la sessione si riprende da sola e il deep link ripete la ricerca
+function rememberSearch(params){
+  const q = new URLSearchParams();
+  Object.entries(params).forEach(([k,v])=>{ if(v) q.set(k,v); });
+  history.replaceState(null, '', location.pathname + (q.toString() ? '?'+q.toString() : ''));
+}
 function applyDeepLink(){
   if(deepLinkDone) return;
   deepLinkDone = true;
@@ -1513,6 +1520,7 @@ async function fetchOrder(){
 
 function populateOrder(o){
   orderLoaded = true;
+  rememberSearch({ brand, ordine: number.replace(/^#/,'') });
   $('#orderBox').style.display='block';
   $('#ordTag').textContent = o.brand + ' · ' + (o.orderName||'');
   const paid = o.amountPaid || 0;
@@ -2473,6 +2481,13 @@ async function run(){
   if(!key){ setStatus('Manca la chiave Google: aprila in ⚙️ Admin e salvala.', true); $('#config').open=true; return; }
   if(!address){ setStatus('Inserisci un indirizzo o una zona.', true); return; }
   if(cats.size===0){ setStatus('Seleziona almeno una categoria (Fiorai / Pasticcerie).', true); return; }
+
+  // al refresh si riparte da qui: con un ordine caricato l'URL resta ?brand&ordine
+  // (rimesso da fetchOrder), altrimenti si salva la ricerca per indirizzo
+  if(!orderLoaded){
+    rememberSearch({ indirizzo: address,
+      categoria: cats.size===1 ? (cats.has('pasticceria') ? 'pasticcerie' : 'fiorai') : '' });
+  }
 
   $('#go').disabled = true;
   try{

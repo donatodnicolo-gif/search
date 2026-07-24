@@ -143,6 +143,12 @@ solo dove siamo e come si lavora.
    categoria si aggiunge sempre. Vuoti = predefinite di `KEYWORDS` per lingua (comportamento
    di prima). AI_SPEC §4.
 
+22. **Refresh = ultima ricerca ripetuta** (24/07): `rememberSearch()` tiene l'URL allineato
+   all'ultima ricerca con `history.replaceState` — `?brand&ordine` quando si carica un ordine
+   (fetchOrder), `?indirizzo&categoria` per le ricerche per zona senza ordine (run). Al refresh
+   la sessione si riprende da sessionStorage e `applyDeepLink()` ripete la ricerca da sola.
+   L'inserimento manuale NON viene ricordato (al refresh l'ordine non esisterebbe su Shopify).
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
