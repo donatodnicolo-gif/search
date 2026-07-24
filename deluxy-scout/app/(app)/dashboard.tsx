@@ -321,7 +321,7 @@ export default function Dashboard() {
           motiviPersa.righe.map((r) => (
             <View key={r.motivo} style={styles.dealRow}>
               <Text style={styles.dealLinea} numberOfLines={1}>{r.motivo}</Text>
-              <Text style={styles.meta} numberOfLines={1}>{r.canali}</Text>
+              <Text style={[styles.meta, { flexShrink: 1, maxWidth: 150, textAlign: 'right' }]} numberOfLines={1}>{r.canali}</Text>
               <Text style={[styles.dealLinea, { flex: 0 }]}>{r.n} · {r.pct}%</Text>
             </View>
           ))

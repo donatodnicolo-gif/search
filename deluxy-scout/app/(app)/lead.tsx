@@ -4,7 +4,7 @@
 // (canale web) agganciata a un negozio, o si scarta. Un lead "nuovo" più
 // vecchio di 2 giorni è in ritardo: sul web chi non risponde subito perde.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -208,21 +208,23 @@ function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato
               <Ionicons name="close" size={24} color={colors.testoSoft} />
             </Pressable>
           </View>
-          <Text style={styles.campoLabel}>Chi ci ha contattato</Text>
-          <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="nome persona o azienda" placeholderTextColor={colors.grigio} autoFocus />
-          <Text style={styles.campoLabel}>Contatto (email o telefono)</Text>
-          <TextInput style={styles.input} value={contatto} onChangeText={setContatto} placeholder="es. maria@negozio.it" placeholderTextColor={colors.grigio} autoCapitalize="none" />
-          <Text style={styles.campoLabel}>Fonte</Text>
-          <View style={styles.chips}>
-            {FONTI.map((f) => (
-              <Pressable key={f.valore} onPress={() => setFonte(f.valore)} style={[styles.chip, fonte === f.valore && styles.chipOn]}>
-                <Text style={[styles.chipTxt, fonte === f.valore && styles.chipTxtOn]}>{f.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Text style={styles.campoLabel}>Cosa chiede</Text>
-          <TextInput style={[styles.input, { minHeight: 60 }]} value={messaggio} onChangeText={setMessaggio} placeholder="es. preventivo consegne weekend" placeholderTextColor={colors.grigio} multiline />
-          {errore ? <Text style={styles.errore}>{errore}</Text> : null}
+          <ScrollView contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled">
+            <Text style={styles.campoLabel}>Chi ci ha contattato</Text>
+            <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="nome persona o azienda" placeholderTextColor={colors.grigio} autoFocus />
+            <Text style={styles.campoLabel}>Contatto (email o telefono)</Text>
+            <TextInput style={styles.input} value={contatto} onChangeText={setContatto} placeholder="es. maria@negozio.it" placeholderTextColor={colors.grigio} autoCapitalize="none" />
+            <Text style={styles.campoLabel}>Fonte</Text>
+            <View style={styles.chips}>
+              {FONTI.map((f) => (
+                <Pressable key={f.valore} onPress={() => setFonte(f.valore)} style={[styles.chip, fonte === f.valore && styles.chipOn]}>
+                  <Text style={[styles.chipTxt, fonte === f.valore && styles.chipTxtOn]}>{f.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.campoLabel}>Cosa chiede</Text>
+            <TextInput style={[styles.input, { minHeight: 60 }]} value={messaggio} onChangeText={setMessaggio} placeholder="es. preventivo consegne weekend" placeholderTextColor={colors.grigio} multiline />
+            {errore ? <Text style={styles.errore}>{errore}</Text> : null}
+          </ScrollView>
           <Pressable style={[styles.btn, styles.btnLargo, (!nome.trim() || salvando) && { opacity: 0.5 }]} disabled={!nome.trim() || salvando} onPress={salva}>
             <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : 'Salva richiesta'}</Text>
           </Pressable>
@@ -281,15 +283,17 @@ function QualificaModal({ lead, onClose, onFatto }: { lead: Lead; onClose: () =>
             «{lead.nome}»{lead.messaggio ? ` — ${lead.messaggio.slice(0, 80)}` : ''}. Scegli il negozio: la trattativa nasce lì, canale web.
           </Text>
           <TextInput style={styles.input} value={ricerca} onChangeText={setRicerca} placeholder="Cerca negozio per nome…" placeholderTextColor={colors.grigio} autoFocus />
-          {risultati.map((p) => (
-            <Pressable key={p.id} style={styles.risultato} onPress={() => scegli(p)}>
-              <Ionicons name="storefront-outline" size={16} color={colors.testoSoft} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.risNome} numberOfLines={1}>{p.nome}</Text>
-                {p.indirizzo ? <Text style={styles.risInd} numberOfLines={1}>{p.indirizzo}</Text> : null}
-              </View>
-            </Pressable>
-          ))}
+          <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled">
+            {risultati.map((p) => (
+              <Pressable key={p.id} style={styles.risultato} onPress={() => scegli(p)}>
+                <Ionicons name="storefront-outline" size={16} color={colors.testoSoft} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.risNome} numberOfLines={1}>{p.nome}</Text>
+                  {p.indirizzo ? <Text style={styles.risInd} numberOfLines={1}>{p.indirizzo}</Text> : null}
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
           {errore ? <Text style={styles.errore}>{errore}</Text> : null}
         </View>
       </View>

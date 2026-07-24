@@ -225,11 +225,26 @@ function Riga({
         : null;
   return (
     <Pressable style={styles.riga} onPress={onPress}>
+      {/* Riga alta: solo priorità + nome (piena larghezza) + occhio. Badge e
+          azione vanno sotto, così il nome non viene mai troncato su mobile. */}
       <View style={styles.rigaHead}>
         <PriorityBadge priorita={place.priorita} small />
         <Text style={styles.nome} numberOfLines={1}>
           {place.nome}
         </Text>
+        <Pressable
+          style={styles.nascondi}
+          hitSlop={8}
+          onPress={(e) => {
+            (e as any)?.stopPropagation?.();
+            onNascondi();
+          }}
+          accessibilityLabel="Rimuovi target (nascondi)"
+        >
+          <Ionicons name="eye-off-outline" size={18} color={colors.grigio} />
+        </Pressable>
+      </View>
+      <View style={styles.rigaBadge}>
         <StatusBadge small label={LABEL_LIVELLO[livelloDi(place)]} colore={coloreLivello(livelloDi(place))} />
         {azione ? (
           <Pressable
@@ -245,17 +260,6 @@ function Riga({
             <Text style={styles.rigaAzioneTxt}>{azione.label}</Text>
           </Pressable>
         ) : null}
-        <Pressable
-          style={styles.nascondi}
-          hitSlop={8}
-          onPress={(e) => {
-            (e as any)?.stopPropagation?.();
-            onNascondi();
-          }}
-          accessibilityLabel="Rimuovi target (nascondi)"
-        >
-          <Ionicons name="eye-off-outline" size={18} color={colors.grigio} />
-        </Pressable>
       </View>
       {place.linea_ipotizzata ? (
         <View style={styles.lineaTag}>
@@ -281,7 +285,8 @@ function Riga({
 
 const styles = StyleSheet.create({
   livelli: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
-  rigaAzione: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
+  rigaBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  rigaAzione: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   rigaAzioneTxt: { color: colors.bianco, fontWeight: '700', fontSize: 12 },
   chipLiv: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipLivOn: { backgroundColor: colors.ink, borderColor: colors.ink },

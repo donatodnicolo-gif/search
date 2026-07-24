@@ -181,14 +181,14 @@ function IconaAzione({ nome, attiva, label, onPress }: { nome: any; attiva: bool
     <Pressable
       style={[styles.iconaAzione, !attiva && { opacity: 0.35 }]}
       disabled={!attiva}
-      hitSlop={4}
+      hitSlop={8}
       onPress={(e) => {
         (e as any)?.stopPropagation?.();
         onPress();
       }}
       accessibilityLabel={label}
     >
-      <Ionicons name={nome} size={16} color={colors.navy} />
+      <Ionicons name={nome} size={18} color={colors.navy} />
     </Pressable>
   );
 }
@@ -236,8 +236,8 @@ const styles = StyleSheet.create({
   nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   meta: { color: colors.testoSoft, fontSize: 13, marginTop: 1 },
   account: { color: colors.grigio, fontSize: 12, marginTop: 2 },
-  azioniRiga: { flexDirection: 'row', gap: 6, marginTop: 6 },
-  iconaAzione: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.sfondo, alignItems: 'center', justifyContent: 'center' },
+  azioniRiga: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  iconaAzione: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.sfondo, alignItems: 'center', justifyContent: 'center' },
   lineeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
   lineaTag: { backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 11 },
