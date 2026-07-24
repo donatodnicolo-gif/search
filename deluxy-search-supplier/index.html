@@ -340,6 +340,17 @@
       </div>
       <div class="fgrid fgrid-2">
         <div>
+          <label>Parole chiave Google — 🌸 Fiorai</label>
+          <input id="cfg_kw_fioraio" type="text" placeholder='vuoto = "fiorista fioraio" (per lingua)'>
+        </div>
+        <div>
+          <label>Parole chiave Google — 🍰 Pasticcerie</label>
+          <input id="cfg_kw_pasticceria" type="text" placeholder='vuoto = "pasticceria" (per lingua)'>
+        </div>
+      </div>
+      <div class="hint" style="margin-top:-6px">Con cosa cercare i negozi su Google. Più parole chiave separate da <b>virgola</b> = una ricerca per ciascuna, risultati uniti (es. <code>pasticceria, torte, cake design</code>); si aggiunge sempre anche la ricerca per sola categoria. Vuoto = predefinite nella lingua della consegna.</div>
+      <div class="fgrid fgrid-2">
+        <div>
           <label>Registro anagrafiche — URL</label>
           <input id="cfg_anag_url" type="text" placeholder="vuoto = https://deluxy-anagrafiche.vercel.app">
         </div>
@@ -791,6 +802,8 @@ function applyConfig(){
   loadKeys();   // sezione chiavi API (si nasconde da sola se non sei admin)
   $('#cfg_google').value = CONFIG.googleKey || '';
   $('#cfg_proxy').value  = CONFIG.proxy || '';
+  $('#cfg_kw_fioraio').value = CONFIG.kwFioraio || '';
+  $('#cfg_kw_pasticceria').value = CONFIG.kwPasticceria || '';
   $('#cfg_anag_url').value = CONFIG.anagUrl || '';
   $('#cfg_anag_key').value = '';
   $('#cfg_anag_key').placeholder = CONFIG.hasAnagKey ? '•••• salvata (vuoto = invariata)' : 'chiave di sola lettura';
@@ -926,6 +939,8 @@ async function saveConfig(){
     pass: r.querySelector('.u-pass').value.trim()
   })).filter(u=>u.nome);
   const body = { googleKey: $('#cfg_google').value.trim(), proxy: $('#cfg_proxy').value.trim(),
+                 kwFioraio: $('#cfg_kw_fioraio').value.trim(),
+                 kwPasticceria: $('#cfg_kw_pasticceria').value.trim(),
                  anagUrl: $('#cfg_anag_url').value.trim(), anagKey: $('#cfg_anag_key').value.trim(),
                  anagWriteKey: $('#cfg_anag_wkey').value.trim(),
                  googleOauthClientId: $('#cfg_goauth').value.trim(), utenti, stores };
@@ -1300,18 +1315,22 @@ function nearbyOne(service, opts, cat){
     });
   });
 }
-// Doppia ricerca per categoria: con keyword localizzata E solo per tipo, poi unione
-// (la dedup per place_id è a valle). La keyword da sola scarta schede vere — es.
+// Ricerca multipla per categoria: una nearbySearch per ogni keyword + una solo per tipo,
+// poi unione (la dedup per place_id è a valle). La keyword da sola scarta schede vere — es.
 // «Le Torte di Giada» (Brescia): type bakery, ma Google non la associa a "pasticceria" —
-// mentre il tipo da solo aggiunge panifici/bar: unendo le due liste non si perde nessuno.
+// mentre il tipo da solo aggiunge panifici/bar: unendo le liste non si perde nessuno.
+// Le keyword si personalizzano in ⚙️ Impostazioni (CONFIG.kwFioraio / kwPasticceria,
+// separate da virgola); vuote = predefinite di KEYWORDS nella lingua della consegna.
 function nearby(service, location, cat, lang){
   const meta = CAT_META[cat];
-  const keyword = KEYWORDS[cat][lang] || KEYWORDS[cat].default;
+  const custom = String((cat==='fioraio' ? CONFIG.kwFioraio : CONFIG.kwPasticceria) || '').trim();
+  const keywords = custom
+    ? custom.split(',').map(s=>s.trim()).filter(Boolean)
+    : [KEYWORDS[cat][lang] || KEYWORDS[cat].default];
   const base = { location, rankBy: google.maps.places.RankBy.DISTANCE, type: meta.type };
-  return Promise.all([
-    nearbyOne(service, Object.assign({keyword}, base), cat),
-    nearbyOne(service, base, cat)
-  ]).then(liste=>liste[0].concat(liste[1]));
+  const runs = keywords.map(kw => nearbyOne(service, Object.assign({keyword: kw}, base), cat));
+  runs.push(nearbyOne(service, base, cat));
+  return Promise.all(runs).then(liste => [].concat(...liste));
 }
 
 /* ------------------ dettagli negozio ------------------ */

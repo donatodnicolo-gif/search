@@ -31,10 +31,12 @@ App web per **cercare fiorai/pasticcerie vicino a un indirizzo** e **smistare or
 Oggetto JSON in KV alla chiave **`config:v1`**:
 ```json
 { "googleKey": "AIza...", "proxy": "https://api.allorigins.win/raw?url=",
+  "kwFioraio": "", "kwPasticceria": "pasticceria, torte, cake design",
   "stores": [ { "brand": "deluxyflowers.com", "shop": "fb72b1-2.myshopify.com", "token": "shpat_..." } ] }
 ```
 - I **token Shopify NON escono mai dal server**: `GET /api/config` restituisce `hasToken:true/false`, mai il token.
 - `googleKey` invece È restituita al browser (serve alla mappa; proteggila con restrizione referrer su Google Cloud).
+- `kwFioraio`/`kwPasticceria` (24/07/2026): **parole chiave Google personalizzate** per categoria, impostabili in ⚙️ Impostazioni. Più keyword separate da virgola = una `nearbySearch` per ciascuna (i risultati si uniscono, dedup per place_id); a queste si aggiunge SEMPRE la ricerca per sola categoria (`type`). Vuote = predefinite di `KEYWORDS` nella lingua della consegna.
 
 ## 5. Endpoint API (tutti richiedono header `x-app-password`, tranne webhook)
 | Metodo | Path | Cosa fa |

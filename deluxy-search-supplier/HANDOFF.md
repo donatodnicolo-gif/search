@@ -128,6 +128,13 @@ solo dove siamo e come si lavora.
    cakedesign #1725, consegna in via Odofredo Denari 36) — mentre lasciava passare panifici
    e bar. Dettagli in AI_SPEC §12.9. C'è anche un .gitignore nuovo (`.env*`, `.vercel`).
 
+21. **Parole chiave Google personalizzabili** (24/07): in ⚙️ Impostazioni due campi nuovi
+   «Parole chiave Google — Fiorai / Pasticcerie» (`config:v1.kwFioraio/kwPasticceria`,
+   visibili a tutte le utenze via GET /api/config, salvabili solo dall'admin). Più keyword
+   separate da virgola = una nearbySearch per ciascuna, risultati uniti; la ricerca per sola
+   categoria si aggiunge sempre. Vuoti = predefinite di `KEYWORDS` per lingua (comportamento
+   di prima). AI_SPEC §4.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
