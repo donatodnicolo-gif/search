@@ -1,0 +1,172 @@
+// Deluxy Orders — schema dati
+// Registro centralizzato degli ordini Shopify di tutti i brand Deluxy.
+// È la fonte di verità degli ordini: li scarica da Shopify (NegozioShopify →
+// Ordine), permette di riclassificarli a piacimento (stato/pipeline, etichette
+// libere, categorie, assegnazione/instradamento) e li espone alle altre app via
+// API a chiave di sola lettura. Gemello, per gli ordini, di Deluxy Anagrafiche.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
+}
+
+// Negozio Shopify collegato. Autenticazione, in alternativa:
+//  A) token statico shpat_... (custom app "vecchio stile")
+//  B) Client ID + Secret di un'app della Dev Dashboard: l'app conia da sé un
+//     token Admin col "client credentials grant" (valido ~24h) e lo rinnova.
+// Stesso modello usato da deluxy-partner, così i negozi si configurano uguali.
+model NegozioShopify {
+  id           String    @id @default(cuid())
+  brand        String    @unique // es. deluxyflowers.com
+  dominio      String // es. fb72b1-2.myshopify.com
+  token        String    @default("") // token Admin in uso (statico o coniato)
+  clientId     String? // Dev Dashboard app: Client ID
+  clientSecret String? // Dev Dashboard app: Client Secret
+  tokenScadeIl DateTime? // scadenza del token coniato (null = token statico)
+  attivo       Boolean   @default(true)
+  ultimaSync   DateTime?
+  ordini       Ordine[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// Stato del flusso di lavoro (pipeline) — completamente personalizzabile.
+// È la classificazione principale su cui si muove la Bacheca. `chiave` è lo slug
+// stabile citato dalle API; `nome` è l'etichetta mostrata.
+model StatoOrdine {
+  id          String   @id @default(cuid())
+  chiave      String   @unique // slug stabile per le API, es. da_smistare
+  nome        String
+  colore      String   @default("#6e6e73") // hex, per dot/pillola
+  ordine      Int      @default(0) // posizione nella pipeline
+  predefinito Boolean  @default(false) // stato iniziale dei nuovi ordini
+  terminale   Boolean  @default(false) // stato di chiusura (consegnato/annullato)
+  ordini      Ordine[]
+  createdAt   DateTime @default(now())
+
+  @@index([ordine])
+}
+
+// Etichetta libera (tag) applicabile agli ordini per raggrupparli a piacimento.
+model Etichetta {
+  id        String   @id @default(cuid())
+  nome      String   @unique
+  colore    String   @default("#0071e3") // hex
+  ordini    Ordine[] @relation("OrdineEtichette")
+  createdAt DateTime @default(now())
+}
+
+// Ordine Shopify importato, con la classificazione Deluxy sovrapposta.
+model Ordine {
+  id        String         @id @default(cuid())
+  negozioId String
+  negozio   NegozioShopify @relation(fields: [negozioId], references: [id], onDelete: Cascade)
+  brand     String
+  orderId   String // gid Shopify (globale, univoco per negozio)
+  numero    String // es. #1234
+  data      DateTime // createdAt su Shopify
+  totale    Float
+  valuta    String         @default("EUR")
+
+  // stato lato Shopify (informativo, non modificabile qui)
+  financialStatus   String? // PAID | PENDING | PARTIALLY_PAID | REFUNDED...
+  fulfillmentStatus String? // FULFILLED | UNFULFILLED | PARTIALLY_FULFILLED...
+  gateway           String? // nomi gateway concatenati
+  noteShopify       String?
+  tagShopify        String? // tag Shopify (csv), informativi
+
+  // cliente
+  clienteNome     String?
+  clienteEmail    String?
+  clienteTelefono String?
+
+  // spedizione
+  spedizioneNome String?
+  indirizzo      String?
+  citta          String?
+  cap            String?
+  provincia      String?
+  paese          String?
+
+  righe RigaOrdine[]
+
+  // ---- classificazione Deluxy (riclassificabile a piacimento) ----
+  statoId   String?
+  stato     StatoOrdine? @relation(fields: [statoId], references: [id])
+  etichette Etichetta[]  @relation("OrdineEtichette")
+
+  // categorie (dedotte dalla sync, correggibili a mano)
+  categoriaPagamento        String  @default("altro") // bonifico | carta | contrassegno | altro
+  categoriaPagamentoManuale Boolean @default(false) // true = impostata a mano: la sync non la tocca
+  tipoConsegna              String? // es. consegna | ritiro | spedizione
+  tipoProdotto              String? // es. fiori | pasticceria | gift...
+  canale                    String? // es. web | telefono | rivenditore
+
+  // instradamento / assegnazione
+  assegnatoApp String? // id app destinazione (search | partner | consegne...)
+  fornitore    String? // fiorario/pasticceria assegnato
+  responsabile String? // persona/email in carico
+
+  // dimensioni libere chiave→valore (riclassificazione senza cambi di schema)
+  classificazioni Json?
+
+  noteInterne      String?
+  ultimaClassifica DateTime? // ultima modifica manuale della classificazione
+  eventi           EventoOrdine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([negozioId, orderId])
+  @@index([statoId])
+  @@index([brand, data])
+  @@index([categoriaPagamento])
+  @@index([assegnatoApp])
+  @@index([data])
+}
+
+// Riga d'ordine (line item) importata da Shopify.
+model RigaOrdine {
+  id       String  @id @default(cuid())
+  ordineId String
+  ordine   Ordine  @relation(fields: [ordineId], references: [id], onDelete: Cascade)
+  titolo   String
+  variante String?
+  sku      String?
+  quantita Int     @default(1)
+  prezzo   Float   @default(0) // prezzo unitario
+
+  @@index([ordineId])
+}
+
+// Storico delle classificazioni: ogni cambio (stato, etichetta, categoria,
+// assegnazione, nota) e ogni import lasciano una traccia, così le altre app e
+// gli operatori vedono chi ha fatto cosa e quando.
+model EventoOrdine {
+  id          String   @id @default(cuid())
+  ordineId    String
+  ordine      Ordine   @relation(fields: [ordineId], references: [id], onDelete: Cascade)
+  tipo        String // stato | etichetta | categoria | assegnazione | nota | sync
+  descrizione String
+  autore      String? // "operatore" | "sync" | nome chiave API
+  creatoIl    DateTime @default(now())
+
+  @@index([ordineId, creatoIl])
+}
+
+// Chiave API di un'app client. Nel database c'è solo lo SHA-256 della chiave.
+// Le chiavi si creano con `npm run chiave -- <nome-app> [--scrittura]`.
+model ApiKey {
+  id        String    @id @default(cuid())
+  nome      String    @unique // app client: deluxy-search, deluxy-partner, ...
+  hash      String    @unique // sha256 esadecimale della chiave
+  scrittura Boolean   @default(false) // true = può riclassificare via PATCH
+  attiva    Boolean   @default(true)
+  creataIl  DateTime  @default(now())
+  ultimoUso DateTime?
+}

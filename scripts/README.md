@@ -218,6 +218,42 @@ cd deluxy-marketing && node scripts/carica-ordini-lotto.mjs <file-o-cartella>
 
 - **Serve**: `DATABASE_URL`; per l'Admin API `SHOPIFY_NEGOZI` + `SHOPIFY_TOKEN_<NEGOZIO>` ([token](https://admin.shopify.com) → App e canali di vendita → Sviluppa app)
 
+### import-storico.ts — deluxy-orders
+**Import iniziale**: scarica da Shopify **tutti gli ordini di sempre** dei negozi collegati e li salva nel registro Orders. Riusa il motore dell'app (`src/lib/sync.ts`): è ripetibile senza creare doppioni e non sovrascrive la classificazione già impostata. Stampa l'avanzamento e un riepilogo per negozio.
+
+```bash
+# dalla radice del repo — tutto lo storico (lungo: decine di minuti)
+cd deluxy-orders && npm run import:storico
+# solo gli ultimi N giorni
+cd deluxy-orders && npm run import:storico -- 365
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app e almeno un negozio collegato (vedi `importa-negozi-da-finance.mjs` o la pagina Impostazioni)
+- **Nota**: se si interrompe si può rilanciare — riprende senza duplicare. Per la sync quotidiana c'è il cron `/api/cron/sync`.
+
+### importa-negozi-da-finance.mjs — deluxy-orders
+Copia i negozi Shopify già collegati in Deluxy Partner (Finance) dentro il registro Orders, così non si riconfigurano a mano le stesse credenziali in due app. Non stampa mai token o segreti.
+
+```bash
+# dalla radice del repo
+cd deluxy-orders && npm run negozi:da-finance
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` di Orders; il `.env` di Finance come sorgente (default `../deluxy-partner/.env`)
+
+### sync-ordini.mjs — deluxy-orders
+Avvia lo scarico degli ordini Shopify nel registro centralizzato Orders chiamando l'endpoint dell'app (utile per cron esterni o import manuale). Richiede una chiave di **scrittura**.
+
+```bash
+# dalla radice del repo — importa gli ultimi 90 giorni (default)
+cd deluxy-orders && ORDERS_URL=<url-app> ORDERS_API_KEY=<chiave-scrittura> npm run sync
+# numero di giorni personalizzato
+cd deluxy-orders && ORDERS_URL=<url-app> ORDERS_API_KEY=<chiave-scrittura> npm run sync -- 30
+```
+
+- **Serve**: `ORDERS_API_KEY` (chiave di scrittura, da `npm run chiave -- <app> --scrittura`); opzionale `ORDERS_URL` (default `http://localhost:3150`)
+- **Nota**: la sync non tocca la classificazione già impostata sugli ordini. In produzione c'è anche il cron notturno Vercel `/api/cron/sync` (protetto da `CRON_SECRET`).
+
 ### google-ads-script.js — deluxy-marketing
 NON si lancia da terminale: si **incolla in Google Ads** (Strumenti → Azioni collettive → Script), una copia per account. Sei funzioni da schedulare: `main()` metriche giornaliere · `mainCopy()` keyword+annunci · `mainAsset()` sitelink/immagini · `mainApprovazioni()` stati di review (alert A4) · `mainEsegui()` esegue le operazioni **approvate** in /operazioni (pausa, budget, keyword, negative, campagne nuove in pausa via bulk upload).
 
@@ -251,6 +287,30 @@ cd deluxy-anagrafiche && npm run chiave -- deluxy-platform --scrittura
 
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: la chiave (`dlxk_...`) viene stampata **una sola volta** — nel database resta solo lo SHA-256. Copiarla subito nel `.env` dell'app client come `ANAGRAFICHE_API_KEY`. Rilanciarlo sullo stesso nome **rigenera** la chiave e invalida la precedente. L'unica app che deve avere `--scrittura` è `deluxy-platform-next`.
+
+### crea-chiave.mjs — deluxy-orders
+Crea (o rigenera) una chiave API per un'app client del registro ordini Orders.
+
+```bash
+# dalla radice del repo — sola lettura
+cd deluxy-orders && npm run chiave -- <nome-app>
+# lettura + scrittura (può riclassificare via PATCH e avviare la sync)
+cd deluxy-orders && npm run chiave -- deluxy-partner --scrittura
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: la chiave (`dlxo_...`) viene stampata **una sola volta** — nel database resta solo lo SHA-256. Copiarla nel `.env` dell'app client come `ORDERS_API_KEY`.
+
+### configura-db-condiviso.mjs — deluxy-orders
+Scrive il `.env` di Orders copiando `DATABASE_URL` e `DIRECT_URL` dall'env di un'altra app Deluxy (stesso cluster Postgres) e forzando `schema=orders`. Conserva le altre variabili già presenti.
+
+```bash
+# dalla radice del repo
+cd deluxy-orders && node scripts/configura-db-condiviso.mjs ../deluxy-partner/.env
+```
+
+- **Serve**: un file env sorgente che contenga `DATABASE_URL` e `DIRECT_URL`
+- **Nota**: non stampa mai le stringhe di connessione.
 
 ### configura-db-condiviso.mjs — deluxy-anagrafiche
 Scrive il `.env` dell'app copiando `DATABASE_URL` e `DIRECT_URL` dall'env di un'altra app Deluxy (stesso cluster Postgres) e forzando `schema=anagrafiche`.
@@ -348,6 +408,7 @@ Una riga per app; il `cd` parte dalla radice del repo.
 | deluxy-anagrafiche | 3060 | `cd deluxy-anagrafiche && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run chiave -- <app>` · `npm run import:excel` · `npm run import:hubspot-contatti` · `npm run export:vcard` |
 | deluxy-mail | 3070 | `cd deluxy-mail && npm run dev` · `npm run build` (include la migrazione) · `npm start` · `npm run db:push` · `npm run db:seed` |
 | deluxy-budgets | 3080 | `cd deluxy-budgets && npm run dev` · `npm run build` · `npm start` · `npm run typecheck` · `npm run db:push` · `npm run db:seed` |
+| deluxy-orders | 3150 | `cd deluxy-orders && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run chiave -- <app> [--scrittura]` · `npm run negozi:da-finance` · `npm run import:storico` · `npm run sync` |
 | deluxy-scout (Expo) | — | `cd deluxy-scout && npm start` · `npm run web` · `npm run android` · `npm run ios` · `npm run build:web` · `npm run typecheck` · `npm test` · `npm run lint` · `npm run import:places -- <file.csv>` |
 | deluxy-platform-next | API + web | `cd deluxy-platform-next && npm run dev:api` · `npm run dev:web` · `npm run build` · `npm run prisma:generate` · `npm run prisma:migrate` · `npm run seed` · `npm run doc:word` |
 

@@ -1,0 +1,314 @@
+import { prisma } from "./db";
+import { categoriaDaGateway, type CategoriaPagamento } from "./classificazione";
+
+// Client Shopify Admin API (GraphQL 2024-10) per scaricare gli ordini dei
+// negozi collegati. Il token (shpat_... o coniato) di ogni negozio è salvato in
+// NegozioShopify e non lascia mai il server. Sola lettura (read_orders).
+// Evoluzione del client di deluxy-partner: qui prendiamo anche le righe
+// d'ordine, l'indirizzo di spedizione, il telefono, lo stato di evasione e i tag.
+
+const API_VERSION = "2024-10";
+
+export type RigaNormalizzata = {
+  titolo: string;
+  variante: string | null;
+  sku: string | null;
+  quantita: number;
+  prezzo: number;
+};
+
+export type OrdineNormalizzato = {
+  orderId: string;
+  numero: string;
+  data: Date;
+  totale: number;
+  valuta: string;
+  financialStatus: string | null;
+  fulfillmentStatus: string | null;
+  gateway: string | null;
+  categoriaPagamento: CategoriaPagamento;
+  clienteNome: string | null;
+  clienteEmail: string | null;
+  clienteTelefono: string | null;
+  spedizioneNome: string | null;
+  indirizzo: string | null;
+  citta: string | null;
+  cap: string | null;
+  provincia: string | null;
+  paese: string | null;
+  noteShopify: string | null;
+  tagShopify: string | null;
+  righe: RigaNormalizzata[];
+};
+
+// 25 ordini per pagina con 25 righe ciascuno: l'API Admin ha un limite a punti
+// (query cost) e chiedere di più fa scattare il throttling su negozi grandi.
+const ORDERS_QUERY = `
+query Ordini($cursor: String, $q: String) {
+  orders(first: 25, after: $cursor, query: $q, sortKey: CREATED_AT, reverse: true) {
+    edges {
+      cursor
+      node {
+        id
+        name
+        createdAt
+        displayFinancialStatus
+        displayFulfillmentStatus
+        note
+        tags
+        paymentGatewayNames
+        totalPriceSet { shopMoney { amount currencyCode } }
+        customer { firstName lastName email phone }
+        shippingAddress {
+          name address1 address2 city zip provinceCode province countryCodeV2 country phone
+        }
+        lineItems(first: 25) {
+          edges { node {
+            title
+            quantity
+            sku
+            variantTitle
+            originalUnitPriceSet { shopMoney { amount } }
+          } }
+        }
+      }
+    }
+    pageInfo { hasNextPage }
+  }
+}`;
+
+type LineItemNode = {
+  title: string;
+  quantity: number;
+  sku: string | null;
+  variantTitle: string | null;
+  originalUnitPriceSet: { shopMoney: { amount: string } } | null;
+};
+
+type OrderNode = {
+  id: string;
+  name: string;
+  createdAt: string;
+  displayFinancialStatus: string | null;
+  displayFulfillmentStatus: string | null;
+  note: string | null;
+  tags: string[];
+  paymentGatewayNames: string[];
+  totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
+  customer: { firstName: string | null; lastName: string | null; email: string | null; phone: string | null } | null;
+  shippingAddress: {
+    name: string | null;
+    address1: string | null;
+    address2: string | null;
+    city: string | null;
+    zip: string | null;
+    provinceCode: string | null;
+    province: string | null;
+    countryCodeV2: string | null;
+    country: string | null;
+    phone: string | null;
+  } | null;
+  lineItems: { edges: { node: LineItemNode }[] };
+};
+
+const attesa = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Una chiamata GraphQL con ritentativi: l'Admin API limita per "costo" (bucket a
+// punti) e su import lunghi risponde THROTTLED o 429. In quel caso si aspetta e
+// si riprova invece di far fallire tutto l'import.
+async function shopifyGraphQL(
+  dominio: string,
+  token: string,
+  variables: Record<string, unknown>,
+  tentativi = 6,
+) {
+  let ultimoErrore = "";
+  for (let t = 0; t < tentativi; t++) {
+    let res: Response;
+    try {
+      res = await fetch(`https://${dominio}/admin/api/${API_VERSION}/graphql.json`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
+        body: JSON.stringify({ query: ORDERS_QUERY, variables }),
+        signal: AbortSignal.timeout(30000),
+      });
+    } catch (e) {
+      // errore di rete/timeout: riprova con attesa crescente
+      ultimoErrore = (e as Error).message;
+      await attesa(2000 * (t + 1));
+      continue;
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(`token non valido o scaduto (HTTP ${res.status}) — ricollega il negozio`);
+    }
+    if (res.status === 429 || res.status >= 500) {
+      ultimoErrore = `HTTP ${res.status}`;
+      await attesa(3000 * (t + 1));
+      continue;
+    }
+    if (!res.ok) {
+      throw new Error(`Shopify ${dominio} → HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    }
+
+    const json = await res.json();
+    if (json.errors) {
+      const testo = JSON.stringify(json.errors);
+      if (/throttl/i.test(testo)) {
+        ultimoErrore = "THROTTLED";
+        await attesa(3000 * (t + 1));
+        continue;
+      }
+      throw new Error(`Shopify GraphQL: ${testo.slice(0, 200)}`);
+    }
+
+    // Se il bucket dei punti è quasi esaurito, rallenta prima della prossima pagina.
+    const stato = json.extensions?.cost?.throttleStatus;
+    if (stato && stato.currentlyAvailable < 200) {
+      const mancanti = 400 - stato.currentlyAvailable;
+      await attesa(Math.min(5000, Math.max(500, (mancanti / (stato.restoreRate || 50)) * 1000)));
+    }
+    return json.data;
+  }
+  throw new Error(`Shopify ${dominio}: limite di frequenza non superato dopo ${tentativi} tentativi (${ultimoErrore})`);
+}
+
+function indirizzoUnaRiga(a: OrderNode["shippingAddress"]): string | null {
+  if (!a) return null;
+  return [a.address1, a.address2].filter(Boolean).join(", ") || null;
+}
+
+// Scarica gli ordini di un negozio, pagina per pagina.
+//  - `dal`  = data di partenza; **null = tutto lo storico** (nessun filtro).
+//  - `onPagina` = se passata, riceve ogni pagina appena arriva e la funzione
+//    NON accumula nulla in memoria (indispensabile per gli import storici da
+//    decine di migliaia di ordini). Senza callback torna l'elenco completo.
+export async function scaricaOrdini(
+  dominio: string,
+  token: string,
+  dal: Date | null,
+  maxPagine = 5000,
+  onPagina?: (ordini: OrdineNormalizzato[], pagina: number) => Promise<void>,
+): Promise<OrdineNormalizzato[]> {
+  const q = dal ? `created_at:>=${dal.toISOString().slice(0, 10)}` : undefined;
+  const out: OrdineNormalizzato[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < maxPagine; page++) {
+    const data = await shopifyGraphQL(dominio, token, { cursor, q });
+    const edges: { cursor: string; node: OrderNode }[] = data?.orders?.edges ?? [];
+    const pagina: OrdineNormalizzato[] = [];
+    for (const { node: n } of edges) {
+      const gateways = n.paymentGatewayNames ?? [];
+      const addr = n.shippingAddress;
+      const righe: RigaNormalizzata[] = (n.lineItems?.edges ?? []).map(({ node: l }) => ({
+        titolo: l.title,
+        variante: l.variantTitle,
+        sku: l.sku,
+        quantita: l.quantity ?? 1,
+        prezzo: parseFloat(l.originalUnitPriceSet?.shopMoney?.amount ?? "0") || 0,
+      }));
+      pagina.push({
+        orderId: n.id,
+        numero: n.name,
+        data: new Date(n.createdAt),
+        totale: parseFloat(n.totalPriceSet?.shopMoney?.amount ?? "0") || 0,
+        valuta: n.totalPriceSet?.shopMoney?.currencyCode ?? "EUR",
+        financialStatus: n.displayFinancialStatus ?? null,
+        fulfillmentStatus: n.displayFulfillmentStatus ?? null,
+        gateway: gateways.join(", ") || null,
+        categoriaPagamento: categoriaDaGateway(gateways),
+        clienteNome: [n.customer?.firstName, n.customer?.lastName].filter(Boolean).join(" ") || null,
+        clienteEmail: n.customer?.email ?? null,
+        clienteTelefono: n.customer?.phone ?? addr?.phone ?? null,
+        spedizioneNome: addr?.name ?? null,
+        indirizzo: indirizzoUnaRiga(addr),
+        citta: addr?.city ?? null,
+        cap: addr?.zip ?? null,
+        provincia: addr?.provinceCode ?? addr?.province ?? null,
+        paese: addr?.countryCodeV2 ?? addr?.country ?? null,
+        noteShopify: n.note?.slice(0, 1000) ?? null,
+        tagShopify: (n.tags ?? []).join(", ") || null,
+        righe,
+      });
+    }
+    if (onPagina) await onPagina(pagina, page + 1);
+    else out.push(...pagina);
+
+    if (!data?.orders?.pageInfo?.hasNextPage || edges.length === 0) break;
+    cursor = edges[edges.length - 1].cursor;
+  }
+  return out;
+}
+
+// Conia un Admin API token per un'app della Dev Dashboard tramite il "client
+// credentials grant" (Client ID + Secret → token valido ~24h). Flusso
+// server-to-server delle app moderne: nessun redirect, nessun token statico da
+// rivelare. Torna il token e i secondi di validità.
+export async function tokenDaClientCredentials(
+  dominio: string,
+  clientId: string,
+  clientSecret: string,
+): Promise<{ token: string; expiresIn: number }> {
+  const res = await fetch(`https://${dominio}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const j = (await res.json().catch(() => ({}))) as {
+    access_token?: string;
+    expires_in?: number;
+    error_description?: string;
+    error?: string;
+  };
+  if (!res.ok || !j.access_token) {
+    throw new Error(j.error_description || j.error || `Grant Shopify fallito (HTTP ${res.status})`);
+  }
+  return { token: j.access_token, expiresIn: j.expires_in ?? 86400 };
+}
+
+type NegozioAuth = {
+  id: string;
+  dominio: string;
+  token: string;
+  clientId: string | null;
+  clientSecret: string | null;
+  tokenScadeIl: Date | null;
+};
+
+// Ritorna un token Admin VALIDO per il negozio, coniandone uno nuovo se serve.
+export async function tokenNegozio(neg: NegozioAuth): Promise<string> {
+  const usaGrant = Boolean(neg.clientId && neg.clientSecret);
+  if (usaGrant) {
+    const scaduto = !neg.token || !neg.tokenScadeIl || neg.tokenScadeIl.getTime() < Date.now();
+    if (!scaduto) return neg.token;
+    const { token, expiresIn } = await tokenDaClientCredentials(neg.dominio, neg.clientId!, neg.clientSecret!);
+    const scadeIl = new Date(Date.now() + Math.max(60, expiresIn - 300) * 1000);
+    await prisma.negozioShopify.update({ where: { id: neg.id }, data: { token, tokenScadeIl: scadeIl } });
+    return token;
+  }
+  if (neg.token) return neg.token;
+  throw new Error("nessun token statico né Client ID/Secret configurati");
+}
+
+// Verifica che un token legga (pagina Impostazioni): torna il nome dello shop.
+export async function verificaNegozio(
+  dominio: string,
+  token: string,
+): Promise<{ ok: boolean; messaggio: string }> {
+  try {
+    const res = await fetch(`https://${dominio}/admin/api/${API_VERSION}/shop.json`, {
+      headers: { "X-Shopify-Access-Token": token },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return { ok: false, messaggio: `HTTP ${res.status} — token o dominio non validi` };
+    const j = await res.json();
+    return { ok: true, messaggio: j?.shop?.name ?? dominio };
+  } catch (e) {
+    return { ok: false, messaggio: (e as Error).message };
+  }
+}
