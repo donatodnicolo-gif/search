@@ -280,7 +280,9 @@ export default async function OrdiniPage({
               <thead>
                 <tr>
                   <th>Ordine</th><th>Negozio</th><th>Data</th><th>Cliente</th>
-                  <th>Pagamento</th><th className="num">Totale</th><th>Stato</th><th></th>
+                  <th>Pagamento</th><th className="num">Totale</th>
+                  <th className="num">Pagato al fornitore</th><th className="num">Margine</th>
+                  <th>Stato</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -304,15 +306,18 @@ export default async function OrdiniPage({
                         {CATEGORIE_PAG[o.categoriaPagamento]}
                         {o.financialStatus ? <div style={{ color: "var(--text-tertiary)" }}>{o.financialStatus}</div> : null}
                       </td>
+                      <td className="num">{euro(o.totale)}</td>
                       <td className="num">
-                        {euro(o.totale)}
                         {o.pagatoFornitore != null ? (
-                          <div className="muted" style={{ fontSize: 11 }}>
-                            pagato {euro(o.pagatoFornitore)} · marg. {euro(o.totale - o.pagatoFornitore)}
-                          </div>
+                          euro(o.pagatoFornitore)
                         ) : (
-                          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>costo da mettere</div>
+                          <Link href={`/ordini/${o.id}`} className="badge neutral" title="Registra quanto hai pagato al fornitore">
+                            + costo
+                          </Link>
                         )}
+                      </td>
+                      <td className={`num ${o.pagatoFornitore != null ? (o.totale - o.pagatoFornitore >= 0 ? "pos" : "neg") : ""}`}>
+                        {o.pagatoFornitore != null ? euro(o.totale - o.pagatoFornitore) : "—"}
                       </td>
                       <td><span className={`badge ${st.badge}`}><span className="dot" />{st.label}</span></td>
                       <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
