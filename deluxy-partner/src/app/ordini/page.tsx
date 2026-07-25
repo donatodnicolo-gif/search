@@ -15,15 +15,22 @@ export const dynamic = "force-dynamic";
 export default async function OrdiniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sync?: string; nuovi?: string; agg?: string; errori?: string; negozio?: string; stato?: string; cat?: string }>;
+  searchParams: Promise<{ sync?: string; nuovi?: string; agg?: string; errori?: string; negozio?: string; stato?: string; cat?: string; periodo?: string }>;
 }) {
   const sp = await searchParams;
 
-  const [negozi, ordiniRaw, movimenti] = await Promise.all([
+  // Periodo per KPI ed elenco (giorni; 0 = tutto lo storico). Default 90.
+  const giorniPeriodo = sp.periodo != null ? parseInt(sp.periodo) : 90;
+  const dalPeriodo = Number.isFinite(giorniPeriodo) && giorniPeriodo > 0 ? new Date(Date.now() - giorniPeriodo * 86400000) : null;
+  const wherePeriodo = dalPeriodo ? { data: { gte: dalPeriodo } } : {};
+  const whereNegozio = sp.negozio ? { negozioId: sp.negozio } : {};
+
+  const [negozi, ordiniRaw, movimenti, ordiniPeriodo] = await Promise.all([
     prisma.negozioShopify.findMany({ orderBy: { brand: "asc" } }),
     prisma.ordineShopify.findMany({
       where: {
-        ...(sp.negozio ? { negozioId: sp.negozio } : {}),
+        ...whereNegozio,
+        ...wherePeriodo,
         ...(sp.stato ? { statoRicon: sp.stato } : {}),
         ...(sp.cat ? { categoriaPagamento: sp.cat } : {}),
       },
@@ -32,7 +39,31 @@ export default async function OrdiniPage({
     }),
     // accrediti bancari disponibili per l'abbinamento dei bonifici
     prisma.transazioneBancaria.findMany({ where: { importo: { gt: 0 } }, orderBy: { data: "desc" }, take: 1000 }),
+    // TUTTI gli ordini del periodo (per la % di incasso: non limitata ai 400 mostrati)
+    prisma.ordineShopify.findMany({
+      where: { ...whereNegozio, ...wherePeriodo },
+      select: { totale: true, statoRicon: true, categoriaPagamento: true },
+    }),
   ]);
+
+  // % di incasso — "incassato" = pagato su Shopify: carte PAID (incassato_gateway)
+  // subito + bonifici abbinati a un movimento (riconciliato). Gli ordini ignorati
+  // sono esclusi dalla base. Match dei bonifici su Qonto/file già importati.
+  const INCASSATI = new Set(["riconciliato", "incassato_gateway"]);
+  const attivi = ordiniPeriodo.filter((o) => o.statoRicon !== "ignorato");
+  const somma = (arr: typeof attivi) => arr.reduce((a, o) => a + o.totale, 0);
+  const baseTot = somma(attivi);
+  const incassatoTot = somma(attivi.filter((o) => INCASSATI.has(o.statoRicon)));
+  const daIncassareTot = baseTot - incassatoTot;
+  const pctIncasso = baseTot > 0.005 ? (incassatoTot / baseTot) * 100 : 0;
+  const ignoratiN = ordiniPeriodo.length - attivi.length;
+  const perCategoria = (["carta", "bonifico", "contrassegno", "altro"] as const).map((cat) => {
+    const righe = attivi.filter((o) => o.categoriaPagamento === cat);
+    const b = somma(righe);
+    const inc = somma(righe.filter((o) => INCASSATI.has(o.statoRicon)));
+    return { cat, base: b, incassato: inc, pct: b > 0.005 ? (inc / b) * 100 : 0, n: righe.length };
+  }).filter((r) => r.n > 0);
+  const pct1 = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
 
   const giaAbbinati = new Set(
     (await prisma.ordineShopify.findMany({ where: { transazioneId: { not: null } }, select: { transazioneId: true } }))
@@ -46,7 +77,8 @@ export default async function OrdiniPage({
   const totOrdini = ordiniRaw.reduce((a, o) => a + o.totale, 0);
 
   const nomeNegozio = (id: string) => negozi.find((n) => n.id === id)?.brand ?? "—";
-  const senzaToken = negozi.filter((n) => !n.token);
+  // un negozio è "scaricabile" se ha un token statico O il Client ID/Secret (conia da sé)
+  const senzaToken = negozi.filter((n) => !n.token && !n.clientId);
   const ultimaSync = negozi
     .map((n) => n.ultimaSync)
     .filter((d): d is Date => Boolean(d))
@@ -103,6 +135,57 @@ export default async function OrdiniPage({
         </div>
       )}
 
+      <h2 className="section-title" style={{ marginTop: 0 }}>
+        Incasso {dalPeriodo ? `(ultimi ${giorniPeriodo} giorni)` : "(tutto lo storico)"}
+        {sp.negozio && <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}> · {nomeNegozio(sp.negozio)}</span>}
+      </h2>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+          <div>
+            <div className="kpi-label">% incassato</div>
+            <div className="kpi-value" style={{ color: pctIncasso >= 90 ? "var(--green)" : pctIncasso >= 60 ? "var(--gold-strong)" : "var(--red)" }}>
+              {pct1(pctIncasso)}
+            </div>
+            <div className="kpi-sub">{euro(incassatoTot)} su {euro(baseTot)}</div>
+          </div>
+          {/* barra incassato / da incassare */}
+          <div style={{ flex: "1 1 260px", minWidth: 200 }}>
+            <div style={{ height: 14, borderRadius: 7, overflow: "hidden", display: "flex", background: "var(--fill)" }}>
+              <div style={{ width: `${Math.min(100, pctIncasso)}%`, background: "var(--green)" }} title={`Incassato ${euro(incassatoTot)}`} />
+              <div style={{ flex: 1, background: "rgba(201,52,0,0.35)" }} title={`Da incassare ${euro(daIncassareTot)}`} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12.5 }}>
+              <span style={{ color: "var(--green)" }}>● Incassato {euro(incassatoTot)}</span>
+              <span style={{ color: "var(--orange)" }}>Da incassare {euro(daIncassareTot)} ●</span>
+            </div>
+          </div>
+        </div>
+
+        {perCategoria.length > 0 && (
+          <div className="table-wrap" style={{ marginTop: 16 }}>
+            <table>
+              <thead>
+                <tr><th>Per pagamento</th><th className="num">Incassato</th><th className="num">Totale</th><th className="num">% incasso</th></tr>
+              </thead>
+              <tbody>
+                {perCategoria.map((r) => (
+                  <tr key={r.cat}>
+                    <td>{CATEGORIE_PAG[r.cat] ?? r.cat} <span className="muted">· {r.n}</span></td>
+                    <td className="num">{euro(r.incassato)}</td>
+                    <td className="num">{euro(r.base)}</td>
+                    <td className="num" style={{ fontWeight: 600, color: r.pct >= 90 ? "var(--green)" : r.pct >= 60 ? "var(--gold-strong)" : "var(--red)" }}>{pct1(r.pct)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+          «Incassato» = carte pagate su Shopify + bonifici abbinati a un movimento (Qonto/file importato).
+          {ignoratiN > 0 && ` ${ignoratiN} ordini ignorati esclusi dal calcolo.`}
+        </p>
+      </div>
+
       <div className="kpi-grid">
         <div className="kpi">
           <div className="kpi-label">Ordini (periodo)</div>
@@ -123,6 +206,13 @@ export default async function OrdiniPage({
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
         <form className="filters" method="get">
+          <select name="periodo" defaultValue={String(giorniPeriodo)} aria-label="Periodo">
+            <option value="30">Ultimi 30 giorni</option>
+            <option value="90">Ultimi 90 giorni</option>
+            <option value="180">Ultimi 180 giorni</option>
+            <option value="365">Ultimo anno</option>
+            <option value="0">Tutto lo storico</option>
+          </select>
           <select name="negozio" defaultValue={sp.negozio ?? ""}>
             <option value="">Tutti i negozi</option>
             {negozi.map((n) => <option key={n.id} value={n.id}>{n.brand}</option>)}
