@@ -18,6 +18,32 @@ export const CATEGORIE_PAG: Record<string, string> = {
 
 const TOLLERANZA = 0.02;
 
+// Quota che Deluxy paga al fornitore sul valore dell'ordine (di norma ~40%).
+// Configurabile in Impostazioni (chiave `ordini.quotaFornitore`); qui il default.
+export const QUOTA_FORNITORE_DEFAULT = 40;
+// Tolleranza: entro ±5 punti percentuali dalla quota è "in linea" (es. 35–45%).
+const TOLLERANZA_QUOTA_PP = 5;
+
+export type ValutazioneQuota = {
+  atteso: number; // importo atteso = totale × quota%
+  pct: number; // quanto è stato pagato in % del totale
+  scostoPP: number; // scarto in punti percentuali dalla quota (>0 = sopra)
+  stato: "in_linea" | "sotto" | "sopra";
+};
+
+// Valuta se l'importo pagato al fornitore è in linea con la quota attesa.
+export function valutaQuota(
+  totaleOrdine: number,
+  pagato: number,
+  quota = QUOTA_FORNITORE_DEFAULT
+): ValutazioneQuota {
+  const atteso = totaleOrdine * (quota / 100);
+  const pct = totaleOrdine > 0.005 ? (pagato / totaleOrdine) * 100 : 0;
+  const scostoPP = pct - quota;
+  const stato = Math.abs(scostoPP) <= TOLLERANZA_QUOTA_PP ? "in_linea" : scostoPP > 0 ? "sopra" : "sotto";
+  return { atteso, pct, scostoPP, stato };
+}
+
 // Estrae il numero d'ordine (solo cifre) da `nome` tipo "#2582" → "2582".
 export function numeroOrdine(nome: string): string {
   return (nome.match(/\d+/g)?.join("") ?? "").trim();

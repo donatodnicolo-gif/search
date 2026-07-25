@@ -2,9 +2,23 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
-import { STATI_ORDINE, CATEGORIE_PAG } from "@/lib/ordini";
+import { STATI_ORDINE, CATEGORIE_PAG, valutaQuota } from "@/lib/ordini";
+import { quotaFornitore } from "@/lib/ordini-config";
 import { tokenNegozio, scaricaTransazioniOrdine, type TransazioneOrdine } from "@/lib/shopify";
 import { registraPagamentoFornitore, azzeraPagamentoFornitore } from "@/lib/ordini-actions";
+
+// Badge che dice se il pagato è in linea con la quota attesa (~40%).
+function BadgeQuota({ totale, pagato, quota }: { totale: number; pagato: number; quota: number }) {
+  const v = valutaQuota(totale, pagato, quota);
+  const cls = v.stato === "in_linea" ? "green" : v.stato === "sotto" ? "gold" : "orange";
+  const testo =
+    v.stato === "in_linea"
+      ? `In linea col ${quota}% (${v.pct.toFixed(0)}%)`
+      : v.stato === "sotto"
+        ? `Sotto il ${quota}%: ${v.pct.toFixed(0)}% (${v.scostoPP.toFixed(0)} p.p.)`
+        : `Sopra il ${quota}%: ${v.pct.toFixed(0)}% (+${v.scostoPP.toFixed(0)} p.p.)`;
+  return <span className={`badge ${cls}`}><span className="dot" />{testo}</span>;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +52,8 @@ export default async function OrdineDetail({
     take: 400,
   });
   const oggiIso = new Date().toISOString().slice(0, 10);
+  const quota = await quotaFornitore();
+  const attesoFornitore = ordine.totale * (quota / 100);
   const pagato = ordine.pagatoFornitore ?? null;
   const margine = pagato != null ? ordine.totale - pagato : null;
   const movimentoPagamento = ordine.transazionePagamentoId
@@ -94,8 +110,8 @@ export default async function OrdineDetail({
           <div className={`kpi-value ${pagato != null ? "neg" : ""}`}>{pagato != null ? euro(pagato) : "—"}</div>
           <div className="kpi-sub">
             {pagato != null
-              ? `margine ${euro(margine!)} (${ordine.totale > 0 ? ((margine! / ordine.totale) * 100).toFixed(0) : "0"}%)`
-              : "da registrare"}
+              ? `margine ${euro(margine!)} · atteso ~${quota}% = ${euro(attesoFornitore)}`
+              : `atteso ~${quota}% = ${euro(attesoFornitore)}`}
           </div>
         </div>
       </div>
@@ -116,10 +132,14 @@ export default async function OrdineDetail({
       <div className="card">
         {pagato != null ? (
           <>
+            <div style={{ marginBottom: 12 }}>
+              <BadgeQuota totale={ordine.totale} pagato={pagato} quota={quota} />
+            </div>
             <div className="info-grid">
               <div className="info-item"><div className="k">Pagato al fornitore</div><div className="v">{euro(pagato)}</div></div>
               <div className="info-item"><div className="k">Fornitore</div><div className="v" style={{ fontSize: 14 }}>{ordine.fornitoreNome ?? "—"}</div></div>
               <div className="info-item"><div className="k">Data</div><div className="v" style={{ fontSize: 14 }}>{dataIt(ordine.pagatoIl)}</div></div>
+              <div className="info-item"><div className="k">% sul valore ordine</div><div className="v" style={{ fontSize: 14 }}>{ordine.totale > 0 ? ((pagato / ordine.totale) * 100).toFixed(0) : "0"}% · atteso {quota}%</div></div>
               <div className="info-item"><div className="k">Margine (incasso − costo)</div><div className={`v ${margine! < 0 ? "neg" : "pos"}`}>{euro(margine!)}</div></div>
             </div>
             {movimentoPagamento && (
@@ -134,13 +154,14 @@ export default async function OrdineDetail({
         ) : (
           <>
             <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 12 }}>
-              Registra <strong>quanto hai pagato al fioraio/fornitore</strong> per questo ordine. Puoi abbinare il
+              Registra <strong>quanto hai pagato al fioraio/fornitore</strong> per questo ordine. Di norma è circa il{" "}
+              <strong>{quota}%</strong> del valore ordine → <strong>~{euro(attesoFornitore)}</strong>. Puoi abbinare il
               movimento bancario in uscita (Qonto/file) che lo documenta — un movimento può coprire più ordini.
             </p>
             <form action={registraPagamentoFornitore.bind(null, id)} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
               <div>
                 <label className="field-label">Importo pagato €</label>
-                <input type="number" name="importo" step="0.01" min="0" required style={{ width: 130 }} placeholder="0,00" />
+                <input type="number" name="importo" step="0.01" min="0" required style={{ width: 130 }} defaultValue={attesoFornitore.toFixed(2)} />
               </div>
               <div>
                 <label className="field-label">Data</label>

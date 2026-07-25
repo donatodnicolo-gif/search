@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
-import { STATI_ORDINE, CATEGORIE_PAG, suggerisciMovimenti } from "@/lib/ordini";
+import { STATI_ORDINE, CATEGORIE_PAG, suggerisciMovimenti, valutaQuota } from "@/lib/ordini";
+import { quotaFornitore } from "@/lib/ordini-config";
 import {
   sincronizzaOrdini,
   riconciliaOrdine,
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function OrdiniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sync?: string; nuovi?: string; agg?: string; errori?: string; negozio?: string; stato?: string; cat?: string; periodo?: string; auto?: string; diff?: string; amb?: string }>;
+  searchParams: Promise<{ sync?: string; nuovi?: string; agg?: string; errori?: string; negozio?: string; stato?: string; cat?: string; periodo?: string; auto?: string; diff?: string; amb?: string; costi?: string; fuori?: string }>;
 }) {
   const sp = await searchParams;
 
@@ -46,6 +47,7 @@ export default async function OrdiniPage({
       select: { totale: true, statoRicon: true, categoriaPagamento: true, pagatoFornitore: true },
     }),
   ]);
+  const quota = await quotaFornitore();
 
   // % di incasso — "incassato" = pagato su Shopify: carte PAID (incassato_gateway)
   // subito + bonifici abbinati a un movimento (riconciliato). Gli ordini ignorati
@@ -116,9 +118,9 @@ export default async function OrdiniPage({
               </span>
             </form>
           )}
-          {bonificoDaRic.length > 0 && (
+          {ordiniRaw.length > 0 && (
             <form action={riconciliaPerNumero}>
-              <button className="btn secondary" type="submit" title="Riconcilia in automatico gli ordini il cui numero compare nella causale di un movimento (Qonto/Vivid), quando il match è univoco">
+              <button className="btn secondary" type="submit" title="Abbina in automatico per numero d'ordine in causale: gli accrediti riconciliano l'incasso, gli addebiti impostano il costo pagato al fornitore. Solo match univoci.">
                 ⇄ Abbina per numero
               </button>
             </form>
@@ -128,16 +130,17 @@ export default async function OrdiniPage({
 
       {sp.auto != null && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
-          <span className="badge green">
-            <span className="dot" />
-            Abbinati per numero in causale: <strong style={{ marginLeft: 4 }}>{sp.auto}</strong> ordini
+          <span className="badge green" style={{ marginRight: 8 }}>
+            <span className="dot" />{sp.auto} incassi riconciliati
           </span>
-          {(Number(sp.diff) > 0 || Number(sp.amb) > 0) && (
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8 }}>
-              {Number(sp.diff) > 0 && <>{sp.diff} con numero trovato ma importo diverso (&gt;5%): da confermare a mano. </>}
-              {Number(sp.amb) > 0 && <>{sp.amb} ambigui (stesso numero su più ordini/movimenti): controllali dalle proposte.</>}
-            </p>
-          )}
+          <span className="badge purple">
+            <span className="dot" />{sp.costi ?? "0"} costi fornitore impostati
+          </span>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8 }}>
+            {Number(sp.diff) > 0 && <>{sp.diff} incassi col numero ma importo diverso dal totale: da confermare a mano. </>}
+            {Number(sp.fuori) > 0 && <>{sp.fuori} costi <strong>fuori dalla quota attesa</strong> ({quota}%): controllali. </>}
+            {Number(sp.amb) > 0 && <>{sp.amb} ambigui (stesso numero su più ordini/movimenti).</>}
+          </p>
         </div>
       )}
 
@@ -334,9 +337,21 @@ export default async function OrdiniPage({
                       <td className="num">{euro(o.totale)}</td>
                       <td className="num">
                         {o.pagatoFornitore != null ? (
-                          euro(o.pagatoFornitore)
+                          (() => {
+                            const v = valutaQuota(o.totale, o.pagatoFornitore, quota);
+                            const col = v.stato === "in_linea" ? "var(--green)" : v.stato === "sotto" ? "var(--gold-strong)" : "var(--orange)";
+                            return (
+                              <>
+                                {euro(o.pagatoFornitore)}
+                                <div style={{ fontSize: 11, color: col, fontWeight: 600 }}
+                                  title={v.stato === "in_linea" ? `In linea col ${quota}%` : `Atteso ${quota}%, qui ${v.pct.toFixed(0)}%`}>
+                                  {v.pct.toFixed(0)}%{v.stato !== "in_linea" ? " ⚠" : " ✓"}
+                                </div>
+                              </>
+                            );
+                          })()
                         ) : (
-                          <Link href={`/ordini/${o.id}`} className="badge neutral" title="Registra quanto hai pagato al fornitore">
+                          <Link href={`/ordini/${o.id}`} className="badge neutral" title={`Registra quanto hai pagato al fornitore (atteso ~${quota}%)`}>
                             + costo
                           </Link>
                         )}

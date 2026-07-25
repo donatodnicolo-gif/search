@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { verificaNegozio, tokenDaClientCredentials } from "./shopify";
-import { numeroOrdine, causaleContieneNumero } from "./ordini";
+import { numeroOrdine, causaleContieneNumero, valutaQuota } from "./ordini";
+import { quotaFornitore } from "./ordini-config";
 import { eseguiSyncOrdini } from "./ordini-sync";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 import { registra } from "./registro";
@@ -148,56 +149,70 @@ export async function ignoraOrdine(ordineId: string) {
   revalida();
 }
 
-// ————— Abbinamento automatico per numero in causale —————
-// Molti estratti (es. Vivid) riportano il NUMERO dell'ordine nella causale del
-// bonifico. Qui riconciliamo in automatico gli ordini "da_riconciliare" il cui
-// numero compare in un movimento in entrata non ancora abbinato — ma SOLO quando
-// il match è **univoco nei due sensi** (un ordine ↔ un movimento): niente
-// automatismi ambigui. Gli ordini con numero trovato ma importo molto diverso
-// (> 5%) non si abbinano da soli: restano da confermare a mano.
-export async function riconciliaPerNumero() {
-  const [ordini, movimenti, ordiniAbbinati] = await Promise.all([
-    prisma.ordineShopify.findMany({ where: { statoRicon: "da_riconciliare" } }),
-    prisma.transazioneBancaria.findMany({ where: { importo: { gt: 0 } }, orderBy: { data: "desc" }, take: 3000 }),
-    prisma.ordineShopify.findMany({ where: { transazioneId: { not: null } }, select: { transazioneId: true } }),
-  ]);
-  const giaAbbinati = new Set(ordiniAbbinati.map((o) => o.transazioneId!));
-  const liberi = movimenti.filter((t) => !giaAbbinati.has(t.id));
-
-  // coppie candidate (ordine ↔ movimento) per numero in causale
-  const coppie: { ordineId: string; txId: string }[] = [];
-  const perOrdine = new Map<string, string[]>(); // ordineId → txId[]
-  const perTx = new Map<string, string[]>(); // txId → ordineId[]
+// Trova gli abbinamenti UNIVOCI (un ordine ↔ un movimento) tra ordini e
+// movimenti, per numero d'ordine nella causale. Ritorna solo le coppie 1:1 e il
+// numero di candidati ambigui scartati.
+function abbinamentiUnivoci<O extends { id: string; nome: string }, T extends { id: string }>(
+  ordini: O[],
+  movimenti: T[],
+  causale: (t: T, num: string) => boolean
+): { coppie: { o: O; t: T }[]; ambigui: number } {
+  const perOrdine = new Map<string, string[]>();
+  const perTx = new Map<string, string[]>();
+  const raw: { oId: string; tId: string }[] = [];
   for (const o of ordini) {
     const num = numeroOrdine(o.nome);
     if (!num || num.length < 2) continue;
-    for (const t of liberi) {
-      if (!causaleContieneNumero(t, num)) continue;
-      coppie.push({ ordineId: o.id, txId: t.id });
+    for (const t of movimenti) {
+      if (!causale(t, num)) continue;
+      raw.push({ oId: o.id, tId: t.id });
       (perOrdine.get(o.id) ?? perOrdine.set(o.id, []).get(o.id)!).push(t.id);
       (perTx.get(t.id) ?? perTx.set(t.id, []).get(t.id)!).push(o.id);
     }
   }
-
-  const ordineById = new Map(ordini.map((o) => [o.id, o]));
-  const txById = new Map(liberi.map((t) => [t.id, t]));
-  let riconciliati = 0;
-  let importoDiverso = 0;
+  const oById = new Map(ordini.map((o) => [o.id, o]));
+  const tById = new Map(movimenti.map((t) => [t.id, t]));
+  const coppie: { o: O; t: T }[] = [];
   let ambigui = 0;
   const usati = new Set<string>();
+  for (const { oId, tId } of raw) {
+    if (perOrdine.get(oId)!.length !== 1 || perTx.get(tId)!.length !== 1) { ambigui++; continue; }
+    if (usati.has(tId)) continue;
+    usati.add(tId);
+    coppie.push({ o: oById.get(oId)!, t: tById.get(tId)! });
+  }
+  return { coppie, ambigui };
+}
 
-  for (const { ordineId, txId } of coppie) {
-    // univoco nei due sensi: l'ordine ha 1 solo movimento candidato e viceversa
-    if (perOrdine.get(ordineId)!.length !== 1 || perTx.get(txId)!.length !== 1) { ambigui++; continue; }
-    if (usati.has(txId)) continue;
-    const o = ordineById.get(ordineId)!;
-    const t = txById.get(txId)!;
-    // guardia sull'importo: se troppo diverso dal totale ordine, non automatico
+// ————— Abbinamento automatico per numero in causale —————
+// Molti estratti (es. Vivid) riportano il NUMERO dell'ordine nella causale.
+// Due abbinamenti, per direzione del movimento (solo match univoci 1:1):
+//   • ENTRATA (accredito) → INCASSO del cliente: si riconcilia l'ordine
+//     "da_riconciliare"; l'importo deve essere ~ il totale (entro il 5%).
+//   • USCITA (addebito) → COSTO al fornitore: si registra `pagatoFornitore`
+//     sull'ordine (senza costo). L'importo è di norma ~40% del valore: NON è un
+//     motivo di scarto, ma segnaliamo quanti sono fuori dalla quota attesa.
+export async function riconciliaPerNumero() {
+  const quota = await quotaFornitore();
+  const [daRic, senzaCosto, ordiniAbbinati, entrate, uscite] = await Promise.all([
+    prisma.ordineShopify.findMany({ where: { statoRicon: "da_riconciliare" } }),
+    prisma.ordineShopify.findMany({ where: { pagatoFornitore: null, statoRicon: { not: "ignorato" } } }),
+    prisma.ordineShopify.findMany({ where: { transazioneId: { not: null } }, select: { transazioneId: true } }),
+    prisma.transazioneBancaria.findMany({ where: { importo: { gt: 0 } }, orderBy: { data: "desc" }, take: 4000 }),
+    prisma.transazioneBancaria.findMany({ where: { importo: { lt: 0 } }, orderBy: { data: "desc" }, take: 4000 }),
+  ]);
+  const giaAbbinati = new Set(ordiniAbbinati.map((o) => o.transazioneId!));
+
+  // ---- INCASSO: accrediti liberi ↔ ordini da riconciliare ----
+  const entrateLibere = entrate.filter((t) => !giaAbbinati.has(t.id));
+  const inc = abbinamentiUnivoci(daRic, entrateLibere, causaleContieneNumero);
+  let riconciliati = 0;
+  let importoDiverso = 0;
+  for (const { o, t } of inc.coppie) {
     if (Math.abs(t.importo - o.totale) > Math.max(0.5, o.totale * 0.05)) { importoDiverso++; continue; }
-    usati.add(txId);
     await prisma.$transaction([
-      prisma.ordineShopify.update({ where: { id: ordineId }, data: { statoRicon: "riconciliato", transazioneId: txId, riconciliatoIl: new Date() } }),
-      prisma.transazioneBancaria.update({ where: { id: txId }, data: { stato: "registrata", esito: `ordine ${o.nome} riconciliato (n° in causale)` } }),
+      prisma.ordineShopify.update({ where: { id: o.id }, data: { statoRicon: "riconciliato", transazioneId: t.id, riconciliatoIl: new Date() } }),
+      prisma.transazioneBancaria.update({ where: { id: t.id }, data: { stato: "registrata", esito: `ordine ${o.nome} riconciliato (n° in causale)` } }),
     ]);
     await registraPagamento({
       tipo: "ordine_shopify", direzione: "in", importo: o.totale, data: t.data,
@@ -207,13 +222,36 @@ export async function riconciliaPerNumero() {
     riconciliati++;
   }
 
+  // ---- COSTO FORNITORE: addebiti ↔ ordini senza costo ----
+  const cost = abbinamentiUnivoci(senzaCosto, uscite, causaleContieneNumero);
+  let costiImpostati = 0;
+  let fuoriQuota = 0;
+  for (const { o, t } of cost.coppie) {
+    const importo = +Math.abs(t.importo).toFixed(2);
+    const v = valutaQuota(o.totale, importo, quota);
+    if (v.stato !== "in_linea") fuoriQuota++;
+    await prisma.ordineShopify.update({
+      where: { id: o.id },
+      data: { pagatoFornitore: importo, pagatoIl: t.data, fornitoreNome: t.controparte ?? null, transazionePagamentoId: t.id },
+    });
+    await registraPagamento({
+      tipo: "costo_ordine_shopify", direzione: "out", importo, data: t.data,
+      origineId: o.id, controparte: t.controparte ?? "fornitore",
+      descrizione: `Costo ordine ${o.nome} (${o.brand}) — n° in causale`, divisa: o.valuta,
+    });
+    costiImpostati++;
+  }
+
   await registra({
-    azione: `Abbinamento automatico per numero in causale: ${riconciliati} ordini riconciliati`,
+    azione: `Abbinamento per numero in causale: ${riconciliati} incassi riconciliati, ${costiImpostati} costi fornitore impostati`,
     categoria: "ordini",
-    dettaglio: `${importoDiverso} con importo diverso da confermare · ${ambigui} ambigui`,
+    dettaglio: `incassi: ${importoDiverso} importo diverso, ${inc.ambigui} ambigui · costi: ${fuoriQuota} fuori dal ${quota}%, ${cost.ambigui} ambigui`,
   });
   revalida();
-  const qs = new URLSearchParams({ auto: String(riconciliati), diff: String(importoDiverso), amb: String(ambigui) });
+  const qs = new URLSearchParams({
+    auto: String(riconciliati), diff: String(importoDiverso), amb: String(inc.ambigui),
+    costi: String(costiImpostati), fuori: String(fuoriQuota),
+  });
   redirect(`/ordini?${qs.toString()}`);
 }
 

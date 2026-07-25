@@ -42,6 +42,16 @@ async function salvaAzienda(fd: FormData) {
   redirect("/impostazioni?salvato=1");
 }
 
+async function salvaQuotaFornitore(fd: FormData) {
+  "use server";
+  const q = parseFloat(String(fd.get("quota") ?? "").replace(",", "."));
+  await salvaImpostazione("ordini.quotaFornitore", Number.isFinite(q) && q > 0 && q < 100 ? String(q) : "40");
+  await registra({ azione: "Modificata la quota fornitore attesa sugli ordini", categoria: "impostazioni" });
+  revalidatePath("/impostazioni");
+  revalidatePath("/ordini", "layout");
+  redirect("/impostazioni?salvato=1");
+}
+
 async function salvaConferme(fd: FormData) {
   "use server";
   await salvaImpostazione(CHIAVE_EMAIL_CONFERME, String(fd.get("confermeEmail") ?? "").trim());
@@ -293,6 +303,21 @@ export default async function ImpostazioniPage({
           </form>
         </div>
       )}
+
+      <h2 className="section-title">Quota fornitore (ordini)</h2>
+      <form action={salvaQuotaFornitore} className="card" style={{ marginBottom: 16 }}>
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 12 }}>
+          Percentuale che di norma paghi al fioraio/fornitore sul valore dell&apos;ordine. Serve a segnalare, in
+          Orders, se il costo pagato è <strong>in linea</strong> con questa quota o fuori.
+        </p>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+          <div>
+            <label className="field-label">Quota attesa %</label>
+            <input type="number" name="quota" step="1" min="1" max="99" defaultValue={imp["ordini.quotaFornitore"] ?? "40"} style={{ width: 110 }} />
+          </div>
+          <button className="btn primary" type="submit">Salva</button>
+        </div>
+      </form>
 
       <h2 className="section-title">Negozi Shopify (Orders)</h2>
       <div className="card" style={{ marginBottom: 16 }}>
