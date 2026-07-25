@@ -22,8 +22,8 @@ export default async function ElencoOrdini({
   const params = new URLSearchParams(sp);
   const where = whereOrdini(params);
   const pagina = Math.max(1, Number(sp.page ?? "1") || 1);
-  // Due viste: elenco (tabella) e colonne per brand (una colonna per negozio).
-  const vista = sp.vista === "brand" ? "brand" : "elenco";
+  // Due viste: colonne per brand (predefinita) ed elenco in tabella.
+  const vista = sp.vista === "elenco" ? "elenco" : "brand";
 
   const [stati, brand, etichette, totale, somma, ordini] = await Promise.all([
     statiOrdinati(),
@@ -89,11 +89,11 @@ export default async function ElencoOrdini({
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {/* Selettore di vista: elenco oppure una colonna per brand */}
           <div className="scelta-vista" role="group" aria-label="Vista">
-            <Link className={`vista-opz${vista === "elenco" ? " attiva" : ""}`} href={conFiltro({ vista: "" })}>
-              Elenco
-            </Link>
-            <Link className={`vista-opz${vista === "brand" ? " attiva" : ""}`} href={conFiltro({ vista: "brand", page: "" })}>
+            <Link className={`vista-opz${vista === "brand" ? " attiva" : ""}`} href={conFiltro({ vista: "", page: "" })}>
               Colonne per brand
+            </Link>
+            <Link className={`vista-opz${vista === "elenco" ? " attiva" : ""}`} href={conFiltro({ vista: "elenco" })}>
+              Elenco
             </Link>
           </div>
           <form action={sincronizza}>
@@ -160,7 +160,7 @@ export default async function ElencoOrdini({
       {/* Filtri */}
       <form className="filtri" method="get">
         {sp.q && <input type="hidden" name="q" value={sp.q} />}
-        {vista !== "elenco" && <input type="hidden" name="vista" value={vista} />}
+        {vista === "elenco" && <input type="hidden" name="vista" value="elenco" />}
         <select name="brand" defaultValue={sp.brand ?? ""}>
           <option value="">Tutti i brand</option>
           {negozi.map((n) => (
@@ -252,7 +252,7 @@ export default async function ElencoOrdini({
                   ))
                 )}
                 {conta > suoi.length && (
-                  <Link className="colonna-vuota colonna-altri" href={conFiltro({ vista: "", brand: b.nome })}>
+                  <Link className="colonna-vuota colonna-altri" href={conFiltro({ vista: "elenco", brand: b.nome })}>
                     +{(conta - suoi.length).toLocaleString("it-IT")} altri — vedi tutti
                   </Link>
                 )}
