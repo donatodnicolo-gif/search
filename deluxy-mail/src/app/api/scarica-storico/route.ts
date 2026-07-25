@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { scaricaStorico, sincronizzaInviata } from '@/lib/sync'
+import { scaricaStorico, sincronizzaInviata, ripassaDimensioni } from '@/lib/sync'
 
 // POST /api/scarica-storico — scarica UN blocco di posta vecchia (storico) per
 // l'utente loggato. Torna { scaricati, finito }. Il client richiama in loop
@@ -88,7 +88,16 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ ok: true, scaricati, finito })
+    // Finito lo storico, si riempiono le DIMENSIONI mancanti chiedendo al
+    // server la dimensione vera (allegati compresi): niente contenuti, solo
+    // numeri. Finché ce ne sono, la pagina non è «finita»: il client ripassa.
+    let dimensioni = 0
+    if (finito) {
+      dimensioni = await ripassaDimensioni(userId).catch(() => 0)
+      if (dimensioni > 0) finito = false
+    }
+
+    return NextResponse.json({ ok: true, scaricati, dimensioni, finito })
   } catch (e) {
     return NextResponse.json(
       { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' },

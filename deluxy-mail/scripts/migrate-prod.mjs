@@ -65,15 +65,15 @@ const stmts = [
      "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "email" TEXT NOT NULL,
      "alias" TEXT NOT NULL, "creatoIl" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "AliasContatto_utenteId_email_key" ON "AliasContatto"("utenteId","email")`,
-  // Riempimento una-tantum sullo STORICO: le mail scaricate prima di questo
-  // campo hanno dimensione nulla (= 0), quindi l'ordinamento per dimensione non
-  // faceva niente. Qui si stima dai byte del corpo già salvati (testo + HTML):
-  // non è il byte esatto della mail grezza, ma dà un ordine sensato. Le nuove
-  // mail continuano a memorizzare la dimensione reale. Idempotente: gira solo
-  // sulle righe ancora NULL.
+  // ⚠️ Le dimensioni STIMATE dai corpi vanno via: non contano gli allegati, e
+  // una mail con un catalogo da 20 MB risultava di poche KB. Si riconoscono
+  // perché coincidono ESATTAMENTE con la somma dei corpi (una dimensione vera
+  // è sempre maggiore: ci sono almeno gli header). Riportandole a NULL, il
+  // ripasso `ripassaDimensioni` le riempie con la dimensione REALE del server.
   `UPDATE "Messaggio"
-     SET "dimensione" = octet_length("corpoTesto") + COALESCE(octet_length("corpoHtml"), 0)
-     WHERE "dimensione" IS NULL`,
+     SET "dimensione" = NULL
+     WHERE "dimensione" IS NOT NULL
+       AND "dimensione" = octet_length("corpoTesto") + COALESCE(octet_length("corpoHtml"), 0)`,
   // Marcatore anti-doppia-notifica push.
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "notificatoIl" TIMESTAMP(3)`,
   // Conversazioni chiuse (fuori dai Top thread, etichetta «Chiuso»).

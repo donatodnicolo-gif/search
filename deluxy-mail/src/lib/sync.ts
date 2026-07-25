@@ -1,6 +1,6 @@
 import type { Messaggio, Regola, Sezione } from '@prisma/client'
 import { db } from './db'
-import { scaricaNuovi, scaricaVecchi, cercaSulServer, trovaCartellaInviata, type MessaggioScaricato } from './imap'
+import { scaricaNuovi, scaricaVecchi, cercaSulServer, trovaCartellaInviata, dimensioniDalServer, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
 import {
@@ -1364,6 +1364,58 @@ export async function cercaEImporta(utenteId: string, query: string): Promise<{ 
   }
 
   return { importati }
+}
+
+/**
+ * Riempie la DIMENSIONE REALE delle mail che ne sono prive, chiedendola al
+ * server (RFC822.SIZE): è l'unica che conta anche gli allegati. Lavora a
+ * blocchi e non scarica alcun contenuto, quindi è veloce anche su archivi
+ * grandi. Torna quante ne ha aggiornate (0 = non c'era altro da fare).
+ */
+export async function ripassaDimensioni(utenteId: string, blocco = 400): Promise<number> {
+  let daFare: { id: string; uid: number; accountId: string; direzione: string }[] = []
+  try {
+    daFare = await db.messaggio.findMany({
+      where: { utenteId, dimensione: null, uid: { gt: 0 } },
+      orderBy: { data: 'desc' }, // prima le recenti: sono quelle che si guardano
+      take: blocco,
+      select: { id: true, uid: true, accountId: true, direzione: true },
+    })
+  } catch {
+    return 0
+  }
+  if (daFare.length === 0) return 0
+
+  // Un giro per account e per cartella: INBOX per la posta ricevuta, «Inviata»
+  // per quella spedita. Una sola FETCH di soli SIZE per gruppo.
+  const perGruppo = new Map<string, { accountId: string; uscita: boolean; ids: Map<number, string[]> }>()
+  for (const m of daFare) {
+    const uscita = m.direzione === 'uscita'
+    const chiave = `${m.accountId}|${uscita ? 'out' : 'in'}`
+    const g = perGruppo.get(chiave) ?? { accountId: m.accountId, uscita, ids: new Map() }
+    g.ids.set(m.uid, [...(g.ids.get(m.uid) ?? []), m.id])
+    perGruppo.set(chiave, g)
+  }
+
+  let aggiornate = 0
+  for (const g of perGruppo.values()) {
+    const account = await db.account.findUnique({ where: { id: g.accountId } })
+    if (!account) continue
+    const cartella = g.uscita ? account.cartellaInviata : account.cartella
+    if (!cartella) continue
+    try {
+      const misure = await dimensioniDalServer(account, cartella, [...g.ids.keys()])
+      for (const [uid, size] of misure) {
+        for (const id of g.ids.get(uid) ?? []) {
+          await db.messaggio.update({ where: { id }, data: { dimensione: size } }).catch(() => {})
+          aggiornate++
+        }
+      }
+    } catch {
+      /* casella non raggiungibile ora: si riprova al giro successivo */
+    }
+  }
+  return aggiornate
 }
 
 export async function scaricaStorico(accountId: string, limite = 25): Promise<EsitoSync> {

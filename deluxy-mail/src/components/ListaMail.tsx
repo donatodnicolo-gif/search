@@ -44,6 +44,39 @@ export function ListaMail({
     [righe, ordine]
   )
 
+  // Ordinando per DIMENSIONE serve il peso vero (allegati compresi), che sta
+  // sul server: se qualche riga non ce l'ha, lo si chiede in sottofondo — una
+  // sola volta, e solo quando quel dato serve davvero.
+  const [pesiInCorso, setPesiInCorso] = useState(false)
+  const chiestoPesi = useRef(false)
+  useEffect(() => {
+    if (ordine.campo !== 'dimensione' || chiestoPesi.current) return
+    if (!righe.some((r) => !r.dimensione)) return
+    chiestoPesi.current = true
+    let vivo = true
+    setPesiInCorso(true)
+    ;(async () => {
+      try {
+        // Più giri: il server risponde a blocchi, ma sono solo numeri.
+        for (let n = 0; n < 10; n++) {
+          const res = await fetch('/api/dimensioni', { method: 'POST' })
+          const dati = (await res.json()) as { ok?: boolean; finito?: boolean }
+          if (!dati?.ok || dati.finito) break
+        }
+      } catch {
+        /* niente: si ordina con quello che c'è */
+      } finally {
+        if (vivo) {
+          setPesiInCorso(false)
+          router.refresh()
+        }
+      }
+    })()
+    return () => {
+      vivo = false
+    }
+  }, [ordine.campo, righe, router])
+
   const visibili = righeOrdinate.slice(0, mostrate)
   const restano = righe.length - visibili.length
 
@@ -127,6 +160,11 @@ export function ListaMail({
   return (
     <div className="mail-list">
       <BarraOrdinamento valore={ordine} onCambia={setOrdine} />
+      {pesiInCorso && (
+        <div style={{ fontSize: 12.5, color: 'var(--text-tertiary)', padding: '0 12px 8px' }}>
+          Chiedo al server la dimensione vera delle mail (allegati compresi)…
+        </div>
+      )}
 
       <div className="mail-select-bar">
         <label className="mail-select-all">

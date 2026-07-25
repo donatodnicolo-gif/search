@@ -436,6 +436,36 @@ export async function leggiTuttiAllegati(
   }
 }
 
+/**
+ * Le DIMENSIONI REALI dei messaggi (RFC822.SIZE), per uid.
+ *
+ * ⚠️ Perché serve: la dimensione stimata dai corpi salvati NON conta gli
+ * allegati — una mail con un catalogo da 20 MB risulta di poche KB, e ordinare
+ * per dimensione non serve proprio quando servirebbe. Il server conosce la
+ * dimensione vera e la dà **senza scaricare niente**: si chiede solo `size`,
+ * quindi è leggerissima anche su migliaia di messaggi.
+ */
+export async function dimensioniDalServer(
+  account: Account,
+  cartella: string,
+  uids: number[]
+): Promise<Map<number, number>> {
+  const reali = uids.filter((u) => u > 0)
+  const out = new Map<number, number>()
+  if (reali.length === 0) return out
+  const client = connessione(account)
+  await client.connect()
+  try {
+    await client.mailboxOpen(cartella, { readOnly: true })
+    for await (const msg of client.fetch(reali.join(','), { uid: true, size: true }, { uid: true })) {
+      if (typeof msg.size === 'number' && msg.size > 0) out.set(msg.uid, msg.size)
+    }
+    return out
+  } finally {
+    await client.logout()
+  }
+}
+
 /** Apre e chiude una connessione per verificare host, porta e credenziali. */
 export async function provaConnessione(account: Account): Promise<void> {
   const client = connessione(account)
