@@ -24,6 +24,7 @@ import { emailContattiAI } from '@/lib/contattiAI'
 import { nomiPerGruppi } from '@/lib/nomiThread'
 import { idsThreadAI } from '@/lib/threadAI'
 import { indiceClienti } from '@/lib/anagrafiche'
+import { accountAttivoId } from '@/lib/accountAttivo'
 
 export const dynamic = 'force-dynamic'
 // Le azioni AI (analisi alla priorità) girano su questa route: su Vercel il
@@ -63,6 +64,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   const q = (qGrezzo ?? '').trim()
   const ricerca = q.length >= 2
   const u = await richiediUtente()
+  // Multi-account: la casella scelta (null = tutte). Filtra la posta in arrivo.
+  const accountAttivo = await accountAttivoId(u.id)
 
   // Due viste: "In arrivo" (predefinita: la posta non ancora smistata in una
   // sezione) e "AI Inbox" (solo i contatti col PLUS AI, in qualunque sezione).
@@ -181,6 +184,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   const messaggi = await db.messaggio.findMany({
     where: ricerca ? whereRicerca : {
       utenteId: u.id,
+      // Casella attiva (multi-account): se scelta, si vede solo la sua posta.
+      ...(accountAttivo ? { accountId: accountAttivo } : {}),
       // Il cestino ha una pagina sua: qui non si vede mai, nemmeno fra gli
       // archiviati o filtrando per sezione.
       cestinato: false,

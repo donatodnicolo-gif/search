@@ -7,6 +7,8 @@ import { SyncButton } from './SyncButton'
 import { PrimoCarico } from './PrimoCarico'
 import { PiuAzione } from './PiuAzione'
 import type { TipoAzione } from './AzioneRapida'
+import { SelettoreAccount } from './SelettoreAccount'
+import { accountAttivoId, caselleUtente } from '@/lib/accountAttivo'
 
 type Voce = {
   href: string
@@ -38,7 +40,10 @@ function Gruppo({ titolo, voci }: { titolo: string; voci: Voce[] }) {
   )
 }
 
-async function datiSidebar(utenteId: string) {
+async function datiSidebar(utenteId: string, accountAttivo: string | null) {
+  // Con una casella attiva, i conteggi della POSTA si riferiscono a quella
+  // (non alla somma di tutte): «switch» significa guardare quella casella.
+  const perCasella = accountAttivo ? { accountId: accountAttivo } : {}
   try {
     const [sezioni, daFare, nonLette, cestinati, bozze, riassunti] = await Promise.all([
       db.sezione.findMany({
@@ -52,7 +57,7 @@ async function datiSidebar(utenteId: string) {
           _count: {
             select: {
               messaggi: {
-                where: { archiviato: false, letto: false, cestinato: false, direzione: 'entrata' },
+                where: { archiviato: false, letto: false, cestinato: false, direzione: 'entrata', ...perCasella },
               },
             },
           },
@@ -66,11 +71,12 @@ async function datiSidebar(utenteId: string) {
           archiviato: false,
           cestinato: false,
           direzione: 'entrata',
+          ...perCasella,
           // La posta indesiderata non gonfia il contatore della posta in arrivo.
           NOT: { sezione: { nome: 'SPAM' } },
         },
       }),
-      db.messaggio.count({ where: { utenteId, cestinato: true } }),
+      db.messaggio.count({ where: { utenteId, cestinato: true, ...perCasella } }),
       db.bozza.count({ where: { utenteId, inviata: false } }),
       // La tabella dei riassunti potrebbe non esistere ancora: in caso, 0.
       db.riassuntoThread.count({ where: { utenteId } }).catch(() => 0),
@@ -85,7 +91,11 @@ export async function Sidebar() {
   const utente = await utenteCorrente()
   if (!utente) return null // la pagina reindirizza al login; niente sidebar
 
-  const { sezioni, daFare, nonLette, cestinati, bozze, riassunti } = await datiSidebar(utente.id)
+  const [accountAttivo, caselle] = await Promise.all([
+    accountAttivoId(utente.id),
+    caselleUtente(utente.id),
+  ])
+  const { sezioni, daFare, nonLette, cestinati, bozze, riassunti } = await datiSidebar(utente.id, accountAttivo)
 
   // Il menu in cinque gruppi, ognuno con un criterio chiaro:
   //   POSTA        — dove STA la posta (le caselle: in arrivo, bozze, inviata…)
@@ -147,6 +157,10 @@ export async function Sidebar() {
           ultime 500 ricevute + 500 inviate, poi si spegne da solo. Il resto
           dello storico è on-demand (fondo lista / ricerca sul server). */}
       <PrimoCarico />
+
+      {/* Con più caselle collegate: da qui si sceglie quale guardare e da quale
+          inviare (il selettore non compare con una sola casella). */}
+      <SelettoreAccount caselle={caselle.map((c) => ({ id: c.id, email: c.email }))} attivo={accountAttivo} />
 
       <Gruppo titolo="Posta" voci={posta} />
       <Gruppo titolo="Strumenti" voci={strumenti} />

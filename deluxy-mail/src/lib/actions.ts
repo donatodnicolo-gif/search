@@ -561,6 +561,24 @@ export async function rianalizza(id: string): Promise<{ ok: boolean; messaggio: 
  * AI Inbox e su di lui l'AI fa il quadro (mail ricevute e inviate) per
  * definire le prossime attività. Restituisce lo stato risultante.
  */
+/** Imposta la casella ATTIVA (multi-account): filtra la posta e diventa il
+ *  mittente di default. Vuoto o 'tutti' = posta unificata. Cookie per device. */
+export async function impostaAccountAttivo(id: string): Promise<{ ok: boolean }> {
+  const utenteId = await uid()
+  const { cookies } = await import('next/headers')
+  const c = await cookies()
+  if (!id || id === 'tutti') {
+    c.delete('account_attivo')
+  } else {
+    // Solo una casella dell'utente: niente id altrui nel cookie.
+    const mio = await db.account.findFirst({ where: { id, utenteId }, select: { id: true } })
+    if (!mio) return { ok: false }
+    c.set('account_attivo', id, { sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 365 })
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true }
+}
+
 /**
  * Assegna (o toglie) un ALIAS a un contatto: un nome tuo per un indirizzo. Serve
  * a ritrovarlo in rubrica e a farlo capire all'AI — dicendo «invia a Nicolò
@@ -1740,7 +1758,13 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
     if (!a) return { ok: false, messaggio: 'Manca il destinatario.' }
     if (!testoPiano && allegati.length === 0) return { ok: false, messaggio: 'Il messaggio è vuoto.' }
 
-    const account = await db.account.findFirst({ where: { utenteId } })
+    // Da quale casella parte (multi-account): quella scelta nel «Da», se è
+    // dell'utente; altrimenti la prima. Così l'invio non è più bloccato al
+    // primo account.
+    const mittenteId = testo(form, 'mittenteAccountId')
+    const account =
+      (mittenteId ? await db.account.findFirst({ where: { id: mittenteId, utenteId } }) : null) ??
+      (await db.account.findFirst({ where: { utenteId } }))
     if (!account) return { ok: false, messaggio: 'Nessuna casella collegata: aggiungila in Impostazioni.' }
 
     const daInviare: DaInviare = { a, cc, oggetto, corpo: testoPiano, corpoHtml: html, allegati, inRispostaA: null }

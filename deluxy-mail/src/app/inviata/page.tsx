@@ -5,6 +5,7 @@ import { nomiPerGruppi, chiaviPerNome } from '@/lib/nomiThread'
 import { RicercaMail } from '@/components/RicercaMail'
 import { CercaServer } from '@/components/CercaServer'
 import { ListaInviati, type RigaInviata } from '@/components/ListaInviati'
+import { accountAttivoId } from '@/lib/accountAttivo'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,7 @@ export default async function PostaInviata({ searchParams }: Props) {
   const q = (qGrezzo ?? '').trim()
   const ricerca = q.length >= 2
   const u = await richiediUtente()
+  const accountAttivo = await accountAttivoId(u.id)
   // Cercando si trovano anche le conversazioni a cui hai dato un NOME: la
   // chiave del nome è l'id di una loro mail, quindi basta includerla.
   const chiaviNome = ricerca ? await chiaviPerNome(u.id, q) : []
@@ -25,6 +27,8 @@ export default async function PostaInviata({ searchParams }: Props) {
         utenteId: u.id,
         direzione: 'uscita',
         cestinato: false,
+        // Casella attiva (multi-account): solo gli inviati da quella.
+        ...(accountAttivo ? { accountId: accountAttivo } : {}),
         ...(ricerca
           ? {
               OR: [

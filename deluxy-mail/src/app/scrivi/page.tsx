@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { ComposizioneNuova } from '@/components/ComposizioneNuova'
 import { richiediUtente } from '@/lib/sessione'
 import { elencoContatti } from '@/lib/contatti'
+import { caselleUtente, accountAttivoId } from '@/lib/accountAttivo'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,12 @@ export default async function Scrivi({ searchParams }: Props) {
   const { bozza: bozzaId, a } = await searchParams
   const u = await richiediUtente()
 
-  const account = await db.account.findFirst({ where: { utenteId: u.id } })
+  // Le caselle collegate: con più di una si sceglie da quale inviare (la
+  // attiva è quella predefinita).
+  const [caselle, attivo] = await Promise.all([caselleUtente(u.id), accountAttivoId(u.id)])
+  const account =
+    (attivo ? caselle.find((c) => c.id === attivo) : null) ??
+    (await db.account.findFirst({ where: { utenteId: u.id } }))
   if (!account) {
     return (
       <>
@@ -79,6 +85,9 @@ export default async function Scrivi({ searchParams }: Props) {
 
       <ComposizioneNuova
         da={`${account.nome} <${account.email}>`}
+        // Con più caselle: il «Da» è scegliibile; l'attiva è la predefinita.
+        caselle={caselle.map((c) => ({ id: c.id, etichetta: `${c.nome} <${c.email}>` }))}
+        accountId={account.id}
         iniziale={iniziale}
         bozzaId={bozza?.id}
         contatti={contatti}

@@ -21,11 +21,17 @@ type Props = {
   contatti?: ContattoRubrica[]
   /** Le sequenze di follow-up disponibili (da agganciare all'invio). */
   sequenze?: { id: string; nome: string }[]
+  /** Le caselle collegate: con più di una il «Da» è scegliibile. */
+  caselle?: { id: string; etichetta: string }[]
+  /** L'account predefinito da cui inviare (la casella attiva). */
+  accountId?: string
 }
 
 /** Scrittura di una mail da zero (nessun messaggio d'origine). */
-export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequenze = [] }: Props) {
+export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequenze = [], caselle = [], accountId }: Props) {
   const [a, setA] = useState(iniziale.a)
+  // Da quale casella parte (multi-account): predefinita l'attiva.
+  const [daAccount, setDaAccount] = useState(accountId ?? caselle[0]?.id ?? '')
   const [cc, setCc] = useState(iniziale.cc)
   const [oggetto, setOggetto] = useState(iniziale.oggetto)
   const [corpo, setCorpo] = useState(iniziale.corpo)
@@ -61,6 +67,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
     if (priorita) form.set('priorita', priorita)
     if (sequenzaId) form.set('sequenzaId', sequenzaId)
     if (aggancio) form.set('agganciaA', aggancio.id)
+    if (daAccount) form.set('mittenteAccountId', daAccount)
     if (conAllegati && !giaCaricati) for (const f of allegati) form.append('allegati', f)
     return form
   }
@@ -220,7 +227,17 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
       <div className="form-grid">
         <div className="full">
           <label className="field-label">Da</label>
-          <input type="text" value={da} disabled />
+          {caselle.length > 1 ? (
+            <select value={daAccount} onChange={(e) => setDaAccount(e.target.value)}>
+              {caselle.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.etichetta}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input type="text" value={da} disabled />
+          )}
         </div>
 
         <div className="full">
