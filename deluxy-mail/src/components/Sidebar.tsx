@@ -5,8 +5,18 @@ import { esci } from '@/lib/auth-actions'
 import { iniziali } from '@/lib/contatti'
 import { SyncButton } from './SyncButton'
 import { PrimoCarico } from './PrimoCarico'
+import { PiuAzione } from './PiuAzione'
+import type { TipoAzione } from './AzioneRapida'
 
-type Voce = { href: string; label: string; badge?: number }
+type Voce = {
+  href: string
+  label: string
+  badge?: number
+  /** Se presente, accanto alla voce compare un «+» che apre l'azione rapida in
+   *  un popup (desktop), senza cambiare pagina. */
+  azione?: TipoAzione
+  azioneTitolo?: string
+}
 
 /** Un gruppo di voci del menu. Prima lo stesso blocco era ricopiato per ogni
  *  gruppo: cambiare una riga voleva dire cambiarla in tre punti. */
@@ -16,10 +26,13 @@ function Gruppo({ titolo, voci }: { titolo: string; voci: Voce[] }) {
     <nav className="nav-section">
       <div className="nav-label">{titolo}</div>
       {voci.map((v) => (
-        <Link key={v.href} href={v.href} className="nav-item">
-          <span style={{ flex: 1 }}>{v.label}</span>
-          {v.badge ? <span className="badge neutral">{v.badge}</span> : null}
-        </Link>
+        <div key={v.href} className="nav-item-riga">
+          <Link href={v.href} className="nav-item">
+            <span style={{ flex: 1 }}>{v.label}</span>
+            {v.badge ? <span className="badge neutral">{v.badge}</span> : null}
+          </Link>
+          {v.azione && <PiuAzione tipo={v.azione} titolo={v.azioneTitolo || `Nuovo — ${v.label}`} />}
+        </div>
       ))}
     </nav>
   )
@@ -97,15 +110,15 @@ export async function Sidebar() {
     // La posta dei clienti del registro Anagrafiche (per email o dominio).
     { href: '/clienti', label: 'Clienti' },
     // Le cose da fare ricavate dalla posta: è materiale di lavoro sulla posta.
-    { href: '/attivita', label: 'Attività', badge: daFare },
+    { href: '/attivita', label: 'Attività', badge: daFare, azione: 'attivita', azioneTitolo: 'Nuova attività' },
     // I quadri conversazione fatti dall'AI, col link al thread.
     { href: '/riassunti', label: 'Riassunti', badge: riassunti },
     { href: '/rubrica', label: 'Rubrica' },
   ]
 
   const applicazioni: Voce[] = [
-    { href: '/rene', label: 'Renè AI' },
-    { href: '/calendario', label: 'Calendario' },
+    { href: '/rene', label: 'Renè AI', azione: 'rene', azioneTitolo: 'Chiedi a Renè' },
+    { href: '/calendario', label: 'Calendario', azione: 'evento', azioneTitolo: 'Nuovo appuntamento' },
     // I modelli di follow-up da agganciare all'invio di una mail.
     { href: '/sequenze', label: 'Sequenze' },
   ]

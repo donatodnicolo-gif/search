@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { AzioneRapida } from './AzioneRapida'
 
 /**
  * La struttura pagina: sidebar + contenuto. Su desktop la sidebar è fissa; su
@@ -77,6 +78,10 @@ export function Shell({
       </div>
 
       {aperto && <div className="nav-scrim" onClick={() => setAperto(false)} aria-hidden />}
+
+      {/* Popup delle azioni rapide (i «+» della sidebar): un solo dialogo, su
+          ogni pagina, così crei senza lasciare la posta. */}
+      <AzioneRapida />
     </>
   )
 }
