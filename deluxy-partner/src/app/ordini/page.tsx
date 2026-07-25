@@ -256,7 +256,11 @@ export default async function OrdiniPage({
                       : [];
                   return (
                     <tr key={o.id}>
-                      <td style={{ fontWeight: 500 }}>{o.nome}</td>
+                      <td style={{ fontWeight: 500 }}>
+                        <Link href={`/ordini/${o.id}`} style={{ color: "var(--blue)" }} title="Vedi la transazione corrispondente">
+                          {o.nome}
+                        </Link>
+                      </td>
                       <td style={{ fontSize: 12.5 }}>{nomeNegozio(o.negozioId)}</td>
                       <td>{dataIt(o.data)}</td>
                       <td style={{ fontSize: 12.5 }}>{o.clienteNome ?? o.clienteEmail ?? "—"}</td>

@@ -60,11 +60,16 @@ type OrderNode = {
   customer: { firstName: string | null; lastName: string | null; email: string | null } | null;
 };
 
-async function shopifyGraphQL(dominio: string, token: string, variables: Record<string, unknown>) {
+async function shopifyGraphQL(
+  dominio: string,
+  token: string,
+  query: string,
+  variables: Record<string, unknown>
+) {
   const res = await fetch(`https://${dominio}/admin/api/${API_VERSION}/graphql.json`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
-    body: JSON.stringify({ query: ORDERS_QUERY, variables }),
+    body: JSON.stringify({ query, variables }),
     signal: AbortSignal.timeout(20000),
   });
   if (res.status === 401 || res.status === 403) {
@@ -89,7 +94,7 @@ export async function scaricaOrdini(
   const out: OrdineNormalizzato[] = [];
   let cursor: string | null = null;
   for (let page = 0; page < maxPagine; page++) {
-    const data = await shopifyGraphQL(dominio, token, { cursor, q });
+    const data = await shopifyGraphQL(dominio, token, ORDERS_QUERY, { cursor, q });
     const edges: { cursor: string; node: OrderNode }[] = data?.orders?.edges ?? [];
     for (const { node: n } of edges) {
       const gateways = n.paymentGatewayNames ?? [];
@@ -191,4 +196,74 @@ export async function verificaNegozio(dominio: string, token: string): Promise<{
 
 export async function negoziAttivi() {
   return prisma.negozioShopify.findMany({ where: { attivo: true }, orderBy: { brand: "asc" } });
+}
+
+// ---------- Transazioni di un singolo ordine ----------
+// Per gli ordini a carta non c'è un movimento bancario 1:1: il denaro entra su
+// Shopify Payments e arriva in banca in un *payout* aggregato. Qui recuperiamo
+// le transazioni di pagamento reali dell'ordine (l'incasso sul gateway) e, dove
+// disponibile, il payout che le porterà in banca — così si vede "cosa" ha pagato.
+
+const TRANSAZIONI_ORDINE_QUERY = `
+query TxOrdine($id: ID!) {
+  order(id: $id) {
+    id
+    name
+    transactions(first: 20) {
+      id
+      kind
+      status
+      gateway
+      processedAt
+      accountNumber
+      paymentId
+      amountSet { shopMoney { amount currencyCode } }
+    }
+  }
+}`;
+
+export type TransazioneOrdine = {
+  id: string;
+  kind: string | null; // SALE | CAPTURE | AUTHORIZATION | REFUND | VOID...
+  status: string | null; // SUCCESS | PENDING | FAILURE | ERROR
+  gateway: string | null;
+  processedAt: string | null;
+  accountNumber: string | null; // ultime cifre carta (se disponibile)
+  paymentId: string | null; // riferimento ordine/pagamento del gateway
+  importo: number;
+  valuta: string;
+};
+
+// Scarica le transazioni di un ordine da Shopify (sola lettura). `orderGid` è il
+// gid completo (gid://shopify/Order/123...). Ritorna [] se l'ordine non esiste
+// più o non ha transazioni.
+export async function scaricaTransazioniOrdine(
+  dominio: string,
+  token: string,
+  orderGid: string
+): Promise<TransazioneOrdine[]> {
+  const data = await shopifyGraphQL(dominio, token, TRANSAZIONI_ORDINE_QUERY, { id: orderGid });
+  const tx = data?.order?.transactions ?? [];
+  return tx.map(
+    (t: {
+      id: string;
+      kind: string | null;
+      status: string | null;
+      gateway: string | null;
+      processedAt: string | null;
+      accountNumber: string | null;
+      paymentId: string | null;
+      amountSet?: { shopMoney?: { amount?: string; currencyCode?: string } };
+    }) => ({
+      id: t.id,
+      kind: t.kind,
+      status: t.status,
+      gateway: t.gateway,
+      processedAt: t.processedAt,
+      accountNumber: t.accountNumber,
+      paymentId: t.paymentId,
+      importo: parseFloat(t.amountSet?.shopMoney?.amount ?? "0") || 0,
+      valuta: t.amountSet?.shopMoney?.currencyCode ?? "EUR",
+    })
+  );
 }
