@@ -44,6 +44,12 @@ Ultimo aggiornamento: 24/07/2026
   col client_id giusto (serve progetto Google Cloud reale per completare).
   NB: il redirect URI va messo negli **URI di reindirizzamento autorizzati**, non nelle
   Origini JavaScript (quelle rifiutano i percorsi) → errore `redirect_uri_mismatch`.
+- Ricerca ordini (25/07/2026): `/api/ordini` accetta `q` (numero, cliente, telefono con
+  normalizzazione delle cifre, email, indirizzo, negozio), `negozio` e `contatto=si|no`;
+  torna anche `totale` e l'elenco negozi. UI: barra con campo di ricerca (ritardo 300ms),
+  due select e "Azzera"; lista tagliata a 200 con conteggio dei corrispondenti.
+  Verificato su 782 ordini reali: nome→1, telefono con spazi→1, email→1, negozio→145,
+  negozio+nome→4.
 - Contatti automatici (25/07/2026): `src/lib/contatti.ts` → `salvaContattiOrdini()`, chiamata
   in coda a `/api/ordini/sync` (e da `/api/ordini/contatti-tutti`). Nome in rubrica
   `SIGLA Nome #ordine` (es. `FL Mario Rossi #1042`): sigla per negozio da

@@ -38,7 +38,10 @@ l'amministratore; i successivi nascono con ruolo operatore.
 *client credentials grant* (`POST /admin/oauth/access_token`, token valido ~24h — ideale su
 Vercel). La pagina `/ordini` scarica gli ordini recenti da **tutti i negozi attivi** (Shopify
 Admin GraphQL API), li tiene in tabella `Ordine` legati al negozio, e riporta l'esito
-per-negozio. Credenziali dei negozi cifrate (AES-256-GCM).
+per-negozio. Credenziali dei negozi cifrate (AES-256-GCM). La lista ha **ricerca lato
+server** (su tutti gli ordini, non solo quelli in pagina): testo su numero, cliente,
+telefono — normalizzando le cifre, così "+39 333 12" trova "+393331234567" — email,
+indirizzo e negozio, più i filtri per negozio e per contatto salvato/da salvare.
 
 **Contatti automatici.** A ogni scarico i clienti finiscono in Google Contacts senza
 intervento manuale (`src/lib/contatti.ts` → `salvaContattiOrdini`), col nome
