@@ -69,6 +69,8 @@ function datiShopify(brand: string, o: OrdineNormalizzato) {
     clienteNome: o.clienteNome,
     clienteEmail: o.clienteEmail,
     clienteTelefono: o.clienteTelefono,
+    dataConsegna: o.dataConsegna,
+    fasciaConsegna: o.fasciaConsegna,
     spedizioneNome: o.spedizioneNome,
     indirizzo: o.indirizzo,
     citta: o.citta,

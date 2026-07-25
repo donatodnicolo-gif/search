@@ -72,6 +72,16 @@ finché non c'è `APP_URL_ORDERS`).
   storico ordini. Gli ordini senza dati cliente (602) sono esclusi dall'elenco
   e contati a parte, per non creare un finto cliente da centinaia di ordini.
 
+- **Consegna richiesta** (26/07): campi `dataConsegna` + `fasciaConsegna` su
+  Ordine, letti dagli attributi Shopify `Data_Consegna` e
+  `Fascia_Oraria_Consegna` (stesse chiavi su tutti e tre i negozi, verificate
+  sui dati veri). Mostrata nelle colonne per brand, in una colonna dell'elenco
+  e in cima alla scheda ordine, con urgenza colorata (oggi/domani/passata).
+  Filtro API `consegnaDa`/`consegnaA`, campo `consegna` nella risposta.
+  **Attenzione**: la data NON si deduce dalle note libere. Un primo tentativo lo
+  faceva e sbagliava (in «30 Luglio 08/12» leggeva "8 dicembre" mentre 08/12 è
+  la fascia oraria): meglio "non indicata" che una consegna sbagliata.
+
 ## MANCA / prossimi passi
 1. **Push su GitHub** del commit `1b5a678` (in sessione il push è bloccato dal
    classificatore): va fatto a mano con `git push origin scout-ui`.

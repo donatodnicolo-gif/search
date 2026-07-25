@@ -88,6 +88,12 @@ model Ordine {
   clienteEmail    String?
   clienteTelefono String?
 
+  // consegna richiesta dal cliente: su Shopify sono attributi dell'ordine
+  // (Data_Consegna = data ISO, Fascia_Oraria_Consegna = fascia tipo "16-20").
+  // Non tutti gli ordini li hanno: restano null.
+  dataConsegna   DateTime? // giorno di consegna richiesto
+  fasciaConsegna String? // fascia oraria, come scritta dal negozio
+
   // spedizione
   spedizioneNome String?
   indirizzo      String?
@@ -128,6 +134,7 @@ model Ordine {
   @@unique([negozioId, orderId])
   @@index([statoId])
   @@index([brand, data])
+  @@index([dataConsegna])
   @@index([categoriaPagamento])
   @@index([assegnatoApp])
   @@index([data])

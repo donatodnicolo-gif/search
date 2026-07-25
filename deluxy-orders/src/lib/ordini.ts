@@ -25,6 +25,7 @@ function campiRicerca(parola: string): Prisma.OrdineWhereInput[] {
     { provincia: c },
     { paese: c },
     { brand: c },
+    { fasciaConsegna: c },
     { noteShopify: c },
     { tagShopify: c },
     { gateway: c },
@@ -85,6 +86,17 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
     where.data = dataFiltro;
   }
 
+  // Filtro sulla data di CONSEGNA richiesta (consegnaDa / consegnaA), utile per
+  // sapere cosa esce oggi o domani.
+  const cDa = p.get("consegnaDa")?.trim();
+  const cA = p.get("consegnaA")?.trim();
+  if (cDa || cA) {
+    const filtro: Prisma.DateTimeFilter = {};
+    if (cDa) filtro.gte = new Date(`${cDa}T00:00:00Z`);
+    if (cA) filtro.lte = new Date(`${cA}T23:59:59Z`);
+    where.dataConsegna = filtro;
+  }
+
   if (and.length) where.AND = and;
   return where;
 }
@@ -120,6 +132,11 @@ export function serializzaOrdine(o: OrdineConRelazioni) {
       nome: o.clienteNome,
       email: o.clienteEmail,
       telefono: o.clienteTelefono,
+    },
+    // consegna richiesta dal cliente (attributi Shopify)
+    consegna: {
+      data: o.dataConsegna ? o.dataConsegna.toISOString().slice(0, 10) : null,
+      fascia: o.fasciaConsegna,
     },
     spedizione: {
       nome: o.spedizioneNome,
@@ -158,6 +175,33 @@ export function serializzaOrdine(o: OrdineConRelazioni) {
 // Formattazione importo per la UI.
 export function euro(n: number, valuta = "EUR"): string {
   return new Intl.NumberFormat("it-IT", { style: "currency", currency: valuta }).format(n);
+}
+
+// La consegna richiesta, pronta da mostrare: "gio 30 lug · 16-20".
+// Le date di consegna sono giorni di calendario salvati a mezzogiorno UTC:
+// si formattano in UTC, altrimenti col fuso possono scivolare di un giorno.
+export function consegnaBreve(data: Date | null, fascia: string | null): string | null {
+  if (!data && !fascia) return null;
+  if (!data) return fascia;
+  const giorno = new Intl.DateTimeFormat("it-IT", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+  }).format(data);
+  return fascia ? `${giorno} · ${fascia}` : giorno;
+}
+
+// Quanto manca alla consegna, per evidenziare l'urgenza: oggi, domani, passata.
+export function urgenzaConsegna(data: Date | null): "passata" | "oggi" | "domani" | "futura" | null {
+  if (!data) return null;
+  const oggi = new Date();
+  const g = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const diff = Math.round((g(data) - Date.UTC(oggi.getFullYear(), oggi.getMonth(), oggi.getDate())) / 86400000);
+  if (diff < 0) return "passata";
+  if (diff === 0) return "oggi";
+  if (diff === 1) return "domani";
+  return "futura";
 }
 
 export function dataBreve(d: Date): string {

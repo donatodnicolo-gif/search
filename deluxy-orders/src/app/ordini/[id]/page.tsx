@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { euro, dataBreve } from "@/lib/ordini";
+import { euro, dataBreve, consegnaBreve, urgenzaConsegna } from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { cambiaStato, toggleEtichetta, aggiornaClassificazione } from "@/app/actions";
@@ -38,6 +38,14 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
           <p className="page-sub">
             {ordine.brand} · {dataBreve(ordine.data)} · {euro(ordine.totale, ordine.valuta)}
           </p>
+          {consegnaBreve(ordine.dataConsegna, ordine.fasciaConsegna) && (
+            <p className={`consegna consegna-${urgenzaConsegna(ordine.dataConsegna) ?? "futura"}`} style={{ marginTop: 8 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+              </svg>
+              Consegna: {consegnaBreve(ordine.dataConsegna, ordine.fasciaConsegna)}
+            </p>
+          )}
         </div>
       </div>
 

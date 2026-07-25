@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { whereOrdini, euro, dataBreve } from "@/lib/ordini";
+import { whereOrdini, euro, dataBreve, consegnaBreve, urgenzaConsegna } from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
@@ -224,8 +224,19 @@ export default async function ElencoOrdini({
                         {o.clienteNome ?? o.spedizioneNome ?? "—"}
                         {o.citta ? ` · ${o.citta}` : ""}
                       </div>
+                      {/* Consegna richiesta: è il dato operativo più importante */}
+                      {consegnaBreve(o.dataConsegna, o.fasciaConsegna) ? (
+                        <div className={`consegna consegna-${urgenzaConsegna(o.dataConsegna) ?? "futura"}`}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+                          </svg>
+                          {consegnaBreve(o.dataConsegna, o.fasciaConsegna)}
+                        </div>
+                      ) : (
+                        <div className="consegna consegna-assente">consegna non indicata</div>
+                      )}
                       <div className="card-meta">
-                        <span className="card-data">{dataBreve(o.data)}</span>
+                        <span className="card-data">ordine {dataBreve(o.data)}</span>
                         <CambiaStatoSelect ordineId={o.id} statoAttualeId={o.statoId} stati={statiOpt} compatto />
                       </div>
                       {o.etichette.length > 0 && (
@@ -268,6 +279,7 @@ export default async function ElencoOrdini({
                 <tr>
                   <th>Ordine</th>
                   <th>Data</th>
+                  <th>Consegna</th>
                   <th>Cliente</th>
                   <th className="num">Totale</th>
                   <th>Pagamento</th>
@@ -287,6 +299,15 @@ export default async function ElencoOrdini({
                       </div>
                     </td>
                     <td className="cella-muta">{dataBreve(o.data)}</td>
+                    <td>
+                      {consegnaBreve(o.dataConsegna, o.fasciaConsegna) ? (
+                        <span className={`consegna consegna-${urgenzaConsegna(o.dataConsegna) ?? "futura"}`}>
+                          {consegnaBreve(o.dataConsegna, o.fasciaConsegna)}
+                        </span>
+                      ) : (
+                        <span className="tag-vuoto">—</span>
+                      )}
+                    </td>
                     <td>
                       <div>{o.clienteNome ?? o.spedizioneNome ?? "—"}</div>
                       {o.citta && <div className="cella-sub">{o.citta}</div>}

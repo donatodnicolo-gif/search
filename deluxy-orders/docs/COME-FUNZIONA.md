@@ -20,8 +20,23 @@ destra):
   sinistro e nel pallino accanto al nome del negozio.
 - **Colonne per brand** — una colonna per ogni negozio (Flowers, deluxy.it,
   cakedesign.me…), con quanti ordini e quanto valgono, e gli ordini come
-  schede col bordo del colore del brand. Su schermo stretto le colonne si
-  impilano; il selettore sparisce sotto i 700px.
+  schede col bordo del colore del brand. Ogni scheda mostra **quando va
+  consegnato** (giorno e fascia oraria) oltre alla data dell'ordine. Su schermo
+  stretto le colonne si impilano; il selettore sparisce sotto i 700px.
+
+### La consegna richiesta
+Su Shopify il giorno e la fascia oraria di consegna sono **attributi
+dell'ordine**: `Data_Consegna` (data) e `Fascia_Oraria_Consegna` (es. `16-20`).
+Si vedono nelle colonne, nella colonna «Consegna» dell'elenco e in cima alla
+scheda dell'ordine, con l'urgenza a colpo d'occhio: **oggi in rosso**, domani in
+arancio, già passate smorzate.
+
+Se l'ordine non ha quegli attributi resta «consegna non indicata»: la data
+**non** viene indovinata dal testo delle note. Sembrerebbe utile, ma le note
+contengono numeri ambigui — in un ordine vero «30 Luglio 08/12» il `08/12` è la
+fascia oraria, e leggerlo come una data dava «8 dicembre». In un registro
+operativo una consegna sbagliata è peggio di una mancante; la nota completa
+resta comunque leggibile nella scheda dell'ordine.
 
 Sopra, la **ricerca** (vedi sotto) e i filtri: brand, stato, categoria di
 pagamento, destinazione, etichetta. Il pulsante «Sincronizza da Shopify» avvia

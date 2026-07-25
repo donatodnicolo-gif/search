@@ -30,6 +30,8 @@ export type OrdineNormalizzato = {
   clienteNome: string | null;
   clienteEmail: string | null;
   clienteTelefono: string | null;
+  dataConsegna: Date | null;
+  fasciaConsegna: string | null;
   spedizioneNome: string | null;
   indirizzo: string | null;
   citta: string | null;
@@ -56,6 +58,7 @@ query Ordini($cursor: String, $q: String) {
         displayFulfillmentStatus
         note
         tags
+        customAttributes { key value }
         paymentGatewayNames
         totalPriceSet { shopMoney { amount currencyCode } }
         customer { firstName lastName email phone }
@@ -68,6 +71,7 @@ query Ordini($cursor: String, $q: String) {
             quantity
             sku
             variantTitle
+            customAttributes { key value }
             originalUnitPriceSet { shopMoney { amount } }
           } }
         }
@@ -77,11 +81,14 @@ query Ordini($cursor: String, $q: String) {
   }
 }`;
 
+type Attributo = { key: string; value: string | null };
+
 type LineItemNode = {
   title: string;
   quantity: number;
   sku: string | null;
   variantTitle: string | null;
+  customAttributes: Attributo[] | null;
   originalUnitPriceSet: { shopMoney: { amount: string } } | null;
 };
 
@@ -93,6 +100,7 @@ type OrderNode = {
   displayFulfillmentStatus: string | null;
   note: string | null;
   tags: string[];
+  customAttributes: Attributo[] | null;
   paymentGatewayNames: string[];
   totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
   customer: { firstName: string | null; lastName: string | null; email: string | null; phone: string | null } | null;
@@ -178,6 +186,64 @@ function indirizzoUnaRiga(a: OrderNode["shippingAddress"]): string | null {
   return [a.address1, a.address2].filter(Boolean).join(", ") || null;
 }
 
+// ---------- Consegna richiesta (data e fascia oraria) ----------
+// Sui negozi Deluxy sono attributi dell'ordine: Data_Consegna (ISO) e
+// Fascia_Oraria_Consegna ("16-20"). Il riconoscimento è però per parola chiave,
+// così regge anche i nomi diversi degli ordini vecchi o di negozi futuri, in
+// italiano o inglese (stessa logica dell'app di smistamento).
+
+// Cerca fra gli attributi dell'ordine e, in seconda battuta, delle righe.
+function cercaAttributo(n: OrderNode, re: RegExp): string | null {
+  const tutti: Attributo[] = [...(n.customAttributes ?? [])];
+  for (const e of n.lineItems?.edges ?? []) tutti.push(...(e.node.customAttributes ?? []));
+  const trovato = tutti.find((a) => a?.key && re.test(a.key) && a.value && a.value.trim() !== "");
+  return trovato?.value?.trim() ?? null;
+}
+
+// Interpreta le date scritte come 2026-07-25, 25/07/2026 o 25-07-26.
+// Si fissa a mezzogiorno UTC: è un giorno di calendario, non un istante, e
+// così non scivola al giorno prima cambiando fuso orario.
+export function leggiDataConsegna(testo: string | null): Date | null {
+  if (!testo) return null;
+  const t = testo.trim();
+
+  const iso = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) {
+    const [, a, m, g] = iso;
+    return giornoUtc(Number(a), Number(m), Number(g));
+  }
+
+  const eu = t.match(/^(\d{1,2})[/\-.](\d{1,2})(?:[/\-.](\d{2,4}))?/);
+  if (eu) {
+    const [, g, m, aRaw] = eu;
+    let anno = aRaw ? Number(aRaw) : new Date().getUTCFullYear();
+    if (anno < 100) anno += 2000;
+    return giornoUtc(anno, Number(m), Number(g));
+  }
+  return null;
+}
+
+function giornoUtc(anno: number, mese: number, giorno: number): Date | null {
+  if (mese < 1 || mese > 12 || giorno < 1 || giorno > 31) return null;
+  const d = new Date(Date.UTC(anno, mese - 1, giorno, 12, 0, 0));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+const RE_DATA = /(data.?consegna|delivery.?date|consegn|delivery|fecha|datum|livraison)/i;
+const RE_FASCIA = /(fascia|orari|\bora\b|\btime\b|slot|hora|uhr|heure)/i;
+
+// La consegna si legge SOLO dagli attributi strutturati dell'ordine, mai dal
+// testo libero delle note. Provarci sembra utile ma produce dati sbagliati: in
+// una nota reale «30 Luglio 08/12» il "08/12" è la fascia oraria, e un ripiego
+// a espressione regolare la leggeva come 8 dicembre. In uno strumento operativo
+// una data di consegna sbagliata è peggio di una mancante: se l'attributo non
+// c'è, l'ordine resta "consegna non indicata" e la nota si legge nella scheda.
+function consegnaDaOrdine(n: OrderNode): { data: Date | null; fascia: string | null } {
+  const data = leggiDataConsegna(cercaAttributo(n, RE_DATA));
+  const fascia = cercaAttributo(n, RE_FASCIA);
+  return { data, fascia: fascia ? fascia.slice(0, 60) : null };
+}
+
 // Scarica gli ordini di un negozio, pagina per pagina.
 //  - `dal`  = data di partenza; **null = tutto lo storico** (nessun filtro).
 //  - `onPagina` = se passata, riceve ogni pagina appena arriva e la funzione
@@ -200,6 +266,7 @@ export async function scaricaOrdini(
     for (const { node: n } of edges) {
       const gateways = n.paymentGatewayNames ?? [];
       const addr = n.shippingAddress;
+      const consegna = consegnaDaOrdine(n);
       const righe: RigaNormalizzata[] = (n.lineItems?.edges ?? []).map(({ node: l }) => ({
         titolo: l.title,
         variante: l.variantTitle,
@@ -220,6 +287,8 @@ export async function scaricaOrdini(
         clienteNome: [n.customer?.firstName, n.customer?.lastName].filter(Boolean).join(" ") || null,
         clienteEmail: n.customer?.email ?? null,
         clienteTelefono: n.customer?.phone ?? addr?.phone ?? null,
+        dataConsegna: consegna.data,
+        fasciaConsegna: consegna.fascia,
         spedizioneNome: addr?.name ?? null,
         indirizzo: indirizzoUnaRiga(addr),
         citta: addr?.city ?? null,
