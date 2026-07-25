@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi" | "orders";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -168,6 +168,18 @@ export function catalogoApp(): AppDeluxy[] {
       // APP_URL_MESSAGGI, puntando all'istanza locale finché non c'è un URL pubblico.
       url: process.env.APP_URL_MESSAGGI ?? "http://localhost:3140",
       ruoli: ["admin", "commerciale"],
+    },
+    {
+      id: "orders",
+      nome: "Ordini",
+      sottotitolo: "Registro ordini Shopify",
+      descrizione:
+        "Il registro centralizzato di tutti gli ordini Shopify: si importano, si riclassificano a piacimento (stato, etichette, categorie, instradamento) e le altre app li leggono via API.",
+      icona: "orders",
+      // Eccezione voluta: la tessera resta visibile anche in produzione senza
+      // APP_URL_ORDERS, puntando all'istanza locale finché non c'è un URL pubblico.
+      url: process.env.APP_URL_ORDERS ?? "http://localhost:3150",
+      ruoli: ["admin"],
     },
     {
       id: "mail",

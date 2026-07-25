@@ -109,6 +109,14 @@ const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
       <path d="M8.5 10.5h7M8.5 13.5h4.5" {...TRATTO} />
     </>
   ),
+  // Sacchetto della spesa: il registro centralizzato degli ordini Shopify
+  orders: (
+    <>
+      <path d="M6 8h12l-1 11.5H7z" {...TRATTO} />
+      <path d="M9 8V6.5a3 3 0 0 1 6 0V8" {...TRATTO} />
+      <path d="M9.5 12h5" {...TRATTO} />
+    </>
+  ),
   // Busta con scintilla: posta letta e smistata dall'AI
   mail: (
     <>
