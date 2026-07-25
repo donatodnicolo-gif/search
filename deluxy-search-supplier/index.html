@@ -1648,6 +1648,9 @@ function syncLangUI(){
 }
 const CARDWORD = { it:'Bigliettino', en:'Card message', fr:'Message carte', de:'Kartentext', es:'Tarjeta' };
 const SUBJECTWORD = { it:'Richiesta ordine', en:'Order request', fr:'Demande de commande', de:'Bestellanfrage', es:'Solicitud de pedido' };
+// etichette destinatario/telefono per la riga contatti nel messaggio al fornitore
+const RECIPIENTWORD = { it:'Destinatario', en:'Recipient', fr:'Destinataire', de:'Empfänger', es:'Destinatario' };
+const PHONEWORD     = { it:'Telefono',     en:'Phone',     fr:'Téléphone',    de:'Telefon',   es:'Teléfono' };
 function buildOrderMessage(lang){
   lang = lang || ($('#ordLang') && $('#ordLang').value) || currentLang || 'it';
   const fn = MSG_LANG[lang] || MSG_LANG.it;
@@ -1660,6 +1663,15 @@ function buildOrderMessage(lang){
     time: $('#ord_time').value.trim()
   };
   let msg = fn(p);
+  // contatti del destinatario: chi riceve e a che numero (per consegna/avviso)
+  const recipient = $('#ord_recipient').value.trim();
+  const phone = $('#ord_phone').value.trim();
+  if(recipient || phone){
+    const bits = [];
+    if(recipient) bits.push(recipient);
+    if(phone) bits.push('📞 ' + (PHONEWORD[lang]||'Telefono') + ': ' + phone);
+    msg += '\n\n📍 ' + (RECIPIENTWORD[lang]||'Destinatario') + ': ' + bits.join(' · ');
+  }
   const card = $('#ord_card').value.trim();
   if(card) msg += '\n\n💌 ' + (CARDWORD[lang]||'Bigliettino') + ': ' + card;
   // la foto NON va nel testo: viene copiata negli appunti per essere allegata (Ctrl+V)
@@ -1681,7 +1693,7 @@ function currentMessage(lang){
 }
 $('#ord_msg').addEventListener('input', ()=>{ msgDirty = true; $('#resetMsg').style.display=''; });
 $('#resetMsg').addEventListener('click', ()=> refreshOrderMessage(true));
-['#ord_date','#ord_time','#ord_items','#ord_variant','#ord_qty','#ord_address','#ord_card'].forEach(sel=>
+['#ord_date','#ord_time','#ord_items','#ord_variant','#ord_qty','#ord_address','#ord_card','#ord_recipient','#ord_phone'].forEach(sel=>
   $(sel).addEventListener('input', ()=> refreshOrderMessage()));
 $('#ordLang').addEventListener('change', ()=> refreshOrderMessage());
 async function copyMessage(){

@@ -178,6 +178,12 @@ solo dove siamo e come si lavora.
    ma `loadStato()` partiva solo da `populateOrder`/modalità manuale → sparivano al reload.
    Ora `run()` chiama `loadStato()` a fine ricerca quando non c'è un ordine.
 
+26. **Contatti destinatario nel messaggio al fornitore** (24/07): `buildOrderMessage` aggiunge
+   una riga «📍 Destinatario: NOME · 📞 Telefono: NUM» (etichette localizzate `RECIPIENTWORD`/
+   `PHONEWORD` per it/en/fr/de/es) dai campi `#ord_recipient`/`#ord_phone`, prima del
+   bigliettino. La riga compare solo se almeno uno dei due è compilato; i due campi sono
+   nei listener che rigenerano il testo (finché l'operatore non lo edita a mano).
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
