@@ -43,8 +43,20 @@ finché non c'è `APP_URL_ORDERS`).
   per query a poche query per pagina.
 - **App avviata** su http://localhost:3150 e verificata con dati reali.
 
+- **Ricerca ordini**: casella unica in evidenza sopra i filtri; cerca su numero
+  (anche senza `#`), cliente/email/telefono, destinatario e indirizzo, brand,
+  note e tag Shopify, gateway, classificazione Deluxy (fornitore, responsabile,
+  note interne, etichette) e prodotti (titolo, variante, SKU). AND fra le
+  parole, OR fra i campi — `campiRicerca()` in `src/lib/ordini.ts`, usata sia
+  dalla UI sia dall'API.
+- **LIVE su https://deluxy-orders.vercel.app** (progetto Vercel `deluxy-orders`):
+  env `DATABASE_URL`/`DIRECT_URL` (schema orders), `ORDERS_APP_PASSWORD`,
+  `CRON_SECRET`; nel Hub è impostata `APP_URL_ORDERS`. Verificato: UI protetta
+  (redirect a /login), API senza chiave → 401, `/api/v1/health` → 200.
+
 ## MANCA / prossimi passi
-1. **Deploy Vercel** + `APP_URL_ORDERS` nel Hub + `CRON_SECRET` + `ORDERS_APP_PASSWORD`.
+1. **Push su GitHub** del commit `1b5a678` (in sessione il push è bloccato dal
+   classificatore): va fatto a mano con `git push origin scout-ui`.
 2. **Integrazione con le app di destinazione** (fase 2, lettura via API):
    - Ricerca fornitori (smistamento): legge gli ordini `assegnatoApp=search`.
    - Finance (partner): può leggere/riconciliare da qui invece che da Shopify.
