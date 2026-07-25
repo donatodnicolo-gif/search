@@ -11,7 +11,10 @@ import { eseguiSyncOrdini } from "@/lib/sync";
 // solo se la variabile CRON_SECRET è impostata). Senza segreto configurato la
 // rotta risponde 503, così non resta un endpoint aperto.
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+// La sync quotidiana riscrive solo gli ordini davvero cambiati (vedi
+// src/lib/sync.ts), quindi normalmente finisce in pochi secondi; il margine
+// serve alle giornate con molti ordini nuovi.
+export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
   const segreto = process.env.CRON_SECRET;

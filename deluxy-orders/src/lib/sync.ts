@@ -98,7 +98,35 @@ async function salvaBloccoOrdini(
 
   const esistenti = await prisma.ordine.findMany({
     where: { negozioId, orderId: { in: ordini.map((o) => o.orderId) } },
-    select: { id: true, orderId: true, categoriaPagamentoManuale: true, _count: { select: { righe: true } } },
+    select: {
+      id: true,
+      orderId: true,
+      categoriaPagamento: true,
+      categoriaPagamentoManuale: true,
+      _count: { select: { righe: true } },
+      // serve a capire se l'ordine è cambiato davvero (vedi sotto)
+      brand: true,
+      numero: true,
+      data: true,
+      totale: true,
+      valuta: true,
+      financialStatus: true,
+      fulfillmentStatus: true,
+      gateway: true,
+      clienteNome: true,
+      clienteEmail: true,
+      clienteTelefono: true,
+      dataConsegna: true,
+      fasciaConsegna: true,
+      spedizioneNome: true,
+      indirizzo: true,
+      citta: true,
+      cap: true,
+      provincia: true,
+      paese: true,
+      noteShopify: true,
+      tagShopify: true,
+    },
   });
   const giaPresenti = new Map(esistenti.map((e) => [e.orderId, e]));
   const nuovi = ordini.filter((o) => !giaPresenti.has(o.orderId));
@@ -142,9 +170,18 @@ async function salvaBloccoOrdini(
     if (eventi.length) await prisma.eventoOrdine.createMany({ data: eventi });
   }
 
-  // ---- ordini già presenti: aggiornamento mirato ----
+  // ---- ordini già presenti: si aggiornano solo se qualcosa è cambiato ----
+  // Ogni update è un viaggio verso il database: riscrivere ordini identici
+  // costava minuti a ogni sync (e mandava in timeout il cron notturno, che ha
+  // due minuti). Nella sync quotidiana quasi tutti gli ordini della finestra
+  // sono immutati, quindi qui si salta la stragrande maggioranza delle scritture.
+  let invariati = 0;
   for (const o of daAggiornare) {
     const e = giaPresenti.get(o.orderId)!;
+    if (!cambiato(e, o, brand)) {
+      invariati++;
+      continue;
+    }
     await prisma.ordine.update({
       where: { id: e.id },
       data: {
@@ -171,5 +208,66 @@ async function salvaBloccoOrdini(
     });
   }
 
-  return { nuovi: nuovi.length, aggiornati: daAggiornare.length };
+  return { nuovi: nuovi.length, aggiornati: daAggiornare.length - invariati };
+}
+
+// Un ordine già salvato è "cambiato" se differisce in un campo che importiamo
+// da Shopify, nel numero di righe, o nella categoria dedotta (solo quando non
+// è stata corretta a mano). Confronto per valore: le date si confrontano al
+// millisecondo, i decimali con una tolleranza di un centesimo.
+type OrdineSalvato = {
+  categoriaPagamento: string;
+  categoriaPagamentoManuale: boolean;
+  _count: { righe: number };
+  brand: string;
+  numero: string;
+  data: Date;
+  totale: number;
+  valuta: string;
+  financialStatus: string | null;
+  fulfillmentStatus: string | null;
+  gateway: string | null;
+  clienteNome: string | null;
+  clienteEmail: string | null;
+  clienteTelefono: string | null;
+  dataConsegna: Date | null;
+  fasciaConsegna: string | null;
+  spedizioneNome: string | null;
+  indirizzo: string | null;
+  citta: string | null;
+  cap: string | null;
+  provincia: string | null;
+  paese: string | null;
+  noteShopify: string | null;
+  tagShopify: string | null;
+};
+
+function cambiato(e: OrdineSalvato, o: OrdineNormalizzato, brand: string): boolean {
+  const dataUguale = (a: Date | null, b: Date | null) =>
+    a === null || b === null ? a === b : a.getTime() === b.getTime();
+
+  if (e.numero !== o.numero) return true;
+  if (!dataUguale(e.data, o.data)) return true;
+  if (Math.abs(e.totale - o.totale) > 0.005) return true;
+  if (e.valuta !== o.valuta) return true;
+  if (e.financialStatus !== o.financialStatus) return true;
+  if (e.fulfillmentStatus !== o.fulfillmentStatus) return true;
+  if (e.gateway !== o.gateway) return true;
+  if (e.clienteNome !== o.clienteNome) return true;
+  if (e.clienteEmail !== o.clienteEmail) return true;
+  if (e.clienteTelefono !== o.clienteTelefono) return true;
+  if (!dataUguale(e.dataConsegna, o.dataConsegna)) return true;
+  if (e.fasciaConsegna !== o.fasciaConsegna) return true;
+  if (e.spedizioneNome !== o.spedizioneNome) return true;
+  if (e.indirizzo !== o.indirizzo) return true;
+  if (e.citta !== o.citta) return true;
+  if (e.cap !== o.cap) return true;
+  if (e.provincia !== o.provincia) return true;
+  if (e.paese !== o.paese) return true;
+  if (e.noteShopify !== o.noteShopify) return true;
+  if (e.tagShopify !== o.tagShopify) return true;
+  if (e._count.righe !== o.righe.length) return true;
+  if (e.brand !== brand) return true; // il negozio è stato rinominato
+  if (!e.categoriaPagamentoManuale && e.categoriaPagamento !== o.categoriaPagamento) return true;
+  return false;
 }
