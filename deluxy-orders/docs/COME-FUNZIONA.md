@@ -11,11 +11,37 @@ raccoglie, ordina e smista informazioni.
 ## Le pagine
 
 ### Ordini (`/`)
-Elenco di tutti gli ordini con KPI (numero, valore, negozi attivi) e filtri:
-ricerca a parole (numero, cliente, città, prodotto), brand, stato, categoria di
-pagamento, destinazione, etichetta. Ogni riga mostra numero, data, cliente,
-totale, pagamento, **stato** (cambiabile al volo dal menu a tendina),
-destinazione ed etichette. Il pulsante «Sincronizza da Shopify» avvia l'import.
+Due viste, con lo stesso motore di ricerca e filtri (il selettore è in alto a
+destra):
+
+- **Elenco** — tabella di tutti gli ordini. Ogni riga mostra numero, data,
+  cliente, totale, pagamento, **stato** (cambiabile al volo dal menu a
+  tendina), destinazione ed etichette, con il **colore del brand** sul bordo
+  sinistro e nel pallino accanto al nome del negozio.
+- **Colonne per brand** — una colonna per ogni negozio (Flowers, deluxy.it,
+  cakedesign.me…), con quanti ordini e quanto valgono, e gli ordini come
+  schede col bordo del colore del brand. Su schermo stretto le colonne si
+  impilano; il selettore sparisce sotto i 700px.
+
+Sopra, la **ricerca** (vedi sotto) e i filtri: brand, stato, categoria di
+pagamento, destinazione, etichetta. Il pulsante «Sincronizza da Shopify» avvia
+l'import. I colori dei brand si cambiano in Impostazioni.
+
+### Clienti (`/clienti`)
+I clienti non sono una tabella a sé: si **ricavano dagli ordini**. Una persona è
+identificata dall'email; se manca, dal telefono; se manca anche quello, dal
+nome — così chi ha ordinato dieci volte, anche su brand diversi, resta un
+cliente solo. Per ognuno: contatti, brand su cui ha comprato, numero di ordini,
+totale speso, primo e ultimo ordine. Si cerca per nome, email, telefono o città
+e si ordina per spesa, numero di ordini, data o nome.
+
+Gli ordini **senza alcun dato del cliente** non vengono spacciati per una
+persona: restano fuori dall'elenco e si contano a parte nel riquadro «Ordini
+senza dati cliente».
+
+Cliccando un cliente si apre la sua **scheda**: ordini totali, speso, ordine
+medio, anagrafica con l'ultimo indirizzo, e tutti i suoi ordini (con cambio di
+stato al volo).
 
 ### Bacheca (`/bacheca`)
 Vista kanban: una colonna per ogni stato della pipeline (più «Senza stato»).
@@ -32,7 +58,8 @@ sposta» di colonna. Filtro per brand.
 
 ### Impostazioni (`/impostazioni`)
 - **Negozi Shopify**: aggiunta/rimozione, attiva/sospendi, tipo di
-  autenticazione, ultima sync. Pulsante «Sincronizza ora».
+  autenticazione, ultima sync e **colore del brand** (quello con cui l'ordine
+  si riconosce a colpo d'occhio in elenco e colonne). Pulsante «Sincronizza ora».
 - **Pipeline degli stati**: crea/modifica/elimina stati (nome, colore, ordine,
   quale è predefinito e quali sono «di chiusura»). Eliminare uno stato lascia i
   suoi ordini «senza stato», non li cancella.

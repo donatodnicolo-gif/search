@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ToggleSidebar } from "@/components/ToggleSidebar";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
+import { contaClienti } from "@/lib/clienti";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,15 +12,16 @@ export const metadata: Metadata = {
 
 // I conteggi della sidebar. Se il DB non è raggiungibile (build o prima
 // configurazione) tornano a zero senza far cadere la pagina.
-async function conteggi(): Promise<{ ordini: number; daClassificare: number }> {
+async function conteggi(): Promise<{ ordini: number; daClassificare: number; clienti: number }> {
   try {
-    const [ordini, daClassificare] = await Promise.all([
+    const [ordini, daClassificare, clienti] = await Promise.all([
       prisma.ordine.count(),
       prisma.ordine.count({ where: { stato: { predefinito: true } } }),
+      contaClienti(),
     ]);
-    return { ordini, daClassificare };
+    return { ordini, daClassificare, clienti };
   } catch {
-    return { ordini: 0, daClassificare: 0 };
+    return { ordini: 0, daClassificare: 0, clienti: 0 };
   }
 }
 

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { statiOrdinati } from "@/lib/stati";
 import { dataBreve } from "@/lib/ordini";
 import {
-  creaNegozio, toggleNegozio, eliminaNegozio,
+  creaNegozio, toggleNegozio, eliminaNegozio, cambiaColoreBrand,
   creaStato, aggiornaStato, eliminaStato,
   creaEtichetta, eliminaEtichetta,
   toggleChiave, sincronizza,
@@ -40,12 +40,22 @@ export default async function Impostazioni() {
           <div className="tabella-wrap" style={{ marginBottom: 16 }}>
             <table>
               <thead>
-                <tr><th>Brand</th><th>Dominio</th><th>Auth</th><th>Ultima sync</th><th>Stato</th><th></th></tr>
+                <tr><th>Brand</th><th>Colore</th><th>Dominio</th><th>Auth</th><th>Ultima sync</th><th>Stato</th><th></th></tr>
               </thead>
               <tbody>
                 {negozi.map((n) => (
                   <tr key={n.id}>
-                    <td className="cella-nome">{n.brand}</td>
+                    <td className="cella-nome cella-brand">
+                      <span className="brand-dot" style={{ background: n.colore }} />
+                      {n.brand}
+                    </td>
+                    <td>
+                      <form action={cambiaColoreBrand} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input type="hidden" name="id" value={n.id} />
+                        <input type="color" name="colore" defaultValue={n.colore} style={{ width: 34, height: 28, padding: 2, border: 0, background: "transparent", cursor: "pointer" }} />
+                        <button className="btn btn-secondario small" type="submit">Salva</button>
+                      </form>
+                    </td>
                     <td className="cella-muta">{n.dominio}</td>
                     <td className="cella-muta">{n.clientId ? "Client credentials" : n.token ? "Token statico" : "—"}</td>
                     <td className="cella-muta">{n.ultimaSync ? dataBreve(n.ultimaSync) : "mai"}</td>

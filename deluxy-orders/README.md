@@ -73,4 +73,7 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 - `src/lib/shopify.ts` — client Admin GraphQL (ordini + righe + spedizione + tag), paginazione con ritentativi sui limiti di frequenza.
 - `src/lib/sync.ts` — import/upsert riutilizzabile (pulsante, script, cron), a blocchi per reggere gli import storici.
 - `src/lib/ordini.ts` — filtro condiviso UI/API + serializzazione.
-- `src/app/` — Ordini (elenco), Bacheca (kanban), scheda ordine, Impostazioni.
+- `src/lib/clienti.ts` — clienti ricavati dagli ordini (aggregazione SQL).
+- `src/lib/brand.ts` — brand e loro colori.
+- `src/app/` — Ordini (elenco + colonne per brand), Bacheca (kanban), scheda
+  ordine, Clienti (elenco + scheda), Impostazioni.

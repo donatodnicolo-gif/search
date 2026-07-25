@@ -28,6 +28,9 @@ model NegozioShopify {
   clientId     String? // Dev Dashboard app: Client ID
   clientSecret String? // Dev Dashboard app: Client Secret
   tokenScadeIl DateTime? // scadenza del token coniato (null = token statico)
+  // Colore del brand: distingue a colpo d'occhio gli ordini dei vari negozi
+  // (pallino nell'elenco, bordo delle schede, testata della colonna per brand).
+  colore       String    @default("#b8963e")
   attivo       Boolean   @default(true)
   ultimaSync   DateTime?
   ordini       Ordine[]

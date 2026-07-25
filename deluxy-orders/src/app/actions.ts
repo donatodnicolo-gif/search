@@ -194,6 +194,17 @@ export async function creaNegozio(fd: FormData) {
   revalidatePath("/impostazioni");
 }
 
+// Colore del brand: distingue gli ordini dei vari negozi nell'elenco e nelle colonne.
+export async function cambiaColoreBrand(fd: FormData) {
+  const id = s(fd, "id");
+  const colore = s(fd, "colore");
+  if (!id || !colore) return;
+  await prisma.negozioShopify.update({ where: { id }, data: { colore } });
+  revalidatePath("/");
+  revalidatePath("/clienti");
+  revalidatePath("/impostazioni");
+}
+
 export async function toggleNegozio(fd: FormData) {
   const id = s(fd, "id");
   if (!id) return;

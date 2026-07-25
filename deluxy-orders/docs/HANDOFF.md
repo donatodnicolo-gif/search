@@ -57,6 +57,21 @@ finché non c'è `APP_URL_ORDERS`).
   `CRON_SECRET`; nel Hub è impostata `APP_URL_ORDERS`. Verificato: UI protetta
   (redirect a /login), API senza chiave → 401, `/api/v1/health` → 200.
 
+## FATTO (26/07/2026)
+- **Colori per brand**: campo `colore` su `NegozioShopify` (modificabile in
+  Impostazioni). Applicato al bordo sinistro e al pallino delle righe
+  dell'elenco, alle schede e alle testate delle colonne. Assegnati: Flowers
+  rosso, deluxy.it oro, cakedesign.me viola.
+- **Vista «Colonne per brand»** nella pagina Ordini (`?vista=brand`): una
+  colonna per negozio con conteggio e valore, schede colorate, stessa ricerca e
+  stessi filtri dell'elenco. Sotto i 900px le colonne si impilano.
+- **Sezione Clienti** (`/clienti` + `/clienti/[chiave]`): clienti ricavati dagli
+  ordini con aggregazione SQL (`src/lib/clienti.ts`), identità = email →
+  telefono → nome. 10.371 clienti sui 13.954 ordini. Ricerca, ordinamenti
+  (spesa/ordini/recenti/nome), paginazione; scheda con KPI, anagrafica e
+  storico ordini. Gli ordini senza dati cliente (602) sono esclusi dall'elenco
+  e contati a parte, per non creare un finto cliente da centinaia di ordini.
+
 ## MANCA / prossimi passi
 1. **Push su GitHub** del commit `1b5a678` (in sessione il push è bloccato dal
    classificatore): va fatto a mano con `git push origin scout-ui`.

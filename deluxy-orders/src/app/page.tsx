@@ -4,11 +4,14 @@ import { whereOrdini, euro, dataBreve } from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
+import { brandConColore, mappaColori, coloreBrand } from "@/lib/brand";
 import { sincronizza } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const PER_PAGINA = 50;
+// Quanti ordini mostrare in ogni colonna della vista per brand
+const PER_COLONNA = 40;
 
 export default async function ElencoOrdini({
   searchParams,
@@ -19,25 +22,53 @@ export default async function ElencoOrdini({
   const params = new URLSearchParams(sp);
   const where = whereOrdini(params);
   const pagina = Math.max(1, Number(sp.page ?? "1") || 1);
+  // Due viste: elenco (tabella) e colonne per brand (una colonna per negozio).
+  const vista = sp.vista === "brand" ? "brand" : "elenco";
 
-  const [stati, negozi, etichette, totale, somma, ordini] = await Promise.all([
+  const [stati, brand, etichette, totale, somma, ordini] = await Promise.all([
     statiOrdinati(),
-    prisma.negozioShopify.findMany({ orderBy: { brand: "asc" } }),
+    brandConColore(),
     prisma.etichetta.findMany({ orderBy: { nome: "asc" } }),
     prisma.ordine.count({ where }),
     prisma.ordine.aggregate({ where, _sum: { totale: true } }),
-    prisma.ordine.findMany({
-      where,
-      include: { stato: true, etichette: true, negozio: { select: { brand: true } } },
-      orderBy: { data: "desc" },
-      skip: (pagina - 1) * PER_PAGINA,
-      take: PER_PAGINA,
-    }),
+    vista === "elenco"
+      ? prisma.ordine.findMany({
+          where,
+          include: { stato: true, etichette: true, negozio: { select: { brand: true } } },
+          orderBy: { data: "desc" },
+          skip: (pagina - 1) * PER_PAGINA,
+          take: PER_PAGINA,
+        })
+      : Promise.resolve([]),
   ]);
 
+  // Vista a colonne: per ogni brand, i suoi ordini più recenti (con gli stessi
+  // filtri e la stessa ricerca dell'elenco).
+  const colonneBrand =
+    vista === "brand"
+      ? await Promise.all(
+          brand.map(async (b) => {
+            const dove = { AND: [where, { brand: b.nome }] };
+            const [conta, somma, ordini] = await Promise.all([
+              prisma.ordine.count({ where: dove }),
+              prisma.ordine.aggregate({ where: dove, _sum: { totale: true } }),
+              prisma.ordine.findMany({
+                where: dove,
+                include: { stato: true, etichette: true },
+                orderBy: { data: "desc" },
+                take: PER_COLONNA,
+              }),
+            ]);
+            return { brand: b, conta, valore: somma._sum.totale ?? 0, ordini };
+          }),
+        )
+      : [];
+
+  const colori = mappaColori(brand);
   const totalePagine = Math.max(1, Math.ceil(totale / PER_PAGINA));
   const statiOpt = stati.map((s) => ({ id: s.id, nome: s.nome }));
-  const nessunNegozio = negozi.length === 0;
+  const negozi = brand;
+  const nessunNegozio = brand.length === 0;
 
   function conFiltro(extra: Record<string, string>): string {
     const q = new URLSearchParams(sp);
@@ -55,12 +86,23 @@ export default async function ElencoOrdini({
           <h1 className="page-title">Ordini</h1>
           <p className="page-sub">Il registro di tutti gli ordini Shopify, riclassificabili a piacimento.</p>
         </div>
-        <form action={sincronizza}>
-          <input type="hidden" name="giorni" value="90" />
-          <button className="btn" type="submit" disabled={nessunNegozio}>
-            Sincronizza da Shopify
-          </button>
-        </form>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {/* Selettore di vista: elenco oppure una colonna per brand */}
+          <div className="scelta-vista" role="group" aria-label="Vista">
+            <Link className={`vista-opz${vista === "elenco" ? " attiva" : ""}`} href={conFiltro({ vista: "" })}>
+              Elenco
+            </Link>
+            <Link className={`vista-opz${vista === "brand" ? " attiva" : ""}`} href={conFiltro({ vista: "brand", page: "" })}>
+              Colonne per brand
+            </Link>
+          </div>
+          <form action={sincronizza}>
+            <input type="hidden" name="giorni" value="90" />
+            <button className="btn" type="submit" disabled={nessunNegozio}>
+              Sincronizza da Shopify
+            </button>
+          </form>
+        </div>
       </div>
 
       <div className="kpi-riga">
@@ -118,10 +160,11 @@ export default async function ElencoOrdini({
       {/* Filtri */}
       <form className="filtri" method="get">
         {sp.q && <input type="hidden" name="q" value={sp.q} />}
+        {vista !== "elenco" && <input type="hidden" name="vista" value={vista} />}
         <select name="brand" defaultValue={sp.brand ?? ""}>
           <option value="">Tutti i brand</option>
           {negozi.map((n) => (
-            <option key={n.id} value={n.brand}>{n.brand}</option>
+            <option key={n.id} value={n.nome}>{n.nome}</option>
           ))}
         </select>
         <select name="stato" defaultValue={sp.stato ?? ""}>
@@ -152,7 +195,64 @@ export default async function ElencoOrdini({
         <Link className="btn btn-secondario small" href="/">Azzera</Link>
       </form>
 
-      {ordini.length === 0 ? (
+      {/* ---------- Vista a colonne per brand ---------- */}
+      {vista === "brand" &&
+        (nessunNegozio ? (
+          <div className="vuoto">
+            Nessun negozio collegato. Vai in <Link href="/impostazioni" className="ritorno">Impostazioni</Link> per aggiungere un negozio Shopify.
+          </div>
+        ) : (
+          <div className="colonne-brand">
+            {colonneBrand.map(({ brand: b, conta, valore, ordini: suoi }) => (
+              <div className="colonna" key={b.id} style={{ ["--brand" as string]: b.colore }}>
+                <div className="colonna-testa colonna-testa-brand">
+                  <span className="colonna-dot" style={{ background: b.colore }} />
+                  <span className="colonna-nome">{b.nome}</span>
+                  <span className="colonna-conta">{conta.toLocaleString("it-IT")}</span>
+                </div>
+                <div className="colonna-valore">{euro(valore)}</div>
+                {suoi.length === 0 ? (
+                  <div className="colonna-vuota">Nessun ordine</div>
+                ) : (
+                  suoi.map((o) => (
+                    <div className="card-ordine card-brand" key={o.id}>
+                      <div className="card-testa">
+                        <Link href={`/ordini/${o.id}`} className="card-numero">{o.numero}</Link>
+                        <span className="card-totale">{euro(o.totale, o.valuta)}</span>
+                      </div>
+                      <div className="card-cliente">
+                        {o.clienteNome ?? o.spedizioneNome ?? "—"}
+                        {o.citta ? ` · ${o.citta}` : ""}
+                      </div>
+                      <div className="card-meta">
+                        <span className="card-data">{dataBreve(o.data)}</span>
+                        <CambiaStatoSelect ordineId={o.id} statoAttualeId={o.statoId} stati={statiOpt} compatto />
+                      </div>
+                      {o.etichette.length > 0 && (
+                        <div className="card-etichette">
+                          {o.etichette.map((e) => (
+                            <span key={e.id} className="tag" style={{ color: e.colore }}>
+                              <span className="dot" /><span className="tag-label">{e.nome}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+                {conta > suoi.length && (
+                  <Link className="colonna-vuota colonna-altri" href={conFiltro({ vista: "", brand: b.nome })}>
+                    +{(conta - suoi.length).toLocaleString("it-IT")} altri — vedi tutti
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+
+      {/* ---------- Vista elenco ---------- */}
+      {vista === "elenco" &&
+        (ordini.length === 0 ? (
         <div className="vuoto">
           {nessunNegozio ? (
             <>Nessun negozio collegato. Vai in <Link href="/impostazioni" className="ritorno">Impostazioni</Link> per aggiungere un negozio Shopify e sincronizzare gli ordini.</>
@@ -178,10 +278,13 @@ export default async function ElencoOrdini({
               </thead>
               <tbody>
                 {ordini.map((o) => (
-                  <tr key={o.id}>
+                  <tr key={o.id} className="riga-brand" style={{ ["--brand" as string]: coloreBrand(colori, o.brand) }}>
                     <td>
                       <Link href={`/ordini/${o.id}`} className="cella-nome">{o.numero}</Link>
-                      <div className="cella-sub">{o.brand}</div>
+                      <div className="cella-sub cella-brand">
+                        <span className="brand-dot" />
+                        {o.brand}
+                      </div>
                     </td>
                     <td className="cella-muta">{dataBreve(o.data)}</td>
                     <td>
@@ -221,7 +324,7 @@ export default async function ElencoOrdini({
             </nav>
           </div>
         </>
-      )}
+      ))}
     </main>
   );
 }
