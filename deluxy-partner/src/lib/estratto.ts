@@ -27,6 +27,10 @@ const SIN_IMPORTO = ["importo", "payment amount", "amount", "movimento", "import
 const SIN_DARE = ["dare", "uscite", "addebiti", "addebito", "debit", "money out", "out"];
 const SIN_AVERE = ["avere", "entrate", "accrediti", "accredito", "credit", "money in", "in"];
 const SIN_DESC = ["descrizione operazione", "descrizione estesa", "descrizione", "causale", "dettagli", "description", "operazione", "note", "reference"];
+// Colonna "riferimento/causale del pagamento" separata dalla descrizione: molti
+// estratti (es. Vivid) mettono qui il NUMERO dell'ordine, mentre "Description" è
+// solo "SHOPIFY". Se presente e diversa dalla descrizione, la accodiamo.
+const SIN_REFERENCE = ["reference", "riferimento", "payment reference", "remittance information", "remittance", "end to end id", "end-to-end id", "causale pagamento", "reference number"];
 const SIN_CONTROPARTE = ["ordinante", "beneficiario", "controparte", "nome controparte", "counterparty", "payee", "payer", "denominazione"];
 const SIN_IBAN = ["iban", "iban controparte", "iban beneficiario", "iban ordinante", "iban destinatario", "counterparty iban", "beneficiary iban", "recipient iban", "partner iban", "counterparty account", "beneficiary account"];
 
@@ -136,7 +140,7 @@ export function parseEstratto(buffer: Buffer, nomeFile: string): EsitoParse {
 
   // trova la riga di intestazione nelle prime 15 righe
   let headerIdx = -1;
-  let col = { data: -1, importo: -1, dare: -1, avere: -1, desc: -1, contro: -1, iban: -1 };
+  let col = { data: -1, importo: -1, dare: -1, avere: -1, desc: -1, ref: -1, contro: -1, iban: -1 };
   for (let i = 0; i < Math.min(15, righe.length); i++) {
     const hs = (righe[i] ?? []).map(norm);
     const c = {
@@ -145,6 +149,7 @@ export function parseEstratto(buffer: Buffer, nomeFile: string): EsitoParse {
       dare: trovaColonna(hs, SIN_DARE),
       avere: trovaColonna(hs, SIN_AVERE),
       desc: trovaColonna(hs, SIN_DESC),
+      ref: trovaColonna(hs, SIN_REFERENCE),
       contro: trovaColonna(hs, SIN_CONTROPARTE),
       iban: trovaColonna(hs, SIN_IBAN),
     };
@@ -173,7 +178,14 @@ export function parseEstratto(buffer: Buffer, nomeFile: string): EsitoParse {
       const avere = col.avere >= 0 ? parseImportoIt(r[col.avere]) : null;
       if (dare != null || avere != null) importo = (avere ?? 0) - Math.abs(dare ?? 0);
     }
-    const descrizione = col.desc >= 0 ? String(r[col.desc] ?? "").trim() : "";
+    // Descrizione base (per l'impronta anti-duplicati, invariata) + eventuale
+    // colonna Reference separata, accodata: così il numero d'ordine in causale
+    // (es. Vivid) entra nella descrizione ed è abbinabile agli ordini.
+    const descBase = col.desc >= 0 ? String(r[col.desc] ?? "").trim() : "";
+    const refText = col.ref >= 0 && col.ref !== col.desc ? String(r[col.ref] ?? "").trim() : "";
+    const descrizione = [descBase, refText]
+      .filter((s, i, a) => s && a.indexOf(s) === i)
+      .join(" · ");
     const controparte = col.contro >= 0 ? String(r[col.contro] ?? "").trim() || null : null;
     // IBAN: dalla colonna dedicata se c'è, altrimenti tentato dalla descrizione
     const ibanCol = col.iban >= 0 ? String(r[col.iban] ?? "") : "";
@@ -186,7 +198,8 @@ export function parseEstratto(buffer: Buffer, nomeFile: string): EsitoParse {
       descrizione: descrizione || controparte || "(senza descrizione)",
       controparte,
       ibanControparte,
-      hash: hashMovimento(data, importo, descrizione + (controparte ?? "")),
+      // hash invariato (solo descBase): re-importare lo stesso file non duplica
+      hash: hashMovimento(data, importo, descBase + (controparte ?? "")),
     });
   }
 

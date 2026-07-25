@@ -5,6 +5,7 @@ import { STATI_ORDINE, CATEGORIE_PAG, suggerisciMovimenti } from "@/lib/ordini";
 import {
   sincronizzaOrdini,
   riconciliaOrdine,
+  riconciliaPerNumero,
   segnaOrdineIncassato,
   ignoraOrdine,
   riapriOrdine,
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 export default async function OrdiniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sync?: string; nuovi?: string; agg?: string; errori?: string; negozio?: string; stato?: string; cat?: string; periodo?: string }>;
+  searchParams: Promise<{ sync?: string; nuovi?: string; agg?: string; errori?: string; negozio?: string; stato?: string; cat?: string; periodo?: string; auto?: string; diff?: string; amb?: string }>;
 }) {
   const sp = await searchParams;
 
@@ -115,8 +116,30 @@ export default async function OrdiniPage({
               </span>
             </form>
           )}
+          {bonificoDaRic.length > 0 && (
+            <form action={riconciliaPerNumero}>
+              <button className="btn secondary" type="submit" title="Riconcilia in automatico gli ordini il cui numero compare nella causale di un movimento (Qonto/Vivid), quando il match è univoco">
+                ⇄ Abbina per numero
+              </button>
+            </form>
+          )}
         </div>
       </div>
+
+      {sp.auto != null && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green">
+            <span className="dot" />
+            Abbinati per numero in causale: <strong style={{ marginLeft: 4 }}>{sp.auto}</strong> ordini
+          </span>
+          {(Number(sp.diff) > 0 || Number(sp.amb) > 0) && (
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8 }}>
+              {Number(sp.diff) > 0 && <>{sp.diff} con numero trovato ma importo diverso (&gt;5%): da confermare a mano. </>}
+              {Number(sp.amb) > 0 && <>{sp.amb} ambigui (stesso numero su più ordini/movimenti): controllali dalle proposte.</>}
+            </p>
+          )}
+        </div>
+      )}
 
       {negozi.length === 0 && (
         <div className="card" style={{ padding: 18, marginBottom: 16 }}>
@@ -288,8 +311,10 @@ export default async function OrdiniPage({
               <tbody>
                 {ordiniRaw.map((o) => {
                   const st = STATI_ORDINE[o.statoRicon] ?? STATI_ORDINE.da_riconciliare;
+                  // proposte per gli ordini da riconciliare (bonifico e, se il
+                  // numero è in causale, anche contrassegno/altro); mai per le carte
                   const proposti =
-                    o.statoRicon === "da_riconciliare" && o.categoriaPagamento === "bonifico"
+                    o.statoRicon === "da_riconciliare" && o.categoriaPagamento !== "carta"
                       ? suggerisciMovimenti(o, movimenti, giaAbbinati).slice(0, 3)
                       : [];
                   return (
@@ -323,14 +348,14 @@ export default async function OrdiniPage({
                       <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
                         {o.statoRicon === "da_riconciliare" ? (
                           <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                            {proposti.map(({ tx, forte }) => (
+                            {proposti.map(({ tx, forte, matchNumero }) => (
                               <form key={tx.id} action={riconciliaOrdine.bind(null, o.id, tx.id)} style={{ display: "inline" }}>
                                 <button
                                   className={`btn small ${forte ? "primary" : "secondary"}`}
                                   type="submit"
-                                  title={`${tx.descrizione} · ${dataIt(tx.data)}`}
+                                  title={`${tx.descrizione} · ${dataIt(tx.data)}${matchNumero ? " · n° ordine in causale" : ""}`}
                                 >
-                                  Abbina {euro(tx.importo)}{forte ? " ✓" : ""}
+                                  {matchNumero ? "n° " : ""}Abbina {euro(tx.importo)}{forte ? " ✓" : ""}
                                 </button>
                               </form>
                             ))}
