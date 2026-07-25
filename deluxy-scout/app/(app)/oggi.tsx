@@ -10,7 +10,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place, Task } from '@/types';
-import { colors, coloreProprita, radius, spacing } from '@/lib/theme';
+import { colors, coloreProprita, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import {
   contaChiamateDal,
@@ -153,7 +153,7 @@ export default function Oggi() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, contenutoCentrato]}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
     >
       {/* Testata sobria: niente blocchi scenografici, si va dritti alle azioni */}

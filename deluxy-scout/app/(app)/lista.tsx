@@ -3,7 +3,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, radius, shadow, spacing } from '@/lib/theme';
+import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import { aggiornaNascosto } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
@@ -140,7 +140,7 @@ export default function Lista() {
       <FlatList
         data={dati}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={ricarica} />}
         ListEmptyComponent={
           <EmptyState

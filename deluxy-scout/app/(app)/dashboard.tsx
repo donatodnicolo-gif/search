@@ -3,7 +3,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { useFocusEffect } from 'expo-router';
 import type { DealStage, Place, Profilo, Visit } from '@/types';
 import { LINEE_ATTIVE } from '@/types';
-import { colors, labelFase, radius, spacing } from '@/lib/theme';
+import { colors, labelFase, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import {
   aggiornaFaseDeal,
@@ -180,7 +180,7 @@ export default function Dashboard() {
     <View style={styles.container}>
       <PageIntro testo="La fotografia della tua attività: trattative, visite e copertura delle zone. Usa i filtri per restringere la vista." />
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
       >
       {inCoda > 0 ? (

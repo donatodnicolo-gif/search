@@ -17,7 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import type { RichiestaPagamento, StatoPagamento } from '@/types';
-import { colors, labelFase, radius, shadow, spacing } from '@/lib/theme';
+import { colors, labelFase, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import {
@@ -104,7 +104,7 @@ export default function Pagamenti() {
   return (
     <View style={styles.container}>
       <PageIntro testo="Chiedi l'incasso di una trattativa vinta (anche un acconto o più rate) e segui qui l'esito dei pagamenti." />
-      <View style={styles.head}>
+      <View style={[styles.head, contenutoCentrato]}>
         <Text style={styles.sub}>
           {righe.length} richieste · {eur(tot.daIncassare)} da incassare · {eur(tot.incassato)} incassati
           {admin ? ' · vedi anche quelle del team' : ''}
@@ -112,7 +112,7 @@ export default function Pagamenti() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
       >
         {!loading && righe.length === 0 ? (

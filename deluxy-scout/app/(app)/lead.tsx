@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { cercaPlaces, creaLead, fetchLeads, qualificaLead, scartaLead, type PlaceLite } from '@/lib/db';
 import type { FonteLead, Lead } from '@/types';
@@ -85,7 +85,7 @@ export default function LeadWeb() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.head}>
+      <View style={[styles.head, contenutoCentrato]}>
         <PageIntro testo="Le richieste arrivate dal web e dalla casella commerciale: qualificale agganciandole a un negozio — nasce la trattativa, canale web — oppure scartale. Rispondere entro 2 giorni: sul web chi tarda perde." />
         <Pressable style={[styles.btnImporta, importando && { opacity: 0.5 }]} disabled={importando} onPress={importaDallaMail}>
           <Ionicons name="mail-outline" size={15} color={colors.navy} />
@@ -109,7 +109,7 @@ export default function LeadWeb() {
       <FlatList
         data={dati}
         keyExtractor={(l) => l.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
           <EmptyState

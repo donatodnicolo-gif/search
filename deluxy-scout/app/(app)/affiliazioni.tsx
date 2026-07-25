@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing } from '@/lib/theme';
+import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { aggiornaStarred, aggiornaStatoAffiliazione, fetchAffiliazioni, registraChiamata } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { STATI_AFFILIAZIONE, type AffiliazioneRow, type StatoAffiliazione } from '@/types';
@@ -143,7 +143,7 @@ export default function Affiliazioni() {
         <RicercaAffiliazioni onPreso={carica} centroIniziale={centroIniziale} />
       ) : (
       <>
-      <View style={styles.head}>
+      <View style={[styles.head, contenutoCentrato]}>
         <Text style={styles.sub}>
           {righe.length} affiliazioni · fioristi e pasticcerie da reclutare
         </Text>
@@ -170,7 +170,7 @@ export default function Affiliazioni() {
       <FlatList
         data={dati}
         keyExtractor={(r) => r.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
           <EmptyState

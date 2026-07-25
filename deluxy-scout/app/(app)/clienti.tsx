@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { fetchClienti, type Cliente } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
@@ -64,7 +64,7 @@ export default function Clienti() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.head}>
+      <View style={[styles.head, contenutoCentrato]}>
         <PageIntro testo="I negozi già acquisiti: clienti Deluxy e partner attivi nel registro. Tocca un cliente per aprirne la scheda." />
         <Text style={styles.sub}>{clienti.length} clienti{filtriAttivi ? ` · ${dati.length} filtrati` : ''}</Text>
         <TextInput
@@ -100,7 +100,7 @@ export default function Clienti() {
       <FlatList
         data={dati}
         keyExtractor={(c) => c.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
           filtriAttivi ? (

@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, shadow, spacing } from '@/lib/theme';
+import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import {
   aggiornaDeal,
   cercaPlaces,
@@ -159,7 +159,7 @@ export default function Trattative() {
   return (
     <View style={styles.container}>
       <PageIntro testo="Le trattative in corso raggruppate per negozio, da Scout, HubSpot e registro Anagrafiche. Tocca una trattativa per modificarla." />
-      <View style={styles.head}>
+      <View style={[styles.head, contenutoCentrato]}>
         <Text style={styles.sub}>
           {filtrate.length} trattative · valore € {totale.toLocaleString('it-IT')}
         </Text>
@@ -231,7 +231,7 @@ export default function Trattative() {
       <SectionList
         sections={sezioni}
         keyExtractor={(d) => d.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, contenutoCentrato]}
         stickySectionHeadersEnabled={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={

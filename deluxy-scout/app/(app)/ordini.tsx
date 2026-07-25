@@ -6,7 +6,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { aggiornaOrdine, fetchOrdini, type OrdineConLuogo } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
@@ -86,7 +86,7 @@ export default function Ordini() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.head}>
+      <View style={[styles.head, contenutoCentrato]}>
         <PageIntro testo="Gli ordini nati dalle trattative vinte. La pipeline dice quanto stai trattando: qui vedi quanto hai chiuso, e cosa resta da incassare." />
         <Text style={styles.sub}>
           Chiuso {new Date().getFullYear()}: <Text style={styles.subForte}>{euro(totali.chiusoAnno)}</Text>
@@ -112,7 +112,7 @@ export default function Ordini() {
       <FlatList
         data={dati}
         keyExtractor={(o) => o.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
           <EmptyState

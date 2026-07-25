@@ -175,3 +175,10 @@ export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
   non_interessato: colors.errore,
   dismesso: colors.grigio,
 };
+
+// Su schermo largo (desktop) le liste diventavano un'unica colonna larghissima
+// e faticosa da leggere. Questo stile — da applicare in array sul contenitore
+// scrollabile e sulla barra filtri — cappa la larghezza e centra il contenuto.
+// Su mobile (width < maxWidth) resta a piena larghezza: nessun effetto.
+export const CONTENUTO_MAX = 960;
+export const contenutoCentrato = { width: '100%' as const, maxWidth: CONTENUTO_MAX, alignSelf: 'center' as const };
