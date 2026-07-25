@@ -17,6 +17,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
         </div>
         <nav>
           <Link href="/">Inbox</Link>
+          <Link href="/ordini">Ordini</Link>
           <Link href="/impostazioni">Impostazioni</Link>
         </nav>
         <div className="spazio" />

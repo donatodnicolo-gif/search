@@ -36,6 +36,29 @@ model Impostazione {
   valore String @db.Text
 }
 
+// Ordini scaricati da Shopify. Ne teniamo una copia locale per mostrarli senza
+// richiamare Shopify ogni volta e per ricordare se il contatto del cliente è
+// già stato salvato su Google Contacts (contattoSalvato/contattoEsito).
+model Ordine {
+  id             String   @id @default(cuid())
+  shopifyId      String   @unique // gid Shopify dell'ordine: dedup allo scarico
+  numero         String   @default("") // es. #1042
+  data           DateTime @default(now())
+  totale         Float    @default(0)
+  valuta         String   @default("EUR")
+  statoPagamento String   @default("")
+  clienteNome    String   @default("")
+  telefono       String   @default("")
+  email          String   @default("")
+  indirizzo      String   @default("") @db.Text
+  note           String   @default("") @db.Text
+  contattoSalvato Boolean @default(false) // salvato su Google Contacts
+  contattoEsito  String   @default("") // esito/errore dell'ultimo salvataggio
+  creatoIl       DateTime @default(now())
+
+  @@index([data])
+}
+
 // Una conversazione con una persona su un canale. idEsterno identifica la
 // persona sul canale: numero WhatsApp, PSID Messenger, IGSID Instagram o il
 // token segreto della sessione del widget.

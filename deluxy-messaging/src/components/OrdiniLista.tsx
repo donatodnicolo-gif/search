@@ -1,0 +1,197 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+
+type OrdineDto = {
+  id: string
+  numero: string
+  data: string
+  totale: number
+  valuta: string
+  statoPagamento: string
+  clienteNome: string
+  telefono: string
+  email: string
+  indirizzo: string
+  contattoSalvato: boolean
+  contattoEsito: string
+}
+
+function dataBreve(iso: string): string {
+  return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+export function OrdiniLista() {
+  const [ordini, setOrdini] = useState<OrdineDto[]>([])
+  const [googleCollegato, setGoogleCollegato] = useState(false)
+  const [caricato, setCaricato] = useState(false)
+  const [occupato, setOccupato] = useState('') // 'sync' | 'tutti' | id ordine
+  const [avviso, setAvviso] = useState('')
+  const [errore, setErrore] = useState('')
+
+  const carica = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ordini')
+      if (!res.ok) return
+      const dati = (await res.json()) as { ordini: OrdineDto[]; googleCollegato: boolean }
+      setOrdini(dati.ordini)
+      setGoogleCollegato(dati.googleCollegato)
+    } catch {
+      // rete assente
+    } finally {
+      setCaricato(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    carica()
+  }, [carica])
+
+  async function scarica() {
+    setOccupato('sync')
+    setAvviso('')
+    setErrore('')
+    try {
+      const res = await fetch('/api/ordini/sync', { method: 'POST' })
+      const dati = (await res.json().catch(() => ({}))) as {
+        scaricati?: number
+        nuovi?: number
+        errore?: string
+      }
+      if (!res.ok) setErrore(dati.errore || 'Scarico non riuscito.')
+      else setAvviso(`Scaricati ${dati.scaricati} ordini (${dati.nuovi} nuovi).`)
+      await carica()
+    } catch {
+      setErrore('Scarico non riuscito: problema di rete.')
+    } finally {
+      setOccupato('')
+    }
+  }
+
+  async function salvaContatto(id: string) {
+    setOccupato(id)
+    setErrore('')
+    try {
+      const res = await fetch(`/api/ordini/${id}/contatto`, { method: 'POST' })
+      const dati = (await res.json().catch(() => ({}))) as { errore?: string }
+      if (!res.ok) setErrore(dati.errore || 'Salvataggio non riuscito.')
+      await carica()
+    } catch {
+      setErrore('Salvataggio non riuscito: problema di rete.')
+    } finally {
+      setOccupato('')
+    }
+  }
+
+  async function salvaTutti() {
+    setOccupato('tutti')
+    setAvviso('')
+    setErrore('')
+    try {
+      const res = await fetch('/api/ordini/contatti-tutti', { method: 'POST' })
+      const dati = (await res.json().catch(() => ({}))) as {
+        aggiunti?: number
+        presenti?: number
+        errori?: number
+        errore?: string
+      }
+      if (!res.ok) setErrore(dati.errore || 'Operazione non riuscita.')
+      else
+        setAvviso(
+          `Contatti: ${dati.aggiunti} aggiunti, ${dati.presenti} già in rubrica, ${dati.errori} errori.`
+        )
+      await carica()
+    } catch {
+      setErrore('Operazione non riuscita: problema di rete.')
+    } finally {
+      setOccupato('')
+    }
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <h1 style={{ margin: 0, flex: 1 }}>Ordini</h1>
+        <button className="bottone secondario" onClick={scarica} disabled={!!occupato}>
+          {occupato === 'sync' ? 'Scarico…' : 'Scarica da Shopify'}
+        </button>
+        <button
+          className="bottone"
+          onClick={salvaTutti}
+          disabled={!!occupato || !googleCollegato}
+          title={googleCollegato ? '' : 'Collega Google Contacts nelle Impostazioni'}
+        >
+          {occupato === 'tutti' ? 'Salvo…' : 'Salva tutti i contatti'}
+        </button>
+      </div>
+
+      {!googleCollegato && caricato ? (
+        <div className="avviso-errore">
+          Google Contacts non è collegato: vai in Impostazioni → Google Contacts per collegarlo.
+        </div>
+      ) : null}
+      {avviso ? <div className="avviso-ok">{avviso}</div> : null}
+      {errore ? <div className="avviso-errore">{errore}</div> : null}
+
+      {!caricato ? (
+        <p style={{ color: 'var(--text-secondary)' }}>Carico…</p>
+      ) : ordini.length === 0 ? (
+        <div className="card">
+          Nessun ordine ancora. Premi <strong>Scarica da Shopify</strong> per portare qui gli
+          ordini recenti.
+        </div>
+      ) : (
+        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+          <table className="tabella">
+            <thead>
+              <tr>
+                <th>Ordine</th>
+                <th>Data</th>
+                <th>Cliente</th>
+                <th>Telefono</th>
+                <th style={{ textAlign: 'right' }}>Totale</th>
+                <th>Contatto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ordini.map((o) => (
+                <tr key={o.id}>
+                  <td>{o.numero}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{dataBreve(o.data)}</td>
+                  <td>{o.clienteNome || '—'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{o.telefono || '—'}</td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {o.totale.toLocaleString('it-IT', { style: 'currency', currency: o.valuta })}
+                  </td>
+                  <td>
+                    {o.contattoSalvato ? (
+                      <span className="badge verde" title={o.contattoEsito}>
+                        salvato
+                      </span>
+                    ) : (
+                      <button
+                        className="bottone secondario"
+                        style={{ padding: '4px 12px', fontSize: 13 }}
+                        onClick={() => salvaContatto(o.id)}
+                        disabled={!!occupato || !googleCollegato || (!o.telefono && !o.email)}
+                        title={
+                          !o.telefono && !o.email
+                            ? 'Ordine senza telefono né email'
+                            : googleCollegato
+                              ? ''
+                              : 'Collega Google Contacts nelle Impostazioni'
+                        }
+                      >
+                        {occupato === o.id ? 'Salvo…' : 'Salva contatto'}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  )
+}

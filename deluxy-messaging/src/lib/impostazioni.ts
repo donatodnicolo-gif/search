@@ -13,8 +13,22 @@ import { cifra, decifra } from './crypto'
 // - igToken           : Page Access Token con permessi Instagram (cifrato)
 // - widgetTitolo      : titolo mostrato nel widget di chat
 // - widgetMessaggio   : messaggio di benvenuto del widget
+// - shopifyDominio    : dominio dello store Shopify (es. deluxyflowers.myshopify.com)
+// - shopifyToken      : Admin API access token dello store (shpat_…, cifrato)
+// - googleClientId    : OAuth Client ID del progetto Google Cloud
+// - googleClientSecret: OAuth Client Secret (cifrato)
+// - googleRefreshToken: refresh token ottenuto dopo il consenso (cifrato) — se
+//                       c'è, l'app può salvare contatti da sola, anche in cron
 
-const CHIAVI_CIFRATE = new Set(['metaAppSecret', 'waToken', 'fbPageToken', 'igToken'])
+const CHIAVI_CIFRATE = new Set([
+  'metaAppSecret',
+  'waToken',
+  'fbPageToken',
+  'igToken',
+  'shopifyToken',
+  'googleClientSecret',
+  'googleRefreshToken',
+])
 
 export async function leggiImpostazione(chiave: string): Promise<string> {
   const riga = await db.impostazione.findUnique({ where: { chiave } })

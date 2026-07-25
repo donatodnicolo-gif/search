@@ -5,8 +5,15 @@ import { salvaImpostazione } from '@/lib/impostazioni'
 
 // Campi "segreti": se il form li lascia vuoti, il valore salvato resta com'è
 // (così non serve reincollare i token a ogni modifica).
-const SEGRETI = ['waToken', 'fbPageToken', 'igToken', 'metaAppSecret']
-const IN_CHIARO = ['waPhoneNumberId', 'metaVerifyToken', 'widgetTitolo', 'widgetMessaggio']
+const SEGRETI = ['waToken', 'fbPageToken', 'igToken', 'metaAppSecret', 'shopifyToken', 'googleClientSecret']
+const IN_CHIARO = [
+  'waPhoneNumberId',
+  'metaVerifyToken',
+  'widgetTitolo',
+  'widgetMessaggio',
+  'shopifyDominio',
+  'googleClientId',
+]
 
 export async function salvaImpostazioni(formData: FormData) {
   for (const chiave of IN_CHIARO) {

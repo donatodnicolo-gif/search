@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { leggiImpostazioni } from '@/lib/impostazioni'
+import { redirectUri } from '@/lib/google'
 import { salvaImpostazioni } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -15,9 +16,9 @@ function BadgeConfigurato({ pieno }: { pieno: boolean }) {
 export default async function PaginaImpostazioni({
   searchParams,
 }: {
-  searchParams: Promise<{ salvato?: string }>
+  searchParams: Promise<{ salvato?: string; okGoogle?: string; erroreGoogle?: string }>
 }) {
-  const { salvato } = await searchParams
+  const { salvato, okGoogle, erroreGoogle } = await searchParams
   const config = await leggiImpostazioni([
     'waToken',
     'waPhoneNumberId',
@@ -27,6 +28,11 @@ export default async function PaginaImpostazioni({
     'metaAppSecret',
     'widgetTitolo',
     'widgetMessaggio',
+    'shopifyDominio',
+    'shopifyToken',
+    'googleClientId',
+    'googleClientSecret',
+    'googleRefreshToken',
   ])
 
   // URL pubblico dell'app: da APP_URL, altrimenti dall'host della richiesta.
@@ -35,11 +41,17 @@ export default async function PaginaImpostazioni({
     process.env.APP_URL || `${host.startsWith('localhost') ? 'http' : 'https'}://${host}`
   const urlWebhook = `${base}/api/webhooks/meta`
   const snippetWidget = `<script src="${base}/widget.js" defer></script>`
+  const uriRedirect = redirectUri(base)
+
+  const googleCollegato = !!config.googleRefreshToken
+  const googleCredenziali = !!config.googleClientId && !!config.googleClientSecret
 
   return (
     <>
       <h1 style={{ marginTop: 0 }}>Impostazioni</h1>
       {salvato ? <div className="avviso-ok">Impostazioni salvate.</div> : null}
+      {okGoogle ? <div className="avviso-ok">Google Contacts collegato.</div> : null}
+      {erroreGoogle ? <div className="avviso-errore">{erroreGoogle}</div> : null}
 
       <form action={salvaImpostazioni}>
         <div className="griglia-impostazioni">
@@ -127,6 +139,85 @@ export default async function PaginaImpostazioni({
                 autoComplete="off"
               />
             </label>
+          </div>
+
+          <div className="card">
+            <h2>Shopify (ordini)</h2>
+            <p className="descrizione">
+              Store da cui scaricare gli ordini. Serve un&apos;app privata/custom con permesso di
+              lettura ordini e clienti (Admin API token <code>shpat_…</code>).
+            </p>
+            <label className="campo">
+              <span>Dominio dello store</span>
+              <input
+                name="shopifyDominio"
+                defaultValue={config.shopifyDominio}
+                placeholder="deluxyflowers.myshopify.com"
+              />
+            </label>
+            <label className="campo">
+              <span>
+                Admin API access token <BadgeConfigurato pieno={!!config.shopifyToken} />
+              </span>
+              <input
+                name="shopifyToken"
+                type="password"
+                placeholder={config.shopifyToken ? 'salvato — incolla per sostituire' : 'shpat_…'}
+                autoComplete="off"
+              />
+            </label>
+          </div>
+
+          <div className="card">
+            <h2>Google Contacts</h2>
+            <p className="descrizione">
+              Salva i contatti degli ordini nella rubrica Google. Nella console Google Cloud (OAuth
+              client Web, People API attiva) aggiungi questo redirect URI:
+            </p>
+            <code className="codice">{uriRedirect}</code>
+            <label className="campo">
+              <span>Client ID</span>
+              <input
+                name="googleClientId"
+                defaultValue={config.googleClientId}
+                placeholder="…apps.googleusercontent.com"
+                autoComplete="off"
+              />
+            </label>
+            <label className="campo">
+              <span>
+                Client Secret <BadgeConfigurato pieno={!!config.googleClientSecret} />
+              </span>
+              <input
+                name="googleClientSecret"
+                type="password"
+                placeholder={config.googleClientSecret ? 'salvato — incolla per sostituire' : ''}
+                autoComplete="off"
+              />
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+              {googleCollegato ? (
+                <span className="badge verde">collegato</span>
+              ) : (
+                <span className="badge rosso">non collegato</span>
+              )}
+              {/* Link, non submit: prima salva le credenziali, poi collega. */}
+              <a
+                className="bottone secondario"
+                href="/api/google/connetti"
+                aria-disabled={!googleCredenziali}
+                style={
+                  googleCredenziali ? undefined : { pointerEvents: 'none', opacity: 0.4 }
+                }
+              >
+                {googleCollegato ? 'Ricollega Google' : 'Collega Google'}
+              </a>
+            </div>
+            {!googleCredenziali ? (
+              <p className="descrizione" style={{ marginTop: 8, marginBottom: 0 }}>
+                Salva prima Client ID e Client Secret, poi il pulsante si attiva.
+              </p>
+            ) : null}
           </div>
 
           <div className="card">

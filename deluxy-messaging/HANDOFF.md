@@ -23,6 +23,19 @@ Ultimo aggiornamento: 24/07/2026
   nascono operatori; middleware a sessione firmata.
 - Tessera "Messaggi" nel catalogo del Hub (`deluxy-hub/src/lib/apps.ts`, icona nuova).
 
+- Ordini da Shopify: `src/lib/shopify.ts` (Admin GraphQL 2024-10, `X-Shopify-Access-Token`,
+  ultimi 60 giorni), tabella `Ordine`, API `/api/ordini/sync` (scarica+upsert),
+  `/api/ordini` (lista + se Google collegato), `/api/ordini/[id]/contatto` e
+  `/api/ordini/contatti-tutti` (salva su Google), pagina `/ordini`. Dominio+token in
+  Impostazioni (token cifrato).
+- Google Contacts: OAuth server-side con refresh token (`src/lib/google.ts`), People API.
+  Flusso `/api/google/connetti` → consenso Google → `/api/google/callback` (salva
+  refresh token cifrato). `src/lib/contatti.ts` conia l'access token e salva con dedup
+  per telefono. Client ID/Secret + redirect URI in Impostazioni. Scelta server-side (non
+  il token-client del browser di anagrafiche) perché su Vercel i contatti vanno salvati
+  anche senza operatore davanti. Verificato: il connetti reindirizza a accounts.google.com
+  col client_id giusto (serve progetto Google Cloud reale per completare).
+
 ## MANCA
 
 - Database di produzione: creare lo schema/istanza Postgres e fare `npm run db:push`.
@@ -32,6 +45,11 @@ Ultimo aggiornamento: 24/07/2026
   messaggi liberi (serviranno i template WhatsApp — non ancora gestiti).
 - Media in entrata (oggi mostrati come `[tipo]`) e allegati in uscita.
 - Più operatori/assegnazione conversazioni; notifiche push.
+- Ordini/contatti: credenziali reali (token Shopify, progetto Google Cloud con People API
+  e redirect URI autorizzato). Da valutare: cron Vercel per scarico ordini + salvataggio
+  contatti automatici; collegare un ordine alla conversazione WhatsApp del cliente.
+- Costi WhatsApp (listino Meta 1/7/2026, per messaggio): Italia — Marketing €0,0658,
+  Utility/Authentication €0,0248, Service (risposte entro 24h) gratis.
 
 ## Come riprendere
 

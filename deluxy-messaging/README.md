@@ -31,6 +31,17 @@ salvato nel suo browser, la conversazione appare in inbox come canale "Sito".
 creare l'account (sessione firmata, come deluxy-mail). Il primo account registrato è
 l'amministratore; i successivi nascono con ruolo operatore.
 
+**Ordini (Shopify).** In Impostazioni si inseriscono dominio store e Admin API token
+(cifrato). La pagina `/ordini` scarica gli ordini recenti via Shopify Admin GraphQL API
+(`src/lib/shopify.ts`) e li tiene in tabella `Ordine`. Per ogni ordine si può salvare il
+contatto del cliente su Google Contacts (dedup per telefono), singolarmente o in blocco.
+
+**Google Contacts.** OAuth server-side (`src/lib/google.ts`): in Impostazioni si mettono
+Client ID e Secret del progetto Google Cloud (People API attiva) e si autorizza il
+redirect URI mostrato; il pulsante "Collega Google" porta al consenso e il refresh token
+torna cifrato nel DB. Server-side (non il token-client del browser) perché su Vercel i
+contatti vanno salvati anche senza un operatore davanti.
+
 ## Variabili d'ambiente
 
 Vedi [.env.example](.env.example): `DATABASE_URL`/`DIRECT_URL` (Postgres), `APP_SECRET`

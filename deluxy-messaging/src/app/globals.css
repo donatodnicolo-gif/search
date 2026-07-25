@@ -476,6 +476,39 @@ button {
   margin-bottom: 10px;
 }
 
+/* ---- Tabella (ordini) ---- */
+
+.tabella {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tabella th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline);
+  white-space: nowrap;
+}
+
+.tabella td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.tabella tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tabella tbody tr:hover {
+  background: var(--fill);
+}
+
 /* ---- Widget (pagina dentro l'iframe) ---- */
 
 .widget-app {
