@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 type OrdineDto = {
   id: string
+  negozioNome: string
   numero: string
   data: string
   totale: number
@@ -57,9 +58,18 @@ export function OrdiniLista() {
         scaricati?: number
         nuovi?: number
         errore?: string
+        risultati?: { negozio: string; ok: boolean; scaricati: number; errore: string }[]
       }
-      if (!res.ok) setErrore(dati.errore || 'Scarico non riuscito.')
-      else setAvviso(`Scaricati ${dati.scaricati} ordini (${dati.nuovi} nuovi).`)
+      if (!res.ok) {
+        setErrore(dati.errore || 'Scarico non riuscito.')
+      } else {
+        setAvviso(`Scaricati ${dati.scaricati ?? 0} ordini (${dati.nuovi ?? 0} nuovi).`)
+        // Se qualche negozio è andato in errore, lo mostriamo negozio per negozio.
+        const falliti = (dati.risultati ?? []).filter((r) => !r.ok)
+        if (falliti.length) {
+          setErrore(falliti.map((r) => `${r.negozio}: ${r.errore}`).join(' — '))
+        }
+      }
       await carica()
     } catch {
       setErrore('Scarico non riuscito: problema di rete.')
@@ -146,6 +156,7 @@ export function OrdiniLista() {
             <thead>
               <tr>
                 <th>Ordine</th>
+                <th>Negozio</th>
                 <th>Data</th>
                 <th>Cliente</th>
                 <th>Telefono</th>
@@ -157,6 +168,7 @@ export function OrdiniLista() {
               {ordini.map((o) => (
                 <tr key={o.id}>
                   <td>{o.numero}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{o.negozioNome || '—'}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{dataBreve(o.data)}</td>
                   <td>{o.clienteNome || '—'}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{o.telefono || '—'}</td>

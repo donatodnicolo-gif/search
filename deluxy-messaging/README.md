@@ -31,10 +31,15 @@ salvato nel suo browser, la conversazione appare in inbox come canale "Sito".
 creare l'account (sessione firmata, come deluxy-mail). Il primo account registrato è
 l'amministratore; i successivi nascono con ruolo operatore.
 
-**Ordini (Shopify).** In Impostazioni si inseriscono dominio store e Admin API token
-(cifrato). La pagina `/ordini` scarica gli ordini recenti via Shopify Admin GraphQL API
-(`src/lib/shopify.ts`) e li tiene in tabella `Ordine`. Per ogni ordine si può salvare il
-contatto del cliente su Google Contacts (dedup per telefono), singolarmente o in blocco.
+**Ordini (Shopify, multi-store).** I negozi si gestiscono nella pagina `/negozi` (tabella
+`NegozioShopify`): se ne collegano più d'uno. Ogni negozio si autentica in due modi
+(`src/lib/shopify.ts` → `risolviToken`): un **token statico** `shpat_…` (app legacy) oppure
+**Client ID + Client Secret** di un'app Dev Dashboard, che l'app scambia per un token via
+*client credentials grant* (`POST /admin/oauth/access_token`, token valido ~24h — ideale su
+Vercel). La pagina `/ordini` scarica gli ordini recenti da **tutti i negozi attivi** (Shopify
+Admin GraphQL API), li tiene in tabella `Ordine` legati al negozio, e riporta l'esito
+per-negozio. Per ogni ordine si salva il contatto del cliente su Google Contacts (dedup per
+telefono), singolarmente o in blocco. Credenziali dei negozi cifrate (AES-256-GCM).
 
 **Google Contacts.** OAuth server-side (`src/lib/google.ts`): in Impostazioni si mettono
 Client ID e Secret del progetto Google Cloud (People API attiva) e si autorizza il

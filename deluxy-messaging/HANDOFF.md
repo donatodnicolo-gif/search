@@ -23,6 +23,13 @@ Ultimo aggiornamento: 24/07/2026
   nascono operatori; middleware a sessione firmata.
 - Tessera "Messaggi" nel catalogo del Hub (`deluxy-hub/src/lib/apps.ts`, icona nuova).
 
+- Negozi Shopify MULTI-STORE: tabella `NegozioShopify` (credenziali cifrate), pagina
+  `/negozi` (aggiungi/modifica/sospendi/elimina), `src/lib/negozi.ts`. Ogni negozio si
+  autentica con token statico `shpat_` OPPURE Client ID+Secret (client credentials grant
+  `POST {shop}/admin/oauth/access_token`, `src/lib/shopify.ts` `risolviToken`/`tokenDaClientCredentials`).
+  Lo scarico ordini gira su tutti i negozi attivi e riporta l'esito per-negozio; ogni
+  `Ordine` è legato al negozio (`negozioId`, unique `[negozioId, shopifyId]`).
+  NB: il "Token di automazione dell'app" (`atkn_`) NON legge ordini — serve solo al deploy CI/CD.
 - Ordini da Shopify: `src/lib/shopify.ts` (Admin GraphQL 2024-10, `X-Shopify-Access-Token`,
   ultimi 60 giorni), tabella `Ordine`, API `/api/ordini/sync` (scarica+upsert),
   `/api/ordini` (lista + se Google collegato), `/api/ordini/[id]/contatto` e

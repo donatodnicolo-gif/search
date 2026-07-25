@@ -36,12 +36,33 @@ model Impostazione {
   valore String @db.Text
 }
 
+// Uno store Shopify collegato. La holding ha più negozi: da ognuno scarichiamo
+// gli ordini. Le credenziali (token statico o Client Secret) sono cifrate.
+// Due modi di autenticarsi, come in src/lib/shopify.ts:
+//  - token: Admin API access token statico (shpat_…) di un'app legacy
+//  - clientId + clientSecret: app Dev Dashboard (client credentials grant)
+model NegozioShopify {
+  id           String   @id @default(cuid())
+  nome         String // etichetta leggibile, es. "Deluxy Flowers"
+  dominio      String   @unique // es. fb72b1-2.myshopify.com
+  token        String   @default("") @db.Text // shpat_… cifrato (se app legacy)
+  clientId     String   @default("")
+  clientSecret String   @default("") @db.Text // cifrato (se app Dev Dashboard)
+  attivo       Boolean  @default(true)
+  creatoIl     DateTime @default(now())
+
+  ordini Ordine[]
+}
+
 // Ordini scaricati da Shopify. Ne teniamo una copia locale per mostrarli senza
 // richiamare Shopify ogni volta e per ricordare se il contatto del cliente è
 // già stato salvato su Google Contacts (contattoSalvato/contattoEsito).
 model Ordine {
   id             String   @id @default(cuid())
-  shopifyId      String   @unique // gid Shopify dell'ordine: dedup allo scarico
+  negozioId      String
+  negozio        NegozioShopify @relation(fields: [negozioId], references: [id], onDelete: Cascade)
+  negozioNome    String   @default("") // denormalizzato per la lista
+  shopifyId      String // gid Shopify dell'ordine (unico per negozio, non globale)
   numero         String   @default("") // es. #1042
   data           DateTime @default(now())
   totale         Float    @default(0)
@@ -56,6 +77,7 @@ model Ordine {
   contattoEsito  String   @default("") // esito/errore dell'ultimo salvataggio
   creatoIl       DateTime @default(now())
 
+  @@unique([negozioId, shopifyId]) // dedup per-negozio: il gid è unico solo lì
   @@index([data])
 }
 
