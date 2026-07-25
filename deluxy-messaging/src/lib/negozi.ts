@@ -17,11 +17,26 @@ function decifraSicuro(v: string): string {
 export type NegozioConCredenziali = {
   id: string
   nome: string
+  prefisso: string
   dominio: string
   token: string
   clientId: string
   clientSecret: string
   attivo: boolean
+}
+
+/**
+ * Sigla del negozio davanti al nome in rubrica: FL (Flowers), CK (Cake),
+ * DL (Deluxy). Si deduce da nome+dominio; "Deluxy Flowers" → FL, perché il
+ * marchio più specifico vince su "deluxy".
+ */
+export function prefissoDaNegozio(nome: string, dominio: string, prefisso = ''): string {
+  if (prefisso.trim()) return prefisso.trim().toUpperCase()
+  const t = `${nome} ${dominio}`.toLowerCase()
+  if (/flower|fior/.test(t)) return 'FL'
+  if (/cake|pasticc|torta/.test(t)) return 'CK'
+  if (/deluxy/.test(t)) return 'DL'
+  return (nome.trim().slice(0, 2) || 'XX').toUpperCase()
 }
 
 /** Negozi attivi con le credenziali in chiaro, per lo scarico ordini. */
@@ -30,6 +45,7 @@ export async function negoziAttivi(): Promise<NegozioConCredenziali[]> {
   return righe.map((n) => ({
     id: n.id,
     nome: n.nome,
+    prefisso: prefissoDaNegozio(n.nome, n.dominio, n.prefisso),
     dominio: n.dominio,
     token: decifraSicuro(n.token),
     clientId: n.clientId,
@@ -50,6 +66,7 @@ export async function tokenPerNegozio(n: NegozioConCredenziali): Promise<{ domin
 
 type DatiNegozio = {
   nome: string
+  prefisso?: string
   dominio: string
   token?: string
   clientId?: string
@@ -62,6 +79,7 @@ export async function salvaNegozio(id: string | null, dati: DatiNegozio): Promis
   const dominio = dati.dominio.trim().replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase()
   const base = {
     nome: dati.nome.trim() || dominio,
+    prefisso: (dati.prefisso ?? '').trim().toUpperCase(),
     dominio,
     clientId: (dati.clientId ?? '').trim(),
     ...(dati.attivo === undefined ? {} : { attivo: dati.attivo }),

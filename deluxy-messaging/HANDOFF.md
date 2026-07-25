@@ -42,6 +42,17 @@ Ultimo aggiornamento: 24/07/2026
   il token-client del browser di anagrafiche) perché su Vercel i contatti vanno salvati
   anche senza operatore davanti. Verificato: il connetti reindirizza a accounts.google.com
   col client_id giusto (serve progetto Google Cloud reale per completare).
+  NB: il redirect URI va messo negli **URI di reindirizzamento autorizzati**, non nelle
+  Origini JavaScript (quelle rifiutano i percorsi) → errore `redirect_uri_mismatch`.
+- Contatti automatici (25/07/2026): `src/lib/contatti.ts` → `salvaContattiOrdini()`, chiamata
+  in coda a `/api/ordini/sync` (e da `/api/ordini/contatti-tutti`). Nome in rubrica
+  `SIGLA Nome #ordine` (es. `FL Mario Rossi #1042`): sigla per negozio da
+  `prefissoDaNegozio()` — flowers→FL, cake→CK, deluxy→DL, campo `prefisso` per l'override.
+  Dedup per ultime 9 cifre del telefono: un contatto per persona, aggiornato col numero
+  dell'ordine PIÙ RECENTE (`aggiornaContatto` = people.updateContact con etag rifresco).
+  I contatti NON creati da noi non vengono mai rinominati (marcatore "Deluxy Messaggi" in
+  biografia). Tetto di 40 clienti per giro (serverless): `rimasti` nel riepilogo.
+  Verificato con le funzioni reali: FL/CK/DL corretti sui 3 negozi dell'utente.
 
 ## MANCA
 

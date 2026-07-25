@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { prefissoDaNegozio } from '@/lib/negozi'
 import { eliminaNegozioAction, salvaNegozioAction } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -42,6 +43,17 @@ export default async function PaginaNegozi() {
               <label className="campo">
                 <span>Nome</span>
                 <input name="nome" defaultValue={n.nome} />
+              </label>
+              <label className="campo">
+                <span>
+                  Sigla in rubrica — ora: <strong>{prefissoDaNegozio(n.nome, n.dominio, n.prefisso)}</strong>
+                </span>
+                <input
+                  name="prefisso"
+                  defaultValue={n.prefisso}
+                  maxLength={4}
+                  placeholder="vuoto = dedotta (FL, CK, DL)"
+                />
               </label>
               <label className="campo">
                 <span>Dominio</span>
@@ -104,6 +116,10 @@ export default async function PaginaNegozi() {
             <label className="campo">
               <span>Nome</span>
               <input name="nome" placeholder="Deluxy Flowers" />
+            </label>
+            <label className="campo">
+              <span>Sigla in rubrica (facoltativa)</span>
+              <input name="prefisso" maxLength={4} placeholder="vuoto = dedotta (FL, CK, DL)" />
             </label>
             <label className="campo">
               <span>Dominio dello store</span>

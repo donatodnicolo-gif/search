@@ -6,6 +6,7 @@ import { eliminaNegozio, salvaNegozio } from '@/lib/negozi'
 export async function salvaNegozioAction(formData: FormData) {
   const id = String(formData.get('id') ?? '').trim() || null
   const nome = String(formData.get('nome') ?? '')
+  const prefisso = String(formData.get('prefisso') ?? '')
   const dominio = String(formData.get('dominio') ?? '')
   const token = String(formData.get('token') ?? '')
   const clientId = String(formData.get('clientId') ?? '')
@@ -13,7 +14,7 @@ export async function salvaNegozioAction(formData: FormData) {
   // `attivo` si tocca solo se il form lo include (pulsante Sospendi/Riattiva).
   const attivo = formData.has('attivo') ? formData.get('attivo') === '1' : undefined
   if (!dominio.trim()) return
-  await salvaNegozio(id, { nome, dominio, token, clientId, clientSecret, attivo })
+  await salvaNegozio(id, { nome, prefisso, dominio, token, clientId, clientSecret, attivo })
   revalidatePath('/negozi')
 }
 

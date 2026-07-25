@@ -88,11 +88,22 @@ export async function accessTokenDaRefresh(
   return j.access_token
 }
 
-/** Cerca un contatto per numero di telefono (dedup). Torna il nome se esiste. */
+// Marcatore nella biografia: distingue i contatti creati da noi da quelli
+// personali dell'utente. Serve a NON rinominare mai una rubrica altrui.
+export const MARCATORE = 'Deluxy Messaggi'
+
+export type ContattoTrovato = {
+  resourceName: string
+  etag: string
+  nome: string
+  nostro: boolean // creato da questa app (ha il marcatore in biografia)
+}
+
+/** Cerca un contatto per numero di telefono (dedup). */
 export async function cercaContattoPerTelefono(
   accessToken: string,
   telefono: string
-): Promise<string | null> {
+): Promise<ContattoTrovato | null> {
   const cifre = telefono.replace(/[^\d]/g, '')
   if (cifre.length < 6) return null
   const coda = cifre.slice(-9)
@@ -104,13 +115,19 @@ export async function cercaContattoPerTelefono(
   ).catch(() => {})
   for (const q of [...new Set([telefono.trim(), cifre, coda])].filter(Boolean)) {
     const r = await fetch(
-      'https://people.googleapis.com/v1/people:searchContacts?pageSize=10&readMask=names,phoneNumbers&query=' +
+      'https://people.googleapis.com/v1/people:searchContacts?pageSize=10&readMask=names,phoneNumbers,biographies&query=' +
         encodeURIComponent(q),
       auth
     )
     if (!r.ok) continue
     const results = ((await r.json()).results || []) as {
-      person?: { names?: { displayName?: string }[]; phoneNumbers?: { value?: string }[] }
+      person?: {
+        resourceName?: string
+        etag?: string
+        names?: { displayName?: string }[]
+        phoneNumbers?: { value?: string }[]
+        biographies?: { value?: string }[]
+      }
     }[]
     for (const res of results) {
       const p = res.person || {}
@@ -118,29 +135,79 @@ export async function cercaContattoPerTelefono(
         const d = String(x.value || '').replace(/[^\d]/g, '')
         return d && (d.endsWith(coda) || coda.endsWith(d.slice(-9)))
       })
-      if (combacia) return p.names?.[0]?.displayName || 'contatto senza nome'
+      if (combacia && p.resourceName) {
+        return {
+          resourceName: p.resourceName,
+          etag: p.etag ?? '',
+          nome: p.names?.[0]?.displayName || 'contatto senza nome',
+          nostro: (p.biographies || []).some((b) => (b.value || '').includes(MARCATORE)),
+        }
+      }
     }
   }
   return null
 }
 
-/** Crea un contatto nella rubrica Google. */
-export async function creaContatto(
-  accessToken: string,
-  c: { nome: string; telefono?: string; email?: string; indirizzo?: string; note?: string }
-): Promise<void> {
-  const body = {
+type DatiContatto = {
+  nome: string
+  telefono?: string
+  email?: string
+  indirizzo?: string
+  note?: string
+}
+
+function corpoContatto(c: DatiContatto) {
+  return {
+    // givenName soltanto: il nome che componiamo è già completo (sigla + nome + ordine)
     names: [{ givenName: c.nome || 'Cliente Deluxy' }],
     phoneNumbers: c.telefono ? [{ value: c.telefono, type: 'mobile' }] : [],
     emailAddresses: c.email ? [{ value: c.email, type: 'home' }] : [],
     addresses: c.indirizzo ? [{ formattedValue: c.indirizzo, type: 'home' }] : [],
-    biographies: [{ value: 'Deluxy Messaggi' + (c.note ? ' · ' + c.note : '') }],
+    biographies: [{ value: MARCATORE + (c.note ? ' · ' + c.note : '') }],
   }
+}
+
+const CAMPI = 'names,phoneNumbers,emailAddresses,addresses,biographies'
+
+/** Crea un contatto nella rubrica Google. */
+export async function creaContatto(accessToken: string, c: DatiContatto): Promise<void> {
   const res = await fetch('https://people.googleapis.com/v1/people:createContact', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(corpoContatto(c)),
   })
+  if (!res.ok) {
+    const j = (await res.json().catch(() => ({}))) as { error?: { message?: string } }
+    throw new Error(j?.error?.message || 'HTTP ' + res.status)
+  }
+}
+
+/**
+ * Aggiorna un contatto già nostro (es. con il numero dell'ordine più recente).
+ * L'etag va rifresco: Google rifiuta l'update se il contatto è cambiato nel frattempo.
+ */
+export async function aggiornaContatto(
+  accessToken: string,
+  resourceName: string,
+  c: DatiContatto
+): Promise<void> {
+  const auth = { Authorization: 'Bearer ' + accessToken }
+  // Rileggiamo il contatto per avere l'etag corrente.
+  const letto = await fetch(
+    `https://people.googleapis.com/v1/${resourceName}?personFields=${CAMPI}`,
+    { headers: auth }
+  )
+  if (!letto.ok) throw new Error('Contatto non rileggibile: HTTP ' + letto.status)
+  const attuale = (await letto.json()) as { etag?: string }
+
+  const res = await fetch(
+    `https://people.googleapis.com/v1/${resourceName}:updateContact?updatePersonFields=${CAMPI}`,
+    {
+      method: 'PATCH',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ etag: attuale.etag, ...corpoContatto(c) }),
+    }
+  )
   if (!res.ok) {
     const j = (await res.json().catch(() => ({}))) as { error?: { message?: string } }
     throw new Error(j?.error?.message || 'HTTP ' + res.status)

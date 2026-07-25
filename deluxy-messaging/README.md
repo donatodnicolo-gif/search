@@ -38,8 +38,17 @@ l'amministratore; i successivi nascono con ruolo operatore.
 *client credentials grant* (`POST /admin/oauth/access_token`, token valido ~24h — ideale su
 Vercel). La pagina `/ordini` scarica gli ordini recenti da **tutti i negozi attivi** (Shopify
 Admin GraphQL API), li tiene in tabella `Ordine` legati al negozio, e riporta l'esito
-per-negozio. Per ogni ordine si salva il contatto del cliente su Google Contacts (dedup per
-telefono), singolarmente o in blocco. Credenziali dei negozi cifrate (AES-256-GCM).
+per-negozio. Credenziali dei negozi cifrate (AES-256-GCM).
+
+**Contatti automatici.** A ogni scarico i clienti finiscono in Google Contacts senza
+intervento manuale (`src/lib/contatti.ts` → `salvaContattiOrdini`), col nome
+`SIGLA Nome Cognome #ordine` — es. `FL Mario Rossi #1042`. La sigla è quella del negozio:
+**FL** Flowers, **CK** Cake, **DL** Deluxy, dedotta da nome/dominio e personalizzabile in
+`/negozi`. Un contatto per persona (dedup sulle ultime 9 cifre del telefono): se il cliente
+riordina, il contatto viene **aggiornato** col numero dell'ordine più recente. Un contatto
+già in rubrica ma **non** creato da questa app non viene mai rinominato (riconosciuto dal
+marcatore "Deluxy Messaggi" in biografia). Restano i pulsanti manuali per il singolo ordine
+e per il blocco.
 
 **Google Contacts.** OAuth server-side (`src/lib/google.ts`): in Impostazioni si mettono
 Client ID e Secret del progetto Google Cloud (People API attiva) e si autorizza il

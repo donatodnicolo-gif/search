@@ -44,6 +44,9 @@ model Impostazione {
 model NegozioShopify {
   id           String   @id @default(cuid())
   nome         String // etichetta leggibile, es. "Deluxy Flowers"
+  // Sigla usata davanti al nome in rubrica: DL (Deluxy), FL (Flowers), CK (Cake).
+  // Vuota = dedotta dal nome/dominio (vedi prefissoDaNegozio in src/lib/negozi.ts).
+  prefisso     String   @default("")
   dominio      String   @unique // es. fb72b1-2.myshopify.com
   token        String   @default("") @db.Text // shpat_… cifrato (se app legacy)
   clientId     String   @default("")

@@ -18,8 +18,33 @@ type OrdineDto = {
   contattoEsito: string
 }
 
+type EsitoContatti = {
+  collegato?: boolean
+  aggiunti?: number
+  aggiornati?: number
+  presenti?: number
+  errori?: number
+  rimasti?: number
+  errore?: string
+}
+
 function dataBreve(iso: string): string {
   return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+/** Frase leggibile sull'esito del salvataggio automatico dei contatti. */
+function riepilogoContatti(c: EsitoContatti | undefined): string {
+  if (!c) return ''
+  if (c.errore) return ` Contatti non salvati: ${c.errore}`
+  if (!c.collegato) return ' Contatti non salvati: Google non è collegato.'
+  const parti: string[] = []
+  if (c.aggiunti) parti.push(`${c.aggiunti} aggiunti`)
+  if (c.aggiornati) parti.push(`${c.aggiornati} aggiornati`)
+  if (c.presenti) parti.push(`${c.presenti} già in rubrica`)
+  if (c.errori) parti.push(`${c.errori} errori`)
+  if (!parti.length) return ' Nessun contatto nuovo da salvare.'
+  const coda = c.rimasti ? ` — ne restano ${c.rimasti}, ripremi per continuare.` : ''
+  return ` Contatti: ${parti.join(', ')}.${coda}`
 }
 
 export function OrdiniLista() {
@@ -59,11 +84,15 @@ export function OrdiniLista() {
         nuovi?: number
         errore?: string
         risultati?: { negozio: string; ok: boolean; scaricati: number; errore: string }[]
+        contatti?: EsitoContatti
       }
       if (!res.ok) {
         setErrore(dati.errore || 'Scarico non riuscito.')
       } else {
-        setAvviso(`Scaricati ${dati.scaricati ?? 0} ordini (${dati.nuovi ?? 0} nuovi).`)
+        setAvviso(
+          `Scaricati ${dati.scaricati ?? 0} ordini (${dati.nuovi ?? 0} nuovi).` +
+            riepilogoContatti(dati.contatti)
+        )
         // Se qualche negozio è andato in errore, lo mostriamo negozio per negozio.
         const falliti = (dati.risultati ?? []).filter((r) => !r.ok)
         if (falliti.length) {
@@ -99,17 +128,9 @@ export function OrdiniLista() {
     setErrore('')
     try {
       const res = await fetch('/api/ordini/contatti-tutti', { method: 'POST' })
-      const dati = (await res.json().catch(() => ({}))) as {
-        aggiunti?: number
-        presenti?: number
-        errori?: number
-        errore?: string
-      }
+      const dati = (await res.json().catch(() => ({}))) as EsitoContatti
       if (!res.ok) setErrore(dati.errore || 'Operazione non riuscita.')
-      else
-        setAvviso(
-          `Contatti: ${dati.aggiunti} aggiunti, ${dati.presenti} già in rubrica, ${dati.errori} errori.`
-        )
+      else setAvviso(riepilogoContatti(dati).trim())
       await carica()
     } catch {
       setErrore('Operazione non riuscita: problema di rete.')
@@ -178,7 +199,8 @@ export function OrdiniLista() {
                   <td>
                     {o.contattoSalvato ? (
                       <span className="badge verde" title={o.contattoEsito}>
-                        salvato
+                        {o.contattoEsito?.replace(/^(Aggiunto|Aggiornato|Già in rubrica): /, '') ||
+                          'salvato'}
                       </span>
                     ) : (
                       <button

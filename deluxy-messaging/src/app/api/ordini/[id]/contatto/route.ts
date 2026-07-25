@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { googleAccessToken, salvaContatto } from '@/lib/contatti'
+import { googleAccessToken, salvaContattoOrdine } from '@/lib/contatti'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,9 +15,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ errore: "L'ordine non ha né telefono né email." }, { status: 400 })
   }
 
-  const token = await googleAccessToken().catch((e) => {
-    throw e
-  })
+  const token = await googleAccessToken().catch(() => null)
   if (!token) {
     return NextResponse.json(
       { errore: 'Google Contacts non collegato (Impostazioni → Collega Google).' },
@@ -26,12 +24,12 @@ export async function POST(_req: NextRequest, { params }: Params) {
   }
 
   try {
-    const esito = await salvaContatto(token, ordine)
+    const testo = await salvaContattoOrdine(token, ordine)
     const aggiornato = await db.ordine.update({
       where: { id },
-      data: { contattoSalvato: true, contattoEsito: esito.testo },
+      data: { contattoSalvato: true, contattoEsito: testo },
     })
-    return NextResponse.json({ esito, ordine: aggiornato })
+    return NextResponse.json({ esito: testo, ordine: aggiornato })
   } catch (e) {
     const messaggio = (e as Error).message
     await db.ordine.update({ where: { id }, data: { contattoEsito: 'Errore: ' + messaggio } })

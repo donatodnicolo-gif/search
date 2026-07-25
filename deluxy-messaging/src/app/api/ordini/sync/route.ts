@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { salvaContattiOrdini } from '@/lib/contatti'
 import { negoziAttivi, tokenPerNegozio } from '@/lib/negozi'
 import { scaricaOrdini } from '@/lib/shopify'
 
@@ -76,5 +77,15 @@ export async function POST() {
 
   const scaricati = risultati.reduce((s, r) => s + r.scaricati, 0)
   const nuovi = risultati.reduce((s, r) => s + r.nuovi, 0)
-  return NextResponse.json({ scaricati, nuovi, risultati })
+
+  // Salvataggio automatico dei contatti: se Google non è collegato, torna
+  // `collegato: false` e non blocca nulla (lo scarico ordini resta valido).
+  let contatti
+  try {
+    contatti = await salvaContattiOrdini()
+  } catch (e) {
+    contatti = { errore: (e as Error).message }
+  }
+
+  return NextResponse.json({ scaricati, nuovi, risultati, contatti })
 }
