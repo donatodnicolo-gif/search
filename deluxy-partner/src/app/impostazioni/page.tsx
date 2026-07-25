@@ -304,16 +304,18 @@ export default async function ImpostazioniPage({
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Brand</th><th>Dominio</th><th>Token</th><th>Ultima sync</th><th></th></tr></thead>
+              <thead><tr><th>Brand</th><th>Dominio</th><th>Autenticazione</th><th>Ultima sync</th><th></th></tr></thead>
               <tbody>
                 {negoziShopify.map((n) => (
                   <tr key={n.id}>
                     <td style={{ fontWeight: 500 }}>{n.brand}</td>
                     <td style={{ fontSize: 12.5 }}>{n.dominio}</td>
                     <td>
-                      {n.token
-                        ? <span className="badge green"><span className="dot" />presente</span>
-                        : <span className="badge red"><span className="dot" />mancante</span>}
+                      {n.clientId
+                        ? <span className="badge green" title="L'app conia da sé il token ogni 24h dal Client ID/Secret"><span className="dot" />Client ID + Secret</span>
+                        : n.token
+                          ? <span className="badge green"><span className="dot" />Token statico</span>
+                          : <span className="badge red"><span className="dot" />mancante</span>}
                     </td>
                     <td style={{ fontSize: 12.5 }}>{n.ultimaSync ? dataIt(n.ultimaSync) : "mai"}</td>
                     <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
@@ -353,16 +355,38 @@ export default async function ImpostazioniPage({
             <input type="text" name="dominio" required placeholder="es. fb72b1-2.myshopify.com" />
           </div>
           <div className="full">
+            <div style={{ borderTop: "1px solid var(--hairline)", margin: "6px 0 10px", paddingTop: 12 }}>
+              <strong style={{ fontSize: 13.5 }}>Opzione A — App della Dev Dashboard (consigliata)</strong>
+              <p className="muted" style={{ fontSize: 12.5, margin: "4px 0 0" }}>
+                Le app moderne non danno più un token statico: danno <strong>Client ID + Client Secret</strong>, e
+                l&apos;app conia da sé il token Admin (valido 24h) e lo rinnova ogni volta. Incollali qui.
+              </p>
+            </div>
+          </div>
+          <div>
+            <label className="field-label">Client ID</label>
+            <input type="text" name="clientId" autoComplete="off" placeholder="es. 7a26a71c9e5f…" />
+          </div>
+          <div>
+            <label className="field-label">Client Secret</label>
+            <input type="password" name="clientSecret" autoComplete="new-password" placeholder="shpss_… (lascia vuoto per non cambiarlo)" />
+          </div>
+          <div className="full">
+            <div style={{ borderTop: "1px solid var(--hairline)", margin: "6px 0 10px", paddingTop: 12 }}>
+              <strong style={{ fontSize: 13.5 }}>Opzione B — Token Admin statico</strong>
+              <p className="muted" style={{ fontSize: 12.5, margin: "4px 0 0" }}>
+                Per le custom app «vecchio stile» che danno un token <code>shpat_…</code> fisso. In alternativa
+                puoi lasciare tutto vuoto e usare <strong>«Collega con Shopify»</strong> (OAuth) nella riga sopra.
+              </p>
+            </div>
             <label className="field-label">Token Admin API (shpat_…)</label>
-            <input type="password" name="token" autoComplete="new-password" placeholder="shpat_… (lascia vuoto per non cambiarlo su un negozio esistente)" />
+            <input type="password" name="token" autoComplete="new-password" placeholder="shpat_… (lascia vuoto per non cambiarlo)" />
           </div>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 14 }}>
-          <strong>Modo consigliato</strong>: salva il negozio con <strong>solo Brand e Dominio</strong> (token vuoto),
-          poi clicca <strong>«Collega con Shopify»</strong> nella riga qui sopra: autorizzi l&apos;app sul negozio e il
-          token viene preso e salvato in automatico (OAuth, scope <code>read_orders</code>). In alternativa puoi
-          incollare qui un token <code>shpat_…</code> a mano. Il token è salvato cifrato e usato solo lato server.
-          I 3 negozi noti: <code>fb72b1-2.myshopify.com</code> (deluxyflowers.com),
+          Compila <strong>una</strong> delle due opzioni. Con Client ID + Secret la verifica avviene subito coniando
+          un token di prova; con il token statico si verifica leggendo lo shop. Tutto è salvato cifrato e usato solo
+          lato server. I 3 negozi noti: <code>fb72b1-2.myshopify.com</code> (deluxyflowers.com),
           <code> deluxygifts.myshopify.com</code> (deluxy.it), <code>cakedesign-5921.myshopify.com</code> (cakedesign.me).
         </p>
         <div className="form-footer">

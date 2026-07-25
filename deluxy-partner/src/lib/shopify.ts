@@ -113,6 +113,67 @@ export async function scaricaOrdini(
   return out;
 }
 
+// Conia un Admin API token per un'app della Dev Dashboard tramite il "client
+// credentials grant" (Client ID + Secret → token valido ~24h). È il flusso
+// server-to-server delle app moderne, adatto a Vercel/automazione: nessun
+// redirect, nessun token statico da rivelare. Torna il token e i secondi di
+// validità.
+export async function tokenDaClientCredentials(
+  dominio: string,
+  clientId: string,
+  clientSecret: string
+): Promise<{ token: string; expiresIn: number }> {
+  const res = await fetch(`https://${dominio}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const j = (await res.json().catch(() => ({}))) as {
+    access_token?: string;
+    expires_in?: number;
+    error_description?: string;
+    error?: string;
+  };
+  if (!res.ok || !j.access_token) {
+    throw new Error(j.error_description || j.error || `Grant Shopify fallito (HTTP ${res.status})`);
+  }
+  return { token: j.access_token, expiresIn: j.expires_in ?? 86400 };
+}
+
+type NegozioAuth = {
+  id: string;
+  dominio: string;
+  token: string;
+  clientId: string | null;
+  clientSecret: string | null;
+  tokenScadeIl: Date | null;
+};
+
+// Ritorna un token Admin VALIDO per il negozio, coniandone uno nuovo se serve:
+//  - se il negozio ha Client ID + Secret e il token in cache è scaduto (o manca),
+//    conia col client credentials grant e salva token+scadenza in DB;
+//  - altrimenti usa il token statico salvato.
+// Così sync e cron non devono sapere come è autenticato il negozio.
+export async function tokenNegozio(neg: NegozioAuth): Promise<string> {
+  const usaGrant = Boolean(neg.clientId && neg.clientSecret);
+  if (usaGrant) {
+    const scaduto = !neg.token || !neg.tokenScadeIl || neg.tokenScadeIl.getTime() < Date.now();
+    if (!scaduto) return neg.token;
+    const { token, expiresIn } = await tokenDaClientCredentials(neg.dominio, neg.clientId!, neg.clientSecret!);
+    // rinnova con un margine di 5 minuti sulla scadenza dichiarata da Shopify
+    const scadeIl = new Date(Date.now() + Math.max(60, expiresIn - 300) * 1000);
+    await prisma.negozioShopify.update({ where: { id: neg.id }, data: { token, tokenScadeIl: scadeIl } });
+    return token;
+  }
+  if (neg.token) return neg.token;
+  throw new Error("nessun token statico né Client ID/Secret configurati");
+}
+
 // Verifica che un token legga (per la pagina Impostazioni): torna il nome shop.
 export async function verificaNegozio(dominio: string, token: string): Promise<{ ok: boolean; messaggio: string }> {
   try {

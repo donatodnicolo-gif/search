@@ -322,7 +322,16 @@ model NegozioShopify {
   id        String          @id @default(cuid())
   brand     String          @unique // es. deluxyflowers.com
   dominio   String // es. fb72b1-2.myshopify.com
-  token     String // Admin API access token (shpat_...)
+  // Due modi di autenticare, in alternativa:
+  //  A) token statico shpat_... (app legacy / custom app "vecchio stile")
+  //  B) Client ID + Client Secret di un'app della Dev Dashboard: l'app conia da
+  //     sé un token Admin col "client credentials grant" (valido ~24h) e lo
+  //     rinnova alla scadenza. `token`/`tokenScadeIl` qui fanno da cache del
+  //     token coniato; per il caso A `tokenScadeIl` resta null (non scade).
+  token     String          @default("") // token Admin in uso (statico o coniato)
+  clientId     String? // Dev Dashboard app: Client ID
+  clientSecret String? // Dev Dashboard app: Client Secret
+  tokenScadeIl DateTime? // scadenza del token coniato (null = token statico)
   attivo    Boolean         @default(true)
   ultimaSync DateTime?
   ordini    OrdineShopify[]

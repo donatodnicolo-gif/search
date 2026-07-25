@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { verificaNegozio } from "./shopify";
+import { verificaNegozio, tokenDaClientCredentials } from "./shopify";
 import { eseguiSyncOrdini } from "./ordini-sync";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 
@@ -13,26 +13,65 @@ function revalida() {
 }
 
 // ————— Negozi Shopify (configurazione) —————
+// Due modi di autenticare un negozio, in alternativa:
+//   A) Token Admin statico (shpat_…): incollato a mano.
+//   B) Client ID + Client Secret di un'app della Dev Dashboard: l'app conia da
+//      sé il token (client credentials grant) e lo rinnova ogni 24h.
 export async function salvaNegozioShopify(fd: FormData) {
+  const err = (m: string) => redirect("/impostazioni?errore=" + encodeURIComponent(m));
   const brand = String(fd.get("brand") ?? "").trim();
   const dominio = String(fd.get("dominio") ?? "").trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
   const token = String(fd.get("token") ?? "").trim();
-  if (!brand || !dominio) redirect("/impostazioni?errore=" + encodeURIComponent("Brand e dominio del negozio sono obbligatori."));
+  const clientId = String(fd.get("clientId") ?? "").trim();
+  const clientSecret = String(fd.get("clientSecret") ?? "").trim();
+  if (!brand || !dominio) err("Brand e dominio del negozio sono obbligatori.");
 
-  // verifica il token prima di salvarlo (se fornito)
+  const esistente = await prisma.negozioShopify.findUnique({ where: { brand } });
+
+  // Opzione B: se sono forniti Client ID + Secret, prova subito a coniare un
+  // token — così verifichiamo le credenziali e salviamo un primo token valido.
+  if (clientId && clientSecret) {
+    let coniato: { token: string; expiresIn: number };
+    try {
+      coniato = await tokenDaClientCredentials(dominio, clientId, clientSecret);
+    } catch (e) {
+      err(`Negozio ${dominio}: Client ID/Secret non validi — ${(e as Error).message}`);
+      return;
+    }
+    const v = await verificaNegozio(dominio, coniato.token);
+    if (!v.ok) err(`Negozio ${dominio}: il token coniato non legge — ${v.messaggio}`);
+    await prisma.negozioShopify.upsert({
+      where: { brand },
+      create: { brand, dominio, clientId, clientSecret, token: coniato.token, tokenScadeIl: new Date(Date.now() + Math.max(60, coniato.expiresIn - 300) * 1000), attivo: true },
+      update: { dominio, clientId, clientSecret, token: coniato.token, tokenScadeIl: new Date(Date.now() + Math.max(60, coniato.expiresIn - 300) * 1000), attivo: true },
+    });
+    revalida();
+    redirect("/impostazioni?salvato=shopify");
+  }
+
+  // Opzione A: token statico (verificato prima di salvarlo, se fornito).
   if (token) {
     const v = await verificaNegozio(dominio, token);
-    if (!v.ok) redirect("/impostazioni?errore=" + encodeURIComponent(`Negozio ${dominio}: ${v.messaggio}`));
+    if (!v.ok) err(`Negozio ${dominio}: ${v.messaggio}`);
+    // passando a un token statico si abbandona l'eventuale grant precedente
+    await prisma.negozioShopify.upsert({
+      where: { brand },
+      create: { brand, dominio, token, attivo: true },
+      update: { dominio, token, clientId: null, clientSecret: null, tokenScadeIl: null, attivo: true },
+    });
+    revalida();
+    redirect("/impostazioni?salvato=shopify");
   }
-  const esistente = await prisma.negozioShopify.findUnique({ where: { brand } });
+
+  // Nessuna credenziale nuova: salva/aggiorna solo dominio e brand.
   await prisma.negozioShopify.upsert({
     where: { brand },
-    create: { brand, dominio, token: token || "", attivo: true },
-    // token vuoto in update = non lo cambiamo
-    update: { dominio, ...(token ? { token } : {}), attivo: true },
+    create: { brand, dominio, token: "", attivo: true },
+    update: { dominio, attivo: true },
   });
-  if (esistente && !token && !esistente.token) {
-    redirect("/impostazioni?errore=" + encodeURIComponent(`Negozio ${dominio} salvato ma senza token: inseriscilo per scaricare gli ordini.`));
+  const senzaAuth = !esistente?.token && !esistente?.clientId;
+  if (senzaAuth) {
+    err(`Negozio ${dominio} salvato ma senza credenziali: aggiungi un token Admin oppure Client ID + Secret per scaricare gli ordini.`);
   }
   revalida();
   redirect("/impostazioni?salvato=shopify");

@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { scaricaOrdini } from "./shopify";
+import { scaricaOrdini, tokenNegozio } from "./shopify";
 
 // Nucleo dello scarico ordini Shopify, riutilizzabile dal bottone in pagina e
 // dal cron notturno. Scarica gli ordini degli ultimi `giorni` da tutti i negozi
@@ -17,13 +17,17 @@ export async function eseguiSyncOrdini(
   const errori: string[] = [];
 
   for (const neg of negozi) {
-    if (!neg.token) {
-      errori.push(`${neg.brand}: token mancante`);
+    // token statico o coniato al volo dal Client ID/Secret (rinnovo automatico)
+    let token: string;
+    try {
+      token = await tokenNegozio(neg);
+    } catch (e) {
+      errori.push(`${neg.brand}: ${(e as Error).message}`);
       continue;
     }
     let ordini;
     try {
-      ordini = await scaricaOrdini(neg.dominio, neg.token, dal);
+      ordini = await scaricaOrdini(neg.dominio, token, dal);
     } catch (e) {
       errori.push(`${neg.brand}: ${(e as Error).message}`);
       continue;
