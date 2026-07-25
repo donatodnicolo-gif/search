@@ -14,7 +14,9 @@ import { cifra, decifra } from './crypto'
 // - widgetTitolo      : titolo mostrato nel widget di chat
 // - widgetMessaggio   : messaggio di benvenuto del widget
 // - shopifyDominio    : dominio dello store Shopify (es. deluxyflowers.myshopify.com)
-// - shopifyToken      : Admin API access token dello store (shpat_…, cifrato)
+// - shopifyToken      : Admin API access token statico dello store (shpat_…, cifrato) — app legacy
+// - shopifyClientId   : Client ID dell'app Dev Dashboard (per il client credentials grant)
+// - shopifyClientSecret: Client Secret dell'app Dev Dashboard (cifrato)
 // - googleClientId    : OAuth Client ID del progetto Google Cloud
 // - googleClientSecret: OAuth Client Secret (cifrato)
 // - googleRefreshToken: refresh token ottenuto dopo il consenso (cifrato) — se
@@ -26,6 +28,7 @@ const CHIAVI_CIFRATE = new Set([
   'fbPageToken',
   'igToken',
   'shopifyToken',
+  'shopifyClientSecret',
   'googleClientSecret',
   'googleRefreshToken',
 ])

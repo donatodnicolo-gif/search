@@ -30,6 +30,8 @@ export default async function PaginaImpostazioni({
     'widgetMessaggio',
     'shopifyDominio',
     'shopifyToken',
+    'shopifyClientId',
+    'shopifyClientSecret',
     'googleClientId',
     'googleClientSecret',
     'googleRefreshToken',
@@ -144,28 +146,63 @@ export default async function PaginaImpostazioni({
           <div className="card">
             <h2>Shopify (ordini)</h2>
             <p className="descrizione">
-              Store da cui scaricare gli ordini. Serve un&apos;app privata/custom con permesso di
-              lettura ordini e clienti (Admin API token <code>shpat_…</code>).
+              Store da cui scaricare gli ordini, con permessi <code>read_orders</code> e{' '}
+              <code>read_customers</code>. Due modi: un token statico (app legacy) <strong>oppure</strong>{' '}
+              Client ID + Secret di un&apos;app Dev Dashboard (l&apos;app conia il token da sola,
+              ideale per l&apos;automazione).
             </p>
             <label className="campo">
               <span>Dominio dello store</span>
               <input
                 name="shopifyDominio"
                 defaultValue={config.shopifyDominio}
-                placeholder="deluxyflowers.myshopify.com"
+                placeholder="fb72b1-2.myshopify.com"
               />
             </label>
             <label className="campo">
               <span>
-                Admin API access token <BadgeConfigurato pieno={!!config.shopifyToken} />
+                A) Admin API access token statico <BadgeConfigurato pieno={!!config.shopifyToken} />
               </span>
               <input
                 name="shopifyToken"
                 type="password"
-                placeholder={config.shopifyToken ? 'salvato — incolla per sostituire' : 'shpat_…'}
+                placeholder={config.shopifyToken ? 'salvato — incolla per sostituire' : 'shpat_… (app legacy)'}
                 autoComplete="off"
               />
             </label>
+            {config.shopifyToken ? (
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginBottom: 12 }}>
+                <input type="checkbox" name="shopifyTokenSvuota" value="1" />
+                Svuota il token statico (per usare Client ID + Secret qui sotto)
+              </label>
+            ) : null}
+            <p className="descrizione" style={{ margin: '2px 0 10px' }}>
+              — oppure — app Dev Dashboard (client credentials):
+            </p>
+            <label className="campo">
+              <span>B) Client ID</span>
+              <input
+                name="shopifyClientId"
+                defaultValue={config.shopifyClientId}
+                placeholder="ID client dell'app Dev Dashboard"
+                autoComplete="off"
+              />
+            </label>
+            <label className="campo">
+              <span>
+                B) Client Secret <BadgeConfigurato pieno={!!config.shopifyClientSecret} />
+              </span>
+              <input
+                name="shopifyClientSecret"
+                type="password"
+                placeholder={config.shopifyClientSecret ? 'salvato — incolla per sostituire' : 'Segreto dell\'app'}
+                autoComplete="off"
+              />
+            </label>
+            <p className="descrizione" style={{ margin: 0 }}>
+              Se compili il token statico, quello ha la precedenza; altrimenti si usano Client ID +
+              Secret.
+            </p>
           </div>
 
           <div className="card">

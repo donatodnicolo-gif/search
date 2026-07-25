@@ -1,19 +1,27 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
-import { scaricaOrdini } from '@/lib/shopify'
+import { risolviToken, scaricaOrdini } from '@/lib/shopify'
 
 export const dynamic = 'force-dynamic'
 
 // Scarica gli ordini recenti da Shopify e li salva/aggiorna in locale.
 // Protetto dal middleware di sessione (lo avvia l'operatore dalla pagina Ordini).
 export async function POST() {
-  const { shopifyDominio, shopifyToken } = await leggiImpostazioni(['shopifyDominio', 'shopifyToken'])
-  if (!shopifyDominio || !shopifyToken) {
-    return NextResponse.json(
-      { errore: 'Shopify non configurato: dominio o token mancanti (Impostazioni).' },
-      { status: 400 }
-    )
+  const config = await leggiImpostazioni([
+    'shopifyDominio',
+    'shopifyToken',
+    'shopifyClientId',
+    'shopifyClientSecret',
+  ])
+
+  // Ricava il token: statico (app legacy) o coniato via client credentials (Dev Dashboard).
+  let dominio: string
+  let token: string
+  try {
+    ;({ dominio, token } = await risolviToken(config))
+  } catch (e) {
+    return NextResponse.json({ errore: (e as Error).message }, { status: 400 })
   }
 
   // Ultimi 60 giorni: abbastanza per gli ordini "che riceviamo" senza scaricare tutto.
@@ -21,7 +29,7 @@ export async function POST() {
 
   let ordini
   try {
-    ordini = await scaricaOrdini(shopifyDominio, shopifyToken, dal)
+    ordini = await scaricaOrdini(dominio, token, dal)
   } catch (e) {
     return NextResponse.json({ errore: (e as Error).message }, { status: 502 })
   }

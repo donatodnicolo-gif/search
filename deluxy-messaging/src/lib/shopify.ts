@@ -131,6 +131,58 @@ export async function scaricaOrdini(
   return out
 }
 
+/**
+ * Conia un Admin API token per un'app della Dev Dashboard tramite il "client
+ * credentials grant" (Client ID + Secret → token valido ~24h). È il flusso
+ * server-to-server per le app moderne, adatto a Vercel/automazione.
+ */
+export async function tokenDaClientCredentials(
+  dominio: string,
+  clientId: string,
+  clientSecret: string
+): Promise<string> {
+  const res = await fetch(`https://${dominio}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+    signal: AbortSignal.timeout(15000),
+  })
+  const j = (await res.json().catch(() => ({}))) as {
+    access_token?: string
+    error_description?: string
+    error?: string
+  }
+  if (!res.ok || !j.access_token) {
+    throw new Error(
+      j.error_description || j.error || `Grant Shopify fallito (HTTP ${res.status})`
+    )
+  }
+  return j.access_token
+}
+
+/**
+ * Ricava il token Admin da usare: se c'è un token statico (app legacy, shpat_)
+ * usa quello; altrimenti conia col client credentials grant (app Dev Dashboard).
+ */
+export async function risolviToken(
+  config: Record<string, string>
+): Promise<{ dominio: string; token: string }> {
+  const dominio = (config.shopifyDominio ?? '').trim().replace(/^https?:\/\//, '').replace(/\/$/, '')
+  if (!dominio) throw new Error('Shopify: dominio dello store mancante (Impostazioni).')
+  if (config.shopifyToken) return { dominio, token: config.shopifyToken }
+  if (config.shopifyClientId && config.shopifyClientSecret) {
+    const token = await tokenDaClientCredentials(dominio, config.shopifyClientId, config.shopifyClientSecret)
+    return { dominio, token }
+  }
+  throw new Error(
+    'Shopify non configurato: serve un Admin API token (shpat_) oppure Client ID + Client Secret (Impostazioni).'
+  )
+}
+
 /** Verifica dominio+token (pagina Impostazioni): torna il nome dello shop. */
 export async function verificaStore(
   dominio: string,
