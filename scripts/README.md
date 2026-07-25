@@ -231,6 +231,17 @@ cd deluxy-orders && npm run import:storico -- 365
 - **Serve**: `DATABASE_URL` nel `.env` dell'app e almeno un negozio collegato (vedi `importa-negozi-da-finance.mjs` o la pagina Impostazioni)
 - **Nota**: se si interrompe si può rilanciare — riprende senza duplicare. Per la sync quotidiana c'è il cron `/api/cron/sync`.
 
+### verifica-totali.ts — deluxy-orders
+Confronta, negozio per negozio, quanti ordini ci sono **su Shopify** e quanti ne ha il registro Orders: serve a dimostrare che l'import è completo e allineato.
+
+```bash
+# dalla radice del repo
+cd deluxy-orders && npm run verifica:totali
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app e i negozi collegati
+- **Nota**: sola lettura, non modifica nulla.
+
 ### importa-negozi-da-finance.mjs — deluxy-orders
 Copia i negozi Shopify già collegati in Deluxy Partner (Finance) dentro il registro Orders, così non si riconfigurano a mano le stesse credenziali in due app. Non stampa mai token o segreti.
 
@@ -408,7 +419,7 @@ Una riga per app; il `cd` parte dalla radice del repo.
 | deluxy-anagrafiche | 3060 | `cd deluxy-anagrafiche && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run chiave -- <app>` · `npm run import:excel` · `npm run import:hubspot-contatti` · `npm run export:vcard` |
 | deluxy-mail | 3070 | `cd deluxy-mail && npm run dev` · `npm run build` (include la migrazione) · `npm start` · `npm run db:push` · `npm run db:seed` |
 | deluxy-budgets | 3080 | `cd deluxy-budgets && npm run dev` · `npm run build` · `npm start` · `npm run typecheck` · `npm run db:push` · `npm run db:seed` |
-| deluxy-orders | 3150 | `cd deluxy-orders && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run chiave -- <app> [--scrittura]` · `npm run negozi:da-finance` · `npm run import:storico` · `npm run sync` |
+| deluxy-orders | 3150 | `cd deluxy-orders && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run chiave -- <app> [--scrittura]` · `npm run negozi:da-finance` · `npm run import:storico` · `npm run verifica:totali` · `npm run sync` |
 | deluxy-scout (Expo) | — | `cd deluxy-scout && npm start` · `npm run web` · `npm run android` · `npm run ios` · `npm run build:web` · `npm run typecheck` · `npm test` · `npm run lint` · `npm run import:places -- <file.csv>` |
 | deluxy-platform-next | API + web | `cd deluxy-platform-next && npm run dev:api` · `npm run dev:web` · `npm run build` · `npm run prisma:generate` · `npm run prisma:migrate` · `npm run seed` · `npm run doc:word` |
 

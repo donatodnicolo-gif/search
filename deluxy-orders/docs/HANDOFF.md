@@ -42,6 +42,9 @@ finché non c'è `APP_URL_ORDERS`).
   frequenza Shopify) e inserimento **a blocchi** (createMany) — da ~1 ordine
   per query a poche query per pagina.
 - **App avviata** su http://localhost:3150 e verificata con dati reali.
+- **Import storico COMPLETATO** (28,5 min, 0 errori): **13.954 ordini** e 16.933
+  righe. `npm run verifica:totali` conferma l'allineamento esatto con Shopify:
+  deluxy.it 11.640 = 11.640 · Flowers 1.584 = 1.584 · cakedesign.me 730 = 730.
 
 - **Ricerca ordini**: casella unica in evidenza sopra i filtri; cerca su numero
   (anche senza `#`), cliente/email/telefono, destinatario e indirizzo, brand,
