@@ -4,8 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { verificaNegozio, tokenDaClientCredentials } from "./shopify";
-import { numeroOrdine, causaleContieneNumero, valutaQuota } from "./ordini";
-import { quotaFornitore } from "./ordini-config";
+import { eseguiAbbinamentoPerNumero } from "./ordini-abbina";
 import { eseguiSyncOrdini } from "./ordini-sync";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 import { registra } from "./registro";
@@ -149,108 +148,21 @@ export async function ignoraOrdine(ordineId: string) {
   revalida();
 }
 
-// Trova gli abbinamenti UNIVOCI (un ordine ↔ un movimento) tra ordini e
-// movimenti, per numero d'ordine nella causale. Ritorna solo le coppie 1:1 e il
-// numero di candidati ambigui scartati.
-function abbinamentiUnivoci<O extends { id: string; nome: string }, T extends { id: string }>(
-  ordini: O[],
-  movimenti: T[],
-  causale: (t: T, num: string) => boolean
-): { coppie: { o: O; t: T }[]; ambigui: number } {
-  const perOrdine = new Map<string, string[]>();
-  const perTx = new Map<string, string[]>();
-  const raw: { oId: string; tId: string }[] = [];
-  for (const o of ordini) {
-    const num = numeroOrdine(o.nome);
-    if (!num || num.length < 2) continue;
-    for (const t of movimenti) {
-      if (!causale(t, num)) continue;
-      raw.push({ oId: o.id, tId: t.id });
-      (perOrdine.get(o.id) ?? perOrdine.set(o.id, []).get(o.id)!).push(t.id);
-      (perTx.get(t.id) ?? perTx.set(t.id, []).get(t.id)!).push(o.id);
-    }
-  }
-  const oById = new Map(ordini.map((o) => [o.id, o]));
-  const tById = new Map(movimenti.map((t) => [t.id, t]));
-  const coppie: { o: O; t: T }[] = [];
-  let ambigui = 0;
-  const usati = new Set<string>();
-  for (const { oId, tId } of raw) {
-    if (perOrdine.get(oId)!.length !== 1 || perTx.get(tId)!.length !== 1) { ambigui++; continue; }
-    if (usati.has(tId)) continue;
-    usati.add(tId);
-    coppie.push({ o: oById.get(oId)!, t: tById.get(tId)! });
-  }
-  return { coppie, ambigui };
-}
-
-// ————— Abbinamento automatico per numero in causale —————
-// Molti estratti (es. Vivid) riportano il NUMERO dell'ordine nella causale.
-// Due abbinamenti, per direzione del movimento (solo match univoci 1:1):
-//   • ENTRATA (accredito) → INCASSO del cliente: si riconcilia l'ordine
-//     "da_riconciliare"; l'importo deve essere ~ il totale (entro il 5%).
-//   • USCITA (addebito) → COSTO al fornitore: si registra `pagatoFornitore`
-//     sull'ordine (senza costo). L'importo è di norma ~40% del valore: NON è un
-//     motivo di scarto, ma segnaliamo quanti sono fuori dalla quota attesa.
+// ————— Abbinamento automatico per numero in causale (dal pulsante) —————
+// La logica vive in `ordini-abbina.ts` (riusata anche in automatico dopo la sync
+// ordini e l'import transazioni). Priorità all'ID ordine in causale, non
+// all'importo (per il costo fornitore è ~40%, diverso dal totale).
 export async function riconciliaPerNumero() {
-  const quota = await quotaFornitore();
-  const [daRic, senzaCosto, ordiniAbbinati, entrate, uscite] = await Promise.all([
-    prisma.ordineShopify.findMany({ where: { statoRicon: "da_riconciliare" } }),
-    prisma.ordineShopify.findMany({ where: { pagatoFornitore: null, statoRicon: { not: "ignorato" } } }),
-    prisma.ordineShopify.findMany({ where: { transazioneId: { not: null } }, select: { transazioneId: true } }),
-    prisma.transazioneBancaria.findMany({ where: { importo: { gt: 0 } }, orderBy: { data: "desc" }, take: 4000 }),
-    prisma.transazioneBancaria.findMany({ where: { importo: { lt: 0 } }, orderBy: { data: "desc" }, take: 4000 }),
-  ]);
-  const giaAbbinati = new Set(ordiniAbbinati.map((o) => o.transazioneId!));
-
-  // ---- INCASSO: accrediti liberi ↔ ordini da riconciliare ----
-  const entrateLibere = entrate.filter((t) => !giaAbbinati.has(t.id));
-  const inc = abbinamentiUnivoci(daRic, entrateLibere, causaleContieneNumero);
-  let riconciliati = 0;
-  let importoDiverso = 0;
-  for (const { o, t } of inc.coppie) {
-    if (Math.abs(t.importo - o.totale) > Math.max(0.5, o.totale * 0.05)) { importoDiverso++; continue; }
-    await prisma.$transaction([
-      prisma.ordineShopify.update({ where: { id: o.id }, data: { statoRicon: "riconciliato", transazioneId: t.id, riconciliatoIl: new Date() } }),
-      prisma.transazioneBancaria.update({ where: { id: t.id }, data: { stato: "registrata", esito: `ordine ${o.nome} riconciliato (n° in causale)` } }),
-    ]);
-    await registraPagamento({
-      tipo: "ordine_shopify", direzione: "in", importo: o.totale, data: t.data,
-      origineId: o.id, controparte: o.clienteNome ?? o.brand,
-      descrizione: `Ordine ${o.nome} (${o.brand})`, divisa: o.valuta,
-    });
-    riconciliati++;
-  }
-
-  // ---- COSTO FORNITORE: addebiti ↔ ordini senza costo ----
-  const cost = abbinamentiUnivoci(senzaCosto, uscite, causaleContieneNumero);
-  let costiImpostati = 0;
-  let fuoriQuota = 0;
-  for (const { o, t } of cost.coppie) {
-    const importo = +Math.abs(t.importo).toFixed(2);
-    const v = valutaQuota(o.totale, importo, quota);
-    if (v.stato !== "in_linea") fuoriQuota++;
-    await prisma.ordineShopify.update({
-      where: { id: o.id },
-      data: { pagatoFornitore: importo, pagatoIl: t.data, fornitoreNome: t.controparte ?? null, transazionePagamentoId: t.id },
-    });
-    await registraPagamento({
-      tipo: "costo_ordine_shopify", direzione: "out", importo, data: t.data,
-      origineId: o.id, controparte: t.controparte ?? "fornitore",
-      descrizione: `Costo ordine ${o.nome} (${o.brand}) — n° in causale`, divisa: o.valuta,
-    });
-    costiImpostati++;
-  }
-
+  const e = await eseguiAbbinamentoPerNumero();
   await registra({
-    azione: `Abbinamento per numero in causale: ${riconciliati} incassi riconciliati, ${costiImpostati} costi fornitore impostati`,
+    azione: `Abbinamento per numero in causale: ${e.incassi} incassi riconciliati, ${e.costi} costi fornitore impostati`,
     categoria: "ordini",
-    dettaglio: `incassi: ${importoDiverso} importo diverso, ${inc.ambigui} ambigui · costi: ${fuoriQuota} fuori dal ${quota}%, ${cost.ambigui} ambigui`,
+    dettaglio: `incassi: ${e.incassiImportoDiverso} importo diverso · costi: ${e.costiFuoriQuota} fuori quota · ${e.ambigui} ambigui`,
   });
   revalida();
   const qs = new URLSearchParams({
-    auto: String(riconciliati), diff: String(importoDiverso), amb: String(inc.ambigui),
-    costi: String(costiImpostati), fuori: String(fuoriQuota),
+    auto: String(e.incassi), diff: String(e.incassiImportoDiverso), amb: String(e.ambigui),
+    costi: String(e.costi), fuori: String(e.costiFuoriQuota), impl: String(e.costiImplausibili),
   });
   redirect(`/ordini?${qs.toString()}`);
 }

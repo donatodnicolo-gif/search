@@ -49,13 +49,26 @@ export function numeroOrdine(nome: string): string {
   return (nome.match(/\d+/g)?.join("") ?? "").trim();
 }
 
-// La causale del movimento contiene il numero dell'ordine come numero a sé
-// (non pezzo di un numero più lungo: "2582" ma non "12582")? È il match più
-// affidabile — molti estratti (es. Vivid) riportano il n° ordine in causale.
+// La causale contiene il numero dell'ordine come TOKEN ISOLATO (delimitato da
+// spazi/punteggiatura, non attaccato a lettere o altre cifre)? Serve la forma
+// stretta perché gli ID lunghi dei gateway (PayPal/Stripe) contengono cifre a
+// caso: "2570" dentro "1045694124072570" NON deve valere come match. I bonifici
+// ai fornitori (es. Vivid) hanno invece la causale = il solo numero d'ordine.
 export function causaleContieneNumero(t: TransazioneBancaria, numero: string): boolean {
   if (!numero || numero.length < 2) return false;
   const testo = `${t.descrizione} ${t.controparte ?? ""}`;
-  return new RegExp(`(?<!\\d)${numero}(?!\\d)`).test(testo);
+  return new RegExp(`(?<![\\p{L}\\d])${numero}(?![\\p{L}\\d])`, "u").test(testo);
+}
+
+// Criterio STRETTO per i pagamenti ai fornitori: la causale è (essenzialmente)
+// il solo numero d'ordine, SENZA parole. I bonifici ai fiorai hanno causale tipo
+// "2534"; gli addebiti di PayPal/fornitori terzi ("PayPal Europe…", "DEDEM SPA…")
+// contengono un nome e vanno esclusi anche se una cifra coincide per caso.
+export function causaleSoloNumero(t: TransazioneBancaria, numero: string): boolean {
+  if (!numero || numero.length < 2) return false;
+  const desc = t.descrizione ?? "";
+  if (/\p{L}/u.test(desc)) return false; // c'è una parola/nome → non è un pagamento "puro"
+  return new RegExp(`(?<![\\p{L}\\d])${numero}(?![\\p{L}\\d])`, "u").test(desc);
 }
 
 // Suggerisce i movimenti bancari (accrediti) compatibili con un ordine a

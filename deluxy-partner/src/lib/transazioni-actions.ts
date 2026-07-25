@@ -59,6 +59,19 @@ export async function importaEstratto(fd: FormData) {
     ibanAggiunti += u.count;
   }
 
+  // Se il file porta nuovi movimenti, prova l'abbinamento automatico ordini per
+  // numero d'ordine in causale (incassi + costi fornitore). Best-effort.
+  let abbinati = { incassi: 0, costi: 0 };
+  if (res.count > 0) {
+    try {
+      const { eseguiAbbinamentoPerNumero } = await import("./ordini-abbina");
+      const e = await eseguiAbbinamentoPerNumero();
+      abbinati = { incassi: e.incassi, costi: e.costi };
+    } catch (err) {
+      console.warn("[transazioni] abbinamento automatico ordini non riuscito:", (err as Error).message);
+    }
+  }
+
   revalidate();
   const qs = new URLSearchParams({
     import: "ok",
@@ -67,6 +80,10 @@ export async function importaEstratto(fd: FormData) {
     scartate: String(movimenti.scartate),
   });
   if (ibanAggiunti) qs.set("iban", String(ibanAggiunti));
+  if (abbinati.incassi || abbinati.costi) {
+    qs.set("abbIncassi", String(abbinati.incassi));
+    qs.set("abbCosti", String(abbinati.costi));
+  }
   redirect(`/transazioni?${qs.toString()}`);
 }
 
@@ -119,6 +136,14 @@ export async function sincronizzaQonto() {
     esito = await scaricaMovimentiQonto();
   } catch (e) {
     redirect("/transazioni?errore=" + encodeURIComponent(`Sincronizzazione Qonto fallita: ${(e as Error).message}`));
+  }
+  if (esito.nuove > 0) {
+    try {
+      const { eseguiAbbinamentoPerNumero } = await import("./ordini-abbina");
+      await eseguiAbbinamentoPerNumero();
+    } catch (err) {
+      console.warn("[qonto] abbinamento automatico ordini non riuscito:", (err as Error).message);
+    }
   }
   revalidate();
   // messaggio dedicato alla sync Qonto (distinto dall'import da file)

@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function OrdiniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sync?: string; nuovi?: string; agg?: string; errori?: string; negozio?: string; stato?: string; cat?: string; periodo?: string; auto?: string; diff?: string; amb?: string; costi?: string; fuori?: string }>;
+  searchParams: Promise<{ sync?: string; nuovi?: string; agg?: string; errori?: string; negozio?: string; stato?: string; cat?: string; periodo?: string; auto?: string; diff?: string; amb?: string; costi?: string; fuori?: string; impl?: string }>;
 }) {
   const sp = await searchParams;
 
@@ -139,6 +139,7 @@ export default async function OrdiniPage({
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8 }}>
             {Number(sp.diff) > 0 && <>{sp.diff} incassi col numero ma importo diverso dal totale: da confermare a mano. </>}
             {Number(sp.fuori) > 0 && <>{sp.fuori} costi <strong>fuori dalla quota attesa</strong> ({quota}%): controllali. </>}
+            {Number(sp.impl) > 0 && <>{sp.impl} costi con importo implausibile (&gt;90% o &lt;5% del valore) non scritti. </>}
             {Number(sp.amb) > 0 && <>{sp.amb} ambigui (stesso numero su più ordini/movimenti).</>}
           </p>
         </div>
@@ -308,12 +309,11 @@ export default async function OrdiniPage({
                   <th>Ordine</th><th>Negozio</th><th>Data</th><th>Cliente</th>
                   <th>Pagamento</th><th className="num">Totale</th>
                   <th className="num">Pagato al fornitore</th><th className="num">Margine</th>
-                  <th>Stato</th><th></th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {ordiniRaw.map((o) => {
-                  const st = STATI_ORDINE[o.statoRicon] ?? STATI_ORDINE.da_riconciliare;
                   // proposte per gli ordini da riconciliare (bonifico e, se il
                   // numero è in causale, anche contrassegno/altro); mai per le carte
                   const proposti =
@@ -359,7 +359,6 @@ export default async function OrdiniPage({
                       <td className={`num ${o.pagatoFornitore != null ? (o.totale - o.pagatoFornitore >= 0 ? "pos" : "neg") : ""}`}>
                         {o.pagatoFornitore != null ? euro(o.totale - o.pagatoFornitore) : "—"}
                       </td>
-                      <td><span className={`badge ${st.badge}`}><span className="dot" />{st.label}</span></td>
                       <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
                         {o.statoRicon === "da_riconciliare" ? (
                           <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>

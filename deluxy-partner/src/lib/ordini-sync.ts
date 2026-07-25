@@ -73,5 +73,14 @@ export async function eseguiSyncOrdini(
     }
     await prisma.negozioShopify.update({ where: { id: neg.id }, data: { ultimaSync: new Date() } });
   }
+  // Abbinamento automatico per numero d'ordine in causale (incassi + costi
+  // fornitore): così scaricando gli ordini si riconcilia da sé quanto già
+  // presente nei movimenti. Best-effort: un errore qui non fa fallire la sync.
+  try {
+    const { eseguiAbbinamentoPerNumero } = await import("./ordini-abbina");
+    await eseguiAbbinamentoPerNumero();
+  } catch (e) {
+    console.warn("[ordini] abbinamento automatico per numero non riuscito:", (e as Error).message);
+  }
   return { nuovi, aggiornati, errori };
 }
