@@ -192,6 +192,7 @@ export function ListaMail({
           sezioni={sezioni}
           selezionato={selezione.has(r.id)}
           onSelezione={toggle}
+          mostraPeso={ordine.campo === 'dimensione'}
         />
       ))}
 

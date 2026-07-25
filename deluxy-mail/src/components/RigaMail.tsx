@@ -13,6 +13,7 @@ import { DelegaReneBottone } from './DelegaRene'
 import { AgganciaBottone } from './AgganciaRiga'
 import { NomeThreadBottone } from './NomeThreadRiga'
 import { MailDrag } from './MailDrag'
+import { pesoLeggibile } from './Ordinamento'
 
 /** I dati (leggeri, già raggruppati) che servono a disegnare una riga. */
 export type RigaData = {
@@ -83,6 +84,7 @@ export const RigaMail = memo(function RigaMail({
   sezioni = [],
   selezionato = false,
   onSelezione,
+  mostraPeso = false,
 }: {
   r: RigaData
   sezioni?: { id: string; nome: string }[]
@@ -90,6 +92,8 @@ export const RigaMail = memo(function RigaMail({
   selezionato?: boolean
   /** Chiamato quando si spunta/despunta la casella della riga. */
   onSelezione?: (id: string, valore: boolean) => void
+  /** Ordinando per dimensione si mostra il peso: così si vede il criterio. */
+  mostraPeso?: boolean
 }) {
   // Rimozione ottimistica: appena archivi/cestini la riga sparisce all'istante,
   // il server si riallinea al refresh successivo.
@@ -208,6 +212,11 @@ export const RigaMail = memo(function RigaMail({
         </Link>
 
         <div className="mail-row-side">
+          {mostraPeso && (
+            <span className="mail-data" title="Dimensione della mail">
+              {pesoLeggibile(r.dimensione)}
+            </span>
+          )}
           <span className="mail-data">{dataBreve(r.data)}</span>
           <RispostaAzioni id={r.id} />
         </div>

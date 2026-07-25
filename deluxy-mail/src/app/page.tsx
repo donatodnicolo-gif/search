@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { PRIORITA } from '@/lib/format'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
@@ -361,6 +362,27 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       dimensione: m.dimensione ?? 0,
     }
   })
+
+  // ⚠️ DIMENSIONE per l'ordinamento. Le mail salvate prima del campo
+  // `dimensione` (e quelle che un backfill non ha raggiunto) l'hanno a 0: senza
+  // questo, ordinare per dimensione non produce alcun effetto perché sono tutte
+  // uguali. Qui si ricava dai byte dei corpi con UNA query di soli interi, e
+  // SOLO per le righe che ne sono prive: se il dato c'è già, costo zero.
+  const senzaPeso = righe.filter((r) => !r.dimensione)
+  if (senzaPeso.length > 0) {
+    try {
+      const pesi = await db.$queryRaw<{ id: string; peso: number }[]>(
+        Prisma.sql`SELECT "id",
+                          (octet_length("corpoTesto") + COALESCE(octet_length("corpoHtml"), 0))::int AS peso
+                     FROM "Messaggio"
+                    WHERE "id" IN (${Prisma.join(senzaPeso.map((r) => r.id))})`
+      )
+      const perId = new Map(pesi.map((p) => [p.id, Number(p.peso) || 0]))
+      for (const r of senzaPeso) r.dimensione = perId.get(r.id) ?? 0
+    } catch {
+      /* niente: si ordina con quello che c'è */
+    }
+  }
 
   // In ricerca: per far vedere DOVE compare la parola cercata, prendo il corpo
   // delle sole mail mostrate (i corpi sono esclusi dalla query leggera) e ne

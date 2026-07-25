@@ -1,5 +1,13 @@
 'use client'
 
+/** Byte in forma leggibile ("312 KB"). 0/assente → «—». */
+export function pesoLeggibile(byte?: number): string {
+  if (!byte || byte <= 0) return '—'
+  if (byte < 1024) return `${byte} B`
+  if (byte < 1024 * 1024) return `${Math.round(byte / 1024)} KB`
+  return `${(byte / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export type CampoOrdine = 'data' | 'mittente' | 'oggetto' | 'dimensione'
 export type Ordine = { campo: CampoOrdine; discendente: boolean }
 

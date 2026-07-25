@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
 import { raggruppa } from '@/lib/thread'
@@ -112,6 +113,25 @@ export default async function PostaInviata({ searchParams }: Props) {
       dimensione: m.dimensione ?? 0,
     }]
   })
+
+  // Dimensione mancante (mail salvate prima del campo): si ricava dai byte dei
+  // corpi con una query di soli interi, solo per le righe che ne sono prive.
+  // Senza, l'ordinamento per dimensione sarebbe inerte. Vedi page.tsx.
+  const senzaPeso = righe.filter((r) => !r.dimensione)
+  if (senzaPeso.length > 0) {
+    try {
+      const pesi = await db.$queryRaw<{ id: string; peso: number }[]>(
+        Prisma.sql`SELECT "id",
+                          (octet_length("corpoTesto") + COALESCE(octet_length("corpoHtml"), 0))::int AS peso
+                     FROM "Messaggio"
+                    WHERE "id" IN (${Prisma.join(senzaPeso.map((r) => r.id))})`
+      )
+      const perId = new Map(pesi.map((p) => [p.id, Number(p.peso) || 0]))
+      for (const r of senzaPeso) r.dimensione = perId.get(r.id) ?? 0
+    } catch {
+      /* si ordina con quello che c'è */
+    }
+  }
 
   return (
     <>

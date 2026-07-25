@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { dataBreve } from '@/lib/format'
-import { BarraOrdinamento, confrontaRighe, type Ordine } from './Ordinamento'
+import { BarraOrdinamento, confrontaRighe, pesoLeggibile, type Ordine } from './Ordinamento'
 import { cestinaMessaggio, spostaInSezione, azioneMassa } from '@/lib/actions'
 import { AgganciaBottone, AgganciaDialog } from './AgganciaRiga'
 import { NomeThreadBottone, NomeThreadDialog } from './NomeThreadRiga'
@@ -195,6 +195,11 @@ export function ListaInviati({
               </div>
             </Link>
             <div className="mail-row-side">
+              {ordine.campo === 'dimensione' && (
+                <span className="mail-data" title="Dimensione della mail">
+                  {pesoLeggibile(m.dimensione)}
+                </span>
+              )}
               <span className="mail-data">{dataBreve(m.data)}</span>
             </div>
           </div>
