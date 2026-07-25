@@ -42,7 +42,7 @@ export default async function OrdiniPage({
     // TUTTI gli ordini del periodo (per la % di incasso: non limitata ai 400 mostrati)
     prisma.ordineShopify.findMany({
       where: { ...whereNegozio, ...wherePeriodo },
-      select: { totale: true, statoRicon: true, categoriaPagamento: true },
+      select: { totale: true, statoRicon: true, categoriaPagamento: true, pagatoFornitore: true },
     }),
   ]);
 
@@ -64,6 +64,14 @@ export default async function OrdiniPage({
     return { cat, base: b, incassato: inc, pct: b > 0.005 ? (inc / b) * 100 : 0, n: righe.length };
   }).filter((r) => r.n > 0);
   const pct1 = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
+
+  // Quanto abbiamo PAGATO ai fornitori sugli ordini del periodo, e il margine.
+  const conCosto = attivi.filter((o) => o.pagatoFornitore != null);
+  const totPagatoFornitori = conCosto.reduce((a, o) => a + (o.pagatoFornitore ?? 0), 0);
+  const baseConCosto = conCosto.reduce((a, o) => a + o.totale, 0);
+  const margineConCosto = baseConCosto - totPagatoFornitori;
+  const pctMargine = baseConCosto > 0.005 ? (margineConCosto / baseConCosto) * 100 : 0;
+  const senzaCostoN = attivi.length - conCosto.length;
 
   const giaAbbinati = new Set(
     (await prisma.ordineShopify.findMany({ where: { transazioneId: { not: null } }, select: { transazioneId: true } }))
@@ -186,6 +194,34 @@ export default async function OrdiniPage({
         </p>
       </div>
 
+      {/* Quanto abbiamo PAGATO ai fornitori (uscite) e il margine sugli ordini con costo */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+          <h2 className="section-title" style={{ margin: 0 }}>Pagato ai fornitori</h2>
+          <span className="muted" style={{ fontSize: 12.5 }}>
+            {conCosto.length} ordini con costo registrato{senzaCostoN > 0 ? ` · ${senzaCostoN} ancora senza` : ""}
+          </span>
+        </div>
+        <div className="kpi-grid" style={{ marginTop: 12 }}>
+          <div className="kpi">
+            <div className="kpi-label">Pagato ai fornitori</div>
+            <div className="kpi-value neg">{euro(totPagatoFornitori)}</div>
+            <div className="kpi-sub">su {euro(baseConCosto)} di ordini con costo</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-label">Margine (incasso − costo)</div>
+            <div className={`kpi-value ${margineConCosto >= 0 ? "pos" : "neg"}`}>{euro(margineConCosto)}</div>
+            <div className="kpi-sub" style={{ fontWeight: 600, color: pctMargine >= 30 ? "var(--green)" : pctMargine >= 15 ? "var(--gold-strong)" : "var(--red)" }}>
+              margine {pct1(pctMargine)}
+            </div>
+          </div>
+        </div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+          Il costo si registra sulla scheda del singolo ordine (clic sul n° ordine), abbinando il movimento in
+          uscita Qonto/file. Il margine è calcolato solo sugli ordini a cui hai già assegnato un costo.
+        </p>
+      </div>
+
       <div className="kpi-grid">
         <div className="kpi">
           <div className="kpi-label">Ordini (periodo)</div>
@@ -268,7 +304,16 @@ export default async function OrdiniPage({
                         {CATEGORIE_PAG[o.categoriaPagamento]}
                         {o.financialStatus ? <div style={{ color: "var(--text-tertiary)" }}>{o.financialStatus}</div> : null}
                       </td>
-                      <td className="num">{euro(o.totale)}</td>
+                      <td className="num">
+                        {euro(o.totale)}
+                        {o.pagatoFornitore != null ? (
+                          <div className="muted" style={{ fontSize: 11 }}>
+                            pagato {euro(o.pagatoFornitore)} · marg. {euro(o.totale - o.pagatoFornitore)}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>costo da mettere</div>
+                        )}
+                      </td>
                       <td><span className={`badge ${st.badge}`}><span className="dot" />{st.label}</span></td>
                       <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
                         {o.statoRicon === "da_riconciliare" ? (

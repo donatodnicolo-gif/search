@@ -360,10 +360,17 @@ model OrdineShopify {
   clienteNome        String?
   clienteEmail       String?
   note               String?
-  // riconciliazione
+  // riconciliazione (INCASSO — soldi in entrata dal cliente)
   statoRicon         String         @default("da_riconciliare") // da_riconciliare | riconciliato | incassato_gateway | ignorato
   transazioneId      String? // movimento bancario abbinato (se bonifico)
   riconciliatoIl     DateTime?
+  // COSTO FORNITORE — quanto Deluxy ha PAGATO al fioraio/fornitore per l'ordine
+  // (uscita), abbinato a un movimento bancario in uscita (Qonto/file). Il fioraio
+  // non è nell'ordine (sta nell'app fornitori) → abbinamento manuale.
+  pagatoFornitore    Float? // importo pagato al fornitore per questo ordine
+  fornitoreNome      String? // a chi è stato pagato (facoltativo)
+  transazionePagamentoId String? // movimento bancario in uscita abbinato
+  pagatoIl           DateTime?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 

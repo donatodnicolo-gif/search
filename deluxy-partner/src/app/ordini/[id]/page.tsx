@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { STATI_ORDINE, CATEGORIE_PAG } from "@/lib/ordini";
 import { tokenNegozio, scaricaTransazioniOrdine, type TransazioneOrdine } from "@/lib/shopify";
+import { registraPagamentoFornitore, azzeraPagamentoFornitore } from "@/lib/ordini-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,31 @@ const dataOra = (d: Date | string | null | undefined) => {
 //  - bonifico riconciliato → il movimento bancario abbinato (Qonto/file);
 //  - carta/gateway → l'incasso reale sul gateway letto da Shopify (il denaro
 //    arriva in banca in un payout aggregato, non 1:1).
-export default async function OrdineDetail({ params }: { params: Promise<{ id: string }> }) {
+export default async function OrdineDetail({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ costo?: string; erroreCosto?: string }>;
+}) {
   const { id } = await params;
+  const sp = await searchParams;
   const ordine = await prisma.ordineShopify.findUnique({ where: { id }, include: { negozio: true } });
   if (!ordine) notFound();
+
+  // movimenti in uscita (addebiti) selezionabili come pagamento al fornitore
+  const uscite = await prisma.transazioneBancaria.findMany({
+    where: { importo: { lt: 0 } },
+    orderBy: { data: "desc" },
+    take: 400,
+  });
+  const oggiIso = new Date().toISOString().slice(0, 10);
+  const pagato = ordine.pagatoFornitore ?? null;
+  const margine = pagato != null ? ordine.totale - pagato : null;
+  const movimentoPagamento = ordine.transazionePagamentoId
+    ? uscite.find((u) => u.id === ordine.transazionePagamentoId) ??
+      (await prisma.transazioneBancaria.findUnique({ where: { id: ordine.transazionePagamentoId } }))
+    : null;
 
   const st = STATI_ORDINE[ordine.statoRicon] ?? { label: ordine.statoRicon, badge: "neutral" };
 
@@ -40,8 +62,6 @@ export default async function OrdineDetail({ params }: { params: Promise<{ id: s
   } catch (e) {
     erroreTx = (e as Error).message;
   }
-  const incassi = txShopify.filter((t) => ["SALE", "CAPTURE"].includes(t.kind ?? "") && t.status === "SUCCESS");
-  const rimborsi = txShopify.filter((t) => t.kind === "REFUND" && t.status === "SUCCESS");
 
   return (
     <>
@@ -70,12 +90,81 @@ export default async function OrdineDetail({ params }: { params: Promise<{ id: s
           <div className="kpi-sub">{ordine.gateway ?? "—"} · {ordine.financialStatus ?? "—"}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Incassato su Shopify</div>
-          <div className="kpi-value">{euro(incassi.reduce((a, t) => a + t.importo, 0))}</div>
+          <div className="kpi-label">Pagato al fornitore</div>
+          <div className={`kpi-value ${pagato != null ? "neg" : ""}`}>{pagato != null ? euro(pagato) : "—"}</div>
           <div className="kpi-sub">
-            {rimborsi.length > 0 ? `− ${euro(rimborsi.reduce((a, t) => a + t.importo, 0))} rimborsati` : `${incassi.length} incasso/i`}
+            {pagato != null
+              ? `margine ${euro(margine!)} (${ordine.totale > 0 ? ((margine! / ordine.totale) * 100).toFixed(0) : "0"}%)`
+              : "da registrare"}
           </div>
         </div>
+      </div>
+
+      {sp.costo && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />{sp.costo === "rimosso" ? "Costo fornitore rimosso" : "Pagamento al fornitore registrato"}</span>
+        </div>
+      )}
+      {sp.erroreCosto && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.erroreCosto)}</span>
+        </div>
+      )}
+
+      {/* ---- Quanto ho pagato al fornitore ---- */}
+      <h2 className="section-title">Pagato al fornitore</h2>
+      <div className="card">
+        {pagato != null ? (
+          <>
+            <div className="info-grid">
+              <div className="info-item"><div className="k">Pagato al fornitore</div><div className="v">{euro(pagato)}</div></div>
+              <div className="info-item"><div className="k">Fornitore</div><div className="v" style={{ fontSize: 14 }}>{ordine.fornitoreNome ?? "—"}</div></div>
+              <div className="info-item"><div className="k">Data</div><div className="v" style={{ fontSize: 14 }}>{dataIt(ordine.pagatoIl)}</div></div>
+              <div className="info-item"><div className="k">Margine (incasso − costo)</div><div className={`v ${margine! < 0 ? "neg" : "pos"}`}>{euro(margine!)}</div></div>
+            </div>
+            {movimentoPagamento && (
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 12 }}>
+                Movimento in uscita abbinato: <strong>{dataIt(movimentoPagamento.data)}</strong> · {euro(movimentoPagamento.importo)} · {movimentoPagamento.controparte ?? movimentoPagamento.descrizione.slice(0, 40)}
+              </p>
+            )}
+            <form action={azzeraPagamentoFornitore.bind(null, id)} style={{ marginTop: 14 }}>
+              <button className="btn small danger" type="submit">Rimuovi costo fornitore</button>
+            </form>
+          </>
+        ) : (
+          <>
+            <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 12 }}>
+              Registra <strong>quanto hai pagato al fioraio/fornitore</strong> per questo ordine. Puoi abbinare il
+              movimento bancario in uscita (Qonto/file) che lo documenta — un movimento può coprire più ordini.
+            </p>
+            <form action={registraPagamentoFornitore.bind(null, id)} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div>
+                <label className="field-label">Importo pagato €</label>
+                <input type="number" name="importo" step="0.01" min="0" required style={{ width: 130 }} placeholder="0,00" />
+              </div>
+              <div>
+                <label className="field-label">Data</label>
+                <input type="date" name="data" defaultValue={oggiIso} />
+              </div>
+              <div>
+                <label className="field-label">Fornitore (facoltativo)</label>
+                <input type="text" name="fornitore" placeholder="nome fioraio" style={{ width: 180 }} />
+              </div>
+              <div>
+                <label className="field-label">Movimento in uscita (facoltativo)</label>
+                <select name="movimento" defaultValue="" style={{ minWidth: 260 }}>
+                  <option value="">— nessuno —</option>
+                  {uscite.slice(0, 200).map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {dataIt(u.data)} · {euro(u.importo)} · {(u.controparte ?? u.descrizione).slice(0, 40)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button className="btn primary" type="submit">Registra pagamento</button>
+            </form>
+          </>
+        )}
       </div>
 
       {/* ---- Transazione corrispondente ---- */}

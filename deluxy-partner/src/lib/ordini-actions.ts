@@ -6,6 +6,8 @@ import { prisma } from "./db";
 import { verificaNegozio, tokenDaClientCredentials } from "./shopify";
 import { eseguiSyncOrdini } from "./ordini-sync";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
+import { registra } from "./registro";
+import { euro } from "./format";
 
 function revalida() {
   revalidatePath("/ordini", "layout");
@@ -143,6 +145,55 @@ export async function segnaOrdineIncassato(ordineId: string) {
 export async function ignoraOrdine(ordineId: string) {
   await prisma.ordineShopify.update({ where: { id: ordineId }, data: { statoRicon: "ignorato" } });
   revalida();
+}
+
+// ————— Costo fornitore (quanto abbiamo PAGATO al fioraio per l'ordine) —————
+// È un'uscita: si registra l'importo pagato e, facoltativo, il movimento
+// bancario in uscita che lo documenta. Un solo movimento può coprire più ordini
+// (settlement periodico col fioraio), perciò l'importo è per-ordine e il
+// movimento resta un semplice riferimento (non viene "consumato").
+export async function registraPagamentoFornitore(ordineId: string, fd: FormData) {
+  const raw = String(fd.get("importo") ?? "").replace(",", ".");
+  const importo = parseFloat(raw);
+  if (!Number.isFinite(importo) || importo < 0) {
+    redirect(`/ordini/${ordineId}?erroreCosto=${encodeURIComponent("Indica l'importo pagato al fornitore.")}`);
+  }
+  const dataTxt = String(fd.get("data") ?? "").trim();
+  const pagatoIl = dataTxt ? new Date(dataTxt + "T00:00:00.000Z") : new Date();
+  const fornitoreNome = String(fd.get("fornitore") ?? "").trim() || null;
+  const transazionePagamentoId = String(fd.get("movimento") ?? "").trim() || null;
+  const o = await prisma.ordineShopify.update({
+    where: { id: ordineId },
+    data: { pagatoFornitore: +importo.toFixed(2), pagatoIl, fornitoreNome, transazionePagamentoId },
+  });
+  // riferimento nel registro Pagamenti (uscita) per l'API /api/incassi e i conti
+  await registraPagamento({
+    tipo: "costo_ordine_shopify",
+    direzione: "out",
+    importo: +importo.toFixed(2),
+    data: pagatoIl,
+    origineId: o.id,
+    controparte: fornitoreNome ?? "fornitore",
+    descrizione: `Costo ordine ${o.nome} (${o.brand})${fornitoreNome ? ` — ${fornitoreNome}` : ""}`,
+    divisa: o.valuta,
+  });
+  await registra({
+    azione: `Pagato al fornitore ${euro(importo)} per l'ordine ${o.nome}${fornitoreNome ? ` (${fornitoreNome})` : ""}`,
+    categoria: "ordini", entita: "ordine", entitaId: o.id,
+  });
+  revalida();
+  redirect(`/ordini/${ordineId}?costo=ok`);
+}
+
+export async function azzeraPagamentoFornitore(ordineId: string) {
+  const o = await prisma.ordineShopify.update({
+    where: { id: ordineId },
+    data: { pagatoFornitore: null, pagatoIl: null, fornitoreNome: null, transazionePagamentoId: null },
+  });
+  await rimuoviPagamento("costo_ordine_shopify", ordineId);
+  await registra({ azione: `Rimosso il costo fornitore dall'ordine ${o.nome}`, categoria: "ordini", entita: "ordine", entitaId: o.id });
+  revalida();
+  redirect(`/ordini/${ordineId}?costo=rimosso`);
 }
 
 export async function riapriOrdine(ordineId: string) {

@@ -8,6 +8,7 @@ import { prisma } from "./db";
 
 export type TipoPagamento =
   | "ordine_shopify"
+  | "costo_ordine_shopify" // uscita: pagato al fornitore per un ordine Shopify
   | "fattura_servizi"
   | "pagamento_diretto"
   | "bonifico_partner"
