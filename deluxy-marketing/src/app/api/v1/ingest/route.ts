@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { deduciTipoConversione, salvaMetriche } from "@/lib/ingest-metriche";
 import { registra } from "@/lib/registro";
 
 // POST /api/v1/ingest — porta d'ingresso unica per le piattaforme pubblicitarie.
@@ -10,16 +11,19 @@ import { registra } from "@/lib/registro";
 // aggiorna i valori invece di duplicarli.
 //
 // La usa lo script di Google Ads (scripts/google-ads-script.js) e può usarla
-// qualsiasi altra fonte: Meta, TikTok, un foglio, una sessione Claude.
+// qualsiasi altra fonte: un foglio, una sessione Claude, un altro sistema.
+// Meta invece non spinge: è l'app che va a prenderli (vedi /api/v1/sync/meta),
+// ma il salvataggio passa dalla stessa funzione — src/lib/ingest-metriche.ts.
 //
 // Body: {
 //   canale?: "google_ads" | "meta_ads" | "tiktok",   (default google_ads)
 //   brand?: "flowers" | "cake" | "gifts" | "cross",  (default: dedotto dal nome)
-//   account?: "825-518-1560",                        (solo per il registro)
+//   account?: "825-518-1560",
 //   righe: [{
 //     idCampagna*: "21489...",   nome*: "[Deluxy] Fiori Milano",
 //     data*: "2026-07-22",       spesa?, impression?, click?, conversioni?, ricavi?,
-//     stato?: "attiva" | "in_pausa", budgetGiornaliero?
+//     stato?: "attiva" | "in_pausa", budgetGiornaliero?, strategiaOfferta?,
+//     annunciTotali?, annunciInReview?
 //   }]
 // }
 export async function POST(req: NextRequest) {
@@ -36,172 +40,25 @@ export async function POST(req: NextRequest) {
   if (righe.length === 0) return erroreApi(400, "Nessuna riga da importare");
 
   const canale = body.canale ?? "google_ads";
-  const numero = (v: unknown) => (v == null || v === "" ? null : Number(v));
+  const account = body.account ? String(body.account) : null;
 
-  // Brand dedotto dal nome della campagna quando non è dichiarato: i nomi
-  // Deluxy portano già il marchio (es. "[Deluxyflowers] ITALIAN-ENG").
-  const brandDa = (nome: string): string => {
-    const t = nome.toLowerCase();
-    if (body.brand) return body.brand;
-    if (/deluxyflower|flowers/.test(t)) return "flowers";
-    if (/cake/.test(t)) return "cake";
-    if (/deluxy|gifts|regali/.test(t)) return "gifts";
-    return "cross";
-  };
-
-  // Riconoscimento sfumato dei nomi: la 00.4 censisce con codici ("DC1 Fiori
-  // Milano ENG"), la piattaforma usa i nomi veri ("[Deluxy] - Fiori Milano
-  // ENG"). Senza questa normalizzazione ogni account creerebbe doppie.
-  const normalizza = (n: string) =>
-    n.toLowerCase()
-      .replace(/\[[^\]]*\]/g, "")
-      .replace(/\b(dc|df|dt|dg)\d+\b/g, "")
-      .replace(/english/g, "eng")
-      .replace(/italian/g, "ita")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-
-  let campagneCreate = 0;
-  let metricheSalvate = 0;
-  const campagneToccate = new Set<string>();
-  let giornoMin: Date | null = null;
-  let giornoMax: Date | null = null;
-  const nonValide: string[] = [];
-
-  for (const r of righe) {
-    if (!r?.idCampagna || !r?.nome || !r?.data) {
-      nonValide.push(JSON.stringify(r).slice(0, 80));
-      continue;
-    }
-    const idEsterno = String(r.idCampagna);
-    const giorno = new Date(r.data);
-    if (isNaN(giorno.getTime())) {
-      nonValide.push(String(r.data));
-      continue;
-    }
-    giorno.setUTCHours(0, 0, 0, 0);
-
-    // La campagna si riconosce dall'id di piattaforma; se non c'è, si crea.
-    let campagna = await prisma.campagna.findFirst({ where: { idEsterno, canale } });
-    if (!campagna) {
-      // Può esistere già col solo nome (censita a mano o dal seed dei Definitivi):
-      // in quel caso le si aggancia l'id invece di crearne una doppia.
-      campagna = await prisma.campagna.findFirst({ where: { nome: String(r.nome), canale } });
-      if (!campagna) {
-        // Confronto normalizzato con le censite ancora senza id di piattaforma
-        const nRiga = normalizza(String(r.nome));
-        const censite = await prisma.campagna.findMany({ where: { canale, idEsterno: null } });
-        campagna =
-          censite.find((c) => {
-            const n = normalizza(c.nome);
-            return n.length > 3 && nRiga.length > 3 && (n === nRiga || n.includes(nRiga) || nRiga.includes(n));
-          }) ?? null;
-      }
-      if (campagna) {
-        // Il nome vero della piattaforma vince sul codice di censimento; il
-        // codice resta nelle note per ritrovarlo nella 00.4.
-        campagna = await prisma.campagna.update({
-          where: { id: campagna.id },
-          data: {
-            idEsterno,
-            ...(campagna.nome !== String(r.nome)
-              ? {
-                  nome: String(r.nome),
-                  note: `${campagna.note ? campagna.note + " · " : ""}Codice 00.4: ${campagna.nome}`,
-                }
-              : {}),
-          },
-        });
-      } else {
-        campagna = await prisma.campagna.create({
-          data: {
-            nome: String(r.nome),
-            idEsterno,
-            canale,
-            brand: brandDa(String(r.nome)),
-            stato: r.stato ?? "attiva",
-            budgetGiornaliero: numero(r.budgetGiornaliero),
-            strategiaOfferta: r.strategiaOfferta ? String(r.strategiaOfferta) : null,
-            annunciTotali: r.annunciTotali != null ? Math.round(Number(r.annunciTotali)) : null,
-            annunciInReview: r.annunciInReview != null ? Math.round(Number(r.annunciInReview)) : null,
-            note: `Creata automaticamente dall'import ${canale}${body.account ? ` (account ${body.account})` : ""}`,
-          },
-        });
-        campagneCreate++;
-      }
-    } else if (r.stato || r.budgetGiornaliero != null || r.strategiaOfferta || r.annunciTotali != null) {
-      await prisma.campagna.update({
-        where: { id: campagna.id },
-        data: {
-          ...(r.stato ? { stato: r.stato } : {}),
-          ...(r.budgetGiornaliero != null ? { budgetGiornaliero: numero(r.budgetGiornaliero) } : {}),
-          ...(r.strategiaOfferta ? { strategiaOfferta: String(r.strategiaOfferta) } : {}),
-          ...(r.annunciTotali != null ? { annunciTotali: Math.round(Number(r.annunciTotali)) } : {}),
-          ...(r.annunciInReview != null ? { annunciInReview: Math.round(Number(r.annunciInReview)) } : {}),
-        },
-      });
-    }
-
-    // Le righe che portano solo i conteggi di approvazione non hanno metriche
-    if (r.spesa == null && r.impression == null && r.click == null && r.annunciTotali != null) {
-      metricheSalvate++;
-      continue;
-    }
-    const valori = {
-      spesa: numero(r.spesa),
-      impression: numero(r.impression) != null ? Math.round(numero(r.impression)!) : null,
-      click: numero(r.click) != null ? Math.round(numero(r.click)!) : null,
-      conversioni: numero(r.conversioni),
-      ricavi: numero(r.ricavi),
-    };
-    await prisma.metricaCampagna.upsert({
-      where: { campagnaId_data: { campagnaId: campagna.id, data: giorno } },
-      create: { campagnaId: campagna.id, data: giorno, ...valori },
-      update: valori,
-    });
-    metricheSalvate++;
-    campagneToccate.add(campagna.id);
-    if (giornoMin == null || giorno < giornoMin) giornoMin = giorno;
-    if (giornoMax == null || giorno > giornoMax) giornoMax = giorno;
-  }
-
-  // Vendite o lead? Le campagne B2B/corporate ottimizzano lead con valore
-  // simbolico (doc 4): un valore medio per conversione sotto i 10 € non è una
-  // vendita, e giudicare quella campagna col ROAS sarebbe un errore di
-  // lettura. La deduzione si aggiorna a ogni consegna, ma solo dove l'utente
-  // non ha già deciso a mano.
-  for (const id of campagneToccate) {
-    const c = await prisma.campagna.findUnique({ where: { id }, select: { tipoConversione: true } });
-    if (c?.tipoConversione === "vendite" || c?.tipoConversione === "lead") continue;
-    // Finestra recente: il tracking di anni fa puo essere diverso da oggi
-    const da90 = new Date(Date.now() - 90 * 86_400_000);
-    const agg = await prisma.metricaCampagna.aggregate({
-      where: { campagnaId: id, data: { gte: da90 } },
-      _sum: { conversioni: true, ricavi: true },
-    });
-    const conv = agg._sum.conversioni ?? 0;
-    if (conv < 3) continue; // troppo poco per dedurre
-    const medio = (agg._sum.ricavi ?? 0) / conv;
-    await prisma.campagna.update({
-      where: { id },
-      data: { tipoConversione: medio < 10 ? "lead" : "vendite" },
-    });
-  }
+  const esito = await salvaMetriche(righe, { canale, account, brand: body.brand });
+  await deduciTipoConversione(esito.campagneToccate);
 
   await prisma.ricezioneDati.create({
     data: {
       fonte: canale,
-      account: body.account ? String(body.account) : null,
+      account,
       tipo: "metriche",
       chiave: cliente.nome,
       righe: righe.length,
-      nuove: campagneCreate,
-      aggiornate: metricheSalvate,
-      scartate: nonValide.length,
-      dal: giornoMin,
-      al: giornoMax,
-      campagne: campagneToccate.size,
-      esito: nonValide.length > 0 ? "parziale" : "ok",
+      nuove: esito.campagneCreate,
+      aggiornate: esito.metricheSalvate,
+      scartate: esito.righeScartate,
+      dal: esito.giornoMin,
+      al: esito.giornoMax,
+      campagne: esito.campagneToccate.size,
+      esito: esito.righeScartate > 0 ? "parziale" : "ok",
     },
   });
 
@@ -209,12 +66,16 @@ export async function POST(req: NextRequest) {
     autore: cliente.nome,
     tipo: "import",
     entita: "metrica",
-    titolo: `Import ${canale}${body.account ? ` da account ${body.account}` : ""}`,
-    dettaglio: `${metricheSalvate} giorni-campagna · ${campagneCreate} campagne nuove${nonValide.length ? ` · ${nonValide.length} righe scartate` : ""}`,
+    titolo: `Import ${canale}${account ? ` da account ${account}` : ""}`,
+    dettaglio: `${esito.metricheSalvate} giorni-campagna · ${esito.campagneCreate} campagne nuove${esito.righeScartate ? ` · ${esito.righeScartate} righe scartate` : ""}`,
   });
 
   return NextResponse.json(
-    { metricheSalvate, campagneCreate, righeScartate: nonValide.length },
+    {
+      metricheSalvate: esito.metricheSalvate,
+      campagneCreate: esito.campagneCreate,
+      righeScartate: esito.righeScartate,
+    },
     { status: 201 }
   );
 }
