@@ -99,7 +99,7 @@ export async function eseguiAbbinamentoPerNumero(): Promise<EsitoAbbina> {
     const importo = +Math.abs(t.importo).toFixed(2);
     const pct = o.totale > 0.005 ? (importo / o.totale) * 100 : 999;
     if (pct < 5 || pct > 90) { costiImplausibili++; continue; }
-    if (valutaQuota(o.totale, importo, quota).stato !== "in_linea") costiFuoriQuota++;
+    if (valutaQuota(o.totale, importo, quota).stato === "alto") costiFuoriQuota++;
     await prisma.ordineShopify.update({
       where: { id: o.id },
       data: { pagatoFornitore: importo, pagatoIl: t.data, fornitoreNome: t.controparte ?? null, transazionePagamentoId: t.id },

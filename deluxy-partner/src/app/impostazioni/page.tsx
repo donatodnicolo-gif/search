@@ -307,13 +307,13 @@ export default async function ImpostazioniPage({
       <h2 className="section-title">Quota fornitore (ordini)</h2>
       <form action={salvaQuotaFornitore} className="card" style={{ marginBottom: 16 }}>
         <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 12 }}>
-          Percentuale che di norma paghi al fioraio/fornitore sul valore dell&apos;ordine. Serve a segnalare, in
-          Orders, se il costo pagato è <strong>in linea</strong> con questa quota o fuori.
+          Percentuale di riferimento che paghi al fioraio/fornitore sul valore dell&apos;ordine (di norma <strong>60%</strong>).
+          In Orders: pagare <strong>sotto</strong> questa quota è buon margine (verde), <strong>sopra</strong> è margine basso (rosso).
         </p>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <div>
-            <label className="field-label">Quota attesa %</label>
-            <input type="number" name="quota" step="1" min="1" max="99" defaultValue={imp["ordini.quotaFornitore"] ?? "40"} style={{ width: 110 }} />
+            <label className="field-label">Quota %</label>
+            <input type="number" name="quota" step="1" min="1" max="99" defaultValue={imp["ordini.quotaFornitore"] ?? "60"} style={{ width: 110 }} />
           </div>
           <button className="btn primary" type="submit">Salva</button>
         </div>

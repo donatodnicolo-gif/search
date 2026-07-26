@@ -18,20 +18,20 @@ export const CATEGORIE_PAG: Record<string, string> = {
 
 const TOLLERANZA = 0.02;
 
-// Quota che Deluxy paga al fornitore sul valore dell'ordine (di norma ~40%).
-// Configurabile in Impostazioni (chiave `ordini.quotaFornitore`); qui il default.
-export const QUOTA_FORNITORE_DEFAULT = 40;
-// Tolleranza: entro ±5 punti percentuali dalla quota è "in linea" (es. 35–45%).
-const TOLLERANZA_QUOTA_PP = 5;
+// Quota di riferimento che Deluxy paga al fornitore sul valore dell'ordine: di
+// norma ~60%. Regola voluta dall'utente: pagare SOTTO il 60% è BENE (margine
+// alto), SOPRA il 60% è MALE (margine basso). Configurabile in Impostazioni
+// (chiave `ordini.quotaFornitore`); qui il default.
+export const QUOTA_FORNITORE_DEFAULT = 60;
 
 export type ValutazioneQuota = {
-  atteso: number; // importo atteso = totale × quota%
+  atteso: number; // importo di riferimento = totale × quota%
   pct: number; // quanto è stato pagato in % del totale
-  scostoPP: number; // scarto in punti percentuali dalla quota (>0 = sopra)
-  stato: "in_linea" | "sotto" | "sopra";
+  scostoPP: number; // scarto in punti percentuali dalla quota (>0 = sopra = male)
+  stato: "buono" | "alto"; // buono = pagato ≤ quota; alto = sopra quota (male)
 };
 
-// Valuta se l'importo pagato al fornitore è in linea con la quota attesa.
+// Valuta il pagato al fornitore rispetto alla quota: ≤ quota è buono, sopra è male.
 export function valutaQuota(
   totaleOrdine: number,
   pagato: number,
@@ -40,7 +40,7 @@ export function valutaQuota(
   const atteso = totaleOrdine * (quota / 100);
   const pct = totaleOrdine > 0.005 ? (pagato / totaleOrdine) * 100 : 0;
   const scostoPP = pct - quota;
-  const stato = Math.abs(scostoPP) <= TOLLERANZA_QUOTA_PP ? "in_linea" : scostoPP > 0 ? "sopra" : "sotto";
+  const stato = pct <= quota + 0.5 ? "buono" : "alto";
   return { atteso, pct, scostoPP, stato };
 }
 

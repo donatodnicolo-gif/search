@@ -301,6 +301,28 @@ model PagamentoDiretto {
   @@index([stato, createdAt])
 }
 
+// Richiesta di pagamento al fornitore per uno specifico ordine Shopify: importo
+// + come pagarlo (IBAN/beneficiario per bonifico, oppure un link di pagamento,
+// oppure una nota libera). Quando la si segna "pagata" diventa il costo
+// fornitore dell'ordine. Un ordine può avere più richieste (storico).
+model RichiestaPagamentoOrdine {
+  id            String        @id @default(cuid())
+  ordineId      String
+  ordine        OrdineShopify @relation(fields: [ordineId], references: [id], onDelete: Cascade)
+  importo       Float
+  beneficiario  String? // a chi va pagato (fioraio/fornitore)
+  iban          String?
+  bic           String?
+  linkPagamento String? // URL di pagamento (Stripe/PayPal/altro), in alternativa all'IBAN
+  note          String?
+  stato         String        @default("richiesto") // richiesto | pagato | annullato
+  pagatoIl      DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@index([ordineId])
+  @@index([stato])
+}
+
 // Esito della riconciliazione di un cliente Fatture in Cloud con un partner /
 // registro Anagrafiche. Traccia cosa è stato confermato (e inviato al registro)
 // o ignorato, per non riproporlo e per audit. Chiave = nome cliente FIC.
@@ -371,6 +393,7 @@ model OrdineShopify {
   fornitoreNome      String? // a chi è stato pagato (facoltativo)
   transazionePagamentoId String? // movimento bancario in uscita abbinato
   pagatoIl           DateTime?
+  richieste          RichiestaPagamentoOrdine[]
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 

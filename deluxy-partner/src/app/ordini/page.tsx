@@ -339,13 +339,13 @@ export default async function OrdiniPage({
                         {o.pagatoFornitore != null ? (
                           (() => {
                             const v = valutaQuota(o.totale, o.pagatoFornitore, quota);
-                            const col = v.stato === "in_linea" ? "var(--green)" : v.stato === "sotto" ? "var(--gold-strong)" : "var(--orange)";
+                            const col = v.stato === "buono" ? "var(--green)" : "var(--red)";
                             return (
                               <>
                                 {euro(o.pagatoFornitore)}
                                 <div style={{ fontSize: 11, color: col, fontWeight: 600 }}
-                                  title={v.stato === "in_linea" ? `In linea col ${quota}%` : `Atteso ${quota}%, qui ${v.pct.toFixed(0)}%`}>
-                                  {v.pct.toFixed(0)}%{v.stato !== "in_linea" ? " ⚠" : " ✓"}
+                                  title={v.stato === "buono" ? `Sotto il ${quota}%: buon margine` : `Sopra il ${quota}%: margine basso`}>
+                                  {v.pct.toFixed(0)}%{v.stato === "buono" ? " ✓" : " ⚠"}
                                 </div>
                               </>
                             );

@@ -9,6 +9,7 @@ import { eseguiSyncOrdini } from "./ordini-sync";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 import { registra } from "./registro";
 import { euro } from "./format";
+import { ibanValido } from "./impostazioni";
 
 function revalida() {
   revalidatePath("/ordini", "layout");
@@ -214,6 +215,64 @@ export async function azzeraPagamentoFornitore(ordineId: string) {
   await registra({ azione: `Rimosso il costo fornitore dall'ordine ${o.nome}`, categoria: "ordini", entita: "ordine", entitaId: o.id });
   revalida();
   redirect(`/ordini/${ordineId}?costo=rimosso`);
+}
+
+// ————— Richiesta di pagamento al fornitore per un ordine —————
+// Prepara la richiesta: importo + come pagarlo (IBAN/beneficiario, oppure un
+// link di pagamento, oppure una nota). Non muove denaro: predispone soltanto.
+export async function creaRichiestaPagamento(ordineId: string, fd: FormData) {
+  const err = (m: string) => redirect(`/ordini/${ordineId}?erroreRich=${encodeURIComponent(m)}`);
+  const importo = parseFloat(String(fd.get("importo") ?? "").replace(",", "."));
+  if (!Number.isFinite(importo) || importo <= 0) err("Indica l'importo da richiedere.");
+  const iban = String(fd.get("iban") ?? "").replace(/\s/g, "").toUpperCase() || null;
+  const link = String(fd.get("linkPagamento") ?? "").trim() || null;
+  const beneficiario = String(fd.get("beneficiario") ?? "").trim() || null;
+  const note = String(fd.get("note") ?? "").trim() || null;
+  if (!iban && !link && !note) err("Serve almeno un IBAN, un link di pagamento o una nota su come pagare.");
+  if (iban && !ibanValido(iban)) err("IBAN non valido: ricontrolla.");
+  const r = await prisma.richiestaPagamentoOrdine.create({
+    data: {
+      ordineId, importo: +importo.toFixed(2), beneficiario, iban,
+      bic: String(fd.get("bic") ?? "").replace(/\s/g, "").toUpperCase() || null,
+      linkPagamento: link, note,
+    },
+  });
+  const o = await prisma.ordineShopify.findUnique({ where: { id: ordineId }, select: { nome: true } });
+  await registra({
+    azione: `Richiesta di pagamento ${euro(importo)} per l'ordine ${o?.nome ?? ""}${beneficiario ? ` a ${beneficiario}` : ""}`,
+    categoria: "ordini", entita: "ordine", entitaId: ordineId,
+  });
+  revalida();
+  redirect(`/ordini/${ordineId}?rich=creata#richiesta-${r.id}`);
+}
+
+// Segna pagata una richiesta: diventa il COSTO fornitore dell'ordine.
+export async function segnaRichiestaPagata(id: string, ordineId: string) {
+  const r = await prisma.richiestaPagamentoOrdine.update({
+    where: { id }, data: { stato: "pagato", pagatoIl: new Date() },
+  });
+  const o = await prisma.ordineShopify.findUnique({ where: { id: ordineId }, select: { nome: true, brand: true, valuta: true, pagatoFornitore: true } });
+  // imposta il costo fornitore solo se non c'è già
+  if (o && o.pagatoFornitore == null) {
+    await prisma.ordineShopify.update({
+      where: { id: ordineId },
+      data: { pagatoFornitore: r.importo, pagatoIl: r.pagatoIl, fornitoreNome: r.beneficiario },
+    });
+    await registraPagamento({
+      tipo: "costo_ordine_shopify", direzione: "out", importo: r.importo, data: r.pagatoIl ?? new Date(),
+      origineId: ordineId, controparte: r.beneficiario ?? "fornitore",
+      descrizione: `Costo ordine ${o.nome} (${o.brand}) — richiesta pagata`, divisa: o.valuta,
+    });
+  }
+  await registra({ azione: `Richiesta di pagamento segnata pagata (ordine ${o?.nome ?? ""})`, categoria: "ordini", entita: "ordine", entitaId: ordineId });
+  revalida();
+  redirect(`/ordini/${ordineId}?rich=pagata`);
+}
+
+export async function annullaRichiestaPagamento(id: string, ordineId: string) {
+  await prisma.richiestaPagamentoOrdine.update({ where: { id }, data: { stato: "annullato" } });
+  revalida();
+  redirect(`/ordini/${ordineId}?rich=annullata`);
 }
 
 export async function riapriOrdine(ordineId: string) {

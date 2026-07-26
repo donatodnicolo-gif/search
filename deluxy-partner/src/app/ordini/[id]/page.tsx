@@ -5,19 +5,19 @@ import { euro, dataIt } from "@/lib/format";
 import { STATI_ORDINE, CATEGORIE_PAG, valutaQuota } from "@/lib/ordini";
 import { quotaFornitore } from "@/lib/ordini-config";
 import { tokenNegozio, scaricaTransazioniOrdine, type TransazioneOrdine } from "@/lib/shopify";
-import { registraPagamentoFornitore, azzeraPagamentoFornitore } from "@/lib/ordini-actions";
+import { registraPagamentoFornitore, azzeraPagamentoFornitore, creaRichiestaPagamento, segnaRichiestaPagata, annullaRichiestaPagamento } from "@/lib/ordini-actions";
 
-// Badge che dice se il pagato è in linea con la quota attesa (~40%).
+// Badge sul pagato rispetto alla quota: sotto il 60% è bene, sopra è male.
 function BadgeQuota({ totale, pagato, quota }: { totale: number; pagato: number; quota: number }) {
   const v = valutaQuota(totale, pagato, quota);
-  const cls = v.stato === "in_linea" ? "green" : v.stato === "sotto" ? "gold" : "orange";
-  const testo =
-    v.stato === "in_linea"
-      ? `In linea col ${quota}% (${v.pct.toFixed(0)}%)`
-      : v.stato === "sotto"
-        ? `Sotto il ${quota}%: ${v.pct.toFixed(0)}% (${v.scostoPP.toFixed(0)} p.p.)`
-        : `Sopra il ${quota}%: ${v.pct.toFixed(0)}% (+${v.scostoPP.toFixed(0)} p.p.)`;
-  return <span className={`badge ${cls}`}><span className="dot" />{testo}</span>;
+  return (
+    <span className={`badge ${v.stato === "buono" ? "green" : "red"}`}>
+      <span className="dot" />
+      {v.stato === "buono"
+        ? `Sotto il ${quota}%: ${v.pct.toFixed(0)}% — buon margine`
+        : `Sopra il ${quota}%: ${v.pct.toFixed(0)}% (+${v.scostoPP.toFixed(0)} p.p.) — margine basso`}
+    </span>
+  );
 }
 
 export const dynamic = "force-dynamic";
@@ -38,18 +38,40 @@ export default async function OrdineDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ costo?: string; erroreCosto?: string }>;
+  searchParams: Promise<{ costo?: string; erroreCosto?: string; cerca?: string; rich?: string; erroreRich?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
   const ordine = await prisma.ordineShopify.findUnique({ where: { id }, include: { negozio: true } });
   if (!ordine) notFound();
 
-  // movimenti in uscita (addebiti) selezionabili come pagamento al fornitore
+  // richieste di pagamento al fornitore per questo ordine (attive prima)
+  const richieste = await prisma.richiestaPagamentoOrdine.findMany({
+    where: { ordineId: id },
+    orderBy: [{ createdAt: "desc" }],
+  });
+
+  // Ricerca di un movimento in USCITA da abbinare come pagamento al fornitore:
+  // per causale/destinatario (testo) o per importo. Se non si cerca nulla,
+  // proponiamo il numero d'ordine come default (spesso in causale del bonifico).
+  const numeroOrd = ordine.nome.replace(/\D/g, "");
+  const q = (sp.cerca ?? numeroOrd).trim();
+  const qNum = parseFloat(q.replace(",", "."));
   const uscite = await prisma.transazioneBancaria.findMany({
-    where: { importo: { lt: 0 } },
+    where: {
+      importo: { lt: 0 },
+      ...(q
+        ? {
+            OR: [
+              { descrizione: { contains: q, mode: "insensitive" } },
+              { controparte: { contains: q, mode: "insensitive" } },
+              ...(Number.isFinite(qNum) ? [{ importo: { gte: -(qNum + 0.01), lte: -(qNum - 0.01) } }] : []),
+            ],
+          }
+        : {}),
+    },
     orderBy: { data: "desc" },
-    take: 400,
+    take: 40,
   });
   const oggiIso = new Date().toISOString().slice(0, 10);
   const quota = await quotaFornitore();
@@ -155,35 +177,79 @@ export default async function OrdineDetail({
           <>
             <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 12 }}>
               Registra <strong>quanto hai pagato al fioraio/fornitore</strong> per questo ordine. Di norma è circa il{" "}
-              <strong>{quota}%</strong> del valore ordine → <strong>~{euro(attesoFornitore)}</strong>. Puoi abbinare il
-              movimento bancario in uscita (Qonto/file) che lo documenta — un movimento può coprire più ordini.
+              <strong>{quota}%</strong> del valore ordine → <strong>~{euro(attesoFornitore)}</strong>. Sotto il {quota}% è
+              buon margine, sopra è margine basso.
             </p>
-            <form action={registraPagamentoFornitore.bind(null, id)} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-              <div>
-                <label className="field-label">Importo pagato €</label>
-                <input type="number" name="importo" step="0.01" min="0" required style={{ width: 130 }} defaultValue={attesoFornitore.toFixed(2)} />
-              </div>
-              <div>
-                <label className="field-label">Data</label>
-                <input type="date" name="data" defaultValue={oggiIso} />
-              </div>
-              <div>
-                <label className="field-label">Fornitore (facoltativo)</label>
-                <input type="text" name="fornitore" placeholder="nome fioraio" style={{ width: 180 }} />
-              </div>
-              <div>
-                <label className="field-label">Movimento in uscita (facoltativo)</label>
-                <select name="movimento" defaultValue="" style={{ minWidth: 260 }}>
-                  <option value="">— nessuno —</option>
-                  {uscite.slice(0, 200).map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {dataIt(u.data)} · {euro(u.importo)} · {(u.controparte ?? u.descrizione).slice(0, 40)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button className="btn primary" type="submit">Registra pagamento</button>
+
+            {/* Ricerca del movimento in uscita (per causale, importo o destinatario) da abbinare */}
+            <form method="get" className="filters" style={{ marginBottom: 12 }}>
+              <input
+                type="search"
+                name="cerca"
+                defaultValue={sp.cerca ?? ""}
+                placeholder={`Cerca movimento: causale, importo o destinatario (default: n° ${numeroOrd})`}
+                style={{ minWidth: 320, flex: "1 1 320px" }}
+              />
+              <button className="btn secondary small" type="submit">Cerca</button>
+              {sp.cerca && <Link className="btn secondary small" href={`/ordini/${id}`}>Azzera</Link>}
             </form>
+
+            {uscite.length === 0 ? (
+              <p className="muted" style={{ fontSize: 13 }}>Nessun movimento in uscita trovato per «{q}».</p>
+            ) : (
+              <div className="table-wrap" style={{ marginBottom: 14 }}>
+                <table>
+                  <thead>
+                    <tr><th>Data</th><th>Destinatario</th><th>Causale</th><th className="num">Importo</th><th className="num">% ord.</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    {uscite.map((u) => {
+                      const imp = Math.abs(u.importo);
+                      const v = valutaQuota(ordine.totale, imp, quota);
+                      return (
+                        <tr key={u.id}>
+                          <td style={{ whiteSpace: "nowrap", fontSize: 12.5 }}>{dataIt(u.data)}</td>
+                          <td style={{ fontSize: 12.5 }}>{u.controparte ?? "—"}</td>
+                          <td style={{ fontSize: 12 }} className="muted">{u.descrizione.slice(0, 50)}</td>
+                          <td className="num">{euro(imp)}</td>
+                          <td className="num" style={{ color: v.stato === "buono" ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
+                            {ordine.totale > 0 ? `${v.pct.toFixed(0)}%` : "—"}
+                          </td>
+                          <td>
+                            <form action={registraPagamentoFornitore.bind(null, id)}>
+                              <input type="hidden" name="importo" value={imp.toFixed(2)} />
+                              <input type="hidden" name="data" value={u.data.toISOString().slice(0, 10)} />
+                              <input type="hidden" name="fornitore" value={u.controparte ?? ""} />
+                              <input type="hidden" name="movimento" value={u.id} />
+                              <button className="btn small primary" type="submit" title="Imposta questo movimento come pagamento al fornitore">Usa</button>
+                            </form>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <details>
+              <summary style={{ cursor: "pointer", fontSize: 13, color: "var(--text-secondary)" }}>Oppure inserisci l&apos;importo a mano</summary>
+              <form action={registraPagamentoFornitore.bind(null, id)} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginTop: 10 }}>
+                <div>
+                  <label className="field-label">Importo pagato €</label>
+                  <input type="number" name="importo" step="0.01" min="0" required style={{ width: 130 }} defaultValue={attesoFornitore.toFixed(2)} />
+                </div>
+                <div>
+                  <label className="field-label">Data</label>
+                  <input type="date" name="data" defaultValue={oggiIso} />
+                </div>
+                <div>
+                  <label className="field-label">Fornitore (facoltativo)</label>
+                  <input type="text" name="fornitore" placeholder="nome fioraio" style={{ width: 180 }} />
+                </div>
+                <button className="btn primary" type="submit">Registra pagamento</button>
+              </form>
+            </details>
           </>
         )}
       </div>
@@ -266,6 +332,101 @@ export default async function OrdineDetail({
           )}
         </div>
       )}
+
+      {/* ---- Richiesta di pagamento al fornitore ---- */}
+      <h2 className="section-title">Richiedi pagamento al fornitore</h2>
+      {sp.rich && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />
+            {sp.rich === "creata" ? "Richiesta di pagamento creata" : sp.rich === "pagata" ? "Richiesta segnata pagata — è ora il costo fornitore" : "Richiesta annullata"}
+          </span>
+        </div>
+      )}
+      {sp.erroreRich && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.erroreRich)}</span>
+        </div>
+      )}
+
+      {richieste.length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Data</th><th className="num">Importo</th><th>Come pagare</th><th>Stato</th><th></th></tr></thead>
+              <tbody>
+                {richieste.map((r) => (
+                  <tr key={r.id} id={`richiesta-${r.id}`}>
+                    <td style={{ whiteSpace: "nowrap", fontSize: 12.5 }}>{dataIt(r.createdAt)}</td>
+                    <td className="num">{euro(r.importo)}</td>
+                    <td style={{ fontSize: 12.5 }}>
+                      {r.beneficiario && <div>{r.beneficiario}</div>}
+                      {r.iban && <div className="muted">IBAN {r.iban}{r.bic ? ` · BIC ${r.bic}` : ""}</div>}
+                      {r.linkPagamento && <div><a href={r.linkPagamento} target="_blank" rel="noopener noreferrer" style={{ color: "var(--blue)" }}>Link di pagamento ↗</a></div>}
+                      {r.note && <div className="muted">{r.note}</div>}
+                    </td>
+                    <td>
+                      <span className={`badge ${r.stato === "pagato" ? "green" : r.stato === "annullato" ? "neutral" : "orange"}`}>
+                        <span className="dot" />{r.stato === "pagato" ? `Pagata ${dataIt(r.pagatoIl)}` : r.stato === "annullato" ? "Annullata" : "Richiesta"}
+                      </span>
+                    </td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {r.stato === "richiesto" && (
+                        <span style={{ display: "inline-flex", gap: 6 }}>
+                          <form action={segnaRichiestaPagata.bind(null, r.id, id)}>
+                            <button className="btn small primary" type="submit" title="Segna pagata: diventa il costo fornitore dell'ordine">Segna pagata</button>
+                          </form>
+                          <form action={annullaRichiestaPagamento.bind(null, r.id, id)}>
+                            <button className="btn small secondary" type="submit">Annulla</button>
+                          </form>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="card">
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 12 }}>
+          Prepara una richiesta di pagamento per questo ordine: importo e come pagarlo — <strong>IBAN</strong> e dati del
+          beneficiario per un bonifico, <strong>oppure</strong> un <strong>link di pagamento</strong>, oppure una nota.
+          L&apos;app non esegue pagamenti; quando lo segni pagato diventa il costo fornitore dell&apos;ordine.
+        </p>
+        <form action={creaRichiestaPagamento.bind(null, id)}>
+          <div className="form-grid">
+            <div>
+              <label className="field-label">Importo € <span className="req">*</span></label>
+              <input type="number" name="importo" step="0.01" min="0" required defaultValue={attesoFornitore.toFixed(2)} />
+            </div>
+            <div>
+              <label className="field-label">Beneficiario</label>
+              <input type="text" name="beneficiario" placeholder="nome fioraio/fornitore" defaultValue={ordine.fornitoreNome ?? ""} />
+            </div>
+            <div>
+              <label className="field-label">IBAN</label>
+              <input type="text" name="iban" placeholder="IT.. per bonifico" />
+            </div>
+            <div>
+              <label className="field-label">BIC (facoltativo)</label>
+              <input type="text" name="bic" placeholder="per banche estere" />
+            </div>
+            <div className="full">
+              <label className="field-label">Link di pagamento (in alternativa all&apos;IBAN)</label>
+              <input type="url" name="linkPagamento" placeholder="https://..." />
+            </div>
+            <div className="full">
+              <label className="field-label">Note</label>
+              <input type="text" name="note" placeholder="istruzioni, riferimento, scadenza…" />
+            </div>
+          </div>
+          <div className="form-footer">
+            <button className="btn primary" type="submit">Crea richiesta di pagamento</button>
+          </div>
+        </form>
+      </div>
 
       <p style={{ marginTop: 16 }}>
         <a
