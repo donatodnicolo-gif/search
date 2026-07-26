@@ -106,12 +106,26 @@ export const CATEGORIE_GUSTO = CATEGORIE.filter((c) => !c.servizio).map((c) => c
 // una query sola sia per non avere due regole diverse che dicono cose diverse.
 // `colonna` è l'espressione col titolo, `predefinita` quella con la specialità
 // del negozio (può essere NULL).
-export function sqlCategoria(colonna: string, predefinita: string): string {
-  const rami = CATEGORIE.map((c) => `WHEN ${colonna} ~* '${c.parole}' THEN '${c.chiave}'`).join("\n    ");
-  return `CASE
-    ${rami}
-    ELSE COALESCE(NULLIF(${predefinita}, ''), 'non-classificato')
-  END`;
+// L'ordine di precedenza, dal più forte al più debole:
+//  1. quello che ha detto una PERSONA (CategoriaProdotto, origine `manuale`);
+//  2. le PAROLE del titolo: deterministiche, si leggono, non cambiano da sole;
+//  3. la proposta dell'**AI** sul singolo prodotto (origine `ai`);
+//  4. la SPECIALITÀ del negozio;
+//  5. «non classificato», che è una risposta onesta.
+// `prodotto` è l'alias della tabella CategoriaProdotto già in join (o `NULL` se
+// chi chiama non ce l'ha).
+export function sqlCategoria(colonna: string, predefinita: string, prodotto?: string): string {
+  const rami = CATEGORIE.map((c) => `WHEN ${colonna} ~* '${c.parole}' THEN '${c.chiave}'`).join("\n      ");
+  const dalleParole = `CASE\n      ${rami}\n      ELSE NULL\n    END`;
+  const manuale = prodotto ? `CASE WHEN ${prodotto}."origine" = 'manuale' THEN ${prodotto}."categoria" END` : "NULL";
+  const dallAI = prodotto ? `${prodotto}."categoria"` : "NULL";
+  return `COALESCE(
+    ${manuale},
+    ${dalleParole},
+    ${dallAI},
+    NULLIF(${predefinita}, ''),
+    'non-classificato'
+  )`;
 }
 
 // La stessa cosa in TypeScript, per la sync (che ha le righe in memoria).
@@ -137,7 +151,7 @@ export function categorieOrdine(titoli: string[], predefinita?: string | null): 
 export async function ricalcolaCategorie(): Promise<{ aggiornati: number }> {
   const { prisma, tabella } = await import("./db");
   const { Prisma } = await import("@prisma/client");
-  const caso = Prisma.raw(sqlCategoria(`r."titolo"`, `n."categoriaPredefinita"`));
+  const caso = Prisma.raw(sqlCategoria(`r."titolo"`, `n."categoriaPredefinita"`, "cp"));
 
   const aggiornati = await prisma.$executeRaw(Prisma.sql`
     UPDATE ${tabella("Ordine")} o
@@ -147,6 +161,7 @@ export async function ricalcolaCategorie(): Promise<{ aggiornati: number }> {
       FROM ${tabella("RigaOrdine")} r
       JOIN ${tabella("Ordine")} o2 ON o2.id = r."ordineId"
       JOIN ${tabella("NegozioShopify")} n ON n.id = o2."negozioId"
+      LEFT JOIN ${tabella("CategoriaProdotto")} cp ON cp."titolo" = r."titolo"
       GROUP BY r."ordineId"
     ) x
     WHERE o.id = x.id AND o."categorie" IS DISTINCT FROM x.cat

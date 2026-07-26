@@ -47,7 +47,10 @@ export function Sidebar({
     },
     {
       titolo: "Configurazione",
-      voci: [{ href: "/impostazioni", nome: "Impostazioni", count: null, icona: iconaImpostazioni }],
+      voci: [
+        { href: "/categorie", nome: "Categorie prodotti", count: null, icona: iconaCategorie },
+        { href: "/impostazioni", nome: "Impostazioni", count: null, icona: iconaImpostazioni },
+      ],
     },
   ];
 
@@ -121,6 +124,12 @@ const iconaConsegna = (
     <rect x="3" y="5" width="18" height="16" rx="2" />
     <line x1="3" y1="10" x2="21" y2="10" /><line x1="8" y1="3" x2="8" y2="7" /><line x1="16" y1="3" x2="16" y2="7" />
     <circle cx="12" cy="15.5" r="2.5" /><path d="M12 14.3v1.4l1 .6" />
+  </svg>
+);
+const iconaCategorie = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
   </svg>
 );
 const iconaImpostazioni = (

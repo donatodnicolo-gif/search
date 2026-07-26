@@ -483,6 +483,31 @@ model FeedbackOrdine {
   @@index([aggiornatoIl])
 }
 
+// La categoria di un PRODOTTO, quando il suo nome non basta a capirla.
+//
+// I prodotti più venduti si chiamano «Botticelli - Nascita di Venere»,
+// «Favolosa», «Alexander»: nel titolo non c'è nessuna parola che dica cosa
+// sono. Qui si tiene la risposta, con scritto **da dove viene**:
+//  · `manuale` — l'ha detto una persona, e vince su tutto;
+//  · `ai` — l'ha proposta ChatGPT guardando nome, negozio e prezzo. È una
+//    proposta: si vede, si corregge, e resta marcata come tale finché qualcuno
+//    non la conferma.
+// Le regole a parole (src/lib/categorie.ts) restano davanti alle proposte
+// dell'AI: sono deterministiche e si leggono.
+model CategoriaProdotto {
+  id         String   @id @default(cuid())
+  titolo     String   @unique // il titolo della riga d'ordine, così com'è
+  categoria  String // una delle categorie vere, mai una inventata
+  origine    String   @default("ai") // ai | manuale
+  confermata Boolean  @default(false) // true = una persona l'ha guardata
+  motivo     String? // perché, come l'ha spiegato l'AI
+  righe      Int      @default(0) // quante righe d'ordine porta con sé
+  creatoIl   DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([origine, confermata])
+}
+
 // Riga d'ordine (line item) importata da Shopify.
 model RigaOrdine {
   id       String  @id @default(cuid())

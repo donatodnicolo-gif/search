@@ -10,6 +10,7 @@ import { importaFeedback } from "@/lib/feedback";
 import { preparaGiro, type VariabileScript } from "@/lib/automazioni";
 import { rilevaEventi } from "@/lib/eventi";
 import { ricalcolaCategorie } from "@/lib/categorie";
+import { proponiCategorieAI } from "@/lib/categorie-ai";
 import { eseguiSyncOrdini } from "@/lib/sync";
 import { tokenNegozio } from "@/lib/shopify";
 import { cercaDocumento, scriviConsegna, dataValida, fasciaValida } from "@/lib/consegna";
@@ -261,6 +262,55 @@ export async function aggiornaEventoCliente(fd: FormData) {
   });
   revalidatePath("/eventi");
   revalidatePath("/clienti");
+}
+
+// ---- Categorie dei prodotti: la proposta dell'AI ----
+// L'AI propone, la persona corregge. Qui si chiede la proposta; l'esito torna
+// nella query string perché parla con un servizio esterno e, se non risponde,
+// il motivo si deve leggere.
+export async function chiediCategorieAI(fd: FormData) {
+  const quanti = Math.min(400, Math.max(10, Number(s(fd, "quanti") ?? "120") || 120));
+  const esito = await proponiCategorieAI(quanti);
+  revalidatePath("/categorie");
+  revalidatePath("/liste");
+  const messaggio = esito.errore
+    ? `errore=${encodeURIComponent(esito.errore)}`
+    : `esito=${encodeURIComponent(
+        `${esito.esaminati} prodotti guardati con ${esito.modello} in ${esito.chiamate} chiamate · ${esito.classificati} classificati · ${esito.nonClassificati} lasciati da parte perché ambigui${esito.scartati ? ` · ${esito.scartati} risposte scartate` : ""}`,
+      )}`;
+  redirect(`/categorie?${messaggio}`);
+}
+
+// La categoria decisa da una persona: vince su tutto e l'AI non la tocca più.
+export async function impostaCategoriaProdotto(fd: FormData) {
+  const titolo = s(fd, "titolo");
+  if (!titolo) return;
+  const categoria = s(fd, "categoria");
+
+  if (!categoria) {
+    // Vuoto = «togli la mia decisione»: si torna a quello che dicono le regole.
+    await prisma.categoriaProdotto.deleteMany({ where: { titolo } });
+  } else {
+    await prisma.categoriaProdotto.upsert({
+      where: { titolo },
+      create: { titolo, categoria, origine: "manuale", confermata: true },
+      update: { categoria, origine: "manuale", confermata: true },
+    });
+  }
+  await ricalcolaCategorie();
+  revalidatePath("/categorie");
+  revalidatePath("/liste");
+}
+
+// «L'ho guardata ed è giusta»: la proposta dell'AI diventa una scelta confermata.
+export async function confermaCategoriaProdotto(fd: FormData) {
+  const titolo = s(fd, "titolo");
+  if (!titolo) return;
+  await prisma.categoriaProdotto.updateMany({
+    where: { titolo },
+    data: { origine: "manuale", confermata: true },
+  });
+  revalidatePath("/categorie");
 }
 
 // ---- Script (i testi che si mandano ai clienti) ----

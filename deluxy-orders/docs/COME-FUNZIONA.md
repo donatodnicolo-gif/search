@@ -329,6 +329,38 @@ Da qui nasce la lista **«Ha un'occasione fra 30 giorni»** (359 clienti,
 99.000 EUR di storico): la più preziosa del catalogo, perché non stai
 proponendo di comprare — stai ricordando una data che a quella persona importa.
 
+### Categorie dei prodotti e l'AI (`/categorie`)
+Di cosa è fatto un ordine — e quindi cosa piace a un cliente. Le **parole del
+titolo** riconoscono la maggior parte dei prodotti («Bouquet Rose Rosse» →
+fiori, «Crostata di Frutta» → torte), ma i più venduti si chiamano «Botticelli -
+Nascita di Venere», «Favolosa», «Alexander»: nel nome non c'è niente da
+riconoscere, e su 4.367 titoli diversi un elenco scritto a mano andrebbe
+riscritto a ogni collezione.
+
+Qui entra **ChatGPT**: guarda nome, negozio (con la sua specialità dichiarata) e
+prezzo medio, e **propone** una categoria con il **motivo** scritto. Chi decide,
+in ordine: quello che scrivi tu → le parole del titolo → la proposta dell'AI →
+la specialità del negozio → «non classificato».
+
+Le regole che la tengono onesta, e sono la stessa cosa che fanno le altre app
+Deluxy con l'AI:
+
+1. **non può inventare categorie**: una risposta fuori dall'elenco viene
+   scartata e il prodotto resta senza categoria;
+2. **non tocca ciò che le regole già sanno**: la si interroga solo sui prodotti
+   che nessuna parola riconosce;
+3. **«non classificato» è una risposta giusta**: se l'unico argomento è «costa
+   una cifra plausibile», deve dirlo invece di indovinare. Sui 40 prodotti più
+   venduti senza categoria ne ha classificati 12 con una ragione vera (il
+   negozio vende solo fiori, «Nigiri» è sushi, «Luxury Cream Tart» è una torta) e
+   ne ha lasciati 28 da parte;
+4. **resta una proposta**: si vede in pagina col motivo, si corregge in un clic,
+   e la correzione di una persona vince e non viene più toccata.
+
+Un prodotto senza categoria non è un errore: è un buco dichiarato. Finché resta
+lì, quel cliente non risulta «amante» di niente per colpa di quel prodotto — che
+è meglio che farlo risultare amante della cosa sbagliata.
+
 ### Script (`/script`)
 Uno **script** è un testo da mandare ai clienti, scritto una volta e riusato
 dalle automazioni: il messaggio di riordino, l'invito per una ricorrenza, il

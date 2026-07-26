@@ -30,6 +30,8 @@ Variabili d'ambiente:
 | `ORDERS_APP_PASSWORD` | password unica della UI (se assente, UI aperta in locale) |
 | `CRON_SECRET` | protegge `/api/cron/sync` (sync notturna Vercel) |
 | `MESSAGGI_URL` | dove sta il Customer Service (deluxy-messaging), per importare i feedback |
+| `OPENAI_API_KEY` | l'AI che classifica i prodotti (ChatGPT). Se manca, l'AI si spegne e lo dice |
+| `OPENAI_MODEL` | modello da usare (default `gpt-4o-mini`, lo stesso delle altre app) |
 | `MESSAGGI_API_KEY` | chiave di sola lettura del Customer Service (si crea là: `npm run chiave -- deluxy-orders`) |
 
 ## Come funziona (in breve)
@@ -112,7 +114,7 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 
 ## Struttura
 
-- `prisma/schema.prisma` — NegozioShopify, Ordine, RigaOrdine, StatoOrdine, Etichetta, EventoOrdine, FeedbackOrdine, TagCliente, PrivacyCliente, EventoCliente, Script, Automazione, MessaggioAutomazione, ApiKey.
+- `prisma/schema.prisma` — NegozioShopify, Ordine, RigaOrdine, StatoOrdine, Etichetta, EventoOrdine, FeedbackOrdine, TagCliente, PrivacyCliente, EventoCliente, CategoriaProdotto, Script, Automazione, MessaggioAutomazione, ApiKey.
 - `src/lib/shopify.ts` — client Admin GraphQL (ordini + righe + spedizione + tag), paginazione con ritentativi sui limiti di frequenza.
 - `src/lib/sync.ts` — import/upsert riutilizzabile (pulsante, script, cron), a blocchi per reggere gli import storici.
 - `src/lib/ordini.ts` — filtro condiviso UI/API + serializzazione.
@@ -127,6 +129,10 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 - `src/lib/feedback.ts` — import dei reclami e dei voti dal Customer Service.
 - `src/lib/categorie.ts` — le categorie di prodotto dedotte dai titoli delle
   righe (vocabolario unico in TS e SQL) e il ricalcolo dell'archivio.
+- `src/lib/ai.ts` — il cliente OpenAI: l'AI propone, un controllo
+  deterministico decide, una persona conferma.
+- `src/lib/categorie-ai.ts` — l'AI che classifica i prodotti che le regole a
+  parole non riconoscono (nome, negozio e prezzo; mai categorie inventate).
 - `src/lib/eventi.ts` — le occasioni dei clienti ricavate dalle date di
   consegna e dai destinatari (rilevamento idempotente).
 - `src/lib/brand.ts` — brand e loro colori.

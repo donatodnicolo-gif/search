@@ -169,6 +169,28 @@ campo `problema` nelle API.
 - Provato su un ordine vero (#1713): segnato → 88 aperti / 1 gestito con
   l'evento nella storia, poi rimesso com'era.
 
+### AI (ChatGPT) — prima applicazione: le categorie dei prodotti (26/07/2026)
+`src/lib/ai.ts` è il cliente OpenAI dell'app (chiave `OPENAI_API_KEY`, modello
+`gpt-4o-mini` come nelle altre app; impostata anche su Vercel). Nessun pacchetto
+nuovo: chiamata fetch e basta.
+
+Prima applicazione: `/categorie` — l'AI classifica i prodotti che le regole a
+parole non riconoscono (`src/lib/categorie-ai.ts`, tabella `CategoriaProdotto`).
+Precedenza: manuale → parole → AI → specialità del negozio → non classificato.
+
+- **Misurato sui dati veri**: 40 prodotti chiesti in 1 chiamata, 17 secondi →
+  12 classificati con motivo, 28 lasciati come «non so», 0 scartati. Copertura
+  delle righe d'ordine dal 79% all'85%.
+- ⚠️ **TRAPPOLA: l'AI risponde col NOME della categoria, non con la chiave.**
+  Il primo controllo accettava solo `torte` e scartava «Torte e pasticceria»:
+  12 prodotti su 40 buttati, e sembrava un errore del modello mentre era del
+  controllo. Ora si normalizza (chiave o nome, senza maiuscole).
+- ⚠️ **Il prompt va tenuto in equilibrio.** Una versione troppo severa («se
+  l'unico argomento è il prezzo, rispondi non-classificato») ha portato a 0
+  classificati su 40; una troppo permissiva faceva scrivere «il negozio indica
+  una torta» anche per deluxy.it, che vende di tutto. Ora al modello si dice
+  quale negozio ha una specialità e quale no.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare
