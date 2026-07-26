@@ -58,6 +58,30 @@ server** (su tutti gli ordini, non solo quelli in pagina): testo su numero, clie
 telefono — normalizzando le cifre, così "+39 333 12" trova "+393331234567" — email,
 indirizzo e negozio, più i filtri per negozio e per contatto salvato/da salvare.
 
+**Aggiornamento automatico ogni 15 minuti.** Gli ordini arrivano da soli: un cron Vercel
+(`vercel.json` → `/api/cron/ordini`) rifà lo scarico incrementale ogni quarto d'ora, così
+un ordine ricevuto alle 9:03 è qui entro le 9:15 senza che nessuno prema niente. In testa
+alla pagina Ordini c'è scritto da quanto è passato l'ultimo giro — se il cron si fermasse,
+si vedrebbe. *Aggiorna da Ordini* resta per quando non si vuole aspettare. La rotta è
+protetta dal `CRON_SECRET` (header `Authorization: Bearer …`, che Vercel manda da solo):
+senza segreto configurato risponde 503 invece di restare un endpoint aperto.
+Il **salvataggio dei contatti in rubrica ha un cron suo**, ogni ora
+(`/api/cron/contatti`): misurato, è la parte lenta — 40 chiamate alla People API, oltre 3
+minuti, contro i ~20 secondi degli ordini — e attaccato al giro dei 15 minuti lo avrebbe
+fatto scadere, facendo perdere proprio gli ordini che deve salvare.
+
+**Partner (dal registro Anagrafiche).** `/partner` mostra i partner **attivi** letti da
+**Deluxy Anagrafiche**, la fonte di verità delle anagrafiche B2B
+(`GET /api/v1/partners?stato=attivo`, chiave di sola lettura in Impostazioni). Non ne
+teniamo copia — è la regola del registro: si rilegge a ogni apertura, così un partner
+dismesso sparisce subito anche di qui, e per modificarli si va in Anagrafiche. Si cerca su
+tutti i campi (referenti compresi, la ricerca la fa il registro) e si filtra per categoria
+e città; per ogni partner c'è lo stato dei **pagamenti** — lo scrive l'amministrazione, e
+cambia il tono con cui gli scrivi — e il bottone **Scrivi**, che apre WhatsApp o la mail.
+Quel bottone guarda prima l'insegna e **poi i referenti**: nel registro di oggi nessuno dei
+41 partner attivi ha un telefono proprio, ma 28 hanno un referente col numero — senza il
+ripiego il bottone sarebbe spento per 37 partner su 41.
+
 **Vista a colonne e collegamenti alle altre app.** `/ordini` ha due viste: **Colonne**
 (una per negozio, con conteggio e valore del filtro, card con numero/importo/cliente/città)
 ed **Elenco** (tabella). Sotto ogni ordine c'è il bottone **Fornitore**, che apre l'app
@@ -148,8 +172,9 @@ contatti vanno salvati anche senza un operatore davanti.
 
 Vedi [.env.example](.env.example): `DATABASE_URL`/`DIRECT_URL` (Postgres), `APP_SECRET`
 (firma sessioni + cifra i token Meta salvati), `APP_URL` (URL pubblico per webhook e
-snippet). I token dei canali NON stanno nell'ambiente: si incollano in Impostazioni e
-finiscono cifrati (AES-256-GCM) nel database.
+snippet) e `CRON_SECRET` (protegge i cron: **senza, l'aggiornamento automatico degli
+ordini non parte** — la rotta risponde 503). I token dei canali NON stanno nell'ambiente:
+si incollano in Impostazioni e finiscono cifrati (AES-256-GCM) nel database.
 
 ## Avvio
 

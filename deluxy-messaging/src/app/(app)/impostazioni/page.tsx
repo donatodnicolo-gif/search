@@ -42,6 +42,8 @@ export default async function PaginaImpostazioni({
     'openaiModelloImmagini',
     'partnerUrl',
     'partnerApiKey',
+    'anagraficheUrl',
+    'anagraficheApiKey',
   ])
 
   // URL pubblico dell'app: da APP_URL, altrimenti dall'host della richiesta.
@@ -361,6 +363,35 @@ export default async function PaginaImpostazioni({
                 name="ordersApiKey"
                 type="password"
                 placeholder={config.ordersApiKey ? 'salvata — incolla per sostituire' : ''}
+                autoComplete="off"
+              />
+            </label>
+          </div>
+
+          <div className="card">
+            <h2>Registro partner (Deluxy Anagrafiche)</h2>
+            <p className="descrizione">
+              La pagina <strong>Partner</strong> legge i partner attivi dal registro centrale a
+              ogni apertura — qui non se ne tiene copia, così un partner dismesso sparisce
+              subito. Serve una chiave di sola lettura, creata in Anagrafiche.
+            </p>
+            <label className="campo">
+              <span>URL del registro</span>
+              <input
+                name="anagraficheUrl"
+                defaultValue={config.anagraficheUrl}
+                placeholder="https://deluxy-anagrafiche.vercel.app"
+              />
+            </label>
+            <label className="campo">
+              <span>
+                Chiave API (sola lettura){' '}
+                <BadgeConfigurato pieno={!!config.anagraficheApiKey} />
+              </span>
+              <input
+                name="anagraficheApiKey"
+                type="password"
+                placeholder={config.anagraficheApiKey ? 'salvata — incolla per sostituire' : 'dlxk_…'}
                 autoComplete="off"
               />
             </label>

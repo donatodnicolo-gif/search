@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     if (cifre.length >= 4) dove.OR.push({ telefono: { contains: cifre } })
   }
 
-  const [ordini, totale, token, negoziDb, gruppi] = await Promise.all([
+  const [ordini, totale, token, negoziDb, gruppi, ultimaSync] = await Promise.all([
     db.ordine.findMany({ where: dove, orderBy: { data: 'desc' }, take: 200 }),
     db.ordine.count({ where: dove }),
     googleAccessToken().catch(() => null),
@@ -56,6 +56,9 @@ export async function GET(req: NextRequest) {
       _count: { _all: true },
       _sum: { totale: true },
     }),
+    // Quando è passato l'ultimo giro automatico: serve a far vedere che il cron
+    // dei 15 minuti sta girando (o che si è fermato).
+    db.impostazione.findUnique({ where: { chiave: 'ordiniSyncUltimo' } }),
   ])
 
   const statistiche = Object.fromEntries(
@@ -76,5 +79,6 @@ export async function GET(req: NextRequest) {
     totale, // quanti corrispondono in tutto (la lista è tagliata a 200)
     negozi,
     googleCollegato: !!token,
+    ultimaSync: ultimaSync?.valore ?? '',
   })
 }

@@ -15,6 +15,7 @@ export function Sidebar() {
         { href: '/', nome: 'Ordini', icona: iconaLista },
         { href: '/calendario', nome: 'Calendario', icona: iconaCalendario },
         { href: '/clienti', nome: 'Clienti', icona: iconaClienti },
+        { href: '/partner', nome: 'Partner', icona: iconaPartner },
         { href: '/pagamenti', nome: 'Pagamenti', icona: iconaPagamenti },
       ],
     },
@@ -96,6 +97,13 @@ const iconaClienti = (
     <circle cx="9.5" cy="7.5" r="3.5" />
     <path d="M21 20v-1.5a4 4 0 0 0-3-3.87" />
     <path d="M16.5 4.13a4 4 0 0 1 0 7.75" />
+  </svg>
+)
+const iconaPartner = (
+  <svg {...T} strokeLinejoin="round">
+    <path d="M3 20V9l6-4 6 4v11" />
+    <path d="M15 20V12h6v8" />
+    <path d="M7 13h4M7 16.5h4M18 15.5v1" />
   </svg>
 )
 const iconaChat = (

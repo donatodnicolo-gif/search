@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { salvaContattiOrdini } from '@/lib/contatti'
-import { brandRicercaDaNegozio, prefissoDaNegozio } from '@/lib/negozi'
-import { scaricaOrdiniDaOrders, statiDaOrders } from '@/lib/orders'
+import { annotaSync, sincronizzaOrdini } from '@/lib/sincronizza'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -11,110 +8,17 @@ export const maxDuration = 60
 // sincronizza Shopify): una sola fonte di verità per tutte le app, con la stessa
 // classificazione. Qui se ne tiene una copia recente per lavorarci in inbox.
 //
-// Ogni brand di Orders diventa un "negozio" locale: serve alle colonne della
-// bacheca, alla sigla in rubrica (FL/CK/DL) e al bottone Fornitore. Se un brand
-// non c'è ancora, si crea da solo — senza credenziali, perché non serve più
-// parlare con Shopify.
-type Negozio = { id: string; nome: string }
-
-async function negozioPerBrand(brand: string, cache: Map<string, Negozio>): Promise<Negozio> {
-  const chiave = brand.trim().toLowerCase()
-  const gia = cache.get(chiave)
-  if (gia) return gia
-
-  // solo alla prima comparsa di un brand: poi risponde la cache
-  const esistenti = await db.negozioShopify.findMany()
-  const trovato = esistenti.find(
-    (n) =>
-      n.nome.trim().toLowerCase() === chiave ||
-      n.dominio.trim().toLowerCase() === chiave ||
-      brandRicercaDaNegozio(n.nome, n.dominio, n.brandRicerca).toLowerCase() ===
-        brandRicercaDaNegozio(brand, '').toLowerCase()
-  )
-  if (trovato) {
-    const n = { id: trovato.id, nome: trovato.nome }
-    cache.set(chiave, n)
-    return n
-  }
-
-  const creato = await db.negozioShopify.create({
-    data: {
-      nome: brand,
-      dominio: chiave,
-      prefisso: prefissoDaNegozio(brand, ''),
-      brandRicerca: brandRicercaDaNegozio(brand, ''),
-    },
-  })
-  const n = { id: creato.id, nome: creato.nome }
-  cache.set(chiave, n)
-  return n
-}
-
+// Questo è il pulsante "Aggiorna" a mano; il giro automatico ogni 15 minuti è in
+// /api/cron/ordini. La logica è condivisa: src/lib/sincronizza.ts.
 export async function POST(req: NextRequest) {
-  // Aggiornamento INCREMENTALE: si riparte dal giorno dell'ordine più recente
-  // che abbiamo (meno un giorno di margine), non dai 60 giorni pieni. Così il
-  // primo giro è l'unico lungo e i successivi durano pochi secondi — necessario
-  // perché su Vercel una funzione ha un tetto di tempo.
-  // Con ?completo=1 si rifà tutta la finestra: serve dopo aver aggiunto campi
-  // nuovi (come consegna e stato), che gli ordini già salvati non hanno.
   const completo = req.nextUrl.searchParams.get('completo') === '1'
-  const piuRecente = completo
-    ? null
-    : await db.ordine.findFirst({ orderBy: { data: 'desc' }, select: { data: true } })
-  const giorniIndietro = piuRecente
-    ? Math.max(1, Math.ceil((Date.now() - piuRecente.data.getTime()) / 86400000) + 1)
-    : 60
-
-  let ordini
   try {
-    ordini = await scaricaOrdiniDaOrders(Math.min(giorniIndietro, 60))
+    const esito = await sincronizzaOrdini({ completo })
+    await annotaSync({ ok: true, nota: `${esito.scaricati} ordini, ${esito.nuovi} nuovi (a mano)` })
+    return NextResponse.json(esito)
   } catch (e) {
-    return NextResponse.json({ errore: (e as Error).message }, { status: 502 })
+    const messaggio = (e as Error).message
+    await annotaSync({ ok: false, nota: messaggio })
+    return NextResponse.json({ errore: messaggio }, { status: 502 })
   }
-
-  const cache = new Map<string, Negozio>()
-  const stati = await statiDaOrders() // colori della pipeline, per il calendario
-  let nuovi = 0
-
-  for (const o of ordini) {
-    const negozio = await negozioPerBrand(o.brand || 'senza brand', cache)
-    const negozioId = negozio.id
-    const comuni = {
-      // il nome del NEGOZIO, non il brand grezzo: Orders chiama lo stesso
-      // negozio ora "Flowers" ora "deluxyflowers.com", qui dev'essere uno solo
-      negozioNome: negozio.nome,
-      numero: o.numero,
-      data: new Date(o.data),
-      totale: o.totale,
-      valuta: o.valuta || 'EUR',
-      clienteNome: o.clienteNome,
-      telefono: o.telefono,
-      email: o.email,
-      citta: o.citta,
-      dataConsegna: o.dataConsegna ? new Date(o.dataConsegna) : null,
-      fasciaConsegna: o.fasciaConsegna,
-      statoChiave: o.statoChiave,
-      statoNome: o.statoNome || stati.get(o.statoChiave)?.nome || '',
-      statoColore: stati.get(o.statoChiave)?.colore || '',
-    }
-    const esito = await db.ordine.upsert({
-      // il gid Shopify è la chiave stabile: gli ordini presi prima da Shopify
-      // si aggiornano invece di duplicarsi
-      where: { negozioId_shopifyId: { negozioId, shopifyId: o.orderId } },
-      // contattoSalvato/contattoEsito sono nostri: non si sovrascrivono
-      update: comuni,
-      create: { negozioId, shopifyId: o.orderId, ...comuni },
-    })
-    if (Date.now() - esito.creatoIl.getTime() < 5000) nuovi++
-  }
-
-  // Salvataggio automatico dei contatti (salta da solo se Google non è collegato).
-  let contatti
-  try {
-    contatti = await salvaContattiOrdini()
-  } catch (e) {
-    contatti = { errore: (e as Error).message }
-  }
-
-  return NextResponse.json({ scaricati: ordini.length, nuovi, contatti })
 }

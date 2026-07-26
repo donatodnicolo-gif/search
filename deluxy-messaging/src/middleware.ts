@@ -13,9 +13,10 @@ export async function middleware(req: NextRequest) {
 export const config = {
   // Tutto tranne: il login, la pagina e le API del widget (pubbliche: sono la
   // chat dei visitatori dei siti, autenticata dal token di sessione del widget),
-  // i webhook Meta (autenticati dal verify token e dalla firma X-Hub-Signature)
-  // e gli asset.
+  // i webhook Meta (autenticati dal verify token e dalla firma X-Hub-Signature),
+  // i cron di Vercel (autenticati dal Bearer CRON_SECRET: non hanno un cookie di
+  // sessione, di qui verrebbero rimandati al login) e gli asset.
   matcher: [
-    '/((?!login|registrati|widget|api/widget|api/webhooks|_next/static|_next/image|favicon.ico).*)',
+    '/((?!login|registrati|widget|api/widget|api/webhooks|api/cron|_next/static|_next/image|favicon.ico).*)',
   ],
 }

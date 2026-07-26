@@ -21,6 +21,10 @@ import { cifra, decifra } from './crypto'
 // - ordersUrl         : URL dell'app Deluxy Orders (default deluxy-orders.vercel.app)
 // - ordersApiKey      : chiave di sola lettura delle API di Orders (cifrata), per
 //                       cercare gli ordini più vecchi di quelli scaricati da Shopify
+// - anagraficheUrl    : URL del registro partner (default deluxy-anagrafiche.vercel.app)
+// - anagraficheApiKey : chiave di sola lettura del registro (cifrata), per la pagina Partner
+// - ordiniSyncUltimo  : quando ha girato l'ultimo aggiornamento automatico degli ordini
+// - ordiniSyncEsito   : com'è andato (per capire se il cron dei 15 minuti si è fermato)
 
 const CHIAVI_CIFRATE = new Set([
   'metaAppSecret',
@@ -35,6 +39,7 @@ const CHIAVI_CIFRATE = new Set([
   'anthropicApiKey',
   'openaiApiKey',
   'partnerApiKey',
+  'anagraficheApiKey',
 ])
 
 export async function leggiImpostazione(chiave: string): Promise<string> {

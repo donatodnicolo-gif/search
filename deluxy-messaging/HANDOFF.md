@@ -4,6 +4,39 @@ Ultimo aggiornamento: 24/07/2026
 
 ## FATTO
 
+- ORDINI AUTOMATICI OGNI 15 MINUTI (26/07/2026): `vercel.json` → cron
+  `*/15 * * * *` su `/api/cron/ordini`, protetto da `Authorization: Bearer
+  CRON_SECRET` (Vercel lo manda da solo; senza segreto la rotta risponde 503
+  invece di restare aperta). `CRON_SECRET` impostata su Vercel (Production) e in
+  `.env` locale. Il middleware ora ESCLUDE `api/cron` (i cron non hanno cookie:
+  finivano rimandati al login).
+  La logica di scarico è stata estratta in `src/lib/sincronizza.ts`
+  (`sincronizzaOrdini({completo, contatti})`), condivisa fra il cron e il
+  pulsante "Aggiorna" — prima viveva dentro la rotta e non era riusabile.
+  MISURATO: il giro con i contatti Google durava **218 secondi** (40 chiamate
+  alla People API), quello coi soli ordini **~21-25 s** (31 ordini). Perciò i
+  contatti sono stati staccati sul loro cron `/api/cron/contatti` (`7 * * * *`,
+  maxDuration 300): attaccati ai 15 minuti li avrebbero fatti scadere, cioè
+  avrebbero fatto perdere proprio gli ordini che il cron deve salvare.
+  `ordiniSyncUltimo`/`ordiniSyncEsito` in Impostazione registrano ogni giro; la
+  pagina Ordini scrive "Aggiornati da soli 4 minuti fa" (verificato: "adesso").
+  Verificato in locale: senza header 401, header sbagliato 401, header giusto 200
+  con `{scaricati: 31, nuovi: 1}`.
+- SEZIONE PARTNER (26/07/2026): `/partner` + `src/lib/anagrafiche.ts`
+  (`partnerAttivi()`) + `/api/partner` (proxy: la chiave non passa dal browser).
+  Legge `GET {anagraficheUrl}/api/v1/partners?stato=attivo` con `x-api-key`.
+  NESSUNA copia locale (regola del registro: "non tenete una copia, rileggete").
+  `stato=attivo` è lo stato COMMERCIALE, che nel registro vuol dire "è Partner".
+  Chiave di sola lettura creata con `npm run chiave -- deluxy-messaging` in
+  deluxy-anagrafiche e salvata cifrata in Impostazione `anagraficheApiKey`
+  (+ `anagraficheUrl`); card dedicata in Impostazioni.
+  SCOPERTA CHE HA CAMBIATO IL CODICE: nel registro **nessuno** dei 41 partner
+  attivi ha un telefono proprio, ma 28 hanno un REFERENTE col numero. Il bottone
+  "Scrivi" guarda prima l'insegna e poi i referenti: senza quel ripiego sarebbe
+  spento per 37 partner su 41. Verificato sui dati veri: 41 righe, 38
+  contattabili (27 WhatsApp + 11 email), 3 senza recapito; filtro FIORISTA → 11,
+  ricerca "milano" → 22.
+
 - SCRIPT — RISPOSTE RAPIDE CHE L'AI IMPARA (26/07/2026): tabella `Script`
   (titolo, categoria, testo, `quando` = quando usarlo, attivo, `usi`), pagina `/script`
   (`src/components/ScriptLista.tsx`) con CRUD, ricerca, copia e un BANCO DI PROVA

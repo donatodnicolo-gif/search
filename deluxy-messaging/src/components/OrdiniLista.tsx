@@ -113,6 +113,20 @@ function dataBreve(iso: string): string {
   return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+/** "3 minuti fa", "un'ora fa": da quanto non passa l'aggiornamento automatico. */
+function quantoFa(iso: string): string {
+  const minuti = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (!Number.isFinite(minuti) || minuti < 0) return 'poco fa'
+  if (minuti < 1) return 'adesso'
+  if (minuti === 1) return 'un minuto fa'
+  if (minuti < 60) return `${minuti} minuti fa`
+  const ore = Math.round(minuti / 60)
+  if (ore === 1) return "un'ora fa"
+  if (ore < 24) return `${ore} ore fa`
+  const giorni = Math.round(ore / 24)
+  return giorni === 1 ? 'ieri' : `${giorni} giorni fa`
+}
+
 /** Frase leggibile sull'esito del salvataggio automatico dei contatti. */
 function riepilogoContatti(c: EsitoContatti | undefined): string {
   if (!c) return ''
@@ -137,6 +151,8 @@ export function OrdiniLista() {
   const [googleCollegato, setGoogleCollegato] = useState(false)
   const [caricato, setCaricato] = useState(false)
   const [occupato, setOccupato] = useState('') // 'sync' | 'tutti' | id ordine
+  // Quando ha girato l'ultima volta l'aggiornamento automatico (ogni 15 minuti).
+  const [ultimaSync, setUltimaSync] = useState('')
   const [avviso, setAvviso] = useState('')
   const [errore, setErrore] = useState('')
 
@@ -163,11 +179,13 @@ export function OrdiniLista() {
         totale: number
         negozi: NegozioDto[]
         googleCollegato: boolean
+        ultimaSync?: string
       }
       setOrdini(dati.ordini)
       setTotale(dati.totale)
       setNegozi(dati.negozi)
       setGoogleCollegato(dati.googleCollegato)
+      setUltimaSync(dati.ultimaSync ?? '')
     } catch {
       // rete assente
     } finally {
@@ -323,12 +341,17 @@ export function OrdiniLista() {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <h1 style={{ margin: 0, flex: 1 }}>Ordini</h1>
+        <h1 style={{ margin: 0 }}>Ordini</h1>
+        {/* Gli ordini si aggiornano da soli ogni 15 minuti (cron): qui si vede
+            che il giro sta girando, così "Aggiorna" resta un'eccezione. */}
+        <span className="cella-sub" style={{ flex: 1 }}>
+          {ultimaSync ? `Aggiornati da soli ${quantoFa(ultimaSync)}` : 'Aggiornamento automatico ogni 15 minuti'}
+        </span>
         <button
           className="bottone secondario"
           onClick={scarica}
           disabled={!!occupato}
-          title="Riprende gli ordini recenti dal registro Deluxy Orders"
+          title="Riprende subito gli ordini recenti dal registro Deluxy Orders, senza aspettare il giro automatico"
         >
           {occupato === 'sync' ? 'Aggiorno…' : 'Aggiorna da Ordini'}
         </button>

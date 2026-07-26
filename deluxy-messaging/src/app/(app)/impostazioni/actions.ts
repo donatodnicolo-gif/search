@@ -18,6 +18,7 @@ const SEGRETI = [
   'anthropicApiKey',
   'openaiApiKey',
   'partnerApiKey',
+  'anagraficheApiKey',
 ]
 const IN_CHIARO = [
   'waPhoneNumberId',
@@ -28,6 +29,7 @@ const IN_CHIARO = [
   'ordersUrl',
   'searchUrl',
   'partnerUrl',
+  'anagraficheUrl',
   'openaiModello',
   'openaiModelloImmagini',
 ]
