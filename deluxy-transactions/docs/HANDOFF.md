@@ -6,6 +6,8 @@ Aggiornato: **26 luglio 2026**
 
 - Cartella: `C:\Users\nicol\scoutwt\deluxy-transactions`
 - Porta: **3160** — `npm run dev`
+- Produzione: **https://deluxy-transactions.vercel.app** (progetto Vercel
+  `deluxy-transactions`, deploy con `npx vercel deploy --prod --yes`)
 - Database: Postgres condiviso, schema **`transactions`**
 - Documenti: [README.md](../README.md) · [SICUREZZA.md](SICUREZZA.md) · [API.md](API.md)
 
@@ -42,6 +44,32 @@ progetto, vedi SICUREZZA.md §0.
 - Verificato in locale: 13 prove sulle API (firma, replay, marca temporale,
   idempotenza, tetti, IBAN), accesso + firma con TOTP, creazione distinta,
   generazione XML, catena del registro integra.
+
+## Stato in produzione (26/07/2026)
+
+Pubblicata e viva: `GET /api/v1/health` risponde
+`{"ok":true,"database":true,"cifratura":true}`. Su Vercel sono impostate
+`DATABASE_URL`, `DIRECT_URL`, `TRANSACTIONS_ENC_KEY`, `APP_SECRET`,
+`CRON_SECRET` (production + preview). Il Hub ha `APP_URL_TRANSACTIONS` ed è
+stato ripubblicato: l'icona «Transactions» compare agli admin.
+
+**Il database è vuoto di proposito: nessun operatore, nessuna chiave API.**
+I dati usati per le prove sono stati cancellati (comprese le credenziali di
+prova, che erano passate per la trascrizione di una sessione). Primo avvio:
+
+```bash
+cd deluxy-transactions
+npm run operatore -- --email tu@deluxy.it --nome "Nome Cognome" --password "<12+ caratteri>" --ruolo admin
+```
+
+Il comando stampa **una volta sola** il segreto TOTP da mettere in Google
+Authenticator/1Password. Poi si entra su
+https://deluxy-transactions.vercel.app/login, si compilano nome e IBAN
+dell'ordinante in Impostazioni (senza, le distinte SEPA non si generano) e si
+creano le chiavi delle app da `/chiavi`.
+
+⚠️ Lo stesso `.env` locale punta allo **stesso schema Postgres** della
+produzione: quello che si crea in locale si vede online e viceversa.
 
 ## MANCA
 
