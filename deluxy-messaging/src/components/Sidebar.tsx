@@ -24,7 +24,8 @@ export function Sidebar() {
     {
       titolo: 'Ordini',
       voci: [
-        { href: '/', nome: 'Ordini', icona: iconaLista },
+        { href: '/', nome: 'Ordini aperti', icona: iconaLista },
+        { href: '/ordini-globali', nome: 'Ordini globali', icona: iconaArchivio },
         { href: '/calendario', nome: 'Calendario', icona: iconaCalendario },
         { href: '/clienti', nome: 'Clienti', icona: iconaClienti },
         { href: '/partner', nome: 'Partner', icona: iconaPartner },
@@ -87,6 +88,13 @@ const T = {
   strokeLinecap: 'round' as const,
 }
 
+const iconaArchivio = (
+  <svg {...T}>
+    <rect x="3" y="4" width="18" height="5" rx="1.5" />
+    <path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9" />
+    <path d="M10 13h4" />
+  </svg>
+);
 const iconaLista = (
   <svg {...T}>
     <line x1="8" y1="6" x2="21" y2="6" />

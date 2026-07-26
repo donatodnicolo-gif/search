@@ -55,6 +55,23 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- ORDINI APERTI / ORDINI GLOBALI (26/07/2026): la lista degli ordini ora è due
+  pagine, stessa tabella (`OrdiniLista` con prop `modalita`):
+  · **/** «Ordini aperti» — la lista di LAVORO: non gestiti, e **senza gli
+    ordini con un rimborso vivo** (stato richiesto o approvato). Da quando si
+    apre un rimborso quell'ordine si lavora in /rimborsi, e lasciarlo qui vuol
+    dire che prima o poi qualcuno lo rilavora per sbaglio. Rifiutato o
+    annullato → l'ordine torna nella lista.
+  · **/ordini-globali** «Ordini globali» — l'archivio intero, gestiti e
+    rimborsati compresi, con la ricerca. Parte dalla vista a tabella perché qui
+    si cerca, non si lavora.
+  Il filtro sta nell'API (`GET /api/ordini?rimborsi=nascondi`), non nel client:
+  così il conteggio e l'elenco non possono divergere. Il rimborso esclude
+  **sia per id sia per numero**, perché l'ordine può vivere solo nell'archivio
+  di Orders.
+  Verificato sui dati veri: aperti 906 → **905** (sparisce #2585, rimborso
+  «richiesto»), globali **923**; l'ordine esiste ancora ed è `da_gestire`.
+
 - URGENTI IN CIMA, PAGINA COMPATTA, COPIA FOTO (26/07/2026).
   **ORDINE PER URGENZA A FASCE** (`src/lib/urgenza.ts` + `ordiniPerUrgenza()` in
   `/api/ordini`): oggi (per fascia oraria, prima chi va consegnato presto) →

@@ -316,11 +316,20 @@ function riepilogoContatti(c: EsitoContatti | undefined): string {
   return ` Contatti: ${parti.join(', ')}.${coda}`
 }
 
-export function OrdiniLista() {
+// Due modalità, stessa tabella:
+//  · **aperti** — la lista di lavoro: solo ciò che non è gestito, e senza gli
+//    ordini su cui è già stato aperto un rimborso (quelli si lavorano in
+//    Rimborsi, non qui);
+//  · **globali** — tutto l'archivio, gestiti e rimborsati compresi, per
+//    cercare. Non è una lista di lavoro: è l'indice.
+export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'globali' } = {}) {
+  const globale = modalita === 'globali'
   const [ordini, setOrdini] = useState<OrdineDto[]>([])
   const [negozi, setNegozi] = useState<NegozioDto[]>([])
   // Vista: colonne per brand (come Deluxy Orders) o elenco in tabella.
-  const [vista, setVista] = useState<'colonne' | 'elenco'>('colonne')
+    // Negli ordini globali si cerca, quindi si parte dalla tabella; in quelli
+  // aperti si lavora, e le colonne per brand dicono di più a colpo d'occhio.
+  const [vista, setVista] = useState<'colonne' | 'elenco'>(globale ? 'elenco' : 'colonne')
   const [totale, setTotale] = useState(0)
   const [googleCollegato, setGoogleCollegato] = useState(false)
   const [caricato, setCaricato] = useState(false)
@@ -351,7 +360,7 @@ export function OrdiniLista() {
   // urgenza, questi numeri dicono quanto è grande la coda.
   const [urgenza, setUrgenza] = useState({ oggi: 0, domani: 0, scaduteRecenti: 0 })
   // Vista di lavoro: di default si mostrano solo gli ordini non ancora gestiti.
-  const [filtroGestione, setFiltroGestione] = useState('aperti')
+  const [filtroGestione, setFiltroGestione] = useState(globale ? '' : 'aperti')
 
   const carica = useCallback(async () => {
     try {
@@ -361,6 +370,8 @@ export function OrdiniLista() {
       if (filtroContatto) p.set('contatto', filtroContatto)
       if (filtroGestione) p.set('gestione', filtroGestione)
       if (filtroTipo) p.set('tipoCliente', filtroTipo)
+      // Gli ordini con un rimborso vivo escono solo dalla lista di lavoro.
+      if (!globale) p.set('rimborsi', 'nascondi')
       const res = await fetch('/api/ordini?' + p.toString())
       if (!res.ok) return
       const dati = (await res.json()) as {
@@ -389,7 +400,7 @@ export function OrdiniLista() {
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, negozio, filtroContatto, filtroGestione, filtroTipo])
+  }, [qCercata, negozio, filtroContatto, filtroGestione, filtroTipo, globale])
 
   /**
    * Cambia lo stato di lavorazione. `poi` è l'azione da fare dopo (aprire
@@ -600,7 +611,7 @@ export function OrdiniLista() {
           dettaglio della catena (Shopify → Ordini → qui) è nel titolo del
           pallino, così resta consultabile senza occupare una riga sua. */}
       <div className="testa-ordini">
-        <h1>Ordini</h1>
+        <h1>{globale ? 'Ordini globali' : 'Ordini aperti'}</h1>
 
         {/* L'urgenza per prima: è la ragione per cui si apre questa pagina. */}
         {urgenza.oggi > 0 ? (

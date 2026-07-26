@@ -41,6 +41,19 @@ Attenzione, oltre Critico). Così un solo reclamo grave ancora aperto accende gi
 sempre visibile da cosa nasce il numero. Per il quadro completo — feedback, orari e altre
 variabili — c'è la **pagella** qui sotto.
 
+## Ordini aperti e ordini globali
+
+La lista degli ordini è due pagine con la stessa tabella:
+
+- **Ordini aperti** (`/`) è la lista di **lavoro**: solo ciò che non è ancora
+  gestito, e **senza gli ordini su cui è già stato aperto un rimborso** — da quel
+  momento quell'ordine si lavora in *Rimborsi*, e lasciarlo qui significa che
+  prima o poi qualcuno lo rilavora per sbaglio. Se la richiesta viene rifiutata o
+  annullata, l'ordine torna nella lista.
+- **Ordini globali** (`/ordini-globali`) è l'**archivio**: tutto, gestiti e
+  rimborsati compresi, con la ricerca su numero, cliente, telefono, email e
+  indirizzo. Parte dalla vista a tabella, perché qui si cerca e non si lavora.
+
 ## Rimborsi
 
 Da ogni ordine il pulsante **Rimborso** apre la richiesta già compilata: ordine, cliente,

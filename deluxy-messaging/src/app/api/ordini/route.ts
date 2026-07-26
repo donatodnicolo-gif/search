@@ -60,6 +60,7 @@ async function ordiniPerUrgenza(dove: Prisma.OrdineWhereInput, tetto: number) {
 //   q        testo su numero, cliente, telefono, email, indirizzo
 //   negozio  id del negozio
 //   contatto "si" | "no" (contatto già salvato in rubrica o no)
+//   rimborsi "nascondi" = fuori gli ordini con una richiesta di rimborso viva
 // Torna anche se Google è collegato (per abilitare i bottoni "Salva contatto").
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams
@@ -69,6 +70,7 @@ export async function GET(req: NextRequest) {
 
   const gestione = (p.get('gestione') ?? '').trim()
   const tipoCliente = (p.get('tipoCliente') ?? '').trim()
+  const rimborsi = (p.get('rimborsi') ?? '').trim()
 
   const dove: Prisma.OrdineWhereInput = {}
   if (negozio) dove.negozioId = negozio
@@ -81,6 +83,27 @@ export async function GET(req: NextRequest) {
   // `aperti` = tutto ciò che non è ancora gestito: è la vista di lavoro.
   if (gestione === 'aperti') dove.gestione = { not: 'gestito' }
   else if (gestione) dove.gestione = gestione
+
+  // Un ordine su cui è stato APERTO UN RIMBORSO esce dalla lista di lavoro: da
+  // quel momento non si lavora più la consegna, si lavora la richiesta, e
+  // lasciarlo fra gli ordini aperti vuol dire che prima o poi qualcuno lo
+  // rilavora per sbaglio. Si nasconde solo finché la richiesta è viva (da
+  // approvare o approvata): rifiutata o annullata, l'ordine torna normale.
+  // In «Ordini globali» non si nasconde niente — lì si cerca, non si lavora.
+  if (rimborsi === 'nascondi') {
+    const vivi = await db.rimborso.findMany({
+      where: { stato: { in: ['richiesto', 'approvato'] } },
+      select: { ordineId: true, ordineNumero: true },
+    })
+    // Il rimborso porta con sé sia l'id sia il numero, perché l'ordine può
+    // vivere solo nell'archivio di Orders: si esclude su tutti e due.
+    const ids = vivi.map((r) => r.ordineId).filter(Boolean)
+    const numeri = vivi.map((r) => r.ordineNumero).filter(Boolean)
+    const fuori: Prisma.OrdineWhereInput[] = []
+    if (ids.length) fuori.push({ id: { in: ids } })
+    if (numeri.length) fuori.push({ numero: { in: numeri } })
+    if (fuori.length) dove.NOT = fuori
+  }
 
   if (q) {
     const testo: Prisma.StringFilter = { contains: q, mode: 'insensitive' }
