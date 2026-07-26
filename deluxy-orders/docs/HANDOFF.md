@@ -22,12 +22,12 @@ credenziali riusate da Finance.
 
 Le pagine: **Ordini** (vista predefinita a *colonne per brand*, più l'elenco in
 tabella), **Bacheca** kanban, **scheda ordine**, **Clienti** (+ tag, + rubrica
-Google), **Liste** (24 liste di clienti + export CSV), **Consegna**,
+Google), **Liste** (28 liste di clienti + export CSV), **Consegna**,
 **Impostazioni**, **Fornitori vicini** per ordine.
 
 ### Liste e tag dei clienti (26/07/2026)
 I 10.212 clienti (su 10.375 identificabili: 163 hanno solo ordini annullati e
-non contano) sono classificati in tempo reale su due assi, e raccolti in **24
+non contano) sono classificati in tempo reale su due assi, e raccolti in **28
 liste** con criterio scritto e consiglio d'uso — catalogo in
 `src/lib/segmenti.ts`, query in `src/lib/clienti.ts`, API `/api/v1/liste`.
 
@@ -82,6 +82,27 @@ notte dentro `/api/cron/sync` e a mano dal pulsante.
   produzione (la rotta `/api/v1/feedback` è nuova), e le due variabili vanno
   messe sul progetto Vercel di Orders.
 
+### Privacy, attività, ordinamento e automazioni (26/07/2026)
+- **Consensi di marketing importati da Shopify** (`emailMarketingConsent`,
+  `smsMarketingConsent` sul cliente dell'ordine): verificato che il token li
+  legge su **tutti e tre** i negozi. Sull'ordine sono una fotografia; per il
+  cliente vale quello dell'**ordine più recente**. Sopra tutto sta
+  `PrivacyCliente`, modificabile dalla scheda cliente (sì/no per canale + «non
+  contattare mai»), che **vince sempre**. Se non si sa niente → non si contatta.
+- **I consensi entrano in `cambiato()`** (al contrario del rischio frode):
+  cambiano nel tempo ed è il punto. Conseguenza: la prima sync dopo questa
+  modifica riscrive gli ordini della finestra. Gli ordini più vecchi della
+  finestra sincronizzata restano senza consenso → lista «Consenso da chiedere».
+- **Attività**: stato ricavato dal solo tempo (Attivo ≤90gg, Recente ≤365,
+  Dormiente ≤730, Inattivo oltre), come colonna, filtro e ordinamento.
+- **Ordinamento su tutte le colonne**, nei due versi, dalle intestazioni. Le
+  colonne a etichetta usano `array_position` sul vocabolario, non l'alfabeto.
+- **Automazioni** (`/automazioni`): lista + canale + script coi segnaposto +
+  guardrail (consenso, recapito, silenzio di N giorni fra un messaggio e
+  l'altro, limite per giro). **Preparano** i messaggi, non li inviano: si
+  esportano o si mandano dal Customer Service e poi si segnano come inviati.
+  Ogni scheda mostra la prova a vuoto con i motivi degli esclusi.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare
@@ -116,7 +137,13 @@ notte dentro `/api/cron/sync` e a mano dal pulsante.
    funziona, poi risponde `relation "Ordine" does not exist`, poi rifunziona.
    Si usa `tabella("Ordine")` di `src/lib/db.ts` (legge lo schema da
    `DATABASE_URL`), mai `FROM "Ordine"` nudo.
-8. **`WITH … AS MATERIALIZED` conta.** La vista dei clienti classificati ha
+8. **Un campo Shopify in più può far cadere TUTTO l'import.** Vale per i
+   consensi come per le foto: prima di aggiungerlo alla query si prova sul
+   campo, negozio per negozio (`customer { emailMarketingConsent { … } }` è
+   accessibile col token degli ordini, provato il 26/07/2026). Se un giorno
+   rispondesse ACCESS_DENIED, l'import fallisce per intero, non «salta il
+   campo».
+9. **`WITH … AS MATERIALIZED` conta.** La vista dei clienti classificati ha
    espressioni regolari nella SELECT: senza materializzare, Postgres le
    ricalcola per ognuno dei 48 aggregati del catalogo (2,0 s → 0,6 s). Per
    l'elenco invece conviene il contrario — le calcola solo sulle righe mostrate

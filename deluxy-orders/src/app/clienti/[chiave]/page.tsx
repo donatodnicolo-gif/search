@@ -4,11 +4,11 @@ import { prisma } from "@/lib/db";
 import { euro, dataBreve } from "@/lib/ordini";
 import { brandConColore, mappaColori, coloreBrand } from "@/lib/brand";
 import { clienteSingolo, decodificaChiave, whereOrdiniCliente } from "@/lib/clienti";
-import { LISTE, TIPOLOGIE, nomeTipologia } from "@/lib/segmenti";
+import { LISTE, TIPOLOGIE, consensoLeggibile, nomeTipologia } from "@/lib/segmenti";
 import { statiOrdinati } from "@/lib/stati";
 import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
-import { PillSegmento, PillTipologia, giorniFa } from "@/components/TabellaClienti";
-import { impostaTipologiaCliente } from "@/app/actions";
+import { PillAttivita, PillPrivacy, PillSegmento, PillTipologia, giorniFa } from "@/components/TabellaClienti";
+import { impostaPrivacyCliente, impostaTipologiaCliente } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +75,8 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
             <span className="etichette" style={{ marginTop: 10 }}>
               <PillTipologia cliente={cliente} />
               <PillSegmento segmento={cliente.segmento} />
+              <PillAttivita attivita={cliente.attivita} giorni={cliente.giorni} />
+              <PillPrivacy cliente={cliente} />
               {cliente.annullati > 0 && (
                 <span className="tag" style={{ color: "var(--red)" }}>
                   <span className="dot" />
@@ -138,6 +140,62 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
             {cliente.tipoManuale
               ? "Impostata a mano: la deduzione automatica non la tocca più."
               : `Dedotta dal nome di chi ordina (mai dal destinatario). ${cliente.dominioAziendale ? "L'email ha un dominio proprio: potrebbe essere un'azienda." : ""}`}
+          </p>
+
+          <div className="scheda-titolo" style={{ marginTop: 22 }}>Privacy: si può contattare?</div>
+          <form action={impostaPrivacyCliente} className="modulo">
+            <input type="hidden" name="chiave" value={chiave} />
+            {(
+              [
+                { campo: "email", nome: "Email", shopify: cliente.consensoEmail, valore: cliente.privacyEmail },
+                { campo: "sms", nome: "WhatsApp / SMS", shopify: cliente.consensoSms, valore: cliente.privacySms },
+                { campo: "telefono", nome: "Telefonate", shopify: null, valore: cliente.privacyTelefono },
+              ] as const
+            ).map((c) => (
+              <div className="campo-modulo" key={c.campo}>
+                <label htmlFor={`privacy-${c.campo}`}>{c.nome}</label>
+                <select id={`privacy-${c.campo}`} name={c.campo} defaultValue={c.valore ?? ""}>
+                  <option value="">
+                    {c.shopify != null
+                      ? `Come dice Shopify — ${consensoLeggibile(c.shopify)}`
+                      : "Non lo sappiamo (quindi non si contatta)"}
+                  </option>
+                  <option value="si">Sì, si può contattare</option>
+                  <option value="no">No, non si può</option>
+                </select>
+              </div>
+            ))}
+            <div className="campo-modulo">
+              <label htmlFor="nota-privacy">Perché (facoltativo)</label>
+              <input
+                id="nota-privacy"
+                name="note"
+                defaultValue={cliente.notaPrivacy ?? ""}
+                placeholder="es. ha chiesto per telefono di non ricevere più email"
+              />
+            </div>
+            <div className="campo-modulo largo">
+              <label style={{ textTransform: "none", letterSpacing: 0, fontSize: 13.5, fontWeight: 400, color: "var(--text)" }}>
+                <input type="checkbox" name="bloccato" defaultChecked={cliente.bloccato} style={{ marginRight: 8 }} />
+                <strong>Non contattare mai</strong> — vale su tutti i canali e nessuna automazione lo scavalca
+              </label>
+            </div>
+            <div className="azioni-modulo campo-modulo largo">
+              <button className="btn" type="submit">Salva privacy</button>
+            </div>
+          </form>
+          <p className="testo-guida" style={{ marginTop: 6 }}>
+            Stato di oggi:{" "}
+            <strong>
+              {cliente.bloccato
+                ? "non contattare (bloccato)"
+                : [cliente.contattabileEmail ? "email" : null, cliente.contattabileSms ? "WhatsApp/SMS" : null]
+                    .filter(Boolean)
+                    .join(" + ") || "nessun canale consentito"}
+            </strong>
+            . Da Shopify: email «{consensoLeggibile(cliente.consensoEmail)}», SMS «
+            {consensoLeggibile(cliente.consensoSms)}». Quello che scrivi qui vince sempre su Shopify,
+            e se non sappiamo niente non si contatta.
           </p>
 
           {sueListe.length > 0 && (

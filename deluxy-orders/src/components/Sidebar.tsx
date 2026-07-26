@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 export function Sidebar({
   conteggi,
 }: {
-  conteggi: { ordini: number; daClassificare: number; clienti: number; liste: number };
+  conteggi: { ordini: number; daClassificare: number; clienti: number; liste: number; automazioni: number };
 }) {
   const path = usePathname();
   const voci = [
@@ -15,6 +15,7 @@ export function Sidebar({
     { href: "/bacheca", nome: "Bacheca", count: conteggi.daClassificare, icona: iconaBacheca },
     { href: "/clienti", nome: "Clienti", count: conteggi.clienti, icona: iconaClienti },
     { href: "/liste", nome: "Liste", count: conteggi.liste, icona: iconaListeClienti },
+    { href: "/automazioni", nome: "Automazioni", count: conteggi.automazioni, icona: iconaAutomazioni },
     { href: "/consegna", nome: "Consegna", count: null, icona: iconaConsegna },
     { href: "/impostazioni", nome: "Impostazioni", count: null, icona: iconaImpostazioni },
   ];
@@ -60,6 +61,12 @@ const iconaListeClienti = (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9 6h11" /><path d="M9 12h11" /><path d="M9 18h11" />
     <path d="m3 6 1.5 1.5L7 5" /><path d="m3 12 1.5 1.5L7 11" /><path d="m3 18 1.5 1.5L7 17" />
+  </svg>
+);
+const iconaAutomazioni = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 5h16v11H7l-3 3z" />
+    <path d="M8.5 10.5h.01" /><path d="M12 10.5h.01" /><path d="M15.5 10.5h.01" />
   </svg>
 );
 const iconaConsegna = (

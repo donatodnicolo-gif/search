@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { registraEvento } from "@/lib/classificazione";
 import { codificaChiave } from "@/lib/clienti";
-import { tipologiaValida } from "@/lib/segmenti";
+import { canaleValido, tipologiaValida } from "@/lib/segmenti";
 import { importaFeedback } from "@/lib/feedback";
+import { preparaGiro } from "@/lib/automazioni";
 import { eseguiSyncOrdini } from "@/lib/sync";
 import { tokenNegozio } from "@/lib/shopify";
 import { cercaDocumento, scriviConsegna, dataValida, fasciaValida } from "@/lib/consegna";
@@ -142,6 +143,129 @@ export async function impostaTipologiaCliente(fd: FormData) {
   revalidatePath("/clienti");
   revalidatePath(`/clienti/${codificaChiave(chiave)}`);
   revalidatePath("/liste");
+}
+
+// ---- Privacy di un cliente (scheda cliente) ----
+// Le scelte scritte qui vincono su quelle importate da Shopify: sono l'ultima
+// volontà che conosciamo. `si`/`no` per canale, più il blocco generale.
+// Vuoto = «non lo so», e allora vale Shopify (e se manca anche quello, non si
+// contatta: nel dubbio si tace).
+export async function impostaPrivacyCliente(fd: FormData) {
+  const chiave = s(fd, "chiave");
+  if (!chiave) return;
+  const scelta = (campo: string) => {
+    const v = s(fd, campo);
+    return v === "si" || v === "no" ? v : null;
+  };
+  const dati = {
+    email: scelta("email"),
+    sms: scelta("sms"),
+    telefono: scelta("telefono"),
+    bloccato: fd.get("bloccato") === "on",
+    note: s(fd, "note"),
+    autore: "operatore",
+  };
+
+  await prisma.privacyCliente.upsert({
+    where: { chiave },
+    create: { chiave, ...dati },
+    update: dati,
+  });
+
+  revalidatePath("/clienti");
+  revalidatePath(`/clienti/${codificaChiave(chiave)}`);
+  revalidatePath("/liste");
+}
+
+// ---- Automazioni ----
+export async function creaAutomazione(fd: FormData) {
+  const nome = s(fd, "nome");
+  if (!nome) return;
+  const creata = await prisma.automazione.create({
+    data: {
+      nome,
+      descrizione: s(fd, "descrizione") ?? "",
+      lista: s(fd, "lista") ?? "da-riattivare",
+      canale: canaleValido(s(fd, "canale")),
+      script: s(fd, "script") ?? "",
+    },
+  });
+  revalidatePath("/automazioni");
+  redirect(`/automazioni/${creata.id}`);
+}
+
+export async function aggiornaAutomazione(fd: FormData) {
+  const id = s(fd, "id");
+  if (!id) return;
+  await prisma.automazione.update({
+    where: { id },
+    data: {
+      nome: s(fd, "nome") ?? undefined,
+      descrizione: s(fd, "descrizione") ?? "",
+      lista: s(fd, "lista") ?? undefined,
+      canale: canaleValido(s(fd, "canale")),
+      script: s(fd, "script") ?? "",
+      oggetto: s(fd, "oggetto") ?? "",
+      giorniSilenzio: Math.max(0, Number(s(fd, "giorniSilenzio") ?? "30") || 0),
+      limiteGiro: Math.min(2000, Math.max(1, Number(s(fd, "limiteGiro") ?? "50") || 50)),
+      // Il consenso si può togliere solo di proposito, e resta scritto qui.
+      soloConsenso: fd.get("soloConsenso") === "on",
+      attiva: fd.get("attiva") === "on",
+    },
+  });
+  revalidatePath("/automazioni");
+  revalidatePath(`/automazioni/${id}`);
+}
+
+export async function eliminaAutomazione(fd: FormData) {
+  const id = s(fd, "id");
+  if (!id) return;
+  await prisma.automazione.delete({ where: { id } });
+  revalidatePath("/automazioni");
+  redirect("/automazioni");
+}
+
+// Prepara un giro: crea i messaggi (nessun invio). L'esito torna nella query
+// string, con quanti sono stati saltati e perché.
+export async function preparaGiroAutomazione(fd: FormData) {
+  const id = s(fd, "id");
+  if (!id) return;
+  const a = await prisma.automazione.findUnique({ where: { id } });
+  if (!a) return;
+
+  const esito = await preparaGiro(a);
+  revalidatePath(`/automazioni/${id}`);
+  const saltati = esito.saltati.map((x) => `${x.quanti} ${x.motivo}`).join(" · ");
+  const messaggio = esito.errore
+    ? `errore=${encodeURIComponent(esito.errore)}`
+    : `esito=${encodeURIComponent(
+        `${esito.preparati} messaggi preparati su ${esito.esaminati} clienti esaminati${saltati ? ` — saltati: ${saltati}` : ""}`,
+      )}`;
+  redirect(`/automazioni/${id}?${messaggio}`);
+}
+
+// Segna come inviati i messaggi pronti: lo dice una persona, dopo averli
+// mandati davvero. L'app non finge di aver inviato ciò che non ha inviato.
+export async function segnaInviati(fd: FormData) {
+  const id = s(fd, "id");
+  if (!id) return;
+  const uno = s(fd, "messaggioId");
+  await prisma.messaggioAutomazione.updateMany({
+    where: uno ? { id: uno } : { automazioneId: id, stato: "pronto" },
+    data: { stato: "inviato", inviatoIl: new Date() },
+  });
+  revalidatePath(`/automazioni/${id}`);
+}
+
+export async function annullaMessaggiPronti(fd: FormData) {
+  const id = s(fd, "id");
+  if (!id) return;
+  const uno = s(fd, "messaggioId");
+  await prisma.messaggioAutomazione.updateMany({
+    where: uno ? { id: uno } : { automazioneId: id, stato: "pronto" },
+    data: { stato: "annullato", motivo: "annullato a mano" },
+  });
+  revalidatePath(`/automazioni/${id}`);
 }
 
 // ---- Gestione etichette (Impostazioni) ----

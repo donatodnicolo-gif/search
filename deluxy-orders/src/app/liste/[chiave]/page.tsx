@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { euro } from "@/lib/ordini";
 import { brandConColore, mappaColori } from "@/lib/brand";
-import { elencoClienti, ordinamentoValido, totaliClienti } from "@/lib/clienti";
+import { elencoClienti, ordinamentoValido, versoValido, totaliClienti } from "@/lib/clienti";
 import { FAMIGLIE, LISTE, lista } from "@/lib/segmenti";
 import { TabellaClienti } from "@/components/TabellaClienti";
 
@@ -27,12 +27,13 @@ export default async function DettaglioLista({
   const sp = await searchParams;
   const q = sp.q?.trim() || undefined;
   const ordina = ordinamentoValido(sp.ordina);
+  const verso = versoValido(ordina, sp.verso);
   const pagina = Math.max(1, Number(sp.page ?? "1") || 1);
 
   const [brand, totale, clienti] = await Promise.all([
     brandConColore(),
     totaliClienti(q, l.chiave),
-    elencoClienti(q, ordina, (pagina - 1) * PER_PAGINA, PER_PAGINA, l.chiave),
+    elencoClienti(q, ordina, (pagina - 1) * PER_PAGINA, PER_PAGINA, l.chiave, verso),
   ]);
 
   const colori = mappaColori(brand);
@@ -50,12 +51,12 @@ export default async function DettaglioLista({
     return `/liste/${l!.chiave}${qs ? `?${qs}` : ""}`;
   }
 
-  const ordinamenti = [
-    { chiave: "speso", nome: "Più spesa" },
-    { chiave: "ordini", nome: "Più ordini" },
-    { chiave: "recenti", nome: "Più recenti" },
-    { chiave: "nome", nome: "Nome" },
-  ];
+  // Il link dell'intestazione di colonna: se e' gia' quella attiva inverte il
+  // verso, altrimenti passa a quella colonna col verso che ha senso per lei.
+  function ordinaPer(colonna: string): string {
+    const inverso = ordina === colonna ? (verso === "asc" ? "desc" : "asc") : "";
+    return conFiltro({ ordina: colonna, verso: inverso, page: "" });
+  }
 
   const csv = `/liste/${l.chiave}/csv${q ? `?q=${encodeURIComponent(q)}` : ""}`;
 
@@ -122,22 +123,13 @@ export default async function DettaglioLista({
         {q && <Link className="btn btn-secondario" href={`/liste/${l.chiave}`}>Annulla</Link>}
       </form>
 
-      <div className="filtri">
-        <span className="etichetta-ordina">Ordina per</span>
-        {ordinamenti.map((o) => (
-          <Link key={o.chiave} className={`stato-pill${ordina === o.chiave ? " attuale" : ""}`} href={conFiltro({ ordina: o.chiave, page: "" })}>
-            <span className="stato-label">{o.nome}</span>
-          </Link>
-        ))}
-      </div>
-
       {clienti.length === 0 ? (
         <div className="vuoto">
           {q ? `Nessun cliente per «${q}» in questa lista.` : "Nessun cliente in questa lista, per ora."}
         </div>
       ) : (
         <>
-          <TabellaClienti clienti={clienti} colori={colori} />
+          <TabellaClienti clienti={clienti} colori={colori} ordina={ordina} verso={verso} href={ordinaPer} />
           <div className="paginazione">
             <span>
               {totale.clienti.toLocaleString("it-IT")} clienti · pagina {pagina} di {totalePagine}

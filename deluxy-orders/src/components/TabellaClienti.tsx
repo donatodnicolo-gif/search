@@ -1,19 +1,45 @@
 import Link from "next/link";
-import type { Cliente } from "@/lib/clienti";
-import { codificaChiave } from "@/lib/clienti";
+import type { Cliente, VersoOrdinamento } from "@/lib/clienti";
+import { COLONNE_CLIENTI, codificaChiave } from "@/lib/clienti";
 import { coloreBrand } from "@/lib/brand";
 import { euro, dataBreve } from "@/lib/ordini";
-import { coloreSegmento, coloreTipologia, nomeSegmento, nomeTipologia } from "@/lib/segmenti";
+import {
+  coloreAttivita,
+  coloreSegmento,
+  coloreTipologia,
+  consensoLeggibile,
+  nomeAttivita,
+  nomeSegmento,
+  nomeTipologia,
+} from "@/lib/segmenti";
 
-// La tabella dei clienti, con i tag della classificazione. La usano sia
-// «Clienti» sia il dettaglio di una lista: le colonne devono dire le stesse
-// cose nei due posti, altrimenti si finisce a confrontare numeri diversi.
+// La tabella dei clienti, con i tag della classificazione e lo stato della
+// privacy. La usano sia «Clienti» sia il dettaglio di una lista: le colonne
+// devono dire le stesse cose nei due posti, altrimenti si finisce a confrontare
+// numeri diversi.
+//
+// **Ogni colonna è ordinabile**, nei due versi: l'intestazione è un link che
+// cambia `ordina` e `verso` nella query string. Cliccare la colonna già attiva
+// inverte il verso — è il gesto che tutti si aspettano da una tabella.
 
 export function PillSegmento({ segmento }: { segmento: string }) {
   return (
     <span className="tag" style={{ color: coloreSegmento(segmento) }} title={`Segmento di valore: ${nomeSegmento(segmento)}`}>
       <span className="dot" />
       <span className="tag-label">{nomeSegmento(segmento)}</span>
+    </span>
+  );
+}
+
+export function PillAttivita({ attivita, giorni }: { attivita: string; giorni: number }) {
+  return (
+    <span
+      className="tag"
+      style={{ color: coloreAttivita(attivita) }}
+      title={`Ultimo ordine ${giorniFa(giorni)}`}
+    >
+      <span className="dot" />
+      <span className="tag-label">{nomeAttivita(attivita)}</span>
     </span>
   );
 }
@@ -33,26 +59,106 @@ export function PillTipologia({ cliente }: { cliente: Pick<Cliente, "tipologia" 
   );
 }
 
+// Lo stato della privacy in una pillola sola: cosa si può fare con questa
+// persona. Il titolo spiega da dove viene la risposta, perché «non si può
+// scrivere» senza motivo è la cosa che fa perdere più tempo.
+export function PillPrivacy({ cliente }: { cliente: Cliente }) {
+  const perche = [
+    cliente.bloccato ? "bloccato a mano" : null,
+    cliente.privacyEmail ? `email: «${cliente.privacyEmail}» a mano` : `email su Shopify: ${consensoLeggibile(cliente.consensoEmail)}`,
+    cliente.privacySms ? `WhatsApp/SMS: «${cliente.privacySms}» a mano` : `SMS su Shopify: ${consensoLeggibile(cliente.consensoSms)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  if (cliente.bloccato) {
+    return (
+      <span className="tag" style={{ color: "var(--red)" }} title={perche}>
+        <span className="dot" />
+        <span className="tag-label">Non contattare</span>
+      </span>
+    );
+  }
+  const canali = [
+    cliente.contattabileEmail ? "email" : null,
+    cliente.contattabileSms ? "WhatsApp" : null,
+  ].filter(Boolean);
+
+  if (canali.length === 0) {
+    return (
+      <span className="tag tag-vuoto" title={perche}>
+        <span className="tag-label">Nessun consenso</span>
+      </span>
+    );
+  }
+  return (
+    <span className="tag" style={{ color: "var(--green)" }} title={perche}>
+      <span className="dot" />
+      <span className="tag-label">{canali.join(" + ")}</span>
+    </span>
+  );
+}
+
+// L'intestazione cliccabile di una colonna.
+function Intestazione({
+  chiave,
+  nome,
+  ordina,
+  verso,
+  href,
+  numerica,
+}: {
+  chiave: string;
+  nome: string;
+  ordina: string;
+  verso: VersoOrdinamento;
+  href: (colonna: string) => string;
+  numerica?: boolean;
+}) {
+  const attiva = ordina === chiave;
+  return (
+    <th className={numerica ? "num" : undefined}>
+      <Link href={href(chiave)} className={`th-ordina${attiva ? " attiva" : ""}`}>
+        {nome}
+        <span className="th-freccia" aria-hidden="true">
+          {attiva ? (verso === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+      </Link>
+    </th>
+  );
+}
+
 export function TabellaClienti({
   clienti,
   colori,
+  ordina,
+  verso,
+  href,
 }: {
   clienti: Cliente[];
   colori: Map<string, string>;
+  ordina: string;
+  verso: VersoOrdinamento;
+  // Costruisce il link per ordinare per una colonna (inverte il verso se è già quella).
+  href: (colonna: string) => string;
 }) {
+  const numeriche = new Set(["ordini", "speso", "medio"]);
   return (
     <div className="tabella-wrap">
       <table>
         <thead>
           <tr>
-            <th>Cliente</th>
-            <th>Tag</th>
-            <th>Contatti</th>
-            <th>Brand</th>
-            <th className="num">Ordini</th>
-            <th className="num">Speso</th>
-            <th className="num">Medio</th>
-            <th>Ultimo</th>
+            {COLONNE_CLIENTI.map((c) => (
+              <Intestazione
+                key={c.chiave}
+                chiave={c.chiave}
+                nome={c.nome}
+                ordina={ordina}
+                verso={verso}
+                href={href}
+                numerica={numeriche.has(c.chiave)}
+              />
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -64,12 +170,10 @@ export function TabellaClienti({
                 </Link>
                 {c.citta && <div className="cella-sub">{c.citta}</div>}
               </td>
-              <td>
-                <span className="etichette">
-                  <PillTipologia cliente={c} />
-                  <PillSegmento segmento={c.segmento} />
-                </span>
-              </td>
+              <td><PillTipologia cliente={c} /></td>
+              <td><PillSegmento segmento={c.segmento} /></td>
+              <td><PillAttivita attivita={c.attivita} giorni={c.giorni} /></td>
+              <td><PillPrivacy cliente={c} /></td>
               <td className="cella-muta">
                 {c.email && <div>{c.email}</div>}
                 {c.telefono && <div className="cella-sub">{c.telefono}</div>}

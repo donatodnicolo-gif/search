@@ -1,6 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { prisma, tabella } from "./db";
 import {
+  ATTIVITA,
+  SEGMENTI,
+  SQL_ATTIVITA,
+  SQL_CONTATTABILE_EMAIL,
+  SQL_CONTATTABILE_SMS,
+  SQL_CONTATTABILE_TELEFONO,
+  TIPOLOGIE,
   LISTE,
   OCCASIONI,
   SQL_DOMINIO_AZIENDALE,
@@ -46,15 +53,29 @@ export type Cliente = {
   brand: string[];
   // classificazione
   segmento: string;
+  attivita: string;
   tipologia: string; // quella in vigore (manuale se c'è, altrimenti dedotta)
   tipologiaAuto: string; // quella dedotta dal nome
   tipoManuale: string | null; // impostata a mano da un operatore
   notaTag: string | null;
   dominioAziendale: boolean;
+  // privacy
+  consensoEmail: string | null; // stato Shopify
+  consensoSms: string | null;
+  privacyEmail: string | null; // scelto a mano: si | no | null
+  privacySms: string | null;
+  privacyTelefono: string | null;
+  bloccato: boolean;
+  notaPrivacy: string | null;
+  contattabileEmail: boolean;
+  contattabileSms: boolean;
+  contattabileTelefono: boolean;
 };
 
 // L'espressione che identifica il cliente, condivisa da elenco e dettaglio.
-const CHIAVE = Prisma.sql`COALESCE(
+// Esportata anche per `tipologia-cliente.ts` (la tipologia che le API danno alle
+// altre app): la regola che identifica un cliente resta scritta in un posto solo.
+export const CHIAVE = Prisma.sql`COALESCE(
   NULLIF(LOWER(TRIM("clienteEmail")), ''),
   NULLIF(TRIM("clienteTelefono"), ''),
   NULLIF(LOWER(TRIM("clienteNome")), '')
@@ -105,6 +126,12 @@ function vistaClienti(q?: string, chiave?: string, materializza = false): Prisma
         MAX("clienteEmail") AS email,
         MAX("clienteTelefono") AS telefono,
         MAX("citta") AS citta,
+        -- I consensi valgono come li ha lasciati l'ULTIMA volta: un cliente che
+        -- si disiscrive dopo tre ordini non è "iscritto" perché lo era due anni
+        -- fa. Si prende quindi il valore dell'ordine più recente che ce l'ha.
+        (ARRAY_AGG("consensoEmail" ORDER BY "data" DESC) FILTER (WHERE "consensoEmail" IS NOT NULL))[1] AS consenso_email,
+        (ARRAY_AGG("consensoSms" ORDER BY "data" DESC) FILTER (WHERE "consensoSms" IS NOT NULL))[1] AS consenso_sms,
+        MAX("consensoEmailIl") AS consenso_email_il,
         COUNT(*) FILTER (WHERE "annullatoIl" IS NULL)::int AS ordini,
         COUNT(*) FILTER (WHERE "annullatoIl" IS NOT NULL)::int AS annullati,
         COALESCE(SUM("totale") FILTER (WHERE "annullatoIl" IS NULL), 0)::float8 AS speso,
@@ -125,9 +152,15 @@ function vistaClienti(q?: string, chiave?: string, materializza = false): Prisma
         COALESCE(ARRAY_LENGTH(b.brand, 1), 0)::int AS n_brand,
         LOWER(SPLIT_PART(COALESCE(b.email, ''), '@', 2)) AS dominio,
         t."tipo" AS tipo_manuale,
-        t."note" AS nota_tag
+        t."note" AS nota_tag,
+        p."email" AS privacy_email,
+        p."sms" AS privacy_sms,
+        p."telefono" AS privacy_telefono,
+        COALESCE(p."bloccato", false) AS bloccato,
+        p."note" AS nota_privacy
       FROM base b
       LEFT JOIN ${tabella("TagCliente")} t ON t."chiave" = b.chiave
+      LEFT JOIN ${tabella("PrivacyCliente")} p ON p."chiave" = b.chiave
     ),
     -- MATERIALIZED (solo per il catalogo) non è un vezzo: senza, Postgres
     -- ricalcola le espressioni regolari della tipologia per OGNI aggregato che
@@ -138,9 +171,13 @@ function vistaClienti(q?: string, chiave?: string, materializza = false): Prisma
       SELECT
         c.*,
         ${SQL_SEGMENTO} AS segmento,
+        ${SQL_ATTIVITA} AS attivita,
         ${SQL_TIPOLOGIA_AUTO} AS tipologia_auto,
         COALESCE(c.tipo_manuale, ${SQL_TIPOLOGIA_AUTO}) AS tipologia,
-        ${SQL_DOMINIO_AZIENDALE} AS dominio_aziendale
+        ${SQL_DOMINIO_AZIENDALE} AS dominio_aziendale,
+        ${SQL_CONTATTABILE_EMAIL} AS contattabile_email,
+        ${SQL_CONTATTABILE_SMS} AS contattabile_sms,
+        ${SQL_CONTATTABILE_TELEFONO} AS contattabile_telefono
       FROM calcolo c
     )
   `;
@@ -160,18 +197,63 @@ export async function ordiniSenzaCliente(): Promise<number> {
   return Number(r[0]?.n ?? 0);
 }
 
-const ORDINAMENTI = {
-  speso: Prisma.raw(`speso DESC`),
-  ordini: Prisma.raw(`ordini DESC`),
-  recenti: Prisma.raw(`ultimo DESC`),
-  nome: Prisma.raw(`nome ASC`),
-} as const;
+// Ordinamento: ogni COLONNA della tabella clienti è ordinabile, nei due versi.
+// `verso` predefinito per colonna: sui numeri e sulle date si parte dal più
+// alto/più recente (è quello che si vuole vedere), sui testi dalla A.
+//
+// Le colonne "a etichetta" (segmento, attività, tipologia) non si ordinano in
+// alfabetico — «Attivo, Dormiente, Inattivo, Recente» non vuol dire niente — ma
+// nell'ordine in cui contano, con `array_position` sul vocabolario.
+const ordineVocabolario = (valori: readonly string[], colonna: string) =>
+  Prisma.raw(`array_position(ARRAY['${valori.join("','")}']::text[], ${colonna})`);
 
-export type OrdinamentoClienti = keyof typeof ORDINAMENTI;
+const ORDINAMENTI: Record<string, { sql: Prisma.Sql; verso: "asc" | "desc" }> = {
+  nome: { sql: Prisma.raw(`nome`), verso: "asc" },
+  citta: { sql: Prisma.raw(`citta`), verso: "asc" },
+  email: { sql: Prisma.raw(`email`), verso: "asc" },
+  telefono: { sql: Prisma.raw(`telefono`), verso: "asc" },
+  tipologia: { sql: ordineVocabolario(TIPOLOGIE.map((t) => t.chiave), "tipologia"), verso: "asc" },
+  segmento: { sql: ordineVocabolario(SEGMENTI.map((s) => s.chiave), "segmento"), verso: "asc" },
+  attivita: { sql: ordineVocabolario(ATTIVITA.map((a) => a.chiave), "attivita"), verso: "asc" },
+  brand: { sql: Prisma.raw(`n_brand`), verso: "desc" },
+  ordini: { sql: Prisma.raw(`ordini`), verso: "desc" },
+  annullati: { sql: Prisma.raw(`annullati`), verso: "desc" },
+  speso: { sql: Prisma.raw(`speso`), verso: "desc" },
+  medio: { sql: Prisma.raw(`medio`), verso: "desc" },
+  primo: { sql: Prisma.raw(`primo`), verso: "desc" },
+  ultimo: { sql: Prisma.raw(`ultimo`), verso: "desc" },
+  privacy: { sql: Prisma.raw(`(contattabile_email OR contattabile_sms)`), verso: "desc" },
+  // Alias storici: la rubrica Google e i vecchi link usano ancora questi nomi.
+  recenti: { sql: Prisma.raw(`ultimo`), verso: "desc" },
+};
+
+export type OrdinamentoClienti = string;
+export type VersoOrdinamento = "asc" | "desc";
 
 export function ordinamentoValido(v: string | undefined): OrdinamentoClienti {
-  return v && v in ORDINAMENTI ? (v as OrdinamentoClienti) : "speso";
+  return v && v in ORDINAMENTI ? v : "speso";
 }
+
+// Il verso: quello chiesto, altrimenti quello che ha senso per la colonna.
+export function versoValido(colonna: string, v: string | undefined): VersoOrdinamento {
+  if (v === "asc" || v === "desc") return v;
+  return ORDINAMENTI[colonna]?.verso ?? "desc";
+}
+
+// Le colonne ordinabili, per le intestazioni cliccabili della tabella.
+export const COLONNE_CLIENTI = [
+  { chiave: "nome", nome: "Cliente" },
+  { chiave: "tipologia", nome: "Tipologia" },
+  { chiave: "segmento", nome: "Segmento" },
+  { chiave: "attivita", nome: "Attività" },
+  { chiave: "privacy", nome: "Privacy" },
+  { chiave: "email", nome: "Contatti" },
+  { chiave: "brand", nome: "Brand" },
+  { chiave: "ordini", nome: "Ordini" },
+  { chiave: "speso", nome: "Speso" },
+  { chiave: "medio", nome: "Medio" },
+  { chiave: "ultimo", nome: "Ultimo" },
+] as const;
 
 type RigaCliente = {
   chiave: string;
@@ -188,11 +270,22 @@ type RigaCliente = {
   giorni: number;
   brand: string[];
   segmento: string;
+  attivita: string;
   tipologia: string;
   tipologia_auto: string;
   tipo_manuale: string | null;
   nota_tag: string | null;
   dominio_aziendale: boolean;
+  consenso_email: string | null;
+  consenso_sms: string | null;
+  privacy_email: string | null;
+  privacy_sms: string | null;
+  privacy_telefono: string | null;
+  bloccato: boolean;
+  nota_privacy: string | null;
+  contattabile_email: boolean;
+  contattabile_sms: boolean;
+  contattabile_telefono: boolean;
 };
 
 function daRiga(r: RigaCliente): Cliente {
@@ -211,18 +304,31 @@ function daRiga(r: RigaCliente): Cliente {
     giorni: r.giorni,
     brand: r.brand ?? [],
     segmento: r.segmento,
+    attivita: r.attivita,
     tipologia: r.tipologia,
     tipologiaAuto: r.tipologia_auto,
     tipoManuale: r.tipo_manuale,
     notaTag: r.nota_tag,
     dominioAziendale: r.dominio_aziendale,
+    consensoEmail: r.consenso_email,
+    consensoSms: r.consenso_sms,
+    privacyEmail: r.privacy_email,
+    privacySms: r.privacy_sms,
+    privacyTelefono: r.privacy_telefono,
+    bloccato: r.bloccato,
+    notaPrivacy: r.nota_privacy,
+    contattabileEmail: r.contattabile_email,
+    contattabileSms: r.contattabile_sms,
+    contattabileTelefono: r.contattabile_telefono,
   };
 }
 
 const CAMPI = Prisma.raw(`
   chiave, nome, email, telefono, citta, ordini, annullati, speso, medio,
-  primo, ultimo, giorni, brand, segmento, tipologia, tipologia_auto,
-  tipo_manuale, nota_tag, dominio_aziendale
+  primo, ultimo, giorni, brand, segmento, attivita, tipologia, tipologia_auto,
+  tipo_manuale, nota_tag, dominio_aziendale, consenso_email, consenso_sms,
+  privacy_email, privacy_sms, privacy_telefono, bloccato, nota_privacy,
+  contattabile_email, contattabile_sms, contattabile_telefono
 `);
 
 // Elenco clienti classificati, paginato. `listaChiave` restringe a una lista
@@ -233,12 +339,15 @@ export async function elencoClienti(
   salta: number,
   quanti: number,
   listaChiave?: string,
+  verso?: VersoOrdinamento,
 ): Promise<Cliente[]> {
+  const colonna = ORDINAMENTI[ordinamentoValido(ordina)];
+  const direzione = Prisma.raw(versoValido(ordina, verso).toUpperCase());
   const righe = await prisma.$queryRaw<RigaCliente[]>(Prisma.sql`
     ${vistaClienti(q)}
     SELECT ${CAMPI} FROM clienti
     ${filtroLista(listaChiave)}
-    ORDER BY ${ORDINAMENTI[ordina]} NULLS LAST, chiave
+    ORDER BY ${colonna.sql} ${direzione} NULLS LAST, chiave
     LIMIT ${quanti} OFFSET ${salta}
   `);
   return righe.map(daRiga);

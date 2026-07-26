@@ -129,6 +129,10 @@ function datiShopify(brand: string, o: OrdineNormalizzato) {
     clienteNome: o.clienteNome,
     clienteEmail: o.clienteEmail,
     clienteTelefono: o.clienteTelefono,
+    consensoEmail: o.consensoEmail,
+    consensoEmailIl: o.consensoEmailIl,
+    consensoSms: o.consensoSms,
+    consensoSmsIl: o.consensoSmsIl,
     dataConsegna: o.dataConsegna,
     fasciaConsegna: o.fasciaConsegna,
     biglietto: o.biglietto,
@@ -186,6 +190,8 @@ async function salvaBloccoOrdini(
       clienteNome: true,
       clienteEmail: true,
       clienteTelefono: true,
+      consensoEmail: true,
+      consensoSms: true,
       dataConsegna: true,
       fasciaConsegna: true,
       biglietto: true,
@@ -321,6 +327,8 @@ type OrdineSalvato = {
   clienteNome: string | null;
   clienteEmail: string | null;
   clienteTelefono: string | null;
+  consensoEmail: string | null;
+  consensoSms: string | null;
   dataConsegna: Date | null;
   fasciaConsegna: string | null;
   biglietto: string | null;
@@ -359,6 +367,13 @@ function cambiato(e: OrdineSalvato, o: OrdineNormalizzato, brand: string): boole
   if (e.clienteNome !== o.clienteNome) return true;
   if (e.clienteEmail !== o.clienteEmail) return true;
   if (e.clienteTelefono !== o.clienteTelefono) return true;
+  // I consensi di marketing SÌ entrano nel confronto, al contrario del rischio
+  // frode: cambiano nel tempo (un cliente si disiscrive) e sapere che si è
+  // disiscritto è esattamente il punto. Prezzo da pagare: la prima sync dopo
+  // questa modifica riscrive gli ordini della finestra, perché il valore passa
+  // da vuoto a un consenso.
+  if (e.consensoEmail !== o.consensoEmail) return true;
+  if (e.consensoSms !== o.consensoSms) return true;
   if (!dataUguale(e.dataConsegna, o.dataConsegna)) return true;
   if (e.fasciaConsegna !== o.fasciaConsegna) return true;
   if (e.biglietto !== o.biglietto) return true;

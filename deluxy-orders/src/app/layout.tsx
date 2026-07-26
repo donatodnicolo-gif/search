@@ -13,16 +13,17 @@ export const metadata: Metadata = {
 
 // I conteggi della sidebar. Se il DB non è raggiungibile (build o prima
 // configurazione) tornano a zero senza far cadere la pagina.
-async function conteggi(): Promise<{ ordini: number; daClassificare: number; clienti: number; liste: number }> {
+async function conteggi(): Promise<{ ordini: number; daClassificare: number; clienti: number; liste: number; automazioni: number }> {
   try {
-    const [ordini, daClassificare, clienti] = await Promise.all([
+    const [ordini, daClassificare, clienti, automazioni] = await Promise.all([
       prisma.ordine.count(),
       prisma.ordine.count({ where: { stato: { predefinito: true } } }),
       contaClienti(),
+      prisma.automazione.count(),
     ]);
-    return { ordini, daClassificare, clienti, liste: LISTE.length };
+    return { ordini, daClassificare, clienti, liste: LISTE.length, automazioni };
   } catch {
-    return { ordini: 0, daClassificare: 0, clienti: 0, liste: LISTE.length };
+    return { ordini: 0, daClassificare: 0, clienti: 0, liste: LISTE.length, automazioni: 0 };
   }
 }
 

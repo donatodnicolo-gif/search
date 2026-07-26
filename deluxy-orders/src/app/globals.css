@@ -841,3 +841,14 @@ th.num { text-align: right; }
 .feedback-data { margin-left: auto; font-size: 12.5px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 .feedback-testo { font-size: 13.5px; margin-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .feedback-esito { font-size: 13.5px; color: var(--text-secondary); margin-top: 6px; }
+
+/* ---------- Intestazioni di tabella ordinabili ---------- */
+.th-ordina {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: inherit;
+  transition: color 120ms var(--ease);
+}
+.th-ordina:hover { color: var(--text); }
+.th-ordina.attiva { color: var(--text); }
+.th-freccia { font-size: 10px; opacity: 0.45; }
+.th-ordina.attiva .th-freccia { opacity: 1; color: var(--gold-strong); }

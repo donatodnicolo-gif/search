@@ -120,8 +120,49 @@ ordine medio, da quanto è fermo, il selettore della **tipologia**, le liste in
 cui compare, l'anagrafica con l'ultimo indirizzo e tutti i suoi ordini (con
 cambio di stato al volo).
 
+### Ordinare l'elenco dei clienti
+**Ogni colonna è ordinabile**, nei due versi: si clicca l'intestazione, e
+cliccandola di nuovo si inverte (la freccia dice sempre cosa sta succedendo).
+Le colonne a etichetta — tipologia, segmento, attività — non si ordinano in
+alfabetico ma nell'ordine in cui contano: «Attivo, Recente, Dormiente,
+Inattivo», non «Attivo, Dormiente, Inattivo, Recente».
+
+### Lo stato di attività
+Accanto al segmento di valore c'è **quanto tempo è passato dall'ultimo ordine**,
+da solo: **Attivo** (≤ 90 giorni), **Recente** (3-12 mesi), **Dormiente**
+(12-24 mesi), **Inattivo** (oltre 24 mesi). È la domanda che ci si fa davvero
+guardando un elenco — «questo cliente c'è ancora?» — e il segmento la mescola
+col denaro. Si ordina e si filtra anche per quello.
+
+### Privacy: chi si può contattare
+Dai negozi si importa, per ogni ordine, il **consenso di marketing** che Shopify
+conosceva in quel momento (email e SMS). Per il cliente vale il consenso del suo
+**ordine più recente**: chi si disiscrive dopo tre ordini non è «iscritto»
+perché lo era due anni fa.
+
+Nella scheda del cliente ci sono tre interruttori — email, WhatsApp/SMS,
+telefonate — più **«non contattare mai»**. La regola, valida per la UI, per gli
+export e per le automazioni:
+
+1. se il cliente è **bloccato**, non si contatta su nessun canale;
+2. se qualcuno ha scritto **sì/no** a mano, vince quello: è l'ultima volontà che
+   conosciamo (una telefonata, una richiesta a voce);
+3. altrimenti vale **Shopify**, e conta solo «iscritto»;
+4. se non sappiamo niente, **non si contatta**. Nel dubbio si tace.
+
+Da qui le liste della famiglia **Privacy**: *Consenso email* e *Consenso
+WhatsApp/SMS* (quelle da esportare davvero), *Non contattare*, e *Consenso da
+chiedere* — clienti veri, con un recapito, di cui non sappiamo niente. Le
+vecchie liste «Ha un'email» e «Ha un telefono» restano, ma dicono un'altra cosa:
+avere il recapito non è avere il permesso di usarlo.
+
+> I consensi arrivano con la sincronizzazione: gli ordini importati **prima** di
+> questa funzione non li hanno finché non vengono risincronizzati. Un cliente
+> senza consenso noto finisce in «Consenso da chiedere», non in «si può
+> scrivere».
+
 ### Liste (`/liste`)
-I clienti raggruppati **come si usano**: 24 liste calcolate in tempo reale dagli
+I clienti raggruppati **come si usano**: 28 liste calcolate in tempo reale dagli
 ordini (nessuna lista salvata che possa invecchiare). Ogni card dice quanti
 clienti contiene, quanto valgono, **con che criterio** ci si finisce dentro e
 **cosa farci**. Aprendone una si ottiene l'elenco dei clienti, la ricerca
@@ -189,6 +230,39 @@ non dice anche il negozio, il feedback resta *senza ordine riconosciuto*
 (visibile e contato in Impostazioni) invece di essere attaccato all'ordine
 sbagliato. Un reclamo sull'ordine sbagliato manda a un fornitore la colpa di un
 altro: meglio scollegato.
+
+### Automazioni (`/automazioni`)
+Messaggi ai clienti di una lista, scritti da uno **script**: «torna a ordinare»,
+«è passato un anno», «ti aspettiamo per San Valentino». Un'automazione è fatta
+di quattro cose: una **lista** (le stesse del catalogo), un **canale**
+(WhatsApp, email, telefonata), lo **script** con i segnaposto, e i
+**guardrail**.
+
+Lo script usa `{{nome}}`, `{{citta}}`, `{{brand}}`, `{{ultimo_ordine}}`,
+`{{giorni}}`, `{{ordini}}`, `{{speso}}`. Un segnaposto scritto male resta
+visibile nel testo: te ne accorgi nell'anteprima, non dopo l'invio.
+
+I quattro setacci, nell'ordine:
+
+1. **consenso** per quel canale (si può togliere solo per i messaggi di servizio
+   su un ordine in corso, mai per una promozione — e resta scritto che è stato
+   tolto);
+2. **recapito** presente (email o telefono, secondo il canale);
+3. **silenzio**: nessun altro messaggio, di *nessuna* automazione, negli ultimi
+   N giorni — il modo più veloce per farsi bloccare è scrivere due volte in una
+   settimana;
+4. **limite del giro**: quante persone al massimo in una volta.
+
+La scheda mostra sempre la **prova a vuoto**: quanti messaggi verrebbero
+preparati adesso, **quanti restano fuori e perché** (con i motivi contati uno
+per uno) e come suonerebbero i primi tre, coi dati veri di quelle persone.
+
+**L'automazione non invia da sola.** Prepara i messaggi, uno per cliente, e
+quelli restano lì: si controllano, si esportano in CSV, si mandano dal Customer
+Service (che è l'app che parla con WhatsApp) e poi si segnano come inviati. È
+una scelta, non un pezzo mancante: un errore su una lista da duemila persone non
+si corregge dopo, e l'app non deve poter dire di aver inviato ciò che non ha
+inviato.
 
 ### Bacheca (`/bacheca`)
 Vista kanban: una colonna per ogni stato della pipeline (più «Senza stato»).

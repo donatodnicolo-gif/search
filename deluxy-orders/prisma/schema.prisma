@@ -78,6 +78,93 @@ model TagCliente {
   @@index([tipo])
 }
 
+// Le impostazioni di PRIVACY di un cliente decise qui dentro: valgono più di
+// quelle importate da Shopify, perché sono l'ultima volontà che conosciamo
+// (una telefonata, un'email di disiscrizione, una richiesta a voce).
+//
+// Tre valori possibili per canale: `si` (si può contattare), `no` (non si può),
+// `null`/assente (non lo sappiamo → si applica quello di Shopify, e se manca
+// anche quello **non si contatta**: nel dubbio non si scrive a nessuno).
+//
+// `bloccato` è l'interruttore generale: nessuna automazione lo scavalca, per
+// nessun canale. Serve a chi chiede di essere lasciato in pace.
+model PrivacyCliente {
+  id           String   @id @default(cuid())
+  chiave       String   @unique // stessa chiave dei clienti: email → telefono → nome
+  email        String? // si | no
+  sms          String? // si | no  (vale anche per WhatsApp)
+  telefono     String? // si | no  (chiamate)
+  bloccato     Boolean  @default(false)
+  note         String? // perché: "ha chiesto di non essere più contattato, 12/07"
+  autore       String?
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([bloccato])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTOMAZIONI — messaggi ai clienti di una lista, scritti da uno script.
+//
+// Un'automazione NON invia da sola nel mondo: prepara i messaggi, uno per
+// cliente, già compilati e già passati al setaccio dei consensi. L'invio vero
+// resta un gesto con un responsabile davanti (oggi si esporta o si manda a mano
+// dal Customer Service). È voluto: un errore in una lista da 2.000 persone non
+// si corregge dopo.
+model Automazione {
+  id          String @id @default(cuid())
+  nome        String
+  descrizione String @default("")
+  // Chi riceve: la chiave di una lista del catalogo (src/lib/segmenti.ts).
+  lista       String
+  // Come si scrive: `canale` decide quale consenso serve.
+  canale      String @default("whatsapp") // whatsapp | email | telefono
+  // Il testo, con i segnaposto {{nome}}, {{ultimo_ordine}}, {{brand}}, …
+  // Si può incollare uno script del Customer Service.
+  script      String @default("") @db.Text
+  oggetto     String @default("") // solo per l'email
+
+  // Guardrail, tutti con un motivo:
+  //  - `giorniSilenzio`: non riscrivere alla stessa persona prima di N giorni;
+  //  - `limiteGiro`: quanti messaggi al massimo prepara un giro (una lista da
+  //    3.000 persone non si manda tutta in una notte);
+  //  - `soloConsenso`: se true (predefinito) esclude chi non ha dato il
+  //    consenso per quel canale. Si può togliere solo per i messaggi di
+  //    servizio, non per il marketing.
+  giorniSilenzio Int     @default(30)
+  limiteGiro     Int     @default(50)
+  soloConsenso   Boolean @default(true)
+
+  attiva    Boolean               @default(false)
+  ultimoGiro DateTime?
+  messaggi  MessaggioAutomazione[]
+  creatoIl  DateTime              @default(now())
+  aggiornatoIl DateTime           @updatedAt
+
+  @@index([attiva])
+}
+
+// Un messaggio preparato per un cliente. Resta qui anche dopo l'invio: è la
+// memoria che impedisce di riscrivere alla stessa persona ogni settimana.
+model MessaggioAutomazione {
+  id            String      @id @default(cuid())
+  automazioneId String
+  automazione   Automazione @relation(fields: [automazioneId], references: [id], onDelete: Cascade)
+  chiave        String // il cliente
+  nome          String  @default("")
+  destinatario  String  @default("") // email o telefono, secondo il canale
+  testo         String  @default("") @db.Text
+  oggetto       String  @default("")
+  // pronto = preparato e mai inviato · inviato · saltato (con motivo) · annullato
+  stato         String  @default("pronto")
+  motivo        String? // perché è stato saltato: "nessun consenso email", "già scritto 12 giorni fa"
+  preparatoIl   DateTime @default(now())
+  inviatoIl     DateTime?
+
+  @@index([automazioneId, stato])
+  @@index([chiave, preparatoIl])
+}
+
 // Stato del flusso di lavoro (pipeline) — completamente personalizzabile.
 // È la classificazione principale su cui si muove la Bacheca. `chiave` è lo slug
 // stabile citato dalle API; `nome` è l'etichetta mostrata.
@@ -141,6 +228,16 @@ model Ordine {
   clienteNome     String?
   clienteEmail    String?
   clienteTelefono String?
+
+  // Consensi di marketing come li conosce Shopify AL MOMENTO DELL'ORDINE.
+  // Sono una fotografia, non la verità di oggi: il cliente può aver cambiato
+  // idea dopo. Per sapere com'è adesso vale il consenso dell'ordine più
+  // recente, e sopra tutto vale la scelta scritta a mano in PrivacyCliente.
+  // Valori Shopify: SUBSCRIBED | NOT_SUBSCRIBED | PENDING | UNSUBSCRIBED | REDACTED.
+  consensoEmail   String?
+  consensoEmailIl DateTime? // quando il cliente ha espresso quel consenso
+  consensoSms     String?
+  consensoSmsIl   DateTime?
 
   // consegna richiesta dal cliente: su Shopify sono attributi dell'ordine
   // (Data_Consegna = data ISO, Fascia_Oraria_Consegna = fascia tipo "16-20").

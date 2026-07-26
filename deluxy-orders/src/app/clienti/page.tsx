@@ -4,6 +4,7 @@ import { brandConColore, mappaColori } from "@/lib/brand";
 import {
   elencoClienti,
   ordinamentoValido,
+  versoValido,
   ordiniSenzaCliente,
   totaliClienti,
 } from "@/lib/clienti";
@@ -22,6 +23,7 @@ export default async function Clienti({
   const sp = await searchParams;
   const q = sp.q?.trim() || undefined;
   const ordina = ordinamentoValido(sp.ordina);
+  const verso = versoValido(ordina, sp.verso);
   const pagina = Math.max(1, Number(sp.page ?? "1") || 1);
   // Filtro rapido per tag: sono le stesse liste del catalogo, applicate qui.
   const filtro = lista(sp.lista ?? "")?.chiave;
@@ -29,7 +31,7 @@ export default async function Clienti({
   const [brand, totale, clienti, senzaCliente] = await Promise.all([
     brandConColore(),
     totaliClienti(q, filtro),
-    elencoClienti(q, ordina, (pagina - 1) * PER_PAGINA, PER_PAGINA, filtro),
+    elencoClienti(q, ordina, (pagina - 1) * PER_PAGINA, PER_PAGINA, filtro, verso),
     ordiniSenzaCliente(),
   ]);
 
@@ -46,15 +48,16 @@ export default async function Clienti({
     return `/clienti${qs ? `?${qs}` : ""}`;
   }
 
-  const ordinamenti = [
-    { chiave: "speso", nome: "Più spesa" },
-    { chiave: "ordini", nome: "Più ordini" },
-    { chiave: "recenti", nome: "Più recenti" },
-    { chiave: "nome", nome: "Nome" },
-  ];
+  // Il link dell'intestazione di colonna: se è già quella attiva inverte il
+  // verso, altrimenti passa a quella colonna col verso che ha senso per lei.
+  function ordinaPer(colonna: string): string {
+    const inverso = ordina === colonna ? (verso === "asc" ? "desc" : "asc") : "";
+    return conFiltro({ ordina: colonna, verso: inverso, page: "" });
+  }
 
   const perValore = LISTE.filter((l) => l.famiglia === "valore");
   const perTipologia = LISTE.filter((l) => l.famiglia === "tipologia" && l.chiave !== "probabili-aziende");
+  const perPrivacy = LISTE.filter((l) => l.famiglia === "privacy");
 
   return (
     <main className="main">
@@ -92,6 +95,7 @@ export default async function Clienti({
       {/* Ricerca */}
       <form className="ricerca" method="get">
         {sp.ordina && <input type="hidden" name="ordina" value={sp.ordina} />}
+        {sp.verso && <input type="hidden" name="verso" value={sp.verso} />}
         {sp.lista && <input type="hidden" name="lista" value={sp.lista} />}
         <span className="ricerca-icona" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -131,12 +135,13 @@ export default async function Clienti({
         </Link>
       </div>
 
-      {/* Ordinamento */}
+      {/* Privacy: chi si può contattare davvero */}
       <div className="filtri">
-        <span className="etichetta-ordina">Ordina per</span>
-        {ordinamenti.map((o) => (
-          <Link key={o.chiave} className={`stato-pill${ordina === o.chiave ? " attuale" : ""}`} href={conFiltro({ ordina: o.chiave, page: "" })}>
-            <span className="stato-label">{o.nome}</span>
+        <span className="etichetta-ordina">Privacy</span>
+        {perPrivacy.map((l) => (
+          <Link key={l.chiave} className={`stato-pill${filtro === l.chiave ? " attuale" : ""}`} href={conFiltro({ lista: l.chiave, page: "" })}>
+            <span className="dot" style={{ background: l.colore }} />
+            <span className="stato-label">{l.nome}</span>
           </Link>
         ))}
       </div>
@@ -152,7 +157,7 @@ export default async function Clienti({
         <div className="vuoto">{q ? `Nessun cliente per «${q}».` : "Nessun cliente: importa gli ordini."}</div>
       ) : (
         <>
-          <TabellaClienti clienti={clienti} colori={colori} />
+          <TabellaClienti clienti={clienti} colori={colori} ordina={ordina} verso={verso} href={ordinaPer} />
 
           <div className="paginazione">
             <span>

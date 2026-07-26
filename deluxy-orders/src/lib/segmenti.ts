@@ -73,6 +73,92 @@ export const SQL_SEGMENTO = Prisma.raw(`CASE
   ELSE 'perso'
 END`);
 
+// --- Attività: da quanto non ordina ----------------------------------------
+// È il segmento ridotto all'osso — solo il tempo — perché è la domanda che si
+// fa davvero guardando un elenco: «questo cliente c'è ancora?». Il segmento di
+// valore mescola tempo e denaro; qui il tempo sta da solo, e si può ordinare e
+// filtrare l'elenco per quello.
+export const ATTIVITA = [
+  { chiave: "attivo", nome: "Attivo", colore: "var(--green)", spiega: `Ha ordinato negli ultimi ${SOGLIE.giorniNuovo} giorni.` },
+  { chiave: "recente", nome: "Recente", colore: "var(--blue)", spiega: "Ultimo ordine fra 3 e 12 mesi fa." },
+  { chiave: "dormiente", nome: "Dormiente", colore: "var(--orange)", spiega: "Ultimo ordine fra 12 e 24 mesi fa." },
+  { chiave: "inattivo", nome: "Inattivo", colore: "var(--text-tertiary)", spiega: "Ultimo ordine oltre 24 mesi fa." },
+] as const;
+
+export type Attivita = (typeof ATTIVITA)[number]["chiave"];
+
+export function nomeAttivita(a: string): string {
+  return ATTIVITA.find((x) => x.chiave === a)?.nome ?? a;
+}
+export function coloreAttivita(a: string): string {
+  return ATTIVITA.find((x) => x.chiave === a)?.colore ?? "var(--text-secondary)";
+}
+
+export const SQL_ATTIVITA = Prisma.raw(`CASE
+  WHEN giorni <= ${SOGLIE.giorniNuovo} THEN 'attivo'
+  WHEN giorni <= ${SOGLIE.giorniAttivo} THEN 'recente'
+  WHEN giorni <= ${SOGLIE.giorniDormiente} THEN 'dormiente'
+  ELSE 'inattivo'
+END`);
+
+// --- Privacy: si può scrivere a questa persona? -----------------------------
+// Regola unica, valida per la UI, per l'export e per le automazioni:
+//  1. se il cliente è **bloccato** non si contatta, su nessun canale;
+//  2. se qualcuno ha scritto a mano `si`/`no`, vince quello (è l'ultima volontà
+//     che conosciamo: una telefonata, una richiesta a voce);
+//  3. altrimenti vale il consenso di Shopify, e conta solo `SUBSCRIBED`;
+//  4. se non sappiamo niente, **non si contatta**. Nel dubbio si tace: è il
+//     senso del consenso, e un messaggio a chi non l'ha chiesto costa più di
+//     un messaggio in meno.
+export const SQL_CONTATTABILE_EMAIL = Prisma.raw(`CASE
+  WHEN bloccato THEN false
+  WHEN privacy_email = 'no' THEN false
+  WHEN privacy_email = 'si' THEN true
+  ELSE COALESCE(consenso_email = 'SUBSCRIBED', false)
+END`);
+
+export const SQL_CONTATTABILE_SMS = Prisma.raw(`CASE
+  WHEN bloccato THEN false
+  WHEN privacy_sms = 'no' THEN false
+  WHEN privacy_sms = 'si' THEN true
+  ELSE COALESCE(consenso_sms = 'SUBSCRIBED', false)
+END`);
+
+export const SQL_CONTATTABILE_TELEFONO = Prisma.raw(`CASE
+  WHEN bloccato THEN false
+  WHEN privacy_telefono = 'no' THEN false
+  WHEN privacy_telefono = 'si' THEN true
+  ELSE false
+END`);
+
+// Come si legge un consenso Shopify in italiano.
+export function consensoLeggibile(stato: string | null): string {
+  const nomi: Record<string, string> = {
+    SUBSCRIBED: "iscritto",
+    NOT_SUBSCRIBED: "mai iscritto",
+    UNSUBSCRIBED: "disiscritto",
+    PENDING: "in attesa di conferma",
+    REDACTED: "cancellato",
+  };
+  return stato ? (nomi[stato] ?? stato) : "non indicato";
+}
+
+// Il canale di un'automazione e il consenso che richiede.
+export const CANALI = [
+  { chiave: "whatsapp", nome: "WhatsApp", consenso: "sms", recapito: "telefono" },
+  { chiave: "email", nome: "Email", consenso: "email", recapito: "email" },
+  { chiave: "telefono", nome: "Telefonata", consenso: "telefono", recapito: "telefono" },
+] as const;
+
+export type Canale = (typeof CANALI)[number]["chiave"];
+
+export function nomeCanale(c: string): string {
+  return CANALI.find((x) => x.chiave === c)?.nome ?? c;
+}
+export function canaleValido(v: string | null | undefined): Canale {
+  return CANALI.some((c) => c.chiave === v) ? (v as Canale) : "whatsapp";
+}
+
 // --- Tipologia (chi è il cliente) ------------------------------------------
 export type Tipologia = "privato" | "azienda" | "horeca" | "eventi" | "rivenditore";
 
@@ -147,7 +233,7 @@ export function colonnaOccasione(chiave: string): string {
 }
 
 // --- Catalogo delle liste ---------------------------------------------------
-export type FamigliaLista = "valore" | "tipologia" | "occasioni" | "attivazione";
+export type FamigliaLista = "valore" | "tipologia" | "occasioni" | "attivazione" | "privacy";
 
 export type Lista = {
   chiave: string;
@@ -185,6 +271,12 @@ export const FAMIGLIE: { chiave: FamigliaLista; nome: string; sotto: string }[] 
     chiave: "attivazione",
     nome: "Liste operative e ADV",
     sotto: "Pronte da usare: pubblici Customer Match e Meta, cross-sell, contatti WhatsApp, casi da guardare.",
+  },
+  {
+    chiave: "privacy",
+    nome: "Privacy e consensi",
+    sotto:
+      "Chi si può contattare davvero. Avere un'email non è avere il permesso di usarla: qui contano i consensi di Shopify e le scelte scritte a mano nella scheda del cliente, che vincono sempre.",
   },
 ];
 
@@ -365,21 +457,66 @@ export const LISTE: Lista[] = [
   },
   {
     chiave: "con-email",
-    nome: "Contattabili via email",
+    nome: "Ha un'email",
     famiglia: "attivazione",
     colore: "var(--blue)",
-    criterio: "Ha lasciato un indirizzo email.",
-    consiglio: "Base per Customer Match (Google) e Pubblico personalizzato (Meta): si esporta in CSV da qui.",
+    criterio: "Ha lasciato un indirizzo email. Attenzione: avere l'indirizzo NON vuol dire poterlo usare per il marketing.",
+    consiglio:
+      "Per i pubblici pubblicitari (Customer Match, Meta) e per qualunque invio serve la lista «Consenso email», non questa.",
     dove: Prisma.raw(`email IS NOT NULL AND email <> ''`),
   },
   {
     chiave: "con-telefono",
-    nome: "Contattabili via WhatsApp",
+    nome: "Ha un telefono",
     famiglia: "attivazione",
     colore: "var(--green)",
-    criterio: "Ha lasciato un numero di telefono.",
-    consiglio: "Il canale che converte di più su ricorrenze e riordini: si lavora dall'app Messaggi, non a mano.",
+    criterio: "Ha lasciato un numero di telefono. Anche qui: averlo non vuol dire poterci scrivere.",
+    consiglio: "Utile per il servizio (chiamare per una consegna). Per scrivere in massa serve «Consenso WhatsApp/SMS».",
     dove: Prisma.raw(`telefono IS NOT NULL AND telefono <> ''`),
+  },
+  {
+    chiave: "consenso-email",
+    nome: "Consenso email",
+    famiglia: "privacy",
+    colore: "var(--blue)",
+    criterio:
+      "Si può scrivere via email: consenso dato (Shopify «iscritto») o autorizzato a mano qui, e cliente non bloccato.",
+    consiglio: "È QUESTA la lista da esportare per newsletter, Customer Match e pubblici Meta. Non «Ha un'email».",
+    dove: Prisma.raw(`contattabile_email`),
+  },
+  {
+    chiave: "consenso-whatsapp",
+    nome: "Consenso WhatsApp / SMS",
+    famiglia: "privacy",
+    colore: "var(--green)",
+    criterio: "Ha un telefono e il consenso ai messaggi (Shopify o dato a mano qui), e non è bloccato.",
+    consiglio: "Il canale che converte di più su ricorrenze e riordini: è la base delle automazioni WhatsApp.",
+    dove: Prisma.raw(`contattabile_sms AND telefono IS NOT NULL AND telefono <> ''`),
+  },
+  {
+    chiave: "non-contattare",
+    nome: "Non contattare",
+    famiglia: "privacy",
+    colore: "var(--red)",
+    criterio: "Bloccato a mano, oppure disiscritto su Shopify, oppure con un «no» scritto su un canale.",
+    consiglio:
+      "Da escludere da qualunque invio, sempre. Le automazioni lo fanno da sole: questa lista serve a controllare che il conto torni.",
+    dove: Prisma.raw(
+      `bloccato OR privacy_email = 'no' OR privacy_sms = 'no' OR privacy_telefono = 'no' OR consenso_email IN ('UNSUBSCRIBED','REDACTED')`,
+    ),
+  },
+  {
+    chiave: "consenso-da-chiedere",
+    nome: "Consenso da chiedere",
+    famiglia: "privacy",
+    colore: "var(--gold-strong)",
+    criterio:
+      "Cliente vero, con un recapito, ma di cui non sappiamo niente sul consenso: né Shopify né noi. Non è bloccato: è solo un dato che manca.",
+    consiglio:
+      "Sono contatti che oggi non si possono usare. Vale la pena chiederlo (al prossimo ordine, o con una telefonata) invece di scrivergli e sperare.",
+    dove: Prisma.raw(
+      `NOT bloccato AND consenso_email IS NULL AND privacy_email IS NULL AND privacy_sms IS NULL AND ((email IS NOT NULL AND email <> '') OR (telefono IS NOT NULL AND telefono <> ''))`,
+    ),
   },
   {
     chiave: "con-annullamenti",

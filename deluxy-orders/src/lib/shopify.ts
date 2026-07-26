@@ -38,6 +38,10 @@ export type OrdineNormalizzato = {
   clienteNome: string | null;
   clienteEmail: string | null;
   clienteTelefono: string | null;
+  consensoEmail: string | null;
+  consensoEmailIl: Date | null;
+  consensoSms: string | null;
+  consensoSmsIl: Date | null;
   dataConsegna: Date | null;
   fasciaConsegna: string | null;
   biglietto: string | null;
@@ -78,7 +82,16 @@ query Ordini($cursor: String, $q: String) {
         customAttributes { key value }
         paymentGatewayNames
         totalPriceSet { shopMoney { amount currencyCode } }
-        customer { firstName lastName email phone }
+        customer {
+          firstName lastName email phone
+          # Consensi di marketing: servono a non scrivere a chi non vuole essere
+          # contattato. Sono accessibili col token degli ordini (verificato sui
+          # tre negozi il 26/07/2026); se un giorno non lo fossero, vanno tolti
+          # da qui, perché un campo senza permessi fa fallire l'INTERO import —
+          # è già successo con le foto dei prodotti.
+          emailMarketingConsent { marketingState consentUpdatedAt }
+          smsMarketingConsent { marketingState consentUpdatedAt }
+        }
         shippingAddress {
           name address1 address2 city zip provinceCode province countryCodeV2 country phone
         }
@@ -129,7 +142,14 @@ type OrderNode = {
   customAttributes: Attributo[] | null;
   paymentGatewayNames: string[];
   totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
-  customer: { firstName: string | null; lastName: string | null; email: string | null; phone: string | null } | null;
+  customer: {
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    phone: string | null;
+    emailMarketingConsent: { marketingState: string | null; consentUpdatedAt: string | null } | null;
+    smsMarketingConsent: { marketingState: string | null; consentUpdatedAt: string | null } | null;
+  } | null;
   shippingAddress: {
     name: string | null;
     address1: string | null;
@@ -393,6 +413,14 @@ export async function scaricaOrdini(
         clienteNome: [n.customer?.firstName, n.customer?.lastName].filter(Boolean).join(" ") || null,
         clienteEmail: n.customer?.email ?? null,
         clienteTelefono: n.customer?.phone ?? addr?.phone ?? null,
+        consensoEmail: n.customer?.emailMarketingConsent?.marketingState ?? null,
+        consensoEmailIl: n.customer?.emailMarketingConsent?.consentUpdatedAt
+          ? new Date(n.customer.emailMarketingConsent.consentUpdatedAt)
+          : null,
+        consensoSms: n.customer?.smsMarketingConsent?.marketingState ?? null,
+        consensoSmsIl: n.customer?.smsMarketingConsent?.consentUpdatedAt
+          ? new Date(n.customer.smsMarketingConsent.consentUpdatedAt)
+          : null,
         dataConsegna: consegna.data,
         fasciaConsegna: consegna.fascia,
         biglietto: biglietto.testo,
