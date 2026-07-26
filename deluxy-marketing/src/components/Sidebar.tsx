@@ -6,7 +6,7 @@ import { SbSezione } from "./SbSezione";
 export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "landing" | "copy" | "keywords"
   | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni"
-  | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo" | "ricezione";
+  | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo" | "ricezione" | "ai";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -97,6 +97,7 @@ export async function Sidebar({
           {voce("home", "/", "home", "Dashboard")}
           {voce("analisi", "/analisi", "analisi", "Analisi", nAnalisi)}
           {voce("periodo", "/analisi-campagne", "metriche", "Analisi periodo")}
+          {voce("ai", "/ai", "analisi", "Lettura AI")}
           {voce("audit", "/audit", "audit", "Audit", nAudit)}
           {voce("azioni", "/azioni", "azioni", "Azioni", nAzioniAperte)}
           {voce("campagne", "/campagne", "campagne", "Campagne", nCampagneVive)}

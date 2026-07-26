@@ -110,6 +110,35 @@ coda come "da approvare", il guardrail la valida prima (blackout 72h, ±20% budg
 freeze incidenti, mai ven-dom su traino), e solo dopo l'approvazione manuale lo script
 la esegue e riferisce. All'esito parte il blackout e nascono le verifiche +24h/+72h.
 
+
+## API per le altre app Deluxy
+
+Servono una chiave di **sola lettura** (`npm run chiave -- <nome> --sola-lettura`)
+nell'header `x-api-key`.
+
+### GET /api/v1/spesa — quanto si spende davvero in campagne
+
+La spesa **addebitata dalle piattaforme**, non il budget pianificato. La usano
+Budgets (spese ADV effettive vs budget) e Partner (costi di marketing).
+
+| Parametro | Valori | Default |
+| --- | --- | --- |
+| `dal`, `al` | AAAA-MM-GG (`al` incluso) | ultimi 30 giorni |
+| `brand` | flowers · cake · gifts · cross | tutti |
+| `canale` | google_ads · meta_ads · tiktok | tutti |
+| `raggruppa` | giorno · mese · brand · canale · campagna | nessuno |
+
+
+
+**Leggere sempre `copertura` prima di usare `totale`.** Un account che non
+consegna abbassa il totale senza che si veda: il blocco `copertura` dichiara chi
+sta alimentando il dato (`alimentano`), chi tace (`silenziosi`), quanti giorni del
+periodo hanno dati e un elenco di `avvertenze` in italiano. Se
+`copertura.completa` è `false`, **la spesa reale è più alta del totale restituito**.
+
+I campi in `dichiarati` (conversioni, ricavi) sono quelli *dichiarati dalle
+piattaforme*: sovrastimano di norma. Per i ricavi veri usare `/api/v1/ordini`.
+
 ## Automazione quotidiana
 
 Un'attività programmata di Claude (08:31, `deluxy-marketing-sync-analisi-drive` in
