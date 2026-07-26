@@ -16,6 +16,7 @@ import { coloreLivello, LABEL_LIVELLO, LIVELLI, livelloDi, type Livello } from '
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 import { VisitaModal } from '@/components/VisitaModal';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
+import { CardElenco } from '@/components/CardElenco';
 
 // Le "viste" del menu: ogni voce di Contatti apre /lista già filtrata.
 // "inattivi" = dormienti + persi, la scheda dei rapporti da riattivare.
@@ -235,45 +236,35 @@ function Riga({
         ? { label: 'Mail', icona: 'mail-outline' as const, onPress: onMail }
         : null;
   return (
-    <Pressable style={styles.riga} onPress={onPress}>
-      {/* Riga alta: solo priorità + nome (piena larghezza) + occhio. Badge e
-          azione vanno sotto, così il nome non viene mai troncato su mobile. */}
-      <View style={styles.rigaHead}>
-        <PriorityBadge priorita={place.priorita} small />
-        <Text numberOfLines={3} style={styles.nome}>
-          {place.nome}
-        </Text>
-      </View>
-      <View style={styles.rigaBadge}>
-        <StatusBadge small label={LABEL_LIVELLO[livelloDi(place)]} colore={coloreLivello(livelloDi(place))} />
-      </View>
-      {place.linea_ipotizzata ? (
-        <View style={styles.lineaTag}>
-          <Text style={styles.lineaTagTxt}>{place.linea_ipotizzata}</Text>
-        </View>
-      ) : null}
-      {place.indirizzo ? <Text style={styles.indirizzo} numberOfLines={1}>{place.indirizzo}</Text> : null}
-      <View style={styles.metaPersone}>
-        {place.anagrafiche_account ? (
-          <View style={styles.accountTag}>
-            <Ionicons name="briefcase-outline" size={11} color={colors.goldStrong} />
-            <Text style={styles.accountTagTxt} numberOfLines={1}>Account: {place.anagrafiche_account}</Text>
-          </View>
-        ) : null}
+    // Stessa scheda dei Clienti (components/CardElenco.tsx): icona a sinistra,
+    // testo al centro, badge a destra, azioni in fondo.
+    <CardElenco
+      nome={place.nome}
+      meta={place.indirizzo}
+      account={place.anagrafiche_account ?? null}
+      tag={place.linea_ipotizzata ? [place.linea_ipotizzata] : []}
+      onPress={onPress}
+      badge={
+        <>
+          <StatusBadge small label={LABEL_LIVELLO[livelloDi(place)]} colore={coloreLivello(livelloDi(place))} />
+          <PriorityBadge priorita={place.priorita} small />
+        </>
+      }
+      extra={
         <Text style={styles.inserito} numberOfLines={1}>
           <Ionicons name="person-outline" size={11} color={colors.grigio} /> Inserito{' '}
           {dataInserimento(place.created_at)} · {origineInserimento(place)}
         </Text>
-      </View>
-      {/* Azioni con lo stesso stile dei Clienti (components/AzioniRiga.tsx):
-          cerchietti in fondo alla scheda, allineati a destra. */}
-      <AzioniRiga>
-        {azione ? (
-          <IconaAzione nome={azione.icona} attiva label={azione.label} onPress={azione.onPress} />
-        ) : null}
-        <IconaAzione nome="eye-off-outline" attiva label="Rimuovi target (nascondi)" onPress={onNascondi} />
-      </AzioniRiga>
-    </Pressable>
+      }
+      azioni={
+        <AzioniRiga>
+          {azione ? (
+            <IconaAzione nome={azione.icona} attiva label={azione.label} onPress={azione.onPress} />
+          ) : null}
+          <IconaAzione nome="eye-off-outline" attiva label="Rimuovi target (nascondi)" onPress={onNascondi} />
+        </AzioniRiga>
+      }
+    />
   );
 }
 

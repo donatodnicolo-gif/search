@@ -10,6 +10,7 @@ import { fetchClienti, type Cliente } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
+import { CardElenco } from '@/components/CardElenco';
 
 export default function Clienti() {
   const router = useRouter();
@@ -127,67 +128,49 @@ export default function Clienti() {
           )
         }
         renderItem={({ item }) => (
-          <Pressable style={styles.card} onPress={() => router.push(`/(app)/attivita/${item.id}`)}>
-            {/* Riga alta: icona, dati del negozio, badge. Le azioni stanno sotto:
-                sul telefono, accanto al testo, le 4 icone lasciavano ~88px al
-                nome e si leggeva solo "ALPINU…". */}
-            <View style={styles.cardTop}>
-              <View style={styles.iconaBox}>
-                <Ionicons name="storefront-outline" size={20} color={colors.goldStrong} />
-              </View>
-              <View style={styles.cardTesto}>
-                <Text numberOfLines={3} style={styles.nome}>{item.nome}</Text>
-                <Text style={styles.meta} numberOfLines={1}>
-                  {[item.zona, item.categoria].filter(Boolean).join(' · ') || item.indirizzo || '—'}
-                </Text>
-                <Text style={styles.account} numberOfLines={1}>
-                  <Ionicons name="briefcase-outline" size={11} color={colors.grigio} />{' '}
-                  {item.account ? `Account: ${item.account}` : 'Account non assegnato'}
-                </Text>
-                {item.linee.length ? (
-                  <View style={styles.lineeRow}>
-                    {item.linee.slice(0, 3).map((l) => (
-                      <View key={l} style={styles.lineaTag}>
-                        <Text style={styles.lineaTagTxt}>{l}</Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-              <View style={styles.badgeCol}>
+          // Stessa scheda dei Prospect: la forma sta in components/CardElenco.tsx.
+          <CardElenco
+            nome={item.nome}
+            meta={[item.zona, item.categoria].filter(Boolean).join(' · ') || item.indirizzo || '—'}
+            account={item.account ?? null}
+            tag={item.linee}
+            onPress={() => router.push(`/(app)/attivita/${item.id}`)}
+            badge={
+              <>
                 {item.cliente_scout ? <StatusBadge small label="Cliente" colore={colors.successo} /> : null}
                 {item.partner_registro ? <StatusBadge small label="Partner" colore={colors.blue} /> : null}
-              </View>
-            </View>
-            {/* Azioni rapide: le stesse della scheda, a portata di lista.
-                Stile condiviso con i Prospect (components/AzioniRiga.tsx). */}
-            <AzioniRiga>
-              <IconaAzione
-                nome="call-outline"
-                attiva={Boolean(item.telefono)}
-                label="Chiama"
-                onPress={() => item.telefono && Linking.openURL(`tel:${item.telefono}`)}
-              />
-              <IconaAzione
-                nome="logo-whatsapp"
-                attiva={Boolean(item.telefono)}
-                label="WhatsApp"
-                onPress={() => item.telefono && Linking.openURL(`https://wa.me/${item.telefono.replace(/[^0-9]/g, '')}`)}
-              />
-              <IconaAzione
-                nome="mail-outline"
-                attiva={Boolean(item.email)}
-                label="Email"
-                onPress={() => item.email && Linking.openURL(`mailto:${item.email}`)}
-              />
-              <IconaAzione
-                nome="walk-outline"
-                attiva
-                label="Visita"
-                onPress={() => router.push(`/(app)/visita/${item.id}`)}
-              />
-            </AzioniRiga>
-          </Pressable>
+              </>
+            }
+            azioni={
+              /* Azioni rapide: le stesse della scheda, a portata di lista. */
+              <AzioniRiga>
+                <IconaAzione
+                  nome="call-outline"
+                  attiva={Boolean(item.telefono)}
+                  label="Chiama"
+                  onPress={() => item.telefono && Linking.openURL(`tel:${item.telefono}`)}
+                />
+                <IconaAzione
+                  nome="logo-whatsapp"
+                  attiva={Boolean(item.telefono)}
+                  label="WhatsApp"
+                  onPress={() => item.telefono && Linking.openURL(`https://wa.me/${item.telefono.replace(/[^0-9]/g, '')}`)}
+                />
+                <IconaAzione
+                  nome="mail-outline"
+                  attiva={Boolean(item.email)}
+                  label="Email"
+                  onPress={() => item.email && Linking.openURL(`mailto:${item.email}`)}
+                />
+                <IconaAzione
+                  nome="walk-outline"
+                  attiva
+                  label="Visita"
+                  onPress={() => router.push(`/(app)/visita/${item.id}`)}
+                />
+              </AzioniRiga>
+            }
+          />
         )}
       />
     </View>
