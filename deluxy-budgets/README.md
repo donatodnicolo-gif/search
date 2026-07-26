@@ -57,14 +57,24 @@ pubblicato), *sfidante* e *irraggiungibile*.
   predefinita, 10%, oppure «Lordo» per il dato Shopify tale e quale), perché l'aliquota non è
   salvata sull'ordine e non va indovinata. Ordini **annullati e rimborsati esclusi**; i rimborsi
   parziali restano contati per intero, ed è scritto sotto la tabella.
-  **Confronto con l'anno precedente a parità di periodo**: le colonne «*mesi* *anno-1*» e «Var.»
+  I periodi sono **YTD** (predefinito: da gennaio all'ultimo mese chiuso), T1-T4, i due semestri e
+  **Anno** (ultimo del gruppo). «Anno» è la vista di fine corsa e si comporta diversamente: il
+  **consuntivo resta YTD** mentre **budget e anno precedente sono interi**, per rispondere a «a che
+  punto sono rispetto a tutto l'anno». Lì le colonne cambiano nome — «Tutto il *anno-1*», «% del
+  *anno-1*», «Budget anno», «Ancora da fare» — perché quel confronto **non è uno scostamento** e un
+  −60% letto come calo direbbe una bugia (è solo metà anno). Se il budget è già superato la casella
+  non si azzera: dice «superato di X», in verde sui ricavi e in rosso sui costi.
+  **Confronto con l'anno precedente a parità di periodo** (in tutte le altre viste): le colonne «*mesi* *anno-1*» e «Var.»
   confrontano gli **stessi mesi** dell'anno prima (Gen–Giu con Gen–Giu, non con l'anno intero),
   con la **stessa aliquota IVA** — altrimenti si misurerebbe lo scorporo invece delle vendite.
   Ci sono nel conto economico (totale e per voce di budget), nel KPI dei ricavi e nella tabella
   delle vendite ecommerce per maison. Dove il dato dell'anno prima **non esiste** la casella resta
   **vuota, non a zero**: oggi la banca non ha movimenti categorizzati per il 2025 e non c'è un
   organico a budget 2025, quindi costi ed EBITDA dell'anno prima non si calcolano e la pagina lo
-  scrive. Si riempiranno da soli quando quei dati ci saranno.
+  scrive. Si riempiranno da soli quando quei dati ci saranno. Un dato **parziale** viene segnalato
+  invece che spacciato per completo: il conto di banca del 2025 parte da **luglio**, quindi nella
+  vista Anno i costi del 2025 coprono 6 mesi su 12 e la pagina avvisa che quella percentuale è
+  gonfiata dal minor tempo misurato, non solo da maggiore spesa.
 - **Piattaforme ADV** (`/piattaforme`): ripartizione del budget pubblicitario tra le **piattaforme**
   (Google, Meta, TikTok e altre **aggiungibili/rimovibili**). Si impostano le **% per mese** — diverse
   mese per mese — e l'**importo per piattaforma si calcola da solo** (= budget ADV del mese × %). La

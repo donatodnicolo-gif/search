@@ -8,14 +8,20 @@ import { abbinaMaison, ALIQUOTE, fetchRicaviD2C, imponibile } from "@/lib/orders
 
 export const dynamic = "force-dynamic";
 
+// I periodi confrontano sempre mele con mele — mesi chiusi contro gli stessi
+// mesi — TRANNE l'ultimo, «Anno», che è la vista di fine corsa: il consuntivo
+// resta quello dei mesi chiusi (YTD) ma budget e anno precedente si mostrano
+// **interi**, per rispondere a «a che punto sono rispetto a tutto l'anno».
+// Lì le colonne cambiano nome, perché quel confronto non è uno scostamento.
 const PERIODI = [
-  { key: "anno", label: "Anno", dal: 1, al: 12 },
-  { key: "t1", label: "T1", dal: 1, al: 3 },
-  { key: "t2", label: "T2", dal: 4, al: 6 },
-  { key: "t3", label: "T3", dal: 7, al: 9 },
-  { key: "t4", label: "T4", dal: 10, al: 12 },
-  { key: "s1", label: "1° sem", dal: 1, al: 6 },
-  { key: "s2", label: "2° sem", dal: 7, al: 12 },
+  { key: "ytd", label: "YTD", dal: 1, al: 12, annoIntero: false },
+  { key: "t1", label: "T1", dal: 1, al: 3, annoIntero: false },
+  { key: "t2", label: "T2", dal: 4, al: 6, annoIntero: false },
+  { key: "t3", label: "T3", dal: 7, al: 9, annoIntero: false },
+  { key: "t4", label: "T4", dal: 10, al: 12, annoIntero: false },
+  { key: "s1", label: "1° sem", dal: 1, al: 6, annoIntero: false },
+  { key: "s2", label: "2° sem", dal: 7, al: 12, annoIntero: false },
+  { key: "anno", label: "Anno", dal: 1, al: 12, annoIntero: true },
 ];
 const STATI = [
   { key: "tutte", label: "Tutte" },
@@ -58,15 +64,21 @@ export default async function ConsuntivoPage({
   for (let m = dal; m <= al; m++) mesiPeriodo.push(m);
   const vuoto = mesiPeriodo.length === 0;
 
-  // Anno precedente **a parità di periodo**: gli stessi mesi (dal..al), non
-  // l'anno intero. Confrontare sei mesi con dodici direbbe che si è dimezzato
-  // il fatturato quando invece sta andando uguale.
+  // **Il termine di paragone.** Di norma è lo stesso periodo del consuntivo
+  // (mele con mele): confrontare sei mesi con dodici direbbe che il fatturato
+  // si è dimezzato mentre sta crescendo. Nella vista «Anno» invece il paragone
+  // è deliberatamente l'anno INTERO — budget annuale e anno precedente pieno —
+  // perché lì la domanda è un'altra: «a che punto sono rispetto a tutto
+  // l'anno?». Il consuntivo resta YTD in entrambi i casi.
   const annoPrec = anno - 1;
-  const etichettaPeriodo = vuoto
-    ? "—"
-    : dal === al
-      ? MESI[dal - 1]
-      : `${MESI[dal - 1]}–${MESI[al - 1]}`;
+  const rifDal = periodo.annoIntero ? 1 : dal;
+  const rifAl = periodo.annoIntero ? 12 : al;
+  const mesiRif: number[] = [];
+  for (let m = rifDal; m <= rifAl; m++) mesiRif.push(m);
+
+  const etichettaMesi = (a: number, b: number) => (a === b ? MESI[a - 1] : `${MESI[a - 1]}–${MESI[b - 1]}`);
+  const etichettaPeriodo = vuoto ? "—" : etichettaMesi(dal, al);
+  const etichettaRif = periodo.annoIntero ? "anno intero" : etichettaPeriodo;
 
   const [res, spese, categorie, dati, d2c, resPrec, d2cPrec, spesePrec, datiPrec] = await Promise.all([
     vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchConsuntivo({ anno, dal, al, stato }),
@@ -76,9 +88,9 @@ export default async function ConsuntivoPage({
     // Il D2C reale non è in Finance: è il venduto dei negozi Shopify, che vive
     // nel registro Orders.
     vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchRicaviD2C(anno),
-    vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchConsuntivo({ anno: annoPrec, dal, al, stato }),
+    vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchConsuntivo({ anno: annoPrec, dal: rifDal, al: rifAl, stato }),
     vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchRicaviD2C(annoPrec),
-    vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchSpeseBanca({ anno: annoPrec, dal, al }),
+    vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchSpeseBanca({ anno: annoPrec, dal: rifDal, al: rifAl }),
     caricaAnno(annoPrec),
   ]);
 
@@ -117,10 +129,10 @@ export default async function ConsuntivoPage({
       else d2cPrecPerMaison.set(slug, [...mesi]);
     }
   }
-  const d2cPrecPeriodo = mesiPeriodo.reduce((s, m) => s + (d2cPrecMese[m - 1] ?? 0), 0);
+  const d2cPrecPeriodo = mesiRif.reduce((s, m) => s + (d2cPrecMese[m - 1] ?? 0), 0);
   const d2cMaisonPrec = (slug: string) => {
     const mesi = d2cPrecPerMaison.get(slug);
-    return mesi ? mesiPeriodo.reduce((s, m) => s + (mesi[m - 1] ?? 0), 0) : 0;
+    return mesi ? mesiRif.reduce((s, m) => s + (mesi[m - 1] ?? 0), 0) : 0;
   };
 
   // Variazione percentuale. Con una base a zero la percentuale non esiste (non
@@ -131,11 +143,11 @@ export default async function ConsuntivoPage({
   // Budget dei mesi chiusi: si somma il budget mensile (non si rapporta
   // l'annuale), così la stagionalità non falsa il confronto.
   const bm = contoEconomicoMensile(dati, "RAGGIUNGIBILE");
-  const B = (campo: keyof (typeof bm)[number]) => mesiPeriodo.reduce((s, m) => s + bm[m - 1][campo], 0);
+  const B = (campo: keyof (typeof bm)[number]) => mesiRif.reduce((s, m) => s + bm[m - 1][campo], 0);
   const budgetVoce = (slug: string) =>
     dati.maisons.reduce(
       (s, m) =>
-        s + mesiPeriodo.reduce((a, mm) => a + (m.mesi.find((y) => y.month === mm)?.vendite[slug] ?? 0), 0),
+        s + mesiRif.reduce((a, mm) => a + (m.mesi.find((y) => y.month === mm)?.vendite[slug] ?? 0), 0),
       0
     );
 
@@ -218,6 +230,14 @@ export default async function ConsuntivoPage({
   // peggio di una casella vuota. Stessa cosa per il personale: senza roster di
   // quell'anno non si calcola, non si finge.
   const bancaPrec = spesePrec.ok && spesePrec.dati.controparti.length > 0;
+  // Quanti dei mesi di riferimento hanno davvero movimenti in banca. Non è un
+  // dettaglio: il conto del 2025 comincia a luglio, quindi «tutto il 2025» dei
+  // costi sono in realtà sei mesi — e un confronto che non lo dice fa sembrare
+  // raddoppiate spese che sono solo misurate su metà tempo.
+  const mesiBancaPrec = bancaPrec && spesePrec.ok
+    ? mesiRif.filter((m) => (spesePrec.dati.totali.perMese[m - 1] ?? 0) > 0)
+    : [];
+  const bancaPrecParziale = bancaPrec && mesiBancaPrec.length < mesiRif.length;
   const costiPrec = { COGS: 0, ADV: 0, PERSONALE: 0, STRUTTURA: 0 };
   if (bancaPrec && spesePrec.ok) {
     for (const r of ricostruisci(spesePrec.dati.controparti, categorie)) {
@@ -227,7 +247,7 @@ export default async function ConsuntivoPage({
     }
   }
   const rosterPrec = datiPrec.persone.length > 0;
-  const personalePrec = rosterPrec ? mesiPeriodo.reduce((s, m) => s + costoPersonaleMese(datiPrec, m), 0) : null;
+  const personalePrec = rosterPrec ? mesiRif.reduce((s, m) => s + costoPersonaleMese(datiPrec, m), 0) : null;
   const costoPrec = (tp: keyof typeof costiPrec) => (bancaPrec ? costiPrec[tp] : null);
   const margineLordoPrec = ricaviPrec !== null && bancaPrec ? ricaviPrec - costiPrec.COGS : null;
   const ebitdaPrec =
@@ -294,6 +314,28 @@ export default async function ConsuntivoPage({
   const buono = (r: RigaPL) => (r.tipo === "costo" ? r.cons - r.budget <= 0 : r.cons - r.budget >= 0);
   // Su un costo crescere è male, su un ricavo è bene: il colore segue quello.
   const buonaVar = (r: RigaPL, v: number) => (r.tipo === "costo" ? v <= 0 : v >= 0);
+
+  // Nella vista «Anno» si confronta un consuntivo parziale con riferimenti
+  // interi: le colonne devono dire esattamente questo, altrimenti un −60% letto
+  // come calo sarebbe solo «siamo a metà anno». Quindi cambiano nome e la
+  // percentuale diventa «quanto ne ho già fatto», non una variazione.
+  const intestaPrec = periodo.annoIntero
+    ? `Tutto il ${annoPrec}`
+    : `${etichettaPeriodo} ${annoPrec}`;
+  const intestaVar = periodo.annoIntero ? `% del ${annoPrec}` : "Var. anno prec.";
+  const intestaBudget = periodo.annoIntero ? "Budget anno" : "Budget periodo";
+  const intestaScost = periodo.annoIntero ? "Ancora da fare" : "Scostamento";
+  // % di completamento: quota di un riferimento intero già coperta dallo YTD.
+  const quota = (ora: number, rif: number | null) =>
+    rif === null || rif === 0 ? null : (ora / rif) * 100;
+  // Quanto manca al budget annuale. Se è già stato superato NON si azzera la
+  // casella: su un ricavo è la notizia migliore della pagina, su un costo la
+  // peggiore, e in entrambi i casi va detta.
+  const restante = (budget: number, cons: number, tipo: "ricavo" | "costo" | "totale") => {
+    const v = budget - cons;
+    if (v > 0) return <span className="muted">{eur(v)}</span>;
+    return <span className={tipo === "costo" ? "neg" : "pos"}>superato di {eur(-v)}</span>;
+  };
 
   const ricaviM = (m: number) => ricaviMese[m] ?? 0;
   const costoM = (tp: keyof typeof costi, m: number) => costiMese[tp][m - 1] ?? 0;
@@ -376,17 +418,27 @@ export default async function ConsuntivoPage({
               </div>
               {ricaviPrec !== null && (
                 <div className="kpi-sub">
-                  {(() => {
-                    const v = variazione(ricaviCons, ricaviPrec);
-                    return (
-                      <>
-                        <span className={v === null ? "muted" : v >= 0 ? "pos" : "neg"}>
-                          {v === null ? "—" : `${v >= 0 ? "+" : ""}${pct(v, 0)}`}
-                        </span>{" "}
-                        sullo stesso periodo {annoPrec} ({eur(ricaviPrec)})
-                      </>
-                    );
-                  })()}
+                  {periodo.annoIntero
+                    ? (() => {
+                        const q = quota(ricaviCons, ricaviPrec);
+                        return (
+                          <>
+                            <span className="muted">{q === null ? "—" : pct(q, 0)}</span> di tutto il {annoPrec}{" "}
+                            ({eur(ricaviPrec)})
+                          </>
+                        );
+                      })()
+                    : (() => {
+                        const v = variazione(ricaviCons, ricaviPrec);
+                        return (
+                          <>
+                            <span className={v === null ? "muted" : v >= 0 ? "pos" : "neg"}>
+                              {v === null ? "—" : `${v >= 0 ? "+" : ""}${pct(v, 0)}`}
+                            </span>{" "}
+                            sullo stesso periodo {annoPrec} ({eur(ricaviPrec)})
+                          </>
+                        );
+                      })()}
                 </div>
               )}
             </div>
@@ -413,10 +465,10 @@ export default async function ConsuntivoPage({
                   <tr>
                     <th>Voce</th>
                     <th className="num">Consuntivo</th>
-                    <th className="num">{etichettaPeriodo} {annoPrec}</th>
-                    <th className="num">Var. anno prec.</th>
-                    <th className="num">Budget periodo</th>
-                    <th className="num">Scostamento</th>
+                    <th className="num">{intestaPrec}</th>
+                    <th className="num">{intestaVar}</th>
+                    <th className="num">{intestaBudget}</th>
+                    <th className="num">{intestaScost}</th>
                     <th className="num">Realizzato</th>
                   </tr>
                 </thead>
@@ -439,6 +491,12 @@ export default async function ConsuntivoPage({
                         </td>
                         <td className="num">
                           {(() => {
+                            // Vista «Anno»: quota di un anno intero già fatta,
+                            // non una variazione — un segno "+/−" qui mentirebbe.
+                            if (periodo.annoIntero) {
+                              const q = quota(r.cons, r.prec);
+                              return q === null ? <span className="muted">—</span> : <span className="muted">{pct(q, 0)}</span>;
+                            }
                             const v = variazione(r.cons, r.prec);
                             if (v === null) return <span className="muted">—</span>;
                             return (
@@ -449,7 +507,11 @@ export default async function ConsuntivoPage({
                           })()}
                         </td>
                         <td className="num muted">{r.tipo === "costo" ? `− ${eur(r.budget)}` : eur(r.budget)}</td>
-                        <td className={`num ${buono(r) ? "pos" : "neg"}`}>{scost >= 0 ? "+" : ""}{eur(scost)}</td>
+                        {periodo.annoIntero ? (
+                          <td className="num">{restante(r.budget, r.cons, r.tipo)}</td>
+                        ) : (
+                          <td className={`num ${buono(r) ? "pos" : "neg"}`}>{scost >= 0 ? "+" : ""}{eur(scost)}</td>
+                        )}
                         <td className="num muted">{r.budget > 0 ? pct((r.cons / r.budget) * 100, 0) : "—"}</td>
                       </tr>
                     );
@@ -509,15 +571,44 @@ export default async function ConsuntivoPage({
             chiusi), non dalla banca. Gli <strong>altri costi</strong> (COGS, ADV, struttura) sono le uscite di
             banca categorizzate nel <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>
             {spese.ok ? ` (${eur(nonCategorizzato)} ancora da categorizzare` : " (spese banca non disponibili"}
-            {esclusi > 0 ? `, ${eur(esclusi)} esclusi` : ""}): finché non li classifichi restano sottostimati.
-            Il confronto con il <strong>{annoPrec}</strong> è a <strong>parità di periodo</strong>: gli stessi mesi
-            ({etichettaPeriodo}), non l&apos;anno intero. Dove l&apos;anno prima il dato non c&apos;è la casella resta
-            <strong> vuota invece che a zero</strong>
-            {!bancaPrec && `: la banca non ha movimenti categorizzati per il ${annoPrec}`}
-            {!bancaPrec && !rosterPrec ? " e " : ""}
-            {!rosterPrec && `non esiste un organico a budget ${annoPrec}`}
-            {!bancaPrec || !rosterPrec ? ", quindi costi ed EBITDA dell'anno prima non si calcolano" : ""}.
-            Budget di confronto = somma dei soli mesi chiusi. Ricavi al netto IVA, uscite di cassa IVA inclusa:
+            {esclusi > 0 ? `, ${eur(esclusi)} esclusi` : ""}): finché non li classifichi restano sottostimati.{" "}
+            {periodo.annoIntero ? (
+              <>
+                Sei nella vista <strong>Anno</strong>: il consuntivo resta quello dei <strong>mesi chiusi</strong>{" "}
+                ({etichettaPeriodo}), mentre <strong>budget e {annoPrec} sono interi</strong> — la domanda è «a che
+                punto sono rispetto a tutto l&apos;anno». Per questo qui non si parla di scostamento ma di{" "}
+                <strong>quanto manca</strong> e di <strong>quanta parte</strong> del {annoPrec} è già stata fatta. Per
+                confrontare mele con mele usa <strong>YTD</strong> o un trimestre.{" "}
+              </>
+            ) : (
+              <>
+                Il confronto con il <strong>{annoPrec}</strong> è a <strong>parità di periodo</strong>: gli stessi mesi
+                ({etichettaPeriodo}), non l&apos;anno intero.{" "}
+              </>
+            )}
+            {(!bancaPrec || !rosterPrec) && (
+              <>
+                Dove l&apos;anno prima il dato non c&apos;è la casella resta{" "}
+                <strong>vuota invece che a zero</strong> —{" "}
+                {[
+                  !bancaPrec && `la banca non ha movimenti categorizzati per il periodo ${annoPrec}`,
+                  !rosterPrec && `non esiste un organico a budget ${annoPrec}`,
+                ]
+                  .filter(Boolean)
+                  .join(" e ")}
+                , quindi {!bancaPrec ? "costi ed EBITDA" : "l'EBITDA"} dell&apos;anno prima non si{" "}
+                {!bancaPrec ? "calcolano" : "calcola"}.{" "}
+              </>
+            )}
+            {bancaPrecParziale && (
+              <>
+                <strong>Attenzione al {annoPrec}</strong>: in banca ci sono movimenti solo in{" "}
+                {mesiBancaPrec.length} mesi su {mesiRif.length} ({etichettaMesi(mesiBancaPrec[0], mesiBancaPrec[mesiBancaPrec.length - 1])}),
+                quindi i <strong>costi dell&apos;anno prima sono parziali</strong>: la loro percentuale dice che si
+                spende di più, ma in parte è solo perché il {annoPrec} è misurato su meno mesi.{" "}
+              </>
+            )}
+            Budget di confronto = somma dei mesi {etichettaRif}. Ricavi al netto IVA, uscite di cassa IVA inclusa:
             consuntivo gestionale.
           </p>
 
@@ -529,7 +620,7 @@ export default async function ConsuntivoPage({
                   <tr>
                     <th>Voce di budget</th>
                     <th>Da Finance</th>
-                    <th className="num">Budget periodo</th>
+                    <th className="num">{intestaBudget}</th>
                     <th className="num">Consuntivo</th>
                     <th className="num">Scostamento</th>
                   </tr>
@@ -589,10 +680,10 @@ export default async function ConsuntivoPage({
                         <th>Maison</th>
                         {mesiPeriodo.map((m) => (<th className="num" key={m}>{MESI[m - 1]}</th>))}
                         <th className="num">Consuntivo</th>
-                        <th className="num">{etichettaPeriodo} {annoPrec}</th>
-                        <th className="num">Var.</th>
-                        <th className="num">Budget D2C</th>
-                        <th className="num">Scostamento</th>
+                        <th className="num">{intestaPrec}</th>
+                        <th className="num">{intestaVar}</th>
+                        <th className="num">{periodo.annoIntero ? "Budget anno" : "Budget D2C"}</th>
+                        <th className="num">{intestaScost}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -600,7 +691,7 @@ export default async function ConsuntivoPage({
                         .map((m) => {
                           const mesi = d2cPerMaison.get(m.slug) ?? Array(12).fill(0);
                           const cons = mesiPeriodo.reduce((s, mm) => s + (mesi[mm - 1] ?? 0), 0);
-                          const budget = mesiPeriodo.reduce(
+                          const budget = mesiRif.reduce(
                             (s, mm) => s + (m.mesi.find((y) => y.month === mm)?.vendite[SLUG_D2C] ?? 0),
                             0
                           );
@@ -617,15 +708,23 @@ export default async function ConsuntivoPage({
                             <td className="num muted">{r.prec === null ? "—" : eur(r.prec)}</td>
                             <td className="num">
                               {(() => {
+                                if (periodo.annoIntero) {
+                                  const q = quota(r.cons, r.prec);
+                                  return q === null ? <span className="muted">—</span> : <span className="muted">{pct(q, 0)}</span>;
+                                }
                                 const v = variazione(r.cons, r.prec);
                                 if (v === null) return <span className="muted">—</span>;
                                 return <span className={v >= 0 ? "pos" : "neg"}>{v >= 0 ? "+" : ""}{pct(v, 0)}</span>;
                               })()}
                             </td>
                             <td className="num muted">{eur(r.budget)}</td>
-                            <td className={`num ${r.cons - r.budget >= 0 ? "pos" : "neg"}`}>
-                              {r.cons - r.budget >= 0 ? "+" : ""}{eur(r.cons - r.budget)}
-                            </td>
+                            {periodo.annoIntero ? (
+                              <td className="num">{restante(r.budget, r.cons, "ricavo")}</td>
+                            ) : (
+                              <td className={`num ${r.cons - r.budget >= 0 ? "pos" : "neg"}`}>
+                                {r.cons - r.budget >= 0 ? "+" : ""}{eur(r.cons - r.budget)}
+                              </td>
+                            )}
                           </tr>
                         ))}
                       {d2cSenzaMaison.map((b) => {
@@ -652,15 +751,24 @@ export default async function ConsuntivoPage({
                         <td className="num">{d2cPrec.ok ? eur(d2cPrecPeriodo) : "—"}</td>
                         <td className="num">
                           {(() => {
-                            const v = variazione(d2cPeriodo, d2cPrec.ok ? d2cPrecPeriodo : null);
+                            const base = d2cPrec.ok ? d2cPrecPeriodo : null;
+                            if (periodo.annoIntero) {
+                              const q = quota(d2cPeriodo, base);
+                              return q === null ? <span className="muted">—</span> : <span className="muted">{pct(q, 0)}</span>;
+                            }
+                            const v = variazione(d2cPeriodo, base);
                             if (v === null) return <span className="muted">—</span>;
                             return <span className={v >= 0 ? "pos" : "neg"}>{v >= 0 ? "+" : ""}{pct(v, 0)}</span>;
                           })()}
                         </td>
                         <td className="num">{eur(budgetVoce(SLUG_D2C))}</td>
-                        <td className={`num ${d2cPeriodo - budgetVoce(SLUG_D2C) >= 0 ? "pos" : "neg"}`}>
-                          {d2cPeriodo - budgetVoce(SLUG_D2C) >= 0 ? "+" : ""}{eur(d2cPeriodo - budgetVoce(SLUG_D2C))}
-                        </td>
+                        {periodo.annoIntero ? (
+                          <td className="num">{restante(budgetVoce(SLUG_D2C), d2cPeriodo, "ricavo")}</td>
+                        ) : (
+                          <td className={`num ${d2cPeriodo - budgetVoce(SLUG_D2C) >= 0 ? "pos" : "neg"}`}>
+                            {d2cPeriodo - budgetVoce(SLUG_D2C) >= 0 ? "+" : ""}{eur(d2cPeriodo - budgetVoce(SLUG_D2C))}
+                          </td>
+                        )}
                       </tr>
                     </tbody>
                   </table>
