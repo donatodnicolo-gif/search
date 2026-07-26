@@ -44,6 +44,12 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
   [src/lib/sblocco.ts](../src/lib/sblocco.ts): ogni futura esecuzione bancaria
   deve passare da lì. PIN in PBKDF2, lo imposta la persona da `/pin` con
   password + TOTP (nemmeno un admin lo può mettere per conto di un altro).
+- **Chiavi della banca dall'app**: si incollano in Impostazioni → Collegamento
+  alla banca, si salvano cifrate sul database e vengono **provate prima** di
+  essere salvate. Le variabili d'ambiente restano come alternativa.
+- **Link «vai a pagare»**: due indirizzi configurabili (portale della banca e
+  pagina di caricamento del file SEPA) che diventano bottoni nella pagina Banca
+  e in testa a ogni distinta. Si accettano solo http/https.
 - **Banca Qonto** (26/07/2026): lettura del conto (saldo e uscite, pagina
   `/banca`, con riconoscimento delle richieste dal riferimento in causale) e
   **pagamento vero** — un bonifico per richiesta, `POST /v2/sepa/transfers`.
@@ -73,7 +79,21 @@ stato ripubblicato: l'icona «Transactions» compare agli admin.
 Primo operatore creato il 26/07/2026: `deluxy.delivery@gmail.com`, ruolo admin
 (credenziali consegnate al titolare fuori dalla trascrizione — quelle di prova
 della sessione precedente erano finite in chat e per questo erano state
-cancellate). Chiavi API: ancora nessuna.
+cancellate).
+
+**Chiavi API create il 26/07/2026** (i valori sono stati consegnati su file, non
+in chat; vanno messi nelle variabili d'ambiente dell'app corrispondente come
+`TRANSACTIONS_API_KEY` e `TRANSACTIONS_HMAC_SECRET`):
+
+| App | Prefisso | Tetto per richiesta | Tetto al giorno |
+|---|---|---|---|
+| `deluxy-partner` | `trx_p8610J6y` | 5.000 € | 20.000 € |
+| `deluxy-messaging` | `trx_CLl3bYu_` | 500 € | 2.000 € |
+| `deluxy-acquisti` | `trx_CJn3ErNv` | 2.000 € | 10.000 € |
+
+I tetti non si modificano dalla UI: per cambiarli si crea una chiave nuova e si
+revoca la vecchia. **Nessuna di queste chiavi può approvare**: possono solo
+chiedere. Nessuna delle tre app chiama ancora queste API.
 
 Sequenza del primo avvio, se un giorno si riparte da zero:
 
@@ -107,8 +127,9 @@ Nell'ordine consigliato:
    `SMTP_FROM`) e **PIN del pagatore** da `/pin`: finché mancano, lo sblocco non
    funziona e quindi non esce nessun pagamento. È il primo passo, non un
    dettaglio di configurazione.
-0-bis. **Qonto**: `QONTO_LOGIN` e `QONTO_SECRET_KEY` su Vercel (chiave da
-   generare in Qonto → Integrazioni e partnership → Chiave API), poi rendere
+0-bis. **Qonto**: incollare le chiavi in Impostazioni → Collegamento alla banca
+   (in alternativa `QONTO_LOGIN` / `QONTO_SECRET_KEY` su Vercel; si generano in
+   Qonto → Integrazioni e partnership → Chiave API), poi rendere
    **fidati** dentro l'app Qonto i beneficiari che si vogliono pagare, poi
    accendere l'interruttore in Impostazioni. **Il primo giro va fatto con una
    cifra piccola verso un beneficiario proprio**: il percorso completo (VoP →

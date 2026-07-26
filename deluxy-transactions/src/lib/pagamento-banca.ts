@@ -54,7 +54,7 @@ export async function pagaLottoConQonto(
         "Il pagamento dalla banca è spento. Un amministratore lo accende in Impostazioni: finché è spento, da qui esce solo il file SEPA.",
     };
   }
-  if (!qontoConfigurato()) {
+  if (!(await qontoConfigurato())) {
     return { ...vuoto, errore: "Qonto non configurato (QONTO_LOGIN / QONTO_SECRET_KEY su Vercel)." };
   }
 

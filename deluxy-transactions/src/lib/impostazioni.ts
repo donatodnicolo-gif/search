@@ -35,6 +35,12 @@ export type Regole = {
   // credenziali Qonto nell'ambiente non basta a far partire un bonifico, ci
   // vuole un gesto esplicito di un amministratore, che resta nel registro.
   qontoEsecuzioneAttiva: boolean;
+  // Link al portale della banca: dove si va, con un clic, per completare a mano
+  // il pagamento (caricare il file SEPA, autorizzare un bonifico). Sono due
+  // perché il portale ha una pagina d'ingresso e una pagina di caricamento, e
+  // quest'ultima cambia da banca a banca: la si incolla qui una volta sola.
+  urlPortaleBanca: string;
+  urlCaricamentoSepa: string;
 };
 
 const PREDEFINITE: Regole = {
@@ -53,6 +59,8 @@ const PREDEFINITE: Regole = {
   minutiCodicePagamento: 10,
   minutiSbloccoPagamento: 15,
   qontoEsecuzioneAttiva: false,
+  urlPortaleBanca: "https://app.qonto.com",
+  urlCaricamentoSepa: "",
 };
 
 const NUMERICHE = new Set([

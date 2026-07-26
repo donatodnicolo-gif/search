@@ -21,7 +21,7 @@ import { normalizzaIban, normalizzaNome } from "@/lib/iban";
 import { aCentesimi, euro } from "@/lib/denaro";
 import { chiediCodice, impronteDelPin, pinAccettabile, sblocca, verificaCancello } from "@/lib/sblocco";
 import { pagaLottoConQonto } from "@/lib/pagamento-banca";
-import { qontoConfigurato } from "@/lib/qonto";
+import { provaChiaviQonto, qontoConfigurato, salvaChiaviQonto, scollegaQonto } from "@/lib/qonto";
 
 // Tutte le azioni della UI. Ognuna ricontrolla chi è l'operatore: il middleware
 // filtra i cookie falsi, ma l'autorizzazione vera si decide qui, dove si sa
@@ -292,6 +292,45 @@ export async function impostaPin(_stato: unknown, fd: FormData): Promise<{ error
 }
 
 // ---------------------------------------------------------------------------
+// Collegamento alla banca: le chiavi si incollano qui, non me le manda nessuno
+// ---------------------------------------------------------------------------
+
+export async function collegaBanca(_stato: unknown, fd: FormData): Promise<{ errore?: string; ok?: string }> {
+  const admin = await esigiAdmin();
+  const login = testo(fd, "login");
+  const segreto = String(fd.get("segreto") ?? "").trim();
+  const contoId = testo(fd, "contoId");
+  if (!login || !segreto) return { errore: "Servono sia il login sia la chiave segreta di Qonto." };
+
+  // Si prova PRIMA di salvare: chiavi sbagliate salvate in silenzio si
+  // scoprirebbero davanti a una distinta sbloccata, nel momento peggiore.
+  const prova = await provaChiaviQonto({ login, segreto, contoId: contoId || null });
+  if (!prova.ok) return { errore: `Qonto non accetta queste chiavi: ${prova.errore}` };
+
+  await salvaChiaviQonto({ login, segreto, contoId });
+  await registra(
+    "banca.collegata",
+    admin.email,
+    { conti: prova.conti, contoScelto: contoId || "(principale)" },
+    { ip: await ipRichiesta() },
+  );
+  revalidatePath("/impostazioni");
+  revalidatePath("/banca");
+  return {
+    ok: `Banca collegata: ${prova.conti} ${prova.conti === 1 ? "conto visibile" : "conti visibili"}. La chiave è salvata cifrata: da qui in avanti non si rilegge, si sostituisce.`,
+  };
+}
+
+export async function scollegaBanca(): Promise<void> {
+  const admin = await esigiAdmin();
+  await scollegaQonto();
+  await salvaRegola("qontoEsecuzioneAttiva", "false");
+  await registra("banca.collegata", admin.email, { scollegata: true }, { ip: await ipRichiesta() });
+  revalidatePath("/impostazioni");
+  revalidatePath("/banca");
+}
+
+// ---------------------------------------------------------------------------
 // Pagamento dalla banca (Qonto)
 // ---------------------------------------------------------------------------
 
@@ -514,7 +553,7 @@ export async function salvaImpostazioni(_stato: unknown, fd: FormData): Promise<
   // altrimenti si crederebbe di poter pagare e si scoprirebbe di no davanti a
   // una distinta sbloccata.
   const vuoleBanca = Boolean(fd.get("qontoEsecuzioneAttiva"));
-  if (vuoleBanca && !qontoConfigurato()) {
+  if (vuoleBanca && !(await qontoConfigurato())) {
     return { errore: "Qonto non è collegato (QONTO_LOGIN / QONTO_SECRET_KEY): non posso accendere il pagamento dalla banca." };
   }
   daSalvare.push(["qontoEsecuzioneAttiva", vuoleBanca ? "true" : "false"]);
@@ -523,6 +562,25 @@ export async function salvaImpostazioni(_stato: unknown, fd: FormData): Promise<
   daSalvare.push(["ordinanteNome", testo(fd, "ordinanteNome")]);
   daSalvare.push(["ordinanteIban", ordIban]);
   daSalvare.push(["ordinanteBic", testo(fd, "ordinanteBic").toUpperCase()]);
+
+  // I link: si accettano solo http/https, e mai un "javascript:" travestito.
+  for (const campo of ["urlPortaleBanca", "urlCaricamentoSepa"] as const) {
+    const grezzo = testo(fd, campo);
+    if (!grezzo) {
+      daSalvare.push([campo, ""]);
+      continue;
+    }
+    let url: URL;
+    try {
+      url = new URL(grezzo);
+    } catch {
+      return { errore: `Il link ${campo} non è un indirizzo valido: deve cominciare con https://` };
+    }
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      return { errore: `Il link ${campo} deve essere http o https.` };
+    }
+    daSalvare.push([campo, url.toString()]);
+  }
 
   for (const [campo, valore] of daSalvare) await salvaRegola(campo, valore);
 

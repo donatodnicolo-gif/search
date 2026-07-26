@@ -4,7 +4,8 @@ import { leggiRegole } from "@/lib/impostazioni";
 import { euroSemplice } from "@/lib/denaro";
 import { cifraturaPronta } from "@/lib/crypto";
 import { postaConfigurata } from "@/lib/mail";
-import { qontoConfigurato } from "@/lib/qonto";
+import { qontoConfigurato, statoCollegamento } from "@/lib/qonto";
+import { ModuloBanca } from "@/components/ModuloBanca";
 import { ModuloImpostazioni } from "@/components/ModuloImpostazioni";
 
 export const dynamic = "force-dynamic";
@@ -55,9 +56,16 @@ export default async function Impostazioni() {
             minutiCodicePagamento: String(r.minutiCodicePagamento),
             minutiSbloccoPagamento: String(r.minutiSbloccoPagamento),
             qontoEsecuzioneAttiva: r.qontoEsecuzioneAttiva,
-            qontoCollegato: qontoConfigurato(),
+            qontoCollegato: await qontoConfigurato(),
+            urlPortaleBanca: r.urlPortaleBanca,
+            urlCaricamentoSepa: r.urlCaricamentoSepa,
           }}
         />
+      </div>
+
+      <div className="scheda">
+        <div className="scheda-titolo">Collegamento alla banca</div>
+        <ModuloBanca {...(await statoCollegamento())} />
       </div>
 
       <div className="scheda">

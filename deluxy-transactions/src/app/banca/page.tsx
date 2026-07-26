@@ -17,7 +17,7 @@ export default async function Banca() {
   const operatore = await operatoreCorrente();
   if (!operatore) redirect("/login");
 
-  if (!qontoConfigurato()) {
+  if (!(await qontoConfigurato())) {
     return (
       <main className="main">
         <div className="page-head">
@@ -28,8 +28,10 @@ export default async function Banca() {
         </div>
         <div className="scheda">
           <div className="avviso-errore">
-            Qonto non è collegato. Servono <code>QONTO_LOGIN</code> e <code>QONTO_SECRET_KEY</code> nelle variabili
-            d&apos;ambiente (chiave da generare in Qonto: Integrazioni e partnership → Chiave API).
+            Qonto non è collegato. Le chiavi si incollano in{" "}
+            <a href="/impostazioni">Impostazioni → Collegamento alla banca</a> (si generano in Qonto: Integrazioni e
+            partnership → Chiave API). In alternativa valgono <code>QONTO_LOGIN</code> e <code>QONTO_SECRET_KEY</code>{" "}
+            fra le variabili d&apos;ambiente.
           </div>
         </div>
       </main>
@@ -93,6 +95,29 @@ export default async function Banca() {
             <dd>{regole.qontoEsecuzioneAttiva ? "acceso" : "spento (esce solo il file SEPA)"}</dd>
           </div>
         </div>
+      </div>
+
+      <div className="scheda">
+        <div className="scheda-titolo">Vai a pagare</div>
+        {regole.urlPortaleBanca || regole.urlCaricamentoSepa ? (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {regole.urlCaricamentoSepa && (
+              <a className="btn" href={regole.urlCaricamentoSepa} target="_blank" rel="noopener noreferrer">
+                Carica il file SEPA ↗
+              </a>
+            )}
+            {regole.urlPortaleBanca && (
+              <a className="btn btn-secondario" href={regole.urlPortaleBanca} target="_blank" rel="noopener noreferrer">
+                Apri il portale della banca ↗
+              </a>
+            )}
+          </div>
+        ) : (
+          <p className="firma-nota">
+            Nessun link impostato. Compilali in <a href="/impostazioni">Impostazioni</a>: da lì diventano i bottoni per
+            arrivare con un clic alla pagina della banca dove si completa il pagamento.
+          </p>
+        )}
       </div>
 
       <div className="scheda">

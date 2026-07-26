@@ -35,7 +35,11 @@ export default async function Distinta({ params }: { params: Promise<{ id: strin
   const pinImpostato = Boolean((await prisma.operatore.findUnique({ where: { id: operatore.id } }))?.pinHash);
   // Il bonifico dalla banca si vede solo se Qonto è collegato E l'interruttore
   // in Impostazioni è acceso: due condizioni, non una.
-  const bancaAttiva = qontoConfigurato() && (await leggiRegole()).qontoEsecuzioneAttiva;
+  const regole = await leggiRegole();
+  const bancaAttiva = (await qontoConfigurato()) && regole.qontoEsecuzioneAttiva;
+  // Il link «vai a pagare»: la pagina di caricamento se è stata compilata,
+  // altrimenti l'ingresso del portale.
+  const linkPagamento = regole.urlCaricamentoSepa || regole.urlPortaleBanca || "";
 
   return (
     <main className="main">
@@ -58,6 +62,11 @@ export default async function Distinta({ params }: { params: Promise<{ id: strin
             <span className="btn btn-secondario" aria-disabled="true" style={{ opacity: 0.55, cursor: "not-allowed" }}>
               XML SEPA bloccato
             </span>
+          )}
+          {linkPagamento && (
+            <a className="btn btn-secondario" href={linkPagamento} target="_blank" rel="noopener noreferrer">
+              Vai a pagare in banca ↗
+            </a>
           )}
           {l.stato !== "pagato" && operatore.ruolo !== "osservatore" && (
             <form action={segnaLottoPagato}>

@@ -1,4 +1,6 @@
 import { createHash } from "crypto";
+import { prisma } from "./db";
+import { cifra, decifra } from "./crypto";
 
 // Collegamento alla banca (Qonto Business API).
 //
@@ -31,27 +33,103 @@ import { createHash } from "crypto";
 const BASE = (process.env.QONTO_BASE_URL ?? "https://thirdparty.qonto.com/v2").replace(/\/$/, "");
 const TIMEOUT_MS = 20_000;
 
-export type ConfigQonto = { login: string; segreto: string; contoId: string | null };
+export type ConfigQonto = { login: string; segreto: string; contoId: string | null; da: "app" | "ambiente" };
 
-export function configQonto(): ConfigQonto | null {
+// Dove stanno le chiavi della banca.
+//
+// Si possono mettere in due posti: dalla pagina Impostazioni (finiscono sul
+// database **cifrate** AES-256-GCM con TRANSACTIONS_ENC_KEY) oppure nelle
+// variabili d'ambiente di Vercel. Vince quello che c'è nell'app: è lì che una
+// persona le cambia quando ruota la chiave in Qonto.
+//
+// Perché qui è ammesso il database e per l'SMTP no (docs/SICUREZZA.md §0): chi
+// riuscisse a scrivere sul database e sostituisse queste chiavi non ruberebbe
+// niente — pagherebbe dal PROPRIO conto. Sostituire l'SMTP invece dirotta i
+// codici di sblocco, e quello sì che è un furto.
+export const CHIAVI_QONTO = {
+  login: "qonto.login",
+  segreto: "qonto.secret",
+  conto: "qonto.bankAccountId",
+} as const;
+
+export async function configQonto(): Promise<ConfigQonto | null> {
+  try {
+    const righe = await prisma.impostazione.findMany({
+      where: { chiave: { in: [CHIAVI_QONTO.login, CHIAVI_QONTO.segreto, CHIAVI_QONTO.conto] } },
+    });
+    const m = new Map(righe.map((r) => [r.chiave, r.valore]));
+    const login = m.get(CHIAVI_QONTO.login);
+    const segreto = m.get(CHIAVI_QONTO.segreto);
+    if (login && segreto) {
+      return {
+        login: decifra(login),
+        segreto: decifra(segreto),
+        contoId: m.get(CHIAVI_QONTO.conto) ? decifra(m.get(CHIAVI_QONTO.conto)!) : null,
+        da: "app",
+      };
+    }
+  } catch {
+    // database irraggiungibile o chiave di cifratura sbagliata: si prova con
+    // l'ambiente, non si finge di essere collegati
+  }
+
   const login = (process.env.QONTO_LOGIN ?? "").trim();
   const segreto = (process.env.QONTO_SECRET_KEY ?? "").trim();
   if (!login || !segreto) return null;
-  return { login, segreto, contoId: (process.env.QONTO_BANK_ACCOUNT_ID ?? "").trim() || null };
+  return {
+    login,
+    segreto,
+    contoId: (process.env.QONTO_BANK_ACCOUNT_ID ?? "").trim() || null,
+    da: "ambiente",
+  };
 }
 
-export function qontoConfigurato(): boolean {
-  return configQonto() != null;
+export async function qontoConfigurato(): Promise<boolean> {
+  return (await configQonto()) != null;
+}
+
+/** Salva le chiavi inserite dalla pagina Impostazioni, cifrate. */
+export async function salvaChiaviQonto(dati: { login: string; segreto: string; contoId: string }): Promise<void> {
+  const scrivi = async (chiave: string, valore: string) => {
+    await prisma.impostazione.upsert({
+      where: { chiave },
+      update: { valore: cifra(valore) },
+      create: { chiave, valore: cifra(valore) },
+    });
+  };
+  await scrivi(CHIAVI_QONTO.login, dati.login);
+  await scrivi(CHIAVI_QONTO.segreto, dati.segreto);
+  await scrivi(CHIAVI_QONTO.conto, dati.contoId);
+}
+
+export async function scollegaQonto(): Promise<void> {
+  await prisma.impostazione.deleteMany({
+    where: { chiave: { in: [CHIAVI_QONTO.login, CHIAVI_QONTO.segreto, CHIAVI_QONTO.conto] } },
+  });
+}
+
+/** Cosa mostrare in pagina senza far vedere il segreto. */
+export async function statoCollegamento(): Promise<{
+  collegato: boolean;
+  da: "app" | "ambiente" | null;
+  login: string;
+  contoId: string;
+}> {
+  const c = await configQonto();
+  if (!c) return { collegato: false, da: null, login: "", contoId: "" };
+  return { collegato: true, da: c.da, login: c.login, contoId: c.contoId ?? "" };
 }
 
 export type EsitoChiamata<T> = { ok: true; dati: T } | { ok: false; errore: string; stato?: number };
 
 async function chiama<T>(
   percorso: string,
-  opzioni: { metodo?: string; corpo?: unknown; intestazioni?: Record<string, string> } = {},
+  opzioni: { metodo?: string; corpo?: unknown; intestazioni?: Record<string, string>; con?: ConfigQonto } = {},
 ): Promise<EsitoChiamata<T>> {
-  const c = configQonto();
-  if (!c) return { ok: false, errore: "Qonto non configurato (QONTO_LOGIN / QONTO_SECRET_KEY)." };
+  const c = opzioni.con ?? (await configQonto());
+  if (!c) {
+    return { ok: false, errore: "Qonto non collegato: inserisci le chiavi in Impostazioni → Collegamento alla banca." };
+  }
 
   const controllo = new AbortController();
   const timer = setTimeout(() => controllo.abort(), TIMEOUT_MS);
@@ -120,6 +198,30 @@ export type ContoQonto = {
   main?: boolean;
 };
 
+/**
+ * Prova le chiavi PRIMA di salvarle: chiede l'elenco dei conti. Se il conto
+ * indicato non esiste, lo dice adesso e non davanti a una distinta sbloccata.
+ */
+export async function provaChiaviQonto(dati: { login: string; segreto: string; contoId: string | null }): Promise<
+  { ok: true; conti: number } | { ok: false; errore: string }
+> {
+  const r = await chiama<{ bank_accounts?: ContoQonto[] }>("/bank_accounts?per_page=100", {
+    con: { login: dati.login, segreto: dati.segreto, contoId: dati.contoId, da: "app" },
+  });
+  if (!r.ok) return { ok: false, errore: r.errore };
+  const elenco = (r.dati?.bank_accounts ?? []).filter((c) => c.status !== "closed");
+  if (elenco.length === 0) return { ok: false, errore: "le chiavi funzionano ma non si vede nessun conto attivo." };
+  if (dati.contoId && !elenco.some((c) => c.id === dati.contoId)) {
+    return {
+      ok: false,
+      errore: `nessun conto con id ${dati.contoId}. Lascia vuoto il campo per usare il principale, oppure copia un id fra questi: ${elenco
+        .map((c) => `${c.name ?? "conto"} = ${c.id}`)
+        .join(", ")}`,
+    };
+  }
+  return { ok: true, conti: elenco.length };
+}
+
 export async function conti(): Promise<EsitoChiamata<ContoQonto[]>> {
   const r = await chiama<{ bank_accounts?: ContoQonto[] }>("/bank_accounts?per_page=100");
   if (!r.ok) return r;
@@ -128,7 +230,7 @@ export async function conti(): Promise<EsitoChiamata<ContoQonto[]>> {
 
 /** Il conto da usare: quello indicato nell'ambiente, altrimenti il principale. */
 export async function contoDaUsare(): Promise<EsitoChiamata<ContoQonto>> {
-  const c = configQonto();
+  const c = await configQonto();
   const elenco = await conti();
   if (!elenco.ok) return elenco;
   const attivi = elenco.dati.filter((x) => x.status !== "closed");

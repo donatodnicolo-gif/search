@@ -18,6 +18,8 @@ type Valori = {
   minutiSbloccoPagamento: string;
   qontoEsecuzioneAttiva: boolean;
   qontoCollegato: boolean;
+  urlPortaleBanca: string;
+  urlCaricamentoSepa: string;
 };
 
 export function ModuloImpostazioni({ valori }: { valori: Valori }) {
@@ -109,6 +111,32 @@ export function ModuloImpostazioni({ valori }: { valori: Valori }) {
             Acceso, il pagatore può far uscire denaro dal conto con un clic — sempre dopo codice e PIN, sempre solo
             verso beneficiari resi <strong>fidati</strong> dentro Qonto, e solo se la banca conferma che il nome
             corrisponde all&apos;IBAN. Accendere e spegnere resta scritto nel registro.
+          </p>
+        </div>
+
+        <div className="campo-modulo largo">
+          <label htmlFor="i-url-banca">Link — portale della banca</label>
+          <input
+            id="i-url-banca"
+            name="urlPortaleBanca"
+            defaultValue={valori.urlPortaleBanca}
+            spellCheck={false}
+            placeholder="https://app.qonto.com"
+          />
+        </div>
+        <div className="campo-modulo largo">
+          <label htmlFor="i-url-sepa">Link — pagina dove si carica il file SEPA</label>
+          <input
+            id="i-url-sepa"
+            name="urlCaricamentoSepa"
+            defaultValue={valori.urlCaricamentoSepa}
+            spellCheck={false}
+            placeholder="incolla qui l'indirizzo esatto (es. …/transfers/bulk)"
+          />
+          <p className="firma-nota">
+            Questi due indirizzi diventano i bottoni «Vai a pagare» nella pagina Banca e in fondo a ogni distinta:
+            scarichi il file e con un clic sei nella pagina giusta della banca. Il secondo cambia da banca a banca, per
+            questo si incolla a mano una volta sola.
           </p>
         </div>
 

@@ -41,6 +41,18 @@ Dal 26/07/2026 l'app **può far partire i bonifici** dal conto Qonto, e non solo
 produrre il file SEPA. Le credenziali della banca (chiave API Qonto) vivono
 nelle variabili d'ambiente di Vercel, non sul database.
 
+**Dove stanno le chiavi della banca.** Si incollano dalla pagina Impostazioni e
+finiscono sul database **cifrate** AES-256-GCM con `TRANSACTIONS_ENC_KEY`
+(in mancanza valgono `QONTO_LOGIN` / `QONTO_SECRET_KEY` dall'ambiente). Prima di
+salvarle l'app le prova contro `GET /v2/bank_accounts`: chiavi sbagliate non si
+salvano, così non si scoprono davanti a una distinta sbloccata. Dopo il
+salvataggio non si rileggono: si sostituiscono.
+
+Perché qui il database è ammesso e per l'SMTP no: chi riuscisse a scrivere sul
+database e sostituisse le chiavi Qonto **non ruberebbe niente** — pagherebbe dal
+proprio conto. Sostituire l'SMTP invece dirotta i codici di sblocco, e quello sì
+che è un furto. La differenza è il motivo, non l'abitudine.
+
 Un bonifico parte solo dopo **sei** controlli in fila, in
 [src/lib/pagamento-banca.ts](../src/lib/pagamento-banca.ts):
 
