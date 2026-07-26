@@ -27,12 +27,17 @@ npm run dev   # http://localhost:3120
 ```
 `npm run db:reset` per ripartire dai dati demo.
 
+## STATO DEPLOY (24/07/2026)
+- **Non ancora pubblicata su Vercel.** Blocco: l'app usa **SQLite** (`file:./dev.db`), che su Vercel serverless non funziona. Prima del deploy va migrata a **Postgres condiviso Supabase** (schema `merchandising`).
+- **Cosa serve per pubblicare**: la connection string Postgres di Supabase (`DATABASE_URL`/`DIRECT_URL`, stesso DB di hub/marketing) — è un segreto, non presente nei file versionati; l'utente deve fornirla (o si prende dalla cassaforte Hub `/chiavi`). Con quella: cambiare provider a `postgresql`, `prisma db push` + seed sullo schema, creare progetto Vercel, env, `npx vercel deploy --prod`, poi `APP_URL_MERCHANDISING` nell'Hub.
+- CLI Vercel autenticata come `donatodnicolo-gif` (deploy pre-autorizzato dall'utente; manca solo la connection string).
+
 ## MANCA / PROSSIMI PASSI
+- **Postgres condiviso** (produzione, PRE-REQUISITO del deploy): oggi SQLite. Cambiare provider in `postgresql` + `DATABASE_URL`/`DIRECT_URL` (schema `merchandising`). Nessun array/enum da convertire. Vedi README §"Passaggio a Postgres".
+- **Deploy Vercel** + `APP_URL_MERCHANDISING` nell'Hub: bloccato dal punto sopra (serve la connection string Supabase).
 - **Shopify reale**: `src/lib/shopify.ts` costruisce il payload ma non scrive. Da collegare: `SHOPIFY_STORE_DOMAIN` + `SHOPIFY_ADMIN_TOKEN` e la chiamata `productSet`/`productCreate` all'Admin API (con conferma). Esiste un MCP Shopify in sessione utilizzabile per il primo collaudo.
-- **Postgres condiviso** (produzione): oggi SQLite. Cambiare provider in `postgresql` + `DATABASE_URL`/`DIRECT_URL` (schema `merchandising`). Nessun array/enum da convertire. Vedi README §"Passaggio a Postgres".
 - **Protezione UI** (`MERCHANDISING_APP_PASSWORD`) + middleware come le altre app: non ancora aggiunta (UI aperta in locale).
 - **SSO Hub**: non ancora agganciato (come le app senza flag `sso`).
-- **Deploy Vercel** + `APP_URL_MERCHANDISING` nell'Hub: da fare (con conferma).
 - **Anagrafiche/Fornitori**: i fornitori sono locali; valutare se collegarli al registro centralizzato.
 - **Immagini**: gli still-life sono via URL; nessun upload asset (placeholder ❀ se assente).
 
