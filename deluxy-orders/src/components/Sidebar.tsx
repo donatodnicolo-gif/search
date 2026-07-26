@@ -10,32 +10,64 @@ export function Sidebar({
   conteggi: { ordini: number; daClassificare: number; clienti: number; liste: number; automazioni: number; script: number; eventi: number };
 }) {
   const path = usePathname();
-  const voci = [
-    { href: "/", nome: "Ordini", count: conteggi.ordini, icona: iconaLista },
-    { href: "/bacheca", nome: "Bacheca", count: conteggi.daClassificare, icona: iconaBacheca },
-    { href: "/clienti", nome: "Clienti", count: conteggi.clienti, icona: iconaClienti },
-    { href: "/liste", nome: "Liste", count: conteggi.liste, icona: iconaListeClienti },
-    { href: "/eventi", nome: "Eventi clienti", count: conteggi.eventi, icona: iconaEventi },
-    { href: "/script", nome: "Script", count: conteggi.script, icona: iconaScript },
-    { href: "/automazioni", nome: "Automazioni", count: conteggi.automazioni, icona: iconaAutomazioni },
-    { href: "/consegna", nome: "Consegna", count: null, icona: iconaConsegna },
-    { href: "/impostazioni", nome: "Impostazioni", count: null, icona: iconaImpostazioni },
+
+  // Le voci raggruppate per COSA SI STA FACENDO, non per come è fatta l'app.
+  // Tre mestieri diversi, che di solito fanno persone diverse in momenti
+  // diversi della giornata:
+  //  · «Ordini» — quello che è entrato oggi e va lavorato, consegna compresa;
+  //  · «Clienti» — chi ha comprato, come si raggruppa, quando ricorrono le sue
+  //    occasioni: si guarda quando si pensa, non quando si spedisce;
+  //  · «Comunicazione» — i testi e i messaggi che escono verso i clienti. Stanno
+  //    insieme perché uno script senza automazione non parte, e un'automazione
+  //    senza script non ha niente da dire.
+  // «Configurazione» resta in fondo, da sola: ci si va di rado e apposta.
+  const sezioni: { titolo: string; voci: { href: string; nome: string; count: number | null; icona: React.ReactNode }[] }[] = [
+    {
+      titolo: "Ordini",
+      voci: [
+        { href: "/", nome: "Tutti gli ordini", count: conteggi.ordini, icona: iconaLista },
+        { href: "/bacheca", nome: "Bacheca", count: conteggi.daClassificare, icona: iconaBacheca },
+        { href: "/consegna", nome: "Consegna", count: null, icona: iconaConsegna },
+      ],
+    },
+    {
+      titolo: "Clienti",
+      voci: [
+        { href: "/clienti", nome: "Clienti", count: conteggi.clienti, icona: iconaClienti },
+        { href: "/liste", nome: "Liste", count: conteggi.liste, icona: iconaListeClienti },
+        { href: "/eventi", nome: "Eventi clienti", count: conteggi.eventi, icona: iconaEventi },
+      ],
+    },
+    {
+      titolo: "Comunicazione",
+      voci: [
+        { href: "/script", nome: "Script", count: conteggi.script, icona: iconaScript },
+        { href: "/automazioni", nome: "Automazioni", count: conteggi.automazioni, icona: iconaAutomazioni },
+      ],
+    },
+    {
+      titolo: "Configurazione",
+      voci: [{ href: "/impostazioni", nome: "Impostazioni", count: null, icona: iconaImpostazioni }],
+    },
   ];
+
   return (
     <nav className="sidebar">
-      <div className="sb-sezione">
-        <div className="sb-label">Registro ordini</div>
-        {voci.map((v) => {
-          const attiva = v.href === "/" ? path === "/" : path.startsWith(v.href);
-          return (
-            <a key={v.href} href={v.href} className={`sb-item${attiva ? " attiva" : ""}`}>
-              <span className="sb-icona">{v.icona}</span>
-              <span className="sb-nome">{v.nome}</span>
-              {v.count != null && <span className="sb-count">{v.count}</span>}
-            </a>
-          );
-        })}
-      </div>
+      {sezioni.map((s) => (
+        <div className="sb-sezione" key={s.titolo}>
+          <div className="sb-label">{s.titolo}</div>
+          {s.voci.map((v) => {
+            const attiva = v.href === "/" ? path === "/" : path.startsWith(v.href);
+            return (
+              <a key={v.href} href={v.href} className={`sb-item${attiva ? " attiva" : ""}`}>
+                <span className="sb-icona">{v.icona}</span>
+                <span className="sb-nome">{v.nome}</span>
+                {v.count != null && <span className="sb-count">{v.count.toLocaleString("it-IT")}</span>}
+              </a>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }

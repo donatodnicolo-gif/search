@@ -8,6 +8,20 @@ Tutti gli ordini Shopify dei brand Deluxy in un posto solo, riclassificabili
 come serve, leggibili dalle altre app. Orders **non vende** e **non consegna**:
 raccoglie, ordina e smista informazioni.
 
+## Il menu
+A sinistra le pagine sono raggruppate per **cosa si sta facendo**, non per come è
+fatta l'app — sono tre mestieri diversi, che spesso fanno persone diverse in
+momenti diversi della giornata:
+
+- **Ordini** — quello che è entrato e va lavorato: tutti gli ordini, la bacheca,
+  la consegna da scrivere su Shopify;
+- **Clienti** — chi ha comprato: l'elenco, le liste, le occasioni. Si guarda
+  quando si pensa, non quando si spedisce;
+- **Comunicazione** — script e automazioni, cioè quello che esce verso i
+  clienti. Stanno insieme perché uno script senza automazione non parte, e
+  un'automazione senza script non ha niente da dire;
+- **Configurazione** — Impostazioni, in fondo: ci si va di rado e apposta.
+
 ## Le pagine
 
 ### Ordini (`/`)
