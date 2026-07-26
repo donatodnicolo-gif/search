@@ -149,11 +149,18 @@ type OrdineConRelazioni = Prisma.OrdineGetPayload<{ include: typeof INCLUDE_ORDI
 // query (vedi `tipologiePerOrdini`): serve perché la tipologia è una proprietà
 // del cliente e non si può leggere dall'ordine. Se non viene passata, i campi
 // `cliente.tipo`/`tipoDa` escono `null` — la forma della risposta non cambia.
+//
+// `ordinali` è la mappa id-ordine → quante volte quel cliente aveva già
+// ordinato prima (vedi `repeater.ts`), anch'essa risolta in una query sola.
+// Senza, `cliente.repeater` esce `null`: «non l'abbiamo calcolato», che è
+// diverso da «è la prima volta».
 export function serializzaOrdine(
   o: OrdineConRelazioni,
   tipologie?: Map<string, { tipologia: string; manuale: boolean }>,
+  ordinali?: Map<string, { precedenti: number; numero: number; repeater: boolean }>,
 ) {
   const tipoCliente = tipologie?.get(chiaveCliente(o));
+  const ordinale = ordinali?.get(o.id) ?? null;
   return {
     id: o.id,
     brand: o.brand,
@@ -188,6 +195,25 @@ export function serializzaOrdine(
       // può smentire, una scelta di un collega no.
       tipo: tipoCliente?.tipologia ?? null,
       tipoDa: tipoCliente ? (tipoCliente.manuale ? "manuale" : "dedotta") : null,
+      // Aveva già comprato prima di QUESTO ordine? `ordiniPrima` conta solo gli
+      // ordini validi precedenti, quindi un ordine vecchio resta «primo» anche
+      // se oggi quel cliente ne ha venti. `null` = non calcolato o cliente non
+      // riconoscibile (niente email, telefono né nome): non è «prima volta».
+      repeater: ordinale ? ordinale.repeater : null,
+      ordiniPrima: ordinale ? ordinale.precedenti : null,
+      numeroOrdine: ordinale ? ordinale.numero : null,
+    },
+    // Da dove è arrivato l'ordine. `canale` è la lettura in italiano (vuoto =
+    // non lo sappiamo, e allora non si inventa «diretto»); sotto restano i dati
+    // grezzi su cui è stata fatta. È attribuzione al PRIMO contatto del percorso
+    // che ha portato all'ordine, non all'ultimo clic.
+    marketing: {
+      canale: o.canaleMarketing || null,
+      campagna: o.utmCampaign,
+      utmSource: o.utmSource,
+      utmMedium: o.utmMedium,
+      primaVisita: o.visitaSorgente,
+      canaleShopify: o.sorgente,
     },
     // consegna richiesta dal cliente (attributi Shopify)
     consegna: {

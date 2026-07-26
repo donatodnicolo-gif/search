@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { categoriaDaGateway, type CategoriaPagamento } from "./classificazione";
+import { deduciCanale } from "./marketing";
 
 // Client Shopify Admin API (GraphQL 2024-10) per scaricare gli ordini dei
 // negozi collegati. Il token (shpat_... o coniato) di ogni negozio è salvato in
@@ -54,6 +55,12 @@ export type OrdineNormalizzato = {
   paese: string | null;
   noteShopify: string | null;
   tagShopify: string | null;
+  sorgente: string | null;
+  visitaSorgente: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  canaleMarketing: string;
   righe: RigaNormalizzata[];
 };
 
@@ -81,6 +88,20 @@ query Ordini($cursor: String, $q: String) {
         tags
         customAttributes { key value }
         paymentGatewayNames
+        # Da dove è arrivato l'ordine. sourceName è il canale tecnico (web,
+        # shopify_draft_order, pos); la firstVisit del customerJourneySummary è
+        # la PRIMA visita del percorso che ha portato all'acquisto, con gli utm
+        # della campagna se c'erano. Misurato il 27/07/2026: 25 ordini col
+        # percorso costano 26 punti su un bucket da 1000, quindi non cambia il
+        # ritmo dell'import.
+        sourceName
+        customerJourneySummary {
+          firstVisit {
+            source
+            referrerUrl
+            utmParameters { source medium campaign }
+          }
+        }
         totalPriceSet { shopMoney { amount currencyCode } }
         customer {
           firstName lastName email phone
@@ -141,6 +162,14 @@ type OrderNode = {
   tags: string[];
   customAttributes: Attributo[] | null;
   paymentGatewayNames: string[];
+  sourceName: string | null;
+  customerJourneySummary: {
+    firstVisit: {
+      source: string | null;
+      referrerUrl: string | null;
+      utmParameters: { source: string | null; medium: string | null; campaign: string | null } | null;
+    } | null;
+  } | null;
   totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
   customer: {
     firstName: string | null;
@@ -242,6 +271,34 @@ function indirizzoUnaRiga(a: OrderNode["shippingAddress"]): string | null {
 // Shopify può restituire più valutazioni (la sua e quelle di app esterne):
 // si tiene la PIÙ severa, perché è quella che deve far fermare l'operatore.
 const ORDINE_RISCHIO = ["NONE", "LOW", "MEDIUM", "HIGH"] as const;
+
+// Da dove è arrivato l'ordine, letto dal percorso che Shopify tiene per ogni
+// acquisto. Il canale in italiano si deduce qui una volta e si salva, così le
+// tabelle non devono ragionarci sopra a ogni riga; il vocabolario e la regola
+// stanno in src/lib/marketing.ts, e un ricalcolo li rimette d'accordo se la
+// regola cambia.
+function provenienzaDaOrdine(n: OrderNode): {
+  sorgente: string | null;
+  visitaSorgente: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  canaleMarketing: string;
+} {
+  const fv = n.customerJourneySummary?.firstVisit ?? null;
+  const utm = fv?.utmParameters ?? null;
+  // `source` è di solito un nome («Google», «direct»); quando manca resta
+  // l'indirizzo del sito che ci ha mandato la persona, che è comunque una
+  // risposta migliore di niente.
+  const dati = {
+    sorgente: n.sourceName ?? null,
+    visitaSorgente: fv?.source ?? fv?.referrerUrl ?? null,
+    utmSource: utm?.source ?? null,
+    utmMedium: utm?.medium ?? null,
+    utmCampaign: utm?.campaign ?? null,
+  };
+  return { ...dati, canaleMarketing: deduciCanale(dati) };
+}
 
 function rischioDaOrdine(n: OrderNode): {
   livello: string | null;
@@ -410,6 +467,7 @@ export async function scaricaOrdini(
         rischioMotivi: rischio.motivi,
         gateway: gateways.join(", ") || null,
         categoriaPagamento: categoriaDaGateway(gateways),
+        ...provenienzaDaOrdine(n),
         clienteNome: [n.customer?.firstName, n.customer?.lastName].filter(Boolean).join(" ") || null,
         clienteEmail: n.customer?.email ?? null,
         clienteTelefono: n.customer?.phone ?? addr?.phone ?? null,

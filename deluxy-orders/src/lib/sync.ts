@@ -151,6 +151,15 @@ function datiShopify(brand: string, o: OrdineNormalizzato, categoriaPredefinita?
     paese: o.paese,
     noteShopify: o.noteShopify,
     tagShopify: o.tagShopify,
+    // Provenienza di marketing. Questi campi stanno ANCHE in `cambiato()`:
+    // scriverli senza confrontarli è l'errore già pagato coi consensi — l'import
+    // gira, dice «tutto invariato» e non salva niente.
+    sorgente: o.sorgente,
+    visitaSorgente: o.visitaSorgente,
+    utmSource: o.utmSource,
+    utmMedium: o.utmMedium,
+    utmCampaign: o.utmCampaign,
+    canaleMarketing: o.canaleMarketing,
   };
 }
 
@@ -211,6 +220,12 @@ async function salvaBloccoOrdini(
       paese: true,
       noteShopify: true,
       tagShopify: true,
+      sorgente: true,
+      visitaSorgente: true,
+      utmSource: true,
+      utmMedium: true,
+      utmCampaign: true,
+      canaleMarketing: true,
     },
   });
   const giaPresenti = new Map(esistenti.map((e) => [e.orderId, e]));
@@ -348,6 +363,12 @@ type OrdineSalvato = {
   paese: string | null;
   noteShopify: string | null;
   tagShopify: string | null;
+  sorgente: string | null;
+  visitaSorgente: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  canaleMarketing: string;
 };
 
 function cambiato(e: OrdineSalvato, o: OrdineNormalizzato, brand: string): boolean {
@@ -393,6 +414,16 @@ function cambiato(e: OrdineSalvato, o: OrdineNormalizzato, brand: string): boole
   if (e.paese !== o.paese) return true;
   if (e.noteShopify !== o.noteShopify) return true;
   if (e.tagShopify !== o.tagShopify) return true;
+  // La provenienza SÌ entra nel confronto, come i consensi: senza, sugli ordini
+  // già salvati non comparirebbe mai — è l'errore che ha reso muti i consensi
+  // per un intero backfill. Prezzo: la prima sync dopo questa modifica riscrive
+  // gli ordini della finestra, perché il valore passa da vuoto a un canale.
+  if (e.sorgente !== o.sorgente) return true;
+  if (e.visitaSorgente !== o.visitaSorgente) return true;
+  if (e.utmSource !== o.utmSource) return true;
+  if (e.utmMedium !== o.utmMedium) return true;
+  if (e.utmCampaign !== o.utmCampaign) return true;
+  if (e.canaleMarketing !== o.canaleMarketing) return true;
   if (righeCambiate(e.righe, o.righe)) return true;
   if (e.brand !== brand) return true; // il negozio è stato rinominato
   if (!e.categoriaPagamentoManuale && e.categoriaPagamento !== o.categoriaPagamento) return true;

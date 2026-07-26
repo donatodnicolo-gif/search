@@ -11,6 +11,8 @@ import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classifica
 import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
 import { brandConColore, mappaColori, coloreBrand, mappaRicerca } from "@/lib/brand";
 import { linkRicerca } from "@/lib/fornitori";
+import { ordinali } from "@/lib/repeater";
+import { SegnoCanale, PillRepeater } from "@/components/Provenienza";
 import { sincronizza } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +74,13 @@ export default async function ElencoOrdini({
           }),
         )
       : [];
+
+  // Prima volta o cliente che torna: si calcola per gli ordini che stiamo
+  // mostrando, in una query sola per l'intera schermata.
+  const ordinaliOrdini = await ordinali([
+    ...ordini.map((o) => o.id),
+    ...colonneBrand.flatMap((c) => c.ordini.map((o) => o.id)),
+  ]);
 
   const colori = mappaColori(brand);
   const ricerca = mappaRicerca(brand);
@@ -301,6 +310,11 @@ export default async function ElencoOrdini({
                         {o.clienteNome ?? o.spedizioneNome ?? "—"}
                         {o.citta ? ` · ${o.citta}` : ""}
                       </div>
+                      {/* Chi ordina e da dove è arrivato: due segni, una riga */}
+                      <div className="riga-provenienza">
+                        <PillRepeater ordinale={ordinaliOrdini.get(o.id)} />
+                        <SegnoCanale ordine={o} conNome />
+                      </div>
                       {/* Cosa è stato ordinato: è la prima cosa che serve sapere */}
                       {o.righe.length > 0 && (
                         <div className="card-prodotti">
@@ -404,6 +418,8 @@ export default async function ElencoOrdini({
                         {o.biglietto && (
                           <span className="simbolo-biglietto" title="C'è un biglietto da scrivere">✉</span>
                         )}
+                        {/* Da dove è arrivato: un simbolo, il nome sotto il mouse */}
+                        <SegnoCanale ordine={o} />
                       </Link>
                       {rischioDaSegnalare(o.rischioLivello) && (
                         <span className="badge-rischio" style={{ color: coloreRischio(o.rischioLivello) }} title={o.rischioMotivi ?? ""}>
@@ -436,6 +452,7 @@ export default async function ElencoOrdini({
                     <td>
                       <div>{o.clienteNome ?? o.spedizioneNome ?? "—"}</div>
                       {o.citta && <div className="cella-sub">{o.citta}</div>}
+                      <PillRepeater ordinale={ordinaliOrdini.get(o.id)} />
                     </td>
                     <td className="cella-num">{euro(o.totale, o.valuta)}</td>
                     <td>

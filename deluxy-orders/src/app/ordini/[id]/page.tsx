@@ -11,6 +11,9 @@ import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { linkRicerca, brandPerRicerca } from "@/lib/fornitori";
 import { cambiaStato, toggleEtichetta, aggiornaClassificazione, segnaProblemaGestito } from "@/app/actions";
+import { ordinali } from "@/lib/repeater";
+import { canale } from "@/lib/marketing";
+import { PillRepeater } from "@/components/Provenienza";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +38,9 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
 
   // nome del brand nell'app Ricerca fornitori, per il link rapido
   const brandRicerca = await brandPerRicerca(ordine.brand);
+  // Prima volta o cliente che torna, contando gli ordini validi prima di questo
+  const ordinale = (await ordinali([ordine.id])).get(ordine.id);
+  const suoCanale = canale(ordine.canaleMarketing);
   const urlShopify = linkShopify(ordine.negozio?.dominio, ordine.orderId);
 
   const etichetteAttive = new Set(ordine.etichette.map((e) => e.id));
@@ -89,6 +95,53 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
             </p>
           )}
         </div>
+      </div>
+
+      {/* Chi ordina e da dove è arrivato. Sta in alto perché cambia il tono di
+          tutto il resto: un primo ordine arrivato da un annuncio a pagamento e
+          il quarto ordine di un cliente affezionato non si trattano uguale. */}
+      <div className="scheda">
+        <div className="scheda-titolo">Da dove arriva questo ordine</div>
+        <div className="riga-provenienza">
+          <PillRepeater ordinale={ordinale} />
+          {suoCanale ? (
+            <span className={`segno-canale grande${suoCanale.pagato ? " pagato" : ""}`}>
+              <span aria-hidden>{suoCanale.simbolo}</span> {suoCanale.nome}
+            </span>
+          ) : (
+            <span className="tag-vuoto">Provenienza sconosciuta</span>
+          )}
+        </div>
+        <p className="testo-guida" style={{ marginTop: 8 }}>
+          {ordinale
+            ? ordinale.repeater
+              ? `Prima di questo, lo stesso cliente aveva già fatto ${ordinale.precedenti} ${
+                  ordinale.precedenti === 1 ? "ordine" : "ordini"
+                } (annullati esclusi).`
+              : "È il suo primo ordine: nessun ordine valido prima di questo."
+            : "Ordine senza email, telefono né nome: non si può dire se sia un cliente che torna."}{" "}
+          {suoCanale
+            ? `${suoCanale.spiega} È la PRIMA visita del percorso che ha portato a quest'ordine, non l'ultimo clic.`
+            : "Shopify non ha associato nessuna visita a quest'ordine: succede con gli ordini creati a mano e con molti ordini vecchi."}
+        </p>
+        {(ordine.utmCampaign || ordine.utmSource || ordine.visitaSorgente) && (
+          <dl className="griglia-campi" style={{ marginTop: 10 }}>
+            {ordine.utmCampaign && (
+              <div className="campo campo-largo"><dt>Campagna</dt><dd>{ordine.utmCampaign}</dd></div>
+            )}
+            {ordine.utmSource && (
+              <div className="campo"><dt>utm</dt><dd>
+                {ordine.utmSource}{ordine.utmMedium ? ` / ${ordine.utmMedium}` : ""}
+              </dd></div>
+            )}
+            {ordine.visitaSorgente && (
+              <div className="campo"><dt>Prima visita</dt><dd>{ordine.visitaSorgente}</dd></div>
+            )}
+            {ordine.sorgente && (
+              <div className="campo"><dt>Canale Shopify</dt><dd>{ordine.sorgente}</dd></div>
+            )}
+          </dl>
+        )}
       </div>
 
       {/* Stato / pipeline */}

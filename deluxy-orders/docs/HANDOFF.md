@@ -245,6 +245,39 @@ su `/clienti`. Modello nuovo `RiepilogoCliente` (chiave unica, `testo`, `punti`,
   pagine fingendo di aver selezionato. Se serve davvero, va fatto in SQL dentro
   `elencoClienti`, non a valle.
 
+### Repeater e provenienza di marketing su ogni ordine (27/07/2026)
+Due segni su ogni ordine, in elenco, in colonne, nella scheda e nelle API.
+
+**Repeater** — `src/lib/repeater.ts`, `ordinali(ids)`: una query sola per
+schermata che conta, per ciascun ordine, **quanti ordini validi lo precedono**
+per lo stesso cliente (chiave email → telefono → nome, la stessa di Clienti,
+via `chiaveDi(alias)` in `clienti.ts`). Non è «quanti ordini ha oggi»: un ordine
+vecchio resta «1º» per sempre. Misurato: 50 ordini in 130–290 ms, di cui ~135 ms
+sono latenza verso Supabase. Su 50 ordini recenti: 15 repeater, 32 primi ordini,
+3 senza cliente riconoscibile (nessun segno: non si indovina).
+
+**Provenienza** — campi nuovi su `Ordine` (`sorgente`, `visitaSorgente`,
+`utmSource/Medium/Campaign`, `canaleMarketing` + indice). Vengono da
+`customerJourneySummary.firstVisit` e `sourceName` di Shopify; il canale in
+italiano lo deduce `deduciCanale()` in `src/lib/marketing.ts` (12 canali con
+simbolo). **Attribuzione al primo contatto**, non all'ultimo clic.
+
+- ⚠️ **I campi entrano in `cambiato()`**, non solo in `datiShopify()`: è
+  l'errore già pagato coi consensi (scritti ma non confrontati → il backfill
+  scrive zero). Conseguenza voluta: la prima sync dopo questa modifica riscrive
+  gli ordini della finestra.
+- ⚠️ **Niente backtick nei commenti dentro `ORDERS_QUERY`**: è un template
+  literal, e un backtick nel commento GraphQL rompe il parse di TypeScript.
+- Costo Shopify misurato: 25 ordini col percorso = **26 punti** su un bucket da
+  1000. Non cambia il ritmo dell'import.
+- Backfill: `npm run importa:provenienza [brand]`. Prima versione con un
+  `update` per ordine: **~78 ordini/minuto**, cioè 2 ore e mezza per deluxy.it.
+  Riscritta con `UPDATE … FROM (VALUES …)`, una scrittura per pagina da 100.
+  Se serve di nuovo un backfill di massa su questo database, **partire da lì**.
+- Distribuzione reale (Flowers, 1.588 ordini): 738 ricerca non pagata, 378
+  diretto, 192 creati a mano, 189 sconosciuti, 48 Shopping, 16 email, 11
+  referral, 8 Meta, 6 AI, 1 WhatsApp, 1 social.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare

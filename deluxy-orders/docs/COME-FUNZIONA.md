@@ -38,6 +38,57 @@ destra):
   consegnato** (giorno e fascia oraria) oltre alla data dell'ordine. Su schermo
   stretto le colonne si impilano; il selettore sparisce sotto i 700px.
 
+### Chi ordina e da dove arriva
+Su ogni ordine, in tutte e due le viste, ci sono due segni che si leggono prima
+di aprire qualsiasi cosa.
+
+**«1º ordine» o «Repeater · 4º».** Non è «quanti ordini ha oggi quel cliente»,
+ma **quanti ne aveva prima di questo**: un ordine di due anni fa resta «primo
+ordine» anche se nel frattempo la persona ne ha fatti altri dieci — la storia
+non si riscrive all'indietro. Il cliente è lo stesso della pagina Clienti (email
+→ telefono → nome), quindi un ordine su Flowers e uno su deluxy.it fatti con la
+stessa email sono la stessa persona, e il secondo è un ritorno. Gli ordini
+annullati non contano come volta precedente: un ordine annullato non è un
+cliente servito. Sugli ordini **senza email, telefono né nome** il segno non
+compare: lì non si sa, e non si tira a indovinare.
+
+**Il simbolo della provenienza.** Shopify sa da sempre da dove è arrivato ogni
+ordine e non lo diceva a nessuno. Ora si vede a colpo d'occhio, con il nome del
+canale sotto il mouse:
+
+| | canale | come si riconosce |
+| --- | --- | --- |
+| 🎯 | Google Ads | `utm_source=adwords` con `medium` a pagamento |
+| 🛒 | Google Shopping | `utm_medium=product_sync` |
+| 🔎 | Ricerca non pagata | prima visita da Google, Bing, DuckDuckGo… |
+| 📣 | Facebook / Instagram a pagamento | `utm` di Meta con medium a pagamento |
+| 📸 | Social | profili e post, senza inserzione |
+| 📧 | Email | Klaviyo, Shopify Email |
+| 💬 | WhatsApp | anche `l.wl.co`, il dominio con cui WhatsApp apre i link |
+| 🤖 | Assistenti AI | ChatGPT, Perplexity e simili |
+| 🔗 | Da un altro sito | un sito ci ha linkati |
+| ➜ | Diretto | ha scritto l'indirizzo o ci aveva già salvati |
+| ☎ | Ordine creato a mano | bozza compilata da noi: telefono, di persona |
+
+Tre cose da sapere, perché cambiano cosa significa quello che si legge:
+
+1. **è attribuzione al primo contatto**: si guarda la *prima* visita del
+   percorso che ha portato a quell'ordine, non l'ultimo clic. Chi ci ha trovati
+   con un annuncio e poi è tornato scrivendo l'indirizzo resta «Google Ads». È
+   la lettura giusta per capire chi ci porta i clienti, non per giudicare una
+   singola campagna;
+2. **non sapere è normale, e si vede**: se Shopify non ha associato nessuna
+   visita — succede sugli ordini creati a mano e su molti ordini vecchi — non
+   compare nessun simbolo. Un posto vuoto si legge come «non lo sappiamo»;
+   «diretto» sarebbe stata una bugia comoda;
+3. **i canali a pagamento sono in oro**: Google Ads, Shopping e Meta si
+   distinguono a vista dal traffico che non ci è costato nulla.
+
+Nella scheda dell'ordine c'è tutto per esteso: il **nome della campagna**
+(«[Deluxy] Torte MILANO»), gli `utm`, la prima visita e il canale tecnico di
+Shopify — cioè il dato grezzo su cui la deduzione è stata fatta, per chi non si
+fida della deduzione.
+
 ### La consegna richiesta
 Su Shopify il giorno e la fascia oraria di consegna sono **attributi
 dell'ordine**: `Data_Consegna` (data) e `Fascia_Oraria_Consegna` (es. `16-20`).

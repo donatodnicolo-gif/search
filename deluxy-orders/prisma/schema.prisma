@@ -340,6 +340,21 @@ model Ordine {
   noteShopify       String?
   tagShopify        String? // tag Shopify (csv), informativi
 
+  // ---- da dove è arrivato l'ordine (provenienza di marketing) ----
+  // Shopify la sa e non la diceva a nessuno: `sorgente` è il canale tecnico
+  // (web | shopify_draft_order | pos | id di un'app), `visitaSorgente` e gli
+  // `utm*` vengono dalla PRIMA visita del percorso che ha portato a
+  // quest'ordine (attribuzione al primo contatto, non all'ultimo).
+  // `canaleMarketing` è la lettura in italiano di tutto questo (vedi
+  // src/lib/marketing.ts): stringa vuota = non lo sappiamo, e allora non si
+  // mostra nessun simbolo invece di inventarne uno.
+  sorgente        String?
+  visitaSorgente  String? // "Google", "direct", o l'indirizzo del sito che ci ha mandato la persona
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String? // il nome della campagna: "[Deluxy] Torte MILANO"
+  canaleMarketing String  @default("")
+
   // cliente
   clienteNome     String?
   clienteEmail    String?
@@ -433,6 +448,7 @@ model Ordine {
   @@index([problemaGestito])
   @@index([rischioLivello])
   @@index([categoriaPagamento])
+  @@index([canaleMarketing])
   @@index([assegnatoApp])
   @@index([data])
 }

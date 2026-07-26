@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { whereOrdini, serializzaOrdine, INCLUDE_ORDINE } from "@/lib/ordini";
+import { ordinali } from "@/lib/repeater";
 import { tipologiePerOrdini } from "@/lib/tipologia-cliente";
 
 // GET /api/v1/ordini — elenco ordini per le altre app (sola lettura).
@@ -40,7 +41,11 @@ export async function GET(req: NextRequest) {
 
   // Da che tipo di cliente arriva ogni ordine: una sola query per l'intera
   // pagina, perché la tipologia è del cliente e non dell'ordine.
-  const tipologie = await tipologiePerOrdini(ordini);
+  // Prima volta o cliente che torna: anche questa una query sola per pagina.
+  const [tipologie, ordinaliOrdini] = await Promise.all([
+    tipologiePerOrdini(ordini),
+    ordinali(ordini.map((o) => o.id)),
+  ]);
 
   return NextResponse.json({
     totale,
@@ -49,6 +54,6 @@ export async function GET(req: NextRequest) {
     pagine: Math.max(1, Math.ceil(totale / limit)),
     // esplicito, così chi consuma sa cosa NON sta ricevendo
     annullatiInclusi: annullati === "inclusi" || annullati === "solo",
-    ordini: ordini.map((o) => serializzaOrdine(o, tipologie)),
+    ordini: ordini.map((o) => serializzaOrdine(o, tipologie, ordinaliOrdini)),
   });
 }

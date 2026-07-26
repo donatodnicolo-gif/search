@@ -98,6 +98,18 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 > `tipo` esce `null` sugli ordini senza email, telefono né nome: lì non si sa chi
 > sia il cliente, e non si tira a indovinare.
 
+> **Da dove arriva un ordine, e se è un cliente che torna.** Ogni ordine porta
+> `marketing: { canale, campagna, utmSource, utmMedium, primaVisita,
+> canaleShopify }` e, dentro `cliente`, `repeater`, `ordiniPrima` e
+> `numeroOrdine`. Due avvertenze per chi legge: `canale` **null vuol dire che
+> non lo sappiamo** (Shopify non ha associato nessuna visita: succede sugli
+> ordini creati a mano e su molti ordini vecchi) e non va letto come «diretto»;
+> `repeater` **null** vuol dire cliente non riconoscibile — niente email,
+> telefono né nome — e non «prima volta». `ordiniPrima` conta solo gli ordini
+> validi *precedenti a quello*, quindi un ordine vecchio resta `numeroOrdine: 1`
+> anche se oggi quel cliente ne ha venti. Il canale è **attribuzione al primo
+> contatto** del percorso che ha portato all'ordine, non all'ultimo clic.
+
 > **Il riassunto del cliente esce, ma `riepilogo: null` non vuol dire «cliente
 > senza preferenze».** Vuol dire che non è ancora stato scritto: si scrive
 > dall'app di Orders, cliente per cliente o in blocco, perché ognuno costa una
@@ -154,6 +166,10 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 - `src/lib/clienti-ai.ts` — il riepilogo di un cliente scritto leggendo i suoi
   ordini veri: chi è, **cosa gli piace** e un punto per ordine, che cresce a
   ogni ordine nuovo invece di essere riscritto da capo.
+- `src/lib/marketing.ts` — da dove è arrivato un ordine: i 12 canali col loro
+  simbolo e la regola che li deduce da `utm`, prima visita e canale Shopify.
+- `src/lib/repeater.ts` — prima volta o cliente che torna, contando gli ordini
+  validi **precedenti a quello** (una query per schermata).
 - `src/lib/brand.ts` — brand e loro colori.
 - `src/app/` — Ordini (elenco + colonne per brand), Bacheca (kanban), scheda
   ordine, Clienti (elenco ordinabile per ogni colonna + scheda con tipologia e

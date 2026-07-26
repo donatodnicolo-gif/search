@@ -246,6 +246,19 @@ cd deluxy-orders && npm run import:storico -- 365
 - **Serve**: `DATABASE_URL` nel `.env` dell'app e almeno un negozio collegato (vedi `importa-negozi-da-finance.mjs` o la pagina Impostazioni)
 - **Nota**: se si interrompe si può rilanciare — riprende senza duplicare. Per la sync quotidiana c'è il cron `/api/cron/sync`.
 
+### importa-provenienza.ts — deluxy-orders
+Riempie **da dove è arrivato ogni ordine** (Google Ads, ricerca, Meta, email, WhatsApp, ordine creato a mano…) sugli ordini già in archivio. Chiede a Shopify solo il percorso d'acquisto e scrive sei colonne: gli ordini nuovi se la portano dietro dalla sync di ogni notte, questo serve **una volta sola per lo storico**. Scrive una pagina alla volta con un `UPDATE … FROM (VALUES …)` e salta gli ordini il cui valore non cambia: è ripetibile.
+
+```bash
+# dalla radice del repo — tutti i negozi attivi
+cd deluxy-orders && npm run importa:provenienza
+# un negozio solo
+cd deluxy-orders && npm run importa:provenienza -- Flowers
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app e i negozi collegati
+- **Nota**: stampa il conteggio per canale a fine giro. Su 13.971 ordini reali (27/07/2026) restano 1.219 senza provenienza: Shopify non associa nessuna visita agli ordini creati a mano e a molti ordini vecchi — lì il canale resta vuoto invece di essere inventato.
+
 ### verifica-totali.ts — deluxy-orders
 Confronta, negozio per negozio, quanti ordini ci sono **su Shopify** e quanti ne ha il registro Orders: serve a dimostrare che l'import è completo e allineato.
 
@@ -537,7 +550,7 @@ Una riga per app; il `cd` parte dalla radice del repo.
 | deluxy-mail | 3070 | `cd deluxy-mail && npm run dev` · `npm run build` (include la migrazione) · `npm start` · `npm run db:push` · `npm run db:seed` |
 | deluxy-budgets | 3080 | `cd deluxy-budgets && npm run dev` · `npm run build` · `npm start` · `npm run typecheck` · `npm run db:push` · `npm run db:seed` |
 | deluxy-scripts | 3170 | `cd deluxy-scripts && npm run dev` · `npm run build` · `npm start` · `npm run typecheck` · `npm run db:push` · `npm run configura-db -- <env>` · `npm run chiave -- <app>` · `npm run seed:app` |
-| deluxy-orders | 3150 | `cd deluxy-orders && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run chiave -- <app> [--scrittura]` · `npm run negozi:da-finance` · `npm run import:storico` · `npm run verifica:totali` · `npm run sync` |
+| deluxy-orders | 3150 | `cd deluxy-orders && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run chiave -- <app> [--scrittura]` · `npm run negozi:da-finance` · `npm run import:storico` · `npm run verifica:totali` · `npm run importa:provenienza` · `npm run sync` |
 | deluxy-scout (Expo) | — | `cd deluxy-scout && npm start` · `npm run web` · `npm run android` · `npm run ios` · `npm run build:web` · `npm run typecheck` · `npm test` · `npm run lint` · `npm run import:places -- <file.csv>` |
 | deluxy-platform-next | API + web | `cd deluxy-platform-next && npm run dev:api` · `npm run dev:web` · `npm run build` · `npm run prisma:generate` · `npm run prisma:migrate` · `npm run seed` · `npm run doc:word` |
 

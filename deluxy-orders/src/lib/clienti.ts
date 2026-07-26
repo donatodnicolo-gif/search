@@ -85,6 +85,19 @@ export const CHIAVE = Prisma.sql`COALESCE(
   NULLIF(LOWER(TRIM("clienteNome")), '')
 )`;
 
+// La stessa regola, ma con la tabella davanti («o."clienteEmail"»). Serve dove
+// nella query ci sono due copie degli ordini — per esempio per contare quanti
+// ordini quel cliente aveva già fatto PRIMA di questo: senza l'alias, Postgres
+// non saprebbe di quale delle due si sta parlando.
+export function chiaveDi(alias: string): Prisma.Sql {
+  const a = alias.replace(/[^a-z_]/gi, ""); // alias fisso nel codice, mai dall'utente
+  return Prisma.raw(`COALESCE(
+    NULLIF(LOWER(TRIM(${a}."clienteEmail")), ''),
+    NULLIF(TRIM(${a}."clienteTelefono"), ''),
+    NULLIF(LOWER(TRIM(${a}."clienteNome")), '')
+  )`);
+}
+
 // Un ordine entra nell'elenco clienti solo se ha almeno un dato che identifichi
 // la persona. Gli ordini senza email, telefono NÉ nome non sono un cliente: se
 // li si raggruppasse comunque, finirebbero tutti in un unico finto cliente da

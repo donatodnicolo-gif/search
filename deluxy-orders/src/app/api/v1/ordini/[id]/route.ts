@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { serializzaOrdine, INCLUDE_ORDINE } from "@/lib/ordini";
+import { ordinali } from "@/lib/repeater";
 import { CATEGORIE_PAGAMENTO } from "@/lib/classificazione";
 
 // GET /api/v1/ordini/:id — un ordine con la sua classificazione (sola lettura).
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       `Ordine ${ordine.numero} annullato il ${ordine.annullatoIl.toISOString().slice(0, 10)}: non viene servito. Usa ?annullati=inclusi se devi gestirlo comunque.`,
     );
   }
-  return NextResponse.json(serializzaOrdine(ordine));
+  return NextResponse.json(serializzaOrdine(ordine, undefined, await ordinali([ordine.id])));
 }
 
 // PATCH /api/v1/ordini/:id — riclassifica un ordine (richiede chiave di scrittura).
@@ -93,5 +94,5 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   });
 
   const aggiornato = await prisma.ordine.findUnique({ where: { id }, include: INCLUDE_ORDINE });
-  return NextResponse.json(serializzaOrdine(aggiornato!));
+  return NextResponse.json(serializzaOrdine(aggiornato!, undefined, await ordinali([aggiornato!.id])));
 }
