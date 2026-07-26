@@ -25,11 +25,11 @@ export async function salvaNegozioAzione(fd: FormData) {
   });
   revalidatePath("/impostazioni");
   if (!esito.ok) redirect(`/impostazioni?errore=${encodeURIComponent(esito.errore)}`);
-  // Appena salvato si verifica da solo: sapere subito se il token funziona vale
-  // più di un messaggio "salvato" che non dice niente.
+  // Appena salvato si verifica da solo: sapere subito se le credenziali
+  // funzionano vale più di un messaggio "salvato" che non dice niente.
   await verificaNegozio(esito.id);
   revalidatePath("/impostazioni");
-  redirect(`/impostazioni?esito=salvato#negozio-${esito.id}`);
+  redirect(`/impostazioni?esito=${esito.aggiornato ? "aggiornato" : "salvato"}#negozio-${esito.id}`);
 }
 
 export async function verificaNegozioAzione(id: string) {

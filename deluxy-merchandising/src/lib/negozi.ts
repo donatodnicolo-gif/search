@@ -230,7 +230,9 @@ function normalizzaDominio(d: string): string {
     .replace(/\/.*$/, "");
 }
 
-export type EsitoSalvataggio = { ok: true; id: string } | { ok: false; errore: string };
+export type EsitoSalvataggio =
+  | { ok: true; id: string; aggiornato: boolean }
+  | { ok: false; errore: string };
 
 /**
  * Crea o aggiorna un negozio. Il token è facoltativo in aggiornamento: chi
@@ -273,10 +275,22 @@ export async function salvaNegozio(dati: {
   // il token vecchio non dice niente sulle credenziali nuove.
   const azzeraVerifica = { verificatoIl: null, permessi: null, esitoVerifica: null, messaggio: null };
 
+  // Riscrivere nel form di collegamento un negozio che c'è già è il gesto
+  // naturale quando si cambiano le credenziali: si aggiorna quello, invece di
+  // rispondere «esiste già» e lasciare l'utente davanti a un muro.
+  let id = dati.id ?? null;
+  if (!id) {
+    const gia = await prisma.negozioShopify.findFirst({
+      where: { OR: [{ nome }, { dominio }] },
+      select: { id: true },
+    });
+    if (gia) id = gia.id;
+  }
+
   try {
-    if (dati.id) {
+    if (id) {
       await prisma.negozioShopify.update({
-        where: { id: dati.id },
+        where: { id },
         data: {
           nome,
           dominio,
@@ -303,7 +317,7 @@ export async function salvaNegozio(dati: {
             : {}),
         },
       });
-      return { ok: true, id: dati.id };
+      return { ok: true, id, aggiornato: !dati.id };
     }
     const creato = await prisma.negozioShopify.create({
       data: {
@@ -314,10 +328,14 @@ export async function salvaNegozio(dati: {
           : { tokenCifrato: cifra(token as string), tokenImpronta: impronta(token as string) }),
       },
     });
-    return { ok: true, id: creato.id };
+    return { ok: true, id: creato.id, aggiornato: false };
   } catch (e) {
     const messaggio = e instanceof Error ? e.message : "Errore sconosciuto";
-    if (messaggio.includes("Unique constraint")) return { ok: false, errore: `Esiste già un negozio chiamato «${nome}».` };
+    if (messaggio.includes("Unique constraint"))
+      return {
+        ok: false,
+        errore: `«${nome}» è già il nome di un altro negozio collegato: scegline uno diverso.`,
+      };
     return { ok: false, errore: messaggio };
   }
 }

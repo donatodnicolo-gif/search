@@ -59,6 +59,15 @@ export default async function ImpostazioniPage({
             <span>Negozio salvato e verificato subito: l&apos;esito è nella scheda qui sotto.</span>
           </div>
         )}
+        {sp.esito === "aggiornato" && (
+          <div className="nota-info">
+            <span className="nota-icona">✓</span>
+            <span>
+              Quel negozio era già collegato: ho <b>sostituito le sue credenziali</b> con quelle nuove e l&apos;ho
+              verificato subito. L&apos;esito è nella sua scheda.
+            </span>
+          </div>
+        )}
         {sp.esito === "chiave" && (
           <div className="nota-info">
             <span className="nota-icona">✓</span>
@@ -232,7 +241,11 @@ export default async function ImpostazioniPage({
 
         {/* ---------- Nuovo negozio ---------- */}
         <div className="scheda" style={{ marginTop: 18 }}>
-          <div className="scheda-titolo">Collega un negozio</div>
+          <div className="scheda-titolo">Collega un negozio (o aggiorna le credenziali di uno già collegato)</div>
+          <p className="page-sub" style={{ marginBottom: 14 }}>
+            Se il nome o il dominio corrispondono a un negozio già in elenco, le credenziali vengono
+            <b> sostituite</b> su quello invece di crearne un doppione.
+          </p>
           <form action={salvaNegozioAzione} className="modulo">
             <div className="campo-modulo">
               <label htmlFor="nome">Nome <span className="obbligatorio">*</span></label>
@@ -243,11 +256,11 @@ export default async function ImpostazioniPage({
               <input id="dominio" name="dominio" placeholder="nome-negozio.myshopify.com" required />
             </div>
             <div className="campo-modulo">
-              <label htmlFor="clientId">Client ID <span className="obbligatorio">*</span></label>
+              <label htmlFor="clientId">Client ID</label>
               <input id="clientId" name="clientId" autoComplete="off" placeholder="dalla scheda dell'app" />
             </div>
             <div className="campo-modulo">
-              <label htmlFor="clientSecret">Client Secret <span className="obbligatorio">*</span></label>
+              <label htmlFor="clientSecret">Client Secret</label>
               <input id="clientSecret" name="clientSecret" type="password" autoComplete="off" />
             </div>
             <div className="campo-modulo largo">
