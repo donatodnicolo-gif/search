@@ -149,6 +149,23 @@ verde, rimborsi e annullamenti in rosso, situazioni parziali in arancio.
 Si filtra per stato Shopify (non annullati, solo annullati, da evadere, evasi,
 rimborsati) e per stato del pagamento puntuale.
 
+### Rischio frode
+Shopify analizza ogni ordine e assegna un livello (nessuno, basso, medio, alto)
+con una raccomandazione (accettare, verificare, annullare). Qui si importano
+livello, raccomandazione e i **soli segnali negativi**: Shopify ne restituisce
+decine per ordine, ma quelli positivi («il CVV è corretto») non aiutano a
+decidere. Restano i motivi utili: *indirizzo di spedizione a 9.715 km dalla
+posizione dell'IP*, *fatturazione in Italia ma ordine effettuato dall'Albania*,
+*connessione a rischio (proxy)*.
+
+In elenco e colonne si segnalano **solo medio e alto**: «basso» è la norma e
+riempirebbe le pagine di avvisi che nessuno guarderebbe più. La scheda
+dell'ordine mostra l'elenco completo dei segnali e il consiglio di Shopify.
+Filtro «Sospetti (medio o alto)».
+
+Se un'app esterna ha più valutazioni (Shopify più un'app antifrode), si tiene la
+**più severa**: è quella che deve far fermare l'operatore.
+
 ## Classificazione «a piacimento»
 - **Stato/pipeline**: dove si trova l'ordine nel flusso.
 - **Etichette libere**: raggruppamenti trasversali (urgente, VIP, reso…).
@@ -162,3 +179,20 @@ rimborsati) e per stato del pagamento puntuale.
 Le altre app leggono con una chiave di sola lettura (`GET /api/v1/ordini`,
 `/api/v1/ordini/:id`, `/api/v1/stati`). Chi ha una chiave di scrittura può anche
 riclassificare (`PATCH /api/v1/ordini/:id`). Dettaglio in `README.md`.
+
+### Gli ordini annullati non escono dalle API
+È la regola più importante di questa interfaccia. Un'app a valle che ricevesse
+un ordine annullato potrebbe lavorarlo come valido — mandarlo a un fornitore,
+contarlo nel fatturato — e **un ordine annullato resta spesso «pagato»**, quindi
+non lo riconoscerebbe dallo stato del pagamento.
+
+- `GET /api/v1/ordini` li esclude; la risposta dichiara sempre
+  `annullatiInclusi`, così chi consuma sa cosa non sta ricevendo.
+- `GET /api/v1/ordini/:id` su un ordine annullato risponde **410** spiegando il
+  motivo, invece di servirlo come se fosse valido.
+- Chi deve gestirli davvero passa `annullati=inclusi` (o `annullati=solo`).
+
+**Finance è l'eccezione**: la riconciliazione ha bisogno degli annullati, perché
+dietro ci sono rimborsi da quadrare e incassi realmente avvenuti. Chiama con
+`annullati=inclusi` e legge il campo `annullato`. Le app operative (smistamento,
+consegne) usano il default.

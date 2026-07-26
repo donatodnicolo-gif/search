@@ -59,13 +59,20 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 | Metodo | Rotta | Scopo |
 | --- | --- | --- |
 | GET | `/api/v1/health` | sonda pubblica |
-| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, categoria, app, etichetta, da, a, consegnaDa, consegnaA`) e paginazione (`page, limit`) |
-| GET | `/api/v1/ordini/:id` | un ordine con la classificazione |
+| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio`) e paginazione (`page, limit`) |
+| GET | `/api/v1/ordini/:id` | un ordine con la classificazione (410 se annullato) |
 | PATCH | `/api/v1/ordini/:id` | riclassifica (chiave di scrittura): `stato`, `etichette[]`, `categoriaPagamento`, `tipoConsegna`, `tipoProdotto`, `canale`, `assegnatoApp`, `fornitore`, `responsabile`, `classificazioni{}`, `noteInterne` |
 | GET | `/api/v1/stati` | la pipeline degli stati (per interpretare `stato`) |
 | POST | `/api/v1/sync?giorni=90` | avvia l'import (chiave di scrittura); `giorni=tutto` per lo storico completo |
 
 La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine`).
+
+> **Gli ordini annullati non escono di default.** Un'app che li ricevesse
+> potrebbe lavorarli come validi, e un ordine annullato resta spesso «pagato»:
+> non lo si riconosce dal pagamento. Per averli serve `annullati=inclusi` (o
+> `annullati=solo`); l'elenco dichiara sempre `annullatiInclusi`. Finance li
+> chiede, perché la riconciliazione ha bisogno di rimborsi e incassi avvenuti;
+> le app operative usano il default.
 
 ## Struttura
 

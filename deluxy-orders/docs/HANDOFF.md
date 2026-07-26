@@ -82,7 +82,27 @@ finché non c'è `APP_URL_ORDERS`).
   faceva e sbagliava (in «30 Luglio 08/12» leggeva "8 dicembre" mentre 08/12 è
   la fascia oraria): meglio "non indicata" che una consegna sbagliata.
 
+## FATTO (26/07/2026, seconda parte)
+- **Stati Shopify**: annullamento (`annullatoIl`, motivo, `chiusoIl`), evasione e
+  stato pagamento, con etichette italiane, colori e filtri. L'annullamento
+  mancava del tutto ed era una lacuna vera: non si deduce dal pagamento (#2565,
+  #2562, #2563 sono annullati ma «pagati»).
+- **Rischio frode**: livello, raccomandazione e i soli segnali negativi
+  dall'analisi antifrode di Shopify; si segnalano solo medio e alto.
+- **API: gli annullati non escono più** (410 sul dettaglio, esclusi
+  dall'elenco, `annullati=inclusi` per chi deve gestirli). Vedi README.
+- **Finance** (`deluxy-partner/src/lib/ordini-registro.ts`): chiede
+  `annullati=inclusi` e porta avanti il flag. Senza, perdeva 221 ordini con
+  26.200 EUR di movimenti e non scopriva più gli annullamenti.
+- **Rubrica Google** (`/clienti/rubrica`) con prova a vuoto obbligatoria.
+- **Bottone «Cerca fornitore»** sotto ogni ordine (link a search-deluxy).
+- **Import resiliente**: la pagina viene riprovata se il pooler Supabase chiude
+  la connessione (era successo tre volte su giri di oltre un'ora).
+
 ## MANCA / prossimi passi
+0. **Finance: cosa fare degli annullati.** Ora li riceve, ma li tratta come
+   ordini normali e finiscono in coda di riconciliazione. Va deciso se
+   ignorarli o trasformarli in voci di rimborso: è una scelta contabile.
 1. **Push su GitHub** del commit `1b5a678` (in sessione il push è bloccato dal
    classificatore): va fatto a mano con `git push origin scout-ui`.
 2. **Integrazione con le app di destinazione** (fase 2, lettura via API):
