@@ -10,10 +10,12 @@ export function Sidebar() {
 
   const gruppi = [
     {
-      titolo: 'Reclami',
+      titolo: 'Customer Service',
       voci: [
         { href: '/reclami', nome: 'Reclami', icona: iconaReclamo },
         { href: '/reclami/casistiche', nome: 'Casistiche', icona: iconaCasistiche },
+        { href: '/reclami/punteggi', nome: 'Punteggi', icona: iconaPunteggi },
+        { href: '/reclami/feedback', nome: 'Feedback e orari', icona: iconaFeedback },
         { href: '/reclami/giudizi', nome: 'Giudizi', icona: iconaGiudizi },
         { href: '/reclami/valet', nome: 'Valet', icona: iconaValet },
       ],
@@ -160,6 +162,20 @@ const iconaCasistiche = (
     <path d="M4 6h4v4H4zM4 14h4v4H4z" />
     <line x1="11" y1="8" x2="20" y2="8" />
     <line x1="11" y1="16" x2="20" y2="16" />
+  </svg>
+)
+const iconaPunteggi = (
+  <svg {...T} strokeLinejoin="round">
+    <line x1="4" y1="20" x2="20" y2="20" />
+    <rect x="5.5" y="12" width="3.5" height="6" />
+    <rect x="10.5" y="8" width="3.5" height="10" />
+    <rect x="15.5" y="4.5" width="3.5" height="13.5" />
+  </svg>
+)
+const iconaFeedback = (
+  <svg {...T} strokeLinejoin="round">
+    <path d="M20 13.5a7.6 7.6 0 0 1-7.7 7.5 8 8 0 0 1-2.9-.5L4 22l1.6-4.7A7.3 7.3 0 0 1 4.9 14a7.6 7.6 0 0 1 7.6-7.5" />
+    <path d="M17 2.5l1.3 2.7 3 .45-2.15 2.1.5 3L17 9.4l-2.65 1.35.5-3L12.7 5.65l3-.45z" />
   </svg>
 )
 const iconaGiudizi = (
