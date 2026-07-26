@@ -1,4 +1,4 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 24/07/2026)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 26/07/2026)
 
 Per riprendere il lavoro su quest'app da una nuova sessione Claude. **Leggere prima
 [AI_SPEC.md](AI_SPEC.md)**: è la scheda tecnica completa e aggiornata; questo file dice
@@ -121,14 +121,14 @@ solo dove siamo e come si lavora.
    `'tutte'`, `'FIORISTA'`) e togliendo/mettendo `.active` sui filtri Contatti. Regola:
    ogni nuovo selettore sulle chip della ricerca va scopato a `.catbtns .chip`.
 
-20. **Doppia nearbySearch (keyword + solo tipo)** (24/07): la ricerca Google per categoria ora fa
+20. **Doppia nearbySearch (keyword + solo tipo)** (26/07): la ricerca Google per categoria ora fa
    DUE nearbySearch — con keyword localizzata e solo per `type` — e unisce le liste (dedup per
    place_id già a valle). Motivo: la keyword `pasticceria` scartava schede vere — «Le Torte di
    Giada» (Brescia, type bakery) non usciva nemmeno a 0 m dalle sue coordinate (ordine
    cakedesign #1725, consegna in via Odofredo Denari 36) — mentre lasciava passare panifici
    e bar. Dettagli in AI_SPEC §12.9. C'è anche un .gitignore nuovo (`.env*`, `.vercel`).
 
-21-bis. **Numero risultati: opzione 30 + scelta ricordata + gemello sui risultati** (24/07):
+21-bis. **Numero risultati: opzione 30 + scelta ricordata + gemello sui risultati** (26/07):
    il select «Numero risultati» arriva a 30 e la scelta resta in `localStorage.limitPref`
    (per browser, come la sidebar). In cima ai risultati, accanto al filtro WhatsApp, c'è il
    select gemello `#limitResults` (compare dopo la prima ricerca, come `#waFilterResults`):
@@ -136,14 +136,14 @@ solo dove siamo e come si lavora.
    Gelateria Nessi» (Dolzago) era la 12ª per distanza stradale: le ricerche la trovavano,
    ma il limite a 10 la tagliava. Non era colpa di keyword/tipo.
 
-21. **Parole chiave Google personalizzabili** (24/07): in ⚙️ Impostazioni due campi nuovi
+21. **Parole chiave Google personalizzabili** (26/07): in ⚙️ Impostazioni due campi nuovi
    «Parole chiave Google — Fiorai / Pasticcerie» (`config:v1.kwFioraio/kwPasticceria`,
    visibili a tutte le utenze via GET /api/config, salvabili solo dall'admin). Più keyword
    separate da virgola = una nearbySearch per ciascuna, risultati uniti; la ricerca per sola
    categoria si aggiunge sempre. Vuoti = predefinite di `KEYWORDS` per lingua (comportamento
    di prima). AI_SPEC §4.
 
-22. **Refresh = ultima ricerca ripetuta** (24/07): `rememberSearch()` tiene l'URL allineato
+22. **Refresh = ultima ricerca ripetuta** (26/07): `rememberSearch()` tiene l'URL allineato
    all'ultima ricerca con `history.replaceState` — `?brand&ordine` lo scrive `populateOrder`
    (dai campi `o.brand`/`o.orderName`: ordine vero da Shopify/KV); `?indirizzo&categoria` lo
    scrive `run()` quando l'URL non dice già `?ordine` (quindi anche in modalità manuale).
@@ -152,24 +152,24 @@ solo dove siamo e come si lavora.
    `brand`/`number` che sono locali di `fetchOrder` → ReferenceError sul caricamento ordine.
    In `populateOrder` esistono solo `o` e il DOM.
 
-23. **Distanza stradale anche sulle schede del registro** (24/07): `annotaDistanzeRegistro`
+23. **Distanza stradale anche sulle schede del registro** (26/07): `annotaDistanzeRegistro`
    geocodifica (best effort) l'indirizzo censito di ogni scheda registro mostrata in cima e
    aggiunge il badge «🚗 X km · Y min» con lo stesso motore delle schede Google
    (`drivingDistances`: Distance Matrix → OSRM → ripiego 📏 linea d'aria). Non blocca la
    ricerca: gira in parallelo dopo il prepend. Schede senza indirizzo = nessun badge.
 
-24. **«↻ Riapri ricerca» per le ricerche solo-indirizzo** (24/07): `logEvento` ora allega anche
+24. **«↻ Riapri ricerca» per le ricerche solo-indirizzo** (26/07): `logEvento` ora allega anche
    `ricerca {indirizzo, categoria}` (campo nuovo whitelisted in `api/storico.js`); nello
    Storico gli eventi SENZA ordine ma con indirizzo hanno il pulsante «↻ Riapri ricerca»
    (`.st-reopen-search`) che reimposta indirizzo+categoria e rilancia `run()`. Gli eventi
-   registrati prima di oggi non hanno il campo e restano senza pulsante.
+   registrati prima del 26/07 non hanno il campo e restano senza pulsante.
    In più (stesso giorno): ogni ricerca per zona SENZA ordine registra da sola un evento
    `tipo:'ricerca'` («🗺️ Ricerca in zona · trovati N negozi», nome = indirizzo cercato) —
    prima una ricerca senza azioni non lasciava traccia e non c'era nulla da riaprire.
    Anti-doppioni per sessione (`ultimaRicercaLoggata`): stessa zona ripetuta = 1 evento.
    Con ordine caricato non si registra: c'è già il check di /api/order.
 
-25. **Stella automatica su WhatsApp/chiamata** (24/07): cliccare 💬 (link `a.wa`) o 📞
+25. **Stella automatica su WhatsApp/chiamata** (26/07): cliccare 💬 (link `a.wa`) o 📞
    (`a.tel`) su qualsiasi scheda — comprese quelle del registro e i numeri dei referenti —
    mette da sola la ⭐ «contattato» (`starShop`, dedupe già incluso); con un ordine caricato
    lo stato ricerca passa a «in corso» (se non già «trovato»), come per «Invia richiesta
@@ -178,13 +178,13 @@ solo dove siamo e come si lavora.
    ma `loadStato()` partiva solo da `populateOrder`/modalità manuale → sparivano al reload.
    Ora `run()` chiama `loadStato()` a fine ricerca quando non c'è un ordine.
 
-26. **Contatti destinatario nel messaggio al fornitore** (24/07): `buildOrderMessage` aggiunge
+26. **Contatti destinatario nel messaggio al fornitore** (26/07): `buildOrderMessage` aggiunge
    una riga «📍 Destinatario: NOME · 📞 Telefono: NUM» (etichette localizzate `RECIPIENTWORD`/
    `PHONEWORD` per it/en/fr/de/es) dai campi `#ord_recipient`/`#ord_phone`, prima del
    bigliettino. La riga compare solo se almeno uno dei due è compilato; i due campi sono
    nei listener che rigenerano il testo (finché l'operatore non lo edita a mano).
 
-27. **Email dei fornitori nei risultati** (24/07): Google Places non dà l'email → la si
+27. **Email dei fornitori nei risultati** (26/07): Google Places non dà l'email → la si
    ricava dal sito del negozio. Prima girava solo con un `proxy` CORS impostato (che era
    vuoto → nessuna email). Ora c'è l'endpoint server `GET /api/contatti?url=<sito>`
    (`api/contatti.js`): scraping lato server, niente CORS/proxy. `scrapeContacts` nel
