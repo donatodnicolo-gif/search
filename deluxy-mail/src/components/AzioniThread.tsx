@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { cestinaThread, riassumiConversazione } from '@/lib/actions'
 import { AgganciaBottone } from './AgganciaRiga'
 import { NomeThreadBottone } from './NomeThreadRiga'
@@ -30,7 +29,6 @@ export function AzioniThread({
   const [sintesi, setSintesi] = useState<string | null>(null)
   const [errore, setErrore] = useState<string | null>(null)
   const [via, setVia] = useState(false) // cestinato: la riga svanisce
-  const router = useRouter()
 
   if (via) return null
 
@@ -42,11 +40,15 @@ export function AzioniThread({
       else setErrore(r.messaggio)
     })
 
+  // ⚠️ NIENTE router.refresh() qui. La riga sparisce già da sola (`via`), e la
+  // server action ha già invalidato la cache: il refresh ricostruiva l'INTERA
+  // pagina Thread (migliaia di mail da raggruppare) a ogni cestinata, ed era il
+  // motivo per cui «Cestina tutto» sembrava non finire mai. Alla prossima
+  // navigazione la lista si rilegge comunque aggiornata.
   const cestina = () =>
     start(async () => {
       setVia(true)
       await cestinaThread(messaggioId)
-      router.refresh()
     })
 
   return (

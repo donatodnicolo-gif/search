@@ -25,13 +25,17 @@ export async function nomiPerGruppi(
   utenteId: string,
   gruppi: { id: string }[][]
 ): Promise<(string | null)[]> {
-  const tutti = [...new Set(gruppi.flat().map((m) => m.id))]
-  if (tutti.length === 0) return gruppi.map(() => null)
+  if (gruppi.length === 0) return []
 
+  // ⚠️ PRESTAZIONI. Prima si passava al database la lista degli id di TUTTE le
+  // mail mostrate (fino a 2000 nella pagina Thread) dentro un `IN (…)`: una
+  // query enorme da comporre, spedire e pianificare a ogni apertura di pagina.
+  // I nomi dati a mano sono invece poche righe per utente: si leggono tutte in
+  // un colpo (query minuscola) e l'incrocio si fa qui in memoria.
   let perChiave = new Map<string, string>()
   try {
     const righe = await db.nomeThread.findMany({
-      where: { utenteId, chiave: { in: tutti } },
+      where: { utenteId },
       select: { chiave: true, nome: true },
     })
     perChiave = new Map(righe.map((r) => [r.chiave, r.nome]))

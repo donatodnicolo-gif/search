@@ -118,6 +118,36 @@ calcolata **in background** e appare un attimo dopo (prima invece la prima apert
 ogni mail restava bloccata sulla chiamata di traduzione). Tutte le letture della pagina
 girano in parallelo, non una dopo l'altra.
 
+## 6c. La conversazione: nome, chiusura, cestinamento
+
+Ogni mail sta in una **conversazione** (la catena di risposte, o mail con lo stesso
+oggetto, o mail che hai agganciato tu a mano). Nella scheda «Conversazione», in cima
+alla mail, puoi:
+
+- **darle un nome tuo** («Trasferte LimoLane»): l'oggetto spesso non dice niente
+  («Re: IMPORTANTE: 106654/26 …»), il nome invece si riconosce a colpo d'occhio nelle
+  liste e si può cercare nella pagina **Thread**;
+- accendere il **PLUS AI** (l'AI legge sempre quella conversazione);
+- segnarla **chiusa** (pratica finita: esce dai «Top thread», ma le mail restano dove
+  sono e una risposta nuova si vede lo stesso);
+- **cestinarla tutta** in un colpo (dal Cestino si recupera: non è una cancellazione
+  dal server).
+
+Queste quattro cose ci sono **anche quando la mail risulta da sola**: se domani le
+agganci una compagna, il nome che le hai dato vale già per tutte e due.
+
+## 6d. Cestinare è immediato
+
+Cestinare, archiviare o segnalare come spam fa **sparire subito** la riga e basta:
+l'app non ricostruisce l'intera cartella a ogni clic (prima sì, e cestinando dieci
+mail di fila si aspettava dieci volte). Se hai bisogno dei conteggi aggiornati, basta
+cambiare pagina: la lista si rilegge da sé.
+
+Aprire una cartella molto piena — lo **SPAM** in particolare — non aspetta più né i
+testi tradotti delle mail (che nella riga si vedono per 200 caratteri) né la colonna
+di destra: la posta compare subito, «Top thread», agenda e attività si riempiono un
+attimo dopo.
+
 ## 7. Sicurezza
 
 **Password.** Cifrate con AES-256-GCM (`src/lib/crypto.ts`), chiave derivata da

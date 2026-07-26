@@ -353,6 +353,14 @@ const stmts = [
          FOREIGN KEY ("utenteId") REFERENCES "Utente"("id") ON DELETE CASCADE ON UPDATE CASCADE;
      END IF;
    END $$`,
+  // ⚠️ VELOCITÀ delle liste. La posta in arrivo chiede, per le righe mostrate,
+  // «questa conversazione ha una nostra risposta / un nostro inoltro?»: due
+  // query su (utenteId, direzione, thread) che senza indice erano due
+  // scansioni dell'intera casella a ogni apertura di cartella (SPAM compreso).
+  `CREATE INDEX IF NOT EXISTS "Messaggio_utenteId_direzione_thread_idx" ON "Messaggio"("utenteId","direzione","thread")`,
+  // La conversazione di una mail VECCHIA si ricostruisce dalla sua radice
+  // (idsThread in src/lib/sync.ts): senza indice sarebbe una scansione.
+  `CREATE INDEX IF NOT EXISTS "Messaggio_utenteId_thread_idx" ON "Messaggio"("utenteId","thread")`,
 ]
 
 async function main() {

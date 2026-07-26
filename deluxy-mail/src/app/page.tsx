@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
@@ -247,8 +248,39 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     // 800 basta: con 2000 si pagava il trasporto dal database (e il tempo di
     // raggruppamento) di mail che nessuno arriva mai a scorrere.
     take: 800,
-    omit: { corpoTesto: true, corpoHtml: true },
-    include: {
+    // ⚠️ PESO DELLA RISPOSTA. Qui prima c'era `omit: { corpoTesto, corpoHtml }`,
+    // cioè "prendi tutto tranne due campi": restavano dentro `corpoTradotto` e
+    // `eventoProposto`, che sono TEXT e possono pesare decine di KB l'uno — per
+    // 800 righe, megabyte trasportati dall'Europa agli Stati Uniti a ogni
+    // apertura di una cartella (lo SPAM, pieno di mail straniere tradotte, era
+    // il caso peggiore). Ora si elencano SOLO i campi che la riga usa davvero;
+    // della traduzione servono 200 caratteri e dell'evento solo "c'è o no": si
+    // prendono più sotto, con una query mirata sulle sole righe mostrate.
+    select: {
+      id: true,
+      thread: true,
+      messageId: true,
+      threadManuale: true,
+      scollegato: true,
+      direzione: true,
+      mittente: true,
+      mittenteNome: true,
+      destinatari: true,
+      oggetto: true,
+      data: true,
+      anteprima: true,
+      riassunto: true,
+      lingua: true,
+      letto: true,
+      archiviato: true,
+      cestinato: true,
+      sezioneId: true,
+      priorita: true,
+      prioritaDa: true,
+      analizzatoIl: true,
+      dimensione: true,
+      // Piccolo (di solito NULL, altrimenti un JSON di poche righe): resta qui.
+      eventoProposto: true,
       sezione: { select: { nome: true, colore: true } },
       bozze: { where: { inviata: false }, select: { id: true } },
       _count: { select: { attivita: true, inviiApp: true } },
@@ -267,9 +299,11 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // Iconcina "risposto": una mail ha una nostra risposta se nel suo thread c'è
   // un messaggio in USCITA. (Gli inoltri aprono una conversazione nuova, quindi
   // non risultano legati all'originale: qui si segna solo "risposto".)
-  const rootsVisti = messaggi
-    .map((m) => m.thread || m.messageId)
-    .filter((x): x is string => Boolean(x))
+  // Deduplicati: in un thread di 30 mail la radice è sempre la stessa, e senza
+  // il `Set` finiva 30 volte dentro l'`IN (…)` delle due query qui sotto.
+  const rootsVisti = [
+    ...new Set(messaggi.map((m) => m.thread || m.messageId).filter((x): x is string => Boolean(x))),
+  ]
   // I codici di aggancio manuale presenti: servono a ritrovare gli INOLTRI, che
   // non hanno la radice del thread (aprono una catena nuova) e sono legati
   // all'originale solo dall'aggancio.
@@ -328,9 +362,9 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       data: m.data,
       riassunto: m.riassunto,
       anteprima: m.anteprima,
-      // Solo l'anteprima della traduzione: la riga ne mostra 200 caratteri, e
-      // spedire al browser il corpo tradotto INTERO di ogni riga pesava.
-      corpoTradotto: m.corpoTradotto ? m.corpoTradotto.replace(/\s+/g, ' ').slice(0, 200) : null,
+      // L'anteprima della traduzione arriva dalla query mirata più sotto: il
+      // corpo tradotto INTERO non si trasporta, né dal database né al browser.
+      corpoTradotto: null,
       lingua: m.lingua,
       sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
       sezioneId: m.sezioneId,
@@ -363,24 +397,35 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     }
   })
 
-  // ⚠️ DIMENSIONE per l'ordinamento. Le mail salvate prima del campo
-  // `dimensione` (e quelle che un backfill non ha raggiunto) l'hanno a 0: senza
-  // questo, ordinare per dimensione non produce alcun effetto perché sono tutte
-  // uguali. Qui si ricava dai byte dei corpi con UNA query di soli interi, e
-  // SOLO per le righe che ne sono prive: se il dato c'è già, costo zero.
-  const senzaPeso = righe.filter((r) => !r.dimensione)
-  if (senzaPeso.length > 0) {
+  // ⚠️ I CAMPI PESANTI, presi SOLO per le righe davvero mostrate e SOLO nella
+  // misura che serve. Tre cose in una query sola, tutta di interi e stringhe
+  // corte:
+  //  • DIMENSIONE per l'ordinamento: le mail salvate prima del campo
+  //    `dimensione` (e quelle che un backfill non ha raggiunto) l'hanno a 0, e
+  //    senza questo ordinare per dimensione non produrrebbe alcun effetto.
+  //  • TRADUZIONE: la riga ne mostra 200 caratteri — si tagliano nel database,
+  //    invece di trasportare il corpo tradotto intero di ogni mail.
+  // Si interrogano solo le righe che hanno qualcosa da chiedere: se le
+  // dimensioni ci sono già e nessuna mail è in lingua straniera, costo zero.
+  const daCompletare = righe.filter((r) => !r.dimensione || r.lingua)
+  if (daCompletare.length > 0) {
     try {
-      const pesi = await db.$queryRaw<{ id: string; peso: number }[]>(
+      const extra = await db.$queryRaw<{ id: string; peso: number; tradotto: string | null }[]>(
         Prisma.sql`SELECT "id",
-                          (octet_length("corpoTesto") + COALESCE(octet_length("corpoHtml"), 0))::int AS peso
+                          (octet_length("corpoTesto") + COALESCE(octet_length("corpoHtml"), 0))::int AS peso,
+                          left("corpoTradotto", 400) AS tradotto
                      FROM "Messaggio"
-                    WHERE "id" IN (${Prisma.join(senzaPeso.map((r) => r.id))})`
+                    WHERE "id" IN (${Prisma.join(daCompletare.map((r) => r.id))})`
       )
-      const perId = new Map(pesi.map((p) => [p.id, Number(p.peso) || 0]))
-      for (const r of senzaPeso) r.dimensione = perId.get(r.id) ?? 0
+      const perId = new Map(extra.map((e) => [e.id, e]))
+      for (const r of daCompletare) {
+        const e = perId.get(r.id)
+        if (!e) continue
+        if (!r.dimensione) r.dimensione = Number(e.peso) || 0
+        r.corpoTradotto = e.tradotto ? e.tradotto.replace(/\s+/g, ' ').slice(0, 200) : null
+      }
     } catch {
-      /* niente: si ordina con quello che c'è */
+      /* niente: si ordina e si mostra con quello che c'è */
     }
   }
 
@@ -572,12 +617,23 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         </div>
 
         <div className="inbox-lato">
-          {/* Le conversazioni più corpose del mese: sopra l'agenda. */}
-          <ColonnaTopThread utenteId={u.id} />
-          {/* L'agenda: i prossimi appuntamenti si vedono appena si apre la posta. */}
-          <ColonnaCalendario utenteId={u.id} />
+          {/* ⚠️ La colonna di destra sta DENTRO un Suspense. Senza, la pagina non
+              partiva finché non avevano finito anche queste letture — e i «Top
+              thread» da soli rastrellano 1500 mail degli ultimi 30 giorni: si
+              aspettava quella query anche solo per aprire la cartella SPAM.
+              Ora la posta si vede subito e la colonna si riempie dopo. */}
+          <Suspense fallback={null}>
+            {/* Le conversazioni più corpose del mese: sopra l'agenda. */}
+            <ColonnaTopThread utenteId={u.id} />
+          </Suspense>
+          <Suspense fallback={null}>
+            {/* L'agenda: i prossimi appuntamenti si vedono appena si apre la posta. */}
+            <ColonnaCalendario utenteId={u.id} />
+          </Suspense>
           <CarteApp azioni={azioniApp} />
-          <ColonnaAttivita utenteId={u.id} />
+          <Suspense fallback={null}>
+            <ColonnaAttivita utenteId={u.id} />
+          </Suspense>
         </div>
       </div>
 

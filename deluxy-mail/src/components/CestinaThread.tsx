@@ -15,13 +15,18 @@ export function CestinaThread({ messaggioId, quante }: { messaggioId: string; qu
   const [inCorso, start] = useTransition()
   const router = useRouter()
 
+  // Il router.refresh() dopo il push è di troppo: la server action ha già
+  // invalidato la cache, quindi la posta in arrivo viene ricostruita comunque —
+  // col refresh la si costruiva DUE volte, e l'attesa raddoppiava.
   const cestina = () =>
     start(async () => {
       const esito = await cestinaThread(messaggioId)
       mettiFlash(esito.messaggio)
       router.push('/')
-      router.refresh()
     })
+
+  // Con una mail sola la scritta «tutta la conversazione» sarebbe una bugia.
+  const sola = quante <= 1
 
   if (!conferma) {
     return (
@@ -29,9 +34,9 @@ export function CestinaThread({ messaggioId, quante }: { messaggioId: string; qu
         type="button"
         className="btn secondary small"
         onClick={() => setConferma(true)}
-        title="Sposta nel cestino tutte le mail di questa conversazione"
+        title={sola ? 'Sposta questa mail nel cestino' : 'Sposta nel cestino tutte le mail di questa conversazione'}
       >
-        Cestina tutta la conversazione
+        {sola ? 'Cestina questa mail' : 'Cestina tutta la conversazione'}
       </button>
     )
   }
@@ -45,7 +50,7 @@ export function CestinaThread({ messaggioId, quante }: { messaggioId: string; qu
         Annulla
       </button>
       <button className="btn danger small" type="button" onClick={cestina} disabled={inCorso}>
-        {inCorso ? 'Cestino…' : 'Sì, cestina tutto'}
+        {inCorso ? 'Cestino…' : sola ? 'Sì, cestina' : 'Sì, cestina tutto'}
       </button>
     </span>
   )

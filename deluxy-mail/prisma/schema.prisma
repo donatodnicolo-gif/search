@@ -400,6 +400,14 @@ model Messaggio {
   @@index([utenteId, data])
   @@index([utenteId, sezioneId, data])
   @@index([utenteId, threadManuale])
+  // La posta in arrivo chiede, per le righe mostrate, «questa conversazione ha
+  // una nostra risposta / un nostro inoltro?»: due query su (utenteId,
+  // direzione, thread). Senza indice erano due scansioni dell'intera casella a
+  // ogni apertura di cartella.
+  @@index([utenteId, direzione, thread])
+  // La conversazione di una mail VECCHIA si ricostruisce dalla sua radice
+  // (vedi idsThread in sync.ts): senza indice sarebbe una scansione.
+  @@index([utenteId, thread])
 }
 
 // Un'attività, da un messaggio o dal quadro di un contatto o dall'Assistente.

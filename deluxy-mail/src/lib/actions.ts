@@ -84,7 +84,8 @@ import {
   analizzaContattoOra,
   analizzaMessaggioOra,
   leggiQuadroContatto,
-  messaggiThread,
+  idsThread,
+  membriThread,
   preparaEsecuzione,
   preparaRispostaDelegata,
   preparaEventoDelegato,
@@ -657,7 +658,7 @@ export async function salvaIstruzioniThread(
   testo: string
 ): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
-  const conversazione = await messaggiThread(utenteId, messaggioId)
+  const conversazione = await membriThread(utenteId, messaggioId)
   if (conversazione.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
   const chiave = chiaveThread(conversazione)
 
@@ -688,7 +689,7 @@ export async function cambiaThreadAI(
   attivo: boolean
 ): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
-  const conversazione = await messaggiThread(utenteId, messaggioId)
+  const conversazione = await membriThread(utenteId, messaggioId)
   if (conversazione.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
   const membri = conversazione.map((m) => m.id)
 
@@ -723,7 +724,7 @@ export async function cambiaThreadChiuso(
   chiuso: boolean
 ): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
-  const conversazione = await messaggiThread(utenteId, messaggioId)
+  const conversazione = await membriThread(utenteId, messaggioId)
   if (conversazione.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
   const membri = conversazione.map((m) => m.id)
 
@@ -756,7 +757,7 @@ export async function salvaNomeThread(
   nome: string
 ): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
-  const conversazione = await messaggiThread(utenteId, messaggioId)
+  const conversazione = await membriThread(utenteId, messaggioId)
   if (conversazione.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
   const chiave = chiaveThread(conversazione)
 
@@ -838,10 +839,11 @@ export async function cestinaMessaggio(id: string) {
   revalidatePath('/', 'layout')
 }
 
-/** Cestina TUTTE le mail di un thread (dato un messaggio qualsiasi del thread). */
+/** Cestina TUTTE le mail di un thread (dato un messaggio qualsiasi del thread).
+ *  Usa `idsThread`: servono gli id, non i corpi (vedi la nota in sync.ts). */
 export async function cestinaThread(messaggioId: string): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
-  const ids = (await messaggiThread(utenteId, messaggioId)).map((m) => m.id)
+  const ids = [...(await idsThread(utenteId, messaggioId))]
   if (ids.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
   const r = await db.messaggio.updateMany({
     where: { id: { in: ids }, utenteId },
@@ -856,7 +858,7 @@ export async function cestinaThread(messaggioId: string): Promise<{ ok: boolean;
  *  togliere l'intera conversazione, non solo il messaggio più recente. */
 export async function archiviaThreadSenzaAggiornare(messaggioId: string) {
   const utenteId = await uid()
-  const ids = (await messaggiThread(utenteId, messaggioId)).map((m) => m.id)
+  const ids = [...(await idsThread(utenteId, messaggioId))]
   if (ids.length === 0) return
   await db.messaggio.updateMany({
     where: { id: { in: ids }, utenteId },
@@ -867,7 +869,7 @@ export async function archiviaThreadSenzaAggiornare(messaggioId: string) {
 /** Sposta nello SPAM TUTTE le mail del thread (crea la sezione SPAM se manca). */
 export async function segnalaSpamThread(messaggioId: string): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
-  const ids = (await messaggiThread(utenteId, messaggioId)).map((m) => m.id)
+  const ids = [...(await idsThread(utenteId, messaggioId))]
   if (ids.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
   let spam = await db.sezione.findFirst({ where: { utenteId, nome: 'SPAM' }, select: { id: true } })
   if (!spam) {
@@ -1955,9 +1957,7 @@ export async function cercaDaAgganciare(
 
   // `messaggioId` vuoto = si sta SCRIVENDO una mail che ancora non esiste
   // (inoltro/mail nuova): non c'è una conversazione di partenza da escludere.
-  const nelThread = new Set(
-    messaggioId ? (await messaggiThread(utenteId, messaggioId)).map((m) => m.id) : []
-  )
+  const nelThread = messaggioId ? await idsThread(utenteId, messaggioId) : new Set<string>()
 
   // Si cerca anche fra i NOMI dati alle conversazioni: la chiave del nome è
   // l'id del messaggio capostipite, quindi basta includerlo fra i risultati
@@ -2033,8 +2033,10 @@ export async function agganciaAlThread(
 
   // Tutta la conversazione di partenza entra nel gruppo: agganciando una mail
   // a un thread ci si aspetta che valga per il thread, non per un messaggio.
-  const idsBase = (await messaggiThread(utenteId, messaggioId)).map((m) => m.id)
-  const idsAltro = (await messaggiThread(utenteId, daAgganciareId)).map((m) => m.id)
+  const [idsBase, idsAltro] = await Promise.all([
+    idsThread(utenteId, messaggioId),
+    idsThread(utenteId, daAgganciareId),
+  ])
 
   await db.messaggio.updateMany({
     where: { utenteId, id: { in: [...new Set([...idsBase, ...idsAltro, base.id, altro.id])] } },

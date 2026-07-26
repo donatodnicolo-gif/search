@@ -1,4 +1,4 @@
-import type { Messaggio, Regola, Sezione } from '@prisma/client'
+import type { Messaggio, Prisma, Regola, Sezione } from '@prisma/client'
 import { db } from './db'
 import { scaricaNuovi, scaricaVecchi, cercaSulServer, trovaCartellaInviata, dimensioniDalServer, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
@@ -16,7 +16,7 @@ import {
 } from './ai'
 import { CHIAVI, leggiImpostazioni, STILE_DEFAULT } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
-import { raggruppa, chiaveThread } from './thread'
+import { raggruppa, chiaveThread, normalizzaOggetto, oggettoSpecifico } from './thread'
 import { prefissa, inoltrato } from './rispondi'
 import { elencoContatti, contattiPerAI } from './contatti'
 import { valutaSpam } from './spam'
@@ -1478,24 +1478,19 @@ export type RiassuntoThreadSalvato = {
 }
 
 /**
- * Tutti i messaggi del thread a cui appartiene un dato messaggio, dal più
- * vecchio al più recente. Riusa lo STESSO raggruppamento della posta in arrivo
- * (catena di risposte + oggetto specifico), così la conversazione mostrata è
- * identica a quella raggruppata in lista. Include anche la posta inviata.
+ * Solo gli ID delle mail della conversazione a cui appartiene un messaggio.
+ *
+ * ⚠️ PRESTAZIONI. Chi deve solo AGIRE sul thread (cestinare, archiviare,
+ * spostare nello SPAM) usa questa, non `messaggiThread`: quest'ultima carica le
+ * righe INTERE — corpo testo, corpo HTML e traduzione — e per una conversazione
+ * lunga sono megabyte trasportati dal database solo per ricavarne degli id.
+ * È il motivo per cui «Cestina tutto» ci metteva un'eternità.
+ *
+ * Il raggruppamento è lo STESSO della posta in arrivo (catena di risposte +
+ * oggetto specifico + agganci manuali), così la conversazione su cui si agisce
+ * è identica a quella che si vede in lista.
  */
-/**
- * I messaggi della conversazione a cui appartiene un messaggio.
- *  - `ampia = false` (predefinito): il thread STRETTO — catena di risposte,
- *    stesso oggetto specifico, agganci manuali.
- *  - `ampia = true`: la vista COMPLETA — al thread aggiunge tutte le mail
- *    scambiate con le stesse persone (le "correlate"), per avere il quadro
- *    intero del rapporto. Deterministico: le persone del thread, non una stima.
- */
-export async function messaggiThread(
-  utenteId: string,
-  messaggioId: string,
-  ampia = false
-): Promise<Messaggio[]> {
+export async function idsThread(utenteId: string, messaggioId: string): Promise<Set<string>> {
   // Finestra di candidati (leggera): id/thread/oggetto/data bastano a raggruppare.
   const candidati = await db.messaggio.findMany({
     where: { utenteId, cestinato: false },
@@ -1508,15 +1503,49 @@ export async function messaggiThread(
   const ids = new Set<string>()
 
   if (!dentroFinestra) {
-    // Messaggio fuori dalla finestra recente: lo restituiamo da solo, ma le
-    // mail agganciate a mano vanno recuperate comunque (sono una scelta
-    // esplicita e possono essere vecchie quanto si vuole).
-    const solo = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId } })
-    if (!solo) return []
-    ids.add(solo.id)
-    if (solo.threadManuale) {
+    // ⚠️ Messaggio più VECCHIO della finestra recente. Prima si restituiva da
+    // solo: aprendolo, la conversazione risultava «questa mail è da sola» e
+    // sparivano il nome del thread e «cestina tutta la conversazione», anche
+    // quando la conversazione esisteva eccome. I suoi compagni sono vecchi
+    // quanto lui e nella finestra non ci sono mai: si vanno a prendere per
+    // CATENA (stessa radice), per AGGANCIO manuale e per OGGETTO, e poi si
+    // raggruppa con le stesse regole della lista.
+    const solo = await db.messaggio.findFirst({
+      where: { id: messaggioId, utenteId },
+      select: {
+        id: true,
+        thread: true,
+        messageId: true,
+        oggetto: true,
+        data: true,
+        threadManuale: true,
+        scollegato: true,
+      },
+    })
+    if (!solo) return ids
+    const radice = solo.thread || solo.messageId || solo.id
+    const norm = normalizzaOggetto(solo.oggetto)
+    const oppure: Prisma.MessaggioWhereInput[] = [{ thread: radice }, { messageId: radice }]
+    if (solo.threadManuale) oppure.push({ threadManuale: solo.threadManuale })
+    // L'oggetto lega solo se è specifico (le stesse regole di raggruppa): con
+    // «info» o «(senza oggetto)» si fonderebbero conversazioni diverse.
+    if (oggettoSpecifico(norm.toLowerCase())) oppure.push({ oggetto: { contains: norm, mode: 'insensitive' } })
+
+    const vicini = await db.messaggio.findMany({
+      where: { utenteId, cestinato: false, OR: oppure },
+      orderBy: { data: 'desc' },
+      take: 200,
+      select: { id: true, thread: true, oggetto: true, data: true, threadManuale: true, scollegato: true },
+    })
+    const insieme = [solo, ...vicini.filter((v) => v.id !== solo.id)]
+    const gruppo = raggruppa(insieme).find((g) => g.some((m) => m.id === messaggioId)) ?? [solo]
+    for (const m of gruppo) ids.add(m.id)
+
+    // Gli agganci manuali entrano SEMPRE per intero (scelta esplicita).
+    const manuali = [...new Set(gruppo.map((m) => m.threadManuale).filter(Boolean))] as string[]
+    if (manuali.length > 0) {
       const altre = await db.messaggio.findMany({
-        where: { utenteId, cestinato: false, threadManuale: solo.threadManuale },
+        where: { utenteId, cestinato: false, threadManuale: { in: manuali } },
         select: { id: true },
       })
       for (const m of altre) ids.add(m.id)
@@ -1537,6 +1566,46 @@ export async function messaggiThread(
       for (const m of fuoriFinestra) ids.add(m.id)
     }
   }
+  return ids
+}
+
+/**
+ * Le mail della conversazione in forma LEGGERA: solo id e data, dalla più
+ * vecchia alla più recente. Basta a ricavarne la chiave (`chiaveThread`) e a
+ * segnare nome / PLUS AI / chiusura su tutti i membri — senza trasportare i
+ * corpi, come faceva `messaggiThread`.
+ */
+export async function membriThread(
+  utenteId: string,
+  messaggioId: string
+): Promise<{ id: string; data: Date }[]> {
+  const ids = await idsThread(utenteId, messaggioId)
+  if (ids.size === 0) return []
+  return db.messaggio.findMany({
+    where: { id: { in: [...ids] }, utenteId },
+    orderBy: { data: 'asc' },
+    select: { id: true, data: true },
+  })
+}
+
+/**
+ * I messaggi (INTERI, corpi compresi) della conversazione a cui appartiene un
+ * messaggio, dal più vecchio al più recente. Include anche la posta inviata.
+ *  - `ampia = false` (predefinito): il thread STRETTO — catena di risposte,
+ *    stesso oggetto specifico, agganci manuali.
+ *  - `ampia = true`: la vista COMPLETA — al thread aggiunge tutte le mail
+ *    scambiate con le stesse persone (le "correlate"), per avere il quadro
+ *    intero del rapporto. Deterministico: le persone del thread, non una stima.
+ *
+ * Serve solo a chi deve LEGGERE le mail (la pagina della conversazione, l'AI).
+ * Per agire sul thread c'è `idsThread`, che non trasporta i corpi.
+ */
+export async function messaggiThread(
+  utenteId: string,
+  messaggioId: string,
+  ampia = false
+): Promise<Messaggio[]> {
+  const ids = await idsThread(utenteId, messaggioId)
   if (ids.size === 0) return []
 
   // Vista completa: aggiungi le mail scambiate con le stesse persone del thread.

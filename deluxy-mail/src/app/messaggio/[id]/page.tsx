@@ -92,7 +92,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
   // Quante correlate in più rispetto al thread stretto (per l'etichetta).
   const strette = ampia ? (conversazioneStretta?.length ?? conversazione.length) : conversazione.length
-  const chiaveConv = conversazione.length > 1 ? chiaveThread(conversazione) : null
+  // La chiave si calcola anche per una mail sola: nome, PLUS AI e «chiusa» ora
+  // si possono dare pure a lei (vedi la scheda «Conversazione» più sotto).
+  const chiaveConv = conversazione.length > 0 ? chiaveThread(conversazione) : null
 
   let riassuntoThread: Awaited<ReturnType<typeof leggiRiassuntoThread>> = null
   let nomeConv = ''
@@ -102,7 +104,8 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     // Le istruzioni AI del thread non si leggono più qui: il form è stato
     // tolto (si usa «Delega Renè») e chi le applica le rilegge da sé.
     const [rt, nt, tai, tch] = await Promise.all([
-      leggiRiassuntoThread(u.id, chiaveConv),
+      // Il riassunto ha senso solo se c'è davvero uno scambio da riassumere.
+      conversazione.length > 1 ? leggiRiassuntoThread(u.id, chiaveConv) : Promise.resolve(null),
       // Il nome può essere finito su un'altra mail della conversazione (le
       // chiavi cambiano agganciando mail vecchie): si cerca su tutte.
       nomeDiThread(u.id, chiaveConv, conversazione.map((m) => m.id)),
@@ -158,6 +161,20 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
             </Link>{' '}
             (scambiate con le stesse persone).
           </p>
+
+          {/* Nome e cestinamento ci sono ANCHE qui. Prima comparivano solo con
+              due o più messaggi: su una mail che l'app vede da sola non si
+              poteva né darle un nome né cestinarla da questa scheda, e non è
+              detto che sia davvero sola — se domani le agganci una compagna, il
+              nome è già lì e vale per tutte e due. */}
+          <NomeThreadForm messaggioId={messaggio.id} valore={nomeConv} />
+
+          <div style={{ marginBottom: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <ThreadAIToggle messaggioId={messaggio.id} attivo={threadAI} />
+            <ChiudiThread messaggioId={messaggio.id} chiuso={threadChiuso} />
+            <CestinaThread messaggioId={messaggio.id} quante={conversazione.length} />
+          </div>
+
           <AgganciaMail messaggioId={messaggio.id} agganciata={Boolean(messaggio.threadManuale)} />
         </div>
       )}

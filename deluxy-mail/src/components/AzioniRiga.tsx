@@ -57,13 +57,19 @@ export function AzioniRiga({
     e.stopPropagation()
   }
 
-  // Azione che fa USCIRE la riga: sparisce subito, poi si riallinea il server.
+  // Azione che fa USCIRE la riga: sparisce subito e basta.
+  //
+  // ⚠️ NIENTE router.refresh(). La riga è già sparita (`onFatto`) e la server
+  // action ha già invalidato la cache: il refresh ricostruiva da zero l'INTERA
+  // posta in arrivo — 800 mail da rileggere e raggruppare — a ogni singola mail
+  // archiviata o cestinata. Cestinandone dieci di fila si pagavano dieci
+  // ricostruzioni complete, ed è il motivo per cui l'app «si piantava».
+  // Alla prossima navigazione la lista si rilegge comunque aggiornata.
   function eseguiEsci(e: React.MouseEvent, azione: () => Promise<unknown>) {
     ferma(e)
     onFatto?.()
     startTransition(async () => {
       await azione()
-      router.refresh()
     })
   }
 
@@ -95,10 +101,9 @@ export function AzioniRiga({
           title="Solo questa mail (resta negli Archiviati)"
           onClick={(e) => {
             ferma(e)
+            // Nessuna regola da creare: la mail è già archiviata e la riga se
+            // n'è andata. Non c'è niente da rileggere dal server.
             onFatto?.()
-            startTransition(async () => {
-              router.refresh()
-            })
           }}
         >
           No, solo questa
