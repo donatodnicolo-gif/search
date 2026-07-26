@@ -14,7 +14,15 @@
  *   2. "+" → Nuovo script → incolla questo file
  *   3. In fondo, compila URL_APP e CHIAVE_API qui sotto
  *   4. "Autorizza" → "Anteprima" per provare → "Esegui"
- *   5. Frequenza: "Ogni giorno" alle 7:00 (prima dell'agenda delle 9:30)
+ *   5. Frequenza (colonna "Frequenza" nella lista degli script, non basta
+ *      "Esegui": quello lancia una volta sola): "Ogni giorno".
+ *      Google fa scegliere la FASCIA ORARIA, non il minuto esatto: la fascia
+ *      "23:00 - 24:00" e quella che chiude la giornata.
+ *
+ *      Quale ora conviene: a fine giornata la SPESA e completa ma le
+ *      CONVERSIONI no — Google le consolida nelle ore e nei giorni dopo.
+ *      Per questo GIORNI_INDIETRO rimanda anche i giorni scorsi: qualunque
+ *      ora si scelga, i numeri si correggono da soli entro una settimana.
  *
  * NOTA: l'app deve essere raggiungibile da internet (quando sarà su server).
  * Da localhost lo script non può arrivarci: in quel caso si usa l'anteprima

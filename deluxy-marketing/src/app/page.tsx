@@ -2,6 +2,7 @@ import { Badge } from "@/components/Badge";
 import { BottoneSync } from "@/components/BottoneSync";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { Scadenza } from "@/components/Scadenza";
+import { ScelteBrand } from "@/components/ScelteBrand";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import {
@@ -133,6 +134,8 @@ export default async function Dashboard() {
             <a className="btn" href="/analisi/nuova">Deposita analisi</a>
           </div>
         </div>
+
+        <ScelteBrand />
 
         <div className="kpi-riga">
           <div className="kpi">

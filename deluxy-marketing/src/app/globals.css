@@ -518,3 +518,46 @@ tbody tr:hover { background: var(--fill); }
 
 /* Azioni in testata: vanno a capo su schermi stretti, niente sovrapposizioni */
 .page-head { align-items: flex-start; }
+
+/* ---------- Tessere brand in home ---------- */
+.griglia-brand {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+.card-brand {
+  display: block; padding: 14px 16px 15px;
+  border: 1px solid var(--hairline); border-radius: var(--radius-l);
+  background: var(--surface); color: inherit; text-decoration: none;
+  transition: border-color 140ms var(--ease), transform 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+.card-brand:hover {
+  border-color: var(--hairline-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card);
+}
+.card-brand-testa {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13.5px; letter-spacing: -0.01em;
+}
+.card-brand-mer {
+  margin-top: 12px; font-size: 30px; font-weight: 600;
+  letter-spacing: -0.025em; font-variant-numeric: tabular-nums;
+  display: flex; align-items: baseline; gap: 7px;
+}
+.card-brand-mer i {
+  font-style: normal; font-size: 11px; font-weight: 500;
+  letter-spacing: 0.02em; color: var(--text-tertiary);
+}
+.card-brand-numeri {
+  display: flex; gap: 18px; margin-top: 10px;
+  padding-top: 10px; border-top: 1px solid var(--hairline);
+}
+.card-brand-numeri span { display: flex; flex-direction: column; min-width: 0; }
+.card-brand-numeri b {
+  font-size: 13px; font-weight: 600;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.card-brand-numeri i {
+  font-style: normal; font-size: 10.5px; color: var(--text-tertiary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
