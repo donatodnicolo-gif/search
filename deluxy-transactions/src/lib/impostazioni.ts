@@ -23,6 +23,14 @@ export type Regole = {
   ordinanteNome: string;
   ordinanteIban: string;
   ordinanteBic: string;
+  // L'UNICA persona che può far uscire denaro. Riceve il codice per email e
+  // sblocca con codice + PIN. Chiunque altro, admin compresi, può preparare la
+  // distinta ma non generarla.
+  pagatoreEmail: string;
+  // minuti di validità del codice ricevuto per email
+  minutiCodicePagamento: number;
+  // minuti in cui la distinta resta sbloccata dopo lo sblocco riuscito
+  minutiSbloccoPagamento: number;
 };
 
 const PREDEFINITE: Regole = {
@@ -35,6 +43,11 @@ const PREDEFINITE: Regole = {
   ordinanteNome: "",
   ordinanteIban: "",
   ordinanteBic: "",
+  // Valore di partenza deciso dal titolare: finché non lo si cambia qui, il
+  // denaro esce solo con lo sblocco di questa persona.
+  pagatoreEmail: "nicolo.donato@deluxy.it",
+  minutiCodicePagamento: 10,
+  minutiSbloccoPagamento: 15,
 };
 
 const NUMERICHE = new Set([
@@ -43,6 +56,8 @@ const NUMERICHE = new Set([
   "sogliaRischioDoppiaFirma",
   "colpiAlMinuto",
   "minutiFirma",
+  "minutiCodicePagamento",
+  "minutiSbloccoPagamento",
 ]);
 
 export async function leggiRegole(): Promise<Regole> {

@@ -15,8 +15,9 @@ Aggiornato: **26 luglio 2026**
 
 Il registro centralizzato delle richieste di pagamento. Le altre app Deluxy
 chiedono qui via API firmata; qui una persona autorizza; da qui esce la distinta
-SEPA. **L'app non muove denaro e non ha credenziali bancarie** — è una scelta di
-progetto, vedi SICUREZZA.md §0.
+SEPA. **È l'unica app da cui può uscire denaro**, e ne esce solo dallo sblocco
+del pagatore (codice via email + PIN) — vedi SICUREZZA.md §0. Credenziali
+bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
 
 ## FATTO
 
@@ -34,6 +35,15 @@ progetto, vedi SICUREZZA.md §0.
   firma** sopra soglia o sopra rischio, «chi crea non approva», **sigillo**
   contro le modifiche fatte direttamente sul database.
 - **Distinte SEPA** `pain.001.001.03` con impronta SHA-256 del file generato.
+- **Sblocco del pagamento** (26/07/2026): il file SEPA si genera solo se il
+  *pagatore* (impostazione `pagatoreEmail`, oggi `nicolo.donato@deluxy.it`)
+  chiede un **codice**, lo riceve **per email** e lo digita con il suo **PIN**.
+  Codice di 8 caratteri valido 10 minuti, 5 tentativi, legato all'impronta della
+  distinta (cambia la distinta → il codice muore), finestra di sblocco 15
+  minuti. Il punto unico che decide è `verificaCancello()` in
+  [src/lib/sblocco.ts](../src/lib/sblocco.ts): ogni futura esecuzione bancaria
+  deve passare da lì. PIN in PBKDF2, lo imposta la persona da `/pin` con
+  password + TOTP (nemmeno un admin lo può mettere per conto di un altro).
 - **Registro a catena di hash** con pagina di verifica dell'integrità.
 - **Rubrica beneficiari** con verifica manuale e rilevamento del cambio IBAN.
 - **UI completa**: coda, richieste + dettaglio, nuova richiesta manuale,
@@ -53,9 +63,12 @@ Pubblicata e viva: `GET /api/v1/health` risponde
 `CRON_SECRET` (production + preview). Il Hub ha `APP_URL_TRANSACTIONS` ed è
 stato ripubblicato: l'icona «Transactions» compare agli admin.
 
-**Il database è vuoto di proposito: nessun operatore, nessuna chiave API.**
-I dati usati per le prove sono stati cancellati (comprese le credenziali di
-prova, che erano passate per la trascrizione di una sessione). Primo avvio:
+Primo operatore creato il 26/07/2026: `deluxy.delivery@gmail.com`, ruolo admin
+(credenziali consegnate al titolare fuori dalla trascrizione — quelle di prova
+della sessione precedente erano finite in chat e per questo erano state
+cancellate). Chiavi API: ancora nessuna.
+
+Sequenza del primo avvio, se un giorno si riparte da zero:
 
 ```bash
 cd deluxy-transactions
@@ -64,9 +77,17 @@ npm run operatore -- --email tu@deluxy.it --nome "Nome Cognome" --password "<12+
 
 Il comando stampa **una volta sola** il segreto TOTP da mettere in Google
 Authenticator/1Password. Poi si entra su
-https://deluxy-transactions.vercel.app/login, si compilano nome e IBAN
-dell'ordinante in Impostazioni (senza, le distinte SEPA non si generano) e si
-creano le chiavi delle app da `/chiavi`.
+https://deluxy-transactions.vercel.app/login e si completa:
+
+1. **Impostazioni** → nome e IBAN dell'ordinante (senza, niente distinte) e
+   **pagatore** (`pagatoreEmail`, deve essere un operatore attivo);
+2. **`/pin`** → il pagatore imposta il proprio PIN, da solo;
+3. **`/chiavi`** → una chiave per ogni app che chiederà pagamenti.
+
+⚠️ **Senza SMTP non esce un euro.** Il codice di pagamento viaggia per email:
+finché su Vercel non ci sono `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
+`SMTP_FROM`, la generazione del file SEPA resta bloccata. È voluto: si fallisce
+chiusi. La pagina Impostazioni lo dice in cima quando manca.
 
 ⚠️ Lo stesso `.env` locale punta allo **stesso schema Postgres** della
 produzione: quello che si crea in locale si vede online e viceversa.
@@ -75,6 +96,10 @@ produzione: quello che si crea in locale si vede online e viceversa.
 
 Nell'ordine consigliato:
 
+0. **SMTP su Vercel** (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
+   `SMTP_FROM`) e **PIN del pagatore** da `/pin`: finché mancano, lo sblocco non
+   funziona e quindi non esce nessun pagamento. È il primo passo, non un
+   dettaglio di configurazione.
 1. **Passkey/WebAuthn** al posto del TOTP per la firma — toglie il phishing del
    codice a 6 cifre, che è l'anello debole rimasto.
 2. **Cambio password dalla UI**: oggi la password iniziale la mette un admin con
@@ -83,8 +108,12 @@ Nell'ordine consigliato:
    queste API. Il primo candidato è `deluxy-messaging`, che ha già
    `RichiediPagamento` e oggi scrive su `deluxy-partner`
    (`POST /api/richieste-pagamento`). Vedi «Rapporto con Finance» qui sotto.
-4. **Riconciliazione bancaria**: leggere l'estratto conto e chiudere il cerchio
-   fra distinta inviata e denaro uscito.
+4. **Banca (Qonto o altri)**: prima la **lettura** dell'estratto conto, per
+   chiudere il cerchio fra distinta inviata e denaro uscito. L'eventuale
+   **esecuzione** dei bonifici via API è una decisione a parte, non ancora
+   presa: se si farà, deve passare da `verificaCancello()` e va scritta in
+   SICUREZZA.md §0. Da verificare quali endpoint di *initiation* Qonto conceda
+   oggi e a quali condizioni contrattuali.
 5. **Voce nel Hub**: aggiunta al catalogo (`deluxy-hub/src/lib/apps.ts`, id
    `transactions`); serve impostare `APP_URL_TRANSACTIONS` su Vercel perché
    compaia in produzione.
@@ -117,6 +146,14 @@ detta a chi le usa.
 - **La firma HMAC comprende la query.** Il client deve firmare
   `/api/v1/richieste?limite=5`, non solo il percorso.
 - **`TRANSACTIONS_ENC_KEY` non si cambia** dopo il primo avvio.
+- **La configurazione SMTP sta solo nelle variabili d'ambiente**, non sul
+  database come in `deluxy-partner`. Chi entrasse nel database potrebbe
+  altrimenti cambiare il server di posta e dirottare i codici di pagamento su
+  una casella sua. Non «uniformare» questa differenza senza pensarci.
+- **Il codice di pagamento non si invalida da solo se la distinta cambia**: lo
+  fa il confronto con `improntaDistinta()`. Se un domani si aggiungono campi che
+  contano (data di esecuzione, valuta diversa), vanno messi dentro quell'impronta,
+  altrimenti si può far firmare una cosa e pagarne un'altra.
 - Gli script `scripts/*.mjs` ripetono la cifratura invece di importarla da
   `src/lib/crypto.ts`: se cambia l'algoritmo là, vanno allineati anche loro.
 

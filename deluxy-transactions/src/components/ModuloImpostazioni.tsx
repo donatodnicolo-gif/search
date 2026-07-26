@@ -13,6 +13,9 @@ type Valori = {
   ordinanteNome: string;
   ordinanteIban: string;
   ordinanteBic: string;
+  pagatoreEmail: string;
+  minutiCodicePagamento: string;
+  minutiSbloccoPagamento: string;
 };
 
 export function ModuloImpostazioni({ valori }: { valori: Valori }) {
@@ -69,7 +72,25 @@ export function ModuloImpostazioni({ valori }: { valori: Valori }) {
           <input id="i-ord-bic" name="ordinanteBic" defaultValue={valori.ordinanteBic} spellCheck={false} />
         </div>
 
+        <div className="campo-modulo largo">
+          <label htmlFor="i-pagatore">Pagatore — l&apos;unica persona che può far uscire denaro</label>
+          <input id="i-pagatore" name="pagatoreEmail" defaultValue={valori.pagatoreEmail} spellCheck={false} />
+          <p className="firma-nota">
+            Deve essere l&apos;email di un operatore attivo. Riceve lì il codice di pagamento e lo usa insieme al PIN:
+            cambiare questo campo sposta il potere di pagare a un&apos;altra persona, e resta scritto nel registro.
+          </p>
+        </div>
+        <div className="campo-modulo">
+          <label htmlFor="i-min-codice">Validità del codice di pagamento (minuti)</label>
+          <input id="i-min-codice" name="minutiCodicePagamento" defaultValue={valori.minutiCodicePagamento} inputMode="numeric" />
+        </div>
+        <div className="campo-modulo">
+          <label htmlFor="i-min-sblocco">Finestra di sblocco dopo il codice (minuti)</label>
+          <input id="i-min-sblocco" name="minutiSbloccoPagamento" defaultValue={valori.minutiSbloccoPagamento} inputMode="numeric" />
+        </div>
+
         <div className="azioni-modulo campo-modulo largo">
+
           <button className="btn" type="submit" disabled={inCorso}>
             {inCorso ? "Salvo…" : "Salva"}
           </button>

@@ -8,11 +8,16 @@ qui esce la distinta SEPA che qualcuno carica in banca.
 - Schema Postgres: `transactions`
 - Stack: Next.js 15 (App Router) + Prisma + Postgres, deploy su Vercel
 
-> **Confine dell'app.** Deluxy Transactions **non muove denaro** e **non
-> contiene credenziali bancarie**. Produce un file XML SEPA e ne conserva
-> l'impronta: l'ultimo passo lo fa una persona nel portale della banca, con il
-> secondo fattore della banca. Questo confine è una scelta di progetto, non una
-> funzione mancante.
+> **Confine dell'app (aggiornato il 26/07/2026).** Deluxy Transactions è
+> **l'unica app dell'ecosistema da cui può uscire denaro**, e l'uscita ha una
+> porta sola: il **pagatore** — una persona sola, impostazione `pagatoreEmail` —
+> riceve un **codice via email** e lo digita insieme al suo **PIN**. Prima di
+> quel gesto non si genera nessun file di pagamento.
+>
+> L'app **non contiene ancora credenziali bancarie**: quello che produce è un
+> file XML SEPA che una persona carica nel portale della banca. Se un domani si
+> collegherà una banca (Qonto o altri), il collegamento passerà **da questo
+> stesso cancello** e non da un'altra strada.
 
 ## Documenti
 
@@ -36,7 +41,11 @@ qui esce la distinta SEPA che qualcuno carica in banca.
    diverse**. Chi ha creato una richiesta a mano non può approvarla.
 5. Le approvate finiscono in una **distinta SEPA** (`pain.001.001.03`). L'app
    registra l'impronta SHA-256 del file consegnato.
-6. Ogni passaggio finisce in un **registro a catena di hash**: modificare la
+6. **Il file non si genera finché il pagatore non sblocca.** Chiede il codice,
+   gli arriva per email (con importo e beneficiari scritti dentro), lo digita
+   con il PIN: la distinta resta sbloccata pochi minuti, poi si richiude. Se la
+   distinta cambia dopo l'invio del codice, il codice non vale più.
+7. Ogni passaggio finisce in un **registro a catena di hash**: modificare la
    storia si vede.
 
 ## Avvio

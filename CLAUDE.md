@@ -14,11 +14,15 @@ Le anagrafiche dei partner B2B vivono SOLO in `deluxy-anagrafiche/` (porta 3060)
 
 ## Pagamenti (deluxy-transactions)
 
-**Nessuna app Deluxy paga nessuno per conto proprio.** Chi ha bisogno di far
-uscire denaro manda una richiesta a `deluxy-transactions/` (porta 3160) via API
-firmata: lì una persona autorizza — con secondo fattore e, sopra soglia, doppia
-firma — e da lì esce la distinta SEPA. L'app **non muove denaro e non ha
-credenziali bancarie**: l'ultimo passo lo fa un umano nel portale della banca.
+**Nessuna app Deluxy paga nessuno per conto proprio: `deluxy-transactions/`
+(porta 3160) è l'unica da cui può uscire denaro.** Chi deve far uscire denaro
+manda lì una richiesta via API firmata; una persona autorizza — con secondo
+fattore e, sopra soglia, doppia firma — e il file di pagamento si genera **solo**
+quando il *pagatore* (una persona sola, impostazione `pagatoreEmail`) sblocca con
+un **codice ricevuto per email** più il suo **PIN**. Credenziali bancarie non ce
+ne sono: l'ultimo passo lo fa un umano nel portale della banca. Se un domani si
+collegherà una banca, l'esecuzione dovrà passare dallo stesso cancello
+(`verificaCancello()` in `deluxy-transactions/src/lib/sblocco.ts`).
 Integrazione: [deluxy-transactions/docs/API.md](deluxy-transactions/docs/API.md);
 controlli e deviazioni dallo standard:
 [docs/SICUREZZA.md](deluxy-transactions/docs/SICUREZZA.md).

@@ -5,6 +5,8 @@ import { euro } from "@/lib/denaro";
 import { formattaIban } from "@/lib/iban";
 import { quando } from "@/components/Etichette";
 import { segnaLottoPagato } from "@/app/actions";
+import { ModuloSblocco } from "@/components/ModuloSblocco";
+import { eIlPagatore, emailPagatore, sbloccoAttivo } from "@/lib/sblocco";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,15 @@ export default async function Distinta({ params }: { params: Promise<{ id: strin
 
   const totale = l.richieste.reduce((s, r) => s + r.importoCent, 0);
 
+  // Chi può far uscire il denaro, e se in questo momento è sbloccato.
+  const pagatore = await eIlPagatore(operatore.email);
+  const sbloccata = sbloccoAttivo(l);
+  const codiceInCorso =
+    (await prisma.sbloccoPagamento.count({
+      where: { lottoId: l.id, usatoIl: null, annullatoIl: null, scadeIl: { gt: new Date() } },
+    })) > 0;
+  const pinImpostato = Boolean((await prisma.operatore.findUnique({ where: { id: operatore.id } }))?.pinHash);
+
   return (
     <main className="main">
       <a className="ritorno" href="/distinte">
@@ -34,9 +45,15 @@ export default async function Distinta({ params }: { params: Promise<{ id: strin
           </p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <a className="btn" href={`/distinte/${l.id}/xml`}>
-            Scarica XML SEPA
-          </a>
+          {sbloccata ? (
+            <a className="btn" href={`/distinte/${l.id}/xml`}>
+              Scarica XML SEPA
+            </a>
+          ) : (
+            <span className="btn btn-secondario" aria-disabled="true" style={{ opacity: 0.55, cursor: "not-allowed" }}>
+              XML SEPA bloccato
+            </span>
+          )}
           {l.stato !== "pagato" && operatore.ruolo !== "osservatore" && (
             <form action={segnaLottoPagato}>
               <input type="hidden" name="id" value={l.id} />
@@ -47,6 +64,28 @@ export default async function Distinta({ params }: { params: Promise<{ id: strin
           )}
         </div>
       </div>
+
+      {pagatore ? (
+        <ModuloSblocco
+          id={l.id}
+          totale={euro(totale)}
+          sbloccoFinoA={
+            sbloccata && l.sbloccoScadeIl
+              ? l.sbloccoScadeIl.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })
+              : null
+          }
+          codiceInCorso={codiceInCorso}
+          pinImpostato={pinImpostato}
+        />
+      ) : (
+        <div className="scheda">
+          <div className="scheda-titolo">Sblocco del pagamento</div>
+          <p className="firma-nota">
+            Il file SEPA lo genera solo <strong>{await emailPagatore()}</strong>, con un codice che riceve per email e
+            un PIN. Tu puoi preparare la distinta e controllarla: non puoi farla uscire.
+          </p>
+        </div>
+      )}
 
       <div className="scheda">
         <div className="scheda-titolo">Tracciabilità</div>
@@ -66,6 +105,14 @@ export default async function Distinta({ params }: { params: Promise<{ id: strin
           <div className="campo">
             <dt>Pagata il</dt>
             <dd>{quando(l.pagatoIl)}</dd>
+          </div>
+          <div className="campo">
+            <dt>Sbloccata da</dt>
+            <dd>{l.sbloccatoDa ?? "— (mai sbloccata)"}</dd>
+          </div>
+          <div className="campo">
+            <dt>Sbloccata il</dt>
+            <dd>{quando(l.sbloccatoIl)}</dd>
           </div>
           <div className="campo campo-largo">
             <dt>Impronta SHA-256 dell&apos;ultimo file generato</dt>

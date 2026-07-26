@@ -5,8 +5,9 @@
 //  2. Nulla si cancella: gli stati finali sono stati, non delete. Il registro
 //     eventi è una catena di hash e non ha update né delete.
 //  3. I segreti (TOTP, HMAC delle chiavi API) sono cifrati AES-256-GCM.
-//  4. L'app NON muove denaro: produce distinte SEPA che una persona carica in
-//     banca. Nessuna credenziale bancaria vive qui.
+//  4. Questa è l'UNICA app Deluxy da cui può uscire denaro, e l'uscita ha una
+//     porta sola: lo sblocco del pagatore (codice via email + PIN). Nessun'altra
+//     app, e nessuna chiave API, può far partire un pagamento.
 
 generator client {
   provider = "prisma-client-js"
@@ -33,6 +34,12 @@ model Operatore {
   passwordSalt   String
   totpSegreto    String? // cifrato AES-256-GCM
   totpAttivo     Boolean   @default(false)
+  // PIN di pagamento: terzo fattore, richiesto SOLO al pagatore e SOLO per far
+  // uscire il denaro. Non sostituisce la password né il TOTP, si aggiunge.
+  // Stesso PBKDF2 della password: non è un numero in chiaro sul database.
+  pinHash        String?
+  pinSalt        String?
+  pinAggiornatoIl DateTime?
   // Tetto personale in centesimi: sopra questa cifra l'operatore non può
   // approvare da solo. 0 = nessun tetto personale (vale solo quello globale).
   tettoApprovazione Int    @default(0)
@@ -241,9 +248,49 @@ model Lotto {
   // Impronta del file XML consegnato alla banca: prova di cosa è stato inviato.
   improntaXml String?
 
+  // Sblocco del pagatore: finché queste tre colonne sono vuote o scadute, il
+  // file SEPA non si genera e non si scarica. È la porta da cui esce il denaro.
+  sbloccatoDa    String?
+  sbloccatoIl    DateTime?
+  sbloccoScadeIl DateTime?
+
   richieste Richiesta[]
+  sblocchi  SbloccoPagamento[]
 
   @@index([stato])
+}
+
+// ---------------------------------------------------------------------------
+// Sblocco del pagamento (codice via email + PIN)
+// ---------------------------------------------------------------------------
+
+// Un codice per volta, per distinta: si chiede, arriva per email al pagatore,
+// vale pochi minuti e si consuma. Il codice in chiaro NON è qui: solo il suo
+// SHA-256, come per le chiavi API. Le righe non si cancellano: usate o scadute
+// restano, perché "chi ha chiesto di pagare e quando" è la domanda a cui questa
+// tabella deve saper rispondere fra due anni.
+model SbloccoPagamento {
+  id          String    @id @default(cuid())
+  lottoId     String
+  lotto       Lotto     @relation(fields: [lottoId], references: [id], onDelete: Cascade)
+  // Chi ha chiesto il codice e a chi è stato spedito (di norma la stessa
+  // persona: il pagatore).
+  chiestoDa   String
+  inviatoA    String
+  codiceHash  String // SHA-256 del codice: in chiaro esiste solo nell'email
+  // Copia dell'importo al momento della richiesta: se la distinta cambia fra
+  // l'invio del codice e lo sblocco, il codice non vale più.
+  totaleCent  Int
+  impronta    String // SHA-256 di (riferimento + totale + IBAN dei beneficiari)
+  scadeIl     DateTime
+  tentativi   Int       @default(0)
+  usatoIl     DateTime?
+  annullatoIl DateTime?
+  ip          String?
+  creatoIl    DateTime  @default(now())
+
+  @@index([lottoId, creatoIl])
+  @@index([scadeIl])
 }
 
 // ---------------------------------------------------------------------------

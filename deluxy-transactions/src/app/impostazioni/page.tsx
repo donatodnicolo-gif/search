@@ -3,6 +3,7 @@ import { operatoreCorrente } from "@/lib/sessione";
 import { leggiRegole } from "@/lib/impostazioni";
 import { euroSemplice } from "@/lib/denaro";
 import { cifraturaPronta } from "@/lib/crypto";
+import { postaConfigurata } from "@/lib/mail";
 import { ModuloImpostazioni } from "@/components/ModuloImpostazioni";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,13 @@ export default async function Impostazioni() {
         </div>
       )}
 
+      {!postaConfigurata() && (
+        <div className="avviso-errore">
+          Posta non configurata (SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM). Senza, il codice di
+          pagamento non può essere spedito e <strong>nessun pagamento può uscire</strong>: è voluto, si fallisce chiusi.
+        </div>
+      )}
+
       <div className="scheda">
         <ModuloImpostazioni
           valori={{
@@ -42,6 +50,9 @@ export default async function Impostazioni() {
             ordinanteNome: r.ordinanteNome,
             ordinanteIban: r.ordinanteIban,
             ordinanteBic: r.ordinanteBic,
+            pagatoreEmail: r.pagatoreEmail,
+            minutiCodicePagamento: String(r.minutiCodicePagamento),
+            minutiSbloccoPagamento: String(r.minutiSbloccoPagamento),
           }}
         />
       </div>

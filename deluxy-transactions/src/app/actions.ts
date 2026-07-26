@@ -19,6 +19,7 @@ import { leggiRegole, salvaRegola, type Regole } from "@/lib/impostazioni";
 import { generaXml, verificaOrdinante } from "@/lib/sepa";
 import { normalizzaIban, normalizzaNome } from "@/lib/iban";
 import { aCentesimi } from "@/lib/denaro";
+import { chiediCodice, impronteDelPin, pinAccettabile, sblocca, verificaCancello } from "@/lib/sblocco";
 
 // Tutte le azioni della UI. Ognuna ricontrolla chi è l'operatore: il middleware
 // filtra i cookie falsi, ma l'autorizzazione vera si decide qui, dove si sa
@@ -236,9 +237,67 @@ export async function segnaLottoPagato(fd: FormData): Promise<void> {
   revalidatePath(`/distinte/${id}`);
 }
 
+// ---------------------------------------------------------------------------
+// Sblocco del pagamento — l'unica porta da cui esce il denaro
+// ---------------------------------------------------------------------------
+
+export async function chiediCodicePagamento(
+  _stato: unknown,
+  fd: FormData,
+): Promise<{ errore?: string; ok?: string }> {
+  const operatore = await esigiOperatore();
+  const esito = await chiediCodice(testo(fd, "id"), operatore, await ipRichiesta());
+  revalidatePath(`/distinte/${testo(fd, "id")}`);
+  return esito.ok ? { ok: esito.messaggio } : { errore: esito.errore };
+}
+
+export async function sbloccaPagamento(_stato: unknown, fd: FormData): Promise<{ errore?: string; ok?: string }> {
+  const operatore = await esigiOperatore();
+  const id = testo(fd, "id");
+  const esito = await sblocca(id, operatore, testo(fd, "codice"), String(fd.get("pin") ?? ""), await ipRichiesta());
+  revalidatePath(`/distinte/${id}`);
+  return esito.ok ? { ok: esito.messaggio } : { errore: esito.errore };
+}
+
+/** Il PIN se lo mette la persona, non l'amministratore: nessun altro lo sa. */
+export async function impostaPin(_stato: unknown, fd: FormData): Promise<{ errore?: string; ok?: string }> {
+  const operatore = await esigiOperatore();
+  const password = String(fd.get("password") ?? "");
+  const pin = String(fd.get("pin") ?? "").trim();
+  const ripeti = String(fd.get("ripeti") ?? "").trim();
+
+  const o = await prisma.operatore.findUnique({ where: { id: operatore.id } });
+  if (!o) return { errore: "Operatore inesistente." };
+
+  // Password e secondo fattore anche qui: cambiare il PIN vale quanto pagare.
+  const { passwordCorretta } = await import("@/lib/crypto");
+  if (!passwordCorretta(password, o.passwordHash, o.passwordSalt)) return { errore: "Password errata." };
+  if (o.totpAttivo && !(await confermaSecondoFattore(operatore.id, testo(fd, "codice")))) {
+    return { errore: "Codice a 6 cifre errato o scaduto." };
+  }
+  if (pin !== ripeti) return { errore: "I due PIN non coincidono." };
+  const problema = pinAccettabile(pin);
+  if (problema) return { errore: problema };
+
+  const { hash, salt } = impronteDelPin(pin);
+  await prisma.operatore.update({
+    where: { id: operatore.id },
+    data: { pinHash: hash, pinSalt: salt, pinAggiornatoIl: new Date() },
+  });
+  await registra("operatore.pin_impostato", operatore.email, {}, { ip: await ipRichiesta() });
+  revalidatePath("/pin");
+  return { ok: "PIN impostato. Non è scritto da nessuna parte: se lo dimentichi va rifatto da qui." };
+}
+
 /** Genera l'XML e lo restituisce come testo, registrandone l'impronta. */
 export async function esportaLotto(id: string): Promise<{ nome: string; xml: string } | { errore: string }> {
   const operatore = await esigiOperatore();
+
+  // Il cancello: qui esce il denaro. Solo il pagatore, solo con lo sblocco
+  // ancora valido (codice via email + PIN).
+  const chiuso = await verificaCancello(id, operatore);
+  if (chiuso) return { errore: chiuso };
+
   const lotto = await prisma.lotto.findUnique({ where: { id }, include: { richieste: true } });
   if (!lotto) return { errore: "Distinta inesistente." };
   const regole = await leggiRegole();
@@ -264,7 +323,12 @@ export async function esportaLotto(id: string): Promise<{ nome: string; xml: str
     where: { id },
     data: { stato: lotto.stato === "aperto" ? "esportato" : lotto.stato, esportatoIl: new Date(), improntaXml: impronta },
   });
-  await registra("lotto.esportato", operatore.email, { riferimento: lotto.riferimento, impronta }, { ip: await ipRichiesta() });
+  await registra(
+    "lotto.esportato",
+    operatore.email,
+    { riferimento: lotto.riferimento, impronta, sbloccatoDa: lotto.sbloccatoDa, sbloccatoIl: lotto.sbloccatoIl },
+    { ip: await ipRichiesta() },
+  );
   return { nome: `${lotto.riferimento}.xml`, xml };
 }
 
@@ -388,7 +452,13 @@ export async function salvaImpostazioni(_stato: unknown, fd: FormData): Promise<
     daSalvare.push([campo, String(cent)]);
   }
 
-  for (const campo of ["sogliaRischioDoppiaFirma", "colpiAlMinuto", "minutiFirma"] as const) {
+  for (const campo of [
+    "sogliaRischioDoppiaFirma",
+    "colpiAlMinuto",
+    "minutiFirma",
+    "minutiCodicePagamento",
+    "minutiSbloccoPagamento",
+  ] as const) {
     const grezzo = testo(fd, campo);
     if (!grezzo) continue;
     const n = Number(grezzo);
@@ -400,6 +470,17 @@ export async function salvaImpostazioni(_stato: unknown, fd: FormData): Promise<
   if (ordIban) {
     const { ibanValido } = await import("@/lib/iban");
     if (!ibanValido(ordIban)) return { errore: "IBAN dell'ordinante non valido." };
+  }
+
+  // Il pagatore non è un campo libero: se si scrive un'email che non è di
+  // nessun operatore attivo, il denaro non esce più da nessuna parte e nessuno
+  // capisce perché. Meglio fermarsi qui.
+  const pagatore = testo(fd, "pagatoreEmail").toLowerCase();
+  if (pagatore) {
+    const p = await prisma.operatore.findUnique({ where: { email: pagatore } });
+    if (!p) return { errore: `Nessun operatore con l'email ${pagatore}: crealo prima in Operatori.` };
+    if (!p.attivo) return { errore: `L'operatore ${pagatore} è disattivato: non può essere il pagatore.` };
+    daSalvare.push(["pagatoreEmail", pagatore]);
   }
 
   daSalvare.push(["soloBeneficiariVerificati", fd.get("soloBeneficiariVerificati") ? "true" : "false"]);

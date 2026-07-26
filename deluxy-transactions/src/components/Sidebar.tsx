@@ -20,6 +20,7 @@ export function Sidebar({
     { href: "/distinte", nome: "Distinte", count: conteggi.approvate, icona: iconaBanca, admin: false },
     { href: "/beneficiari", nome: "Beneficiari", count: null, icona: iconaRubrica, admin: false },
     { href: "/registro", nome: "Registro", count: null, icona: iconaRegistro, admin: false },
+    { href: "/pin", nome: "PIN di pagamento", count: null, icona: iconaLucchetto, admin: false },
     { href: "/chiavi", nome: "Chiavi delle app", count: null, icona: iconaChiave, admin: true },
     { href: "/operatori", nome: "Operatori", count: null, icona: iconaPersone, admin: true },
     { href: "/impostazioni", nome: "Impostazioni", count: null, icona: iconaImpostazioni, admin: true },
@@ -106,6 +107,13 @@ const iconaPersone = svg(
     <circle cx="9.5" cy="7.5" r="3.5" />
     <path d="M21 20v-1.5a4 4 0 0 0-3-3.87" />
     <path d="M16.5 4.13a4 4 0 0 1 0 7.75" />
+  </>,
+);
+const iconaLucchetto = svg(
+  <>
+    <rect x="4" y="10" width="16" height="11" rx="2" />
+    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    <circle cx="12" cy="15.5" r="1.2" />
   </>,
 );
 const iconaImpostazioni = svg(

@@ -3,17 +3,43 @@
 Questo documento elenca i controlli che ci sono e **perché**. Un controllo senza
 motivo scritto è un controllo che prima o poi qualcuno toglie.
 
-## 0. Il principio di fondo
+## 0. Il principio di fondo (riscritto il 26/07/2026)
 
-**L'app non muove denaro.** Non ha credenziali bancarie, non chiama nessuna
-banca, non ha un endpoint che «esegue» un pagamento. Produce un file SEPA e ne
-conserva l'impronta; l'ultimo passo lo fa una persona, nel portale della banca,
-con il secondo fattore della banca.
+**Questa è l'unica app Deluxy da cui può uscire denaro, e ne esce da una porta
+sola.** Prima diceva «l'app non muove denaro»: il titolare ha deciso il
+contrario, e questo capitolo dice cosa è stato messo al posto di quel confine.
 
-È la difesa più forte che si possa mettere: anche se qualcuno prendesse il
-controllo completo di questa applicazione, non potrebbe far partire un bonifico.
-Potrebbe al massimo far *comparire* una richiesta plausibile — ed è per questo
-che esiste tutto il resto di questo documento.
+La porta si chiama **sblocco del pagamento** e la apre una persona sola — il
+*pagatore*, impostazione `pagatoreEmail`, oggi `nicolo.donato@deluxy.it` —
+superando tre prove su tre canali diversi:
+
+| Prova | Canale | Cosa ferma |
+|---|---|---|
+| Sessione: password + TOTP | browser + telefono | chi non ha le credenziali |
+| **Codice di pagamento** | **email del pagatore** | chi ha browser e telefono ma non la casella |
+| **PIN** | solo nella testa del pagatore | chi ha preso anche la casella |
+
+Nessun'altra strada esiste: le chiavi API delle altre app non possono pagare
+(non hanno il permesso: non è previsto proprio), gli altri operatori possono
+preparare una distinta ma non farla uscire, e un amministratore non può mettere
+il PIN al posto del pagatore.
+
+Tre proprietà volute, che vanno mantenute se si tocca questo codice:
+
+1. **Si fallisce chiusi.** Se la posta non è configurata o l'email non parte,
+   il codice non esiste e il pagamento non parte. Mai il contrario.
+2. **Il codice racconta cosa sta pagando.** L'email contiene distinta, totale e
+   beneficiari: un codice che arriva senza averlo chiesto è un allarme, non un
+   fastidio. È scritto anche nel testo dell'email.
+3. **Il codice è legato a ciò che ha visto.** Vale per l'impronta della distinta
+   (riferimenti, IBAN, importi): cambiata la distinta, il codice muore. Non si
+   fa autorizzare 100 € per far uscire 10.000 €.
+
+**Quello che resta fuori.** L'app continua a non avere credenziali bancarie: il
+file SEPA lo carica una persona nel portale della banca. Il giorno che si
+collegherà una banca (Qonto o altri), l'esecuzione dovrà passare da
+`verificaCancello()` in `src/lib/sblocco.ts` — è il punto unico che decide se il
+denaro può uscire — e la deviazione va scritta qui, in questo capitolo.
 
 ## 1. Chi può chiedere un pagamento (le altre app)
 
