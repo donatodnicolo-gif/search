@@ -147,6 +147,22 @@ L'app è richiamabile da un bottone/link di qualsiasi altra app; i parametri si 
 8. **CORS immagine**: si scarica il file con `fetch` e si converte dal **blob locale** (`fetchImageBlob` → `toPngBlob`), così il canvas non è mai "tainted". Se il CDN blocca il CORS si riprova col `proxy` configurato; se fallisce anche quello, il pulsante diventa «⚠️ Foto non scaricabile» e si salva a mano dal link.
 9. **La `keyword` di nearbySearch scarta schede vere** (bug risolto 24/07/2026, ordine cakedesign #1725): «Le Torte di Giada» (pasticceria, Brescia, type `bakery`) NON usciva nemmeno cercando dalle sue coordinate, perché il keyword-match di Google non le associa la parola "pasticceria" (e intanto la keyword lascia passare panifici e bar). Soluzione in `nearby()`: **doppia ricerca per categoria** — con keyword localizzata E solo per `type` — e unione delle liste (la dedup per `place_id` è già a valle). Regola: mai fidarsi della sola keyword per l'esaustività; il costo è 1 richiesta Places in più per categoria.
 
+## 12-bis. Filtri risultati, mappa ed estensione ricerca (front-end)
+- **Filtri**: `applyFilters()` (ex `applyWaFilter`) combina il filtro WhatsApp (`waFiltro`) e il
+  filtro apertura (`openFiltro`). Ogni scheda Google porta `dataset.wakind` e `dataset.open`
+  (`open`/`closed`/`unknown`, da `opening_hours.isOpen()` in `shopCard`). Le schede del registro
+  (`dataset.registry`) restano sempre visibili. Due gruppi gemelli sincroni: form
+  (`#waFilter`,`#openFilter`) e sopra i risultati (`#waFilterResults`,`#openFilterResults`), via
+  `setWaFiltro`/`setOpenFiltro`. Pillole in `.wchip` (non prendono i listener di `.chip`).
+- **Mappa**: `#toggleMap` → `#mapWrap`/`#map`, Google Maps JS (già caricata). I punti si raccolgono
+  in `mapPoints` nel loop dettagli (`d.geometry.location`); `buildMap` mette il segnaposto blu
+  della consegna + i negozi numerati (InfoWindow + `focusCard`), `syncMapMarkers` segue i filtri,
+  `resetMap` azzera a ogni ricerca. Solo schede Google (non quelle del registro).
+- **Estendi ricerca**: se in zona non c'è nulla → `#noResults`/`#extendBtn` → `extendSearch()`,
+  che usa `wideSearch` (`service.textSearch`, stesse keyword, bias zona, raggio ~40 km). La coda
+  di render è condivisa in `renderResults(found, geo, origin, service, {extended})`; `run()` salva
+  `lastSearchCtx` per l'estensione.
+
 ## 13. Ricette rapide
 - **Aggiungere un negozio**: aggiungilo alla mappa `SHOP_BRAND` in `api/oauth.js` e a `BRAND_BY_SHOP` in `api/webhook.js`; aggiungi il brand a `KNOWN_BRANDS` in `index.html` e all'`<select id="brand">`; crea il webhook su Shopify; fai `/api/oauth?shop=...&pass=...`.
 - **Recuperare un ordine** (test): `curl "https://search-deluxy.vercel.app/api/order?brand=deluxyflowers.com&number=2484" -H "x-app-password: <PASS>"`.

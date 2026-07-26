@@ -192,6 +192,35 @@ solo dove siamo e come si lavora.
    in `run()` gira SEMPRE (non più `if(proxy)`). Le schede con sito mostrano ✉️ email +
    «📧 Invia via email»; lo Storico segna «email per N». AI_SPEC §5.
 
+28. **Filtro apertura + mappa + estendi ricerca** (26/07): tre aggiunte alla vista Ricerca.
+   - **Filtro «Apertura»** (`#openFilter` nel form + gemello `#openFilterResults` sopra i
+     risultati, stato `openFiltro`): Tutti / 🟢 Aperti ora / 🔴 Chiusi ora. Si basa su
+     `d.opening_hours.isOpen()` di Google, salvato in `shopCard` come `el.dataset.open`
+     (`open`/`closed`/`unknown`). Il vecchio `applyWaFilter` è diventato **`applyFilters`**
+     che combina WhatsApp **e** apertura; le schede del registro (`dataset.registry`) e i
+     negozi con orari non disponibili restano fuori solo dai filtri «aperti/chiusi» (sempre
+     visibili con «Tutti»). `setWaFiltro`/`setOpenFiltro` tengono i due gruppi gemelli in
+     sincrono. Regola: le pillole usano `.wchip` per non prendere i listener globali di `.chip`.
+   - **Mappa dei risultati** (`#toggleMap` → `#mapWrap`/`#map`): bottone «🗺️ Mostra sulla
+     mappa» sopra i risultati. Usa la stessa Google Maps JS API già caricata (`libraries=
+     geometry` c'era già; la mappa non richiede librerie extra). Segnaposto blu = indirizzo
+     di consegna (`origin`), numerati = negozi (posizione da `d.geometry.location`, raccolta
+     in `mapPoints` durante il loop dettagli). Click su un marker = InfoWindow (nome, distanza,
+     stato apertura) + `focusCard(sid)` che scrolla e evidenzia la scheda. `syncMapMarkers`
+     nasconde i marker delle schede filtrate via `applyFilters`. `resetMap` azzera a ogni
+     nuova ricerca. NB: sulla mappa vanno solo le schede **Google** (le schede del registro
+     sono geocodificate in modo async best-effort, non incluse nei marker).
+   - **Estendi la ricerca** (`#noResults` + `#extendBtn` → `extendSearch`): quando la ricerca
+     in zona non trova nulla (e non è un errore di quota/chiave) compare «🔎 Estendi la
+     ricerca a un'area più ampia». Usa `wideSearch` = `service.textSearch` (query = stesse
+     keyword) con bias sulla zona e **raggio ~40 km**, poi passa dallo stesso renderer.
+   - **Refactor**: la coda di `run()` (ordina→dettagli→registro→email) è stata estratta in
+     **`renderResults(found, geo, origin, service, {extended})`**, condivisa tra ricerca
+     normale ed estesa. `run()` salva `lastSearchCtx = {service, origin, geo}` per l'estensione.
+     Verificato: `node --check` OK, pagina caricata su 5511 senza errori console, filtro
+     apertura e sync gemello testati a runtime. Non collaudato end-to-end su Google (serve
+     chiave+login reali): da verificare in produzione su un ordine vero.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche

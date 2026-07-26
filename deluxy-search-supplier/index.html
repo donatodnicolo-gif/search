@@ -570,6 +570,16 @@
       <div class="hint" style="margin-top:4px">«Con» = cellulari (WhatsApp probabile); «Senza» = fissi o senza numero. Le schede del registro restano sempre visibili.</div>
     </div>
 
+    <div style="margin-top:12px">
+      <label>Apertura</label>
+      <div id="openFilter" style="display:flex; gap:6px">
+        <button class="wchip active" data-open="tutti" type="button">Tutti</button>
+        <button class="wchip" data-open="aperti" type="button">🟢 Aperti ora</button>
+        <button class="wchip" data-open="chiusi" type="button">🔴 Chiusi ora</button>
+      </div>
+      <div class="hint" style="margin-top:4px">In base agli orari di Google. I negozi senza orari pubblicati e le schede del registro restano sempre visibili.</div>
+    </div>
+
     <div style="margin-top:14px">
       <button class="btn" id="go">🔎 Cerca in zona</button>
     </div>
@@ -579,15 +589,41 @@
 
     <div class="col-right">
       <div class="status" id="status"></div>
-      <!-- filtro WhatsApp anche qui, in cima ai risultati (gemello di quello nel form) -->
-      <div id="waFilterResults" style="display:none; gap:6px; margin:10px 0; align-items:center; flex-wrap:wrap">
-        <button class="wchip active" data-wa="tutti" type="button">Tutti</button>
-        <button class="wchip" data-wa="con" type="button">📱 Con WhatsApp</button>
-        <button class="wchip" data-wa="senza" type="button">☎️ Senza WhatsApp</button>
-        <label style="margin-left:auto; display:flex; align-items:center; gap:6px; margin-bottom:0; white-space:nowrap">Risultati
-          <select id="limitResults" style="width:auto"></select>
-        </label>
+
+      <!-- nessun risultato: proposta di allargare la ricerca a un'area più ampia -->
+      <div id="noResults" style="display:none; margin:12px 0; padding:16px; background:var(--fill); border:1px solid var(--hairline); border-radius:var(--radius-l); text-align:center">
+        <div class="hint" id="noResultsMsg" style="margin:0 0 12px">Nessun negozio trovato in zona.</div>
+        <button class="btn" id="extendBtn" style="width:auto; padding:12px 20px">🔎 Estendi la ricerca a un'area più ampia</button>
       </div>
+
+      <!-- strumenti risultati: filtri WhatsApp/apertura + vista mappa (gemelli del form) -->
+      <div id="resultTools" style="display:none; margin:10px 0">
+        <!-- filtro WhatsApp -->
+        <div id="waFilterResults" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+          <button class="wchip active" data-wa="tutti" type="button">Tutti</button>
+          <button class="wchip" data-wa="con" type="button">📱 Con WhatsApp</button>
+          <button class="wchip" data-wa="senza" type="button">☎️ Senza WhatsApp</button>
+          <label style="margin-left:auto; display:flex; align-items:center; gap:6px; margin-bottom:0; white-space:nowrap">Risultati
+            <select id="limitResults" style="width:auto"></select>
+          </label>
+        </div>
+        <!-- filtro apertura + bottone mappa -->
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px">
+          <div id="openFilterResults" style="display:flex; gap:6px">
+            <button class="wchip active" data-open="tutti" type="button">Tutti</button>
+            <button class="wchip" data-open="aperti" type="button">🟢 Aperti ora</button>
+            <button class="wchip" data-open="chiusi" type="button">🔴 Chiusi ora</button>
+          </div>
+          <button class="btn-dl" id="toggleMap" type="button" style="margin-left:auto">🗺️ Mostra sulla mappa</button>
+        </div>
+      </div>
+
+      <!-- mappa dei risultati (Google Maps) -->
+      <div id="mapWrap" style="display:none; margin:10px 0">
+        <div id="map" style="width:100%; height:400px; border-radius:var(--radius-l); border:1px solid var(--hairline); box-shadow:var(--shadow-card)"></div>
+        <div class="hint" style="margin-top:6px">📍 Il segnaposto blu è l'indirizzo di consegna. Clicca un numero per vedere il negozio e saltare alla sua scheda.</div>
+      </div>
+
       <div class="results" id="results"></div>
     </div><!-- /col-right -->
     </div><!-- /cols -->
@@ -1387,16 +1423,35 @@ function nearbyOne(service, opts, cat){
 // mentre il tipo da solo aggiunge panifici/bar: unendo le liste non si perde nessuno.
 // Le keyword si personalizzano in ⚙️ Impostazioni (CONFIG.kwFioraio / kwPasticceria,
 // separate da virgola); vuote = predefinite di KEYWORDS nella lingua della consegna.
-function nearby(service, location, cat, lang){
-  const meta = CAT_META[cat];
+// parole chiave per una categoria: personalizzate in ⚙️ (separate da virgola) o predefinite per lingua
+function keywordsFor(cat, lang){
   const custom = String((cat==='fioraio' ? CONFIG.kwFioraio : CONFIG.kwPasticceria) || '').trim();
-  const keywords = custom
+  return custom
     ? custom.split(',').map(s=>s.trim()).filter(Boolean)
     : [KEYWORDS[cat][lang] || KEYWORDS[cat].default];
+}
+function nearby(service, location, cat, lang){
+  const meta = CAT_META[cat];
+  const keywords = keywordsFor(cat, lang);
   const base = { location, rankBy: google.maps.places.RankBy.DISTANCE, type: meta.type };
   const runs = keywords.map(kw => nearbyOne(service, Object.assign({keyword: kw}, base), cat));
   runs.push(nearbyOne(service, base, cat));
   return Promise.all(runs).then(liste => [].concat(...liste));
+}
+// ricerca su area AMPIA (per «Estendi la ricerca»): textSearch con bias sulla zona ma
+// raggio largo (~40 km), così esce anche chi è più lontano quando in zona non c'è nulla.
+function textSearchOne(service, query, location, radius){
+  return new Promise(resolve=>{
+    service.textSearch({ query, location, radius: radius||40000 }, (results,status)=>{
+      lastPlacesStatus = status;
+      resolve((status===google.maps.places.PlacesServiceStatus.OK && results) ? results : []);
+    });
+  });
+}
+async function wideSearch(service, location, cat, lang){
+  const kws = keywordsFor(cat, lang);
+  const liste = await Promise.all(kws.map(kw => textSearchOne(service, kw, location)));
+  return [].concat(...liste).map(r => ({ place:r, cat }));
 }
 
 /* ------------------ dettagli negozio ------------------ */
@@ -1851,33 +1906,54 @@ function updateDeal(){
   }
   prefetchPhoto(url);
 }
-// filtro WhatsApp: tutti / con (cellulare = WhatsApp probabile) / senza (fisso o niente numero)
+// filtri risultati:
+//  - WhatsApp: tutti / con (cellulare = WhatsApp probabile) / senza (fisso o niente numero)
+//  - apertura: tutti / aperti ora / chiusi ora (in base agli orari Google)
+// Le schede del registro anagrafiche restano SEMPRE visibili (non hanno questi dati).
 let waFiltro = 'tutti';
-function applyWaFilter(){
+let openFiltro = 'tutti';
+function applyFilters(){
   let shown=0;
   resultsEl.querySelectorAll('.shop').forEach(el=>{
-    // le schede del registro anagrafiche restano sempre visibili
     let hide = false;
     if(!el.dataset.registry){
       if(waFiltro==='con')   hide = el.dataset.wakind!=='mobile';
       if(waFiltro==='senza') hide = el.dataset.wakind==='mobile';
+      if(!hide){
+        // «aperti»/«chiusi» tengono fuori anche i negozi con orari non disponibili
+        if(openFiltro==='aperti') hide = el.dataset.open!=='open';
+        if(openFiltro==='chiusi') hide = el.dataset.open!=='closed';
+      }
     }
     el.style.display = hide ? 'none' : '';
     if(!hide) shown++;
   });
+  syncMapMarkers();   // i segnaposto seguono i filtri
   return shown;
 }
-// due gruppi di pillole gemelli (form di ricerca + cima ai risultati), sempre in sincrono
+// pillole gemelle (form di ricerca + cima ai risultati), sempre in sincrono
 function setWaFiltro(val){
   waFiltro = val;
   document.querySelectorAll('#waFilter .wchip, #waFilterResults .wchip')
     .forEach(x=>x.classList.toggle('active', x.dataset.wa===val));
-  applyWaFilter();
+  applyFilters();
+}
+function setOpenFiltro(val){
+  openFiltro = val;
+  document.querySelectorAll('#openFilter .wchip, #openFilterResults .wchip')
+    .forEach(x=>x.classList.toggle('active', x.dataset.open===val));
+  applyFilters();
 }
 ['#waFilter','#waFilterResults'].forEach(sel=>{
   $(sel).addEventListener('click', e=>{
     const b = e.target.closest('.wchip'); if(!b) return;
     setWaFiltro(b.dataset.wa);
+  });
+});
+['#openFilter','#openFilterResults'].forEach(sel=>{
+  $(sel).addEventListener('click', e=>{
+    const b = e.target.closest('.wchip'); if(!b) return;
+    setOpenFiltro(b.dataset.open);
   });
 });
 
@@ -2519,6 +2595,7 @@ function shopCard(d, cat, dist, pid){
   const el = document.createElement('div');
   el.className = 'shop';
   el.dataset.wakind = kind;
+  el.dataset.open = (open===true) ? 'open' : (open===false) ? 'closed' : 'unknown';
   el.dataset.lang = shopLang;
   el.dataset.sid = pid || d.place_id || '';
   el.innerHTML = `
@@ -2557,9 +2634,6 @@ $('#address').addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
 async function run(){
   const key = (CONFIG.googleKey||'').trim();
   const address = $('#address').value.trim();
-  const proxy = (CONFIG.proxy||'').trim();
-  const limit = parseInt($('#limit').value,10);
-  const sortBy = $('#sort').value;
 
   resultsEl.innerHTML='';
   if(!key){ setStatus('Manca la chiave Google: aprila in ⚙️ Admin e salvala.', true); $('#config').open=true; return; }
@@ -2585,13 +2659,11 @@ async function run(){
     currentLang = COUNTRY_LANG[geo.country] || 'it';
     syncLangUI();
 
-    // in parallelo alla ricerca Google: partner/prospect già nostri in questa città/provincia
-    const anagPromise = anagLookup(geo, [...cats]).catch(err=>({ error: err.message, list:[] }));
-    // e lo Storico, per scrivere sulle schede già nostre se sono state usate per ordini recenti
-    const storicoPromise = apiFetch('/api/storico').then(r=>r.json()).then(j=>j.eventi||[]).catch(()=>[]);
-
     setStatus('Cerco i negozi più vicini…');
     const service = new google.maps.places.PlacesService(document.createElement('div'));
+    lastSearchCtx = { service, origin, geo };   // per «Estendi la ricerca»
+    resetMap();                                  // nuova ricerca → mappa azzerata
+    $('#noResults').style.display = 'none';
 
     // ricerca per ogni categoria selezionata
     let found = [];
@@ -2606,134 +2678,24 @@ async function run(){
     });
 
     if(found.length===0){
-      if(lastPlacesStatus==='REQUEST_DENIED')
+      $('#resultTools').style.display='none';
+      if(lastPlacesStatus==='REQUEST_DENIED'){
         setStatus('❌ "Places API" non abilitata sul tuo progetto Google Cloud, o la chiave non la autorizza. Attivala e riprova.', true);
-      else if(lastPlacesStatus==='OVER_QUERY_LIMIT')
+      } else if(lastPlacesStatus==='OVER_QUERY_LIMIT'){
         setStatus('❌ Limite/quota Google superata (o fatturazione non attiva).', true);
-      else if(lastPlacesStatus==='ZERO_RESULTS')
-        setStatus('Nessun negozio di questa categoria vicino all\'indirizzo. Prova un\'altra zona o categoria.', true);
-      else
-        setStatus('Nessun risultato ('+(lastPlacesStatus||'?')+'). Prova un altro indirizzo o categoria.', true);
+      } else {
+        // genuinamente nulla in zona: offri di allargare l'area (textSearch ~40 km)
+        setStatus('Nessun negozio trovato vicino all\'indirizzo.', true);
+        $('#noResultsMsg').textContent = (cats.size===1
+            ? 'Nessun negozio di questa categoria vicino all\'indirizzo.'
+            : 'Nessun negozio vicino all\'indirizzo.')
+          + ' Puoi allargare la ricerca a un\'area più ampia (fino a ~40 km).';
+        $('#noResults').style.display = 'block';
+      }
       return;
     }
 
-    // ordina (linea d'aria) e limita
-    found.sort((a,b)=> sortBy==='rating' ? (b.rating-a.rating) : (a.dist-b.dist));
-    found = found.slice(0, limit);
-
-    // distanza STRADALE (in auto) dalla consegna: la calcolo per i selezionati e riordino
-    setStatus('Calcolo le distanze stradali…');
-    const elems = await drivingDistances(origin, found.map(f=>f.place.geometry.location));
-    if(elems){
-      found.forEach((f,i)=>{
-        const el = elems[i];
-        if(el && el.status==='OK'){ f.driveDist = el.distance.value; f.driveText = el.distance.text; f.durText = el.duration.text; }
-      });
-      if(sortBy==='dist') found.sort((a,b)=> (a.driveDist ?? a.dist) - (b.driveDist ?? b.dist));
-    }
-
-    setStatus(`Carico i dettagli di ${found.length} negozi…`);
-    const cards = [];
-    for(const f of found){
-      const d = await details(service, f.place.place_id);
-      if(!d) continue;
-      const card = shopCard(d, f.cat, { straight:f.dist, driveText:f.driveText, durText:f.durText }, f.place.place_id);
-      resultsEl.appendChild(card);
-      cards.push({card, website:d.website, pid:f.place.place_id});
-    }
-
-    // registro anagrafiche: evidenzia chi è già partner/prospect e portalo in cima
-    let anagNote = '';
-    const anag = await anagPromise;
-    if(anag.error){ anagNote = ' · ⚠️ registro anagrafiche non raggiungibile'; console.warn('registro anagrafiche:', anag.error); }
-    else if(!anag.skipped){
-      lastAnagList = anag.list;   // serve al pannello «Riconcilia» sulle schede
-      const matchedIds = new Set();
-      const matchedCards = [];
-      // match per nome con le schede Google
-      resultsEl.querySelectorAll('.shop').forEach(cardEl=>{
-        const name = normName((cardEl.querySelector('h3')||{}).textContent);
-        const p = anag.list.find(x=>{ const k=normName(x.nome); return k.length>3 && name.length>3 && (k===name || name.includes(k) || k.includes(name)); });
-        if(!p) return;
-        matchedIds.add(p.id);
-        cardEl.dataset.regId = p.id;   // candidato preselezionato per «Riconcilia»
-        enrichCardWithRegistry(cardEl, p);   // telefono/email del registro → WhatsApp diretto
-        const isPartner = isPartnerAttivo(p);
-        if(isPartner) cardEl.classList.add('matched-partner');
-        const col = cardEl.querySelector('.head > div');
-        const riconc = (p.riferimenti||[]).some(r=>r.sistema==='deluxy-suppliers' && r.idEsterno===cardEl.dataset.sid);
-        if(col) col.insertAdjacentHTML('afterbegin',
-          `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>`
-          + (riconc ? '<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">🔗 riconciliata</span>' : ''));
-        // già censito: inutile segnalarlo di nuovo al commerciale
-        const rep = cardEl.querySelector('.reportshop');
-        if(rep){ rep.disabled = true; rep.textContent = 'ℹ️ Già nel registro · '+statoLabel(p); }
-        matchedCards.push(cardEl);
-      });
-      // schede del registro non presenti tra i risultati Google + schede Google matchate, tutte in cima
-      const regList = anag.list.filter(p=>!matchedIds.has(p.id));
-      const regCards = regList.map(registryCard);
-      resultsEl.prepend(...regCards, ...matchedCards);
-      // distanza stradale dalla consegna anche su queste schede (best effort, in parallelo)
-      annotaDistanzeRegistro(regList, regCards, origin);
-      // sulle schede già nostre: «usato per ordini recenti?» dallo Storico (best effort)
-      storicoPromise.then(eventi=>{ [...regCards, ...matchedCards].forEach(c=>annotaOrdiniRecenti(c, eventi)); });
-      const nPartner = anag.list.filter(isPartnerAttivo).length;
-      const nAltri = anag.list.length - nPartner;
-      anagNote = anag.list.length
-        ? ` · 🤝 nel registro: ${nPartner} partner e ${nAltri} prospect (${anag.scope||'zona'}) — in cima alla lista`
-        : ' · registro: nessun partner/prospect in zona';
-    }
-
-    applyWaFilter();
-    $('#waFilterResults').style.display = 'flex';   // il filtro gemello sopra i risultati
-    const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
-    const distNote = lastDriveSource==='Google' ? ' · 🚗 distanza stradale'
-                   : lastDriveSource==='OSRM'   ? ' · 🚗 distanza stradale (OSM)'
-                   : ' · 📏 distanza in linea d\'aria (routing non disponibile)';
-    setStatus(`✅ Trovati ${cards.length} negozi${distNote}${langNote}${anagNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
-    applyStars();   // ★ sui fornitori già contattati per quest'ordine
-    // senza ordine le stelle vivono sotto la chiave 'generale': vanno ricaricate qui,
-    // perché loadStato() altrimenti parte solo quando si carica un ordine
-    if(!orderLoaded) loadStato();
-
-    // le ricerche per sola zona (senza ordine) vanno nello Storico, così si possono
-    // riaprire con «↻ Riapri ricerca»; con un ordine c'è già l'evento check di /api/order.
-    // Anti-doppioni: la stessa zona ripetuta in questa sessione (cambio n. risultati,
-    // filtri…) si registra una volta sola.
-    if(!orderLoaded && ultimaRicercaLoggata !== address){
-      ultimaRicercaLoggata = address;
-      logEvento({ tipo:'ricerca', esito:'trovati '+cards.length+' negozi', negozio:{ nome: address } });
-    }
-
-    // email + Instagram dal sito del negozio, in background (best effort).
-    // Gira SEMPRE: senza proxy passa dal backend /api/contatti (niente CORS).
-    {
-      let withEmail=0, withIg=0;
-      await Promise.all(cards.map(async ({card,website,pid})=>{
-        const slot = card.querySelector('.email-slot');
-        if(!website){ return; }
-        slot.innerHTML = '<span class="loading">✉️ cerco email e Instagram…</span>';
-        const { emails, instagram } = await scrapeContacts(website, proxy);
-        const parts = [];
-        if(emails && emails.length){ withEmail++; parts.push(...emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`));
-          if(pid && CARD_DATA[pid]) CARD_DATA[pid].email = emails[0]; }
-        if(instagram){ withIg++; parts.push(`<a class="insta" href="https://ig.me/m/${instagram.handle}" target="_blank" rel="noopener">📷 DM @${instagram.handle}</a>`); }
-        if(parts.length){
-          slot.innerHTML = parts.join('')
-            + (emails && emails.length && !card.querySelector('.sendemail') ? `<button class="sendemail" data-email="${emails[0]}">📧 Invia richiesta via email</button>` : '');
-          const src = card.querySelector('.src');
-          const bits = [];
-          if(emails.length) bits.push('email');
-          if(instagram) bits.push('Instagram');
-          src.innerHTML += ' · '+bits.join(' + ')+': <span class="verified">dal sito ufficiale</span>';
-        } else {
-          slot.innerHTML = '<span class="none">✉️ nessuna email pubblicata sul sito</span>';
-        }
-      }));
-      setStatus(`✅ ${cards.length} negozi${distNote}${langNote} · ✉️ email per ${withEmail}${anagNote}.`);
-    }
-
+    await renderResults(found, geo, origin, service, {});
   }catch(err){
     console.error(err);
     setStatus(err.message || 'Errore imprevisto.', true);
@@ -2741,6 +2703,260 @@ async function run(){
     $('#go').disabled = false;
   }
 }
+
+/* ------------------ RENDER dei risultati (condiviso tra ricerca normale ed estesa) ------------------ */
+async function renderResults(found, geo, origin, service, opts){
+  opts = opts || {};
+  const extended = !!opts.extended;
+  const proxy = (CONFIG.proxy||'').trim();
+  const limit = parseInt($('#limit').value,10);
+  const sortBy = $('#sort').value;
+
+  // partner/prospect già nostri in zona + Storico (per le annotazioni sulle schede)
+  const anagPromise = anagLookup(geo, [...cats]).catch(err=>({ error: err.message, list:[] }));
+  const storicoPromise = apiFetch('/api/storico').then(r=>r.json()).then(j=>j.eventi||[]).catch(()=>[]);
+
+  resultsEl.innerHTML = '';
+  resetMap();
+  mapPoints = [];
+
+  // ordina (linea d'aria) e limita
+  found.sort((a,b)=> sortBy==='rating' ? (b.rating-a.rating) : (a.dist-b.dist));
+  found = found.slice(0, limit);
+
+  // distanza STRADALE (in auto) dalla consegna: la calcolo per i selezionati e riordino
+  setStatus('Calcolo le distanze stradali…');
+  const elems = await drivingDistances(origin, found.map(f=>f.place.geometry.location));
+  if(elems){
+    found.forEach((f,i)=>{
+      const el = elems[i];
+      if(el && el.status==='OK'){ f.driveDist = el.distance.value; f.driveText = el.distance.text; f.durText = el.duration.text; }
+    });
+    if(sortBy==='dist') found.sort((a,b)=> (a.driveDist ?? a.dist) - (b.driveDist ?? b.dist));
+  }
+
+  setStatus(`Carico i dettagli di ${found.length} negozi…`);
+  const cards = [];
+  for(const f of found){
+    const d = await details(service, f.place.place_id);
+    if(!d) continue;
+    const card = shopCard(d, f.cat, { straight:f.dist, driveText:f.driveText, durText:f.durText }, f.place.place_id);
+    resultsEl.appendChild(card);
+    cards.push({card, website:d.website, pid:f.place.place_id});
+    // punto per la mappa (posizione dai dettagli, ripiego sulla scheda della ricerca)
+    const loc = (d.geometry && d.geometry.location) || (f.place.geometry && f.place.geometry.location);
+    if(loc) mapPoints.push({ name:d.name, loc, sid:f.place.place_id, cat:f.cat,
+      open: card.dataset.open, distText: (f.driveText||distanceStr(f.dist)) });
+  }
+
+  // registro anagrafiche: evidenzia chi è già partner/prospect e portalo in cima
+  let anagNote = '';
+  const anag = await anagPromise;
+  if(anag.error){ anagNote = ' · ⚠️ registro anagrafiche non raggiungibile'; console.warn('registro anagrafiche:', anag.error); }
+  else if(!anag.skipped){
+    lastAnagList = anag.list;   // serve al pannello «Riconcilia» sulle schede
+    const matchedIds = new Set();
+    const matchedCards = [];
+    // match per nome con le schede Google
+    resultsEl.querySelectorAll('.shop').forEach(cardEl=>{
+      const name = normName((cardEl.querySelector('h3')||{}).textContent);
+      const p = anag.list.find(x=>{ const k=normName(x.nome); return k.length>3 && name.length>3 && (k===name || name.includes(k) || k.includes(name)); });
+      if(!p) return;
+      matchedIds.add(p.id);
+      cardEl.dataset.regId = p.id;   // candidato preselezionato per «Riconcilia»
+      enrichCardWithRegistry(cardEl, p);   // telefono/email del registro → WhatsApp diretto
+      const isPartner = isPartnerAttivo(p);
+      if(isPartner) cardEl.classList.add('matched-partner');
+      const col = cardEl.querySelector('.head > div');
+      const riconc = (p.riferimenti||[]).some(r=>r.sistema==='deluxy-suppliers' && r.idEsterno===cardEl.dataset.sid);
+      if(col) col.insertAdjacentHTML('afterbegin',
+        `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>`
+        + (riconc ? '<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">🔗 riconciliata</span>' : ''));
+      // già censito: inutile segnalarlo di nuovo al commerciale
+      const rep = cardEl.querySelector('.reportshop');
+      if(rep){ rep.disabled = true; rep.textContent = 'ℹ️ Già nel registro · '+statoLabel(p); }
+      matchedCards.push(cardEl);
+    });
+    // schede del registro non presenti tra i risultati Google + schede Google matchate, tutte in cima
+    const regList = anag.list.filter(p=>!matchedIds.has(p.id));
+    const regCards = regList.map(registryCard);
+    resultsEl.prepend(...regCards, ...matchedCards);
+    // distanza stradale dalla consegna anche su queste schede (best effort, in parallelo)
+    annotaDistanzeRegistro(regList, regCards, origin);
+    // sulle schede già nostre: «usato per ordini recenti?» dallo Storico (best effort)
+    storicoPromise.then(eventi=>{ [...regCards, ...matchedCards].forEach(c=>annotaOrdiniRecenti(c, eventi)); });
+    const nPartner = anag.list.filter(isPartnerAttivo).length;
+    const nAltri = anag.list.length - nPartner;
+    anagNote = anag.list.length
+      ? ` · 🤝 nel registro: ${nPartner} partner e ${nAltri} prospect (${anag.scope||'zona'}) — in cima alla lista`
+      : ' · registro: nessun partner/prospect in zona';
+  }
+
+  applyFilters();
+  $('#resultTools').style.display = 'block';           // filtri + bottone mappa sopra i risultati
+  $('#toggleMap').style.display = mapPoints.length ? '' : 'none';
+  const address = $('#address').value.trim();
+  const extNote = extended ? ' · 🔎 area allargata (~40 km)' : '';
+  const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
+  const distNote = lastDriveSource==='Google' ? ' · 🚗 distanza stradale'
+                 : lastDriveSource==='OSRM'   ? ' · 🚗 distanza stradale (OSM)'
+                 : ' · 📏 distanza in linea d\'aria (routing non disponibile)';
+  setStatus(`✅ Trovati ${cards.length} negozi${extNote}${distNote}${langNote}${anagNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
+  applyStars();   // ★ sui fornitori già contattati per quest'ordine
+  // senza ordine le stelle vivono sotto la chiave 'generale': vanno ricaricate qui,
+  // perché loadStato() altrimenti parte solo quando si carica un ordine
+  if(!orderLoaded) loadStato();
+
+  // le ricerche per sola zona (senza ordine) vanno nello Storico, così si possono
+  // riaprire con «↻ Riapri ricerca»; con un ordine c'è già l'evento check di /api/order.
+  if(!orderLoaded && ultimaRicercaLoggata !== address){
+    ultimaRicercaLoggata = address;
+    logEvento({ tipo:'ricerca', esito:'trovati '+cards.length+' negozi'+(extended?' (area allargata)':''), negozio:{ nome: address } });
+  }
+
+  // email + Instagram dal sito del negozio, in background (best effort).
+  {
+    let withEmail=0, withIg=0;
+    await Promise.all(cards.map(async ({card,website,pid})=>{
+      const slot = card.querySelector('.email-slot');
+      if(!website){ return; }
+      slot.innerHTML = '<span class="loading">✉️ cerco email e Instagram…</span>';
+      const { emails, instagram } = await scrapeContacts(website, proxy);
+      const parts = [];
+      if(emails && emails.length){ withEmail++; parts.push(...emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`));
+        if(pid && CARD_DATA[pid]) CARD_DATA[pid].email = emails[0]; }
+      if(instagram){ withIg++; parts.push(`<a class="insta" href="https://ig.me/m/${instagram.handle}" target="_blank" rel="noopener">📷 DM @${instagram.handle}</a>`); }
+      if(parts.length){
+        slot.innerHTML = parts.join('')
+          + (emails && emails.length && !card.querySelector('.sendemail') ? `<button class="sendemail" data-email="${emails[0]}">📧 Invia richiesta via email</button>` : '');
+        const src = card.querySelector('.src');
+        const bits = [];
+        if(emails.length) bits.push('email');
+        if(instagram) bits.push('Instagram');
+        src.innerHTML += ' · '+bits.join(' + ')+': <span class="verified">dal sito ufficiale</span>';
+      } else {
+        slot.innerHTML = '<span class="none">✉️ nessuna email pubblicata sul sito</span>';
+      }
+    }));
+    setStatus(`✅ ${cards.length} negozi${extNote}${distNote}${langNote} · ✉️ email per ${withEmail}${anagNote}.`);
+  }
+}
+
+/* ------------------ ESTENDI la ricerca (area ~40 km, quando in zona non c'è nulla) ------------------ */
+let lastSearchCtx = null;   // { service, origin, geo } dell'ultima ricerca
+async function extendSearch(){
+  if(!lastSearchCtx){ run(); return; }
+  const { service, origin, geo } = lastSearchCtx;
+  $('#extendBtn').disabled = true;
+  setStatus('Allargo la ricerca a un\'area più ampia…');
+  try{
+    let found = [];
+    for(const cat of cats){ found = found.concat(await wideSearch(service, origin, cat, currentLang)); }
+    // dedup per place_id, tieni solo chi ha una posizione, calcola distanza
+    const seen = new Set();
+    found = found.filter(f=>{
+      if(!f.place || !f.place.geometry || !f.place.geometry.location) return false;
+      if(seen.has(f.place.place_id)) return false; seen.add(f.place.place_id); return true;
+    });
+    found.forEach(f=>{
+      f.dist = google.maps.geometry.spherical.computeDistanceBetween(origin, f.place.geometry.location);
+      f.rating = f.place.rating || 0;
+    });
+    if(found.length===0){
+      setStatus('Ancora nessun negozio, anche allargando l\'area. Prova un altro indirizzo o categoria.', true);
+      return;
+    }
+    $('#noResults').style.display = 'none';
+    await renderResults(found, geo, origin, service, { extended:true });
+  }catch(err){
+    console.error(err);
+    setStatus(err.message || 'Errore durante l\'estensione della ricerca.', true);
+  }finally{
+    $('#extendBtn').disabled = false;
+  }
+}
+$('#extendBtn').addEventListener('click', extendSearch);
+
+/* ------------------ MAPPA dei risultati (Google Maps) ------------------ */
+let mapState = null;   // { map, info, markers:{sid:marker}, originMarker }
+let mapPoints = [];    // [{ name, loc, sid, cat, open, distText }]
+function resetMap(){
+  $('#mapWrap').style.display = 'none';
+  const t = $('#toggleMap'); if(t) t.textContent = '🗺️ Mostra sulla mappa';
+  mapState = null;   // ricreata alla prossima apertura
+}
+function focusCard(sid){
+  const card = resultsEl.querySelector('.shop[data-sid="'+sid+'"]');
+  if(!card) return;
+  card.scrollIntoView({behavior:'smooth', block:'center'});
+  const prev = card.style.boxShadow;
+  card.style.transition = 'box-shadow .25s var(--ease)';
+  card.style.boxShadow = '0 0 0 3px var(--gold)';
+  setTimeout(()=>{ card.style.boxShadow = prev; }, 1600);
+}
+function buildMap(){
+  if(!mapPoints.length || !lastSearchCtx) return;
+  const origin = lastSearchCtx.origin;
+  if(!mapState){
+    const map = new google.maps.Map($('#map'), {
+      mapTypeControl:false, streetViewControl:false, fullscreenControl:true, clickableIcons:false
+    });
+    mapState = { map, info:new google.maps.InfoWindow(), markers:{}, originMarker:null };
+  }
+  // pulizia
+  Object.values(mapState.markers).forEach(m=>m.setMap(null));
+  mapState.markers = {};
+  if(mapState.originMarker) mapState.originMarker.setMap(null);
+
+  const bounds = new google.maps.LatLngBounds();
+  // segnaposto consegna (blu)
+  mapState.originMarker = new google.maps.Marker({
+    position: origin, map: mapState.map, title: 'Indirizzo di consegna', zIndex: 999,
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor:'#0071e3', fillOpacity:1, strokeColor:'#fff', strokeWeight:3 }
+  });
+  bounds.extend(origin);
+  mapPoints.forEach((p,i)=>{
+    const marker = new google.maps.Marker({
+      position: p.loc, map: mapState.map, title: p.name, label: String(i+1)
+    });
+    marker.addListener('click', ()=>{
+      const emoji = CAT_META[p.cat] ? CAT_META[p.cat].emoji : '📍';
+      const stato = p.open==='open' ? '🟢 Aperto ora' : p.open==='closed' ? '🔴 Chiuso ora' : '';
+      mapState.info.setContent(
+        `<div style="font-family:var(--font-sans,sans-serif); max-width:220px; line-height:1.4">
+           <div style="font-weight:600; margin-bottom:2px">${emoji} ${esc(p.name)}</div>
+           <div style="font-size:12px; color:#555">${esc(p.distText||'')}${stato?' · '+stato:''}</div>
+         </div>`);
+      mapState.info.open(mapState.map, marker);
+      focusCard(p.sid);
+    });
+    mapState.markers[p.sid] = marker;
+    bounds.extend(p.loc);
+  });
+  mapState.map.fitBounds(bounds);
+  syncMapMarkers();
+}
+// i segnaposto seguono i filtri WhatsApp/apertura (marker nascosto se la scheda è nascosta)
+function syncMapMarkers(){
+  if(!mapState) return;
+  Object.entries(mapState.markers).forEach(([sid,m])=>{
+    const card = resultsEl.querySelector('.shop[data-sid="'+sid+'"]');
+    const visible = card && card.style.display !== 'none';
+    m.setMap(visible ? mapState.map : null);
+  });
+}
+$('#toggleMap').addEventListener('click', ()=>{
+  const wrap = $('#mapWrap');
+  const show = (wrap.style.display === 'none' || !wrap.style.display);
+  if(show){
+    wrap.style.display = 'block';
+    buildMap();
+    $('#toggleMap').textContent = '🗺️ Nascondi mappa';
+  } else {
+    wrap.style.display = 'none';
+    $('#toggleMap').textContent = '🗺️ Mostra sulla mappa';
+  }
+});
 </script>
 </body>
 </html>
