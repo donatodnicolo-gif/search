@@ -1,121 +1,108 @@
 # Handoff — Deluxy Orders
 
-Stato al 25/07/2026. Aggiornare questo file a ogni tappa (regole di lavoro Deluxy).
+Stato al **26/07/2026**. Aggiornare a ogni tappa (regole di lavoro Deluxy).
+Serve a far ripartire una finestra nuova senza contesto: prima lo stato, poi le
+**trappole già pagate** — quelle valgono più dell'elenco delle funzioni.
 
 ## Cos'è
-Registro centralizzato degli ordini Shopify (fonte di verità). Importa gli
-ordini, li fa riclassificare a piacimento ed espone tutto alle altre app via API
-a chiave. Next.js 15 + Prisma + Postgres, porta **3150**. Live: non ancora
-pubblicata (in produzione il Hub la mostra puntando a `http://localhost:3150`
-finché non c'è `APP_URL_ORDERS`).
+Registro centralizzato degli ordini Shopify di tutti i brand Deluxy: la fonte di
+verità degli ordini, come Anagrafiche lo è per i partner. Importa da Shopify, fa
+riclassificare a piacimento, espone alle altre app via API a chiave.
 
-## FATTO (prima versione)
-- **Scaffold**: package.json (porta 3150), next/tsconfig, design system
-  (`tokens.css` + `globals.css`), middleware (CORS API + password UI).
-- **Schema Prisma**: `NegozioShopify`, `StatoOrdine` (pipeline), `Etichetta`,
-  `Ordine` (+ classificazione: stato, etichette, categorie, instradamento,
-  `classificazioni` JSON libere, note interne), `RigaOrdine`, `EventoOrdine`
-  (storia), `ApiKey`.
-- **Import Shopify**: `src/lib/shopify.ts` (Admin GraphQL 2024-10: ordini,
-  righe, spedizione, tag, evasione; token statico o client-credentials come
-  Partner) + `src/lib/sync.ts` (upsert che NON sovrascrive la classificazione).
-- **UI**: Ordini (elenco con filtri + KPI + cambio stato inline), Bacheca
-  (kanban per stato), scheda ordine (riclassificazione completa + storia),
-  Impostazioni (negozi, pipeline, etichette, chiavi), Login.
-- **Server actions** in `src/app/actions.ts` per ogni mutazione UI.
-- **API v1**: `health`, `ordini` (GET lista), `ordini/:id` (GET + PATCH
-  riclassifica), `stati` (GET), `sync` (POST). Cron `/api/cron/sync` + vercel.json.
-- **Script**: `npm run chiave` (chiavi API), `npm run sync` (import via HTTP).
-- **Hub**: registrata in `deluxy-hub/src/lib/apps.ts` (id `orders`, icona
-  `orders`), glifo in `AppIcon.tsx`.
-- **Verifica**: `npm run build` verde (8 rotte, typecheck e lint ok).
+Next.js 15 + Prisma + Postgres condiviso (**schema `orders`**), porta **3150**.
+**LIVE su https://deluxy-orders.vercel.app** (progetto Vercel `deluxy-orders`).
+Manuale funzionale completo: [COME-FUNZIONA.md](COME-FUNZIONA.md).
 
-## FATTO (messa in esercizio, 25/07/2026)
-- **DB reale**: schema `orders` creato sul Postgres condiviso Supabase
-  (`scripts/configura-db-condiviso.mjs` + `npm run db:push`).
-- **Negozi collegati**: i 3 negozi di Finance copiati in Orders con
-  `npm run negozi:da-finance` — Flowers (fb72b1-2), cakedesign.me
-  (cakedesign-5921), deluxy.it (deluxygifts), tutti con Client ID+Secret.
-- **Import storico completo** con `npm run import:storico`: motore aggiornato
-  per scaricare **tutti gli ordini di sempre** (nessun filtro di data, pagine
-  illimitate, salvataggio pagina per pagina, ritentativi sui limiti di
-  frequenza Shopify) e inserimento **a blocchi** (createMany) — da ~1 ordine
-  per query a poche query per pagina.
-- **App avviata** su http://localhost:3150 e verificata con dati reali.
-- **Import storico COMPLETATO** (28,5 min, 0 errori): **13.954 ordini** e 16.933
-  righe. `npm run verifica:totali` conferma l'allineamento esatto con Shopify:
-  deluxy.it 11.640 = 11.640 · Flowers 1.584 = 1.584 · cakedesign.me 730 = 730.
+## Stato: funziona tutto, con dati reali
 
-- **Ricerca ordini**: casella unica in evidenza sopra i filtri; cerca su numero
-  (anche senza `#`), cliente/email/telefono, destinatario e indirizzo, brand,
-  note e tag Shopify, gateway, classificazione Deluxy (fornitore, responsabile,
-  note interne, etichette) e prodotti (titolo, variante, SKU). AND fra le
-  parole, OR fra i campi — `campiRicerca()` in `src/lib/ordini.ts`, usata sia
-  dalla UI sia dall'API.
-- **LIVE su https://deluxy-orders.vercel.app** (progetto Vercel `deluxy-orders`):
-  env `DATABASE_URL`/`DIRECT_URL` (schema orders), `ORDERS_APP_PASSWORD`,
-  `CRON_SECRET`; nel Hub è impostata `APP_URL_ORDERS`. Verificato: UI protetta
-  (redirect a /login), API senza chiave → 401, `/api/v1/health` → 200.
+**13.959 ordini** importati e allineati esattamente con Shopify
+(`npm run verifica:totali` lo dimostra negozio per negozio: deluxy.it 11.640,
+Flowers 1.584, cakedesign.me 730). Tre negozi collegati con Client ID+Secret,
+credenziali riusate da Finance.
 
-## FATTO (26/07/2026)
-- **Colori per brand**: campo `colore` su `NegozioShopify` (modificabile in
-  Impostazioni). Applicato al bordo sinistro e al pallino delle righe
-  dell'elenco, alle schede e alle testate delle colonne. Assegnati: Flowers
-  rosso, deluxy.it oro, cakedesign.me viola.
-- **Vista «Colonne per brand»** nella pagina Ordini (`?vista=brand`): una
-  colonna per negozio con conteggio e valore, schede colorate, stessa ricerca e
-  stessi filtri dell'elenco. Sotto i 900px le colonne si impilano.
-- **Sezione Clienti** (`/clienti` + `/clienti/[chiave]`): clienti ricavati dagli
-  ordini con aggregazione SQL (`src/lib/clienti.ts`), identità = email →
-  telefono → nome. 10.371 clienti sui 13.954 ordini. Ricerca, ordinamenti
-  (spesa/ordini/recenti/nome), paginazione; scheda con KPI, anagrafica e
-  storico ordini. Gli ordini senza dati cliente (602) sono esclusi dall'elenco
-  e contati a parte, per non creare un finto cliente da centinaia di ordini.
+Le pagine: **Ordini** (vista predefinita a *colonne per brand*, più l'elenco in
+tabella), **Bacheca** kanban, **scheda ordine**, **Clienti** (+ rubrica Google),
+**Consegna**, **Impostazioni**, **Fornitori vicini** per ordine.
 
-- **Consegna richiesta** (26/07): campi `dataConsegna` + `fasciaConsegna` su
-  Ordine, letti dagli attributi Shopify `Data_Consegna` e
-  `Fascia_Oraria_Consegna` (stesse chiavi su tutti e tre i negozi, verificate
-  sui dati veri). Mostrata nelle colonne per brand, in una colonna dell'elenco
-  e in cima alla scheda ordine, con urgenza colorata (oggi/domani/passata).
-  Filtro API `consegnaDa`/`consegnaA`, campo `consegna` nella risposta.
-  **Attenzione**: la data NON si deduce dalle note libere. Un primo tentativo lo
-  faceva e sbagliava (in «30 Luglio 08/12» leggeva "8 dicembre" mentre 08/12 è
-  la fascia oraria): meglio "non indicata" che una consegna sbagliata.
+Cosa si importa da Shopify: ordini, righe con personalizzazioni e **foto**,
+cliente, spedizione, note, tag, **data e fascia di consegna**, **annullamento**
+con motivo, evasione, stato pagamento, **rischio frode**, biglietto.
 
-## FATTO (26/07/2026, seconda parte)
-- **Stati Shopify**: annullamento (`annullatoIl`, motivo, `chiusoIl`), evasione e
-  stato pagamento, con etichette italiane, colori e filtri. L'annullamento
-  mancava del tutto ed era una lacuna vera: non si deduce dal pagamento (#2565,
-  #2562, #2563 sono annullati ma «pagati»).
-- **Rischio frode**: livello, raccomandazione e i soli segnali negativi
-  dall'analisi antifrode di Shopify; si segnalano solo medio e alto.
-- **API: gli annullati non escono più** (410 sul dettaglio, esclusi
-  dall'elenco, `annullati=inclusi` per chi deve gestirli). Vedi README.
-- **Finance** (`deluxy-partner/src/lib/ordini-registro.ts`): chiede
-  `annullati=inclusi` e porta avanti il flag. Senza, perdeva 221 ordini con
-  26.200 EUR di movimenti e non scopriva più gli annullamenti.
-- **Rubrica Google** (`/clienti/rubrica`) con prova a vuoto obbligatoria.
-- **Bottone «Cerca fornitore»** sotto ogni ordine (link a search-deluxy).
-- **Import resiliente**: la pagina viene riprovata se il pooler Supabase chiude
-  la connessione (era successo tre volte su giri di oltre un'ora).
+Copertura dei dati (non è il 100%, e va saputo):
+
+| Dato | Copertura | Perché |
+| --- | --- | --- |
+| Ordini | 13.959 / 13.959 | allineato con Shopify |
+| Data di consegna | ~9.400 | un terzo degli ordini non ha l'attributo (vedi trappole) |
+| Rischio frode | ~9.800 | si importa **solo sui nuovi**, per scelta |
+| Foto prodotti | ultimi 90 giorni | backfill completo costerebbe ore |
+| Biglietto | 132 ordini | 128 dedotti dalla nota, marcati «da verificare» |
+
+## Trappole già pagate — leggere prima di toccare l'import
+
+1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare
+   leggeva «30 Luglio 08/12» come *8 dicembre*, mentre `08/12` era la fascia
+   oraria. In un registro operativo una consegna sbagliata è peggio di una
+   mancante: se manca l'attributo, l'ordine resta «consegna non indicata».
+   Vale anche per il **biglietto**: nessuno dei tre negozi ha un campo
+   strutturato, quindi si mostra la nota intera etichettata «possibile
+   biglietto — da verificare», senza inventare il testo da stampare.
+2. **L'annullamento non si deduce dal pagamento.** Gli ordini #2565, #2562,
+   #2563 sono annullati ma risultano «pagato». Senza `annullatoIl` un ordine
+   annullato è indistinguibile da uno valido.
+3. **Non riscrivere ciò che non è cambiato.** La sync confronta l'ordine prima
+   di aggiornarlo (`cambiato()` in `sync.ts`). Senza, il cron notturno — che ha
+   pochi minuti — non finiva mai: 90 giorni significano migliaia di ordini a
+   ~110 aggiornamenti al minuto. Misurato: stessa finestra da 1,0 min a 0,1 min.
+4. **Se aggiungi un campo alle RIGHE, mettilo anche in `righeCambiate()`.**
+   Le righe si riscrivono solo se quel confronto dice che sono cambiate. Le foto
+   sono rimaste vuote (6 righe su 16.938) proprio perché il confronto guardava
+   solo le personalizzazioni.
+5. **Il pooler Supabase chiude la connessione sui giri lunghi.** È successo tre
+   volte oltre l'ora. `conRiprova()` riprova l'intera pagina (è idempotente) con
+   pause fino a mezzo minuto. Un primo tentativo con 18 secondi di pazienza non
+   bastava.
+6. **`product.featuredImage` non è accessibile**: richiede lo scope
+   `read_products`, che i token non hanno. Resta `lineItem.image` (57% delle
+   righe su deluxy.it, 93-96% sugli altri).
+
+## La regola più importante delle API
+**Gli ordini annullati non escono.** `/api/v1/ordini` li esclude e il dettaglio
+risponde **410**. Un'app a valle li lavorerebbe come validi — e restano spesso
+«pagati», quindi non si riconoscono dal pagamento. Chi deve gestirli passa
+`annullati=inclusi`; la risposta dichiara sempre `annullatiInclusi`.
+
+**Finance è l'eccezione** e li chiede già
+(`deluxy-partner/src/lib/ordini-registro.ts`): senza, perdeva 221 ordini con
+26.200 EUR di movimenti (rimborsi da quadrare e incassi su ordini poi annullati)
+e soprattutto non *scopriva* più gli annullamenti — un ordine importato quando
+era valido spariva dalla risposta e restava valido per sempre.
+
+Chi consuma oggi: `deluxy-partner-import` (Finance) e `deluxy-messaggi`.
 
 ## MANCA / prossimi passi
-0. **Finance: cosa fare degli annullati.** Ora li riceve, ma li tratta come
+0. **Finance: cosa fare degli annullati.** Ora li riceve ma li tratta come
    ordini normali e finiscono in coda di riconciliazione. Va deciso se
-   ignorarli o trasformarli in voci di rimborso: è una scelta contabile.
-1. **Push su GitHub** del commit `1b5a678` (in sessione il push è bloccato dal
-   classificatore): va fatto a mano con `git push origin scout-ui`.
-2. **Integrazione con le app di destinazione** (fase 2, lettura via API):
-   - Ricerca fornitori (smistamento): legge gli ordini `assegnatoApp=search`.
-   - Finance (partner): può leggere/riconciliare da qui invece che da Shopify.
-   - Consegne: legge gli ordini instradati.
-   Per ora le altre app continuano a scaricare da Shopify: la migrazione a
-   «leggono da Orders» è graduale.
-3. **Riclassificazione avanzata** (idee): regole automatiche (es. brand→stato),
-   assegnazione massiva dalla bacheca, editor delle dimensioni libere `classificazioni`.
+   ignorarli o trasformarli in voci di rimborso: **è una scelta contabile**, non
+   tecnica, e aspetta l'utente.
+1. **Password della UI**: `ORDERS_APP_PASSWORD` è stata scelta dall'utente ma è
+   comparsa in chiaro in una chat. Da cambiare quando si può.
+2. **Backfill facoltativi**: rischio frode e foto sugli ordini storici. Costano
+   ore e sono stati esclusi per scelta — le foto servono su ciò che è in
+   lavorazione, il rischio su ciò che si deve ancora spedire.
+3. **Riclassificazione avanzata** (idee): regole automatiche brand→stato,
+   assegnazione massiva dalla bacheca, editor delle dimensioni libere
+   `classificazioni`.
 
-## Note di progetto
-- La sync **non tocca** la classificazione Deluxy; la categoria pagamento si
-  aggiorna solo se non corretta a mano (`categoriaPagamentoManuale`).
-- Le chiavi API si vedono in chiaro una sola volta (nel DB solo lo SHA-256).
-- Una sola sessione Claude per cartella; commit spesso; confermare deploy/push.
+## Come si lavora qui
+- **Import storico**: `npm run import:storico` (tutto) o `-- 90` (giorni).
+  Ripetibile senza doppioni, riprende da dove si era fermato perché salta ciò
+  che è già a posto.
+- **Verifica**: `npm run verifica:totali` confronta con Shopify negozio per
+  negozio. Da lanciare dopo ogni import importante.
+- **Sync quotidiana**: cron Vercel `/api/cron/sync` (protetto da `CRON_SECRET`).
+- La sync **non tocca mai** la classificazione Deluxy; la categoria di pagamento
+  si aggiorna solo se non è stata corretta a mano (`categoriaPagamentoManuale`).
+- Le chiavi API si vedono in chiaro una volta sola (nel DB c'è solo lo SHA-256).
+- **Attenzione**: in questa cartella hanno lavorato due sessioni Claude in
+  parallelo (contro la regola 4). Prima di partire, `git status` e `git log`.
