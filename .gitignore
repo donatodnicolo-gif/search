@@ -8,3 +8,5 @@ deluxy-scout/.expo/
 deluxy-scout/dist/
 deluxy-scout/web-build/
 deluxy-scout/*.log
+.vercel
+.env*

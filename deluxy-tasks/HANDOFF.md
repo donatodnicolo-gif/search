@@ -56,10 +56,20 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
   `tasks-eight-gray.vercel.app`). `TASKS_SESSION_SECRET` impostato in produzione →
   la UI **richiede il login** (`/` reindirizza a `/login`). Il Hub non punta più a
   `localhost:3090`: il default in `apps.ts` è l'URL pubblico (Hub ridistribuito).
+  - **Ingresso dal Hub senza secondo login (SSO)**: `GET /api/sso?token=…`
+    (`src/app/api/sso/route.ts` + `src/lib/sso.ts`, copia lato ricezione di
+    `deluxy-hub/src/lib/sso.ts`). Il Hub cifra un token AES-256-GCM di 60s con
+    `HUB_SSO_SECRET` — **lo stesso valore nelle due app** — che porta email, nome
+    e ruolo; Tasks apre la sua sessione a cookie. L'identità qui è l'**email**:
+    il Hub la aggiunge al token (`PayloadSso.email`) leggendola dalla sua tabella
+    `Utente`. Token assente/scaduto/di un'altra app/segreto sbagliato → `/login`.
   - **Come si ridistribuisce**: il progetto ha *Root Directory* = `deluxy-tasks`,
-    quindi `vercel deploy` **dalla cartella dell'app fallisce**. Si lancia dalla
-    radice del repo (`C:\Users\nicol\app`) oppure, se il codice non è cambiato e
-    servono solo le nuove variabili, `npx vercel redeploy <url-ultimo-prod>`.
+    quindi `vercel deploy` **dalla cartella dell'app fallisce** (cerca
+    `deluxy-tasks/deluxy-tasks`). La radice del repo è stata collegata al
+    progetto, quindi il deploy si fa da lì:
+    `cd C:\Users\nicol\app && npx vercel deploy --prod --yes`. Se il codice non è
+    cambiato e servono solo variabili nuove basta
+    `npx vercel redeploy <url-ultimo-prod>`.
 - **Verifica**: `npx tsc --noEmit` OK, `next build` OK, DB collegato (schema
   isolato `tasks` nel cluster condiviso) con 4 task demo. Testato end-to-end:
   upsert idempotente, freschezza (`ignorata_obsoleta`), callback firmato HMAC
