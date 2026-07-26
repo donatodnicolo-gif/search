@@ -51,6 +51,12 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     ],
   },
   {
+    // Il campo, prima della vendita: i risultati delle visite e le bozze da
+    // chiudere. Da qui nasce la trattativa; quando c'è, la visita esce di qui.
+    titolo: 'Visite',
+    voci: [{ name: 'visite', label: 'Visite', icon: 'walk-outline' }],
+  },
+  {
     titolo: 'Vendita',
     voci: [
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
@@ -311,6 +317,7 @@ export default function AppLayout() {
         <Drawer.Screen name="lista" options={{ title: 'Prospect e Lead' }} />
         <Drawer.Screen name="rubrica" options={{ title: 'Rubrica' }} />
         <Drawer.Screen name="script" options={{ title: 'Script' }} />
+        <Drawer.Screen name="visite" options={{ title: 'Visite' }} />
         <Drawer.Screen name="trattative" options={{ title: 'Trattative' }} />
         <Drawer.Screen name="ordini" options={{ title: 'Ordini' }} />
         <Drawer.Screen name="lead" options={{ title: 'Richieste Web' }} />
