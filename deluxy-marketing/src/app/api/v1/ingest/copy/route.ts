@@ -128,6 +128,19 @@ export async function POST(req: NextRequest) {
     else aggiornatiAnn++;
   }
 
+  await prisma.ricezioneDati.create({
+    data: {
+      fonte: canale,
+      account: body.account ? String(body.account) : null,
+      tipo: keywords.length >= annunci.length ? "copy" : "asset",
+      chiave: cliente.nome,
+      righe: keywords.length + annunci.length,
+      nuove: nuoveKw + nuoviAnn,
+      aggiornate: aggiornateKw + aggiornatiAnn,
+      esito: "ok",
+    },
+  });
+
   await registra({
     autore: cliente.nome,
     tipo: "import",

@@ -31,11 +31,11 @@ async function aggregaPeriodo(p: Periodo, canale?: string, brand?: string) {
         ...(brand ? { brand } : {}),
       },
     },
-    include: { campagna: { select: { id: true, nome: true, brand: true, canale: true, classe: true, stato: true } } },
+    include: { campagna: { select: { id: true, nome: true, brand: true, canale: true, classe: true, stato: true, tipoConversione: true } } },
   });
 
   const totale: Riga = { ...VUOTA };
-  const perCampagna = new Map<string, Riga & { nome: string; brand: string; canale: string; classe: string; stato: string }>();
+  const perCampagna = new Map<string, Riga & { nome: string; brand: string; canale: string; classe: string; stato: string; tipoConversione: string | null }>();
   const perBrand = new Map<string, Riga>();
 
   for (const m of metriche) {
@@ -52,6 +52,7 @@ async function aggregaPeriodo(p: Periodo, canale?: string, brand?: string) {
     const c = perCampagna.get(m.campagna.id) ?? {
       ...VUOTA, nome: m.campagna.nome, brand: m.campagna.brand,
       canale: m.campagna.canale, classe: m.campagna.classe, stato: m.campagna.stato,
+      tipoConversione: m.campagna.tipoConversione,
     };
     c.spesa += r.spesa; c.ricavi += r.ricavi; c.click += r.click;
     c.impression += r.impression; c.conversioni += r.conversioni;
@@ -87,9 +88,18 @@ function Delta({ ora, prima, invertito }: { ora: number; prima: number; invertit
 }
 
 // Giudizio della campagna nel periodo: confronto col break-even del brand
-function giudizio(r: Riga, brand: string): { testo: string; colore: string } {
+function giudizio(r: Riga, brand: string, tipoConv?: string | null): { testo: string; colore: string } {
   const ro = roas(r);
   if (r.spesa < 20) return { testo: "Poca spesa", colore: "var(--text-tertiary)" };
+  // Le campagne LEAD (B2B/corporate) hanno valore conversione simbolico: il
+  // ROAS non le descrive, si guarda il costo per lead (doc 4).
+  if (tipoConv === "lead") {
+    const cp = cpa(r);
+    if (cp == null) return { testo: "Lead: nessun contatto", colore: "var(--red)" };
+    if (cp <= 25) return { testo: `Lead a ${cp.toFixed(0)} EUR`, colore: "var(--green)" };
+    if (cp <= 60) return { testo: `Lead a ${cp.toFixed(0)} EUR`, colore: "var(--orange)" };
+    return { testo: `Lead caro: ${cp.toFixed(0)} EUR`, colore: "var(--red)" };
+  }
   if (ro == null || r.conversioni < 5) {
     return r.conversioni === 0 && r.spesa >= 25
       ? { testo: "Spende senza convertire", colore: "var(--red)" }
@@ -275,7 +285,7 @@ export default async function AnalisiCampagne({
                   <tbody>
                     {campagne.map(([id, r]) => {
                       const ro = roas(r);
-                      const g = giudizio(r, r.brand);
+                      const g = giudizio(r, r.brand, r.tipoConversione);
                       const pr = prima.perCampagna.get(id);
                       const an = anno.perCampagna.get(id);
                       return (
@@ -284,14 +294,15 @@ export default async function AnalisiCampagne({
                             <a className="cella-nome" href={`/campagne/${id}`}>{r.nome}</a>
                             <div className="cella-sub">
                               {ETICHETTA_BRAND[r.brand] ?? r.brand} · {ETICHETTA_CANALE[r.canale] ?? r.canale}
+                              {r.tipoConversione === "lead" ? " · LEAD" : ""}
                               {r.classe === "traino" ? " · TRAINO" : ""}
                               {r.stato === "in_pausa" ? " · in pausa" : ""}
                             </div>
                           </td>
                           <td>{formattaEuro(r.spesa)}</td>
                           <td>{formattaEuro(r.ricavi)}</td>
-                          <td style={{ fontWeight: 600, color: ro != null ? (ro >= breakEvenRoas(r.brand) ? "var(--green)" : "var(--red)") : undefined }}>
-                            {ro != null ? `${ro.toFixed(2)}×` : "—"}
+                          <td style={{ fontWeight: 600, color: r.tipoConversione === "lead" ? "var(--text-tertiary)" : ro != null ? (ro >= breakEvenRoas(r.brand) ? "var(--green)" : "var(--red)") : undefined }}>
+                            {r.tipoConversione === "lead" ? "n/d" : ro != null ? `${ro.toFixed(2)}×` : "—"}
                           </td>
                           <td>{Math.round(r.conversioni)}</td>
                           <td>{formattaEuro(cpa(r))}</td>

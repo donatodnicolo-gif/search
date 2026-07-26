@@ -6,7 +6,7 @@ import { SbSezione } from "./SbSezione";
 export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "landing" | "copy" | "keywords"
   | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni"
-  | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo";
+  | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo" | "ricezione";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -145,6 +145,7 @@ export async function Sidebar({
         </SbSezione>
 
         <SbSezione titolo="Archivio">
+          {voce("ricezione", "/ricezione", "metriche", "Dati in arrivo")}
           {voce("drive", "/drive", "drive", "Documenti Drive", nDocumenti)}
           {voce("storico", "/storico", "storico", "Storico")}
           {voce("impostazioni", "/impostazioni", "impostazioni", "Impostazioni")}

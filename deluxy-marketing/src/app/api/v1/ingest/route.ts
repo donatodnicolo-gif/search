@@ -63,6 +63,9 @@ export async function POST(req: NextRequest) {
 
   let campagneCreate = 0;
   let metricheSalvate = 0;
+  const campagneToccate = new Set<string>();
+  let giornoMin: Date | null = null;
+  let giornoMax: Date | null = null;
   const nonValide: string[] = [];
 
   for (const r of righe) {
@@ -157,7 +160,50 @@ export async function POST(req: NextRequest) {
       update: valori,
     });
     metricheSalvate++;
+    campagneToccate.add(campagna.id);
+    if (giornoMin == null || giorno < giornoMin) giornoMin = giorno;
+    if (giornoMax == null || giorno > giornoMax) giornoMax = giorno;
   }
+
+  // Vendite o lead? Le campagne B2B/corporate ottimizzano lead con valore
+  // simbolico (doc 4): un valore medio per conversione sotto i 10 € non è una
+  // vendita, e giudicare quella campagna col ROAS sarebbe un errore di
+  // lettura. La deduzione si aggiorna a ogni consegna, ma solo dove l'utente
+  // non ha già deciso a mano.
+  for (const id of campagneToccate) {
+    const c = await prisma.campagna.findUnique({ where: { id }, select: { tipoConversione: true } });
+    if (c?.tipoConversione === "vendite" || c?.tipoConversione === "lead") continue;
+    // Finestra recente: il tracking di anni fa puo essere diverso da oggi
+    const da90 = new Date(Date.now() - 90 * 86_400_000);
+    const agg = await prisma.metricaCampagna.aggregate({
+      where: { campagnaId: id, data: { gte: da90 } },
+      _sum: { conversioni: true, ricavi: true },
+    });
+    const conv = agg._sum.conversioni ?? 0;
+    if (conv < 3) continue; // troppo poco per dedurre
+    const medio = (agg._sum.ricavi ?? 0) / conv;
+    await prisma.campagna.update({
+      where: { id },
+      data: { tipoConversione: medio < 10 ? "lead" : "vendite" },
+    });
+  }
+
+  await prisma.ricezioneDati.create({
+    data: {
+      fonte: canale,
+      account: body.account ? String(body.account) : null,
+      tipo: "metriche",
+      chiave: cliente.nome,
+      righe: righe.length,
+      nuove: campagneCreate,
+      aggiornate: metricheSalvate,
+      scartate: nonValide.length,
+      dal: giornoMin,
+      al: giornoMax,
+      campagne: campagneToccate.size,
+      esito: nonValide.length > 0 ? "parziale" : "ok",
+    },
+  });
 
   await registra({
     autore: cliente.nome,

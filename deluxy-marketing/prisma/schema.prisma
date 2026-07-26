@@ -133,6 +133,10 @@ model Campagna {
   // VALORE vs NUMERO delle ISTRUZIONI (dal 16/7/2026). Es. TARGET_ROAS,
   // MAXIMIZE_CONVERSION_VALUE (valore) · TARGET_CPA, MAXIMIZE_CONVERSIONS (numero)
   strategiaOfferta  String?
+  // vendite | lead — le campagne B2B/corporate ottimizzano LEAD con valore
+  // simbolico (doc 4): giudicarle col ROAS e un errore di lettura. Dedotto
+  // dal valore medio per conversione, correggibile a mano.
+  tipoConversione   String?
   // Annunci in revisione da oltre 24h: alimenta l alert A4 (doc 11 §4)
   annunciInReview   Int?
   annunciTotali     Int?
@@ -758,4 +762,30 @@ model OperazioneAdv {
 
   @@index([stato])
   @@index([canale])
+}
+
+// Ogni consegna di dati verso l'app: chi l'ha mandata (chiave API + account
+// della piattaforma), che tipo di dati, quante righe e che periodo coprono.
+// Serve a rispondere a "cosa sto ricevendo, da chi, e da quando".
+model RicezioneDati {
+  id         String   @id @default(cuid())
+  fonte      String   @default("google_ads")
+  account    String?
+  // metriche | copy | asset | approvazioni | operazioni | ordini | altro
+  tipo       String
+  // Nome del client della chiave API che ha consegnato
+  chiave     String?
+  righe      Int      @default(0)
+  nuove      Int      @default(0)
+  aggiornate Int      @default(0)
+  scartate   Int      @default(0)
+  // Periodo coperto dai dati consegnati
+  dal        DateTime?
+  al         DateTime?
+  campagne   Int      @default(0)
+  esito      String   @default("ok")
+  ricevutoIl DateTime @default(now())
+
+  @@index([ricevutoIl])
+  @@index([fonte, tipo])
 }
