@@ -68,7 +68,10 @@ export async function eseguiSyncOrdini(
 // idempotente (createMany con skipDuplicates, e al secondo giro gli ordini
 // risultano già presenti e passano dal ramo di aggiornamento), quindi ripeterlo
 // non crea doppioni.
-async function conRiprova<T>(operazione: () => Promise<T>, tentativi = 4): Promise<T> {
+// Le pause raddoppiano fino a mezzo minuto: in tutto si insiste per circa due
+// minuti. Un primo tentativo con 4 riprove ravvicinate (18 secondi in tutto)
+// non bastava — l'interruzione del pooler dura di più.
+async function conRiprova<T>(operazione: () => Promise<T>, tentativi = 7): Promise<T> {
   let ultimo: unknown;
   for (let t = 0; t < tentativi; t++) {
     try {
@@ -76,12 +79,14 @@ async function conRiprova<T>(operazione: () => Promise<T>, tentativi = 4): Promi
     } catch (e) {
       const messaggio = (e as Error).message ?? "";
       const connessionePersa =
-        /closed the connection|Can't reach database|Connection (reset|refused|closed)|ECONNRESET|Timed out fetching/i.test(
+        /closed the connection|Can't reach database|Connection (reset|refused|closed)|ECONNRESET|Timed out fetching|Server has closed/i.test(
           messaggio,
         );
       if (!connessionePersa || t === tentativi - 1) throw e;
       ultimo = e;
-      await new Promise((r) => setTimeout(r, 3000 * (t + 1)));
+      const pausa = Math.min(30000, 2000 * 2 ** t); // 2s, 4s, 8s, 16s, 30s, 30s
+      console.log(`  database irraggiungibile, riprovo fra ${pausa / 1000}s (tentativo ${t + 1}/${tentativi - 1})`);
+      await new Promise((r) => setTimeout(r, pausa));
     }
   }
   throw ultimo;
