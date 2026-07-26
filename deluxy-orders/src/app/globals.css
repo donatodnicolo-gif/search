@@ -852,3 +852,30 @@ th.num { text-align: right; }
 .th-ordina.attiva { color: var(--text); }
 .th-freccia { font-size: 10px; opacity: 0.45; }
 .th-ordina.attiva .th-freccia { opacity: 1; color: var(--gold-strong); }
+
+/* ---------- Ordine problematico (oggi: rimborso parziale) ---------- */
+.badge-problema {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(201, 52, 0, 0.10);
+  color: var(--orange);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* Già verificato da qualcuno: resta visibile, ma smette di gridare */
+.badge-problema.gestito {
+  background: var(--fill);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+td .badge-problema { margin-top: 3px; }
+
+.kpi-problema { border-left: 3px solid var(--orange); display: block; }
+.kpi-problema:hover { box-shadow: var(--shadow-float); }
+
+.scheda-problema { border-left: 3px solid var(--orange); }

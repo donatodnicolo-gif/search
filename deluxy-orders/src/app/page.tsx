@@ -4,6 +4,7 @@ import {
   whereOrdini, euro, dataBreve, consegnaBreve, urgenzaConsegna,
   evasioneLeggibile, pagamentoLeggibile, motivoLeggibile, coloreEvasione, STATI_PAGAMENTO,
   rischioLeggibile, rischioDaSegnalare, coloreRischio,
+  problematico, motiviProblema, STATI_PROBLEMA,
 } from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
@@ -30,12 +31,15 @@ export default async function ElencoOrdini({
   // Due viste: colonne per brand (predefinita) ed elenco in tabella.
   const vista = sp.vista === "elenco" ? "elenco" : "brand";
 
-  const [stati, brand, etichette, totale, somma, ordini] = await Promise.all([
+  const [stati, brand, etichette, totale, somma, problemiAperti, ordini] = await Promise.all([
     statiOrdinati(),
     brandConColore(),
     prisma.etichetta.findMany({ orderBy: { nome: "asc" } }),
     prisma.ordine.count({ where }),
     prisma.ordine.aggregate({ where, _sum: { totale: true } }),
+    // Quanti ordini problematici aspettano ancora un occhio (su TUTTO il
+    // registro, non sul filtro: è una coda di lavoro, non una statistica).
+    prisma.ordine.count({ where: { financialStatus: { in: [...STATI_PROBLEMA] }, problemaGestito: false } }),
     vista === "elenco"
       ? prisma.ordine.findMany({
           where,
@@ -124,6 +128,12 @@ export default async function ElencoOrdini({
           <div className="kpi-valore">{negozi.filter((n) => n.attivo).length}</div>
           <div className="kpi-etichetta">Negozi attivi</div>
         </div>
+        {problemiAperti > 0 && (
+          <Link className="kpi kpi-problema" href="/?problema=aperti">
+            <div className="kpi-valore">{problemiAperti.toLocaleString("it-IT")}</div>
+            <div className="kpi-etichetta">Rimborsi parziali da verificare</div>
+          </Link>
+        )}
       </div>
 
       {/* Ricerca in evidenza: una sola casella che cerca ovunque */}
@@ -193,6 +203,12 @@ export default async function ElencoOrdini({
           <option value="evasi">Evasi</option>
           <option value="rimborsati">Rimborsati / annullati (pagamento)</option>
         </select>
+        <select name="problema" defaultValue={sp.problema ?? ""}>
+          <option value="">Problematici: tutti gli ordini</option>
+          <option value="aperti">Solo problematici da verificare</option>
+          <option value="gestiti">Problematici già verificati</option>
+          <option value="tutti">Tutti i problematici</option>
+        </select>
         <select name="rischio" defaultValue={sp.rischio ?? ""}>
           <option value="">Ogni rischio frode</option>
           <option value="sospetti">Sospetti (medio o alto)</option>
@@ -252,6 +268,16 @@ export default async function ElencoOrdini({
                         </Link>
                         <span className="card-totale">{euro(o.totale, o.valuta)}</span>
                       </div>
+                      {/* Rimborso parziale: l'ordine sembra normale ma una parte
+                          del denaro è tornata indietro, e quanta non lo sappiamo */}
+                      {problematico(o) && (
+                        <div
+                          className={`badge-problema${o.problemaGestito ? " gestito" : ""}`}
+                          title={motiviProblema(o).join(" · ")}
+                        >
+                          {o.problemaGestito ? "✓ Rimborso parziale verificato" : "⚠ Rimborso parziale"}
+                        </div>
+                      )}
                       {/* Rischio frode: solo medio/alto, altrimenti è rumore */}
                       {rischioDaSegnalare(o.rischioLivello) && !o.annullatoIl && (
                         <div className="badge-rischio" style={{ color: coloreRischio(o.rischioLivello) }}>
@@ -382,6 +408,14 @@ export default async function ElencoOrdini({
                       {rischioDaSegnalare(o.rischioLivello) && (
                         <span className="badge-rischio" style={{ color: coloreRischio(o.rischioLivello) }} title={o.rischioMotivi ?? ""}>
                           ⚠ {rischioLeggibile(o.rischioLivello)}
+                        </span>
+                      )}
+                      {problematico(o) && (
+                        <span
+                          className={`badge-problema${o.problemaGestito ? " gestito" : ""}`}
+                          title={motiviProblema(o).join(" · ")}
+                        >
+                          {o.problemaGestito ? "✓ Rimborso parziale" : "⚠ Rimborso parziale"}
                         </span>
                       )}
                       <div className="cella-sub cella-brand">

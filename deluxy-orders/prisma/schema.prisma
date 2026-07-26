@@ -283,6 +283,16 @@ model Ordine {
   // dimensioni libere chiave→valore (riclassificazione senza cambi di schema)
   classificazioni Json?
 
+  // Ordine PROBLEMATICO: i soldi non tornano e serve un occhio umano. Oggi lo
+  // fa scattare il RIMBORSO PARZIALE (financialStatus = PARTIALLY_REFUNDED):
+  // l'ordine resta valido e in piedi, ma una parte del denaro è tornata al
+  // cliente — e nel registro non c'è quanta. Non è un errore da nascondere: è
+  // una coda di lavoro. Il motivo NON si salva (si ricava sempre dallo stato
+  // Shopify, così non può invecchiare); qui si salva solo che qualcuno l'ha
+  // guardato e cosa ha concluso.
+  problemaGestito Boolean @default(false)
+  problemaNota    String? // "rimborsata la spedizione, cliente d'accordo"
+
   noteInterne      String?
   ultimaClassifica DateTime? // ultima modifica manuale della classificazione
   eventi           EventoOrdine[]
@@ -297,6 +307,8 @@ model Ordine {
   @@index([dataConsegna])
   @@index([annullatoIl])
   @@index([fulfillmentStatus])
+  @@index([financialStatus])
+  @@index([problemaGestito])
   @@index([rischioLivello])
   @@index([categoriaPagamento])
   @@index([assegnatoApp])

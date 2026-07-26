@@ -96,6 +96,14 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
   const pagamento = p.get("pagamento")?.trim();
   if (pagamento) where.financialStatus = pagamento;
 
+  // Ordini PROBLEMATICI (vedi motiviProblema): oggi sono i rimborsi parziali.
+  //   aperti = da guardare · gestiti = già visti da qualcuno · tutti = entrambi
+  const problema = p.get("problema")?.trim();
+  if (problema === "aperti" || problema === "gestiti" || problema === "tutti") {
+    where.financialStatus = { in: [...STATI_PROBLEMA] };
+    if (problema !== "tutti") where.problemaGestito = problema === "gestiti";
+  }
+
   // Rischio frode: "sospetti" = medio o alto, quelli da guardare a mano.
   const rischio = p.get("rischio")?.trim();
   if (rischio === "sospetti") where.rischioLivello = { in: ["MEDIUM", "HIGH"] };
@@ -218,8 +226,48 @@ export function serializzaOrdine(
       noteInterne: o.noteInterne,
       ultimaClassifica: o.ultimaClassifica?.toISOString() ?? null,
     },
+    // Ordine problematico: oggi vuol dire rimborso parziale. `motivi` è in
+    // chiaro perché chi legge da un'altra app deve poter dire all'operatore
+    // *perché*, senza conoscere i codici di Shopify. `gestito` dice che qualcuno
+    // l'ha già guardato: serve a non rilavorare due volte lo stesso caso.
+    problema: {
+      problematico: problematico(o),
+      motivi: motiviProblema(o),
+      gestito: o.problemaGestito,
+      nota: o.problemaNota,
+    },
     updatedAt: o.updatedAt.toISOString(),
   };
+}
+
+// ---------- Ordini problematici ----------
+//
+// Un ordine è **problematico** quando i soldi non tornano e serve un occhio
+// umano. Oggi il caso è uno solo: il **rimborso parziale**.
+//
+// Perché proprio quello. Un ordine annullato si vede (è barrato), uno rimborsato
+// del tutto è una vendita che non c'è più; il rimborso *parziale* invece resta
+// in piedi e sembra un ordine normale — ma una parte del denaro è tornata al
+// cliente, e **quanta non si sa**: Shopify tiene sul nostro registro il totale
+// dell'ordine, non l'importo reso. Quindi ogni conto che lo tocca è sbagliato in
+// eccesso, e dietro c'è quasi sempre una storia (un pezzo mancante, una
+// consegna andata male, un accordo).
+//
+// Il motivo NON si salva nel database: si ricava sempre dallo stato Shopify, e
+// così non può invecchiare (se Shopify cambia idea, cambia anche il marchio).
+// Si salva solo che qualcuno l'ha guardato — `problemaGestito` + `problemaNota`.
+export const STATI_PROBLEMA = ["PARTIALLY_REFUNDED"] as const;
+
+export function motiviProblema(o: { financialStatus: string | null }): string[] {
+  const motivi: string[] = [];
+  if (o.financialStatus === "PARTIALLY_REFUNDED") {
+    motivi.push("Rimborso parziale: parte del denaro è tornata al cliente e l'importo reso non è nel registro");
+  }
+  return motivi;
+}
+
+export function problematico(o: { financialStatus: string | null }): boolean {
+  return motiviProblema(o).length > 0;
 }
 
 // Formattazione importo per la UI.

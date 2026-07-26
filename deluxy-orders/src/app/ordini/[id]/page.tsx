@@ -5,11 +5,12 @@ import {
   euro, dataBreve, consegnaBreve, urgenzaConsegna,
   evasioneLeggibile, pagamentoLeggibile, motivoLeggibile, coloreEvasione, colorePagamento,
   rischioLeggibile, rischioDaSegnalare, coloreRischio, linkShopify,
+  problematico, motiviProblema,
 } from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { linkRicerca, brandPerRicerca } from "@/lib/fornitori";
-import { cambiaStato, toggleEtichetta, aggiornaClassificazione } from "@/app/actions";
+import { cambiaStato, toggleEtichetta, aggiornaClassificazione, segnaProblemaGestito } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -179,6 +180,48 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
           </div>
         </form>
       </div>
+
+      {/* Rimborso parziale: l'ordine è vivo, ma una parte del denaro è tornata
+          al cliente e nel registro non c'è quanta. Va guardato da una persona. */}
+      {problematico(ordine) && (
+        <div className="scheda scheda-problema">
+          <div className="scheda-titolo">Ordine problematico</div>
+          <ul className="motivi-rischio">
+            {motiviProblema(ordine).map((m) => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
+          <p className="testo-guida" style={{ margin: "10px 0" }}>
+            Il marchio dipende dallo stato del pagamento su Shopify e resta finché resta
+            quello: non si toglie a mano. Quello che si può fare è dire che è stato{" "}
+            <strong>verificato</strong>, così esce dalla coda di chi deve controllare — e la
+            nota resta scritta per chi passa dopo.
+            {ordine.problemaGestito && ordine.problemaNota ? (
+              <>
+                {" "}Verificato: <strong>{ordine.problemaNota}</strong>
+              </>
+            ) : null}
+          </p>
+          <form action={segnaProblemaGestito} className="modulo">
+            <input type="hidden" name="ordineId" value={ordine.id} />
+            <input type="hidden" name="gestito" value={ordine.problemaGestito ? "no" : "si"} />
+            <div className="campo-modulo largo">
+              <label htmlFor="nota-problema">Cosa è successo</label>
+              <input
+                id="nota-problema"
+                name="nota"
+                defaultValue={ordine.problemaNota ?? ""}
+                placeholder="es. rimborsata la spedizione per il ritardo, cliente d'accordo"
+              />
+            </div>
+            <div className="azioni-modulo campo-modulo largo">
+              <button className="btn" type="submit">
+                {ordine.problemaGestito ? "Rimetti fra i casi da verificare" : "Segna come verificato"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Customer Service: cosa è andato storto su questo ordine, e come l'ha
           giudicato il cliente. Arriva da deluxy-messaging: qui è sola lettura. */}

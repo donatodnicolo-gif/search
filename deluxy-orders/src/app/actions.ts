@@ -81,6 +81,32 @@ export async function aggiornaClassificazione(fd: FormData) {
   revalidatePath(`/ordini/${ordineId}`);
 }
 
+// ---- Ordini problematici (rimborsi parziali) ----
+// Il marchio «problematico» non si toglie a mano — dipende dallo stato Shopify e
+// resta finché resta quello. Quello che si può dire è «l'ho guardato, ecco cosa
+// ho concluso»: l'ordine esce dalla coda dei problemi aperti e la nota resta
+// scritta, così il prossimo non ricomincia da capo.
+export async function segnaProblemaGestito(fd: FormData) {
+  const ordineId = s(fd, "ordineId");
+  if (!ordineId) return;
+  const gestito = fd.get("gestito") !== "no";
+  const nota = s(fd, "nota");
+
+  await prisma.ordine.update({
+    where: { id: ordineId },
+    data: { problemaGestito: gestito, problemaNota: nota },
+  });
+  await registraEvento(
+    ordineId,
+    "problema",
+    gestito
+      ? `Rimborso parziale verificato${nota ? `: ${nota}` : ""}`
+      : "Rimborso parziale rimesso fra i casi da verificare",
+  );
+  revalidatePath("/");
+  revalidatePath(`/ordini/${ordineId}`);
+}
+
 // ---- Etichette su un ordine ----
 export async function toggleEtichetta(fd: FormData) {
   const ordineId = s(fd, "ordineId");

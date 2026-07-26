@@ -326,6 +326,36 @@ verde, rimborsi e annullamenti in rosso, situazioni parziali in arancio.
 Si filtra per stato Shopify (non annullati, solo annullati, da evadere, evasi,
 rimborsati) e per stato del pagamento puntuale.
 
+### Ordini problematici (rimborsi parziali)
+Un ordine è **problematico** quando i soldi non tornano e serve un occhio umano.
+Oggi il caso è uno solo: il **rimborso parziale** (`PARTIALLY_REFUNDED`) — 89
+ordini per 13.815 EUR sul registro attuale.
+
+Perché proprio quello: un ordine annullato si vede (è barrato) e uno rimborsato
+del tutto è una vendita che non c'è più; il rimborso *parziale* invece resta in
+piedi e sembra un ordine normale, ma **una parte del denaro è tornata al cliente
+e quanta non si sa** — Shopify tiene sul nostro registro il totale dell'ordine,
+non l'importo reso. Quindi ogni conto che lo tocca è sbagliato in eccesso, e
+dietro c'è quasi sempre una storia (un pezzo mancante, una consegna andata male,
+un accordo).
+
+Dove si vede: badge arancio **⚠ Rimborso parziale** nelle colonne per brand e
+nell'elenco, riquadro dedicato nella scheda dell'ordine, e un riquadro in cima
+alla pagina Ordini — «Rimborsi parziali da verificare» — che è una **coda di
+lavoro** e conta su tutto il registro, non sul filtro attivo. Filtro dedicato:
+*Solo problematici da verificare*, *già verificati*, *tutti*.
+
+**Il marchio non si toglie a mano**: dipende dallo stato del pagamento su
+Shopify e resta finché resta quello (se Shopify cambia idea, cambia anche il
+marchio — il motivo non viene mai salvato nel database, si ricalcola sempre).
+Quello che una persona può dire è «l'ho guardato», con una nota: l'ordine esce
+dalla coda, il badge diventa grigio «✓ verificato» e la nota resta scritta per
+chi passa dopo. Ogni verifica lascia una riga nella *Storia* dell'ordine.
+
+Nelle API l'ordine porta con sé `problema: { problematico, motivi, gestito, nota }`:
+i motivi sono in chiaro, così un'app a valle può dirlo a un operatore senza
+conoscere i codici di Shopify.
+
 ### Rischio frode
 Shopify analizza ogni ordine e assegna un livello (nessuno, basso, medio, alto)
 con una raccomandazione (accettare, verificare, annullare). Qui si importano

@@ -103,6 +103,24 @@ notte dentro `/api/cron/sync` e a mano dal pulsante.
   esportano o si mandano dal Customer Service e poi si segnano come inviati.
   Ogni scheda mostra la prova a vuoto con i motivi degli esclusi.
 
+### Ordini problematici — rimborsi parziali (26/07/2026)
+**89 ordini** (13.815 EUR) hanno `financialStatus = PARTIALLY_REFUNDED`: l'ordine
+resta valido e sembra normale, ma parte del denaro è tornata al cliente e
+**l'importo reso non esiste nel registro** (Shopify ci dà solo il totale). Sono
+marcati «problematici»: badge nell'elenco e nelle colonne, riquadro nella scheda,
+KPI-coda in cima alla pagina Ordini, filtro `problema=aperti|gestiti|tutti` e
+campo `problema` nelle API.
+
+- Il **motivo non si salva**: si ricava sempre da `motiviProblema()` in
+  `src/lib/ordini.ts`, così non può invecchiare. Nel database c'è solo
+  `problemaGestito` + `problemaNota` («l'ho guardato, ecco cosa ho concluso»).
+- Aggiungere un altro caso = una riga in `motiviProblema()` più la costante in
+  `STATI_PROBLEMA`. Candidati **non** inclusi per scelta: i 2 ordini
+  `PARTIALLY_PAID` (pagati in parte) e gli ordini con un reclamo aperto dal
+  Customer Service — vanno decisi con l'utente, non aggiunti di slancio.
+- Provato su un ordine vero (#1713): segnato → 88 aperti / 1 gestito con
+  l'evento nella storia, poi rimesso com'era.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare
