@@ -4,6 +4,7 @@ import { dataBreve } from '@/lib/format'
 import { raggruppa } from '@/lib/thread'
 import { nomiPerGruppi } from '@/lib/nomiThread'
 import { idsThreadChiusi } from '@/lib/threadChiusi'
+import { AzioniTopThread } from './AzioniTopThread'
 
 /**
  * TOP THREAD: le conversazioni più corpose degli ultimi 30 giorni — quelle in
@@ -107,6 +108,8 @@ export async function ColonnaTopThread({ utenteId }: { utenteId: string }) {
                   <span className="muted">{dataBreve(volto.data)}</span>
                   {nonLetti && <span className="dot-unread" title="Ci sono mail non lette" />}
                 </div>
+                {/* Da qui si smaltisce senza aprire: apri / chiudi / cestina tutto. */}
+                <AzioniTopThread messaggioId={volto.id} quante={g.length} />
               </div>
             </div>
           )

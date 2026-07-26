@@ -136,6 +136,12 @@ alla mail, puoi:
 Queste quattro cose ci sono **anche quando la mail risulta da sola**: se domani le
 agganci una compagna, il nome che le hai dato vale già per tutte e due.
 
+Le stesse tre cose si fanno **senza aprire la mail** dalla colonna «Top thread ·
+30 giorni», in alto a destra nella posta: sotto ogni conversazione ci sono **Apri**,
+**Chiudi** e **Cestina tutto** (quest'ultimo chiede conferma e dice quante mail sposta).
+Chiudendo o cestinando, la conversazione lascia subito la colonna — in entrambi i casi
+esce dai Top thread.
+
 ## 6d. Cestinare è immediato
 
 Cestinare, archiviare o segnalare come spam fa **sparire subito** la riga e basta:
