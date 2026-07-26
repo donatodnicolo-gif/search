@@ -27,7 +27,7 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 | Cosa | Quanti |
 | --- | --- |
 | Metriche giornaliere di campagna | **2.730** (19/06/2025 → 26/07/2026) |
-| Ordini Shopify 2026 (deluxy.it) | 2.426, con 2.956 righe prodotto |
+| Ordini Shopify **tutti i brand** | **8.032** (01/01/2025 → 26/07/2026), 9.416 righe prodotto — gifts 5.982 · flowers 1.371 · cake 679 |
 | Documenti Drive indicizzati | 653 |
 | Analisi e audit dai Definitivi | 39 |
 | Keyword e annunci | 635 |
@@ -144,6 +144,26 @@ Bottone su **Dati in arrivo** e in fondo alla scheda campagna.
 > quota. **Regola: un messaggio di ripiego non deve mai poter mentire sulla
 > causa.**
 
+### Ordini: si leggono da Deluxy Orders (26/07/2026)
+
+Mancavano Flowers e Cake — c'erano solo i 2.426 ordini di deluxy.it presi
+direttamente da Shopify. Ora tutti e tre i brand arrivano dal registro
+centrale `deluxy-orders` con `npm run import:ordini-orders` (chiave di sola
+lettura in `ORDERS_API_KEY`). Una fonte sola invece di tre token Admin.
+
+- **Verifica di quadratura**: il venduto 2026 in Marketing coincide **all'euro**
+  con quello dichiarato da Orders — 601.818 € su 3.415 ordini (gifts 426.182 ·
+  flowers 135.816 · cake 39.820), esclusi annullati e rimborsati.
+- **Due trappole già pagate**: i brand hanno nomi diversi nelle due app
+  (`deluxy.it`/`Flowers`/`cakedesign.me` contro `gifts`/`flowers`/`cake`), e
+  gli id no — Orders espone `gid://shopify/Order/123`, qui era salvato il numero
+  nudo. Senza ridurlo i 2.426 ordini già presenti sarebbero **rientrati tutti
+  come doppioni**.
+- **Cosa non arriva**: annullati (esclusi per scelta: restano spesso "pagati" e
+  gonfierebbero il fatturato — `--annullati` per averli), e netto merce,
+  spedizione e sconto, che Orders non espone. Sulle righe già importate da
+  Shopify **non vengono sovrascritti a null**.
+
 ### Connettori
 
 - **Google Ads**: `scripts/google-ads-script.js` (**v2**, 26/07/2026) da incollare
@@ -250,8 +270,8 @@ le verifiche +24h/+72h. Vale anche per keyword nuove, negative e campagne nuove
 5. **Chiave Google Drive API** — `GOOGLE_DRIVE_API_KEY` per la sync del Drive
    **dal server**: da Vercel la cartella `G:\` non esiste. Senza chiave l'indice
    si aggiorna solo lanciando `npm run sync-drive` dal PC.
-6. **Ordini Flowers e Cake** — solo deluxy.it è importato. Serve il token Admin
-   API dei due negozi (`SHOPIFY_TOKEN_*`) o l'autorizzazione a fare switch-shop.
+6. ~~**Ordini Flowers e Cake**~~ — **fatto il 26/07/2026**: arrivano dal registro
+   centrale con `npm run import:ordini-orders`, non più da Shopify.
 7. **Meta: scrittura** — il connettore oggi **legge** soltanto. Per scrivere
    servirebbe `ads_management` e la stessa coda approvata di Google.
 8. **PR** — `scout-ui` è avanti di **477 commit** su `main`: una PR conterrebbe
