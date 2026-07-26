@@ -631,8 +631,32 @@ viene aggiornato per altri motivi, il rischio viene salvato in quell'occasione.
 ## Lettura dalle altre app
 Le altre app leggono con una chiave di sola lettura (`GET /api/v1/ordini`,
 `/api/v1/ordini/:id`, `/api/v1/stati`, `/api/v1/liste`, `/api/v1/liste/:chiave`,
-`/api/v1/ricavi`). Chi ha una chiave di scrittura può anche riclassificare
-(`PATCH /api/v1/ordini/:id`). Dettaglio in `README.md`.
+`/api/v1/clienti`, `/api/v1/clienti/:cliente`, `/api/v1/ricavi`). Chi ha una
+chiave di scrittura può anche riclassificare (`PATCH /api/v1/ordini/:id`).
+Dettaglio in `README.md`.
+
+### Chi è questo cliente (`/api/v1/clienti`)
+Il riassunto scritto dall'AI non resta chiuso qui dentro: esce con le API, così
+quando squilla il telefono o arriva un reclamo l'app che lo riceve non deve
+indovinare chi c'è dall'altra parte. `GET /api/v1/clienti` dà l'elenco con
+`riassunto` e `gusti` per ognuno; `GET /api/v1/clienti/:cliente` dà la scheda
+completa, **punti compresi**, e accetta l'identificatore base64url oppure
+l'email in chiaro. Le liste possono portarselo dietro con `riepilogo=si`, così
+chi sta per scrivere a una lista sa a chi sta scrivendo.
+
+Due cose dette apposta nella risposta:
+
+- **`riepilogo: null` vuol dire «non l'abbiamo ancora scritto», non «questo
+  cliente non ha preferenze»**. La differenza conta: la prima è ignoranza
+  nostra, la seconda sarebbe un'affermazione sul cliente. L'elenco dichiara
+  anche `riepiloghiScritti`, quanti ne esistono in tutto;
+- **`aggiornato` e `ordiniNuoviDaAllora`**: se il cliente ha ordinato dopo
+  l'ultima scrittura, quel testo descrive una persona un po' più vecchia di
+  quella che si ha davanti, e chi legge deve poterlo sapere.
+
+Non c'è un filtro «dammi solo quelli col riassunto»: applicarlo dopo la
+paginazione restituirebbe pagine mezze vuote fingendo di aver selezionato
+qualcosa.
 
 ### Il venduto per periodo (`/api/v1/ricavi`)
 Chi ragiona per mese e non per singolo ordine — il **consuntivo di Budgets**, per

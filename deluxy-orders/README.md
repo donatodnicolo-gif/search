@@ -69,7 +69,9 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 | GET | `/api/v1/ricavi` | venduto **aggregato per brand e per mese** (`anno`, oppure `da`/`a`; `brand`; `annullati=inclusi`, `rimborsati=inclusi`) |
 | GET | `/api/v1/stati` | la pipeline degli stati (per interpretare `stato`) |
 | GET | `/api/v1/liste` | catalogo delle liste di clienti, con conteggi, criteri e soglie |
-| GET | `/api/v1/liste/:chiave` | i clienti di una lista (`q, ordina, page, limit≤500`) con segmento, tipologia, spesa e recency |
+| GET | `/api/v1/liste/:chiave` | i clienti di una lista (`q, ordina, page, limit≤500`) con segmento, tipologia, spesa e recency; con `riepilogo=si` anche riassunto e gusti |
+| GET | `/api/v1/clienti` | i clienti **col riassunto scritto dall'AI** (`q, lista, ordina, verso, page, limit≤500`) |
+| GET | `/api/v1/clienti/:cliente` | la scheda di un cliente col riepilogo completo (riassunto, gusti, un punto per ordine); accetta l'id base64url **o l'email in chiaro** |
 | POST | `/api/v1/sync?giorni=90` | avvia l'import (chiave di scrittura); `giorni=tutto` per lo storico completo |
 
 La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine`).
@@ -95,6 +97,20 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 > (`src/lib/tipologia-cliente.ts`, una sola query per pagina di risultati).
 > `tipo` esce `null` sugli ordini senza email, telefono né nome: lì non si sa chi
 > sia il cliente, e non si tira a indovinare.
+
+> **Il riassunto del cliente esce, ma `riepilogo: null` non vuol dire «cliente
+> senza preferenze».** Vuol dire che non è ancora stato scritto: si scrive
+> dall'app di Orders, cliente per cliente o in blocco, perché ognuno costa una
+> chiamata a pagamento. Chi legge deve trattare `null` come «non lo sappiamo» e
+> non come «non ha gusti». Ogni riepilogo dichiara anche `aggiornato` e
+> `ordiniNuoviDaAllora`: se il cliente ha ordinato dopo l'ultima scrittura, quel
+> testo parla di una persona un po' più vecchia di quella che si ha davanti.
+> Nella risposta ci sono `riassunto` (chi è, come compra), `gusti` (prodotti che
+> ripete, fascia di prezzo, destinatari abituali) e — solo sulla scheda singola
+> — `punti`, uno per ordine. L'elenco dichiara `riepiloghiScritti`, quanti ne
+> esistono in tutto: **non c'è un filtro «solo quelli col riassunto»**, perché
+> filtrarli dopo la paginazione restituirebbe pagine mezze vuote fingendo di
+> aver selezionato qualcosa.
 
 > **Gli ordini annullati non escono di default.** Un'app che li ricevesse
 > potrebbe lavorarli come validi, e un ordine annullato resta spesso «pagato»:

@@ -234,6 +234,16 @@ su `/clienti`. Modello nuovo `RiepilogoCliente` (chiave unica, `testo`, `punti`,
   ci stanno.
 - ⚠️ `riepilogaCliente` può tornare `ok: true` **con** un messaggio («Nessun
   ordine nuovo»): non è un errore, e l'azione lo mostra come avviso verde.
+- **Esposto alle altre app** (27/07/2026): `GET /api/v1/clienti` (elenco con
+  `riassunto` e `gusti`, filtri `q, lista, ordina, verso`, `riepiloghiScritti`
+  nella risposta) e `GET /api/v1/clienti/:cliente` (scheda completa coi
+  `punti`; accetta base64url **o email in chiaro**). `/api/v1/liste/:chiave`
+  accetta `riepilogo=si`. Provati in produzione con una chiave temporanea, poi
+  cancellata.
+- ⚠️ **Niente filtro `solo=con-riepilogo`**: era stato scritto e poi tolto
+  perché filtrava *dopo* la paginazione — restituiva pagine vuote su 3.406
+  pagine fingendo di aver selezionato. Se serve davvero, va fatto in SQL dentro
+  `elencoClienti`, non a valle.
 
 ## Trappole già pagate — leggere prima di toccare l'import
 

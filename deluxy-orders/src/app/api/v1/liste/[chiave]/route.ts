@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { codificaChiave, contaClienti, elencoClienti, ordinamentoValido } from "@/lib/clienti";
 import { lista } from "@/lib/segmenti";
+import { prisma } from "@/lib/db";
 
 // GET /api/v1/liste/{chiave} — i clienti di una lista, per le altre app.
 // Filtri: q (ricerca), ordina (speso|ordini|recenti|nome).
 // Paginazione: page (1..), limit (default 100, max 500).
+// Con `riepilogo=si` ogni cliente porta anche il riassunto scritto dall'AI
+// (chi è, cosa gli piace): serve a chi deve scrivergli senza aprire l'app.
 //
 // Il `cliente` è lo stesso identificatore usato dalla UI (base64url della
 // chiave email → telefono → nome): con quello si apre la scheda su
@@ -28,6 +31,20 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ chiave: str
     contaClienti(q, l.chiave),
     elencoClienti(q, ordina, (page - 1) * limit, limit, l.chiave),
   ]);
+
+  // I riassunti si caricano solo se chiesti: sono testo, e su 500 clienti
+  // peserebbero più di tutto il resto della risposta messo insieme.
+  const conRiepilogo = p.get("riepilogo") === "si";
+  const riepiloghi = conRiepilogo
+    ? new Map(
+        (
+          await prisma.riepilogoCliente.findMany({
+            where: { chiave: { in: clienti.map((c) => c.chiave) } },
+            select: { chiave: true, testo: true, gusti: true, ordiniConsiderati: true, aggiornatoIl: true },
+          })
+        ).map((r) => [r.chiave, r]),
+      )
+    : null;
 
   return NextResponse.json({
     lista: { chiave: l.chiave, nome: l.nome, famiglia: l.famiglia, criterio: l.criterio, consiglio: l.consiglio },
@@ -53,6 +70,18 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ chiave: str
       segmento: c.segmento,
       tipologia: c.tipologia,
       tipologiaManuale: c.tipoManuale != null,
+      ...(riepiloghi
+        ? {
+            riepilogo: riepiloghi.has(c.chiave)
+              ? {
+                  riassunto: riepiloghi.get(c.chiave)!.testo,
+                  gusti: riepiloghi.get(c.chiave)!.gusti,
+                  aggiornato: c.ordini <= riepiloghi.get(c.chiave)!.ordiniConsiderati,
+                  aggiornatoIl: riepiloghi.get(c.chiave)!.aggiornatoIl,
+                }
+              : null, // non ancora scritto: non «senza preferenze»
+          }
+        : {}),
     })),
   });
 }
