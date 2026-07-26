@@ -166,6 +166,13 @@ Filtro «Sospetti (medio o alto)».
 Se un'app esterna ha più valutazioni (Shopify più un'app antifrode), si tiene la
 **più severa**: è quella che deve far fermare l'operatore.
 
+Il rischio si importa **solo sugli ordini nuovi**. Serve a decidere se spedire,
+quindi ha valore sugli ordini freschi; riempirlo all'indietro costringerebbe
+ogni sincronizzazione a riscrivere l'intero archivio (un'ora di lavoro) per un
+dato che su un ordine di tre anni fa non cambia niente. Gli ordini storici
+importati prima di questa funzione restano senza valutazione; se un ordine
+viene aggiornato per altri motivi, il rischio viene salvato in quell'occasione.
+
 ## Classificazione «a piacimento»
 - **Stato/pipeline**: dove si trova l'ordine nel flusso.
 - **Etichette libere**: raggruppamenti trasversali (urgente, VIP, reso…).

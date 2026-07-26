@@ -310,9 +310,13 @@ function cambiato(e: OrdineSalvato, o: OrdineNormalizzato, brand: string): boole
   if (!dataUguale(e.annullatoIl, o.annullatoIl)) return true;
   if (e.motivoAnnullamento !== o.motivoAnnullamento) return true;
   if (!dataUguale(e.chiusoIl, o.chiusoIl)) return true;
-  if (e.rischioLivello !== o.rischioLivello) return true;
-  if (e.rischioRaccomandazione !== o.rischioRaccomandazione) return true;
-  if (e.rischioMotivi !== o.rischioMotivi) return true;
+  // Il rischio frode NON entra nel confronto: si importa sui NUOVI ordini e
+  // basta. Se lo si confrontasse, ogni ordine storico risulterebbe "cambiato"
+  // (il valore passa da vuoto a un livello) e ogni sincronizzazione si
+  // trascinerebbe dietro la riscrittura di tutto l'archivio — un'ora di lavoro
+  // per un dato che serve a decidere se spedire, quindi solo sugli ordini
+  // freschi. Resta comunque salvato quando l'ordine si aggiorna per altri
+  // motivi, perché fa parte dei campi scritti.
   if (e.gateway !== o.gateway) return true;
   if (e.clienteNome !== o.clienteNome) return true;
   if (e.clienteEmail !== o.clienteEmail) return true;
