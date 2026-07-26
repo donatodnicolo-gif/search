@@ -82,17 +82,25 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
    `npm run db:push`. Serve una stringa Postgres del cluster condiviso (segreta).
 2. **Creare le chiavi API** per le app che manderanno task
    (`npm run chiave -- <app> --scrittura`) e metterle nei `.env` di quelle app
-   (es. `TASKS_API_KEY`).
+   (es. `TASKS_API_KEY`). **AI Mail è già pronta lato codice** (26/07/2026): manca
+   solo `npm run chiave -- mail --scrittura` e incollare la chiave in AI Mail →
+   Impostazioni App → «Registro Attività» (o nella cassaforte del Hub, progetto
+   `deluxy-mail`, nome `TASKS_API_KEY`).
 3. **DB in produzione**: su Vercel il progetto ha solo `TASKS_SESSION_SECRET`;
    mancano `DATABASE_URL` e `DIRECT_URL`, quindi l'app online mostra «Database non
    configurato». Si sistemano con **un comando** dalla cartella dell'app:
    `npm run vercel:env` (copia le stringhe dal `.env` locale senza stamparle e
    rilancia il deploy di produzione). Poi creare le squadre con `npm run squadra`.
 4. **Far mandare le task alle app**: integrare `POST /api/v1/tasks` dove ogni app
-   già crea "cose da fare" (AI Mail estrae attività dalle mail; Scout le visite;
-   Consegne le attività operative; Finance i bonifici da fare; ecc.).
-5. **Commit/branch**: i file sono su disco nel repo `app` (branch `deluxy-scout`),
-   non ancora committati. Decidere ramo e push.
+   già crea "cose da fare".
+   - **FATTO — AI Mail** (26/07/2026, repo `scoutwt`, branch `scout-ui`):
+     `deluxy-mail/src/lib/registroTask.ts` manda le attività a ogni giro del cron
+     della posta (`GET /api/sync`, `?forzaRegistro=1` per rimandare tutto), solo
+     quelle cambiate, con `asOf` che impedisce di riaprire ciò che è stato chiuso
+     qui. Chiave incollabile in AI Mail → Impostazioni App → «Registro Attività».
+   - **DA FARE**: Scout (le visite), Consegne (le attività operative), Finance
+     (i bonifici da fare), Customer Service (le azioni sui reclami), Acquisti
+     (le richieste da approvare).
 
 ## Note
 
