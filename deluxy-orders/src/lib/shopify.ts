@@ -28,6 +28,9 @@ export type OrdineNormalizzato = {
   annullatoIl: Date | null;
   motivoAnnullamento: string | null;
   chiusoIl: Date | null;
+  rischioLivello: string | null;
+  rischioRaccomandazione: string | null;
+  rischioMotivi: string | null;
   gateway: string | null;
   categoriaPagamento: CategoriaPagamento;
   clienteNome: string | null;
@@ -62,6 +65,10 @@ query Ordini($cursor: String, $q: String) {
         cancelledAt
         cancelReason
         closedAt
+        risk {
+          recommendation
+          assessments { riskLevel facts { description sentiment } }
+        }
         note
         tags
         customAttributes { key value }
@@ -107,6 +114,10 @@ type OrderNode = {
   cancelledAt: string | null;
   cancelReason: string | null;
   closedAt: string | null;
+  risk: {
+    recommendation: string | null;
+    assessments: { riskLevel: string | null; facts: { description: string; sentiment: string }[] | null }[] | null;
+  } | null;
   note: string | null;
   tags: string[];
   customAttributes: Attributo[] | null;
@@ -201,6 +212,37 @@ function indirizzoUnaRiga(a: OrderNode["shippingAddress"]): string | null {
   return [a.address1, a.address2].filter(Boolean).join(", ") || null;
 }
 
+// ---------- Rischio frode ----------
+// Shopify può restituire più valutazioni (la sua e quelle di app esterne):
+// si tiene la PIÙ severa, perché è quella che deve far fermare l'operatore.
+const ORDINE_RISCHIO = ["NONE", "LOW", "MEDIUM", "HIGH"] as const;
+
+function rischioDaOrdine(n: OrderNode): {
+  livello: string | null;
+  raccomandazione: string | null;
+  motivi: string | null;
+} {
+  const r = n.risk;
+  if (!r) return { livello: null, raccomandazione: null, motivi: null };
+
+  let peggiore = -1;
+  const motivi: string[] = [];
+  for (const a of r.assessments ?? []) {
+    const i = ORDINE_RISCHIO.indexOf((a.riskLevel ?? "NONE") as (typeof ORDINE_RISCHIO)[number]);
+    if (i > peggiore) peggiore = i;
+    // solo i fatti NEGATIVI: gli altri sono decine per ordine e non aiutano a decidere
+    for (const f of a.facts ?? []) {
+      if (f.sentiment === "NEGATIVE" && f.description) motivi.push(f.description);
+    }
+  }
+
+  return {
+    livello: peggiore >= 0 ? ORDINE_RISCHIO[peggiore] : null,
+    raccomandazione: r.recommendation ?? null,
+    motivi: motivi.length ? [...new Set(motivi)].join("\n").slice(0, 2000) : null,
+  };
+}
+
 // ---------- Consegna richiesta (data e fascia oraria) ----------
 // Sui negozi Deluxy sono attributi dell'ordine: Data_Consegna (ISO) e
 // Fascia_Oraria_Consegna ("16-20"). Il riconoscimento è però per parola chiave,
@@ -282,6 +324,7 @@ export async function scaricaOrdini(
       const gateways = n.paymentGatewayNames ?? [];
       const addr = n.shippingAddress;
       const consegna = consegnaDaOrdine(n);
+      const rischio = rischioDaOrdine(n);
       const righe: RigaNormalizzata[] = (n.lineItems?.edges ?? []).map(({ node: l }) => ({
         titolo: l.title,
         variante: l.variantTitle,
@@ -300,6 +343,9 @@ export async function scaricaOrdini(
         annullatoIl: n.cancelledAt ? new Date(n.cancelledAt) : null,
         motivoAnnullamento: n.cancelReason ?? null,
         chiusoIl: n.closedAt ? new Date(n.closedAt) : null,
+        rischioLivello: rischio.livello,
+        rischioRaccomandazione: rischio.raccomandazione,
+        rischioMotivi: rischio.motivi,
         gateway: gateways.join(", ") || null,
         categoriaPagamento: categoriaDaGateway(gateways),
         clienteNome: [n.customer?.firstName, n.customer?.lastName].filter(Boolean).join(" ") || null,

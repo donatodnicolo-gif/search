@@ -279,6 +279,28 @@ td .btn-fornitore { margin-top: 0; }
   font-size: 14px;
 }
 
+/* ---------- Rischio frode ---------- */
+.badge-rischio {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+td .badge-rischio { margin-top: 3px; }
+
+.motivi-rischio {
+  margin: 0 0 0 18px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+.motivi-rischio li { margin: 4px 0; }
+
 /* ---------- Consegna richiesta (data + fascia oraria) ---------- */
 .consegna {
   display: inline-flex;

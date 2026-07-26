@@ -95,6 +95,11 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
   const pagamento = p.get("pagamento")?.trim();
   if (pagamento) where.financialStatus = pagamento;
 
+  // Rischio frode: "sospetti" = medio o alto, quelli da guardare a mano.
+  const rischio = p.get("rischio")?.trim();
+  if (rischio === "sospetti") where.rischioLivello = { in: ["MEDIUM", "HIGH"] };
+  else if (rischio) where.rischioLivello = rischio;
+
   const da = p.get("da")?.trim();
   const a = p.get("a")?.trim();
   if (da || a) {
@@ -146,6 +151,11 @@ export function serializzaOrdine(o: OrdineConRelazioni) {
       annullatoIl: o.annullatoIl?.toISOString() ?? null,
       motivoAnnullamento: o.motivoAnnullamento,
       chiusoIl: o.chiusoIl?.toISOString() ?? null,
+      rischio: {
+        livello: o.rischioLivello,
+        raccomandazione: o.rischioRaccomandazione,
+        motivi: o.rischioMotivi ? o.rischioMotivi.split("\n").filter(Boolean) : [],
+      },
       gateway: o.gateway,
       note: o.noteShopify,
       tags: o.tagShopify ? o.tagShopify.split(", ").filter(Boolean) : [],
@@ -247,6 +257,30 @@ export function pagamentoLeggibile(s: string | null): string | null {
 export function motivoLeggibile(s: string | null): string | null {
   if (!s) return null;
   return MOTIVI[s] ?? s.toLowerCase().replace(/_/g, " ");
+}
+
+const RISCHIO: Record<string, string> = {
+  NONE: "nessun rischio",
+  LOW: "rischio basso",
+  MEDIUM: "rischio medio",
+  HIGH: "rischio alto",
+};
+
+export function rischioLeggibile(s: string | null): string | null {
+  if (!s) return null;
+  return RISCHIO[s] ?? s.toLowerCase();
+}
+
+// Solo medio e alto meritano di essere segnalati: "basso" è la norma e
+// riempirebbe l'elenco di avvisi che nessuno guarderebbe più.
+export function rischioDaSegnalare(s: string | null): boolean {
+  return s === "MEDIUM" || s === "HIGH";
+}
+
+export function coloreRischio(s: string | null): string | undefined {
+  if (s === "HIGH") return "var(--red)";
+  if (s === "MEDIUM") return "var(--orange)";
+  return undefined;
 }
 
 // I codici usati nei menu dei filtri, con l'etichetta italiana.

@@ -68,6 +68,9 @@ function datiShopify(brand: string, o: OrdineNormalizzato) {
     annullatoIl: o.annullatoIl,
     motivoAnnullamento: o.motivoAnnullamento,
     chiusoIl: o.chiusoIl,
+    rischioLivello: o.rischioLivello,
+    rischioRaccomandazione: o.rischioRaccomandazione,
+    rischioMotivi: o.rischioMotivi,
     gateway: o.gateway,
     clienteNome: o.clienteNome,
     clienteEmail: o.clienteEmail,
@@ -118,6 +121,9 @@ async function salvaBloccoOrdini(
       annullatoIl: true,
       motivoAnnullamento: true,
       chiusoIl: true,
+      rischioLivello: true,
+      rischioRaccomandazione: true,
+      rischioMotivi: true,
       gateway: true,
       clienteNome: true,
       clienteEmail: true,
@@ -235,6 +241,9 @@ type OrdineSalvato = {
   annullatoIl: Date | null;
   motivoAnnullamento: string | null;
   chiusoIl: Date | null;
+  rischioLivello: string | null;
+  rischioRaccomandazione: string | null;
+  rischioMotivi: string | null;
   gateway: string | null;
   clienteNome: string | null;
   clienteEmail: string | null;
@@ -264,6 +273,9 @@ function cambiato(e: OrdineSalvato, o: OrdineNormalizzato, brand: string): boole
   if (!dataUguale(e.annullatoIl, o.annullatoIl)) return true;
   if (e.motivoAnnullamento !== o.motivoAnnullamento) return true;
   if (!dataUguale(e.chiusoIl, o.chiusoIl)) return true;
+  if (e.rischioLivello !== o.rischioLivello) return true;
+  if (e.rischioRaccomandazione !== o.rischioRaccomandazione) return true;
+  if (e.rischioMotivi !== o.rischioMotivi) return true;
   if (e.gateway !== o.gateway) return true;
   if (e.clienteNome !== o.clienteNome) return true;
   if (e.clienteEmail !== o.clienteEmail) return true;

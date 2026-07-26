@@ -107,6 +107,14 @@ model Ordine {
   annullatoIl        DateTime? // null = non annullato
   motivoAnnullamento String? // CUSTOMER | DECLINED | FRAUD | INVENTORY | STAFF | OTHER
   chiusoIl           DateTime? // archiviato su Shopify (lavorazione conclusa)
+
+  // Analisi antifrode di Shopify. Si salvano il livello, la raccomandazione e
+  // SOLO i motivi negativi: sono quelli che spiegano perché un ordine è
+  // sospetto (IP lontano dalla consegna, paese di fatturazione diverso, proxy).
+  // I motivi positivi e neutri sono decine per ordine e non servono a decidere.
+  rischioLivello        String? // NONE | LOW | MEDIUM | HIGH
+  rischioRaccomandazione String? // ACCEPT | INVESTIGATE | CANCEL | NONE
+  rischioMotivi          String? // i motivi negativi, uno per riga
   gateway           String? // nomi gateway concatenati
   noteShopify       String?
   tagShopify        String? // tag Shopify (csv), informativi
@@ -165,6 +173,7 @@ model Ordine {
   @@index([dataConsegna])
   @@index([annullatoIl])
   @@index([fulfillmentStatus])
+  @@index([rischioLivello])
   @@index([categoriaPagamento])
   @@index([assegnatoApp])
   @@index([data])

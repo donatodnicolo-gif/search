@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import {
   euro, dataBreve, consegnaBreve, urgenzaConsegna,
   evasioneLeggibile, pagamentoLeggibile, motivoLeggibile, coloreEvasione, colorePagamento,
+  rischioLeggibile, rischioDaSegnalare, coloreRischio,
 } from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
@@ -170,6 +171,35 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
           </div>
         </form>
       </div>
+
+      {/* Rischio frode: si mostra la scheda solo se c'è qualcosa da sapere */}
+      {(rischioDaSegnalare(ordine.rischioLivello) || ordine.rischioMotivi) && (
+        <div className="scheda">
+          <div className="scheda-titolo">Rischio frode (analisi di Shopify)</div>
+          <p style={{ marginBottom: 10 }}>
+            <span className="badge-rischio" style={{ color: coloreRischio(ordine.rischioLivello) }}>
+              {rischioDaSegnalare(ordine.rischioLivello) ? "⚠ " : ""}
+              {rischioLeggibile(ordine.rischioLivello) ?? "non valutato"}
+            </span>
+            {ordine.rischioRaccomandazione && (
+              <span className="stato-shopify" style={{ marginLeft: 10 }}>
+                Shopify consiglia: {ordine.rischioRaccomandazione === "ACCEPT" ? "accettare" : ordine.rischioRaccomandazione === "INVESTIGATE" ? "verificare" : ordine.rischioRaccomandazione === "CANCEL" ? "annullare" : "nessun consiglio"}
+              </span>
+            )}
+          </p>
+          {ordine.rischioMotivi && (
+            <ul className="motivi-rischio">
+              {ordine.rischioMotivi.split("\n").filter(Boolean).map((m, i) => (
+                <li key={i}>{m}</li>
+              ))}
+            </ul>
+          )}
+          <p className="testo-guida" style={{ marginTop: 10 }}>
+            Sono elencati solo i segnali <strong>negativi</strong>. Un rischio basso è la norma e non
+            richiede nulla; medio e alto meritano un controllo prima di lavorare l&apos;ordine.
+          </p>
+        </div>
+      )}
 
       {/* Dati Shopify */}
       <div className="scheda">

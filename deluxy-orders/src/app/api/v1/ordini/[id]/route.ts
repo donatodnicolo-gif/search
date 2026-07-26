@@ -6,12 +6,24 @@ import { serializzaOrdine, INCLUDE_ORDINE } from "@/lib/ordini";
 import { CATEGORIE_PAGAMENTO } from "@/lib/classificazione";
 
 // GET /api/v1/ordini/:id — un ordine con la sua classificazione (sola lettura).
+// Come l'elenco, un ordine ANNULLATO non viene servito: risponde 410 (non più
+// disponibile) spiegando perché, invece di restituirlo come se fosse valido.
+// Con `?annullati=inclusi` lo si ottiene comunque, per chi deve gestirlo
+// davvero (rimborsi, riconciliazioni).
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const client = await autentica(req);
   if (client instanceof NextResponse) return client;
   const { id } = await params;
   const ordine = await prisma.ordine.findUnique({ where: { id }, include: INCLUDE_ORDINE });
   if (!ordine) return erroreApi(404, "Ordine non trovato");
+
+  const includiAnnullati = req.nextUrl.searchParams.get("annullati")?.trim().toLowerCase() === "inclusi";
+  if (ordine.annullatoIl && !includiAnnullati) {
+    return erroreApi(
+      410,
+      `Ordine ${ordine.numero} annullato il ${ordine.annullatoIl.toISOString().slice(0, 10)}: non viene servito. Usa ?annullati=inclusi se devi gestirlo comunque.`,
+    );
+  }
   return NextResponse.json(serializzaOrdine(ordine));
 }
 

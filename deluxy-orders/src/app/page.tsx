@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import {
   whereOrdini, euro, dataBreve, consegnaBreve, urgenzaConsegna,
   evasioneLeggibile, pagamentoLeggibile, motivoLeggibile, coloreEvasione, STATI_PAGAMENTO,
+  rischioLeggibile, rischioDaSegnalare, coloreRischio,
 } from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
@@ -192,6 +193,13 @@ export default async function ElencoOrdini({
           <option value="evasi">Evasi</option>
           <option value="rimborsati">Rimborsati / annullati (pagamento)</option>
         </select>
+        <select name="rischio" defaultValue={sp.rischio ?? ""}>
+          <option value="">Ogni rischio frode</option>
+          <option value="sospetti">Sospetti (medio o alto)</option>
+          <option value="HIGH">Rischio alto</option>
+          <option value="MEDIUM">Rischio medio</option>
+          <option value="LOW">Rischio basso</option>
+        </select>
         <select name="pagamento" defaultValue={sp.pagamento ?? ""}>
           <option value="">Ogni stato pagamento</option>
           {STATI_PAGAMENTO.map((s) => (
@@ -239,6 +247,12 @@ export default async function ElencoOrdini({
                         <Link href={`/ordini/${o.id}`} className="card-numero">{o.numero}</Link>
                         <span className="card-totale">{euro(o.totale, o.valuta)}</span>
                       </div>
+                      {/* Rischio frode: solo medio/alto, altrimenti è rumore */}
+                      {rischioDaSegnalare(o.rischioLivello) && !o.annullatoIl && (
+                        <div className="badge-rischio" style={{ color: coloreRischio(o.rischioLivello) }}>
+                          ⚠ {rischioLeggibile(o.rischioLivello)}
+                        </div>
+                      )}
                       {/* Annullato: va detto subito, non si deduce dal pagamento */}
                       {o.annullatoIl ? (
                         <div className="badge-annullato">
@@ -341,6 +355,11 @@ export default async function ElencoOrdini({
                   <tr key={o.id} className={`riga-brand${o.annullatoIl ? " ordine-annullato" : ""}`} style={{ ["--brand" as string]: coloreBrand(colori, o.brand) }}>
                     <td>
                       <Link href={`/ordini/${o.id}`} className="cella-nome">{o.numero}</Link>
+                      {rischioDaSegnalare(o.rischioLivello) && (
+                        <span className="badge-rischio" style={{ color: coloreRischio(o.rischioLivello) }} title={o.rischioMotivi ?? ""}>
+                          ⚠ {rischioLeggibile(o.rischioLivello)}
+                        </span>
+                      )}
                       <div className="cella-sub cella-brand">
                         <span className="brand-dot" />
                         {o.brand}

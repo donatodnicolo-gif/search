@@ -127,6 +127,28 @@ mano. Rilanciare l'import non crea doppioni (chiave negozio + id Shopify).
   (protetto da `CRON_SECRET`). Via API: `POST /api/v1/sync?giorni=90`
   (`giorni=tutto` per lo storico completo).
 
+## Gli stati che arrivano da Shopify
+Sono informativi: si importano e si mostrano, non si modificano da qui (la
+fonte resta Shopify). Sono tre cose diverse, da non confondere con lo **stato
+della pipeline**, che invece è la classificazione Deluxy.
+
+- **Annullamento** — `annullatoIl` + motivo. È l'unico modo per sapere se un
+  ordine è annullato: **non si deduce dal pagamento**. Casi reali: gli ordini
+  #2565, #2562, #2563 risultano «pagato» pur essendo annullati. Un ordine
+  annullato appare barrato e smorzato in elenco e colonne, con badge rosso e
+  motivo, e con un avviso in cima alla sua scheda.
+- **Evasione** — evaso, da evadere, evaso in parte, in attesa…
+- **Stato del pagamento** — pagato, in attesa, rimborsato (anche in parte),
+  annullato, autorizzato… Da non confondere con la *categoria di pagamento*
+  (bonifico/carta/contrassegno), che è una classificazione Deluxy correggibile
+  a mano.
+
+I codici inglesi di Shopify vengono mostrati in italiano e colorati: evaso in
+verde, rimborsi e annullamenti in rosso, situazioni parziali in arancio.
+
+Si filtra per stato Shopify (non annullati, solo annullati, da evadere, evasi,
+rimborsati) e per stato del pagamento puntuale.
+
 ## Classificazione «a piacimento»
 - **Stato/pipeline**: dove si trova l'ordine nel flusso.
 - **Etichette libere**: raggruppamenti trasversali (urgente, VIP, reso…).
