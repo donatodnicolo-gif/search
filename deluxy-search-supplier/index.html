@@ -40,6 +40,19 @@
   .contatticard{display:none}
   .content.view-contatti .ordercard, .content.view-contatti .searchbar, .content.view-contatti .col-right, .content.view-contatti .config, .content.view-contatti .storicocard{display:none}
   .content.view-contatti .contatticard{display:block}
+  /* vista «Province»: elenco per provincia con riepilogo partner/aperti/chiusi */
+  .provincecard{display:none}
+  .content.view-province .ordercard, .content.view-province .searchbar, .content.view-province .col-right, .content.view-province .config, .content.view-province .storicocard, .content.view-province .contatticard{display:none}
+  .content.view-province .provincecard{display:block}
+  .provincecard details.prov-group{margin-top:18px}
+  .provincecard details.prov-group>summary{list-style:none; cursor:pointer; outline:none}
+  .provincecard details.prov-group>summary::-webkit-details-marker{display:none}
+  .provincecard .prov-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .pv-chips{display:flex; gap:6px; flex-wrap:wrap; margin-left:auto}
+  .pv-chip{font-size:12px; font-weight:600; padding:3px 10px; border-radius:var(--radius-pill); white-space:nowrap; display:inline-flex; align-items:center; gap:5px}
+  .pv-chip.pv-part{color:var(--gold-strong); background:var(--gold-soft)}
+  .pv-chip.pv-open{color:var(--blue); background:rgba(0,113,227,.08)}
+  .pv-chip.pv-closed{color:var(--text-tertiary); background:var(--fill)}
   /* elenco contatti per provincia */
   .prov-group{margin-top:20px}
   .prov-head{display:flex; align-items:baseline; gap:8px; padding:0 2px 8px; border-bottom:1px solid var(--hairline); margin-bottom:12px}
@@ -321,6 +334,7 @@
       <a class="nav-link active" data-scroll=".ordercard"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="2.5"/><path d="M4 11h16M12 7v13M8 7l1.5-3h5L16 7"/></svg></span><span>Smistamento</span></a>
       <a class="nav-link" data-scroll=".searchbar"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.6-3.6"/></svg></span><span>Ricerca negozi</span></a>
       <a class="nav-link" id="navContatti"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v13H4z"/><path d="M8 9.5h8M8 13h5"/></svg></span><span>Contatti</span></a>
+      <a class="nav-link" id="navProvince"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.6 6.5-10.2A6.5 6.5 0 0 0 5.5 10.8C5.5 15.4 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.3"/></svg></span><span>Province</span></a>
       <a class="nav-link" id="navStorico"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><span>Storico richieste</span></a>
       <div class="nav-section">Configurazione</div>
       <a class="nav-link" id="navAdmin"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.2M12 18.3v2.2M4.8 7l1.9 1.1M17.3 15.9l1.9 1.1M4.8 17l1.9-1.1M17.3 8.1l1.9-1.1M3.5 12h2.2M18.3 12h2.2"/></svg></span><span>Impostazioni</span></a>
@@ -670,6 +684,27 @@
         <input id="ctSearch" type="text" placeholder="Cerca nome, città…" style="flex:1; min-width:160px">
       </div>
       <div id="contattiBody"><div class="hint">Carico i contatti…</div></div>
+    </div>
+
+    <!-- PROVINCE (elenco per provincia con riepilogo partner/prospect/lead aperti) -->
+    <div class="card provincecard" id="provinceCard">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px">
+        <div class="hint" id="provinceInfo" style="margin:0"></div>
+        <button class="btn-dl" id="provinceReload" type="button">↻ Aggiorna</button>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px">
+        <div class="chips" id="pvCat" style="display:flex; gap:6px">
+          <button class="chip active" data-cat="tutte" type="button">Tutte le categorie</button>
+          <button class="chip" data-cat="FIORISTA" type="button">🌸 Fiorai</button>
+          <button class="chip" data-cat="PASTICCERIA" type="button">🎂 Pasticcerie</button>
+        </div>
+        <label style="display:flex; align-items:center; gap:6px; margin:0; font-size:13px; color:var(--text); white-space:nowrap">
+          <input type="checkbox" id="pvSoloAperti" style="width:auto"> Solo province con partner o lead aperti
+        </label>
+        <input id="pvSearch" type="text" placeholder="Cerca provincia, nome…" style="flex:1; min-width:160px">
+      </div>
+      <div class="hint" style="margin:0 0 4px">🤝 Partner = attivi · 📋 Aperti = prospect/lead ancora in gioco · ⚪ Chiusi = non interessati o dismessi. Le province con partner sono in cima.</div>
+      <div id="provinceBody"><div class="hint">Carico le province…</div></div>
     </div>
 
     <!-- STORICO RICHIESTE (vista dedicata) -->
@@ -1035,6 +1070,7 @@ function toggleMenu(){ $('#sidebar').classList.toggle('open'); $('#appOverlay').
 const PAGE_TITLES = { operativa: ['Smistamento ordini', 'Recupera un ordine e invialo al fiorario o pasticceria più vicino, via WhatsApp o email.'],
                       impostazioni: ['Impostazioni', 'Chiavi, utenze e collegamenti dell\'app, salvati sul server.'],
                       contatti: ['Contatti', 'Partner e fornitori dal registro anagrafiche Deluxy, raggruppati per provincia.'],
+                      province: ['Province', 'Per provincia: quanti partner, prospect e lead ancora aperti abbiamo nel registro anagrafiche.'],
                       storico: ['Storico richieste', 'Check ordini Shopify, richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
 // vista: false/'operativa' | true/'impostazioni' | 'storico'
 function setView(vista){
@@ -1044,6 +1080,7 @@ function setView(vista){
   content.classList.toggle('view-settings', vista==='impostazioni');
   content.classList.toggle('view-storico', vista==='storico');
   content.classList.toggle('view-contatti', vista==='contatti');
+  content.classList.toggle('view-province', vista==='province');
   $('#config').classList.toggle('show', vista==='impostazioni');
   if(vista==='impostazioni') $('#config').open = true;
   const t = PAGE_TITLES[vista];
@@ -1066,6 +1103,12 @@ $('#navContatti').addEventListener('click', ()=>{
   window.scrollTo({top:0, behavior:'smooth'});
   setActiveNav($('#navContatti')); closeMenu();
   loadContatti();
+});
+$('#navProvince').addEventListener('click', ()=>{
+  setView('province');
+  window.scrollTo({top:0, behavior:'smooth'});
+  setActiveNav($('#navProvince')); closeMenu();
+  loadProvince();
 });
 $('#navStorico').addEventListener('click', ()=>{
   setView('storico');
@@ -1215,6 +1258,93 @@ $('#ctTipo').addEventListener('click', e=>{ const b=e.target.closest('.chip'); i
 $('#ctCat').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
   ctFiltro.cat=b.dataset.cat; document.querySelectorAll('#ctCat .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
 $('#ctSearch').addEventListener('input', ()=>{ ctFiltro.q=$('#ctSearch').value; renderContatti(); });
+
+/* ------------------ PROVINCE (riepilogo per provincia dal registro) ------------------
+   Riusa gli stessi dati del registro caricati per «Contatti» (ctData / anagAllPages).
+   Per ogni provincia: 🤝 partner (stato attivo), 📋 lead aperti (in gioco), ⚪ chiusi
+   (non interessati/dismessi). Le province con partner vanno in cima. */
+const STATO_CHIUSO = new Set(['non_interessato','dismesso']);
+const isLeadAperto = p => { const s=String(p.stato||'').toLowerCase(); return s!=='attivo' && !STATO_CHIUSO.has(s); };
+const isLeadChiuso = p => STATO_CHIUSO.has(String(p.stato||'').toLowerCase());
+const pvFiltro = { cat:'tutte', q:'', soloAperti:false };
+async function loadProvince(force){
+  const body = $('#provinceBody');
+  if(ctData && !force){ renderProvince(); return; }
+  body.innerHTML = '<div class="hint">Carico le province…</div>';
+  try{
+    const res = await anagAllPages();
+    if(res.skipped){
+      ctData = [];
+      body.innerHTML = '<div class="hint">Il registro anagrafiche non è collegato. Aggiungi la <b>chiave di sola lettura</b> in Impostazioni → «Registro anagrafiche».</div>';
+      $('#provinceInfo').textContent = '';
+      return;
+    }
+    ctData = res.list;
+    renderProvince();
+  }catch(err){
+    body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>';
+  }
+}
+function renderProvince(){
+  const body = $('#provinceBody');
+  const q = pvFiltro.q.trim().toLowerCase();
+  const list = (ctData||[]).filter(p=>{
+    if(pvFiltro.cat!=='tutte' && String(p.categoria||'').toUpperCase()!==pvFiltro.cat) return false;
+    if(q){
+      const blob = [p.nome, p.ragioneSociale, p.citta, p.provincia, p.indirizzo].filter(Boolean).join(' ').toLowerCase();
+      if(!blob.includes(q)) return false;
+    }
+    return true;
+  });
+  // raggruppa per provincia
+  const gruppi = {};
+  list.forEach(p=>{ const k = (p.provincia||'').toUpperCase() || '—'; (gruppi[k] = gruppi[k]||[]).push(p); });
+  let prov = Object.keys(gruppi).map(k=>{
+    const g = gruppi[k];
+    return { prov:k, g,
+      nPart: g.filter(isPartnerAttivo).length,
+      nAp:   g.filter(isLeadAperto).length,
+      nChi:  g.filter(isLeadChiuso).length };
+  });
+  if(pvFiltro.soloAperti) prov = prov.filter(x=> x.nPart>0 || x.nAp>0);
+  // ordina: provincia sconosciuta in coda; poi più partner, più lead aperti, alfabetico
+  prov.sort((a,b)=>{
+    if(a.prov==='—') return 1; if(b.prov==='—') return -1;
+    if(b.nPart!==a.nPart) return b.nPart-a.nPart;
+    if(b.nAp!==a.nAp)     return b.nAp-a.nAp;
+    return a.prov.localeCompare(b.prov);
+  });
+  const totPart = prov.reduce((s,x)=>s+x.nPart,0);
+  const totAp   = prov.reduce((s,x)=>s+x.nAp,0);
+  $('#provinceInfo').textContent = prov.length
+    ? `${prov.length} province · 🤝 ${totPart} partner · 📋 ${totAp} lead aperti`
+    : '';
+  if(!prov.length){ body.innerHTML = '<div class="hint">Nessuna provincia con questi filtri.</div>'; return; }
+  body.innerHTML = prov.map(x=>{
+    // schede ordinate: partner, poi lead aperti, poi chiusi; per nome
+    const rank = p => isPartnerAttivo(p) ? 0 : isLeadAperto(p) ? 1 : 2;
+    const cards = x.g.slice()
+      .sort((a,b)=>{ const r = rank(a)-rank(b); return r || String(a.nome||'').localeCompare(String(b.nome||'')); })
+      .map(ctCard).join('');
+    const chips = [
+      `<span class="pv-chip pv-part">🤝 ${x.nPart} partner</span>`,
+      `<span class="pv-chip pv-open">📋 ${x.nAp} aperti</span>`,
+      x.nChi ? `<span class="pv-chip pv-closed">⚪ ${x.nChi} chiusi</span>` : ''
+    ].filter(Boolean).join('');
+    return `<details class="prov-group" ${(x.nPart>0||x.nAp>0)?'open':''}>
+      <summary class="prov-head">
+        <h3>${x.prov==='—'?'Provincia non indicata':'📍 '+esc(x.prov)}</h3>
+        <span class="pv-chips">${chips}</span>
+      </summary>
+      <div class="ct-grid" style="margin-top:12px">${cards}</div>
+    </details>`;
+  }).join('');
+}
+$('#provinceReload').addEventListener('click', ()=> loadProvince(true));
+$('#pvCat').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
+  pvFiltro.cat=b.dataset.cat; document.querySelectorAll('#pvCat .chip').forEach(x=>x.classList.toggle('active',x===b)); renderProvince(); });
+$('#pvSearch').addEventListener('input', ()=>{ pvFiltro.q=$('#pvSearch').value; renderProvince(); });
+$('#pvSoloAperti').addEventListener('change', ()=>{ pvFiltro.soloAperti=$('#pvSoloAperti').checked; renderProvince(); });
 
 $('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); sessionStorage.removeItem('session'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);

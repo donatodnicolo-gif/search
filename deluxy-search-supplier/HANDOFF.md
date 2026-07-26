@@ -246,6 +246,19 @@ solo dove siamo e come si lavora.
    `annotaDistanzeRegistro` in `renderResults`. Costo: 2 richieste Places per scheda registro
    (poche per zona). Non collaudato end-to-end su Google (serve chiave+login); DOM verificato.
 
+31. **Sezione «Province»** (26/07): nuova voce sidebar (`#navProvince`, vista `view-province`,
+   card `#provinceCard`) che riusa gli stessi dati del registro di «Contatti» (`ctData` /
+   `anagAllPages`, cache condivisa). Elenco per provincia (gruppi `<details>` collassabili,
+   aperti se hanno partner o lead) con in cima a ogni provincia le chip di riepilogo:
+   **🤝 partner** (stato `attivo`), **📋 aperti** (lead ancora in gioco = stato ≠ `attivo` e ≠
+   `non_interessato`/`dismesso`), **⚪ chiusi** (`non_interessato`/`dismesso`). Le province con
+   partner vanno in cima (poi più lead aperti, poi alfabetico; «non indicata» in coda). Le
+   schede dentro ogni provincia sono le stesse di Contatti (`ctCard`), ordinate partner→aperti→
+   chiusi. Filtri: categoria (Tutte/Fiorai/Pasticcerie), «Solo province con partner o lead
+   aperti», ricerca testo (`pvFiltro`). NB: «contatti aperti» = **lead per stato**, non orari
+   Google (scelta dell'utente: immediato, nessuna chiamata a Google). Helper `isLeadAperto`/
+   `isLeadChiuso`. Verificato con dati finti: riepilogo, ordinamento, filtri, mobile OK.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
