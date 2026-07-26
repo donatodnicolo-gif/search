@@ -22,6 +22,19 @@ import { fetchRicaviD2C } from "./orders";
 
 export const SLUG_D2C = "D2C";
 
+// Il consuntivo mese per mese, nella stessa forma del P&L mensile a budget: le
+// due serie finiscono nella stessa tabella e devono avere le stesse voci.
+export type ConsuntivoMese = {
+  month: number;
+  ricavi: number;
+  cogs: number;
+  margineLordo: number;
+  adv: number;
+  personale: number;
+  struttura: number;
+  ebitda: number;
+};
+
 export type ConsuntivoPeriodo = {
   ok: boolean;
   // Cosa non è arrivato: si dichiara invece di far passare uno zero per un dato.
@@ -37,6 +50,8 @@ export type ConsuntivoPeriodo = {
   margineLordo: number;
   ebitda: number;
   nonCategorizzato: number;
+  // Una riga per ogni mese richiesto, nello stesso ordine di `mesi`.
+  perMese: ConsuntivoMese[];
 };
 
 export async function caricaConsuntivo(
@@ -46,16 +61,22 @@ export async function caricaConsuntivo(
   const vuoto: ConsuntivoPeriodo = {
     ok: false, mancanti: [], mesi, ricavi: 0, ricaviPerTipologia: {}, vendutoEcommerce: 0,
     cogs: 0, adv: 0, struttura: 0, personale: 0, margineLordo: 0, ebitda: 0, nonCategorizzato: 0,
+    perMese: [],
   };
   if (mesi.length === 0) return { ...vuoto, mancanti: ["Nessun mese concluso in questo anno."] };
 
   const dal = Math.min(...mesi);
   const al = Math.max(...mesi);
-  const [fatt, spese, categorie, ordini] = await Promise.all([
+  // Il fatturato si chiede una volta per il totale e una volta per ogni mese:
+  // l'API di Finance dà il periodo, non la ripartizione mensile. I costi no —
+  // `/api/spese` restituisce già il `perMese` di ogni controparte — e nemmeno
+  // l'ecommerce, che arriva da Orders in dodici caselle.
+  const [fatt, spese, categorie, ordini, fattMese] = await Promise.all([
     fetchConsuntivo({ anno: dati.year, dal, al, stato: "tutte" }),
     fetchSpeseBanca({ anno: dati.year, dal, al }),
     caricaCategorie(),
     fetchRicaviD2C(dati.year),
+    Promise.all(mesi.map((m) => fetchConsuntivo({ anno: dati.year, mese: m, stato: "tutte" }))),
   ]);
 
   const mancanti: string[] = [];
@@ -82,15 +103,51 @@ export async function caricaConsuntivo(
 
   // ---- Costi di banca, riclassificati ----
   let cogs = 0, adv = 0, struttura = 0, nonCategorizzato = 0;
+  const cogsMese = Array(12).fill(0) as number[];
+  const advMese = Array(12).fill(0) as number[];
+  const strutturaMese = Array(12).fill(0) as number[];
   if (spese.ok) {
     for (const r of ricostruisci(spese.dati.controparti, categorie)) {
       const tp = r.categoria?.tipoPL;
       if (!tp) { nonCategorizzato += r.uscite; continue; }
-      if (tp === "COGS") cogs += r.uscite;
-      else if (tp === "ADV") adv += r.uscite;
-      else if (tp === "STRUTTURA") struttura += r.uscite;
+      if (tp === "COGS") { cogs += r.uscite; for (let i = 0; i < 12; i++) cogsMese[i] += r.perMese[i] ?? 0; }
+      else if (tp === "ADV") { adv += r.uscite; for (let i = 0; i < 12; i++) advMese[i] += r.perMese[i] ?? 0; }
+      else if (tp === "STRUTTURA") { struttura += r.uscite; for (let i = 0; i < 12; i++) strutturaMese[i] += r.perMese[i] ?? 0; }
     }
   }
+
+  // Le voci di budget che hanno una corrispondenza in Finance: servono a
+  // filtrare il fatturato mensile con la stessa regola usata sul totale.
+  const nomiMappati = new Set<string>();
+  for (const t of dati.tipologie) {
+    for (const n of (t.vociFinance.length ? t.vociFinance : [t.nome])) nomiMappati.add(normalizzaNome(n));
+  }
+
+  const perMese: ConsuntivoMese[] = mesi.map((m, idx) => {
+    const f = fattMese[idx];
+    const daFinance = f.ok
+      ? f.dati.tipologie
+          .filter((t) => nomiMappati.has(normalizzaNome(t.tipologia)))
+          .reduce((s, t) => s + t.imponibile, 0)
+      : 0;
+    const daEcommerce = vend.ok ? fatturatoDaVenduto(vend.mese[m - 1] ?? 0) : 0;
+    const ricaviM = daFinance + daEcommerce;
+    const cogsM = cogsMese[m - 1] ?? 0;
+    const advM = advMese[m - 1] ?? 0;
+    const strutturaM = strutturaMese[m - 1] ?? 0;
+    const personaleM = costoPersonaleMese(dati, m);
+    const margineM = ricaviM - cogsM;
+    return {
+      month: m,
+      ricavi: ricaviM,
+      cogs: cogsM,
+      margineLordo: margineM,
+      adv: advM,
+      personale: personaleM,
+      struttura: strutturaM,
+      ebitda: margineM - advM - personaleM - strutturaM,
+    };
+  });
 
   const personale = mesi.reduce((s, m) => s + costoPersonaleMese(dati, m), 0);
   const margineLordo = ricavi - cogs;
@@ -110,6 +167,7 @@ export async function caricaConsuntivo(
     margineLordo,
     ebitda,
     nonCategorizzato,
+    perMese,
   };
 }
 

@@ -37,7 +37,7 @@ const RIGHE_FISSE: Riga[] = [
 export default async function ContoEconomico({
   searchParams,
 }: {
-  searchParams: Promise<{ livello?: string }>;
+  searchParams: Promise<{ livello?: string; vista?: string }>;
 }) {
   const sp = await searchParams;
   const dati = await caricaAnno(ANNO_CORRENTE);
@@ -88,6 +88,7 @@ export default async function ContoEconomico({
           margineLordo: somma("margineLordo"),
           ebitda: somma("ebitda"),
           nonCategorizzato: 0,
+          perMese: [],
         };
 
   const pls = LIVELLI.map((l) => contoEconomico(dati, l.key));
@@ -106,6 +107,22 @@ export default async function ContoEconomico({
   ];
   const mensile = contoEconomicoMensile(dati, livello);
   const mesiInPerdita = mensile.filter((m) => m.ebitda < 0).length;
+
+  // Vista «Attuale»: nell'andamento mensile i mesi chiusi mostrano quello che è
+  // successo davvero, quelli che restano il budget. Non è un ibrido per pigrizia
+  // — è la lettura che serve a metà anno: da qui in poi cosa ci aspetta, dato
+  // quello che è già andato come è andato. Ogni mese dice quale dei due è.
+  const attuale = sp.vista === "attuale" && cons !== null;
+  const mensileVista = mensile.map((m) => {
+    const reale = attuale && cons ? cons.perMese.find((x) => x.month === m.month) : undefined;
+    return reale
+      ? { month: m.month, ricavi: reale.ricavi, cogs: reale.cogs, margineLordo: reale.margineLordo,
+          adv: reale.adv, personale: reale.personale, costiFissi: reale.struttura, ebitda: reale.ebitda, reale: true }
+      : { month: m.month, ricavi: m.ricavi, cogs: m.cogs, margineLordo: m.margineLordo,
+          adv: m.adv, personale: m.personale, costiFissi: m.costiFissi, ebitda: m.ebitda, reale: false };
+  });
+  const linkMensile = (x: { livello?: string; vista?: string }) =>
+    `/pl?livello=${x.livello ?? livello}${x.vista ? `&vista=${x.vista}` : ""}#mensile`;
 
   return (
     <>
@@ -231,15 +248,28 @@ export default async function ContoEconomico({
       </div>
 
       <div className="page-head" style={{ marginTop: 28, marginBottom: 12 }}>
-        <h2 className="section-title" style={{ margin: 0 }}>Andamento mensile</h2>
+        <h2 className="section-title" style={{ margin: 0 }} id="mensile">Andamento mensile</h2>
         <div className="seg">
+          {cons && (
+            <Link href={linkMensile({ vista: "attuale" })} className={attuale ? "on" : ""}>
+              Attuale
+            </Link>
+          )}
           {LIVELLI.map((l) => (
-            <Link key={l.key} href={`/pl?livello=${l.key}`} className={l.key === livello ? "on" : ""}>
+            <Link key={l.key} href={linkMensile({ livello: l.key })} className={!attuale && l.key === livello ? "on" : ""}>
               {l.label}
             </Link>
           ))}
         </div>
       </div>
+      {attuale && (
+        <p className="page-caption" style={{ marginTop: -4, marginBottom: 10 }}>
+          <strong>Attuale</strong>: i mesi fino a {etichettaChiusi.replace("Gen–", "")} sono il{" "}
+          <strong>consuntivo</strong> — quello che è successo davvero — e sono in grassetto; da{" "}
+          {MESI[meseChiuso]} in poi è il <strong>budget pubblicato</strong>, in grigio. Il mese in corso è già
+          budget: è ancora aperto, e mezzo mese di ricavi contro un mese intero di stipendi non è un dato.
+        </p>
+      )}
       <div className="card tight">
         <div className="table-wrap">
           <table>
@@ -254,32 +284,42 @@ export default async function ContoEconomico({
             </thead>
             <tbody>
               {([
-                ["Ricavi", (m: (typeof mensile)[number]) => m.ricavi, false],
-                ["Costo del venduto", (m: (typeof mensile)[number]) => m.cogs, true],
-                ["Margine lordo", (m: (typeof mensile)[number]) => m.margineLordo, false],
-                ["ADV", (m: (typeof mensile)[number]) => m.adv, true],
-                ["Personale", (m: (typeof mensile)[number]) => m.personale, true],
-                ["Struttura", (m: (typeof mensile)[number]) => m.costiFissi, true],
+                ["Ricavi", (m: (typeof mensileVista)[number]) => m.ricavi, false],
+                ["Costo per servizi", (m: (typeof mensileVista)[number]) => m.cogs, true],
+                ["Margine lordo", (m: (typeof mensileVista)[number]) => m.margineLordo, false],
+                ["ADV", (m: (typeof mensileVista)[number]) => m.adv, true],
+                ["Personale", (m: (typeof mensileVista)[number]) => m.personale, true],
+                ["Struttura", (m: (typeof mensileVista)[number]) => m.costiFissi, true],
               ] as const).map(([label, get, costo]) => (
                 <tr key={label}>
                   <td style={{ whiteSpace: "nowrap" }}>{label}</td>
-                  {mensile.map((m) => (
-                    <td className="num" key={m.month}>
+                  {mensileVista.map((m) => (
+                    <td
+                      className={`num ${attuale && !m.reale ? "muted" : ""}`}
+                      style={{ fontWeight: attuale && m.reale ? 600 : 400 }}
+                      key={m.month}
+                    >
                       {costo ? `− ${eur(get(m))}` : eur(get(m))}
                     </td>
                   ))}
                   <td className="num" style={{ fontWeight: 600 }}>
-                    {eur(mensile.reduce((s, m) => s + get(m), 0))}
+                    {eur(mensileVista.reduce((s, m) => s + get(m), 0))}
                   </td>
                 </tr>
               ))}
               <tr className="tot">
                 <td>EBITDA</td>
-                {mensile.map((m) => (
-                  <td className={`num ${m.ebitda >= 0 ? "pos" : "neg"}`} key={m.month}>{eur(m.ebitda)}</td>
+                {mensileVista.map((m) => (
+                  <td
+                    className={`num ${m.ebitda >= 0 ? "pos" : "neg"}`}
+                    style={{ opacity: attuale && !m.reale ? 0.55 : 1 }}
+                    key={m.month}
+                  >
+                    {eur(m.ebitda)}
+                  </td>
                 ))}
-                <td className={`num ${plScelto.ebitda >= 0 ? "pos" : "neg"}`}>
-                  {eur(mensile.reduce((s, m) => s + m.ebitda, 0))}
+                <td className={`num ${mensileVista.reduce((s, m) => s + m.ebitda, 0) >= 0 ? "pos" : "neg"}`}>
+                  {eur(mensileVista.reduce((s, m) => s + m.ebitda, 0))}
                 </td>
               </tr>
             </tbody>
