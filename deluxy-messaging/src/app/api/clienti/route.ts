@@ -83,8 +83,24 @@ export async function GET(req: NextRequest) {
   let clienti = [...mappa.values()]
   if (soloDaSalvare) clienti = clienti.filter((c) => !c.inRubrica)
 
+  // Ordinamento (come in Deluxy Orders): più spesa, più ordini, più recenti, nome.
+  const ordina = p.get('ordina') ?? 'recenti'
+  const per: Record<string, (a: ClienteDto, b: ClienteDto) => number> = {
+    speso: (a, b) => b.speso - a.speso,
+    ordini: (a, b) => b.ordini - a.ordini,
+    recenti: (a, b) => b.ultimaData.localeCompare(a.ultimaData),
+    nome: (a, b) => (a.nome || '').localeCompare(b.nome || '', 'it'),
+  }
+  clienti.sort(per[ordina] ?? per.recenti)
+
+  // Riepiloghi sull'insieme intero, non solo sulla pagina mostrata.
+  const inRubrica = clienti.filter((c) => c.inRubrica).length
+  const spesoTotale = clienti.reduce((s, c) => s + c.speso, 0)
+
   return NextResponse.json({
     totale: clienti.length,
+    inRubrica,
+    spesoTotale,
     clienti: clienti.slice(0, 300),
     googleCollegato: !!token,
   })

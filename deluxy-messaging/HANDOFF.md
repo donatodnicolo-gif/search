@@ -60,20 +60,34 @@ Ultimo aggiornamento: 24/07/2026
   sola lettura) e salvata cifrata in Impostazione `ordersApiKey` (+ `ordersUrl`). La ricerca
   in `/ordini` mostra la sezione "Archivio storico" con i risultati. Il brand di Orders viene
   tradotto per Ricerca fornitori ("Flowers" → "deluxyflowers.com").
-- Email register.it (26/07/2026): `src/lib/email.ts` — SMTP `smtps.register.it:465` con
-  nodemailer, IMAP `imaps.register.it:993` con imapflow + mailparser. TLS con
-  `rejectUnauthorized: false` PERCHÉ register.it presenta un certificato di securemail.pro
-  (stessa scelta di deluxy-mail/src/lib/imap.ts) — la connessione resta cifrata.
-  `/api/email/sync` porta le mail in inbox (canale `email`, una conversazione per
-  indirizzo, dedup su Message-ID), `/api/email/prova` verifica le credenziali senza
-  inviare, e la risposta dal thread parte via SMTP con oggetto `Re: …`.
-  Campo `Messaggio.oggetto` aggiunto. Config in Impostazioni (password cifrata).
-  MANCA: allegati, HTML (oggi solo testo), cartella Inviata sul server, cron di scarico.
+- Email register.it, PIÙ CASELLE (26/07/2026): tabella `CasellaEmail` + pagina `/caselle`
+  (schema/pagina gemelli di NegozioShopify//negozi). `src/lib/email.ts` lavora per casella.
+  PARAMETRI UFFICIALI verificati su www.register.it/assistenza/parametri-email:
+  IMAP `pop.securemail.pro:993` SSL, SMTP `authsmtp.securemail.pro:465` SSL, utente =
+  indirizzo completo — host GENERICI, non del dominio cliente. (Prima avevo messo
+  `imaps./smtps.register.it`: ERRATO. Attenzione: il DNS di questa rete risolve QUALSIASI
+  nome a 10.147.17.27, quindi non è una verifica valida.) Porte/host modificabili; sulla
+  587 `smtpSicuro=false` (STARTTLS). TLS con `rejectUnauthorized:false` (certificato
+  intestato ad altro nome; connessione comunque cifrata).
+  `/api/email/sync` gira su TUTTE le caselle attive con esito per casella; la risposta
+  parte dalla casella che ha ricevuto (`Conversazione.casellaId`), altrimenti dalla
+  predefinita. `/api/email/prova` prova SMTP **e** IMAP e legge dal DB (salvare prima).
+  Campo `Messaggio.oggetto`. MANCA: allegati, HTML (solo testo), cartella Inviata sul
+  server, cron di scarico, invio di una mail NUOVA (oggi solo risposte da thread).
 - Link firmato Ricerca fornitori (26/07/2026): `src/lib/fornitori.ts` — POST
   `{searchUrl}/api/link` con `x-api-key: dlxs_…` e body `{quando: ISO}` torna
   `{url: …/?t=<code>}` valido ~5 min; ci aggiungiamo brand+ordine. Senza chiave ripiega
   sul link semplice `?brand=&ordine=` (verificato: `firmato: false`). Il bottone apre la
   scheda PRIMA della fetch, altrimenti il browser la blocca come popup.
+- Home = Ordini (26/07/2026): `/` mostra gli ordini, l'inbox è su `/inbox`, `/ordini`
+  reindirizza a `/` (resta valido: è l'URL registrato come app su Shopify). Ordine in
+  barra: Ordini, Clienti, Messaggi, Negozi, Caselle, Impostazioni.
+- Grafica di Deluxy Orders importata (26/07/2026): stessi nomi di classe
+  (`page-head/page-title/page-sub`, `kpi-riga/kpi`, `ricerca` a pillola con lente,
+  `filtri` + `stato-pill`, `tabella-wrap` + `cella-*`, `tag`, `paginazione`, `vuoto`,
+  `btn`) copiati da deluxy-orders/src/app/globals.css. Le regole di tabella sono confinate
+  in `.tabella-wrap` per non toccare la `.tabella` preesistente. `/clienti` rifatta su quel
+  modello (KPI, ordinamenti Più spesa/Più ordini/Più recenti/Nome — verificati).
 - Ricerca ordini (25/07/2026): `/api/ordini` accetta `q` (numero, cliente, telefono con
   normalizzazione delle cifre, email, indirizzo, negozio), `negozio` e `contatto=si|no`;
   torna anche `totale` e l'elenco negozi. UI: barra con campo di ricerca (ritardo 300ms),

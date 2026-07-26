@@ -1,7 +1,7 @@
-import { OrdiniLista } from '@/components/OrdiniLista'
+import { redirect } from 'next/navigation'
 
-export const dynamic = 'force-dynamic'
-
-export default function PaginaOrdini() {
-  return <OrdiniLista />
+// Gli ordini sono la pagina iniziale (/). Questo indirizzo resta valido perché
+// è quello registrato come URL dell'app su Shopify: reindirizza alla home.
+export default function OrdiniLegacy() {
+  redirect('/')
 }

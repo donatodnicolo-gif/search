@@ -15,7 +15,6 @@ const SEGRETI = [
   'googleClientSecret',
   'ordersApiKey',
   'searchApiKey',
-  'emailPassword',
 ]
 const IN_CHIARO = [
   'waPhoneNumberId',
@@ -25,10 +24,6 @@ const IN_CHIARO = [
   'googleClientId',
   'ordersUrl',
   'searchUrl',
-  'emailIndirizzo',
-  'emailNome',
-  'emailImapHost',
-  'emailSmtpHost',
 ]
 
 export async function salvaImpostazioni(formData: FormData) {

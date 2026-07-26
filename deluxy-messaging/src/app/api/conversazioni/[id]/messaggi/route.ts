@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { inviaPagina, inviaWhatsApp } from '@/lib/meta'
-import { configEmail, inviaEmail } from '@/lib/email'
+import { casellaPerId, inviaEmail } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,9 +60,10 @@ export async function POST(req: NextRequest, { params }: Params) {
       esito = { ok: true, idEsterno: '' }
       break
     case 'email': {
-      const config = await configEmail()
-      if (!config) {
-        esito = { ok: false, errore: 'Casella di posta non configurata (Impostazioni → Email).' }
+      // Si risponde dalla casella che ha ricevuto; se non c'è, dalla predefinita.
+      const casella = await casellaPerId(conversazione.casellaId)
+      if (!casella) {
+        esito = { ok: false, errore: 'Nessuna casella di posta configurata (pagina Caselle).' }
         break
       }
       // L'oggetto della risposta segue l'ultima mail ricevuta: "Re: …".
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           : `Re: ${ultima.oggetto}`
         : 'Messaggio da Deluxy'
       try {
-        const idMsg = await inviaEmail(config, conversazione.idEsterno, oggetto, pulito)
+        const idMsg = await inviaEmail(casella, conversazione.idEsterno, oggetto, pulito)
         esito = { ok: true, idEsterno: idMsg }
       } catch (e) {
         esito = { ok: false, errore: `Invio non riuscito: ${(e as Error).message}` }

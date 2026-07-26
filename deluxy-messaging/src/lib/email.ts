@@ -1,70 +1,153 @@
 import nodemailer from 'nodemailer'
 import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
-import { leggiImpostazioni } from './impostazioni'
+import { db } from './db'
+import { cifra, decifra } from './crypto'
 
-// Client di posta della casella aziendale (register.it): SMTP per inviare,
-// IMAP per ricevere. Le mail entrano nella stessa inbox degli altri canali:
-// una Conversazione per indirizzo email, come per WhatsApp c'è una
-// conversazione per numero.
+// Client di posta delle caselle aziendali. Se ne possono collegare più d'una
+// (tabella CasellaEmail): le mail entrano nella stessa inbox degli altri
+// canali, una Conversazione per mittente, e la risposta parte dalla casella
+// che ha ricevuto.
 //
-// Configurazione in Impostazioni (password cifrata in Impostazione):
-//   emailIndirizzo, emailNome, emailPassword, emailImapHost, emailSmtpHost
+// Parametri ufficiali register.it (www.register.it/assistenza/parametri-email):
+//   IMAP  pop.securemail.pro       porta 993  SSL
+//   SMTP  authsmtp.securemail.pro  porta 465  SSL
+//   utente = indirizzo email completo
+// Sono host GENERICI di register.it, non del dominio del cliente.
 //
-// Nota su register.it: i suoi server presentano un certificato intestato a un
-// altro dominio (securemail.pro). La connessione resta cifrata, ma va saltata
-// la verifica del NOME sul certificato, altrimenti il collegamento fallisce.
+// Nota TLS: i server presentano un certificato che può non combaciare col nome
+// usato. La connessione resta cifrata: si salta solo la verifica del NOME
+// (stessa scelta di deluxy-mail).
 
-const IMAP_DEFAULT = 'imaps.register.it'
-const SMTP_DEFAULT = 'smtps.register.it'
-const TLS_NOME_NON_VERIFICATO = { rejectUnauthorized: false }
+export const IMAP_DEFAULT = 'pop.securemail.pro'
+export const SMTP_DEFAULT = 'authsmtp.securemail.pro'
 
-export type ConfigEmail = {
-  indirizzo: string
+export type Casella = {
+  id: string
   nome: string
+  indirizzo: string
+  nomeMittente: string
   password: string
   imapHost: string
+  imapPort: number
   smtpHost: string
+  smtpPort: number
+  smtpSicuro: boolean
+  ignoraCertTls: boolean
 }
 
-/** La configurazione della casella, o null se non è ancora impostata. */
-export async function configEmail(): Promise<ConfigEmail | null> {
-  const c = await leggiImpostazioni([
-    'emailIndirizzo',
-    'emailNome',
-    'emailPassword',
-    'emailImapHost',
-    'emailSmtpHost',
-  ])
-  if (!c.emailIndirizzo || !c.emailPassword) return null
-  return {
-    indirizzo: c.emailIndirizzo,
-    nome: c.emailNome || 'Deluxy',
-    password: c.emailPassword,
-    imapHost: c.emailImapHost || IMAP_DEFAULT,
-    smtpHost: c.emailSmtpHost || SMTP_DEFAULT,
+function decifraSicuro(v: string): string {
+  if (!v) return ''
+  try {
+    return decifra(v)
+  } catch {
+    return '' // APP_SECRET cambiato: la password va reinserita
   }
 }
 
-function trasporto(c: ConfigEmail) {
+type RigaCasella = {
+  id: string
+  nome: string
+  indirizzo: string
+  nomeMittente: string
+  password: string
+  imapHost: string
+  imapPort: number
+  smtpHost: string
+  smtpPort: number
+  smtpSicuro: boolean
+  ignoraCertTls: boolean
+}
+
+function daRiga(r: RigaCasella): Casella {
+  return { ...r, password: decifraSicuro(r.password) }
+}
+
+/** Caselle attive e utilizzabili (con password). */
+export async function caselleAttive(): Promise<Casella[]> {
+  const righe = await db.casellaEmail.findMany({
+    where: { attiva: true },
+    orderBy: [{ predefinita: 'desc' }, { indirizzo: 'asc' }],
+  })
+  return righe.map(daRiga).filter((c) => c.password)
+}
+
+/** Una casella per id; se manca, la predefinita (o la prima attiva). */
+export async function casellaPerId(id: string): Promise<Casella | null> {
+  if (id) {
+    const r = await db.casellaEmail.findUnique({ where: { id } })
+    if (r && r.attiva) {
+      const c = daRiga(r)
+      if (c.password) return c
+    }
+  }
+  const attive = await caselleAttive()
+  return attive[0] ?? null
+}
+
+/** Salva o aggiorna una casella. Password vuota = non toccare. */
+export async function salvaCasella(
+  id: string | null,
+  dati: {
+    nome: string
+    indirizzo: string
+    nomeMittente: string
+    password?: string
+    imapHost: string
+    imapPort: number
+    smtpHost: string
+    smtpPort: number
+    smtpSicuro: boolean
+    predefinita?: boolean
+  }
+): Promise<void> {
+  const base = {
+    nome: dati.nome.trim(),
+    indirizzo: dati.indirizzo.trim().toLowerCase(),
+    nomeMittente: dati.nomeMittente.trim() || 'Deluxy',
+    imapHost: dati.imapHost.trim() || IMAP_DEFAULT,
+    imapPort: dati.imapPort || 993,
+    smtpHost: dati.smtpHost.trim() || SMTP_DEFAULT,
+    smtpPort: dati.smtpPort || 465,
+    smtpSicuro: dati.smtpSicuro,
+  }
+  const conPassword = dati.password?.trim()
+    ? { password: cifra(dati.password.trim()) }
+    : {}
+
+  const salvata = id
+    ? await db.casellaEmail.update({ where: { id }, data: { ...base, ...conPassword } })
+    : await db.casellaEmail.create({ data: { ...base, password: conPassword.password ?? '' } })
+
+  // Una sola predefinita: le altre si spengono.
+  if (dati.predefinita) {
+    await db.casellaEmail.updateMany({
+      where: { id: { not: salvata.id } },
+      data: { predefinita: false },
+    })
+    await db.casellaEmail.update({ where: { id: salvata.id }, data: { predefinita: true } })
+  }
+}
+
+function trasporto(c: Casella) {
   return nodemailer.createTransport({
     host: c.smtpHost,
-    port: 465,
-    secure: true,
+    port: c.smtpPort,
+    secure: c.smtpSicuro, // false = STARTTLS (tipico sulla 587)
     auth: { user: c.indirizzo, pass: c.password },
-    tls: TLS_NOME_NON_VERIFICATO,
+    ...(c.ignoraCertTls ? { tls: { rejectUnauthorized: false } } : {}),
   })
 }
 
-/** Invia una mail. `oggetto` vuoto = risposta senza oggetto nuovo. */
+/** Invia una mail dalla casella indicata. */
 export async function inviaEmail(
-  c: ConfigEmail,
+  c: Casella,
   a: string,
   oggetto: string,
   testo: string
 ): Promise<string> {
   const esito = await trasporto(c).sendMail({
-    from: { name: c.nome, address: c.indirizzo },
+    from: { name: c.nomeMittente, address: c.indirizzo },
     to: a,
     subject: oggetto || '(nessun oggetto)',
     text: testo,
@@ -72,24 +155,34 @@ export async function inviaEmail(
   return esito.messageId ?? ''
 }
 
-/** Prova la connessione SMTP (bottone "Prova invio" nelle Impostazioni). */
-export async function provaSmtp(c: ConfigEmail): Promise<{ ok: boolean; messaggio: string }> {
+/** Prova SMTP e IMAP senza inviare nulla a nessuno. */
+export async function provaCasella(c: Casella): Promise<{ ok: boolean; messaggio: string }> {
   try {
     await trasporto(c).verify()
-    return { ok: true, messaggio: `SMTP ${c.smtpHost} raggiungibile, credenziali accettate.` }
   } catch (e) {
-    return { ok: false, messaggio: (e as Error).message }
+    return { ok: false, messaggio: `SMTP ${c.smtpHost}:${c.smtpPort} — ${(e as Error).message}` }
   }
+  try {
+    const client = connessioneImap(c)
+    await client.connect()
+    await client.logout().catch(() => {})
+  } catch (e) {
+    return {
+      ok: false,
+      messaggio: `SMTP ok, ma IMAP ${c.imapHost}:${c.imapPort} — ${(e as Error).message}`,
+    }
+  }
+  return { ok: true, messaggio: `Invio e ricezione funzionano per ${c.indirizzo}.` }
 }
 
-function connessioneImap(c: ConfigEmail): ImapFlow {
+function connessioneImap(c: Casella): ImapFlow {
   return new ImapFlow({
     host: c.imapHost,
-    port: 993,
+    port: c.imapPort,
     secure: true,
     auth: { user: c.indirizzo, pass: c.password },
     logger: false,
-    tls: TLS_NOME_NON_VERIFICATO,
+    ...(c.ignoraCertTls ? { tls: { rejectUnauthorized: false } } : {}),
   })
 }
 
@@ -102,11 +195,8 @@ export type EmailRicevuta = {
   data: Date
 }
 
-/**
- * Scarica le mail recenti della posta in arrivo (ultimi `giorni` giorni).
- * Non tocca il server: le mail restano lì, qui se ne tiene una copia indicizzata.
- */
-export async function scaricaEmail(c: ConfigEmail, giorni = 7): Promise<EmailRicevuta[]> {
+/** Scarica le mail recenti della posta in arrivo di una casella. */
+export async function scaricaEmail(c: Casella, giorni = 7): Promise<EmailRicevuta[]> {
   const client = connessioneImap(c)
   await client.connect()
   const out: EmailRicevuta[] = []
@@ -121,7 +211,7 @@ export async function scaricaEmail(c: ConfigEmail, giorni = 7): Promise<EmailRic
         const indirizzo = (mittente?.address ?? '').toLowerCase()
         if (!indirizzo || indirizzo === c.indirizzo.toLowerCase()) continue // salta le proprie
         out.push({
-          idEsterno: m.messageId ?? `imap-${msg.uid}`,
+          idEsterno: m.messageId ?? `imap-${c.id}-${msg.uid}`,
           da: indirizzo,
           nome: mittente?.name || indirizzo,
           oggetto: m.subject ?? '',

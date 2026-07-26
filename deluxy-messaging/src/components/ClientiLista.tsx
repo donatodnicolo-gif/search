@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
+// Stessa grafica della pagina Clienti di Deluxy Orders (page-head, KPI, ricerca
+// a pillola, pillole di ordinamento, tabella): le due app sono gemelle e
+// devono somigliarsi.
+
 type ClienteDto = {
   chiave: string
   nome: string
@@ -16,17 +20,31 @@ type ClienteDto = {
   inRubrica: boolean
 }
 
+const ORDINAMENTI = [
+  { chiave: 'speso', nome: 'Più spesa' },
+  { chiave: 'ordini', nome: 'Più ordini' },
+  { chiave: 'recenti', nome: 'Più recenti' },
+  { chiave: 'nome', nome: 'Nome' },
+]
+
 function dataBreve(iso: string): string {
   return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: '2-digit' })
+}
+
+function euro(v: number): string {
+  return v.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
 }
 
 export function ClientiLista() {
   const [clienti, setClienti] = useState<ClienteDto[]>([])
   const [totale, setTotale] = useState(0)
+  const [inRubrica, setInRubrica] = useState(0)
+  const [spesoTotale, setSpesoTotale] = useState(0)
   const [googleCollegato, setGoogleCollegato] = useState(false)
   const [caricato, setCaricato] = useState(false)
   const [q, setQ] = useState('')
   const [qCercata, setQCercata] = useState('')
+  const [ordina, setOrdina] = useState('recenti')
   const [soloDaSalvare, setSoloDaSalvare] = useState(false)
   const [occupato, setOccupato] = useState(false)
   const [avviso, setAvviso] = useState('')
@@ -37,22 +55,27 @@ export function ClientiLista() {
       const p = new URLSearchParams()
       if (qCercata) p.set('q', qCercata)
       if (soloDaSalvare) p.set('rubrica', 'no')
+      p.set('ordina', ordina)
       const res = await fetch('/api/clienti?' + p.toString())
       if (!res.ok) return
-      const dati = (await res.json()) as {
+      const d = (await res.json()) as {
         clienti: ClienteDto[]
         totale: number
+        inRubrica: number
+        spesoTotale: number
         googleCollegato: boolean
       }
-      setClienti(dati.clienti)
-      setTotale(dati.totale)
-      setGoogleCollegato(dati.googleCollegato)
+      setClienti(d.clienti)
+      setTotale(d.totale)
+      setInRubrica(d.inRubrica)
+      setSpesoTotale(d.spesoTotale)
+      setGoogleCollegato(d.googleCollegato)
     } catch {
       // rete assente
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, soloDaSalvare])
+  }, [qCercata, soloDaSalvare, ordina])
 
   useEffect(() => {
     const t = setTimeout(() => setQCercata(q.trim()), 300)
@@ -63,8 +86,6 @@ export function ClientiLista() {
     carica()
   }, [carica])
 
-  // Porta in rubrica Google tutti i clienti non ancora salvati (stessa
-  // operazione della pagina Ordini: un contatto per persona).
   async function salvaTuttiInRubrica() {
     setOccupato(true)
     setAvviso('')
@@ -75,7 +96,6 @@ export function ClientiLista() {
         aggiunti?: number
         aggiornati?: number
         presenti?: number
-        errori?: number
         rimasti?: number
         errore?: string
       }
@@ -94,11 +114,17 @@ export function ClientiLista() {
   }
 
   return (
-    <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6, flexWrap: 'wrap' }}>
-        <h1 style={{ margin: 0, flex: 1 }}>Clienti</h1>
+    <main>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Clienti</h1>
+          <p className="page-sub">
+            Chi ha ordinato, ricavato dagli ordini: un cliente per telefono (o email), con tutti i
+            suoi ordini in un posto solo.
+          </p>
+        </div>
         <button
-          className="bottone"
+          className="btn"
           onClick={salvaTuttiInRubrica}
           disabled={occupato || !googleCollegato}
           title={googleCollegato ? '' : 'Collega Google Contacts nelle Impostazioni'}
@@ -106,27 +132,77 @@ export function ClientiLista() {
           {occupato ? 'Salvo…' : 'Porta tutti in rubrica Google'}
         </button>
       </div>
-      <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 0 }}>
-        La rubrica ricavata dagli ordini: una scheda per persona (stesso telefono = stesso
-        cliente), con quanti ordini ha fatto e quando.
-      </p>
 
-      <div className="barra-ricerca">
+      <div className="kpi-riga">
+        <div className="kpi">
+          <div className="kpi-valore">{totale.toLocaleString('it-IT')}</div>
+          <div className="kpi-etichetta">{qCercata ? 'Clienti trovati' : 'Clienti totali'}</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-valore">{euro(spesoTotale)}</div>
+          <div className="kpi-etichetta">Valore totale</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-valore">{inRubrica.toLocaleString('it-IT')}</div>
+          <div className="kpi-etichetta">In rubrica Google</div>
+        </div>
+      </div>
+
+      <div className="ricerca">
+        <span className="ricerca-icona" aria-hidden="true">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          >
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <path d="M15.4 15.4 20 20" />
+          </svg>
+        </span>
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Cerca un cliente: nome, telefono, email, città…"
+          placeholder="Cerca un cliente: nome, email, telefono, città…"
           aria-label="Cerca clienti"
         />
-        <select
-          value={soloDaSalvare ? 'no' : ''}
-          onChange={(e) => setSoloDaSalvare(e.target.value === 'no')}
-          aria-label="Stato rubrica"
+        {q ? (
+          <button className="btn btn-secondario" onClick={() => setQ('')}>
+            Annulla
+          </button>
+        ) : null}
+      </div>
+
+      <div className="filtri">
+        <span className="etichetta-ordina">Ordina per</span>
+        {ORDINAMENTI.map((o) => (
+          <button
+            key={o.chiave}
+            className={`stato-pill${ordina === o.chiave ? ' attuale' : ''}`}
+            onClick={() => setOrdina(o.chiave)}
+          >
+            {o.nome}
+          </button>
+        ))}
+        <span className="etichetta-ordina" style={{ marginLeft: 8 }}>
+          Rubrica
+        </span>
+        <button
+          className={`stato-pill${!soloDaSalvare ? ' attuale' : ''}`}
+          onClick={() => setSoloDaSalvare(false)}
         >
-          <option value="">Rubrica: tutti</option>
-          <option value="no">Non ancora in rubrica</option>
-        </select>
+          Tutti
+        </button>
+        <button
+          className={`stato-pill${soloDaSalvare ? ' attuale' : ''}`}
+          onClick={() => setSoloDaSalvare(true)}
+        >
+          Da salvare
+        </button>
       </div>
 
       {!googleCollegato && caricato ? (
@@ -137,65 +213,77 @@ export function ClientiLista() {
       {avviso ? <div className="avviso-ok">{avviso}</div> : null}
       {errore ? <div className="avviso-errore">{errore}</div> : null}
 
-      {caricato ? (
-        <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '0 0 12px' }}>
-          {totale === 0
-            ? 'Nessun cliente trovato.'
-            : `${totale.toLocaleString('it-IT')} clienti` +
-              (totale > clienti.length ? ` — mostrati i primi ${clienti.length}` : '')}
-        </p>
-      ) : null}
-
       {!caricato ? (
-        <p style={{ color: 'var(--text-secondary)' }}>Carico…</p>
+        <div className="vuoto">Carico…</div>
       ) : clienti.length === 0 ? (
-        <div className="card">
-          Nessun cliente: scarica prima gli ordini da Shopify nella pagina Ordini.
+        <div className="vuoto">
+          {qCercata
+            ? `Nessun cliente per «${qCercata}».`
+            : 'Nessun cliente: scarica prima gli ordini da Shopify.'}
         </div>
       ) : (
-        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-          <table className="tabella">
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Telefono</th>
-                <th>Email</th>
-                <th>Città</th>
-                <th>Negozi</th>
-                <th style={{ textAlign: 'right' }}>Ordini</th>
-                <th style={{ textAlign: 'right' }}>Speso</th>
-                <th>Ultimo</th>
-                <th>Rubrica</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clienti.map((c) => (
-                <tr key={c.chiave}>
-                  <td>{c.nome || '—'}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{c.telefono || '—'}</td>
-                  <td>{c.email || '—'}</td>
-                  <td>{c.citta || '—'}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{c.negozi.join(', ') || '—'}</td>
-                  <td style={{ textAlign: 'right' }}>{c.ordini}</td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {c.speso.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}
-                  </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    {c.ultimoNumero} · {dataBreve(c.ultimaData)}
-                  </td>
-                  <td>
-                    {c.inRubrica ? (
-                      <span className="badge verde">salvato</span>
-                    ) : (
-                      <span className="badge">da salvare</span>
-                    )}
-                  </td>
+        <>
+          <div className="tabella-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Contatti</th>
+                  <th>Negozi</th>
+                  <th className="num">Ordini</th>
+                  <th className="num">Speso</th>
+                  <th>Ultimo</th>
+                  <th>Rubrica</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {clienti.map((c) => (
+                  <tr key={c.chiave}>
+                    <td>
+                      <div className="cella-nome">{c.nome || c.telefono || c.email || '—'}</div>
+                      {c.citta ? <div className="cella-sub">{c.citta}</div> : null}
+                    </td>
+                    <td className="cella-muta">
+                      {c.email ? <div>{c.email}</div> : null}
+                      {c.telefono ? <div className="cella-sub">{c.telefono}</div> : null}
+                      {!c.email && !c.telefono ? '—' : null}
+                    </td>
+                    <td>
+                      <span className="etichette">
+                        {c.negozi.map((n) => (
+                          <span key={n} className="tag">
+                            <span className="dot" style={{ color: 'var(--gold)' }} />
+                            <span className="tag-label">{n}</span>
+                          </span>
+                        ))}
+                      </span>
+                    </td>
+                    <td className="cella-num">{c.ordini.toLocaleString('it-IT')}</td>
+                    <td className="cella-num">{euro(c.speso)}</td>
+                    <td className="cella-muta" style={{ whiteSpace: 'nowrap' }}>
+                      {c.ultimoNumero} · {dataBreve(c.ultimaData)}
+                    </td>
+                    <td>
+                      {c.inRubrica ? (
+                        <span className="badge verde">salvato</span>
+                      ) : (
+                        <span className="badge">da salvare</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="paginazione">
+            <span>
+              {totale.toLocaleString('it-IT')} clienti
+              {totale > clienti.length ? ` · mostrati i primi ${clienti.length}` : ''}
+            </span>
+          </div>
+        </>
       )}
-    </>
+    </main>
   )
 }

@@ -16,10 +16,11 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
           Deluxy <span className="oro">Messaggi</span>
         </div>
         <nav>
-          <Link href="/">Inbox</Link>
-          <Link href="/ordini">Ordini</Link>
+          <Link href="/">Ordini</Link>
           <Link href="/clienti">Clienti</Link>
+          <Link href="/inbox">Messaggi</Link>
           <Link href="/negozi">Negozi</Link>
+          <Link href="/caselle">Caselle</Link>
           <Link href="/impostazioni">Impostazioni</Link>
         </nav>
         <div className="spazio" />

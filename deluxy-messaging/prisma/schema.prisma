@@ -60,6 +60,30 @@ model NegozioShopify {
   ordini Ordine[]
 }
 
+// Una casella di posta collegata (se ne possono collegare più d'una).
+// Parametri ufficiali register.it: IMAP pop.securemail.pro:993 SSL,
+// SMTP authsmtp.securemail.pro:465 SSL, utente = indirizzo completo.
+model CasellaEmail {
+  id           String   @id @default(cuid())
+  nome         String   @default("") // etichetta, es. "Servizio clienti"
+  indirizzo    String   @unique // es. cs@deluxy.it — è anche l'utente IMAP/SMTP
+  nomeMittente String   @default("Deluxy")
+  password     String   @default("") @db.Text // cifrata
+  imapHost     String   @default("pop.securemail.pro")
+  imapPort     Int      @default(993)
+  smtpHost     String   @default("authsmtp.securemail.pro")
+  smtpPort     Int      @default(465)
+  // Alcuni provider usano STARTTLS su 587: allora la connessione parte in
+  // chiaro e si cifra dopo (secure = false).
+  smtpSicuro   Boolean  @default(true)
+  // register.it presenta un certificato intestato a un altro dominio: la
+  // connessione resta cifrata, si salta solo la verifica del NOME.
+  ignoraCertTls Boolean @default(true)
+  attiva       Boolean  @default(true)
+  predefinita  Boolean  @default(false) // da quale casella parte una mail nuova
+  creatoIl     DateTime @default(now())
+}
+
 // Ordini scaricati da Shopify. Ne teniamo una copia locale per mostrarli senza
 // richiamare Shopify ogni volta e per ricordare se il contatto del cliente è
 // già stato salvato su Google Contacts (contattoSalvato/contattoEsito).
@@ -93,8 +117,10 @@ model Ordine {
 // token segreto della sessione del widget.
 model Conversazione {
   id                String   @id @default(cuid())
-  canale            String // whatsapp | messenger | instagram | widget
+  canale            String // whatsapp | messenger | instagram | widget | email
   idEsterno         String
+  // Solo email: la casella che ha ricevuto (da lì partono le risposte).
+  casellaId         String   @default("")
   nome              String   @default("")
   ultimoTesto       String   @default("") @db.Text
   ultimoMessaggioIl DateTime @default(now())

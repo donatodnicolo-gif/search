@@ -367,9 +367,21 @@ export default async function OrdiniPage({
                             </form>
                           </span>
                         ) : (
-                          <form action={riapriOrdine.bind(null, o.id)} style={{ display: "inline" }}>
-                            <button className="btn small secondary" type="submit">Riapri</button>
-                          </form>
+                          <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                            {/* anche gli ordini già incassati/carta possono aprire il popup
+                                per abbinare (o correggere) un movimento bancario */}
+                            <RiconciliaModale
+                              ordineId={o.id}
+                              ordineNome={o.nome}
+                              totale={o.totale}
+                              clienteNome={o.clienteNome ?? o.clienteEmail ?? null}
+                              cerca={cercaMovimentiIncasso}
+                              riconcilia={riconciliaDaModale}
+                            />
+                            <form action={riapriOrdine.bind(null, o.id)} style={{ display: "inline" }}>
+                              <button className="btn small secondary" type="submit">Riapri</button>
+                            </form>
+                          </span>
                         )}
                       </td>
                     </tr>

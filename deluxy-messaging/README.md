@@ -27,13 +27,17 @@ Token. Il widget non ha invio esterno: il visitatore riceve col polling.
 flottante e apre un iframe su `/widget`; la sessione del visitatore è un token casuale
 salvato nel suo browser, la conversazione appare in inbox come canale "Sito".
 
-**Email (register.it).** La casella aziendale è un canale come gli altri: *Scarica posta*
-in inbox legge la posta in arrivo via **IMAP** (`imaps.register.it`) e crea una
-conversazione per indirizzo; rispondendo dal thread la mail parte via **SMTP**
-(`smtps.register.it`), con oggetto `Re: …` preso dall'ultima ricevuta. Indirizzo, nome
-mittente e password (cifrata) si impostano in Impostazioni → Email, con un pulsante per
-provare la connessione. Nota: i server register.it presentano un certificato intestato a
-`securemail.pro`, quindi si salta la verifica del *nome* sul certificato — la connessione
+**Email (register.it), più caselle.** Le caselle si gestiscono in `/caselle` (tabella
+`CasellaEmail`): se ne collegano quante servono, con una **predefinita** per le mail
+nuove. *Scarica posta* in inbox legge la posta in arrivo di **tutte** le caselle attive
+via IMAP e crea una conversazione per mittente; rispondendo dal thread la mail parte
+dalla casella che ha ricevuto (`Conversazione.casellaId`), con oggetto `Re: …`.
+Parametri ufficiali register.it — IMAP **`pop.securemail.pro:993`**, SMTP
+**`authsmtp.securemail.pro:465`**, utente = indirizzo completo — host *generici*, non del
+dominio del cliente ([fonte](https://www.register.it/assistenza/parametri-email/)). Porte
+e host restano modificabili (sulla 587 si passa a STARTTLS). La password è cifrata e c'è
+un pulsante che prova SMTP **e** IMAP. Nota: quei server presentano un certificato che può
+non combaciare col nome usato, quindi si salta la verifica del *nome* — la connessione
 resta cifrata (stessa scelta di `deluxy-mail`).
 
 **Accesso.** Due pagine con link incrociati: `/login` per entrare e `/registrati` per
