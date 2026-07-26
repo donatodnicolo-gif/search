@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { salvaContattiOrdini } from '@/lib/contatti'
 import { brandRicercaDaNegozio, prefissoDaNegozio } from '@/lib/negozi'
-import { scaricaOrdiniDaOrders } from '@/lib/orders'
+import { scaricaOrdiniDaOrders, statiDaOrders } from '@/lib/orders'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -50,12 +50,17 @@ async function negozioPerBrand(brand: string, cache: Map<string, Negozio>): Prom
   return n
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   // Aggiornamento INCREMENTALE: si riparte dal giorno dell'ordine più recente
   // che abbiamo (meno un giorno di margine), non dai 60 giorni pieni. Così il
   // primo giro è l'unico lungo e i successivi durano pochi secondi — necessario
   // perché su Vercel una funzione ha un tetto di tempo.
-  const piuRecente = await db.ordine.findFirst({ orderBy: { data: 'desc' }, select: { data: true } })
+  // Con ?completo=1 si rifà tutta la finestra: serve dopo aver aggiunto campi
+  // nuovi (come consegna e stato), che gli ordini già salvati non hanno.
+  const completo = req.nextUrl.searchParams.get('completo') === '1'
+  const piuRecente = completo
+    ? null
+    : await db.ordine.findFirst({ orderBy: { data: 'desc' }, select: { data: true } })
   const giorniIndietro = piuRecente
     ? Math.max(1, Math.ceil((Date.now() - piuRecente.data.getTime()) / 86400000) + 1)
     : 60
@@ -68,6 +73,7 @@ export async function POST() {
   }
 
   const cache = new Map<string, Negozio>()
+  const stati = await statiDaOrders() // colori della pipeline, per il calendario
   let nuovi = 0
 
   for (const o of ordini) {
@@ -85,6 +91,11 @@ export async function POST() {
       telefono: o.telefono,
       email: o.email,
       citta: o.citta,
+      dataConsegna: o.dataConsegna ? new Date(o.dataConsegna) : null,
+      fasciaConsegna: o.fasciaConsegna,
+      statoChiave: o.statoChiave,
+      statoNome: o.statoNome || stati.get(o.statoChiave)?.nome || '',
+      statoColore: stati.get(o.statoChiave)?.colore || '',
     }
     const esito = await db.ordine.upsert({
       // il gid Shopify è la chiave stabile: gli ordini presi prima da Shopify

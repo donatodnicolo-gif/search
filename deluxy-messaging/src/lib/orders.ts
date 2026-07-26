@@ -27,6 +27,10 @@ export type OrdineArchivio = {
   telefono: string
   email: string
   citta: string
+  dataConsegna: string | null
+  fasciaConsegna: string
+  statoChiave: string
+  statoNome: string
 }
 
 export type EsitoArchivio =
@@ -44,6 +48,8 @@ type OrdineOrders = {
   valuta: string
   cliente?: { nome?: string | null; email?: string | null; telefono?: string | null }
   spedizione?: { citta?: string | null }
+  consegna?: { data?: string | null; fascia?: string | null }
+  classificazione?: { stato?: { chiave?: string; nome?: string } | null }
 }
 
 function normalizza(o: OrdineOrders): OrdineArchivio {
@@ -60,6 +66,10 @@ function normalizza(o: OrdineOrders): OrdineArchivio {
     telefono: o.cliente?.telefono ?? '',
     email: o.cliente?.email ?? '',
     citta: o.spedizione?.citta ?? '',
+    dataConsegna: o.consegna?.data ?? null,
+    fasciaConsegna: o.consegna?.fascia ?? '',
+    statoChiave: o.classificazione?.stato?.chiave ?? '',
+    statoNome: o.classificazione?.stato?.nome ?? '',
   }
 }
 
@@ -108,6 +118,31 @@ export async function scaricaOrdiniDaOrders(
   }
 
   return out
+}
+
+/**
+ * La pipeline degli stati di Orders (chiave → nome e colore): serve a colorare
+ * il calendario con gli stessi colori dell'app Ordini.
+ */
+export async function statiDaOrders(): Promise<Map<string, { nome: string; colore: string }>> {
+  const c = await configOrders()
+  const mappa = new Map<string, { nome: string; colore: string }>()
+  if (!c) return mappa
+  try {
+    const res = await fetch(`${c.base}/api/v1/stati`, {
+      headers: { 'x-api-key': c.chiave },
+      signal: AbortSignal.timeout(10000),
+      cache: 'no-store',
+    })
+    if (!res.ok) return mappa
+    const corpo = (await res.json()) as {
+      stati?: { chiave: string; nome: string; colore: string }[]
+    }
+    for (const s of corpo.stati ?? []) mappa.set(s.chiave, { nome: s.nome, colore: s.colore })
+  } catch {
+    // se non risponde, il calendario usa un colore neutro
+  }
+  return mappa
 }
 
 /** Cerca negli ordini storici di Deluxy Orders. */

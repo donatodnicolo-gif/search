@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { utenteCorrente } from '@/lib/sessione'
+import { Sidebar } from '@/components/Sidebar'
 import { esci } from '../login/actions'
 
 export const dynamic = 'force-dynamic'
@@ -11,27 +11,22 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
 
   return (
     <>
-      <header className="barra">
+      <header className="topbar">
         <div className="logo">
           Deluxy <span className="oro">Messaggi</span>
         </div>
-        <nav>
-          <Link href="/">Ordini</Link>
-          <Link href="/clienti">Clienti</Link>
-          <Link href="/inbox">Messaggi</Link>
-          <Link href="/negozi">Negozi</Link>
-          <Link href="/caselle">Caselle</Link>
-          <Link href="/impostazioni">Impostazioni</Link>
-        </nav>
-        <div className="spazio" />
-        <span className="utente">{utente.nome}</span>
-        <form action={esci}>
-          <button className="bottone secondario" style={{ padding: '5px 14px', fontSize: 13 }}>
-            Esci
-          </button>
-        </form>
+        <div className="topbar-azioni">
+          <span className="utente">{utente.nome}</span>
+          <form action={esci}>
+            <button className="btn btn-secondario small">Esci</button>
+          </form>
+        </div>
       </header>
-      <main className="contenuto">{children}</main>
+      {/* Il menu sta a sinistra: la barra in alto tiene solo marchio e utente. */}
+      <div className="layout">
+        <Sidebar />
+        <main className="main">{children}</main>
+      </div>
     </>
   )
 }

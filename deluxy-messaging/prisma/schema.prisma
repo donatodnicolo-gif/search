@@ -103,6 +103,13 @@ model Ordine {
   email          String   @default("")
   indirizzo      String   @default("") @db.Text
   citta          String   @default("") // mostrata sulle card della vista a colonne
+  // Consegna richiesta dal cliente e stato nella pipeline Deluxy: arrivano da
+  // Orders e reggono il Calendario ordini.
+  dataConsegna   DateTime?
+  fasciaConsegna String   @default("")
+  statoChiave    String   @default("")
+  statoNome      String   @default("")
+  statoColore    String   @default("")
   note           String   @default("") @db.Text
   contattoSalvato Boolean @default(false) // salvato su Google Contacts
   contattoEsito  String   @default("") // esito/errore dell'ultimo salvataggio

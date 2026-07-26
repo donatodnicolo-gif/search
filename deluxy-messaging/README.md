@@ -68,6 +68,16 @@ gli ordini più vecchi dei 60 giorni scaricati da Shopify, letti dall'app **Delu
 via `GET /api/v1/ordini` con chiave di sola lettura (`src/lib/orders.ts`, configurata in
 Impostazioni) — non se ne duplica l'archivio.
 
+**Calendario ordini.** `/calendario` mostra gli ordini nel giorno in cui vanno
+**consegnati** (non ordinati), un mese per volta, con ogni ordine colorato dallo **stato**
+della pipeline di Orders (colori letti da `GET /api/v1/stati`). Si filtra per stato
+cliccando la legenda e per negozio; in testa il numero e il valore delle consegne del mese.
+Gli ordini senza data di consegna indicata non compaiono e vengono contati esplicitamente.
+
+**Menu.** Il menu sta **a sinistra** (`src/components/Sidebar.tsx`, stesso impianto di
+Deluxy Orders: `.layout` + `.sidebar` sticky + `.main`); la barra in alto tiene solo marchio
+e utente. Sotto gli 800px il menu diventa una riga orizzontale scorrevole.
+
 **Clienti (rubrica).** `/clienti` è la rubrica ricavata dagli ordini: una scheda per
 persona (dedup sul telefono, altrimenti email) con negozi, numero di ordini, totale speso,
 ultimo ordine e stato in rubrica Google. Da lì si portano tutti in Google Contacts.

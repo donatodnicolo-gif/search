@@ -79,6 +79,19 @@ Ultimo aggiornamento: 24/07/2026
   `{url: …/?t=<code>}` valido ~5 min; ci aggiungiamo brand+ordine. Senza chiave ripiega
   sul link semplice `?brand=&ordine=` (verificato: `firmato: false`). Il bottone apre la
   scheda PRIMA della fetch, altrimenti il browser la blocca come popup.
+- Menu a SINISTRA (26/07/2026): `src/components/Sidebar.tsx` + `.layout/.sidebar/.main`
+  copiati da deluxy-orders; la topbar tiene solo marchio e utente. Sotto 800px la sidebar
+  diventa una riga orizzontale. Voci: Ordini/Calendario/Clienti · Inbox · Negozi/Caselle/
+  Impostazioni.
+- CALENDARIO ORDINI (26/07/2026): `/calendario` + `/api/ordini/calendario?mese=YYYY-MM`.
+  Griglia del mese per DATA DI CONSEGNA, ogni ordine con il bordo del colore dello stato;
+  legenda cliccabile per filtrare, filtro negozio, KPI consegne/valore.
+  Campi nuovi su `Ordine`: `dataConsegna`, `fasciaConsegna`, `statoChiave`, `statoNome`,
+  `statoColore` (da `consegna` e `classificazione.stato` di Orders + `GET /api/v1/stati`
+  per i colori). Verificato: 610 ordini su 911 hanno una data di consegna, 876 hanno stato;
+  luglio mostra 260 consegne per €47.539,98.
+  NB: i campi nuovi NON si riempiono col sync incrementale — serve
+  `POST /api/ordini/sync?completo=1` (rifà tutta la finestra di 60 giorni, dura minuti).
 - FONTE ORDINI = DELUXY ORDERS (26/07/2026, non più Shopify diretto): `/api/ordini/sync`
   usa `scaricaOrdiniDaOrders()` (`GET {ordersUrl}/api/v1/ordini?da=&page=&limit=200`,
   `x-api-key`). INCREMENTALE: `da` = giorno dell'ordine più recente locale − 1 (primo giro
