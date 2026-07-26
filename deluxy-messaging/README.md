@@ -27,6 +27,15 @@ Token. Il widget non ha invio esterno: il visitatore riceve col polling.
 flottante e apre un iframe su `/widget`; la sessione del visitatore è un token casuale
 salvato nel suo browser, la conversazione appare in inbox come canale "Sito".
 
+**Email (register.it).** La casella aziendale è un canale come gli altri: *Scarica posta*
+in inbox legge la posta in arrivo via **IMAP** (`imaps.register.it`) e crea una
+conversazione per indirizzo; rispondendo dal thread la mail parte via **SMTP**
+(`smtps.register.it`), con oggetto `Re: …` preso dall'ultima ricevuta. Indirizzo, nome
+mittente e password (cifrata) si impostano in Impostazioni → Email, con un pulsante per
+provare la connessione. Nota: i server register.it presentano un certificato intestato a
+`securemail.pro`, quindi si salta la verifica del *nome* sul certificato — la connessione
+resta cifrata (stessa scelta di `deluxy-mail`).
+
 **Accesso.** Due pagine con link incrociati: `/login` per entrare e `/registrati` per
 creare l'account (sessione firmata, come deluxy-mail). Il primo account registrato è
 l'amministratore; i successivi nascono con ruolo operatore.

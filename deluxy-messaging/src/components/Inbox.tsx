@@ -30,6 +30,7 @@ const NOMI_CANALE: Record<string, string> = {
   messenger: 'Messenger',
   instagram: 'Instagram',
   widget: 'Sito',
+  email: 'Email',
 }
 
 function etichettaCanale(canale: string): string {
@@ -118,9 +119,37 @@ export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: Conver
     }
   }
 
+  // Scarica la posta dalla casella register.it: le mail entrano come
+  // conversazioni del canale Email.
+  const [scaricoPosta, setScaricoPosta] = useState('')
+  async function scaricaPosta() {
+    setScaricoPosta('…')
+    try {
+      const res = await fetch('/api/email/sync', { method: 'POST' })
+      const d = (await res.json().catch(() => ({}))) as {
+        nuove?: number
+        lette?: number
+        errore?: string
+      }
+      setScaricoPosta(res.ok ? `${d.nuove ?? 0} nuove` : d.errore || 'errore')
+      await aggiornaConversazioni()
+    } catch {
+      setScaricoPosta('errore di rete')
+    }
+    setTimeout(() => setScaricoPosta(''), 6000)
+  }
+
   return (
     <div className="inbox">
       <div className="elenco">
+        <div className="barra-elenco">
+          <button className="bottone secondario mini" onClick={scaricaPosta} disabled={scaricoPosta === '…'}>
+            {scaricoPosta === '…' ? 'Scarico posta…' : 'Scarica posta'}
+          </button>
+          {scaricoPosta && scaricoPosta !== '…' ? (
+            <span className="esito">{scaricoPosta}</span>
+          ) : null}
+        </div>
         {conversazioni.length === 0 ? (
           <div className="vuoto" style={{ padding: 30 }}>
             Nessuna conversazione ancora. Quando un cliente scrive su WhatsApp, Messenger,

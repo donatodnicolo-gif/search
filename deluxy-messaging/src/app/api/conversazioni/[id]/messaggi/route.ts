@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { inviaPagina, inviaWhatsApp } from '@/lib/meta'
+import { configEmail, inviaEmail } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,6 +59,31 @@ export async function POST(req: NextRequest, { params }: Params) {
       // Il widget non ha un invio esterno: il visitatore riceve col suo polling.
       esito = { ok: true, idEsterno: '' }
       break
+    case 'email': {
+      const config = await configEmail()
+      if (!config) {
+        esito = { ok: false, errore: 'Casella di posta non configurata (Impostazioni → Email).' }
+        break
+      }
+      // L'oggetto della risposta segue l'ultima mail ricevuta: "Re: …".
+      const ultima = await db.messaggio.findFirst({
+        where: { conversazioneId: id, direzione: 'in', oggetto: { not: '' } },
+        orderBy: { creatoIl: 'desc' },
+        select: { oggetto: true },
+      })
+      const oggetto = ultima?.oggetto
+        ? /^re:/i.test(ultima.oggetto)
+          ? ultima.oggetto
+          : `Re: ${ultima.oggetto}`
+        : 'Messaggio da Deluxy'
+      try {
+        const idMsg = await inviaEmail(config, conversazione.idEsterno, oggetto, pulito)
+        esito = { ok: true, idEsterno: idMsg }
+      } catch (e) {
+        esito = { ok: false, errore: `Invio non riuscito: ${(e as Error).message}` }
+      }
+      break
+    }
     default:
       esito = { ok: false, errore: `Canale sconosciuto: ${conversazione.canale}` }
   }

@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { leggiImpostazioni } from '@/lib/impostazioni'
+import { ProvaEmail } from '@/components/ProvaEmail'
 import { redirectUri } from '@/lib/google'
 import { salvaImpostazioni } from './actions'
 
@@ -33,6 +34,13 @@ export default async function PaginaImpostazioni({
     'googleRefreshToken',
     'ordersUrl',
     'ordersApiKey',
+    'searchUrl',
+    'searchApiKey',
+    'emailIndirizzo',
+    'emailNome',
+    'emailPassword',
+    'emailImapHost',
+    'emailSmtpHost',
   ])
 
   // URL pubblico dell'app: da APP_URL, altrimenti dall'host della richiesta.
@@ -202,6 +210,85 @@ export default async function PaginaImpostazioni({
                 Salva prima Client ID e Client Secret, poi il pulsante si attiva.
               </p>
             ) : null}
+          </div>
+
+          <div className="card">
+            <h2>Email (register.it)</h2>
+            <p className="descrizione">
+              La casella aziendale: le mail arrivano in inbox come gli altri canali e da lì si
+              risponde. I server sono già quelli di register.it, cambiali solo se il tuo dominio
+              usa host diversi.
+            </p>
+            <label className="campo">
+              <span>Indirizzo</span>
+              <input
+                name="emailIndirizzo"
+                type="email"
+                defaultValue={config.emailIndirizzo}
+                placeholder="info@deluxy.it"
+                autoComplete="off"
+              />
+            </label>
+            <label className="campo">
+              <span>Nome mittente</span>
+              <input name="emailNome" defaultValue={config.emailNome} placeholder="Deluxy" />
+            </label>
+            <label className="campo">
+              <span>
+                Password della casella <BadgeConfigurato pieno={!!config.emailPassword} />
+              </span>
+              <input
+                name="emailPassword"
+                type="password"
+                placeholder={config.emailPassword ? 'salvata — incolla per sostituire' : ''}
+                autoComplete="new-password"
+              />
+            </label>
+            <label className="campo">
+              <span>Server IMAP (ricezione)</span>
+              <input
+                name="emailImapHost"
+                defaultValue={config.emailImapHost}
+                placeholder="imaps.register.it"
+              />
+            </label>
+            <label className="campo">
+              <span>Server SMTP (invio)</span>
+              <input
+                name="emailSmtpHost"
+                defaultValue={config.emailSmtpHost}
+                placeholder="smtps.register.it"
+              />
+            </label>
+            <ProvaEmail />
+          </div>
+
+          <div className="card">
+            <h2>Ricerca fornitori</h2>
+            <p className="descrizione">
+              Con la chiave <code>dlxs_…</code> il bottone &quot;Fornitore&quot; sugli ordini apre
+              l&apos;app già autenticata (link a tempo). Senza chiave funziona lo stesso, ma
+              l&apos;app chiede l&apos;accesso.
+            </p>
+            <label className="campo">
+              <span>URL dell&apos;app</span>
+              <input
+                name="searchUrl"
+                defaultValue={config.searchUrl}
+                placeholder="https://search-deluxy.vercel.app"
+              />
+            </label>
+            <label className="campo">
+              <span>
+                Chiave API <BadgeConfigurato pieno={!!config.searchApiKey} />
+              </span>
+              <input
+                name="searchApiKey"
+                type="password"
+                placeholder={config.searchApiKey ? 'salvata — incolla per sostituire' : 'dlxs_…'}
+                autoComplete="off"
+              />
+            </label>
           </div>
 
           <div className="card">

@@ -42,10 +42,31 @@ type OrdineArchivio = {
   citta: string
 }
 
-/** Link all'app Ricerca fornitori con brand e numero già impostati. */
-function linkFornitore(brandRicerca: string, numero: string): string {
+/** Link semplice all'app Ricerca fornitori (ripiego, senza accesso automatico). */
+function linkFornitoreSemplice(brandRicerca: string, numero: string): string {
   const p = new URLSearchParams({ brand: brandRicerca, ordine: numero.replace(/^#/, '').trim() })
   return `https://search-deluxy.vercel.app/?${p}`
+}
+
+/**
+ * Apre Ricerca fornitori sull'ordine. La scheda si apre SUBITO (altrimenti il
+ * browser la blocca come popup) e poi ci portiamo dentro il link firmato che
+ * chiediamo al nostro server.
+ */
+async function apriFornitore(brandRicerca: string, numero: string) {
+  const scheda = window.open('about:blank', '_blank', 'noopener,noreferrer')
+  const ripiego = linkFornitoreSemplice(brandRicerca, numero)
+  try {
+    const p = new URLSearchParams({ brand: brandRicerca, ordine: numero })
+    const res = await fetch('/api/fornitore/link?' + p.toString())
+    const d = (await res.json()) as { url?: string }
+    const url = d.url || ripiego
+    if (scheda) scheda.location.href = url
+    else window.open(url, '_blank', 'noopener,noreferrer')
+  } catch {
+    if (scheda) scheda.location.href = ripiego
+    else window.open(ripiego, '_blank', 'noopener,noreferrer')
+  }
 }
 
 function soldi(v: number, valuta: string): string {
@@ -396,15 +417,13 @@ export function OrdiniLista() {
                           )}
                           {/* Bottone rapido: apre Ricerca fornitori sull'ordine */}
                           {n.brandRicerca ? (
-                            <a
+                            <button
                               className="bottone secondario mini"
-                              href={linkFornitore(n.brandRicerca, o.numero)}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              onClick={() => apriFornitore(n.brandRicerca, o.numero)}
                               title={`Cerca il fornitore per ${o.numero} su Ricerca fornitori`}
                             >
                               Fornitore ↗
-                            </a>
+                            </button>
                           ) : null}
                         </div>
                       </div>
@@ -468,15 +487,13 @@ export function OrdiniLista() {
                     {(() => {
                       const brand = negozi.find((n) => n.id === o.negozioId)?.brandRicerca
                       return brand ? (
-                        <a
+                        <button
                           className="bottone secondario mini"
-                          href={linkFornitore(brand, o.numero)}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          onClick={() => apriFornitore(brand, o.numero)}
                           title={`Cerca il fornitore per ${o.numero}`}
                         >
                           Cerca ↗
-                        </a>
+                        </button>
                       ) : (
                         <span style={{ color: 'var(--text-tertiary)' }}>—</span>
                       )
@@ -529,15 +546,13 @@ export function OrdiniLista() {
                         {soldi(o.totale, o.valuta)}
                       </td>
                       <td>
-                        <a
+                        <button
                           className="bottone secondario mini"
-                          href={linkFornitore(o.brandRicerca || o.brand, o.numero)}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          onClick={() => apriFornitore(o.brandRicerca || o.brand, o.numero)}
                           title={`Cerca il fornitore per ${o.numero}`}
                         >
                           Cerca ↗
-                        </a>
+                        </button>
                       </td>
                     </tr>
                   ))}

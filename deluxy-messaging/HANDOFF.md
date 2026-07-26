@@ -60,6 +60,20 @@ Ultimo aggiornamento: 24/07/2026
   sola lettura) e salvata cifrata in Impostazione `ordersApiKey` (+ `ordersUrl`). La ricerca
   in `/ordini` mostra la sezione "Archivio storico" con i risultati. Il brand di Orders viene
   tradotto per Ricerca fornitori ("Flowers" → "deluxyflowers.com").
+- Email register.it (26/07/2026): `src/lib/email.ts` — SMTP `smtps.register.it:465` con
+  nodemailer, IMAP `imaps.register.it:993` con imapflow + mailparser. TLS con
+  `rejectUnauthorized: false` PERCHÉ register.it presenta un certificato di securemail.pro
+  (stessa scelta di deluxy-mail/src/lib/imap.ts) — la connessione resta cifrata.
+  `/api/email/sync` porta le mail in inbox (canale `email`, una conversazione per
+  indirizzo, dedup su Message-ID), `/api/email/prova` verifica le credenziali senza
+  inviare, e la risposta dal thread parte via SMTP con oggetto `Re: …`.
+  Campo `Messaggio.oggetto` aggiunto. Config in Impostazioni (password cifrata).
+  MANCA: allegati, HTML (oggi solo testo), cartella Inviata sul server, cron di scarico.
+- Link firmato Ricerca fornitori (26/07/2026): `src/lib/fornitori.ts` — POST
+  `{searchUrl}/api/link` con `x-api-key: dlxs_…` e body `{quando: ISO}` torna
+  `{url: …/?t=<code>}` valido ~5 min; ci aggiungiamo brand+ordine. Senza chiave ripiega
+  sul link semplice `?brand=&ordine=` (verificato: `firmato: false`). Il bottone apre la
+  scheda PRIMA della fetch, altrimenti il browser la blocca come popup.
 - Ricerca ordini (25/07/2026): `/api/ordini` accetta `q` (numero, cliente, telefono con
   normalizzazione delle cifre, email, indirizzo, negozio), `negozio` e `contatto=si|no`;
   torna anche `totale` e l'elenco negozi. UI: barra con campo di ricerca (ritardo 300ms),

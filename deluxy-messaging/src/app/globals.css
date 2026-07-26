@@ -476,6 +476,21 @@ button {
   margin-bottom: 10px;
 }
 
+/* ---- Barra sopra l'elenco conversazioni ---- */
+
+.barra-elenco {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.barra-elenco .esito {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
 /* ---- Barra di ricerca e filtri ---- */
 
 .barra-ricerca {

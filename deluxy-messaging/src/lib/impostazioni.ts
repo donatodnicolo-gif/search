@@ -30,6 +30,8 @@ const CHIAVI_CIFRATE = new Set([
   'googleClientSecret',
   'googleRefreshToken',
   'ordersApiKey',
+  'searchApiKey',
+  'emailPassword',
 ])
 
 export async function leggiImpostazione(chiave: string): Promise<string> {

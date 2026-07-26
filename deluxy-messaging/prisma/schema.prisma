@@ -113,6 +113,7 @@ model Messaggio {
   conversazioneId String
   conversazione   Conversazione @relation(fields: [conversazioneId], references: [id], onDelete: Cascade)
   direzione       String // in (dal cliente) | out (dall'operatore)
+  oggetto         String   @default("") // solo email: l'oggetto del messaggio
   testo           String   @db.Text
   tipo            String   @default("testo") // testo | media | nota
   idEsterno       String   @default("") // id Meta del messaggio: dedup webhook e aggiornamenti di stato
