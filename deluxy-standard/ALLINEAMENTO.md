@@ -53,6 +53,18 @@ Se serve allineare **una sola area** invece di tutta l'app:
 
 Audit fatto sul codice del repo. "Da correggere" è quello che va nell'ordine §1.
 
+> **Già chiuso il 24/07/2026** (commit `e6dc574` e `2255a95`):
+> - `.vercelignore` creato nelle 6 app che non l'avevano (anagrafiche, budgets,
+>   merchandising, messaging, orders, partner). Prima è stata verificata la
+>   parità delle variabili: per le 4 app pubblicate tutte le env locali sono già
+>   su Vercel, quindi il prossimo deploy non perde nulla.
+> - Header verso la cassaforte corretto in **AI Mail e Budgets** (mandavano
+>   `X-Hub-Token`, il Hub accetta solo `x-api-key`/`Bearer`): la cassaforte
+>   centrale non veniva mai letta davvero.
+>
+> **Resta aperto**: budgets e merchandising su SQLite; `HUB_SSO_SECRET` presente
+> solo nel `.env` locale di partner e non nelle env di produzione.
+
 | App | Conforme | Da correggere |
 |---|---|---|
 | **deluxy-hub** | CSS, DB (schema `hub`), db.ts, `.vercelignore`, API a token | — (app di riferimento per le chiavi) |
