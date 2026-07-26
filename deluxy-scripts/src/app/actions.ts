@@ -304,7 +304,12 @@ export async function proponiBozza(_precedente: EsitoAi | null, fd: FormData): P
       brief,
       categoria: testo(fd, "categoria") || "vendite",
       canale: testo(fd, "canale") || "email",
+      destinatario: testo(fd, "destinatario") || undefined,
+      obiettivo: testo(fd, "obiettivo") || undefined,
+      daDire: testo(fd, "daDire") || undefined,
+      daNonDire: testo(fd, "daNonDire") || undefined,
       tono: testo(fd, "tono") || undefined,
+      lunghezza: testo(fd, "lunghezza") || undefined,
     });
     return { proposta };
   } catch (e) {

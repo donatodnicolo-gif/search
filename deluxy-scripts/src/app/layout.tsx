@@ -49,7 +49,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </a>
           </div>
           <div className="topbar-azioni">
-            <a className="btn" href="/script/nuovo">Nuovo testo</a>
+            <a className="btn btn-secondario" href="/script/nuovo">Nuovo testo</a>
+            <a className="btn" href="/script/ai">Chiedi all&apos;AI</a>
           </div>
         </header>
         <div className="layout">

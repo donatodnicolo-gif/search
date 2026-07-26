@@ -1,5 +1,4 @@
 import { creaScript } from "@/app/actions";
-import { AiBozza } from "@/components/AiBozza";
 import { EditorCorpo } from "@/components/EditorCorpo";
 import { aiConfigurata } from "@/lib/ai";
 import { CANALI, CATEGORIE } from "@/lib/variabili";
@@ -21,7 +20,18 @@ export default function NuovoScript() {
         </div>
       </div>
 
-      <AiBozza accesa={aiConfigurata()} />
+      {aiConfigurata() && (
+        <div className="scheda scheda-ai" style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div className="scheda-titolo" style={{ marginBottom: 4 }}>Non parti dal foglio bianco</div>
+            <p className="campo-aiuto">
+              Racconta all&apos;AI cosa ti serve — a chi si manda, cosa deve ottenere, cosa non dire — e ne esce una
+              bozza da rileggere.
+            </p>
+          </div>
+          <a className="btn" href="/script/ai">Chiedi all&apos;AI</a>
+        </div>
+      )}
 
       <form action={creaScript}>
         <div className="scheda">

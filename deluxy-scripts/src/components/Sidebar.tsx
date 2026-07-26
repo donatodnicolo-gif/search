@@ -32,6 +32,10 @@ export function Sidebar({
       </div>
       <div className="sb-sezione">
         <div className="sb-label">Aggiungi</div>
+        <a href="/script/ai" className={`sb-item${path === "/script/ai" ? " attiva" : ""}`}>
+          <span className="sb-icona">{iconaAi}</span>
+          <span className="sb-nome">Chiedi all&apos;AI</span>
+        </a>
         <a href="/script/nuovo" className={`sb-item${path === "/script/nuovo" ? " attiva" : ""}`}>
           <span className="sb-icona">{iconaPiu}</span>
           <span className="sb-nome">Nuovo testo</span>
@@ -57,6 +61,13 @@ const iconaImpostazioni = (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
     <circle cx="12" cy="12" r="3" />
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+);
+// Scintilla: l'AI che scrive
+const iconaAi = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3.5 13.7 8.3 18.5 10 13.7 11.7 12 16.5 10.3 11.7 5.5 10 10.3 8.3z" />
+    <path d="M18 16.5v3M16.5 18h3" />
   </svg>
 );
 const iconaPiu = (

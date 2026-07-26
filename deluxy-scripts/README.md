@@ -46,14 +46,22 @@ Nella pagina di un testo, il riquadro **«Usa questo testo»**:
 
 ## L'AI che scrive e sistema i testi
 
-Due riquadri, con il filo d'oro sul bordo:
+Due strade, riconoscibili dal filo d'oro sul bordo:
 
-- **«Fatti scrivere una bozza»** (pagina *Nuovo testo*) — si spiega a parole a
-  chi si manda e cosa deve dire, e l'AI propone titolo, oggetto e messaggio con
-  le variabili già al posto dei dati che cambiano.
+- **«Chiedi all'AI»** (`/script/ai`, bottone in alto e in ogni elenco) — si
+  compila un **brief**: cosa deve dire, a chi si manda, cosa deve ottenere,
+  categoria, canale, tono, lunghezza, **cosa deve dire per forza** e **cosa non
+  deve dire**. Ne esce titolo, oggetto e messaggio con le variabili già al posto
+  dei dati che cambiano; si rilegge, e solo premendo «crea il testo» entra
+  nell'archivio (dove si continua a modificarlo a mano).
 - **«Fallo sistemare all'AI»** (pagina di un testo) — ritocchi pronti (più
   corto, più formale, più caloroso, adatta a WhatsApp, adatta a email, proponi
   le variabili, più chiaro) oppure una richiesta scritta a mano.
+
+I due campi che fanno la differenza sono gli ultimi: *deve dire per forza* e
+*non deve dire* non sono suggerimenti, sono limiti. In prova, un sollecito di
+pagamento con «non minacciare azioni legali, non parlare di mora» è uscito
+fermo e cortese, senza nessuna delle due cose.
 
 Tre regole, scritte nel codice e nel prompt:
 

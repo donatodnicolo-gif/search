@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { CANALI, CATEGORIE, VARIABILI_COMUNI } from "./variabili";
+import { CANALI, CATEGORIE } from "./variabili";
 
 // L'AI che scrive e sistema i testi.
 //
@@ -86,8 +86,16 @@ Come devi scrivere:
 Regola dei dati (la più importante):
 - non inventare MAI nomi, date, orari, indirizzi, numeri, prezzi, link;
 - dove serve un dato che non ti è stato dato, metti una variabile {{COSÌ}}, in MAIUSCOLO con underscore;
-- riusa questi nomi quando calzano, invece di inventarne di simili: ${VARIABILI_COMUNI.join(", ")};
 - se un dato ti è stato dato nel brief, scrivilo per esteso: è già una decisione presa da una persona.
+
+Le variabili di casa, da riusare con QUESTO significato invece di inventarne di simili:
+- {{NOME_CLIENTE}} la persona a cui stai scrivendo;
+- {{AZIENDA}} l'azienda a cui stai scrivendo;
+- {{REFERENTE}} la persona di Deluxy che segue quel cliente;
+- {{FIRMA}} chi firma il messaggio — in fondo si firma sempre con questa, mai con {{NOME_CLIENTE}};
+- {{DATA}}, {{ORA}}, {{LUOGO}} quando, a che ora, dove;
+- {{LINK}} l'indirizzo da aprire.
+Per tutto il resto inventa pure un nome nuovo, purché sia chiaro (es. {{NUMERO_FATTURA}}).
 
 Per WhatsApp e SMS: più corto, niente formule da lettera, a capo per respirare.
 Per l'email: oggetto breve e chiaro, senza punti esclamativi.
@@ -126,21 +134,43 @@ async function chiedi(istruzioni: string, richiesta: string): Promise<Proposta> 
   };
 }
 
-// Prima stesura a partire da un brief scritto da una persona.
-export async function scriviBozza(dati: {
-  brief: string;
+// Il brief: quello che una persona sa e il modello no. Solo `brief` è
+// obbligatorio; gli altri campi sono le domande che un bravo copywriter farebbe
+// prima di scrivere, e ognuna che si compila toglie un margine di invenzione.
+export type Brief = {
+  brief: string; // cosa deve dire, a parole
   categoria: string;
   canale: string;
+  destinatario?: string; // a chi si manda: «clienti B2B, hotel e ristoranti»
+  obiettivo?: string; // cosa deve ottenere: «far confermare la presenza»
+  daDire?: string; // i punti che devono esserci per forza
+  daNonDire?: string; // i limiti: «non promettere sconti né tempi di consegna»
   tono?: string;
-}): Promise<Proposta> {
+  lunghezza?: string; // breve | media | lunga
+};
+
+const LUNGHEZZE: Record<string, string> = {
+  breve: "molto breve: 60-80 parole",
+  media: "media: 120-160 parole",
+  lunga: "distesa: 200-260 parole",
+};
+
+// Prima stesura a partire dal brief.
+export async function scriviBozza(dati: Brief): Promise<Proposta> {
   return chiedi(
     `Scrivi la PRIMA STESURA di un testo aziendale riutilizzabile: non è un messaggio per una persona sola,
 è un modello che verrà usato molte volte cambiando i dati dentro le variabili.
-Proponi anche un titolo interno breve, che serve a ritrovarlo nell'archivio.`,
+Proponi anche un titolo interno breve, che serve a ritrovarlo nell'archivio.
+Rispetta i punti da dire e i limiti: quelli non sono suggerimenti, sono decisioni già prese da una persona.`,
     [
       `Categoria: ${descrizioneCategoria(dati.categoria)}`,
       `Canale: ${descrizioneCanale(dati.canale)}`,
+      dati.destinatario ? `A chi si manda: ${dati.destinatario}` : null,
+      dati.obiettivo ? `Cosa deve ottenere: ${dati.obiettivo}` : null,
       dati.tono ? `Tono richiesto: ${dati.tono}` : null,
+      dati.lunghezza ? `Lunghezza: ${LUNGHEZZE[dati.lunghezza] ?? dati.lunghezza}` : null,
+      dati.daDire ? `Deve dire per forza:\n${dati.daDire}` : null,
+      dati.daNonDire ? `Non deve dire:\n${dati.daNonDire}` : null,
       "",
       "Brief di chi lo ha chiesto:",
       dati.brief,

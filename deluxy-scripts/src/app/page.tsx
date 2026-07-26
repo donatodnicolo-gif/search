@@ -65,7 +65,10 @@ export default async function ElencoScript({
             volta, si richiamano in email e WhatsApp con i dati del cliente già dentro.
           </p>
         </div>
-        <a className="btn" href="/script/nuovo">Nuovo testo</a>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <a className="btn btn-secondario" href="/script/nuovo">Nuovo testo</a>
+          <a className="btn" href="/script/ai">Chiedi all&apos;AI</a>
+        </div>
       </div>
 
       <div className="kpi-riga">
@@ -118,7 +121,8 @@ export default async function ElencoScript({
       {script.length === 0 ? (
         <div className="vuoto">
           Nessun testo qui dentro.{" "}
-          <a href="/script/nuovo" style={{ color: "var(--blue)", fontWeight: 500 }}>Scrivine uno</a>.
+          <a href="/script/ai" style={{ color: "var(--blue)", fontWeight: 500 }}>Fattene scrivere uno dall&apos;AI</a>{" "}
+          oppure <a href="/script/nuovo" style={{ color: "var(--blue)", fontWeight: 500 }}>scrivilo a mano</a>.
         </div>
       ) : (
         <div className="tabella-wrap">
