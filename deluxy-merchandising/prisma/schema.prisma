@@ -155,6 +155,37 @@ model VetrinaProdotto {
   @@index([vetrinaId, posizione])
 }
 
+// Un negozio Shopify che Merchandising può interrogare: dominio + token Admin.
+//
+// I token si impostano dalla pagina Impostazioni e nel database stanno
+// **cifrati** (AES-256-GCM con APP_SECRET, vedi src/lib/crypto.ts): l'app li
+// decifra solo nell'istante della chiamata e non li rimostra mai in pagina —
+// una volta salvato, un token si sostituisce, non si rilegge.
+//
+// Ogni negozio ha il suo token perché su Shopify il token è legato al singolo
+// negozio: non esiste una chiave che li apra tutti.
+model NegozioShopify {
+  id          String    @id @default(cuid())
+  nome        String    @unique // come si chiama qui: "Flowers", "deluxy.it"…
+  dominio     String // es. fb72b1-2.myshopify.com
+  tokenCifrato String
+  // Impronta corta del token: serve solo a riconoscere "quale" token è
+  // impostato senza mostrarlo (le ultime cifre cambiano se lo sostituisci).
+  tokenImpronta String   @default("")
+  attivo      Boolean   @default(true)
+  // Esito dell'ultima verifica: permessi che il token dichiara e cosa risponde
+  // davvero il negozio. Senza, l'unico modo di scoprire che manca un permesso è
+  // un import che fallisce a metà.
+  verificatoIl DateTime?
+  permessi     String? // scope separati da virgola, come li dichiara Shopify
+  esitoVerifica String? // ok | errore
+  messaggio    String?
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([attivo])
+}
+
 // Una riga venduta, al giorno in cui è stata venduta. È il fatto elementare su
 // cui poggiano trend e ipotesi di ordinativo.
 //

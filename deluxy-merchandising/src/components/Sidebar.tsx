@@ -27,7 +27,8 @@ export async function Sidebar({
     | "riordini"
     | "trend-ai"
     | "visual"
-    | "shopify";
+    | "shopify"
+    | "impostazioni";
   collezioneAttiva?: string;
 }) {
   const brand = await brandCorrente();
@@ -87,6 +88,7 @@ export async function Sidebar({
         <SbSezione titolo="Vetrina & canale">
           {voce("visual", "/visual", "visual", "Visual merchandising")}
           {voce("shopify", "/shopify", "shopify", "Shopify", daPubblicare || undefined)}
+          {voce("impostazioni", "/impostazioni", "impostazioni", "Negozi & permessi")}
         </SbSezione>
 
         <SbSezione titolo="Collezioni">

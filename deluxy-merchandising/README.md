@@ -39,6 +39,7 @@ Il menù è raggruppato per mestiere: **Panoramica** (cruscotto) · **Vendite**
 | **Ipotesi di ordinativo** | Quanto riordinare di ogni prodotto, dal ritmo di vendita reale e dalla giacenza (lead time, copertura, scorta regolabili). Si congela in un piano modificabile ed esportabile in CSV. **Propone, non ordina.** | `/riordini`, `/riordini/[id]` |
 | **Trend con AI** | Lettura del venduto scritta dal modello sui numeri già calcolati dall'app, con osservazioni, azioni proposte e domande aperte. Storicizzata insieme ai dati su cui è fondata. | `/trend-ai` |
 | **Visual merchandising** | Allestimenti (vetrine, lookbook, capsule): i prodotti disposti in una sequenza curata, riordinabile. | `/visual`, `/visual/[id]` |
+| **Negozi & permessi** | Dove si decide con quali negozi Shopify l'app parla: dominio + token Admin (salvato cifrato, mai rimostrato), verifica che dice quali permessi ha davvero quel token e il catalogo dei permessi da dare all'app Shopify. | `/impostazioni` |
 | **Shopify** | Stato di pubblicazione e anteprima del payload prodotto. L'app prepara tutto; la scrittura reale sul negozio si attiva con le credenziali. | `/shopify` |
 
 La **scheda prodotto 360°** (`/prodotti/[id]`) riunisce tutto in tab:
@@ -63,6 +64,7 @@ nessun segreto). Vedi il file per le opzioni:
 - `DATABASE_URL` — database (SQLite in locale).
 - `MERCHANDISING_APP_PASSWORD` — opzionale: protegge la UI con password unica (come le altre app Deluxy).
 - `ORDERS_URL` + `ORDERS_API_KEY` — collegamento al registro ordini **Deluxy Orders**, da cui arriva il venduto di `/vendite` e delle ipotesi di ordinativo. La chiave si crea in `deluxy-orders` con `npm run chiave -- deluxy-merchandising`. Senza chiave le pagine restano leggibili ma non importano nulla.
+- `APP_SECRET` — cifra i token Shopify inseriti in `/impostazioni` (AES-256-GCM). Senza, l'app **rifiuta di salvarli** invece di metterli in chiaro. Cambiandola, i token salvati vanno reinseriti.
 - `OPENAI_API_KEY` + `OPENAI_MODEL` — lettura AI del trend. Senza chiave `/trend-ai` mostra comunque i numeri pronti, ma non la lettura.
 - `SHOPIFY_STORE_DOMAIN` + `SHOPIFY_ADMIN_TOKEN` — opzionali: necessari **solo** per pubblicare davvero i prodotti su Shopify. Finché mancano, l'app prepara il payload e traccia lo stato ma non scrive sul negozio.
 

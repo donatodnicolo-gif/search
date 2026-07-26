@@ -496,6 +496,13 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 .card-brand-cifra { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; margin-top: 6px; font-variant-numeric: tabular-nums; }
 .card-brand-top { padding-top: 12px; border-top: 1px solid var(--hairline); }
 
+/* ---------- Negozi collegati (impostazioni) ---------- */
+.griglia-negozi { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+.negozio { margin-bottom: 0; }
+.negozio-testa { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.negozio .modulo { margin-top: 12px; }
+@media (max-width: 700px) { .griglia-negozi { grid-template-columns: 1fr; } }
+
 /* ---------- Classifiche ---------- */
 .griglia-classifiche { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
 .classifica { list-style: none; display: flex; flex-direction: column; counter-reset: pos; }
