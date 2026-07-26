@@ -5,7 +5,7 @@ import { scriptPerApp } from "@/lib/script";
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/script?app=<chiave>
-// Gli script abilitati per quell'app, già composti con i suoi valori.
+// I testi abilitati per quell'app, già composti con i suoi valori (firma, tono).
 // Senza `corpo` grezzo di default: si chiede con &corpo=1 quando serve anche la
 // versione coi segnaposto (per capire cosa è stato sostituito).
 export async function GET(req: NextRequest) {
@@ -26,9 +26,11 @@ export async function GET(req: NextRequest) {
       nome: s.nome,
       descrizione: s.descrizione,
       note: s.note,
-      linguaggio: s.linguaggio,
+      canale: s.canale,
+      categoria: s.categoria,
       tag: s.tag,
       aggiornatoIl: s.aggiornatoIl,
+      oggetto: s.oggettoRisolto,
       testo: s.corpoRisolto,
       ...(conCorpo ? { corpo: s.corpo } : {}),
       variabili: s.variabili,

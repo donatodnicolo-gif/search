@@ -11,14 +11,14 @@ export function Sidebar({
 }) {
   const path = usePathname();
   const voci = [
-    { href: "/", nome: "Script", count: conteggi.script, icona: iconaScript },
+    { href: "/", nome: "Testi", count: conteggi.script, icona: iconaScript },
     { href: "/app", nome: "App collegate", count: conteggi.app, icona: iconaApp },
     { href: "/impostazioni", nome: "Impostazioni", count: conteggi.chiavi, icona: iconaImpostazioni },
   ];
   return (
     <nav className="sidebar">
       <div className="sb-sezione">
-        <div className="sb-label">Archivio script</div>
+        <div className="sb-label">Archivio testi</div>
         {voci.map((v) => {
           const attiva = v.href === "/" ? path === "/" || path.startsWith("/script") : path.startsWith(v.href);
           return (
@@ -34,7 +34,7 @@ export function Sidebar({
         <div className="sb-label">Aggiungi</div>
         <a href="/script/nuovo" className={`sb-item${path === "/script/nuovo" ? " attiva" : ""}`}>
           <span className="sb-icona">{iconaPiu}</span>
-          <span className="sb-nome">Nuovo script</span>
+          <span className="sb-nome">Nuovo testo</span>
         </a>
       </div>
     </nav>
@@ -43,7 +43,8 @@ export function Sidebar({
 
 const iconaScript = (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m8 8-4 4 4 4" /><path d="m16 8 4 4-4 4" /><path d="M13.5 5 10.5 19" />
+    <path d="M5 4.5h14v11H8l-3 3z" />
+    <path d="M8.5 8.5h7" /><path d="M8.5 11.5h4.5" />
   </svg>
 );
 const iconaApp = (

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { LINGUAGGI } from "@/lib/variabili";
+import { CANALI, CATEGORIE } from "@/lib/variabili";
 
 export const dynamic = "force-dynamic";
 
@@ -7,10 +7,18 @@ function data(d: Date): string {
   return d.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function nomeCanale(v: string): string {
+  return CANALI.find((c) => c.valore === v)?.nome ?? v;
+}
+
+function nomeCategoria(v: string): string {
+  return CATEGORIE.find((c) => c.valore === v)?.nome ?? v;
+}
+
 export default async function ElencoScript({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; app?: string; linguaggio?: string; stato?: string }>;
+  searchParams: Promise<{ q?: string; app?: string; canale?: string; categoria?: string; stato?: string }>;
 }) {
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
@@ -21,13 +29,15 @@ export default async function ElencoScript({
     prisma.script.findMany({
       where: {
         ...(stato === "attivi" ? { attivo: true } : stato === "archiviati" ? { attivo: false } : {}),
-        ...(sp.linguaggio ? { linguaggio: sp.linguaggio } : {}),
+        ...(sp.canale ? { canale: sp.canale } : {}),
+        ...(sp.categoria ? { categoria: sp.categoria } : {}),
         ...(sp.app ? { abilitazioni: { some: { attiva: true, app: { chiave: sp.app } } } } : {}),
         ...(q
           ? {
               OR: [
                 { nome: { contains: q, mode: "insensitive" as const } },
                 { descrizione: { contains: q, mode: "insensitive" as const } },
+                { oggetto: { contains: q, mode: "insensitive" as const } },
                 { corpo: { contains: q, mode: "insensitive" as const } },
                 { tag: { has: q } },
               ],
@@ -49,19 +59,19 @@ export default async function ElencoScript({
     <main className="main">
       <div className="page-head">
         <div>
-          <h1 className="page-title">Script</h1>
+          <h1 className="page-title">Testi pronti</h1>
           <p className="page-sub">
-            L&apos;archivio unico degli script Deluxy: ognuno ha le sue variabili e si accende o si spegne
-            per singola app.
+            Le parole dell&apos;azienda in un posto solo: offerte, inviti, presentazioni, risposte. Si scrivono una
+            volta, si richiamano in email e WhatsApp con i dati del cliente già dentro.
           </p>
         </div>
-        <a className="btn" href="/script/nuovo">Nuovo script</a>
+        <a className="btn" href="/script/nuovo">Nuovo testo</a>
       </div>
 
       <div className="kpi-riga">
         <div className="kpi">
           <div className="kpi-valore">{script.length}</div>
-          <div className="kpi-etichetta">Script {stato === "tutti" ? "in archivio" : stato}</div>
+          <div className="kpi-etichetta">Testi {stato === "tutti" ? "in archivio" : stato}</div>
         </div>
         <div className="kpi">
           <div className="kpi-valore">{variabili}</div>
@@ -78,17 +88,23 @@ export default async function ElencoScript({
       </div>
 
       <form className="filtri" method="get">
-        <input type="search" name="q" defaultValue={q} placeholder="Cerca nel nome, nella descrizione o nel codice…" />
+        <input type="search" name="q" defaultValue={q} placeholder="Cerca nel titolo, nell'oggetto o nel testo…" />
+        <select name="categoria" defaultValue={sp.categoria ?? ""}>
+          <option value="">Tutte le categorie</option>
+          {CATEGORIE.map((c) => (
+            <option key={c.valore} value={c.valore}>{c.nome}</option>
+          ))}
+        </select>
+        <select name="canale" defaultValue={sp.canale ?? ""}>
+          <option value="">Tutti i canali</option>
+          {CANALI.map((c) => (
+            <option key={c.valore} value={c.valore}>{c.nome}</option>
+          ))}
+        </select>
         <select name="app" defaultValue={sp.app ?? ""}>
           <option value="">Tutte le app</option>
           {app.map((a) => (
             <option key={a.id} value={a.chiave}>{a.nome}</option>
-          ))}
-        </select>
-        <select name="linguaggio" defaultValue={sp.linguaggio ?? ""}>
-          <option value="">Tutti i linguaggi</option>
-          {LINGUAGGI.map((l) => (
-            <option key={l.valore} value={l.valore}>{l.nome}</option>
           ))}
         </select>
         <select name="stato" defaultValue={stato}>
@@ -101,18 +117,19 @@ export default async function ElencoScript({
 
       {script.length === 0 ? (
         <div className="vuoto">
-          Nessuno script qui dentro.{" "}
-          <a href="/script/nuovo" style={{ color: "var(--blue)", fontWeight: 500 }}>Aggiungine uno</a>.
+          Nessun testo qui dentro.{" "}
+          <a href="/script/nuovo" style={{ color: "var(--blue)", fontWeight: 500 }}>Scrivine uno</a>.
         </div>
       ) : (
         <div className="tabella-wrap">
           <table>
             <thead>
               <tr>
-                <th>Script</th>
-                <th>Linguaggio</th>
+                <th>Testo</th>
+                <th>Categoria</th>
+                <th>Canale</th>
                 <th className="num">Variabili</th>
-                <th>Abilitato per</th>
+                <th>Usato da</th>
                 <th>Aggiornato</th>
               </tr>
             </thead>
@@ -131,9 +148,8 @@ export default async function ElencoScript({
                       </div>
                     )}
                   </td>
-                  <td className="cella-muta">
-                    {LINGUAGGI.find((l) => l.valore === s.linguaggio)?.nome ?? s.linguaggio}
-                  </td>
+                  <td className="cella-muta">{nomeCategoria(s.categoria)}</td>
+                  <td className="cella-muta">{nomeCanale(s.canale)}</td>
                   <td className="cella-num">{s.variabili.length}</td>
                   <td>
                     {s.abilitazioni.length === 0 ? (

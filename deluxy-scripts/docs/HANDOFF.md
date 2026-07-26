@@ -3,99 +3,84 @@
 **Aggiornato: 26 luglio 2026.** Cartella `C:\Users\nicol\scoutwt\deluxy-scripts`,
 branch `scout-ui`, porta **3170**. **LIVE su
 [deluxy-scripts.vercel.app](https://deluxy-scripts.vercel.app)** (progetto Vercel
-`deluxy-scripts`, team `deluxy`), protetta da password del team.
+`deluxy-scripts`, team `deluxy`), protetta da password del team, con ingresso
+automatico dal Hub.
 
-Cos'è, in una riga: l'archivio unico degli script operativi Deluxy, dove ogni
-script ha le sue variabili `{{COSÌ}}` e si accende o si spegne per singola app.
-Il manuale d'uso è il [README](../README.md).
+Cos'è, in una riga: l'archivio dei **testi pronti** dell'azienda — offerte e
+script di vendita, inviti, presentazioni, solleciti, risposte ai clienti — con i
+buchi `{{COSÌ}}` che si riempiono con i dati di chi riceve. Manuale d'uso:
+[README](../README.md).
 
-## FATTO (verificato in locale il 26/07/2026)
+> ⚠️ **Nato come archivio di script di codice, cambiato il 26/07/2026** dopo il
+> chiarimento: «script» qui significa **copione commerciale**, non snippet
+> tecnico. Se trovi in giro riferimenti a Google Ads Script, SQL o Liquid, sono
+> resti da correggere: gli script di codice restano in
+> [scripts/README.md](../../scripts/README.md).
 
-- **Dati** (Postgres condiviso, schema `scripts`, `prisma db push` eseguito):
-  `Script`, `Variabile`, `AppCollegata`, `Abilitazione`, `ValoreVariabile`,
-  `ApiKey`.
-- **Variabili**: sintassi `{{NOME_VARIABILE}}`, rilevamento in tempo reale
-  mentre si scrive, creazione automatica di quelle nuove al salvataggio, tipi
-  testo / testo lungo / numero / vero-falso / scelta / **segreto**.
-- **Abilitazione per app** con interruttore, valori diversi per ogni app e nota
-  per app. Spegnendo, la configurazione resta.
-- **Riquadro «Script pronto da copiare»**: si sceglie l'app, si vede il testo già
-  composto, i segreti si incollano lì e non escono dal browser.
-- **Pagine**: elenco con ricerca (anche dentro il codice) e filtri, dettaglio,
-  registro app collegate, impostazioni con chiavi API e guida.
-- **API v1** a chiave (`x-api-key`, hash SHA-256 nel DB): `health`, `app`,
+## FATTO (verificato in locale e in produzione il 26/07/2026)
+
+- **Dati** (Postgres condiviso, schema `scripts`): `Script` (titolo, categoria,
+  canale, oggetto, corpo, etichette), `Variabile`, `AppCollegata`,
+  `Abilitazione`, `ValoreVariabile`, `ApiKey`.
+- **Categorie**: vendite · inviti · presentazione aziendale · follow-up e
+  solleciti · assistenza e reclami · altro.
+  **Canali**: email · WhatsApp · SMS · telefono (copione) · presentazione ·
+  documento · altro.
+- **Variabili**: sintassi `{{NOME_CLIENTE}}` valida nel corpo **e nell'oggetto**,
+  rilevamento in tempo reale mentre si scrive, creazione automatica di quelle
+  nuove al salvataggio, tipi testo / testo lungo / numero / data / scelta, più
+  otto variabili comuni proposte con un clic (NOME_CLIENTE, AZIENDA, REFERENTE,
+  DATA, ORA, LUOGO, FIRMA, LINK).
+- **Abilitazione per app** con interruttore e valori diversi per ogni app: la
+  firma di Customer Service non è quella del commerciale.
+- **Riquadro «Usa questo testo»**: si sceglie l'app, si compilano al volo le
+  variabili rimaste (non vengono salvate), si copia il testo, si apre WhatsApp
+  (`wa.me`) o si scrive l'email (`mailto:` con oggetto e corpo).
+- **Pagine**: elenco con ricerca e filtri, dettaglio, registro app collegate,
+  impostazioni con chiavi API e guida.
+- **API v1** a chiave (`x-api-key`, SHA-256 nel DB): `health`, `app`,
   `script?app=`, `script/<slug>?app=`, `script/<slug>/testo?app=`.
-- **Script CLI**: `configura-db-condiviso.mjs`, `crea-chiave.mjs`,
-  `seed-app.mjs` (14 destinazioni: le app Deluxy + Google Ads + Shopify).
-- **Standard**: `.vercelignore`, middleware con `SCRIPTS_APP_PASSWORD`, `/login`,
-  token del design system, pagine `force-dynamic`, API `no-store`.
-- **Single Sign-On dal Hub** (`/api/sso`, `src/lib/sso.ts` — copia lato lettura
-  di quella del Hub): chi apre la tessera dal portale non ridigita la password.
-  Verificato in produzione con token veri: token buono → 307 su `/` con cookie
-  di sessione e la home poi risponde 200; **senza token, scaduto, per un'altra
-  app o inventato → 307 su `/login`**. `HUB_SSO_SECRET` è impostato sul progetto
-  Vercel con lo stesso valore del Hub.
-- **Prova reale end-to-end**: creato uno script Google Ads con 4 variabili,
-  `CHIAVE_API` messa a segreto, acceso per `google-ads` con `BRAND=flowers` e
-  `GIORNI_INDIETRO=14`; l'API ha restituito il testo composto con il segreto
-  ancora come segnaposto e `daCompilare: ["CHIAVE_API"]`. Lo script di prova è
-  stato poi cancellato: l'archivio parte vuoto.
+- **Ingresso dal Hub (SSO)**: `/api/sso` legge il token cifrato del Hub e apre la
+  sessione. Verificato in produzione: token valido → 307 su `/` con cookie;
+  token assente, scaduto, per un'altra app o inventato → `/login`.
+- **Prova reale end-to-end** (26/07): scritto un invito con oggetto e 6
+  variabili, acceso per Customer Service con `FIRMA` e `LUOGO` suoi, compilate
+  al volo le altre: testo e oggetto composti giusti, `{{DATA}}` rimasta in vista
+  e segnalata, `mailto:` con oggetto e corpo, API che restituisce
+  `daCompilare: [AZIENDA, DATA, NOME_CLIENTE, ORA]` e l'origine di ogni valore.
+  Il testo di prova è stato cancellato: l'archivio parte vuoto.
 - `npx tsc --noEmit` e `npm run build`: puliti.
-
-## Pubblicazione (fatta il 26/07/2026)
-
-Progetto Vercel `deluxy-scripts` (team `deluxy`), variabili impostate su
-production/preview/development: `DATABASE_URL`, `DIRECT_URL`,
-`SCRIPTS_APP_PASSWORD` (la password sta nella cassaforte del Hub). Deploy:
-
-```bash
-cd C:/Users/nicol/scoutwt/deluxy-scripts && npx vercel deploy --prod --yes
-```
-
-Verificato in produzione: `/` reindirizza a `/login` (la password protegge la
-UI), `/api/v1/health` con chiave risponde `{"ok":true,…,"app":14}` (database
-raggiungibile), `/api/v1/script` senza chiave dà 401. **Cambiare una variabile su
-Vercel non basta: dopo ogni modifica si ripubblica.**
-
-Il Hub punta a questo URL di default (`APP_URL_SCRIPTS` per sovrascriverlo): la
-tessera compare nel portale **solo dopo un deploy del Hub**.
 
 ## MANCA
 
-1. **Riempire l'archivio**: i primi candidati sono gli script che oggi si
-   copiano a mano — `google-ads-script.js` di Marketing (una copia per account e
-   per azione: è esattamente il caso «stesse righe, variabili diverse»), gli
-   snippet Liquid dei temi, le query SQL di manutenzione ricorrenti.
-2. **Tessera nel portale**: in `deluxy-hub/src/lib/apps.ts` la voce `scripts`
-   c'è, punta alla produzione e ha `sso: true`, ma **finché il Hub non viene
-   ripubblicato l'icona non compare** e il salto senza login non parte (il lato
-   Scripts è già pronto e verificato). Il deploy del Hub non l'ho fatto perché
-   un'altra sessione ci sta lavorando: pubblicandolo sarebbe finito online anche
-   il suo lavoro in corso.
+1. **Riempire l'archivio**: i primi candidati sono i testi che oggi si copiano a
+   mano da una chat all'altra — l'invito agli eventi, la presentazione per i
+   nuovi partner B2B, il sollecito di pagamento, le risposte standard ai reclami.
+2. **Usarlo dalle app**: Customer Service e AI Mail sono i due naturali (prendono
+   il testo via API e riempiono `{{NOME_CLIENTE}}`, `{{DATA}}` con i dati
+   dell'ordine che hanno già). Nessuna app lo chiama ancora.
 3. **Storico delle versioni**: oggi il testo si sovrascrive. Se serve tornare
-   indietro va aggiunta una tabella `VersioneScript` (corpo + nota + data) e un
-   pulsante «ripristina».
+   indietro va aggiunta una tabella `VersioneScript` (corpo + nota + data).
 4. **Scrittura via API**: le chiavi hanno già il flag `scrittura`, ma nessun
-   endpoint POST/PATCH lo usa. Da fare solo se un'app dovrà davvero depositare
-   script da sola.
-5. **Registro delle esecuzioni**: sapere quando e da chi uno script è stato
-   preso/eseguito. Utile ma non richiesto.
+   endpoint POST/PATCH lo usa.
+5. **Allegati e formattazione**: i testi sono testo semplice. Niente grassetto,
+   niente immagini, niente PDF della presentazione.
 
 ## Trappole già pagate
 
 - **`defaultValue` e server action**: dopo il salvataggio React riusa i campi già
   in pagina e i moduli mostrano ancora i valori vecchi. Le form del dettaglio e
   del registro app hanno una `key` che cambia a ogni salvataggio: **non
-  toglierla**, il bug era reale (il tipo «segreto» tornava a mostrare «testo»).
-- **CRLF dai textarea**: i browser mandano i fine riga come `\r\n`. Il corpo
-  viene normalizzato a `\n` in `actions.ts` — senza, ogni script bash/SQL copiato
-  da qui arriva pieno di `^M`.
-- **I segreti non entrano nel database**: `salvaVariabile` cancella i valori già
-  salvati quando una variabile diventa `segreto`, e `salvaValori` salta i segreti.
-  Se un giorno servisse conservarli, va cifrato come in `deluxy-transactions`,
-  non salvato in chiaro.
-- **Lo slug è la chiave delle API**: cambia solo se cambia il nome, e chi
+  toglierla**, il bug era reale.
+- **CRLF dai textarea**: i browser mandano i fine riga come `\r\n`. Il testo
+  viene normalizzato a `\n` in `actions.ts` — senza, il messaggio incollato in
+  WhatsApp porta con sé caratteri invisibili.
+- **Lo slug è la chiave delle API**: cambia solo se cambia il titolo, e chi
   consuma l'API va avvisato. `slugLibero` evita le collisioni.
+- **`vercel env pull` non restituisce i valori**: scrive `"encrypted"` al posto
+  di ognuno. Per allineare `HUB_SSO_SECRET` fra due app si prende dal `.env`
+  locale del Hub, non da lì (ci ho perso un giro, credendo che il segreto fosse
+  lungo 11 caratteri).
 
 ## Come riprendere
 
@@ -104,4 +89,5 @@ cd C:/Users/nicol/scoutwt/deluxy-scripts && npm install && npm run dev   # → h
 ```
 
 Se il `.env` manca: `npm run configura-db -- ../deluxy-orders/.env`, poi
-`npx prisma db push` e `npm run seed:app`.
+`npx prisma db push` e `npm run seed:app`. Deploy:
+`npx vercel deploy --prod --yes`.

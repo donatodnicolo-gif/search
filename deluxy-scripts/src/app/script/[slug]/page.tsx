@@ -8,10 +8,10 @@ import {
   salvaValori,
   salvaVariabile,
 } from "@/app/actions";
-import { CopiaScript, type VersioneApp } from "@/components/CopiaScript";
+import { CopiaTesto, type VersioneApp } from "@/components/CopiaTesto";
 import { EditorCorpo } from "@/components/EditorCorpo";
 import { prisma } from "@/lib/db";
-import { componi, daCompilare, LINGUAGGI, risolviValori, TIPI_VARIABILE } from "@/lib/variabili";
+import { CANALI, CATEGORIE, componi, daCompilare, risolviValori, TIPI_VARIABILE } from "@/lib/variabili";
 
 export const dynamic = "force-dynamic";
 
@@ -36,18 +36,32 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
     return { app: a, abilitazione, valori };
   });
 
-  // Le versioni offerte nel riquadro «Script pronto da copiare»: quella coi soli
-  // valori predefiniti, più una per ogni app dove lo script è acceso.
+  // Le versioni offerte nel riquadro «Usa questo testo»: quella coi soli valori
+  // predefiniti, più una per ogni app dove il testo è acceso. `daCompilare` sono
+  // le variabili senza valore: si compilano lì, al momento di mandarlo.
+  const dettagli = new Map(script.variabili.map((v) => [v.chiave, v]));
+  const scoperte = (risolte: ReturnType<typeof risolviValori>) =>
+    risolte
+      .filter((r) => r.origine === "mancante")
+      .map((r) => {
+        const v = dettagli.get(r.chiave);
+        return {
+          chiave: r.chiave,
+          etichetta: v?.etichetta ?? null,
+          tipo: v?.tipo ?? "testo",
+          opzioni: v?.opzioni ?? [],
+        };
+      });
+
   const soloPredefiniti = risolviValori(script.variabili, {});
   const versioni: VersioneApp[] = [
     {
       chiave: "",
       nome: "Valori predefiniti (nessuna app)",
+      canale: script.canale,
+      oggetto: script.oggetto ? componi(script.oggetto, soloPredefiniti) : null,
       corpo: componi(script.corpo, soloPredefiniti),
-      segreti: script.variabili
-        .filter((v) => v.tipo === "segreto")
-        .map((v) => ({ chiave: v.chiave, etichetta: v.etichetta })),
-      mancanti: soloPredefiniti.filter((v) => v.origine === "mancante" && v.obbligatoria).map((v) => v.chiave),
+      daCompilare: scoperte(soloPredefiniti),
     },
     ...perApp
       .filter((p) => p.abilitazione?.attiva)
@@ -61,11 +75,10 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
         return {
           chiave: p.app.chiave,
           nome: `Per ${p.app.nome}`,
+          canale: script.canale,
+          oggetto: script.oggetto ? componi(script.oggetto, risolte) : null,
           corpo: componi(script.corpo, risolte),
-          segreti: script.variabili
-            .filter((v) => v.tipo === "segreto")
-            .map((v) => ({ chiave: v.chiave, etichetta: v.etichetta })),
-          mancanti: risolte.filter((v) => v.origine === "mancante" && v.obbligatoria).map((v) => v.chiave),
+          daCompilare: scoperte(risolte),
         };
       }),
   ];
@@ -74,7 +87,7 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
 
   return (
     <main className="main">
-      <a className="ritorno" href="/">← Tutti gli script</a>
+      <a className="ritorno" href="/">← Tutti i testi</a>
       <div className="page-head">
         <div>
           <h1 className="page-title">{script.nome}</h1>
@@ -86,7 +99,10 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
               <span className="badge spento">archiviato</span>
             )}{" "}
             <span className="badge neutro">
-              {LINGUAGGI.find((l) => l.valore === script.linguaggio)?.nome ?? script.linguaggio}
+              {CATEGORIE.find((c) => c.valore === script.categoria)?.nome ?? script.categoria}
+            </span>{" "}
+            <span className="badge neutro">
+              {CANALI.find((c) => c.valore === script.canale)?.nome ?? script.canale}
             </span>
           </p>
         </div>
@@ -96,7 +112,7 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
         </form>
       </div>
 
-      <CopiaScript versioni={versioni} />
+      <CopiaTesto versioni={versioni} />
 
       {/* ---------- Contenuto ----------
           La `key` cambia a ogni salvataggio: senza, React riuserebbe i campi già
@@ -105,38 +121,61 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
       <form action={salvaScript} key={script.aggiornatoIl.toISOString()}>
         <input type="hidden" name="id" value={script.id} />
         <div className="scheda">
-          <div className="scheda-titolo">Contenuto dello script</div>
+          <div className="scheda-titolo">Il testo</div>
           <div className="modulo">
             <div className="campo-modulo">
-              <label htmlFor="nome">Nome</label>
+              <label htmlFor="nome">Titolo</label>
               <input id="nome" name="nome" defaultValue={script.nome} required />
             </div>
             <div className="campo-modulo">
-              <label htmlFor="linguaggio">Linguaggio</label>
-              <select id="linguaggio" name="linguaggio" defaultValue={script.linguaggio}>
-                {LINGUAGGI.map((l) => (
-                  <option key={l.valore} value={l.valore}>{l.nome}</option>
+              <label htmlFor="descrizione">Quando si usa</label>
+              <input id="descrizione" name="descrizione" defaultValue={script.descrizione ?? ""} />
+            </div>
+            <div className="campo-modulo">
+              <label htmlFor="categoria">Categoria</label>
+              <select id="categoria" name="categoria" defaultValue={script.categoria}>
+                {CATEGORIE.map((c) => (
+                  <option key={c.valore} value={c.valore}>{c.nome}</option>
+                ))}
+              </select>
+            </div>
+            <div className="campo-modulo">
+              <label htmlFor="canale">Canale</label>
+              <select id="canale" name="canale" defaultValue={script.canale}>
+                {CANALI.map((c) => (
+                  <option key={c.valore} value={c.valore}>{c.nome}</option>
                 ))}
               </select>
             </div>
             <div className="campo-modulo largo">
-              <label htmlFor="descrizione">Cosa fa</label>
-              <input id="descrizione" name="descrizione" defaultValue={script.descrizione ?? ""} />
+              <label htmlFor="oggetto">Oggetto (per le email)</label>
+              <input
+                id="oggetto"
+                name="oggetto"
+                defaultValue={script.oggetto ?? ""}
+                placeholder="Anche qui valgono le variabili"
+              />
             </div>
             <div className="campo-modulo">
               <label htmlFor="tag">Etichette (separate da virgola)</label>
-              <input id="tag" name="tag" defaultValue={script.tag.join(", ")} placeholder="shopify, import, cron" />
+              <input id="tag" name="tag" defaultValue={script.tag.join(", ")} placeholder="natale, b2b, hotel" />
             </div>
             <div className="campo-modulo">
               <label htmlFor="autore">Chi lo cura</label>
               <input id="autore" name="autore" defaultValue={script.autore ?? ""} />
             </div>
             <div className="campo-modulo largo">
-              <label htmlFor="note">Istruzioni d&apos;uso e trappole</label>
-              <textarea id="note" name="note" rows={3} defaultValue={script.note ?? ""} placeholder="Dove si incolla, ogni quanto si lancia, cosa NON fare…" />
+              <label htmlFor="note">Come si usa</label>
+              <textarea
+                id="note"
+                name="note"
+                rows={3}
+                defaultValue={script.note ?? ""}
+                placeholder="A chi si manda, in che momento, cosa NON scrivere…"
+              />
             </div>
             <div className="campo-modulo largo">
-              <label htmlFor="corpo">Testo dello script</label>
+              <label htmlFor="corpo">Testo</label>
               <EditorCorpo valoreIniziale={script.corpo} dichiarate={script.variabili.map((v) => v.chiave)} />
             </div>
           </div>
@@ -157,13 +196,14 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
             <div className="scheda-titolo" style={{ marginBottom: 4 }}>Variabili</div>
             <p className="campo-aiuto">
               Nel testo si richiamano con <code className="inline">{"{{NOME}}"}</code>. Il valore si prende da quello
-              impostato per l&apos;app; se manca, dal predefinito qui sotto.
+              impostato per l&apos;app; se manca, dal predefinito qui sotto; se manca anche quello, si compila al
+              momento di mandare il messaggio.
             </p>
           </div>
         </div>
 
         {script.variabili.length === 0 ? (
-          <p className="campo-aiuto">Nessuna variabile: lo script è uguale per tutte le app.</p>
+          <p className="campo-aiuto">Nessuna variabile: il testo è identico per tutti.</p>
         ) : (
           <div className="var-lista">
             {script.variabili.map((v) => (
@@ -179,8 +219,7 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
                 <input
                   name="valorePredefinito"
                   defaultValue={v.valorePredefinito ?? ""}
-                  placeholder={v.tipo === "segreto" ? "i segreti non si salvano" : "valore predefinito"}
-                  disabled={v.tipo === "segreto"}
+                  placeholder="valore fisso (vuoto = si compila ogni volta)"
                   aria-label="Valore predefinito"
                 />
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -195,7 +234,7 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
                   <input
                     name="etichetta"
                     defaultValue={v.etichetta ?? ""}
-                    placeholder="A cosa serve questa variabile (aiuto per chi la compila)"
+                    placeholder="Che cosa ci va (aiuto per chi la compila): «il nome di chi riceve»"
                     style={{ fontSize: 13 }}
                     aria-label="Descrizione della variabile"
                   />
@@ -235,8 +274,8 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
         </form>
         {senzaValore.length > 0 && (
           <p className="campo-aiuto" style={{ marginTop: 10 }}>
-            Senza un valore predefinito: {senzaValore.join(", ")} — vanno compilate app per app (o al momento della copia,
-            se sono segreti).
+            Senza un valore fisso: {senzaValore.join(", ")} — si compilano app per app qui sotto, oppure una per una nel
+            riquadro «Usa questo testo», prima di mandare il messaggio.
           </p>
         )}
       </div>
@@ -247,8 +286,8 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
           <div>
             <div className="scheda-titolo" style={{ marginBottom: 4 }}>Abilitato per</div>
             <p className="campo-aiuto">
-              Un&apos;app riceve questo script dalle API solo se l&apos;interruttore è acceso. Spegnendolo la
-              configurazione resta: si può riaccendere senza rifare i valori.
+              Un&apos;app vede questo testo solo se l&apos;interruttore è acceso, e con i valori che imposti qui: la
+              firma di Customer Service non è quella del commerciale. Spegnendolo la configurazione resta.
             </p>
           </div>
           <a className="btn btn-secondario small" href="/app">Gestisci le app</a>
@@ -295,28 +334,20 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
                         {script.variabili.map((v) => (
                           <div className="valore-campo" key={v.id}>
                             <label htmlFor={`v-${abilitazione.id}-${v.id}`}>{v.chiave}</label>
-                            {v.tipo === "segreto" ? (
-                              <input id={`v-${abilitazione.id}-${v.id}`} value="segreto: si compila alla copia" disabled readOnly />
-                            ) : v.tipo === "scelta" && v.opzioni.length > 0 ? (
+                            {v.tipo === "scelta" && v.opzioni.length > 0 ? (
                               <select id={`v-${abilitazione.id}-${v.id}`} name={`valore-${v.id}`} defaultValue={valori.get(v.id) ?? ""}>
                                 <option value="">— predefinito —</option>
                                 {v.opzioni.map((o) => (
                                   <option key={o} value={o}>{o}</option>
                                 ))}
                               </select>
-                            ) : v.tipo === "booleano" ? (
-                              <select id={`v-${abilitazione.id}-${v.id}`} name={`valore-${v.id}`} defaultValue={valori.get(v.id) ?? ""}>
-                                <option value="">— predefinito —</option>
-                                <option value="true">true</option>
-                                <option value="false">false</option>
-                              </select>
                             ) : (
                               <input
                                 id={`v-${abilitazione.id}-${v.id}`}
                                 name={`valore-${v.id}`}
-                                type={v.tipo === "numero" ? "number" : "text"}
+                                type={v.tipo === "numero" ? "number" : v.tipo === "data" ? "date" : "text"}
                                 defaultValue={valori.get(v.id) ?? ""}
-                                placeholder={v.valorePredefinito ?? "nessun valore"}
+                                placeholder={v.valorePredefinito ?? "si compila al momento"}
                               />
                             )}
                             {v.etichetta && <span className="campo-aiuto">{v.etichetta}</span>}
@@ -351,7 +382,7 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
 
       {script.note && (
         <div className="scheda">
-          <div className="scheda-titolo">Istruzioni</div>
+          <div className="scheda-titolo">Come si usa</div>
           <p className="testo-guida" style={{ whiteSpace: "pre-wrap" }}>{script.note}</p>
         </div>
       )}

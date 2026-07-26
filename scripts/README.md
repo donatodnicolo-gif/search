@@ -4,7 +4,7 @@ Questa cartella **non contiene script**: è l'**indice** di tutti gli script ope
 
 > **Regola: ogni nuovo script va aggiunto qui**, nella sezione della sua tipologia, nello stesso commit che lo introduce.
 
-> 🗄️ **Script senza file nel repo** (Google Ads Script, snippet Liquid, SQL ricorrenti) o che cambiano da app ad app: vivono nell'app **[deluxy-scripts](../deluxy-scripts/README.md)** (porta 3170), dove hanno variabili `{{COSÌ}}` e si accendono per singola app. Questo indice resta la fonte per i file `.mjs`/`.ts` versionati nel repo.
+> ⚠️ **Non confondere con l'app [deluxy-scripts](../deluxy-scripts/README.md)** (porta 3170): lì «script» vuol dire **copione commerciale** — i testi di vendita, inviti e presentazioni che si mandano ai clienti in email o WhatsApp. Gli script di codice sono quelli catalogati qui.
 
 ## Prima di iniziare
 

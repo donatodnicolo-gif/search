@@ -6,7 +6,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Deluxy Scripts",
-  description: "Archivio centralizzato degli script operativi Deluxy",
+  description: "L'archivio dei testi pronti Deluxy: vendite, inviti, presentazioni",
 };
 
 // I conteggi della sidebar. Se il DB non è raggiungibile (build o prima
@@ -44,12 +44,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <div className="brand-logo">D</div>
               <div>
                 <div className="brand-name">Deluxy Scripts</div>
-                <div className="brand-sub">Archivio script e variabili</div>
+                <div className="brand-sub">I testi pronti dell&apos;azienda</div>
               </div>
             </a>
           </div>
           <div className="topbar-azioni">
-            <a className="btn" href="/script/nuovo">Nuovo script</a>
+            <a className="btn" href="/script/nuovo">Nuovo testo</a>
           </div>
         </header>
         <div className="layout">

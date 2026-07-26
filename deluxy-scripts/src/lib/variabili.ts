@@ -1,43 +1,64 @@
-// Come si richiamano le variabili dentro uno script — regola unica dell'app.
+// Come si richiamano le variabili dentro un testo — regola unica dell'app.
 //
-//   {{NOME_VARIABILE}}
+//   Gentile {{NOME_CLIENTE}}, la aspettiamo il {{DATA}} in {{LUOGO}}.
 //
 // Si scrive il nome fra due graffe, in MAIUSCOLO con underscore (cifre ammesse,
 // non come primo carattere). Gli spazi dentro le graffe sono tollerati
 // (`{{ NOME }}` vale `{{NOME}}`), così un copia-incolla sciatto non rompe nulla.
-// La sostituzione è testuale: funziona in JavaScript, SQL, bash, Liquid, YAML e
-// in qualsiasi altro linguaggio, perché non c'è nessun parser di mezzo.
+// La sostituzione è testuale: lo stesso segnaposto vale nell'oggetto di
+// un'email, nel corpo di un messaggio WhatsApp e nel testo di una presentazione.
 //
 // Il valore di una variabile, per una data app, si sceglie in quest'ordine:
-//   1. il valore impostato in quell'app (tabella ValoreVariabile);
+//   1. il valore impostato in quell'app (tabella ValoreVariabile) — è qui che
+//      la firma di Customer Service si distingue da quella del commerciale;
 //   2. il valorePredefinito della variabile;
-//   3. niente → la variabile risulta MANCANTE e il segnaposto resta com'è.
-//
-// Le variabili di tipo `segreto` (token, password, chiavi API) non conservano
-// mai un valore nel database: restano segnaposto e si compilano al momento
-// dell'uso, nel riquadro «Copia lo script» — così un segreto non finisce né in
-// questo database né nelle risposte delle API.
+//   3. niente → la variabile risulta MANCANTE e il segnaposto resta com'è, da
+//      compilare al momento di mandare il messaggio (il nome del cliente, la
+//      data dell'evento: cose che si sanno solo lì per lì).
 
 export const TIPI_VARIABILE = [
   { valore: "testo", nome: "Testo" },
   { valore: "testolungo", nome: "Testo lungo" },
   { valore: "numero", nome: "Numero" },
-  { valore: "booleano", nome: "Vero / Falso" },
+  { valore: "data", nome: "Data" },
   { valore: "scelta", nome: "Scelta fra opzioni" },
-  { valore: "segreto", nome: "Segreto (non salvato)" },
 ] as const;
 
 export type TipoVariabile = (typeof TIPI_VARIABILE)[number]["valore"];
 
-export const LINGUAGGI = [
-  { valore: "javascript", nome: "JavaScript" },
-  { valore: "typescript", nome: "TypeScript" },
-  { valore: "sql", nome: "SQL" },
-  { valore: "bash", nome: "Bash" },
-  { valore: "powershell", nome: "PowerShell" },
-  { valore: "python", nome: "Python" },
-  { valore: "liquid", nome: "Liquid (temi Shopify)" },
+// Dove finisce il testo. Decide come si copia: per l'email si mostra anche
+// l'oggetto e si può aprire il client di posta, per WhatsApp si apre wa.me.
+export const CANALI = [
+  { valore: "email", nome: "Email" },
+  { valore: "whatsapp", nome: "WhatsApp" },
+  { valore: "sms", nome: "SMS" },
+  { valore: "telefono", nome: "Telefono (copione)" },
+  { valore: "presentazione", nome: "Presentazione" },
+  { valore: "documento", nome: "Documento" },
   { valore: "altro", nome: "Altro" },
+] as const;
+
+// A cosa serve il testo: è il filtro con cui lo si ritrova.
+export const CATEGORIE = [
+  { valore: "vendite", nome: "Vendite" },
+  { valore: "inviti", nome: "Inviti" },
+  { valore: "presentazione", nome: "Presentazione aziendale" },
+  { valore: "followup", nome: "Follow-up e solleciti" },
+  { valore: "assistenza", nome: "Assistenza e reclami" },
+  { valore: "altro", nome: "Altro" },
+] as const;
+
+// Le variabili che ricorrono in quasi tutti i testi: si propongono quando se ne
+// crea uno nuovo, così i nomi restano gli stessi in tutta l'azienda.
+export const VARIABILI_COMUNI = [
+  "NOME_CLIENTE",
+  "AZIENDA",
+  "REFERENTE",
+  "DATA",
+  "ORA",
+  "LUOGO",
+  "FIRMA",
+  "LINK",
 ] as const;
 
 // Un segnaposto: due graffe, nome, due graffe. Spazi tollerati ai lati del nome.
@@ -77,20 +98,17 @@ export type ValoreRisolto = {
   chiave: string;
   tipo: string;
   valore: string | null; // null = nessun valore disponibile
-  origine: "app" | "predefinito" | "segreto" | "mancante";
+  origine: "app" | "predefinito" | "mancante";
   obbligatoria: boolean;
 };
 
-// Risolve i valori di tutte le variabili di uno script per una data app.
+// Risolve i valori di tutte le variabili di un testo per una data app.
 // `valoriApp` è la mappa chiave→valore impostata in quell'app.
 export function risolviValori(
   variabili: VariabileMin[],
   valoriApp: Record<string, string | undefined>,
 ): ValoreRisolto[] {
   return variabili.map((v) => {
-    if (v.tipo === "segreto") {
-      return { chiave: v.chiave, tipo: v.tipo, valore: null, origine: "segreto" as const, obbligatoria: v.obbligatoria };
-    }
     const perApp = valoriApp[v.chiave];
     if (perApp != null && perApp !== "") {
       return { chiave: v.chiave, tipo: v.tipo, valore: perApp, origine: "app" as const, obbligatoria: v.obbligatoria };
@@ -109,9 +127,9 @@ export function risolviValori(
   });
 }
 
-// Sostituisce i segnaposto con i valori risolti. Quelli senza valore (segreti e
-// mancanti) restano scritti come sono: lo script non viene mai consegnato con
-// un buco muto al posto di un valore.
+// Sostituisce i segnaposto con i valori risolti. Quelli senza valore restano
+// scritti come sono: meglio un `{{NOME_CLIENTE}}` bene in vista, che si nota
+// prima di premere invio, di uno spazio vuoto in mezzo alla frase.
 export function componi(corpo: string, valori: ValoreRisolto[]): string {
   const mappa = new Map(valori.filter((v) => v.valore != null).map((v) => [v.chiave, v.valore as string]));
   return corpo.replace(SEGNAPOSTO, (intero, chiave: string) => mappa.get(chiave.toUpperCase()) ?? intero);
@@ -120,7 +138,5 @@ export function componi(corpo: string, valori: ValoreRisolto[]): string {
 // Le variabili obbligatorie rimaste senza valore: è quello che l'elenco mostra
 // come «da compilare» e che le API restituiscono in `daCompilare`.
 export function daCompilare(valori: ValoreRisolto[]): string[] {
-  return valori
-    .filter((v) => v.obbligatoria && (v.origine === "mancante" || v.origine === "segreto"))
-    .map((v) => v.chiave);
+  return valori.filter((v) => v.obbligatoria && v.origine === "mancante").map((v) => v.chiave);
 }

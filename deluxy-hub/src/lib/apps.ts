@@ -206,9 +206,9 @@ export function catalogoApp(): AppDeluxy[] {
     {
       id: "scripts",
       nome: "Scripts",
-      sottotitolo: "Archivio degli script",
+      sottotitolo: "I testi pronti",
       descrizione:
-        "Tutti gli script operativi in un posto solo: ognuno ha le sue variabili e si accende o si spegne per singola app.",
+        "Le parole con cui parliamo ai clienti: vendite, inviti, presentazioni, solleciti. Si compilano con i dati di chi riceve e si mandano in email o WhatsApp.",
       icona: "scripts",
       // L'app è pubblicata: si punta al sito di produzione, sovrascrivibile con
       // APP_URL_SCRIPTS (es. http://localhost:3170 in sviluppo).

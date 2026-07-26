@@ -354,7 +354,8 @@ tbody tr:hover { background: var(--fill); }
   margin: 8px 0;
 }
 
-/* Il corpo dello script: monospaziato, scuro, con lo scorrimento suo */
+/* Blocchi di codice veri: restano solo nella pagina Impostazioni, per gli
+   esempi di chiamata alle API */
 .codice {
   background: var(--ink);
   color: #f5f5f7;
@@ -365,30 +366,58 @@ tbody tr:hover { background: var(--fill); }
   line-height: 1.55;
   overflow-x: auto;
   white-space: pre;
+}
+
+/* Il messaggio come lo vedrà chi lo riceve: carattere di lettura, non di codice */
+.messaggio {
+  background: var(--fill);
+  color: var(--text);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  padding: 18px 20px;
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   max-height: 60vh;
   overflow-y: auto;
 }
-.codice .buco { color: var(--gold); font-weight: 600; }
 
-.editor-codice {
+/* Oggetto dell'email, sopra il messaggio */
+.oggetto-riga {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+}
+.oggetto-etichetta {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-tertiary);
+  flex: 0 0 auto;
+}
+.oggetto-testo { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+
+.editor-testo {
   width: 100%;
-  min-height: 340px;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.55;
+  min-height: 300px;
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  line-height: 1.6;
   color: var(--text);
   background: var(--fill);
   border: 1px solid transparent;
   border-radius: var(--radius-m);
-  padding: 14px;
+  padding: 16px;
   outline: none;
   resize: vertical;
-  tab-size: 2;
-  white-space: pre;
-  overflow-wrap: normal;
-  overflow-x: auto;
+  white-space: pre-wrap;
 }
-.editor-codice:focus { background: var(--surface); border-color: var(--hairline-strong); }
+.editor-testo:focus { background: var(--surface); border-color: var(--hairline-strong); }
 
 /* ---------- Variabili ---------- */
 .var-lista { display: flex; flex-direction: column; gap: 10px; }
@@ -429,6 +458,14 @@ tbody tr:hover { background: var(--fill); }
   white-space: nowrap;
 }
 .chip.muto { background: var(--fill); color: var(--text-tertiary); }
+/* Chip cliccabile: inserisce la variabile nel punto in cui si sta scrivendo */
+.chip-bottone {
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+.chip-bottone:hover { background: var(--gold); color: #fff; }
 
 /* ---------- Abilitazioni per app ---------- */
 .app-riga {

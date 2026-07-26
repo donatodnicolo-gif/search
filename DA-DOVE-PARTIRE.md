@@ -45,14 +45,14 @@ in parallelo sullo stesso branch.
 | `deluxy-messaging` | **Customer Service**: reclami sugli ordini (casistiche, azioni, colpa a valet/partner → giudizi) + ordini da lavorare (da Orders, ogni 15') + inbox unificata WhatsApp/Messenger/IG + widget siti | 3140 | [deluxy-messaging.vercel.app](https://deluxy-messaging.vercel.app) | [HANDOFF.md](deluxy-messaging/HANDOFF.md) |
 | `deluxy-orders` | registro centralizzato ordini Shopify | 3150 | [deluxy-orders.vercel.app](https://deluxy-orders.vercel.app) | [docs/HANDOFF.md](deluxy-orders/docs/HANDOFF.md) |
 | `deluxy-transactions` | autorizzazione dei pagamenti: richieste firmate dalle app, doppia firma, distinte SEPA | 3160 | [deluxy-transactions.vercel.app](https://deluxy-transactions.vercel.app) | [docs/HANDOFF.md](deluxy-transactions/docs/HANDOFF.md) + [SICUREZZA.md](deluxy-transactions/docs/SICUREZZA.md) |
-| `deluxy-scripts` | archivio degli script: variabili `{{COSÌ}}`, abilitazione per singola app, API di lettura | 3170 | [deluxy-scripts.vercel.app](https://deluxy-scripts.vercel.app) | [docs/HANDOFF.md](deluxy-scripts/docs/HANDOFF.md) + [README.md](deluxy-scripts/README.md) |
+| `deluxy-scripts` | i **testi pronti** (vendite, inviti, presentazioni) da mandare in email/WhatsApp: variabili `{{COSÌ}}`, valori per singola app, API di lettura | 3170 | [deluxy-scripts.vercel.app](https://deluxy-scripts.vercel.app) | [docs/HANDOFF.md](deluxy-scripts/docs/HANDOFF.md) + [README.md](deluxy-scripts/README.md) |
 | `deluxy-search-supplier` | ricerca fiorai/pasticcerie + smistamento ordini | — | [search-deluxy.vercel.app](https://search-deluxy.vercel.app) | [AI_SPEC.md](deluxy-search-supplier/AI_SPEC.md) + [HANDOFF.md](deluxy-search-supplier/HANDOFF.md) |
 | `deluxy-scout` | app mobile prospezione (React Native/Expo) | `expo start` | [deluxy-scout.vercel.app](https://deluxy-scout.vercel.app) | [README.md](deluxy-scout/README.md) |
 | `deluxy-scout-manager` | plugin/handoff per lavorare su Scout | — | — | [README.md](deluxy-scout-manager/README.md) |
 | `sviluppi-siti-deluxy` | temi Shopify dei siti Deluxy | — | negozi Shopify | [README.md](sviluppi-siti-deluxy/README.md) · deluxy.it: [STATO-DELUXY-IT.md](sviluppi-siti-deluxy/skills/sviluppi-siti-deluxy/reference/STATO-DELUXY-IT.md) |
 | `deluxy-design-system` | token e componenti comuni | — | — | [DESIGN-SYSTEM.md](deluxy-design-system/DESIGN-SYSTEM.md) |
 | `deluxy-standard` | regole tecniche comuni | — | — | [STANDARD-DELUXY.md](deluxy-standard/STANDARD-DELUXY.md) |
-| `scripts` | catalogo dei file script versionati nel repo (l'app `deluxy-scripts` è per quelli senza file) | — | — | [README.md](scripts/README.md) |
+| `scripts` | catalogo degli script di **codice** del repo (l'app `deluxy-scripts`, invece, è dei testi commerciali) | — | — | [README.md](scripts/README.md) |
 
 Porte riservate ma non ancora in questo repo: 3090 tasks, 3100 acquisti, 3110 calendario.
 

@@ -16,7 +16,7 @@ export default async function Impostazioni() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Impostazioni</h1>
-          <p className="page-sub">Chiavi delle API e istruzioni per leggere gli script dalle altre app.</p>
+          <p className="page-sub">Chiavi delle API e istruzioni per leggere i testi dalle altre app.</p>
         </div>
       </div>
 
@@ -80,30 +80,31 @@ export default async function Impostazioni() {
       </div>
 
       <div className="scheda">
-        <div className="scheda-titolo">Come un&apos;app legge i suoi script</div>
+        <div className="scheda-titolo">Come un&apos;app legge i suoi testi</div>
         <p className="testo-guida">
           Tutte le chiamate vogliono l&apos;header <code className="inline">x-api-key</code>. Il parametro{" "}
-          <code className="inline">app</code> è la chiave dell&apos;app che chiede: si ricevono solo gli script
-          abilitati per quella, già composti con i suoi valori.
+          <code className="inline">app</code> è la chiave dell&apos;app che chiede: si ricevono solo i testi abilitati
+          per quella, già composti con i suoi valori (firma, tono, recapiti).
         </p>
-        <pre className="codice" style={{ marginTop: 12 }}>{`# gli script abilitati per un'app
+        <pre className="codice" style={{ marginTop: 12 }}>{`# i testi abilitati per un'app
 curl -H "x-api-key: $SCRIPTS_API_KEY" \\
-  "$SCRIPTS_URL/api/v1/script?app=deluxy-marketing"
+  "$SCRIPTS_URL/api/v1/script?app=deluxy-messaging"
 
-# uno script solo, già composto
+# un testo solo, già composto (con oggetto, se è un'email)
 curl -H "x-api-key: $SCRIPTS_API_KEY" \\
-  "$SCRIPTS_URL/api/v1/script/import-ordini-shopify?app=deluxy-marketing"
+  "$SCRIPTS_URL/api/v1/script/invito-evento-privato?app=deluxy-messaging"
 
-# solo il testo, pronto da eseguire o incollare
+# solo il messaggio, pronto da incollare
 curl -H "x-api-key: $SCRIPTS_API_KEY" \\
-  "$SCRIPTS_URL/api/v1/script/import-ordini-shopify/testo?app=deluxy-marketing"
+  "$SCRIPTS_URL/api/v1/script/invito-evento-privato/testo?app=deluxy-messaging"
 
 # le app collegate
 curl -H "x-api-key: $SCRIPTS_API_KEY" "$SCRIPTS_URL/api/v1/app"`}</pre>
         <p className="testo-guida" style={{ marginTop: 12 }}>
-          Le variabili di tipo <strong>segreto</strong> non escono mai dalle API: nel testo restano come{" "}
-          <code className="inline">{"{{NOME}}"}</code> e l&apos;elenco <code className="inline">daCompilare</code> dice
-          quali sono. I token stanno nella cassaforte del Hub, non qui.
+          Le variabili che nessuno può sapere in anticipo — il nome di chi riceve, la data — restano scritte come{" "}
+          <code className="inline">{"{{NOME_CLIENTE}}"}</code> e l&apos;elenco{" "}
+          <code className="inline">daCompilare</code> dice quali sono: l&apos;app che usa il testo le riempie con i dati
+          che ha già (l&apos;ordine, il cliente) prima di mandarlo.
         </p>
       </div>
     </main>

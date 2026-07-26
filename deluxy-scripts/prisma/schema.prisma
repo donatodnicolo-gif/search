@@ -1,12 +1,13 @@
 // Deluxy Scripts — schema dati
-// Archivio centralizzato degli script operativi del gruppo (Google Ads Script,
-// script Node di import/export, SQL di manutenzione, snippet da incollare nei
-// temi Shopify…). Tre idee sole:
-//   1. lo script è un TESTO con dei segnaposto `{{NOME_VARIABILE}}`;
+// L'archivio dei testi pronti dell'azienda: presentazioni, offerte di vendita,
+// inviti, solleciti, risposte ai clienti. Si scrivono una volta e si richiamano
+// da un'email, da un messaggio WhatsApp o da una presentazione. Tre idee sole:
+//   1. lo script è un TESTO con dei segnaposto `{{NOME_CLIENTE}}`;
 //   2. ogni segnaposto è una VARIABILE dichiarata, con tipo e valore di default;
 //   3. lo script si ABILITA (o si disabilita) per singola app Deluxy, e per
-//      ogni app le variabili possono valere qualcosa di diverso.
-// Le altre app leggono i propri script via API a chiave di sola lettura.
+//      ogni app le variabili possono valere qualcosa di diverso (la firma di
+//      Customer Service non è quella del commerciale).
+// Le altre app leggono i propri testi via API a chiave di sola lettura.
 
 generator client {
   provider = "prisma-client-js"
@@ -18,10 +19,10 @@ datasource db {
   directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
 }
 
-// Un'app (o un ambiente esterno: Google Ads, Shopify, una macchina) per cui uno
-// script può essere abilitato. Il registro sta qui e non è dedotto dal catalogo
-// del Hub perché qui dentro finiscono anche destinazioni che app Deluxy non
-// sono (es. "google-ads-flowers").
+// Un'app (o un reparto) per cui uno script può essere abilitato: Customer
+// Service, AI Mail, Scout… Il registro sta qui e non è dedotto dal catalogo del
+// Hub perché qui dentro può finire anche chi app Deluxy non è (un'agenzia, un
+// call center esterno).
 model AppCollegata {
   id           String         @id @default(cuid())
   chiave       String         @unique // slug usato nelle API: deluxy-marketing, google-ads-flowers…
@@ -37,15 +38,17 @@ model AppCollegata {
   @@index([attiva])
 }
 
-// Lo script vero e proprio. `corpo` è il testo con i segnaposto {{VARIABILE}}.
+// Il testo vero e proprio. `corpo` è il messaggio con i segnaposto {{VARIABILE}}.
 model Script {
   id           String         @id @default(cuid())
   slug         String         @unique // identificatore stabile usato dalle API
   nome         String
-  descrizione  String? // cosa fa, in una riga
-  note         String? // istruzioni d'uso, trappole, dove si incolla
-  linguaggio   String         @default("javascript") // javascript | typescript | sql | bash | powershell | python | altro
-  corpo        String         @default("") // il testo dello script, con i {{SEGNAPOSTO}}
+  descrizione  String? // a cosa serve, in una riga
+  note         String? // come si usa: quando mandarlo, cosa non dire, chi firma
+  canale       String         @default("email") // email | whatsapp | sms | telefono | presentazione | documento | altro
+  categoria    String         @default("vendite") // vendite | inviti | presentazione | followup | assistenza | altro
+  oggetto      String? // oggetto dell'email (solo per il canale email); accetta anch'esso i {{SEGNAPOSTO}}
+  corpo        String         @default("") // il testo, con i {{SEGNAPOSTO}}
   tag          String[]       @default([]) // etichette libere per ritrovarlo
   attivo       Boolean        @default(true) // false = archiviato: sparisce dalle API di tutte le app
   autore       String?
@@ -57,10 +60,11 @@ model Script {
   @@index([attivo])
 }
 
-// Una variabile dello script: il segnaposto {{CHIAVE}} dentro `corpo`.
-// Il valore può arrivare (in ordine): dal valore impostato per l'app che lo usa,
-// altrimenti da `valorePredefinito`. I tipi `segreto` NON conservano il valore:
-// token e password si incollano al momento dell'uso e non entrano nel database.
+// Una variabile del testo: il segnaposto {{CHIAVE}} dentro `corpo` (o dentro
+// `oggetto`). Il valore può arrivare (in ordine): da quello impostato per l'app
+// che lo usa, altrimenti da `valorePredefinito`. Quello che non è deciso in
+// anticipo — il nome del cliente, la data — si lascia vuoto: si compila al
+// momento di mandare il messaggio.
 model Variabile {
   id                String            @id @default(cuid())
   scriptId          String
@@ -68,7 +72,7 @@ model Variabile {
   chiave            String // MAIUSCOLO_CON_UNDERSCORE, come appare fra {{ }}
   etichetta         String? // nome leggibile nel modulo
   descrizione       String?
-  tipo              String            @default("testo") // testo | testolungo | numero | booleano | scelta | segreto
+  tipo              String            @default("testo") // testo | testolungo | numero | data | scelta
   opzioni           String[]          @default([]) // valori ammessi quando tipo = scelta
   valorePredefinito String? // usato quando l'app non ne imposta uno proprio
   obbligatoria      Boolean           @default(true)

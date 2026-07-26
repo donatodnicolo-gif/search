@@ -1,6 +1,6 @@
-// Popola il registro delle app collegate con l'ecosistema Deluxy, così il primo
-// avvio non parte da una pagina vuota. Idempotente: le app già presenti non
-// vengono toccate (nome e colore restano quelli eventualmente modificati a mano).
+// Popola il registro di chi può usare i testi con l'ecosistema Deluxy, così il
+// primo avvio non parte da una pagina vuota. Idempotente: le app già presenti
+// non vengono toccate (nome e colore restano quelli modificati a mano).
 //
 // Uso: npm run seed:app
 import { PrismaClient } from "@prisma/client";
@@ -20,9 +20,8 @@ const APP = [
   { chiave: "deluxy-budgets", nome: "Budgets", descrizione: "Budget su 3 livelli e P&L", colore: "#248a3d" },
   { chiave: "deluxy-transactions", nome: "Transactions", descrizione: "Autorizzazione dei pagamenti", colore: "#d70015" },
   { chiave: "deluxy-mail", nome: "AI Mail", descrizione: "Smistamento della posta", colore: "#0071e3" },
-  { chiave: "deluxy-scout", nome: "Scout", descrizione: "App mobile di prospezione", colore: "#6d3fc4" },
-  { chiave: "google-ads", nome: "Google Ads", descrizione: "Script incollati in Google Ads (Azioni collettive)", colore: "#c93400" },
-  { chiave: "shopify", nome: "Shopify", descrizione: "Snippet e Liquid dei temi dei siti", colore: "#248a3d" },
+  { chiave: "deluxy-scout", nome: "Scout", descrizione: "Prospezione commerciale sul campo", colore: "#6d3fc4" },
+  { chiave: "deluxy-suppliers", nome: "Ricerca fornitori", descrizione: "Messaggi a fiorai e pasticcerie", colore: "#0071e3" },
 ];
 
 let creati = 0;

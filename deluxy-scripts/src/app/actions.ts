@@ -18,15 +18,15 @@ function opzionale(fd: FormData, campo: string): string | null {
   return v === "" ? null : v;
 }
 
-// Il testo dello script. I browser mandano i textarea con i fine riga in CRLF
-// (lo dice lo standard HTML): li riportiamo a LF, altrimenti uno script bash o
-// SQL copiato da qui arriva pieno di ^M.
+// Il testo. I browser mandano i textarea con i fine riga in CRLF (lo dice lo
+// standard HTML): li riportiamo a LF, così il messaggio incollato in WhatsApp o
+// in un'email non porta con sé caratteri invisibili.
 function corpoDa(fd: FormData): string {
   return String(fd.get("corpo") ?? "").replace(/\r\n/g, "\n");
 }
 
-// Le variabili usate nel corpo ma non ancora dichiarate vengono create da sole,
-// come testo obbligatorio: chi scrive lo script non deve dichiararle due volte.
+// Le variabili usate nel testo ma non ancora dichiarate vengono create da sole,
+// come testo obbligatorio: chi scrive non deve dichiararle una seconda volta.
 async function allineaVariabili(scriptId: string, corpo: string) {
   const usate = chiaviUsate(corpo);
   if (usate.length === 0) return;
@@ -50,16 +50,20 @@ export async function creaScript(fd: FormData) {
   if (!nome) return;
   const slug = await slugLibero(nome);
   const corpo = corpoDa(fd);
+  const oggetto = opzionale(fd, "oggetto");
   const script = await prisma.script.create({
     data: {
       slug,
       nome,
       descrizione: opzionale(fd, "descrizione"),
-      linguaggio: testo(fd, "linguaggio") || "javascript",
+      canale: testo(fd, "canale") || "email",
+      categoria: testo(fd, "categoria") || "vendite",
+      oggetto,
       corpo,
     },
   });
-  await allineaVariabili(script.id, corpo);
+  // I segnaposto valgono anche nell'oggetto dell'email: si guardano entrambi.
+  await allineaVariabili(script.id, `${oggetto ?? ""}\n${corpo}`);
   revalidatePath("/");
   redirect(`/script/${slug}`);
 }
@@ -69,6 +73,7 @@ export async function salvaScript(fd: FormData) {
   if (!id) return;
   const nome = testo(fd, "nome");
   const corpo = corpoDa(fd);
+  const oggetto = opzionale(fd, "oggetto");
   const tag = testo(fd, "tag")
     .split(",")
     .map((t) => t.trim())
@@ -87,14 +92,16 @@ export async function salvaScript(fd: FormData) {
       slug,
       descrizione: opzionale(fd, "descrizione"),
       note: opzionale(fd, "note"),
-      linguaggio: testo(fd, "linguaggio") || "javascript",
+      canale: testo(fd, "canale") || "email",
+      categoria: testo(fd, "categoria") || "vendite",
+      oggetto,
       autore: opzionale(fd, "autore"),
       corpo,
       tag,
       attivo: fd.get("attivo") === "on",
     },
   });
-  await allineaVariabili(id, corpo);
+  await allineaVariabili(id, `${oggetto ?? ""}\n${corpo}`);
   revalidatePath("/");
   revalidatePath(`/script/${slug}`);
   if (slug !== attuale.slug) redirect(`/script/${slug}`);
@@ -128,15 +135,10 @@ export async function salvaVariabile(fd: FormData) {
       descrizione: opzionale(fd, "descrizione"),
       tipo: testo(fd, "tipo") || "testo",
       opzioni,
-      // Un segreto non conserva valori: si svuota anche il predefinito, così un
-      // token non resta nel database per distrazione.
-      valorePredefinito: testo(fd, "tipo") === "segreto" ? null : opzionale(fd, "valorePredefinito"),
+      valorePredefinito: opzionale(fd, "valorePredefinito"),
       obbligatoria: fd.get("obbligatoria") === "on",
     },
   });
-  if (testo(fd, "tipo") === "segreto") {
-    await prisma.valoreVariabile.deleteMany({ where: { variabileId: id } });
-  }
   revalidatePath(`/script/${slug}`);
 }
 
@@ -164,8 +166,8 @@ export async function eliminaVariabile(fd: FormData) {
 
 // ---------- Abilitazione per app ----------
 
-// Accende o spegne uno script per un'app. Il record resta anche da spento:
-// così i valori delle variabili di quell'app non si perdono.
+// Accende o spegne un testo per un'app. Il record resta anche da spento: così i
+// valori delle variabili di quell'app (la firma, il tono) non si perdono.
 export async function cambiaAbilitazione(fd: FormData) {
   const scriptId = testo(fd, "scriptId");
   const appId = testo(fd, "appId");
@@ -193,8 +195,6 @@ export async function salvaValori(fd: FormData) {
   if (!abilitazione) return;
 
   for (const variabile of abilitazione.script.variabili) {
-    // I segreti non si salvano mai: si compilano al momento della copia.
-    if (variabile.tipo === "segreto") continue;
     const valore = String(fd.get(`valore-${variabile.id}`) ?? "").trim();
     if (valore === "") {
       await prisma.valoreVariabile.deleteMany({ where: { abilitazioneId, variabileId: variabile.id } });

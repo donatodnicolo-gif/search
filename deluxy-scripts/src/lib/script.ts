@@ -18,18 +18,21 @@ export type ScriptPerApp = {
   nome: string;
   descrizione: string | null;
   note: string | null;
-  linguaggio: string;
+  canale: string;
+  categoria: string;
   tag: string[];
   aggiornatoIl: Date;
+  oggetto: string | null; // oggetto dell'email, coi segnaposto ancora dentro
+  oggettoRisolto: string | null; // oggetto già composto
   corpo: string; // con i segnaposto ancora dentro
   corpoRisolto: string; // con i valori dell'app già sostituiti
   variabili: ValoreRisolto[];
-  daCompilare: string[]; // variabili obbligatorie senza valore (segreti compresi)
+  daCompilare: string[]; // variabili obbligatorie rimaste senza valore
 };
 
-// Gli script abilitati per un'app, già composti con i valori di quell'app.
-// `chiaveApp` è lo slug dell'app (es. "deluxy-marketing"). Un'app disattivata
-// non riceve nulla, come uno script archiviato.
+// I testi abilitati per un'app, già composti con i valori di quell'app.
+// `chiaveApp` è lo slug dell'app (es. "deluxy-messaging"). Un'app disattivata
+// non riceve nulla, come un testo archiviato.
 export async function scriptPerApp(chiaveApp: string, slug?: string): Promise<ScriptPerApp[] | null> {
   const app = await prisma.appCollegata.findUnique({ where: { chiave: chiaveApp } });
   if (!app || !app.attiva) return null;
@@ -60,9 +63,12 @@ export async function scriptPerApp(chiaveApp: string, slug?: string): Promise<Sc
       nome: a.script.nome,
       descrizione: a.script.descrizione,
       note: a.script.note,
-      linguaggio: a.script.linguaggio,
+      canale: a.script.canale,
+      categoria: a.script.categoria,
       tag: a.script.tag,
       aggiornatoIl: a.script.aggiornatoIl,
+      oggetto: a.script.oggetto,
+      oggettoRisolto: a.script.oggetto ? componi(a.script.oggetto, risolte) : null,
       corpo: a.script.corpo,
       corpoRisolto: componi(a.script.corpo, risolte),
       variabili: risolte,
@@ -71,7 +77,7 @@ export async function scriptPerApp(chiaveApp: string, slug?: string): Promise<Sc
   });
 }
 
-// Uno slug libero a partire dal nome: "Import ordini Shopify" → "import-ordini-shopify".
+// Uno slug libero a partire dal nome: "Invito evento privato" → "invito-evento-privato".
 export function slugDa(nome: string): string {
   return (
     nome

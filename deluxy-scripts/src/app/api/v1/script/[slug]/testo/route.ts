@@ -5,8 +5,8 @@ import { scriptPerApp } from "@/lib/script";
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/script/<slug>/testo?app=<chiave>
-// Solo il testo dello script, in text/plain: comodo per `curl … | node -` o per
-// incollarlo dove serve senza passare dal JSON.
+// Solo il testo, in text/plain: comodo per incollarlo in un messaggio senza
+// passare dal JSON. L'oggetto dell'email, se c'è, viaggia nell'header.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const client = await autentica(req);
   if (client instanceof Response) return client;
@@ -24,9 +24,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
-      // Le variabili obbligatorie ancora scoperte, per chi consuma il testo da
-      // riga di comando e non legge il JSON.
+      // Le variabili obbligatorie ancora scoperte e l'oggetto, per chi prende il
+      // testo così com'è e non legge il JSON.
       "X-Da-Compilare": s.daCompilare.join(",") || "nessuna",
+      ...(s.oggettoRisolto ? { "X-Oggetto": encodeURIComponent(s.oggettoRisolto) } : {}),
     },
   });
 }
