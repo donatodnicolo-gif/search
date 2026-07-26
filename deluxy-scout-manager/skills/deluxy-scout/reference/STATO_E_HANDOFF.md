@@ -2,6 +2,11 @@
 
 Ultimo aggiornamento: **26 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
 
+> 🖥️ **Su desktop il contenuto non occupa più tutta la larghezza (26 lug 2026, quarto giro)** — segnalazione utente su `/oggi`: «da desktop occupa tutto lo spazio». Misurato: con la sidebar da 264px, su un portatile a **1280** il contenuto arrivava a **928px** lasciando **49px** liberi — riempiva lo schermo, e nelle righe «nome … valore» i due estremi finivano lontanissimi (es. «Gucci» a sinistra e l'indirizzo all'altro capo).
+> - **Correzione:** `CONTENUTO_MAX` in `lib/theme.ts` abbassato **da 960 a 760** (scelta dell'utente fra colonna più stretta / due colonne / valori ravvicinati). Vale per tutte le schermate che usano `contenutoCentrato`.
+> - **Aggiunto `contenutoCentrato` dove mancava:** `da-completare`, `storico`, `task`, `script` — erano rimaste a 974-984px perché non applicavano il cap.
+> - **Verifica a 1280px:** Oggi, Da fare, Storico, Task, Script, Clienti, Trattative ora sono tutte a **728px** uniformi (prima 928-984). Su mobile nessun effetto: sotto i 760px il contenuto resta a piena larghezza. `tsc` pulito.
+>
 > 🔤 **I nomi non si tagliano più, in tutte le schede (26 lug 2026, terzo giro)** — richiesta utente: «i nomi di tutti i clienti, prospect, negozi ecc si devono vedere sempre». Nelle schede il nome aveva `numberOfLines={1}`: quando non ci stava veniva troncato («Moncl…», «Church's Milano S…»), e dare più spazio non bastava perché il taglio era comunque a una riga.
 > - **Correzione:** tolto `numberOfLines={1}` da **35 punti**, solo dove il testo è il **nome** di un negozio/cliente/contatto/lead/trattativa. Ora va a capo su più righe: es. «Moncler Milano Montenapoleone» si legge intero su due righe. File toccati: `affiliazioni`, `attivita/[id]`, `calendario`, `clienti`, `da-completare`, `invio/[scriptId]`, `lead`, `lista`, `mappa`, `nascosti`, `oggi`, `ordini`, `pagamenti`, `rubrica`, `storico`, `task`, `team`, `trattative`, `venditore/[ownerId]`, `RicercaAffiliazioni`, `TaskFormModal`, `VisitaModal`.
 > - **Restano troncati di proposito** indirizzi, note, causali, anteprime, chip dei filtri e voci di menu: lì il taglio non fa perdere l'identità della riga. Se serve cambiare anche quelli, sono altri `numberOfLines` negli stessi file.

@@ -180,5 +180,8 @@ export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
 // e faticosa da leggere. Questo stile — da applicare in array sul contenitore
 // scrollabile e sulla barra filtri — cappa la larghezza e centra il contenuto.
 // Su mobile (width < maxWidth) resta a piena larghezza: nessun effetto.
-export const CONTENUTO_MAX = 960;
+// 26/07/2026: abbassato da 960 a 760. Con la sidebar da 264px, su un portatile
+// a 1280 il contenuto arrivava a 928px e lasciava 49px liberi: riempiva tutto
+// lo schermo e nelle righe "nome … valore" i due estremi finivano lontanissimi.
+export const CONTENUTO_MAX = 760;
 export const contenutoCentrato = { width: '100%' as const, maxWidth: CONTENUTO_MAX, alignSelf: 'center' as const };

@@ -6,7 +6,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import type { Task } from '@/types';
-import { colors, coloreProprita, radius, shadow, spacing } from '@/lib/theme';
+import { colors, coloreProprita, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { completaTask, eliminaTask, fetchTask } from '@/lib/db';
@@ -85,7 +85,7 @@ export default function TaskScreen() {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
       >
         {tasks.length === 0 ? (

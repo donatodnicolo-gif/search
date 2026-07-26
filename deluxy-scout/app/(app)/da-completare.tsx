@@ -7,7 +7,7 @@ import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from '
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, radius, shadow, spacing } from '@/lib/theme';
+import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import { EmptyState, StatusBadge } from '@/components/ui';
 import { LineaIcon } from '@/components/LineaIcon';
 import {
@@ -105,7 +105,7 @@ export default function DaCompletare() {
         keyExtractor={(r) =>
           r.tipo === 'richiamo' ? `r-${r.richiamo.place.id}` : r.tipo === 'followup' ? `f-${r.deal.id}` : `c-${r.place.id}`
         }
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, contenutoCentrato]}
         stickySectionHeadersEnabled={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={

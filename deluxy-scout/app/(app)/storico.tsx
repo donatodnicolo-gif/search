@@ -5,7 +5,7 @@ import { SectionList, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import type { EsitoVisita } from '@/types';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { fetchStorico, type VisitaStorico } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
@@ -115,7 +115,7 @@ export default function Storico() {
       <SectionList
         sections={sezioni}
         keyExtractor={(v) => v.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, contenutoCentrato]}
         stickySectionHeadersEnabled={false}
         renderSectionHeader={({ section }) => (
           <View style={styles.giornoHead}>
