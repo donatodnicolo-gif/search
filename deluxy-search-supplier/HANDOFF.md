@@ -264,6 +264,22 @@ solo dove siamo e come si lavora.
    console pulita. Non collaudato sui dati veri (serve chiave registro): dipende da quante
    anagrafiche hanno `interessi` con affiliazione/vendor.
 
+31-bis. **Correzione mappatura (il filtro dava 0 risultati)** (26/07): la v. precedente filtrava
+   su `interessi` (affiliazione/vendor), ma **l'import da Excel NON popola mai `interessi`**
+   (verificato su `deluxy-anagrafiche/scripts/import-excel.mjs`) → sempre 0 risultati. La
+   mappatura VERA (dal tracker Excel) è: **venditori di fiori/torte = `categoria` FIORISTA
+   (col «TIPO PROSPECT»=FIORI) / PASTICCERIA (=PASTICCERIA)**; **re-seller/affiliato attivo =
+   `stato`='attivo'** (Excel STATUS=PARTNER/ACCETTATA), **prospect = `stato`='prospect'** (STATUS
+   vuoto). Il programma specifico (DELUXY FLOWERS / CAKEDESIGN.ME / DELUXY) sta in
+   `datiExtra.tipologiaPartnershipAttiva` (JSON, può arrivare come oggetto o stringa → `pvDatiExtra`
+   fa il parse). Nuovo filtro base `pvBase` = categoria∈{FIORISTA,PASTICCERIA} ∧ stato∈{attivo,
+   prospect} ∧ `attivo`≠false (esclude archiviati). Helper `isVenditoreTF`/`isAttivoReseller`/
+   `isProspectP`; chip 🤝 re-seller attivi / 📋 prospect; filtro ruolo `#pvRuolo`
+   (tutti/attivo/prospect); filtro prodotto `#pvCat` (Fiori/Torte). `ctCard` mostra la pillola
+   ruolo (col programma) + 🌸 Fiori/🎂 Torte. Verificato con dati finti (inclusione/esclusione
+   corretta, datiExtra oggetto+stringa, filtri, console pulita). Cross-tab reale attesa: ~93
+   FIORISTA + ~78 PASTICCERIA tra attivi(12)+prospect(156).
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche

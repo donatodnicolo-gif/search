@@ -53,8 +53,8 @@
   .pv-chip.pv-part{color:var(--gold-strong); background:var(--gold-soft)}
   .pv-chip.pv-open{color:var(--blue); background:rgba(0,113,227,.08)}
   .pv-chip.pv-closed{color:var(--text-tertiary); background:var(--fill)}
-  .pv-chip.pv-reseller{color:var(--purple); background:rgba(109,63,196,.1)}
-  .pv-chip.pv-vendor{color:var(--green); background:rgba(36,138,61,.1)}
+  .pv-chip.pv-attivo{color:var(--gold-strong); background:var(--gold-soft)}
+  .pv-chip.pv-prospect{color:var(--blue); background:rgba(0,113,227,.08)}
   .pv-chip.pv-prod{color:var(--text-secondary); background:var(--fill)}
   /* elenco contatti per provincia */
   .prov-group{margin-top:20px}
@@ -697,18 +697,18 @@
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px">
         <div class="chips" id="pvCat" style="display:flex; gap:6px">
-          <button class="chip active" data-cat="tutte" type="button">Tutte le categorie</button>
-          <button class="chip" data-cat="FIORISTA" type="button">🌸 Fiorai</button>
-          <button class="chip" data-cat="PASTICCERIA" type="button">🎂 Pasticcerie</button>
+          <button class="chip active" data-cat="tutte" type="button">Fiori + Torte</button>
+          <button class="chip" data-cat="FIORISTA" type="button">🌸 Fiori</button>
+          <button class="chip" data-cat="PASTICCERIA" type="button">🎂 Torte</button>
         </div>
         <div class="chips" id="pvRuolo" style="display:flex; gap:6px">
           <button class="chip active" data-ruolo="tutti" type="button">Tutti</button>
-          <button class="chip" data-ruolo="reseller" type="button">🛍️ Re-seller</button>
-          <button class="chip" data-ruolo="vendor" type="button">📦 Vendor</button>
+          <button class="chip" data-ruolo="attivo" type="button">🤝 Re-seller attivi</button>
+          <button class="chip" data-ruolo="prospect" type="button">📋 Prospect</button>
         </div>
         <input id="pvSearch" type="text" placeholder="Cerca provincia, nome…" style="flex:1; min-width:160px">
       </div>
-      <div class="hint" style="margin:0 0 4px">Solo <b>re-seller</b> (interesse «Affiliazione») e <b>vendor</b> («Vendor Deluxy») dal registro, con la <b>tipologia di prodotto</b> che trattano. Le province con più re-seller/vendor sono in cima.</div>
+      <div class="hint" style="margin:0 0 4px">Solo <b>venditori di fiori e torte</b> che sono <b>re-seller/affiliati attivi</b> (🤝) o <b>prospect</b> (📋), dal registro anagrafiche. Le province con più re-seller attivi sono in cima.</div>
       <div id="provinceBody"><div class="hint">Carico le province…</div></div>
     </div>
 
@@ -1075,7 +1075,7 @@ function toggleMenu(){ $('#sidebar').classList.toggle('open'); $('#appOverlay').
 const PAGE_TITLES = { operativa: ['Smistamento ordini', 'Recupera un ordine e invialo al fiorario o pasticceria più vicino, via WhatsApp o email.'],
                       impostazioni: ['Impostazioni', 'Chiavi, utenze e collegamenti dell\'app, salvati sul server.'],
                       contatti: ['Contatti', 'Partner e fornitori dal registro anagrafiche Deluxy, raggruppati per provincia.'],
-                      province: ['Province', 'Re-seller e vendor dal registro anagrafiche, per provincia, con la tipologia di prodotto che trattano.'],
+                      province: ['Province', 'Venditori di fiori e torte che sono re-seller/affiliati attivi o prospect, per provincia.'],
                       storico: ['Storico richieste', 'Check ordini Shopify, richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
 // vista: false/'operativa' | true/'impostazioni' | 'storico'
 function setView(vista){
@@ -1275,23 +1275,30 @@ $('#ctSearch').addEventListener('input', ()=>{ ctFiltro.q=$('#ctSearch').value; 
    re-seller o vendor e indica la tipologia di prodotto (categoria). Nel registro non
    c'è un campo «tipo»: re-seller = interesse «affiliazione», vendor = «vendor»; la
    tipologia di prodotto = campo «categoria» (FIORISTA/PASTICCERIA/BOUTIQUE…). */
-const isReseller = p => (p.interessi||[]).includes('affiliazione');   // re-seller = interesse «Affiliazione»
-const isVendor   = p => (p.interessi||[]).includes('vendor');         // vendor = «Vendor Deluxy»
-const isResellerOrVendor = p => isReseller(p) || isVendor(p);
-// tipologia di prodotto: dalla categoria del registro (tipo di attività)
-const PROD_TIPO = { FIORISTA:'🌸 Fiori', PASTICCERIA:'🎂 Pasticceria', RISTORANTE:'🍽️ Ristorazione',
-  BOUTIQUE:'🛍️ Boutique', CATERING:'🍽️ Catering', GIFTING:'🎁 Gifting', CONCIERGE:'🛎️ Concierge',
-  GIOIELLERIA:'💍 Gioielleria', ENOTECA:'🍷 Enoteca' };
+// Venditori di torte e fiori = categoria FIORISTA (fiori) / PASTICCERIA (torte).
+// Re-seller/affiliato ATTIVO = stato 'attivo' (dall'Excel STATUS=PARTNER/ACCETTATA);
+// prospect = stato 'prospect'. NB: nel registro il campo `interessi` NON è popolato
+// (l'import non lo scrive) → si filtra su categoria + stato, non su interessi.
+const PROD_CATS = new Set(['FIORISTA','PASTICCERIA']);
+const isVenditoreTF = p => PROD_CATS.has(String(p.categoria||'').toUpperCase());
+const isAttivoReseller = p => isPartnerAttivo(p);                       // stato 'attivo'
+const isProspectP = p => String(p.stato||'').toLowerCase()==='prospect';
+// base della sezione: venditore torte/fiori, attivo o prospect, non archiviato
+const pvBase = p => isVenditoreTF(p) && (isAttivoReseller(p)||isProspectP(p)) && p.attivo!==false;
+const PROD_TIPO = { FIORISTA:'🌸 Fiori', PASTICCERIA:'🎂 Torte' };
 function prodChip(cat){
   const k = String(cat||'').toUpperCase();
-  if(!k || k==='ALTRO' || k==='DA CLASSIFICARE') return '<span class="pv-chip pv-prod">🏷️ prodotto non indicato</span>';
-  return `<span class="pv-chip pv-prod">${PROD_TIPO[k] || '🏷️ '+esc(cat)}</span>`;
+  return `<span class="pv-chip pv-prod">${PROD_TIPO[k] || '🏷️ '+esc(cat||'—')}</span>`;
 }
+// programma re-seller specifico (DELUXY FLOWERS / CAKEDESIGN.ME / DELUXY) da datiExtra
+function pvDatiExtra(p){ let d=p.datiExtra; if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){ d=null; } } return d||{}; }
 function ruoloPills(p){
-  const r = [];
-  if(isReseller(p)) r.push('<span class="pv-chip pv-reseller">🛍️ Re-seller</span>');
-  if(isVendor(p))   r.push('<span class="pv-chip pv-vendor">📦 Vendor</span>');
-  return r.join('');
+  if(isAttivoReseller(p)){
+    const prog = pvDatiExtra(p).tipologiaPartnershipAttiva || '';
+    return `<span class="pv-chip pv-attivo">🤝 Re-seller attivo${prog?' · '+esc(prog):''}</span>`;
+  }
+  if(isProspectP(p)) return '<span class="pv-chip pv-prospect">📋 Prospect</span>';
+  return '';
 }
 const pvFiltro = { cat:'tutte', q:'', ruolo:'tutti' };
 async function loadProvince(force){
@@ -1316,9 +1323,9 @@ function renderProvince(){
   const body = $('#provinceBody');
   const q = pvFiltro.q.trim().toLowerCase();
   const list = (ctData||[]).filter(p=>{
-    if(!isResellerOrVendor(p)) return false;                        // SOLO re-seller / vendor
-    if(pvFiltro.ruolo==='reseller' && !isReseller(p)) return false;
-    if(pvFiltro.ruolo==='vendor'   && !isVendor(p))   return false;
+    if(!pvBase(p)) return false;                                    // solo venditori fiori/torte, attivi o prospect
+    if(pvFiltro.ruolo==='attivo'   && !isAttivoReseller(p)) return false;
+    if(pvFiltro.ruolo==='prospect' && !isProspectP(p))      return false;
     if(pvFiltro.cat!=='tutte' && String(p.categoria||'').toUpperCase()!==pvFiltro.cat) return false;
     if(q){
       const blob = [p.nome, p.ragioneSociale, p.citta, p.provincia, p.indirizzo].filter(Boolean).join(' ').toLowerCase();
@@ -1331,28 +1338,30 @@ function renderProvince(){
   list.forEach(p=>{ const k = (p.provincia||'').toUpperCase() || '—'; (gruppi[k] = gruppi[k]||[]).push(p); });
   let prov = Object.keys(gruppi).map(k=>{
     const g = gruppi[k];
-    return { prov:k, g, nRes: g.filter(isReseller).length, nVen: g.filter(isVendor).length };
+    return { prov:k, g, nAtt: g.filter(isAttivoReseller).length, nPro: g.filter(isProspectP).length };
   });
-  // ordina: provincia sconosciuta in coda; poi più re-seller+vendor, alfabetico
+  // ordina: provincia sconosciuta in coda; poi più re-seller attivi, poi totale, alfabetico
   prov.sort((a,b)=>{
     if(a.prov==='—') return 1; if(b.prov==='—') return -1;
-    const ta=a.nRes+a.nVen, tb=b.nRes+b.nVen;
+    if(b.nAtt!==a.nAtt) return b.nAtt-a.nAtt;
+    const ta=a.nAtt+a.nPro, tb=b.nAtt+b.nPro;
     if(tb!==ta) return tb-ta;
     return a.prov.localeCompare(b.prov);
   });
-  const totRes = prov.reduce((s,x)=>s+x.nRes,0);
-  const totVen = prov.reduce((s,x)=>s+x.nVen,0);
+  const totAtt = prov.reduce((s,x)=>s+x.nAtt,0);
+  const totPro = prov.reduce((s,x)=>s+x.nPro,0);
   $('#provinceInfo').textContent = prov.length
-    ? `${prov.length} province · 🛍️ ${totRes} re-seller · 📦 ${totVen} vendor`
+    ? `${prov.length} province · 🤝 ${totAtt} re-seller attivi · 📋 ${totPro} prospect`
     : '';
-  if(!prov.length){ body.innerHTML = '<div class="hint">Nessun re-seller o vendor nel registro con questi filtri. (Si riconoscono dall\'interesse «Affiliazione» o «Vendor Deluxy» nel registro anagrafiche.)</div>'; return; }
+  if(!prov.length){ body.innerHTML = '<div class="hint">Nessun venditore di fiori o torte (attivo o prospect) con questi filtri.</div>'; return; }
   body.innerHTML = prov.map(x=>{
+    const rank = p => isAttivoReseller(p) ? 0 : 1;   // attivi prima, poi prospect
     const cards = x.g.slice()
-      .sort((a,b)=> String(a.nome||'').localeCompare(String(b.nome||'')))
+      .sort((a,b)=>{ const r = rank(a)-rank(b); return r || String(a.nome||'').localeCompare(String(b.nome||'')); })
       .map(p=>ctCard(p, {showRuolo:true})).join('');
     const chips = [
-      x.nRes ? `<span class="pv-chip pv-reseller">🛍️ ${x.nRes} re-seller</span>` : '',
-      x.nVen ? `<span class="pv-chip pv-vendor">📦 ${x.nVen} vendor</span>` : ''
+      x.nAtt ? `<span class="pv-chip pv-attivo">🤝 ${x.nAtt} re-seller</span>` : '',
+      x.nPro ? `<span class="pv-chip pv-prospect">📋 ${x.nPro} prospect</span>` : ''
     ].filter(Boolean).join('');
     return `<details class="prov-group" open>
       <summary class="prov-head">
