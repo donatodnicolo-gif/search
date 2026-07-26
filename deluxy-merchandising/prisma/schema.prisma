@@ -173,6 +173,9 @@ model Vendita {
   varianteId String?
   variante   Variante? @relation(fields: [varianteId], references: [id], onDelete: SetNull)
   titolo     String // titolo della riga così come arriva dal canale
+  // Nome della variante scelta dal cliente ("40 rose", "Medium"): è la parola
+  // del negozio, l'unica leggibile quando lo SKU è un codice cieco tipo ICQLBN-2.
+  varianteNome String?
   sku        String?
   canale     String    @default("shopify") // brand/negozio di origine
   quantita   Int       @default(1)

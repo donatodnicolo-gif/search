@@ -76,6 +76,9 @@ export const CATEGORIE = [
   "EDIZIONE_LIMITATA",
   "ACCESSORIO",
   "HOME_FRAGRANCE",
+  // Prodotti nati dal venduto reale (import da Deluxy Orders): la categoria la
+  // decide una persona, non si indovina dal titolo dell'articolo.
+  "DA_CLASSIFICARE",
 ] as const;
 export type Categoria = (typeof CATEGORIE)[number];
 
@@ -87,6 +90,7 @@ export const ETICHETTA_CATEGORIA: Record<string, string> = {
   EDIZIONE_LIMITATA: "Edizione limitata",
   ACCESSORIO: "Accessorio",
   HOME_FRAGRANCE: "Home fragrance",
+  DA_CLASSIFICARE: "Da classificare",
 };
 export function etichettaCategoria(c?: string | null): string {
   if (!c) return "—";

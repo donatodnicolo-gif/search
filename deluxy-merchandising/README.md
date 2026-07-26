@@ -60,6 +60,25 @@ conseguenze da tenere a mente:
   abbinata a occhio**: resta senza prodotto, conta nei totali e compare in fondo
   a `/vendite` fra le righe da mappare (basta dare alla variante lo SKU giusto).
 
+### Dal venduto al catalogo
+
+Se il catalogo non contiene ancora i prodotti che si vendono davvero, le vendite
+importate restano senza prodotto. Per crearli dal venduto reale:
+
+```bash
+npm run prodotti:da-vendite -- --dry        # mostra cosa farebbe
+npm run prodotti:da-vendite                 # crea tutto
+npm run prodotti:da-vendite -- --min 5      # solo i titoli venduti almeno 5 volte
+```
+
+Un prodotto per ogni titolo venduto, con le varianti prese dagli SKU e dai nomi
+di variante scelti dai clienti, e le vendite già in archivio agganciate. Il
+prezzo è la **media davvero incassata**; **costo 0** e categoria **«Da
+classificare»** restano da compilare a mano, perché non si indovinano dal titolo:
+finché il costo manca, il margine resta a zero invece di essere inventato. Anche
+la giacenza parte da 0 (qui non arriva nessun magazzino): le ipotesi di
+ordinativo vanno lette sapendo che partono da scorta ignota.
+
 Senza collegamento a Orders si possono caricare vendite dimostrative su 180
 giorni — inseriscono solo righe con origine `demo` e non toccano altro:
 

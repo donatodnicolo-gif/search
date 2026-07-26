@@ -119,6 +119,7 @@ export async function importaVendite(giorni = 90): Promise<EsitoImport> {
     prodottoId: string | null;
     varianteId: string | null;
     titolo: string;
+    varianteNome: string | null;
     sku: string | null;
     canale: string;
     quantita: number;
@@ -185,6 +186,7 @@ export async function importaVendite(giorni = 90): Promise<EsitoImport> {
             prodottoId,
             varianteId,
             titolo: r.titolo,
+            varianteNome: r.variante?.trim() || null,
             sku,
             canale: o.brand,
             quantita: r.quantita || 0,
