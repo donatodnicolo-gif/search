@@ -55,10 +55,11 @@ pubblicato), *sfidante* e *irraggiungibile*.
   i negozi si abbinano alle maison per nome (`deluxy.it` → Deluxy.it) o per slug (`Flowers` →
   flowers), e un negozio senza maison resta comunque a vista su una riga a parte. In pagina si
   parla di «vendite ecommerce»; «D2C» resta il nome della **voce di budget**, che a DB si chiama
-  così (`TipologiaServizio.slug`). Il totale Shopify è **IVA e
-  spedizione incluse** mentre il budget è imponibile: lo scorporo si sceglie in pagina (IVA 22%
-  predefinita, 10%, oppure «Lordo» per il dato Shopify tale e quale), perché l'aliquota non è
-  salvata sull'ordine e non va indovinata. Ordini **annullati e rimborsati esclusi**; i rimborsi
+  così (`TipologiaServizio.slug`). **L'IVA non si scorpora**: il totale Shopify si usa così com'è,
+  IVA e spedizione incluse, perché il budget D2C è scritto sulla stessa base. Le due fonti dei
+  ricavi restano quindi su basi diverse — Finance **imponibile**, Shopify **IVA inclusa** — e la
+  pagina lo dichiara invece di uniformarle con un'aliquota indovinata (Shopify non salva l'aliquota
+  sull'ordine). Ordini **annullati e rimborsati esclusi**; i rimborsi
   parziali restano contati per intero, ed è scritto sotto la tabella.
   Il consuntivo **arriva a oggi**: il mese in corso è dentro il conto, parziale (prima si fermava
   all'ultimo mese chiuso, e a fine luglio non sapeva niente di luglio). Siccome non tutte le fonti
@@ -77,8 +78,7 @@ pubblicato), *sfidante* e *irraggiungibile*.
   −60% letto come calo direbbe una bugia (è solo metà anno). Se il budget è già superato la casella
   non si azzera: dice «superato di X», in verde sui ricavi e in rosso sui costi.
   **Confronto con l'anno precedente a parità di periodo** (in tutte le altre viste): le colonne «*mesi* *anno-1*» e «Var.»
-  confrontano gli **stessi mesi** dell'anno prima (Gen–Giu con Gen–Giu, non con l'anno intero),
-  con la **stessa aliquota IVA** — altrimenti si misurerebbe lo scorporo invece delle vendite.
+  confrontano gli **stessi mesi** dell'anno prima (Gen–Giu con Gen–Giu, non con l'anno intero).
   Ci sono nel conto economico (totale e per voce di budget), nel KPI dei ricavi e nella tabella
   delle vendite ecommerce per maison. Dove il dato dell'anno prima **non esiste** la casella resta
   **vuota, non a zero**: oggi la banca non ha movimenti categorizzati per il 2025 e non c'è un
@@ -160,7 +160,7 @@ completo** (annuale, mensile e per maison), **sezione Dipendenti** (RAL/stagisti
 con mesi di competenza), dettaglio maison D2C/Eventi/B2B, team commerciale per linee e
 clienti, invio e lista proposte, spese ADV con % per mese personalizzabili, impostazioni
 scenari/premi/costi, **consuntivo D2C dal registro ordini** (Orders `/api/v1/ricavi`: venduto per
-maison e per mese, scorporo IVA a scelta), catalogo Hub aggiornato (id `budgets`, `APP_URL_BUDGETS`),
+maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `budgets`, `APP_URL_BUDGETS`),
 **pubblicata su Vercel** ([deluxy-budgets.vercel.app](https://deluxy-budgets.vercel.app), Postgres/Supabase + password).
 
 **MANCA**:
@@ -168,9 +168,9 @@ maison e per mese, scorporo IVA a scelta), catalogo Hub aggiornato (id `budgets`
 - **Proposte budget**: si raccolgono ma non si **approvano/consolidano** nel budget ufficiale.
 - **Premi per singolo responsabile**: oggi è un monte premi totale per livello, non ripartito per persona/team.
 - **Consuntivo**: confronto solo dove la mappatura Finance è impostata. Il D2C reale ora arriva da
-  Orders (per maison e per mese), ma resta **un'unica aliquota IVA** scelta a mano per scorporare
-  il venduto Shopify: non c'è un'aliquota per maison né per prodotto. I **rimborsi parziali** sono
-  contati per intero (l'importo reso non esiste nel registro ordini).
+  Orders (per maison e per mese), ma i ricavi restano **su due basi diverse** — Finance imponibile,
+  Shopify IVA inclusa: il totale è dichiarato, non omogeneo. I **rimborsi parziali** sono contati
+  per intero (l'importo reso non esiste nel registro ordini).
 - **Piattaforme ADV**: split **globale** d'azienda, non per singola maison; nessun raccordo con lo speso reale.
 - **Costo del lavoro**: tredicesima/quattordicesima e TFR non sono voci distinte; nessun consuntivo del personale.
 - **P&L**: per singola **linea commerciale** non c'è (le linee hanno solo il budget vendite, non un conto economico).

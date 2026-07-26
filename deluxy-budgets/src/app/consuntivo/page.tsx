@@ -4,7 +4,7 @@ import { fetchConsuntivo, fetchSpeseBanca } from "@/lib/finance";
 import { caricaCategorie, ricostruisci } from "@/lib/cfo";
 import { eur, MESI, pct } from "@/lib/format";
 import { normalizzaNome } from "@/lib/scout";
-import { abbinaMaison, ALIQUOTE, fetchRicaviD2C, imponibile } from "@/lib/orders";
+import { abbinaMaison, fetchRicaviD2C } from "@/lib/orders";
 
 export const dynamic = "force-dynamic";
 
@@ -37,15 +37,15 @@ const SLUG_D2C = "D2C";
 export default async function ConsuntivoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string; stato?: string; anno?: string; iva?: string }>;
+  searchParams: Promise<{ periodo?: string; stato?: string; anno?: string }>;
 }) {
   const sp = await searchParams;
   const periodo = PERIODI.find((p) => p.key === sp.periodo) ?? PERIODI[0];
   const stato = (STATI.find((s) => s.key === sp.stato)?.key ?? "tutte") as "tutte" | "pagate" | "aperte";
-  // Il venduto Shopify è IVA inclusa, il budget è imponibile: l'aliquota con cui
-  // scorporarlo si sceglie qui e resta visibile, invece di essere nascosta in
-  // una costante che nessuno ritrova.
-  const aliquota = ALIQUOTE.find((a) => a.key === sp.iva) ?? ALIQUOTE[0];
+  // Il venduto Shopify si prende **così com'è, IVA inclusa**: è la stessa base
+  // su cui è scritto il budget D2C, quindi scorporare l'IVA — come faceva una
+  // prima versione — abbassava il consuntivo di un quinto e faceva sembrare
+  // l'ecommerce molto più indietro di quanto sia.
 
   // Anno selezionabile. Il consuntivo arriva **a oggi**: il mese in corso ci
   // sta dentro, parziale. Prima si fermava all'ultimo mese chiuso e a fine
@@ -115,7 +115,7 @@ export default async function ConsuntivoPage({
     caricaAnno(annoPrec),
   ]);
 
-  // ---- D2C reale (Orders): mesi in imponibile, per maison e in totale ----
+  // ---- Vendite ecommerce (Orders): per mese, per maison e in totale ----
   // Tutti i brand Shopify sono D2C, anche quelli che non corrispondono a una
   // maison del budget: entrano nel totale e vengono elencati a parte, così il
   // conto torna e nessun venduto sparisce.
@@ -124,7 +124,7 @@ export default async function ConsuntivoPage({
   const d2cSenzaMaison: { brand: string; mesi: number[] }[] = [];
   if (d2c.ok) {
     for (const b of d2c.dati.brand) {
-      const mesi = b.mesi.map((v) => imponibile(v, aliquota.pct));
+      const mesi = b.mesi;
       for (let i = 0; i < 12; i++) d2cMese[i] += mesi[i] ?? 0;
       const slug = abbinaMaison(b.brand, dati.maisons);
       if (!slug) { d2cSenzaMaison.push({ brand: b.brand, mesi }); continue; }
@@ -135,13 +135,13 @@ export default async function ConsuntivoPage({
   }
   const d2cPeriodo = mesiPeriodo.reduce((s, m) => s + (d2cMese[m - 1] ?? 0), 0);
 
-  // Stesse vendite ecommerce dell'anno prima, sugli stessi mesi e con la stessa
-  // aliquota: altrimenti il confronto misurerebbe lo scorporo, non le vendite.
+  // Stesse vendite ecommerce dell'anno prima, sugli stessi mesi e sulla stessa
+  // base (totale Shopify, IVA inclusa).
   const d2cPrecMese = Array(12).fill(0) as number[];
   const d2cPrecPerMaison = new Map<string, number[]>();
   if (d2cPrec.ok) {
     for (const b of d2cPrec.dati.brand) {
-      const mesi = b.mesi.map((v) => imponibile(v, aliquota.pct));
+      const mesi = b.mesi;
       for (let i = 0; i < 12; i++) d2cPrecMese[i] += mesi[i] ?? 0;
       const slug = abbinaMaison(b.brand, dati.maisons);
       if (!slug) continue;
@@ -383,8 +383,8 @@ export default async function ConsuntivoPage({
     { label: "Struttura", costo: true, get: (m) => costoM("STRUTTURA", m) },
   ];
 
-  const link = (p: { periodo?: string; stato?: string; anno?: number; iva?: string }) =>
-    `/consuntivo?periodo=${p.periodo ?? periodo.key}&stato=${p.stato ?? stato}&anno=${p.anno ?? anno}&iva=${p.iva ?? aliquota.key}`;
+  const link = (p: { periodo?: string; stato?: string; anno?: number }) =>
+    `/consuntivo?periodo=${p.periodo ?? periodo.key}&stato=${p.stato ?? stato}&anno=${p.anno ?? anno}`;
   const ultimoMese = meseLimite >= 1 ? `${MESI[meseLimite - 1]} ${anno}` : "—";
   const meseAperto = `${MESI[meseInCorso - 1]} ${anno}`;
 
@@ -421,11 +421,6 @@ export default async function ConsuntivoPage({
           <div className="seg">
             {STATI.map((s) => (
               <Link key={s.key} href={link({ stato: s.key })} className={s.key === stato ? "on" : ""}>{s.label}</Link>
-            ))}
-          </div>
-          <div className="seg">
-            {ALIQUOTE.map((a) => (
-              <Link key={a.key} href={link({ iva: a.key })} className={a.key === aliquota.key ? "on" : ""}>{a.label}</Link>
             ))}
           </div>
         </div>
@@ -669,8 +664,10 @@ export default async function ConsuntivoPage({
                 {mesiBancaPrec.length === 1 ? "un mese" : `${mesiBancaPrec.length} mesi`}.{" "}
               </>
             )}
-            Budget di confronto = somma dei mesi {etichettaRif}. Ricavi al netto IVA, uscite di cassa IVA inclusa:
-            consuntivo gestionale.
+            Budget di confronto = somma dei mesi {etichettaRif}. <strong>Le due fonti dei ricavi hanno basi
+            diverse</strong>, come il budget: il fatturato di Finance è <strong>imponibile</strong>, le vendite
+            ecommerce sono il <strong>totale Shopify IVA inclusa</strong> (non si scorpora). Uscite di cassa IVA
+            inclusa: consuntivo gestionale.
           </p>
 
           <h2 className="section-title">Ricavi reali per voce di budget</h2>
@@ -838,10 +835,9 @@ export default async function ConsuntivoPage({
               <p className="page-caption" style={{ marginTop: 12 }}>
                 Venduto dei negozi Shopify preso da{" "}
                 <a href="https://deluxy-orders.vercel.app" style={{ color: "var(--blue)" }}>Orders</a>{" "}
-                ({d2c.dati.totali.ordini.toLocaleString("it-IT")} ordini nel {anno}), scorporato con{" "}
-                <strong>{aliquota.pct > 0 ? `IVA ${aliquota.pct}%` : "nessuno scorporo (lordo)"}</strong>: il totale
-                Shopify è IVA e spedizione incluse, il budget è imponibile. L&apos;aliquota si cambia qui sopra e non
-                viene dedotta dagli ordini, perché Shopify non la salva sull&apos;ordine.{" "}
+                ({d2c.dati.totali.ordini.toLocaleString("it-IT")} ordini nel {anno}): è il{" "}
+                <strong>totale Shopify così com&apos;è, IVA e spedizione incluse</strong> — la stessa base su cui è
+                scritto il budget D2C, quindi non si scorpora niente.{" "}
                 {d2c.dati.esclusi.annullati.ordini > 0 && (
                   <>Esclusi {d2c.dati.esclusi.annullati.ordini} ordini annullati ({eur(d2c.dati.esclusi.annullati.lordo)} lordi). </>
                 )}

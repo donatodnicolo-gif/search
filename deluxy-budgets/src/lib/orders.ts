@@ -85,21 +85,15 @@ export async function fetchRicaviD2C(anno: number, fino?: string): Promise<Ricav
   }
 }
 
-// ---- Aliquote IVA con cui scorporare il venduto Shopify ----
-// Il totale Shopify è IVA inclusa; il budget e il fatturato di Finance sono
-// imponibili. L'aliquota non arriva dagli ordini (Shopify non la salva
-// sull'ordine), quindi si sceglie: 22% è l'aliquota ordinaria, 10% quella dei
-// prodotti alimentari e di molte composizioni floreali. "Lordo" (0) mostra il
-// dato Shopify così com'è, per chi vuole quadrare con il gestionale del negozio.
-export const ALIQUOTE = [
-  { key: "22", label: "IVA 22%", pct: 22 },
-  { key: "10", label: "IVA 10%", pct: 10 },
-  { key: "0", label: "Lordo", pct: 0 },
-] as const;
-
-export function imponibile(lordo: number, ivaPct: number): number {
-  return ivaPct > 0 ? lordo / (1 + ivaPct / 100) : lordo;
-}
+// ---- L'IVA non si scorpora ----
+// Il totale Shopify è IVA inclusa e **si usa così com'è**: il budget D2C di
+// Deluxy è scritto sulla stessa base. Una prima versione lo scorporava (22% di
+// default, scelto in pagina) perché il fatturato di Finance è imponibile: il
+// risultato era un consuntivo ecommerce più basso di un quinto e un canale che
+// sembrava molto più indietro di quanto fosse. Le due fonti restano su basi
+// diverse — Finance imponibile, Shopify IVA inclusa — e la pagina lo dichiara,
+// invece di uniformarle con un'aliquota inventata (Shopify non salva l'aliquota
+// sull'ordine, quindi «uniformare» vorrebbe dire indovinare).
 
 // Abbina un brand di Orders a una maison del budget: prima per nome
 // ("deluxy.it" = maison "Deluxy.it"), poi per slug ("Flowers" = maison
