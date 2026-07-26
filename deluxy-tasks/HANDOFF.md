@@ -45,6 +45,13 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
   (`src/components/Filtri.tsx`), card task con spunta "completa", "archivia" e i
   chip dei livelli di priorità cliccabili (`src/components/RigaTask.tsx`), via
   endpoint interno `/api/interno/tasks/:id`. Barra utente con ruolo.
+- **Chiavi dall'app** (26/07/2026): pagina **`/chiavi`** (solo admin,
+  `src/app/chiavi/page.tsx` + `src/components/Chiavi.tsx` +
+  `src/lib/chiavi-actions.ts`). Si sceglie nome dell'app e se può scrivere; la
+  chiave in chiaro compare **una volta sola** con il tasto «Copia» (nel database
+  resta solo lo SHA-256, come da riga di comando). Si vedono le chiavi esistenti
+  con l'ultimo uso e si possono revocare/riattivare; rigenerare una chiave manda
+  in pensione la precedente. Link nella barra in alto.
 - **Script**: `crea-chiave.mjs`, `registra-progetto.mjs` (npm run progetto),
   `configura-db-condiviso.mjs`, `seed-demo.mjs`, `vercel-env-prod.mjs`
   (`npm run vercel:env`: copia DATABASE_URL/DIRECT_URL dal `.env` alle variabili
@@ -63,7 +70,15 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
     e ruolo; Tasks apre la sua sessione a cookie. L'identità qui è l'**email**:
     il Hub la aggiunge al token (`PayloadSso.email`) leggendola dalla sua tabella
     `Utente`. Token assente/scaduto/di un'altra app/segreto sbagliato → `/login`.
-  - **Come si ridistribuisce**: il progetto ha *Root Directory* = `deluxy-tasks`,
+  - 🔴 **La produzione nasce dal branch `main` di GitHub.** Il progetto Vercel è
+    collegato al repo (alias `deluxy-tasks-git-main-deluxy.vercel.app`): **ogni
+    push su `main` ridistribuisce e sovrascrive quello che hai pubblicato da
+    CLI**. Il 26/07 la rotta `/api/sso` è tornata 404 due volte per questo: era
+    solo sul branch `hub-registra-tasks`, e i push su `main` di un'altra
+    sessione rimettevano online la versione senza SSO. Quindi: **il lavoro su
+    Tasks va portato su `main`** (`git push origin <branch>:main` dopo aver
+    fatto il merge di `origin/main`), non basta il deploy da CLI.
+  - **Come si ridistribuisce a mano**: il progetto ha *Root Directory* = `deluxy-tasks`,
     quindi `vercel deploy` **dalla cartella dell'app fallisce** (cerca
     `deluxy-tasks/deluxy-tasks`). La radice del repo è stata collegata al
     progetto, quindi il deploy si fa da lì:
@@ -81,8 +96,9 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
 
 1. **Collegare il DB**: `npm run db:condiviso -- <env-di-un-altra-app>` poi
    `npm run db:push`. Serve una stringa Postgres del cluster condiviso (segreta).
-2. **Creare le chiavi API** per le app che manderanno task
-   (`npm run chiave -- <app> --scrittura`) e metterle nei `.env` di quelle app
+2. **Creare le chiavi API** per le app che manderanno task — ora si fa
+   **dall'app, in `/chiavi`** (o `npm run chiave -- <app> --scrittura`) e si
+   mettono nei `.env` di quelle app
    (es. `TASKS_API_KEY`). **AI Mail è già pronta lato codice** (26/07/2026): manca
    solo `npm run chiave -- mail --scrittura` e incollare la chiave in AI Mail →
    Impostazioni App → «Registro Attività» (o nella cassaforte del Hub, progetto
