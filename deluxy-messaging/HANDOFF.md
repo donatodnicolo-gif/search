@@ -55,6 +55,40 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- DETTAGLIO ORDINE CON FOTO E MESSAGGIO PER IL FORNITORE (26/07/2026).
+  Cliccando **un punto qualsiasi** della scheda (o della riga in tabella) si apre
+  `DettaglioOrdine`: foto grande del prodotto, **Scarica foto**, e il messaggio
+  già scritto «Per mercoledì 29 luglio possibile questo prodotto con ritiro
+  15-19?» da copiare. La riga delle azioni fa `stopPropagation`, altrimenti
+  premere *Reclamo* aprirebbe anche il pannello; `role=button` + Invio/Spazio +
+  Esc per chiudere.
+  RITIRO = **fascia di consegna meno un'ora** (`src/lib/ritiro.ts`): il valet deve
+  avere il prodotto prima di partire. 16-20 → 15-19. Una fascia di forma diversa
+  da HH-HH, o che comincia a mezzanotte (un'ora prima sarebbe il giorno prima),
+  diventa «ritiro da concordare»: a un fornitore non si manda un orario inventato.
+  Il messaggio è in ITALIANO anche se il cliente è straniero — qui il destinatario
+  è un fornitore, che è un partner italiano (la lingua del cliente è un'altra
+  cosa, vedi `src/lib/lingua.ts`).
+  LE FOTO VENGONO DA ORDERS: `RigaOrdine.immagine` c'era già ma l'API non la
+  esponeva — aggiunta in `serializzaOrdine` (**lato Orders, pubblicato**). Il
+  Customer Service NON tiene copia delle righe: le chiede a
+  `righeOrdineDaOrders()` quando si apre il dettaglio.
+  ⚠️ L'ordine si riconosce dal **gid Shopify**, non dal nome del negozio: `#1733`
+  esiste sia su Cake sia su Deluxy, e col match sul brand il pannello diceva «il
+  numero esiste su più negozi». Il gid è la stessa chiave con cui il sync fa
+  l'upsert, quindi è esatta.
+  ⚠️ `/api/immagine` è un proxy con **lista bianca obbligatoria**
+  (`cdn.shopify.com`, https): serve perché il browser ignora `download` sui link
+  cross-origin, ma una rotta che scarica un URL arbitrario è un proxy aperto verso
+  la rete interna. VERIFICATO che respinge 169.254.169.254 (metadata AWS),
+  localhost, 192.168.1.1, host estranei, http su host ammesso e URL malformati;
+  e che ciò che torna sia davvero `image/*`.
+  Copertura reale: negli ultimi 60 giorni **730 ordini su 892 hanno almeno una
+  foto** (80% delle righe). Chi non l'ha mostra «nessuna foto».
+  Verificato in pagina su #1733: foto 1108×1108, le 4 personalizzazioni del
+  prodotto (Numeri: 30, Base, Ingredienti, Topping), messaggio col ritiro 15-19,
+  Esc chiude, e premere *Gestito ✓* non apre il pannello.
+
 - «PAGA FORNITORE» + SI SCRIVE AL CLIENTE NELLA SUA LINGUA (26/07/2026).
   Il bottone «Richiedi pagamento» è ora **Paga fornitore** (scheda e tabella), e
   la pagina di arrivo diceva una cosa sbagliata — «le coordinate su cui **farsi

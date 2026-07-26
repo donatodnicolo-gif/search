@@ -9,6 +9,7 @@ import {
   origineTipoCliente,
 } from '@/lib/clienti-tipo'
 import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
+import { DettaglioOrdine } from './DettaglioOrdine'
 
 type OrdineDto = {
   id: string
@@ -335,6 +336,8 @@ export function OrdiniLista() {
   const [vistoIl, setVistoIl] = useState('')
   const [avviso, setAvviso] = useState('')
   const [errore, setErrore] = useState('')
+  // Quale ordine è aperto nel pannello di dettaglio ('' = nessuno).
+  const [dettaglio, setDettaglio] = useState('')
 
   // Ricerca e filtri (la ricerca vera avviene sul server: cerca su TUTTI gli
   // ordini, non solo quelli già in pagina).
@@ -811,7 +814,28 @@ export function OrdiniLista() {
                     <p className="colonna-vuota">Nessun ordine.</p>
                   ) : (
                     suoi.map((o) => (
-                      <div className="scheda-ordine" key={o.id}>
+                      /**
+                       * Tutta la scheda apre il dettaglio. La riga delle azioni
+                       * ferma la propagazione (vedi `azioni-ordine` più sotto),
+                       * altrimenti premere "Reclamo" aprirebbe anche il pannello.
+                       * `role="button"` + Invio/Spazio perché un div cliccabile
+                       * che la tastiera non raggiunge è un pulsante solo per il
+                       * mouse.
+                       */
+                      <div
+                        className="scheda-ordine cliccabile"
+                        key={o.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setDettaglio(o.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setDettaglio(o.id)
+                          }
+                        }}
+                        title="Apri il dettaglio dell'ordine"
+                      >
                         <div className="riga-alta">
                           <span className="numero">{o.numero}</span>
                           <span className="importo">{soldi(o.totale, o.valuta)}</span>
@@ -848,7 +872,9 @@ export function OrdiniLista() {
                           </span>
                         </div>
                         {/* Cosa fare con l'ordine: ogni azione porta con sé il suo stato */}
-                        <div className="azioni-ordine">
+                        {/* Le azioni non aprono il dettaglio: chi preme
+                            "Reclamo" vuole il reclamo, non il pannello. */}
+                        <div className="azioni-ordine" onClick={(e) => e.stopPropagation()}>
                           <a
                             className="bottone secondario mini"
                             href={linkPagamento(o)}
@@ -963,7 +989,13 @@ export function OrdiniLista() {
             </thead>
             <tbody>
               {ordini.map((o) => (
-                <tr key={o.id}>
+                // Anche la riga apre il dettaglio: la colonna Azioni ferma il clic.
+                <tr
+                  key={o.id}
+                  className="riga-cliccabile"
+                  onClick={() => setDettaglio(o.id)}
+                  title="Apri il dettaglio dell'ordine"
+                >
                   <td>{o.numero}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{o.negozioNome || '—'}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{dataBreve(o.data)}</td>
@@ -1014,7 +1046,7 @@ export function OrdiniLista() {
                     </span>
                   </td>
                   <td>
-                    <span className="azioni-ordine">
+                    <span className="azioni-ordine" onClick={(e) => e.stopPropagation()}>
                       <a
                         className="bottone secondario mini"
                         href={linkPagamento(o)}
@@ -1070,7 +1102,7 @@ export function OrdiniLista() {
                       )}
                     </span>
                   </td>
-                  <td>
+                  <td onClick={(e) => e.stopPropagation()}>
                     {(() => {
                       const brand = negozi.find((n) => n.id === o.negozioId)?.brandRicerca
                       return brand ? (
@@ -1148,6 +1180,19 @@ export function OrdiniLista() {
             </div>
           ) : null}
         </div>
+      ) : null}
+
+      {/* Il dettaglio dell'ordine, aperto cliccando la scheda o la riga.
+          Alla chiusura si rilegge l'elenco: dal pannello si può aver segnato
+          qualcosa, e tornare a un elenco vecchio sarebbe confondente. */}
+      {dettaglio ? (
+        <DettaglioOrdine
+          ordineId={dettaglio}
+          onChiudi={() => {
+            setDettaglio('')
+            carica()
+          }}
+        />
       ) : null}
     </>
   )

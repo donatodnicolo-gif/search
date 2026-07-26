@@ -210,6 +210,11 @@ export function serializzaOrdine(
       quantita: r.quantita,
       prezzo: r.prezzo,
       proprieta: r.proprieta ? r.proprieta.split("\n").filter(Boolean) : [],
+      // Foto del prodotto (CDN Shopify). Serve a chi lavora l'ordine fuori da
+      // qui: il Customer Service la mostra e la manda al fornitore per chiedere
+      // «è fattibile questo?». `null` quando il prodotto non ha immagine — sulle
+      // righe degli ultimi 60 giorni c'è nell'80% dei casi.
+      immagine: r.immagine,
     })),
     // Classificazione Deluxy
     classificazione: {

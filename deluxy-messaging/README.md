@@ -194,6 +194,28 @@ server** (su tutti gli ordini, non solo quelli in pagina): testo su numero, clie
 telefono — normalizzando le cifre, così "+39 333 12" trova "+393331234567" — email,
 indirizzo e negozio, più i filtri per negozio e per contatto salvato/da salvare.
 
+**Cliccando un ordine si apre il dettaglio.** Un punto qualsiasi della scheda — o della riga
+in tabella — apre un pannello con la **foto grande del prodotto**, le personalizzazioni
+scelte dal cliente («Numeri: 30», «Base: shortcrust pastry»), i dati dell'ordine e le azioni
+principali. I bottoni sulla scheda continuano a fare il loro mestiere: premere *Reclamo*
+apre il reclamo, non il pannello.
+
+Dentro c'è il **form rapido per il fornitore**: si scarica la foto con un clic e si copia il
+messaggio già scritto —
+
+> Per mercoledì 29 luglio possibile questo prodotto con ritiro 15-19?
+
+**Il ritiro è la fascia di consegna meno un'ora**, perché il valet deve avere il prodotto in
+mano prima di partire: consegna 16-20 → ritiro 15-19. Se la fascia non ha forma *ore-ore* il
+ritiro resta *da concordare*: a un fornitore che deve organizzarsi non si manda un orario
+inventato. Il messaggio è in italiano anche quando il cliente è straniero — qui si scrive a
+un fornitore, che è un partner italiano.
+
+Le foto arrivano dal registro Ordini (il Customer Service non tiene una copia dei prodotti) e
+si scaricano passando dall'app, perché il browser ignora il download sui link verso un altro
+dominio. Negli ultimi 60 giorni 730 ordini su 892 hanno almeno una foto; sugli altri si legge
+*nessuna foto*.
+
 **Si scrive al cliente nella sua lingua.** *Contatta cliente* apre WhatsApp o la mail con
 l'apertura già scritta in **italiano, inglese, francese, spagnolo o tedesco**, e il titolo
 del bottone dice quale lingua ha scelto e perché. Il messaggio non parte da solo:

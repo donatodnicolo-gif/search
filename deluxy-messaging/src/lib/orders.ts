@@ -232,3 +232,111 @@ export async function ultimoImportOrders(): Promise<string | null> {
     return null
   }
 }
+
+/** Una riga dell'ordine: il prodotto, con la sua foto se Shopify ce l'ha. */
+export type RigaOrdine = {
+  titolo: string
+  variante: string
+  sku: string
+  quantita: number
+  prezzo: number
+  /** Personalizzazioni del cliente ("Scritta sulla torta: Sofia"). */
+  proprieta: string[]
+  /** URL della foto sul CDN Shopify, o '' se il prodotto non ne ha. */
+  immagine: string
+}
+
+/**
+ * Le righe di un ordine (prodotti + foto), chieste a Orders per numero.
+ *
+ * Non le teniamo in copia: servono solo quando si apre il dettaglio di un
+ * ordine, e duplicare qui il catalogo dei prodotti vorrebbe dire tenerlo
+ * aggiornato — mentre Orders lo ha già e lo sincronizza con Shopify.
+ *
+ * Si cerca per NUMERO (di Orders non conserviamo il suo id interno) e fra i
+ * risultati si riconosce l'ordine dal **gid Shopify**: è la stessa chiave con cui
+ * il sync deduplica, quindi è esatta. Serve perché lo stesso numero esiste su più
+ * negozi — «#1733» c'è sia su Cake sia su Deluxy — e mostrare i prodotti
+ * dell'ordine sbagliato sarebbe peggio che non mostrarne nessuno.
+ */
+export async function righeOrdineDaOrders(
+  numero: string,
+  shopifyId = ''
+): Promise<{ stato: 'ok'; righe: RigaOrdine[] } | { stato: 'non-configurato' } | { stato: 'errore'; messaggio: string }> {
+  const c = await configOrders()
+  if (!c) return { stato: 'non-configurato' }
+
+  const nudo = numero.replace(/^#/, '').trim()
+  if (!nudo) return { stato: 'errore', messaggio: 'Ordine senza numero.' }
+
+  try {
+    const p = new URLSearchParams({ q: nudo, limit: '20' })
+    const res = await fetch(`${c.base}/api/v1/ordini?${p}`, {
+      headers: { 'x-api-key': c.chiave },
+      signal: AbortSignal.timeout(15000),
+      cache: 'no-store',
+    })
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        return { stato: 'errore', messaggio: 'Chiave API di Orders non valida (Impostazioni).' }
+      }
+      return { stato: 'errore', messaggio: `L'app Ordini ha risposto ${res.status}.` }
+    }
+    const corpo = (await res.json().catch(() => ({}))) as {
+      ordini?: {
+        numero?: string
+        brand?: string
+        orderId?: string
+        righe?: {
+          titolo?: string
+          variante?: string | null
+          sku?: string | null
+          quantita?: number
+          prezzo?: number
+          proprieta?: string[]
+          immagine?: string | null
+        }[]
+      }[]
+    }
+
+    const candidati = corpo.ordini ?? []
+    const perNumero = candidati.filter((o) => (o.numero ?? '').replace(/^#/, '') === nudo)
+    // Il gid Shopify identifica l'ordine senza ambiguità: è la chiave su cui il
+    // sync fa l'upsert. Solo se non ce l'abbiamo (ordini vecchi) si accetta
+    // l'unico risultato col numero giusto.
+    const scelto =
+      (shopifyId ? perNumero.find((o) => o.orderId === shopifyId) : null) ??
+      (perNumero.length === 1 ? perNumero[0] : null)
+
+    if (!scelto) {
+      return {
+        stato: 'errore',
+        messaggio: perNumero.length
+          ? `Il numero ${numero} esiste su più negozi: non so quale mostrare.`
+          : `L'ordine ${numero} non è nel registro Ordini.`,
+      }
+    }
+
+    return {
+      stato: 'ok',
+      righe: (scelto.righe ?? []).map((r) => ({
+        titolo: r.titolo ?? '',
+        variante: r.variante ?? '',
+        sku: r.sku ?? '',
+        quantita: r.quantita ?? 1,
+        prezzo: r.prezzo ?? 0,
+        proprieta: r.proprieta ?? [],
+        immagine: r.immagine ?? '',
+      })),
+    }
+  } catch (e) {
+    const err = e as Error
+    return {
+      stato: 'errore',
+      messaggio:
+        err.name === 'TimeoutError'
+          ? "L'app Ordini non ha risposto in tempo."
+          : `App Ordini non raggiungibile: ${err.message}`,
+    }
+  }
+}
