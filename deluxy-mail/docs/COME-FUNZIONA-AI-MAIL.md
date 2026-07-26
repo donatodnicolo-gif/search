@@ -130,9 +130,16 @@ Il riquadro compare se e solo se l'invito c'è davvero: l'app lo capisce guardan
 fatta la mail**, non le parole che contiene. Se l'invito c'è ma non si riesce a leggerlo
 (server irraggiungibile, formato strano), il riquadro te lo dice invece di sparire.
 
-Molte mail però **invitano a parole**, senza allegare niente («ci vediamo giovedì alle
-10»). Lì non c'è nulla da accettare: è l'AI che riconosce l'appuntamento e propone
-«Aggiungi al calendario». Se non l'ha ancora letta, dai una priorità alla mail.
+Molte mail però **invitano a parole**, senza allegare niente: un biglietto grafico, «ti
+aspettiamo giovedì alle 10». Per il protocollo della posta quelle **non sono inviti** —
+non c'è nessun organizzatore a cui rispondere — quindi Accetta/Rifiuta non possono
+comparire. Il bisogno però è lo stesso, e lo copre il tasto **«Questa mail fissa un
+appuntamento?»** sotto la mail: la data la cerca l'AI e, se la trova, compare
+**«＋ Aggiungi al calendario»** oppure **«Ignora»**. Se non trova una data e un'ora
+precise te lo dice, e l'appuntamento lo crei a mano dal Calendario.
+
+Per capire se una mail porta un invito vero (e perché) si può aprire con `?diagnosi=1`
+in fondo all'indirizzo: mostra tutte le parti di cui è fatta la mail.
 
 ## 6c. La conversazione: nome, chiusura, cestinamento
 

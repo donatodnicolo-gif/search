@@ -555,6 +555,42 @@ export async function rianalizza(id: string): Promise<{ ok: boolean; messaggio: 
   return esito
 }
 
+/**
+ * Cerca un APPUNTAMENTO in una mail che invita "a parole".
+ *
+ * ⚠️ Perché serve. I tasti Accetta/Forse/Rifiuta funzionano solo con un invito
+ * iCalendar vero (la parte `text/calendar` che allegano Outlook, Google, Apple):
+ * lì c'è un organizzatore a cui rispondere e uno stato del partecipante da
+ * aggiornare. Ma moltissime mail invitano **senza allegare niente** — un
+ * biglietto HTML, «ti aspettiamo giovedì alle 10» — e per il protocollo non
+ * sono inviti: non c'è nulla da accettare, e il riquadro (giustamente) non
+ * compare. Restava però il bisogno vero: **metterlo in agenda o scartarlo.**
+ *
+ * Qui la data la riconosce l'AI, e da lì in poi è di nuovo una scelta a due
+ * vie: «Aggiungi al calendario» oppure «Ignora». Prima quella proposta nasceva
+ * solo di rimbalzo, dando una priorità alla mail: se non gliel'avevi data, non
+ * c'era modo di chiederla.
+ */
+export async function cercaAppuntamento(messaggioId: string): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const esito = await analizzaMessaggioOra(messaggioId, utenteId)
+  if (!esito.ok) return esito
+
+  const m = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    select: { eventoProposto: true },
+  })
+  revalidatePath('/', 'layout')
+  if (m?.eventoProposto) {
+    return { ok: true, messaggio: 'Appuntamento trovato: qui sotto puoi metterlo in calendario.' }
+  }
+  return {
+    ok: false,
+    messaggio:
+      'In questa mail non ho trovato una data e un’ora precise da mettere in agenda. Puoi crearlo a mano dal Calendario.',
+  }
+}
+
 // ---------- Contatti AI (il "PLUS AI") ----------
 
 /**

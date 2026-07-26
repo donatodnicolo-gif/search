@@ -25,6 +25,7 @@ import { ThreadAIToggle } from '@/components/ThreadAIToggle'
 import { CestinaThread } from '@/components/CestinaThread'
 import { InvitoCalendario } from '@/components/InvitoCalendario'
 import { DiagnosiInvito } from '@/components/DiagnosiInvito'
+import { CercaAppuntamento } from '@/components/CercaAppuntamento'
 import { threadHaAI } from '@/lib/threadAI'
 import { threadEChiuso } from '@/lib/threadChiusi'
 import { ChiudiThread } from '@/components/ChiudiThread'
@@ -389,6 +390,13 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         {conDiagnosi && <DiagnosiInvito messaggioId={messaggio.id} />}
 
         {eventoProposto && <PropostaEvento messaggioId={messaggio.id} evento={eventoProposto} />}
+
+        {/* Le mail che invitano A PAROLE non hanno un invito iCalendar, quindi
+            niente Accetta/Rifiuta: la data la si fa cercare all'AI, e da lì si
+            mette in agenda o si ignora. */}
+        {!eventoProposto && messaggio.direzione === 'entrata' && (
+          <CercaAppuntamento messaggioId={messaggio.id} />
+        )}
 
         {messaggio.riassunto && (
           <div className="ai-box">
