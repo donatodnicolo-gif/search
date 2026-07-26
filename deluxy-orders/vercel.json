@@ -3,6 +3,10 @@
   "regions": ["fra1"],
   "crons": [
     {
+      "path": "/api/cron/sync?giorni=2",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/sync",
       "schedule": "0 6 * * *"
     }
