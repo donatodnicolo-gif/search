@@ -29,8 +29,10 @@ Porta 3140. LIVE su <https://deluxy-messaging.vercel.app> (progetto Vercel
 cartella dell'app — **il push su GitHub NON pubblica**.
 
 **Le pagine.** `/reclami` reclami sugli ordini · `/reclami/casistiche` catalogo
-dei tipi di reclamo con le azioni · `/reclami/giudizi` valet e partner giudicati
-sui reclami · `/reclami/valet` chi fa le consegne · `/` Ordini (bacheca a colonne
+dei tipi di reclamo con le azioni · `/reclami/punteggi` la **pagella** di valet e
+partner con le voci configurabili · `/reclami/feedback` registrazione di feedback
+e orari delle consegne · `/reclami/giudizi` giudizio manuale sui soli reclami ·
+`/reclami/valet` chi fa le consegne · `/` Ordini (bacheca a colonne
 o elenco) · `/calendario` consegne a partire da oggi · `/clienti` rubrica dagli
 ordini · `/partner` partner attivi dal registro Anagrafiche · `/pagamenti`
 richieste di pagamento con lettura AI dell'IBAN · `/inbox` conversazioni ·
@@ -53,6 +55,62 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- API A CHIAVE PER LE ALTRE APP (26/07/2026): `GET /api/v1/feedback` espone in
+  **sola lettura** i reclami e i voti legati a un ordine, per il registro ordini
+  (deluxy-orders), che li mostra sulla scheda dell'ordine. Nuovi: `model ApiKey`
+  (nel DB solo lo SHA-256), `src/lib/api-auth.ts`, `scripts/crea-chiave.mjs`
+  (`npm run chiave -- <app>`), e in `middleware.ts` il ramo che lascia passare
+  `/api/v1/*` — si autentica da sé (standard Deluxy §4.3) — con gli header CORS.
+  Chiave già creata per **deluxy-orders**.
+  Due scelte da non ribaltare per sbaglio: (a) **niente scrittura**, un reclamo
+  si apre e si chiude qui, dove c'è chi ha parlato col cliente; (b) un voto
+  **senza numero d'ordine non esce**, perché a un registro di ordini non serve
+  un giudizio che non sa dove attaccare.
+  ⚠️ **Da pubblicare**: finché questa versione non è su Vercel, l'import di
+  Orders in produzione non trova la rotta (in locale è già provato e funziona).
+
+- PUNTEGGI CONFIGURABILI DI VALET E PARTNER (26/07/2026): la "pagella".
+  4 tabelle nuove (`VocePunteggio`, `Feedback`, `Puntualita`, `MetricaManuale`),
+  motore di calcolo in `src/lib/punteggi.ts`, pagine `/reclami/punteggi` (pagella
+  + configurazione delle voci) e `/reclami/feedback` (registrazione di feedback e
+  orari), API `/api/punteggi`, `/api/punteggi/voci`, `/api/punteggi/voci/iniziali`,
+  `/api/punteggi/manuale`, `/api/feedback`, `/api/puntualita`.
+  **IL PUNTEGGIO NON È UNA FORMULA NEL CODICE.** È la media pesata di VOCI che
+  l'operatore configura: ognuna ha una `fonte` (`reclami` | `feedback` |
+  `puntualita` | `manuale`), un `peso` e una `soglia`. Aggiungere una variabile
+  ("cura del confezionamento") = aggiungere una voce, non toccare il codice.
+  Le 4 voci di partenza: Reclami (tutti, peso 3, soglia 10), Feedback (tutti,
+  peso 3), Puntualità (solo valet, peso 4, tolleranza 15 min), Qualità del
+  prodotto (solo partner, manuale, peso 2). Peso 0 = voce presente ma esclusa.
+  **DUE REGOLE CHE TENGONO ONESTO IL NUMERO, da non rompere.**
+  1. Una voce SENZA DATI per quel soggetto è **esclusa** dalla media, non contata
+     come zero: un partner di cui non misuriamo la puntualità non deve risultare
+     scarso per un dato mai raccolto. Svuotare un valore manuale lo rimuove
+     (≠ metterlo a 0), e l'interfaccia lo dice.
+  2. Sotto il 50% di peso coperto (`COPERTURA_MINIMA`) **non si dà la fascia**:
+     si scrive "Da valutare". Nata da un problema visto in verifica: 38 partner su
+     41 uscivano "100 Ottimo" solo perché non avevano ancora reclami — un
+     complimento costruito sul nulla, che seppelliva i due soggetti con dati veri.
+     Ora la pagella mostra per default solo chi ha prove sufficienti, col
+     conteggio degli altri e il link per andare a misurarli.
+  `Puntualita` salva i **minuti di ritardo** (0 = in orario, negativo = anticipo),
+  non un "in orario sì/no": la tolleranza vive sulla voce, così cambiandola gli
+  stessi dati si rileggono da soli (VERIFICATO: tolleranza 15→60 porta un valet
+  da Critico 37,8 a Attenzione 57,8; rimettendo 15 torna esatto a 37,8). Se si
+  passano le due date, il ritardo si **calcola** e il numero scritto a mano viene
+  ignorato: una sola verità.
+  VERIFICATO sui dati veri: voci iniziali 4 aggiunte / al secondo giro 0 aggiunte
+  e 4 saltate; valet puntuale (9/10 in orario, feedback 5-5-4) → **93,5 Ottimo**,
+  valet ritardatario (1/10, feedback 2-1) → **37,8 Critico**, ordinati dal
+  peggiore; partner vero del registro con feedback 4 e qualità 80 → 85,6 su 3
+  voci, togliendo il valore manuale → **87,5 su 2 voci con la terza "ESCLUSA"**
+  (sale, perché l'80 non viene più contato né azzerato). Rifiutati: valore a mano
+  su una voce calcolata 400, voce "puntualità" su un partner 400, voto 9 su 5 400,
+  feedback senza soggetto 400, consegna senza valet 400, consegna senza minuti né
+  date 400, data non valida 400; valore manuale 999 → 100, −50 → 0, soglia 0 non
+  produce NaN.
+  Dati di prova cancellati filtrando solo i miei record: 914 ordini e 2 utenti
+  veri intatti. Le 4 voci restano: sono il catalogo di partenza.
 - CUSTOMER SERVICE — RECLAMI, CASISTICHE, VALET, GIUDIZI (26/07/2026): l'app
   diventa il servizio clienti. Quattro tabelle nuove (`Valet`, `CasistaReclamo`,
   `Reclamo`, `Giudizio`), vocabolario e calcoli in `src/lib/reclami.ts`, quattro

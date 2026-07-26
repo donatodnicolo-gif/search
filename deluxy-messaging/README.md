@@ -32,14 +32,84 @@ e non le duplica se le ricarichi.
 a **Deluxy** stessa, al **cliente**, oppure restare *da attribuire*. I giudizi si danno
 solo a valet e partner.
 
-**Giudizi** (`/reclami/giudizi`). Per ogni valet e partner, i reclami che gli sono stati
-imputati diventano un punteggio e un'etichetta: **Ottimo · Buono · Attenzione · Critico**.
-Il punteggio è la somma delle gravità (1/2/3), **dimezzata per i reclami risolti o
-chiusi** — rimediare conta. Soglie: 0 Ottimo, ≤2 Buono, ≤6 Attenzione, oltre Critico. Così
-un solo reclamo grave ancora aperto accende già "Attenzione", mentre lo stesso reclamo
-risolto torna "Buono". Accanto al giudizio automatico si può registrare un **giudizio
-manuale** (voto 1-5 + nota): non lo sostituisce, gli si affianca, così resta sempre
-visibile da cosa nasce il numero.
+**Giudizi** (`/reclami/giudizi`). La lettura dei **soli reclami**: per ogni valet e partner
+la somma delle gravità (1/2/3), **dimezzata per i reclami risolti o chiusi** — rimediare
+conta — tradotta in **Ottimo · Buono · Attenzione · Critico** (0 Ottimo, ≤2 Buono, ≤6
+Attenzione, oltre Critico). Così un solo reclamo grave ancora aperto accende già
+"Attenzione", mentre lo stesso reclamo risolto torna "Buono". Accanto si può registrare un
+**giudizio manuale** (voto 1-5 + nota): non lo sostituisce, gli si affianca, così resta
+sempre visibile da cosa nasce il numero. Per il quadro completo — feedback, orari e altre
+variabili — c'è la **pagella** qui sotto.
+
+## Punteggi: la pagella di valet e partner
+
+Il giudizio sui reclami guarda una cosa sola. La **pagella** (`/reclami/punteggi`) mette
+insieme tutto: reclami ricevuti, feedback dei clienti, puntualità delle consegne e
+qualunque altra variabile serva.
+
+**Il punteggio non è una formula scritta nel codice.** È la media pesata di **voci** che
+configuri tu. Ogni voce dice:
+
+| | |
+|---|---|
+| **a chi si applica** | valet, partner, o tutti |
+| **da dove prende il dato** | *Reclami* · *Feedback ricevuti* · *Puntualità* · *Valore a mano* |
+| **quanto pesa** | un numero puro: contano i rapporti (peso 4 vale il doppio di peso 2). Peso **0** = la voce resta ma non conta |
+| **la soglia** | per i reclami: il punteggio-reclami che azzera la voce. Per la puntualità: i minuti di tolleranza |
+
+Ogni voce dà un valore da 0 a 100, così cose diverse — una media di voti da 1 a 5, una
+percentuale di consegne, un conteggio di reclami — diventano confrontabili. Aggiungere una
+variabile nuova ("cura del confezionamento", "risponde al telefono") significa aggiungere
+una voce con fonte *Valore a mano* e scrivere un numero da 0 a 100 per ogni soggetto: non
+serve toccare il codice. Le voci di partenza si creano con un pulsante — Reclami e Feedback
+per tutti, Puntualità per i valet, Qualità del prodotto per i partner.
+
+**Feedback e orari** (`/reclami/feedback`) è dove entrano i due dati che pesano di più. Il
+feedback è il voto da 1 a 5 di una persona, con quello che ha detto e l'ordine a cui si
+riferisce. La puntualità si registra come **minuti di ritardo** (0 = in orario, negativo =
+in anticipo), non come "in orario sì/no": la tolleranza sta sulla voce, quindi cambiandola
+gli stessi dati si rileggono da soli. Se metti l'ora attesa e l'ora di consegna, il ritardo
+lo calcola l'app — e in quel caso le date vincono sul numero scritto a mano, per non avere
+due verità.
+
+### Le due regole che tengono onesto il numero
+
+1. **Una voce senza dati viene esclusa, non contata come zero.** Un partner di cui non
+   misuriamo la puntualità non deve risultare scarso per un dato che non abbiamo mai
+   raccolto. Svuotare un valore a mano lo *rimuove* — diverso da metterlo a 0 — e la pagella
+   dice sempre su quante voci si è basata.
+2. **Sotto metà del peso misurato non si dà una fascia**, si scrive *Da valutare*. Serve a
+   evitare un errore concreto, visto in verifica: con 41 partner in registro e i dati che
+   arrivano poco a poco, 38 uscivano "100 Ottimo" solo perché non avevano ancora reclami —
+   un complimento costruito sul nulla, che seppelliva i pochi con dati veri. Per questo la
+   pagella mostra di default **solo chi ha prove sufficienti**, dicendo quanti sono gli
+   altri e dove andare a misurarli.
+
+Ogni riga si apre e mostra da cosa nasce il numero, voce per voce, col perché in chiaro:
+«9 su 10 entro 15 min», «3 feedback, media 4,7/5», «2 reclami, peso 6 su soglia 10».
+
+### Chi legge i reclami da fuori (API a chiave)
+
+Il registro ordini (**deluxy-orders**) importa i feedback degli ordini e li mostra sulla
+scheda dell'ordine: chi lavora sugli ordini vede che su quell'ordine c'è un reclamo,
+senza cambiare app.
+
+```
+GET /api/v1/feedback?da=<ISO>&page=1&limit=200
+Header: x-api-key: <chiave>
+→ { page, limit, pagine, totali: { reclami, voti }, reclami: [...], voti: [...] }
+```
+
+- `da` = solo ciò che è cambiato da allora: è l'import **incrementale**.
+- **Sola lettura.** Da fuori non si aprono né si chiudono reclami: un reclamo nasce dove
+  c'è la persona che ha parlato col cliente.
+- Escono i **reclami** (casistica, colpa, gravità, stato, azioni, esito) e i **voti**
+  legati a un ordine. Un voto **senza numero d'ordine non esce**: a un registro di ordini
+  non serve un giudizio che non sa dove attaccare.
+- Le chiavi si creano con `npm run chiave -- <nome-app>`: nel database resta solo lo
+  SHA-256, il valore in chiaro si vede una volta sola.
+- `/api/v1/*` è **fuori dal cancello della sessione** (si autentica da sé, standard
+  Deluxy §4.3) e risponde con gli header CORS.
 
 ## Come funziona (messaggistica)
 

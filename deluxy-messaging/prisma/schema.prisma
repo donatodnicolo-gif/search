@@ -325,3 +325,119 @@ model Giudizio {
 
   @@unique([soggettoTipo, soggettoId])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTOMER SERVICE — PUNTEGGI (pagella di valet e partner)
+//
+// Il punteggio NON è una formula fissa nel codice: è una somma pesata di VOCI
+// che l'operatore configura (`VocePunteggio`). Ogni voce dice da dove prende il
+// dato (`fonte`) e quanto pesa (`peso`). Così si possono aggiungere variabili
+// nuove senza toccare il codice: i partner vivono su feedback e reclami, i valet
+// su puntualità e feedback, ma nulla vieta di aggiungere "qualità dei fiori" o
+// "cura del confezionamento" come voci manuali.
+//
+// Regola che tiene onesto il calcolo: una voce SENZA DATI per quel soggetto
+// viene ESCLUSA dalla media pesata, non contata come zero. Altrimenti un partner
+// di cui non misuriamo la puntualità risulterebbe scarso per un dato che non
+// abbiamo mai raccolto. Vedi src/lib/punteggi.ts.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Una voce della pagella: cosa si misura, per chi, da dove e quanto pesa.
+model VocePunteggio {
+  id          String   @id @default(cuid())
+  nome        String // es. "Feedback dei clienti", "Puntualità"
+  descrizione String   @default("") @db.Text
+  // A chi si applica: valet | partner | tutti
+  soggetto    String   @default("tutti")
+  // Da dove arriva il dato:
+  //   reclami    → dai reclami imputati al soggetto (meno reclami = più punti)
+  //   feedback   → dalla media dei voti in `Feedback`
+  //   puntualita → dalla quota di consegne in orario in `Puntualita`
+  //   manuale    → da un valore 0-100 messo a mano in `MetricaManuale`
+  fonte       String   @default("manuale")
+  // Quanto pesa nella media (numero puro: contano i rapporti fra i pesi).
+  peso        Int      @default(1)
+  // Significato DIVERSO per fonte (documentato in src/lib/punteggi.ts):
+  //   reclami    → il punteggio-reclami che azzera la voce (es. 10)
+  //   puntualita → i minuti di tolleranza entro cui si è "in orario" (es. 15)
+  //   feedback   → non usata
+  //   manuale    → non usata
+  soglia      Float    @default(10)
+  attiva      Boolean  @default(true)
+  creatoIl    DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([soggetto])
+}
+
+// Un feedback ricevuto su un valet o su un partner: il voto di una persona.
+// Può nascere da un reclamo, da una telefonata o da un giro di chiamate.
+model Feedback {
+  id           String   @id @default(cuid())
+  soggettoTipo String // valet | partner
+  soggettoId   String
+  soggettoNome String   @default("")
+  voto         Int      @default(3) // 1 pessimo … 5 ottimo
+  testo        String   @default("") @db.Text
+  // Da chi arriva e su quale ordine, se si sa.
+  clienteNome  String   @default("")
+  ordineNumero String   @default("")
+  // Come l'abbiamo raccolto: telefono | whatsapp | email | reclamo | altro
+  origine      String   @default("altro")
+  creatoIl     DateTime @default(now())
+
+  @@index([soggettoTipo, soggettoId])
+  @@index([creatoIl])
+}
+
+// Una consegna misurata sugli ORARI: quanto ha sforato rispetto a quando era
+// attesa. È la base del punteggio di puntualità dei valet.
+//
+// `minutiRitardo` è il ritardo in minuti: 0 = puntuale, negativo = in anticipo.
+// Si tiene il NUMERO, non un "in orario sì/no", perché la tolleranza è
+// configurabile sulla voce di punteggio (`soglia`): cambiandola, gli stessi dati
+// raccontano una storia diversa senza dover riscrivere nulla.
+model Puntualita {
+  id           String   @id @default(cuid())
+  valetId      String
+  valetNome    String   @default("")
+  ordineNumero String   @default("")
+  // Quando era attesa e quando è arrivata davvero.
+  attesaIl     DateTime?
+  consegnataIl DateTime?
+  minutiRitardo Int     @default(0)
+  note         String   @default("") @db.Text
+  creatoIl     DateTime @default(now())
+
+  @@index([valetId])
+  @@index([creatoIl])
+}
+
+// Il valore di una voce MANUALE per un soggetto: la "variabile impostabile".
+// 0-100, dove 100 è il massimo. Uno per (voce, soggetto).
+model MetricaManuale {
+  id           String   @id @default(cuid())
+  voceId       String
+  soggettoTipo String // valet | partner
+  soggettoId   String
+  valore       Float    @default(0) // 0-100
+  nota         String   @default("") @db.Text
+  aggiornatoIl DateTime @updatedAt
+
+  @@unique([voceId, soggettoTipo, soggettoId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHIAVI API — lettura del Customer Service dalle altre app Deluxy
+//
+// Stesso schema di deluxy-orders e deluxy-anagrafiche (standard Deluxy §4.3):
+// nel database c'è solo lo SHA-256 della chiave, mai il valore in chiaro.
+// Si creano con `npm run chiave -- <nome-app>`.
+model ApiKey {
+  id        String    @id @default(cuid())
+  nome      String    @unique // app client: deluxy-orders, ...
+  hash      String    @unique // sha256 esadecimale della chiave
+  attiva    Boolean   @default(true)
+  creataIl  DateTime  @default(now())
+  ultimoUso DateTime?
+}

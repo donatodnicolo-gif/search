@@ -8,7 +8,8 @@
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start -p 3140",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "chiave": "node scripts/crea-chiave.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

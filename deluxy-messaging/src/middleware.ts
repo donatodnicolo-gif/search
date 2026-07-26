@@ -1,7 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
 
+// CORS per le API a chiave (`/api/v1/*`): le altre app Deluxy possono leggerle
+// anche dal browser. Restano protette dalla chiave `x-api-key`.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'x-api-key, authorization, content-type',
+  'Access-Control-Max-Age': '86400',
+}
+
 export async function middleware(req: NextRequest) {
+  // Le API a chiave si autenticano da sé (standard Deluxy §4.3): il cancello
+  // della sessione le rimanderebbe al login, che per un'app che chiama da
+  // server non vuol dire niente.
+  if (req.nextUrl.pathname.startsWith('/api/v1')) {
+    if (req.method === 'OPTIONS') {
+      return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+    }
+    const res = NextResponse.next()
+    for (const [k, v] of Object.entries(CORS_HEADERS)) res.headers.set(k, v)
+    return res
+  }
+
   // Il cancello è la sessione firmata: solo chi ha fatto login con un utente
   // valido ha un cookie che supera la verifica della firma.
   const userId = await verificaSessione(req.cookies.get(SESSION_COOKIE)?.value)
