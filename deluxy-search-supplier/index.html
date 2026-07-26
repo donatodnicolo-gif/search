@@ -1223,18 +1223,64 @@ $('#storicoBody').addEventListener('click', e=>{
 let ctData = null;                                   // cache di tutti i contatti del registro
 const ctFiltro = { tipo:'tutti', cat:'tutte', q:'' }; // partner|fornitore, categoria, ricerca testo
 const CT_CAT = { FIORISTA:'🌸 Fiorista', PASTICCERIA:'🎂 Pasticceria' };
-// scarica TUTTE le pagine dal proxy /api/anagrafiche (la chiave resta sul server)
+
+/* ---- normalizzazione province: nel registro «provincia» è testo libero (MI, MILANO,
+   «Città Metropolitana di Milano»…) → si raggruppava due volte. Qui si porta tutto alla sigla. ---- */
+const _PROV_LIST = [
+  ['AG','Agrigento'],['AL','Alessandria'],['AN','Ancona'],['AO','Aosta'],['AR','Arezzo'],['AP','Ascoli Piceno'],
+  ['AT','Asti'],['AV','Avellino'],['BA','Bari'],['BT','Barletta-Andria-Trani'],['BL','Belluno'],['BN','Benevento'],
+  ['BG','Bergamo'],['BI','Biella'],['BO','Bologna'],['BZ','Bolzano'],['BS','Brescia'],['BR','Brindisi'],
+  ['CA','Cagliari'],['CL','Caltanissetta'],['CB','Campobasso'],['CE','Caserta'],['CT','Catania'],['CZ','Catanzaro'],
+  ['CH','Chieti'],['CO','Como'],['CS','Cosenza'],['CR','Cremona'],['KR','Crotone'],['CN','Cuneo'],['EN','Enna'],
+  ['FM','Fermo'],['FE','Ferrara'],['FI','Firenze'],['FG','Foggia'],['FC','Forlì-Cesena'],['FR','Frosinone'],
+  ['GE','Genova'],['GO','Gorizia'],['GR','Grosseto'],['IM','Imperia'],['IS','Isernia'],['AQ',"L'Aquila"],
+  ['SP','La Spezia'],['LT','Latina'],['LE','Lecce'],['LC','Lecco'],['LI','Livorno'],['LO','Lodi'],['LU','Lucca'],
+  ['MC','Macerata'],['MN','Mantova'],['MS','Massa-Carrara'],['MT','Matera'],['ME','Messina'],['MI','Milano'],
+  ['MO','Modena'],['MB','Monza e della Brianza'],['NA','Napoli'],['NO','Novara'],['NU','Nuoro'],['OR','Oristano'],
+  ['PD','Padova'],['PA','Palermo'],['PR','Parma'],['PV','Pavia'],['PG','Perugia'],['PU','Pesaro e Urbino'],
+  ['PE','Pescara'],['PC','Piacenza'],['PI','Pisa'],['PT','Pistoia'],['PN','Pordenone'],['PZ','Potenza'],['PO','Prato'],
+  ['RG','Ragusa'],['RA','Ravenna'],['RC','Reggio Calabria'],['RE','Reggio Emilia'],['RI','Rieti'],['RN','Rimini'],
+  ['RM','Roma'],['RO','Rovigo'],['SA','Salerno'],['SS','Sassari'],['SV','Savona'],['SI','Siena'],['SR','Siracusa'],
+  ['SO','Sondrio'],['SU','Sud Sardegna'],['TA','Taranto'],['TE','Teramo'],['TR','Terni'],['TO','Torino'],
+  ['TP','Trapani'],['TN','Trento'],['TV','Treviso'],['TS','Trieste'],['UD','Udine'],['VA','Varese'],['VE','Venezia'],
+  ['VB','Verbano-Cusio-Ossola'],['VC','Vercelli'],['VR','Verona'],['VV','Vibo Valentia'],['VI','Vicenza'],['VT','Viterbo']
+];
+function _normStr(s){ return String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]+/g,' ').trim(); }
+const NAME2SIGLA = {}, SIGLA2NAME = {}, SIGLE = new Set();
+_PROV_LIST.forEach(([sig,name])=>{ SIGLE.add(sig); SIGLA2NAME[sig]=name; NAME2SIGLA[_normStr(name)]=sig; });
+[['Monza e Brianza','MB'],['Monza Brianza','MB'],['Reggio nell Emilia','RE'],['Reggio di Calabria','RC'],
+ ['Forli Cesena','FC'],['Aosta Valle','AO'],['Valle d Aosta','AO'],['Bolzano Bozen','BZ']]
+  .forEach(([n,sig])=> NAME2SIGLA[_normStr(n)]=sig);
+// porta un valore «provincia» grezzo alla sigla (MI / MILANO / «Provincia di Milano» → MI)
+function normProv(v){
+  const s = _normStr(v);
+  if(!s) return '';
+  const clean = s.replace(/^(CITTA METROPOLITANA DI|PROVINCIA DI|CITTA DI|LIBERO CONSORZIO COMUNALE DI)\s+/,'').trim();
+  if(clean.length===2 && SIGLE.has(clean)) return clean;
+  if(NAME2SIGLA[clean]) return NAME2SIGLA[clean];
+  if(NAME2SIGLA[s]) return NAME2SIGLA[s];
+  return clean || s;   // sconosciuta: si tiene com'è (non si perde nulla)
+}
+// etichetta di gruppo: «📍 MI · Milano» (o «Provincia non indicata»)
+function provLabel(k){ return k==='—' ? 'Provincia non indicata' : '📍 '+esc(k)+(SIGLA2NAME[k]?' · '+esc(SIGLA2NAME[k]):''); }
+
+// scarica TUTTE le pagine dal proxy /api/anagrafiche (la chiave resta sul server).
+// La 1ª pagina dà il «totale»: le successive si scaricano IN PARALLELO (non più in sequenza).
 async function anagAllPages(){
-  const out = [];
-  for(let page=1; page<=25; page++){
-    const qs = new URLSearchParams({ perPage:'200', page:String(page) });
-    const r = await apiFetch('/api/anagrafiche?' + qs);
-    const j = await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(j.error || ('HTTP '+r.status));
-    if(j.skipped) return { skipped:true, list:[] };
-    const dati = j.dati || [];
-    out.push(...dati);
-    if(dati.length < 200) break;                     // ultima pagina
+  const r1 = await apiFetch('/api/anagrafiche?' + new URLSearchParams({ perPage:'200', page:'1' }));
+  const j1 = await r1.json().catch(()=>({}));
+  if(!r1.ok) throw new Error(j1.error || ('HTTP '+r1.status));
+  if(j1.skipped) return { skipped:true, list:[] };
+  const out = [...(j1.dati || [])];
+  const totale = j1.totale || out.length;
+  const pagine = Math.min(25, Math.ceil(totale / 200));
+  if(pagine > 1){
+    const reqs = [];
+    for(let p=2; p<=pagine; p++){
+      reqs.push(apiFetch('/api/anagrafiche?' + new URLSearchParams({ perPage:'200', page:String(p) }))
+        .then(r=>r.json()).then(j=>j.dati || []).catch(()=>[]));
+    }
+    (await Promise.all(reqs)).forEach(d=> out.push(...d));
   }
   return { list: out };
 }
@@ -1277,14 +1323,14 @@ function renderContatti(){
   if(!list.length){ body.innerHTML = '<div class="hint">Nessun contatto con questi filtri.</div>'; return; }
   // raggruppa per provincia (schede senza provincia in coda sotto "—")
   const gruppi = {};
-  list.forEach(p=>{ const k = (p.provincia||'').toUpperCase() || '—'; (gruppi[k] = gruppi[k]||[]).push(p); });
+  list.forEach(p=>{ const k = normProv(p.provincia) || '—'; (gruppi[k] = gruppi[k]||[]).push(p); });
   const chiavi = Object.keys(gruppi).sort((a,b)=> a==='—'?1 : b==='—'?-1 : a.localeCompare(b));
   body.innerHTML = chiavi.map(prov=>{
     const cards = gruppi[prov]
       .sort((a,b)=> String(a.nome||'').localeCompare(String(b.nome||'')))
       .map(ctCard).join('');
     return `<div class="prov-group">
-      <div class="prov-head"><h3>${prov==='—'?'Provincia non indicata':'📍 '+esc(prov)}</h3><span class="cnt">${gruppi[prov].length} contatti</span></div>
+      <div class="prov-head"><h3>${provLabel(prov)}</h3><span class="cnt">${gruppi[prov].length} contatti</span></div>
       <div class="ct-grid">${cards}</div>
     </div>`;
   }).join('');
@@ -1402,7 +1448,7 @@ function renderProvince(){
   });
   // raggruppa per provincia
   const gruppi = {};
-  list.forEach(p=>{ const k = (p.provincia||'').toUpperCase() || '—'; (gruppi[k] = gruppi[k]||[]).push(p); });
+  list.forEach(p=>{ const k = normProv(p.provincia) || '—'; (gruppi[k] = gruppi[k]||[]).push(p); });
   let prov = Object.keys(gruppi).map(k=>{
     const g = gruppi[k];
     return { prov:k, g, nAtt: g.filter(isAttivoReseller).length, nPro: g.filter(isProspectP).length };
@@ -1432,7 +1478,7 @@ function renderProvince(){
     ].filter(Boolean).join('');
     return `<details class="prov-group" open>
       <summary class="prov-head">
-        <h3>${x.prov==='—'?'Provincia non indicata':'📍 '+esc(x.prov)}</h3>
+        <h3>${provLabel(x.prov)}</h3>
         <span class="pv-chips">${chips}</span>
       </summary>
       <div class="ct-grid" style="margin-top:12px">${cards}</div>
@@ -1475,7 +1521,7 @@ function renderArchiviati(){
   $('#archiviatiInfo').textContent = list.length ? `${list.length} fornitori archiviati` : '';
   if(!list.length){ body.innerHTML = '<div class="hint">Nessun fornitore archiviato'+(q?' con questa ricerca':'')+'.</div>'; return; }
   const gruppi = {};
-  list.forEach(a=>{ const k=(a.provincia||'').toUpperCase()||'—'; (gruppi[k]=gruppi[k]||[]).push(a); });
+  list.forEach(a=>{ const k=normProv(a.provincia)||'—'; (gruppi[k]=gruppi[k]||[]).push(a); });
   const chiavi = Object.keys(gruppi).sort((x,y)=> x==='—'?1 : y==='—'?-1 : x.localeCompare(y));
   body.innerHTML = chiavi.map(prov=>{
     const rows = gruppi[prov].sort((a,b)=> String(a.nome||'').localeCompare(String(b.nome||''))).map(a=>{
@@ -1487,7 +1533,7 @@ function renderArchiviati(){
       </div>`;
     }).join('');
     return `<div class="prov-group">
-      <div class="prov-head"><h3>${prov==='—'?'Provincia non indicata':'📍 '+esc(prov)}</h3><span class="cnt">${gruppi[prov].length}</span></div>
+      <div class="prov-head"><h3>${provLabel(prov)}</h3><span class="cnt">${gruppi[prov].length}</span></div>
       <div class="arch-list">${rows}</div>
     </div>`;
   }).join('');

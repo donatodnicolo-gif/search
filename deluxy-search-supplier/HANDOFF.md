@@ -319,6 +319,19 @@ solo dove siamo e come si lavora.
    «Provincia non indicata». Verificato con dati finti: raggruppamento, ricerca, ripristino con
    ordine corretto, console pulita.
 
+35. **Province normalizzate + caricamento più veloce** (27/07): due fix a Contatti/Province/
+   Archiviati (tutte raggruppano per provincia).
+   - **MI vs Milano**: nel registro `provincia` è testo libero (MI, MILANO, «Città Metropolitana
+     di Milano»…) → uscivano gruppi doppi. Aggiunta tabella province IT + `normProv(v)` che porta
+     tutto alla **sigla** (con NFD/strip accenti, rimozione prefissi «provincia di / città
+     metropolitana di», alias Monza/Reggio/Forlì) e `provLabel(k)` = «📍 MI · Milano». Usati nei
+     tre `renderContatti/renderProvince/renderArchiviati`.
+   - **Lentezza caricamento**: `anagAllPages` scaricava le pagine (perPage 200) **in sequenza**
+     (browser → proxy `/api/anagrafiche` → registro, con cold start su entrambi). Ora scarica la
+     1ª pagina, legge `totale`, e scarica le successive **in parallelo** (`Promise.all`). Resta la
+     cache in memoria `ctData` (condivisa Contatti/Province): lento solo al primo caricamento
+     della sessione, poi istantaneo; «↻ Aggiorna» forza il refetch.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
