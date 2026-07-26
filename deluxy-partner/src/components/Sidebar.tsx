@@ -130,9 +130,15 @@ const sections: { label: string; items: Item[] }[] = [
     items: [
       { href: "/registrazioni/fatture", label: "Fatture", icon: icons.fattura },
       { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
-      { href: "/ordini", label: "Orders", icon: icons.ordini },
       { href: "/registrazioni/riconciliazione", label: "Riconciliazione clienti", icon: icons.confronti },
     ],
+  },
+  {
+    // Gli ordini del sito hanno una sezione tutta loro: non sono una
+    // "registrazione" come una fattura o una pro-forma, e da qui passa la
+    // quadratura degli incassi dell'e-commerce.
+    label: "Ordini Shopify",
+    items: [{ href: "/ordini", label: "Orders", icon: icons.ordini }],
   },
   {
     label: "Rete",

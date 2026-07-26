@@ -105,7 +105,7 @@ Convenzione bonifici: `> 0` inviato al partner, `< 0` ricevuto. `RiepilogoMese` 
 | `/impostazioni/stati` | **Regole degli stati del cliente**: soglie dello stato finanziario (materialità, fasce di scaduto, ritardo tollerato, storico) e dello stato analisi (mesi per «Nuovo»/«Dismesso»), con anteprima dell'effetto sui clienti di oggi e ripristino dei default. Vedi §7-bis |
 | `/verifiche` | Gestione chiave API pubblica + documentazione + storico richieste |
 
-Sidebar riducibile a icone (preferenza in localStorage). **Operatività**: Dashboard, Servizi a fatturazione, Vendite come vendor. **Registrazioni**: Fatture (elenco fatture reali da Fatture in Cloud, `/registrazioni/fatture`) e Pro-forma.
+Sidebar riducibile a icone (preferenza in localStorage). **Operatività**: Dashboard, Servizi a fatturazione, Vendite come vendor. **Registrazioni**: Fatture (elenco fatture reali da Fatture in Cloud, `/registrazioni/fatture`), Pro-forma e Riconciliazione clienti. **Ordini Shopify**: sezione a sé con `Orders` (`/ordini`) — gli ordini del sito non sono una registrazione come una fattura o una pro-forma, e da lì passa la quadratura degli incassi dell'e-commerce.
 
 **Prestazioni**: le funzioni girano in `fra1` (Francoforte) accanto al Postgres Supabase — `vercel.json`. Prima erano su `iad1` (Washington) e ogni query attraversava l'Atlantico: era **quella** la causa della lentezza (2,3 s per le 4 query del riepilogo, con soli 2 ms di elaborazione). Se si tocca la regione o si migra il DB, tenerli nella stessa area.
 
