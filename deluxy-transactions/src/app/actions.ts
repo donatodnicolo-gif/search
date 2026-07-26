@@ -18,8 +18,10 @@ import { notificaOrigine } from "@/lib/webhook";
 import { leggiRegole, salvaRegola, type Regole } from "@/lib/impostazioni";
 import { generaXml, verificaOrdinante } from "@/lib/sepa";
 import { normalizzaIban, normalizzaNome } from "@/lib/iban";
-import { aCentesimi } from "@/lib/denaro";
+import { aCentesimi, euro } from "@/lib/denaro";
 import { chiediCodice, impronteDelPin, pinAccettabile, sblocca, verificaCancello } from "@/lib/sblocco";
+import { pagaLottoConQonto } from "@/lib/pagamento-banca";
+import { qontoConfigurato } from "@/lib/qonto";
 
 // Tutte le azioni della UI. Ognuna ricontrolla chi è l'operatore: il middleware
 // filtra i cookie falsi, ma l'autorizzazione vera si decide qui, dove si sa
@@ -289,6 +291,31 @@ export async function impostaPin(_stato: unknown, fd: FormData): Promise<{ error
   return { ok: "PIN impostato. Non è scritto da nessuna parte: se lo dimentichi va rifatto da qui." };
 }
 
+// ---------------------------------------------------------------------------
+// Pagamento dalla banca (Qonto)
+// ---------------------------------------------------------------------------
+
+export async function pagaConQonto(_stato: unknown, fd: FormData): Promise<{ errore?: string; ok?: string }> {
+  const operatore = await esigiOperatore();
+  const id = testo(fd, "id");
+  const esito = await pagaLottoConQonto(id, operatore, await ipRichiesta());
+
+  revalidatePath(`/distinte/${id}`);
+  revalidatePath("/distinte");
+  revalidatePath("/richieste");
+
+  const parti: string[] = [];
+  if (esito.pagate.length) {
+    const somma = esito.pagate.reduce((s, p) => s + p.importoCent, 0);
+    parti.push(`Partiti ${esito.pagate.length} bonifici per ${euro(somma)}.`);
+  }
+  if (esito.bloccate.length) {
+    parti.push(`Non partiti: ${esito.bloccate.map((b) => `${b.riferimento} (${b.motivo})`).join(" · ")}`);
+  }
+  if (esito.errore) return { errore: [esito.errore, ...parti].join(" ") };
+  return parti.length ? { ok: parti.join(" ") } : { ok: "Niente da pagare." };
+}
+
 /** Genera l'XML e lo restituisce come testo, registrandone l'impronta. */
 export async function esportaLotto(id: string): Promise<{ nome: string; xml: string } | { errore: string }> {
   const operatore = await esigiOperatore();
@@ -482,6 +509,15 @@ export async function salvaImpostazioni(_stato: unknown, fd: FormData): Promise<
     if (!p.attivo) return { errore: `L'operatore ${pagatore} è disattivato: non può essere il pagatore.` };
     daSalvare.push(["pagatoreEmail", pagatore]);
   }
+
+  // L'interruttore della banca non si accende se la banca non è collegata:
+  // altrimenti si crederebbe di poter pagare e si scoprirebbe di no davanti a
+  // una distinta sbloccata.
+  const vuoleBanca = Boolean(fd.get("qontoEsecuzioneAttiva"));
+  if (vuoleBanca && !qontoConfigurato()) {
+    return { errore: "Qonto non è collegato (QONTO_LOGIN / QONTO_SECRET_KEY): non posso accendere il pagamento dalla banca." };
+  }
+  daSalvare.push(["qontoEsecuzioneAttiva", vuoleBanca ? "true" : "false"]);
 
   daSalvare.push(["soloBeneficiariVerificati", fd.get("soloBeneficiariVerificati") ? "true" : "false"]);
   daSalvare.push(["ordinanteNome", testo(fd, "ordinanteNome")]);

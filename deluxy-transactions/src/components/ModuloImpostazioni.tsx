@@ -16,6 +16,8 @@ type Valori = {
   pagatoreEmail: string;
   minutiCodicePagamento: string;
   minutiSbloccoPagamento: string;
+  qontoEsecuzioneAttiva: boolean;
+  qontoCollegato: boolean;
 };
 
 export function ModuloImpostazioni({ valori }: { valori: Valori }) {
@@ -87,6 +89,27 @@ export function ModuloImpostazioni({ valori }: { valori: Valori }) {
         <div className="campo-modulo">
           <label htmlFor="i-min-sblocco">Finestra di sblocco dopo il codice (minuti)</label>
           <input id="i-min-sblocco" name="minutiSbloccoPagamento" defaultValue={valori.minutiSbloccoPagamento} inputMode="numeric" />
+        </div>
+
+        <div className="campo-modulo largo">
+          <label htmlFor="i-qonto">Pagare dalla banca (Qonto)</label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, textTransform: "none", letterSpacing: 0 }}>
+            <input
+              id="i-qonto"
+              type="checkbox"
+              name="qontoEsecuzioneAttiva"
+              defaultChecked={valori.qontoEsecuzioneAttiva}
+              disabled={!valori.qontoCollegato}
+            />
+            {valori.qontoCollegato
+              ? "fai partire i bonifici veri dal conto, invece di generare solo il file SEPA"
+              : "Qonto non è collegato (mancano QONTO_LOGIN / QONTO_SECRET_KEY): l'interruttore resta spento"}
+          </label>
+          <p className="firma-nota">
+            Acceso, il pagatore può far uscire denaro dal conto con un clic — sempre dopo codice e PIN, sempre solo
+            verso beneficiari resi <strong>fidati</strong> dentro Qonto, e solo se la banca conferma che il nome
+            corrisponde all&apos;IBAN. Accendere e spegnere resta scritto nel registro.
+          </p>
         </div>
 
         <div className="azioni-modulo campo-modulo largo">

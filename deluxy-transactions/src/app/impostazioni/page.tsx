@@ -4,6 +4,7 @@ import { leggiRegole } from "@/lib/impostazioni";
 import { euroSemplice } from "@/lib/denaro";
 import { cifraturaPronta } from "@/lib/crypto";
 import { postaConfigurata } from "@/lib/mail";
+import { qontoConfigurato } from "@/lib/qonto";
 import { ModuloImpostazioni } from "@/components/ModuloImpostazioni";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,8 @@ export default async function Impostazioni() {
             pagatoreEmail: r.pagatoreEmail,
             minutiCodicePagamento: String(r.minutiCodicePagamento),
             minutiSbloccoPagamento: String(r.minutiSbloccoPagamento),
+            qontoEsecuzioneAttiva: r.qontoEsecuzioneAttiva,
+            qontoCollegato: qontoConfigurato(),
           }}
         />
       </div>

@@ -14,10 +14,11 @@ qui esce la distinta SEPA che qualcuno carica in banca.
 > riceve un **codice via email** e lo digita insieme al suo **PIN**. Prima di
 > quel gesto non si genera nessun file di pagamento.
 >
-> L'app **non contiene ancora credenziali bancarie**: quello che produce è un
-> file XML SEPA che una persona carica nel portale della banca. Se un domani si
-> collegherà una banca (Qonto o altri), il collegamento passerà **da questo
-> stesso cancello** e non da un'altra strada.
+> Dopo lo sblocco ci sono due modi di far uscire il denaro: il **file XML SEPA**
+> da caricare in banca, oppure — se il collegamento a **Qonto** è acceso — i
+> **bonifici veri**, uno per richiesta, verso beneficiari già resi *fidati*
+> dentro Qonto e solo se la banca conferma che il nome corrisponde all'IBAN.
+> Entrambe le strade passano dallo stesso cancello: non ce n'è una terza.
 
 ## Documenti
 
@@ -45,7 +46,11 @@ qui esce la distinta SEPA che qualcuno carica in banca.
    gli arriva per email (con importo e beneficiari scritti dentro), lo digita
    con il PIN: la distinta resta sbloccata pochi minuti, poi si richiude. Se la
    distinta cambia dopo l'invio del codice, il codice non vale più.
-7. Ogni passaggio finisce in un **registro a catena di hash**: modificare la
+7. Sbloccata la distinta, o si scarica il **file SEPA**, o si fanno partire i
+   **bonifici da Qonto** (`POST /v2/sepa/transfers`, con controllo
+   dell'intestatario e idempotenza per richiesta). La pagina **Banca** mostra
+   saldo e uscite del conto e riconosce le richieste dal riferimento in causale.
+8. Ogni passaggio finisce in un **registro a catena di hash**: modificare la
    storia si vede.
 
 ## Avvio

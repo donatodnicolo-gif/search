@@ -206,6 +206,14 @@ model Richiesta {
   decisaIl      DateTime?
   pagataIl      DateTime?
 
+  // Come è uscito il denaro: "distinta" (file SEPA caricato a mano in banca)
+  // oppure "qonto" (bonifico partito dall'API). Vuoto finché non è pagata.
+  pagatoCon      String?
+  qontoTransferId String? @unique // id del bonifico in Qonto: prova dell'uscita
+  qontoStato      String?
+  // Movimento bancario riconosciuto in riconciliazione.
+  qontoMovimentoId String?
+
   approvazioni Approvazione[]
   eventi       Evento[]
 

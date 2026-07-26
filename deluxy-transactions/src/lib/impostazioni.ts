@@ -31,6 +31,10 @@ export type Regole = {
   minutiCodicePagamento: number;
   // minuti in cui la distinta resta sbloccata dopo lo sblocco riuscito
   minutiSbloccoPagamento: number;
+  // Interruttore generale del pagamento via banca. Nasce SPENTO: avere le
+  // credenziali Qonto nell'ambiente non basta a far partire un bonifico, ci
+  // vuole un gesto esplicito di un amministratore, che resta nel registro.
+  qontoEsecuzioneAttiva: boolean;
 };
 
 const PREDEFINITE: Regole = {
@@ -48,6 +52,7 @@ const PREDEFINITE: Regole = {
   pagatoreEmail: "nicolo.donato@deluxy.it",
   minutiCodicePagamento: 10,
   minutiSbloccoPagamento: 15,
+  qontoEsecuzioneAttiva: false,
 };
 
 const NUMERICHE = new Set([

@@ -35,11 +35,51 @@ Tre proprietà volute, che vanno mantenute se si tocca questo codice:
    (riferimenti, IBAN, importi): cambiata la distinta, il codice muore. Non si
    fa autorizzare 100 € per far uscire 10.000 €.
 
-**Quello che resta fuori.** L'app continua a non avere credenziali bancarie: il
-file SEPA lo carica una persona nel portale della banca. Il giorno che si
-collegherà una banca (Qonto o altri), l'esecuzione dovrà passare da
-`verificaCancello()` in `src/lib/sblocco.ts` — è il punto unico che decide se il
-denaro può uscire — e la deviazione va scritta qui, in questo capitolo.
+## 0-bis. Il pagamento vero dalla banca (Qonto)
+
+Dal 26/07/2026 l'app **può far partire i bonifici** dal conto Qonto, e non solo
+produrre il file SEPA. Le credenziali della banca (chiave API Qonto) vivono
+nelle variabili d'ambiente di Vercel, non sul database.
+
+Un bonifico parte solo dopo **sei** controlli in fila, in
+[src/lib/pagamento-banca.ts](../src/lib/pagamento-banca.ts):
+
+| # | Controllo | A cosa risponde |
+|---|---|---|
+| 1 | **Sblocco del pagatore** (`verificaCancello`) | nessuno paga senza codice via email + PIN |
+| 2 | **Interruttore** `qontoEsecuzioneAttiva`, spento di nascita | avere le credenziali nell'ambiente non basta: ci vuole un gesto umano, scritto nel registro |
+| 3 | **Sigillo** di ogni richiesta | se importo o IBAN sono stati toccati direttamente sul database, non parte niente |
+| 4 | **Beneficiario «fidato» in Qonto** | un IBAN si rende fidato solo dentro l'app della banca, a mano: questo server non può inventarsi un beneficiario nuovo |
+| 5 | **Controllo dell'intestatario (VoP)** appena prima di ogni bonifico | la fattura con l'IBAN cambiato: se il nome non corrisponde al conto, quel pagamento non parte |
+| 6 | **Saldo disponibile** ≥ totale | non si comincia una distinta che si fermerà a metà |
+
+Più tre proprietà del come, non del cosa:
+
+- **Idempotenza deterministica**: la chiave `X-Qonto-Idempotency-Key` è derivata
+  dall'id della richiesta Deluxy. Un doppio clic, un retry di rete o un timeout
+  non generano due bonifici.
+- **Lo sblocco si consuma prima del primo bonifico**: un codice, un'esecuzione.
+  Riprovare vuol dire farsi mandare un codice nuovo.
+- **Al primo errore ci si ferma.** Metà distinta pagata è brutto ma chiaro;
+  andare avanti dopo un errore della banca vuol dire non sapere cosa è uscito.
+  Il messaggio dice esattamente cosa è partito e cosa no.
+
+Il punto 4 merita una riga in più: è l'unico controllo che **non sta su questo
+server**. Anche chi prendesse il pieno controllo dell'applicazione potrebbe al
+massimo pagare, prima del limite di saldo, beneficiari che una persona aveva già
+approvato dentro Qonto. Non è un dettaglio di comodo: è ciò che resta della
+vecchia difesa «l'app non muove denaro», e per questo la lista dei beneficiari
+fidati in Qonto va tenuta corta.
+
+Quando il VoP risponde `CLOSE_MATCH`, `NO_MATCH` o `NOT_POSSIBLE`, il pagamento
+**non parte** e finisce fra le «bloccate», con scritto il nome che la banca dice
+essere l'intestatario. Si accetta solo `MATCH`. È una scelta severa e voluta:
+in un pagamento «quasi giusto» non esiste.
+
+**Quello che resta fuori.** Nessuna credenziale bancaria è scritta sul database,
+e l'app non può creare beneficiari né renderli fidati: quello si fa in Qonto.
+Se un domani si accetteranno anche i `CLOSE_MATCH`, o si permetterà di creare
+beneficiari via API, va scritto qui — con la motivazione.
 
 ## 1. Chi può chiedere un pagamento (le altre app)
 

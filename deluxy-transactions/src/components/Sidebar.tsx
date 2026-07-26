@@ -19,6 +19,7 @@ export function Sidebar({
     { href: "/richieste", nome: "Richieste", count: null, icona: iconaLista, admin: false },
     { href: "/distinte", nome: "Distinte", count: conteggi.approvate, icona: iconaBanca, admin: false },
     { href: "/beneficiari", nome: "Beneficiari", count: null, icona: iconaRubrica, admin: false },
+    { href: "/banca", nome: "Banca", count: null, icona: iconaBanca, admin: false },
     { href: "/registro", nome: "Registro", count: null, icona: iconaRegistro, admin: false },
     { href: "/pin", nome: "PIN di pagamento", count: null, icona: iconaLucchetto, admin: false },
     { href: "/chiavi", nome: "Chiavi delle app", count: null, icona: iconaChiave, admin: true },

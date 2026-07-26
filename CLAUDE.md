@@ -19,10 +19,12 @@ Le anagrafiche dei partner B2B vivono SOLO in `deluxy-anagrafiche/` (porta 3060)
 manda lì una richiesta via API firmata; una persona autorizza — con secondo
 fattore e, sopra soglia, doppia firma — e il file di pagamento si genera **solo**
 quando il *pagatore* (una persona sola, impostazione `pagatoreEmail`) sblocca con
-un **codice ricevuto per email** più il suo **PIN**. Credenziali bancarie non ce
-ne sono: l'ultimo passo lo fa un umano nel portale della banca. Se un domani si
-collegherà una banca, l'esecuzione dovrà passare dallo stesso cancello
-(`verificaCancello()` in `deluxy-transactions/src/lib/sblocco.ts`).
+un **codice ricevuto per email** più il suo **PIN**. Dopo lo sblocco ci sono due
+strade, mai una terza: il file SEPA da caricare in banca, oppure i **bonifici
+veri su Qonto** — solo verso beneficiari resi *fidati* dentro l'app della banca e
+solo se la banca conferma che il nome corrisponde all'IBAN. Il punto unico che
+decide se il denaro può uscire è `verificaCancello()` in
+`deluxy-transactions/src/lib/sblocco.ts`.
 Integrazione: [deluxy-transactions/docs/API.md](deluxy-transactions/docs/API.md);
 controlli e deviazioni dallo standard:
 [docs/SICUREZZA.md](deluxy-transactions/docs/SICUREZZA.md).

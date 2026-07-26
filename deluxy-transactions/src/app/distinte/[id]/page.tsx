@@ -7,6 +7,8 @@ import { quando } from "@/components/Etichette";
 import { segnaLottoPagato } from "@/app/actions";
 import { ModuloSblocco } from "@/components/ModuloSblocco";
 import { eIlPagatore, emailPagatore, sbloccoAttivo } from "@/lib/sblocco";
+import { qontoConfigurato } from "@/lib/qonto";
+import { leggiRegole } from "@/lib/impostazioni";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,9 @@ export default async function Distinta({ params }: { params: Promise<{ id: strin
       where: { lottoId: l.id, usatoIl: null, annullatoIl: null, scadeIl: { gt: new Date() } },
     })) > 0;
   const pinImpostato = Boolean((await prisma.operatore.findUnique({ where: { id: operatore.id } }))?.pinHash);
+  // Il bonifico dalla banca si vede solo se Qonto è collegato E l'interruttore
+  // in Impostazioni è acceso: due condizioni, non una.
+  const bancaAttiva = qontoConfigurato() && (await leggiRegole()).qontoEsecuzioneAttiva;
 
   return (
     <main className="main">
@@ -76,6 +81,7 @@ export default async function Distinta({ params }: { params: Promise<{ id: strin
           }
           codiceInCorso={codiceInCorso}
           pinImpostato={pinImpostato}
+          bancaAttiva={bancaAttiva}
         />
       ) : (
         <div className="scheda">

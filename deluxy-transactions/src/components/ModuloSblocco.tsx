@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { chiediCodicePagamento, sbloccaPagamento } from "@/app/actions";
+import { chiediCodicePagamento, pagaConQonto, sbloccaPagamento } from "@/app/actions";
 
 // La porta da cui esce il denaro, in due tempi:
 //   1. «Mandami il codice» → arriva un'email al pagatore con importo e
@@ -16,12 +16,14 @@ export function ModuloSblocco({
   sbloccoFinoA,
   codiceInCorso,
   pinImpostato,
+  bancaAttiva,
 }: {
   id: string;
   totale: string;
   sbloccoFinoA: string | null;
   codiceInCorso: boolean;
   pinImpostato: boolean;
+  bancaAttiva: boolean;
 }) {
   const [statoCodice, azioneCodice, invioInCorso] = useActionState(
     chiediCodicePagamento,
@@ -31,14 +33,41 @@ export function ModuloSblocco({
     sbloccaPagamento,
     {} as { errore?: string; ok?: string },
   );
+  const [statoBanca, azioneBanca, bancaInCorso] = useActionState(
+    pagaConQonto,
+    {} as { errore?: string; ok?: string },
+  );
 
   if (sbloccoFinoA) {
     return (
       <div className="scheda">
         <div className="scheda-titolo">Pagamento sbloccato</div>
+        {statoBanca?.errore && <div className="avviso-errore">{statoBanca.errore}</div>}
+        {statoBanca?.ok && <div className="avviso-ok">{statoBanca.ok}</div>}
         <div className="avviso-ok">
-          Puoi generare il file SEPA fino alle {sbloccoFinoA}. Dopo serve un codice nuovo.
+          Fino alle {sbloccoFinoA} puoi far uscire questa distinta. Dopo serve un codice nuovo.
         </div>
+
+        {bancaAttiva && (
+          <form action={azioneBanca} style={{ marginTop: 14 }}>
+            <input type="hidden" name="id" value={id} />
+            <button
+              className="btn"
+              type="submit"
+              disabled={bancaInCorso}
+              onClick={(e) => {
+                if (!confirm(`Stai per far partire i bonifici per ${totale} dal conto. Confermi?`)) e.preventDefault();
+              }}
+            >
+              {bancaInCorso ? "Sto pagando…" : `Paga ${totale} dalla banca`}
+            </button>
+            <p className="firma-nota">
+              Parte un bonifico per ogni richiesta, verso beneficiari già resi <strong>fidati</strong> dentro Qonto e
+              solo se nome e IBAN corrispondono. Al primo errore mi fermo e ti dico cosa è partito. Questo bottone
+              consuma lo sblocco: per un secondo tentativo serve un codice nuovo.
+            </p>
+          </form>
+        )}
       </div>
     );
   }
