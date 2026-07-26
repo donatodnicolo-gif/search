@@ -176,6 +176,7 @@ const nav: AreaNav[] = [
         items: [
           { href: "/impostazioni", label: "Scenari, premi e costi", icon: icons.impostazioni },
           { href: "/impostazioni/chiavi", label: "Chiavi", icon: icons.cfo },
+          { href: "/impostazioni/accesso", label: "Accesso", icon: icons.premi },
         ],
       },
     ],

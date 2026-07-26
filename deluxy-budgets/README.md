@@ -205,3 +205,26 @@ riconoscere quale chiave è impostata.
 > **Senza `APP_SECRET` il salvataggio è disabilitato**, e la pagina lo dice: una chiave in chiaro su
 > un database condiviso non è una cosa da fare di nascosto. La variabile va aggiunta all'ambiente
 > dell'app (locale e Vercel).
+
+## Accesso: password + codice di autenticazione
+
+Chi entra vede budget, premi e stipendi, e la password del team è **una sola e condivisa**: basta
+che finisca in una chat o in uno screenshot. Da **Configurazione → Accesso** si attiva un
+**secondo fattore TOTP** (Google Authenticator, 1Password, Authy): stesso meccanismo e stesso
+file di `deluxy-transactions` (`src/lib/totp.ts`), così il codice si fa in un modo solo in tutto
+l'ecosistema.
+
+**Non ci si può chiudere fuori** — è la regola che governa `src/lib/accesso.ts`:
+
+- finché nessuno ha registrato un'app di autenticazione, il login resta quello di prima;
+- il codice diventa obbligatorio **solo dopo** che se ne è digitato uno valido: una chiave
+  generata e mai confermata non blocca nessuno;
+- se `APP_SECRET` manca **o è cambiata**, il segreto non è leggibile e l'app torna alla sola
+  password, invece di rifiutare tutti perché non riesce a decifrarlo;
+- per **togliere** il secondo fattore serve un codice valido: se bastasse essere dentro, chi
+  trovasse un computer aperto lo disattiverebbe in due clic.
+
+> **Il cookie di sessione include `APP_SECRET`** (`src/lib/auth.ts`). Senza, sarebbe una funzione
+> della sola password: chi la conosce se lo calcolerebbe da sé e lo infilerebbe nel browser,
+> **saltando il codice**. Conseguenza voluta: cambiando `APP_SECRET` (o la password) tutte le
+> sessioni aperte decadono.
