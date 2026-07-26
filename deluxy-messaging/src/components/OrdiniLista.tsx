@@ -891,14 +891,21 @@ export function OrdiniLista() {
                             {nomeGestione(o.gestione)}
                           </span>
                         </div>
-                        {/* SOLO LE DUE AZIONI DI TUTTI I GIORNI.
-                            Le altre (Paga fornitore, Reclamo, Rimborso, Rubrica,
-                            Fornitore) stanno nel dettaglio, che si apre cliccando
-                            la scheda: misurato, occupavano 97px dei 237 di ogni
-                            card, cioè si vedevano 3 ordini invece di 5.
-                            Non aprono il dettaglio: chi preme "Contatta" vuole
-                            scrivere, non il pannello. */}
+                        {/* TUTTE le azioni restano qui: sono il lavoro, non un
+                            ornamento. Lo spazio si recupera con etichette corte
+                            (il significato pieno sta nel title) e con i bottoni
+                            più compatti, non togliendo funzioni.
+                            Non aprono il dettaglio: chi preme "Reclamo" vuole il
+                            reclamo, non il pannello. */}
                         <div className="azioni-ordine" onClick={(e) => e.stopPropagation()}>
+                          <a
+                            className="bottone secondario mini"
+                            href={linkPagamento(o)}
+                            onClick={() => segna(o.id, 'in_pagamento')}
+                            title="Paga fornitore: chiedi il pagamento del fornitore per questo ordine"
+                          >
+                            Paga
+                          </a>
                           {(() => {
                             const c = linkContatto(o)
                             return (
@@ -916,6 +923,20 @@ export function OrdiniLista() {
                               </a>
                             )
                           })()}
+                          <a
+                            className="bottone secondario mini"
+                            href={linkReclamo(o)}
+                            title="Apri un reclamo su questo ordine"
+                          >
+                            Reclamo
+                          </a>
+                          <a
+                            className="bottone secondario mini"
+                            href={linkRimborso(o)}
+                            title="Chiedi il rimborso di questo ordine (lo approva poi una persona)"
+                          >
+                            Rimborso
+                          </a>
                           {o.gestione === 'gestito' ? (
                             <button
                               className="bottone secondario mini"
@@ -933,7 +954,31 @@ export function OrdiniLista() {
                               Gestito ✓
                             </button>
                           )}
-                          <span className="altre-azioni">altre azioni: apri l&apos;ordine</span>
+                          {!o.contattoSalvato ? (
+                            <button
+                              className="bottone secondario mini"
+                              onClick={() => salvaContatto(o.id)}
+                              disabled={!!occupato || !googleCollegato || (!o.telefono && !o.email)}
+                              title={
+                                !o.telefono && !o.email
+                                  ? 'Ordine senza telefono né email'
+                                  : googleCollegato
+                                    ? 'Salva il contatto in rubrica Google'
+                                    : 'Collega Google Contacts nelle Impostazioni'
+                              }
+                            >
+                              {occupato === o.id ? 'Salvo…' : 'Rubrica'}
+                            </button>
+                          ) : null}
+                          {n.brandRicerca ? (
+                            <button
+                              className="bottone secondario mini"
+                              onClick={() => apriFornitore(n.brandRicerca, o.numero, setErrore)}
+                              title={`Cerca il fornitore per ${o.numero} su Ricerca fornitori`}
+                            >
+                              Fornitore ↗
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     ))

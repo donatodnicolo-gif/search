@@ -209,10 +209,12 @@ domani*, *28 scadute di recente*.
 L'ordinamento si fa nel database e non nella pagina, perché l'elenco è tagliato a 200: un
 ordine da consegnare oggi ma ricevuto tre settimane fa altrimenti non entrerebbe nemmeno.
 
-**La pagina è compatta.** Il primo ordine comincia a 346px dall'alto invece di 430, e ogni
-scheda è 167px invece di 237 — un terzo in meno, quindi si vedono più ordini per schermata.
-Sulla scheda restano le **due azioni di tutti i giorni** (Contatta, Gestito ✓): le altre sei
-occupavano 97px per scheda e ora vivono nel dettaglio, che è a un clic.
+**La pagina è compatta, senza perdere bottoni.** Il primo ordine comincia a 344px dall'alto
+invece di 430, e ogni scheda è 166px invece di 237 — un terzo in meno, quindi si vedono più
+ordini per schermata. Le azioni sono **tutte** sulla scheda: lo spazio arriva da etichette
+più corte (*Paga*, *Contatta*, col significato pieno nel suggerimento) e da una cornice più
+stretta, che porta i bottoni da tre righe a due. Le stesse azioni si trovano anche nel
+dettaglio, per chi lavora da lì.
 
 **Cliccando un ordine si apre il dettaglio.** Un punto qualsiasi della scheda — o della riga
 in tabella — apre un pannello con la **foto grande del prodotto**, le personalizzazioni

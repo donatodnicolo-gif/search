@@ -1416,9 +1416,18 @@ td .azioni-ordine {
 .scheda-ordine .riga-bassa { margin-top: 3px; }
 .scheda-ordine .azioni-ordine { margin-top: 6px; }
 
-/* «altre azioni: apri l'ordine» — dice dove sono finiti i bottoni spostati. */
-.altre-azioni {
-  font-size: 11.5px;
-  color: var(--text-tertiary);
-  align-self: center;
+/* ---- Azioni della scheda: tutte presenti, ma compatte ----
+   I bottoni sono il lavoro e restano tutti. Lo spazio si recupera dalla loro
+   cornice, non dal loro numero: misurato, così i sei bottoni passano da tre righe
+   a due e la scheda scende di ~30px senza perdere niente. */
+
+.scheda-ordine .azioni-ordine {
+  gap: 4px;
+  margin-top: 5px;
+  padding-top: 5px;
+}
+
+.scheda-ordine .azioni-ordine .bottone.mini {
+  padding: 2px 8px;
+  font-size: 12px;
 }

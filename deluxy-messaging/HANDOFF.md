@@ -72,16 +72,20 @@ locale, altrimenti nulla si decifra.
   +2gg…
   In testa: pillole **«8 da consegnare oggi»**, «7 domani», «28 scadute di
   recente», contate sul filtro in corso.
-  **SPAZIO**: primo ordine da ~430px a **346px**, scheda da 237 a **167px**
-  (−30%). Come: testa in una riga sola (il dettaglio della catena Shopify →
-  Ordini → qui è nel `title` del pallino), e sulla scheda restano **due** azioni
-  (Contatta, Gestito ✓) invece di sei — i 6 bottoni erano 97px su 237, misurati.
-  Le altre azioni sono nel dettaglio, che si apre cliccando la scheda: **ce le ho
-  messe tutte** (Paga fornitore, Reclamo, Rimborso, Contatta, Gestito/Riapri,
-  Cerca fornitore), altrimenti spostarle sarebbe stato togliere funzioni. Sulla
-  scheda c'è la nota «altre azioni: apri l'ordine». Tolta anche la data
-  dell'ORDINE dalla scheda (quella che serve è la consegna): faceva andare i badge
-  a capo, 27px per scheda.
+  **SPAZIO**: primo ordine da ~430px a **344px**, scheda da 237 a **166px**
+  (−30%), **con tutti i bottoni al loro posto**. Come: testa in una riga sola (il
+  dettaglio della catena Shopify → Ordini → qui è nel `title` del pallino);
+  azioni con etichette corte ("Paga", "Contatta") e cornice più stretta (gap 4px,
+  padding 2×8, font 12px), che porta i 6-7 bottoni da tre righe a due — il blocco
+  azioni scende da 97px a 56px. Tolta anche la data dell'ORDINE dalla scheda
+  (quella che serve a chi lavora è la consegna, due righe sopra): faceva andare i
+  badge a capo, 27px per scheda.
+  ⚠️ **ERRORE MIO, CORRETTO**: in un primo giro avevo lasciato sulla scheda solo
+  Contatta e Gestito, spostando le altre nel dettaglio. Sono azioni fondamentali e
+  vanno tenute tutte: lo spazio si prende dalla cornice dei bottoni, non dal loro
+  numero. Stringendola si ottiene **lo stesso risparmio** (166px contro i 167 che
+  avevo ottenuto togliendole) senza perdere niente. Le azioni ci sono comunque
+  anche nel dettaglio, che è utile a chi ci arriva da lì.
   **COPIA FOTO** (`copiaFoto` in `DettaglioOrdine.tsx`), accanto a Scarica.
   Due vincoli del browser da cui nasce il giro: negli appunti si può mettere
   **solo PNG** (`ClipboardItem` con image/jpeg viene rifiutato), e il canvas si
