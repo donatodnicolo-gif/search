@@ -41,6 +41,24 @@ Attenzione, oltre Critico). Così un solo reclamo grave ancora aperto accende gi
 sempre visibile da cosa nasce il numero. Per il quadro completo — feedback, orari e altre
 variabili — c'è la **pagella** qui sotto.
 
+## CS AI: come l'AI parla ai clienti
+
+In **CS AI** si scrive il *come*: tono di voce, firma, cosa non promettere mai, cosa cambia
+fra una chat e una mail. Ogni istruzione ha un ambito — *sempre*, *solo chat*, *solo email* —
+e finisce nel prompt di ogni risposta suggerita. I testi da mandare restano gli **Script**:
+quelli sono il *cosa*.
+
+> **Cinque regole non si toccano da qui.** Non inventare dati, non promettere rimborsi o
+> date, non spacciare per decisa una cosa che non lo è, tacere quando non si sa: stanno nel
+> codice e la pagina le mostra soltanto. Se fossero cancellabili, basterebbe togliere una
+> riga perché l'AI inizi a promettere ai clienti cose che nessuno ha deciso — e ce ne si
+> accorgerebbe quando qualcuno ci tiene per la parola. Quello che scrivi si aggiunge a
+> quelle, e se le contraddice vincono loro.
+
+Il pulsante **«Cosa legge l'AI»** mostra il blocco esatto che finisce nel prompt, separato
+per chat e per mail: serve a vedere se un'istruzione è arrivata davvero e in che ordine. Una
+regola che credi attiva e non lo è, è peggio di una che manca.
+
 ## Come si contatta il cliente
 
 Su ogni ordine ci sono i canali che quel cliente ha **davvero**: WhatsApp, Chiama,

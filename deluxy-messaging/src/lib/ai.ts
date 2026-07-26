@@ -2,6 +2,8 @@ import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 import { leggiImpostazioni } from './impostazioni'
 import { verificaIban } from './iban'
+import { db } from './db'
+import { componiIstruzioni } from './cs-ai'
 
 // Estrazione dei dati di pagamento da un messaggio o da un'immagine
 // (schermata di una chat, foto di un bonifico).
@@ -86,8 +88,12 @@ const SCHEMA_RISPOSTA = {
     },
     risposta: {
       type: 'string',
+      // Questa descrizione sta ACCANTO al campo di output e pesa quanto il
+      // prompt: se elenca solo «nome, numero ordine, data», il modello prende
+      // quell'elenco come l'unica libertà concessa e restituisce lo script
+      // identico. Deve dire che il testo si RISCRIVE.
       description:
-        'Il testo pronto da inviare al cliente: lo script scelto, adattato al messaggio (nome, numero ordine, data). Se nessuno script è adatto, stringa vuota.',
+        'Il testo pronto da inviare al cliente: il contenuto dello script scelto, RISCRITTO secondo le istruzioni dell’azienda (tono, lunghezza, saluto, firma) e completato coi dati del messaggio quando ci sono. Se nessuno script è adatto, stringa vuota.',
     },
     motivo: {
       type: 'string',
@@ -102,17 +108,38 @@ const ISTRUZIONI_RISPOSTA = `Sei l'assistenza clienti di Deluxy (consegne di fio
 
 Ti do il messaggio di un cliente e gli script che usiamo di solito. Scegli lo script più adatto e adattalo al messaggio.
 
-Regole:
-- Usa SOLO uno degli script forniti come base: è così che rispondiamo noi. Non inventare una risposta tua.
-- Adattalo: metti il nome del cliente, il numero d'ordine, la data, se compaiono nel messaggio. Non inventare dati che non ci sono: se un dato manca, lascia la frase generica.
-- Non promettere date, rimborsi o sconti che lo script non prevede.
-- Rispondi in italiano, nello stesso tono dello script.
-- Se nessuno script è davvero adatto, lascia scriptId e risposta vuoti e spiega perché nel motivo. Meglio nessuna risposta che una sbagliata.`
+Come lavorare, in ordine di importanza:
+
+1. IL CONTENUTO viene dallo script. Parti sempre da uno di quelli forniti: cosa promettiamo ai clienti lo decide l'azienda, non tu. Non aggiungere fatti, impegni o condizioni che lo script non contiene.
+2. I DATI non si inventano. Nome, numero d'ordine e date solo se compaiono nel messaggio del cliente; se un dato manca, tieni la frase generica.
+3. LA FORMA la decidono le ISTRUZIONI DELL'AZIENDA che trovi nel messaggio: tono, lunghezza, saluto, firma, apertura e chiusura. Se un'istruzione chiede di riscrivere, accorciare, firmare o cambiare tono, FALLO: riformulare non è inventare, finché il contenuto resta quello dello script.
+4. Dove le istruzioni non dicono niente, resta vicino al testo dello script.
+5. Se nessuno script è davvero adatto, lascia scriptId e risposta vuoti e spiega perché nel motivo. Meglio nessuna risposta che una sbagliata.`
 
 export type EsitoRisposta =
   | { stato: 'ok'; suggerimento: Suggerimento | null; fornitore: string }
   | { stato: 'non-configurato' }
   | { stato: 'errore'; messaggio: string }
+
+/**
+ * Le istruzioni scritte dall'azienda nella sezione CS AI, pronte per il prompt.
+ *
+ * Lette a ogni chiamata e non messe in cache: chi cambia il tono di voce si
+ * aspetta che la risposta successiva ne tenga conto, non fra un'ora. Se la
+ * lettura fallisce restano i soli paletti — l'assistenza non si ferma perché
+ * una tabella non risponde.
+ */
+async function istruzioniAzienda(contesto: 'chat' | 'email'): Promise<string> {
+  try {
+    const righe = await db.istruzioneAI.findMany({
+      where: { attiva: true },
+      orderBy: [{ ordine: 'asc' }, { categoria: 'asc' }, { titolo: 'asc' }],
+    })
+    return componiIstruzioni(righe, contesto)
+  } catch {
+    return componiIstruzioni([], contesto)
+  }
+}
 
 /**
  * Propone la risposta a un messaggio del cliente scegliendo fra gli script.
@@ -121,7 +148,10 @@ export type EsitoRisposta =
  */
 export async function suggerisciRisposta(
   messaggio: string,
-  script: { id: string; titolo: string; categoria: string; testo: string; quando: string }[]
+  script: { id: string; titolo: string; categoria: string; testo: string; quando: string }[],
+  // A una chat e a una mail si scrive in modo diverso: le istruzioni della
+  // sezione CS AI possono valere solo per l'una o per l'altra.
+  contesto: 'chat' | 'email' = 'chat'
 ): Promise<EsitoRisposta> {
   if (script.length === 0) {
     return { stato: 'errore', messaggio: 'Non c’è ancora nessuno script da cui attingere.' }
@@ -138,6 +168,8 @@ export async function suggerisciRisposta(
         }\ntesto:\n${s.testo}`
     )
     .join('\n\n')
+
+  const istruzioni = await istruzioniAzienda(contesto)
 
   const modello = (c.openaiModello || MODELLO_TESTO_DEFAULT).trim()
   try {
@@ -157,7 +189,13 @@ export async function suggerisciRisposta(
         { role: 'system', content: ISTRUZIONI_RISPOSTA },
         {
           role: 'user',
-          content: `SCRIPT DISPONIBILI:\n${elenco}\n\nMESSAGGIO DEL CLIENTE:\n${messaggio}`,
+          // Le istruzioni dell'azienda vanno QUI, per ultime, subito prima della
+          // richiesta: vicine al compito pesano più che nel messaggio di sistema.
+          content:
+            `SCRIPT DISPONIBILI:\n${elenco}\n\n` +
+            `MESSAGGIO DEL CLIENTE:\n${messaggio}\n\n` +
+            `${istruzioni}\n\n` +
+            'Ora scrivi la risposta: prendi il contenuto dello script più adatto e riscrivilo applicando le istruzioni qui sopra.',
         },
       ],
     })

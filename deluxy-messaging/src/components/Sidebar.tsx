@@ -37,6 +37,7 @@ export function Sidebar() {
       voci: [
         { href: '/inbox', nome: 'Inbox', icona: iconaChat },
         { href: '/script', nome: 'Script', icona: iconaScript },
+        { href: '/cs-ai', nome: 'CS AI', icona: iconaCsAi },
       ],
     },
     {
@@ -138,6 +139,13 @@ const iconaPartner = (
 const iconaChat = (
   <svg {...T} strokeLinejoin="round">
     <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.9 8.9 0 0 1-3.2-.6L3 21l1.8-5.2a8 8 0 0 1-.8-3.5A8.4 8.4 0 0 1 12.5 4 8.4 8.4 0 0 1 21 11.5z" />
+  </svg>
+)
+const iconaCsAi = (
+  // Una scintilla dentro un fumetto: l'AI che parla ai clienti.
+  <svg {...T} strokeLinejoin="round">
+    <path d="M20.5 11.5a7.9 7.9 0 0 1-8 7.8 8.4 8.4 0 0 1-3-.6L3.5 20.5l1.7-4.9a7.6 7.6 0 0 1-.7-3.3 7.9 7.9 0 0 1 8-7.8" />
+    <path d="M17.5 2.5l.9 2 2 .9-2 .9-.9 2-.9-2-2-.9 2-.9z" />
   </svg>
 )
 const iconaScript = (

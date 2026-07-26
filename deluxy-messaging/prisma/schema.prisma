@@ -513,3 +513,34 @@ model ApiKey {
   creataIl  DateTime  @default(now())
   ultimoUso DateTime?
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CS AI — le istruzioni con cui l'AI parla ai clienti
+//
+// Qui si scrive COME si risponde: il tono, la firma, cosa non promettere mai,
+// le regole diverse fra chat e mail. Sono istruzioni, non testi da mandare —
+// i testi pronti sono gli `Script`, e le due cose non vanno confuse: uno Script
+// si invia, un'istruzione dice all'AI come comportarsi mentre lo adatta.
+//
+// ⚠️ NON tutte le regole stanno qui. I paletti di sicurezza (non inventare dati,
+// non promettere rimborsi, usare solo gli script forniti) restano scritti nel
+// codice in `src/lib/cs-ai.ts` e non si possono cancellare da questa pagina:
+// sono ciò che impedisce all'AI di promettere a un cliente cose che l'azienda
+// non ha deciso. Quello che si scrive qui si AGGIUNGE a quelli.
+// ─────────────────────────────────────────────────────────────────────────────
+model IstruzioneAI {
+  id        String   @id @default(cuid())
+  titolo    String
+  categoria String   @default("Generale") // Tono di voce, Firma, Reclami…
+  testo     String   @db.Text
+  // Dove vale: tutti | chat | email. Alla chat e alla mail si scrive in modo
+  // diverso — una chat è breve e immediata, una mail ha oggetto e firma.
+  ambito    String   @default("tutti")
+  // In che ordine finiscono nel prompt: le più importanti per prime.
+  ordine    Int      @default(0)
+  attiva    Boolean  @default(true)
+  creatoIl  DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([ambito])
+}

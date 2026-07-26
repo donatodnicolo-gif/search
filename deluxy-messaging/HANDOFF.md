@@ -55,6 +55,45 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- SEZIONE **CS AI** — le istruzioni con cui l'AI parla ai clienti (26/07/2026).
+  Tabella `IstruzioneAI`, libreria `src/lib/cs-ai.ts`, pagina `/cs-ai`, rotte
+  `/api/cs-ai` (CRUD), `/api/cs-ai/iniziali` (6 istruzioni di partenza, non
+  duplicano) e `/api/cs-ai/anteprima` (il blocco esatto che finisce nel prompt).
+  **Sono il COME, non il cosa**: i testi da mandare restano gli Script. Ogni
+  istruzione ha un `ambito` — sempre / solo chat / solo email — perché a una chat
+  e a una mail si scrive in modo diverso.
+  ⚠️ **DUE LIVELLI: i PALETTI restano nel codice.** Cinque regole (non inventare
+  dati, non promettere rimborsi o date, non spacciare decisioni non prese, tacere
+  se non si sa) stanno in `PALETTI` e **non si cancellano dall'interfaccia**: se
+  fossero righe modificabili basterebbe toglierne una perché l'AI cominci a
+  promettere cose mai decise, e nessuno se ne accorgerebbe finché un cliente non
+  ci tiene per la parola. Le istruzioni scritte si AGGIUNGONO, e il prompt dichiara
+  che in caso di conflitto vincono i paletti.
+  ⚠️⚠️ **DOVE VANNO LE ISTRUZIONI NEL PROMPT — misurato, non supposto.** Con
+  `gpt-4o-mini` metterle nel **messaggio di sistema NON funziona**: il modello
+  restituiva lo script IDENTICO e un'istruzione di prova («chiudi sempre con —
+  Reparto Fiori, Deluxy») non compariva mai. Funziona mettendole nel **messaggio
+  utente, per ultime**, subito prima di «ora scrivi la risposta». Contava anche la
+  `description` del campo `risposta` nello schema JSON: diceva «lo script adattato
+  al messaggio (nome, numero ordine, data)», un elenco chiuso che il modello
+  prendeva come l'unica libertà concessa — ora dice che il testo si RISCRIVE.
+  VERIFICATO con l'AI vera, nei due versi: con l'istruzione di prova attiva la
+  risposta finisce con «— Reparto Fiori, Deluxy»; cancellata l'istruzione, la
+  firma sparisce. E in contesto **email** la risposta si chiude con «Un cordiale
+  saluto…» (istruzione solo-email) mentre in chat no: il filtro per ambito regge
+  end-to-end. Logica pura provata a parte: i 5 paletti sempre presenti, le regole
+  solo-chat fuori dal prompt mail e viceversa, nessuna sezione vuota senza
+  istruzioni.
+  `suggerisciRisposta(messaggio, script, contesto)` ha il terzo parametro
+  ('chat' | 'email', default 'chat'); `/api/script/suggerisci` lo accetta nel body.
+  ⚠️ **DEBITO DA SANARE**: `prisma generate` non è potuto girare (il `.dll` è
+  bloccato dal dev server dell'altra sessione, PID sulla porta 3140). Ho aggirato
+  generando in una cartella temporanea e copiando tutto tranne il motore — i tipi
+  sono giusti, typecheck e build passano, il DB risponde. **Effetto collaterale**:
+  il client non carica più `.env` da solo negli script `node` (Next e Vercel lo
+  caricano, quindi app e produzione non sono toccate). Al primo momento in cui la
+  cartella è libera, rilanciare `npx prisma generate` per rimettere le cose a posto.
+
 - SCRIPT RICHIAMABILI DAL POP-UP DI POSTA (26/07/2026). Dentro il modulo della
   mail c'è **«Usa uno script»**: si cerca fra le risposte pronte e si clicca —
   il testo entra nel messaggio **dove sta il cursore** (o in fondo, se il riquadro

@@ -8,9 +8,12 @@ export const maxDuration = 60
 // Dato il messaggio di un cliente, propone la risposta scegliendo fra gli
 // script attivi. Può rispondere "nessuno adatto": è un esito valido.
 export async function POST(req: NextRequest) {
-  const { messaggio, conversazioneId } = (await req.json().catch(() => ({}))) as {
+  const { messaggio, conversazioneId, contesto } = (await req.json().catch(() => ({}))) as {
     messaggio?: string
     conversazioneId?: string
+    // 'chat' | 'email': decide quali istruzioni CS AI valgono. A una chat e a
+    // una mail si scrive in modo diverso.
+    contesto?: string
   }
 
   // Se arriva l'id della conversazione, si prende da lì l'ultimo messaggio
@@ -34,7 +37,8 @@ export async function POST(req: NextRequest) {
     take: 60, // tetto: oltre, il prompt diventa enorme e la scelta peggiora
   })
 
-  const esito = await suggerisciRisposta(testo, script)
+  // Default 'chat': è da dove arriva quasi sempre la richiesta.
+  const esito = await suggerisciRisposta(testo, script, contesto === 'email' ? 'email' : 'chat')
   if (esito.stato === 'non-configurato') {
     return NextResponse.json(
       { errore: 'Risposte rapide non attive: manca la chiave OpenAI (Impostazioni).' },
