@@ -55,56 +55,6 @@ model Partner {
   updatedAt              DateTime @updatedAt
 }
 
-// Richiesta di pagamento IN ARRIVO da un'altra app (es. deluxy-messaging, che
-// legge IBAN/importo/intestatario dai messaggi). Entra in coda di APPROVAZIONE:
-// l'operatore la approva (→ crea un PagamentoDiretto predisposto, l'esecuzione
-// resta protetta dal codice email) o la rifiuta. Idempotente per (origine,
-// riferimentoEsterno) così la stessa richiesta non entra due volte.
-model RichiestaPagamentoIn {
-  id                 String    @id @default(cuid())
-  origine            String // app che l'ha mandata (es. "deluxy-messaging")
-  riferimentoEsterno String? // id della richiesta lato app sorgente
-  beneficiario       String?
-  iban               String?
-  bic                String?
-  importo            Float
-  causale            String?
-  note               String?
-  contatto           String? // nome/numero del contatto o della conversazione
-  linkConversazione  String? // link per aprire la conversazione nell'app sorgente
-  stato              String    @default("in_attesa") // in_attesa | approvata | rifiutata
-  decisoIl           DateTime?
-  decisoDa           String? // operatore che ha deciso
-  pagamentoDirettoId String? // PagamentoDiretto creato all'approvazione
-  createdAt          DateTime  @default(now())
-
-  @@unique([origine, riferimentoEsterno])
-  @@index([stato, createdAt])
-}
-
-// Conferma a due passaggi dei pagamenti: prima di registrare un'uscita di denaro
-// l'app manda un codice via email e aspetta che venga digitato. Qui vive la
-// richiesta in attesa: l'azione da eseguire è congelata in `payload` e viene
-// lanciata SOLO dopo che il codice è stato confermato.
-model ConfermaPagamento {
-  id          String    @id @default(cuid())
-  createdAt   DateTime  @default(now())
-  azione      String // chiave dell'operazione da eseguire (vedi src/lib/conferme.ts)
-  payload     String // JSON con i parametri dell'operazione
-  descrizione String // frase leggibile mostrata nell'email e nella pagina
-  importo     Float? // importo in gioco, per email e registro
-  email       String // destinatario del codice
-  codiceHash  String // SHA-256 del codice: in chiaro non viene mai salvato
-  scadeIl     DateTime
-  tentativi   Int       @default(0)
-  confermatoIl DateTime?
-  annullatoIl DateTime?
-  richiestaDa String? // operatore che ha chiesto il pagamento
-  ritornoUrl  String? // dove tornare dopo la conferma
-
-  @@index([createdAt])
-}
-
 // Registro delle modifiche (audit log): ogni cambiamento fatto nell'app da un
 // operatore. `utente` è il nome di chi ha fatto l'azione (dal SSO del Hub, o
 // l'etichetta del profilo per l'accesso a password); `azione` è una frase
@@ -303,29 +253,6 @@ model ProFormaRiga {
   aliquotaIva   Float    @default(22)
 
   @@index([proFormaId])
-}
-
-// Pagamento diretto a un fornitore: i dati beneficiario vengono letti da una
-// foto/IBAN con l'AI, verificati dall'operatore e predisposti come bonifico.
-// L'app NON esegue il pagamento: genera il file SEPA da autorizzare in banca
-// (Qonto/home banking). Stato: predisposto -> pagato oppure annullato.
-// La foto NON viene salvata: l'AI la legge al volo, restano solo i dati.
-model PagamentoDiretto {
-  id            String    @id @default(cuid())
-  beneficiario  String // intestatario del conto
-  iban          String
-  bic           String?
-  importo       Float
-  causale       String?
-  fornitore     String? // riferimento interno / nome fornitore
-  note          String?
-  ibanValido    Boolean   @default(false) // esito del controllo mod-97 al salvataggio
-  stato         String    @default("predisposto") // predisposto | pagato | annullato
-  dataPagamento DateTime? // quando segnato pagato
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@index([stato, createdAt])
 }
 
 // Richiesta di pagamento al fornitore per uno specifico ordine Shopify: importo

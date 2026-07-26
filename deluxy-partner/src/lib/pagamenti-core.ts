@@ -74,27 +74,3 @@ export async function eseguiBonificoMese(opts: {
   });
 }
 
-// Segna eseguito un pagamento diretto a fornitore (dopo il bonifico autorizzato
-// in banca): il denaro è già uscito, qui se ne prende atto.
-export async function eseguiPagamentoDiretto(id: string, data?: Date) {
-  const quando = data && !isNaN(data.getTime()) ? data : new Date();
-  const p = await prisma.pagamentoDiretto.update({
-    where: { id },
-    data: { stato: "pagato", dataPagamento: quando },
-  });
-  await registraPagamento({
-    tipo: "pagamento_diretto",
-    direzione: "out",
-    importo: p.importo,
-    data: p.dataPagamento ?? new Date(),
-    origineId: p.id,
-    controparte: p.beneficiario,
-    descrizione: `Pagamento diretto a ${p.beneficiario}${p.fornitore ? ` (${p.fornitore})` : ""}`,
-  });
-  await registra({
-    azione: `Pagamento diretto a ${p.beneficiario} segnato eseguito (${euro(p.importo)})`,
-    categoria: "pagamenti",
-    entita: "pagamento_diretto",
-    entitaId: p.id,
-  });
-}

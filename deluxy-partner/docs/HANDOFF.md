@@ -79,7 +79,6 @@ Convenzione bonifici: `> 0` inviato al partner, `< 0` ricevuto. `RiepilogoMese` 
 | `/vendite`, `/vendite/[id]`, `/vendite/nuova` | Vendite come vendor; scheda con modifica fee/incasso |
 | `/proforma`, `/proforma/nuova`, `/proforma/[id]`, `/proforma/[id]/modifica`, `/proforma/[id]/invia` | **Pro-forma ad hoc**: righe libere con totali live, numerazione `PF n/anno` per anno, documento stampabile (Stampa/PDF del browser, `@media print`), invio email (SMTP o mailto, testo precompilato modificabile). Stati: bozza → inviata → **fatturata** (con n° fattura definitiva) oppure **annullata**; bozze modificabili/eliminabili, stati sempre reversibili. Intestazione mittente da Impostazioni → "Intestazione documenti" (chiavi `azienda.*`). Logica: `src/lib/proforma.ts` + `proforma-actions.ts`, editor righe `RigheProForma.tsx` |
 | `/saldi` | Riconciliazione mensile per partner, export SEPA/CSV |
-| `/pagamenti`, `/pagamenti/nuova`, `/pagamenti/[id]` | **Pagamenti diretti ai fornitori**: si carica una foto/screenshot dei dati bancari, l'**AI (OpenAI vision)** legge beneficiario/IBAN/BIC/importo/causale (`/api/pagamenti/leggi`), l'operatore **verifica** (validazione IBAN mod-97) e predispone il bonifico. Esecuzione = **file SEPA** del singolo pagamento (`/api/pagamenti/[id]/sepa`) da autorizzare in Qonto/home banking. **L'app non esegue pagamenti.** Stati: predisposto → pagato \| annullato. La foto non viene salvata. `src/lib/lettura-iban.ts`, `src/lib/sepa.ts`, `src/lib/pagamenti-actions.ts` |
 | `/transazioni` | **Import transazioni**: upload CSV/XLSX (parser tollerante, incluso Vivid) o **Sincronizza da Qonto**; riconciliazione con match a 1 click, discrepanze, non riconosciute, ricerca morbida, "attesi mancanti" |
 | `/scadenzario` | Fatture da incassare (con "Invia sollecito" + "Emetti su FIC"), bonifici pendenti, commissioni da emettere. **Ricerca** (partner/n. fattura/tipologia/IBAN) su tutte e tre le tabelle e **colonne ordinabili indipendenti** per tabella (default: nome partner) |
 | `/report`, `/confronti`, `/analisi` | Report per tipologia/città/categoria + forecast; Confronti 2026 vs 2025 (mese/trimestre/anno/personalizzato); Analisi finanziaria per scadenza con split saldato/da saldare e liquidità Qonto live |
@@ -108,7 +107,7 @@ Sidebar riducibile a icone (preferenza in localStorage). **Operatività**: Dashb
 
 ## 7. API pubbliche (per gli altri progetti Deluxy)
 
-Base `https://deluxy-partner.vercel.app`. Auth: header `X-API-Key: <chiave>` (unica, in `Impostazione.api.verificheKey`, gestita in `/verifiche`). Header facoltativo `X-App: <nome>` per lo storico. Ogni chiamata → tabella `RichiestaVerifica`. Rotte escluse dal middleware di sessione: `api/verifiche`, `api/fatture`, `api/proforma`, `api/tipologie`, `api/incassi`, `api/tasks`, `api/riepilogo-finanziario`, `api/clienti`, `api/richieste-pagamento`, `api/cron`, `api/fic/callback`.
+Base `https://deluxy-partner.vercel.app`. Auth: header `X-API-Key: <chiave>` (unica, in `Impostazione.api.verificheKey`, gestita in `/verifiche`). Header facoltativo `X-App: <nome>` per lo storico. Ogni chiamata → tabella `RichiestaVerifica`. Rotte escluse dal middleware di sessione: `api/verifiche`, `api/fatture`, `api/proforma`, `api/tipologie`, `api/incassi`, `api/tasks`, `api/riepilogo-finanziario`, `api/clienti`, `api/cron`, `api/fic/callback`.
 
 1. **`GET /api/verifiche?partner=<nome o id>`** → situazione finanziaria partner (venditeYtd, serviziFatturatiYtd, commissioniYtd, dovutoAlPartner, daIncassare, daBonificare, residuo, fattureAperte{numero,totaleIvato,scaduto}, debiti/crediti2025). `src/lib/verifica.ts`.
 2. **`GET /api/fatture?numero=181/2026`** (o `?id=`) → stato pagamento fattura (`pagata`, `dataPagamento`, `scaduta`, `scadenza`, `competenza`, imponibile/aliquota/totale, tipologia, partner). Riconosce numeri raggruppati. `src/lib/verifica-fattura.ts`.
@@ -171,24 +170,14 @@ Una fattura servizi non è più solo pagata/non pagata: si può incassare **un a
 - **Fatture in Cloud**: `ficAllineaIncassoParziale(numero, incassato, totale)` e `ficIncassaParzialePerId(ficId, importo)` riscrivono i `payments_list` come «parte paid / resto not_paid», così l'`amount_due` su FIC scende. `ficFatture` ora espone `residuo`/`incassato` (da `payments_list`).
 - **UI**: form «Registra un incasso» (tutto o acconto) nella scheda fattura; colonna **Residuo** + «Incassa…»/«Salda tutto» in scadenzario, dashboard (fatture scadute) e **`/registrazioni/fatture`** (che scrive l'acconto direttamente su FIC); badge oro «Incassata in parte» / «Residuo …» nella scheda partner e nelle liste.
 
-### Approvazione richieste di pagamento in arrivo (26/07/2026)
+### RIMOSSA tutta la parte "pagamenti in uscita" (26/07/2026)
 
-Le altre app (in particolare **deluxy-messaging**, che legge IBAN/importo/intestatario dai messaggi) mandano richieste di pagamento a FINANCE, che le mette in **coda di approvazione**.
+Decisione utente: i **pagamenti** (esecuzione/richiesta) si faranno in una **nuova app «transazioni»**, non in FINANCE. Rimossi:
+- **Pagamenti diretti** (`/pagamenti`, modello `PagamentoDiretto`, SEPA del singolo pagamento, lettura AI dell'IBAN da foto): pagine, `pagamenti-actions.ts`, `lettura-iban.ts`, `LettoreBonifico.tsx`, `api/pagamenti/*`.
+- **Approvazioni** (`/approvazioni`, modello `RichiestaPagamentoIn`, `api/richieste-pagamento`, `approvazioni-actions.ts`).
+- **Conferma con codice via email** (`/conferma`, modello `ConfermaPagamento`, `conferme.ts`, `eseguiPagamentoDiretto`).
 
-- **API d'ingresso**: `POST /api/richieste-pagamento` (header `X-API-Key` = la stessa `api.verificheKey`; `X-App` identifica la sorgente → `origine`). Body JSON: `importo` (obbligatorio), `beneficiario?`, `iban?`, `bic?`, `causale?`, `note?`, `contatto?`, `linkConversazione?`, `riferimento?`. **Idempotente** per `(origine, riferimento)`: re-inviare aggiorna la richiesta finché è `in_attesa`, non ne crea un'altra. `GET` per stato/elenco. Rotta esclusa dal middleware di sessione. Modello `RichiestaPagamentoIn` (stati `in_attesa`/`approvata`/`rifiutata`).
-- **Sezione `/approvazioni`** (menu Amministrazione): elenca le richieste in attesa con importo, IBAN, causale, contatto e link alla conversazione. **Approva** → crea un **PagamentoDiretto «predisposto»** (l'esecuzione vera resta protetta dal **codice email** in Pagamenti diretti) e marca la richiesta `approvata`; **Rifiuta** → chiusa; «Correggi dati» per sistemare IBAN/importo letti male prima di approvare. `approvazioni-actions.ts`.
-- **Due livelli di controllo**: qui si approva la richiesta (green-light), poi il denaro esce solo dopo il codice di conferma via email sul pagamento diretto.
-- ⚠️ Il lato che INVIA (deluxy-messaging che chiama `POST /api/richieste-pagamento`) è un'altra app: va wired lì. Qui c'è solo il ricevente + l'approvazione.
-
-### Conferma dei pagamenti con codice via email (23/07/2026)
-
-Registrare un'**uscita di denaro** non è più immediato: l'app congela l'operazione, manda un **codice di 6 cifre** via email e la esegue solo dopo che il codice è stato digitato in `/conferma/[id]`.
-
-- **Cosa passa dal codice**: «Paga» rapido in dashboard, «Abbiamo pagato» nella scheda partner, pagamento diretto segnato eseguito. **NON** passa la registrazione di un incasso *ricevuto* (non muove soldi nostri).
-- **Destinatario**: `Impostazione conferme.email`, default **nicolo.donato@deluxy.it**, modificabile in Impostazioni → «Conferma dei pagamenti».
-- **Regole**: codice valido **15 minuti**, usabile **una volta sola**, **5 tentativi** poi la richiesta si brucia; in chiaro non è mai salvato (solo SHA-256); `confermatoIl` si scrive *prima* di eseguire, così un doppio invio non registra due volte.
-- ⚠️ **Fallisce chiuso**: se SMTP non è configurato (o l'invio va in errore) il pagamento **non si registra** e compare un avviso rosso. Oggi in produzione `smtp.host` e `smtp.user` ci sono ma **mancano password e mittente** → i pagamenti sono bloccati finché non si compilano in Impostazioni. È voluto: un controllo che fallisce aperto non è un controllo.
-- **Architettura**: `src/lib/conferme.ts` (richiesta, verifica, dispatcher) + `src/lib/pagamenti-core.ts`, che contiene l'esecuzione vera ed è volutamente **senza `"use server"`** — se stesse fra le server action sarebbe un endpoint e il controllo si scavalcherebbe chiamandolo diretto. Modello `ConfermaPagamento`.
+**Cosa resta (tracciamento, non esecuzione)**: il «Paga» dei bonifici ai partner e «Abbiamo pagato»/«Hanno pagato» sulla scheda partner **registrano subito** (senza codice) che il denaro è stato mosso in banca — l'uscita vera avviene fuori; il **costo fornitore** sugli ordini; la **«Richiesta di pagamento» sulla scheda ordine** (`RichiestaPagamentoOrdine`); il registro riferimenti `Pagamento` (`PAY-…`, `pagamenti-rif.ts`) e `pagamenti-core.ts` (solo `aggiornaPagamentoDaSaldo` + `eseguiBonificoMese`). SEPA di gruppo resta in `/saldi`.
 
 ### Registro modifiche / audit log (23/07/2026)
 

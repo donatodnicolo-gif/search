@@ -12,7 +12,6 @@ import { ficAllineaStatoFattura, ficAllineaIncassoParziale } from "./fic";
 import { registra } from "./registro";
 import { euro } from "./format";
 import { aggiornaPagamentoDaSaldo, eseguiBonificoMese } from "./pagamenti-core";
-import { richiediConferma } from "./conferme";
 
 function s(fd: FormData, k: string): string | null {
   const v = fd.get(k);
@@ -597,7 +596,8 @@ export async function upsertSaldo(fd: FormData) {
 }
 
 // «Paga» rapido della dashboard: registra il bonifico a pareggio del mese.
-// È un'uscita di denaro → passa dalla conferma via email, non si esegue qui.
+// Annota che il partner è stato pagato (l'uscita vera avviene in banca/nell'app
+// transazioni): qui è solo tracciamento, quindi immediato.
 export async function registraBonifico(
   partnerId: string,
   anno: number,
@@ -605,27 +605,14 @@ export async function registraBonifico(
   importo: number,
   dataIso?: string
 ) {
-  const pnome = (await prisma.partner.findUnique({ where: { id: partnerId }, select: { nome: true } }))?.nome ?? "partner";
-  const esito = await richiediConferma({
-    azione: {
-      tipo: "bonifico_mese", partnerId, anno, mese, importo,
-      dataIso: dataIso ? `${dataIso}T00:00:00.000Z` : undefined,
-      origine: "«Paga» rapido dalla dashboard",
-    },
-    descrizione: `Bonifico a ${pnome} — ${nomeMese(mese)} ${anno}`,
-    importo,
-    ritornoUrl: "/",
-  });
-  if (!esito.ok) redirect(`/?errorePagamento=${encodeURIComponent(esito.errore)}`);
-  redirect(`/conferma/${esito.id}`);
+  const data = dataIso ? new Date(`${dataIso}T00:00:00.000Z`) : new Date();
+  await eseguiBonificoMese({ partnerId, anno, mese, importo, data, origine: "«Paga» rapido dalla dashboard" });
+  revalidateAll();
 }
 
 // Registra il pagamento di un mese dalla scheda partner, indicando importo, data
 // e direzione: "inviato" = abbiamo pagato noi il partner (bonifico > 0),
-// "ricevuto" = ha pagato il partner (bonifico < 0).
-//
-// Solo l'USCITA passa dalla conferma via email: registrare un incasso RICEVUTO
-// non muove soldi nostri e resta immediato.
+// "ricevuto" = ha pagato il partner (bonifico < 0). Solo tracciamento: immediato.
 export async function registraPagamentoMese(
   partnerId: string,
   anno: number,
@@ -637,22 +624,6 @@ export async function registraPagamentoMese(
   if (importo == null || Math.abs(importo) < 0.005) return;
   const firmato = direzione === "inviato" ? Math.abs(importo) : -Math.abs(importo);
   const data = d(fd, "data") ?? new Date();
-
-  if (direzione === "inviato") {
-    const pnome = (await prisma.partner.findUnique({ where: { id: partnerId }, select: { nome: true } }))?.nome ?? "partner";
-    const esito = await richiediConferma({
-      azione: {
-        tipo: "bonifico_mese", partnerId, anno, mese, importo: firmato,
-        dataIso: data.toISOString(), origine: "scheda partner",
-      },
-      descrizione: `Bonifico a ${pnome} — ${nomeMese(mese)} ${anno}`,
-      importo: Math.abs(importo),
-      ritornoUrl: `/partner/${partnerId}`,
-    });
-    if (!esito.ok) redirect(`/partner/${partnerId}?errorePagamento=${encodeURIComponent(esito.errore)}#mese-${mese}`);
-    redirect(`/conferma/${esito.id}`);
-  }
-
   await eseguiBonificoMese({ partnerId, anno, mese, importo: firmato, data, origine: "scheda partner" });
   revalidateAll();
 }
