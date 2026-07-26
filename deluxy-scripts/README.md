@@ -95,6 +95,16 @@ Una chiave si crea dal terminale — viene stampata una sola volta:
 cd C:/Users/nicol/scoutwt/deluxy-scripts && npm run chiave -- <nome-app>
 ```
 
+## Ingresso dal Hub (Single Sign-On)
+
+Aprendo la tessera **Scripts** dal portale non si ridigita la password: il Hub
+manda un token cifrato (AES-256-GCM, valido 60 secondi) su `/api/sso`, l'app lo
+legge e apre da sé la sessione. Serve che `HUB_SSO_SECRET` abbia lo **stesso
+valore** qui e nel Hub.
+
+Se il token manca, è scaduto, è stato manomesso o è destinato a un'altra app,
+si finisce sul `/login` di sempre: il salto salta, l'accesso no.
+
 ## Variabili d'ambiente
 
 Solo i nomi (i valori stanno nella cassaforte del Hub): vedi

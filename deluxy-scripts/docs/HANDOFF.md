@@ -29,6 +29,12 @@ Il manuale d'uso è il [README](../README.md).
   `seed-app.mjs` (14 destinazioni: le app Deluxy + Google Ads + Shopify).
 - **Standard**: `.vercelignore`, middleware con `SCRIPTS_APP_PASSWORD`, `/login`,
   token del design system, pagine `force-dynamic`, API `no-store`.
+- **Single Sign-On dal Hub** (`/api/sso`, `src/lib/sso.ts` — copia lato lettura
+  di quella del Hub): chi apre la tessera dal portale non ridigita la password.
+  Verificato in produzione con token veri: token buono → 307 su `/` con cookie
+  di sessione e la home poi risponde 200; **senza token, scaduto, per un'altra
+  app o inventato → 307 su `/login`**. `HUB_SSO_SECRET` è impostato sul progetto
+  Vercel con lo stesso valore del Hub.
 - **Prova reale end-to-end**: creato uno script Google Ads con 4 variabili,
   `CHIAVE_API` messa a segreto, acceso per `google-ads` con `BRAND=flowers` e
   `GIORNI_INDIETRO=14`; l'API ha restituito il testo composto con il segreto
@@ -60,9 +66,12 @@ tessera compare nel portale **solo dopo un deploy del Hub**.
    copiano a mano — `google-ads-script.js` di Marketing (una copia per account e
    per azione: è esattamente il caso «stesse righe, variabili diverse»), gli
    snippet Liquid dei temi, le query SQL di manutenzione ricorrenti.
-2. **Tessera nel portale**: il Hub punta già a `deluxy-scripts.vercel.app`, ma il
-   catalogo è cambiato in `deluxy-hub/src/lib/apps.ts` — finché il Hub non viene
-   ripubblicato, l'icona non compare.
+2. **Tessera nel portale**: in `deluxy-hub/src/lib/apps.ts` la voce `scripts`
+   c'è, punta alla produzione e ha `sso: true`, ma **finché il Hub non viene
+   ripubblicato l'icona non compare** e il salto senza login non parte (il lato
+   Scripts è già pronto e verificato). Il deploy del Hub non l'ho fatto perché
+   un'altra sessione ci sta lavorando: pubblicandolo sarebbe finito online anche
+   il suo lavoro in corso.
 3. **Storico delle versioni**: oggi il testo si sovrascrive. Se serve tornare
    indietro va aggiunta una tabella `VersioneScript` (corpo + nota + data) e un
    pulsante «ripristina».
