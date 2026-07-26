@@ -104,9 +104,15 @@ export async function sincronizzaOrdini(
       statoNome: o.statoNome || stati.get(o.statoChiave)?.nome || '',
       statoColore: stati.get(o.statoChiave)?.colore || '',
       // Da che tipo di cliente arriva l'ordine: deciso in Orders, qui solo
-      // ricopiato a ogni giro (vedi la nota su `clienteTipo` nello schema).
-      clienteTipo: o.clienteTipo,
-      clienteTipoDa: o.clienteTipoDa,
+      // ricopiato (vedi la nota su `clienteTipo` nello schema).
+      //
+      // Si scrive SOLO se Orders ce lo dice davvero: se il campo torna vuoto —
+      // perché quella versione di Orders non lo espone ancora, o perché
+      // dell'ordine non si sa chi sia il cliente — si tiene quello che c'è già
+      // invece di cancellarlo. Un dato mancante in arrivo non è la notizia che
+      // il dato è diventato falso, e non deve svuotare una colonna che qualcuno
+      // sta guardando.
+      ...(o.clienteTipo ? { clienteTipo: o.clienteTipo, clienteTipoDa: o.clienteTipoDa } : {}),
     }
     const esito = await db.ordine.upsert({
       // il gid Shopify è la chiave stabile: gli ordini presi prima da Shopify
