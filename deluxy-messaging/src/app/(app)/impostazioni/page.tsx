@@ -36,6 +36,7 @@ export default async function PaginaImpostazioni({
     'ordersApiKey',
     'searchUrl',
     'searchApiKey',
+    'anthropicApiKey',
   ])
 
   // URL pubblico dell'app: da APP_URL, altrimenti dall'host della richiesta.
@@ -215,6 +216,28 @@ export default async function PaginaImpostazioni({
             <a className="bottone secondario" href="/caselle">
               Vai a Caselle
             </a>
+          </div>
+
+          <div className="card">
+            <h2>Lettura AI (Claude)</h2>
+            <p className="descrizione">
+              Serve a leggere IBAN, intestatario e importo da un messaggio o da un&apos;immagine
+              nella pagina Pagamenti. La chiave si crea su console.anthropic.com; l&apos;IBAN letto
+              viene comunque verificato col codice di controllo.
+            </p>
+            <label className="campo">
+              <span>
+                Chiave API Anthropic <BadgeConfigurato pieno={!!config.anthropicApiKey} />
+              </span>
+              <input
+                name="anthropicApiKey"
+                type="password"
+                placeholder={
+                  config.anthropicApiKey ? 'salvata — incolla per sostituire' : 'sk-ant-…'
+                }
+                autoComplete="off"
+              />
+            </label>
           </div>
 
           <div className="card">

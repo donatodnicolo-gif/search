@@ -15,6 +15,7 @@ const SEGRETI = [
   'googleClientSecret',
   'ordersApiKey',
   'searchApiKey',
+  'anthropicApiKey',
 ]
 const IN_CHIARO = [
   'waPhoneNumberId',

@@ -60,6 +60,29 @@ model NegozioShopify {
   ordini Ordine[]
 }
 
+// Una richiesta di pagamento: le coordinate su cui farsi pagare. L'IBAN e
+// l'intestatario possono essere inseriti a mano o letti dall'AI da un
+// messaggio o da un'immagine (schermata, foto di un bonifico).
+model RichiestaPagamento {
+  id           String   @id @default(cuid())
+  iban         String
+  intestatario String
+  importo      Float    @default(0)
+  valuta       String   @default("EUR")
+  causale      String   @default("")
+  note         String   @default("") @db.Text
+  // Esito della verifica formale dell'IBAN (checksum mod-97): non ci si fida
+  // di quello che estrae l'AI, si controlla.
+  ibanValido   Boolean  @default(false)
+  ibanPaese    String   @default("")
+  // Da dove arriva: manuale | testo | immagine
+  origine      String   @default("manuale")
+  ordineNumero String   @default("") // se legata a un ordine
+  creatoIl     DateTime @default(now())
+
+  @@index([creatoIl])
+}
+
 // Una casella di posta collegata (se ne possono collegare più d'una).
 // Parametri ufficiali register.it: IMAP pop.securemail.pro:993 SSL,
 // SMTP authsmtp.securemail.pro:465 SSL, utente = indirizzo completo.

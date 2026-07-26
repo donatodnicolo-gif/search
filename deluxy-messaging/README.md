@@ -74,6 +74,15 @@ della pipeline di Orders (colori letti da `GET /api/v1/stati`). Si filtra per st
 cliccando la legenda e per negozio; in testa il numero e il valore delle consegne del mese.
 Gli ordini senza data di consegna indicata non compaiono e vengono contati esplicitamente.
 
+**Richiedi pagamento.** `/pagamenti` raccoglie le coordinate su cui farsi pagare. IBAN e
+intestatario si scrivono a mano oppure si fanno **leggere all'AI** (Claude, `src/lib/ai.ts`)
+da un messaggio incollato o da un'immagine — schermata di chat, foto di un bonifico — che
+restituisce IBAN, intestatario, importo e causale e compone la stringa pulita da inviare
+(`IBAN … — intestato a … — importo … — causale «…»`). L'AI propone, ma la verità formale la
+dà il **checksum mod-97** (`src/lib/iban.ts`, ISO 13616): una cifra letta male non passa e la
+riga resta marcata "da controllare" invece di essere spacciata per buona. La chiave Anthropic
+si mette in Impostazioni (cifrata).
+
 **Menu.** Il menu sta **a sinistra** (`src/components/Sidebar.tsx`, stesso impianto di
 Deluxy Orders: `.layout` + `.sidebar` sticky + `.main`); la barra in alto tiene solo marchio
 e utente. Sotto gli 800px il menu diventa una riga orizzontale scorrevole.

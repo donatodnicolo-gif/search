@@ -79,6 +79,17 @@ Ultimo aggiornamento: 24/07/2026
   `{url: …/?t=<code>}` valido ~5 min; ci aggiungiamo brand+ordine. Senza chiave ripiega
   sul link semplice `?brand=&ordine=` (verificato: `firmato: false`). Il bottone apre la
   scheda PRIMA della fetch, altrimenti il browser la blocca come popup.
+- RICHIEDI PAGAMENTO (26/07/2026): tabella `RichiestaPagamento` + pagina `/pagamenti`.
+  `src/lib/iban.ts` verifica l'IBAN col checksum mod-97 (ISO 13616) + lunghezza per paese;
+  `stringaPagamento()` compone la stringa pulita. `src/lib/ai.ts` estrae iban/intestatario/
+  importo/causale con **Claude Opus 5** (`@anthropic-ai/sdk`, `output_config.format` con
+  json_schema, immagini via blocco `image` base64), gestendo `stop_reason: "refusal"`.
+  API `/api/pagamenti/estrai` (testo e/o immagine) e `/api/pagamenti` (GET/POST/DELETE).
+  Chiave in Impostazione `anthropicApiKey` (cifrata).
+  PRINCIPIO: l'AI propone, il checksum decide — un IBAN che non torna si salva ma resta
+  "da controllare", non viene mai dato per buono. Verificato: cifra alterata → rifiutata,
+  spazi → normalizzati, lunghezza IT sbagliata → rifiutata, DE valido → accettato.
+  MANCA: prova reale dell'estrazione AI (serve una chiave Anthropic vera).
 - Menu a SINISTRA (26/07/2026): `src/components/Sidebar.tsx` + `.layout/.sidebar/.main`
   copiati da deluxy-orders; la topbar tiene solo marchio e utente. Sotto 800px la sidebar
   diventa una riga orizzontale. Voci: Ordini/Calendario/Clienti · Inbox · Negozi/Caselle/
