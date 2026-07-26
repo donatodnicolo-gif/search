@@ -45,6 +45,16 @@ pubblicato), *sfidante* e *irraggiungibile*.
   così nulla è nascosto. Richiede `FINANCE_API_KEY` in
   `.env` (la stessa chiave di `/api/verifiche` di Finance, **segreto, mai committato**);
   `FINANCE_API_URL` è opzionale. Senza chiave la pagina spiega come configurarla.
+  **Il canale D2C non passa da Finance** — le vendite ai consumatori nascono su Shopify — quindi
+  il suo consuntivo arriva dal registro ordini **Orders** (`GET /api/v1/ricavi`, chiave
+  `ORDERS_API_KEY` + `ORDERS_URL`), che dà il venduto per brand e per mese. La pagina lo somma
+  ai ricavi (riga D2C e split mensile) e lo apre in una tabella **D2C per maison**: i negozi si
+  abbinano alle maison per nome (`deluxy.it` → Deluxy.it) o per slug (`Flowers` → flowers), e un
+  negozio senza maison resta comunque a vista su una riga a parte. Il totale Shopify è **IVA e
+  spedizione incluse** mentre il budget è imponibile: lo scorporo si sceglie in pagina (IVA 22%
+  predefinita, 10%, oppure «Lordo» per il dato Shopify tale e quale), perché l'aliquota non è
+  salvata sull'ordine e non va indovinata. Ordini **annullati e rimborsati esclusi**; i rimborsi
+  parziali restano contati per intero, ed è scritto sotto la tabella.
 - **Piattaforme ADV** (`/piattaforme`): ripartizione del budget pubblicitario tra le **piattaforme**
   (Google, Meta, TikTok e altre **aggiungibili/rimovibili**). Si impostano le **% per mese** — diverse
   mese per mese — e l'**importo per piattaforma si calcola da solo** (= budget ADV del mese × %). La
@@ -89,7 +99,7 @@ Il motore di calcolo è `src/lib/calc.ts` (mai valori derivati a DB).
 
 ## Chiavi (cassaforte del Hub)
 
-Le chiavi (`FINANCE_API_KEY`, `OPENAI_API_KEY`, …) non stanno nel `.env` di questa app: si
+Le chiavi (`FINANCE_API_KEY`, `ORDERS_API_KEY`, `OPENAI_API_KEY`, …) non stanno nel `.env` di questa app: si
 chiedono al **Hub** (pagina `/chiavi`, progetto `deluxy-budgets`) tramite `GET /api/chiavi`,
 autenticandosi con il token di servizio `HUB_KEYS_TOKEN` (uguale a quello del Hub). Il client è
 `src/lib/chiavi.ts`: scarica le chiavi del progetto una volta (cache 5 min) e le usa a runtime.
@@ -100,8 +110,8 @@ vive nel vault.
 ## Stack e avvio
 
 Next.js 15 + React 19 + Prisma. In sviluppo il DB è **SQLite** (`prisma/dev.db`, zero
-configurazione); per la produzione passare a Postgres/Supabase (cambiare provider in
-`prisma/schema.prisma` e `DATABASE_URL`).
+configurazione); in **produzione** gira su **Postgres/Supabase** (provider `postgresql` in
+`prisma/schema.prisma`, `DATABASE_URL` + `DIRECT_URL`), protetta da `BUDGETS_APP_PASSWORD`.
 
 ```bash
 npm install
@@ -117,14 +127,18 @@ npm run dev               # http://localhost:3080
 completo** (annuale, mensile e per maison), **sezione Dipendenti** (RAL/stagisti/consulenti
 con mesi di competenza), dettaglio maison D2C/Eventi/B2B, team commerciale per linee e
 clienti, invio e lista proposte, spese ADV con % per mese personalizzabili, impostazioni
-scenari/premi/costi, catalogo Hub aggiornato (id `budgets`, `APP_URL_BUDGETS`).
+scenari/premi/costi, **consuntivo D2C dal registro ordini** (Orders `/api/v1/ricavi`: venduto per
+maison e per mese, scorporo IVA a scelta), catalogo Hub aggiornato (id `budgets`, `APP_URL_BUDGETS`),
+**pubblicata su Vercel** ([deluxy-budgets.vercel.app](https://deluxy-budgets.vercel.app), Postgres/Supabase + password).
 
 **MANCA**:
-- **Deploy** (Vercel + Postgres) e **autenticazione via Hub**: oggi gira solo in locale su SQLite.
 - **Anno unico 2026**: nessun selettore d'anno; il pluriennale 2027-30 (già nei file pubblicati) non è caricato.
 - **Proposte budget**: si raccolgono ma non si **approvano/consolidano** nel budget ufficiale.
 - **Premi per singolo responsabile**: oggi è un monte premi totale per livello, non ripartito per persona/team.
-- **Consuntivo**: confronto solo dove la mappatura Finance è impostata; manca il **dettaglio mensile** dell'actual (l'API dà il periodo, non il mese-per-mese) e le vendite D2C reali (non passano da Finance).
+- **Consuntivo**: confronto solo dove la mappatura Finance è impostata. Il D2C reale ora arriva da
+  Orders (per maison e per mese), ma resta **un'unica aliquota IVA** scelta a mano per scorporare
+  il venduto Shopify: non c'è un'aliquota per maison né per prodotto. I **rimborsi parziali** sono
+  contati per intero (l'importo reso non esiste nel registro ordini).
 - **Piattaforme ADV**: split **globale** d'azienda, non per singola maison; nessun raccordo con lo speso reale.
 - **Costo del lavoro**: tredicesima/quattordicesima e TFR non sono voci distinte; nessun consuntivo del personale.
 - **P&L**: per singola **linea commerciale** non c'è (le linee hanno solo il budget vendite, non un conto economico).

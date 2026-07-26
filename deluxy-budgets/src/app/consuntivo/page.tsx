@@ -4,6 +4,7 @@ import { fetchConsuntivo, fetchSpeseBanca } from "@/lib/finance";
 import { caricaCategorie, ricostruisci } from "@/lib/cfo";
 import { eur, MESI, pct } from "@/lib/format";
 import { normalizzaNome } from "@/lib/scout";
+import { abbinaMaison, ALIQUOTE, fetchRicaviD2C, imponibile } from "@/lib/orders";
 
 export const dynamic = "force-dynamic";
 
@@ -22,14 +23,23 @@ const STATI = [
   { key: "aperte", label: "Solo aperte" },
 ] as const;
 
+// Slug della tipologia che rappresenta il venduto diretto al consumatore. È lo
+// slug canonico creato con il budget (vedi schema Prisma, BudgetEntry.canale):
+// è la voce che NON passa da Finance e va riempita con il venduto di Orders.
+const SLUG_D2C = "D2C";
+
 export default async function ConsuntivoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string; stato?: string; anno?: string }>;
+  searchParams: Promise<{ periodo?: string; stato?: string; anno?: string; iva?: string }>;
 }) {
   const sp = await searchParams;
   const periodo = PERIODI.find((p) => p.key === sp.periodo) ?? PERIODI[0];
   const stato = (STATI.find((s) => s.key === sp.stato)?.key ?? "tutte") as "tutte" | "pagate" | "aperte";
+  // Il venduto Shopify è IVA inclusa, il budget è imponibile: l'aliquota con cui
+  // scorporarlo si sceglie qui e resta visibile, invece di essere nascosta in
+  // una costante che nessuno ritrova.
+  const aliquota = ALIQUOTE.find((a) => a.key === sp.iva) ?? ALIQUOTE[0];
 
   // Anno selezionabile. Il consuntivo si ferma all'ultimo mese CHIUSO: il mese
   // in corso è incompleto, quindi lo si esclude.
@@ -48,12 +58,35 @@ export default async function ConsuntivoPage({
   for (let m = dal; m <= al; m++) mesiPeriodo.push(m);
   const vuoto = mesiPeriodo.length === 0;
 
-  const [res, spese, categorie, dati] = await Promise.all([
+  const [res, spese, categorie, dati, d2c] = await Promise.all([
     vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchConsuntivo({ anno, dal, al, stato }),
     vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchSpeseBanca({ anno, dal, al }),
     caricaCategorie(),
     caricaAnno(anno),
+    // Il D2C reale non è in Finance: è il venduto dei negozi Shopify, che vive
+    // nel registro Orders.
+    vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchRicaviD2C(anno),
   ]);
+
+  // ---- D2C reale (Orders): mesi in imponibile, per maison e in totale ----
+  // Tutti i brand Shopify sono D2C, anche quelli che non corrispondono a una
+  // maison del budget: entrano nel totale e vengono elencati a parte, così il
+  // conto torna e nessun venduto sparisce.
+  const d2cMese = Array(12).fill(0) as number[];
+  const d2cPerMaison = new Map<string, number[]>();
+  const d2cSenzaMaison: { brand: string; mesi: number[] }[] = [];
+  if (d2c.ok) {
+    for (const b of d2c.dati.brand) {
+      const mesi = b.mesi.map((v) => imponibile(v, aliquota.pct));
+      for (let i = 0; i < 12; i++) d2cMese[i] += mesi[i] ?? 0;
+      const slug = abbinaMaison(b.brand, dati.maisons);
+      if (!slug) { d2cSenzaMaison.push({ brand: b.brand, mesi }); continue; }
+      const gia = d2cPerMaison.get(slug);
+      if (gia) for (let i = 0; i < 12; i++) gia[i] += mesi[i] ?? 0;
+      else d2cPerMaison.set(slug, [...mesi]);
+    }
+  }
+  const d2cPeriodo = mesiPeriodo.reduce((s, m) => s + (d2cMese[m - 1] ?? 0), 0);
 
   // Budget dei mesi chiusi: si somma il budget mensile (non si rapporta
   // l'annuale), così la stagionalità non falsa il confronto.
@@ -89,6 +122,11 @@ export default async function ConsuntivoPage({
       const f = fatturatoPerNome.get(k);
       if (f) { consuntivo += f.imponibile; collegati.push(f.nome); consumati.add(k); }
     }
+    // Il D2C non si fattura in Finance: il suo consuntivo è il venduto Shopify.
+    if (t.slug === SLUG_D2C && d2c.ok) {
+      consuntivo += d2cPeriodo;
+      collegati.push(`Orders · ${d2c.dati.brand.length} negozi`);
+    }
     return { nome: t.nome, slug: t.slug, budgetPeriodo: budgetVoce(t.slug), consuntivo, collegati, mappata: collegati.length > 0 };
   });
   const nonMappate = res.ok ? res.dati.tipologie.filter((t) => !consumati.has(normalizzaNome(t.tipologia))) : [];
@@ -123,6 +161,9 @@ export default async function ConsuntivoPage({
       ricaviMese[m] = r.ok
         ? r.dati.tipologie.filter((t) => nomiMappati.has(normalizzaNome(t.tipologia))).reduce((s, t) => s + t.imponibile, 0)
         : 0;
+      // Al fatturato Finance del mese si somma il D2C dello stesso mese: sono
+      // ricavi dello stesso conto economico, da fonti diverse.
+      ricaviMese[m] += d2cMese[m - 1] ?? 0;
     });
   }
 
@@ -160,8 +201,8 @@ export default async function ConsuntivoPage({
     { label: "Struttura", costo: true, get: (m) => costoM("STRUTTURA", m) },
   ];
 
-  const link = (p: { periodo?: string; stato?: string; anno?: number }) =>
-    `/consuntivo?periodo=${p.periodo ?? periodo.key}&stato=${p.stato ?? stato}&anno=${p.anno ?? anno}`;
+  const link = (p: { periodo?: string; stato?: string; anno?: number; iva?: string }) =>
+    `/consuntivo?periodo=${p.periodo ?? periodo.key}&stato=${p.stato ?? stato}&anno=${p.anno ?? anno}&iva=${p.iva ?? aliquota.key}`;
   const ultimoChiuso = meseLimite >= 1 ? `${MESI[meseLimite - 1]} ${anno}` : "—";
 
   return (
@@ -190,6 +231,11 @@ export default async function ConsuntivoPage({
               <Link key={s.key} href={link({ stato: s.key })} className={s.key === stato ? "on" : ""}>{s.label}</Link>
             ))}
           </div>
+          <div className="seg">
+            {ALIQUOTE.map((a) => (
+              <Link key={a.key} href={link({ iva: a.key })} className={a.key === aliquota.key ? "on" : ""}>{a.label}</Link>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -214,7 +260,10 @@ export default async function ConsuntivoPage({
             <div className="kpi">
               <div className="kpi-label">Ricavi reali — {res.dati.periodo.etichetta}</div>
               <div className="kpi-value">{eur(ricaviCons)}</div>
-              <div className="kpi-sub">imponibile · {res.dati.totali.fatture} fatture</div>
+              <div className="kpi-sub">
+                imponibile · {res.dati.totali.fatture} fatture Finance
+                {d2c.ok ? ` + ${eur(d2cPeriodo)} D2C da Orders` : ""}
+              </div>
             </div>
             <div className="kpi">
               <div className="kpi-label">EBITDA consuntivo</div>
@@ -305,7 +354,9 @@ export default async function ConsuntivoPage({
 
           <p className="page-caption" style={{ marginTop: 14 }}>
             Ricavi = imponibile fatturato in Finance mappato alle voci di budget in{" "}
-            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>. Il <strong>costo del
+            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>, <strong>più il D2C</strong> preso dal
+            registro ordini (Orders): le vendite ai consumatori non passano da Finance, quindi senza Orders la voce con
+            il budget più alto dell&apos;anno resterebbe a zero. Il <strong>costo del
             personale</strong> viene dall&apos;anagrafica{" "}
             <Link href="/dipendenti" style={{ color: "var(--blue)" }}>Dipendenti</Link> (payroll, per i mesi
             chiusi), non dalla banca. Gli <strong>altri costi</strong> (COGS, ADV, struttura) sono le uscite di
@@ -365,6 +416,104 @@ export default async function ConsuntivoPage({
               (per {eur(nonMappate.reduce((s, t) => s + t.imponibile, 0))}). Associale in{" "}
               <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>, campo &quot;Voci in Finance&quot;.
             </p>
+          )}
+
+          <h2 className="section-title">D2C reale per maison — dal registro ordini</h2>
+          {!d2c.ok ? (
+            <div className="card empty">
+              <div className="empty-icon">↯</div>
+              <div className="empty-title">{d2c.configurato ? "Orders non disponibile" : "Collega l'app Orders"}</div>
+              <div className="empty-text">{d2c.errore}</div>
+            </div>
+          ) : (
+            <>
+              <div className="card tight">
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Maison</th>
+                        {mesiPeriodo.map((m) => (<th className="num" key={m}>{MESI[m - 1]}</th>))}
+                        <th className="num">Consuntivo</th>
+                        <th className="num">Budget D2C</th>
+                        <th className="num">Scostamento</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dati.maisons
+                        .map((m) => {
+                          const mesi = d2cPerMaison.get(m.slug) ?? Array(12).fill(0);
+                          const cons = mesiPeriodo.reduce((s, mm) => s + (mesi[mm - 1] ?? 0), 0);
+                          const budget = mesiPeriodo.reduce(
+                            (s, mm) => s + (m.mesi.find((y) => y.month === mm)?.vendite[SLUG_D2C] ?? 0),
+                            0
+                          );
+                          return { slug: m.slug, nome: m.nome, mesi, cons, budget };
+                        })
+                        // Una maison senza D2C né a budget né a consuntivo non
+                        // dice niente: si mostra solo chi ha almeno un numero.
+                        .filter((r) => r.cons > 0 || r.budget > 0)
+                        .map((r) => (
+                          <tr key={r.slug}>
+                            <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{r.nome}</td>
+                            {mesiPeriodo.map((m) => (<td className="num" key={m}>{eur(r.mesi[m - 1] ?? 0)}</td>))}
+                            <td className="num" style={{ fontWeight: 600 }}>{eur(r.cons)}</td>
+                            <td className="num muted">{eur(r.budget)}</td>
+                            <td className={`num ${r.cons - r.budget >= 0 ? "pos" : "neg"}`}>
+                              {r.cons - r.budget >= 0 ? "+" : ""}{eur(r.cons - r.budget)}
+                            </td>
+                          </tr>
+                        ))}
+                      {d2cSenzaMaison.map((b) => {
+                        const cons = mesiPeriodo.reduce((s, m) => s + (b.mesi[m - 1] ?? 0), 0);
+                        return (
+                          <tr key={b.brand}>
+                            <td style={{ whiteSpace: "nowrap" }}>
+                              {b.brand}
+                              <div className="muted" style={{ fontSize: 11.5 }}>negozio senza maison</div>
+                            </td>
+                            {mesiPeriodo.map((m) => (<td className="num" key={m}>{eur(b.mesi[m - 1] ?? 0)}</td>))}
+                            <td className="num" style={{ fontWeight: 600 }}>{eur(cons)}</td>
+                            <td className="num muted">—</td>
+                            <td className="num muted">—</td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="tot">
+                        <td>Totale D2C</td>
+                        {mesiPeriodo.map((m) => (<td className="num" key={m}>{eur(d2cMese[m - 1] ?? 0)}</td>))}
+                        <td className="num">{eur(d2cPeriodo)}</td>
+                        <td className="num">{eur(budgetVoce(SLUG_D2C))}</td>
+                        <td className={`num ${d2cPeriodo - budgetVoce(SLUG_D2C) >= 0 ? "pos" : "neg"}`}>
+                          {d2cPeriodo - budgetVoce(SLUG_D2C) >= 0 ? "+" : ""}{eur(d2cPeriodo - budgetVoce(SLUG_D2C))}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p className="page-caption" style={{ marginTop: 12 }}>
+                Venduto dei negozi Shopify preso da{" "}
+                <a href="https://deluxy-orders.vercel.app" style={{ color: "var(--blue)" }}>Orders</a>{" "}
+                ({d2c.dati.totali.ordini.toLocaleString("it-IT")} ordini nel {anno}), scorporato con{" "}
+                <strong>{aliquota.pct > 0 ? `IVA ${aliquota.pct}%` : "nessuno scorporo (lordo)"}</strong>: il totale
+                Shopify è IVA e spedizione incluse, il budget è imponibile. L&apos;aliquota si cambia qui sopra e non
+                viene dedotta dagli ordini, perché Shopify non la salva sull&apos;ordine.{" "}
+                {d2c.dati.esclusi.annullati.ordini > 0 && (
+                  <>Esclusi {d2c.dati.esclusi.annullati.ordini} ordini annullati ({eur(d2c.dati.esclusi.annullati.lordo)} lordi). </>
+                )}
+                {d2c.dati.esclusi.rimborsati.ordini > 0 && (
+                  <>Esclusi {d2c.dati.esclusi.rimborsati.ordini} rimborsati/stornati ({eur(d2c.dati.esclusi.rimborsati.lordo)} lordi). </>
+                )}
+                {d2c.dati.esclusi.parzialmenteRimborsati.ordini > 0 && (
+                  <>
+                    {d2c.dati.esclusi.parzialmenteRimborsati.ordini} ordini rimborsati <em>in parte</em> sono contati
+                    per intero ({eur(d2c.dati.esclusi.parzialmenteRimborsati.lordo)} lordi): Shopify non registra
+                    quanto è stato reso, quindi il dato si dichiara invece di stimarlo.
+                  </>
+                )}
+              </p>
+            </>
           )}
         </>
       )}
