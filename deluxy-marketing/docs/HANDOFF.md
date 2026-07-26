@@ -133,6 +133,17 @@ Bottone su **Dati in arrivo** e in fondo alla scheda campagna.
 - Premere due volte non accumula richieste: la seconda ritorna la prima.
 - In **anteprima** lo script non chiede e non serve niente.
 
+> ⚠️ **Trappola pagata il 26/07/2026 (Cake, poi Flowers)**: un valore non
+> numerico in `GIORNI_INDIETRO` (tipo `7 giorni`) faceva partire la query con
+> `segments.date BETWEEN 'NaN-NaN-NaN'`, e Google la rifiutava. Peggio: il
+> ripiego della quota impressioni si prendeva la colpa di **qualunque** errore,
+> quindi il log diceva "quota non disponibile su questo account" e mandava
+> fuori strada. Ora i numeri di configurazione si validano all'avvio (con
+> avviso e valore di riserva), `dataIso` rifiuta un periodo non numerico con un
+> messaggio esplicito, e il ripiego scatta **solo** su errori che nominano la
+> quota. **Regola: un messaggio di ripiego non deve mai poter mentire sulla
+> causa.**
+
 ### Connettori
 
 - **Google Ads**: `scripts/google-ads-script.js` (**v2**, 26/07/2026) da incollare

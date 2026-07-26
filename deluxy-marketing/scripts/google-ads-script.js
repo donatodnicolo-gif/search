@@ -222,6 +222,10 @@ function verificaConfigurazione() {
     ANTEPRIMA = true;
   }
 
+  GIORNI_INDIETRO = numeroConfig(GIORNI_INDIETRO, 7, "GIORNI_INDIETRO");
+  GIORNI_COPY = numeroConfig(GIORNI_COPY, 30, "GIORNI_COPY");
+  LIMITE_BUDGET_X = numeroConfig(LIMITE_BUDGET_X, 3, "LIMITE_BUDGET_X");
+
   var account = AdsApp.currentAccount();
   var conto = {
     id: account.getCustomerId(),
@@ -285,6 +289,10 @@ function mandaMetriche(conto) {
     risultati = AdsApp.search(campiBase + campiQuota + coda);
     risultati.hasNext(); // la prima pagina arriva qui: è qui che Google si lamenta
   } catch (e) {
+    // Solo gli errori che parlano DAVVERO della quota giustificano il ripiego:
+    // altrimenti si nasconde la causa vera dietro una spiegazione sbagliata.
+    var suQuota = String(e).indexOf("impression_share") !== -1 || String(e).indexOf("ImpressionShare") !== -1;
+    if (!suQuota) throw e;
     Logger.log("Quota impressioni non disponibile su questo account (" + e + "): proseguo senza.");
     conQuota = false;
     risultati = AdsApp.search(campiBase + coda);
@@ -1542,6 +1550,23 @@ function arrotonda(n) {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Un numero della configurazione, comunque l'abbiano scritto. "7 giorni" o
+ * "30gg" passano con un avviso; quello che non somiglia a un numero prende il
+ * valore di riserva invece di far fallire tutto il giro.
+ */
+function numeroConfig(valore, difetto, nome) {
+  var n = Number(valore);
+  if (isFinite(n) && n > 0) return n;
+  var ripulito = Number(String(valore).split(",").join(".").replace(/[^0-9.]/g, ""));
+  if (isFinite(ripulito) && ripulito > 0) {
+    Logger.log("⚠ " + nome + " = \"" + valore + "\": va scritto come numero puro. Leggo " + ripulito + ".");
+    return ripulito;
+  }
+  Logger.log("⚠ " + nome + " = \"" + valore + "\" non è un numero: uso " + difetto + ".");
+  return difetto;
+}
+
 /** Le quote di Google arrivano 0-1 (e a volte come stringa "< 10%"). */
 function frazione(v) {
   if (v == null || v === "") return null;
@@ -1552,8 +1577,17 @@ function frazione(v) {
 }
 
 function dataIso(deltaGiorni) {
+  var delta = Number(deltaGiorni);
+  if (!isFinite(delta)) {
+    // Senza questo controllo la query partiva con 'NaN-NaN-NaN' e Google la
+    // rifiutava con un messaggio che non nominava la causa vera.
+    throw new Error(
+      "Periodo non valido (" + deltaGiorni + "): GIORNI_INDIETRO e GIORNI_COPY " +
+      "vanno scritti come numeri puri, senza unità — 7, non \"7 giorni\"."
+    );
+  }
   var d = new Date();
-  d.setDate(d.getDate() + deltaGiorni);
+  d.setDate(d.getDate() + delta);
   var m = String(d.getMonth() + 1);
   var g = String(d.getDate());
   if (m.length < 2) m = "0" + m;

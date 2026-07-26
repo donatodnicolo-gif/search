@@ -316,7 +316,11 @@ function selettoreCon(entita) {
   const { sandbox, inviati, log } = ambiente({
     rispostaApp: () => ({ codice: 201, testo: "{}" }),
     ricerca: (q) => {
-      if (q.indexOf("search_impression_share") !== -1) throw new Error("campo non supportato");
+      // Il messaggio è quello vero di Google: nomina il campo. Il ripiego
+      // scatta SOLO su errori che parlano della quota, non su tutti.
+      if (q.indexOf("search_impression_share") !== -1) {
+        throw new Error("QueryError.PROHIBITED_FIELD: cannot select 'metrics.search_impression_share'");
+      }
       chiamate++;
       return [base];
     },
@@ -638,6 +642,59 @@ function campagnaFinta(stato) {
   sandbox.AZIONE = "metriche";
   sandbox.main();
   verifica("anteprima: non chiede nemmeno le richieste", tutte.length === 0, tutte.length);
+}
+
+
+// ───────── 10. configurazione scritta male: non deve rompere il giro ─────────
+{
+  const riga = {
+    campaign: { id: 1, name: "DC1", status: "ENABLED", advertisingChannelType: "SEARCH", biddingStrategyType: "TARGET_ROAS" },
+    campaignBudget: { amountMicros: 30000000 },
+    segments: { date: "2026-07-25" },
+    metrics: { costMicros: 10000000, impressions: 100, clicks: 10, conversions: 1, conversionsValue: 90 },
+  };
+  let query = null;
+  const { sandbox, inviati, log } = ambiente({
+    ricerca: (q) => { query = q; return [riga]; },
+    rispostaApp: () => ({ codice: 201, testo: "{}" }),
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  sandbox.GIORNI_INDIETRO = "7 giorni"; // com'è capitato sul Cake
+  sandbox.AZIONE = "metriche";
+  sandbox.main();
+
+  verifica("config storta: nessun NaN nella query", query != null && query.indexOf("NaN") === -1, query && query.slice(query.indexOf("BETWEEN"), query.indexOf("BETWEEN") + 40));
+  verifica("config storta: manda comunque le righe", inviati.length === 1, inviati.length);
+  verifica("config storta: lo dice nel log", log.join(String.fromCharCode(10)).indexOf("va scritto come numero puro") !== -1);
+}
+
+// ───────── 10-bis. valore senza speranza: si usa quello di riserva ─────────
+{
+  let query = null;
+  const { sandbox, log } = ambiente({
+    ricerca: (q) => { query = q; return []; },
+    rispostaApp: () => ({ codice: 201, testo: "{}" }),
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  sandbox.GIORNI_INDIETRO = "boh";
+  sandbox.AZIONE = "metriche";
+  sandbox.main();
+  verifica("config assurda: ripiega sul valore di riserva", sandbox.GIORNI_INDIETRO === 7, sandbox.GIORNI_INDIETRO);
+  verifica("config assurda: niente NaN nella query", query != null && query.indexOf("NaN") === -1);
+}
+
+// ───── 10-ter. un errore che non riguarda la quota non viene mascherato ─────
+{
+  const { sandbox, log } = ambiente({
+    ricerca: () => { throw new Error("QueryError.INVALID_VALUE_WITH_BETWEEN_OPERATOR: qualcosa d'altro"); },
+    rispostaApp: () => ({ codice: 201, testo: "{}" }),
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  sandbox.AZIONE = "metriche";
+  sandbox.main();
+  const testo = log.join(String.fromCharCode(10));
+  verifica("errore non di quota: non lo attribuisce alla quota", testo.indexOf("Quota impressioni non disponibile") === -1);
+  verifica("errore non di quota: riporta l'errore vero", /ERRORE in "metriche"/.test(testo) && /BETWEEN_OPERATOR/.test(testo));
 }
 
 // ───────────────────────── esito ─────────────────────────
