@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { euro, dataBreve, consegnaBreve, urgenzaConsegna } from "@/lib/ordini";
+import {
+  euro, dataBreve, consegnaBreve, urgenzaConsegna,
+  evasioneLeggibile, pagamentoLeggibile, motivoLeggibile, coloreEvasione, colorePagamento,
+} from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { linkRicerca, brandPerRicerca } from "@/lib/fornitori";
@@ -35,6 +38,18 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
   return (
     <main className="main">
       <Link href="/" className="ritorno">← Tutti gli ordini</Link>
+
+      {/* Un ordine annullato va detto prima di ogni altra cosa: non si deduce
+          dallo stato del pagamento, che può restare "pagato". */}
+      {ordine.annullatoIl && (
+        <div className="avviso-annullato">
+          <strong>Ordine annullato</strong> il {dataBreve(ordine.annullatoIl)}
+          {motivoLeggibile(ordine.motivoAnnullamento) ? ` · ${motivoLeggibile(ordine.motivoAnnullamento)}` : ""}
+          {ordine.financialStatus && ordine.financialStatus !== "REFUNDED" && (
+            <> · pagamento: {pagamentoLeggibile(ordine.financialStatus)}</>
+          )}
+        </div>
+      )}
 
       <div className="page-head">
         <div style={{ order: 2, display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -160,8 +175,15 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
       <div className="scheda">
         <div className="scheda-titolo">Dati Shopify</div>
         <dl className="griglia-campi">
-          <div className="campo"><dt>Pagamento</dt><dd>{ordine.financialStatus ?? "—"}</dd></div>
-          <div className="campo"><dt>Evasione</dt><dd>{ordine.fulfillmentStatus ?? "—"}</dd></div>
+          <div className="campo"><dt>Pagamento</dt><dd style={{ color: colorePagamento(ordine.financialStatus) }}>
+            {pagamentoLeggibile(ordine.financialStatus) ?? "—"}
+          </dd></div>
+          <div className="campo"><dt>Evasione</dt><dd style={{ color: coloreEvasione(ordine.fulfillmentStatus) }}>
+            {evasioneLeggibile(ordine.fulfillmentStatus) ?? "—"}
+          </dd></div>
+          {ordine.chiusoIl && (
+            <div className="campo"><dt>Archiviato su Shopify</dt><dd>{dataBreve(ordine.chiusoIl)}</dd></div>
+          )}
           <div className="campo"><dt>Gateway</dt><dd>{ordine.gateway ?? "—"}</dd></div>
           <div className="campo"><dt>Cliente</dt><dd>{ordine.clienteNome ?? "—"}</dd></div>
           <div className="campo"><dt>Email</dt><dd>{ordine.clienteEmail ?? "—"}</dd></div>

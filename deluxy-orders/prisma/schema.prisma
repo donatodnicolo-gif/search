@@ -99,8 +99,14 @@ model Ordine {
   valuta    String         @default("EUR")
 
   // stato lato Shopify (informativo, non modificabile qui)
-  financialStatus   String? // PAID | PENDING | PARTIALLY_PAID | REFUNDED...
+  financialStatus   String? // PAID | PENDING | PARTIALLY_PAID | REFUNDED | VOIDED...
   fulfillmentStatus String? // FULFILLED | UNFULFILLED | PARTIALLY_FULFILLED...
+  // Annullamento: NON si deduce dal pagamento. Un ordine annullato può restare
+  // "PAID" (rimborso non ancora emesso), quindi senza questi campi risulterebbe
+  // identico a uno valido — caso reale: #2565, annullato ma PAID.
+  annullatoIl        DateTime? // null = non annullato
+  motivoAnnullamento String? // CUSTOMER | DECLINED | FRAUD | INVENTORY | STAFF | OTHER
+  chiusoIl           DateTime? // archiviato su Shopify (lavorazione conclusa)
   gateway           String? // nomi gateway concatenati
   noteShopify       String?
   tagShopify        String? // tag Shopify (csv), informativi
@@ -157,6 +163,8 @@ model Ordine {
   @@index([statoId])
   @@index([brand, data])
   @@index([dataConsegna])
+  @@index([annullatoIl])
+  @@index([fulfillmentStatus])
   @@index([categoriaPagamento])
   @@index([assegnatoApp])
   @@index([data])

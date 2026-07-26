@@ -77,6 +77,24 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
   const etichetta = p.get("etichetta")?.trim();
   if (etichetta) where.etichette = { some: { nome: etichetta } };
 
+  // Stato lato Shopify. Gli annullati sono la distinzione che conta di più:
+  // di norma NON si vogliono vedere insieme agli ordini validi.
+  const shopify = p.get("shopify")?.trim();
+  if (shopify === "annullati") where.annullatoIl = { not: null };
+  else if (shopify === "validi") where.annullatoIl = null;
+  else if (shopify === "da_evadere") {
+    where.annullatoIl = null;
+    where.fulfillmentStatus = { in: ["UNFULFILLED", "PARTIALLY_FULFILLED", "ON_HOLD", "SCHEDULED"] };
+  } else if (shopify === "evasi") {
+    where.fulfillmentStatus = "FULFILLED";
+  } else if (shopify === "rimborsati") {
+    where.financialStatus = { in: ["REFUNDED", "PARTIALLY_REFUNDED", "VOIDED"] };
+  }
+
+  // Stato del pagamento preciso (codice Shopify): PAID, PENDING, REFUNDED…
+  const pagamento = p.get("pagamento")?.trim();
+  if (pagamento) where.financialStatus = pagamento;
+
   const da = p.get("da")?.trim();
   const a = p.get("a")?.trim();
   if (da || a) {
@@ -124,6 +142,10 @@ export function serializzaOrdine(o: OrdineConRelazioni) {
     shopify: {
       financialStatus: o.financialStatus,
       fulfillmentStatus: o.fulfillmentStatus,
+      annullato: Boolean(o.annullatoIl),
+      annullatoIl: o.annullatoIl?.toISOString() ?? null,
+      motivoAnnullamento: o.motivoAnnullamento,
+      chiusoIl: o.chiusoIl?.toISOString() ?? null,
       gateway: o.gateway,
       note: o.noteShopify,
       tags: o.tagShopify ? o.tagShopify.split(", ").filter(Boolean) : [],
@@ -175,6 +197,75 @@ export function serializzaOrdine(o: OrdineConRelazioni) {
 // Formattazione importo per la UI.
 export function euro(n: number, valuta = "EUR"): string {
   return new Intl.NumberFormat("it-IT", { style: "currency", currency: valuta }).format(n);
+}
+
+// ---------- Stati Shopify in italiano ----------
+// I codici dell'API sono in inglese e maiuscoli: qui diventano leggibili.
+const EVASIONE: Record<string, string> = {
+  FULFILLED: "evaso",
+  UNFULFILLED: "da evadere",
+  PARTIALLY_FULFILLED: "evaso in parte",
+  SCHEDULED: "programmato",
+  ON_HOLD: "in attesa",
+  IN_PROGRESS: "in lavorazione",
+  OPEN: "aperto",
+  PENDING_FULFILLMENT: "da evadere",
+  RESTOCKED: "rimesso a magazzino",
+};
+
+const PAGAMENTO: Record<string, string> = {
+  PAID: "pagato",
+  PENDING: "in attesa",
+  PARTIALLY_PAID: "pagato in parte",
+  PARTIALLY_REFUNDED: "rimborsato in parte",
+  REFUNDED: "rimborsato",
+  VOIDED: "annullato",
+  AUTHORIZED: "autorizzato",
+  EXPIRED: "scaduto",
+  UNPAID: "non pagato",
+};
+
+const MOTIVI: Record<string, string> = {
+  CUSTOMER: "richiesta del cliente",
+  DECLINED: "pagamento rifiutato",
+  FRAUD: "sospetta frode",
+  INVENTORY: "merce non disponibile",
+  STAFF: "errore interno",
+  OTHER: "altro",
+};
+
+export function evasioneLeggibile(s: string | null): string | null {
+  if (!s) return null;
+  return EVASIONE[s] ?? s.toLowerCase().replace(/_/g, " ");
+}
+
+export function pagamentoLeggibile(s: string | null): string | null {
+  if (!s) return null;
+  return PAGAMENTO[s] ?? s.toLowerCase().replace(/_/g, " ");
+}
+
+export function motivoLeggibile(s: string | null): string | null {
+  if (!s) return null;
+  return MOTIVI[s] ?? s.toLowerCase().replace(/_/g, " ");
+}
+
+// I codici usati nei menu dei filtri, con l'etichetta italiana.
+export const STATI_PAGAMENTO = Object.entries(PAGAMENTO).map(([codice, nome]) => ({ codice, nome }));
+export const STATI_EVASIONE = Object.entries(EVASIONE).map(([codice, nome]) => ({ codice, nome }));
+
+// Colore dello stato di pagamento: rimborsi e annullamenti in evidenza.
+export function colorePagamento(s: string | null): string | undefined {
+  if (s === "PAID") return "var(--green)";
+  if (s === "REFUNDED" || s === "VOIDED") return "var(--red)";
+  if (s === "PARTIALLY_REFUNDED" || s === "PENDING" || s === "PARTIALLY_PAID") return "var(--orange)";
+  return undefined;
+}
+
+// Il colore dell'evasione: evaso verde, da evadere neutro, parziale arancio.
+export function coloreEvasione(s: string | null): string | undefined {
+  if (s === "FULFILLED") return "var(--green)";
+  if (s === "PARTIALLY_FULFILLED" || s === "ON_HOLD") return "var(--orange)";
+  return undefined;
 }
 
 // La consegna richiesta, pronta da mostrare: "gio 30 lug · 16-20".

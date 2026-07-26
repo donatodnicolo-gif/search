@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { whereOrdini, euro, dataBreve, consegnaBreve, urgenzaConsegna } from "@/lib/ordini";
+import {
+  whereOrdini, euro, dataBreve, consegnaBreve, urgenzaConsegna,
+  evasioneLeggibile, pagamentoLeggibile, motivoLeggibile, coloreEvasione, STATI_PAGAMENTO,
+} from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
@@ -176,9 +179,23 @@ export default async function ElencoOrdini({
           ))}
         </select>
         <select name="categoria" defaultValue={sp.categoria ?? ""}>
-          <option value="">Ogni pagamento</option>
+          <option value="">Ogni metodo</option>
           {CATEGORIE_PAGAMENTO.map((c) => (
             <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <select name="shopify" defaultValue={sp.shopify ?? ""}>
+          <option value="">Stato Shopify: tutti</option>
+          <option value="validi">Non annullati</option>
+          <option value="annullati">Solo annullati</option>
+          <option value="da_evadere">Da evadere</option>
+          <option value="evasi">Evasi</option>
+          <option value="rimborsati">Rimborsati / annullati (pagamento)</option>
+        </select>
+        <select name="pagamento" defaultValue={sp.pagamento ?? ""}>
+          <option value="">Ogni stato pagamento</option>
+          {STATI_PAGAMENTO.map((s) => (
+            <option key={s.codice} value={s.codice}>{s.nome}</option>
           ))}
         </select>
         <select name="app" defaultValue={sp.app ?? ""}>
@@ -217,11 +234,24 @@ export default async function ElencoOrdini({
                   <div className="colonna-vuota">Nessun ordine</div>
                 ) : (
                   suoi.map((o) => (
-                    <div className="card-ordine card-brand" key={o.id}>
+                    <div className={`card-ordine card-brand${o.annullatoIl ? " ordine-annullato" : ""}`} key={o.id}>
                       <div className="card-testa">
                         <Link href={`/ordini/${o.id}`} className="card-numero">{o.numero}</Link>
                         <span className="card-totale">{euro(o.totale, o.valuta)}</span>
                       </div>
+                      {/* Annullato: va detto subito, non si deduce dal pagamento */}
+                      {o.annullatoIl ? (
+                        <div className="badge-annullato">
+                          Annullato{motivoLeggibile(o.motivoAnnullamento) ? ` · ${motivoLeggibile(o.motivoAnnullamento)}` : ""}
+                        </div>
+                      ) : (
+                        <div className="riga-stati">
+                          <span className="stato-shopify" style={{ color: coloreEvasione(o.fulfillmentStatus) }}>
+                            {evasioneLeggibile(o.fulfillmentStatus) ?? "—"}
+                          </span>
+                          <span className="stato-shopify">{pagamentoLeggibile(o.financialStatus) ?? "—"}</span>
+                        </div>
+                      )}
                       <div className="card-cliente">
                         {o.clienteNome ?? o.spedizioneNome ?? "—"}
                         {o.citta ? ` · ${o.citta}` : ""}
@@ -298,6 +328,7 @@ export default async function ElencoOrdini({
                   <th>Consegna</th>
                   <th>Cliente</th>
                   <th className="num">Totale</th>
+                  <th>Evasione</th>
                   <th>Pagamento</th>
                   <th>Stato</th>
                   <th>Destinazione</th>
@@ -307,7 +338,7 @@ export default async function ElencoOrdini({
               </thead>
               <tbody>
                 {ordini.map((o) => (
-                  <tr key={o.id} className="riga-brand" style={{ ["--brand" as string]: coloreBrand(colori, o.brand) }}>
+                  <tr key={o.id} className={`riga-brand${o.annullatoIl ? " ordine-annullato" : ""}`} style={{ ["--brand" as string]: coloreBrand(colori, o.brand) }}>
                     <td>
                       <Link href={`/ordini/${o.id}`} className="cella-nome">{o.numero}</Link>
                       <div className="cella-sub cella-brand">
@@ -330,7 +361,21 @@ export default async function ElencoOrdini({
                       {o.citta && <div className="cella-sub">{o.citta}</div>}
                     </td>
                     <td className="cella-num">{euro(o.totale, o.valuta)}</td>
-                    <td><span className="badge neutro">{o.categoriaPagamento}</span></td>
+                    <td>
+                      {o.annullatoIl ? (
+                        <span className="badge-annullato">
+                          Annullato{motivoLeggibile(o.motivoAnnullamento) ? ` · ${motivoLeggibile(o.motivoAnnullamento)}` : ""}
+                        </span>
+                      ) : (
+                        <span className="stato-shopify" style={{ color: coloreEvasione(o.fulfillmentStatus) }}>
+                          {evasioneLeggibile(o.fulfillmentStatus) ?? "—"}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <span className="badge neutro">{o.categoriaPagamento}</span>
+                      <div className="cella-sub">{pagamentoLeggibile(o.financialStatus) ?? ""}</div>
+                    </td>
                     <td>
                       <CambiaStatoSelect ordineId={o.id} statoAttualeId={o.statoId} stati={statiOpt} compatto />
                     </td>

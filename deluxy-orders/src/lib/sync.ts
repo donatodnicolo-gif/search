@@ -65,6 +65,9 @@ function datiShopify(brand: string, o: OrdineNormalizzato) {
     valuta: o.valuta,
     financialStatus: o.financialStatus,
     fulfillmentStatus: o.fulfillmentStatus,
+    annullatoIl: o.annullatoIl,
+    motivoAnnullamento: o.motivoAnnullamento,
+    chiusoIl: o.chiusoIl,
     gateway: o.gateway,
     clienteNome: o.clienteNome,
     clienteEmail: o.clienteEmail,
@@ -112,6 +115,9 @@ async function salvaBloccoOrdini(
       valuta: true,
       financialStatus: true,
       fulfillmentStatus: true,
+      annullatoIl: true,
+      motivoAnnullamento: true,
+      chiusoIl: true,
       gateway: true,
       clienteNome: true,
       clienteEmail: true,
@@ -226,6 +232,9 @@ type OrdineSalvato = {
   valuta: string;
   financialStatus: string | null;
   fulfillmentStatus: string | null;
+  annullatoIl: Date | null;
+  motivoAnnullamento: string | null;
+  chiusoIl: Date | null;
   gateway: string | null;
   clienteNome: string | null;
   clienteEmail: string | null;
@@ -252,6 +261,9 @@ function cambiato(e: OrdineSalvato, o: OrdineNormalizzato, brand: string): boole
   if (e.valuta !== o.valuta) return true;
   if (e.financialStatus !== o.financialStatus) return true;
   if (e.fulfillmentStatus !== o.fulfillmentStatus) return true;
+  if (!dataUguale(e.annullatoIl, o.annullatoIl)) return true;
+  if (e.motivoAnnullamento !== o.motivoAnnullamento) return true;
+  if (!dataUguale(e.chiusoIl, o.chiusoIl)) return true;
   if (e.gateway !== o.gateway) return true;
   if (e.clienteNome !== o.clienteNome) return true;
   if (e.clienteEmail !== o.clienteEmail) return true;

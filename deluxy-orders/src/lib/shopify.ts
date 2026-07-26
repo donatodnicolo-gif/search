@@ -25,6 +25,9 @@ export type OrdineNormalizzato = {
   valuta: string;
   financialStatus: string | null;
   fulfillmentStatus: string | null;
+  annullatoIl: Date | null;
+  motivoAnnullamento: string | null;
+  chiusoIl: Date | null;
   gateway: string | null;
   categoriaPagamento: CategoriaPagamento;
   clienteNome: string | null;
@@ -56,6 +59,9 @@ query Ordini($cursor: String, $q: String) {
         createdAt
         displayFinancialStatus
         displayFulfillmentStatus
+        cancelledAt
+        cancelReason
+        closedAt
         note
         tags
         customAttributes { key value }
@@ -98,6 +104,9 @@ type OrderNode = {
   createdAt: string;
   displayFinancialStatus: string | null;
   displayFulfillmentStatus: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  closedAt: string | null;
   note: string | null;
   tags: string[];
   customAttributes: Attributo[] | null;
@@ -288,6 +297,9 @@ export async function scaricaOrdini(
         valuta: n.totalPriceSet?.shopMoney?.currencyCode ?? "EUR",
         financialStatus: n.displayFinancialStatus ?? null,
         fulfillmentStatus: n.displayFulfillmentStatus ?? null,
+        annullatoIl: n.cancelledAt ? new Date(n.cancelledAt) : null,
+        motivoAnnullamento: n.cancelReason ?? null,
+        chiusoIl: n.closedAt ? new Date(n.closedAt) : null,
         gateway: gateways.join(", ") || null,
         categoriaPagamento: categoriaDaGateway(gateways),
         clienteNome: [n.customer?.firstName, n.customer?.lastName].filter(Boolean).join(" ") || null,
