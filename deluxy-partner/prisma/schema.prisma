@@ -138,11 +138,23 @@ model TransazioneBancaria {
   esito       String? // annotazione dell'azione fatta (es. "fattura 181/2026 saldata")
   partnerId   String?
   partner     Partner? @relation(fields: [partnerId], references: [id])
+  // CATEGORIA DI COSTO (solo per le uscite). L'elenco delle categorie NON vive
+  // qui: è di **deluxy-budgets**, che fa il bilancio, e si legge via API
+  // (`GET /api/v1/categorie`). Qui si salva solo l'ASSEGNAZIONE, con nome e
+  // tipoPL copiati accanto all'id: servono a mostrare la riga anche quando
+  // Budgets è irraggiungibile, e a non perdere il senso storico di un
+  // movimento se domani la categoria viene rinominata.
+  categoriaId     String? // id della categoria in Budgets
+  categoriaNome   String? // etichetta al momento dell'assegnazione
+  categoriaTipoPL String? // COGS | ADV | PERSONALE | STRUTTURA | ESCLUSA
+  categoriaDa     String? // manuale | regola (chi ha deciso: una persona o una regola di Budgets)
+  categoriaIl     DateTime?
   createdAt   DateTime @default(now())
 
   @@index([stato, data])
   @@index([partnerId])
   @@index([importo])
+  @@index([categoriaId])
 }
 
 // Tipologia di servizio (aree del foglio "Piano Per Area")

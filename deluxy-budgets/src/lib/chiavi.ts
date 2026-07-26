@@ -91,6 +91,16 @@ export const CHIAVI_NOTE = [
     label: "Orders (registro ordini)",
     serve: "Il venduto dei negozi Shopify: senza, la sezione Venduto e la riga ecommerce spariscono.",
   },
+  {
+    // Unica chiave in ENTRATA: le altre servono a questa app per chiamare
+    // fuori, questa serve a farsi chiamare. Sta nella stessa pagina perché per
+    // chi la imposta è comunque «la chiave da mettere per far funzionare quella
+    // cosa», e cercarla altrove sarebbe solo un modo per non trovarla.
+    nome: "BUDGETS_API_KEY",
+    label: "Chiave in ENTRATA (le altre app leggono da qui)",
+    serve:
+      "Con questa le altre app Deluxy leggono le CATEGORIE DI COSTO da GET /api/v1/categorie. Oggi la usa Finance per categorizzare le uscite di banca: senza, lì l'elenco resta vuoto.",
+  },
 ] as const;
 
 // Da dove arriva ogni chiave, per mostrarlo in Configurazione senza mai

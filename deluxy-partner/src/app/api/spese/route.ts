@@ -50,17 +50,21 @@ export async function GET(req: NextRequest) {
       importo: { lt: 0 }, // solo uscite
       ...(includiIgnorate ? {} : { stato: { not: "ignorata" } }),
     },
-    select: { data: true, importo: true, descrizione: true, controparte: true },
+    select: { data: true, importo: true, descrizione: true, controparte: true, categoriaNome: true, categoriaTipoPL: true },
   });
 
   // aggregazione per controparte (fallback: descrizione)
   const perContro = new Map<
     string,
-    { controparte: string; uscite: number; movimenti: number; perMese: number[] }
+    { controparte: string; uscite: number; movimenti: number; perMese: number[]; categorie: Map<string, string> }
   >();
   for (const m of movimenti) {
     const k = (m.controparte?.trim() || m.descrizione?.trim() || "Senza controparte").slice(0, 120);
-    const e = perContro.get(k) ?? { controparte: k, uscite: 0, movimenti: 0, perMese: Array(12).fill(0) };
+    const e = perContro.get(k) ?? { controparte: k, uscite: 0, movimenti: 0, perMese: Array(12).fill(0), categorie: new Map<string, string>() };
+    // Categoria di costo assegnata in Finance (elenco di Budgets). Si raccolgono
+    // TUTTE quelle viste per la stessa controparte: se sono piu' di una, chi
+    // legge deve saperlo invece di ricevere la prima a caso.
+    if (m.categoriaNome) e.categorie.set(m.categoriaNome, m.categoriaTipoPL ?? "STRUTTURA");
     const uscita = Math.abs(m.importo);
     const meseIdx = m.data.getUTCMonth();
     e.uscite += uscita;
@@ -78,6 +82,9 @@ export async function GET(req: NextRequest) {
       movimenti: x.movimenti,
       quota: totaleUscite ? +((x.uscite / totaleUscite) * 100).toFixed(1) : 0,
       perMese: x.perMese.map((v) => +v.toFixed(2)),
+      // null = nessuna categoria assegnata; piu' voci = controparte usata per
+      // spese di natura diversa, da guardare prima di sommarla a un totale.
+      categorie: [...x.categorie.entries()].map(([nome, tipoPL]) => ({ nome, tipoPL })),
     }));
 
   const etichettaPeriodo = mese

@@ -150,6 +150,7 @@ const sections: { label: string; items: Item[] }[] = [
       { href: "/tasks", label: "Tasks finance", icon: icons.tasks },
       { href: "/saldi", label: "Saldi e bonifici", icon: icons.saldi },
       { href: "/transazioni", label: "Import transazioni", icon: icons.transazioni },
+      { href: "/spese", label: "Spese per categoria", icon: icons.analisi },
       { href: "/scadenzario", label: "Scadenzario", icon: icons.scadenze },
       { href: "/report", label: "Report", icon: icons.report },
       { href: "/analisi", label: "Analisi finanziaria", icon: icons.analisi },

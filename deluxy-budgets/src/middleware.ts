@@ -19,5 +19,9 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // `api/v1` è fuori: è l'API per le ALTRE app Deluxy e si autentica da sé con
+  // la chiave (X-API-Key). Lasciandola dentro, il middleware risponderebbe con
+  // un redirect alla pagina di login e il chiamante leggerebbe HTML al posto
+  // del JSON, senza capire perché.
+  matcher: ["/((?!api/v1|_next/static|_next/image|favicon.ico).*)"],
 };
