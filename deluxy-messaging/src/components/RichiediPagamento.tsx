@@ -124,6 +124,7 @@ export function RichiediPagamento() {
         ibanValido?: boolean
         motivoIban?: string
         stringa?: string
+        fornitore?: string
         errore?: string
       }
       if (!res.ok || !d.dati) {
@@ -136,7 +137,10 @@ export function RichiediPagamento() {
       setImporto(d.dati.importo ? String(d.dati.importo) : '')
       setCausale(d.dati.causale)
       setOrigine(immagine ? 'immagine' : 'testo')
-      setAvviso(d.stringa ? `Letto: ${d.stringa}` : 'Letto.')
+      setAvviso(
+        (d.stringa ? `Letto: ${d.stringa}` : 'Letto.') +
+          (d.fornitore ? ` (${d.fornitore})` : '')
+      )
       if (!d.ibanValido) {
         setIbanNota(
           d.motivoIban || 'L’IBAN letto non supera la verifica: controllalo prima di usarlo.'

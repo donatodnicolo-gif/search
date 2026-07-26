@@ -1,15 +1,25 @@
+import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
-import { leggiImpostazione } from './impostazioni'
+import { leggiImpostazioni } from './impostazioni'
 import { verificaIban } from './iban'
 
 // Estrazione dei dati di pagamento da un messaggio o da un'immagine
-// (schermata di una chat, foto di un bonifico) con le API di Claude.
+// (schermata di una chat, foto di un bonifico).
 //
-// L'AI legge e propone; la verità formale la stabilisce il checksum dell'IBAN
-// (src/lib/iban.ts). Se il checksum fallisce, lo diciamo invece di far passare
-// coordinate sbagliate.
+// Due fornitori possibili: OpenAI (predefinito, è la chiave che l'azienda già
+// usa nelle altre app) e Claude. Si sceglie da solo in base a quale chiave è
+// configurata; se ci sono entrambe vince OpenAI.
+//
+// In ogni caso l'AI PROPONE: la verità formale sull'IBAN la stabilisce il
+// checksum (src/lib/iban.ts). Se non torna, lo diciamo.
 
-const MODELLO = 'claude-opus-5'
+// Due modelli, per un motivo misurato: leggendo un IBAN da un'immagine,
+// gpt-4o-mini ha perso due zeri (25 caratteri invece di 27) mentre gpt-4o l'ha
+// letto giusto. Sulle immagini serve il modello forte; sul testo il piccolo va
+// benissimo e costa una frazione.
+const MODELLO_TESTO_DEFAULT = 'gpt-4o-mini'
+const MODELLO_IMMAGINI_DEFAULT = 'gpt-4o'
+const MODELLO_CLAUDE = 'claude-opus-5'
 
 export type DatiPagamento = {
   iban: string
@@ -57,17 +67,122 @@ Regole:
 - L'importo va in cifre: "1.250,50 €" diventa 1250.50.
 - Se un dato non compare, lascia il campo vuoto (0 per l'importo). Non dedurre e non tirare a indovinare.`
 
-/** Il client Claude, o null se la chiave non è configurata. */
-async function client(): Promise<Anthropic | null> {
-  const chiave = await leggiImpostazione('anthropicApiKey')
-  if (!chiave) return null
-  return new Anthropic({ apiKey: chiave })
-}
-
 export type EsitoEstrazione =
-  | { stato: 'ok'; dati: DatiPagamento; ibanValido: boolean; motivoIban: string }
+  | { stato: 'ok'; dati: DatiPagamento; ibanValido: boolean; motivoIban: string; fornitore: string }
   | { stato: 'non-configurato' }
   | { stato: 'errore'; messaggio: string }
+
+type Immagine = { dati: string; tipo: string }
+
+/**
+ * Ripulisce la chiave da spazi e a-capo. Una chiave incollata da un pannello
+ * (o salvata su Vercel) può portarsi dietro un "\n" finale: l'intestazione
+ * Authorization diventa invalida e la chiamata fallisce PRIMA di partire, con
+ * un generico "Connection error" che sembra un problema di rete. Una chiave
+ * valida non contiene mai spazi, quindi toglierli è sempre sicuro.
+ * (Lezione presa da deluxy-mail.)
+ */
+function pulisci(chiave: string): string {
+  return (chiave ?? '').replace(/\s+/g, '')
+}
+
+function normalizza(grezzi: Partial<DatiPagamento>, fornitore: string): EsitoEstrazione {
+  const esitoIban = verificaIban(grezzi.iban ?? '')
+  return {
+    stato: 'ok',
+    dati: {
+      iban: esitoIban.normalizzato,
+      intestatario: (grezzi.intestatario ?? '').trim(),
+      importo: Number(grezzi.importo) || 0,
+      valuta: (grezzi.valuta || 'EUR').toUpperCase(),
+      causale: (grezzi.causale ?? '').trim(),
+    },
+    ibanValido: esitoIban.valido,
+    motivoIban: esitoIban.motivo,
+    fornitore,
+  }
+}
+
+async function conOpenAI(
+  chiave: string,
+  modello: string,
+  testo: string | undefined,
+  immagine: Immagine | undefined
+): Promise<EsitoEstrazione> {
+  const client = new OpenAI({ apiKey: chiave, timeout: 45_000, maxRetries: 2 })
+
+  const contenuto: OpenAI.Chat.Completions.ChatCompletionContentPart[] = []
+  if (immagine) {
+    contenuto.push({
+      type: 'image_url',
+      image_url: { url: `data:${immagine.tipo};base64,${immagine.dati}` },
+    })
+  }
+  contenuto.push({ type: 'text', text: testo ? `Contenuto:\n${testo}` : 'Leggi l’immagine.' })
+
+  const risposta = await client.chat.completions.create({
+    model: modello,
+    temperature: 0,
+    response_format: {
+      type: 'json_schema',
+      json_schema: {
+        name: 'dati_pagamento',
+        strict: true,
+        schema: SCHEMA as unknown as Record<string, unknown>,
+      },
+    },
+    messages: [
+      { role: 'system', content: ISTRUZIONI },
+      { role: 'user', content: contenuto },
+    ],
+  })
+
+  const testoRisposta = risposta.choices[0]?.message?.content
+  if (!testoRisposta) return { stato: 'errore', messaggio: 'Risposta vuota dal modello.' }
+  return normalizza(JSON.parse(testoRisposta) as DatiPagamento, `OpenAI ${modello}`)
+}
+
+async function conClaude(
+  chiave: string,
+  testo: string | undefined,
+  immagine: Immagine | undefined
+): Promise<EsitoEstrazione> {
+  const client = new Anthropic({ apiKey: chiave })
+
+  const contenuto: Anthropic.ContentBlockParam[] = []
+  if (immagine) {
+    contenuto.push({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: immagine.tipo as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
+        data: immagine.dati,
+      },
+    })
+  }
+  contenuto.push({
+    type: 'text',
+    text: testo ? `${ISTRUZIONI}\n\nContenuto:\n${testo}` : ISTRUZIONI,
+  })
+
+  const risposta = await client.messages.create({
+    model: MODELLO_CLAUDE,
+    max_tokens: 2000,
+    output_config: { format: { type: 'json_schema', schema: SCHEMA } },
+    messages: [{ role: 'user', content: contenuto }],
+  })
+
+  // Le classificazioni di sicurezza possono rifiutare: va gestito prima di
+  // leggere il contenuto, altrimenti si legge un array vuoto.
+  if (risposta.stop_reason === 'refusal') {
+    return { stato: 'errore', messaggio: 'Il modello ha rifiutato di elaborare questo contenuto.' }
+  }
+  const blocco = risposta.content.find((b) => b.type === 'text')
+  if (!blocco || blocco.type !== 'text') {
+    return { stato: 'errore', messaggio: 'Risposta vuota dal modello.' }
+  }
+  return normalizza(JSON.parse(blocco.text) as DatiPagamento, `Claude ${MODELLO_CLAUDE}`)
+}
 
 /**
  * Legge i dati di pagamento da un testo e/o da un'immagine.
@@ -75,63 +190,29 @@ export type EsitoEstrazione =
  */
 export async function estraiPagamento(opzioni: {
   testo?: string
-  immagine?: { dati: string; tipo: string }
+  immagine?: Immagine
 }): Promise<EsitoEstrazione> {
-  const anthropic = await client()
-  if (!anthropic) return { stato: 'non-configurato' }
-
-  const contenuto: Anthropic.ContentBlockParam[] = []
-  if (opzioni.immagine) {
-    contenuto.push({
-      type: 'image',
-      source: {
-        type: 'base64',
-        media_type: opzioni.immagine.tipo as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
-        data: opzioni.immagine.dati,
-      },
-    })
-  }
-  contenuto.push({
-    type: 'text',
-    text: opzioni.testo ? `${ISTRUZIONI}\n\nContenuto:\n${opzioni.testo}` : ISTRUZIONI,
-  })
+  const c = await leggiImpostazioni([
+    'openaiApiKey',
+    'openaiModello',
+    'openaiModelloImmagini',
+    'anthropicApiKey',
+  ])
+  const chiaveOpenai = pulisci(c.openaiApiKey)
+  const chiaveClaude = pulisci(c.anthropicApiKey)
+  if (!chiaveOpenai && !chiaveClaude) return { stato: 'non-configurato' }
 
   try {
-    const risposta = await anthropic.messages.create({
-      model: MODELLO,
-      max_tokens: 2000,
-      output_config: { format: { type: 'json_schema', schema: SCHEMA } },
-      messages: [{ role: 'user', content: contenuto }],
-    })
-
-    // Le classificazioni di sicurezza possono rifiutare: va gestito prima di
-    // leggere il contenuto, altrimenti si legge un array vuoto.
-    if (risposta.stop_reason === 'refusal') {
-      return { stato: 'errore', messaggio: 'Il modello ha rifiutato di elaborare questo contenuto.' }
+    if (chiaveOpenai) {
+      // con un'immagine si usa il modello più accurato: un IBAN letto male
+      // sarebbe un bonifico sbagliato
+      const modello = opzioni.immagine
+        ? (c.openaiModelloImmagini || MODELLO_IMMAGINI_DEFAULT).trim()
+        : (c.openaiModello || MODELLO_TESTO_DEFAULT).trim()
+      return await conOpenAI(chiaveOpenai, modello, opzioni.testo, opzioni.immagine)
     }
-
-    const blocco = risposta.content.find((b) => b.type === 'text')
-    if (!blocco || blocco.type !== 'text') {
-      return { stato: 'errore', messaggio: 'Risposta vuota dal modello.' }
-    }
-
-    const grezzi = JSON.parse(blocco.text) as DatiPagamento
-    const esitoIban = verificaIban(grezzi.iban ?? '')
-
-    return {
-      stato: 'ok',
-      dati: {
-        iban: esitoIban.normalizzato,
-        intestatario: (grezzi.intestatario ?? '').trim(),
-        importo: Number(grezzi.importo) || 0,
-        valuta: (grezzi.valuta || 'EUR').toUpperCase(),
-        causale: (grezzi.causale ?? '').trim(),
-      },
-      ibanValido: esitoIban.valido,
-      motivoIban: esitoIban.motivo,
-    }
+    return await conClaude(chiaveClaude, opzioni.testo, opzioni.immagine)
   } catch (e) {
-    const err = e as Error
-    return { stato: 'errore', messaggio: err.message }
+    return { stato: 'errore', messaggio: (e as Error).message }
   }
 }

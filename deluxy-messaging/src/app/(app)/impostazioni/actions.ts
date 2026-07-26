@@ -16,6 +16,7 @@ const SEGRETI = [
   'ordersApiKey',
   'searchApiKey',
   'anthropicApiKey',
+  'openaiApiKey',
   'partnerApiKey',
 ]
 const IN_CHIARO = [
@@ -27,6 +28,8 @@ const IN_CHIARO = [
   'ordersUrl',
   'searchUrl',
   'partnerUrl',
+  'openaiModello',
+  'openaiModelloImmagini',
 ]
 
 export async function salvaImpostazioni(formData: FormData) {

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   if (esito.stato === 'non-configurato') {
     return NextResponse.json(
-      { errore: 'Lettura AI non configurata: manca la chiave Anthropic (Impostazioni).' },
+      { errore: 'Lettura AI non configurata: manca la chiave OpenAI (Impostazioni).' },
       { status: 400 }
     )
   }
@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
     dati: esito.dati,
     ibanValido: esito.ibanValido,
     motivoIban: esito.motivoIban,
+    fornitore: esito.fornitore, // quale modello ha letto: utile quando l'esito sorprende
     stringa: stringaPagamento(esito.dati),
   })
 }

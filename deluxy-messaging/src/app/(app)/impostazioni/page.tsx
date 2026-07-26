@@ -37,6 +37,9 @@ export default async function PaginaImpostazioni({
     'searchUrl',
     'searchApiKey',
     'anthropicApiKey',
+    'openaiApiKey',
+    'openaiModello',
+    'openaiModelloImmagini',
     'partnerUrl',
     'partnerApiKey',
   ])
@@ -249,11 +252,48 @@ export default async function PaginaImpostazioni({
           </div>
 
           <div className="card">
-            <h2>Lettura AI (Claude)</h2>
+            <h2>Lettura AI</h2>
             <p className="descrizione">
-              Serve a leggere IBAN, intestatario e importo da un messaggio o da un&apos;immagine
-              nella pagina Pagamenti. La chiave si crea su console.anthropic.com; l&apos;IBAN letto
-              viene comunque verificato col codice di controllo.
+              Serve a leggere IBAN, intestatario e importo da un messaggio o da
+              un&apos;immagine nella pagina Pagamenti. Si usa <strong>OpenAI</strong> — la stessa
+              chiave delle altre app Deluxy; se manca si ripiega su Claude. In ogni caso
+              l&apos;IBAN letto viene verificato col codice di controllo.
+            </p>
+            <label className="campo">
+              <span>
+                Chiave API OpenAI <BadgeConfigurato pieno={!!config.openaiApiKey} />
+              </span>
+              <input
+                name="openaiApiKey"
+                type="password"
+                placeholder={config.openaiApiKey ? 'salvata — incolla per sostituire' : 'sk-proj-…'}
+                autoComplete="off"
+              />
+            </label>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <label className="campo" style={{ flex: 1 }}>
+                <span>Modello per il testo</span>
+                <input
+                  name="openaiModello"
+                  defaultValue={config.openaiModello}
+                  placeholder="gpt-4o-mini"
+                />
+              </label>
+              <label className="campo" style={{ flex: 1 }}>
+                <span>Modello per le immagini</span>
+                <input
+                  name="openaiModelloImmagini"
+                  defaultValue={config.openaiModelloImmagini}
+                  placeholder="gpt-4o"
+                />
+              </label>
+            </div>
+            <p className="descrizione" style={{ marginTop: -6 }}>
+              Sulle immagini serve il modello più accurato: in prova gpt-4o-mini ha letto un
+              IBAN perdendo due cifre, gpt-4o l&apos;ha letto giusto.
+            </p>
+            <p className="descrizione" style={{ margin: '2px 0 10px' }}>
+              — in alternativa — Claude (usato solo se manca la chiave OpenAI):
             </p>
             <label className="campo">
               <span>
