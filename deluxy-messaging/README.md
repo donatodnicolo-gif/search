@@ -194,6 +194,25 @@ server** (su tutti gli ordini, non solo quelli in pagina): testo su numero, clie
 telefono — normalizzando le cifre, così "+39 333 12" trova "+393331234567" — email,
 indirizzo e negozio, più i filtri per negozio e per contatto salvato/da salvare.
 
+**Si scrive al cliente nella sua lingua.** *Contatta cliente* apre WhatsApp o la mail con
+l'apertura già scritta in **italiano, inglese, francese, spagnolo o tedesco**, e il titolo
+del bottone dice quale lingua ha scelto e perché. Il messaggio non parte da solo:
+l'operatore lo rilegge e può cambiarlo.
+
+> **Conta chi compra, non dove vanno i fiori.** Qui si vende molto regalo, quindi cliente e
+> destinatario sono spesso due persone in due paesi diversi — e noi scriviamo al *cliente*.
+> Per questo si guarda prima il **suo** telefono, poi il dominio della **sua** email, e solo
+> dopo il paese di spedizione. Usare l'indirizzo per primo scriverebbe in italiano a un
+> londinese che manda fiori a Milano, e in francese a un italiano che li manda a Parigi.
+
+Se il prefisso è estero ma non lo sappiamo tradurre (+971, +41) si passa all'inglese senza
+guardare l'indirizzo: un cliente di Dubai che spedisce a Parigi non parla francese. Svizzera,
+Belgio e Canada non vengono indovinati — da un indirizzo non si sa se a Berna si parli
+tedesco o francese. E quando non c'è **nessun** segnale si scrive in italiano, perché tre
+ordini su quattro spediscono in Italia: rispondere in inglese a un italiano solo perché manca
+il suo numero sarebbe scommettere contro i propri dati. Sui 922 ordini in archivio: italiano
+69%, inglese 26%, francese 3%, tedesco e spagnolo 1%.
+
 **Quando va consegnato.** Ogni ordine mostra la **data di consegna** e la **fascia oraria**
 chieste dal cliente: sulla scheda una riga sotto il nome, in tabella la colonna *Consegna*.
 Chi lavora un ordine guarda quella, non la data in cui è stato fatto — perciò «consegna

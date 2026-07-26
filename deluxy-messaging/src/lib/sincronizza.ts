@@ -98,6 +98,8 @@ export async function sincronizzaOrdini(
       telefono: o.telefono,
       email: o.email,
       citta: o.citta,
+      // Serve a scegliere la lingua in cui scrivere al cliente.
+      paese: o.paese,
       dataConsegna: o.dataConsegna ? new Date(o.dataConsegna) : null,
       fasciaConsegna: o.fasciaConsegna,
       statoChiave: o.statoChiave,

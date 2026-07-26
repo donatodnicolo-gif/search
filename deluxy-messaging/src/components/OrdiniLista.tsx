@@ -8,6 +8,7 @@ import {
   nomeTipoCliente,
   origineTipoCliente,
 } from '@/lib/clienti-tipo'
+import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
 
 type OrdineDto = {
   id: string
@@ -28,6 +29,8 @@ type OrdineDto = {
   gestione: string
   clienteTipo: string
   clienteTipoDa: string
+  // Paese di spedizione (ISO 2 lettere): decide in che lingua gli si scrive.
+  paese: string
   // Quando e in che fascia oraria il cliente vuole la consegna. Arrivano da
   // Orders (attributi Shopify): 618 ordini su 922 hanno la data, gli altri no —
   // e "non indicata" è una risposta, inventarla no.
@@ -109,18 +112,49 @@ function TipoCliente({ tipo, da }: { tipo: string; da: string }) {
   )
 }
 
-/** Apre WhatsApp se c'è il numero, altrimenti la mail. Null se non c'è nulla. */
-function linkContatto(o: OrdineDto): { url: string; come: string } | null {
-  const testo = `Buongiorno${o.clienteNome ? ' ' + o.clienteNome.split(' ')[0] : ''}, le scriviamo riguardo al suo ordine ${o.numero}.`
+/**
+ * Apre WhatsApp se c'è il numero, altrimenti la mail. Null se non c'è nulla.
+ *
+ * Il messaggio è già scritto NELLA LINGUA DEL CLIENTE (dal paese di spedizione,
+ * o dal prefisso del telefono se il paese manca): scrivere in italiano a un
+ * cliente di Londra è il dettaglio che fa sembrare improvvisato tutto il resto.
+ * Il testo è solo l'apertura e non parte da solo — l'operatore lo rilegge nella
+ * finestra di WhatsApp o della mail, e può correggerlo.
+ */
+function linkContatto(
+  o: OrdineDto
+): { url: string; come: string; lingua: string; linguaDa: string } | null {
+  const { lingua, da } = linguaCliente(o.paese, o.telefono, o.email)
+  const testo = messaggioCliente(lingua, o.clienteNome, o.numero)
   const cifre = o.telefono.replace(/[^\d]/g, '')
+  const comune = { lingua, linguaDa: da }
   if (cifre.length >= 8) {
-    return { url: `https://wa.me/${cifre}?text=${encodeURIComponent(testo)}`, come: 'WhatsApp' }
+    return {
+      ...comune,
+      url: `https://wa.me/${cifre}?text=${encodeURIComponent(testo)}`,
+      come: 'WhatsApp',
+    }
   }
   if (o.email) {
-    const p = new URLSearchParams({ subject: `Ordine ${o.numero}`, body: testo })
-    return { url: `mailto:${o.email}?${p.toString()}`, come: 'email' }
+    const p = new URLSearchParams({ subject: oggettoCliente(lingua, o.numero), body: testo })
+    return { ...comune, url: `mailto:${o.email}?${p.toString()}`, come: 'email' }
   }
   return null
+}
+
+/** «Scrivi al cliente su WhatsApp, in francese (dal paese)». */
+function spiegaContatto(c: { come: string; lingua: string; linguaDa: string }): string {
+  const perche =
+    c.linguaDa === 'telefono'
+      ? 'dal suo prefisso telefonico'
+      : c.linguaDa === 'email'
+        ? 'dal dominio della sua email'
+        : c.linguaDa === 'paese'
+          ? 'dal paese di spedizione — attenzione: è il destinatario, non lui'
+          : c.linguaDa === 'estero-ignoto'
+            ? 'recapito estero che non sappiamo tradurre: si usa l’inglese'
+            : 'nessun segnale sul cliente: si usa l’italiano, come la gran parte degli ordini'
+  return `Scrivi al cliente su ${c.come}, in ${nomeLingua(c.lingua)} (${perche}). Il messaggio non parte da solo: lo rileggi prima.`
 }
 
 /** Pagina Pagamenti già impostata su questo ordine. */
@@ -819,9 +853,9 @@ export function OrdiniLista() {
                             className="bottone secondario mini"
                             href={linkPagamento(o)}
                             onClick={() => segna(o.id, 'in_pagamento')}
-                            title="Apri la pagina Pagamenti con questo ordine già impostato"
+                            title="Chiedi il pagamento del fornitore per questo ordine"
                           >
-                            Richiedi pagamento
+                            Paga fornitore
                           </a>
                           {(() => {
                             const c = linkContatto(o)
@@ -836,7 +870,7 @@ export function OrdiniLista() {
                                 onClick={() => c && segna(o.id, 'comunicazione')}
                                 title={
                                   c
-                                    ? `Scrivi al cliente su ${c.come}`
+                                    ? spiegaContatto(c)
                                     : 'Ordine senza telefono né email'
                                 }
                               >
@@ -985,9 +1019,9 @@ export function OrdiniLista() {
                         className="bottone secondario mini"
                         href={linkPagamento(o)}
                         onClick={() => segna(o.id, 'in_pagamento')}
-                        title="Richiedi pagamento per questo ordine"
+                        title="Chiedi il pagamento del fornitore per questo ordine"
                       >
-                        Pagamento
+                        Paga fornitore
                       </a>
                       {(() => {
                         const c = linkContatto(o)
@@ -999,7 +1033,7 @@ export function OrdiniLista() {
                             rel="noopener noreferrer"
                             style={c ? undefined : { pointerEvents: 'none', opacity: 0.4 }}
                             onClick={() => c && segna(o.id, 'comunicazione')}
-                            title={c ? `Scrivi al cliente su ${c.come}` : 'Nessun recapito'}
+                            title={c ? spiegaContatto(c) : 'Nessun recapito'}
                           >
                             Contatta
                           </a>

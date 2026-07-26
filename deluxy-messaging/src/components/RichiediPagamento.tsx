@@ -232,11 +232,13 @@ export function RichiediPagamento() {
     <main>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Richiedi pagamento</h1>
+          <h1 className="page-title">Paga fornitore</h1>
           <p className="page-sub">
-            Le coordinate su cui farsi pagare. Puoi scriverle a mano oppure farle leggere
-            all&apos;AI da un messaggio o da un&apos;immagine: l&apos;IBAN viene sempre{' '}
-            <strong>verificato</strong> col codice di controllo, e se non torna te lo dico.
+            Le coordinate del fornitore <strong>da pagare</strong>. Puoi scriverle a mano oppure
+            farle leggere all&apos;AI da un messaggio o da un&apos;immagine: l&apos;IBAN viene
+            sempre <strong>verificato</strong> col codice di controllo, e se non torna te lo dico.
+            La richiesta parte poi verso Deluxy Partner, che approva e paga — da qui non esce
+            denaro.
           </p>
         </div>
       </div>

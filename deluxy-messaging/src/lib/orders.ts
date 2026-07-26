@@ -27,6 +27,9 @@ export type OrdineArchivio = {
   telefono: string
   email: string
   citta: string
+  // Paese di spedizione (ISO 2 lettere): serve a scegliere in che lingua
+  // scrivere al cliente (src/lib/lingua.ts).
+  paese: string
   dataConsegna: string | null
   fasciaConsegna: string
   statoChiave: string
@@ -60,7 +63,7 @@ type OrdineOrders = {
     tipo?: string | null
     tipoDa?: string | null
   }
-  spedizione?: { citta?: string | null }
+  spedizione?: { citta?: string | null; paese?: string | null }
   consegna?: { data?: string | null; fascia?: string | null }
   classificazione?: { stato?: { chiave?: string; nome?: string } | null }
 }
@@ -79,6 +82,7 @@ function normalizza(o: OrdineOrders): OrdineArchivio {
     telefono: o.cliente?.telefono ?? '',
     email: o.cliente?.email ?? '',
     citta: o.spedizione?.citta ?? '',
+    paese: o.spedizione?.paese ?? '',
     dataConsegna: o.consegna?.data ?? null,
     fasciaConsegna: o.consegna?.fascia ?? '',
     statoChiave: o.classificazione?.stato?.chiave ?? '',

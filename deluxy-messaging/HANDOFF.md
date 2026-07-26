@@ -55,6 +55,36 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- «PAGA FORNITORE» + SI SCRIVE AL CLIENTE NELLA SUA LINGUA (26/07/2026).
+  Il bottone «Richiedi pagamento» è ora **Paga fornitore** (scheda e tabella), e
+  la pagina di arrivo diceva una cosa sbagliata — «le coordinate su cui **farsi
+  pagare**» — mentre sono le coordinate del fornitore **da pagare**: corretta.
+  LINGUA: `src/lib/lingua.ts` decide in che lingua aprire il messaggio al cliente
+  (it/en/fr/es/de) e `linkContatto()` la usa per testo e oggetto; il titolo del
+  bottone dice **quale lingua e perché**.
+  ⚠️ **IL SEGNALE È CHI COMPRA, NON DOVE VANNO I FIORI.** Qui si vende regalo:
+  `paese` è quello di SPEDIZIONE, cioè il destinatario, mentre il messaggio va al
+  CLIENTE. Prima avevo messo il paese per primo: sbagliato in entrambi i versi —
+  italiano a un londinese che manda a Milano, francese a un italiano che manda a
+  Parigi. Ordine corretto: (1) prefisso del suo telefono, (2) dominio della sua
+  email, (3) **se il prefisso è estero ma fuori tabella si ferma qui in inglese**
+  (altrimenti a un cliente di Dubai che spedisce a Parigi si scriverebbe in
+  francese — caso vero, ordine #2378), (4) paese di spedizione, (5) numero senza
+  prefisso di forma italiana, (6) niente del tutto → **italiano**, perché 3
+  ordini su 4 spediscono in Italia: rispondere inglese a un italiano solo perché
+  manca il suo numero è scommettere contro i propri dati.
+  Svizzera, Belgio e Canada NON sono in tabella di proposito: da un indirizzo non
+  si sa se a Berna si parli tedesco o francese.
+  Campo nuovo `Ordine.paese` (ISO 2 lettere) da `spedizione.paese` di Orders.
+  VERIFICATO sui 922 ordini veri: italiano 69%, inglese 26%, francese 3%, tedesco
+  1%, spagnolo 1% — coerente col 75% di spedizioni in Italia. Casi provati:
+  #12572 spedisce in IT ma il cliente ha un +43 → **tedesco**; #2378 (+971 → FR)
+  e #2377 (+41 → FR) → inglese; `07534…` (mobile UK senza +44) con spedizione GB
+  → inglese. In pagina: Emma Baker → «Hello Emma, we are writing about your order
+  #1733.», gli altri in italiano.
+  Il messaggio **non parte da solo**: wa.me e mailto lo precompilano, l'operatore
+  lo rilegge e può cambiarlo — è la rete di sicurezza di tutte queste deduzioni.
+
 - FORNITORE: PERCHÉ CHIEDE LA PASSWORD, E ORA LO DICE (26/07/2026).
   Diagnosi di `search-deluxy.vercel.app/?brand=…&ordine=…` che chiedeva il login:
   **non è un guasto**, è il link NON firmato. Quell'app si apre senza password

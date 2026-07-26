@@ -154,6 +154,10 @@ model Ordine {
   email          String   @default("")
   indirizzo      String   @default("") @db.Text
   citta          String   @default("") // mostrata sulle card della vista a colonne
+  // Paese di spedizione (ISO 2 lettere, da Orders): decide in che LINGUA si
+  // scrive al cliente (src/lib/lingua.ts). Vuoto = non si sa, e allora si
+  // guarda il prefisso del telefono.
+  paese          String   @default("")
   // Consegna richiesta dal cliente e stato nella pipeline Deluxy: arrivano da
   // Orders e reggono il Calendario ordini.
   dataConsegna   DateTime?
