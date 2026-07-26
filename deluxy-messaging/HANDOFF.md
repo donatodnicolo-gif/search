@@ -79,6 +79,22 @@ Ultimo aggiornamento: 24/07/2026
   `{url: …/?t=<code>}` valido ~5 min; ci aggiungiamo brand+ordine. Senza chiave ripiega
   sul link semplice `?brand=&ordine=` (verificato: `firmato: false`). Il bottone apre la
   scheda PRIMA della fetch, altrimenti il browser la blocca come popup.
+- FONTE ORDINI = DELUXY ORDERS (26/07/2026, non più Shopify diretto): `/api/ordini/sync`
+  usa `scaricaOrdiniDaOrders()` (`GET {ordersUrl}/api/v1/ordini?da=&page=&limit=200`,
+  `x-api-key`). INCREMENTALE: `da` = giorno dell'ordine più recente locale − 1 (primo giro
+  fino a 60gg), altrimenti su Vercel si sfora il tetto di tempo. Dedup sul **gid Shopify**
+  (`orderId` di Orders = il nostro `shopifyId`): i 782 ordini presi prima da Shopify si
+  aggiornano, non si duplicano (verificato: 782→789→…→910 senza doppioni).
+  Ogni brand di Orders → negozio in `NegozioShopify` (match su nome/dominio/brandRicerca,
+  altrimenti creato). ATTENZIONE: `negozioNome` va scritto col nome del NEGOZIO, non col
+  brand grezzo — Orders chiama lo stesso negozio ora "Flowers" ora "deluxyflowers.com" e si
+  ottengono 6 nomi per 3 negozi (già corretto + riallineati i record vecchi).
+  Le credenziali Shopify in /negozi non servono più (restano per storia).
+  `src/lib/shopify.ts` non è più usato dal sync.
+- Fornitore, link firmato VERIFICATO (26/07/2026) contro un finto `/api/link`: il backend
+  fa POST con `x-api-key: dlxs_…` e body `{quando: ISO}`, poi al `url` restituito aggiunge
+  brand e ordine → `…/?t=<code>&brand=deluxyflowers.com&ordine=2582` (numero senza #).
+  La chiave non passa mai dal browser.
 - Home = Ordini (26/07/2026): `/` mostra gli ordini, l'inbox è su `/inbox`, `/ordini`
   reindirizza a `/` (resta valido: è l'URL registrato come app su Shopify). Ordine in
   barra: Ordini, Clienti, Messaggi, Negozi, Caselle, Impostazioni.

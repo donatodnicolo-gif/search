@@ -273,8 +273,13 @@ export function OrdiniLista() {
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0, flex: 1 }}>Ordini</h1>
-        <button className="bottone secondario" onClick={scarica} disabled={!!occupato}>
-          {occupato === 'sync' ? 'Scarico…' : 'Scarica da Shopify'}
+        <button
+          className="bottone secondario"
+          onClick={scarica}
+          disabled={!!occupato}
+          title="Riprende gli ordini recenti dal registro Deluxy Orders"
+        >
+          {occupato === 'sync' ? 'Aggiorno…' : 'Aggiorna da Ordini'}
         </button>
         <button
           className="bottone"
@@ -360,8 +365,8 @@ export function OrdiniLista() {
             </>
           ) : (
             <>
-              Nessun ordine ancora. Premi <strong>Scarica da Shopify</strong> per portare qui gli
-              ordini recenti.
+              Nessun ordine ancora. Premi <strong>Aggiorna da Ordini</strong> per portare qui gli
+              ordini recenti dal registro Deluxy Orders.
             </>
           )}
         </div>

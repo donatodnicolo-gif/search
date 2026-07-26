@@ -20,10 +20,11 @@ export default async function PaginaNegozi() {
         </span>
       </div>
       <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 0, maxWidth: 760 }}>
-        Gli store da cui scaricare gli ordini. Per ognuno servono i permessi{' '}
-        <code>read_orders</code> e <code>read_customers</code>. Autenticazione: un token statico{' '}
-        <code>shpat_…</code> (app legacy) <strong>oppure</strong> Client ID + Secret di un&apos;app
-        Dev Dashboard (l&apos;app conia il token da sola).
+        I brand degli ordini. <strong>Gli ordini arrivano dal registro Deluxy Orders</strong>, non
+        più da Shopify: qui non servono credenziali, e i brand nuovi compaiono da soli al primo
+        aggiornamento. Quello che conta è la <strong>sigla</strong> usata in rubrica (FL, CK, DL) e
+        il <strong>brand su Ricerca fornitori</strong>. I campi Shopify restano solo per le
+        configurazioni vecchie e si possono lasciare vuoti.
       </p>
 
       <div className="griglia-impostazioni">

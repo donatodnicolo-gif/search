@@ -44,14 +44,16 @@ resta cifrata (stessa scelta di `deluxy-mail`).
 creare l'account (sessione firmata, come deluxy-mail). Il primo account registrato è
 l'amministratore; i successivi nascono con ruolo operatore.
 
-**Ordini (Shopify, multi-store).** I negozi si gestiscono nella pagina `/negozi` (tabella
-`NegozioShopify`): se ne collegano più d'uno. Ogni negozio si autentica in due modi
-(`src/lib/shopify.ts` → `risolviToken`): un **token statico** `shpat_…` (app legacy) oppure
-**Client ID + Client Secret** di un'app Dev Dashboard, che l'app scambia per un token via
-*client credentials grant* (`POST /admin/oauth/access_token`, token valido ~24h — ideale su
-Vercel). La pagina `/ordini` scarica gli ordini recenti da **tutti i negozi attivi** (Shopify
-Admin GraphQL API), li tiene in tabella `Ordine` legati al negozio, e riporta l'esito
-per-negozio. Credenziali dei negozi cifrate (AES-256-GCM). La lista ha **ricerca lato
+**Ordini (dal registro Deluxy Orders).** Gli ordini **non** si prendono più da Shopify: la
+fonte è l'app **Deluxy Orders**, il registro centralizzato che sincronizza Shopify per
+tutte le app (`src/lib/orders.ts` → `scaricaOrdiniDaOrders`, `GET /api/v1/ordini` con
+`x-api-key`). Così la classificazione Deluxy è la stessa ovunque e non si duplica la
+sincronizzazione. *Aggiorna da Ordini* nella pagina iniziale è **incrementale**: riparte dal
+giorno dell'ordine più recente già presente (il primo giro è l'unico lungo), e deduplica sul
+**gid Shopify** (`orderId`), così gli ordini presi in passato da Shopify si aggiornano invece
+di duplicarsi. Ogni brand di Orders diventa un negozio in `/negozi` — creato da solo se
+manca — che serve alle colonne della bacheca, alla sigla in rubrica e al bottone Fornitore;
+lì **non servono più credenziali Shopify**. La lista ha **ricerca lato
 server** (su tutti gli ordini, non solo quelli in pagina): testo su numero, cliente,
 telefono — normalizzando le cifre, così "+39 333 12" trova "+393331234567" — email,
 indirizzo e negozio, più i filtri per negozio e per contatto salvato/da salvare.

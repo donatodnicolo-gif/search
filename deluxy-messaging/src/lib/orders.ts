@@ -12,6 +12,9 @@ const BASE_DEFAULT = 'https://deluxy-orders.vercel.app'
 
 export type OrdineArchivio = {
   id: string
+  // gid Shopify dell'ordine: è la chiave stabile con cui deduplichiamo, la
+  // stessa che avevano gli ordini scaricati prima direttamente da Shopify.
+  orderId: string
   brand: string
   // il brand tradotto per l'app Ricerca fornitori: Orders lo chiama "Flowers",
   // lì si chiama "deluxyflowers.com"
@@ -33,6 +36,7 @@ export type EsitoArchivio =
 
 type OrdineOrders = {
   id: string
+  orderId?: string
   brand: string
   numero: string
   data: string
@@ -40,6 +44,70 @@ type OrdineOrders = {
   valuta: string
   cliente?: { nome?: string | null; email?: string | null; telefono?: string | null }
   spedizione?: { citta?: string | null }
+}
+
+function normalizza(o: OrdineOrders): OrdineArchivio {
+  return {
+    id: o.id,
+    orderId: o.orderId || o.id,
+    brand: o.brand,
+    brandRicerca: brandRicercaDaNegozio(o.brand, '') || o.brand,
+    numero: o.numero,
+    data: o.data,
+    totale: o.totale,
+    valuta: o.valuta,
+    clienteNome: o.cliente?.nome ?? '',
+    telefono: o.cliente?.telefono ?? '',
+    email: o.cliente?.email ?? '',
+    citta: o.spedizione?.citta ?? '',
+  }
+}
+
+/** Configurazione del ponte verso Orders (URL + chiave), o null se manca. */
+async function configOrders(): Promise<{ base: string; chiave: string } | null> {
+  const c = await leggiImpostazioni(['ordersUrl', 'ordersApiKey'])
+  if (!c.ordersApiKey) return null
+  return { base: (c.ordersUrl || BASE_DEFAULT).replace(/\/$/, ''), chiave: c.ordersApiKey }
+}
+
+/**
+ * Scarica gli ordini recenti dal registro Deluxy Orders (paginato).
+ * È la sorgente degli ordini: Orders sincronizza Shopify, noi leggiamo da lui —
+ * così la classificazione Deluxy è la stessa in tutte le app.
+ */
+export async function scaricaOrdiniDaOrders(
+  giorni = 60,
+  maxPagine = 30
+): Promise<OrdineArchivio[]> {
+  const c = await configOrders()
+  if (!c) throw new Error('App Ordini non configurata: URL e chiave in Impostazioni.')
+
+  const da = new Date(Date.now() - giorni * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const out: OrdineArchivio[] = []
+
+  for (let page = 1; page <= maxPagine; page++) {
+    const p = new URLSearchParams({ da, page: String(page), limit: '200' })
+    const res = await fetch(`${c.base}/api/v1/ordini?${p}`, {
+      headers: { 'x-api-key': c.chiave },
+      signal: AbortSignal.timeout(20000),
+      cache: 'no-store',
+    })
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('Chiave API di Orders non valida (Impostazioni).')
+      }
+      throw new Error(`L'app Ordini ha risposto ${res.status}.`)
+    }
+    const corpo = (await res.json().catch(() => ({}))) as {
+      ordini?: OrdineOrders[]
+      pagine?: number
+    }
+    const ordini = corpo.ordini ?? []
+    out.push(...ordini.map(normalizza))
+    if (ordini.length === 0 || page >= (corpo.pagine ?? 1)) break
+  }
+
+  return out
 }
 
 /** Cerca negli ordini storici di Deluxy Orders. */
@@ -82,18 +150,6 @@ export async function cercaInArchivio(q: string, limit = 50): Promise<EsitoArchi
   return {
     stato: 'ok',
     totale: corpo.totale ?? 0,
-    ordini: (corpo.ordini ?? []).map((o) => ({
-      id: o.id,
-      brand: o.brand,
-      brandRicerca: brandRicercaDaNegozio(o.brand, '') || o.brand,
-      numero: o.numero,
-      data: o.data,
-      totale: o.totale,
-      valuta: o.valuta,
-      clienteNome: o.cliente?.nome ?? '',
-      telefono: o.cliente?.telefono ?? '',
-      email: o.cliente?.email ?? '',
-      citta: o.spedizione?.citta ?? '',
-    })),
+    ordini: (corpo.ordini ?? []).map(normalizza),
   }
 }
