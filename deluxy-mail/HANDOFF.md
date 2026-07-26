@@ -16,6 +16,34 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB:** Supabase Postgres (progetto `sxovckndpmdbqfrfkxhl`).
 - **Porta locale:** 3070.
 
+### Dove siamo (fine sessione 23 luglio 2026, sera)
+
+Tutto committato e pushato su `origin/scout-ui`; **produzione allineata** (ultimo
+deploy READY, alias `deluxy-mail.vercel.app`). L'ultima cosa fatta è l'API
+`?ordine=` (§6). Ordine dei lavori della sessione: vedi §7, le voci datate
+23 lug sono in ordine cronologico inverso (la più recente in cima).
+
+**Se riprendi da qui, sappi che:**
+
+1. **Cose fatte ma MAI provate su dati reali** (io non ho accesso alla casella
+   né al DB di produzione — servono la sessione dell'utente): download allegati
+   a flusso, «Scarica tutti» in zip, inviti calendario Accetta/Rifiuta, svuota
+   cestino sul server, **dimensione vera dal server** (`/api/dimensioni`),
+   switch fra account con 2 caselle, API `?ordine=`. Se l'utente segnala che
+   una non funziona, **prima chiedi cosa vede a schermo**: quasi tutte ora
+   mostrano stato/errore invece di fallire mute.
+2. **Notifiche push: il codice è pronto ma non bastano.** Su Vercel Hobby il
+   cron gira ~1 volta al giorno, quindi ad app chiusa non arrivano. Serve un
+   **cron esterno** (es. cron-job.org) che chiami `GET /api/sync?token=<CRON_SECRET>`
+   ogni ~5 min, oppure Vercel Pro. Deciso dall'utente, non fatto.
+3. **`/api/allegati-zip` costruisce lo zip in memoria** → stesso tetto ~4,5 MB
+   di Vercel: con molti allegati pesanti non parte. Il download singolo è già
+   a flusso; lo zip **no**. Da convertire se serve.
+4. ⚠️ **Più sessioni Claude lavorano su questa cartella** (`scoutwt`, branch
+   `scout-ui`): Partner, Transactions, Messaggi, Hub. Prima di ogni push fai
+   `git fetch` e verifica; **committa solo i file di deluxy-mail**, mai `-A`
+   sull'intero repo.
+
 ---
 
 ## 2. Stack
