@@ -97,12 +97,15 @@ async function conRiprova<T>(operazione: () => Promise<T>, tentativi = 7): Promi
 // il numero non bastava: le personalizzazioni sono arrivate dopo, e sugli
 // ordini già salvati non sarebbero mai comparse.
 function righeCambiate(
-  salvate: { proprieta: string | null }[],
-  arrivate: { proprieta: string | null }[],
+  salvate: { proprieta: string | null; immagine: string | null }[],
+  arrivate: { proprieta: string | null; immagine: string | null }[],
 ): boolean {
   if (salvate.length !== arrivate.length) return true;
-  const chiave = (r: { proprieta: string | null }[]) =>
-    r.map((x) => x.proprieta ?? "").sort().join("|");
+  // Nel confronto entra anche l'immagine: senza, le righe degli ordini già
+  // presenti non venivano mai riscritte e le foto non arrivavano mai (erano 6
+  // su 16.938). Il numero di righe da solo non basta a dire "è tutto a posto".
+  const chiave = (r: { proprieta: string | null; immagine: string | null }[]) =>
+    r.map((x) => `${x.proprieta ?? ""}§${x.immagine ?? ""}`).sort().join("|");
   return chiave(salvate) !== chiave(arrivate);
 }
 
@@ -164,7 +167,7 @@ async function salvaBloccoOrdini(
       categoriaPagamentoManuale: true,
       _count: { select: { righe: true } },
       // le personalizzazioni salvate, per capire se le righe vanno riscritte
-      righe: { select: { proprieta: true } },
+      righe: { select: { proprieta: true, immagine: true } },
       // serve a capire se l'ordine è cambiato davvero (vedi sotto)
       brand: true,
       numero: true,
@@ -300,7 +303,7 @@ type OrdineSalvato = {
   categoriaPagamento: string;
   categoriaPagamentoManuale: boolean;
   _count: { righe: number };
-  righe: { proprieta: string | null }[];
+  righe: { proprieta: string | null; immagine: string | null }[];
   brand: string;
   numero: string;
   data: Date;
