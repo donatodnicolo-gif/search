@@ -13,6 +13,8 @@ import {
   riapriOrdine,
 } from "@/lib/ordini-actions";
 import { RiconciliaModale } from "@/components/RiconciliaModale";
+import { BottoneAggiornaOrdini } from "@/components/BottoneAggiornaOrdini";
+import { ordersConfigurato } from "@/lib/ordini-registro";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +91,13 @@ export default async function OrdiniPage({
     .filter((d): d is Date => Boolean(d))
     .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
 
+  // La sync automatica gira alle 5:30: se l'ultima è più vecchia di 36 ore
+  // qualcosa non ha funzionato (chiave, registro giù, cron) e il numero in
+  // pagina è vecchio senza dirlo. Meglio scriverlo che lasciarlo indovinare.
+  const registroConfigurato = ordersConfigurato();
+  const oreDaSync = ultimaSync ? (Date.now() - ultimaSync.getTime()) / 3600000 : null;
+  const syncFerma = oreDaSync != null && oreDaSync > 36;
+
   return (
     <>
       <div className="page-head">
@@ -101,13 +110,13 @@ export default async function OrdiniPage({
         </div>
         <div className="page-actions" style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <form action={sincronizzaOrdini.bind(null, 90)} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <button className="btn primary" type="submit" title="Aggiorna gli ordini degli ultimi 90 giorni dal registro Deluxy Orders">
-                ⇅ Aggiorna ordini
-              </button>
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-                {ultimaSync
-                  ? `Ultima: ${dataIt(ultimaSync)} · sync automatica ogni notte`
-                  : "Sincronizzazione automatica ogni notte alle 5:30"}
+              <BottoneAggiornaOrdini attivo={registroConfigurato} />
+              <span style={{ fontSize: 12, color: syncFerma ? "var(--orange)" : "var(--text-tertiary)" }}>
+                {!registroConfigurato
+                  ? "⚠ Registro non configurato (manca ORDERS_API_KEY)"
+                  : ultimaSync
+                    ? `Ultima: ${dataIt(ultimaSync)}${syncFerma ? ` · ⚠ ferma da ${Math.floor(oreDaSync! / 24)} giorni` : " · sync automatica ogni notte"}`
+                    : "Sincronizzazione automatica ogni notte alle 5:30"}
               </span>
             </form>
           {ordiniRaw.length > 0 && (
@@ -137,16 +146,37 @@ export default async function OrdiniPage({
         </div>
       )}
 
-      {sp.sync != null && (
-        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
-          {sp.sync === "ko" ? (
-            <span className="badge red"><span className="dot" />Sync non riuscita — nessun ordine scaricato</span>
-          ) : (
-            <span className="badge green"><span className="dot" />Sync completata — {sp.nuovi} nuovi, {sp.agg} aggiornati</span>
-          )}
-          {sp.errori && <p style={{ fontSize: 13, color: "var(--red)", marginTop: 8 }}>{sp.errori}</p>}
-        </div>
-      )}
+      {sp.sync != null && (() => {
+        const ko = sp.sync === "ko";
+        // «0 nuovi, 0 aggiornati» senza errori vuol dire che era già tutto a
+        // posto: scritto così, altrimenti sembra che il bottone non abbia fatto
+        // niente ed è il momento in cui si sospetta un guasto che non c'è.
+        const nulla = !ko && Number(sp.nuovi) === 0 && Number(sp.agg) === 0;
+        return (
+          <div
+            className="card"
+            style={{ padding: 14, marginBottom: 16, borderLeft: `3px solid ${ko ? "var(--red)" : "var(--green)"}` }}
+          >
+            {ko ? (
+              <span className="badge red"><span className="dot" />Aggiornamento non riuscito — nessun ordine scaricato</span>
+            ) : nulla ? (
+              <span className="badge green"><span className="dot" />Aggiornamento eseguito — erano già tutti allineati</span>
+            ) : (
+              <span className="badge green"><span className="dot" />Aggiornamento eseguito — {sp.nuovi} nuovi, {sp.agg} aggiornati</span>
+            )}
+            {sp.errori && (
+              <p style={{ fontSize: 13, color: "var(--red)", marginTop: 8 }}>{sp.errori}</p>
+            )}
+            {ko && (
+              <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                Gli ordini in elenco sono quelli dell&apos;ultimo aggiornamento riuscito
+                {ultimaSync ? ` (${dataIt(ultimaSync)})` : ""}: nessun dato è andato perso.
+                Se il messaggio parla di chiave o di header, controlla <code>ORDERS_API_KEY</code> su Vercel.
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       <h2 className="section-title" style={{ marginTop: 0 }}>
         Incasso {dalPeriodo ? `(ultimi ${giorniPeriodo} giorni)` : "(tutto lo storico)"}
