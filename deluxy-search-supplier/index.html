@@ -1424,6 +1424,39 @@ async function annotaDistanzeRegistro(list, cards, origin){
     });
   }catch(e){ console.warn('distanze registro:', e); }
 }
+// Orari di apertura ANCHE sulle schede del registro (partner/prospect): il registro non
+// li ha, quindi si cerca il negozio su Google (findPlaceFromQuery su nome+indirizzo, bias
+// sulla zona) e si leggono gli orari con getDetails → badge «🟢 Aperto ora / 🔴 Chiuso ora».
+// Best effort e non bloccante; se Google non trova la scheda, nessun badge. Le schede del
+// registro restano SEMPRE visibili (il filtro apertura non le nasconde).
+async function annotaOrariRegistro(list, cards, service, origin){
+  try{
+    const bias = origin ? { center: origin, radius: 50000 } : undefined;
+    await Promise.all(list.map((p,i)=> new Promise(resolve=>{
+      const card = cards[i];
+      const addr = [p.nome, p.indirizzo, p.citta, p.provincia].filter(Boolean).join(', ');
+      if(!card || !addr || card.querySelector('.badge-open')){ resolve(); return; }
+      const req = { query: addr, fields:['place_id'] };
+      if(bias) req.locationBias = bias;
+      service.findPlaceFromQuery(req, (res,status)=>{
+        if(status!==google.maps.places.PlacesServiceStatus.OK || !res || !res[0]){ resolve(); return; }
+        service.getDetails({ placeId: res[0].place_id, fields:['opening_hours','business_status'] }, (d,st)=>{
+          try{
+            if(st===google.maps.places.PlacesServiceStatus.OK && d){
+              let open; try{ open = d.opening_hours && d.opening_hours.isOpen && d.opening_hours.isOpen(); }catch(e){ open = undefined; }
+              card.dataset.open = (open===true)?'open':(open===false)?'closed':'unknown';
+              const badge = (open===true)?'<span class="badge badge-open" style="color:var(--green); background:rgba(36,138,61,.1)">🟢 Aperto ora</span>'
+                          : (open===false)?'<span class="badge badge-open" style="color:var(--red); background:rgba(215,0,21,.1)">🔴 Chiuso ora</span>'
+                          : '';
+              const col = card.querySelector('.head > div');
+              if(badge && col && !card.querySelector('.badge-open')) col.insertAdjacentHTML('beforeend', badge);
+            }
+          }finally{ resolve(); }
+        });
+      });
+    })));
+  }catch(e){ console.warn('orari registro:', e); }
+}
 
 /* ------------------ nearby search per categoria ------------------ */
 let lastPlacesStatus = null;
@@ -2803,8 +2836,10 @@ async function renderResults(found, geo, origin, service, opts){
     const regList = anag.list.filter(p=>!matchedIds.has(p.id));
     const regCards = regList.map(registryCard);
     resultsEl.prepend(...regCards, ...matchedCards);
-    // distanza stradale dalla consegna anche su queste schede (best effort, in parallelo)
+    // distanza stradale + orari di apertura dalla consegna anche su queste schede
+    // (best effort, in parallelo, non bloccano la ricerca)
     annotaDistanzeRegistro(regList, regCards, origin);
+    annotaOrariRegistro(regList, regCards, service, origin);
     // sulle schede già nostre: «usato per ordini recenti?» dallo Storico (best effort)
     storicoPromise.then(eventi=>{ [...regCards, ...matchedCards].forEach(c=>annotaOrdiniRecenti(c, eventi)); });
     const nPartner = anag.list.filter(isPartnerAttivo).length;

@@ -234,6 +234,18 @@ solo dove siamo e come si lavora.
      `.ct-card .top`; `.content`/`.deal` con padding ridotto; pillole filtro a larghezza piena.
      Verificato a 375px (nessun overflow) e a >560px (layout affiancato invariato).
 
+30. **Orari di apertura anche sulle schede del registro** (26/07): il registro anagrafiche non
+   ha gli orari, quindi per partner 🤝 / prospect 📋 mostrati in cima si cerca il negozio su
+   Google (`annotaOrariRegistro`: `findPlaceFromQuery` su nome+indirizzo con `locationBias`
+   sulla consegna → `getDetails(['opening_hours'])` → `isOpen()`) e si aggiunge il badge
+   «🟢 Aperto ora / 🔴 Chiuso ora» nella colonna testa, come per le schede Google. Best effort,
+   in parallelo, non blocca la ricerca; se Google non trova la scheda niente badge. Imposta
+   anche `card.dataset.open`, ma le schede del registro **restano sempre visibili** (il filtro
+   apertura non le nasconde: sono i nostri partner/prospect). Le schede del registro *matchate*
+   con una scheda Google avevano già il badge (sono `.shop` Google). Chiamata accanto a
+   `annotaDistanzeRegistro` in `renderResults`. Costo: 2 richieste Places per scheda registro
+   (poche per zona). Non collaudato end-to-end su Google (serve chiave+login); DOM verificato.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
