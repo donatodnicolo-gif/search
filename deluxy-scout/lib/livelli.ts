@@ -2,10 +2,11 @@
 // Una sola scala, valida in tutta l'app, DERIVATA dai dati che già abbiamo —
 // non un campo in più da tenere aggiornato a mano.
 //
-//   PROSPECT  potenzialmente interessante: qualcuno l'ha scelto (⭐ / bottone +)
-//             ma non l'abbiamo ancora contattato.
-//   LEAD      il contatto è avviato: visita fatta, chiamata registrata,
-//             richiesta web presa in carico, trattativa aperta.
+//   PROSPECT  ("Selezionato" per il team) qualcuno l'ha scelto — ⭐ dalla Mappa
+//             o dalle Affiliazioni, oppure col bottone + — ma non c'è ancora
+//             una persona con cui parlare.
+//   LEAD      ("Prospect" per il team) c'è un contatto: una persona in rubrica
+//             (o già nota da HubSpot) da cui ripartire.
 //   CLIENTE   ha chiuso una trattativa: ha comprato.
 //   DORMIENTE ha lavorato con noi ma il rapporto si è fermato (nel registro
 //             Anagrafiche è "dismesso"). Non è un perso: ci conosce già, ed è
@@ -41,28 +42,27 @@ export const AIUTO_LIVELLO: Record<Livello, string> = {
   perso: 'Chiuso senza esito o non in target.',
 };
 
-// Stati del registro Anagrafiche che significano "il contatto è già avviato".
-const REGISTRO_CONTATTATO = new Set(['in_contatto', 'in_attesa', 'in_trattativa', 'da_ricontattare']);
-
 /**
- * Il livello di un negozio. `contattato` serve quando chi chiama sa già che
- * esiste una visita/chiamata/trattativa per quel negozio (in genere lo si
- * calcola una volta sola per tutta la lista, non per riga).
+ * Il livello di un negozio.
+ *
+ * `haContatto` = esiste almeno una persona in rubrica per quel negozio. Si
+ * calcola una volta per tutta la lista (vedi `fetchPlaceIdConContatto`), non
+ * riga per riga.
+ *
+ * ⚠️ Regola cambiata il 26/07/2026 (decisione utente). Prima bastava una
+ * visita, una trattativa aperta o uno stato "avviato" nel registro per passare
+ * a Prospect: così i negozi scelti con la ⭐ da Mappa e Affiliazioni finivano
+ * quasi tutti lì, e i Selezionati restavano vuoti. Ora il confine è uno solo e
+ * concreto: **finché non c'è una persona con cui parlare resta un Selezionato**.
  */
-export function livelloDi(p: Place, contattato = false): Livello {
+export function livelloDi(p: Place, haContatto = false): Livello {
   // "dismesso" nel registro = rapporto interrotto, non trattativa persa: viene
   // prima di tutto, perché chi ci ha già lavorato non va confuso con un perso.
   if (p.anagrafiche_stato === 'dismesso') return 'dormiente';
   if (p.stato === 'cliente' || p.anagrafiche_stato === 'attivo') return 'cliente';
   if (p.stato === 'perso' || p.anagrafiche_stato === 'non_interessato') return 'perso';
-  if (
-    contattato ||
-    p.stato === 'visitato' ||
-    p.hubspot_deal_aperta ||
-    (p.anagrafiche_stato && REGISTRO_CONTATTATO.has(p.anagrafiche_stato))
-  ) {
-    return 'lead';
-  }
+  // Il contatto può arrivare dalla rubrica Scout o essere già noto da HubSpot.
+  if (haContatto || p.hubspot_ha_contatto) return 'lead';
   return 'prospect';
 }
 

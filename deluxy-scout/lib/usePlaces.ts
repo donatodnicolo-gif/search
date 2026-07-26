@@ -2,13 +2,16 @@
 // ipotesi, ed espone opzioni di filtro derivate dai dati.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Place } from '@/types';
-import { fetchPlaces } from '@/lib/db';
+import { fetchPlaces, fetchPlaceIdConContatto } from '@/lib/db';
 import { caricaRegole, popolaIpotesiMancanti } from '@/lib/categoryRules';
 import { passaFiltroCitta } from '@/lib/citta';
 import type { FiltriMappa } from '@/components/Filters';
 
 export function usePlaces() {
   const [places, setPlaces] = useState<Place[]>([]);
+  // Negozi che hanno almeno una persona in rubrica: è ciò che distingue un
+  // Prospect da un Selezionato (vedi lib/livelli.ts).
+  const [conContatto, setConContatto] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -21,6 +24,13 @@ export function usePlaces() {
       // Regola #1: pre-popola linea_ipotizzata/aggancio/priorità dove mancano.
       const arricchiti = await popolaIpotesiMancanti(raw, regole);
       setPlaces(arricchiti);
+      // Best-effort: se fallisce restano tutti Selezionati, meglio che rompere
+      // la lista.
+      try {
+        setConContatto(await fetchPlaceIdConContatto());
+      } catch {
+        setConContatto(new Set());
+      }
     } catch (e: any) {
       setErrore(e?.message ?? 'Errore nel caricamento delle attività');
     } finally {
@@ -44,7 +54,7 @@ export function usePlaces() {
     };
   }, [places]);
 
-  return { places, loading, errore, ricarica: carica, opzioni };
+  return { places, conContatto, loading, errore, ricarica: carica, opzioni };
 }
 
 /** Applica i filtri a una lista di places. La mappa NON filtra via i pin di default

@@ -28,8 +28,8 @@ const LIVELLI_VISTA: Record<Vista, Livello[]> = {
   inattivi: ['dormiente', 'perso'],
 };
 const TITOLO_VISTA: Record<Vista, string> = {
-  prospect: 'Selezionati — scelti con la ⭐, ancora da contattare: l’azione è la visita.',
-  lead: 'Prospect — sentiti o visitati: l’azione è tenere caldo il rapporto (mail con script).',
+  prospect: 'Selezionati — scelti con la ⭐ da Mappa o Affiliazioni: non c’è ancora una persona con cui parlare. L’azione è la visita.',
+  lead: 'Prospect — c’è un contatto in rubrica: l’azione è tenere caldo il rapporto (mail con script).',
   cliente: 'Clienti — hanno chiuso una trattativa.',
   inattivi: 'Dormienti e persi — rapporti da riattivare o da capire perché non sono partiti.',
 };
@@ -40,7 +40,7 @@ export default function Lista() {
   const router = useRouter();
   const { session } = useAuth();
   const admin = isAdmin(session?.user?.email);
-  const { places, loading, opzioni, ricarica } = usePlaces();
+  const { places, conContatto, loading, opzioni, ricarica } = usePlaces();
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
   const { vista } = useLocalSearchParams<{ vista?: string }>();
   const vistaCorr = (['prospect', 'lead', 'cliente', 'inattivi'] as Vista[]).includes(vista as Vista)
@@ -75,8 +75,8 @@ export default function Lista() {
       // terminale — restano nel database e sulla Mappa, ma qui non entrano:
       // erano migliaia e rendevano la lista inutilizzabile.
       .filter((p) => Boolean(p.creato_da))
-      .filter((p) => (livelliVista ? livelliVista.includes(livelloDi(p)) : true))
-      .filter((p) => (livello ? livelloDi(p) === livello : true))
+      .filter((p) => (livelliVista ? livelliVista.includes(livelloDi(p, conContatto.has(p.id))) : true))
+      .filter((p) => (livello ? livelloDi(p, conContatto.has(p.id)) === livello : true))
       .filter((p) => {
       if (!q) return true;
       return (
@@ -88,17 +88,17 @@ export default function Lista() {
       );
     });
     return [...f].sort((a, b) => RANK[a.priorita] - RANK[b.priorita] || a.nome.localeCompare(b.nome));
-  }, [places, filtri, query, livello, livelliVista]);
+  }, [places, conContatto, filtri, query, livello, livelliVista]);
 
   // Quanti ce ne sono per livello (i numeri sui chip: dicono dove sta il lavoro).
   const perLivello = useMemo(() => {
     const c: Record<string, number> = { prospect: 0, lead: 0, cliente: 0, dormiente: 0, perso: 0 };
     for (const p of places) {
       if (p.nascosto || !p.creato_da) continue;
-      c[livelloDi(p)] += 1;
+      c[livelloDi(p, conContatto.has(p.id))] += 1;
     }
     return c;
-  }, [places]);
+  }, [places, conContatto]);
 
   // I chip: dentro una vista mostro solo i suoi livelli, e solo se più d'uno.
   const chipLivelli = livelliVista ?? LIVELLI;
@@ -121,7 +121,7 @@ export default function Lista() {
               testo={
                 vistaCorr
                   ? TITOLO_VISTA[vistaCorr]
-                  : 'I negozi che qualcuno ha scelto di lavorare. SELEZIONATO: con la ⭐, da contattare. PROSPECT: contatto avviato. CLIENTE: ha chiuso una trattativa.'
+                  : 'I negozi che qualcuno ha scelto di lavorare. SELEZIONATO: scelto con la ⭐, ancora senza un contatto. PROSPECT: ha una persona in rubrica. CLIENTE: ha chiuso una trattativa.'
               }
             />
             {mostraChip ? (
@@ -167,6 +167,7 @@ export default function Lista() {
         renderItem={({ item }) => (
           <Riga
             place={item}
+            haContatto={conContatto.has(item.id)}
             vista={vistaCorr}
             onPress={() => router.push(`/(app)/attivita/${item.id}`)}
             onNascondi={() => nascondi(item)}
@@ -214,6 +215,7 @@ function origineInserimento(place: Place): string {
 
 function Riga({
   place,
+  haContatto,
   vista,
   onPress,
   onNascondi,
@@ -221,6 +223,7 @@ function Riga({
   onMail,
 }: {
   place: Place;
+  haContatto: boolean;
   vista: Vista | null;
   onPress: () => void;
   onNascondi: () => void;
@@ -246,7 +249,7 @@ function Riga({
       onPress={onPress}
       badge={
         <>
-          <StatusBadge small label={LABEL_LIVELLO[livelloDi(place)]} colore={coloreLivello(livelloDi(place))} />
+          <StatusBadge small label={LABEL_LIVELLO[livelloDi(place, haContatto)]} colore={coloreLivello(livelloDi(place, haContatto))} />
           <PriorityBadge priorita={place.priorita} small />
         </>
       }

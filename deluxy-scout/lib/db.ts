@@ -428,6 +428,20 @@ export async function fetchContatti(placeId: string): Promise<Contact[]> {
   return (data ?? []) as Contact[];
 }
 
+/**
+ * Gli id dei negozi che hanno almeno un contatto in rubrica.
+ *
+ * Serve ai livelli: dal 26/07/2026 un negozio diventa **Prospect** solo quando
+ * c'è una persona con cui parlare — prima resta **Selezionato**, anche se
+ * stellato o già visitato (decisione utente). Si carica una volta per tutta la
+ * lista: chiederlo riga per riga sarebbe una query per negozio.
+ */
+export async function fetchPlaceIdConContatto(): Promise<Set<string>> {
+  const { data, error } = await supabase.from('contacts').select('place_id');
+  if (error) throw error;
+  return new Set((data ?? []).map((r: any) => r.place_id).filter(Boolean) as string[]);
+}
+
 /** Marca un contatto HubSpot come "non pertinente" per questo negozio (non riproporlo). */
 export async function scartaContatto(placeId: string, hubspotContactId: string): Promise<void> {
   const { error } = await supabase
