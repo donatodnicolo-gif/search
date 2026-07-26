@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import type { Place } from '@/types';
 import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import { aggiornaNascosto } from '@/lib/db';
@@ -27,6 +27,16 @@ const LIVELLI_VISTA: Record<Vista, Livello[]> = {
   cliente: ['cliente'],
   inattivi: ['dormiente', 'perso'],
 };
+// Il titolo in cima alla schermata: la rotta è una sola (/lista) ma le viste
+// sono quattro, e "Prospect e Lead" fisso contraddiceva la voce di menu da cui
+// si era arrivati (es. Selezionati).
+const NOME_VISTA: Record<Vista, string> = {
+  prospect: 'Selezionati',
+  lead: 'Prospect',
+  cliente: 'Clienti',
+  inattivi: 'Dormienti e persi',
+};
+
 const TITOLO_VISTA: Record<Vista, string> = {
   prospect: 'Selezionati — scelti con la ⭐ da Mappa o Affiliazioni: non c’è ancora una persona con cui parlare. L’azione è la visita.',
   lead: 'Prospect — c’è un contatto in rubrica: l’azione è tenere caldo il rapporto (mail con script).',
@@ -47,6 +57,14 @@ export default function Lista() {
     ? (vista as Vista)
     : null;
   const livelliVista = vistaCorr ? LIVELLI_VISTA[vistaCorr] : null;
+
+  // Il titolo in cima segue la voce di menu da cui si arriva: la rotta è una
+  // sola, ma "Prospect e Lead" fisso smentiva la voce appena premuta.
+  const navigazione = useNavigation();
+  useEffect(() => {
+    navigazione.setOptions({ title: vistaCorr ? NOME_VISTA[vistaCorr] : 'Contatti' });
+  }, [navigazione, vistaCorr]);
+
   const [query, setQuery] = useState('');
   // Dentro la vista si può ancora affinare per singolo livello (es. dormiente vs perso).
   const [livello, setLivello] = useState<Livello | null>(null);
