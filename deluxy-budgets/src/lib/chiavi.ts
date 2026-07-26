@@ -20,8 +20,12 @@ async function chiaviDalHub(): Promise<Record<string, string>> {
 
   try {
     const res = await fetch(`${HUB_URL}/api/chiavi?progetto=${encodeURIComponent(PROGETTO)}`, {
-      headers: { "X-Hub-Token": token },
+      // Il hub accetta SOLO x-api-key (o Authorization: Bearer): con un altro
+      // nome risponde 401 e la cassaforte non si legge mai. Standard §4.1.
+      headers: { "x-api-key": token },
       cache: "no-store",
+      // Il hub non deve mai far aspettare una pagina: se tarda si usa il resto.
+      signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) return cache?.valori ?? {};
     const dati = (await res.json()) as { chiavi?: Record<string, string> };

@@ -44,7 +44,9 @@ async function chiaviDalHub(): Promise<Record<string, string>> {
   const base = (process.env.HUB_URL || 'https://deluxy-hub.vercel.app').replace(/\/$/, '')
   try {
     const res = await fetch(`${base}/api/chiavi?progetto=${encodeURIComponent(PROGETTO_HUB)}`, {
-      headers: { 'X-Hub-Token': token },
+      // Il hub accetta SOLO x-api-key (o Authorization: Bearer): con un altro
+      // nome risponde 401 e la cassaforte non si legge mai. Standard §4.1.
+      headers: { 'x-api-key': token },
       cache: 'no-store',
       // Il hub non deve mai far aspettare la posta: se tarda si usa il resto.
       signal: AbortSignal.timeout(4000),
