@@ -101,16 +101,68 @@ I clienti non sono una tabella a sé: si **ricavano dagli ordini**. Una persona 
 identificata dall'email; se manca, dal telefono; se manca anche quello, dal
 nome — così chi ha ordinato dieci volte, anche su brand diversi, resta un
 cliente solo. Per ognuno: contatti, brand su cui ha comprato, numero di ordini,
-totale speso, primo e ultimo ordine. Si cerca per nome, email, telefono o città
-e si ordina per spesa, numero di ordini, data o nome.
+totale speso, ordine medio, ultimo ordine e i suoi **tag** (tipologia e
+segmento di valore). Si cerca per nome, email, telefono o città, si ordina per
+spesa, numero di ordini, data o nome, e si filtra con le pillole **Segmento** e
+**Tipologia** (sono le stesse liste del catalogo, applicate qui).
+
+I totali del cliente **escludono gli ordini annullati** — come le API: un
+annullato resta spesso «pagato» e conterebbe come fatturato, spingendo il
+cliente fra i VIP per errore. Gli annullati si mostrano a parte («+2 annull.»).
+Chi ha *solo* ordini annullati non compare: non ha mai comprato niente.
 
 Gli ordini **senza alcun dato del cliente** non vengono spacciati per una
 persona: restano fuori dall'elenco e si contano a parte nel riquadro «Ordini
 senza dati cliente».
 
-Cliccando un cliente si apre la sua **scheda**: ordini totali, speso, ordine
-medio, anagrafica con l'ultimo indirizzo, e tutti i suoi ordini (con cambio di
-stato al volo).
+Cliccando un cliente si apre la sua **scheda**: tag, ordini validi, speso,
+ordine medio, da quanto è fermo, il selettore della **tipologia**, le liste in
+cui compare, l'anagrafica con l'ultimo indirizzo e tutti i suoi ordini (con
+cambio di stato al volo).
+
+### Liste (`/liste`)
+I clienti raggruppati **come si usano**: 24 liste calcolate in tempo reale dagli
+ordini (nessuna lista salvata che possa invecchiare). Ogni card dice quanti
+clienti contiene, quanto valgono, **con che criterio** ci si finisce dentro e
+**cosa farci**. Aprendone una si ottiene l'elenco dei clienti, la ricerca
+interna, l'ordinamento e l'**export CSV** (separatore `;` e BOM: si apre in
+Excel italiano con gli accenti giusti) da caricare su Customer Match o Meta.
+
+Quattro famiglie:
+
+- **Valore e ciclo di vita** — ogni cliente sta in **una sola** di queste:
+  VIP (≥ 1.000 EUR o ≥ 8 ordini, attivo), *Da non perdere* (stessi numeri ma
+  fermo da oltre un anno), Fedeli (≥ 4 ordini), Ricorrenti (2-3), Nuovi (un
+  ordine negli ultimi 90 giorni), Una tantum, Da riattivare (12-24 mesi),
+  Persi (oltre 24 mesi).
+- **Tipologia** — Aziende, Hotel e ristoranti, Eventi e wedding, Rivenditori,
+  Privati, più la coda di lavoro *Probabili aziende da confermare*.
+- **Occasioni ricorrenti** — chi ha già comprato per San Valentino, Festa della
+  donna, Festa della mamma, Natale.
+- **Liste operative e ADV** — alto scontrino, multi-brand, cross-sell da fare,
+  contattabili via email, contattabili via WhatsApp, con ordini annullati.
+
+Le **soglie** sono tarate sui dati reali del registro (mediana di spesa 110 EUR,
+90° percentile dell'ordine medio 265 EUR, 85% dei clienti con un solo ordine) e
+si cambiano in un punto solo: `src/lib/segmenti.ts`.
+
+### La tipologia di cliente (tag)
+Si **deduce dal nome di chi ordina — mai dal destinatario**: nei fiori il
+destinatario è quasi sempre un'altra persona, e un privato che manda un mazzo al
+Four Seasons non è un hotel. Si usano solo parole che in italiano non sono anche
+cognomi: la prova sui 10.375 clienti reali ha scartato «villa», «castello»,
+«location», «fiori», «cake» e «spa» (che pescava le S.p.A. e i centri
+benessere). Meglio poche tipologie giuste che tante sbagliate.
+
+Il resto lo mette l'operatore: nella scheda del cliente si sceglie la tipologia
+e, se serve, si scrive **perché**. Da quel momento **la mano vince** e la
+deduzione automatica non la tocca più (stessa regola di
+`categoriaPagamentoManuale` sugli ordini). Le pillole impostate a mano hanno una
+spunta ✓.
+
+L'indizio che non basta da solo — l'**email a dominio proprio** (non gmail,
+libero, icloud…) — non scrive niente: alimenta la lista «Probabili aziende da
+confermare», che è una coda di lavoro. È così che il registro impara chi è B2B.
 
 ### Bacheca (`/bacheca`)
 Vista kanban: una colonna per ogni stato della pipeline (più «Senza stato»).
@@ -209,8 +261,15 @@ viene aggiornato per altri motivi, il rischio viene salvato in quell'occasione.
 
 ## Lettura dalle altre app
 Le altre app leggono con una chiave di sola lettura (`GET /api/v1/ordini`,
-`/api/v1/ordini/:id`, `/api/v1/stati`). Chi ha una chiave di scrittura può anche
-riclassificare (`PATCH /api/v1/ordini/:id`). Dettaglio in `README.md`.
+`/api/v1/ordini/:id`, `/api/v1/stati`, `/api/v1/liste`, `/api/v1/liste/:chiave`).
+Chi ha una chiave di scrittura può anche riclassificare
+(`PATCH /api/v1/ordini/:id`). Dettaglio in `README.md`.
+
+Le **liste di clienti** escono con gli stessi criteri della UI: `/api/v1/liste`
+dà il catalogo con i conteggi (e le soglie, così chi legge sa cosa significano),
+`/api/v1/liste/:chiave` dà i clienti con segmento, tipologia, spesa e recency.
+È l'interfaccia pensata per Marketing: da lì nascono i pubblici Customer Match e
+Meta senza esportare a mano un CSV.
 
 ### Gli ordini annullati non escono dalle API
 È la regola più importante di questa interfaccia. Un'app a valle che ricevesse

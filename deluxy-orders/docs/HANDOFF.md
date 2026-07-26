@@ -21,8 +21,29 @@ Flowers 1.584, cakedesign.me 730). Tre negozi collegati con Client ID+Secret,
 credenziali riusate da Finance.
 
 Le pagine: **Ordini** (vista predefinita a *colonne per brand*, più l'elenco in
-tabella), **Bacheca** kanban, **scheda ordine**, **Clienti** (+ rubrica Google),
-**Consegna**, **Impostazioni**, **Fornitori vicini** per ordine.
+tabella), **Bacheca** kanban, **scheda ordine**, **Clienti** (+ tag, + rubrica
+Google), **Liste** (24 liste di clienti + export CSV), **Consegna**,
+**Impostazioni**, **Fornitori vicini** per ordine.
+
+### Liste e tag dei clienti (26/07/2026)
+I 10.212 clienti (su 10.375 identificabili: 163 hanno solo ordini annullati e
+non contano) sono classificati in tempo reale su due assi, e raccolti in **24
+liste** con criterio scritto e consiglio d'uso — catalogo in
+`src/lib/segmenti.ts`, query in `src/lib/clienti.ts`, API `/api/v1/liste`.
+
+- **Segmento di valore** (uno solo per cliente): VIP 143 · Da non perdere 79 ·
+  Fedeli 78 · Ricorrenti 591 · Nuovi 1.004 · Una tantum 2.775 · Da riattivare
+  2.692 · Persi 2.850. Soglie tarate sui dati veri (mediana di spesa 110 EUR,
+  p95 515, p99 1.498; 85% dei clienti ha un solo ordine).
+- **Tipologia**: dedotta dal nome dell'**acquirente** (mai il destinatario) e
+  correggibile a mano (`TagCliente`, la mano vince). Numeri onesti: aziende 75,
+  hotel 4, eventi 1, rivenditori 0 — più 1.098 «probabili aziende da
+  confermare» (email a dominio proprio), che è la coda di lavoro.
+
+**Perché il riconoscimento automatico è così prudente**: la prima versione
+pescava «Villa» e «Fiori» (cognomi) come location ed eventi, e «spa» come hotel
+mentre erano S.p.A. Restano solo parole che in italiano non sono anche cognomi.
+Meglio quattro hotel giusti che quaranta sbagliati.
 
 Cosa si importa da Shopify: ordini, righe con personalizzazioni e **foto**,
 cliente, spedizione, note, tag, **data e fascia di consegna**, **annullamento**
@@ -65,6 +86,18 @@ Copertura dei dati (non è il 100%, e va saputo):
 6. **`product.featuredImage` non è accessibile**: richiede lo scope
    `read_products`, che i token non hanno. Resta `lineItem.image` (57% delle
    righe su deluxy.it, 93-96% sugli altri).
+7. **Nelle `$queryRaw` la tabella va qualificata con lo schema.** Prisma mette
+   `orders.` da sé nelle query dei modelli, ma non in quelle grezze: quelle si
+   appoggiano al `search_path` della connessione e col pooler in modalità
+   transazione ne capita una senza. Sintomo visto in dev: la stessa query
+   funziona, poi risponde `relation "Ordine" does not exist`, poi rifunziona.
+   Si usa `tabella("Ordine")` di `src/lib/db.ts` (legge lo schema da
+   `DATABASE_URL`), mai `FROM "Ordine"` nudo.
+8. **`WITH … AS MATERIALIZED` conta.** La vista dei clienti classificati ha
+   espressioni regolari nella SELECT: senza materializzare, Postgres le
+   ricalcola per ognuno dei 48 aggregati del catalogo (2,0 s → 0,6 s). Per
+   l'elenco invece conviene il contrario — le calcola solo sulle righe mostrate
+   (0,6 s → 0,2 s). Da qui l'interruttore in `vistaClienti()`.
 
 ## La regola più importante delle API
 **Gli ordini annullati non escono.** `/api/v1/ordini` li esclude e il dettaglio
@@ -93,6 +126,10 @@ Chi consuma oggi: `deluxy-partner-import` (Finance) e `deluxy-messaggi`.
 3. **Riclassificazione avanzata** (idee): regole automatiche brand→stato,
    assegnazione massiva dalla bacheca, editor delle dimensioni libere
    `classificazioni`.
+4. **Liste, prossimi passi**: tipologia in blocco dalla lista «probabili
+   aziende» (oggi si conferma un cliente alla volta), invio diretto dei pubblici
+   a Marketing/Google/Meta invece dell'export CSV, liste salvate dall'utente con
+   criteri propri.
 
 ## Come si lavora qui
 - **Import storico**: `npm run import:storico` (tutto) o `-- 90` (giorni).

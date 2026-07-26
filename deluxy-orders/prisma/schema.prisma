@@ -60,6 +60,24 @@ model ContattoRubrica {
   @@index([esito])
 }
 
+// Tipologia di un cliente decisa DA UN OPERATORE (privato, azienda, hotel,
+// eventi, rivenditore). I clienti non sono una tabella — si ricavano dagli
+// ordini — quindi il tag si aggancia alla stessa `chiave` (email → telefono →
+// nome). L'app propone una tipologia dedotta dal nome dell'acquirente: quando
+// qui c'è un record, vince questo. La mano batte sempre la deduzione, come per
+// `categoriaPagamentoManuale` sugli ordini.
+model TagCliente {
+  id           String   @id @default(cuid())
+  chiave       String   @unique
+  tipo         String // privato | azienda | horeca | eventi | rivenditore
+  note         String? // perché: "cliente B2B, fattura a fine mese"
+  autore       String? // chi l'ha deciso
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([tipo])
+}
+
 // Stato del flusso di lavoro (pipeline) — completamente personalizzabile.
 // È la classificazione principale su cui si muove la Bacheca. `chiave` è lo slug
 // stabile citato dalle API; `nome` è l'etichetta mostrata.

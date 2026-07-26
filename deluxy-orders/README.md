@@ -63,6 +63,8 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 | GET | `/api/v1/ordini/:id` | un ordine con la classificazione (410 se annullato) |
 | PATCH | `/api/v1/ordini/:id` | riclassifica (chiave di scrittura): `stato`, `etichette[]`, `categoriaPagamento`, `tipoConsegna`, `tipoProdotto`, `canale`, `assegnatoApp`, `fornitore`, `responsabile`, `classificazioni{}`, `noteInterne` |
 | GET | `/api/v1/stati` | la pipeline degli stati (per interpretare `stato`) |
+| GET | `/api/v1/liste` | catalogo delle liste di clienti, con conteggi, criteri e soglie |
+| GET | `/api/v1/liste/:chiave` | i clienti di una lista (`q, ordina, page, limit≤500`) con segmento, tipologia, spesa e recency |
 | POST | `/api/v1/sync?giorni=90` | avvia l'import (chiave di scrittura); `giorni=tutto` per lo storico completo |
 
 La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine`).
@@ -76,11 +78,16 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 
 ## Struttura
 
-- `prisma/schema.prisma` — NegozioShopify, Ordine, RigaOrdine, StatoOrdine, Etichetta, EventoOrdine, ApiKey.
+- `prisma/schema.prisma` — NegozioShopify, Ordine, RigaOrdine, StatoOrdine, Etichetta, EventoOrdine, TagCliente, ApiKey.
 - `src/lib/shopify.ts` — client Admin GraphQL (ordini + righe + spedizione + tag), paginazione con ritentativi sui limiti di frequenza.
 - `src/lib/sync.ts` — import/upsert riutilizzabile (pulsante, script, cron), a blocchi per reggere gli import storici.
 - `src/lib/ordini.ts` — filtro condiviso UI/API + serializzazione.
-- `src/lib/clienti.ts` — clienti ricavati dagli ordini (aggregazione SQL).
+- `src/lib/clienti.ts` — clienti ricavati dagli ordini (aggregazione SQL) e
+  classificati: segmento di valore, tipologia, liste.
+- `src/lib/segmenti.ts` — il vocabolario della classificazione: soglie, regole
+  di riconoscimento e **catalogo delle 24 liste** (criterio + consiglio d'uso).
+  È il posto dove si cambiano le soglie o si aggiunge una lista.
 - `src/lib/brand.ts` — brand e loro colori.
 - `src/app/` — Ordini (elenco + colonne per brand), Bacheca (kanban), scheda
-  ordine, Clienti (elenco + scheda), Impostazioni.
+  ordine, Clienti (elenco + scheda + tipologia), Liste (catalogo + dettaglio +
+  export CSV), Impostazioni.

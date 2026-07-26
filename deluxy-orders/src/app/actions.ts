@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { registraEvento } from "@/lib/classificazione";
+import { codificaChiave } from "@/lib/clienti";
+import { tipologiaValida } from "@/lib/segmenti";
 import { eseguiSyncOrdini } from "@/lib/sync";
 import { tokenNegozio } from "@/lib/shopify";
 import { cercaDocumento, scriviConsegna, dataValida, fasciaValida } from "@/lib/consegna";
@@ -98,6 +100,30 @@ export async function toggleEtichetta(fd: FormData) {
   await registraEvento(ordineId, "etichetta", `${presente ? "Rimossa" : "Aggiunta"} etichetta ${eti?.nome ?? ""}`);
   revalidatePath("/");
   revalidatePath(`/ordini/${ordineId}`);
+}
+
+// ---- Tipologia di un cliente (scheda cliente) ----
+// I clienti non sono una tabella: il tag si aggancia alla chiave (email →
+// telefono → nome). Tipo vuoto = si torna alla tipologia dedotta dal nome.
+export async function impostaTipologiaCliente(fd: FormData) {
+  const chiave = s(fd, "chiave");
+  if (!chiave) return;
+  const tipo = tipologiaValida(s(fd, "tipo"));
+  const note = s(fd, "note");
+
+  if (!tipo) {
+    await prisma.tagCliente.deleteMany({ where: { chiave } });
+  } else {
+    await prisma.tagCliente.upsert({
+      where: { chiave },
+      create: { chiave, tipo, note, autore: "operatore" },
+      update: { tipo, note, autore: "operatore" },
+    });
+  }
+
+  revalidatePath("/clienti");
+  revalidatePath(`/clienti/${codificaChiave(chiave)}`);
+  revalidatePath("/liste");
 }
 
 // ---- Gestione etichette (Impostazioni) ----

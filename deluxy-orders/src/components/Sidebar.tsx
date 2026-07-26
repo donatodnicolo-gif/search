@@ -4,12 +4,17 @@ import { usePathname } from "next/navigation";
 
 // Menu laterale. Client component solo per evidenziare la voce attiva
 // (usePathname); i conteggi arrivano dal layout (server).
-export function Sidebar({ conteggi }: { conteggi: { ordini: number; daClassificare: number; clienti: number } }) {
+export function Sidebar({
+  conteggi,
+}: {
+  conteggi: { ordini: number; daClassificare: number; clienti: number; liste: number };
+}) {
   const path = usePathname();
   const voci = [
     { href: "/", nome: "Ordini", count: conteggi.ordini, icona: iconaLista },
     { href: "/bacheca", nome: "Bacheca", count: conteggi.daClassificare, icona: iconaBacheca },
     { href: "/clienti", nome: "Clienti", count: conteggi.clienti, icona: iconaClienti },
+    { href: "/liste", nome: "Liste", count: conteggi.liste, icona: iconaListeClienti },
     { href: "/consegna", nome: "Consegna", count: null, icona: iconaConsegna },
     { href: "/impostazioni", nome: "Impostazioni", count: null, icona: iconaImpostazioni },
   ];
@@ -49,6 +54,12 @@ const iconaClienti = (
     <circle cx="9.5" cy="7.5" r="3.5" />
     <path d="M21 20v-1.5a4 4 0 0 0-3-3.87" />
     <path d="M16.5 4.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+const iconaListeClienti = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 6h11" /><path d="M9 12h11" /><path d="M9 18h11" />
+    <path d="m3 6 1.5 1.5L7 5" /><path d="m3 12 1.5 1.5L7 11" /><path d="m3 18 1.5 1.5L7 17" />
   </svg>
 );
 const iconaConsegna = (

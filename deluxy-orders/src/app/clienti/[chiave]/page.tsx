@@ -3,9 +3,12 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataBreve } from "@/lib/ordini";
 import { brandConColore, mappaColori, coloreBrand } from "@/lib/brand";
-import { decodificaChiave, whereOrdiniCliente } from "@/lib/clienti";
+import { clienteSingolo, decodificaChiave, whereOrdiniCliente } from "@/lib/clienti";
+import { LISTE, TIPOLOGIE, nomeTipologia } from "@/lib/segmenti";
 import { statiOrdinati } from "@/lib/stati";
 import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
+import { PillSegmento, PillTipologia, giorniFa } from "@/components/TabellaClienti";
+import { impostaTipologiaCliente } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +17,7 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
   const chiave = decodificaChiave(codice);
   const where = whereOrdiniCliente(chiave);
 
-  const [ordini, somma, brand, stati] = await Promise.all([
+  const [ordini, somma, brand, stati, cliente] = await Promise.all([
     prisma.ordine.findMany({
       where,
       include: { stato: true, etichette: true },
@@ -24,6 +27,7 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
     prisma.ordine.aggregate({ where, _sum: { totale: true }, _count: { _all: true } }),
     brandConColore(),
     statiOrdinati(),
+    clienteSingolo(chiave),
   ]);
 
   if (ordini.length === 0) notFound();
@@ -42,6 +46,21 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
   const indirizzo = ordini.find((o) => o.indirizzo);
   const brandUsati = [...new Set(ordini.map((o) => o.brand))];
 
+  // Le liste in cui questo cliente compare: è il modo più onesto di mostrare la
+  // classificazione — non un'etichetta calata dall'alto, ma «ecco dove finisci».
+  const sueListe = cliente
+    ? LISTE.filter((l) => {
+        switch (l.famiglia) {
+          case "valore":
+            return l.chiave === segmentoALista(cliente.segmento);
+          case "tipologia":
+            return l.chiave === tipologiaALista(cliente.tipologia);
+          default:
+            return false;
+        }
+      })
+    : [];
+
   return (
     <main className="main">
       <Link href="/clienti" className="ritorno">← Tutti i clienti</Link>
@@ -52,23 +71,90 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
           <p className="page-sub">
             {quanti === 1 ? "1 ordine" : `${quanti.toLocaleString("it-IT")} ordini`} · {euro(speso)} totali
           </p>
+          {cliente && (
+            <span className="etichette" style={{ marginTop: 10 }}>
+              <PillTipologia cliente={cliente} />
+              <PillSegmento segmento={cliente.segmento} />
+              {cliente.annullati > 0 && (
+                <span className="tag" style={{ color: "var(--red)" }}>
+                  <span className="dot" />
+                  <span className="tag-label">{cliente.annullati} annullati</span>
+                </span>
+              )}
+            </span>
+          )}
         </div>
       </div>
 
       <div className="kpi-riga">
         <div className="kpi">
-          <div className="kpi-valore">{quanti.toLocaleString("it-IT")}</div>
-          <div className="kpi-etichetta">Ordini</div>
+          <div className="kpi-valore">{(cliente?.ordini ?? quanti).toLocaleString("it-IT")}</div>
+          <div className="kpi-etichetta">Ordini validi</div>
         </div>
         <div className="kpi">
-          <div className="kpi-valore">{euro(speso)}</div>
+          <div className="kpi-valore">{euro(cliente?.speso ?? speso)}</div>
           <div className="kpi-etichetta">Speso in totale</div>
         </div>
         <div className="kpi">
-          <div className="kpi-valore">{euro(quanti ? speso / quanti : 0)}</div>
+          <div className="kpi-valore">{euro(cliente?.medio ?? (quanti ? speso / quanti : 0))}</div>
           <div className="kpi-etichetta">Ordine medio</div>
         </div>
+        {cliente && (
+          <div className="kpi">
+            <div className="kpi-valore">{giorniFa(cliente.giorni)}</div>
+            <div className="kpi-etichetta">Ultimo ordine</div>
+          </div>
+        )}
       </div>
+
+      {/* ---- Classificazione: tipologia (correggibile) e liste ---- */}
+      {cliente && (
+        <div className="scheda">
+          <div className="scheda-titolo">Tipologia di cliente</div>
+          <form action={impostaTipologiaCliente} className="modulo">
+            <input type="hidden" name="chiave" value={chiave} />
+            <div className="campo-modulo">
+              <label htmlFor="tipo">Tipologia</label>
+              <select id="tipo" name="tipo" defaultValue={cliente.tipoManuale ?? ""}>
+                <option value="">
+                  Automatica — dedotta: {nomeTipologia(cliente.tipologiaAuto)}
+                </option>
+                {TIPOLOGIE.map((t) => (
+                  <option key={t.chiave} value={t.chiave}>
+                    {t.nome} — {t.spiega}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="campo-modulo">
+              <label htmlFor="note">Perché (facoltativo)</label>
+              <input id="note" name="note" defaultValue={cliente.notaTag ?? ""} placeholder="es. cliente B2B, fattura a fine mese" />
+            </div>
+            <div className="azioni-modulo campo-modulo largo">
+              <button className="btn" type="submit">Salva tipologia</button>
+            </div>
+          </form>
+          <p className="testo-guida" style={{ marginTop: 6 }}>
+            {cliente.tipoManuale
+              ? "Impostata a mano: la deduzione automatica non la tocca più."
+              : `Dedotta dal nome di chi ordina (mai dal destinatario). ${cliente.dominioAziendale ? "L'email ha un dominio proprio: potrebbe essere un'azienda." : ""}`}
+          </p>
+
+          {sueListe.length > 0 && (
+            <>
+              <div className="scheda-titolo" style={{ marginTop: 18 }}>Liste in cui compare</div>
+              <div className="etichette">
+                {sueListe.map((l) => (
+                  <Link key={l.chiave} href={`/liste/${l.chiave}`} className="tag" style={{ color: l.colore }}>
+                    <span className="dot" />
+                    <span className="tag-label">{l.nome}</span>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="scheda">
         <div className="scheda-titolo">Anagrafica</div>
@@ -128,4 +214,31 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
       </div>
     </main>
   );
+}
+
+// I segmenti e le tipologie hanno una lista con lo stesso significato ma un
+// nome al plurale: qui si fa il ponte, in un punto solo.
+function segmentoALista(segmento: string): string {
+  const mappa: Record<string, string> = {
+    vip: "vip",
+    "da-non-perdere": "da-non-perdere",
+    fedele: "fedeli",
+    ricorrente: "ricorrenti",
+    nuovo: "nuovi",
+    "una-tantum": "una-tantum",
+    "da-riattivare": "da-riattivare",
+    perso: "persi",
+  };
+  return mappa[segmento] ?? segmento;
+}
+
+function tipologiaALista(tipologia: string): string {
+  const mappa: Record<string, string> = {
+    azienda: "aziende",
+    horeca: "horeca",
+    eventi: "eventi",
+    rivenditore: "rivenditori",
+    privato: "privati",
+  };
+  return mappa[tipologia] ?? tipologia;
 }
