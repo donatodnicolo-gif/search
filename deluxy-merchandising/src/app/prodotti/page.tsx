@@ -9,7 +9,13 @@ export const dynamic = "force-dynamic";
 export default async function ProdottiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; collezione?: string; categoria?: string; fase?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    collezione?: string;
+    categoria?: string;
+    fase?: string;
+    pagina?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const where: Record<string, unknown> = {};
@@ -18,14 +24,33 @@ export default async function ProdottiPage({
   if (sp.categoria) where.categoria = sp.categoria;
   if (sp.fase) where.fase = sp.fase;
 
-  const [prodotti, collezioni] = await Promise.all([
+  // Il catalogo può contenere migliaia di prodotti (l'import dal venduto ne ha
+  // creati oltre duemila): senza pagina la tabella pesa megabyte e la pagina
+  // impiega decine di secondi. Si mostrano 100 prodotti per volta, dicendo
+  // sempre quanti sono in tutto.
+  const PER_PAGINA = 100;
+  const pagina = Math.max(1, parseInt(sp.pagina ?? "1", 10) || 1);
+
+  const [prodotti, totale, collezioni] = await Promise.all([
     prisma.prodotto.findMany({
       where,
       orderBy: [{ priorita: "desc" }, { creatoIl: "desc" }],
       include: { collezione: { select: { nome: true, margineTarget: true } } },
+      skip: (pagina - 1) * PER_PAGINA,
+      take: PER_PAGINA,
     }),
+    prisma.prodotto.count({ where }),
     prisma.collezione.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
   ]);
+
+  const pagine = Math.max(1, Math.ceil(totale / PER_PAGINA));
+  const linkPagina = (n: number) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (v && k !== "pagina") q.set(k, v);
+    if (n > 1) q.set("pagina", String(n));
+    const s = q.toString();
+    return s ? `/prodotti?${s}` : "/prodotti";
+  };
 
   return (
     <div className="layout">
@@ -62,8 +87,28 @@ export default async function ProdottiPage({
           <button type="submit" className="btn btn-secondario">Filtra</button>
         </FormFiltri>
 
-        <p className="page-sub" style={{ margin: "0 0 12px" }}>{prodotti.length} prodotti</p>
+        <p className="page-sub" style={{ margin: "0 0 12px" }}>
+          {totale} prodotti
+          {pagine > 1 ? ` · pagina ${pagina} di ${pagine}` : ""}
+        </p>
         <TabellaProdotti prodotti={prodotti} />
+        {pagine > 1 && (
+          <div className="paginazione">
+            {pagina > 1 && (
+              <a className="btn btn-secondario small" href={linkPagina(pagina - 1)}>
+                ← Precedenti
+              </a>
+            )}
+            <span className="paginazione-stato">
+              {(pagina - 1) * 100 + 1}–{Math.min(pagina * 100, totale)} di {totale}
+            </span>
+            {pagina < pagine && (
+              <a className="btn btn-secondario small" href={linkPagina(pagina + 1)}>
+                Successivi →
+              </a>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );

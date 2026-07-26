@@ -8,14 +8,34 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default async function ShopifyPage() {
-  const prodotti = await prisma.prodotto.findMany({
-    where: { fase: { not: "archiviato" } },
-    orderBy: [{ shopifyStato: "asc" }, { priorita: "desc" }],
-    include: { collezione: { select: { nome: true } } },
-  });
+// Ogni riga porta con sé due form (le azioni): con migliaia di prodotti la
+// pagina pesava megabyte. I conteggi restano sull'intero catalogo, la tabella
+// mostra un blocco per volta.
+const PER_PAGINA = 100;
 
-  const conta = (s: string) => prodotti.filter((p) => p.shopifyStato === s).length;
+export default async function ShopifyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pagina?: string }>;
+}) {
+  const sp = await searchParams;
+  const pagina = Math.max(1, parseInt(sp.pagina ?? "1", 10) || 1);
+  const where = { fase: { not: "archiviato" } };
+
+  const [prodotti, totale, perStato] = await Promise.all([
+    prisma.prodotto.findMany({
+      where,
+      orderBy: [{ shopifyStato: "asc" }, { priorita: "desc" }],
+      include: { collezione: { select: { nome: true } } },
+      skip: (pagina - 1) * PER_PAGINA,
+      take: PER_PAGINA,
+    }),
+    prisma.prodotto.count({ where }),
+    prisma.prodotto.groupBy({ by: ["shopifyStato"], where, _count: { _all: true } }),
+  ]);
+
+  const pagine = Math.max(1, Math.ceil(totale / PER_PAGINA));
+  const conta = (s: string) => perStato.find((r) => r.shopifyStato === s)?._count._all ?? 0;
   const configurato = shopifyConfigurato();
 
   // Azioni disponibili per stato corrente
@@ -81,6 +101,23 @@ export default async function ShopifyPage() {
             </tbody>
           </table>
         </div>
+        {pagine > 1 && (
+          <div className="paginazione">
+            {pagina > 1 && (
+              <a className="btn btn-secondario small" href={`/shopify?pagina=${pagina - 1}`}>
+                ← Precedenti
+              </a>
+            )}
+            <span className="paginazione-stato">
+              {(pagina - 1) * PER_PAGINA + 1}–{Math.min(pagina * PER_PAGINA, totale)} di {totale}
+            </span>
+            {pagina < pagine && (
+              <a className="btn btn-secondario small" href={`/shopify?pagina=${pagina + 1}`}>
+                Successivi →
+              </a>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );

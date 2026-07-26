@@ -76,10 +76,11 @@ export type RigaIpotesi = {
   domandaAttesa: number; // pezzi attesi su lead time + copertura
   quantitaSuggerita: number;
   costoUnitario: number;
+  costoNoto: boolean; // false = costo di produzione non ancora inserito
   prezzoUnitario: number;
   costoTotale: number;
   ricavoAtteso: number;
-  margineAtteso: number;
+  margineAtteso: number | null; // null = non calcolabile senza costo
   urgenza: Urgenza;
   confidenza: Confidenza;
   motivo: string;
@@ -88,7 +89,15 @@ export type RigaIpotesi = {
 export type Ipotesi = {
   parametri: Parametri;
   righe: RigaIpotesi[];
-  totali: { articoli: number; pezzi: number; costo: number; ricavo: number; margine: number };
+  totali: {
+    articoli: number;
+    pezzi: number;
+    costo: number;
+    ricavo: number;
+    margine: number;
+    // Su quanti articoli il margine è davvero calcolabile: il resto non ha costo.
+    articoliConCosto: number;
+  };
   daRiordinare: number;
   inRottura: number;
   avvisi: string[];
@@ -223,10 +232,13 @@ export async function calcolaIpotesi(p: Parametri): Promise<Ipotesi> {
       domandaAttesa: arrotonda(domandaAttesa, 1),
       quantitaSuggerita,
       costoUnitario,
+      costoNoto: costoUnitario > 0,
       prezzoUnitario: arrotonda(prezzoUnitario, 2),
       costoTotale: arrotonda(quantitaSuggerita * costoUnitario, 2),
       ricavoAtteso: arrotonda(quantitaSuggerita * prezzoUnitario, 2),
-      margineAtteso: arrotonda(quantitaSuggerita * (prezzoUnitario - costoUnitario), 2),
+      // Senza costo il margine non si stima: null è più onesto di "tutto margine".
+      margineAtteso:
+        costoUnitario > 0 ? arrotonda(quantitaSuggerita * (prezzoUnitario - costoUnitario), 2) : null,
       urgenza,
       confidenza,
       motivo,
@@ -246,9 +258,10 @@ export async function calcolaIpotesi(p: Parametri): Promise<Ipotesi> {
       pezzi: s.pezzi + r.quantitaSuggerita,
       costo: s.costo + r.costoTotale,
       ricavo: s.ricavo + r.ricavoAtteso,
-      margine: s.margine + r.margineAtteso,
+      margine: s.margine + (r.margineAtteso ?? 0),
+      articoliConCosto: s.articoliConCosto + (r.costoNoto ? 1 : 0),
     }),
-    { articoli: 0, pezzi: 0, costo: 0, ricavo: 0, margine: 0 }
+    { articoli: 0, pezzi: 0, costo: 0, ricavo: 0, margine: 0, articoliConCosto: 0 }
   );
 
   const avvisi: string[] = [];
@@ -257,9 +270,11 @@ export async function calcolaIpotesi(p: Parametri): Promise<Ipotesi> {
     avvisi.push(
       `${senzaStorico} propost${senzaStorico === 1 ? "a" : "e"} poggia${senzaStorico === 1 ? "" : "no"} su meno di 5 giorni di vendita: trattale come indizi, non come numeri.`
     );
-  const senzaCosto = daRiordinare.filter((r) => r.costoUnitario <= 0).length;
+  const senzaCosto = daRiordinare.filter((r) => !r.costoNoto).length;
   if (senzaCosto > 0)
-    avvisi.push(`${senzaCosto} prodotti non hanno costo di produzione: il valore dell'ordine è sottostimato.`);
+    avvisi.push(
+      `${senzaCosto} prodotti su ${daRiordinare.length} non hanno il costo di produzione: per loro il valore dell'ordine risulta 0 e il margine atteso non è calcolabile (non viene stimato a caso).`
+    );
   const senzaGiacenza = righe.filter((r) => r.varianti.length === 0).length;
   if (senzaGiacenza > 0)
     avvisi.push(
@@ -275,6 +290,7 @@ export async function calcolaIpotesi(p: Parametri): Promise<Ipotesi> {
       costo: arrotonda(totali.costo),
       ricavo: arrotonda(totali.ricavo),
       margine: arrotonda(totali.margine),
+      articoliConCosto: totali.articoliConCosto,
     },
     daRiordinare: daRiordinare.length,
     inRottura: righe.filter((r) => r.urgenza === "rottura").length,

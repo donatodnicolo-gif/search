@@ -51,6 +51,10 @@ export type DatiPerAI = {
     ricavo: number;
     margine: number;
     marginePct: number;
+    // Su quanta parte del venduto il margine è calcolabile: sul resto manca il
+    // costo di produzione. Il modello deve saperlo, altrimenti commenta un
+    // margine che vale solo per una fetta del catalogo.
+    quotaVendutoConCostoPct: number;
     scontrinoMedio: number;
     variazionePezzi: string;
     variazioneRicavo: string;
@@ -102,6 +106,7 @@ export async function datiPerAI(giorni: number): Promise<DatiPerAI> {
       ricavo: Math.round(a.totale.ricavo),
       margine: Math.round(a.totale.margine),
       marginePct: Math.round(a.totale.marginePct * 100),
+      quotaVendutoConCostoPct: Math.round(a.totale.quotaConCosto * 100),
       scontrinoMedio: Math.round(a.totale.scontrino),
       variazionePezzi: delta(a.delta.pezzi),
       variazioneRicavo: delta(a.delta.ricavo),

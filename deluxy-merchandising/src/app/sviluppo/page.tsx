@@ -4,6 +4,11 @@ import { COLORE_FASE, ETICHETTA_FASE, etichettaCategoria, FASI_PIPELINE } from "
 
 export const dynamic = "force-dynamic";
 
+// Quante schede si mostrano per colonna. Il board serve a vedere la pipeline a
+// colpo d'occhio: con migliaia di prodotti in vendita (l'import dal venduto ne
+// crea uno per articolo) diventerebbe uno scroll infinito da megabyte.
+const PER_COLONNA = 40;
+
 export default async function SviluppoPage() {
   const prodotti = await prisma.prodotto.findMany({
     where: { fase: { not: "archiviato" } },
@@ -39,7 +44,7 @@ export default async function SviluppoPage() {
                   </span>
                   <span className="board-conta">{lista.length}</span>
                 </div>
-                {lista.map((p) => (
+                {lista.slice(0, PER_COLONNA).map((p) => (
                   <a key={p.id} href={`/prodotti/${p.id}?tab=sviluppo`} className="board-card">
                     <div className="board-card-nome">{p.nome}</div>
                     <div className="board-card-sub">
@@ -50,6 +55,11 @@ export default async function SviluppoPage() {
                     {p.collezione && <div className="board-card-sub"><span>{p.collezione.nome}</span></div>}
                   </a>
                 ))}
+                {lista.length > PER_COLONNA && (
+                  <a className="vuoto-mini" href={`/prodotti?fase=${f}`} style={{ display: "block" }}>
+                    altri {lista.length - PER_COLONNA} in questa fase →
+                  </a>
+                )}
                 {lista.length === 0 && <div className="vuoto-mini">—</div>}
               </div>
             );

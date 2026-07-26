@@ -28,6 +28,7 @@ export default async function VenditePage({
     collezione?: string;
     categoria?: string;
     canale?: string;
+    tutti?: string;
     esito?: string;
     messaggio?: string;
   }>;
@@ -49,6 +50,21 @@ export default async function VenditePage({
   ]);
 
   const { totale, precedente } = analisi;
+  // Con il catalogo pieno (migliaia di prodotti venduti) la tabella completa
+  // pesa megabyte e la pagina diventa inservibile: si mostrano i primi per
+  // ricavo, dicendo quanti restano fuori. Nessun taglio silenzioso.
+  const LIMITE_TABELLA = 60;
+  const tutti = sp.tutti === "1";
+  const prodottiMostrati = tutti ? analisi.prodotti : analisi.prodotti.slice(0, LIMITE_TABELLA);
+  const nascosti = analisi.prodotti.length - prodottiMostrati.length;
+  const conParam = (chiave: string, valore: string | null) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (v && k !== "esito" && k !== "messaggio") q.set(k, v);
+    if (valore == null) q.delete(chiave);
+    else q.set(chiave, valore);
+    const s = q.toString();
+    return s ? `/vendite?${s}` : "/vendite";
+  };
   const crescita = analisi.prodotti.filter((p) => p.tendenza === "crescita").slice(0, 5);
   const calo = analisi.prodotti
     .filter((p) => p.tendenza === "calo" || p.tendenza === "fermo")
@@ -143,12 +159,20 @@ export default async function VenditePage({
             variazione={analisi.delta.pezzi}
             sotto={`prima ${precedente.pezzi} pz`}
           />
-          <Kpi
-            valore={euro(totale.margine)}
-            etichetta="Margine stimato"
-            variazione={analisi.delta.margine}
-            sotto={`${percentuale(totale.marginePct)} sul venduto con costo noto`}
-          />
+          {totale.quotaConCosto > 0 ? (
+            <Kpi
+              valore={euro(totale.margine)}
+              etichetta="Margine stimato"
+              variazione={analisi.delta.margine}
+              sotto={`${percentuale(totale.marginePct)} su ${percentuale(totale.quotaConCosto)} del venduto con costo inserito`}
+            />
+          ) : (
+            <Kpi
+              valore="n.d."
+              etichetta="Margine stimato"
+              sotto="nessun prodotto venduto ha un costo di produzione inserito"
+            />
+          )}
           <Kpi valore={euro(totale.scontrino)} etichetta="Valore medio per pezzo" />
           <Kpi
             valore={String(analisi.giorniConVendite)}
@@ -156,6 +180,18 @@ export default async function VenditePage({
             sotto={analisi.ultimaVendita ? `ultima ${iso(analisi.ultimaVendita)}` : "nessuna vendita"}
           />
         </div>
+
+        {analisi.totaleRighe > 0 && totale.quotaConCosto < 0.999 && (
+          <div className="nota-info">
+            <span className="nota-icona">◆</span>
+            <span>
+              Il margine è calcolabile solo sul <b>{percentuale(totale.quotaConCosto)}</b> del venduto: sugli
+              altri prodotti manca il <b>costo di produzione</b>, e un costo mancante viene escluso, non contato
+              come zero (altrimenti risulterebbero tutti al 100% di margine). Si compila da{" "}
+              <Link href="/prodotti">Prodotti</Link>, campo «Costo di produzione».
+            </span>
+          </div>
+        )}
 
         <div className="scheda">
           <div className="scheda-titolo">Andamento del periodo</div>
@@ -234,7 +270,7 @@ export default async function VenditePage({
                   </tr>
                 </thead>
                 <tbody>
-                  {analisi.prodotti.map((p) => (
+                  {prodottiMostrati.map((p) => (
                     <tr key={p.prodottoId}>
                       <td>
                         <Link href={`/prodotti/${p.prodottoId}`} className="cella-nome">
@@ -250,7 +286,9 @@ export default async function VenditePage({
                         {delta(p.deltaPezzi)}
                       </td>
                       <td className="num">{euro(p.ricavo)}</td>
-                      <td className="num">{p.ricavo > 0 ? percentuale(p.marginePct) : "—"}</td>
+                      <td className="num" title={p.ricavoConCosto > 0 ? undefined : "Costo di produzione non inserito"}>
+                        {p.ricavoConCosto > 0 ? percentuale(p.marginePct) : "—"}
+                      </td>
                       <td className="num">{p.ritmo.toFixed(2)} pz/g</td>
                       <td>
                         <Sparkline valori={p.serie} titolo="Pezzi venduti nelle ultime 8 settimane" />
@@ -266,6 +304,20 @@ export default async function VenditePage({
                 </tbody>
               </table>
             </div>
+
+            {nascosti > 0 && (
+              <p className="page-sub" style={{ marginTop: -8, marginBottom: 18 }}>
+                Mostrati i primi {prodottiMostrati.length} prodotti per ricavo; altri {nascosti} non sono in
+                tabella.{" "}
+                <Link href={conParam("tutti", "1")}>Mostrali tutti</Link> (la pagina diventa molto pesante).
+              </p>
+            )}
+            {tutti && (
+              <p className="page-sub" style={{ marginTop: -8, marginBottom: 18 }}>
+                Elenco completo: {prodottiMostrati.length} prodotti.{" "}
+                <Link href={conParam("tutti", null)}>Torna ai primi {LIMITE_TABELLA}</Link>.
+              </p>
+            )}
 
             <div className="griglia-gruppi">
               <TabellaGruppo titolo="Collezioni" righe={analisi.collezioni} />

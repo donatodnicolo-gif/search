@@ -25,7 +25,10 @@ export default async function PianoPage({ params }: { params: Promise<{ id: stri
 
   const scelte = piano.righe.filter((r) => r.quantitaScelta > 0);
   const costo = scelte.reduce((s, r) => s + r.quantitaScelta * r.costoUnitario, 0);
-  const ricavo = scelte.reduce((s, r) => s + r.quantitaScelta * r.prezzoUnitario, 0);
+  // Il margine si somma solo dove il costo c'è: a costo zero non è "tutto
+  // margine", è un costo che nessuno ha ancora inserito.
+  const conCosto = scelte.filter((r) => r.costoUnitario > 0);
+  const margine = conCosto.reduce((s, r) => s + r.quantitaScelta * (r.prezzoUnitario - r.costoUnitario), 0);
   const suggeriti = piano.righe.reduce((s, r) => s + r.quantitaSuggerita, 0);
   const decisi = piano.righe.reduce((s, r) => s + r.quantitaScelta, 0);
   const statoCorrente = STATI.find((s) => s.chiave === piano.stato) ?? STATI[0];
@@ -70,8 +73,12 @@ export default async function PianoPage({ params }: { params: Promise<{ id: stri
             <div className="kpi-etichetta">Valore dell&apos;ordine</div>
           </div>
           <div className="kpi">
-            <div className="kpi-valore">{euro(ricavo - costo)}</div>
-            <div className="kpi-etichetta">Margine atteso</div>
+            <div className="kpi-valore">{conCosto.length > 0 ? euro(margine) : "n.d."}</div>
+            <div className="kpi-etichetta">
+              {conCosto.length > 0
+                ? `Margine atteso su ${conCosto.length} articoli con costo`
+                : "Margine atteso: nessun costo inserito"}
+            </div>
           </div>
         </div>
 

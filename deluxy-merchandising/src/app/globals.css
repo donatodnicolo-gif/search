@@ -456,3 +456,7 @@ tbody tr:hover { background: var(--fill); }
 .lista-domande li { padding-left: 16px; position: relative; line-height: 1.5; }
 .lista-domande li::before { content: "?"; position: absolute; left: 0; color: var(--gold-strong); font-weight: 600; }
 .dettagli-summary { cursor: pointer; font-size: 13.5px; color: var(--blue); margin-bottom: 12px; }
+
+/* ---------- Paginazione ---------- */
+.paginazione { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 18px; }
+.paginazione-stato { font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }

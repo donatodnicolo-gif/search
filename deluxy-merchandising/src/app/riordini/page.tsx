@@ -35,7 +35,13 @@ export default async function RiordiniPage({
     }),
   ]);
 
-  const righe = soloDaOrdinare ? ipotesi.righe.filter((r) => r.quantitaSuggerita > 0) : ipotesi.righe;
+  const selezionate = soloDaOrdinare ? ipotesi.righe.filter((r) => r.quantitaSuggerita > 0) : ipotesi.righe;
+  // Con migliaia di prodotti la tabella intera rende la pagina inservibile: si
+  // mostrano le prime per urgenza e valore, dicendo quante restano fuori.
+  // Il "congela ipotesi" prende comunque TUTTE le righe, non solo queste.
+  const LIMITE = 80;
+  const righe = sp.elenco === "tutto" ? selezionate : selezionate.slice(0, LIMITE);
+  const nascoste = selezionate.length - righe.length;
 
   return (
     <div className="layout">
@@ -114,8 +120,14 @@ export default async function RiordiniPage({
             <div className="kpi-etichetta">Valore dell&apos;ordine (costo)</div>
           </div>
           <div className="kpi">
-            <div className="kpi-valore">{euro(ipotesi.totali.margine)}</div>
-            <div className="kpi-etichetta">Margine atteso se si vende tutto</div>
+            <div className="kpi-valore">
+              {ipotesi.totali.articoliConCosto > 0 ? euro(ipotesi.totali.margine) : "n.d."}
+            </div>
+            <div className="kpi-etichetta">
+              {ipotesi.totali.articoliConCosto > 0
+                ? `Margine atteso su ${ipotesi.totali.articoliConCosto} articoli con costo`
+                : "Margine atteso: nessun costo inserito"}
+            </div>
           </div>
           <div className="kpi">
             <div className="kpi-valore" style={{ color: ipotesi.inRottura ? "var(--red)" : "var(--green)" }}>
@@ -206,6 +218,19 @@ export default async function RiordiniPage({
               </tbody>
             </table>
           </div>
+        )}
+
+        {nascoste > 0 && (
+          <p className="page-sub" style={{ marginTop: 12 }}>
+            Mostrate le prime {righe.length} righe per urgenza e valore; altre {nascoste} non sono in tabella
+            (ci sono comunque tutte se congeli l&apos;ipotesi).{" "}
+            <Link
+              href={`/riordini?storico=${parametri.giorniStorico}&lead=${parametri.leadTimeGiorni}&copertura=${parametri.coperturaGiorni}&scorta=${parametri.scortaSicurezzaPct}${soloDaOrdinare ? "" : "&tutti=1"}&elenco=tutto`}
+            >
+              Mostrale tutte
+            </Link>{" "}
+            (la pagina diventa molto pesante).
+          </p>
         )}
 
         <div className="scheda" style={{ marginTop: 18 }}>

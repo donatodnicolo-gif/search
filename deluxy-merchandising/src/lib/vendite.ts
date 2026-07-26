@@ -93,6 +93,9 @@ export type RigaProdotto = {
   ricavo: number;
   margine: number;
   marginePct: number;
+  // Quanto del ricavo di questa riga ha un costo di produzione inserito: se è 0
+  // il margine non si può dire, e la tabella scrive "—" invece di un numero.
+  ricavoConCosto: number;
   pezziPrec: number;
   ricavoPrec: number;
   deltaPezzi: number | null; // frazione (0.18 = +18%); null se prima non vendeva
@@ -115,7 +118,15 @@ export type Analisi = {
   finestra: Finestra;
   passo: "giorno" | "settimana";
   serie: PuntoSerie[];
-  totale: { pezzi: number; ricavo: number; margine: number; marginePct: number; scontrino: number };
+  totale: {
+    pezzi: number;
+    ricavo: number;
+    margine: number;
+    marginePct: number;
+    scontrino: number;
+    // Quota del venduto su cui il margine è calcolabile (0 = nessun costo inserito).
+    quotaConCosto: number;
+  };
   precedente: { pezzi: number; ricavo: number; margine: number };
   delta: { pezzi: number | null; ricavo: number | null; margine: number | null };
   prodotti: RigaProdotto[];
@@ -172,10 +183,17 @@ const SELECT_VENDITA = {
   variante: { select: { id: true, nome: true, deltaCosto: true } },
 } as const;
 
-/** Costo industriale di una riga venduta (prodotto + delta variante). */
+// Costo industriale di una riga venduta (prodotto + delta variante).
+//
+// Costo zero NON è un costo: è un costo che nessuno ha ancora inserito
+// (succede a tutti i prodotti nati dall'import del venduto). Contarlo come 0
+// darebbe "margine 100%" su tutto, che è falso e pure rassicurante. Qui la riga
+// esce dal calcolo del margine e il totale dichiara quanta parte del venduto ha
+// davvero un costo noto.
 function costoRiga(v: VenditaCaricata): number | null {
   if (!v.prodotto) return null;
-  return (v.prodotto.costoProduzione || 0) + (v.variante?.deltaCosto || 0);
+  const costo = (v.prodotto.costoProduzione || 0) + (v.variante?.deltaCosto || 0);
+  return costo > 0 ? costo : null;
 }
 
 function variazione(ora: number, prima: number): number | null {
@@ -299,6 +317,7 @@ export async function analizzaVendite(
         ricavo: 0,
         margine: 0,
         marginePct: 0,
+        ricavoConCosto: 0,
         pezziPrec: 0,
         ricavoPrec: 0,
         deltaPezzi: null,
@@ -311,7 +330,10 @@ export async function analizzaVendite(
     riga.pezzi += r.quantita;
     riga.ricavo += r.ricavo;
     const c = costoRiga(r);
-    if (c != null) riga.margine += r.ricavo - c * r.quantita;
+    if (c != null) {
+      riga.margine += r.ricavo - c * r.quantita;
+      riga.ricavoConCosto += r.ricavo;
+    }
     if (r.data >= inizioSpark) {
       const i = Math.min(
         settimaneSparkline - 1,
@@ -341,6 +363,7 @@ export async function analizzaVendite(
       ricavo: 0,
       margine: 0,
       marginePct: 0,
+      ricavoConCosto: 0,
       pezziPrec: r.quantita,
       ricavoPrec: r.ricavo,
       deltaPezzi: -1,
@@ -351,7 +374,7 @@ export async function analizzaVendite(
   }
   const prodotti = [...perProdotto.values()].map((r) => ({
     ...r,
-    marginePct: r.ricavo > 0 ? r.margine / r.ricavo : 0,
+    marginePct: r.ricavoConCosto > 0 ? r.margine / r.ricavoConCosto : 0,
     ritmo: r.pezzi / giorni,
     deltaPezzi: variazione(r.pezzi, r.pezziPrec),
     tendenza: classificaTendenza(r.pezzi, r.pezziPrec),
@@ -396,6 +419,7 @@ export async function analizzaVendite(
       margine,
       marginePct: ricavoConCosto > 0 ? margine / ricavoConCosto : 0,
       scontrino: pezzi > 0 ? ricavo / pezzi : 0,
+      quotaConCosto: ricavo > 0 ? ricavoConCosto / ricavo : 0,
     },
     precedente: { pezzi: pezziPrec, ricavo: ricavoPrec, margine: marginePrec },
     delta: {
