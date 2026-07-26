@@ -35,6 +35,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     },
   });
 
+  // Lo stato del gruppo sulla piattaforma segue l'esito: è l'unico modo che ha
+  // l'app di sapere che quel gruppo adesso è davvero fermo.
+  if (riuscita && operazione.gruppoId) {
+    await prisma.gruppo
+      .update({
+        where: { id: operazione.gruppoId },
+        data: {
+          statoPiattaforma: operazione.tipo === "pausa_gruppo" ? "PAUSED" : "ENABLED",
+          stato: operazione.tipo === "pausa_gruppo" ? "in_pausa" : "attivo",
+        },
+      })
+      .catch(() => {});
+  }
+
   if (riuscita && operazione.campagnaId) {
     const campagna = await prisma.campagna.findUnique({ where: { id: operazione.campagnaId } });
     if (campagna) {

@@ -1,30 +1,12 @@
 import { Badge } from "@/components/Badge";
 import { Sidebar } from "@/components/Sidebar";
+import { TabellaGruppi } from "@/components/TabellaGruppi";
 import { prisma } from "@/lib/db";
-import { BRANDS, COLORE_BRAND, ETICHETTA_BRAND, formattaEuro, formattaNumero } from "@/lib/dominio";
-import { breakEvenRoas } from "@/lib/guardrail";
+import { BRANDS, COLORE_BRAND, ETICHETTA_BRAND } from "@/lib/dominio";
+import { GIORNI_LETTURA, gruppiConNumeri } from "@/lib/gruppi";
 
 export const dynamic = "force-dynamic";
 
-// Un gruppo di annunci si legge col break-even del suo brand, non con un numero
-// buono per tutti: Gifts va in pari a 3,33 di ROAS, Cake a 2,0 (doc 10 §11).
-function letturaRoas(roas: number | null, spesa: number, brand: string) {
-  if (roas == null || spesa <= 0) {
-    return { testo: "—", colore: "var(--text-tertiary)", spiega: "Nessuna spesa nel periodo" };
-  }
-  const be = breakEvenRoas(brand);
-  if (roas >= be * 1.5) {
-    return { testo: roas.toFixed(2) + "×", colore: "var(--green)", spiega: `Sopra il target (1,5× il break-even di ${be.toFixed(2)})` };
-  }
-  if (roas >= be) {
-    return { testo: roas.toFixed(2) + "×", colore: "var(--blue)", spiega: `Sopra il break-even del brand (${be.toFixed(2)}), sotto il target` };
-  }
-  return { testo: roas.toFixed(2) + "×", colore: "var(--red)", spiega: `Sotto il break-even del brand (${be.toFixed(2)}): sta perdendo` };
-}
-
-// Copy & annunci: titoli e descrizioni RSA per campagna, con keyword e resa.
-// Fonte: fogli "Flowers ADS Google" (+ENG) del Monitoraggio; regole di tono
-// e claim nei Definitivi 7.2/7.3 su Drive.
 export default async function PaginaCopy({
   searchParams,
 }: {
@@ -33,24 +15,24 @@ export default async function PaginaCopy({
   const { brand, campagna, q } = await searchParams;
   const tutti = await prisma.copyAnnuncio.findMany({
     where: {
-      tipo: { notIn: ["keyword", "gruppo"] },
+      tipo: { not: "keyword" },
       ...(brand ? { brand } : {}),
       ...(campagna ? { campagna } : {}),
       ...(q ? { testo: { contains: q } } : {}),
     },
     orderBy: [{ campagna: "asc" }, { tipo: "asc" }, { posizione: "asc" }],
   });
-  // Gruppi di annunci (e gruppi di asset delle PMax): li manda lo script con
-  // AZIONE = "gruppi", finestra ultimi 30 giorni.
-  const gruppi = await prisma.copyAnnuncio.findMany({
-    where: {
-      tipo: "gruppo",
-      ...(brand ? { brand } : {}),
-      ...(campagna ? { campagna } : {}),
-      ...(q ? { testo: { contains: q } } : {}),
-    },
-    orderBy: [{ spesa: "desc" }, { testo: "asc" }],
+  // I gruppi di annunci sono un'entità loro (modello Gruppo) con metriche
+  // giornaliere: qui se ne mostra il riassunto, il posto pieno è /gruppi.
+  const nomeCampagnaFiltro = campagna ?? null;
+  const gruppi = await gruppiConNumeri({
+    brand: brand || undefined,
+    campagnaId: undefined,
+    cerca: q || undefined,
   });
+  const gruppiVisti = nomeCampagnaFiltro
+    ? gruppi.filter((g) => g.campagna === nomeCampagnaFiltro)
+    : gruppi;
   const campagne = await prisma.copyAnnuncio.groupBy({ by: ["campagna"], orderBy: { campagna: "asc" } });
   // Estensioni/asset: stanno su tre livelli (account, campagna, gruppo)
   const estensioni = await prisma.copyAnnuncio.findMany({
@@ -97,70 +79,22 @@ export default async function PaginaCopy({
           <button className="btn small" type="submit">Filtra</button>
         </form>
 
-        {perCampagna.size === 0 && gruppi.length === 0 && (
+        {perCampagna.size === 0 && gruppiVisti.length === 0 && (
           <div className="vuoto">Nessun copy: importare il Monitoraggio o depositare via API.</div>
         )}
 
-        {gruppi.length > 0 && (
+        {gruppiVisti.length > 0 && (
           <section className="scheda">
-            <div className="scheda-titolo">Gruppi di annunci ({gruppi.length})</div>
-            <p className="cella-sub" style={{ marginBottom: 12 }}>
-              Quanto spende e quanto rende ogni gruppo, ultimi 30 giorni, come li manda lo
-              script di Google Ads. Il ROAS è colorato sul break-even del brand (Gifts 3,33 ·
-              Flowers 2,50 · Cake 2,00): verde sopra il target, blu in utile, rosso in perdita.
-              Le Performance Max non hanno gruppi di annunci: al loro posto compaiono i gruppi
-              di asset.
-            </p>
-            <div style={{ overflowX: "auto" }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Gruppo</th>
-                    <th>Stato</th>
-                    <th style={{ textAlign: "right" }}>Spesa</th>
-                    <th style={{ textAlign: "right" }}>Clic</th>
-                    <th style={{ textAlign: "right" }}>Conv.</th>
-                    <th style={{ textAlign: "right" }}>Incasso</th>
-                    <th style={{ textAlign: "right" }}>ROAS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {gruppi.map((g) => {
-                    const spesa = g.spesa ?? 0;
-                    const incasso = g.incasso ?? 0;
-                    const roas = spesa > 0 ? incasso / spesa : null;
-                    const lettura = letturaRoas(roas, spesa, g.brand);
-                    return (
-                      <tr key={g.id}>
-                        <td style={{ maxWidth: 320 }}>
-                          <div className="cella-nome">{g.testo}</div>
-                          <div className="cella-sub">
-                            {g.campagna}
-                            {g.note ? ` · ${g.note}` : ""}
-                          </div>
-                        </td>
-                        <td>
-                          <Badge
-                            testo={g.statoPiattaforma === "PAUSED" ? "in pausa" : "attivo"}
-                            colore={g.statoPiattaforma === "PAUSED" ? "var(--orange)" : "var(--green)"}
-                          />
-                        </td>
-                        <td style={{ textAlign: "right" }}>{formattaEuro(spesa)}</td>
-                        <td style={{ textAlign: "right" }} className="cella-muta">{formattaNumero(g.clic)}</td>
-                        <td style={{ textAlign: "right" }} className="cella-muta">{formattaNumero(g.conversioni)}</td>
-                        <td style={{ textAlign: "right" }}>{formattaEuro(incasso)}</td>
-                        <td style={{ textAlign: "right", color: lettura.colore, fontWeight: 600 }} title={lettura.spiega}>
-                          {lettura.testo}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="scheda-titolo">
+              Gruppi di annunci ({gruppiVisti.length}) · ultimi {GIORNI_LETTURA} giorni
             </div>
+            <TabellaGruppi righe={gruppiVisti} mostraQuota />
+            <p className="cella-sub" style={{ marginTop: 10 }}>
+              Quanto spende e quanto rende ogni gruppo, col ROAS letto sul break-even del suo
+              brand. Il posto pieno, con filtri e periodi, è <a href="/gruppi">Gruppi di annunci</a>.
+            </p>
           </section>
         )}
-
 
         {estensioni.length > 0 && (
           <section className="scheda">

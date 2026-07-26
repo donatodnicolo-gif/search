@@ -14,6 +14,8 @@ const ETICHETTA_TIPO: Record<string, string> = {
   pausa_keyword: "Metti in pausa la keyword",
   attiva_keyword: "Riattiva la keyword",
   negativa: "Aggiungi keyword negativa",
+  pausa_gruppo: "Metti in pausa il gruppo di annunci",
+  attiva_gruppo: "Riattiva il gruppo di annunci",
 };
 
 const COLORE_STATO: Record<string, string> = {

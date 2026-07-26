@@ -433,34 +433,35 @@ function migliorRendimento(a, b) {
 function mandaGruppi(conto) {
   var righe = leggiGruppi(conto).concat(leggiGruppiAsset(conto));
   if (righe.length === 0) {
-    Logger.log("Nessun gruppo con dati negli ultimi " + GIORNI_COPY + " giorni.");
+    Logger.log("Nessun gruppo con dati negli ultimi " + GIORNI_INDIETRO + " giorni.");
     RIEPILOGO.push("gruppi: niente da inviare");
     return;
   }
 
-  righe.sort(function (a, b) { return (b.spesa || 0) - (a.spesa || 0); });
-  Logger.log("Gruppi letti: " + righe.length + " (finestra " + GIORNI_COPY + " giorni)");
-  for (var i = 0; i < Math.min(righe.length, 5); i++) {
-    var g = righe[i];
-    var resa = g.spesa > 0 ? (g.incasso / g.spesa).toFixed(2) + "×" : "—";
-    Logger.log("  " + g.campagna + " › " + g.testo + ": " + g.spesa + " € · " + g.conversioni + " conv · resa " + resa);
-  }
-  if (righe.length > 5) Logger.log("  … e altri " + (righe.length - 5) + " gruppi");
+  Logger.log(
+    righe.length + " righe (giorno×gruppo) dal " + dataIso(-GIORNI_INDIETRO) + " al " + dataIso(0)
+  );
+  Logger.log("Esempio: " + JSON.stringify(righe[0]));
 
-  var esito = inviaABlocchi("/api/v1/ingest/copy", righe, function (lotto) {
+  var esito = inviaABlocchi("/api/v1/ingest", righe, function (lotto) {
     return corpoBase(conto, { gruppi: lotto });
   });
-  RIEPILOGO.push("gruppi: " + esito.inviate + "/" + righe.length + " inviati");
+  RIEPILOGO.push("gruppi: " + esito.inviate + "/" + righe.length + " righe inviate" + (esito.nota ? " · " + esito.nota : ""));
 }
 
-/** Gruppi di annunci: le metriche arrivano già sommate sul periodo. */
+/**
+ * Gruppi di annunci, una riga per giorno come le campagne: solo così l'app può
+ * mostrarli su qualunque periodo e confrontarli con la campagna che li contiene.
+ * `idCampagna` viaggia insieme: è l'aggancio esatto, il nome è solo il ripiego.
+ */
 function leggiGruppi(conto) {
   var query =
-    "SELECT campaign.name, ad_group.id, ad_group.name, ad_group.status, ad_group.type, " +
+    "SELECT campaign.id, campaign.name, ad_group.id, ad_group.name, " +
+    "ad_group.status, ad_group.type, segments.date, " +
     "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
     "metrics.conversions, metrics.conversions_value " +
     "FROM ad_group " +
-    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_COPY) + "' AND '" + dataIso(0) + "' " +
+    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_INDIETRO) + "' AND '" + dataIso(0) + "' " +
     "AND ad_group.status != 'REMOVED'";
 
   var righe = [];
@@ -471,16 +472,18 @@ function leggiGruppi(conto) {
     while (risultati.hasNext()) {
       var r = risultati.next();
       righe.push({
-        idEsterno: conto.id + ":" + r.adGroup.id,
-        testo: r.adGroup.name,
+        idGruppo: conto.id + ":" + r.adGroup.id,
+        nome: r.adGroup.name,
+        idCampagna: String(r.campaign.id),
         campagna: r.campaign.name,
+        data: r.segments.date,
         spesa: arrotonda(Number(r.metrics.costMicros || 0) / 1000000),
-        incasso: arrotonda(Number(r.metrics.conversionsValue || 0)),
-        clic: Number(r.metrics.clicks || 0),
-        impressioni: Number(r.metrics.impressions || 0),
+        impression: Number(r.metrics.impressions || 0),
+        click: Number(r.metrics.clicks || 0),
         conversioni: arrotonda(Number(r.metrics.conversions || 0)),
+        ricavi: arrotonda(Number(r.metrics.conversionsValue || 0)),
         statoPiattaforma: r.adGroup.status,
-        note: etichettaTipoGruppo(r.adGroup.type),
+        tipo: r.adGroup.type ? String(r.adGroup.type).toLowerCase() : null,
       });
     }
   } catch (e) {
@@ -492,11 +495,12 @@ function leggiGruppi(conto) {
 /** Performance Max: gruppi di asset, stessa forma, con la loro etichetta. */
 function leggiGruppiAsset(conto) {
   var query =
-    "SELECT campaign.name, asset_group.id, asset_group.name, asset_group.status, " +
+    "SELECT campaign.id, campaign.name, asset_group.id, asset_group.name, " +
+    "asset_group.status, segments.date, " +
     "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
     "metrics.conversions, metrics.conversions_value " +
     "FROM asset_group " +
-    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_COPY) + "' AND '" + dataIso(0) + "' " +
+    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_INDIETRO) + "' AND '" + dataIso(0) + "' " +
     "AND asset_group.status != 'REMOVED'";
 
   var righe = [];
@@ -505,16 +509,18 @@ function leggiGruppiAsset(conto) {
     while (risultati.hasNext()) {
       var r = risultati.next();
       righe.push({
-        idEsterno: conto.id + ":ag:" + r.assetGroup.id,
-        testo: r.assetGroup.name,
+        idGruppo: conto.id + ":ag:" + r.assetGroup.id,
+        nome: r.assetGroup.name,
+        idCampagna: String(r.campaign.id),
         campagna: r.campaign.name,
+        data: r.segments.date,
         spesa: arrotonda(Number(r.metrics.costMicros || 0) / 1000000),
-        incasso: arrotonda(Number(r.metrics.conversionsValue || 0)),
-        clic: Number(r.metrics.clicks || 0),
-        impressioni: Number(r.metrics.impressions || 0),
+        impression: Number(r.metrics.impressions || 0),
+        click: Number(r.metrics.clicks || 0),
         conversioni: arrotonda(Number(r.metrics.conversions || 0)),
+        ricavi: arrotonda(Number(r.metrics.conversionsValue || 0)),
         statoPiattaforma: r.assetGroup.status,
-        note: "gruppo di asset (Performance Max)",
+        tipo: "asset_group_pmax",
       });
     }
   } catch (e) {
@@ -522,11 +528,6 @@ function leggiGruppiAsset(conto) {
     Logger.log("Gruppi di asset (PMax) non letti: " + e);
   }
   return righe;
-}
-
-function etichettaTipoGruppo(tipo) {
-  if (!tipo || tipo === "SEARCH_STANDARD") return null;
-  return "tipo " + String(tipo).toLowerCase().split("_").join(" ");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -843,6 +844,7 @@ function trovaBersaglio(op, conto) {
   }
 
   if (t === "pausa_keyword" || t === "attiva_keyword") return trovaKeyword(op, conto);
+  if (t === "pausa_gruppo" || t === "attiva_gruppo") return trovaGruppo(op, conto);
 
   var campagna = trovaCampagna(op);
   return campagna ? { esito: "trovato", campagna: campagna } : { esito: "non-trovato" };
@@ -914,6 +916,38 @@ function trovaKeyword(op, conto) {
   return { esito: "trovato", keyword: trovate[0] };
 }
 
+/**
+ * L'id dei gruppi è "account:idGruppo" (o "account:ag:id" per i gruppi di asset
+ * delle PMax, che dagli Script non si toccano). Il prefisso dice subito se
+ * l'operazione è di un altro account.
+ */
+function trovaGruppo(op, conto) {
+  var parti = String(op.idEsterno || "").split(":");
+  if (parti.length >= 2 && soloCifre(parti[0]) !== soloCifre(conto.id)) {
+    return { esito: "altro-account" };
+  }
+  if (parti.length === 3 && parti[1] === "ag") {
+    throw new Error(
+      "È un gruppo di asset di una Performance Max: dagli Script non si può fermare. " +
+      "Va fatto nell'interfaccia di Google Ads."
+    );
+  }
+  if (parti.length !== 2) {
+    // Riga vecchia senza account nell'id: si cerca per nome, ma solo dentro la
+    // campagna indicata, altrimenti si rischia il gruppo omonimo di un'altra.
+    var nomeCampagna = (op.parametri && op.parametri.campagna) || null;
+    if (!nomeCampagna) return { esito: "non-trovato" };
+    var campagna = trovaCampagna({ bersaglio: nomeCampagna });
+    if (!campagna) return { esito: "non-trovato" };
+    var perNome = campagna.adGroups()
+      .withCondition("ad_group.name = '" + apici(op.bersaglio) + "'")
+      .get();
+    return perNome.hasNext() ? { esito: "trovato", gruppo: perNome.next() } : { esito: "non-trovato" };
+  }
+  var it = AdsApp.adGroups().withIds([Number(parti[1])]).get();
+  return it.hasNext() ? { esito: "trovato", gruppo: it.next() } : { esito: "non-trovato" };
+}
+
 /** Esegue davvero. Ogni ramo legge lo stato PRIMA di cambiarlo. */
 function applica(op, mira, conto) {
   var t = op.tipo;
@@ -972,6 +1006,26 @@ function applica(op, mira, conto) {
     var eraPausaKw = mira.keyword.isPaused();
     mira.keyword.enable();
     return { dettaglio: "keyword riattivata", prima: eraPausaKw ? "in pausa" : "già attiva", dopo: "attiva" };
+  }
+
+  if (t === "pausa_gruppo") {
+    var eraAttivoGr = mira.gruppo.isEnabled();
+    mira.gruppo.pause();
+    return {
+      dettaglio: "gruppo \"" + mira.gruppo.getName() + "\" messo in pausa",
+      prima: eraAttivoGr ? "attivo" : "già in pausa",
+      dopo: "in pausa",
+    };
+  }
+
+  if (t === "attiva_gruppo") {
+    var eraPausaGr = mira.gruppo.isPaused();
+    mira.gruppo.enable();
+    return {
+      dettaglio: "gruppo \"" + mira.gruppo.getName() + "\" riattivato",
+      prima: eraPausaGr ? "in pausa" : "già attivo",
+      dopo: "attivo",
+    };
   }
 
   if (t === "nuova_keyword") return creaKeyword(op, mira);

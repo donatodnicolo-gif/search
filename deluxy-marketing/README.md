@@ -102,7 +102,7 @@ collettive → Script), una copia per account e per lavoro. Google Ads esegue **
 | `metriche` | Metriche giornaliere di campagna (spesa, clic, conversioni, valore) | Ogni giorno, 23-24 |
 | `approvazioni` | Annunci in revisione o limitati, per campagna (alert A4) | Ogni giorno, mattina |
 | `copy` | Keyword con QS e testi RSA con etichetta di rendimento | Ogni settimana |
-| `gruppi` | Gruppi di annunci con spesa e resa proprie (e gruppi di asset per le PMax) | Ogni settimana |
+| `gruppi` | Gruppi di annunci, una riga per giorno (e gruppi di asset per le PMax) | Ogni giorno o settimana |
 | `asset` | Sitelink, callout, snippet e immagini sui tre livelli | Ogni settimana |
 | `esegui` | Esegue le operazioni **approvate** in /operazioni | Quando serve |
 

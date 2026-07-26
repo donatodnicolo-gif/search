@@ -16,14 +16,10 @@ import { registra } from "@/lib/registro";
 //                 spesa?, incasso?, clic?, impressioni?, conversioni?,
 //                 punteggioQualita?, statoPiattaforma? }],
 //   annunci?:  [{ idEsterno?, testo*, tipo*: "titolo"|"descrizione", posizione?,
-//                 campagna*, gruppo?, finalUrl?, rendimento?, statoPiattaforma? }],
-//   gruppi?:   [{ idEsterno?, testo* (nome del gruppo), campagna*, spesa?,
-//                 incasso?, clic?, impressioni?, conversioni?, statoPiattaforma?,
-//                 note? }]
+//                 campagna*, gruppo?, finalUrl?, rendimento?, statoPiattaforma? }]
 // }
-// I "gruppi" sono i gruppi di annunci (e, per Performance Max, i gruppi di
-// asset): stessa riga di sempre con tipo "gruppo", ma con le metriche, perché
-// la domanda vera è quale gruppo tiene su la campagna e quale la zavorra.
+// I GRUPPI di annunci non passano di qui: sono un'entità loro con le proprie
+// metriche giornaliere (modello Gruppo) e arrivano da POST /api/v1/ingest.
 export async function POST(req: NextRequest) {
   const cliente = await autentica(req, { scrittura: true });
   if (cliente instanceof NextResponse) return cliente;
@@ -36,9 +32,8 @@ export async function POST(req: NextRequest) {
   }
   const keywords = Array.isArray(body.keywords) ? body.keywords : [];
   const annunci = Array.isArray(body.annunci) ? body.annunci : [];
-  const gruppi = Array.isArray(body.gruppi) ? body.gruppi : [];
-  if (keywords.length === 0 && annunci.length === 0 && gruppi.length === 0) {
-    return erroreApi(400, "Niente da importare: servono 'keywords', 'annunci' o 'gruppi'");
+  if (keywords.length === 0 && annunci.length === 0) {
+    return erroreApi(400, "Niente da importare: servono 'keywords' o 'annunci'");
   }
 
   const canale = body.canale ?? "google_ads";
@@ -89,7 +84,7 @@ export async function POST(req: NextRequest) {
     return "nuova";
   }
 
-  let nuoveKw = 0, aggiornateKw = 0, nuoviAnn = 0, aggiornatiAnn = 0, nuoviGr = 0, aggiornatiGr = 0;
+  let nuoveKw = 0, aggiornateKw = 0, nuoviAnn = 0, aggiornatiAnn = 0;
 
   for (const k of keywords) {
     if (!k?.testo || !k?.campagna) continue;
@@ -135,38 +130,15 @@ export async function POST(req: NextRequest) {
     else aggiornatiAnn++;
   }
 
-  // I gruppi di annunci: come le keyword, ma con le metriche del gruppo intero.
-  // Lo stato deciso nell'app non si tocca nemmeno qui.
-  for (const g of gruppi) {
-    if (!g?.testo || !g?.campagna) continue;
-    const esito = await salva("gruppo", g, {
-      gruppo: String(g.testo), // il gruppo è sé stesso: comodo per i filtri
-      idEsterno: g.idEsterno ? String(g.idEsterno) : null,
-      spesa: numero(g.spesa),
-      incasso: numero(g.incasso),
-      clic: intero(g.clic),
-      impressioni: intero(g.impressioni),
-      conversioni: numero(g.conversioni),
-      statoPiattaforma: g.statoPiattaforma ?? null,
-      note: g.note ?? null,
-      metricheAl: adesso,
-      fonte: canale,
-    });
-    if (esito === "nuova") nuoviGr++;
-    else aggiornatiGr++;
-  }
-
   await prisma.ricezioneDati.create({
     data: {
       fonte: canale,
       account: body.account ? String(body.account) : null,
-      tipo: gruppi.length > keywords.length + annunci.length
-        ? "gruppi"
-        : keywords.length >= annunci.length ? "copy" : "asset",
+      tipo: keywords.length >= annunci.length ? "copy" : "asset",
       chiave: cliente.nome,
-      righe: keywords.length + annunci.length + gruppi.length,
-      nuove: nuoveKw + nuoviAnn + nuoviGr,
-      aggiornate: aggiornateKw + aggiornatiAnn + aggiornatiGr,
+      righe: keywords.length + annunci.length,
+      nuove: nuoveKw + nuoviAnn,
+      aggiornate: aggiornateKw + aggiornatiAnn,
       esito: "ok",
     },
   });
@@ -176,14 +148,13 @@ export async function POST(req: NextRequest) {
     tipo: "import",
     entita: "copy",
     titolo: `Import copy da ${canale}${body.account ? ` (account ${body.account})` : ""}`,
-    dettaglio: `keyword: ${nuoveKw} nuove, ${aggiornateKw} aggiornate · annunci: ${nuoviAnn} nuovi, ${aggiornatiAnn} aggiornati${gruppi.length ? ` · gruppi: ${nuoviGr} nuovi, ${aggiornatiGr} aggiornati` : ""}`,
+    dettaglio: `keyword: ${nuoveKw} nuove, ${aggiornateKw} aggiornate · annunci: ${nuoviAnn} nuovi, ${aggiornatiAnn} aggiornati`,
   });
 
   return NextResponse.json(
     {
       keywords: { nuove: nuoveKw, aggiornate: aggiornateKw },
       annunci: { nuovi: nuoviAnn, aggiornati: aggiornatiAnn },
-      gruppi: { nuovi: nuoviGr, aggiornati: aggiornatiGr },
     },
     { status: 201 }
   );

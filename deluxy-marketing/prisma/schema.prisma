@@ -149,6 +149,7 @@ model Campagna {
   landingId         String?
   landing           LandingPage?      @relation(fields: [landingId], references: [id], onDelete: SetNull)
   metriche          MetricaCampagna[]
+  gruppi            Gruppo[]
   azioni            Azione[]
   alert             Alert[]
   modifiche         Modifica[]
@@ -158,6 +159,61 @@ model Campagna {
 
   @@index([brand])
   @@index([stato])
+}
+
+// Il gruppo di annunci: il livello dove si decide davvero. Due gruppi della
+// stessa campagna possono avere rese opposte e la media di campagna li nasconde
+// entrambi. Ha le sue metriche giornaliere, esattamente come una campagna.
+// Per le Performance Max, che gruppi di annunci non ne hanno, qui stanno i
+// gruppi di ASSET: stesso livello, stessa lettura (tipo = asset_group_pmax).
+model Gruppo {
+  id               String          @id @default(cuid())
+  nome             String
+  campagnaId       String
+  campagna         Campagna        @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
+  canale           String          @default("google_ads")
+  // Copiato dalla campagna: serve a filtrare e a leggere il ROAS col
+  // break-even giusto senza risalire ogni volta alla campagna.
+  brand            String          @default("cross")
+  // Id sulla piattaforma, con dentro l'account perché tre account possono
+  // avere gli stessi numeri: "825-518-1560:12345" (gruppo di annunci) oppure
+  // "825-518-1560:ag:678" (gruppo di asset di una PMax).
+  idEsterno        String?
+  // search_standard | search_dynamic_ads | asset_group_pmax | …
+  tipo             String?
+  // Stato deciso QUI dall'utente: attivo | vincente | da_valutare | in_pausa | escluso.
+  // Non viene mai sovrascritto dall'import, come per le keyword.
+  stato            String          @default("attivo")
+  // Stato reale sulla piattaforma: ENABLED | PAUSED
+  statoPiattaforma String?
+  note             String?
+  metriche         MetricaGruppo[]
+  operazioni       OperazioneAdv[]
+  creatoIl         DateTime        @default(now())
+  aggiornatoIl     DateTime        @updatedAt
+
+  @@unique([canale, idEsterno])
+  @@index([campagnaId])
+  @@index([brand])
+}
+
+// Snapshot giornaliero di un gruppo. Gemello di MetricaCampagna: stessa forma,
+// stesso upsert per (gruppo, giorno), così le due letture si sommano e si
+// confrontano senza conversioni.
+model MetricaGruppo {
+  id          String   @id @default(cuid())
+  gruppoId    String
+  gruppo      Gruppo   @relation(fields: [gruppoId], references: [id], onDelete: Cascade)
+  data        DateTime
+  spesa       Float?
+  impression  Int?
+  click       Int?
+  conversioni Float?
+  ricavi      Float?
+  creataIl    DateTime @default(now())
+
+  @@unique([gruppoId, data])
+  @@index([data])
 }
 
 // Snapshot giornaliero dei KPI di una campagna: alimenta le dashboard.
@@ -736,7 +792,8 @@ model CopyScore {
 // change control del doc 11: il guardrail valida PRIMA di creare la riga.
 model OperazioneAdv {
   id          String    @id @default(cuid())
-  // pausa_campagna | attiva_campagna | budget | pausa_keyword | attiva_keyword | negativa
+  // pausa_campagna | attiva_campagna | budget | pausa_keyword | attiva_keyword |
+  // negativa | nuova_keyword | nuova_campagna | pausa_gruppo | attiva_gruppo
   tipo        String
   canale      String    @default("google_ads")
   account     String?
@@ -757,6 +814,8 @@ model OperazioneAdv {
   approvataIl DateTime?
   eseguitaIl  DateTime?
   campagnaId  String?
+  gruppoId    String?
+  gruppo      Gruppo?   @relation(fields: [gruppoId], references: [id], onDelete: SetNull)
   azioneId    String?
   creataIl    DateTime  @default(now())
 

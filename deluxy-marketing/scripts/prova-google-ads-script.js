@@ -34,7 +34,12 @@ function ambiente(opzioni) {
       }),
       search: (q) => {
         for (const chiave in o.righeQuery) {
-          if (q.indexOf(chiave) !== -1) return iteratore(o.righeQuery[chiave]);
+          if (q.indexOf(chiave) === -1) continue;
+          const righe = o.righeQuery[chiave];
+          // "errore" = la vista non risponde, come fa GAQL su un account che
+          // non ha quel tipo di dato
+          if (righe === "errore") throw new Error("vista non disponibile");
+          return iteratore(righe);
         }
         return iteratore([]);
       },
@@ -43,6 +48,7 @@ function ambiente(opzioni) {
       shoppingCampaigns: () => selettoreVuoto(),
       videoCampaigns: () => selettoreVuoto(),
       keywords: () => o.selettoreKeyword || selettoreVuoto(),
+      adGroups: () => o.selettoreGruppi || selettoreVuoto(),
     },
     UrlFetchApp: {
       fetch: (url, opts) => {
@@ -159,44 +165,49 @@ function selettoreCon(entita) {
   verifica("annunci: conta gli usi", a[0].note === "usato in 2 annunci", a[0].note);
 }
 
-// ───────────────────────── 3-bis. gruppi di annunci ─────────────────────────
+// ───────────── 3-bis. gruppi di annunci: una riga per giorno ─────────────
 {
-  const gruppo = (id, nome, campagna, costo, incasso, stato, tipo) => ({
-    campaign: { name: campagna },
+  const gruppo = (id, nome, giorno, costo, ricavi, stato, tipo) => ({
+    campaign: { id: 111, name: "DC1 Fiori Milano ENG" },
     adGroup: { id, name: nome, status: stato || "ENABLED", type: tipo || "SEARCH_STANDARD" },
-    metrics: { costMicros: costo * 1000000, impressions: 1000, clicks: 50, conversions: 3, conversionsValue: incasso },
+    segments: { date: giorno },
+    metrics: { costMicros: costo * 1000000, impressions: 1000, clicks: 50, conversions: 3, conversionsValue: ricavi },
   });
-  const gruppoAsset = (id, nome, campagna, costo, incasso) => ({
-    campaign: { name: campagna },
+  const gruppoAsset = (id, nome, giorno, costo, ricavi) => ({
+    campaign: { id: 222, name: "DC9 Regali B2B" },
     assetGroup: { id, name: nome, status: "ENABLED" },
-    metrics: { costMicros: costo * 1000000, impressions: 500, clicks: 20, conversions: 1, conversionsValue: incasso },
+    segments: { date: giorno },
+    metrics: { costMicros: costo * 1000000, impressions: 500, clicks: 20, conversions: 1, conversionsValue: ricavi },
   });
   const { sandbox, inviati } = ambiente({
     righeQuery: {
       "FROM ad_group ": [
-        gruppo(10, "Gruppo debole", "DC1 Fiori Milano ENG", 40, 20),
-        gruppo(11, "Gruppo forte", "DC1 Fiori Milano ENG", 100, 900, "PAUSED", "SEARCH_DYNAMIC_ADS"),
+        gruppo(10, "Gruppo debole", "2026-07-24", 40, 20),
+        gruppo(10, "Gruppo debole", "2026-07-25", 35, 0),
+        gruppo(11, "Gruppo forte", "2026-07-25", 100, 900, "PAUSED", "SEARCH_DYNAMIC_ADS"),
       ],
-      "FROM asset_group ": [gruppoAsset(20, "Regali PMax", "DC9 Regali B2B", 60, 300)],
+      "FROM asset_group ": [gruppoAsset(20, "Regali PMax", "2026-07-25", 60, 300)],
     },
-    rispostaApp: () => ({ codice: 201, testo: JSON.stringify({ gruppi: { nuovi: 3, aggiornati: 0 } }) }),
+    rispostaApp: () => ({ codice: 201, testo: JSON.stringify({ gruppi: { metricheSalvate: 4, gruppiCreati: 3 } }) }),
   });
   sandbox.CHIAVE_API = "dmk_prova";
   sandbox.BRAND = "gifts";
   sandbox.AZIONE = "gruppi";
   sandbox.main();
 
+  verifica("gruppi: vanno a /api/v1/ingest, non a /ingest/copy", inviati[0].url.indexOf("/api/v1/ingest") !== -1 && inviati[0].url.indexOf("copy") === -1, inviati[0].url);
   const g = inviati[0].corpo.gruppi;
-  verifica("gruppi: annunci + asset group insieme", g.length === 3, g.length);
-  verifica("gruppi: ordinati per spesa", g[0].testo === "Gruppo forte" && g[0].spesa === 100, g[0].testo);
-  verifica("gruppi: id con account", g[0].idEsterno === "248-656-1148:11", g[0].idEsterno);
-  verifica("gruppi: incasso e conversioni per gruppo", g[0].incasso === 900 && g[0].conversioni === 3);
-  verifica("gruppi: stato piattaforma vero", g[0].statoPiattaforma === "PAUSED", g[0].statoPiattaforma);
-  verifica("gruppi: tipo non standard nelle note", g[0].note === "tipo search dynamic ads", g[0].note);
-  verifica("gruppi: tipo standard senza nota", g.find((x) => x.testo === "Gruppo debole").note === null);
-  const pmax = g.find((x) => x.testo === "Regali PMax");
-  verifica("gruppi: PMax marcato come gruppo di asset", pmax && pmax.note === "gruppo di asset (Performance Max)");
-  verifica("gruppi: id PMax distinto", pmax && pmax.idEsterno === "248-656-1148:ag:20", pmax && pmax.idEsterno);
+  verifica("gruppi: una riga per giorno×gruppo", g.length === 4, g.length);
+  verifica("gruppi: porta la data", g[0].data === "2026-07-24", g[0].data);
+  verifica("gruppi: id gruppo con account", g[0].idGruppo === "248-656-1148:10", g[0].idGruppo);
+  verifica("gruppi: aggancio esatto alla campagna", g[0].idCampagna === "111" && g[0].campagna === "DC1 Fiori Milano ENG");
+  verifica("gruppi: metriche del giorno", g[0].spesa === 40 && g[0].ricavi === 20 && g[0].click === 50);
+  const forte = g.find((x) => x.nome === "Gruppo forte");
+  verifica("gruppi: stato piattaforma vero", forte.statoPiattaforma === "PAUSED", forte.statoPiattaforma);
+  verifica("gruppi: tipo del gruppo", forte.tipo === "search_dynamic_ads", forte.tipo);
+  const pmax = g.find((x) => x.nome === "Regali PMax");
+  verifica("gruppi: PMax marcato asset_group_pmax", pmax && pmax.tipo === "asset_group_pmax");
+  verifica("gruppi: id PMax distinto", pmax && pmax.idGruppo === "248-656-1148:ag:20", pmax && pmax.idGruppo);
 }
 
 // ───────────────────────── 3-ter. account senza PMax ─────────────────────────
@@ -205,13 +216,14 @@ function selettoreCon(entita) {
     righeQuery: {
       "FROM ad_group ": [
         {
-          campaign: { name: "DC1" },
+          campaign: { id: 1, name: "DC1" },
           adGroup: { id: 1, name: "Gruppo unico", status: "ENABLED", type: "SEARCH_STANDARD" },
+          segments: { date: "2026-07-25" },
           metrics: { costMicros: 1000000, impressions: 10, clicks: 1, conversions: 0, conversionsValue: 0 },
         },
       ],
       // la vista asset_group non risponde: non deve far saltare tutto
-      "FROM asset_group ": null,
+      "FROM asset_group ": "errore",
     },
     rispostaApp: () => ({ codice: 201, testo: "{}" }),
   });
@@ -219,6 +231,44 @@ function selettoreCon(entita) {
   sandbox.AZIONE = "gruppi";
   sandbox.main();
   verifica("gruppi: senza PMax manda comunque i gruppi di annunci", inviati.length === 1 && inviati[0].corpo.gruppi.length === 1);
+}
+
+// ──────────── 3-quater. pausa di un gruppo dalla coda approvata ────────────
+{
+  const gruppoFinto = (stato) => {
+    const g = {
+      _stato: stato,
+      getName: () => "Gruppo debole",
+      isEnabled: () => g._stato === "attivo",
+      isPaused: () => g._stato === "in_pausa",
+      pause: () => { g._stato = "in_pausa"; },
+      enable: () => { g._stato = "attivo"; },
+    };
+    return g;
+  };
+  const gr = gruppoFinto("attivo");
+  const { sandbox, inviati } = ambiente({
+    selettoreGruppi: selettoreCon([gr]),
+    rispostaApp: (url) =>
+      url.indexOf("/api/v1/operazioni?") !== -1
+        ? { codice: 200, testo: JSON.stringify({ operazioni: [
+            { id: "g1", tipo: "pausa_gruppo", bersaglio: "Gruppo debole", idEsterno: "248-656-1148:10", parametri: { campagna: "DC1" } },
+            { id: "g2", tipo: "pausa_gruppo", bersaglio: "Altro account", idEsterno: "825-518-1560:99", parametri: {} },
+            { id: "g3", tipo: "pausa_gruppo", bersaglio: "Regali PMax", idEsterno: "248-656-1148:ag:20", parametri: {} },
+          ] }) }
+        : { codice: 200, testo: "{}" },
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  sandbox.BRAND = "gifts";
+  sandbox.AZIONE = "esegui";
+  sandbox.main();
+
+  const esiti = inviati.filter((x) => x.url.indexOf("/esito") !== -1);
+  verifica("gruppo: messo in pausa davvero", gr._stato === "in_pausa", gr._stato);
+  verifica("gruppo: un solo esito riferito", esiti.length === 1, esiti.length);
+  verifica("gruppo: è quello di questo account", esiti[0] && esiti[0].url.indexOf("/g1/") !== -1, esiti[0] && esiti[0].url);
+  verifica("gruppo: l'operazione dell'altro account è saltata in silenzio", !inviati.some((x) => x.url.indexOf("/g2/") !== -1));
+  verifica("gruppo di asset PMax: saltato senza toccarlo", !inviati.some((x) => x.url.indexOf("/g3/") !== -1));
 }
 
 // ───────────────────────── 4. asset su più livelli ─────────────────────────

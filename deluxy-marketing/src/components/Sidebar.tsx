@@ -4,7 +4,7 @@ import { Icona } from "./Icona";
 import { SbSezione } from "./SbSezione";
 
 export type VoceSidebar =
-  | "home" | "analisi" | "audit" | "azioni" | "campagne" | "landing" | "copy" | "keywords"
+  | "home" | "analisi" | "audit" | "azioni" | "campagne" | "gruppi" | "landing" | "copy" | "keywords"
   | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni"
   | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo" | "ricezione" | "ai";
 
@@ -22,6 +22,7 @@ export async function Sidebar({
   const [
     nAnalisi, nAudit, nAzioniAperte, nCampagneVive, nLanding, nTestAperti, nDocumenti,
     aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale, nPubblici, nOrdini, nErroriAperti, nIncongruenzeAperte, nOperazioni,
+    nGruppi,
   ] = await Promise.all([
     prisma.analisi.count(),
     prisma.analisi.count({
@@ -58,6 +59,7 @@ export async function Sidebar({
     prisma.incidente.count({ where: { stato: "aperto" } }),
     prisma.incongruenza.count({ where: { stato: "aperta" } }),
     prisma.operazioneAdv.count({ where: { stato: { in: ["in_attesa", "approvata"] } } }),
+    prisma.gruppo.count(),
   ]);
 
   const conta = (
@@ -110,6 +112,7 @@ export async function Sidebar({
           {voceCanale("analisi", "google_ads", "/analisi?canale=google_ads", "analisi", "Analisi Google", conta(analisiCanale, "google_ads"))}
           {voceCanale("audit", "google_ads", "/audit?canale=google_ads", "audit", "Audit Google", conta(auditCanale, "google_ads"))}
           {voceCanale("campagne", "google_ads", "/campagne?canale=google_ads", "campagne", "Campagne Google", conta(campagneCanale, "google_ads"))}
+          {voce("gruppi", "/gruppi", "metriche", "Gruppi di annunci", nGruppi)}
           {voce("copy", "/copy", "copy", "Copy & annunci")}
           {voce("keywords", "/keywords", "analisi", "Keywords")}
         </SbSezione>

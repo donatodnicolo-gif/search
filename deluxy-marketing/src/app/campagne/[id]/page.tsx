@@ -5,8 +5,10 @@ import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
+import { TabellaGruppi } from "@/components/TabellaGruppi";
 import { aggiungiMetrica, cambiaStatoCampagna } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
+import { GIORNI_LETTURA, gruppiConNumeri } from "@/lib/gruppi";
 import {
   COLORE_BRAND,
   COLORE_STATO_AZIONE,
@@ -43,6 +45,10 @@ export default async function SchedaCampagna({
     },
   });
   if (!campagna) notFound();
+
+  // I gruppi della campagna: la media di campagna qui sopra può nascondere un
+  // gruppo che rende il doppio e uno che brucia. Vanno guardati separati.
+  const gruppi = await gruppiConNumeri({ campagnaId: campagna.id });
 
   const metricheCrono = [...campagna.metriche].reverse();
   const spesa = campagna.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
@@ -115,6 +121,19 @@ export default async function SchedaCampagna({
         <FreschezzaDati brand={campagna.brand} canale={campagna.canale} />
 
         <GuardrailCampagna campagnaId={campagna.id} bloccata={bloccata} salvata={salvata} />
+
+        {gruppi.length > 0 && (
+          <section className="scheda">
+            <div className="scheda-titolo">
+              Gruppi di annunci ({gruppi.length}) · ultimi {GIORNI_LETTURA} giorni
+            </div>
+            <TabellaGruppi righe={gruppi} mostraCampagna={false} mostraQuota />
+            <p className="cella-sub" style={{ marginTop: 10 }}>
+              La quota è la fetta di spesa che ogni gruppo si prende dentro questa campagna.
+              Aprendo un gruppo si può metterlo in pausa: passa dalla stessa coda approvata.
+            </p>
+          </section>
+        )}
 
         <div className="due-colonne">
           <div>

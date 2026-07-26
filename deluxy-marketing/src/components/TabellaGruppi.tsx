@@ -1,0 +1,96 @@
+import { Badge } from "@/components/Badge";
+import { formattaEuro, formattaNumero } from "@/lib/dominio";
+import {
+  COLORE_STATO_GRUPPO,
+  ETICHETTA_STATO_GRUPPO,
+  ETICHETTA_TIPO_GRUPPO,
+  letturaRoas,
+  quotaSpesa,
+  type GruppoConNumeri,
+} from "@/lib/gruppi";
+
+// La tabella dei gruppi di annunci, uguale ovunque compaia: pagina Gruppi,
+// scheda campagna, Copy & annunci. Ordinata per spesa, perché la prima domanda
+// è sempre "dove stanno finendo i soldi".
+export function TabellaGruppi({
+  righe,
+  mostraCampagna = true,
+  mostraQuota = false,
+}: {
+  righe: GruppoConNumeri[];
+  mostraCampagna?: boolean;
+  mostraQuota?: boolean;
+}) {
+  if (righe.length === 0) {
+    return (
+      <div className="vuoto-mini">
+        Nessun gruppo: li manda lo script di Google Ads con <code>AZIONE = &quot;gruppi&quot;</code>.
+      </div>
+    );
+  }
+  const quote = mostraQuota ? quotaSpesa(righe) : null;
+
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table>
+        <thead>
+          <tr>
+            <th>Gruppo</th>
+            <th>Stato</th>
+            <th className="num">Spesa</th>
+            {mostraQuota && <th className="num">Quota</th>}
+            <th className="num">Click</th>
+            <th className="num">Conv.</th>
+            <th className="num">CPA</th>
+            <th className="num">Ricavi</th>
+            <th className="num">ROAS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {righe.map((g) => {
+            const lettura = letturaRoas(g.roas, g.spesa, g.brand);
+            const quota = quote?.get(g.id) ?? null;
+            return (
+              <tr key={g.id}>
+                <td style={{ maxWidth: 320 }}>
+                  <a className="cella-nome" href={`/gruppi/${g.id}`}>{g.nome}</a>
+                  <div className="cella-sub">
+                    {mostraCampagna && (
+                      <a href={`/campagne/${g.campagnaId}`} style={{ color: "inherit" }}>{g.campagna}</a>
+                    )}
+                    {g.tipo && (
+                      <span>
+                        {mostraCampagna ? " · " : ""}
+                        {ETICHETTA_TIPO_GRUPPO[g.tipo] ?? g.tipo}
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td>
+                  <Badge
+                    testo={ETICHETTA_STATO_GRUPPO[g.stato] ?? g.stato}
+                    colore={COLORE_STATO_GRUPPO[g.stato] ?? "var(--text-tertiary)"}
+                  />
+                  {g.statoPiattaforma === "PAUSED" && (
+                    <div className="cella-sub">in pausa su Google</div>
+                  )}
+                </td>
+                <td className="num">{formattaEuro(g.spesa)}</td>
+                {mostraQuota && (
+                  <td className="num cella-muta">{quota != null ? `${Math.round(quota * 100)}%` : "—"}</td>
+                )}
+                <td className="num cella-muta">{formattaNumero(g.click)}</td>
+                <td className="num cella-muta">{formattaNumero(Math.round(g.conversioni * 10) / 10)}</td>
+                <td className="num cella-muta">{g.cpa != null ? formattaEuro(g.cpa) : "—"}</td>
+                <td className="num">{formattaEuro(g.ricavi)}</td>
+                <td className="num" style={{ color: lettura.colore, fontWeight: 600 }} title={lettura.spiega}>
+                  {lettura.testo}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}

@@ -33,7 +33,31 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 | Keyword e annunci | 635 |
 | Settimane MKT 2025-2026 | 410 |
 | Campagne | 32, di cui **20 agganciate** alla piattaforma (Gifts 12, Flowers 8) |
+| Gruppi di annunci | 0 — tabelle pronte, si riempiono al primo giro di `AZIONE = "gruppi"` |
 | Pubblici · Landing | 38 · 27 |
+
+### I gruppi di annunci (dal 26/07/2026)
+
+Il gruppo è un **livello vero**, non più un'etichetta attaccata alle keyword:
+modello `Gruppo` + `MetricaGruppo` (gemelli di `Campagna`/`MetricaCampagna`,
+una riga per gruppo e per giorno, upsert per (gruppo, giorno)).
+
+- **Pagina `/gruppi`**: tutti i gruppi ordinati per spesa, filtri brand /
+  campagna / periodo (7-30-90 gg), i due estremi in cima (chi tiene su la
+  baracca e chi se la mangia). Voce in sidebar sotto Google Ads.
+- **Scheda `/gruppi/[id]`**: KPI, quota di spesa dentro la campagna, andamento,
+  metriche giornaliere, keyword e testi che vivono lì, stato dell'app
+  (`attivo | vincente | da_valutare | in_pausa | escluso`, mai sovrascritto
+  dall'import) e il bottone per metterlo in pausa **su Google**.
+- **Scheda campagna**: blocco "Gruppi di annunci" con la quota di spesa di
+  ognuno — la media di campagna nasconde il gruppo che brucia.
+- **Operazioni `pausa_gruppo` / `attiva_gruppo`**: stessa coda approvata a mano,
+  livello **L2** (spostano traffico), guardrail della campagna che li contiene
+  (freeze incidenti, blackout 72h, max 1 L2/L3 a settimana contata dal registro).
+  L'esito riporta `statoPiattaforma` sul gruppo. I gruppi di asset delle PMax
+  **non si fermano da script**: l'app lo dice e lo script si rifiuta.
+- Il ROAS del gruppo si legge sul **break-even del suo brand** (`lib/gruppi.ts`,
+  `letturaRoas`): lo stesso 2,5 è buono per Cake e una perdita per Gifts.
 
 ### Connettori
 
@@ -62,13 +86,11 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
     non registra l'esito si ferma (prima poteva rifare la stessa operazione).
   - Caricamento storico: `GIORNI_INDIETRO = 400` **+ `INCLUDI_RIMOSSE = true`**
     (senza, la spesa delle campagne poi eliminate non entra mai), una volta sola.
-  - **Gruppi di annunci**: `AZIONE = "gruppi"` manda una riga per gruppo con
-    spesa, clic, conversioni e incasso propri (finestra `GIORNI_COPY`, 30 gg) a
-    `POST /api/v1/ingest/copy` nell'array **`gruppi`** (tipo `gruppo` in
-    `CopyAnnuncio`, con le metriche: l'array `annunci` le ignora). Si leggono
-    nella sezione **"Gruppi di annunci"** di *Copy & annunci*, col ROAS colorato
-    sul break-even del brand. Le PMax non hanno gruppi di annunci: al loro posto
-    arrivano i **gruppi di asset** (vista `asset_group`), marcati nelle note.
+  - **Gruppi di annunci**: `AZIONE = "gruppi"` manda **una riga per gruppo e per
+    giorno** (finestra `GIORNI_INDIETRO`, come le campagne) a
+    `POST /api/v1/ingest` nell'array **`gruppi`**. Le PMax non hanno gruppi di
+    annunci: al loro posto arrivano i **gruppi di asset** (vista `asset_group`,
+    `tipo = asset_group_pmax`).
   - Banco di prova con Google Ads finto: `scripts/prova-google-ads-script.js`
     (`node scripts/prova-google-ads-script.js`, 45 controlli).
 - **Meta**: `src/lib/meta.ts` + `POST /api/v1/sync/meta`. Meta non ha gli Scripts:
@@ -82,7 +104,8 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 ### Sezioni dell'app
 
 Dashboard (con le tessere dei brand in cima) · Lettura AI · Analisi periodo ·
-Analisi · Stato account · Azioni · Campagne (+ lancio su Google Ads) · Landing ·
+Analisi · Stato account · Azioni · Campagne (+ lancio su Google Ads) ·
+**Gruppi di annunci** · Landing ·
 Pubblici · Copy & annunci · Keywords (+ operazioni keyword) · Meta & test ·
 Ordini · Analisi per offerta · Budget vendite/ADV · MKT vs 2025 · Operazioni ·
 Occasioni · Cadenze · Storico errori · Memoria condivisa · Incongruenze ·

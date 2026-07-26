@@ -1089,3 +1089,110 @@ export async function lanciaCampagna(fd: FormData) {
   });
   redirect("/operazioni");
 }
+
+// ---------- Gruppi di annunci ----------
+// Lo stato del gruppo nell'app è una scelta dell'utente (come per le keyword):
+// l'import non lo tocca mai, tiene il suo in statoPiattaforma.
+
+export async function cambiaStatoGruppo(fd: FormData) {
+  const id = testo(fd, "id");
+  const stato = testo(fd, "stato");
+  if (!id || !stato) return;
+  const gruppo = await prisma.gruppo.update({
+    where: { id },
+    data: { stato, ...(testo(fd, "note") ? { note: testo(fd, "note") } : {}) },
+    include: { campagna: { select: { nome: true } } },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "gruppo",
+    entitaId: gruppo.id,
+    titolo: `Gruppo "${gruppo.nome}" → ${stato}`,
+    dettaglio: gruppo.campagna.nome,
+  });
+  revalidatePath(`/gruppi/${id}`);
+  revalidatePath("/gruppi");
+}
+
+// Pausa/riattivazione di un gruppo SULLA PIATTAFORMA: come per le campagne
+// passa dalla coda approvata a mano, con gli stessi guardrail della campagna
+// che lo contiene (freeze incidenti, blackout 72h, max 1 L2/L3 a settimana).
+export async function creaOperazioneGruppo(fd: FormData) {
+  const tipo = testo(fd, "tipo");
+  const gruppoId = testo(fd, "gruppoId");
+  if (!tipo || !gruppoId) return;
+  if (tipo !== "pausa_gruppo" && tipo !== "attiva_gruppo") return;
+
+  const gruppo = await prisma.gruppo.findUnique({
+    where: { id: gruppoId },
+    include: {
+      campagna: {
+        include: {
+          modifiche: { orderBy: { eseguitaIl: "desc" }, take: 1 },
+          incidenti: { where: { stato: "aperto" }, select: { codice: true } },
+        },
+      },
+    },
+  });
+  if (!gruppo) return;
+  const campagna = gruppo.campagna;
+
+  if (campagna.incidenti.length > 0) {
+    redirect(
+      `/gruppi/${gruppoId}?bloccata=${encodeURIComponent(
+        `Freeze ${campagna.incidenti[0].codice}: incidente aperto sulla campagna che contiene questo gruppo`
+      )}`
+    );
+  }
+
+  // Quante L2/L3 sono già state fatte questa settimana sulla campagna: qui si
+  // conta dal registro invece di chiederlo all'utente, come nel form campagna.
+  const lunedi = new Date();
+  lunedi.setHours(0, 0, 0, 0);
+  lunedi.setDate(lunedi.getDate() - ((lunedi.getDay() + 6) % 7));
+  const l2Settimana = await prisma.modifica.count({
+    where: {
+      campagnaId: campagna.id,
+      livello: { in: ["L2", "L3"] },
+      eseguitaIl: { gte: lunedi },
+    },
+  });
+
+  const { validaModifica } = await import("./guardrail");
+  const esito = validaModifica({
+    classe: campagna.classe,
+    livello: "L2", // fermare o riaccendere un gruppo sposta traffico: mai L1
+    deltaBudgetPct: null,
+    rollbackPiano: testo(fd, "rollbackPiano"),
+    ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+    l2Settimana,
+  });
+  if (esito.blocchi.length > 0) {
+    redirect(`/gruppi/${gruppoId}?bloccata=${encodeURIComponent(esito.blocchi[0])}`);
+  }
+
+  const op = await prisma.operazioneAdv.create({
+    data: {
+      tipo,
+      canale: gruppo.canale,
+      bersaglio: gruppo.nome,
+      idEsterno: gruppo.idEsterno,
+      parametri: JSON.stringify({ gruppo: gruppo.nome, campagna: campagna.nome }),
+      motivo: testo(fd, "motivo"),
+      livello: "L2",
+      prima: `stato su Google: ${gruppo.statoPiattaforma ?? "sconosciuto"}`,
+      campagnaId: campagna.id,
+      gruppoId: gruppo.id,
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): ${tipo} su "${gruppo.nome}" (${campagna.nome})`,
+    dettaglio: op.motivo,
+  });
+  redirect("/operazioni");
+}
