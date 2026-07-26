@@ -17,6 +17,9 @@ const CONSUNTIVO = ["/consuntivo", "/cfo"];
 const CONFIG = ["/impostazioni"];
 
 export function areaDi(pathname: string): Area {
+  // La radice rimanda al consuntivo (src/app/page.tsx): l'etichetta deve dire
+  // subito "Dati reali", non "Pianificazione" per una frazione di secondo.
+  if (pathname === "/") return "consuntivo";
   if (CONSUNTIVO.some((p) => pathname === p || pathname.startsWith(p + "/"))) return "consuntivo";
   if (CONFIG.some((p) => pathname === p || pathname.startsWith(p + "/"))) return "config";
   return "budget";

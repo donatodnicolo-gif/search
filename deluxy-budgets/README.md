@@ -6,7 +6,10 @@ pubblicato), *sfidante* e *irraggiungibile*.
 
 ## Cosa fa (v1)
 
-- **Dashboard** (`/`): sintesi del conto economico 2026 sui 3 livelli + riepilogo per maison.
+- **L'app si apre sul Consuntivo**: `/` rimanda a `/consuntivo`, perché la domanda quotidiana è
+  «come sta andando davvero», non «cosa avevamo pianificato». Anche il login atterra lì.
+- **Dashboard** (`/dashboard`): sintesi del conto economico 2026 sui 3 livelli + riepilogo per
+  maison. Resta la prima voce della sidebar, non è più la home.
 - **P&L** (`/pl`): conto economico aziendale completo — ricavi per canale, costo del venduto,
   margine lordo, ADV, **costo del personale**, costi di struttura, EBITDA, premi e risultato
   netto — confrontato sui 3 livelli, con **andamento mensile** (evidenzia i mesi in perdita)

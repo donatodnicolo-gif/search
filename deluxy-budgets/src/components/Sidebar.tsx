@@ -125,7 +125,7 @@ const nav: AreaNav[] = [
     gruppi: [
       {
         items: [
-          { href: "/", label: "Dashboard", icon: icons.dashboard },
+          { href: "/dashboard", label: "Dashboard", icon: icons.dashboard },
           { href: "/pl", label: "P&L aziendale", icon: icons.pl },
         ],
       },
@@ -175,8 +175,10 @@ const nav: AreaNav[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  // La radice rimanda al consuntivo: finché il redirect non è atterrato è quella
+  // la voce accesa, così la sidebar non lampeggia su niente all'apertura.
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    pathname === "/" ? href === "/consuntivo" : pathname.startsWith(href);
 
   return (
     <aside className="sidebar">
