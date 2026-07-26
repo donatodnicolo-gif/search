@@ -21,6 +21,10 @@ senza rompere il sito live. Leggi anche:
   di codice ma versione diversa: file e anchor NON identici a deluxyflowers).
 - `reference/TEMA_DELUXY_IT.md` — mappa tecnica del tema di deluxy.it (versione più vecchia,
   fasce granulari 2h/1h; `fnCheckDate` riscritta).
+- `reference/STATO-DELUXY-IT.md` — **punto di ripresa per deluxy.it (aggiornato 26/07/2026)**:
+  id dei temi, correzioni pubblicate, correzioni pronte da pubblicare, elenco dei problemi
+  aperti diviso fra codice e dati, e le trappole di misura. Leggilo per primo se lavori su
+  deluxy.it.
 
 ## Negozi
 
@@ -87,8 +91,11 @@ I file del tema sono grandi e pieni di codice legacy: **non riscriverli**, fai c
    - Per riempire il carrello: `previewPath=/cart/add?id=<variantId>&quantity=1&return_to=/cart`.
    - L'anteprima è un iframe cross-origin: **niente console né JS** da lì. L'editor è lento:
      attendi 20–40s tra navigazione e screenshot.
-   - `https://<dominio>/?preview_theme_id=<id>` in forma anonima (curl) serve il **tema live**:
-     non usarlo per verificare il dev.
+   - **Anteprima via curl: funziona** (verificato su deluxy.it il 26/07/2026). Apri una volta
+     `curl -sL -c jar -b jar "https://<dominio>/?preview_theme_id=<id>&_ab=0&_fd=0&_sc=1"`, poi
+     naviga con **lo stesso cookie jar**; conferma leggendo `"id":<theme_id>` nell'HTML servito.
+     Così si può fare `diff` fra la pagina del live e quella dell'anteprima. (Una nota precedente
+     diceva il contrario: era sbagliata e ha già depistato un agente.)
 3. **Verifica finale con l'utente**: al termine chiedi sempre all'utente di controllare
    visivamente che funzioni (preferenza esplicita dell'utente). Non serve automatizzare tutto.
 

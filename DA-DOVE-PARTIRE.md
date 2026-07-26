@@ -48,7 +48,7 @@ in parallelo sullo stesso branch.
 | `deluxy-search-supplier` | ricerca fiorai/pasticcerie + smistamento ordini | — | [search-deluxy.vercel.app](https://search-deluxy.vercel.app) | [AI_SPEC.md](deluxy-search-supplier/AI_SPEC.md) + [HANDOFF.md](deluxy-search-supplier/HANDOFF.md) |
 | `deluxy-scout` | app mobile prospezione (React Native/Expo) | `expo start` | [deluxy-scout.vercel.app](https://deluxy-scout.vercel.app) | [README.md](deluxy-scout/README.md) |
 | `deluxy-scout-manager` | plugin/handoff per lavorare su Scout | — | — | [README.md](deluxy-scout-manager/README.md) |
-| `sviluppi-siti-deluxy` | temi Shopify dei siti Deluxy | — | negozi Shopify | [README.md](sviluppi-siti-deluxy/README.md) |
+| `sviluppi-siti-deluxy` | temi Shopify dei siti Deluxy | — | negozi Shopify | [README.md](sviluppi-siti-deluxy/README.md) · deluxy.it: [STATO-DELUXY-IT.md](sviluppi-siti-deluxy/skills/sviluppi-siti-deluxy/reference/STATO-DELUXY-IT.md) |
 | `deluxy-design-system` | token e componenti comuni | — | — | [DESIGN-SYSTEM.md](deluxy-design-system/DESIGN-SYSTEM.md) |
 | `deluxy-standard` | regole tecniche comuni | — | — | [STANDARD-DELUXY.md](deluxy-standard/STANDARD-DELUXY.md) |
 | `scripts` | catalogo di tutti gli script del repo | — | — | [README.md](scripts/README.md) |
