@@ -2,6 +2,11 @@
 
 Ultimo aggiornamento: **26 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
 
+> 🎚️ **Filtri richiudibili: la lista si vede subito (26 lug 2026, quinto giro)** — segnalazione utente su `/clienti`: «il filtro così rende impossibile utilizzare la sezione». Mandando i filtri a capo (secondo giro) si erano risolti i tagli, ma il blocco occupava **più di una schermata** prima della prima riga.
+> - **Nuovo componente `components/PannelloFiltri.tsx`**: i filtri stanno dietro un bottone «Filtri (n)». **Chiuso di default sul telefono, aperto da 900px in su** (dove c'è spazio e la sidebar è già permanente). Il numero di filtri attivi è sempre sul bottone e c'è «Azzera» a fianco: così una lista filtrata non sembra mai vuota «senza motivo» a pannello chiuso.
+> - **Applicato a:** `clienti`, `components/Filters.tsx` (quindi tutte e tre le viste `/lista`), `affiliazioni`, `trattative`, `rubrica`. La **ricerca resta sempre fuori dal pannello**: è il comando più usato.
+> - **Verifica a 390px:** il primo contenuto ora compare a y=270-329 (prima era sotto il bordo dello schermo) su Clienti, Prospect, Affiliazioni, Trattative e Rubrica. A 1280px i filtri risultano aperti di default. `tsc` pulito.
+>
 > 🖥️ **Su desktop il contenuto non occupa più tutta la larghezza (26 lug 2026, quarto giro)** — segnalazione utente su `/oggi`: «da desktop occupa tutto lo spazio». Misurato: con la sidebar da 264px, su un portatile a **1280** il contenuto arrivava a **928px** lasciando **49px** liberi — riempiva lo schermo, e nelle righe «nome … valore» i due estremi finivano lontanissimi (es. «Gucci» a sinistra e l'indirizzo all'altro capo).
 > - **Correzione:** `CONTENUTO_MAX` in `lib/theme.ts` abbassato **da 960 a 760** (scelta dell'utente fra colonna più stretta / due colonne / valori ravvicinati). Vale per tutte le schermate che usano `contenutoCentrato`.
 > - **Aggiunto `contenutoCentrato` dove mancava:** `da-completare`, `storico`, `task`, `script` — erano rimaste a 974-984px perché non applicavano il cap.

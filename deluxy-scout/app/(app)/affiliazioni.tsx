@@ -21,6 +21,7 @@ import { STATI_AFFILIAZIONE, type AffiliazioneRow, type StatoAffiliazione } from
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { RicercaAffiliazioni } from '@/components/RicercaAffiliazioni';
+import { PannelloFiltri } from '@/components/PannelloFiltri';
 
 type FiltroAff = StatoAffiliazione | 'tutti' | 'selezionati';
 
@@ -164,15 +165,21 @@ export default function Affiliazioni() {
               autoCapitalize="none"
               clearButtonMode="while-editing"
             />
-            <View style={styles.filtri}>
-              {FILTRI.map((f) => (
-                <Pressable key={f} onPress={() => setFiltro(f)} style={[styles.chip, filtro === f && styles.chipOn]}>
-                  <Text style={[styles.chipTxt, filtro === f && styles.chipTxtOn]}>
-                    {etichettaFiltro(f, nSel)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            {/* Dietro un bottone: aperti, i 10 filtri occupavano mezza schermata. */}
+            <PannelloFiltri
+              attivi={filtro === 'tutti' ? 0 : 1}
+              onAzzera={() => setFiltro('tutti')}
+            >
+              <View style={styles.filtri}>
+                {FILTRI.map((f) => (
+                  <Pressable key={f} onPress={() => setFiltro(f)} style={[styles.chip, filtro === f && styles.chipOn]}>
+                    <Text style={[styles.chipTxt, filtro === f && styles.chipTxtOn]}>
+                      {etichettaFiltro(f, nSel)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </PannelloFiltri>
           </View>
         }
         ListEmptyComponent={

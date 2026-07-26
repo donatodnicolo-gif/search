@@ -2,6 +2,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { StatoPlace } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
 import { OPZIONI_CITTA } from '@/lib/citta';
+import { PannelloFiltri } from '@/components/PannelloFiltri';
 
 export interface FiltriMappa {
   zona: string | null; // ora è un bucket città: Milano/Roma/Firenze/Altre (null = Tutte)
@@ -48,10 +49,16 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
     onChange({ ...filtri, zona: v === 'Tutte' ? null : filtri.zona === v ? null : v });
   }
 
+  // Quanti filtri sono applicati: va sul bottone, così una lista filtrata non
+  // sembra mai vuota "senza motivo" quando il pannello è chiuso.
+  const nAttivi = Object.values(filtri).filter(Boolean).length;
+
   return (
     // Gruppi impilati e chip che vanno a capo: in scorrimento orizzontale, sul
     // telefono, meta' dei filtri (Stato, Citta', Interessi...) restava fuori
-    // schermo senza alcun segnale che ci fosse dell'altro.
+    // schermo senza alcun segnale che ci fosse dell'altro. E tutto dietro un
+    // bottone, perché aperto occupava più di una schermata prima della lista.
+    <PannelloFiltri attivi={nAttivi} onAzzera={() => onChange({ ...FILTRI_VUOTI })}>
     <View style={styles.row}>
       <Gruppo
         titolo="Priorità"
@@ -90,6 +97,7 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
         </>
       ) : null}
     </View>
+    </PannelloFiltri>
   );
 }
 

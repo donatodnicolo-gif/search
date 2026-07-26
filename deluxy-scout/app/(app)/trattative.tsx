@@ -31,6 +31,7 @@ import { CANALI, MOTIVI_PERSO, type CanaleTrattativa, type Contact, type DealSta
 import { LineaSelector } from '@/components/LineaSelector';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
+import { PannelloFiltri } from '@/components/PannelloFiltri';
 
 interface Sezione {
   title: string;
@@ -156,6 +157,18 @@ export default function Trattative() {
     [filtrate],
   );
 
+  // Quanti filtri sono applicati: finisce sul bottone del pannello, così a
+  // filtri chiusi una lista ridotta non sembra mai vuota "senza motivo".
+  const nFiltriAttivi =
+    (faseFiltro !== 'tutte' ? 1 : 0) +
+    [cittaFiltro, lineaFiltro, accountFiltro].filter(Boolean).length;
+  function azzeraFiltri() {
+    setFaseFiltro('tutte');
+    setCittaFiltro(null);
+    setLineaFiltro(null);
+    setAccountFiltro(null);
+  }
+
   return (
     <View style={styles.container}>
       <SectionList
@@ -183,57 +196,61 @@ export default function Trattative() {
             autoCapitalize="none"
             clearButtonMode="while-editing"
           />
-          <View style={styles.filtri}>
-            <FiltroChip label="Tutte" on={faseFiltro === 'tutte'} onPress={() => setFaseFiltro('tutte')} />
-            {fasiPresenti.map((f) => (
-              <FiltroChip
-                key={f}
-                label={labelFase[f]}
-                on={faseFiltro === f}
-                onPress={() => setFaseFiltro(f)}
-              />
-            ))}
-          </View>
-          {/* Città: le tre principali + "Altre", come in Target, Clienti e Rubrica. */}
-          <View style={styles.filtri}>
-            <Text style={styles.filtroEtichetta}>Città</Text>
-            {(OPZIONI_CITTA as unknown as string[]).map((c) => (
-              <FiltroChip
-                key={c}
-                label={c}
-                on={(cittaFiltro ?? 'Tutte') === c}
-                onPress={() => setCittaFiltro(c === 'Tutte' ? null : c)}
-              />
-            ))}
-          </View>
-          {lineePresenti.length ? (
+          {/* Dietro un bottone: 4 righe di filtri aperte occupavano piu di
+              una schermata prima della prima trattativa. */}
+          <PannelloFiltri attivi={nFiltriAttivi} onAzzera={azzeraFiltri}>
             <View style={styles.filtri}>
-              <Text style={styles.filtroEtichetta}>Interessi</Text>
-              <FiltroChip label="Tutti" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
-              {lineePresenti.map((l) => (
+              <FiltroChip label="Tutte" on={faseFiltro === 'tutte'} onPress={() => setFaseFiltro('tutte')} />
+              {fasiPresenti.map((f) => (
                 <FiltroChip
-                  key={l}
-                  label={l}
-                  on={lineaFiltro === l}
-                  onPress={() => setLineaFiltro((c) => (c === l ? null : l))}
+                  key={f}
+                  label={labelFase[f]}
+                  on={faseFiltro === f}
+                  onPress={() => setFaseFiltro(f)}
                 />
               ))}
             </View>
-          ) : null}
-          {accountPresenti.length ? (
+            {/* Città: le tre principali + "Altre", come in Target, Clienti e Rubrica. */}
             <View style={styles.filtri}>
-              <Text style={styles.filtroEtichetta}>Account</Text>
-              <FiltroChip label="Tutti" on={!accountFiltro} onPress={() => setAccountFiltro(null)} />
-              {accountPresenti.map((a) => (
+              <Text style={styles.filtroEtichetta}>Città</Text>
+              {(OPZIONI_CITTA as unknown as string[]).map((c) => (
                 <FiltroChip
-                  key={a}
-                  label={a}
-                  on={accountFiltro === a}
-                  onPress={() => setAccountFiltro((c) => (c === a ? null : a))}
+                  key={c}
+                  label={c}
+                  on={(cittaFiltro ?? 'Tutte') === c}
+                  onPress={() => setCittaFiltro(c === 'Tutte' ? null : c)}
                 />
               ))}
             </View>
-          ) : null}
+            {lineePresenti.length ? (
+              <View style={styles.filtri}>
+                <Text style={styles.filtroEtichetta}>Interessi</Text>
+                <FiltroChip label="Tutti" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
+                {lineePresenti.map((l) => (
+                  <FiltroChip
+                    key={l}
+                    label={l}
+                    on={lineaFiltro === l}
+                    onPress={() => setLineaFiltro((c) => (c === l ? null : l))}
+                  />
+                ))}
+              </View>
+            ) : null}
+            {accountPresenti.length ? (
+              <View style={styles.filtri}>
+                <Text style={styles.filtroEtichetta}>Account</Text>
+                <FiltroChip label="Tutti" on={!accountFiltro} onPress={() => setAccountFiltro(null)} />
+                {accountPresenti.map((a) => (
+                  <FiltroChip
+                    key={a}
+                    label={a}
+                    on={accountFiltro === a}
+                    onPress={() => setAccountFiltro((c) => (c === a ? null : a))}
+                  />
+                ))}
+              </View>
+            ) : null}
+          </PannelloFiltri>
         </View>
           </View>
         }

@@ -8,6 +8,7 @@ import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { fetchClienti, type Cliente } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
+import { PannelloFiltri } from '@/components/PannelloFiltri';
 
 export default function Clienti() {
   const router = useRouter();
@@ -55,6 +56,8 @@ export default function Clienti() {
   }, [clienti, query, zonaFiltro, lineaFiltro, accountFiltro]);
 
   const filtriAttivi = Boolean(query.trim() || zonaFiltro || lineaFiltro || accountFiltro);
+  // Quanti filtri sono applicati (la ricerca resta sempre visibile, non conta).
+  const nFiltri = [zonaFiltro, lineaFiltro, accountFiltro].filter(Boolean).length;
   function azzera() {
     setQuery('');
     setZonaFiltro(null);
@@ -85,25 +88,29 @@ export default function Clienti() {
               autoCapitalize="none"
               clearButtonMode="while-editing"
             />
-            <View style={styles.filtri}>
-              <Gruppo
-                titolo="Città"
-                valori={OPZIONI_CITTA as unknown as string[]}
-                attivo={zonaFiltro ?? 'Tutte'}
-                onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (c) => (c === v ? null : v))}
-              />
-              {accountPresenti.length ? (
-                <Gruppo titolo="Account" valori={accountPresenti} attivo={accountFiltro} onTap={(v) => setAccountFiltro((c) => (c === v ? null : v))} />
-              ) : null}
-              {lineePresenti.length ? (
+            {/* I filtri stanno dietro un bottone: aperti occupavano piu' di una
+                schermata prima del primo cliente. */}
+            <PannelloFiltri attivi={nFiltri} onAzzera={azzera}>
+              <View style={styles.filtri}>
                 <Gruppo
-                  titolo="Interessi"
-                  valori={['Tutti', ...lineePresenti]}
-                  attivo={lineaFiltro ?? 'Tutti'}
-                  onTap={(v) => setLineaFiltro(v === 'Tutti' ? null : (c) => (c === v ? null : v))}
+                  titolo="Città"
+                  valori={OPZIONI_CITTA as unknown as string[]}
+                  attivo={zonaFiltro ?? 'Tutte'}
+                  onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (c) => (c === v ? null : v))}
                 />
-              ) : null}
-            </View>
+                {accountPresenti.length ? (
+                  <Gruppo titolo="Account" valori={accountPresenti} attivo={accountFiltro} onTap={(v) => setAccountFiltro((c) => (c === v ? null : v))} />
+                ) : null}
+                {lineePresenti.length ? (
+                  <Gruppo
+                    titolo="Interessi"
+                    valori={['Tutti', ...lineePresenti]}
+                    attivo={lineaFiltro ?? 'Tutti'}
+                    onTap={(v) => setLineaFiltro(v === 'Tutti' ? null : (c) => (c === v ? null : v))}
+                  />
+                ) : null}
+              </View>
+            </PannelloFiltri>
           </View>
         }
         ListEmptyComponent={

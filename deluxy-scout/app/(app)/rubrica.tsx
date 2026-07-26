@@ -10,6 +10,7 @@ import { PercorsoCliente } from '@/components/PercorsoCliente';
 import { archiviaContatto, fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
+import { PannelloFiltri } from '@/components/PannelloFiltri';
 
 export default function Rubrica() {
   const router = useRouter();
@@ -31,6 +32,8 @@ export default function Rubrica() {
       return n;
     });
   const filtriAttivi = Boolean(statoFiltro || lineaFiltro || zonaFiltro || toggles.size || query.trim());
+  // Conteggio per il bottone del pannello (la ricerca resta fuori: è sempre visibile).
+  const nFiltriAttivi = [statoFiltro, lineaFiltro, zonaFiltro].filter(Boolean).length + toggles.size;
   function azzeraFiltri() {
     setStatoFiltro(null);
     setLineaFiltro(null);
@@ -129,54 +132,58 @@ export default function Rubrica() {
           {/* Filtri esclusivi (uno per gruppo): stato / interessi / città.
               Vanno a capo: in orizzontale i gruppi finivano tagliati fuori
               schermo ("Interessi" si leggeva "In…") senza modo di accorgersene. */}
-          <View style={styles.filtri}>
-            {statiPresenti.length ? (
+          {/* Dietro un bottone: gruppi + toggle aperti riempivano lo schermo
+              prima del primo contatto. */}
+          <PannelloFiltri attivi={nFiltriAttivi} onAzzera={azzeraFiltri}>
+            <View style={styles.filtri}>
+              {statiPresenti.length ? (
+                <GruppoFiltro
+                  titolo="Stato"
+                  valori={statiPresenti}
+                  attivo={statoFiltro}
+                  onTap={(v) => setStatoFiltro((cur) => (cur === v ? null : (v as StatoPlace)))}
+                  label={(v) => labelStato[v as StatoPlace]}
+                  colore={(v) => coloreStato[v as StatoPlace]}
+                />
+              ) : null}
+              {lineePresenti.length ? (
+                <GruppoFiltro
+                  titolo="Interessi"
+                  valori={lineePresenti}
+                  attivo={lineaFiltro}
+                  onTap={(v) => setLineaFiltro((cur) => (cur === v ? null : v))}
+                />
+              ) : null}
               <GruppoFiltro
-                titolo="Stato"
-                valori={statiPresenti}
-                attivo={statoFiltro}
-                onTap={(v) => setStatoFiltro((cur) => (cur === v ? null : (v as StatoPlace)))}
-                label={(v) => labelStato[v as StatoPlace]}
-                colore={(v) => coloreStato[v as StatoPlace]}
+                titolo="Città"
+                valori={OPZIONI_CITTA as unknown as string[]}
+                attivo={zonaFiltro ?? 'Tutte'}
+                onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (cur) => (cur === v ? null : v))}
               />
-            ) : null}
-            {lineePresenti.length ? (
-              <GruppoFiltro
-                titolo="Interessi"
-                valori={lineePresenti}
-                attivo={lineaFiltro}
-                onTap={(v) => setLineaFiltro((cur) => (cur === v ? null : v))}
-              />
-            ) : null}
-            <GruppoFiltro
-              titolo="Città"
-              valori={OPZIONI_CITTA as unknown as string[]}
-              attivo={zonaFiltro ?? 'Tutte'}
-              onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (cur) => (cur === v ? null : v))}
-            />
-          </View>
+            </View>
 
-          {/* Toggle rapidi (combinabili): utili per preparare una campagna. */}
-          <View style={styles.toggleRow}>
-            <ToggleChip icona="star" label="Decisori" on={attivo('decisori')} onTap={() => togglaFiltro('decisori')} />
-            <ToggleChip icona="mail-outline" label="Con email" on={attivo('email')} onTap={() => togglaFiltro('email')} />
-            <ToggleChip icona="call-outline" label="Con telefono" on={attivo('telefono')} onTap={() => togglaFiltro('telefono')} />
-            <ToggleChip icona="library-outline" label="Nel registro" on={attivo('registro')} onTap={() => togglaFiltro('registro')} />
-            {nArchiviati ? (
-              <ToggleChip
-                icona="archive-outline"
-                label={`Archiviati (${nArchiviati})`}
-                on={mostraArchiviati}
-                onTap={() => setMostraArchiviati((v) => !v)}
-              />
-            ) : null}
-            {filtriAttivi ? (
-              <Pressable style={styles.azzera} onPress={azzeraFiltri} hitSlop={6}>
-                <Ionicons name="close-circle" size={14} color={colors.testoSoft} />
-                <Text style={styles.azzeraTxt}>Azzera</Text>
-              </Pressable>
-            ) : null}
-          </View>
+            {/* Toggle rapidi (combinabili): utili per preparare una campagna. */}
+            <View style={styles.toggleRow}>
+              <ToggleChip icona="star" label="Decisori" on={attivo('decisori')} onTap={() => togglaFiltro('decisori')} />
+              <ToggleChip icona="mail-outline" label="Con email" on={attivo('email')} onTap={() => togglaFiltro('email')} />
+              <ToggleChip icona="call-outline" label="Con telefono" on={attivo('telefono')} onTap={() => togglaFiltro('telefono')} />
+              <ToggleChip icona="library-outline" label="Nel registro" on={attivo('registro')} onTap={() => togglaFiltro('registro')} />
+              {nArchiviati ? (
+                <ToggleChip
+                  icona="archive-outline"
+                  label={`Archiviati (${nArchiviati})`}
+                  on={mostraArchiviati}
+                  onTap={() => setMostraArchiviati((v) => !v)}
+                />
+              ) : null}
+              {filtriAttivi ? (
+                <Pressable style={styles.azzera} onPress={azzeraFiltri} hitSlop={6}>
+                  <Ionicons name="close-circle" size={14} color={colors.testoSoft} />
+                  <Text style={styles.azzeraTxt}>Azzera</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </PannelloFiltri>
 
           {filtriAttivi ? <Text style={styles.conteggio}>{dati.length} contatt{dati.length === 1 ? 'o' : 'i'}</Text> : null}
         </View>
