@@ -33,7 +33,13 @@ npx expo export --platform web --output-dir dist-web
 
 echo "→ fix font (assets/node_modules → assets/vendor)"
 if [ -d dist-web/assets/node_modules ]; then
-  mv dist-web/assets/node_modules dist-web/assets/vendor
+  # COPIA, non `mv`: su Windows lo spostamento fallisce sistematicamente con
+  # "Permission denied" (qualcosa tiene occupata la cartella) e il deploy si
+  # ferma a metà, dopo aver già rifatto il build. La copia funziona sempre.
+  # L'originale si prova a togliere: se resta non fa danno, Vercel ignora i
+  # percorsi node_modules e i riferimenti nel bundle puntano ormai a `vendor`.
+  cp -r dist-web/assets/node_modules dist-web/assets/vendor
+  rm -rf dist-web/assets/node_modules 2>/dev/null || true
   grep -rl 'assets/node_modules' dist-web 2>/dev/null | while read -r f; do
     sed -i 's#assets/node_modules#assets/vendor#g' "$f"
   done

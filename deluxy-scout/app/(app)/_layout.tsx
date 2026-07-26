@@ -51,14 +51,11 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     ],
   },
   {
-    // Il campo, prima della vendita: i risultati delle visite e le bozze da
-    // chiudere. Da qui nasce la trattativa; quando c'è, la visita esce di qui.
-    titolo: 'Visite',
-    voci: [{ name: 'visite', label: 'Visite', icon: 'walk-outline' }],
-  },
-  {
+    // L'ordine è quello del funnel: prima le visite (il campo, dove nasce
+    // l'occasione), poi la trattativa, l'ordine e l'incasso.
     titolo: 'Vendita',
     voci: [
+      { name: 'visite', label: 'Visite', icon: 'walk-outline' },
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
       { name: 'ordini', label: 'Ordini', icon: 'receipt-outline' },
       { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
