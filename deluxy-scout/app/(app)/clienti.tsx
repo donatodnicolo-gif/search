@@ -168,6 +168,19 @@ export default function Clienti() {
                   label="Visita"
                   onPress={() => router.push(`/(app)/visita/${item.id}`)}
                 />
+                {/* Apre le Trattative col form già pronto su questo cliente:
+                    su un cliente acquisito la trattativa nuova è l'azione che
+                    serve più spesso. */}
+                <IconaAzione
+                  nome="briefcase-outline"
+                  attiva
+                  label="Nuova trattativa"
+                  onPress={() =>
+                    router.push(
+                      `/(app)/trattative?nuovoPer=${item.id}&nuovoNome=${encodeURIComponent(item.nome)}`,
+                    )
+                  }
+                />
               </AzioniRiga>
             }
           />

@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import {
   aggiornaDeal,
@@ -73,6 +73,20 @@ export default function Trattative() {
   const [accountFiltro, setAccountFiltro] = useState<string | null>(null);
   const [formAperto, setFormAperto] = useState(false);
   const [editDeal, setEditDeal] = useState<TrattativaConLuogo | null>(null);
+
+  // Arrivo dal bottone «Nuova trattativa» di una scheda (Clienti): il form si
+  // apre da solo col negozio già scelto, così non lo si ricerca di nuovo.
+  const { nuovoPer, nuovoNome } = useLocalSearchParams<{ nuovoPer?: string; nuovoNome?: string }>();
+  const placeDaParam = useMemo(
+    () =>
+      nuovoPer
+        ? { id: String(nuovoPer), nome: String(nuovoNome ?? 'Negozio'), indirizzo: null, zona: null }
+        : null,
+    [nuovoPer, nuovoNome],
+  );
+  useEffect(() => {
+    if (placeDaParam) setFormAperto(true);
+  }, [placeDaParam]);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -290,9 +304,16 @@ export default function Trattative() {
 
       {formAperto ? (
         <TrattativaModal
-          onClose={() => setFormAperto(false)}
+          placeIniziale={placeDaParam}
+          onClose={() => {
+            setFormAperto(false);
+            // Via il parametro dall'URL: altrimenti tornando qui il form si
+            // riaprirebbe da solo sullo stesso negozio.
+            if (placeDaParam) router.replace('/(app)/trattative');
+          }}
           onSalvata={() => {
             setFormAperto(false);
+            if (placeDaParam) router.replace('/(app)/trattative');
             carica();
           }}
         />
@@ -423,10 +444,15 @@ function labelMotivo(v: string): string {
 // ── Form crea/modifica trattativa (sincronizzato con negozio + contatti) ───────
 function TrattativaModal({
   deal,
+  placeIniziale,
   onClose,
   onSalvata,
 }: {
   deal?: TrattativaConLuogo;
+  /** Negozio già scelto: si arriva qui dal bottone «Nuova trattativa» di una
+   *  scheda (Clienti), quindi la ricerca del negozio si salta. Resta
+   *  cambiabile con l'icona di scambio. */
+  placeIniziale?: PlaceLite | null;
   onClose: () => void;
   onSalvata: () => void;
 }) {
@@ -435,7 +461,9 @@ function TrattativaModal({
   const [ricerca, setRicerca] = useState('');
   const [risultati, setRisultati] = useState<PlaceLite[]>([]);
   const [place, setPlace] = useState<PlaceLite | null>(
-    deal ? { id: deal.place_id, nome: deal.place_nome ?? 'Negozio', indirizzo: null, zona: null } : null,
+    deal
+      ? { id: deal.place_id, nome: deal.place_nome ?? 'Negozio', indirizzo: null, zona: null }
+      : placeIniziale ?? null,
   );
   const [contatti, setContatti] = useState<Contact[]>([]);
   const [linee, setLinee] = useState<string[]>(
@@ -453,10 +481,12 @@ function TrattativaModal({
   const [errore, setErrore] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // In modifica: carica i contatti del negozio già associato (se ce n'è uno Scout).
+  // Carica i contatti del negozio già associato: in modifica quello della deal,
+  // in creazione quello passato dalla scheda che ha aperto il form.
   useEffect(() => {
-    if (deal?.place_id) {
-      fetchContatti(deal.place_id).then(setContatti).catch(() => setContatti([]));
+    const id = deal?.place_id ?? placeIniziale?.id;
+    if (id) {
+      fetchContatti(id).then(setContatti).catch(() => setContatti([]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
