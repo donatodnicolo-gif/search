@@ -37,7 +37,18 @@ export async function linkFornitore(brand: string, numero: string): Promise<Esit
   const c = await leggiImpostazioni(['searchUrl', 'searchApiKey'])
   const baseUrl = base(c.searchUrl)
   const semplice = linkSemplice(baseUrl, brand, numero)
-  if (!c.searchApiKey) return { url: semplice, firmato: false }
+  // Nessuna chiave = nessun codice di accesso = l'app chiederà la password. Lo
+  // si dice qui perché è il caso più frequente, e chi lo incontra sta guardando
+  // una schermata di login senza sapere che manca una configurazione.
+  if (!c.searchApiKey) {
+    return {
+      url: semplice,
+      firmato: false,
+      nota:
+        'Ricerca fornitori chiederà la password: manca la sua chiave API. ' +
+        'Creala là come amministratore e incollala in Impostazioni → Ricerca fornitori.',
+    }
+  }
 
   try {
     const res = await fetch(`${baseUrl}/api/link`, {

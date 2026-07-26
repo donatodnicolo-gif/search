@@ -197,20 +197,40 @@ function linkFornitoreSemplice(brandRicerca: string, numero: string): string {
  * Apre Ricerca fornitori sull'ordine. La scheda si apre SUBITO (altrimenti il
  * browser la blocca come popup) e poi ci portiamo dentro il link firmato che
  * chiediamo al nostro server.
+ *
+ * IL LINK FIRMATO È QUELLO CHE EVITA IL LOGIN: il nostro server chiede all'app
+ * un codice monouso (`?t=…`, vale 5 minuti) che il browser scambia per una
+ * sessione. Senza la chiave `searchApiKey` non si può chiedere quel codice e si
+ * ripiega sul link semplice — che si apre, ma **chiede la password**.
+ *
+ * `avvisa` serve proprio a non lasciarlo capire all'operatore davanti a una
+ * schermata di login: prima ripiegava in silenzio, e sembrava un guasto dell'app
+ * invece di una chiave mancante.
  */
-async function apriFornitore(brandRicerca: string, numero: string) {
+async function apriFornitore(
+  brandRicerca: string,
+  numero: string,
+  avvisa?: (nota: string) => void
+) {
   const scheda = window.open('about:blank', '_blank', 'noopener,noreferrer')
   const ripiego = linkFornitoreSemplice(brandRicerca, numero)
   try {
     const p = new URLSearchParams({ brand: brandRicerca, ordine: numero })
     const res = await fetch('/api/fornitore/link?' + p.toString())
-    const d = (await res.json()) as { url?: string }
+    const d = (await res.json()) as { url?: string; firmato?: boolean; nota?: string }
     const url = d.url || ripiego
     if (scheda) scheda.location.href = url
     else window.open(url, '_blank', 'noopener,noreferrer')
+    if (d.firmato === false) {
+      avvisa?.(
+        d.nota ||
+          'Ricerca fornitori chiederà la password: manca la sua chiave API. Impostala in Impostazioni → Ricerca fornitori (si crea là, come amministratore).'
+      )
+    }
   } catch {
     if (scheda) scheda.location.href = ripiego
     else window.open(ripiego, '_blank', 'noopener,noreferrer')
+    avvisa?.('Non sono riuscito a chiedere il link di accesso: l’app chiederà la password.')
   }
 }
 
@@ -875,7 +895,7 @@ export function OrdiniLista() {
                           {n.brandRicerca ? (
                             <button
                               className="bottone secondario mini"
-                              onClick={() => apriFornitore(n.brandRicerca, o.numero)}
+                              onClick={() => apriFornitore(n.brandRicerca, o.numero, setErrore)}
                               title={`Cerca il fornitore per ${o.numero} su Ricerca fornitori`}
                             >
                               Fornitore ↗
@@ -1022,7 +1042,7 @@ export function OrdiniLista() {
                       return brand ? (
                         <button
                           className="bottone secondario mini"
-                          onClick={() => apriFornitore(brand, o.numero)}
+                          onClick={() => apriFornitore(brand, o.numero, setErrore)}
                           title={`Cerca il fornitore per ${o.numero}`}
                         >
                           Cerca ↗
@@ -1081,7 +1101,7 @@ export function OrdiniLista() {
                       <td>
                         <button
                           className="bottone secondario mini"
-                          onClick={() => apriFornitore(o.brandRicerca || o.brand, o.numero)}
+                          onClick={() => apriFornitore(o.brandRicerca || o.brand, o.numero, setErrore)}
                           title={`Cerca il fornitore per ${o.numero}`}
                         >
                           Cerca ↗

@@ -55,6 +55,27 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- FORNITORE: PERCHÉ CHIEDE LA PASSWORD, E ORA LO DICE (26/07/2026).
+  Diagnosi di `search-deluxy.vercel.app/?brand=…&ordine=…` che chiedeva il login:
+  **non è un guasto**, è il link NON firmato. Quell'app si apre senza password
+  solo con un codice monouso `?t=<code>` (schema authorization-code: `POST
+  /api/link` con `x-api-key: dlxs_…` → codice valido 5 minuti → il browser lo
+  scambia con `GET /api/link?code=` per una sessione di 1 ora; vedi
+  `deluxy-search-supplier/api/link.js` sul branch **main**).
+  CAUSA VERA: in questa app `searchApiKey` **non è impostata** (verificato sulla
+  tabella `Impostazione`), quindi `linkFornitore()` ripiega sul link semplice.
+  I campi ci sono già in Impostazioni → Ricerca fornitori.
+  **PER SISTEMARLO SERVE UNA PERSONA**: la chiave si crea SOLO da amministratore
+  dell'app Ricerca fornitori (`POST /api/chiavi {azione:'crea'}`, che risponde
+  403 a chi non è admin) e va incollata qui. Non è una cosa che si possa fare da
+  codice.
+  CORRETTO NEL FRATTEMPO il difetto nostro: il bottone ripiegava **in silenzio**,
+  e l'operatore si trovava davanti a un login senza sapere perché. Ora
+  `linkFornitore()` torna una `nota` anche nel caso «chiave assente», e
+  `apriFornitore()` la mostra in pagina. Verificato: l'API risponde
+  `firmato:false` con l'URL identico a quello che l'utente aveva aperto, e
+  premendo *Fornitore* compare l'avviso con l'istruzione.
+
 - DATA E FASCIA DI CONSEGNA IN ELENCO (26/07/2026): sulla scheda dell'ordine una
   riga sotto il cliente, e in tabella la colonna **Consegna**. I campi
   (`dataConsegna`, `fasciaConsegna`) c'erano già da Orders e li usava solo il
