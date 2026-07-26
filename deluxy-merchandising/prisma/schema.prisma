@@ -168,7 +168,20 @@ model NegozioShopify {
   id          String    @id @default(cuid())
   nome        String    @unique // come si chiama qui: "Flowers", "deluxy.it"…
   dominio     String // es. fb72b1-2.myshopify.com
-  tokenCifrato String
+  // Due modi di autenticarsi, entrambi cifrati:
+  //
+  // 1. **Client ID + Secret** (app della Dev Dashboard, il modo di oggi): l'app
+  //    si conia da sola un token con il "client credentials grant", valido ~24h,
+  //    e lo rinnova quando scade. Nessun token da custodire per sempre.
+  // 2. **Token statico** `shpat_…` (app personalizzata del negozio, ancora
+  //    valido): si incolla una volta e resta.
+  //
+  // Se ci sono le credenziali si usano quelle: il token qui sotto diventa solo
+  // la copia di lavoro dell'ultimo token coniato.
+  clientIdCifrato     String?
+  clientSecretCifrato String?
+  tokenCifrato  String?
+  tokenScadeIl  DateTime? // null = token statico, non scade
   // Impronta corta del token: serve solo a riconoscere "quale" token è
   // impostato senza mostrarlo (le ultime cifre cambiano se lo sostituisci).
   tokenImpronta String   @default("")

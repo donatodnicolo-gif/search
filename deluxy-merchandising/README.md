@@ -39,7 +39,7 @@ Il menù è raggruppato per mestiere: **Panoramica** (cruscotto) · **Vendite**
 | **Ipotesi di ordinativo** | Quanto riordinare di ogni prodotto, dal ritmo di vendita reale e dalla giacenza (lead time, copertura, scorta regolabili). Si congela in un piano modificabile ed esportabile in CSV. **Propone, non ordina.** | `/riordini`, `/riordini/[id]` |
 | **Trend con AI** | Lettura del venduto scritta dal modello sui numeri già calcolati dall'app, con osservazioni, azioni proposte e domande aperte. Storicizzata insieme ai dati su cui è fondata. | `/trend-ai` |
 | **Visual merchandising** | Allestimenti (vetrine, lookbook, capsule): i prodotti disposti in una sequenza curata, riordinabile. | `/visual`, `/visual/[id]` |
-| **Negozi & permessi** | Dove si decide con quali negozi Shopify l'app parla: dominio + token Admin (salvato cifrato, mai rimostrato), verifica che dice quali permessi ha davvero quel token e il catalogo dei permessi da dare all'app Shopify. | `/impostazioni` |
+| **Negozi & permessi** | Dove si decide con quali negozi Shopify l'app parla: **Client ID + Secret** dell'app (l'app si conia da sola il token, ~24h, rinnovo automatico) oppure il vecchio token statico `shpat_…`; tutto cifrato e mai rimostrato. Verifica che dice quali permessi ha davvero, catalogo dei permessi da dare, chiave OpenAI e prompt AI per categoria. | `/impostazioni` |
 | **Shopify** | Stato di pubblicazione e anteprima del payload prodotto. L'app prepara tutto; la scrittura reale sul negozio si attiva con le credenziali. | `/shopify` |
 
 La **scheda prodotto 360°** (`/prodotti/[id]`) riunisce tutto in tab:

@@ -122,8 +122,19 @@ export default async function ImpostazioniPage({
 
                   <dl className="griglia-campi" style={{ margin: "14px 0" }}>
                     <div className="campo">
-                      <dt>Token</dt>
-                      <dd>impostato · impronta {n.tokenImpronta || "—"}</dd>
+                      <dt>Come si autentica</dt>
+                      <dd>
+                        {n.modo === "credenziali" ? (
+                          <>
+                            Client ID + Secret · token coniato dall&apos;app
+                            {n.tokenScadeIl ? `, valido fino alle ${n.tokenScadeIl.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : ""}
+                          </>
+                        ) : n.modo === "token" ? (
+                          <>Token statico · impronta {n.tokenImpronta || "—"}</>
+                        ) : (
+                          "nessuna credenziale"
+                        )}
+                      </dd>
                     </div>
                     <div className="campo">
                       <dt>Ultima verifica</dt>
@@ -171,7 +182,7 @@ export default async function ImpostazioniPage({
                   )}
 
                   <details>
-                    <summary className="dettagli-summary">Modifica dominio o sostituisci il token</summary>
+                    <summary className="dettagli-summary">Modifica dominio o cambia le credenziali</summary>
                     <form action={salvaNegozioAzione} className="modulo">
                       <input type="hidden" name="id" value={n.id} />
                       <div className="campo-modulo">
@@ -182,9 +193,17 @@ export default async function ImpostazioniPage({
                         <label htmlFor={`dominio-${n.id}`}>Dominio tecnico</label>
                         <input id={`dominio-${n.id}`} name="dominio" defaultValue={n.dominio} required />
                       </div>
+                      <div className="campo-modulo">
+                        <label htmlFor={`clientId-${n.id}`}>Nuovo Client ID</label>
+                        <input id={`clientId-${n.id}`} name="clientId" autoComplete="off" placeholder="lascia vuoto per non cambiarlo" />
+                      </div>
+                      <div className="campo-modulo">
+                        <label htmlFor={`clientSecret-${n.id}`}>Nuovo Client Secret</label>
+                        <input id={`clientSecret-${n.id}`} name="clientSecret" type="password" autoComplete="off" />
+                      </div>
                       <div className="campo-modulo largo">
-                        <label htmlFor={`token-${n.id}`}>Nuovo token (lascia vuoto per non cambiarlo)</label>
-                        <input id={`token-${n.id}`} name="token" type="password" placeholder="shpat_…" autoComplete="off" />
+                        <label htmlFor={`token-${n.id}`}>Oppure un token statico <code>shpat_…</code></label>
+                        <input id={`token-${n.id}`} name="token" type="password" placeholder="solo per le app personalizzate vecchio stile" autoComplete="off" />
                       </div>
                       <div className="azioni-modulo">
                         <button className="btn" type="submit">Salva</button>
@@ -223,16 +242,30 @@ export default async function ImpostazioniPage({
               <label htmlFor="dominio">Dominio tecnico <span className="obbligatorio">*</span></label>
               <input id="dominio" name="dominio" placeholder="nome-negozio.myshopify.com" required />
             </div>
+            <div className="campo-modulo">
+              <label htmlFor="clientId">Client ID <span className="obbligatorio">*</span></label>
+              <input id="clientId" name="clientId" autoComplete="off" placeholder="dalla scheda dell'app" />
+            </div>
+            <div className="campo-modulo">
+              <label htmlFor="clientSecret">Client Secret <span className="obbligatorio">*</span></label>
+              <input id="clientSecret" name="clientSecret" type="password" autoComplete="off" />
+            </div>
             <div className="campo-modulo largo">
-              <label htmlFor="token">Token Admin API <span className="obbligatorio">*</span></label>
-              <input id="token" name="token" type="password" placeholder="shpat_…" autoComplete="off" required />
+              <label htmlFor="token">Oppure token statico <code>shpat_…</code> (app personalizzate vecchio stile)</label>
+              <input id="token" name="token" type="password" placeholder="solo se la tua app ha ancora un token fisso" autoComplete="off" />
             </div>
             <div className="azioni-modulo">
               <button className="btn" type="submit" disabled={!cifraturaOk}>Collega e verifica</button>
             </div>
           </form>
           <p className="page-sub" style={{ marginTop: 12 }}>
-            Il token si salva <b>cifrato</b> e non viene più rimostrato: per cambiarlo lo si sostituisce. Le
+            Le app Shopify di oggi non danno più un token da incollare: danno <b>Client ID</b> e <b>Client
+            Secret</b>, e l&apos;app se ne conia uno da sola quando serve (dura circa 24 ore e si rinnova senza
+            che nessuno se ne accorga). Il token statico <code>shpat_…</code> resta valido per le app
+            personalizzate create nell&apos;admin del negozio: metti l&apos;uno <i>o</i> gli altri.
+          </p>
+          <p className="page-sub" style={{ marginTop: 8 }}>
+            Tutto si salva <b>cifrato</b> e non viene più rimostrato: per cambiarlo lo si sostituisce. Le
             chiamate usano l&apos;Admin API versione <b>{VERSIONE_API}</b>.
           </p>
         </div>
@@ -316,10 +349,12 @@ export default async function ImpostazioniPage({
         <div className="scheda">
           <div className="scheda-titolo">Permessi da dare all&apos;app Shopify</div>
           <p className="page-sub" style={{ marginBottom: 14 }}>
-            Su ogni negozio: <b>Impostazioni → App e canali di vendita → Sviluppa app → Crea app</b>, poi
-            <b> Configurazione → Admin API integration → Modifica</b>, spunta i permessi qui sotto, salva e
-            installa. Il token (<code>shpat_…</code>) compare una volta sola in <b>Credenziali API</b>: copialo
-            subito e incollalo qui sopra.
+            Nell&apos;app che crei (Dev Dashboard di Shopify) i permessi si spuntano nella configurazione
+            dell&apos;<b>Admin API</b>; poi l&apos;app va <b>installata sul negozio</b>, altrimenti Client ID e
+            Secret vengono rifiutati. <b>Client ID</b> e <b>Client Secret</b> stanno nella scheda dell&apos;app
+            e si incollano qui sopra. Se invece usi una vecchia <b>app personalizzata</b> creata dentro
+            l&apos;admin del negozio (Impostazioni → App e canali di vendita → Sviluppa app), lì trovi ancora
+            il token <code>shpat_…</code>, che compare una volta sola.
           </p>
           <div className="tabella-wrap">
             <table>

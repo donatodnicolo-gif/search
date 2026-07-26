@@ -93,6 +93,10 @@ export type NegozioInElenco = {
   nome: string;
   dominio: string;
   attivo: boolean;
+  // "credenziali" = Client ID + Secret (l'app si conia il token da sola);
+  // "token" = token statico incollato a mano.
+  modo: "credenziali" | "token" | "nessuno";
+  tokenScadeIl: Date | null;
   tokenImpronta: string;
   verificatoIl: Date | null;
   permessi: string[];
@@ -101,7 +105,7 @@ export type NegozioInElenco = {
   messaggio: string | null;
 };
 
-/** Elenco dei negozi, senza mai toccare i token. */
+/** Elenco dei negozi, senza mai toccare i segreti. */
 export async function elencoNegozi(): Promise<NegozioInElenco[]> {
   const righe = await prisma.negozioShopify.findMany({ orderBy: { nome: "asc" } });
   return righe.map((n) => {
@@ -111,6 +115,8 @@ export async function elencoNegozi(): Promise<NegozioInElenco[]> {
       nome: n.nome,
       dominio: n.dominio,
       attivo: n.attivo,
+      modo: n.clientIdCifrato && n.clientSecretCifrato ? "credenziali" : n.tokenCifrato ? "token" : "nessuno",
+      tokenScadeIl: n.tokenScadeIl,
       tokenImpronta: n.tokenImpronta,
       verificatoIl: n.verificatoIl,
       permessi,
@@ -121,17 +127,99 @@ export async function elencoNegozi(): Promise<NegozioInElenco[]> {
   });
 }
 
-/** Il token in chiaro di un negozio: solo per le chiamate, mai per la UI. */
+/**
+ * Conia un token Admin con il **client credentials grant**: è il flusso delle
+ * app della Dev Dashboard, quelle che hanno Client ID e Secret invece di un
+ * token da incollare. Nessun redirect, nessun segreto che vive per sempre: il
+ * token dura circa 24 ore e si rifà quando serve.
+ */
+export async function coniaToken(
+  dominio: string,
+  clientId: string,
+  clientSecret: string
+): Promise<{ token: string; scadeIl: Date }> {
+  const res = await fetch(`https://${dominio}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+    signal: AbortSignal.timeout(20000),
+    cache: "no-store",
+  });
+  const corpo = (await res.json().catch(() => ({}))) as {
+    access_token?: string;
+    expires_in?: number;
+    error?: string;
+    error_description?: string;
+  };
+  if (!res.ok || !corpo.access_token) {
+    throw new Error(
+      corpo.error_description ||
+        corpo.error ||
+        `Il negozio ha rifiutato Client ID e Secret (HTTP ${res.status}). Controlla che l'app sia installata su questo negozio.`
+    );
+  }
+  // Si rinnova cinque minuti prima della scadenza vera: un token che scade in
+  // mezzo a un import è il modo peggiore di scoprire che era ora.
+  const durata = Math.max(60, (corpo.expires_in ?? 86400) - 300);
+  return { token: corpo.access_token, scadeIl: new Date(Date.now() + durata * 1000) };
+}
+
+/**
+ * Il token valido di un negozio: coniato al volo se ci sono le credenziali e
+ * quello in cassa è scaduto, altrimenti il token statico.
+ * Solo per le chiamate, mai per la UI.
+ */
 export async function tokenDi(id: string): Promise<{ dominio: string; token: string } | null> {
   const n = await prisma.negozioShopify.findUnique({ where: { id } });
   if (!n) return null;
-  return { dominio: n.dominio, token: decifra(n.tokenCifrato) };
+  return { dominio: n.dominio, token: await tokenValido(n) };
 }
 
-/** I negozi utilizzabili per un import (attivi e col token). */
+type RigaNegozio = {
+  id: string;
+  dominio: string;
+  clientIdCifrato: string | null;
+  clientSecretCifrato: string | null;
+  tokenCifrato: string | null;
+  tokenScadeIl: Date | null;
+};
+
+async function tokenValido(n: RigaNegozio): Promise<string> {
+  if (n.clientIdCifrato && n.clientSecretCifrato) {
+    const ancoraBuono = n.tokenCifrato && n.tokenScadeIl && n.tokenScadeIl.getTime() > Date.now();
+    if (ancoraBuono) return decifra(n.tokenCifrato as string);
+    const { token, scadeIl } = await coniaToken(
+      n.dominio,
+      decifra(n.clientIdCifrato),
+      decifra(n.clientSecretCifrato)
+    );
+    await prisma.negozioShopify.update({
+      where: { id: n.id },
+      data: { tokenCifrato: cifra(token), tokenImpronta: impronta(token), tokenScadeIl: scadeIl },
+    });
+    return token;
+  }
+  if (n.tokenCifrato) return decifra(n.tokenCifrato);
+  throw new Error("Negozio senza credenziali: né Client ID/Secret né token statico.");
+}
+
+/** I negozi utilizzabili per un import (attivi e con un modo di autenticarsi). */
 export async function negoziAttivi(): Promise<{ id: string; nome: string; dominio: string; token: string }[]> {
   const righe = await prisma.negozioShopify.findMany({ where: { attivo: true }, orderBy: { nome: "asc" } });
-  return righe.map((n) => ({ id: n.id, nome: n.nome, dominio: n.dominio, token: decifra(n.tokenCifrato) }));
+  const fuori: { id: string; nome: string; dominio: string; token: string }[] = [];
+  for (const n of righe) {
+    try {
+      fuori.push({ id: n.id, nome: n.nome, dominio: n.dominio, token: await tokenValido(n) });
+    } catch {
+      // Un negozio che non sa autenticarsi non blocca gli altri: sparisce dalla
+      // lista e il suo stato si vede in Impostazioni.
+    }
+  }
+  return fuori;
 }
 
 function normalizzaDominio(d: string): string {
@@ -153,11 +241,17 @@ export async function salvaNegozio(dati: {
   nome: string;
   dominio: string;
   token?: string | null;
+  clientId?: string | null;
+  clientSecret?: string | null;
 }): Promise<EsitoSalvataggio> {
   const nome = dati.nome.trim();
   const dominio = normalizzaDominio(dati.dominio);
   const token = dati.token?.trim() || null;
+  const clientId = dati.clientId?.trim() || null;
+  const clientSecret = dati.clientSecret?.trim() || null;
 
+  if (clientId && !clientSecret) return { ok: false, errore: "C'è il Client ID ma manca il Client Secret." };
+  if (clientSecret && !clientId) return { ok: false, errore: "C'è il Client Secret ma manca il Client ID." };
   if (!nome) return { ok: false, errore: "Serve un nome per il negozio." };
   if (!/^[a-z0-9][a-z0-9.-]*\.myshopify\.com$/.test(dominio))
     return {
@@ -169,7 +263,15 @@ export async function salvaNegozio(dati: {
       ok: false,
       errore: "APP_SECRET non è impostata: senza, il token non può essere cifrato e non lo salvo in chiaro.",
     };
-  if (!dati.id && !token) return { ok: false, errore: "Per un negozio nuovo serve il token Admin API." };
+  if (!dati.id && !token && !clientId)
+    return {
+      ok: false,
+      errore: "Per un negozio nuovo servono il Client ID + Secret dell'app, oppure un token Admin API statico.",
+    };
+
+  // Cambiando modo di autenticarsi si azzera la verifica: quello che valeva per
+  // il token vecchio non dice niente sulle credenziali nuove.
+  const azzeraVerifica = { verificatoIl: null, permessi: null, esitoVerifica: null, messaggio: null };
 
   try {
     if (dati.id) {
@@ -178,13 +280,39 @@ export async function salvaNegozio(dati: {
         data: {
           nome,
           dominio,
-          ...(token ? { tokenCifrato: cifra(token), tokenImpronta: impronta(token), verificatoIl: null, permessi: null, esitoVerifica: null, messaggio: null } : {}),
+          ...(clientId
+            ? {
+                clientIdCifrato: cifra(clientId),
+                clientSecretCifrato: cifra(clientSecret as string),
+                // Il token coniato col vecchio Client ID non serve più.
+                tokenCifrato: null,
+                tokenScadeIl: null,
+                tokenImpronta: "",
+                ...azzeraVerifica,
+              }
+            : {}),
+          ...(token
+            ? {
+                tokenCifrato: cifra(token),
+                tokenImpronta: impronta(token),
+                tokenScadeIl: null,
+                clientIdCifrato: null,
+                clientSecretCifrato: null,
+                ...azzeraVerifica,
+              }
+            : {}),
         },
       });
       return { ok: true, id: dati.id };
     }
     const creato = await prisma.negozioShopify.create({
-      data: { nome, dominio, tokenCifrato: cifra(token as string), tokenImpronta: impronta(token as string) },
+      data: {
+        nome,
+        dominio,
+        ...(clientId
+          ? { clientIdCifrato: cifra(clientId), clientSecretCifrato: cifra(clientSecret as string) }
+          : { tokenCifrato: cifra(token as string), tokenImpronta: impronta(token as string) }),
+      },
     });
     return { ok: true, id: creato.id };
   } catch (e) {
@@ -208,7 +336,9 @@ export async function verificaNegozio(id: string): Promise<void> {
   let messaggio = "";
 
   try {
-    const token = decifra(n.tokenCifrato);
+    // Se il negozio va a Client ID + Secret, questa è anche la prova che il
+    // grant funziona: senza token coniato non si arriva nemmeno agli scope.
+    const token = await tokenValido(n);
 
     const rScope = await fetch(`https://${n.dominio}/admin/oauth/access_scopes.json`, {
       headers: { "X-Shopify-Access-Token": token },
