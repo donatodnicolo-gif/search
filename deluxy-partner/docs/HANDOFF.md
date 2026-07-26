@@ -1,7 +1,11 @@
 # Deluxy Partner — Handoff / Stato del prodotto
 
-**Ultimo aggiornamento:** 20 luglio 2026 (pro-forma, contatto amministrativo, emissione FIC, cron Qonto, fix regione) · branch `scout-ui` (origin).
+**Ultimo aggiornamento:** 26 luglio 2026 · branch `scout-ui` (origin, repo condiviso da PIÙ sessioni Claude — non è raro trovare le proprie modifiche dentro commit altrui).
 Questo è il documento "parti da qui": stato reale del prodotto, funzioni, API, integrazioni, dati e come lavorarci. La fonte di verità funzionale storica resta [PROGETTO.md](PROGETTO.md); questo file è il quadro corrente più completo.
+
+> **Novità 23–26/07/2026** (dettagli nelle sezioni sotto): allineamento incasso app→**Fatture in Cloud** (con conto di saldo Qonto); **stato finanziario del cliente** (credit management, aging) + API `/api/clienti/stato`; **regole degli stati** configurabili; **saldo parziale** delle fatture; **registro modifiche** (audit log, `/impostazioni/logs`); note del mese datate con verifica AI; **Orders**: sorgente ordini = **registro Deluxy Orders** (non più Shopify diretto), **costo fornitore** per ordine con quota attesa **60%** (sotto=bene/sopra=male), abbinamento automatico per **numero d'ordine in causale**, scheda ordine con transazione corrispondente + **popup «Riconcilia»** (ricerca per importo/nome) + «Richiedi pagamento». **RIMOSSA** tutta la parte pagamenti in uscita (Pagamenti diretti, Approvazioni, conferma via email) → passerà all'app **transazioni**.
+>
+> ⚠️ **Env da avere su Vercel**: `ORDERS_URL` + `ORDERS_API_KEY` (registro ordini) — già impostate. Chiave di lettura ordini creata in deluxy-orders (`deluxy-partner-import`).
 
 ---
 
