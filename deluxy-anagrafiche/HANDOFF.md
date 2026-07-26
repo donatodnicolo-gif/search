@@ -81,6 +81,11 @@ in creazione lo mettono anche se la chiave non è un driver di prima parte, in m
 (`src/lib/interessi.ts`): `sistema` che contiene `supplier`/`fornitor` o che inizia per
 `search`. È additivo: non tocca gli altri interessi e non ne toglie mai — il team può
 correggerlo dal registro.
+**Recupero dello storico fatto il 26/07/2026**: la regola è stata applicata a mano alle 8
+anagrafiche vive già arrivate da quell'app (2 record di prova archiviati saltati) e la vecchia
+dicitura minuscola `affiliazione` di un record Excel è stata normalizzata su `Affiliazioni`.
+Restano da normalizzare `consegne` (7) vs `Consegne` (5): stessa linea scritta in due modi,
+residuo della migrazione slug→nomi canonici.
 
 ### Motore di merge multi-sorgente (`src/lib/merge.ts`) — Fase 1 dell'architettura
 Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione:
