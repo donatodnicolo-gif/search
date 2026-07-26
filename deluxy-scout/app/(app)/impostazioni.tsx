@@ -1,14 +1,25 @@
 // Profilo → Impostazioni: le regolazioni di prodotto che prima vivevano nei
 // secret di Supabase e si cambiavano solo da riga di comando.
-// Le scrive un amministratore (RLS, migr. 0043); qui NON si toccano segreti.
-import { useCallback, useState } from 'react';
+// Le scrive un amministratore (RLS, migr. 0043).
+// In fondo, riservate all'admin, le chiavi delle altre app Deluxy (migr. 0044):
+// stanno in una tabella che solo lui può leggere, e non tornano mai al client.
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { CHIAVE_CASELLA_RICHIESTE, leggiImpostazione, salvaImpostazione } from '@/lib/db';
+import {
+  APP_DELUXY,
+  CHIAVE_CASELLA_RICHIESTE,
+  fetchStatoChiaviApp,
+  leggiImpostazione,
+  rimuoviChiaveApp,
+  salvaChiaveApp,
+  salvaImpostazione,
+  type StatoChiaveApp,
+} from '@/lib/db';
 import { importaRichiesteDaMail } from '@/lib/mail';
 import { avvisa } from '@/lib/dialoghi';
 
@@ -127,11 +138,159 @@ export default function Impostazioni() {
         ) : null}
       </View>
 
+      {/* Le chiavi delle altre app: le vede e le cambia solo l'amministratore
+          (RLS sulla tabella chiavi_app, migr. 0044). */}
+      {admin ? <SezioneAppCollegate /> : null}
+
       <Text style={styles.piede}>
-        Le chiavi API e le password non stanno qui: restano custodite sul server e si cambiano solo
-        da riga di comando.
+        Le chiavi delle altre app le inserisce e le vede solo un amministratore, e restano sul
+        server: l&apos;app non le riceve mai. Le password delle caselle continuano a stare nei
+        secret e si cambiano da riga di comando.
       </Text>
     </ScrollView>
+  );
+}
+
+/** Elenco delle app Deluxy richiamabili, con la loro chiave. Solo admin. */
+function SezioneAppCollegate() {
+  const [stato, setStato] = useState<StatoChiaveApp[]>([]);
+  const [aperta, setAperta] = useState<string | null>(null);
+  const [chiave, setChiave] = useState('');
+  const [urlBase, setUrlBase] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  const carica = useCallback(async () => {
+    try {
+      setStato(await fetchStatoChiaviApp());
+      setErrore(null);
+    } catch (e: any) {
+      const msg = String(e?.message ?? '');
+      // Il caso più probabile la prima volta: la tabella non c'è ancora.
+      setErrore(
+        /chiavi_app|schema cache|does not exist/i.test(msg)
+          ? 'Manca la tabella delle chiavi: applica la migrazione 0044_chiavi_app.sql (scripts/mgmt-query.mjs).'
+          : msg || 'Impossibile leggere le app collegate.',
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    carica();
+  }, [carica]);
+
+  function apri(appId: string) {
+    const s = stato.find((x) => x.app === appId);
+    setAperta(aperta === appId ? null : appId);
+    setChiave('');
+    setUrlBase(s?.url_base ?? '');
+  }
+
+  async function salva(appId: string) {
+    if (!chiave.trim() || salvando) return;
+    setSalvando(true);
+    setErrore(null);
+    try {
+      await salvaChiaveApp(appId, chiave, urlBase);
+      setChiave('');
+      setAperta(null);
+      await carica();
+    } catch (e: any) {
+      setErrore(e?.message ?? 'Chiave non salvata.');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function rimuovi(appId: string) {
+    setSalvando(true);
+    try {
+      await rimuoviChiaveApp(appId);
+      await carica();
+    } catch (e: any) {
+      setErrore(e?.message ?? 'Non rimossa.');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardLabel}>APP COLLEGATE</Text>
+      <Text style={styles.aiuto}>
+        Le altre app dell&apos;ecosistema che Scout può richiamare. Per ognuna serve la sua chiave
+        API: incollala qui, resta sul server e non viene mai rimandata all&apos;app.
+      </Text>
+
+      {APP_DELUXY.map((app) => {
+        const s = stato.find((x) => x.app === app.id);
+        const collegata = Boolean(s?.configurata);
+        return (
+          <View key={app.id} style={styles.appRiga}>
+            <Pressable style={styles.appTesta} onPress={() => apri(app.id)}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.appNome}>{app.nome}</Text>
+                <Text style={styles.appAiuto}>{app.aCosaServe}</Text>
+              </View>
+              <View style={[styles.appStato, collegata ? styles.appStatoOk : styles.appStatoNo]}>
+                <Text style={[styles.appStatoTxt, collegata ? styles.appStatoTxtOk : styles.appStatoTxtNo]}>
+                  {collegata ? 'collegata' : 'da collegare'}
+                </Text>
+              </View>
+              <Ionicons name={aperta === app.id ? 'chevron-up' : 'chevron-down'} size={16} color={colors.grigio} />
+            </Pressable>
+
+            {aperta === app.id ? (
+              <View style={styles.appForm}>
+                <Text style={styles.campoLabel}>Chiave API</Text>
+                <TextInput
+                  style={styles.input}
+                  value={chiave}
+                  onChangeText={setChiave}
+                  placeholder={collegata ? 'Già impostata — incollane una nuova per sostituirla' : 'dlxk_…'}
+                  placeholderTextColor={colors.grigio}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  secureTextEntry
+                />
+                <Text style={styles.campoLabel}>Indirizzo (solo se diverso dal solito)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={urlBase}
+                  onChangeText={setUrlBase}
+                  placeholder={app.urlDefault}
+                  placeholderTextColor={colors.grigio}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <View style={styles.azioni}>
+                  <Pressable
+                    style={[styles.btn, (!chiave.trim() || salvando) && styles.btnOff]}
+                    disabled={!chiave.trim() || salvando}
+                    onPress={() => salva(app.id)}
+                  >
+                    <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : 'Salva la chiave'}</Text>
+                  </Pressable>
+                  {collegata ? (
+                    <Pressable style={styles.btnGhost} disabled={salvando} onPress={() => rimuovi(app.id)}>
+                      <Ionicons name="trash-outline" size={15} color={colors.navy} />
+                      <Text style={styles.btnGhostTxt}>Scollega</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+          </View>
+        );
+      })}
+
+      {errore ? (
+        <View style={[styles.esito, styles.esitoKo]}>
+          <Ionicons name="alert-circle-outline" size={16} color={colors.errore} />
+          <Text style={[styles.esitoTxt, { color: colors.errore }]}>{errore}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -181,4 +340,17 @@ const styles = StyleSheet.create({
   esitoKo: { backgroundColor: '#FBEAE8' },
   esitoTxt: { flex: 1, fontSize: 13, fontWeight: '600' },
   piede: { color: colors.grigio, fontSize: 12, paddingHorizontal: 4 },
+
+  // App collegate (chiavi delle altre app Deluxy)
+  appRiga: { borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: 10, marginTop: 2 },
+  appTesta: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  appNome: { color: colors.testo, fontWeight: '700', fontSize: 14.5 },
+  appAiuto: { color: colors.testoSoft, fontSize: 12, marginTop: 1 },
+  appStato: { borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 3 },
+  appStatoOk: { backgroundColor: 'rgba(47,125,70,0.12)' },
+  appStatoNo: { backgroundColor: colors.sfondo },
+  appStatoTxt: { fontSize: 11, fontWeight: '700' },
+  appStatoTxtOk: { color: '#2F7D46' },
+  appStatoTxtNo: { color: colors.grigio },
+  appForm: { gap: 6, marginTop: 8 },
 });

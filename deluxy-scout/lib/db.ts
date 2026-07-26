@@ -1558,3 +1558,68 @@ export async function salvaImpostazione(chiave: string, valore: string): Promise
   );
   if (error) throw error;
 }
+
+// ── Chiavi API delle altre app Deluxy (migr. 0044) ───────────────────────────
+// A differenza di `impostazioni`, qui **legge e scrive solo l'amministratore**
+// (RLS): una chiave in mano a ogni venditore varrebbe come dargli l'accesso a
+// quell'app. La chiave non torna mai al client: la schermata sa solo SE c'è.
+
+/** Le app dell'ecosistema che Scout può richiamare. */
+export interface AppDeluxy {
+  id: string;
+  nome: string;
+  urlDefault: string;
+  /** A cosa serve, detto in una riga: è quello che si legge in Impostazioni. */
+  aCosaServe: string;
+}
+
+export const APP_DELUXY: AppDeluxy[] = [
+  { id: 'anagrafiche', nome: 'Anagrafiche', urlDefault: 'https://deluxy-anagrafiche.vercel.app', aCosaServe: 'Il registro dei partner e prospect B2B: schede negozio e referenti.' },
+  { id: 'orders', nome: 'Orders', urlDefault: 'https://deluxy-orders.vercel.app', aCosaServe: 'Gli ordini Shopify: cosa ha già comprato un cliente.' },
+  { id: 'tasks', nome: 'Tasks', urlDefault: 'https://deluxy-tasks.vercel.app', aCosaServe: 'Le attività condivise fra tutte le app.' },
+  { id: 'calendario', nome: 'Calendario', urlDefault: 'https://deluxy-calendario.vercel.app', aCosaServe: 'Gli appuntamenti datati di tutte le app.' },
+  { id: 'scripts', nome: 'Scripts', urlDefault: 'https://deluxy-scripts.vercel.app', aCosaServe: 'I testi pronti da mandare al cliente, già composti.' },
+  { id: 'marketing', nome: 'Marketing', urlDefault: 'https://deluxy-marketing.vercel.app', aCosaServe: 'La spesa pubblicitaria reale per brand.' },
+  { id: 'partner', nome: 'Partner', urlDefault: 'https://deluxy-partner.vercel.app', aCosaServe: 'La parte finanziaria dei partner: fatture e saldi.' },
+];
+
+export interface StatoChiaveApp {
+  app: string;
+  url_base: string | null;
+  note: string | null;
+  configurata: boolean;
+  aggiornato_il: string | null;
+}
+
+/** Quali app risultano collegate. Non restituisce le chiavi: solo se ci sono. */
+export async function fetchStatoChiaviApp(): Promise<StatoChiaveApp[]> {
+  const { data, error } = await supabase.from('chiavi_app_stato').select('*');
+  if (error) throw error;
+  return (data ?? []) as StatoChiaveApp[];
+}
+
+/** Salva (o aggiorna) la chiave di un'app. Passa solo la RLS se sei admin. */
+export async function salvaChiaveApp(
+  app: string,
+  chiave: string,
+  urlBase?: string | null,
+): Promise<void> {
+  const { data: u } = await supabase.auth.getUser();
+  const riga: Record<string, unknown> = {
+    app,
+    chiave: chiave.trim(),
+    aggiornato_il: new Date().toISOString(),
+    aggiornato_da: u.user?.id ?? null,
+  };
+  // L'URL si scrive solo se indicato: un campo lasciato vuoto non deve
+  // cancellare quello già salvato.
+  if (urlBase !== undefined && urlBase !== null && urlBase.trim()) riga.url_base = urlBase.trim();
+  const { error } = await supabase.from('chiavi_app').upsert(riga, { onConflict: 'app' });
+  if (error) throw error;
+}
+
+/** Toglie il collegamento con un'app (cancella la chiave). */
+export async function rimuoviChiaveApp(app: string): Promise<void> {
+  const { error } = await supabase.from('chiavi_app').delete().eq('app', app);
+  if (error) throw error;
+}
