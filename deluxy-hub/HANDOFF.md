@@ -54,7 +54,7 @@ Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 | Anagrafiche | `APP_URL_ANAGRAFICHE` (dev 3060) | admin, commerciale | |
 | Attività | `https://deluxy-tasks.vercel.app` | solo admin | default nel codice, override con `APP_URL_TASKS` (dev 3090), **`sso: true`** |
 | Budgets | `https://deluxy-budgets.vercel.app` | solo admin | default nel codice, override con `APP_URL_BUDGETS` |
-| Calendario | `APP_URL_CALENDARIO` ?? `http://localhost:3110` | solo admin | visibile anche in prod |
+| Calendario | `https://deluxy-calendario.vercel.app` | solo admin | default nel codice, override con `APP_URL_CALENDARIO` (dev 3110), **`sso: true`** |
 | Commerciale Scout | `https://deluxy-scout.vercel.app` | admin, commerciale | export web Expo |
 | Consegne | `https://deluxy-delivery.vercel.app` | solo admin | |
 | Finance | `https://deluxy-partner.vercel.app` | admin, partner | id interno = `partner`, **`sso: true`** |
@@ -197,6 +197,11 @@ npm run dev            # http://localhost:3050
   (`PayloadSso.email`, letta da `Utente` in `/vai/[app]`) perché Tasks identifica
   le persone per email e non per id del Hub. `HUB_SSO_SECRET` impostato su Hub e
   Tasks: dal portale si entra in Attività senza rifare il login.
+- **SSO acceso anche su Calendario (26/07/2026)**: stessa ricetta di Attività
+  (identità = email). Lato app: `deluxy-calendario/src/lib/sso.ts` +
+  `src/app/api/sso/route.ts`, con `HUB_SSO_SECRET` (stesso valore) nelle env di
+  produzione del progetto Vercel `deluxy-calendario`. Nota: sul Calendario il
+  segreto è impostato **solo su Production**, non su Preview.
 - **Catalogo passato a 11 app** (vedi §3), con `APP_URL_CONSEGNE` ora pubblico.
 
 ---
