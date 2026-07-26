@@ -104,6 +104,7 @@ collettive → Script), una copia per account e per lavoro. Google Ads esegue **
 | `copy` | Keyword con QS e testi RSA con etichetta di rendimento | Ogni settimana |
 | `gruppi` | Gruppi di annunci, una riga per giorno (e gruppi di asset per le PMax) | Ogni giorno o settimana |
 | `asset` | Sitelink, callout, snippet e immagini sui tre livelli | Ogni settimana |
+| `diagnosi` | Termini di ricerca cercati davvero + spesa per dispositivo, giorno e rete | Ogni settimana |
 | `esegui` | Esegue le operazioni **approvate** in /operazioni | Quando serve |
 
 Va impostato anche `BRAND` (`flowers` | `gifts` | `cake`): senza, le campagne il cui
@@ -111,7 +112,7 @@ nome non dice il marchio finiscono in "cross".
 
 Non serve developer token né OAuth: lo script gira dentro Google Ads. Serve solo una
 chiave dell'app (`npm run chiave -- google-ads-<brand>`) e che l'app sia raggiungibile da
-internet. Endpoint usati: `/api/v1/ingest`, `/api/v1/ingest/copy`, `/api/v1/operazioni`.
+internet. Endpoint usati: `/api/v1/ingest`, `/api/v1/ingest/copy`, `/api/v1/ingest/diagnosi`, `/api/v1/operazioni`.
 
 **La scrittura passa sempre dall'approvazione**: una modifica decisa nell'app entra in
 coda come "da approvare", il guardrail la valida prima (blackout 72h, ±20% budget,

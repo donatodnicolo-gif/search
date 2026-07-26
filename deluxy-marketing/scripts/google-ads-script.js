@@ -26,6 +26,8 @@
  *   AZIONE = "gruppi"       → ogni settimana (gruppi di annunci con spesa e resa,
  *                             e gruppi di asset per le Performance Max)
  *   AZIONE = "asset"        → ogni settimana (sitelink, callout, snippet, immagini)
+ *   AZIONE = "diagnosi"     → ogni settimana (termini di ricerca cercati davvero,
+ *                             spesa per dispositivo, giorno e rete)
  *   AZIONE = "esegui"       → solo quando serve: esegue le operazioni approvate
  *   AZIONE = "tutto"        → le fa tutte in fila (comodo per il primo giro)
  *
@@ -69,7 +71,7 @@
 var URL_APP = "https://deluxy-marketing.vercel.app"; // senza barra finale
 var CHIAVE_API = "dmk_INCOLLA_QUI_LA_CHIAVE"; // creata con: npm run chiave -- google-ads-<brand>
 
-// Cosa fa questo script: metriche | approvazioni | copy | gruppi | asset | esegui | tutto
+// Cosa fa questo script: metriche | approvazioni | copy | gruppi | asset | diagnosi | esegui | tutto
 var AZIONE = "metriche";
 
 // Brand dell'account. Metterlo: senza, le campagne il cui nome non dice il
@@ -112,7 +114,7 @@ function main() {
   if (!conto) return;
 
   var lavori = AZIONE === "tutto"
-    ? ["metriche", "approvazioni", "copy", "gruppi", "asset", "esegui"]
+    ? ["metriche", "approvazioni", "copy", "gruppi", "asset", "diagnosi", "esegui"]
     : [AZIONE];
 
   for (var i = 0; i < lavori.length; i++) {
@@ -124,9 +126,10 @@ function main() {
       else if (lavoro === "copy") mandaCopy(conto);
       else if (lavoro === "gruppi") mandaGruppi(conto);
       else if (lavoro === "asset") mandaAsset(conto);
+      else if (lavoro === "diagnosi") mandaDiagnosi(conto);
       else if (lavoro === "approvazioni") mandaApprovazioni(conto);
       else if (lavoro === "esegui") eseguiOperazioni(conto);
-      else Logger.log("AZIONE non riconosciuta: \"" + lavoro + "\". Ammesse: metriche, approvazioni, copy, gruppi, asset, esegui, tutto.");
+      else Logger.log("AZIONE non riconosciuta: \"" + lavoro + "\". Ammesse: metriche, approvazioni, copy, gruppi, asset, diagnosi, esegui, tutto.");
     } catch (e) {
       Logger.log("⚠ ERRORE in \"" + lavoro + "\": " + e);
       RIEPILOGO.push(lavoro + ": ERRORE — " + e);
@@ -191,20 +194,39 @@ function verificaConfigurazione() {
 
 function mandaMetriche(conto) {
   var stati = INCLUDI_RIMOSSE ? "'ENABLED', 'PAUSED', 'REMOVED'" : "'ENABLED', 'PAUSED'";
-  var query =
+  var campiBase =
     "SELECT campaign.id, campaign.name, campaign.status, " +
     "campaign.advertising_channel_type, campaign.bidding_strategy_type, " +
     "campaign_budget.amount_micros, segments.date, " +
     "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
-    "metrics.conversions, metrics.conversions_value " +
-    "FROM campaign " +
+    "metrics.conversions, metrics.conversions_value";
+  // La quota impressioni è il dato che dice se la campagna è ferma per soldi
+  // finiti o per posizione: due strade opposte. Non tutti i tipi di campagna la
+  // espongono, quindi se la query non piace si riprova senza — meglio le
+  // metriche senza quota che nessuna metrica.
+  var campiQuota =
+    ", metrics.search_impression_share, " +
+    "metrics.search_budget_lost_impression_share, " +
+    "metrics.search_rank_lost_impression_share";
+  var coda =
+    " FROM campaign " +
     "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_INDIETRO) + "' AND '" + dataIso(0) + "' " +
     "AND campaign.status IN (" + stati + ")";
+
+  var risultati = null;
+  var conQuota = true;
+  try {
+    risultati = AdsApp.search(campiBase + campiQuota + coda);
+    risultati.hasNext(); // la prima pagina arriva qui: è qui che Google si lamenta
+  } catch (e) {
+    Logger.log("Quota impressioni non disponibile su questo account (" + e + "): proseguo senza.");
+    conQuota = false;
+    risultati = AdsApp.search(campiBase + coda);
+  }
 
   var righe = [];
   var spesaTotale = 0;
   var perTipo = {};
-  var risultati = AdsApp.search(query);
   while (risultati.hasNext()) {
     var r = risultati.next();
     var spesa = Number(r.metrics.costMicros || 0) / 1000000;
@@ -225,6 +247,9 @@ function mandaMetriche(conto) {
       stato: statoCampagna(r.campaign.status),
       strategiaOfferta: r.campaign.biddingStrategyType || null,
       budgetGiornaliero: budget > 0 ? arrotonda(budget) : null,
+      quotaImpressioni: conQuota ? frazione(r.metrics.searchImpressionShare) : null,
+      persaBudget: conQuota ? frazione(r.metrics.searchBudgetLostImpressionShare) : null,
+      persaRank: conQuota ? frazione(r.metrics.searchRankLostImpressionShare) : null,
     });
   }
 
@@ -531,7 +556,146 @@ function leggiGruppiAsset(conto) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PARTE 4 — ASSET: SITELINK, CALLOUT, SNIPPET, IMMAGINI
+   PARTE 4 — DIAGNOSI: TERMINI DI RICERCA E SPARTIZIONE DELLA SPESA
+   I totali di campagna dicono COME è andata, non PERCHÉ. Qui si prende quello
+   che le persone hanno digitato davvero (che è diverso da quello che abbiamo
+   comprato) e come si spartisce la spesa fra dispositivi, giorni e reti.
+   Sono dati per PERIODO, non per giorno: l'app li sostituisce a ogni passata
+   invece di sommarli.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var MAX_TERMINI = 300; // i più costosi: oltre non si guarda mai nessuno
+
+function mandaDiagnosi(conto) {
+  var termini = leggiTerminiRicerca();
+  var segmenti = []
+    .concat(leggiSegmento("segments.device", "dispositivo"))
+    .concat(leggiSegmento("segments.day_of_week", "giorno"))
+    .concat(leggiSegmento("segments.ad_network_type", "rete"));
+
+  Logger.log("Termini di ricerca: " + termini.length + " · righe di segmento: " + segmenti.length);
+  var senzaConversioni = 0;
+  var spesaSprecata = 0;
+  for (var i = 0; i < termini.length; i++) {
+    if (!termini[i].conversioni && termini[i].spesa > 0) {
+      senzaConversioni++;
+      spesaSprecata += termini[i].spesa;
+    }
+  }
+  if (termini.length > 0) {
+    Logger.log(
+      "  " + senzaConversioni + " termini hanno speso senza convertire, per " +
+      arrotonda(spesaSprecata) + " € in tutto"
+    );
+    Logger.log("  il più caro: " + JSON.stringify(termini[0]));
+  }
+
+  var e1 = inviaABlocchi("/api/v1/ingest/diagnosi", termini, function (lotto) {
+    return corpoBase(conto, { terminiRicerca: lotto });
+  });
+  var e2 = inviaABlocchi("/api/v1/ingest/diagnosi", segmenti, function (lotto) {
+    return corpoBase(conto, { segmenti: lotto });
+  });
+  RIEPILOGO.push("diagnosi: " + e1.inviate + " termini e " + e2.inviate + " segmenti inviati");
+}
+
+/**
+ * Quello che la gente ha digitato per davvero. Si tengono i più costosi: sono
+ * quelli su cui una decisione cambia i soldi. Le PMax non espongono i termini.
+ */
+function leggiTerminiRicerca() {
+  var dal = dataIso(-GIORNI_COPY);
+  var al = dataIso(0);
+  var query =
+    "SELECT campaign.id, campaign.name, ad_group.name, " +
+    "search_term_view.search_term, search_term_view.status, " +
+    "segments.keyword.info.text, segments.keyword.info.match_type, " +
+    "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
+    "metrics.conversions, metrics.conversions_value " +
+    "FROM search_term_view " +
+    "WHERE segments.date BETWEEN '" + dal + "' AND '" + al + "' " +
+    "ORDER BY metrics.cost_micros DESC " +
+    "LIMIT " + MAX_TERMINI;
+
+  var righe = [];
+  try {
+    var risultati = AdsApp.search(query);
+    while (risultati.hasNext()) {
+      var r = risultati.next();
+      var kw = r.segments && r.segments.keyword && r.segments.keyword.info ? r.segments.keyword.info : null;
+      righe.push({
+        idCampagna: String(r.campaign.id),
+        campagna: r.campaign.name,
+        gruppo: r.adGroup ? r.adGroup.name : null,
+        testo: r.searchTermView.searchTerm,
+        keyword: kw ? kw.text : null,
+        corrispondenza: kw ? kw.matchType : null,
+        spesa: arrotonda(Number(r.metrics.costMicros || 0) / 1000000),
+        clic: Number(r.metrics.clicks || 0),
+        impressioni: Number(r.metrics.impressions || 0),
+        conversioni: arrotonda(Number(r.metrics.conversions || 0)),
+        ricavi: arrotonda(Number(r.metrics.conversionsValue || 0)),
+        dal: dal,
+        al: al,
+      });
+    }
+  } catch (e) {
+    Logger.log("Termini di ricerca non letti: " + e);
+  }
+  return righe;
+}
+
+/** Spesa e resa per dispositivo, giorno della settimana o rete. */
+function leggiSegmento(campo, tipo) {
+  var dal = dataIso(-GIORNI_COPY);
+  var al = dataIso(0);
+  var query =
+    "SELECT campaign.id, campaign.name, " + campo + ", " +
+    "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
+    "metrics.conversions, metrics.conversions_value " +
+    "FROM campaign " +
+    "WHERE segments.date BETWEEN '" + dal + "' AND '" + al + "' " +
+    "AND campaign.status IN ('ENABLED', 'PAUSED')";
+
+  // "segments.device" → r.segments.device
+  var proprieta = campo.split(".")[1].split("_");
+  var nome = proprieta[0];
+  for (var i = 1; i < proprieta.length; i++) {
+    nome += proprieta[i].charAt(0).toUpperCase() + proprieta[i].slice(1);
+  }
+
+  var righe = [];
+  try {
+    var risultati = AdsApp.search(query);
+    while (risultati.hasNext()) {
+      var r = risultati.next();
+      var valore = r.segments ? r.segments[nome] : null;
+      if (!valore) continue;
+      var spesa = Number(r.metrics.costMicros || 0) / 1000000;
+      var clic = Number(r.metrics.clicks || 0);
+      if (spesa === 0 && clic === 0) continue; // righe vuote: solo rumore
+      righe.push({
+        idCampagna: String(r.campaign.id),
+        campagna: r.campaign.name,
+        tipo: tipo,
+        valore: String(valore),
+        spesa: arrotonda(spesa),
+        clic: clic,
+        impressioni: Number(r.metrics.impressions || 0),
+        conversioni: arrotonda(Number(r.metrics.conversions || 0)),
+        ricavi: arrotonda(Number(r.metrics.conversionsValue || 0)),
+        dal: dal,
+        al: al,
+      });
+    }
+  } catch (e) {
+    Logger.log("Segmento " + tipo + " non letto: " + e);
+  }
+  return righe;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARTE 5 — ASSET: SITELINK, CALLOUT, SNIPPET, IMMAGINI
    Gli asset stanno su tre livelli: account, campagna e gruppo di annunci.
    Lo stesso sitelink agganciato su più livelli è UNA riga per l'app: qui i
    livelli si accorpano in un'unica voce ("campagna + gruppo") invece di
@@ -660,7 +824,7 @@ function accorpaAsset(grezzi) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PARTE 5 — STATO DI APPROVAZIONE DEGLI ANNUNCI (alert A4)
+   PARTE 6 — STATO DI APPROVAZIONE DEGLI ANNUNCI (alert A4)
    Il doc 11 §4 chiede di controllare se più del 50% degli annunci attivi è in
    revisione o limitato. È l'unico alert che non si legge dalle metriche.
    (Limite noto: Google non dice DA QUANTO un annuncio è in revisione; il "da
@@ -737,7 +901,7 @@ function leggiApprovazioni() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PARTE 6 — ESECUZIONE DELLE OPERAZIONI APPROVATE (scrittura)
+   PARTE 7 — ESECUZIONE DELLE OPERAZIONI APPROVATE (scrittura)
    Questo script SCRIVE su Google Ads, ma solo ciò che è stato approvato a mano
    nell'app. Non decide nulla da sé. Se l'app non risponde, non fa niente.
    Con più account la coda è comune: ogni script esegue SOLO ciò che riguarda
@@ -1051,7 +1215,7 @@ function budgetCondiviso(campagna) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PARTE 7 — CREAZIONE: keyword nuove e campagne nuove
+   PARTE 8 — CREAZIONE: keyword nuove e campagne nuove
    Le campagne si creano via bulk upload (l'unico modo che gli Script hanno) e
    nascono SEMPRE IN PAUSA: la checklist 4.1 va passata in interfaccia prima di
    accenderle.
@@ -1310,6 +1474,15 @@ function tempoScaduto() {
 
 function arrotonda(n) {
   return Math.round(n * 100) / 100;
+}
+
+/** Le quote di Google arrivano 0-1 (e a volte come stringa "< 10%"). */
+function frazione(v) {
+  if (v == null || v === "") return null;
+  var n = Number(String(v).split("%").join("").split("<").join("").split(",").join("."));
+  if (isNaN(n)) return null;
+  if (n > 1) n = n / 100; // per sicurezza, se un giorno arrivasse in percentuale
+  return Math.round(n * 10000) / 10000;
 }
 
 function dataIso(deltaGiorni) {

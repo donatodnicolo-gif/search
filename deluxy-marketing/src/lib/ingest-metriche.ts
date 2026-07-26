@@ -21,6 +21,10 @@ export type RigaMetrica = {
   obiettivo?: string | null;
   annunciTotali?: number | null;
   annunciInReview?: number | null;
+  // Quota impressioni: si accetta sia 0-1 sia 0-100, si salva sempre 0-1.
+  quotaImpressioni?: number | null;
+  persaBudget?: number | null;
+  persaRank?: number | null;
 };
 
 export type EsitoIngest = {
@@ -33,6 +37,13 @@ export type EsitoIngest = {
 };
 
 const numero = (v: unknown) => (v == null || v === "" ? null : Number(v));
+// Google le manda 0-1, i fogli e le persone 0-100: si normalizza qui una volta
+// per tutte, altrimenti una campagna col 90% di quota sembra il 9000%.
+const quota = (v: unknown) => {
+  const n = numero(v);
+  if (n == null || isNaN(n)) return null;
+  return n > 1 ? n / 100 : n;
+};
 const intero = (v: unknown) => (numero(v) != null ? Math.round(numero(v)!) : null);
 
 // Brand dedotto dal nome della campagna quando non è dichiarato: i nomi
@@ -157,6 +168,9 @@ export async function salvaMetriche(
       click: intero(r.click),
       conversioni: numero(r.conversioni),
       ricavi: numero(r.ricavi),
+      quotaImpressioni: quota(r.quotaImpressioni),
+      persaBudget: quota(r.persaBudget),
+      persaRank: quota(r.persaRank),
     };
     await prisma.metricaCampagna.upsert({
       where: { campagnaId_data: { campagnaId: campagna.id, data: giorno } },

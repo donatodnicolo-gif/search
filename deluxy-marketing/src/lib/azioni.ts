@@ -1249,3 +1249,51 @@ export async function creaAzioneDaOpportunita(fd: FormData) {
   });
   redirect(`/azioni/${azione.id}`);
 }
+
+// ---------- Termini di ricerca ----------
+// Un termine è quello che la gente ha digitato: non si "modifica", si giudica.
+// "Pertinente" resta una nota nell'app; "escludi" mette in coda una negativa
+// vera sulla campagna — che, come tutto il resto, va approvata a mano.
+export async function giudicaTermine(fd: FormData) {
+  const id = testo(fd, "id");
+  const scelta = testo(fd, "scelta");
+  if (!id || !scelta) return;
+  const termine = await prisma.termineRicerca.findUnique({
+    where: { id },
+    include: { campagna: { select: { id: true, nome: true, canale: true, classe: true, incidenti: { where: { stato: "aperto" }, select: { codice: true } } } } },
+  });
+  if (!termine) return;
+
+  if (scelta === "pertinente") {
+    await prisma.termineRicerca.update({ where: { id }, data: { stato: "pertinente" } });
+    revalidatePath(`/campagne/${termine.campagna.id}`);
+    return;
+  }
+
+  // Escludi: la negativa passa dalla coda approvata come ogni scrittura.
+  if (termine.campagna.incidenti.length > 0) {
+    redirect(`/campagne/${termine.campagna.id}?bloccata=${encodeURIComponent(`Freeze ${termine.campagna.incidenti[0].codice}: incidente aperto su questa campagna`)}`);
+  }
+  const op = await prisma.operazioneAdv.create({
+    data: {
+      tipo: "negativa",
+      canale: termine.campagna.canale,
+      bersaglio: termine.campagna.nome,
+      parametri: JSON.stringify({ testo: termine.testo }),
+      motivo: `Termine di ricerca senza resa: ${(termine.spesa ?? 0).toFixed(2)} € spesi, ${termine.conversioni ?? 0} conversioni`,
+      livello: "L0",
+      prima: "assente",
+      campagnaId: termine.campagna.id,
+    },
+  });
+  await prisma.termineRicerca.update({ where: { id }, data: { stato: "da_escludere" } });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): negativa "${termine.testo}" su ${termine.campagna.nome}`,
+    dettaglio: op.motivo,
+  });
+  redirect("/operazioni");
+}

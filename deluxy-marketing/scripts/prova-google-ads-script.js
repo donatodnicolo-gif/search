@@ -33,6 +33,9 @@ function ambiente(opzioni) {
         getTimeZone: () => "Europe/Rome",
       }),
       search: (q) => {
+        // `ricerca` decide guardando la query intera: serve a simulare un campo
+        // che Google rifiuta (la quota impressioni non c'è su tutti gli account).
+        if (o.ricerca) return iteratore(o.ricerca(q));
         for (const chiave in o.righeQuery) {
           if (q.indexOf(chiave) === -1) continue;
           const righe = o.righeQuery[chiave];
@@ -269,6 +272,104 @@ function selettoreCon(entita) {
   verifica("gruppo: è quello di questo account", esiti[0] && esiti[0].url.indexOf("/g1/") !== -1, esiti[0] && esiti[0].url);
   verifica("gruppo: l'operazione dell'altro account è saltata in silenzio", !inviati.some((x) => x.url.indexOf("/g2/") !== -1));
   verifica("gruppo di asset PMax: saltato senza toccarlo", !inviati.some((x) => x.url.indexOf("/g3/") !== -1));
+}
+
+
+// ───────────────────── 1-bis. quota impressioni ─────────────────────
+{
+  const riga = (is, budgetLost, rankLost) => ({
+    campaign: { id: 1, name: "DC1 Fiori Milano ENG", status: "ENABLED", advertisingChannelType: "SEARCH", biddingStrategyType: "TARGET_ROAS" },
+    campaignBudget: { amountMicros: 30000000 },
+    segments: { date: "2026-07-25" },
+    metrics: {
+      costMicros: 30000000, impressions: 100, clicks: 10, conversions: 1, conversionsValue: 90,
+      searchImpressionShare: is, searchBudgetLostImpressionShare: budgetLost, searchRankLostImpressionShare: rankLost,
+    },
+  });
+  const { sandbox, inviati } = ambiente({
+    righeQuery: { "FROM campaign ": [riga(0.42, 0.31, 0.27)] },
+    rispostaApp: () => ({ codice: 201, testo: "{}" }),
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  sandbox.AZIONE = "metriche";
+  sandbox.main();
+  const r = inviati[0].corpo.righe[0];
+  verifica("quota: mandata come frazione", r.quotaImpressioni === 0.42, r.quotaImpressioni);
+  verifica("quota: persa per budget", r.persaBudget === 0.31);
+  verifica("quota: persa per posizione", r.persaRank === 0.27);
+}
+
+// ───────── 1-ter. la quota non c'è: le metriche partono lo stesso ─────────
+{
+  const base = {
+    campaign: { id: 1, name: "DC1", status: "ENABLED", advertisingChannelType: "PERFORMANCE_MAX", biddingStrategyType: "MAXIMIZE_CONVERSION_VALUE" },
+    campaignBudget: { amountMicros: 30000000 },
+    segments: { date: "2026-07-25" },
+    metrics: { costMicros: 30000000, impressions: 100, clicks: 10, conversions: 1, conversionsValue: 90 },
+  };
+  let chiamate = 0;
+  const { sandbox, inviati, log } = ambiente({
+    rispostaApp: () => ({ codice: 201, testo: "{}" }),
+    ricerca: (q) => {
+      if (q.indexOf("search_impression_share") !== -1) throw new Error("campo non supportato");
+      chiamate++;
+      return [base];
+    },
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  sandbox.AZIONE = "metriche";
+  sandbox.main();
+  verifica("quota assente: riprova senza e manda comunque", inviati.length === 1 && inviati[0].corpo.righe.length === 1);
+  verifica("quota assente: campi a null", inviati[0].corpo.righe[0].quotaImpressioni === null);
+  verifica("quota assente: lo dice nel log", log.join(String.fromCharCode(10)).indexOf("Quota impressioni non disponibile") !== -1);
+}
+
+// ───────────────────── 3-quater. diagnosi ─────────────────────
+{
+  const termine = (testo, costo, conv) => ({
+    campaign: { id: 7, name: "DC1 Fiori Milano ENG" },
+    adGroup: { name: "Gruppo A" },
+    searchTermView: { searchTerm: testo, status: "NONE" },
+    segments: { keyword: { info: { text: "fiori milano", matchType: "BROAD" } } },
+    metrics: { costMicros: costo * 1000000, impressions: 100, clicks: 9, conversions: conv, conversionsValue: conv * 90 },
+  });
+  const segmento = (campo, valore, costo) => {
+    const r = {
+      campaign: { id: 7, name: "DC1 Fiori Milano ENG" },
+      segments: {},
+      metrics: { costMicros: costo * 1000000, impressions: 50, clicks: 5, conversions: 1, conversionsValue: 80 },
+    };
+    r.segments[campo] = valore;
+    return r;
+  };
+  const { sandbox, inviati, log } = ambiente({
+    righeQuery: {
+      search_term_view: [termine("fiori finti amazon", 45, 0), termine("consegna fiori milano", 30, 2)],
+      "segments.device": [segmento("device", "MOBILE", 120), segmento("device", "DESKTOP", 40)],
+      "segments.day_of_week": [segmento("dayOfWeek", "MONDAY", 25)],
+      "segments.ad_network_type": [segmento("adNetworkType", "SEARCH_PARTNERS", 12)],
+    },
+    rispostaApp: () => ({ codice: 201, testo: JSON.stringify({ terminiRicerca: { nuovi: 2, aggiornati: 0 } }) }),
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  sandbox.BRAND = "gifts";
+  sandbox.AZIONE = "diagnosi";
+  sandbox.main();
+
+  const corpiTermini = inviati.filter((x) => x.corpo.terminiRicerca);
+  const corpiSegmenti = inviati.filter((x) => x.corpo.segmenti);
+  const t = corpiTermini[0].corpo.terminiRicerca;
+  verifica("diagnosi: termini inviati", t.length === 2, t.length);
+  verifica("diagnosi: testo e keyword che l'ha preso", t[0].testo === "fiori finti amazon" && t[0].keyword === "fiori milano");
+  verifica("diagnosi: corrispondenza della keyword", t[0].corrispondenza === "BROAD");
+  verifica("diagnosi: periodo sulla riga", !!t[0].dal && !!t[0].al);
+  const s2 = corpiSegmenti[0].corpo.segmenti;
+  verifica("diagnosi: tre tagli di segmento", s2.length === 4, s2.length);
+  const mob = s2.find((x) => x.valore === "MOBILE");
+  verifica("diagnosi: dispositivo letto", mob && mob.tipo === "dispositivo" && mob.spesa === 120, mob && mob.spesa);
+  verifica("diagnosi: giorno letto", !!s2.find((x) => x.tipo === "giorno" && x.valore === "MONDAY"));
+  verifica("diagnosi: rete letta", !!s2.find((x) => x.tipo === "rete" && x.valore === "SEARCH_PARTNERS"));
+  verifica("diagnosi: conta i termini che spendono a vuoto", log.join(String.fromCharCode(10)).indexOf("1 termini hanno speso senza convertire") !== -1);
 }
 
 // ───────────────────────── 4. asset su più livelli ─────────────────────────

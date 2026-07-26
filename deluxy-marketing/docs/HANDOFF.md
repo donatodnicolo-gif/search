@@ -84,6 +84,39 @@ una riga per gruppo e per giorno, upsert per (gruppo, giorno)).
 > recenti (`desc` + `take`) e si rimettono in ordine di tempo. **Chi aggiunge
 > query di metriche: mai `asc` con `take`.**
 
+### La scheda campagna è il posto dove si valuta (26/07/2026)
+
+Ordine della pagina, dall'alto: **titolo con i bottoni di stato** (cambiarlo è
+la cosa più frequente, non merita una scheda a parte) → KPI → **oggi** →
+poi la valutazione, dal generale al dettaglio:
+
+| Blocco | Risponde a | Da dove viene il dato |
+| --- | --- | --- |
+| Gruppi di annunci | quale pezzo tiene su la campagna | `AZIONE = "gruppi"` |
+| Copertura delle ricerche | quanto altro c'è da prendere, e perché non lo prendiamo | `AZIONE = "metriche"` (quota impressioni) |
+| Cosa ha cercato la gente | dove scivolano i soldi davvero | `AZIONE = "diagnosi"` |
+| Dove finisce la spesa | telefono/computer, giorno, rete | `AZIONE = "diagnosi"` |
+| Cosa vede chi cerca | titoli, descrizioni ed estensioni, con i buchi | `AZIONE = "copy"` + `"asset"` |
+| Guardrail | cosa dicono le regole | calcolato |
+| Prossime azioni | cosa fare adesso | tutte le fonti sopra |
+| Ultime modifiche | cosa è cambiato e quando | paper-trail |
+
+- **Quota impressioni** (`MetricaCampagna.quotaImpressioni / persaBudget /
+  persaRank`, 0-1): distingue "limitata dal budget" da "limitata dalla
+  posizione". Sono rimedi opposti — alzare il budget a una campagna che perde
+  per rank non produce niente. Google non la dà su tutti i tipi di campagna: lo
+  script prova con i campi e, se la query viene rifiutata, **riprova senza**.
+- **Termini di ricerca** (`TermineRicerca`): i più costosi del periodo, col
+  giudizio dell'utente (`nuovo | pertinente | da_escludere | escluso`).
+  "Escludi" mette in coda una **negativa** L0 sulla campagna — non tocca Google
+  da solo.
+- **Segmenti** (`SegmentoCampagna`): una tabella sola per dispositivo, giorno e
+  rete, sostituita a ogni passata (sono dati per periodo, non per giorno: se si
+  sommassero la campagna sembrerebbe spendere il doppio a ogni import).
+- **Prossime azioni** ora ha 18 regole: alle 10 di prima si aggiungono quota
+  persa per budget, quota persa per rank, ricerche da escludere, segmento che
+  pesa e rende sotto il pari, estensioni mancanti.
+
 ### Connettori
 
 - **Google Ads**: `scripts/google-ads-script.js` (**v2**, 26/07/2026) da incollare

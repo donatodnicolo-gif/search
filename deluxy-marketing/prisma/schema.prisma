@@ -150,6 +150,8 @@ model Campagna {
   landing           LandingPage?      @relation(fields: [landingId], references: [id], onDelete: SetNull)
   metriche          MetricaCampagna[]
   gruppi            Gruppo[]
+  termini           TermineRicerca[]
+  segmenti          SegmentoCampagna[]
   azioni            Azione[]
   alert             Alert[]
   modifiche         Modifica[]
@@ -228,6 +230,12 @@ model MetricaCampagna {
   click       Int?
   conversioni Float?
   ricavi      Float?
+  // Quota impressioni (0-1): la domanda "quanto altro ci sarebbe da prendere".
+  // persaBudget e persaRank dicono PERCHÉ non la si prende: soldi finiti o
+  // posizione insufficiente. Sono due strade opposte, confonderle costa.
+  quotaImpressioni Float?
+  persaBudget      Float?
+  persaRank        Float?
   creataIl    DateTime @default(now())
 
   @@unique([campagnaId, data])
@@ -847,4 +855,57 @@ model RicezioneDati {
 
   @@index([ricevutoIl])
   @@index([fonte, tipo])
+}
+
+// Quello che le persone hanno digitato per davvero, non quello che abbiamo
+// comprato: è qui che si vede dove scivolano i soldi (doc 4). Lo stato è una
+// scelta dell'utente e l'import non lo sovrascrive mai.
+model TermineRicerca {
+  id             String    @id @default(cuid())
+  campagnaId     String
+  campagna       Campagna  @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
+  gruppo         String?
+  testo          String
+  // La keyword che l'ha intercettato, con la sua corrispondenza
+  keyword        String?
+  corrispondenza String?
+  spesa          Float?
+  clic           Int?
+  impressioni    Int?
+  conversioni    Float?
+  ricavi         Float?
+  // nuovo | pertinente | da_escludere | escluso
+  stato          String    @default("nuovo")
+  notaStato      String?
+  dal            DateTime?
+  al             DateTime?
+  creatoIl       DateTime  @default(now())
+  aggiornatoIl   DateTime  @updatedAt
+
+  @@unique([campagnaId, testo])
+  @@index([campagnaId])
+}
+
+// Come si spartisce la spesa dentro una campagna: dispositivo, giorno della
+// settimana, rete. Una tabella sola per tutti i tagli, così aggiungerne uno
+// non richiede una tabella nuova.
+model SegmentoCampagna {
+  id           String    @id @default(cuid())
+  campagnaId   String
+  campagna     Campagna  @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
+  // dispositivo | giorno | rete
+  tipo         String
+  // MOBILE | DESKTOP | TABLET · MONDAY… · SEARCH | SEARCH_PARTNERS | CONTENT
+  valore       String
+  spesa        Float?
+  clic         Int?
+  impressioni  Int?
+  conversioni  Float?
+  ricavi       Float?
+  dal          DateTime?
+  al           DateTime?
+  aggiornatoIl DateTime  @updatedAt
+
+  @@unique([campagnaId, tipo, valore])
+  @@index([campagnaId])
 }

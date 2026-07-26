@@ -36,9 +36,24 @@ export type DatiOpportunita = {
   keyword: { testo: string; spesa: number | null; incasso: number | null }[];
   alert: { tipo: string; livello: string; messaggio: string }[];
   inBlackoutFino: Date | null;
+  // Quota impressioni media del periodo (0-1), null se Google non la dà
+  copertura: { quota: number; persaBudget: number; persaRank: number } | null;
+  // Termini di ricerca già arrivati (i più costosi)
+  termini: { testo: string; spesa: number | null; conversioni: number | null; stato: string }[];
+  // Spesa spartita per dispositivo, giorno, rete
+  segmenti: { tipo: string; valore: string; spesa: number | null; ricavi: number | null }[];
+  // Quanti pezzi di annuncio esistono, per tipo
+  estensioni: { sitelink: number; callout: number; snippet: number; immagine: number };
   // Titoli delle azioni già aperte su questa campagna: non si ripropone
   // quello che è già in lista.
   azioniAperte: string[];
+};
+
+const ETICHETTA_SEGMENTO: Record<string, string> = {
+  MOBILE: "il telefono", DESKTOP: "il computer", TABLET: "il tablet",
+  MONDAY: "il lunedì", TUESDAY: "il martedì", WEDNESDAY: "il mercoledì",
+  THURSDAY: "il giovedì", FRIDAY: "il venerdì", SATURDAY: "il sabato", SUNDAY: "la domenica",
+  SEARCH_PARTNERS: "i partner di ricerca", CONTENT: "la rete Display",
 };
 
 const somma = (righe: { spesa?: number | null; conversioni?: number | null; ricavi?: number | null }[], campo: "spesa" | "conversioni" | "ricavi") =>
@@ -198,6 +213,85 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
         priorita: "media",
       });
     }
+  }
+
+  // 8-bis. La quota impressioni: due diagnosi opposte, due rimedi opposti.
+  if (d.copertura) {
+    if (d.copertura.persaBudget >= 0.2) {
+      lista.push({
+        chiave: "persa-per-budget",
+        titolo: `Alzare il budget di "${d.campagna.nome}": la domanda c'è e non la serviamo`,
+        perche:
+          `Il ${Math.round(d.copertura.persaBudget * 100)}% delle ricerche buone non ci vede perché il budget finisce ` +
+          `(quota impressioni ${Math.round(d.copertura.quota * 100)}%). Questa è l'unica situazione in cui alzare il budget ` +
+          `porta davvero altro volume${roas30 != null && roas30 >= be ? `, e qui la campagna rende ${roas30.toFixed(2)}× sopra il pari` : ""}.`,
+        priorita: roas30 != null && roas30 >= be ? "alta" : "media",
+      });
+    }
+    if (d.copertura.persaRank >= 0.4) {
+      lista.push({
+        chiave: "persa-per-rank",
+        titolo: `Lavorare su offerte e qualità di "${d.campagna.nome}"`,
+        perche:
+          `Si perde il ${Math.round(d.copertura.persaRank * 100)}% delle impressioni per posizione, non per budget: ` +
+          `alzare la spesa non cambierebbe niente. Qui contano offerta, punteggio di qualità e pertinenza della pagina.`,
+        priorita: "media",
+      });
+    }
+  }
+
+  // 8-ter. Ricerche che hanno bruciato soldi senza portare niente.
+  const daEscludere = d.termini.filter(
+    (t) => t.stato === "nuovo" && (t.spesa ?? 0) >= 15 && !(t.conversioni ?? 0)
+  );
+  if (daEscludere.length > 0 && vendite) {
+    const bruciati = daEscludere.reduce((s, t) => s + (t.spesa ?? 0), 0);
+    lista.push({
+      chiave: "termini-da-escludere",
+      titolo: `Escludere ${daEscludere.length} ricerche che non portano niente`,
+      perche:
+        `${bruciati.toFixed(0)} € su ricerche come ${daEscludere.slice(0, 3).map((t) => `"${t.testo}"`).join(", ")} ` +
+        `senza una conversione. Dalla scheda si mettono in coda come negative, una per una.`,
+      priorita: bruciati >= 100 ? "alta" : "media",
+    });
+  }
+
+  // 8-quater. Un dispositivo o un giorno che rende sotto il pari mentre pesa.
+  const perTipo: Record<string, { spesa: number; ricavi: number }[]> = {};
+  for (const s of d.segmenti) {
+    (perTipo[s.tipo] = perTipo[s.tipo] || []).push({ spesa: s.spesa ?? 0, ricavi: s.ricavi ?? 0 });
+  }
+  for (const s of d.segmenti) {
+    const totale = (perTipo[s.tipo] ?? []).reduce((acc, x) => acc + x.spesa, 0);
+    const spesa = s.spesa ?? 0;
+    const resa = spesa > 0 ? (s.ricavi ?? 0) / spesa : null;
+    const quota = totale > 0 ? spesa / totale : 0;
+    if (spesa >= 50 && quota >= 0.25 && resa != null && resa < be * 0.6 && vendite) {
+      lista.push({
+        chiave: `segmento-${s.tipo}-${s.valore}`,
+        titolo: `Guardare ${ETICHETTA_SEGMENTO[s.valore] ?? s.valore} su "${d.campagna.nome}"`,
+        perche:
+          `Si prende il ${Math.round(quota * 100)}% della spesa (${spesa.toFixed(0)} €) e rende ${resa.toFixed(2)}×, ` +
+          `molto sotto il break-even di ${be.toFixed(2)}×. Un correttivo di offerta su questo taglio vale quanto una keyword esclusa.`,
+        priorita: "media",
+      });
+    }
+  }
+
+  // 8-quinquies. Spazio gratuito nella pagina dei risultati lasciato vuoto.
+  const mancanti: string[] = [];
+  if (d.estensioni.sitelink === 0) mancanti.push("sitelink");
+  if (d.estensioni.callout === 0) mancanti.push("callout");
+  if (d.estensioni.snippet === 0) mancanti.push("snippet");
+  if (mancanti.length > 0 && spesa30 > 0) {
+    lista.push({
+      chiave: "estensioni-mancanti",
+      titolo: `Aggiungere ${mancanti.join(", ")} a "${d.campagna.nome}"`,
+      perche:
+        `La campagna spende ${spesa30.toFixed(0)} € al mese senza ${mancanti.join(" né ")}: sono spazio gratuito ` +
+        `nella pagina dei risultati. Un annuncio più alto viene guardato di più a parità di offerta.`,
+      priorita: "media",
+    });
   }
 
   // 9. Il silenzio dei dati: se lo script non manda, ogni giudizio qui sopra

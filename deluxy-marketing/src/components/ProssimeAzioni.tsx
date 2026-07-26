@@ -28,13 +28,46 @@ export async function ProssimeAzioni({ campagnaId }: { campagnaId: string }) {
   });
   if (!campagna) return null;
 
-  const [gruppi, keyword] = await Promise.all([
+  const [gruppi, keyword, termini, segmenti, pezzi, copertura] = await Promise.all([
     gruppiConNumeri({ campagnaId }),
     prisma.copyAnnuncio.findMany({
       where: { tipo: "keyword", campagna: campagna.nome },
       select: { testo: true, spesa: true, incasso: true },
     }),
+    prisma.termineRicerca.findMany({
+      where: { campagnaId },
+      select: { testo: true, spesa: true, conversioni: true, stato: true },
+      orderBy: { spesa: "desc" },
+      take: 50,
+    }),
+    prisma.segmentoCampagna.findMany({
+      where: { campagnaId },
+      select: { tipo: true, valore: true, spesa: true, ricavi: true },
+    }),
+    prisma.copyAnnuncio.groupBy({
+      by: ["tipo"],
+      where: {
+        tipo: { in: ["sitelink", "callout", "snippet", "immagine"] },
+        OR: [{ campagna: campagna.nome }, { livello: "account" }],
+      },
+      _count: { _all: true },
+    }),
+    prisma.metricaCampagna.findMany({
+      where: { campagnaId, data: { gte: new Date(Date.now() - 30 * 86_400_000) }, quotaImpressioni: { not: null } },
+      select: { impression: true, quotaImpressioni: true, persaBudget: true, persaRank: true },
+    }),
   ]);
+
+  // Quota impressioni media, pesata sulle impressioni del giorno
+  let peso = 0, quota = 0, persaBudget = 0, persaRank = 0;
+  for (const m of copertura) {
+    const p = Math.max(m.impression ?? 0, 1);
+    peso += p;
+    quota += (m.quotaImpressioni ?? 0) * p;
+    persaBudget += (m.persaBudget ?? 0) * p;
+    persaRank += (m.persaRank ?? 0) * p;
+  }
+  const conta = (t: string) => pezzi.find((p) => p.tipo === t)?._count._all ?? 0;
 
   const giud = giudicabilita(campagna.modifiche[0]?.eseguitaIl ?? null);
   const voci = opportunitaCampagna({
@@ -53,6 +86,15 @@ export async function ProssimeAzioni({ campagnaId }: { campagnaId: string }) {
     keyword,
     alert: campagna.alert.map((a) => ({ tipo: a.tipo, livello: a.livello, messaggio: a.messaggio })),
     inBlackoutFino: giud.fino,
+    copertura: peso > 0 ? { quota: quota / peso, persaBudget: persaBudget / peso, persaRank: persaRank / peso } : null,
+    termini,
+    segmenti,
+    estensioni: {
+      sitelink: conta("sitelink"),
+      callout: conta("callout"),
+      snippet: conta("snippet"),
+      immagine: conta("immagine"),
+    },
     azioniAperte: campagna.azioni.map((a) => a.titolo),
   });
 

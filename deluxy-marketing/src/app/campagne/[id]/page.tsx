@@ -3,7 +3,11 @@ import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GuardrailCampagna } from "@/components/GuardrailCampagna";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
+import { CoperturaCampagna } from "@/components/CoperturaCampagna";
+import { EstensioniCampagna } from "@/components/EstensioniCampagna";
 import { OggiCampagna } from "@/components/OggiCampagna";
+import { SegmentiCampagna } from "@/components/SegmentiCampagna";
+import { TerminiRicerca } from "@/components/TerminiRicerca";
 import { ProssimeAzioni } from "@/components/ProssimeAzioni";
 import { RecapModifiche } from "@/components/RecapModifiche";
 import { Scadenza } from "@/components/Scadenza";
@@ -73,6 +77,26 @@ export default async function SchedaCampagna({
               <Badge testo={ETICHETTA_CANALE[campagna.canale] ?? campagna.canale} colore="var(--text-secondary)" />
               {campagna.obiettivo && <span>{campagna.obiettivo}</span>}
             </p>
+            {/* Lo stato sta col titolo: è la prima cosa che si guarda e la più
+                frequente da cambiare, non merita di stare sotto a una scheda. */}
+            <form className="pill-scelta" action={cambiaStatoCampagna} style={{ marginTop: 10 }}>
+              <input type="hidden" name="id" value={campagna.id} />
+              {STATI_CAMPAGNA.map((s) => (
+                <button
+                  key={s}
+                  className={`pill-opt${campagna.stato === s ? " attuale" : ""}`}
+                  style={{ color: campagna.stato === s ? undefined : COLORE_STATO_CAMPAGNA[s] }}
+                  type="submit"
+                  name="stato"
+                  value={s}
+                  disabled={campagna.stato === s}
+                  title={campagna.stato === s ? "Stato attuale" : `Porta la campagna a "${ETICHETTA_STATO_CAMPAGNA[s]}"`}
+                >
+                  <span className="dot" />
+                  <span style={{ color: "var(--text)" }}>{ETICHETTA_STATO_CAMPAGNA[s]}</span>
+                </button>
+              ))}
+            </form>
           </div>
           <a className="btn" href={`/azioni/nuova?campagna=${campagna.id}&brand=${campagna.brand}`}>Nuova azione sulla campagna</a>
         </div>
@@ -100,30 +124,7 @@ export default async function SchedaCampagna({
           </div>
         </div>
 
-        <section className="scheda">
-          <div className="scheda-titolo">Stato campagna</div>
-          <form className="pill-scelta" action={cambiaStatoCampagna}>
-            <input type="hidden" name="id" value={campagna.id} />
-            {STATI_CAMPAGNA.map((s) => (
-              <button
-                key={s}
-                className={`pill-opt${campagna.stato === s ? " attuale" : ""}`}
-                style={{ color: campagna.stato === s ? undefined : COLORE_STATO_CAMPAGNA[s] }}
-                type="submit"
-                name="stato"
-                value={s}
-                disabled={campagna.stato === s}
-              >
-                <span className="dot" />
-                <span style={{ color: "var(--text)" }}>{ETICHETTA_STATO_CAMPAGNA[s]}</span>
-              </button>
-            ))}
-          </form>
-        </section>
-
         <FreschezzaDati brand={campagna.brand} canale={campagna.canale} />
-
-        <GuardrailCampagna campagnaId={campagna.id} bloccata={bloccata} salvata={salvata} />
 
         <OggiCampagna
           campagnaId={campagna.id}
@@ -131,8 +132,9 @@ export default async function SchedaCampagna({
           budgetGiornaliero={campagna.budgetGiornaliero}
         />
 
-        <ProssimeAzioni campagnaId={campagna.id} />
-
+        {/* ——— Valutazione: prima si capisce, poi si decide, infine si agisce.
+            I gruppi stanno qui in cima perché sono il primo taglio che spiega
+            la media di campagna. ——— */}
         <section className="scheda">
           <div className="scheda-titolo">
             Gruppi di annunci ({gruppi.length}) · ultimi {GIORNI_LETTURA} giorni
@@ -145,6 +147,18 @@ export default async function SchedaCampagna({
             </p>
           )}
         </section>
+
+        <CoperturaCampagna campagnaId={campagna.id} />
+
+        <TerminiRicerca campagnaId={campagna.id} brand={campagna.brand} />
+
+        <SegmentiCampagna campagnaId={campagna.id} brand={campagna.brand} />
+
+        <EstensioniCampagna campagnaId={campagna.id} nomeCampagna={campagna.nome} />
+
+        <GuardrailCampagna campagnaId={campagna.id} bloccata={bloccata} salvata={salvata} />
+
+        <ProssimeAzioni campagnaId={campagna.id} />
 
         <RecapModifiche campagnaId={campagna.id} />
 

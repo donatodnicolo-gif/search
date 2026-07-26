@@ -280,6 +280,21 @@ cd deluxy-merchandising && npm run vendite:demo:pulisci
 - **Serve**: `DATABASE_URL` (+ `DIRECT_URL`) nell'`.env` dell'app
 - **Nota**: inserisce solo righe con `origine = "demo"` e non cancella nient'altro; se ce ne sono già non ne aggiunge (prima `--pulisci`). Il venduto **vero** non passa da qui: arriva da Deluxy Orders con `ORDERS_API_KEY`.
 
+### prodotti-da-vendite.mjs — deluxy-merchandising
+Crea il **catalogo prodotti dal venduto reale** già importato da Deluxy Orders: un prodotto per ogni titolo venduto, con le varianti prese dagli SKU e dai nomi di variante scelti dai clienti, e le vendite in archivio agganciate. Serve quando Merchandising ha un catalogo più povero di quello che si vende davvero sui negozi: senza prodotti anagrafati, trend e ipotesi di ordinativo vedono solo i totali.
+
+```bash
+# dalla radice del repo — anteprima, senza scrivere niente
+cd deluxy-merchandising && npm run prodotti:da-vendite -- --dry
+# crea tutto il venduto
+cd deluxy-merchandising && npm run prodotti:da-vendite
+# solo i titoli venduti almeno 5 volte
+cd deluxy-merchandising && npm run prodotti:da-vendite -- --min 5
+```
+
+- **Serve**: `DATABASE_URL` (+ `DIRECT_URL`) nell'`.env` dell'app e vendite già importate (quindi `ORDERS_API_KEY`)
+- **Nota**: prezzo = media davvero incassata; **costo 0**, categoria `DA_CLASSIFICARE` e giacenza 0 restano da compilare a mano — non si deducono dal titolo, e finché il costo manca il margine resta 0 invece di essere inventato.
+
 ### google-ads-script.js — deluxy-marketing (v2)
 NON si lancia da terminale: si **incolla in Google Ads** (Strumenti → Azioni collettive → Script), una copia per account **e per lavoro**. Google Ads esegue sempre `main()`: il lavoro si sceglie con la costante `AZIONE` in testa al file — `metriche` (giornaliere, ogni giorno 23-24) · `approvazioni` (stati di review, alert A4, ogni giorno) · `copy` (keyword+annunci, ogni settimana) · `gruppi` (gruppi di annunci, una riga per giorno, e gruppi di asset per le PMax) · `asset` (sitelink/callout/snippet/immagini, ogni settimana) · `esegui` (esegue le operazioni **approvate** in /operazioni: pausa, budget, keyword, negative, campagne nuove in pausa via bulk upload) · `tutto`.
 
