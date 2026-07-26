@@ -1,3 +1,4 @@
+import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_BRAND, ETICHETTA_CANALE, formattaEuro } from "@/lib/dominio";
@@ -186,6 +187,8 @@ export default async function AnalisiCampagne({
             <button className="btn small" type="submit">Applica</button>
           </form>
         </section>
+
+        <FreschezzaDati brand={brand} canale={canale ?? "google_ads"} />
 
         {nessunDato ? (
           <div className="vuoto">

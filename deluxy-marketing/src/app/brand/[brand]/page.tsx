@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/Badge";
+import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
@@ -147,6 +148,8 @@ export default async function PaginaBrand({
             <button className="btn small" type="submit">Applica</button>
           </form>
         </section>
+
+        <FreschezzaDati brand={brand} />
 
         {/* I numeri che contano */}
         <div className="kpi-riga">

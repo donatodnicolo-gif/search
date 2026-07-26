@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GuardrailCampagna } from "@/components/GuardrailCampagna";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
@@ -110,6 +111,8 @@ export default async function SchedaCampagna({
             ))}
           </form>
         </section>
+
+        <FreschezzaDati brand={campagna.brand} canale={campagna.canale} />
 
         <GuardrailCampagna campagnaId={campagna.id} bloccata={bloccata} salvata={salvata} />
 
