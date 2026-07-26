@@ -4,3 +4,5 @@ dist-web/
 dist-check/
 web-build/
 .vercel/
+.vercel
+.env*
