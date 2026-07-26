@@ -1502,8 +1502,18 @@ function extractInstagram(html){
   }
   return null;
 }
+// email + Instagram dal sito del negozio. Di default via il backend (/api/contatti,
+// niente CORS né proxy da configurare); se l'admin ha impostato un proxy CORS si usa
+// quello (percorso legacy, scraping direttamente dal browser).
 async function scrapeContacts(website, proxy){
-  if(!website || !proxy) return { emails:[], instagram:null };
+  if(!website) return { emails:[], instagram:null };
+  if(!proxy){
+    try{
+      const r = await apiFetch('/api/contatti?url=' + encodeURIComponent(website));
+      if(r.ok){ const j = await r.json(); return { emails: j.emails||[], instagram: j.instagram||null }; }
+    }catch(e){ /* ripiego sotto */ }
+    return { emails:[], instagram:null };
+  }
   const pages = [website];
   try{
     const u = new URL(website);
@@ -2696,8 +2706,9 @@ async function run(){
       logEvento({ tipo:'ricerca', esito:'trovati '+cards.length+' negozi', negozio:{ nome: address } });
     }
 
-    // scraping email + Instagram in background (best effort)
-    if(proxy){
+    // email + Instagram dal sito del negozio, in background (best effort).
+    // Gira SEMPRE: senza proxy passa dal backend /api/contatti (niente CORS).
+    {
       let withEmail=0, withIg=0;
       await Promise.all(cards.map(async ({card,website,pid})=>{
         const slot = card.querySelector('.email-slot');
@@ -2710,17 +2721,17 @@ async function run(){
         if(instagram){ withIg++; parts.push(`<a class="insta" href="https://ig.me/m/${instagram.handle}" target="_blank" rel="noopener">📷 DM @${instagram.handle}</a>`); }
         if(parts.length){
           slot.innerHTML = parts.join('')
-            + (emails && emails.length ? `<button class="sendemail" data-email="${emails[0]}">📧 Invia richiesta via email</button>` : '');
+            + (emails && emails.length && !card.querySelector('.sendemail') ? `<button class="sendemail" data-email="${emails[0]}">📧 Invia richiesta via email</button>` : '');
           const src = card.querySelector('.src');
           const bits = [];
           if(emails.length) bits.push('email');
           if(instagram) bits.push('Instagram');
           src.innerHTML += ' · '+bits.join(' + ')+': <span class="verified">dal sito ufficiale</span>';
         } else {
-          slot.innerHTML = '<span class="none">✉️ nessun contatto extra trovato</span>';
+          slot.innerHTML = '<span class="none">✉️ nessuna email pubblicata sul sito</span>';
         }
       }));
-      setStatus(`✅ ${cards.length} negozi · email per ${withEmail} · Instagram per ${withIg}${anagNote}.`);
+      setStatus(`✅ ${cards.length} negozi${distNote}${langNote} · ✉️ email per ${withEmail}${anagNote}.`);
     }
 
   }catch(err){

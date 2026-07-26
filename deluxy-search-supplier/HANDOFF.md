@@ -184,6 +184,14 @@ solo dove siamo e come si lavora.
    bigliettino. La riga compare solo se almeno uno dei due è compilato; i due campi sono
    nei listener che rigenerano il testo (finché l'operatore non lo edita a mano).
 
+27. **Email dei fornitori nei risultati** (24/07): Google Places non dà l'email → la si
+   ricava dal sito del negozio. Prima girava solo con un `proxy` CORS impostato (che era
+   vuoto → nessuna email). Ora c'è l'endpoint server `GET /api/contatti?url=<sito>`
+   (`api/contatti.js`): scraping lato server, niente CORS/proxy. `scrapeContacts` nel
+   front-end passa dal backend di default (dal proxy solo se configurato) e il blocco email
+   in `run()` gira SEMPRE (non più `if(proxy)`). Le schede con sito mostrano ✉️ email +
+   «📧 Invia via email»; lo Storico segna «email per N». AI_SPEC §5.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
