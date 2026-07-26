@@ -159,6 +159,68 @@ function selettoreCon(entita) {
   verifica("annunci: conta gli usi", a[0].note === "usato in 2 annunci", a[0].note);
 }
 
+// ───────────────────────── 3-bis. gruppi di annunci ─────────────────────────
+{
+  const gruppo = (id, nome, campagna, costo, incasso, stato, tipo) => ({
+    campaign: { name: campagna },
+    adGroup: { id, name: nome, status: stato || "ENABLED", type: tipo || "SEARCH_STANDARD" },
+    metrics: { costMicros: costo * 1000000, impressions: 1000, clicks: 50, conversions: 3, conversionsValue: incasso },
+  });
+  const gruppoAsset = (id, nome, campagna, costo, incasso) => ({
+    campaign: { name: campagna },
+    assetGroup: { id, name: nome, status: "ENABLED" },
+    metrics: { costMicros: costo * 1000000, impressions: 500, clicks: 20, conversions: 1, conversionsValue: incasso },
+  });
+  const { sandbox, inviati } = ambiente({
+    righeQuery: {
+      "FROM ad_group ": [
+        gruppo(10, "Gruppo debole", "DC1 Fiori Milano ENG", 40, 20),
+        gruppo(11, "Gruppo forte", "DC1 Fiori Milano ENG", 100, 900, "PAUSED", "SEARCH_DYNAMIC_ADS"),
+      ],
+      "FROM asset_group ": [gruppoAsset(20, "Regali PMax", "DC9 Regali B2B", 60, 300)],
+    },
+    rispostaApp: () => ({ codice: 201, testo: JSON.stringify({ gruppi: { nuovi: 3, aggiornati: 0 } }) }),
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  sandbox.BRAND = "gifts";
+  sandbox.AZIONE = "gruppi";
+  sandbox.main();
+
+  const g = inviati[0].corpo.gruppi;
+  verifica("gruppi: annunci + asset group insieme", g.length === 3, g.length);
+  verifica("gruppi: ordinati per spesa", g[0].testo === "Gruppo forte" && g[0].spesa === 100, g[0].testo);
+  verifica("gruppi: id con account", g[0].idEsterno === "248-656-1148:11", g[0].idEsterno);
+  verifica("gruppi: incasso e conversioni per gruppo", g[0].incasso === 900 && g[0].conversioni === 3);
+  verifica("gruppi: stato piattaforma vero", g[0].statoPiattaforma === "PAUSED", g[0].statoPiattaforma);
+  verifica("gruppi: tipo non standard nelle note", g[0].note === "tipo search dynamic ads", g[0].note);
+  verifica("gruppi: tipo standard senza nota", g.find((x) => x.testo === "Gruppo debole").note === null);
+  const pmax = g.find((x) => x.testo === "Regali PMax");
+  verifica("gruppi: PMax marcato come gruppo di asset", pmax && pmax.note === "gruppo di asset (Performance Max)");
+  verifica("gruppi: id PMax distinto", pmax && pmax.idEsterno === "248-656-1148:ag:20", pmax && pmax.idEsterno);
+}
+
+// ───────────────────────── 3-ter. account senza PMax ─────────────────────────
+{
+  const { sandbox, inviati } = ambiente({
+    righeQuery: {
+      "FROM ad_group ": [
+        {
+          campaign: { name: "DC1" },
+          adGroup: { id: 1, name: "Gruppo unico", status: "ENABLED", type: "SEARCH_STANDARD" },
+          metrics: { costMicros: 1000000, impressions: 10, clicks: 1, conversions: 0, conversionsValue: 0 },
+        },
+      ],
+      // la vista asset_group non risponde: non deve far saltare tutto
+      "FROM asset_group ": null,
+    },
+    rispostaApp: () => ({ codice: 201, testo: "{}" }),
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  sandbox.AZIONE = "gruppi";
+  sandbox.main();
+  verifica("gruppi: senza PMax manda comunque i gruppi di annunci", inviati.length === 1 && inviati[0].corpo.gruppi.length === 1);
+}
+
 // ───────────────────────── 4. asset su più livelli ─────────────────────────
 {
   const sitelink = (vista, campagna, gruppo) => {

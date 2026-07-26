@@ -94,17 +94,23 @@ Variabili in `.env` (mai committato):
 ## Collegamento a Google Ads
 
 Lo script `scripts/google-ads-script.js` si incolla in Google Ads (Strumenti → Azioni
-collettive → Script) e ha quattro funzioni indipendenti, da schedulare separatamente:
+collettive → Script), una copia per account e per lavoro. Google Ads esegue **sempre**
+`main()`: il lavoro si sceglie con la costante `AZIONE` in testa al file.
 
-| Funzione | Cosa fa | Quando |
+| `AZIONE` | Cosa fa | Quando |
 | --- | --- | --- |
-| `main()` | Metriche giornaliere di campagna (spesa, clic, conversioni, valore) | Ogni giorno |
-| `mainCopy()` | Keyword con QS e testi RSA con etichetta di rendimento | Ogni settimana |
-| `mainAsset()` | Sitelink, callout, snippet e immagini sui tre livelli | Ogni mese |
-| `mainEsegui()` | Esegue le operazioni **approvate** in /operazioni | Ogni ora |
+| `metriche` | Metriche giornaliere di campagna (spesa, clic, conversioni, valore) | Ogni giorno, 23-24 |
+| `approvazioni` | Annunci in revisione o limitati, per campagna (alert A4) | Ogni giorno, mattina |
+| `copy` | Keyword con QS e testi RSA con etichetta di rendimento | Ogni settimana |
+| `gruppi` | Gruppi di annunci con spesa e resa proprie (e gruppi di asset per le PMax) | Ogni settimana |
+| `asset` | Sitelink, callout, snippet e immagini sui tre livelli | Ogni settimana |
+| `esegui` | Esegue le operazioni **approvate** in /operazioni | Quando serve |
+
+Va impostato anche `BRAND` (`flowers` | `gifts` | `cake`): senza, le campagne il cui
+nome non dice il marchio finiscono in "cross".
 
 Non serve developer token né OAuth: lo script gira dentro Google Ads. Serve solo una
-chiave dell'app (`npm run chiave -- google-ads`) e che l'app sia raggiungibile da
+chiave dell'app (`npm run chiave -- google-ads-<brand>`) e che l'app sia raggiungibile da
 internet. Endpoint usati: `/api/v1/ingest`, `/api/v1/ingest/copy`, `/api/v1/operazioni`.
 
 **La scrittura passa sempre dall'approvazione**: una modifica decisa nell'app entra in

@@ -19,10 +19,12 @@
  *   5. Frequenza (colonna "Frequenza" nella lista degli script, non basta
  *      "Esegui": quello lancia una volta sola).
  *
- * QUATTRO SCRIPT PER ACCOUNT, stesso file, cambia solo AZIONE:
+ * UNO SCRIPT PER LAVORO, stesso file, cambia solo AZIONE:
  *   AZIONE = "metriche"     → ogni giorno, fascia 23:00-24:00
  *   AZIONE = "approvazioni" → ogni giorno, mattina (alert A4)
  *   AZIONE = "copy"         → ogni settimana (keyword + titoli/descrizioni RSA)
+ *   AZIONE = "gruppi"       → ogni settimana (gruppi di annunci con spesa e resa,
+ *                             e gruppi di asset per le Performance Max)
  *   AZIONE = "asset"        → ogni settimana (sitelink, callout, snippet, immagini)
  *   AZIONE = "esegui"       → solo quando serve: esegue le operazioni approvate
  *   AZIONE = "tutto"        → le fa tutte in fila (comodo per il primo giro)
@@ -53,6 +55,10 @@
  *   · GIORNI_COPY libero (prima solo 7, 14 o 30 funzionavano davvero)
  *   · INCLUDI_RIMOSSE per il caricamento storico: senza, la spesa delle
  *     campagne poi eliminate non entrava mai nello storico
+ *   · AZIONE = "gruppi": i gruppi di annunci arrivano con spesa, clic,
+ *     conversioni e incasso propri (prima il gruppo era solo un'etichetta
+ *     attaccata alle keyword) e si leggono in "Copy & annunci"; per le PMax,
+ *     che gruppi di annunci non ne hanno, arrivano i gruppi di asset
  *
  * L'app NON viene mai modificata da Google: questo script manda metriche e
  * chiede quali operazioni approvate eseguire. Niente altro.
@@ -63,7 +69,7 @@
 var URL_APP = "https://deluxy-marketing.vercel.app"; // senza barra finale
 var CHIAVE_API = "dmk_INCOLLA_QUI_LA_CHIAVE"; // creata con: npm run chiave -- google-ads-<brand>
 
-// Cosa fa questo script: metriche | approvazioni | copy | asset | esegui | tutto
+// Cosa fa questo script: metriche | approvazioni | copy | gruppi | asset | esegui | tutto
 var AZIONE = "metriche";
 
 // Brand dell'account. Metterlo: senza, le campagne il cui nome non dice il
@@ -77,7 +83,8 @@ var BRAND = "";
 var GIORNI_INDIETRO = 7;
 var INCLUDI_RIMOSSE = false;
 
-// Finestra delle metriche di keyword e annunci (qualunque numero, non solo 7/14/30)
+// Finestra delle metriche di keyword, annunci e gruppi (qualunque numero, non
+// solo 7/14/30). 30 giorni è la lettura standard dei Definitivi.
 var GIORNI_COPY = 30;
 
 // SCRITTURA (solo con AZIONE = "esegui")
@@ -105,7 +112,7 @@ function main() {
   if (!conto) return;
 
   var lavori = AZIONE === "tutto"
-    ? ["metriche", "approvazioni", "copy", "asset", "esegui"]
+    ? ["metriche", "approvazioni", "copy", "gruppi", "asset", "esegui"]
     : [AZIONE];
 
   for (var i = 0; i < lavori.length; i++) {
@@ -115,10 +122,11 @@ function main() {
     try {
       if (lavoro === "metriche") mandaMetriche(conto);
       else if (lavoro === "copy") mandaCopy(conto);
+      else if (lavoro === "gruppi") mandaGruppi(conto);
       else if (lavoro === "asset") mandaAsset(conto);
       else if (lavoro === "approvazioni") mandaApprovazioni(conto);
       else if (lavoro === "esegui") eseguiOperazioni(conto);
-      else Logger.log("AZIONE non riconosciuta: \"" + lavoro + "\". Ammesse: metriche, approvazioni, copy, asset, esegui, tutto.");
+      else Logger.log("AZIONE non riconosciuta: \"" + lavoro + "\". Ammesse: metriche, approvazioni, copy, gruppi, asset, esegui, tutto.");
     } catch (e) {
       Logger.log("⚠ ERRORE in \"" + lavoro + "\": " + e);
       RIEPILOGO.push(lavoro + ": ERRORE — " + e);
@@ -414,7 +422,115 @@ function migliorRendimento(a, b) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PARTE 3 — ASSET: SITELINK, CALLOUT, SNIPPET, IMMAGINI
+   PARTE 3 — GRUPPI DI ANNUNCI (e gruppi di asset delle Performance Max)
+   Il gruppo è il livello dove si decide davvero: due gruppi nella stessa
+   campagna possono avere rese opposte e la media di campagna li nasconde
+   entrambi. Qui ognuno arriva con spesa, clic, conversioni e incasso propri.
+   Le PMax non hanno gruppi di annunci: hanno gruppi di ASSET, che si leggono
+   da un'altra vista e arrivano con la stessa forma.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function mandaGruppi(conto) {
+  var righe = leggiGruppi(conto).concat(leggiGruppiAsset(conto));
+  if (righe.length === 0) {
+    Logger.log("Nessun gruppo con dati negli ultimi " + GIORNI_COPY + " giorni.");
+    RIEPILOGO.push("gruppi: niente da inviare");
+    return;
+  }
+
+  righe.sort(function (a, b) { return (b.spesa || 0) - (a.spesa || 0); });
+  Logger.log("Gruppi letti: " + righe.length + " (finestra " + GIORNI_COPY + " giorni)");
+  for (var i = 0; i < Math.min(righe.length, 5); i++) {
+    var g = righe[i];
+    var resa = g.spesa > 0 ? (g.incasso / g.spesa).toFixed(2) + "×" : "—";
+    Logger.log("  " + g.campagna + " › " + g.testo + ": " + g.spesa + " € · " + g.conversioni + " conv · resa " + resa);
+  }
+  if (righe.length > 5) Logger.log("  … e altri " + (righe.length - 5) + " gruppi");
+
+  var esito = inviaABlocchi("/api/v1/ingest/copy", righe, function (lotto) {
+    return corpoBase(conto, { gruppi: lotto });
+  });
+  RIEPILOGO.push("gruppi: " + esito.inviate + "/" + righe.length + " inviati");
+}
+
+/** Gruppi di annunci: le metriche arrivano già sommate sul periodo. */
+function leggiGruppi(conto) {
+  var query =
+    "SELECT campaign.name, ad_group.id, ad_group.name, ad_group.status, ad_group.type, " +
+    "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
+    "metrics.conversions, metrics.conversions_value " +
+    "FROM ad_group " +
+    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_COPY) + "' AND '" + dataIso(0) + "' " +
+    "AND ad_group.status != 'REMOVED'";
+
+  var righe = [];
+  // Il try copre anche il ciclo: AdsApp.search carica le pagine man mano, così
+  // un errore può arrivare a metà lettura e non solo sulla query.
+  try {
+    var risultati = AdsApp.search(query);
+    while (risultati.hasNext()) {
+      var r = risultati.next();
+      righe.push({
+        idEsterno: conto.id + ":" + r.adGroup.id,
+        testo: r.adGroup.name,
+        campagna: r.campaign.name,
+        spesa: arrotonda(Number(r.metrics.costMicros || 0) / 1000000),
+        incasso: arrotonda(Number(r.metrics.conversionsValue || 0)),
+        clic: Number(r.metrics.clicks || 0),
+        impressioni: Number(r.metrics.impressions || 0),
+        conversioni: arrotonda(Number(r.metrics.conversions || 0)),
+        statoPiattaforma: r.adGroup.status,
+        note: etichettaTipoGruppo(r.adGroup.type),
+      });
+    }
+  } catch (e) {
+    Logger.log("Lettura dei gruppi di annunci interrotta: " + e + (righe.length ? " (tengo le " + righe.length + " righe già lette)" : ""));
+  }
+  return righe;
+}
+
+/** Performance Max: gruppi di asset, stessa forma, con la loro etichetta. */
+function leggiGruppiAsset(conto) {
+  var query =
+    "SELECT campaign.name, asset_group.id, asset_group.name, asset_group.status, " +
+    "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
+    "metrics.conversions, metrics.conversions_value " +
+    "FROM asset_group " +
+    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_COPY) + "' AND '" + dataIso(0) + "' " +
+    "AND asset_group.status != 'REMOVED'";
+
+  var righe = [];
+  try {
+    var risultati = AdsApp.search(query);
+    while (risultati.hasNext()) {
+      var r = risultati.next();
+      righe.push({
+        idEsterno: conto.id + ":ag:" + r.assetGroup.id,
+        testo: r.assetGroup.name,
+        campagna: r.campaign.name,
+        spesa: arrotonda(Number(r.metrics.costMicros || 0) / 1000000),
+        incasso: arrotonda(Number(r.metrics.conversionsValue || 0)),
+        clic: Number(r.metrics.clicks || 0),
+        impressioni: Number(r.metrics.impressions || 0),
+        conversioni: arrotonda(Number(r.metrics.conversions || 0)),
+        statoPiattaforma: r.assetGroup.status,
+        note: "gruppo di asset (Performance Max)",
+      });
+    }
+  } catch (e) {
+    // Account senza PMax, o vista non disponibile: non è un errore.
+    Logger.log("Gruppi di asset (PMax) non letti: " + e);
+  }
+  return righe;
+}
+
+function etichettaTipoGruppo(tipo) {
+  if (!tipo || tipo === "SEARCH_STANDARD") return null;
+  return "tipo " + String(tipo).toLowerCase().split("_").join(" ");
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARTE 4 — ASSET: SITELINK, CALLOUT, SNIPPET, IMMAGINI
    Gli asset stanno su tre livelli: account, campagna e gruppo di annunci.
    Lo stesso sitelink agganciato su più livelli è UNA riga per l'app: qui i
    livelli si accorpano in un'unica voce ("campagna + gruppo") invece di
@@ -462,52 +578,49 @@ function leggiAsset(conto, vista, livello) {
     "WHERE " + vista + ".status != 'REMOVED' " +
     "AND asset.type IN ('SITELINK', 'CALLOUT', 'STRUCTURED_SNIPPET', 'IMAGE')";
 
-  var risultati;
-  try {
-    risultati = AdsApp.search(query);
-  } catch (e) {
-    Logger.log("Vista " + vista + " non disponibile: " + e);
-    return righe;
-  }
-
   var campoVista = vista === "customer_asset" ? "customerAsset"
     : vista === "campaign_asset" ? "campaignAsset" : "adGroupAsset";
 
-  while (risultati.hasNext()) {
-    var r = risultati.next();
-    var a = r.asset;
-    var contesto = r[campoVista] || {};
-    var riga = {
-      idEsterno: conto.id + ":" + a.id,
-      campagna: (r.campaign && r.campaign.name) || "(account " + conto.id + ")",
-      gruppo: (r.adGroup && r.adGroup.name) || null,
-      livello: livello,
-      statoPiattaforma: contesto.status || "ENABLED",
-    };
+  try {
+    var risultati = AdsApp.search(query);
+    while (risultati.hasNext()) {
+      var r = risultati.next();
+      var a = r.asset;
+      var contesto = r[campoVista] || {};
+      var riga = {
+        idEsterno: conto.id + ":" + a.id,
+        campagna: (r.campaign && r.campaign.name) || "(account " + conto.id + ")",
+        gruppo: (r.adGroup && r.adGroup.name) || null,
+        livello: livello,
+        statoPiattaforma: contesto.status || "ENABLED",
+      };
 
-    if (a.type === "SITELINK" && a.sitelinkAsset) {
-      riga.tipo = "sitelink";
-      riga.testo = a.sitelinkAsset.linkText;
-      riga.note = filtraVuoti([a.sitelinkAsset.description1, a.sitelinkAsset.description2]).join(" · ");
-      riga.finalUrl = a.finalUrls && a.finalUrls.length ? a.finalUrls[0] : null;
-    } else if (a.type === "CALLOUT" && a.calloutAsset) {
-      riga.tipo = "callout";
-      riga.testo = a.calloutAsset.calloutText;
-    } else if (a.type === "STRUCTURED_SNIPPET" && a.structuredSnippetAsset) {
-      riga.tipo = "snippet";
-      riga.testo = a.structuredSnippetAsset.header;
-      riga.note = (a.structuredSnippetAsset.values || []).join(" · ");
-    } else if (a.type === "IMAGE" && a.imageAsset) {
-      riga.tipo = "immagine";
-      riga.testo = a.name || ("Immagine " + a.id);
-      var dim = a.imageAsset.fullSize;
-      riga.anteprima = dim ? dim.url : null;
-      riga.note = dim ? dim.widthPixels + "x" + dim.heightPixels : null;
-    } else {
-      continue;
+      if (a.type === "SITELINK" && a.sitelinkAsset) {
+        riga.tipo = "sitelink";
+        riga.testo = a.sitelinkAsset.linkText;
+        riga.note = filtraVuoti([a.sitelinkAsset.description1, a.sitelinkAsset.description2]).join(" · ");
+        riga.finalUrl = a.finalUrls && a.finalUrls.length ? a.finalUrls[0] : null;
+      } else if (a.type === "CALLOUT" && a.calloutAsset) {
+        riga.tipo = "callout";
+        riga.testo = a.calloutAsset.calloutText;
+      } else if (a.type === "STRUCTURED_SNIPPET" && a.structuredSnippetAsset) {
+        riga.tipo = "snippet";
+        riga.testo = a.structuredSnippetAsset.header;
+        riga.note = (a.structuredSnippetAsset.values || []).join(" · ");
+      } else if (a.type === "IMAGE" && a.imageAsset) {
+        riga.tipo = "immagine";
+        riga.testo = a.name || ("Immagine " + a.id);
+        var dim = a.imageAsset.fullSize;
+        riga.anteprima = dim ? dim.url : null;
+        riga.note = dim ? dim.widthPixels + "x" + dim.heightPixels : null;
+      } else {
+        continue;
+      }
+      if (!riga.testo) continue;
+      righe.push(riga);
     }
-    if (!riga.testo) continue;
-    righe.push(riga);
+  } catch (e) {
+    Logger.log("Vista " + vista + " non letta: " + e + (righe.length ? " (tengo le " + righe.length + " righe già lette)" : ""));
   }
   return righe;
 }
@@ -546,7 +659,7 @@ function accorpaAsset(grezzi) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PARTE 4 — STATO DI APPROVAZIONE DEGLI ANNUNCI (alert A4)
+   PARTE 5 — STATO DI APPROVAZIONE DEGLI ANNUNCI (alert A4)
    Il doc 11 §4 chiede di controllare se più del 50% degli annunci attivi è in
    revisione o limitato. È l'unico alert che non si legge dalle metriche.
    (Limite noto: Google non dice DA QUANTO un annuncio è in revisione; il "da
@@ -599,32 +712,31 @@ function leggiApprovazioni() {
     "FROM ad_group_ad " +
     "WHERE ad_group_ad.status = 'ENABLED' AND campaign.status = 'ENABLED'";
 
-  var risultati;
   try {
-    risultati = AdsApp.search(query);
+    var risultati = AdsApp.search(query);
+    while (risultati.hasNext()) {
+      var r = risultati.next();
+      var nome = r.campaign.name;
+      if (!perCampagna[nome]) perCampagna[nome] = { id: String(r.campaign.id), totali: 0, inReview: 0 };
+      perCampagna[nome].totali++;
+      var ps = r.adGroupAd.policySummary || {};
+      var limitato =
+        ps.approvalStatus === "APPROVED_LIMITED" ||
+        ps.approvalStatus === "AREA_OF_INTEREST_ONLY" ||
+        ps.approvalStatus === "DISAPPROVED";
+      var inEsame = ps.reviewStatus === "REVIEW_IN_PROGRESS" || ps.reviewStatus === "UNDER_APPEAL";
+      if (limitato || inEsame) perCampagna[nome].inReview++;
+    }
   } catch (e) {
+    // Meglio niente conteggi che conteggi a metà: l'alert A4 li confronta fra giorni.
     Logger.log("Impossibile leggere gli stati di approvazione: " + e);
-    return perCampagna;
-  }
-
-  while (risultati.hasNext()) {
-    var r = risultati.next();
-    var nome = r.campaign.name;
-    if (!perCampagna[nome]) perCampagna[nome] = { id: String(r.campaign.id), totali: 0, inReview: 0 };
-    perCampagna[nome].totali++;
-    var ps = r.adGroupAd.policySummary || {};
-    var limitato =
-      ps.approvalStatus === "APPROVED_LIMITED" ||
-      ps.approvalStatus === "AREA_OF_INTEREST_ONLY" ||
-      ps.approvalStatus === "DISAPPROVED";
-    var inEsame = ps.reviewStatus === "REVIEW_IN_PROGRESS" || ps.reviewStatus === "UNDER_APPEAL";
-    if (limitato || inEsame) perCampagna[nome].inReview++;
+    return {};
   }
   return perCampagna;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PARTE 5 — ESECUZIONE DELLE OPERAZIONI APPROVATE (scrittura)
+   PARTE 6 — ESECUZIONE DELLE OPERAZIONI APPROVATE (scrittura)
    Questo script SCRIVE su Google Ads, ma solo ciò che è stato approvato a mano
    nell'app. Non decide nulla da sé. Se l'app non risponde, non fa niente.
    Con più account la coda è comune: ogni script esegue SOLO ciò che riguarda
@@ -885,7 +997,7 @@ function budgetCondiviso(campagna) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PARTE 6 — CREAZIONE: keyword nuove e campagne nuove
+   PARTE 7 — CREAZIONE: keyword nuove e campagne nuove
    Le campagne si creano via bulk upload (l'unico modo che gli Script hanno) e
    nascono SEMPRE IN PAUSA: la checklist 4.1 va passata in interfaccia prima di
    accenderle.

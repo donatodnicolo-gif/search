@@ -41,9 +41,10 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
   in Google Ads (Strumenti → Azioni collettive → Script), una copia per account e
   per lavoro. Google Ads esegue sempre `main()`: **il lavoro si sceglie con la
   costante `AZIONE`** — `metriche` (giornaliere + strategia d'offerta) ·
-  `copy` (keyword e RSA) · `asset` (sitelink/callout/snippet/immagini sui 3
-  livelli) · `approvazioni` (stati di review, alert A4) · `esegui` (esegue le
-  operazioni **approvate**) · `tutto`. Config in testa al file: `URL_APP`,
+  `copy` (keyword e RSA) · `gruppi` (gruppi di annunci con spesa e resa, e
+  gruppi di **asset** per le PMax) · `asset` (sitelink/callout/snippet/immagini
+  sui 3 livelli) · `approvazioni` (stati di review, alert A4) · `esegui`
+  (esegue le operazioni **approvate**) · `tutto`. Config in testa al file: `URL_APP`,
   `CHIAVE_API`, `AZIONE`, `BRAND`, `GIORNI_INDIETRO`, `GIORNI_COPY`,
   `INCLUDI_RIMOSSE`. Nessun developer token: gli Scripts girano dentro l'account.
   - **`BRAND` va impostato** (`flowers` | `gifts` | `cake`): i nomi tipo
@@ -61,8 +62,15 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
     non registra l'esito si ferma (prima poteva rifare la stessa operazione).
   - Caricamento storico: `GIORNI_INDIETRO = 400` **+ `INCLUDI_RIMOSSE = true`**
     (senza, la spesa delle campagne poi eliminate non entra mai), una volta sola.
+  - **Gruppi di annunci**: `AZIONE = "gruppi"` manda una riga per gruppo con
+    spesa, clic, conversioni e incasso propri (finestra `GIORNI_COPY`, 30 gg) a
+    `POST /api/v1/ingest/copy` nell'array **`gruppi`** (tipo `gruppo` in
+    `CopyAnnuncio`, con le metriche: l'array `annunci` le ignora). Si leggono
+    nella sezione **"Gruppi di annunci"** di *Copy & annunci*, col ROAS colorato
+    sul break-even del brand. Le PMax non hanno gruppi di annunci: al loro posto
+    arrivano i **gruppi di asset** (vista `asset_group`), marcati nelle note.
   - Banco di prova con Google Ads finto: `scripts/prova-google-ads-script.js`
-    (`node scripts/prova-google-ads-script.js`, 35 controlli).
+    (`node scripts/prova-google-ads-script.js`, 45 controlli).
 - **Meta**: `src/lib/meta.ts` + `POST /api/v1/sync/meta`. Meta non ha gli Scripts:
   è l'app che chiama la Graph API. Serve `META_ACCESS_TOKEN` (utente di sistema
   del Business Manager, non scade). Valore e conversioni **solo** da
