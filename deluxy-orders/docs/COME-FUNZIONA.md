@@ -71,6 +71,31 @@ Dettagli che contano:
 Il registro locale non viene toccato: la consegna la rilegge dagli attributi al
 prossimo import, perché la fonte resta Shopify.
 
+### Il biglietto
+Il simbolo **✉** accanto al numero segnala che l'ordine ha una dedica da
+scrivere. Il testo si legge nella scheda, in evidenza.
+
+Ci sono due casi, e la pagina li distingue perché non valgono uguale:
+- **Biglietto** — arriva da un campo che il sito riempie apposta: è il testo da
+  copiare sul cartoncino.
+- **Possibile biglietto — da verificare** — arriva dalla **nota dell'ordine**,
+  che nomina una dedica ma contiene di tutto. Va letto prima di copiarlo: un
+  primo tentativo che accettava le note contenenti «scriv» o «messaggio» aveva
+  preso per dediche due istruzioni di consegna («contattare per indirizzo di
+  consegna»). Oggi sui negozi Deluxy tutti i biglietti sono di questo tipo,
+  perché nessuno dei tre siti ha un campo dedicato.
+
+### I prodotti dell'ordine
+Le righe d'ordine si importano sempre: titolo, variante, SKU, quantità, prezzo,
+**foto** e le **personalizzazioni** scelte dal cliente («Scritta sulla torta:
+Sofia», «Colore della candelina: Rosso»), esattamente come le mostra Shopify.
+I primi tre prodotti compaiono già sulla scheda dell'ordine nelle colonne, così
+si vede cosa è stato ordinato senza aprire nulla.
+
+> La foto è quella della riga d'ordine. Non si risale a quella del prodotto:
+> servirebbe lo scope `read_products`, che i token non hanno — e chiederlo
+> faceva fallire l'intero import con ACCESS_DENIED su tutti i negozi.
+
 ### Clienti (`/clienti`)
 I clienti non sono una tabella a sé: si **ricavano dagli ordini**. Una persona è
 identificata dall'email; se manca, dal telefono; se manca anche quello, dal

@@ -15,6 +15,8 @@ export type RigaNormalizzata = {
   sku: string | null;
   quantita: number;
   prezzo: number;
+  proprieta: string | null;
+  immagine: string | null;
 };
 
 export type OrdineNormalizzato = {
@@ -38,6 +40,8 @@ export type OrdineNormalizzato = {
   clienteTelefono: string | null;
   dataConsegna: Date | null;
   fasciaConsegna: string | null;
+  biglietto: string | null;
+  bigliettoDaNota: boolean;
   spedizioneNome: string | null;
   indirizzo: string | null;
   citta: string | null;
@@ -85,6 +89,7 @@ query Ordini($cursor: String, $q: String) {
             sku
             variantTitle
             customAttributes { key value }
+            image { url }
             originalUnitPriceSet { shopMoney { amount } }
           } }
         }
@@ -102,6 +107,7 @@ type LineItemNode = {
   sku: string | null;
   variantTitle: string | null;
   customAttributes: Attributo[] | null;
+  image: { url: string } | null;
   originalUnitPriceSet: { shopMoney: { amount: string } } | null;
 };
 
@@ -288,6 +294,10 @@ function giornoUtc(anno: number, mese: number, giorno: number): Date | null {
 
 const RE_DATA = /(data.?consegna|delivery.?date|consegn|delivery|fecha|datum|livraison)/i;
 const RE_FASCIA = /(fascia|orari|\bora\b|\btime\b|slot|hora|uhr|heure)/i;
+// Il biglietto/dedica: nomi diversi a seconda del tema del sito e della lingua.
+// Si escludono le chiavi tecniche (che iniziano per "_") e "messaggio di
+// errore"-simili non esiste qui, quindi basta la parola chiave.
+const RE_BIGLIETTO = /(bigliet|dedica|messagg|message|card|frase|tarjeta|karte|carte)/i;
 
 // La consegna si legge SOLO dagli attributi strutturati dell'ordine, mai dal
 // testo libero delle note. Provarci sembra utile ma produce dati sbagliati: in
@@ -299,6 +309,32 @@ function consegnaDaOrdine(n: OrderNode): { data: Date | null; fascia: string | n
   const data = leggiDataConsegna(cercaAttributo(n, RE_DATA));
   const fascia = cercaAttributo(n, RE_FASCIA);
   return { data, fascia: fascia ? fascia.slice(0, 60) : null };
+}
+
+// Il testo del biglietto. L'attributo strutturato è affidabile: è il campo che
+// il sito riempie apposta. La nota dell'ordine NO: contiene di tutto —
+// indirizzi, preferenze sui fiori, istruzioni per il corriere — e un primo
+// tentativo che la accettava quando conteneva "scriv" o "messaggio" ha preso
+// per dediche due note di consegna ("contattare per indirizzo di consegna").
+//
+// Quindi: dall'attributo si prende il testo come biglietto vero; dalla nota
+// solo se nomina esplicitamente un biglietto o una dedica, e in quel caso la si
+// marca DA VERIFICARE, così in pagina non si spaccia per testo confermato.
+function bigliettoDaOrdine(n: OrderNode): { testo: string | null; daNota: boolean } {
+  const daAttributo = cercaAttributo(n, RE_BIGLIETTO);
+  if (daAttributo) return { testo: daAttributo.slice(0, 1000), daNota: false };
+  const nota = n.note?.trim();
+  if (nota && /bigliett|dedica/i.test(nota)) return { testo: nota.slice(0, 1000), daNota: true };
+  return { testo: null, daNota: false };
+}
+
+// Le personalizzazioni di una riga, come le mostra Shopify. Si scartano le
+// chiavi tecniche (iniziano con "_") e i valori vuoti.
+function proprietaRiga(attributi: Attributo[] | null): string | null {
+  const utili = (attributi ?? [])
+    .filter((a) => a?.key && !a.key.startsWith("_") && a.value && a.value.trim() !== "")
+    .map((a) => `${a.key}: ${a.value!.trim()}`);
+  return utili.length ? utili.join("\n").slice(0, 1500) : null;
 }
 
 // Scarica gli ordini di un negozio, pagina per pagina.
@@ -325,12 +361,18 @@ export async function scaricaOrdini(
       const addr = n.shippingAddress;
       const consegna = consegnaDaOrdine(n);
       const rischio = rischioDaOrdine(n);
+      const biglietto = bigliettoDaOrdine(n);
       const righe: RigaNormalizzata[] = (n.lineItems?.edges ?? []).map(({ node: l }) => ({
         titolo: l.title,
         variante: l.variantTitle,
         sku: l.sku,
         quantita: l.quantity ?? 1,
         prezzo: parseFloat(l.originalUnitPriceSet?.shopMoney?.amount ?? "0") || 0,
+        proprieta: proprietaRiga(l.customAttributes),
+        // foto della riga d'ordine. Non si risale a quella del prodotto:
+        // richiederebbe lo scope read_products, che i token non hanno (e
+        // chiederlo faceva fallire l'INTERO import con ACCESS_DENIED).
+        immagine: l.image?.url ?? null,
       }));
       pagina.push({
         orderId: n.id,
@@ -353,6 +395,8 @@ export async function scaricaOrdini(
         clienteTelefono: n.customer?.phone ?? addr?.phone ?? null,
         dataConsegna: consegna.data,
         fasciaConsegna: consegna.fascia,
+        biglietto: biglietto.testo,
+        bigliettoDaNota: biglietto.daNota,
         spedizioneNome: addr?.name ?? null,
         indirizzo: indirizzoUnaRiga(addr),
         citta: addr?.city ?? null,

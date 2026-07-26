@@ -170,6 +170,7 @@ export function serializzaOrdine(o: OrdineConRelazioni) {
       data: o.dataConsegna ? o.dataConsegna.toISOString().slice(0, 10) : null,
       fascia: o.fasciaConsegna,
     },
+    biglietto: o.biglietto,
     spedizione: {
       nome: o.spedizioneNome,
       indirizzo: o.indirizzo,
@@ -184,6 +185,7 @@ export function serializzaOrdine(o: OrdineConRelazioni) {
       sku: r.sku,
       quantita: r.quantita,
       prezzo: r.prezzo,
+      proprieta: r.proprieta ? r.proprieta.split("\n").filter(Boolean) : [],
     })),
     // Classificazione Deluxy
     classificazione: {
@@ -300,6 +302,16 @@ export function coloreEvasione(s: string | null): string | undefined {
   if (s === "FULFILLED") return "var(--green)";
   if (s === "PARTIALLY_FULFILLED" || s === "ON_HOLD") return "var(--orange)";
   return undefined;
+}
+
+// Link all'ordine nell'admin di Shopify: "gid://shopify/Order/17943253975370"
+// + "deluxygifts.myshopify.com" → admin.shopify.com/store/deluxygifts/orders/17943253975370
+export function linkShopify(dominio: string | null | undefined, orderId: string): string | null {
+  if (!dominio) return null;
+  const negozio = dominio.replace(/\.myshopify\.com$/i, "").trim();
+  const numerico = orderId.split("/").pop();
+  if (!negozio || !numerico || !/^\d+$/.test(numerico)) return null;
+  return `https://admin.shopify.com/store/${negozio}/orders/${numerico}`;
 }
 
 // La consegna richiesta, pronta da mostrare: "gio 30 lug · 16-20".

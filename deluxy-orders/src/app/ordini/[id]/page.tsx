@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import {
   euro, dataBreve, consegnaBreve, urgenzaConsegna,
   evasioneLeggibile, pagamentoLeggibile, motivoLeggibile, coloreEvasione, colorePagamento,
-  rischioLeggibile, rischioDaSegnalare, coloreRischio,
+  rischioLeggibile, rischioDaSegnalare, coloreRischio, linkShopify,
 } from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
@@ -22,7 +22,7 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
         stato: true,
         etichette: true,
         righe: true,
-        negozio: { select: { brand: true } },
+        negozio: { select: { brand: true, dominio: true } },
         eventi: { orderBy: { creatoIl: "desc" }, take: 40 },
       },
     }),
@@ -33,6 +33,7 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
 
   // nome del brand nell'app Ricerca fornitori, per il link rapido
   const brandRicerca = await brandPerRicerca(ordine.brand);
+  const urlShopify = linkShopify(ordine.negozio?.dominio, ordine.orderId);
 
   const etichetteAttive = new Set(ordine.etichette.map((e) => e.id));
 
@@ -65,6 +66,12 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
           <Link className="btn btn-secondario" href={`/ordini/${ordine.id}/fornitori`}>
             Fornitori vicini qui
           </Link>
+          {/* L'ordine originale su Shopify, per tutto ciò che qui non si replica */}
+          {urlShopify && (
+            <a className="btn btn-secondario" href={urlShopify} target="_blank" rel="noopener noreferrer">
+              Apri su Shopify
+            </a>
+          )}
         </div>
         <div>
           <h1 className="page-title">{ordine.numero}</h1>
@@ -172,6 +179,25 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
         </form>
       </div>
 
+      {/* Biglietto: per un fioraio è il dato da non sbagliare, va scritto a mano */}
+      {ordine.biglietto && (
+        <div className="scheda">
+          <div className="scheda-titolo">
+            ✉ {ordine.bigliettoDaNota ? "Possibile biglietto — da verificare" : "Biglietto"}
+          </div>
+          <blockquote className={`testo-biglietto${ordine.bigliettoDaNota ? " da-verificare" : ""}`}>
+            {ordine.biglietto}
+          </blockquote>
+          {ordine.bigliettoDaNota && (
+            <p className="testo-guida" style={{ marginTop: 8 }}>
+              Questo testo è la <strong>nota dell&apos;ordine</strong>, non un campo biglietto compilato dal
+              sito: nomina una dedica, ma può contenere anche indirizzi e istruzioni per la consegna.
+              Va letto prima di copiarlo sul cartoncino.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Rischio frode: si mostra la scheda solo se c'è qualcosa da sapere */}
       {(rischioDaSegnalare(ordine.rischioLivello) || ordine.rischioMotivi) && (
         <div className="scheda">
@@ -229,9 +255,21 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
           <ul className="righe" style={{ marginTop: 16 }}>
             {ordine.righe.map((r) => (
               <li key={r.id}>
+                {r.immagine && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="riga-foto" src={r.immagine} alt="" loading="lazy" />
+                )}
                 <span className="riga-qta">{r.quantita}×</span>
                 <span className="riga-titolo">
                   {r.titolo}{r.variante ? ` — ${r.variante}` : ""}{r.sku ? ` · ${r.sku}` : ""}
+                  {/* Personalizzazioni scelte dal cliente, come le mostra Shopify */}
+                  {r.proprieta && (
+                    <span className="riga-proprieta">
+                      {r.proprieta.split("\n").filter(Boolean).map((p, i) => (
+                        <span key={i} className="proprieta">{p}</span>
+                      ))}
+                    </span>
+                  )}
                 </span>
                 <span className="riga-prezzo">{euro(r.prezzo, ordine.valuta)}</span>
               </li>

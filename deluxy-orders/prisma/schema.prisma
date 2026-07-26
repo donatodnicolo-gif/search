@@ -130,6 +130,14 @@ model Ordine {
   dataConsegna   DateTime? // giorno di consegna richiesto
   fasciaConsegna String? // fascia oraria, come scritta dal negozio
 
+  // Testo del biglietto/dedica che accompagna il regalo. Per un fioraio è il
+  // dato che non si può sbagliare: va scritto a mano sul cartoncino.
+  biglietto String?
+  // true = il testo non è un attributo strutturato ma la nota dell'ordine, che
+  // *sembra* contenere una dedica. Va letto e verificato, non copiato alla
+  // cieca: nelle note finiscono anche indirizzi e istruzioni per il corriere.
+  bigliettoDaNota Boolean @default(false)
+
   // spedizione
   spedizioneNome String?
   indirizzo      String?
@@ -189,6 +197,12 @@ model RigaOrdine {
   sku      String?
   quantita Int     @default(1)
   prezzo   Float   @default(0) // prezzo unitario
+  // Personalizzazioni scelte dal cliente sul prodotto ("Scritta sulla torta:
+  // Sofia", "Colore della candelina: Rosso"): su Shopify sono le proprietà
+  // della riga. Servono a chi prepara l'ordine, quindi si mostrano come lì.
+  // Una per riga, nel formato "chiave: valore".
+  proprieta String?
+  immagine  String? // foto del prodotto (CDN Shopify), per riconoscerlo a colpo d'occhio
 
   @@index([ordineId])
 }

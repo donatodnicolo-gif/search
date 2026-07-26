@@ -39,7 +39,7 @@ export default async function ElencoOrdini({
     vista === "elenco"
       ? prisma.ordine.findMany({
           where,
-          include: { stato: true, etichette: true, negozio: { select: { brand: true } } },
+          include: { stato: true, etichette: true, negozio: { select: { brand: true } }, righe: { select: { id: true, titolo: true, quantita: true } } },
           orderBy: { data: "desc" },
           skip: (pagina - 1) * PER_PAGINA,
           take: PER_PAGINA,
@@ -59,7 +59,7 @@ export default async function ElencoOrdini({
               prisma.ordine.aggregate({ where: dove, _sum: { totale: true } }),
               prisma.ordine.findMany({
                 where: dove,
-                include: { stato: true, etichette: true },
+                include: { stato: true, etichette: true, righe: { select: { id: true, titolo: true, quantita: true } } },
                 orderBy: { data: "desc" },
                 take: PER_COLONNA,
               }),
@@ -244,7 +244,12 @@ export default async function ElencoOrdini({
                   suoi.map((o) => (
                     <div className={`card-ordine card-brand${o.annullatoIl ? " ordine-annullato" : ""}`} key={o.id}>
                       <div className="card-testa">
-                        <Link href={`/ordini/${o.id}`} className="card-numero">{o.numero}</Link>
+                        <Link href={`/ordini/${o.id}`} className="card-numero">
+                          {o.numero}
+                          {o.biglietto && (
+                            <span className="simbolo-biglietto" title="C'è un biglietto da scrivere">✉</span>
+                          )}
+                        </Link>
                         <span className="card-totale">{euro(o.totale, o.valuta)}</span>
                       </div>
                       {/* Rischio frode: solo medio/alto, altrimenti è rumore */}
@@ -270,6 +275,20 @@ export default async function ElencoOrdini({
                         {o.clienteNome ?? o.spedizioneNome ?? "—"}
                         {o.citta ? ` · ${o.citta}` : ""}
                       </div>
+                      {/* Cosa è stato ordinato: è la prima cosa che serve sapere */}
+                      {o.righe.length > 0 && (
+                        <div className="card-prodotti">
+                          {o.righe.slice(0, 3).map((r) => (
+                            <span key={r.id} className="prodotto-riga">
+                              {r.quantita > 1 && <span className="prodotto-qta">{r.quantita}× </span>}
+                              {r.titolo}
+                            </span>
+                          ))}
+                          {o.righe.length > 3 && (
+                            <span className="prodotto-riga prodotto-altri">+{o.righe.length - 3} altri</span>
+                          )}
+                        </div>
+                      )}
                       {/* Consegna richiesta: è il dato operativo più importante */}
                       {consegnaBreve(o.dataConsegna, o.fasciaConsegna) ? (
                         <div className={`consegna consegna-${urgenzaConsegna(o.dataConsegna) ?? "futura"}`}>
@@ -354,7 +373,12 @@ export default async function ElencoOrdini({
                 {ordini.map((o) => (
                   <tr key={o.id} className={`riga-brand${o.annullatoIl ? " ordine-annullato" : ""}`} style={{ ["--brand" as string]: coloreBrand(colori, o.brand) }}>
                     <td>
-                      <Link href={`/ordini/${o.id}`} className="cella-nome">{o.numero}</Link>
+                      <Link href={`/ordini/${o.id}`} className="cella-nome">
+                        {o.numero}
+                        {o.biglietto && (
+                          <span className="simbolo-biglietto" title="C'è un biglietto da scrivere">✉</span>
+                        )}
+                      </Link>
                       {rischioDaSegnalare(o.rischioLivello) && (
                         <span className="badge-rischio" style={{ color: coloreRischio(o.rischioLivello) }} title={o.rischioMotivi ?? ""}>
                           ⚠ {rischioLeggibile(o.rischioLivello)}

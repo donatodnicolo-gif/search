@@ -279,6 +279,58 @@ td .btn-fornitore { margin-top: 0; }
   font-size: 14px;
 }
 
+/* ---------- Prodotti nella scheda dell'ordine ---------- */
+.card-prodotti {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 6px;
+  padding-left: 9px;
+  border-left: 2px solid var(--hairline);
+}
+.prodotto-riga {
+  font-size: 12.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.prodotto-qta { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.prodotto-altri { color: var(--text-tertiary); font-style: italic; }
+
+/* Foto del prodotto nel dettaglio, come su Shopify */
+.riga-foto {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-s);
+  object-fit: cover;
+  background: var(--fill);
+  flex: 0 0 auto;
+}
+
+/* ---------- Biglietto ---------- */
+.simbolo-biglietto {
+  margin-left: 6px;
+  color: var(--gold-strong);
+  font-size: 13px;
+  vertical-align: baseline;
+}
+.testo-biglietto {
+  margin: 0;
+  padding: 14px 18px;
+  background: var(--gold-soft);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-s);
+  font-size: 15px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Personalizzazioni della riga d'ordine (come su Shopify) */
+.riga-proprieta { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.proprieta { font-size: 12.5px; color: var(--text-secondary); }
+
 /* ---------- Rischio frode ---------- */
 .badge-rischio {
   display: inline-flex;

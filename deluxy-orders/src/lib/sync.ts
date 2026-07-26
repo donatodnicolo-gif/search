@@ -92,6 +92,20 @@ async function conRiprova<T>(operazione: () => Promise<T>, tentativi = 7): Promi
   throw ultimo;
 }
 
+// Le righe vanno riscritte se è cambiato il numero (un rimborso parziale toglie
+// un articolo) oppure le personalizzazioni scelte dal cliente. Confrontare solo
+// il numero non bastava: le personalizzazioni sono arrivate dopo, e sugli
+// ordini già salvati non sarebbero mai comparse.
+function righeCambiate(
+  salvate: { proprieta: string | null }[],
+  arrivate: { proprieta: string | null }[],
+): boolean {
+  if (salvate.length !== arrivate.length) return true;
+  const chiave = (r: { proprieta: string | null }[]) =>
+    r.map((x) => x.proprieta ?? "").sort().join("|");
+  return chiave(salvate) !== chiave(arrivate);
+}
+
 // Campi Shopify di un ordine (sempre aggiornati: sono informativi).
 function datiShopify(brand: string, o: OrdineNormalizzato) {
   return {
@@ -114,6 +128,8 @@ function datiShopify(brand: string, o: OrdineNormalizzato) {
     clienteTelefono: o.clienteTelefono,
     dataConsegna: o.dataConsegna,
     fasciaConsegna: o.fasciaConsegna,
+    biglietto: o.biglietto,
+    bigliettoDaNota: o.bigliettoDaNota,
     spedizioneNome: o.spedizioneNome,
     indirizzo: o.indirizzo,
     citta: o.citta,
@@ -147,6 +163,8 @@ async function salvaBloccoOrdini(
       categoriaPagamento: true,
       categoriaPagamentoManuale: true,
       _count: { select: { righe: true } },
+      // le personalizzazioni salvate, per capire se le righe vanno riscritte
+      righe: { select: { proprieta: true } },
       // serve a capire se l'ordine è cambiato davvero (vedi sotto)
       brand: true,
       numero: true,
@@ -167,6 +185,8 @@ async function salvaBloccoOrdini(
       clienteTelefono: true,
       dataConsegna: true,
       fasciaConsegna: true,
+      biglietto: true,
+      bigliettoDaNota: true,
       spedizioneNome: true,
       indirizzo: true,
       citta: true,
@@ -200,13 +220,22 @@ async function salvaBloccoOrdini(
     });
     const idPerOrderId = new Map(creati.map((c) => [c.orderId, c.id]));
 
-    const righe: { ordineId: string; titolo: string; variante: string | null; sku: string | null; quantita: number; prezzo: number }[] = [];
+    const righe: {
+      ordineId: string;
+      titolo: string;
+      variante: string | null;
+      sku: string | null;
+      quantita: number;
+      prezzo: number;
+      proprieta: string | null;
+      immagine: string | null;
+    }[] = [];
     const eventi: { ordineId: string; tipo: string; descrizione: string; autore: string }[] = [];
     for (const o of nuovi) {
       const id = idPerOrderId.get(o.orderId);
       if (!id) continue;
       for (const r of o.righe) {
-        righe.push({ ordineId: id, titolo: r.titolo, variante: r.variante, sku: r.sku, quantita: r.quantita, prezzo: r.prezzo });
+        righe.push({ ordineId: id, titolo: r.titolo, variante: r.variante, sku: r.sku, quantita: r.quantita, prezzo: r.prezzo, proprieta: r.proprieta, immagine: r.immagine });
       }
       eventi.push({
         ordineId: id,
@@ -237,15 +266,18 @@ async function salvaBloccoOrdini(
         ...datiShopify(brand, o),
         // categoria: aggiorna solo se non corretta a mano
         ...(e.categoriaPagamentoManuale ? {} : { categoriaPagamento: o.categoriaPagamento }),
-        // righe: si riscrivono solo se cambiate di numero (rimborsi/modifiche),
-        // altrimenti si evita un delete+insert inutile a ogni sync
-        ...(e._count.righe === o.righe.length
+        // righe: si riscrivono se è cambiato il numero (rimborsi/modifiche) o
+        // se sono cambiate le personalizzazioni; altrimenti si evita un
+        // delete+insert inutile a ogni sync
+        ...(!righeCambiate(e.righe, o.righe)
           ? {}
           : {
               righe: {
                 deleteMany: {},
                 create: o.righe.map((r) => ({
                   titolo: r.titolo,
+                  proprieta: r.proprieta,
+                  immagine: r.immagine,
                   variante: r.variante,
                   sku: r.sku,
                   quantita: r.quantita,
@@ -268,6 +300,7 @@ type OrdineSalvato = {
   categoriaPagamento: string;
   categoriaPagamentoManuale: boolean;
   _count: { righe: number };
+  righe: { proprieta: string | null }[];
   brand: string;
   numero: string;
   data: Date;
@@ -287,6 +320,8 @@ type OrdineSalvato = {
   clienteTelefono: string | null;
   dataConsegna: Date | null;
   fasciaConsegna: string | null;
+  biglietto: string | null;
+  bigliettoDaNota: boolean;
   spedizioneNome: string | null;
   indirizzo: string | null;
   citta: string | null;
@@ -323,6 +358,8 @@ function cambiato(e: OrdineSalvato, o: OrdineNormalizzato, brand: string): boole
   if (e.clienteTelefono !== o.clienteTelefono) return true;
   if (!dataUguale(e.dataConsegna, o.dataConsegna)) return true;
   if (e.fasciaConsegna !== o.fasciaConsegna) return true;
+  if (e.biglietto !== o.biglietto) return true;
+  if (e.bigliettoDaNota !== o.bigliettoDaNota) return true;
   if (e.spedizioneNome !== o.spedizioneNome) return true;
   if (e.indirizzo !== o.indirizzo) return true;
   if (e.citta !== o.citta) return true;
@@ -331,7 +368,7 @@ function cambiato(e: OrdineSalvato, o: OrdineNormalizzato, brand: string): boole
   if (e.paese !== o.paese) return true;
   if (e.noteShopify !== o.noteShopify) return true;
   if (e.tagShopify !== o.tagShopify) return true;
-  if (e._count.righe !== o.righe.length) return true;
+  if (righeCambiate(e.righe, o.righe)) return true;
   if (e.brand !== brand) return true; // il negozio è stato rinominato
   if (!e.categoriaPagamentoManuale && e.categoriaPagamento !== o.categoriaPagamento) return true;
   return false;
