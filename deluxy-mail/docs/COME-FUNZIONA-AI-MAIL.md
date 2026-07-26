@@ -78,6 +78,23 @@ mai inventata.
 Se una regola ha `creaAttivita` ma l'AI non ha trovato niente da fare, viene creata
 comunque un'attività generica ("Gestire: <oggetto>"): l'hai chiesto tu esplicitamente.
 
+### Le attività vivono anche in Deluxy Tasks
+
+Le cose da fare di una persona non devono stare in dieci elenchi diversi, uno per app.
+Le attività di AI Mail vanno perciò anche nel registro condiviso **Deluxy Tasks**, e
+l'allineamento va nei **due sensi**:
+
+- quello che succede **qui** arriva **là**: spuntando un'attività si chiude anche nel
+  registro, **subito**; cancellandola, viene archiviata anche là;
+- quello che succede **là** torna **qui**: se chiudi la task dall'elenco condiviso (o la
+  chiude un'altra app), al giro di sincronizzazione successivo risulta fatta anche in AI
+  Mail. Tornano anche scadenza, priorità, titolo e descrizione.
+
+Parte solo ciò che è **cambiato**, e le modifiche fatte da noi non rimbalzano indietro.
+Il collegamento si attiva in **Impostazioni → App Deluxy** incollando la chiave di
+scrittura del registro; lì c'è anche **«Sincronizza adesso»**, che allinea subito e dice
+quante attività sono partite e quante sono arrivate.
+
 ## 6. Bozze
 
 La bozza si genera quando l'AI valuta che serve una risposta (`serveRisposta`) oppure

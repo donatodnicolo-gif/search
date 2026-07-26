@@ -44,16 +44,19 @@ export async function GET(request: Request) {
 
     const esiti = await sincronizzaTutti()
 
-    // Finito di leggere la posta, le attività (vecchie e nuove) vanno al
-    // registro centralizzato: è lì che la persona vede tutte le sue cose da
-    // fare. Se il registro non risponde, la sincronizzazione della posta resta
-    // comunque riuscita.
+    // Finito di leggere la posta, le attività si allineano col registro
+    // centralizzato NEI DUE SENSI: prima si applica qui quello che è cambiato
+    // dentro Tasks (una task chiusa là dev'essere chiusa anche qui), poi si
+    // manda ciò che è cambiato qui. Se il registro non risponde, la
+    // sincronizzazione della posta resta comunque riuscita.
     const registro = await sincronizzaAttivitaConRegistro({
       forza: parametri.get('forzaRegistro') === '1',
     }).catch((e) => ({
       attivo: false,
       inviate: 0,
       invariate: 0,
+      ricevute: 0,
+      archiviate: 0,
       errori: 0,
       messaggio: e instanceof Error ? e.message : 'Errore imprevisto',
     }))

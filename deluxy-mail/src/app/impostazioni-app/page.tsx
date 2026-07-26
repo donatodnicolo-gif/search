@@ -4,6 +4,7 @@ import { AzioniRegolaApp } from '@/components/AzioniRegolaApp'
 import { ChiaveAppForm } from '@/components/ChiaveAppForm'
 import { ValoreCondizione } from '@/components/ValoreCondizione'
 import { TokenApi } from '@/components/TokenApi'
+import { SincronizzaRegistro } from '@/components/SincronizzaRegistro'
 import { descriviAzioni, statoApp } from '@/lib/appDeluxy'
 import { leggiChiaviApp, statoChiaviApp } from '@/lib/chiaviApp'
 import { tokenApiConfigurato } from '@/lib/apiAuth'
@@ -129,10 +130,12 @@ export default async function ImpostazioniApp() {
       {/* ---------- Registro centralizzato delle attività ---------- */}
       <h2 className="section-title">Registro Attività (Deluxy Tasks)</h2>
       <p className="page-caption" style={{ marginBottom: 14 }}>
-        Le attività create qui (dall’AI, dalle regole o a mano) vengono mandate al registro
+        Le attività create qui (dall’AI, dalle regole o a mano) vivono anche nel registro
         centralizzato <strong>Attività</strong>, dove ogni persona vede in un posto solo le cose da
-        fare che arrivano da tutte le app Deluxy. Si aggiornano da sole a ogni sincronizzazione
-        della posta: parte solo ciò che è cambiato, e chiudere un’attività qui la chiude anche là.
+        fare che arrivano da tutte le app Deluxy. L’allineamento va nei <strong>due sensi</strong>:
+        chiudere un’attività qui la chiude anche là (subito), e una task chiusa o modificata dentro
+        Attività — o da un’altra app — torna qui al giro di sincronizzazione successivo. Parte solo
+        ciò che è cambiato, e un’attività cancellata qui viene archiviata anche là.
         Serve una chiave di <strong>scrittura</strong> del registro.
       </p>
       <div className="card" style={{ marginBottom: 24 }}>
@@ -160,6 +163,9 @@ export default async function ImpostazioniApp() {
             {chiavi.tasks ? 'Collegato.' : 'Non ancora collegato.'}
           </div>
         )}
+        {/* Poter sincronizzare a mano e vedere il conto è ciò che rende
+            verificabile il collegamento, invece di doversi fidare. */}
+        {isAdmin && chiavi.tasks && <SincronizzaRegistro />}
       </div>
 
       {/* ---------- Regole: quando una mail va a un'app ---------- */}

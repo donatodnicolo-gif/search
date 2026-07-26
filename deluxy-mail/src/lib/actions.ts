@@ -80,6 +80,7 @@ function corpoDaForm(grezzo: string): { html: string | undefined; testo: string 
 }
 import { db } from './db'
 import { cifra, decifra } from './crypto'
+import { allineaAttivitaOra } from './registroTask'
 import {
   analizzaContattoOra,
   analizzaMessaggioOra,
@@ -1398,11 +1399,18 @@ export async function segnaAttivita(id: string, fatta: boolean) {
     where: { id, utenteId: await uid() },
     data: { fatta, fattaIl: fatta ? new Date() : null },
   })
+  // Il registro condiviso (Deluxy Tasks) va allineato SUBITO: aspettare il giro
+  // del cron vorrebbe dire due elenchi che si contraddicono per cinque minuti.
+  // È best-effort e con attesa cortissima: non fa mai aspettare la spunta.
+  await allineaAttivitaOra(id).catch(() => {})
   revalidatePath('/', 'layout')
 }
 
 export async function eliminaAttivita(id: string) {
   await db.attivita.deleteMany({ where: { id, utenteId: await uid() } })
+  // Cancellata qui = archiviata anche nel registro, altrimenti resterebbe
+  // nell'elenco condiviso per sempre.
+  await allineaAttivitaOra(id, true).catch(() => {})
   revalidatePath('/attivita')
 }
 
@@ -3223,6 +3231,35 @@ export async function salvaChiaveAppAction(
   await salvaChiaveApp(nome as NomeChiaveApp, valore)
   revalidatePath('/impostazioni-app')
   return { ok: true, messaggio: valore.trim() ? 'Chiave salvata e collegata.' : 'Chiave rimossa.' }
+}
+
+/**
+ * Sincronizza ADESSO le attività col registro condiviso, senza aspettare il
+ * giro del cron. Serve al primo allineamento e, soprattutto, a poter verificare
+ * che il collegamento funzioni davvero: un'integrazione che si vede solo cinque
+ * minuti dopo è indistinguibile da una che non funziona.
+ */
+export async function sincronizzaRegistroOra(
+  forza = false
+): Promise<{ ok: boolean; messaggio: string }> {
+  const u = await utenteCorrente()
+  if (!u) return { ok: false, messaggio: 'Sessione scaduta: rientra.' }
+  if (u.ruolo !== 'admin') return { ok: false, messaggio: 'Solo un amministratore può sincronizzare.' }
+
+  const { sincronizzaAttivitaConRegistro } = await import('./registroTask')
+  const e = await sincronizzaAttivitaConRegistro({ forza })
+  if (!e.attivo) return { ok: false, messaggio: e.messaggio ?? 'Registro non collegato.' }
+
+  revalidatePath('/attivita')
+  revalidatePath('/', 'layout')
+  const pezzi = [
+    `${e.inviate} mandate`,
+    `${e.invariate} già allineate`,
+    `${e.ricevute} ricevute da Attività`,
+  ]
+  if (e.archiviate > 0) pezzi.push(`${e.archiviate} archiviate là`)
+  if (e.errori > 0) pezzi.push(`${e.errori} non riuscite`)
+  return { ok: e.errori === 0, messaggio: `${pezzi.join(' · ')}.` }
 }
 
 export async function attivaRegolaApp(id: string, attiva: boolean) {
