@@ -9,7 +9,19 @@ import { categoriaDaGateway, type OrdineNormalizzato } from "./shopify";
 // Env: ORDERS_URL (default deluxy-orders.vercel.app) + ORDERS_API_KEY (chiave di
 // lettura emessa da Deluxy Orders: `npm run chiave -- deluxy-partner-import`).
 
-export type OrdineRegistro = OrdineNormalizzato & { brand: string };
+// Gli ordini ANNULLATI servono a FINANCE, a differenza delle app operative.
+// Il registro di default non li serve (un'app che smista ordini non deve
+// lavorarne uno annullato), ma qui dietro c'è del denaro da quadrare: rimborsi
+// da registrare e incassi realmente avvenuti su ordini poi annullati — un
+// ordine annullato resta spesso "PAID". Per questo si chiede `annullati=inclusi`
+// e si porta avanti il flag, invece di far sparire silenziosamente gli ordini:
+// senza, un ordine già importato e poi annullato non tornerebbe più nella
+// risposta e FINANCE se lo terrebbe per valido per sempre.
+export type OrdineRegistro = OrdineNormalizzato & {
+  brand: string;
+  annullato: boolean;
+  annullatoIl: Date | null;
+};
 
 function baseUrl(): string {
   return (process.env.ORDERS_URL || "https://deluxy-orders.vercel.app").replace(/\/$/, "");
@@ -26,7 +38,13 @@ type OrdineApi = {
   data: string;
   totale: number;
   valuta: string;
-  shopify?: { financialStatus?: string | null; gateway?: string | null; note?: string | null };
+  shopify?: {
+    financialStatus?: string | null;
+    gateway?: string | null;
+    note?: string | null;
+    annullato?: boolean;
+    annullatoIl?: string | null;
+  };
   cliente?: { nome?: string | null; email?: string | null };
 };
 
@@ -39,7 +57,8 @@ export async function scaricaOrdiniDaRegistro(dal: Date | null, maxPagine = 400)
   const out: OrdineRegistro[] = [];
 
   for (let page = 1; page <= maxPagine; page++) {
-    const url = `${baseUrl()}/api/v1/ordini?limit=200&page=${page}${daParam}`;
+    // annullati=inclusi: vedi il commento su OrdineRegistro
+    const url = `${baseUrl()}/api/v1/ordini?limit=200&annullati=inclusi&page=${page}${daParam}`;
     const res = await fetch(url, {
       headers: { "x-api-key": key },
       signal: AbortSignal.timeout(20000),
@@ -64,6 +83,8 @@ export async function scaricaOrdiniDaRegistro(dal: Date | null, maxPagine = 400)
         clienteNome: o.cliente?.nome ?? null,
         clienteEmail: o.cliente?.email ?? null,
         note: o.shopify?.note?.trim() || null,
+        annullato: Boolean(o.shopify?.annullato),
+        annullatoIl: o.shopify?.annullatoIl ? new Date(o.shopify.annullatoIl) : null,
       });
     }
     if (ordini.length === 0 || (j.pagine && page >= j.pagine)) break;

@@ -36,9 +36,12 @@ export async function eseguiSyncOrdini(
       continue;
     }
 
-    // Salva una pagina di ordini appena arriva da Shopify.
+    // Salva una pagina di ordini appena arriva da Shopify, riprovando se il
+    // database chiude la connessione (vedi conRiprova).
     const salvaPagina = async (ordini: OrdineNormalizzato[], pagina: number) => {
-      const esito = await salvaBloccoOrdini(neg.id, neg.brand, ordini, iniziale?.id ?? null);
+      const esito = await conRiprova(() =>
+        salvaBloccoOrdini(neg.id, neg.brand, ordini, iniziale?.id ?? null),
+      );
       nuovi += esito.nuovi;
       aggiornati += esito.aggiornati;
       onProgresso?.({ brand: neg.brand, pagina, nuovi, aggiornati });
@@ -53,6 +56,35 @@ export async function eseguiSyncOrdini(
     await prisma.negozioShopify.update({ where: { id: neg.id }, data: { ultimaSync: new Date() } });
   }
   return { nuovi, aggiornati, errori };
+}
+
+// Su un import storico si resta collegati al database per più di un'ora e il
+// pooler di Supabase ogni tanto chiude la connessione: senza rete di sicurezza
+// l'intero giro si interrompe a metà (è successo tre volte, sempre sul negozio
+// più grande). Prisma riapre da sé alla query successiva, quindi basta
+// riprovare con una pausa crescente.
+//
+// Si riprova l'INTERA pagina, non la singola query: il salvataggio è
+// idempotente (createMany con skipDuplicates, e al secondo giro gli ordini
+// risultano già presenti e passano dal ramo di aggiornamento), quindi ripeterlo
+// non crea doppioni.
+async function conRiprova<T>(operazione: () => Promise<T>, tentativi = 4): Promise<T> {
+  let ultimo: unknown;
+  for (let t = 0; t < tentativi; t++) {
+    try {
+      return await operazione();
+    } catch (e) {
+      const messaggio = (e as Error).message ?? "";
+      const connessionePersa =
+        /closed the connection|Can't reach database|Connection (reset|refused|closed)|ECONNRESET|Timed out fetching/i.test(
+          messaggio,
+        );
+      if (!connessionePersa || t === tentativi - 1) throw e;
+      ultimo = e;
+      await new Promise((r) => setTimeout(r, 3000 * (t + 1)));
+    }
+  }
+  throw ultimo;
 }
 
 // Campi Shopify di un ordine (sempre aggiornati: sono informativi).
