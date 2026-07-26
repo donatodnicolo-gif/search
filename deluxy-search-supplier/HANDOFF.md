@@ -221,6 +221,19 @@ solo dove siamo e come si lavora.
      apertura e sync gemello testati a runtime. Non collaudato end-to-end su Google (serve
      chiave+login reali): da verificare in produzione su un ordine vero.
 
+29. **Mobile + estendi in fondo alla lista** (26/07, follow-up del 28): due rifiniture.
+   - **Estendi anche con risultati**: oltre al bottone su ricerca vuota (`#noResults`), c'è
+     `#extendMore` in **fondo alla lista** (`showExtendFooter`), visibile dopo ogni ricerca con
+     risultati — così si allarga l'area anche quando qualche negozio c'è. Se la ricerca è già
+     stata estesa resta solo il messaggio (siamo già a ~40 km, bottone nascosto). Stessa
+     `extendSearch`. Nascosto a inizio ricerca (`run()` e `renderResults`).
+   - **Fix mobile intestazione schede** (`@media(max-width:560px)`): `.shop .head` diventa a
+     colonna e la colonna badge (inline `flex-direction:column; align-items:flex-end`) passa a
+     **riga con wrap** via `!important` — prima il nome lungo si schiacciava a ~150px su 5 righe
+     con i badge accanto; ora titolo a piena larghezza (2 righe) e badge a capo sotto. Idem
+     `.ct-card .top`; `.content`/`.deal` con padding ridotto; pillole filtro a larghezza piena.
+     Verificato a 375px (nessun overflow) e a >560px (layout affiancato invariato).
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche

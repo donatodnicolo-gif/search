@@ -272,6 +272,20 @@
     .content .wrap, .page-head{max-width:100%}
   }
   footer{ text-align:center; color:var(--text-tertiary); font-size:12px; padding:24px}
+  /* --- mobile: intestazione schede impilata (titolo a piena larghezza, badge a capo sotto) --- */
+  @media(max-width:560px){
+    .shop .head{ flex-direction:column; align-items:stretch !important; gap:8px }
+    .shop .head > div{ flex-direction:row !important; align-items:center !important; flex-wrap:wrap !important; gap:6px !important }
+    .shop .head .star-btn{ order:2 }
+    .shop h3{ font-size:17px }
+    /* schede contatti: stessa logica testa/badge */
+    .ct-card .top{ flex-direction:column; align-items:stretch; gap:8px }
+    /* riepilogo ordine: foto sopra, prezzi sotto (già 1 colonna) con un po' meno padding */
+    .deal{ padding:16px; gap:14px }
+    .content{ padding:16px 12px 28px }
+    /* pillole filtro a larghezza piena e ben distribuite */
+    #waFilter .wchip, #openFilter .wchip{ min-width:0; flex:1 1 30% }
+  }
 </style>
 </head>
 <body>
@@ -625,6 +639,12 @@
       </div>
 
       <div class="results" id="results"></div>
+
+      <!-- in fondo alla lista: allarga la ricerca a un'area più ampia (anche con risultati) -->
+      <div id="extendMore" style="display:none; margin:16px 0 4px; padding:16px; background:var(--fill); border:1px solid var(--hairline); border-radius:var(--radius-l); text-align:center">
+        <div class="hint" id="extendMoreMsg" style="margin:0 0 12px">Non trovi il fornitore giusto? Puoi cercare in un'area più ampia.</div>
+        <button class="btn" id="extendMoreBtn" type="button" style="width:auto; padding:12px 20px">🔎 Estendi la ricerca (~40 km)</button>
+      </div>
     </div><!-- /col-right -->
     </div><!-- /cols -->
 
@@ -2664,6 +2684,7 @@ async function run(){
     lastSearchCtx = { service, origin, geo };   // per «Estendi la ricerca»
     resetMap();                                  // nuova ricerca → mappa azzerata
     $('#noResults').style.display = 'none';
+    $('#extendMore').style.display = 'none';
 
     // ricerca per ogni categoria selezionata
     let found = [];
@@ -2717,6 +2738,7 @@ async function renderResults(found, geo, origin, service, opts){
   const storicoPromise = apiFetch('/api/storico').then(r=>r.json()).then(j=>j.eventi||[]).catch(()=>[]);
 
   resultsEl.innerHTML = '';
+  $('#extendMore').style.display = 'none';
   resetMap();
   mapPoints = [];
 
@@ -2795,6 +2817,7 @@ async function renderResults(found, geo, origin, service, opts){
   applyFilters();
   $('#resultTools').style.display = 'block';           // filtri + bottone mappa sopra i risultati
   $('#toggleMap').style.display = mapPoints.length ? '' : 'none';
+  showExtendFooter(extended);                          // «estendi» anche in fondo alla lista
   const address = $('#address').value.trim();
   const extNote = extended ? ' · 🔎 area allargata (~40 km)' : '';
   const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
@@ -2876,6 +2899,16 @@ async function extendSearch(){
   }
 }
 $('#extendBtn').addEventListener('click', extendSearch);
+$('#extendMoreBtn').addEventListener('click', extendSearch);
+// footer «estendi» in fondo alla lista: sempre visibile dopo una ricerca con risultati.
+// Se la ricerca è già stata allargata, resta solo il messaggio (siamo già a ~40 km).
+function showExtendFooter(extended){
+  $('#extendMoreMsg').textContent = extended
+    ? 'Questi risultati sono già su un\'area più ampia (~40 km dalla consegna).'
+    : 'Non trovi il fornitore giusto? Cerca lo stesso tipo di negozio in un\'area più ampia (~40 km).';
+  $('#extendMoreBtn').style.display = extended ? 'none' : '';
+  $('#extendMore').style.display = 'block';
+}
 
 /* ------------------ MAPPA dei risultati (Google Maps) ------------------ */
 let mapState = null;   // { map, info, markers:{sid:marker}, originMarker }
