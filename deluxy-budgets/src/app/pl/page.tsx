@@ -4,6 +4,7 @@ import {
   LIVELLI, type Livello, type PL,
 } from "@/lib/calc";
 import { eur, MESI, pct } from "@/lib/format";
+import { caricaConsuntivo, type ConsuntivoPeriodo } from "@/lib/consuntivo";
 
 export const dynamic = "force-dynamic";
 
@@ -14,18 +15,23 @@ type Riga = {
   valore: (pl: PL) => number;
   tipo?: "costo" | "totale" | "risultato";
   nota?: string;
+  // Quanto è successo davvero sui mesi chiusi. `null` = nel consuntivo quella
+  // riga non esiste (i premi si liquidano a fine anno, al raggiungimento: non
+  // si consuntivano mese per mese). Meglio una casella vuota di uno zero che
+  // sembra un dato.
+  cons?: (c: ConsuntivoPeriodo) => number | null;
 };
 
 const RIGHE_FISSE: Riga[] = [
-  { label: "Totale ricavi", valore: (pl) => pl.ricavi, tipo: "totale" },
-  { label: "Costo del venduto", valore: (pl) => pl.cogs, tipo: "costo", nota: "per tipologia, dai margini impostati" },
-  { label: "Margine lordo", valore: (pl) => pl.margineLordo, tipo: "totale" },
-  { label: "Spesa pubblicitaria (ADV)", valore: (pl) => pl.adv, tipo: "costo", nota: "% sulle vendite per maison/mese" },
-  { label: "Costo del personale", valore: (pl) => pl.personale, tipo: "costo", nota: "dipendenti, stagisti e consulenti" },
-  { label: "Costi di struttura", valore: (pl) => pl.costiFissi, tipo: "costo" },
-  { label: "EBITDA", valore: (pl) => pl.ebitda, tipo: "risultato" },
-  { label: "Premi al raggiungimento", valore: (pl) => pl.premio, tipo: "costo" },
-  { label: "Risultato netto", valore: (pl) => pl.risultatoNetto, tipo: "risultato" },
+  { label: "Totale ricavi", valore: (pl) => pl.ricavi, tipo: "totale", cons: (c) => c.ricavi },
+  { label: "Costo per servizi", valore: (pl) => pl.cogs, tipo: "costo", nota: "a budget: dai margini per tipologia", cons: (c) => c.cogs },
+  { label: "Margine lordo", valore: (pl) => pl.margineLordo, tipo: "totale", cons: (c) => c.margineLordo },
+  { label: "Spesa pubblicitaria (ADV)", valore: (pl) => pl.adv, tipo: "costo", nota: "% sulle vendite per maison/mese", cons: (c) => c.adv },
+  { label: "Costo del personale", valore: (pl) => pl.personale, tipo: "costo", nota: "dipendenti, stagisti e consulenti", cons: (c) => c.personale },
+  { label: "Costi di struttura", valore: (pl) => pl.costiFissi, tipo: "costo", cons: (c) => c.struttura },
+  { label: "EBITDA", valore: (pl) => pl.ebitda, tipo: "risultato", cons: (c) => c.ebitda },
+  { label: "Premi al raggiungimento", valore: (pl) => pl.premio, tipo: "costo", cons: () => null },
+  { label: "Risultato netto", valore: (pl) => pl.risultatoNetto, tipo: "risultato", cons: () => null },
 ];
 
 export default async function ContoEconomico({
@@ -37,6 +43,53 @@ export default async function ContoEconomico({
   const dati = await caricaAnno(ANNO_CORRENTE);
   const livello = (LIVELLI.some((l) => l.key === sp.livello) ? sp.livello : "RAGGIUNGIBILE") as Livello;
 
+  // Il consuntivo si ferma al **mese precedente a quello in corso**: qui, a
+  // differenza del Consuntivo, il mese aperto non entra. Un P&L si legge a mesi
+  // chiusi, e mezzo mese di ricavi contro un mese intero di stipendi darebbe un
+  // EBITDA più brutto del vero proprio nella tabella dove si decide.
+  const oggi = new Date();
+  const meseChiuso =
+    dati.year < oggi.getUTCFullYear() ? 12 : dati.year > oggi.getUTCFullYear() ? 0 : oggi.getUTCMonth();
+  const mesiChiusi = Array.from({ length: meseChiuso }, (_, i) => i + 1);
+  const cons = mesiChiusi.length > 0 ? await caricaConsuntivo(dati, mesiChiusi) : null;
+  const etichettaChiusi = meseChiuso > 0 ? `Gen–${MESI[meseChiuso - 1]}` : "—";
+
+  // Il budget **degli stessi mesi**, altrimenti il consuntivo di sei mesi
+  // finirebbe accanto a un budget di dodici e sembrerebbe un disastro. Ha la
+  // stessa forma del consuntivo, così le due colonne usano lo stesso accessore
+  // e non possono descrivere due cose diverse. Si confronta col **pubblicato**
+  // (raggiungibile): misurare i fatti contro lo scenario sfidante sarebbe
+  // scegliersi l'asticella dopo il salto.
+  const bmRagg = contoEconomicoMensile(dati, "RAGGIUNGIBILE");
+  const somma = (campo: "ricavi" | "cogs" | "margineLordo" | "adv" | "personale" | "costiFissi" | "ebitda") =>
+    mesiChiusi.reduce((s, m) => s + bmRagg[m - 1][campo], 0);
+  const budgetChiusi: ConsuntivoPeriodo | null =
+    mesiChiusi.length === 0
+      ? null
+      : {
+          ok: true,
+          mancanti: [],
+          mesi: mesiChiusi,
+          ricavi: somma("ricavi"),
+          ricaviPerTipologia: Object.fromEntries(
+            dati.tipologie.map((t) => [
+              t.slug,
+              dati.maisons.reduce(
+                (s, m) => s + mesiChiusi.reduce((a, mm) => a + (m.mesi.find((y) => y.month === mm)?.vendite[t.slug] ?? 0), 0),
+                0
+              ),
+            ])
+          ),
+          vendutoEcommerce: 0,
+          cogs: somma("cogs"),
+          adv: somma("adv"),
+          struttura: somma("costiFissi"),
+          personale: somma("personale"),
+          margineLordo: somma("margineLordo"),
+          ebitda: somma("ebitda"),
+          nonCategorizzato: 0,
+        };
+
   const pls = LIVELLI.map((l) => contoEconomico(dati, l.key));
   const plScelto = pls.find((p) => p.livello === livello)!;
 
@@ -47,6 +100,7 @@ export default async function ContoEconomico({
       label: `Ricavi ${t.nome}`,
       nota: `margine ${t.marginePct.toLocaleString("it-IT")}%`,
       valore: (pl: PL) => pl.ricaviPerServizio[t.slug] ?? 0,
+      cons: (c: ConsuntivoPeriodo) => c.ricaviPerTipologia[t.slug] ?? 0,
     })),
     ...RIGHE_FISSE,
   ];
@@ -59,8 +113,13 @@ export default async function ContoEconomico({
         <div>
           <h1 className="page-title">P&amp;L {dati.year}</h1>
           <p className="page-caption">
-            Conto economico aziendale: ricavi a budget meno costo del venduto, pubblicità, personale
-            e struttura. Confrontato sui 3 livelli di budget.
+            Conto economico aziendale: ricavi meno costo per servizi, pubblicità, personale e
+            struttura, sui 3 livelli di budget. Le prime colonne sono il{" "}
+            <strong>consuntivo dei mesi chiusi</strong>{cons ? ` (${etichettaChiusi})` : ""}: il mese in
+            corso non entra, perché mezzo mese di ricavi contro un mese intero di stipendi darebbe un
+            EBITDA più brutto del vero. Il confronto è col <strong>budget degli stessi mesi</strong>, e
+            col pubblicato — misurare i fatti contro lo scenario sfidante sarebbe scegliersi
+            l&apos;asticella dopo il salto.
           </p>
         </div>
         <div className="page-actions">
@@ -101,6 +160,13 @@ export default async function ContoEconomico({
             <thead>
               <tr>
                 <th>Voce</th>
+                {cons && (
+                  <>
+                    <th className="num">Consuntivo {etichettaChiusi}</th>
+                    <th className="num">Budget {etichettaChiusi}</th>
+                    <th className="num">Scostamento</th>
+                  </>
+                )}
                 {LIVELLI.map((l) => (
                   <th className="num" key={l.key}>{l.label}</th>
                 ))}
@@ -116,6 +182,34 @@ export default async function ContoEconomico({
                       {r.label}
                       {r.nota && <div className="muted" style={{ fontSize: 11.5 }}>{r.nota}</div>}
                     </td>
+                    {cons && budgetChiusi && (() => {
+                      const c = r.cons ? r.cons(cons) : null;
+                      const b = r.cons ? r.cons(budgetChiusi) : null;
+                      if (c === null || b === null) {
+                        return (
+                          <>
+                            <td className="num muted">—</td>
+                            <td className="num muted">—</td>
+                            <td className="num muted">—</td>
+                          </>
+                        );
+                      }
+                      const scost = c - b;
+                      // Su un costo spendere meno del previsto è una buona
+                      // notizia: il colore segue il verso della voce.
+                      const buono = r.tipo === "costo" ? scost <= 0 : scost >= 0;
+                      return (
+                        <>
+                          <td className="num" style={{ fontWeight: 600 }}>
+                            {r.tipo === "costo" ? `− ${eur(c)}` : eur(c)}
+                          </td>
+                          <td className="num muted">{r.tipo === "costo" ? `− ${eur(b)}` : eur(b)}</td>
+                          <td className={`num ${buono ? "pos" : "neg"}`}>
+                            {scost >= 0 ? "+" : ""}{eur(scost)}
+                          </td>
+                        </>
+                      );
+                    })()}
                     {pls.map((pl) => {
                       const v = r.valore(pl);
                       const cls = r.tipo === "risultato" ? (v >= 0 ? "pos" : "neg") : "";

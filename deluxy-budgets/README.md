@@ -10,7 +10,7 @@ pubblicato), *sfidante* e *irraggiungibile*.
   «come sta andando davvero», non «cosa avevamo pianificato». Anche il login atterra lì.
 - **Dashboard** (`/dashboard`): sintesi del conto economico 2026 sui 3 livelli + riepilogo per
   maison. Resta la prima voce della sidebar, non è più la home.
-- **P&L** (`/pl`): conto economico aziendale completo — ricavi per canale, costo del venduto,
+- **P&L** (`/pl`): conto economico aziendale completo, con il **consuntivo dei mesi chiusi** nelle prime colonne (Gen → mese precedente a quello in corso) accanto al **budget degli stessi mesi** e allo scostamento. Il mese in corso NON entra: mezzo mese di ricavi contro un mese intero di stipendi darebbe un EBITDA più brutto del vero, e questa è la tabella dove si decide. Il confronto è col **pubblicato** (raggiungibile), non con lo sfidante. Premi e risultato netto restano vuoti nel consuntivo: si liquidano a fine anno al raggiungimento, non si consuntivano mese per mese. Il calcolo del consuntivo sta in `src/lib/consuntivo.ts', condiviso, così P&L e Consuntivo non possono contraddirsi (verificato: su Gen–Giu le due pagine coincidono voce per voce) — ricavi per canale, costo del venduto,
   margine lordo, ADV, **costo del personale**, costi di struttura, EBITDA, premi e risultato
   netto — confrontato sui 3 livelli, con **andamento mensile** (evidenzia i mesi in perdita)
   e conto economico **per maison** (costi comuni ripartiti in proporzione ai ricavi).
