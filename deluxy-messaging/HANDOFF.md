@@ -1,6 +1,41 @@
 # Handoff — Deluxy Messaggi
 
-Ultimo aggiornamento: 24/07/2026
+Ultimo aggiornamento: **26/07/2026**
+
+## In due minuti (per una finestra nuova)
+
+**Cos'è.** Nata come inbox unificata (WhatsApp/Messenger/Instagram + widget dei
+siti), oggi è soprattutto **il posto dove si lavorano gli ordini**: arrivano da
+[Deluxy Orders](https://deluxy-orders.vercel.app) da soli ogni 15 minuti, si
+smistano con stati nostri (Da gestire → In pagamento → Comunicazione → Gestito),
+e da ogni ordine si contatta il cliente, si cerca il fornitore o si chiede un
+pagamento a Deluxy Partner.
+
+**Dove.** Cartella `deluxy-messaging/` nel repo `scoutwt`, branch `scout-ui`.
+Porta 3140. LIVE su <https://deluxy-messaging.vercel.app> (progetto Vercel
+`deluxy-messaging`, team deluxy). Deploy: `npx vercel deploy --prod --yes` dalla
+cartella dell'app — **il push su GitHub NON pubblica**.
+
+**Le pagine.** `/` Ordini (bacheca a colonne o elenco) · `/calendario` consegne a
+partire da oggi · `/clienti` rubrica dagli ordini · `/partner` partner attivi dal
+registro Anagrafiche · `/pagamenti` richieste di pagamento con lettura AI
+dell'IBAN · `/inbox` conversazioni · `/script` risposte rapide che l'AI usa ·
+`/negozi` `/caselle` `/impostazioni`.
+
+**Le tre regole che questa app rispetta, e non vanno rotte.**
+1. *L'AI propone, un controllo deterministico decide.* L'IBAN letto da una foto
+   passa dal checksum mod-97; lo `scriptId` scelto dall'AI è validato contro
+   l'elenco che le abbiamo mandato. Se non torna, si scarta — non si tira a
+   indovinare su soldi e clienti.
+2. *Non si duplicano i dati di altri registri.* Ordini da Deluxy Orders, partner
+   da Deluxy Anagrafiche (questi ultimi senza nemmeno una copia locale).
+3. *Lo stato di lavorazione è NOSTRO* (`Ordine.gestione`) e resta separato dalla
+   pipeline di Orders (`statoChiave`): il sync non lo tocca mai.
+
+**Le chiavi non stanno nell'ambiente** (tranne `DATABASE_URL`, `APP_SECRET`,
+`APP_URL`, `CRON_SECRET`): si incollano in `/impostazioni` e finiscono cifrate
+AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
+locale, altrimenti nulla si decifra.
 
 ## FATTO
 
@@ -20,8 +55,12 @@ Ultimo aggiornamento: 24/07/2026
   avrebbero fatto perdere proprio gli ordini che il cron deve salvare.
   `ordiniSyncUltimo`/`ordiniSyncEsito` in Impostazione registrano ogni giro; la
   pagina Ordini scrive "Aggiornati da soli 4 minuti fa" (verificato: "adesso").
-  Verificato in locale: senza header 401, header sbagliato 401, header giusto 200
-  con `{scaricati: 31, nuovi: 1}`.
+  Verificato in locale e in produzione: senza header 401, header sbagliato 401,
+  header giusto 200 con `{scaricati: 31}`. **PROVA DEFINITIVA**: alle 12:30:34
+  UTC del 26/07 il giro è partito **da solo** (nessuna chiamata nostra), come si
+  legge da `ordiniSyncUltimo` — il cron è davvero registrato, non solo dichiarato
+  in `vercel.json`. In produzione dura **~2 secondi** (il DB Supabase è a fianco),
+  contro i 21-25 s da casa.
 - SEZIONE PARTNER (26/07/2026): `/partner` + `src/lib/anagrafiche.ts`
   (`partnerAttivi()`) + `/api/partner` (proxy: la chiave non passa dal browser).
   Legge `GET {anagraficheUrl}/api/v1/partners?stato=attivo` con `x-api-key`.
@@ -231,20 +270,47 @@ Ultimo aggiornamento: 24/07/2026
 
 ## MANCA
 
-- Database di produzione: creare lo schema/istanza Postgres e fare `npm run db:push`.
-- Deploy (Vercel) + `APP_URL_MESSAGGI` nel Hub.
-- App Meta reale: registrare il webhook, generare token permanenti, collegare la pagina
-  FB e l'account IG professionale. Nota: fuori dalla finestra di 24h Meta rifiuta i
-  messaggi liberi (serviranno i template WhatsApp — non ancora gestiti).
+Stato reale delle chiavi al 26/07/2026 (letto dalla tabella `Impostazione`, non a
+memoria). **Configurate e funzionanti**: Anagrafiche, Orders, Google Contacts
+(collegato), OpenAI. **Mancanti**, con la conseguenza concreta:
+
+| Cosa manca | Cosa non funziona finché manca |
+|---|---|
+| Tutto Meta (`metaVerifyToken`, `waToken`, `fbPageToken`, `igToken`) | L'inbox resta vuota: nessun canale WhatsApp/Messenger/Instagram collegato. Il widget dei siti invece funziona già. |
+| `searchApiKey` (`dlxs_…` di search-deluxy) | Il bottone *Fornitore* ripiega sul link non firmato: si apre l'app ma senza accesso automatico. |
+| `partnerApiKey` (chiave verifiche di deluxy-partner) | Le richieste di pagamento si salvano qui ma non arrivano a Partner (si rimandano poi con *Invia*). |
+| Password giusta della casella email | SMTP risponde **535 authentication rejected** su tutte e quattro le varianti provate: o la password è sbagliata o l'auth SMTP è disattivata sulla casella. La cifratura è stata verificata a parte ed è corretta — il problema non è nostro. |
+
+Da fare, in ordine di utilità:
+
+- **App Meta reale**: webhook registrato, token permanenti, pagina FB e account IG
+  professionale collegati. Fuori dalla finestra di 24h Meta rifiuta i messaggi liberi:
+  serviranno i **template WhatsApp**, non ancora gestiti.
+  Costi (listino Meta 1/7/2026, per messaggio, Italia): Marketing €0,0658,
+  Utility/Authentication €0,0248, Service (risposte entro 24h) **gratis**.
+- **Script veri**: in tabella ce ne sono 3, creati solo per provare l'AI (ritardo
+  consegna, fattura, cambio indirizzo). Vanno sostituiti con le risposte reali.
+- **Rubrica Google**: restano ~594 clienti da salvare, 40 per giro orario → circa 15 ore
+  per smaltirli da soli. Il redirect URI del progetto Google Cloud va messo fra gli "URI
+  di reindirizzamento autorizzati" (non fra le origini JavaScript).
 - Media in entrata (oggi mostrati come `[tipo]`) e allegati in uscita.
-- Più operatori/assegnazione conversazioni; notifiche push.
-- Ordini/contatti: credenziali reali (token Shopify, progetto Google Cloud con People API
-  e redirect URI autorizzato). Da valutare: cron Vercel per scarico ordini + salvataggio
-  contatti automatici; collegare un ordine alla conversazione WhatsApp del cliente.
-- Costi WhatsApp (listino Meta 1/7/2026, per messaggio): Italia — Marketing €0,0658,
-  Utility/Authentication €0,0248, Service (risposte entro 24h) gratis.
+- Più operatori / assegnazione delle conversazioni; notifiche push.
+- Collegare un ordine alla conversazione WhatsApp dello stesso cliente (oggi sono due
+  mondi separati: si contatta dall'ordine, ma la risposta non si aggancia all'ordine).
 
 ## Come riprendere
 
-`cd deluxy-messaging && npm install && npm run dev` (porta 3140). Senza `.env` con
-`DATABASE_URL` l'app non parte: vedi `.env.example`. Il manuale dell'app è nel README.
+```bash
+cd C:\Users\nicol\scoutwt\deluxy-messaging && npm install && npx prisma generate && npm run dev
+```
+
+Porta 3140. Senza `.env` con `DATABASE_URL` l'app non parte: vedi `.env.example`.
+Il manuale funzionale completo è il **README.md** di questa cartella.
+
+Prima di ogni commit, **entrambe**: `npx tsc --noEmit && npm run build`.
+Su Windows, se `prisma generate` dà `EPERM … query_engine.dll`, ferma prima il dev
+server: tiene il file bloccato.
+
+Attenzione al database: è il **Postgres Supabase condiviso** con le altre app
+(`?schema=messaging`). Mai `deleteMany` senza filtro per ripulire i test — cancella dati
+veri (è già successo con la tabella `Utente`). Filtrare sui soli record creati dal test.
