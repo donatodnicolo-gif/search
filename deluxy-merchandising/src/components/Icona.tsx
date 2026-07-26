@@ -59,6 +59,11 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M4 20h16" />
     </>
   ),
+  classifiche: (
+    <>
+      <path d="M4 20h4v-7H4zM10 20h4V4h-4zM16 20h4v-10h-4z" />
+    </>
+  ),
   riordini: (
     <>
       <path d="M3 6h2l2 10h11" />

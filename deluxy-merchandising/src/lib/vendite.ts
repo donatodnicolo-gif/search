@@ -56,6 +56,33 @@ export function finestra(giorni: number): Finestra {
   return { giorni, dal, al, dalPrec, alPrec };
 }
 
+// ---------- Vendite andate a buon fine ----------
+//
+// Una riga vale come vendita solo se l'ordine è stato PAGATO e non rimborsato.
+// Restano fuori:
+// - REFUNDED e PARTIALLY_REFUNDED: soldi tornati indietro. Del parzialmente
+//   rimborsato non si sa QUALE riga sia stata resa, quindi l'ordine intero
+//   resta fuori: meglio perdere una riga buona che premiare un prodotto che
+//   genera resi;
+// - PENDING e VOIDED: ordini mai incassati;
+// - gli annullati non arrivano nemmeno: Deluxy Orders non li espone.
+//
+// NON si pretende invece l'evasione (`FULFILLED`): quasi metà del venduto è
+// UNFULFILLED perché la consegna è nel futuro o non viene segnata su Shopify.
+// Chiederla taglierebbe fuori vendite verissime.
+export const PAGAMENTI_BUON_FINE = ["PAID", "PARTIALLY_PAID"] as const;
+
+export const FILTRO_BUON_FINE = { statoPagamento: { in: [...PAGAMENTI_BUON_FINE] } };
+
+export const ETICHETTA_PAGAMENTO: Record<string, string> = {
+  PAID: "Pagato",
+  PARTIALLY_PAID: "Pagato in parte",
+  PENDING: "Non incassato",
+  REFUNDED: "Rimborsato",
+  PARTIALLY_REFUNDED: "Rimborsato in parte",
+  VOIDED: "Annullato dal pagamento",
+};
+
 // ---------- Tipi ----------
 
 export type Tendenza = "nuovo" | "crescita" | "stabile" | "calo" | "fermo";
@@ -469,6 +496,176 @@ function raggruppa(
   return [...m.values()]
     .map((g) => ({ ...g, delta: variazione(g.ricavo, g.ricavoPrec), quota: ricavoTotale > 0 ? g.ricavo / ricavoTotale : 0 }))
     .sort((a, b) => b.ricavo - a.ricavo);
+}
+
+// ---------- Classifiche ----------
+
+export type VoceClassifica = {
+  chiave: string;
+  nome: string;
+  dettaglio: string | null; // codice, variante
+  prodottoId: string | null;
+  pezzi: number;
+  ricavo: number;
+  righe: number; // quante volte è finito in un ordine
+  prezzoMedio: number;
+  quotaPezzi: number;
+  quotaRicavo: number;
+  posQuantita: number;
+  posValore: number;
+  canali: string[];
+};
+
+export type Classifiche = {
+  finestra: Finestra;
+  vista: "prodotti" | "varianti";
+  canale: string | null;
+  soloBuonFine: boolean;
+  perQuantita: VoceClassifica[];
+  perValore: VoceClassifica[];
+  totale: { pezzi: number; ricavo: number; articoli: number; righe: number };
+  // Cosa è rimasto fuori perché non è una vendita andata a buon fine.
+  escluso: { righe: number; pezzi: number; ricavo: number; perStato: { stato: string; ricavo: number; righe: number }[] };
+  canaliDisponibili: string[];
+};
+
+/**
+ * Le classifiche del venduto: gli stessi articoli ordinati per quantità e per
+ * valore, su tutti i brand o su uno solo.
+ *
+ * Di default contano solo le **vendite andate a buon fine** (vedi
+ * `FILTRO_BUON_FINE`): una classifica che premia un prodotto rimborsato dice
+ * il falso proprio a chi deve decidere cosa produrre e cosa spingere.
+ */
+export async function classifiche(opzioni: {
+  giorni: number;
+  canale?: string | null;
+  vista?: "prodotti" | "varianti";
+  soloBuonFine?: boolean;
+  limite?: number;
+}): Promise<Classifiche> {
+  const vista = opzioni.vista ?? "prodotti";
+  const soloBuonFine = opzioni.soloBuonFine ?? true;
+  const limite = opzioni.limite ?? 25;
+  const f = finestra(opzioni.giorni);
+
+  const [righe, canali] = await Promise.all([
+    prisma.vendita.findMany({
+      where: {
+        data: { gte: f.dal, lte: f.al },
+        ...(opzioni.canale ? { canale: opzioni.canale } : {}),
+        // I prodotti archiviati restano fuori dalle classifiche. È la leva con
+        // cui una persona toglie ciò che prodotto non è — le righe di servizio
+        // dei negozi ("_Additional Price", supplementi, spese) che altrimenti
+        // vincono la classifica dei pezzi senza vendere niente. Riconoscerle dal
+        // nome sarebbe indovinare: archiviarle è una decisione, e si vede.
+        OR: [{ prodottoId: null }, { prodotto: { fase: { not: "archiviato" } } }],
+      },
+      select: {
+        prodottoId: true,
+        varianteId: true,
+        titolo: true,
+        varianteNome: true,
+        sku: true,
+        canale: true,
+        quantita: true,
+        ricavo: true,
+        statoPagamento: true,
+        prodotto: { select: { nome: true, codice: true } },
+        variante: { select: { nome: true } },
+      },
+    }),
+    prisma.vendita.findMany({ distinct: ["canale"], select: { canale: true }, orderBy: { canale: "asc" } }),
+  ]);
+
+  const aBuonFine = (r: { statoPagamento: string | null }) =>
+    (PAGAMENTI_BUON_FINE as readonly string[]).includes(r.statoPagamento ?? "");
+  const buone = soloBuonFine ? righe.filter(aBuonFine) : righe;
+  // Le scartate si calcolano sempre: anche mostrando tutto serve dire quanto
+  // del venduto non è una vendita vera.
+  const fuori = righe.filter((r) => !aBuonFine(r));
+
+  const gruppi = new Map<string, VoceClassifica & { canaliSet: Set<string> }>();
+  for (const r of buone) {
+    const chiave =
+      vista === "varianti"
+        ? r.varianteId ?? `${r.prodottoId ?? r.titolo}|${r.varianteNome ?? r.sku ?? "—"}`
+        : r.prodottoId ?? `titolo:${r.titolo.trim().toLowerCase()}`;
+    const nome = r.prodotto?.nome ?? r.titolo;
+    const variante = r.variante?.nome ?? r.varianteNome;
+    const dettaglio =
+      vista === "varianti"
+        ? [r.prodotto?.codice, variante ?? "senza variante"].filter(Boolean).join(" · ")
+        : r.prodotto?.codice ?? "non a catalogo";
+
+    const g =
+      gruppi.get(chiave) ??
+      ({
+        chiave,
+        nome,
+        dettaglio,
+        prodottoId: r.prodottoId,
+        pezzi: 0,
+        ricavo: 0,
+        righe: 0,
+        prezzoMedio: 0,
+        quotaPezzi: 0,
+        quotaRicavo: 0,
+        posQuantita: 0,
+        posValore: 0,
+        canali: [],
+        canaliSet: new Set<string>(),
+      } as VoceClassifica & { canaliSet: Set<string> });
+    g.pezzi += r.quantita;
+    g.ricavo += r.ricavo;
+    g.righe += 1;
+    g.canaliSet.add(r.canale);
+    gruppi.set(chiave, g);
+  }
+
+  const totalePezzi = buone.reduce((s, r) => s + r.quantita, 0);
+  const totaleRicavo = buone.reduce((s, r) => s + r.ricavo, 0);
+
+  const voci = [...gruppi.values()].map((g) => ({
+    ...g,
+    canali: [...g.canaliSet].sort(),
+    prezzoMedio: g.pezzi > 0 ? g.ricavo / g.pezzi : 0,
+    quotaPezzi: totalePezzi > 0 ? g.pezzi / totalePezzi : 0,
+    quotaRicavo: totaleRicavo > 0 ? g.ricavo / totaleRicavo : 0,
+  }));
+
+  // Le due graduatorie: a parità si guarda l'altra grandezza, così l'ordine è
+  // stabile e non dipende da come sono usciti i record dal database.
+  const perQta = [...voci].sort((a, b) => b.pezzi - a.pezzi || b.ricavo - a.ricavo);
+  const perVal = [...voci].sort((a, b) => b.ricavo - a.ricavo || b.pezzi - a.pezzi);
+  perQta.forEach((v, i) => (v.posQuantita = i + 1));
+  perVal.forEach((v, i) => (v.posValore = i + 1));
+
+  const perStato = new Map<string, { stato: string; ricavo: number; righe: number }>();
+  for (const r of fuori) {
+    const k = r.statoPagamento ?? "SCONOSCIUTO";
+    const v = perStato.get(k) ?? { stato: k, ricavo: 0, righe: 0 };
+    v.ricavo += r.ricavo;
+    v.righe += 1;
+    perStato.set(k, v);
+  }
+
+  return {
+    finestra: f,
+    vista,
+    canale: opzioni.canale ?? null,
+    soloBuonFine,
+    perQuantita: perQta.slice(0, limite),
+    perValore: perVal.slice(0, limite),
+    totale: { pezzi: totalePezzi, ricavo: totaleRicavo, articoli: voci.length, righe: buone.length },
+    escluso: {
+      righe: fuori.length,
+      pezzi: fuori.reduce((s, r) => s + r.quantita, 0),
+      ricavo: fuori.reduce((s, r) => s + r.ricavo, 0),
+      perStato: [...perStato.values()].sort((a, b) => b.ricavo - a.ricavo),
+    },
+    canaliDisponibili: canali.map((c) => c.canale),
+  };
 }
 
 /** Margine unitario di un prodotto (comodo per le tabelle). */

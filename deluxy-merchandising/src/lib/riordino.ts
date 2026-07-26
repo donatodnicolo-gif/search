@@ -17,7 +17,7 @@
 //    quantità. Una proposta che non si sa spiegare non si firma.
 
 import { prisma } from "./db";
-import { finestra, type Tendenza } from "./vendite";
+import { FILTRO_BUON_FINE, finestra, type Tendenza } from "./vendite";
 
 export type Parametri = {
   giorniStorico: number; // finestra di venduto osservata
@@ -143,8 +143,11 @@ export async function calcolaIpotesi(p: Parametri): Promise<Ipotesi> {
         varianti: { select: { nome: true, giacenza: true } },
       },
     }),
+    // Solo vendite andate a buon fine: un ordine rimborsato o mai incassato non
+    // è domanda, e comprarci sopra significa comprare merce che nessuno ha
+    // davvero voluto.
     prisma.vendita.findMany({
-      where: { data: { gte: f.dal, lte: f.al }, prodottoId: { not: null } },
+      where: { data: { gte: f.dal, lte: f.al }, prodottoId: { not: null }, ...FILTRO_BUON_FINE },
       select: { prodottoId: true, data: true, quantita: true, ricavo: true },
     }),
   ]);

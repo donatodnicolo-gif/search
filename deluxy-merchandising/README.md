@@ -18,6 +18,7 @@ riceve costi e prezzi, viene messo in scena (visual merchandising) e infine
 | **Sviluppo (PLM)** | La pipeline del ciclo di vita a board: concept → prototipo → approvato → in vendita. Brief creativo, materiali, palette, storico delle fasi. | `/sviluppo` |
 | **Costi & margini** | Costo, prezzo, guadagno e marginalità sul venduto di ogni prodotto, confrontati col target di collezione. Allarmi sotto target. | `/costi` |
 | **Vendite & trend** | Il venduto reale letto da Deluxy Orders: andamento del periodo, cosa tira e cosa si è spento, pezzi/ricavo/margine per prodotto, collezione, categoria e canale, sempre confrontati col periodo precedente. | `/vendite` |
+| **Classifiche** | Gli articoli più venduti messi in fila **per quantità** e **per valore**, su tutti i brand o su uno solo, per prodotto o per variante (taglia/formato), con il confronto fra le due posizioni. Contano **solo le vendite andate a buon fine**. | `/classifiche` |
 | **Ipotesi di ordinativo** | Quanto riordinare di ogni prodotto, dal ritmo di vendita reale e dalla giacenza (lead time, copertura, scorta regolabili). Si congela in un piano modificabile ed esportabile in CSV. **Propone, non ordina.** | `/riordini`, `/riordini/[id]` |
 | **Trend con AI** | Lettura del venduto scritta dal modello sui numeri già calcolati dall'app, con osservazioni, azioni proposte e domande aperte. Storicizzata insieme ai dati su cui è fondata. | `/trend-ai` |
 | **Visual merchandising** | Allestimenti (vetrine, lookbook, capsule): i prodotti disposti in una sequenza curata, riordinabile. | `/visual`, `/visual/[id]` |
@@ -56,6 +57,16 @@ conseguenze da tenere a mente:
 
 - gli **ordini annullati non escono** dalle API di Orders, quindi non sono mai
   contati (un annullato resta spesso "pagato": contarlo gonfierebbe il venduto);
+- **vendita andata a buon fine** = ordine **pagato e non rimborsato**
+  (`PAID`/`PARTIALLY_PAID`). È la base di Classifiche e ipotesi di ordinativo:
+  un reso non è domanda. Restano fuori rimborsati, rimborsati in parte (non si
+  sa quale riga sia stata resa) e non incassati; **non** si pretende l'evasione,
+  perché metà del venduto è `UNFULFILLED` per consegne future. `/vendite` invece
+  mostra tutto: è il registro di quello che è successo;
+- i **prodotti archiviati** non entrano in classifica: è così che si tolgono le
+  righe di servizio dei negozi (supplementi di prezzo e simili), che altrimenti
+  vincono la classifica dei pezzi senza vendere niente. Non vengono riconosciute
+  dal nome, perché sarebbe indovinare;
 - una riga venduta che non corrisponde a nessun prodotto dell'app **non viene
   abbinata a occhio**: resta senza prodotto, conta nei totali e compare in fondo
   a `/vendite` fra le righe da mappare (basta dare alla variante lo SKU giusto).

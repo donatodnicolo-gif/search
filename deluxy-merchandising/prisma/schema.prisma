@@ -178,6 +178,12 @@ model Vendita {
   varianteNome String?
   sku        String?
   canale     String    @default("shopify") // brand/negozio di origine
+  // Stato dell'ordine da cui viene la riga, come lo dà Shopify tramite Orders.
+  // Serve a distinguere una vendita andata a buon fine da una rimborsata o mai
+  // pagata: senza questi due campi le classifiche premierebbero prodotti che
+  // hanno solo generato resi.
+  statoPagamento String? // PAID | PENDING | PARTIALLY_PAID | REFUNDED | PARTIALLY_REFUNDED | VOIDED
+  statoEvasione  String? // FULFILLED | UNFULFILLED | PARTIALLY_FULFILLED | RESTOCKED
   quantita   Int       @default(1)
   ricavo     Float     @default(0) // prezzo unitario x quantità
   origine    String    @default("orders") // orders | demo | manuale

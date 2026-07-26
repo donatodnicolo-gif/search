@@ -15,6 +15,7 @@ export async function Sidebar({
     | "sviluppo"
     | "costi"
     | "vendite"
+    | "classifiche"
     | "riordini"
     | "trend-ai"
     | "visual"
@@ -56,6 +57,7 @@ export async function Sidebar({
           {voce("sviluppo", "/sviluppo", "sviluppo", "Sviluppo", nInSviluppo)}
           {voce("costi", "/costi", "costi", "Costi & margini")}
           {voce("vendite", "/vendite", "vendite", "Vendite & trend")}
+          {voce("classifiche", "/classifiche", "classifiche", "Classifiche")}
           {voce("riordini", "/riordini", "riordini", "Ipotesi di ordinativo", pianiAperti || undefined)}
           {voce("trend-ai", "/trend-ai", "ai", "Trend con AI")}
           {voce("visual", "/visual", "visual", "Visual merchandising")}

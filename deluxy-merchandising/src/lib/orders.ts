@@ -38,6 +38,11 @@ type OrdineOrders = {
   brand: string;
   numero: string;
   data: string;
+  shopify?: {
+    financialStatus?: string | null;
+    fulfillmentStatus?: string | null;
+    annullato?: boolean;
+  };
   righe?: RigaOrders[];
 };
 
@@ -122,6 +127,8 @@ export async function importaVendite(giorni = 90): Promise<EsitoImport> {
     varianteNome: string | null;
     sku: string | null;
     canale: string;
+    statoPagamento: string | null;
+    statoEvasione: string | null;
     quantita: number;
     ricavo: number;
     origine: string;
@@ -189,6 +196,8 @@ export async function importaVendite(giorni = 90): Promise<EsitoImport> {
             varianteNome: r.variante?.trim() || null,
             sku,
             canale: o.brand,
+            statoPagamento: o.shopify?.financialStatus ?? null,
+            statoEvasione: o.shopify?.fulfillmentStatus ?? null,
             quantita: r.quantita || 0,
             ricavo: (r.prezzo || 0) * (r.quantita || 0),
             origine: "orders",

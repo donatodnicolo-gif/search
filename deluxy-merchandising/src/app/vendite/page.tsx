@@ -370,6 +370,12 @@ export default async function VenditePage({
             sincronizza Shopify. Gli ordini <b>annullati non escono</b> dalle sue API, quindi non sono contati.
             Merchandising non vende e non consegna: legge il venduto e lo interpreta.
           </p>
+          <p className="page-sub" style={{ marginTop: 8 }}>
+            Qui dentro c&apos;è <b>tutto il venduto</b>, rimborsi e ordini non ancora incassati compresi: è il
+            registro di quello che è successo. Dove conta solo la vendita vera — le{" "}
+            <Link href="/classifiche">Classifiche</Link> e le{" "}
+            <Link href="/riordini">ipotesi di ordinativo</Link> — restano fuori i rimborsati e i non pagati.
+          </p>
           {ultimo && (
             <p className="page-sub" style={{ marginTop: 8 }}>
               Ultimo import: {iso(ultimo.iniziatoIl)} — {ultimo.esito === "ok" ? "riuscito" : "fallito"}.{" "}

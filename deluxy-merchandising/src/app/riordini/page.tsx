@@ -236,7 +236,9 @@ export default async function RiordiniPage({
         <div className="scheda" style={{ marginTop: 18 }}>
           <div className="scheda-titolo">Come nasce la quantità</div>
           <p className="page-sub">
-            Ritmo di vendita = pezzi al giorno negli ultimi {parametri.giorniStorico} giorni, con la metà
+            Contano solo le <b>vendite andate a buon fine</b> (ordini pagati e non rimborsati): un reso non è
+            domanda, e comprarci sopra vuol dire comprare merce che nessuno ha davvero voluto. Ritmo di vendita
+            = pezzi al giorno negli ultimi {parametri.giorniStorico} giorni, con la metà
             recente pesata di più (65/35) e una correzione di tendenza limitata a ±35%: su poche settimane
             un&apos;accelerazione può essere un caso. Da lì: fabbisogno = ritmo × ({parametri.leadTimeGiorni} gg
             di lead time + {parametri.coperturaGiorni} gg di copertura) + {parametri.scortaSicurezzaPct}% di
