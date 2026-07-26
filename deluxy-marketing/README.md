@@ -130,6 +130,10 @@ Budgets (spese ADV effettive vs budget) e Partner (costi di marketing).
 
 
 
+```bash
+curl -H "x-api-key: dmk_..." \n  "https://deluxy-marketing.vercel.app/api/v1/spesa?dal=2026-07-01&al=2026-07-31&raggruppa=brand"
+```
+
 **Leggere sempre `copertura` prima di usare `totale`.** Un account che non
 consegna abbassa il totale senza che si veda: il blocco `copertura` dichiara chi
 sta alimentando il dato (`alimentano`), chi tace (`silenziosi`), quanti giorni del
