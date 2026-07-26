@@ -97,7 +97,16 @@ notte dentro `/api/cron/sync` e a mano dal pulsante.
   Dormiente ≤730, Inattivo oltre), come colonna, filtro e ordinamento.
 - **Ordinamento su tutte le colonne**, nei due versi, dalle intestazioni. Le
   colonne a etichetta usano `array_position` sul vocabolario, non l'alfabeto.
-- **Automazioni** (`/automazioni`): lista + canale + script coi segnaposto +
+- **Script** (`/script`): i testi da mandare, riusabili, con **variabili**
+  dichiarate (chiave, etichetta, valore predefinito, obbligatoria) oltre a
+  quelle automatiche del cliente. Una obbligatoria vuota **blocca** la
+  preparazione; una citata e non riempita da nessuno è segnalata prima
+  dell'invio; i dati del cliente non si possono sovrascrivere. Provato:
+  variabile obbligatoria vuota → blocco col nome della variabile, valore
+  predefinito 10% scavalcato dal 20% scelto dall'automazione, {{refuso}}
+  riconosciuto come «nessuno lo riempirà».
+- **Automazioni** (`/automazioni`): lista + canale + script (collegato o testo
+  scritto lì) +
   guardrail (consenso, recapito, silenzio di N giorni fra un messaggio e
   l'altro, limite per giro). **Preparano** i messaggi, non li inviano: si
   esportano o si mandano dal Customer Service e poi si segnano come inviati.

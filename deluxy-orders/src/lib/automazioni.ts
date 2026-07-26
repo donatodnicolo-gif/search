@@ -25,8 +25,76 @@ import { euro, dataBreve } from "./ordini";
 //     volte in una settimana;
 //  4. **limite del giro**: quante persone al massimo in una volta.
 
-// I segnaposto che si possono scrivere nello script.
-export const SEGNAPOSTO = [
+// ---------------------------------------------------------------------------
+// VARIABILI DI UNO SCRIPT
+//
+// Nel testo si scrivono fra doppie graffe. Sono di due specie:
+//  - **automatiche** (`VARIABILI_AUTOMATICHE`): le riempie l'app coi dati di
+//    quel cliente. Ci sono sempre, non si dichiarano;
+//  - **dichiarate** dallo script (`VariabileScript`): sconto, data, nome di una
+//    collezione. Ogni automazione che usa quello script sceglie il suo valore,
+//    così lo stesso testo serve a gennaio e a febbraio senza riscriverlo.
+//
+// Una variabile **obbligatoria** senza valore blocca la preparazione: meglio
+// un'automazione ferma che cinquecento messaggi con scritto «{{sconto}}».
+export type VariabileScript = {
+  chiave: string; // come si scrive nel testo: {{sconto}}
+  etichetta: string; // come si chiama per chi la compila
+  valore: string; // valore predefinito
+  obbligatoria: boolean;
+};
+
+// Le variabili dichiarate da uno script, lette dal campo Json senza fidarsi
+// della forma: un Json scritto a mano può contenere di tutto.
+export function variabiliScript(json: unknown): VariabileScript[] {
+  if (!Array.isArray(json)) return [];
+  return json
+    .filter((v): v is Record<string, unknown> => typeof v === "object" && v !== null)
+    .map((v) => ({
+      chiave: String(v.chiave ?? "").trim().toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+      etichetta: String(v.etichetta ?? "").trim(),
+      valore: String(v.valore ?? ""),
+      obbligatoria: Boolean(v.obbligatoria),
+    }))
+    .filter((v) => v.chiave !== "");
+}
+
+// I valori scelti da un'automazione, nella stessa logica prudente.
+export function valoriAutomazione(json: unknown): Record<string, string> {
+  if (typeof json !== "object" || json === null || Array.isArray(json)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(json as Record<string, unknown>)) {
+    if (v != null && String(v).trim() !== "") out[k.toLowerCase()] = String(v);
+  }
+  return out;
+}
+
+// Tutte le variabili citate in un testo, nell'ordine in cui compaiono.
+export function variabiliCitate(testo: string): string[] {
+  const trovate = [...testo.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi)].map((m) => m[1].toLowerCase());
+  return [...new Set(trovate)];
+}
+
+// Le variabili citate che nessuno riempirà: né automatiche né dichiarate.
+// Servono a vederle PRIMA di mandare, non dopo.
+export function variabiliSconosciute(testo: string, dichiarate: VariabileScript[]): string[] {
+  const note = new Set<string>([
+    ...VARIABILI_AUTOMATICHE.map((s) => s.chiave),
+    ...dichiarate.map((d) => d.chiave),
+  ]);
+  return variabiliCitate(testo).filter((v) => !note.has(v));
+}
+
+// Le variabili obbligatorie rimaste senza valore (né scelto né predefinito).
+export function variabiliMancanti(
+  dichiarate: VariabileScript[],
+  valori: Record<string, string>,
+): VariabileScript[] {
+  return dichiarate.filter((d) => d.obbligatoria && !(valori[d.chiave] ?? d.valore).trim());
+}
+
+// Le variabili automatiche che si possono scrivere in ogni script.
+export const VARIABILI_AUTOMATICHE = [
   { chiave: "nome", spiega: "il nome del cliente (o «Gentile cliente» se non lo sappiamo)" },
   { chiave: "citta", spiega: "la città dell'ultima consegna" },
   { chiave: "brand", spiega: "il negozio da cui ha comprato l'ultima volta" },
@@ -36,11 +104,25 @@ export const SEGNAPOSTO = [
   { chiave: "speso", spiega: "quanto ha speso in totale" },
 ] as const;
 
-// Sostituisce i segnaposto con i dati di quel cliente. Un segnaposto che non
-// esiste resta scritto com'è: meglio vederlo nell'anteprima che scoprire di
-// aver mandato «Ciao {{nomee}}» a trecento persone.
-export function componiMessaggio(script: string, c: Cliente): string {
-  const valori: Record<string, string> = {
+// Sostituisce le variabili con i dati di quel cliente e coi valori scelti.
+// Ordine: prima le automatiche (i dati del cliente vincono sempre: nessuno può
+// sovrascrivere il nome di una persona con una costante), poi quelle dichiarate.
+//
+// Una variabile che nessuno riempie **resta scritta com'è**: meglio vederla
+// nell'anteprima che scoprire di aver mandato «Ciao {{nomee}}» a trecento
+// persone.
+export function componiMessaggio(
+  testo: string,
+  c: Cliente,
+  scelti: Record<string, string> = {},
+  dichiarate: VariabileScript[] = [],
+): string {
+  const valori: Record<string, string> = {};
+  // le dichiarate per prime, così le automatiche non si possono scavalcare
+  for (const d of dichiarate) valori[d.chiave] = scelti[d.chiave] ?? d.valore;
+  for (const [k, v] of Object.entries(scelti)) if (!(k in valori)) valori[k] = v;
+
+  Object.assign(valori, {
     nome: (c.nome ?? "").trim() || "Gentile cliente",
     citta: c.citta ?? "",
     brand: c.brand[0] ?? "",
@@ -48,8 +130,9 @@ export function componiMessaggio(script: string, c: Cliente): string {
     giorni: String(c.giorni),
     ordini: String(c.ordini),
     speso: euro(c.speso),
-  };
-  return script.replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (intero, chiave: string) =>
+  });
+
+  return testo.replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (intero, chiave: string) =>
     chiave.toLowerCase() in valori ? valori[chiave.toLowerCase()] : intero,
   );
 }
@@ -77,12 +160,32 @@ type Automazione = {
   id: string;
   lista: string;
   canale: string;
-  script: string;
+  script: string; // testo scritto direttamente sull'automazione (ripiego)
   oggetto: string;
   giorniSilenzio: number;
   limiteGiro: number;
   soloConsenso: boolean;
+  valori?: unknown; // valori scelti per le variabili dello script
+  scriptUsato?: { testo: string; oggetto: string; variabili: unknown } | null;
 };
+
+// Che cosa si manda davvero: il testo dello script collegato, se c'è,
+// altrimenti quello scritto sull'automazione. Insieme al testo tornano le
+// variabili dichiarate e i valori scelti, perché servono sempre insieme.
+export function testoDaMandare(a: Automazione): {
+  testo: string;
+  oggetto: string;
+  dichiarate: VariabileScript[];
+  valori: Record<string, string>;
+} {
+  const dichiarate = variabiliScript(a.scriptUsato?.variabili);
+  return {
+    testo: a.scriptUsato ? a.scriptUsato.testo : a.script,
+    oggetto: a.scriptUsato?.oggetto || a.oggetto,
+    dichiarate,
+    valori: valoriAutomazione(a.valori),
+  };
+}
 
 // Prepara un giro di messaggi. `anteprima` fa lo stesso lavoro senza scrivere
 // niente: è la prova a vuoto, e va guardata prima di ogni invio.
@@ -101,8 +204,23 @@ export async function preparaGiro(
     esito.errore = `La lista «${a.lista}» non esiste più: scegline un'altra.`;
     return esito;
   }
-  if (!a.script.trim()) {
-    esito.errore = "Lo script è vuoto: non c'è niente da mandare.";
+
+  const { testo, dichiarate, valori } = testoDaMandare(a);
+  if (!testo.trim()) {
+    esito.errore = a.scriptUsato
+      ? "Lo script collegato è vuoto: scrivi il testo prima di preparare i messaggi."
+      : "Non c'è niente da mandare: scegli uno script o scrivi il testo qui.";
+    return esito;
+  }
+
+  // Variabili obbligatorie senza valore: si ferma tutto. Un messaggio con
+  // «{{sconto}}» scritto dentro, moltiplicato per cinquecento, è peggio di
+  // un'automazione che non parte.
+  const mancanti = variabiliMancanti(dichiarate, valori);
+  if (mancanti.length > 0) {
+    esito.errore = `Manca il valore di ${mancanti.length === 1 ? "una variabile obbligatoria" : "alcune variabili obbligatorie"}: ${mancanti
+      .map((m) => `«${m.etichetta || m.chiave}»`)
+      .join(", ")}. Compilala qui sotto prima di preparare i messaggi.`;
     return esito;
   }
 
@@ -172,7 +290,7 @@ export async function preparaGiro(
       chiave: c.chiave,
       nome: c.nome ?? "",
       destinatario: recapito,
-      testo: componiMessaggio(a.script, c),
+      testo: componiMessaggio(testo, c, valori, dichiarate),
     });
   }
 
@@ -187,7 +305,7 @@ export async function preparaGiro(
         nome: m.nome,
         destinatario: m.destinatario,
         testo: m.testo,
-        oggetto: a.oggetto,
+        oggetto: testoDaMandare(a).oggetto,
         stato: "pronto",
       })),
     });

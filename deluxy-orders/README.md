@@ -112,7 +112,7 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 
 ## Struttura
 
-- `prisma/schema.prisma` — NegozioShopify, Ordine, RigaOrdine, StatoOrdine, Etichetta, EventoOrdine, FeedbackOrdine, TagCliente, PrivacyCliente, Automazione, MessaggioAutomazione, ApiKey.
+- `prisma/schema.prisma` — NegozioShopify, Ordine, RigaOrdine, StatoOrdine, Etichetta, EventoOrdine, FeedbackOrdine, TagCliente, PrivacyCliente, Script, Automazione, MessaggioAutomazione, ApiKey.
 - `src/lib/shopify.ts` — client Admin GraphQL (ordini + righe + spedizione + tag), paginazione con ritentativi sui limiti di frequenza.
 - `src/lib/sync.ts` — import/upsert riutilizzabile (pulsante, script, cron), a blocchi per reggere gli import storici.
 - `src/lib/ordini.ts` — filtro condiviso UI/API + serializzazione.
@@ -121,8 +121,9 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 - `src/lib/segmenti.ts` — il vocabolario della classificazione: soglie, regole
   di riconoscimento e **catalogo delle 28 liste** (criterio + consiglio d'uso).
   È il posto dove si cambiano le soglie o si aggiunge una lista.
-- `src/lib/automazioni.ts` — messaggi ai clienti di una lista: segnaposto,
-  composizione e i quattro setacci (consenso, recapito, silenzio, limite).
+- `src/lib/automazioni.ts` — messaggi ai clienti di una lista: variabili degli
+  script (dichiarate + automatiche), composizione e i quattro setacci
+  (consenso, recapito, silenzio, limite).
 - `src/lib/feedback.ts` — import dei reclami e dei voti dal Customer Service.
 - `src/lib/brand.ts` — brand e loro colori.
 - `src/app/` — Ordini (elenco + colonne per brand), Bacheca (kanban), scheda

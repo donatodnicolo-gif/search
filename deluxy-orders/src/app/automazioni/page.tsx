@@ -33,6 +33,7 @@ export default async function Automazioni() {
             per uno, già passati al setaccio dei consensi.
           </p>
         </div>
+        <Link className="btn btn-secondario" href="/script">Script</Link>
       </div>
 
       <div className="consiglio" style={{ ["--lista" as string]: "var(--gold)" }}>

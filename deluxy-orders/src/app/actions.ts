@@ -7,7 +7,7 @@ import { registraEvento } from "@/lib/classificazione";
 import { codificaChiave } from "@/lib/clienti";
 import { canaleValido, tipologiaValida } from "@/lib/segmenti";
 import { importaFeedback } from "@/lib/feedback";
-import { preparaGiro } from "@/lib/automazioni";
+import { preparaGiro, type VariabileScript } from "@/lib/automazioni";
 import { eseguiSyncOrdini } from "@/lib/sync";
 import { tokenNegozio } from "@/lib/shopify";
 import { cercaDocumento, scriviConsegna, dataValida, fasciaValida } from "@/lib/consegna";
@@ -203,6 +203,86 @@ export async function impostaPrivacyCliente(fd: FormData) {
   revalidatePath("/liste");
 }
 
+// ---- Script (i testi che si mandano ai clienti) ----
+export async function creaScript(fd: FormData) {
+  const nome = s(fd, "nome");
+  if (!nome) return;
+  const creato = await prisma.script.create({
+    data: {
+      nome,
+      descrizione: s(fd, "descrizione") ?? "",
+      canale: canaleValido(s(fd, "canale")),
+      testo: s(fd, "testo") ?? "",
+    },
+  });
+  revalidatePath("/script");
+  redirect(`/script/${creato.id}`);
+}
+
+// Le variabili arrivano dal modulo come righe numerate (var_chiave_0,
+// var_etichetta_0, …). Una riga senza nome viene scartata: è così che si
+// cancella una variabile, ed è anche la riga vuota in fondo alla tabella.
+function variabiliDalModulo(fd: FormData): VariabileScript[] {
+  const variabili: VariabileScript[] = [];
+  for (let i = 0; i < 50; i++) {
+    if (!fd.has(`var_chiave_${i}`)) continue;
+    const chiave = (s(fd, `var_chiave_${i}`) ?? "").toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    if (!chiave) continue;
+    variabili.push({
+      chiave,
+      etichetta: s(fd, `var_etichetta_${i}`) ?? "",
+      valore: s(fd, `var_valore_${i}`) ?? "",
+      obbligatoria: fd.get(`var_obbligatoria_${i}`) === "on",
+    });
+  }
+  return variabili;
+}
+
+export async function aggiornaScript(fd: FormData) {
+  const id = s(fd, "id");
+  if (!id) return;
+  const variabili = variabiliDalModulo(fd);
+  await prisma.script.update({
+    where: { id },
+    data: {
+      nome: s(fd, "nome") ?? undefined,
+      descrizione: s(fd, "descrizione") ?? "",
+      canale: canaleValido(s(fd, "canale")),
+      oggetto: s(fd, "oggetto") ?? "",
+      testo: s(fd, "testo") ?? "",
+      variabili,
+      attivo: fd.get("attivo") === "on",
+    },
+  });
+  revalidatePath("/script");
+  revalidatePath(`/script/${id}`);
+  revalidatePath("/automazioni");
+  redirect(`/script/${id}?esito=${encodeURIComponent(`Script salvato · ${variabili.length} variabili dichiarate`)}`);
+}
+
+// I valori scelti da un'automazione per le variabili del suo script: arrivano
+// dal modulo come `valore_<chiave>`. Vuoto = si usa il predefinito dello script.
+function valoriDalModulo(fd: FormData): Record<string, string> {
+  const valori: Record<string, string> = {};
+  for (const [k, v] of fd.entries()) {
+    if (!k.startsWith("valore_") || typeof v !== "string") continue;
+    const chiave = k.slice("valore_".length).toLowerCase();
+    if (chiave && v.trim()) valori[chiave] = v.trim();
+  }
+  return valori;
+}
+
+export async function eliminaScript(fd: FormData) {
+  const id = s(fd, "id");
+  if (!id) return;
+  // Le automazioni che lo usavano non si cancellano: restano senza script
+  // (onDelete: SetNull) e lo dicono, invece di sparire con lui.
+  await prisma.script.delete({ where: { id } });
+  revalidatePath("/script");
+  revalidatePath("/automazioni");
+  redirect("/script");
+}
+
 // ---- Automazioni ----
 export async function creaAutomazione(fd: FormData) {
   const nome = s(fd, "nome");
@@ -230,6 +310,9 @@ export async function aggiornaAutomazione(fd: FormData) {
       descrizione: s(fd, "descrizione") ?? "",
       lista: s(fd, "lista") ?? undefined,
       canale: canaleValido(s(fd, "canale")),
+      // Lo script collegato: vuoto = si torna al testo scritto sull'automazione.
+      scriptId: s(fd, "scriptId"),
+      valori: valoriDalModulo(fd),
       script: s(fd, "script") ?? "",
       oggetto: s(fd, "oggetto") ?? "",
       giorniSilenzio: Math.max(0, Number(s(fd, "giorniSilenzio") ?? "30") || 0),

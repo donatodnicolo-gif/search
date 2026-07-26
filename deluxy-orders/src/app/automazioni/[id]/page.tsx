@@ -3,7 +3,12 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { dataBreve } from "@/lib/ordini";
 import { CANALI, LISTE, lista, nomeCanale } from "@/lib/segmenti";
-import { SEGNAPOSTO, preparaGiro } from "@/lib/automazioni";
+import {
+  VARIABILI_AUTOMATICHE,
+  preparaGiro,
+  testoDaMandare,
+  variabiliSconosciute,
+} from "@/lib/automazioni";
 import {
   aggiornaAutomazione,
   annullaMessaggiPronti,
@@ -25,8 +30,12 @@ export default async function SchedaAutomazione({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const a = await prisma.automazione.findUnique({ where: { id } });
+  const a = await prisma.automazione.findUnique({ where: { id }, include: { scriptUsato: true } });
   if (!a) notFound();
+
+  const script = await prisma.script.findMany({ orderBy: { nome: "asc" } });
+  const { testo, dichiarate, valori } = testoDaMandare(a);
+  const sconosciute = variabiliSconosciute(testo, dichiarate);
 
   const [messaggi, conteggi, anteprima] = await Promise.all([
     prisma.messaggioAutomazione.findMany({
@@ -69,6 +78,26 @@ export default async function SchedaAutomazione({
       {sp.esito && <div className="avviso-ok">{sp.esito}</div>}
       {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
       {anteprima.errore && <div className="avviso-errore">{anteprima.errore}</div>}
+      {sconosciute.length > 0 && (
+        <div className="avviso-errore">
+          Nel testo ci sono variabili che nessuno riempirà:{" "}
+          <strong>{sconosciute.map((v) => `{{${v}}}`).join(", ")}</strong> — partirebbero scritte
+          così come sono.{" "}
+          {a.scriptUsato ? (
+            <>
+              Si dichiarano nello <Link href={`/script/${a.scriptId}`}>script</Link>.
+            </>
+          ) : (
+            "Correggile nel testo qui sotto."
+          )}
+        </div>
+      )}
+      {a.scriptUsato && (
+        <p className="esito-ricerca">
+          Usa lo script <strong>{a.scriptUsato.nome}</strong>{" "}
+          <Link href={`/script/${a.scriptId}`}>Aprilo →</Link>
+        </p>
+      )}
 
       {/* ---- Prova a vuoto ---- */}
       <div className="scheda">
@@ -154,8 +183,50 @@ export default async function SchedaAutomazione({
               <input id="oggetto" name="oggetto" defaultValue={a.oggetto} />
             </div>
           )}
+
+          {/* Lo script: si sceglie fra quelli scritti in /script. Il testo qui
+              sotto resta come ripiego per chi non vuole crearne uno. */}
           <div className="campo-modulo largo">
-            <label htmlFor="script">Script</label>
+            <label htmlFor="scriptId">Script da usare</label>
+            <select id="scriptId" name="scriptId" defaultValue={a.scriptId ?? ""}>
+              <option value="">— nessuno: uso il testo scritto qui sotto —</option>
+              {script.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.nome}
+                  {x.attivo ? "" : " (sospeso)"}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* I valori delle variabili dichiarate dallo script: uno per riga,
+              con il predefinito già scritto dentro. */}
+          {dichiarate.length > 0 && (
+            <div className="campo-modulo largo">
+              <label>Variabili di questo script</label>
+              <div className="modulo" style={{ marginTop: 6 }}>
+                {dichiarate.map((v) => (
+                  <div className="campo-modulo" key={v.chiave}>
+                    <label htmlFor={`valore_${v.chiave}`}>
+                      {v.etichetta || v.chiave}
+                      {v.obbligatoria ? " (obbligatoria)" : ""}
+                    </label>
+                    <input
+                      id={`valore_${v.chiave}`}
+                      name={`valore_${v.chiave}`}
+                      defaultValue={valori[v.chiave] ?? ""}
+                      placeholder={v.valore ? `predefinito: ${v.valore}` : `{{${v.chiave}}}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="campo-modulo largo">
+            <label htmlFor="script">
+              {a.scriptUsato ? "Testo scritto qui (non usato: vince lo script)" : "Testo del messaggio"}
+            </label>
             <textarea id="script" name="script" rows={6} defaultValue={a.script} />
           </div>
           <div className="campo-modulo">
@@ -184,8 +255,8 @@ export default async function SchedaAutomazione({
         </form>
 
         <p className="testo-guida" style={{ marginTop: 10 }}>
-          Segnaposto disponibili nello script:{" "}
-          {SEGNAPOSTO.map((s, i) => (
+          Variabili del cliente, sempre disponibili:{" "}
+          {VARIABILI_AUTOMATICHE.map((s, i) => (
             <span key={s.chiave}>
               {i > 0 ? " · " : ""}
               <code className="inline">{`{{${s.chiave}}}`}</code> {s.spiega}

@@ -231,16 +231,50 @@ non dice anche il negozio, il feedback resta *senza ordine riconosciuto*
 sbagliato. Un reclamo sull'ordine sbagliato manda a un fornitore la colpa di un
 altro: meglio scollegato.
 
+### Script (`/script`)
+Uno **script** è un testo da mandare ai clienti, scritto una volta e riusato
+dalle automazioni: il messaggio di riordino, l'invito per una ricorrenza, il
+ringraziamento dopo il primo acquisto. Vive per conto suo perché un testo che
+parla ai clienti si rilegge, si corregge e lo si fa correggere da qualcun altro
+— non si nasconde dentro un'automazione.
+
+**Le variabili** si scrivono fra doppie graffe e sono di due specie:
+
+- **del cliente**, sempre disponibili e riempite dall'app: `{{nome}}`,
+  `{{citta}}`, `{{brand}}`, `{{ultimo_ordine}}`, `{{giorni}}`, `{{ordini}}`,
+  `{{speso}}`;
+- **dichiarate nello script**: uno sconto, una data, il nome di una collezione.
+  Ognuna ha un nome (`sconto`), un'etichetta per chi la compila («Sconto
+  riservato»), un **valore predefinito** e la spunta **obbligatoria**. Ogni
+  automazione che usa lo script sceglie il proprio valore, così lo stesso testo
+  serve a gennaio e a febbraio senza riscriverlo.
+
+Tre regole che evitano i danni:
+
+1. una variabile **obbligatoria senza valore blocca** la preparazione dei
+   messaggi. Meglio un'automazione ferma che cinquecento messaggi con scritto
+   «{{sconto}}»;
+2. una variabile **che nessuno riempirà** (un refuso, o una dichiarata mai) è
+   segnalata in rosso sia sullo script sia sull'automazione, **prima** di
+   mandare: nel messaggio resterebbe scritta com'è;
+3. i **dati del cliente vincono sempre**: nessun valore può sovrascrivere
+   `{{nome}}` con una costante.
+
+La scheda dello script dice anche quali variabili sono usate nel testo, quali
+sono dichiarate ma mai usate (di solito un refuso) e quali automazioni lo
+stanno usando. Eliminando uno script le automazioni **non** spariscono con lui:
+restano senza script e lo dicono.
+
 ### Automazioni (`/automazioni`)
-Messaggi ai clienti di una lista, scritti da uno **script**: «torna a ordinare»,
-«è passato un anno», «ti aspettiamo per San Valentino». Un'automazione è fatta
-di quattro cose: una **lista** (le stesse del catalogo), un **canale**
-(WhatsApp, email, telefonata), lo **script** con i segnaposto, e i
+Messaggi ai clienti di una lista: «torna a ordinare», «è passato un anno», «ti
+aspettiamo per San Valentino». Un'automazione è fatta di quattro cose: una
+**lista** (le stesse del catalogo), un **canale** (WhatsApp, email,
+telefonata), uno **script** con i valori scelti per le sue variabili, e i
 **guardrail**.
 
-Lo script usa `{{nome}}`, `{{citta}}`, `{{brand}}`, `{{ultimo_ordine}}`,
-`{{giorni}}`, `{{ordini}}`, `{{speso}}`. Un segnaposto scritto male resta
-visibile nel testo: te ne accorgi nell'anteprima, non dopo l'invio.
+Lo script si sceglie da un elenco; chi non vuole crearne uno può ancora
+scrivere il testo direttamente sull'automazione (ed è quello che succede alle
+automazioni nate prima che gli script esistessero).
 
 I quattro setacci, nell'ordine:
 

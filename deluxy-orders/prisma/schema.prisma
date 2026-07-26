@@ -111,6 +111,42 @@ model PrivacyCliente {
 // resta un gesto con un responsabile davanti (oggi si esporta o si manda a mano
 // dal Customer Service). È voluto: un errore in una lista da 2.000 persone non
 // si corregge dopo.
+// Uno SCRIPT è un testo da mandare ai clienti, scritto una volta e riusato: il
+// messaggio di riordino, l'invito per una ricorrenza, il ringraziamento dopo il
+// primo acquisto. Vive per conto suo perché lo si scrive una volta e lo si usa
+// in più automazioni — e perché un testo che parla ai clienti si rilegge, si
+// corregge e si fa correggere da qualcun altro.
+//
+// LE VARIABILI. Nel testo si scrivono fra doppie graffe: `{{nome}}`.
+// Ce ne sono di due specie, e la differenza conta:
+//  - **automatiche**: le riempie l'app coi dati di quel cliente ({{nome}},
+//    {{ultimo_ordine}}, {{giorni}}, …). Sono sempre disponibili, non si
+//    dichiarano;
+//  - **dichiarate qui** (`variabili`): quelle che decide chi scrive — uno
+//    sconto, una data, il nome di una collezione. Ogni automazione che usa lo
+//    script sceglie il proprio valore, così lo stesso testo serve a gennaio e a
+//    febbraio senza riscriverlo.
+// Una variabile dichiarata **obbligatoria** e lasciata vuota BLOCCA la
+// preparazione dei messaggi: meglio un'automazione ferma che cinquecento
+// messaggi con scritto «{{sconto}}».
+model Script {
+  id          String  @id @default(cuid())
+  nome        String
+  descrizione String  @default("")
+  canale      String  @default("whatsapp") // per quale canale è pensato
+  oggetto     String  @default("") // solo per l'email
+  testo       String  @default("") @db.Text
+  // [{ chiave, etichetta, valore, obbligatoria }] — vedi VariabileScript
+  variabili   Json?
+  attivo      Boolean @default(true)
+
+  automazioni  Automazione[]
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([attivo])
+}
+
 model Automazione {
   id          String @id @default(cuid())
   nome        String
@@ -119,8 +155,16 @@ model Automazione {
   lista       String
   // Come si scrive: `canale` decide quale consenso serve.
   canale      String @default("whatsapp") // whatsapp | email | telefono
-  // Il testo, con i segnaposto {{nome}}, {{ultimo_ordine}}, {{brand}}, …
-  // Si può incollare uno script del Customer Service.
+  // Cosa si scrive: normalmente uno SCRIPT riusabile (`scriptId`). `script` è
+  // il testo scritto direttamente qui, che resta valido quando non si vuole
+  // creare uno script apposta — e che tiene in piedi le automazioni nate prima
+  // che gli script esistessero.
+  scriptId    String?
+  scriptUsato Script? @relation(fields: [scriptId], references: [id], onDelete: SetNull)
+  // I valori scelti da QUESTA automazione per le variabili dichiarate dallo
+  // script: { "sconto": "10%", "collezione": "San Valentino" }. Vuoto = si usa
+  // il valore predefinito della variabile.
+  valori      Json?
   script      String @default("") @db.Text
   oggetto     String @default("") // solo per l'email
 
