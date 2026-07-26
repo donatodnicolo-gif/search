@@ -53,6 +53,9 @@
   .pv-chip.pv-part{color:var(--gold-strong); background:var(--gold-soft)}
   .pv-chip.pv-open{color:var(--blue); background:rgba(0,113,227,.08)}
   .pv-chip.pv-closed{color:var(--text-tertiary); background:var(--fill)}
+  .pv-chip.pv-reseller{color:var(--purple); background:rgba(109,63,196,.1)}
+  .pv-chip.pv-vendor{color:var(--green); background:rgba(36,138,61,.1)}
+  .pv-chip.pv-prod{color:var(--text-secondary); background:var(--fill)}
   /* elenco contatti per provincia */
   .prov-group{margin-top:20px}
   .prov-head{display:flex; align-items:baseline; gap:8px; padding:0 2px 8px; border-bottom:1px solid var(--hairline); margin-bottom:12px}
@@ -698,12 +701,14 @@
           <button class="chip" data-cat="FIORISTA" type="button">🌸 Fiorai</button>
           <button class="chip" data-cat="PASTICCERIA" type="button">🎂 Pasticcerie</button>
         </div>
-        <label style="display:flex; align-items:center; gap:6px; margin:0; font-size:13px; color:var(--text); white-space:nowrap">
-          <input type="checkbox" id="pvSoloAperti" style="width:auto"> Solo province con partner o lead aperti
-        </label>
+        <div class="chips" id="pvRuolo" style="display:flex; gap:6px">
+          <button class="chip active" data-ruolo="tutti" type="button">Tutti</button>
+          <button class="chip" data-ruolo="reseller" type="button">🛍️ Re-seller</button>
+          <button class="chip" data-ruolo="vendor" type="button">📦 Vendor</button>
+        </div>
         <input id="pvSearch" type="text" placeholder="Cerca provincia, nome…" style="flex:1; min-width:160px">
       </div>
-      <div class="hint" style="margin:0 0 4px">🤝 Partner = attivi · 📋 Aperti = prospect/lead ancora in gioco · ⚪ Chiusi = non interessati o dismessi. Le province con partner sono in cima.</div>
+      <div class="hint" style="margin:0 0 4px">Solo <b>re-seller</b> (interesse «Affiliazione») e <b>vendor</b> («Vendor Deluxy») dal registro, con la <b>tipologia di prodotto</b> che trattano. Le province con più re-seller/vendor sono in cima.</div>
       <div id="provinceBody"><div class="hint">Carico le province…</div></div>
     </div>
 
@@ -1070,7 +1075,7 @@ function toggleMenu(){ $('#sidebar').classList.toggle('open'); $('#appOverlay').
 const PAGE_TITLES = { operativa: ['Smistamento ordini', 'Recupera un ordine e invialo al fiorario o pasticceria più vicino, via WhatsApp o email.'],
                       impostazioni: ['Impostazioni', 'Chiavi, utenze e collegamenti dell\'app, salvati sul server.'],
                       contatti: ['Contatti', 'Partner e fornitori dal registro anagrafiche Deluxy, raggruppati per provincia.'],
-                      province: ['Province', 'Per provincia: quanti partner, prospect e lead ancora aperti abbiamo nel registro anagrafiche.'],
+                      province: ['Province', 'Re-seller e vendor dal registro anagrafiche, per provincia, con la tipologia di prodotto che trattano.'],
                       storico: ['Storico richieste', 'Check ordini Shopify, richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
 // vista: false/'operativa' | true/'impostazioni' | 'storico'
 function setView(vista){
@@ -1217,7 +1222,8 @@ function renderContatti(){
     </div>`;
   }).join('');
 }
-function ctCard(p){
+function ctCard(p, opts){
+  opts = opts || {};
   const partner = ctIsPartner(p);
   const digits = (p.telefono||'').replace(/[^\d]/g,'');
   const hasWa = digits.length >= 8;
@@ -1238,6 +1244,10 @@ function ctCard(p){
     ? '<span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)">🤝 Partner</span>'
     : `<span class="badge" style="color:var(--blue); background:rgba(0,113,227,.08)">📋 ${esc(statoLabel(p))}</span>`;
   const luogo = [p.indirizzo, p.citta].filter(Boolean).join(' · ');
+  // riga tag (solo dove richiesto, es. Province): ruolo re-seller/vendor + tipologia prodotto
+  const metaPills = opts.showRuolo
+    ? `<div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap">${ruoloPills(p)}${prodChip(p.categoria)}</div>`
+    : '';
   return `<div class="ct-card">
     <div class="top">
       <div>
@@ -1246,6 +1256,7 @@ function ctCard(p){
       </div>
       ${badge}
     </div>
+    ${metaPills}
     ${luogo?`<div class="addr">${esc(luogo)}</div>`:''}
     <div class="contacts">${c.join('')}</div>
     ${refs}
@@ -1259,14 +1270,30 @@ $('#ctCat').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if
   ctFiltro.cat=b.dataset.cat; document.querySelectorAll('#ctCat .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
 $('#ctSearch').addEventListener('input', ()=>{ ctFiltro.q=$('#ctSearch').value; renderContatti(); });
 
-/* ------------------ PROVINCE (riepilogo per provincia dal registro) ------------------
-   Riusa gli stessi dati del registro caricati per «Contatti» (ctData / anagAllPages).
-   Per ogni provincia: 🤝 partner (stato attivo), 📋 lead aperti (in gioco), ⚪ chiusi
-   (non interessati/dismessi). Le province con partner vanno in cima. */
-const STATO_CHIUSO = new Set(['non_interessato','dismesso']);
-const isLeadAperto = p => { const s=String(p.stato||'').toLowerCase(); return s!=='attivo' && !STATO_CHIUSO.has(s); };
-const isLeadChiuso = p => STATO_CHIUSO.has(String(p.stato||'').toLowerCase());
-const pvFiltro = { cat:'tutte', q:'', soloAperti:false };
+/* ------------------ PROVINCE — re-seller & vendor per provincia ------------------
+   Riusa i dati del registro di «Contatti» (ctData / anagAllPages). Mostra SOLO chi è
+   re-seller o vendor e indica la tipologia di prodotto (categoria). Nel registro non
+   c'è un campo «tipo»: re-seller = interesse «affiliazione», vendor = «vendor»; la
+   tipologia di prodotto = campo «categoria» (FIORISTA/PASTICCERIA/BOUTIQUE…). */
+const isReseller = p => (p.interessi||[]).includes('affiliazione');   // re-seller = interesse «Affiliazione»
+const isVendor   = p => (p.interessi||[]).includes('vendor');         // vendor = «Vendor Deluxy»
+const isResellerOrVendor = p => isReseller(p) || isVendor(p);
+// tipologia di prodotto: dalla categoria del registro (tipo di attività)
+const PROD_TIPO = { FIORISTA:'🌸 Fiori', PASTICCERIA:'🎂 Pasticceria', RISTORANTE:'🍽️ Ristorazione',
+  BOUTIQUE:'🛍️ Boutique', CATERING:'🍽️ Catering', GIFTING:'🎁 Gifting', CONCIERGE:'🛎️ Concierge',
+  GIOIELLERIA:'💍 Gioielleria', ENOTECA:'🍷 Enoteca' };
+function prodChip(cat){
+  const k = String(cat||'').toUpperCase();
+  if(!k || k==='ALTRO' || k==='DA CLASSIFICARE') return '<span class="pv-chip pv-prod">🏷️ prodotto non indicato</span>';
+  return `<span class="pv-chip pv-prod">${PROD_TIPO[k] || '🏷️ '+esc(cat)}</span>`;
+}
+function ruoloPills(p){
+  const r = [];
+  if(isReseller(p)) r.push('<span class="pv-chip pv-reseller">🛍️ Re-seller</span>');
+  if(isVendor(p))   r.push('<span class="pv-chip pv-vendor">📦 Vendor</span>');
+  return r.join('');
+}
+const pvFiltro = { cat:'tutte', q:'', ruolo:'tutti' };
 async function loadProvince(force){
   const body = $('#provinceBody');
   if(ctData && !force){ renderProvince(); return; }
@@ -1289,6 +1316,9 @@ function renderProvince(){
   const body = $('#provinceBody');
   const q = pvFiltro.q.trim().toLowerCase();
   const list = (ctData||[]).filter(p=>{
+    if(!isResellerOrVendor(p)) return false;                        // SOLO re-seller / vendor
+    if(pvFiltro.ruolo==='reseller' && !isReseller(p)) return false;
+    if(pvFiltro.ruolo==='vendor'   && !isVendor(p))   return false;
     if(pvFiltro.cat!=='tutte' && String(p.categoria||'').toUpperCase()!==pvFiltro.cat) return false;
     if(q){
       const blob = [p.nome, p.ragioneSociale, p.citta, p.provincia, p.indirizzo].filter(Boolean).join(' ').toLowerCase();
@@ -1301,37 +1331,30 @@ function renderProvince(){
   list.forEach(p=>{ const k = (p.provincia||'').toUpperCase() || '—'; (gruppi[k] = gruppi[k]||[]).push(p); });
   let prov = Object.keys(gruppi).map(k=>{
     const g = gruppi[k];
-    return { prov:k, g,
-      nPart: g.filter(isPartnerAttivo).length,
-      nAp:   g.filter(isLeadAperto).length,
-      nChi:  g.filter(isLeadChiuso).length };
+    return { prov:k, g, nRes: g.filter(isReseller).length, nVen: g.filter(isVendor).length };
   });
-  if(pvFiltro.soloAperti) prov = prov.filter(x=> x.nPart>0 || x.nAp>0);
-  // ordina: provincia sconosciuta in coda; poi più partner, più lead aperti, alfabetico
+  // ordina: provincia sconosciuta in coda; poi più re-seller+vendor, alfabetico
   prov.sort((a,b)=>{
     if(a.prov==='—') return 1; if(b.prov==='—') return -1;
-    if(b.nPart!==a.nPart) return b.nPart-a.nPart;
-    if(b.nAp!==a.nAp)     return b.nAp-a.nAp;
+    const ta=a.nRes+a.nVen, tb=b.nRes+b.nVen;
+    if(tb!==ta) return tb-ta;
     return a.prov.localeCompare(b.prov);
   });
-  const totPart = prov.reduce((s,x)=>s+x.nPart,0);
-  const totAp   = prov.reduce((s,x)=>s+x.nAp,0);
+  const totRes = prov.reduce((s,x)=>s+x.nRes,0);
+  const totVen = prov.reduce((s,x)=>s+x.nVen,0);
   $('#provinceInfo').textContent = prov.length
-    ? `${prov.length} province · 🤝 ${totPart} partner · 📋 ${totAp} lead aperti`
+    ? `${prov.length} province · 🛍️ ${totRes} re-seller · 📦 ${totVen} vendor`
     : '';
-  if(!prov.length){ body.innerHTML = '<div class="hint">Nessuna provincia con questi filtri.</div>'; return; }
+  if(!prov.length){ body.innerHTML = '<div class="hint">Nessun re-seller o vendor nel registro con questi filtri. (Si riconoscono dall\'interesse «Affiliazione» o «Vendor Deluxy» nel registro anagrafiche.)</div>'; return; }
   body.innerHTML = prov.map(x=>{
-    // schede ordinate: partner, poi lead aperti, poi chiusi; per nome
-    const rank = p => isPartnerAttivo(p) ? 0 : isLeadAperto(p) ? 1 : 2;
     const cards = x.g.slice()
-      .sort((a,b)=>{ const r = rank(a)-rank(b); return r || String(a.nome||'').localeCompare(String(b.nome||'')); })
-      .map(ctCard).join('');
+      .sort((a,b)=> String(a.nome||'').localeCompare(String(b.nome||'')))
+      .map(p=>ctCard(p, {showRuolo:true})).join('');
     const chips = [
-      `<span class="pv-chip pv-part">🤝 ${x.nPart} partner</span>`,
-      `<span class="pv-chip pv-open">📋 ${x.nAp} aperti</span>`,
-      x.nChi ? `<span class="pv-chip pv-closed">⚪ ${x.nChi} chiusi</span>` : ''
+      x.nRes ? `<span class="pv-chip pv-reseller">🛍️ ${x.nRes} re-seller</span>` : '',
+      x.nVen ? `<span class="pv-chip pv-vendor">📦 ${x.nVen} vendor</span>` : ''
     ].filter(Boolean).join('');
-    return `<details class="prov-group" ${(x.nPart>0||x.nAp>0)?'open':''}>
+    return `<details class="prov-group" open>
       <summary class="prov-head">
         <h3>${x.prov==='—'?'Provincia non indicata':'📍 '+esc(x.prov)}</h3>
         <span class="pv-chips">${chips}</span>
@@ -1344,7 +1367,8 @@ $('#provinceReload').addEventListener('click', ()=> loadProvince(true));
 $('#pvCat').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
   pvFiltro.cat=b.dataset.cat; document.querySelectorAll('#pvCat .chip').forEach(x=>x.classList.toggle('active',x===b)); renderProvince(); });
 $('#pvSearch').addEventListener('input', ()=>{ pvFiltro.q=$('#pvSearch').value; renderProvince(); });
-$('#pvSoloAperti').addEventListener('change', ()=>{ pvFiltro.soloAperti=$('#pvSoloAperti').checked; renderProvince(); });
+$('#pvRuolo').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
+  pvFiltro.ruolo=b.dataset.ruolo; document.querySelectorAll('#pvRuolo .chip').forEach(x=>x.classList.toggle('active',x===b)); renderProvince(); });
 
 $('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); sessionStorage.removeItem('session'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);

@@ -246,18 +246,23 @@ solo dove siamo e come si lavora.
    `annotaDistanzeRegistro` in `renderResults`. Costo: 2 richieste Places per scheda registro
    (poche per zona). Non collaudato end-to-end su Google (serve chiave+login); DOM verificato.
 
-31. **Sezione «Province»** (26/07): nuova voce sidebar (`#navProvince`, vista `view-province`,
-   card `#provinceCard`) che riusa gli stessi dati del registro di «Contatti» (`ctData` /
-   `anagAllPages`, cache condivisa). Elenco per provincia (gruppi `<details>` collassabili,
-   aperti se hanno partner o lead) con in cima a ogni provincia le chip di riepilogo:
-   **🤝 partner** (stato `attivo`), **📋 aperti** (lead ancora in gioco = stato ≠ `attivo` e ≠
-   `non_interessato`/`dismesso`), **⚪ chiusi** (`non_interessato`/`dismesso`). Le province con
-   partner vanno in cima (poi più lead aperti, poi alfabetico; «non indicata» in coda). Le
-   schede dentro ogni provincia sono le stesse di Contatti (`ctCard`), ordinate partner→aperti→
-   chiusi. Filtri: categoria (Tutte/Fiorai/Pasticcerie), «Solo province con partner o lead
-   aperti», ricerca testo (`pvFiltro`). NB: «contatti aperti» = **lead per stato**, non orari
-   Google (scelta dell'utente: immediato, nessuna chiamata a Google). Helper `isLeadAperto`/
-   `isLeadChiuso`. Verificato con dati finti: riepilogo, ordinamento, filtri, mobile OK.
+31. **Sezione «Province» — re-seller & vendor per provincia** (26/07): nuova voce sidebar
+   (`#navProvince`, vista `view-province`, card `#provinceCard`) che riusa i dati del registro
+   di «Contatti» (`ctData`/`anagAllPages`, cache condivisa). Mostra **SOLO re-seller e vendor**
+   (`renderProvince`), raggruppati per provincia (gruppi `<details open>` collassabili), con in
+   cima le chip di riepilogo **🛍️ N re-seller / 📦 N vendor** e su ogni scheda i tag ruolo +
+   la **tipologia di prodotto**. Province con più re-seller/vendor in cima; «non indicata» in coda.
+   ⚠️ **Nel registro anagrafiche NON esiste un campo «tipo» né «prodotto»** (verificato sullo
+   schema Prisma di deluxy-anagrafiche): re-seller/vendor si ricavano dall'array **`interessi`**
+   (`affiliazione` = re-seller, `vendor` = «Vendor Deluxy»), la tipologia di prodotto = campo
+   **`categoria`** (FIORISTA/PASTICCERIA/BOUTIQUE…). Il proxy `/api/anagrafiche` inoltra
+   `interessi` (già in `dati`). Helper `isReseller`/`isVendor`/`isResellerOrVendor`, `prodChip`
+   (mappa `PROD_TIPO` categoria→«🌸 Fiori» ecc.), `ruoloPills`. `ctCard(p,{showRuolo:true})`
+   aggiunge la riga tag (usato solo qui; Contatti invariato). Filtri: ruolo (`#pvRuolo`:
+   Tutti/Re-seller/Vendor), categoria/prodotto (`#pvCat`), ricerca (`pvFiltro`). Verificato con
+   dati finti: filtro solo-reseller/vendor, riepilogo, tag prodotto/ruolo, filtro ruolo, mobile,
+   console pulita. Non collaudato sui dati veri (serve chiave registro): dipende da quante
+   anagrafiche hanno `interessi` con affiliazione/vendor.
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
