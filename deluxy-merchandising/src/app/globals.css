@@ -457,6 +457,30 @@ tbody tr:hover { background: var(--fill); }
 .lista-domande li::before { content: "?"; position: absolute; left: 0; color: var(--gold-strong); font-weight: 600; }
 .dettagli-summary { cursor: pointer; font-size: 13.5px; color: var(--blue); margin-bottom: 12px; }
 
+/* ---------- Selettore d'ambito (globale / brand) ---------- */
+.ambito { display: flex; align-items: center; gap: 9px; margin-left: auto; padding-right: 4px; }
+.ambito-etichetta {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-tertiary);
+}
+.ambito select {
+  appearance: none; font: inherit; font-size: 13.5px; font-weight: 500; color: var(--text);
+  background: var(--fill); border: 1px solid transparent; cursor: pointer;
+  border-radius: var(--radius-pill); padding: 7px 14px; outline: none;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+}
+.ambito select:hover { background: var(--fill-hover); }
+.ambito select:focus { background: var(--surface); border-color: var(--hairline-strong); }
+@media (max-width: 620px) { .ambito-etichetta { display: none; } }
+
+/* ---------- Schede dei brand nel cruscotto ---------- */
+.griglia-brand { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.card-brand { margin-bottom: 0; padding: 20px; }
+.card-brand-testa { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.card-brand-nome { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.card-brand-cifra { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.card-brand-top { padding-top: 12px; border-top: 1px solid var(--hairline); }
+
 /* ---------- Classifiche ---------- */
 .griglia-classifiche { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
 .classifica { list-style: none; display: flex; flex-direction: column; counter-reset: pos; }

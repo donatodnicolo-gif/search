@@ -45,6 +45,9 @@ export type Lettura = {
 };
 
 export type DatiPerAI = {
+  // "Globale" oppure il nome del brand: senza, il modello commenta numeri di
+  // cui non sa nemmeno di chi sono.
+  ambito: string;
   periodo: { giorni: number; dal: string; al: string };
   totali: {
     pezzi: number;
@@ -92,10 +95,14 @@ export type DatiPerAI = {
 };
 
 /** Il pacchetto di numeri che va al modello (e che resta salvato con la lettura). */
-export async function datiPerAI(giorni: number): Promise<DatiPerAI> {
-  const [a, ip] = await Promise.all([analizzaVendite(giorni), calcolaIpotesi(PARAMETRI_DEFAULT)]);
+export async function datiPerAI(giorni: number, canale: string | null = null): Promise<DatiPerAI> {
+  const [a, ip] = await Promise.all([
+    analizzaVendite(giorni, { canale }),
+    calcolaIpotesi({ ...PARAMETRI_DEFAULT, canale }),
+  ]);
 
   return {
+    ambito: canale ?? "Globale (tutti i brand)",
     periodo: {
       giorni,
       dal: a.finestra.dal.toISOString().slice(0, 10),
@@ -194,8 +201,8 @@ export type EsitoLettura =
   | { ok: false; errore: string; configurata: boolean; dati: DatiPerAI };
 
 /** Chiede la lettura al modello e la storicizza. */
-export async function generaLettura(giorni: number): Promise<EsitoLettura> {
-  const dati = await datiPerAI(giorni);
+export async function generaLettura(giorni: number, canale: string | null = null): Promise<EsitoLettura> {
+  const dati = await datiPerAI(giorni, canale);
 
   if (!aiConfigurata()) {
     return {

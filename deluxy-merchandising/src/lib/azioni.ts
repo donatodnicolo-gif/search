@@ -39,12 +39,14 @@ export async function creaCollezione(fd: FormData) {
     },
   });
   revalidatePath("/");
+  revalidatePath("/collezioni");
   redirect(`/collezioni/${c.id}`);
 }
 
 export async function cambiaStatoCollezione(id: string, stato: string) {
   await prisma.collezione.update({ where: { id }, data: { stato } });
   revalidatePath("/");
+  revalidatePath("/collezioni");
   revalidatePath(`/collezioni/${id}`);
 }
 
@@ -79,6 +81,7 @@ export async function creaProdotto(fd: FormData) {
   });
   revalidatePath("/prodotti");
   revalidatePath("/");
+  revalidatePath("/collezioni");
   redirect(`/prodotti/${p.id}`);
 }
 

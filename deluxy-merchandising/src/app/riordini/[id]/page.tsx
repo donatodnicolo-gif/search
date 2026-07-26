@@ -44,7 +44,8 @@ export default async function PianoPage({ params }: { params: Promise<{ id: stri
           <div>
             <h1 className="page-title">{piano.nome}</h1>
             <p className="page-sub">
-              Congelata il {iso(piano.creatoIl)} su {piano.giorniStorico} giorni di storico, lead time{" "}
+              Ambito: <b>{piano.canale ?? "tutti i brand"}</b>. Congelata il {iso(piano.creatoIl)} su{" "}
+              {piano.giorniStorico} giorni di storico, lead time{" "}
               {piano.leadTimeGiorni} gg, copertura {piano.coperturaGiorni} gg, scorta{" "}
               {piano.scortaSicurezzaPct}%. Le quantità qui sotto sono modificabili: resta traccia sia della
               proposta sia della decisione.

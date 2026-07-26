@@ -498,6 +498,102 @@ function raggruppa(
     .sort((a, b) => b.ricavo - a.ricavo);
 }
 
+// ---------- Panoramica per brand ----------
+
+export type RigaBrand = {
+  brand: string;
+  pezzi: number;
+  ricavo: number;
+  ricavoPrec: number;
+  delta: number | null;
+  quota: number;
+  articoli: number;
+  top: { nome: string; prodottoId: string | null; pezzi: number; ricavo: number } | null;
+};
+
+/**
+ * Il venduto di ogni brand nella finestra, col confronto sul periodo
+ * precedente e il prodotto che tira di più. È la vista "globale": mostra i
+ * mondi affiancati invece di sommarli in un numero solo che non è di nessuno.
+ * Conta solo le vendite andate a buon fine.
+ */
+export async function panoramicaBrand(giorni: number): Promise<{ finestra: Finestra; brand: RigaBrand[]; totale: { pezzi: number; ricavo: number; ricavoPrec: number; delta: number | null } }> {
+  const f = finestra(giorni);
+  const dove = {
+    ...FILTRO_BUON_FINE,
+    OR: [{ prodottoId: null }, { prodotto: { fase: { not: "archiviato" } } }],
+  };
+
+  const [correnti, precedenti] = await Promise.all([
+    prisma.vendita.findMany({
+      where: { data: { gte: f.dal, lte: f.al }, ...dove },
+      select: { canale: true, prodottoId: true, titolo: true, quantita: true, ricavo: true },
+    }),
+    prisma.vendita.groupBy({
+      by: ["canale"],
+      where: { data: { gte: f.dalPrec, lte: f.alPrec }, ...dove },
+      _sum: { ricavo: true },
+    }),
+  ]);
+
+  const prec = new Map(precedenti.map((r) => [r.canale, r._sum.ricavo ?? 0]));
+  const perBrand = new Map<
+    string,
+    { pezzi: number; ricavo: number; prodotti: Map<string, { nome: string; prodottoId: string | null; pezzi: number; ricavo: number }> }
+  >();
+
+  for (const r of correnti) {
+    const b = perBrand.get(r.canale) ?? { pezzi: 0, ricavo: 0, prodotti: new Map() };
+    b.pezzi += r.quantita;
+    b.ricavo += r.ricavo;
+    const k = r.prodottoId ?? `t:${r.titolo}`;
+    const p = b.prodotti.get(k) ?? { nome: r.titolo, prodottoId: r.prodottoId, pezzi: 0, ricavo: 0 };
+    p.pezzi += r.quantita;
+    p.ricavo += r.ricavo;
+    b.prodotti.set(k, p);
+    perBrand.set(r.canale, b);
+  }
+
+  const ricavoTotale = correnti.reduce((s, r) => s + r.ricavo, 0);
+  const nomi = new Map(
+    (
+      await prisma.prodotto.findMany({
+        where: { id: { in: [...new Set(correnti.map((r) => r.prodottoId).filter(Boolean))] as string[] } },
+        select: { id: true, nome: true },
+      })
+    ).map((p) => [p.id, p.nome])
+  );
+
+  const brand: RigaBrand[] = [...perBrand.entries()]
+    .map(([nome, b]) => {
+      const top = [...b.prodotti.values()].sort((x, y) => y.ricavo - x.ricavo)[0] ?? null;
+      const ricavoPrec = prec.get(nome) ?? 0;
+      return {
+        brand: nome,
+        pezzi: b.pezzi,
+        ricavo: b.ricavo,
+        ricavoPrec,
+        delta: variazione(b.ricavo, ricavoPrec),
+        quota: ricavoTotale > 0 ? b.ricavo / ricavoTotale : 0,
+        articoli: b.prodotti.size,
+        top: top ? { ...top, nome: (top.prodottoId && nomi.get(top.prodottoId)) || top.nome } : null,
+      };
+    })
+    .sort((a, b) => b.ricavo - a.ricavo);
+
+  const ricavoPrecTotale = [...prec.values()].reduce((s, v) => s + v, 0);
+  return {
+    finestra: f,
+    brand,
+    totale: {
+      pezzi: correnti.reduce((s, r) => s + r.quantita, 0),
+      ricavo: ricavoTotale,
+      ricavoPrec: ricavoPrecTotale,
+      delta: variazione(ricavoTotale, ricavoPrecTotale),
+    },
+  };
+}
+
 // ---------- Classifiche ----------
 
 export type VoceClassifica = {

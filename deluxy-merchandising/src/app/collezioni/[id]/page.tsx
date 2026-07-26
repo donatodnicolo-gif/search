@@ -39,7 +39,7 @@ export default async function CollezionePage({ params }: { params: Promise<{ id:
     <div className="layout">
       <Sidebar attiva="collezioni" collezioneAttiva={id} />
       <main className="main">
-        <a className="ritorno" href="/">← Collezioni</a>
+        <a className="ritorno" href="/collezioni">← Collezioni</a>
         <div className="page-head">
           <div>
             <div className="prodotto-codice">{etichettaStagione(collezione.stagione)} · {collezione.anno}</div>

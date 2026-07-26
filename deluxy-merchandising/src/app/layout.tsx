@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { SelettoreAmbito } from "@/components/SelettoreAmbito";
 import { ToggleSidebar } from "@/components/ToggleSidebar";
+import { brandCorrente, brandDisponibili } from "@/lib/brand";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,7 +9,8 @@ export const metadata: Metadata = {
   description: "Gestione del prodotto a 360°: collezioni, sviluppo, costi e margini, visual, Shopify",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const [brand, disponibili] = await Promise.all([brandCorrente(), brandDisponibili()]);
   return (
     <html lang="it">
       <head>
@@ -31,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </a>
           </div>
+          {disponibili.length > 0 && <SelettoreAmbito brand={brand} disponibili={disponibili} />}
         </header>
         {children}
       </body>

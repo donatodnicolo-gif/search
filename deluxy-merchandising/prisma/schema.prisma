@@ -221,6 +221,10 @@ model PianoRiordino {
   id                 String         @id @default(cuid())
   nome               String
   stato              String         @default("bozza") // bozza | confermato | archiviato
+  // Ambito con cui è stata calcolata: null = tutti i brand. Congelarlo serve
+  // quanto congelare i parametri: un'ipotesi fatta sul solo Flowers non si
+  // rilegge come se valesse per tutti i negozi.
+  canale             String?
   giorniStorico      Int            @default(56) // finestra di vendite osservata
   leadTimeGiorni     Int            @default(7) // quanto ci mette il fornitore
   coperturaGiorni    Int            @default(21) // quanti giorni deve coprire l'ordine

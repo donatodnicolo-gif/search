@@ -9,11 +9,28 @@ riceve costi e prezzi, viene messo in scena (visual merchandising) e infine
 - **Porta**: `3120`
 - **Design system**: Deluxy Design System v1.0 (stile Apple), token in `src/app/tokens.css`
 
+## Ambito: globale o un brand
+
+In alto a destra c'è **un solo selettore**: «Globale — tutti i brand» oppure un
+brand (Flowers, deluxy.it, cakedesign.me). La scelta sta in un cookie e vale in
+**ogni** pagina, così non c'è mai il dubbio di chi siano i numeri: è scritto nel
+titolo della pagina. Le singole pagine non hanno più un filtro brand proprio.
+
+Il brand **non è una proprietà del prodotto**: è del venduto (`Vendita.canale`,
+dal negozio Shopify via Orders). Perciò «prodotti di un brand» significa sempre
+**prodotti venduti su quel brand** — uno stesso bouquet può stare su due negozi.
+Le **collezioni** restano trasversali: non si filtrano per brand.
+
+Il menù è raggruppato per mestiere: **Panoramica** (cruscotto) · **Vendite**
+(andamento, classifiche, ipotesi di ordinativo, lettura AI) · **Prodotto**
+(collezioni, prodotti, sviluppo, costi) · **Vetrina & canale** (visual, Shopify).
+
 ## Moduli
 
 | Modulo | Cosa fa | Rotta |
 | --- | --- | --- |
-| **Collezioni & stagioni** | Il prodotto organizzato per stagione (SS26, HOLIDAY26…), con stato in sviluppo → in vendita → archiviata, tema, data di lancio, margine target. | `/`, `/collezioni/[id]` |
+| **Cruscotto** | La prima schermata: come sta andando l'ambito scelto. In globale i brand affiancati (ricavo, variazione, quota, primo prodotto) invece di un totale che non è di nessuno; dentro un brand, quel mondo. | `/` |
+| **Collezioni & stagioni** | Il prodotto organizzato per stagione (SS26, HOLIDAY26…), con stato in sviluppo → in vendita → archiviata, tema, data di lancio, margine target. | `/collezioni`, `/collezioni/[id]` |
 | **Prodotti** | Catalogo completo con filtri (collezione, categoria, fase) e scheda 360° a tab. | `/prodotti`, `/prodotti/[id]` |
 | **Sviluppo (PLM)** | La pipeline del ciclo di vita a board: concept → prototipo → approvato → in vendita. Brief creativo, materiali, palette, storico delle fasi. | `/sviluppo` |
 | **Costi & margini** | Costo, prezzo, guadagno e marginalità sul venduto di ogni prodotto, confrontati col target di collezione. Allarmi sotto target. | `/costi` |

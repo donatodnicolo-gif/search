@@ -88,6 +88,9 @@ export type RigaIpotesi = {
 
 export type Ipotesi = {
   parametri: Parametri;
+  // Brand su cui è calcolata (null = tutti). La giacenza però è unica per
+  // prodotto: non esiste un magazzino per negozio, e va detto.
+  canale: string | null;
   righe: RigaIpotesi[];
   totali: {
     articoli: number;
@@ -121,7 +124,8 @@ function classificaTendenza(recente: number, precedente: number): Tendenza {
  * Calcola l'ipotesi di ordinativo sull'assortimento vivo (fasi approvato /
  * in vendita: quello che ha senso comprare oggi).
  */
-export async function calcolaIpotesi(p: Parametri): Promise<Ipotesi> {
+export async function calcolaIpotesi(p: Parametri & { canale?: string | null }): Promise<Ipotesi> {
+  const canale = p.canale ?? null;
   const par: Parametri = {
     giorniStorico: Math.max(14, Math.min(365, Math.round(p.giorniStorico))),
     leadTimeGiorni: Math.max(0, Math.min(120, Math.round(p.leadTimeGiorni))),
@@ -136,7 +140,11 @@ export async function calcolaIpotesi(p: Parametri): Promise<Ipotesi> {
 
   const [prodotti, vendite] = await Promise.all([
     prisma.prodotto.findMany({
-      where: { fase: { in: ["approvato", "in_vendita"] } },
+      where: {
+        fase: { in: ["approvato", "in_vendita"] },
+        // Dentro un brand si propone solo ciò che su quel brand si vende.
+        ...(canale ? { vendite: { some: { canale } } } : {}),
+      },
       include: {
         collezione: { select: { nome: true } },
         fornitore: { select: { nome: true } },
@@ -147,7 +155,12 @@ export async function calcolaIpotesi(p: Parametri): Promise<Ipotesi> {
     // è domanda, e comprarci sopra significa comprare merce che nessuno ha
     // davvero voluto.
     prisma.vendita.findMany({
-      where: { data: { gte: f.dal, lte: f.al }, prodottoId: { not: null }, ...FILTRO_BUON_FINE },
+      where: {
+        data: { gte: f.dal, lte: f.al },
+        prodottoId: { not: null },
+        ...FILTRO_BUON_FINE,
+        ...(canale ? { canale } : {}),
+      },
       select: { prodottoId: true, data: true, quantita: true, ricavo: true },
     }),
   ]);
@@ -284,8 +297,14 @@ export async function calcolaIpotesi(p: Parametri): Promise<Ipotesi> {
       `${senzaGiacenza} prodotti non hanno varianti, quindi nessuna giacenza registrata: risultano scoperti anche se in magazzino c'è merce.`
     );
 
+  if (canale)
+    avvisi.push(
+      `Ritmo calcolato sulle sole vendite di ${canale}, ma la giacenza è unica per prodotto: non esiste un magazzino per negozio, quindi la copertura vale per tutti i brand insieme.`
+    );
+
   return {
     parametri: par,
+    canale,
     righe,
     totali: {
       articoli: totali.articoli,

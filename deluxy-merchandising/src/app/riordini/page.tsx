@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { Sidebar } from "@/components/Sidebar";
 import { salvaPiano } from "@/lib/azioni-vendite";
+import { brandCorrente } from "@/lib/brand";
 import { prisma } from "@/lib/db";
 import { etichettaCategoria, euro, iso } from "@/lib/dominio";
 import {
@@ -26,8 +27,10 @@ export default async function RiordiniPage({
   const parametri = parametriDaQuery(sp);
   const soloDaOrdinare = sp.tutti !== "1";
 
+  const brand = await brandCorrente();
+
   const [ipotesi, piani] = await Promise.all([
-    calcolaIpotesi(parametri),
+    calcolaIpotesi({ ...parametri, canale: brand }),
     prisma.pianoRiordino.findMany({
       orderBy: { creatoIl: "desc" },
       take: 8,
@@ -49,7 +52,7 @@ export default async function RiordiniPage({
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Ipotesi di ordinativo</h1>
+            <h1 className="page-title">Ipotesi di ordinativo{brand ? ` — ${brand}` : ""}</h1>
             <p className="page-sub">
               Quanto conviene riordinare di ogni prodotto, partendo dal ritmo di vendita reale e dalla
               giacenza. È una proposta da leggere e correggere: nessun fornitore viene contattato da qui.

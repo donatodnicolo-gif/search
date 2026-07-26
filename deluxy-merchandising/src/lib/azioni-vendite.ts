@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { generaLettura } from "./ai-trend";
+import { brandCorrente, COOKIE_BRAND } from "./brand";
 import { prisma } from "./db";
 import { importaVendite } from "./orders";
 import { calcolaIpotesi, parametriDaQuery, type Parametri } from "./riordino";
@@ -11,6 +13,25 @@ function intero(fd: FormData, k: string, def: number): number {
   const v = fd.get(k);
   const n = typeof v === "string" ? parseInt(v, 10) : NaN;
   return Number.isFinite(n) ? n : def;
+}
+
+// ---------- Ambito (globale / brand) ----------
+
+/**
+ * Salva l'ambito scelto e riporta l'utente dov'era.
+ * Il percorso arriva dal form: senza, dopo ogni cambio si finirebbe sempre in
+ * home, che è il modo più veloce per far odiare un selettore.
+ */
+export async function impostaAmbito(fd: FormData) {
+  const brand = String(fd.get("brand") ?? "").trim();
+  const percorso = String(fd.get("percorso") ?? "/") || "/";
+  const jar = await cookies();
+  if (brand) {
+    jar.set(COOKIE_BRAND, brand, { httpOnly: false, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
+  } else {
+    jar.delete(COOKIE_BRAND);
+  }
+  redirect(percorso.startsWith("/") ? percorso : "/");
 }
 
 // ---------- Vendite ----------
@@ -38,19 +59,24 @@ export async function salvaPiano(fd: FormData) {
     copertura: String(intero(fd, "copertura", 21)),
     scorta: String(intero(fd, "scorta", 20)),
   });
-  const ipotesi = await calcolaIpotesi(parametri);
+  // L'ambito arriva dal cookie, come in pagina: l'ipotesi si congela sullo
+  // stesso mondo che l'operatore stava guardando.
+  const canale = await brandCorrente();
+  const ipotesi = await calcolaIpotesi({ ...parametri, canale });
   const righe = ipotesi.righe.filter((r) => r.quantitaSuggerita > 0);
   if (righe.length === 0) redirect("/riordini?esito=vuoto");
 
   const nomeDato = fd.get("nome");
+  const quando = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
   const nome =
     typeof nomeDato === "string" && nomeDato.trim()
       ? nomeDato.trim()
-      : `Ipotesi del ${new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" })}`;
+      : `Ipotesi ${canale ?? "tutti i brand"} del ${quando}`;
 
   const piano = await prisma.pianoRiordino.create({
     data: {
       nome,
+      canale,
       giorniStorico: ipotesi.parametri.giorniStorico,
       leadTimeGiorni: ipotesi.parametri.leadTimeGiorni,
       coperturaGiorni: ipotesi.parametri.coperturaGiorni,
@@ -105,7 +131,7 @@ export async function eliminaPiano(id: string) {
 
 export async function chiediLetturaAI(fd: FormData) {
   const giorni = intero(fd, "giorni", 90);
-  const esito = await generaLettura(giorni);
+  const esito = await generaLettura(giorni, await brandCorrente());
   revalidatePath("/trend-ai");
   if (esito.ok) redirect(`/trend-ai?lettura=${esito.id}`);
   redirect(`/trend-ai?giorni=${giorni}&errore=${encodeURIComponent(esito.errore)}`);

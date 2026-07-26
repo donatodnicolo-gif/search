@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/Sidebar";
 import { BarraMargine } from "@/components/BarraMargine";
+import { brandCorrente, filtroProdotti } from "@/lib/brand";
 import { prisma } from "@/lib/db";
 import { calcolaMargine, coloreMargine, euro, percentuale } from "@/lib/dominio";
 import Link from "next/link";
@@ -12,8 +13,9 @@ export const dynamic = "force-dynamic";
 const LIMITE = 100;
 
 export default async function CostiPage() {
+  const brand = await brandCorrente();
   const prodotti = await prisma.prodotto.findMany({
-    where: { fase: { not: "archiviato" }, prezzoVendita: { gt: 0 } },
+    where: { ...filtroProdotti(brand), fase: { not: "archiviato" }, prezzoVendita: { gt: 0 } },
     include: { collezione: { select: { nome: true, margineTarget: true } } },
   });
 
@@ -38,7 +40,7 @@ export default async function CostiPage() {
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Costi & margini</h1>
+            <h1 className="page-title">Costi &amp; margini{brand ? ` — ${brand}` : ""}</h1>
             <p className="page-sub">La marginalità di ogni prodotto rispetto al target della sua collezione. In rosso i prodotti sotto obiettivo.</p>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { FormFiltri } from "@/components/FormFiltri";
 import { GraficoAndamento, BarraQuota, Sparkline } from "@/components/Grafico";
 import { Sidebar } from "@/components/Sidebar";
 import { importaDaOrders } from "@/lib/azioni-vendite";
+import { brandCorrente } from "@/lib/brand";
 import { prisma } from "@/lib/db";
 import { CATEGORIE, etichettaCategoria, euro, iso, percentuale } from "@/lib/dominio";
 import { ordersBase, ordersConfigurato, ultimoImport } from "@/lib/orders";
@@ -38,15 +39,19 @@ export default async function VenditePage({
     ? Number(sp.giorni)
     : 90;
 
-  const [analisi, collezioni, ultimo, canaliNoti] = await Promise.all([
+  // Il brand non si sceglie qui: è l'ambito dell'app, in alto a destra, e vale
+  // in ogni pagina. Due selettori di brand in due posti diversi sono il modo
+  // migliore per non sapere più che cosa si sta guardando.
+  const brand = await brandCorrente();
+
+  const [analisi, collezioni, ultimo] = await Promise.all([
     analizzaVendite(giorni, {
       collezioneId: sp.collezione || null,
       categoria: sp.categoria || null,
-      canale: sp.canale || null,
+      canale: brand,
     }),
     prisma.collezione.findMany({ orderBy: { anno: "desc" }, select: { id: true, nome: true } }),
     ultimoImport(),
-    prisma.vendita.findMany({ distinct: ["canale"], select: { canale: true }, orderBy: { canale: "asc" } }),
   ]);
 
   const { totale, precedente } = analisi;
@@ -77,11 +82,13 @@ export default async function VenditePage({
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Vendite &amp; trend</h1>
+            <h1 className="page-title">
+              Andamento &amp; trend{brand ? ` — ${brand}` : ""}
+            </h1>
             <p className="page-sub">
-              Il venduto reale letto dal registro Deluxy Orders: cosa tira, cosa si è spento, quanto margine
-              porta davvero ogni prodotto. Il confronto è sempre con il periodo precedente della stessa
-              lunghezza.
+              Il venduto reale letto dal registro Deluxy Orders{brand ? ` per ${brand}` : ", su tutti i brand"}:
+              cosa tira, cosa si è spento, quanto margine porta davvero ogni prodotto. Il confronto è sempre
+              con il periodo precedente della stessa lunghezza.
             </p>
           </div>
           <form action={importaDaOrders}>
@@ -134,16 +141,6 @@ export default async function VenditePage({
               </option>
             ))}
           </select>
-          {canaliNoti.length > 1 && (
-            <select name="canale" defaultValue={sp.canale ?? ""} aria-label="Canale">
-              <option value="">Tutti i canali</option>
-              {canaliNoti.map((c) => (
-                <option key={c.canale} value={c.canale}>
-                  {c.canale}
-                </option>
-              ))}
-            </select>
-          )}
         </FormFiltri>
 
         <div className="kpi-riga">

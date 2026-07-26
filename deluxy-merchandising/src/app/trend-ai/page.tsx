@@ -11,6 +11,7 @@ import {
   type DatiPerAI,
 } from "@/lib/ai-trend";
 import { chiediLetturaAI, eliminaLettura } from "@/lib/azioni-vendite";
+import { brandCorrente } from "@/lib/brand";
 import { prisma } from "@/lib/db";
 import { euro, iso } from "@/lib/dominio";
 import { ETICHETTA_FINESTRA, FINESTRE } from "@/lib/vendite";
@@ -27,9 +28,10 @@ export default async function TrendAiPage({
     ? Number(sp.giorni)
     : 90;
 
+  const brand = await brandCorrente();
   const [storico, dati] = await Promise.all([
     prisma.letturaTrend.findMany({ orderBy: { creataIl: "desc" }, take: 10 }),
-    datiPerAI(giorni),
+    datiPerAI(giorni, brand),
   ]);
 
   const scelta = sp.lettura ? storico.find((l) => l.id === sp.lettura) : storico[0];
@@ -50,10 +52,11 @@ export default async function TrendAiPage({
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Trend con AI</h1>
+            <h1 className="page-title">Lettura AI{brand ? ` — ${brand}` : ""}</h1>
             <p className="page-sub">
-              Una lettura del venduto scritta dal modello sui numeri già calcolati dall&apos;app. L&apos;AI non
-              somma e non esegue: interpreta e propone, decidere resta un gesto umano.
+              Una lettura del venduto {brand ? `di ${brand}` : "di tutti i brand"} scritta dal modello sui
+              numeri già calcolati dall&apos;app. L&apos;AI non somma e non esegue: interpreta e propone,
+              decidere resta un gesto umano.
             </p>
           </div>
           <form action={chiediLetturaAI} className="riga-azione">

@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/Sidebar";
 import { FormFiltri } from "@/components/FormFiltri";
 import { TabellaProdotti } from "@/components/TabellaProdotti";
+import { brandCorrente, filtroProdotti } from "@/lib/brand";
 import { prisma } from "@/lib/db";
 import { CATEGORIE, ETICHETTA_CATEGORIA, ETICHETTA_FASE, FASI_PLM } from "@/lib/dominio";
 
@@ -18,7 +19,10 @@ export default async function ProdottiPage({
   }>;
 }) {
   const sp = await searchParams;
-  const where: Record<string, unknown> = {};
+  // Dentro un brand si vedono i prodotti **venduti su quel brand**: il brand non
+  // è un campo della scheda prodotto, è una proprietà del venduto.
+  const brand = await brandCorrente();
+  const where: Record<string, unknown> = { ...filtroProdotti(brand) };
   if (sp.q) where.OR = [{ nome: { contains: sp.q } }, { codice: { contains: sp.q } }];
   if (sp.collezione) where.collezioneId = sp.collezione;
   if (sp.categoria) where.categoria = sp.categoria;
@@ -58,8 +62,12 @@ export default async function ProdottiPage({
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Prodotti</h1>
-            <p className="page-sub">Il catalogo completo: filtra per collezione, categoria o fase del ciclo di vita.</p>
+            <h1 className="page-title">Prodotti{brand ? ` — ${brand}` : ""}</h1>
+            <p className="page-sub">
+              {brand
+                ? `I prodotti venduti almeno una volta su ${brand}. Filtra per collezione, categoria o fase del ciclo di vita.`
+                : "Il catalogo completo: filtra per collezione, categoria o fase del ciclo di vita."}
+            </p>
           </div>
           <a className="btn" href="/prodotti/nuovo">Nuovo prodotto</a>
         </div>

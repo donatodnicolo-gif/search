@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FormFiltri } from "@/components/FormFiltri";
 import { BarraQuota } from "@/components/Grafico";
 import { Sidebar } from "@/components/Sidebar";
+import { brandCorrente } from "@/lib/brand";
 import { euro, percentuale } from "@/lib/dominio";
 import {
   classifiche,
@@ -16,24 +17,19 @@ export const dynamic = "force-dynamic";
 export default async function ClassifichePage({
   searchParams,
 }: {
-  searchParams: Promise<{ giorni?: string; canale?: string; vista?: string; tutte?: string }>;
+  searchParams: Promise<{ giorni?: string; vista?: string; tutte?: string }>;
 }) {
   const sp = await searchParams;
+  // Il brand è l'ambito dell'app (barra in alto), non un filtro di questa pagina.
+  const brand = await brandCorrente();
   const giorni = FINESTRE.includes(Number(sp.giorni) as (typeof FINESTRE)[number])
     ? Number(sp.giorni)
     : 90;
   const vista = sp.vista === "varianti" ? "varianti" : "prodotti";
   const soloBuonFine = sp.tutte !== "1";
 
-  const c = await classifiche({
-    giorni,
-    canale: sp.canale || null,
-    vista,
-    soloBuonFine,
-    limite: 25,
-  });
-
-  const titoloBrand = c.canale ? c.canale : "tutti i brand";
+  const c = await classifiche({ giorni, canale: brand, vista, soloBuonFine, limite: 25 });
+  const titoloBrand = c.canale ?? "tutti i brand";
 
   return (
     <div className="layout">
@@ -41,7 +37,7 @@ export default async function ClassifichePage({
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Classifiche</h1>
+            <h1 className="page-title">Classifiche{brand ? ` — ${brand}` : ""}</h1>
             <p className="page-sub">
               Che cosa vende di più, {titoloBrand}: gli stessi articoli messi in fila <b>per quantità</b> e{" "}
               <b>per valore</b>. Le due graduatorie raramente coincidono, ed è lì che si vedono le cose
@@ -55,14 +51,6 @@ export default async function ClassifichePage({
             {FINESTRE.map((g) => (
               <option key={g} value={g}>
                 {ETICHETTA_FINESTRA[g]}
-              </option>
-            ))}
-          </select>
-          <select name="canale" defaultValue={sp.canale ?? ""} aria-label="Brand">
-            <option value="">Tutti i brand</option>
-            {c.canaliDisponibili.map((x) => (
-              <option key={x} value={x}>
-                {x}
               </option>
             ))}
           </select>

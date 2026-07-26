@@ -1,15 +1,23 @@
 import { prisma } from "@/lib/db";
+import { brandCorrente, filtroProdotti } from "@/lib/brand";
 import { COLORE_STATO_COLLEZIONE, etichettaStagione } from "@/lib/dominio";
 import { Icona } from "./Icona";
 import { SbSezione } from "./SbSezione";
 
-// Sidebar di navigazione. `attiva` identifica la sezione corrente per
-// evidenziare la voce giusta; `collezioneAttiva` evidenzia la collezione aperta.
+// Sidebar di navigazione, organizzata per mestiere invece che in un elenco
+// unico: prima si guarda come va (Vendite), poi si lavora sul prodotto
+// (Prodotto), poi lo si mette in scena (Vetrina & canale). Le voci sono le
+// stesse di prima: cambia che si trovano.
+//
+// I contatori seguono l'ambito scelto in alto: in un brand contano i prodotti
+// **venduti su quel brand**, non tutto il catalogo — altrimenti il menu
+// racconterebbe una storia diversa dalle pagine.
 export async function Sidebar({
   attiva,
   collezioneAttiva,
 }: {
   attiva?:
+    | "cruscotto"
     | "collezioni"
     | "prodotti"
     | "sviluppo"
@@ -22,11 +30,18 @@ export async function Sidebar({
     | "shopify";
   collezioneAttiva?: string;
 }) {
+  const brand = await brandCorrente();
+  const doveProdotti = filtroProdotti(brand);
+
   const [nCollezioni, nProdotti, nInSviluppo, daPubblicare, pianiAperti, collezioni] = await Promise.all([
     prisma.collezione.count(),
-    prisma.prodotto.count(),
-    prisma.prodotto.count({ where: { fase: { in: ["concept", "prototipo", "approvato"] } } }),
-    prisma.prodotto.count({ where: { shopifyStato: { not: "pubblicato" }, fase: { not: "archiviato" } } }),
+    prisma.prodotto.count({ where: doveProdotti }),
+    prisma.prodotto.count({
+      where: { ...doveProdotti, fase: { in: ["concept", "prototipo", "approvato"] } },
+    }),
+    prisma.prodotto.count({
+      where: { ...doveProdotti, shopifyStato: { not: "pubblicato" }, fase: { not: "archiviato" } },
+    }),
     prisma.pianoRiordino.count({ where: { stato: "bozza" } }),
     prisma.collezione.findMany({
       orderBy: [{ anno: "desc" }, { creataIl: "desc" }],
@@ -51,15 +66,25 @@ export async function Sidebar({
   return (
     <aside className="sidebar">
       <nav>
-        <SbSezione titolo="Merchandising">
-          {voce("collezioni", "/", "collezioni", "Collezioni", nCollezioni)}
+        <SbSezione titolo="Panoramica">
+          {voce("cruscotto", "/", "home", "Cruscotto")}
+        </SbSezione>
+
+        <SbSezione titolo="Vendite">
+          {voce("vendite", "/vendite", "vendite", "Andamento & trend")}
+          {voce("classifiche", "/classifiche", "classifiche", "Classifiche")}
+          {voce("riordini", "/riordini", "riordini", "Ipotesi di ordinativo", pianiAperti || undefined)}
+          {voce("trend-ai", "/trend-ai", "ai", "Lettura AI")}
+        </SbSezione>
+
+        <SbSezione titolo="Prodotto">
+          {voce("collezioni", "/collezioni", "collezioni", "Collezioni", nCollezioni)}
           {voce("prodotti", "/prodotti", "prodotti", "Prodotti", nProdotti)}
           {voce("sviluppo", "/sviluppo", "sviluppo", "Sviluppo", nInSviluppo)}
           {voce("costi", "/costi", "costi", "Costi & margini")}
-          {voce("vendite", "/vendite", "vendite", "Vendite & trend")}
-          {voce("classifiche", "/classifiche", "classifiche", "Classifiche")}
-          {voce("riordini", "/riordini", "riordini", "Ipotesi di ordinativo", pianiAperti || undefined)}
-          {voce("trend-ai", "/trend-ai", "ai", "Trend con AI")}
+        </SbSezione>
+
+        <SbSezione titolo="Vetrina & canale">
           {voce("visual", "/visual", "visual", "Visual merchandising")}
           {voce("shopify", "/shopify", "shopify", "Shopify", daPubblicare || undefined)}
         </SbSezione>

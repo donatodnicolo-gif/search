@@ -8,7 +8,7 @@ export default function NuovaCollezionePage() {
     <div className="layout">
       <Sidebar attiva="collezioni" />
       <main className="main" style={{ maxWidth: 760 }}>
-        <a className="ritorno" href="/">← Collezioni</a>
+        <a className="ritorno" href="/collezioni">← Collezioni</a>
         <div className="page-head">
           <h1 className="page-title">Nuova collezione</h1>
         </div>
@@ -55,7 +55,7 @@ export default function NuovaCollezionePage() {
             </div>
           </div>
           <div className="azioni-modulo">
-            <a className="btn btn-secondario" href="/">Annulla</a>
+            <a className="btn btn-secondario" href="/collezioni">Annulla</a>
             <button type="submit" className="btn">Crea collezione</button>
           </div>
         </form>
