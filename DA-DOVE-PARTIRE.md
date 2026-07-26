@@ -7,6 +7,10 @@ documento leggere per primo** e le trappole già note.
 
 ---
 
+> Non conosci Deluxy? Prima di tutto leggi **[DOSSIER-DELUXY.md](DOSSIER-DELUXY.md)**:
+> cos'è l'azienda, il glossario dei termini interni, le regole di business e
+> com'è fatto l'ecosistema. Questo file invece è la parte operativa.
+
 ## 0. Le 4 cose valide per tutti
 
 1. **Regole di lavoro** (commit, handoff, segreti, conferme):
