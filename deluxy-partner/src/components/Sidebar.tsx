@@ -268,9 +268,15 @@ export function Sidebar({
           <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {nome ?? "Deluxy"}
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-            {ruolo === "sola_lettura" ? "Sola lettura" : nome ? "Accesso pieno" : "Amministrazione"}
-          </div>
+          {/* Il posto dove uno cerca «cambia la mia password» è il proprio nome,
+              non una voce persa in Impostazioni. */}
+          {nome ? (
+            <Link href="/impostazioni/password" style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              {ruolo === "sola_lettura" ? "Sola lettura" : "Accesso pieno"} · password
+            </Link>
+          ) : (
+            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Amministrazione</div>
+          )}
         </div>
         <form action={esci} className="solo-estesa">
           <button

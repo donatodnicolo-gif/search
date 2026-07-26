@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { prisma } from "./db";
 import { sessioneCorrente } from "./auth";
 import { registra } from "./registro";
-import { hashPassword, normalizzaEmail, emailValida, problemaPassword } from "./utenti";
+import { hashPassword, normalizzaEmail, emailValida, problemaPassword, verificaPassword } from "./utenti";
 
 // Gestione degli account personali. Il middleware già rifiuta ogni POST al
 // profilo di sola lettura, ma il controllo è ripetuto qui: queste azioni creano
@@ -27,6 +27,54 @@ function torna(errore?: string, ok?: string): never {
   if (ok) qs.set("ok", ok);
   revalidatePath("/impostazioni/utenti");
   redirect(`/impostazioni/utenti${qs.toString() ? `?${qs}` : ""}`);
+}
+
+// ————— La MIA password (la cambia la persona stessa) —————
+// Non è un'azione da amministratore: la può fare chiunque abbia un account, ed
+// è l'unico modo perché la password iniziale — scelta da un altro e comunicata
+// a voce — smetta di essere conosciuta da due persone.
+function tornaPassword(errore?: string, ok?: string): never {
+  const qs = new URLSearchParams();
+  if (errore) qs.set("errore", errore);
+  if (ok) qs.set("ok", ok);
+  revalidatePath("/impostazioni/password");
+  redirect(`/impostazioni/password${qs.toString() ? `?${qs}` : ""}`);
+}
+
+export async function cambiaPasswordPropria(fd: FormData) {
+  const jar = await cookies();
+  const s = await sessioneCorrente(jar.get("dp_session")?.value);
+  if (s?.tipo !== "utente" || s.via !== "email") {
+    tornaPassword("Qui si cambia la password del proprio account: sei entrato in un altro modo.");
+  }
+
+  const attuale = String(fd.get("attuale") ?? "");
+  const nuova = String(fd.get("nuova") ?? "");
+  const conferma = String(fd.get("conferma") ?? "");
+
+  const u = await prisma.utenteApp.findUnique({ where: { id: s.uid } });
+  if (!u) tornaPassword("Account non trovato: esci e rientra.");
+
+  // La password attuale si chiede sempre: senza, chi trovasse il computer
+  // sbloccato potrebbe cambiarla e prendersi l'account.
+  if (!(await verificaPassword(attuale, u.passwordHash))) {
+    tornaPassword("La password attuale non è corretta.");
+  }
+  if (nuova !== conferma) tornaPassword("Le due nuove password non coincidono.");
+  const problema = problemaPassword(nuova);
+  if (problema) tornaPassword(problema);
+  if (await verificaPassword(nuova, u.passwordHash)) {
+    tornaPassword("La nuova password è uguale a quella attuale.");
+  }
+
+  await prisma.utenteApp.update({ where: { id: u.id }, data: { passwordHash: await hashPassword(nuova) } });
+  await registra({
+    azione: `${u.nome} ha cambiato la propria password`,
+    categoria: "impostazioni",
+    entita: "utente",
+    entitaId: u.id,
+  });
+  tornaPassword(undefined, "Password aggiornata. Da adesso entri con quella nuova.");
 }
 
 export async function creaUtente(fd: FormData) {
