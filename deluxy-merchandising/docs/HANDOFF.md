@@ -39,12 +39,13 @@ npm run dev   # http://localhost:3120
 ## STATO DEPLOY (26/07/2026)
 - **Pubblicata**: https://deluxy-merchandising.vercel.app (progetto Vercel `deluxy-merchandising`, Postgres condiviso Supabase schema `merchandising`).
 - **UI protetta da password** (`MERCHANDISING_APP_PASSWORD`, middleware + `/login`, cookie `mrc_session` = HMAC della password). Cambiando la password su Vercel **decadono tutte le sessioni** e serve un **nuovo deploy** perché il valore entri in vigore.
-- Il 26/07/2026 la variabile è stata sostituita su Vercel ma **il redeploy non è stato eseguito** (bloccato in sessione): finché non si rilancia il deploy, in produzione vale ancora il valore precedente.
+- **Deploy del 26/07/2026 fatto** (`deluxy-merchandising-9zbwyzdqx`): password nuova attiva e verificata in produzione, `ORDERS_URL`/`ORDERS_API_KEY` operativi (il pulsante «Importa da Ordini» è abilitato online), pagine `/vendite`, `/classifiche`, `/riordini`, `/trend-ai` verificate sul sito. Nota: il primo tentativo di deploy è fallito con `fetch failed` (errore di rete lato upload), il secondo è andato — se ricapita, basta rilanciare.
+- `OPENAI_API_KEY` **non è su Vercel**: online `/trend-ai` mostra i numeri pronti ma il pulsante «Chiedi la lettura» resta disabilitato.
 - Lo schema del database è già allineato alle tabelle nuove (`prisma db push` eseguito sul Postgres condiviso il 26/07/2026).
 - CLI Vercel autenticata come `donatodnicolo-gif`.
 
 ## MANCA / PROSSIMI PASSI
-- **Redeploy** dopo il cambio password (vedi sopra): `npx vercel redeploy <url-ultimo-deployment>` oppure Redeploy dal pannello Vercel.
+- **Righe di servizio in classifica**: `_Additional Price` (2.145 pz a 1 €) e `Torta Tisamisu Modena` (75 pz a 1 €) sono supplementi di prezzo dei negozi, non prodotti, e occupano i primi posti per quantità. Si tolgono mettendoli in fase **Archiviato**: gli archiviati non entrano in classifica. Non si filtrano dal nome — sarebbe indovinare.
 - **Costi e categorie dei 2.163 prodotti nuovi**: finché `costoProduzione` resta 0, il margine di `/vendite` e delle ipotesi di ordinativo è 0 (dichiarato, non stimato) e `/costi` non ha nulla da confrontare col target. Stessa cosa per la categoria `DA_CLASSIFICARE` e per le collezioni (nessun prodotto importato è assegnato a una collezione).
 - **Giacenze**: nessuna fonte di magazzino è collegata, tutte le varianti importate hanno giacenza 0. Le ipotesi di ordinativo partono quindi da «scorta ignota» e propongono la copertura piena.
 - **Chiave OpenAI** (`OPENAI_API_KEY`) per la lettura AI del trend: il percorso è verificato fino alla chiamata (con chiave finta l'app mostra "Chiave OpenAI rifiutata (401)"), la risposta del modello non è ancora stata provata con una chiave vera.
