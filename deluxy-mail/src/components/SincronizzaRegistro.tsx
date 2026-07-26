@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { sincronizzaRegistroOra } from '@/lib/actions'
+import { sincronizzaCalendarioOra, sincronizzaRegistroOra } from '@/lib/actions'
 
 /**
  * «Sincronizza adesso» col registro Attività condiviso.
@@ -16,7 +16,7 @@ import { sincronizzaRegistroOra } from '@/lib/actions'
  * «Rimanda tutte» ignora le impronte e rispedisce ogni attività: serve dopo aver
  * svuotato il registro, o se si sospetta che i due elenchi siano fuori fase.
  */
-export function SincronizzaRegistro() {
+export function SincronizzaRegistro({ quale = 'tasks' }: { quale?: 'tasks' | 'calendario' }) {
   const [esito, setEsito] = useState<{ ok: boolean; messaggio: string } | null>(null)
   const [inCorso, start] = useTransition()
   const router = useRouter()
@@ -24,7 +24,9 @@ export function SincronizzaRegistro() {
   const lancia = (forza: boolean) =>
     start(async () => {
       setEsito(null)
-      const r = await sincronizzaRegistroOra(forza)
+      const r = quale === 'calendario'
+        ? await sincronizzaCalendarioOra(forza)
+        : await sincronizzaRegistroOra(forza)
       setEsito(r)
       router.refresh()
     })

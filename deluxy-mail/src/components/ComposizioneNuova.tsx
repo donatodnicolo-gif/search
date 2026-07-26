@@ -7,6 +7,7 @@ import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
 import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
 import { AgganciaCompose, type ScelraAggancio } from './AgganciaCompose'
+import { TestiPronti } from './TestiPronti'
 import { mettiFlash } from './Flash'
 import { useBozzaAuto } from './useBozzaAuto'
 import { caricaAllegatiGrandi, servonoAPezzi, caricaCorpoGrande, corpoTroppoGrande } from './caricaAllegati'
@@ -35,6 +36,9 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
   const [cc, setCc] = useState(iniziale.cc)
   const [oggetto, setOggetto] = useState(iniziale.oggetto)
   const [corpo, setCorpo] = useState(iniziale.corpo)
+  // Cambia quando si inserisce un testo pronto: rimonta l'editor col contenuto
+  // nuovo (l'editor imposta il valore iniziale una volta sola, apposta).
+  const [versioneCorpo, setVersioneCorpo] = useState(0)
   const [allegati, setAllegati] = useState<File[]>([])
   // Priorità (facoltativa) da dare alla mail che parte: resta sull'inviata.
   const [priorita, setPriorita] = useState('')
@@ -267,9 +271,27 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
             invece far finire dentro uno scambio già esistente. */}
         <AgganciaCompose scelta={aggancio} onScelta={setAggancio} />
 
+        {/* I copioni aziendali di Deluxy Scripts: si sceglie e finisce qui
+            sotto, già composto con firma e recapiti della posta. */}
+        <TestiPronti
+          destinatario={a}
+          onScegli={({ oggetto: o, testo }) => {
+            if (o) setOggetto(o)
+            setCorpo(testo)
+            // L'editor imposta il contenuto una volta sola (se lo rifacesse a
+            // ogni render sposterebbe il cursore): per sostituirlo si rimonta.
+            setVersioneCorpo((n) => n + 1)
+          }}
+        />
+
         <div className="full">
           <label className="field-label">Messaggio</label>
-          <EditorRicco valoreIniziale={iniziale.corpo} onChange={setCorpo} idAllegati="allegati-nuova" />
+          <EditorRicco
+            key={versioneCorpo}
+            valoreIniziale={versioneCorpo === 0 ? iniziale.corpo : corpo}
+            onChange={setCorpo}
+            idAllegati="allegati-nuova"
+          />
         </div>
 
         <div className="full">

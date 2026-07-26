@@ -168,6 +168,82 @@ export default async function ImpostazioniApp() {
         {isAdmin && chiavi.tasks && <SincronizzaRegistro />}
       </div>
 
+      {/* ---------- Calendario condiviso ---------- */}
+      <h2 className="section-title">Calendario condiviso (Deluxy Calendario)</h2>
+      <p className="page-caption" style={{ marginBottom: 14 }}>
+        Gli appuntamenti presi qui — a mano, accettando un invito o accogliendo una proposta
+        dell’AI — vivono anche nel <strong>Calendario</strong> centralizzato, insieme a consegne e
+        scadenze delle altre app. Come per le attività l’allineamento va nei{' '}
+        <strong>due sensi</strong>: quello che sposti o cancelli qui si sposta anche là (subito), e
+        un appuntamento modificato o annullato nel calendario condiviso torna qui al giro di
+        sincronizzazione successivo. Serve una chiave di <strong>scrittura</strong>.
+      </p>
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+          <span className={`badge ${chiavi.calendario ? 'green' : 'neutral'}`}>
+            <span className="dot" />
+            {chiavi.calendario ? 'Collegato' : 'Da collegare'}
+          </span>
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 10 }}>
+          Chiave di SCRITTURA generata dal Calendario (comando «npm run chiave -- mail
+          --scrittura» nell’app deluxy-calendario).
+        </div>
+        {isAdmin ? (
+          <ChiaveAppForm
+            nome="calendario"
+            etichetta="Calendario condiviso"
+            impostataDaApp={statoChiavi.calendario.daApp}
+            daHub={statoChiavi.calendario.daHub}
+            daEnv={statoChiavi.calendario.daEnv}
+            variabileEnv="CALENDARIO_API_KEY"
+          />
+        ) : (
+          <div style={{ fontSize: 12.5, color: 'var(--text-tertiary)' }}>
+            {chiavi.calendario ? 'Collegato.' : 'Non ancora collegato.'}
+          </div>
+        )}
+        {isAdmin && chiavi.calendario && <SincronizzaRegistro quale="calendario" />}
+      </div>
+
+      {/* ---------- Testi pronti ---------- */}
+      <h2 className="section-title">Testi pronti (Deluxy Scripts)</h2>
+      <p className="page-caption" style={{ marginBottom: 14 }}>
+        I copioni aziendali — offerte, inviti, presentazioni, solleciti, risposte ai reclami —
+        scritti una volta sola nell’app <strong>Scripts</strong> e richiamabili mentre si scrive una
+        mail: compare «Usa un testo pronto», si sceglie, e oggetto e messaggio arrivano già composti
+        con la firma e i recapiti della posta. Qui basta una chiave di <strong>lettura</strong>:
+        AI Mail i testi li legge soltanto, si scrivono e si modificano nell’app Scripts — averne due
+        copie vorrebbe dire vederle divergere.
+      </p>
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+          <span className={`badge ${chiavi.scripts ? 'green' : 'neutral'}`}>
+            <span className="dot" />
+            {chiavi.scripts ? 'Collegato' : 'Da collegare'}
+          </span>
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 10 }}>
+          Chiave generata dai Testi pronti (comando «npm run chiave -- deluxy-mail» nell’app
+          deluxy-scripts). I singoli testi vanno poi <strong>accesi per AI Mail</strong> da lì:
+          quelli spenti non compaiono.
+        </div>
+        {isAdmin ? (
+          <ChiaveAppForm
+            nome="scripts"
+            etichetta="Testi pronti"
+            impostataDaApp={statoChiavi.scripts.daApp}
+            daHub={statoChiavi.scripts.daHub}
+            daEnv={statoChiavi.scripts.daEnv}
+            variabileEnv="SCRIPTS_API_KEY"
+          />
+        ) : (
+          <div style={{ fontSize: 12.5, color: 'var(--text-tertiary)' }}>
+            {chiavi.scripts ? 'Collegato.' : 'Non ancora collegato.'}
+          </div>
+        )}
+      </div>
+
       {/* ---------- Regole: quando una mail va a un'app ---------- */}
       <h2 className="section-title">Regole di smistamento verso le app</h2>
       <p className="page-caption" style={{ marginBottom: 14 }}>

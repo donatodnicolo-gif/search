@@ -81,6 +81,9 @@ function corpoDaForm(grezzo: string): { html: string | undefined; testo: string 
 import { db } from './db'
 import { cifra, decifra } from './crypto'
 import { allineaAttivitaOra } from './registroTask'
+import { allineaEventoOra } from './registroCalendario'
+import { elencoScriptPronti, scriptProntiAttivi } from './scriptPronti'
+import type { ScriptPronto } from './scriptTesto'
 import {
   analizzaContattoOra,
   analizzaMessaggioOra,
@@ -2733,7 +2736,7 @@ export async function rispondiInvito(
       where: { utenteId, inizio: invito.inizio, titolo: invito.titolo },
     })
     if (gia === 0) {
-      await db.evento.create({
+      const creato = await db.evento.create({
         data: {
           utenteId,
           titolo: stato === 'TENTATIVE' ? `${invito.titolo} (forse)` : invito.titolo,
@@ -2744,7 +2747,11 @@ export async function rispondiInvito(
           giornataIntera: invito.giornataIntera,
           messaggioId: m.id,
         },
+        select: { id: true },
       })
+      // Accettare un invito lo mette in agenda: dev'essere subito anche nel
+      // calendario condiviso, non al giro dopo.
+      await allineaEventoOra(creato.id).catch(() => {})
       notaAgenda = ' Aggiunto al calendario.'
     } else {
       notaAgenda = ' Era già in calendario.'
@@ -2838,6 +2845,12 @@ export async function creaEvento(form: FormData): Promise<{ ok: boolean; messagg
   let notaInvito: string | null = null
   if (invitati.length > 0) notaInvito = await inviaInvitoEvento(utenteId, creato.id)
 
+  // Il calendario condiviso (Deluxy Calendario) va allineato subito: un
+  // appuntamento appena messo dev'esserci anche là. Le RIPETIZIONI oltre la
+  // prima le porta il giro del cron: qui si aspetterebbe una chiamata per ogni
+  // occorrenza, e per un tasto «Salva» non è accettabile.
+  await allineaEventoOra(creato.id).catch(() => {})
+
   revalidatePath('/', 'layout')
   const quante = date.length > 1 ? ` Ripetuto ${date.length} volte (${regola.toLowerCase()}).` : ''
   return { ok: true, messaggio: `Appuntamento salvato.${quante}${notaInvito ? ` ${notaInvito}` : ''}` }
@@ -2923,6 +2936,7 @@ export async function modificaEvento(form: FormData): Promise<{ ok: boolean; mes
 
   if (!tuttaSerie) {
     await db.evento.update({ where: { id: evento.id }, data: { ...testi, inizio, fine } })
+    await allineaEventoOra(evento.id).catch(() => {})
     revalidatePath('/', 'layout')
     return { ok: true, messaggio: 'Appuntamento aggiornato.' }
   }
@@ -2961,6 +2975,9 @@ export async function eliminaEvento(id: string, ambito: 'questo' | 'serie' = 'qu
     }
   }
   await db.evento.deleteMany({ where: { id, utenteId } })
+  // Cancellato qui = archiviato anche nel calendario condiviso (le serie intere
+  // le sistema il giro del cron).
+  await allineaEventoOra(id, true).catch(() => {})
   revalidatePath('/', 'layout')
 }
 
@@ -3036,6 +3053,7 @@ export async function accettaEventoProposto(
   let notaInvito: string | null = null
   if (invitato) notaInvito = await inviaInvitoEvento(utenteId, creato.id)
 
+  await allineaEventoOra(creato.id).catch(() => {})
   revalidatePath('/calendario')
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: `Aggiunto al calendario.${notaInvito ? ` ${notaInvito}` : ''}` }
@@ -3225,7 +3243,7 @@ export async function salvaChiaveAppAction(
   const u = await utenteCorrente()
   if (!u) return { ok: false, messaggio: 'Sessione scaduta: rientra.' }
   if (u.ruolo !== 'admin') return { ok: false, messaggio: 'Solo un amministratore può cambiare le chiavi.' }
-  const nomi: NomeChiaveApp[] = ['anagrafiche', 'finance', 'fornitori', 'tasks']
+  const nomi: NomeChiaveApp[] = ['anagrafiche', 'finance', 'fornitori', 'tasks', 'calendario', 'scripts']
   if (!nomi.includes(nome as NomeChiaveApp)) return { ok: false, messaggio: 'App sconosciuta.' }
 
   await salvaChiaveApp(nome as NomeChiaveApp, valore)
@@ -3260,6 +3278,68 @@ export async function sincronizzaRegistroOra(
   if (e.archiviate > 0) pezzi.push(`${e.archiviate} archiviate là`)
   if (e.errori > 0) pezzi.push(`${e.errori} non riuscite`)
   return { ok: e.errori === 0, messaggio: `${pezzi.join(' · ')}.` }
+}
+
+/** Come sopra, per gli appuntamenti e il Calendario condiviso. */
+export async function sincronizzaCalendarioOra(
+  forza = false
+): Promise<{ ok: boolean; messaggio: string }> {
+  const u = await utenteCorrente()
+  if (!u) return { ok: false, messaggio: 'Sessione scaduta: rientra.' }
+  if (u.ruolo !== 'admin') return { ok: false, messaggio: 'Solo un amministratore può sincronizzare.' }
+
+  const { sincronizzaEventiConRegistro } = await import('./registroCalendario')
+  const e = await sincronizzaEventiConRegistro({ forza })
+  if (!e.attivo) return { ok: false, messaggio: e.messaggio ?? 'Calendario condiviso non collegato.' }
+
+  revalidatePath('/calendario')
+  revalidatePath('/', 'layout')
+  const pezzi = [
+    `${e.inviati} mandati`,
+    `${e.invariati} già allineati`,
+    `${e.ricevuti} ricevuti dal Calendario`,
+  ]
+  if (e.archiviati > 0) pezzi.push(`${e.archiviati} archiviati là`)
+  if (e.errori > 0) pezzi.push(`${e.errori} non riusciti`)
+  return { ok: e.errori === 0, messaggio: `${pezzi.join(' · ')}.` }
+}
+
+/**
+ * I TESTI PRONTI dell'azienda (deluxy-scripts) accesi per AI Mail, già composti
+ * con firma e recapiti della posta. `destinatario` serve solo a proporre un
+ * valore per il nome di chi riceve: resta un campo modificabile nel riquadro,
+ * non una sostituzione fatta di nascosto.
+ *
+ * ⚠️ Le variabili che restano scoperte NON si riempiono a indovinare — men che
+ * meno le date. `{{DATA}}` in un invito è la data dell'evento, non oggi:
+ * metterci oggi manderebbe al cliente un invito con la data sbagliata. Restano
+ * `{{COSÌ}}` in vista finché non le compili tu.
+ */
+export async function leggiScriptPronti(
+  destinatario = ''
+): Promise<{ attivo: boolean; nomeProposto: string; script: ScriptPronto[] }> {
+  const u = await utenteCorrente()
+  if (!u) return { attivo: false, nomeProposto: '', script: [] }
+
+  const [script, attivo] = await Promise.all([elencoScriptPronti(), scriptProntiAttivi()])
+
+  // Il nome di chi riceve, se è già in rubrica: solo come PROPOSTA.
+  let nomeProposto = ''
+  const email = destinatario.split(',')[0]?.trim().toLowerCase() ?? ''
+  if (email.includes('@')) {
+    try {
+      const m = await db.messaggio.findFirst({
+        where: { utenteId: u.id, mittente: { equals: email, mode: 'insensitive' }, mittenteNome: { not: null } },
+        orderBy: { data: 'desc' },
+        select: { mittenteNome: true },
+      })
+      nomeProposto = (m?.mittenteNome ?? '').trim()
+    } catch {
+      nomeProposto = ''
+    }
+  }
+
+  return { attivo, nomeProposto, script }
 }
 
 export async function attivaRegolaApp(id: string, attiva: boolean) {

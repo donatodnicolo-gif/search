@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { scaricaStorico, sincronizzaTutti, type EsitoSync } from '@/lib/sync'
 import { sincronizzaAttivitaConRegistro } from '@/lib/registroTask'
+import { sincronizzaEventiConRegistro } from '@/lib/registroCalendario'
 
 // La sincronizzazione periodica gira da qui: un cron esterno (Vercel Cron,
 // Task Scheduler, cron di sistema) chiama questa rotta ogni pochi minuti.
@@ -61,7 +62,21 @@ export async function GET(request: Request) {
       messaggio: e instanceof Error ? e.message : 'Errore imprevisto',
     }))
 
-    return NextResponse.json({ ok: true, esiti, registro })
+    // Stessa cosa per gli appuntamenti col calendario condiviso: gemello del
+    // registro Attività, stessa logica nei due sensi.
+    const calendario = await sincronizzaEventiConRegistro({
+      forza: parametri.get('forzaRegistro') === '1',
+    }).catch((e) => ({
+      attivo: false,
+      inviati: 0,
+      invariati: 0,
+      ricevuti: 0,
+      archiviati: 0,
+      errori: 0,
+      messaggio: e instanceof Error ? e.message : 'Errore imprevisto',
+    }))
+
+    return NextResponse.json({ ok: true, esiti, registro, calendario })
   } catch (e) {
     return NextResponse.json(
       { ok: false, errore: e instanceof Error ? e.message : 'Errore imprevisto' },

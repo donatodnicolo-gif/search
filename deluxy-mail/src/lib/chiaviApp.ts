@@ -10,7 +10,14 @@ import { cifra, decifra } from './crypto'
 // Il hub si attiva impostando su Vercel HUB_KEYS_TOKEN (lo stesso token del hub)
 // e, se serve, HUB_URL. Senza token, si ignora e resta il vecchio comportamento.
 
-export type NomeChiaveApp = 'anagrafiche' | 'finance' | 'fornitori' | 'commerciale' | 'tasks'
+export type NomeChiaveApp =
+  | 'anagrafiche'
+  | 'finance'
+  | 'fornitori'
+  | 'commerciale'
+  | 'tasks'
+  | 'calendario'
+  | 'scripts'
 export type ChiaviApp = Record<NomeChiaveApp, string>
 
 const MAPPA: Record<NomeChiaveApp, { impostazione: string; env: string }> = {
@@ -19,8 +26,15 @@ const MAPPA: Record<NomeChiaveApp, { impostazione: string; env: string }> = {
   fornitori: { impostazione: 'app.fornitori.key', env: 'FORNITORI_PASSWORD' },
   commerciale: { impostazione: 'app.commerciale.key', env: 'COMMERCIALE_API_KEY' },
   // Registro centralizzato delle attività (deluxy-tasks): chiave di SCRITTURA,
-  // serve a mandargli le attività di AI Mail (vedi registroTask.ts).
+  // serve ad allineare le attività di AI Mail (vedi registroTask.ts).
   tasks: { impostazione: 'app.tasks.key', env: 'TASKS_API_KEY' },
+  // Calendario centralizzato (deluxy-calendario), gemello di Tasks: chiave di
+  // SCRITTURA, allinea gli appuntamenti (vedi registroCalendario.ts).
+  calendario: { impostazione: 'app.calendario.key', env: 'CALENDARIO_API_KEY' },
+  // I testi pronti dell'azienda (deluxy-scripts): chiave di sola LETTURA — da
+  // lì si prendono i messaggi già composti da mettere in una mail. Qui non si
+  // scrive niente: i testi si scrivono nell'app Scripts (vedi scriptPronti.ts).
+  scripts: { impostazione: 'app.scripts.key', env: 'SCRIPTS_API_KEY' },
 }
 
 const NOMI = Object.keys(MAPPA) as NomeChiaveApp[]
@@ -107,6 +121,8 @@ export async function leggiChiaviApp(): Promise<ChiaviApp> {
     fornitori: risolvi('fornitori'),
     commerciale: risolvi('commerciale'),
     tasks: risolvi('tasks'),
+    calendario: risolvi('calendario'),
+    scripts: risolvi('scripts'),
   }
 }
 

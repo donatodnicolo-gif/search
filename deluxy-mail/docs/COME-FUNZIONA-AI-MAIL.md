@@ -95,6 +95,15 @@ Il collegamento si attiva in **Impostazioni → App Deluxy** incollando la chiav
 scrittura del registro; lì c'è anche **«Sincronizza adesso»**, che allinea subito e dice
 quante attività sono partite e quante sono arrivate.
 
+### Lo stesso vale per gli appuntamenti (Deluxy Calendario)
+
+Gli appuntamenti presi qui — a mano, accettando un invito, accogliendo una proposta
+dell'AI — vivono anche nel **Calendario** centralizzato, insieme a consegne e scadenze
+delle altre app, e si allineano allo stesso modo nei due sensi. Un appuntamento
+**annullato** nel calendario condiviso sparisce anche da qui (là resta, segnato
+annullato: non si perde niente). Le **ripetizioni** oltre la prima e le modifiche a
+un'intera serie arrivano al giro di sincronizzazione successivo, non all'istante.
+
 ## 6. Bozze
 
 La bozza si genera quando l'AI valuta che serve una risposta (`serveRisposta`) oppure
@@ -117,6 +126,23 @@ a ciò che è ancora in sospeso. E capisce se gli stai chiedendo una **risposta*
 **inoltro**: se scrivi «inoltra questa a …», prepara un inoltro (oggetto `Fwd:`, mail
 originale citata sotto, destinatario scelto fra i contatti se lo riconosce) invece di una
 risposta al mittente. Non invia mai da solo: la controlli e la mandi tu.
+
+## 6-bis. I testi pronti dell'azienda (Deluxy Scripts)
+
+Le parole con cui Deluxy parla ai clienti — offerte, inviti, presentazioni, solleciti,
+risposte ai reclami — si scrivono una volta sola nell'app **Scripts**. Scrivendo una mail,
+sotto l'oggetto compare **«Usa un testo pronto»**: si sceglie dall'elenco (quelli accesi
+per AI Mail), e oggetto e messaggio arrivano già composti con la firma e i recapiti giusti
+per la posta.
+
+I buchi che il testo non sa — il nome di chi riceve, una data, un importo — si compilano
+lì nel riquadro, in campi visibili, con l'anteprima del messaggio sotto. **Quello che
+lasci vuoto resta scritto `{{COSÌ}}` dentro il messaggio**: è voluto. Una data messa a
+caso dal programma è un invito col giorno sbagliato spedito a un cliente; un segnaposto
+che si vede è sempre meglio di un dato inventato che non si nota.
+
+I testi **non si modificano da qui**: si scrivono in Scripts, e AI Mail li legge soltanto.
+Averne due copie vorrebbe dire vederle divergere — che è il motivo per cui Scripts esiste.
 
 ## 6a. Scarico della posta in background
 
