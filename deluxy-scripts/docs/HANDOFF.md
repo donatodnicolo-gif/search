@@ -40,6 +40,14 @@ buchi `{{COSÌ}}` che si riempiono con i dati di chi riceve. Manuale d'uso:
   impostazioni con chiavi API e guida.
 - **API v1** a chiave (`x-api-key`, SHA-256 nel DB): `health`, `app`,
   `script?app=`, `script/<slug>?app=`, `script/<slug>/testo?app=`.
+- **Chiavi generabili dalla UI** (Impostazioni → «Crea una chiave»): nome
+  dell'app, permessi, chiave mostrata **una sola volta** con bottone «copia».
+  Torna dentro il risultato della server action, mai in un redirect: così non
+  passa dall'indirizzo del browser. Nome già esistente → errore, a meno che non
+  si spunti «rigenera» (e allora la vecchia muore subito). Verificato il 26/07:
+  chiave nuova funzionante, nel DB solo l'impronta (`hash` = SHA-256 della
+  chiave, nessun `dlxs_` in chiaro), nome doppio bloccato, dopo la rigenerazione
+  la vecchia risponde 401, e una chiave revocata pure.
 - **AI (OpenAI, `gpt-4o-mini`)**: pagina **«Chiedi all'AI»** (`/script/ai`, con
   bottone nella barra in alto, nella sidebar, nell'elenco e in *Nuovo testo*)
   con un brief in 9 campi — cosa deve dire, a chi, che obiettivo, categoria,

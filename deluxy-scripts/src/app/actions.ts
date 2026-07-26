@@ -261,9 +261,48 @@ export async function eliminaApp(fd: FormData) {
 
 // ---------- Chiavi API ----------
 
-// Le chiavi si creano dal terminale (`npm run chiave -- <app>`), come nelle
-// altre app Deluxy: qui si possono solo revocare o riattivare, così la chiave in
-// chiaro non passa mai da una pagina web.
+// Una chiave nuova per un'app che deve leggere i testi. Nel database finisce
+// solo lo SHA-256: la chiave in chiaro esiste per il tempo di questa risposta,
+// compare una volta sola nella pagina e non è più recuperabile — nemmeno da qui.
+// Torna dentro il risultato dell'azione e non in un redirect: così non passa mai
+// dall'indirizzo del browser, dove finirebbe nella cronologia e nei log.
+export type EsitoChiave = { chiave?: string; nome?: string; avviso?: string; errore?: string };
+
+export async function creaChiaveApi(_precedente: EsitoChiave | null, fd: FormData): Promise<EsitoChiave> {
+  const nome = slugDa(testo(fd, "nome"));
+  if (!nome || nome === "script") return { errore: "Dai un nome all'app che userà la chiave." };
+
+  const esistente = await prisma.apiKey.findUnique({ where: { nome } });
+  const rigenera = fd.get("rigenera") === "on";
+  if (esistente && !rigenera) {
+    return {
+      errore: `Esiste già una chiave per "${nome}". Spunta «rigenera» per sostituirla — quella di prima smetterà di funzionare — oppure scegli un altro nome.`,
+    };
+  }
+
+  const { createHash, randomBytes } = await import("crypto");
+  const chiave = `dlxs_${randomBytes(24).toString("hex")}`;
+  const hash = createHash("sha256").update(chiave).digest("hex");
+  const scrittura = testo(fd, "permessi") === "scrittura";
+
+  await prisma.apiKey.upsert({
+    where: { nome },
+    create: { nome, hash, scrittura },
+    update: { hash, scrittura, attiva: true, ultimoUso: null },
+  });
+
+  revalidatePath("/impostazioni");
+  return {
+    chiave,
+    nome,
+    avviso: esistente
+      ? "La chiave precedente con questo nome non funziona più: aggiornala ovunque fosse in uso."
+      : undefined,
+  };
+}
+
+// Revoca, riattivazione ed eliminazione. La chiave in chiaro non ricompare mai:
+// se si è persa, se ne rigenera una nuova.
 export async function cambiaStatoChiave(fd: FormData) {
   const id = testo(fd, "id");
   if (!id) return;

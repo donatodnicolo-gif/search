@@ -1,4 +1,5 @@
 import { cambiaStatoChiave, eliminaChiave } from "@/app/actions";
+import { NuovaChiave } from "@/components/NuovaChiave";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -21,14 +22,18 @@ export default async function Impostazioni() {
       </div>
 
       <div className="scheda">
-        <div className="scheda-titolo">Chiavi API</div>
+        <div className="scheda-titolo">Crea una chiave</div>
         <p className="testo-guida" style={{ marginBottom: 14 }}>
-          Una chiave si crea dal terminale, nella cartella dell&apos;app:{" "}
-          <code className="inline">npm run chiave -- &lt;nome-app&gt;</code>. Viene stampata una sola volta (nel
-          database resta solo lo SHA-256): va copiata subito nel <code className="inline">.env</code> dell&apos;app
-          client come <code className="inline">SCRIPTS_API_KEY</code>. Qui si possono solo revocare o riattivare — la
-          chiave in chiaro non passa mai da una pagina web.
+          Serve a un&apos;altra app per leggere i testi che le hai abilitato. Compare{" "}
+          <strong>una sola volta</strong>: nel database resta solo la sua impronta (SHA-256), quindi da qui non si può
+          più rileggere. Se si perde, se ne rigenera una e si aggiorna l&apos;app che la usava. Si può creare anche
+          dal terminale: <code className="inline">npm run chiave -- &lt;nome-app&gt;</code>.
         </p>
+        <NuovaChiave />
+      </div>
+
+      <div className="scheda">
+        <div className="scheda-titolo">Chiavi esistenti</div>
         {chiavi.length === 0 ? (
           <div className="vuoto">Nessuna chiave creata.</div>
         ) : (

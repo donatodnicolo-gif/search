@@ -131,7 +131,21 @@ segnaposto, `variabili` dice per ognuna da dove viene il valore (`app`,
 quelle che l'app che usa il testo riempirà con i dati che ha già (l'ordine, il
 cliente) prima di mandarlo.
 
-Una chiave si crea dal terminale — viene stampata una sola volta:
+### Le chiavi
+
+Si creano da **Impostazioni → Crea una chiave**: si dà il nome dell'app, si
+sceglie fra sola lettura e lettura+scrittura, e la chiave (`dlxs_…`) compare
+**una sola volta**, con il bottone per copiarla. Nel database resta solo la sua
+impronta SHA-256: da nessuna parte, nemmeno da qui, si può rileggerla dopo.
+
+- se il nome esiste già, l'app lo dice e non fa niente: per sostituirla si
+  spunta **rigenera**, e quella di prima smette di funzionare all'istante;
+- le chiavi si **revocano** e si riattivano dall'elenco, e l'ultimo uso è scritto
+  accanto a ognuna;
+- la chiave va nel `.env` dell'app che la usa come `SCRIPTS_API_KEY` e nella
+  cassaforte del Hub.
+
+Stessa cosa dal terminale, se si preferisce:
 
 ```bash
 cd C:/Users/nicol/scoutwt/deluxy-scripts && npm run chiave -- <nome-app>
