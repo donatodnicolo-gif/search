@@ -5,16 +5,17 @@
 // il P&L, le % di spesa ADV per maison/mese e le proposte di budget dei
 // Responsabili. Il P&L è SEMPRE calcolato in src/lib/calc.ts, mai memorizzato.
 //
-// Sviluppo: SQLite (file dev.db, zero configurazione). Per la produzione
-// cambiare provider in "postgresql" e puntare DATABASE_URL a Supabase.
+// Database: Postgres condiviso Deluxy (Supabase), schema dedicato "budgets".
+// Si configura con: node scripts/configura-db-condiviso.mjs ../deluxy-partner/.env
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
 }
 
 // Maison / brand (Deluxy.it, Deluxyflowers.com, CakeDesign.me, Business, Experience)

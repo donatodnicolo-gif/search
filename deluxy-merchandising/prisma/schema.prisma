@@ -3,18 +3,19 @@
 // sviluppo prodotto (PLM), costi e margini, visual merchandising e pubblicazione
 // su Shopify (l'app è la fonte di verità a monte; Shopify resta il canale vendita).
 //
-// Sviluppo locale su SQLite (nessun segreto). In produzione si passa al Postgres
-// condiviso Deluxy: cambiare provider in "postgresql" e le due url d'ambiente.
-// Per compatibilità SQLite non si usano enum né array scalari: gli stati sono
-// stringhe normalizzate con cataloghi in src/lib/dominio.ts.
+// Database: Postgres condiviso Deluxy (Supabase), schema dedicato "merchandising".
+// Si configura con: node scripts/configura-db-condiviso.mjs ../deluxy-partner/.env
+// Eredità del periodo SQLite (lasciata apposta): niente enum né array scalari,
+// gli stati sono stringhe normalizzate con cataloghi in src/lib/dominio.ts.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
 }
 
 // Una collezione stagionale: l'unità con cui una maison organizza il prodotto.
