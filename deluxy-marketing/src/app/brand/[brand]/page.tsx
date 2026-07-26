@@ -3,9 +3,11 @@ import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
+import { mer, numeriBrand, quotaPagato, roasPiattaforma, scostamentoAttribuzione } from "@/lib/brand-dati";
 import { prisma } from "@/lib/db";
 import {
   BRANDS,
+  COLORE_ALERT,
   COLORE_BRAND,
   COLORE_ESITO,
   COLORE_STATO_AZIONE,
@@ -21,58 +23,96 @@ import {
   roas,
   STATI_AZIONE_APERTI,
 } from "@/lib/dominio";
+import { breakEvenRoas } from "@/lib/guardrail";
+import { PRESET_PERIODO, risolviPeriodo, variazione } from "@/lib/periodo";
 
 export const dynamic = "force-dynamic";
 
-// La vista di un brand: tutte le analisi, le azioni, le campagne e la spesa
-// di Flowers / Cake / Gifts / cross-brand in una pagina sola.
-export default async function PaginaBrand({ params }: { params: Promise<{ brand: string }> }) {
+function Delta({ ora, prima, invertito }: { ora: number; prima: number; invertito?: boolean }) {
+  const v = variazione(ora, prima);
+  if (v == null) return <i style={{ fontStyle: "normal", color: "var(--text-tertiary)" }}>—</i>;
+  const positivo = invertito ? v < 0 : v > 0;
+  return (
+    <i style={{ fontStyle: "normal", fontSize: 11.5, fontVariantNumeric: "tabular-nums", color: positivo ? "var(--green)" : "var(--red)" }}>
+      {v > 0 ? "+" : ""}{v.toFixed(0)}%
+    </i>
+  );
+}
+
+// La dashboard di un brand: il marketing e le vendite nello stesso posto, sul
+// periodo che scegli. Il ROAS di piattaforma dice cosa si attribuisce Google;
+// il MER dice se l'insegna sta in piedi. Servono entrambi, letti insieme al
+// break-even del brand (doc 10 §11).
+export default async function PaginaBrand({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ brand: string }>;
+  searchParams: Promise<{ preset?: string; da?: string; a?: string }>;
+}) {
   const { brand } = await params;
   if (!(BRANDS as readonly string[]).includes(brand)) notFound();
+  const sp = await searchParams;
+  const periodo = risolviPeriodo(sp.preset ?? "30g", sp.da, sp.a);
 
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
-  const giorni30 = new Date(oggi.getTime() - 29 * 86_400_000);
 
-  const [aperte, scadute, analisi, campagne, metriche30] = await Promise.all([
-    prisma.azione.findMany({
-      where: { brand, stato: { in: STATI_AZIONE_APERTI } },
-      orderBy: [{ scadenza: { sort: "asc", nulls: "last" } }, { creataIl: "desc" }],
-      take: 12,
-    }),
-    prisma.azione.count({
-      where: { brand, stato: { in: STATI_AZIONE_APERTI }, scadenza: { lt: oggi } },
-    }),
-    prisma.analisi.findMany({ where: { brand }, orderBy: { dataAnalisi: "desc" }, take: 8 }),
-    prisma.campagna.findMany({
-      where: { brand },
-      orderBy: [{ stato: "asc" }, { creataIl: "desc" }],
-      include: { metriche: { where: { data: { gte: giorni30 } } } },
-    }),
-    prisma.metricaCampagna.findMany({
-      where: { data: { gte: giorni30 }, campagna: { brand } },
-      select: { data: true, spesa: true },
-    }),
-  ]);
+  const [ora, prima, anno, aperte, scadute, analisi, campagne, metrichePeriodo, alertAperti, pubblici, landing] =
+    await Promise.all([
+      numeriBrand(brand, periodo.corrente),
+      numeriBrand(brand, periodo.precedente),
+      numeriBrand(brand, periodo.annoPrima),
+      prisma.azione.findMany({
+        where: { brand, stato: { in: STATI_AZIONE_APERTI } },
+        orderBy: [{ scadenza: { sort: "asc", nulls: "last" } }, { creataIl: "desc" }],
+        take: 10,
+      }),
+      prisma.azione.count({ where: { brand, stato: { in: STATI_AZIONE_APERTI }, scadenza: { lt: oggi } } }),
+      prisma.analisi.findMany({ where: { brand }, orderBy: { dataAnalisi: "desc" }, take: 6 }),
+      prisma.campagna.findMany({
+        where: { brand },
+        orderBy: [{ stato: "asc" }, { creataIl: "desc" }],
+        include: { metriche: { where: { data: { gte: periodo.corrente.da, lt: periodo.corrente.a } } } },
+      }),
+      prisma.metricaCampagna.findMany({
+        where: { data: { gte: periodo.corrente.da, lt: periodo.corrente.a }, campagna: { brand } },
+        select: { data: true, spesa: true },
+      }),
+      prisma.alert.findMany({
+        where: { stato: "aperto", campagna: { brand } },
+        include: { campagna: { select: { id: true, nome: true, classe: true } } },
+        orderBy: { giorno: "desc" },
+        take: 8,
+      }),
+      prisma.pubblico.count({ where: { brand } }),
+      prisma.landingPage.count({ where: { brand } }),
+    ]);
 
-  // Spesa del brand aggregata per giorno (30 giorni)
+  // Spesa giorno per giorno nel periodo scelto
+  const giorni = Math.max(1, Math.round((periodo.corrente.a.getTime() - periodo.corrente.da.getTime()) / 86_400_000));
   const perGiorno = new Map<string, number>();
-  for (let i = 0; i < 30; i++) {
-    const d = new Date(giorni30.getTime() + i * 86_400_000);
+  for (let i = 0; i < giorni; i++) {
+    const d = new Date(periodo.corrente.da.getTime() + i * 86_400_000);
     perGiorno.set(d.toISOString().slice(0, 10), 0);
   }
-  for (const m of metriche30) {
-    const chiave = m.data.toISOString().slice(0, 10);
-    if (perGiorno.has(chiave)) perGiorno.set(chiave, (perGiorno.get(chiave) ?? 0) + (m.spesa ?? 0));
+  for (const m of metrichePeriodo) {
+    const k = m.data.toISOString().slice(0, 10);
+    if (perGiorno.has(k)) perGiorno.set(k, (perGiorno.get(k) ?? 0) + (m.spesa ?? 0));
   }
   const puntiSpesa = [...perGiorno.entries()].map(([g, valore]) => ({ data: new Date(g), valore }));
-  const spesa30 = puntiSpesa.reduce((s, p) => s + p.valore, 0);
-  const ricavi30 = campagne.reduce(
-    (s, c) => s + c.metriche.reduce((sm, m) => sm + (m.ricavi ?? 0), 0),
-    0
-  );
-  const roas30 = roas(ricavi30, spesa30);
+
+  const be = breakEvenRoas(brand);
+  const roasOra = roasPiattaforma(ora);
+  const merOra = mer(ora);
+  const merPrima = mer(prima);
+  const quota = quotaPagato(ora);
+  const scost = scostamentoAttribuzione(ora);
   const ultimoAudit = analisi.find((a) => a.tipo.startsWith("audit_"));
+  const traino = campagne.filter((c) => c.classe === "traino");
+
+  const linkPreset = (chiave: string) =>
+    `/brand/${brand}${chiave !== "libero" ? `?preset=${chiave}` : ""}`;
 
   return (
     <div className="layout">
@@ -85,46 +125,186 @@ export default async function PaginaBrand({ params }: { params: Promise<{ brand:
               {ETICHETTA_BRAND[brand]}
             </h1>
             <p className="page-sub">
-              Tutto il marketing di {ETICHETTA_BRAND[brand]} in una pagina: analisi e audit, azioni
-              aperte, campagne e spesa degli ultimi 30 giorni.
+              {periodo.corrente.etichetta} · pubblicità e vendite nello stesso posto. Break-even del
+              brand <b>{be.toFixed(2)}×</b> (margine {Math.round((1 / be) * 100)}%).
             </p>
           </div>
           <a className="btn" href={`/analisi/nuova?brand=${brand}`}>Deposita analisi</a>
         </div>
 
+        {/* Periodo */}
+        <section className="scheda" style={{ paddingBottom: 14 }}>
+          <div className="pill-scelta" style={{ marginBottom: 12 }}>
+            {PRESET_PERIODO.filter((x) => x.chiave !== "libero").map((x) => (
+              <a key={x.chiave} className={`pill-opt${periodo.preset === x.chiave ? " attuale" : ""}`} href={linkPreset(x.chiave)}>
+                {x.nome}
+              </a>
+            ))}
+          </div>
+          <form className="filtri" method="get" style={{ marginBottom: 0 }}>
+            <input type="date" name="da" defaultValue={sp.da ?? ""} title="Dal" />
+            <input type="date" name="a" defaultValue={sp.a ?? ""} title="Al (compreso)" />
+            <button className="btn small" type="submit">Applica</button>
+          </form>
+        </section>
+
+        {/* I numeri che contano */}
         <div className="kpi-riga">
           <div className="kpi">
-            <div className="kpi-valore">{aperte.length}</div>
-            <div className="kpi-etichetta">Azioni aperte</div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-valore" style={scadute > 0 ? { color: "var(--red)" } : undefined}>{scadute}</div>
-            <div className="kpi-etichetta">Azioni scadute</div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-valore">{spesa30 > 0 ? formattaEuro(spesa30) : "—"}</div>
-            <div className="kpi-etichetta">Spesa 30 gg</div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-valore">{roas30 != null ? `${roas30.toFixed(1)}×` : "—"}</div>
-            <div className="kpi-etichetta">ROAS 30 gg</div>
-          </div>
-          <div className="kpi">
-            {ultimoAudit?.esito ? (
-              <div style={{ marginBottom: 6 }}>
-                <Badge testo={ETICHETTA_ESITO[ultimoAudit.esito] ?? ultimoAudit.esito} colore={COLORE_ESITO[ultimoAudit.esito] ?? "var(--text-tertiary)"} />
-              </div>
-            ) : (
-              <div className="kpi-valore">—</div>
-            )}
+            <div className="kpi-valore">{formattaEuro(ora.spesa)}</div>
             <div className="kpi-etichetta">
-              Ultimo audit{ultimoAudit ? ` · ${formattaData(ultimoAudit.dataAnalisi)}` : ""}
+              Spesa ADV · Δ <Delta ora={ora.spesa} prima={prima.spesa} /> · Δa <Delta ora={ora.spesa} prima={anno.spesa} />
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-valore">{ora.ordini > 0 ? formattaEuro(ora.venditeTotali) : "—"}</div>
+            <div className="kpi-etichetta">
+              Vendite Shopify ({ora.ordini} ordini) · Δ <Delta ora={ora.venditeTotali} prima={prima.venditeTotali} /> · Δa{" "}
+              <Delta ora={ora.venditeTotali} prima={anno.venditeTotali} />
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-valore" style={merOra != null ? { color: merOra >= be ? "var(--green)" : "var(--orange)" } : undefined}>
+              {merOra != null ? `${merOra.toFixed(2)}×` : "—"}
+            </div>
+            <div className="kpi-etichetta">
+              MER — tutte le vendite / tutta la spesa · Δ <Delta ora={merOra ?? 0} prima={merPrima ?? 0} />
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-valore" style={roasOra != null ? { color: roasOra >= be ? "var(--green)" : "var(--red)" } : undefined}>
+              {roasOra != null ? `${roasOra.toFixed(2)}×` : "—"}
+            </div>
+            <div className="kpi-etichetta">
+              ROAS dichiarato · reale stimato{" "}
+              {roasOra != null ? `${(roasOra * 0.6).toFixed(1)}–${(roasOra * 0.75).toFixed(1)}×` : "—"}
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-valore">{quota != null ? `${Math.round(quota * 100)}%` : "—"}</div>
+            <div className="kpi-etichetta">
+              Vendite da campagne tracciate{ora.ordiniDaCampagne > 0 ? ` · ${ora.ordiniDaCampagne} ordini` : ""}
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-valore" style={scadute > 0 ? { color: "var(--red)" } : undefined}>{aperte.length}</div>
+            <div className="kpi-etichetta">
+              Azioni aperte{scadute > 0 ? ` · ${scadute} scadute` : ""}
             </div>
           </div>
         </div>
 
+        {/* Dove piattaforma e Shopify non concordano */}
+        {scost != null && scost > 1.4 && (
+          <div className="nota-info">
+            <span className="nota-icona">◈</span>
+            <span>
+              <b>La piattaforma si attribuisce {scost.toFixed(1)}× le vendite tracciate da Shopify</b>{" "}
+              ({formattaEuro(ora.ricaviPiattaforma)} dichiarati contro {formattaEuro(ora.venditeDaCampagne)} veri).
+              È il normale scarto fra last-click e view-through: per decidere usa il MER e le vendite
+              Shopify, non il ROAS dichiarato (doc 10 §3).
+            </span>
+          </div>
+        )}
+        {ora.ordini === 0 && ora.spesa > 0 && (
+          <div className="nota-info">
+            <span className="nota-icona">◈</span>
+            <span>
+              Nessun ordine Shopify per questo brand nel periodo: il MER non è calcolabile e restano
+              solo i numeri dichiarati dalla piattaforma. Gli ordini si importano dalla sezione{" "}
+              <a href="/ordini" style={{ color: "var(--blue)" }}>Ordini</a>.
+            </span>
+          </div>
+        )}
+
+        {/* Alert aperti */}
+        {alertAperti.length > 0 && (
+          <section className="scheda">
+            <div className="scheda-titolo">Alert aperti ({alertAperti.length})</div>
+            <ul className="storia">
+              {alertAperti.map((a) => (
+                <li key={a.id}>
+                  <span className="storia-data">{formattaData(a.giorno)}</span>
+                  <span className="storia-testo">
+                    <a href={`/campagne/${a.campagna.id}`} className="cella-nome">
+                      {a.campagna.nome}{a.campagna.classe === "traino" ? " · TRAINO" : ""}
+                    </a>
+                    <span className="cella-sub">{a.messaggio}</span>
+                  </span>
+                  <span className="storia-autore">
+                    <Badge testo={a.tipo} colore={COLORE_ALERT[a.livello] ?? "var(--text-tertiary)"} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <div className="due-colonne">
           <div>
+            <section className="scheda">
+              <div className="scheda-titolo">
+                Campagne ({campagne.length}){traino.length > 0 ? ` · ${traino.length} traino` : ""}
+              </div>
+              {campagne.length === 0 ? (
+                <div className="vuoto-mini">Nessuna campagna registrata</div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Campagna</th>
+                        <th>Stato</th>
+                        <th className="num">Spesa</th>
+                        <th className="num">Conv.</th>
+                        <th className="num">ROAS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {campagne
+                        .map((c) => ({
+                          c,
+                          spesa: c.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0),
+                          ric: c.metriche.reduce((s, m) => s + (m.ricavi ?? 0), 0),
+                          conv: c.metriche.reduce((s, m) => s + (m.conversioni ?? 0), 0),
+                        }))
+                        .sort((a, b) => b.spesa - a.spesa)
+                        .map(({ c, spesa, ric, conv }) => {
+                          const r = roas(ric, spesa);
+                          const lead = c.tipoConversione === "lead";
+                          return (
+                            <tr key={c.id}>
+                              <td style={{ maxWidth: 230 }}>
+                                <a href={`/campagne/${c.id}`} className="cella-nome">{c.nome}</a>
+                                <div className="cella-sub">
+                                  {ETICHETTA_CANALE[c.canale] ?? c.canale}
+                                  {c.classe === "traino" ? " · TRAINO" : ""}
+                                  {lead ? " · LEAD" : ""}
+                                </div>
+                              </td>
+                              <td>
+                                <Badge testo={ETICHETTA_STATO_CAMPAGNA[c.stato] ?? c.stato} colore={COLORE_STATO_CAMPAGNA[c.stato] ?? "var(--text-tertiary)"} />
+                              </td>
+                              <td className="num">{spesa > 0 ? formattaEuro(spesa) : "—"}</td>
+                              <td className="num">{conv > 0 ? Math.round(conv) : "—"}</td>
+                              <td className="num" style={{ fontWeight: 600, color: lead ? "var(--text-tertiary)" : r != null ? (r >= be ? "var(--green)" : "var(--red)") : undefined }}>
+                                {lead ? "n/d" : r != null ? `${r.toFixed(1)}×` : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <a className="btn small btn-secondario" href={`/analisi-campagne?brand=${brand}&preset=${periodo.preset}`}>
+                  Analisi per periodo
+                </a>
+                <a className="btn small btn-secondario" href={`/campagne?brand=${brand}`}>Tutte le campagne</a>
+              </div>
+            </section>
+
             <section className="scheda">
               <div className="scheda-titolo">Azioni aperte</div>
               {aperte.length === 0 ? (
@@ -133,11 +313,7 @@ export default async function PaginaBrand({ params }: { params: Promise<{ brand:
                 <div style={{ overflowX: "auto" }}>
                   <table>
                     <thead>
-                      <tr>
-                        <th>Azione</th>
-                        <th>Stato</th>
-                        <th>Scadenza</th>
-                      </tr>
+                      <tr><th>Azione</th><th>Stato</th><th>Scadenza</th></tr>
                     </thead>
                     <tbody>
                       {aperte.map((a) => (
@@ -154,54 +330,46 @@ export default async function PaginaBrand({ params }: { params: Promise<{ brand:
                 </div>
               )}
               <div style={{ marginTop: 12 }}>
-                <a className="btn small btn-secondario" href={`/azioni?brand=${brand}`}>Tutte le azioni {ETICHETTA_BRAND[brand]}</a>
+                <a className="btn small btn-secondario" href={`/azioni?brand=${brand}`}>Tutte le azioni</a>
               </div>
-            </section>
-
-            <section className="scheda">
-              <div className="scheda-titolo">Campagne</div>
-              {campagne.length === 0 ? (
-                <div className="vuoto-mini">Nessuna campagna registrata</div>
-              ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Campagna</th>
-                        <th>Canale</th>
-                        <th>Stato</th>
-                        <th className="num">Spesa 30gg</th>
-                        <th className="num">ROAS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {campagne.map((c) => {
-                        const sp = c.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
-                        const ri = c.metriche.reduce((s, m) => s + (m.ricavi ?? 0), 0);
-                        const r = roas(ri, sp);
-                        return (
-                          <tr key={c.id}>
-                            <td><a href={`/campagne/${c.id}`} className="cella-nome">{c.nome}</a></td>
-                            <td className="cella-muta">{ETICHETTA_CANALE[c.canale] ?? c.canale}</td>
-                            <td>
-                              <Badge testo={ETICHETTA_STATO_CAMPAGNA[c.stato] ?? c.stato} colore={COLORE_STATO_CAMPAGNA[c.stato] ?? "var(--text-tertiary)"} />
-                            </td>
-                            <td className="num">{sp > 0 ? formattaEuro(sp) : "—"}</td>
-                            <td className="num">{r != null ? `${r.toFixed(1)}×` : "—"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
             </section>
           </div>
 
           <div>
             <section className="scheda">
-              <div className="scheda-titolo">Spesa {ETICHETTA_BRAND[brand]} — 30 giorni</div>
+              <div className="scheda-titolo">Spesa nel periodo</div>
               <GraficoSpesa punti={puntiSpesa} />
+              <p className="cella-sub" style={{ marginTop: 10 }}>
+                {ora.click.toLocaleString("it-IT")} clic · {ora.impression.toLocaleString("it-IT")} impressioni ·{" "}
+                {Math.round(ora.conversioni)} conversioni dichiarate
+                {ora.conversioni > 0 ? ` · CPA ${formattaEuro(ora.spesa / ora.conversioni)}` : ""}
+              </p>
+            </section>
+
+            <section className="scheda">
+              <div className="scheda-titolo">Il brand in breve</div>
+              <div className="kpi-riga" style={{ marginBottom: 0 }}>
+                <div className="kpi">
+                  <div className="kpi-valore">{pubblici}</div>
+                  <div className="kpi-etichetta"><a href={`/pubblici?brand=${brand}`}>Pubblici</a></div>
+                </div>
+                <div className="kpi">
+                  <div className="kpi-valore">{landing}</div>
+                  <div className="kpi-etichetta"><a href={`/landing?brand=${brand}`}>Landing</a></div>
+                </div>
+                <div className="kpi">
+                  {ultimoAudit?.esito ? (
+                    <div style={{ marginBottom: 6 }}>
+                      <Badge testo={ETICHETTA_ESITO[ultimoAudit.esito] ?? ultimoAudit.esito} colore={COLORE_ESITO[ultimoAudit.esito] ?? "var(--text-tertiary)"} />
+                    </div>
+                  ) : (
+                    <div className="kpi-valore">—</div>
+                  )}
+                  <div className="kpi-etichetta">
+                    Ultimo audit{ultimoAudit ? ` · ${formattaData(ultimoAudit.dataAnalisi)}` : ""}
+                  </div>
+                </div>
+              </div>
             </section>
 
             <section className="scheda">
@@ -227,7 +395,7 @@ export default async function PaginaBrand({ params }: { params: Promise<{ brand:
                 </ul>
               )}
               <div style={{ marginTop: 12 }}>
-                <a className="btn small btn-secondario" href={`/analisi?brand=${brand}`}>Tutte le analisi {ETICHETTA_BRAND[brand]}</a>
+                <a className="btn small btn-secondario" href={`/analisi?brand=${brand}`}>Tutte le analisi</a>
               </div>
             </section>
           </div>
