@@ -128,7 +128,7 @@ export default function Ordini() {
           <View style={styles.card}>
             <View style={styles.cardHead}>
               <Pressable style={{ flex: 1 }} onPress={() => item.place_id && router.push(`/(app)/attivita/${item.place_id}`)}>
-                <Text style={styles.nome} numberOfLines={1}>{item.place_nome ?? item.cliente}</Text>
+                <Text style={styles.nome}>{item.place_nome ?? item.cliente}</Text>
                 {item.descrizione ? <Text style={styles.descr} numberOfLines={1}>{item.descrizione}</Text> : null}
               </Pressable>
               <Text style={styles.valore}>{euro(item.valore)}</Text>

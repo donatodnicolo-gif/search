@@ -237,7 +237,7 @@ function Riga({
           azione vanno sotto, così il nome non viene mai troncato su mobile. */}
       <View style={styles.rigaHead}>
         <PriorityBadge priorita={place.priorita} small />
-        <Text style={styles.nome} numberOfLines={1}>
+        <Text style={styles.nome}>
           {place.nome}
         </Text>
         <Pressable

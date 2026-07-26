@@ -188,7 +188,7 @@ export default function Oggi() {
         {giro.slice(0, 5).map((p) => (
           <Pressable key={p.id} style={styles.riga} onPress={() => router.push(`/(app)/attivita/${p.id}`)}>
             <Ionicons name="storefront-outline" size={16} color={colors.navy} />
-            <Text style={styles.rigaTitolo} numberOfLines={1}>{p.nome}</Text>
+            <Text style={styles.rigaTitolo}>{p.nome}</Text>
             <Text style={styles.rigaMeta} numberOfLines={1}>{p.zona ?? p.indirizzo ?? ''}</Text>
           </Pressable>
         ))}
@@ -206,7 +206,7 @@ export default function Oggi() {
         {richiamiOrdinati.slice(0, 5).map((r) => (
           <Pressable key={r.place.id} style={styles.riga} onPress={() => router.push(`/(app)/attivita/${r.place.id}`)}>
             <Ionicons name="call-outline" size={16} color={r.inRitardo ? colors.errore : colors.navy} />
-            <Text style={styles.rigaTitolo} numberOfLines={1}>{r.place.nome}</Text>
+            <Text style={styles.rigaTitolo}>{r.place.nome}</Text>
             <Text style={[styles.rigaMeta, r.inRitardo && styles.ritardo]}>
               {r.giorni}g fa{r.inRitardo ? ' · ritardo' : ''}
             </Text>
@@ -231,7 +231,7 @@ export default function Oggi() {
               <Pressable key={l.id} style={styles.riga} onPress={() => router.push('/(app)/lead')}>
                 <Ionicons name="globe-outline" size={16} color={ritardo ? colors.errore : colors.navy} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.rigaTitolo} numberOfLines={1}>{l.nome}</Text>
+                  <Text style={styles.rigaTitolo}>{l.nome}</Text>
                   {l.messaggio ? <Text style={styles.rigaSotto} numberOfLines={1}>{l.messaggio}</Text> : null}
                 </View>
                 <Text style={[styles.rigaMeta, ritardo && styles.ritardo]}>
@@ -256,7 +256,7 @@ export default function Oggi() {
           <Pressable key={t.id} style={styles.riga} onPress={() => router.push('/(app)/trattative')}>
             <Ionicons name="briefcase-outline" size={16} color={t.scadenza! < oggi ? colors.errore : colors.navy} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.rigaTitolo} numberOfLines={1}>{t.place_nome ?? t.oggetto ?? 'Trattativa'}</Text>
+              <Text style={styles.rigaTitolo}>{t.place_nome ?? t.oggetto ?? 'Trattativa'}</Text>
               {t.oggetto || t.next_action ? (
                 <Text style={styles.rigaSotto} numberOfLines={1}>{t.oggetto ?? t.next_action}</Text>
               ) : null}
@@ -283,7 +283,7 @@ export default function Oggi() {
             <Pressable key={t.id} style={styles.riga} onPress={() => router.push('/(app)/trattative')}>
               <Ionicons name="refresh-outline" size={16} color={colors.goldStrong} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.rigaTitolo} numberOfLines={1}>{t.place_nome ?? 'Trattativa'}</Text>
+                <Text style={styles.rigaTitolo}>{t.place_nome ?? 'Trattativa'}</Text>
                 <Text style={styles.rigaSotto} numberOfLines={1}>
                   {t.oggetto ? `Era per: ${t.oggetto}` : 'Persa'}
                   {t.motivo_perso ? ` · motivo: ${t.motivo_perso.replace('_', ' ')}` : ''}

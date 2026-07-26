@@ -147,7 +147,7 @@ export default function Mappa() {
                 <Text style={styles.tappaNum}>{i + 1}</Text>
                 <PriorityBadge priorita={p.priorita} small />
                 <View style={styles.tappaInfo}>
-                  <Text style={styles.tappaNome} numberOfLines={1}>
+                  <Text style={styles.tappaNome}>
                     {p.nome}
                   </Text>
                   <Text style={styles.tappaMeta} numberOfLines={1}>

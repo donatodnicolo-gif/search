@@ -257,7 +257,7 @@ export default function Trattative() {
               onPress={() => navigabile && router.push(`/(app)/attivita/${sez.placeId}`)}
             >
               <Ionicons name="storefront-outline" size={15} color={colors.testoSoft} />
-              <Text style={styles.sezioneTitolo} numberOfLines={1}>{section.title}</Text>
+              <Text style={styles.sezioneTitolo}>{section.title}</Text>
               <Text style={styles.sezioneConteggio}>{section.data.length}</Text>
               {navigabile ? <Ionicons name="chevron-forward" size={15} color={colors.grigio} /> : null}
             </Pressable>
@@ -573,7 +573,7 @@ function TrattativaModal({
             {place ? (
               <View style={styles.placeSel}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.placeSelNome} numberOfLines={1}>
+                  <Text style={styles.placeSelNome}>
                     {place.nome}
                   </Text>
                   {place.indirizzo ? (
@@ -608,7 +608,7 @@ function TrattativaModal({
                   <Pressable key={p.id} style={styles.risultato} onPress={() => selezionaPlace(p)}>
                     <Ionicons name="storefront-outline" size={16} color={colors.testoSoft} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.risNome} numberOfLines={1}>
+                      <Text style={styles.risNome}>
                         {p.nome}
                       </Text>
                       {p.indirizzo ? (

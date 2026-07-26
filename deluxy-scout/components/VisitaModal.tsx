@@ -106,7 +106,7 @@ export function VisitaModal({
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.grip} />
-          <Text style={styles.titolo} numberOfLines={1}>
+          <Text style={styles.titolo}>
             Visita · {place.nome}
           </Text>
           {place.aggancio_apertura ? (

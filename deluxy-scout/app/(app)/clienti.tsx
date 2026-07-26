@@ -128,7 +128,7 @@ export default function Clienti() {
                 <Ionicons name="storefront-outline" size={20} color={colors.goldStrong} />
               </View>
               <View style={styles.cardTesto}>
-                <Text style={styles.nome} numberOfLines={1}>{item.nome}</Text>
+                <Text style={styles.nome}>{item.nome}</Text>
                 <Text style={styles.meta} numberOfLines={1}>
                   {[item.zona, item.categoria].filter(Boolean).join(' · ') || item.indirizzo || '—'}
                 </Text>

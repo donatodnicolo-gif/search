@@ -225,7 +225,7 @@ function Card({
           <Ionicons name={item.starred ? 'star' : 'star-outline'} size={18} color={item.starred ? colors.bianco : colors.grigio} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.nome} numberOfLines={1}>{item.nome}</Text>
+          <Text style={styles.nome}>{item.nome}</Text>
           {item.indirizzo ? <Text style={styles.meta} numberOfLines={1}>{item.indirizzo}</Text> : null}
           {item.telefono ? (
             <Pressable onPress={onChiama} hitSlop={6}>
