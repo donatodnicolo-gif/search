@@ -205,6 +205,20 @@
   .star-btn:hover{background:var(--fill-hover)}
   .star-btn:active{transform:scale(.9)}
   .star-btn.on{color:var(--gold-strong); background:var(--gold-soft); border-color:rgba(184,150,62,.35)}
+  /* archivia/nascondi un risultato */
+  .arch-btn{width:32px; height:32px; padding:0; border:1px solid var(--hairline-strong); background:var(--surface);
+        border-radius:50%; cursor:pointer; font-size:14px; line-height:1; color:var(--text-tertiary);
+        transition:background .18s var(--ease), transform .15s var(--ease)}
+  .arch-btn:hover{background:var(--fill-hover)} .arch-btn:active{transform:scale(.9)}
+  .shop.archived{display:none !important}
+  #archivedBox{margin:10px 0}
+  .archived-details>summary{cursor:pointer; font-weight:600; color:var(--text-secondary); font-size:13.5px;
+        padding:8px 2px; list-style:none; outline:none}
+  .archived-details>summary::-webkit-details-marker{display:none}
+  .arch-list{display:grid; gap:8px; margin-top:8px}
+  .arch-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px;
+        border:1px solid var(--hairline); border-radius:var(--radius-m); background:var(--fill)}
+  .arch-name{font-size:13.5px; font-weight:500; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   /* stato ricerca fornitore (pillole con dot) */
   .stato-pill{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--hairline-strong);
         background:var(--surface); color:var(--text-secondary); border-radius:var(--radius-pill);
@@ -685,6 +699,9 @@
       </div>
 
       <div class="results" id="results"></div>
+
+      <!-- risultati nascosti dall'operatore: sezione archiviati (ripristinabili) -->
+      <div id="archivedBox" style="display:none"></div>
 
       <!-- in fondo alla lista: allarga la ricerca a un'area più ampia (anche con risultati) -->
       <div id="extendMore" style="display:none; margin:16px 0 4px; padding:16px; background:var(--fill); border:1px solid var(--hairline); border-radius:var(--radius-l); text-align:center">
@@ -1576,6 +1593,7 @@ function registryCard(p){
       <h3>${isPartner?'🤝':'📋'} ${esc(p.nome)}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
         <button type="button" class="star-btn" data-sid="${esc(el.dataset.sid)}" title="Segna come contattato">☆</button>
+        <button type="button" class="arch-btn" title="Nascondi / archivia questo risultato">🗄️</button>
         <span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>
       </div>
     </div>
@@ -2723,7 +2741,7 @@ async function loadStorico(){
 /* ------------------ stato ricerca + stelline "contattato" ------------------ */
 // Persistiti sul server (/api/stato, KV) per ordine: tutti gli operatori vedono
 // lo stesso stato e le stesse stelle. Chiave = brand#numero, o 'generale' senza ordine.
-let statoRicerca = { stato:'non iniziata', stelle:{} };
+let statoRicerca = { stato:'non iniziata', stelle:{}, archiviati:{} };
 function ordineKey(){
   const num = ($('#ordTag').textContent.match(/#?(\d+)/)||[])[1] || '';
   return num ? ($('#brand').value + '#' + num) : 'generale';
@@ -2732,9 +2750,9 @@ async function loadStato(){
   try{
     const r = await apiFetch('/api/stato?ordine=' + encodeURIComponent(ordineKey()));
     const j = await r.json().catch(()=>({}));
-    if(r.ok && j.ok){ statoRicerca = { stato: j.stato || 'non iniziata', stelle: j.stelle || {} }; }
+    if(r.ok && j.ok){ statoRicerca = { stato: j.stato || 'non iniziata', stelle: j.stelle || {}, archiviati: j.archiviati || {} }; }
   }catch(e){ /* offline o errore: si resta con lo stato locale */ }
-  renderStatoPills(); applyStars();
+  renderStatoPills(); applyStars(); applyArchive();
 }
 function saveStato(patch){
   const body = Object.assign({ ordine: ordineKey(), quando: new Date().toISOString() }, patch);
@@ -2777,6 +2795,46 @@ resultsEl.addEventListener('click', e=>{
   else delete statoRicerca.stelle[b.dataset.sid];
   saveStato({ stella: { id: b.dataset.sid, nome: nomeDaScheda(card), on } });
   applyStars();
+});
+
+/* ------------------ ARCHIVIA / NASCONDI risultati ------------------
+   Nascondere un risultato lo sposta nella sezione «Archiviati» (ripristinabile). Persistito
+   per ordine (KV /api/stato, campo archiviati) e condiviso fra operatori, come le stelle.
+   Le schede archiviate restano nel DOM (classe .archived → display:none), così i marker e i
+   listeni continuano a funzionare; il pannello elenca gli archiviati con «↩ Ripristina». */
+function applyArchive(){
+  const arch = statoRicerca.archiviati || {};
+  resultsEl.querySelectorAll('.shop').forEach(el=> el.classList.toggle('archived', !!arch[el.dataset.sid]));
+  const box = $('#archivedBox');
+  const ids = Object.keys(arch);
+  if(!ids.length){ box.style.display='none'; box.innerHTML=''; syncMapMarkers(); return; }
+  const rows = ids.map(id=>{
+    const nome = (arch[id] && arch[id].nome) || id;
+    return `<div class="arch-row"><span class="arch-name">🗄️ ${esc(nome)}</span>
+      <button class="btn-dl arch-restore" type="button" data-sid="${esc(id)}">↩ Ripristina</button></div>`;
+  }).join('');
+  box.style.display='block';
+  box.innerHTML = `<details class="archived-details"><summary>🗄️ Archiviati (${ids.length}) — nascosti dalla lista</summary>
+    <div class="arch-list">${rows}</div></details>`;
+  syncMapMarkers();
+}
+// archivia dalla scheda
+resultsEl.addEventListener('click', e=>{
+  const b = e.target.closest('.arch-btn'); if(!b) return;
+  const card = b.closest('.shop'); if(!card || !card.dataset.sid) return;
+  const sid = card.dataset.sid, nome = nomeDaScheda(card);
+  statoRicerca.archiviati = statoRicerca.archiviati || {};
+  statoRicerca.archiviati[sid] = { nome };
+  saveStato({ archivia: { id: sid, nome, on: true } });
+  applyArchive();
+});
+// ripristina dal pannello archiviati
+$('#archivedBox').addEventListener('click', e=>{
+  const b = e.target.closest('.arch-restore'); if(!b) return;
+  const sid = b.dataset.sid;
+  if(statoRicerca.archiviati) delete statoRicerca.archiviati[sid];
+  saveStato({ archivia: { id: sid, on: false } });
+  applyArchive();
 });
 // aprire 💬 WhatsApp o 📞 chiamare dalla scheda = contatto avviato: stella automatica
 // (vale anche per i numeri dei referenti del registro); con un ordine caricato la
@@ -2850,6 +2908,7 @@ function shopCard(d, cat, dist, pid){
       <h3>${meta.emoji} ${d.name}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
         <button type="button" class="star-btn" data-sid="${esc(el.dataset.sid)}" title="Segna come contattato">☆</button>
+        <button type="button" class="arch-btn" title="Nascondi / archivia questo risultato">🗄️</button>
         <span class="badge dist">${distBadge}</span>
         ${openBadge}
         ${waBadge}
@@ -3127,6 +3186,7 @@ async function renderResults(found, geo, origin, service, opts){
                  : ' · 📏 distanza in linea d\'aria (routing non disponibile)';
   setStatus(`✅ Trovati ${cards.length} negozi${extNote}${distNote}${langNote}${anagNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
   applyStars();   // ★ sui fornitori già contattati per quest'ordine
+  applyArchive(); // 🗄️ nascondi i risultati archiviati per quest'ordine
   // senza ordine le stelle vivono sotto la chiave 'generale': vanno ricaricate qui,
   // perché loadStato() altrimenti parte solo quando si carica un ordine
   if(!orderLoaded) loadStato();
@@ -3275,7 +3335,7 @@ function syncMapMarkers(){
   if(!mapState) return;
   Object.entries(mapState.markers).forEach(([sid,m])=>{
     const card = resultsEl.querySelector('.shop[data-sid="'+sid+'"]');
-    const visible = card && card.style.display !== 'none';
+    const visible = card && card.style.display !== 'none' && !card.classList.contains('archived');
     m.setMap(visible ? mapState.map : null);
   });
 }

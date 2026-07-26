@@ -2,10 +2,11 @@
 // Condiviso fra tutti gli operatori (KV), così si vede chi è già stato sentito.
 //
 // GET  /api/stato?ordine=<brand#numero | generale>
-//   -> { ok, stato:'non iniziata|in corso|trovato', stelle:{ id:{nome,utente,quando} } }
-// POST /api/stato  body { ordine, quando, stato?, stella?:{id,nome,on} }
+//   -> { ok, stato:'non iniziata|in corso|trovato', stelle:{ id:{...} }, archiviati:{ id:{...} } }
+// POST /api/stato  body { ordine, quando, stato?, stella?:{id,nome,on}, archivia?:{id,nome,on} }
 //   - stato: aggiorna lo stato della ricerca per quell'ordine
 //   - stella: on=true segna il fornitore come contattato, on=false toglie il segno
+//   - archivia: on=true nasconde il fornitore (va in «archiviati»), on=false lo ripristina
 //   Il timestamp arriva dal browser (niente new Date() nelle funzioni serverless).
 
 import { authUser, kvCmd } from './_auth.js';
@@ -33,7 +34,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const k = s(req.query.ordine, 80) || 'generale';
       const e = mappa[k] || {};
-      return res.status(200).json({ ok: true, ordine: k, stato: e.stato || 'non iniziata', stelle: e.stelle || {} });
+      return res.status(200).json({ ok: true, ordine: k, stato: e.stato || 'non iniziata', stelle: e.stelle || {}, archiviati: e.archiviati || {} });
     }
 
     if (req.method === 'POST') {
@@ -52,6 +53,12 @@ export default async function handler(req, res) {
         if (body.stella.on) e.stelle[id] = { nome: s(body.stella.nome, 120), utente: auth.utente, quando };
         else delete e.stelle[id];
       }
+      if (body.archivia && body.archivia.id) {
+        const id = s(body.archivia.id, 80);
+        e.archiviati = e.archiviati || {};
+        if (body.archivia.on) e.archiviati[id] = { nome: s(body.archivia.nome, 120), utente: auth.utente, quando };
+        else delete e.archiviati[id];
+      }
       e.aggiornato = quando;
       mappa[k] = e;
       // non far crescere la mappa all'infinito: via gli ordini toccati meno di recente
@@ -61,7 +68,7 @@ export default async function handler(req, res) {
         for (const old of chiavi.slice(0, chiavi.length - MAX_ORDINI)) delete mappa[old];
       }
       await kvCmd(['SET', KEY, JSON.stringify(mappa)]);
-      return res.status(200).json({ ok: true, ordine: k, stato: e.stato, stelle: e.stelle || {} });
+      return res.status(200).json({ ok: true, ordine: k, stato: e.stato, stelle: e.stelle || {}, archiviati: e.archiviati || {} });
     }
 
     return res.status(405).json({ error: 'Metodo non consentito' });

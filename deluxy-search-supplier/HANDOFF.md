@@ -294,6 +294,17 @@ solo dove siamo e come si lavora.
    Scelta utente fra 3 opzioni (compattamento vs scroll indipendenti vs 1 colonna). Verificato:
    collapse/expand, contenuti riepilogo, mobile (1 colonna, no overflow), console pulita.
 
+33. **Archivia / nascondi risultati** (26/07): ogni scheda risultato ha un pulsante 🗄️ accanto
+   alla ⭐; cliccandolo la scheda sparisce dalla lista e finisce nella sezione **«🗄️ Archiviati
+   (N)»** (`#archivedBox`, collassabile, sotto i risultati) con «↩ Ripristina». Persistito
+   **per ordine** e **condiviso fra operatori**, esattamente come le stelle: campo nuovo
+   `archiviati` in `/api/stato` (KV, patch `archivia:{id,nome,on}`, GET lo restituisce). Lato
+   client: `statoRicerca.archiviati`, `applyArchive()` (mette `.shop.archived`→`display:none` e
+   costruisce il pannello dagli id archiviati con il nome salvato), chiamata in `loadStato` e
+   `renderResults`. Le schede restano nel DOM (delega listener intatta); `syncMapMarkers` nasconde
+   anche i marker degli archiviati. Chiave = `ordineKey()` (brand#numero o 'generale'). Verificato:
+   archivia→sparisce+pannello, ripristina→torna, backend `node --check` OK, console pulita.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
