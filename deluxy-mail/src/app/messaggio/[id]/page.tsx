@@ -24,6 +24,7 @@ import { NomeThreadForm } from '@/components/NomeThreadForm'
 import { ThreadAIToggle } from '@/components/ThreadAIToggle'
 import { CestinaThread } from '@/components/CestinaThread'
 import { InvitoCalendario } from '@/components/InvitoCalendario'
+import { DiagnosiInvito } from '@/components/DiagnosiInvito'
 import { threadHaAI } from '@/lib/threadAI'
 import { threadEChiuso } from '@/lib/threadChiusi'
 import { ChiudiThread } from '@/components/ChiudiThread'
@@ -35,12 +36,17 @@ import { PropostaEvento } from '@/components/PropostaEvento'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // le azioni AI (analisi, riassunto thread) girano qui
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ ampia?: string }> }
+type Props = {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ ampia?: string; diagnosi?: string }>
+}
 
 export default async function DettaglioMessaggio({ params, searchParams }: Props) {
   const { id } = await params
-  const { ampia: ampiaGrezzo } = await searchParams
+  const { ampia: ampiaGrezzo, diagnosi } = await searchParams
   const ampia = ampiaGrezzo === '1'
+  // ?diagnosi=1 → mostra com'è fatta la mail secondo il server (parti MIME).
+  const conDiagnosi = diagnosi === '1'
   const u = await richiediUtente()
 
   const messaggio = await db.messaggio.findFirst({
@@ -377,6 +383,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         {/* Invito di calendario vero (Outlook/Google): Accetta / Forse /
             Rifiuta. Si legge dal server dopo il render, come gli allegati. */}
         {messaggio.direzione === 'entrata' && <InvitoCalendario messaggioId={messaggio.id} />}
+
+        {/* Strumento, non funzione: si chiede con ?diagnosi=1 quando i tasti
+            Accetta/Rifiuta non compaiono e serve sapere perché. */}
+        {conDiagnosi && <DiagnosiInvito messaggioId={messaggio.id} />}
 
         {eventoProposto && <PropostaEvento messaggioId={messaggio.id} evento={eventoProposto} />}
 

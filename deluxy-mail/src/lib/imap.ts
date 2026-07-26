@@ -315,6 +315,55 @@ export async function leggiAllegati(
   }
 }
 
+/**
+ * TUTTE le foglie della struttura del messaggio, senza filtri: tipo, nome,
+ * dimensione e indirizzo IMAP della parte.
+ *
+ * ⚠️ Perché non basta `leggiAllegati`. Quella funzione risponde a «quali file
+ * mostro nell'elenco allegati?» e quindi FILTRA: tiene solo i nodi che hanno
+ * `disposition: attachment` o un nome di file. La parte `text/calendar` di un
+ * invito Outlook, dentro un `multipart/alternative`, non ha né l'una né
+ * l'altro — è un'alternativa al corpo, non un allegato — e con quel filtro
+ * spariva. Per cercare un invito serve la struttura NUDA: qui non si scarta
+ * niente e decide chi chiama.
+ */
+export async function strutturaMessaggio(
+  account: Account,
+  uid: number,
+  cartella?: string
+): Promise<{ parte: string; tipo: string; nome: string; dimensione: number }[]> {
+  if (uid <= 0) return []
+  const client = connessione(account)
+  await client.connect()
+  try {
+    await client.mailboxOpen(cartella || account.cartella, { readOnly: true })
+    for await (const msg of client.fetch({ uid: String(uid) }, { uid: true, bodyStructure: true }, { uid: true })) {
+      const radice = msg.bodyStructure as NodoStruttura | undefined
+      if (!radice) continue
+      const foglie: { parte: string; tipo: string; nome: string; dimensione: number }[] = []
+      const visita = (n: NodoStruttura) => {
+        if (n.childNodes?.length) {
+          for (const f of n.childNodes) visita(f)
+          return
+        }
+        foglie.push({
+          // Un messaggio non-multipart ha una parte sola e nessun indirizzo:
+          // per IMAP quella parte è la «1».
+          parte: n.part || '1',
+          tipo: (n.type || '').toLowerCase(),
+          nome: n.dispositionParameters?.filename || n.parameters?.name || '',
+          dimensione: n.size ?? 0,
+        })
+      }
+      visita(radice)
+      return foglie
+    }
+    return []
+  } finally {
+    await client.logout()
+  }
+}
+
 /** Scarica UNA parte del messaggio (un allegato) senza tirarsi dietro il resto. */
 export async function scaricaParte(
   account: Account,
