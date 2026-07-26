@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { inserisciScript } from '@/lib/script-testo'
 
 // Il pop-up per scrivere e MANDARE una mail al cliente da dentro l'app.
 //
@@ -14,6 +15,9 @@ import { useCallback, useEffect, useState } from 'react'
 // può correggere: non parte niente prima di premere Invia.
 
 type Casella = { id: string; indirizzo: string; nome: string; predefinita: boolean }
+
+/** Uno script: una risposta pronta, da richiamare dentro la mail. */
+type Script = { id: string; titolo: string; categoria: string; testo: string; quando: string }
 
 export type BozzaMail = {
   a: string
@@ -37,6 +41,23 @@ export function ComponiMail({
   const [testo, setTesto] = useState(bozza.testo)
   const [caselle, setCaselle] = useState<Casella[]>([])
   const [casellaId, setCasellaId] = useState('')
+  // Gli script (risposte pronte) da richiamare nel testo.
+  const [script, setScript] = useState<Script[]>([])
+  const [cercaScript, setCercaScript] = useState('')
+  const [scriptAperti, setScriptAperti] = useState(false)
+  // Serve per sapere DOVE sta il cursore: lo script si inserisce lì.
+  const areaTesto = useRef<HTMLTextAreaElement | null>(null)
+  // ⚠️ L'ultima posizione del cursore va RICORDATA. Un riquadro di testo che non
+  // è mai stato cliccato riporta `selectionStart = 0`, che è indistinguibile da
+  // «il cursore è all'inizio»: senza questo, chi apre il pop-up e prende subito
+  // uno script se lo vede infilato PRIMA del saluto, e il saluto esce doppio.
+  // `null` = non l'ha ancora toccato, quindi si aggiunge in fondo.
+  const cursore = useRef<number | null>(null)
+
+  function ricordaCursore() {
+    const area = areaTesto.current
+    if (area) cursore.current = area.selectionStart
+  }
   const [inviando, setInviando] = useState(false)
   const [inviata, setInviata] = useState('')
   const [avviso, setAvviso] = useState('')
@@ -57,6 +78,50 @@ export function ComponiMail({
   useEffect(() => {
     caricaCaselle()
   }, [caricaCaselle])
+
+  const caricaScript = useCallback(async () => {
+    try {
+      const res = await fetch('/api/script?' + new URLSearchParams(cercaScript ? { q: cercaScript } : {}))
+      if (!res.ok) return
+      const d = (await res.json()) as { script: Script[] }
+      // Solo quelli attivi: uno script spento è spento anche qui.
+      setScript(d.script.filter((x) => (x as Script & { attivo?: boolean }).attivo !== false))
+    } catch {
+      // rete assente: l'elenco resta vuoto e lo si dice
+    }
+  }, [cercaScript])
+
+  useEffect(() => {
+    if (!scriptAperti) return
+    const t = setTimeout(caricaScript, 200)
+    return () => clearTimeout(t)
+  }, [scriptAperti, caricaScript])
+
+  /**
+   * Mette il testo dello script nella mail, alla posizione del cursore.
+   *
+   * Il saluto doppio si evita in `inserisciScript`: ogni script comincia con
+   * «Buongiorno,» e il corpo ce l'ha già. E si segna che lo script è stato usato,
+   * così l'elenco tiene in cima quelli che si usano davvero.
+   */
+  function usaScript(x: Script) {
+    const area = areaTesto.current
+    // Il cursore vale solo se il riquadro è davvero a fuoco o se ci si è già
+    // scritto dentro; altrimenti lo script va in fondo al testo.
+    const aFuoco = !!area && document.activeElement === area
+    const da = aFuoco ? area!.selectionStart : (cursore.current ?? testo.length)
+    const a = aFuoco ? area!.selectionEnd : (cursore.current ?? testo.length)
+    const { testo: nuovo, nuovoCursore } = inserisciScript(testo, x.testo, da, a)
+    setTesto(nuovo)
+    setScriptAperti(false)
+    // Il cursore va dove finisce quello che si è appena inserito, non a capo.
+    requestAnimationFrame(() => {
+      if (!area) return
+      area.focus()
+      area.setSelectionRange(nuovoCursore, nuovoCursore)
+    })
+    fetch(`/api/script/${x.id}/usato`, { method: 'POST' }).catch(() => {})
+  }
 
   // Esc chiude, ma non mentre sta partendo: chiudere a metà invio lascerebbe il
   // dubbio se la mail è uscita.
@@ -167,9 +232,81 @@ export function ComponiMail({
           <span>Oggetto</span>
           <input value={oggetto} onChange={(e) => setOggetto(e.target.value)} />
         </label>
+        {/* RICHIAMA UNO SCRIPT: le risposte pronte finiscono nel testo, dove sta
+            il cursore. Il saluto non esce doppio (vedi src/lib/script-testo.ts). */}
+        <div className="campo">
+          <span>
+            Messaggio
+            <button
+              className="btn btn-secondario small"
+              onClick={() => setScriptAperti(!scriptAperti)}
+              style={{ marginLeft: 10 }}
+              title="Inserisci una risposta pronta nel punto in cui sei"
+            >
+              {scriptAperti ? 'Chiudi gli script' : 'Usa uno script'}
+            </button>
+          </span>
+        </div>
+
+        {scriptAperti ? (
+          <div className="script-scelta">
+            <input
+              type="search"
+              value={cercaScript}
+              onChange={(e) => setCercaScript(e.target.value)}
+              placeholder="Cerca fra le risposte pronte…"
+              aria-label="Cerca script"
+            />
+            {script.length === 0 ? (
+              <p className="descrizione" style={{ margin: '8px 0 0' }}>
+                {cercaScript ? (
+                  <>Nessuno script per «{cercaScript}».</>
+                ) : (
+                  <>
+                    Nessuno script disponibile: si scrivono in{' '}
+                    <a href="/script" style={{ textDecoration: 'underline' }}>
+                      Script
+                    </a>
+                    .
+                  </>
+                )}
+              </p>
+            ) : (
+              <ul className="script-elenco">
+                {script.map((x) => (
+                  <li key={x.id}>
+                    <button
+                      className="script-voce"
+                      onClick={() => usaScript(x)}
+                      title={x.quando || 'Inserisci questo testo'}
+                    >
+                      <span className="script-titolo">{x.titolo}</span>
+                      <span className="script-cat">{x.categoria}</span>
+                      <span className="script-anteprima">
+                        {x.testo.length > 90 ? x.testo.slice(0, 90) + '…' : x.testo}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
+
         <label className="campo">
-          <span>Messaggio</span>
-          <textarea rows={9} value={testo} onChange={(e) => setTesto(e.target.value)} />
+          <span className="solo-lettori-schermo">Messaggio</span>
+          <textarea
+            ref={areaTesto}
+            rows={9}
+            value={testo}
+            onChange={(e) => {
+              setTesto(e.target.value)
+              ricordaCursore()
+            }}
+            onSelect={ricordaCursore}
+            onKeyUp={ricordaCursore}
+            onClick={ricordaCursore}
+          />
         </label>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

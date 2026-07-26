@@ -66,6 +66,16 @@ Se ci sono più caselle si scegle il mittente; se non ce n'è nessuna il pop-up 
 a *Caselle*. Un indirizzo non valido, un messaggio vuoto o una casella che non esiste più
 vengono respinti **prima** di provare a spedire.
 
+**Le risposte pronte si richiamano da lì.** Nel modulo c'è *Usa uno script*: si cerca fra i
+testi salvati in [Script](#) e si clicca — entra nel messaggio dove sta il cursore, o in fondo
+se non hai ancora scritto niente. Ogni uso fa crescere il contatore, così l'elenco tiene in
+cima quelli che si usano davvero.
+
+> **Il saluto non esce doppio.** Ogni script comincia con «Buongiorno,» e il corpo della mail
+> ce l'ha già: quando succede, allo script si toglie il suo. Nient'altro — non si riscrive e
+> non si "migliora" il testo che hai salvato. Se avevi selezionato del testo, lo script lo
+> sostituisce in linea; altrimenti diventa un paragrafo a sé.
+
 ## Il dettaglio di un ordine
 
 Cliccando un ordine si apre il pannello con foto dei prodotti, messaggio pronto per

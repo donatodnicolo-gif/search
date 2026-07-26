@@ -55,6 +55,32 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- SCRIPT RICHIAMABILI DAL POP-UP DI POSTA (26/07/2026). Dentro il modulo della
+  mail c'è **«Usa uno script»**: si cerca fra le risposte pronte e si clicca —
+  il testo entra nel messaggio **dove sta il cursore** (o in fondo, se il riquadro
+  non è stato toccato). `POST /api/script/[id]/usato` incrementa `usi`, come fa
+  già l'AI in `/api/script/suggerisci`: se contasse solo l'AI, l'ordinamento «i
+  più usati in cima» racconterebbe le sue abitudini e non quelle di chi lavora.
+  ⚠️ **IL SALUTO NON DEVE USCIRE DOPPIO.** Ogni script comincia con «Buongiorno,»
+  e il corpo della mail ce l'ha già («Buongiorno Shontelle, le scriviamo…»).
+  `src/lib/script-testo.ts` toglie il saluto allo script SOLO se il testo che lo
+  precede ne ha già uno, e rimette la maiuscola. Riconosce pochi saluti in testa
+  alla frase (buongiorno/buonasera/salve/ciao/gentile…/hello/bonjour/…): meglio
+  lasciare un saluto doppio che tagliare una parola che serviva.
+  Con una SELEZIONE attiva si sostituisce **in linea**; con il solo cursore lo
+  script diventa un **paragrafo a sé**, e le righe vuote non si accumulano.
+  ⚠️ **BUG TROVATO IN VERIFICA, il caso più comune di tutti**: un riquadro di testo
+  mai cliccato riporta `selectionStart = 0`, indistinguibile da «cursore
+  all'inizio». Chi apriva il pop-up e prendeva subito uno script se lo vedeva
+  infilato PRIMA del saluto, col «Buongiorno» doppio. Ora la posizione si RICORDA
+  (`cursore` in `ComponiMail`) e vale solo se il riquadro è a fuoco o è già stato
+  usato; altrimenti si aggiunge in fondo.
+  VERIFICATO in pagina: aprendo il pop-up e prendendo subito «Ritardo nella
+  consegna» → **un solo «Buongiorno»**, script come paragrafo dopo l'apertura,
+  elenco che si chiude, `usi` che cresce, ricerca che filtra («fattura» → 1
+  script, «consegna» → 2, testo inesistente → «Nessuno script per «…»»).
+  I contatori `usi` gonfiati dai miei clic sono stati riazzerati.
+
 - POP-UP DI POSTA: LA MAIL SI SCRIVE E SI MANDA DA QUI (26/07/2026).
   Il bottone **Email** non è più un link `mailto:` ma apre `ComponiMail.tsx`:
   Da (casella aziendale) · A · Oggetto · Messaggio, già scritti nella lingua del
