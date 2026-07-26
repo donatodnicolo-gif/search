@@ -58,7 +58,17 @@ export default async function ConsuntivoPage({
   for (let m = dal; m <= al; m++) mesiPeriodo.push(m);
   const vuoto = mesiPeriodo.length === 0;
 
-  const [res, spese, categorie, dati, d2c] = await Promise.all([
+  // Anno precedente **a parità di periodo**: gli stessi mesi (dal..al), non
+  // l'anno intero. Confrontare sei mesi con dodici direbbe che si è dimezzato
+  // il fatturato quando invece sta andando uguale.
+  const annoPrec = anno - 1;
+  const etichettaPeriodo = vuoto
+    ? "—"
+    : dal === al
+      ? MESI[dal - 1]
+      : `${MESI[dal - 1]}–${MESI[al - 1]}`;
+
+  const [res, spese, categorie, dati, d2c, resPrec, d2cPrec, spesePrec, datiPrec] = await Promise.all([
     vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchConsuntivo({ anno, dal, al, stato }),
     vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchSpeseBanca({ anno, dal, al }),
     caricaCategorie(),
@@ -66,6 +76,10 @@ export default async function ConsuntivoPage({
     // Il D2C reale non è in Finance: è il venduto dei negozi Shopify, che vive
     // nel registro Orders.
     vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchRicaviD2C(anno),
+    vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchConsuntivo({ anno: annoPrec, dal, al, stato }),
+    vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchRicaviD2C(annoPrec),
+    vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchSpeseBanca({ anno: annoPrec, dal, al }),
+    caricaAnno(annoPrec),
   ]);
 
   // ---- D2C reale (Orders): mesi in imponibile, per maison e in totale ----
@@ -87,6 +101,32 @@ export default async function ConsuntivoPage({
     }
   }
   const d2cPeriodo = mesiPeriodo.reduce((s, m) => s + (d2cMese[m - 1] ?? 0), 0);
+
+  // Stesse vendite ecommerce dell'anno prima, sugli stessi mesi e con la stessa
+  // aliquota: altrimenti il confronto misurerebbe lo scorporo, non le vendite.
+  const d2cPrecMese = Array(12).fill(0) as number[];
+  const d2cPrecPerMaison = new Map<string, number[]>();
+  if (d2cPrec.ok) {
+    for (const b of d2cPrec.dati.brand) {
+      const mesi = b.mesi.map((v) => imponibile(v, aliquota.pct));
+      for (let i = 0; i < 12; i++) d2cPrecMese[i] += mesi[i] ?? 0;
+      const slug = abbinaMaison(b.brand, dati.maisons);
+      if (!slug) continue;
+      const gia = d2cPrecPerMaison.get(slug);
+      if (gia) for (let i = 0; i < 12; i++) gia[i] += mesi[i] ?? 0;
+      else d2cPrecPerMaison.set(slug, [...mesi]);
+    }
+  }
+  const d2cPrecPeriodo = mesiPeriodo.reduce((s, m) => s + (d2cPrecMese[m - 1] ?? 0), 0);
+  const d2cMaisonPrec = (slug: string) => {
+    const mesi = d2cPrecPerMaison.get(slug);
+    return mesi ? mesiPeriodo.reduce((s, m) => s + (mesi[m - 1] ?? 0), 0) : 0;
+  };
+
+  // Variazione percentuale. Con una base a zero la percentuale non esiste (non
+  // è "+100%", è "da zero"): si restituisce null e la colonna mostra "—".
+  const variazione = (ora: number, prima: number | null) =>
+    prima === null || prima === 0 ? null : ((ora - prima) / Math.abs(prima)) * 100;
 
   // Budget dei mesi chiusi: si somma il budget mensile (non si rapporta
   // l'annuale), così la stagionalità non falsa il confronto.
@@ -112,26 +152,46 @@ export default async function ConsuntivoPage({
       fatturatoPerNome.set(normalizzaNome(t.tipologia), { nome: t.tipologia, imponibile: t.imponibile, fatture: t.fatture });
     }
   }
+  // Stesso conto sull'anno prima, con la stessa mappatura: le voci si spostano
+  // (nel 2025 non c'erano Food Supplier né Magazzino) ma la regola no.
+  const fatturatoPrecPerNome = new Map<string, number>();
+  if (resPrec.ok) {
+    for (const t of resPrec.dati.tipologie) fatturatoPrecPerNome.set(normalizzaNome(t.tipologia), t.imponibile);
+  }
+  const confrontabilePrec = resPrec.ok || d2cPrec.ok;
+
   const consumati = new Set<string>();
   const confronto = dati.tipologie.map((t) => {
     const nomiFinance = t.vociFinance.length ? t.vociFinance : [t.nome];
     let consuntivo = 0;
+    let precedente = 0;
     const collegati: string[] = [];
     for (const nome of nomiFinance) {
       const k = normalizzaNome(nome);
       const f = fatturatoPerNome.get(k);
       if (f) { consuntivo += f.imponibile; collegati.push(f.nome); consumati.add(k); }
+      precedente += fatturatoPrecPerNome.get(k) ?? 0;
     }
     // Il D2C non si fattura in Finance: il suo consuntivo è il venduto Shopify.
     if (t.slug === SLUG_D2C && d2c.ok) {
       consuntivo += d2cPeriodo;
       collegati.push(`Vendite ecommerce · ${d2c.dati.brand.length} negozi`);
     }
-    return { nome: t.nome, slug: t.slug, budgetPeriodo: budgetVoce(t.slug), consuntivo, collegati, mappata: collegati.length > 0 };
+    if (t.slug === SLUG_D2C && d2cPrec.ok) precedente += d2cPrecPeriodo;
+    return {
+      nome: t.nome,
+      slug: t.slug,
+      budgetPeriodo: budgetVoce(t.slug),
+      consuntivo,
+      precedente: confrontabilePrec ? precedente : null,
+      collegati,
+      mappata: collegati.length > 0,
+    };
   });
   const nonMappate = res.ok ? res.dati.tipologie.filter((t) => !consumati.has(normalizzaNome(t.tipologia))) : [];
   const ricaviCons = confronto.reduce((s, c) => s + c.consuntivo, 0);
   const budgetRicavi = confronto.reduce((s, c) => s + c.budgetPeriodo, 0);
+  const ricaviPrec = confrontabilePrec ? confronto.reduce((s, c) => s + (c.precedente ?? 0), 0) : null;
 
   // ---- Costi reali per voce di P&L, con ripartizione per mese (dalla banca) ----
   const costi = { COGS: 0, ADV: 0, PERSONALE: 0, STRUTTURA: 0 };
@@ -151,6 +211,29 @@ export default async function ConsuntivoPage({
       }
     }
   }
+
+  // Costi dell'anno prima. **Solo se il dato esiste**: se la banca non ha
+  // movimenti per quel periodo il costo non è «zero», è *non misurato* — e uno
+  // zero in colonna direbbe che l'anno scorso non si spendeva niente, che è
+  // peggio di una casella vuota. Stessa cosa per il personale: senza roster di
+  // quell'anno non si calcola, non si finge.
+  const bancaPrec = spesePrec.ok && spesePrec.dati.controparti.length > 0;
+  const costiPrec = { COGS: 0, ADV: 0, PERSONALE: 0, STRUTTURA: 0 };
+  if (bancaPrec && spesePrec.ok) {
+    for (const r of ricostruisci(spesePrec.dati.controparti, categorie)) {
+      const tp = r.categoria?.tipoPL;
+      if (!tp || tp === "ESCLUSA") continue;
+      if (tp in costiPrec) costiPrec[tp as keyof typeof costiPrec] += r.uscite;
+    }
+  }
+  const rosterPrec = datiPrec.persone.length > 0;
+  const personalePrec = rosterPrec ? mesiPeriodo.reduce((s, m) => s + costoPersonaleMese(datiPrec, m), 0) : null;
+  const costoPrec = (tp: keyof typeof costiPrec) => (bancaPrec ? costiPrec[tp] : null);
+  const margineLordoPrec = ricaviPrec !== null && bancaPrec ? ricaviPrec - costiPrec.COGS : null;
+  const ebitdaPrec =
+    margineLordoPrec !== null && personalePrec !== null
+      ? margineLordoPrec - costiPrec.ADV - personalePrec - costiPrec.STRUTTURA
+      : null;
 
   // ---- Ricavi per mese: una chiamata Finance per ogni mese chiuso ----
   const ricaviMese: Record<number, number> = {};
@@ -181,6 +264,8 @@ export default async function ConsuntivoPage({
     nota?: string;
     cons: number;
     budget: number;
+    // null = per quella voce l'anno prima non c'è il dato. Diverso da zero.
+    prec: number | null;
     tipo: "ricavo" | "costo" | "totale";
     dettaglio?: boolean;
   };
@@ -192,20 +277,23 @@ export default async function ConsuntivoPage({
     nota: c.slug === SLUG_D2C ? "negozi Shopify · registro ordini" : c.collegati.join(" + ") || "nessuna voce collegata",
     cons: c.consuntivo,
     budget: c.budgetPeriodo,
+    prec: c.precedente,
     tipo: "ricavo",
     dettaglio: true,
   }));
   const righePL: RigaPL[] = [
-    { label: "Totale ricavi", cons: ricaviCons, budget: budgetRicavi, tipo: "totale" },
+    { label: "Totale ricavi", cons: ricaviCons, budget: budgetRicavi, prec: ricaviPrec, tipo: "totale" },
     ...righeRicavi,
-    { label: "Costo del venduto", nota: "banca · Fornitori/COGS", cons: costi.COGS, budget: B("cogs"), tipo: "costo" },
-    { label: "Margine lordo", cons: margineLordoCons, budget: B("margineLordo"), tipo: "totale" },
-    { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), tipo: "costo" },
-    { label: "Costo del personale", nota: "anagrafica Dipendenti", cons: personaleCons, budget: B("personale"), tipo: "costo" },
-    { label: "Costi di struttura", nota: "banca · Struttura", cons: costi.STRUTTURA, budget: B("costiFissi"), tipo: "costo" },
-    { label: "EBITDA", cons: ebitdaCons, budget: B("ebitda"), tipo: "totale" },
+    { label: "Costo del venduto", nota: "banca · Fornitori/COGS", cons: costi.COGS, budget: B("cogs"), prec: costoPrec("COGS"), tipo: "costo" },
+    { label: "Margine lordo", cons: margineLordoCons, budget: B("margineLordo"), prec: margineLordoPrec, tipo: "totale" },
+    { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), prec: costoPrec("ADV"), tipo: "costo" },
+    { label: "Costo del personale", nota: "anagrafica Dipendenti", cons: personaleCons, budget: B("personale"), prec: personalePrec, tipo: "costo" },
+    { label: "Costi di struttura", nota: "banca · Struttura", cons: costi.STRUTTURA, budget: B("costiFissi"), prec: costoPrec("STRUTTURA"), tipo: "costo" },
+    { label: "EBITDA", cons: ebitdaCons, budget: B("ebitda"), prec: ebitdaPrec, tipo: "totale" },
   ];
   const buono = (r: RigaPL) => (r.tipo === "costo" ? r.cons - r.budget <= 0 : r.cons - r.budget >= 0);
+  // Su un costo crescere è male, su un ricavo è bene: il colore segue quello.
+  const buonaVar = (r: RigaPL, v: number) => (r.tipo === "costo" ? v <= 0 : v >= 0);
 
   const ricaviM = (m: number) => ricaviMese[m] ?? 0;
   const costoM = (tp: keyof typeof costi, m: number) => costiMese[tp][m - 1] ?? 0;
@@ -286,6 +374,21 @@ export default async function ConsuntivoPage({
                 imponibile · {res.dati.totali.fatture} fatture Finance
                 {d2c.ok ? ` + ${eur(d2cPeriodo)} di vendite ecommerce` : ""}
               </div>
+              {ricaviPrec !== null && (
+                <div className="kpi-sub">
+                  {(() => {
+                    const v = variazione(ricaviCons, ricaviPrec);
+                    return (
+                      <>
+                        <span className={v === null ? "muted" : v >= 0 ? "pos" : "neg"}>
+                          {v === null ? "—" : `${v >= 0 ? "+" : ""}${pct(v, 0)}`}
+                        </span>{" "}
+                        sullo stesso periodo {annoPrec} ({eur(ricaviPrec)})
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
             <div className="kpi">
               <div className="kpi-label">EBITDA consuntivo</div>
@@ -310,6 +413,8 @@ export default async function ConsuntivoPage({
                   <tr>
                     <th>Voce</th>
                     <th className="num">Consuntivo</th>
+                    <th className="num">{etichettaPeriodo} {annoPrec}</th>
+                    <th className="num">Var. anno prec.</th>
                     <th className="num">Budget periodo</th>
                     <th className="num">Scostamento</th>
                     <th className="num">Realizzato</th>
@@ -328,6 +433,20 @@ export default async function ConsuntivoPage({
                         </td>
                         <td className="num" style={{ fontWeight: forte ? 600 : 400 }}>
                           {r.tipo === "costo" ? `− ${eur(r.cons)}` : eur(r.cons)}
+                        </td>
+                        <td className="num muted">
+                          {r.prec === null ? "—" : r.tipo === "costo" ? `− ${eur(r.prec)}` : eur(r.prec)}
+                        </td>
+                        <td className="num">
+                          {(() => {
+                            const v = variazione(r.cons, r.prec);
+                            if (v === null) return <span className="muted">—</span>;
+                            return (
+                              <span className={buonaVar(r, v) ? "pos" : "neg"}>
+                                {v >= 0 ? "+" : ""}{pct(v, 0)}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="num muted">{r.tipo === "costo" ? `− ${eur(r.budget)}` : eur(r.budget)}</td>
                         <td className={`num ${buono(r) ? "pos" : "neg"}`}>{scost >= 0 ? "+" : ""}{eur(scost)}</td>
@@ -391,6 +510,13 @@ export default async function ConsuntivoPage({
             banca categorizzate nel <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>
             {spese.ok ? ` (${eur(nonCategorizzato)} ancora da categorizzare` : " (spese banca non disponibili"}
             {esclusi > 0 ? `, ${eur(esclusi)} esclusi` : ""}): finché non li classifichi restano sottostimati.
+            Il confronto con il <strong>{annoPrec}</strong> è a <strong>parità di periodo</strong>: gli stessi mesi
+            ({etichettaPeriodo}), non l&apos;anno intero. Dove l&apos;anno prima il dato non c&apos;è la casella resta
+            <strong> vuota invece che a zero</strong>
+            {!bancaPrec && `: la banca non ha movimenti categorizzati per il ${annoPrec}`}
+            {!bancaPrec && !rosterPrec ? " e " : ""}
+            {!rosterPrec && `non esiste un organico a budget ${annoPrec}`}
+            {!bancaPrec || !rosterPrec ? ", quindi costi ed EBITDA dell'anno prima non si calcolano" : ""}.
             Budget di confronto = somma dei soli mesi chiusi. Ricavi al netto IVA, uscite di cassa IVA inclusa:
             consuntivo gestionale.
           </p>
@@ -463,6 +589,8 @@ export default async function ConsuntivoPage({
                         <th>Maison</th>
                         {mesiPeriodo.map((m) => (<th className="num" key={m}>{MESI[m - 1]}</th>))}
                         <th className="num">Consuntivo</th>
+                        <th className="num">{etichettaPeriodo} {annoPrec}</th>
+                        <th className="num">Var.</th>
                         <th className="num">Budget D2C</th>
                         <th className="num">Scostamento</th>
                       </tr>
@@ -476,7 +604,7 @@ export default async function ConsuntivoPage({
                             (s, mm) => s + (m.mesi.find((y) => y.month === mm)?.vendite[SLUG_D2C] ?? 0),
                             0
                           );
-                          return { slug: m.slug, nome: m.nome, mesi, cons, budget };
+                          return { slug: m.slug, nome: m.nome, mesi, cons, budget, prec: d2cPrec.ok ? d2cMaisonPrec(m.slug) : null };
                         })
                         // Una maison senza D2C né a budget né a consuntivo non
                         // dice niente: si mostra solo chi ha almeno un numero.
@@ -486,6 +614,14 @@ export default async function ConsuntivoPage({
                             <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{r.nome}</td>
                             {mesiPeriodo.map((m) => (<td className="num" key={m}>{eur(r.mesi[m - 1] ?? 0)}</td>))}
                             <td className="num" style={{ fontWeight: 600 }}>{eur(r.cons)}</td>
+                            <td className="num muted">{r.prec === null ? "—" : eur(r.prec)}</td>
+                            <td className="num">
+                              {(() => {
+                                const v = variazione(r.cons, r.prec);
+                                if (v === null) return <span className="muted">—</span>;
+                                return <span className={v >= 0 ? "pos" : "neg"}>{v >= 0 ? "+" : ""}{pct(v, 0)}</span>;
+                              })()}
+                            </td>
                             <td className="num muted">{eur(r.budget)}</td>
                             <td className={`num ${r.cons - r.budget >= 0 ? "pos" : "neg"}`}>
                               {r.cons - r.budget >= 0 ? "+" : ""}{eur(r.cons - r.budget)}
@@ -504,6 +640,8 @@ export default async function ConsuntivoPage({
                             <td className="num" style={{ fontWeight: 600 }}>{eur(cons)}</td>
                             <td className="num muted">—</td>
                             <td className="num muted">—</td>
+                            <td className="num muted">—</td>
+                            <td className="num muted">—</td>
                           </tr>
                         );
                       })}
@@ -511,6 +649,14 @@ export default async function ConsuntivoPage({
                         <td>Totale vendite ecommerce</td>
                         {mesiPeriodo.map((m) => (<td className="num" key={m}>{eur(d2cMese[m - 1] ?? 0)}</td>))}
                         <td className="num">{eur(d2cPeriodo)}</td>
+                        <td className="num">{d2cPrec.ok ? eur(d2cPrecPeriodo) : "—"}</td>
+                        <td className="num">
+                          {(() => {
+                            const v = variazione(d2cPeriodo, d2cPrec.ok ? d2cPrecPeriodo : null);
+                            if (v === null) return <span className="muted">—</span>;
+                            return <span className={v >= 0 ? "pos" : "neg"}>{v >= 0 ? "+" : ""}{pct(v, 0)}</span>;
+                          })()}
+                        </td>
                         <td className="num">{eur(budgetVoce(SLUG_D2C))}</td>
                         <td className={`num ${d2cPeriodo - budgetVoce(SLUG_D2C) >= 0 ? "pos" : "neg"}`}>
                           {d2cPeriodo - budgetVoce(SLUG_D2C) >= 0 ? "+" : ""}{eur(d2cPeriodo - budgetVoce(SLUG_D2C))}

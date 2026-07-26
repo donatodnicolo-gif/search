@@ -57,6 +57,14 @@ pubblicato), *sfidante* e *irraggiungibile*.
   predefinita, 10%, oppure «Lordo» per il dato Shopify tale e quale), perché l'aliquota non è
   salvata sull'ordine e non va indovinata. Ordini **annullati e rimborsati esclusi**; i rimborsi
   parziali restano contati per intero, ed è scritto sotto la tabella.
+  **Confronto con l'anno precedente a parità di periodo**: le colonne «*mesi* *anno-1*» e «Var.»
+  confrontano gli **stessi mesi** dell'anno prima (Gen–Giu con Gen–Giu, non con l'anno intero),
+  con la **stessa aliquota IVA** — altrimenti si misurerebbe lo scorporo invece delle vendite.
+  Ci sono nel conto economico (totale e per voce di budget), nel KPI dei ricavi e nella tabella
+  delle vendite ecommerce per maison. Dove il dato dell'anno prima **non esiste** la casella resta
+  **vuota, non a zero**: oggi la banca non ha movimenti categorizzati per il 2025 e non c'è un
+  organico a budget 2025, quindi costi ed EBITDA dell'anno prima non si calcolano e la pagina lo
+  scrive. Si riempiranno da soli quando quei dati ci saranno.
 - **Piattaforme ADV** (`/piattaforme`): ripartizione del budget pubblicitario tra le **piattaforme**
   (Google, Meta, TikTok e altre **aggiungibili/rimovibili**). Si impostano le **% per mese** — diverse
   mese per mese — e l'**importo per piattaforma si calcola da solo** (= budget ADV del mese × %). La
