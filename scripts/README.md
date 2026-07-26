@@ -312,6 +312,36 @@ cd deluxy-orders && npm run chiave -- deluxy-partner --scrittura
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: la chiave (`dlxo_...`) viene stampata **una sola volta** — nel database resta solo lo SHA-256. Copiarla nel `.env` dell'app client come `ORDERS_API_KEY`.
 
+### genera-segreti.mjs — deluxy-transactions
+Stampa i segreti dell'app pagamenti da mettere in `.env` (locale) e su Vercel. Non scrive niente su disco.
+
+```bash
+cd deluxy-transactions && npm run segreti
+```
+
+- **Serve**: niente
+- **Nota**: `TRANSACTIONS_ENC_KEY` **non si cambia più** dopo il primo avvio — i segreti già cifrati (secondi fattori, chiavi HMAC delle app) non si rileggerebbero.
+
+### crea-operatore.mjs — deluxy-transactions
+Crea un operatore che può autorizzare pagamenti. Serve almeno una volta, per il primo amministratore.
+
+```bash
+cd deluxy-transactions && npm run operatore -- --email tu@deluxy.it --nome "Nome Cognome" --password "<almeno 12 caratteri>" --ruolo admin
+```
+
+- **Serve**: `DATABASE_URL` e `TRANSACTIONS_ENC_KEY` nel `.env` dell'app
+- **Nota**: stampa **una sola volta** il segreto TOTP da inserire nell'app di autenticazione. Senza quel codice non si entra e non si firma. Ruoli: `admin` | `approvatore` | `osservatore`.
+
+### crea-chiave.mjs — deluxy-transactions
+Autorizza un'app Deluxy a **chiedere** pagamenti (non ad approvarli: quello lo fa solo una persona).
+
+```bash
+cd deluxy-transactions && npm run chiave -- --nome deluxy-messaging --tetto 2000 --tetto-giorno 10000 [--ip 1.2.3.4]
+```
+
+- **Serve**: `DATABASE_URL` e `TRANSACTIONS_ENC_KEY` nel `.env` dell'app
+- **Nota**: stampa **una sola volta** `TRANSACTIONS_API_KEY` e `TRANSACTIONS_HMAC_SECRET`. Servono entrambe: la chiave identifica, il segreto firma ogni chiamata. Metterle nella cassaforte del Hub sotto il progetto dell'app che le userà. I tetti sono in euro.
+
 ### configura-db-condiviso.mjs — deluxy-orders
 Scrive il `.env` di Orders copiando `DATABASE_URL` e `DIRECT_URL` dall'env di un'altra app Deluxy (stesso cluster Postgres) e forzando `schema=orders`. Conserva le altre variabili già presenti.
 

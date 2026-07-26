@@ -1,0 +1,279 @@
+// Deluxy Transactions — schema del registro pagamenti.
+//
+// Principi (vedi docs/SICUREZZA.md):
+//  1. Gli IMPORTI sono in CENTESIMI interi. Mai un Float su del denaro.
+//  2. Nulla si cancella: gli stati finali sono stati, non delete. Il registro
+//     eventi è una catena di hash e non ha update né delete.
+//  3. I segreti (TOTP, HMAC delle chiavi API) sono cifrati AES-256-GCM.
+//  4. L'app NON muove denaro: produce distinte SEPA che una persona carica in
+//     banca. Nessuna credenziale bancaria vive qui.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Operatori (persone che autorizzano)
+// ---------------------------------------------------------------------------
+
+// Niente password unica di team come nelle altre app: qui serve sapere CHI ha
+// approvato, e serve il secondo fattore. Deviazione motivata dallo standard §4.
+model Operatore {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  nome           String
+  ruolo          String    @default("approvatore") // admin | approvatore | osservatore
+  passwordHash   String // PBKDF2-SHA256, 210.000 giri
+  passwordSalt   String
+  totpSegreto    String? // cifrato AES-256-GCM
+  totpAttivo     Boolean   @default(false)
+  // Tetto personale in centesimi: sopra questa cifra l'operatore non può
+  // approvare da solo. 0 = nessun tetto personale (vale solo quello globale).
+  tettoApprovazione Int    @default(0)
+  attivo         Boolean   @default(true)
+  tentativiFalliti Int     @default(0)
+  bloccatoFinoA  DateTime?
+  ultimoAccesso  DateTime?
+  creatoIl       DateTime  @default(now())
+
+  approvazioni Approvazione[]
+  sessioni     Sessione[]
+
+  @@index([attivo])
+}
+
+// Le sessioni stanno sul database così una revoca ha effetto immediato: il
+// cookie da solo non basta mai per entrare.
+model Sessione {
+  id          String    @id @default(cuid())
+  operatoreId String
+  operatore   Operatore @relation(fields: [operatoreId], references: [id], onDelete: Cascade)
+  hash        String    @unique // SHA-256 del token nel cookie
+  ip          String?
+  userAgent   String?
+  creataIl    DateTime  @default(now())
+  scadeIl     DateTime
+  revocataIl  DateTime?
+
+  @@index([operatoreId])
+  @@index([scadeIl])
+}
+
+// ---------------------------------------------------------------------------
+// Chiavi API (le altre app Deluxy)
+// ---------------------------------------------------------------------------
+
+model ChiaveApi {
+  id            String    @id @default(cuid())
+  nome          String // "deluxy-messaging", "deluxy-acquisti", …
+  hash          String    @unique // SHA-256 della chiave: il valore in chiaro non esiste qui
+  prefisso      String // primi caratteri, per riconoscerla nell'elenco
+  segretoHmac   String // cifrato AES-256-GCM: con questo l'app firma le richieste
+  // Permessi minimi: un'app può CHIEDERE un pagamento e LEGGERE le proprie
+  // richieste. Nessuna chiave può approvare: l'approvazione è solo umana.
+  puoRichiedere Boolean   @default(true)
+  puoLeggere    Boolean   @default(true)
+  // Tetti per singola richiesta e per giornata, in centesimi. 0 = nessun tetto.
+  tettoRichiesta Int      @default(0)
+  tettoGiornaliero Int    @default(0)
+  // Elenco di IP consentiti separati da virgola. Vuoto = nessun filtro.
+  ipConsentiti  String    @default("")
+  attiva        Boolean   @default(true)
+  scadeIl       DateTime?
+  ultimoUso     DateTime?
+  creataIl      DateTime  @default(now())
+  revocataIl    DateTime?
+
+  richieste Richiesta[]
+
+  @@index([attiva])
+}
+
+// Anti-replay: ogni richiesta firmata porta un nonce usabile una volta sola.
+model Nonce {
+  valore   String   @id
+  chiaveId String
+  creatoIl DateTime @default(now())
+  scadeIl  DateTime
+
+  @@index([scadeIl])
+}
+
+// Idempotenza: la stessa X-Idempotency-Key restituisce la stessa risposta,
+// così un retry di rete non genera due pagamenti.
+model Idempotenza {
+  id         String   @id @default(cuid())
+  chiaveApiId String
+  chiave     String
+  impronta   String // SHA-256 del corpo: stessa chiave + corpo diverso = errore
+  risposta   String // JSON della risposta originale
+  creataIl   DateTime @default(now())
+
+  @@unique([chiaveApiId, chiave])
+  @@index([creataIl])
+}
+
+// Finestra scorrevole per il rate limit, una riga per (chiave, minuto).
+model Contatore {
+  id       String   @id // "<chiaveApiId>:<minuto epoch>"
+  colpi    Int      @default(0)
+  scadeIl  DateTime
+
+  @@index([scadeIl])
+}
+
+// ---------------------------------------------------------------------------
+// Beneficiari (rubrica IBAN)
+// ---------------------------------------------------------------------------
+
+// Serve a due cose: la lista bianca degli IBAN già verificati e il rilevamento
+// del cambio IBAN, che è la frode più comune sui pagamenti B2B.
+model Beneficiario {
+  id           String   @id @default(cuid())
+  nome         String
+  nomeNorm     String // minuscolo, senza spazi/punteggiatura: per il confronto
+  iban         String
+  bic          String?
+  paese        String
+  verificato   Boolean  @default(false)
+  verificatoDa String?
+  verificatoIl DateTime?
+  note         String?
+  creatoIl     DateTime @default(now())
+
+  @@unique([nomeNorm, iban])
+  @@index([nomeNorm])
+  @@index([iban])
+}
+
+// ---------------------------------------------------------------------------
+// Richieste di pagamento
+// ---------------------------------------------------------------------------
+
+// Stati: in_attesa → approvata → in_lotto → pagata
+//              ↘ rifiutata   ↘ annullata   ↘ sospesa (torna in_attesa)
+model Richiesta {
+  id            String   @id @default(cuid())
+  riferimento   String   @unique // TRX-2026-000123, quello che si cita fuori
+  // Provenienza
+  chiaveApiId   String?
+  chiaveApi     ChiaveApi? @relation(fields: [chiaveApiId], references: [id])
+  origine       String // "deluxy-messaging", "manuale", …
+  riferimentoEsterno String? // id dell'oggetto nell'app di origine
+
+  // Denaro: SEMPRE centesimi interi.
+  importoCent   Int
+  valuta        String   @default("EUR")
+
+  beneficiario  String
+  beneficiarioNorm String
+  iban          String
+  bic           String?
+  causale       String
+  note          String?
+  categoria     String?
+  scadenza      DateTime?
+
+  stato         String   @default("in_attesa")
+  // Valutazione del rischio calcolata alla creazione e ricalcolabile.
+  rischio       Int      @default(0) // 0-100
+  motiviRischio String   @default("") // elenco separato da "|"
+  // true = servono due approvatori distinti (sopra soglia o rischio alto)
+  doppiaFirma   Boolean  @default(false)
+
+  // Sigillo: SHA-256 dei campi che contano (importo, iban, beneficiario,
+  // causale). Se qualcuno tocca la riga nel database, non torna più.
+  sigillo       String
+
+  lottoId       String?
+  lotto         Lotto?   @relation(fields: [lottoId], references: [id])
+
+  urlNotifica   String? // webhook firmato verso l'app di origine
+  creataIl      DateTime @default(now())
+  decisaIl      DateTime?
+  pagataIl      DateTime?
+
+  approvazioni Approvazione[]
+  eventi       Evento[]
+
+  @@unique([origine, riferimentoEsterno])
+  @@index([stato, creataIl])
+  @@index([beneficiarioNorm])
+  @@index([iban])
+  @@index([lottoId])
+}
+
+model Approvazione {
+  id          String    @id @default(cuid())
+  richiestaId String
+  richiesta   Richiesta @relation(fields: [richiestaId], references: [id], onDelete: Cascade)
+  operatoreId String
+  operatore   Operatore @relation(fields: [operatoreId], references: [id])
+  esito       String // approvata | rifiutata | sospesa
+  motivo      String?
+  ip          String?
+  creataIl    DateTime  @default(now())
+
+  // Un operatore vota una volta sola sulla stessa richiesta: è ciò che rende
+  // vera la doppia firma (due persone diverse, non due clic della stessa).
+  @@unique([richiestaId, operatoreId])
+  @@index([richiestaId])
+}
+
+// ---------------------------------------------------------------------------
+// Distinte SEPA
+// ---------------------------------------------------------------------------
+
+model Lotto {
+  id          String   @id @default(cuid())
+  riferimento String   @unique // LOTTO-2026-0007
+  stato       String   @default("aperto") // aperto | esportato | pagato | annullato
+  creatoDa    String
+  creatoIl    DateTime @default(now())
+  esportatoIl DateTime?
+  pagatoIl    DateTime?
+  // Impronta del file XML consegnato alla banca: prova di cosa è stato inviato.
+  improntaXml String?
+
+  richieste Richiesta[]
+
+  @@index([stato])
+}
+
+// ---------------------------------------------------------------------------
+// Registro eventi — catena di hash, a sola aggiunta
+// ---------------------------------------------------------------------------
+
+// Ogni riga incatena l'hash della precedente: cambiare o togliere un evento
+// spezza la catena e la pagina /registro lo dice. È il libro mastro.
+model Evento {
+  seq         Int      @id @default(autoincrement())
+  tipo        String
+  richiestaId String?
+  richiesta   Richiesta? @relation(fields: [richiestaId], references: [id])
+  attore      String // email dell'operatore, nome dell'app, "sistema"
+  dettagli    String   @default("{}") // JSON
+  ip          String?
+  hashPrec    String
+  hash        String
+  creatoIl    DateTime @default(now())
+
+  @@index([richiestaId])
+  @@index([tipo, creatoIl])
+}
+
+// ---------------------------------------------------------------------------
+// Impostazioni (soglie e regole)
+// ---------------------------------------------------------------------------
+
+model Impostazione {
+  chiave      String   @id
+  valore      String
+  aggiornataIl DateTime @updatedAt
+}

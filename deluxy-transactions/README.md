@@ -1,0 +1,90 @@
+# Deluxy Transactions
+
+**Il registro dei pagamenti dell'ecosistema Deluxy.** Le altre app non pagano
+nessuno: chiedono qui, tramite un'API firmata. Qui una persona autorizza, e da
+qui esce la distinta SEPA che qualcuno carica in banca.
+
+- Porta di sviluppo: **3160**
+- Schema Postgres: `transactions`
+- Stack: Next.js 15 (App Router) + Prisma + Postgres, deploy su Vercel
+
+> **Confine dell'app.** Deluxy Transactions **non muove denaro** e **non
+> contiene credenziali bancarie**. Produce un file XML SEPA e ne conserva
+> l'impronta: l'ultimo passo lo fa una persona nel portale della banca, con il
+> secondo fattore della banca. Questo confine è una scelta di progetto, non una
+> funzione mancante.
+
+## Documenti
+
+| Documento | A cosa serve |
+|---|---|
+| [docs/SICUREZZA.md](docs/SICUREZZA.md) | tutti i controlli, e perché ci sono |
+| [docs/API.md](docs/API.md) | come un'app Deluxy chiede un pagamento |
+| [docs/HANDOFF.md](docs/HANDOFF.md) | stato: cosa è fatto, cosa manca, come riprendere |
+| [docs/esempio-client.mjs](docs/esempio-client.mjs) | client firmato da copiare nell'app che si integra |
+
+## Come funziona, in breve
+
+1. Un'app (Messaggi, Acquisti, Finance…) chiama `POST /api/v1/richieste` con
+   importo, beneficiario, IBAN e causale. La chiamata è **firmata**: chiave API,
+   marca temporale, nonce usa-e-getta e HMAC-SHA256 del corpo.
+2. La richiesta entra **in attesa**. Un motore di rischio le dà un punteggio
+   (IBAN mai visto, coordinate cambiate, doppione, importo, area non SEPA…).
+3. Un **operatore** entra con email, password e codice a 6 cifre, e decide. Il
+   codice serve **anche al momento della firma**, non solo all'accesso.
+4. Sopra soglia o sopra un certo rischio servono **due firme di persone
+   diverse**. Chi ha creato una richiesta a mano non può approvarla.
+5. Le approvate finiscono in una **distinta SEPA** (`pain.001.001.03`). L'app
+   registra l'impronta SHA-256 del file consegnato.
+6. Ogni passaggio finisce in un **registro a catena di hash**: modificare la
+   storia si vede.
+
+## Avvio
+
+```bash
+npm install
+npm run segreti          # genera TRANSACTIONS_ENC_KEY, APP_SECRET, CRON_SECRET
+# copiare .env.example in .env e riempirlo
+npm run db:push
+npm run operatore -- --email tu@deluxy.it --nome "Nome Cognome" --password "…" --ruolo admin
+npm run dev              # http://localhost:3160
+```
+
+Il comando `operatore` stampa il segreto per l'app di autenticazione (Google
+Authenticator, 1Password…). **Si vede una volta sola.**
+
+Per dare a un'app il permesso di chiedere pagamenti:
+
+```bash
+npm run chiave -- --nome deluxy-messaging --tetto 2000 --tetto-giorno 10000
+```
+
+Stampa `TRANSACTIONS_API_KEY` e `TRANSACTIONS_HMAC_SECRET`, da mettere nella
+cassaforte del Hub sotto il progetto di quell'app. Sul database restano solo lo
+SHA-256 della chiave e il segreto cifrato.
+
+## Variabili d'ambiente
+
+Solo i nomi (i valori non stanno mai in un file del repo): vedi
+[.env.example](.env.example).
+
+| Variabile | A cosa serve |
+|---|---|
+| `DATABASE_URL` / `DIRECT_URL` | Postgres condiviso, schema `transactions` |
+| `TRANSACTIONS_ENC_KEY` | AES-256-GCM per i segreti a riposo (64 hex) |
+| `APP_SECRET` | firma del cookie di sessione |
+| `CRON_SECRET` | protegge `/api/cron/manutenzione` |
+| `HUB_URL` / `HUB_KEYS_TOKEN` | cassaforte delle chiavi del Hub |
+
+⚠️ `TRANSACTIONS_ENC_KEY` non si cambia dopo il primo avvio: i segreti già
+cifrati (secondi fattori, chiavi HMAC) non si rileggerebbero più.
+
+## Struttura
+
+```
+src/lib/       crypto, totp, iban, denaro, rischio, audit (catena hash),
+               api-auth (chiave+firma+nonce+idempotenza), richieste, sepa
+src/app/api/v1 le API per le altre app
+src/app/       coda, richieste, distinte, beneficiari, registro, chiavi,
+               operatori, impostazioni
+```

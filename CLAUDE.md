@@ -4,13 +4,24 @@
 >
 > 📘 **Non conosci Deluxy?** [DOSSIER-DELUXY.md](DOSSIER-DELUXY.md) è il briefing completo da dare anche a un'altra AI: business, glossario, regole di consegna, ecosistema delle app e chi possiede quale dato.
 
-Questo repo contiene le app dell'ecosistema Deluxy: `deluxy-hub/` (portale unico di accesso con utenti e ruoli), `deluxy-platform-next/` (piattaforma logistica, staging moderno), `deluxy-anagrafiche/` (registro centralizzato partner/prospect B2B con API, fonte di verità delle anagrafiche), `deluxy-scout/` (app mobile prospezione), `deluxy-suppliers/` (app fornitori/smistamento ordini), `deluxy-partner/` (gestione finanziaria partner, sostituisce PARTNER.xlsx), `deluxy-marketing/` (memoria operativa ADV: analisi/audit, azioni con storia e feedback, campagne con metriche e guardrail, ordini Shopify, indice della cartella Drive "ADV DELUXY SRL"; porta 3130, live su deluxy-marketing.vercel.app), `deluxy-messaging/` (inbox unificata di messaggistica: conversazioni WhatsApp/Messenger/Instagram via API Meta + widget di chat per i siti, porta 3140), `deluxy-budgets/` (budget aziendali su 3 livelli — raggiungibile/sfidante/irraggiungibile — con P&L, premi, proposte dei responsabili e spese ADV, porta 3080), `deluxy-search-supplier/` (ricerca fiorai/pasticcerie + smistamento ordini Shopify via WhatsApp/Email; include il plugin in `plugin/`), `deluxy-orders/` (registro centralizzato degli ordini Shopify: import da Shopify, riclassificazione a piacimento — stato/pipeline, etichette, categorie, instradamento — ed esposizione alle altre app via API a chiave; porta 3150), `sviluppi-siti-deluxy/` (temi Shopify), `deluxy-scout-manager/`.
+Questo repo contiene le app dell'ecosistema Deluxy: `deluxy-hub/` (portale unico di accesso con utenti e ruoli), `deluxy-platform-next/` (piattaforma logistica, staging moderno), `deluxy-anagrafiche/` (registro centralizzato partner/prospect B2B con API, fonte di verità delle anagrafiche), `deluxy-scout/` (app mobile prospezione), `deluxy-suppliers/` (app fornitori/smistamento ordini), `deluxy-partner/` (gestione finanziaria partner, sostituisce PARTNER.xlsx), `deluxy-marketing/` (memoria operativa ADV: analisi/audit, azioni con storia e feedback, campagne con metriche e guardrail, ordini Shopify, indice della cartella Drive "ADV DELUXY SRL"; porta 3130, live su deluxy-marketing.vercel.app), `deluxy-messaging/` (inbox unificata di messaggistica: conversazioni WhatsApp/Messenger/Instagram via API Meta + widget di chat per i siti, porta 3140), `deluxy-budgets/` (budget aziendali su 3 livelli — raggiungibile/sfidante/irraggiungibile — con P&L, premi, proposte dei responsabili e spese ADV, porta 3080), `deluxy-search-supplier/` (ricerca fiorai/pasticcerie + smistamento ordini Shopify via WhatsApp/Email; include il plugin in `plugin/`), `deluxy-orders/` (registro centralizzato degli ordini Shopify: import da Shopify, riclassificazione a piacimento — stato/pipeline, etichette, categorie, instradamento — ed esposizione alle altre app via API a chiave; porta 3150), `deluxy-transactions/` (registro sicuro delle richieste di pagamento: le altre app le inviano via API firmata, gli operatori le autorizzano con secondo fattore e doppia firma, ne esce la distinta SEPA per la banca; porta 3160), `sviluppi-siti-deluxy/` (temi Shopify), `deluxy-scout-manager/`.
 
 > `deluxy-search-supplier/` è pubblicata su Vercel (progetto `search-deluxy`, **Root Directory = `deluxy-search-supplier`**) dal branch **`main`**: si sviluppa lì, non su questo branch. Spec: [deluxy-search-supplier/AI_SPEC.md](deluxy-search-supplier/AI_SPEC.md).
 
 ## Anagrafiche partner (deluxy-anagrafiche)
 
 Le anagrafiche dei partner B2B vivono SOLO in `deluxy-anagrafiche/` (porta 3060): le altre app le leggono via API con chiave di sola lettura; l'unica app con chiave di scrittura è la piattaforma consegne (`deluxy-platform-next`), che sincronizza automaticamente ogni partner creato/modificato. Non duplicare dati anagrafici nelle altre app: integrare le API descritte in [deluxy-anagrafiche/README.md](deluxy-anagrafiche/README.md).
+
+## Pagamenti (deluxy-transactions)
+
+**Nessuna app Deluxy paga nessuno per conto proprio.** Chi ha bisogno di far
+uscire denaro manda una richiesta a `deluxy-transactions/` (porta 3160) via API
+firmata: lì una persona autorizza — con secondo fattore e, sopra soglia, doppia
+firma — e da lì esce la distinta SEPA. L'app **non muove denaro e non ha
+credenziali bancarie**: l'ultimo passo lo fa un umano nel portale della banca.
+Integrazione: [deluxy-transactions/docs/API.md](deluxy-transactions/docs/API.md);
+controlli e deviazioni dallo standard:
+[docs/SICUREZZA.md](deluxy-transactions/docs/SICUREZZA.md).
 
 ## Portale (deluxy-hub)
 

@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi" | "orders";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi" | "orders" | "transactions";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -179,6 +179,18 @@ export function catalogoApp(): AppDeluxy[] {
       // Eccezione voluta: la tessera resta visibile anche in produzione senza
       // APP_URL_ORDERS, puntando all'istanza locale finché non c'è un URL pubblico.
       url: process.env.APP_URL_ORDERS ?? "http://localhost:3150",
+      ruoli: ["admin"],
+    },
+    {
+      id: "transactions",
+      nome: "Transactions",
+      sottotitolo: "Autorizzazione pagamenti",
+      descrizione:
+        "Le altre app chiedono qui un pagamento: si autorizza con doppia firma e secondo fattore, e ne esce la distinta per la banca.",
+      icona: "transactions",
+      // Solo admin: qui si autorizzano bonifici. Chi deve poter firmare viene
+      // aggiunto come operatore dentro l'app, non basta vedere l'icona.
+      url: url(process.env.APP_URL_TRANSACTIONS, "http://localhost:3160"),
       ruoli: ["admin"],
     },
     {

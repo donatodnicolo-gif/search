@@ -66,6 +66,7 @@ Ogni app ha la **sua** porta, fissata nello script `dev` del `package.json`:
 | 3070 | deluxy-mail | | 3130 | deluxy-marketing |
 | 3080 | deluxy-budgets | | 3140 | deluxy-messaging |
 | 3090 | deluxy-tasks *(riservata)* | | 3150 | deluxy-orders |
+| | | | 3160 | deluxy-transactions |
 
 Una porta nuova si prende **dal primo multiplo di 10 libero** e si aggiunge qui
 e al catalogo del Hub (`deluxy-hub/src/lib/apps.ts`).
@@ -207,6 +208,13 @@ e [deluxy-orders/src/lib/api-auth.ts](../deluxy-orders/src/lib/api-auth.ts):
 - CORS con `Access-Control-Allow-Headers: x-api-key, authorization, content-type`;
 - `/api/*` **escluso dal middleware di sessione** (le API si autenticano da sé).
 
+**Deviazione dichiarata — `deluxy-transactions`.** Le sue API creano richieste
+di pagamento, quindi: (a) **niente CORS** e preflight rifiutato, perché si
+chiamano solo da server a server; (b) oltre alla chiave serve una **firma
+HMAC-SHA256** del corpo con marca temporale e nonce usa-e-getta. Una chiave
+rubata, da sola, non basta. Dettagli in
+[deluxy-transactions/docs/SICUREZZA.md](../deluxy-transactions/docs/SICUREZZA.md).
+
 ### 4.4 Nomi delle variabili (convenzione)
 
 | Forma | Significato | Esempi reali |
@@ -219,6 +227,14 @@ e [deluxy-orders/src/lib/api-auth.ts](../deluxy-orders/src/lib/api-auth.ts):
 | `APP_SECRET` | firma dei cookie di sessione dell'app | uguale in tutte le app |
 
 Un nome nuovo si sceglie **dentro questo schema**, mai inventando una forma nuova.
+
+**Deviazione dichiarata — `deluxy-transactions`.** Non usa
+`TRANSACTIONS_APP_PASSWORD`: la UI ha **account nominali** (email + password
+PBKDF2 + TOTP obbligatorio), non una password di team. Motivo: l'app autorizza
+bonifici con doppia firma, e due firme non sono dimostrabili se tutti entrano
+con la stessa password. Variabili proprie: `TRANSACTIONS_ENC_KEY` (AES-256-GCM
+per i segreti a riposo) e, per chi la chiama, `TRANSACTIONS_API_KEY` +
+`TRANSACTIONS_HMAC_SECRET`.
 
 ### 4.5 Login unico (SSO)
 

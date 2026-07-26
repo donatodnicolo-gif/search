@@ -125,6 +125,13 @@ const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
       <path d="M19.5 3.5v4M17.5 5.5h4" {...TRATTO} />
     </>
   ),
+  // Scudo con spunta: i pagamenti autorizzati uno per uno
+  transactions: (
+    <>
+      <path d="M12 3.5 19 6v6c0 4-3 7-7 8.5C8 19 5 16 5 12V6z" {...TRATTO} />
+      <path d="m9 12 2.2 2.2L15.5 10" {...TRATTO} />
+    </>
+  ),
 };
 
 export function AppIcon({ icona }: { icona: AppDeluxy["icona"] }) {
