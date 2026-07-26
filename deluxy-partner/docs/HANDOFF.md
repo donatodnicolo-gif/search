@@ -108,7 +108,7 @@ Sidebar riducibile a icone (preferenza in localStorage). **Operatività**: Dashb
 
 ## 7. API pubbliche (per gli altri progetti Deluxy)
 
-Base `https://deluxy-partner.vercel.app`. Auth: header `X-API-Key: <chiave>` (unica, in `Impostazione.api.verificheKey`, gestita in `/verifiche`). Header facoltativo `X-App: <nome>` per lo storico. Ogni chiamata → tabella `RichiestaVerifica`. Rotte escluse dal middleware di sessione: `api/verifiche`, `api/fatture`, `api/proforma`, `api/tipologie`, `api/incassi`, `api/tasks`, `api/riepilogo-finanziario`, `api/clienti`, `api/cron`, `api/fic/callback`.
+Base `https://deluxy-partner.vercel.app`. Auth: header `X-API-Key: <chiave>` (unica, in `Impostazione.api.verificheKey`, gestita in `/verifiche`). Header facoltativo `X-App: <nome>` per lo storico. Ogni chiamata → tabella `RichiestaVerifica`. Rotte escluse dal middleware di sessione: `api/verifiche`, `api/fatture`, `api/proforma`, `api/tipologie`, `api/incassi`, `api/tasks`, `api/riepilogo-finanziario`, `api/clienti`, `api/richieste-pagamento`, `api/cron`, `api/fic/callback`.
 
 1. **`GET /api/verifiche?partner=<nome o id>`** → situazione finanziaria partner (venditeYtd, serviziFatturatiYtd, commissioniYtd, dovutoAlPartner, daIncassare, daBonificare, residuo, fattureAperte{numero,totaleIvato,scaduto}, debiti/crediti2025). `src/lib/verifica.ts`.
 2. **`GET /api/fatture?numero=181/2026`** (o `?id=`) → stato pagamento fattura (`pagata`, `dataPagamento`, `scaduta`, `scadenza`, `competenza`, imponibile/aliquota/totale, tipologia, partner). Riconosce numeri raggruppati. `src/lib/verifica-fattura.ts`.
@@ -170,6 +170,15 @@ Una fattura servizi non è più solo pagata/non pagata: si può incassare **un a
 - **Azione** `incassaFatturaParziale(id, fd)` (in `actions.ts`): è un INCASSO (entrata) → **niente codice di conferma**; se copre tutto il residuo chiama `segnaFatturaPagata(true)`, altrimenti aggiorna `incassato`, registra/aggiorna il riferimento `Pagamento` (importo = incassato totale) e allinea FIC.
 - **Fatture in Cloud**: `ficAllineaIncassoParziale(numero, incassato, totale)` e `ficIncassaParzialePerId(ficId, importo)` riscrivono i `payments_list` come «parte paid / resto not_paid», così l'`amount_due` su FIC scende. `ficFatture` ora espone `residuo`/`incassato` (da `payments_list`).
 - **UI**: form «Registra un incasso» (tutto o acconto) nella scheda fattura; colonna **Residuo** + «Incassa…»/«Salda tutto» in scadenzario, dashboard (fatture scadute) e **`/registrazioni/fatture`** (che scrive l'acconto direttamente su FIC); badge oro «Incassata in parte» / «Residuo …» nella scheda partner e nelle liste.
+
+### Approvazione richieste di pagamento in arrivo (26/07/2026)
+
+Le altre app (in particolare **deluxy-messaging**, che legge IBAN/importo/intestatario dai messaggi) mandano richieste di pagamento a FINANCE, che le mette in **coda di approvazione**.
+
+- **API d'ingresso**: `POST /api/richieste-pagamento` (header `X-API-Key` = la stessa `api.verificheKey`; `X-App` identifica la sorgente → `origine`). Body JSON: `importo` (obbligatorio), `beneficiario?`, `iban?`, `bic?`, `causale?`, `note?`, `contatto?`, `linkConversazione?`, `riferimento?`. **Idempotente** per `(origine, riferimento)`: re-inviare aggiorna la richiesta finché è `in_attesa`, non ne crea un'altra. `GET` per stato/elenco. Rotta esclusa dal middleware di sessione. Modello `RichiestaPagamentoIn` (stati `in_attesa`/`approvata`/`rifiutata`).
+- **Sezione `/approvazioni`** (menu Amministrazione): elenca le richieste in attesa con importo, IBAN, causale, contatto e link alla conversazione. **Approva** → crea un **PagamentoDiretto «predisposto»** (l'esecuzione vera resta protetta dal **codice email** in Pagamenti diretti) e marca la richiesta `approvata`; **Rifiuta** → chiusa; «Correggi dati» per sistemare IBAN/importo letti male prima di approvare. `approvazioni-actions.ts`.
+- **Due livelli di controllo**: qui si approva la richiesta (green-light), poi il denaro esce solo dopo il codice di conferma via email sul pagamento diretto.
+- ⚠️ Il lato che INVIA (deluxy-messaging che chiama `POST /api/richieste-pagamento`) è un'altra app: va wired lì. Qui c'è solo il ricevente + l'approvazione.
 
 ### Conferma dei pagamenti con codice via email (23/07/2026)
 

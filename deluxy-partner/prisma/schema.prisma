@@ -55,6 +55,33 @@ model Partner {
   updatedAt              DateTime @updatedAt
 }
 
+// Richiesta di pagamento IN ARRIVO da un'altra app (es. deluxy-messaging, che
+// legge IBAN/importo/intestatario dai messaggi). Entra in coda di APPROVAZIONE:
+// l'operatore la approva (→ crea un PagamentoDiretto predisposto, l'esecuzione
+// resta protetta dal codice email) o la rifiuta. Idempotente per (origine,
+// riferimentoEsterno) così la stessa richiesta non entra due volte.
+model RichiestaPagamentoIn {
+  id                 String    @id @default(cuid())
+  origine            String // app che l'ha mandata (es. "deluxy-messaging")
+  riferimentoEsterno String? // id della richiesta lato app sorgente
+  beneficiario       String?
+  iban               String?
+  bic                String?
+  importo            Float
+  causale            String?
+  note               String?
+  contatto           String? // nome/numero del contatto o della conversazione
+  linkConversazione  String? // link per aprire la conversazione nell'app sorgente
+  stato              String    @default("in_attesa") // in_attesa | approvata | rifiutata
+  decisoIl           DateTime?
+  decisoDa           String? // operatore che ha deciso
+  pagamentoDirettoId String? // PagamentoDiretto creato all'approvazione
+  createdAt          DateTime  @default(now())
+
+  @@unique([origine, riferimentoEsterno])
+  @@index([stato, createdAt])
+}
+
 // Conferma a due passaggi dei pagamenti: prima di registrare un'uscita di denaro
 // l'app manda un codice via email e aspetta che venga digitato. Qui vive la
 // richiesta in attesa: l'azione da eseguire è congelata in `payload` e viene
