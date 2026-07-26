@@ -117,7 +117,7 @@ una riga per gruppo e per giorno, upsert per (gruppo, giorno)).
     annunci: al loro posto arrivano i **gruppi di asset** (vista `asset_group`,
     `tipo = asset_group_pmax`).
   - Banco di prova con Google Ads finto: `scripts/prova-google-ads-script.js`
-    (`node scripts/prova-google-ads-script.js`, 45 controlli).
+    (`node scripts/prova-google-ads-script.js`, 51 controlli).
 - **Meta**: `src/lib/meta.ts` + `POST /api/v1/sync/meta`. Meta non ha gli Scripts:
   è l'app che chiama la Graph API. Serve `META_ACCESS_TOKEN` (utente di sistema
   del Business Manager, non scade). Valore e conversioni **solo** da
