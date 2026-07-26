@@ -84,7 +84,6 @@ export default async function OrdiniPage({
 
   const nomeNegozio = (id: string) => negozi.find((n) => n.id === id)?.brand ?? "—";
   // un negozio è "scaricabile" se ha un token statico O il Client ID/Secret (conia da sé)
-  const senzaToken = negozi.filter((n) => !n.token && !n.clientId);
   const ultimaSync = negozi
     .map((n) => n.ultimaSync)
     .filter((d): d is Date => Boolean(d))
@@ -96,15 +95,14 @@ export default async function OrdiniPage({
         <div>
           <h1 className="page-title">Orders</h1>
           <p className="page-caption">
-            Ordini dei negozi Shopify, riconciliati con gli incassi: i <strong>bonifici</strong> abbinati 1:1 ai
-            movimenti Qonto/Vivid, gli ordini a <strong>carta</strong> incassati via gateway.
+            Ordini dal registro centralizzato <strong>Deluxy Orders</strong>, riconciliati con gli incassi: i{" "}
+            <strong>bonifici</strong> abbinati ai movimenti Qonto/Vivid, gli ordini a <strong>carta</strong> incassati via gateway.
           </p>
         </div>
         <div className="page-actions" style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {negozi.length > 0 && (
-            <form action={sincronizzaOrdini.bind(null, 90)} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <button className="btn primary" type="submit" title="Scarica gli ordini degli ultimi 90 giorni da tutti i negozi">
-                ⇅ Scarica ordini
+          <form action={sincronizzaOrdini.bind(null, 90)} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <button className="btn primary" type="submit" title="Aggiorna gli ordini degli ultimi 90 giorni dal registro Deluxy Orders">
+                ⇅ Aggiorna ordini
               </button>
               <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
                 {ultimaSync
@@ -112,7 +110,6 @@ export default async function OrdiniPage({
                   : "Sincronizzazione automatica ogni notte alle 5:30"}
               </span>
             </form>
-          )}
           {ordiniRaw.length > 0 && (
             <form action={riconciliaPerNumero}>
               <button className="btn secondary" type="submit" title="Abbina in automatico per numero d'ordine in causale: gli accrediti riconciliano l'incasso, gli addebiti impostano il costo pagato al fornitore. Solo match univoci.">
@@ -140,24 +137,6 @@ export default async function OrdiniPage({
         </div>
       )}
 
-      {negozi.length === 0 && (
-        <div className="card" style={{ padding: 18, marginBottom: 16 }}>
-          <span className="badge orange"><span className="dot" />Nessun negozio Shopify collegato</span>
-          <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginTop: 10 }}>
-            Aggiungi i tuoi negozi in{" "}
-            <Link href="/impostazioni" style={{ color: "var(--blue)" }}>Impostazioni → Negozi Shopify</Link>{" "}
-            (dominio .myshopify.com + token Admin API), poi torna qui e premi &laquo;Scarica ordini&raquo;.
-          </p>
-        </div>
-      )}
-      {senzaToken.length > 0 && (
-        <div className="card" style={{ padding: 12, marginBottom: 16, background: "rgba(201,52,0,0.07)" }}>
-          <span style={{ fontSize: 13, color: "var(--orange)" }}>
-            ⚠︎ Negozi senza token (non scaricabili): {senzaToken.map((n) => n.brand).join(", ")} —{" "}
-            <Link href="/impostazioni" style={{ color: "var(--blue)" }}>completali</Link>.
-          </span>
-        </div>
-      )}
       {sp.sync === "ok" && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
           <span className="badge green"><span className="dot" />Sync completata — {sp.nuovi} nuovi, {sp.agg} aggiornati</span>
@@ -293,7 +272,7 @@ export default async function OrdiniPage({
             <div className="empty-icon">◎</div>
             <div className="empty-title">Nessun ordine</div>
             <div className="empty-text">
-              {negozi.length === 0 ? "Collega i negozi e scarica gli ordini." : "Premi «Scarica ordini» o cambia i filtri."}
+              Premi «Aggiorna ordini» o cambia i filtri.
             </div>
           </div>
         ) : (
