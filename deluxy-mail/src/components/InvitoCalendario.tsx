@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { leggiInvito, rispondiInvito, type InvitoInMail } from '@/lib/actions'
+import { leggiInvito, rispondiInvito, type EsitoInvito } from '@/lib/actions'
 import { mostraFlash } from './Flash'
 
 /**
@@ -12,12 +12,13 @@ import { mostraFlash } from './Flash'
  * parte la risposta iCal, quella che gli aggiorna lo stato del partecipante.
  *
  * L'invito si legge DOPO il render (la parte calendario si prende dal server,
- * come gli allegati): aprire la mail resta istantaneo. Se non c'è nessun
- * invito, questo componente non mostra niente.
+ * come gli allegati): aprire la mail resta istantaneo. Se la mail non è un
+ * invito, questo componente non mostra niente — ma se un invito C'È e qualcosa
+ * non va, lo dice: prima spariva in silenzio e non si capiva perché mancassero
+ * i tasti.
  */
 export function InvitoCalendario({ messaggioId }: { messaggioId: string }) {
-  const [invito, setInvito] = useState<InvitoInMail | null>(null)
-  const [cercato, setCercato] = useState(false)
+  const [ricerca, setRicerca] = useState<EsitoInvito | null>(null)
   const [esito, setEsito] = useState<string | null>(null)
   const [inCorso, start] = useTransition()
   const router = useRouter()
@@ -25,21 +26,30 @@ export function InvitoCalendario({ messaggioId }: { messaggioId: string }) {
   useEffect(() => {
     let vivo = true
     leggiInvito(messaggioId)
-      .then((i) => {
-        if (vivo) {
-          setInvito(i)
-          setCercato(true)
-        }
+      .then((r) => {
+        if (vivo) setRicerca(r)
       })
       .catch(() => {
-        if (vivo) setCercato(true)
+        if (vivo) setRicerca({ stato: 'nessuno' })
       })
     return () => {
       vivo = false
     }
   }, [messaggioId])
 
-  if (!cercato || !invito) return null
+  if (!ricerca || ricerca.stato === 'nessuno') return null
+
+  // C'è un invito, ma non si è riusciti a leggerlo: si dice, invece di sparire.
+  if (ricerca.stato === 'errore') {
+    return (
+      <div className="ai-box" style={{ marginBottom: 14 }}>
+        <div className="ai-box-title">Invito a un appuntamento</div>
+        <div className="ai-box-text">{ricerca.motivo}</div>
+      </div>
+    )
+  }
+
+  const invito = ricerca.invito
 
   // Invito annullato dall'organizzatore: non si risponde, si avvisa e basta.
   const annullato = invito.metodo === 'CANCEL'

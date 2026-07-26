@@ -118,6 +118,22 @@ calcolata **in background** e appare un attimo dopo (prima invece la prima apert
 ogni mail restava bloccata sulla chiamata di traduzione). Tutte le letture della pagina
 girano in parallelo, non una dopo l'altra.
 
+## 6b-bis. Inviti di calendario
+
+Se una mail porta con sé un **invito vero** (la parte `text/calendar` che allegano
+Outlook, Google e Apple), in cima al messaggio compare il riquadro con
+**Accetta / Forse / Rifiuta**. Accettando — o scegliendo «Forse» — l'appuntamento entra
+nel tuo calendario e all'organizzatore parte la risposta che gli aggiorna lo stato del
+partecipante nel *suo* calendario. Con «Rifiuta» non viene aggiunto.
+
+Il riquadro compare se e solo se l'invito c'è davvero: l'app lo capisce guardando **com'è
+fatta la mail**, non le parole che contiene. Se l'invito c'è ma non si riesce a leggerlo
+(server irraggiungibile, formato strano), il riquadro te lo dice invece di sparire.
+
+Molte mail però **invitano a parole**, senza allegare niente («ci vediamo giovedì alle
+10»). Lì non c'è nulla da accettare: è l'AI che riconosce l'appuntamento e propone
+«Aggiungi al calendario». Se non l'ha ancora letta, dai una priorità alla mail.
+
 ## 6c. La conversazione: nome, chiusura, cestinamento
 
 Ogni mail sta in una **conversazione** (la catena di risposte, o mail con lo stesso

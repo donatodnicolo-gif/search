@@ -2464,48 +2464,82 @@ export type InvitoInMail = {
   giaInAgenda: boolean
 }
 
-/** L'invito iCalendar dentro una mail, se c'è. Legge la parte `text/calendar`
- *  dal server (on-demand, come gli allegati): niente AI, i dati sono già lì. */
-export async function leggiInvito(messaggioId: string): Promise<InvitoInMail | null> {
+/**
+ * L'esito della ricerca dell'invito. ⚠️ Prima si tornava `null` per QUALSIASI
+ * motivo — mail non promettente, server irraggiungibile, iCal illeggibile — e il
+ * riquadro semplicemente non compariva: chi aveva davanti un invito vero non
+ * aveva modo di sapere perché non poteva accettarlo. Ora l'esito dice sempre
+ * cosa è successo, e il riquadro lo mostra.
+ */
+export type EsitoInvito =
+  | { stato: 'nessuno' } // non c'è nessuna parte calendario: non è un invito
+  | { stato: 'trovato'; invito: InvitoInMail }
+  | { stato: 'errore'; motivo: string }
+
+/** Riconosce la parte iCalendar di una mail dal tipo MIME o dal nome del file. */
+const eParteCalendario = (tipo: string, nome: string) =>
+  /text\/calendar|application\/(ics|calendar)/i.test(tipo) || /\.ics$/i.test(nome)
+
+/**
+ * L'invito iCalendar dentro una mail, se c'è. Niente AI: i dati sono già lì.
+ *
+ * ⚠️ COME SI CAPISCE SE È UN INVITO. Prima si guardavano delle **parole spia**
+ * nell'oggetto e nel corpo ("invito", "riunione", "meeting", "quando:"…) e solo
+ * se combaciavano si andava a guardare sul server. Un invito con un oggetto che
+ * non le contiene — e sono la maggioranza: «Cerved | Digital Trust Day», «R:
+ * Deluxy» — veniva scartato prima ancora di essere letto, e il riquadro
+ * Accetta/Forse/Rifiuta non compariva mai. Peggio: chi lo aveva davanti non
+ * aveva modo di sapere perché.
+ *
+ * Ora la domanda si fa al server, ed è deterministica: **la mail ha una parte
+ * `text/calendar`?** Si chiede la sola STRUTTURA del messaggio (BODYSTRUCTURE,
+ * pochi byte, la stessa lettura dell'elenco allegati) e si scarica poi **solo
+ * quella parte** — non tutta la mail, come faceva `leggiTuttiAllegati`: su un
+ * invito con un allegato pesante quel download poteva morire per strada, e
+ * anche lì il riquadro spariva in silenzio.
+ */
+export async function leggiInvito(messaggioId: string): Promise<EsitoInvito> {
   const utenteId = await uid()
   const m = await db.messaggio.findFirst({
     where: { id: messaggioId, utenteId },
     include: { account: true },
   })
-  if (!m || m.uid <= 0) return null
+  if (!m) return { stato: 'nessuno' }
+  // Mail non più sul server (o creata dall'app): la parte calendario non si può
+  // rileggere. Non è un errore da mostrare: non c'è niente da accettare.
+  if (m.uid <= 0) return { stato: 'nessuno' }
 
-  // ⚠️ NON ci si può fidare del conteggio allegati: la parte `text/calendar`
-  // di un invito Exchange spesso non viene contata come allegato, e con quel
-  // filtro il riquadro non compariva proprio sugli inviti veri. Si fa invece
-  // un controllo A COSTO ZERO sul testo già salvato, e solo se promette bene
-  // si va a leggere dal server (che costa una connessione IMAP).
-  // ⚠️ NON basta «ha allegati»: con quel criterio ogni mail con un file pesante
-  // si scaricava per intero solo per cercare un invito che non c'era (ed è così
-  // che l'elenco allegati restava a «Carico dal server…»). Servono parole spia
-  // vere: gli inviti le hanno sempre nel corpo.
-  const spia = `${m.oggetto} ${m.corpoTesto ?? ''}`.toLowerCase()
-  const sembraInvito =
-    /begin:vcalendar|invit|appuntamento|riunione|meeting|quando:|when:|organizzatore|organizer|partecipanti/.test(spia)
-  if (!sembraInvito) return null
-
-  const { leggiTuttiAllegati } = await import('./imap')
+  const { leggiAllegati, scaricaParte } = await import('./imap')
   const { leggiIcs } = await import('./invitoRicevuto')
   const cartella = m.direzione === 'uscita' ? m.account.cartellaInviata || undefined : m.account.cartella
 
-  let parti: { nome: string; tipo: string; contenuto: Buffer }[] = []
+  let parti: { nome: string; tipo: string; dimensione: number; parte: string }[] = []
   try {
-    parti = await leggiTuttiAllegati(m.account, m.uid, cartella)
+    parti = await leggiAllegati(m.account, m.uid, cartella)
   } catch {
-    return null
+    // Il server non risponde: non si può dire se c'è un invito. Si tace, come
+    // prima — un riquadro d'errore su ogni mail sarebbe rumore puro.
+    return { stato: 'nessuno' }
   }
 
-  const calendario = parti.find(
-    (a) => /text\/calendar/i.test(a.tipo) || /\.ics$/i.test(a.nome)
-  )
-  if (!calendario) return null
+  const calendario = parti.find((a) => eParteCalendario(a.tipo, a.nome))
+  if (!calendario) return { stato: 'nessuno' } // non è un invito: nessun riquadro
 
-  const invito = leggiIcs(calendario.contenuto.toString('utf8'))
-  if (!invito) return null
+  // Da qui in poi l'invito C'È: qualunque cosa vada storta, si dice.
+  let dati: Buffer | null = null
+  try {
+    dati = await scaricaParte(m.account, m.uid, calendario.parte, cartella)
+  } catch {
+    dati = null
+  }
+  if (!dati) {
+    return { stato: 'errore', motivo: 'Questa mail contiene un invito, ma non riesco a scaricarlo dal server. Riprova fra poco.' }
+  }
+
+  const invito = leggiIcs(dati.toString('utf8'))
+  if (!invito) {
+    return { stato: 'errore', motivo: 'Questa mail contiene un invito, ma è scritto in un formato che non riesco a leggere (manca la data di inizio). Aprilo dall’allegato .ics.' }
+  }
 
   const giaInAgenda =
     (await db.evento.count({
@@ -2519,12 +2553,15 @@ export async function leggiInvito(messaggioId: string): Promise<InvitoInMail | n
       }`
 
   return {
-    titolo: invito.titolo,
-    quando,
-    luogo: invito.luogo,
-    organizzatore: invito.organizzatoreNome || invito.organizzatoreEmail,
-    metodo: invito.metodo,
-    giaInAgenda,
+    stato: 'trovato',
+    invito: {
+      titolo: invito.titolo,
+      quando,
+      luogo: invito.luogo,
+      organizzatore: invito.organizzatoreNome || invito.organizzatoreEmail,
+      metodo: invito.metodo,
+      giaInAgenda,
+    },
   }
 }
 
@@ -2544,18 +2581,28 @@ export async function rispondiInvito(
   })
   if (!m || m.uid <= 0) return { ok: false, messaggio: 'Mail non più disponibile sul server.' }
 
-  const { leggiTuttiAllegati } = await import('./imap')
+  // Come in `leggiInvito`: struttura del messaggio + download della SOLA parte
+  // calendario, non dell'intera mail.
+  const { leggiAllegati, scaricaParte } = await import('./imap')
   const { leggiIcs, rispostaIcs, PAROLE_RISPOSTA } = await import('./invitoRicevuto')
   const cartella = m.direzione === 'uscita' ? m.account.cartellaInviata || undefined : m.account.cartella
 
-  let parti: { nome: string; tipo: string; contenuto: Buffer }[] = []
+  let parti: { nome: string; tipo: string; dimensione: number; parte: string }[] = []
   try {
-    parti = await leggiTuttiAllegati(m.account, m.uid, cartella)
+    parti = await leggiAllegati(m.account, m.uid, cartella)
   } catch {
     return { ok: false, messaggio: 'Non riesco a rileggere l’invito dal server.' }
   }
-  const calendario = parti.find((a) => /text\/calendar/i.test(a.tipo) || /\.ics$/i.test(a.nome))
-  const invito = calendario ? leggiIcs(calendario.contenuto.toString('utf8')) : null
+  const calendario = parti.find((a) => eParteCalendario(a.tipo, a.nome))
+  if (!calendario) return { ok: false, messaggio: 'Questa mail non contiene un invito di calendario.' }
+
+  let dati: Buffer | null = null
+  try {
+    dati = await scaricaParte(m.account, m.uid, calendario.parte, cartella)
+  } catch {
+    dati = null
+  }
+  const invito = dati ? leggiIcs(dati.toString('utf8')) : null
   if (!invito) return { ok: false, messaggio: 'Questa mail non contiene un invito leggibile.' }
 
   // 1) In agenda, se si partecipa. "Forse" ci va lo stesso: serve a non

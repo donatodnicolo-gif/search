@@ -423,7 +423,8 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           <div className="ai-box" style={{ background: 'var(--fill)', borderColor: 'var(--hairline)' }}>
             <div className="ai-box-text" style={{ color: 'var(--text-secondary)' }}>
               L’AI non ha ancora letto questo messaggio. Dagli una priorità qui sopra: te lo
-              riassume e crea l’attività da fare.
+              riassume, crea l’attività da fare e, se la mail fissa un appuntamento senza
+              allegare un invito di calendario, te lo propone da mettere in agenda.
             </div>
           </div>
         )}
