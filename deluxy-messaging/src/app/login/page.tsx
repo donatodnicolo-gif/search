@@ -16,10 +16,10 @@ export default async function PaginaLogin({
     <div className="login-sfondo">
       <div className="login-card card">
         <div className="logo">
-          Deluxy <span style={{ color: 'var(--gold)' }}>Messaggi</span>
+          Deluxy <span style={{ color: 'var(--gold)' }}>Customer Service</span>
         </div>
         <div className="sotto">
-          WhatsApp, Messenger, Instagram e chat del sito in un posto solo.
+          Reclami, ordini e messaggi dei clienti in un posto solo.
         </div>
 
         {errore ? <div className="avviso-errore">{errore}</div> : null}

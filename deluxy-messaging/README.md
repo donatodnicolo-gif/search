@@ -1,14 +1,47 @@
-# Deluxy Messaggi
+# Deluxy Customer Service
 
-Inbox unificata dell'ecosistema Deluxy: le conversazioni **WhatsApp**, **Messenger** e
-**Instagram** (API ufficiali Meta) più la **chat del sito** (widget incorporabile)
-arrivano in un'unica schermata, da cui l'operatore risponde sul canale giusto.
+Il **servizio clienti** dell'ecosistema Deluxy. Si aprono e si lavorano i **reclami**
+sugli ordini — ognuno con una casistica, le azioni da eseguire e la colpa attribuita a un
+**valet** o a un **partner**, da cui nascono i **giudizi** — e attorno restano gli
+**ordini da lavorare** e l'**inbox unificata**: **WhatsApp**, **Messenger**, **Instagram**
+(API ufficiali Meta) e la **chat del sito** in un'unica schermata.
 
 - Porta di sviluppo: **3140** (`npm run dev`)
 - Stack: Next.js 15 (App Router) + Prisma + Postgres, stesso impianto di `deluxy-mail/`
 - Design: Deluxy Design System (token in `src/app/tokens.css`)
 
-## Come funziona
+> L'app si chiamava "Deluxy Messaggi". Sono cambiate solo le **etichette visibili**:
+> cartella (`deluxy-messaging/`), progetto Vercel, schema Postgres `messaging` e cookie
+> `msg_session` restano quelli, perché rinominarli romperebbe URL, deploy e sessioni.
+
+## Reclami (Customer Service)
+
+**Il giro completo.** Da ogni ordine il bottone **Reclamo** apre il form già pieno con
+ordine, cliente e recapiti. Si scegle una **casistica** e questa riempie da sola la
+gravità, la colpa tipica e la **checklist delle azioni** da eseguire; poi si attribuisce
+la **colpa** e si lavora il reclamo (Aperto → In lavorazione → Risolto → Chiuso).
+
+**Casistiche** (`/reclami/casistiche`). Il catalogo dei tipi di reclamo: nome, gravità
+(lieve/media/grave), colpa tipica e le azioni consigliate, una per riga. Un pulsante
+carica le **7 casistiche più comuni** (ritardo, mancata consegna, prodotto danneggiato,
+prodotto errato, indirizzo sbagliato, biglietto, comportamento del corriere) da adattare —
+e non le duplica se le ricarichi.
+
+**Colpa.** Un reclamo può essere imputato a un **valet** (chi consegna: registro locale in
+`/reclami/valet`), a un **partner** (letto dal registro Anagrafiche, nessuna copia locale),
+a **Deluxy** stessa, al **cliente**, oppure restare *da attribuire*. I giudizi si danno
+solo a valet e partner.
+
+**Giudizi** (`/reclami/giudizi`). Per ogni valet e partner, i reclami che gli sono stati
+imputati diventano un punteggio e un'etichetta: **Ottimo · Buono · Attenzione · Critico**.
+Il punteggio è la somma delle gravità (1/2/3), **dimezzata per i reclami risolti o
+chiusi** — rimediare conta. Soglie: 0 Ottimo, ≤2 Buono, ≤6 Attenzione, oltre Critico. Così
+un solo reclamo grave ancora aperto accende già "Attenzione", mentre lo stesso reclamo
+risolto torna "Buono". Accanto al giudizio automatico si può registrare un **giudizio
+manuale** (voto 1-5 + nota): non lo sostituisce, gli si affianca, così resta sempre
+visibile da cosa nasce il numero.
+
+## Come funziona (messaggistica)
 
 **In entrata.** Un solo webhook per tutti i prodotti Meta: `POST /api/webhooks/meta`.
 Su developers.facebook.com si registra quell'URL per WhatsApp (oggetto

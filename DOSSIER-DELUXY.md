@@ -115,7 +115,7 @@ all'app che lo possiede.
 | **deluxy-orders** | registro centralizzato degli ordini Shopify (~14.000 storici importati), riclassificabili e instradabili. |
 | **deluxy-transactions** | l'unico posto da cui esce denaro: le altre app **chiedono** un pagamento via API firmata, una persona autorizza con secondo fattore e doppia firma, ne esce la distinta SEPA. L'app non muove denaro e non ha credenziali bancarie: l'ultimo passo lo fa un umano nel portale della banca. |
 | **deluxy-search-supplier** | ricerca fiorai/pasticcerie e smistamento degli ordini via WhatsApp/Email. |
-| **deluxy-messaging** | inbox unificata WhatsApp/Messenger/Instagram (API Meta) + widget di chat per i siti. |
+| **deluxy-messaging** | **Deluxy Customer Service**: il servizio clienti. I **reclami** sugli ordini, ognuno con una casistica, le azioni da eseguire e la colpa attribuita a un **valet** (chi consegna) o a un **partner** — da lì i **giudizi** su chi lavora per noi. Attorno: gli ordini da lavorare e l'inbox unificata WhatsApp/Messenger/Instagram (API Meta) + widget di chat per i siti. |
 | **deluxy-mail** | client IMAP/SMTP che smista la posta, crea attività e prepara bozze con l'AI. |
 | **deluxy-marketing** | memoria operativa dell'advertising: audit, azioni con storia, campagne con metriche e guardrail. |
 | **deluxy-budgets** | budget aziendali su 3 livelli (raggiungibile / sfidante / irraggiungibile) con P&L e premi. |

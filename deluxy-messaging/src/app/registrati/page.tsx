@@ -16,7 +16,7 @@ export default async function PaginaRegistrati({
     <div className="login-sfondo">
       <div className="login-card card">
         <div className="logo">
-          Deluxy <span style={{ color: 'var(--gold)' }}>Messaggi</span>
+          Deluxy <span style={{ color: 'var(--gold)' }}>Customer Service</span>
         </div>
         <div className="sotto">
           {nessunUtente

@@ -46,6 +46,19 @@ function linkPagamento(o: OrdineDto): string {
   return `/pagamenti?${p.toString()}`
 }
 
+/** Apre un nuovo reclamo (Customer Service) precompilato con questo ordine. */
+function linkReclamo(o: OrdineDto): string {
+  const p = new URLSearchParams({
+    ordineId: o.id,
+    ordine: o.numero,
+    cliente: o.clienteNome,
+    telefono: o.telefono,
+    email: o.email,
+    negozio: o.negozioNome,
+  })
+  return `/reclami?${p.toString()}`
+}
+
 type NegozioDto = {
   id: string
   nome: string
@@ -530,6 +543,13 @@ export function OrdiniLista() {
                               </a>
                             )
                           })()}
+                          <a
+                            className="bottone secondario mini"
+                            href={linkReclamo(o)}
+                            title="Apri un reclamo su questo ordine"
+                          >
+                            Reclamo
+                          </a>
                           {o.gestione === 'gestito' ? (
                             <button
                               className="bottone secondario mini"
@@ -642,6 +662,13 @@ export function OrdiniLista() {
                           </a>
                         )
                       })()}
+                      <a
+                        className="bottone secondario mini"
+                        href={linkReclamo(o)}
+                        title="Apri un reclamo su questo ordine"
+                      >
+                        Reclamo
+                      </a>
                       {o.gestione === 'gestito' ? (
                         <button
                           className="bottone secondario mini"

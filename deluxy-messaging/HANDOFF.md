@@ -1,26 +1,40 @@
-# Handoff — Deluxy Messaggi
+# Handoff — Deluxy Customer Service
 
 Ultimo aggiornamento: **26/07/2026**
 
+> ⚠️ **L'app si chiama Deluxy Customer Service** (prima "Deluxy Messaggi"). Sono
+> cambiati i nomi visibili (topbar, login, titolo della pagina, tessera del Hub),
+> **non** la cartella `deluxy-messaging/`, né il progetto Vercel
+> `deluxy-messaging`, né lo schema Postgres `messaging`, né il cookie
+> `msg_session`: rinominarli avrebbe rotto URL, deploy e sessioni per un
+> cambio di etichetta. Una cosa in particolare NON va rinominata:
+> `MARCATORE = 'Deluxy Messaggi'` in `src/lib/google.ts` è il marcatore già
+> scritto nella biografia dei contatti Google creati da noi — cambiarlo li
+> renderebbe irriconoscibili e l'app ricomincerebbe a rinominare contatti che
+> non sono suoi.
+
 ## In due minuti (per una finestra nuova)
 
-**Cos'è.** Nata come inbox unificata (WhatsApp/Messenger/Instagram + widget dei
-siti), oggi è soprattutto **il posto dove si lavorano gli ordini**: arrivano da
-[Deluxy Orders](https://deluxy-orders.vercel.app) da soli ogni 15 minuti, si
-smistano con stati nostri (Da gestire → In pagamento → Comunicazione → Gestito),
-e da ogni ordine si contatta il cliente, si cerca il fornitore o si chiede un
-pagamento a Deluxy Partner.
+**Cos'è.** Il **servizio clienti**: si aprono e si lavorano i **reclami** sugli
+ordini (casistica → azioni da eseguire → colpa a un valet o a un partner → da lì
+i **giudizi**). Attorno ai reclami restano le due cose che c'erano già: **gli
+ordini da lavorare** (arrivano da [Deluxy Orders](https://deluxy-orders.vercel.app)
+da soli ogni 15 minuti, si smistano con stati nostri Da gestire → In pagamento →
+Comunicazione → Gestito) e l'**inbox unificata** (WhatsApp/Messenger/Instagram +
+widget dei siti).
 
 **Dove.** Cartella `deluxy-messaging/` nel repo `scoutwt`, branch `scout-ui`.
 Porta 3140. LIVE su <https://deluxy-messaging.vercel.app> (progetto Vercel
 `deluxy-messaging`, team deluxy). Deploy: `npx vercel deploy --prod --yes` dalla
 cartella dell'app — **il push su GitHub NON pubblica**.
 
-**Le pagine.** `/` Ordini (bacheca a colonne o elenco) · `/calendario` consegne a
-partire da oggi · `/clienti` rubrica dagli ordini · `/partner` partner attivi dal
-registro Anagrafiche · `/pagamenti` richieste di pagamento con lettura AI
-dell'IBAN · `/inbox` conversazioni · `/script` risposte rapide che l'AI usa ·
-`/negozi` `/caselle` `/impostazioni`.
+**Le pagine.** `/reclami` reclami sugli ordini · `/reclami/casistiche` catalogo
+dei tipi di reclamo con le azioni · `/reclami/giudizi` valet e partner giudicati
+sui reclami · `/reclami/valet` chi fa le consegne · `/` Ordini (bacheca a colonne
+o elenco) · `/calendario` consegne a partire da oggi · `/clienti` rubrica dagli
+ordini · `/partner` partner attivi dal registro Anagrafiche · `/pagamenti`
+richieste di pagamento con lettura AI dell'IBAN · `/inbox` conversazioni ·
+`/script` risposte rapide che l'AI usa · `/negozi` `/caselle` `/impostazioni`.
 
 **Le tre regole che questa app rispetta, e non vanno rotte.**
 1. *L'AI propone, un controllo deterministico decide.* L'IBAN letto da una foto
@@ -39,6 +53,58 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- CUSTOMER SERVICE — RECLAMI, CASISTICHE, VALET, GIUDIZI (26/07/2026): l'app
+  diventa il servizio clienti. Quattro tabelle nuove (`Valet`, `CasistaReclamo`,
+  `Reclamo`, `Giudizio`), vocabolario e calcoli in `src/lib/reclami.ts`, quattro
+  pagine sotto `/reclami` e sei rotte API. `prisma db push` fatto: sono tabelle
+  NUOVE, nessuna esistente è stata toccata.
+  **Il giro completo**: da ogni ordine (card e tabella) il bottone **Reclamo**
+  apre `/reclami?ordineId=&ordine=&cliente=&telefono=&email=&negozio=` con il
+  form già pieno → si scegle una **casistica** e questa riempie da sola gravità,
+  colpa tipica e la **checklist delle azioni** → si attribuisce la **colpa** a un
+  valet (registro locale `/reclami/valet`) o a un partner (tendina letta da
+  Anagrafiche via `/api/partner`, la chiave non passa dal browser) → in
+  `/reclami/giudizi` i reclami di ogni soggetto diventano un **giudizio**.
+  **GIUDIZIO AUTOMATICO, come funziona** (`giudizioAutomatico()`): si sommano i
+  pesi dei reclami, dove il peso è la gravità (1 lieve / 2 media / 3 grave)
+  **dimezzata se il reclamo è risolto o chiuso** — rimediare conta. Soglie: 0 →
+  Ottimo, ≤2 → Buono, ≤6 → Attenzione, oltre → Critico. Le soglie sono state
+  ritarate durante la verifica: con la prima versione (≤3 → Buono) UN reclamo
+  grave ancora aperto risultava "Buono", troppo indulgente. Il giudizio manuale
+  (voto 1-5 + nota, upsert su `[soggettoTipo, soggettoId]`) **non sostituisce**
+  quello automatico: si affianca, così resta visibile da cosa nasce il numero.
+  **VERIFICATO sui dati veri** (dev server su porta 3141 per non litigare col
+  3140 di un'altra sessione): casistiche di esempio 7 aggiunte e al secondo giro
+  0 aggiunte / 7 saltate (il seed non duplica, match sul nome); un valet con 2
+  gravi + 1 medio aperti → punti 8 **Critico**, un altro con 1 medio risolto →
+  punti 1 **Buono**, ordinati dal peggiore; `risoltoIl` valorizzato da solo
+  passando a "risolto"; azioni copiate dalla casistica (3 righe); tendina partner
+  popolata con i **41 partner veri** del registro; nella sidebar si accende una
+  sola voce anche sulle sotto-pagine. **Rifiutati come devono**: reclamo senza
+  casistica 400, stato inventato 400, giudizio a un soggetto non giudicabile
+  (azienda/cliente) 400, voto 99 → stretto a 5.
+  I dati di prova sono stati cancellati **filtrando solo i miei record** (mai
+  `deleteMany` globali su questo DB condiviso): 914 ordini e 2 utenti veri
+  intatti. Le **7 casistiche di esempio sono state lasciate**: sono il catalogo
+  di partenza, non dati di test.
+  NON rinominati (romperebbero cose vive): cartella, progetto Vercel, schema
+  `messaging`, cookie `msg_session`, `MARCATORE` di google.ts.
+  **DEVIAZIONE SCRITTA, da sapere prima di toccare i valet.** La tabella `Valet`
+  di quest'app **duplica** un registro che esiste già: quello vero è in
+  deluxy-platform-next (`model Valet`, con IBAN, codice fiscale, veicolo, regole
+  di stipendio). Non lo rileggiamo perché **per i valet non c'è una API a
+  chiave**: `GET /api/v1/valets` è protetta da JWT utente + ruolo
+  (`api/src/valets/valets.controller.ts`, guardie globali in `app.module.ts`), e
+  l'unica strada praticabile oggi sarebbe tenere la password di un utente di
+  servizio — peggio della copia. Perciò qui c'è solo il minimo per attribuire una
+  colpa (nome, recapito, zona), e la pagina lo dice all'operatore. **Da fare
+  quando si potrà**: aggiungere in platform-next una lettura a `x-api-key` sul
+  modello di `deluxy-orders/src/lib/api-auth.ts`, poi sostituire la tabella con un
+  `src/lib/valet.ts` che rilegge il registro, esattamente come
+  `src/lib/anagrafiche.ts` fa per i partner (quelli infatti **non** sono
+  duplicati). Attenzione a non prendere la strada opposta per comodità: se questa
+  tabella diventa il posto dove si gestiscono i valet, nasce un secondo registro
+  divergente da quello dei compensi.
 - ORDINI AUTOMATICI OGNI 15 MINUTI (26/07/2026): `vercel.json` → cron
   `*/15 * * * *` su `/api/cron/ordini`, protetto da `Authorization: Bearer
   CRON_SECRET` (Vercel lo manda da solo; senza segreto la rotta risponde 503

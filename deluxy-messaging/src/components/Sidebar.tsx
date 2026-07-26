@@ -10,6 +10,15 @@ export function Sidebar() {
 
   const gruppi = [
     {
+      titolo: 'Reclami',
+      voci: [
+        { href: '/reclami', nome: 'Reclami', icona: iconaReclamo },
+        { href: '/reclami/casistiche', nome: 'Casistiche', icona: iconaCasistiche },
+        { href: '/reclami/giudizi', nome: 'Giudizi', icona: iconaGiudizi },
+        { href: '/reclami/valet', nome: 'Valet', icona: iconaValet },
+      ],
+    },
+    {
       titolo: 'Ordini',
       voci: [
         { href: '/', nome: 'Ordini', icona: iconaLista },
@@ -36,13 +45,22 @@ export function Sidebar() {
     },
   ]
 
+  // La voce attiva è quella il cui href è il prefisso PIÙ LUNGO del percorso:
+  // così su /reclami/casistiche si accende "Casistiche", non "Reclami".
+  const tutteLeVoci = gruppi.flatMap((g) => g.voci)
+  const combacia = (href: string) =>
+    href === '/' ? path === '/' : path === href || path.startsWith(href + '/')
+  const hrefAttivo = tutteLeVoci
+    .filter((v) => combacia(v.href))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href
+
   return (
     <nav className="sidebar">
       {gruppi.map((g) => (
         <div className="sb-sezione" key={g.titolo}>
           <div className="sb-label">{g.titolo}</div>
           {g.voci.map((v) => {
-            const attiva = v.href === '/' ? path === '/' : path.startsWith(v.href)
+            const attiva = v.href === hrefAttivo
             return (
               <Link key={v.href} href={v.href} className={`sb-item${attiva ? ' attiva' : ''}`}>
                 <span className="sb-icona">{v.icona}</span>
@@ -128,6 +146,31 @@ const iconaBusta = (
   <svg {...T} strokeLinejoin="round">
     <rect x="3" y="5.5" width="18" height="13" rx="2" />
     <path d="m3.5 7 8.5 6 8.5-6" />
+  </svg>
+)
+const iconaReclamo = (
+  <svg {...T} strokeLinejoin="round">
+    <path d="M10.3 3.9 2.6 17.5A1.7 1.7 0 0 0 4 20h16a1.7 1.7 0 0 0 1.4-2.5L13.7 3.9a1.7 1.7 0 0 0-3 0z" />
+    <line x1="12" y1="9" x2="12" y2="13.5" />
+    <circle cx="12" cy="16.7" r="0.6" fill="currentColor" />
+  </svg>
+)
+const iconaCasistiche = (
+  <svg {...T} strokeLinejoin="round">
+    <path d="M4 6h4v4H4zM4 14h4v4H4z" />
+    <line x1="11" y1="8" x2="20" y2="8" />
+    <line x1="11" y1="16" x2="20" y2="16" />
+  </svg>
+)
+const iconaGiudizi = (
+  <svg {...T} strokeLinejoin="round">
+    <path d="M12 3.5l2.6 5.3 5.9.86-4.25 4.14 1 5.86L12 17l-5.25 2.76 1-5.86L3.5 9.66l5.9-.86z" />
+  </svg>
+)
+const iconaValet = (
+  <svg {...T} strokeLinejoin="round">
+    <circle cx="12" cy="6" r="2.6" />
+    <path d="M6 20v-1a6 6 0 0 1 12 0v1" />
   </svg>
 )
 const iconaImpostazioni = (

@@ -3,9 +3,9 @@ import './tokens.css'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Deluxy Messaggi',
+  title: 'Deluxy Customer Service',
   description:
-    'Inbox unificata Deluxy: WhatsApp, Messenger e Instagram in un posto solo, più la chat del sito.',
+    'Il servizio clienti Deluxy: reclami sugli ordini con casistiche, azioni e giudizi a valet e partner, più la messaggistica unificata (WhatsApp, Messenger, Instagram e chat dei siti).',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

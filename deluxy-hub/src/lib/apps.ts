@@ -159,10 +159,10 @@ export function catalogoApp(): AppDeluxy[] {
     },
     {
       id: "messaggi",
-      nome: "Messaggi",
-      sottotitolo: "Inbox unificata",
+      nome: "Customer Service",
+      sottotitolo: "Reclami e messaggi dei clienti",
       descrizione:
-        "WhatsApp, Messenger, Instagram e la chat del sito in un'unica inbox: si legge e si risponde in un posto solo.",
+        "I reclami sugli ordini con casistiche, azioni da eseguire e colpa (valet o partner) da cui nascono i giudizi; più gli ordini da lavorare e l'inbox unificata WhatsApp, Messenger, Instagram e chat dei siti.",
       icona: "messaggi",
       // L'app è pubblicata: si punta al sito di produzione, sovrascrivibile con
       // APP_URL_MESSAGGI (es. http://localhost:3140 in sviluppo).

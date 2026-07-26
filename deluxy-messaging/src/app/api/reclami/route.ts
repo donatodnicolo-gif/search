@@ -1,0 +1,120 @@
+import { NextRequest, NextResponse } from 'next/server'
+import type { Prisma } from '@prisma/client'
+import { db } from '@/lib/db'
+import {
+  statoReclamoValido,
+  colpaValida,
+  gravitaValida,
+  reclamoAperto,
+} from '@/lib/reclami'
+
+export const dynamic = 'force-dynamic'
+
+// I reclami, con ricerca e filtri:
+//   q       testo su ordine, cliente, telefono, casistica, colpa
+//   stato   aperti | aperto | in_lavorazione | risolto | chiuso
+//   colpa   valet | partner | azienda | cliente | nessuno
+//   gravita 1 | 2 | 3
+export async function GET(req: NextRequest) {
+  const p = req.nextUrl.searchParams
+  const q = (p.get('q') ?? '').trim()
+  const stato = (p.get('stato') ?? '').trim()
+  const colpa = (p.get('colpa') ?? '').trim()
+  const gravita = (p.get('gravita') ?? '').trim()
+
+  const dove: Prisma.ReclamoWhereInput = {}
+  // `aperti` = tutto ciò che non è ancora chiuso/risolto: la vista di lavoro.
+  if (stato === 'aperti') dove.stato = { in: ['aperto', 'in_lavorazione'] }
+  else if (stato) dove.stato = stato
+  if (colpa) dove.colpaTipo = colpa
+  if (gravita) dove.gravita = Number(gravita)
+  if (q) {
+    const testo: Prisma.StringFilter = { contains: q, mode: 'insensitive' }
+    dove.OR = [
+      { ordineNumero: testo },
+      { clienteNome: testo },
+      { telefono: { contains: q } },
+      { casistica: testo },
+      { colpaNome: testo },
+      { negozioNome: testo },
+      { descrizione: testo },
+    ]
+  }
+
+  const [reclami, totale, conteggi] = await Promise.all([
+    db.reclamo.findMany({ where: dove, orderBy: { creatoIl: 'desc' }, take: 300 }),
+    db.reclamo.count({ where: dove }),
+    // Conteggi per stato sull'INTERO archivio (non solo il filtro): reggono i KPI.
+    db.reclamo.groupBy({ by: ['stato'], _count: { _all: true } }),
+  ])
+
+  const perStato = Object.fromEntries(conteggi.map((c) => [c.stato, c._count._all]))
+  return NextResponse.json({ reclami, totale, perStato })
+}
+
+// Crea o aggiorna un reclamo. Il cambio di stato passa da qui o dalla rotta
+// dedicata /api/reclami/[id]/stato.
+export async function POST(req: NextRequest) {
+  const c = (await req.json().catch(() => ({}))) as {
+    id?: string
+    ordineId?: string
+    ordineNumero?: string
+    negozioNome?: string
+    clienteNome?: string
+    telefono?: string
+    email?: string
+    casisticaId?: string
+    casistica?: string
+    colpaTipo?: string
+    colpaId?: string
+    colpaNome?: string
+    gravita?: number
+    descrizione?: string
+    azioni?: string
+    stato?: string
+    esito?: string
+  }
+
+  const casistica = (c.casistica ?? '').trim()
+  if (!casistica) {
+    return NextResponse.json({ errore: 'Scegli una casistica per il reclamo.' }, { status: 400 })
+  }
+
+  const colpaTipo = colpaValida((c.colpaTipo ?? '').trim()) ? (c.colpaTipo as string).trim() : 'nessuno'
+  const gravita = gravitaValida(Number(c.gravita)) ? Number(c.gravita) : 2
+  const stato = statoReclamoValido((c.stato ?? '').trim()) ? (c.stato as string).trim() : 'aperto'
+
+  const dati = {
+    ordineId: (c.ordineId ?? '').trim(),
+    ordineNumero: (c.ordineNumero ?? '').trim(),
+    negozioNome: (c.negozioNome ?? '').trim(),
+    clienteNome: (c.clienteNome ?? '').trim(),
+    telefono: (c.telefono ?? '').trim(),
+    email: (c.email ?? '').trim(),
+    casisticaId: (c.casisticaId ?? '').trim(),
+    casistica,
+    colpaTipo,
+    // La colpa ha senso solo se è un soggetto identificabile: altrimenti azzero.
+    colpaId: colpaTipo === 'nessuno' ? '' : (c.colpaId ?? '').trim(),
+    colpaNome: colpaTipo === 'nessuno' ? '' : (c.colpaNome ?? '').trim(),
+    gravita,
+    descrizione: (c.descrizione ?? '').trim(),
+    azioni: (c.azioni ?? '').trim(),
+    stato,
+    esito: (c.esito ?? '').trim(),
+    // Marca la data di risoluzione quando entra in uno stato chiuso.
+    risoltoIl: reclamoAperto(stato) ? null : new Date(),
+  }
+
+  const reclamo = c.id
+    ? await db.reclamo.update({ where: { id: c.id }, data: dati })
+    : await db.reclamo.create({ data: dati })
+  return NextResponse.json({ reclamo })
+}
+
+export async function DELETE(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get('id') ?? ''
+  if (!id) return NextResponse.json({ errore: 'Serve l’id.' }, { status: 400 })
+  await db.reclamo.delete({ where: { id } })
+  return NextResponse.json({ ok: true })
+}

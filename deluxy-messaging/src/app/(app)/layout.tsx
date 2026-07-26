@@ -16,7 +16,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <ToggleSidebar />
           <div className="logo">
-            Deluxy <span className="oro">Messaggi</span>
+            Deluxy <span className="oro">Customer Service</span>
           </div>
         </div>
         <div className="topbar-azioni">

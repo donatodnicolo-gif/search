@@ -2,7 +2,7 @@
   "name": "deluxy-messaging",
   "version": "0.1.0",
   "private": true,
-  "description": "Deluxy Messaggi — inbox unificata WhatsApp, Messenger e Instagram (API Meta) + widget di chat per i siti",
+  "description": "Deluxy Customer Service — reclami sugli ordini (casistiche, azioni, giudizi a valet e partner) + messaggistica unificata WhatsApp/Messenger/Instagram e widget dei siti",
   "scripts": {
     "dev": "next dev -p 3140",
     "build": "prisma generate && next build",

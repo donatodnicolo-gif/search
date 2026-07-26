@@ -213,3 +213,115 @@ model Messaggio {
   @@index([conversazioneId, creatoIl])
   @@index([idEsterno])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTOMER SERVICE — RECLAMI
+//
+// Da ogni ordine si può aprire un reclamo. Ogni reclamo ha una CASISTICA (il
+// tipo di problema, con le azioni consigliate) ed è imputato a una COLPA: un
+// valet (chi fa le consegne, registro locale qui sotto) o un partner (dal
+// registro Anagrafiche, senza copia locale). Aggregando i reclami per colpa si
+// danno i GIUDIZI a valet e partner.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Un valet: chi fa materialmente le consegne. Serve a imputare la colpa di un
+// reclamo a una persona precisa e a darle un giudizio.
+//
+// ⚠️ DEVIAZIONE CONSAPEVOLE dalla regola "non duplicare i registri altrui".
+// Il registro VERO dei valet è in deluxy-platform-next (`model Valet`, con
+// IBAN, codice fiscale, veicolo, regole di stipendio: dati che qui non
+// servono e non vogliamo). Non lo leggiamo perché **non esiste una API a
+// chiave** per i valet: `GET /api/v1/valets` è protetta da JWT utente + ruolo
+// (api/src/valets/valets.controller.ts), e l'unica alternativa oggi sarebbe
+// conservare la password di un utente di servizio — peggio della copia.
+// Perciò qui teniamo solo il minimo per attribuire una colpa: nome e recapito.
+// DA FARE quando si potrà: aggiungere in platform-next una lettura a
+// `x-api-key` sul modello di deluxy-orders (src/lib/api-auth.ts) e sostituire
+// questa tabella con un `src/lib/valet.ts` che rilegge il registro, come già
+// facciamo per i partner in src/lib/anagrafiche.ts.
+model Valet {
+  id       String   @id @default(cuid())
+  nome     String
+  telefono String   @default("")
+  email    String   @default("")
+  zona     String   @default("") // zona/quartiere di consegna, se utile
+  note     String   @default("") @db.Text
+  attivo   Boolean  @default(true)
+  creatoIl DateTime @default(now())
+}
+
+// Una casistica di reclamo: il "tipo" di problema, con le azioni consigliate da
+// eseguire e la colpa tipica. È il catalogo che l'operatore configura una volta
+// e riusa aprendo i reclami.
+model CasistaReclamo {
+  id          String   @id @default(cuid())
+  nome        String // es. "Consegna in ritardo"
+  descrizione String   @default("") @db.Text
+  // A chi è di solito imputabile: valet | partner | azienda | cliente | nessuno.
+  // È solo un default: sul singolo reclamo la colpa si può cambiare.
+  colpaTipica String   @default("")
+  // Peso della casistica: 1 lieve, 2 media, 3 grave. Regge i giudizi.
+  gravita     Int      @default(2)
+  // Azioni consigliate da eseguire, una per riga.
+  azioni      String   @default("") @db.Text
+  attiva      Boolean  @default(true)
+  creatoIl    DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+}
+
+// Un reclamo aperto su un ordine.
+model Reclamo {
+  id           String   @id @default(cuid())
+  // Ordine di riferimento: denormalizzato perché l'ordine può stare qui in
+  // locale (ordineId valorizzato) oppure solo nell'archivio Orders.
+  ordineId     String   @default("")
+  ordineNumero String   @default("")
+  negozioNome  String   @default("")
+  clienteNome  String   @default("")
+  telefono     String   @default("")
+  email        String   @default("")
+
+  // Casistica: il tipo di problema. `casistica` è il nome denormalizzato.
+  casisticaId  String   @default("")
+  casistica    String   @default("")
+
+  // Di chi è la colpa: valet | partner | azienda | cliente | nessuno.
+  // colpaId è l'id del valet (registro locale) o del partner (Anagrafiche);
+  // colpaNome è denormalizzato perché il nome del partner vive nel registro.
+  colpaTipo    String   @default("nessuno")
+  colpaId      String   @default("")
+  colpaNome    String   @default("")
+
+  gravita      Int      @default(2) // 1 lieve, 2 media, 3 grave
+  descrizione  String   @default("") @db.Text
+  // Azioni da eseguire per questo reclamo (partono dalla casistica, poi si
+  // adattano). Una per riga.
+  azioni       String   @default("") @db.Text
+  stato        String   @default("aperto") // aperto | in_lavorazione | risolto | chiuso
+  esito        String   @default("") @db.Text // com'è andata a finire
+
+  risoltoIl    DateTime?
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([stato])
+  @@index([colpaTipo, colpaId])
+  @@index([creatoIl])
+}
+
+// Un giudizio dato a un valet o a un partner. Il giudizio automatico si calcola
+// dai reclami (in src/lib/reclami.ts); questo è il giudizio MANUALE che
+// l'operatore registra, e che completa/corregge quello automatico. Uno per
+// soggetto (upsert su [soggettoTipo, soggettoId]).
+model Giudizio {
+  id           String   @id @default(cuid())
+  soggettoTipo String // valet | partner
+  soggettoId   String
+  soggettoNome String   @default("")
+  voto         Int      @default(3) // 1 pessimo … 5 ottimo
+  nota         String   @default("") @db.Text
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@unique([soggettoTipo, soggettoId])
+}

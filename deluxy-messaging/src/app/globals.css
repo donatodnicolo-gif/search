@@ -1,4 +1,4 @@
-/* Deluxy Messaggi — stili dell'app. Solo var(--…) dei token, mai valori nuovi. */
+/* Deluxy Customer Service — stili dell'app. Solo var(--…) dei token, mai valori nuovi. */
 
 * {
   box-sizing: border-box;
@@ -190,7 +190,8 @@ button {
 }
 
 .campo input,
-.campo textarea {
+.campo textarea,
+.campo select {
   width: 100%;
   padding: 9px 12px;
   border: 1px solid var(--hairline-strong);
@@ -200,11 +201,33 @@ button {
   color: var(--text);
 }
 
+.campo select {
+  cursor: pointer;
+}
+
 .campo input:focus,
-.campo textarea:focus {
+.campo textarea:focus,
+.campo select:focus {
   outline: none;
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+}
+
+/* Tendina compatta dentro una tabella: cambiare stato senza aprire la scheda
+   (usata sui reclami). */
+.mini-select {
+  padding: 4px 8px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 12.5px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.mini-select:focus {
+  outline: none;
+  border-color: var(--blue);
 }
 
 .avviso-errore {
