@@ -176,9 +176,28 @@ export default async function ConsuntivoPage({
   const margineLordoCons = ricaviCons - costi.COGS;
   const ebitdaCons = margineLordoCons - costi.ADV - personaleCons - costi.STRUTTURA;
 
-  type RigaPL = { label: string; nota?: string; cons: number; budget: number; tipo: "ricavo" | "costo" | "totale" };
+  type RigaPL = {
+    label: string;
+    nota?: string;
+    cons: number;
+    budget: number;
+    tipo: "ricavo" | "costo" | "totale";
+    dettaglio?: boolean;
+  };
+  // I ricavi si aprono subito sotto il totale, una riga per voce di budget:
+  // «totale ricavi» da solo non dice quanto viene dall'ecommerce e quanto dal
+  // fatturato, che è la prima cosa che si vuole sapere guardando questa tabella.
+  const righeRicavi: RigaPL[] = confronto.map((c) => ({
+    label: c.slug === SLUG_D2C ? "Vendite ecommerce (D2C)" : c.nome,
+    nota: c.slug === SLUG_D2C ? "negozi Shopify · registro ordini" : c.collegati.join(" + ") || "nessuna voce collegata",
+    cons: c.consuntivo,
+    budget: c.budgetPeriodo,
+    tipo: "ricavo",
+    dettaglio: true,
+  }));
   const righePL: RigaPL[] = [
     { label: "Totale ricavi", cons: ricaviCons, budget: budgetRicavi, tipo: "totale" },
+    ...righeRicavi,
     { label: "Costo del venduto", nota: "banca · Fornitori/COGS", cons: costi.COGS, budget: B("cogs"), tipo: "costo" },
     { label: "Margine lordo", cons: margineLordoCons, budget: B("margineLordo"), tipo: "totale" },
     { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), tipo: "costo" },
@@ -192,8 +211,11 @@ export default async function ConsuntivoPage({
   const costoM = (tp: keyof typeof costi, m: number) => costiMese[tp][m - 1] ?? 0;
   const margineM = (m: number) => ricaviM(m) - costoM("COGS", m);
   const ebitdaM = (m: number) => margineM(m) - costoM("ADV", m) - personaleMese(m) - costoM("STRUTTURA", m);
-  const righeMens: { label: string; costo?: boolean; forte?: boolean; get: (m: number) => number }[] = [
+  const righeMens: { label: string; costo?: boolean; forte?: boolean; dettaglio?: boolean; get: (m: number) => number }[] = [
     { label: "Ricavi", get: ricaviM },
+    // Quanto di quei ricavi è ecommerce, mese per mese: è la riga che dice se
+    // l'andamento dei negozi sta reggendo, e da sola nel totale non si vede.
+    ...(d2c.ok ? [{ label: "di cui vendite ecommerce", dettaglio: true, get: (m: number) => d2cMese[m - 1] ?? 0 }] : []),
     { label: "Costo del venduto", costo: true, get: (m) => costoM("COGS", m) },
     { label: "Margine lordo", forte: true, get: margineM },
     { label: "ADV", costo: true, get: (m) => costoM("ADV", m) },
@@ -299,9 +321,10 @@ export default async function ConsuntivoPage({
                     const scost = r.cons - r.budget;
                     return (
                       <tr key={r.label} className={r.label === "EBITDA" ? "tot" : undefined}>
-                        <td style={{ fontWeight: forte ? 600 : 400 }}>
+                        <td style={{ fontWeight: forte ? 600 : 400, paddingLeft: r.dettaglio ? 26 : undefined }}>
+                          {r.dettaglio && <span className="muted" style={{ marginRight: 6 }}>└</span>}
                           {r.label}
-                          {r.nota && <div className="muted" style={{ fontSize: 11.5 }}>{r.nota}</div>}
+                          {r.nota && <div className="muted" style={{ fontSize: 11.5, paddingLeft: r.dettaglio ? 16 : 0 }}>{r.nota}</div>}
                         </td>
                         <td className="num" style={{ fontWeight: forte ? 600 : 400 }}>
                           {r.tipo === "costo" ? `− ${eur(r.cons)}` : eur(r.cons)}
@@ -331,7 +354,12 @@ export default async function ConsuntivoPage({
                 <tbody>
                   {righeMens.map((r) => (
                     <tr key={r.label}>
-                      <td style={{ whiteSpace: "nowrap", fontWeight: r.forte ? 600 : 400 }}>{r.label}</td>
+                      <td
+                        className={r.dettaglio ? "muted" : undefined}
+                        style={{ whiteSpace: "nowrap", fontWeight: r.forte ? 600 : 400, paddingLeft: r.dettaglio ? 26 : undefined }}
+                      >
+                        {r.label}
+                      </td>
                       {mesiPeriodo.map((m) => (
                         <td className="num" key={m}>{r.costo ? `− ${eur(r.get(m))}` : eur(r.get(m))}</td>
                       ))}
