@@ -1,6 +1,13 @@
 # Deluxy Scout — Stato del progetto & Handoff
 
-Ultimo aggiornamento: **23 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+Ultimo aggiornamento: **26 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+
+> 📱 **Leggibilità sul telefono: filtri a capo e nomi non più tagliati (26 lug 2026)** — segnalazione utente: «da mobile è impossibile da utilizzare». Cause misurate a 390px e corrette:
+> - **Filtri invisibili.** Le righe di filtri erano `ScrollView horizontal` con `showsHorizontalScrollIndicator={false}`: venivano tagliate a metà parola e **niente faceva capire che si potesse scorrere**. Su `/lista` (Selezionati/Prospect/Dormienti) restavano fuori schermo 8 filtri (Stato, Città…, misurati fino a x=860 su schermo da 390). Ora **vanno a capo** (`flexWrap`), gruppi impilati: `components/Filters.tsx` (condiviso dalle 3 viste `/lista`), `trattative.tsx` (4 righe), `dashboard.tsx` (`FiltroRiga`, vale per tutte), `affiliazioni.tsx`, `rubrica.tsx` (+ `chips` del `GruppoFiltro`), `mappa.web.tsx` (`focusRow`/`subRow`: le linee di vendita visibili passano da 3 a 7).
+> - **Clienti: nomi illeggibili.** Le 4 icone azione (38px l'una, ~182px) stavano **sulla stessa riga** del testo e al nome restavano ~88px → «ALPINU…», «Amir Ro…». Le azioni sono passate su una **riga propria** (`cardTop` + `azioniRiga`): ora si legge «ALPINUM SOLUTION», «Account: Eleonora Mannini».
+> - **Da fare: nomi schiacciati.** Il badge «In ritardo» si spartiva la riga col nome → «Moncler…», «Church's Milano Sant'…». Ora `titoloRow` va a capo e `nome` ha `minWidth: 140`.
+> - **Regola che ne esce:** in questa app **non usare `ScrollView horizontal` per i filtri**. Sul telefono lo scorrimento laterale non si vede e le voci oltre il bordo, per l'utente, non esistono: usare `flexWrap: 'wrap'` (modello di riferimento: `clienti.tsx`).
+> - **Verifica:** controllo automatico su tutte e 22 le schermate a 390px con sessione reale → **zero contenuti oltre il bordo destro** (prima fallivano mappa, selezionati, prospect, inattivi); `tsc --noEmit` pulito; ESLint 0 errori sui file toccati. ⚠️ Verificato sulla **build web**: la mappa nativa (`mappa.tsx`, `react-native-maps`) non è stata provata su un dispositivo vero.
 
 > 🧰 **Scheda negozio compatta + azioni per livello + città intera (24 lug 2026, sera)**:
 > - **Scheda negozio** (`attivita/[id].tsx`): via lo stepper «Percorso verso cliente» e i bottoni giganti Naviga/Modifica; meta in una riga; subito sotto il nome una **riga di pill compatte**: Visita (primaria) · Chiama · WhatsApp · Email · Task · Contatto · Trattativa · Naviga · Modifica. Chiama/WhatsApp/Email si accendono col primo recapito dei contatti. Fix bug regex WhatsApp (`[^d]`→`[^0-9]`).

@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { StatoPlace } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
 import { OPZIONI_CITTA } from '@/lib/citta';
@@ -49,11 +49,10 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
   }
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.row}
-    >
+    // Gruppi impilati e chip che vanno a capo: in scorrimento orizzontale, sul
+    // telefono, meta' dei filtri (Stato, Citta', Interessi...) restava fuori
+    // schermo senza alcun segnale che ci fosse dell'altro.
+    <View style={styles.row}>
       <Gruppo
         titolo="Priorità"
         valori={PRIORITA}
@@ -90,7 +89,7 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
           <Gruppo titolo="Inserito da" valori={opzioni.creatori ?? []} attivo={filtri.creatore} onTap={(v) => toggle('creatore', v)} />
         </>
       ) : null}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -128,10 +127,10 @@ function Gruppo({
 }
 
 const styles = StyleSheet.create({
-  row: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.md },
-  gruppo: { marginRight: spacing.md },
+  row: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm },
+  gruppo: { marginBottom: 2 },
   gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', marginBottom: 4 },
-  chips: { flexDirection: 'row', gap: 6 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
     backgroundColor: colors.bianco,
     borderColor: colors.grigioChiaro,

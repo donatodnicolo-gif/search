@@ -1,6 +1,6 @@
 // Rubrica: tutti i contatti registrati nell'app, condivisi con HubSpot.
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, coloreStato, labelStato, radius, spacing, contenutoCentrato } from '@/lib/theme';
@@ -116,8 +116,10 @@ export default function Rubrica() {
           autoCapitalize="none"
           clearButtonMode="while-editing"
         />
-        {/* Filtri esclusivi (uno per gruppo): stato / interessi / città. */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+        {/* Filtri esclusivi (uno per gruppo): stato / interessi / città.
+            Vanno a capo: in orizzontale i gruppi finivano tagliati fuori
+            schermo ("Interessi" si leggeva "In…") senza modo di accorgersene. */}
+        <View style={styles.filtri}>
           {statiPresenti.length ? (
             <GruppoFiltro
               titolo="Stato"
@@ -142,10 +144,10 @@ export default function Rubrica() {
             attivo={zonaFiltro ?? 'Tutte'}
             onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (cur) => (cur === v ? null : v))}
           />
-        </ScrollView>
+        </View>
 
         {/* Toggle rapidi (combinabili): utili per preparare una campagna. */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.toggleRow}>
+        <View style={styles.toggleRow}>
           <ToggleChip icona="star" label="Decisori" on={attivo('decisori')} onTap={() => togglaFiltro('decisori')} />
           <ToggleChip icona="mail-outline" label="Con email" on={attivo('email')} onTap={() => togglaFiltro('email')} />
           <ToggleChip icona="call-outline" label="Con telefono" on={attivo('telefono')} onTap={() => togglaFiltro('telefono')} />
@@ -164,7 +166,7 @@ export default function Rubrica() {
               <Text style={styles.azzeraTxt}>Azzera</Text>
             </Pressable>
           ) : null}
-        </ScrollView>
+        </View>
 
         {filtriAttivi ? <Text style={styles.conteggio}>{dati.length} contatt{dati.length === 1 ? 'o' : 'i'}</Text> : null}
       </View>
@@ -350,10 +352,12 @@ const styles = StyleSheet.create({
     color: colors.testo,
   },
   // Barra filtri (stato + interessi)
-  filtri: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.md },
-  gruppo: { marginRight: spacing.sm },
+  // Gruppi impilati e chip che vanno a capo, come in Clienti: in riga i gruppi
+  // sforavano lo schermo e meta' degli interessi non si vedeva.
+  filtri: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm },
+  gruppo: { marginBottom: 2 },
   gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', marginBottom: 4 },
-  chips: { flexDirection: 'row', gap: 6 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -370,7 +374,7 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
   chipTxtOn: { color: colors.bianco },
   // Toggle rapidi
-  toggleRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: 6 },
+  toggleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: 6 },
   toggle: {
     flexDirection: 'row',
     alignItems: 'center',

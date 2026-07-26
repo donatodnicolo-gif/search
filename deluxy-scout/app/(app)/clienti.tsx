@@ -116,58 +116,63 @@ export default function Clienti() {
         }
         renderItem={({ item }) => (
           <Pressable style={styles.card} onPress={() => router.push(`/(app)/attivita/${item.id}`)}>
-            <View style={styles.iconaBox}>
-              <Ionicons name="storefront-outline" size={20} color={colors.goldStrong} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.nome} numberOfLines={1}>{item.nome}</Text>
-              <Text style={styles.meta} numberOfLines={1}>
-                {[item.zona, item.categoria].filter(Boolean).join(' · ') || item.indirizzo || '—'}
-              </Text>
-              <Text style={styles.account} numberOfLines={1}>
-                <Ionicons name="briefcase-outline" size={11} color={colors.grigio} />{' '}
-                {item.account ? `Account: ${item.account}` : 'Account non assegnato'}
-              </Text>
-              {item.linee.length ? (
-                <View style={styles.lineeRow}>
-                  {item.linee.slice(0, 3).map((l) => (
-                    <View key={l} style={styles.lineaTag}>
-                      <Text style={styles.lineaTagTxt}>{l}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-            </View>
-            <View style={styles.badgeCol}>
-              {item.cliente_scout ? <StatusBadge small label="Cliente" colore={colors.successo} /> : null}
-              {item.partner_registro ? <StatusBadge small label="Partner" colore={colors.blue} /> : null}
-              {/* Azioni rapide: le stesse della scheda, a portata di lista. */}
-              <View style={styles.azioniRiga}>
-                <IconaAzione
-                  nome="call-outline"
-                  attiva={Boolean(item.telefono)}
-                  label="Chiama"
-                  onPress={() => item.telefono && Linking.openURL(`tel:${item.telefono}`)}
-                />
-                <IconaAzione
-                  nome="logo-whatsapp"
-                  attiva={Boolean(item.telefono)}
-                  label="WhatsApp"
-                  onPress={() => item.telefono && Linking.openURL(`https://wa.me/${item.telefono.replace(/[^0-9]/g, '')}`)}
-                />
-                <IconaAzione
-                  nome="mail-outline"
-                  attiva={Boolean(item.email)}
-                  label="Email"
-                  onPress={() => item.email && Linking.openURL(`mailto:${item.email}`)}
-                />
-                <IconaAzione
-                  nome="walk-outline"
-                  attiva
-                  label="Visita"
-                  onPress={() => router.push(`/(app)/visita/${item.id}`)}
-                />
+            {/* Riga alta: icona, dati del negozio, badge. Le azioni stanno sotto:
+                sul telefono, accanto al testo, le 4 icone lasciavano ~88px al
+                nome e si leggeva solo "ALPINU…". */}
+            <View style={styles.cardTop}>
+              <View style={styles.iconaBox}>
+                <Ionicons name="storefront-outline" size={20} color={colors.goldStrong} />
               </View>
+              <View style={styles.cardTesto}>
+                <Text style={styles.nome} numberOfLines={1}>{item.nome}</Text>
+                <Text style={styles.meta} numberOfLines={1}>
+                  {[item.zona, item.categoria].filter(Boolean).join(' · ') || item.indirizzo || '—'}
+                </Text>
+                <Text style={styles.account} numberOfLines={1}>
+                  <Ionicons name="briefcase-outline" size={11} color={colors.grigio} />{' '}
+                  {item.account ? `Account: ${item.account}` : 'Account non assegnato'}
+                </Text>
+                {item.linee.length ? (
+                  <View style={styles.lineeRow}>
+                    {item.linee.slice(0, 3).map((l) => (
+                      <View key={l} style={styles.lineaTag}>
+                        <Text style={styles.lineaTagTxt}>{l}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+              <View style={styles.badgeCol}>
+                {item.cliente_scout ? <StatusBadge small label="Cliente" colore={colors.successo} /> : null}
+                {item.partner_registro ? <StatusBadge small label="Partner" colore={colors.blue} /> : null}
+              </View>
+            </View>
+            {/* Azioni rapide: le stesse della scheda, a portata di lista. */}
+            <View style={styles.azioniRiga}>
+              <IconaAzione
+                nome="call-outline"
+                attiva={Boolean(item.telefono)}
+                label="Chiama"
+                onPress={() => item.telefono && Linking.openURL(`tel:${item.telefono}`)}
+              />
+              <IconaAzione
+                nome="logo-whatsapp"
+                attiva={Boolean(item.telefono)}
+                label="WhatsApp"
+                onPress={() => item.telefono && Linking.openURL(`https://wa.me/${item.telefono.replace(/[^0-9]/g, '')}`)}
+              />
+              <IconaAzione
+                nome="mail-outline"
+                attiva={Boolean(item.email)}
+                label="Email"
+                onPress={() => item.email && Linking.openURL(`mailto:${item.email}`)}
+              />
+              <IconaAzione
+                nome="walk-outline"
+                attiva
+                label="Visita"
+                onPress={() => router.push(`/(app)/visita/${item.id}`)}
+              />
             </View>
           </Pressable>
         )}
@@ -229,14 +234,18 @@ const styles = StyleSheet.create({
   chipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, gap: spacing.sm },
   card: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    gap: spacing.sm,
     backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md,
   },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  // minWidth: 0 serve perche' un figlio flex non scenda sotto il suo contenuto
+  // e schiacci il nome del negozio.
+  cardTesto: { flex: 1, minWidth: 0 },
   iconaBox: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
   nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   meta: { color: colors.testoSoft, fontSize: 13, marginTop: 1 },
   account: { color: colors.grigio, fontSize: 12, marginTop: 2 },
-  azioniRiga: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  azioniRiga: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
   iconaAzione: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.sfondo, alignItems: 'center', justifyContent: 'center' },
   lineeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
   lineaTag: { backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },

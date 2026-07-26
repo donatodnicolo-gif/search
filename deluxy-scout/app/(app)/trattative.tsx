@@ -172,11 +172,7 @@ export default function Trattative() {
           autoCapitalize="none"
           clearButtonMode="while-editing"
         />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtri}
-        >
+        <View style={styles.filtri}>
           <FiltroChip label="Tutte" on={faseFiltro === 'tutte'} onPress={() => setFaseFiltro('tutte')} />
           {fasiPresenti.map((f) => (
             <FiltroChip
@@ -186,9 +182,9 @@ export default function Trattative() {
               onPress={() => setFaseFiltro(f)}
             />
           ))}
-        </ScrollView>
+        </View>
         {/* Città: le tre principali + "Altre", come in Target, Clienti e Rubrica. */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+        <View style={styles.filtri}>
           <Text style={styles.filtroEtichetta}>Città</Text>
           {(OPZIONI_CITTA as unknown as string[]).map((c) => (
             <FiltroChip
@@ -198,9 +194,9 @@ export default function Trattative() {
               onPress={() => setCittaFiltro(c === 'Tutte' ? null : c)}
             />
           ))}
-        </ScrollView>
+        </View>
         {lineePresenti.length ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+          <View style={styles.filtri}>
             <Text style={styles.filtroEtichetta}>Interessi</Text>
             <FiltroChip label="Tutti" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
             {lineePresenti.map((l) => (
@@ -211,10 +207,10 @@ export default function Trattative() {
                 onPress={() => setLineaFiltro((c) => (c === l ? null : l))}
               />
             ))}
-          </ScrollView>
+          </View>
         ) : null}
         {accountPresenti.length ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+          <View style={styles.filtri}>
             <Text style={styles.filtroEtichetta}>Account</Text>
             <FiltroChip label="Tutti" on={!accountFiltro} onPress={() => setAccountFiltro(null)} />
             {accountPresenti.map((a) => (
@@ -225,7 +221,7 @@ export default function Trattative() {
                 onPress={() => setAccountFiltro((c) => (c === a ? null : a))}
               />
             ))}
-          </ScrollView>
+          </View>
         ) : null}
       </View>
       <SectionList
@@ -818,7 +814,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.testo,
   },
-  filtri: { flexDirection: 'row', gap: 6, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  // I filtri vanno a capo invece di scorrere in orizzontale: sul telefono lo
+  // scorrimento non si vedeva e le voci restavano tagliate a meta' parola
+  // ("Food Suppli…"), quindi non si scoprivano nemmeno.
+  filtri: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   filtroChip: {
     backgroundColor: colors.bianco,
     borderWidth: 1,

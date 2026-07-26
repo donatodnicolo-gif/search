@@ -7,7 +7,6 @@ import {
   Linking,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -156,7 +155,7 @@ export default function Affiliazioni() {
           autoCapitalize="none"
           clearButtonMode="while-editing"
         />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+        <View style={styles.filtri}>
           {FILTRI.map((f) => (
             <Pressable key={f} onPress={() => setFiltro(f)} style={[styles.chip, filtro === f && styles.chipOn]}>
               <Text style={[styles.chipTxt, filtro === f && styles.chipTxtOn]}>
@@ -164,7 +163,7 @@ export default function Affiliazioni() {
               </Text>
             </Pressable>
           ))}
-        </ScrollView>
+        </View>
       </View>
 
       <FlatList
@@ -298,7 +297,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.testo,
   },
-  filtri: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 6 },
+  // A capo invece che in scorrimento orizzontale: cosi' si vedono tutti i
+  // filtri, prima l'ultimo restava tagliato fuori schermo ("In att…").
+  filtri: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 6 },
   chip: {
     backgroundColor: colors.bianco,
     borderWidth: 1,

@@ -260,9 +260,11 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   icona: { width: 46, height: 46, borderRadius: radius.md, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
-  info: { flex: 1, gap: 3 },
-  titoloRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  nome: { flexShrink: 1, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },
+  info: { flex: 1, minWidth: 0, gap: 3 },
+  // Il badge "In ritardo" scende sotto quando il nome non ci sta: prima si
+  // spartivano la riga e del negozio restava solo "Moncler…".
+  titoloRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm },
+  nome: { flexShrink: 1, flexGrow: 1, minWidth: 140, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },
   meta: { color: colors.testoSoft, fontSize: 13 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
   metaSep: { color: colors.grigioChiaro, fontSize: 13 },

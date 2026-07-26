@@ -352,9 +352,11 @@ function FiltroRiga({ label, children }: { label: string; children: ReactNode })
   return (
     <View style={styles.filtroRiga}>
       <Text style={styles.filtroLabel}>{label}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtroChips}>
+      {/* A capo invece che in scorrimento orizzontale: sul telefono le ultime
+          voci restavano tagliate fuori dallo schermo senza modo di accorgersene. */}
+      <View style={styles.filtroChips}>
         {children}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -391,7 +393,7 @@ const styles = StyleSheet.create({
   azzera: { color: colors.oro, fontWeight: '800', fontSize: 12 },
   filtroRiga: { gap: 4 },
   filtroLabel: { fontSize: 11, fontWeight: '700', color: colors.grigio, paddingHorizontal: 2 },
-  filtroChips: { gap: 6, paddingVertical: 2, paddingRight: spacing.sm },
+  filtroChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingVertical: 2, paddingRight: spacing.sm },
   chip: {
     backgroundColor: colors.sfondo,
     borderWidth: 1,

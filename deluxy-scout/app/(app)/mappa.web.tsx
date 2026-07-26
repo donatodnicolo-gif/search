@@ -355,7 +355,7 @@ export default function MappaWeb() {
       {/* Ordina la scoperta dando precedenza a una linea di vendita (o Tutte). */}
       <View style={styles.focusBar}>
         <Text style={styles.focusLabel}>Ordina per linea di vendita</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.focusRow}>
+        <View style={styles.focusRow}>
           <FocusPill label="Tutte le linee" on={!lineaFocus} onPress={() => setLineaFocus(null)} />
           {LINEE_ATTIVE.map((l) => (
             <FocusPill
@@ -366,11 +366,11 @@ export default function MappaWeb() {
               onPress={() => setLineaFocus((v) => (v === l ? null : l))}
             />
           ))}
-        </ScrollView>
+        </View>
 
         {/* Sotto-filtro "cosa cerco": solo quando è attiva la linea Affiliazioni. */}
         {lineaFocus === 'Affiliazioni' ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subRow}>
+          <View style={styles.subRow}>
             {TIPI_SCOPERTA.map((t) => (
               <Pressable
                 key={t.v}
@@ -383,7 +383,7 @@ export default function MappaWeb() {
                 <Text style={[styles.subTxt, filtroScoperta === t.v && styles.subTxtOn]}>{t.l}</Text>
               </Pressable>
             ))}
-          </ScrollView>
+          </View>
         ) : null}
       </View>
 
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
   btnPreferitoTxt: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   btnPreferitoOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   btnPreferitoTxtOn: { color: colors.bianco },
-  subRow: { paddingHorizontal: spacing.md, paddingTop: 6, gap: 6, alignItems: 'center' },
+  subRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.md, paddingTop: 6, gap: 6, alignItems: 'center' },
   subChip: {
     alignSelf: 'center',
     backgroundColor: colors.bianco,
@@ -686,7 +686,9 @@ const styles = StyleSheet.create({
   subTxtOn: { color: colors.bianco },
   focusBar: { paddingBottom: spacing.xs },
   focusLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', paddingHorizontal: spacing.md, marginBottom: 4 },
-  focusRow: { paddingHorizontal: spacing.md, gap: 6 },
+  // A capo invece che in scorrimento orizzontale: le ultime linee di vendita
+  // restavano fuori schermo sul telefono ("Regali aziendali" si vedeva "R…").
+  focusRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.md, gap: 6 },
   focusPill: {
     flexDirection: 'row',
     alignItems: 'center',
