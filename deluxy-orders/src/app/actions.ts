@@ -8,6 +8,7 @@ import { codificaChiave } from "@/lib/clienti";
 import { canaleValido, tipologiaValida } from "@/lib/segmenti";
 import { importaFeedback } from "@/lib/feedback";
 import { preparaGiro, type VariabileScript } from "@/lib/automazioni";
+import { rilevaEventi } from "@/lib/eventi";
 import { eseguiSyncOrdini } from "@/lib/sync";
 import { tokenNegozio } from "@/lib/shopify";
 import { cercaDocumento, scriviConsegna, dataValida, fasciaValida } from "@/lib/consegna";
@@ -203,6 +204,36 @@ export async function impostaPrivacyCliente(fd: FormData) {
   revalidatePath("/liste");
 }
 
+// ---- Eventi dei clienti (le occasioni ricavate dagli ordini) ----
+export async function rilevaEventiClienti() {
+  const esito = await rilevaEventi();
+  revalidatePath("/eventi");
+  revalidatePath("/clienti");
+  redirect(
+    `/eventi?esito=${encodeURIComponent(
+      `${esito.ordiniLetti.toLocaleString("it-IT")} ordini letti · ${esito.eventi.toLocaleString("it-IT")} occasioni, di cui ${esito.ricorrenti} confermate da più anni · ${esito.nuovi} nuove, ${esito.aggiornati} aggiornate`,
+    )}`,
+  );
+}
+
+// Tipo e stato di un evento: li scrive una persona, e il rilevamento non li
+// tocca più. È la stessa regola della tipologia cliente — la mano vince.
+export async function aggiornaEventoCliente(fd: FormData) {
+  const id = s(fd, "id");
+  if (!id) return;
+  await prisma.eventoCliente.update({
+    where: { id },
+    data: {
+      tipo: s(fd, "tipo") ?? undefined,
+      stato: s(fd, "stato") ?? undefined,
+      titolo: s(fd, "titolo") ?? undefined,
+      note: s(fd, "note"),
+    },
+  });
+  revalidatePath("/eventi");
+  revalidatePath("/clienti");
+}
+
 // ---- Script (i testi che si mandano ai clienti) ----
 export async function creaScript(fd: FormData) {
   const nome = s(fd, "nome");
@@ -293,6 +324,8 @@ export async function creaAutomazione(fd: FormData) {
       descrizione: s(fd, "descrizione") ?? "",
       lista: s(fd, "lista") ?? "da-riattivare",
       canale: canaleValido(s(fd, "canale")),
+      // Lo script si sceglie già qui: è il motivo per cui la sezione esiste.
+      scriptId: s(fd, "scriptId"),
       script: s(fd, "script") ?? "",
     },
   });

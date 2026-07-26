@@ -209,6 +209,64 @@ model MessaggioAutomazione {
   @@index([chiave, preparatoIl])
 }
 
+// EVENTI DEI CLIENTI — le occasioni per cui ordinano, ricavate dagli ordini.
+//
+// Un fioraio non vende fiori: vende ricorrenze. Quando lo stesso cliente manda
+// qualcosa alla stessa persona più o meno nello stesso giorno di anni diversi,
+// quello è un compleanno, un anniversario, una festa: l'informazione più utile
+// che questo registro possieda, ed è sempre stata lì dentro senza che nessuno
+// la leggesse.
+//
+// COME SI RICAVA, e cosa NON si deduce:
+//  - si guardano solo la **data di consegna** (attributo strutturato, non il
+//    testo delle note) e il **destinatario** della spedizione;
+//  - stesso cliente + stesso destinatario + consegne entro 7 giorni l'una
+//    dall'altra = una ricorrenza. Se cade in **anni diversi** è confermata dai
+//    fatti (`ricorrenze` ≥ 2); se è capitata una volta sola resta un'ipotesi;
+//  - **che cosa** si festeggi non si indovina: nessuno scrive «compleanno» in
+//    un ordine. Il tipo resta «da precisare» finché una persona non lo scrive.
+//    Chiamare «compleanno» un anniversario di matrimonio è il genere di errore
+//    che si legge in un messaggio ai clienti.
+//
+// Gli ordini SENZA data di consegna (un terzo dell'archivio) non producono
+// eventi: la data dell'ordine è quando si compra, non quando si festeggia.
+model EventoCliente {
+  id     String @id @default(cuid())
+  chiave String // il cliente (email → telefono → nome), come nelle liste
+
+  // Quando ricorre: giorno e mese, perché torna ogni anno.
+  giorno Int
+  mese   Int
+
+  destinatario String @default("") // a chi va: è ciò che distingue due eventi
+  citta        String @default("")
+  titolo       String @default("") // come lo chiama l'operatore
+  tipo         String @default("da-precisare") // compleanno | anniversario | ricorrenza | altro
+
+  // Le prove: quante volte è successo, in quali anni, con quali ordini.
+  ricorrenze Int      @default(1)
+  primoAnno  Int
+  ultimoAnno Int
+  ordini     String   @default("") // numeri degli ordini, separati da spazio
+  ultimaSpesa Float   @default(0) // quanto ha speso l'ultima volta
+
+  origine String @default("dedotto") // dedotto | manuale
+  // da-confermare = l'ha trovato l'app · confermato = l'ha guardato una persona
+  // · ignorato = non è un evento (una consegna capitata lì per caso)
+  stato   String @default("da-confermare")
+  note    String?
+
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  // Uno solo per cliente + destinatario + giorno: rilanciare il rilevamento
+  // aggiorna, non duplica.
+  @@unique([chiave, destinatario, mese, giorno])
+  @@index([mese, giorno])
+  @@index([chiave])
+  @@index([stato])
+}
+
 // Stato del flusso di lavoro (pipeline) — completamente personalizzabile.
 // È la classificazione principale su cui si muove la Bacheca. `chiave` è lo slug
 // stabile citato dalle API; `nome` è l'etichetta mostrata.

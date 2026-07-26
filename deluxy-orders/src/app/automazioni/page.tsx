@@ -12,8 +12,10 @@ export const dynamic = "force-dynamic";
 export default async function Automazioni() {
   const automazioni = await prisma.automazione.findMany({
     orderBy: { creatoIl: "desc" },
-    include: { _count: { select: { messaggi: true } } },
+    include: { _count: { select: { messaggi: true } }, scriptUsato: { select: { id: true, nome: true } } },
   });
+
+  const script = await prisma.script.findMany({ where: { attivo: true }, orderBy: { nome: "asc" } });
 
   const pronti = await prisma.messaggioAutomazione.groupBy({
     by: ["automazioneId"],
@@ -54,6 +56,7 @@ export default async function Automazioni() {
                 <th>Automazione</th>
                 <th>Lista</th>
                 <th>Canale</th>
+                <th>Script</th>
                 <th className="num">Pronti</th>
                 <th className="num">Preparati in tutto</th>
                 <th>Ultimo giro</th>
@@ -69,6 +72,13 @@ export default async function Automazioni() {
                   </td>
                   <td className="cella-muta">{lista(a.lista)?.nome ?? a.lista}</td>
                   <td className="cella-muta">{nomeCanale(a.canale)}</td>
+                  <td className="cella-muta">
+                    {a.scriptUsato ? (
+                      <Link href={`/script/${a.scriptUsato.id}`}>{a.scriptUsato.nome}</Link>
+                    ) : (
+                      <span className="cella-sub">testo scritto a mano</span>
+                    )}
+                  </td>
                   <td className="cella-num">{(perAutomazione.get(a.id) ?? 0).toLocaleString("it-IT")}</td>
                   <td className="cella-num">{a._count.messaggi.toLocaleString("it-IT")}</td>
                   <td className="cella-muta">{a.ultimoGiro ? dataBreve(a.ultimoGiro) : "mai"}</td>
@@ -112,8 +122,28 @@ export default async function Automazioni() {
             <label htmlFor="descrizione">A cosa serve</label>
             <input id="descrizione" name="descrizione" placeholder="es. recuperare chi non ordina da un anno" />
           </div>
+          {/* Lo script si sceglie qui, subito: è il motivo per cui esiste la
+              sezione Script. Il testo libero resta sotto per i casi al volo. */}
           <div className="campo-modulo largo">
-            <label htmlFor="script">Script del messaggio</label>
+            <label htmlFor="scriptId">Script da usare</label>
+            <select id="scriptId" name="scriptId" defaultValue="">
+              <option value="">— nessuno: scrivo il testo qui sotto —</option>
+              {script.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nome}
+                  {s.attivo ? "" : " (sospeso)"}
+                </option>
+              ))}
+            </select>
+            {script.length === 0 && (
+              <span className="cella-sub">
+                Nessuno script ancora: <Link href="/script">scrivine uno</Link> e potrai riusarlo
+                in tutte le automazioni.
+              </span>
+            )}
+          </div>
+          <div className="campo-modulo largo">
+            <label htmlFor="script">Oppure il testo, scritto qui</label>
             <textarea
               id="script"
               name="script"

@@ -429,6 +429,17 @@ export const LISTE: Lista[] = [
 
   // ---- attivazione ----
   {
+    chiave: "evento-in-arrivo",
+    nome: "Ha un'occasione fra 30 giorni",
+    famiglia: "attivazione",
+    colore: "var(--gold-strong)",
+    criterio:
+      "Ha almeno un'occasione (vedi Eventi clienti) che ricorre nei prossimi 30 giorni: stesso destinatario, stessa data, già successo in passato.",
+    consiglio:
+      "La lista che vale di più in assoluto: non gli stai proponendo di comprare, gli stai ricordando una data che gli importa. Da lavorare 2-3 settimane prima, non il giorno stesso.",
+    dove: Prisma.raw(`eventi_vicini > 0`),
+  },
+  {
     chiave: "alto-scontrino",
     nome: "Alto scontrino",
     famiglia: "attivazione",

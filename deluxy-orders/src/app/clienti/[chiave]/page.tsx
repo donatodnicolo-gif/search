@@ -5,6 +5,13 @@ import { euro, dataBreve } from "@/lib/ordini";
 import { brandConColore, mappaColori, coloreBrand } from "@/lib/brand";
 import { clienteSingolo, decodificaChiave, whereOrdiniCliente } from "@/lib/clienti";
 import { LISTE, TIPOLOGIE, consensoLeggibile, nomeTipologia } from "@/lib/segmenti";
+import {
+  coloreTipoEvento,
+  dataEvento,
+  fraQuantiGiorni,
+  nomeTipoEvento,
+  quandoLeggibile,
+} from "@/lib/eventi";
 import { statiOrdinati } from "@/lib/stati";
 import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
 import { PillAttivita, PillPrivacy, PillSegmento, PillTipologia, giorniFa } from "@/components/TabellaClienti";
@@ -17,7 +24,7 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
   const chiave = decodificaChiave(codice);
   const where = whereOrdiniCliente(chiave);
 
-  const [ordini, somma, brand, stati, cliente] = await Promise.all([
+  const [ordini, somma, brand, stati, cliente, eventi] = await Promise.all([
     prisma.ordine.findMany({
       where,
       include: { stato: true, etichette: true },
@@ -28,6 +35,10 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
     brandConColore(),
     statiOrdinati(),
     clienteSingolo(chiave),
+    prisma.eventoCliente.findMany({
+      where: { chiave, stato: { not: "ignorato" } },
+      orderBy: [{ ricorrenze: "desc" }, { mese: "asc" }, { giorno: "asc" }],
+    }),
   ]);
 
   if (ordini.length === 0) notFound();
@@ -211,6 +222,50 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Le occasioni di questo cliente: quando ordina, e per chi. */}
+      {eventi.length > 0 && (
+        <div className="scheda">
+          <div className="scheda-titolo">Le sue occasioni</div>
+          <div className="tabella-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Quando</th><th>Per chi</th><th>Tipo</th><th className="num">Volte</th><th>Anni</th>
+                </tr>
+              </thead>
+              <tbody>
+                {eventi.map((e) => {
+                  const fra = fraQuantiGiorni(e.giorno, e.mese);
+                  return (
+                    <tr key={e.id}>
+                      <td>
+                        <span className="cella-nome">{dataEvento(e.giorno, e.mese)}</span>
+                        <div className={`cella-sub${fra <= 14 ? " evento-vicino" : ""}`}>{quandoLeggibile(fra)}</div>
+                      </td>
+                      <td>{e.titolo || e.destinatario || "—"}</td>
+                      <td>
+                        <span className="tag" style={{ color: coloreTipoEvento(e.tipo) }}>
+                          <span className="dot" />
+                          <span className="tag-label">{nomeTipoEvento(e.tipo)}</span>
+                        </span>
+                      </td>
+                      <td className="cella-num">{e.ricorrenze}</td>
+                      <td className="cella-muta">
+                        {e.primoAnno === e.ultimoAnno ? e.primoAnno : `${e.primoAnno}–${e.ultimoAnno}`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="testo-guida" style={{ marginTop: 8 }}>
+            Ricavate dalle date di consegna e dai destinatari dei suoi ordini. Si confermano e si
+            precisano in <Link href="/eventi" className="ritorno">Eventi clienti</Link>.
+          </p>
         </div>
       )}
 

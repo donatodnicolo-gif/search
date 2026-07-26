@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { eseguiSyncOrdini } from "@/lib/sync";
 import { importaFeedback } from "@/lib/feedback";
+import { rilevaEventi } from "@/lib/eventi";
 
 // Sincronizzazione automatica degli ordini Shopify (cron Vercel, vedi
 // vercel.json). Scarica gli ordini recenti da tutti i negozi collegati e li
@@ -64,8 +65,14 @@ export async function GET(req: NextRequest) {
     const feedback = veloce
       ? "saltati (giro veloce)"
       : await importaFeedback().catch((e) => ({ errore: (e as Error).message }));
+    // Le occasioni dei clienti si rileggono nella passata piena: nascono dalle
+    // date di consegna, che cambiano quando cambiano gli ordini. Il giro è
+    // idempotente e su un archivio fermo costa un secondo e mezzo.
+    const eventi = veloce
+      ? "saltati (giro veloce)"
+      : await rilevaEventi().catch((e) => ({ errore: (e as Error).message }));
     revalidatePath("/", "layout");
-    return NextResponse.json({ ok: true, giorni, veloce, ...esito, feedback });
+    return NextResponse.json({ ok: true, giorni, veloce, ...esito, feedback, eventi });
   } catch (e) {
     return NextResponse.json({ errore: (e as Error).message }, { status: 500 });
   }

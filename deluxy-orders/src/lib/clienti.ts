@@ -67,6 +67,7 @@ export type Cliente = {
   privacyTelefono: string | null;
   bloccato: boolean;
   notaPrivacy: string | null;
+  eventiVicini: number; // occasioni che ricorrono nei prossimi 30 giorni
   contattabileEmail: boolean;
   contattabileSms: boolean;
   contattabileTelefono: boolean;
@@ -101,6 +102,13 @@ function dove(q?: string): Prisma.Sql {
     "citta" ILIKE ${like}
   )`;
 }
+
+// Oggi e fra 30 giorni, scritti come mese*100+giorno: è l'unico modo di
+// confrontare una data che torna ogni anno senza inventarsi l'anno.
+const MMDD_OGGI = Prisma.raw(`(EXTRACT(MONTH FROM CURRENT_DATE)::int * 100 + EXTRACT(DAY FROM CURRENT_DATE)::int)`);
+const MMDD_FINE = Prisma.raw(
+  `(EXTRACT(MONTH FROM CURRENT_DATE + 30)::int * 100 + EXTRACT(DAY FROM CURRENT_DATE + 30)::int)`,
+);
 
 // Quanti ordini validi sono caduti in ciascuna finestra di ricorrenza.
 const COLONNE_OCCASIONI = Prisma.raw(
@@ -153,6 +161,20 @@ function vistaClienti(q?: string, chiave?: string, materializza = false): Prisma
         LOWER(SPLIT_PART(COALESCE(b.email, ''), '@', 2)) AS dominio,
         t."tipo" AS tipo_manuale,
         t."note" AS nota_tag,
+        -- Quante occasioni di questo cliente ricorrono nei prossimi 30 giorni.
+        -- Il confronto si fa su mese*100+giorno, che cresce come la data
+        -- dentro l'anno: niente make_date, che sul 29 febbraio esploderebbe.
+        (
+          SELECT COUNT(*) FROM ${tabella("EventoCliente")} ev
+          WHERE ev."chiave" = b.chiave AND ev."stato" <> 'ignorato' AND (
+            CASE
+              WHEN ${MMDD_FINE} >= ${MMDD_OGGI}
+                THEN ev."mese" * 100 + ev."giorno" BETWEEN ${MMDD_OGGI} AND ${MMDD_FINE}
+              ELSE ev."mese" * 100 + ev."giorno" >= ${MMDD_OGGI}
+                OR ev."mese" * 100 + ev."giorno" <= ${MMDD_FINE}
+            END
+          )
+        )::int AS eventi_vicini,
         p."email" AS privacy_email,
         p."sms" AS privacy_sms,
         p."telefono" AS privacy_telefono,
@@ -283,6 +305,7 @@ type RigaCliente = {
   privacy_telefono: string | null;
   bloccato: boolean;
   nota_privacy: string | null;
+  eventi_vicini: number;
   contattabile_email: boolean;
   contattabile_sms: boolean;
   contattabile_telefono: boolean;
@@ -317,6 +340,7 @@ function daRiga(r: RigaCliente): Cliente {
     privacyTelefono: r.privacy_telefono,
     bloccato: r.bloccato,
     notaPrivacy: r.nota_privacy,
+    eventiVicini: r.eventi_vicini ?? 0,
     contattabileEmail: r.contattabile_email,
     contattabileSms: r.contattabile_sms,
     contattabileTelefono: r.contattabile_telefono,
@@ -327,7 +351,7 @@ const CAMPI = Prisma.raw(`
   chiave, nome, email, telefono, citta, ordini, annullati, speso, medio,
   primo, ultimo, giorni, brand, segmento, attivita, tipologia, tipologia_auto,
   tipo_manuale, nota_tag, dominio_aziendale, consenso_email, consenso_sms,
-  privacy_email, privacy_sms, privacy_telefono, bloccato, nota_privacy,
+  privacy_email, privacy_sms, privacy_telefono, bloccato, nota_privacy, eventi_vicini,
   contattabile_email, contattabile_sms, contattabile_telefono
 `);
 

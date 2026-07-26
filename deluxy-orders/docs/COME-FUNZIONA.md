@@ -162,7 +162,7 @@ avere il recapito non è avere il permesso di usarlo.
 > scrivere».
 
 ### Liste (`/liste`)
-I clienti raggruppati **come si usano**: 28 liste calcolate in tempo reale dagli
+I clienti raggruppati **come si usano**: 29 liste calcolate in tempo reale dagli
 ordini (nessuna lista salvata che possa invecchiare). Ogni card dice quanti
 clienti contiene, quanto valgono, **con che criterio** ci si finisce dentro e
 **cosa farci**. Aprendone una si ottiene l'elenco dei clienti, la ricerca
@@ -230,6 +230,49 @@ non dice anche il negozio, il feedback resta *senza ordine riconosciuto*
 (visibile e contato in Impostazioni) invece di essere attaccato all'ordine
 sbagliato. Un reclamo sull'ordine sbagliato manda a un fornitore la colpa di un
 altro: meglio scollegato.
+
+### Eventi clienti (`/eventi`)
+Le **occasioni** per cui i clienti ordinano, ricavate dagli ordini. Un fioraio
+non vende fiori: vende ricorrenze. Se lo stesso cliente manda qualcosa alla
+stessa persona più o meno nello stesso giorno di anni diversi, quello è un
+compleanno, un anniversario, una festa — l'informazione più utile del registro,
+e c'era già dentro senza che nessuno la leggesse.
+
+Sui dati veri: **9.129 ordini con data di consegna → 8.729 occasioni**, di cui
+**169 confermate da più anni** e **366 che ricorrono nei prossimi 30 giorni**.
+Esempi reali: la stessa persona riceve qualcosa ogni **27 marzo dal 2022 al
+2026** (cinque anni di fila), un'altra ogni **24 dicembre dal 2022**.
+
+Come si ricava, e cosa **non** si deduce:
+
+- si guardano solo la **data di consegna** (l'attributo Shopify) e il
+  **destinatario** della spedizione: due dati strutturati, mai il testo delle
+  note;
+- stesso cliente + stesso destinatario + consegne entro **7 giorni** l'una
+  dall'altra = una occasione. Se cade in **anni diversi** è un fatto
+  (`ricorrenze` ≥ 2); se è capitata una volta sola è un'ipotesi — utile lo
+  stesso, perché quella data torna;
+- **che cosa** si festeggi non si indovina: nessuno lo scrive in un ordine, e
+  chiamare «compleanno» un anniversario di matrimonio è l'errore che poi si
+  legge in un messaggio al cliente. Il tipo resta «da precisare» finché non lo
+  scrive una persona, dal menu sulla riga;
+- gli ordini **senza data di consegna** (un terzo dell'archivio) non producono
+  occasioni: la data dell'ordine è quando si compra, non quando si festeggia.
+
+La vista predefinita è **quello che sta arrivando** (60 giorni, il più vicino in
+alto, in rosso sotto i 14 giorni); ci sono anche *ricorrenti*, *da confermare*,
+*confermati* e *ignorati* — perché una consegna capitata lì per caso si toglie
+di mezzo invece di restare a fare rumore. Le occasioni di un cliente si vedono
+anche sulla sua scheda.
+
+Il rilevamento si rilancia dal pulsante **«Rileggi gli ordini»** e gira ogni
+notte con la sincronizzazione. È idempotente e **non tocca ciò che ha scritto
+una persona**: tipo, titolo, note e stato restano com'erano (secondo giro
+misurato: 0 nuovi, 0 aggiornati, 1,6 secondi).
+
+Da qui nasce la lista **«Ha un'occasione fra 30 giorni»** (359 clienti,
+99.000 EUR di storico): la più preziosa del catalogo, perché non stai
+proponendo di comprare — stai ricordando una data che a quella persona importa.
 
 ### Script (`/script`)
 Uno **script** è un testo da mandare ai clienti, scritto una volta e riusato

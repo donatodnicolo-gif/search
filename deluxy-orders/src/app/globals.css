@@ -879,3 +879,6 @@ td .badge-problema { margin-top: 3px; }
 .kpi-problema:hover { box-shadow: var(--shadow-float); }
 
 .scheda-problema { border-left: 3px solid var(--orange); }
+
+/* Un evento che ricorre fra pochi giorni: è l'unica cosa che deve saltare all'occhio */
+.evento-vicino { color: var(--red); font-weight: 600; }

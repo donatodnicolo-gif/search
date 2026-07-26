@@ -22,12 +22,12 @@ credenziali riusate da Finance.
 
 Le pagine: **Ordini** (vista predefinita a *colonne per brand*, più l'elenco in
 tabella), **Bacheca** kanban, **scheda ordine**, **Clienti** (+ tag, + rubrica
-Google), **Liste** (28 liste di clienti + export CSV), **Consegna**,
+Google), **Liste** (29 liste di clienti + export CSV), **Consegna**,
 **Impostazioni**, **Fornitori vicini** per ordine.
 
 ### Liste e tag dei clienti (26/07/2026)
 I 10.212 clienti (su 10.375 identificabili: 163 hanno solo ordini annullati e
-non contano) sono classificati in tempo reale su due assi, e raccolti in **28
+non contano) sono classificati in tempo reale su due assi, e raccolti in **29
 liste** con criterio scritto e consiglio d'uso — catalogo in
 `src/lib/segmenti.ts`, query in `src/lib/clienti.ts`, API `/api/v1/liste`.
 
@@ -111,6 +111,23 @@ notte dentro `/api/cron/sync` e a mano dal pulsante.
   l'altro, limite per giro). **Preparano** i messaggi, non li inviano: si
   esportano o si mandano dal Customer Service e poi si segnano come inviati.
   Ogni scheda mostra la prova a vuoto con i motivi degli esclusi.
+
+### Eventi clienti (26/07/2026)
+Le occasioni per cui i clienti ordinano, ricavate dagli ordini: **9.129 ordini
+con data di consegna → 8.729 occasioni**, 169 confermate da 2+ anni, **366 nei
+prossimi 30 giorni**. Pagina `/eventi`, motore in `src/lib/eventi.ts`, tabella
+`EventoCliente`, rilevamento nel cron notturno + pulsante.
+
+- **Solo dati strutturati**: data di consegna + destinatario. Mai le note. Il
+  TIPO (compleanno/anniversario) non si deduce: nessuno lo scrive in un ordine.
+- Raggruppamento: stesso cliente + stesso destinatario + consegne entro 7
+  giorni. Anni diversi = fatto; una volta sola = ipotesi.
+- **Idempotente e non distruttivo**: rilanciarlo aggiorna solo i fatti
+  (ricorrenze, anni, ordini) e lascia tipo/titolo/note/stato scritti a mano.
+  Secondo giro misurato: 0 nuovi, 0 aggiornati, 1,6 s.
+- Alimenta la lista **«Ha un'occasione fra 30 giorni»** (359 clienti): il
+  confronto sulle date che tornano si fa su `mese*100+giorno`, che cresce come
+  la data dentro l'anno — niente `make_date`, che sul 29 febbraio esploderebbe.
 
 ### Ordini problematici — rimborsi parziali (26/07/2026)
 **89 ordini** (13.815 EUR) hanno `financialStatus = PARTIALLY_REFUNDED`: l'ordine
