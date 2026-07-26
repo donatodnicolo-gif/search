@@ -59,9 +59,16 @@ pubblicato), *sfidante* e *irraggiungibile*.
   conto economico è la **quota del venduto che resta a Deluxy**: `QUOTA_FATTURATO` (oggi 40%)
   applicata al venduto di [Venduto](#). Sommare qui il venduto pieno gonfierebbe i ricavi di più
   del doppio e produrrebbe un margine che non esiste. Un riquadro in fondo alla pagina mostra la
-  catena venduto → detrazioni partner → fatturato. **Da decidere con l'utente**: il budget D2C è
-  scritto sul **venduto**, quindi su quella riga «scostamento» e «realizzato» confrontano due basi
-  diverse — la pagina lo dichiara e rimanda a `/venduto` per il paragone giusto. **L'IVA non si scorpora**: il totale Shopify si usa così com'è,
+  catena venduto → detrazioni partner → fatturato.
+  Di conseguenza **non c'è più un «costo del venduto»**: la quota del partner è già una detrazione
+  dai ricavi, non un costo. Quella riga è ora il **costo per servizi** — quanto si paga ai **valet**
+  per la consegna — e la pagina **elenca le categorie di banca che la compongono** con gli importi,
+  perché è lì che si annida il doppio conteggio (oggi dentro c'è «Fornitori fiori e torte» per
+  346 k€: sono pagamenti ai partner e vanno spostati su «Esclusa dal P&L» in `/cfo`).
+  **Due decisioni aperte, dichiarate in pagina e non risolte a mano**: (1) il budget D2C è scritto
+  sul **venduto**, quindi su quella riga «scostamento» e «realizzato» confrontano due basi diverse
+  (il paragone giusto è in `/venduto`); (2) il **budget** del costo per servizi è ancora calcolato
+  come costo del venduto dai margini per tipologia, cioè con la vecchia logica. **L'IVA non si scorpora**: il totale Shopify si usa così com'è,
   IVA e spedizione incluse, perché il budget D2C è scritto sulla stessa base. Le due fonti dei
   ricavi restano quindi su basi diverse — Finance **imponibile**, Shopify **IVA inclusa** — e la
   pagina lo dichiara invece di uniformarle con un'aliquota indovinata (Shopify non salva l'aliquota

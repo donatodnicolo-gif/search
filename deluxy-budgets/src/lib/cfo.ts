@@ -5,8 +5,15 @@
 import { prisma } from "./db";
 import type { SpesaControparte } from "./finance";
 
+// La chiave resta `COGS` (è a DB su CategoriaCosto.tipoPL, rinominarla
+// significherebbe migrare le categorie già create), ma **l'etichetta no**: sul
+// canale ecommerce non esiste più un «costo del venduto», perché la quota del
+// partner è già tolta a monte, nel passaggio da venduto a fatturato. Quello che
+// resta qui è il costo dei **servizi** — in primis quanto si paga ai valet per
+// la consegna. Attenzione a cosa ci si mette dentro: i pagamenti ai partner in
+// questa categoria conterebbero due volte.
 export const TIPI_PL = [
-  { key: "COGS", label: "Costo del venduto", badge: "orange" },
+  { key: "COGS", label: "Costo per servizi (valet)", badge: "orange" },
   { key: "ADV", label: "Pubblicità", badge: "blue" },
   { key: "PERSONALE", label: "Personale", badge: "purple" },
   { key: "STRUTTURA", label: "Struttura", badge: "neutral" },

@@ -208,6 +208,12 @@ export default async function ConsuntivoPage({
   };
   let nonCategorizzato = 0;
   let esclusi = 0;
+  // Da quali categorie di banca è fatto il «costo per servizi». Si mostra per
+  // nome e importo, perché è lì che si annida il doppio conteggio: la quota dei
+  // partner è già tolta dai ricavi, quindi un «Fornitori fiori e torte» dentro
+  // questa voce conta due volte lo stesso denaro. Elencarle è l'unico modo per
+  // farlo vedere senza indovinare quali siano dal nome.
+  const serviziPerCategoria = new Map<string, number>();
   if (spese.ok) {
     for (const r of ricostruisci(spese.dati.controparti, categorie)) {
       const tp = r.categoria?.tipoPL;
@@ -216,9 +222,13 @@ export default async function ConsuntivoPage({
       if (tp in costi) {
         costi[tp as keyof typeof costi] += r.uscite;
         for (let i = 0; i < 12; i++) costiMese[tp][i] += r.perMese[i] ?? 0;
+        if (tp === "COGS" && r.categoria) {
+          serviziPerCategoria.set(r.categoria.nome, (serviziPerCategoria.get(r.categoria.nome) ?? 0) + r.uscite);
+        }
       }
     }
   }
+  const vociServizi = [...serviziPerCategoria.entries()].sort((a, b) => b[1] - a[1]);
 
   // Costi dell'anno prima. **Solo se il dato esiste**: se la banca non ha
   // movimenti per quel periodo il costo non è «zero», è *non misurato* — e uno
@@ -312,7 +322,10 @@ export default async function ConsuntivoPage({
   const righePL: RigaPL[] = [
     { label: "Totale ricavi", cons: ricaviCons, budget: budgetRicavi, prec: ricaviPrec, tipo: "totale" },
     ...righeRicavi,
-    { label: "Costo del venduto", nota: "banca · Fornitori/COGS", cons: costi.COGS, budget: B("cogs"), prec: costoPrec("COGS"), precParziale: bancaPrecParziale, tipo: "costo" },
+    // Non è più «costo del venduto»: la quota del partner è già tolta a monte,
+    // nel passaggio da venduto a fatturato. Quello che resta è il costo dei
+    // servizi — quanto si paga ai valet per la consegna.
+    { label: "Costo per servizi", nota: "banca · valet e servizi", cons: costi.COGS, budget: B("cogs"), prec: costoPrec("COGS"), precParziale: bancaPrecParziale, tipo: "costo" },
     { label: "Margine lordo", cons: margineLordoCons, budget: B("margineLordo"), prec: margineLordoPrec, tipo: "totale" },
     { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), prec: costoPrec("ADV"), precParziale: bancaPrecParziale, tipo: "costo" },
     { label: "Costo del personale", nota: "anagrafica Dipendenti", cons: personaleCons, budget: B("personale"), prec: personalePrec, tipo: "costo" },
@@ -354,7 +367,7 @@ export default async function ConsuntivoPage({
     // Quanto di quei ricavi è ecommerce, mese per mese: è la riga che dice se
     // l'andamento dei negozi sta reggendo, e da sola nel totale non si vede.
     ...(d2c.ok ? [{ label: `di cui ecommerce (stima ${QUOTA_FATTURATO}%)`, dettaglio: true, get: (m: number) => d2cMese[m - 1] ?? 0 }] : []),
-    { label: "Costo del venduto", costo: true, get: (m) => costoM("COGS", m) },
+    { label: "Costo per servizi", costo: true, get: (m) => costoM("COGS", m) },
     { label: "Margine lordo", forte: true, get: margineM },
     { label: "ADV", costo: true, get: (m) => costoM("ADV", m) },
     { label: "Personale", costo: true, get: personaleMese },
@@ -588,10 +601,27 @@ export default async function ConsuntivoPage({
             Finance ed è al netto stimato dei partner. Il <strong>costo del
             personale</strong> viene dall&apos;anagrafica{" "}
             <Link href="/dipendenti" style={{ color: "var(--blue)" }}>Dipendenti</Link> (payroll, mese per
-            mese), non dalla banca. Gli <strong>altri costi</strong> (COGS, ADV, struttura) sono le uscite di
+            mese), non dalla banca. Gli <strong>altri costi</strong> (servizi, ADV, struttura) sono le uscite di
             banca categorizzate nel <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>
             {spese.ok ? ` (${eur(nonCategorizzato)} ancora da categorizzare` : " (spese banca non disponibili"}
             {esclusi > 0 ? `, ${eur(esclusi)} esclusi` : ""}): finché non li classifichi restano sottostimati.{" "}
+            <strong>Sul «costo per servizi» attenzione al doppio conteggio</strong>: la quota che va ai partner è già
+            tolta dai ricavi (venduto → fatturato), quindi lì dentro devono starci i <strong>servizi</strong> — quanto
+            si paga ai <strong>valet</strong> per la consegna — e <em>non</em> i pagamenti ai partner. Oggi quella voce
+            è fatta di{" "}
+            {vociServizi.length === 0 ? (
+              <>nessuna categoria</>
+            ) : (
+              vociServizi.map(([nome, importo], i) => (
+                <span key={nome}>
+                  {i > 0 ? ", " : ""}
+                  <strong>{nome}</strong> {eur(importo)}
+                </span>
+              ))
+            )}
+            : quelle che sono pagamenti ai partner vanno spostate su «Esclusa dal P&amp;L» in{" "}
+            <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>, altrimenti lo stesso denaro è contato due
+            volte.{" "}
             {periodo.annoIntero ? (
               <>
                 Sei nella vista <strong>Anno</strong>: il consuntivo resta quello dei <strong>mesi chiusi</strong>{" "}
@@ -643,10 +673,15 @@ export default async function ConsuntivoPage({
                 {mesiBancaPrec.length === 1 ? "un mese" : `${mesiBancaPrec.length} mesi`}.{" "}
               </>
             )}
-            <strong>Da decidere</strong>: il budget D2C è scritto sul <strong>venduto</strong> (1,08 M€ sul 2026),
-            mentre qui il consuntivo è il <strong>fatturato stimato</strong>. Finché resta così, su quella riga —
-            e quindi sul totale — «scostamento» e «realizzato» confrontano due basi diverse: il paragone giusto sul
-            venduto è in <Link href="/venduto" style={{ color: "var(--blue)" }}>Venduto</Link>.{" "}
+            <strong>Da decidere</strong>, due cose che riguardano il <em>budget</em>, non il consuntivo. (1) Il budget
+            D2C è scritto sul <strong>venduto</strong> (1,08 M€ sul 2026), mentre qui il consuntivo è il{" "}
+            <strong>fatturato stimato</strong>: su quella riga — e quindi sul totale — «scostamento» e «realizzato»
+            confrontano due basi diverse, e il paragone giusto sul venduto è in{" "}
+            <Link href="/venduto" style={{ color: "var(--blue)" }}>Venduto</Link>. (2) Il budget del{" "}
+            <strong>costo per servizi</strong> è ancora calcolato come costo del venduto, dai margini per tipologia
+            impostati in <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>: è la vecchia logica,
+            in cui il costo del partner era una voce di costo invece che una detrazione dai ricavi. Finché non si
+            rifà, la colonna «budget» di quella riga misura un&apos;altra cosa.{" "}
             Budget di confronto = somma dei mesi {etichettaRif}. <strong>Le due fonti dei ricavi hanno basi
             diverse</strong>: il fatturato di Finance è <strong>imponibile</strong>, la quota ecommerce è il{" "}
             {QUOTA_FATTURATO}% di un venduto <strong>IVA inclusa</strong> (non si scorpora, perché il budget D2C è
