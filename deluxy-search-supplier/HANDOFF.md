@@ -280,6 +280,20 @@ solo dove siamo e come si lavora.
    corretta, datiExtra oggetto+stringa, filtri, console pulita). Cross-tab reale attesa: ~93
    FIORISTA + ~78 PASTICCERIA tra attivi(12)+prospect(156).
 
+32. **Modo compatto dell'ordine quando ci sono i risultati** (26/07): la scheda ordine (lunga)
+   si **comprime in un riepilogo** appena compaiono i risultati della ricerca, così l'operatore
+   ha meno scroll e si concentra sui negozi. Riepilogo (`#orderSummary`, `renderOrderSummary`):
+   n° ordine + stato ricerca, foto piccola, destinatario, consegna, prodotto, budget/pagato/
+   margine, messaggio (read-only + «📋 Copia»). Toggle: `setOrderCollapsed(bool)` aggiunge/toglie
+   `.ordercard.collapsed` (CSS `#orderBox{display:none !important}`); «✏️ Modifica ordine» (nel
+   riepilogo) riespande, «▲ Comprimi ordine» (`#collapseOrder`, in cima a `#orderBox`, visibile
+   solo se `resultsShown && orderLoaded`) ricomprime. La compressione parte in `renderResults`
+   quando `orderLoaded`; `populateOrder`/`manualOrder` resettano `resultsShown=false` e
+   riespandono (nuovo ordine → form esteso finché non arrivano i risultati). **I campi originali
+   restano nel DOM (nascosti)**: gli invii dalle schede leggono `#ord_msg`/campi come prima.
+   Scelta utente fra 3 opzioni (compattamento vs scroll indipendenti vs 1 colonna). Verificato:
+   collapse/expand, contenuti riepilogo, mobile (1 colonna, no overflow), console pulita.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche

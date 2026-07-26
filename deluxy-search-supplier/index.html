@@ -224,6 +224,20 @@
         background:var(--ink); color:#fff; font-size:14px; transition:background .18s var(--ease), transform .15s var(--ease)}
   .sendemail:hover{background:var(--ink-hover)} .sendemail:active{transform:scale(.98)}
   .order-flag{margin-top:8px; font-size:12px; color:var(--gold-strong); font-weight:600}
+  /* modo compatto: quando ci sono i risultati, l'ordine si riduce a un riepilogo */
+  .ordercard.collapsed #orderBox{display:none !important}
+  .order-summary{margin-top:14px; border-top:1px solid var(--hairline); padding-top:16px}
+  .os-head{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:14px}
+  .os-title{font-weight:600; font-size:16px; letter-spacing:-.01em; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .os-grid{display:grid; gap:14px}
+  @media(min-width:520px){ .os-grid{grid-template-columns:92px 1fr; align-items:start} }
+  .os-photo{width:92px; height:92px; object-fit:cover; border-radius:var(--radius-m); border:1px solid var(--hairline); background:var(--fill)}
+  .os-fields{display:grid; gap:6px; font-size:14px; color:var(--text); min-width:0}
+  .os-fields .lbl{color:var(--text-tertiary)}
+  .os-money{display:flex; gap:16px; flex-wrap:wrap; margin-top:4px}
+  .os-money b{font-variant-numeric:tabular-nums; letter-spacing:-.01em}
+  .os-msg{margin-top:14px}
+  .os-msg textarea{min-height:76px; background:var(--fill)}
   /* App shell — layout standard app Deluxy (sidebar traslucida + contenuti) */
   .shell{display:flex; min-height:100vh}
   .sidebar{width:250px; flex-shrink:0; background:var(--surface-translucent);
@@ -464,6 +478,7 @@
 
     <!-- dettagli ordine (editabili) -->
     <div class="orderbox" id="orderBox" style="display:none">
+      <button class="btn-dl" id="collapseOrder" type="button" style="display:none; margin-bottom:12px">▲ Comprimi ordine (mostra solo il riepilogo)</button>
       <div class="ordertitle"><span class="tag" id="ordTag">ordine</span><span id="ordMeta" class="sub" style="margin:0"></span></div>
 
       <!-- riepilogo: foto pronta da scaricare + prezzi -->
@@ -557,6 +572,9 @@
       <button class="btn" id="findFlorists" style="margin-top:16px">🔎 Trova fiorai vicino alla consegna</button>
       <div class="order-flag">Poi scegli un fiorario qui sotto e premi «Invia richiesta ordine» sulla sua scheda.</div>
     </div>
+
+    <!-- riepilogo compatto dell'ordine: appare quando ci sono i risultati (meno scroll) -->
+    <div class="order-summary" id="orderSummary" style="display:none"></div>
   </div>
 
   <!-- SEARCH -->
@@ -1846,6 +1864,7 @@ async function fetchOrder(){
 
 function populateOrder(o){
   orderLoaded = true;
+  resultsShown = false; setOrderCollapsed(false);   // nuovo ordine → scheda espansa (fin quando arrivano i risultati)
   rememberSearch({ brand: o.brand || $('#brand').value,
                    ordine: String(o.orderName || $('#orderNum').value || '').replace(/^#/,'').trim() });
   $('#orderBox').style.display='block';
@@ -2181,6 +2200,7 @@ $('#orderNum').addEventListener('keydown', e=>{ if(e.key==='Enter') fetchOrder()
 // modalità manuale: apre il form vuoto senza chiamare Shopify
 $('#manualOrder').addEventListener('click', ()=>{
   orderLoaded = true;
+  resultsShown = false; setOrderCollapsed(false);   // ordine manuale → scheda espansa
   $('#orderBox').style.display='block';
   const num = $('#orderNum').value.trim().replace(/^#/,'');
   $('#ordTag').textContent = $('#brand').value + ' · ' + (num ? '#'+num : 'manuale');
@@ -2845,6 +2865,65 @@ function shopCard(d, cat, dist, pid){
   return el;
 }
 
+/* ------------------ modo compatto ordine (riepilogo quando ci sono i risultati) ------------------
+   Quando compaiono i risultati della ricerca, l'ordine (lungo) si riduce a un riepilogo:
+   n° ordine, destinatario, consegna, prodotto, budget/margine e messaggio. «Modifica ordine»
+   lo riespande. I dati restano nei campi originali (nascosti), quindi gli invii dalle schede
+   funzionano come prima (leggono #ord_msg e i campi). */
+let resultsShown = false;   // true = per l'ordine corrente sono già comparsi dei risultati
+function renderOrderSummary(){
+  const paid = $('#ord_paid').value.trim(), budget = $('#ord_budget').value.trim();
+  const paidN = parseFloat(paid.replace(',','.')), budN = parseFloat(budget.replace(',','.'));
+  const margine = (isFinite(paidN) && isFinite(budN)) ? (paidN - budN) : null;
+  const photo = $('#ord_photo').value.trim();
+  const recipient = $('#ord_recipient').value.trim(), phone = $('#ord_phone').value.trim();
+  const address = $('#ord_address').value.trim(), date = $('#ord_date').value.trim(), time = $('#ord_time').value.trim();
+  const prod = $('#ord_items').value.trim(), variant = $('#ord_variant').value.trim(), qty = $('#ord_qty').value.trim();
+  const statoBadge = statoRicerca.stato==='in corso' ? '<span class="badge" style="color:var(--blue); background:rgba(0,113,227,.1)">🔵 ricerca in corso</span>'
+                   : statoRicerca.stato==='trovato' ? '<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">🟢 fornitore trovato</span>' : '';
+  const row = (lbl,val)=> val ? `<div><span class="lbl">${lbl}:</span> ${esc(val)}</div>` : '';
+  $('#orderSummary').innerHTML = `
+    <div class="os-head">
+      <div class="os-title">📦 ${esc($('#ordTag').textContent||'Ordine')} ${statoBadge}</div>
+      <button class="btn-dl" id="editOrder" type="button">✏️ Modifica ordine</button>
+    </div>
+    <div class="os-grid">
+      ${photo ? `<img class="os-photo" src="${esc(photo)}" alt="foto ordine">`
+              : '<div class="os-photo" style="display:flex; align-items:center; justify-content:center; color:var(--text-tertiary); font-size:11px; text-align:center; padding:6px">nessuna foto</div>'}
+      <div class="os-fields">
+        ${row('Destinatario', [recipient, phone].filter(Boolean).join(' · '))}
+        ${row('Consegna', [address, [date,time].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}
+        ${row('Prodotto', [prod, variant, qty?('×'+qty):''].filter(Boolean).join(' '))}
+        <div class="os-money">
+          ${isFinite(budN)?`<span><span class="lbl">Budget fiorario</span> <b>${eur(budN)}</b></span>`:''}
+          ${isFinite(paidN)?`<span><span class="lbl">Pagato</span> <b>${eur(paidN)}</b></span>`:''}
+          ${margine!=null?`<span><span class="lbl">Margine</span> <b>${eur(margine)}</b></span>`:''}
+        </div>
+      </div>
+    </div>
+    <div class="os-msg">
+      <label>💬 Messaggio per il negozio</label>
+      <textarea readonly rows="4">${esc($('#ord_msg').value)}</textarea>
+      <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap">
+        <button class="btn-dl" id="copyMsgSummary" type="button">📋 Copia messaggio</button>
+        <span class="hint" style="margin:0">Scegli un negozio a destra e premi «Invia richiesta», oppure «Modifica ordine» per cambiare i dati.</span>
+      </div>
+    </div>`;
+  $('#editOrder').addEventListener('click', ()=> setOrderCollapsed(false));
+  $('#copyMsgSummary').addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText($('#ord_msg').value); const b=$('#copyMsgSummary'); b.textContent='✅ Copiato'; setTimeout(()=>{ b.textContent='📋 Copia messaggio'; }, 2000); }catch(e){}
+  });
+}
+function setOrderCollapsed(collapsed){
+  const card = document.querySelector('.ordercard');
+  if(!card) return;
+  if(collapsed){ renderOrderSummary(); card.classList.add('collapsed'); $('#orderSummary').style.display='block'; }
+  else { card.classList.remove('collapsed'); $('#orderSummary').style.display='none'; }
+  const cb = $('#collapseOrder');
+  if(cb) cb.style.display = (!collapsed && resultsShown && orderLoaded) ? 'inline-flex' : 'none';
+}
+$('#collapseOrder').addEventListener('click', ()=> setOrderCollapsed(true));
+
 /* ------------------ flusso principale ------------------ */
 $('#go').addEventListener('click', run);
 $('#address').addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
@@ -3018,6 +3097,8 @@ async function renderResults(found, geo, origin, service, opts){
   $('#resultTools').style.display = 'block';           // filtri + bottone mappa sopra i risultati
   $('#toggleMap').style.display = mapPoints.length ? '' : 'none';
   showExtendFooter(extended);                          // «estendi» anche in fondo alla lista
+  // con un ordine caricato, comprimi la scheda ordine in riepilogo (meno scroll, focus sui negozi)
+  if(orderLoaded){ resultsShown = true; setOrderCollapsed(true); }
   const address = $('#address').value.trim();
   const extNote = extended ? ' · 🔎 area allargata (~40 km)' : '';
   const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
