@@ -14,7 +14,8 @@ import {
   quandoLeggibile,
   riepilogoEventi,
 } from "@/lib/eventi";
-import { aggiornaEventoCliente, rilevaEventiClienti } from "@/app/actions";
+import { aggiornaEventoCliente, leggiBigliettiConAI, rilevaEventiClienti } from "@/app/actions";
+import { aiConfigurata, modelloAI } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -99,12 +100,21 @@ export default async function Eventi({
             sempre stata dentro senza che nessuno la leggesse.
           </p>
         </div>
-        <form action={rilevaEventiClienti}>
-          <button className="btn" type="submit">Rileggi gli ordini</button>
-        </form>
+        <div className="topbar-azioni">
+          {aiConfigurata() && (
+            <form action={leggiBigliettiConAI}>
+              <input type="hidden" name="quanti" value="100" />
+              <button className="btn" type="submit">Leggi i biglietti con l&apos;AI</button>
+            </form>
+          )}
+          <form action={rilevaEventiClienti}>
+            <button className="btn btn-secondario" type="submit">Rileggi gli ordini</button>
+          </form>
+        </div>
       </div>
 
       {sp.esito && <div className="avviso-ok">{sp.esito}</div>}
+      {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
 
       <div className="kpi-riga">
         <div className="kpi">
@@ -127,12 +137,14 @@ export default async function Eventi({
 
       <div className="consiglio" style={{ ["--lista" as string]: "var(--gold)" }}>
         <span className="consiglio-titolo">Cosa c&apos;è qui dentro, e cosa no</span>
-        Si guardano solo <strong>la data di consegna e il destinatario</strong>: due dati
-        strutturati, mai il testo delle note. Se la stessa persona riceve qualcosa negli stessi
-        giorni di <strong>anni diversi</strong>, la ricorrenza è un fatto; se è capitata una volta
-        sola, è un&apos;ipotesi — utile lo stesso, perché quella data torna. Quello che si
-        festeggia <strong>non si indovina</strong>: nessuno lo scrive in un ordine, e chiamare
-        «compleanno» un anniversario è un errore che poi si legge in un messaggio al cliente.
+<strong>Quando</strong> ricorre si ricava da due dati strutturati — data di consegna e
+        destinatario — e mai dal testo libero: se la stessa persona riceve qualcosa negli stessi
+        giorni di <strong>anni diversi</strong>, la ricorrenza è un fatto. <strong>Perché</strong>
+        ricorre, invece, sta scritto solo nel biglietto: lo legge l&apos;AI ({modelloAI()}) e lo
+        <strong>propone</strong>, con la frase su cui ha deciso scritta sotto. Se il testo non lo
+        dice — spesso nelle note ci sono tag e istruzioni per il corriere — resta «da precisare»,
+        che è la risposta onesta. Quello che scrivi tu vince e non viene più toccato: sbagliare qui
+        significa augurare buon compleanno a chi ha avuto un lutto.
       </div>
 
       <form className="ricerca" method="get">
@@ -193,10 +205,17 @@ export default async function Eventi({
                       <Link href={`/clienti/${codificaChiave(e.chiave)}`}>{e.chiave}</Link>
                     </td>
                     <td>
-                      <span className="tag" style={{ color: coloreTipoEvento(e.tipo) }}>
+                      <span
+                        className="tag"
+                        style={{ color: coloreTipoEvento(e.tipo) }}
+                        title={e.motivoTipo ?? undefined}
+                      >
                         <span className="dot" />
                         <span className="tag-label">{nomeTipoEvento(e.tipo)}</span>
+                        {e.tipoDa === "ai" && <span className="tag-manuale">AI</span>}
+                        {e.tipoDa === "manuale" && <span className="tag-manuale">✓</span>}
                       </span>
+                      {e.prova && <div className="cella-sub prova-biglietto">«{e.prova}»</div>}
                     </td>
                     <td className="cella-num">{e.ricorrenze}</td>
                     <td className="cella-muta">

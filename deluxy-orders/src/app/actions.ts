@@ -9,6 +9,7 @@ import { canaleValido, tipologiaValida } from "@/lib/segmenti";
 import { importaFeedback } from "@/lib/feedback";
 import { preparaGiro, type VariabileScript } from "@/lib/automazioni";
 import { rilevaEventi } from "@/lib/eventi";
+import { leggiOccasioniDaiBiglietti } from "@/lib/eventi-ai";
 import { ricalcolaCategorie } from "@/lib/categorie";
 import { proponiCategorieAI } from "@/lib/categorie-ai";
 import { eseguiSyncOrdini } from "@/lib/sync";
@@ -246,22 +247,42 @@ export async function rilevaEventiClienti() {
   );
 }
 
-// Tipo e stato di un evento: li scrive una persona, e il rilevamento non li
-// tocca più. È la stessa regola della tipologia cliente — la mano vince.
+// Tipo e stato di un evento: li scrive una persona, e né il rilevamento né
+// l'AI li toccano più. È la stessa regola della tipologia cliente — la mano
+// vince, e resta scritto che è stata una mano.
 export async function aggiornaEventoCliente(fd: FormData) {
   const id = s(fd, "id");
   if (!id) return;
+  const tipo = s(fd, "tipo");
+  const attuale = await prisma.eventoCliente.findUnique({ where: { id }, select: { tipo: true } });
+
   await prisma.eventoCliente.update({
     where: { id },
     data: {
-      tipo: s(fd, "tipo") ?? undefined,
+      tipo: tipo ?? undefined,
       stato: s(fd, "stato") ?? undefined,
       titolo: s(fd, "titolo") ?? undefined,
       note: s(fd, "note"),
+      // Se il tipo cambia, da adesso è una scelta umana: l'AI non ci ripassa.
+      ...(tipo && tipo !== attuale?.tipo ? { tipoDa: "manuale" } : {}),
     },
   });
   revalidatePath("/eventi");
   revalidatePath("/clienti");
+}
+
+// L'AI legge i biglietti e dice per che occasione erano quegli ordini.
+// Propone: quello che scrive una persona resta intoccabile.
+export async function leggiBigliettiConAI(fd: FormData) {
+  const quanti = Math.min(300, Math.max(10, Number(s(fd, "quanti") ?? "100") || 100));
+  const esito = await leggiOccasioniDaiBiglietti(quanti);
+  revalidatePath("/eventi");
+  const messaggio = esito.errore
+    ? `errore=${encodeURIComponent(esito.errore)}`
+    : `esito=${encodeURIComponent(
+        `${esito.esaminati} biglietti letti con ${esito.modello} in ${esito.chiamate} chiamate · ${esito.riconosciuti} occasioni riconosciute · ${esito.daPrecisare} testi che non dicono l'occasione${esito.scartati ? ` · ${esito.scartati} risposte scartate` : ""}`,
+      )}`;
+  redirect(`/eventi?${messaggio}`);
 }
 
 // ---- Categorie dei prodotti: la proposta dell'AI ----

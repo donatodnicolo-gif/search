@@ -256,6 +256,14 @@ model EventoCliente {
   ordini     String   @default("") // numeri degli ordini, separati da spazio
   ultimaSpesa Float   @default(0) // quanto ha speso l'ultima volta
 
+  // Da dove viene il TIPO (compleanno, anniversario, condoglianze…):
+  //  · "" — nessuno l'ha detto, è ancora «da precisare»;
+  //  · "ai" — l'ha letto ChatGPT nel biglietto o nella nota dell'ordine;
+  //  · "manuale" — l'ha scritto una persona, e da lì l'AI non lo tocca più.
+  tipoDa     String  @default("")
+  motivoTipo String? // perché, come l'ha spiegato l'AI
+  prova      String? // il pezzo di biglietto su cui si è basata: si legge in pagina
+
   origine String @default("dedotto") // dedotto | manuale
   // da-confermare = l'ha trovato l'app · confermato = l'ha guardato una persona
   // · ignorato = non è un evento (una consegna capitata lì per caso)

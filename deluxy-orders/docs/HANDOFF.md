@@ -191,6 +191,24 @@ Precedenza: manuale → parole → AI → specialità del negozio → non classi
   una torta» anche per deluxy.it, che vende di tutto. Ora al modello si dice
   quale negozio ha una specialità e quale no.
 
+### AI sugli eventi: il motivo dell'occasione dal biglietto (26/07/2026)
+`src/lib/eventi-ai.ts` + pulsante su `/eventi`. Legge biglietto/nota degli
+ordini di un evento e propone il TIPO, salvando **la frase su cui ha deciso**
+(`prova`) e il motivo. Campi nuovi su `EventoCliente`: `tipoDa` ("" | ai |
+manuale), `motivoTipo`, `prova`.
+
+- **Misurato**: 50 biglietti, 2 chiamate → 37 riconosciuti, 9 «non si capisce»,
+  0 scartati. 7.672 eventi su 8.729 hanno un testo leggibile.
+- Vocabolario allargato (TIPI_EVENTO): compleanno, anniversario, matrimonio,
+  nascita, laurea, ricorrenza, ringraziamento, **condoglianze**, altro.
+  `TIPI_DELICATI` esiste perché le automazioni possano saltare i lutti.
+- ⚠️ **Tarature pagate**: «Auguri Mamma» / «Feliz día de las madres» venivano
+  letti come *nascita* invece che festa della mamma (corretto nel prompt), e un
+  «auguri» generico veniva comunque classificato (ora è «da precisare»). Ne
+  resta uno ambiguo su 33: si corregge in pagina, con la prova sotto gli occhi.
+- Chi risponde «da precisare» viene comunque marcato `tipoDa = ai`: senza,
+  ogni giro ripagherebbe la stessa domanda per la stessa risposta.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare

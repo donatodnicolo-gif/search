@@ -19,13 +19,27 @@ import { prisma } from "./db";
 // dopo, ma non due settimane dopo.
 export const GIORNI_VICINI = 7;
 
+// I motivi per cui si manda qualcosa. Sono più di quattro perché in questo
+// mestiere fanno differenza: mandare gli auguri a chi ha avuto un lutto è
+// l'errore che non si recupera, e «condoglianze» esiste in elenco proprio per
+// poterlo riconoscere e tenerlo fuori da qualunque automazione allegra.
 export const TIPI_EVENTO = [
   { chiave: "da-precisare", nome: "Da precisare", colore: "var(--text-secondary)" },
   { chiave: "compleanno", nome: "Compleanno", colore: "var(--purple)" },
   { chiave: "anniversario", nome: "Anniversario", colore: "var(--gold-strong)" },
-  { chiave: "ricorrenza", nome: "Ricorrenza", colore: "var(--blue)" },
+  { chiave: "matrimonio", nome: "Matrimonio", colore: "var(--gold)" },
+  { chiave: "nascita", nome: "Nascita o battesimo", colore: "var(--green)" },
+  { chiave: "laurea", nome: "Laurea o traguardo", colore: "var(--blue)" },
+  { chiave: "ricorrenza", nome: "Festa o ricorrenza", colore: "var(--orange)" },
+  { chiave: "ringraziamento", nome: "Ringraziamento", colore: "var(--text-secondary)" },
+  { chiave: "condoglianze", nome: "Condoglianze", colore: "var(--red)" },
   { chiave: "altro", nome: "Altro", colore: "var(--text-tertiary)" },
 ] as const;
+
+// I motivi a cui NON si scrive un messaggio commerciale allegro. Le automazioni
+// li devono saltare: un «ti aspettiamo, torna a ordinare» sull'anniversario di
+// un lutto è un danno che nessuna vendita ripaga.
+export const TIPI_DELICATI = ["condoglianze"];
 
 export function nomeTipoEvento(t: string): string {
   return TIPI_EVENTO.find((x) => x.chiave === t)?.nome ?? t;

@@ -361,6 +361,37 @@ Un prodotto senza categoria non è un errore: è un buco dichiarato. Finché res
 lì, quel cliente non risulta «amante» di niente per colpa di quel prodotto — che
 è meglio che farlo risultare amante della cosa sbagliata.
 
+### L'AI legge il biglietto e dice PERCHÉ
+Degli eventi si sapeva **quando** (data di consegna + destinatario, dati
+strutturati) ma non **perché**. Il perché sta scritto in un posto solo: il
+**biglietto** che accompagna il regalo. Sui dati veri **7.672 eventi su 8.729**
+hanno un testo da leggere (91 un campo biglietto vero, gli altri la nota
+dell'ordine, dove i tre negozi finiscono per scrivere la dedica).
+
+Il pulsante **«Leggi i biglietti con l'AI»** manda quei testi a ChatGPT e
+riporta l'occasione: compleanno, anniversario, matrimonio, nascita, laurea,
+festa/ricorrenza, ringraziamento, **condoglianze**, altro. Misurato: 50
+biglietti in 2 chiamate → **37 occasioni riconosciute**, 9 «non si capisce», 0
+risposte scartate.
+
+Quello che si vede in pagina è la **prova**: la frase esatta su cui ha deciso,
+sotto il tipo — «Tantissimi auguri di buon compleanno!!», «Buon Natale», «Buon
+onomastico Maria Rita». Il bollino **AI** dice chi l'ha detto; se lo cambi tu
+diventa ✓ e nessun giro successivo lo tocca più.
+
+Tre cose volute:
+
+1. **la nota non è sempre una dedica**: dentro finiscono «Tags: Fiori»,
+   indirizzi e istruzioni per il corriere. Se il testo non dice l'occasione, la
+   risposta è «da precisare» — e resta segnato che l'AI ha già guardato, per non
+   ripagare la stessa domanda;
+2. **«condoglianze» esiste in elenco apposta**: in questo mestiere confondere un
+   lutto con una festa è l'errore che non si recupera, e riconoscerlo serve a
+   tenere quell'evento fuori da qualunque automazione allegra;
+3. **cosa esce dall'azienda**: solo il testo del biglietto e la data. Non nome,
+   email, telefono o indirizzo del cliente. Il biglietto però contiene spesso
+   nomi di persona, ed è giusto saperlo: quel testo passa da OpenAI.
+
 ### Script (`/script`)
 Uno **script** è un testo da mandare ai clienti, scritto una volta e riusato
 dalle automazioni: il messaggio di riordino, l'invito per una ricorrenza, il
