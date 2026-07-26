@@ -352,76 +352,80 @@ export default function MappaWeb() {
         </View>
       ) : null}
 
-      {/* Ordina la scoperta dando precedenza a una linea di vendita (o Tutte). */}
-      <View style={styles.focusBar}>
-        <Text style={styles.focusLabel}>Ordina per linea di vendita</Text>
-        <View style={styles.focusRow}>
-          <FocusPill label="Tutte le linee" on={!lineaFocus} onPress={() => setLineaFocus(null)} />
-          {LINEE_ATTIVE.map((l) => (
-            <FocusPill
-              key={l}
-              label={l}
-              linea={l}
-              on={lineaFocus === l}
-              onPress={() => setLineaFocus((v) => (v === l ? null : l))}
-            />
-          ))}
-        </View>
-
-        {/* Sotto-filtro "cosa cerco": solo quando è attiva la linea Affiliazioni. */}
-        {lineaFocus === 'Affiliazioni' ? (
-          <View style={styles.subRow}>
-            {TIPI_SCOPERTA.map((t) => (
-              <Pressable
-                key={t.v}
-                onPress={() => {
-                  setFiltroScoperta(t.v);
-                  if (destinazione && scopInfo) cerca(destinazione, t.v);
-                }}
-                style={[styles.subChip, filtroScoperta === t.v && styles.subChipOn]}
-              >
-                <Text style={[styles.subTxt, filtroScoperta === t.v && styles.subTxtOn]}>{t.l}</Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-      </View>
-
-      {/* Caption di stato, leggera */}
-      <View style={styles.caption}>
-        {scopLoading ? (
-          <View style={styles.capRow}>
-            <ActivityIndicator color={colors.navy} size="small" />
-            <Text style={styles.capTxt}>Cerco i negozi della zona…</Text>
-          </View>
-        ) : scopErrore ? (
-          <Text style={[styles.capTxt, { color: colors.errore }]}>{scopErrore}</Text>
-        ) : destinazione && scopInfo ? (
-          <>
-            <Text style={styles.capTxt}>
-              {scopInfo.places.length} attività · {scopInfo.nuovi ? `${scopInfo.nuovi} novità · ` : ''}
-              {scopInfo.cached ? 'ricerca recente salvata' : 'appena aggiornate da Google'}
-              {stellatiCount ? ` · ${stellatiCount} nel giro` : ''}
-            </Text>
-            {!giroAttivo && scopInfo.places.length ? (
-              <Text style={styles.legenda}>
-                Sulle card: ⭐ aggiungi al giro · cerchio segna la visita · occhio nascondi
-              </Text>
-            ) : null}
-          </>
-        ) : (
-          <Text style={styles.capTxt}>Digita un indirizzo per scoprire i negozi della zona.</Text>
-        )}
-      </View>
-
-      {/* Filtri a gruppi etichettati (come la scheda Target): Priorità / Stato / Linea */}
-      {destinazione && !giroAttivo ? (
-        <View style={styles.filterBar}>
-          <Filters filtri={filtri} opzioni={opzioniFiltri} onChange={setFiltri} citta={false} />
-        </View>
-      ) : null}
 
       <ScrollView contentContainerStyle={styles.lista}>
+        {/* Linee, conteggio e filtri scorrono con l'elenco: da fissi
+            occupavano mezzo schermo e ai negozi restava una striscia. */}
+        <View style={styles.headerScroll}>
+        {/* Ordina la scoperta dando precedenza a una linea di vendita (o Tutte). */}
+        <View style={styles.focusBar}>
+          <Text style={styles.focusLabel}>Ordina per linea di vendita</Text>
+          <View style={styles.focusRow}>
+            <FocusPill label="Tutte le linee" on={!lineaFocus} onPress={() => setLineaFocus(null)} />
+            {LINEE_ATTIVE.map((l) => (
+              <FocusPill
+                key={l}
+                label={l}
+                linea={l}
+                on={lineaFocus === l}
+                onPress={() => setLineaFocus((v) => (v === l ? null : l))}
+              />
+            ))}
+          </View>
+
+          {/* Sotto-filtro "cosa cerco": solo quando è attiva la linea Affiliazioni. */}
+          {lineaFocus === 'Affiliazioni' ? (
+            <View style={styles.subRow}>
+              {TIPI_SCOPERTA.map((t) => (
+                <Pressable
+                  key={t.v}
+                  onPress={() => {
+                    setFiltroScoperta(t.v);
+                    if (destinazione && scopInfo) cerca(destinazione, t.v);
+                  }}
+                  style={[styles.subChip, filtroScoperta === t.v && styles.subChipOn]}
+                >
+                  <Text style={[styles.subTxt, filtroScoperta === t.v && styles.subTxtOn]}>{t.l}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </View>
+
+        {/* Caption di stato, leggera */}
+        <View style={styles.caption}>
+          {scopLoading ? (
+            <View style={styles.capRow}>
+              <ActivityIndicator color={colors.navy} size="small" />
+              <Text style={styles.capTxt}>Cerco i negozi della zona…</Text>
+            </View>
+          ) : scopErrore ? (
+            <Text style={[styles.capTxt, { color: colors.errore }]}>{scopErrore}</Text>
+          ) : destinazione && scopInfo ? (
+            <>
+              <Text style={styles.capTxt}>
+                {scopInfo.places.length} attività · {scopInfo.nuovi ? `${scopInfo.nuovi} novità · ` : ''}
+                {scopInfo.cached ? 'ricerca recente salvata' : 'appena aggiornate da Google'}
+                {stellatiCount ? ` · ${stellatiCount} nel giro` : ''}
+              </Text>
+              {!giroAttivo && scopInfo.places.length ? (
+                <Text style={styles.legenda}>
+                  Sulle card: ⭐ aggiungi al giro · cerchio segna la visita · occhio nascondi
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <Text style={styles.capTxt}>Digita un indirizzo per scoprire i negozi della zona.</Text>
+          )}
+        </View>
+
+        {/* Filtri a gruppi etichettati (come la scheda Target): Priorità / Stato / Linea */}
+        {destinazione && !giroAttivo ? (
+          <View style={styles.filterBar}>
+            <Filters filtri={filtri} opzioni={opzioniFiltri} onChange={setFiltri} citta={false} />
+          </View>
+        ) : null}
+        </View>
         {elenco.length === 0 ? (
           giroAttivo ? (
             <EmptyState
@@ -705,6 +709,9 @@ const styles = StyleSheet.create({
   focusPillTxtOn: { color: colors.bianco },
 
   lista: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: 96, gap: 10 },
+  // Annulla il padding laterale dell'elenco attorno alla testata: linee,
+  // conteggio e filtri hanno gia' i propri margini.
+  headerScroll: { marginHorizontal: -spacing.md },
 
   card: {
     flexDirection: 'column',

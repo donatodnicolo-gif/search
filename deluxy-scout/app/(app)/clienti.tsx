@@ -64,44 +64,48 @@ export default function Clienti() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.head, contenutoCentrato]}>
-        <PageIntro testo="I negozi già acquisiti: clienti Deluxy e partner attivi nel registro. Tocca un cliente per aprirne la scheda." />
-        <Text style={styles.sub}>{clienti.length} clienti{filtriAttivi ? ` · ${dati.length} filtrati` : ''}</Text>
-        <TextInput
-          style={styles.search}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Cerca per nome, zona, categoria, linea…"
-          placeholderTextColor={colors.grigio}
-          autoCapitalize="none"
-          clearButtonMode="while-editing"
-        />
-        <View style={styles.filtri}>
-          <Gruppo
-            titolo="Città"
-            valori={OPZIONI_CITTA as unknown as string[]}
-            attivo={zonaFiltro ?? 'Tutte'}
-            onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (c) => (c === v ? null : v))}
-          />
-          {accountPresenti.length ? (
-            <Gruppo titolo="Account" valori={accountPresenti} attivo={accountFiltro} onTap={(v) => setAccountFiltro((c) => (c === v ? null : v))} />
-          ) : null}
-          {lineePresenti.length ? (
-            <Gruppo
-              titolo="Interessi"
-              valori={['Tutti', ...lineePresenti]}
-              attivo={lineaFiltro ?? 'Tutti'}
-              onTap={(v) => setLineaFiltro(v === 'Tutti' ? null : (c) => (c === v ? null : v))}
-            />
-          ) : null}
-        </View>
-      </View>
-
       <FlatList
         data={dati}
         keyExtractor={(c) => c.id}
         contentContainerStyle={[styles.list, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
+        // Testata dentro lo scorrimento: da fissa occupava mezzo schermo e ai
+        // clienti restava una finestrella. Elemento e non funzione, se no la
+        // ricerca perde il fuoco a ogni lettera.
+        ListHeaderComponent={
+          <View style={[styles.head, styles.headerScroll, contenutoCentrato]}>
+            <PageIntro testo="I negozi già acquisiti: clienti Deluxy e partner attivi nel registro. Tocca un cliente per aprirne la scheda." />
+            <Text style={styles.sub}>{clienti.length} clienti{filtriAttivi ? ` · ${dati.length} filtrati` : ''}</Text>
+            <TextInput
+              style={styles.search}
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Cerca per nome, zona, categoria, linea…"
+              placeholderTextColor={colors.grigio}
+              autoCapitalize="none"
+              clearButtonMode="while-editing"
+            />
+            <View style={styles.filtri}>
+              <Gruppo
+                titolo="Città"
+                valori={OPZIONI_CITTA as unknown as string[]}
+                attivo={zonaFiltro ?? 'Tutte'}
+                onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (c) => (c === v ? null : v))}
+              />
+              {accountPresenti.length ? (
+                <Gruppo titolo="Account" valori={accountPresenti} attivo={accountFiltro} onTap={(v) => setAccountFiltro((c) => (c === v ? null : v))} />
+              ) : null}
+              {lineePresenti.length ? (
+                <Gruppo
+                  titolo="Interessi"
+                  valori={['Tutti', ...lineePresenti]}
+                  attivo={lineaFiltro ?? 'Tutti'}
+                  onTap={(v) => setLineaFiltro(v === 'Tutti' ? null : (c) => (c === v ? null : v))}
+                />
+              ) : null}
+            </View>
+          </View>
+        }
         ListEmptyComponent={
           filtriAttivi ? (
             <EmptyState icona="filter-outline" titolo="Nessun cliente con questi filtri" aiuto="Prova ad azzerare zona, interessi o la ricerca." azione="Azzera filtri" onAzione={azzera} />
@@ -233,6 +237,9 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
   chipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, gap: spacing.sm },
+  // Annulla il padding del contenitore della lista: i figli della testata hanno
+  // gia' i propri margini e la riga dei filtri deve restare da bordo a bordo.
+  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
   card: {
     gap: spacing.sm,
     backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md,

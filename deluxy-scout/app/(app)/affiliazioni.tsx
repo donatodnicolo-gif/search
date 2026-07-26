@@ -125,7 +125,6 @@ export default function Affiliazioni() {
 
   return (
     <View style={styles.container}>
-      <PageIntro testo="Fioristi e pasticcerie da reclutare come affiliati. La stella li mette tra i Selezionati da contattare; Chiama registra la chiamata e apre il telefono." />
       <View style={styles.tabs}>
         {([
           { v: 'elenco' as const, label: 'Elenco', icona: 'list-outline' as const },
@@ -142,35 +141,40 @@ export default function Affiliazioni() {
         <RicercaAffiliazioni onPreso={carica} centroIniziale={centroIniziale} />
       ) : (
       <>
-      <View style={[styles.head, contenutoCentrato]}>
-        <Text style={styles.sub}>
-          {righe.length} affiliazioni · fioristi e pasticcerie da reclutare
-        </Text>
-        <TextInput
-          style={styles.search}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Cerca per nome, città, referente…"
-          placeholderTextColor={colors.grigio}
-          autoCapitalize="none"
-          clearButtonMode="while-editing"
-        />
-        <View style={styles.filtri}>
-          {FILTRI.map((f) => (
-            <Pressable key={f} onPress={() => setFiltro(f)} style={[styles.chip, filtro === f && styles.chipOn]}>
-              <Text style={[styles.chipTxt, filtro === f && styles.chipTxtOn]}>
-                {etichettaFiltro(f, nSel)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
       <FlatList
         data={dati}
         keyExtractor={(r) => r.id}
         contentContainerStyle={[styles.list, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
+        // Intro, ricerca e filtri scorrono con la lista: da fissi lasciavano
+        // alle affiliazioni una striscia di schermo. Elemento e non funzione,
+        // se no la ricerca perde il fuoco a ogni lettera.
+        ListHeaderComponent={
+          <View style={[styles.head, styles.headerScroll, contenutoCentrato]}>
+            <PageIntro testo="Fioristi e pasticcerie da reclutare come affiliati. La stella li mette tra i Selezionati da contattare; Chiama registra la chiamata e apre il telefono." />
+            <Text style={styles.sub}>
+              {righe.length} affiliazioni · fioristi e pasticcerie da reclutare
+            </Text>
+            <TextInput
+              style={styles.search}
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Cerca per nome, città, referente…"
+              placeholderTextColor={colors.grigio}
+              autoCapitalize="none"
+              clearButtonMode="while-editing"
+            />
+            <View style={styles.filtri}>
+              {FILTRI.map((f) => (
+                <Pressable key={f} onPress={() => setFiltro(f)} style={[styles.chip, filtro === f && styles.chipOn]}>
+                  <Text style={[styles.chipTxt, filtro === f && styles.chipTxtOn]}>
+                    {etichettaFiltro(f, nSel)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        }
         ListEmptyComponent={
           <EmptyState
             loading={loading}
@@ -312,6 +316,8 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, gap: spacing.sm },
+  // Annulla il padding del contenitore della lista attorno alla testata.
+  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
   card: {
     backgroundColor: colors.bianco,
     borderRadius: radius.md,

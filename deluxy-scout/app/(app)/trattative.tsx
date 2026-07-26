@@ -158,78 +158,85 @@ export default function Trattative() {
 
   return (
     <View style={styles.container}>
-      <PageIntro testo="Le trattative in corso raggruppate per negozio, da Scout, HubSpot e registro Anagrafiche. Tocca una trattativa per modificarla." />
-      <View style={[styles.head, contenutoCentrato]}>
-        <Text style={styles.sub}>
-          {filtrate.length} trattative · valore € {totale.toLocaleString('it-IT')}
-        </Text>
-        <TextInput
-          style={styles.search}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Cerca per negozio, linea, fase…"
-          placeholderTextColor={colors.grigio}
-          autoCapitalize="none"
-          clearButtonMode="while-editing"
-        />
-        <View style={styles.filtri}>
-          <FiltroChip label="Tutte" on={faseFiltro === 'tutte'} onPress={() => setFaseFiltro('tutte')} />
-          {fasiPresenti.map((f) => (
-            <FiltroChip
-              key={f}
-              label={labelFase[f]}
-              on={faseFiltro === f}
-              onPress={() => setFaseFiltro(f)}
-            />
-          ))}
-        </View>
-        {/* Città: le tre principali + "Altre", come in Target, Clienti e Rubrica. */}
-        <View style={styles.filtri}>
-          <Text style={styles.filtroEtichetta}>Città</Text>
-          {(OPZIONI_CITTA as unknown as string[]).map((c) => (
-            <FiltroChip
-              key={c}
-              label={c}
-              on={(cittaFiltro ?? 'Tutte') === c}
-              onPress={() => setCittaFiltro(c === 'Tutte' ? null : c)}
-            />
-          ))}
-        </View>
-        {lineePresenti.length ? (
-          <View style={styles.filtri}>
-            <Text style={styles.filtroEtichetta}>Interessi</Text>
-            <FiltroChip label="Tutti" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
-            {lineePresenti.map((l) => (
-              <FiltroChip
-                key={l}
-                label={l}
-                on={lineaFiltro === l}
-                onPress={() => setLineaFiltro((c) => (c === l ? null : l))}
-              />
-            ))}
-          </View>
-        ) : null}
-        {accountPresenti.length ? (
-          <View style={styles.filtri}>
-            <Text style={styles.filtroEtichetta}>Account</Text>
-            <FiltroChip label="Tutti" on={!accountFiltro} onPress={() => setAccountFiltro(null)} />
-            {accountPresenti.map((a) => (
-              <FiltroChip
-                key={a}
-                label={a}
-                on={accountFiltro === a}
-                onPress={() => setAccountFiltro((c) => (c === a ? null : a))}
-              />
-            ))}
-          </View>
-        ) : null}
-      </View>
       <SectionList
         sections={sezioni}
         keyExtractor={(d) => d.id}
         contentContainerStyle={[styles.list, contenutoCentrato]}
         stickySectionHeadersEnabled={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
+        // Intro e filtri scorrono con l'elenco: da fissi occupavano meta'
+        // schermo e alle trattative restava una finestrella. Elemento e non
+        // funzione, se no la ricerca perde il fuoco a ogni lettera.
+        ListHeaderComponent={
+          <View style={styles.headerScroll}>
+        <PageIntro testo="Le trattative in corso raggruppate per negozio, da Scout, HubSpot e registro Anagrafiche. Tocca una trattativa per modificarla." />
+        <View style={[styles.head, contenutoCentrato]}>
+          <Text style={styles.sub}>
+            {filtrate.length} trattative · valore € {totale.toLocaleString('it-IT')}
+          </Text>
+          <TextInput
+            style={styles.search}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Cerca per negozio, linea, fase…"
+            placeholderTextColor={colors.grigio}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
+          <View style={styles.filtri}>
+            <FiltroChip label="Tutte" on={faseFiltro === 'tutte'} onPress={() => setFaseFiltro('tutte')} />
+            {fasiPresenti.map((f) => (
+              <FiltroChip
+                key={f}
+                label={labelFase[f]}
+                on={faseFiltro === f}
+                onPress={() => setFaseFiltro(f)}
+              />
+            ))}
+          </View>
+          {/* Città: le tre principali + "Altre", come in Target, Clienti e Rubrica. */}
+          <View style={styles.filtri}>
+            <Text style={styles.filtroEtichetta}>Città</Text>
+            {(OPZIONI_CITTA as unknown as string[]).map((c) => (
+              <FiltroChip
+                key={c}
+                label={c}
+                on={(cittaFiltro ?? 'Tutte') === c}
+                onPress={() => setCittaFiltro(c === 'Tutte' ? null : c)}
+              />
+            ))}
+          </View>
+          {lineePresenti.length ? (
+            <View style={styles.filtri}>
+              <Text style={styles.filtroEtichetta}>Interessi</Text>
+              <FiltroChip label="Tutti" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
+              {lineePresenti.map((l) => (
+                <FiltroChip
+                  key={l}
+                  label={l}
+                  on={lineaFiltro === l}
+                  onPress={() => setLineaFiltro((c) => (c === l ? null : l))}
+                />
+              ))}
+            </View>
+          ) : null}
+          {accountPresenti.length ? (
+            <View style={styles.filtri}>
+              <Text style={styles.filtroEtichetta}>Account</Text>
+              <FiltroChip label="Tutti" on={!accountFiltro} onPress={() => setAccountFiltro(null)} />
+              {accountPresenti.map((a) => (
+                <FiltroChip
+                  key={a}
+                  label={a}
+                  on={accountFiltro === a}
+                  onPress={() => setAccountFiltro((c) => (c === a ? null : a))}
+                />
+              ))}
+            </View>
+          ) : null}
+        </View>
+          </View>
+        }
         ListEmptyComponent={
           <EmptyState
             loading={loading}
@@ -830,6 +837,9 @@ const styles = StyleSheet.create({
   filtroChipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   filtroChipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, paddingBottom: 96 },
+  // Annulla il padding del contenitore attorno alla testata (i figli hanno gia'
+  // i propri margini e la barra dei filtri va da bordo a bordo).
+  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
   // Assistente AI
   vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
   // Header di gruppo chiaro (DS: nessun header colorato), tap → scheda negozio.

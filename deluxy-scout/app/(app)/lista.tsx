@@ -104,44 +104,52 @@ export default function Lista() {
 
   return (
     <View style={styles.container}>
-      <PageIntro
-        testo={
-          vistaCorr
-            ? TITOLO_VISTA[vistaCorr]
-            : 'I negozi che qualcuno ha scelto di lavorare. SELEZIONATO: con la ⭐, da contattare. PROSPECT: contatto avviato. CLIENTE: ha chiuso una trattativa.'
-        }
-      />
-      {mostraChip ? (
-      <View style={styles.livelli}>
-        <ChipLivello label="Tutti" on={!livello} onPress={() => setLivello(null)} />
-        {chipLivelli.map((l) => (
-          <ChipLivello
-            key={l}
-            label={`${LABEL_LIVELLO[l]}${perLivello[l] ? ` (${perLivello[l]})` : ''}`}
-            on={livello === l}
-            colore={coloreLivello(l)}
-            onPress={() => setLivello((c) => (c === l ? null : l))}
-          />
-        ))}
-      </View>
-      ) : null}
-      <View style={styles.filterBar}>
-        <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} admin={admin} />
-        <TextInput
-          style={styles.search}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Cerca per nome, indirizzo, zona, linea…"
-          placeholderTextColor={colors.grigio}
-          autoCapitalize="none"
-          clearButtonMode="while-editing"
-        />
-      </View>
       <FlatList
         data={dati}
         keyExtractor={(p) => p.id}
         contentContainerStyle={[styles.list, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={ricarica} />}
+        // Intro, chip e filtri scorrono INSIEME alla lista: da fissi occupavano
+        // mezzo schermo e ai negozi restava una finestrella alta pochi pixel.
+        // Va passato come elemento (non come funzione), altrimenti a ogni
+        // lettera digitata l'header si rimonta e la ricerca perde il fuoco.
+        ListHeaderComponent={
+          <View style={styles.headerScroll}>
+            <PageIntro
+              testo={
+                vistaCorr
+                  ? TITOLO_VISTA[vistaCorr]
+                  : 'I negozi che qualcuno ha scelto di lavorare. SELEZIONATO: con la ⭐, da contattare. PROSPECT: contatto avviato. CLIENTE: ha chiuso una trattativa.'
+              }
+            />
+            {mostraChip ? (
+              <View style={styles.livelli}>
+                <ChipLivello label="Tutti" on={!livello} onPress={() => setLivello(null)} />
+                {chipLivelli.map((l) => (
+                  <ChipLivello
+                    key={l}
+                    label={`${LABEL_LIVELLO[l]}${perLivello[l] ? ` (${perLivello[l]})` : ''}`}
+                    on={livello === l}
+                    colore={coloreLivello(l)}
+                    onPress={() => setLivello((c) => (c === l ? null : l))}
+                  />
+                ))}
+              </View>
+            ) : null}
+            <View style={styles.filterBar}>
+              <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} admin={admin} />
+              <TextInput
+                style={styles.search}
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Cerca per nome, indirizzo, zona, linea…"
+                placeholderTextColor={colors.grigio}
+                autoCapitalize="none"
+                clearButtonMode="while-editing"
+              />
+            </View>
+          </View>
+        }
         ListEmptyComponent={
           <EmptyState
             loading={loading}
@@ -307,6 +315,10 @@ const styles = StyleSheet.create({
     color: colors.testo,
   },
   list: { padding: spacing.md, gap: spacing.sm },
+  // L'header sta dentro il contenitore della lista, che ha gia' il suo padding:
+  // qui lo si annulla perche' intro, chip e filtri hanno gia' i propri margini
+  // (e la barra dei filtri deve restare larga da bordo a bordo).
+  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md },
   riga: {
     backgroundColor: colors.bianco,
     borderRadius: radius.md,

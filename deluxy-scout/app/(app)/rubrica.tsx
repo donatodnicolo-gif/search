@@ -105,76 +105,83 @@ export default function Rubrica() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.head, contenutoCentrato]}>
-        <PageIntro testo="Tutti i contatti raccolti sul campo. Filtra per stato del negozio o per interessi, e cerca per nome, ruolo, negozio o telefono. Il badge conferma la sincronizzazione col registro Anagrafiche." />
-        <TextInput
-          style={styles.search}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Cerca per nome, ruolo, negozio, telefono…"
-          placeholderTextColor={colors.grigio}
-          autoCapitalize="none"
-          clearButtonMode="while-editing"
-        />
-        {/* Filtri esclusivi (uno per gruppo): stato / interessi / città.
-            Vanno a capo: in orizzontale i gruppi finivano tagliati fuori
-            schermo ("Interessi" si leggeva "In…") senza modo di accorgersene. */}
-        <View style={styles.filtri}>
-          {statiPresenti.length ? (
-            <GruppoFiltro
-              titolo="Stato"
-              valori={statiPresenti}
-              attivo={statoFiltro}
-              onTap={(v) => setStatoFiltro((cur) => (cur === v ? null : (v as StatoPlace)))}
-              label={(v) => labelStato[v as StatoPlace]}
-              colore={(v) => coloreStato[v as StatoPlace]}
-            />
-          ) : null}
-          {lineePresenti.length ? (
-            <GruppoFiltro
-              titolo="Interessi"
-              valori={lineePresenti}
-              attivo={lineaFiltro}
-              onTap={(v) => setLineaFiltro((cur) => (cur === v ? null : v))}
-            />
-          ) : null}
-          <GruppoFiltro
-            titolo="Città"
-            valori={OPZIONI_CITTA as unknown as string[]}
-            attivo={zonaFiltro ?? 'Tutte'}
-            onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (cur) => (cur === v ? null : v))}
-          />
-        </View>
-
-        {/* Toggle rapidi (combinabili): utili per preparare una campagna. */}
-        <View style={styles.toggleRow}>
-          <ToggleChip icona="star" label="Decisori" on={attivo('decisori')} onTap={() => togglaFiltro('decisori')} />
-          <ToggleChip icona="mail-outline" label="Con email" on={attivo('email')} onTap={() => togglaFiltro('email')} />
-          <ToggleChip icona="call-outline" label="Con telefono" on={attivo('telefono')} onTap={() => togglaFiltro('telefono')} />
-          <ToggleChip icona="library-outline" label="Nel registro" on={attivo('registro')} onTap={() => togglaFiltro('registro')} />
-          {nArchiviati ? (
-            <ToggleChip
-              icona="archive-outline"
-              label={`Archiviati (${nArchiviati})`}
-              on={mostraArchiviati}
-              onTap={() => setMostraArchiviati((v) => !v)}
-            />
-          ) : null}
-          {filtriAttivi ? (
-            <Pressable style={styles.azzera} onPress={azzeraFiltri} hitSlop={6}>
-              <Ionicons name="close-circle" size={14} color={colors.testoSoft} />
-              <Text style={styles.azzeraTxt}>Azzera</Text>
-            </Pressable>
-          ) : null}
-        </View>
-
-        {filtriAttivi ? <Text style={styles.conteggio}>{dati.length} contatt{dati.length === 1 ? 'o' : 'i'}</Text> : null}
-      </View>
       <FlatList
         data={dati}
         keyExtractor={(c) => c.id}
         contentContainerStyle={[styles.list, contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
+        // Intro, ricerca e filtri scorrono con la lista: da fissi lasciavano
+        // ai contatti pochi pixel. Elemento e non funzione, se no la ricerca
+        // perde il fuoco a ogni lettera.
+        ListHeaderComponent={
+          <View style={styles.headerScroll}>
+        <View style={[styles.head, contenutoCentrato]}>
+          <PageIntro testo="Tutti i contatti raccolti sul campo. Filtra per stato del negozio o per interessi, e cerca per nome, ruolo, negozio o telefono. Il badge conferma la sincronizzazione col registro Anagrafiche." />
+          <TextInput
+            style={styles.search}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Cerca per nome, ruolo, negozio, telefono…"
+            placeholderTextColor={colors.grigio}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
+          {/* Filtri esclusivi (uno per gruppo): stato / interessi / città.
+              Vanno a capo: in orizzontale i gruppi finivano tagliati fuori
+              schermo ("Interessi" si leggeva "In…") senza modo di accorgersene. */}
+          <View style={styles.filtri}>
+            {statiPresenti.length ? (
+              <GruppoFiltro
+                titolo="Stato"
+                valori={statiPresenti}
+                attivo={statoFiltro}
+                onTap={(v) => setStatoFiltro((cur) => (cur === v ? null : (v as StatoPlace)))}
+                label={(v) => labelStato[v as StatoPlace]}
+                colore={(v) => coloreStato[v as StatoPlace]}
+              />
+            ) : null}
+            {lineePresenti.length ? (
+              <GruppoFiltro
+                titolo="Interessi"
+                valori={lineePresenti}
+                attivo={lineaFiltro}
+                onTap={(v) => setLineaFiltro((cur) => (cur === v ? null : v))}
+              />
+            ) : null}
+            <GruppoFiltro
+              titolo="Città"
+              valori={OPZIONI_CITTA as unknown as string[]}
+              attivo={zonaFiltro ?? 'Tutte'}
+              onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (cur) => (cur === v ? null : v))}
+            />
+          </View>
+
+          {/* Toggle rapidi (combinabili): utili per preparare una campagna. */}
+          <View style={styles.toggleRow}>
+            <ToggleChip icona="star" label="Decisori" on={attivo('decisori')} onTap={() => togglaFiltro('decisori')} />
+            <ToggleChip icona="mail-outline" label="Con email" on={attivo('email')} onTap={() => togglaFiltro('email')} />
+            <ToggleChip icona="call-outline" label="Con telefono" on={attivo('telefono')} onTap={() => togglaFiltro('telefono')} />
+            <ToggleChip icona="library-outline" label="Nel registro" on={attivo('registro')} onTap={() => togglaFiltro('registro')} />
+            {nArchiviati ? (
+              <ToggleChip
+                icona="archive-outline"
+                label={`Archiviati (${nArchiviati})`}
+                on={mostraArchiviati}
+                onTap={() => setMostraArchiviati((v) => !v)}
+              />
+            ) : null}
+            {filtriAttivi ? (
+              <Pressable style={styles.azzera} onPress={azzeraFiltri} hitSlop={6}>
+                <Ionicons name="close-circle" size={14} color={colors.testoSoft} />
+                <Text style={styles.azzeraTxt}>Azzera</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          {filtriAttivi ? <Text style={styles.conteggio}>{dati.length} contatt{dati.length === 1 ? 'o' : 'i'}</Text> : null}
+        </View>
+          </View>
+        }
         ListEmptyComponent={
           filtriAttivi ? (
             <EmptyState
@@ -391,6 +398,8 @@ const styles = StyleSheet.create({
   azzeraTxt: { color: colors.testoSoft, fontSize: 13, fontWeight: '600' },
   conteggio: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   list: { padding: spacing.md, gap: spacing.sm },
+  // Annulla il padding del contenitore attorno alla testata.
+  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
   card: {
     backgroundColor: colors.bianco,
     borderRadius: radius.md,
