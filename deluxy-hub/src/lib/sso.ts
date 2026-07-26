@@ -18,6 +18,7 @@ function chiave(): Buffer {
 
 export type PayloadSso = {
   uid: string;
+  email?: string; // per le app che identificano l'utente con l'email (es. Tasks)
   nome: string;
   ruolo: string; // ruolo lato Hub: l'app decide come mapparlo
   app: string; // id dell'app di destinazione (evita che un token valga per un'altra)

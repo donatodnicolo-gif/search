@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { catalogoApp } from "@/lib/apps";
+import { prisma } from "@/lib/db";
 import { creaTokenSso } from "@/lib/sso";
 import { sessioneCorrente } from "@/lib/sessione-server";
 
@@ -26,8 +27,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ app: string
 
   if (app.sso) {
     try {
+      // Alcune app (Tasks) riconoscono l'utente dall'email, non dall'id del Hub:
+      // la si legge qui una volta sola e viaggia dentro il token cifrato.
+      const utente = await prisma.utente.findUnique({
+        where: { id: sessione.uid },
+        select: { email: true },
+      });
       const token = creaTokenSso({
         uid: sessione.uid,
+        email: utente?.email,
         nome: sessione.nome,
         ruolo: sessione.ruolo,
         app: app.id,

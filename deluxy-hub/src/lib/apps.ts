@@ -144,6 +144,9 @@ export function catalogoApp(): AppDeluxy[] {
       // APP_URL_TASKS (es. http://localhost:3090 in sviluppo).
       url: process.env.APP_URL_TASKS ?? "https://deluxy-tasks.vercel.app",
       ruoli: ["admin"],
+      // Tasks accetta il SSO del Hub: apre la sessione con l'email dell'utente
+      // (serve lo stesso HUB_SSO_SECRET nelle due app).
+      sso: true,
     },
     {
       id: "calendario",

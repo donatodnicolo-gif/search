@@ -52,7 +52,7 @@ Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 |---|---|---|---|
 | AI Mail | `APP_URL_MAIL` (dev 3070) | solo admin | |
 | Anagrafiche | `APP_URL_ANAGRAFICHE` (dev 3060) | admin, commerciale | |
-| Attività | `https://deluxy-tasks.vercel.app` | solo admin | default nel codice, override con `APP_URL_TASKS` (dev 3090) |
+| Attività | `https://deluxy-tasks.vercel.app` | solo admin | default nel codice, override con `APP_URL_TASKS` (dev 3090), **`sso: true`** |
 | Budgets | `https://deluxy-budgets.vercel.app` | solo admin | default nel codice, override con `APP_URL_BUDGETS` |
 | Calendario | `APP_URL_CALENDARIO` ?? `http://localhost:3110` | solo admin | visibile anche in prod |
 | Commerciale Scout | `https://deluxy-scout.vercel.app` | admin, commerciale | export web Expo |
@@ -165,11 +165,14 @@ npm run dev            # http://localhost:3050
 ## 9. Cosa manca / prossimi passi possibili
 
 - **Cambiare la password admin** (vedi §2).
-- **Go-live SSO** (§9-bis): impostare lo stesso `HUB_SSO_SECRET` (min 32 caratteri)
-  nelle env Vercel di **Hub e deluxy-partner**, poi redeploy di entrambi. Finché
-  il segreto manca, `/vai/<id>` degrada e apre l'app col suo login normale.
-- **URL pubblici mancanti**: Attività, Budgets, Calendario, Merchandising puntano
-  a `localhost`. Quando saranno pubblicate: `APP_URL_*` su Vercel + redeploy.
+- **SSO su Finance**: il 26/07/2026 `HUB_SSO_SECRET` è stato impostato su **Hub** e
+  **Tasks** (SSO attivo), ma **non** su `deluxy-partner`: aprendo Finance dal Hub
+  il token non si apre e Partner chiede il suo login, come prima. Per accenderlo
+  serve lo stesso segreto nelle env di Partner + redeploy — **prima** però va
+  impostata `PARTNER_APP_PASSWORD_READONLY`, altrimenti i ruoli non-admin
+  entrerebbero con l'accesso pieno (vedi `deluxy-partner/src/app/api/sso/route.ts`).
+- **URL pubblici mancanti**: solo Calendario punta ancora a `localhost` (3110).
+  Quando sarà pubblicata: `APP_URL_CALENDARIO` su Vercel (o default nel codice) + redeploy.
 - **Nessun recupero password autonomo**: lo reimposta un admin da `/utenti`.
 - **Creare gli utenti veri** del team da `/utenti` (finora esiste solo l'admin).
 
@@ -187,9 +190,13 @@ npm run dev            # http://localhost:3050
   Il middleware **esclude `/api/*`**: quelle rotte si autenticano da sole.
 - **SSO Hub→app** (`src/lib/sso.ts`, `src/app/vai/[app]`): token cifrato AES-GCM
   con `HUB_SSO_SECRET` condiviso, l'app di destinazione lo scambia su
-  `/api/sso` e crea la propria sessione. Attivo su Finance (`sso: true`); lato
-  Partner: `src/lib/sso.ts` + `src/app/api/sso/route.ts` (admin → accesso pieno,
-  altri → sola lettura).
+  `/api/sso` e crea la propria sessione. Dichiarato su Finance e su **Attività**
+  (`sso: true`); lato Partner: `src/lib/sso.ts` + `src/app/api/sso/route.ts`
+  (admin → accesso pieno, altri → sola lettura).
+- **SSO acceso su Attività (26/07/2026)**: il token porta anche l'**email**
+  (`PayloadSso.email`, letta da `Utente` in `/vai/[app]`) perché Tasks identifica
+  le persone per email e non per id del Hub. `HUB_SSO_SECRET` impostato su Hub e
+  Tasks: dal portale si entra in Attività senza rifare il login.
 - **Catalogo passato a 11 app** (vedi §3), con `APP_URL_CONSEGNE` ora pubblico.
 
 ---
