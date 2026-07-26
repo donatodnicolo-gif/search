@@ -189,6 +189,7 @@ model Ordine {
   noteInterne      String?
   ultimaClassifica DateTime? // ultima modifica manuale della classificazione
   eventi           EventoOrdine[]
+  feedback         FeedbackOrdine[] // reclami e voti dal Customer Service
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -203,6 +204,60 @@ model Ordine {
   @@index([categoriaPagamento])
   @@index([assegnatoApp])
   @@index([data])
+}
+
+// Ciò che il CUSTOMER SERVICE sa di un ordine: reclami e voti importati da
+// deluxy-messaging (porta 3140) via `/api/v1/feedback`. È una COPIA di sola
+// lettura: la fonte resta il Customer Service, qui si mostra accanto all'ordine
+// e al cliente. Nessuno modifica un reclamo da Orders — si aprono e si chiudono
+// dove c'è la persona che ha parlato col cliente.
+model FeedbackOrdine {
+  id        String @id @default(cuid())
+  // "reclamo:<id>" oppure "voto:<id>": l'identità nel Customer Service, così
+  // reimportare è idempotente e un reclamo aggiornato non diventa un doppione.
+  idEsterno String @unique
+  tipo      String // reclamo | voto
+
+  // Ordine a cui si riferisce. `ordineId` si valorizza SOLO quando il numero
+  // identifica un ordine senza ambiguità: un reclamo attaccato all'ordine
+  // sbagliato è peggio di un reclamo non attaccato. `collegamento` dice come è
+  // andata (numero+brand | numero | ambiguo | non-trovato).
+  ordineId     String?
+  ordine       Ordine? @relation(fields: [ordineId], references: [id], onDelete: SetNull)
+  ordineNumero String  @default("")
+  negozio      String  @default("")
+  collegamento String  @default("non-trovato")
+
+  clienteNome     String @default("")
+  clienteEmail    String @default("")
+  clienteTelefono String @default("")
+
+  // --- reclamo ---
+  casistica   String  @default("")
+  colpaTipo   String  @default("") // valet | partner | azienda | cliente | nessuno
+  colpaNome   String  @default("")
+  gravita     Int? // 1 lieve · 2 media · 3 grave
+  stato       String  @default("") // aperto | in_lavorazione | risolto | chiuso
+  descrizione String?
+  azioni      String?
+  esito       String?
+  risoltoIl   DateTime?
+
+  // --- voto (giudizio 1-5 su valet o partner, legato a un ordine) ---
+  voto         Int?
+  testo        String?
+  origine      String? // telefono | whatsapp | email | reclamo | altro
+  soggettoTipo String? // valet | partner
+  soggettoNome String?
+
+  creatoIl     DateTime // quando è nato nel Customer Service
+  aggiornatoIl DateTime // ultima modifica là: è la base dell'import incrementale
+  importatoIl  DateTime @default(now()) @updatedAt
+
+  @@index([ordineId])
+  @@index([tipo, stato])
+  @@index([ordineNumero])
+  @@index([aggiornatoIl])
 }
 
 // Riga d'ordine (line item) importata da Shopify.

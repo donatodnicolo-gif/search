@@ -24,6 +24,7 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
         righe: true,
         negozio: { select: { brand: true, dominio: true } },
         eventi: { orderBy: { creatoIl: "desc" }, take: 40 },
+        feedback: { orderBy: { creatoIl: "desc" } },
       },
     }),
     statiOrdinati(),
@@ -179,6 +180,48 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
         </form>
       </div>
 
+      {/* Customer Service: cosa è andato storto su questo ordine, e come l'ha
+          giudicato il cliente. Arriva da deluxy-messaging: qui è sola lettura. */}
+      {ordine.feedback.length > 0 && (
+        <div className="scheda">
+          <div className="scheda-titolo">Customer Service — reclami e voti</div>
+          <ul className="feedback-lista">
+            {ordine.feedback.map((f) => (
+              <li key={f.id} className="feedback-voce">
+                <div className="feedback-testa">
+                  {f.tipo === "reclamo" ? (
+                    <>
+                      <span className="badge" style={{ color: coloreGravitaFeedback(f.gravita) }}>
+                        <span className="dot" />
+                        {f.casistica || "Reclamo"}
+                      </span>
+                      <span className="badge neutro">{statoFeedbackLeggibile(f.stato)}</span>
+                      {f.colpaNome && <span className="stato-shopify">colpa: {f.colpaNome}</span>}
+                    </>
+                  ) : (
+                    <>
+                      <span className="badge" style={{ color: "var(--gold-strong)" }}>
+                        <span className="dot" />
+                        Voto {f.voto}/5
+                      </span>
+                      {f.soggettoNome && <span className="stato-shopify">su {f.soggettoNome}</span>}
+                      {f.origine && <span className="stato-shopify">via {f.origine}</span>}
+                    </>
+                  )}
+                  <span className="feedback-data">{dataBreve(f.creatoIl)}</span>
+                </div>
+                {(f.descrizione || f.testo) && <p className="feedback-testo">{f.descrizione || f.testo}</p>}
+                {f.esito && <p className="feedback-esito"><strong>Esito:</strong> {f.esito}</p>}
+              </li>
+            ))}
+          </ul>
+          <p className="testo-guida" style={{ marginTop: 10 }}>
+            Copia di sola lettura: reclami e voti si aprono e si chiudono nell&apos;app Customer
+            Service, non da qui.
+          </p>
+        </div>
+      )}
+
       {/* Biglietto: per un fioraio è il dato da non sbagliare, va scritto a mano */}
       {ordine.biglietto && (
         <div className="scheda">
@@ -297,4 +340,23 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
       </div>
     </main>
   );
+}
+
+// Gravità di un reclamo: 3 grave (rosso), 2 media (arancio), 1 lieve (neutro).
+// Gli stessi colori del Customer Service, così un reclamo grave si riconosce
+// uguale nelle due app.
+function coloreGravitaFeedback(gravita: number | null): string {
+  if (gravita === 3) return "var(--red)";
+  if (gravita === 2) return "var(--orange)";
+  return "var(--text-secondary)";
+}
+
+function statoFeedbackLeggibile(stato: string): string {
+  const nomi: Record<string, string> = {
+    aperto: "Aperto",
+    in_lavorazione: "In lavorazione",
+    risolto: "Risolto",
+    chiuso: "Chiuso",
+  };
+  return nomi[stato] ?? stato ?? "—";
 }

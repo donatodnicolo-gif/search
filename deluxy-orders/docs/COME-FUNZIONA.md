@@ -164,6 +164,32 @@ L'indizio che non basta da solo — l'**email a dominio proprio** (non gmail,
 libero, icloud…) — non scrive niente: alimenta la lista «Probabili aziende da
 confermare», che è una coda di lavoro. È così che il registro impara chi è B2B.
 
+### I feedback del Customer Service sull'ordine
+Nella scheda dell'ordine compare la scheda **«Customer Service — reclami e
+voti»** quando c'è qualcosa da sapere:
+
+- **reclami**: casistica, gravità (lieve/media/grave, con il colore del
+  Customer Service), stato (aperto, in lavorazione, risolto, chiuso), a chi è
+  imputato, descrizione ed esito;
+- **voti**: il giudizio 1-5 dato da una persona su un valet o un partner,
+  quando è legato a quell'ordine, con il canale da cui è arrivato.
+
+Arrivano da **deluxy-messaging (Customer Service, porta 3140)** via
+`GET /api/v1/feedback` con chiave di sola lettura, e qui sono una **copia in
+sola lettura**: un reclamo si apre e si chiude là, dove c'è chi ha parlato col
+cliente. L'import gira ogni notte insieme alla sincronizzazione da Shopify, ed è
+lanciabile a mano da Impostazioni («Importa ora», con l'opzione «rileggi tutto
+dall'inizio»). Ogni reclamo nuovo lascia anche una riga nella *Storia*
+dell'ordine, con autore `customer-service`.
+
+**Un feedback si attacca a un ordine solo se il numero lo identifica senza
+ambiguità.** Lo stesso numero esiste su più negozi — «#1731» c'è su
+cakedesign.me e potrebbe esserci su deluxy.it — quindi se il Customer Service
+non dice anche il negozio, il feedback resta *senza ordine riconosciuto*
+(visibile e contato in Impostazioni) invece di essere attaccato all'ordine
+sbagliato. Un reclamo sull'ordine sbagliato manda a un fornitore la colpa di un
+altro: meglio scollegato.
+
 ### Bacheca (`/bacheca`)
 Vista kanban: una colonna per ogni stato della pipeline (più «Senza stato»).
 Ogni card è un ordine; cambiando lo stato dal menu della card l'ordine «si
@@ -261,9 +287,29 @@ viene aggiornato per altri motivi, il rischio viene salvato in quell'occasione.
 
 ## Lettura dalle altre app
 Le altre app leggono con una chiave di sola lettura (`GET /api/v1/ordini`,
-`/api/v1/ordini/:id`, `/api/v1/stati`, `/api/v1/liste`, `/api/v1/liste/:chiave`).
-Chi ha una chiave di scrittura può anche riclassificare
+`/api/v1/ordini/:id`, `/api/v1/stati`, `/api/v1/liste`, `/api/v1/liste/:chiave`,
+`/api/v1/ricavi`). Chi ha una chiave di scrittura può anche riclassificare
 (`PATCH /api/v1/ordini/:id`). Dettaglio in `README.md`.
+
+### Il venduto per periodo (`/api/v1/ricavi`)
+Chi ragiona per mese e non per singolo ordine — il **consuntivo di Budgets**, per
+dire, che da qui prende il canale D2C — non deve scorrere l'archivio: chiede il
+**totale per brand e per mese** e la somma la fa il database. A pagine di 200
+ordini un anno sarebbero decine di chiamate per un unico numero.
+
+Cosa entra e cosa no, dichiarato nella risposta invece che dato per scontato:
+- **fuori gli annullati**, come in tutte le API di qui;
+- **fuori i rimborsati e gli storni** (REFUNDED, VOIDED): i soldi sono tornati
+  al cliente, non sono fatturato;
+- **dentro per intero i rimborsati in parte**: Shopify non salva quanto è stato
+  reso, quindi il dato si dichiara (`esclusi.parzialmenteRimborsati`) invece di
+  essere corretto a occhio;
+- gli importi sono il **totale Shopify: IVA e spedizione incluse**. L'aliquota
+  non sta sull'ordine, quindi qui non si scorpora niente — chi confronta con un
+  fatturato imponibile sceglie l'aliquota e la mostra nella propria pagina.
+
+I mesi sono mesi di calendario **italiani** (`Europe/Rome`): un ordine delle
+00:30 del 1° gennaio è di gennaio, non di dicembre.
 
 Le **liste di clienti** escono con gli stessi criteri della UI: `/api/v1/liste`
 dà il catalogo con i conteggi (e le soglie, così chi legge sa cosa significano),

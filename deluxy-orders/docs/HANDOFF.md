@@ -59,6 +59,29 @@ Copertura dei dati (non è il 100%, e va saputo):
 | Foto prodotti | ultimi 90 giorni | backfill completo costerebbe ore |
 | Biglietto | 132 ordini | 128 dedotti dalla nota, marcati «da verificare» |
 
+### Feedback dal Customer Service (26/07/2026)
+Orders importa da **deluxy-messaging** (`GET /api/v1/feedback`, chiave di sola
+lettura creata là con `npm run chiave -- deluxy-orders`) i **reclami** e i
+**voti** legati a un ordine, li mostra sulla scheda dell'ordine e li conta in
+Impostazioni. Import incrementale e idempotente (`idEsterno`, upsert), ogni
+notte dentro `/api/cron/sync` e a mano dal pulsante.
+
+- **Serve configurare** `MESSAGGI_URL` + `MESSAGGI_API_KEY` (in locale sono nel
+  `.env`; su Vercel vanno impostate).
+- **Il collegamento all'ordine è prudente**: solo numero+brand, oppure numero se
+  è unico in tutto il registro; altrimenti `collegamento = ambiguo|non-trovato`
+  e il feedback resta scollegato ma visibile. Provato: un voto con «1731» senza
+  negozio resta ambiguo, il reclamo con «#1731» + `cakedesign.me` si attacca.
+- **Verificato con dati di prova** (creati e poi cancellati): API 200 con
+  chiave, 401 senza, un voto senza numero d'ordine non esce nemmeno; import
+  ripetuto due volte → 0 nuovi, nessun doppione.
+- **Stato reale al 26/07/2026**: nel Customer Service ci sono 7 casistiche
+  configurate, **0 reclami** e 6 voti (nati mentre si lavorava). Quindi la
+  catena c'è ma il registro è vuoto: non è un errore.
+- **MANCA**: il Customer Service va **pubblicato** perché l'import funzioni in
+  produzione (la rotta `/api/v1/feedback` è nuova), e le due variabili vanno
+  messe sul progetto Vercel di Orders.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare
@@ -111,7 +134,22 @@ risponde **410**. Un'app a valle li lavorerebbe come validi — e restano spesso
 e soprattutto non *scopriva* più gli annullamenti — un ordine importato quando
 era valido spariva dalla risposta e restava valido per sempre.
 
-Chi consuma oggi: `deluxy-partner-import` (Finance) e `deluxy-messaggi`.
+Chi consuma oggi: `deluxy-partner-import` (Finance), `deluxy-messaggi` e
+`deluxy-budgets` (sola lettura, 26/07/2026).
+
+### `/api/v1/ricavi` — il venduto per brand e per mese (26/07/2026)
+Nuovo endpoint di sola lettura, nato per il **consuntivo D2C di Budgets**: le
+vendite ai consumatori non passano da Finance, quindi la voce di budget più
+grande dell'anno restava a zero. La somma la fa il database (raw SQL con
+`date_trunc` sui mesi **Europe/Rome**): a pagine di 200 ordini un anno sarebbe
+stato decine di chiamate.
+
+Scelte da conoscere prima di toccarlo:
+- esclude **annullati** *e* **rimborsati/stornati** (REFUNDED, VOIDED);
+- conta **per intero i rimborsi parziali** — l'importo reso non è nel registro,
+  quindi si dichiara in `esclusi.parzialmenteRimborsati` invece di stimarlo;
+- restituisce il **lordo Shopify** (IVA e spedizione incluse): l'aliquota non è
+  sull'ordine, lo scorporo lo fa chi consuma e deve dichiararlo.
 
 ## MANCA / prossimi passi
 0. **Finance: cosa fare degli annullati.** Ora li riceve ma li tratta come

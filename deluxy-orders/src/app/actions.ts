@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { registraEvento } from "@/lib/classificazione";
 import { codificaChiave } from "@/lib/clienti";
 import { tipologiaValida } from "@/lib/segmenti";
+import { importaFeedback } from "@/lib/feedback";
 import { eseguiSyncOrdini } from "@/lib/sync";
 import { tokenNegozio } from "@/lib/shopify";
 import { cercaDocumento, scriviConsegna, dataValida, fasciaValida } from "@/lib/consegna";
@@ -100,6 +101,23 @@ export async function toggleEtichetta(fd: FormData) {
   await registraEvento(ordineId, "etichetta", `${presente ? "Rimossa" : "Aggiunta"} etichetta ${eti?.nome ?? ""}`);
   revalidatePath("/");
   revalidatePath(`/ordini/${ordineId}`);
+}
+
+// ---- Feedback dal Customer Service ----
+// Import a mano dalla pagina Impostazioni. L'esito torna nella query string
+// perché la pagina è un server component e l'operazione parla con un'altra app:
+// se non è configurata, o se là c'è un problema, si deve leggere il motivo.
+export async function importaFeedbackOrdini(fd: FormData) {
+  const completo = fd.get("completo") === "on";
+  const esito = await importaFeedback(completo);
+  revalidatePath("/impostazioni");
+  revalidatePath("/");
+  const messaggio = esito.errore
+    ? `errore=${encodeURIComponent(esito.errore)}`
+    : `esito=${encodeURIComponent(
+        `${esito.letti} feedback letti · ${esito.nuovi} nuovi · ${esito.aggiornati} aggiornati · ${esito.collegati} collegati a un ordine, ${esito.scollegati} no`,
+      )}`;
+  redirect(`/impostazioni?${messaggio}`);
 }
 
 // ---- Tipologia di un cliente (scheda cliente) ----

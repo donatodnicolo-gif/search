@@ -5,30 +5,97 @@ import {
   creaNegozio, toggleNegozio, eliminaNegozio, cambiaColoreBrand, cambiaBrandRicerca,
   creaStato, aggiornaStato, eliminaStato,
   creaEtichetta, eliminaEtichetta,
-  toggleChiave, sincronizza,
+  toggleChiave, sincronizza, importaFeedbackOrdini,
 } from "@/app/actions";
+import { configurazione, riepilogoFeedback } from "@/lib/feedback";
 
 export const dynamic = "force-dynamic";
 
-export default async function Impostazioni() {
-  const [negozi, stati, etichette, chiavi] = await Promise.all([
+export default async function Impostazioni({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const sp = await searchParams;
+  const [negozi, stati, etichette, chiavi, feedback] = await Promise.all([
     prisma.negozioShopify.findMany({ orderBy: { brand: "asc" } }),
     statiOrdinati(),
     prisma.etichetta.findMany({ orderBy: { nome: "asc" } }),
     prisma.apiKey.findMany({ orderBy: { creataIl: "desc" } }),
+    riepilogoFeedback(),
   ]);
+  const csConfigurato = configurazione() != null;
 
   return (
     <main className="main">
       <div className="page-head">
         <div>
           <h1 className="page-title">Impostazioni</h1>
-          <p className="page-sub">Negozi Shopify, pipeline degli stati, etichette e chiavi API.</p>
+          <p className="page-sub">
+            Negozi Shopify, pipeline degli stati, etichette, feedback del Customer Service e chiavi API.
+          </p>
         </div>
         <form action={sincronizza}>
           <input type="hidden" name="giorni" value="90" />
           <button className="btn" type="submit" disabled={negozi.length === 0}>Sincronizza ora</button>
         </form>
+      </div>
+
+      {sp.esito && <div className="avviso-ok">{sp.esito}</div>}
+      {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
+
+      {/* ---------- Feedback dal Customer Service ---------- */}
+      <div className="scheda">
+        <div className="scheda-titolo">Feedback degli ordini (Customer Service)</div>
+        <p className="testo-guida">
+          I <strong>reclami</strong> e i <strong>voti</strong> aperti nell&apos;app Customer Service
+          (deluxy-messaging) su un ordine, importati qui e mostrati sulla scheda dell&apos;ordine.
+          È una copia di sola lettura: si aprono e si chiudono là, dove c&apos;è chi ha parlato col
+          cliente. L&apos;import gira ogni notte insieme alla sincronizzazione da Shopify.
+        </p>
+
+        {!csConfigurato ? (
+          <p className="testo-guida" style={{ marginTop: 10 }}>
+            Non configurato: servono <code className="inline">MESSAGGI_URL</code> e{" "}
+            <code className="inline">MESSAGGI_API_KEY</code>. La chiave si crea nel Customer Service
+            con <code className="inline">npm run chiave -- deluxy-orders</code>.
+          </p>
+        ) : (
+          <>
+            <div className="kpi-riga" style={{ marginTop: 12 }}>
+              <div className="kpi">
+                <div className="kpi-valore">{feedback.reclami.toLocaleString("it-IT")}</div>
+                <div className="kpi-etichetta">Reclami importati</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">{feedback.reclamiAperti.toLocaleString("it-IT")}</div>
+                <div className="kpi-etichetta">Ancora aperti</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">{feedback.voti.toLocaleString("it-IT")}</div>
+                <div className="kpi-etichetta">Voti sugli ordini</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">{feedback.scollegati.toLocaleString("it-IT")}</div>
+                <div className="kpi-etichetta">Senza ordine riconosciuto</div>
+              </div>
+            </div>
+            <p className="testo-guida">
+              {feedback.ultimo
+                ? `Ultimo import: ${dataBreve(feedback.ultimo)}.`
+                : "Mai importato finora."}{" "}
+              Un feedback resta «senza ordine riconosciuto» quando il numero non basta a capire di
+              quale ordine si parla (lo stesso numero esiste su più negozi): meglio scollegato che
+              attaccato all&apos;ordine sbagliato.
+            </p>
+            <form action={importaFeedbackOrdini} style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 8 }}>
+              <button className="btn" type="submit">Importa ora</button>
+              <label style={{ fontSize: 13, color: "var(--text-secondary)", display: "flex", gap: 6, alignItems: "center" }}>
+                <input type="checkbox" name="completo" /> rileggi tutto dall&apos;inizio
+              </label>
+            </form>
+          </>
+        )}
       </div>
 
       {/* ---------- Negozi Shopify ---------- */}

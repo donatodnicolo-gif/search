@@ -29,6 +29,8 @@ Variabili d'ambiente:
 | `DIRECT_URL` | Postgres diretto per `db push`/migrazioni |
 | `ORDERS_APP_PASSWORD` | password unica della UI (se assente, UI aperta in locale) |
 | `CRON_SECRET` | protegge `/api/cron/sync` (sync notturna Vercel) |
+| `MESSAGGI_URL` | dove sta il Customer Service (deluxy-messaging), per importare i feedback |
+| `MESSAGGI_API_KEY` | chiave di sola lettura del Customer Service (si crea là: `npm run chiave -- deluxy-orders`) |
 
 ## Come funziona (in breve)
 
@@ -62,6 +64,7 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 | GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio`) e paginazione (`page, limit`) |
 | GET | `/api/v1/ordini/:id` | un ordine con la classificazione (410 se annullato) |
 | PATCH | `/api/v1/ordini/:id` | riclassifica (chiave di scrittura): `stato`, `etichette[]`, `categoriaPagamento`, `tipoConsegna`, `tipoProdotto`, `canale`, `assegnatoApp`, `fornitore`, `responsabile`, `classificazioni{}`, `noteInterne` |
+| GET | `/api/v1/ricavi` | venduto **aggregato per brand e per mese** (`anno`, oppure `da`/`a`; `brand`; `annullati=inclusi`, `rimborsati=inclusi`) |
 | GET | `/api/v1/stati` | la pipeline degli stati (per interpretare `stato`) |
 | GET | `/api/v1/liste` | catalogo delle liste di clienti, con conteggi, criteri e soglie |
 | GET | `/api/v1/liste/:chiave` | i clienti di una lista (`q, ordina, page, limit≤500`) con segmento, tipologia, spesa e recency |
@@ -75,6 +78,15 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 > `annullati=solo`); l'elenco dichiara sempre `annullatiInclusi`. Finance li
 > chiede, perché la riconciliazione ha bisogno di rimborsi e incassi avvenuti;
 > le app operative usano il default.
+
+> **`/api/v1/ricavi` somma nel database, non a valle.** Un anno sono migliaia di
+> ordini: leggerli a pagine di 200 per sommarli nell'app che chiama sarebbe
+> decine di chiamate per un totale. Gli importi sono il **totale Shopify, IVA e
+> spedizione incluse** (l'aliquota non è salvata sull'ordine: chi confronta con
+> un imponibile la scorpora a valle e dichiara quale ha usato). Oltre agli
+> annullati si escludono anche i **rimborsati/stornati** (REFUNDED, VOIDED);
+> i rimborsi **parziali** restano contati per intero, perché l'importo reso non
+> esiste nel registro — la risposta lo dichiara in `esclusi`.
 
 ## Struttura
 
