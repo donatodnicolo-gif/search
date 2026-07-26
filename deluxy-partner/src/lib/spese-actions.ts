@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { registra } from "./registro";
-import { categorieDaBudgets, categoriaDaRegole } from "./categorie-spesa";
+import { categorieDaBudgets, categoriaDaRegole, proponiConAI } from "./categorie-spesa";
 
 // Assegnazione della categoria di costo alle USCITE. L'elenco delle categorie
 // è di Budgets (vedi `categorie-spesa.ts`): qui si scrive solo la scelta.
@@ -117,4 +117,92 @@ export async function applicaRegoleCategorie() {
   });
   revalidatePath("/spese");
   redirect(`/spese?applicate=${assegnate}&restano=${daFare.length - assegnate}`);
+}
+
+// ————— Proposte dell'AI —————
+// L'AI vive in Budgets (stesse categorie, stesso prompt): qui si raccolgono le
+// controparti ancora senza categoria, si chiede la proposta e si applica.
+//
+// Due scelte volute, perché qui dietro c'è un bilancio:
+//  1. le proposte a **confidenza bassa** non si applicano: meglio una spesa non
+//     categorizzata che una nella voce sbagliata del conto economico;
+//  2. si scrive `categoriaDa = "ai"`, così in pagina si filtra «assegnate
+//     dall'AI» e si rivedono. Una proposta indistinguibile da una scelta umana
+//     non sarebbe più verificabile da nessuno.
+// Come le regole, non tocca MAI ciò che è già assegnato.
+const MAX_CONTROPARTI_AI = 300; // ~3 lotti: oltre, la funzione va in timeout
+const LOTTO_AI = 100;
+
+export async function proponiCategorieAI() {
+  const esitoCat = await categorieDaBudgets();
+  if (!esitoCat.ok) redirect(`/spese?errore=${encodeURIComponent(esitoCat.errore)}`);
+
+  // Si ragiona per CONTROPARTE, non per movimento: le stesse 6.000 uscite sono
+  // poche centinaia di fornitori, e all'AI si chiede una volta sola per ognuno.
+  const uscite = await prisma.transazioneBancaria.findMany({
+    where: { importo: { lt: 0 }, categoriaId: null, stato: { not: "ignorata" } },
+    select: { controparte: true, descrizione: true, importo: true },
+  });
+  const perContro = new Map<string, number>();
+  for (const t of uscite) {
+    const k = (t.controparte?.trim() || t.descrizione?.trim() || "").slice(0, 120);
+    if (!k) continue;
+    perContro.set(k, (perContro.get(k) ?? 0) + Math.abs(t.importo));
+  }
+  // Prima le controparti che pesano di più: se il tetto taglia qualcosa, taglia
+  // le briciole e non i fornitori grossi.
+  const ordinate = [...perContro.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, MAX_CONTROPARTI_AI)
+    .map(([controparte, uscite]) => ({ controparte, uscite }));
+
+  if (ordinate.length === 0) redirect("/spese?ai=0&saltate=0&restano=0");
+
+  const perNome = new Map(esitoCat.categorie.map((c) => [c.nome.toLowerCase(), c]));
+  let applicate = 0;
+  let saltate = 0;
+
+  for (let i = 0; i < ordinate.length; i += LOTTO_AI) {
+    const lotto = ordinate.slice(i, i + LOTTO_AI);
+    const esito = await proponiConAI(lotto);
+    if (!esito.ok) {
+      // Se il primo lotto fallisce non si è fatto nulla: si dice e basta.
+      // Se fallisce a metà, il lavoro già applicato resta buono e lo si riporta.
+      if (applicate === 0) redirect(`/spese?errore=${encodeURIComponent(esito.errore)}`);
+      break;
+    }
+    for (const p of esito.proposte) {
+      const cat = p.categoria ? perNome.get(p.categoria.trim().toLowerCase()) : null;
+      if (!cat || p.confidenza === "bassa") {
+        saltate++;
+        continue;
+      }
+      const r = await prisma.transazioneBancaria.updateMany({
+        where: {
+          importo: { lt: 0 },
+          categoriaId: null, // non si sovrascrive mai niente
+          stato: { not: "ignorata" },
+          OR: [{ controparte: p.controparte }, { controparte: null, descrizione: p.controparte }],
+        },
+        data: {
+          categoriaId: cat.id,
+          categoriaNome: cat.nome,
+          categoriaTipoPL: cat.tipoPL,
+          categoriaDa: "ai",
+          categoriaNota: `confidenza ${p.confidenza} · ${p.motivo}`.slice(0, 300),
+          categoriaIl: new Date(),
+        },
+      });
+      applicate += r.count;
+    }
+  }
+
+  const restano = Math.max(0, perContro.size - ordinate.length);
+  await registra({
+    azione: `Proposte AI sulle spese: ${applicate} movimenti categorizzati`,
+    categoria: "transazioni",
+    dettaglio: `${saltate} controparti lasciate stare (AI incerta) · ${restano} controparti oltre il tetto di ${MAX_CONTROPARTI_AI}`,
+  });
+  revalidatePath("/spese");
+  redirect(`/spese?ai=${applicate}&saltate=${saltate}&restano=${restano}`);
 }

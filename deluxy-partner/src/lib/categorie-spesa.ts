@@ -80,6 +80,41 @@ export async function categorieDaBudgets(conRegole = false): Promise<EsitoCatego
   }
 }
 
+export type PropostaAI = {
+  controparte: string;
+  categoria: string | null; // NOME di una categoria esistente, o null se incerta
+  confidenza: "alta" | "media" | "bassa";
+  motivo: string;
+};
+
+/** Chiede a **Budgets** di far proporre all'AI la categoria per un elenco di
+ *  controparti. L'AI non sta qui apposta: quella di Budgets ha già il prompt
+ *  tarato su Deluxy (fiori e pasticcerie ai costi del venduto, F24 alle tasse,
+ *  Google/Meta alla pubblicità) e le categorie sono sue. Due AI diverse sulla
+ *  stessa spesa darebbero due risposte diverse. */
+export async function proponiConAI(
+  controparti: { controparte: string; uscite: number }[]
+): Promise<{ ok: true; proposte: PropostaAI[] } | { ok: false; errore: string }> {
+  const key = chiave("BUDGETS_API_KEY");
+  if (!key) return { ok: false, errore: "BUDGETS_API_KEY non configurata: le proposte AI passano da Budgets." };
+  try {
+    const res = await fetch(`${baseUrl()}/api/v1/categorie/proponi`, {
+      method: "POST",
+      headers: { "x-api-key": key, "Content-Type": "application/json" },
+      body: JSON.stringify({ controparti }),
+      // L'AI ci mette qualche secondo per lotto: qui serve più pazienza che altrove.
+      signal: AbortSignal.timeout(90000),
+    });
+    if (res.status === 401) return { ok: false, errore: "Chiave rifiutata da Budgets (401): controlla BUDGETS_API_KEY." };
+    if (!res.ok) return { ok: false, errore: `Budgets ha risposto ${res.status}.` };
+    const j = (await res.json()) as { proposte?: PropostaAI[]; errore?: string };
+    if (j.errore) return { ok: false, errore: j.errore };
+    return { ok: true, proposte: j.proposte ?? [] };
+  } catch (e) {
+    return { ok: false, errore: `Budgets non raggiungibile: ${(e as Error).message}` };
+  }
+}
+
 /** La categoria suggerita dalle REGOLE di Budgets per una controparte.
  *  Stesso criterio dell'originale: vince il `match` più lungo, così una regola
  *  specifica batte una generica ("ENEL ENERGIA" batte "ENEL"). Torna null se

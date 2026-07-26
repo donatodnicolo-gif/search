@@ -4,8 +4,9 @@ import { euro, dataIt } from "@/lib/format";
 import { MESI } from "@/lib/calc";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { categorieDaBudgets, budgetsConfigurato, TIPI_PL } from "@/lib/categorie-spesa";
-import { impostaCategoriaSpesa, applicaRegoleCategorie } from "@/lib/spese-actions";
+import { impostaCategoriaSpesa, applicaRegoleCategorie, proponiCategorieAI } from "@/lib/spese-actions";
 import { CategoriaSpesa } from "@/components/CategoriaSpesa";
+import { BottoneAI } from "@/components/BottoneAI";
 
 export const dynamic = "force-dynamic";
 // «Applica le regole» tocca migliaia di movimenti: col limite di default la
@@ -20,7 +21,7 @@ export const maxDuration = 60;
 export default async function SpesePage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; dal?: string; al?: string; cat?: string; solo?: string; errore?: string; applicate?: string; restano?: string }>;
+  searchParams: Promise<{ anno?: string; dal?: string; al?: string; cat?: string; solo?: string; errore?: string; applicate?: string; restano?: string; ai?: string; saltate?: string }>;
 }) {
   const sp = await searchParams;
   const anno = parseInt(sp.anno ?? "") || ANNO_CORRENTE;
@@ -38,13 +39,14 @@ export default async function SpesePage({
       data: { gte: inizio, lt: fine },
       stato: { not: "ignorata" },
       ...(sp.solo === "senza" ? { categoriaId: null } : {}),
+      ...(sp.solo === "ai" ? { categoriaDa: "ai" } : {}),
       ...(sp.cat ? { categoriaId: sp.cat } : {}),
     },
     orderBy: [{ data: "desc" }],
     take: 400,
     select: {
       id: true, data: true, importo: true, descrizione: true, controparte: true,
-      categoriaId: true, categoriaNome: true, categoriaTipoPL: true, categoriaDa: true,
+      categoriaId: true, categoriaNome: true, categoriaTipoPL: true, categoriaDa: true, categoriaNota: true,
     },
   });
 
@@ -91,9 +93,14 @@ export default async function SpesePage({
         <div className="page-actions">
           {categorie.length > 0 && (
             <form action={applicaRegoleCategorie}>
-              <button className="btn primary" type="submit" title="Categorizza in automatico le uscite ancora senza categoria, usando le regole definite in Budgets. Non tocca quelle già assegnate a mano.">
+              <button className="btn secondary" type="submit" title="Categorizza in automatico le uscite ancora senza categoria, usando le regole definite in Budgets. Non tocca quelle già assegnate a mano.">
                 ⇄ Applica le regole di Budgets
               </button>
+            </form>
+          )}
+          {categorie.length > 0 && (
+            <form action={proponiCategorieAI}>
+              <BottoneAI />
             </form>
           )}
         </div>
@@ -118,6 +125,20 @@ export default async function SpesePage({
       {sp.errore && (
         <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid var(--red)" }}>
           <span style={{ color: "var(--red)", fontSize: 14 }}>{sp.errore}</span>
+        </div>
+      )}
+      {sp.ai != null && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge purple"><span className="dot" />{sp.ai} spese categorizzate dall&apos;AI</span>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0, lineHeight: 1.6 }}>
+            {Number(sp.saltate) > 0 && (
+              <>{sp.saltate} controparti lasciate stare: l&apos;AI non era sicura, e una spesa nella voce sbagliata
+              del bilancio è peggio di una spesa non categorizzata. </>
+            )}
+            {Number(sp.restano) > 0 && <>Restano {sp.restano} controparti oltre il tetto di questa passata: rilancia. </>}
+            <strong>Sono proposte</strong>: filtra «Solo assegnate dall&apos;AI» qui sotto e ricontrollale — accanto a
+            ognuna c&apos;è il motivo.
+          </p>
         </div>
       )}
       {sp.applicate != null && (
@@ -225,6 +246,7 @@ export default async function SpesePage({
           <select name="solo" defaultValue={sp.solo ?? ""}>
             <option value="">Tutte le uscite</option>
             <option value="senza">Solo senza categoria</option>
+            <option value="ai">Solo assegnate dall&apos;AI (da rivedere)</option>
           </select>
           <button className="btn secondary small" type="submit">Filtra</button>
         </form>
@@ -274,6 +296,13 @@ export default async function SpesePage({
                         <span className="badge green"><span className="dot" />a mano</span>
                       ) : t.categoriaDa === "regola" ? (
                         <span className="badge neutral"><span className="dot" />regola</span>
+                      ) : t.categoriaDa === "ai" ? (
+                        <>
+                          <span className="badge purple" title={t.categoriaNota ?? undefined}><span className="dot" />AI</span>
+                          {t.categoriaNota && (
+                            <div className="muted" style={{ fontSize: 11, marginTop: 3, maxWidth: 200 }}>{t.categoriaNota}</div>
+                          )}
+                        </>
                       ) : (
                         <span className="muted">—</span>
                       )}

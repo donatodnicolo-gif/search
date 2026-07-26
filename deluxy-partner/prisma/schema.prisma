@@ -147,7 +147,9 @@ model TransazioneBancaria {
   categoriaId     String? // id della categoria in Budgets
   categoriaNome   String? // etichetta al momento dell'assegnazione
   categoriaTipoPL String? // COGS | ADV | PERSONALE | STRUTTURA | ESCLUSA
-  categoriaDa     String? // manuale | regola (chi ha deciso: una persona o una regola di Budgets)
+  categoriaDa     String? // manuale | regola | ai (chi ha deciso)
+  categoriaNota   String? // perché: motivo dell'AI o confidenza. Serve a rivedere
+  //                         una proposta senza doverla indovinare a ritroso.
   categoriaIl     DateTime?
   createdAt   DateTime @default(now())
 
