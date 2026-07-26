@@ -174,9 +174,9 @@ export default async function RiordiniPage({
               </thead>
               <tbody>
                 {righe.map((r) => (
-                  <tr key={r.prodottoId}>
+                  <tr key={r.prodottoId} className="riga-cliccabile">
                     <td>
-                      <Link href={`/prodotti/${r.prodottoId}`} className="cella-nome">
+                      <Link href={`/prodotti/${r.prodottoId}`} className="cella-nome link-riga">
                         {r.nome}
                       </Link>
                       <div className="cella-sub">

@@ -169,11 +169,11 @@ export default async function ClassifichePage({
                     {c.perValore.map((v) => {
                       const salto = v.posQuantita - v.posValore;
                       return (
-                        <tr key={v.chiave}>
+                        <tr key={v.chiave} className={v.prodottoId ? "riga-cliccabile" : undefined}>
                           <td className="num cella-muta">{v.posValore}</td>
                           <td>
                             {v.prodottoId ? (
-                              <Link href={`/prodotti/${v.prodottoId}`} className="cella-nome">
+                              <Link href={`/prodotti/${v.prodottoId}`} className="cella-nome link-riga">
                                 {v.nome}
                               </Link>
                             ) : (
@@ -242,11 +242,13 @@ function Tabellone({
       </div>
       <ol className="classifica">
         {voci.map((v, i) => (
-          <li key={v.chiave}>
+          <li key={v.chiave} className={v.prodottoId ? "riga-cliccabile" : undefined}>
             <span className={`classifica-pos${i < 3 ? " podio" : ""}`}>{i + 1}</span>
             <span className="classifica-nome">
               {v.prodottoId ? (
-                <Link href={`/prodotti/${v.prodottoId}`}>{v.nome}</Link>
+                <Link href={`/prodotti/${v.prodottoId}`} className="link-riga">
+                  {v.nome}
+                </Link>
               ) : (
                 v.nome
               )}

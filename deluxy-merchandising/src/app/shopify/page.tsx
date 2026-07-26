@@ -78,9 +78,9 @@ export default async function ShopifyPage({
             </thead>
             <tbody>
               {prodotti.map((p) => (
-                <tr key={p.id}>
+                <tr key={p.id} className="riga-cliccabile">
                   <td>
-                    <Link href={`/prodotti/${p.id}?tab=shopify`} className="cella-nome">{p.nome}</Link>
+                    <Link href={`/prodotti/${p.id}?tab=shopify`} className="cella-nome link-riga">{p.nome}</Link>
                     <div className="cella-sub">{p.codice}</div>
                   </td>
                   <td className="cella-muta">{p.collezione?.nome ?? "—"}</td>

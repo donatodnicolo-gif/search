@@ -74,9 +74,9 @@ export default async function CostiPage() {
             </thead>
             <tbody>
               {mostrate.map(({ p, m, target }) => (
-                <tr key={p.id}>
+                <tr key={p.id} className="riga-cliccabile">
                   <td>
-                    <Link href={`/prodotti/${p.id}?tab=costi`} className="cella-nome">{p.nome}</Link>
+                    <Link href={`/prodotti/${p.id}?tab=costi`} className="cella-nome link-riga">{p.nome}</Link>
                     <div className="cella-sub">{p.codice}</div>
                   </td>
                   <td className="cella-muta">{p.collezione?.nome ?? "—"}{target != null ? ` · target ${target}%` : ""}</td>

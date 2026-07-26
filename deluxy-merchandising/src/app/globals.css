@@ -152,6 +152,21 @@ tr:last-child td { border-bottom: none; }
 tbody tr { transition: background 120ms var(--ease); }
 tbody tr:hover { background: var(--fill); }
 .cella-nome { font-weight: 600; letter-spacing: -0.01em; }
+
+/* Riga (o voce di elenco) che porta al dettaglio: il bersaglio è tutta la riga,
+   non le poche lettere del nome. Il link resta un vero <a> — si apre in una
+   scheda nuova col tasto centrale e si legge con lo screen reader — e un
+   pseudo-elemento lo allarga fino ai bordi della riga. Quello che dentro la
+   riga è cliccabile per conto suo (altri link, bottoni, campi) sta sopra. */
+tr.riga-cliccabile, li.riga-cliccabile { position: relative; }
+tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cursor: pointer; }
+.link-riga::after { content: ""; position: absolute; inset: 0; z-index: 0; }
+.riga-cliccabile a:not(.link-riga),
+.riga-cliccabile button,
+.riga-cliccabile input,
+.riga-cliccabile select,
+.riga-cliccabile form { position: relative; z-index: 1; }
+.riga-cliccabile:focus-within { background: var(--fill); }
 .cella-sub { font-size: 12.5px; color: var(--text-tertiary); margin-top: 2px; font-weight: 400; }
 .cella-muta { color: var(--text-secondary); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }

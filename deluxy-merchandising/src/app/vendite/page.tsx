@@ -212,8 +212,8 @@ export default async function VenditePage({
                 ) : (
                   <ul className="lista-secca">
                     {crescita.map((p) => (
-                      <li key={p.prodottoId}>
-                        <Link href={`/prodotti/${p.prodottoId}`} className="cella-nome">
+                      <li key={p.prodottoId} className="riga-cliccabile">
+                        <Link href={`/prodotti/${p.prodottoId}`} className="cella-nome link-riga">
                           {p.nome}
                         </Link>
                         <span className="lista-num" style={{ color: coloreDelta(p.deltaPezzi) }}>
@@ -234,8 +234,8 @@ export default async function VenditePage({
                 ) : (
                   <ul className="lista-secca">
                     {calo.map((p) => (
-                      <li key={p.prodottoId}>
-                        <Link href={`/prodotti/${p.prodottoId}`} className="cella-nome">
+                      <li key={p.prodottoId} className="riga-cliccabile">
+                        <Link href={`/prodotti/${p.prodottoId}`} className="cella-nome link-riga">
                           {p.nome}
                         </Link>
                         <span className="lista-num" style={{ color: coloreDelta(p.deltaPezzi) }}>
@@ -268,9 +268,9 @@ export default async function VenditePage({
                 </thead>
                 <tbody>
                   {prodottiMostrati.map((p) => (
-                    <tr key={p.prodottoId}>
+                    <tr key={p.prodottoId} className="riga-cliccabile">
                       <td>
-                        <Link href={`/prodotti/${p.prodottoId}`} className="cella-nome">
+                        <Link href={`/prodotti/${p.prodottoId}`} className="cella-nome link-riga">
                           {p.nome}
                         </Link>
                         <div className="cella-sub">

@@ -165,10 +165,16 @@ export default async function CruscottoPage({
             ) : (
               <ol className="classifica">
                 {cls.perValore.map((v, i) => (
-                  <li key={v.chiave}>
+                  <li key={v.chiave} className={v.prodottoId ? "riga-cliccabile" : undefined}>
                     <span className={`classifica-pos${i < 3 ? " podio" : ""}`}>{i + 1}</span>
                     <span className="classifica-nome">
-                      {v.prodottoId ? <Link href={`/prodotti/${v.prodottoId}`}>{v.nome}</Link> : v.nome}
+                      {v.prodottoId ? (
+                        <Link href={`/prodotti/${v.prodottoId}`} className="link-riga">
+                          {v.nome}
+                        </Link>
+                      ) : (
+                        v.nome
+                      )}
                       <span className="cella-sub">{v.dettaglio}</span>
                     </span>
                     <span className="classifica-valore">
@@ -194,8 +200,8 @@ export default async function CruscottoPage({
                   .filter((r) => r.quantitaSuggerita > 0)
                   .slice(0, 5)
                   .map((r) => (
-                    <li key={r.prodottoId}>
-                      <Link href={`/prodotti/${r.prodottoId}`} className="cella-nome">
+                    <li key={r.prodottoId} className="riga-cliccabile">
+                      <Link href={`/prodotti/${r.prodottoId}`} className="cella-nome link-riga">
                         {r.nome}
                       </Link>
                       <span className="lista-num">{r.quantitaSuggerita} pz</span>
