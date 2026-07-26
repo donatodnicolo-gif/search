@@ -43,30 +43,34 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: true, esiti })
     }
 
-    const esiti = await sincronizzaTutti()
+    const forza = parametri.get('forzaRegistro') === '1'
 
-    // Finito di leggere la posta, le attività si allineano col registro
-    // centralizzato NEI DUE SENSI: prima si applica qui quello che è cambiato
-    // dentro Tasks (una task chiusa là dev'essere chiusa anche qui), poi si
-    // manda ciò che è cambiato qui. Se il registro non risponde, la
-    // sincronizzazione della posta resta comunque riuscita.
-    const registro = await sincronizzaAttivitaConRegistro({
-      forza: parametri.get('forzaRegistro') === '1',
-    }).catch((e) => ({
+    // ⚠️ I REGISTRI CONDIVISI VANNO PER PRIMI, e non è un dettaglio d'ordine.
+    //
+    // Stavano in fondo, dopo la lettura della posta. Ma `sincronizzaTutti()`
+    // esaurisce da sola i 300 secondi di budget della funzione su Vercel — nei
+    // log di produzione ogni giro del cron finiva con «Task timed out after 300
+    // seconds» — e la funzione veniva uccisa PRIMA di arrivare qui. Risultato:
+    // il codice che manda le attività a Tasks non è mai stato eseguito nemmeno
+    // una volta (nel registro la chiave di AI Mail risultava «mai usata»), e da
+    // fuori sembrava semplicemente che la sincronizzazione non funzionasse.
+    //
+    // Costano pochi secondi: messi in testa girano SEMPRE, anche quando la
+    // lettura della posta va oltre il tempo e viene interrotta.
+    const registro = await sincronizzaAttivitaConRegistro({ forza }).catch((e) => ({
       attivo: false,
       inviate: 0,
       invariate: 0,
       ricevute: 0,
       archiviate: 0,
       errori: 0,
+      destinatari: [] as string[],
       messaggio: e instanceof Error ? e.message : 'Errore imprevisto',
     }))
 
     // Stessa cosa per gli appuntamenti col calendario condiviso: gemello del
     // registro Attività, stessa logica nei due sensi.
-    const calendario = await sincronizzaEventiConRegistro({
-      forza: parametri.get('forzaRegistro') === '1',
-    }).catch((e) => ({
+    const calendario = await sincronizzaEventiConRegistro({ forza }).catch((e) => ({
       attivo: false,
       inviati: 0,
       invariati: 0,
@@ -75,6 +79,15 @@ export async function GET(request: Request) {
       errori: 0,
       messaggio: e instanceof Error ? e.message : 'Errore imprevisto',
     }))
+
+    // ?soloRegistro=1 — solo l'allineamento coi registri, senza leggere la
+    // posta: risponde in pochi secondi e si può lanciare a mano senza rischiare
+    // di finire di nuovo nel muro dei 300 secondi.
+    if (parametri.get('soloRegistro') === '1') {
+      return NextResponse.json({ ok: true, registro, calendario })
+    }
+
+    const esiti = await sincronizzaTutti()
 
     return NextResponse.json({ ok: true, esiti, registro, calendario })
   } catch (e) {
