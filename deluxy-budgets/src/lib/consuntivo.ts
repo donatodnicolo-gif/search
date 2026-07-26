@@ -14,11 +14,12 @@
 //    categorizzati.
 
 import { costoPersonaleMese, leggiVociFinance, type DatiAnno } from "./calc";
-import { caricaCategorie, ricostruisci } from "./cfo";
+import { caricaCategorie, categoriaDi, ricostruisci } from "./cfo";
 import { fetchConsuntivo, fetchSpeseBanca } from "./finance";
 import { normalizzaNome } from "./scout";
 import { fatturatoDaVenduto, raggruppa, sommaMesi } from "./venduto";
 import { fetchRicaviD2C } from "./orders";
+import { caricaRettifiche, effettoSu, type EffettoAnno } from "./competenza";
 
 export const SLUG_D2C = "D2C";
 
@@ -50,6 +51,9 @@ export type ConsuntivoPeriodo = {
   margineLordo: number;
   ebitda: number;
   nonCategorizzato: number;
+  // Le rettifiche di competenza che toccano questo periodo: si dichiarano,
+  // perche un totale corretto di nascosto e peggio di uno sbagliato in chiaro.
+  competenza: EffettoAnno | null;
   // Una riga per ogni mese richiesto, nello stesso ordine di `mesi`.
   perMese: ConsuntivoMese[];
 };
@@ -61,6 +65,7 @@ export async function caricaConsuntivo(
   const vuoto: ConsuntivoPeriodo = {
     ok: false, mancanti: [], mesi, ricavi: 0, ricaviPerTipologia: {}, vendutoEcommerce: 0,
     cogs: 0, adv: 0, struttura: 0, personale: 0, margineLordo: 0, ebitda: 0, nonCategorizzato: 0,
+    competenza: null,
     perMese: [],
   };
   if (mesi.length === 0) return { ...vuoto, mancanti: ["Nessun mese concluso in questo anno."] };
@@ -71,13 +76,17 @@ export async function caricaConsuntivo(
   // l'API di Finance dà il periodo, non la ripartizione mensile. I costi no —
   // `/api/spese` restituisce già il `perMese` di ogni controparte — e nemmeno
   // l'ecommerce, che arriva da Orders in dodici caselle.
-  const [fatt, spese, categorie, ordini, fattMese] = await Promise.all([
+  const [fatt, spese, categorie, ordini, fattMese, rettifiche] = await Promise.all([
     fetchConsuntivo({ anno: dati.year, dal, al, stato: "tutte" }),
     fetchSpeseBanca({ anno: dati.year, dal, al }),
     caricaCategorie(),
     fetchRicaviD2C(dati.year),
     Promise.all(mesi.map((m) => fetchConsuntivo({ anno: dati.year, mese: m, stato: "tutte" }))),
+    caricaRettifiche(dati.year),
   ]);
+  // L'anno di competenza lo decide questa app: Finance dice quando il denaro si
+  // è mosso, le rettifiche dicono a quale esercizio appartiene.
+  const eff = effettoSu(rettifiche, dati.year, mesi);
 
   const mancanti: string[] = [];
   if (!fatt.ok) mancanti.push("fatturato da Finance");
@@ -99,7 +108,7 @@ export async function caricaConsuntivo(
     if (t.slug === SLUG_D2C && vend.ok) v += fatturatoDaVenduto(vendutoEcommerce);
     ricaviPerTipologia[t.slug] = v;
   }
-  const ricavi = Object.values(ricaviPerTipologia).reduce((s, v) => s + v, 0);
+  let ricavi = Object.values(ricaviPerTipologia).reduce((s, v) => s + v, 0);
 
   // ---- Costi di banca, riclassificati ----
   let cogs = 0, adv = 0, struttura = 0, nonCategorizzato = 0;
@@ -119,9 +128,43 @@ export async function caricaConsuntivo(
   // Le voci di budget che hanno una corrispondenza in Finance: servono a
   // filtrare il fatturato mensile con la stessa regola usata sul totale.
   const nomiMappati = new Set<string>();
+  const slugPerNome = new Map<string, string>();
   for (const t of dati.tipologie) {
-    for (const n of (t.vociFinance.length ? t.vociFinance : [t.nome])) nomiMappati.add(normalizzaNome(n));
+    for (const n of (t.vociFinance.length ? t.vociFinance : [t.nome])) {
+      nomiMappati.add(normalizzaNome(n));
+      slugPerNome.set(normalizzaNome(n), t.slug);
+    }
   }
+
+  // ---- Le rettifiche di competenza entrano nei conti ----
+  // Un'uscita finisce nella stessa voce di P&L in cui la metterebbero le regole
+  // del CFO: la competenza sposta *quando* si conta, non *cosa* è.
+  const ricaviRettificaMese = Array(12).fill(0) as number[];
+  for (const r of eff.righe) {
+    const segnoOrigine = r.annoOrigine === dati.year && mesi.includes(r.meseOrigine) ? -1 : 0;
+    const segnoDestino = r.annoCompetenza === dati.year && mesi.includes(r.meseCompetenza) ? 1 : 0;
+    const applica = (aggiungi: (mese: number, delta: number) => void) => {
+      if (segnoOrigine) aggiungi(r.meseOrigine, -r.importo);
+      if (segnoDestino) aggiungi(r.meseCompetenza, r.importo);
+    };
+    if (r.tipo === "USCITA") {
+      const tp = categoriaDi(r.voce, categorie)?.tipoPL;
+      if (tp === "COGS") applica((m, d) => { cogs += d; cogsMese[m - 1] += d; });
+      else if (tp === "ADV") applica((m, d) => { adv += d; advMese[m - 1] += d; });
+      else if (tp === "STRUTTURA") applica((m, d) => { struttura += d; strutturaMese[m - 1] += d; });
+      // Voce senza categoria: non si sa dove metterla, quindi non si mette da
+      // nessuna parte. La pagina delle rettifiche lo segnala.
+    } else {
+      const slug = slugPerNome.get(normalizzaNome(r.voce));
+      if (slug) {
+        applica((m, d) => {
+          ricaviPerTipologia[slug] = (ricaviPerTipologia[slug] ?? 0) + d;
+          ricaviRettificaMese[m - 1] += d;
+        });
+      }
+    }
+  }
+  ricavi = Object.values(ricaviPerTipologia).reduce((s, v) => s + v, 0);
 
   const perMese: ConsuntivoMese[] = mesi.map((m, idx) => {
     const f = fattMese[idx];
@@ -131,7 +174,7 @@ export async function caricaConsuntivo(
           .reduce((s, t) => s + t.imponibile, 0)
       : 0;
     const daEcommerce = vend.ok ? fatturatoDaVenduto(vend.mese[m - 1] ?? 0) : 0;
-    const ricaviM = daFinance + daEcommerce;
+    const ricaviM = daFinance + daEcommerce + (ricaviRettificaMese[m - 1] ?? 0);
     const cogsM = cogsMese[m - 1] ?? 0;
     const advM = advMese[m - 1] ?? 0;
     const strutturaM = strutturaMese[m - 1] ?? 0;
@@ -167,6 +210,7 @@ export async function caricaConsuntivo(
     margineLordo,
     ebitda,
     nonCategorizzato,
+    competenza: eff,
     perMese,
   };
 }

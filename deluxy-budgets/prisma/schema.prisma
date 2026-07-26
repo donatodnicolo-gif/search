@@ -229,3 +229,29 @@ model ChiaveApi {
   aggiornato DateTime @updatedAt
   note      String?
 }
+
+// **L'anno di competenza lo decide qui.** Finance passa gli importi con la data
+// in cui il movimento è successo; a quale ESERCIZIO appartengano è una scelta
+// contabile, e questa è l'unica app che la fa (decisione dell'utente,
+// 27/07/2026). Una fattura di dicembre pagata a gennaio è costo dell'anno
+// prima: senza questa tabella finirebbe nell'anno sbagliato in ogni schermata.
+//
+// La rettifica è autosufficiente: porta con sé l'importo, così spostare un
+// valore fra due anni non obbliga a interrogare l'anno di origine. `voce` è il
+// nome della controparte (uscite) o della tipologia Finance (ricavi), cioè la
+// stessa etichetta che si vede nelle tabelle.
+model RettificaCompetenza {
+  id             String   @id @default(cuid())
+  tipo           String // USCITA | RICAVO
+  voce           String
+  annoOrigine    Int
+  meseOrigine    Int // 1..12
+  annoCompetenza Int
+  meseCompetenza Int // 1..12, per le viste mensili
+  importo        Float
+  nota           String?
+  creata         DateTime @default(now())
+
+  @@index([annoOrigine])
+  @@index([annoCompetenza])
+}

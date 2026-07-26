@@ -88,6 +88,7 @@ export default async function ContoEconomico({
           margineLordo: somma("margineLordo"),
           ebitda: somma("ebitda"),
           nonCategorizzato: 0,
+          competenza: null,
           perMese: [],
         };
 

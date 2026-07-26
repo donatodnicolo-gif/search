@@ -163,6 +163,7 @@ const nav: AreaNav[] = [
           { href: "/venduto", label: "Venduto (ecommerce)", icon: icons.spese },
           { href: "/consuntivo", label: "Fatturato reale", icon: icons.consuntivo },
           { href: "/cfo", label: "Costi reali (CFO)", icon: icons.cfo },
+          { href: "/competenza", label: "Competenza", icon: icons.impostazioni },
         ],
       },
     ],

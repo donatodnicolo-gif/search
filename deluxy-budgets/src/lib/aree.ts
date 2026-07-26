@@ -14,7 +14,7 @@ export const AREE: Record<Area, { label: string; sub: string; badge: string }> =
 // Le rotte "consuntivo": il venduto dei negozi (Orders), il fatturato reale
 // (Finance + quota del venduto) e i costi reali (banca, CFO). Tutto il resto è
 // pianificazione; le impostazioni a parte.
-const CONSUNTIVO = ["/venduto", "/consuntivo", "/cfo"];
+const CONSUNTIVO = ["/venduto", "/consuntivo", "/cfo", "/competenza"];
 const CONFIG = ["/impostazioni", "/impostazioni/chiavi"];
 
 export function areaDi(pathname: string): Area {
