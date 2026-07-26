@@ -3270,14 +3270,33 @@ export async function sincronizzaRegistroOra(
 
   revalidatePath('/attivita')
   revalidatePath('/', 'layout')
+
+  // Caso frequente e finora muto: non c'era proprio niente da mandare. Dirlo
+  // evita di cercare un guasto che non c'è.
+  if (e.inviate === 0 && e.invariate === 0 && e.errori === 0) {
+    return {
+      ok: true,
+      messaggio:
+        'Nessuna attività da mandare: qui non ce ne sono di aperte, né chiuse negli ultimi 7 giorni.',
+    }
+  }
+
   const pezzi = [
     `${e.inviate} mandate`,
     `${e.invariate} già allineate`,
     `${e.ricevute} ricevute da Attività`,
   ]
+  // A CHI sono intestate: in Tasks una task è di una persona, e l'elenco che si
+  // apre entrando è il proprio. Se l'email non combacia con quella del Hub, le
+  // task ci sono ma stanno sotto un'altra persona — ed è il motivo più comune
+  // del «le ho collegate ma non le vedo».
+  if (e.destinatari.length > 0) pezzi.push(`intestate a ${e.destinatari.join(', ')}`)
   if (e.archiviate > 0) pezzi.push(`${e.archiviate} archiviate là`)
   if (e.errori > 0) pezzi.push(`${e.errori} non riuscite`)
-  return { ok: e.errori === 0, messaggio: `${pezzi.join(' · ')}.` }
+  // Il MOTIVO, non solo il conto: «5 non riuscite» da solo non dice niente e
+  // costringe a tirare a indovinare.
+  const perche = e.dettaglioErrore ? ` — ${e.dettaglioErrore}` : ''
+  return { ok: e.errori === 0, messaggio: `${pezzi.join(' · ')}.${perche}` }
 }
 
 /** Come sopra, per gli appuntamenti e il Calendario condiviso. */

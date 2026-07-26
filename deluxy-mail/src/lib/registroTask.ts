@@ -84,7 +84,50 @@ export type EsitoRegistro = {
   /** Attività cancellate qui e archiviate anche nel registro. */
   archiviate: number
   errori: number
+  /**
+   * PERCHÉ non è riuscita, in chiaro (la prima volta che va storto).
+   *
+   * ⚠️ Prima gli errori si contavano e basta: «5 non riuscite» e nient'altro.
+   * Ma «non riuscita» ha cause diversissime e indistinguibili da fuori — chiave
+   * di sola lettura (403), chiave sbagliata (401), campo rifiutato (400),
+   * registro giù — e senza il motivo si finisce a tirare a indovinare. Il
+   * registro lo dice, nella risposta: basta riportarlo.
+   */
+  dettaglioErrore?: string
+  /**
+   * A quali email sono intestate le task mandate.
+   *
+   * ⚠️ Serve alla domanda «le ho collegate ma in Tasks non le vedo». Nel
+   * registro una task è di una PERSONA (email), e l'elenco che si apre entrando
+   * è il proprio: se l'utente di AI Mail ha un'email diversa da quella con cui
+   * si entra nel Hub, le task ci sono ma stanno sotto un'altra persona. Senza
+   * dirlo, sembra che la sincronizzazione non abbia fatto niente.
+   */
+  destinatari: string[]
   messaggio?: string
+}
+
+/** Il motivo dell'errore come lo dice il registro, corto e leggibile. */
+async function motivoErrore(res: Response): Promise<string> {
+  let corpo = ''
+  try {
+    corpo = (await res.text()).slice(0, 200)
+  } catch {
+    corpo = ''
+  }
+  try {
+    const j = JSON.parse(corpo) as { errore?: string }
+    if (j?.errore) corpo = j.errore
+  } catch {
+    /* non era JSON: si tiene il testo grezzo */
+  }
+  const aiuto =
+    res.status === 403
+      ? ' → serve una chiave di SCRITTURA: «npm run chiave -- mail --scrittura» nell’app Tasks.'
+      : res.status === 401
+        ? ' → la chiave non è valida: rigenerala e reincollala qui.'
+        : ''
+  return `${res.status} ${corpo}`.trim() + aiuto
 }
 
 async function chiaveTasks(): Promise<string> {
@@ -220,10 +263,13 @@ type TaskDalRegistro = {
  * Non lancia mai: se il registro non risponde si riprova al giro dopo, e il
  * cursore resta dov'era.
  */
-async function tiraDalRegistro(chiave: string): Promise<{ ricevute: number; errori: number }> {
+async function tiraDalRegistro(
+  chiave: string
+): Promise<{ ricevute: number; errori: number; dettaglio?: string }> {
   let cursore = await leggiCursore()
   let ricevute = 0
   let errori = 0
+  let dettaglio: string | undefined
 
   for (let pagina = 0; pagina < PAGINE_MAX; pagina++) {
     let lotto: { cursore: number; altre: boolean; dati: TaskDalRegistro[] } | null = null
@@ -238,11 +284,13 @@ async function tiraDalRegistro(chiave: string): Promise<{ ricevute: number; erro
       )
       if (!res.ok) {
         errori++
+        dettaglio ??= `lettura: ${await motivoErrore(res)}`
         break
       }
       lotto = (await res.json()) as { cursore: number; altre: boolean; dati: TaskDalRegistro[] }
-    } catch {
+    } catch (e) {
       errori++
+      dettaglio ??= `lettura: ${(e as Error)?.message ?? 'registro irraggiungibile'}`
       break
     }
 
@@ -263,7 +311,7 @@ async function tiraDalRegistro(chiave: string): Promise<{ ricevute: number; erro
   }
 
   await salvaCursore(cursore)
-  return { ricevute, errori }
+  return { ricevute, errori, dettaglio }
 }
 
 /** Riporta su una nostra attività ciò che è cambiato nel registro. */
@@ -411,6 +459,7 @@ export async function sincronizzaAttivitaConRegistro(
       ricevute: 0,
       archiviate: 0,
       errori: 0,
+      destinatari: [],
       messaggio: 'Chiave del registro Attività non configurata (Impostazioni App → Tasks).',
     }
   }
@@ -449,9 +498,12 @@ export async function sincronizzaAttivitaConRegistro(
   let invariate = 0
   let archiviate = 0
   let errori = daLoro.errori
+  let dettaglioErrore = daLoro.dettaglio
+  const destinatari = new Set<string>()
 
   for (const a of attivita) {
     viste.add(a.id)
+    if (a.utente.email) destinatari.add(a.utente.email.toLowerCase())
     const attuale = impronta(a)
     if (!opzioni.forza && impronte[a.id] === attuale) {
       invariate++
@@ -467,12 +519,17 @@ export async function sincronizzaAttivitaConRegistro(
       })
       if (!res.ok) {
         errori++
+        // Il motivo si prende una volta sola: se la chiave è di sola lettura
+        // falliranno tutte allo stesso modo, e leggere 300 volte lo stesso
+        // corpo di risposta non aggiunge niente.
+        dettaglioErrore ??= `invio: ${await motivoErrore(res)}`
         continue
       }
       impronte[a.id] = attuale
       inviate++
-    } catch {
+    } catch (e) {
       errori++
+      dettaglioErrore ??= `invio: ${(e as Error)?.message ?? 'registro irraggiungibile'}`
     }
   }
 
@@ -506,5 +563,14 @@ export async function sincronizzaAttivitaConRegistro(
     /* se non si salva lo stato si rimanda al giro dopo: nessun danno */
   }
 
-  return { attivo: true, inviate, invariate, ricevute: daLoro.ricevute, archiviate, errori }
+  return {
+    attivo: true,
+    inviate,
+    invariate,
+    ricevute: daLoro.ricevute,
+    archiviate,
+    errori,
+    dettaglioErrore,
+    destinatari: [...destinatari],
+  }
 }
