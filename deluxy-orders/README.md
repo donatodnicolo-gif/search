@@ -72,6 +72,21 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 
 La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine`).
 
+> **Da che tipo di cliente arriva un ordine.** `GET /api/v1/ordini` restituisce
+> dentro `cliente` anche `tipo` (`privato | azienda | horeca | eventi |
+> rivenditore`) e `tipoDa` (`manuale` se l'ha deciso un operatore con un tag,
+> `dedotta` se viene dal nome dell'acquirente). Così le altre app — per prima la
+> Customer Service, che ci marca gli ordini — non devono rifarsi la
+> classificazione in casa.
+>
+> Si risolve **per cliente, non per ordine**: la tipologia si deduce
+> dall'insieme dei nomi con cui quella persona ha comprato, come nell'elenco
+> Clienti. Chi ha ordinato una volta come «Mario Rossi» e una come «Rossi srl» è
+> *azienda* su tutti i suoi ordini, e le due schermate non si contraddicono
+> (`src/lib/tipologia-cliente.ts`, una sola query per pagina di risultati).
+> `tipo` esce `null` sugli ordini senza email, telefono né nome: lì non si sa chi
+> sia il cliente, e non si tira a indovinare.
+
 > **Gli ordini annullati non escono di default.** Un'app che li ricevesse
 > potrebbe lavorarli come validi, e un ordine annullato resta spesso «pagato»:
 > non lo si riconosce dal pagamento. Per averli serve `annullati=inclusi` (o

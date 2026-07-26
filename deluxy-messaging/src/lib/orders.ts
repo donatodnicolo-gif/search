@@ -31,6 +31,13 @@ export type OrdineArchivio = {
   fasciaConsegna: string
   statoChiave: string
   statoNome: string
+  // Da che tipo di cliente arriva l'ordine, secondo il registro Orders:
+  // privato | azienda | horeca | eventi | rivenditore. Vuoto = Orders non sa
+  // dirlo (ordine senza email, telefono né nome: non si tira a indovinare).
+  clienteTipo: string
+  // Se quel tipo l'ha deciso un operatore ("manuale") o è dedotto dal nome
+  // dell'acquirente ("dedotta"). Una deduzione si può smentire, una scelta no.
+  clienteTipoDa: string
 }
 
 export type EsitoArchivio =
@@ -46,7 +53,13 @@ type OrdineOrders = {
   data: string
   totale: number
   valuta: string
-  cliente?: { nome?: string | null; email?: string | null; telefono?: string | null }
+  cliente?: {
+    nome?: string | null
+    email?: string | null
+    telefono?: string | null
+    tipo?: string | null
+    tipoDa?: string | null
+  }
   spedizione?: { citta?: string | null }
   consegna?: { data?: string | null; fascia?: string | null }
   classificazione?: { stato?: { chiave?: string; nome?: string } | null }
@@ -70,6 +83,8 @@ function normalizza(o: OrdineOrders): OrdineArchivio {
     fasciaConsegna: o.consegna?.fascia ?? '',
     statoChiave: o.classificazione?.stato?.chiave ?? '',
     statoNome: o.classificazione?.stato?.nome ?? '',
+    clienteTipo: o.cliente?.tipo ?? '',
+    clienteTipoDa: o.cliente?.tipoDa ?? '',
   }
 }
 

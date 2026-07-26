@@ -18,9 +18,14 @@ export async function GET(req: NextRequest) {
   const contatto = (p.get('contatto') ?? '').trim()
 
   const gestione = (p.get('gestione') ?? '').trim()
+  const tipoCliente = (p.get('tipoCliente') ?? '').trim()
 
   const dove: Prisma.OrdineWhereInput = {}
   if (negozio) dove.negozioId = negozio
+  // `ignoto` = gli ordini di cui Orders non sa dire il tipo di cliente: sono
+  // quelli senza email, telefono né nome, e vale la pena poterli isolare.
+  if (tipoCliente === 'ignoto') dove.clienteTipo = ''
+  else if (tipoCliente) dove.clienteTipo = tipoCliente
   if (contatto === 'si') dove.contattoSalvato = true
   if (contatto === 'no') dove.contattoSalvato = false
   // `aperti` = tutto ciò che non è ancora gestito: è la vista di lavoro.
@@ -43,7 +48,7 @@ export async function GET(req: NextRequest) {
     if (cifre.length >= 4) dove.OR.push({ telefono: { contains: cifre } })
   }
 
-  const [ordini, totale, token, negoziDb, gruppi, ultimaSync] = await Promise.all([
+  const [ordini, totale, token, negoziDb, gruppi, ultimaSync, perTipo] = await Promise.all([
     db.ordine.findMany({ where: dove, orderBy: { data: 'desc' }, take: 200 }),
     db.ordine.count({ where: dove }),
     googleAccessToken().catch(() => null),
@@ -59,6 +64,9 @@ export async function GET(req: NextRequest) {
     // Quando è passato l'ultimo giro automatico: serve a far vedere che il cron
     // dei 15 minuti sta girando (o che si è fermato).
     db.impostazione.findUnique({ where: { chiave: 'ordiniSyncUltimo' } }),
+    // Da che tipo di cliente arrivano gli ordini del filtro in corso: è la
+    // domanda per cui il campo esiste, quindi la risposta la si dà qui.
+    db.ordine.groupBy({ by: ['clienteTipo'], where: dove, _count: { _all: true } }),
   ])
 
   const statistiche = Object.fromEntries(
@@ -80,5 +88,7 @@ export async function GET(req: NextRequest) {
     negozi,
     googleCollegato: !!token,
     ultimaSync: ultimaSync?.valore ?? '',
+    // { privato: 120, azienda: 8, '': 3 } — '' sono quelli senza tipo noto
+    perTipoCliente: Object.fromEntries(perTipo.map((t) => [t.clienteTipo, t._count._all])),
   })
 }

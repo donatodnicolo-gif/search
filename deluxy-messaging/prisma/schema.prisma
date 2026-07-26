@@ -162,6 +162,18 @@ model Ordine {
   statoNome      String   @default("")
   statoColore    String   @default("")
   note           String   @default("") @db.Text
+  // DA CHE TIPO DI CLIENTE ARRIVA L'ORDINE, letto da Deluxy Orders:
+  // privato | azienda | horeca | eventi | rivenditore. Vuoto = Orders non sa
+  // dirlo (ordine senza email, telefono né nome).
+  //
+  // È una COPIA di comodo, non una fonte: la tipologia si decide in Orders (a
+  // mano con `TagCliente`, altrimenti dedotta dal nome dell'acquirente) e qui si
+  // riscrive a ogni sync. Non modificarla da questa app: cambierebbe solo qui e
+  // le due schermate si contraddirebbero.
+  clienteTipo    String   @default("")
+  // "manuale" (deciso da un operatore in Orders) oppure "dedotta" (dal nome).
+  // Serve a sapere quanto fidarsi: una deduzione si può smentire.
+  clienteTipoDa  String   @default("")
   contattoSalvato Boolean @default(false) // salvato su Google Contacts
   contattoEsito  String   @default("") // esito/errore dell'ultimo salvataggio
   // Come stiamo lavorando l'ordine QUI (nostro, distinto dallo stato della

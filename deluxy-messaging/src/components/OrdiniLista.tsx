@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { GESTIONI, coloreGestione, nomeGestione } from '@/lib/gestione'
+import {
+  TIPI_CLIENTE,
+  coloreTipoCliente,
+  nomeTipoCliente,
+  origineTipoCliente,
+} from '@/lib/clienti-tipo'
 
 type OrdineDto = {
   id: string
@@ -20,6 +26,27 @@ type OrdineDto = {
   contattoSalvato: boolean
   contattoEsito: string
   gestione: string
+  clienteTipo: string
+  clienteTipoDa: string
+}
+
+/** Il bollino "da che tipo di cliente arriva l'ordine". */
+function TipoCliente({ tipo, da }: { tipo: string; da: string }) {
+  if (!tipo) return null
+  const origine = origineTipoCliente(da)
+  return (
+    <span
+      className="badge"
+      style={{ color: coloreTipoCliente(tipo) }}
+      title={
+        `Tipo di cliente: ${nomeTipoCliente(tipo)}` +
+        (origine ? ` — ${origine}` : '') +
+        '. Si decide nell’app Ordini.'
+      }
+    >
+      {nomeTipoCliente(tipo)}
+    </span>
+  )
 }
 
 /** Apre WhatsApp se c'è il numero, altrimenti la mail. Null se non c'è nulla. */
@@ -175,6 +202,8 @@ export function OrdiniLista() {
   const [qCercata, setQCercata] = useState('') // `q` ritardata, per non chiamare a ogni tasto
   const [negozio, setNegozio] = useState('')
   const [filtroContatto, setFiltroContatto] = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [perTipoCliente, setPerTipoCliente] = useState<Record<string, number>>({})
   // Vista di lavoro: di default si mostrano solo gli ordini non ancora gestiti.
   const [filtroGestione, setFiltroGestione] = useState('aperti')
 
@@ -185,6 +214,7 @@ export function OrdiniLista() {
       if (negozio) p.set('negozio', negozio)
       if (filtroContatto) p.set('contatto', filtroContatto)
       if (filtroGestione) p.set('gestione', filtroGestione)
+      if (filtroTipo) p.set('tipoCliente', filtroTipo)
       const res = await fetch('/api/ordini?' + p.toString())
       if (!res.ok) return
       const dati = (await res.json()) as {
@@ -193,18 +223,20 @@ export function OrdiniLista() {
         negozi: NegozioDto[]
         googleCollegato: boolean
         ultimaSync?: string
+        perTipoCliente?: Record<string, number>
       }
       setOrdini(dati.ordini)
       setTotale(dati.totale)
       setNegozi(dati.negozi)
       setGoogleCollegato(dati.googleCollegato)
       setUltimaSync(dati.ultimaSync ?? '')
+      setPerTipoCliente(dati.perTipoCliente ?? {})
     } catch {
       // rete assente
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, negozio, filtroContatto, filtroGestione])
+  }, [qCercata, negozio, filtroContatto, filtroGestione, filtroTipo])
 
   /**
    * Cambia lo stato di lavorazione. `poi` è l'azione da fare dopo (aprire
@@ -283,7 +315,21 @@ export function OrdiniLista() {
     }
   }, [qCercata])
 
-  const filtriAttivi = !!(qCercata || negozio || filtroContatto || filtroGestione !== 'aperti')
+  const filtriAttivi = !!(
+    qCercata ||
+    negozio ||
+    filtroContatto ||
+    filtroTipo ||
+    filtroGestione !== 'aperti'
+  )
+
+  // Da che tipo di cliente arrivano gli ordini mostrati, dal più frequente.
+  // I '' (tipo non rilevato) si contano a parte: dire "3 senza tipo" è
+  // un'informazione, metterli fra i privati sarebbe un'invenzione.
+  const rigaTipi = Object.entries(perTipoCliente)
+    .filter(([t, n]) => t && n)
+    .sort((a, b) => b[1] - a[1])
+  const senzaTipo = perTipoCliente[''] ?? 0
 
   async function scarica() {
     setOccupato('sync')
@@ -408,6 +454,19 @@ export function OrdiniLista() {
           ))}
         </select>
         <select
+          value={filtroTipo}
+          onChange={(e) => setFiltroTipo(e.target.value)}
+          aria-label="Tipo di cliente"
+        >
+          <option value="">Tipo cliente: tutti</option>
+          {TIPI_CLIENTE.map((t) => (
+            <option key={t.chiave} value={t.chiave}>
+              {t.nome}
+            </option>
+          ))}
+          <option value="ignoto">Tipo non rilevato</option>
+        </select>
+        <select
           value={filtroContatto}
           onChange={(e) => setFiltroContatto(e.target.value)}
           aria-label="Stato contatto"
@@ -423,6 +482,7 @@ export function OrdiniLista() {
               setQ('')
               setNegozio('')
               setFiltroContatto('')
+              setFiltroTipo('')
               setFiltroGestione('aperti')
             }}
           >
@@ -445,6 +505,57 @@ export function OrdiniLista() {
             : `${totale} ${totale === 1 ? 'ordine trovato' : 'ordini trovati'}` +
               (totale > ordini.length ? ` — mostrati i ${ordini.length} più recenti` : '')}
         </p>
+      ) : null}
+
+      {/* Da che tipo di cliente arrivano gli ordini in elenco. */}
+      {caricato && rigaTipi.length ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+            margin: '0 0 14px',
+            fontSize: 13,
+            color: 'var(--text-secondary)',
+          }}
+        >
+          <span>Da che clienti:</span>
+          {rigaTipi.map(([tipo, n]) => (
+            <button
+              key={tipo}
+              className="badge"
+              onClick={() => setFiltroTipo(filtroTipo === tipo ? '' : tipo)}
+              style={{
+                color: coloreTipoCliente(tipo),
+                border: filtroTipo === tipo ? '1px solid currentColor' : '1px solid transparent',
+                cursor: 'pointer',
+                font: 'inherit',
+                fontSize: 12,
+                fontWeight: 500,
+              }}
+              title={`Mostra solo gli ordini da ${nomeTipoCliente(tipo)}`}
+            >
+              {nomeTipoCliente(tipo)} {n.toLocaleString('it-IT')}
+            </button>
+          ))}
+          {senzaTipo ? (
+            <button
+              className="badge"
+              onClick={() => setFiltroTipo(filtroTipo === 'ignoto' ? '' : 'ignoto')}
+              style={{
+                color: 'var(--text-tertiary)',
+                border: filtroTipo === 'ignoto' ? '1px solid currentColor' : '1px solid transparent',
+                cursor: 'pointer',
+                font: 'inherit',
+                fontSize: 12,
+              }}
+              title="Ordini senza email, telefono né nome: Orders non può dire che cliente è"
+            >
+              tipo non rilevato {senzaTipo.toLocaleString('it-IT')}
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {!googleCollegato && caricato ? (
@@ -499,8 +610,9 @@ export function OrdiniLista() {
                           {o.clienteNome || '—'}
                           {o.citta ? ` · ${o.citta}` : ''}
                         </div>
-                        <div className="riga-bassa">
+                        <div className="riga-bassa" style={{ flexWrap: 'wrap', gap: 6 }}>
                           <span className="quando">ordine {dataBreve(o.data)}</span>
+                          <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
                           <span
                             className="badge"
                             style={{
@@ -610,6 +722,7 @@ export function OrdiniLista() {
                 <th>Negozio</th>
                 <th>Data</th>
                 <th>Cliente</th>
+                <th>Tipo cliente</th>
                 <th>Telefono</th>
                 <th style={{ textAlign: 'right' }}>Totale</th>
                 <th>Lavorazione</th>
@@ -624,6 +737,13 @@ export function OrdiniLista() {
                   <td style={{ whiteSpace: 'nowrap' }}>{o.negozioNome || '—'}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{dataBreve(o.data)}</td>
                   <td>{o.clienteNome || '—'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {o.clienteTipo ? (
+                      <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
+                    ) : (
+                      <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                    )}
+                  </td>
                   <td style={{ whiteSpace: 'nowrap' }}>{o.telefono || '—'}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {o.totale.toLocaleString('it-IT', { style: 'currency', currency: o.valuta })}

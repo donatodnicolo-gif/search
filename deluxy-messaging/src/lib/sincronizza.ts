@@ -103,6 +103,10 @@ export async function sincronizzaOrdini(
       statoChiave: o.statoChiave,
       statoNome: o.statoNome || stati.get(o.statoChiave)?.nome || '',
       statoColore: stati.get(o.statoChiave)?.colore || '',
+      // Da che tipo di cliente arriva l'ordine: deciso in Orders, qui solo
+      // ricopiato a ogni giro (vedi la nota su `clienteTipo` nello schema).
+      clienteTipo: o.clienteTipo,
+      clienteTipoDa: o.clienteTipoDa,
     }
     const esito = await db.ordine.upsert({
       // il gid Shopify è la chiave stabile: gli ordini presi prima da Shopify

@@ -161,6 +161,25 @@ server** (su tutti gli ordini, non solo quelli in pagina): testo su numero, clie
 telefono — normalizzando le cifre, così "+39 333 12" trova "+393331234567" — email,
 indirizzo e negozio, più i filtri per negozio e per contatto salvato/da salvare.
 
+**Da che tipo di cliente arriva l'ordine.** Ogni ordine porta un bollino —
+**Privato · Azienda · Hotel/Ristorante · Eventi/Wedding · Rivenditore** — con il filtro
+per tipo e la riga «Da che clienti: …» coi conteggi cliccabili. Serve a capire a colpo
+d'occhio se si sta lavorando un regalo di una persona o una fornitura ricorrente, e a
+leggere i reclami per tipo di cliente.
+
+Il tipo **non si decide qui**: arriva da Deluxy Orders (`cliente.tipo` dell'API), che lo
+deduce dal nome dell'acquirente e lascia a un operatore la possibilità di correggerlo a
+mano. Qui è una copia che il sync riscrive a ogni giro — modificarla da quest'app
+cambierebbe solo questa schermata e farebbe litigare le due app. Il bollino dice anche, nel
+suggerimento, se il tipo è *dedotto* o *deciso a mano*: una deduzione si può smentire, la
+scelta di un collega no.
+
+Gli ordini senza email, telefono né nome restano **senza tipo** (filtro *Tipo non
+rilevato*): lì non si sa chi sia il cliente, e "privato" sarebbe un'invenzione. Attenzione
+a un limite del dato, non del codice: su Shopify il nome dell'acquirente è quasi sempre una
+persona anche quando compra un'azienda, quindi il B2B risulta sottostimato — si corregge
+caso per caso in Orders, e il sync lo porta qui.
+
 **Aggiornamento automatico ogni 15 minuti.** Gli ordini arrivano da soli: un cron Vercel
 (`vercel.json` → `/api/cron/ordini`) rifà lo scarico incrementale ogni quarto d'ora, così
 un ordine ricevuto alle 9:03 è qui entro le 9:15 senza che nessuno prema niente. In testa

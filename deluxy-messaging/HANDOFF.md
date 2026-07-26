@@ -55,6 +55,40 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- TIPO DI CLIENTE SUGLI ORDINI (26/07/2026): ogni ordine mostra **da che tipo di
+  cliente arriva** — privato, azienda, hotel/ristorante, eventi, rivenditore.
+  Il dato **viene da Orders, non si calcola qui**: campi nuovi `Ordine.clienteTipo`
+  e `clienteTipoDa` (copia riscritta a ogni sync), letti da `cliente.tipo`/`tipoDa`
+  di `GET /api/v1/ordini`. Nomi e colori in `src/lib/clienti-tipo.ts` — solo
+  presentazione: la classificazione resta di Orders, e un valore sconosciuto si
+  mostra grezzo invece di sparire.
+  In pagina: bollino su ogni scheda e colonna in tabella, filtro «Tipo cliente»
+  (con *Tipo non rilevato* per gli ordini senza recapiti) e la riga «Da che
+  clienti: …» coi conteggi cliccabili, da `perTipoCliente` in `/api/ordini`.
+  ⚠️ **LATO ORDERS SERVE IL DEPLOY**: l'esposizione del campo è in
+  `deluxy-orders/src/lib/tipologia-cliente.ts` + `serializzaOrdine` + la rotta
+  `/api/v1/ordini`, ma **finché Orders non è pubblicato** la produzione risponde
+  senza `cliente.tipo` e il sync scrive vuoto. Verificato in locale contro Orders
+  vero: 894 ordini su 917 marcati, distribuzione reale **858 privato, 3 azienda,
+  1 horeca, 32 non rilevati**; filtro «Azienda» → i 3 giusti (Recarlo Spa,
+  Chatwin SRL, Eightstone Pte Ltd), «Tipo non rilevato» → 54.
+  NOTA SUL DATO: la deduzione guarda il NOME DELL'ACQUIRENTE, e su Shopify quello
+  è quasi sempre una persona anche quando compra un'azienda — perciò il B2B
+  risulta sottostimato. Non è un errore del codice: si corregge caso per caso in
+  Orders (tag manuale sul cliente), e da lì arriva qui col sync.
+- CORRETTO «Scarico non riuscito.» SUL PULSANTE AGGIORNA (26/07/2026):
+  `/api/ordini/sync` chiamava `sincronizzaOrdini({completo})` e `contatti` ha
+  come default **true**, quindi il pulsante salvava anche la rubrica Google:
+  ~218 secondi misurati (40 chiamate alla People API) contro `maxDuration = 60`.
+  La funzione veniva uccisa, Vercel rispondeva 504 con una pagina non-JSON e il
+  client — che fa `res.json().catch(() => ({}))` — restava senza campo `errore`,
+  mostrando il messaggio generico. Per lo stesso motivo l'errore non finiva
+  nemmeno in `ordiniSyncEsito`: `annotaSync` non faceva in tempo a girare.
+  Ora passa `contatti: false`: i contatti li salva il cron dedicato
+  (`/api/cron/contatti`, ogni ora, maxDuration 300) o il pulsante «Salva tutti i
+  contatti». È la stessa correzione già applicata al cron dei 15 minuti, che sul
+  pulsante era rimasta indietro. Verificato: **200 in 7,3s**, 36 ordini, 2 nuovi.
+
 - API A CHIAVE PER LE ALTRE APP (26/07/2026): `GET /api/v1/feedback` espone in
   **sola lettura** i reclami e i voti legati a un ordine, per il registro ordini
   (deluxy-orders), che li mostra sulla scheda dell'ordine. Nuovi: `model ApiKey`

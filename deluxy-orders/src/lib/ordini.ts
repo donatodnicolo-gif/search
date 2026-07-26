@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { chiaveCliente } from "./tipologia-cliente";
 
 // Costruzione del filtro Prisma degli ordini, condivisa tra la UI (elenco) e le
 // API di lettura, così i due percorsi filtrano allo stesso modo.
@@ -135,7 +136,16 @@ export const INCLUDE_ORDINE = {
 type OrdineConRelazioni = Prisma.OrdineGetPayload<{ include: typeof INCLUDE_ORDINE }>;
 
 // Serializza un ordine per le API pubbliche (forma stabile e documentata).
-export function serializzaOrdine(o: OrdineConRelazioni) {
+//
+// `tipologie` è la mappa chiave-cliente → tipologia, risolta a monte in una sola
+// query (vedi `tipologiePerOrdini`): serve perché la tipologia è una proprietà
+// del cliente e non si può leggere dall'ordine. Se non viene passata, i campi
+// `cliente.tipo`/`tipoDa` escono `null` — la forma della risposta non cambia.
+export function serializzaOrdine(
+  o: OrdineConRelazioni,
+  tipologie?: Map<string, { tipologia: string; manuale: boolean }>,
+) {
+  const tipoCliente = tipologie?.get(chiaveCliente(o));
   return {
     id: o.id,
     brand: o.brand,
@@ -164,6 +174,12 @@ export function serializzaOrdine(o: OrdineConRelazioni) {
       nome: o.clienteNome,
       email: o.clienteEmail,
       telefono: o.clienteTelefono,
+      // Che tipo di cliente è: privato | azienda | horeca | eventi | rivenditore.
+      // `tipoDa` dice se l'ha deciso un operatore ("manuale") o se è dedotto dal
+      // nome dell'acquirente ("dedotta"): a valle serve, perché una deduzione si
+      // può smentire, una scelta di un collega no.
+      tipo: tipoCliente?.tipologia ?? null,
+      tipoDa: tipoCliente ? (tipoCliente.manuale ? "manuale" : "dedotta") : null,
     },
     // consegna richiesta dal cliente (attributi Shopify)
     consegna: {
