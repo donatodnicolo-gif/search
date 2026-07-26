@@ -1,16 +1,16 @@
 import { cookies } from "next/headers";
 import { prisma } from "./db";
-import { ruoloDaSessione, type Ruolo } from "./auth";
+import { sessioneCorrente, type Ruolo } from "./auth";
 
 // Registro delle modifiche (audit log). Un punto unico da cui le server action
 // annotano "chi ha cambiato cosa e quando". La ricerca e la consultazione sono
 // in /impostazioni/logs.
 //
-// CHI: l'app entra con una password di team, quindi di suo conosce solo il
-// ruolo. Il nome della persona arriva dal Single Sign-On del Hub (il token porta
-// `nome`), che viene messo nel cookie `dp_utente` al momento dell'ingresso. Se si
-// entra con la password diretta, non c'è un nome: si registra l'etichetta del
-// profilo ("Accesso a password").
+// CHI: con un ACCOUNT PERSONALE (email+password) o entrando dal Hub, il nome
+// viaggia FIRMATO nel cookie di sessione ed è quello che si annota. Con la
+// password di team un nome non esiste: si registra l'etichetta del profilo
+// ("Accesso a password"). Il vecchio cookie in chiaro `dp_utente` resta letto
+// solo per le sessioni aperte prima del cambio, e sparisce da sé alla scadenza.
 
 export const COOKIE_UTENTE = "dp_utente";
 
@@ -34,7 +34,12 @@ export type Attore = { utente: string; utenteId: string | null; ruolo: Ruolo | n
 export async function attoreCorrente(): Promise<Attore> {
   try {
     const jar = await cookies();
-    const ruolo = await ruoloDaSessione(jar.get("dp_session")?.value);
+    const sessione = await sessioneCorrente(jar.get("dp_session")?.value);
+    const ruolo = sessione?.ruolo ?? null;
+    // Nome firmato nel cookie: è verificato, quindi ha la precedenza su tutto.
+    if (sessione?.tipo === "utente" && sessione.nome.trim()) {
+      return { utente: sessione.nome.trim(), utenteId: sessione.uid || null, ruolo };
+    }
     const raw = jar.get(COOKIE_UTENTE)?.value;
     if (raw) {
       try {

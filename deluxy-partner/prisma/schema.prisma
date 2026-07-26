@@ -55,6 +55,25 @@ model Partner {
   updatedAt              DateTime @updatedAt
 }
 
+// Utente dell'app con account personale (email + password). Serve a chi NON
+// entra dal portale Hub: senza, l'unico ingresso è la password di team, che non
+// ha un nome e rende il registro accessi cieco su chi sia la persona.
+// La password non è salvata: si salva `passwordHash`, prodotto con scrypt
+// (formato `scrypt$N$r$p$salt$hash`, vedi src/lib/utenti.ts).
+model UtenteApp {
+  id            String    @id @default(cuid())
+  email         String    @unique // sempre in minuscolo: è la chiave di accesso
+  nome          String
+  ruolo         String    @default("sola_lettura") // admin | sola_lettura
+  passwordHash  String
+  attivo        Boolean   @default(true)
+  ultimoAccesso DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([attivo])
+}
+
 // Registro degli ACCESSI: chi è ENTRATO nell'app, quando, come e da dove.
 // Diverso da RegistroModifica, che annota cosa è stato cambiato: qui si annota
 // l'ingresso, compresi i tentativi con password sbagliata (per accorgersi di

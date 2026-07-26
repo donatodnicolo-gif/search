@@ -11,7 +11,7 @@ import type { Ruolo } from "./auth";
 // log del server e si va avanti — meglio un accesso non tracciato che una
 // persona chiusa fuori.
 
-export type Via = "password" | "sso";
+export type Via = "password" | "sso" | "email";
 
 /** IP del chiamante. Su Vercel arriva in `x-forwarded-for` come catena
  *  "client, proxy1, proxy2": il primo è quello vero. */
@@ -78,6 +78,7 @@ export function dispositivo(agente: string | null): string {
 }
 
 export const VIE: Record<string, { label: string; badge: string }> = {
+  email: { label: "Account personale", badge: "green" },
   sso: { label: "Dal portale (Hub)", badge: "blue" },
   password: { label: "Password di team", badge: "neutral" },
 };

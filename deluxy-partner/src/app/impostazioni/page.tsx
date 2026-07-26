@@ -136,6 +136,7 @@ export default async function ImpostazioniPage({
           </p>
         </div>
         <div className="page-actions" style={{ display: "flex", gap: 8 }}>
+          <Link href="/impostazioni/utenti" className="btn secondary">Utenti →</Link>
           <Link href="/impostazioni/accessi" className="btn secondary">Chi ha avuto accesso →</Link>
           <Link href="/impostazioni/logs" className="btn secondary">Registro modifiche →</Link>
           <Link href="/impostazioni/stati" className="btn secondary">Regole degli stati →</Link>

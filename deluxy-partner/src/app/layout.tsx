@@ -1,24 +1,39 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
-import { SESSION_COOKIE, ruoloDaSessione } from "@/lib/auth";
+import { SESSION_COOKIE, sessioneCorrente } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Deluxy Partner",
   description: "Gestione finanziaria e operativa dei partner Deluxy",
 };
 
+// Con gli account personali serve poter USCIRE: senza, su un computer condiviso
+// non c'è modo di cambiare persona, e la sessione resta aperta per giorni.
+async function esci() {
+  "use server";
+  const jar = await cookies();
+  jar.delete(SESSION_COOKIE);
+  jar.delete("dp_utente");
+  redirect("/login");
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const jar = await cookies();
-  const ruolo = await ruoloDaSessione(jar.get(SESSION_COOKIE)?.value);
-  const solaLettura = ruolo === "sola_lettura";
+  const sessione = await sessioneCorrente(jar.get(SESSION_COOKIE)?.value);
+  const solaLettura = sessione?.ruolo === "sola_lettura";
 
   return (
     <html lang="it">
       <body>
         <div className="shell">
-          <Sidebar />
+          <Sidebar
+            esci={esci}
+            nome={sessione?.tipo === "utente" ? sessione.nome : null}
+            ruolo={sessione?.ruolo ?? null}
+          />
           <main className="main">
             {solaLettura && (
               <div

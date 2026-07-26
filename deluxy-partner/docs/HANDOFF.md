@@ -15,7 +15,7 @@ App che **sostituisce PARTNER.xlsx**: gestione finanziaria e operativa dei partn
 
 - **Cartella:** `deluxy-partner/` nel monorepo `C:\Users\nicol\scoutwt` (branch `scout-ui`).
 - **Produzione:** https://deluxy-partner.vercel.app (progetto Vercel `deluxy/deluxy-partner`).
-- **Accesso UI:** password unica di team, env `PARTNER_APP_PASSWORD` su Vercel (oggi: `GuantiBianchi2026!`). Cambiandola si disconnettono tutte le sessioni.
+- **Accesso UI (26/07/2026):** **account personali email + password** (`/impostazioni/utenti`), oppure ingresso dal **Hub** via SSO. La **password di team** (`PARTNER_APP_PASSWORD` su Vercel) resta come porta di servizio: si usa lasciando l'email vuota. Cambiandola si disconnettono tutte le sessioni (è anche la chiave con cui si firmano i cookie, se non c'è `AUTH_SECRET`).
 - **Porta locale:** 3040.
 
 ## 2. Stack e avvio
@@ -46,6 +46,7 @@ Su Vercel (produzione) e nel `.env` locale:
 | `PARTNER_APP_PASSWORD` | Vercel | Password login UI (assente in locale = app aperta) |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | Vercel + .env | Recap AI (chiave condivisa con deluxy-mail; modello `gpt-4o-mini`) |
 | `OPENAI_VISION_MODEL` | Vercel + .env (facoltativa) | Lettura AI foto IBAN in Pagamenti diretti (default `gpt-4o`, deve avere capacità vision) |
+| `AUTH_SECRET` | Vercel (facoltativa) | Chiave con cui si **firmano i cookie di sessione**. Se manca si ricade su `HUB_SSO_SECRET`, poi su `PARTNER_APP_PASSWORD`: in quel caso cambiare la password di team scollega tutti. Impostandola, le sessioni sopravvivono al cambio password |
 | `CRON_SECRET` | Vercel | Autorizza i cron `/api/cron/qonto` e `/api/cron/ordini` (senza → 503, cron disattivi) |
 | `ORDERS_URL`, `ORDERS_API_KEY` | Vercel + .env | **Sorgente degli ordini** (`/ordini`): registro centralizzato Deluxy Orders, sola lettura. `ORDERS_URL` default `https://deluxy-orders.vercel.app`; la chiave si emette da Deluxy Orders (`npm run chiave -- deluxy-partner-import`). Senza chiave il cron notturno si ferma con `saltato` |
 | `ANAGRAFICHE_URL`, `ANAGRAFICHE_API_KEY` | Vercel + .env | Lettura dal registro anagrafiche centralizzato (sola lettura) |
@@ -115,6 +116,7 @@ Convenzione bonifici: `> 0` inviato al partner, `< 0` ricevuto. `RiepilogoMese` 
 | `/solleciti/[id]` | Anteprima e invio sollecito di pagamento (SMTP o mailto) |
 | `/impostazioni` | Ordinante SEPA, SMTP (Register.it), Qonto, Fatture in Cloud (Collega OAuth), accesso |
 | `/impostazioni/stati` | **Regole degli stati del cliente**: soglie dello stato finanziario (materialità, fasce di scaduto, ritardo tollerato, storico) e dello stato analisi (mesi per «Nuovo»/«Dismesso»), con anteprima dell'effetto sui clienti di oggi e ripristino dei default. Vedi §7-bis |
+| `/impostazioni/utenti` | **Account personali (26/07/2026)**: crea utente (nome, email, ruolo, password iniziale), cambia ruolo, attiva/disattiva, reimposta password, elimina. Modello `UtenteApp`; password con **scrypt** (`src/lib/utenti.ts`, nessuna dipendenza nuova, parametri dentro la stringa salvata). Blocco: non si può togliere l'accesso pieno all'**ultimo amministratore attivo**. L'email non è modificabile (è la chiave che lega gli accessi già registrati). L'app **non manda email**: la password iniziale la comunica chi crea l'account |
 | `/impostazioni/accessi` | **Chi ha avuto accesso all'app (26/07/2026)**: ogni ingresso (login a password o SSO dal Hub) con quando, come, IP e dispositivo; **inclusi i tentativi con password sbagliata**. Riepilogo per persona (n. ingressi, ultimo ingresso, ultima modifica presa dal registro modifiche) + filtri per persona/via/esito. Modello `AccessoApp`, scrittura in `src/lib/accessi.ts` da `/login` e `/api/sso`. ⚠️ **Limite dichiarato in pagina**: con la password di TEAM chi entra non ha un nome (compare «Accesso a password»); il nome c'è solo via SSO del Hub. Per avere un nome su ogni riga servono account personali. Si scrive all'INGRESSO, non a ogni pagina: il cookie dura 30 giorni, quindi chi resta connesso non genera altre righe |
 | `/verifiche` | Gestione chiave API pubblica + documentazione + storico richieste |
 

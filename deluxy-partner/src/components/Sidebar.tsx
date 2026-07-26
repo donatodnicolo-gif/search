@@ -165,7 +165,15 @@ const sections: { label: string; items: Item[] }[] = [
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  esci,
+  nome,
+  ruolo,
+}: {
+  esci: () => void;
+  nome: string | null;
+  ruolo: string | null;
+}) {
   const pathname = usePathname();
   const [chiusa, setChiusa] = useState(false);
   const isActive = (href: string) =>
@@ -248,12 +256,36 @@ export function Sidebar() {
       ))}
       </nav>
 
+      {/* Chi sei, non un'etichetta fissa: con gli account personali è l'unico
+          modo per accorgersi di essere entrato col profilo di un altro. */}
       <div className="sidebar-footer">
-        <div className="avatar">DX</div>
-        <div className="solo-estesa">
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Deluxy</div>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Amministrazione</div>
+        <div className="avatar">
+          {nome
+            ? nome.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("") || "DX"
+            : "DX"}
         </div>
+        <div className="solo-estesa" style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {nome ?? "Deluxy"}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            {ruolo === "sola_lettura" ? "Sola lettura" : nome ? "Accesso pieno" : "Amministrazione"}
+          </div>
+        </div>
+        <form action={esci} className="solo-estesa">
+          <button
+            type="submit"
+            className="sidebar-toggle"
+            title="Esci e torna alla schermata di accesso"
+            aria-label="Esci"
+            style={{ position: "static", width: 26, height: 26 }}
+          >
+            <svg viewBox="0 0 24 24" {...stroke} style={{ width: 14, height: 14 }}>
+              <path d="M15 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3" />
+              <path d="M10 8l-4 4 4 4M6 12h9" />
+            </svg>
+          </button>
+        </form>
       </div>
     </aside>
   );
