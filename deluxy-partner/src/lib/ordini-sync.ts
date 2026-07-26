@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { scaricaOrdiniDaRegistro } from "./ordini-registro";
+import { gestioneIniziale } from "./ordini";
 
 // Nucleo dello scarico ordini, riutilizzabile dal bottone in pagina e dal cron
 // notturno. Dal 26/07/2026 la sorgente è il REGISTRO CENTRALIZZATO Deluxy Orders
@@ -69,6 +70,10 @@ export async function eseguiSyncOrdini(
           negozioId: neg.id,
           orderId: o.orderId,
           ...datiBase,
+          // Solo alla creazione: gli ordini deluxy.it nascono «ordine partner».
+          // In update NON si tocca, altrimenti ogni sync cancellerebbe la
+          // classificazione decisa a mano dall'operatore.
+          gestione: gestioneIniziale(neg.brand),
           statoRicon: paidCarta ? "incassato_gateway" : "da_riconciliare",
           riconciliatoIl: paidCarta ? new Date() : null,
         },

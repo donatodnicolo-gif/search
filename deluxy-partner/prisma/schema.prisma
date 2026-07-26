@@ -336,6 +336,15 @@ model OrdineShopify {
   clienteNome        String?
   clienteEmail       String?
   note               String?
+  // COME si incassa questo ordine — cosa diversa dallo STATO qui sotto:
+  //  - riconciliazione   -> si abbina a un movimento bancario (default)
+  //  - partner           -> ordine di un partner: rientra nel suo conto mensile
+  //                         (servizi/saldi), in banca non c'è niente da cercare.
+  //                         È il default degli ordini deluxy.it
+  //  - pagamento_esterno -> richiesta di pagamento mandata fuori da Shopify: il
+  //                         denaro arriva davvero in banca e va abbinato
+  // Lo decide l'operatore da `/ordini`; la sync non lo sovrascrive mai.
+  gestione           String         @default("riconciliazione")
   // riconciliazione (INCASSO — soldi in entrata dal cliente)
   statoRicon         String         @default("da_riconciliare") // da_riconciliare | riconciliato | incassato_gateway | ignorato
   transazioneId      String? // movimento bancario abbinato (se bonifico)

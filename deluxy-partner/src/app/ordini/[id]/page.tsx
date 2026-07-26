@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
-import { STATI_ORDINE, CATEGORIE_PAG, valutaQuota } from "@/lib/ordini";
+import { STATI_ORDINE, CATEGORIE_PAG, BRAND_ORDINI_PARTNER, valutaQuota } from "@/lib/ordini";
 import { quotaFornitore } from "@/lib/ordini-config";
 import { tokenNegozio, scaricaTransazioniOrdine, type TransazioneOrdine } from "@/lib/shopify";
-import { registraPagamentoFornitore, azzeraPagamentoFornitore, creaRichiestaPagamento, segnaRichiestaPagata, annullaRichiestaPagamento } from "@/lib/ordini-actions";
+import { registraPagamentoFornitore, azzeraPagamentoFornitore, creaRichiestaPagamento, segnaRichiestaPagata, annullaRichiestaPagamento, impostaGestioneOrdine } from "@/lib/ordini-actions";
+import { GestioneOrdine } from "@/components/GestioneOrdine";
 
 // Badge sul pagato rispetto alla quota: sotto il 60% è bene, sopra è male.
 function BadgeQuota({ totale, pagato, quota }: { totale: number; pagato: number; quota: number }) {
@@ -111,7 +112,12 @@ export default async function OrdineDetail({
             {ordine.negozio.brand} · {dataIt(ordine.data)} · {ordine.clienteNome ?? "cliente n/d"}
           </p>
         </div>
-        <div className="page-actions">
+        <div className="page-actions" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* Stessa scelta dell'elenco: qui è comoda quando si apre l'ordine
+              per capire perché non si trova il movimento in banca. */}
+          {ordine.brand === BRAND_ORDINI_PARTNER && (
+            <GestioneOrdine valore={ordine.gestione} azione={impostaGestioneOrdine.bind(null, ordine.id)} />
+          )}
           <span className={`badge ${st.badge}`}><span className="dot" />{st.label}</span>
         </div>
       </div>

@@ -9,6 +9,30 @@ export const STATI_ORDINE: Record<string, { label: string; badge: string }> = {
   ignorato: { label: "Ignorato", badge: "neutral" },
 };
 
+// COME si incassa un ordine — cosa diversa dallo STATO della riconciliazione.
+// Gli ordini del sito deluxy.it non si abbinano a un movimento bancario: sono
+// ordini di un PARTNER e rientrano nel suo conto mensile (servizi a
+// fatturazione / saldi), quindi cercarne il bonifico in Qonto è tempo perso ed
+// è il motivo per cui lì il bottone «Riconcilia» non compare. L'eccezione è
+// l'ordine per cui è partita una richiesta di pagamento fuori da Shopify:
+// quel denaro arriva davvero in banca e va abbinato, perciò la riconciliazione
+// torna disponibile appena l'operatore lo classifica così.
+export const GESTIONI: Record<string, { label: string; badge: string; riconciliabile: boolean }> = {
+  riconciliazione: { label: "Incasso da riconciliare", badge: "orange", riconciliabile: true },
+  partner: { label: "Ordine partner", badge: "purple", riconciliabile: false },
+  pagamento_esterno: { label: "Richiesta di pagamento esterna", badge: "blue", riconciliabile: true },
+};
+
+export const GESTIONE_DEFAULT = "riconciliazione";
+
+// Il brand i cui ordini nascono già «ordine partner». È il nome che arriva dal
+// registro Deluxy Orders (`brand`), non il dominio myshopify.
+export const BRAND_ORDINI_PARTNER = "deluxy.it";
+
+export function gestioneIniziale(brand: string): string {
+  return brand === BRAND_ORDINI_PARTNER ? "partner" : GESTIONE_DEFAULT;
+}
+
 export const CATEGORIE_PAG: Record<string, string> = {
   bonifico: "Bonifico",
   carta: "Carta / gateway",

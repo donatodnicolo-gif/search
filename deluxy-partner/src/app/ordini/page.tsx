@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
-import { STATI_ORDINE, CATEGORIE_PAG, valutaQuota } from "@/lib/ordini";
+import { STATI_ORDINE, CATEGORIE_PAG, GESTIONI, BRAND_ORDINI_PARTNER, valutaQuota } from "@/lib/ordini";
 import { quotaFornitore } from "@/lib/ordini-config";
 import {
   sincronizzaOrdini,
@@ -11,9 +11,11 @@ import {
   segnaOrdineIncassato,
   ignoraOrdine,
   riapriOrdine,
+  impostaGestioneOrdine,
 } from "@/lib/ordini-actions";
 import { RiconciliaModale } from "@/components/RiconciliaModale";
 import { BottoneAggiornaOrdini } from "@/components/BottoneAggiornaOrdini";
+import { GestioneOrdine } from "@/components/GestioneOrdine";
 import { ordersConfigurato } from "@/lib/ordini-registro";
 
 export const dynamic = "force-dynamic";
@@ -362,7 +364,26 @@ export default async function OrdiniPage({
                         {o.pagatoFornitore != null ? euro(o.totale - o.pagatoFornitore) : "—"}
                       </td>
                       <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
-                        {o.statoRicon === "da_riconciliare" ? (
+                        {/* Ordini del sito partner: si dichiara COME si incassa,
+                            e la riconciliazione bancaria compare solo se ha
+                            senso cercare un movimento (pagamento esterno). */}
+                        {o.brand === BRAND_ORDINI_PARTNER && (
+                          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+                            <GestioneOrdine valore={o.gestione} azione={impostaGestioneOrdine.bind(null, o.id)} />
+                          </div>
+                        )}
+                        {!(GESTIONI[o.gestione] ?? GESTIONI.riconciliazione).riconciliabile ? (
+                          // Niente azioni: non c'è un movimento da cercare. Se
+                          // l'incasso è però già avvenuto sul gateway lo si
+                          // dice, altrimenti sembrerebbe un ordine non pagato.
+                          o.statoRicon === "da_riconciliare" ? (
+                            <span className="muted" style={{ fontSize: 12 }}>Rientra nel conto del partner</span>
+                          ) : (
+                            <span className={`badge ${STATI_ORDINE[o.statoRicon]?.badge ?? "neutral"}`}>
+                              <span className="dot" />{STATI_ORDINE[o.statoRicon]?.label ?? o.statoRicon}
+                            </span>
+                          )
+                        ) : o.statoRicon === "da_riconciliare" ? (
                           <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                             <RiconciliaModale
                               ordineId={o.id}

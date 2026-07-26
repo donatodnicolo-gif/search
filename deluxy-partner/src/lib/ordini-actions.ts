@@ -8,6 +8,7 @@ import { eseguiAbbinamentoPerNumero } from "./ordini-abbina";
 import { eseguiSyncOrdini } from "./ordini-sync";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 import { registra } from "./registro";
+import { GESTIONI } from "./ordini";
 import { euro } from "./format";
 import { ibanValido } from "./impostazioni";
 
@@ -194,6 +195,29 @@ export async function segnaOrdineIncassato(ordineId: string) {
 
 export async function ignoraOrdine(ordineId: string) {
   await prisma.ordineShopify.update({ where: { id: ordineId }, data: { statoRicon: "ignorato" } });
+  revalida();
+}
+
+// ————— Come si incassa l'ordine (partner / richiesta di pagamento esterna) —————
+// Scelta dell'operatore, tracciata nel registro modifiche perché cambia il modo
+// in cui l'ordine va cercato in banca: «partner» significa che non ci sarà mai
+// un movimento da abbinare, e chi guarda dopo deve sapere chi l'ha deciso.
+export async function impostaGestioneOrdine(ordineId: string, formData: FormData) {
+  const scelta = String(formData.get("gestione") ?? "");
+  if (!(scelta in GESTIONI)) return;
+
+  const ordine = await prisma.ordineShopify.findUnique({
+    where: { id: ordineId },
+    select: { nome: true, brand: true, gestione: true },
+  });
+  if (!ordine || ordine.gestione === scelta) return;
+
+  await prisma.ordineShopify.update({ where: { id: ordineId }, data: { gestione: scelta } });
+  await registra({
+    azione: `Ordine ${ordine.nome} (${ordine.brand}): ${GESTIONI[scelta].label}`,
+    categoria: "ordini",
+    dettaglio: `da «${GESTIONI[ordine.gestione]?.label ?? ordine.gestione}» a «${GESTIONI[scelta].label}»`,
+  });
   revalida();
 }
 
