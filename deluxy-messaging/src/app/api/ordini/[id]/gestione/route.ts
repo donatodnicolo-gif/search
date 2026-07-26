@@ -1,0 +1,27 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { gestioneValida } from '@/lib/gestione'
+
+export const dynamic = 'force-dynamic'
+
+type Params = { params: Promise<{ id: string }> }
+
+// Cambia lo stato di lavorazione di un ordine (da gestire / in pagamento /
+// comunicazione con cliente / gestito).
+export async function POST(req: NextRequest, { params }: Params) {
+  const { id } = await params
+  const { gestione } = (await req.json().catch(() => ({}))) as { gestione?: string }
+
+  if (!gestione || !gestioneValida(gestione)) {
+    return NextResponse.json({ errore: 'Stato di lavorazione non valido.' }, { status: 400 })
+  }
+
+  const esistente = await db.ordine.findUnique({ where: { id } })
+  if (!esistente) return NextResponse.json({ errore: 'Ordine non trovato' }, { status: 404 })
+
+  const ordine = await db.ordine.update({
+    where: { id },
+    data: { gestione, gestioneIl: new Date() },
+  })
+  return NextResponse.json({ ordine })
+}

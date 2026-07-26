@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { utenteCorrente } from '@/lib/sessione'
 import { Sidebar } from '@/components/Sidebar'
+import { ToggleSidebar } from '@/components/ToggleSidebar'
 import { esci } from '../login/actions'
 
 export const dynamic = 'force-dynamic'
@@ -12,8 +13,11 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
   return (
     <>
       <header className="topbar">
-        <div className="logo">
-          Deluxy <span className="oro">Messaggi</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <ToggleSidebar />
+          <div className="logo">
+            Deluxy <span className="oro">Messaggi</span>
+          </div>
         </div>
         <div className="topbar-azioni">
           <span className="utente">{utente.nome}</span>

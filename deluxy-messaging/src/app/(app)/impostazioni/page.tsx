@@ -37,6 +37,8 @@ export default async function PaginaImpostazioni({
     'searchUrl',
     'searchApiKey',
     'anthropicApiKey',
+    'partnerUrl',
+    'partnerApiKey',
   ])
 
   // URL pubblico dell'app: da APP_URL, altrimenti dall'host della richiesta.
@@ -216,6 +218,34 @@ export default async function PaginaImpostazioni({
             <a className="bottone secondario" href="/caselle">
               Vai a Caselle
             </a>
+          </div>
+
+          <div className="card">
+            <h2>Deluxy Partner (pagamenti)</h2>
+            <p className="descrizione">
+              Le richieste di pagamento vengono inoltrate a Partner, che le approva e le paga.
+              L&apos;invio è idempotente: rimandare la stessa richiesta non la duplica. Serve un
+              importo maggiore di zero.
+            </p>
+            <label className="campo">
+              <span>URL dell&apos;app Partner</span>
+              <input
+                name="partnerUrl"
+                defaultValue={config.partnerUrl}
+                placeholder="https://deluxy-partner.vercel.app"
+              />
+            </label>
+            <label className="campo">
+              <span>
+                Chiave API <BadgeConfigurato pieno={!!config.partnerApiKey} />
+              </span>
+              <input
+                name="partnerApiKey"
+                type="password"
+                placeholder={config.partnerApiKey ? 'salvata — incolla per sostituire' : ''}
+                autoComplete="off"
+              />
+            </label>
           </div>
 
           <div className="card">

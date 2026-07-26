@@ -79,6 +79,31 @@ Ultimo aggiornamento: 24/07/2026
   `{url: …/?t=<code>}` valido ~5 min; ci aggiungiamo brand+ordine. Senza chiave ripiega
   sul link semplice `?brand=&ordine=` (verificato: `firmato: false`). Il bottone apre la
   scheda PRIMA della fetch, altrimenti il browser la blocca come popup.
+- LAVORAZIONE ORDINI + MENU A SCOMPARSA (26/07/2026): `Ordine.gestione`
+  (da_gestire | in_pagamento | comunicazione | gestito) + `gestioneIl`, con
+  `src/lib/gestione.ts` per nomi e colori. NON confonderlo con `statoChiave` (pipeline di
+  Orders): il sync non lo tocca. `POST /api/ordini/[id]/gestione` lo cambia; il filtro
+  `gestione=aperti` (default in pagina) mostra solo i non gestiti.
+  Pulsanti su card e tabella: Richiedi pagamento (→ `/pagamenti?ordine=&cliente=&importo=`,
+  segna in_pagamento), Contatta cliente (wa.me se c'è il telefono, altrimenti mailto; segna
+  comunicazione), Gestito ✓ / Riapri. I link si aprono in modo sincrono nel gestore del
+  click, altrimenti il browser li blocca come popup.
+  Menu a scomparsa: `ToggleSidebar` + `[data-sidebar-chiusa] .sidebar { margin-left:-232px }`
+  + script nel `<head>` che riapplica la scelta da localStorage prima del paint.
+  ⚠️ VERIFICA: col pannello del browser nascosto le TRANSIZIONI CSS non avanzano, quindi
+  `margin-left`/`opacity` risultano fermi ai valori iniziali anche se la regola si applica
+  (si vede da `pointer-events: none` che invece cambia). Misurare con
+  `.sidebar { transition: none !important }`: così risulta 1033px → 1265px, corretto.
+- INOLTRO A DELUXY PARTNER (26/07/2026): `src/lib/partner.ts` →
+  `POST {partnerUrl}/api/richieste-pagamento`, header `X-API-Key` + `X-App: deluxy-messaging`,
+  body {importo, beneficiario, iban, bic, causale, contatto, linkConversazione, riferimento,
+  note}. Idempotente su (origine, riferimento) — vedi
+  deluxy-partner/src/app/api/richieste-pagamento/route.ts. Campi nuovi su RichiestaPagamento:
+  bic, contatto, linkConversazione, riferimento (unique), inviataIl, partnerId, partnerStato,
+  esitoInvio. Partner RIFIUTA importo <= 0. Un invio fallito non annulla il salvataggio: si
+  rimanda con `POST /api/pagamenti/[id]/invia`, e `GET` sulla stessa rotta aggiorna lo stato.
+  Verificato con un finto Partner: header e body esattamente come da contratto.
+  MANCA: chiave API vera di Partner in Impostazioni.
 - RICHIEDI PAGAMENTO (26/07/2026): tabella `RichiestaPagamento` + pagina `/pagamenti`.
   `src/lib/iban.ts` verifica l'IBAN col checksum mod-97 (ISO 13616) + lunghezza per paese;
   `stringaPagamento()` compone la stringa pulita. `src/lib/ai.ts` estrae iban/intestatario/

@@ -17,10 +17,15 @@ export async function GET(req: NextRequest) {
   const negozio = (p.get('negozio') ?? '').trim()
   const contatto = (p.get('contatto') ?? '').trim()
 
+  const gestione = (p.get('gestione') ?? '').trim()
+
   const dove: Prisma.OrdineWhereInput = {}
   if (negozio) dove.negozioId = negozio
   if (contatto === 'si') dove.contattoSalvato = true
   if (contatto === 'no') dove.contattoSalvato = false
+  // `aperti` = tutto ciò che non è ancora gestito: è la vista di lavoro.
+  if (gestione === 'aperti') dove.gestione = { not: 'gestito' }
+  else if (gestione) dove.gestione = gestione
 
   if (q) {
     const testo: Prisma.StringFilter = { contains: q, mode: 'insensitive' }

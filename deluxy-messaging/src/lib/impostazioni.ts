@@ -33,6 +33,7 @@ const CHIAVI_CIFRATE = new Set([
   'searchApiKey',
   'emailPassword',
   'anthropicApiKey',
+  'partnerApiKey',
 ])
 
 export async function leggiImpostazione(chiave: string): Promise<string> {

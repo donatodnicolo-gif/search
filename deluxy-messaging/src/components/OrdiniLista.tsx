@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { GESTIONI, coloreGestione, nomeGestione } from '@/lib/gestione'
 
 type OrdineDto = {
   id: string
@@ -18,6 +19,31 @@ type OrdineDto = {
   citta: string
   contattoSalvato: boolean
   contattoEsito: string
+  gestione: string
+}
+
+/** Apre WhatsApp se c'è il numero, altrimenti la mail. Null se non c'è nulla. */
+function linkContatto(o: OrdineDto): { url: string; come: string } | null {
+  const testo = `Buongiorno${o.clienteNome ? ' ' + o.clienteNome.split(' ')[0] : ''}, le scriviamo riguardo al suo ordine ${o.numero}.`
+  const cifre = o.telefono.replace(/[^\d]/g, '')
+  if (cifre.length >= 8) {
+    return { url: `https://wa.me/${cifre}?text=${encodeURIComponent(testo)}`, come: 'WhatsApp' }
+  }
+  if (o.email) {
+    const p = new URLSearchParams({ subject: `Ordine ${o.numero}`, body: testo })
+    return { url: `mailto:${o.email}?${p.toString()}`, come: 'email' }
+  }
+  return null
+}
+
+/** Pagina Pagamenti già impostata su questo ordine. */
+function linkPagamento(o: OrdineDto): string {
+  const p = new URLSearchParams({
+    ordine: o.numero,
+    cliente: o.clienteNome,
+    importo: String(o.totale || ''),
+  })
+  return `/pagamenti?${p.toString()}`
 }
 
 type NegozioDto = {
@@ -120,6 +146,8 @@ export function OrdiniLista() {
   const [qCercata, setQCercata] = useState('') // `q` ritardata, per non chiamare a ogni tasto
   const [negozio, setNegozio] = useState('')
   const [filtroContatto, setFiltroContatto] = useState('')
+  // Vista di lavoro: di default si mostrano solo gli ordini non ancora gestiti.
+  const [filtroGestione, setFiltroGestione] = useState('aperti')
 
   const carica = useCallback(async () => {
     try {
@@ -127,6 +155,7 @@ export function OrdiniLista() {
       if (qCercata) p.set('q', qCercata)
       if (negozio) p.set('negozio', negozio)
       if (filtroContatto) p.set('contatto', filtroContatto)
+      if (filtroGestione) p.set('gestione', filtroGestione)
       const res = await fetch('/api/ordini?' + p.toString())
       if (!res.ok) return
       const dati = (await res.json()) as {
@@ -144,7 +173,29 @@ export function OrdiniLista() {
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, negozio, filtroContatto])
+  }, [qCercata, negozio, filtroContatto, filtroGestione])
+
+  /**
+   * Cambia lo stato di lavorazione. `poi` è l'azione da fare dopo (aprire
+   * WhatsApp, la mail, la pagina Pagamenti): la apriamo SUBITO e in modo
+   * sincrono, altrimenti il browser la blocca come popup.
+   */
+  async function segna(id: string, gestione: string, poi?: () => void) {
+    poi?.()
+    // aggiornamento ottimistico: il pallino cambia subito
+    setOrdini((prec) => prec.map((o) => (o.id === id ? { ...o, gestione } : o)))
+    try {
+      await fetch(`/api/ordini/${id}/gestione`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gestione }),
+      })
+      await carica()
+    } catch {
+      setErrore('Stato non salvato: problema di rete.')
+      await carica()
+    }
+  }
 
   // Aspetta che l'utente smetta di digitare prima di interrogare il server.
   useEffect(() => {
@@ -201,7 +252,7 @@ export function OrdiniLista() {
     }
   }, [qCercata])
 
-  const filtriAttivi = !!(qCercata || negozio || filtroContatto)
+  const filtriAttivi = !!(qCercata || negozio || filtroContatto || filtroGestione !== 'aperti')
 
   async function scarica() {
     setOccupato('sync')
@@ -308,6 +359,19 @@ export function OrdiniLista() {
           ))}
         </select>
         <select
+          value={filtroGestione}
+          onChange={(e) => setFiltroGestione(e.target.value)}
+          aria-label="Stato di lavorazione"
+        >
+          <option value="aperti">Da gestire (non gestiti)</option>
+          <option value="">Tutti gli ordini</option>
+          {GESTIONI.map((g) => (
+            <option key={g.chiave} value={g.chiave}>
+              Solo: {g.nome}
+            </option>
+          ))}
+        </select>
+        <select
           value={filtroContatto}
           onChange={(e) => setFiltroContatto(e.target.value)}
           aria-label="Stato contatto"
@@ -323,6 +387,7 @@ export function OrdiniLista() {
               setQ('')
               setNegozio('')
               setFiltroContatto('')
+              setFiltroGestione('aperti')
             }}
           >
             Azzera
@@ -400,11 +465,66 @@ export function OrdiniLista() {
                         </div>
                         <div className="riga-bassa">
                           <span className="quando">ordine {dataBreve(o.data)}</span>
-                          {o.contattoSalvato ? (
-                            <span className="badge verde" title={o.contattoEsito}>
-                              in rubrica
-                            </span>
+                          <span
+                            className="badge"
+                            style={{
+                              color: coloreGestione(o.gestione),
+                              background: 'var(--fill)',
+                            }}
+                            title="Come stiamo lavorando questo ordine"
+                          >
+                            {nomeGestione(o.gestione)}
+                          </span>
+                        </div>
+                        {/* Cosa fare con l'ordine: ogni azione porta con sé il suo stato */}
+                        <div className="azioni-ordine">
+                          <a
+                            className="bottone secondario mini"
+                            href={linkPagamento(o)}
+                            onClick={() => segna(o.id, 'in_pagamento')}
+                            title="Apri la pagina Pagamenti con questo ordine già impostato"
+                          >
+                            Richiedi pagamento
+                          </a>
+                          {(() => {
+                            const c = linkContatto(o)
+                            return (
+                              <a
+                                className="bottone secondario mini"
+                                href={c?.url ?? '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-disabled={!c}
+                                style={c ? undefined : { pointerEvents: 'none', opacity: 0.4 }}
+                                onClick={() => c && segna(o.id, 'comunicazione')}
+                                title={
+                                  c
+                                    ? `Scrivi al cliente su ${c.come}`
+                                    : 'Ordine senza telefono né email'
+                                }
+                              >
+                                Contatta cliente
+                              </a>
+                            )
+                          })()}
+                          {o.gestione === 'gestito' ? (
+                            <button
+                              className="bottone secondario mini"
+                              onClick={() => segna(o.id, 'da_gestire')}
+                              title="Rimetti tra quelli da gestire"
+                            >
+                              Riapri
+                            </button>
                           ) : (
+                            <button
+                              className="bottone secondario mini"
+                              onClick={() => segna(o.id, 'gestito')}
+                              title="Segna come gestito"
+                            >
+                              Gestito ✓
+                            </button>
+                          )}
+                          {!o.contattoSalvato ? (
                             <button
                               className="bottone secondario mini"
                               onClick={() => salvaContatto(o.id)}
@@ -413,13 +533,13 @@ export function OrdiniLista() {
                                 !o.telefono && !o.email
                                   ? 'Ordine senza telefono né email'
                                   : googleCollegato
-                                    ? 'Salva il contatto in rubrica'
+                                    ? 'Salva il contatto in rubrica Google'
                                     : 'Collega Google Contacts nelle Impostazioni'
                               }
                             >
-                              {occupato === o.id ? 'Salvo…' : 'Contatto'}
+                              {occupato === o.id ? 'Salvo…' : 'Rubrica'}
                             </button>
-                          )}
+                          ) : null}
                           {/* Bottone rapido: apre Ricerca fornitori sull'ordine */}
                           {n.brandRicerca ? (
                             <button
@@ -449,7 +569,8 @@ export function OrdiniLista() {
                 <th>Cliente</th>
                 <th>Telefono</th>
                 <th style={{ textAlign: 'right' }}>Totale</th>
-                <th>Contatto</th>
+                <th>Lavorazione</th>
+                <th>Azioni</th>
                 <th>Fornitore</th>
               </tr>
             </thead>
@@ -464,29 +585,56 @@ export function OrdiniLista() {
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {o.totale.toLocaleString('it-IT', { style: 'currency', currency: o.valuta })}
                   </td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <span
+                      className="badge"
+                      style={{ color: coloreGestione(o.gestione), background: 'var(--fill)' }}
+                    >
+                      {nomeGestione(o.gestione)}
+                    </span>
+                  </td>
                   <td>
-                    {o.contattoSalvato ? (
-                      <span className="badge verde" title={o.contattoEsito}>
-                        {o.contattoEsito?.replace(/^(Aggiunto|Aggiornato|Già in rubrica): /, '') ||
-                          'salvato'}
-                      </span>
-                    ) : (
-                      <button
-                        className="bottone secondario"
-                        style={{ padding: '4px 12px', fontSize: 13 }}
-                        onClick={() => salvaContatto(o.id)}
-                        disabled={!!occupato || !googleCollegato || (!o.telefono && !o.email)}
-                        title={
-                          !o.telefono && !o.email
-                            ? 'Ordine senza telefono né email'
-                            : googleCollegato
-                              ? ''
-                              : 'Collega Google Contacts nelle Impostazioni'
-                        }
+                    <span className="azioni-ordine">
+                      <a
+                        className="bottone secondario mini"
+                        href={linkPagamento(o)}
+                        onClick={() => segna(o.id, 'in_pagamento')}
+                        title="Richiedi pagamento per questo ordine"
                       >
-                        {occupato === o.id ? 'Salvo…' : 'Salva contatto'}
-                      </button>
-                    )}
+                        Pagamento
+                      </a>
+                      {(() => {
+                        const c = linkContatto(o)
+                        return (
+                          <a
+                            className="bottone secondario mini"
+                            href={c?.url ?? '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={c ? undefined : { pointerEvents: 'none', opacity: 0.4 }}
+                            onClick={() => c && segna(o.id, 'comunicazione')}
+                            title={c ? `Scrivi al cliente su ${c.come}` : 'Nessun recapito'}
+                          >
+                            Contatta
+                          </a>
+                        )
+                      })()}
+                      {o.gestione === 'gestito' ? (
+                        <button
+                          className="bottone secondario mini"
+                          onClick={() => segna(o.id, 'da_gestire')}
+                        >
+                          Riapri
+                        </button>
+                      ) : (
+                        <button
+                          className="bottone secondario mini"
+                          onClick={() => segna(o.id, 'gestito')}
+                        >
+                          Gestito ✓
+                        </button>
+                      )}
+                    </span>
                   </td>
                   <td>
                     {(() => {

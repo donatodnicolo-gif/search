@@ -74,6 +74,19 @@ della pipeline di Orders (colori letti da `GET /api/v1/stati`). Si filtra per st
 cliccando la legenda e per negozio; in testa il numero e il valore delle consegne del mese.
 Gli ordini senza data di consegna indicata non compaiono e vengono contati esplicitamente.
 
+**Lavorazione degli ordini.** Ogni ordine ha uno stato **nostro** (`Ordine.gestione`,
+distinto dalla pipeline di Orders): **Da gestire** → **In pagamento** → **Comunicazione con
+cliente** → **Gestito**. Sotto ogni ordine ci sono i pulsanti che lo fanno avanzare:
+*Richiedi pagamento* (apre Pagamenti già compilato e segna "in pagamento"), *Contatta
+cliente* (apre WhatsApp se c'è il numero, altrimenti la mail, e segna "comunicazione"),
+*Gestito ✓* (e *Riapri* per tornare indietro). Il filtro parte da **"Da gestire"**, così si
+vede solo il lavoro aperto; si può passare a "Tutti" o a un singolo stato. Lo scarico da
+Orders non tocca mai questo campo.
+
+**Menu a scomparsa.** Il pulsante ☰ in alto chiude il menu laterale: gli ordini prendono
+tutta la larghezza. La scelta resta in `localStorage` e viene riapplicata prima del primo
+disegno, così non lampeggia.
+
 **Richiedi pagamento.** `/pagamenti` raccoglie le coordinate su cui farsi pagare. IBAN e
 intestatario si scrivono a mano oppure si fanno **leggere all'AI** (Claude, `src/lib/ai.ts`)
 da un messaggio incollato o da un'immagine — schermata di chat, foto di un bonifico — che
@@ -82,6 +95,13 @@ restituisce IBAN, intestatario, importo e causale e compone la stringa pulita da
 dà il **checksum mod-97** (`src/lib/iban.ts`, ISO 13616): una cifra letta male non passa e la
 riga resta marcata "da controllare" invece di essere spacciata per buona. La chiave Anthropic
 si mette in Impostazioni (cifrata).
+
+**Inoltro a Deluxy Partner.** Salvando, la richiesta viene mandata a Partner, che approva e
+paga: `POST {partnerUrl}/api/richieste-pagamento` con header `X-API-Key` e
+`X-App: deluxy-messaging` (`src/lib/partner.ts`). L'invio è **idempotente** sul campo
+`riferimento`: rimandarla non crea doppioni, la aggiorna finché è in attesa. Partner
+pretende un importo maggiore di zero. Se l'invio fallisce la richiesta resta salvata qui, con
+il motivo, e si rimanda col pulsante *Invia*; *Aggiorna* chiede a Partner a che punto è.
 
 **Menu.** Il menu sta **a sinistra** (`src/components/Sidebar.tsx`, stesso impianto di
 Deluxy Orders: `.layout` + `.sidebar` sticky + `.main`); la barra in alto tiene solo marchio

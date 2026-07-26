@@ -66,11 +66,21 @@ model NegozioShopify {
 model RichiestaPagamento {
   id           String   @id @default(cuid())
   iban         String
+  bic          String   @default("")
   intestatario String
   importo      Float    @default(0)
   valuta       String   @default("EUR")
   causale      String   @default("")
   note         String   @default("") @db.Text
+  contatto     String   @default("") // come ricontattare chi ha chiesto il pagamento
+  linkConversazione String @default("") // il thread da cui nasce la richiesta
+  // Invio a Deluxy Partner, che approva e paga. `riferimento` è la chiave di
+  // idempotenza concordata: rimandare la stessa richiesta non la duplica.
+  riferimento  String   @unique @default(cuid())
+  inviataIl    DateTime?
+  partnerId    String   @default("")
+  partnerStato String   @default("") // in_attesa | approvata | rifiutata …
+  esitoInvio   String   @default("") @db.Text // errore dell'ultimo tentativo
   // Esito della verifica formale dell'IBAN (checksum mod-97): non ci si fida
   // di quello che estrae l'AI, si controlla.
   ibanValido   Boolean  @default(false)
@@ -136,6 +146,11 @@ model Ordine {
   note           String   @default("") @db.Text
   contattoSalvato Boolean @default(false) // salvato su Google Contacts
   contattoEsito  String   @default("") // esito/errore dell'ultimo salvataggio
+  // Come stiamo lavorando l'ordine QUI (nostro, distinto dallo stato della
+  // pipeline di Orders in statoChiave): da_gestire | in_pagamento |
+  // comunicazione | gestito. Lo scarico da Orders non lo tocca mai.
+  gestione       String   @default("da_gestire")
+  gestioneIl     DateTime?
   creatoIl       DateTime @default(now())
 
   @@unique([negozioId, shopifyId]) // dedup per-negozio: il gid è unico solo lì

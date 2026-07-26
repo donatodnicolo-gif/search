@@ -16,6 +16,7 @@ const SEGRETI = [
   'ordersApiKey',
   'searchApiKey',
   'anthropicApiKey',
+  'partnerApiKey',
 ]
 const IN_CHIARO = [
   'waPhoneNumberId',
@@ -25,6 +26,7 @@ const IN_CHIARO = [
   'googleClientId',
   'ordersUrl',
   'searchUrl',
+  'partnerUrl',
 ]
 
 export async function salvaImpostazioni(formData: FormData) {

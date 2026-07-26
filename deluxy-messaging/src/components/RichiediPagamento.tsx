@@ -17,6 +17,16 @@ type Richiesta = {
   origine: string
   creatoIl: string
   stringa: string
+  inviataIl: string | null
+  partnerStato: string
+  esitoInvio: string
+}
+
+const STATI_PARTNER: Record<string, string> = {
+  in_attesa: 'in attesa',
+  approvata: 'approvata',
+  rifiutata: 'rifiutata',
+  pagata: 'pagata',
 }
 
 const ORIGINI: Record<string, string> = {
@@ -45,6 +55,19 @@ export function RichiediPagamento() {
   const [errore, setErrore] = useState('')
   const [ibanNota, setIbanNota] = useState('')
   const [copiato, setCopiato] = useState('')
+
+  // Arrivando dal bottone "Richiedi pagamento" di un ordine, i campi si
+  // precompilano da soli con numero, cliente e importo.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    const ordine = p.get('ordine')
+    if (!ordine) return
+    setCausale(`Ordine ${ordine}`)
+    const imp = p.get('importo')
+    if (imp && Number(imp) > 0) setImporto(imp)
+    const cliente = p.get('cliente')
+    if (cliente) setAvviso(`Richiesta per ${cliente} — ordine ${ordine}.`)
+  }, [])
 
   const carica = useCallback(async () => {
     try {
@@ -144,6 +167,7 @@ export function RichiediPagamento() {
       const d = (await res.json().catch(() => ({}))) as {
         richiesta?: Richiesta
         motivoIban?: string
+        invio?: { ok: boolean; messaggio: string } | null
         errore?: string
       }
       if (!res.ok) {
@@ -151,6 +175,9 @@ export function RichiediPagamento() {
         return
       }
       setAvviso(`Salvata: ${d.richiesta?.stringa ?? ''}`)
+      // L'inoltro a Partner può fallire senza far fallire il salvataggio: lo si dice.
+      if (d.invio && !d.invio.ok) setErrore(d.invio.messaggio)
+      else if (d.invio?.ok) setAvviso(`Salvata e inviata a Partner: ${d.richiesta?.stringa ?? ''}`)
       if (d.motivoIban) setIbanNota(d.motivoIban)
       setIban('')
       setIntestatario('')
@@ -162,6 +189,23 @@ export function RichiediPagamento() {
       await carica()
     } catch {
       setErrore('Salvataggio non riuscito: problema di rete.')
+    }
+  }
+
+  // Rimanda a Partner (idempotente) oppure ne aggiorna lo stato.
+  async function versoPartner(id: string, azione: 'invia' | 'stato') {
+    setErrore('')
+    setAvviso('')
+    try {
+      const res = await fetch(`/api/pagamenti/${id}/invia`, {
+        method: azione === 'invia' ? 'POST' : 'GET',
+      })
+      const d = (await res.json().catch(() => ({}))) as { stato?: string; errore?: string }
+      if (!res.ok) setErrore(d.errore || 'Operazione non riuscita.')
+      else setAvviso(azione === 'invia' ? 'Inviata a Partner.' : `Stato: ${d.stato ?? '—'}`)
+      await carica()
+    } catch {
+      setErrore('Operazione non riuscita: problema di rete.')
     }
   }
 
@@ -291,6 +335,7 @@ export function RichiediPagamento() {
                 <th>Causale</th>
                 <th>Origine</th>
                 <th>Verifica</th>
+                <th>Partner</th>
                 <th></th>
               </tr>
             </thead>
@@ -314,6 +359,28 @@ export function RichiediPagamento() {
                     )}
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
+                    {r.inviataIl ? (
+                      <span className="badge verde" title={`Inviata il ${new Date(r.inviataIl).toLocaleString('it-IT')}`}>
+                        {STATI_PARTNER[r.partnerStato] ?? r.partnerStato ?? 'inviata'}
+                      </span>
+                    ) : (
+                      <span className="badge rosso" title={r.esitoInvio || 'Non ancora inviata'}>
+                        non inviata
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <button
+                      className="btn btn-secondario small"
+                      onClick={() => versoPartner(r.id, r.inviataIl ? 'stato' : 'invia')}
+                      title={
+                        r.inviataIl
+                          ? 'Chiedi a Partner a che punto è'
+                          : 'Manda la richiesta a Partner'
+                      }
+                    >
+                      {r.inviataIl ? 'Aggiorna' : 'Invia'}
+                    </button>{' '}
                     <button
                       className="btn btn-secondario small"
                       onClick={() => copia(r.stringa, r.id)}

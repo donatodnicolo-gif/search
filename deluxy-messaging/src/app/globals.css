@@ -60,6 +60,35 @@ button {
   border-right: 1px solid var(--hairline);
 }
 
+/* Menu chiuso: scorre fuori a sinistra e il contenuto prende tutto lo spazio. */
+[data-sidebar-chiusa] .sidebar {
+  margin-left: -232px;
+  opacity: 0;
+  pointer-events: none;
+}
+.sidebar {
+  transition: margin-left 240ms var(--ease), opacity 200ms var(--ease);
+}
+
+.toggle-sidebar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-m);
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 120ms var(--ease);
+}
+.toggle-sidebar:hover {
+  background: var(--fill);
+  color: var(--text);
+}
+
 .sb-label {
   font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--text-tertiary);
@@ -945,6 +974,22 @@ button {
   font-size: 12px;
   flex: 1;
   white-space: nowrap;
+}
+
+/* Le azioni sotto ogni ordine: mandano avanti la lavorazione. */
+.azioni-ordine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--hairline);
+}
+td .azioni-ordine {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+  flex-wrap: nowrap;
 }
 
 .bottone.mini {
