@@ -5,6 +5,7 @@ import { Scadenza } from "@/components/Scadenza";
 import { ScelteBrand } from "@/components/ScelteBrand";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
+import { PRESET_PERIODO, risolviPeriodo, variazione } from "@/lib/periodo";
 import {
   COLORE_BRAND,
   COLORE_ESITO,
@@ -49,11 +50,21 @@ async function rosScope(scope: string): Promise<{ ros: number | null; delta: num
   return { ros, delta: ros != null && rosPrima != null && rosPrima > 0 ? ros / rosPrima - 1 : null };
 }
 
-export default async function Dashboard() {
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ preset?: string; da?: string; a?: string }>;
+}) {
+  const p = await searchParams;
+  const periodo = risolviPeriodo(p.preset ?? "30g", p.da, p.a);
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
-  const giorni30 = new Date(oggi.getTime() - 30 * 86_400_000);
-  const giorni14 = new Date(oggi.getTime() - 13 * 86_400_000);
+  // I giorni del grafico e delle somme seguono il periodo scelto; le azioni
+  // aperte no: quelle sono uno stato di adesso, non un intervallo.
+  const giorniPeriodo = Math.max(
+    1,
+    Math.round((periodo.corrente.a.getTime() - periodo.corrente.da.getTime()) / 86_400_000)
+  );
 
   const [aperte, scadute, nAnalisi30, campagneAttive, azioniUrgenti, ultimeAnalisi, metriche14, alertAperti, fatteNonVerificate] =
     await Promise.all([
@@ -61,7 +72,7 @@ export default async function Dashboard() {
       prisma.azione.count({
         where: { stato: { in: STATI_AZIONE_APERTI }, scadenza: { lt: oggi } },
       }),
-      prisma.analisi.count({ where: { dataAnalisi: { gte: giorni30 } } }),
+      prisma.analisi.count({ where: { dataAnalisi: { gte: periodo.corrente.da, lt: periodo.corrente.a } } }),
       prisma.campagna.count({ where: { stato: { in: ["attiva", "in_apprendimento"] } } }),
       prisma.azione.findMany({
         where: { stato: { in: STATI_AZIONE_APERTI } },
@@ -71,7 +82,7 @@ export default async function Dashboard() {
       }),
       prisma.analisi.findMany({ orderBy: { dataAnalisi: "desc" }, take: 6 }),
       prisma.metricaCampagna.findMany({
-        where: { data: { gte: giorni14 } },
+        where: { data: { gte: periodo.corrente.da, lt: periodo.corrente.a } },
         select: { data: true, spesa: true },
       }),
       prisma.alert.findMany({
@@ -88,10 +99,10 @@ export default async function Dashboard() {
       }),
     ]);
 
-  // Spesa aggregata per giorno negli ultimi 14 giorni
+  // Spesa aggregata per giorno sul periodo scelto
   const perGiorno = new Map<string, number>();
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(giorni14.getTime() + i * 86_400_000);
+  for (let i = 0; i < giorniPeriodo; i++) {
+    const d = new Date(periodo.corrente.da.getTime() + i * 86_400_000);
     perGiorno.set(d.toISOString().slice(0, 10), 0);
   }
   for (const m of metriche14) {
@@ -102,7 +113,63 @@ export default async function Dashboard() {
     data: new Date(giorno),
     valore,
   }));
-  const spesa7 = puntiSpesa.slice(-7).reduce((s, p) => s + p.valore, 0);
+  const spesaPeriodo = puntiSpesa.reduce((s, p) => s + p.valore, 0);
+
+  // Vendite, ordini e spesa del periodo precedente: i numeri da soli non dicono
+  // se si sta migliorando. Gli ordini annullati e rimborsati restano fuori —
+  // sono soldi che non sono mai entrati o che sono tornati indietro.
+  const fuori = { notIn: ["annullato", "rimborsato"] };
+  const [venditeOra, venditePrima, spesaPrimaAgg] = await Promise.all([
+    prisma.ordine.aggregate({
+      where: { data: { gte: periodo.corrente.da, lt: periodo.corrente.a }, stato: fuori },
+      _sum: { totale: true },
+      _count: { _all: true },
+    }),
+    prisma.ordine.aggregate({
+      where: { data: { gte: periodo.precedente.da, lt: periodo.precedente.a }, stato: fuori },
+      _sum: { totale: true },
+      _count: { _all: true },
+    }),
+    prisma.metricaCampagna.aggregate({
+      where: { data: { gte: periodo.precedente.da, lt: periodo.precedente.a } },
+      _sum: { spesa: true },
+    }),
+  ]);
+  const vendite = venditeOra._sum.totale ?? 0;
+  const venditePrec = venditePrima._sum.totale ?? 0;
+  const spesaPrec = spesaPrimaAgg._sum.spesa ?? 0;
+  // Quali canali hanno davvero mandato spesa nel periodo: se ne manca uno, il
+  // ROS è ottimistico perché divide tutte le vendite per una spesa parziale.
+  const spesaPerCanale = await prisma.metricaCampagna.groupBy({
+    by: ["campagnaId"],
+    where: { data: { gte: periodo.corrente.da, lt: periodo.corrente.a }, spesa: { gt: 0 } },
+    _sum: { spesa: true },
+  });
+  const campagneConSpesa = await prisma.campagna.findMany({
+    where: { id: { in: spesaPerCanale.map((x) => x.campagnaId) } },
+    select: { id: true, canale: true },
+  });
+  const canali = new Set(campagneConSpesa.map((c) => c.canale));
+  const canaliMuti = ["google_ads", "meta_ads"].filter((c) => !canali.has(c));
+
+  const ros = spesaPeriodo > 0 ? vendite / spesaPeriodo : null;
+  const rosPrec = spesaPrec > 0 ? venditePrec / spesaPrec : null;
+
+  // Link che cambia il periodo tenendo il resto della querystring
+  const linkPeriodo = (chiave: string) => {
+    const q = new URLSearchParams();
+    if (chiave !== "libero") q.set("preset", chiave);
+    else {
+      if (p.da) q.set("da", p.da);
+      if (p.a) q.set("a", p.a);
+    }
+    return `/?${q.toString()}`;
+  };
+  const delta = (ora: number, prima: number) => {
+    const v = variazione(ora, prima); // è già in percentuale
+    if (v == null) return null;
+    return { testo: `${v >= 0 ? "+" : ""}${v.toFixed(0)}%`, colore: v >= 0 ? "var(--green)" : "var(--red)" };
+  };
 
   const [rosTotale, rosGifts, rosFlowers, rosCake] = await Promise.all([
     rosScope("totale"),
@@ -137,6 +204,30 @@ export default async function Dashboard() {
 
         <ScelteBrand />
 
+        {/* Il periodo comanda tutto quello che è una somma: spesa, vendite,
+            analisi e grafico. Le azioni aperte restano quelle di adesso. */}
+        <section className="scheda" style={{ paddingBottom: 14 }}>
+          <div className="pill-scelta" style={{ marginBottom: 12 }}>
+            {PRESET_PERIODO.filter((x) => x.chiave !== "libero").map((x) => (
+              <a
+                key={x.chiave}
+                className={`pill-opt${periodo.preset === x.chiave ? " attuale" : ""}`}
+                href={linkPeriodo(x.chiave)}
+              >
+                {x.nome}
+              </a>
+            ))}
+          </div>
+          <form className="filtri" method="get" action="/" style={{ marginBottom: 0 }}>
+            <input type="date" name="da" defaultValue={p.da ?? ""} title="Dal" />
+            <input type="date" name="a" defaultValue={p.a ?? ""} title="Al (compreso)" />
+            <button className="btn small" type="submit">Vai</button>
+            <span className="cella-sub" style={{ alignSelf: "center" }}>
+              Stai guardando: <b>{periodo.corrente.etichetta}</b> ({giorniPeriodo} giorni)
+            </span>
+          </form>
+        </section>
+
         <div className="kpi-riga">
           <div className="kpi">
             <div className="kpi-valore">{aperte}</div>
@@ -150,15 +241,66 @@ export default async function Dashboard() {
           </div>
           <div className="kpi">
             <div className="kpi-valore">{nAnalisi30}</div>
-            <div className="kpi-etichetta">Analisi negli ultimi 30 gg</div>
+            <div className="kpi-etichetta">Analisi nel periodo</div>
           </div>
           <div className="kpi">
             <div className="kpi-valore">{campagneAttive}</div>
             <div className="kpi-etichetta">Campagne attive</div>
           </div>
+        </div>
+
+        <div className="kpi-riga">
           <div className="kpi">
-            <div className="kpi-valore">{formattaEuro(spesa7)}</div>
-            <div className="kpi-etichetta">Spesa ADV ultimi 7 gg</div>
+            <div className="kpi-valore">{formattaEuro(spesaPeriodo)}</div>
+            <div className="kpi-etichetta">
+              Spesa ADV nel periodo
+              {delta(spesaPeriodo, spesaPrec) && (
+                <span style={{ color: delta(spesaPeriodo, spesaPrec)!.colore, fontWeight: 600 }}>
+                  {" "}· {delta(spesaPeriodo, spesaPrec)!.testo} sul periodo prima
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-valore">{formattaEuro(vendite)}</div>
+            <div className="kpi-etichetta">
+              Vendite nel periodo
+              {delta(vendite, venditePrec) && (
+                <span style={{ color: delta(vendite, venditePrec)!.colore, fontWeight: 600 }}>
+                  {" "}· {delta(vendite, venditePrec)!.testo}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-valore" style={ros != null ? { color: ros >= 5 ? "var(--green)" : ros >= 3 ? "var(--text)" : "var(--red)" } : undefined}>
+              {ros != null ? `${ros.toFixed(1)}×` : "—"}
+            </div>
+            <div className="kpi-etichetta">
+              {canaliMuti.length > 0 ? "ROS parziale: manca " + canaliMuti.map((c) => (c === "meta_ads" ? "Meta" : "Google")).join(" e ") : "ROS del periodo (vendite ÷ spesa ADV)"}
+              {rosPrec != null && ros != null && delta(ros, rosPrec) && (
+                <span style={{ color: delta(ros, rosPrec)!.colore, fontWeight: 600 }}>
+                  {" "}· {delta(ros, rosPrec)!.testo}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-valore">{venditeOra._count._all}</div>
+            <div className="kpi-etichetta">
+              Ordini nel periodo
+              {delta(venditeOra._count._all, venditePrima._count._all) && (
+                <span style={{ color: delta(venditeOra._count._all, venditePrima._count._all)!.colore, fontWeight: 600 }}>
+                  {" "}· {delta(venditeOra._count._all, venditePrima._count._all)!.testo}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-valore">
+              {vendite > 0 && venditeOra._count._all > 0 ? formattaEuro(vendite / venditeOra._count._all) : "—"}
+            </div>
+            <div className="kpi-etichetta">Scontrino medio</div>
           </div>
         </div>
 
@@ -256,7 +398,7 @@ export default async function Dashboard() {
 
           <div>
             <section className="scheda">
-              <div className="scheda-titolo">Spesa ADV — ultimi 14 giorni</div>
+              <div className="scheda-titolo">Spesa ADV — {periodo.corrente.etichetta.toLowerCase()}</div>
               <GraficoSpesa punti={puntiSpesa} />
             </section>
 
