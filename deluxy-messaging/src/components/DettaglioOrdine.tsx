@@ -490,20 +490,55 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
                 <a className="btn btn-secondario small" href={`/rimborsi?ordineId=${ordine.id}&ordine=${encodeURIComponent(ordine.numero)}&cliente=${encodeURIComponent(ordine.clienteNome)}&totale=${ordine.totale}&pagamento=${encodeURIComponent(ordine.statoPagamento)}&negozio=${encodeURIComponent(ordine.negozioNome)}`}>
                   Chiedi rimborso
                 </a>
-                {lingua && (ordine.telefono || ordine.email) ? (
-                  <a
-                    className="btn btn-secondario small"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    href={
-                      ordine.telefono.replace(/[^\d]/g, '').length >= 8
-                        ? `https://wa.me/${ordine.telefono.replace(/[^\d]/g, '')}?text=${encodeURIComponent(messaggioCliente(lingua.lingua, ordine.clienteNome, ordine.numero))}`
-                        : `mailto:${ordine.email}?body=${encodeURIComponent(messaggioCliente(lingua.lingua, ordine.clienteNome, ordine.numero))}`
-                    }
-                  >
-                    Contatta cliente
-                  </a>
-                ) : null}
+                {/* Un bottone per ogni canale che questo cliente ha davvero.
+                    Sceglie chi sta lavorando l'ordine: a chi ha appena scritto
+                    una mail si risponde per mail, un ritardo grave si dice al
+                    telefono. Il messaggio è già nella sua lingua e non parte da
+                    solo; la telefonata, ovviamente, non porta nessun testo. */}
+                {lingua
+                  ? (() => {
+                      const testo = messaggioCliente(lingua.lingua, ordine.clienteNome, ordine.numero)
+                      const cifre = ordine.telefono.replace(/[^\d]/g, '')
+                      const numero = ordine.telefono.replace(/[^\d+]/g, '')
+                      const canali: { chiave: string; nome: string; url: string; titolo: string }[] = []
+                      if (cifre.length >= 8) {
+                        canali.push({
+                          chiave: 'whatsapp',
+                          nome: 'WhatsApp',
+                          url: `https://wa.me/${cifre}?text=${encodeURIComponent(testo)}`,
+                          titolo: `Scrivi su WhatsApp, in ${nomeLingua(lingua.lingua)}. Il messaggio non parte da solo.`,
+                        })
+                      }
+                      if (cifre.length >= 6) {
+                        canali.push({
+                          chiave: 'telefono',
+                          nome: 'Chiama',
+                          url: `tel:${numero}`,
+                          titolo: `Chiama il cliente. Parla in ${nomeLingua(lingua.lingua)}.`,
+                        })
+                      }
+                      if (ordine.email) {
+                        canali.push({
+                          chiave: 'email',
+                          nome: 'Email',
+                          url: `mailto:${ordine.email}?body=${encodeURIComponent(testo)}`,
+                          titolo: `Scrivi una mail, in ${nomeLingua(lingua.lingua)}. Non parte da sola.`,
+                        })
+                      }
+                      return canali.map((c) => (
+                        <a
+                          key={c.chiave}
+                          className="btn btn-secondario small"
+                          href={c.url}
+                          target={c.chiave === 'telefono' ? undefined : '_blank'}
+                          rel="noopener noreferrer"
+                          title={c.titolo}
+                        >
+                          {c.nome}
+                        </a>
+                      ))
+                    })()
+                  : null}
                 <button
                   className="btn btn-secondario small"
                   onClick={() => cambiaGestione(ordine.gestione === 'gestito' ? 'da_gestire' : 'gestito')}

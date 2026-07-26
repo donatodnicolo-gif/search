@@ -55,6 +55,18 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- CANALI DI CONTATTO A SCELTA (26/07/2026). Il bottone «Contatta» sceglieva da
+  solo: WhatsApp se c'era un numero, la mail altrimenti. Non è una gerarchia
+  vera — a chi ha appena scritto una mail si risponde per mail, un ritardo
+  grave si dice al telefono — quindi ora si mostra **un bottone per ogni canale
+  che quel cliente ha davvero**: WhatsApp, Chiama, Email. Senza recapiti resta
+  scritto «Nessun recapito» col motivo.
+  Vale in tutti e tre i posti: schede, tabella e pannello di dettaglio
+  (`canaliContatto()` in OrdiniLista, stessa logica nel dettaglio).
+  La telefonata usa un link `tel:` col numero come è scritto (il + conta) e **non porta
+  nessun testo**: il messaggio precompilato lì non serve. WhatsApp e mail
+  restano nella lingua del cliente e non partono da soli.
+
 - DETTAGLIO: MITTENTE, DESTINATARIO E INDIRIZZO DI CONSEGNA (26/07/2026).
   Nel pannello di un ordine ora si distinguono **chi ordina** (mittente, coi suoi
   recapiti) e **chi riceve** (destinatario), con l'indirizzo di consegna

@@ -41,6 +41,17 @@ Attenzione, oltre Critico). Così un solo reclamo grave ancora aperto accende gi
 sempre visibile da cosa nasce il numero. Per il quadro completo — feedback, orari e altre
 variabili — c'è la **pagella** qui sotto.
 
+## Come si contatta il cliente
+
+Su ogni ordine ci sono i canali che quel cliente ha **davvero**: WhatsApp, Chiama,
+Email. Nessuna gerarchia decisa dal codice — a chi ha appena scritto una mail si
+risponde per mail, un ritardo grave si dice al telefono, e chi sceglie è chi ha in mano
+la situazione. Se non ci sono recapiti il posto del bottone resta e dice perché.
+
+WhatsApp e mail si aprono col messaggio già scritto **nella lingua del cliente** e non
+partono da soli: si rilegge e si corregge prima di premere invio. La telefonata non
+porta nessun testo, ovviamente.
+
 ## Il dettaglio di un ordine
 
 Cliccando un ordine si apre il pannello con foto dei prodotti, messaggio pronto per

@@ -114,37 +114,55 @@ function TipoCliente({ tipo, da }: { tipo: string; da: string }) {
 }
 
 /**
- * Apre WhatsApp se c'è il numero, altrimenti la mail. Null se non c'è nulla.
+ * TUTTI i modi per raggiungere questo cliente, non solo il primo.
  *
- * Il messaggio è già scritto NELLA LINGUA DEL CLIENTE (dal paese di spedizione,
- * o dal prefisso del telefono se il paese manca): scrivere in italiano a un
- * cliente di Londra è il dettaglio che fa sembrare improvvisato tutto il resto.
- * Il testo è solo l'apertura e non parte da solo — l'operatore lo rilegge nella
- * finestra di WhatsApp o della mail, e può correggerlo.
+ * Il messaggio è già scritto NELLA LINGUA DEL CLIENTE (dal prefisso del suo
+ * telefono, dal dominio della sua email, o dal paese di spedizione): scrivere
+ * in italiano a un cliente di Londra è il dettaglio che fa sembrare
+ * improvvisato tutto il resto. Il testo è solo l'apertura e non parte da solo —
+ * l'operatore lo rilegge nella finestra di WhatsApp o della mail.
  */
-function linkContatto(
+//
+// Prima c'era un bottone solo, «Contatta», che sceglieva da sé: WhatsApp se
+// c'era un numero, l'email altrimenti. Ma non è una gerarchia vera — a un
+// cliente che ha appena scritto una mail si risponde per mail, un ritardo
+// grave si dice al telefono, e chi decide è chi ha in mano la situazione, non
+// il codice. Quindi si mostrano i canali che esistono davvero e si sceglie.
+//
+// Fuori restano solo quelli impossibili: niente numero, niente WhatsApp e
+// niente telefonata; niente email, niente mail.
+function canaliContatto(
   o: OrdineDto
-): { url: string; come: string; lingua: string; linguaDa: string } | null {
+): { chiave: string; nome: string; url: string; lingua: string; linguaDa: string }[] {
   const { lingua, da } = linguaCliente(o.paese, o.telefono, o.email)
   const testo = messaggioCliente(lingua, o.clienteNome, o.numero)
-  const cifre = o.telefono.replace(/[^\d]/g, '')
   const comune = { lingua, linguaDa: da }
+  const canali: { chiave: string; nome: string; url: string; lingua: string; linguaDa: string }[] = []
+
+  const cifre = o.telefono.replace(/[^\d]/g, '')
   if (cifre.length >= 8) {
-    return {
+    canali.push({
       ...comune,
+      chiave: 'whatsapp',
+      nome: 'WhatsApp',
       url: `https://wa.me/${cifre}?text=${encodeURIComponent(testo)}`,
-      come: 'WhatsApp',
-    }
+    })
+  }
+  // La telefonata vuole il numero così com'è scritto (il + conta), e non porta
+  // nessun testo: il messaggio pronto lì non serve, parli tu.
+  const numero = o.telefono.replace(/[^\d+]/g, '')
+  if (numero.replace(/\D/g, '').length >= 6) {
+    canali.push({ ...comune, chiave: 'telefono', nome: 'Chiama', url: `tel:${numero}` })
   }
   if (o.email) {
     const p = new URLSearchParams({ subject: oggettoCliente(lingua, o.numero), body: testo })
-    return { ...comune, url: `mailto:${o.email}?${p.toString()}`, come: 'email' }
+    canali.push({ ...comune, chiave: 'email', nome: 'Email', url: `mailto:${o.email}?${p.toString()}` })
   }
-  return null
+  return canali
 }
 
 /** «Scrivi al cliente su WhatsApp, in francese (dal paese)». */
-function spiegaContatto(c: { come: string; lingua: string; linguaDa: string }): string {
+function spiegaContatto(c: { chiave: string; nome: string; lingua: string; linguaDa: string }): string {
   const perche =
     c.linguaDa === 'telefono'
       ? 'dal suo prefisso telefonico'
@@ -155,7 +173,12 @@ function spiegaContatto(c: { come: string; lingua: string; linguaDa: string }): 
           : c.linguaDa === 'estero-ignoto'
             ? 'recapito estero che non sappiamo tradurre: si usa l’inglese'
             : 'nessun segnale sul cliente: si usa l’italiano, come la gran parte degli ordini'
-  return `Scrivi al cliente su ${c.come}, in ${nomeLingua(c.lingua)} (${perche}). Il messaggio non parte da solo: lo rileggi prima.`
+  // La telefonata non porta nessun testo scritto: la lingua serve a sapere in
+  // che lingua parlare, non a precompilare un messaggio.
+  if (c.chiave === 'telefono') {
+    return `Chiama il cliente. Parla in ${nomeLingua(c.lingua)} (${perche}).`
+  }
+  return `Scrivi al cliente su ${c.nome}, in ${nomeLingua(c.lingua)} (${perche}). Il messaggio non parte da solo: lo rileggi prima.`
 }
 
 /** Pagina Pagamenti già impostata su questo ordine. */
@@ -917,22 +940,35 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                           >
                             Paga
                           </a>
+                          {/* Un bottone per ogni canale che questo cliente ha
+                              davvero: sceglie chi sta lavorando l'ordine, non
+                              il codice. Senza recapiti resta scritto perché. */}
                           {(() => {
-                            const c = linkContatto(o)
-                            return (
+                            const canali = canaliContatto(o)
+                            if (canali.length === 0) {
+                              return (
+                                <span
+                                  className="bottone secondario mini"
+                                  style={{ pointerEvents: 'none', opacity: 0.4 }}
+                                  title="Ordine senza telefono né email: non c'è modo di contattarlo"
+                                >
+                                  Nessun recapito
+                                </span>
+                              )
+                            }
+                            return canali.map((c) => (
                               <a
+                                key={c.chiave}
                                 className="bottone secondario mini"
-                                href={c?.url ?? '#'}
-                                target="_blank"
+                                href={c.url}
+                                target={c.chiave === 'telefono' ? undefined : '_blank'}
                                 rel="noopener noreferrer"
-                                aria-disabled={!c}
-                                style={c ? undefined : { pointerEvents: 'none', opacity: 0.4 }}
-                                onClick={() => c && segna(o.id, 'comunicazione')}
-                                title={c ? spiegaContatto(c) : 'Ordine senza telefono né email'}
+                                onClick={() => segna(o.id, 'comunicazione')}
+                                title={spiegaContatto(c)}
                               >
-                                Contatta
+                                {c.nome}
                               </a>
-                            )
+                            ))
                           })()}
                           <a
                             className="bottone secondario mini"
@@ -1085,20 +1121,31 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                         Paga fornitore
                       </a>
                       {(() => {
-                        const c = linkContatto(o)
-                        return (
+                        const canali = canaliContatto(o)
+                        if (canali.length === 0) {
+                          return (
+                            <span
+                              className="bottone secondario mini"
+                              style={{ pointerEvents: 'none', opacity: 0.4 }}
+                              title="Ordine senza telefono né email: non c'è modo di contattarlo"
+                            >
+                              Nessun recapito
+                            </span>
+                          )
+                        }
+                        return canali.map((c) => (
                           <a
+                            key={c.chiave}
                             className="bottone secondario mini"
-                            href={c?.url ?? '#'}
-                            target="_blank"
+                            href={c.url}
+                            target={c.chiave === 'telefono' ? undefined : '_blank'}
                             rel="noopener noreferrer"
-                            style={c ? undefined : { pointerEvents: 'none', opacity: 0.4 }}
-                            onClick={() => c && segna(o.id, 'comunicazione')}
-                            title={c ? spiegaContatto(c) : 'Nessun recapito'}
+                            onClick={() => segna(o.id, 'comunicazione')}
+                            title={spiegaContatto(c)}
                           >
-                            Contatta
+                            {c.nome}
                           </a>
-                        )
+                        ))
                       })()}
                       <a
                         className="bottone secondario mini"
