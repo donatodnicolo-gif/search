@@ -1,6 +1,6 @@
 # Handoff — Deluxy Merchandising
 
-Stato al 23/07/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato al 26/07/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
 ## Cos'è
 App per gestire il **prodotto a 360° come una maison di moda**: fonte di verità a
@@ -15,6 +15,10 @@ porta **3120**. Design system Deluxy v1.0.
 - Shell UI riusa il design system: `tokens.css`, `globals.css`, `layout.tsx`, `Sidebar`, `ToggleSidebar`, `SbSezione`, `Icona`, `Badge`, `BarraMargine`, `FormFiltri`, `TabellaProdotti`.
 - Pagine: `/` (collezioni+KPI), `/collezioni/nuova`, `/collezioni/[id]`, `/prodotti`, `/prodotti/nuovo`, `/prodotti/[id]` (scheda 360° a tab: Panoramica/Sviluppo/Costi/Visual/Shopify), `/sviluppo` (board PLM), `/costi`, `/visual`, `/visual/[id]`, `/shopify`.
 - Server actions verificate end-to-end (creazione, aggiornamento, cambio fase, varianti, vetrine riordino/aggiungi/rimuovi, stato Shopify) con `revalidatePath`.
+- **Vendite & trend** (`/vendite`, 26/07/2026): modello `Vendita` (il fatto elementare: riga venduta al giorno in cui è stata venduta) + `ImportVendite`. `src/lib/vendite.ts` calcola tutto — serie giorno/settimana, totali con confronto sul periodo precedente della stessa lunghezza, margine sul venduto, righe per prodotto con ritmo, tendenza e sparkline a 8 settimane, raggruppamenti per collezione/categoria/canale, righe non abbinate. `src/lib/orders.ts` importa da Deluxy Orders (`ORDERS_URL` + `ORDERS_API_KEY`), deduplicando su `"<idOrdine>#<indiceRiga>"`.
+- **Ipotesi di ordinativo** (`/riordini`, `/riordini/[id]`): `src/lib/riordino.ts` calcola quanto riordinare (ritmo pesato 65/35 fra metà recente e metà precedente, correzione di tendenza limitata a ±35%, fabbisogno = ritmo × (lead time + copertura) + scorta − giacenza). Parametri regolabili in querystring; l'ipotesi si congela in `PianoRiordino`/`RigaRiordino` con quantità modificabili, stato bozza/confermato/archiviato ed export CSV (`/riordini/[id]/csv`).
+- **Trend con AI** (`/trend-ai`): `src/lib/ai-trend.ts` manda a OpenAI **solo numeri già calcolati** e ne riceve sintesi, osservazioni, azioni proposte e domande; tutto storicizzato in `LetturaTrend` **insieme al pacchetto di dati**, così la lettura resta verificabile. L'AI non calcola e non esegue niente.
+- **Vendite dimostrative**: `scripts/vendite-demo.mjs` (`npm run vendite:demo`) genera 180 giorni di venduto plausibile con stagionalità settimanale e picchi (San Valentino, festa della mamma, Natale). Inserisce solo righe con `origine = "demo"`; `--pulisci` toglie solo quelle.
 - **Hub**: voce `merchandising` in `deluxy-hub/src/lib/apps.ts` + icona in `AppIcon.tsx` (union estesa). In produzione compare con `APP_URL_MERCHANDISING`.
 - Verifica: `npm run db:push` + `db:seed` ok; `npx tsc --noEmit` exit 0; navigazione browser su tutte le pagine senza errori console; azione Shopify testata (bozza + revalidation).
 
@@ -27,20 +31,23 @@ npm run dev   # http://localhost:3120
 ```
 `npm run db:reset` per ripartire dai dati demo.
 
-## STATO DEPLOY (24/07/2026)
-- **Non ancora pubblicata su Vercel.** Blocco: l'app usa **SQLite** (`file:./dev.db`), che su Vercel serverless non funziona. Prima del deploy va migrata a **Postgres condiviso Supabase** (schema `merchandising`).
-- **Cosa serve per pubblicare**: la connection string Postgres di Supabase (`DATABASE_URL`/`DIRECT_URL`, stesso DB di hub/marketing) — è un segreto, non presente nei file versionati; l'utente deve fornirla (o si prende dalla cassaforte Hub `/chiavi`). Con quella: cambiare provider a `postgresql`, `prisma db push` + seed sullo schema, creare progetto Vercel, env, `npx vercel deploy --prod`, poi `APP_URL_MERCHANDISING` nell'Hub.
-- CLI Vercel autenticata come `donatodnicolo-gif` (deploy pre-autorizzato dall'utente; manca solo la connection string).
+## STATO DEPLOY (26/07/2026)
+- **Pubblicata**: https://deluxy-merchandising.vercel.app (progetto Vercel `deluxy-merchandising`, Postgres condiviso Supabase schema `merchandising`).
+- **UI protetta da password** (`MERCHANDISING_APP_PASSWORD`, middleware + `/login`, cookie `mrc_session` = HMAC della password). Cambiando la password su Vercel **decadono tutte le sessioni** e serve un **nuovo deploy** perché il valore entri in vigore.
+- Il 26/07/2026 la variabile è stata sostituita su Vercel ma **il redeploy non è stato eseguito** (bloccato in sessione): finché non si rilancia il deploy, in produzione vale ancora il valore precedente.
+- Lo schema del database è già allineato alle tabelle nuove (`prisma db push` eseguito sul Postgres condiviso il 26/07/2026).
+- CLI Vercel autenticata come `donatodnicolo-gif`.
 
 ## MANCA / PROSSIMI PASSI
-- **Postgres condiviso** (produzione, PRE-REQUISITO del deploy): oggi SQLite. Cambiare provider in `postgresql` + `DATABASE_URL`/`DIRECT_URL` (schema `merchandising`). Nessun array/enum da convertire. Vedi README §"Passaggio a Postgres".
-- **Deploy Vercel** + `APP_URL_MERCHANDISING` nell'Hub: bloccato dal punto sopra (serve la connection string Supabase).
+- **Redeploy** dopo il cambio password (vedi sopra): `npx vercel redeploy <url-ultimo-deployment>` oppure Redeploy dal pannello Vercel.
+- **Collegamento a Deluxy Orders in produzione**: creare la chiave in `deluxy-orders` (`npm run chiave -- deluxy-merchandising`) e impostare `ORDERS_API_KEY` (+ `ORDERS_URL`) su Vercel. Finché manca, `/vendite` mostra solo le vendite dimostrative caricate a mano.
+- **Chiave OpenAI** (`OPENAI_API_KEY`) per la lettura AI del trend: il percorso è verificato fino alla chiamata (con chiave finta l'app mostra "Chiave OpenAI rifiutata (401)"), la risposta del modello non è ancora stata provata con una chiave vera.
 - **Shopify reale**: `src/lib/shopify.ts` costruisce il payload ma non scrive. Da collegare: `SHOPIFY_STORE_DOMAIN` + `SHOPIFY_ADMIN_TOKEN` e la chiamata `productSet`/`productCreate` all'Admin API (con conferma). Esiste un MCP Shopify in sessione utilizzabile per il primo collaudo.
-- **Protezione UI** (`MERCHANDISING_APP_PASSWORD`) + middleware come le altre app: non ancora aggiunta (UI aperta in locale).
 - **SSO Hub**: non ancora agganciato (come le app senza flag `sso`).
 - **Anagrafiche/Fornitori**: i fornitori sono locali; valutare se collegarli al registro centralizzato.
 - **Immagini**: gli still-life sono via URL; nessun upload asset (placeholder ❀ se assente).
 
 ## NOTE
-- Committato e pushato su `scout-ui` (search.git) il 24/07/2026.
-- Il preview `.claude/launch.json` locale definisce `merchandising`; il launch.json condiviso della sessione non lo conosce (avviare con `npm run dev`).
+- Committato e pushato su `scout-ui` (search.git) il 24/07/2026; vendite/trend/riordini/AI il 26/07/2026.
+- Il preview `.claude/launch.json` locale definisce `merchandising` (3120); nel launch.json condiviso della sessione ci sono `merchandising` (3120) e `merchandising-3121`, utile quando un'altra sessione tiene occupata la 3120.
+- **Trappola già pagata**: il calcolo del riordino è per **prodotto**, non per variante. La giacenza sta sulle varianti e si somma, ma il venduto non arriva sempre con la variante riconosciuta: distribuirlo "a occhio" sulle taglie darebbe quantità inventate, cioè ordini sbagliati al fornitore. Stessa logica per le righe vendute non riconosciute: restano senza prodotto invece di essere abbinate per somiglianza.

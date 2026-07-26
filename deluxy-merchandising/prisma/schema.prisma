@@ -73,6 +73,8 @@ model Prodotto {
   varianti     Variante[]
   tappe        TappaSviluppo[]
   vetrine      VetrinaProdotto[]
+  vendite      Vendita[]
+  righeRiordino RigaRiordino[]
   creatoIl     DateTime @default(now())
   aggiornatoIl DateTime @updatedAt
 
@@ -94,6 +96,8 @@ model Variante {
   deltaPrezzo  Float @default(0)
   giacenza     Int   @default(0) // stock disponibile
   creataIl   DateTime @default(now())
+  vendite    Vendita[]
+  righeRiordino RigaRiordino[]
 
   @@index([prodottoId])
 }
@@ -149,4 +153,110 @@ model VetrinaProdotto {
 
   @@unique([vetrinaId, prodottoId])
   @@index([vetrinaId, posizione])
+}
+
+// Una riga venduta, al giorno in cui è stata venduta. È il fatto elementare su
+// cui poggiano trend e ipotesi di ordinativo.
+//
+// La fonte è il registro centralizzato Deluxy Orders (che a sua volta legge
+// Shopify): qui NON si vende nulla, si legge il venduto. Le righe che non si
+// riescono ad abbinare a un prodotto di questa app restano comunque salvate con
+// `prodottoId` nullo — spariscono dai trend per prodotto ma non dai totali, e la
+// pagina Vendite le elenca perché qualcuno le mappi. Inventare un abbinamento
+// sarebbe peggio: un riordino calcolato sul prodotto sbagliato è un ordine
+// sbagliato al fornitore.
+model Vendita {
+  id         String    @id @default(cuid())
+  data       DateTime // giorno della vendita (mezzanotte)
+  prodottoId String?
+  prodotto   Prodotto? @relation(fields: [prodottoId], references: [id], onDelete: SetNull)
+  varianteId String?
+  variante   Variante? @relation(fields: [varianteId], references: [id], onDelete: SetNull)
+  titolo     String // titolo della riga così come arriva dal canale
+  sku        String?
+  canale     String    @default("shopify") // brand/negozio di origine
+  quantita   Int       @default(1)
+  ricavo     Float     @default(0) // prezzo unitario x quantità
+  origine    String    @default("orders") // orders | demo | manuale
+  // Chiave di deduplica dell'import: "<idOrdine>#<indiceRiga>". Le righe di
+  // Orders non hanno un id proprio, quindi la posizione fa da identità.
+  riferimento String?  @unique
+  creataIl   DateTime  @default(now())
+
+  @@index([data])
+  @@index([prodottoId, data])
+  @@index([varianteId, data])
+  @@index([origine])
+}
+
+// Storico delle importazioni dal registro ordini: quando, quanto, com'è andata.
+model ImportVendite {
+  id            String   @id @default(cuid())
+  iniziatoIl    DateTime @default(now())
+  dal           DateTime
+  al            DateTime
+  ordiniLetti   Int      @default(0)
+  righeLette    Int      @default(0)
+  righeNuove    Int      @default(0)
+  righeAbbinate Int      @default(0)
+  esito         String   @default("ok") // ok | errore
+  messaggio     String?
+
+  @@index([iniziatoIl])
+}
+
+// Un'ipotesi di ordinativo congelata: i parametri con cui è stata calcolata
+// restano dentro il piano, altrimenti a distanza di giorni non si capisce più
+// perché proponeva quelle quantità.
+model PianoRiordino {
+  id                 String         @id @default(cuid())
+  nome               String
+  stato              String         @default("bozza") // bozza | confermato | archiviato
+  giorniStorico      Int            @default(56) // finestra di vendite osservata
+  leadTimeGiorni     Int            @default(7) // quanto ci mette il fornitore
+  coperturaGiorni    Int            @default(21) // quanti giorni deve coprire l'ordine
+  scortaSicurezzaPct Int            @default(20)
+  note               String?
+  righe              RigaRiordino[]
+  creatoIl           DateTime       @default(now())
+  aggiornatoIl       DateTime       @updatedAt
+
+  @@index([stato])
+}
+
+model RigaRiordino {
+  id                String        @id @default(cuid())
+  pianoId           String
+  piano             PianoRiordino @relation(fields: [pianoId], references: [id], onDelete: Cascade)
+  prodottoId        String?
+  prodotto          Prodotto?     @relation(fields: [prodottoId], references: [id], onDelete: SetNull)
+  varianteId        String?
+  variante          Variante?     @relation(fields: [varianteId], references: [id], onDelete: SetNull)
+  descrizione       String // nome congelato: "Bouquet Ora Blu · Deluxe"
+  venditeGiorno     Float         @default(0) // ritmo di vendita usato nel calcolo
+  giacenza          Int           @default(0)
+  coperturaGiorni   Float         @default(0) // giorni coperti dalla giacenza attuale
+  quantitaSuggerita Int           @default(0)
+  quantitaScelta    Int           @default(0) // quella decisa dall'operatore
+  costoUnitario     Float         @default(0)
+  prezzoUnitario    Float         @default(0)
+  confidenza        String        @default("media") // alta | media | bassa
+  motivo            String? // la frase che spiega la quantità
+
+  @@index([pianoId])
+}
+
+// Lettura AI del trend, storicizzata: si conserva anche il pacchetto di numeri
+// dato al modello, così la lettura resta verificabile a mesi di distanza.
+model LetturaTrend {
+  id        String   @id @default(cuid())
+  creataIl  DateTime @default(now())
+  dal       DateTime
+  al        DateTime
+  modello   String
+  sintesi   String
+  contenuto String // JSON: osservazioni, azioni, domande aperte
+  dati      String // JSON: i numeri passati al modello
+
+  @@index([creataIl])
 }

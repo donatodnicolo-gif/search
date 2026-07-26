@@ -368,3 +368,91 @@ tbody tr:hover { background: var(--fill); }
 
 .due-colonne { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; align-items: start; }
 @media (max-width: 1000px) { .due-colonne { grid-template-columns: 1fr; } }
+
+/* ---------- Vendite & trend ---------- */
+.kpi-delta { font-size: 12.5px; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.kpi-sotto { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+.grafico svg { width: 100%; height: auto; display: block; }
+.grafico-legenda {
+  display: flex; gap: 18px; margin-top: 10px;
+  font-size: 12.5px; color: var(--text-secondary);
+}
+.grafico-legenda span { display: inline-flex; align-items: center; gap: 7px; }
+.legenda-chip { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.legenda-linea { width: 14px; height: 0; border-top: 1.6px solid var(--ink); opacity: .55; display: inline-block; }
+.sparkline { display: block; }
+
+.quota-cella { display: flex; align-items: center; gap: 10px; min-width: 110px; }
+.quota-track { flex: 1; height: 6px; background: var(--fill); border-radius: var(--radius-pill); overflow: hidden; }
+.quota-fill { display: block; height: 100%; background: var(--gold); border-radius: var(--radius-pill); }
+.quota-valore { flex: 0 0 34px; text-align: right; font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+.griglia-gruppi { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.griglia-gruppi table { font-size: 13px; }
+.griglia-gruppi td { padding: 8px 6px; }
+.griglia-gruppi td:first-child { padding-left: 0; }
+.griglia-gruppi td:last-child { padding-right: 0; }
+
+.lista-secca { list-style: none; display: flex; flex-direction: column; }
+.lista-secca li {
+  display: grid; grid-template-columns: 1fr auto; column-gap: 12px;
+  padding: 9px 0; border-bottom: 1px solid var(--hairline); font-size: 13.5px;
+}
+.lista-secca li:last-child { border-bottom: none; }
+.lista-num { font-weight: 600; font-variant-numeric: tabular-nums; }
+.lista-sub { grid-column: 1 / -1; font-size: 12.5px; color: var(--text-tertiary); margin-top: 2px; }
+
+/* ---------- Ipotesi di ordinativo ---------- */
+.campo-inline { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-secondary); }
+.campo-inline input, .campo-inline select {
+  font: inherit; font-size: 13.5px; color: var(--text); width: 76px;
+  background: var(--fill); border: 1px solid transparent;
+  border-radius: var(--radius-m); padding: 7px 10px; outline: none;
+}
+.campo-inline select { width: auto; cursor: pointer; }
+.campo-inline input:focus, .campo-inline select:focus { background: var(--surface); border-color: var(--hairline-strong); }
+.campo-inline em { font-style: normal; color: var(--text-tertiary); }
+
+.riga-azione { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.riga-azione input[name="nome"] {
+  font: inherit; font-size: 14px; color: var(--text);
+  background: var(--fill); border: 1px solid transparent;
+  border-radius: var(--radius-m); padding: 8px 12px; outline: none; min-width: 200px;
+}
+.riga-azione select {
+  font: inherit; font-size: 14px; color: var(--text); cursor: pointer;
+  background: var(--fill); border: 1px solid transparent;
+  border-radius: var(--radius-m); padding: 8px 12px; outline: none;
+}
+.cella-motivo { font-size: 12px; color: var(--text-tertiary); margin-top: 5px; max-width: 460px; line-height: 1.45; }
+.riga-quantita { display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.riga-quantita input {
+  font: inherit; font-size: 13.5px; width: 64px; text-align: right;
+  background: var(--fill); border: 1px solid transparent;
+  border-radius: var(--radius-m); padding: 6px 9px; outline: none;
+  font-variant-numeric: tabular-nums;
+}
+.riga-quantita input:focus { background: var(--surface); border-color: var(--hairline-strong); }
+
+/* ---------- Lettura AI ---------- */
+.lettura-sintesi { font-size: 16px; line-height: 1.6; letter-spacing: -0.01em; }
+.griglia-osservazioni { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); margin-bottom: 18px; }
+.osservazione { margin-bottom: 0; }
+.osservazione-titolo { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; margin: 10px 0 6px; }
+.osservazione-testo { font-size: 13.5px; color: var(--text-secondary); line-height: 1.55; }
+.osservazione-numeri {
+  font-size: 12.5px; color: var(--text-tertiary); margin-top: 10px;
+  padding-top: 10px; border-top: 1px solid var(--hairline); font-variant-numeric: tabular-nums;
+}
+.lista-azioni { list-style: none; display: flex; flex-direction: column; }
+.lista-azioni li {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 11px 0; border-bottom: 1px solid var(--hairline);
+}
+.lista-azioni li:last-child { border-bottom: none; }
+.azione-priorita { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; flex: 0 0 26px; padding-top: 2px; }
+.lista-domande { list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; color: var(--text-secondary); }
+.lista-domande li { padding-left: 16px; position: relative; line-height: 1.5; }
+.lista-domande li::before { content: "?"; position: absolute; left: 0; color: var(--gold-strong); font-weight: 600; }
+.dettagli-summary { cursor: pointer; font-size: 13.5px; color: var(--blue); margin-bottom: 12px; }

@@ -10,7 +10,9 @@
     "start": "next start -p 3120",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.mjs",
-    "db:reset": "prisma db push --force-reset && node prisma/seed.mjs"
+    "db:reset": "prisma db push --force-reset && node prisma/seed.mjs",
+    "vendite:demo": "node scripts/vendite-demo.mjs",
+    "vendite:demo:pulisci": "node scripts/vendite-demo.mjs --pulisci"
   },
   "prisma": {
     "seed": "node prisma/seed.mjs"

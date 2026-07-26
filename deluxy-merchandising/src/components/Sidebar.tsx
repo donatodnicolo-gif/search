@@ -9,14 +9,24 @@ export async function Sidebar({
   attiva,
   collezioneAttiva,
 }: {
-  attiva?: "collezioni" | "prodotti" | "sviluppo" | "costi" | "visual" | "shopify";
+  attiva?:
+    | "collezioni"
+    | "prodotti"
+    | "sviluppo"
+    | "costi"
+    | "vendite"
+    | "riordini"
+    | "trend-ai"
+    | "visual"
+    | "shopify";
   collezioneAttiva?: string;
 }) {
-  const [nCollezioni, nProdotti, nInSviluppo, daPubblicare, collezioni] = await Promise.all([
+  const [nCollezioni, nProdotti, nInSviluppo, daPubblicare, pianiAperti, collezioni] = await Promise.all([
     prisma.collezione.count(),
     prisma.prodotto.count(),
     prisma.prodotto.count({ where: { fase: { in: ["concept", "prototipo", "approvato"] } } }),
     prisma.prodotto.count({ where: { shopifyStato: { not: "pubblicato" }, fase: { not: "archiviato" } } }),
+    prisma.pianoRiordino.count({ where: { stato: "bozza" } }),
     prisma.collezione.findMany({
       orderBy: [{ anno: "desc" }, { creataIl: "desc" }],
       include: { _count: { select: { prodotti: true } } },
@@ -45,6 +55,9 @@ export async function Sidebar({
           {voce("prodotti", "/prodotti", "prodotti", "Prodotti", nProdotti)}
           {voce("sviluppo", "/sviluppo", "sviluppo", "Sviluppo", nInSviluppo)}
           {voce("costi", "/costi", "costi", "Costi & margini")}
+          {voce("vendite", "/vendite", "vendite", "Vendite & trend")}
+          {voce("riordini", "/riordini", "riordini", "Ipotesi di ordinativo", pianiAperti || undefined)}
+          {voce("trend-ai", "/trend-ai", "ai", "Trend con AI")}
           {voce("visual", "/visual", "visual", "Visual merchandising")}
           {voce("shopify", "/shopify", "shopify", "Shopify", daPubblicare || undefined)}
         </SbSezione>

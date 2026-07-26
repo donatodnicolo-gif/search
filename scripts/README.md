@@ -265,6 +265,21 @@ cd deluxy-orders && ORDERS_URL=<url-app> ORDERS_API_KEY=<chiave-scrittura> npm r
 - **Serve**: `ORDERS_API_KEY` (chiave di scrittura, da `npm run chiave -- <app> --scrittura`); opzionale `ORDERS_URL` (default `http://localhost:3150`)
 - **Nota**: la sync non tocca la classificazione già impostata sugli ordini. In produzione c'è anche il cron notturno Vercel `/api/cron/sync` (protetto da `CRON_SECRET`).
 
+### vendite-demo.mjs — deluxy-merchandising
+Carica **vendite dimostrative** (180 giorni, con stagionalità settimanale e picchi San Valentino / festa della mamma / Natale) sui prodotti in assortimento: servono a vedere funzionare "Vendite & trend", le ipotesi di ordinativo e la lettura AI finché il collegamento a Deluxy Orders non è configurato.
+
+```bash
+# dalla radice del repo — carica le vendite dimostrative
+cd deluxy-merchandising && npm run vendite:demo
+# finestra diversa dai 180 giorni di default
+cd deluxy-merchandising && node scripts/vendite-demo.mjs --giorni 90
+# rimuove SOLO le righe dimostrative
+cd deluxy-merchandising && npm run vendite:demo:pulisci
+```
+
+- **Serve**: `DATABASE_URL` (+ `DIRECT_URL`) nell'`.env` dell'app
+- **Nota**: inserisce solo righe con `origine = "demo"` e non cancella nient'altro; se ce ne sono già non ne aggiunge (prima `--pulisci`). Il venduto **vero** non passa da qui: arriva da Deluxy Orders con `ORDERS_API_KEY`.
+
 ### google-ads-script.js — deluxy-marketing (v2)
 NON si lancia da terminale: si **incolla in Google Ads** (Strumenti → Azioni collettive → Script), una copia per account **e per lavoro**. Google Ads esegue sempre `main()`: il lavoro si sceglie con la costante `AZIONE` in testa al file — `metriche` (giornaliere, ogni giorno 23-24) · `approvazioni` (stati di review, alert A4, ogni giorno) · `copy` (keyword+annunci, ogni settimana) · `gruppi` (gruppi di annunci, una riga per giorno, e gruppi di asset per le PMax) · `asset` (sitelink/callout/snippet/immagini, ogni settimana) · `esegui` (esegue le operazioni **approvate** in /operazioni: pausa, budget, keyword, negative, campagne nuove in pausa via bulk upload) · `tutto`.
 
