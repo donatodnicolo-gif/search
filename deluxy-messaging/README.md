@@ -194,6 +194,20 @@ server** (su tutti gli ordini, non solo quelli in pagina): testo su numero, clie
 telefono — normalizzando le cifre, così "+39 333 12" trova "+393331234567" — email,
 indirizzo e negozio, più i filtri per negozio e per contatto salvato/da salvare.
 
+**Quando va consegnato.** Ogni ordine mostra la **data di consegna** e la **fascia oraria**
+chieste dal cliente: sulla scheda una riga sotto il nome, in tabella la colonna *Consegna*.
+Chi lavora un ordine guarda quella, non la data in cui è stato fatto — perciò «consegna
+OGGI» è in rosso, «domani» in oro e una consegna già scaduta lo dice a chiare lettere.
+
+> **La fascia si scrive sempre con «ore» davanti.** Da Orders arriva come `08-12`, che
+> accanto a una data si legge benissimo come *8 dicembre*: è un equivoco già capitato, e
+> costa una consegna sbagliata. Qui diventa **«ore 8–12»**. Una fascia di forma diversa si
+> mostra così com'è, senza tentare di interpretarla.
+
+Quando il dato manca lo si dice: *consegna non indicata*, oppure *consegna ore 12–16,
+giorno non indicato* se c'è solo la fascia. Sui 922 ordini in archivio, 618 hanno la data e
+633 la fascia — «non indicata» non è un caso di scuola, ed è meglio di un giorno inventato.
+
 **Da che tipo di cliente arriva l'ordine.** Ogni ordine porta un bollino —
 **Privato · Azienda · Hotel/Ristorante · Eventi/Wedding · Rivenditore** — con il filtro
 per tipo e la riga «Da che clienti: …» coi conteggi cliccabili. Serve a capire a colpo

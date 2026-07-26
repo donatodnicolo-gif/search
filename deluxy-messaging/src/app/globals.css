@@ -1253,3 +1253,10 @@ td .azioni-ordine {
 @media (prefers-reduced-motion: reduce) {
   .pallino-sync { animation: none; }
 }
+
+/* Riga "quando va consegnato" sulla scheda dell'ordine. */
+.scheda-ordine .consegna-riga {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}

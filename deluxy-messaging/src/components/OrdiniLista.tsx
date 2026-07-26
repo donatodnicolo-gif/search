@@ -28,6 +28,66 @@ type OrdineDto = {
   gestione: string
   clienteTipo: string
   clienteTipoDa: string
+  // Quando e in che fascia oraria il cliente vuole la consegna. Arrivano da
+  // Orders (attributi Shopify): 618 ordini su 922 hanno la data, gli altri no —
+  // e "non indicata" è una risposta, inventarla no.
+  dataConsegna: string | null
+  fasciaConsegna: string
+}
+
+/**
+ * La fascia oraria scritta in modo che non si possa scambiare per una data.
+ *
+ * ⚠️ Da Orders arriva come "08-12", cioè **dalle 8 alle 12**. Senza contesto è
+ * identica a un 8 dicembre, ed è un equivoco già capitato: qui si antepone
+ * sempre «ore», e si tolgono gli zeri davanti. Una fascia di forma diversa da
+ * HH-HH si mostra **così com'è**, senza tentare di interpretarla.
+ */
+function fasciaLeggibile(f: string): string {
+  const t = (f || '').trim()
+  if (!t) return ''
+  const m = /^(\d{1,2})\s*[-–]\s*(\d{1,2})$/.exec(t)
+  if (!m) return t
+  return `ore ${Number(m[1])}–${Number(m[2])}`
+}
+
+/** Mezzanotte di oggi: le date di consegna arrivano senza orario. */
+function inizioGiorno(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+}
+
+type Consegna = { testo: string; colore?: string; grassetto?: boolean }
+
+/**
+ * Quando va consegnato, in parole: «oggi», «domani», «mar 11 dic», e la fascia.
+ * I giorni passati si segnalano, perché un ordine da gestire con la consegna di
+ * ieri è la cosa più urgente che ci sia in questa schermata.
+ */
+function consegnaLeggibile(iso: string | null, fascia: string): Consegna {
+  const f = fasciaLeggibile(fascia)
+  if (!iso) {
+    // Nessuna data: se almeno la fascia c'è, si dice quella e basta.
+    return f
+      ? { testo: `consegna ${f}, giorno non indicato`, colore: 'var(--text-tertiary)' }
+      : { testo: 'consegna non indicata', colore: 'var(--text-tertiary)' }
+  }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return { testo: 'consegna non indicata', colore: 'var(--text-tertiary)' }
+
+  const giorni = Math.round((inizioGiorno(d) - inizioGiorno(new Date())) / 86400000)
+  const coda = f ? ` · ${f}` : ''
+  if (giorni === 0) return { testo: `consegna OGGI${coda}`, colore: '#c93400', grassetto: true }
+  if (giorni === 1) return { testo: `consegna domani${coda}`, colore: '#b8963e', grassetto: true }
+  if (giorni < 0) {
+    const quanti = -giorni
+    return {
+      testo: `consegna scaduta da ${quanti} ${quanti === 1 ? 'giorno' : 'giorni'}${coda}`,
+      colore: '#d70015',
+      grassetto: true,
+    }
+  }
+  const data = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })
+  return { testo: `consegna ${data}${coda}` }
 }
 
 /** Il bollino "da che tipo di cliente arriva l'ordine". */
@@ -706,6 +766,19 @@ export function OrdiniLista() {
                           {o.clienteNome || '—'}
                           {o.citta ? ` · ${o.citta}` : ''}
                         </div>
+                        {/* Quando va consegnato: per chi lavora l'ordine conta
+                            più della data in cui è stato fatto. */}
+                        {(() => {
+                          const c = consegnaLeggibile(o.dataConsegna, o.fasciaConsegna)
+                          return (
+                            <div
+                              className="consegna-riga"
+                              style={{ color: c.colore, fontWeight: c.grassetto ? 600 : 400 }}
+                            >
+                              {c.testo}
+                            </div>
+                          )
+                        })()}
                         <div className="riga-bassa" style={{ flexWrap: 'wrap', gap: 6 }}>
                           <span className="quando">ordine {dataBreve(o.data)}</span>
                           <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
@@ -824,6 +897,7 @@ export function OrdiniLista() {
                 <th>Ordine</th>
                 <th>Negozio</th>
                 <th>Data</th>
+                <th>Consegna</th>
                 <th>Cliente</th>
                 <th>Tipo cliente</th>
                 <th>Telefono</th>
@@ -839,6 +913,32 @@ export function OrdiniLista() {
                   <td>{o.numero}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{o.negozioNome || '—'}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{dataBreve(o.data)}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {o.dataConsegna ? (
+                      <>
+                        <div style={{ fontWeight: 500 }}>
+                          {new Date(o.dataConsegna).toLocaleDateString('it-IT', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                          })}
+                        </div>
+                        {/* «ore» davanti: "08-12" da solo si legge come 8 dicembre */}
+                        {o.fasciaConsegna ? (
+                          <div className="cella-sub">{fasciaLeggibile(o.fasciaConsegna)}</div>
+                        ) : (
+                          <div className="cella-sub">fascia non indicata</div>
+                        )}
+                      </>
+                    ) : o.fasciaConsegna ? (
+                      <>
+                        <div style={{ color: 'var(--text-tertiary)' }}>giorno non indicato</div>
+                        <div className="cella-sub">{fasciaLeggibile(o.fasciaConsegna)}</div>
+                      </>
+                    ) : (
+                      <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                    )}
+                  </td>
                   <td>{o.clienteNome || '—'}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     {o.clienteTipo ? (

@@ -55,6 +55,21 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- DATA E FASCIA DI CONSEGNA IN ELENCO (26/07/2026): sulla scheda dell'ordine una
+  riga sotto il cliente, e in tabella la colonna **Consegna**. I campi
+  (`dataConsegna`, `fasciaConsegna`) c'erano già da Orders e li usava solo il
+  calendario. Sui dati veri: 618 ordini su 922 hanno la data, 633 la fascia.
+  ⚠️ **LA FASCIA SI SCRIVE SEMPRE CON «ore» DAVANTI** (`fasciaLeggibile`):
+  da Orders arriva come `"08-12"`, che accanto a una data si legge come **8
+  dicembre** — è l'equivoco già costato (vedi la regola «non dedurre dati
+  critici»). `"08-12"` → «ore 8–12». Una fascia di forma diversa da HH-HH si
+  mostra **così com'è**, senza interpretarla.
+  `consegnaLeggibile` dice «consegna OGGI» (rosso), «domani» (oro), «scaduta da N
+  giorni» (rosso) o la data con il giorno della settimana. Se manca il giorno ma
+  c'è la fascia: «consegna ore 12–16, giorno non indicato»; se non c'è niente:
+  «consegna non indicata» — mai riempita a caso.
+  Verificato sui 200 ordini in pagina: tutti e cinque i casi resi correttamente.
+
 - LA REGOLA «GLI ORDINI LI SCARICA SOLO ORDERS» È ORA IMPOSSIBILE DA VIOLARE
   (26/07/2026). Il codice per prendere gli ordini da Shopify era ancora qui,
   inerte ma pronto: `src/lib/shopify.ts` con `scaricaOrdini()` e `risolviToken()`,
