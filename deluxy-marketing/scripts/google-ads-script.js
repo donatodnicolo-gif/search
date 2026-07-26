@@ -1,81 +1,210 @@
 /**
- * Deluxy Marketing — script per Google Ads
- * ----------------------------------------
- * Legge le campagne dell'account e manda spesa, impressioni, clic, conversioni
- * e valore conversioni all'app (endpoint /api/v1/ingest), un giorno per riga.
+ * Deluxy Marketing — script per Google Ads · v2 (26/07/2026)
+ * ----------------------------------------------------------
+ * Legge l'account e manda i dati all'app (spesa, keyword, annunci, asset,
+ * stati di approvazione); su richiesta esegue le operazioni GIÀ APPROVATE
+ * a mano nell'app. Non decide mai nulla da sé.
  *
  * PERCHÉ QUESTO INVECE DELL'API: la Google Ads API richiede un developer token
  * approvato da Google (giorni di attesa) più OAuth2 con refresh token. Gli
  * Script girano DENTRO Google Ads con le credenziali dell'account: nessuna
  * approvazione, nessun segreto da custodire lato Google.
  *
- * COME SI INSTALLA (una volta per account, ~2 minuti):
+ * COME SI INSTALLA (una copia per account, ~2 minuti):
  *   1. Google Ads → Strumenti e impostazioni → Azioni collettive → Script
  *   2. "+" → Nuovo script → incolla questo file
- *   3. In fondo, compila URL_APP e CHIAVE_API qui sotto
- *   4. "Autorizza" → "Anteprima" per provare → "Esegui"
+ *   3. Compila la CONFIGURAZIONE qui sotto: CHIAVE_API, BRAND e soprattutto
+ *      AZIONE (Google Ads esegue SEMPRE main(): è AZIONE che decide cosa fa).
+ *   4. "Autorizza" → "Anteprima" per provare a vuoto → "Esegui"
  *   5. Frequenza (colonna "Frequenza" nella lista degli script, non basta
- *      "Esegui": quello lancia una volta sola): "Ogni giorno".
- *      Google fa scegliere la FASCIA ORARIA, non il minuto esatto: la fascia
- *      "23:00 - 24:00" e quella che chiude la giornata.
+ *      "Esegui": quello lancia una volta sola).
  *
- *      Quale ora conviene: a fine giornata la SPESA e completa ma le
- *      CONVERSIONI no — Google le consolida nelle ore e nei giorni dopo.
- *      Per questo GIORNI_INDIETRO rimanda anche i giorni scorsi: qualunque
- *      ora si scelga, i numeri si correggono da soli entro una settimana.
+ * QUATTRO SCRIPT PER ACCOUNT, stesso file, cambia solo AZIONE:
+ *   AZIONE = "metriche"     → ogni giorno, fascia 23:00-24:00
+ *   AZIONE = "approvazioni" → ogni giorno, mattina (alert A4)
+ *   AZIONE = "copy"         → ogni settimana (keyword + titoli/descrizioni RSA)
+ *   AZIONE = "asset"        → ogni settimana (sitelink, callout, snippet, immagini)
+ *   AZIONE = "esegui"       → solo quando serve: esegue le operazioni approvate
+ *   AZIONE = "tutto"        → le fa tutte in fila (comodo per il primo giro)
  *
- * NOTA: l'app deve essere raggiungibile da internet (quando sarà su server).
- * Da localhost lo script non può arrivarci: in quel caso si usa l'anteprima
- * per vedere i dati nel log e caricarli a mano.
+ * QUALE ORA per le metriche: a fine giornata la SPESA è completa ma le
+ * CONVERSIONI no — Google le consolida nelle ore e nei giorni dopo. Per questo
+ * GIORNI_INDIETRO rimanda anche i giorni scorsi: qualunque ora si scelga, i
+ * numeri si correggono da soli entro una settimana.
  *
- * L'app NON viene mai modificata da Google: questo script scrive solo metriche.
+ * ANTEPRIMA: in modalità anteprima Google blocca le modifiche all'account ma
+ * NON le chiamate a internet. Questo script se ne accorge da solo e non manda
+ * niente all'app: così provare "esegui" in anteprima non segna un'operazione
+ * come eseguita quando in realtà non è successo nulla.
+ *
+ * NOVITÀ DELLA v2 (rispetto alla prima versione)
+ *   · un solo file, si sceglie il lavoro con AZIONE (prima bisognava rinominare
+ *     le funzioni a mano in ogni copia)
+ *   · ritenta le chiamate fallite e rimpicciolisce i blocchi se l'app va in
+ *     timeout, invece di fermarsi al primo errore
+ *   · le keyword uguali in più gruppi vengono SOMMATE prima dell'invio: prima
+ *     si sovrascrivevano fra loro e vinceva l'ultima letta
+ *   · gli identificativi mandati all'app portano dentro l'account, così tre
+ *     account non si pestano più i piedi sulle stesse keyword/asset
+ *   · "esegui" riconosce anche PMax/Shopping/Video, si rifiuta di toccare
+ *     budget CONDIVISI, controlla che l'app abbia davvero registrato l'esito
+ *     (prima poteva rifare due volte la stessa operazione) e salta — senza
+ *     segnarle fallite — le operazioni di un altro account
+ *   · GIORNI_COPY libero (prima solo 7, 14 o 30 funzionavano davvero)
+ *   · INCLUDI_RIMOSSE per il caricamento storico: senza, la spesa delle
+ *     campagne poi eliminate non entrava mai nello storico
+ *
+ * L'app NON viene mai modificata da Google: questo script manda metriche e
+ * chiede quali operazioni approvate eseguire. Niente altro.
  */
 
-// ————————————————————————————— Configurazione —————————————————————————————
+// ═══════════════════════════════ CONFIGURAZIONE ═══════════════════════════════
+
 var URL_APP = "https://deluxy-marketing.vercel.app"; // senza barra finale
-var CHIAVE_API = "dmk_INCOLLA_QUI_LA_CHIAVE"; // creata con: npm run chiave -- google-ads
-var GIORNI_INDIETRO = 7; // rimanda anche i giorni scorsi: le conversioni maturano tardi.
-// Per il PRIMO caricamento storico alzalo (es. 400: copre anche il 2025 per i
-// confronti anno-su-anno), esegui una volta, poi riportalo a 7.
-var BRAND = ""; // "" = dedotto dal nome campagna · oppure "flowers" | "cake" | "gifts"
-// ———————————————————————————————————————————————————————————————————————————
+var CHIAVE_API = "dmk_INCOLLA_QUI_LA_CHIAVE"; // creata con: npm run chiave -- google-ads-<brand>
+
+// Cosa fa questo script: metriche | approvazioni | copy | asset | esegui | tutto
+var AZIONE = "metriche";
+
+// Brand dell'account. Metterlo: senza, le campagne il cui nome non dice il
+// marchio (es. "DC1 Fiori Milano ENG") finiscono nel calderone "cross".
+//   825-518-1560 → "flowers" · 248-656-1148 → "gifts" · 846-090-5423 → "cake"
+var BRAND = "";
+
+// Metriche: quanti giorni rimandare ogni volta. 7 va bene sempre.
+// Per il PRIMO caricamento storico: 400 (copre anche il 2025 per i confronti
+// anno-su-anno) + INCLUDI_RIMOSSE = true, una esecuzione sola, poi si rimette 7.
+var GIORNI_INDIETRO = 7;
+var INCLUDI_RIMOSSE = false;
+
+// Finestra delle metriche di keyword e annunci (qualunque numero, non solo 7/14/30)
+var GIORNI_COPY = 30;
+
+// SCRITTURA (solo con AZIONE = "esegui")
+// Rete di sicurezza in più rispetto ai guardrail dell'app: rifiuta un budget
+// che cambia di più di questo fattore (3 = da 20 €/g si può andare da 6,66 a 60).
+var LIMITE_BUDGET_X = 3;
+// Le campagne nuove nascono senza account indicato: si creano qui solo se il
+// nome dice il brand di questo account. Se il nome non lo dice (es. "DC13 …"),
+// l'operazione viene saltata a meno che questa non sia true.
+var ACCETTA_CAMPAGNE_SENZA_BRAND = false;
+
+// ══════════════════════════════════════════════════════════════════════════════
+
+var BLOCCO_INIZIALE = 200; // righe per richiesta; si dimezza da solo se l'app arranca
+var BLOCCO_MINIMO = 25;
+var TENTATIVI = 3;
+var MINUTI_MASSIMI = 25; // Google ferma gli script a 30': ci fermiamo prima, con ordine
+
+var ANTEPRIMA = false; // deciso da verificaConfigurazione()
+var INIZIO = new Date().getTime();
+var RIEPILOGO = [];
 
 function main() {
-  var account = AdsApp.currentAccount();
-  var righe = leggiMetriche();
+  var conto = verificaConfigurazione();
+  if (!conto) return;
 
-  if (righe.length === 0) {
-    Logger.log("Nessuna riga da inviare: nessuna campagna con spesa nel periodo.");
-    return;
-  }
-  Logger.log("Righe pronte: " + righe.length + " (account " + account.getCustomerId() + ")");
-  Logger.log("Esempio: " + JSON.stringify(righe[0]));
+  var lavori = AZIONE === "tutto"
+    ? ["metriche", "approvazioni", "copy", "asset", "esegui"]
+    : [AZIONE];
 
-  if (CHIAVE_API.indexOf("INCOLLA") !== -1) {
-    Logger.log("⚠ Chiave API non configurata: mi fermo qui. Sopra vedi i dati che avrei inviato.");
-    return;
+  for (var i = 0; i < lavori.length; i++) {
+    var lavoro = lavori[i];
+    Logger.log("");
+    Logger.log("──────── " + lavoro.toUpperCase() + " ────────");
+    try {
+      if (lavoro === "metriche") mandaMetriche(conto);
+      else if (lavoro === "copy") mandaCopy(conto);
+      else if (lavoro === "asset") mandaAsset(conto);
+      else if (lavoro === "approvazioni") mandaApprovazioni(conto);
+      else if (lavoro === "esegui") eseguiOperazioni(conto);
+      else Logger.log("AZIONE non riconosciuta: \"" + lavoro + "\". Ammesse: metriche, approvazioni, copy, asset, esegui, tutto.");
+    } catch (e) {
+      Logger.log("⚠ ERRORE in \"" + lavoro + "\": " + e);
+      RIEPILOGO.push(lavoro + ": ERRORE — " + e);
+    }
   }
-  inviaAllApp(righe, account.getCustomerId());
+
+  Logger.log("");
+  Logger.log("──────── RIEPILOGO ────────");
+  for (var j = 0; j < RIEPILOGO.length; j++) Logger.log(" · " + RIEPILOGO[j]);
+  if (ANTEPRIMA) Logger.log(" · ANTEPRIMA: niente è stato inviato all'app né modificato nell'account.");
 }
 
-/** Legge le metriche giornaliere per campagna con GAQL. */
-function leggiMetriche() {
-  var righe = [];
+/** Controlli di sanità prima di partire: meglio fermarsi che sporcare i dati. */
+function verificaConfigurazione() {
+  while (URL_APP.charAt(URL_APP.length - 1) === "/") URL_APP = URL_APP.slice(0, -1);
+
+  try {
+    ANTEPRIMA = AdsApp.getExecutionInfo().isPreview();
+  } catch (e) {
+    ANTEPRIMA = false;
+  }
+  if (CHIAVE_API.indexOf("INCOLLA") !== -1) {
+    Logger.log("⚠ Chiave API non configurata: giro a vuoto, nel log vedrai i dati che avrei mandato.");
+    ANTEPRIMA = true;
+  }
+
+  var account = AdsApp.currentAccount();
+  var conto = {
+    id: account.getCustomerId(),
+    nome: account.getName(),
+    valuta: account.getCurrencyCode(),
+    fuso: account.getTimeZone(),
+  };
+  Logger.log(
+    "Account " + conto.id + " · " + conto.nome + " · " + conto.valuta + " · " + conto.fuso +
+    " · azione \"" + AZIONE + "\"" + (ANTEPRIMA ? " · ANTEPRIMA" : "")
+  );
+
+  if (conto.valuta !== "EUR") {
+    Logger.log("⚠ L'account è in " + conto.valuta + ": l'app tratta la spesa come EURO. Mi fermo.");
+    return null;
+  }
+  if (indiceIn(["", "flowers", "cake", "gifts", "cross"], BRAND) === -1) {
+    Logger.log("⚠ BRAND = \"" + BRAND + "\" non è valido (flowers | cake | gifts). Mi fermo.");
+    return null;
+  }
+  if (!BRAND) {
+    Logger.log("⚠ BRAND vuoto: l'app proverà a dedurlo dai nomi delle campagne, e quelle che non lo dicono finiranno in \"cross\". Meglio impostarlo.");
+  }
+  if (AZIONE === "esegui" && !BRAND) {
+    Logger.log("⚠ Con AZIONE = \"esegui\" il BRAND serve per capire quali operazioni sono di questo account. Mi fermo.");
+    return null;
+  }
+  return conto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARTE 1 — METRICHE GIORNALIERE PER CAMPAGNA
+   Una riga per campagna e per giorno: spesa, impressioni, clic, conversioni,
+   valore. Rimandare gli stessi giorni aggiorna i valori, non li duplica.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function mandaMetriche(conto) {
+  var stati = INCLUDI_RIMOSSE ? "'ENABLED', 'PAUSED', 'REMOVED'" : "'ENABLED', 'PAUSED'";
   var query =
     "SELECT campaign.id, campaign.name, campaign.status, " +
-    "campaign.bidding_strategy_type, " +
+    "campaign.advertising_channel_type, campaign.bidding_strategy_type, " +
     "campaign_budget.amount_micros, segments.date, " +
     "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
     "metrics.conversions, metrics.conversions_value " +
     "FROM campaign " +
     "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_INDIETRO) + "' AND '" + dataIso(0) + "' " +
-    "AND campaign.status IN ('ENABLED', 'PAUSED')";
+    "AND campaign.status IN (" + stati + ")";
 
+  var righe = [];
+  var spesaTotale = 0;
+  var perTipo = {};
   var risultati = AdsApp.search(query);
   while (risultati.hasNext()) {
     var r = risultati.next();
     var spesa = Number(r.metrics.costMicros || 0) / 1000000;
     var budget = Number((r.campaignBudget && r.campaignBudget.amountMicros) || 0) / 1000000;
+    spesaTotale += spesa;
+    var tipo = r.campaign.advertisingChannelType || "?";
+    perTipo[tipo] = (perTipo[tipo] || 0) + 1;
+
     righe.push({
       idCampagna: String(r.campaign.id),
       nome: r.campaign.name,
@@ -85,109 +214,136 @@ function leggiMetriche() {
       click: Number(r.metrics.clicks || 0),
       conversioni: arrotonda(Number(r.metrics.conversions || 0)),
       ricavi: arrotonda(Number(r.metrics.conversionsValue || 0)),
-      stato: r.campaign.status === "PAUSED" ? "in_pausa" : "attiva",
+      stato: statoCampagna(r.campaign.status),
       strategiaOfferta: r.campaign.biddingStrategyType || null,
       budgetGiornaliero: budget > 0 ? arrotonda(budget) : null,
     });
   }
-  return righe;
-}
 
-/** Invia all'app a blocchi: le richieste troppo grandi vengono rifiutate. */
-function inviaAllApp(righe, customerId) {
-  var BLOCCO = 200;
-  var salvate = 0;
-  for (var i = 0; i < righe.length; i += BLOCCO) {
-    var lotto = righe.slice(i, i + BLOCCO);
-    var corpo = {
-      canale: "google_ads",
-      account: customerId,
-      righe: lotto,
-    };
-    if (BRAND) corpo.brand = BRAND;
-
-    var risposta = UrlFetchApp.fetch(URL_APP + "/api/v1/ingest", {
-      method: "post",
-      contentType: "application/json",
-      headers: { "x-api-key": CHIAVE_API },
-      payload: JSON.stringify(corpo),
-      muteHttpExceptions: true,
-    });
-    var codice = risposta.getResponseCode();
-    if (codice >= 200 && codice < 300) {
-      var esito = JSON.parse(risposta.getContentText());
-      salvate += esito.metricheSalvate || 0;
-      Logger.log(
-        "Blocco " + (i / BLOCCO + 1) + ": " + esito.metricheSalvate + " metriche · " +
-        esito.campagneCreate + " campagne nuove"
-      );
-    } else {
-      Logger.log("⚠ Errore HTTP " + codice + ": " + risposta.getContentText().slice(0, 300));
-      return;
-    }
+  if (righe.length === 0) {
+    Logger.log("Nessuna riga nel periodo " + dataIso(-GIORNI_INDIETRO) + " → " + dataIso(0) + ".");
+    RIEPILOGO.push("metriche: nessuna riga");
+    return;
   }
-  Logger.log("Fatto: " + salvate + " giorni-campagna inviati all'app.");
+  Logger.log(
+    righe.length + " righe (giorno×campagna) dal " + dataIso(-GIORNI_INDIETRO) + " al " + dataIso(0) +
+    " · spesa totale " + arrotonda(spesaTotale) + " €"
+  );
+  Logger.log("Tipi di campagna: " + JSON.stringify(perTipo));
+  Logger.log("Esempio: " + JSON.stringify(righe[0]));
+
+  var esito = inviaABlocchi("/api/v1/ingest", righe, function (lotto) {
+    return corpoBase(conto, { righe: lotto });
+  });
+  RIEPILOGO.push("metriche: " + esito.inviate + "/" + righe.length + " righe inviate" + (esito.nota ? " · " + esito.nota : ""));
 }
 
-function arrotonda(n) {
-  return Math.round(n * 100) / 100;
+function statoCampagna(stato) {
+  if (stato === "PAUSED") return "in_pausa";
+  if (stato === "REMOVED") return "conclusa";
+  return "attiva";
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PARTE 2 — KEYWORD E TESTI DEGLI ANNUNCI
-   Da eseguire come script separato (stessa procedura), oppure chiamando
-   mainCopy() al posto di main(). Conviene tenerli separati: le metriche di
-   campagna servono ogni giorno, keyword e annunci una volta a settimana.
+   Le keyword uguali in più gruppi della stessa campagna vengono SOMMATE: l'app
+   tiene una riga per (campagna, keyword) e senza somma vinceva l'ultimo gruppo
+   letto, con i numeri di quel gruppo soltanto.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-var GIORNI_COPY = 30; // finestra per le metriche di keyword
-
-function mainCopy() {
-  var account = AdsApp.currentAccount();
-  var keywords = leggiKeywords();
+function mandaCopy(conto) {
+  var keywords = leggiKeywords(conto);
   var annunci = leggiAnnunci();
 
-  Logger.log("Keyword lette: " + keywords.length + " · asset annuncio letti: " + annunci.length);
+  Logger.log("Keyword (accorpate per campagna): " + keywords.length + " · testi di annuncio: " + annunci.length);
   if (keywords.length > 0) Logger.log("Esempio keyword: " + JSON.stringify(keywords[0]));
   if (annunci.length > 0) Logger.log("Esempio annuncio: " + JSON.stringify(annunci[0]));
 
-  if (CHIAVE_API.indexOf("INCOLLA") !== -1) {
-    Logger.log("⚠ Chiave API non configurata: mi fermo qui. Sopra vedi i dati che avrei inviato.");
-    return;
-  }
-  inviaCopy(keywords, annunci, account.getCustomerId());
+  var e1 = inviaABlocchi("/api/v1/ingest/copy", keywords, function (lotto) {
+    return corpoBase(conto, { keywords: lotto });
+  });
+  var e2 = inviaABlocchi("/api/v1/ingest/copy", annunci, function (lotto) {
+    return corpoBase(conto, { annunci: lotto });
+  });
+  RIEPILOGO.push("copy: " + e1.inviate + " keyword e " + e2.inviate + " testi inviati");
 }
 
-/** Keyword con spesa, conversioni e punteggio di qualità. */
-function leggiKeywords() {
-  var righe = [];
+function leggiKeywords(conto) {
   var query =
-    "SELECT campaign.name, ad_group.name, ad_group_criterion.criterion_id, " +
-    "ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, " +
-    "ad_group_criterion.status, ad_group_criterion.quality_info.quality_score, " +
+    "SELECT campaign.name, ad_group.id, ad_group.name, " +
+    "ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, " +
+    "ad_group_criterion.keyword.match_type, ad_group_criterion.status, " +
+    "ad_group_criterion.quality_info.quality_score, " +
     "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
     "metrics.conversions, metrics.conversions_value " +
     "FROM keyword_view " +
-    "WHERE segments.date DURING LAST_" + GIORNI_COPY + "_DAYS " +
+    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_COPY) + "' AND '" + dataIso(0) + "' " +
     "AND ad_group_criterion.status != 'REMOVED'";
 
+  var perChiave = {};
   var risultati = AdsApp.search(query);
   while (risultati.hasNext()) {
     var r = risultati.next();
-    var qi = r.adGroupCriterion.qualityInfo;
+    var c = r.adGroupCriterion;
+    var testo = c.keyword.text;
+    var match = c.keyword.matchType;
+    // Stessa chiave con cui l'app riconosce la riga: campagna + testo + corrispondenza
+    var chiave = r.campaign.name + "|" + testo + "|" + match;
+    var spesa = Number(r.metrics.costMicros || 0) / 1000000;
+    var impressioni = Number(r.metrics.impressions || 0);
+
+    var v = perChiave[chiave];
+    if (!v) {
+      v = perChiave[chiave] = {
+        idEsterno: conto.id + ":" + r.adGroup.id + ":" + c.criterionId,
+        testo: testo,
+        corrispondenza: match,
+        campagna: r.campaign.name,
+        gruppi: [],
+        spesa: 0, incasso: 0, clic: 0, impressioni: 0, conversioni: 0,
+        punteggioQualita: null,
+        _spesaMax: -1, _imprMax: -1,
+        attiva: false,
+      };
+    }
+    v.spesa += spesa;
+    v.incasso += Number(r.metrics.conversionsValue || 0);
+    v.clic += Number(r.metrics.clicks || 0);
+    v.impressioni += impressioni;
+    v.conversioni += Number(r.metrics.conversions || 0);
+    if (indiceIn(v.gruppi, r.adGroup.name) === -1) v.gruppi.push(r.adGroup.name);
+    if (c.status === "ENABLED") v.attiva = true;
+    // L'id mandato all'app è quello del gruppo che spende di più: è il gruppo su
+    // cui ha senso agire quando dall'app si mette in pausa la keyword.
+    if (spesa > v._spesaMax) {
+      v._spesaMax = spesa;
+      v.idEsterno = conto.id + ":" + r.adGroup.id + ":" + c.criterionId;
+    }
+    // Il punteggio di qualità non si somma: si prende quello del gruppo con più impressioni.
+    var qs = c.qualityInfo && c.qualityInfo.qualityScore ? Number(c.qualityInfo.qualityScore) : null;
+    if (qs != null && impressioni > v._imprMax) {
+      v._imprMax = impressioni;
+      v.punteggioQualita = qs;
+    }
+  }
+
+  var righe = [];
+  for (var k in perChiave) {
+    if (!Object.prototype.hasOwnProperty.call(perChiave, k)) continue;
+    var x = perChiave[k];
     righe.push({
-      idEsterno: String(r.adGroupCriterion.criterionId),
-      testo: r.adGroupCriterion.keyword.text,
-      corrispondenza: r.adGroupCriterion.keyword.matchType, // EXACT | PHRASE | BROAD
-      campagna: r.campaign.name,
-      gruppo: r.adGroup.name,
-      spesa: arrotonda(Number(r.metrics.costMicros || 0) / 1000000),
-      incasso: arrotonda(Number(r.metrics.conversionsValue || 0)),
-      clic: Number(r.metrics.clicks || 0),
-      impressioni: Number(r.metrics.impressions || 0),
-      conversioni: arrotonda(Number(r.metrics.conversions || 0)),
-      punteggioQualita: qi && qi.qualityScore ? Number(qi.qualityScore) : null,
-      statoPiattaforma: r.adGroupCriterion.status, // ENABLED | PAUSED
+      idEsterno: x.idEsterno,
+      testo: x.testo,
+      corrispondenza: x.corrispondenza, // EXACT | PHRASE | BROAD
+      campagna: x.campagna,
+      gruppo: elenco(x.gruppi),
+      spesa: arrotonda(x.spesa),
+      incasso: arrotonda(x.incasso),
+      clic: x.clic,
+      impressioni: x.impressioni,
+      conversioni: arrotonda(x.conversioni),
+      punteggioQualita: x.punteggioQualita,
+      statoPiattaforma: x.attiva ? "ENABLED" : "PAUSED",
     });
   }
   return righe;
@@ -195,121 +351,107 @@ function leggiKeywords() {
 
 /**
  * Titoli e descrizioni degli annunci responsive, con l'etichetta di rendimento
- * che Google assegna a ogni singolo asset (BEST / GOOD / LOW / LEARNING):
- * è il dato che dice quale titolo tirare e quale riscrivere.
+ * che Google assegna a ogni singolo asset (BEST / GOOD / LOW / LEARNING): è il
+ * dato che dice quale titolo tira e quale va riscritto.
+ * Lo stesso testo compare in più annunci: si tiene una riga per campagna, con
+ * l'etichetta migliore vista e, nelle note, quante volte è usato.
  */
 function leggiAnnunci() {
-  var righe = [];
   var query =
     "SELECT campaign.name, ad_group.name, ad_group_ad.ad.id, " +
     "asset.text_asset.text, ad_group_ad_asset_view.field_type, " +
     "ad_group_ad_asset_view.performance_label, ad_group_ad.status " +
     "FROM ad_group_ad_asset_view " +
-    "WHERE segments.date DURING LAST_" + GIORNI_COPY + "_DAYS " +
+    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_COPY) + "' AND '" + dataIso(0) + "' " +
     "AND ad_group_ad_asset_view.field_type IN ('HEADLINE', 'DESCRIPTION')";
 
-  var visti = {};
+  var perChiave = {};
   var risultati = AdsApp.search(query);
   while (risultati.hasNext()) {
     var r = risultati.next();
     var testo = r.asset && r.asset.textAsset ? r.asset.textAsset.text : null;
     if (!testo) continue;
     var vista = r.adGroupAdAssetView;
-    // Lo stesso testo può comparire in più annunci: una riga sola per campagna.
-    var chiave = r.campaign.name + "|" + testo;
-    if (visti[chiave]) continue;
-    visti[chiave] = true;
+    var tipo = vista.fieldType === "HEADLINE" ? "titolo" : "descrizione";
+    var chiave = r.campaign.name + "|" + tipo + "|" + testo;
 
+    var v = perChiave[chiave];
+    if (!v) {
+      v = perChiave[chiave] = {
+        testo: testo, tipo: tipo, campagna: r.campaign.name,
+        gruppi: [], usi: 0, rendimento: null, attivo: false,
+      };
+    }
+    v.usi++;
+    if (indiceIn(v.gruppi, r.adGroup.name) === -1) v.gruppi.push(r.adGroup.name);
+    if (r.adGroupAd.status === "ENABLED") v.attivo = true;
+    v.rendimento = migliorRendimento(v.rendimento, vista.performanceLabel);
+  }
+
+  var righe = [];
+  for (var k in perChiave) {
+    if (!Object.prototype.hasOwnProperty.call(perChiave, k)) continue;
+    var x = perChiave[k];
     righe.push({
-      testo: testo,
-      tipo: vista.fieldType === "HEADLINE" ? "titolo" : "descrizione",
-      campagna: r.campaign.name,
-      gruppo: r.adGroup.name,
-      rendimento: vista.performanceLabel || null, // BEST | GOOD | LOW | LEARNING | PENDING
-      statoPiattaforma: r.adGroupAd.status,
+      testo: x.testo,
+      tipo: x.tipo,
+      campagna: x.campagna,
+      gruppo: elenco(x.gruppi),
+      rendimento: x.rendimento, // BEST | GOOD | LOW | LEARNING | PENDING
+      note: "usato in " + x.usi + " annunc" + (x.usi === 1 ? "io" : "i"),
+      statoPiattaforma: x.attivo ? "ENABLED" : "PAUSED",
     });
   }
   return righe;
 }
 
-/** Invia keyword e annunci a blocchi. */
-function inviaCopy(keywords, annunci, customerId) {
-  var BLOCCO = 150;
-  var i;
-  for (i = 0; i < keywords.length; i += BLOCCO) {
-    postaCopy({ keywords: keywords.slice(i, i + BLOCCO) }, customerId, "keyword");
-  }
-  for (i = 0; i < annunci.length; i += BLOCCO) {
-    postaCopy({ annunci: annunci.slice(i, i + BLOCCO) }, customerId, "annunci");
-  }
-}
+var SCALA_RENDIMENTO = ["PENDING", "LEARNING", "LOW", "GOOD", "BEST"];
 
-function postaCopy(corpo, customerId, etichetta) {
-  corpo.canale = "google_ads";
-  corpo.account = customerId;
-  if (BRAND) corpo.brand = BRAND;
-
-  var risposta = UrlFetchApp.fetch(URL_APP + "/api/v1/ingest/copy", {
-    method: "post",
-    contentType: "application/json",
-    headers: { "x-api-key": CHIAVE_API },
-    payload: JSON.stringify(corpo),
-    muteHttpExceptions: true,
-  });
-  var codice = risposta.getResponseCode();
-  if (codice >= 200 && codice < 300) {
-    Logger.log(etichetta + " inviati: " + risposta.getContentText());
-  } else {
-    Logger.log("⚠ Errore HTTP " + codice + " su " + etichetta + ": " + risposta.getContentText().slice(0, 300));
-  }
+function migliorRendimento(a, b) {
+  if (!b) return a;
+  if (!a) return b;
+  return indiceIn(SCALA_RENDIMENTO, b) > indiceIn(SCALA_RENDIMENTO, a) ? b : a;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PARTE 3 — ASSET: SITELINK, CALLOUT, SNIPPET, IMMAGINI
-   Gli asset in Google Ads stanno su tre livelli: account, campagna e gruppo
-   di annunci. Questo script li legge tutti e tre e dice a quale livello sono
-   agganciati — è la domanda che serve per capire se un gruppo ha i sitelink
-   suoi o eredita quelli della campagna.
+   Gli asset stanno su tre livelli: account, campagna e gruppo di annunci.
+   Lo stesso sitelink agganciato su più livelli è UNA riga per l'app: qui i
+   livelli si accorpano in un'unica voce ("campagna + gruppo") invece di
+   sovrascriversi a vicenda, e gli asset di account portano l'id dell'account
+   nel nome della "campagna", così tre account non si sovrascrivono fra loro.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-function mainAsset() {
-  var account = AdsApp.currentAccount();
-  var asset = []
-    .concat(leggiAsset("customer_asset", "account"))
-    .concat(leggiAsset("campaign_asset", "campagna"))
-    .concat(leggiAsset("ad_group_asset", "gruppo"));
+function mandaAsset(conto) {
+  var grezzi = []
+    .concat(leggiAsset(conto, "customer_asset", "account"))
+    .concat(leggiAsset(conto, "campaign_asset", "campagna"))
+    .concat(leggiAsset(conto, "ad_group_asset", "gruppo"));
 
-  Logger.log("Asset letti: " + asset.length);
+  var righe = accorpaAsset(grezzi);
+  Logger.log("Asset letti: " + grezzi.length + " → righe accorpate: " + righe.length);
   var perTipo = {};
-  for (var i = 0; i < asset.length; i++) {
-    var k = asset[i].tipo + " @ " + asset[i].livello;
+  for (var i = 0; i < righe.length; i++) {
+    var k = righe[i].tipo + " @ " + righe[i].livello;
     perTipo[k] = (perTipo[k] || 0) + 1;
   }
   Logger.log("Riepilogo: " + JSON.stringify(perTipo));
-  if (asset.length > 0) Logger.log("Esempio: " + JSON.stringify(asset[0]));
+  if (righe.length > 0) Logger.log("Esempio: " + JSON.stringify(righe[0]));
 
-  if (CHIAVE_API.indexOf("INCOLLA") !== -1) {
-    Logger.log("⚠ Chiave API non configurata: mi fermo qui.");
-    return;
-  }
-  for (var j = 0; j < asset.length; j += 150) {
-    postaCopy({ annunci: asset.slice(j, j + 150) }, account.getCustomerId(), "asset");
-  }
+  var esito = inviaABlocchi("/api/v1/ingest/copy", righe, function (lotto) {
+    return corpoBase(conto, { annunci: lotto });
+  });
+  RIEPILOGO.push("asset: " + esito.inviate + "/" + righe.length + " righe inviate");
 }
 
-/**
- * Legge gli asset da una delle tre viste. Il contesto cambia col livello
- * (customer_asset / campaign_asset / ad_group_asset) ma i campi dell'asset
- * in sé sono gli stessi.
- */
-function leggiAsset(vista, livello) {
+function leggiAsset(conto, vista, livello) {
   var righe = [];
   var campiContesto =
     vista === "campaign_asset" ? "campaign.name, " :
     vista === "ad_group_asset" ? "campaign.name, ad_group.name, " : "";
 
   var query =
-    "SELECT " + campiContesto + "asset.id, asset.type, asset.name, " +
+    "SELECT " + campiContesto + vista + ".status, asset.id, asset.type, asset.name, " +
     "asset.sitelink_asset.link_text, asset.sitelink_asset.description1, " +
     "asset.sitelink_asset.description2, asset.final_urls, " +
     "asset.callout_asset.callout_text, " +
@@ -328,23 +470,25 @@ function leggiAsset(vista, livello) {
     return righe;
   }
 
+  var campoVista = vista === "customer_asset" ? "customerAsset"
+    : vista === "campaign_asset" ? "campaignAsset" : "adGroupAsset";
+
   while (risultati.hasNext()) {
     var r = risultati.next();
     var a = r.asset;
+    var contesto = r[campoVista] || {};
     var riga = {
-      idEsterno: String(a.id),
-      campagna: (r.campaign && r.campaign.name) || "(account)",
+      idEsterno: conto.id + ":" + a.id,
+      campagna: (r.campaign && r.campaign.name) || "(account " + conto.id + ")",
       gruppo: (r.adGroup && r.adGroup.name) || null,
       livello: livello,
-      statoPiattaforma: "ENABLED",
+      statoPiattaforma: contesto.status || "ENABLED",
     };
 
     if (a.type === "SITELINK" && a.sitelinkAsset) {
       riga.tipo = "sitelink";
       riga.testo = a.sitelinkAsset.linkText;
-      riga.note = [a.sitelinkAsset.description1, a.sitelinkAsset.description2]
-        .filter(function (x) { return x; })
-        .join(" · ");
+      riga.note = filtraVuoti([a.sitelinkAsset.description1, a.sitelinkAsset.description2]).join(" · ");
       riga.finalUrl = a.finalUrls && a.finalUrls.length ? a.finalUrls[0] : null;
     } else if (a.type === "CALLOUT" && a.calloutAsset) {
       riga.tipo = "callout";
@@ -362,138 +506,54 @@ function leggiAsset(vista, livello) {
     } else {
       continue;
     }
+    if (!riga.testo) continue;
     righe.push(riga);
   }
   return righe;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   PARTE 4 — ESECUZIONE DELLE OPERAZIONI APPROVATE (scrittura)
-   Questo script SCRIVE su Google Ads, ma solo ciò che è stato approvato a
-   mano nell'app. Non decide nulla da sé: chiede all'app "cosa devo fare?",
-   esegue, e riferisce. Se l'app non risponde, non fa niente.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-function mainEsegui() {
-  var account = AdsApp.currentAccount();
-  var operazioni = chiediOperazioni(account.getCustomerId());
-
-  if (operazioni.length === 0) {
-    Logger.log("Nessuna operazione approvata da eseguire.");
-    return;
-  }
-  Logger.log("Operazioni approvate da eseguire: " + operazioni.length);
-
-  for (var i = 0; i < operazioni.length; i++) {
-    var op = operazioni[i];
-    try {
-      var esito = esegui(op);
-      riferisci(op.id, true, esito.dettaglio, esito.prima, esito.dopo);
-      Logger.log("OK " + op.tipo + " su " + op.bersaglio + " - " + esito.dettaglio);
-    } catch (e) {
-      riferisci(op.id, false, String(e), null, null);
-      Logger.log("ERRORE " + op.tipo + " su " + op.bersaglio + " - " + e);
+/** Una riga per (tipo, testo, campagna): è la chiave con cui l'app le riconosce. */
+function accorpaAsset(grezzi) {
+  var perChiave = {};
+  var ordine = [];
+  for (var i = 0; i < grezzi.length; i++) {
+    var g = grezzi[i];
+    var chiave = g.tipo + "|" + g.testo + "|" + g.campagna;
+    var v = perChiave[chiave];
+    if (!v) {
+      g.livelli = [g.livello];
+      g.gruppi = g.gruppo ? [g.gruppo] : [];
+      perChiave[chiave] = g;
+      ordine.push(chiave);
+      continue;
     }
-  }
-}
-
-function chiediOperazioni(customerId) {
-  var risposta = UrlFetchApp.fetch(
-    URL_APP + "/api/v1/operazioni?canale=google_ads&account=" + encodeURIComponent(customerId),
-    { headers: { "x-api-key": CHIAVE_API }, muteHttpExceptions: true }
-  );
-  if (risposta.getResponseCode() !== 200) {
-    Logger.log("L'app non risponde (" + risposta.getResponseCode() + "): non eseguo nulla.");
-    return [];
-  }
-  return JSON.parse(risposta.getContentText()).operazioni || [];
-}
-
-/** Esegue una singola operazione. Ogni ramo legge lo stato PRIMA di cambiarlo. */
-function esegui(op) {
-  var creazione = eseguiCreazione(op);
-  if (creazione) return creazione;
-  var campagna;
-  if (op.tipo === "pausa_campagna" || op.tipo === "attiva_campagna" || op.tipo === "budget" || op.tipo === "negativa") {
-    campagna = trovaCampagna(op);
-    if (!campagna) throw new Error("Campagna non trovata: " + op.bersaglio);
+    if (indiceIn(v.livelli, g.livello) === -1) v.livelli.push(g.livello);
+    if (g.gruppo && indiceIn(v.gruppi, g.gruppo) === -1) v.gruppi.push(g.gruppo);
+    if (g.statoPiattaforma === "ENABLED") v.statoPiattaforma = "ENABLED";
+    if (!v.finalUrl && g.finalUrl) v.finalUrl = g.finalUrl;
   }
 
-  if (op.tipo === "pausa_campagna") {
-    var eraAttiva = campagna.isEnabled();
-    campagna.pause();
-    return { dettaglio: "campagna messa in pausa", prima: eraAttiva ? "attiva" : "gia in pausa", dopo: "in pausa" };
+  var righe = [];
+  for (var j = 0; j < ordine.length; j++) {
+    var x = perChiave[ordine[j]];
+    x.livello = x.livelli.join(" + ");
+    x.gruppo = x.gruppi.length ? elenco(x.gruppi) : null;
+    delete x.livelli;
+    delete x.gruppi;
+    righe.push(x);
   }
-  if (op.tipo === "attiva_campagna") {
-    var eraPausa = campagna.isPaused();
-    campagna.enable();
-    return { dettaglio: "campagna riattivata", prima: eraPausa ? "in pausa" : "gia attiva", dopo: "attiva" };
-  }
-  if (op.tipo === "budget") {
-    var nuovo = Number(op.parametri.budget);
-    if (!nuovo || nuovo <= 0) throw new Error("Budget non valido");
-    var budget = campagna.getBudget();
-    var vecchio = budget.getAmount();
-    budget.setAmount(nuovo);
-    return { dettaglio: "budget " + vecchio + " -> " + nuovo + " euro/g", prima: vecchio + " euro/g", dopo: nuovo + " euro/g" };
-  }
-  if (op.tipo === "negativa") {
-    var testo = op.parametri.testo;
-    if (!testo) throw new Error("Testo della negativa mancante");
-    campagna.createNegativeKeyword(testo);
-    return { dettaglio: "negativa aggiunta: " + testo, prima: "assente", dopo: testo };
-  }
-  if (op.tipo === "pausa_keyword" || op.tipo === "attiva_keyword") {
-    var kw = trovaKeyword(op);
-    if (!kw) throw new Error("Keyword non trovata: " + op.bersaglio);
-    if (op.tipo === "pausa_keyword") {
-      kw.pause();
-      return { dettaglio: "keyword in pausa", prima: "attiva", dopo: "in pausa" };
-    }
-    kw.enable();
-    return { dettaglio: "keyword riattivata", prima: "in pausa", dopo: "attiva" };
-  }
-  throw new Error("Tipo di operazione non gestito: " + op.tipo);
-}
-
-function trovaCampagna(op) {
-  var it = op.idEsterno
-    ? AdsApp.campaigns().withIds([Number(op.idEsterno)]).get()
-    : AdsApp.campaigns().withCondition("campaign.name = '" + apici(op.bersaglio) + "'").get();
-  return it.hasNext() ? it.next() : null;
-}
-
-function trovaKeyword(op) {
-  var it = op.idEsterno
-    ? AdsApp.keywords().withCondition("ad_group_criterion.criterion_id = " + op.idEsterno).get()
-    : AdsApp.keywords().withCondition("ad_group_criterion.keyword.text = '" + apici(op.bersaglio) + "'").get();
-  return it.hasNext() ? it.next() : null;
-}
-
-function apici(s) {
-  return String(s).split("'").join("\\'");
-}
-
-function riferisci(idOperazione, riuscita, dettaglio, prima, dopo) {
-  UrlFetchApp.fetch(URL_APP + "/api/v1/operazioni/" + idOperazione + "/esito", {
-    method: "post",
-    contentType: "application/json",
-    headers: { "x-api-key": CHIAVE_API },
-    payload: JSON.stringify({ riuscita: riuscita, dettaglio: dettaglio, prima: prima, dopo: dopo }),
-    muteHttpExceptions: true,
-  });
+  return righe;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PARTE 5 — STATO DI APPROVAZIONE DEGLI ANNUNCI (alert A4)
+   PARTE 4 — STATO DI APPROVAZIONE DEGLI ANNUNCI (alert A4)
    Il doc 11 §4 chiede di controllare se più del 50% degli annunci attivi è in
-   revisione o limitato da oltre 24 ore. È l'unico alert che non si legge dalle
-   metriche: serve lo stato di policy di ogni annuncio.
-   Da eseguire insieme a main(), o come script suo ogni giorno.
+   revisione o limitato. È l'unico alert che non si legge dalle metriche.
+   (Limite noto: Google non dice DA QUANTO un annuncio è in revisione; il "da
+   oltre 24 ore" si ricava confrontando i conteggi di giorni diversi.)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-function mainApprovazioni() {
-  var account = AdsApp.currentAccount();
+function mandaApprovazioni(conto) {
   var perCampagna = leggiApprovazioni();
   var righe = [];
   for (var nome in perCampagna) {
@@ -501,35 +561,34 @@ function mainApprovazioni() {
     righe.push({
       idCampagna: perCampagna[nome].id,
       nome: nome,
-      // La data serve all'endpoint: qui vale oggi, i conteggi sono istantanei
-      data: oggiIso(),
+      data: dataIso(0), // i conteggi sono istantanei: valgono oggi
       annunciTotali: perCampagna[nome].totali,
       annunciInReview: perCampagna[nome].inReview,
     });
   }
 
-  Logger.log("Campagne con annunci: " + righe.length);
+  Logger.log("Campagne attive con annunci: " + righe.length);
+  var conProblemi = 0;
   for (var i = 0; i < righe.length; i++) {
     if (righe[i].annunciInReview > 0) {
-      Logger.log(
-        "  " + righe[i].nome + ": " + righe[i].annunciInReview + "/" + righe[i].annunciTotali + " in revisione"
-      );
+      conProblemi++;
+      Logger.log("  " + righe[i].nome + ": " + righe[i].annunciInReview + "/" + righe[i].annunciTotali + " in revisione o limitati");
     }
   }
-
-  if (CHIAVE_API.indexOf("INCOLLA") !== -1) {
-    Logger.log("Chiave API non configurata: mi fermo qui.");
+  if (righe.length === 0) {
+    RIEPILOGO.push("approvazioni: nessuna campagna attiva con annunci");
     return;
   }
-  for (var j = 0; j < righe.length; j += 200) {
-    postaIngest(righe.slice(j, j + 200), account.getCustomerId());
-  }
+
+  var esito = inviaABlocchi("/api/v1/ingest", righe, function (lotto) {
+    return corpoBase(conto, { righe: lotto });
+  });
+  RIEPILOGO.push("approvazioni: " + esito.inviate + " campagne inviate · " + conProblemi + " con annunci in revisione");
 }
 
 /**
- * Conta, per campagna, quanti annunci attivi sono in revisione o limitati.
- * approvalStatus: APPROVED | APPROVED_LIMITED | AREA_OF_INTEREST_ONLY |
- * DISAPPROVED · reviewStatus: REVIEW_IN_PROGRESS | REVIEWED | UNDER_APPEAL
+ * approvalStatus: APPROVED | APPROVED_LIMITED | AREA_OF_INTEREST_ONLY | DISAPPROVED
+ * reviewStatus:   REVIEW_IN_PROGRESS | REVIEWED | UNDER_APPEAL
  */
 function leggiApprovazioni() {
   var perCampagna = {};
@@ -551,150 +610,375 @@ function leggiApprovazioni() {
   while (risultati.hasNext()) {
     var r = risultati.next();
     var nome = r.campaign.name;
-    if (!perCampagna[nome]) {
-      perCampagna[nome] = { id: String(r.campaign.id), totali: 0, inReview: 0 };
-    }
+    if (!perCampagna[nome]) perCampagna[nome] = { id: String(r.campaign.id), totali: 0, inReview: 0 };
     perCampagna[nome].totali++;
     var ps = r.adGroupAd.policySummary || {};
-    var limitato = ps.approvalStatus === "APPROVED_LIMITED" || ps.approvalStatus === "AREA_OF_INTEREST_ONLY";
+    var limitato =
+      ps.approvalStatus === "APPROVED_LIMITED" ||
+      ps.approvalStatus === "AREA_OF_INTEREST_ONLY" ||
+      ps.approvalStatus === "DISAPPROVED";
     var inEsame = ps.reviewStatus === "REVIEW_IN_PROGRESS" || ps.reviewStatus === "UNDER_APPEAL";
     if (limitato || inEsame) perCampagna[nome].inReview++;
   }
   return perCampagna;
 }
 
-function postaIngest(righe, customerId) {
-  var corpo = { canale: "google_ads", account: customerId, righe: righe };
-  if (BRAND) corpo.brand = BRAND;
-  var risposta = UrlFetchApp.fetch(URL_APP + "/api/v1/ingest", {
-    method: "post",
-    contentType: "application/json",
-    headers: { "x-api-key": CHIAVE_API },
-    payload: JSON.stringify(corpo),
-    muteHttpExceptions: true,
-  });
-  Logger.log("Approvazioni inviate: " + risposta.getResponseCode() + " " + risposta.getContentText().slice(0, 150));
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARTE 5 — ESECUZIONE DELLE OPERAZIONI APPROVATE (scrittura)
+   Questo script SCRIVE su Google Ads, ma solo ciò che è stato approvato a mano
+   nell'app. Non decide nulla da sé. Se l'app non risponde, non fa niente.
+   Con più account la coda è comune: ogni script esegue SOLO ciò che riguarda
+   il suo account e SALTA il resto senza segnarlo fallito.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function eseguiOperazioni(conto) {
+  var risposta = chiamata("get", "/api/v1/operazioni?canale=google_ads", null);
+  if (!risposta.ok) {
+    Logger.log("L'app non risponde (HTTP " + risposta.codice + "): non eseguo nulla. " + risposta.testo);
+    RIEPILOGO.push("esegui: app non raggiungibile");
+    return;
+  }
+  var operazioni = (risposta.dati && risposta.dati.operazioni) || [];
+  if (operazioni.length === 0) {
+    Logger.log("Nessuna operazione approvata in coda.");
+    RIEPILOGO.push("esegui: niente in coda");
+    return;
+  }
+  Logger.log("Operazioni approvate in coda (tutti gli account): " + operazioni.length);
+
+  var fatte = 0, fallite = 0, saltate = 0;
+  for (var i = 0; i < operazioni.length; i++) {
+    if (tempoScaduto()) {
+      Logger.log("Tempo quasi finito: mi fermo, le restanti restano in coda.");
+      break;
+    }
+    var op = operazioni[i];
+    op.parametri = op.parametri || {};
+
+    // 1. È di questo account?
+    if (op.account && soloCifre(op.account) !== soloCifre(conto.id)) {
+      saltate++;
+      continue;
+    }
+
+    // 2. Il bersaglio esiste in questo account?
+    var mira;
+    try {
+      mira = trovaBersaglio(op, conto);
+    } catch (e) {
+      Logger.log("SALTO " + op.tipo + " su " + op.bersaglio + " — " + e);
+      saltate++;
+      continue;
+    }
+    if (mira.esito === "altro-account") {
+      saltate++;
+      continue;
+    }
+    if (mira.esito === "non-trovato") {
+      if (op.account) {
+        // L'app dice che è di questo account e non c'è: è un errore vero.
+        Logger.log("ERRORE " + op.tipo + ": bersaglio non trovato — " + op.bersaglio);
+        fallite++;
+        if (!riferisci(op, false, "Bersaglio non trovato in questo account: " + op.bersaglio, null, null)) break;
+      } else {
+        Logger.log("Salto " + op.tipo + " su \"" + op.bersaglio + "\": non è in questo account.");
+        saltate++;
+      }
+      continue;
+    }
+
+    // 3. Esecuzione
+    if (ANTEPRIMA) {
+      Logger.log("ANTEPRIMA — eseguirei: " + op.tipo + " su " + op.bersaglio + " " + JSON.stringify(op.parametri));
+      saltate++;
+      continue;
+    }
+    try {
+      var esito = applica(op, mira, conto);
+      Logger.log("OK " + op.tipo + " su " + op.bersaglio + " — " + esito.dettaglio);
+      fatte++;
+      // Se l'app non registra l'esito ci si ferma: rifarla al giro dopo
+      // significherebbe una seconda negativa, keyword o campagna.
+      if (!riferisci(op, true, esito.dettaglio, esito.prima, esito.dopo)) break;
+    } catch (e2) {
+      Logger.log("ERRORE " + op.tipo + " su " + op.bersaglio + " — " + e2);
+      fallite++;
+      if (!riferisci(op, false, String(e2), null, null)) break;
+    }
+  }
+  RIEPILOGO.push("esegui: " + fatte + " eseguite · " + fallite + " fallite · " + saltate + " saltate (altri account o anteprima)");
 }
 
-function dataIso(deltaGiorni) {
-  var d = new Date();
-  d.setDate(d.getDate() + deltaGiorni);
-  var m = String(d.getMonth() + 1);
-  var g = String(d.getDate());
-  if (m.length < 2) m = "0" + m;
-  if (g.length < 2) g = "0" + g;
-  return d.getFullYear() + "-" + m + "-" + g;
+/**
+ * Trova l'oggetto su cui agire. Restituisce {esito, campagna?, keyword?}:
+ * "trovato" · "non-trovato" · "altro-account" (da saltare in silenzio).
+ */
+function trovaBersaglio(op, conto) {
+  var t = op.tipo;
+
+  if (t === "nuova_campagna") {
+    // Non c'è ancora niente da trovare: si decide dal brand del nome.
+    var nome = op.parametri.nome || op.bersaglio;
+    if (op.account) return { esito: "trovato" };
+    var b = brandDa(nome);
+    if (b === BRAND) return { esito: "trovato" };
+    if (b === "cross" && ACCETTA_CAMPAGNE_SENZA_BRAND) return { esito: "trovato" };
+    Logger.log(
+      "Salto la creazione di \"" + nome + "\": il nome non dice \"" + BRAND + "\". " +
+      "Se va creata qui, indica l'account nell'operazione o metti ACCETTA_CAMPAGNE_SENZA_BRAND = true."
+    );
+    return { esito: "altro-account" };
+  }
+
+  if (t === "pausa_keyword" || t === "attiva_keyword") return trovaKeyword(op, conto);
+
+  var campagna = trovaCampagna(op);
+  return campagna ? { esito: "trovato", campagna: campagna } : { esito: "non-trovato" };
 }
 
-function oggiIso() {
-  var d = new Date();
-  var m = String(d.getMonth() + 1);
-  var g = String(d.getDate());
-  if (m.length < 2) m = "0" + m;
-  if (g.length < 2) g = "0" + g;
-  return d.getFullYear() + "-" + m + "-" + g;
+/** Cerca fra Search/Display, Performance Max, Shopping e Video. */
+function trovaCampagna(op) {
+  var selettori = [];
+  aggiungiSelettore(selettori, function () { return AdsApp.campaigns(); });
+  aggiungiSelettore(selettori, function () { return AdsApp.performanceMaxCampaigns(); });
+  aggiungiSelettore(selettori, function () { return AdsApp.shoppingCampaigns(); });
+  aggiungiSelettore(selettori, function () { return AdsApp.videoCampaigns(); });
+
+  for (var i = 0; i < selettori.length; i++) {
+    try {
+      var sel = op.idEsterno
+        ? selettori[i].withIds([Number(op.idEsterno)])
+        : selettori[i].withCondition("campaign.name = '" + apici(op.bersaglio) + "'");
+      var it = sel.get();
+      if (it.hasNext()) return it.next();
+    } catch (e) {
+      // tipo di campagna non supportato da questo selettore: passo al prossimo
+    }
+  }
+  return null;
+}
+
+function aggiungiSelettore(lista, fabbrica) {
+  try {
+    lista.push(fabbrica());
+  } catch (e) {
+    // selettore non disponibile in questa versione degli Scripts
+  }
+}
+
+/**
+ * L'id delle keyword mandato dalla v2 è "account:gruppo:criterio": si ritrova in
+ * modo esatto e si capisce subito se è di un altro account. Le righe vecchie
+ * hanno solo il numero del criterio: lì si cerca per testo, e se il risultato è
+ * ambiguo non si tocca niente.
+ */
+function trovaKeyword(op, conto) {
+  var parti = String(op.idEsterno || "").split(":");
+  if (parti.length === 3) {
+    if (soloCifre(parti[0]) !== soloCifre(conto.id)) return { esito: "altro-account" };
+    var it = AdsApp.keywords().withIds([[Number(parti[1]), Number(parti[2])]]).get();
+    return it.hasNext() ? { esito: "trovato", keyword: it.next() } : { esito: "non-trovato" };
+  }
+
+  var testo = op.parametri.testo || op.bersaglio;
+  var pulito = String(testo).replace(/\s*\((broad|phrase|exact|esatta|frase)\)\s*$/i, "");
+  var trovate = [];
+  var iter = AdsApp.keywords()
+    .withCondition("ad_group_criterion.keyword.text = '" + apici(pulito) + "'")
+    .withCondition("ad_group_criterion.status != 'REMOVED'")
+    .get();
+  while (iter.hasNext()) {
+    var kw = iter.next();
+    if (BRAND && brandDa(kw.getCampaign().getName()) !== BRAND) continue;
+    trovate.push(kw);
+  }
+  if (trovate.length === 0) return { esito: "non-trovato" };
+  if (trovate.length > 1) {
+    throw new Error(
+      "\"" + pulito + "\" esiste in " + trovate.length + " gruppi: non tocco niente. " +
+      "Rilancia lo script \"copy\" per aggiornare gli id, poi riaccoda l'operazione."
+    );
+  }
+  return { esito: "trovato", keyword: trovate[0] };
+}
+
+/** Esegue davvero. Ogni ramo legge lo stato PRIMA di cambiarlo. */
+function applica(op, mira, conto) {
+  var t = op.tipo;
+
+  if (t === "pausa_campagna") {
+    var eraAttiva = mira.campagna.isEnabled();
+    mira.campagna.pause();
+    return { dettaglio: "campagna messa in pausa", prima: eraAttiva ? "attiva" : "già in pausa", dopo: "in pausa" };
+  }
+
+  if (t === "attiva_campagna") {
+    var eraPausa = mira.campagna.isPaused();
+    mira.campagna.enable();
+    return { dettaglio: "campagna riattivata", prima: eraPausa ? "in pausa" : "già attiva", dopo: "attiva" };
+  }
+
+  if (t === "budget") {
+    var nuovo = Number(op.parametri.budget);
+    if (!nuovo || nuovo <= 0) throw new Error("Budget non valido: " + op.parametri.budget);
+    if (budgetCondiviso(mira.campagna)) {
+      throw new Error("Il budget di questa campagna è CONDIVISO con altre: cambiarlo qui le toccherebbe tutte. Da fare a mano in interfaccia.");
+    }
+    var budget = mira.campagna.getBudget();
+    var vecchio = budget.getAmount();
+    if (vecchio > 0 && (nuovo > vecchio * LIMITE_BUDGET_X || nuovo < vecchio / LIMITE_BUDGET_X)) {
+      throw new Error(
+        "Salto di budget sospetto: da " + vecchio + " a " + nuovo + " €/g (limite ×" + LIMITE_BUDGET_X + "). " +
+        "Se è voluto, alza LIMITE_BUDGET_X o fallo a mano."
+      );
+    }
+    budget.setAmount(nuovo);
+    return {
+      dettaglio: "budget " + vecchio + " → " + nuovo + " €/g",
+      prima: vecchio + " €/g",
+      dopo: nuovo + " €/g",
+    };
+  }
+
+  if (t === "negativa") {
+    var negativa = op.parametri.testo;
+    if (!negativa) throw new Error("Testo della negativa mancante");
+    if (typeof mira.campagna.createNegativeKeyword !== "function") {
+      throw new Error("Questo tipo di campagna (PMax/Shopping/Video) non accetta negative da script: usare le liste di esclusione a livello account.");
+    }
+    mira.campagna.createNegativeKeyword(negativa);
+    return { dettaglio: "negativa aggiunta: " + negativa, prima: "assente", dopo: negativa };
+  }
+
+  if (t === "pausa_keyword") {
+    var eraAttivaKw = mira.keyword.isEnabled();
+    mira.keyword.pause();
+    return { dettaglio: "keyword in pausa", prima: eraAttivaKw ? "attiva" : "già in pausa", dopo: "in pausa" };
+  }
+
+  if (t === "attiva_keyword") {
+    var eraPausaKw = mira.keyword.isPaused();
+    mira.keyword.enable();
+    return { dettaglio: "keyword riattivata", prima: eraPausaKw ? "in pausa" : "già attiva", dopo: "attiva" };
+  }
+
+  if (t === "nuova_keyword") return creaKeyword(op, mira);
+  if (t === "nuova_campagna") return creaCampagna(op, conto);
+
+  throw new Error("Tipo di operazione non gestito: " + t);
+}
+
+/** Un budget condiviso vale per più campagne: cambiarlo da qui sarebbe un danno. */
+function budgetCondiviso(campagna) {
+  try {
+    var it = AdsApp.search(
+      "SELECT campaign_budget.explicitly_shared FROM campaign WHERE campaign.id = " + campagna.getId()
+    );
+    if (it.hasNext()) {
+      var r = it.next();
+      return !!(r.campaignBudget && r.campaignBudget.explicitlyShared);
+    }
+  } catch (e) {
+    Logger.log("   (non sono riuscito a controllare se il budget è condiviso: " + e + ")");
+  }
+  return false;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PARTE 6 — CREAZIONE: keyword nuove e campagne nuove
-   Le operazioni "nuova_keyword" e "nuova_campagna" arrivano dalla stessa coda
-   approvata di mainEsegui(). Le campagne si creano via bulk upload (l'unico
-   modo che gli Script hanno) e nascono SEMPRE IN PAUSA: la checklist 4.1 va
-   passata in interfaccia prima di accenderle.
+   Le campagne si creano via bulk upload (l'unico modo che gli Script hanno) e
+   nascono SEMPRE IN PAUSA: la checklist 4.1 va passata in interfaccia prima di
+   accenderle.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-function eseguiCreazione(op) {
-  if (op.tipo === "nuova_keyword") {
-    var campagna = trovaCampagna(op);
-    if (!campagna) throw new Error("Campagna non trovata: " + op.bersaglio);
-    var testo = op.parametri.testo;
-    if (!testo) throw new Error("Testo della keyword mancante");
-    var conMatch = formattaMatch(testo, op.parametri.corrispondenza);
+function creaKeyword(op, mira) {
+  var testo = op.parametri.testo;
+  if (!testo) throw new Error("Testo della keyword mancante");
+  var conMatch = formattaMatch(testo, op.parametri.corrispondenza);
 
-    // Il gruppo indicato, o il primo attivo della campagna
-    var gruppi = op.parametri.gruppo
-      ? campagna.adGroups().withCondition("ad_group.name = '" + apici(op.parametri.gruppo) + "'").get()
-      : campagna.adGroups().withCondition("ad_group.status = 'ENABLED'").get();
-    if (!gruppi.hasNext()) throw new Error("Nessun gruppo di annunci trovato nella campagna");
-    var gruppo = gruppi.next();
+  var gruppi = op.parametri.gruppo
+    ? mira.campagna.adGroups().withCondition("ad_group.name = '" + apici(op.parametri.gruppo) + "'").get()
+    : mira.campagna.adGroups().withCondition("ad_group.status = 'ENABLED'").get();
+  if (!gruppi.hasNext()) throw new Error("Nessun gruppo di annunci trovato nella campagna");
+  var gruppo = gruppi.next();
 
-    var esitoKw = gruppo.newKeywordBuilder().withText(conMatch).build();
-    if (!esitoKw.isSuccessful()) {
-      throw new Error("Keyword rifiutata: " + esitoKw.getErrors().join("; "));
-    }
-    return {
-      dettaglio: "keyword aggiunta in \"" + gruppo.getName() + "\": " + conMatch,
-      prima: "assente",
-      dopo: conMatch,
-    };
+  var esito = gruppo.newKeywordBuilder().withText(conMatch).build();
+  if (!esito.isSuccessful()) {
+    throw new Error("Keyword rifiutata: " + esito.getErrors().join("; "));
+  }
+  return {
+    dettaglio: "keyword aggiunta in \"" + gruppo.getName() + "\": " + conMatch,
+    prima: "assente",
+    dopo: conMatch,
+  };
+}
+
+function creaCampagna(op, conto) {
+  var par = op.parametri;
+  if (!par.nome || !par.budget) throw new Error("Servono nome e budget");
+
+  // Non ricreare una campagna che esiste già (es. un secondo giro dopo un esito
+  // non registrato): il bulk upload non se ne accorgerebbe.
+  if (trovaCampagna({ bersaglio: par.nome })) {
+    throw new Error("Esiste già una campagna chiamata \"" + par.nome + "\" in questo account: non ne creo un'altra.");
   }
 
-  if (op.tipo === "nuova_campagna") {
-    var par = op.parametri;
-    if (!par.nome || !par.budget) throw new Error("Servono nome e budget");
+  var colonne = [
+    "Campaign", "Budget", "Campaign type", "Campaign state",
+    "Ad group", "Keyword", "Criterion type",
+    "Ad type", "Final URL",
+    "Headline 1", "Headline 2", "Headline 3", "Headline 4", "Headline 5",
+    "Headline 6", "Headline 7", "Headline 8", "Headline 9", "Headline 10",
+    "Description 1", "Description 2", "Description 3", "Description 4",
+  ];
+  var upload = AdsApp.bulkUploads().newCsvUpload(colonne, { moneyInMicros: false });
+  if (typeof upload.forCampaignManagement === "function") upload.forCampaignManagement();
 
-    var colonne = [
-      "Campaign", "Budget", "Campaign type", "Campaign state",
-      "Ad group", "Keyword", "Criterion type",
-      "Ad type", "Final URL",
-      "Headline 1", "Headline 2", "Headline 3", "Headline 4", "Headline 5",
-      "Headline 6", "Headline 7", "Headline 8", "Headline 9", "Headline 10",
-      "Description 1", "Description 2", "Description 3", "Description 4",
-    ];
-    var upload = AdsApp.bulkUploads().newCsvUpload(colonne, { moneyInMicros: false });
+  var gruppoNome = par.gruppo || "Gruppo 1";
 
-    var gruppoNome = par.gruppo || "Gruppo 1";
+  // Riga campagna: nasce in pausa, sempre
+  upload.append({
+    "Campaign": par.nome,
+    "Budget": Number(par.budget),
+    "Campaign type": "Search",
+    "Campaign state": "paused",
+  });
 
-    // Riga campagna: nasce in pausa, sempre
+  // Keyword: [{testo, corrispondenza}]
+  var kws = par.keywords || [];
+  for (var i = 0; i < kws.length; i++) {
     upload.append({
       "Campaign": par.nome,
-      "Budget": Number(par.budget),
-      "Campaign type": "Search",
-      "Campaign state": "paused",
+      "Ad group": gruppoNome,
+      "Keyword": kws[i].testo,
+      "Criterion type": etichettaMatch(kws[i].corrispondenza),
     });
-
-    // Keyword: [{testo, corrispondenza}]
-    var kws = par.keywords || [];
-    for (var i = 0; i < kws.length; i++) {
-      upload.append({
-        "Campaign": par.nome,
-        "Ad group": gruppoNome,
-        "Keyword": kws[i].testo,
-        "Criterion type": etichettaMatch(kws[i].corrispondenza),
-      });
-    }
-
-    // Annuncio RSA: titoli[] e descrizioni[]
-    var titoli = par.titoli || [];
-    var descrizioni = par.descrizioni || [];
-    if (titoli.length >= 3 && descrizioni.length >= 2 && par.finalUrl) {
-      var rigaAnnuncio = {
-        "Campaign": par.nome,
-        "Ad group": gruppoNome,
-        "Ad type": "Responsive search ad",
-        "Final URL": par.finalUrl,
-      };
-      for (var t = 0; t < Math.min(titoli.length, 10); t++) {
-        rigaAnnuncio["Headline " + (t + 1)] = titoli[t];
-      }
-      for (var d = 0; d < Math.min(descrizioni.length, 4); d++) {
-        rigaAnnuncio["Description " + (d + 1)] = descrizioni[d];
-      }
-      upload.append(rigaAnnuncio);
-    }
-
-    upload.apply();
-    return {
-      dettaglio:
-        "bulk upload inviato: campagna \"" + par.nome + "\" creata IN PAUSA con " +
-        kws.length + " keyword" + (titoli.length ? " e 1 annuncio RSA" : "") +
-        ". Passare la checklist 4.1 in interfaccia prima di attivarla.",
-      prima: "assente",
-      dopo: "creata in pausa (" + Number(par.budget) + " euro/g)",
-    };
   }
 
-  return null; // non e una creazione: ci pensa esegui()
+  // Annuncio RSA: titoli[] e descrizioni[]
+  var titoli = par.titoli || [];
+  var descrizioni = par.descrizioni || [];
+  if (titoli.length >= 3 && descrizioni.length >= 2 && par.finalUrl) {
+    var rigaAnnuncio = {
+      "Campaign": par.nome,
+      "Ad group": gruppoNome,
+      "Ad type": "Responsive search ad",
+      "Final URL": par.finalUrl,
+    };
+    for (var t = 0; t < Math.min(titoli.length, 10); t++) rigaAnnuncio["Headline " + (t + 1)] = titoli[t];
+    for (var d = 0; d < Math.min(descrizioni.length, 4); d++) rigaAnnuncio["Description " + (d + 1)] = descrizioni[d];
+    upload.append(rigaAnnuncio);
+  }
+
+  upload.apply();
+  return {
+    dettaglio:
+      "bulk upload inviato all'account " + conto.id + ": campagna \"" + par.nome + "\" creata IN PAUSA con " +
+      kws.length + " keyword" + (titoli.length ? " e 1 annuncio RSA" : "") +
+      ". Passare la checklist 4.1 in interfaccia prima di attivarla.",
+    prima: "assente",
+    dopo: "creata in pausa (" + Number(par.budget) + " €/g)",
+  };
 }
 
 function formattaMatch(testo, corrispondenza) {
@@ -710,4 +994,190 @@ function etichettaMatch(corrispondenza) {
   if (m === "exact" || m === "esatta") return "Exact";
   if (m === "phrase" || m === "frase") return "Phrase";
   return "Broad";
+}
+
+/**
+ * Riferisce l'esito all'app. Se l'app non lo registra restituisce false: chi
+ * chiama si ferma, perché rifare l'operazione al prossimo giro significherebbe
+ * una seconda negativa, una seconda keyword, una seconda campagna.
+ */
+function riferisci(op, riuscita, dettaglio, prima, dopo) {
+  if (ANTEPRIMA) return true;
+  var esito = chiamata("post", "/api/v1/operazioni/" + op.id + "/esito", {
+    riuscita: riuscita,
+    dettaglio: dettaglio,
+    prima: prima,
+    dopo: dopo,
+  });
+  if (!esito.ok) {
+    Logger.log(
+      "⚠⚠ L'APP NON HA REGISTRATO L'ESITO (HTTP " + esito.codice + "). L'operazione " + op.id +
+      " (" + op.tipo + " su " + op.bersaglio + ") è stata ESEGUITA ma nell'app risulta ancora approvata. " +
+      "Mi fermo qui per non rifarla al prossimo giro: segnare l'esito a mano nell'app."
+    );
+    RIEPILOGO.push("⚠ esito NON registrato per l'operazione " + op.id + " — da sistemare a mano");
+    return false;
+  }
+  return true;
+}
+
+/* ═══════════════════════════════ Utilità ═══════════════════════════════════ */
+
+function corpoBase(conto, extra) {
+  var corpo = { canale: "google_ads", account: conto.id };
+  if (BRAND) corpo.brand = BRAND;
+  for (var k in extra) {
+    if (Object.prototype.hasOwnProperty.call(extra, k)) corpo[k] = extra[k];
+  }
+  return corpo;
+}
+
+/**
+ * Manda le righe a blocchi. Se l'app fatica (timeout, blocco troppo grande) il
+ * blocco si dimezza e si riprova, invece di perdere tutto il resto.
+ */
+function inviaABlocchi(percorso, righe, corpoDa) {
+  if (righe.length === 0) return { inviate: 0, nota: "niente da inviare" };
+  if (ANTEPRIMA) {
+    Logger.log("ANTEPRIMA: non invio le " + righe.length + " righe a " + percorso + ".");
+    return { inviate: 0, nota: "anteprima" };
+  }
+
+  var blocco = BLOCCO_INIZIALE;
+  var i = 0, inviate = 0;
+  var conteggi = {};
+
+  while (i < righe.length) {
+    if (tempoScaduto()) {
+      Logger.log("Tempo quasi finito: mi fermo a " + inviate + "/" + righe.length + " righe. Il prossimo giro le rimanda.");
+      return { inviate: inviate, nota: "interrotto per tempo" };
+    }
+    var lotto = righe.slice(i, i + blocco);
+    var esito = chiamata("post", percorso, corpoDa(lotto));
+
+    if (esito.ok) {
+      i += lotto.length;
+      inviate += lotto.length;
+      accumula(conteggi, esito.dati);
+      continue;
+    }
+    var troppoGrande = esito.codice === 0 || esito.codice === 413 || esito.codice === 502 || esito.codice === 504;
+    if (troppoGrande && blocco > BLOCCO_MINIMO) {
+      blocco = Math.max(BLOCCO_MINIMO, Math.floor(blocco / 2));
+      Logger.log("   l'app non ce l'ha fatta (HTTP " + esito.codice + "): riprovo con blocchi da " + blocco + " righe");
+      continue;
+    }
+    Logger.log("⚠ Errore HTTP " + esito.codice + " su " + percorso + ": " + esito.testo);
+    return { inviate: inviate, nota: "interrotto su HTTP " + esito.codice };
+  }
+
+  var dettaglio = [];
+  for (var k in conteggi) {
+    if (Object.prototype.hasOwnProperty.call(conteggi, k) && conteggi[k]) dettaglio.push(k + ": " + conteggi[k]);
+  }
+  if (dettaglio.length) Logger.log("   app → " + dettaglio.join(" · "));
+  return { inviate: inviate, nota: dettaglio.join(" · ") };
+}
+
+/** Somma i numeri della risposta dell'app (metricheSalvate, campagneCreate, …). */
+function accumula(conteggi, dati) {
+  if (!dati) return;
+  for (var k in dati) {
+    if (!Object.prototype.hasOwnProperty.call(dati, k)) continue;
+    var v = dati[k];
+    if (typeof v === "number") {
+      conteggi[k] = (conteggi[k] || 0) + v;
+    } else if (v && typeof v === "object") {
+      for (var k2 in v) {
+        if (!Object.prototype.hasOwnProperty.call(v, k2)) continue;
+        if (typeof v[k2] === "number") conteggi[k + "." + k2] = (conteggi[k + "." + k2] || 0) + v[k2];
+      }
+    }
+  }
+}
+
+/** Una chiamata all'app, con ritenta su 429 e 5xx. */
+function chiamata(metodo, percorso, corpo) {
+  var opzioni = { method: metodo, headers: { "x-api-key": CHIAVE_API }, muteHttpExceptions: true };
+  if (corpo) {
+    opzioni.contentType = "application/json";
+    opzioni.payload = JSON.stringify(corpo);
+  }
+  var attesa = 2000;
+  for (var t = 1; t <= TENTATIVI; t++) {
+    var codice = 0, testo = "";
+    try {
+      var risposta = UrlFetchApp.fetch(URL_APP + percorso, opzioni);
+      codice = risposta.getResponseCode();
+      testo = risposta.getContentText();
+    } catch (e) {
+      testo = String(e);
+    }
+    if (codice >= 200 && codice < 300) {
+      var dati = null;
+      try { dati = JSON.parse(testo); } catch (e2) { dati = null; }
+      return { ok: true, codice: codice, testo: testo, dati: dati };
+    }
+    var ritentabile = codice === 0 || codice === 429 || codice >= 500;
+    if (!ritentabile || t === TENTATIVI) {
+      return { ok: false, codice: codice, testo: String(testo).slice(0, 300), dati: null };
+    }
+    Logger.log("   tentativo " + t + " fallito (HTTP " + codice + "): riprovo fra " + attesa / 1000 + "s");
+    Utilities.sleep(attesa);
+    attesa = attesa * 3;
+  }
+  return { ok: false, codice: 0, testo: "esauriti i tentativi", dati: null };
+}
+
+/** Stesso ragionamento dell'app (src/lib/ingest-metriche.ts) per dedurre il brand. */
+function brandDa(nome) {
+  var t = String(nome || "").toLowerCase();
+  if (/deluxyflower|flowers/.test(t)) return "flowers";
+  if (/cake|torte/.test(t)) return "cake";
+  if (/deluxy|gifts|regali/.test(t)) return "gifts";
+  return "cross";
+}
+
+function tempoScaduto() {
+  return new Date().getTime() - INIZIO > MINUTI_MASSIMI * 60 * 1000;
+}
+
+function arrotonda(n) {
+  return Math.round(n * 100) / 100;
+}
+
+function dataIso(deltaGiorni) {
+  var d = new Date();
+  d.setDate(d.getDate() + deltaGiorni);
+  var m = String(d.getMonth() + 1);
+  var g = String(d.getDate());
+  if (m.length < 2) m = "0" + m;
+  if (g.length < 2) g = "0" + g;
+  return d.getFullYear() + "-" + m + "-" + g;
+}
+
+function apici(s) {
+  return String(s).split("'").join("\\'");
+}
+
+function soloCifre(s) {
+  return String(s || "").replace(/\D/g, "");
+}
+
+function indiceIn(lista, valore) {
+  for (var i = 0; i < lista.length; i++) if (lista[i] === valore) return i;
+  return -1;
+}
+
+function filtraVuoti(lista) {
+  var fuori = [];
+  for (var i = 0; i < lista.length; i++) if (lista[i]) fuori.push(lista[i]);
+  return fuori;
+}
+
+/** "Gruppo A, Gruppo B (+3)": i nomi dei gruppi senza allungare all'infinito. */
+function elenco(nomi) {
+  if (!nomi || nomi.length === 0) return null;
+  if (nomi.length <= 3) return nomi.join(", ");
+  return nomi.slice(0, 3).join(", ") + " (+" + (nomi.length - 3) + ")";
 }

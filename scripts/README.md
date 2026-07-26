@@ -265,11 +265,21 @@ cd deluxy-orders && ORDERS_URL=<url-app> ORDERS_API_KEY=<chiave-scrittura> npm r
 - **Serve**: `ORDERS_API_KEY` (chiave di scrittura, da `npm run chiave -- <app> --scrittura`); opzionale `ORDERS_URL` (default `http://localhost:3150`)
 - **Nota**: la sync non tocca la classificazione già impostata sugli ordini. In produzione c'è anche il cron notturno Vercel `/api/cron/sync` (protetto da `CRON_SECRET`).
 
-### google-ads-script.js — deluxy-marketing
-NON si lancia da terminale: si **incolla in Google Ads** (Strumenti → Azioni collettive → Script), una copia per account. Sei funzioni da schedulare: `main()` metriche giornaliere · `mainCopy()` keyword+annunci · `mainAsset()` sitelink/immagini · `mainApprovazioni()` stati di review (alert A4) · `mainEsegui()` esegue le operazioni **approvate** in /operazioni (pausa, budget, keyword, negative, campagne nuove in pausa via bulk upload).
+### google-ads-script.js — deluxy-marketing (v2)
+NON si lancia da terminale: si **incolla in Google Ads** (Strumenti → Azioni collettive → Script), una copia per account **e per lavoro**. Google Ads esegue sempre `main()`: il lavoro si sceglie con la costante `AZIONE` in testa al file — `metriche` (giornaliere, ogni giorno 23-24) · `approvazioni` (stati di review, alert A4, ogni giorno) · `copy` (keyword+annunci, ogni settimana) · `asset` (sitelink/callout/snippet/immagini, ogni settimana) · `esegui` (esegue le operazioni **approvate** in /operazioni: pausa, budget, keyword, negative, campagne nuove in pausa via bulk upload) · `tutto`.
 
-- **Serve**: in testa al file `URL_APP` (l'app in produzione) e `CHIAVE_API` (da `npm run chiave -- google-ads`)
-- **Nota**: la scrittura passa SOLO dalla coda approvata a mano nell'app; lo script non decide nulla da solo
+- **Serve**: in testa al file `URL_APP` (l'app in produzione), `CHIAVE_API` (da `npm run chiave -- google-ads-<brand>`), `AZIONE` e `BRAND` (`flowers` | `gifts` | `cake`: senza, le campagne il cui nome non dice il marchio finiscono in "cross")
+- **Primo caricamento storico**: `GIORNI_INDIETRO = 400` + `INCLUDI_RIMOSSE = true`, una esecuzione sola, poi si rimette 7 / false
+- **Nota**: la scrittura passa SOLO dalla coda approvata a mano nell'app; lo script non decide nulla da solo. In anteprima non manda niente all'app (Google blocca le modifiche ma non le chiamate a internet)
+
+### prova-google-ads-script.js — deluxy-marketing
+Banco di prova dello script sopra: finge Google Ads e l'app, e verifica somme delle keyword, accorpamento degli asset, blocchi che si dimezzano sui timeout, guardie della scrittura (budget condivisi, salti di budget, esiti non registrati) e modalità anteprima.
+
+```bash
+cd deluxy-marketing && node scripts/prova-google-ads-script.js
+```
+
+- **Serve**: niente (nessuna rete, nessun database)
 
 ## 4. Setup e configurazione
 

@@ -37,13 +37,32 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ### Connettori
 
-- **Google Ads**: `scripts/google-ads-script.js` da incollare in Google Ads
-  (Strumenti → Azioni collettive → Script), una copia per account. Sei funzioni:
-  `main()` metriche giornaliere + strategia d'offerta · `mainCopy()` keyword e RSA ·
-  `mainAsset()` sitelink/callout/snippet/immagini sui 3 livelli ·
-  `mainApprovazioni()` stati di review (alert A4) · `mainEsegui()` esegue le
-  operazioni **approvate**. Nessun developer token: gli Scripts girano dentro
-  l'account. Config in testa al file: `URL_APP`, `CHIAVE_API`, `GIORNI_INDIETRO`.
+- **Google Ads**: `scripts/google-ads-script.js` (**v2**, 26/07/2026) da incollare
+  in Google Ads (Strumenti → Azioni collettive → Script), una copia per account e
+  per lavoro. Google Ads esegue sempre `main()`: **il lavoro si sceglie con la
+  costante `AZIONE`** — `metriche` (giornaliere + strategia d'offerta) ·
+  `copy` (keyword e RSA) · `asset` (sitelink/callout/snippet/immagini sui 3
+  livelli) · `approvazioni` (stati di review, alert A4) · `esegui` (esegue le
+  operazioni **approvate**) · `tutto`. Config in testa al file: `URL_APP`,
+  `CHIAVE_API`, `AZIONE`, `BRAND`, `GIORNI_INDIETRO`, `GIORNI_COPY`,
+  `INCLUDI_RIMOSSE`. Nessun developer token: gli Scripts girano dentro l'account.
+  - **`BRAND` va impostato** (`flowers` | `gifts` | `cake`): i nomi tipo
+    "DC1 Fiori Milano ENG" non dicono il marchio e finirebbero in "cross".
+  - In **anteprima** lo script non manda niente all'app: prima della v2
+    l'anteprima di `esegui` segnava le operazioni come eseguite senza averle
+    eseguite (Google blocca le modifiche ma non le chiamate a internet).
+  - Le keyword uguali in più gruppi vengono **sommate** prima dell'invio (l'app
+    tiene una riga per campagna+keyword: prima vinceva l'ultimo gruppo letto), e
+    gli id mandati all'app contengono l'account (`account:gruppo:criterio`), così
+    tre account non si sovrascrivono a vicenda.
+  - `esegui` legge la coda **senza filtro account** e salta — senza segnarle
+    fallite — le operazioni di altri account; riconosce PMax/Shopping/Video;
+    rifiuta i budget **condivisi** e i salti oltre `LIMITE_BUDGET_X`; se l'app
+    non registra l'esito si ferma (prima poteva rifare la stessa operazione).
+  - Caricamento storico: `GIORNI_INDIETRO = 400` **+ `INCLUDI_RIMOSSE = true`**
+    (senza, la spesa delle campagne poi eliminate non entra mai), una volta sola.
+  - Banco di prova con Google Ads finto: `scripts/prova-google-ads-script.js`
+    (`node scripts/prova-google-ads-script.js`, 35 controlli).
 - **Meta**: `src/lib/meta.ts` + `POST /api/v1/sync/meta`. Meta non ha gli Scripts:
   è l'app che chiama la Graph API. Serve `META_ACCESS_TOKEN` (utente di sistema
   del Business Manager, non scade). Valore e conversioni **solo** da
