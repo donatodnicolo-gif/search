@@ -203,3 +203,28 @@ export async function cercaInArchivio(q: string, limit = 50): Promise<EsitoArchi
     ordini: (corpo.ordini ?? []).map(normalizza),
   }
 }
+
+/**
+ * Quando Orders ha scaricato l'ultima volta da Shopify (sonda pubblica, nessuna
+ * chiave). Serve a mostrare tutta la catena Shopify → Orders → qui: se Orders è
+ * fermo, aggiornarsi da lui ogni quarto d'ora non porta niente di nuovo, e
+ * bisogna poterlo vedere invece di cercare un ordine che non arriverà.
+ *
+ * Non fallisce mai in modo rumoroso: se non risponde torna `null` e la pagina
+ * semplicemente non mostra quel pezzo.
+ */
+export async function ultimoImportOrders(): Promise<string | null> {
+  const c = await leggiImpostazioni(['ordersUrl'])
+  const base = (c.ordersUrl || BASE_DEFAULT).replace(/\/$/, '')
+  try {
+    const res = await fetch(`${base}/api/v1/health`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) return null
+    const d = (await res.json().catch(() => ({}))) as { ultimoImport?: string | null }
+    return d.ultimoImport ?? null
+  } catch {
+    return null
+  }
+}

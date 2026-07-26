@@ -210,8 +210,15 @@ export function OrdiniLista() {
   const [googleCollegato, setGoogleCollegato] = useState(false)
   const [caricato, setCaricato] = useState(false)
   const [occupato, setOccupato] = useState('') // 'sync' | 'tutti' | id ordine
-  // Quando ha girato l'ultima volta l'aggiornamento automatico (ogni 15 minuti).
+  // Quando ha girato l'ultima volta l'aggiornamento automatico (ogni 15 minuti),
+  // com'è andato, e quando Orders ha scaricato da Shopify: sono i tre anelli
+  // della catena, e vanno visti tutti e tre.
   const [ultimaSync, setUltimaSync] = useState('')
+  const [esitoSync, setEsitoSync] = useState('')
+  const [importOrders, setImportOrders] = useState('')
+  // Quando questa pagina ha riletto l'elenco: si aggiorna da sola, e chi guarda
+  // deve sapere se quello che vede è di adesso o di venti minuti fa.
+  const [vistoIl, setVistoIl] = useState('')
   const [avviso, setAvviso] = useState('')
   const [errore, setErrore] = useState('')
 
@@ -242,6 +249,8 @@ export function OrdiniLista() {
         negozi: NegozioDto[]
         googleCollegato: boolean
         ultimaSync?: string
+        esitoSync?: string
+        ultimoImportOrders?: string
         perTipoCliente?: Record<string, number>
       }
       setOrdini(dati.ordini)
@@ -249,7 +258,10 @@ export function OrdiniLista() {
       setNegozi(dati.negozi)
       setGoogleCollegato(dati.googleCollegato)
       setUltimaSync(dati.ultimaSync ?? '')
+      setEsitoSync(dati.esitoSync ?? '')
+      setImportOrders(dati.ultimoImportOrders ?? '')
       setPerTipoCliente(dati.perTipoCliente ?? {})
+      setVistoIl(new Date().toISOString())
     } catch {
       // rete assente
     } finally {
@@ -288,6 +300,40 @@ export function OrdiniLista() {
   useEffect(() => {
     carica()
   }, [carica])
+
+  /**
+   * L'elenco si rilegge DA SOLO ogni minuto: il cron porta gli ordini nel
+   * database ogni quarto d'ora, ma senza questo bisognerebbe ricaricare la
+   * pagina a mano per vederli — e chi la tiene aperta tutto il giorno resterebbe
+   * a guardare un elenco fermo, credendolo aggiornato.
+   *
+   * Un minuto e non quindici: i giri del cron non sono allineati a quando hai
+   * aperto la pagina, quindi con un solo controllo ogni quarto d'ora un ordine
+   * appena arrivato potrebbe aspettarne quasi trenta. È una lettura leggera,
+   * filtri compresi.
+   *
+   * Si ferma quando la scheda non è in primo piano: aggiornare una pagina che
+   * nessuno sta guardando è lavoro sprecato sul database, e al ritorno si
+   * rilegge subito.
+   */
+  useEffect(() => {
+    const rileggi = () => {
+      if (document.visibilityState === 'visible') carica()
+    }
+    const t = setInterval(rileggi, 60000)
+    document.addEventListener('visibilitychange', rileggi)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', rileggi)
+    }
+  }, [carica])
+
+  // Fa scorrere i "3 minuti fa" senza aspettare la lettura successiva.
+  const [, ridisegna] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => ridisegna((n) => n + 1), 30000)
+    return () => clearInterval(t)
+  }, [])
 
   // Archivio storico (app Deluxy Orders): interrogato solo quando si cerca.
   const [archivio, setArchivio] = useState<OrdineArchivio[]>([])
@@ -333,6 +379,14 @@ export function OrdiniLista() {
       annullato = true
     }
   }, [qCercata])
+
+  // L'ultimo giro è andato male? `annotaSync` scrive "ok: …" quando è riuscito.
+  const syncFallito = !!esitoSync && !esitoSync.startsWith('ok')
+  // Fermo da più di un'ora: il giro è ogni 15 minuti, quindi quattro mancati di
+  // fila non sono un ritardo, sono un guasto.
+  const syncFermo =
+    syncFallito ||
+    (!!ultimaSync && Date.now() - new Date(ultimaSync).getTime() > 60 * 60 * 1000)
 
   const filtriAttivi = !!(
     qCercata ||
@@ -420,19 +474,7 @@ export function OrdiniLista() {
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0 }}>Ordini</h1>
-        {/* Gli ordini si aggiornano da soli ogni 15 minuti (cron): qui si vede
-            che il giro sta girando, così "Aggiorna" resta un'eccezione. */}
-        <span className="cella-sub" style={{ flex: 1 }}>
-          {ultimaSync ? `Aggiornati da soli ${quantoFa(ultimaSync)}` : 'Aggiornamento automatico ogni 15 minuti'}
-        </span>
-        <button
-          className="bottone secondario"
-          onClick={scarica}
-          disabled={!!occupato}
-          title="Riprende subito gli ordini recenti dal registro Deluxy Orders, senza aspettare il giro automatico"
-        >
-          {occupato === 'sync' ? 'Aggiorno…' : 'Aggiorna da Ordini'}
-        </button>
+        <span style={{ flex: 1 }} />
         <button
           className="bottone"
           onClick={salvaTutti}
@@ -442,6 +484,41 @@ export function OrdiniLista() {
           {occupato === 'tutti' ? 'Salvo…' : 'Salva tutti i contatti'}
         </button>
       </div>
+
+      {/* LA CATENA DEGLI AGGIORNAMENTI, in chiaro: Shopify → Ordini → qui.
+          Serve a distinguere «non sono arrivati ordini nuovi» da «qualcosa si è
+          fermato», che da un elenco fermo si vedono uguali. */}
+      <div className="catena-sync">
+        <span className={`pallino-sync${syncFermo ? ' fermo' : ''}`} aria-hidden="true" />
+        <div className="catena-testo">
+          <strong>
+            {ultimaSync ? `Ordini aggiornati ${quantoFa(ultimaSync)}` : 'Aggiornamento automatico ogni 15 minuti'}
+          </strong>
+          <span className="catena-dettaglio">
+            {importOrders ? `Ordini ha scaricato da Shopify ${quantoFa(importOrders)}` : null}
+            {importOrders ? ' · ' : ''}
+            {vistoIl ? `questa pagina si rilegge da sola, ultima lettura ${quantoFa(vistoIl)}` : null}
+          </span>
+        </div>
+        <button
+          className="bottone secondario"
+          onClick={scarica}
+          disabled={!!occupato}
+          title="Riprende subito gli ordini dal registro Ordini, senza aspettare il giro automatico"
+        >
+          {occupato === 'sync' ? 'Aggiorno…' : 'Aggiorna adesso'}
+        </button>
+      </div>
+      {/* Un giro fallito non deve nascondersi dietro un orario rassicurante. */}
+      {syncFallito ? (
+        <div className="avviso-errore">Ultimo aggiornamento non riuscito: {esitoSync}</div>
+      ) : null}
+      {syncFermo && !syncFallito ? (
+        <div className="avviso-errore">
+          Gli ordini non si aggiornano da più di un&apos;ora: il giro automatico potrebbe essersi
+          fermato. Premi <strong>Aggiorna adesso</strong> e, se non cambia, controlla il cron.
+        </div>
+      ) : null}
 
       <div className="barra-ricerca">
         <input

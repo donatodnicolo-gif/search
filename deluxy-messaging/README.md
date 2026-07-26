@@ -213,11 +213,26 @@ a un limite del dato, non del codice: su Shopify il nome dell'acquirente è quas
 persona anche quando compra un'azienda, quindi il B2B risulta sottostimato — si corregge
 caso per caso in Orders, e il sync lo porta qui.
 
-**Aggiornamento automatico ogni 15 minuti.** Gli ordini arrivano da soli: un cron Vercel
+**Aggiornamento automatico ogni 15 minuti.** Gli ordini arrivano da soli lungo tutta la catena: **Orders scarica da Shopify ogni quarto d'ora** (prima lo faceva una volta al giorno, quindi qui si interrogava una fonte ferma) e un cron Vercel
 (`vercel.json` → `/api/cron/ordini`) rifà lo scarico incrementale ogni quarto d'ora, così
-un ordine ricevuto alle 9:03 è qui entro le 9:15 senza che nessuno prema niente. In testa
-alla pagina Ordini c'è scritto da quanto è passato l'ultimo giro — se il cron si fermasse,
-si vedrebbe. *Aggiorna da Ordini* resta per quando non si vuole aspettare. La rotta è
+un ordine ricevuto alle 9:03 è qui entro le 9:15 senza che nessuno prema niente.
+
+In testa alla pagina Ordini c'è la **catena degli aggiornamenti**: un pallino verde che
+pulsa finché il giro è vivo, da quanto sono aggiornati gli ordini, da quanto Orders ha
+scaricato da Shopify e che questa pagina si rilegge da sola. I due orari servono entrambi:
+senza quello di Orders, «aggiornati 3 minuti fa» non distingue *non ci sono ordini nuovi*
+da *Orders è fermo da ieri*, che per chi aspetta un ordine sono cose molto diverse — ed è
+esattamente l'errore che c'era prima, quando Orders scaricava una volta al giorno.
+
+**Due allarmi**, perché un elenco fermo e un elenco senza novità si vedono uguali: il
+pallino diventa rosso con un avviso se l'ultimo giro è **fallito**, o se non si aggiorna
+**da più di un'ora** (quattro giri mancati di fila non sono un ritardo, sono un guasto).
+
+**L'elenco si rilegge da solo ogni minuto**, così gli ordini nuovi compaiono senza premere
+niente. Un minuto e non quindici perché i giri del cron non sono allineati a quando hai
+aperto la pagina: con un solo controllo ogni quarto d'ora, un ordine appena arrivato
+potrebbe aspettarne quasi trenta. Si ferma quando la scheda non è in primo piano e rilegge
+appena ci torni. *Aggiorna adesso* resta per quando non si vuole aspettare. La rotta è
 protetta dal `CRON_SECRET` (header `Authorization: Bearer …`, che Vercel manda da solo):
 senza segreto configurato risponde 503 invece di restare un endpoint aperto.
 Il **salvataggio dei contatti in rubrica ha un cron suo**, ogni ora

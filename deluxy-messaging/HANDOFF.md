@@ -55,6 +55,39 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- ORDINI VISIBILMENTE AGGIORNATI, E DAVVERO OGNI 15 MINUTI (26/07/2026).
+  ⚠️ **LA CATENA ERA ROTTA A MONTE**: questo cron gira ogni quarto d'ora, ma
+  **Orders scaricava da Shopify una volta al giorno (06:00)** — quindi si
+  interrogava una fonte ferma e un ordine delle 10:00 compariva qui il mattino
+  dopo. Non si poteva nemmeno sospettare: la pagina scriveva «aggiornati 3 minuti
+  fa», che era vero e inutile.
+  Corretto in `deluxy-orders/vercel.json`: due giri, `*/15 * * * *` su
+  `/api/cron/sync?giorni=2` (gli ordini NUOVI in fretta) più la passata piena a
+  90 giorni una volta al giorno (rimborsi, annullamenti, evasioni: cose che
+  cambiano DOPO e che il giro veloce non guarda). I feedback restano sul giro
+  lento — sono una chiamata a un'altra app e un reclamo non si aspetta come un
+  ordine. Il parametro `giorni` è letto dalla rotta (max 365, default 90).
+  In pagina, al posto della scritta grigia c'è la **barra della catena**
+  (`.catena-sync`): pallino verde che pulsa se il giro è vivo, «Ordini aggiornati
+  N minuti fa», «Ordini ha scaricato da Shopify N minuti fa» — quest'ultimo da
+  `ultimoImportOrders()` che legge `ultimoImport`, campo nuovo di
+  `GET /api/v1/health` di Orders (pubblico, è un orario) — e «questa pagina si
+  rilegge da sola». Il pulsante è diventato «Aggiorna adesso».
+  DUE ALLARMI, perché un elenco fermo e un elenco senza novità si vedono uguali:
+  pallino rosso + avviso se l'ultimo giro è **fallito** (`ordiniSyncEsito` che non
+  inizia per "ok") o se non si aggiorna **da più di un'ora** (quattro giri
+  mancati di fila non sono un ritardo, sono un guasto).
+  L'elenco si **rilegge da solo ogni 60 secondi** (non 15 minuti: i giri del cron
+  non sono allineati a quando apri la pagina, quindi con un solo controllo ogni
+  quarto d'ora un ordine appena arrivato potrebbe aspettarne quasi trenta). Si
+  **ferma a scheda nascosta** e rilegge appena torna in primo piano.
+  VERIFICATO: barra con i tre orari veri; scheda nascosta → 0 letture, ritorno in
+  primo piano → 1 lettura subito; simulando 3 ore di fermo → pallino `fermo` +
+  avviso; simulando un giro fallito → avviso con il messaggio d'errore; stato
+  normale → nessun avviso. `ultimoImport` in produzione risponde davvero.
+  ⚠️ DA CONTROLLARE FRA UN GIRO: che il cron `*/15` di Orders parta **da solo**
+  (si vede da `ultimoImport` che avanza). Vercel registra i cron al deploy.
+
 - RIMBORSI: BOTTONE SULL'ORDINE + REGISTRO (26/07/2026): da ogni ordine (scheda e
   tabella) il pulsante **Rimborso** apre `/rimborsi` col modulo già pieno
   (ordine, cliente, recapiti, **totale** e **stato del pagamento**). Tabella

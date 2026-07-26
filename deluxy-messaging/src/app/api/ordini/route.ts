@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { googleAccessToken } from '@/lib/contatti'
 import { brandRicercaDaNegozio } from '@/lib/negozi'
+import { ultimoImportOrders } from '@/lib/orders'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +49,8 @@ export async function GET(req: NextRequest) {
     if (cifre.length >= 4) dove.OR.push({ telefono: { contains: cifre } })
   }
 
-  const [ordini, totale, token, negoziDb, gruppi, ultimaSync, perTipo] = await Promise.all([
+  const [ordini, totale, token, negoziDb, gruppi, ultimaSync, esitoSync, importOrders, perTipo] =
+    await Promise.all([
     db.ordine.findMany({ where: dove, orderBy: { data: 'desc' }, take: 200 }),
     db.ordine.count({ where: dove }),
     googleAccessToken().catch(() => null),
@@ -64,6 +66,11 @@ export async function GET(req: NextRequest) {
     // Quando è passato l'ultimo giro automatico: serve a far vedere che il cron
     // dei 15 minuti sta girando (o che si è fermato).
     db.impostazione.findUnique({ where: { chiave: 'ordiniSyncUltimo' } }),
+    // Com'è andato l'ultimo giro: se è fallito bisogna dirlo, altrimenti
+    // «aggiornati 3 minuti fa» rassicura mentre in realtà non arriva più niente.
+    db.impostazione.findUnique({ where: { chiave: 'ordiniSyncEsito' } }),
+    // E quando Orders ha scaricato da Shopify: è l'anello a monte della catena.
+    ultimoImportOrders(),
     // Da che tipo di cliente arrivano gli ordini del filtro in corso: è la
     // domanda per cui il campo esiste, quindi la risposta la si dà qui.
     db.ordine.groupBy({ by: ['clienteTipo'], where: dove, _count: { _all: true } }),
@@ -88,6 +95,11 @@ export async function GET(req: NextRequest) {
     negozi,
     googleCollegato: !!token,
     ultimaSync: ultimaSync?.valore ?? '',
+    // Esito dell'ultimo giro ("ok: 31 ordini…" oppure il messaggio d'errore):
+    // un aggiornamento fallito deve vedersi, non nascondersi dietro un orario.
+    esitoSync: esitoSync?.valore ?? '',
+    // Quando Orders ha scaricato da Shopify: l'anello a monte della catena.
+    ultimoImportOrders: importOrders ?? '',
     // { privato: 120, azienda: 8, '': 3 } — '' sono quelli senza tipo noto
     perTipoCliente: Object.fromEntries(perTipo.map((t) => [t.clienteTipo, t._count._all])),
   })
