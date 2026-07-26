@@ -60,7 +60,16 @@ pubblicato), *sfidante* e *irraggiungibile*.
   predefinita, 10%, oppure «Lordo» per il dato Shopify tale e quale), perché l'aliquota non è
   salvata sull'ordine e non va indovinata. Ordini **annullati e rimborsati esclusi**; i rimborsi
   parziali restano contati per intero, ed è scritto sotto la tabella.
-  I periodi sono **YTD** (predefinito: da gennaio all'ultimo mese chiuso), T1-T4, i due semestri e
+  Il consuntivo **arriva a oggi**: il mese in corso è dentro il conto, parziale (prima si fermava
+  all'ultimo mese chiuso, e a fine luglio non sapeva niente di luglio). Siccome non tutte le fonti
+  hanno la stessa finezza, la pagina dice cosa è al giorno e cosa al mese: le **vendite ecommerce**
+  sono al giorno e **anche l'anno prima viene tagliato allo stesso giorno** (Orders accetta un
+  intervallo di date, quindi lì il confronto è esatto); **Finance e banca hanno solo il mese**,
+  quindi per l'anno prima quel mese vale intero; **budget e costo del personale** del mese sono
+  interi. Un importo dell'anno prima che copre solo una parte del periodo è marcato «parziale», la
+  sua **percentuale non si mostra** (confronterebbe 7 mesi con 1) e il **margine lordo** di
+  quell'anno resta vuoto invece di essere ricavi pieni meno costi di un mese.
+  I periodi sono **YTD** (predefinito: da gennaio a oggi), T1-T4, i due semestri e
   **Anno** (ultimo del gruppo). «Anno» è la vista di fine corsa e si comporta diversamente: il
   **consuntivo resta YTD** mentre **budget e anno precedente sono interi**, per rispondere a «a che
   punto sono rispetto a tutto l'anno». Lì le colonne cambiano nome — «Tutto il *anno-1*», «% del

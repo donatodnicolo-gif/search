@@ -47,22 +47,30 @@ export default async function ConsuntivoPage({
   // una costante che nessuno ritrova.
   const aliquota = ALIQUOTE.find((a) => a.key === sp.iva) ?? ALIQUOTE[0];
 
-  // Anno selezionabile. Il consuntivo si ferma all'ultimo mese CHIUSO: il mese
-  // in corso è incompleto, quindi lo si esclude.
+  // Anno selezionabile. Il consuntivo arriva **a oggi**: il mese in corso ci
+  // sta dentro, parziale. Prima si fermava all'ultimo mese chiuso e a fine
+  // luglio il consuntivo non sapeva niente di luglio — una domanda su come sta
+  // andando il mese non trovava risposta proprio quando serviva.
   const oggi = new Date();
   const annoInCorso = oggi.getUTCFullYear();
   const meseInCorso = oggi.getUTCMonth() + 1; // 1..12
+  const giornoInCorso = oggi.getUTCDate();
   const ANNI = [annoInCorso - 2, annoInCorso - 1, annoInCorso];
   const anno = ANNI.includes(Number(sp.anno)) ? Number(sp.anno) : annoInCorso;
 
   // Ultimo mese disponibile per l'anno scelto: anni passati = 12, anno in corso
-  // = mese precedente a quello attuale, anni futuri = 0 (niente chiuso).
-  const meseLimite = anno < annoInCorso ? 12 : anno > annoInCorso ? 0 : meseInCorso - 1;
+  // = quello attuale (parziale), anni futuri = 0.
+  const meseLimite = anno < annoInCorso ? 12 : anno > annoInCorso ? 0 : meseInCorso;
+  // Il mese ancora aperto, se cade dentro il periodo scelto: da lì nascono
+  // tutti gli avvisi «attenzione, questo pezzo è parziale».
+  const giorniDelMese = new Date(Date.UTC(annoInCorso, meseInCorso, 0)).getUTCDate();
   const dal = periodo.dal;
   const al = Math.min(periodo.al, meseLimite);
   const mesiPeriodo: number[] = [];
   for (let m = dal; m <= al; m++) mesiPeriodo.push(m);
   const vuoto = mesiPeriodo.length === 0;
+  // C'è un mese aperto dentro questo periodo?
+  const parziale = anno === annoInCorso && mesiPeriodo.includes(meseInCorso);
 
   // **Il termine di paragone.** Di norma è lo stesso periodo del consuntivo
   // (mele con mele): confrontare sei mesi con dodici direbbe che il fatturato
@@ -75,6 +83,14 @@ export default async function ConsuntivoPage({
   const rifAl = periodo.annoIntero ? 12 : al;
   const mesiRif: number[] = [];
   for (let m = rifDal; m <= rifAl; m++) mesiRif.push(m);
+
+  // Data (esclusiva) a cui fermare l'anno precedente per l'ecommerce. Solo se il
+  // mese aperto è dentro il periodo di riferimento: nella vista «Anno» il
+  // paragone è l'anno intero e non va tagliato.
+  const tagliaPrec =
+    parziale && !periodo.annoIntero
+      ? new Date(Date.UTC(annoPrec, meseInCorso - 1, giornoInCorso + 1)).toISOString().slice(0, 10)
+      : undefined;
 
   const etichettaMesi = (a: number, b: number) => (a === b ? MESI[a - 1] : `${MESI[a - 1]}–${MESI[b - 1]}`);
   const etichettaPeriodo = vuoto ? "—" : etichettaMesi(dal, al);
@@ -89,7 +105,12 @@ export default async function ConsuntivoPage({
     // nel registro Orders.
     vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchRicaviD2C(anno),
     vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchConsuntivo({ anno: annoPrec, dal: rifDal, al: rifAl, stato }),
-    vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchRicaviD2C(annoPrec),
+    // Ecommerce dell'anno prima fermato **allo stesso giorno**, quando il mese
+    // corrente è dentro il periodo: 26 giorni di luglio vanno confrontati con 26
+    // giorni di luglio. Orders ragiona per date, quindi qui il paragone è esatto.
+    vuoto
+      ? Promise.resolve({ ok: false as const, errore: "", configurato: true })
+      : fetchRicaviD2C(annoPrec, tagliaPrec),
     vuoto ? Promise.resolve({ ok: false as const, errore: "", configurato: true }) : fetchSpeseBanca({ anno: annoPrec, dal: rifDal, al: rifAl }),
     caricaAnno(annoPrec),
   ]);
@@ -249,7 +270,12 @@ export default async function ConsuntivoPage({
   const rosterPrec = datiPrec.persone.length > 0;
   const personalePrec = rosterPrec ? mesiRif.reduce((s, m) => s + costoPersonaleMese(datiPrec, m), 0) : null;
   const costoPrec = (tp: keyof typeof costiPrec) => (bancaPrec ? costiPrec[tp] : null);
-  const margineLordoPrec = ricaviPrec !== null && bancaPrec ? ricaviPrec - costiPrec.COGS : null;
+  // Il margine lordo dell'anno prima si calcola SOLO se il costo del venduto di
+  // quell'anno copre tutto il periodo. Con la banca 2025 che parte a luglio,
+  // «margine lordo 2025» sarebbe ricavi pieni meno costi di un mese: un numero
+  // enorme e falso, che poi si porta dietro un −29% in rosso su una riga sana.
+  const margineLordoPrec =
+    ricaviPrec !== null && bancaPrec && !bancaPrecParziale ? ricaviPrec - costiPrec.COGS : null;
   const ebitdaPrec =
     margineLordoPrec !== null && personalePrec !== null
       ? margineLordoPrec - costiPrec.ADV - personalePrec - costiPrec.STRUTTURA
@@ -286,6 +312,10 @@ export default async function ConsuntivoPage({
     budget: number;
     // null = per quella voce l'anno prima non c'è il dato. Diverso da zero.
     prec: number | null;
+    // true = l'importo dell'anno prima c'è ma copre solo una parte del periodo:
+    // l'importo si mostra, la percentuale no — sarebbe un +2384% che parla di
+    // mesi mancanti, non di spesa.
+    precParziale?: boolean;
     tipo: "ricavo" | "costo" | "totale";
     dettaglio?: boolean;
   };
@@ -304,11 +334,11 @@ export default async function ConsuntivoPage({
   const righePL: RigaPL[] = [
     { label: "Totale ricavi", cons: ricaviCons, budget: budgetRicavi, prec: ricaviPrec, tipo: "totale" },
     ...righeRicavi,
-    { label: "Costo del venduto", nota: "banca · Fornitori/COGS", cons: costi.COGS, budget: B("cogs"), prec: costoPrec("COGS"), tipo: "costo" },
+    { label: "Costo del venduto", nota: "banca · Fornitori/COGS", cons: costi.COGS, budget: B("cogs"), prec: costoPrec("COGS"), precParziale: bancaPrecParziale, tipo: "costo" },
     { label: "Margine lordo", cons: margineLordoCons, budget: B("margineLordo"), prec: margineLordoPrec, tipo: "totale" },
-    { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), prec: costoPrec("ADV"), tipo: "costo" },
+    { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), prec: costoPrec("ADV"), precParziale: bancaPrecParziale, tipo: "costo" },
     { label: "Costo del personale", nota: "anagrafica Dipendenti", cons: personaleCons, budget: B("personale"), prec: personalePrec, tipo: "costo" },
-    { label: "Costi di struttura", nota: "banca · Struttura", cons: costi.STRUTTURA, budget: B("costiFissi"), prec: costoPrec("STRUTTURA"), tipo: "costo" },
+    { label: "Costi di struttura", nota: "banca · Struttura", cons: costi.STRUTTURA, budget: B("costiFissi"), prec: costoPrec("STRUTTURA"), precParziale: bancaPrecParziale, tipo: "costo" },
     { label: "EBITDA", cons: ebitdaCons, budget: B("ebitda"), prec: ebitdaPrec, tipo: "totale" },
   ];
   const buono = (r: RigaPL) => (r.tipo === "costo" ? r.cons - r.budget <= 0 : r.cons - r.budget >= 0);
@@ -355,7 +385,8 @@ export default async function ConsuntivoPage({
 
   const link = (p: { periodo?: string; stato?: string; anno?: number; iva?: string }) =>
     `/consuntivo?periodo=${p.periodo ?? periodo.key}&stato=${p.stato ?? stato}&anno=${p.anno ?? anno}&iva=${p.iva ?? aliquota.key}`;
-  const ultimoChiuso = meseLimite >= 1 ? `${MESI[meseLimite - 1]} ${anno}` : "—";
+  const ultimoMese = meseLimite >= 1 ? `${MESI[meseLimite - 1]} ${anno}` : "—";
+  const meseAperto = `${MESI[meseInCorso - 1]} ${anno}`;
 
   return (
     <>
@@ -363,8 +394,17 @@ export default async function ConsuntivoPage({
         <div>
           <h1 className="page-title">Consuntivo</h1>
           <p className="page-caption">
-            Il conto economico reale, con le stesse voci del P&amp;L a budget. Si ferma all&apos;ultimo mese
-            chiuso{anno === annoInCorso && meseLimite >= 1 ? ` (${ultimoChiuso})` : ""}: il mese in corso è escluso perché incompleto.
+            Il conto economico reale, con le stesse voci del P&amp;L a budget. Arriva{" "}
+            {parziale ? (
+              <>
+                <strong>a oggi</strong>: {meseAperto} è dentro il conto ma è <strong>in corso</strong> —{" "}
+                {giornoInCorso} giorni su {giorniDelMese}.
+              </>
+            ) : (
+              <>
+                fino a <strong>{ultimoMese}</strong>: mesi completi.
+              </>
+            )}
           </p>
         </div>
         <div className="page-actions">
@@ -394,10 +434,10 @@ export default async function ConsuntivoPage({
       {vuoto ? (
         <div className="card empty">
           <div className="empty-icon">◷</div>
-          <div className="empty-title">Nessun mese chiuso in questo periodo</div>
+          <div className="empty-title">Nessun mese di questo periodo è ancora cominciato</div>
           <div className="empty-text">
-            Per il {anno} l&apos;ultimo mese chiuso è {ultimoChiuso}. Il periodo {periodo.label} non contiene mesi
-            già conclusi: scegli un periodo o un anno precedente.
+            Per il {anno} il consuntivo arriva a {ultimoMese}. Il periodo {periodo.label} è tutto nel futuro:
+            scegli un periodo o un anno precedente.
           </div>
         </div>
       ) : !res.ok ? (
@@ -488,9 +528,15 @@ export default async function ConsuntivoPage({
                         </td>
                         <td className="num muted">
                           {r.prec === null ? "—" : r.tipo === "costo" ? `− ${eur(r.prec)}` : eur(r.prec)}
+                          {r.prec !== null && r.precParziale && (
+                            <div className="muted" style={{ fontSize: 11.5 }}>parziale</div>
+                          )}
                         </td>
                         <td className="num">
                           {(() => {
+                            // Percentuale muta su una base parziale: direbbe
+                            // «spesa raddoppiata» quando mancano solo dei mesi.
+                            if (r.precParziale) return <span className="muted">—</span>;
                             // Vista «Anno»: quota di un anno intero già fatta,
                             // non una variazione — un segno "+/−" qui mentirebbe.
                             if (periodo.annoIntero) {
@@ -567,8 +613,8 @@ export default async function ConsuntivoPage({
             ecommerce</strong> prese dal registro ordini (Orders): quelle dei negozi Shopify non passano da Finance,
             quindi senza Orders la voce con il budget più alto dell&apos;anno resterebbe a zero. Il <strong>costo del
             personale</strong> viene dall&apos;anagrafica{" "}
-            <Link href="/dipendenti" style={{ color: "var(--blue)" }}>Dipendenti</Link> (payroll, per i mesi
-            chiusi), non dalla banca. Gli <strong>altri costi</strong> (COGS, ADV, struttura) sono le uscite di
+            <Link href="/dipendenti" style={{ color: "var(--blue)" }}>Dipendenti</Link> (payroll, mese per
+            mese), non dalla banca. Gli <strong>altri costi</strong> (COGS, ADV, struttura) sono le uscite di
             banca categorizzate nel <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>
             {spese.ok ? ` (${eur(nonCategorizzato)} ancora da categorizzare` : " (spese banca non disponibili"}
             {esclusi > 0 ? `, ${eur(esclusi)} esclusi` : ""}): finché non li classifichi restano sottostimati.{" "}
@@ -600,12 +646,27 @@ export default async function ConsuntivoPage({
                 {!bancaPrec ? "calcolano" : "calcola"}.{" "}
               </>
             )}
+            {parziale && (
+              <>
+                <strong>{MESI[meseInCorso - 1]} è in corso</strong> ({giornoInCorso} giorni su {giorniDelMese}), e non
+                tutte le voci si fermano allo stesso punto: le <strong>vendite ecommerce</strong> sono al giorno, e
+                anche il {annoPrec} è tagliato allo stesso giorno, quindi lì il confronto è esatto. Il{" "}
+                <strong>fatturato di Finance</strong> e le <strong>uscite di banca</strong> si contano a mese
+                {periodo.annoIntero ? "" : `, quindi per il ${annoPrec} ${MESI[meseInCorso - 1]} vale intero`}; il{" "}
+                <strong>budget</strong> e il <strong>costo del personale</strong> del mese sono interi. Su quelle voci
+                il mese in corso risulta quindi più magro di quanto sarà.{" "}
+              </>
+            )}
             {bancaPrecParziale && (
               <>
                 <strong>Attenzione al {annoPrec}</strong>: in banca ci sono movimenti solo in{" "}
-                {mesiBancaPrec.length} mesi su {mesiRif.length} ({etichettaMesi(mesiBancaPrec[0], mesiBancaPrec[mesiBancaPrec.length - 1])}),
-                quindi i <strong>costi dell&apos;anno prima sono parziali</strong>: la loro percentuale dice che si
-                spende di più, ma in parte è solo perché il {annoPrec} è misurato su meno mesi.{" "}
+                {mesiBancaPrec.length} {mesiBancaPrec.length === 1 ? "mese" : "mesi"} su {mesiRif.length}{" "}
+                ({etichettaMesi(mesiBancaPrec[0], mesiBancaPrec[mesiBancaPrec.length - 1])}), quindi i{" "}
+                <strong>costi dell&apos;anno prima sono parziali</strong>: l&apos;importo è marcato «parziale» e la
+                percentuale non si mostra, perché confronterebbe {mesiRif.length} mesi con{" "}
+                {mesiBancaPrec.length}. Per lo stesso motivo il <strong>margine lordo</strong> del {annoPrec} resta
+                vuoto: sarebbe ricavi pieni meno costi di{" "}
+                {mesiBancaPrec.length === 1 ? "un mese" : `${mesiBancaPrec.length} mesi`}.{" "}
               </>
             )}
             Budget di confronto = somma dei mesi {etichettaRif}. Ricavi al netto IVA, uscite di cassa IVA inclusa:

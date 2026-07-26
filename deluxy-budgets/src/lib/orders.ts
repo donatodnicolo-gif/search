@@ -39,7 +39,12 @@ export type RicaviResult =
   | { ok: true; dati: Ricavi }
   | { ok: false; errore: string; configurato: boolean };
 
-export async function fetchRicaviD2C(anno: number): Promise<RicaviResult> {
+// `fino` (data ISO esclusiva) serve al confronto con l'anno prima quando il mese
+// corrente è ancora in corso: fermare anche l'anno scorso allo stesso giorno è
+// l'unico modo per non confrontare 26 giorni di luglio con 31. Orders accetta
+// un intervallo di date, quindi qui il paragone è esatto — a differenza di
+// Finance e della banca, che hanno solo il mese.
+export async function fetchRicaviD2C(anno: number, fino?: string): Promise<RicaviResult> {
   const key = await chiave("ORDERS_API_KEY");
   if (!key) {
     return {
@@ -50,7 +55,12 @@ export async function fetchRicaviD2C(anno: number): Promise<RicaviResult> {
     };
   }
   try {
-    const res = await fetch(`${BASE}/api/v1/ricavi?anno=${anno}`, {
+    const qs = new URLSearchParams({ anno: String(anno) });
+    if (fino) {
+      qs.set("da", `${anno}-01-01`);
+      qs.set("a", fino);
+    }
+    const res = await fetch(`${BASE}/api/v1/ricavi?${qs.toString()}`, {
       headers: { "x-api-key": key, "X-App": "deluxy-budgets" },
       cache: "no-store",
     });
