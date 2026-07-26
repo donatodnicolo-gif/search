@@ -67,9 +67,10 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
     quindi `vercel deploy` **dalla cartella dell'app fallisce** (cerca
     `deluxy-tasks/deluxy-tasks`). La radice del repo è stata collegata al
     progetto, quindi il deploy si fa da lì:
-    `cd C:\Users\nicol\app && npx vercel deploy --prod --yes`. Se il codice non è
-    cambiato e servono solo variabili nuove basta
-    `npx vercel redeploy <url-ultimo-prod>`.
+    `cd C:\Users\nicol\app && npx vercel deploy --prod --yes`.
+  - ⚠️ **Mai `vercel redeploy`**: non applica solo le variabili nuove, rimette in
+    produzione il **codice** di quel vecchio deploy. Il 26/07 ha riportato online
+    una versione senza `/api/sso`, e dal Hub si finiva su una pagina 404.
 - **Verifica**: `npx tsc --noEmit` OK, `next build` OK, DB collegato (schema
   isolato `tasks` nel cluster condiviso) con 4 task demo. Testato end-to-end:
   upsert idempotente, freschezza (`ignorata_obsoleta`), callback firmato HMAC
@@ -86,11 +87,11 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
    solo `npm run chiave -- mail --scrittura` e incollare la chiave in AI Mail →
    Impostazioni App → «Registro Attività» (o nella cassaforte del Hub, progetto
    `deluxy-mail`, nome `TASKS_API_KEY`).
-3. **DB in produzione**: su Vercel il progetto ha solo `TASKS_SESSION_SECRET`;
-   mancano `DATABASE_URL` e `DIRECT_URL`, quindi l'app online mostra «Database non
-   configurato». Si sistemano con **un comando** dalla cartella dell'app:
-   `npm run vercel:env` (copia le stringhe dal `.env` locale senza stamparle e
-   rilancia il deploy di produzione). Poi creare le squadre con `npm run squadra`.
+3. ~~**DB in produzione**~~ **FATTO il 26/07/2026**: `DATABASE_URL` e `DIRECT_URL`
+   sono nelle variabili di produzione (messe con `npm run vercel:env`, che le copia
+   dal `.env` locale senza stamparle e poi ripubblica dalla radice del repo).
+   L'app online interroga il database. Restano da creare le squadre
+   (`npm run squadra`).
 4. **Far mandare le task alle app**: integrare `POST /api/v1/tasks` dove ogni app
    già crea "cose da fare".
    - **FATTO — AI Mail** (26/07/2026, repo `scoutwt`, branch `scout-ui`):

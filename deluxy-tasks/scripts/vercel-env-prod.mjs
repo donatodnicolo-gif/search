@@ -5,6 +5,7 @@
 //
 // Uso: npm run vercel:env
 import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
 import { spawnSync } from "child_process";
 
 const righe = readFileSync(new URL("../.env", import.meta.url), "utf8").split(/\r?\n/);
@@ -43,19 +44,19 @@ for (const nome of variabili) {
   console.log(`${nome} impostata in produzione (valore non mostrato).`);
 }
 
-// Le variabili entrano in vigore solo al deploy successivo: si rilancia
-// l'ultimo deploy di produzione (stesso codice, nuove variabili).
-const elenco = vercel(["ls", "deluxy-tasks"]);
-const riga = (elenco.stdout + elenco.stderr)
-  .split("\n")
-  .find((l) => l.includes("Production") && l.includes("Ready"));
-const url = riga?.match(/https:\/\/[a-z0-9.-]+\.vercel\.app/)?.[0];
-if (!url) {
-  console.log("Variabili impostate. Ora rilancia a mano il deploy di produzione (npx vercel redeploy <url>).");
-  process.exit(0);
-}
-console.log(`Rilancio il deploy di produzione (${url})…`);
-const dep = spawnSync("npx", ["vercel", "redeploy", url.replace("https://", "")], {
+// Le variabili entrano in vigore solo al deploy successivo, quindi si pubblica
+// il codice che c'è ORA su disco. Il deploy si lancia dalla RADICE DEL REPO:
+// il progetto Vercel ha Root Directory = "deluxy-tasks", quindi partendo dalla
+// cartella dell'app andrebbe a cercare "deluxy-tasks/deluxy-tasks" e fallisce
+// in un secondo.
+//
+// NON si usa `vercel redeploy`: rimette in produzione il CODICE di quel vecchio
+// deploy. È già successo che riportasse online una versione senza le rotte
+// aggiunte dopo (la /api/sso sparita, 404 dal Hub).
+const radice = fileURLToPath(new URL("../..", import.meta.url));
+console.log(`Pubblico in produzione da ${radice}…`);
+const dep = spawnSync("npx", ["vercel", "deploy", "--prod", "--yes"], {
+  cwd: radice,
   shell: true,
   stdio: "inherit",
 });
