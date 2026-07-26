@@ -15,12 +15,15 @@
 import { prisma } from "./db";
 import { etichettaCategoria } from "./dominio";
 import { calcolaIpotesi, PARAMETRI_DEFAULT } from "./riordino";
+import { leggiSegreto } from "./segreti";
 import { analizzaVendite, delta } from "./vendite";
 
 const MODELLO = (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
 
-export function aiConfigurata(): boolean {
-  return Boolean(process.env.OPENAI_API_KEY);
+// La chiave può stare nell'ambiente o essere stata inserita in Impostazioni:
+// una sola porta d'ingresso per tutte le funzioni AI dell'app (vedi segreti.ts).
+export async function aiConfigurata(): Promise<boolean> {
+  return Boolean(await leggiSegreto("OPENAI_API_KEY"));
 }
 
 export type Osservazione = {
@@ -203,13 +206,14 @@ export type EsitoLettura =
 /** Chiede la lettura al modello e la storicizza. */
 export async function generaLettura(giorni: number, canale: string | null = null): Promise<EsitoLettura> {
   const dati = await datiPerAI(giorni, canale);
+  const chiave = await leggiSegreto("OPENAI_API_KEY");
 
-  if (!aiConfigurata()) {
+  if (!chiave) {
     return {
       ok: false,
       configurata: false,
       errore:
-        "Chiave OpenAI non configurata: aggiungi OPENAI_API_KEY alle variabili d'ambiente dell'app. I numeri qui sotto sono già pronti.",
+        "Chiave OpenAI non configurata: impostala in Negozi & permessi (o come OPENAI_API_KEY nell'ambiente). I numeri qui sotto sono già pronti.",
       dati,
     };
   }
@@ -219,7 +223,7 @@ export async function generaLettura(giorni: number, canale: string | null = null
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${chiave}`,
       },
       body: JSON.stringify({
         model: MODELLO,

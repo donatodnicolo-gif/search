@@ -186,6 +186,25 @@ model NegozioShopify {
   @@index([attivo])
 }
 
+// Il prompt AI di una categoria, come nel form Categorie di app.deluxy.it: chi
+// conosce il prodotto scrive una volta come si racconta quella famiglia (le
+// torte non si descrivono come i bouquet) e l'AI lo riusa a ogni descrizione.
+model PromptCategoria {
+  categoria    String   @id // chiave del catalogo in dominio.ts
+  prompt       String
+  aggiornatoIl DateTime @updatedAt
+}
+
+// Impostazioni riservate salvate dall'app (oggi: la chiave OpenAI), cifrate
+// come i token Shopify. Stanno qui e non solo nell'ambiente perché chi usa
+// l'app possa cambiarle senza un deploy.
+model Impostazione {
+  chiave        String   @id
+  valoreCifrato String
+  impronta      String   @default("")
+  aggiornataIl  DateTime @updatedAt
+}
+
 // Una riga venduta, al giorno in cui è stata venduta. È il fatto elementare su
 // cui poggiano trend e ipotesi di ordinativo.
 //

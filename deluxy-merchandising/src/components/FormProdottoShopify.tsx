@@ -8,7 +8,7 @@
 // solo se il prodotto ne ha, la giacenza solo se si controlla lo stock. Lo SKU
 // è generato (DXY-NNNNN) ma resta modificabile, come là.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export type NegozioScelta = { id: string; nome: string; dominio: string; puoScrivere: boolean };
 
@@ -23,9 +23,13 @@ function skuGenerato(): string {
 export function FormProdottoShopify({
   negozi,
   azione,
+  categorie,
+  aiPronta,
 }: {
   negozi: NegozioScelta[];
   azione: (fd: FormData) => void;
+  categorie: { chiave: string; nome: string; conPrompt: boolean }[];
+  aiPronta: boolean;
 }) {
   const [haVarianti, setHaVarianti] = useState(false);
   const [varianti, setVarianti] = useState<Variante[]>([varianteVuota()]);
@@ -33,6 +37,51 @@ export function FormProdottoShopify({
   const [controllaStock, setControllaStock] = useState(false);
   const [extra, setExtra] = useState<{ chiave: string; valore: string }[]>([]);
   const [sku] = useState(skuGenerato);
+  const form = useRef<HTMLFormElement>(null);
+
+  // — Scrittura AI della descrizione (stessa modalità dell'app reale: il prompt
+  //   vive sulla categoria, qui si sceglie solo il tono) —
+  const [categoria, setCategoria] = useState("");
+  const [tono, setTono] = useState("maison");
+  const [descrizione, setDescrizione] = useState("");
+  const [scrivendo, setScrivendo] = useState(false);
+  const [erroreAi, setErroreAi] = useState<string | null>(null);
+
+  async function scriviConAI() {
+    setErroreAi(null);
+    setScrivendo(true);
+    try {
+      // Il form si prende dal ref, non con querySelector("form"): in pagina il
+      // primo form è il selettore d'ambito nella barra in alto, e leggere lì
+      // dava un prodotto senza nome.
+      const modulo = form.current;
+      const leggi = (n: string) => (modulo?.elements.namedItem(n) as HTMLInputElement | null)?.value ?? "";
+      const res = await fetch("/api/ai/descrizione", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: leggi("titolo"),
+          categoria,
+          tipo: leggi("tipo"),
+          materiali: leggi("linea"),
+          prezzo: leggi("prezzo"),
+          varianti: haVarianti ? varianti.map((v) => v.nome).filter(Boolean) : [],
+          tono,
+        }),
+      });
+      const dati = await res.json();
+      if (!dati.ok) {
+        setErroreAi(dati.errore ?? "La generazione non è riuscita.");
+        return;
+      }
+      const punti = (dati.punti as string[]).map((p) => `• ${p}`).join("\n");
+      setDescrizione([dati.claim, "", dati.descrizione, punti ? `\n${punti}` : ""].filter(Boolean).join("\n").trim());
+    } catch {
+      setErroreAi("Non sono riuscito a contattare il servizio di scrittura.");
+    } finally {
+      setScrivendo(false);
+    }
+  }
 
   const utilizzabili = negozi.filter((n) => n.puoScrivere);
 
@@ -40,7 +89,7 @@ export function FormProdottoShopify({
     setVarianti((v) => v.map((x, j) => (j === i ? { ...x, [campo]: valore } : x)));
 
   return (
-    <form action={azione}>
+    <form action={azione} ref={form}>
       <input type="hidden" name="variantiJson" value={JSON.stringify(haVarianti ? varianti : [])} />
       <input type="hidden" name="extraJson" value={JSON.stringify(extra.filter((e) => e.chiave.trim()))} />
 
@@ -53,8 +102,20 @@ export function FormProdottoShopify({
             <input id="titolo" name="titolo" required placeholder="Bouquet Ora Blu" />
           </div>
           <div className="campo-modulo">
-            <label htmlFor="tipo">Categoria</label>
+            <label htmlFor="tipo">Categoria su Shopify</label>
             <input id="tipo" name="tipo" placeholder="Fiori, Torte, Box regalo…" />
+          </div>
+          <div className="campo-modulo">
+            <label htmlFor="categoria">Categoria Deluxy (guida la scrittura AI)</label>
+            <select id="categoria" name="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+              <option value="">— Nessuna —</option>
+              {categorie.map((c) => (
+                <option key={c.chiave} value={c.chiave}>
+                  {c.nome}
+                  {c.conPrompt ? " · ha un prompt" : ""}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="campo-modulo">
             <label htmlFor="vendor">Partner / vendor</label>
@@ -78,7 +139,48 @@ export function FormProdottoShopify({
           </div>
           <div className="campo-modulo largo">
             <label htmlFor="descrizione">Descrizione</label>
-            <textarea id="descrizione" name="descrizione" rows={4} placeholder="Il testo che il cliente legge sulla scheda del sito." />
+            <div className="riga-ai">
+              <select value={tono} onChange={(e) => setTono(e.target.value)} aria-label="Tono della descrizione">
+                <option value="maison">Tono maison</option>
+                <option value="caldo">Tono caldo</option>
+                <option value="essenziale">Tono essenziale</option>
+              </select>
+              <button
+                type="button"
+                className="btn btn-secondario small"
+                onClick={scriviConAI}
+                disabled={scrivendo || !aiPronta}
+                title={aiPronta ? "Scrive una proposta partendo dai dati del prodotto" : "Manca la chiave OpenAI"}
+              >
+                {scrivendo ? "Sto scrivendo…" : "✦ Scrivi con l'AI"}
+              </button>
+              {descrizione && !scrivendo && (
+                <button type="button" className="btn btn-secondario small" onClick={scriviConAI}>
+                  Riscrivi
+                </button>
+              )}
+            </div>
+            <textarea
+              id="descrizione"
+              name="descrizione"
+              rows={descrizione ? 10 : 4}
+              value={descrizione}
+              onChange={(e) => setDescrizione(e.target.value)}
+              placeholder="Il testo che il cliente legge sulla scheda del sito. Puoi scriverlo tu o farlo proporre all'AI."
+            />
+            {erroreAi && <div className="avviso-errore" style={{ marginTop: 8 }}>{erroreAi}</div>}
+            {!aiPronta && (
+              <p className="cella-sub" style={{ marginTop: 6 }}>
+                Per accendere la scrittura AI serve la chiave OpenAI, si imposta in Negozi &amp; permessi.
+              </p>
+            )}
+            {aiPronta && (
+              <p className="cella-sub" style={{ marginTop: 6 }}>
+                L&apos;AI usa solo i dati che hai messo qui — nome, categoria, linea, prezzo, varianti — più il
+                prompt della categoria. Quello che non le dici non se lo inventa: rileggi sempre prima di
+                salvare.
+              </p>
+            )}
           </div>
           <div className="campo-modulo largo">
             <label htmlFor="immagini">Immagini (un URL per riga, la prima è la principale)</label>

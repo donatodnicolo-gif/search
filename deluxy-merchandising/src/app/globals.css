@@ -496,6 +496,14 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 .card-brand-cifra { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; margin-top: 6px; font-variant-numeric: tabular-nums; }
 .card-brand-top { padding-top: 12px; border-top: 1px solid var(--hairline); }
 
+/* ---------- Riga della scrittura AI ---------- */
+.riga-ai { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.riga-ai select {
+  font: inherit; font-size: 13px; color: var(--text); cursor: pointer;
+  background: var(--fill); border: 1px solid transparent;
+  border-radius: var(--radius-pill); padding: 5px 12px; outline: none;
+}
+
 /* ---------- Negozi collegati (impostazioni) ---------- */
 .griglia-negozi { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
 .negozio { margin-bottom: 0; }

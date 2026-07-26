@@ -2,7 +2,10 @@ import Link from "next/link";
 import { FormProdottoShopify } from "@/components/FormProdottoShopify";
 import { Sidebar } from "@/components/Sidebar";
 import { creaProdottoShopifyAzione } from "@/lib/azioni-negozi";
+import { prisma } from "@/lib/db";
+import { CATEGORIE, etichettaCategoria } from "@/lib/dominio";
 import { elencoNegozi } from "@/lib/negozi";
+import { statoSegreto } from "@/lib/segreti";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +15,17 @@ export default async function NuovoProdottoShopifyPage({
   searchParams: Promise<{ errore?: string }>;
 }) {
   const sp = await searchParams;
-  const negozi = await elencoNegozi();
+  const [negozi, prompt, chiaveAi] = await Promise.all([
+    elencoNegozi(),
+    prisma.promptCategoria.findMany({ select: { categoria: true } }),
+    statoSegreto("OPENAI_API_KEY"),
+  ]);
+  const conPrompt = new Set(prompt.map((p) => p.categoria));
+  const categorie = CATEGORIE.map((c) => ({
+    chiave: c,
+    nome: etichettaCategoria(c),
+    conPrompt: conPrompt.has(c),
+  }));
   const scelte = negozi
     .filter((n) => n.attivo)
     .map((n) => ({
@@ -65,7 +78,12 @@ export default async function NuovoProdottoShopifyPage({
           </div>
         )}
 
-        <FormProdottoShopify negozi={scelte} azione={creaProdottoShopifyAzione} />
+        <FormProdottoShopify
+          negozi={scelte}
+          azione={creaProdottoShopifyAzione}
+          categorie={categorie}
+          aiPronta={chiaveAi.presente}
+        />
       </main>
     </div>
   );

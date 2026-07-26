@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { salvaNegozio, tokenDi, verificaNegozio } from "./negozi";
+import { eliminaSegreto, salvaSegreto } from "./segreti";
 import { creaProdottoSuShopify } from "./shopify-admin";
 
 function testo(fd: FormData, chiave: string): string {
@@ -140,6 +141,46 @@ export async function creaProdottoShopifyAzione(fd: FormData) {
     ? `?avviso=${encodeURIComponent(esito.errori.map((e) => e.messaggio).join(" · "))}`
     : "";
   redirect(`/prodotti/${locale.id}${avviso}`);
+}
+
+// ---------- Scrittura AI ----------
+
+export async function salvaChiaveAiAzione(fd: FormData) {
+  const esito = await salvaSegreto("OPENAI_API_KEY", testo(fd, "chiave"));
+  revalidatePath("/impostazioni");
+  revalidatePath("/prodotti/nuovo-shopify");
+  redirect(esito.ok ? "/impostazioni?esito=chiave" : `/impostazioni?errore=${encodeURIComponent(esito.errore ?? "")}`);
+}
+
+export async function eliminaChiaveAiAzione() {
+  await eliminaSegreto("OPENAI_API_KEY");
+  revalidatePath("/impostazioni");
+  redirect("/impostazioni?esito=chiave-tolta");
+}
+
+/**
+ * Salva i prompt di categoria: uno per categoria, come il campo AI Prompt del
+ * form Categorie dell'app reale. Un prompt svuotato si cancella, così togliere
+ * un'indicazione è semplice quanto metterla.
+ */
+export async function salvaPromptCategorieAzione(fd: FormData) {
+  for (const [chiave, valore] of fd.entries()) {
+    if (!chiave.startsWith("prompt-") || typeof valore !== "string") continue;
+    const categoria = chiave.slice("prompt-".length);
+    const prompt = valore.trim();
+    if (prompt) {
+      await prisma.promptCategoria.upsert({
+        where: { categoria },
+        create: { categoria, prompt },
+        update: { prompt },
+      });
+    } else {
+      await prisma.promptCategoria.deleteMany({ where: { categoria } });
+    }
+  }
+  revalidatePath("/impostazioni");
+  revalidatePath("/prodotti/nuovo-shopify");
+  redirect("/impostazioni?esito=prompt");
 }
 
 export async function eliminaNegozio(id: string) {

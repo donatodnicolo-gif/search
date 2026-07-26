@@ -29,9 +29,13 @@ export default async function TrendAiPage({
     : 90;
 
   const brand = await brandCorrente();
-  const [storico, dati] = await Promise.all([
+  // `aiConfigurata` legge anche la chiave inserita in Impostazioni, quindi va
+  // attesa: usarla senza await accenderebbe il bottone sempre (una Promise è
+  // sempre "vera").
+  const [storico, dati, chiavePronta] = await Promise.all([
     prisma.letturaTrend.findMany({ orderBy: { creataIl: "desc" }, take: 10 }),
     datiPerAI(giorni, brand),
+    aiConfigurata(),
   ]);
 
   const scelta = sp.lettura ? storico.find((l) => l.id === sp.lettura) : storico[0];
@@ -67,7 +71,7 @@ export default async function TrendAiPage({
                 </option>
               ))}
             </select>
-            <button className="btn" type="submit" disabled={!aiConfigurata()}>
+            <button className="btn" type="submit" disabled={!chiavePronta}>
               Chiedi la lettura
             </button>
           </form>
@@ -75,13 +79,14 @@ export default async function TrendAiPage({
 
         {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
 
-        {!aiConfigurata() && (
+        {!chiavePronta && (
           <div className="nota-info">
             <span className="nota-icona">◆</span>
             <span>
-              Chiave OpenAI non configurata: aggiungi <code>OPENAI_API_KEY</code> (e se vuoi{" "}
-              <code>OPENAI_MODEL</code>) alle variabili d&apos;ambiente dell&apos;app. Senza chiave la pagina resta
-              utile: qui sotto c&apos;è il pacchetto di numeri che verrebbe mandato al modello.
+              Chiave OpenAI non configurata: impostala da{" "}
+              <Link href="/impostazioni">Negozi &amp; permessi</Link> (oppure come <code>OPENAI_API_KEY</code>{" "}
+              nell&apos;ambiente, che ha la precedenza). Senza chiave la pagina resta utile: qui sotto c&apos;è
+              il pacchetto di numeri che verrebbe mandato al modello.
             </span>
           </div>
         )}

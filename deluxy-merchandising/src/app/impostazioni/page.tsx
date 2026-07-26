@@ -2,13 +2,18 @@ import { Badge } from "@/components/Badge";
 import { Sidebar } from "@/components/Sidebar";
 import {
   attivaNegozio,
+  eliminaChiaveAiAzione,
   eliminaNegozio,
+  salvaChiaveAiAzione,
   salvaNegozioAzione,
+  salvaPromptCategorieAzione,
   verificaNegozioAzione,
 } from "@/lib/azioni-negozi";
 import { cifraturaConfigurata } from "@/lib/crypto";
-import { iso } from "@/lib/dominio";
+import { prisma } from "@/lib/db";
+import { CATEGORIE, etichettaCategoria, iso } from "@/lib/dominio";
 import { elencoNegozi, PERMESSI, VERSIONE_API } from "@/lib/negozi";
+import { statoSegreto } from "@/lib/segreti";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +29,12 @@ export default async function ImpostazioniPage({
   searchParams: Promise<{ esito?: string; errore?: string }>;
 }) {
   const sp = await searchParams;
-  const negozi = await elencoNegozi();
+  const [negozi, chiaveAi, righePrompt] = await Promise.all([
+    elencoNegozi(),
+    statoSegreto("OPENAI_API_KEY"),
+    prisma.promptCategoria.findMany(),
+  ]);
+  const prompt = new Map(righePrompt.map((r) => [r.categoria, r.prompt]));
   const cifraturaOk = cifraturaConfigurata();
 
   return (
@@ -47,6 +57,24 @@ export default async function ImpostazioniPage({
           <div className="nota-info">
             <span className="nota-icona">✓</span>
             <span>Negozio salvato e verificato subito: l&apos;esito è nella scheda qui sotto.</span>
+          </div>
+        )}
+        {sp.esito === "chiave" && (
+          <div className="nota-info">
+            <span className="nota-icona">✓</span>
+            <span>Chiave OpenAI salvata cifrata: la scrittura AI delle descrizioni è accesa.</span>
+          </div>
+        )}
+        {sp.esito === "chiave-tolta" && (
+          <div className="nota-info">
+            <span className="nota-icona">✓</span>
+            <span>Chiave OpenAI rimossa: il bottone «Scrivi con l&apos;AI» torna spento.</span>
+          </div>
+        )}
+        {sp.esito === "prompt" && (
+          <div className="nota-info">
+            <span className="nota-icona">✓</span>
+            <span>Prompt salvati: le prossime descrizioni partono da lì.</span>
           </div>
         )}
         {sp.esito === "eliminato" && (
@@ -207,6 +235,81 @@ export default async function ImpostazioniPage({
             Il token si salva <b>cifrato</b> e non viene più rimostrato: per cambiarlo lo si sostituisce. Le
             chiamate usano l&apos;Admin API versione <b>{VERSIONE_API}</b>.
           </p>
+        </div>
+
+        {/* ---------- Scrittura AI ---------- */}
+        <div className="scheda">
+          <div className="scheda-titolo">Scrittura AI delle descrizioni</div>
+          <p className="page-sub" style={{ marginBottom: 14 }}>
+            Serve una chiave OpenAI. {chiaveAi.presente ? "" : "Finché manca, il bottone «Scrivi con l'AI» nel form prodotto resta spento."}
+          </p>
+          {chiaveAi.presente ? (
+            <>
+              <p className="page-sub">
+                Chiave impostata{" "}
+                {chiaveAi.origine === "ambiente" ? (
+                  <>
+                    <b>nell&apos;ambiente</b> (variabile <code>OPENAI_API_KEY</code>): ha la precedenza su
+                    qualunque chiave inserita qui.
+                  </>
+                ) : (
+                  <>
+                    <b>da questa pagina</b> · impronta {chiaveAi.impronta} ·{" "}
+                    {chiaveAi.aggiornataIl ? iso(chiaveAi.aggiornataIl) : ""}
+                  </>
+                )}
+              </p>
+              {chiaveAi.origine === "app" && (
+                <form action={eliminaChiaveAiAzione} style={{ marginTop: 12 }}>
+                  <button className="btn btn-secondario small" type="submit">Togli la chiave</button>
+                </form>
+              )}
+            </>
+          ) : null}
+          {chiaveAi.origine !== "ambiente" && (
+            <form action={salvaChiaveAiAzione} className="modulo" style={{ marginTop: 12 }}>
+              <div className="campo-modulo largo">
+                <label htmlFor="chiave">{chiaveAi.presente ? "Sostituisci la chiave" : "Chiave OpenAI"}</label>
+                <input id="chiave" name="chiave" type="password" placeholder="sk-…" autoComplete="off" required />
+              </div>
+              <div className="azioni-modulo">
+                <button className="btn" type="submit" disabled={!cifraturaOk}>Salva la chiave</button>
+              </div>
+            </form>
+          )}
+        </div>
+
+        {/* ---------- Prompt per categoria ---------- */}
+        <div className="scheda">
+          <div className="scheda-titolo">Prompt AI per categoria</div>
+          <p className="page-sub" style={{ marginBottom: 14 }}>
+            Come nel form Categorie di app.deluxy.it: qui si scrive <b>una volta</b> come si racconta una
+            famiglia di prodotti, e ogni descrizione generata parte già nella lingua giusta — le torte non si
+            descrivono come i bouquet. Lascia vuoto per non dare indicazioni.
+          </p>
+          <form action={salvaPromptCategorieAzione}>
+            <div className="modulo">
+              {CATEGORIE.map((c) => (
+                <div className="campo-modulo largo" key={c}>
+                  <label htmlFor={`prompt-${c}`}>{etichettaCategoria(c)}</label>
+                  <textarea
+                    id={`prompt-${c}`}
+                    name={`prompt-${c}`}
+                    rows={2}
+                    defaultValue={prompt.get(c) ?? ""}
+                    placeholder={
+                      c === "BOUQUET"
+                        ? "Es. parla di fiori e colori, mai di numero di steli se non è indicato; chiudi con l'occasione giusta."
+                        : "Indicazioni per chi scrive le descrizioni di questa categoria."
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="azioni-modulo">
+              <button className="btn" type="submit">Salva i prompt</button>
+            </div>
+          </form>
         </div>
 
         {/* ---------- Permessi da dare all'app ---------- */}
