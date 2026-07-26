@@ -18,13 +18,15 @@ export async function RotazioneCreativa() {
     prisma.creativo.findMany({ orderBy: [{ stato: "asc" }, { lanciatoIl: "desc" }] }),
     prisma.campagna.findMany({
       where: { canale: "meta_ads", stato: { in: ["attiva", "in_apprendimento"] } },
-      include: { metriche: { orderBy: { data: "asc" }, take: 60 } },
+      // I 60 giorni più recenti (poi in ordine di tempo): con "asc" il segnale
+      // di fatica si calcolava sui primi 60 giorni di vita della campagna.
+      include: { metriche: { orderBy: { data: "desc" }, take: 60 } },
     }),
   ]);
   const slot = prossimoSlotLunedi();
   const freeze = inFreezeCreativo();
   const fatiche = campagneMeta
-    .map((c) => ({ nome: c.nome, segnale: triggerFatigue(c.metriche) }))
+    .map((c) => ({ nome: c.nome, segnale: triggerFatigue([...c.metriche].reverse()) }))
     .filter((f) => f.segnale);
   const oggi = Date.now();
 

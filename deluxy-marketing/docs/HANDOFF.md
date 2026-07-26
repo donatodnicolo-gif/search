@@ -59,6 +59,31 @@ una riga per gruppo e per giorno, upsert per (gruppo, giorno)).
 - Il ROAS del gruppo si legge sul **break-even del suo brand** (`lib/gruppi.ts`,
   `letturaRoas`): lo stesso 2,5 è buono per Cake e una perdita per Gifts.
 
+### Scheda campagna, quattro blocchi nuovi (26/07/2026)
+
+- **Quanto stiamo spendendo oggi**: spesa di oggi (dichiarata *parziale*, con
+  l'ora in cui è arrivata), ieri a giornata piena, media dei 7 giorni prima,
+  quanto resta del budget e il totale di oggi del brand con la quota di questa
+  campagna. I numeri di oggi non si usano per decidere: servono ad accorgersi
+  in tempo di un'anomalia.
+- **Prossime azioni**: la tasklist. Ogni voce nasce da un numero della campagna
+  (`lib/opportunita.ts`, 10 regole: gruppi mancanti, alert aperti, spesa a
+  vuoto, sotto break-even, gruppo che si mangia la campagna, gruppo vincente da
+  allargare, keyword a vuoto, apprendimento, valore-vs-numero, pacing, dati
+  fermi, blackout) e diventa un'**azione vera** del kanban con un bottone. Le
+  voci già in lista non si ripropongono.
+- **Gruppi di annunci**: sempre visibile, con la quota di spesa di ciascuno.
+- **Ultime modifiche**: recap unico di modifiche eseguite (paper-trail),
+  operazioni in coda/fallite e voci di registro, in ordine di tempo.
+
+> ⚠️ **Bug trovato e corretto lo stesso giorno**: `GuardrailCampagna`,
+> `RotazioneCreativa` (e la nuova `ProssimeAzioni`) leggevano le metriche con
+> `orderBy: data asc + take: 60`, cioè i giorni **più vecchi**. Su una campagna
+> con un anno di storia il guardrail giudicava dati del 2025: alert A2/A3 mai
+> mostrati, ROAS reale vuoto, gate bidding a zero. Ora si prendono i più
+> recenti (`desc` + `take`) e si rimettono in ordine di tempo. **Chi aggiunge
+> query di metriche: mai `asc` con `take`.**
+
 ### Connettori
 
 - **Google Ads**: `scripts/google-ads-script.js` (**v2**, 26/07/2026) da incollare

@@ -39,13 +39,16 @@ export async function GuardrailCampagna({
   const campagna = await prisma.campagna.findUnique({
     where: { id: campagnaId },
     include: {
-      metriche: { orderBy: { data: "asc" }, take: 60 },
+      // desc + take = i 60 giorni PIÙ RECENTI; si rimettono in ordine di tempo
+      // sotto. Con "asc" si prendevano i 60 giorni più VECCHI: su una campagna
+      // con un anno di storia il guardrail giudicava dati del 2025.
+      metriche: { orderBy: { data: "desc" }, take: 60 },
       modifiche: { orderBy: { eseguitaIl: "desc" }, take: 5 },
       incidenti: { where: { stato: "aperto" } },
     },
   });
   if (!campagna) return null;
-  const metriche: MetricaGiorno[] = campagna.metriche;
+  const metriche: MetricaGiorno[] = [...campagna.metriche].reverse();
   const traino = campagna.classe === "traino";
 
   // Candidatura traino: quota sul totale account (= brand) degli ultimi 30 giorni

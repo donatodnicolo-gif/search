@@ -3,6 +3,9 @@ import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GuardrailCampagna } from "@/components/GuardrailCampagna";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
+import { OggiCampagna } from "@/components/OggiCampagna";
+import { ProssimeAzioni } from "@/components/ProssimeAzioni";
+import { RecapModifiche } from "@/components/RecapModifiche";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
 import { TabellaGruppi } from "@/components/TabellaGruppi";
@@ -122,18 +125,28 @@ export default async function SchedaCampagna({
 
         <GuardrailCampagna campagnaId={campagna.id} bloccata={bloccata} salvata={salvata} />
 
-        {gruppi.length > 0 && (
-          <section className="scheda">
-            <div className="scheda-titolo">
-              Gruppi di annunci ({gruppi.length}) · ultimi {GIORNI_LETTURA} giorni
-            </div>
-            <TabellaGruppi righe={gruppi} mostraCampagna={false} mostraQuota />
+        <OggiCampagna
+          campagnaId={campagna.id}
+          brand={campagna.brand}
+          budgetGiornaliero={campagna.budgetGiornaliero}
+        />
+
+        <ProssimeAzioni campagnaId={campagna.id} />
+
+        <section className="scheda">
+          <div className="scheda-titolo">
+            Gruppi di annunci ({gruppi.length}) · ultimi {GIORNI_LETTURA} giorni
+          </div>
+          <TabellaGruppi righe={gruppi} mostraCampagna={false} mostraQuota />
+          {gruppi.length > 0 && (
             <p className="cella-sub" style={{ marginTop: 10 }}>
               La quota è la fetta di spesa che ogni gruppo si prende dentro questa campagna.
               Aprendo un gruppo si può metterlo in pausa: passa dalla stessa coda approvata.
             </p>
-          </section>
-        )}
+          )}
+        </section>
+
+        <RecapModifiche campagnaId={campagna.id} />
 
         <div className="due-colonne">
           <div>

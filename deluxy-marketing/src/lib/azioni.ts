@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { STATI_AZIONE, STATI_CAMPAGNA } from "./dominio";
+import { STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
 import { registra } from "./registro";
 
@@ -1195,4 +1195,57 @@ export async function creaOperazioneGruppo(fd: FormData) {
     dettaglio: op.motivo,
   });
   redirect("/operazioni");
+}
+
+// ---------- Da opportunità ad azione ----------
+// La lista delle prossime azioni della scheda campagna non è un elenco da
+// leggere: ogni voce diventa un'azione vera del kanban, con dentro il numero
+// che l'ha fatta nascere. Così resta la storia di perché era stata proposta.
+export async function creaAzioneDaOpportunita(fd: FormData) {
+  const campagnaId = testo(fd, "campagnaId");
+  const titolo = testo(fd, "titolo");
+  if (!campagnaId || !titolo) return;
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    select: { brand: true, canale: true, nome: true },
+  });
+  if (!campagna) return;
+
+  // Se è già in lista non se ne crea un'altra: la scheda la ripropone a ogni
+  // visita finché il numero non cambia.
+  const gia = await prisma.azione.findFirst({
+    where: { campagnaId, titolo, stato: { in: STATI_AZIONE_APERTI } },
+    select: { id: true },
+  });
+  if (gia) redirect(`/azioni/${gia.id}`);
+
+  const priorita = testo(fd, "priorita") ?? "media";
+  const azione = await prisma.azione.create({
+    data: {
+      titolo,
+      descrizione: testo(fd, "perche"),
+      brand: campagna.brand,
+      canale: campagna.canale,
+      priorita,
+      owner: "utente",
+      scadenza: new Date(Date.now() + (priorita === "alta" ? 2 : 7) * 86_400_000),
+      campagnaId,
+      eventi: {
+        create: {
+          tipo: "creazione",
+          autore: "sistema",
+          testo: `Nata dalla lista "prossime azioni" della scheda campagna${testo(fd, "chiave") ? ` (${testo(fd, "chiave")})` : ""}`,
+        },
+      },
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "azione",
+    entitaId: azione.id,
+    titolo: `Azione dalla scheda campagna: ${titolo}`,
+    dettaglio: campagna.nome,
+  });
+  redirect(`/azioni/${azione.id}`);
 }
