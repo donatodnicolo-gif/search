@@ -210,6 +210,19 @@ cd deluxy-marketing && npm run sync-drive
 
 ---
 
+### import-ordini-da-orders.mjs — deluxy-marketing
+Importa gli ordini di **tutti e tre i brand** dal registro centrale [deluxy-orders](../deluxy-orders/README.md), invece che da Shopify: gli ordini veri stanno già lì, allineati coi tre negozi, e leggere da una fonte sola evita tre token Admin da custodire e due verità che possono divergere.
+
+```bash
+cd deluxy-marketing && npm run import:ordini-orders                    # dal 2025-01-01
+cd deluxy-marketing && npm run import:ordini-orders -- --da 2026-01-01
+cd deluxy-marketing && npm run import:ordini-orders -- --brand flowers
+cd deluxy-marketing && npm run import:ordini-orders -- --annullati     # include gli annullati
+```
+
+- **Serve**: `ORDERS_API_KEY` (chiave di **sola lettura** creata in deluxy-orders con `npm run chiave -- deluxy-marketing`); opzionale `ORDERS_URL` (default `https://deluxy-orders.vercel.app`)
+- **Nota**: idempotente (upsert su negozio + id Shopify, con l'id ridotto al numero nudo per riconoscere anche gli ordini già importati da Shopify). Gli **annullati non arrivano** se non li si chiede: un annullato resta spesso "pagato" e gonfierebbe il fatturato. Netto merce, spedizione e sconto non esistono in Orders: sulle righe già presenti non vengono toccati.
+
 ### import-ordini-shopify.mjs / carica-ordini-lotto.mjs — deluxy-marketing
 Import degli ordini Shopify nella sezione Ordini: il primo interroga l'Admin API dei negozi configurati, il secondo carica file JSON di ordini già scaricati (anche una cartella intera di pagine).
 

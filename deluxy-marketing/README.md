@@ -84,6 +84,9 @@ Variabili in `.env` (mai committato):
   nel db resta lo SHA-256). Header: `x-api-key` o `Authorization: Bearer`.
 - `npm run sync-drive` — indicizza la cartella Drive locale (equivalente al bottone
   "Sincronizza ora" della pagina Documenti Drive).
+- `npm run import:ordini-orders` — importa gli ordini di **tutti i brand** dal registro
+  centrale Deluxy Orders (serve `ORDERS_API_KEY` di sola lettura). È la strada buona:
+  Shopify si interroga una volta sola, da Orders.
 - `npm run import:monitoraggio -- "<file.xlsx>"` — importa il Monitoraggio (vendite, budget,
   settimane MKT 2025/2026, copy RSA). Idempotente.
 - `npm run db:seed-adv` — ricarica la conoscenza dei Definitivi (campagne 00.4, landing,
