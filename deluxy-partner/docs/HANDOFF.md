@@ -46,9 +46,21 @@ Su Vercel (produzione) e nel `.env` locale:
 | `PARTNER_APP_PASSWORD` | Vercel | Password login UI (assente in locale = app aperta) |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | Vercel + .env | Recap AI (chiave condivisa con deluxy-mail; modello `gpt-4o-mini`) |
 | `OPENAI_VISION_MODEL` | Vercel + .env (facoltativa) | Lettura AI foto IBAN in Pagamenti diretti (default `gpt-4o`, deve avere capacità vision) |
-| `CRON_SECRET` | Vercel | Autorizza il cron `/api/cron/qonto` (senza → 503, cron disattivo) |
+| `CRON_SECRET` | Vercel | Autorizza i cron `/api/cron/qonto` e `/api/cron/ordini` (senza → 503, cron disattivi) |
+| `ORDERS_URL`, `ORDERS_API_KEY` | Vercel + .env | **Sorgente degli ordini** (`/ordini`): registro centralizzato Deluxy Orders, sola lettura. `ORDERS_URL` default `https://deluxy-orders.vercel.app`; la chiave si emette da Deluxy Orders (`npm run chiave -- deluxy-partner-import`). Senza chiave il cron notturno si ferma con `saltato` |
 | `ANAGRAFICHE_URL`, `ANAGRAFICHE_API_KEY` | Vercel + .env | Lettura dal registro anagrafiche centralizzato (sola lettura) |
 | `MAIL_URL`, `MAIL_API_KEY`, `MAIL_UTENTE` | Vercel + .env (facoltative) | Card «Posta con il cliente» nella scheda partner. `MAIL_URL` default `https://deluxy-mail.vercel.app`; `MAIL_API_KEY` = token API di AI Mail (Impostazioni App → Token API); `MAIL_UTENTE` = email di login dell'utente AI Mail di cui leggere la casella. Se mancano, la card non compare |
+
+**Trappola pagata il 26/07/2026 — il BOM invisibile nelle chiavi.** La sync ordini falliva con
+`Cannot convert argument to a ByteString because the character at index 0 has a value of 65279`:
+65279 è **U+FEFF, il BOM** finito dentro `ORDERS_API_KEY` con un copia-incolla da file UTF-8 con
+BOM. `fetch` rifiuta l'intero header, il messaggio non nomina né la variabile né l'app, e la chiave
+su Vercel «sembra» giusta perché il carattere è invisibile. Da allora **ogni variabile che finisce
+in un header o in un URL passa da `src/lib/env.ts`** (`env()` per URL e controlli «è configurato?»,
+`chiave()` per gli header — toglie BOM, zero-width, spazi, a-capo e virgolette, e se resta qualcosa
+fuori dall'ASCII si ferma dicendo *quale* variabile). Non tornare a leggere `process.env.X` diretto
+per una chiave. Stessa pulizia sul confronto del `CRON_SECRET`, altrimenti un BOM lì darebbe 401
+tutte le notti senza che nessuno se ne accorga.
 
 **Importante — credenziali NON in env, ma nel DB** (tabella `Impostazione`, chiave/valore): SMTP solleciti (`smtp.*`), Qonto (`qonto.*`), Fatture in Cloud (`fic.*` incluso access/refresh token), ordinante SEPA (`sepa.*`), chiave API pubblica (`api.verificheKey`). Si gestiscono dalla pagina **Impostazioni** e **/verifiche**, non toccando Vercel.
 

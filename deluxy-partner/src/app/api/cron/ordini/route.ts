@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
 import { eseguiSyncOrdini } from "@/lib/ordini-sync";
+import { ordersConfigurato } from "@/lib/ordini-registro";
+import { env, pulisci } from "@/lib/env";
 
-// Sincronizzazione automatica notturna degli ordini Shopify (cron Vercel, vedi
-// vercel.json). Scarica gli ordini recenti da tutti i negozi collegati e li
+// Sincronizzazione automatica notturna degli ordini (cron Vercel, vedi
+// vercel.json). Scarica gli ordini recenti dal registro Deluxy Orders e li
 // aggiorna: NON registra incassi e la riconciliazione dei bonifici resta una
 // conferma dell'operatore in /ordini.
 //
@@ -15,20 +16,27 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 export async function GET(req: NextRequest) {
-  const segreto = process.env.CRON_SECRET;
+  const segreto = env("CRON_SECRET");
   if (!segreto) {
     return NextResponse.json(
       { errore: "CRON_SECRET non configurato: sincronizzazione automatica disattivata." },
       { status: 503 }
     );
   }
-  if (req.headers.get("authorization") !== `Bearer ${segreto}`) {
+  // Confronto sui due valori ripuliti: un BOM o un a-capo nella variabile su
+  // Vercel farebbe fallire il match e il cron risponderebbe 401 tutte le notti
+  // senza che nessuno se ne accorga.
+  const inviato = pulisci(req.headers.get("authorization")?.replace(/^Bearer\s+/i, ""));
+  if (inviato !== segreto) {
     return NextResponse.json({ errore: "Non autorizzato." }, { status: 401 });
   }
 
-  const negozi = await prisma.negozioShopify.count({ where: { attivo: true, token: { not: "" } } });
-  if (negozi === 0) {
-    return NextResponse.json({ saltato: "Nessun negozio Shopify collegato con token." }, { status: 200 });
+  // La sorgente sono gli ordini del registro Deluxy Orders, non più i token
+  // Shopify dei negozi: prima si controllava che esistesse un negozio con
+  // token e il cron si sarebbe fermato da solo appena i token fossero scaduti,
+  // pur avendo tutto il necessario per scaricare gli ordini.
+  if (!ordersConfigurato()) {
+    return NextResponse.json({ saltato: "ORDERS_API_KEY non configurata: registro Deluxy Orders non raggiungibile." }, { status: 200 });
   }
 
   try {

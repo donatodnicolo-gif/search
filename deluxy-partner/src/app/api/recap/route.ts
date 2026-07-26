@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { costruisciRecapPrompt } from "@/lib/recap";
+import { chiave } from "@/lib/env";
 
 // Genera il recap AI chiamando l'API OpenAI. Il prompt viene ricostruito qui
 // dai dati reali del partner (non si accetta testo arbitrario dal client) e la
 // chiave OpenAI resta lato server. Protetto dal middleware come le altre rotte.
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = chiave("OPENAI_API_KEY");
   if (!apiKey) {
     return NextResponse.json(
       { error: "Recap AI non configurato: manca la chiave OpenAI (OPENAI_API_KEY su Vercel)." },

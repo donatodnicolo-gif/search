@@ -137,10 +137,14 @@ export default async function OrdiniPage({
         </div>
       )}
 
-      {sp.sync === "ok" && (
+      {sp.sync != null && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
-          <span className="badge green"><span className="dot" />Sync completata — {sp.nuovi} nuovi, {sp.agg} aggiornati</span>
-          {sp.errori && <p style={{ fontSize: 13, color: "var(--red)", marginTop: 8 }}>Errori: {sp.errori}</p>}
+          {sp.sync === "ko" ? (
+            <span className="badge red"><span className="dot" />Sync non riuscita — nessun ordine scaricato</span>
+          ) : (
+            <span className="badge green"><span className="dot" />Sync completata — {sp.nuovi} nuovi, {sp.agg} aggiornati</span>
+          )}
+          {sp.errori && <p style={{ fontSize: 13, color: "var(--red)", marginTop: 8 }}>{sp.errori}</p>}
         </div>
       )}
 

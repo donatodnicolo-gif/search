@@ -5,6 +5,8 @@
 // Tutte le funzioni sono best-effort: se il registro è spento o non configurato
 // tornano null e la scheda partner continua a funzionare con i soli dati locali.
 
+import { chiave, env } from "./env";
+
 export type ContattoAnagrafica = {
   id: string;
   ruolo: string | null;
@@ -50,18 +52,18 @@ export type Anagrafica = {
 };
 
 export function urlAnagrafiche(): string {
-  return process.env.ANAGRAFICHE_URL ?? "http://localhost:3060";
+  return env("ANAGRAFICHE_URL") ?? "http://localhost:3060";
 }
 
 function configurata(): boolean {
-  return Boolean(process.env.ANAGRAFICHE_API_KEY);
+  return Boolean(env("ANAGRAFICHE_API_KEY"));
 }
 
 async function chiamata(percorso: string): Promise<unknown | null> {
   if (!configurata()) return null;
   try {
     const res = await fetch(`${urlAnagrafiche()}${percorso}`, {
-      headers: { "x-api-key": process.env.ANAGRAFICHE_API_KEY! },
+      headers: { "x-api-key": chiave("ANAGRAFICHE_API_KEY")! },
       signal: AbortSignal.timeout(3000),
       cache: "no-store",
     });
@@ -129,7 +131,7 @@ export async function risolviAnagrafica(
 // Chiave di scrittura: quella dedicata se c'è, altrimenti la chiave dell'app
 // (dal 20/07/2026 `deluxy-partner` è stata ruotata a scrittura piena).
 export function chiaveScrittura(): string | undefined {
-  return process.env.ANAGRAFICHE_WRITE_KEY || process.env.ANAGRAFICHE_API_KEY;
+  return chiave("ANAGRAFICHE_WRITE_KEY") || chiave("ANAGRAFICHE_API_KEY");
 }
 
 export function scritturaAnagraficheAttiva(): boolean {

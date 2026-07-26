@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { qontoConfigurato } from "@/lib/qonto";
 import { scaricaMovimentiQonto } from "@/lib/transazioni-actions";
+import { env, pulisci } from "@/lib/env";
 
 // Sincronizzazione automatica dei movimenti Qonto (cron Vercel, vedi vercel.json).
 // Scarica i movimenti completati e li deduplica per hash: NON registra nulla e
@@ -16,14 +17,15 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const segreto = process.env.CRON_SECRET;
+  const segreto = env("CRON_SECRET");
   if (!segreto) {
     return NextResponse.json(
       { errore: "CRON_SECRET non configurato: sincronizzazione automatica disattivata." },
       { status: 503 }
     );
   }
-  const autorizzato = req.headers.get("authorization") === `Bearer ${segreto}`;
+  // Confronto sui due valori ripuliti: vedi la nota nel cron degli ordini.
+  const autorizzato = pulisci(req.headers.get("authorization")?.replace(/^Bearer\s+/i, "")) === segreto;
   if (!autorizzato) {
     return NextResponse.json({ errore: "Non autorizzato." }, { status: 401 });
   }

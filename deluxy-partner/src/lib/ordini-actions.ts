@@ -94,7 +94,11 @@ export async function rimuoviNegozioShopify(id: string) {
 export async function sincronizzaOrdini(giorni = 90) {
   const { nuovi, aggiornati, errori } = await eseguiSyncOrdini(giorni);
   revalida();
-  const qs = new URLSearchParams({ sync: "ok", nuovi: String(nuovi), agg: String(aggiornati) });
+  // «ok» solo se qualcosa è davvero arrivato: prima un errore del registro
+  // mostrava lo stesso il badge verde «Sync completata — 0 nuovi, 0 aggiornati»
+  // con l'errore relegato sotto, e sembrava che non ci fosse nulla da scaricare.
+  const stato = errori.length && nuovi + aggiornati === 0 ? "ko" : "ok";
+  const qs = new URLSearchParams({ sync: stato, nuovi: String(nuovi), agg: String(aggiornati) });
   if (errori.length) qs.set("errori", errori.join(" · "));
   redirect(`/ordini?${qs.toString()}`);
 }

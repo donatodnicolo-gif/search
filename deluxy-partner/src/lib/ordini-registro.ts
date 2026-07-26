@@ -1,4 +1,5 @@
 import { categoriaDaGateway, type OrdineNormalizzato } from "./shopify";
+import { chiave, env } from "./env";
 
 // Sorgente ordini: il REGISTRO CENTRALIZZATO Deluxy Orders (deluxy-orders.vercel.app),
 // non più l'API Shopify diretta. Deluxy Orders importa da Shopify e le altre app
@@ -24,11 +25,11 @@ export type OrdineRegistro = OrdineNormalizzato & {
 };
 
 function baseUrl(): string {
-  return (process.env.ORDERS_URL || "https://deluxy-orders.vercel.app").replace(/\/$/, "");
+  return (env("ORDERS_URL") || "https://deluxy-orders.vercel.app").replace(/\/$/, "");
 }
 
 export function ordersConfigurato(): boolean {
-  return Boolean(process.env.ORDERS_API_KEY);
+  return Boolean(env("ORDERS_API_KEY"));
 }
 
 type OrdineApi = {
@@ -51,7 +52,9 @@ type OrdineApi = {
 // Scarica dal registro gli ordini dal `dal` in poi (paginati). Se `dal` è null,
 // scarica tutto lo storico.
 export async function scaricaOrdiniDaRegistro(dal: Date | null, maxPagine = 400): Promise<OrdineRegistro[]> {
-  const key = process.env.ORDERS_API_KEY;
+  // `chiave` ripulisce il BOM/gli spazi del copia-incolla: senza, `fetch`
+  // muore con un ByteString che non nomina nemmeno la variabile (vedi env.ts).
+  const key = chiave("ORDERS_API_KEY");
   if (!key) throw new Error("ORDERS_API_KEY mancante: configura la chiave del registro Deluxy Orders.");
   const daParam = dal ? `&da=${dal.toISOString().slice(0, 10)}` : "";
   const out: OrdineRegistro[] = [];

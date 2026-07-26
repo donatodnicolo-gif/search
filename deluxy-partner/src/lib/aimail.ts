@@ -11,6 +11,8 @@
 // Best-effort come il client Anagrafiche: se non è configurato o AI Mail non
 // risponde, la scheda partner continua a funzionare.
 
+import { chiave, env } from "./env";
+
 export type MailCliente = {
   id: string;
   da: string;
@@ -30,11 +32,11 @@ export type EsitoMail =
   | { stato: "errore"; messaggio: string };
 
 export function urlAiMail(): string {
-  return (process.env.MAIL_URL || "https://deluxy-mail.vercel.app").replace(/\/$/, "");
+  return (env("MAIL_URL") || "https://deluxy-mail.vercel.app").replace(/\/$/, "");
 }
 
 export function aiMailConfigurata(): boolean {
-  return Boolean(process.env.MAIL_API_KEY && process.env.MAIL_UTENTE);
+  return Boolean(env("MAIL_API_KEY") && env("MAIL_UTENTE"));
 }
 
 /** Link alla singola mail dentro AI Mail. */
@@ -68,8 +70,8 @@ export async function mailDelCliente(
   try {
     const res = await fetch(`${urlAiMail()}/api/v1/messaggi?${p}`, {
       headers: {
-        "x-api-key": process.env.MAIL_API_KEY as string,
-        "x-utente": process.env.MAIL_UTENTE as string,
+        "x-api-key": chiave("MAIL_API_KEY") as string,
+        "x-utente": chiave("MAIL_UTENTE") as string,
       },
       cache: "no-store",
       signal: AbortSignal.timeout(8000),
