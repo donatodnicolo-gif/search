@@ -1,7 +1,9 @@
 # Deluxy Scripts — handoff
 
 **Aggiornato: 26 luglio 2026.** Cartella `C:\Users\nicol\scoutwt\deluxy-scripts`,
-branch `scout-ui`, porta **3170**. Non ancora pubblicata.
+branch `scout-ui`, porta **3170**. **LIVE su
+[deluxy-scripts.vercel.app](https://deluxy-scripts.vercel.app)** (progetto Vercel
+`deluxy-scripts`, team `deluxy`), protetta da password del team.
 
 Cos'è, in una riga: l'archivio unico degli script operativi Deluxy, dove ogni
 script ha le sue variabili `{{COSÌ}}` e si accende o si spegne per singola app.
@@ -34,16 +36,33 @@ Il manuale d'uso è il [README](../README.md).
   stato poi cancellato: l'archivio parte vuoto.
 - `npx tsc --noEmit` e `npm run build`: puliti.
 
+## Pubblicazione (fatta il 26/07/2026)
+
+Progetto Vercel `deluxy-scripts` (team `deluxy`), variabili impostate su
+production/preview/development: `DATABASE_URL`, `DIRECT_URL`,
+`SCRIPTS_APP_PASSWORD` (la password sta nella cassaforte del Hub). Deploy:
+
+```bash
+cd C:/Users/nicol/scoutwt/deluxy-scripts && npx vercel deploy --prod --yes
+```
+
+Verificato in produzione: `/` reindirizza a `/login` (la password protegge la
+UI), `/api/v1/health` con chiave risponde `{"ok":true,…,"app":14}` (database
+raggiungibile), `/api/v1/script` senza chiave dà 401. **Cambiare una variabile su
+Vercel non basta: dopo ogni modifica si ripubblica.**
+
+Il Hub punta a questo URL di default (`APP_URL_SCRIPTS` per sovrascriverlo): la
+tessera compare nel portale **solo dopo un deploy del Hub**.
+
 ## MANCA
 
-1. **Pubblicazione su Vercel** (progetto `deluxy-scripts`): serve impostare
-   `DATABASE_URL`, `DIRECT_URL`, `SCRIPTS_APP_PASSWORD` e poi
-   `npx vercel deploy --prod --yes`. Finché non è pubblicata, il Hub la mostra
-   solo in sviluppo (`APP_URL_SCRIPTS`).
-2. **Riempire l'archivio**: i primi candidati sono gli script che oggi si
+1. **Riempire l'archivio**: i primi candidati sono gli script che oggi si
    copiano a mano — `google-ads-script.js` di Marketing (una copia per account e
    per azione: è esattamente il caso «stesse righe, variabili diverse»), gli
    snippet Liquid dei temi, le query SQL di manutenzione ricorrenti.
+2. **Tessera nel portale**: il Hub punta già a `deluxy-scripts.vercel.app`, ma il
+   catalogo è cambiato in `deluxy-hub/src/lib/apps.ts` — finché il Hub non viene
+   ripubblicato, l'icona non compare.
 3. **Storico delle versioni**: oggi il testo si sovrascrive. Se serve tornare
    indietro va aggiunta una tabella `VersioneScript` (corpo + nota + data) e un
    pulsante «ripristina».

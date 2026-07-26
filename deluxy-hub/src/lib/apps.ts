@@ -204,9 +204,9 @@ export function catalogoApp(): AppDeluxy[] {
       descrizione:
         "Tutti gli script operativi in un posto solo: ognuno ha le sue variabili e si accende o si spegne per singola app.",
       icona: "scripts",
-      // Non ancora pubblicata: senza APP_URL_SCRIPTS la tessera si vede solo in
-      // sviluppo (localhost:3170), come da regola di `url()`.
-      url: url(process.env.APP_URL_SCRIPTS, "http://localhost:3170"),
+      // L'app è pubblicata: si punta al sito di produzione, sovrascrivibile con
+      // APP_URL_SCRIPTS (es. http://localhost:3170 in sviluppo).
+      url: process.env.APP_URL_SCRIPTS ?? "https://deluxy-scripts.vercel.app",
       ruoli: ["admin"],
     },
     {
