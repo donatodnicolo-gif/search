@@ -125,7 +125,7 @@ export default async function ConsuntivoPage({
     // Il D2C non si fattura in Finance: il suo consuntivo è il venduto Shopify.
     if (t.slug === SLUG_D2C && d2c.ok) {
       consuntivo += d2cPeriodo;
-      collegati.push(`Orders · ${d2c.dati.brand.length} negozi`);
+      collegati.push(`Vendite ecommerce · ${d2c.dati.brand.length} negozi`);
     }
     return { nome: t.nome, slug: t.slug, budgetPeriodo: budgetVoce(t.slug), consuntivo, collegati, mappata: collegati.length > 0 };
   });
@@ -262,7 +262,7 @@ export default async function ConsuntivoPage({
               <div className="kpi-value">{eur(ricaviCons)}</div>
               <div className="kpi-sub">
                 imponibile · {res.dati.totali.fatture} fatture Finance
-                {d2c.ok ? ` + ${eur(d2cPeriodo)} D2C da Orders` : ""}
+                {d2c.ok ? ` + ${eur(d2cPeriodo)} di vendite ecommerce` : ""}
               </div>
             </div>
             <div className="kpi">
@@ -354,9 +354,9 @@ export default async function ConsuntivoPage({
 
           <p className="page-caption" style={{ marginTop: 14 }}>
             Ricavi = imponibile fatturato in Finance mappato alle voci di budget in{" "}
-            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>, <strong>più il D2C</strong> preso dal
-            registro ordini (Orders): le vendite ai consumatori non passano da Finance, quindi senza Orders la voce con
-            il budget più alto dell&apos;anno resterebbe a zero. Il <strong>costo del
+            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>, <strong>più le vendite
+            ecommerce</strong> prese dal registro ordini (Orders): quelle dei negozi Shopify non passano da Finance,
+            quindi senza Orders la voce con il budget più alto dell&apos;anno resterebbe a zero. Il <strong>costo del
             personale</strong> viene dall&apos;anagrafica{" "}
             <Link href="/dipendenti" style={{ color: "var(--blue)" }}>Dipendenti</Link> (payroll, per i mesi
             chiusi), non dalla banca. Gli <strong>altri costi</strong> (COGS, ADV, struttura) sono le uscite di
@@ -418,7 +418,7 @@ export default async function ConsuntivoPage({
             </p>
           )}
 
-          <h2 className="section-title">D2C reale per maison — dal registro ordini</h2>
+          <h2 className="section-title">Vendite ecommerce per maison — dai negozi Shopify</h2>
           {!d2c.ok ? (
             <div className="card empty">
               <div className="empty-icon">↯</div>
@@ -480,7 +480,7 @@ export default async function ConsuntivoPage({
                         );
                       })}
                       <tr className="tot">
-                        <td>Totale D2C</td>
+                        <td>Totale vendite ecommerce</td>
                         {mesiPeriodo.map((m) => (<td className="num" key={m}>{eur(d2cMese[m - 1] ?? 0)}</td>))}
                         <td className="num">{eur(d2cPeriodo)}</td>
                         <td className="num">{eur(budgetVoce(SLUG_D2C))}</td>
