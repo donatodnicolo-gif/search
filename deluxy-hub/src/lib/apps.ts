@@ -140,9 +140,9 @@ export function catalogoApp(): AppDeluxy[] {
       descrizione:
         "Il registro centralizzato delle attività: ogni app Deluxy vi scrive le sue, qui le vedi e le chiudi in un posto solo.",
       icona: "tasks",
-      // Eccezione voluta: la tessera resta visibile anche in produzione senza
-      // APP_URL_TASKS, puntando all'istanza locale finché non c'è un URL pubblico.
-      url: process.env.APP_URL_TASKS ?? "http://localhost:3090",
+      // L'app è pubblicata: si punta al sito di produzione, sovrascrivibile con
+      // APP_URL_TASKS (es. http://localhost:3090 in sviluppo).
+      url: process.env.APP_URL_TASKS ?? "https://deluxy-tasks.vercel.app",
       ruoli: ["admin"],
     },
     {

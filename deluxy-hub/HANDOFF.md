@@ -52,7 +52,7 @@ Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 |---|---|---|---|
 | AI Mail | `APP_URL_MAIL` (dev 3070) | solo admin | |
 | Anagrafiche | `APP_URL_ANAGRAFICHE` (dev 3060) | admin, commerciale | |
-| Attività | `APP_URL_TASKS` ?? `http://localhost:3090` | solo admin | visibile anche in prod |
+| Attività | `https://deluxy-tasks.vercel.app` | solo admin | default nel codice, override con `APP_URL_TASKS` (dev 3090) |
 | Budgets | `https://deluxy-budgets.vercel.app` | solo admin | default nel codice, override con `APP_URL_BUDGETS` |
 | Calendario | `APP_URL_CALENDARIO` ?? `http://localhost:3110` | solo admin | visibile anche in prod |
 | Commerciale Scout | `https://deluxy-scout.vercel.app` | admin, commerciale | export web Expo |
