@@ -164,9 +164,9 @@ export function catalogoApp(): AppDeluxy[] {
       descrizione:
         "WhatsApp, Messenger, Instagram e la chat del sito in un'unica inbox: si legge e si risponde in un posto solo.",
       icona: "messaggi",
-      // Eccezione voluta: la tessera resta visibile anche in produzione senza
-      // APP_URL_MESSAGGI, puntando all'istanza locale finché non c'è un URL pubblico.
-      url: process.env.APP_URL_MESSAGGI ?? "http://localhost:3140",
+      // L'app è pubblicata: si punta al sito di produzione, sovrascrivibile con
+      // APP_URL_MESSAGGI (es. http://localhost:3140 in sviluppo).
+      url: process.env.APP_URL_MESSAGGI ?? "https://deluxy-messaging.vercel.app",
       ruoli: ["admin", "commerciale"],
     },
     {

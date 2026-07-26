@@ -61,7 +61,7 @@ Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 | Maison | `https://deluxy-os.base44.app/` | tutti i ruoli | Deluxy OS su base44 |
 | Marketing | `https://deluxy-marketing.vercel.app` | solo admin | default nel codice, override con `APP_URL_MARKETING` |
 | Merchandising | `APP_URL_MERCHANDISING` ?? `http://localhost:3120` | admin, commerciale | visibile anche in prod |
-| Messaggi | `APP_URL_MESSAGGI` ?? `http://localhost:3140` | admin, commerciale | visibile anche in prod |
+| Messaggi | `https://deluxy-messaging.vercel.app` | admin, commerciale | default nel codice, override con `APP_URL_MESSAGGI` |
 | Ordini | `APP_URL_ORDERS` ?? `http://localhost:3150` | solo admin | visibile anche in prod |
 | Ricerca fornitori | `https://search-deluxy.vercel.app` | admin, commerciale | id interno = `search` |
 
