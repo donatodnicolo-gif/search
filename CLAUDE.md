@@ -33,6 +33,14 @@ Prima di lavorare, leggere **[deluxy-platform-next/docs/REGOLE-DI-LAVORO.md](del
 6. **Durabilità**: pushare su GitHub (dopo conferma). Il non-pushato è a rischio.
 7. **Riportare il vero esito**: se un test fallisce o un passo è saltato, dirlo con l'output reale.
 
+## Standard tecnico (obbligatorio per tutte le app)
+
+**CSS, server, database, chiavi interne e chiavi esterne si fanno in un modo solo**: [deluxy-standard/STANDARD-DELUXY.md](deluxy-standard/STANDARD-DELUXY.md). È la fonte unica; il design system qui sotto ne è il capitolo estetico.
+
+- Prima di toccare configurazione, connessioni al database, chiavi o deploy di **qualsiasi** app, leggere quel documento e la checklist di conformità (§6).
+- Se un'app fa diversamente: **o si allinea, o la deviazione va scritta nello standard** con la motivazione. Non esistono deviazioni non scritte.
+- Per allineare una singola app (ordine pronto da incollare + stato rilevato app per app): [deluxy-standard/ALLINEAMENTO.md](deluxy-standard/ALLINEAMENTO.md).
+
 ## Design system (obbligatorio per ogni lavoro di UI)
 
 **Tutte le app — esistenti e nuove — seguono il Deluxy Design System**: [deluxy-design-system/DESIGN-SYSTEM.md](deluxy-design-system/DESIGN-SYSTEM.md).

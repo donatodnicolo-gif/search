@@ -1,0 +1,283 @@
+# Standard Deluxy — regole comuni a tutte le app
+
+**Versione 1.0 — 24 luglio 2026**
+
+Questo documento è la **fonte unica** di come si fanno le cose in tutte le app
+Deluxy: CSS, server, database, chiavi interne, chiavi esterne. Vale per le app
+esistenti e per quelle nuove.
+
+> Regola d'oro: se un'app fa diversamente da qui, **o si allinea o la deviazione
+> viene scritta qui** con la motivazione. Non esistono deviazioni non scritte.
+
+Documenti collegati:
+- estetica e componenti → [deluxy-design-system/DESIGN-SYSTEM.md](../deluxy-design-system/DESIGN-SYSTEM.md)
+- regole di lavoro (commit, handoff, segreti) → [deluxy-platform-next/docs/REGOLE-DI-LAVORO.md](../deluxy-platform-next/docs/REGOLE-DI-LAVORO.md)
+- catalogo script → [scripts/README.md](../scripts/README.md)
+- come allineare una singola app → [ALLINEAMENTO.md](ALLINEAMENTO.md)
+
+---
+
+## 1. CSS
+
+**Fonte**: `deluxy-design-system/tokens/tokens.css` (v1.0). Ogni app ne tiene una
+**copia** in `src/app/tokens.css`, importata **come primo foglio di stile**.
+
+Regole:
+
+1. **Mai valori hardcodati** dove esiste un token: colori, radius, ombre, font,
+   spaziature si scrivono `var(--nome)`. I token disponibili sono in
+   `tokens.css` (`--bg`, `--surface`, `--text`, `--hairline`, `--radius-*`,
+   `--shadow-*`, `--gold`, …).
+2. **L'unica eccezione ammessa** ai valori letterali: colori di servizio che non
+   sono nel sistema (es. il verde/rosso di un grafico, i colori di un brand
+   esterno). Vanno definiti come variabile CSS in cima a `globals.css`, con un
+   commento che dice perché, **non sparsi nelle regole**.
+3. **L'oro `#B8963E` è solo accento**: mai un bottone primario, mai uno sfondo
+   pieno. I bottoni primari sono neri a pillola.
+4. **Struttura dei file**, uguale per tutte:
+   - `src/app/tokens.css` — copia dei token, **non si modifica a mano**;
+   - `src/app/globals.css` — stili dell'app, che importa i token come prima riga;
+   - niente CSS-in-JS, niente librerie di componenti esterne.
+5. **Aggiornare i token**: si cambia `deluxy-design-system/tokens/tokens.json`,
+   si rigenerano `tokens.css`/`theme.ts`, si **bumpa la versione** e poi si
+   ricopia il file in ogni app. Mai il contrario.
+6. **Serve un componente nuovo?** Prima si aggiunge al design system, poi si usa.
+
+**Verifica**: `tokens.css` dell'app deve essere identico a quello del design
+system (a meno del fine riga CRLF su Windows) e `globals.css` non deve
+contenere hex non giustificati.
+
+---
+
+## 2. Server
+
+**Stack unico**: Next.js 15 (App Router, React 19, server action) + TypeScript,
+deploy su **Vercel**, un progetto Vercel per app.
+
+### 2.1 Porte di sviluppo (registro)
+
+Ogni app ha la **sua** porta, fissata nello script `dev` del `package.json`:
+
+| Porta | App | | Porta | App |
+|---|---|---|---|---|
+| 3040 | deluxy-partner (Finance) | | 3100 | deluxy-acquisti *(riservata)* |
+| 3050 | deluxy-hub | | 3110 | deluxy-calendario *(riservata)* |
+| 3060 | deluxy-anagrafiche | | 3120 | deluxy-merchandising |
+| 3070 | deluxy-mail | | 3130 | deluxy-marketing |
+| 3080 | deluxy-budgets | | 3140 | deluxy-messaging |
+| 3090 | deluxy-tasks *(riservata)* | | 3150 | deluxy-orders |
+
+Una porta nuova si prende **dal primo multiplo di 10 libero** e si aggiunge qui
+e al catalogo del Hub (`deluxy-hub/src/lib/apps.ts`).
+
+### 2.2 `.vercelignore` — obbligatorio
+
+Vercel **non** applica `.gitignore` agli upload: senza `.vercelignore` il `.env`
+locale finisce nel pacchetto, il sito in produzione legge i valori di sviluppo e
+si spediscono in cloud le credenziali del database. Ogni app deve avere questo
+file, identico a [deluxy-hub/.vercelignore](../deluxy-hub/.vercelignore):
+
+```
+.env
+.env.*
+!.env.example
+
+prisma/dev.db
+prisma/dev.db-journal
+node_modules
+.next
+```
+
+### 2.3 Rendering e cache
+
+- Le pagine che leggono il database sono **dinamiche**: `export const dynamic = "force-dynamic"`.
+- Le route API che espongono dati rispondono con `Cache-Control: no-store`.
+- Le route che chiamano un modello AI o fanno lavori lunghi dichiarano
+  `export const maxDuration = 60` (120/300 solo se davvero serve, con commento).
+- **Mai una fetch di rete dentro il render di una pagina senza cache**: si mette
+  una cache in memoria con TTL e un `AbortSignal.timeout()`, come in
+  [deluxy-mail/src/lib/chiaviApp.ts](../deluxy-mail/src/lib/chiaviApp.ts).
+
+### 2.4 `next.config.ts`
+
+Vuoto per default. Ogni riga in più va **commentata con il perché**. Deviazioni
+oggi legittime: `deluxy-mail` (`serverExternalPackages` per imapflow/mailparser,
+`bodySizeLimit` 20 MB per gli allegati) e `deluxy-messaging` (header per far
+incorniciare `/widget` in iframe sui siti dei clienti).
+
+### 2.5 Deploy
+
+- Produzione: `npx vercel deploy --prod --yes` dalla cartella dell'app.
+- Cambiare una variabile su Vercel **non basta**: vale solo per i deployment
+  nuovi → dopo ogni modifica si ripubblica.
+- Prima di ogni commit: `npx tsc --noEmit` **e** `npm run build`.
+- I cron stanno in `vercel.json` e sono protetti da `CRON_SECRET`.
+
+---
+
+## 3. Database
+
+**Un solo Postgres** (Supabase), **uno schema per app**: le connection string
+finiscono con `?schema=<nome-app>`. Le tabelle di un'app non si toccano da
+un'altra app: si passa dalle API.
+
+### 3.1 Connessione
+
+| Variabile | Cosa | Porta |
+|---|---|---|
+| `DATABASE_URL` | pooler, con `?pgbouncer=true&connection_limit=1&schema=<app>` | 6543 |
+| `DIRECT_URL` | connessione diretta, con `?schema=<app>` — serve a `db push`/migrazioni | 5432 |
+
+### 3.2 Client Prisma
+
+Un solo file `src/lib/db.ts`, **identico in tutte le app** (singleton, per non
+esaurire le connessioni con l'hot reload):
+
+```ts
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+```
+
+### 3.3 Regole
+
+1. **SQLite solo in prototipo.** Un'app che va in produzione passa a Postgres con
+   il proprio schema. (Oggi `deluxy-budgets` e `deluxy-merchandising` sono ancora
+   su SQLite: è una deviazione da chiudere.)
+2. **Mai `deleteMany` senza filtro** sul database condiviso, nemmeno "per pulire
+   i test": si cancellano i dati veri di un'altra app. Si filtra sempre sui
+   record creati dal test.
+3. **Indici** su ogni campo usato per filtrare o ordinare (`@@index`).
+4. **Migrazioni**: `npm run db:push` in sviluppo; ogni cambio di schema va
+   descritto nell'handoff dell'app.
+5. **Il modello è la fonte di verità di un'app sola**: anagrafiche in
+   `deluxy-anagrafiche`, ordini in `deluxy-orders`, attività in `deluxy-tasks`.
+   Le altre app **non duplicano** quei dati, li leggono via API.
+
+---
+
+## 4. Chiavi delle app Deluxy (interne)
+
+### 4.1 Dove vivono
+
+La **cassaforte centrale è il Hub**: pagina `/chiavi` (solo admin), valori
+cifrati AES-256-GCM nel database. Le app **non** tengono le chiavi nei file.
+
+Lettura via API:
+
+```
+GET https://deluxy-hub.vercel.app/api/chiavi?progetto=<id-progetto>
+Header: x-api-key: <token>      (in alternativa: Authorization: Bearer <token>)
+→ { "progetto": "…", "chiavi": { "NOME": "valore", … } }
+```
+
+I **token di servizio** si generano da `/chiavi` → "Token di servizio": il valore
+in chiaro si vede una volta sola, nel database resta solo lo SHA-256. Ogni token
+è limitato ai progetti che gli assegni.
+
+⚠️ **L'header deve essere `x-api-key` o `Authorization: Bearer`.** Il Hub non
+riconosce altri nomi: un client che manda un header diverso viene rifiutato con
+401 e l'app ripiega in silenzio sulle variabili d'ambiente.
+
+### 4.2 Come le legge un'app (pattern obbligatorio)
+
+Tre sorgenti, **in questo ordine**:
+
+1. impostazione inserita dall'utente nell'app (cifrata nel suo database);
+2. **cassaforte del Hub** (`HUB_KEYS_TOKEN` + `HUB_URL`);
+3. variabile d'ambiente su Vercel (fallback).
+
+Il client deve: **non fallire mai** (se il Hub è giù si usa il resto), tenere una
+**cache in memoria di 5 minuti**, avere un **timeout di 4 secondi**, e riusare
+l'ultima risposta buona in caso di errore. Implementazione di riferimento:
+[deluxy-mail/src/lib/chiaviApp.ts](../deluxy-mail/src/lib/chiaviApp.ts).
+
+### 4.3 Come un'app protegge le proprie API
+
+Chi espone dati alle altre app usa lo stesso schema di
+[deluxy-anagrafiche/src/lib/api-auth.ts](../deluxy-anagrafiche/src/lib/api-auth.ts)
+e [deluxy-orders/src/lib/api-auth.ts](../deluxy-orders/src/lib/api-auth.ts):
+
+- chiave in `x-api-key`, in alternativa `Authorization: Bearer`;
+- errore `401` con messaggio esplicito se manca;
+- CORS con `Access-Control-Allow-Headers: x-api-key, authorization, content-type`;
+- `/api/*` **escluso dal middleware di sessione** (le API si autenticano da sé).
+
+### 4.4 Nomi delle variabili (convenzione)
+
+| Forma | Significato | Esempi reali |
+|---|---|---|
+| `<APP>_URL` | dove sta l'app da chiamare | `ANAGRAFICHE_URL`, `HUB_URL`, `SEARCH_URL` |
+| `<APP>_API_KEY` | chiave per **leggere** le API di quell'app | `ANAGRAFICHE_API_KEY`, `ORDERS_API_KEY`, `MAIL_API_KEY` |
+| `<APP>_WRITE_KEY` | chiave di **scrittura** (solo a chi ne ha diritto) | `ANAGRAFICHE_WRITE_KEY` |
+| `<APP>_APP_PASSWORD` | password della UI dell'app (non un'API) | `ORDERS_APP_PASSWORD`, `MARKETING_APP_PASSWORD` |
+| `HUB_KEYS_TOKEN` | token di servizio per la cassaforte del Hub | uguale in tutte le app |
+| `APP_SECRET` | firma dei cookie di sessione dell'app | uguale in tutte le app |
+
+Un nome nuovo si sceglie **dentro questo schema**, mai inventando una forma nuova.
+
+### 4.5 Login unico (SSO)
+
+Il Hub apre le app con `sso: true` via `/vai/<id>`: genera un token cifrato
+AES-GCM con `HUB_SSO_SECRET` (**minimo 32 caratteri, identico nelle due app**) e
+l'app lo scambia su `/api/sso` creando la propria sessione. Se il segreto manca,
+si degrada al login normale dell'app. Oggi è pronto solo verso Finance.
+
+---
+
+## 5. Chiavi di servizi esterni
+
+Valgono le stesse regole del capitolo 4 (cassaforte del Hub come sorgente,
+`.env` mai committato), più queste:
+
+1. **Un segreto non entra mai in un file del repo**, nemmeno in un esempio,
+   nemmeno in un commento, nemmeno "temporaneamente". Nei `.env.example` e nel
+   catalogo script vanno **solo i nomi** delle variabili e il link da cui si
+   prende la chiave.
+2. **Chiave scaduta o esposta = rotazione**: si cambia sul servizio, si aggiorna
+   nella cassaforte del Hub, si ripubblicano le app che la usano.
+3. **Ogni chiave esterna ha un solo proprietario**: l'app che parla con quel
+   servizio. Le altre passano da lei, non si copiano la chiave.
+4. **Timeout e fallback su ogni chiamata esterna**: nessuna schermata deve
+   restare appesa perché un servizio terzo è lento.
+5. **Il modello AI si sceglie da variabile** (`OPENAI_MODEL`), mai scritto nel
+   codice, così si cambia senza rideploy del codice.
+
+Servizi esterni oggi in uso e variabili relative:
+
+| Servizio | Variabili | App proprietaria |
+|---|---|---|
+| OpenAI | `OPENAI_API_KEY`, `OPENAI_MODEL` | mail, marketing, messaging, budgets |
+| HubSpot | `HUBSPOT_ACCESS_TOKEN` | scout / anagrafiche |
+| Shopify | `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_STORE_DOMAIN` | orders, search-supplier |
+| Google Drive / OAuth | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_DRIVE_API_KEY` | marketing |
+| Posta IMAP/SMTP | `APP_EMAIL`, `APP_PASSWORD`, `SMTP_*` | mail |
+| Meta (WhatsApp/Messenger/IG) | token cifrati in Impostazioni | messaging |
+| Notifiche push | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | scout |
+| Cron Vercel | `CRON_SECRET` | mail, orders, partner |
+
+---
+
+## 6. Checklist di conformità (per una singola app)
+
+Un'app è **allineata** quando tutte queste righe sono vere:
+
+- [ ] `src/app/tokens.css` identico al design system, importato per primo
+- [ ] nessun colore/radius/ombra hardcodato dove esiste un token
+- [ ] porta di sviluppo dedicata, presente nel registro §2.1
+- [ ] `.vercelignore` presente e completo
+- [ ] pagine con dati `force-dynamic`, API `no-store`, `maxDuration` sulle route AI
+- [ ] `next.config.ts` vuoto o con ogni riga motivata
+- [ ] Postgres con schema proprio, `DATABASE_URL` (pooler) + `DIRECT_URL`
+- [ ] `src/lib/db.ts` = singleton standard
+- [ ] nessun `deleteMany` senza filtro
+- [ ] chiavi lette dalla cassaforte del Hub con il pattern a 3 sorgenti (cache 5', timeout 4")
+- [ ] API protette con `x-api-key`/`Bearer`, `/api/*` fuori dal middleware
+- [ ] nomi delle variabili conformi a §4.4
+- [ ] `.env` non committato, `.env.example` con i soli nomi
+- [ ] `npx tsc --noEmit` e `npm run build` puliti
+- [ ] handoff dell'app aggiornato
