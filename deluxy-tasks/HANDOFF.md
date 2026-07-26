@@ -46,9 +46,20 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
   chip dei livelli di priorità cliccabili (`src/components/RigaTask.tsx`), via
   endpoint interno `/api/interno/tasks/:id`. Barra utente con ruolo.
 - **Script**: `crea-chiave.mjs`, `registra-progetto.mjs` (npm run progetto),
-  `configura-db-condiviso.mjs`, `seed-demo.mjs`.
+  `configura-db-condiviso.mjs`, `seed-demo.mjs`, `vercel-env-prod.mjs`
+  (`npm run vercel:env`: copia DATABASE_URL/DIRECT_URL dal `.env` alle variabili
+  di **produzione** su Vercel senza mostrarle e rilancia il deploy).
 - **Hub**: registrata in `deluxy-hub/src/lib/apps.ts` (id `tasks`, `APP_URL_TASKS`,
   ruoli admin/commerciale/partner) + icona `tasks` in `AppIcon.tsx`.
+- **Online (26/07/2026)**: progetto Vercel `deluxy-tasks` (rinominato da `tasks`),
+  URL pubblico **https://deluxy-tasks.vercel.app** (resta valido anche il vecchio
+  `tasks-eight-gray.vercel.app`). `TASKS_SESSION_SECRET` impostato in produzione →
+  la UI **richiede il login** (`/` reindirizza a `/login`). Il Hub non punta più a
+  `localhost:3090`: il default in `apps.ts` è l'URL pubblico (Hub ridistribuito).
+  - **Come si ridistribuisce**: il progetto ha *Root Directory* = `deluxy-tasks`,
+    quindi `vercel deploy` **dalla cartella dell'app fallisce**. Si lancia dalla
+    radice del repo (`C:\Users\nicol\app`) oppure, se il codice non è cambiato e
+    servono solo le nuove variabili, `npx vercel redeploy <url-ultimo-prod>`.
 - **Verifica**: `npx tsc --noEmit` OK, `next build` OK, DB collegato (schema
   isolato `tasks` nel cluster condiviso) con 4 task demo. Testato end-to-end:
   upsert idempotente, freschezza (`ignorata_obsoleta`), callback firmato HMAC
@@ -62,9 +73,11 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
 2. **Creare le chiavi API** per le app che manderanno task
    (`npm run chiave -- <app> --scrittura`) e metterle nei `.env` di quelle app
    (es. `TASKS_API_KEY`).
-3. **Deploy Vercel** (progetto nuovo `deluxy-tasks`, root `deluxy-tasks/`), con
-   `DATABASE_URL`, `DIRECT_URL`, `TASKS_SESSION_SECRET` (per il login dal Hub).
-   Poi impostare `APP_URL_TASKS` nel Hub. Creare le squadre con `npm run squadra`.
+3. **DB in produzione**: su Vercel il progetto ha solo `TASKS_SESSION_SECRET`;
+   mancano `DATABASE_URL` e `DIRECT_URL`, quindi l'app online mostra «Database non
+   configurato». Si sistemano con **un comando** dalla cartella dell'app:
+   `npm run vercel:env` (copia le stringhe dal `.env` locale senza stamparle e
+   rilancia il deploy di produzione). Poi creare le squadre con `npm run squadra`.
 4. **Far mandare le task alle app**: integrare `POST /api/v1/tasks` dove ogni app
    già crea "cose da fare" (AI Mail estrae attività dalle mail; Scout le visite;
    Consegne le attività operative; Finance i bonifici da fare; ecc.).

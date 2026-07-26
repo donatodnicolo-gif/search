@@ -13,6 +13,7 @@
     "progetto": "node scripts/registra-progetto.mjs",
     "squadra": "node scripts/squadra.mjs",
     "db:condiviso": "node scripts/configura-db-condiviso.mjs",
+    "vercel:env": "node scripts/vercel-env-prod.mjs",
     "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
