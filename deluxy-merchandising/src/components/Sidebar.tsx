@@ -24,6 +24,7 @@ export async function Sidebar({
     | "costi"
     | "vendite"
     | "classifiche"
+    | "assortimento"
     | "riordini"
     | "trend-ai"
     | "visual"
@@ -74,6 +75,7 @@ export async function Sidebar({
         <SbSezione titolo="Vendite">
           {voce("vendite", "/vendite", "vendite", "Andamento & trend")}
           {voce("classifiche", "/classifiche", "classifiche", "Classifiche")}
+          {voce("assortimento", "/assortimento", "collezioni", "Categorie & collezioni")}
           {voce("riordini", "/riordini", "riordini", "Ipotesi di ordinativo", pianiAperti || undefined)}
           {voce("trend-ai", "/trend-ai", "ai", "Lettura AI")}
         </SbSezione>

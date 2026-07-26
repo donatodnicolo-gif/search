@@ -594,6 +594,206 @@ export async function panoramicaBrand(giorni: number): Promise<{ finestra: Fines
   };
 }
 
+// ---------- Assortimento: categorie e collezioni ----------
+
+export type RigaAssortimento = {
+  chiave: string;
+  nome: string;
+  // Il catalogo: quanti prodotti ci sono e quanti hanno davvero venduto. La
+  // differenza è la parte di assortimento che sta ferma in vetrina.
+  prodottiACatalogo: number;
+  prodottiVenduti: number;
+  pezzi: number;
+  ricavo: number;
+  ricavoPrec: number;
+  delta: number | null;
+  quota: number;
+  prezzoMedio: number;
+  margine: number;
+  marginePct: number;
+  ricavoConCosto: number;
+  tendenza: Tendenza;
+  top: { prodottoId: string; nome: string; pezzi: number; ricavo: number }[];
+};
+
+export type Assortimento = {
+  finestra: Finestra;
+  categorie: RigaAssortimento[];
+  collezioni: RigaAssortimento[];
+  totale: { pezzi: number; ricavo: number; prodottiVenduti: number };
+  senzaCosto: number; // prodotti venduti senza costo di produzione
+};
+
+/**
+ * Analisi per **categoria** e per **collezione**, incrociando il venduto con
+ * quello che sappiamo del prodotto (categoria, collezione, costo, prezzo).
+ *
+ * Conta solo le vendite andate a buon fine, come classifiche e riordino. I
+ * prodotti a catalogo che non hanno venduto niente restano contati a parte:
+ * una categoria con 40 prodotti e 3 che vendono è una notizia, e sparirebbe
+ * guardando solo il fatturato.
+ */
+export async function analizzaAssortimento(
+  giorni: number,
+  canale: string | null = null
+): Promise<Assortimento> {
+  const f = finestra(giorni);
+  const dove = {
+    ...FILTRO_BUON_FINE,
+    ...(canale ? { canale } : {}),
+    prodotto: { fase: { not: "archiviato" } },
+  };
+
+  const [righe, prodotti] = await Promise.all([
+    prisma.vendita.findMany({
+      where: { data: { gte: f.dalPrec, lte: f.al }, ...dove },
+      select: {
+        data: true,
+        quantita: true,
+        ricavo: true,
+        prodottoId: true,
+        prodotto: {
+          select: {
+            id: true,
+            nome: true,
+            categoria: true,
+            costoProduzione: true,
+            collezione: { select: { id: true, nome: true } },
+          },
+        },
+        variante: { select: { deltaCosto: true } },
+      },
+    }),
+    prisma.prodotto.findMany({
+      where: {
+        fase: { not: "archiviato" },
+        ...(canale ? { vendite: { some: { canale } } } : {}),
+      },
+      select: { id: true, categoria: true, collezioneId: true, collezione: { select: { nome: true } } },
+    }),
+  ]);
+
+  type Acc = {
+    chiave: string;
+    nome: string;
+    pezzi: number;
+    ricavo: number;
+    ricavoPrec: number;
+    margine: number;
+    ricavoConCosto: number;
+    prodotti: Map<string, { prodottoId: string; nome: string; pezzi: number; ricavo: number }>;
+    pezziPrec: number;
+  };
+  const nuovo = (chiave: string, nome: string): Acc => ({
+    chiave,
+    nome,
+    pezzi: 0,
+    ricavo: 0,
+    ricavoPrec: 0,
+    margine: 0,
+    ricavoConCosto: 0,
+    prodotti: new Map(),
+    pezziPrec: 0,
+  });
+
+  const perCategoria = new Map<string, Acc>();
+  const perCollezione = new Map<string, Acc>();
+  const senzaCosto = new Set<string>();
+
+  for (const r of righe) {
+    if (!r.prodotto) continue;
+    const corrente = r.data >= f.dal;
+    const costo = (r.prodotto.costoProduzione || 0) + (r.variante?.deltaCosto || 0);
+
+    const chiaveCat = r.prodotto.categoria;
+    const chiaveCol = r.prodotto.collezione?.id ?? "—";
+    const nomeCol = r.prodotto.collezione?.nome ?? "Senza collezione";
+
+    for (const [mappa, chiave, nome] of [
+      [perCategoria, chiaveCat, chiaveCat],
+      [perCollezione, chiaveCol, nomeCol],
+    ] as const) {
+      const a = mappa.get(chiave) ?? nuovo(chiave, nome);
+      if (corrente) {
+        a.pezzi += r.quantita;
+        a.ricavo += r.ricavo;
+        if (costo > 0) {
+          a.margine += r.ricavo - costo * r.quantita;
+          a.ricavoConCosto += r.ricavo;
+        }
+        const p = a.prodotti.get(r.prodotto.id) ?? {
+          prodottoId: r.prodotto.id,
+          nome: r.prodotto.nome,
+          pezzi: 0,
+          ricavo: 0,
+        };
+        p.pezzi += r.quantita;
+        p.ricavo += r.ricavo;
+        a.prodotti.set(r.prodotto.id, p);
+      } else {
+        a.ricavoPrec += r.ricavo;
+        a.pezziPrec += r.quantita;
+      }
+      mappa.set(chiave, a);
+    }
+
+    if (corrente && costo <= 0) senzaCosto.add(r.prodotto.id);
+  }
+
+  // Quanti prodotti ha ogni categoria/collezione a catalogo, venduti o no.
+  const catalogoCat = new Map<string, number>();
+  const catalogoCol = new Map<string, number>();
+  const nomiCol = new Map<string, string>();
+  for (const p of prodotti) {
+    catalogoCat.set(p.categoria, (catalogoCat.get(p.categoria) ?? 0) + 1);
+    const k = p.collezioneId ?? "—";
+    catalogoCol.set(k, (catalogoCol.get(k) ?? 0) + 1);
+    if (p.collezioneId && p.collezione) nomiCol.set(p.collezioneId, p.collezione.nome);
+  }
+
+  const ricavoTotale = [...perCategoria.values()].reduce((s, a) => s + a.ricavo, 0);
+
+  const componi = (a: Acc, aCatalogo: number): RigaAssortimento => ({
+    chiave: a.chiave,
+    nome: a.nome,
+    prodottiACatalogo: aCatalogo,
+    prodottiVenduti: a.prodotti.size,
+    pezzi: a.pezzi,
+    ricavo: a.ricavo,
+    ricavoPrec: a.ricavoPrec,
+    delta: variazione(a.ricavo, a.ricavoPrec),
+    quota: ricavoTotale > 0 ? a.ricavo / ricavoTotale : 0,
+    prezzoMedio: a.pezzi > 0 ? a.ricavo / a.pezzi : 0,
+    margine: a.margine,
+    marginePct: a.ricavoConCosto > 0 ? a.margine / a.ricavoConCosto : 0,
+    ricavoConCosto: a.ricavoConCosto,
+    tendenza: classificaTendenza(a.pezzi, a.pezziPrec),
+    top: [...a.prodotti.values()].sort((x, y) => y.ricavo - x.ricavo).slice(0, 3),
+  });
+
+  // Anche le categorie/collezioni che non hanno venduto niente devono comparire:
+  // "zero" è un dato, e senza riga si scambia per "non esiste".
+  for (const [cat, quanti] of catalogoCat) if (!perCategoria.has(cat)) perCategoria.set(cat, nuovo(cat, cat));
+  for (const [col, quanti] of catalogoCol)
+    if (!perCollezione.has(col)) perCollezione.set(col, nuovo(col, col === "—" ? "Senza collezione" : nomiCol.get(col) ?? col));
+
+  return {
+    finestra: f,
+    categorie: [...perCategoria.values()]
+      .map((a) => componi(a, catalogoCat.get(a.chiave) ?? 0))
+      .sort((a, b) => b.ricavo - a.ricavo),
+    collezioni: [...perCollezione.values()]
+      .map((a) => componi(a, catalogoCol.get(a.chiave) ?? 0))
+      .sort((a, b) => b.ricavo - a.ricavo),
+    totale: {
+      pezzi: [...perCategoria.values()].reduce((s, a) => s + a.pezzi, 0),
+      ricavo: ricavoTotale,
+      prodottiVenduti: new Set(righe.filter((r) => r.data >= f.dal && r.prodottoId).map((r) => r.prodottoId)).size,
+    },
+    senzaCosto: senzaCosto.size,
+  };
+}
+
 // ---------- Classifiche ----------
 
 export type VoceClassifica = {
