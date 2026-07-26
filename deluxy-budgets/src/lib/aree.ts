@@ -11,9 +11,10 @@ export const AREE: Record<Area, { label: string; sub: string; badge: string }> =
   config: { label: "Configurazione", sub: "Impostazioni", badge: "neutral" },
 };
 
-// Le uniche rotte "consuntivo": il fatturato reale (Finance) e i costi reali
-// (banca, CFO). Tutto il resto è pianificazione; le impostazioni a parte.
-const CONSUNTIVO = ["/consuntivo", "/cfo"];
+// Le rotte "consuntivo": il venduto dei negozi (Orders), il fatturato reale
+// (Finance + quota del venduto) e i costi reali (banca, CFO). Tutto il resto è
+// pianificazione; le impostazioni a parte.
+const CONSUNTIVO = ["/venduto", "/consuntivo", "/cfo"];
 const CONFIG = ["/impostazioni"];
 
 export function areaDi(pathname: string): Area {

@@ -38,7 +38,14 @@ pubblicato), *sfidante* e *irraggiungibile*.
   confidenze). L'AI propone, l'utente conferma: nulla è applicato in automatico. Richiede
   `OPENAI_API_KEY` (segreto, come le altre app Deluxy); senza chiave il resto del CFO funziona
   e il bottone spiega come attivarla.
-- **Consuntivo** (`/consuntivo`): gli importi **realmente fatturati** per tipologia di servizio,
+- **Venduto** (`/venduto`): quanto è passato dalla cassa dei negozi Shopify — il **prezzo pieno
+  pagato dal cliente**, IVA e spedizione incluse — per maison e per mese, dal registro ordini
+  (Orders `/api/v1/ricavi`), con confronto anno precedente e budget D2C. **Venduto ≠ fatturato**:
+  una parte di quel denaro va al partner che esegue l'ordine. Le detrazioni vere dei partner non
+  sono ancora in nessuna app, quindi si applica una **stima unica del 40%** (costante
+  `QUOTA_FATTURATO` in `src/lib/venduto.ts`), scritta in chiaro in ogni riga che la usa: quando
+  arriveranno i dati veri va **sostituita, non affiancata**.
+- **Consuntivo / Fatturato reale** (`/consuntivo`): gli importi **realmente fatturati** per tipologia di servizio,
   richiamati dall'app **Finance** (`deluxy-partner`, endpoint `/api/tipologie`) con selettore di
   periodo (anno / 1° / 2° semestre) e stato (tutte / saldate / aperte). Il fatturato reale si
   **raggruppa per voce di budget** secondo la mappatura impostata in Margini (campo "Voci in
@@ -48,14 +55,13 @@ pubblicato), *sfidante* e *irraggiungibile*.
   così nulla è nascosto. Richiede `FINANCE_API_KEY` in
   `.env` (la stessa chiave di `/api/verifiche` di Finance, **segreto, mai committato**);
   `FINANCE_API_URL` è opzionale. Senza chiave la pagina spiega come configurarla.
-  **Le vendite ecommerce non passano da Finance** — nascono sui negozi Shopify — quindi il
-  consuntivo del canale D2C arriva dal registro ordini **Orders** (`GET /api/v1/ricavi`, chiave
-  `ORDERS_API_KEY` + `ORDERS_URL`), che dà il venduto per brand e per mese. La pagina lo somma
-  ai ricavi (riga D2C e split mensile) e lo apre nella tabella **Vendite ecommerce per maison**:
-  i negozi si abbinano alle maison per nome (`deluxy.it` → Deluxy.it) o per slug (`Flowers` →
-  flowers), e un negozio senza maison resta comunque a vista su una riga a parte. In pagina si
-  parla di «vendite ecommerce»; «D2C» resta il nome della **voce di budget**, che a DB si chiama
-  così (`TipologiaServizio.slug`). **L'IVA non si scorpora**: il totale Shopify si usa così com'è,
+  **L'ecommerce non passa da Finance** — nasce sui negozi Shopify — quindi la riga D2C di questo
+  conto economico è la **quota del venduto che resta a Deluxy**: `QUOTA_FATTURATO` (oggi 40%)
+  applicata al venduto di [Venduto](#). Sommare qui il venduto pieno gonfierebbe i ricavi di più
+  del doppio e produrrebbe un margine che non esiste. Un riquadro in fondo alla pagina mostra la
+  catena venduto → detrazioni partner → fatturato. **Da decidere con l'utente**: il budget D2C è
+  scritto sul **venduto**, quindi su quella riga «scostamento» e «realizzato» confrontano due basi
+  diverse — la pagina lo dichiara e rimanda a `/venduto` per il paragone giusto. **L'IVA non si scorpora**: il totale Shopify si usa così com'è,
   IVA e spedizione incluse, perché il budget D2C è scritto sulla stessa base. Le due fonti dei
   ricavi restano quindi su basi diverse — Finance **imponibile**, Shopify **IVA inclusa** — e la
   pagina lo dichiara invece di uniformarle con un'aliquota indovinata (Shopify non salva l'aliquota

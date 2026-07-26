@@ -158,6 +158,9 @@ const nav: AreaNav[] = [
     gruppi: [
       {
         items: [
+          // L'ordine è quello del denaro: prima quanto è passato dalla cassa dei
+          // negozi (venduto), poi quanto ne resta a Deluxy (fatturato), poi i costi.
+          { href: "/venduto", label: "Venduto (ecommerce)", icon: icons.spese },
           { href: "/consuntivo", label: "Fatturato reale", icon: icons.consuntivo },
           { href: "/cfo", label: "Costi reali (CFO)", icon: icons.cfo },
         ],

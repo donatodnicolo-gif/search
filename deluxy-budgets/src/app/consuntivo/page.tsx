@@ -4,7 +4,8 @@ import { fetchConsuntivo, fetchSpeseBanca } from "@/lib/finance";
 import { caricaCategorie, ricostruisci } from "@/lib/cfo";
 import { eur, MESI, pct } from "@/lib/format";
 import { normalizzaNome } from "@/lib/scout";
-import { abbinaMaison, fetchRicaviD2C } from "@/lib/orders";
+import { fetchRicaviD2C } from "@/lib/orders";
+import { fatturatoDaVenduto, QUOTA_FATTURATO, raggruppa, sommaMesi } from "@/lib/venduto";
 
 export const dynamic = "force-dynamic";
 
@@ -115,46 +116,19 @@ export default async function ConsuntivoPage({
     caricaAnno(annoPrec),
   ]);
 
-  // ---- Vendite ecommerce (Orders): per mese, per maison e in totale ----
-  // Tutti i brand Shopify sono D2C, anche quelli che non corrispondono a una
-  // maison del budget: entrano nel totale e vengono elencati a parte, così il
-  // conto torna e nessun venduto sparisce.
-  const d2cMese = Array(12).fill(0) as number[];
-  const d2cPerMaison = new Map<string, number[]>();
-  const d2cSenzaMaison: { brand: string; mesi: number[] }[] = [];
-  if (d2c.ok) {
-    for (const b of d2c.dati.brand) {
-      const mesi = b.mesi;
-      for (let i = 0; i < 12; i++) d2cMese[i] += mesi[i] ?? 0;
-      const slug = abbinaMaison(b.brand, dati.maisons);
-      if (!slug) { d2cSenzaMaison.push({ brand: b.brand, mesi }); continue; }
-      const gia = d2cPerMaison.get(slug);
-      if (gia) for (let i = 0; i < 12; i++) gia[i] += mesi[i] ?? 0;
-      else d2cPerMaison.set(slug, [...mesi]);
-    }
-  }
-  const d2cPeriodo = mesiPeriodo.reduce((s, m) => s + (d2cMese[m - 1] ?? 0), 0);
-
-  // Stesse vendite ecommerce dell'anno prima, sugli stessi mesi e sulla stessa
-  // base (totale Shopify, IVA inclusa).
-  const d2cPrecMese = Array(12).fill(0) as number[];
-  const d2cPrecPerMaison = new Map<string, number[]>();
-  if (d2cPrec.ok) {
-    for (const b of d2cPrec.dati.brand) {
-      const mesi = b.mesi;
-      for (let i = 0; i < 12; i++) d2cPrecMese[i] += mesi[i] ?? 0;
-      const slug = abbinaMaison(b.brand, dati.maisons);
-      if (!slug) continue;
-      const gia = d2cPrecPerMaison.get(slug);
-      if (gia) for (let i = 0; i < 12; i++) gia[i] += mesi[i] ?? 0;
-      else d2cPrecPerMaison.set(slug, [...mesi]);
-    }
-  }
-  const d2cPrecPeriodo = mesiRif.reduce((s, m) => s + (d2cPrecMese[m - 1] ?? 0), 0);
-  const d2cMaisonPrec = (slug: string) => {
-    const mesi = d2cPrecPerMaison.get(slug);
-    return mesi ? mesiRif.reduce((s, m) => s + (mesi[m - 1] ?? 0), 0) : 0;
-  };
+  // ---- Ecommerce: qui entra il FATTURATO, non il venduto ----
+  // Sul negozio il cliente paga il prezzo pieno, ma una parte va al partner che
+  // esegue l'ordine: sommare il venduto in questo conto economico gonfierebbe i
+  // ricavi di più del doppio e produrrebbe un margine che non esiste. Il venduto
+  // pieno si guarda nella sezione Venduto; qui si applica la quota che resta a
+  // Deluxy — oggi una **stima**, dichiarata in pagina.
+  const vend = raggruppa(d2c, dati.maisons);
+  const vendPrec = raggruppa(d2cPrec, dati.maisons);
+  const d2cMese = vend.mese.map(fatturatoDaVenduto);
+  const d2cPrecMese = vendPrec.mese.map(fatturatoDaVenduto);
+  const vendutoPeriodo = sommaMesi(vend.mese, mesiPeriodo);
+  const d2cPeriodo = sommaMesi(d2cMese, mesiPeriodo);
+  const d2cPrecPeriodo = sommaMesi(d2cPrecMese, mesiRif);
 
   // Variazione percentuale. Con una base a zero la percentuale non esiste (non
   // è "+100%", è "da zero"): si restituisce null e la colonna mostra "—".
@@ -205,10 +179,11 @@ export default async function ConsuntivoPage({
       if (f) { consuntivo += f.imponibile; collegati.push(f.nome); consumati.add(k); }
       precedente += fatturatoPrecPerNome.get(k) ?? 0;
     }
-    // Il D2C non si fattura in Finance: il suo consuntivo è il venduto Shopify.
+    // Il D2C non si fattura in Finance: nasce sui negozi Shopify, e qui entra
+    // solo la quota che resta a Deluxy dopo i partner.
     if (t.slug === SLUG_D2C && d2c.ok) {
       consuntivo += d2cPeriodo;
-      collegati.push(`Vendite ecommerce · ${d2c.dati.brand.length} negozi`);
+      collegati.push(`${QUOTA_FATTURATO}% del venduto · ${d2c.dati.brand.length} negozi`);
     }
     if (t.slug === SLUG_D2C && d2cPrec.ok) precedente += d2cPrecPeriodo;
     return {
@@ -323,8 +298,11 @@ export default async function ConsuntivoPage({
   // «totale ricavi» da solo non dice quanto viene dall'ecommerce e quanto dal
   // fatturato, che è la prima cosa che si vuole sapere guardando questa tabella.
   const righeRicavi: RigaPL[] = confronto.map((c) => ({
-    label: c.slug === SLUG_D2C ? "Vendite ecommerce (D2C)" : c.nome,
-    nota: c.slug === SLUG_D2C ? "negozi Shopify · registro ordini" : c.collegati.join(" + ") || "nessuna voce collegata",
+    label: c.slug === SLUG_D2C ? "Ecommerce (D2C)" : c.nome,
+    nota:
+      c.slug === SLUG_D2C
+        ? `stima ${QUOTA_FATTURATO}% del venduto, al netto dei partner`
+        : c.collegati.join(" + ") || "nessuna voce collegata",
     cons: c.consuntivo,
     budget: c.budgetPeriodo,
     prec: c.precedente,
@@ -375,7 +353,7 @@ export default async function ConsuntivoPage({
     { label: "Ricavi", get: ricaviM },
     // Quanto di quei ricavi è ecommerce, mese per mese: è la riga che dice se
     // l'andamento dei negozi sta reggendo, e da sola nel totale non si vede.
-    ...(d2c.ok ? [{ label: "di cui vendite ecommerce", dettaglio: true, get: (m: number) => d2cMese[m - 1] ?? 0 }] : []),
+    ...(d2c.ok ? [{ label: `di cui ecommerce (stima ${QUOTA_FATTURATO}%)`, dettaglio: true, get: (m: number) => d2cMese[m - 1] ?? 0 }] : []),
     { label: "Costo del venduto", costo: true, get: (m) => costoM("COGS", m) },
     { label: "Margine lordo", forte: true, get: margineM },
     { label: "ADV", costo: true, get: (m) => costoM("ADV", m) },
@@ -449,7 +427,7 @@ export default async function ConsuntivoPage({
               <div className="kpi-value">{eur(ricaviCons)}</div>
               <div className="kpi-sub">
                 imponibile · {res.dati.totali.fatture} fatture Finance
-                {d2c.ok ? ` + ${eur(d2cPeriodo)} di vendite ecommerce` : ""}
+                {d2c.ok ? ` + ${eur(d2cPeriodo)} di ecommerce (stima)` : ""}
               </div>
               {ricaviPrec !== null && (
                 <div className="kpi-sub">
@@ -604,9 +582,10 @@ export default async function ConsuntivoPage({
 
           <p className="page-caption" style={{ marginTop: 14 }}>
             Ricavi = imponibile fatturato in Finance mappato alle voci di budget in{" "}
-            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>, <strong>più le vendite
-            ecommerce</strong> prese dal registro ordini (Orders): quelle dei negozi Shopify non passano da Finance,
-            quindi senza Orders la voce con il budget più alto dell&apos;anno resterebbe a zero. Il <strong>costo del
+            <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>, <strong>più la quota
+            ecommerce</strong>: {QUOTA_FATTURATO}% del{" "}
+            <Link href="/venduto" style={{ color: "var(--blue)" }}>venduto</Link> sui negozi Shopify, che non passa da
+            Finance ed è al netto stimato dei partner. Il <strong>costo del
             personale</strong> viene dall&apos;anagrafica{" "}
             <Link href="/dipendenti" style={{ color: "var(--blue)" }}>Dipendenti</Link> (payroll, mese per
             mese), non dalla banca. Gli <strong>altri costi</strong> (COGS, ADV, struttura) sono le uscite di
@@ -644,7 +623,7 @@ export default async function ConsuntivoPage({
             {parziale && (
               <>
                 <strong>{MESI[meseInCorso - 1]} è in corso</strong> ({giornoInCorso} giorni su {giorniDelMese}), e non
-                tutte le voci si fermano allo stesso punto: le <strong>vendite ecommerce</strong> sono al giorno, e
+                tutte le voci si fermano allo stesso punto: l&apos;<strong>ecommerce</strong> è al giorno, e
                 anche il {annoPrec} è tagliato allo stesso giorno, quindi lì il confronto è esatto. Il{" "}
                 <strong>fatturato di Finance</strong> e le <strong>uscite di banca</strong> si contano a mese
                 {periodo.annoIntero ? "" : `, quindi per il ${annoPrec} ${MESI[meseInCorso - 1]} vale intero`}; il{" "}
@@ -664,10 +643,14 @@ export default async function ConsuntivoPage({
                 {mesiBancaPrec.length === 1 ? "un mese" : `${mesiBancaPrec.length} mesi`}.{" "}
               </>
             )}
+            <strong>Da decidere</strong>: il budget D2C è scritto sul <strong>venduto</strong> (1,08 M€ sul 2026),
+            mentre qui il consuntivo è il <strong>fatturato stimato</strong>. Finché resta così, su quella riga —
+            e quindi sul totale — «scostamento» e «realizzato» confrontano due basi diverse: il paragone giusto sul
+            venduto è in <Link href="/venduto" style={{ color: "var(--blue)" }}>Venduto</Link>.{" "}
             Budget di confronto = somma dei mesi {etichettaRif}. <strong>Le due fonti dei ricavi hanno basi
-            diverse</strong>, come il budget: il fatturato di Finance è <strong>imponibile</strong>, le vendite
-            ecommerce sono il <strong>totale Shopify IVA inclusa</strong> (non si scorpora). Uscite di cassa IVA
-            inclusa: consuntivo gestionale.
+            diverse</strong>: il fatturato di Finance è <strong>imponibile</strong>, la quota ecommerce è il{" "}
+            {QUOTA_FATTURATO}% di un venduto <strong>IVA inclusa</strong> (non si scorpora, perché il budget D2C è
+            scritto sulla stessa base). Uscite di cassa IVA inclusa: consuntivo gestionale.
           </p>
 
           <h2 className="section-title">Ricavi reali per voce di budget</h2>
@@ -721,139 +704,43 @@ export default async function ConsuntivoPage({
             </p>
           )}
 
-          <h2 className="section-title">Vendite ecommerce per maison — dai negozi Shopify</h2>
-          {!d2c.ok ? (
-            <div className="card empty">
-              <div className="empty-icon">↯</div>
-              <div className="empty-title">{d2c.configurato ? "Orders non disponibile" : "Collega l'app Orders"}</div>
-              <div className="empty-text">{d2c.errore}</div>
-            </div>
-          ) : (
-            <>
-              <div className="card tight">
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Maison</th>
-                        {mesiPeriodo.map((m) => (<th className="num" key={m}>{MESI[m - 1]}</th>))}
-                        <th className="num">Consuntivo</th>
-                        <th className="num">{intestaPrec}</th>
-                        <th className="num">{intestaVar}</th>
-                        <th className="num">{periodo.annoIntero ? "Budget anno" : "Budget D2C"}</th>
-                        <th className="num">{intestaScost}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dati.maisons
-                        .map((m) => {
-                          const mesi = d2cPerMaison.get(m.slug) ?? Array(12).fill(0);
-                          const cons = mesiPeriodo.reduce((s, mm) => s + (mesi[mm - 1] ?? 0), 0);
-                          const budget = mesiRif.reduce(
-                            (s, mm) => s + (m.mesi.find((y) => y.month === mm)?.vendite[SLUG_D2C] ?? 0),
-                            0
-                          );
-                          return { slug: m.slug, nome: m.nome, mesi, cons, budget, prec: d2cPrec.ok ? d2cMaisonPrec(m.slug) : null };
-                        })
-                        // Una maison senza D2C né a budget né a consuntivo non
-                        // dice niente: si mostra solo chi ha almeno un numero.
-                        .filter((r) => r.cons > 0 || r.budget > 0)
-                        .map((r) => (
-                          <tr key={r.slug}>
-                            <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{r.nome}</td>
-                            {mesiPeriodo.map((m) => (<td className="num" key={m}>{eur(r.mesi[m - 1] ?? 0)}</td>))}
-                            <td className="num" style={{ fontWeight: 600 }}>{eur(r.cons)}</td>
-                            <td className="num muted">{r.prec === null ? "—" : eur(r.prec)}</td>
-                            <td className="num">
-                              {(() => {
-                                if (periodo.annoIntero) {
-                                  const q = quota(r.cons, r.prec);
-                                  return q === null ? <span className="muted">—</span> : <span className="muted">{pct(q, 0)}</span>;
-                                }
-                                const v = variazione(r.cons, r.prec);
-                                if (v === null) return <span className="muted">—</span>;
-                                return <span className={v >= 0 ? "pos" : "neg"}>{v >= 0 ? "+" : ""}{pct(v, 0)}</span>;
-                              })()}
-                            </td>
-                            <td className="num muted">{eur(r.budget)}</td>
-                            {periodo.annoIntero ? (
-                              <td className="num">{restante(r.budget, r.cons, "ricavo")}</td>
-                            ) : (
-                              <td className={`num ${r.cons - r.budget >= 0 ? "pos" : "neg"}`}>
-                                {r.cons - r.budget >= 0 ? "+" : ""}{eur(r.cons - r.budget)}
-                              </td>
-                            )}
-                          </tr>
-                        ))}
-                      {d2cSenzaMaison.map((b) => {
-                        const cons = mesiPeriodo.reduce((s, m) => s + (b.mesi[m - 1] ?? 0), 0);
-                        return (
-                          <tr key={b.brand}>
-                            <td style={{ whiteSpace: "nowrap" }}>
-                              {b.brand}
-                              <div className="muted" style={{ fontSize: 11.5 }}>negozio senza maison</div>
-                            </td>
-                            {mesiPeriodo.map((m) => (<td className="num" key={m}>{eur(b.mesi[m - 1] ?? 0)}</td>))}
-                            <td className="num" style={{ fontWeight: 600 }}>{eur(cons)}</td>
-                            <td className="num muted">—</td>
-                            <td className="num muted">—</td>
-                            <td className="num muted">—</td>
-                            <td className="num muted">—</td>
-                          </tr>
-                        );
-                      })}
-                      <tr className="tot">
-                        <td>Totale vendite ecommerce</td>
-                        {mesiPeriodo.map((m) => (<td className="num" key={m}>{eur(d2cMese[m - 1] ?? 0)}</td>))}
-                        <td className="num">{eur(d2cPeriodo)}</td>
-                        <td className="num">{d2cPrec.ok ? eur(d2cPrecPeriodo) : "—"}</td>
-                        <td className="num">
-                          {(() => {
-                            const base = d2cPrec.ok ? d2cPrecPeriodo : null;
-                            if (periodo.annoIntero) {
-                              const q = quota(d2cPeriodo, base);
-                              return q === null ? <span className="muted">—</span> : <span className="muted">{pct(q, 0)}</span>;
-                            }
-                            const v = variazione(d2cPeriodo, base);
-                            if (v === null) return <span className="muted">—</span>;
-                            return <span className={v >= 0 ? "pos" : "neg"}>{v >= 0 ? "+" : ""}{pct(v, 0)}</span>;
-                          })()}
-                        </td>
-                        <td className="num">{eur(budgetVoce(SLUG_D2C))}</td>
-                        {periodo.annoIntero ? (
-                          <td className="num">{restante(budgetVoce(SLUG_D2C), d2cPeriodo, "ricavo")}</td>
-                        ) : (
-                          <td className={`num ${d2cPeriodo - budgetVoce(SLUG_D2C) >= 0 ? "pos" : "neg"}`}>
-                            {d2cPeriodo - budgetVoce(SLUG_D2C) >= 0 ? "+" : ""}{eur(d2cPeriodo - budgetVoce(SLUG_D2C))}
-                          </td>
-                        )}
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <p className="page-caption" style={{ marginTop: 12 }}>
-                Venduto dei negozi Shopify preso da{" "}
-                <a href="https://deluxy-orders.vercel.app" style={{ color: "var(--blue)" }}>Orders</a>{" "}
-                ({d2c.dati.totali.ordini.toLocaleString("it-IT")} ordini nel {anno}): è il{" "}
-                <strong>totale Shopify così com&apos;è, IVA e spedizione incluse</strong> — la stessa base su cui è
-                scritto il budget D2C, quindi non si scorpora niente.{" "}
-                {d2c.dati.esclusi.annullati.ordini > 0 && (
-                  <>Esclusi {d2c.dati.esclusi.annullati.ordini} ordini annullati ({eur(d2c.dati.esclusi.annullati.lordo)} lordi). </>
-                )}
-                {d2c.dati.esclusi.rimborsati.ordini > 0 && (
-                  <>Esclusi {d2c.dati.esclusi.rimborsati.ordini} rimborsati/stornati ({eur(d2c.dati.esclusi.rimborsati.lordo)} lordi). </>
-                )}
-                {d2c.dati.esclusi.parzialmenteRimborsati.ordini > 0 && (
-                  <>
-                    {d2c.dati.esclusi.parzialmenteRimborsati.ordini} ordini rimborsati <em>in parte</em> sono contati
-                    per intero ({eur(d2c.dati.esclusi.parzialmenteRimborsati.lordo)} lordi): Shopify non registra
-                    quanto è stato reso, quindi il dato si dichiara invece di stimarlo.
-                  </>
-                )}
+          <h2 className="section-title">Ecommerce: dal venduto al fatturato</h2>
+          <div className="card">
+            {!d2c.ok ? (
+              <p className="page-caption" style={{ margin: 0 }}>
+                {d2c.configurato ? "Orders non disponibile" : "Collega l'app Orders"}: {d2c.errore}
               </p>
-            </>
-          )}
+            ) : (
+              <>
+                <div className="kpi-grid" style={{ marginTop: 0 }}>
+                  <div className="kpi">
+                    <div className="kpi-label">Venduto sui negozi — {etichettaPeriodo} {anno}</div>
+                    <div className="kpi-value">{eur(vendutoPeriodo)}</div>
+                    <div className="kpi-sub">prezzo pagato dai clienti, IVA inclusa</div>
+                  </div>
+                  <div className="kpi">
+                    <div className="kpi-label">Detrazioni dei partner (stima)</div>
+                    <div className="kpi-value">− {eur(vendutoPeriodo - d2cPeriodo)}</div>
+                    <div className="kpi-sub">{100 - QUOTA_FATTURATO}% del venduto</div>
+                  </div>
+                  <div className="kpi">
+                    <div className="kpi-label">Fatturato Deluxy</div>
+                    <div className="kpi-value">{eur(d2cPeriodo)}</div>
+                    <div className="kpi-sub">
+                      <strong>{QUOTA_FATTURATO}%</strong> del venduto — è la riga ecommerce del conto economico
+                    </div>
+                  </div>
+                </div>
+                <p className="page-caption" style={{ marginTop: 12, marginBottom: 0 }}>
+                  Il <strong>{QUOTA_FATTURATO}% è una stima</strong>, uguale per tutte le maison e per tutti i mesi:
+                  le detrazioni vere dei partner non sono ancora in nessuna app. Finché non ci sono, la riga ecommerce
+                  di questo conto economico è una stima e non un dato — e quando il dato arriverà va sostituita, non
+                  affiancata. Il venduto pieno, per maison e per mese, sta in{" "}
+                  <Link href="/venduto" style={{ color: "var(--blue)" }}>Venduto</Link>.
+                </p>
+              </>
+            )}
+          </div>
         </>
       )}
     </>
