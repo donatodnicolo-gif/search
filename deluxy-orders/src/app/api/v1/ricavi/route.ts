@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
-import { prisma } from "@/lib/db";
+import { prisma, SCHEMA } from "@/lib/db";
 
 // GET /api/v1/ricavi — venduto aggregato per brand e per mese (sola lettura).
 //
@@ -29,6 +29,11 @@ import { prisma } from "@/lib/db";
 // confronta con un fatturato imponibile deve scorporare l'IVA a valle —
 // l'aliquota non è nota qui (Shopify non la salva sull'ordine).
 
+// La tabella si qualifica con lo schema (`SCHEMA` da db.ts): Prisma lo mette da
+// sé nelle query dei modelli ma NON in quelle grezze, e col pooler in modalità
+// transazione capita una connessione senza `search_path` — sintomo, un
+// «relation "Ordine" does not exist» a intermittenza su una query che il minuto
+// prima funzionava. È già successo qui: un 500 isolato prima di questa riga.
 const RIMBORSI = ["REFUNDED", "VOIDED"];
 
 type Riga = { brand: string; mese: number; ordini: number; lordo: number };
@@ -56,7 +61,7 @@ export async function GET(req: NextRequest) {
               EXTRACT(MONTH FROM (data AT TIME ZONE 'Europe/Rome'))::int AS mese,
               COUNT(*)::int AS ordini,
               COALESCE(SUM(totale), 0)::float8 AS lordo
-         FROM "Ordine"
+         FROM "${SCHEMA}"."Ordine"
         WHERE data >= $1 AND data < $2
           ${brand ? "AND brand = $3" : ""}
           ${conAnnullati ? "" : `AND "annullatoIl" IS NULL`}
