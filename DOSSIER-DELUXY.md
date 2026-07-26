@@ -99,6 +99,7 @@ un pezzo di dominio. Nessuna app duplica i dati di un'altra: li **legge via API*
 | Posta e attività da email | **deluxy-mail** | — |
 | Campagne e spesa ADV | **deluxy-marketing** | — |
 | Prospezione sul campo | **deluxy-scout** (+ HubSpot) | — |
+| Richieste e autorizzazioni di pagamento | **deluxy-transactions** | API firmata: **nessun'altra app paga per conto proprio** |
 
 Corollario: se serve un dato che non è tuo, **non te ne fai una copia**: chiedi
 all'app che lo possiede.
@@ -112,6 +113,7 @@ all'app che lo possiede.
 | **deluxy-partner** ("Finance") | gestione finanziaria dei partner: fatture servizi, vendite vendor, saldi, bonifici SEPA. Sostituisce un vecchio Excel. |
 | **deluxy-anagrafiche** | registro centralizzato dei partner e prospect B2B, con golden record e merge per campo. |
 | **deluxy-orders** | registro centralizzato degli ordini Shopify (~14.000 storici importati), riclassificabili e instradabili. |
+| **deluxy-transactions** | l'unico posto da cui esce denaro: le altre app **chiedono** un pagamento via API firmata, una persona autorizza con secondo fattore e doppia firma, ne esce la distinta SEPA. L'app non muove denaro e non ha credenziali bancarie: l'ultimo passo lo fa un umano nel portale della banca. |
 | **deluxy-search-supplier** | ricerca fiorai/pasticcerie e smistamento degli ordini via WhatsApp/Email. |
 | **deluxy-messaging** | inbox unificata WhatsApp/Messenger/Instagram (API Meta) + widget di chat per i siti. |
 | **deluxy-mail** | client IMAP/SMTP che smista la posta, crea attività e prepara bozze con l'AI. |
@@ -158,16 +160,21 @@ accento): [deluxy-design-system/DESIGN-SYSTEM.md](deluxy-design-system/DESIGN-SY
 
 ## 6. Stato al 24 luglio 2026
 
-**In produzione e funzionanti**: portale (Hub), piattaforma consegne, Finance,
-Anagrafiche, AI Mail, Marketing, Messaggi, Ordini, Ricerca fornitori, Scout.
+**Tutte le app web sono in produzione**: portale (Hub), piattaforma consegne,
+Finance, Anagrafiche, AI Mail, Marketing, Messaggi, Ordini, Transactions,
+Budgets, Merchandising, Ricerca fornitori, Scout. Ognuna dietro un accesso:
+nessuna espone dati aziendali in chiaro.
 
-**Non ancora pubblicate**: Budgets e Merchandising (girano in locale, database
-SQLite, da portare su Postgres).
+> **Perché un'app resta "solo in locale"**: quasi sempre perché usa **SQLite**,
+> che su Vercel non può funzionare (il filesystem delle funzioni è effimero e in
+> sola lettura: il file del database non è scrivibile e sparisce a ogni deploy).
+> Per pubblicarla servono due cose: passare a **Postgres** con il proprio schema
+> e mettere la **password di accesso**. Fatto per Budgets e Merchandising il
+> 24/07/2026, dati migrati e verificati.
 
 **Aperto e noto**:
 - il **login unico** è pronto come codice ma non attivo (manca il segreto
   condiviso nelle impostazioni di produzione delle due app);
-- **Budgets e Merchandising su SQLite** invece che Postgres;
 - alcune app hanno solo un README e non un handoff (Budgets, Marketing);
 - la cassaforte centrale delle chiavi **è stata letta davvero solo da poco**: due
   app la chiamavano con l'header sbagliato e ripiegavano in silenzio sulle

@@ -147,15 +147,23 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 ### 3.3 Regole
 
 1. **SQLite solo in prototipo.** Un'app che va in produzione passa a Postgres con
-   il proprio schema. (Oggi `deluxy-budgets` e `deluxy-merchandising` sono ancora
-   su SQLite: è una deviazione da chiudere.)
-2. **Mai `deleteMany` senza filtro** sul database condiviso, nemmeno "per pulire
+   il proprio schema — **su Vercel SQLite non funziona affatto**: il filesystem
+   delle funzioni è effimero e in sola lettura, il file `dev.db` non si può
+   scrivere e sparisce a ogni deploy. È questo, non altro, il motivo per cui
+   un'app resta "solo in locale". La migrazione si fa con
+   `node scripts/configura-db-condiviso.mjs ../deluxy-partner/.env` +
+   `npx prisma db push` (chiuso per budgets e merchandising il 24/07/2026).
+2. **Un'app pubblicata ha sempre una porta d'accesso.** Prima di pubblicare va
+   messo il middleware con `<APP>_APP_PASSWORD` (pattern di `deluxy-orders`:
+   `src/lib/auth.ts` + `src/middleware.ts` + `/login`). Senza password non si
+   pubblica: i dati aziendali finirebbero pubblici in rete.
+3. **Mai `deleteMany` senza filtro** sul database condiviso, nemmeno "per pulire
    i test": si cancellano i dati veri di un'altra app. Si filtra sempre sui
    record creati dal test.
-3. **Indici** su ogni campo usato per filtrare o ordinare (`@@index`).
-4. **Migrazioni**: `npm run db:push` in sviluppo; ogni cambio di schema va
+4. **Indici** su ogni campo usato per filtrare o ordinare (`@@index`).
+5. **Migrazioni**: `npm run db:push` in sviluppo; ogni cambio di schema va
    descritto nell'handoff dell'app.
-5. **Il modello è la fonte di verità di un'app sola**: anagrafiche in
+6. **Il modello è la fonte di verità di un'app sola**: anagrafiche in
    `deluxy-anagrafiche`, ordini in `deluxy-orders`, attività in `deluxy-tasks`.
    Le altre app **non duplicano** quei dati, li leggono via API.
 

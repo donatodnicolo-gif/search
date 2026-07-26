@@ -91,9 +91,9 @@ export function catalogoApp(): AppDeluxy[] {
       descrizione:
         "Il prodotto a 360° come una maison: collezioni e stagioni, sviluppo (PLM), costi e margini, visual merchandising e pubblicazione su Shopify.",
       icona: "merchandising",
-      // Eccezione voluta: la tessera resta visibile anche in produzione senza
-      // APP_URL_MERCHANDISING, puntando all'istanza locale finché non c'è un URL pubblico.
-      url: process.env.APP_URL_MERCHANDISING ?? "http://localhost:3120",
+      // L'app è pubblicata: si punta al sito di produzione, sovrascrivibile con
+      // APP_URL_MERCHANDISING (es. http://localhost:3120 in sviluppo).
+      url: process.env.APP_URL_MERCHANDISING ?? "https://deluxy-merchandising.vercel.app",
       ruoli: ["admin", "commerciale"],
     },
     {
@@ -115,9 +115,9 @@ export function catalogoApp(): AppDeluxy[] {
       descrizione:
         "Budget aziendali su 3 livelli (raggiungibile, sfidante, irraggiungibile) con P&L, premi, proposte dei responsabili e spese ADV.",
       icona: "budgets",
-      // Eccezione voluta: la tessera resta visibile anche in produzione senza
-      // APP_URL_BUDGETS, puntando all'istanza locale finché non c'è un URL pubblico.
-      url: process.env.APP_URL_BUDGETS ?? "http://localhost:3080",
+      // L'app è pubblicata: si punta al sito di produzione, sovrascrivibile con
+      // APP_URL_BUDGETS (es. http://localhost:3080 in sviluppo).
+      url: process.env.APP_URL_BUDGETS ?? "https://deluxy-budgets.vercel.app",
       ruoli: ["admin"],
     },
     {
@@ -178,7 +178,9 @@ export function catalogoApp(): AppDeluxy[] {
       icona: "orders",
       // Eccezione voluta: la tessera resta visibile anche in produzione senza
       // APP_URL_ORDERS, puntando all'istanza locale finché non c'è un URL pubblico.
-      url: process.env.APP_URL_ORDERS ?? "http://localhost:3150",
+      // L'app e' pubblicata: si punta al sito di produzione, sovrascrivibile
+      // con APP_URL_ORDERS (es. http://localhost:3150 in sviluppo).
+      url: process.env.APP_URL_ORDERS ?? "https://deluxy-orders.vercel.app",
       ruoli: ["admin"],
     },
     {
@@ -190,7 +192,9 @@ export function catalogoApp(): AppDeluxy[] {
       icona: "transactions",
       // Solo admin: qui si autorizzano bonifici. Chi deve poter firmare viene
       // aggiunto come operatore dentro l'app, non basta vedere l'icona.
-      url: url(process.env.APP_URL_TRANSACTIONS, "http://localhost:3160"),
+      // L'app e' pubblicata: si punta al sito di produzione, sovrascrivibile
+      // con APP_URL_TRANSACTIONS (es. http://localhost:3160 in sviluppo).
+      url: process.env.APP_URL_TRANSACTIONS ?? "https://deluxy-transactions.vercel.app",
       ruoli: ["admin"],
     },
     {

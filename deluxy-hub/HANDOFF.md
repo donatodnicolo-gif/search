@@ -44,7 +44,7 @@ quella qui sopra, leggibile nel file `.env` locale.
 
 ---
 
-## 3. Le 14 app del portale
+## 3. Le 15 app del portale
 
 Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 
@@ -53,17 +53,18 @@ Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 | AI Mail | `APP_URL_MAIL` (dev 3070) | solo admin | |
 | Anagrafiche | `APP_URL_ANAGRAFICHE` (dev 3060) | admin, commerciale | |
 | Attività | `APP_URL_TASKS` ?? `http://localhost:3090` | solo admin | visibile anche in prod |
-| Budgets | `APP_URL_BUDGETS` ?? `http://localhost:3080` | solo admin | visibile anche in prod |
+| Budgets | `https://deluxy-budgets.vercel.app` | solo admin | default nel codice, override con `APP_URL_BUDGETS` |
 | Calendario | `APP_URL_CALENDARIO` ?? `http://localhost:3110` | solo admin | visibile anche in prod |
 | Commerciale Scout | `https://deluxy-scout.vercel.app` | admin, commerciale | export web Expo |
 | Consegne | `https://deluxy-delivery.vercel.app` | solo admin | |
 | Finance | `https://deluxy-partner.vercel.app` | admin, partner | id interno = `partner`, **`sso: true`** |
 | Maison | `https://deluxy-os.base44.app/` | tutti i ruoli | Deluxy OS su base44 |
 | Marketing | `https://deluxy-marketing.vercel.app` | solo admin | default nel codice, override con `APP_URL_MARKETING` |
-| Merchandising | `APP_URL_MERCHANDISING` ?? `http://localhost:3120` | admin, commerciale | visibile anche in prod |
+| Merchandising | `https://deluxy-merchandising.vercel.app` | admin, commerciale | default nel codice, override con `APP_URL_MERCHANDISING` |
 | Messaggi | `https://deluxy-messaging.vercel.app` | admin, commerciale | default nel codice, override con `APP_URL_MESSAGGI` |
-| Ordini | `APP_URL_ORDERS` ?? `http://localhost:3150` | solo admin | visibile anche in prod |
+| Ordini | `https://deluxy-orders.vercel.app` | solo admin | default nel codice, override con `APP_URL_ORDERS` |
 | Ricerca fornitori | `https://search-deluxy.vercel.app` | admin, commerciale | id interno = `search` |
+| Transactions | `https://deluxy-transactions.vercel.app` | solo admin | autorizza i pagamenti; chi firma va aggiunto dentro l'app |
 
 - Regola generale: senza `APP_URL_*` l'app **sparisce in produzione** (helper `url()`
   in `apps.ts`). Le app marcate "visibile anche in prod" sono **eccezioni volute**

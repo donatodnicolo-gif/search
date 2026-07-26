@@ -62,8 +62,15 @@ Audit fatto sul codice del repo. "Da correggere" è quello che va nell'ordine §
 >   `X-Hub-Token`, il Hub accetta solo `x-api-key`/`Bearer`): la cassaforte
 >   centrale non veniva mai letta davvero.
 >
-> **Resta aperto**: budgets e merchandising su SQLite; `HUB_SSO_SECRET` presente
-> solo nel `.env` locale di partner e non nelle env di produzione.
+> **Chiuso anche il 24/07/2026 (secondo giro)**: `deluxy-budgets` e
+> `deluxy-merchandising` **portate da SQLite a Postgres** (schemi `budgets` e
+> `merchandising`, dati migrati e conteggi verificati riga per riga), dotate
+> della **protezione con password** che non avevano e **pubblicate su Vercel**.
+> Tutte le tessere del Hub puntano ora ai siti di produzione.
+>
+> **Resta aperto**: `HUB_SSO_SECRET` presente solo nel `.env` locale di partner e
+> non nelle env di produzione (SSO non attivo); Tasks, Calendario e Acquisti non
+> esistono ancora in questo repo (porte riservate).
 
 | App | Conforme | Da correggere |
 |---|---|---|
@@ -74,8 +81,9 @@ Audit fatto sul codice del repo. "Da correggere" è quello che va nell'ordine §
 | **deluxy-partner** | CSS, DB, db.ts, SSO lato app | **manca `.vercelignore`** |
 | **deluxy-messaging** | CSS, DB, db.ts, `next.config` motivato | **manca `.vercelignore`** |
 | **deluxy-orders** | CSS, DB, db.ts, `api-auth` conforme | **manca `.vercelignore`**; `.env.example` vuoto → elencare i nomi delle variabili |
-| **deluxy-budgets** | CSS, db.ts | **manca `.vercelignore`**; **database SQLite** → passare a Postgres con schema `budgets` |
-| **deluxy-merchandising** | CSS, db.ts | **manca `.vercelignore`**; **database SQLite** → passare a Postgres con schema `merchandising`; 12 hex in `globals.css` da verificare |
+| **deluxy-budgets** | tutto (allineata il 24/07: Postgres, password, `.vercelignore`, live) | — |
+| **deluxy-merchandising** | tutto (allineata il 24/07: Postgres, password, `.vercelignore`, live) | 12 hex in `globals.css` da verificare |
+| **deluxy-transactions** | Postgres, `.vercelignore`, login, live | verificare la checklist §6 alla prossima sessione sull'app |
 
 Note trasversali:
 - I `tokens.css` delle 9 app sono **tutti identici** al design system (le

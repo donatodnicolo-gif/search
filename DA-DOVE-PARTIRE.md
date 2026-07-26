@@ -39,8 +39,8 @@ in parallelo sullo stesso branch.
 | `deluxy-partner` | Finance: fatture, vendite vendor, saldi, SEPA | 3040 | [deluxy-partner.vercel.app](https://deluxy-partner.vercel.app) | [docs/HANDOFF.md](deluxy-partner/docs/HANDOFF.md) |
 | `deluxy-anagrafiche` | registro partner/prospect B2B, **fonte di verità** | 3060 | [deluxy-anagrafiche.vercel.app](https://deluxy-anagrafiche.vercel.app) | [HANDOFF.md](deluxy-anagrafiche/HANDOFF.md) |
 | `deluxy-mail` | AI Mail: IMAP/SMTP, smistamento e bozze con OpenAI | 3070 | [deluxy-mail.vercel.app](https://deluxy-mail.vercel.app) | [HANDOFF.md](deluxy-mail/HANDOFF.md) |
-| `deluxy-budgets` | budget 2026 su 3 livelli, P&L, premi | 3080 | *non pubblicata* | [README.md](deluxy-budgets/README.md) |
-| `deluxy-merchandising` | prodotto a 360°: collezioni, PLM, costi, Shopify | 3120 | *non pubblicata* | [docs/HANDOFF.md](deluxy-merchandising/docs/HANDOFF.md) |
+| `deluxy-budgets` | budget 2026 su 3 livelli, P&L, premi | 3080 | [deluxy-budgets.vercel.app](https://deluxy-budgets.vercel.app) | [README.md](deluxy-budgets/README.md) |
+| `deluxy-merchandising` | prodotto a 360°: collezioni, PLM, costi, Shopify | 3120 | [deluxy-merchandising.vercel.app](https://deluxy-merchandising.vercel.app) | [docs/HANDOFF.md](deluxy-merchandising/docs/HANDOFF.md) |
 | `deluxy-marketing` | memoria operativa ADV + connettori Google/Meta, dashboard per brand con MER, lettura AI | 3130 | [deluxy-marketing.vercel.app](https://deluxy-marketing.vercel.app) | [docs/HANDOFF.md](deluxy-marketing/docs/HANDOFF.md) |
 | `deluxy-messaging` | ordini da lavorare (da Orders, aggiornati da soli ogni 15') + inbox unificata WhatsApp/Messenger/IG + widget siti | 3140 | [deluxy-messaging.vercel.app](https://deluxy-messaging.vercel.app) | [HANDOFF.md](deluxy-messaging/HANDOFF.md) |
 | `deluxy-orders` | registro centralizzato ordini Shopify | 3150 | [deluxy-orders.vercel.app](https://deluxy-orders.vercel.app) | [docs/HANDOFF.md](deluxy-orders/docs/HANDOFF.md) |
