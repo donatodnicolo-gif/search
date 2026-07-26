@@ -3,6 +3,7 @@ import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GuardrailCampagna } from "@/components/GuardrailCampagna";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
+import { AggiornaAdesso } from "@/components/AggiornaAdesso";
 import { CoperturaCampagna } from "@/components/CoperturaCampagna";
 import { EstensioniCampagna } from "@/components/EstensioniCampagna";
 import { OggiCampagna } from "@/components/OggiCampagna";
@@ -39,10 +40,10 @@ export default async function SchedaCampagna({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ bloccata?: string; salvata?: string }>;
+  searchParams: Promise<{ bloccata?: string; salvata?: string; aggiornamento?: string }>;
 }) {
   const { id } = await params;
-  const { bloccata, salvata } = await searchParams;
+  const { bloccata, salvata, aggiornamento } = await searchParams;
   const campagna = await prisma.campagna.findUnique({
     where: { id },
     include: {
@@ -161,6 +162,8 @@ export default async function SchedaCampagna({
         <ProssimeAzioni campagnaId={campagna.id} />
 
         <RecapModifiche campagnaId={campagna.id} />
+
+        <AggiornaAdesso dove={`/campagne/${campagna.id}`} esito={aggiornamento} compatto />
 
         <div className="due-colonne">
           <div>

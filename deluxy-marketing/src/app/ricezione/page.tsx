@@ -1,3 +1,4 @@
+import { AggiornaAdesso } from "@/components/AggiornaAdesso";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_BRAND, ETICHETTA_CANALE, formattaDataOra } from "@/lib/dominio";
@@ -46,7 +47,7 @@ function quandoRelativo(d: Date): { testo: string; colore: string } {
 export default async function Ricezione({
   searchParams,
 }: {
-  searchParams: Promise<{ preset?: string; da?: string; a?: string; fonte?: string; account?: string }>;
+  searchParams: Promise<{ preset?: string; da?: string; a?: string; fonte?: string; account?: string; aggiornamento?: string }>;
 }) {
   const p = await searchParams;
   const periodo = risolviPeriodo(p.preset ?? "30g", p.da, p.a);
@@ -123,6 +124,8 @@ export default async function Ricezione({
             </p>
           </div>
         </div>
+
+        <AggiornaAdesso dove="/ricezione" esito={p.aggiornamento} />
 
         {/* Periodo */}
         <section className="scheda" style={{ paddingBottom: 14 }}>

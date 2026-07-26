@@ -117,6 +117,22 @@ poi la valutazione, dal generale al dettaglio:
   persa per budget, quota persa per rank, ricerche da escludere, segmento che
   pesa e rende sotto il pari, estensioni mancanti.
 
+### "Aggiorna adesso" (26/07/2026)
+
+Bottone su **Dati in arrivo** e in fondo alla scheda campagna.
+
+- **Meta**: succede subito, è l'app che va a prendere i dati (`aggiornaAdesso`
+  in `lib/azioni.ts` chiama la Graph API in-process).
+- **Google**: **non si può lanciare uno Script da fuori** — nessuna API lo
+  avvia, il verso è l'opposto. Il bottone mette una riga in
+  `RichiestaAggiornamento`; **ogni** script, a ogni partenza e prima del proprio
+  lavoro, chiama `GET /api/v1/aggiornamenti`, esegue quello che trova col
+  periodo chiesto e riferisce su `POST /api/v1/aggiornamenti/:id/esito`.
+  Quindi "adesso" = **alla prossima partenza**: per renderlo di minuti basta
+  mettere la *Frequenza* di **uno** degli script su "ogni ora".
+- Premere due volte non accumula richieste: la seconda ritorna la prima.
+- In **anteprima** lo script non chiede e non serve niente.
+
 ### Connettori
 
 - **Google Ads**: `scripts/google-ads-script.js` (**v2**, 26/07/2026) da incollare

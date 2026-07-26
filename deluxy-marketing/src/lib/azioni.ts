@@ -1297,3 +1297,69 @@ export async function giudicaTermine(fd: FormData) {
   });
   redirect("/operazioni");
 }
+
+// ---------- "Aggiorna adesso" ----------
+// Google e Meta si aggiornano in due modi opposti, e il bottone non può fingere
+// che siano la stessa cosa:
+//  · META lo prende l'app, quindi succede subito, qui, adesso.
+//  · GOOGLE gira dentro Google Ads e da fuori NESSUNO può avviarlo — non esiste
+//    un'API che lanci uno Script. Si lascia la richiesta in coda e il primo
+//    script che parte, qualunque sia il suo lavoro, la esegue e riferisce.
+export async function aggiornaAdesso(fd: FormData) {
+  const canale = testo(fd, "canale") ?? "google_ads";
+  const lavoro = testo(fd, "lavoro") ?? "metriche";
+  const giorni = Math.min(Math.max(numeroDa(fd, "giorni") ?? 7, 1), 400);
+  const account = testo(fd, "account");
+  const dove = testo(fd, "dove") ?? "/ricezione";
+
+  if (canale === "meta_ads") {
+    const { leggiMetricheMeta, leggiStatoCampagneMeta, metaConfigurato } = await import("./meta");
+    if (!metaConfigurato()) {
+      redirect(`${dove}?aggiornamento=meta-non-configurato`);
+    }
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const al = iso(new Date());
+    const dal = iso(new Date(Date.now() - giorni * 86_400_000));
+    const account = await prisma.accountAdv.findMany({
+      where: { piattaforma: "meta_ads", attivo: true },
+      select: { idEsterno: true },
+    });
+    const { salvaMetriche } = await import("./ingest-metriche");
+    let salvate = 0;
+    for (const a of account) {
+      const lettura = await leggiMetricheMeta(a.idEsterno, dal, al);
+      if (lettura.righe.length === 0) continue;
+      const { stati } = await leggiStatoCampagneMeta(a.idEsterno);
+      const righe = lettura.righe.map((r) => {
+        const s = stati.get(r.idCampagna);
+        return { ...r, stato: s?.stato ?? null, budgetGiornaliero: s?.budget ?? null, obiettivo: s?.obiettivo ?? null };
+      });
+      const esito = await salvaMetriche(righe, { canale: "meta_ads", account: a.idEsterno });
+      salvate += esito.metricheSalvate;
+    }
+    await registra({
+      autore: "utente", tipo: "sync", entita: "metrica",
+      titolo: `Aggiornamento Meta a mano: ${salvate} giorni-campagna`,
+      dettaglio: `Periodo ${dal} → ${al}`,
+    });
+    revalidatePath(dove);
+    redirect(`${dove}?aggiornamento=meta-fatto&righe=${salvate}`);
+  }
+
+  // Google: si mette in coda. Premere due volte non crea due richieste.
+  const gia = await prisma.richiestaAggiornamento.findFirst({
+    where: { stato: "in_attesa", canale, lavoro, account: account ?? null },
+  });
+  if (!gia) {
+    await prisma.richiestaAggiornamento.create({
+      data: { canale, account: account ?? null, lavoro, giorni, motivo: testo(fd, "motivo") },
+    });
+    await registra({
+      autore: "utente", tipo: "sync", entita: "metrica",
+      titolo: `Chiesto aggiornamento ${lavoro} (${giorni} giorni)${account ? ` su ${account}` : ""}`,
+      dettaglio: "Parte alla prossima esecuzione di uno qualsiasi degli script dell'account",
+    });
+  }
+  revalidatePath(dove);
+  redirect(`${dove}?aggiornamento=${gia ? "gia-in-coda" : "in-coda"}`);
+}

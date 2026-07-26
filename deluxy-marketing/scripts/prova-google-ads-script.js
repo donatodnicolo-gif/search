@@ -19,6 +19,7 @@ function iteratore(righe) {
 function ambiente(opzioni) {
   const o = Object.assign({ anteprima: false, righeQuery: {}, rispostaApp: null, operazioni: [] }, opzioni);
   const inviati = [];
+  const tutte = []; // comprese le chiamate di servizio
   const log = [];
 
   const sandbox = {
@@ -56,15 +57,19 @@ function ambiente(opzioni) {
     UrlFetchApp: {
       fetch: (url, opts) => {
         const corpo = opts.payload ? JSON.parse(opts.payload) : null;
-        inviati.push({ url, metodo: opts.method, corpo });
-        const r = o.rispostaApp ? o.rispostaApp(url, corpo, inviati.length) : { codice: 201, testo: "{}" };
+        const chiamata = { url, metodo: opts.method, corpo };
+        tutte.push(chiamata);
+        // Il sondaggio delle richieste "aggiorna adesso" parte a ogni giro:
+        // resta in `tutte`, fuori da `inviati` che è il dato delle prove.
+        if (url.indexOf("/api/v1/aggiornamenti") === -1) inviati.push(chiamata);
+        const r = o.rispostaApp ? o.rispostaApp(url, corpo, tutte.length) : { codice: 201, testo: "{}" };
         return { getResponseCode: () => r.codice, getContentText: () => r.testo };
       },
     },
   };
   vm.createContext(sandbox);
   vm.runInContext(CODICE, sandbox);
-  return { sandbox, inviati, log };
+  return { sandbox, inviati, tutte, log };
 }
 
 function selettoreVuoto() {
@@ -582,6 +587,57 @@ function campagnaFinta(stato) {
   sandbox.AZIONE = "metriche";
   sandbox.main();
   verifica("valuta USD: non manda nulla", inviati.length === 0);
+}
+
+// ─────────── 9. "aggiorna adesso" premuto nell'app ───────────
+{
+  const riga = (giorno) => ({
+    campaign: { id: 1, name: "DC1", status: "ENABLED", advertisingChannelType: "SEARCH", biddingStrategyType: "TARGET_ROAS" },
+    campaignBudget: { amountMicros: 30000000 },
+    segments: { date: giorno },
+    metrics: { costMicros: 10000000, impressions: 100, clicks: 10, conversions: 1, conversionsValue: 90 },
+  });
+  let finestra = null;
+  const { sandbox, inviati, tutte } = ambiente({
+    righeQuery: { "FROM campaign ": [riga("2026-07-20"), riga("2026-07-21")] },
+    ricerca: (q) => {
+      if (q.indexOf("FROM campaign ") === -1) return [];
+      // si annota il periodo chiesto dalla query per controllarlo dopo
+      const m = q.match(/BETWEEN '([0-9-]{10})' AND '([0-9-]{10})'/);
+      if (m) finestra = Math.round((new Date(m[2]) - new Date(m[1])) / 86400000);
+      return [riga("2026-07-20"), riga("2026-07-21")];
+    },
+    rispostaApp: (url) => {
+      if (url.indexOf("/api/v1/aggiornamenti?") !== -1) {
+        return { codice: 200, testo: JSON.stringify({ richieste: [{ id: "rq1", lavoro: "metriche", giorni: 30, account: "248-656-1148" }] }) };
+      }
+      return { codice: 201, testo: JSON.stringify({ metricheSalvate: 2 }) };
+    },
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  sandbox.BRAND = "gifts";
+  sandbox.AZIONE = "asset"; // lo script schedulato è un ALTRO lavoro
+  sandbox.main();
+
+  const ingest = inviati.filter((x) => x.url.indexOf("/api/v1/ingest") !== -1 && x.corpo.righe);
+  verifica("aggiorna adesso: lo serve anche uno script di un altro lavoro", ingest.length === 1, ingest.length);
+  verifica("aggiorna adesso: usa il periodo chiesto (30 giorni)", finestra === 30, finestra);
+  const esito = tutte.find((x) => x.url.indexOf("/aggiornamenti/rq1/esito") !== -1);
+  verifica("aggiorna adesso: riferisce l'esito all'app", !!esito && esito.corpo.riuscita === true);
+  verifica("aggiorna adesso: l'esito dice cosa ha fatto", !!esito && /righe inviate/.test(esito.corpo.dettaglio), esito && esito.corpo.dettaglio);
+  verifica("aggiorna adesso: la finestra torna com'era", sandbox.GIORNI_INDIETRO === 7, sandbox.GIORNI_INDIETRO);
+}
+
+// ─────────── 9-bis. in anteprima non si serve nessuna richiesta ───────────
+{
+  const { sandbox, tutte } = ambiente({
+    anteprima: true,
+    rispostaApp: () => ({ codice: 200, testo: JSON.stringify({ richieste: [{ id: "rq2", lavoro: "metriche", giorni: 30 }] }) }),
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  sandbox.AZIONE = "metriche";
+  sandbox.main();
+  verifica("anteprima: non chiede nemmeno le richieste", tutte.length === 0, tutte.length);
 }
 
 // ───────────────────────── esito ─────────────────────────

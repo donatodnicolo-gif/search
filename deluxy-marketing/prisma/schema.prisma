@@ -909,3 +909,28 @@ model SegmentoCampagna {
   @@unique([campagnaId, tipo, valore])
   @@index([campagnaId])
 }
+
+// "Aggiorna adesso" premuto nell'app. Gli Script di Google Ads girano DENTRO
+// Google e non si possono lanciare da fuori: nessuna API li avvia. Quindi la
+// richiesta si mette in coda qui e il primo script che parte — qualunque sia il
+// suo lavoro — la vede, la esegue col periodo chiesto e riferisce.
+// Per Meta non serve: lì è l'app che va a prendere i dati, subito.
+model RichiestaAggiornamento {
+  id          String    @id @default(cuid())
+  canale      String    @default("google_ads")
+  account     String?
+  // metriche | copy | gruppi | asset | diagnosi | approvazioni | tutto
+  lavoro      String    @default("metriche")
+  giorni      Int       @default(7)
+  // in_attesa | presa | fatta | scaduta
+  stato       String    @default("in_attesa")
+  richiestaDa String    @default("utente")
+  motivo      String?
+  esito       String?
+  creataIl    DateTime  @default(now())
+  presaIl     DateTime?
+  fattaIl     DateTime?
+
+  @@index([stato])
+  @@index([canale, account])
+}

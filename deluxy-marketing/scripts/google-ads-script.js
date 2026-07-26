@@ -113,6 +113,11 @@ function main() {
   var conto = verificaConfigurazione();
   if (!conto) return;
 
+  // Prima del proprio lavoro, ogni script guarda se dall'app hanno premuto
+  // "Aggiorna adesso": è l'unico modo che l'app ha di farsi sentire, perché
+  // gli Script si avviano solo da dentro Google.
+  serviRichieste(conto);
+
   var lavori = AZIONE === "tutto"
     ? ["metriche", "approvazioni", "copy", "gruppi", "asset", "diagnosi", "esegui"]
     : [AZIONE];
@@ -140,6 +145,67 @@ function main() {
   Logger.log("──────── RIEPILOGO ────────");
   for (var j = 0; j < RIEPILOGO.length; j++) Logger.log(" · " + RIEPILOGO[j]);
   if (ANTEPRIMA) Logger.log(" · ANTEPRIMA: niente è stato inviato all'app né modificato nell'account.");
+}
+
+/**
+ * Le richieste lasciate dal bottone "Aggiorna adesso" dell'app. Le serve
+ * QUALUNQUE script parta, non solo quello del lavoro chiesto: così basta avere
+ * un lavoro schedulato spesso perché "adesso" voglia dire davvero poco.
+ */
+function serviRichieste(conto) {
+  if (ANTEPRIMA) return;
+  var risposta = chiamata(
+    "get",
+    "/api/v1/aggiornamenti?canale=google_ads&account=" + encodeURIComponent(conto.id),
+    null
+  );
+  if (!risposta.ok) return; // l'app non risponde: si va avanti col proprio lavoro
+  var richieste = (risposta.dati && risposta.dati.richieste) || [];
+  if (richieste.length === 0) return;
+
+  Logger.log("Richieste di aggiornamento dall'app: " + richieste.length);
+  var giorniPrima = GIORNI_INDIETRO;
+  var copyPrima = GIORNI_COPY;
+
+  for (var i = 0; i < Math.min(richieste.length, 3); i++) {
+    if (tempoScaduto()) {
+      Logger.log("Tempo quasi finito: le richieste restanti aspettano il prossimo giro.");
+      break;
+    }
+    var r = richieste[i];
+    var lavori = r.lavoro === "tutto"
+      ? ["metriche", "approvazioni", "copy", "gruppi", "asset", "diagnosi"]
+      : [r.lavoro];
+    Logger.log("→ eseguo su richiesta: " + r.lavoro + " · ultimi " + r.giorni + " giorni");
+
+    var quante = RIEPILOGO.length;
+    var errore = null;
+    try {
+      GIORNI_INDIETRO = r.giorni;
+      GIORNI_COPY = r.giorni;
+      for (var j = 0; j < lavori.length; j++) {
+        if (lavori[j] === "metriche") mandaMetriche(conto);
+        else if (lavori[j] === "copy") mandaCopy(conto);
+        else if (lavori[j] === "gruppi") mandaGruppi(conto);
+        else if (lavori[j] === "asset") mandaAsset(conto);
+        else if (lavori[j] === "diagnosi") mandaDiagnosi(conto);
+        else if (lavori[j] === "approvazioni") mandaApprovazioni(conto);
+      }
+    } catch (e) {
+      errore = String(e);
+      Logger.log("⚠ richiesta fallita: " + e);
+    }
+    GIORNI_INDIETRO = giorniPrima;
+    GIORNI_COPY = copyPrima;
+
+    // L'esito che si riferisce è quello vero: le righe scritte nel riepilogo
+    // durante questa richiesta, non una frase di comodo.
+    var fatto = RIEPILOGO.slice(quante).join(" · ") || "nessun dato nel periodo";
+    chiamata("post", "/api/v1/aggiornamenti/" + r.id + "/esito", {
+      riuscita: !errore,
+      dettaglio: errore ? errore : fatto,
+    });
+  }
 }
 
 /** Controlli di sanità prima di partire: meglio fermarsi che sporcare i dati. */
