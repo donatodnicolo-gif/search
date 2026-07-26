@@ -45,12 +45,14 @@ pubblicato), *sfidante* e *irraggiungibile*.
   così nulla è nascosto. Richiede `FINANCE_API_KEY` in
   `.env` (la stessa chiave di `/api/verifiche` di Finance, **segreto, mai committato**);
   `FINANCE_API_URL` è opzionale. Senza chiave la pagina spiega come configurarla.
-  **Il canale D2C non passa da Finance** — le vendite ai consumatori nascono su Shopify — quindi
-  il suo consuntivo arriva dal registro ordini **Orders** (`GET /api/v1/ricavi`, chiave
+  **Le vendite ecommerce non passano da Finance** — nascono sui negozi Shopify — quindi il
+  consuntivo del canale D2C arriva dal registro ordini **Orders** (`GET /api/v1/ricavi`, chiave
   `ORDERS_API_KEY` + `ORDERS_URL`), che dà il venduto per brand e per mese. La pagina lo somma
-  ai ricavi (riga D2C e split mensile) e lo apre in una tabella **D2C per maison**: i negozi si
-  abbinano alle maison per nome (`deluxy.it` → Deluxy.it) o per slug (`Flowers` → flowers), e un
-  negozio senza maison resta comunque a vista su una riga a parte. Il totale Shopify è **IVA e
+  ai ricavi (riga D2C e split mensile) e lo apre nella tabella **Vendite ecommerce per maison**:
+  i negozi si abbinano alle maison per nome (`deluxy.it` → Deluxy.it) o per slug (`Flowers` →
+  flowers), e un negozio senza maison resta comunque a vista su una riga a parte. In pagina si
+  parla di «vendite ecommerce»; «D2C» resta il nome della **voce di budget**, che a DB si chiama
+  così (`TipologiaServizio.slug`). Il totale Shopify è **IVA e
   spedizione incluse** mentre il budget è imponibile: lo scorporo si sceglie in pagina (IVA 22%
   predefinita, 10%, oppure «Lordo» per il dato Shopify tale e quale), perché l'aliquota non è
   salvata sull'ordine e non va indovinata. Ordini **annullati e rimborsati esclusi**; i rimborsi
