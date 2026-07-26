@@ -697,6 +697,25 @@ function campagnaFinta(stato) {
   verifica("errore non di quota: riporta l'errore vero", /ERRORE in "metriche"/.test(testo) && /BETWEEN_OPERATOR/.test(testo));
 }
 
+
+// ───── 10-quater. il caso vero: "400 + INCLUDI_RIMOSSE" (che fa NaN) ─────
+{
+  let query = null;
+  const { sandbox, inviati, log } = ambiente({
+    ricerca: (q) => { query = q; return []; },
+    rispostaApp: () => ({ codice: 201, testo: "{}" }),
+  });
+  sandbox.CHIAVE_API = "dmk_prova";
+  // È esattamente ciò che era finito sul Cake: la somma con una variabile
+  // dichiarata più sotto, che al momento del calcolo vale "niente".
+  sandbox.GIORNI_INDIETRO = 400 + undefined;
+  sandbox.AZIONE = "metriche";
+  sandbox.main();
+  verifica("caso Cake: niente NaN nella query", query != null && query.indexOf("NaN") === -1, query && query.slice(0, 60));
+  verifica("caso Cake: ripiega su 7 giorni", sandbox.GIORNI_INDIETRO === 7, sandbox.GIORNI_INDIETRO);
+  verifica("caso Cake: avvisa invece di fallire", log.join(String.fromCharCode(10)).indexOf("non è un numero") !== -1);
+}
+
 // ───────────────────────── esito ─────────────────────────
 let falliti = 0;
 for (const e of esiti) {

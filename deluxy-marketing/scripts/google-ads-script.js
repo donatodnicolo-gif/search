@@ -79,10 +79,20 @@ var AZIONE = "metriche";
 //   825-518-1560 → "flowers" · 248-656-1148 → "gifts" · 846-090-5423 → "cake"
 var BRAND = "";
 
-// Metriche: quanti giorni rimandare ogni volta. 7 va bene sempre.
-// Per il PRIMO caricamento storico: 400 (copre anche il 2025 per i confronti
-// anno-su-anno) + INCLUDI_RIMOSSE = true, una esecuzione sola, poi si rimette 7.
+// Quanti giorni rimandare a ogni giro.
+// ATTENZIONE: questa e la riga sotto sono DUE impostazioni separate, non una
+// somma. Qui va un numero e basta; sotto va true o false.
+//
+//   uso di tutti i giorni  →  GIORNI_INDIETRO = 7     ·  INCLUDI_RIMOSSE = false
+//   caricamento storico    →  GIORNI_INDIETRO = 400   ·  INCLUDI_RIMOSSE = true
+//
+// Dopo il caricamento storico si rimettono i valori di tutti i giorni.
+// (Scrivere qualcosa come "400 + INCLUDI_RIMOSSE" produce NaN e il periodo
+// diventa impossibile: lo script se ne accorge, avvisa e ripiega su 7.)
 var GIORNI_INDIETRO = 7;
+
+// Includere anche le campagne ELIMINATE. Serve solo al caricamento storico:
+// senza, la spesa delle campagne cancellate nel frattempo non entra mai.
 var INCLUDI_RIMOSSE = false;
 
 // Finestra delle metriche di keyword, annunci e gruppi (qualunque numero, non
