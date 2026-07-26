@@ -31,11 +31,33 @@ model NegozioShopify {
   // Colore del brand: distingue a colpo d'occhio gli ordini dei vari negozi
   // (pallino nell'elenco, bordo delle schede, testata della colonna per brand).
   colore       String    @default("#b8963e")
+  // Come questo negozio si chiama nell'app Ricerca fornitori (search-deluxy):
+  // lì i brand sono "deluxy.it", "deluxyflowers.com", "cakedesign.me". Se il
+  // nome qui è diverso (es. "Flowers"), si indica la corrispondenza; se è
+  // vuoto si usa il nome del brand così com'è.
+  brandRicerca String?
   attivo       Boolean   @default(true)
   ultimaSync   DateTime?
   ordini       Ordine[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+// Traccia dei clienti salvati nella rubrica Google. I clienti non sono una
+// tabella (si ricavano dagli ordini), quindi si tiene qui il legame fra la
+// chiave del cliente e il contatto creato: serve a non ricreare doppioni e a
+// sapere cosa è già stato salvato senza reinterrogare Google.
+model ContattoRubrica {
+  id           String   @id @default(cuid())
+  chiave       String   @unique // stessa chiave dei clienti: email → telefono → nome
+  resourceName String   @default("") // id del contatto su Google (people/c123…)
+  nome         String   @default("") // nome come scritto in rubrica ("FL Mario Rossi #1042")
+  esito        String   @default("ok") // ok | errore | saltato
+  messaggio    String? // motivo, se non è andata
+  salvatoIl    DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([esito])
 }
 
 // Stato del flusso di lavoro (pipeline) — completamente personalizzabile.

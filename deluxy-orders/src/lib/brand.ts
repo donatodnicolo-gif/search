@@ -4,7 +4,14 @@ import { prisma } from "./db";
 // d'occhio gli ordini dei vari negozi: pallino nell'elenco, bordo colorato
 // delle schede, testata delle colonne nella vista per brand.
 
-export type Brand = { id: string; nome: string; colore: string; attivo: boolean };
+export type Brand = {
+  id: string;
+  nome: string;
+  colore: string;
+  attivo: boolean;
+  // come si chiama questo brand nell'app Ricerca fornitori (per i link rapidi)
+  ricerca: string;
+};
 
 // Tavolozza di ripiego per i negozi aggiunti senza scegliere un colore: si
 // assegna in ordine, così due brand nuovi non finiscono mai identici.
@@ -25,12 +32,23 @@ export function coloreDiRipiego(indice: number): string {
 // colorare gli ordini storici importati quando erano attivi).
 export async function brandConColore(): Promise<Brand[]> {
   const negozi = await prisma.negozioShopify.findMany({ orderBy: { brand: "asc" } });
-  return negozi.map((n) => ({ id: n.id, nome: n.brand, colore: n.colore, attivo: n.attivo }));
+  return negozi.map((n) => ({
+    id: n.id,
+    nome: n.brand,
+    colore: n.colore,
+    attivo: n.attivo,
+    ricerca: n.brandRicerca?.trim() || n.brand,
+  }));
 }
 
 // Mappa nome brand → colore, per colorare le righe senza altre query.
 export function mappaColori(brand: Brand[]): Map<string, string> {
   return new Map(brand.map((b) => [b.nome, b.colore]));
+}
+
+// Mappa nome brand → nome nell'app Ricerca fornitori, per i link rapidi.
+export function mappaRicerca(brand: Brand[]): Map<string, string> {
+  return new Map(brand.map((b) => [b.nome, b.ricerca]));
 }
 
 // Colore di un brand con ripiego neutro se il negozio non c'è più.

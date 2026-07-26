@@ -124,9 +124,10 @@ const attesa = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Una chiamata GraphQL con ritentativi: l'Admin API limita per "costo" (bucket a
 // punti) e su import lunghi risponde THROTTLED o 429. In quel caso si aspetta e
 // si riprova invece di far fallire tutto l'import.
-async function shopifyGraphQL(
+export async function chiamataAdmin(
   dominio: string,
   token: string,
+  query: string,
   variables: Record<string, unknown>,
   tentativi = 6,
 ) {
@@ -137,7 +138,7 @@ async function shopifyGraphQL(
       res = await fetch(`https://${dominio}/admin/api/${API_VERSION}/graphql.json`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
-        body: JSON.stringify({ query: ORDERS_QUERY, variables }),
+        body: JSON.stringify({ query, variables }),
         signal: AbortSignal.timeout(30000),
       });
     } catch (e) {
@@ -179,6 +180,11 @@ async function shopifyGraphQL(
     return json.data;
   }
   throw new Error(`Shopify ${dominio}: limite di frequenza non superato dopo ${tentativi} tentativi (${ultimoErrore})`);
+}
+
+// Scorciatoia per l'import: la query degli ordini con gli stessi ritentativi.
+function shopifyGraphQL(dominio: string, token: string, variables: Record<string, unknown>) {
+  return chiamataAdmin(dominio, token, ORDERS_QUERY, variables);
 }
 
 function indirizzoUnaRiga(a: OrderNode["shippingAddress"]): string | null {

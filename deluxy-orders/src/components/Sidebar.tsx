@@ -10,6 +10,7 @@ export function Sidebar({ conteggi }: { conteggi: { ordini: number; daClassifica
     { href: "/", nome: "Ordini", count: conteggi.ordini, icona: iconaLista },
     { href: "/bacheca", nome: "Bacheca", count: conteggi.daClassificare, icona: iconaBacheca },
     { href: "/clienti", nome: "Clienti", count: conteggi.clienti, icona: iconaClienti },
+    { href: "/consegna", nome: "Consegna", count: null, icona: iconaConsegna },
     { href: "/impostazioni", nome: "Impostazioni", count: null, icona: iconaImpostazioni },
   ];
   return (
@@ -48,6 +49,13 @@ const iconaClienti = (
     <circle cx="9.5" cy="7.5" r="3.5" />
     <path d="M21 20v-1.5a4 4 0 0 0-3-3.87" />
     <path d="M16.5 4.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+const iconaConsegna = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <line x1="3" y1="10" x2="21" y2="10" /><line x1="8" y1="3" x2="8" y2="7" /><line x1="16" y1="3" x2="16" y2="7" />
+    <circle cx="12" cy="15.5" r="2.5" /><path d="M12 14.3v1.4l1 .6" />
   </svg>
 );
 const iconaImpostazioni = (

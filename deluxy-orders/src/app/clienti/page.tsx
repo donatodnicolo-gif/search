@@ -58,6 +58,9 @@ export default async function Clienti({
             Chi ha ordinato, ricavato dagli ordini: un cliente per email (o telefono, o nome), con tutti i suoi ordini in un posto solo.
           </p>
         </div>
+        <Link className="btn btn-secondario" href="/clienti/rubrica">
+          Rubrica Google
+        </Link>
       </div>
 
       <div className="kpi-riga">

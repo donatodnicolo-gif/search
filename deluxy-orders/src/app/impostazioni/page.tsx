@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { statiOrdinati } from "@/lib/stati";
 import { dataBreve } from "@/lib/ordini";
 import {
-  creaNegozio, toggleNegozio, eliminaNegozio, cambiaColoreBrand,
+  creaNegozio, toggleNegozio, eliminaNegozio, cambiaColoreBrand, cambiaBrandRicerca,
   creaStato, aggiornaStato, eliminaStato,
   creaEtichetta, eliminaEtichetta,
   toggleChiave, sincronizza,
@@ -40,7 +40,7 @@ export default async function Impostazioni() {
           <div className="tabella-wrap" style={{ marginBottom: 16 }}>
             <table>
               <thead>
-                <tr><th>Brand</th><th>Colore</th><th>Dominio</th><th>Auth</th><th>Ultima sync</th><th>Stato</th><th></th></tr>
+                <tr><th>Brand</th><th>Colore</th><th>Nome in Ricerca fornitori</th><th>Dominio</th><th>Auth</th><th>Ultima sync</th><th>Stato</th><th></th></tr>
               </thead>
               <tbody>
                 {negozi.map((n) => (
@@ -53,6 +53,18 @@ export default async function Impostazioni() {
                       <form action={cambiaColoreBrand} style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <input type="hidden" name="id" value={n.id} />
                         <input type="color" name="colore" defaultValue={n.colore} style={{ width: 34, height: 28, padding: 2, border: 0, background: "transparent", cursor: "pointer" }} />
+                        <button className="btn btn-secondario small" type="submit">Salva</button>
+                      </form>
+                    </td>
+                    <td>
+                      <form action={cambiaBrandRicerca} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input type="hidden" name="id" value={n.id} />
+                        <input
+                          name="brandRicerca"
+                          defaultValue={n.brandRicerca ?? ""}
+                          placeholder={n.brand}
+                          style={{ font: "inherit", fontSize: 13, width: 150, padding: "6px 9px", borderRadius: "var(--radius-s)", background: "var(--fill)", border: "1px solid transparent" }}
+                        />
                         <button className="btn btn-secondario small" type="submit">Salva</button>
                       </form>
                     </td>

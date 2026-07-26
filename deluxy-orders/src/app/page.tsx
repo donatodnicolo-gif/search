@@ -4,7 +4,8 @@ import { whereOrdini, euro, dataBreve, consegnaBreve, urgenzaConsegna } from "@/
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
-import { brandConColore, mappaColori, coloreBrand } from "@/lib/brand";
+import { brandConColore, mappaColori, coloreBrand, mappaRicerca } from "@/lib/brand";
+import { linkRicerca } from "@/lib/fornitori";
 import { sincronizza } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +66,7 @@ export default async function ElencoOrdini({
       : [];
 
   const colori = mappaColori(brand);
+  const ricerca = mappaRicerca(brand);
   const totalePagine = Math.max(1, Math.ceil(totale / PER_PAGINA));
   const statiOpt = stati.map((s) => ({ id: s.id, nome: s.nome }));
   const negozi = brand;
@@ -239,6 +241,20 @@ export default async function ElencoOrdini({
                         <span className="card-data">ordine {dataBreve(o.data)}</span>
                         <CambiaStatoSelect ordineId={o.id} statoAttualeId={o.statoId} stati={statiOpt} compatto />
                       </div>
+                      {/* Bottone rapido: apre l'app Ricerca fornitori con
+                          l'ordine gia' impostato, senza passare dalla scheda */}
+                      <a
+                        className="btn-fornitore"
+                        href={linkRicerca(ricerca.get(o.brand) ?? o.brand, o.numero)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Cerca il fornitore con l'app Ricerca fornitori"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                          <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.4 15.4 20 20" />
+                        </svg>
+                        Cerca fornitore
+                      </a>
                       {o.etichette.length > 0 && (
                         <div className="card-etichette">
                           {o.etichette.map((e) => (
@@ -286,6 +302,7 @@ export default async function ElencoOrdini({
                   <th>Stato</th>
                   <th>Destinazione</th>
                   <th>Etichette</th>
+                  <th>Fornitore</th>
                 </tr>
               </thead>
               <tbody>
@@ -330,6 +347,20 @@ export default async function ElencoOrdini({
                           ))}
                         </span>
                       )}
+                    </td>
+                    <td>
+                      <a
+                        className="btn-fornitore"
+                        href={linkRicerca(ricerca.get(o.brand) ?? o.brand, o.numero)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Cerca il fornitore con l'app Ricerca fornitori"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                          <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.4 15.4 20 20" />
+                        </svg>
+                        Cerca
+                      </a>
                     </td>
                   </tr>
                 ))}

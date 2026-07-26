@@ -1,9 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { registraEvento } from "@/lib/classificazione";
 import { eseguiSyncOrdini } from "@/lib/sync";
+import { tokenNegozio } from "@/lib/shopify";
+import { cercaDocumento, scriviConsegna, dataValida, fasciaValida } from "@/lib/consegna";
+import { salvaInRubrica } from "@/lib/rubrica";
 
 // Tutte le mutazioni della UI passano da qui (server actions). Ogni
 // riclassificazione lascia una traccia in EventoOrdine.
@@ -205,6 +209,16 @@ export async function cambiaColoreBrand(fd: FormData) {
   revalidatePath("/impostazioni");
 }
 
+// Come si chiama questo negozio nell'app Ricerca fornitori: serve ai link
+// rapidi "Cerca fornitore" (qui "Flowers", lì "deluxyflowers.com").
+export async function cambiaBrandRicerca(fd: FormData) {
+  const id = s(fd, "id");
+  if (!id) return;
+  await prisma.negozioShopify.update({ where: { id }, data: { brandRicerca: s(fd, "brandRicerca") } });
+  revalidatePath("/");
+  revalidatePath("/impostazioni");
+}
+
 export async function toggleNegozio(fd: FormData) {
   const id = s(fd, "id");
   if (!id) return;
@@ -218,6 +232,63 @@ export async function eliminaNegozio(fd: FormData) {
   if (!id) return;
   await prisma.negozioShopify.delete({ where: { id } });
   revalidatePath("/impostazioni");
+}
+
+// ---- Consegna su bozze e ordini Shopify ----
+// Scrive Data_Consegna / Fascia_Oraria_Consegna là dove Shopify non offre un
+// campo: nelle bozze create a mano. L'esito torna nella query string perché la
+// pagina è un server component e l'operazione riguarda Shopify, non il DB.
+export async function impostaConsegnaShopify(fd: FormData) {
+  const negozioId = s(fd, "negozioId");
+  const numero = s(fd, "numero");
+  const data = s(fd, "data");
+  const fascia = s(fd, "fascia");
+
+  const base = new URLSearchParams();
+  if (negozioId) base.set("negozio", negozioId);
+  if (numero) base.set("numero", numero);
+  const torna = (extra: Record<string, string>) => {
+    const p = new URLSearchParams(base);
+    for (const [k, v] of Object.entries(extra)) p.set(k, v);
+    return `/consegna?${p.toString()}`;
+  };
+
+  let destinazione: string;
+  try {
+    if (!negozioId || !numero) throw new Error("Servono il negozio e il numero della bozza o dell'ordine.");
+    if (data && !dataValida(data)) throw new Error("Data non valida.");
+    if (fascia && !fasciaValida(fascia)) throw new Error("Fascia oraria non prevista.");
+
+    const neg = await prisma.negozioShopify.findUnique({ where: { id: negozioId } });
+    if (!neg) throw new Error("Negozio non trovato.");
+
+    const token = await tokenNegozio(neg);
+    const doc = await cercaDocumento(neg.dominio, token, numero);
+    if (!doc) throw new Error(`Nessuna bozza né ordine con numero ${numero} su ${neg.brand}.`);
+
+    await scriviConsegna(neg.dominio, token, doc, data, fascia);
+    const descrizione = [data, fascia].filter(Boolean).join(" · ") || "consegna azzerata";
+    destinazione = torna({ esito: `${doc.tipo === "bozza" ? "Bozza" : "Ordine"} ${doc.numero}: ${descrizione}` });
+  } catch (e) {
+    destinazione = torna({ errore: (e as Error).message });
+  }
+
+  // Qui si aggiorna solo Shopify, che della consegna è la fonte: il registro
+  // locale la rilegge dagli attributi al prossimo import.
+  revalidatePath("/consegna");
+  redirect(destinazione);
+}
+
+// ---- Rubrica Google: salva i clienti selezionati fra i contatti ----
+// La pagina mostra prima la prova a vuoto; qui si scrive davvero.
+export async function salvaRubrica(fd: FormData) {
+  const sel = {
+    limite: Math.min(2000, Math.max(1, Number(s(fd, "limite") ?? "50") || 50)),
+    minimoOrdini: Math.max(1, Number(s(fd, "minimoOrdini") ?? "2") || 2),
+    dal: s(fd, "dal") ?? undefined,
+  };
+  await salvaInRubrica(sel);
+  revalidatePath("/clienti/rubrica");
 }
 
 // ---- Chiavi API (Impostazioni): attiva/disattiva. Creazione via `npm run chiave`. ----

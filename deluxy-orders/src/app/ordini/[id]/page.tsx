@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { euro, dataBreve, consegnaBreve, urgenzaConsegna } from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
+import { linkRicerca, brandPerRicerca } from "@/lib/fornitori";
 import { cambiaStato, toggleEtichetta, aggiornaClassificazione } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,9 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
   ]);
   if (!ordine) notFound();
 
+  // nome del brand nell'app Ricerca fornitori, per il link rapido
+  const brandRicerca = await brandPerRicerca(ordine.brand);
+
   const etichetteAttive = new Set(ordine.etichette.map((e) => e.id));
 
   return (
@@ -33,6 +37,19 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
       <Link href="/" className="ritorno">← Tutti gli ordini</Link>
 
       <div className="page-head">
+        <div style={{ order: 2, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <a
+            className="btn"
+            href={linkRicerca(brandRicerca, ordine.numero)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Cerca fornitore
+          </a>
+          <Link className="btn btn-secondario" href={`/ordini/${ordine.id}/fornitori`}>
+            Fornitori vicini qui
+          </Link>
+        </div>
         <div>
           <h1 className="page-title">{ordine.numero}</h1>
           <p className="page-sub">

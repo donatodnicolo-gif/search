@@ -42,6 +42,35 @@ Sopra, la **ricerca** (vedi sotto) e i filtri: brand, stato, categoria di
 pagamento, destinazione, etichetta. Il pulsante «Sincronizza da Shopify» avvia
 l'import. I colori dei brand si cambiano in Impostazioni.
 
+### Consegna su bozze e ordini (`/consegna`)
+Gli attributi della consegna li scrive il **sito**, quando l'ordine passa dal
+carrello. Una **bozza creata a mano in admin** no: Shopify non ha un campo dove
+metterli, così quegli ordini arrivano qui senza consegna (caso reale: ordine
+#12646, nato dalla bozza #D5510, con la sola data).
+
+Questa pagina copre il buco. Si sceglie il negozio, si scrive il numero — `D5510`
+per una bozza, `12646` per un ordine, con o senza cancelletto — e la pagina mostra
+la consegna attualmente impostata. Poi si scelgono data e fascia dalle **stesse
+liste del sito** (due ore per la giornata, un'ora dai giorni successivi) e si
+salva: l'app scrive `Data_Consegna` e `Fascia_Oraria_Consegna` su Shopify.
+
+Dettagli che contano:
+- su una **bozza** gli attributi passano all'ordine quando la bozza viene
+  completata, quindi impostarli prima è sufficiente;
+- gli **altri attributi** dell'ordine non si toccano: si riscrivono solo le due
+  chiavi della consegna (le mutazioni di Shopify sostituiscono l'intero elenco,
+  quindi l'app rilegge gli attributi esistenti e li rimette);
+- lasciando un campo **vuoto** il dato viene rimosso, invece di lasciare in giro
+  una consegna vecchia che a valle sembrerebbe confermata;
+- se la bozza è già completata, o l'ordine già evaso, l'app lo dice prima di
+  salvare (su un ordine evaso il fornitore va avvisato a parte);
+- serve che il token del negozio abbia gli scope **`write_draft_orders`** e
+  **`write_orders`**: il token nasce in sola lettura, e senza permessi l'app
+  spiega cosa aggiungere invece di mostrare l'errore grezzo di Shopify.
+
+Il registro locale non viene toccato: la consegna la rilegge dagli attributi al
+prossimo import, perché la fonte resta Shopify.
+
 ### Clienti (`/clienti`)
 I clienti non sono una tabella a sé: si **ricavano dagli ordini**. Una persona è
 identificata dall'email; se manca, dal telefono; se manca anche quello, dal
