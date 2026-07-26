@@ -786,6 +786,92 @@ button {
   border-color: var(--blue);
 }
 
+/* ---- Agenda: le consegne da oggi in avanti ---- */
+
+.agenda {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.agenda-giorno + .agenda-giorno {
+  border-top: 1px solid var(--hairline);
+}
+
+.agenda-testata {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--fill);
+}
+.agenda-giorno.oggi .agenda-testata {
+  background: var(--gold-soft);
+}
+.agenda-testata .giorno {
+  font-weight: 600;
+  font-size: 14px;
+  flex: 1;
+}
+.agenda-testata .quanti,
+.agenda-testata .valore {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.agenda-riga {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 14px;
+  border-left: 3px solid var(--text-tertiary);
+  font-size: 13.5px;
+}
+.agenda-riga:hover {
+  background: var(--fill);
+}
+.agenda-riga .fascia {
+  min-width: 62px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.agenda-riga .numero {
+  min-width: 66px;
+  font-weight: 600;
+}
+.agenda-riga .chi {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agenda-riga .negozio,
+.agenda-riga .stato {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.agenda-riga .importo {
+  min-width: 82px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 800px) {
+  .agenda-riga {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .agenda-riga .chi {
+    flex: 1 1 100%;
+    order: 3;
+  }
+}
+
 /* ---- Calendario delle consegne ---- */
 
 .calendario {

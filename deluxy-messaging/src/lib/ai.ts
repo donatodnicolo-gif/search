@@ -67,6 +67,124 @@ Regole:
 - L'importo va in cifre: "1.250,50 €" diventa 1250.50.
 - Se un dato non compare, lascia il campo vuoto (0 per l'importo). Non dedurre e non tirare a indovinare.`
 
+// ————— Risposte rapide: l'AI sceglie lo script giusto e lo adatta —————
+
+export type Suggerimento = {
+  scriptId: string
+  titolo: string
+  risposta: string
+  motivo: string
+}
+
+const SCHEMA_RISPOSTA = {
+  type: 'object',
+  properties: {
+    scriptId: {
+      type: 'string',
+      description:
+        "L'id dello script scelto fra quelli forniti. Stringa vuota se nessuno è adatto.",
+    },
+    risposta: {
+      type: 'string',
+      description:
+        'Il testo pronto da inviare al cliente: lo script scelto, adattato al messaggio (nome, numero ordine, data). Se nessuno script è adatto, stringa vuota.',
+    },
+    motivo: {
+      type: 'string',
+      description: 'In una riga, perché hai scelto questo script (o perché nessuno va bene).',
+    },
+  },
+  required: ['scriptId', 'risposta', 'motivo'],
+  additionalProperties: false,
+} as const
+
+const ISTRUZIONI_RISPOSTA = `Sei l'assistenza clienti di Deluxy (consegne di fiori e dolci in guanti bianchi).
+
+Ti do il messaggio di un cliente e gli script che usiamo di solito. Scegli lo script più adatto e adattalo al messaggio.
+
+Regole:
+- Usa SOLO uno degli script forniti come base: è così che rispondiamo noi. Non inventare una risposta tua.
+- Adattalo: metti il nome del cliente, il numero d'ordine, la data, se compaiono nel messaggio. Non inventare dati che non ci sono: se un dato manca, lascia la frase generica.
+- Non promettere date, rimborsi o sconti che lo script non prevede.
+- Rispondi in italiano, nello stesso tono dello script.
+- Se nessuno script è davvero adatto, lascia scriptId e risposta vuoti e spiega perché nel motivo. Meglio nessuna risposta che una sbagliata.`
+
+export type EsitoRisposta =
+  | { stato: 'ok'; suggerimento: Suggerimento | null; fornitore: string }
+  | { stato: 'non-configurato' }
+  | { stato: 'errore'; messaggio: string }
+
+/**
+ * Propone la risposta a un messaggio del cliente scegliendo fra gli script.
+ * Torna `suggerimento: null` quando nessuno script è adatto — è un esito
+ * legittimo, non un errore: preferiamo il silenzio a una risposta inventata.
+ */
+export async function suggerisciRisposta(
+  messaggio: string,
+  script: { id: string; titolo: string; categoria: string; testo: string; quando: string }[]
+): Promise<EsitoRisposta> {
+  if (script.length === 0) {
+    return { stato: 'errore', messaggio: 'Non c’è ancora nessuno script da cui attingere.' }
+  }
+  const c = await leggiImpostazioni(['openaiApiKey', 'openaiModello'])
+  const chiave = pulisci(c.openaiApiKey)
+  if (!chiave) return { stato: 'non-configurato' }
+
+  const elenco = script
+    .map(
+      (s) =>
+        `--- id: ${s.id}\ntitolo: ${s.titolo}\ncategoria: ${s.categoria}${
+          s.quando ? `\nquando usarlo: ${s.quando}` : ''
+        }\ntesto:\n${s.testo}`
+    )
+    .join('\n\n')
+
+  const modello = (c.openaiModello || MODELLO_TESTO_DEFAULT).trim()
+  try {
+    const client = new OpenAI({ apiKey: chiave, timeout: 45_000, maxRetries: 2 })
+    const risposta = await client.chat.completions.create({
+      model: modello,
+      temperature: 0.2,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'risposta_rapida',
+          strict: true,
+          schema: SCHEMA_RISPOSTA as unknown as Record<string, unknown>,
+        },
+      },
+      messages: [
+        { role: 'system', content: ISTRUZIONI_RISPOSTA },
+        {
+          role: 'user',
+          content: `SCRIPT DISPONIBILI:\n${elenco}\n\nMESSAGGIO DEL CLIENTE:\n${messaggio}`,
+        },
+      ],
+    })
+    const testo = risposta.choices[0]?.message?.content
+    if (!testo) return { stato: 'errore', messaggio: 'Risposta vuota dal modello.' }
+
+    const d = JSON.parse(testo) as { scriptId: string; risposta: string; motivo: string }
+    // Non ci fidiamo dell'id: dev'essere uno di quelli che abbiamo dato.
+    const scelto = script.find((s) => s.id === d.scriptId)
+    if (!scelto || !d.risposta.trim()) {
+      return { stato: 'ok', suggerimento: null, fornitore: `OpenAI ${modello}` }
+    }
+    return {
+      stato: 'ok',
+      suggerimento: {
+        scriptId: scelto.id,
+        titolo: scelto.titolo,
+        risposta: d.risposta.trim(),
+        motivo: d.motivo,
+      },
+      fornitore: `OpenAI ${modello}`,
+    }
+  } catch (e) {
+    return { stato: 'errore', messaggio: (e as Error).message }
+  }
+}
+
 export type EsitoEstrazione =
   | { stato: 'ok'; dati: DatiPagamento; ibanValido: boolean; motivoIban: string; fornitore: string }
   | { stato: 'non-configurato' }

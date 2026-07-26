@@ -66,11 +66,16 @@ export function CalendarioOrdini() {
   const [senzaData, setSenzaData] = useState(0)
   const [caricato, setCaricato] = useState(false)
   const [statoScelto, setStatoScelto] = useState('')
+  // Si parte da OGGI: l'agenda delle prossime consegne è la domanda di tutti i
+  // giorni. La griglia del mese resta a un clic, per la visione d'insieme.
+  const [vista, setVista] = useState<'agenda' | 'mese'>('agenda')
 
   const carica = useCallback(async () => {
     setCaricato(false)
     try {
       const p = new URLSearchParams({ mese })
+      // in agenda si chiedono i prossimi 60 giorni a partire da oggi
+      if (vista === 'agenda') p.set('giorni', '60')
       if (negozio) p.set('negozio', negozio)
       const res = await fetch('/api/ordini/calendario?' + p.toString())
       if (!res.ok) return
@@ -89,7 +94,7 @@ export function CalendarioOrdini() {
     } finally {
       setCaricato(true)
     }
-  }, [mese, negozio])
+  }, [mese, negozio, vista])
 
   useEffect(() => {
     carica()
@@ -124,18 +129,36 @@ export function CalendarioOrdini() {
       </div>
 
       <div className="filtri">
-        <button className="btn btn-secondario small" onClick={() => setMese(spostaMese(mese, -1))}>
-          ← Mese precedente
+        <button
+          className={`stato-pill${vista === 'agenda' ? ' attuale' : ''}`}
+          onClick={() => setVista('agenda')}
+        >
+          Da oggi
         </button>
-        <strong style={{ alignSelf: 'center', minWidth: 170, textTransform: 'capitalize' }}>
-          {nomeMese(mese)}
-        </strong>
-        <button className="btn btn-secondario small" onClick={() => setMese(spostaMese(mese, 1))}>
-          Mese successivo →
+        <button
+          className={`stato-pill${vista === 'mese' ? ' attuale' : ''}`}
+          onClick={() => setVista('mese')}
+        >
+          Mese
         </button>
-        <button className="btn btn-secondario small" onClick={() => setMese(meseCorrente())}>
-          Oggi
-        </button>
+        {vista === 'mese' ? (
+          <>
+            <button className="btn btn-secondario small" onClick={() => setMese(spostaMese(mese, -1))}>
+              ← Mese precedente
+            </button>
+            <strong style={{ alignSelf: 'center', minWidth: 170, textTransform: 'capitalize' }}>
+              {nomeMese(mese)}
+            </strong>
+            <button className="btn btn-secondario small" onClick={() => setMese(spostaMese(mese, 1))}>
+              Mese successivo →
+            </button>
+            <button className="btn btn-secondario small" onClick={() => setMese(meseCorrente())}>
+              Oggi
+            </button>
+          </>
+        ) : (
+          <strong style={{ alignSelf: 'center' }}>Prossime consegne</strong>
+        )}
         <select value={negozio} onChange={(e) => setNegozio(e.target.value)} aria-label="Negozio">
           <option value="">Tutti i negozi</option>
           {negozi.map((n) => (
@@ -175,7 +198,9 @@ export function CalendarioOrdini() {
       <div className="kpi-riga">
         <div className="kpi">
           <div className="kpi-valore">{visibili.length.toLocaleString('it-IT')}</div>
-          <div className="kpi-etichetta">Consegne nel mese</div>
+          <div className="kpi-etichetta">
+            {vista === 'agenda' ? 'Consegne da oggi (60 giorni)' : 'Consegne nel mese'}
+          </div>
         </div>
         <div className="kpi">
           <div className="kpi-valore">{euro(valoreMese, 'EUR')}</div>
@@ -187,8 +212,65 @@ export function CalendarioOrdini() {
         <div className="vuoto">Carico…</div>
       ) : visibili.length === 0 ? (
         <div className="vuoto">
-          Nessuna consegna in {nomeMese(mese)}
+          {vista === 'agenda'
+            ? 'Nessuna consegna nei prossimi 60 giorni'
+            : `Nessuna consegna in ${nomeMese(mese)}`}
           {statoScelto ? ' con questo stato' : ''}.
+        </div>
+      ) : vista === 'agenda' ? (
+        // Agenda: i giorni con consegne, dal più vicino, a partire da oggi.
+        <div className="agenda">
+          {[...perGiorno.keys()]
+            .sort()
+            .map((giorno) => {
+              const suoi = perGiorno.get(giorno) ?? []
+              const d = new Date(giorno + 'T00:00:00')
+              const etichetta =
+                giorno === oggi
+                  ? 'Oggi'
+                  : d.toLocaleDateString('it-IT', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                    })
+              return (
+                <div className={`agenda-giorno${giorno === oggi ? ' oggi' : ''}`} key={giorno}>
+                  <div className="agenda-testata">
+                    <span className="giorno" style={{ textTransform: 'capitalize' }}>
+                      {etichetta}
+                    </span>
+                    <span className="quanti">
+                      {suoi.length} {suoi.length === 1 ? 'consegna' : 'consegne'}
+                    </span>
+                    <span className="valore">
+                      {euro(
+                        suoi.reduce((s, o) => s + o.totale, 0),
+                        'EUR'
+                      )}
+                    </span>
+                  </div>
+                  {suoi.map((o) => (
+                    <div
+                      className="agenda-riga"
+                      key={o.id}
+                      style={{ borderLeftColor: o.statoColore || 'var(--text-tertiary)' }}
+                    >
+                      <span className="fascia">{o.fasciaConsegna || '—'}</span>
+                      <span className="numero">{o.numero}</span>
+                      <span className="chi">
+                        {o.clienteNome || '—'}
+                        {o.citta ? ` · ${o.citta}` : ''}
+                      </span>
+                      <span className="negozio">{o.negozioNome}</span>
+                      <span className="stato" style={{ color: o.statoColore || undefined }}>
+                        {o.statoNome || 'Senza stato'}
+                      </span>
+                      <span className="importo">{euro(o.totale, o.valuta)}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
         </div>
       ) : (
         <div className="calendario">

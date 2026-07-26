@@ -10,7 +10,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="it">
+    // suppressHydrationWarning: lo script qui sotto scrive data-sidebar-chiusa
+    // sull'html prima che React idrati — la differenza è voluta, non un errore.
+    <html lang="it" suppressHydrationWarning>
       <head>
         {/* Riapplica la scelta "menu chiuso" prima del primo disegno, così la
             sidebar non compare per un istante per poi sparire. */}

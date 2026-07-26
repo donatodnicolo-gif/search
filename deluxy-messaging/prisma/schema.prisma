@@ -60,6 +60,24 @@ model NegozioShopify {
   ordini Ordine[]
 }
 
+// Uno "script": una risposta pronta da dare ai clienti. Sono la memoria
+// dell'assistenza — l'AI li legge per rispondere come rispondiamo noi, invece
+// di inventare un tono e dei contenuti suoi.
+model Script {
+  id        String   @id @default(cuid())
+  titolo    String
+  categoria String   @default("Generale")
+  testo     String   @db.Text
+  // Quando usarlo, a parole: serve all'AI per scegliere quello giusto.
+  quando    String   @default("") @db.Text
+  attivo    Boolean  @default(true)
+  usi       Int      @default(0) // quante volte è stato usato: i migliori emergono
+  creatoIl  DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([categoria])
+}
+
 // Una richiesta di pagamento: le coordinate su cui farsi pagare. L'IBAN e
 // l'intestatario possono essere inseriti a mano o letti dall'AI da un
 // messaggio o da un'immagine (schermata, foto di un bonifico).

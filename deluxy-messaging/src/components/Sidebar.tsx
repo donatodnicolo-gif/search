@@ -20,7 +20,10 @@ export function Sidebar() {
     },
     {
       titolo: 'Messaggi',
-      voci: [{ href: '/inbox', nome: 'Inbox', icona: iconaChat }],
+      voci: [
+        { href: '/inbox', nome: 'Inbox', icona: iconaChat },
+        { href: '/script', nome: 'Script', icona: iconaScript },
+      ],
     },
     {
       titolo: 'Configurazione',
@@ -98,6 +101,13 @@ const iconaClienti = (
 const iconaChat = (
   <svg {...T} strokeLinejoin="round">
     <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.9 8.9 0 0 1-3.2-.6L3 21l1.8-5.2a8 8 0 0 1-.8-3.5A8.4 8.4 0 0 1 12.5 4 8.4 8.4 0 0 1 21 11.5z" />
+  </svg>
+)
+const iconaScript = (
+  <svg {...T} strokeLinejoin="round">
+    <path d="M5 3.5h10l4 4v13H5z" />
+    <path d="M15 3.5v4h4" />
+    <path d="M8.5 12h7M8.5 16h4.5" />
   </svg>
 )
 const iconaNegozi = (

@@ -4,6 +4,33 @@ Ultimo aggiornamento: 24/07/2026
 
 ## FATTO
 
+- SCRIPT — RISPOSTE RAPIDE CHE L'AI IMPARA (26/07/2026): tabella `Script`
+  (titolo, categoria, testo, `quando` = quando usarlo, attivo, `usi`), pagina `/script`
+  (`src/components/ScriptLista.tsx`) con CRUD, ricerca, copia e un BANCO DI PROVA
+  ("Prova la risposta automatica": si incolla un messaggio e si vede cosa risponderebbe).
+  `suggerisciRisposta()` in `src/lib/ai.ts` manda all'AI SOLO i nostri script (max 60, i
+  più usati per primi) e le chiede quale usare + il testo adattato al cliente.
+  API `POST /api/script/suggerisci` con `{messaggio}` oppure `{conversazioneId}` (in questo
+  caso prende da sola l'ultimo messaggio IN ENTRATA della conversazione); lo script scelto
+  incrementa `usi`, così i più usati salgono.
+  PRINCIPIO (come per l'IBAN): l'AI propone, noi decidiamo. Lo `scriptId` restituito è
+  validato contro l'elenco mandato — se l'AI inventa un id, la risposta viene scartata; e
+  se nessuno script c'entra torna `null` invece di improvvisare.
+  Nell'inbox: bottone **Risposta rapida** accanto a Invia — il testo finisce nel riquadro
+  di scrittura, NON parte da solo, e un avviso dice da quale script arriva.
+  Verificato con 3 script veri e l'AI vera: "ordine in ritardo" → Ritardo nella consegna
+  (con il nome del cliente inserito), "mi serve la fattura" → Richiesta di fattura,
+  "vendete macchine fotografiche usate?" → nessuno script, rifiutato correttamente.
+  Dall'inbox su una conversazione widget: bottone → riquadro riempito + avviso, invio non
+  automatico.
+- CALENDARIO, VISTA "DA OGGI" (26/07/2026): `/calendario` apre sull'AGENDA che parte da
+  oggi (`/api/ordini/calendario?giorni=60`), con "Oggi" evidenziato; la griglia del mese
+  resta a un clic. Le date di consegna arrivano da Orders (campo `consegna`).
+- AI = OPENAI (26/07/2026): `src/lib/ai.ts` usa la chiave OpenAI (Impostazione
+  `openaiApiKey`, cifrata), con Anthropic come ripiego. Due modelli per motivo misurato:
+  `gpt-4o-mini` per il testo, `gpt-4o` per le IMMAGINI — mini ha sbagliato un IBAN letto da
+  foto (due zeri persi, beccato dal checksum), 4o l'ha letto giusto.
+
 - Scaffold completo dell'app (Next 15 + Prisma, porta 3140, design system Deluxy).
 - Schema dati: `Utente`, `Impostazione` (token cifrati AES-256-GCM), `Conversazione`
   (unica per canale+idEsterno), `Messaggio` (dedup su id Meta, stati di consegna).

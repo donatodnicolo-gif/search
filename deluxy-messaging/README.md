@@ -69,10 +69,12 @@ via `GET /api/v1/ordini` con chiave di sola lettura (`src/lib/orders.ts`, config
 Impostazioni) — non se ne duplica l'archivio.
 
 **Calendario ordini.** `/calendario` mostra gli ordini nel giorno in cui vanno
-**consegnati** (non ordinati), un mese per volta, con ogni ordine colorato dallo **stato**
-della pipeline di Orders (colori letti da `GET /api/v1/stati`). Si filtra per stato
-cliccando la legenda e per negozio; in testa il numero e il valore delle consegne del mese.
-Gli ordini senza data di consegna indicata non compaiono e vengono contati esplicitamente.
+**consegnati** (non ordinati), con ogni ordine colorato dallo **stato** della pipeline di
+Orders (colori letti da `GET /api/v1/stati`). Si apre sull'**agenda a partire da oggi** —
+i prossimi 60 giorni, con il giorno corrente in evidenza — perché quello che serve è cosa
+va consegnato adesso; la **griglia del mese** è a un clic. Si filtra per stato cliccando la
+legenda e per negozio; in testa il numero e il valore delle consegne. Gli ordini senza data
+di consegna indicata non compaiono e vengono contati esplicitamente.
 
 **Lavorazione degli ordini.** Ogni ordine ha uno stato **nostro** (`Ordine.gestione`,
 distinto dalla pipeline di Orders): **Da gestire** → **In pagamento** → **Comunicazione con
@@ -88,13 +90,15 @@ tutta la larghezza. La scelta resta in `localStorage` e viene riapplicata prima 
 disegno, così non lampeggia.
 
 **Richiedi pagamento.** `/pagamenti` raccoglie le coordinate su cui farsi pagare. IBAN e
-intestatario si scrivono a mano oppure si fanno **leggere all'AI** (Claude, `src/lib/ai.ts`)
+intestatario si scrivono a mano oppure si fanno **leggere all'AI** (`src/lib/ai.ts`)
 da un messaggio incollato o da un'immagine — schermata di chat, foto di un bonifico — che
 restituisce IBAN, intestatario, importo e causale e compone la stringa pulita da inviare
 (`IBAN … — intestato a … — importo … — causale «…»`). L'AI propone, ma la verità formale la
 dà il **checksum mod-97** (`src/lib/iban.ts`, ISO 13616): una cifra letta male non passa e la
-riga resta marcata "da controllare" invece di essere spacciata per buona. La chiave Anthropic
-si mette in Impostazioni (cifrata).
+riga resta marcata "da controllare" invece di essere spacciata per buona. L'AI è **OpenAI**
+(chiave in Impostazioni, cifrata; Anthropic resta come ripiego): `gpt-4o-mini` per il testo
+e `gpt-4o` per le **immagini**, perché mini ha sbagliato un IBAN letto da una foto — due
+zeri persi, beccati dal checksum — mentre 4o l'ha letto giusto.
 
 **Inoltro a Deluxy Partner.** Salvando, la richiesta viene mandata a Partner, che approva e
 paga: `POST {partnerUrl}/api/richieste-pagamento` con header `X-API-Key` e
@@ -102,6 +106,19 @@ paga: `POST {partnerUrl}/api/richieste-pagamento` con header `X-API-Key` e
 `riferimento`: rimandarla non crea doppioni, la aggiorna finché è in attesa. Partner
 pretende un importo maggiore di zero. Se l'invio fallisce la richiesta resta salvata qui, con
 il motivo, e si rimanda col pulsante *Invia*; *Aggiorna* chiede a Partner a che punto è.
+
+**Script — le risposte rapide che l'AI impara.** `/script` raccoglie le risposte che diamo
+più spesso: titolo, categoria, testo e soprattutto **quando usarlo** (quella riga la legge
+l'AI per scegliere). Non sono solo copia-incolla: sono la **memoria** da cui l'AI impara a
+rispondere come rispondiamo noi. Nell'inbox, il pulsante **Risposta rapida** prende
+l'ultimo messaggio del cliente, lascia scegliere all'AI lo script più adatto e lo fa
+adattare al caso (nome, ordine, tono) — il testo finisce **nel riquadro di scrittura, non
+parte da solo**: si legge, si corregge, poi si invia. Un avviso dice sempre da quale script
+arriva. All'AI vengono mandati **soltanto i nostri script**, e l'id che restituisce viene
+verificato contro quell'elenco: se nessuno c'entra lo dice — «rispondi a mano» — invece di
+inventare una risposta. Ogni script conta gli **usi**, e i più usati vengono proposti per
+primi. Nella pagina c'è anche un **banco di prova**: si incolla un messaggio e si vede cosa
+risponderebbe, senza scrivere a nessuno.
 
 **Menu.** Il menu sta **a sinistra** (`src/components/Sidebar.tsx`, stesso impianto di
 Deluxy Orders: `.layout` + `.sidebar` sticky + `.main`); la barra in alto tiene solo marchio

@@ -97,6 +97,43 @@ export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: Conver
     fondoRef.current?.scrollIntoView({ block: 'end' })
   }, [messaggi.length, selezionataId])
 
+  // Chiede all'AI una risposta partendo dagli Script. Il testo va nel riquadro
+  // di scrittura: l'operatore lo legge, lo corregge e poi decide se inviarlo.
+  const [suggerendo, setSuggerendo] = useState(false)
+  const [suggerimento, setSuggerimento] = useState<{ titolo: string } | null>(null)
+
+  async function suggerisci() {
+    if (!selezionataId) return
+    setSuggerendo(true)
+    setErroreInvio('')
+    setSuggerimento(null)
+    try {
+      const res = await fetch('/api/script/suggerisci', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversazioneId: selezionataId }),
+      })
+      const d = (await res.json().catch(() => ({}))) as {
+        suggerimento?: { titolo: string; risposta: string } | null
+        errore?: string
+      }
+      if (!res.ok) {
+        setErroreInvio(d.errore || 'Nessuna risposta suggerita.')
+        return
+      }
+      if (!d.suggerimento) {
+        setErroreInvio('Nessuno script adatto a questo messaggio: rispondi a mano.')
+        return
+      }
+      setBozza(d.suggerimento.risposta)
+      setSuggerimento({ titolo: d.suggerimento.titolo })
+    } catch {
+      setErroreInvio('Suggerimento non riuscito: problema di rete.')
+    } finally {
+      setSuggerendo(false)
+    }
+  }
+
   async function invia() {
     if (!selezionataId || !bozza.trim() || inviando) return
     setInviando(true)
@@ -213,6 +250,13 @@ export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: Conver
               </div>
             ) : null}
 
+            {suggerimento ? (
+              <div className="avviso-ok" style={{ margin: '0 16px' }}>
+                Da «{suggerimento.titolo}»: risposta pronta nel riquadro qui sotto, controllala
+                prima di inviare.
+              </div>
+            ) : null}
+
             <div className="composer">
               <textarea
                 rows={1}
@@ -226,6 +270,16 @@ export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: Conver
                   }
                 }}
               />
+              {/* Risposta rapida: l'AI sceglie fra gli Script e adatta il testo.
+                  Finisce nel riquadro, NON parte da sola: la si controlla prima. */}
+              <button
+                className="bottone secondario"
+                onClick={suggerisci}
+                disabled={suggerendo}
+                title="Proponi una risposta partendo dagli Script"
+              >
+                {suggerendo ? 'Penso…' : 'Risposta rapida'}
+              </button>
               <button className="bottone" onClick={invia} disabled={inviando || !bozza.trim()}>
                 Invia
               </button>

@@ -16,9 +16,19 @@ export async function GET(req: NextRequest) {
     ? mese.split('-').map(Number)
     : [oggi.getFullYear(), oggi.getMonth() + 1]
 
-  // Estremi del mese in ora locale; la consegna è salvata a mezzanotte UTC.
-  const dal = new Date(Date.UTC(anno, m - 1, 1, 0, 0, 0))
-  const al = new Date(Date.UTC(anno, m, 0, 23, 59, 59))
+  // Due modi di guardare le consegne:
+  //  - "agenda": da OGGI in avanti (quello che serve tutti i giorni)
+  //  - mese: gli estremi del mese richiesto (visione d'insieme)
+  const giorni = Number(p.get('giorni') ?? 0)
+  const daOggi = giorni > 0
+
+  // La consegna è salvata a mezzanotte UTC.
+  const dal = daOggi
+    ? new Date(Date.UTC(oggi.getFullYear(), oggi.getMonth(), oggi.getDate(), 0, 0, 0))
+    : new Date(Date.UTC(anno, m - 1, 1, 0, 0, 0))
+  const al = daOggi
+    ? new Date(Date.UTC(oggi.getFullYear(), oggi.getMonth(), oggi.getDate() + giorni, 23, 59, 59))
+    : new Date(Date.UTC(anno, m, 0, 23, 59, 59))
 
   const dove: Prisma.OrdineWhereInput = { dataConsegna: { gte: dal, lte: al } }
   if (negozio) dove.negozioId = negozio
