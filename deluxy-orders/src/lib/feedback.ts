@@ -129,6 +129,16 @@ async function scarica(conf: Configurazione, page: number, da?: string): Promise
     const testo = await res.text().catch(() => "");
     throw new Error(`Customer Service ha risposto ${res.status}${testo ? `: ${testo.slice(0, 200)}` : ""}`);
   }
+  // Se la rotta non è pubblicata, il Customer Service manda al login e risponde
+  // con una PAGINA: senza questo controllo l'errore sarebbe «Unexpected token
+  // '<'», che non dice niente a nessuno.
+  const tipo = res.headers.get("content-type") ?? "";
+  if (!tipo.includes("application/json")) {
+    throw new Error(
+      `Il Customer Service ha risposto con una pagina (${tipo.split(";")[0] || "senza tipo"}) invece che con dati: ` +
+        `di solito significa che /api/v1/feedback non è ancora pubblicato su ${conf.url}, oppure che l'URL non è quello giusto.`,
+    );
+  }
   return (await res.json()) as RispostaApi;
 }
 
