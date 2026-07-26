@@ -57,6 +57,16 @@ model Partner {
   amministrazioneEmail    String?
   // Tipologie di interesse commerciale (multi-scelta, catalogo in src/lib/interessi.ts)
   interessi      String[]   @default([])
+  // — Valutazione D2C (qualità percepita dal cliente finale) —
+  // Aggregati ricalcolati a ogni feedback (src/lib/feedback-d2c.ts): media dei
+  // voti su scala 1–5, quanti feedback l'hanno prodotta, l'ultimo ricevuto e
+  // quando è stata ricalcolata. `votoD2C` null = NESSUN feedback: si legge
+  // «da valutare», mai zero (un partner senza feedback non è un partner scarso).
+  votoD2C             Float?
+  numeroFeedbackD2C   Int        @default(0)
+  ultimoFeedbackD2C   DateTime?
+  votoD2CAggiornatoIl DateTime?
+  feedbackD2C         FeedbackD2C[]
   note           String?
   contattiRaw    String? // blocco contatti originale dell'Excel (testo libero)
   // Extra specifici del foglio di provenienza (stime, fee, ...), JSON serializzato
@@ -90,6 +100,39 @@ model Partner {
   @@index([citta])
   @@index([nome])
   @@index([capogruppoId])
+  @@index([votoD2C])
+}
+
+// Feedback del cliente finale (D2C) su una consegna servita dal partner.
+// È il mattone della "valutazione D2C": ogni feedback resta singolo e
+// consultabile (chi, quando, che ordine, cosa ha detto), la pagella del
+// partner è la media che ne esce (aggregati su Partner, ricalcolati a ogni
+// scrittura). Chi li manda: le app che li raccolgono (customer service,
+// piattaforma consegne, recensioni dei siti) via POST /api/v1/feedback, o il
+// team a mano dalla scheda.
+model FeedbackD2C {
+  id            String   @id @default(cuid())
+  partnerId     String
+  // Voto normalizzato 1–5 (le stelle mostrate ovunque). Se la sorgente usa
+  // un'altra scala (NPS 0–10, percentuali) manda `votoOriginale` + `scala` e
+  // il registro normalizza — così le medie sono confrontabili.
+  voto          Int
+  votoOriginale Float?
+  scala         Int      @default(5)
+  canale        String? // shopify | google | trustpilot | whatsapp | email | telefono | modulo | manuale
+  sistema       String // app che l'ha inviato (nome della chiave API) o "ui"
+  idEsterno     String? // id del feedback nell'app di origine: rende la scrittura idempotente
+  ordine        String? // numero d'ordine/consegna a cui si riferisce
+  cliente       String? // nome o etichetta del cliente finale (facoltativo)
+  commento      String?
+  motivi        String[] @default([]) // tag del giudizio (puntualita, qualita_prodotto, …)
+  dataFeedback  DateTime // quando il cliente l'ha dato (non quando è arrivato qui)
+  creatoIl      DateTime @default(now())
+  partner       Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([sistema, idEsterno])
+  @@index([partnerId, dataFeedback])
+  @@index([dataFeedback])
 }
 
 // Persone di riferimento del partner (parse del blocco CONTATTI dell'Excel
@@ -169,6 +212,7 @@ model ApiKey {
   hash      String    @unique // sha256 esadecimale della chiave
   scrittura Boolean   @default(false) // true = può creare/modificare/disattivare il partner (PATCH/DELETE inclusi)
   scritturaReferenti Boolean @default(false) // true = può solo archiviare i referenti (scope ristretto, es. Scout)
+  scritturaFeedback  Boolean @default(false) // true = può solo inviare feedback D2C (scope ristretto, es. Customer Service)
   scritturaPartner   Boolean @default(false) // true = solo POST upsert dei partner (no PATCH/DELETE) + può settare stato/interessi (driver di prima parte, es. Scout)
   attiva    Boolean   @default(true)
   creataIl  DateTime  @default(now())

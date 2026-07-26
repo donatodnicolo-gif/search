@@ -37,8 +37,9 @@ async function registraRiferimenti(
 // GET /api/v1/partners — elenco con filtri e paginazione.
 // Filtri: q (ricerca a parole su tutti i campi e i contatti), categoria, citta,
 // provincia, regione, stato (commerciale), statoFinanziario, statoAnalisi
-// (`nessuno` = mai analizzata), fonte, platformId, attivo (default: solo
-// attivi; attivo=tutti per tutto).
+// (`nessuno` = mai analizzata), fonte, platformId, votoD2CMin/votoD2CMax,
+// feedbackD2C (`si`/`nessuno`), attivo (default: solo attivi; attivo=tutti per
+// tutto).
 export async function GET(req: NextRequest) {
   const client = await autentica(req);
   if (client instanceof NextResponse) return client;
@@ -71,6 +72,19 @@ export async function GET(req: NextRequest) {
   if (statoCommerciale && !where.stato) where.stato = statoCommerciale;
   const platformId = p.get("platformId")?.trim();
   if (platformId) where.platformId = platformId;
+
+  // Valutazione D2C: `votoD2CMin`/`votoD2CMax` filtrano su chi un voto ce l'ha;
+  // `feedbackD2C=nessuno` isola i partner mai valutati (≠ voto basso) e
+  // `feedbackD2C=si` quelli che hanno almeno un feedback.
+  const filtroVoto: Prisma.FloatNullableFilter = {};
+  const votoMin = Number(p.get("votoD2CMin"));
+  const votoMax = Number(p.get("votoD2CMax"));
+  if (p.get("votoD2CMin") && isFinite(votoMin)) filtroVoto.gte = votoMin;
+  if (p.get("votoD2CMax") && isFinite(votoMax)) filtroVoto.lte = votoMax;
+  if (Object.keys(filtroVoto).length > 0) where.votoD2C = filtroVoto;
+  const feedbackD2C = p.get("feedbackD2C")?.trim();
+  if (feedbackD2C === "nessuno") where.numeroFeedbackD2C = 0;
+  if (feedbackD2C === "si") where.numeroFeedbackD2C = { gt: 0 };
 
   const attivo = p.get("attivo");
   if (attivo !== "tutti") where.attivo = attivo === "false" ? false : true;

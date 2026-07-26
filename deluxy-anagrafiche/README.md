@@ -63,6 +63,68 @@ Ogni partner risponde con un blocco **`datiFinanziari`**: `pec`, `codiceSdi`,
   si riempiono sempre. IBAN e codice SDI vengono normalizzati (maiuscolo, IBAN
   senza spazi). `noteAmministrative` è additiva (append, mai sovrascritta).
 
+### Valutazione D2C (feedback del cliente finale)
+
+Ogni partner può avere una **valutazione D2C**: la media dei giudizi che i
+clienti finali danno alle consegne che quel partner ha servito. Nasce dai
+singoli **feedback**, non si scrive a mano da fuori.
+
+Ogni partner risponde con il blocco **`valutazioneD2C`**:
+
+```json
+"valutazioneD2C": {
+  "voto": 4.3,                  // media 1–5, null = nessun feedback
+  "feedback": 12,               // quanti feedback l'hanno prodotta
+  "etichetta": "Buono",         // Eccellente | Buono | Sufficiente | Critico | Da valutare
+  "affidabile": true,           // false = meno di 3 feedback: è un'indicazione
+  "ultimoFeedback": "2026-07-20T00:00:00.000Z",
+  "aggiornatoIl": "2026-07-20T10:02:11.000Z"
+}
+```
+
+- **`voto: null` NON è zero.** Vuol dire «da valutare»: quel partner non ha
+  ancora feedback. Non mettetelo in fondo a una classifica e non usatelo per
+  penalizzare — è dato mancante, non giudizio negativo.
+- **`affidabile: false`** = sotto i 3 feedback: mostratelo come indicativo.
+- Filtri sull'elenco: `votoD2CMin`, `votoD2CMax`, `feedbackD2C=si|nessuno`.
+
+**Per mandare un feedback**: `POST /api/v1/feedback` con una chiave di
+scrittura piena o con lo scope dedicato `--scrittura-feedback` (non tocca il
+golden record del partner).
+
+```bash
+curl -X POST https://deluxy-anagrafiche.vercel.app/api/v1/feedback \
+  -H "x-api-key: dlxk_…" -H "content-type: application/json" -d '{
+    "riferimento": {"sistema": "orders", "idEsterno": "1234"},
+    "idEsterno": "recensione-9981",
+    "voto": 9, "scala": 10,
+    "canale": "email", "ordine": "#10231", "cliente": "M. Rossi",
+    "motivi": ["puntualita", "presentazione"],
+    "commento": "Consegna puntuale, mazzo bellissimo",
+    "data": "2026-07-20"
+  }'
+```
+
+- **Il partner si aggancia** con `partnerId`, oppure `riferimento{sistema,idEsterno}`,
+  `platformId`, o `negozio`+`citta`. Se non aggancia risponde **404**: il
+  feedback non viene attribuito a un partner a caso. Per trovare l'id la prima
+  volta usate `GET /api/v1/partners/match`.
+- **`voto`** è obbligatorio. Se la vostra scala non è 1–5 mandate anche
+  `scala` (es. NPS `"scala": 10`): il registro normalizza su 5 e conserva il
+  valore grezzo. Un voto fuori scala è un **400**, non un voto a caso.
+- **`idEsterno`** (il vostro id di quel feedback) rende la chiamata
+  **idempotente**: rimandandolo aggiornate quel feedback invece di crearne un
+  secondo — attenzione, la riga viene sostituita con quello che mandate, quindi
+  rispedite il record completo. Senza `idEsterno` ogni chiamata crea un
+  feedback nuovo.
+- **`motivi`** accetta solo i tag del catalogo (`puntualita`,
+  `qualita_prodotto`, `presentazione`, `biglietto`, `comunicazione`,
+  `cortesia`, `conformita_ordine`); gli altri vengono scartati. Il testo libero
+  va in `commento`: non deducete i tag dal testo.
+- La risposta contiene il feedback salvato e la `valutazioneD2C` aggiornata.
+- Per rileggerli: `GET /api/v1/feedback?partnerId=…&canale=&dal=&al=&votoMin=&votoMax=`
+  (chiamando con `partnerId` la risposta include anche la valutazione).
+
 ### Se scrivi (oggi solo la piattaforma consegne; le altre app "segnalano")
 
 - `POST /api/v1/partners` con la chiave di scrittura → **upsert** (201 = creato,
@@ -168,6 +230,14 @@ scheda di ogni partner.
 
 `PassaggioStato`: storico dei cambi di stato/archiviazione (da, a, origine, quando).
 
+`FeedbackD2C`: il giudizio di un cliente finale su una consegna servita dal
+partner — `voto` 1–5 (normalizzato da `votoOriginale`/`scala`), `canale`,
+`sistema` (chi l'ha mandato) + `idEsterno` (idempotenza), `ordine`, `cliente`,
+`commento`, `motivi[]`, `dataFeedback`. Da questi si ricalcolano gli aggregati
+sul partner (`votoD2C`, `numeroFeedbackD2C`, `ultimoFeedbackD2C`,
+`votoD2CAggiornatoIl`): quelli sono di sola lettura, si scrive solo un feedback.
+**Nessun feedback = nessun voto** («Da valutare»), mai zero.
+
 `ApiKey`: chiavi delle app client; nel DB c'è solo lo SHA-256.
 
 ## Chiavi API
@@ -177,6 +247,7 @@ npm run chiave -- deluxy-platform --scrittura   # lettura + scrittura (solo la p
 npm run chiave -- deluxy-partner                # sola lettura
 npm run chiave -- deluxy-suppliers              # sola lettura
 npm run chiave -- deluxy-scout                  # sola lettura
+npm run chiave -- <app>-feedback --scrittura-feedback  # lettura + invio feedback D2C
 ```
 
 La chiave viene stampata una sola volta: copiarla nel `.env` dell'app client
@@ -198,12 +269,15 @@ Autenticazione: header `x-api-key: <chiave>` (oppure `Authorization: Bearer <chi
 | POST | `/api/v1/partners` | scrittura | Upsert-merge; identità via `sistema`+`idEsterno` → `platformId` → P.IVA/CF → nome+città |
 | PATCH | `/api/v1/partners/:id` | scrittura | Aggiornamento parziale |
 | DELETE | `/api/v1/partners/:id` | scrittura | Disattiva (soft delete, `attivo=false`) |
+| GET | `/api/v1/feedback` | lettura | Feedback D2C: `partnerId`, `canale`, `sistema`, `votoMin/votoMax`, `dal/al`, `page`, `perPage` |
+| POST | `/api/v1/feedback` | scrittura **o** feedback | Registra il giudizio di un cliente finale e ricalcola la valutazione D2C |
 
 Filtri di `GET /partners`: `q` (multi-parola su tutti i campi e i contatti),
 `categoria`, `citta`, `provincia`, `regione`, `stato` (commerciale),
 `statoFinanziario`, `statoAnalisi` (`nessuno` = mai analizzate), `fonte`,
-`platformId`, `attivo` (`false` = solo disattivati, `tutti` = tutti), `page`,
-`perPage` (max 200).
+`platformId`, `votoD2CMin`/`votoD2CMax`, `feedbackD2C` (`si` = con feedback,
+`nessuno` = mai valutate), `attivo` (`false` = solo disattivati, `tutti` =
+tutti), `page`, `perPage` (max 200).
 
 Risposta dell'elenco: `{ totale, pagina, perPagina, dati: [...] }`.
 
@@ -251,9 +325,11 @@ e le fasi di realizzazione.
 
 - `/` — Visione globale: elenco con ricerca su tutti i campi, filtri, ordinamenti,
   sezione Novità, cambio stato/interessi in riga, archiviazione, riconciliazione HubSpot
-- `/dashboard` — analisi (funnel, aree, interessi, qualità dati) con macro-filtri
+- `/dashboard` — analisi (funnel, aree, interessi, **valutazione D2C**, qualità dati) con macro-filtri
 - `/sync-hubspot` — confronto e riconciliazione col CRM HubSpot
-- `/partner/:id` — scheda con anagrafica, referenti, note, storico stati; `/partner/:id/modifica` per l'edit
+- `/partner/:id` — scheda con anagrafica, **valutazione D2C** (voto, distribuzione,
+  elenco dei feedback, ＋ Feedback per registrarne uno a mano), referenti, note,
+  storico stati; `/partner/:id/modifica` per l'edit
 - Sidebar con sezioni a espansione: tipologie, stati, interessi, archivio, sync
 
 La UI segue il Deluxy Design System v1.0 (`deluxy-design-system/DESIGN-SYSTEM.md`).

@@ -127,6 +127,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     conEmail,
     conReferente,
     riconciliate,
+    d2cRighe,
   ] = await Promise.all([
     // Opzioni dei menu: sempre l'elenco completo, indipendente dai filtri attivi
     prisma.partner.findMany({ where: { attivo: true }, distinct: ["categoria"], select: { categoria: true }, orderBy: { categoria: "asc" } }),
@@ -153,6 +154,31 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     prisma.partner.count({ where: { ...where, OR: [{ email: { not: null } }, { contatti: { some: { email: { not: null } } } }] } }),
     prisma.partner.count({ where: { ...where, contatti: { some: {} } } }),
     prisma.partner.count({ where: { ...where, hubspotId: { not: null } } }),
+    // Valutazione D2C della fetta: fasce, feedback totali e media pesata.
+    // Schema qualificato (via pgbouncer il search_path non è garantito).
+    prisma.$queryRaw<
+      {
+        eccellente: bigint;
+        buono: bigint;
+        sufficiente: bigint;
+        critico: bigint;
+        da_valutare: bigint;
+        feedback: bigint;
+        media: number | null;
+      }[]
+    >(Prisma.sql`
+      SELECT
+        count(*) FILTER (WHERE "numeroFeedbackD2C" > 0 AND "votoD2C" >= 4.5) AS eccellente,
+        count(*) FILTER (WHERE "numeroFeedbackD2C" > 0 AND "votoD2C" >= 4 AND "votoD2C" < 4.5) AS buono,
+        count(*) FILTER (WHERE "numeroFeedbackD2C" > 0 AND "votoD2C" >= 3 AND "votoD2C" < 4) AS sufficiente,
+        count(*) FILTER (WHERE "numeroFeedbackD2C" > 0 AND "votoD2C" < 3) AS critico,
+        count(*) FILTER (WHERE "numeroFeedbackD2C" = 0) AS da_valutare,
+        coalesce(sum("numeroFeedbackD2C"), 0) AS feedback,
+        -- media pesata sui feedback: una sede con 40 giudizi conta più di una con 2
+        CASE WHEN sum("numeroFeedbackD2C") > 0
+          THEN sum("votoD2C" * "numeroFeedbackD2C") / sum("numeroFeedbackD2C")
+        END AS media
+      FROM "anagrafiche"."Partner" WHERE ${whereRaw}`),
   ]);
 
   const statoConteggio = new Map(perStato.map((s) => [s.stato, s._count._all]));
@@ -202,6 +228,21 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     });
   }
   const maxMese = Math.max(...mesi.map((m) => m.totale), 1);
+
+  // Valutazione D2C della fetta. Chi non ha feedback NON vale zero: sta nella
+  // sua fascia «Da valutare» e resta fuori dalla media.
+  const d2c = d2cRighe[0];
+  const fasceD2C = [
+    { chiave: "eccellente", etichetta: "Eccellente (≥ 4,5)", quanti: Number(d2c?.eccellente ?? 0), colore: "var(--green)" },
+    { chiave: "buono", etichetta: "Buono (4 – 4,4)", quanti: Number(d2c?.buono ?? 0), colore: "var(--green)" },
+    { chiave: "sufficiente", etichetta: "Sufficiente (3 – 3,9)", quanti: Number(d2c?.sufficiente ?? 0), colore: "var(--orange)" },
+    { chiave: "critico", etichetta: "Critico (< 3)", quanti: Number(d2c?.critico ?? 0), colore: "var(--red)" },
+    { chiave: "da_valutare", etichetta: "Da valutare (nessun feedback)", quanti: Number(d2c?.da_valutare ?? 0), colore: "var(--fill-active)" },
+  ];
+  const feedbackTotali = Number(d2c?.feedback ?? 0);
+  const mediaD2C = d2c?.media != null ? Number(d2c.media) : null;
+  const maxFasciaD2C = Math.max(...fasceD2C.map((f) => f.quanti), 1);
+  const valutati = totale - Number(d2c?.da_valutare ?? 0);
 
   const pct = (n: number) => (totale ? Math.round((n / totale) * 100) : 0);
   const senzaRegione = totale - perRegione.reduce((s, r) => s + r._count._all, 0);
@@ -302,6 +343,38 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               colore="var(--fill-active)"
               href="/?statoAnalisi=nessuno"
             />
+          </section>
+
+          <section className="scheda">
+            <h2 className="scheda-titolo">
+              Valutazione D2C <span className="scheda-sub">giudizio del cliente finale</span>
+            </h2>
+            {fasceD2C.map((f) => (
+              <Barra
+                key={f.chiave}
+                etichetta={f.etichetta}
+                valore={f.quanti}
+                massimo={maxFasciaD2C}
+                colore={f.colore}
+                href={f.chiave === "da_valutare" ? "/?feedbackD2C=nessuno" : undefined}
+                dettaglio={`${f.etichetta}: ${f.quanti} (${pct(f.quanti)}% della fetta)`}
+              />
+            ))}
+            <p className="testo-guida" style={{ marginTop: 10 }}>
+              {feedbackTotali > 0 ? (
+                <>
+                  {feedbackTotali} feedback su {valutati}{" "}
+                  {valutati === 1 ? "anagrafica" : "anagrafiche"} · media pesata{" "}
+                  <strong>{mediaD2C != null ? mediaD2C.toFixed(1).replace(".", ",") : "—"}</strong>/5. Le
+                  anagrafiche senza feedback restano «Da valutare»: non contano come zero.
+                </>
+              ) : (
+                <>
+                  Ancora nessun feedback in questa fetta. Le app li mandano con{" "}
+                  <code>POST /api/v1/feedback</code>, il team può registrarli dalla scheda del partner.
+                </>
+              )}
+            </p>
           </section>
 
           <section className="scheda">

@@ -1,8 +1,9 @@
 // Crea (o rigenera) una chiave API per un'app client.
-// Uso:  npm run chiave -- <nome-app> [--scrittura | --scrittura-referenti]
+// Uso:  npm run chiave -- <nome-app> [--scrittura | --scrittura-partner | --scrittura-referenti | --scrittura-feedback]
 // Esempi:
 //   npm run chiave -- deluxy-platform --scrittura           (scrittura piena)
 //   npm run chiave -- deluxy-scout-referenti --scrittura-referenti  (solo archivio referenti)
+//   npm run chiave -- deluxy-messaging-feedback --scrittura-feedback (solo feedback D2C)
 //
 // La chiave viene stampata UNA SOLA VOLTA: nel database resta solo lo SHA-256.
 // Copiarla nel .env dell'app client (es. ANAGRAFICHE_API_KEY=...).
@@ -16,9 +17,12 @@ const nome = argomenti.find((a) => !a.startsWith("--"));
 const scrittura = argomenti.includes("--scrittura");
 const scritturaReferenti = argomenti.includes("--scrittura-referenti");
 const scritturaPartner = argomenti.includes("--scrittura-partner");
+const scritturaFeedback = argomenti.includes("--scrittura-feedback");
 
 if (!nome) {
-  console.error("Uso: npm run chiave -- <nome-app> [--scrittura | --scrittura-partner | --scrittura-referenti]");
+  console.error(
+    "Uso: npm run chiave -- <nome-app> [--scrittura | --scrittura-partner | --scrittura-referenti | --scrittura-feedback]",
+  );
   process.exit(1);
 }
 
@@ -27,8 +31,8 @@ const hash = createHash("sha256").update(chiave).digest("hex");
 
 await prisma.apiKey.upsert({
   where: { nome },
-  create: { nome, hash, scrittura, scritturaReferenti, scritturaPartner },
-  update: { hash, scrittura, scritturaReferenti, scritturaPartner, attiva: true },
+  create: { nome, hash, scrittura, scritturaReferenti, scritturaPartner, scritturaFeedback },
+  update: { hash, scrittura, scritturaReferenti, scritturaPartner, scritturaFeedback, attiva: true },
 });
 
 const permesso = scrittura
@@ -37,7 +41,9 @@ const permesso = scrittura
     ? "lettura + upsert partner (POST, con stato/interessi)"
     : scritturaReferenti
       ? "lettura + archivio referenti"
-      : "sola lettura";
+      : scritturaFeedback
+        ? "lettura + invio feedback D2C"
+        : "sola lettura";
 console.log(`Chiave API per "${nome}" (${permesso}):`);
 console.log();
 console.log(`  ${chiave}`);

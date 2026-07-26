@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { valutazioneD2C } from "./feedback-d2c";
 import { CAMPI_FINANZIARI } from "./insegna";
 import { isStato, isStatoFinanziario, normalizzaStatoAnalisi } from "./stati";
 
@@ -198,6 +199,11 @@ export function serializzaPartner(p: PartnerConContatti) {
     },
     account: p.account,
     ultimaVisita: p.ultimaVisita,
+    // Valutazione D2C: la media dei feedback del cliente finale (1–5).
+    // `voto: null` significa NESSUN feedback ("Da valutare"): non trattatelo
+    // come zero. `affidabile: false` = troppo pochi feedback, è un'indicazione.
+    // Si scrive solo con POST /api/v1/feedback: qui è di sola lettura.
+    valutazioneD2C: valutazioneD2C(p),
     interessi: p.interessi,
     note: p.note,
     contattiRaw: p.contattiRaw,

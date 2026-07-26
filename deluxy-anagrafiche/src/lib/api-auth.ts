@@ -12,6 +12,7 @@ export type ClientApi = {
   scrittura: boolean;
   scritturaReferenti: boolean;
   scritturaPartner: boolean;
+  scritturaFeedback: boolean;
 };
 
 export function erroreApi(status: number, messaggio: string) {
@@ -28,7 +29,7 @@ function estraiChiave(req: NextRequest): string | null {
 
 export async function autentica(
   req: NextRequest,
-  opzioni: { scrittura?: boolean; referenti?: boolean; partner?: boolean } = {},
+  opzioni: { scrittura?: boolean; referenti?: boolean; partner?: boolean; feedback?: boolean } = {},
 ): Promise<ClientApi | NextResponse> {
   const chiave = estraiChiave(req);
   if (!chiave) {
@@ -49,6 +50,11 @@ export async function autentica(
   if (opzioni.referenti && !record.scrittura && !record.scritturaReferenti) {
     return erroreApi(403, "Questa chiave non può scrivere sui referenti");
   }
+  // Feedback D2C: chiave di scrittura piena O scope feedback (POST-only sui
+  // feedback, non tocca il golden record del partner).
+  if (opzioni.feedback && !record.scrittura && !record.scritturaFeedback) {
+    return erroreApi(403, "Questa chiave non può inviare feedback D2C");
+  }
   // Traccia l'ultimo uso senza bloccare la risposta
   prisma.apiKey
     .update({ where: { id: record.id }, data: { ultimoUso: new Date() } })
@@ -59,5 +65,6 @@ export async function autentica(
     scrittura: record.scrittura,
     scritturaReferenti: record.scritturaReferenti,
     scritturaPartner: record.scritturaPartner,
+    scritturaFeedback: record.scritturaFeedback,
   };
 }

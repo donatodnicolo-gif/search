@@ -5,8 +5,10 @@ import { MenuStato } from "@/components/MenuStato";
 import { MenuStatoAzienda } from "@/components/MenuStatoAzienda";
 import { Riconcilia } from "@/components/Riconcilia";
 import { etichetta, Sidebar } from "@/components/Sidebar";
+import { StelleD2C } from "@/components/StelleD2C";
 import { impostaArchiviato } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
+import { valutazioneAggregata } from "@/lib/feedback-d2c";
 import { getLinee } from "@/lib/linee";
 import { whereRicerca } from "@/lib/ricerca";
 import {
@@ -33,6 +35,7 @@ const COLONNE_ORDINABILI = {
   stato: "Stato commerciale",
   statoFinanziario: "Stato finanziario",
   statoAnalisi: "Stato analisi",
+  votoD2C: "D2C",
   account: "Account",
   ultimaVisita: "Ultimo contatto",
   creatoIl: "Creata",
@@ -47,6 +50,7 @@ type Ricerca = {
   statoFinanziario?: string;
   statoAnalisi?: string;
   interesse?: string;
+  feedbackD2C?: string;
   pagina?: string;
   ordina?: string;
   dir?: string;
@@ -79,6 +83,9 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     where.statoAnalisi = filtri.statoAnalisi === "nessuno" ? null : filtri.statoAnalisi;
   }
   if (interesse) where.interessi = { has: interesse };
+  // Valutazione D2C: "nessuno" = mai valutate (≠ voto basso), "si" = con feedback
+  if (filtri.feedbackD2C === "nessuno") where.numeroFeedbackD2C = 0;
+  if (filtri.feedbackD2C === "si") where.numeroFeedbackD2C = { gt: 0 };
 
   // La sezione "Novità" appare solo sulla visione globale pulita
   const conNovita =
@@ -90,6 +97,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     !filtri.statoFinanziario &&
     !filtri.statoAnalisi &&
     !interesse &&
+    !filtri.feedbackD2C &&
     pagina === 1;
 
   const [totale, partner, citta, novita] = await Promise.all([
@@ -109,7 +117,11 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
             ? [{ ultimaVisita: { sort: dir, nulls: "last" } }, { nome: "asc" }]
             : ordina === "statoAnalisi"
               ? [{ statoAnalisi: { sort: dir, nulls: "last" } }, { nome: "asc" }]
-              : [{ [ordina]: dir }, { nome: "asc" }],
+              : // Chi non ha feedback non ha un voto: resta in fondo in
+                // entrambi i versi, non finisce fra i peggiori.
+                ordina === "votoD2C"
+                ? [{ votoD2C: { sort: dir, nulls: "last" } }, { nome: "asc" }]
+                : [{ [ordina]: dir }, { nome: "asc" }],
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
     }),
@@ -168,6 +180,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     if (filtri.statoFinanziario) p.set("statoFinanziario", filtri.statoFinanziario);
     if (filtri.statoAnalisi) p.set("statoAnalisi", filtri.statoAnalisi);
     if (interesse) p.set("interesse", interesse);
+    if (filtri.feedbackD2C) p.set("feedbackD2C", filtri.feedbackD2C);
     return p;
   };
 
@@ -238,6 +251,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
         />
       </td>
       <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto linee={linee} /></td>
+      <td><StelleD2C voto={p.votoD2C} feedback={p.numeroFeedbackD2C} compatto /></td>
       <td className="cella-muta col-secondaria">{p.account ?? "—"}</td>
       <td className="cella-muta">{p.ultimaVisita ? dataIt(p.ultimaVisita) : "—"}</td>
       <td className="cella-muta">
@@ -263,6 +277,9 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
   const CelleGruppo = ({ nome, membri }: { nome: string; membri: RigaPartner[] }) => {
     const citta = [...new Set(membri.map((m) => m.citta).filter(Boolean))] as string[];
     const categorie = [...new Set(membri.map((m) => m.categoria))];
+    // Il voto del gruppo è la media pesata sui feedback delle sedi (una sede
+    // con 40 feedback pesa più di una con 2), non la media delle medie.
+    const d2c = valutazioneAggregata(membri);
     return (
       <>
         <td>
@@ -279,6 +296,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
         <td className="cella-muta">—</td>
         <td className="cella-muta">—</td>
         <td className="cella-muta">—</td>
+        <td><StelleD2C voto={d2c.voto} feedback={d2c.feedback} compatto /></td>
         <td className="cella-muta col-secondaria">—</td>
         <td className="cella-muta">—</td>
         <td className="cella-muta">—</td>
@@ -397,6 +415,11 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
           ))}
           <option value="nessuno">Non analizzate</option>
         </select>
+        <select name="feedbackD2C" defaultValue={filtri.feedbackD2C ?? ""}>
+          <option value="">Valutazione D2C: tutte</option>
+          <option value="si">Con feedback</option>
+          <option value="nessuno">Da valutare (nessun feedback)</option>
+        </select>
         <button className="btn" type="submit">Filtra</button>
       </form>
 
@@ -417,6 +440,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                   <th>Stato finanziario</th>
                   <th>Stato analisi</th>
                   <th>Interessi</th>
+                  <th>D2C</th>
                   <th>Ultimo contatto</th>
                   <th>Note</th>
                   <th>Creata</th>
@@ -438,6 +462,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     <td><MenuStatoAzienda partnerId={p.id} dimensione="finanziario" stato={p.statoFinanziario} /></td>
                     <td><MenuStatoAzienda partnerId={p.id} dimensione="analisi" stato={p.statoAnalisi} /></td>
                     <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto linee={linee} /></td>
+                    <td><StelleD2C voto={p.votoD2C} feedback={p.numeroFeedbackD2C} compatto /></td>
                     <td className="cella-muta">{p.ultimaVisita ? dataIt(p.ultimaVisita) : "—"}</td>
                     <td className="cella-muta">
                       {p.note ? (
@@ -475,6 +500,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                 <Intestazione campo="statoFinanziario" />
                 <Intestazione campo="statoAnalisi" />
                 <th>Interessi</th>
+                <Intestazione campo="votoD2C" />
                 <Intestazione campo="account" classe="col-secondaria" />
                 <Intestazione campo="ultimaVisita" />
                 <th>Note</th>

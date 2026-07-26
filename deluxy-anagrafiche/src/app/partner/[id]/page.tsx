@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { FormFeedbackD2C } from "@/components/FormFeedbackD2C";
 import { GestioneGruppo } from "@/components/GestioneGruppo";
 import type { RigaContatto } from "@/components/google-rubrica";
 import { MenuInteressi } from "@/components/MenuInteressi";
@@ -6,8 +7,16 @@ import { SalvaRubricaAuto } from "@/components/SalvaRubricaAuto";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { SelettoreStatoAzienda } from "@/components/SelettoreStatoAzienda";
 import { Sidebar } from "@/components/Sidebar";
-import { impostaArchiviato, raggruppaSotto, staccaContatto } from "@/lib/azioni";
+import { FasciaD2C, StelleD2C } from "@/components/StelleD2C";
+import { eliminaFeedbackD2C, impostaArchiviato, raggruppaSotto, staccaContatto } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
+import {
+  ETICHETTE_CANALE,
+  ETICHETTE_MOTIVO,
+  SOGLIA_AFFIDABILE,
+  formattaVoto,
+  valutazioneD2C,
+} from "@/lib/feedback-d2c";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
 import { datiFinanziariCondivisi } from "@/lib/insegna";
 import { eAffiliatoReseller } from "@/lib/interessi";
@@ -39,6 +48,9 @@ export default async function Dettaglio({
     where: { id },
     include: {
       contatti: { where: { archiviato: false } },
+      // Ultimi feedback del cliente finale: la pagella (media) sta sul record,
+      // qui servono i singoli giudizi per capire *perché* quel voto.
+      feedbackD2C: { orderBy: { dataFeedback: "desc" }, take: 30 },
       passaggi: { orderBy: { creatoIl: "desc" } },
       capogruppo: { select: { id: true, nome: true, citta: true } },
       sedi: {
@@ -83,6 +95,22 @@ export default async function Dettaglio({
       : [];
 
   const extra: Record<string, unknown> = p.datiExtra ? JSON.parse(p.datiExtra) : {};
+
+  // Valutazione D2C: media dei feedback + distribuzione delle stelle. Senza
+  // feedback non c'è voto (né zero): la sezione lo dice e basta.
+  const valutazione = valutazioneD2C(p);
+  // La distribuzione conta TUTTI i feedback, non solo quelli elencati sotto.
+  const perVoto = await prisma.feedbackD2C.groupBy({
+    by: ["voto"],
+    where: { partnerId: p.id },
+    _count: { _all: true },
+  });
+  const contaVoto = new Map(perVoto.map((v) => [v.voto, v._count._all]));
+  const distribuzione = [5, 4, 3, 2, 1].map((stelle) => ({
+    stelle,
+    quanti: contaVoto.get(stelle) ?? 0,
+  }));
+  const maxDistribuzione = Math.max(...distribuzione.map((d) => d.quanti), 1);
 
   const ETICHETTE_FONTE: Record<string, string> = {
     excel: "dal tracker Excel",
@@ -216,6 +244,126 @@ export default async function Dettaglio({
             valore={p.platformId ? `app.deluxy.it · ${p.platformId}` : null}
           />
         </dl>
+      </section>
+
+      <section className="scheda">
+        <h2 className="scheda-titolo">
+          Valutazione D2C{" "}
+          <span className="scheda-sub">come giudica il cliente finale le consegne servite da questo partner</span>
+        </h2>
+        <div className="d2c-testata">
+          <div className="d2c-punteggio">
+            {valutazione.voto == null ? (
+              <>
+                <div className="d2c-voto-grande d2c-vuoto">—</div>
+                <div className="d2c-sotto">Da valutare · nessun feedback</div>
+              </>
+            ) : (
+              <>
+                <div className="d2c-voto-grande" style={{ color: valutazione.colore }}>
+                  {formattaVoto(valutazione.voto)}
+                  <span className="d2c-su">/5</span>
+                </div>
+                <div className="d2c-sotto">
+                  {valutazione.feedback} feedback
+                  {!valutazione.affidabile && ` · meno di ${SOGLIA_AFFIDABILE}: voto indicativo`}
+                  {valutazione.ultimoFeedback && ` · ultimo ${valutazione.ultimoFeedback.toLocaleDateString("it-IT")}`}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="d2c-distribuzione">
+            {valutazione.voto == null ? (
+              <p className="testo-guida" style={{ margin: 0 }}>
+                Nessun feedback ancora ricevuto: il partner non ha un voto (che è diverso da un voto
+                basso). I feedback arrivano dalle app via <code>POST /api/v1/feedback</code> oppure si
+                registrano qui con <strong>＋ Feedback</strong>.
+              </p>
+            ) : (
+              distribuzione.map((d) => (
+                <div className="dash-riga" key={d.stelle}>
+                  <span className="dash-etichetta">{"★".repeat(d.stelle)}</span>
+                  <span className="dash-track">
+                    <span
+                      className="dash-fill"
+                      style={{
+                        width: `${d.quanti > 0 ? Math.max(2, (d.quanti / maxDistribuzione) * 100) : 0}%`,
+                        background: valutazione.colore,
+                      }}
+                    />
+                  </span>
+                  <span className="dash-valore">{d.quanti}</span>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="d2c-azioni">
+            <FasciaD2C voto={valutazione.voto} feedback={valutazione.feedback} />
+            {p.attivo && <FormFeedbackD2C partnerId={p.id} nome={p.nome} />}
+          </div>
+        </div>
+
+        {p.feedbackD2C.length > 0 && (
+          <div className="tabella-wrap" style={{ boxShadow: "none", border: "1px solid var(--hairline)", marginTop: 16 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Voto</th>
+                  <th>Canale</th>
+                  <th>Ordine</th>
+                  <th>Cliente</th>
+                  <th>Cosa dice</th>
+                  <th>Fonte</th>
+                  <th aria-label="Elimina"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {p.feedbackD2C.map((f) => (
+                  <tr key={f.id}>
+                    <td className="cella-muta">{f.dataFeedback.toLocaleDateString("it-IT")}</td>
+                    <td>
+                      <StelleD2C voto={f.voto} feedback={1} soloStelle />
+                    </td>
+                    <td className="cella-muta">
+                      {f.canale ? (ETICHETTE_CANALE[f.canale] ?? f.canale) : "—"}
+                    </td>
+                    <td className="cella-muta">{f.ordine ?? "—"}</td>
+                    <td className="cella-muta">{f.cliente ?? "—"}</td>
+                    <td className="cella-muta">
+                      {f.motivi.length > 0 && (
+                        <div className="interessi-pillole" style={{ marginBottom: f.commento ? 4 : 0 }}>
+                          {f.motivi.map((m) => (
+                            <span key={m} className="badge neutro">{ETICHETTE_MOTIVO[m] ?? m}</span>
+                          ))}
+                        </div>
+                      )}
+                      {f.commento ? (
+                        <span className="cella-note" title={f.commento}>{f.commento}</span>
+                      ) : f.motivi.length === 0 ? (
+                        "—"
+                      ) : null}
+                    </td>
+                    <td className="cella-muta">{f.sistema === "ui" ? "dal registro" : f.sistema}</td>
+                    <td>
+                      <form action={eliminaFeedbackD2C.bind(null, f.id)}>
+                        <button type="submit" className="btn-archivia" title="Elimina questo feedback">
+                          ✕
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {valutazione.feedback > p.feedbackD2C.length && (
+              <p className="testo-guida" style={{ padding: "10px 14px", margin: 0 }}>
+                Elencati gli ultimi {p.feedbackD2C.length} di {valutazione.feedback} feedback; media e
+                distribuzione qui sopra li contano tutti.
+              </p>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="scheda">

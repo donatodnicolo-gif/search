@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isCategoria } from "./categorie";
 import { prisma } from "./db";
+import { MOTIVI_FEEDBACK, normalizzaVoto, ricalcolaValutazioneD2C } from "./feedback-d2c";
 import { propagaDatiFinanziari } from "./insegna";
 import {
   PREFISSO_ANALISI,
@@ -450,6 +451,60 @@ export async function risolviRichiestaMatch(richiestaId: string, partnerId: stri
 export async function ignoraRichiestaMatch(richiestaId: string) {
   await prisma.richiestaMatch.update({ where: { id: richiestaId }, data: { risolto: true } });
   revalidatePath("/match");
+}
+
+// ————————————————————— Valutazione D2C —————————————————————
+// Feedback del cliente finale inserito a mano dalla scheda (il team ne raccoglie
+// per telefono/WhatsApp prima ancora che le app li mandino via API). Stessa
+// tabella e stesso ricalcolo dei feedback che arrivano dalle app: la sorgente
+// resta scritta nel campo `sistema` ("ui").
+export async function registraFeedbackD2C(partnerId: string, fd: FormData) {
+  const testo = (k: string) => {
+    const v = String(fd.get(k) ?? "").trim();
+    return v || null;
+  };
+  const voto = normalizzaVoto(fd.get("voto"));
+  if (voto == null) return;
+
+  const dataGrezza = testo("data");
+  const dataFeedback = dataGrezza ? new Date(dataGrezza) : new Date();
+  if (isNaN(dataFeedback.getTime())) return;
+
+  const motivi = fd
+    .getAll("motivi")
+    .map((m) => String(m))
+    .filter((m) => (MOTIVI_FEEDBACK as readonly string[]).includes(m));
+
+  await prisma.feedbackD2C.create({
+    data: {
+      partnerId,
+      voto,
+      votoOriginale: voto,
+      scala: 5,
+      canale: testo("canale")?.toLowerCase() ?? "manuale",
+      sistema: "ui",
+      ordine: testo("ordine"),
+      cliente: testo("cliente"),
+      commento: testo("commento"),
+      motivi,
+      dataFeedback,
+    },
+  });
+  await ricalcolaValutazioneD2C(partnerId);
+  revalidatePath(`/partner/${partnerId}`);
+  revalidatePath("/");
+}
+
+// Cancella un feedback (inserito per errore, o ritirato dal cliente) e
+// ricalcola la pagella del partner.
+export async function eliminaFeedbackD2C(feedbackId: string) {
+  const f = await prisma.feedbackD2C.delete({
+    where: { id: feedbackId },
+    select: { partnerId: true },
+  });
+  await ricalcolaValutazioneD2C(f.partnerId);
+  revalidatePath(`/partner/${f.partnerId}`);
+  revalidatePath("/");
 }
 
 // Archivia (attivo=false) o ripristina un'anagrafica. Le archiviate spariscono
