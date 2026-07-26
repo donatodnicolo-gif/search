@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { googleAccessToken } from '@/lib/contatti'
+import { brandRicercaDaNegozio } from '@/lib/negozi'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,12 +38,33 @@ export async function GET(req: NextRequest) {
     if (cifre.length >= 4) dove.OR.push({ telefono: { contains: cifre } })
   }
 
-  const [ordini, totale, token, negozi] = await Promise.all([
+  const [ordini, totale, token, negoziDb, gruppi] = await Promise.all([
     db.ordine.findMany({ where: dove, orderBy: { data: 'desc' }, take: 200 }),
     db.ordine.count({ where: dove }),
     googleAccessToken().catch(() => null),
-    db.negozioShopify.findMany({ orderBy: { nome: 'asc' }, select: { id: true, nome: true } }),
+    db.negozioShopify.findMany({ orderBy: { nome: 'asc' } }),
+    // Conteggio e valore per negozio sull'INTERO filtro: sono le intestazioni
+    // delle colonne, non devono fermarsi ai 200 mostrati.
+    db.ordine.groupBy({
+      by: ['negozioId'],
+      where: dove,
+      _count: { _all: true },
+      _sum: { totale: true },
+    }),
   ])
+
+  const statistiche = Object.fromEntries(
+    gruppi.map((g) => [g.negozioId, { conteggio: g._count._all, valore: g._sum.totale ?? 0 }])
+  )
+
+  const negozi = negoziDb.map((n) => ({
+    id: n.id,
+    nome: n.nome,
+    // il brand serve al bottone "Fornitore" (deep link verso Ricerca fornitori)
+    brandRicerca: brandRicercaDaNegozio(n.nome, n.dominio, n.brandRicerca),
+    conteggio: statistiche[n.id]?.conteggio ?? 0,
+    valore: statistiche[n.id]?.valore ?? 0,
+  }))
 
   return NextResponse.json({
     ordini,

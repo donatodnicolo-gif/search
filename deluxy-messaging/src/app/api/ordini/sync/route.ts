@@ -43,6 +43,7 @@ export async function POST() {
             telefono: o.telefono,
             email: o.email,
             indirizzo: o.indirizzo,
+            citta: o.citta,
             note: o.note,
           },
           create: {
@@ -58,6 +59,7 @@ export async function POST() {
             telefono: o.telefono,
             email: o.email,
             indirizzo: o.indirizzo,
+            citta: o.citta,
             note: o.note,
           },
         })

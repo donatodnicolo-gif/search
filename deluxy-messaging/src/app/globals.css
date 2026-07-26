@@ -517,6 +517,120 @@ button {
   border-color: var(--blue);
 }
 
+/* ---- Vista a colonne per brand (ordini) ---- */
+
+.colonne-brand {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.colonna {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  padding: 14px;
+  /* le colonne restano leggibili anche con molti ordini */
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+}
+
+.colonna-testata {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.colonna-testata .pallino {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex-shrink: 0;
+}
+
+.colonna-testata .nome {
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.colonna-testata .conteggio {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.colonna-valore {
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 10px;
+}
+
+.colonna-vuota {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  margin: 6px 0;
+}
+
+.scheda-ordine {
+  background: var(--fill);
+  border-radius: var(--radius-m);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.scheda-ordine .riga-alta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.scheda-ordine .numero {
+  font-weight: 600;
+  font-size: 14px;
+  flex: 1;
+}
+
+.scheda-ordine .importo {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.scheda-ordine .cliente {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.scheda-ordine .riga-bassa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.scheda-ordine .quando {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  flex: 1;
+  white-space: nowrap;
+}
+
+.bottone.mini {
+  padding: 3px 11px;
+  font-size: 12.5px;
+  background: var(--surface);
+}
+
 /* ---- Tabella (ordini) ---- */
 
 .tabella {

@@ -14,6 +14,27 @@ function decifraSicuro(v: string): string {
   }
 }
 
+/**
+ * Il brand come lo conosce l'app Ricerca fornitori (search-deluxy): serve al
+ * bottone "Fornitore" sotto ogni ordine. Il nostro dominio .myshopify.com non
+ * le dice nulla, quindi si traduce nel dominio pubblico del marchio.
+ */
+export function brandRicercaDaNegozio(nome: string, dominio: string, brandRicerca = ''): string {
+  if (brandRicerca.trim()) return brandRicerca.trim()
+  const t = `${nome} ${dominio}`.toLowerCase()
+  if (/flower|fior/.test(t)) return 'deluxyflowers.com'
+  if (/cake|pasticc|torta/.test(t)) return 'cakedesign.me'
+  if (/deluxy/.test(t)) return 'deluxy.it'
+  return ''
+}
+
+/** Link diretto all'app Ricerca fornitori con l'ordine già impostato. */
+export function linkRicercaFornitori(brandRicerca: string, numero: string): string {
+  const base = process.env.SEARCH_URL || 'https://search-deluxy.vercel.app'
+  const p = new URLSearchParams({ brand: brandRicerca, ordine: numero.replace(/^#/, '').trim() })
+  return `${base.replace(/\/$/, '')}/?${p}`
+}
+
 export type NegozioConCredenziali = {
   id: string
   nome: string
@@ -67,6 +88,7 @@ export async function tokenPerNegozio(n: NegozioConCredenziali): Promise<{ domin
 type DatiNegozio = {
   nome: string
   prefisso?: string
+  brandRicerca?: string
   dominio: string
   token?: string
   clientId?: string
@@ -80,6 +102,7 @@ export async function salvaNegozio(id: string | null, dati: DatiNegozio): Promis
   const base = {
     nome: dati.nome.trim() || dominio,
     prefisso: (dati.prefisso ?? '').trim().toUpperCase(),
+    brandRicerca: (dati.brandRicerca ?? '').trim(),
     dominio,
     clientId: (dati.clientId ?? '').trim(),
     ...(dati.attivo === undefined ? {} : { attivo: dati.attivo }),

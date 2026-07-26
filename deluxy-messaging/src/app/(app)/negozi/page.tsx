@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { prefissoDaNegozio } from '@/lib/negozi'
+import { brandRicercaDaNegozio, prefissoDaNegozio } from '@/lib/negozi'
 import { eliminaNegozioAction, salvaNegozioAction } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -53,6 +53,17 @@ export default async function PaginaNegozi() {
                   defaultValue={n.prefisso}
                   maxLength={4}
                   placeholder="vuoto = dedotta (FL, CK, DL)"
+                />
+              </label>
+              <label className="campo">
+                <span>
+                  Brand su Ricerca fornitori — ora:{' '}
+                  <strong>{brandRicercaDaNegozio(n.nome, n.dominio, n.brandRicerca) || '—'}</strong>
+                </span>
+                <input
+                  name="brandRicerca"
+                  defaultValue={n.brandRicerca}
+                  placeholder="vuoto = dedotto (deluxyflowers.com…)"
                 />
               </label>
               <label className="campo">

@@ -47,6 +47,9 @@ model NegozioShopify {
   // Sigla usata davanti al nome in rubrica: DL (Deluxy), FL (Flowers), CK (Cake).
   // Vuota = dedotta dal nome/dominio (vedi prefissoDaNegozio in src/lib/negozi.ts).
   prefisso     String   @default("")
+  // Il nome del brand come lo conosce l'app Ricerca fornitori (es. deluxyflowers.com):
+  // serve al bottone "Fornitore" sotto ogni ordine. Vuoto = dedotto dal nome.
+  brandRicerca String   @default("")
   dominio      String   @unique // es. fb72b1-2.myshopify.com
   token        String   @default("") @db.Text // shpat_… cifrato (se app legacy)
   clientId     String   @default("")
@@ -75,6 +78,7 @@ model Ordine {
   telefono       String   @default("")
   email          String   @default("")
   indirizzo      String   @default("") @db.Text
+  citta          String   @default("") // mostrata sulle card della vista a colonne
   note           String   @default("") @db.Text
   contattoSalvato Boolean @default(false) // salvato su Google Contacts
   contattoEsito  String   @default("") // esito/errore dell'ultimo salvataggio

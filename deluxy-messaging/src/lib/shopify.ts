@@ -16,6 +16,7 @@ export type OrdineShopify = {
   telefono: string
   email: string
   indirizzo: string
+  citta: string
   note: string
 }
 
@@ -122,6 +123,7 @@ export async function scaricaOrdini(
         telefono: n.customer?.phone || n.shippingAddress?.phone || '',
         email: n.customer?.email || '',
         indirizzo: componiIndirizzo(n.shippingAddress),
+        citta: n.shippingAddress?.city ?? '',
         note: n.note?.slice(0, 500) ?? '',
       })
     }

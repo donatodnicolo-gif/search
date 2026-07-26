@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 type OrdineDto = {
   id: string
+  negozioId: string
   negozioNome: string
   numero: string
   data: string
@@ -14,8 +15,27 @@ type OrdineDto = {
   telefono: string
   email: string
   indirizzo: string
+  citta: string
   contattoSalvato: boolean
   contattoEsito: string
+}
+
+type NegozioDto = {
+  id: string
+  nome: string
+  brandRicerca: string
+  conteggio: number
+  valore: number
+}
+
+/** Link all'app Ricerca fornitori con brand e numero già impostati. */
+function linkFornitore(brandRicerca: string, numero: string): string {
+  const p = new URLSearchParams({ brand: brandRicerca, ordine: numero.replace(/^#/, '').trim() })
+  return `https://search-deluxy.vercel.app/?${p}`
+}
+
+function soldi(v: number, valuta: string): string {
+  return v.toLocaleString('it-IT', { style: 'currency', currency: valuta || 'EUR' })
 }
 
 type EsitoContatti = {
@@ -49,7 +69,9 @@ function riepilogoContatti(c: EsitoContatti | undefined): string {
 
 export function OrdiniLista() {
   const [ordini, setOrdini] = useState<OrdineDto[]>([])
-  const [negozi, setNegozi] = useState<{ id: string; nome: string }[]>([])
+  const [negozi, setNegozi] = useState<NegozioDto[]>([])
+  // Vista: colonne per brand (come Deluxy Orders) o elenco in tabella.
+  const [vista, setVista] = useState<'colonne' | 'elenco'>('colonne')
   const [totale, setTotale] = useState(0)
   const [googleCollegato, setGoogleCollegato] = useState(false)
   const [caricato, setCaricato] = useState(false)
@@ -75,7 +97,7 @@ export function OrdiniLista() {
       const dati = (await res.json()) as {
         ordini: OrdineDto[]
         totale: number
-        negozi: { id: string; nome: string }[]
+        negozi: NegozioDto[]
         googleCollegato: boolean
       }
       setOrdini(dati.ordini)
@@ -221,6 +243,13 @@ export function OrdiniLista() {
             Azzera
           </button>
         ) : null}
+        <button
+          className="bottone secondario"
+          onClick={() => setVista(vista === 'colonne' ? 'elenco' : 'colonne')}
+          title="Cambia vista"
+        >
+          {vista === 'colonne' ? 'Elenco' : 'Colonne'}
+        </button>
       </div>
 
       {caricato && filtriAttivi ? (
@@ -256,6 +285,76 @@ export function OrdiniLista() {
             </>
           )}
         </div>
+      ) : vista === 'colonne' ? (
+        <div className="colonne-brand">
+          {negozi
+            .filter((n) => !negozio || n.id === negozio)
+            .map((n) => {
+              const suoi = ordini.filter((o) => o.negozioId === n.id)
+              return (
+                <div className="colonna" key={n.id}>
+                  <div className="colonna-testata">
+                    <span className="pallino" aria-hidden="true" />
+                    <span className="nome">{n.nome}</span>
+                    <span className="conteggio">{n.conteggio.toLocaleString('it-IT')}</span>
+                  </div>
+                  <div className="colonna-valore">{soldi(n.valore, 'EUR')}</div>
+
+                  {suoi.length === 0 ? (
+                    <p className="colonna-vuota">Nessun ordine.</p>
+                  ) : (
+                    suoi.map((o) => (
+                      <div className="scheda-ordine" key={o.id}>
+                        <div className="riga-alta">
+                          <span className="numero">{o.numero}</span>
+                          <span className="importo">{soldi(o.totale, o.valuta)}</span>
+                        </div>
+                        <div className="cliente">
+                          {o.clienteNome || '—'}
+                          {o.citta ? ` · ${o.citta}` : ''}
+                        </div>
+                        <div className="riga-bassa">
+                          <span className="quando">ordine {dataBreve(o.data)}</span>
+                          {o.contattoSalvato ? (
+                            <span className="badge verde" title={o.contattoEsito}>
+                              in rubrica
+                            </span>
+                          ) : (
+                            <button
+                              className="bottone secondario mini"
+                              onClick={() => salvaContatto(o.id)}
+                              disabled={!!occupato || !googleCollegato || (!o.telefono && !o.email)}
+                              title={
+                                !o.telefono && !o.email
+                                  ? 'Ordine senza telefono né email'
+                                  : googleCollegato
+                                    ? 'Salva il contatto in rubrica'
+                                    : 'Collega Google Contacts nelle Impostazioni'
+                              }
+                            >
+                              {occupato === o.id ? 'Salvo…' : 'Contatto'}
+                            </button>
+                          )}
+                          {/* Bottone rapido: apre Ricerca fornitori sull'ordine */}
+                          {n.brandRicerca ? (
+                            <a
+                              className="bottone secondario mini"
+                              href={linkFornitore(n.brandRicerca, o.numero)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={`Cerca il fornitore per ${o.numero} su Ricerca fornitori`}
+                            >
+                              Fornitore ↗
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )
+            })}
+        </div>
       ) : (
         <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
           <table className="tabella">
@@ -268,6 +367,7 @@ export function OrdiniLista() {
                 <th>Telefono</th>
                 <th style={{ textAlign: 'right' }}>Totale</th>
                 <th>Contatto</th>
+                <th>Fornitore</th>
               </tr>
             </thead>
             <tbody>
@@ -304,6 +404,24 @@ export function OrdiniLista() {
                         {occupato === o.id ? 'Salvo…' : 'Salva contatto'}
                       </button>
                     )}
+                  </td>
+                  <td>
+                    {(() => {
+                      const brand = negozi.find((n) => n.id === o.negozioId)?.brandRicerca
+                      return brand ? (
+                        <a
+                          className="bottone secondario mini"
+                          href={linkFornitore(brand, o.numero)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Cerca il fornitore per ${o.numero}`}
+                        >
+                          Cerca ↗
+                        </a>
+                      ) : (
+                        <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                      )
+                    })()}
                   </td>
                 </tr>
               ))}
