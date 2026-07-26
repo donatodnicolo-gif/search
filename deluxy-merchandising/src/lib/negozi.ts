@@ -228,13 +228,24 @@ export async function verificaNegozio(id: string): Promise<void> {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
       body: JSON.stringify({
-        query: `{ collections(first: 1) { nodes { id title } } productsCount { count } }`,
+        // Si chiedono anche i metafield di un prodotto: sulla carta stanno dentro
+        // read_products, ma è il tipo di cosa che si dichiara e poi non funziona.
+        // Meglio provarla qui che scoprirlo a import avviato.
+        query: `{
+          collections(first: 1) { nodes { id title } }
+          productsCount { count }
+          products(first: 1) { nodes { id metafields(first: 5) { nodes { namespace key } } } }
+        }`,
       }),
       signal: AbortSignal.timeout(20000),
       cache: "no-store",
     });
     const corpoProva = (await rProva.json().catch(() => ({}))) as {
-      data?: { collections?: { nodes?: unknown[] }; productsCount?: { count?: number } };
+      data?: {
+        collections?: { nodes?: unknown[] };
+        productsCount?: { count?: number };
+        products?: { nodes?: { metafields?: { nodes?: { namespace: string; key: string }[] } }[] };
+      };
       errors?: { message: string }[];
     };
     if (corpoProva.errors?.length) {
@@ -242,7 +253,12 @@ export async function verificaNegozio(id: string): Promise<void> {
       messaggio = corpoProva.errors.map((e) => e.message).join(" · ");
     } else {
       const quanti = corpoProva.data?.productsCount?.count;
-      messaggio = `Collezioni e prodotti leggibili${quanti != null ? ` (${quanti} prodotti sul negozio)` : ""}.`;
+      const metafield = corpoProva.data?.products?.nodes?.[0]?.metafields?.nodes;
+      messaggio =
+        `Collezioni e prodotti leggibili${quanti != null ? ` (${quanti} prodotti sul negozio)` : ""}.` +
+        (metafield
+          ? ` Metafield leggibili${metafield.length ? ` (es. ${metafield.slice(0, 3).map((m) => `${m.namespace}.${m.key}`).join(", ")})` : " (il primo prodotto non ne ha)"}.`
+          : "");
     }
 
     const mancanti = PERMESSI_OBBLIGATORI.filter((p) => !permessi.includes(p));

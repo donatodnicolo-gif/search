@@ -69,7 +69,10 @@ export default async function ProdottiPage({
                 : "Il catalogo completo: filtra per collezione, categoria o fase del ciclo di vita."}
             </p>
           </div>
-          <a className="btn" href="/prodotti/nuovo">Nuovo prodotto</a>
+          <div style={{ display: "flex", gap: 10 }}>
+            <a className="btn btn-secondario" href="/prodotti/nuovo">Nuovo prodotto</a>
+            <a className="btn" href="/prodotti/nuovo-shopify">Nuovo su Shopify</a>
+          </div>
         </div>
 
         <FormFiltri>
