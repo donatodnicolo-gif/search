@@ -44,6 +44,10 @@
   .provincecard{display:none}
   .content.view-province .ordercard, .content.view-province .searchbar, .content.view-province .col-right, .content.view-province .config, .content.view-province .storicocard, .content.view-province .contatticard{display:none}
   .content.view-province .provincecard{display:block}
+  /* vista «Archiviati»: tutti i fornitori nascosti, per provincia */
+  .archiviaticard{display:none}
+  .content.view-archiviati .ordercard, .content.view-archiviati .searchbar, .content.view-archiviati .col-right, .content.view-archiviati .config, .content.view-archiviati .storicocard, .content.view-archiviati .contatticard, .content.view-archiviati .provincecard{display:none}
+  .content.view-archiviati .archiviaticard{display:block}
   .provincecard details.prov-group{margin-top:18px}
   .provincecard details.prov-group>summary{list-style:none; cursor:pointer; outline:none}
   .provincecard details.prov-group>summary::-webkit-details-marker{display:none}
@@ -375,6 +379,7 @@
       <a class="nav-link" data-scroll=".searchbar"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.6-3.6"/></svg></span><span>Ricerca negozi</span></a>
       <a class="nav-link" id="navContatti"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v13H4z"/><path d="M8 9.5h8M8 13h5"/></svg></span><span>Contatti</span></a>
       <a class="nav-link" id="navProvince"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.6 6.5-10.2A6.5 6.5 0 0 0 5.5 10.8C5.5 15.4 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.3"/></svg></span><span>Province</span></a>
+      <a class="nav-link" id="navArchiviati"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="4" rx="1"/><path d="M5 8.5v9a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-9M10 12h4"/></svg></span><span>Archiviati</span></a>
       <a class="nav-link" id="navStorico"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><span>Storico richieste</span></a>
       <div class="nav-section">Configurazione</div>
       <a class="nav-link" id="navAdmin"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.2M12 18.3v2.2M4.8 7l1.9 1.1M17.3 15.9l1.9 1.1M4.8 17l1.9-1.1M17.3 8.1l1.9-1.1M3.5 12h2.2M18.3 12h2.2"/></svg></span><span>Impostazioni</span></a>
@@ -756,6 +761,16 @@
       <div id="provinceBody"><div class="hint">Carico le province…</div></div>
     </div>
 
+    <!-- ARCHIVIATI (tutti i fornitori nascosti dai risultati, per provincia) -->
+    <div class="card archiviaticard" id="archiviatiCard">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px">
+        <div class="hint" id="archiviatiInfo" style="margin:0"></div>
+        <button class="btn-dl" id="archiviatiReload" type="button">↻ Aggiorna</button>
+      </div>
+      <input id="arSearch" type="text" placeholder="Cerca nome, città, provincia, categoria…" style="margin-bottom:10px">
+      <div id="archiviatiBody"><div class="hint">Carico gli archiviati…</div></div>
+    </div>
+
     <!-- STORICO RICHIESTE (vista dedicata) -->
     <div class="card storicocard" id="storicoCard">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px">
@@ -1120,6 +1135,7 @@ const PAGE_TITLES = { operativa: ['Smistamento ordini', 'Recupera un ordine e in
                       impostazioni: ['Impostazioni', 'Chiavi, utenze e collegamenti dell\'app, salvati sul server.'],
                       contatti: ['Contatti', 'Partner e fornitori dal registro anagrafiche Deluxy, raggruppati per provincia.'],
                       province: ['Province', 'Venditori di fiori e torte che sono re-seller/affiliati attivi o prospect, per provincia.'],
+                      archiviati: ['Archiviati', 'Tutti i fornitori nascosti dai risultati, per provincia. Cerca e togli dagli archiviati.'],
                       storico: ['Storico richieste', 'Check ordini Shopify, richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
 // vista: false/'operativa' | true/'impostazioni' | 'storico'
 function setView(vista){
@@ -1130,6 +1146,7 @@ function setView(vista){
   content.classList.toggle('view-storico', vista==='storico');
   content.classList.toggle('view-contatti', vista==='contatti');
   content.classList.toggle('view-province', vista==='province');
+  content.classList.toggle('view-archiviati', vista==='archiviati');
   $('#config').classList.toggle('show', vista==='impostazioni');
   if(vista==='impostazioni') $('#config').open = true;
   const t = PAGE_TITLES[vista];
@@ -1158,6 +1175,12 @@ $('#navProvince').addEventListener('click', ()=>{
   window.scrollTo({top:0, behavior:'smooth'});
   setActiveNav($('#navProvince')); closeMenu();
   loadProvince();
+});
+$('#navArchiviati').addEventListener('click', ()=>{
+  setView('archiviati');
+  window.scrollTo({top:0, behavior:'smooth'});
+  setActiveNav($('#navArchiviati')); closeMenu();
+  loadArchiviati();
 });
 $('#navStorico').addEventListener('click', ()=>{
   setView('storico');
@@ -1422,6 +1445,69 @@ $('#pvCat').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if
 $('#pvSearch').addEventListener('input', ()=>{ pvFiltro.q=$('#pvSearch').value; renderProvince(); });
 $('#pvRuolo').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
   pvFiltro.ruolo=b.dataset.ruolo; document.querySelectorAll('#pvRuolo .chip').forEach(x=>x.classList.toggle('active',x===b)); renderProvince(); });
+
+/* ------------------ ARCHIVIATI (tutti, per provincia, ricercabili) ------------------
+   Elenco aggregato di TUTTI i fornitori archiviati (tutti gli ordini) da GET
+   /api/stato?archiviati=tutti, raggruppato per provincia; «↩ Togli da archiviati» chiama
+   POST /api/stato con l'ordine di quella voce (archivia off). Se la voce è dell'ordine
+   aperto ora, aggiorna anche i risultati in vista. */
+let arData = null;
+const arFiltro = { q:'' };
+async function loadArchiviati(force){
+  const body = $('#archiviatiBody');
+  if(arData && !force){ renderArchiviati(); return; }
+  body.innerHTML = '<div class="hint">Carico gli archiviati…</div>';
+  try{
+    const r = await apiFetch('/api/stato?archiviati=tutti');
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
+    arData = j.archiviati || [];
+    renderArchiviati();
+  }catch(err){ body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>'; }
+}
+function renderArchiviati(){
+  const body = $('#archiviatiBody');
+  const q = arFiltro.q.trim().toLowerCase();
+  const list = (arData||[]).filter(a=>{
+    if(!q) return true;
+    return [a.nome, a.citta, a.provincia, a.categoria, a.ordine].filter(Boolean).join(' ').toLowerCase().includes(q);
+  });
+  $('#archiviatiInfo').textContent = list.length ? `${list.length} fornitori archiviati` : '';
+  if(!list.length){ body.innerHTML = '<div class="hint">Nessun fornitore archiviato'+(q?' con questa ricerca':'')+'.</div>'; return; }
+  const gruppi = {};
+  list.forEach(a=>{ const k=(a.provincia||'').toUpperCase()||'—'; (gruppi[k]=gruppi[k]||[]).push(a); });
+  const chiavi = Object.keys(gruppi).sort((x,y)=> x==='—'?1 : y==='—'?-1 : x.localeCompare(y));
+  body.innerHTML = chiavi.map(prov=>{
+    const rows = gruppi[prov].sort((a,b)=> String(a.nome||'').localeCompare(String(b.nome||''))).map(a=>{
+      const luogo = [a.citta, a.categoria].filter(Boolean).join(' · ');
+      const ord = (a.ordine && a.ordine!=='generale') ? ' · ordine '+esc(a.ordine) : '';
+      return `<div class="arch-row">
+        <span class="arch-name">🗄️ ${esc(a.nome||a.id)}${luogo?' <span style="color:var(--text-tertiary); font-weight:400">· '+esc(luogo)+'</span>':''}<span style="color:var(--text-tertiary); font-weight:400">${ord}</span></span>
+        <button class="btn-dl ar-restore" type="button" data-sid="${esc(a.id)}" data-ordine="${esc(a.ordine||'')}">↩ Togli da archiviati</button>
+      </div>`;
+    }).join('');
+    return `<div class="prov-group">
+      <div class="prov-head"><h3>${prov==='—'?'Provincia non indicata':'📍 '+esc(prov)}</h3><span class="cnt">${gruppi[prov].length}</span></div>
+      <div class="arch-list">${rows}</div>
+    </div>`;
+  }).join('');
+}
+$('#archiviatiReload').addEventListener('click', ()=> loadArchiviati(true));
+$('#arSearch').addEventListener('input', ()=>{ arFiltro.q=$('#arSearch').value; renderArchiviati(); });
+$('#archiviatiBody').addEventListener('click', async e=>{
+  const b = e.target.closest('.ar-restore'); if(!b) return;
+  const sid = b.dataset.sid, ordine = b.dataset.ordine || 'generale';
+  b.disabled = true; b.textContent = '⏳ Ripristino…';
+  try{
+    const r = await apiFetch('/api/stato', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ ordine, quando: new Date().toISOString(), archivia: { id: sid, on: false } }) });
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.error||('Errore '+r.status)); }
+    if(arData) arData = arData.filter(a=> !(a.id===sid && (a.ordine||'generale')===ordine));
+    // se è l'ordine aperto ora, riporta la scheda tra i risultati
+    if(statoRicerca.archiviati && ordine===ordineKey()){ delete statoRicerca.archiviati[sid]; applyArchive(); }
+    renderArchiviati();
+  }catch(err){ b.disabled=false; b.textContent='↩ Togli da archiviati'; alert('❌ '+err.message); }
+});
 
 $('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); sessionStorage.removeItem('session'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);
@@ -2818,14 +2904,28 @@ function applyArchive(){
     <div class="arch-list">${rows}</div></details>`;
   syncMapMarkers();
 }
+// metadati della scheda per l'archivio (nome + provincia/città/categoria per la sezione Archiviati)
+function datiSchedaPerArchivio(card){
+  const sid = card.dataset.sid;
+  const nome = nomeDaScheda(card);
+  let d = CARD_DATA[sid];                                   // schede Google
+  if(!d && String(sid).startsWith('anag:')){               // schede del registro
+    const id = sid.slice(5);
+    const p = (lastAnagList||[]).find(x=>String(x.id)===id);
+    if(p) d = { categoria:p.categoria, citta:p.citta, provincia:p.provincia, indirizzo:p.indirizzo, telefono:p.telefono };
+  }
+  d = d || {};
+  return { nome, provincia:d.provincia||'', citta:d.citta||'', categoria:d.categoria||'', indirizzo:d.indirizzo||'', telefono:d.telefono||'' };
+}
 // archivia dalla scheda
 resultsEl.addEventListener('click', e=>{
   const b = e.target.closest('.arch-btn'); if(!b) return;
   const card = b.closest('.shop'); if(!card || !card.dataset.sid) return;
-  const sid = card.dataset.sid, nome = nomeDaScheda(card);
+  const sid = card.dataset.sid;
+  const meta = datiSchedaPerArchivio(card);
   statoRicerca.archiviati = statoRicerca.archiviati || {};
-  statoRicerca.archiviati[sid] = { nome };
-  saveStato({ archivia: { id: sid, nome, on: true } });
+  statoRicerca.archiviati[sid] = { nome: meta.nome };
+  saveStato({ archivia: Object.assign({ id: sid, on: true }, meta) });
   applyArchive();
 });
 // ripristina dal pannello archiviati

@@ -305,6 +305,20 @@ solo dove siamo e come si lavora.
    anche i marker degli archiviati. Chiave = `ordineKey()` (brand#numero o 'generale'). Verificato:
    archivia→sparisce+pannello, ripristina→torna, backend `node --check` OK, console pulita.
 
+34. **Sezione «Archiviati» (globale, per provincia, ricercabile)** (26/07): nuova voce sidebar
+   (`#navArchiviati`, vista `view-archiviati`, card `#archiviatiCard`) che elenca **tutti** i
+   fornitori archiviati di **tutti gli ordini**, raggruppati per provincia, con ricerca e
+   «↩ Togli da archiviati». Per raggruppare per provincia, all'archiviazione ora si salvano anche
+   **provincia/città/categoria/indirizzo/telefono** (helper `datiSchedaPerArchivio`: da
+   `CARD_DATA` per le schede Google, da `lastAnagList` per quelle del registro). Backend
+   `/api/stato`: la POST `archivia` memorizza questi campi extra; **nuovo GET
+   `?archiviati=tutti`** restituisce l'elenco aggregato `[{id, ordine, nome, provincia, citta,
+   categoria, …}]` scorrendo tutte le chiavi. Il ripristino fa POST con l'`ordine` della voce
+   (archivia off) e, se è l'ordine aperto ora (`ordineKey()`), aggiorna anche i risultati in
+   vista (`applyArchive`). Le voci archiviate PRIMA di questa modifica non hanno provincia →
+   «Provincia non indicata». Verificato con dati finti: raggruppamento, ricerca, ripristino con
+   ordine corretto, console pulita.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche

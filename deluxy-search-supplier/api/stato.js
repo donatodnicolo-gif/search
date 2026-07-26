@@ -32,6 +32,19 @@ export default async function handler(req, res) {
     if (raw) { try { mappa = JSON.parse(raw) || {}; } catch (e) { mappa = {}; } }
 
     if (req.method === 'GET') {
+      // elenco aggregato di TUTTI gli archiviati (tutti gli ordini), per la sezione «Archiviati»
+      if (s(req.query.archiviati, 10) === 'tutti') {
+        const out = [];
+        for (const [ordine, e] of Object.entries(mappa)) {
+          const a = (e && e.archiviati) || {};
+          for (const [id, v] of Object.entries(a)) {
+            out.push({ id, ordine, nome: (v && v.nome) || '', provincia: (v && v.provincia) || '',
+              citta: (v && v.citta) || '', categoria: (v && v.categoria) || '', indirizzo: (v && v.indirizzo) || '',
+              telefono: (v && v.telefono) || '', utente: (v && v.utente) || '', quando: (v && v.quando) || '' });
+          }
+        }
+        return res.status(200).json({ ok: true, archiviati: out });
+      }
       const k = s(req.query.ordine, 80) || 'generale';
       const e = mappa[k] || {};
       return res.status(200).json({ ok: true, ordine: k, stato: e.stato || 'non iniziata', stelle: e.stelle || {}, archiviati: e.archiviati || {} });
@@ -55,8 +68,13 @@ export default async function handler(req, res) {
       }
       if (body.archivia && body.archivia.id) {
         const id = s(body.archivia.id, 80);
+        const av = body.archivia;
         e.archiviati = e.archiviati || {};
-        if (body.archivia.on) e.archiviati[id] = { nome: s(body.archivia.nome, 120), utente: auth.utente, quando };
+        if (av.on) e.archiviati[id] = {
+          nome: s(av.nome, 120), utente: auth.utente, quando,
+          provincia: s(av.provincia, 60), citta: s(av.citta, 80), categoria: s(av.categoria, 60),
+          indirizzo: s(av.indirizzo, 160), telefono: s(av.telefono, 40),
+        };
         else delete e.archiviati[id];
       }
       e.aggiornato = quando;
