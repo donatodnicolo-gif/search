@@ -284,6 +284,24 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
 
 ## MANCA / PROSSIMI PASSI
 
+0-bis. **[IN CORSO — 26/07] Partner attivi da Anagrafiche.** Script
+   `api/scripts/importa-partner-anagrafiche.mjs`: legge `GET /api/v1/partners?stato=attivo`
+   e aggancia in cascata **P.IVA → email → insegna normalizzata**. Idempotente, prova a vuoto
+   per default (`--scrivi` applica, `--collega` rimanda ad Anagrafiche il `platformId`).
+   Provato sul db locale: **33 partner su 41**.
+   - ⚠️ **`attivo` (bool) ≠ `stato="attivo"`**: il primo è il soft delete del registro, il secondo
+     è lo stato commerciale (= è un Partner). Per "i partner attivi" filtrare **`stato`**.
+   - ⚠️ In Anagrafiche l'email sta quasi sempre sul **referente** (`contatti[].email`), non nel
+     campo `email`: solo 4 su 41 ce l'hanno in alto, 29 solo nei contatti, **8 non ce l'hanno**
+     (non importabili: `Partner.email` è obbligatoria e `@unique`).
+   - ⚠️ La chiave `deluxy-platform` ha `scrittura=true` ma **`scritturaPartner=false`**: il campo
+     `stato` inviato da `anagrafiche-sync.service.ts` viene **scartato** dal registro. Su 943
+     anagrafiche **1 sola ha `platformId`** → oggi i due archivi non si agganciano. La chiave
+     **non è nella cassaforte del Hub**: lì ci sono due chiavi di Scout con nomi fuorvianti
+     (`ANAGRAFICHE_WRITE_KEY` → utenza `deluxy-scout-referenti`, che non scrive partner).
+   - **Manca**: eseguirlo contro la **produzione** (dipende dal punto 0), più province e tipi di
+     servizio, che esistono **solo** nel legacy app.deluxy.it (punto 1).
+
 0. **[IN CORSO — 20/07] Deploy su Vercel** (branch `worktree-vercel-deploy`). **Fatto:** provider Prisma `sqlite` → `postgresql` con `binaryTargets` per il runtime Vercel; le 32 migrazioni SQLite sostituite da **una baseline** `00000000000000_init_postgres` (41 tabelle, 24 indici, 54 FK) generata con `prisma migrate diff`; handler serverless `api/src/vercel.ts` (bootstrap Nest cachato, niente `listen`/CORS/static); `vercel.json` (progetto unico: web su `/`, API su `/api/*` → **niente CORS**); `environment.prod.ts` + `fileReplacements`; `.env.example` e docker-compose allineati. Build API e web verdi, bundle prod senza `localhost`.
    **[BLOCCATO — palla all'utente]** (a) creare il progetto **Supabase** e passare `DATABASE_URL` (pooler 6543 per il runtime, diretta 5432 per `migrate deploy`); (b) collegare il repo a **Vercel** (Root Directory = `deluxy-platform-next`) e impostare le env. Senza (a) non si puo' ne' migrare ne' seedare il DB remoto.
    ⚠️ **Non ancora risolto — le ricevute si rompono su serverless**: `api/src/receipts/receipts.module.ts` salva con `diskStorage` in `uploads/receipts/` e `main.ts` le serve da `/uploads`. Su Vercel il filesystem e' **effimero**: i file caricati spariscono al primo redeploy. Vanno spostati su **Supabase Storage** prima di considerare il deploy completo. L'handler `vercel.ts` non monta `useStaticAssets` proprio per non dare l'illusione che funzioni.
