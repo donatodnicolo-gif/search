@@ -5,9 +5,10 @@ import {
   creaNegozio, toggleNegozio, eliminaNegozio, cambiaColoreBrand, cambiaBrandRicerca,
   creaStato, aggiornaStato, eliminaStato,
   creaEtichetta, eliminaEtichetta,
-  toggleChiave, sincronizza, importaFeedbackOrdini,
+  toggleChiave, sincronizza, importaFeedbackOrdini, impostaCategoriaNegozio, ricalcolaCategorieOrdini,
 } from "@/app/actions";
 import { configurazione, riepilogoFeedback } from "@/lib/feedback";
+import { CATEGORIE } from "@/lib/categorie";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,26 @@ export default async function Impostazioni({
 
       {sp.esito && <div className="avviso-ok">{sp.esito}</div>}
       {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
+
+      {/* ---------- Categorie di prodotto ---------- */}
+      <div className="scheda">
+        <div className="scheda-titolo">Categorie dei prodotti</div>
+        <p className="testo-guida">
+          Le categorie (fiori, torte, colazioni…) si ricavano dal <strong>titolo dei prodotti</strong>
+          {" "}delle righe d&apos;ordine: Shopify non ce le dà — il tipo di prodotto richiede uno scope
+          che i token non hanno. Quello che il titolo non dice lo copre la <strong>specialità del
+          negozio</strong> qui sopra; se non è impostata, il prodotto resta «non classificato» invece
+          di essere messo a caso. Servono alle liste <em>Gusti</em>: chi ama una categoria sola e chi
+          ne compra più d&apos;una.
+        </p>
+        <form action={ricalcolaCategorieOrdini} style={{ marginTop: 10 }}>
+          <button className="btn" type="submit">Ricalcola le categorie</button>
+        </form>
+        <p className="testo-guida" style={{ marginTop: 8 }}>
+          Il ricalcolo legge le righe già salvate — non chiama Shopify — e riscrive solo gli ordini in
+          cui il risultato cambia. Va lanciato dopo aver cambiato una specialità.
+        </p>
+      </div>
 
       {/* ---------- Feedback dal Customer Service ---------- */}
       <div className="scheda">
@@ -107,7 +128,7 @@ export default async function Impostazioni({
           <div className="tabella-wrap" style={{ marginBottom: 16 }}>
             <table>
               <thead>
-                <tr><th>Brand</th><th>Colore</th><th>Nome in Ricerca fornitori</th><th>Dominio</th><th>Auth</th><th>Ultima sync</th><th>Stato</th><th></th></tr>
+                <tr><th>Brand</th><th>Colore</th><th>Nome in Ricerca fornitori</th><th>Specialita'</th><th>Dominio</th><th>Auth</th><th>Ultima sync</th><th>Stato</th><th></th></tr>
               </thead>
               <tbody>
                 {negozi.map((n) => (
@@ -132,6 +153,24 @@ export default async function Impostazioni({
                           placeholder={n.brand}
                           style={{ font: "inherit", fontSize: 13, width: 150, padding: "6px 9px", borderRadius: "var(--radius-s)", background: "var(--fill)", border: "1px solid transparent" }}
                         />
+                        <button className="btn btn-secondario small" type="submit">Salva</button>
+                      </form>
+                    </td>
+                    <td>
+                      {/* La specialità del negozio: si usa per classificare i
+                          prodotti che dal titolo non si riconoscono. */}
+                      <form action={impostaCategoriaNegozio} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input type="hidden" name="id" value={n.id} />
+                        <select
+                          name="categoriaPredefinita"
+                          defaultValue={n.categoriaPredefinita ?? ""}
+                          style={{ font: "inherit", fontSize: 13, padding: "6px 9px", borderRadius: "var(--radius-s)", background: "var(--fill)", border: "1px solid transparent" }}
+                        >
+                          <option value="">— nessuna: resta «non classificato» —</option>
+                          {CATEGORIE.filter((c) => !c.servizio).map((c) => (
+                            <option key={c.chiave} value={c.chiave}>{c.nome}</option>
+                          ))}
+                        </select>
                         <button className="btn btn-secondario small" type="submit">Salva</button>
                       </form>
                     </td>

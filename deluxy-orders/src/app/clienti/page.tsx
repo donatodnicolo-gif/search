@@ -10,6 +10,7 @@ import {
 } from "@/lib/clienti";
 import { LISTE, lista } from "@/lib/segmenti";
 import { TabellaClienti } from "@/components/TabellaClienti";
+import { FiltriTaglio } from "@/components/FiltriTaglio";
 
 export const dynamic = "force-dynamic";
 
@@ -27,11 +28,12 @@ export default async function Clienti({
   const pagina = Math.max(1, Number(sp.page ?? "1") || 1);
   // Filtro rapido per tag: sono le stesse liste del catalogo, applicate qui.
   const filtro = lista(sp.lista ?? "")?.chiave;
+  const taglio = { brand: sp.brand?.trim() || undefined, categoria: sp.categoria?.trim() || undefined };
 
   const [brand, totale, clienti, senzaCliente] = await Promise.all([
     brandConColore(),
-    totaliClienti(q, filtro),
-    elencoClienti(q, ordina, (pagina - 1) * PER_PAGINA, PER_PAGINA, filtro, verso),
+    totaliClienti(q, filtro, taglio),
+    elencoClienti(q, ordina, (pagina - 1) * PER_PAGINA, PER_PAGINA, filtro, verso, taglio),
     ordiniSenzaCliente(),
   ]);
 
@@ -106,6 +108,13 @@ export default async function Clienti({
         <button className="btn" type="submit">Cerca</button>
         {q && <Link className="btn btn-secondario" href={conFiltro({ q: "" })}>Annulla</Link>}
       </form>
+
+      <FiltriTaglio
+        brand={brand}
+        brandScelto={taglio.brand}
+        categoriaScelta={taglio.categoria}
+        href={(chiave, valore) => conFiltro({ [chiave]: valore, page: "" })}
+      />
 
       {/* Tag: segmento di valore */}
       <div className="filtri">

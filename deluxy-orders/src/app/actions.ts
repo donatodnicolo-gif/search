@@ -9,6 +9,7 @@ import { canaleValido, tipologiaValida } from "@/lib/segmenti";
 import { importaFeedback } from "@/lib/feedback";
 import { preparaGiro, type VariabileScript } from "@/lib/automazioni";
 import { rilevaEventi } from "@/lib/eventi";
+import { ricalcolaCategorie } from "@/lib/categorie";
 import { eseguiSyncOrdini } from "@/lib/sync";
 import { tokenNegozio } from "@/lib/shopify";
 import { cercaDocumento, scriviConsegna, dataValida, fasciaValida } from "@/lib/consegna";
@@ -202,6 +203,34 @@ export async function impostaPrivacyCliente(fd: FormData) {
   revalidatePath("/clienti");
   revalidatePath(`/clienti/${codificaChiave(chiave)}`);
   revalidatePath("/liste");
+}
+
+// ---- Categorie di prodotto ----
+// La specialità di un negozio: serve a classificare i prodotti che dal titolo
+// non si riconoscono. Cambiarla ha effetto solo dopo il ricalcolo, quindi si
+// ricalcola subito.
+export async function impostaCategoriaNegozio(fd: FormData) {
+  const id = s(fd, "id");
+  if (!id) return;
+  await prisma.negozioShopify.update({
+    where: { id },
+    data: { categoriaPredefinita: s(fd, "categoriaPredefinita") },
+  });
+  const esito = await ricalcolaCategorie();
+  revalidatePath("/impostazioni");
+  revalidatePath("/liste");
+  redirect(
+    `/impostazioni?esito=${encodeURIComponent(`Specialità salvata · ${esito.aggiornati.toLocaleString("it-IT")} ordini riclassificati`)}`,
+  );
+}
+
+export async function ricalcolaCategorieOrdini() {
+  const esito = await ricalcolaCategorie();
+  revalidatePath("/impostazioni");
+  revalidatePath("/liste");
+  redirect(
+    `/impostazioni?esito=${encodeURIComponent(`${esito.aggiornati.toLocaleString("it-IT")} ordini riclassificati per categoria`)}`,
+  );
 }
 
 // ---- Eventi dei clienti (le occasioni ricavate dagli ordini) ----

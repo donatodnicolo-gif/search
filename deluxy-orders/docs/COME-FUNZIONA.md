@@ -176,7 +176,7 @@ avere il recapito non è avere il permesso di usarlo.
 > scrivere».
 
 ### Liste (`/liste`)
-I clienti raggruppati **come si usano**: 29 liste calcolate in tempo reale dagli
+I clienti raggruppati **come si usano**: 39 liste calcolate in tempo reale dagli
 ordini (nessuna lista salvata che possa invecchiare). Ogni card dice quanti
 clienti contiene, quanto valgono, **con che criterio** ci si finisce dentro e
 **cosa farci**. Aprendone una si ottiene l'elenco dei clienti, la ricerca
@@ -244,6 +244,47 @@ non dice anche il negozio, il feedback resta *senza ordine riconosciuto*
 (visibile e contato in Impostazioni) invece di essere attaccato all'ordine
 sbagliato. Un reclamo sull'ordine sbagliato manda a un fornitore la colpa di un
 altro: meglio scollegato.
+
+### Split per brand e per categoria
+Ogni lista si può guardare **per singolo negozio** e **per categoria di prodotto**,
+e i due tagli funzionano in modo diverso apposta:
+
+- il **brand** taglia gli *ordini*: «i VIP di Flowers» sono quelli che su
+  Flowers hanno speso da VIP, e spesa, segmento e attività sono ricalcolati su
+  quel negozio. Lo stesso cliente può essere VIP su deluxy.it e nuovo su
+  Flowers — sono due storie diverse, e il registro le tiene separate;
+- la **categoria** sceglie le *persone*: «chi compra fiori» resta con tutti i
+  suoi numeri interi, altre categorie comprese. Se filtrasse gli ordini, la
+  domanda «di quante categorie è amante» avrebbe sempre risposta «una».
+
+Nel catalogo ogni card mostra lo **split per brand** sotto il numero grande
+(VIP: deluxy.it 109 · Flowers 24 · cakedesign.me 3), così si vede subito dove sta
+davvero una lista. Cliccando si apre l'elenco dei clienti con nome, contatti,
+ordini, speso, medio e tag — e l'export CSV esce **con gli stessi filtri** che
+si stanno guardando.
+
+### Categorie di prodotto e gusti dei clienti
+Le categorie (fiori, torte e pasticceria, colazioni, dolci e cioccolato, salato,
+vini, regali) si ricavano dal **titolo dei prodotti** nelle righe d'ordine.
+Shopify non le dà: il tipo di prodotto richiede lo scope `read_products`, che i
+token non hanno.
+
+Quello che il titolo non dice lo copre la **specialità del negozio** (in
+Impostazioni, negozio per negozio): su Flowers e cakedesign.me, che vendono una
+cosa sola, un prodotto sconosciuto è fiori o torte. Su deluxy.it, che vende di
+tutto, resta **«non classificato»** — sono 2.525 ordini su 11.647, e sono i best
+seller con nome proprio («Botticelli - Nascita di Venere», «Favolosa»): nel nome
+non c'è niente che dica cosa sono, e inventarlo sarebbe peggio che ammetterlo.
+
+Da qui la famiglia di liste **Gusti**: *Ama una categoria sola* (7.803 clienti),
+*Compra da più categorie* (1.001) e una lista per ogni categoria — fiori 5.199,
+torte 2.372, colazioni 1.105, dolci 922, regali 171, vini 136, salato 121.
+Incrociando «ama una categoria sola» con il filtro categoria si ottiene
+l'amante puro: chi compra **solo** fiori, o **solo** torte.
+
+Il ricalcolo si lancia da Impostazioni: legge le righe già salvate (non chiama
+Shopify), ci mette 4 secondi sull'intero archivio e riscrive solo gli ordini in
+cui il risultato cambia.
 
 ### Eventi clienti (`/eventi`)
 Le **occasioni** per cui i clienti ordinano, ricavate dagli ordini. Un fioraio

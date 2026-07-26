@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma, tabella } from "./db";
+import { CATEGORIE_GUSTO } from "./categorie";
 import {
   ATTIVITA,
   SEGMENTI,
@@ -51,6 +52,8 @@ export type Cliente = {
   ultimoOrdine: Date;
   giorni: number; // giorni dall'ultimo ordine valido
   brand: string[];
+  categorie: string[];
+  nCategorie: number;
   // classificazione
   segmento: string;
   attivita: string;
@@ -119,10 +122,27 @@ const COLONNE_OCCASIONI = Prisma.raw(
   ).join("\n    "),
 );
 
+// I due tagli che si possono dare a QUALUNQUE lista, e che funzionano in modo
+// diverso apposta:
+//
+//  · **brand** — taglia gli ORDINI. «I VIP di Flowers» sono i clienti che su
+//    Flowers hanno speso da VIP: i totali, il segmento e l'attività si
+//    ricalcolano su quel negozio soltanto. Un cliente può quindi essere VIP su
+//    deluxy.it e nuovo su Flowers, ed è giusto così — sono due storie diverse.
+//  · **categoria** — sceglie i CLIENTI. «Chi compra fiori» resta con tutti i
+//    suoi numeri interi, anche quelli fatti su altre categorie: se filtrasse
+//    gli ordini, «di quante categorie è amante» sarebbe sempre una, e la
+//    domanda non avrebbe più senso.
+export type Taglio = { brand?: string; categoria?: string };
+
+function filtroBrand(brand?: string): Prisma.Sql {
+  return brand ? Prisma.sql`AND "brand" = ${brand}` : Prisma.empty;
+}
+
 // La vista dei clienti classificati: aggregato + segmento + tipologia. Tutte le
 // query di questo file partono da qui, così i criteri sono scritti una volta
 // sola e elenco, catalogo, CSV e API non possono divergere.
-function vistaClienti(q?: string, chiave?: string, materializza = false): Prisma.Sql {
+function vistaClienti(q?: string, chiave?: string, materializza = false, taglio: Taglio = {}): Prisma.Sql {
   const soloUno = chiave ? Prisma.sql`AND ${CHIAVE} = ${chiave}` : Prisma.empty;
   const come = Prisma.raw(materializza ? "AS MATERIALIZED" : "AS");
   return Prisma.sql`
@@ -145,12 +165,26 @@ function vistaClienti(q?: string, chiave?: string, materializza = false): Prisma
         COALESCE(SUM("totale") FILTER (WHERE "annullatoIl" IS NULL), 0)::float8 AS speso,
         MIN("data") FILTER (WHERE "annullatoIl" IS NULL) AS primo,
         MAX("data") FILTER (WHERE "annullatoIl" IS NULL) AS ultimo,
-        ARRAY_AGG(DISTINCT "brand") AS brand
+        ARRAY_AGG(DISTINCT "brand") AS brand,
+        -- Le categorie comprate: le stringhe degli ordini («fiori dolci») si
+        -- uniscono e si spezzano in un array di valori distinti.
+        (
+          SELECT ARRAY_AGG(DISTINCT c) FROM UNNEST(
+            STRING_TO_ARRAY(TRIM(STRING_AGG("categorie", ' ') FILTER (WHERE "annullatoIl" IS NULL AND "categorie" <> '')), ' ')
+          ) AS c WHERE c <> ''
+        ) AS categorie
         ${COLONNE_OCCASIONI}
       FROM ${tabella("Ordine")}
-      WHERE ${IDENTIFICABILE} ${soloUno} ${dove(q)}
+      WHERE ${IDENTIFICABILE} ${soloUno} ${filtroBrand(taglio.brand)} ${dove(q)}
       GROUP BY 1
       HAVING COUNT(*) FILTER (WHERE "annullatoIl" IS NULL) > 0
+      ${
+        taglio.categoria
+          ? Prisma.sql`AND ${taglio.categoria} = ANY(
+              STRING_TO_ARRAY(TRIM(STRING_AGG("categorie", ' ') FILTER (WHERE "annullatoIl" IS NULL AND "categorie" <> '')), ' ')
+            )`
+          : Prisma.empty
+      }
     ),
     calcolo AS (
       SELECT
@@ -158,6 +192,13 @@ function vistaClienti(q?: string, chiave?: string, materializza = false): Prisma
         (CURRENT_DATE - b.ultimo::date)::int AS giorni,
         (b.speso / NULLIF(b.ordini, 0))::float8 AS medio,
         COALESCE(ARRAY_LENGTH(b.brand, 1), 0)::int AS n_brand,
+        COALESCE(b.categorie, ARRAY[]::text[]) AS categorie_cliente,
+        -- Di quante categorie è «amante»: il servizio (spedizioni, extra) e il
+        -- non classificato non contano — nessuno è appassionato di supplementi.
+        (
+          SELECT COUNT(*) FROM UNNEST(COALESCE(b.categorie, ARRAY[]::text[])) AS c
+          WHERE c = ANY(${Prisma.raw(`ARRAY['${CATEGORIE_GUSTO.join("','")}']::text[]`)})
+        )::int AS n_categorie,
         LOWER(SPLIT_PART(COALESCE(b.email, ''), '@', 2)) AS dominio,
         t."tipo" AS tipo_manuale,
         t."note" AS nota_tag,
@@ -291,6 +332,8 @@ type RigaCliente = {
   ultimo: Date;
   giorni: number;
   brand: string[];
+  categorie_cliente: string[];
+  n_categorie: number;
   segmento: string;
   attivita: string;
   tipologia: string;
@@ -326,6 +369,8 @@ function daRiga(r: RigaCliente): Cliente {
     ultimoOrdine: r.ultimo,
     giorni: r.giorni,
     brand: r.brand ?? [],
+    categorie: r.categorie_cliente ?? [],
+    nCategorie: r.n_categorie ?? 0,
     segmento: r.segmento,
     attivita: r.attivita,
     tipologia: r.tipologia,
@@ -349,7 +394,7 @@ function daRiga(r: RigaCliente): Cliente {
 
 const CAMPI = Prisma.raw(`
   chiave, nome, email, telefono, citta, ordini, annullati, speso, medio,
-  primo, ultimo, giorni, brand, segmento, attivita, tipologia, tipologia_auto,
+  primo, ultimo, giorni, brand, categorie_cliente, n_categorie, segmento, attivita, tipologia, tipologia_auto,
   tipo_manuale, nota_tag, dominio_aziendale, consenso_email, consenso_sms,
   privacy_email, privacy_sms, privacy_telefono, bloccato, nota_privacy, eventi_vicini,
   contattabile_email, contattabile_sms, contattabile_telefono
@@ -364,11 +409,12 @@ export async function elencoClienti(
   quanti: number,
   listaChiave?: string,
   verso?: VersoOrdinamento,
+  taglio: Taglio = {},
 ): Promise<Cliente[]> {
   const colonna = ORDINAMENTI[ordinamentoValido(ordina)];
   const direzione = Prisma.raw(versoValido(ordina, verso).toUpperCase());
   const righe = await prisma.$queryRaw<RigaCliente[]>(Prisma.sql`
-    ${vistaClienti(q)}
+    ${vistaClienti(q, undefined, false, taglio)}
     SELECT ${CAMPI} FROM clienti
     ${filtroLista(listaChiave)}
     ORDER BY ${colonna.sql} ${direzione} NULLS LAST, chiave
@@ -378,9 +424,9 @@ export async function elencoClienti(
 }
 
 // Quanti clienti distinti (per la paginazione e il KPI).
-export async function contaClienti(q?: string, listaChiave?: string): Promise<number> {
+export async function contaClienti(q?: string, listaChiave?: string, taglio: Taglio = {}): Promise<number> {
   const r = await prisma.$queryRaw<{ n: number }[]>(Prisma.sql`
-    ${vistaClienti(q)}
+    ${vistaClienti(q, undefined, false, taglio)}
     SELECT COUNT(*)::int AS n FROM clienti ${filtroLista(listaChiave)}
   `);
   return r[0]?.n ?? 0;
@@ -390,9 +436,10 @@ export async function contaClienti(q?: string, listaChiave?: string): Promise<nu
 export async function totaliClienti(
   q?: string,
   listaChiave?: string,
+  taglio: Taglio = {},
 ): Promise<{ clienti: number; speso: number; ordini: number }> {
   const r = await prisma.$queryRaw<{ clienti: number; speso: number; ordini: number }[]>(Prisma.sql`
-    ${vistaClienti(q)}
+    ${vistaClienti(q, undefined, false, taglio)}
     SELECT
       COUNT(*)::int AS clienti,
       COALESCE(SUM(speso), 0)::float8 AS speso,
@@ -405,13 +452,13 @@ export async function totaliClienti(
 // Il catalogo con i numeri: per ogni lista quanti clienti e quanto valgono.
 // Una query sola per tutte le liste — sono conteggi condizionati sullo stesso
 // aggregato, non ha senso interrogare il database venti volte.
-export async function conteggiListe(): Promise<Map<string, { clienti: number; speso: number }>> {
+export async function conteggiListe(taglio: Taglio = {}): Promise<Map<string, { clienti: number; speso: number }>> {
   const pezzi = LISTE.flatMap((l) => [
     Prisma.sql`COUNT(*) FILTER (WHERE ${l.dove})::int AS ${Prisma.raw(colonnaConteggio(l.chiave))}`,
     Prisma.sql`COALESCE(SUM(speso) FILTER (WHERE ${l.dove}), 0)::float8 AS ${Prisma.raw(colonnaSpesa(l.chiave))}`,
   ]);
   const righe = await prisma.$queryRaw<Record<string, number>[]>(Prisma.sql`
-    ${vistaClienti(undefined, undefined, true)}
+    ${vistaClienti(undefined, undefined, true, taglio)}
     SELECT ${Prisma.join(pezzi, ", ")} FROM clienti
   `);
   const r = righe[0] ?? {};

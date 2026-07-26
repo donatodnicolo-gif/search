@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { categorieOrdine } from "./categorie";
 import { scaricaOrdini, tokenNegozio, type OrdineNormalizzato } from "./shopify";
 import { statoPredefinito } from "./stati";
 
@@ -40,7 +41,7 @@ export async function eseguiSyncOrdini(
     // database chiude la connessione (vedi conRiprova).
     const salvaPagina = async (ordini: OrdineNormalizzato[], pagina: number) => {
       const esito = await conRiprova(() =>
-        salvaBloccoOrdini(neg.id, neg.brand, ordini, iniziale?.id ?? null),
+        salvaBloccoOrdini(neg.id, neg.brand, ordini, iniziale?.id ?? null, neg.categoriaPredefinita),
       );
       nuovi += esito.nuovi;
       aggiornati += esito.aggiornati;
@@ -110,9 +111,14 @@ function righeCambiate(
 }
 
 // Campi Shopify di un ordine (sempre aggiornati: sono informativi).
-function datiShopify(brand: string, o: OrdineNormalizzato) {
+function datiShopify(brand: string, o: OrdineNormalizzato, categoriaPredefinita?: string | null) {
   return {
     brand,
+    // Di che cosa è fatto l'ordine, dai titoli delle sue righe. NON entra in
+    // `cambiato()`: sarebbe un motivo di riscrittura per tutto l'archivio. Si
+    // riscrive quando l'ordine si aggiorna per altri motivi (righe comprese), e
+    // lo storico si ricalcola in blocco dal pulsante in Impostazioni.
+    categorie: categorieOrdine(o.righe.map((r) => r.titolo), categoriaPredefinita),
     numero: o.numero,
     data: o.data,
     totale: o.totale,
@@ -159,6 +165,7 @@ async function salvaBloccoOrdini(
   brand: string,
   ordini: OrdineNormalizzato[],
   statoIniziale: string | null,
+  categoriaPredefinita: string | null,
 ): Promise<{ nuovi: number; aggiornati: number }> {
   if (ordini.length === 0) return { nuovi: 0, aggiornati: 0 };
 
@@ -216,7 +223,7 @@ async function salvaBloccoOrdini(
       data: nuovi.map((o) => ({
         negozioId,
         orderId: o.orderId,
-        ...datiShopify(brand, o),
+        ...datiShopify(brand, o, categoriaPredefinita),
         categoriaPagamento: o.categoriaPagamento,
         statoId: statoIniziale,
       })),
@@ -272,7 +279,7 @@ async function salvaBloccoOrdini(
     await prisma.ordine.update({
       where: { id: e.id },
       data: {
-        ...datiShopify(brand, o),
+        ...datiShopify(brand, o, categoriaPredefinita),
         // categoria: aggiorna solo se non corretta a mano
         ...(e.categoriaPagamentoManuale ? {} : { categoriaPagamento: o.categoriaPagamento }),
         // righe: si riscrivono se è cambiato il numero (rimborsi/modifiche) o

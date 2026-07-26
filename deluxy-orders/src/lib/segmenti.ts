@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { CATEGORIE } from "./categorie";
 
 // ---------------------------------------------------------------------------
 // Classificazione dei clienti: segmenti di valore, tipologia e liste pronte.
@@ -233,7 +234,7 @@ export function colonnaOccasione(chiave: string): string {
 }
 
 // --- Catalogo delle liste ---------------------------------------------------
-export type FamigliaLista = "valore" | "tipologia" | "occasioni" | "attivazione" | "privacy";
+export type FamigliaLista = "valore" | "tipologia" | "gusti" | "occasioni" | "attivazione" | "privacy";
 
 export type Lista = {
   chiave: string;
@@ -261,6 +262,12 @@ export const FAMIGLIE: { chiave: FamigliaLista; nome: string; sotto: string }[] 
     chiave: "tipologia",
     nome: "Tipologia di cliente",
     sotto: "Chi è chi compra: privato, azienda, hotel, wedding, rivenditore. Dedotta dal nome dell'acquirente e correggibile a mano.",
+  },
+  {
+    chiave: "gusti",
+    nome: "Gusti: che cosa comprano",
+    sotto:
+      "Di quali categorie e amante un cliente. Chi compra una cosa sola sa cosa vuole; chi ne compra due o piu usa Deluxy come negozio, non come prodotto — e sono clienti diversi da trattare in modo diverso.",
   },
   {
     chiave: "occasioni",
@@ -428,6 +435,49 @@ export const LISTE: Lista[] = [
   })),
 
   // ---- attivazione ----
+  // ---- gusti: di quante categorie è amante ----
+  {
+    chiave: "mono-categoria",
+    nome: "Ama una categoria sola",
+    famiglia: "gusti",
+    colore: "var(--purple)",
+    criterio:
+      "Ha comprato prodotti di UNA sola categoria (fiori, oppure torte, oppure colazioni…). Le voci di servizio e i prodotti non classificati non contano.",
+    consiglio:
+      "Sa cosa vuole: parlargli di quello che compra funziona, proporgli il resto quasi mai. È anche la lista da cui nasce il cross-sell, una categoria alla volta.",
+    dove: Prisma.raw(`n_categorie = 1`),
+  },
+  {
+    chiave: "multi-categoria",
+    nome: "Compra da più categorie",
+    famiglia: "gusti",
+    colore: "var(--green)",
+    criterio: "Ha comprato prodotti di due o più categorie diverse.",
+    consiglio:
+      "Il cliente più solido che esista: ti usa come negozio, non come prodotto. Sono i primi a cui mostrare una collezione nuova, qualunque sia.",
+    dove: Prisma.raw(`n_categorie >= 2`),
+  },
+  ...CATEGORIE.filter((c) => !c.servizio).map<Lista>((c) => ({
+    chiave: `compra-${c.chiave}`,
+    nome: `Compra ${c.nome.toLowerCase()}`,
+    famiglia: "gusti",
+    colore: c.colore,
+    criterio: `Ha almeno un ordine con prodotti della categoria «${c.nome}».`,
+    consiglio: `Il pubblico giusto per una novità di ${c.nome.toLowerCase()}. Incrociandolo con «Ama una categoria sola» si vede chi compra SOLO questo.`,
+    dove: Prisma.raw(`'${c.chiave}' = ANY(categorie_cliente)`),
+  })),
+  {
+    chiave: "categoria-ignota",
+    nome: "Prodotti non classificati",
+    famiglia: "gusti",
+    colore: "var(--text-tertiary)",
+    criterio:
+      "Ha comprato prodotti che l'app non sa in che categoria mettere (i best seller si chiamano «Botticelli» o «Favolosa»: nel nome non c'è la categoria).",
+    consiglio:
+      "Non è una lista da usare: è il termometro di quanto manca alla classificazione. Si riduce dando a ogni negozio la sua specialità in Impostazioni.",
+    dove: Prisma.raw(`'non-classificato' = ANY(categorie_cliente)`),
+  },
+
   {
     chiave: "evento-in-arrivo",
     nome: "Ha un'occasione fra 30 giorni",

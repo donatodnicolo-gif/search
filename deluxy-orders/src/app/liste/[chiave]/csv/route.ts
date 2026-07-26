@@ -25,8 +25,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ chiave: str
   const l = lista(chiave);
   if (!l) return NextResponse.json({ errore: "Lista sconosciuta" }, { status: 404 });
 
-  const q = req.nextUrl.searchParams.get("q")?.trim() || undefined;
-  const clienti = await elencoClienti(q, "speso", 0, MAX, l.chiave);
+  const p = req.nextUrl.searchParams;
+  const q = p.get("q")?.trim() || undefined;
+  // Gli stessi tagli della pagina: si esporta quello che si sta guardando.
+  const taglio = { brand: p.get("brand")?.trim() || undefined, categoria: p.get("categoria")?.trim() || undefined };
+  const clienti = await elencoClienti(q, "speso", 0, MAX, l.chiave, undefined, taglio);
 
   const righe = [
     COLONNE.join(";"),

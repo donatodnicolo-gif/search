@@ -36,6 +36,12 @@ model NegozioShopify {
   // nome qui è diverso (es. "Flowers"), si indica la corrispondenza; se è
   // vuoto si usa il nome del brand così com'è.
   brandRicerca String?
+  // Che cosa vende soprattutto questo negozio: «fiori», «torte»…
+  // Serve quando un prodotto non si riconosce dal titolo (i best seller si
+  // chiamano «Botticelli» o «Favolosa», e nel nome non c'è la categoria): su un
+  // negozio che vende una cosa sola, quella cosa è la risposta giusta. Vuoto =
+  // nessuna deduzione, il prodotto resta «non classificato».
+  categoriaPredefinita String?
   attivo       Boolean   @default(true)
   ultimaSync   DateTime?
   ordini       Ordine[]
@@ -362,6 +368,12 @@ model Ordine {
   cap            String?
   provincia      String?
   paese          String?
+
+  // Di che cosa è fatto l'ordine: le categorie dei suoi prodotti, separate da
+  // spazio («fiori dolci»). Si ricava dai titoli delle righe (vedi
+  // src/lib/categorie.ts) e si riscrive quando l'ordine cambia; l'archivio si
+  // ricalcola in una query sola dal pulsante in Impostazioni.
+  categorie String @default("")
 
   righe RigaOrdine[]
 

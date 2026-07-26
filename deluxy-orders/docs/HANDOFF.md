@@ -22,12 +22,12 @@ credenziali riusate da Finance.
 
 Le pagine: **Ordini** (vista predefinita a *colonne per brand*, più l'elenco in
 tabella), **Bacheca** kanban, **scheda ordine**, **Clienti** (+ tag, + rubrica
-Google), **Liste** (29 liste di clienti + export CSV), **Consegna**,
+Google), **Liste** (39 liste di clienti + export CSV), **Consegna**,
 **Impostazioni**, **Fornitori vicini** per ordine.
 
 ### Liste e tag dei clienti (26/07/2026)
 I 10.212 clienti (su 10.375 identificabili: 163 hanno solo ordini annullati e
-non contano) sono classificati in tempo reale su due assi, e raccolti in **29
+non contano) sono classificati in tempo reale su due assi, e raccolti in **40
 liste** con criterio scritto e consiglio d'uso — catalogo in
 `src/lib/segmenti.ts`, query in `src/lib/clienti.ts`, API `/api/v1/liste`.
 
@@ -111,6 +111,28 @@ notte dentro `/api/cron/sync` e a mano dal pulsante.
   l'altro, limite per giro). **Preparano** i messaggi, non li inviano: si
   esportano o si mandano dal Customer Service e poi si segnano come inviati.
   Ogni scheda mostra la prova a vuoto con i motivi degli esclusi.
+
+### Split per brand e categorie di prodotto (26/07/2026)
+Ogni lista si guarda per **brand** e per **categoria**: `?brand=` e `?categoria=`
+su /liste, /liste/[chiave] e /clienti (e nell'export CSV). I due tagli NON sono
+simmetrici, ed è voluto: il brand filtra gli ORDINI (numeri e segmento
+ricalcolati su quel negozio), la categoria filtra i CLIENTI (numeri interi),
+altrimenti «di quante categorie è amante» darebbe sempre 1. Vedi `Taglio` in
+`src/lib/clienti.ts`.
+
+Le **categorie di prodotto** stanno in `src/lib/categorie.ts` (vocabolario a
+parole chiave, in TS e in SQL: la stessa regola in due linguaggi, per il
+ricalcolo in una query sola) e si salvano su `Ordine.categorie` come stringa
+(«dolci fiori»). Fallback: `NegozioShopify.categoriaPredefinita`, impostata a
+Flowers=fiori e cakedesign.me=torte → quei due negozi sono classificati al 100%,
+deluxy.it resta con 2.525 ordini «non classificato» (i best seller si chiamano
+«Botticelli» o «Favolosa»). NON aggiungere i nomi propri al vocabolario: si
+riscriverebbe a ogni collezione.
+Ricalcolo: pulsante in Impostazioni → `ricalcolaCategorie()`, 13.967 ordini in
+3,7 s, riscrive solo ciò che cambia. `categorie` NON entra in `cambiato()`
+(sarebbe una riscrittura dell'archivio a ogni sync).
+Numeri veri: mono-categoria 7.803, multi 1.001; fiori 5.199, torte 2.372,
+colazioni 1.105, dolci 922. Split VIP: deluxy.it 109 · Flowers 24 · cake 3.
 
 ### Eventi clienti (26/07/2026)
 Le occasioni per cui i clienti ordinano, ricavate dagli ordini: **9.129 ordini

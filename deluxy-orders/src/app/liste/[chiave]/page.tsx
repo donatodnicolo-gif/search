@@ -5,6 +5,7 @@ import { brandConColore, mappaColori } from "@/lib/brand";
 import { elencoClienti, ordinamentoValido, versoValido, totaliClienti } from "@/lib/clienti";
 import { FAMIGLIE, LISTE, lista } from "@/lib/segmenti";
 import { TabellaClienti } from "@/components/TabellaClienti";
+import { FiltriTaglio } from "@/components/FiltriTaglio";
 
 export const dynamic = "force-dynamic";
 
@@ -30,10 +31,15 @@ export default async function DettaglioLista({
   const verso = versoValido(ordina, sp.verso);
   const pagina = Math.max(1, Number(sp.page ?? "1") || 1);
 
+  // Gli stessi due tagli del catalogo: per brand (taglia gli ordini) e per
+  // categoria (sceglie i clienti). Arrivano nella query string e viaggiano con
+  // ogni link della pagina, export CSV compreso.
+  const taglio = { brand: sp.brand?.trim() || undefined, categoria: sp.categoria?.trim() || undefined };
+
   const [brand, totale, clienti] = await Promise.all([
     brandConColore(),
-    totaliClienti(q, l.chiave),
-    elencoClienti(q, ordina, (pagina - 1) * PER_PAGINA, PER_PAGINA, l.chiave, verso),
+    totaliClienti(q, l.chiave, taglio),
+    elencoClienti(q, ordina, (pagina - 1) * PER_PAGINA, PER_PAGINA, l.chiave, verso, taglio),
   ]);
 
   const colori = mappaColori(brand);
@@ -58,7 +64,22 @@ export default async function DettaglioLista({
     return conFiltro({ ordina: colonna, verso: inverso, page: "" });
   }
 
-  const csv = `/liste/${l.chiave}/csv${q ? `?q=${encodeURIComponent(q)}` : ""}`;
+  // Il CSV esce con gli stessi filtri che si vedono a schermo: quello che
+  // esporti e' quello che stai guardando, non una lista diversa.
+  const parametriCsv = new URLSearchParams();
+  if (q) parametriCsv.set("q", q);
+  if (taglio.brand) parametriCsv.set("brand", taglio.brand);
+  if (taglio.categoria) parametriCsv.set("categoria", taglio.categoria);
+  const csv = `/liste/${l.chiave}/csv${parametriCsv.toString() ? `?${parametriCsv}` : ""}`;
+
+  function conTaglio(chiave: "brand" | "categoria", valore: string): string {
+    const p = new URLSearchParams(sp);
+    if (valore) p.set(chiave, valore);
+    else p.delete(chiave);
+    p.delete("page");
+    const qs = p.toString();
+    return `/liste/${l!.chiave}${qs ? `?${qs}` : ""}`;
+  }
 
   return (
     <main className="main">
@@ -111,8 +132,17 @@ export default async function DettaglioLista({
         </div>
       )}
 
+      <FiltriTaglio
+        brand={brand}
+        brandScelto={taglio.brand}
+        categoriaScelta={taglio.categoria}
+        href={conTaglio}
+      />
+
       <form className="ricerca" method="get">
         {sp.ordina && <input type="hidden" name="ordina" value={sp.ordina} />}
+        {sp.brand && <input type="hidden" name="brand" value={sp.brand} />}
+        {sp.categoria && <input type="hidden" name="categoria" value={sp.categoria} />}
         <span className="ricerca-icona" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
             <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.4 15.4 20 20" />

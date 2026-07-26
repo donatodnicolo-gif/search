@@ -119,12 +119,14 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 - `src/lib/clienti.ts` — clienti ricavati dagli ordini (aggregazione SQL) e
   classificati: segmento di valore, tipologia, liste.
 - `src/lib/segmenti.ts` — il vocabolario della classificazione: soglie, regole
-  di riconoscimento e **catalogo delle 29 liste** (criterio + consiglio d'uso).
+  di riconoscimento e **catalogo delle 39 liste** (criterio + consiglio d'uso).
   È il posto dove si cambiano le soglie o si aggiunge una lista.
 - `src/lib/automazioni.ts` — messaggi ai clienti di una lista: variabili degli
   script (dichiarate + automatiche), composizione e i quattro setacci
   (consenso, recapito, silenzio, limite).
 - `src/lib/feedback.ts` — import dei reclami e dei voti dal Customer Service.
+- `src/lib/categorie.ts` — le categorie di prodotto dedotte dai titoli delle
+  righe (vocabolario unico in TS e SQL) e il ricalcolo dell'archivio.
 - `src/lib/eventi.ts` — le occasioni dei clienti ricavate dalle date di
   consegna e dai destinatari (rilevamento idempotente).
 - `src/lib/brand.ts` — brand e loro colori.
