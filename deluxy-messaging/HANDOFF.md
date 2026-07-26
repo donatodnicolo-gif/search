@@ -60,9 +60,9 @@ locale, altrimenti nulla si decifra.
   recapiti) e **chi riceve** (destinatario), con l'indirizzo di consegna
   completo di CAP, provincia e paese. Quando sono la stessa persona lo dice.
   ⚠️ **Il destinatario NON è in casa**: qui l'ordine tiene i dati di chi compra.
-  Arriva da Orders ( di ) nella stessa chiamata
+  Arriva da Orders (campo spedizione di GET /api/v1/ordini) nella stessa chiamata
   che già portava le righe e le foto — nessuna copia locale, regola 2 dell'app.
-  Verificato su #1733: in casa  è VUOTO e la città «Florence», da
+  Verificato su #1733: in casa il campo indirizzo è VUOTO e la città «Florence», da
   Orders arriva «11 Campbell Avenue… IG6 1EA ENG GB». Quindi questa aggiunta
   non è solo un'etichetta in più: prima l'indirizzo di consegna su quegli
   ordini non si vedeva proprio.
