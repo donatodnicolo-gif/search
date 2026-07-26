@@ -106,7 +106,7 @@ export function TaskFormModal({
             </Pressable>
           </View>
           {placeNome ? (
-            <Text style={styles.negozio}>
+            <Text numberOfLines={3} style={styles.negozio}>
               <Ionicons name="storefront-outline" size={13} color={colors.oro} /> {placeNome}
             </Text>
           ) : null}

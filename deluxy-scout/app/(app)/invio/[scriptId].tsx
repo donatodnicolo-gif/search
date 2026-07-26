@@ -254,7 +254,7 @@ export default function InvioScript() {
             <Pressable style={styles.riga} onPress={() => toggle(item.id)}>
               <Ionicons name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? colors.ink : colors.grigio} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.rigaNome}>{item.nome || '(senza nome)'}</Text>
+                <Text numberOfLines={3} style={styles.rigaNome}>{item.nome || '(senza nome)'}</Text>
                 <Text style={styles.rigaMeta} numberOfLines={1}>
                   {[item.place_nome, item.email].filter(Boolean).join(' · ')}
                 </Text>

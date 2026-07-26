@@ -153,7 +153,7 @@ function RigaRichiamo({ r, onPress }: { r: Richiamo; onPress: () => void }) {
       <View style={styles.info}>
         <View style={styles.titoloRow}>
           <PriorityBadge priorita={p.priorita} small />
-          <Text style={styles.nome}>
+          <Text numberOfLines={3} style={styles.nome}>
             {p.nome}
           </Text>
           {inRitardo ? <StatusBadge small label="In ritardo" colore={colors.errore} /> : null}
@@ -181,7 +181,7 @@ function RigaFollowup({ d, onPress }: { d: TrattativaConLuogo; onPress: () => vo
       </View>
       <View style={styles.info}>
         <View style={styles.titoloRow}>
-          <Text style={styles.nome}>
+          <Text numberOfLines={3} style={styles.nome}>
             {d.place_nome ?? d.linea ?? 'Trattativa'}
           </Text>
           {sc.ritardo ? <StatusBadge small label="In ritardo" colore={colors.errore} /> : null}
@@ -216,7 +216,7 @@ function RigaCompleta({ p, onPress }: { p: Place; onPress: () => void }) {
       <View style={styles.info}>
         <View style={styles.titoloRow}>
           <PriorityBadge priorita={p.priorita} small />
-          <Text style={styles.nome}>
+          <Text numberOfLines={3} style={styles.nome}>
             {p.nome}
           </Text>
         </View>

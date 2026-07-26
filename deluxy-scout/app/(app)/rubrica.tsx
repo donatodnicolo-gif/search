@@ -288,7 +288,7 @@ function Contatto({
   return (
     <View style={[styles.card, c.archiviato && styles.cardArchiviato]}>
       <View style={styles.cardHead}>
-        <Text style={styles.nome}>
+        <Text numberOfLines={3} style={styles.nome}>
           {c.nome} {c.is_decisore ? <Ionicons name="star" size={13} color={colors.oro} /> : null}
         </Text>
         {/* Conferma che il contatto è sincronizzato col registro Anagrafiche. */}

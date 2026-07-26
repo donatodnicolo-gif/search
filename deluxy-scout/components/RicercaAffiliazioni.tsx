@@ -244,7 +244,7 @@ export function RicercaAffiliazioni({
             return (
               <View key={p.id} style={styles.card}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.nome}>{p.nome}</Text>
+                  <Text numberOfLines={3} style={styles.nome}>{p.nome}</Text>
                   <Text style={styles.meta} numberOfLines={1}>
                     {[p.indirizzo, km != null ? `${km.toFixed(1)} km` : null, p.categoria].filter(Boolean).join(' · ')}
                   </Text>

@@ -408,7 +408,7 @@ export default function SchedaAttivita() {
               <View key={d.id} style={styles.dupRow}>
                 <View style={styles.dupRowTop}>
                   <Pressable style={{ flex: 1 }} onPress={() => router.push(`/(app)/attivita/${d.id}`)}>
-                    <Text style={styles.dupNome}>{d.nome}</Text>
+                    <Text numberOfLines={3} style={styles.dupNome}>{d.nome}</Text>
                     <Text style={styles.dupMeta} numberOfLines={1}>{[d.indirizzo, labelStato[d.stato]].filter(Boolean).join(' · ')}</Text>
                   </Pressable>
                   <Pressable style={[styles.btnUnisci, unendo && { opacity: 0.5 }]} onPress={() => unisci(d)} disabled={unendo}>

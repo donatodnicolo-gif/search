@@ -231,7 +231,7 @@ function RigaPagamento({
     <Pressable style={styles.card} onPress={onToggle}>
       <View style={styles.cardHead}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.cliente}>{r.cliente}</Text>
+          <Text numberOfLines={3} style={styles.cliente}>{r.cliente}</Text>
           {r.causale ? <Text style={styles.causale} numberOfLines={espansa ? undefined : 1}>{r.causale}</Text> : null}
         </View>
         <View style={{ alignItems: 'flex-end' }}>
@@ -467,7 +467,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
             {scelta ? (
               <View style={styles.scelta}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.sceltaNome}>{scelta.place_nome ?? 'Trattativa'}</Text>
+                  <Text numberOfLines={3} style={styles.sceltaNome}>{scelta.place_nome ?? 'Trattativa'}</Text>
                   <Text style={styles.sceltaMeta}>
                     {labelFase[scelta.fase]}{scelta.valore_atteso != null ? ` · ${eur(scelta.valore_atteso)}` : ''}
                   </Text>
@@ -490,7 +490,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
                   <Pressable key={d.id} style={styles.risultato} onPress={() => seleziona(d)}>
                     <Ionicons name="briefcase-outline" size={16} color={colors.testoSoft} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.risNome}>{d.place_nome ?? 'Trattativa'}</Text>
+                      <Text numberOfLines={3} style={styles.risNome}>{d.place_nome ?? 'Trattativa'}</Text>
                       <Text style={styles.risMeta}>
                         {labelFase[d.fase]}{d.valore_atteso != null ? ` · ${eur(d.valore_atteso)}` : ''}
                       </Text>

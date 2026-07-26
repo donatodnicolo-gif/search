@@ -210,7 +210,7 @@ export default function Calendario() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.eTitolo} numberOfLines={1}>{e.titolo}</Text>
-              {e.negozio ? <Text style={styles.eMeta}>{e.negozio}</Text> : null}
+              {e.negozio ? <Text numberOfLines={3} style={styles.eMeta}>{e.negozio}</Text> : null}
             </View>
             {e.owner ? <Text style={styles.eOwner} numberOfLines={1}>{e.owner}</Text> : null}
           </Pressable>

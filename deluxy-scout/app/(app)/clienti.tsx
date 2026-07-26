@@ -9,6 +9,7 @@ import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { fetchClienti, type Cliente } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
+import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
 
 export default function Clienti() {
   const router = useRouter();
@@ -135,7 +136,7 @@ export default function Clienti() {
                 <Ionicons name="storefront-outline" size={20} color={colors.goldStrong} />
               </View>
               <View style={styles.cardTesto}>
-                <Text style={styles.nome}>{item.nome}</Text>
+                <Text numberOfLines={3} style={styles.nome}>{item.nome}</Text>
                 <Text style={styles.meta} numberOfLines={1}>
                   {[item.zona, item.categoria].filter(Boolean).join(' · ') || item.indirizzo || '—'}
                 </Text>
@@ -158,8 +159,9 @@ export default function Clienti() {
                 {item.partner_registro ? <StatusBadge small label="Partner" colore={colors.blue} /> : null}
               </View>
             </View>
-            {/* Azioni rapide: le stesse della scheda, a portata di lista. */}
-            <View style={styles.azioniRiga}>
+            {/* Azioni rapide: le stesse della scheda, a portata di lista.
+                Stile condiviso con i Prospect (components/AzioniRiga.tsx). */}
+            <AzioniRiga>
               <IconaAzione
                 nome="call-outline"
                 attiva={Boolean(item.telefono)}
@@ -184,28 +186,11 @@ export default function Clienti() {
                 label="Visita"
                 onPress={() => router.push(`/(app)/visita/${item.id}`)}
               />
-            </View>
+            </AzioniRiga>
           </Pressable>
         )}
       />
     </View>
-  );
-}
-
-function IconaAzione({ nome, attiva, label, onPress }: { nome: any; attiva: boolean; label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      style={[styles.iconaAzione, !attiva && { opacity: 0.35 }]}
-      disabled={!attiva}
-      hitSlop={8}
-      onPress={(e) => {
-        (e as any)?.stopPropagation?.();
-        onPress();
-      }}
-      accessibilityLabel={label}
-    >
-      <Ionicons name={nome} size={18} color={colors.navy} />
-    </Pressable>
   );
 }
 

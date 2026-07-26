@@ -65,7 +65,7 @@ export default function Nascosti() {
             <View style={styles.info}>
               <View style={styles.titoloRow}>
                 <PriorityBadge priorita={p.priorita} small />
-                <Text style={styles.nome}>
+                <Text numberOfLines={3} style={styles.nome}>
                   {p.nome}
                 </Text>
               </View>

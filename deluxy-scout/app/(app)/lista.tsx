@@ -15,6 +15,7 @@ import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { coloreLivello, LABEL_LIVELLO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 import { VisitaModal } from '@/components/VisitaModal';
+import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
 
 // Le "viste" del menu: ogni voce di Contatti apre /lista già filtrata.
 // "inattivi" = dormienti + persi, la scheda dei rapporti da riattivare.
@@ -136,8 +137,9 @@ export default function Lista() {
                 ))}
               </View>
             ) : null}
+            {/* Prima la ricerca, poi il bottone dei filtri: stesso ordine di
+                Clienti, Affiliazioni, Trattative e Rubrica. */}
             <View style={styles.filterBar}>
-              <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} admin={admin} />
               <TextInput
                 style={styles.search}
                 value={query}
@@ -147,6 +149,7 @@ export default function Lista() {
                 autoCapitalize="none"
                 clearButtonMode="while-editing"
               />
+              <Filters filtri={filtri} opzioni={opzioni} onChange={setFiltri} admin={admin} />
             </View>
           </View>
         }
@@ -237,37 +240,12 @@ function Riga({
           azione vanno sotto, così il nome non viene mai troncato su mobile. */}
       <View style={styles.rigaHead}>
         <PriorityBadge priorita={place.priorita} small />
-        <Text style={styles.nome}>
+        <Text numberOfLines={3} style={styles.nome}>
           {place.nome}
         </Text>
-        <Pressable
-          style={styles.nascondi}
-          hitSlop={8}
-          onPress={(e) => {
-            (e as any)?.stopPropagation?.();
-            onNascondi();
-          }}
-          accessibilityLabel="Rimuovi target (nascondi)"
-        >
-          <Ionicons name="eye-off-outline" size={18} color={colors.grigio} />
-        </Pressable>
       </View>
       <View style={styles.rigaBadge}>
         <StatusBadge small label={LABEL_LIVELLO[livelloDi(place)]} colore={coloreLivello(livelloDi(place))} />
-        {azione ? (
-          <Pressable
-            style={styles.rigaAzione}
-            hitSlop={6}
-            onPress={(e) => {
-              (e as any)?.stopPropagation?.();
-              azione.onPress();
-            }}
-            accessibilityLabel={azione.label}
-          >
-            <Ionicons name={azione.icona} size={14} color={colors.bianco} />
-            <Text style={styles.rigaAzioneTxt}>{azione.label}</Text>
-          </Pressable>
-        ) : null}
       </View>
       {place.linea_ipotizzata ? (
         <View style={styles.lineaTag}>
@@ -287,6 +265,14 @@ function Riga({
           {dataInserimento(place.created_at)} · {origineInserimento(place)}
         </Text>
       </View>
+      {/* Azioni con lo stesso stile dei Clienti (components/AzioniRiga.tsx):
+          cerchietti in fondo alla scheda, allineati a destra. */}
+      <AzioniRiga>
+        {azione ? (
+          <IconaAzione nome={azione.icona} attiva label={azione.label} onPress={azione.onPress} />
+        ) : null}
+        <IconaAzione nome="eye-off-outline" attiva label="Rimuovi target (nascondi)" onPress={onNascondi} />
+      </AzioniRiga>
     </Pressable>
   );
 }

@@ -116,7 +116,7 @@ export default function VenditoreDettaglio() {
             </View>
           ) : (
             <View style={styles.nomeRow}>
-              <Text style={styles.nome}>
+              <Text numberOfLines={3} style={styles.nome}>
                 {nome}
               </Text>
               {owner ? (
@@ -185,7 +185,7 @@ function GiornoCard({
         <Pressable key={v.id} style={styles.visita} onPress={() => onVisita(v.id)}>
           <View style={[styles.dot, { backgroundColor: ESITO_COLORE[v.esito ?? ''] ?? colors.grigio }]} />
           <View style={styles.visitaInfo}>
-            <Text style={styles.visitaNegozio}>
+            <Text numberOfLines={3} style={styles.visitaNegozio}>
               {nomiPlace.get(v.place_id) ?? 'Attività'}
             </Text>
             <Text style={styles.visitaMeta} numberOfLines={1}>

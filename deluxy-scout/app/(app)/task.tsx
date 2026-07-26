@@ -192,7 +192,7 @@ function RigaTask({
             <>
               <Text style={styles.metaSep}>·</Text>
               <Ionicons name="storefront-outline" size={12} color={colors.oro} />
-              <Text style={[styles.meta, { color: colors.goldStrong }]}>{t.place_nome}</Text>
+              <Text numberOfLines={3} style={[styles.meta, { color: colors.goldStrong }]}>{t.place_nome}</Text>
             </>
           ) : null}
         </View>

@@ -113,7 +113,7 @@ export default function Team() {
           <View key={v.id} style={styles.feedRow}>
             <View style={[styles.dot, { backgroundColor: ESITO_COLORE[v.esito ?? ''] ?? colors.grigio }]} />
             <View style={styles.feedInfo}>
-              <Text style={styles.feedNegozio}>
+              <Text numberOfLines={3} style={styles.feedNegozio}>
                 {nomiPlace.get(v.place_id) ?? 'Attività'}
               </Text>
               <Text style={styles.feedMeta} numberOfLines={1}>
@@ -133,7 +133,7 @@ function VenditoreCard({ s, oggi, onPress }: { s: StatVenditore; oggi: Date; onP
   return (
     <Pressable style={styles.vCard} onPress={onPress}>
       <View style={styles.vHead}>
-        <Text style={styles.vNome}>
+        <Text numberOfLines={3} style={styles.vNome}>
           {s.nome}
         </Text>
         <View style={styles.vHeadRight}>

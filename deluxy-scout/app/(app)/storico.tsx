@@ -129,7 +129,7 @@ export default function Storico() {
               <Ionicons name="location-outline" size={16} color={colors.goldStrong} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.negozio}>{item.place_nome}</Text>
+              <Text numberOfLines={3} style={styles.negozio}>{item.place_nome}</Text>
               <Text style={styles.via} numberOfLines={1}>
                 {viaDi(item.place_indirizzo) || '—'}{item.place_zona ? ` · ${item.place_zona}` : ''}
               </Text>

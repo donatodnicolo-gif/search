@@ -125,7 +125,7 @@ export default function LeadWeb() {
           return (
             <View style={styles.card}>
               <View style={styles.cardHead}>
-                <Text style={styles.nome}>{item.nome}</Text>
+                <Text numberOfLines={3} style={styles.nome}>{item.nome}</Text>
                 <Text style={[styles.eta, ritardo && styles.ritardo]}>
                   {eta === 0 ? 'oggi' : `${eta}g fa`}{ritardo ? ' · in ritardo' : ''}
                 </Text>
@@ -288,7 +288,7 @@ function QualificaModal({ lead, onClose, onFatto }: { lead: Lead; onClose: () =>
               <Pressable key={p.id} style={styles.risultato} onPress={() => scegli(p)}>
                 <Ionicons name="storefront-outline" size={16} color={colors.testoSoft} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.risNome}>{p.nome}</Text>
+                  <Text numberOfLines={3} style={styles.risNome}>{p.nome}</Text>
                   {p.indirizzo ? <Text style={styles.risInd} numberOfLines={1}>{p.indirizzo}</Text> : null}
                 </View>
               </Pressable>
