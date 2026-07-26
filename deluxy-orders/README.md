@@ -135,6 +135,9 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
   parole non riconoscono (nome, negozio e prezzo; mai categorie inventate).
 - `src/lib/eventi.ts` — le occasioni dei clienti ricavate dalle date di
   consegna e dai destinatari (rilevamento idempotente).
+- `src/lib/clienti-ai.ts` — il riepilogo di un cliente scritto leggendo i suoi
+  ordini veri: chi è, **cosa gli piace** e un punto per ordine, che cresce a
+  ogni ordine nuovo invece di essere riscritto da capo.
 - `src/lib/brand.ts` — brand e loro colori.
 - `src/app/` — Ordini (elenco + colonne per brand), Bacheca (kanban), scheda
   ordine, Clienti (elenco ordinabile per ogni colonna + scheda con tipologia e

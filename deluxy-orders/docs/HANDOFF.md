@@ -209,6 +209,32 @@ manuale), `motivoTipo`, `prova`.
 - Chi risponde «da precisare» viene comunque marcato `tipoDa = ai`: senza,
   ogni giro ripagherebbe la stessa domanda per la stessa risposta.
 
+### Riepilogo AI del cliente, con preferenze e gusti (26/07/2026)
+`src/lib/clienti-ai.ts` + card in cima a `/clienti/:chiave` + pulsante in blocco
+su `/clienti`. Modello nuovo `RiepilogoCliente` (chiave unica, `testo`, `punti`,
+`gusti`, `ordiniConsiderati`, `ultimoOrdine`, `modello`), già in produzione con
+`prisma db push`.
+
+- **Tre campi distinti**: riassunto in prosa, **gusti** (categorie e prodotti
+  ripetuti, fascia di prezzo, destinatari abituali, stagionalità) e i **punti**,
+  uno per ordine.
+- **Incrementale per costruzione**: se il riepilogo esiste, all'AI vanno solo
+  gli ordini più recenti di `ultimoOrdine`, col riepilogo vecchio davanti e
+  l'ordine di non riscriverne i punti; i punti nuovi si **accodano** ai vecchi.
+  I gusti invece si riscrivono ogni volta. `riepilogaCliente(chiave, { rifai:
+  true })` riparte da zero — è il bottone «Riscrivi da capo».
+- **Misurato su clienti veri**: 4 ordini → 3,7 s; 26 ordini → 10,9 s. I gusti
+  escono con nomi di prodotto e destinatari veri («Bouquet Grande Gatsby …
+  destinatari abituali Graziella Turchetti, …»).
+- **MAX_ORDINI = 24**: oltre, si mandano i più recenti. La scheda lo scrive,
+  perché `ordiniConsiderati` è *quanti ordini aveva quando è stato scritto* (lo
+  usa il confronto «sono arrivati N ordini nuovi»), non quanti ne ha letti.
+- **Il blocco si ferma da solo dopo 50 s** (`SECONDI_MAX`) e dice a che punto è
+  arrivato: una server action su Vercel viene uccisa, e 100 clienti × ~7 s non
+  ci stanno.
+- ⚠️ `riepilogaCliente` può tornare `ok: true` **con** un messaggio («Nessun
+  ordine nuovo»): non è un errore, e l'azione lo mostra come avviso verde.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare

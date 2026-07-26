@@ -562,3 +562,33 @@ model ApiKey {
   creataIl  DateTime  @default(now())
   ultimoUso DateTime?
 }
+
+// Il RIEPILOGO di un cliente, scritto dall'AI leggendo i suoi ordini.
+//
+// Serve a chi apre una scheda e ha dieci secondi: chi è questa persona, cosa
+// compra, per chi, e cosa le piace. Le stesse cose che un negoziante di
+// quartiere sa a memoria dei suoi clienti abituali, e che qui erano sparse in
+// venti righe d'ordine.
+//
+// SI AGGIORNA A OGNI ORDINE, non si riscrive: i punti già scritti restano e
+// l'AI ne aggiunge uno per gli ordini nuovi. Così il riepilogo è una storia che
+// cresce, e due letture a distanza di mesi non si contraddicono.
+model RiepilogoCliente {
+  id     String @id @default(cuid())
+  chiave String @unique // la stessa dei clienti: email → telefono → nome
+
+  testo String @default("") @db.Text // il riassunto in prosa, poche righe
+  punti String @default("") @db.Text // un punto per riga: i fatti, in ordine
+  // Preferenze e gusti: cosa compra e per chi. Sono la parte che serve a
+  // vendere bene — «solo fiori, sempre rose rosse, sempre alla stessa persona».
+  gusti String @default("") @db.Text
+
+  // Fin dove è arrivato: se sono arrivati ordini dopo, il riepilogo è vecchio e
+  // la scheda lo dice invece di far finta di niente.
+  ordiniConsiderati Int       @default(0)
+  ultimoOrdine      DateTime?
+  modello           String    @default("")
+
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+}

@@ -11,6 +11,9 @@ import {
 import { LISTE, lista } from "@/lib/segmenti";
 import { TabellaClienti } from "@/components/TabellaClienti";
 import { FiltriTaglio } from "@/components/FiltriTaglio";
+import { prisma } from "@/lib/db";
+import { aiConfigurata } from "@/lib/ai";
+import { riepilogaClientiMancantiAI } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +33,12 @@ export default async function Clienti({
   const filtro = lista(sp.lista ?? "")?.chiave;
   const taglio = { brand: sp.brand?.trim() || undefined, categoria: sp.categoria?.trim() || undefined };
 
-  const [brand, totale, clienti, senzaCliente] = await Promise.all([
+  const [brand, totale, clienti, senzaCliente, riepiloghi] = await Promise.all([
     brandConColore(),
     totaliClienti(q, filtro, taglio),
     elencoClienti(q, ordina, (pagina - 1) * PER_PAGINA, PER_PAGINA, filtro, verso, taglio),
     ordiniSenzaCliente(),
+    prisma.riepilogoCliente.count(),
   ]);
 
   const colori = mappaColori(brand);
@@ -93,6 +97,34 @@ export default async function Clienti({
           </div>
         )}
       </div>
+
+      {sp.esito && <div className="avviso-ok">{sp.esito}</div>}
+      {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
+
+      {/* I riepiloghi in blocco: si parte dai clienti che valgono di più,
+          perché ognuno è una chiamata a pagamento e 10.000 clienti non si
+          riassumono per sbaglio. Il numero si sceglie e si vede. */}
+      {aiConfigurata() && (
+        <div className="scheda scheda-riepilogo">
+          <div className="scheda-titolo">Riepiloghi scritti dall&apos;AI</div>
+          <p className="testo-guida">
+            Nella scheda di ogni cliente l&apos;AI scrive chi è, cosa compra e{" "}
+            <strong>cosa gli piace</strong>, leggendo i suoi ordini veri. Fatti finora:{" "}
+            <strong>{riepiloghi.toLocaleString("it-IT")}</strong> su{" "}
+            {totale.clienti.toLocaleString("it-IT")} clienti. Qui se ne scrivono altri, partendo
+            da chi ha speso di più.
+          </p>
+          <form action={riepilogaClientiMancantiAI} className="azioni-riga" style={{ marginTop: 10 }}>
+            <select name="quanti" defaultValue="20" aria-label="Quanti riepiloghi scrivere">
+              <option value="5">5 clienti</option>
+              <option value="20">20 clienti</option>
+              <option value="50">50 clienti</option>
+              <option value="100">100 clienti</option>
+            </select>
+            <button className="btn" type="submit">Scrivi i riepiloghi mancanti</button>
+          </form>
+        </div>
+      )}
 
       {/* Ricerca */}
       <form className="ricerca" method="get">

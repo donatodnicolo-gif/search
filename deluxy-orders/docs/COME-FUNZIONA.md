@@ -392,6 +392,50 @@ Tre cose volute:
    email, telefono o indirizzo del cliente. Il biglietto però contiene spesso
    nomi di persona, ed è giusto saperlo: quel testo passa da OpenAI.
 
+### Il riepilogo del cliente scritto dall'AI (`/clienti/:chiave`)
+In cima alla scheda di ogni cliente c'è un **riepilogo scritto dall'AI leggendo
+i suoi ordini veri**: chi è questa persona per noi, come compra, per chi — e
+soprattutto **cosa le piace**. È la cosa che un negoziante di quartiere sa a
+memoria dei suoi abituali, e che qui era sparsa in venti righe d'ordine.
+
+Sono **tre cose separate**, non un blocco solo:
+
+1. il **riassunto** in prosa, due o tre frasi;
+2. **Preferenze e gusti**: categorie e prodotti che ripete, fascia di prezzo,
+   destinatari abituali, stagionalità. È la parte che serve davvero per vendere
+   bene, e per questo è staccata dal resto;
+3. **la sua storia, un punto per ordine**, in ordine di tempo.
+
+**A ogni ordine nuovo si aggiunge un punto, i vecchi restano come sono.** Non è
+un dettaglio di risparmio: un riepilogo riscritto da capo ogni volta cambia le
+parole di cose già lette, e due letture a distanza di mesi si contraddicono. Chi
+aggiorna manda all'AI **solo gli ordini arrivati dopo l'ultima volta**, con
+davanti il riepilogo già scritto e l'istruzione di non riscriverne i punti. I
+gusti invece si riscrivono ogni volta: sono una lettura dell'insieme, e con un
+ordine in più possono cambiare davvero. Se il riepilogo non convince c'è
+**Riscrivi da capo**, che rilegge tutta la storia.
+
+Esempi veri (luglio 2026): «Tutti gli ordini sono indirizzati a Angelina Lacour
+… preferenza per le rose di lusso, in media 2.476 € per ordine»; «Bouquet Grande
+Gatsby, Bouquet Milano e Flower Box Ponza … destinatari abituali Graziella
+Turchetti, Immacolata Marsaglia, Maddalena Collini Crosti».
+
+Quattro cose volute:
+
+1. **si legge solo quello che c'è**: prodotti, date, importi, destinatari,
+   biglietti di quel cliente. Se gli ordini non bastano a dire i gusti, l'AI
+   deve scrivere che sono pochi ordini — non riempire il vuoto;
+2. **degli ordini si mandano i 24 più recenti**: la storia recente è quella che
+   conta, e la scheda lo dice invece di far credere di averli letti tutti;
+3. **si fa a mano, o in blocco con un numero scelto**: ogni cliente è una
+   chiamata a pagamento, e 10.000 clienti non si riassumono per sbaglio. Dalla
+   pagina Clienti si scrivono i mancanti partendo da chi ha speso di più, cinque
+   o cento alla volta; se il tempo sta per scadere il giro si ferma da solo e
+   dice a che punto è arrivato;
+4. **cosa esce dall'azienda**: titoli dei prodotti, date, importi, nomi dei
+   destinatari e testo dei biglietti di quel cliente. Non l'email, non il
+   telefono, non l'indirizzo.
+
 ### Script (`/script`)
 Uno **script** è un testo da mandare ai clienti, scritto una volta e riusato
 dalle automazioni: il messaggio di riordino, l'invito per una ricorrenza, il

@@ -9,6 +9,7 @@ import { canaleValido, tipologiaValida } from "@/lib/segmenti";
 import { importaFeedback } from "@/lib/feedback";
 import { preparaGiro, type VariabileScript } from "@/lib/automazioni";
 import { rilevaEventi } from "@/lib/eventi";
+import { riepilogaCliente, riepilogaClientiMancanti } from "@/lib/clienti-ai";
 import { leggiOccasioniDaiBiglietti } from "@/lib/eventi-ai";
 import { ricalcolaCategorie } from "@/lib/categorie";
 import { proponiCategorieAI } from "@/lib/categorie-ai";
@@ -173,6 +174,42 @@ export async function impostaTipologiaCliente(fd: FormData) {
   revalidatePath("/clienti");
   revalidatePath(`/clienti/${codificaChiave(chiave)}`);
   revalidatePath("/liste");
+}
+
+// ---- Riepilogo AI di un cliente (scheda cliente) ----
+// L'AI legge i suoi ordini e scrive chi è, cosa compra e cosa gli piace. A ogni
+// ordine nuovo aggiunge un punto invece di riscrivere tutto: la storia cresce.
+export async function riepilogaClienteAI(fd: FormData) {
+  const chiave = s(fd, "chiave");
+  if (!chiave) return;
+  const esito = await riepilogaCliente(chiave, { rifai: s(fd, "rifai") === "si" });
+  revalidatePath(`/clienti/${codificaChiave(chiave)}`);
+  // `ok` con un messaggio non è un errore: è «non c'era niente da fare».
+  if (esito.errore) {
+    const campo = esito.ok ? "esito" : "errore";
+    redirect(`/clienti/${codificaChiave(chiave)}?${campo}=${encodeURIComponent(esito.errore)}`);
+  }
+  redirect(
+    `/clienti/${codificaChiave(chiave)}?esito=${encodeURIComponent(
+      `Riepilogo aggiornato leggendo ${esito.ordini} ${esito.ordini === 1 ? "ordine" : "ordini"}`,
+    )}`,
+  );
+}
+
+// In blocco, coi clienti che valgono di più: ogni cliente è una chiamata a
+// pagamento, quindi il numero si sceglie e si vede.
+export async function riepilogaClientiMancantiAI(fd: FormData) {
+  const quanti = Math.min(200, Math.max(1, Number(s(fd, "quanti") ?? "20") || 20));
+  const esito = await riepilogaClientiMancanti(quanti);
+  revalidatePath("/clienti");
+  const messaggio = esito.errore
+    ? `errore=${encodeURIComponent(esito.errore)}`
+    : `esito=${encodeURIComponent(
+        `${esito.fatti} riepiloghi scritti${esito.saltati ? ` · ${esito.saltati} saltati (già fatti o senza ordini)` : ""}${
+          esito.fermato ? " · mi sono fermato per non superare il tempo: premi di nuovo per continuare" : ""
+        }`,
+      )}`;
+  redirect(`/clienti?${messaggio}`);
 }
 
 // ---- Privacy di un cliente (scheda cliente) ----

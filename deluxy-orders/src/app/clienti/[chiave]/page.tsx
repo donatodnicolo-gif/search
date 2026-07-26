@@ -15,16 +15,25 @@ import {
 import { statiOrdinati } from "@/lib/stati";
 import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
 import { PillAttivita, PillPrivacy, PillSegmento, PillTipologia, giorniFa } from "@/components/TabellaClienti";
-import { impostaPrivacyCliente, impostaTipologiaCliente } from "@/app/actions";
+import { impostaPrivacyCliente, impostaTipologiaCliente, riepilogaClienteAI } from "@/app/actions";
+import { aiConfigurata } from "@/lib/ai";
+import { MAX_ORDINI } from "@/lib/clienti-ai";
 
 export const dynamic = "force-dynamic";
 
-export default async function SchedaCliente({ params }: { params: Promise<{ chiave: string }> }) {
+export default async function SchedaCliente({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ chiave: string }>;
+  searchParams: Promise<Record<string, string>>;
+}) {
   const { chiave: codice } = await params;
+  const sp = await searchParams;
   const chiave = decodificaChiave(codice);
   const where = whereOrdiniCliente(chiave);
 
-  const [ordini, somma, brand, stati, cliente, eventi] = await Promise.all([
+  const [ordini, somma, brand, stati, cliente, riepilogo, eventi] = await Promise.all([
     prisma.ordine.findMany({
       where,
       include: { stato: true, etichette: true },
@@ -35,6 +44,7 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
     brandConColore(),
     statiOrdinati(),
     clienteSingolo(chiave),
+    prisma.riepilogoCliente.findUnique({ where: { chiave } }),
     prisma.eventoCliente.findMany({
       where: { chiave, stato: { not: "ignorato" } },
       orderBy: [{ ricorrenze: "desc" }, { mese: "asc" }, { giorno: "asc" }],
@@ -75,6 +85,9 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
   return (
     <main className="main">
       <Link href="/clienti" className="ritorno">← Tutti i clienti</Link>
+
+      {sp.esito && <div className="avviso-ok">{sp.esito}</div>}
+      {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
 
       <div className="page-head">
         <div>
@@ -221,6 +234,102 @@ export default async function SchedaCliente({ params }: { params: Promise<{ chia
                 ))}
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {/* Il riepilogo scritto dall'AI leggendo i suoi ordini: chi è, cosa
+          compra, cosa gli piace. Sta in cima perché è la risposta alla domanda
+          che ci si fa aprendo una scheda. */}
+      {cliente && (
+        <div className="scheda scheda-riepilogo">
+          <div className="scheda-titolo">
+            Riepilogo del cliente {riepilogo ? `· scritto con ${riepilogo.modello || "l'AI"}` : ""}
+          </div>
+
+          {riepilogo ? (
+            <>
+              <p className="riepilogo-testo">{riepilogo.testo}</p>
+
+              {riepilogo.gusti && (
+                <>
+                  <div className="scheda-titolo" style={{ marginTop: 16 }}>Preferenze e gusti</div>
+                  <p className="riepilogo-gusti">{riepilogo.gusti}</p>
+                </>
+              )}
+
+              {riepilogo.punti && (
+                <>
+                  <div className="scheda-titolo" style={{ marginTop: 16 }}>
+                    La sua storia, un punto per ordine
+                  </div>
+                  <ul className="motivi-rischio">
+                    {riepilogo.punti
+                      .split("\n")
+                      .filter(Boolean)
+                      .map((p, i) => (
+                        <li key={`${i}-${p.slice(0, 20)}`}>{p}</li>
+                      ))}
+                  </ul>
+                </>
+              )}
+
+              <p className="testo-guida" style={{ marginTop: 10 }}>
+                Aggiornato il {dataBreve(riepilogo.aggiornatoIl)}, quando i suoi ordini erano{" "}
+                {riepilogo.ordiniConsiderati}
+                {riepilogo.ordiniConsiderati > MAX_ORDINI
+                  ? ` (l'AI ne legge in dettaglio i ${MAX_ORDINI} più recenti)`
+                  : ""}
+                .
+                {cliente.ordini > riepilogo.ordiniConsiderati ? (
+                  <>
+                    {" "}
+                    <strong>
+                      Da allora sono arrivati {cliente.ordini - riepilogo.ordiniConsiderati} ordini
+                      nuovi
+                    </strong>
+                    : aggiornalo per aggiungerli.
+                  </>
+                ) : null}{" "}
+                L&apos;AI legge solo gli ordini veri di questa persona e non inventa: se una cosa
+                non si capisce dagli ordini, lo scrive.
+              </p>
+            </>
+          ) : (
+            <p className="testo-guida">
+              Ancora nessun riepilogo. L&apos;AI legge i suoi ordini — prodotti, date,
+              destinatari, biglietti — e scrive chi è questo cliente, cosa compra e{" "}
+              <strong>cosa gli piace</strong>. Poi, a ogni ordine nuovo, aggiunge un punto invece
+              di riscrivere tutto.
+            </p>
+          )}
+
+          {aiConfigurata() ? (
+            <div className="azioni-riga" style={{ marginTop: 12 }}>
+              {(!riepilogo || cliente.ordini > riepilogo.ordiniConsiderati) && (
+                <form action={riepilogaClienteAI}>
+                  <input type="hidden" name="chiave" value={chiave} />
+                  <button className="btn" type="submit">
+                    {riepilogo
+                      ? `Aggiungi i ${cliente.ordini - riepilogo.ordiniConsiderati} ordini nuovi`
+                      : "Fai il riepilogo con l'AI"}
+                  </button>
+                </form>
+              )}
+              {riepilogo && (
+                <form action={riepilogaClienteAI}>
+                  <input type="hidden" name="chiave" value={chiave} />
+                  <input type="hidden" name="rifai" value="si" />
+                  <button className="btn btn-secondario" type="submit">
+                    Riscrivi da capo
+                  </button>
+                </form>
+              )}
+            </div>
+          ) : (
+            <p className="testo-guida">
+              L&apos;AI non è configurata: manca <code className="inline">OPENAI_API_KEY</code>.
+            </p>
           )}
         </div>
       )}

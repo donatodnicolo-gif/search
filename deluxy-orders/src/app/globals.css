@@ -896,3 +896,15 @@ td .badge-problema { margin-top: 3px; }
 
 /* La frase del biglietto su cui l'AI ha deciso: è la prova, si legge */
 .prova-biglietto { font-style: italic; max-width: 260px; }
+
+/* ---------- Riepilogo AI del cliente ---------- */
+.scheda-riepilogo { border-left: 3px solid var(--gold); }
+.riepilogo-testo { font-size: 15px; line-height: 1.6; }
+.riepilogo-gusti {
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 10px 14px;
+  background: var(--gold-soft);
+  border-radius: var(--radius-m);
+}
+.azioni-riga { display: flex; flex-wrap: wrap; gap: 8px; }
