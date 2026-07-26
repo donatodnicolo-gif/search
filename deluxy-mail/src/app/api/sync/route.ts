@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { scaricaStorico, sincronizzaTutti, type EsitoSync } from '@/lib/sync'
+import { sincronizzaAttivitaConRegistro } from '@/lib/registroTask'
 
 // La sincronizzazione periodica gira da qui: un cron esterno (Vercel Cron,
 // Task Scheduler, cron di sistema) chiama questa rotta ogni pochi minuti.
@@ -42,7 +43,22 @@ export async function GET(request: Request) {
     }
 
     const esiti = await sincronizzaTutti()
-    return NextResponse.json({ ok: true, esiti })
+
+    // Finito di leggere la posta, le attività (vecchie e nuove) vanno al
+    // registro centralizzato: è lì che la persona vede tutte le sue cose da
+    // fare. Se il registro non risponde, la sincronizzazione della posta resta
+    // comunque riuscita.
+    const registro = await sincronizzaAttivitaConRegistro({
+      forza: parametri.get('forzaRegistro') === '1',
+    }).catch((e) => ({
+      attivo: false,
+      inviate: 0,
+      invariate: 0,
+      errori: 0,
+      messaggio: e instanceof Error ? e.message : 'Errore imprevisto',
+    }))
+
+    return NextResponse.json({ ok: true, esiti, registro })
   } catch (e) {
     return NextResponse.json(
       { ok: false, errore: e instanceof Error ? e.message : 'Errore imprevisto' },

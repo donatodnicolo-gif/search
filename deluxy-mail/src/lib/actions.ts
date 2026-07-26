@@ -3217,7 +3217,7 @@ export async function salvaChiaveAppAction(
   const u = await utenteCorrente()
   if (!u) return { ok: false, messaggio: 'Sessione scaduta: rientra.' }
   if (u.ruolo !== 'admin') return { ok: false, messaggio: 'Solo un amministratore può cambiare le chiavi.' }
-  const nomi: NomeChiaveApp[] = ['anagrafiche', 'finance', 'fornitori']
+  const nomi: NomeChiaveApp[] = ['anagrafiche', 'finance', 'fornitori', 'tasks']
   if (!nomi.includes(nome as NomeChiaveApp)) return { ok: false, messaggio: 'App sconosciuta.' }
 
   await salvaChiaveApp(nome as NomeChiaveApp, valore)

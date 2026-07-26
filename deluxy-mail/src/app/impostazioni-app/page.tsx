@@ -126,6 +126,42 @@ export default async function ImpostazioniApp() {
         ))}
       </div>
 
+      {/* ---------- Registro centralizzato delle attività ---------- */}
+      <h2 className="section-title">Registro Attività (Deluxy Tasks)</h2>
+      <p className="page-caption" style={{ marginBottom: 14 }}>
+        Le attività create qui (dall’AI, dalle regole o a mano) vengono mandate al registro
+        centralizzato <strong>Attività</strong>, dove ogni persona vede in un posto solo le cose da
+        fare che arrivano da tutte le app Deluxy. Si aggiornano da sole a ogni sincronizzazione
+        della posta: parte solo ciò che è cambiato, e chiudere un’attività qui la chiude anche là.
+        Serve una chiave di <strong>scrittura</strong> del registro.
+      </p>
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+          <span className={`badge ${chiavi.tasks ? 'green' : 'neutral'}`}>
+            <span className="dot" />
+            {chiavi.tasks ? 'Collegato' : 'Da collegare'}
+          </span>
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 10 }}>
+          Chiave di SCRITTURA generata dal registro Attività (comando «npm run chiave -- mail
+          --scrittura» nell’app deluxy-tasks).
+        </div>
+        {isAdmin ? (
+          <ChiaveAppForm
+            nome="tasks"
+            etichetta="Registro Attività"
+            impostataDaApp={statoChiavi.tasks.daApp}
+            daHub={statoChiavi.tasks.daHub}
+            daEnv={statoChiavi.tasks.daEnv}
+            variabileEnv="TASKS_API_KEY"
+          />
+        ) : (
+          <div style={{ fontSize: 12.5, color: 'var(--text-tertiary)' }}>
+            {chiavi.tasks ? 'Collegato.' : 'Non ancora collegato.'}
+          </div>
+        )}
+      </div>
+
       {/* ---------- Regole: quando una mail va a un'app ---------- */}
       <h2 className="section-title">Regole di smistamento verso le app</h2>
       <p className="page-caption" style={{ marginBottom: 14 }}>
