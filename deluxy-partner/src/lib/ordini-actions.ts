@@ -99,6 +99,50 @@ export async function sincronizzaOrdini(giorni = 90) {
   redirect(`/ordini?${qs.toString()}`);
 }
 
+// ————— Riconciliazione dal popup —————
+export type MovimentoCandidato = {
+  id: string; data: string; importo: number; descrizione: string; controparte: string | null;
+};
+
+// Cerca accrediti (importo > 0) non ancora abbinati a un ordine, per importo o
+// per nome/causale. Usato dal popup «Riconcilia». Termine vuoto = più recenti.
+export async function cercaMovimentiIncasso(q: string): Promise<MovimentoCandidato[]> {
+  const term = (q ?? "").trim();
+  const qNum = parseFloat(term.replace(/[^\d.,-]/g, "").replace(",", "."));
+  const abbinati = new Set(
+    (await prisma.ordineShopify.findMany({ where: { transazioneId: { not: null } }, select: { transazioneId: true } }))
+      .map((o) => o.transazioneId!)
+  );
+  const movs = await prisma.transazioneBancaria.findMany({
+    where: {
+      importo: { gt: 0 },
+      stato: { not: "registrata" },
+      ...(term
+        ? {
+            OR: [
+              { descrizione: { contains: term, mode: "insensitive" } },
+              { controparte: { contains: term, mode: "insensitive" } },
+              ...(Number.isFinite(qNum) ? [{ importo: { gte: qNum - 0.01, lte: qNum + 0.01 } }] : []),
+            ],
+          }
+        : {}),
+    },
+    orderBy: { data: "desc" },
+    take: 60,
+  });
+  return movs
+    .filter((m) => !abbinati.has(m.id))
+    .slice(0, 30)
+    .map((m) => ({ id: m.id, data: m.data.toISOString(), importo: m.importo, descrizione: m.descrizione, controparte: m.controparte }));
+}
+
+// Abbina dal popup: legge ordine e movimento dal form e riconcilia.
+export async function riconciliaDaModale(fd: FormData) {
+  const ordineId = String(fd.get("ordineId") ?? "");
+  const transazioneId = String(fd.get("transazioneId") ?? "");
+  if (ordineId && transazioneId) await riconciliaOrdine(ordineId, transazioneId);
+}
+
 // ————— Riconciliazione —————
 // Abbina un ordine a bonifico a un movimento bancario.
 export async function riconciliaOrdine(ordineId: string, transazioneId: string) {

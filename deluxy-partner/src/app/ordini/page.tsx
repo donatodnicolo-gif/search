@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
-import { STATI_ORDINE, CATEGORIE_PAG, suggerisciMovimenti, valutaQuota } from "@/lib/ordini";
+import { STATI_ORDINE, CATEGORIE_PAG, valutaQuota } from "@/lib/ordini";
 import { quotaFornitore } from "@/lib/ordini-config";
 import {
   sincronizzaOrdini,
-  riconciliaOrdine,
   riconciliaPerNumero,
+  cercaMovimentiIncasso,
+  riconciliaDaModale,
   segnaOrdineIncassato,
   ignoraOrdine,
   riapriOrdine,
 } from "@/lib/ordini-actions";
+import { RiconciliaModale } from "@/components/RiconciliaModale";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +29,7 @@ export default async function OrdiniPage({
   const wherePeriodo = dalPeriodo ? { data: { gte: dalPeriodo } } : {};
   const whereNegozio = sp.negozio ? { negozioId: sp.negozio } : {};
 
-  const [negozi, ordiniRaw, movimenti, ordiniPeriodo] = await Promise.all([
+  const [negozi, ordiniRaw, ordiniPeriodo] = await Promise.all([
     prisma.negozioShopify.findMany({ orderBy: { brand: "asc" } }),
     prisma.ordineShopify.findMany({
       where: {
@@ -39,8 +41,6 @@ export default async function OrdiniPage({
       orderBy: [{ data: "desc" }],
       take: 400,
     }),
-    // accrediti bancari disponibili per l'abbinamento dei bonifici
-    prisma.transazioneBancaria.findMany({ where: { importo: { gt: 0 } }, orderBy: { data: "desc" }, take: 1000 }),
     // TUTTI gli ordini del periodo (per la % di incasso: non limitata ai 400 mostrati)
     prisma.ordineShopify.findMany({
       where: { ...whereNegozio, ...wherePeriodo },
@@ -75,11 +75,6 @@ export default async function OrdiniPage({
   const margineConCosto = baseConCosto - totPagatoFornitori;
   const pctMargine = baseConCosto > 0.005 ? (margineConCosto / baseConCosto) * 100 : 0;
   const senzaCostoN = attivi.length - conCosto.length;
-
-  const giaAbbinati = new Set(
-    (await prisma.ordineShopify.findMany({ where: { transazioneId: { not: null } }, select: { transazioneId: true } }))
-      .map((o) => o.transazioneId!)
-  );
 
   // KPI
   const daRic = ordiniRaw.filter((o) => o.statoRicon === "da_riconciliare");
@@ -314,12 +309,6 @@ export default async function OrdiniPage({
               </thead>
               <tbody>
                 {ordiniRaw.map((o) => {
-                  // proposte per gli ordini da riconciliare (bonifico e, se il
-                  // numero è in causale, anche contrassegno/altro); mai per le carte
-                  const proposti =
-                    o.statoRicon === "da_riconciliare" && o.categoriaPagamento !== "carta"
-                      ? suggerisciMovimenti(o, movimenti, giaAbbinati).slice(0, 3)
-                      : [];
                   return (
                     <tr key={o.id}>
                       <td style={{ fontWeight: 500 }}>
@@ -362,17 +351,14 @@ export default async function OrdiniPage({
                       <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
                         {o.statoRicon === "da_riconciliare" ? (
                           <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                            {proposti.map(({ tx, forte, matchNumero }) => (
-                              <form key={tx.id} action={riconciliaOrdine.bind(null, o.id, tx.id)} style={{ display: "inline" }}>
-                                <button
-                                  className={`btn small ${forte ? "primary" : "secondary"}`}
-                                  type="submit"
-                                  title={`${tx.descrizione} · ${dataIt(tx.data)}${matchNumero ? " · n° ordine in causale" : ""}`}
-                                >
-                                  {matchNumero ? "n° " : ""}Abbina {euro(tx.importo)}{forte ? " ✓" : ""}
-                                </button>
-                              </form>
-                            ))}
+                            <RiconciliaModale
+                              ordineId={o.id}
+                              ordineNome={o.nome}
+                              totale={o.totale}
+                              clienteNome={o.clienteNome ?? o.clienteEmail ?? null}
+                              cerca={cercaMovimentiIncasso}
+                              riconcilia={riconciliaDaModale}
+                            />
                             <form action={segnaOrdineIncassato.bind(null, o.id)} style={{ display: "inline" }}>
                               <button className="btn small secondary" type="submit" title="Segna incassato senza abbinare un movimento">Incassato</button>
                             </form>
