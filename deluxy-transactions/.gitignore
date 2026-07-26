@@ -1,9 +1,11 @@
 node_modules
 .next
-.env
-.env*
-!.env.example
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# Segreti: mai committati. L'unico file che si versiona è l'esempio con i soli
+# nomi. L'eccezione va DOPO la regola generale, altrimenti non vale.
+.env*
+!.env.example
 
 .vercel
