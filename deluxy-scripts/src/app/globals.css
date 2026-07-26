@@ -534,7 +534,28 @@ tbody tr:hover { background: var(--fill); }
 .valore-campo input:focus, .valore-campo select:focus { background: var(--surface); border-color: var(--hairline-strong); }
 .valore-campo .campo-aiuto { font-size: 11px; }
 
-/* ---------- Riquadro «Copia lo script» ---------- */
+/* ---------- Riquadri dell'AI ---------- */
+/* Filo d'oro sul bordo: si vede a colpo d'occhio cosa l'ha scritto una macchina */
+.scheda-ai { border-left: 3px solid var(--gold); }
+
+.proposta {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline);
+}
+.proposta-testa {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+.elenco-variabili {
+  list-style: none;
+  margin-top: 10px;
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 13px; color: var(--text-secondary);
+}
+
+/* ---------- Riquadro «Usa questo testo» ---------- */
 .copia-testa { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .copia-scelte { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .copia-scelte select {

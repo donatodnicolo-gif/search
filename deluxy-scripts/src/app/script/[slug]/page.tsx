@@ -8,8 +8,10 @@ import {
   salvaValori,
   salvaVariabile,
 } from "@/app/actions";
+import { AiRitocco } from "@/components/AiRitocco";
 import { CopiaTesto, type VersioneApp } from "@/components/CopiaTesto";
 import { EditorCorpo } from "@/components/EditorCorpo";
+import { aiConfigurata, RITOCCHI } from "@/lib/ai";
 import { prisma } from "@/lib/db";
 import { CANALI, CATEGORIE, componi, daCompilare, risolviValori, TIPI_VARIABILE } from "@/lib/variabili";
 
@@ -188,6 +190,13 @@ export default async function DettaglioScript({ params }: { params: Promise<{ sl
           </div>
         </div>
       </form>
+
+      <AiRitocco
+        id={script.id}
+        slug={script.slug}
+        accesa={aiConfigurata()}
+        ritocchi={RITOCCHI.map((r) => ({ valore: r.valore, nome: r.nome }))}
+      />
 
       {/* ---------- Variabili ---------- */}
       <div className="scheda">

@@ -44,6 +44,32 @@ Nella pagina di un testo, il riquadro **«Usa questo testo»**:
   canali WhatsApp e SMS) o **Scrivi l'email** (apre il client di posta con
   oggetto e corpo già dentro).
 
+## L'AI che scrive e sistema i testi
+
+Due riquadri, con il filo d'oro sul bordo:
+
+- **«Fatti scrivere una bozza»** (pagina *Nuovo testo*) — si spiega a parole a
+  chi si manda e cosa deve dire, e l'AI propone titolo, oggetto e messaggio con
+  le variabili già al posto dei dati che cambiano.
+- **«Fallo sistemare all'AI»** (pagina di un testo) — ritocchi pronti (più
+  corto, più formale, più caloroso, adatta a WhatsApp, adatta a email, proponi
+  le variabili, più chiaro) oppure una richiesta scritta a mano.
+
+Tre regole, scritte nel codice e nel prompt:
+
+1. **L'AI propone, non pubblica.** La versione nuova compare accanto a quella
+   vera: finché una persona non preme «usa questa versione» nell'archivio resta
+   il testo di prima. Mandare il messaggio resta un gesto umano.
+2. **Non inventa dati.** Nomi, date, orari, indirizzi, prezzi non li conosce:
+   dove servono mette una variabile `{{COSÌ}}`. Un modello che riempie i buchi
+   da solo produce un invito con la data sbagliata, e quello parte al cliente.
+3. **Non cancella quello che non ha riscritto.** Se il ritocco non propone un
+   oggetto (succede sempre adattando a WhatsApp), l'oggetto dell'email resta
+   quello di prima.
+
+Serve `OPENAI_API_KEY` (`OPENAI_MODEL` opzionale, default `gpt-4o-mini`): senza,
+i due riquadri lo dicono e restano spenti, il resto dell'app funziona uguale.
+
 ## Avvio
 
 ```bash

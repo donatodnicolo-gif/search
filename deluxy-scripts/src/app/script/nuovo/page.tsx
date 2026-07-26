@@ -1,5 +1,7 @@
 import { creaScript } from "@/app/actions";
+import { AiBozza } from "@/components/AiBozza";
 import { EditorCorpo } from "@/components/EditorCorpo";
+import { aiConfigurata } from "@/lib/ai";
 import { CANALI, CATEGORIE } from "@/lib/variabili";
 
 export const dynamic = "force-dynamic";
@@ -12,11 +14,14 @@ export default function NuovoScript() {
         <div>
           <h1 className="page-title">Nuovo testo</h1>
           <p className="page-sub">
-            Scrivilo come lo manderesti davvero. Dove va il dato di chi lo riceve, mettici una variabile:{" "}
-            <code className="inline">{"{{NOME_CLIENTE}}"}</code> — vengono create da sole al salvataggio.
+            Scrivilo come lo manderesti davvero — o fatti fare una bozza dall&apos;AI e sistemala. Dove va il dato di
+            chi lo riceve, mettici una variabile: <code className="inline">{"{{NOME_CLIENTE}}"}</code> — vengono create
+            da sole al salvataggio.
           </p>
         </div>
       </div>
+
+      <AiBozza accesa={aiConfigurata()} />
 
       <form action={creaScript}>
         <div className="scheda">

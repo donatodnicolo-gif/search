@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { aiConfigurata, type Proposta, RITOCCHI, scriviBozza, sistemaTesto } from "@/lib/ai";
 import { prisma } from "@/lib/db";
 import { slugDa, slugLibero } from "@/lib/script";
 import { chiaviUsate, normalizzaChiave } from "@/lib/variabili";
@@ -275,4 +276,85 @@ export async function eliminaChiave(fd: FormData) {
   if (!id) return;
   await prisma.apiKey.delete({ where: { id } });
   revalidatePath("/impostazioni");
+}
+
+// ---------- AI ----------
+//
+// L'AI propone e basta: queste due azioni restituiscono una bozza a schermo e
+// NON scrivono niente nel database. Il salvataggio è un gesto separato
+// (`applicaProposta`, oppure il normale «Crea il testo»), fatto da una persona
+// che ha riletto. Sono server action e non rotte API: così passano dalla stessa
+// porta protetta da password del resto della UI, e la chiave OpenAI non è
+// raggiungibile da fuori.
+
+export type EsitoAi = { proposta?: Proposta; errore?: string };
+
+function messaggioErrore(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e);
+  // Gli errori dell'SDK sono in inglese e spesso lunghi: si tiene la prima riga.
+  return m.split("\n")[0].slice(0, 300);
+}
+
+export async function proponiBozza(_precedente: EsitoAi | null, fd: FormData): Promise<EsitoAi> {
+  if (!aiConfigurata()) return { errore: "L'AI è spenta: manca OPENAI_API_KEY." };
+  const brief = testo(fd, "brief");
+  if (!brief) return { errore: "Scrivi due righe di brief: a chi si manda e cosa deve dire." };
+  try {
+    const proposta = await scriviBozza({
+      brief,
+      categoria: testo(fd, "categoria") || "vendite",
+      canale: testo(fd, "canale") || "email",
+      tono: testo(fd, "tono") || undefined,
+    });
+    return { proposta };
+  } catch (e) {
+    return { errore: messaggioErrore(e) };
+  }
+}
+
+export async function proponiRitocco(_precedente: EsitoAi | null, fd: FormData): Promise<EsitoAi> {
+  if (!aiConfigurata()) return { errore: "L'AI è spenta: manca OPENAI_API_KEY." };
+  const id = testo(fd, "id");
+  const script = id ? await prisma.script.findUnique({ where: { id } }) : null;
+  if (!script) return { errore: "Testo non trovato." };
+
+  const scelto = RITOCCHI.find((r) => r.valore === testo(fd, "ritocco"));
+  const istruzione = testo(fd, "istruzione") || scelto?.istruzione;
+  if (!istruzione) return { errore: "Scegli un ritocco o scrivi cosa vuoi cambiare." };
+
+  try {
+    const proposta = await sistemaTesto({
+      titolo: script.nome,
+      oggetto: script.oggetto,
+      corpo: script.corpo,
+      categoria: script.categoria,
+      canale: script.canale,
+      istruzione,
+    });
+    return { proposta };
+  } catch (e) {
+    return { errore: messaggioErrore(e) };
+  }
+}
+
+// Sostituisce oggetto e corpo con la versione proposta dall'AI. Lo fa solo
+// quando una persona preme «usa questa versione»: le variabili nuove nascono
+// come sempre da `allineaVariabili`, quelle vecchie restano dove sono.
+export async function applicaProposta(fd: FormData) {
+  const id = testo(fd, "id");
+  const slug = testo(fd, "slug");
+  if (!id) return;
+  const corpo = corpoDa(fd);
+  // Oggetto vuoto NON vuol dire «cancellalo»: vuol dire che il modello non ne
+  // ha proposto uno (succede sempre quando si chiede di adattare a WhatsApp).
+  // Sovrascriverlo con null farebbe sparire in silenzio l'oggetto dell'email,
+  // che nessuno ha chiesto di togliere.
+  const oggetto = opzionale(fd, "oggetto");
+  await prisma.script.update({
+    where: { id },
+    data: oggetto ? { corpo, oggetto } : { corpo },
+  });
+  await allineaVariabili(id, `${oggetto ?? ""}\n${corpo}`);
+  revalidatePath(`/script/${slug}`);
+  revalidatePath("/");
 }

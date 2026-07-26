@@ -40,6 +40,14 @@ buchi `{{COSÌ}}` che si riempiono con i dati di chi riceve. Manuale d'uso:
   impostazioni con chiavi API e guida.
 - **API v1** a chiave (`x-api-key`, SHA-256 nel DB): `health`, `app`,
   `script?app=`, `script/<slug>?app=`, `script/<slug>/testo?app=`.
+- **AI (OpenAI, `gpt-4o-mini`)**: «Fatti scrivere una bozza» in *Nuovo testo* e
+  «Fallo sistemare all'AI» nella pagina di un testo (7 ritocchi pronti + una
+  richiesta libera). Sono **server action**, non rotte API: passano dalla stessa
+  porta protetta da password, così la chiave OpenAI non è raggiungibile da fuori.
+  L'AI propone e basta: niente si salva finché una persona non preme «usa questa
+  versione». Prova reale del 26/07: brief dell'invito B2B di Natale → bozza con
+  oggetto e 4 variabili (nessuna data inventata), poi «adatta a WhatsApp» →
+  versione più corta applicata al testo.
 - **Ingresso dal Hub (SSO)**: `/api/sso` legge il token cifrato del Hub e apre la
   sessione. Verificato in produzione: token valido → 307 su `/` con cookie;
   token assente, scaduto, per un'altra app o inventato → `/login`.
@@ -65,6 +73,11 @@ buchi `{{COSÌ}}` che si riempiono con i dati di chi riceve. Manuale d'uso:
    endpoint POST/PATCH lo usa.
 5. **Allegati e formattazione**: i testi sono testo semplice. Niente grassetto,
    niente immagini, niente PDF della presentazione.
+6. **AI, secondo giro**: oggi la bozza nasce solo da un brief scritto a mano. I
+   passi successivi naturali sono (a) partire da un testo che esiste già («fanne
+   una versione per gli hotel»), (b) far leggere all'AI i testi migliori
+   dell'archivio come esempi di tono, (c) far riempire le variabili all'app che
+   usa il testo, coi dati veri dell'ordine.
 
 ## Trappole già pagate
 
@@ -75,6 +88,12 @@ buchi `{{COSÌ}}` che si riempiono con i dati di chi riceve. Manuale d'uso:
 - **CRLF dai textarea**: i browser mandano i fine riga come `\r\n`. Il testo
   viene normalizzato a `\n` in `actions.ts` — senza, il messaggio incollato in
   WhatsApp porta con sé caratteri invisibili.
+- **Una riscrittura AI non deve cancellare quello che non ha riscritto**: il
+  ritocco «adatta a WhatsApp» non propone un oggetto, e la prima versione di
+  `applicaProposta` lo salvava come `null` — l'oggetto dell'email spariva in
+  silenzio. Ora l'oggetto vuoto vuol dire «non l'ho toccato». Trovato provando,
+  non leggendo: verificato che dopo un ritocco senza oggetto l'oggetto di prima
+  è ancora lì.
 - **Lo slug è la chiave delle API**: cambia solo se cambia il titolo, e chi
   consuma l'API va avvisato. `slugLibero` evita le collisioni.
 - **`vercel env pull` non restituisce i valori**: scrive `"encrypted"` al posto
