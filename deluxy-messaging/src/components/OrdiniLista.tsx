@@ -73,6 +73,25 @@ function linkPagamento(o: OrdineDto): string {
   return `/pagamenti?${p.toString()}`
 }
 
+/**
+ * Apre una richiesta di rimborso precompilata con questo ordine.
+ * Porta anche il totale (è il tetto rimborsabile) e lo stato del pagamento, che
+ * serve ad avvisare se l'ordine risulta già rimborsato o mai incassato.
+ */
+function linkRimborso(o: OrdineDto): string {
+  const p = new URLSearchParams({
+    ordineId: o.id,
+    ordine: o.numero,
+    cliente: o.clienteNome,
+    telefono: o.telefono,
+    email: o.email,
+    negozio: o.negozioNome,
+    totale: String(o.totale || ''),
+    pagamento: o.statoPagamento,
+  })
+  return `/rimborsi?${p.toString()}`
+}
+
 /** Apre un nuovo reclamo (Customer Service) precompilato con questo ordine. */
 function linkReclamo(o: OrdineDto): string {
   const p = new URLSearchParams({
@@ -662,6 +681,13 @@ export function OrdiniLista() {
                           >
                             Reclamo
                           </a>
+                          <a
+                            className="bottone secondario mini"
+                            href={linkRimborso(o)}
+                            title="Chiedi il rimborso di questo ordine (lo approva poi una persona)"
+                          >
+                            Rimborso
+                          </a>
                           {o.gestione === 'gestito' ? (
                             <button
                               className="bottone secondario mini"
@@ -788,6 +814,13 @@ export function OrdiniLista() {
                         title="Apri un reclamo su questo ordine"
                       >
                         Reclamo
+                      </a>
+                      <a
+                        className="bottone secondario mini"
+                        href={linkRimborso(o)}
+                        title="Chiedi il rimborso di questo ordine"
+                      >
+                        Rimborso
                       </a>
                       {o.gestione === 'gestito' ? (
                         <button

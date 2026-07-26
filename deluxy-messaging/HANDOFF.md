@@ -55,6 +55,40 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- RIMBORSI: BOTTONE SULL'ORDINE + REGISTRO (26/07/2026): da ogni ordine (scheda e
+  tabella) il pulsante **Rimborso** apre `/rimborsi` col modulo già pieno
+  (ordine, cliente, recapiti, **totale** e **stato del pagamento**). Tabella
+  `Rimborso`, `src/lib/rimborsi.ts`, API `/api/rimborsi` e
+  `/api/rimborsi/[id]/stato`, pagina + voce di menu.
+  Flusso: **richiesto → approvato → rimborsato** (oppure rifiutato/annullato).
+  ⚠️ **QUEST'APP NON RIMBORSA.** Registra la richiesta e la decisione; i soldi li
+  muove una persona su Shopify o in banca e poi si segna «rimborsato». È la
+  regola del repo (nessuna app Deluxy paga per conto proprio, vedi
+  deluxy-transactions): **non aggiungere qui una chiamata che sposta denaro** —
+  semmai si instrada a Transactions.
+  I PALETTI, verificati contro l'API vera sull'ordine #1729 da 64 €:
+  · non si rende più di quanto incassato → 64,01 rifiutato;
+  · il tetto è **cumulativo** sulle altre richieste dello stesso ordine → 40 ok,
+    poi 25 rifiutato («al massimo 24,00 €»), 24 ok, poi anche 1 € rifiutato
+    («già chiesto o reso l'intero importo»);
+  · importo 0 / negativo / NaN rifiutati; **motivo obbligatorio** (un rimborso
+    senza motivo scritto è indifendibile dopo); ordine obbligatorio;
+  · rifiutato e annullato **non impegnano** denaro: dopo un rifiuto si può
+    richiedere di nuovo l'intero importo (verificato);
+  · «rimborsato» **esige l'esito scritto** (400 senza), stato inventato → 400.
+  I confronti sono in **centesimi interi**, non in float: con 66,66 già impegnati
+  su 100, chiedere 33,34 deve passare — in virgola mobile il residuo risulta
+  negativo e verrebbe rifiutato un rimborso legittimo (provato).
+  AVVISI (non bloccano, informano) da `avvisoPagamento(statoPagamento)`: REFUNDED
+  «già rimborsato per intero», PARTIALLY_REFUNDED, VOIDED «pagamento stornato»,
+  PENDING «non ancora incassato», vuoto «stato sconosciuto». Sui dati veri
+  servono davvero: 16 REFUNDED, 11 PARTIALLY_REFUNDED, 11 VOIDED, 5 PENDING.
+  KPI: da approvare, approvati da pagare, **promesso e non ancora uscito** (somma
+  di richiesti+approvati: un eseguito non ci conta, verificato) e rimborsato.
+  MANCA: legare la richiesta al reclamo da cui nasce (il campo `reclamoId` c'è ed
+  è accettato dall'API, ma non c'è ancora il pulsante dal reclamo), e l'invio a
+  deluxy-transactions per l'uscita vera.
+
 - TIPO DI CLIENTE SUGLI ORDINI (26/07/2026): ogni ordine mostra **da che tipo di
   cliente arriva** — privato, azienda, hotel/ristorante, eventi, rivenditore.
   Il dato **viene da Orders, non si calcola qui**: campi nuovi `Ordine.clienteTipo`

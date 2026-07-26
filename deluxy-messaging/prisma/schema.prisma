@@ -338,6 +338,62 @@ model Giudizio {
   @@unique([soggettoTipo, soggettoId])
 }
 
+// Una RICHIESTA DI RIMBORSO su un ordine: il cliente riavrebbe indietro dei
+// soldi, in tutto o in parte.
+//
+// ⚠️ QUESTA TABELLA NON RIMBORSA NIENTE. Registra che qualcuno lo ha chiesto e
+// che qualcun altro lo ha approvato o rifiutato; il denaro lo muove una persona,
+// da Shopify o dalla banca, e lo si segna qui con "eseguito". È la stessa regola
+// che vale per i pagamenti in tutto il repo (vedi deluxy-transactions): nessuna
+// app Deluxy paga per conto proprio. Chi in futuro volesse automatizzare l'uscita
+// deve passare da lì — non aggiungere qui una chiamata che sposta soldi.
+//
+// Nasce quasi sempre da un reclamo (`reclamoId`), ma può stare in piedi da sola:
+// un cliente può chiedere il rimborso senza aver aperto una contestazione.
+model Rimborso {
+  id           String   @id @default(cuid())
+  // L'ordine: denormalizzato come per i reclami, perché l'ordine può vivere qui
+  // in locale oppure solo nell'archivio di Deluxy Orders.
+  ordineId     String   @default("")
+  ordineNumero String   @default("")
+  negozioNome  String   @default("")
+  clienteNome  String   @default("")
+  telefono     String   @default("")
+  email        String   @default("")
+
+  // Quanto valeva l'ordine quando è stata fatta la richiesta: si congela qui
+  // perché è il tetto su cui è stato deciso. Se domani l'ordine cambiasse, la
+  // decisione presa resterebbe leggibile con i numeri di allora.
+  importoOrdine Float   @default(0)
+  importo      Float    @default(0) // quanto si chiede di rendere
+  valuta       String   @default("EUR")
+  // totale | parziale — si ricava dagli importi, ma tenerlo scritto rende
+  // leggibile l'elenco senza rifare il confronto a ogni riga.
+  tipo         String   @default("parziale")
+
+  // Perché. `motivo` è il testo libero; `reclamoId` lega la richiesta alla
+  // contestazione da cui nasce, se c'è.
+  motivo       String   @default("") @db.Text
+  reclamoId    String   @default("")
+
+  // richiesto | approvato | rifiutato | eseguito | annullato
+  stato        String   @default("richiesto")
+  richiestoDa  String   @default("") // chi l'ha chiesto (nome dell'operatore)
+  decisoDa     String   @default("") // chi ha approvato o rifiutato
+  decisoIl     DateTime?
+  // Come è finita davvero: "rimborsato su Shopify il 3/8", "bonifico del 5/8".
+  esito        String   @default("") @db.Text
+  eseguitoIl   DateTime?
+  note         String   @default("") @db.Text
+
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([stato])
+  @@index([ordineId])
+  @@index([creatoIl])
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CUSTOMER SERVICE — PUNTEGGI (pagella di valet e partner)
 //

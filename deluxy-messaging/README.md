@@ -41,6 +41,39 @@ Attenzione, oltre Critico). Così un solo reclamo grave ancora aperto accende gi
 sempre visibile da cosa nasce il numero. Per il quadro completo — feedback, orari e altre
 variabili — c'è la **pagella** qui sotto.
 
+## Rimborsi
+
+Da ogni ordine il pulsante **Rimborso** apre la richiesta già compilata: ordine, cliente,
+recapiti, valore dell'ordine e stato del pagamento. Si scrive quanto si rende e **perché**,
+poi la richiesta passa da **Da approvare → Approvato → Rimborsato** (o Rifiutato).
+
+> **Quest'app non rimborsa nessuno.** Registra chi lo ha chiesto, chi lo ha approvato e
+> come è stato reso. Il denaro lo muove una persona, su Shopify o in banca, e poi lo si
+> segna come fatto — con l'esito scritto, obbligatorio. È la stessa regola dei pagamenti in
+> tutto l'ecosistema: nessuna app Deluxy fa uscire soldi per conto proprio.
+
+**I paletti, perché qui si parla di denaro vero.**
+
+- **Non si rende più di quanto si è incassato**, e il tetto è *cumulativo*: se su un ordine
+  da 64 € c'è già una richiesta da 40, la seconda può arrivare al massimo a 24, e dopo non
+  passa più niente. Le richieste rifiutate o annullate non impegnano nulla, quindi dopo un
+  rifiuto si può ripartire dall'intero importo.
+- **Il motivo è obbligatorio**: un rimborso senza motivo scritto è impossibile da spiegare
+  sei mesi dopo, quando è solo denaro uscito.
+- **«Rimborsato» pretende l'esito** («reso su Shopify il 3/8»): senza, resterebbe un
+  "fatto" senza prova di dove e quando.
+- I confronti si fanno **in centesimi interi**, non in virgola mobile: con 66,66 già
+  impegnati su 100, chiedere 33,34 deve passare — in float il residuo esce negativo e un
+  rimborso legittimo verrebbe respinto.
+
+**Gli avvisi non bloccano, informano.** Se Shopify dice che l'ordine è già rimborsato,
+rimborsato in parte, stornato o non ancora incassato, il modulo lo scrive in cima: chi ha
+parlato col cliente ne sa più del dato, ma deve saperlo *prima* di decidere. Sugli ordini
+veri non è teoria: 16 risultano già rimborsati, 11 in parte, 11 stornati, 5 non incassati.
+
+In alto: quante richieste sono da approvare, quante approvate da pagare, **quanto è
+promesso e non ancora uscito** e quanto è già stato reso.
+
 ## Punteggi: la pagella di valet e partner
 
 Il giudizio sui reclami guarda una cosa sola. La **pagella** (`/reclami/punteggi`) mette

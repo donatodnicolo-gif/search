@@ -14,6 +14,7 @@ export function Sidebar() {
       voci: [
         { href: '/reclami', nome: 'Reclami', icona: iconaReclamo },
         { href: '/reclami/casistiche', nome: 'Casistiche', icona: iconaCasistiche },
+        { href: '/rimborsi', nome: 'Rimborsi', icona: iconaRimborso },
         { href: '/reclami/punteggi', nome: 'Punteggi', icona: iconaPunteggi },
         { href: '/reclami/feedback', nome: 'Feedback e orari', icona: iconaFeedback },
         { href: '/reclami/giudizi', nome: 'Giudizi', icona: iconaGiudizi },
@@ -162,6 +163,14 @@ const iconaCasistiche = (
     <path d="M4 6h4v4H4zM4 14h4v4H4z" />
     <line x1="11" y1="8" x2="20" y2="8" />
     <line x1="11" y1="16" x2="20" y2="16" />
+  </svg>
+)
+const iconaRimborso = (
+  // Banconota che torna indietro: soldi che rientrano al cliente.
+  <svg {...T} strokeLinejoin="round">
+    <rect x="2.5" y="7" width="19" height="11" rx="2" />
+    <circle cx="12" cy="12.5" r="2.4" />
+    <path d="M9 3.5 6.2 6.3 9 9.1" />
   </svg>
 )
 const iconaPunteggi = (
