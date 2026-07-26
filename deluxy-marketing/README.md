@@ -5,6 +5,8 @@ Root Directory `deluxy-marketing`, Postgres condiviso Deluxy schema `marketing`)
 La UI e protetta da password unica (`MARKETING_APP_PASSWORD`); le API `/api/v1` restano
 aperte alle sole chiavi.
 
+👉 **Stato del progetto, cosa manca e trappole già pagate: [docs/HANDOFF.md](docs/HANDOFF.md)**.
+
 La **memoria operativa dell'advertising Deluxy** (porta **3130**): qui si depositano le analisi e
 gli audit prodotti dalle sessioni Claude (custode "Digital Global Marketing" e progetti brand),
 le **azioni** che ne derivano — con storia completa e feedback — e le **campagne** con le loro

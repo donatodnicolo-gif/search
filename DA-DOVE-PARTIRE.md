@@ -41,7 +41,7 @@ in parallelo sullo stesso branch.
 | `deluxy-mail` | AI Mail: IMAP/SMTP, smistamento e bozze con OpenAI | 3070 | [deluxy-mail.vercel.app](https://deluxy-mail.vercel.app) | [HANDOFF.md](deluxy-mail/HANDOFF.md) |
 | `deluxy-budgets` | budget 2026 su 3 livelli, P&L, premi | 3080 | *non pubblicata* | [README.md](deluxy-budgets/README.md) |
 | `deluxy-merchandising` | prodotto a 360°: collezioni, PLM, costi, Shopify | 3120 | *non pubblicata* | [docs/HANDOFF.md](deluxy-merchandising/docs/HANDOFF.md) |
-| `deluxy-marketing` | memoria operativa ADV: audit, azioni, campagne | 3130 | [deluxy-marketing.vercel.app](https://deluxy-marketing.vercel.app) | [README.md](deluxy-marketing/README.md) |
+| `deluxy-marketing` | memoria operativa ADV + connettori Google/Meta, dashboard per brand con MER, lettura AI | 3130 | [deluxy-marketing.vercel.app](https://deluxy-marketing.vercel.app) | [docs/HANDOFF.md](deluxy-marketing/docs/HANDOFF.md) |
 | `deluxy-messaging` | ordini da lavorare (da Orders, aggiornati da soli ogni 15') + inbox unificata WhatsApp/Messenger/IG + widget siti | 3140 | [deluxy-messaging.vercel.app](https://deluxy-messaging.vercel.app) | [HANDOFF.md](deluxy-messaging/HANDOFF.md) |
 | `deluxy-orders` | registro centralizzato ordini Shopify | 3150 | [deluxy-orders.vercel.app](https://deluxy-orders.vercel.app) | [docs/HANDOFF.md](deluxy-orders/docs/HANDOFF.md) |
 | `deluxy-transactions` | autorizzazione dei pagamenti: richieste firmate dalle app, doppia firma, distinte SEPA | 3160 | *da pubblicare* | [docs/HANDOFF.md](deluxy-transactions/docs/HANDOFF.md) + [SICUREZZA.md](deluxy-transactions/docs/SICUREZZA.md) |
@@ -90,6 +90,19 @@ npx vercel deploy --prod --yes
   **Non ripescare file da zip, worktree o cartelle più vecchie**: è già costato
   lavoro perso. Nel dubbio la versione buona è quella su `main`.
 - **`deluxy-search-supplier` si sviluppa su `main`**, non su `scout-ui`.
+- **Google Ads Scripts**: `DURING LAST_N_DAYS` accetta solo pochi valori fissi
+  (per finestre libere servono date esplicite con `BETWEEN`), e `apiVersion`
+  fissata si rompe quando Google ritira la versione (la v18 non è più
+  supportata: meglio non specificarla). Il bottone **Esegui** lancia una volta
+  sola: per la ricorrenza serve la colonna **Frequenza**, e Google fa scegliere
+  la fascia oraria, non il minuto esatto.
+- **Meta non ha gli Scripts**: è l'app che deve chiamare la Graph API con un
+  token. Usare quello di un **utente di sistema** del Business Manager, che non
+  scade; i token utente muoiono in 60 giorni. Il portfolio `1298043513875111`
+  è disabilitato da Meta: mai usarlo.
+- **Heredoc bash e template literal non convivono**: `${...}` viene espanso
+  dalla shell e corrompe i file. Usare gli strumenti Write/Edit per i blocchi
+  di codice, non `cat <<EOF`.
 - **Cambiare una variabile su Vercel non basta**: vale solo per i deployment
   nuovi → dopo ogni modifica si ripubblica.
 - **Il push non pubblica.** Il deploy in produzione è un comando separato
