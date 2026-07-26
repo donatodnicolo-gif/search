@@ -1,18 +1,20 @@
 import { db } from './db'
-import { cifra, decifra } from './crypto'
-import { risolviToken } from './shopify'
 
-// Gestione dei negozi Shopify collegati (multi-store). Le credenziali (token
-// statico e client secret) sono cifrate in colonna e decifrate solo qui.
-
-function decifraSicuro(v: string): string {
-  if (!v) return ''
-  try {
-    return decifra(v)
-  } catch {
-    return '' // APP_SECRET cambiato: la credenziale va reinserita
-  }
-}
+// I negozi (brand) di Deluxy. Servono alle colonne della bacheca, alla sigla in
+// rubrica e al bottone Fornitore, e si creano da soli quando il sync incontra un
+// brand nuovo di Deluxy Orders.
+//
+// ⚠️ REGOLA NON NEGOZIABILE: **gli ordini li scarica da Shopify SOLO l'app
+// Deluxy Orders.** Quest'app li legge dal registro (`src/lib/orders.ts`) e non
+// deve poterli prendere altrove: due sorgenti vorrebbero dire due verità sullo
+// stesso ordine, con classificazioni diverse a seconda dell'app che si guarda.
+//
+// Per questo il client Shopify di quest'app è stato **cancellato**
+// (`src/lib/shopify.ts`, che conteneva `scaricaOrdini` e `risolviToken`) e le
+// credenziali Admin non si chiedono né si salvano più: la regola è tolta dalle
+// possibilità, non affidata alla memoria di chi passerà di qui. Le colonne
+// `token`/`clientId`/`clientSecret` restano sulla tabella coi valori storici, ma
+// nessuno le legge più.
 
 /**
  * Il brand come lo conosce l'app Ricerca fornitori (search-deluxy): serve al
@@ -35,17 +37,6 @@ export function linkRicercaFornitori(brandRicerca: string, numero: string): stri
   return `${base.replace(/\/$/, '')}/?${p}`
 }
 
-export type NegozioConCredenziali = {
-  id: string
-  nome: string
-  prefisso: string
-  dominio: string
-  token: string
-  clientId: string
-  clientSecret: string
-  attivo: boolean
-}
-
 /**
  * Sigla del negozio davanti al nome in rubrica: FL (Flowers), CK (Cake),
  * DL (Deluxy). Si deduce da nome+dominio; "Deluxy Flowers" → FL, perché il
@@ -60,63 +51,31 @@ export function prefissoDaNegozio(nome: string, dominio: string, prefisso = ''):
   return (nome.trim().slice(0, 2) || 'XX').toUpperCase()
 }
 
-/** Negozi attivi con le credenziali in chiaro, per lo scarico ordini. */
-export async function negoziAttivi(): Promise<NegozioConCredenziali[]> {
-  const righe = await db.negozioShopify.findMany({ where: { attivo: true }, orderBy: { nome: 'asc' } })
-  return righe.map((n) => ({
-    id: n.id,
-    nome: n.nome,
-    prefisso: prefissoDaNegozio(n.nome, n.dominio, n.prefisso),
-    dominio: n.dominio,
-    token: decifraSicuro(n.token),
-    clientId: n.clientId,
-    clientSecret: decifraSicuro(n.clientSecret),
-    attivo: n.attivo,
-  }))
-}
-
-/** Ricava il token Admin per un negozio (statico o via client credentials). */
-export async function tokenPerNegozio(n: NegozioConCredenziali): Promise<{ dominio: string; token: string }> {
-  return risolviToken({
-    shopifyDominio: n.dominio,
-    shopifyToken: n.token,
-    shopifyClientId: n.clientId,
-    shopifyClientSecret: n.clientSecret,
-  })
-}
-
 type DatiNegozio = {
   nome: string
   prefisso?: string
   brandRicerca?: string
   dominio: string
-  token?: string
-  clientId?: string
-  clientSecret?: string
   attivo?: boolean // se undefined, non si tocca
 }
 
-/** Crea o aggiorna un negozio. Token/secret vuoti = non toccare (già salvati). */
+/** Crea o aggiorna un negozio. */
 export async function salvaNegozio(id: string | null, dati: DatiNegozio): Promise<void> {
   const dominio = dati.dominio.trim().replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase()
+  // Niente credenziali Shopify: quest'app non scarica ordini (vedi la regola in
+  // testa al file). I campi storici sulla tabella non si toccano.
   const base = {
     nome: dati.nome.trim() || dominio,
     prefisso: (dati.prefisso ?? '').trim().toUpperCase(),
     brandRicerca: (dati.brandRicerca ?? '').trim(),
     dominio,
-    clientId: (dati.clientId ?? '').trim(),
     ...(dati.attivo === undefined ? {} : { attivo: dati.attivo }),
   }
-  const cifrati: { token?: string; clientSecret?: string } = {}
-  if (dati.token && dati.token.trim()) cifrati.token = cifra(dati.token.trim())
-  if (dati.clientSecret && dati.clientSecret.trim()) cifrati.clientSecret = cifra(dati.clientSecret.trim())
 
   if (id) {
-    await db.negozioShopify.update({ where: { id }, data: { ...base, ...cifrati } })
+    await db.negozioShopify.update({ where: { id }, data: base })
   } else {
-    await db.negozioShopify.create({
-      data: { ...base, token: cifrati.token ?? '', clientSecret: cifrati.clientSecret ?? '' },
-    })
+    await db.negozioShopify.create({ data: base })
   }
 }
 

@@ -20,11 +20,12 @@ export default async function PaginaNegozi() {
         </span>
       </div>
       <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 0, maxWidth: 760 }}>
-        I brand degli ordini. <strong>Gli ordini arrivano dal registro Deluxy Orders</strong>, non
-        più da Shopify: qui non servono credenziali, e i brand nuovi compaiono da soli al primo
-        aggiornamento. Quello che conta è la <strong>sigla</strong> usata in rubrica (FL, CK, DL) e
-        il <strong>brand su Ricerca fornitori</strong>. I campi Shopify restano solo per le
-        configurazioni vecchie e si possono lasciare vuoti.
+        I brand degli ordini. <strong>Gli ordini li scarica da Shopify solo l&apos;app Deluxy
+        Orders</strong>, e quest&apos;app li legge da lì: è una regola, non una preferenza — due
+        sorgenti vorrebbero dire due verità sullo stesso ordine. Per questo qui non si chiedono
+        credenziali Shopify: non servono e non potrebbero servire. I brand nuovi compaiono da soli
+        al primo aggiornamento; quello che si imposta è la <strong>sigla</strong> usata in rubrica
+        (FL, CK, DL) e il <strong>brand su Ricerca fornitori</strong>.
       </p>
 
       <div className="griglia-impostazioni">
@@ -33,10 +34,6 @@ export default async function PaginaNegozi() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <h2 style={{ margin: 0, flex: 1 }}>{n.nome || n.dominio}</h2>
               <Badge ok={n.attivo} testo={n.attivo ? 'attivo' : 'sospeso'} />
-              <Badge
-                ok={!!(n.token || (n.clientId && n.clientSecret))}
-                testo={n.token ? 'token' : n.clientId ? 'client creds' : 'da configurare'}
-              />
             </div>
 
             <form action={salvaNegozioAction}>
@@ -71,28 +68,6 @@ export default async function PaginaNegozi() {
                 <span>Dominio</span>
                 <input name="dominio" defaultValue={n.dominio} />
               </label>
-              <label className="campo">
-                <span>A) Admin API token statico (shpat_…)</span>
-                <input
-                  name="token"
-                  type="password"
-                  placeholder={n.token ? 'salvato — incolla per sostituire' : 'app legacy'}
-                  autoComplete="off"
-                />
-              </label>
-              <label className="campo">
-                <span>B) Client ID (app Dev Dashboard)</span>
-                <input name="clientId" defaultValue={n.clientId} autoComplete="off" />
-              </label>
-              <label className="campo">
-                <span>B) Client Secret</span>
-                <input
-                  name="clientSecret"
-                  type="password"
-                  placeholder={n.clientSecret ? 'salvato — incolla per sostituire' : ''}
-                  autoComplete="off"
-                />
-              </label>
               <button className="bottone">Salva</button>
             </form>
 
@@ -102,7 +77,6 @@ export default async function PaginaNegozi() {
                 <input type="hidden" name="id" value={n.id} />
                 <input type="hidden" name="nome" value={n.nome} />
                 <input type="hidden" name="dominio" value={n.dominio} />
-                <input type="hidden" name="clientId" value={n.clientId} />
                 <input type="hidden" name="attivo" value={n.attivo ? '' : '1'} />
                 <button className="bottone secondario" style={{ padding: '5px 14px', fontSize: 13 }}>
                   {n.attivo ? 'Sospendi' : 'Riattiva'}
@@ -137,21 +111,10 @@ export default async function PaginaNegozi() {
               <span>Dominio dello store</span>
               <input name="dominio" placeholder="fb72b1-2.myshopify.com" required />
             </label>
-            <label className="campo">
-              <span>A) Admin API token statico (shpat_…)</span>
-              <input name="token" type="password" placeholder="app legacy" autoComplete="off" />
-            </label>
             <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '2px 0 10px' }}>
-              — oppure — app Dev Dashboard:
+              Di solito non serve aggiungerli a mano: un brand nuovo di Deluxy Orders compare da
+              solo al primo aggiornamento.
             </p>
-            <label className="campo">
-              <span>B) Client ID</span>
-              <input name="clientId" autoComplete="off" />
-            </label>
-            <label className="campo">
-              <span>B) Client Secret</span>
-              <input name="clientSecret" type="password" autoComplete="off" />
-            </label>
             <button className="bottone">Aggiungi negozio</button>
           </form>
         </div>

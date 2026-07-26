@@ -55,6 +55,21 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- LA REGOLA «GLI ORDINI LI SCARICA SOLO ORDERS» È ORA IMPOSSIBILE DA VIOLARE
+  (26/07/2026). Il codice per prendere gli ordini da Shopify era ancora qui,
+  inerte ma pronto: `src/lib/shopify.ts` con `scaricaOrdini()` e `risolviToken()`,
+  `tokenPerNegozio()`/`negoziAttivi()` in `negozi.ts`, e la pagina `/negozi` che
+  **chiedeva e cifrava credenziali Admin di Shopify** che nessuno leggeva.
+  Verificato prima di togliere: `scaricaOrdini`, `verificaStore`, `tokenPerNegozio`
+  e `negoziAttivi` non erano chiamati da nessuno.
+  Ora `src/lib/shopify.ts` è **cancellato**, le credenziali non si chiedono né si
+  salvano più, e la regola è scritta in testa a `src/lib/negozi.ts`. Motivo:
+  due sorgenti per lo stesso ordine vorrebbero dire due verità, con
+  classificazioni diverse a seconda dell'app che si guarda.
+  Le colonne `token`/`clientId`/`clientSecret` restano sulla tabella coi valori
+  storici — **non le legge più nessuno**. Se si vogliono azzerare quei segreti,
+  è una cancellazione di dati e va chiesta prima.
+
 - ORDINI VISIBILMENTE AGGIORNATI, E DAVVERO OGNI 15 MINUTI (26/07/2026).
   ⚠️ **LA CATENA ERA ROTTA A MONTE**: questo cron gira ogni quarto d'ora, ma
   **Orders scaricava da Shopify una volta al giorno (06:00)** — quindi si
