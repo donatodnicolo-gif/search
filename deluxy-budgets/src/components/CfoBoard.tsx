@@ -102,6 +102,27 @@ export function CfoBoard({
     else setPianoMsg("Creazione non riuscita.");
   }
 
+  // Modifica di una categoria già esistente: nome e — soprattutto — la voce di
+  // P&L in cui confluisce. Senza questa, l'unico modo per spostare una categoria
+  // da una voce all'altra era cancellarla e rifarla, perdendo tutte le regole
+  // che le erano state insegnate.
+  async function salvaCategoria(id: string, patch: { nome?: string; tipoPL?: string }) {
+    setBusy(true);
+    setErrore(null);
+    const res = await fetch("/api/cfo/categorie", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...patch }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const b = await res.json().catch(() => null);
+      setErrore(b?.error ?? "Modifica non riuscita.");
+      return;
+    }
+    router.refresh();
+  }
+
   async function creaCategoria() {
     if (!nuova?.nome.trim()) {
       setErrore("Indica il nome della categoria.");
@@ -308,11 +329,35 @@ export function CfoBoard({
               {righe.filter((r) => r.categoriaId).map((r) => (
                 <tr key={r.categoriaId}>
                   <td>
-                    <span className={`badge ${r.colore ?? tipoBadge(r.tipoPL)}`}>
-                      <span className="dot" />{r.categoriaNome}
+                    <span className={`badge ${r.colore ?? tipoBadge(r.tipoPL)}`} style={{ marginRight: 6 }}>
+                      <span className="dot" />
                     </span>
+                    <input
+                      defaultValue={r.categoriaNome ?? ""}
+                      disabled={busy}
+                      style={{ width: 190, padding: "4px 6px", fontSize: 13 }}
+                      onBlur={(e) => {
+                        const nome = e.target.value.trim();
+                        if (nome && nome !== r.categoriaNome) salvaCategoria(r.categoriaId!, { nome });
+                        else e.target.value = r.categoriaNome ?? "";
+                      }}
+                    />
                   </td>
-                  <td className="muted">{tipoLabel(r.tipoPL)}</td>
+                  <td>
+                    {/* La voce di P&L si cambia da qui: è il modo per spostare una
+                        categoria (es. i pagamenti ai partner) fuori dai costi,
+                        senza cancellarla e perdere le sue regole. */}
+                    <select
+                      value={r.tipoPL ?? "STRUTTURA"}
+                      disabled={busy}
+                      onChange={(e) => salvaCategoria(r.categoriaId!, { tipoPL: e.target.value })}
+                      style={{ padding: "4px 6px", fontSize: 13 }}
+                    >
+                      {TIPI_PL.map((t) => (
+                        <option key={t.key} value={t.key}>{t.label}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="num" style={{ fontWeight: 600 }}>{eur(r.uscite)}</td>
                   <td className="num muted">{pct((r.uscite / (totali.uscite || 1)) * 100, 0)}</td>
                   <td className="num muted">{r.movimenti}</td>

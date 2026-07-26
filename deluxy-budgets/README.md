@@ -32,7 +32,7 @@ pubblicato), *sfidante* e *irraggiungibile*.
   una regola permanente). Ogni categoria è agganciata a una voce di P&L (COGS/ADV/Personale/
   Struttura/Esclusa). Le controparti da categorizzare sono mostrate per importo (le prime 100),
   con nota su quante restano. Richiede `FINANCE_API_KEY` e l'API `/api/spese` di Finance (live).
-  Categorie e regole si aggiungono/rimuovono. **Proposte con AI**: un bottone chiede a OpenAI
+  Categorie e regole si aggiungono, si rimuovono e **si modificano**: nome e voce di P&L si cambiano dalla riga della categoria, senza cancellarla e perdere le regole che le erano state insegnate — è il modo per spostare, per esempio, i pagamenti ai partner fuori dai costi. **Proposte con AI**: un bottone chiede a OpenAI
   di ipotizzare la categoria di ogni controparte non classificata (con confidenza e motivo); le
   proposte pre-compilano le tendine e si confermano una a una o in blocco (solo le alte
   confidenze). L'AI propone, l'utente conferma: nulla è applicato in automatico. Richiede
@@ -45,6 +45,7 @@ pubblicato), *sfidante* e *irraggiungibile*.
   sono ancora in nessuna app, quindi si applica una **stima unica del 40%** (costante
   `QUOTA_FATTURATO` in `src/lib/venduto.ts`), scritta in chiaro in ogni riga che la usa: quando
   arriveranno i dati veri va **sostituita, non affiancata**.
+- **Previsione di fine anno** (in fondo a `/venduto`, solo su YTD): dove si chiude se il ritmo resta questo. Non è la media dei mesi fatti moltiplicata per quelli che restano — il business è stagionale e una media direbbe che dicembre vale come agosto. Si misura **di quanto si sta crescendo** sui mesi già fatti rispetto allo stesso periodo dell'anno prima, e si applica quella crescita ai mesi che mancano **così com'erano l'anno prima**: la stagionalità la mette l'anno scorso, che l'ha già vissuta. Senza anno precedente **non si proietta** e la pagina dice perché (motore in `src/lib/previsione.ts`).
 - **Consuntivo / Fatturato reale** (`/consuntivo`): gli importi **realmente fatturati** per tipologia di servizio,
   richiamati dall'app **Finance** (`deluxy-partner`, endpoint `/api/tipologie`) con selettore di
   periodo (anno / 1° / 2° semestre) e stato (tutte / saldate / aperte). Il fatturato reale si
@@ -187,3 +188,19 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
 - **Piattaforme ADV**: split **globale** d'azienda, non per singola maison; nessun raccordo con lo speso reale.
 - **Costo del lavoro**: tredicesima/quattordicesima e TFR non sono voci distinte; nessun consuntivo del personale.
 - **P&L**: per singola **linea commerciale** non c'è (le linee hanno solo il budget vendite, non un conto economico).
+
+## Chiavi dall'app (Configurazione → Chiavi)
+
+Le chiavi API si possono incollare **dentro l'app** (`/impostazioni/chiavi`), oltre che nelle
+variabili d'ambiente e nella cassaforte del Hub. Ordine di precedenza, e la pagina lo dichiara con
+un badge su ogni riga: **ambiente → impostata nell'app → Hub**. L'ambiente vince perché è quello
+che si cambia in emergenza senza entrare nell'app.
+
+Il valore finisce nel database **cifrato** (AES-256-GCM, chiave derivata da `APP_SECRET` con
+scrypt — stessa infrastruttura di `deluxy-merchandising` e `deluxy-messaging`, `src/lib/crypto.ts`)
+e **non torna mai al browser per intero**: in pagina si vede solo `sk-proj-…a1b2`, quanto basta a
+riconoscere quale chiave è impostata.
+
+> **Senza `APP_SECRET` il salvataggio è disabilitato**, e la pagina lo dice: una chiave in chiaro su
+> un database condiviso non è una cosa da fare di nascosto. La variabile va aggiunta all'ambiente
+> dell'app (locale e Vercel).

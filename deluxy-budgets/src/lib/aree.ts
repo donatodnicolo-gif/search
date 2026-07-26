@@ -15,7 +15,7 @@ export const AREE: Record<Area, { label: string; sub: string; badge: string }> =
 // (Finance + quota del venduto) e i costi reali (banca, CFO). Tutto il resto è
 // pianificazione; le impostazioni a parte.
 const CONSUNTIVO = ["/venduto", "/consuntivo", "/cfo"];
-const CONFIG = ["/impostazioni"];
+const CONFIG = ["/impostazioni", "/impostazioni/chiavi"];
 
 export function areaDi(pathname: string): Area {
   // La radice rimanda al consuntivo (src/app/page.tsx): l'etichetta deve dire

@@ -171,7 +171,12 @@ const nav: AreaNav[] = [
     area: "Configurazione",
     badge: "neutral",
     gruppi: [
-      { items: [{ href: "/impostazioni", label: "Scenari, premi e costi", icon: icons.impostazioni }] },
+      {
+        items: [
+          { href: "/impostazioni", label: "Scenari, premi e costi", icon: icons.impostazioni },
+          { href: "/impostazioni/chiavi", label: "Chiavi", icon: icons.cfo },
+        ],
+      },
     ],
   },
 ];
@@ -180,8 +185,13 @@ export function Sidebar() {
   const pathname = usePathname();
   // La radice rimanda al consuntivo: finché il redirect non è atterrato è quella
   // la voce accesa, così la sidebar non lampeggia su niente all'apertura.
-  const isActive = (href: string) =>
-    pathname === "/" ? href === "/consuntivo" : pathname.startsWith(href);
+  // Vince la voce col percorso **più lungo** che combacia: con il semplice
+  // startsWith, su /impostazioni/chiavi si accendevano due voci insieme.
+  const tutti = nav.flatMap((a) => a.gruppi.flatMap((g) => g.items.map((i) => i.href)));
+  const migliore = tutti
+    .filter((h) => pathname === h || pathname.startsWith(`${h}/`))
+    .sort((a, b) => b.length - a.length)[0];
+  const isActive = (href: string) => (pathname === "/" ? href === "/consuntivo" : migliore === href);
 
   return (
     <aside className="sidebar">

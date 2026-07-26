@@ -3,6 +3,7 @@ import { caricaAnno } from "@/lib/calc";
 import { eur, MESI, pct } from "@/lib/format";
 import { caricaVenduto, fatturatoDaVenduto, QUOTA_FATTURATO, sommaMesi } from "@/lib/venduto";
 import { PERIODI, quota, risolviPeriodo, variazione } from "@/lib/periodo";
+import { proietta } from "@/lib/previsione";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,15 @@ export default async function VendutoPage({
   // Le maison servono per abbinare i negozi, quindi si caricano prima; le due
   // chiamate a Orders (anno e anno prima) partono poi insieme.
   const dati = await caricaAnno(p.anno);
-  const [vend, vendPrec] = await Promise.all([
+  const [vend, vendPrec, vendPrecPieno] = await Promise.all([
     p.vuoto ? Promise.resolve(null) : caricaVenduto(p.anno, dati.maisons),
     p.vuoto ? Promise.resolve(null) : caricaVenduto(p.annoPrec, dati.maisons, p.tagliaPrec),
+    // L'anno prima **intero**, non tagliato: serve come base dei mesi che
+    // mancano nella previsione. Se `tagliaPrec` non c'è, è la stessa chiamata e
+    // la si riusa invece di rifarla.
+    p.vuoto || !p.tagliaPrec
+      ? Promise.resolve(null)
+      : caricaVenduto(p.annoPrec, dati.maisons),
   ]);
 
   const totale = vend ? sommaMesi(vend.mese, p.mesiPeriodo) : 0;
@@ -48,6 +55,19 @@ export default async function VendutoPage({
     if (v === null) return <span className="muted">—</span>;
     return <span className={v >= 0 ? "pos" : "neg"}>{v >= 0 ? "+" : ""}{pct(v, 0)}</span>;
   };
+
+  // Previsione: ha senso solo su un periodo che parte da gennaio e arriva a
+  // oggi (YTD o «Anno»). Su un trimestre passato non c'è niente da prevedere.
+  const daInizioAnno = p.dal === 1 && p.anno === p.annoInCorso && p.al === p.meseLimite;
+  const basePiena = vendPrecPieno?.ok ? vendPrecPieno : vendPrec;
+  const previsione =
+    daInizioAnno && vend?.ok && basePiena?.ok
+      ? proietta(vend.mese, basePiena.mese, p.mesiPeriodo, totalePrec ?? 0)
+      : null;
+  const budgetAnno = dati.maisons.reduce(
+    (s, m) => s + m.mesi.reduce((a, y) => a + (y.vendite[SLUG_D2C] ?? 0), 0),
+    0
+  );
 
   const righe = dati.maisons
     .map((m) => ({
@@ -231,6 +251,100 @@ export default async function VendutoPage({
               </>
             )}
           </p>
+
+          {previsione && (
+            <>
+              <h2 className="section-title">Dove si chiude, se il ritmo resta questo</h2>
+              {!previsione.ok ? (
+                <div className="card">
+                  <p className="page-caption" style={{ margin: 0 }}>{previsione.motivo}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="kpi-grid">
+                    <div className="kpi">
+                      <div className="kpi-label">Venduto previsto {p.anno}</div>
+                      <div className="kpi-value">{eur(previsione.totale)}</div>
+                      <div className="kpi-sub">
+                        {eur(previsione.fatto)} fatti + {eur(previsione.restante)} da{" "}
+                        {previsione.mesiRestanti.length} mesi
+                      </div>
+                    </div>
+                    <div className="kpi">
+                      <div className="kpi-label">Ritmo applicato</div>
+                      <div className={`kpi-value ${previsione.crescitaPct >= 0 ? "pos" : "neg"}`}>
+                        {previsione.crescitaPct >= 0 ? "+" : ""}{pct(previsione.crescitaPct, 0)}
+                      </div>
+                      <div className="kpi-sub">crescita misurata sui mesi fatti, sul {p.annoPrec}</div>
+                    </div>
+                    <div className="kpi">
+                      <div className="kpi-label">Budget D2C {p.anno} (anno intero)</div>
+                      <div className="kpi-value">{eur(budgetAnno)}</div>
+                      <div className="kpi-sub">
+                        {budgetAnno > 0 ? (
+                          <>
+                            previsione al <strong>{pct((previsione.totale / budgetAnno) * 100, 0)}</strong> del budget
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="card tight">
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Mese che manca</th>
+                            {previsione.mesiRestanti.map((r) => (
+                              <th className="num" key={r.mese}>{MESI[r.mese - 1]}</th>
+                            ))}
+                            <th className="num">Totale</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="muted" style={{ whiteSpace: "nowrap" }}>Stesso mese {p.annoPrec}</td>
+                            {previsione.mesiRestanti.map((r) => (
+                              <td className="num muted" key={r.mese}>{eur(r.annoPrec)}</td>
+                            ))}
+                            <td className="num muted">
+                              {eur(previsione.mesiRestanti.reduce((s, r) => s + r.annoPrec, 0))}
+                            </td>
+                          </tr>
+                          <tr className="tot">
+                            <td>Previsto</td>
+                            {previsione.mesiRestanti.map((r) => (
+                              <td className="num" key={r.mese}>{eur(r.stima)}</td>
+                            ))}
+                            <td className="num">{eur(previsione.restante)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <p className="page-caption" style={{ marginTop: 12 }}>
+                    Il conto è: <strong>quanto stiamo crescendo</strong> sui mesi già fatti ({pct(previsione.crescitaPct, 0)}{" "}
+                    sul {p.annoPrec}), applicato ai mesi che mancano <strong>così com&apos;erano il {p.annoPrec}</strong>.
+                    La stagionalità la mette l&apos;anno scorso, che l&apos;ha già vissuta: una media dei mesi fatti
+                    direbbe che dicembre vale come agosto, e qui dicembre vale il doppio.
+                    {previsione.mesiBase < previsione.mesiRestanti.length && (
+                      <>
+                        {" "}<strong>Attenzione</strong>: dei {previsione.mesiRestanti.length} mesi che mancano, solo{" "}
+                        {previsione.mesiBase} hanno dati nel {p.annoPrec} — sugli altri la base è zero e la previsione
+                        li conta zero, quindi è prudente per difetto.
+                      </>
+                    )}{" "}
+                    Non è un obiettivo e non tiene conto di campagne, aperture o listini nuovi: dice solo dove si va
+                    con lo slancio di adesso.
+                  </p>
+                </>
+              )}
+            </>
+          )}
 
           <div className="card" style={{ marginTop: 14 }}>
             <h3 style={{ margin: "0 0 6px", fontSize: 15 }}>Da venduto a fatturato</h3>

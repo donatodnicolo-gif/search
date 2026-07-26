@@ -218,3 +218,14 @@ model PropostaBudget {
   stato      String   @default("INVIATA") // BOZZA | INVIATA | APPROVATA | RESPINTA
   createdAt  DateTime @default(now())
 }
+
+// Chiavi API impostate dall'app (Configurazione → Chiavi), in alternativa alle
+// variabili d'ambiente e alla cassaforte del Hub. Il valore è **cifrato**
+// (AES-256-GCM con APP_SECRET, vedi src/lib/crypto.ts): nel database non c'è
+// mai una chiave leggibile, e in pagina non torna mai per intero.
+model ChiaveApi {
+  nome      String   @id // es. OPENAI_API_KEY
+  cifrato   String
+  aggiornato DateTime @updatedAt
+  note      String?
+}
