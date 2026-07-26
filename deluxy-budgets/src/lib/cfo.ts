@@ -67,7 +67,10 @@ export type RigaCategoria = {
   uscite: number;
   movimenti: number;
   perMese: number[];
-  controparti: { controparte: string; uscite: number }[];
+  // `perMese` anche sulla singola controparte: serve a decidere l'anno di
+  // competenza direttamente da qui, dove si guardano le uscite — spostare un
+  // importo vuol dire sapere in quale mese sta.
+  controparti: { controparte: string; uscite: number; perMese: number[] }[];
 };
 
 // Raggruppa gli addebiti per categoria applicando le regole.
@@ -84,7 +87,7 @@ export function ricostruisci(controparti: SpesaControparte[], categorie: Categor
     r.uscite += s.uscite;
     r.movimenti += s.movimenti;
     for (let i = 0; i < 12; i++) r.perMese[i] += s.perMese[i] ?? 0;
-    r.controparti.push({ controparte: s.controparte, uscite: s.uscite });
+    r.controparti.push({ controparte: s.controparte, uscite: s.uscite, perMese: s.perMese });
     perCat.set(k, r);
   }
 

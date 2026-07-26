@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TIPI_PL } from "@/lib/cfo";
 import { eur, MESI, pct } from "@/lib/format";
@@ -13,20 +13,90 @@ type Riga = {
   uscite: number;
   movimenti: number;
   perMese: number[];
-  controparti: { controparte: string; uscite: number }[];
+  controparti: { controparte: string; uscite: number; perMese: number[] }[];
 };
 type CatOpt = { id: string; nome: string; tipoPL: string; colore: string | null };
 
 const tipoLabel = (k: string | null) => TIPI_PL.find((t) => t.key === k)?.label ?? "—";
 const tipoBadge = (k: string | null) => TIPI_PL.find((t) => t.key === k)?.badge ?? "neutral";
 
+type Comp = { mese: number; importo: string; anno: number; meseDestinazione: number };
+
+// Il pannello «anno di competenza» che si apre sotto la riga di una
+// controparte. Sta **fuori** dal componente padre di proposito: definito
+// dentro, React ne creerebbe un tipo nuovo a ogni render e lo rimonterebbe a
+// ogni battuta — il campo perdeva il fuoco e il pannello spariva da sotto le
+// mani appena si sceglieva un mese.
+function RigaCompetenza({
+  controparte, perMese, colonne, anno, comp, setComp, busy, onSposta, onAnnulla,
+}: {
+  controparte: string;
+  perMese: number[];
+  colonne: number;
+  anno: number;
+  comp: Comp;
+  setComp: (f: (c: Comp) => Comp) => void;
+  busy: boolean;
+  onSposta: (controparte: string, perMese: number[]) => void;
+  onAnnulla: () => void;
+}) {
+  const suggerito = perMese[comp.mese - 1] ?? 0;
+  return (
+    <tr>
+      <td colSpan={colonne} style={{ background: "rgba(0,0,0,.03)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end" }}>
+          <label style={{ display: "grid", gap: 3, fontSize: 12 }}>
+            Uscita del mese
+            <select value={comp.mese} onChange={(e) => setComp((c) => ({ ...c, mese: Number(e.target.value), importo: "" }))}>
+              {MESI.map((m, i) => (
+                <option key={m} value={i + 1}>{m} · {eur(perMese[i] ?? 0)}</option>
+              ))}
+            </select>
+          </label>
+          <label style={{ display: "grid", gap: 3, fontSize: 12 }}>
+            Importo
+            <input
+              value={comp.importo}
+              placeholder={String(Math.round(suggerito * 100) / 100)}
+              onChange={(e) => setComp((c) => ({ ...c, importo: e.target.value }))}
+              style={{ width: 110, padding: "5px 7px" }}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 3, fontSize: 12 }}>
+            Competenza anno
+            <select value={comp.anno} onChange={(e) => setComp((c) => ({ ...c, anno: Number(e.target.value) }))}>
+              {[anno - 2, anno - 1, anno, anno + 1].map((y) => (<option key={y} value={y}>{y}</option>))}
+            </select>
+          </label>
+          <label style={{ display: "grid", gap: 3, fontSize: 12 }}>
+            e mese
+            <select value={comp.meseDestinazione} onChange={(e) => setComp((c) => ({ ...c, meseDestinazione: Number(e.target.value) }))}>
+              {MESI.map((m, i) => (<option key={m} value={i + 1}>{m}</option>))}
+            </select>
+          </label>
+          <button className="btn" disabled={busy} onClick={() => onSposta(controparte, perMese)}>
+            {busy ? "Sposto…" : "Sposta"}
+          </button>
+          <button className="btn secondary" disabled={busy} onClick={onAnnulla}>Annulla</button>
+          <span className="muted" style={{ fontSize: 12 }}>
+            Vuoto = tutto il mese ({eur(suggerito)}). Il dato di Finance non cambia: cambia solo
+            l&apos;esercizio in cui si legge.
+          </span>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 export function CfoBoard({
   periodoLabel,
+  anno,
   totali,
   righe,
   categorie,
 }: {
   periodoLabel: string;
+  anno: number;
   totali: { uscite: number; movimenti: number; perMese: number[] };
   righe: Riga[];
   categorie: CatOpt[];
@@ -37,6 +107,10 @@ export function CfoBoard({
   const [assegna, setAssegna] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  // Quale controparte ha aperto il pannello «anno di competenza», e con quali
+  // valori. Uno solo per volta: è una decisione da prendere guardando una riga.
+  const [compPer, setCompPer] = useState<string | null>(null);
+  const [comp, setComp] = useState({ mese: 1, importo: "", anno: anno - 1, meseDestinazione: 12 });
   // Proposte AI per controparte (categoria + confidenza + motivo)
   const [proposte, setProposte] = useState<
     Record<string, { categoriaId: string | null; confidenza: string; motivo: string }>
@@ -120,6 +194,44 @@ export function CfoBoard({
       setErrore(b?.error ?? "Modifica non riuscita.");
       return;
     }
+    router.refresh();
+  }
+
+  // ---- Anno di competenza, deciso da qui ----
+  // Sta nel CFO e non solo nella sua pagina perché è qui che si guardano le
+  // uscite una per una: accorgersi che una fattura è dell'anno prima succede
+  // mentre la si categorizza, non dopo, in un'altra schermata.
+  async function spostaCompetenza(controparte: string, perMese: number[]) {
+    const mese = comp.mese;
+    const importoScritto = Number((comp.importo || "").replace(",", "."));
+    const importo = Number.isFinite(importoScritto) && importoScritto > 0 ? importoScritto : (perMese[mese - 1] ?? 0);
+    if (importo <= 0) {
+      setErrore("In quel mese questa controparte non ha uscite: non c'è niente da spostare.");
+      return;
+    }
+    setBusy(true);
+    setErrore(null);
+    const res = await fetch("/api/competenza", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tipo: "USCITA",
+        voce: controparte,
+        annoOrigine: anno,
+        meseOrigine: mese,
+        annoCompetenza: comp.anno,
+        meseCompetenza: comp.meseDestinazione,
+        importo,
+      }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const b = await res.json().catch(() => null);
+      setErrore(b?.error ?? "Spostamento non riuscito.");
+      return;
+    }
+    setCompPer(null);
+    setComp((c) => ({ ...c, importo: "" }));
     router.refresh();
   }
 
@@ -397,11 +509,29 @@ export function CfoBoard({
           </h3>
           <div className="chips">
             {righe.find((r) => r.categoriaId === espansa)?.controparti.map((c) => (
-              <span className="chip" key={c.controparte} style={{ cursor: "default" }}>
+              // Cliccabile: anche una controparte già categorizzata può avere
+              // un'uscita che è di competenza di un altro esercizio.
+              <button
+                className="chip"
+                key={c.controparte}
+                onClick={() => setCompPer(compPer === c.controparte ? null : c.controparte)}
+                title="Decidi l'anno di competenza di questa uscita"
+              >
                 {c.controparte} · {eur(c.uscite)}
-              </span>
+              </button>
             ))}
           </div>
+          {(() => {
+            const c = righe.find((r) => r.categoriaId === espansa)?.controparti.find((x) => x.controparte === compPer);
+            if (!c) return null;
+            return (
+              <table style={{ marginTop: 10 }}>
+                <tbody>
+                  <RigaCompetenza controparte={c.controparte} perMese={c.perMese} colonne={1} anno={anno} comp={comp} setComp={setComp} busy={busy} onSposta={spostaCompetenza} onAnnulla={() => setCompPer(null)} />
+                </tbody>
+              </table>
+            );
+          })()}
         </div>
       )}
 
@@ -441,7 +571,8 @@ export function CfoBoard({
                     const badge =
                       prop?.confidenza === "alta" ? "green" : prop?.confidenza === "media" ? "gold" : "neutral";
                     return (
-                      <tr key={c.controparte}>
+                      <Fragment key={c.controparte}>
+                      <tr>
                         <td style={{ fontWeight: 500 }}>{c.controparte}</td>
                         <td className="num">{eur(c.uscite)}</td>
                         <td style={{ minWidth: 180 }}>
@@ -471,7 +602,7 @@ export function CfoBoard({
                             ))}
                           </select>
                         </td>
-                        <td>
+                        <td style={{ whiteSpace: "nowrap" }}>
                           <button
                             className="btn primary small"
                             disabled={!assegna[c.controparte] || busy}
@@ -479,8 +610,19 @@ export function CfoBoard({
                           >
                             Assegna
                           </button>
+                          <button
+                            className="btn secondary small"
+                            style={{ marginLeft: 6 }}
+                            onClick={() => setCompPer(compPer === c.controparte ? null : c.controparte)}
+                          >
+                            Competenza
+                          </button>
                         </td>
                       </tr>
+                      {compPer === c.controparte && (
+                        <RigaCompetenza controparte={c.controparte} perMese={c.perMese} colonne={5} anno={anno} comp={comp} setComp={setComp} busy={busy} onSposta={spostaCompetenza} onAnnulla={() => setCompPer(null)} />
+                      )}
+                      </Fragment>
                     );
                   })}
                 </tbody>

@@ -56,6 +56,7 @@ export default async function CfoPage({
       ) : (
         <CfoBoard
           periodoLabel={res.dati.periodo.etichetta}
+          anno={ANNO_CORRENTE}
           totali={res.dati.totali}
           righe={ricostruisci(res.dati.controparti, categorie).map((r) => ({
             categoriaId: r.categoria?.id ?? null,
