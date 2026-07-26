@@ -234,8 +234,17 @@
   .os-photo{width:92px; height:92px; object-fit:cover; border-radius:var(--radius-m); border:1px solid var(--hairline); background:var(--fill)}
   .os-fields{display:grid; gap:6px; font-size:14px; color:var(--text); min-width:0}
   .os-fields .lbl{color:var(--text-tertiary)}
-  .os-money{display:flex; gap:16px; flex-wrap:wrap; margin-top:4px}
-  .os-money b{font-variant-numeric:tabular-nums; letter-spacing:-.01em}
+  /* prezzi del riepilogo: numeri GRANDI come nel riquadro originale (marginalità in evidenza) */
+  .os-prices{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px}
+  .os-price{display:flex; flex-direction:column; gap:2px; padding:10px 14px; border:1px solid var(--hairline);
+        border-radius:var(--radius-m); background:var(--surface); min-width:120px}
+  .os-price-lbl{font-size:12px; color:var(--text-secondary)}
+  .os-price-val{font-size:22px; font-weight:600; letter-spacing:-.022em; font-variant-numeric:tabular-nums}
+  .os-price-budget{border-color:rgba(184,150,62,.35); background:var(--gold-soft)}
+  .os-price-budget .os-price-val{color:var(--gold-strong)}
+  .os-price-margin .os-price-val{font-size:18px; color:var(--text-secondary)}
+  .os-price-tag{font-size:11px; font-weight:600; color:var(--text-tertiary)}
+  .os-price-tag.warn{color:var(--orange)}
   .os-msg{margin-top:14px}
   .os-msg textarea{min-height:76px; background:var(--fill)}
   /* App shell — layout standard app Deluxy (sidebar traslucida + contenuti) */
@@ -2875,6 +2884,7 @@ function renderOrderSummary(){
   const paid = $('#ord_paid').value.trim(), budget = $('#ord_budget').value.trim();
   const paidN = parseFloat(paid.replace(',','.')), budN = parseFloat(budget.replace(',','.'));
   const margine = (isFinite(paidN) && isFinite(budN)) ? (paidN - budN) : null;
+  const srcTag = ($('#deal_src') && $('#deal_src').textContent || '').trim();   // «da tabella» / «stima 59% — da confermare» / «impostato a mano»
   const photo = $('#ord_photo').value.trim();
   const recipient = $('#ord_recipient').value.trim(), phone = $('#ord_phone').value.trim();
   const address = $('#ord_address').value.trim(), date = $('#ord_date').value.trim(), time = $('#ord_time').value.trim();
@@ -2894,12 +2904,22 @@ function renderOrderSummary(){
         ${row('Destinatario', [recipient, phone].filter(Boolean).join(' · '))}
         ${row('Consegna', [address, [date,time].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}
         ${row('Prodotto', [prod, variant, qty?('×'+qty):''].filter(Boolean).join(' '))}
-        <div class="os-money">
-          ${isFinite(budN)?`<span><span class="lbl">Budget fiorario</span> <b>${eur(budN)}</b></span>`:''}
-          ${isFinite(paidN)?`<span><span class="lbl">Pagato</span> <b>${eur(paidN)}</b></span>`:''}
-          ${margine!=null?`<span><span class="lbl">Margine</span> <b>${eur(margine)}</b></span>`:''}
-        </div>
       </div>
+    </div>
+    <div class="os-prices">
+      ${isFinite(budN)?`<div class="os-price os-price-budget">
+        <span class="os-price-lbl">Da proporre al fiorario</span>
+        <span class="os-price-val">${eur(budN)}</span>
+        ${srcTag?`<span class="os-price-tag${/stima/i.test(srcTag)?' warn':''}">${esc(srcTag)}</span>`:''}
+      </div>`:''}
+      ${isFinite(paidN)?`<div class="os-price">
+        <span class="os-price-lbl">Pagato dal cliente</span>
+        <span class="os-price-val">${eur(paidN)}</span>
+      </div>`:''}
+      ${margine!=null?`<div class="os-price os-price-margin">
+        <span class="os-price-lbl">Margine Deluxy</span>
+        <span class="os-price-val">${eur(margine)}</span>
+      </div>`:''}
     </div>
     <div class="os-msg">
       <label>💬 Messaggio per il negozio</label>
