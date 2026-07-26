@@ -18,6 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="brand-sub">Attività condivise fra le app</div>
             </div>
           </a>
+          <a className="topbar-link" href="/chiavi">
+            Chiavi delle app
+          </a>
         </header>
         {children}
       </body>
