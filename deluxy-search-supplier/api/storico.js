@@ -75,8 +75,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, importati, totale: eventi.length });
       }
 
-      if (!['richiesta', 'rubrica', 'segnalazione', 'check'].includes(tipo)) {
-        return res.status(400).json({ error: "Tipo evento non valido (richiesta|rubrica|segnalazione|check)." });
+      if (!['richiesta', 'rubrica', 'segnalazione', 'check', 'ricerca'].includes(tipo)) {
+        return res.status(400).json({ error: "Tipo evento non valido (richiesta|rubrica|segnalazione|check|ricerca)." });
       }
       const negozio = body.negozio || {};
       const ordine = body.ordine || {};
@@ -97,6 +97,11 @@ export default async function handler(req, res) {
           numero: s(ordine.numero, 20),
           valore: s(ordine.valore, 20),
           brand: s(ordine.brand, 40),
+        } : null,
+        // ricerca per zona (senza ordine): serve a «Riapri ricerca» nello Storico
+        ricerca: (body.ricerca && body.ricerca.indirizzo) ? {
+          indirizzo: s(body.ricerca.indirizzo, 160),
+          categoria: s(body.ricerca.categoria, 20),
         } : null,
       };
       eventi.unshift(evento);                       // più recenti in testa

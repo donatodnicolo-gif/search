@@ -178,6 +178,13 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - **Verificato E2E**: mock del registro su :3060 + API con `ANAGRAFICHE_API_KEY` fittizia → creando un partner arriva **POST #1** (`stato: attivo`, `fonte: platform`, contatti, x-api-key corretto); disattivandolo arriva **POST #2** (`stato: dismesso`, `attivo: false`). `nest build` pulito. Partner e utente di test ripuliti dal DB.
 - ⚠️ **Segnalazione**: nella copia `scoutwt` il file `api/.env.example` contiene una **chiave `ANAGRAFICHE_API_KEY` reale committata** (`dlxk_…`) — è una fuga di segreto da revocare/ripulire (qui ho committato solo un placeholder vuoto).
 
+### 22/07/2026 — Import massivo dai partner ATTIVI di Anagrafiche
+
+- **Nuovo**: `PartnersService.importFromAnagrafiche()` + endpoint `POST /partners/import/anagrafiche` (ADMIN/OPERATION). Legge tutti gli attivi via `AnagraficheSyncService.fetchAttivi()` (`GET /api/v1/partners?stato=attivo`, paginato 200), mappa i campi del registro sul Partner (insegna←nome, businessName←ragioneSociale, email/vatNumber/fiscalCode/address/phone/notes, categoria→Category per nome, provincia→Province per codice/nome, primo contatto→contactName), **deduplica** per platformId già collegato / email / P.IVA, crea in piattaforma e **ricollega** al registro (`sincronizza` → salva il platformId). Email mancante → placeholder `import-<id>@no-email.deluxy` (vincolo unique). Summary `{totale, importati, saltati, errori}`.
+- **UI**: pulsante **"Importa da Anagrafiche"** nella lista partner (ADMIN/OPERATION), mostra l'esito e ricarica. i18n IT/EN.
+- **Export in creazione (già esistente)**: creando/aggiornando un partner parte `sincronizza` (upsert = crea se non esiste, aggiorna altrimenti). Quindi il punto 2 ("porta in anagrafica se non esistente") era già coperto dall'upsert.
+- ⚠️ **Serve `ANAGRAFICHE_API_KEY`** (lettura+scrittura, generata su anagrafiche) sia in locale sia nelle **env di Vercel**: senza, import e sync ritornano a vuoto (best-effort). Testato a runtime: endpoint ok, summary corretto, PARTNER→403; l'import reale va provato con la chiave configurata.
+
 ### 18/07/2026 (8) — Stipendi allineati all'app reale: Ricevute+firma, Reclamo, Esporta, Frequenza (feedback)
 
 Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la mia pagina con `/valet/stipendi` reale (manuale righe 204-205) e implementati i 4 pezzi mancanti (l'utente ha risposto "tutti"):
@@ -276,6 +283,24 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
 - Verificato via API: geocodifica reale (Montenapoleone→45.467,9.196; Corso Como→45.480,9.187), `/deliveries/map` restituisce i punti, `/settings/public`, backfill. Nel browser: campo browser key in Impostazioni, pulsante "Mostra mappa" (admin), pannello con stato "no chiave" corretto. **La mappa con i pin richiede la chiave browser** (da inserire in Impostazioni) — non testabile senza (Claude non inserisce chiavi API).
 
 ## MANCA / PROSSIMI PASSI
+
+0-bis. **[IN CORSO — 26/07] Partner attivi da Anagrafiche.** Script
+   `api/scripts/importa-partner-anagrafiche.mjs`: legge `GET /api/v1/partners?stato=attivo`
+   e aggancia in cascata **P.IVA → email → insegna normalizzata**. Idempotente, prova a vuoto
+   per default (`--scrivi` applica, `--collega` rimanda ad Anagrafiche il `platformId`).
+   Provato sul db locale: **33 partner su 41**.
+   - ⚠️ **`attivo` (bool) ≠ `stato="attivo"`**: il primo è il soft delete del registro, il secondo
+     è lo stato commerciale (= è un Partner). Per "i partner attivi" filtrare **`stato`**.
+   - ⚠️ In Anagrafiche l'email sta quasi sempre sul **referente** (`contatti[].email`), non nel
+     campo `email`: solo 4 su 41 ce l'hanno in alto, 29 solo nei contatti, **8 non ce l'hanno**
+     (non importabili: `Partner.email` è obbligatoria e `@unique`).
+   - ⚠️ La chiave `deluxy-platform` ha `scrittura=true` ma **`scritturaPartner=false`**: il campo
+     `stato` inviato da `anagrafiche-sync.service.ts` viene **scartato** dal registro. Su 943
+     anagrafiche **1 sola ha `platformId`** → oggi i due archivi non si agganciano. La chiave
+     **non è nella cassaforte del Hub**: lì ci sono due chiavi di Scout con nomi fuorvianti
+     (`ANAGRAFICHE_WRITE_KEY` → utenza `deluxy-scout-referenti`, che non scrive partner).
+   - **Manca**: eseguirlo contro la **produzione** (dipende dal punto 0), più province e tipi di
+     servizio, che esistono **solo** nel legacy app.deluxy.it (punto 1).
 
 0. **[IN CORSO — 20/07] Deploy su Vercel** (branch `worktree-vercel-deploy`). **Fatto:** provider Prisma `sqlite` → `postgresql` con `binaryTargets` per il runtime Vercel; le 32 migrazioni SQLite sostituite da **una baseline** `00000000000000_init_postgres` (41 tabelle, 24 indici, 54 FK) generata con `prisma migrate diff`; handler serverless `api/src/vercel.ts` (bootstrap Nest cachato, niente `listen`/CORS/static); `vercel.json` (progetto unico: web su `/`, API su `/api/*` → **niente CORS**); `environment.prod.ts` + `fileReplacements`; `.env.example` e docker-compose allineati. Build API e web verdi, bundle prod senza `localhost`.
    **[BLOCCATO — palla all'utente]** (a) creare il progetto **Supabase** e passare `DATABASE_URL` (pooler 6543 per il runtime, diretta 5432 per `migrate deploy`); (b) collegare il repo a **Vercel** (Root Directory = `deluxy-platform-next`) e impostare le env. Senza (a) non si puo' ne' migrare ne' seedare il DB remoto.

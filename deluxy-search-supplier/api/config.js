@@ -37,6 +37,8 @@ function sanitize(c) {
     googleKey: c.googleKey || '',
     proxy: c.proxy || '',
     anagUrl: c.anagUrl || '',
+    kwFioraio: c.kwFioraio || '',
+    kwPasticceria: c.kwPasticceria || '',
     hasAnagKey: !!c.anagKey,
     hasAnagWriteKey: !!c.anagWriteKey,
     googleOauthClientId: c.googleOauthClientId || '',
@@ -107,6 +109,9 @@ export default async function handler(req, res) {
         googleKey: body.googleKey !== undefined ? String(body.googleKey).trim() : (cur.googleKey || ''),
         proxy: body.proxy !== undefined ? String(body.proxy).trim() : (cur.proxy || ''),
         anagUrl: body.anagUrl !== undefined ? String(body.anagUrl).trim() : (cur.anagUrl || ''),
+        // parole chiave Google per categoria (vuote = predefinite per lingua)
+        kwFioraio: body.kwFioraio !== undefined ? String(body.kwFioraio).trim() : (cur.kwFioraio || ''),
+        kwPasticceria: body.kwPasticceria !== undefined ? String(body.kwPasticceria).trim() : (cur.kwPasticceria || ''),
         // segreta: vuota = mantiene quella già salvata (le chiavi non tornano al browser)
         anagKey: (body.anagKey && String(body.anagKey).trim()) ? String(body.anagKey).trim() : (cur.anagKey || ''),
         // segreta: vuota = mantiene quella già salvata (come i token Shopify)

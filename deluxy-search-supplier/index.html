@@ -40,6 +40,26 @@
   .contatticard{display:none}
   .content.view-contatti .ordercard, .content.view-contatti .searchbar, .content.view-contatti .col-right, .content.view-contatti .config, .content.view-contatti .storicocard{display:none}
   .content.view-contatti .contatticard{display:block}
+  /* vista «Province»: elenco per provincia con riepilogo partner/aperti/chiusi */
+  .provincecard{display:none}
+  .content.view-province .ordercard, .content.view-province .searchbar, .content.view-province .col-right, .content.view-province .config, .content.view-province .storicocard, .content.view-province .contatticard{display:none}
+  .content.view-province .provincecard{display:block}
+  /* vista «Archiviati»: tutti i fornitori nascosti, per provincia */
+  .archiviaticard{display:none}
+  .content.view-archiviati .ordercard, .content.view-archiviati .searchbar, .content.view-archiviati .col-right, .content.view-archiviati .config, .content.view-archiviati .storicocard, .content.view-archiviati .contatticard, .content.view-archiviati .provincecard{display:none}
+  .content.view-archiviati .archiviaticard{display:block}
+  .provincecard details.prov-group{margin-top:18px}
+  .provincecard details.prov-group>summary{list-style:none; cursor:pointer; outline:none}
+  .provincecard details.prov-group>summary::-webkit-details-marker{display:none}
+  .provincecard .prov-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .pv-chips{display:flex; gap:6px; flex-wrap:wrap; margin-left:auto}
+  .pv-chip{font-size:12px; font-weight:600; padding:3px 10px; border-radius:var(--radius-pill); white-space:nowrap; display:inline-flex; align-items:center; gap:5px}
+  .pv-chip.pv-part{color:var(--gold-strong); background:var(--gold-soft)}
+  .pv-chip.pv-open{color:var(--blue); background:rgba(0,113,227,.08)}
+  .pv-chip.pv-closed{color:var(--text-tertiary); background:var(--fill)}
+  .pv-chip.pv-attivo{color:var(--gold-strong); background:var(--gold-soft)}
+  .pv-chip.pv-prospect{color:var(--blue); background:rgba(0,113,227,.08)}
+  .pv-chip.pv-prod{color:var(--text-secondary); background:var(--fill)}
   /* elenco contatti per provincia */
   .prov-group{margin-top:20px}
   .prov-head{display:flex; align-items:baseline; gap:8px; padding:0 2px 8px; border-bottom:1px solid var(--hairline); margin-bottom:12px}
@@ -76,10 +96,12 @@
   @media(min-width:640px){.row-2{grid-template-columns:1fr 1fr}.row-3{grid-template-columns:2fr 1fr 1fr}}
   .searchbar{margin-top:14px}
   .catbtns{display:flex; gap:8px; flex-wrap:wrap}
-  .chip{flex:1; min-width:130px; text-align:center; padding:11px; border-radius:var(--radius-pill); cursor:pointer;
+  .chip,.wchip{flex:1; min-width:130px; text-align:center; padding:11px; border-radius:var(--radius-pill); cursor:pointer;
         border:1px solid var(--hairline-strong); background:var(--surface); color:var(--text-secondary); font-weight:600;
         user-select:none; transition:.15s var(--ease)}
-  .chip.active{color:#fff; background:var(--ink); border-color:transparent}
+  .chip.active,.wchip.active{color:#fff; background:var(--ink); border-color:transparent}
+  /* .wchip = stessa pillola di .chip ma SENZA i listener globali delle categorie */
+  .wchip{min-width:0; padding:9px 12px; font-size:13px}
   .btn{border:0; border-radius:var(--radius-pill); padding:13px 18px; font-size:15px; font-weight:600; cursor:pointer;
        background:var(--ink); color:#fff; width:100%; transition:background .18s var(--ease), transform .15s var(--ease)}
   .btn:hover{background:var(--ink-hover)}
@@ -187,6 +209,20 @@
   .star-btn:hover{background:var(--fill-hover)}
   .star-btn:active{transform:scale(.9)}
   .star-btn.on{color:var(--gold-strong); background:var(--gold-soft); border-color:rgba(184,150,62,.35)}
+  /* archivia/nascondi un risultato */
+  .arch-btn{width:32px; height:32px; padding:0; border:1px solid var(--hairline-strong); background:var(--surface);
+        border-radius:50%; cursor:pointer; font-size:14px; line-height:1; color:var(--text-tertiary);
+        transition:background .18s var(--ease), transform .15s var(--ease)}
+  .arch-btn:hover{background:var(--fill-hover)} .arch-btn:active{transform:scale(.9)}
+  .shop.archived{display:none !important}
+  #archivedBox{margin:10px 0}
+  .archived-details>summary{cursor:pointer; font-weight:600; color:var(--text-secondary); font-size:13.5px;
+        padding:8px 2px; list-style:none; outline:none}
+  .archived-details>summary::-webkit-details-marker{display:none}
+  .arch-list{display:grid; gap:8px; margin-top:8px}
+  .arch-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px;
+        border:1px solid var(--hairline); border-radius:var(--radius-m); background:var(--fill)}
+  .arch-name{font-size:13.5px; font-weight:500; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   /* stato ricerca fornitore (pillole con dot) */
   .stato-pill{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--hairline-strong);
         background:var(--surface); color:var(--text-secondary); border-radius:var(--radius-pill);
@@ -206,6 +242,29 @@
         background:var(--ink); color:#fff; font-size:14px; transition:background .18s var(--ease), transform .15s var(--ease)}
   .sendemail:hover{background:var(--ink-hover)} .sendemail:active{transform:scale(.98)}
   .order-flag{margin-top:8px; font-size:12px; color:var(--gold-strong); font-weight:600}
+  /* modo compatto: quando ci sono i risultati, l'ordine si riduce a un riepilogo */
+  .ordercard.collapsed #orderBox{display:none !important}
+  .order-summary{margin-top:14px; border-top:1px solid var(--hairline); padding-top:16px}
+  .os-head{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:14px}
+  .os-title{font-weight:600; font-size:16px; letter-spacing:-.01em; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .os-grid{display:grid; gap:14px}
+  @media(min-width:520px){ .os-grid{grid-template-columns:92px 1fr; align-items:start} }
+  .os-photo{width:92px; height:92px; object-fit:cover; border-radius:var(--radius-m); border:1px solid var(--hairline); background:var(--fill)}
+  .os-fields{display:grid; gap:6px; font-size:14px; color:var(--text); min-width:0}
+  .os-fields .lbl{color:var(--text-tertiary)}
+  /* prezzi del riepilogo: numeri GRANDI come nel riquadro originale (marginalità in evidenza) */
+  .os-prices{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px}
+  .os-price{display:flex; flex-direction:column; gap:2px; padding:10px 14px; border:1px solid var(--hairline);
+        border-radius:var(--radius-m); background:var(--surface); min-width:120px}
+  .os-price-lbl{font-size:12px; color:var(--text-secondary)}
+  .os-price-val{font-size:22px; font-weight:600; letter-spacing:-.022em; font-variant-numeric:tabular-nums}
+  .os-price-budget{border-color:rgba(184,150,62,.35); background:var(--gold-soft)}
+  .os-price-budget .os-price-val{color:var(--gold-strong)}
+  .os-price-margin .os-price-val{font-size:18px; color:var(--text-secondary)}
+  .os-price-tag{font-size:11px; font-weight:600; color:var(--text-tertiary)}
+  .os-price-tag.warn{color:var(--orange)}
+  .os-msg{margin-top:14px}
+  .os-msg textarea{min-height:76px; background:var(--fill)}
   /* App shell — layout standard app Deluxy (sidebar traslucida + contenuti) */
   .shell{display:flex; min-height:100vh}
   .sidebar{width:250px; flex-shrink:0; background:var(--surface-translucent);
@@ -251,7 +310,9 @@
     .content .wrap{max-width:1360px}
     .page-head{max-width:1360px}
     .cols{grid-template-columns:minmax(400px,560px) minmax(380px,1fr)}
-    .col-right{position:sticky; top:16px; max-height:calc(100vh - 32px); overflow-y:auto; padding:2px}
+    /* la colonna risultati resta ancorata quando è corta, ma scorre con la pagina
+       quando è lunga: niente scroll interno (nascondeva il footer «Estendi») */
+    .col-right{position:sticky; top:16px; padding:2px}
   }
   .page-head h1{margin:0 0 6px; font-size:32px; font-weight:600; letter-spacing:-.025em}
   .page-head .cap{margin:0; color:var(--text-secondary); font-size:14px}
@@ -270,6 +331,20 @@
     .content .wrap, .page-head{max-width:100%}
   }
   footer{ text-align:center; color:var(--text-tertiary); font-size:12px; padding:24px}
+  /* --- mobile: intestazione schede impilata (titolo a piena larghezza, badge a capo sotto) --- */
+  @media(max-width:560px){
+    .shop .head{ flex-direction:column; align-items:stretch !important; gap:8px }
+    .shop .head > div{ flex-direction:row !important; align-items:center !important; flex-wrap:wrap !important; gap:6px !important }
+    .shop .head .star-btn{ order:2 }
+    .shop h3{ font-size:17px }
+    /* schede contatti: stessa logica testa/badge */
+    .ct-card .top{ flex-direction:column; align-items:stretch; gap:8px }
+    /* riepilogo ordine: foto sopra, prezzi sotto (già 1 colonna) con un po' meno padding */
+    .deal{ padding:16px; gap:14px }
+    .content{ padding:16px 12px 28px }
+    /* pillole filtro a larghezza piena e ben distribuite */
+    #waFilter .wchip, #openFilter .wchip{ min-width:0; flex:1 1 30% }
+  }
 </style>
 </head>
 <body>
@@ -303,6 +378,8 @@
       <a class="nav-link active" data-scroll=".ordercard"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="2.5"/><path d="M4 11h16M12 7v13M8 7l1.5-3h5L16 7"/></svg></span><span>Smistamento</span></a>
       <a class="nav-link" data-scroll=".searchbar"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.6-3.6"/></svg></span><span>Ricerca negozi</span></a>
       <a class="nav-link" id="navContatti"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v13H4z"/><path d="M8 9.5h8M8 13h5"/></svg></span><span>Contatti</span></a>
+      <a class="nav-link" id="navProvince"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.6 6.5-10.2A6.5 6.5 0 0 0 5.5 10.8C5.5 15.4 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.3"/></svg></span><span>Province</span></a>
+      <a class="nav-link" id="navArchiviati"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="4" rx="1"/><path d="M5 8.5v9a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-9M10 12h4"/></svg></span><span>Archiviati</span></a>
       <a class="nav-link" id="navStorico"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><span>Storico richieste</span></a>
       <div class="nav-section">Configurazione</div>
       <a class="nav-link" id="navAdmin"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.2M12 18.3v2.2M4.8 7l1.9 1.1M17.3 15.9l1.9 1.1M4.8 17l1.9-1.1M17.3 8.1l1.9-1.1M3.5 12h2.2M18.3 12h2.2"/></svg></span><span>Impostazioni</span></a>
@@ -336,6 +413,17 @@
         <label>Proxy CORS (per email/Instagram — opzionale)</label>
         <input id="cfg_proxy" type="text" placeholder="es. https://api.allorigins.win/raw?url=">
       </div>
+      <div class="fgrid fgrid-2">
+        <div>
+          <label>Parole chiave Google — 🌸 Fiorai</label>
+          <input id="cfg_kw_fioraio" type="text" placeholder='vuoto = "fiorista fioraio" (per lingua)'>
+        </div>
+        <div>
+          <label>Parole chiave Google — 🍰 Pasticcerie</label>
+          <input id="cfg_kw_pasticceria" type="text" placeholder='vuoto = "pasticceria" (per lingua)'>
+        </div>
+      </div>
+      <div class="hint" style="margin-top:-6px">Con cosa cercare i negozi su Google. Più parole chiave separate da <b>virgola</b> = una ricerca per ciascuna, risultati uniti (es. <code>pasticceria, torte, cake design</code>); si aggiunge sempre anche la ricerca per sola categoria. Vuoto = predefinite nella lingua della consegna.</div>
       <div class="fgrid fgrid-2">
         <div>
           <label>Registro anagrafiche — URL</label>
@@ -418,6 +506,7 @@
 
     <!-- dettagli ordine (editabili) -->
     <div class="orderbox" id="orderBox" style="display:none">
+      <button class="btn-dl" id="collapseOrder" type="button" style="display:none; margin-bottom:12px">▲ Comprimi ordine (mostra solo il riepilogo)</button>
       <div class="ordertitle"><span class="tag" id="ordTag">ordine</span><span id="ordMeta" class="sub" style="margin:0"></span></div>
 
       <!-- riepilogo: foto pronta da scaricare + prezzi -->
@@ -511,6 +600,9 @@
       <button class="btn" id="findFlorists" style="margin-top:16px">🔎 Trova fiorai vicino alla consegna</button>
       <div class="order-flag">Poi scegli un fiorario qui sotto e premi «Invia richiesta ordine» sulla sua scheda.</div>
     </div>
+
+    <!-- riepilogo compatto dell'ordine: appare quando ci sono i risultati (meno scroll) -->
+    <div class="order-summary" id="orderSummary" style="display:none"></div>
   </div>
 
   <!-- SEARCH -->
@@ -527,6 +619,7 @@
           <option value="10" selected>10</option>
           <option value="15">15</option>
           <option value="20">20</option>
+          <option value="30">30</option>
         </select>
       </div>
       <div>
@@ -546,9 +639,25 @@
       </div>
     </div>
 
-    <label style="display:flex; align-items:center; gap:8px; margin-top:12px; cursor:pointer; font-size:13px; color:var(--text)">
-      <input type="checkbox" id="onlyWa" style="width:auto"> 📱 Mostra solo probabili WhatsApp (cellulari)
-    </label>
+    <div style="margin-top:12px">
+      <label>WhatsApp</label>
+      <div id="waFilter" style="display:flex; gap:6px">
+        <button class="wchip active" data-wa="tutti" type="button">Tutti</button>
+        <button class="wchip" data-wa="con" type="button">📱 Con WhatsApp</button>
+        <button class="wchip" data-wa="senza" type="button">☎️ Senza WhatsApp</button>
+      </div>
+      <div class="hint" style="margin-top:4px">«Con» = cellulari (WhatsApp probabile); «Senza» = fissi o senza numero. Le schede del registro restano sempre visibili.</div>
+    </div>
+
+    <div style="margin-top:12px">
+      <label>Apertura</label>
+      <div id="openFilter" style="display:flex; gap:6px">
+        <button class="wchip active" data-open="tutti" type="button">Tutti</button>
+        <button class="wchip" data-open="aperti" type="button">🟢 Aperti ora</button>
+        <button class="wchip" data-open="chiusi" type="button">🔴 Chiusi ora</button>
+      </div>
+      <div class="hint" style="margin-top:4px">In base agli orari di Google. I negozi senza orari pubblicati e le schede del registro restano sempre visibili.</div>
+    </div>
 
     <div style="margin-top:14px">
       <button class="btn" id="go">🔎 Cerca in zona</button>
@@ -559,7 +668,51 @@
 
     <div class="col-right">
       <div class="status" id="status"></div>
+
+      <!-- nessun risultato: proposta di allargare la ricerca a un'area più ampia -->
+      <div id="noResults" style="display:none; margin:12px 0; padding:16px; background:var(--fill); border:1px solid var(--hairline); border-radius:var(--radius-l); text-align:center">
+        <div class="hint" id="noResultsMsg" style="margin:0 0 12px">Nessun negozio trovato in zona.</div>
+        <button class="btn" id="extendBtn" style="width:auto; padding:12px 20px">🔎 Estendi la ricerca a un'area più ampia</button>
+      </div>
+
+      <!-- strumenti risultati: filtri WhatsApp/apertura + vista mappa (gemelli del form) -->
+      <div id="resultTools" style="display:none; margin:10px 0">
+        <!-- filtro WhatsApp -->
+        <div id="waFilterResults" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+          <button class="wchip active" data-wa="tutti" type="button">Tutti</button>
+          <button class="wchip" data-wa="con" type="button">📱 Con WhatsApp</button>
+          <button class="wchip" data-wa="senza" type="button">☎️ Senza WhatsApp</button>
+          <label style="margin-left:auto; display:flex; align-items:center; gap:6px; margin-bottom:0; white-space:nowrap">Risultati
+            <select id="limitResults" style="width:auto"></select>
+          </label>
+        </div>
+        <!-- filtro apertura + bottone mappa -->
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px">
+          <div id="openFilterResults" style="display:flex; gap:6px">
+            <button class="wchip active" data-open="tutti" type="button">Tutti</button>
+            <button class="wchip" data-open="aperti" type="button">🟢 Aperti ora</button>
+            <button class="wchip" data-open="chiusi" type="button">🔴 Chiusi ora</button>
+          </div>
+          <button class="btn-dl" id="toggleMap" type="button" style="margin-left:auto">🗺️ Mostra sulla mappa</button>
+        </div>
+      </div>
+
+      <!-- mappa dei risultati (Google Maps) -->
+      <div id="mapWrap" style="display:none; margin:10px 0">
+        <div id="map" style="width:100%; height:400px; border-radius:var(--radius-l); border:1px solid var(--hairline); box-shadow:var(--shadow-card)"></div>
+        <div class="hint" style="margin-top:6px">📍 Il segnaposto blu è l'indirizzo di consegna. Clicca un numero per vedere il negozio e saltare alla sua scheda.</div>
+      </div>
+
       <div class="results" id="results"></div>
+
+      <!-- risultati nascosti dall'operatore: sezione archiviati (ripristinabili) -->
+      <div id="archivedBox" style="display:none"></div>
+
+      <!-- in fondo alla lista: allarga la ricerca a un'area più ampia (anche con risultati) -->
+      <div id="extendMore" style="display:none; margin:16px 0 4px; padding:16px; background:var(--fill); border:1px solid var(--hairline); border-radius:var(--radius-l); text-align:center">
+        <div class="hint" id="extendMoreMsg" style="margin:0 0 12px">Non trovi il fornitore giusto? Puoi cercare in un'area più ampia.</div>
+        <button class="btn" id="extendMoreBtn" type="button" style="width:auto; padding:12px 20px">🔎 Estendi la ricerca (~40 km)</button>
+      </div>
     </div><!-- /col-right -->
     </div><!-- /cols -->
 
@@ -583,6 +736,39 @@
         <input id="ctSearch" type="text" placeholder="Cerca nome, città…" style="flex:1; min-width:160px">
       </div>
       <div id="contattiBody"><div class="hint">Carico i contatti…</div></div>
+    </div>
+
+    <!-- PROVINCE (elenco per provincia con riepilogo partner/prospect/lead aperti) -->
+    <div class="card provincecard" id="provinceCard">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px">
+        <div class="hint" id="provinceInfo" style="margin:0"></div>
+        <button class="btn-dl" id="provinceReload" type="button">↻ Aggiorna</button>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px">
+        <div class="chips" id="pvCat" style="display:flex; gap:6px">
+          <button class="chip active" data-cat="tutte" type="button">Fiori + Torte</button>
+          <button class="chip" data-cat="FIORISTA" type="button">🌸 Fiori</button>
+          <button class="chip" data-cat="PASTICCERIA" type="button">🎂 Torte</button>
+        </div>
+        <div class="chips" id="pvRuolo" style="display:flex; gap:6px">
+          <button class="chip active" data-ruolo="tutti" type="button">Tutti</button>
+          <button class="chip" data-ruolo="attivo" type="button">🤝 Re-seller attivi</button>
+          <button class="chip" data-ruolo="prospect" type="button">📋 Prospect</button>
+        </div>
+        <input id="pvSearch" type="text" placeholder="Cerca provincia, nome…" style="flex:1; min-width:160px">
+      </div>
+      <div class="hint" style="margin:0 0 4px">Solo <b>venditori di fiori e torte</b> che sono <b>re-seller/affiliati attivi</b> (🤝) o <b>prospect</b> (📋), dal registro anagrafiche. Le province con più re-seller attivi sono in cima.</div>
+      <div id="provinceBody"><div class="hint">Carico le province…</div></div>
+    </div>
+
+    <!-- ARCHIVIATI (tutti i fornitori nascosti dai risultati, per provincia) -->
+    <div class="card archiviaticard" id="archiviatiCard">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px">
+        <div class="hint" id="archiviatiInfo" style="margin:0"></div>
+        <button class="btn-dl" id="archiviatiReload" type="button">↻ Aggiorna</button>
+      </div>
+      <input id="arSearch" type="text" placeholder="Cerca nome, città, provincia, categoria…" style="margin-bottom:10px">
+      <div id="archiviatiBody"><div class="hint">Carico gli archiviati…</div></div>
     </div>
 
     <!-- STORICO RICHIESTE (vista dedicata) -->
@@ -777,6 +963,8 @@ function applyConfig(){
   loadKeys();   // sezione chiavi API (si nasconde da sola se non sei admin)
   $('#cfg_google').value = CONFIG.googleKey || '';
   $('#cfg_proxy').value  = CONFIG.proxy || '';
+  $('#cfg_kw_fioraio').value = CONFIG.kwFioraio || '';
+  $('#cfg_kw_pasticceria').value = CONFIG.kwPasticceria || '';
   $('#cfg_anag_url').value = CONFIG.anagUrl || '';
   $('#cfg_anag_key').value = '';
   $('#cfg_anag_key').placeholder = CONFIG.hasAnagKey ? '•••• salvata (vuoto = invariata)' : 'chiave di sola lettura';
@@ -873,6 +1061,13 @@ async function handoff(){
    ?indirizzo=Via Roma 1, Milano&categoria=fiorai|pasticcerie → ricerca diretta
    I parametri si applicano DOPO il login (che resta obbligatorio). */
 let deepLinkDone = false;
+// tiene l'URL allineato all'ultima ricerca (replaceState, niente cronologia):
+// al refresh la sessione si riprende da sola e il deep link ripete la ricerca
+function rememberSearch(params){
+  const q = new URLSearchParams();
+  Object.entries(params).forEach(([k,v])=>{ if(v) q.set(k,v); });
+  history.replaceState(null, '', location.pathname + (q.toString() ? '?'+q.toString() : ''));
+}
 function applyDeepLink(){
   if(deepLinkDone) return;
   deepLinkDone = true;
@@ -884,7 +1079,7 @@ function applyDeepLink(){
   if(cat.startsWith('fior') || cat.startsWith('pasticc')){
     const want = cat.startsWith('pasticc') ? 'pasticceria' : 'fioraio';
     cats.clear(); cats.add(want);
-    document.querySelectorAll('.chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
+    document.querySelectorAll('.catbtns .chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
   }
   const ordine = (q.get('ordine') || q.get('order') || '').trim();
   const indirizzo = (q.get('indirizzo') || q.get('address') || '').trim();
@@ -912,6 +1107,8 @@ async function saveConfig(){
     pass: r.querySelector('.u-pass').value.trim()
   })).filter(u=>u.nome);
   const body = { googleKey: $('#cfg_google').value.trim(), proxy: $('#cfg_proxy').value.trim(),
+                 kwFioraio: $('#cfg_kw_fioraio').value.trim(),
+                 kwPasticceria: $('#cfg_kw_pasticceria').value.trim(),
                  anagUrl: $('#cfg_anag_url').value.trim(), anagKey: $('#cfg_anag_key').value.trim(),
                  anagWriteKey: $('#cfg_anag_wkey').value.trim(),
                  googleOauthClientId: $('#cfg_goauth').value.trim(), utenti, stores };
@@ -937,6 +1134,8 @@ function toggleMenu(){ $('#sidebar').classList.toggle('open'); $('#appOverlay').
 const PAGE_TITLES = { operativa: ['Smistamento ordini', 'Recupera un ordine e invialo al fiorario o pasticceria più vicino, via WhatsApp o email.'],
                       impostazioni: ['Impostazioni', 'Chiavi, utenze e collegamenti dell\'app, salvati sul server.'],
                       contatti: ['Contatti', 'Partner e fornitori dal registro anagrafiche Deluxy, raggruppati per provincia.'],
+                      province: ['Province', 'Venditori di fiori e torte che sono re-seller/affiliati attivi o prospect, per provincia.'],
+                      archiviati: ['Archiviati', 'Tutti i fornitori nascosti dai risultati, per provincia. Cerca e togli dagli archiviati.'],
                       storico: ['Storico richieste', 'Check ordini Shopify, richieste inviate, contatti salvati in rubrica e segnalazioni al commerciale, con l\'utenza che le ha fatte.'] };
 // vista: false/'operativa' | true/'impostazioni' | 'storico'
 function setView(vista){
@@ -946,6 +1145,8 @@ function setView(vista){
   content.classList.toggle('view-settings', vista==='impostazioni');
   content.classList.toggle('view-storico', vista==='storico');
   content.classList.toggle('view-contatti', vista==='contatti');
+  content.classList.toggle('view-province', vista==='province');
+  content.classList.toggle('view-archiviati', vista==='archiviati');
   $('#config').classList.toggle('show', vista==='impostazioni');
   if(vista==='impostazioni') $('#config').open = true;
   const t = PAGE_TITLES[vista];
@@ -969,6 +1170,18 @@ $('#navContatti').addEventListener('click', ()=>{
   setActiveNav($('#navContatti')); closeMenu();
   loadContatti();
 });
+$('#navProvince').addEventListener('click', ()=>{
+  setView('province');
+  window.scrollTo({top:0, behavior:'smooth'});
+  setActiveNav($('#navProvince')); closeMenu();
+  loadProvince();
+});
+$('#navArchiviati').addEventListener('click', ()=>{
+  setView('archiviati');
+  window.scrollTo({top:0, behavior:'smooth'});
+  setActiveNav($('#navArchiviati')); closeMenu();
+  loadArchiviati();
+});
 $('#navStorico').addEventListener('click', ()=>{
   setView('storico');
   window.scrollTo({top:0, behavior:'smooth'});
@@ -979,6 +1192,22 @@ $('#storicoReload').addEventListener('click', loadStorico);
 // «Riapri richiesta»: ricarica l'ordine di quell'evento e riparte col flusso normale
 // (recupero → indirizzo → categoria dal brand → ricerca fornitori in automatico)
 $('#storicoBody').addEventListener('click', e=>{
+  // ricerca fatta solo per indirizzo (senza ordine): riparte la stessa ricerca in zona
+  const r = e.target.closest('.st-reopen-search');
+  if(r){
+    $('#address').value = r.dataset.addr; localStorage.setItem('addr', r.dataset.addr);
+    const cat = (r.dataset.cat||'').toLowerCase();
+    if(cat.startsWith('fior') || cat.startsWith('pasticc')){
+      const want = cat.startsWith('pasticc') ? 'pasticceria' : 'fioraio';
+      cats.clear(); cats.add(want);
+      document.querySelectorAll('.catbtns .chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
+    }
+    setView(false);
+    const nav = document.querySelector('.nav-link[data-scroll=".ordercard"]');
+    if(nav) setActiveNav(nav);
+    run();
+    return;
+  }
   const b = e.target.closest('.st-reopen'); if(!b) return;
   const sel = $('#brand');
   if([...sel.options].some(o=>o.value===b.dataset.brand)) sel.value = b.dataset.brand;
@@ -1060,7 +1289,8 @@ function renderContatti(){
     </div>`;
   }).join('');
 }
-function ctCard(p){
+function ctCard(p, opts){
+  opts = opts || {};
   const partner = ctIsPartner(p);
   const digits = (p.telefono||'').replace(/[^\d]/g,'');
   const hasWa = digits.length >= 8;
@@ -1081,6 +1311,10 @@ function ctCard(p){
     ? '<span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)">🤝 Partner</span>'
     : `<span class="badge" style="color:var(--blue); background:rgba(0,113,227,.08)">📋 ${esc(statoLabel(p))}</span>`;
   const luogo = [p.indirizzo, p.citta].filter(Boolean).join(' · ');
+  // riga tag (solo dove richiesto, es. Province): ruolo re-seller/vendor + tipologia prodotto
+  const metaPills = opts.showRuolo
+    ? `<div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap">${ruoloPills(p)}${prodChip(p.categoria)}</div>`
+    : '';
   return `<div class="ct-card">
     <div class="top">
       <div>
@@ -1089,6 +1323,7 @@ function ctCard(p){
       </div>
       ${badge}
     </div>
+    ${metaPills}
     ${luogo?`<div class="addr">${esc(luogo)}</div>`:''}
     <div class="contacts">${c.join('')}</div>
     ${refs}
@@ -1102,6 +1337,178 @@ $('#ctCat').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if
   ctFiltro.cat=b.dataset.cat; document.querySelectorAll('#ctCat .chip').forEach(x=>x.classList.toggle('active',x===b)); renderContatti(); });
 $('#ctSearch').addEventListener('input', ()=>{ ctFiltro.q=$('#ctSearch').value; renderContatti(); });
 
+/* ------------------ PROVINCE — re-seller & vendor per provincia ------------------
+   Riusa i dati del registro di «Contatti» (ctData / anagAllPages). Mostra SOLO chi è
+   re-seller o vendor e indica la tipologia di prodotto (categoria). Nel registro non
+   c'è un campo «tipo»: re-seller = interesse «affiliazione», vendor = «vendor»; la
+   tipologia di prodotto = campo «categoria» (FIORISTA/PASTICCERIA/BOUTIQUE…). */
+// Venditori di torte e fiori = categoria FIORISTA (fiori) / PASTICCERIA (torte).
+// Re-seller/affiliato ATTIVO = stato 'attivo' (dall'Excel STATUS=PARTNER/ACCETTATA);
+// prospect = stato 'prospect'. NB: nel registro il campo `interessi` NON è popolato
+// (l'import non lo scrive) → si filtra su categoria + stato, non su interessi.
+const PROD_CATS = new Set(['FIORISTA','PASTICCERIA']);
+const isVenditoreTF = p => PROD_CATS.has(String(p.categoria||'').toUpperCase());
+const isAttivoReseller = p => isPartnerAttivo(p);                       // stato 'attivo'
+const isProspectP = p => String(p.stato||'').toLowerCase()==='prospect';
+// base della sezione: venditore torte/fiori, attivo o prospect, non archiviato
+const pvBase = p => isVenditoreTF(p) && (isAttivoReseller(p)||isProspectP(p)) && p.attivo!==false;
+const PROD_TIPO = { FIORISTA:'🌸 Fiori', PASTICCERIA:'🎂 Torte' };
+function prodChip(cat){
+  const k = String(cat||'').toUpperCase();
+  return `<span class="pv-chip pv-prod">${PROD_TIPO[k] || '🏷️ '+esc(cat||'—')}</span>`;
+}
+// programma re-seller specifico (DELUXY FLOWERS / CAKEDESIGN.ME / DELUXY) da datiExtra
+function pvDatiExtra(p){ let d=p.datiExtra; if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){ d=null; } } return d||{}; }
+function ruoloPills(p){
+  if(isAttivoReseller(p)){
+    const prog = pvDatiExtra(p).tipologiaPartnershipAttiva || '';
+    return `<span class="pv-chip pv-attivo">🤝 Re-seller attivo${prog?' · '+esc(prog):''}</span>`;
+  }
+  if(isProspectP(p)) return '<span class="pv-chip pv-prospect">📋 Prospect</span>';
+  return '';
+}
+const pvFiltro = { cat:'tutte', q:'', ruolo:'tutti' };
+async function loadProvince(force){
+  const body = $('#provinceBody');
+  if(ctData && !force){ renderProvince(); return; }
+  body.innerHTML = '<div class="hint">Carico le province…</div>';
+  try{
+    const res = await anagAllPages();
+    if(res.skipped){
+      ctData = [];
+      body.innerHTML = '<div class="hint">Il registro anagrafiche non è collegato. Aggiungi la <b>chiave di sola lettura</b> in Impostazioni → «Registro anagrafiche».</div>';
+      $('#provinceInfo').textContent = '';
+      return;
+    }
+    ctData = res.list;
+    renderProvince();
+  }catch(err){
+    body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>';
+  }
+}
+function renderProvince(){
+  const body = $('#provinceBody');
+  const q = pvFiltro.q.trim().toLowerCase();
+  const list = (ctData||[]).filter(p=>{
+    if(!pvBase(p)) return false;                                    // solo venditori fiori/torte, attivi o prospect
+    if(pvFiltro.ruolo==='attivo'   && !isAttivoReseller(p)) return false;
+    if(pvFiltro.ruolo==='prospect' && !isProspectP(p))      return false;
+    if(pvFiltro.cat!=='tutte' && String(p.categoria||'').toUpperCase()!==pvFiltro.cat) return false;
+    if(q){
+      const blob = [p.nome, p.ragioneSociale, p.citta, p.provincia, p.indirizzo].filter(Boolean).join(' ').toLowerCase();
+      if(!blob.includes(q)) return false;
+    }
+    return true;
+  });
+  // raggruppa per provincia
+  const gruppi = {};
+  list.forEach(p=>{ const k = (p.provincia||'').toUpperCase() || '—'; (gruppi[k] = gruppi[k]||[]).push(p); });
+  let prov = Object.keys(gruppi).map(k=>{
+    const g = gruppi[k];
+    return { prov:k, g, nAtt: g.filter(isAttivoReseller).length, nPro: g.filter(isProspectP).length };
+  });
+  // ordina: provincia sconosciuta in coda; poi più re-seller attivi, poi totale, alfabetico
+  prov.sort((a,b)=>{
+    if(a.prov==='—') return 1; if(b.prov==='—') return -1;
+    if(b.nAtt!==a.nAtt) return b.nAtt-a.nAtt;
+    const ta=a.nAtt+a.nPro, tb=b.nAtt+b.nPro;
+    if(tb!==ta) return tb-ta;
+    return a.prov.localeCompare(b.prov);
+  });
+  const totAtt = prov.reduce((s,x)=>s+x.nAtt,0);
+  const totPro = prov.reduce((s,x)=>s+x.nPro,0);
+  $('#provinceInfo').textContent = prov.length
+    ? `${prov.length} province · 🤝 ${totAtt} re-seller attivi · 📋 ${totPro} prospect`
+    : '';
+  if(!prov.length){ body.innerHTML = '<div class="hint">Nessun venditore di fiori o torte (attivo o prospect) con questi filtri.</div>'; return; }
+  body.innerHTML = prov.map(x=>{
+    const rank = p => isAttivoReseller(p) ? 0 : 1;   // attivi prima, poi prospect
+    const cards = x.g.slice()
+      .sort((a,b)=>{ const r = rank(a)-rank(b); return r || String(a.nome||'').localeCompare(String(b.nome||'')); })
+      .map(p=>ctCard(p, {showRuolo:true})).join('');
+    const chips = [
+      x.nAtt ? `<span class="pv-chip pv-attivo">🤝 ${x.nAtt} re-seller</span>` : '',
+      x.nPro ? `<span class="pv-chip pv-prospect">📋 ${x.nPro} prospect</span>` : ''
+    ].filter(Boolean).join('');
+    return `<details class="prov-group" open>
+      <summary class="prov-head">
+        <h3>${x.prov==='—'?'Provincia non indicata':'📍 '+esc(x.prov)}</h3>
+        <span class="pv-chips">${chips}</span>
+      </summary>
+      <div class="ct-grid" style="margin-top:12px">${cards}</div>
+    </details>`;
+  }).join('');
+}
+$('#provinceReload').addEventListener('click', ()=> loadProvince(true));
+$('#pvCat').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
+  pvFiltro.cat=b.dataset.cat; document.querySelectorAll('#pvCat .chip').forEach(x=>x.classList.toggle('active',x===b)); renderProvince(); });
+$('#pvSearch').addEventListener('input', ()=>{ pvFiltro.q=$('#pvSearch').value; renderProvince(); });
+$('#pvRuolo').addEventListener('click', e=>{ const b=e.target.closest('.chip'); if(!b) return;
+  pvFiltro.ruolo=b.dataset.ruolo; document.querySelectorAll('#pvRuolo .chip').forEach(x=>x.classList.toggle('active',x===b)); renderProvince(); });
+
+/* ------------------ ARCHIVIATI (tutti, per provincia, ricercabili) ------------------
+   Elenco aggregato di TUTTI i fornitori archiviati (tutti gli ordini) da GET
+   /api/stato?archiviati=tutti, raggruppato per provincia; «↩ Togli da archiviati» chiama
+   POST /api/stato con l'ordine di quella voce (archivia off). Se la voce è dell'ordine
+   aperto ora, aggiorna anche i risultati in vista. */
+let arData = null;
+const arFiltro = { q:'' };
+async function loadArchiviati(force){
+  const body = $('#archiviatiBody');
+  if(arData && !force){ renderArchiviati(); return; }
+  body.innerHTML = '<div class="hint">Carico gli archiviati…</div>';
+  try{
+    const r = await apiFetch('/api/stato?archiviati=tutti');
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
+    arData = j.archiviati || [];
+    renderArchiviati();
+  }catch(err){ body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>'; }
+}
+function renderArchiviati(){
+  const body = $('#archiviatiBody');
+  const q = arFiltro.q.trim().toLowerCase();
+  const list = (arData||[]).filter(a=>{
+    if(!q) return true;
+    return [a.nome, a.citta, a.provincia, a.categoria, a.ordine].filter(Boolean).join(' ').toLowerCase().includes(q);
+  });
+  $('#archiviatiInfo').textContent = list.length ? `${list.length} fornitori archiviati` : '';
+  if(!list.length){ body.innerHTML = '<div class="hint">Nessun fornitore archiviato'+(q?' con questa ricerca':'')+'.</div>'; return; }
+  const gruppi = {};
+  list.forEach(a=>{ const k=(a.provincia||'').toUpperCase()||'—'; (gruppi[k]=gruppi[k]||[]).push(a); });
+  const chiavi = Object.keys(gruppi).sort((x,y)=> x==='—'?1 : y==='—'?-1 : x.localeCompare(y));
+  body.innerHTML = chiavi.map(prov=>{
+    const rows = gruppi[prov].sort((a,b)=> String(a.nome||'').localeCompare(String(b.nome||''))).map(a=>{
+      const luogo = [a.citta, a.categoria].filter(Boolean).join(' · ');
+      const ord = (a.ordine && a.ordine!=='generale') ? ' · ordine '+esc(a.ordine) : '';
+      return `<div class="arch-row">
+        <span class="arch-name">🗄️ ${esc(a.nome||a.id)}${luogo?' <span style="color:var(--text-tertiary); font-weight:400">· '+esc(luogo)+'</span>':''}<span style="color:var(--text-tertiary); font-weight:400">${ord}</span></span>
+        <button class="btn-dl ar-restore" type="button" data-sid="${esc(a.id)}" data-ordine="${esc(a.ordine||'')}">↩ Togli da archiviati</button>
+      </div>`;
+    }).join('');
+    return `<div class="prov-group">
+      <div class="prov-head"><h3>${prov==='—'?'Provincia non indicata':'📍 '+esc(prov)}</h3><span class="cnt">${gruppi[prov].length}</span></div>
+      <div class="arch-list">${rows}</div>
+    </div>`;
+  }).join('');
+}
+$('#archiviatiReload').addEventListener('click', ()=> loadArchiviati(true));
+$('#arSearch').addEventListener('input', ()=>{ arFiltro.q=$('#arSearch').value; renderArchiviati(); });
+$('#archiviatiBody').addEventListener('click', async e=>{
+  const b = e.target.closest('.ar-restore'); if(!b) return;
+  const sid = b.dataset.sid, ordine = b.dataset.ordine || 'generale';
+  b.disabled = true; b.textContent = '⏳ Ripristino…';
+  try{
+    const r = await apiFetch('/api/stato', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ ordine, quando: new Date().toISOString(), archivia: { id: sid, on: false } }) });
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.error||('Errore '+r.status)); }
+    if(arData) arData = arData.filter(a=> !(a.id===sid && (a.ordine||'generale')===ordine));
+    // se è l'ordine aperto ora, riporta la scheda tra i risultati
+    if(statoRicerca.archiviati && ordine===ordineKey()){ delete statoRicerca.archiviati[sid]; applyArchive(); }
+    renderArchiviati();
+  }catch(err){ b.disabled=false; b.textContent='↩ Togli da archiviati'; alert('❌ '+err.message); }
+});
+
 $('#btnLogout').addEventListener('click', ()=>{ sessionStorage.removeItem('pass'); sessionStorage.removeItem('user'); sessionStorage.removeItem('session'); location.reload(); });
 $('#btnMenu').addEventListener('click', toggleMenu);
 $('#appOverlay').addEventListener('click', closeMenu);
@@ -1113,8 +1520,20 @@ $('#btnSide').addEventListener('click', ()=>{
 });
 applySide();
 
-// toggle categorie
-document.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => {
+// il «Numero risultati» scelto resta per le ricerche successive (per browser, come la sidebar);
+// il gemello in cima ai risultati (#limitResults) è sincronizzato e al cambio rilancia la ricerca
+(function(){
+  const sel = $('#limit'), twin = $('#limitResults');
+  twin.innerHTML = sel.innerHTML;
+  const saved = localStorage.getItem('limitPref');
+  if(saved && [...sel.options].some(o=>o.value===saved)) sel.value = saved;
+  twin.value = sel.value;
+  sel.addEventListener('change', ()=>{ twin.value = sel.value; localStorage.setItem('limitPref', sel.value); });
+  twin.addEventListener('change', ()=>{ sel.value = twin.value; localStorage.setItem('limitPref', sel.value); run(); });
+})();
+
+// toggle categorie (solo le chip della ricerca: quelle dei Contatti hanno i loro listener)
+document.querySelectorAll('.catbtns .chip').forEach(ch => ch.addEventListener('click', () => {
   const c = ch.dataset.cat;
   if(cats.has(c) && cats.size>1){ cats.delete(c); ch.classList.remove('active'); }
   else { cats.add(c); ch.classList.add('active'); }
@@ -1219,6 +1638,8 @@ function normName(s){
 // scheda di un partner/prospect del registro, mostrata in cima ai risultati
 function registryCard(p){
   const isPartner = isPartnerAttivo(p);
+  // già riconciliata con una scheda Google? (riferimento esterno di quest'app)
+  const riconc = (p.riferimenti||[]).some(r=>r.sistema==='deluxy-suppliers');
   const digits = (p.telefono||'').replace(/[^\d]/g,'');
   const waDigits = digits ? (digits.length<=10 && digits[0]==='3' ? '39'+digits : digits) : '';
   const hasWa = waDigits.length >= 8;
@@ -1228,12 +1649,24 @@ function registryCard(p){
   if(p.email) c.push(`<a class="mail" href="mailto:${esc(p.email)}">✉️ ${esc(p.email)}</a>`);
   if(!c.length) c.push('<span class="none">Nessun contatto nel registro</span>');
   const luogo = [p.indirizzo, p.citta, p.provincia?('('+p.provincia+')'):''].filter(Boolean).join(' · ');
-  // referenti (persone di contatto) dal registro
+  // referenti (persone di contatto) dal registro: anche i loro numeri hanno
+  // link WhatsApp + pulsante d'invio ordine (dedupe sulle ultime 9 cifre)
+  const giaTel = new Set(hasWa ? [waDigits.slice(-9)] : []);
+  const sendRefs = [];
   const refs = (p.contatti||[]).map(ct=>{
     const bits = [];
-    if(ct.telefono) bits.push(`<a class="tel" href="tel:${esc(ct.telefono)}">📞 ${esc(ct.telefono)}</a>`);
-    if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">✉️ ${esc(ct.email)}</a>`);
     const chi = [ct.nome, ct.ruolo].filter(Boolean).join(' · ');
+    if(ct.telefono){
+      bits.push(`<a class="tel" href="tel:${esc(ct.telefono)}">📞 ${esc(ct.telefono)}</a>`);
+      const d = String(ct.telefono).replace(/[^\d]/g,'');
+      const wd = d ? (d.length<=10 && d[0]==='3' ? '39'+d : d) : '';
+      if(wd.length>=8 && !giaTel.has(wd.slice(-9))){
+        giaTel.add(wd.slice(-9));
+        bits.push(`<a class="wa" href="${waChatUrl(wd)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+        sendRefs.push(`<button class="sendorder" data-phone="${wd}" data-lang="it">📤 Invia richiesta ordine su WhatsApp${IS_MOBILE?'':' Web'}${chi?' — '+esc(chi):''}</button>`);
+      }
+    }
+    if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">✉️ ${esc(ct.email)}</a>`);
     if(!bits.length && !chi) return '';
     return `<div class="meta" style="margin:8px 0 4px">👤 ${esc(chi||'referente')}</div>${bits.length?`<div class="contacts">${bits.join('')}</div>`:''}`;
   }).join('');
@@ -1246,6 +1679,7 @@ function registryCard(p){
       <h3>${isPartner?'🤝':'📋'} ${esc(p.nome)}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
         <button type="button" class="star-btn" data-sid="${esc(el.dataset.sid)}" title="Segna come contattato">☆</button>
+        <button type="button" class="arch-btn" title="Nascondi / archivia questo risultato">🗄️</button>
         <span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>
       </div>
     </div>
@@ -1253,28 +1687,120 @@ function registryCard(p){
     <div class="contacts">${c.join('')}</div>
     ${refs}
     ${hasWa ? `<button class="sendorder" data-phone="${waDigits}" data-lang="it">📤 Invia richiesta ordine su WhatsApp${IS_MOBILE?'':' Web'}</button>` : ''}
-    ${(!hasWa && p.email) ? `<button class="sendemail" data-email="${esc(p.email)}">📧 Invia richiesta via email</button>` : ''}
-    <div class="src">📍 Fonte: <span class="verified">registro anagrafiche Deluxy</span>${p.account?' · account: '+esc(p.account):''}</div>
+    ${sendRefs.join('')}
+    ${(!hasWa && !sendRefs.length && p.email) ? `<button class="sendemail" data-email="${esc(p.email)}">📧 Invia richiesta via email</button>` : ''}
+    <div class="src">📍 Fonte: <span class="verified">registro anagrafiche Deluxy</span>${p.account?' · account: '+esc(p.account):''} · ${riconc?'<span style="color:var(--green)">🔗 riconciliata con la scheda Google</span>':'🔗 non riconciliata con una scheda Google'}</div>
   `;
   return el;
+}
+// distanza stradale (in auto) dalla consegna ANCHE sulle schede del registro:
+// l'indirizzo censito viene geocodificato (best effort, non blocca il resto) e si usa
+// lo stesso motore delle schede Google (Distance Matrix → ripiego OSRM → linea d'aria)
+async function annotaDistanzeRegistro(list, cards, origin){
+  try{
+    const geocoder = new google.maps.Geocoder();
+    const posiz = await Promise.all(list.map(p=>{
+      const addr = [p.indirizzo, p.citta, p.provincia].filter(Boolean).join(', ');
+      if(!addr) return Promise.resolve(null);
+      return new Promise(res=>geocoder.geocode({ address: addr, region: 'IT' },
+        (r,s)=>res(s==='OK' && r && r[0] ? r[0].geometry.location : null)));
+    }));
+    const idx = [], dests = [];
+    posiz.forEach((loc,i)=>{ if(loc){ idx.push(i); dests.push(loc); } });
+    if(!dests.length) return;
+    const elems = await drivingDistances(origin, dests);
+    idx.forEach((i,k)=>{
+      const el = elems && elems[k];
+      const txt = (el && el.status==='OK')
+        ? `🚗 ${el.distance.text}${el.duration?' · '+el.duration.text:''}`
+        : `📏 ${distanceStr(google.maps.geometry.spherical.computeDistanceBetween(origin, dests[k]))} (linea d'aria)`;
+      const col = cards[i].querySelector('.head > div');
+      if(col && !cards[i].querySelector('.badge-dist'))
+        col.insertAdjacentHTML('beforeend', `<span class="badge badge-dist">${txt}</span>`);
+    });
+  }catch(e){ console.warn('distanze registro:', e); }
+}
+// Orari di apertura ANCHE sulle schede del registro (partner/prospect): il registro non
+// li ha, quindi si cerca il negozio su Google (findPlaceFromQuery su nome+indirizzo, bias
+// sulla zona) e si leggono gli orari con getDetails → badge «🟢 Aperto ora / 🔴 Chiuso ora».
+// Best effort e non bloccante; se Google non trova la scheda, nessun badge. Le schede del
+// registro restano SEMPRE visibili (il filtro apertura non le nasconde).
+async function annotaOrariRegistro(list, cards, service, origin){
+  try{
+    const bias = origin ? { center: origin, radius: 50000 } : undefined;
+    await Promise.all(list.map((p,i)=> new Promise(resolve=>{
+      const card = cards[i];
+      const addr = [p.nome, p.indirizzo, p.citta, p.provincia].filter(Boolean).join(', ');
+      if(!card || !addr || card.querySelector('.badge-open')){ resolve(); return; }
+      const req = { query: addr, fields:['place_id'] };
+      if(bias) req.locationBias = bias;
+      service.findPlaceFromQuery(req, (res,status)=>{
+        if(status!==google.maps.places.PlacesServiceStatus.OK || !res || !res[0]){ resolve(); return; }
+        service.getDetails({ placeId: res[0].place_id, fields:['opening_hours','business_status'] }, (d,st)=>{
+          try{
+            if(st===google.maps.places.PlacesServiceStatus.OK && d){
+              let open; try{ open = d.opening_hours && d.opening_hours.isOpen && d.opening_hours.isOpen(); }catch(e){ open = undefined; }
+              card.dataset.open = (open===true)?'open':(open===false)?'closed':'unknown';
+              const badge = (open===true)?'<span class="badge badge-open" style="color:var(--green); background:rgba(36,138,61,.1)">🟢 Aperto ora</span>'
+                          : (open===false)?'<span class="badge badge-open" style="color:var(--red); background:rgba(215,0,21,.1)">🔴 Chiuso ora</span>'
+                          : '';
+              const col = card.querySelector('.head > div');
+              if(badge && col && !card.querySelector('.badge-open')) col.insertAdjacentHTML('beforeend', badge);
+            }
+          }finally{ resolve(); }
+        });
+      });
+    })));
+  }catch(e){ console.warn('orari registro:', e); }
 }
 
 /* ------------------ nearby search per categoria ------------------ */
 let lastPlacesStatus = null;
+function nearbyOne(service, opts, cat){
+  return new Promise(resolve=>{
+    service.nearbySearch(opts, (results,status)=>{
+      lastPlacesStatus = status;
+      if(status===google.maps.places.PlacesServiceStatus.OK && results){
+        resolve(results.map(r=>({place:r, cat})));
+      } else resolve([]);
+    });
+  });
+}
+// Ricerca multipla per categoria: una nearbySearch per ogni keyword + una solo per tipo,
+// poi unione (la dedup per place_id è a valle). La keyword da sola scarta schede vere — es.
+// «Le Torte di Giada» (Brescia): type bakery, ma Google non la associa a "pasticceria" —
+// mentre il tipo da solo aggiunge panifici/bar: unendo le liste non si perde nessuno.
+// Le keyword si personalizzano in ⚙️ Impostazioni (CONFIG.kwFioraio / kwPasticceria,
+// separate da virgola); vuote = predefinite di KEYWORDS nella lingua della consegna.
+// parole chiave per una categoria: personalizzate in ⚙️ (separate da virgola) o predefinite per lingua
+function keywordsFor(cat, lang){
+  const custom = String((cat==='fioraio' ? CONFIG.kwFioraio : CONFIG.kwPasticceria) || '').trim();
+  return custom
+    ? custom.split(',').map(s=>s.trim()).filter(Boolean)
+    : [KEYWORDS[cat][lang] || KEYWORDS[cat].default];
+}
 function nearby(service, location, cat, lang){
   const meta = CAT_META[cat];
-  const keyword = KEYWORDS[cat][lang] || KEYWORDS[cat].default;
+  const keywords = keywordsFor(cat, lang);
+  const base = { location, rankBy: google.maps.places.RankBy.DISTANCE, type: meta.type };
+  const runs = keywords.map(kw => nearbyOne(service, Object.assign({keyword: kw}, base), cat));
+  runs.push(nearbyOne(service, base, cat));
+  return Promise.all(runs).then(liste => [].concat(...liste));
+}
+// ricerca su area AMPIA (per «Estendi la ricerca»): textSearch con bias sulla zona ma
+// raggio largo (~40 km), così esce anche chi è più lontano quando in zona non c'è nulla.
+function textSearchOne(service, query, location, radius){
   return new Promise(resolve=>{
-    service.nearbySearch(
-      { location, rankBy: google.maps.places.RankBy.DISTANCE, type: meta.type, keyword },
-      (results,status)=>{
-        lastPlacesStatus = status;
-        if(status===google.maps.places.PlacesServiceStatus.OK && results){
-          resolve(results.map(r=>({place:r, cat})));
-        } else resolve([]);
-      }
-    );
+    service.textSearch({ query, location, radius: radius||40000 }, (results,status)=>{
+      lastPlacesStatus = status;
+      resolve((status===google.maps.places.PlacesServiceStatus.OK && results) ? results : []);
+    });
   });
+}
+async function wideSearch(service, location, cat, lang){
+  const kws = keywordsFor(cat, lang);
+  const liste = await Promise.all(kws.map(kw => textSearchOne(service, kw, location)));
+  return [].concat(...liste).map(r => ({ place:r, cat }));
 }
 
 /* ------------------ dettagli negozio ------------------ */
@@ -1380,8 +1906,18 @@ function extractInstagram(html){
   }
   return null;
 }
+// email + Instagram dal sito del negozio. Di default via il backend (/api/contatti,
+// niente CORS né proxy da configurare); se l'admin ha impostato un proxy CORS si usa
+// quello (percorso legacy, scraping direttamente dal browser).
 async function scrapeContacts(website, proxy){
-  if(!website || !proxy) return { emails:[], instagram:null };
+  if(!website) return { emails:[], instagram:null };
+  if(!proxy){
+    try{
+      const r = await apiFetch('/api/contatti?url=' + encodeURIComponent(website));
+      if(r.ok){ const j = await r.json(); return { emails: j.emails||[], instagram: j.instagram||null }; }
+    }catch(e){ /* ripiego sotto */ }
+    return { emails:[], instagram:null };
+  }
   const pages = [website];
   try{
     const u = new URL(website);
@@ -1441,6 +1977,9 @@ async function fetchOrder(){
 
 function populateOrder(o){
   orderLoaded = true;
+  resultsShown = false; setOrderCollapsed(false);   // nuovo ordine → scheda espansa (fin quando arrivano i risultati)
+  rememberSearch({ brand: o.brand || $('#brand').value,
+                   ordine: String(o.orderName || $('#orderNum').value || '').replace(/^#/,'').trim() });
   $('#orderBox').style.display='block';
   $('#ordTag').textContent = o.brand + ' · ' + (o.orderName||'');
   const paid = o.amountPaid || 0;
@@ -1494,7 +2033,7 @@ function populateOrder(o){
 function setCategoryForBrand(brand){
   const want = (brand === 'cakedesign.me') ? 'pasticceria' : 'fioraio';
   cats.clear(); cats.add(want);
-  document.querySelectorAll('.chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
+  document.querySelectorAll('.catbtns .chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
 }
 
 function updateThumb(){
@@ -1524,6 +2063,9 @@ function syncLangUI(){
 }
 const CARDWORD = { it:'Bigliettino', en:'Card message', fr:'Message carte', de:'Kartentext', es:'Tarjeta' };
 const SUBJECTWORD = { it:'Richiesta ordine', en:'Order request', fr:'Demande de commande', de:'Bestellanfrage', es:'Solicitud de pedido' };
+// etichette destinatario/telefono per la riga contatti nel messaggio al fornitore
+const RECIPIENTWORD = { it:'Destinatario', en:'Recipient', fr:'Destinataire', de:'Empfänger', es:'Destinatario' };
+const PHONEWORD     = { it:'Telefono',     en:'Phone',     fr:'Téléphone',    de:'Telefon',   es:'Teléfono' };
 function buildOrderMessage(lang){
   lang = lang || ($('#ordLang') && $('#ordLang').value) || currentLang || 'it';
   const fn = MSG_LANG[lang] || MSG_LANG.it;
@@ -1536,6 +2078,15 @@ function buildOrderMessage(lang){
     time: $('#ord_time').value.trim()
   };
   let msg = fn(p);
+  // contatti del destinatario: chi riceve e a che numero (per consegna/avviso)
+  const recipient = $('#ord_recipient').value.trim();
+  const phone = $('#ord_phone').value.trim();
+  if(recipient || phone){
+    const bits = [];
+    if(recipient) bits.push(recipient);
+    if(phone) bits.push('📞 ' + (PHONEWORD[lang]||'Telefono') + ': ' + phone);
+    msg += '\n\n📍 ' + (RECIPIENTWORD[lang]||'Destinatario') + ': ' + bits.join(' · ');
+  }
   const card = $('#ord_card').value.trim();
   if(card) msg += '\n\n💌 ' + (CARDWORD[lang]||'Bigliettino') + ': ' + card;
   // la foto NON va nel testo: viene copiata negli appunti per essere allegata (Ctrl+V)
@@ -1557,7 +2108,7 @@ function currentMessage(lang){
 }
 $('#ord_msg').addEventListener('input', ()=>{ msgDirty = true; $('#resetMsg').style.display=''; });
 $('#resetMsg').addEventListener('click', ()=> refreshOrderMessage(true));
-['#ord_date','#ord_time','#ord_items','#ord_variant','#ord_qty','#ord_address','#ord_card'].forEach(sel=>
+['#ord_date','#ord_time','#ord_items','#ord_variant','#ord_qty','#ord_address','#ord_card','#ord_recipient','#ord_phone'].forEach(sel=>
   $(sel).addEventListener('input', ()=> refreshOrderMessage()));
 $('#ordLang').addEventListener('change', ()=> refreshOrderMessage());
 async function copyMessage(){
@@ -1705,19 +2256,56 @@ function updateDeal(){
   }
   prefetchPhoto(url);
 }
-// filtro "solo probabili WhatsApp"
-function applyWaFilter(){
-  const only = $('#onlyWa').checked;
+// filtri risultati:
+//  - WhatsApp: tutti / con (cellulare = WhatsApp probabile) / senza (fisso o niente numero)
+//  - apertura: tutti / aperti ora / chiusi ora (in base agli orari Google)
+// Le schede del registro anagrafiche restano SEMPRE visibili (non hanno questi dati).
+let waFiltro = 'tutti';
+let openFiltro = 'tutti';
+function applyFilters(){
   let shown=0;
   resultsEl.querySelectorAll('.shop').forEach(el=>{
-    // le schede del registro anagrafiche restano sempre visibili
-    const hide = only && !el.dataset.registry && el.dataset.wakind!=='mobile';
+    let hide = false;
+    if(!el.dataset.registry){
+      if(waFiltro==='con')   hide = el.dataset.wakind!=='mobile';
+      if(waFiltro==='senza') hide = el.dataset.wakind==='mobile';
+      if(!hide){
+        // «aperti»/«chiusi» tengono fuori anche i negozi con orari non disponibili
+        if(openFiltro==='aperti') hide = el.dataset.open!=='open';
+        if(openFiltro==='chiusi') hide = el.dataset.open!=='closed';
+      }
+    }
     el.style.display = hide ? 'none' : '';
     if(!hide) shown++;
   });
+  syncMapMarkers();   // i segnaposto seguono i filtri
   return shown;
 }
-$('#onlyWa').addEventListener('change', applyWaFilter);
+// pillole gemelle (form di ricerca + cima ai risultati), sempre in sincrono
+function setWaFiltro(val){
+  waFiltro = val;
+  document.querySelectorAll('#waFilter .wchip, #waFilterResults .wchip')
+    .forEach(x=>x.classList.toggle('active', x.dataset.wa===val));
+  applyFilters();
+}
+function setOpenFiltro(val){
+  openFiltro = val;
+  document.querySelectorAll('#openFilter .wchip, #openFilterResults .wchip')
+    .forEach(x=>x.classList.toggle('active', x.dataset.open===val));
+  applyFilters();
+}
+['#waFilter','#waFilterResults'].forEach(sel=>{
+  $(sel).addEventListener('click', e=>{
+    const b = e.target.closest('.wchip'); if(!b) return;
+    setWaFiltro(b.dataset.wa);
+  });
+});
+['#openFilter','#openFilterResults'].forEach(sel=>{
+  $(sel).addEventListener('click', e=>{
+    const b = e.target.closest('.wchip'); if(!b) return;
+    setOpenFiltro(b.dataset.open);
+  });
+});
 
 $('#fetchOrder').addEventListener('click', fetchOrder);
 $('#orderNum').addEventListener('keydown', e=>{ if(e.key==='Enter') fetchOrder(); });
@@ -1725,6 +2313,7 @@ $('#orderNum').addEventListener('keydown', e=>{ if(e.key==='Enter') fetchOrder()
 // modalità manuale: apre il form vuoto senza chiamare Shopify
 $('#manualOrder').addEventListener('click', ()=>{
   orderLoaded = true;
+  resultsShown = false; setOrderCollapsed(false);   // ordine manuale → scheda espansa
   $('#orderBox').style.display='block';
   const num = $('#orderNum').value.trim().replace(/^#/,'');
   $('#ordTag').textContent = $('#brand').value + ' · ' + (num ? '#'+num : 'manuale');
@@ -2006,6 +2595,42 @@ function enrichCardWithRegistry(card, p){
   contacts.insertAdjacentHTML('afterend',
     `<div class="contacts" style="margin-top:8px"><span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)">🗂 dal registro</span>${rows.join('')}</div>${sendRows.join('')}`);
 }
+// «Usato per ordini recenti»: cerca nello Storico le richieste ordine già inviate
+// a questo negozio (match per nome normalizzato o per numero, ultime 9 cifre)
+// e lo scrive sulla scheda, con l'ultimo ordine e il canale usato.
+function annotaOrdiniRecenti(card, eventi){
+  if(card.dataset.usoAnnotato) return;
+  card.dataset.usoAnnotato = '1';
+  const nn = normName(negozioDaScheda(card).nome);
+  const suff = new Set([...card.querySelectorAll('a.tel')]
+    .map(a=>telDigits(a.getAttribute('href')).slice(-9)).filter(s=>s.length>=8));
+  const evs = (eventi||[]).filter(e=>{
+    if(e.tipo!=='richiesta') return false;
+    const n = e.negozio || {};
+    const en = normName(n.nome||'');
+    if(nn.length>3 && en.length>3 && (en===nn || en.includes(nn) || nn.includes(en))) return true;
+    const et = telDigits(n.telefono||'').slice(-9);
+    return et.length>=8 && suff.has(et);
+  });
+  const div = document.createElement('div');
+  div.className = 'meta';
+  div.style.marginTop = '6px';
+  if(!evs.length){
+    div.style.color = 'var(--text-tertiary)';
+    div.textContent = '📦 Nessuna richiesta ordine recente a questo negozio.';
+  } else {
+    const last = evs[0], o = last.ordine || {};   // lo storico è già dal più recente
+    const nOrdini = new Set(evs.filter(e=>e.ordine&&e.ordine.numero).map(e=>(e.ordine.brand||'')+'#'+e.ordine.numero)).size;
+    const canale = last.canale==='whatsapp' ? 'WhatsApp' : last.canale==='email' ? 'Email' : last.canale;
+    div.innerHTML = `📦 <b>${evs.length===1?'1 richiesta ordine inviata':evs.length+' richieste ordine inviate'}</b>`
+      + (nOrdini>1 ? ` (${nOrdini} ordini)` : '')
+      + ` — ultima ${esc(fmtQuando(last.quando))}`
+      + (o.numero ? ` · #${esc(o.numero)}` : '') + (o.brand ? ' · '+esc(o.brand) : '')
+      + (canale ? ' · '+esc(canale) : '');
+  }
+  const src = card.querySelector('.src');
+  if(src) card.insertBefore(div, src); else card.appendChild(div);
+}
 function apriRiconcilia(btn){
   const card = btn.closest('.shop');
   const panel = card.querySelector('.recon-panel');
@@ -2136,14 +2761,21 @@ function negozioDaScheda(el){
     telefono: telA ? (telA.getAttribute('href')||'').replace('tel:','') : '',
     email: mailA ? (mailA.getAttribute('href')||'').replace('mailto:','') : '' };
 }
+let ultimaRicercaLoggata = '';   // anti-doppioni per gli eventi 'ricerca' (per sessione)
+// la ricerca per zona in corso (per «Riapri ricerca» dallo Storico)
+function ricercaCorrente(){
+  const indirizzo = $('#address').value.trim();
+  if(!indirizzo) return null;
+  return { indirizzo, categoria: cats.size===1 ? (cats.has('pasticceria') ? 'pasticcerie' : 'fiorai') : '' };
+}
 // registra un evento nello storico sul server (best effort, non blocca l'interfaccia)
 function logEvento(evt){
   try{
-    const body = Object.assign({ quando: new Date().toISOString(), ordine: ordineCorrente() }, evt);
+    const body = Object.assign({ quando: new Date().toISOString(), ordine: ordineCorrente(), ricerca: ricercaCorrente() }, evt);
     apiFetch('/api/storico', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(()=>{});
   }catch(e){}
 }
-const ST_TIPO = { richiesta:'📤 Richiesta ordine', rubrica:'💾 Rubrica', segnalazione:'📣 Segnalazione', check:'🔎 Check ordine' };
+const ST_TIPO = { richiesta:'📤 Richiesta ordine', rubrica:'💾 Rubrica', segnalazione:'📣 Segnalazione', check:'🔎 Check ordine', ricerca:'🗺️ Ricerca in zona' };
 function fmtQuando(iso){
   const d = new Date(iso);
   if(isNaN(d)) return iso || '';
@@ -2174,6 +2806,8 @@ async function loadStorico(){
       const contatti = [n.telefono, n.email].filter(Boolean).join(' · ');
       const riapri = (e.ordine && e.ordine.numero && e.ordine.brand)
         ? `<button class="btn-dl st-reopen" style="margin-top:6px; padding:4px 12px; font-size:12px" data-brand="${esc(e.ordine.brand)}" data-num="${esc(e.ordine.numero)}">↻ Riapri richiesta</button>`
+        : (e.ricerca && e.ricerca.indirizzo)
+        ? `<button class="btn-dl st-reopen-search" style="margin-top:6px; padding:4px 12px; font-size:12px" data-addr="${esc(e.ricerca.indirizzo)}" data-cat="${esc(e.ricerca.categoria||'')}">↻ Riapri ricerca</button>`
         : '';
       return `<div class="st-row">
         <span class="st-when">${esc(fmtQuando(e.quando))}</span>
@@ -2193,7 +2827,7 @@ async function loadStorico(){
 /* ------------------ stato ricerca + stelline "contattato" ------------------ */
 // Persistiti sul server (/api/stato, KV) per ordine: tutti gli operatori vedono
 // lo stesso stato e le stesse stelle. Chiave = brand#numero, o 'generale' senza ordine.
-let statoRicerca = { stato:'non iniziata', stelle:{} };
+let statoRicerca = { stato:'non iniziata', stelle:{}, archiviati:{} };
 function ordineKey(){
   const num = ($('#ordTag').textContent.match(/#?(\d+)/)||[])[1] || '';
   return num ? ($('#brand').value + '#' + num) : 'generale';
@@ -2202,9 +2836,9 @@ async function loadStato(){
   try{
     const r = await apiFetch('/api/stato?ordine=' + encodeURIComponent(ordineKey()));
     const j = await r.json().catch(()=>({}));
-    if(r.ok && j.ok){ statoRicerca = { stato: j.stato || 'non iniziata', stelle: j.stelle || {} }; }
+    if(r.ok && j.ok){ statoRicerca = { stato: j.stato || 'non iniziata', stelle: j.stelle || {}, archiviati: j.archiviati || {} }; }
   }catch(e){ /* offline o errore: si resta con lo stato locale */ }
-  renderStatoPills(); applyStars();
+  renderStatoPills(); applyStars(); applyArchive();
 }
 function saveStato(patch){
   const body = Object.assign({ ordine: ordineKey(), quando: new Date().toISOString() }, patch);
@@ -2247,6 +2881,69 @@ resultsEl.addEventListener('click', e=>{
   else delete statoRicerca.stelle[b.dataset.sid];
   saveStato({ stella: { id: b.dataset.sid, nome: nomeDaScheda(card), on } });
   applyStars();
+});
+
+/* ------------------ ARCHIVIA / NASCONDI risultati ------------------
+   Nascondere un risultato lo sposta nella sezione «Archiviati» (ripristinabile). Persistito
+   per ordine (KV /api/stato, campo archiviati) e condiviso fra operatori, come le stelle.
+   Le schede archiviate restano nel DOM (classe .archived → display:none), così i marker e i
+   listeni continuano a funzionare; il pannello elenca gli archiviati con «↩ Ripristina». */
+function applyArchive(){
+  const arch = statoRicerca.archiviati || {};
+  resultsEl.querySelectorAll('.shop').forEach(el=> el.classList.toggle('archived', !!arch[el.dataset.sid]));
+  const box = $('#archivedBox');
+  const ids = Object.keys(arch);
+  if(!ids.length){ box.style.display='none'; box.innerHTML=''; syncMapMarkers(); return; }
+  const rows = ids.map(id=>{
+    const nome = (arch[id] && arch[id].nome) || id;
+    return `<div class="arch-row"><span class="arch-name">🗄️ ${esc(nome)}</span>
+      <button class="btn-dl arch-restore" type="button" data-sid="${esc(id)}">↩ Ripristina</button></div>`;
+  }).join('');
+  box.style.display='block';
+  box.innerHTML = `<details class="archived-details"><summary>🗄️ Archiviati (${ids.length}) — nascosti dalla lista</summary>
+    <div class="arch-list">${rows}</div></details>`;
+  syncMapMarkers();
+}
+// metadati della scheda per l'archivio (nome + provincia/città/categoria per la sezione Archiviati)
+function datiSchedaPerArchivio(card){
+  const sid = card.dataset.sid;
+  const nome = nomeDaScheda(card);
+  let d = CARD_DATA[sid];                                   // schede Google
+  if(!d && String(sid).startsWith('anag:')){               // schede del registro
+    const id = sid.slice(5);
+    const p = (lastAnagList||[]).find(x=>String(x.id)===id);
+    if(p) d = { categoria:p.categoria, citta:p.citta, provincia:p.provincia, indirizzo:p.indirizzo, telefono:p.telefono };
+  }
+  d = d || {};
+  return { nome, provincia:d.provincia||'', citta:d.citta||'', categoria:d.categoria||'', indirizzo:d.indirizzo||'', telefono:d.telefono||'' };
+}
+// archivia dalla scheda
+resultsEl.addEventListener('click', e=>{
+  const b = e.target.closest('.arch-btn'); if(!b) return;
+  const card = b.closest('.shop'); if(!card || !card.dataset.sid) return;
+  const sid = card.dataset.sid;
+  const meta = datiSchedaPerArchivio(card);
+  statoRicerca.archiviati = statoRicerca.archiviati || {};
+  statoRicerca.archiviati[sid] = { nome: meta.nome };
+  saveStato({ archivia: Object.assign({ id: sid, on: true }, meta) });
+  applyArchive();
+});
+// ripristina dal pannello archiviati
+$('#archivedBox').addEventListener('click', e=>{
+  const b = e.target.closest('.arch-restore'); if(!b) return;
+  const sid = b.dataset.sid;
+  if(statoRicerca.archiviati) delete statoRicerca.archiviati[sid];
+  saveStato({ archivia: { id: sid, on: false } });
+  applyArchive();
+});
+// aprire 💬 WhatsApp o 📞 chiamare dalla scheda = contatto avviato: stella automatica
+// (vale anche per i numeri dei referenti del registro); con un ordine caricato la
+// ricerca passa a «in corso», come per «Invia richiesta ordine»
+resultsEl.addEventListener('click', e=>{
+  const link = e.target.closest('a.wa, a.tel'); if(!link) return;
+  const card = e.target.closest('.shop'); if(!card) return;
+  if(orderLoaded && statoRicerca.stato !== 'trovato') setStatoRicerca('in corso');
+  starShop(card);
 });
 
 /* ------------------ render ------------------ */
@@ -2303,6 +3000,7 @@ function shopCard(d, cat, dist, pid){
   const el = document.createElement('div');
   el.className = 'shop';
   el.dataset.wakind = kind;
+  el.dataset.open = (open===true) ? 'open' : (open===false) ? 'closed' : 'unknown';
   el.dataset.lang = shopLang;
   el.dataset.sid = pid || d.place_id || '';
   el.innerHTML = `
@@ -2310,6 +3008,7 @@ function shopCard(d, cat, dist, pid){
       <h3>${meta.emoji} ${d.name}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
         <button type="button" class="star-btn" data-sid="${esc(el.dataset.sid)}" title="Segna come contattato">☆</button>
+        <button type="button" class="arch-btn" title="Nascondi / archivia questo risultato">🗄️</button>
         <span class="badge dist">${distBadge}</span>
         ${openBadge}
         ${waBadge}
@@ -2334,6 +3033,76 @@ function shopCard(d, cat, dist, pid){
   return el;
 }
 
+/* ------------------ modo compatto ordine (riepilogo quando ci sono i risultati) ------------------
+   Quando compaiono i risultati della ricerca, l'ordine (lungo) si riduce a un riepilogo:
+   n° ordine, destinatario, consegna, prodotto, budget/margine e messaggio. «Modifica ordine»
+   lo riespande. I dati restano nei campi originali (nascosti), quindi gli invii dalle schede
+   funzionano come prima (leggono #ord_msg e i campi). */
+let resultsShown = false;   // true = per l'ordine corrente sono già comparsi dei risultati
+function renderOrderSummary(){
+  const paid = $('#ord_paid').value.trim(), budget = $('#ord_budget').value.trim();
+  const paidN = parseFloat(paid.replace(',','.')), budN = parseFloat(budget.replace(',','.'));
+  const margine = (isFinite(paidN) && isFinite(budN)) ? (paidN - budN) : null;
+  const srcTag = ($('#deal_src') && $('#deal_src').textContent || '').trim();   // «da tabella» / «stima 59% — da confermare» / «impostato a mano»
+  const photo = $('#ord_photo').value.trim();
+  const recipient = $('#ord_recipient').value.trim(), phone = $('#ord_phone').value.trim();
+  const address = $('#ord_address').value.trim(), date = $('#ord_date').value.trim(), time = $('#ord_time').value.trim();
+  const prod = $('#ord_items').value.trim(), variant = $('#ord_variant').value.trim(), qty = $('#ord_qty').value.trim();
+  const statoBadge = statoRicerca.stato==='in corso' ? '<span class="badge" style="color:var(--blue); background:rgba(0,113,227,.1)">🔵 ricerca in corso</span>'
+                   : statoRicerca.stato==='trovato' ? '<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">🟢 fornitore trovato</span>' : '';
+  const row = (lbl,val)=> val ? `<div><span class="lbl">${lbl}:</span> ${esc(val)}</div>` : '';
+  $('#orderSummary').innerHTML = `
+    <div class="os-head">
+      <div class="os-title">📦 ${esc($('#ordTag').textContent||'Ordine')} ${statoBadge}</div>
+      <button class="btn-dl" id="editOrder" type="button">✏️ Modifica ordine</button>
+    </div>
+    <div class="os-grid">
+      ${photo ? `<img class="os-photo" src="${esc(photo)}" alt="foto ordine">`
+              : '<div class="os-photo" style="display:flex; align-items:center; justify-content:center; color:var(--text-tertiary); font-size:11px; text-align:center; padding:6px">nessuna foto</div>'}
+      <div class="os-fields">
+        ${row('Destinatario', [recipient, phone].filter(Boolean).join(' · '))}
+        ${row('Consegna', [address, [date,time].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}
+        ${row('Prodotto', [prod, variant, qty?('×'+qty):''].filter(Boolean).join(' '))}
+      </div>
+    </div>
+    <div class="os-prices">
+      ${isFinite(budN)?`<div class="os-price os-price-budget">
+        <span class="os-price-lbl">Da proporre al fiorario</span>
+        <span class="os-price-val">${eur(budN)}</span>
+        ${srcTag?`<span class="os-price-tag${/stima/i.test(srcTag)?' warn':''}">${esc(srcTag)}</span>`:''}
+      </div>`:''}
+      ${isFinite(paidN)?`<div class="os-price">
+        <span class="os-price-lbl">Pagato dal cliente</span>
+        <span class="os-price-val">${eur(paidN)}</span>
+      </div>`:''}
+      ${margine!=null?`<div class="os-price os-price-margin">
+        <span class="os-price-lbl">Margine Deluxy</span>
+        <span class="os-price-val">${eur(margine)}</span>
+      </div>`:''}
+    </div>
+    <div class="os-msg">
+      <label>💬 Messaggio per il negozio</label>
+      <textarea readonly rows="4">${esc($('#ord_msg').value)}</textarea>
+      <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap">
+        <button class="btn-dl" id="copyMsgSummary" type="button">📋 Copia messaggio</button>
+        <span class="hint" style="margin:0">Scegli un negozio a destra e premi «Invia richiesta», oppure «Modifica ordine» per cambiare i dati.</span>
+      </div>
+    </div>`;
+  $('#editOrder').addEventListener('click', ()=> setOrderCollapsed(false));
+  $('#copyMsgSummary').addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText($('#ord_msg').value); const b=$('#copyMsgSummary'); b.textContent='✅ Copiato'; setTimeout(()=>{ b.textContent='📋 Copia messaggio'; }, 2000); }catch(e){}
+  });
+}
+function setOrderCollapsed(collapsed){
+  const card = document.querySelector('.ordercard');
+  if(!card) return;
+  if(collapsed){ renderOrderSummary(); card.classList.add('collapsed'); $('#orderSummary').style.display='block'; }
+  else { card.classList.remove('collapsed'); $('#orderSummary').style.display='none'; }
+  const cb = $('#collapseOrder');
+  if(cb) cb.style.display = (!collapsed && resultsShown && orderLoaded) ? 'inline-flex' : 'none';
+}
+$('#collapseOrder').addEventListener('click', ()=> setOrderCollapsed(true));
+
 /* ------------------ flusso principale ------------------ */
 $('#go').addEventListener('click', run);
 $('#address').addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
@@ -2341,14 +3110,18 @@ $('#address').addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
 async function run(){
   const key = (CONFIG.googleKey||'').trim();
   const address = $('#address').value.trim();
-  const proxy = (CONFIG.proxy||'').trim();
-  const limit = parseInt($('#limit').value,10);
-  const sortBy = $('#sort').value;
 
   resultsEl.innerHTML='';
   if(!key){ setStatus('Manca la chiave Google: aprila in ⚙️ Admin e salvala.', true); $('#config').open=true; return; }
   if(!address){ setStatus('Inserisci un indirizzo o una zona.', true); return; }
   if(cats.size===0){ setStatus('Seleziona almeno una categoria (Fiorai / Pasticcerie).', true); return; }
+
+  // al refresh si riparte da qui: se l'URL dice già ?ordine (messo da populateOrder)
+  // si lascia stare, altrimenti si ricorda la ricerca per indirizzo (anche in modalità manuale)
+  if(!new URLSearchParams(location.search).get('ordine')){
+    rememberSearch({ indirizzo: address,
+      categoria: cats.size===1 ? (cats.has('pasticceria') ? 'pasticcerie' : 'fiorai') : '' });
+  }
 
   $('#go').disabled = true;
   try{
@@ -2362,11 +3135,12 @@ async function run(){
     currentLang = COUNTRY_LANG[geo.country] || 'it';
     syncLangUI();
 
-    // in parallelo alla ricerca Google: partner/prospect già nostri in questa città/provincia
-    const anagPromise = anagLookup(geo, [...cats]).catch(err=>({ error: err.message, list:[] }));
-
     setStatus('Cerco i negozi più vicini…');
     const service = new google.maps.places.PlacesService(document.createElement('div'));
+    lastSearchCtx = { service, origin, geo };   // per «Estendi la ricerca»
+    resetMap();                                  // nuova ricerca → mappa azzerata
+    $('#noResults').style.display = 'none';
+    $('#extendMore').style.display = 'none';
 
     // ricerca per ogni categoria selezionata
     let found = [];
@@ -2381,113 +3155,24 @@ async function run(){
     });
 
     if(found.length===0){
-      if(lastPlacesStatus==='REQUEST_DENIED')
+      $('#resultTools').style.display='none';
+      if(lastPlacesStatus==='REQUEST_DENIED'){
         setStatus('❌ "Places API" non abilitata sul tuo progetto Google Cloud, o la chiave non la autorizza. Attivala e riprova.', true);
-      else if(lastPlacesStatus==='OVER_QUERY_LIMIT')
+      } else if(lastPlacesStatus==='OVER_QUERY_LIMIT'){
         setStatus('❌ Limite/quota Google superata (o fatturazione non attiva).', true);
-      else if(lastPlacesStatus==='ZERO_RESULTS')
-        setStatus('Nessun negozio di questa categoria vicino all\'indirizzo. Prova un\'altra zona o categoria.', true);
-      else
-        setStatus('Nessun risultato ('+(lastPlacesStatus||'?')+'). Prova un altro indirizzo o categoria.', true);
+      } else {
+        // genuinamente nulla in zona: offri di allargare l'area (textSearch ~40 km)
+        setStatus('Nessun negozio trovato vicino all\'indirizzo.', true);
+        $('#noResultsMsg').textContent = (cats.size===1
+            ? 'Nessun negozio di questa categoria vicino all\'indirizzo.'
+            : 'Nessun negozio vicino all\'indirizzo.')
+          + ' Puoi allargare la ricerca a un\'area più ampia (fino a ~40 km).';
+        $('#noResults').style.display = 'block';
+      }
       return;
     }
 
-    // ordina (linea d'aria) e limita
-    found.sort((a,b)=> sortBy==='rating' ? (b.rating-a.rating) : (a.dist-b.dist));
-    found = found.slice(0, limit);
-
-    // distanza STRADALE (in auto) dalla consegna: la calcolo per i selezionati e riordino
-    setStatus('Calcolo le distanze stradali…');
-    const elems = await drivingDistances(origin, found.map(f=>f.place.geometry.location));
-    if(elems){
-      found.forEach((f,i)=>{
-        const el = elems[i];
-        if(el && el.status==='OK'){ f.driveDist = el.distance.value; f.driveText = el.distance.text; f.durText = el.duration.text; }
-      });
-      if(sortBy==='dist') found.sort((a,b)=> (a.driveDist ?? a.dist) - (b.driveDist ?? b.dist));
-    }
-
-    setStatus(`Carico i dettagli di ${found.length} negozi…`);
-    const cards = [];
-    for(const f of found){
-      const d = await details(service, f.place.place_id);
-      if(!d) continue;
-      const card = shopCard(d, f.cat, { straight:f.dist, driveText:f.driveText, durText:f.durText }, f.place.place_id);
-      resultsEl.appendChild(card);
-      cards.push({card, website:d.website, pid:f.place.place_id});
-    }
-
-    // registro anagrafiche: evidenzia chi è già partner/prospect e portalo in cima
-    let anagNote = '';
-    const anag = await anagPromise;
-    if(anag.error){ anagNote = ' · ⚠️ registro anagrafiche non raggiungibile'; console.warn('registro anagrafiche:', anag.error); }
-    else if(!anag.skipped){
-      lastAnagList = anag.list;   // serve al pannello «Riconcilia» sulle schede
-      const matchedIds = new Set();
-      const matchedCards = [];
-      // match per nome con le schede Google
-      resultsEl.querySelectorAll('.shop').forEach(cardEl=>{
-        const name = normName((cardEl.querySelector('h3')||{}).textContent);
-        const p = anag.list.find(x=>{ const k=normName(x.nome); return k.length>3 && name.length>3 && (k===name || name.includes(k) || k.includes(name)); });
-        if(!p) return;
-        matchedIds.add(p.id);
-        cardEl.dataset.regId = p.id;   // candidato preselezionato per «Riconcilia»
-        enrichCardWithRegistry(cardEl, p);   // telefono/email del registro → WhatsApp diretto
-        const isPartner = isPartnerAttivo(p);
-        if(isPartner) cardEl.classList.add('matched-partner');
-        const col = cardEl.querySelector('.head > div');
-        if(col) col.insertAdjacentHTML('afterbegin',
-          `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>`);
-        // già censito: inutile segnalarlo di nuovo al commerciale
-        const rep = cardEl.querySelector('.reportshop');
-        if(rep){ rep.disabled = true; rep.textContent = 'ℹ️ Già nel registro · '+statoLabel(p); }
-        matchedCards.push(cardEl);
-      });
-      // schede del registro non presenti tra i risultati Google + schede Google matchate, tutte in cima
-      const regCards = anag.list.filter(p=>!matchedIds.has(p.id)).map(registryCard);
-      resultsEl.prepend(...regCards, ...matchedCards);
-      const nPartner = anag.list.filter(isPartnerAttivo).length;
-      const nAltri = anag.list.length - nPartner;
-      anagNote = anag.list.length
-        ? ` · 🤝 nel registro: ${nPartner} partner e ${nAltri} prospect (${anag.scope||'zona'}) — in cima alla lista`
-        : ' · registro: nessun partner/prospect in zona';
-    }
-
-    applyWaFilter();
-    const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
-    const distNote = lastDriveSource==='Google' ? ' · 🚗 distanza stradale'
-                   : lastDriveSource==='OSRM'   ? ' · 🚗 distanza stradale (OSM)'
-                   : ' · 📏 distanza in linea d\'aria (routing non disponibile)';
-    setStatus(`✅ Trovati ${cards.length} negozi${distNote}${langNote}${anagNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
-    applyStars();   // ★ sui fornitori già contattati per quest'ordine
-
-    // scraping email + Instagram in background (best effort)
-    if(proxy){
-      let withEmail=0, withIg=0;
-      await Promise.all(cards.map(async ({card,website,pid})=>{
-        const slot = card.querySelector('.email-slot');
-        if(!website){ return; }
-        slot.innerHTML = '<span class="loading">✉️ cerco email e Instagram…</span>';
-        const { emails, instagram } = await scrapeContacts(website, proxy);
-        const parts = [];
-        if(emails && emails.length){ withEmail++; parts.push(...emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`));
-          if(pid && CARD_DATA[pid]) CARD_DATA[pid].email = emails[0]; }
-        if(instagram){ withIg++; parts.push(`<a class="insta" href="https://ig.me/m/${instagram.handle}" target="_blank" rel="noopener">📷 DM @${instagram.handle}</a>`); }
-        if(parts.length){
-          slot.innerHTML = parts.join('')
-            + (emails && emails.length ? `<button class="sendemail" data-email="${emails[0]}">📧 Invia richiesta via email</button>` : '');
-          const src = card.querySelector('.src');
-          const bits = [];
-          if(emails.length) bits.push('email');
-          if(instagram) bits.push('Instagram');
-          src.innerHTML += ' · '+bits.join(' + ')+': <span class="verified">dal sito ufficiale</span>';
-        } else {
-          slot.innerHTML = '<span class="none">✉️ nessun contatto extra trovato</span>';
-        }
-      }));
-      setStatus(`✅ ${cards.length} negozi · email per ${withEmail} · Instagram per ${withIg}${anagNote}.`);
-    }
-
+    await renderResults(found, geo, origin, service, {});
   }catch(err){
     console.error(err);
     setStatus(err.message || 'Errore imprevisto.', true);
@@ -2495,6 +3180,277 @@ async function run(){
     $('#go').disabled = false;
   }
 }
+
+/* ------------------ RENDER dei risultati (condiviso tra ricerca normale ed estesa) ------------------ */
+async function renderResults(found, geo, origin, service, opts){
+  opts = opts || {};
+  const extended = !!opts.extended;
+  const proxy = (CONFIG.proxy||'').trim();
+  const limit = parseInt($('#limit').value,10);
+  const sortBy = $('#sort').value;
+
+  // partner/prospect già nostri in zona + Storico (per le annotazioni sulle schede)
+  const anagPromise = anagLookup(geo, [...cats]).catch(err=>({ error: err.message, list:[] }));
+  const storicoPromise = apiFetch('/api/storico').then(r=>r.json()).then(j=>j.eventi||[]).catch(()=>[]);
+
+  resultsEl.innerHTML = '';
+  $('#extendMore').style.display = 'none';
+  resetMap();
+  mapPoints = [];
+
+  // ordina (linea d'aria) e limita
+  found.sort((a,b)=> sortBy==='rating' ? (b.rating-a.rating) : (a.dist-b.dist));
+  found = found.slice(0, limit);
+
+  // distanza STRADALE (in auto) dalla consegna: la calcolo per i selezionati e riordino
+  setStatus('Calcolo le distanze stradali…');
+  const elems = await drivingDistances(origin, found.map(f=>f.place.geometry.location));
+  if(elems){
+    found.forEach((f,i)=>{
+      const el = elems[i];
+      if(el && el.status==='OK'){ f.driveDist = el.distance.value; f.driveText = el.distance.text; f.durText = el.duration.text; }
+    });
+    if(sortBy==='dist') found.sort((a,b)=> (a.driveDist ?? a.dist) - (b.driveDist ?? b.dist));
+  }
+
+  setStatus(`Carico i dettagli di ${found.length} negozi…`);
+  const cards = [];
+  for(const f of found){
+    const d = await details(service, f.place.place_id);
+    if(!d) continue;
+    const card = shopCard(d, f.cat, { straight:f.dist, driveText:f.driveText, durText:f.durText }, f.place.place_id);
+    resultsEl.appendChild(card);
+    cards.push({card, website:d.website, pid:f.place.place_id});
+    // punto per la mappa (posizione dai dettagli, ripiego sulla scheda della ricerca)
+    const loc = (d.geometry && d.geometry.location) || (f.place.geometry && f.place.geometry.location);
+    if(loc) mapPoints.push({ name:d.name, loc, sid:f.place.place_id, cat:f.cat,
+      open: card.dataset.open, distText: (f.driveText||distanceStr(f.dist)) });
+  }
+
+  // registro anagrafiche: evidenzia chi è già partner/prospect e portalo in cima
+  let anagNote = '';
+  const anag = await anagPromise;
+  if(anag.error){ anagNote = ' · ⚠️ registro anagrafiche non raggiungibile'; console.warn('registro anagrafiche:', anag.error); }
+  else if(!anag.skipped){
+    lastAnagList = anag.list;   // serve al pannello «Riconcilia» sulle schede
+    const matchedIds = new Set();
+    const matchedCards = [];
+    // match per nome con le schede Google
+    resultsEl.querySelectorAll('.shop').forEach(cardEl=>{
+      const name = normName((cardEl.querySelector('h3')||{}).textContent);
+      const p = anag.list.find(x=>{ const k=normName(x.nome); return k.length>3 && name.length>3 && (k===name || name.includes(k) || k.includes(name)); });
+      if(!p) return;
+      matchedIds.add(p.id);
+      cardEl.dataset.regId = p.id;   // candidato preselezionato per «Riconcilia»
+      enrichCardWithRegistry(cardEl, p);   // telefono/email del registro → WhatsApp diretto
+      const isPartner = isPartnerAttivo(p);
+      if(isPartner) cardEl.classList.add('matched-partner');
+      const col = cardEl.querySelector('.head > div');
+      const riconc = (p.riferimenti||[]).some(r=>r.sistema==='deluxy-suppliers' && r.idEsterno===cardEl.dataset.sid);
+      if(col) col.insertAdjacentHTML('afterbegin',
+        `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>`
+        + (riconc ? '<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">🔗 riconciliata</span>' : ''));
+      // già censito: inutile segnalarlo di nuovo al commerciale
+      const rep = cardEl.querySelector('.reportshop');
+      if(rep){ rep.disabled = true; rep.textContent = 'ℹ️ Già nel registro · '+statoLabel(p); }
+      matchedCards.push(cardEl);
+    });
+    // schede del registro non presenti tra i risultati Google + schede Google matchate, tutte in cima
+    const regList = anag.list.filter(p=>!matchedIds.has(p.id));
+    const regCards = regList.map(registryCard);
+    resultsEl.prepend(...regCards, ...matchedCards);
+    // distanza stradale + orari di apertura dalla consegna anche su queste schede
+    // (best effort, in parallelo, non bloccano la ricerca)
+    annotaDistanzeRegistro(regList, regCards, origin);
+    annotaOrariRegistro(regList, regCards, service, origin);
+    // sulle schede già nostre: «usato per ordini recenti?» dallo Storico (best effort)
+    storicoPromise.then(eventi=>{ [...regCards, ...matchedCards].forEach(c=>annotaOrdiniRecenti(c, eventi)); });
+    const nPartner = anag.list.filter(isPartnerAttivo).length;
+    const nAltri = anag.list.length - nPartner;
+    anagNote = anag.list.length
+      ? ` · 🤝 nel registro: ${nPartner} partner e ${nAltri} prospect (${anag.scope||'zona'}) — in cima alla lista`
+      : ' · registro: nessun partner/prospect in zona';
+  }
+
+  applyFilters();
+  $('#resultTools').style.display = 'block';           // filtri + bottone mappa sopra i risultati
+  $('#toggleMap').style.display = mapPoints.length ? '' : 'none';
+  showExtendFooter(extended);                          // «estendi» anche in fondo alla lista
+  // con un ordine caricato, comprimi la scheda ordine in riepilogo (meno scroll, focus sui negozi)
+  if(orderLoaded){ resultsShown = true; setOrderCollapsed(true); }
+  const address = $('#address').value.trim();
+  const extNote = extended ? ' · 🔎 area allargata (~40 km)' : '';
+  const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
+  const distNote = lastDriveSource==='Google' ? ' · 🚗 distanza stradale'
+                 : lastDriveSource==='OSRM'   ? ' · 🚗 distanza stradale (OSM)'
+                 : ' · 📏 distanza in linea d\'aria (routing non disponibile)';
+  setStatus(`✅ Trovati ${cards.length} negozi${extNote}${distNote}${langNote}${anagNote}.${proxy?' Cerco email e Instagram sui siti…':''}`);
+  applyStars();   // ★ sui fornitori già contattati per quest'ordine
+  applyArchive(); // 🗄️ nascondi i risultati archiviati per quest'ordine
+  // senza ordine le stelle vivono sotto la chiave 'generale': vanno ricaricate qui,
+  // perché loadStato() altrimenti parte solo quando si carica un ordine
+  if(!orderLoaded) loadStato();
+
+  // le ricerche per sola zona (senza ordine) vanno nello Storico, così si possono
+  // riaprire con «↻ Riapri ricerca»; con un ordine c'è già l'evento check di /api/order.
+  if(!orderLoaded && ultimaRicercaLoggata !== address){
+    ultimaRicercaLoggata = address;
+    logEvento({ tipo:'ricerca', esito:'trovati '+cards.length+' negozi'+(extended?' (area allargata)':''), negozio:{ nome: address } });
+  }
+
+  // email + Instagram dal sito del negozio, in background (best effort).
+  {
+    let withEmail=0, withIg=0;
+    await Promise.all(cards.map(async ({card,website,pid})=>{
+      const slot = card.querySelector('.email-slot');
+      if(!website){ return; }
+      slot.innerHTML = '<span class="loading">✉️ cerco email e Instagram…</span>';
+      const { emails, instagram } = await scrapeContacts(website, proxy);
+      const parts = [];
+      if(emails && emails.length){ withEmail++; parts.push(...emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`));
+        if(pid && CARD_DATA[pid]) CARD_DATA[pid].email = emails[0]; }
+      if(instagram){ withIg++; parts.push(`<a class="insta" href="https://ig.me/m/${instagram.handle}" target="_blank" rel="noopener">📷 DM @${instagram.handle}</a>`); }
+      if(parts.length){
+        slot.innerHTML = parts.join('')
+          + (emails && emails.length && !card.querySelector('.sendemail') ? `<button class="sendemail" data-email="${emails[0]}">📧 Invia richiesta via email</button>` : '');
+        const src = card.querySelector('.src');
+        const bits = [];
+        if(emails.length) bits.push('email');
+        if(instagram) bits.push('Instagram');
+        src.innerHTML += ' · '+bits.join(' + ')+': <span class="verified">dal sito ufficiale</span>';
+      } else {
+        slot.innerHTML = '<span class="none">✉️ nessuna email pubblicata sul sito</span>';
+      }
+    }));
+    setStatus(`✅ ${cards.length} negozi${extNote}${distNote}${langNote} · ✉️ email per ${withEmail}${anagNote}.`);
+  }
+}
+
+/* ------------------ ESTENDI la ricerca (area ~40 km, quando in zona non c'è nulla) ------------------ */
+let lastSearchCtx = null;   // { service, origin, geo } dell'ultima ricerca
+async function extendSearch(){
+  if(!lastSearchCtx){ run(); return; }
+  const { service, origin, geo } = lastSearchCtx;
+  $('#extendBtn').disabled = true;
+  setStatus('Allargo la ricerca a un\'area più ampia…');
+  try{
+    let found = [];
+    for(const cat of cats){ found = found.concat(await wideSearch(service, origin, cat, currentLang)); }
+    // dedup per place_id, tieni solo chi ha una posizione, calcola distanza
+    const seen = new Set();
+    found = found.filter(f=>{
+      if(!f.place || !f.place.geometry || !f.place.geometry.location) return false;
+      if(seen.has(f.place.place_id)) return false; seen.add(f.place.place_id); return true;
+    });
+    found.forEach(f=>{
+      f.dist = google.maps.geometry.spherical.computeDistanceBetween(origin, f.place.geometry.location);
+      f.rating = f.place.rating || 0;
+    });
+    if(found.length===0){
+      setStatus('Ancora nessun negozio, anche allargando l\'area. Prova un altro indirizzo o categoria.', true);
+      return;
+    }
+    $('#noResults').style.display = 'none';
+    await renderResults(found, geo, origin, service, { extended:true });
+  }catch(err){
+    console.error(err);
+    setStatus(err.message || 'Errore durante l\'estensione della ricerca.', true);
+  }finally{
+    $('#extendBtn').disabled = false;
+  }
+}
+$('#extendBtn').addEventListener('click', extendSearch);
+$('#extendMoreBtn').addEventListener('click', extendSearch);
+// footer «estendi» in fondo alla lista: sempre visibile dopo una ricerca con risultati.
+// Se la ricerca è già stata allargata, resta solo il messaggio (siamo già a ~40 km).
+function showExtendFooter(extended){
+  $('#extendMoreMsg').textContent = extended
+    ? 'Questi risultati sono già su un\'area più ampia (~40 km dalla consegna).'
+    : 'Non trovi il fornitore giusto? Cerca lo stesso tipo di negozio in un\'area più ampia (~40 km).';
+  $('#extendMoreBtn').style.display = extended ? 'none' : '';
+  $('#extendMore').style.display = 'block';
+}
+
+/* ------------------ MAPPA dei risultati (Google Maps) ------------------ */
+let mapState = null;   // { map, info, markers:{sid:marker}, originMarker }
+let mapPoints = [];    // [{ name, loc, sid, cat, open, distText }]
+function resetMap(){
+  $('#mapWrap').style.display = 'none';
+  const t = $('#toggleMap'); if(t) t.textContent = '🗺️ Mostra sulla mappa';
+  mapState = null;   // ricreata alla prossima apertura
+}
+function focusCard(sid){
+  const card = resultsEl.querySelector('.shop[data-sid="'+sid+'"]');
+  if(!card) return;
+  card.scrollIntoView({behavior:'smooth', block:'center'});
+  const prev = card.style.boxShadow;
+  card.style.transition = 'box-shadow .25s var(--ease)';
+  card.style.boxShadow = '0 0 0 3px var(--gold)';
+  setTimeout(()=>{ card.style.boxShadow = prev; }, 1600);
+}
+function buildMap(){
+  if(!mapPoints.length || !lastSearchCtx) return;
+  const origin = lastSearchCtx.origin;
+  if(!mapState){
+    const map = new google.maps.Map($('#map'), {
+      mapTypeControl:false, streetViewControl:false, fullscreenControl:true, clickableIcons:false
+    });
+    mapState = { map, info:new google.maps.InfoWindow(), markers:{}, originMarker:null };
+  }
+  // pulizia
+  Object.values(mapState.markers).forEach(m=>m.setMap(null));
+  mapState.markers = {};
+  if(mapState.originMarker) mapState.originMarker.setMap(null);
+
+  const bounds = new google.maps.LatLngBounds();
+  // segnaposto consegna (blu)
+  mapState.originMarker = new google.maps.Marker({
+    position: origin, map: mapState.map, title: 'Indirizzo di consegna', zIndex: 999,
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor:'#0071e3', fillOpacity:1, strokeColor:'#fff', strokeWeight:3 }
+  });
+  bounds.extend(origin);
+  mapPoints.forEach((p,i)=>{
+    const marker = new google.maps.Marker({
+      position: p.loc, map: mapState.map, title: p.name, label: String(i+1)
+    });
+    marker.addListener('click', ()=>{
+      const emoji = CAT_META[p.cat] ? CAT_META[p.cat].emoji : '📍';
+      const stato = p.open==='open' ? '🟢 Aperto ora' : p.open==='closed' ? '🔴 Chiuso ora' : '';
+      mapState.info.setContent(
+        `<div style="font-family:var(--font-sans,sans-serif); max-width:220px; line-height:1.4">
+           <div style="font-weight:600; margin-bottom:2px">${emoji} ${esc(p.name)}</div>
+           <div style="font-size:12px; color:#555">${esc(p.distText||'')}${stato?' · '+stato:''}</div>
+         </div>`);
+      mapState.info.open(mapState.map, marker);
+      focusCard(p.sid);
+    });
+    mapState.markers[p.sid] = marker;
+    bounds.extend(p.loc);
+  });
+  mapState.map.fitBounds(bounds);
+  syncMapMarkers();
+}
+// i segnaposto seguono i filtri WhatsApp/apertura (marker nascosto se la scheda è nascosta)
+function syncMapMarkers(){
+  if(!mapState) return;
+  Object.entries(mapState.markers).forEach(([sid,m])=>{
+    const card = resultsEl.querySelector('.shop[data-sid="'+sid+'"]');
+    const visible = card && card.style.display !== 'none' && !card.classList.contains('archived');
+    m.setMap(visible ? mapState.map : null);
+  });
+}
+$('#toggleMap').addEventListener('click', ()=>{
+  const wrap = $('#mapWrap');
+  const show = (wrap.style.display === 'none' || !wrap.style.display);
+  if(show){
+    wrap.style.display = 'block';
+    buildMap();
+    $('#toggleMap').textContent = '🗺️ Nascondi mappa';
+  } else {
+    wrap.style.display = 'none';
+    $('#toggleMap').textContent = '🗺️ Mostra sulla mappa';
+  }
+});
 </script>
 </body>
 </html>

@@ -21,5 +21,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!login|_next/static|_next/image|favicon.ico).*)"],
+  // Le route /api si autenticano da sole (es. /api/keys con HUB_KEYS_TOKEN):
+  // vanno escluse dal controllo di sessione, altrimenti verrebbero rimandate al login.
+  matcher: ["/((?!api|login|_next/static|_next/image|favicon.ico).*)"],
 };
