@@ -67,6 +67,7 @@ Ogni app ha la **sua** porta, fissata nello script `dev` del `package.json`:
 | 3080 | deluxy-budgets | | 3140 | deluxy-messaging |
 | 3090 | deluxy-tasks *(riservata)* | | 3150 | deluxy-orders |
 | | | | 3160 | deluxy-transactions |
+| | | | 3170 | deluxy-scripts |
 
 Una porta nuova si prende **dal primo multiplo di 10 libero** e si aggiunge qui
 e al catalogo del Hub (`deluxy-hub/src/lib/apps.ts`).

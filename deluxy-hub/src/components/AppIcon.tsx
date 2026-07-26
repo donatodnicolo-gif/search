@@ -132,6 +132,14 @@ const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
       <path d="m9 12 2.2 2.2L15.5 10" {...TRATTO} />
     </>
   ),
+  // Parentesi angolari e barra: l'archivio degli script
+  scripts: (
+    <>
+      <path d="M8.5 8.5 5 12l3.5 3.5" {...TRATTO} />
+      <path d="M15.5 8.5 19 12l-3.5 3.5" {...TRATTO} />
+      <path d="M13.2 5.5 10.8 18.5" {...TRATTO} />
+    </>
+  ),
 };
 
 export function AppIcon({ icona }: { icona: AppDeluxy["icona"] }) {

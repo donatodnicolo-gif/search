@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi" | "orders" | "transactions";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi" | "orders" | "transactions" | "scripts";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -152,9 +152,9 @@ export function catalogoApp(): AppDeluxy[] {
       descrizione:
         "Il calendario centralizzato: gli eventi datati di ogni app Deluxy in un'unica vista, gemello del registro Attività.",
       icona: "calendario",
-      // Eccezione voluta: la tessera resta visibile anche in produzione senza
-      // APP_URL_CALENDARIO, puntando all'istanza locale finché non c'è un URL pubblico.
-      url: process.env.APP_URL_CALENDARIO ?? "http://localhost:3110",
+      // L'app è pubblicata: si punta al sito di produzione, sovrascrivibile con
+      // APP_URL_CALENDARIO (es. http://localhost:3110 in sviluppo).
+      url: process.env.APP_URL_CALENDARIO ?? "https://deluxy-calendario.vercel.app",
       ruoli: ["admin"],
     },
     {
@@ -195,6 +195,18 @@ export function catalogoApp(): AppDeluxy[] {
       // L'app e' pubblicata: si punta al sito di produzione, sovrascrivibile
       // con APP_URL_TRANSACTIONS (es. http://localhost:3160 in sviluppo).
       url: process.env.APP_URL_TRANSACTIONS ?? "https://deluxy-transactions.vercel.app",
+      ruoli: ["admin"],
+    },
+    {
+      id: "scripts",
+      nome: "Scripts",
+      sottotitolo: "Archivio degli script",
+      descrizione:
+        "Tutti gli script operativi in un posto solo: ognuno ha le sue variabili e si accende o si spegne per singola app.",
+      icona: "scripts",
+      // Non ancora pubblicata: senza APP_URL_SCRIPTS la tessera si vede solo in
+      // sviluppo (localhost:3170), come da regola di `url()`.
+      url: url(process.env.APP_URL_SCRIPTS, "http://localhost:3170"),
       ruoli: ["admin"],
     },
     {

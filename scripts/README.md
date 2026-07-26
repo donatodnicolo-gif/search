@@ -4,6 +4,8 @@ Questa cartella **non contiene script**: è l'**indice** di tutti gli script ope
 
 > **Regola: ogni nuovo script va aggiunto qui**, nella sezione della sua tipologia, nello stesso commit che lo introduce.
 
+> 🗄️ **Script senza file nel repo** (Google Ads Script, snippet Liquid, SQL ricorrenti) o che cambiano da app ad app: vivono nell'app **[deluxy-scripts](../deluxy-scripts/README.md)** (porta 3170), dove hanno variabili `{{COSÌ}}` e si accendono per singola app. Questo indice resta la fonte per i file `.mjs`/`.ts` versionati nel repo.
+
 ## Prima di iniziare
 
 - I comandi sono scritti per **bash** (Git Bash su Windows). Se `node` non è nel PATH, aggiungilo una volta per sessione:
@@ -382,6 +384,38 @@ cd deluxy-transactions && npm run chiave -- --nome deluxy-messaging --tetto 2000
 - **Serve**: `DATABASE_URL` e `TRANSACTIONS_ENC_KEY` nel `.env` dell'app
 - **Nota**: stampa **una sola volta** `TRANSACTIONS_API_KEY` e `TRANSACTIONS_HMAC_SECRET`. Servono entrambe: la chiave identifica, il segreto firma ogni chiamata. Metterle nella cassaforte del Hub sotto il progetto dell'app che le userà. I tetti sono in euro.
 
+### configura-db-condiviso.mjs — deluxy-scripts
+Scrive il `.env` di Deluxy Scripts copiando `DATABASE_URL` e `DIRECT_URL` dall'env di un'altra app Deluxy (stesso cluster Postgres) e forzando `schema=scripts`. Conserva le altre variabili già presenti e non stampa mai le stringhe di connessione.
+
+```bash
+# dalla radice del repo
+cd deluxy-scripts && npm run configura-db -- ../deluxy-orders/.env
+```
+
+- **Serve**: un file env sorgente che contenga `DATABASE_URL` e `DIRECT_URL`
+
+### crea-chiave.mjs — deluxy-scripts
+Crea (o rigenera) la chiave API con cui un'app legge i propri script dall'archivio.
+
+```bash
+# dalla radice del repo
+cd deluxy-scripts && npm run chiave -- <nome-app>
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: la chiave (`dlxs_...`) viene stampata **una sola volta** — nel database resta solo lo SHA-256. Copiarla nel `.env` dell'app client come `SCRIPTS_API_KEY`.
+
+### seed-app.mjs — deluxy-scripts
+Popola il registro delle destinazioni per cui uno script può essere abilitato: le app Deluxy più Google Ads e Shopify.
+
+```bash
+# dalla radice del repo
+cd deluxy-scripts && npm run seed:app
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: idempotente — le app già presenti non vengono toccate (nome e colore modificati a mano restano).
+
 ### configura-db-condiviso.mjs — deluxy-orders
 Scrive il `.env` di Orders copiando `DATABASE_URL` e `DIRECT_URL` dall'env di un'altra app Deluxy (stesso cluster Postgres) e forzando `schema=orders`. Conserva le altre variabili già presenti.
 
@@ -489,6 +523,7 @@ Una riga per app; il `cd` parte dalla radice del repo.
 | deluxy-anagrafiche | 3060 | `cd deluxy-anagrafiche && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run chiave -- <app>` · `npm run import:excel` · `npm run import:hubspot-contatti` · `npm run export:vcard` |
 | deluxy-mail | 3070 | `cd deluxy-mail && npm run dev` · `npm run build` (include la migrazione) · `npm start` · `npm run db:push` · `npm run db:seed` |
 | deluxy-budgets | 3080 | `cd deluxy-budgets && npm run dev` · `npm run build` · `npm start` · `npm run typecheck` · `npm run db:push` · `npm run db:seed` |
+| deluxy-scripts | 3170 | `cd deluxy-scripts && npm run dev` · `npm run build` · `npm start` · `npm run typecheck` · `npm run db:push` · `npm run configura-db -- <env>` · `npm run chiave -- <app>` · `npm run seed:app` |
 | deluxy-orders | 3150 | `cd deluxy-orders && npm run dev` · `npm run build` · `npm start` · `npm run db:push` · `npm run chiave -- <app> [--scrittura]` · `npm run negozi:da-finance` · `npm run import:storico` · `npm run verifica:totali` · `npm run sync` |
 | deluxy-scout (Expo) | — | `cd deluxy-scout && npm start` · `npm run web` · `npm run android` · `npm run ios` · `npm run build:web` · `npm run typecheck` · `npm test` · `npm run lint` · `npm run import:places -- <file.csv>` |
 | deluxy-platform-next | API + web | `cd deluxy-platform-next && npm run dev:api` · `npm run dev:web` · `npm run build` · `npm run prisma:generate` · `npm run prisma:migrate` · `npm run seed` · `npm run doc:word` |

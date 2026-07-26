@@ -1,0 +1,125 @@
+// Deluxy Scripts — schema dati
+// Archivio centralizzato degli script operativi del gruppo (Google Ads Script,
+// script Node di import/export, SQL di manutenzione, snippet da incollare nei
+// temi Shopify…). Tre idee sole:
+//   1. lo script è un TESTO con dei segnaposto `{{NOME_VARIABILE}}`;
+//   2. ogni segnaposto è una VARIABILE dichiarata, con tipo e valore di default;
+//   3. lo script si ABILITA (o si disabilita) per singola app Deluxy, e per
+//      ogni app le variabili possono valere qualcosa di diverso.
+// Le altre app leggono i propri script via API a chiave di sola lettura.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
+}
+
+// Un'app (o un ambiente esterno: Google Ads, Shopify, una macchina) per cui uno
+// script può essere abilitato. Il registro sta qui e non è dedotto dal catalogo
+// del Hub perché qui dentro finiscono anche destinazioni che app Deluxy non
+// sono (es. "google-ads-flowers").
+model AppCollegata {
+  id           String         @id @default(cuid())
+  chiave       String         @unique // slug usato nelle API: deluxy-marketing, google-ads-flowers…
+  nome         String // come si chiama per un umano: "Marketing", "Google Ads — Flowers"
+  descrizione  String?
+  colore       String         @default("#b8963e") // pallino nell'elenco
+  attiva       Boolean        @default(true) // un'app disattivata non riceve più nulla dalle API
+  ordine       Int            @default(0)
+  abilitazioni Abilitazione[]
+  creataIl     DateTime       @default(now())
+  aggiornataIl DateTime       @updatedAt
+
+  @@index([attiva])
+}
+
+// Lo script vero e proprio. `corpo` è il testo con i segnaposto {{VARIABILE}}.
+model Script {
+  id           String         @id @default(cuid())
+  slug         String         @unique // identificatore stabile usato dalle API
+  nome         String
+  descrizione  String? // cosa fa, in una riga
+  note         String? // istruzioni d'uso, trappole, dove si incolla
+  linguaggio   String         @default("javascript") // javascript | typescript | sql | bash | powershell | python | altro
+  corpo        String         @default("") // il testo dello script, con i {{SEGNAPOSTO}}
+  tag          String[]       @default([]) // etichette libere per ritrovarlo
+  attivo       Boolean        @default(true) // false = archiviato: sparisce dalle API di tutte le app
+  autore       String?
+  variabili    Variabile[]
+  abilitazioni Abilitazione[]
+  creatoIl     DateTime       @default(now())
+  aggiornatoIl DateTime       @updatedAt
+
+  @@index([attivo])
+}
+
+// Una variabile dello script: il segnaposto {{CHIAVE}} dentro `corpo`.
+// Il valore può arrivare (in ordine): dal valore impostato per l'app che lo usa,
+// altrimenti da `valorePredefinito`. I tipi `segreto` NON conservano il valore:
+// token e password si incollano al momento dell'uso e non entrano nel database.
+model Variabile {
+  id                String            @id @default(cuid())
+  scriptId          String
+  script            Script            @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  chiave            String // MAIUSCOLO_CON_UNDERSCORE, come appare fra {{ }}
+  etichetta         String? // nome leggibile nel modulo
+  descrizione       String?
+  tipo              String            @default("testo") // testo | testolungo | numero | booleano | scelta | segreto
+  opzioni           String[]          @default([]) // valori ammessi quando tipo = scelta
+  valorePredefinito String? // usato quando l'app non ne imposta uno proprio
+  obbligatoria      Boolean           @default(true)
+  ordine            Int               @default(0)
+  valori            ValoreVariabile[]
+
+  @@unique([scriptId, chiave])
+  @@index([scriptId])
+}
+
+// Lo script X è abilitato per l'app Y? Il record esiste anche quando `attiva`
+// è false: così si conserva la configurazione (i valori delle variabili) di
+// un'app a cui lo script è stato tolto temporaneamente.
+model Abilitazione {
+  id           String            @id @default(cuid())
+  scriptId     String
+  script       Script            @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  appId        String
+  app          AppCollegata      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  attiva       Boolean           @default(true)
+  note         String? // perché è stato abilitato/disabilitato
+  valori       ValoreVariabile[]
+  creataIl     DateTime          @default(now())
+  aggiornataIl DateTime          @updatedAt
+
+  @@unique([scriptId, appId])
+  @@index([appId])
+}
+
+// Il valore che una variabile assume per una specifica app.
+model ValoreVariabile {
+  id             String       @id @default(cuid())
+  abilitazioneId String
+  abilitazione   Abilitazione @relation(fields: [abilitazioneId], references: [id], onDelete: Cascade)
+  variabileId    String
+  variabile      Variabile    @relation(fields: [variabileId], references: [id], onDelete: Cascade)
+  valore         String       @default("")
+  aggiornatoIl   DateTime     @updatedAt
+
+  @@unique([abilitazioneId, variabileId])
+  @@index([variabileId])
+}
+
+// Chiavi delle API /api/v1 (nel database solo lo SHA-256).
+// Si creano con `npm run chiave -- <nome-app>`.
+model ApiKey {
+  id        String    @id @default(cuid())
+  nome      String    @unique
+  hash      String    @unique
+  scrittura Boolean   @default(false)
+  attiva    Boolean   @default(true)
+  ultimoUso DateTime?
+  creataIl  DateTime  @default(now())
+}

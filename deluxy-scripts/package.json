@@ -1,0 +1,35 @@
+{
+  "name": "deluxy-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deluxy Scripts — archivio centralizzato degli script operativi: ogni script ha le sue variabili e si abilita o disabilita per singola app Deluxy",
+  "scripts": {
+    "dev": "next dev -p 3170",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
+    "start": "next start -p 3170",
+    "typecheck": "tsc --noEmit",
+    "db:push": "prisma db push",
+    "chiave": "node scripts/crea-chiave.mjs",
+    "configura-db": "node scripts/configura-db-condiviso.mjs",
+    "seed:app": "node scripts/seed-app.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.5.0",
+    "next": "^15.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "prisma": "^6.5.0",
+    "typescript": "^5.7.3"
+  },
+  "allowScripts": {
+    "prisma@6.19.3": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true
+  }
+}
