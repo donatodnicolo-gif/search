@@ -28,6 +28,20 @@ type NegozioDto = {
   valore: number
 }
 
+type OrdineArchivio = {
+  id: string
+  brand: string
+  brandRicerca: string
+  numero: string
+  data: string
+  totale: number
+  valuta: string
+  clienteNome: string
+  telefono: string
+  email: string
+  citta: string
+}
+
 /** Link all'app Ricerca fornitori con brand e numero già impostati. */
 function linkFornitore(brandRicerca: string, numero: string): string {
   const p = new URLSearchParams({ brand: brandRicerca, ordine: numero.replace(/^#/, '').trim() })
@@ -120,6 +134,51 @@ export function OrdiniLista() {
   useEffect(() => {
     carica()
   }, [carica])
+
+  // Archivio storico (app Deluxy Orders): interrogato solo quando si cerca.
+  const [archivio, setArchivio] = useState<OrdineArchivio[]>([])
+  const [archivioTotale, setArchivioTotale] = useState(0)
+  const [archivioNota, setArchivioNota] = useState('')
+
+  useEffect(() => {
+    if (!qCercata) {
+      setArchivio([])
+      setArchivioTotale(0)
+      setArchivioNota('')
+      return
+    }
+    let annullato = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/ordini/archivio?q=' + encodeURIComponent(qCercata))
+        const d = (await res.json()) as {
+          stato: string
+          totale?: number
+          ordini?: OrdineArchivio[]
+          messaggio?: string
+        }
+        if (annullato) return
+        if (d.stato === 'ok') {
+          setArchivio(d.ordini ?? [])
+          setArchivioTotale(d.totale ?? 0)
+          setArchivioNota('')
+        } else {
+          setArchivio([])
+          setArchivioTotale(0)
+          setArchivioNota(
+            d.stato === 'non-configurato'
+              ? '' // niente rumore finché la chiave non è impostata
+              : d.messaggio || 'Archivio non raggiungibile.'
+          )
+        }
+      } catch {
+        if (!annullato) setArchivioNota('Archivio non raggiungibile.')
+      }
+    })()
+    return () => {
+      annullato = true
+    }
+  }, [qCercata])
 
   const filtriAttivi = !!(qCercata || negozio || filtroContatto)
 
@@ -429,6 +488,65 @@ export function OrdiniLista() {
           </table>
         </div>
       )}
+
+      {/* Ordini storici: vivono nell'app Ordini, qui si cercano soltanto. */}
+      {qCercata && (archivio.length > 0 || archivioNota) ? (
+        <div style={{ marginTop: 24 }}>
+          <h2 style={{ fontSize: 17, marginBottom: 4 }}>Archivio storico</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 0 }}>
+            {archivioNota
+              ? archivioNota
+              : `${archivioTotale.toLocaleString('it-IT')} ordini nell'app Ordini` +
+                (archivioTotale > archivio.length ? ` — mostrati i primi ${archivio.length}` : '') +
+                '. Qui trovi anche gli ordini più vecchi di quelli scaricati da Shopify.'}
+          </p>
+          {archivio.length > 0 ? (
+            <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+              <table className="tabella">
+                <thead>
+                  <tr>
+                    <th>Ordine</th>
+                    <th>Brand</th>
+                    <th>Data</th>
+                    <th>Cliente</th>
+                    <th>Telefono</th>
+                    <th style={{ textAlign: 'right' }}>Totale</th>
+                    <th>Fornitore</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {archivio.map((o) => (
+                    <tr key={o.id}>
+                      <td>{o.numero}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{o.brand}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{dataBreve(o.data)}</td>
+                      <td>
+                        {o.clienteNome || '—'}
+                        {o.citta ? ` · ${o.citta}` : ''}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{o.telefono || '—'}</td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {soldi(o.totale, o.valuta)}
+                      </td>
+                      <td>
+                        <a
+                          className="bottone secondario mini"
+                          href={linkFornitore(o.brandRicerca || o.brand, o.numero)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Cerca il fornitore per ${o.numero}`}
+                        >
+                          Cerca ↗
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </>
   )
 }

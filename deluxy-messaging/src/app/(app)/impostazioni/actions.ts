@@ -7,13 +7,21 @@ import { salvaImpostazione } from '@/lib/impostazioni'
 // (così non serve reincollare i token a ogni modifica).
 // Nota: la configurazione Shopify (multi-store) vive nella tabella NegozioShopify
 // e si gestisce nella pagina Negozi, non qui.
-const SEGRETI = ['waToken', 'fbPageToken', 'igToken', 'metaAppSecret', 'googleClientSecret']
+const SEGRETI = [
+  'waToken',
+  'fbPageToken',
+  'igToken',
+  'metaAppSecret',
+  'googleClientSecret',
+  'ordersApiKey',
+]
 const IN_CHIARO = [
   'waPhoneNumberId',
   'metaVerifyToken',
   'widgetTitolo',
   'widgetMessaggio',
   'googleClientId',
+  'ordersUrl',
 ]
 
 export async function salvaImpostazioni(formData: FormData) {

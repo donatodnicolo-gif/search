@@ -43,6 +43,20 @@ server** (su tutti gli ordini, non solo quelli in pagina): testo su numero, clie
 telefono — normalizzando le cifre, così "+39 333 12" trova "+393331234567" — email,
 indirizzo e negozio, più i filtri per negozio e per contatto salvato/da salvare.
 
+**Vista a colonne e collegamenti alle altre app.** `/ordini` ha due viste: **Colonne**
+(una per negozio, con conteggio e valore del filtro, card con numero/importo/cliente/città)
+ed **Elenco** (tabella). Sotto ogni ordine c'è il bottone **Fornitore**, che apre l'app
+Ricerca fornitori già impostata (`search-deluxy/?brand=…&ordine=…`); il brand di ogni
+negozio si deduce (Flowers→deluxyflowers.com, Cake→cakedesign.me, Deluxy→deluxy.it) ed è
+modificabile in `/negozi`. Cercando, oltre agli ordini locali compare **Archivio storico**:
+gli ordini più vecchi dei 60 giorni scaricati da Shopify, letti dall'app **Deluxy Orders**
+via `GET /api/v1/ordini` con chiave di sola lettura (`src/lib/orders.ts`, configurata in
+Impostazioni) — non se ne duplica l'archivio.
+
+**Clienti (rubrica).** `/clienti` è la rubrica ricavata dagli ordini: una scheda per
+persona (dedup sul telefono, altrimenti email) con negozi, numero di ordini, totale speso,
+ultimo ordine e stato in rubrica Google. Da lì si portano tutti in Google Contacts.
+
 **Contatti automatici.** A ogni scarico i clienti finiscono in Google Contacts senza
 intervento manuale (`src/lib/contatti.ts` → `salvaContattiOrdini`), col nome
 `SIGLA Nome Cognome #ordine` — es. `FL Mario Rossi #1042`. La sigla è quella del negozio:

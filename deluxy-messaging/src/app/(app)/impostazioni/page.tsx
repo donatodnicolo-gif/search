@@ -31,6 +31,8 @@ export default async function PaginaImpostazioni({
     'googleClientId',
     'googleClientSecret',
     'googleRefreshToken',
+    'ordersUrl',
+    'ordersApiKey',
   ])
 
   // URL pubblico dell'app: da APP_URL, altrimenti dall'host della richiesta.
@@ -200,6 +202,34 @@ export default async function PaginaImpostazioni({
                 Salva prima Client ID e Client Secret, poi il pulsante si attiva.
               </p>
             ) : null}
+          </div>
+
+          <div className="card">
+            <h2>Archivio ordini (Deluxy Orders)</h2>
+            <p className="descrizione">
+              Qui teniamo solo gli ultimi 60 giorni scaricati da Shopify. Gli ordini più vecchi si
+              cercano nell&apos;app Ordini, che ha tutto lo storico. Serve una chiave di sola
+              lettura, creata lì con <code>npm run chiave -- messaggi</code>.
+            </p>
+            <label className="campo">
+              <span>URL dell&apos;app Ordini</span>
+              <input
+                name="ordersUrl"
+                defaultValue={config.ordersUrl}
+                placeholder="https://deluxy-orders.vercel.app"
+              />
+            </label>
+            <label className="campo">
+              <span>
+                Chiave API (sola lettura) <BadgeConfigurato pieno={!!config.ordersApiKey} />
+              </span>
+              <input
+                name="ordersApiKey"
+                type="password"
+                placeholder={config.ordersApiKey ? 'salvata — incolla per sostituire' : ''}
+                autoComplete="off"
+              />
+            </label>
           </div>
 
           <div className="card">

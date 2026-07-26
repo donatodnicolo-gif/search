@@ -18,6 +18,9 @@ import { cifra, decifra } from './crypto'
 // - googleClientSecret: OAuth Client Secret (cifrato)
 // - googleRefreshToken: refresh token ottenuto dopo il consenso (cifrato) — se
 //                       c'è, l'app può salvare contatti da sola, anche in cron
+// - ordersUrl         : URL dell'app Deluxy Orders (default deluxy-orders.vercel.app)
+// - ordersApiKey      : chiave di sola lettura delle API di Orders (cifrata), per
+//                       cercare gli ordini più vecchi di quelli scaricati da Shopify
 
 const CHIAVI_CIFRATE = new Set([
   'metaAppSecret',
@@ -26,6 +29,7 @@ const CHIAVI_CIFRATE = new Set([
   'igToken',
   'googleClientSecret',
   'googleRefreshToken',
+  'ordersApiKey',
 ])
 
 export async function leggiImpostazione(chiave: string): Promise<string> {

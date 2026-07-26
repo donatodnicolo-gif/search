@@ -44,6 +44,22 @@ Ultimo aggiornamento: 24/07/2026
   col client_id giusto (serve progetto Google Cloud reale per completare).
   NB: il redirect URI va messo negli **URI di reindirizzamento autorizzati**, non nelle
   Origini JavaScript (quelle rifiutano i percorsi) → errore `redirect_uri_mismatch`.
+- LIVE su https://deluxy-messaging.vercel.app (progetto Vercel `deluxy-messaging`, team
+  deluxy). Env di produzione: DATABASE_URL, DIRECT_URL, APP_SECRET (LO STESSO del locale,
+  altrimenti i token cifrati nel DB condiviso non si aprono), APP_URL.
+- Vista a colonne + bottone Fornitore (26/07/2026): `/ordini` alterna Colonne/Elenco; le
+  colonne sono per negozio con conteggio e valore dell'intero filtro (groupBy). Bottone
+  "Fornitore" = deep link `search-deluxy/?brand=&ordine=` (`linkRicercaFornitori`), brand
+  per negozio da `brandRicercaDaNegozio()` (campo `brandRicerca` per l'override).
+  Verificato: cakedesign.me/1730, deluxy.it/12650, deluxyflowers.com/2582.
+- Clienti/rubrica (26/07/2026): `/clienti` + `/api/clienti`, ricavati dagli ordini
+  raggruppando per telefono (fallback email) — nessuna tabella nuova. Verificato: 684
+  clienti da 782 ordini.
+- Archivio storico via Orders (26/07/2026): `src/lib/orders.ts` → `GET {ordersUrl}/api/v1/ordini`
+  con header `x-api-key`. Chiave creata in deluxy-orders (`npm run chiave -- deluxy-messaggi`,
+  sola lettura) e salvata cifrata in Impostazione `ordersApiKey` (+ `ordersUrl`). La ricerca
+  in `/ordini` mostra la sezione "Archivio storico" con i risultati. Il brand di Orders viene
+  tradotto per Ricerca fornitori ("Flowers" → "deluxyflowers.com").
 - Ricerca ordini (25/07/2026): `/api/ordini` accetta `q` (numero, cliente, telefono con
   normalizzazione delle cifre, email, indirizzo, negozio), `negozio` e `contatto=si|no`;
   torna anche `totale` e l'elenco negozi. UI: barra con campo di ricerca (ritardo 300ms),
