@@ -194,14 +194,35 @@ server** (su tutti gli ordini, non solo quelli in pagina): testo su numero, clie
 telefono — normalizzando le cifre, così "+39 333 12" trova "+393331234567" — email,
 indirizzo e negozio, più i filtri per negozio e per contatto salvato/da salvare.
 
+**I più urgenti stanno sempre in cima.** L'elenco è ordinato per urgenza: prima le consegne
+di **oggi** (e dentro la giornata, prima chi va consegnato presto), poi domani e i giorni
+successivi, poi le scadute da pochi giorni, poi quelle senza data, e **per ultime le scadute
+da tempo**. In testa alla pagina le pillole dicono quante sono: *8 da consegnare oggi*, *7
+domani*, *28 scadute di recente*.
+
+> **Perché non basta «la consegna più vecchia prima»**, che sarebbe l'ordinamento ovvio: sugli
+> ordini veri, fra quelli non gestiti **578 hanno la consegna già passata** — si torna a due
+> mesi indietro — mentre quelli di oggi sono **8**. Quelle consegne sono avvenute, manca solo
+> la spunta. Ordinando per data, il lavoro della giornata finirebbe sotto 578 righe di
+> archeologia: l'esatto contrario di avere gli urgenti in primo piano.
+
+L'ordinamento si fa nel database e non nella pagina, perché l'elenco è tagliato a 200: un
+ordine da consegnare oggi ma ricevuto tre settimane fa altrimenti non entrerebbe nemmeno.
+
+**La pagina è compatta.** Il primo ordine comincia a 346px dall'alto invece di 430, e ogni
+scheda è 167px invece di 237 — un terzo in meno, quindi si vedono più ordini per schermata.
+Sulla scheda restano le **due azioni di tutti i giorni** (Contatta, Gestito ✓): le altre sei
+occupavano 97px per scheda e ora vivono nel dettaglio, che è a un clic.
+
 **Cliccando un ordine si apre il dettaglio.** Un punto qualsiasi della scheda — o della riga
 in tabella — apre un pannello con la **foto grande del prodotto**, le personalizzazioni
 scelte dal cliente («Numeri: 30», «Base: shortcrust pastry»), i dati dell'ordine e le azioni
 principali. I bottoni sulla scheda continuano a fare il loro mestiere: premere *Reclamo*
 apre il reclamo, non il pannello.
 
-Dentro c'è il **form rapido per il fornitore**: si scarica la foto con un clic e si copia il
-messaggio già scritto —
+Dentro c'è il **form rapido per il fornitore**: la foto si **copia** negli appunti (si incolla
+diretta in WhatsApp o in una mail) o si **scarica** come file, e si copia il messaggio già
+scritto —
 
 > Per mercoledì 29 luglio possibile questo prodotto con ritiro 15-19?
 

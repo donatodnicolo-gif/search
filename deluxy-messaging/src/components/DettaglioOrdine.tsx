@@ -63,6 +63,83 @@ function linkScarico(immagine: string, titolo: string): string {
   return `/api/immagine?${p.toString()}`
 }
 
+/**
+ * Copia la FOTO negli appunti, così si incolla dritta in WhatsApp o in una mail
+ * senza passare dal file.
+ *
+ * Due vincoli del browser da cui nasce tutto il giro:
+ *  1. negli appunti si può mettere **solo PNG** — `ClipboardItem` con `image/jpeg`
+ *     viene rifiutato da Chrome — quindi qualunque foto va ridisegnata su un
+ *     canvas ed esportata in PNG;
+ *  2. il canvas si "sporca" con un'immagine di un altro dominio e `toBlob` non
+ *     funziona più, perciò la foto si carica passando dalla NOSTRA rotta
+ *     (`/api/immagine`), che è stessa origine.
+ *
+ * Non tutti i browser sanno scrivere immagini negli appunti (Firefox e Safari
+ * più vecchi). Il motivo del fallimento si restituisce invece di appiattirlo:
+ * «il browser non sa farlo» e «la finestra non era in primo piano» si risolvono
+ * in modi diversi, e un messaggio d'errore sbagliato manda a cercare la cosa
+ * sbagliata.
+ */
+type EsitoCopia = { ok: true } | { ok: false; motivo: string }
+
+async function copiaFoto(immagine: string, titolo: string): Promise<EsitoCopia> {
+  if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
+    return {
+      ok: false,
+      motivo: 'Questo browser non sa copiare immagini: usa «Scarica foto» e allegala.',
+    }
+  }
+  try {
+    const risposta = await fetch(linkScarico(immagine, titolo))
+    if (!risposta.ok) return { ok: false, motivo: 'La foto non si è scaricata: riprova.' }
+    const originale = await risposta.blob()
+
+    const png = await new Promise<Blob | null>((risolvi) => {
+      const img = new Image()
+      const oggetto = URL.createObjectURL(originale)
+      img.onload = () => {
+        const tela = document.createElement('canvas')
+        tela.width = img.naturalWidth
+        tela.height = img.naturalHeight
+        const ctx = tela.getContext('2d')
+        if (!ctx) return risolvi(null)
+        // Sfondo bianco: un PNG con trasparenza incollato in chat diventa nero.
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, tela.width, tela.height)
+        ctx.drawImage(img, 0, 0)
+        tela.toBlob((b) => {
+          URL.revokeObjectURL(oggetto)
+          risolvi(b)
+        }, 'image/png')
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(oggetto)
+        risolvi(null)
+      }
+      img.src = oggetto
+    })
+
+    if (!png) return { ok: false, motivo: 'Non sono riuscito a convertire la foto.' }
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+    return { ok: true }
+  } catch (e) {
+    const err = e as Error
+    // `NotAllowedError` con «not focused» non è un browser che non sa copiare: è
+    // la finestra che non era in primo piano. Dirlo giusto evita di far cercare
+    // un permesso che non c'entra.
+    if (err.name === 'NotAllowedError') {
+      return {
+        ok: false,
+        motivo: /focus/i.test(err.message)
+          ? 'La finestra non era in primo piano: clicca sulla pagina e riprova.'
+          : 'Il browser ha negato l’accesso agli appunti: usa «Scarica foto».',
+      }
+    }
+    return { ok: false, motivo: `Copia non riuscita: ${err.message}` }
+  }
+}
+
 export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onChiudi: () => void }) {
   const [ordine, setOrdine] = useState<OrdineDettaglio | null>(null)
   const [righe, setRighe] = useState<Riga[]>([])
@@ -70,6 +147,9 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
   const [caricato, setCaricato] = useState(false)
   const [errore, setErrore] = useState('')
   const [copiato, setCopiato] = useState('')
+  // Copiare una foto passa da rete e canvas: qualche decimo di secondo in cui il
+  // bottone deve dire che sta lavorando.
+  const [copiando, setCopiando] = useState('')
 
   const carica = useCallback(async () => {
     try {
@@ -106,6 +186,27 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
     document.addEventListener('keydown', tasto)
     return () => document.removeEventListener('keydown', tasto)
   }, [onChiudi])
+
+  /** Segna l'ordine gestito (o lo riapre) senza chiudere il pannello. */
+  async function cambiaGestione(gestione: string) {
+    setErrore('')
+    // Il pallino cambia subito, poi si conferma col server.
+    setOrdine((prec) => (prec ? { ...prec, gestione } : prec))
+    try {
+      const res = await fetch(`/api/ordini/${ordineId}/gestione`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gestione }),
+      })
+      if (!res.ok) {
+        setErrore('Stato non salvato.')
+        await carica()
+      }
+    } catch {
+      setErrore('Stato non salvato: problema di rete.')
+      await carica()
+    }
+  }
 
   async function copia(testo: string, quale: string) {
     try {
@@ -185,13 +286,34 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
                         </ul>
                       ) : null}
                       {r.immagine ? (
-                        <a
-                          className="btn btn-secondario small"
-                          href={linkScarico(r.immagine, r.titolo)}
-                          style={{ marginTop: 6, display: 'inline-block' }}
-                        >
-                          Scarica foto
-                        </a>
+                        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                          <button
+                            className="btn btn-secondario small"
+                            onClick={async () => {
+                              setErrore('')
+                              setCopiando(`foto-${i}`)
+                              const esito = await copiaFoto(r.immagine, r.titolo)
+                              setCopiando('')
+                              if (esito.ok) {
+                                setCopiato(`foto-${i}`)
+                                setTimeout(() => setCopiato(''), 2500)
+                              } else {
+                                setErrore(esito.motivo)
+                              }
+                            }}
+                            disabled={copiando === `foto-${i}`}
+                            title="Copia la foto negli appunti: si incolla in WhatsApp o in una mail"
+                          >
+                            {copiando === `foto-${i}`
+                              ? 'Copio…'
+                              : copiato === `foto-${i}`
+                                ? 'Copiata ✓'
+                                : 'Copia foto'}
+                          </button>
+                          <a className="btn btn-secondario small" href={linkScarico(r.immagine, r.titolo)}>
+                            Scarica foto
+                          </a>
+                        </div>
                       ) : null}
                     </div>
                   </div>
@@ -308,8 +430,18 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
                 ) : null}
               </dl>
 
-              {/* Le stesse azioni della scheda, a portata di mano. */}
+              {/* TUTTE le azioni dell'ordine stanno qui. Sulla scheda ne sono
+                  rimaste due (Contatta e Gestito): le altre occupavano 97px per
+                  scheda su 237, e con la scheda cliccabile questo è il posto
+                  giusto — ma devono esserci TUTTE, altrimenti spostarle è
+                  togliere funzioni. */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                <a
+                  className="btn btn-secondario small"
+                  href={`/pagamenti?ordine=${encodeURIComponent(ordine.numero)}&cliente=${encodeURIComponent(ordine.clienteNome)}&importo=${ordine.totale || ''}`}
+                >
+                  Paga fornitore
+                </a>
                 <a className="btn btn-secondario small" href={`/reclami?ordineId=${ordine.id}&ordine=${encodeURIComponent(ordine.numero)}&cliente=${encodeURIComponent(ordine.clienteNome)}&telefono=${encodeURIComponent(ordine.telefono)}&email=${encodeURIComponent(ordine.email)}&negozio=${encodeURIComponent(ordine.negozioNome)}`}>
                   Apri reclamo
                 </a>
@@ -330,6 +462,12 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
                     Contatta cliente
                   </a>
                 ) : null}
+                <button
+                  className="btn btn-secondario small"
+                  onClick={() => cambiaGestione(ordine.gestione === 'gestito' ? 'da_gestire' : 'gestito')}
+                >
+                  {ordine.gestione === 'gestito' ? 'Riapri' : 'Gestito ✓'}
+                </button>
               </div>
             </div>
           </>

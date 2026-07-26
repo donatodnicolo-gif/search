@@ -55,6 +55,48 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- URGENTI IN CIMA, PAGINA COMPATTA, COPIA FOTO (26/07/2026).
+  **ORDINE PER URGENZA A FASCE** (`src/lib/urgenza.ts` + `ordiniPerUrgenza()` in
+  `/api/ordini`): oggi (per fascia oraria, prima chi va consegnato presto) →
+  domani e oltre (per data) → scadute da ≤3 giorni (dalla più recente) → senza
+  data (dalle più recenti) → **scadute da tempo per ultime**.
+  ⚠️ NON si ordina per «consegna più vecchia prima», che sarebbe l'ovvio: misurato
+  sui dati veri, fra i non gestiti **578 hanno la consegna già passata** (fino a
+  due mesi indietro) e quelli di **oggi sono 8** — perché `gestione` è recente e
+  nessuno ha spuntato gli ordini vecchi. Ordinando per data il lavoro di oggi
+  finiva sotto 578 righe di archeologia.
+  ⚠️ Si ordina LATO SERVER perché l'elenco è tagliato a 200: ordinando nel browser
+  si ordinerebbero i 200 più recenti, e un ordine da consegnare oggi ma ricevuto
+  tre settimane fa non entrerebbe. Sono 5 query, una per fascia, che si fermano al
+  tetto. Verificato: gli 8 di oggi in cima nell'ordine 08-12 → 18-20, poi +1gg,
+  +2gg…
+  In testa: pillole **«8 da consegnare oggi»**, «7 domani», «28 scadute di
+  recente», contate sul filtro in corso.
+  **SPAZIO**: primo ordine da ~430px a **346px**, scheda da 237 a **167px**
+  (−30%). Come: testa in una riga sola (il dettaglio della catena Shopify →
+  Ordini → qui è nel `title` del pallino), e sulla scheda restano **due** azioni
+  (Contatta, Gestito ✓) invece di sei — i 6 bottoni erano 97px su 237, misurati.
+  Le altre azioni sono nel dettaglio, che si apre cliccando la scheda: **ce le ho
+  messe tutte** (Paga fornitore, Reclamo, Rimborso, Contatta, Gestito/Riapri,
+  Cerca fornitore), altrimenti spostarle sarebbe stato togliere funzioni. Sulla
+  scheda c'è la nota «altre azioni: apri l'ordine». Tolta anche la data
+  dell'ORDINE dalla scheda (quella che serve è la consegna): faceva andare i badge
+  a capo, 27px per scheda.
+  **COPIA FOTO** (`copiaFoto` in `DettaglioOrdine.tsx`), accanto a Scarica.
+  Due vincoli del browser da cui nasce il giro: negli appunti si può mettere
+  **solo PNG** (`ClipboardItem` con image/jpeg viene rifiutato), e il canvas si
+  sporca con un'immagine di un altro dominio — quindi la foto si carica dalla
+  NOSTRA rotta `/api/immagine` (stessa origine) e si riesporta in PNG su canvas,
+  con sfondo bianco perché un PNG trasparente incollato in chat diventa nero.
+  VERIFICATO fin dove si può da qui: foto scaricata dalla nostra rotta (352 KB),
+  canvas **non** sporcato, PNG prodotto (453 KB), `ClipboardItem` presente.
+  ⚠️ **La scrittura negli appunti NON è verificata**: da questa sessione il
+  pannello del browser non è in primo piano e Chrome risponde `NotAllowedError:
+  Document is not focused`. Con un clic vero della persona la finestra è a fuoco,
+  quindi dovrebbe funzionare — **da provare a mano**. Se fallisse, il messaggio
+  distingue i casi (finestra non a fuoco / browser che non sa copiare / permesso
+  negato) invece di dare una spiegazione sola e sbagliata.
+
 - DETTAGLIO ORDINE CON FOTO E MESSAGGIO PER IL FORNITORE (26/07/2026).
   Cliccando **un punto qualsiasi** della scheda (o della riga in tabella) si apre
   `DettaglioOrdine`: foto grande del prodotto, **Scarica foto**, e il messaggio

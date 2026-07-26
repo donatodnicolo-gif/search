@@ -4,8 +4,57 @@ import { db } from '@/lib/db'
 import { googleAccessToken } from '@/lib/contatti'
 import { brandRicercaDaNegozio } from '@/lib/negozi'
 import { ultimoImportOrders } from '@/lib/orders'
+import { inizioDomani, inizioOggi, limiteCalde } from '@/lib/urgenza'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * Gli ordini in ordine di URGENZA, a fasce (vedi src/lib/urgenza.ts per il perché
+ * non basta ordinare per data di consegna).
+ *
+ * Si ordina QUI e non nel browser perché l'elenco è tagliato a 200: ordinando a
+ * valle si ordinerebbero i 200 più recenti, e un ordine da consegnare oggi ma
+ * ricevuto tre settimane fa non entrerebbe nemmeno nella lista.
+ *
+ * Sono cinque query invece di una, ognuna con l'ordinamento che ha senso nella
+ * sua fascia; si fermano appena raggiunto il tetto.
+ */
+async function ordiniPerUrgenza(dove: Prisma.OrdineWhereInput, tetto: number) {
+  const oggi = inizioOggi()
+  const domani = inizioDomani()
+  const calde = limiteCalde()
+
+  const fasce: { where: Prisma.OrdineWhereInput; orderBy: Prisma.OrdineOrderByWithRelationInput[] }[] = [
+    // 1. Oggi, dalla fascia oraria più presto: è la coda di lavoro della giornata.
+    {
+      where: { dataConsegna: { gte: oggi, lt: domani } },
+      orderBy: [{ fasciaConsegna: 'asc' }, { data: 'asc' }],
+    },
+    // 2. Domani e oltre, in ordine di calendario.
+    { where: { dataConsegna: { gte: domani } }, orderBy: [{ dataConsegna: 'asc' }] },
+    // 3. Scadute da pochi giorni: forse sono ancora lavoro aperto.
+    {
+      where: { dataConsegna: { gte: calde, lt: oggi } },
+      orderBy: [{ dataConsegna: 'desc' }],
+    },
+    // 4. Senza data: non si può dire se urgano, ma non devono sparire.
+    { where: { dataConsegna: null }, orderBy: [{ data: 'desc' }] },
+    // 5. Scadute da tempo: quasi sempre consegnate e mai spuntate. Per ultime.
+    { where: { dataConsegna: { lt: calde } }, orderBy: [{ dataConsegna: 'desc' }] },
+  ]
+
+  const out: Awaited<ReturnType<typeof db.ordine.findMany>> = []
+  for (const f of fasce) {
+    if (out.length >= tetto) break
+    const righe = await db.ordine.findMany({
+      where: { AND: [dove, f.where] },
+      orderBy: f.orderBy,
+      take: tetto - out.length,
+    })
+    out.push(...righe)
+  }
+  return out
+}
 
 // Lista ordini per la pagina Ordini, con ricerca e filtri:
 //   q        testo su numero, cliente, telefono, email, indirizzo
@@ -49,9 +98,21 @@ export async function GET(req: NextRequest) {
     if (cifre.length >= 4) dove.OR.push({ telefono: { contains: cifre } })
   }
 
-  const [ordini, totale, token, negoziDb, gruppi, ultimaSync, esitoSync, importOrders, perTipo] =
-    await Promise.all([
-    db.ordine.findMany({ where: dove, orderBy: { data: 'desc' }, take: 200 }),
+  const [
+    ordini,
+    totale,
+    token,
+    negoziDb,
+    gruppi,
+    ultimaSync,
+    esitoSync,
+    importOrders,
+    perTipo,
+    consegneOggi,
+    consegneDomani,
+    scaduteRecenti,
+  ] = await Promise.all([
+    ordiniPerUrgenza(dove, 200),
     db.ordine.count({ where: dove }),
     googleAccessToken().catch(() => null),
     db.negozioShopify.findMany({ orderBy: { nome: 'asc' } }),
@@ -74,6 +135,20 @@ export async function GET(req: NextRequest) {
     // Da che tipo di cliente arrivano gli ordini del filtro in corso: è la
     // domanda per cui il campo esiste, quindi la risposta la si dà qui.
     db.ordine.groupBy({ by: ['clienteTipo'], where: dove, _count: { _all: true } }),
+    // Quante consegne oggi e domani, e quante scadute da poco: sono i numeri per
+    // cui si apre questa pagina, e sul filtro in corso (non sull'archivio).
+    db.ordine.count({ where: { AND: [dove, { dataConsegna: { gte: inizioOggi(), lt: inizioDomani() } }] } }),
+    db.ordine.count({
+      where: {
+        AND: [
+          dove,
+          { dataConsegna: { gte: inizioDomani(), lt: new Date(inizioDomani().getTime() + 86400000) } },
+        ],
+      },
+    }),
+    db.ordine.count({
+      where: { AND: [dove, { dataConsegna: { gte: limiteCalde(), lt: inizioOggi() } }] },
+    }),
   ])
 
   const statistiche = Object.fromEntries(
@@ -102,5 +177,7 @@ export async function GET(req: NextRequest) {
     ultimoImportOrders: importOrders ?? '',
     // { privato: 120, azienda: 8, '': 3 } — '' sono quelli senza tipo noto
     perTipoCliente: Object.fromEntries(perTipo.map((t) => [t.clienteTipo, t._count._all])),
+    // I numeri dell'urgenza, sul filtro in corso.
+    urgenza: { oggi: consegneOggi, domani: consegneDomani, scaduteRecenti },
   })
 }

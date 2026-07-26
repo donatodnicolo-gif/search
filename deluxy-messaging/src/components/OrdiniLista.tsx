@@ -347,6 +347,9 @@ export function OrdiniLista() {
   const [filtroContatto, setFiltroContatto] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('')
   const [perTipoCliente, setPerTipoCliente] = useState<Record<string, number>>({})
+  // Quante consegne oggi, domani e scadute da poco: l'elenco è già ordinato per
+  // urgenza, questi numeri dicono quanto è grande la coda.
+  const [urgenza, setUrgenza] = useState({ oggi: 0, domani: 0, scaduteRecenti: 0 })
   // Vista di lavoro: di default si mostrano solo gli ordini non ancora gestiti.
   const [filtroGestione, setFiltroGestione] = useState('aperti')
 
@@ -369,6 +372,7 @@ export function OrdiniLista() {
         esitoSync?: string
         ultimoImportOrders?: string
         perTipoCliente?: Record<string, number>
+        urgenza?: { oggi: number; domani: number; scaduteRecenti: number }
       }
       setOrdini(dati.ordini)
       setTotale(dati.totale)
@@ -378,6 +382,7 @@ export function OrdiniLista() {
       setEsitoSync(dati.esitoSync ?? '')
       setImportOrders(dati.ultimoImportOrders ?? '')
       setPerTipoCliente(dati.perTipoCliente ?? {})
+      setUrgenza(dati.urgenza ?? { oggi: 0, domani: 0, scaduteRecenti: 0 })
       setVistoIl(new Date().toISOString())
     } catch {
       // rete assente
@@ -589,41 +594,63 @@ export function OrdiniLista() {
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <h1 style={{ margin: 0 }}>Ordini</h1>
-        <span style={{ flex: 1 }} />
-        <button
-          className="bottone"
-          onClick={salvaTutti}
-          disabled={!!occupato || !googleCollegato}
-          title={googleCollegato ? '' : 'Collega Google Contacts nelle Impostazioni'}
-        >
-          {occupato === 'tutti' ? 'Salvo…' : 'Salva tutti i contatti'}
-        </button>
-      </div>
+      {/* UNA SOLA RIGA IN TESTA: titolo, urgenza, stato della catena e azioni.
+          Prima erano quattro blocchi impilati e il primo ordine cominciava a
+          ~430px dall'alto: su un portatile si vedeva una fila di schede. Il
+          dettaglio della catena (Shopify → Ordini → qui) è nel titolo del
+          pallino, così resta consultabile senza occupare una riga sua. */}
+      <div className="testa-ordini">
+        <h1>Ordini</h1>
 
-      {/* LA CATENA DEGLI AGGIORNAMENTI, in chiaro: Shopify → Ordini → qui.
-          Serve a distinguere «non sono arrivati ordini nuovi» da «qualcosa si è
-          fermato», che da un elenco fermo si vedono uguali. */}
-      <div className="catena-sync">
-        <span className={`pallino-sync${syncFermo ? ' fermo' : ''}`} aria-hidden="true" />
-        <div className="catena-testo">
-          <strong>
-            {ultimaSync ? `Ordini aggiornati ${quantoFa(ultimaSync)}` : 'Aggiornamento automatico ogni 15 minuti'}
-          </strong>
-          <span className="catena-dettaglio">
-            {importOrders ? `Ordini ha scaricato da Shopify ${quantoFa(importOrders)}` : null}
-            {importOrders ? ' · ' : ''}
-            {vistoIl ? `questa pagina si rilegge da sola, ultima lettura ${quantoFa(vistoIl)}` : null}
+        {/* L'urgenza per prima: è la ragione per cui si apre questa pagina. */}
+        {urgenza.oggi > 0 ? (
+          <span className="pillola oggi" title="Ordini da consegnare oggi: sono in cima all'elenco">
+            {urgenza.oggi} da consegnare oggi
           </span>
-        </div>
+        ) : (
+          <span className="pillola calma">nessuna consegna oggi</span>
+        )}
+        {urgenza.domani > 0 ? (
+          <span className="pillola domani">{urgenza.domani} domani</span>
+        ) : null}
+        {urgenza.scaduteRecenti > 0 ? (
+          <span
+            className="pillola scadute"
+            title="Consegne scadute negli ultimi giorni: forse sono ancora lavoro aperto"
+          >
+            {urgenza.scaduteRecenti} scadute di recente
+          </span>
+        ) : null}
+
+        <span className="testa-spazio" />
+
+        <span
+          className={`pallino-sync${syncFermo ? ' fermo' : ''}`}
+          aria-hidden="true"
+          title={
+            (ultimaSync ? `Ordini aggiornati ${quantoFa(ultimaSync)}` : 'Aggiornamento ogni 15 minuti') +
+            (importOrders ? `\nOrdini ha scaricato da Shopify ${quantoFa(importOrders)}` : '') +
+            (vistoIl ? `\nQuesta pagina si rilegge da sola, ultima lettura ${quantoFa(vistoIl)}` : '')
+          }
+        />
+        <span className="testa-quando">
+          {ultimaSync ? `aggiornati ${quantoFa(ultimaSync)}` : 'aggiornamento ogni 15 minuti'}
+        </span>
         <button
           className="bottone secondario"
           onClick={scarica}
           disabled={!!occupato}
           title="Riprende subito gli ordini dal registro Ordini, senza aspettare il giro automatico"
         >
-          {occupato === 'sync' ? 'Aggiorno…' : 'Aggiorna adesso'}
+          {occupato === 'sync' ? 'Aggiorno…' : 'Aggiorna'}
+        </button>
+        <button
+          className="bottone"
+          onClick={salvaTutti}
+          disabled={!!occupato || !googleCollegato}
+          title={googleCollegato ? '' : 'Collega Google Contacts nelle Impostazioni'}
+        >
+          {occupato === 'tutti' ? 'Salvo…' : 'Salva contatti'}
         </button>
       </div>
       {/* Un giro fallito non deve nascondersi dietro un orario rassicurante. */}
@@ -722,17 +749,7 @@ export function OrdiniLista() {
 
       {/* Da che tipo di cliente arrivano gli ordini in elenco. */}
       {caricato && rigaTipi.length ? (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            flexWrap: 'wrap',
-            margin: '0 0 14px',
-            fontSize: 13,
-            color: 'var(--text-secondary)',
-          }}
-        >
+        <div className="riga-tipi">
           <span>Da che clienti:</span>
           {rigaTipi.map(([tipo, n]) => (
             <button
@@ -857,8 +874,11 @@ export function OrdiniLista() {
                             </div>
                           )
                         })()}
+                        {/* La data dell'ORDINE non sta piu' qui: quella che serve a
+                            chi lavora e' la CONSEGNA, riga sopra. Averle entrambe
+                            mandava i badge a capo, 27px per scheda; la data
+                            dell'ordine si legge nel dettaglio. */}
                         <div className="riga-bassa" style={{ flexWrap: 'wrap', gap: 6 }}>
-                          <span className="quando">ordine {dataBreve(o.data)}</span>
                           <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
                           <span
                             className="badge"
@@ -871,18 +891,14 @@ export function OrdiniLista() {
                             {nomeGestione(o.gestione)}
                           </span>
                         </div>
-                        {/* Cosa fare con l'ordine: ogni azione porta con sé il suo stato */}
-                        {/* Le azioni non aprono il dettaglio: chi preme
-                            "Reclamo" vuole il reclamo, non il pannello. */}
+                        {/* SOLO LE DUE AZIONI DI TUTTI I GIORNI.
+                            Le altre (Paga fornitore, Reclamo, Rimborso, Rubrica,
+                            Fornitore) stanno nel dettaglio, che si apre cliccando
+                            la scheda: misurato, occupavano 97px dei 237 di ogni
+                            card, cioè si vedevano 3 ordini invece di 5.
+                            Non aprono il dettaglio: chi preme "Contatta" vuole
+                            scrivere, non il pannello. */}
                         <div className="azioni-ordine" onClick={(e) => e.stopPropagation()}>
-                          <a
-                            className="bottone secondario mini"
-                            href={linkPagamento(o)}
-                            onClick={() => segna(o.id, 'in_pagamento')}
-                            title="Chiedi il pagamento del fornitore per questo ordine"
-                          >
-                            Paga fornitore
-                          </a>
                           {(() => {
                             const c = linkContatto(o)
                             return (
@@ -894,30 +910,12 @@ export function OrdiniLista() {
                                 aria-disabled={!c}
                                 style={c ? undefined : { pointerEvents: 'none', opacity: 0.4 }}
                                 onClick={() => c && segna(o.id, 'comunicazione')}
-                                title={
-                                  c
-                                    ? spiegaContatto(c)
-                                    : 'Ordine senza telefono né email'
-                                }
+                                title={c ? spiegaContatto(c) : 'Ordine senza telefono né email'}
                               >
-                                Contatta cliente
+                                Contatta
                               </a>
                             )
                           })()}
-                          <a
-                            className="bottone secondario mini"
-                            href={linkReclamo(o)}
-                            title="Apri un reclamo su questo ordine"
-                          >
-                            Reclamo
-                          </a>
-                          <a
-                            className="bottone secondario mini"
-                            href={linkRimborso(o)}
-                            title="Chiedi il rimborso di questo ordine (lo approva poi una persona)"
-                          >
-                            Rimborso
-                          </a>
                           {o.gestione === 'gestito' ? (
                             <button
                               className="bottone secondario mini"
@@ -935,32 +933,7 @@ export function OrdiniLista() {
                               Gestito ✓
                             </button>
                           )}
-                          {!o.contattoSalvato ? (
-                            <button
-                              className="bottone secondario mini"
-                              onClick={() => salvaContatto(o.id)}
-                              disabled={!!occupato || !googleCollegato || (!o.telefono && !o.email)}
-                              title={
-                                !o.telefono && !o.email
-                                  ? 'Ordine senza telefono né email'
-                                  : googleCollegato
-                                    ? 'Salva il contatto in rubrica Google'
-                                    : 'Collega Google Contacts nelle Impostazioni'
-                              }
-                            >
-                              {occupato === o.id ? 'Salvo…' : 'Rubrica'}
-                            </button>
-                          ) : null}
-                          {/* Bottone rapido: apre Ricerca fornitori sull'ordine */}
-                          {n.brandRicerca ? (
-                            <button
-                              className="bottone secondario mini"
-                              onClick={() => apriFornitore(n.brandRicerca, o.numero, setErrore)}
-                              title={`Cerca il fornitore per ${o.numero} su Ricerca fornitori`}
-                            >
-                              Fornitore ↗
-                            </button>
-                          ) : null}
+                          <span className="altre-azioni">altre azioni: apri l&apos;ordine</span>
                         </div>
                       </div>
                     ))
