@@ -140,10 +140,22 @@ async function copiaFoto(immagine: string, titolo: string): Promise<EsitoCopia> 
   }
 }
 
+type Spedizione = {
+  nome: string
+  indirizzo: string
+  citta: string
+  cap: string
+  provincia: string
+  paese: string
+}
+
 export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onChiudi: () => void }) {
   const [ordine, setOrdine] = useState<OrdineDettaglio | null>(null)
   const [righe, setRighe] = useState<Riga[]>([])
   const [righeNota, setRigheNota] = useState('')
+  // Il destinatario arriva da Orders insieme alle righe: qui in casa c'è solo
+  // chi compra, e nei regali sono due persone diverse.
+  const [spedizione, setSpedizione] = useState<Spedizione | null>(null)
   const [caricato, setCaricato] = useState(false)
   const [errore, setErrore] = useState('')
   const [copiato, setCopiato] = useState('')
@@ -158,6 +170,7 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
         ordine?: OrdineDettaglio
         righe?: Riga[]
         righeNota?: string
+        spedizione?: Spedizione | null
         errore?: string
       }
       if (!res.ok) {
@@ -167,6 +180,7 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
       setOrdine(d.ordine ?? null)
       setRighe(d.righe ?? [])
       setRigheNota(d.righeNota ?? '')
+      setSpedizione(d.spedizione ?? null)
     } catch {
       setErrore('Dettaglio non disponibile: problema di rete.')
     } finally {
@@ -365,7 +379,7 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
             <div className="card">
               <h3 style={{ marginTop: 0, fontSize: 15 }}>Ordine</h3>
               <dl className="coppie">
-                <dt>Cliente</dt>
+                <dt>Mittente (chi ordina)</dt>
                 <dd>
                   {ordine.clienteNome || '—'}
                   {ordine.clienteTipo ? (
@@ -377,7 +391,7 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
                     </span>
                   ) : null}
                 </dd>
-                <dt>Recapiti</dt>
+                <dt>Recapiti del mittente</dt>
                 <dd>
                   {ordine.telefono || '—'}
                   {ordine.email ? ` · ${ordine.email}` : ''}
@@ -398,11 +412,39 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
                     : 'non indicata'}
                   {ordine.fasciaConsegna ? ` · ${ordine.fasciaConsegna}` : ''}
                 </dd>
-                <dt>Indirizzo</dt>
+                {/* Mittente e destinatario sono due persone diverse quasi
+                    sempre: in un regalo chi paga non è chi riceve. Tenerli
+                    separati evita l'errore che si paga di più — scrivere o
+                    telefonare alla persona sbagliata. */}
+                <dt>Destinatario (chi riceve)</dt>
                 <dd>
-                  {ordine.indirizzo || '—'}
-                  {ordine.citta ? `, ${ordine.citta}` : ''}
-                  {ordine.paese ? ` (${ordine.paese})` : ''}
+                  {spedizione?.nome ? (
+                    <>
+                      <strong>{spedizione.nome}</strong>
+                      {spedizione.nome.trim().toLowerCase() === ordine.clienteNome.trim().toLowerCase() ? (
+                        <div className="cella-sub">è la stessa persona che ordina</div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="cella-sub">
+                      {righeNota ? `non disponibile — ${righeNota}` : 'non indicato'}
+                    </span>
+                  )}
+                </dd>
+                <dt>Indirizzo di consegna</dt>
+                <dd>
+                  {spedizione
+                    ? [
+                        spedizione.indirizzo,
+                        [spedizione.cap, spedizione.citta, spedizione.provincia].filter(Boolean).join(' '),
+                        spedizione.paese,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ') || '—'
+                    : [ordine.indirizzo, ordine.citta, ordine.paese].filter(Boolean).join(', ') || '—'}
+                  {!spedizione && (ordine.indirizzo || ordine.citta) ? (
+                    <div className="cella-sub">indirizzo in copia locale, senza CAP e provincia</div>
+                  ) : null}
                 </dd>
                 <dt>Totale</dt>
                 <dd>

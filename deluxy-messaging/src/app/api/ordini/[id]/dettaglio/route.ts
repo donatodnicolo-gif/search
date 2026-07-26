@@ -54,6 +54,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
       clienteTipoDa: ordine.clienteTipoDa,
     },
     righe: esito.stato === 'ok' ? esito.righe : [],
+    // Il DESTINATARIO e l'indirizzo di consegna arrivano da Orders: qui in casa
+    // c'è solo chi compra. Nei regali sono quasi sempre due persone diverse, e
+    // confonderle vuol dire scrivere alla persona sbagliata.
+    spedizione: esito.stato === 'ok' ? esito.spedizione : null,
+    biglietto: esito.stato === 'ok' ? esito.biglietto : '',
     // Perché i prodotti non ci sono, quando non ci sono.
     righeNota:
       esito.stato === 'ok'

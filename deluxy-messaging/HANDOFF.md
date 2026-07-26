@@ -55,6 +55,20 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- DETTAGLIO: MITTENTE, DESTINATARIO E INDIRIZZO DI CONSEGNA (26/07/2026).
+  Nel pannello di un ordine ora si distinguono **chi ordina** (mittente, coi suoi
+  recapiti) e **chi riceve** (destinatario), con l'indirizzo di consegna
+  completo di CAP, provincia e paese. Quando sono la stessa persona lo dice.
+  ⚠️ **Il destinatario NON è in casa**: qui l'ordine tiene i dati di chi compra.
+  Arriva da Orders ( di ) nella stessa chiamata
+  che già portava le righe e le foto — nessuna copia locale, regola 2 dell'app.
+  Verificato su #1733: in casa  è VUOTO e la città «Florence», da
+  Orders arriva «11 Campbell Avenue… IG6 1EA ENG GB». Quindi questa aggiunta
+  non è solo un'etichetta in più: prima l'indirizzo di consegna su quegli
+  ordini non si vedeva proprio.
+  Se Orders non risponde si mostra l'indirizzo della copia locale, dicendo che
+  è senza CAP e provincia.
+
 - ORDINI APERTI / ORDINI GLOBALI (26/07/2026): la lista degli ordini ora è due
   pagine, stessa tabella (`OrdiniLista` con prop `modalita`):
   · **/** «Ordini aperti» — la lista di LAVORO: non gestiti, e **senza gli

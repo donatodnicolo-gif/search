@@ -41,6 +41,21 @@ Attenzione, oltre Critico). Così un solo reclamo grave ancora aperto accende gi
 sempre visibile da cosa nasce il numero. Per il quadro completo — feedback, orari e altre
 variabili — c'è la **pagella** qui sotto.
 
+## Il dettaglio di un ordine
+
+Cliccando un ordine si apre il pannello con foto dei prodotti, messaggio pronto per
+il fornitore e i dati che servono per parlare con le persone giuste:
+
+- **Mittente** — chi ordina e paga, coi suoi recapiti e la lingua in cui gli si scrive;
+- **Destinatario** — chi riceve il regalo. Quasi mai la stessa persona: quando lo è,
+  il pannello lo dice;
+- **Indirizzo di consegna** completo di CAP, provincia e paese.
+
+> Il destinatario e l'indirizzo **non sono in copia qui**: li tiene il registro Ordini
+> e si chiedono a lui nella stessa chiamata che porta le righe e le foto. Su un ordine
+> vero (#1733) la copia locale aveva l'indirizzo vuoto mentre Orders aveva la via, il
+> CAP e la provincia — prima quell'informazione non si vedeva affatto.
+
 ## Ordini aperti e ordini globali
 
 La lista degli ordini è due pagine con la stessa tabella:

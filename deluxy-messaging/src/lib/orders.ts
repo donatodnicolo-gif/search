@@ -259,10 +259,27 @@ export type RigaOrdine = {
  * negozi — «#1733» c'è sia su Cake sia su Deluxy — e mostrare i prodotti
  * dell'ordine sbagliato sarebbe peggio che non mostrarne nessuno.
  */
+// Il DESTINATARIO e dove va la consegna. Non è in copia qui: nel Customer
+// Service l'ordine tiene i dati di CHI COMPRA (mittente), non di chi riceve —
+// e nei regali sono quasi sempre due persone diverse. Si chiedono a Orders
+// insieme alle righe, nella stessa chiamata che si faceva già.
+export type SpedizioneOrdine = {
+  nome: string
+  indirizzo: string
+  citta: string
+  cap: string
+  provincia: string
+  paese: string
+}
+
 export async function righeOrdineDaOrders(
   numero: string,
   shopifyId = ''
-): Promise<{ stato: 'ok'; righe: RigaOrdine[] } | { stato: 'non-configurato' } | { stato: 'errore'; messaggio: string }> {
+): Promise<
+  | { stato: 'ok'; righe: RigaOrdine[]; spedizione: SpedizioneOrdine | null; biglietto: string }
+  | { stato: 'non-configurato' }
+  | { stato: 'errore'; messaggio: string }
+> {
   const c = await configOrders()
   if (!c) return { stato: 'non-configurato' }
 
@@ -287,6 +304,15 @@ export async function righeOrdineDaOrders(
         numero?: string
         brand?: string
         orderId?: string
+        biglietto?: string | null
+        spedizione?: {
+          nome?: string | null
+          indirizzo?: string | null
+          citta?: string | null
+          cap?: string | null
+          provincia?: string | null
+          paese?: string | null
+        } | null
         righe?: {
           titolo?: string
           variante?: string | null
@@ -317,8 +343,20 @@ export async function righeOrdineDaOrders(
       }
     }
 
+    const sp = scelto.spedizione
     return {
       stato: 'ok',
+      spedizione: sp
+        ? {
+            nome: sp.nome ?? '',
+            indirizzo: sp.indirizzo ?? '',
+            citta: sp.citta ?? '',
+            cap: sp.cap ?? '',
+            provincia: sp.provincia ?? '',
+            paese: sp.paese ?? '',
+          }
+        : null,
+      biglietto: scelto.biglietto ?? '',
       righe: (scelto.righe ?? []).map((r) => ({
         titolo: r.titolo ?? '',
         variante: r.variante ?? '',
