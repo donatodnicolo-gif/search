@@ -42,8 +42,9 @@ in parallelo sullo stesso branch.
 | `deluxy-budgets` | budget 2026 su 3 livelli, P&L, premi | 3080 | *non pubblicata* | [README.md](deluxy-budgets/README.md) |
 | `deluxy-merchandising` | prodotto a 360°: collezioni, PLM, costi, Shopify | 3120 | *non pubblicata* | [docs/HANDOFF.md](deluxy-merchandising/docs/HANDOFF.md) |
 | `deluxy-marketing` | memoria operativa ADV: audit, azioni, campagne | 3130 | [deluxy-marketing.vercel.app](https://deluxy-marketing.vercel.app) | [README.md](deluxy-marketing/README.md) |
-| `deluxy-messaging` | inbox unificata WhatsApp/Messenger/IG + widget siti | 3140 | [deluxy-messaging.vercel.app](https://deluxy-messaging.vercel.app) | [HANDOFF.md](deluxy-messaging/HANDOFF.md) |
+| `deluxy-messaging` | ordini da lavorare (da Orders, aggiornati da soli ogni 15') + inbox unificata WhatsApp/Messenger/IG + widget siti | 3140 | [deluxy-messaging.vercel.app](https://deluxy-messaging.vercel.app) | [HANDOFF.md](deluxy-messaging/HANDOFF.md) |
 | `deluxy-orders` | registro centralizzato ordini Shopify | 3150 | [deluxy-orders.vercel.app](https://deluxy-orders.vercel.app) | [docs/HANDOFF.md](deluxy-orders/docs/HANDOFF.md) |
+| `deluxy-transactions` | autorizzazione dei pagamenti: richieste firmate dalle app, doppia firma, distinte SEPA | 3160 | *da pubblicare* | [docs/HANDOFF.md](deluxy-transactions/docs/HANDOFF.md) + [SICUREZZA.md](deluxy-transactions/docs/SICUREZZA.md) |
 | `deluxy-search-supplier` | ricerca fiorai/pasticcerie + smistamento ordini | — | [search-deluxy.vercel.app](https://search-deluxy.vercel.app) | [AI_SPEC.md](deluxy-search-supplier/AI_SPEC.md) + [HANDOFF.md](deluxy-search-supplier/HANDOFF.md) |
 | `deluxy-scout` | app mobile prospezione (React Native/Expo) | `expo start` | [deluxy-scout.vercel.app](https://deluxy-scout.vercel.app) | [README.md](deluxy-scout/README.md) |
 | `deluxy-scout-manager` | plugin/handoff per lavorare su Scout | — | — | [README.md](deluxy-scout-manager/README.md) |
@@ -100,6 +101,9 @@ npx vercel deploy --prod --yes
   ferma prima il dev server (tiene il file bloccato), poi rigenera.
 - **Le anagrafiche non si duplicano**: vivono solo in `deluxy-anagrafiche` e si
   leggono via API. Stessa regola per gli ordini (`deluxy-orders`).
+- **I pagamenti non si fanno partire da un'app qualsiasi**: si manda una
+  richiesta firmata a `deluxy-transactions`, dove una persona autorizza. Nessuna
+  chiave API può approvare un pagamento, per progetto.
 - **Aggiungendo o rinominando un'app**, aggiornare il catalogo del portale in
   [deluxy-hub/src/lib/apps.ts](deluxy-hub/src/lib/apps.ts) (+ icona, + `APP_URL_*`),
   altrimenti dal Hub non è raggiungibile.

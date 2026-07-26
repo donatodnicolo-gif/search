@@ -146,6 +146,15 @@ export function PartnerLista() {
 
       {errore ? <div className="avviso-errore">{errore}</div> : null}
 
+      {/* Il registro dà al massimo 200 per pagina: se un giorno i partner attivi
+          fossero di più, va detto invece di mostrarne una parte in silenzio. */}
+      {caricato && totale > partner.length ? (
+        <div className="avviso-errore">
+          Il registro ne conta {totale}, qui ne stanno {partner.length}: restringi con la
+          ricerca o i filtri per vedere gli altri.
+        </div>
+      ) : null}
+
       <div className="kpi-riga">
         <div className="kpi">
           <span className="kpi-etichetta">Partner attivi</span>
