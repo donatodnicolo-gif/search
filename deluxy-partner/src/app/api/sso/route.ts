@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
 import { leggiTokenSso } from "@/lib/sso";
 import { COOKIE_UTENTE, cookieUtente } from "@/lib/registro";
+import { registraAccesso } from "@/lib/accessi";
 
 // GET /api/sso?token=… — ingresso dal Hub (Single Sign-On). Verifica il token
 // cifrato del Hub e, se valido, imposta il cookie di sessione di Partner senza
@@ -42,5 +43,16 @@ export async function GET(req: NextRequest) {
   // Nome dell'operatore per il registro modifiche (chi ha fatto cosa): col login
   // a password non lo sappiamo, col SSO del Hub sì.
   res.cookies.set(COOKIE_UTENTE, cookieUtente(payload.nome, payload.uid), { ...opzioni, httpOnly: false });
+  // Questo è l'unico ingresso in cui sappiamo CHI è la persona: annotarlo è il
+  // motivo per cui il registro accessi ha dei nomi veri e non solo etichette.
+  await registraAccesso(
+    {
+      utente: payload.nome,
+      utenteId: payload.uid,
+      ruolo: payload.ruolo === "admin" ? "admin" : "sola_lettura",
+      via: "sso",
+    },
+    req.headers
+  );
   return res;
 }

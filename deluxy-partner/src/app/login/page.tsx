@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
+import { registraAccesso } from "@/lib/accessi";
 
 async function login(fd: FormData) {
   "use server";
@@ -9,9 +10,19 @@ async function login(fd: FormData) {
   const tentativo = String(fd.get("password") ?? "");
   // accetta la password piena o quella di sola lettura; il cookie codifica il ruolo
   const usata = password && tentativo === password ? password : readonly && tentativo === readonly ? readonly : null;
+  const intestazioni = await headers();
   if (!usata) {
+    // Anche i tentativi sbagliati finiscono nel registro accessi: sono il solo
+    // segnale che qualcuno sta provando a entrare. Non si annota la password
+    // tentata — servirebbe a niente e sarebbe un segreto scritto nel database.
+    await registraAccesso({ utente: "Sconosciuto", via: "password", esito: "fallito" }, intestazioni);
     redirect("/login?errore=1");
   }
+  const ruolo = usata === password ? "admin" : "sola_lettura";
+  await registraAccesso(
+    { utente: ruolo === "admin" ? "Accesso a password" : "Accesso sola lettura", ruolo, via: "password" },
+    intestazioni
+  );
   const jar = await cookies();
   jar.set(SESSION_COOKIE, await sessionToken(usata), {
     httpOnly: true,

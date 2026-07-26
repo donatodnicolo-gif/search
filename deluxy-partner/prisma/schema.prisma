@@ -55,6 +55,31 @@ model Partner {
   updatedAt              DateTime @updatedAt
 }
 
+// Registro degli ACCESSI: chi è ENTRATO nell'app, quando, come e da dove.
+// Diverso da RegistroModifica, che annota cosa è stato cambiato: qui si annota
+// l'ingresso, compresi i tentativi con password sbagliata (per accorgersi di
+// chi prova a entrare).
+//
+// ⚠️ LIMITE VERO, da tenere presente leggendo questa tabella: l'app entra con
+// una password di TEAM. Chi la usa non ha un nome — si registra «Accesso a
+// password» e nient'altro. Il nome della persona c'è solo per chi entra dal
+// Hub (SSO), che porta con sé nome e uid. Finché la password è condivisa,
+// questa tabella dice QUANTI ingressi e DA DOVE, non chi è la persona.
+model AccessoApp {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  utente    String // nome dal SSO del Hub, oppure l'etichetta del profilo
+  utenteId  String? // uid del Hub, se l'ingresso è passato dal portale
+  ruolo     String? // admin | sola_lettura
+  via       String // sso | password
+  esito     String   @default("ok") // ok | fallito (password sbagliata)
+  ip        String? // primo indirizzo di x-forwarded-for (lo mette Vercel)
+  agente    String? // user agent del browser, per distinguere i dispositivi
+
+  @@index([createdAt])
+  @@index([utente, createdAt])
+}
+
 // Registro delle modifiche (audit log): ogni cambiamento fatto nell'app da un
 // operatore. `utente` è il nome di chi ha fatto l'azione (dal SSO del Hub, o
 // l'etichetta del profilo per l'accesso a password); `azione` è una frase
