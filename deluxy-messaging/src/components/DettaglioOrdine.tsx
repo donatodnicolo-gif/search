@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { coloreGestione, nomeGestione } from '@/lib/gestione'
 import { coloreTipoCliente, nomeTipoCliente } from '@/lib/clienti-tipo'
 import { fasciaRitiro, messaggioFornitore } from '@/lib/ritiro'
-import { linguaCliente, messaggioCliente, nomeLingua } from '@/lib/lingua'
+import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
+import type { BozzaMail } from './ComponiMail'
 
 // Il dettaglio di un ordine, che si apre cliccando la sua scheda.
 //
@@ -149,7 +150,16 @@ type Spedizione = {
   paese: string
 }
 
-export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onChiudi: () => void }) {
+export function DettaglioOrdine({
+  ordineId,
+  onChiudi,
+  onScriviMail,
+}: {
+  ordineId: string
+  onChiudi: () => void
+  /** Apre il pop-up di posta con la bozza già scritta (niente `mailto:`). */
+  onScriviMail?: (bozza: BozzaMail) => void
+}) {
   const [ordine, setOrdine] = useState<OrdineDettaglio | null>(null)
   const [righe, setRighe] = useState<Riga[]>([])
   const [righeNota, setRigheNota] = useState('')
@@ -500,7 +510,13 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
                       const testo = messaggioCliente(lingua.lingua, ordine.clienteNome, ordine.numero)
                       const cifre = ordine.telefono.replace(/[^\d]/g, '')
                       const numero = ordine.telefono.replace(/[^\d+]/g, '')
-                      const canali: { chiave: string; nome: string; url: string; titolo: string }[] = []
+                      const canali: {
+                        chiave: string
+                        nome: string
+                        titolo: string
+                        url?: string
+                        mail?: BozzaMail
+                      }[] = []
                       if (cifre.length >= 8) {
                         canali.push({
                           chiave: 'whatsapp',
@@ -518,25 +534,45 @@ export function DettaglioOrdine({ ordineId, onChiudi }: { ordineId: string; onCh
                         })
                       }
                       if (ordine.email) {
+                        // Niente `mailto:`: il pop-up manda dalla casella
+                        // aziendale e la mail resta registrata in Inbox.
                         canali.push({
                           chiave: 'email',
                           nome: 'Email',
-                          url: `mailto:${ordine.email}?body=${encodeURIComponent(testo)}`,
-                          titolo: `Scrivi una mail, in ${nomeLingua(lingua.lingua)}. Non parte da sola.`,
+                          titolo: `Scrivi una mail in ${nomeLingua(lingua.lingua)}: si apre il modulo, non parte da sola.`,
+                          mail: {
+                            a: ordine.email,
+                            oggetto: oggettoCliente(lingua.lingua, ordine.numero),
+                            testo,
+                            clienteNome: ordine.clienteNome,
+                            ordineNumero: ordine.numero,
+                          },
                         })
                       }
-                      return canali.map((c) => (
-                        <a
-                          key={c.chiave}
-                          className="btn btn-secondario small"
-                          href={c.url}
-                          target={c.chiave === 'telefono' ? undefined : '_blank'}
-                          rel="noopener noreferrer"
-                          title={c.titolo}
-                        >
-                          {c.nome}
-                        </a>
-                      ))
+                      return canali.map((c) =>
+                        c.mail ? (
+                          <button
+                            key={c.chiave}
+                            className="btn btn-secondario small"
+                            onClick={() => onScriviMail?.(c.mail!)}
+                            title={c.titolo}
+                            disabled={!onScriviMail}
+                          >
+                            {c.nome}
+                          </button>
+                        ) : (
+                          <a
+                            key={c.chiave}
+                            className="btn btn-secondario small"
+                            href={c.url}
+                            target={c.chiave === 'telefono' ? undefined : '_blank'}
+                            rel="noopener noreferrer"
+                            title={c.titolo}
+                          >
+                            {c.nome}
+                          </a>
+                        )
+                      )
                     })()
                   : null}
                 <button

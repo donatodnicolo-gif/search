@@ -52,6 +52,20 @@ WhatsApp e mail si aprono col messaggio già scritto **nella lingua del cliente*
 partono da soli: si rilegge e si corregge prima di premere invio. La telefonata non
 porta nessun testo, ovviamente.
 
+**La mail si manda da qui, non dal programma di posta del computer.** *Email* apre un pop-up
+con mittente, destinatario, oggetto e testo già compilati: si rilegge e si preme *Invia*. La
+mail esce dalla **casella aziendale** (`cs@deluxy.it`) e resta registrata in **Inbox**, nella
+conversazione del cliente.
+
+> Prima era un link `mailto:`, che apre il client di posta del computer: dove non è
+> configurato non succede niente, e dove lo è la mail parte da un indirizzo personale — fuori
+> dall'app e senza lasciare traccia. Chi prende il turno dopo non trova più quella
+> conversazione.
+
+Se ci sono più caselle si scegle il mittente; se non ce n'è nessuna il pop-up lo dice e rimanda
+a *Caselle*. Un indirizzo non valido, un messaggio vuoto o una casella che non esiste più
+vengono respinti **prima** di provare a spedire.
+
 ## Il dettaglio di un ordine
 
 Cliccando un ordine si apre il pannello con foto dei prodotti, messaggio pronto per

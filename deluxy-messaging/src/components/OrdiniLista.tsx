@@ -10,6 +10,7 @@ import {
 } from '@/lib/clienti-tipo'
 import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
 import { DettaglioOrdine } from './DettaglioOrdine'
+import { ComponiMail, type BozzaMail } from './ComponiMail'
 
 type OrdineDto = {
   id: string
@@ -131,13 +132,22 @@ function TipoCliente({ tipo, da }: { tipo: string; da: string }) {
 //
 // Fuori restano solo quelli impossibili: niente numero, niente WhatsApp e
 // niente telefonata; niente email, niente mail.
-function canaliContatto(
-  o: OrdineDto
-): { chiave: string; nome: string; url: string; lingua: string; linguaDa: string }[] {
+type CanaleContatto = {
+  chiave: string
+  nome: string
+  lingua: string
+  linguaDa: string
+  /** WhatsApp e telefono: un link da aprire. */
+  url?: string
+  /** Email: la bozza che riempie il pop-up di posta (niente `mailto:`). */
+  mail?: BozzaMail
+}
+
+function canaliContatto(o: OrdineDto): CanaleContatto[] {
   const { lingua, da } = linguaCliente(o.paese, o.telefono, o.email)
   const testo = messaggioCliente(lingua, o.clienteNome, o.numero)
   const comune = { lingua, linguaDa: da }
-  const canali: { chiave: string; nome: string; url: string; lingua: string; linguaDa: string }[] = []
+  const canali: CanaleContatto[] = []
 
   const cifre = o.telefono.replace(/[^\d]/g, '')
   if (cifre.length >= 8) {
@@ -155,8 +165,22 @@ function canaliContatto(
     canali.push({ ...comune, chiave: 'telefono', nome: 'Chiama', url: `tel:${numero}` })
   }
   if (o.email) {
-    const p = new URLSearchParams({ subject: oggettoCliente(lingua, o.numero), body: testo })
-    canali.push({ ...comune, chiave: 'email', nome: 'Email', url: `mailto:${o.email}?${p.toString()}` })
+    // NIENTE `mailto:`: apriva il programma di posta del computer — dove c'è — e
+    // la mail partiva da un indirizzo personale, fuori da quest'app e senza
+    // lasciare traccia. Qui il bottone apre un pop-up e la mail esce dalla
+    // casella aziendale via SMTP, restando registrata in Inbox.
+    canali.push({
+      ...comune,
+      chiave: 'email',
+      nome: 'Email',
+      mail: {
+        a: o.email,
+        oggetto: oggettoCliente(lingua, o.numero),
+        testo,
+        clienteNome: o.clienteNome,
+        ordineNumero: o.numero,
+      },
+    })
   }
   return canali
 }
@@ -370,6 +394,9 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   const [errore, setErrore] = useState('')
   // Quale ordine è aperto nel pannello di dettaglio ('' = nessuno).
   const [dettaglio, setDettaglio] = useState('')
+  // La bozza aperta nel pop-up di posta (null = chiuso). Il pop-up sostituisce
+  // il vecchio `mailto:`, che apriva il programma di posta del computer.
+  const [mail, setMail] = useState<BozzaMail | null>(null)
 
   // Ricerca e filtri (la ricerca vera avviene sul server: cerca su TUTTI gli
   // ordini, non solo quelli già in pagina).
@@ -956,7 +983,20 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                                 </span>
                               )
                             }
-                            return canali.map((c) => (
+                            return canali.map((c) =>
+                              c.mail ? (
+                                <button
+                                  key={c.chiave}
+                                  className="bottone secondario mini"
+                                  onClick={() => {
+                                    setMail(c.mail!)
+                                    segna(o.id, 'comunicazione')
+                                  }}
+                                  title={spiegaContatto(c)}
+                                >
+                                  {c.nome}
+                                </button>
+                              ) : (
                               <a
                                 key={c.chiave}
                                 className="bottone secondario mini"
@@ -968,7 +1008,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                               >
                                 {c.nome}
                               </a>
-                            ))
+                              )
+                            )
                           })()}
                           <a
                             className="bottone secondario mini"
@@ -1268,8 +1309,12 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
             setDettaglio('')
             carica()
           }}
+          onScriviMail={(b) => setMail(b)}
         />
       ) : null}
+
+      {/* Il pop-up di posta: si scrive e si manda dalla casella aziendale. */}
+      {mail ? <ComponiMail bozza={mail} onChiudi={() => setMail(null)} /> : null}
     </>
   )
 }

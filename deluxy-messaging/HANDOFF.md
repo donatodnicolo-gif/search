@@ -55,6 +55,40 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- POP-UP DI POSTA: LA MAIL SI SCRIVE E SI MANDA DA QUI (26/07/2026).
+  Il bottone **Email** non è più un link `mailto:` ma apre `ComponiMail.tsx`:
+  Da (casella aziendale) · A · Oggetto · Messaggio, già scritti nella lingua del
+  cliente, e **Invia**. Rotte nuove: `POST /api/email/invia` e
+  `GET /api/caselle` (che espone solo indirizzo/nome/predefinita — password, host
+  e porte restano lato server).
+  PERCHÉ: `mailto:` dipende dal programma di posta del computer — dove non è
+  configurato non succede niente, e dove lo è la mail parte da un indirizzo
+  personale, fuori da quest'app e senza lasciare traccia. Ora esce da
+  `cs@deluxy.it` via SMTP e **viene registrata in Inbox** come conversazione
+  email (stesse convenzioni del sync: canale `email`, `idEsterno` = indirizzo).
+  ⚠️ **L'HANDOFF DICEVA IL FALSO**: «SMTP risponde 535 authentication rejected».
+  Provato con `provaCasella()` sulla casella vera: **«Invio e ricezione funzionano
+  per cs@deluxy.it»**. Il 535 è rientrato, la nota era vecchia. `inviaEmail()`
+  esisteva già in `src/lib/email.ts`: mancava solo la rotta per una mail NUOVA
+  (prima si potevano solo mandare risposte dentro un thread).
+  ⚠️ **DIFETTO TROVATO E CORRETTO**: `casellaPerId()` ripiega da sé sulla
+  predefinita, quindi un `casellaId` inesistente faceva partire la mail **da un
+  altro indirizzo senza dirlo**. Ora se l'id è indicato esplicitamente e non
+  esiste si rifiuta (400): una mail a nome di qualcun altro non è un ripiego
+  accettabile.
+  VERIFICATO: rifiutati prima di toccare l'SMTP → destinatario mancante, non
+  valido, senza dominio, corpo vuoto, casella inesistente. Pop-up su #1731: Da
+  `cs@deluxy.it`, A precompilato, oggetto «Ordine #1731», testo nella lingua del
+  cliente, Esc chiude, `mailto:` **non compare più** in pagina.
+  ⚠️ **NON ho premuto Invia su un cliente vero** (sarebbe una mail a una persona
+  reale). Da provare a mano: l'unica cosa non verificata è l'invio vero dal
+  pop-up. Il percorso SMTP però è provato da `provaCasella` (autenticazione ok).
+  ⚠️ **INCIDENTE DEL MIO TEST**: un caso di prova con destinatario e testo validi
+  ha **inviato davvero** una mail «ciao» a `x@esempio.it`. Traccia rimossa dal
+  database (conversazioni email tornate a 0). Lezione: nei test su una rotta che
+  invia, i casi devono essere **non spedibili per costruzione** (indirizzo o corpo
+  non validi), non «probabilmente innocui».
+
 - CANALI DI CONTATTO A SCELTA (26/07/2026). Il bottone «Contatta» sceglieva da
   solo: WhatsApp se c'era un numero, la mail altrimenti. Non è una gerarchia
   vera — a chi ha appena scritto una mail si risponde per mail, un ritardo
