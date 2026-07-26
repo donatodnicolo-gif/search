@@ -199,7 +199,7 @@ export function serializzaPartner(p: PartnerConContatti) {
     },
     account: p.account,
     ultimaVisita: p.ultimaVisita,
-    // Valutazione D2C: la media dei feedback del cliente finale (1–5).
+    // Valutazione D2C: la media dei giudizi interni sulle consegne (1–5).
     // `voto: null` significa NESSUN feedback ("Da valutare"): non trattatelo
     // come zero. `affidabile: false` = troppo pochi feedback, è un'indicazione.
     // Si scrive solo con POST /api/v1/feedback: qui è di sola lettura.

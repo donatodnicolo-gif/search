@@ -1,7 +1,9 @@
-// Valutazione D2C — la pagella di un partner vista dal cliente finale.
+// Valutazione D2C — la pagella di un partner sulle consegne D2C.
 //
-// Un partner riceve FEEDBACK (uno per consegna/ordine, da qualunque canale) e
-// da quelli si ricava un voto medio su 5. Regole di lettura, valide ovunque:
+// I feedback sono INTERNI: li scrive Deluxy (chi ha seguito l'ordine, il
+// customer service su un reclamo, chi fa un controllo), non il cliente finale.
+// Un partner riceve FEEDBACK (uno per consegna/episodio) e da quelli si ricava
+// un voto medio su 5. Regole di lettura, valide ovunque:
 //  - nessun feedback → «Da valutare», MAI zero: un partner mai valutato non è
 //    un partner scarso (stessa regola delle altre pagelle Deluxy);
 //  - sotto la soglia di affidabilità il voto si mostra come «indicativo»:
@@ -17,30 +19,26 @@ export const SOGLIA_AFFIDABILE = 3;
 export const VOTO_MIN = 1;
 export const VOTO_MAX = 5;
 
-// Canali da cui può arrivare un feedback. Elenco aperto (la sorgente può
-// mandarne altri): questo serve al menu della UI e alle etichette.
-export const CANALI_FEEDBACK = [
-  "whatsapp",
-  "email",
-  "telefono",
-  "modulo",
-  "shopify",
-  "google",
-  "trustpilot",
-  "manuale",
+// Da dove nasce il giudizio, sempre dentro Deluxy. Elenco aperto (una sorgente
+// può mandarne altri): serve al menu della UI e alle etichette.
+export const ORIGINI_FEEDBACK = [
+  "consegna",
+  "reclamo",
+  "controllo",
+  "visita",
+  "segnalazione",
+  "altro",
 ] as const;
 
-export type CanaleFeedback = (typeof CANALI_FEEDBACK)[number];
+export type OrigineFeedback = (typeof ORIGINI_FEEDBACK)[number];
 
-export const ETICHETTE_CANALE: Record<string, string> = {
-  whatsapp: "WhatsApp",
-  email: "Email",
-  telefono: "Telefono",
-  modulo: "Modulo online",
-  shopify: "Shopify",
-  google: "Google",
-  trustpilot: "Trustpilot",
-  manuale: "Raccolto a mano",
+export const ETICHETTE_ORIGINE: Record<string, string> = {
+  consegna: "Consegna seguita",
+  reclamo: "Reclamo gestito",
+  controllo: "Controllo qualità",
+  visita: "Visita / sopralluogo",
+  segnalazione: "Segnalazione interna",
+  altro: "Altro",
 };
 
 // Tag del giudizio: dicono *perché* quel voto. Servono a capire se un partner
@@ -124,9 +122,8 @@ export function formattaVoto(voto: number | null): string | null {
 }
 
 // Normalizza un voto qualsiasi su 1–5. `scala` è il massimo della sorgente
-// (5 stelle, 10 NPS, 100 percentuale): sopra 5 si riproporziona, sotto si
-// rifiuta. Fuori range → null (l'API risponde 400: meglio niente che un voto
-// inventato).
+// (5 stelle, 10, 100): sopra 5 si riproporziona, sotto si rifiuta. Fuori range
+// → null (l'API risponde 400: meglio niente che un voto inventato).
 export function normalizzaVoto(valore: unknown, scala = VOTO_MAX): number | null {
   const v = typeof valore === "number" ? valore : Number(String(valore ?? "").replace(",", "."));
   if (!isFinite(v)) return null;
@@ -173,11 +170,11 @@ type FeedbackSerializzabile = {
   voto: number;
   votoOriginale: number | null;
   scala: number;
-  canale: string | null;
+  origine: string | null;
   sistema: string;
   idEsterno: string | null;
   ordine: string | null;
-  cliente: string | null;
+  autore: string | null;
   commento: string | null;
   motivi: string[];
   dataFeedback: Date;
@@ -192,11 +189,11 @@ export function serializzaFeedback(f: FeedbackSerializzabile) {
     voto: f.voto,
     votoOriginale: f.votoOriginale,
     scala: f.scala,
-    canale: f.canale,
+    origine: f.origine,
     sistema: f.sistema,
     idEsterno: f.idEsterno,
     ordine: f.ordine,
-    cliente: f.cliente,
+    autore: f.autore,
     commento: f.commento,
     motivi: f.motivi,
     dataFeedback: f.dataFeedback,

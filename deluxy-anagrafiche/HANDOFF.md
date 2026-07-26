@@ -54,10 +54,13 @@ opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se assente la UI è aperta).
 - **Contatto** — referenti (persone): `ruolo·nome·telefono·email·fonte·hubspotId` (id del
   contatto nel CRM, per aprirlo) · `nomeRubrica` (nome per la rubrica Google; se vuoto si
   usa `[STATO] [AZIENDA] [CITTÀ] [Nome contatto]`). Fonti: Excel + HubSpot.
-- **FeedbackD2C** (26/07/2026) — il giudizio di un **cliente finale** su una consegna servita
-  dal partner: `voto` 1–5 (+ `votoOriginale`/`scala` per chi usa NPS o percentuali),
-  `canale`, `sistema` (chi l'ha mandato) + `idEsterno` (idempotenza), `ordine`, `cliente`,
-  `commento`, `motivi[]` (catalogo chiuso), `dataFeedback`. Da qui si ricalcolano gli
+- **FeedbackD2C** (26/07/2026) — il giudizio **INTERNO** su come il partner ha lavorato una
+  consegna D2C. **Non è una recensione del cliente finale**: lo scrive Deluxy (chi ha seguito
+  l'ordine, il customer service su un reclamo, un controllo). Campi: `voto` 1–5
+  (+ `votoOriginale`/`scala` per chi usa 1–10), `origine` (consegna·reclamo·controllo·visita·
+  segnalazione·altro), `sistema` (chi l'ha mandato) + `idEsterno` (idempotenza), `ordine`,
+  `autore` (chi ha valutato, dentro Deluxy), `commento`, `motivi[]` (catalogo chiuso),
+  `dataFeedback`. Da qui si ricalcolano gli
   aggregati su **Partner**: `votoD2C` (media), `numeroFeedbackD2C`, `ultimoFeedbackD2C`,
   `votoD2CAggiornatoIl` — sola lettura, si scrive solo un feedback (`src/lib/feedback-d2c.ts`,
   `ricalcolaValutazioneD2C`). **Zero feedback = nessun voto («Da valutare»), MAI zero**;
@@ -69,6 +72,15 @@ opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se assente la UI è aperta).
   tipo, esito, confidenza, partner risolto, `risolto`.
 - **PassaggioStato** — storico dei cambi di stato/archivio (da·a·origine·quando).
 - **ApiKey** — chiavi delle app client (solo SHA-256 nel DB).
+
+### Regola automatica: chi entra dai fornitori è «Affiliazioni» (26/07/2026)
+Le scritture `POST /api/v1/partners` che arrivano dall'**app di ricerca fornitori** aggiungono
+da sé l'interesse **«Affiliazioni»** (nome canonico del catalogo Scout, non «Affiliazione»):
+in creazione lo mettono anche se la chiave non è un driver di prima parte, in merge lo
+**aggiungono** (`push`) se manca. Riconoscimento della sorgente in `eRicercaFornitori`
+(`src/lib/interessi.ts`): `sistema` che contiene `supplier`/`fornitor` o che inizia per
+`search`. È additivo: non tocca gli altri interessi e non ne toglie mai — il team può
+correggerlo dal registro.
 
 ### Motore di merge multi-sorgente (`src/lib/merge.ts`) — Fase 1 dell'architettura
 Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione:
@@ -128,8 +140,8 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   «Altra…» apre la modale di ricerca. Azioni: `spostaContatto` / `spostaContattiMulti` (non duplicano).
 - **Valutazione D2C nella UI** (26/07/2026): sezione **Valutazione D2C** nella scheda partner
   (voto grande + fascia, distribuzione delle stelle su tutti i feedback, elenco degli ultimi 30
-  con motivi/commento/fonte e ✕ per eliminarne uno, **＋ Feedback** per registrarne uno a mano →
-  `registraFeedbackD2C`, sorgente `ui`); colonna ordinabile **D2C** nell'elenco `/` (e in Novità)
+  con origine/chi valuta/motivi/commento e ✕ per eliminarne uno, **＋ Feedback** per registrare
+  un giudizio interno → `registraFeedbackD2C`, sorgente `ui`, campo «Chi valuta» = `autore`); colonna ordinabile **D2C** nell'elenco `/` (e in Novità)
   con i partner senza voto sempre in fondo; filtro «Valutazione D2C» (con feedback / da valutare);
   scheda **Valutazione D2C** in dashboard (fasce + media pesata della fetta).
 - **`/partner/:id`** — scheda: anagrafica, **tre righe di pillole** (Commerciale · Finanziario ·
@@ -189,8 +201,8 @@ Pubbliche `/api/v1` — auth header `x-api-key: <chiave>` (o `Authorization: Bea
 | POST | `/api/v1/partners` | scrittura | Upsert-merge; body opzionale `sistema`,`idEsterno`,`asOf` |
 | PATCH | `/api/v1/partners/:id` | scrittura | Aggiornamento parziale mirato |
 | DELETE | `/api/v1/partners/:id` | scrittura | Soft delete (attivo=false) |
-| GET | `/api/v1/feedback` | lettura | Feedback D2C: `partnerId`, `canale`, `sistema`, `votoMin/votoMax`, `dal/al`, page, perPage. Con `partnerId` include anche `valutazioneD2C` |
-| POST | `/api/v1/feedback` | scrittura **o** feedback | Registra il giudizio del cliente finale. Aggancio: `partnerId` → `riferimento{sistema,idEsterno}` → `platformId` → `negozio`+`citta`; niente aggancio = **404** (mai attribuito a caso). `voto` obbligatorio (+`scala` per NPS/percentuali, fuori scala = 400), `idEsterno` = idempotenza (la riga viene sostituita), `motivi` solo dal catalogo. Risponde con il feedback e la valutazione ricalcolata |
+| GET | `/api/v1/feedback` | lettura | Feedback D2C: `partnerId`, `origine`, `sistema`, `votoMin/votoMax`, `dal/al`, page, perPage. Con `partnerId` include anche `valutazioneD2C` |
+| POST | `/api/v1/feedback` | scrittura **o** feedback | Registra un giudizio interno (`origine`, `autore`). Aggancio: `partnerId` → `riferimento{sistema,idEsterno}` → `platformId` → `negozio`+`citta`; niente aggancio = **404** (mai attribuito a caso). `voto` obbligatorio (+`scala` per NPS/percentuali, fuori scala = 400), `idEsterno` = idempotenza (la riga viene sostituita), `motivi` solo dal catalogo. Risponde con il feedback e la valutazione ricalcolata |
 | POST | `/api/v1/referenti/archivia` | referenti | Archivia/ripristina un referente (Scout): `{riferimento?{sistema,idEsterno}, negozio?, citta?, referente{email?,telefono?,nome?}, archiviato?}` → trova partner (xref→negozio+città) e referente (email>tel>nome), setta `Contatto.archiviato`. `200 {ok:true}` / `404 {ok:false, reason}` |
 
 Interne `/api/interno/*` (solo UI, cookie di sessione, NON per le app): `cerca-partner`, `cerca-hubspot`.
@@ -286,10 +298,12 @@ trovano un match nel registro. Lato registro misurato: 578 attivi, 316 boutique,
      di FINANCE (fatture scadute, piano di rientro `pdrDebito`, insoluti), decida
      regolare/in_ritardo/insoluto/piano_di_rientro/bloccato. Oggi si cura dalla UI del registro.
 5. **Valutazione D2C — chi manda i feedback** (26/07/2026): l'impianto è pronto e vuoto
-   (tabella, API, chiave dedicata, UI, inserimento manuale). Manca **collegare la sorgente**:
-   decidere quale app raccoglie i giudizi dei clienti finali (Customer Service sui reclami?
-   un modulo post-consegna? le recensioni Google/Shopify?), generare la chiave
-   `--scrittura-feedback` e farle chiamare `POST /api/v1/feedback` con `riferimento`+`idEsterno`.
+   (tabella, API, chiave dedicata, UI, inserimento manuale). I giudizi sono **solo interni**
+   (deciso il 26/07/2026): niente recensioni pubbliche, niente moduli al cliente finale. Oggi
+   si registrano a mano dalla scheda; manca **collegare le app interne** — il candidato è
+   Deluxy Customer Service (un reclamo chiuso con colpa al partner → un feedback), poi la
+   piattaforma consegne. Serve la chiave `--scrittura-feedback` e la chiamata
+   `POST /api/v1/feedback` con `riferimento`+`idEsterno`+`autore`.
    Da valutare poi: se la valutazione debba entrare nella scelta del partner in fase di
    smistamento (oggi è solo informativa) e se serva una regola che sospende un partner critico.
 6. **deluxy-partner**: ha già `anagraficaId` e join per id (fatto). Le altre app (suppliers,

@@ -11,8 +11,8 @@ import { FasciaD2C, StelleD2C } from "@/components/StelleD2C";
 import { eliminaFeedbackD2C, impostaArchiviato, raggruppaSotto, staccaContatto } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
-  ETICHETTE_CANALE,
   ETICHETTE_MOTIVO,
+  ETICHETTE_ORIGINE,
   SOGLIA_AFFIDABILE,
   formattaVoto,
   valutazioneD2C,
@@ -48,8 +48,8 @@ export default async function Dettaglio({
     where: { id },
     include: {
       contatti: { where: { archiviato: false } },
-      // Ultimi feedback del cliente finale: la pagella (media) sta sul record,
-      // qui servono i singoli giudizi per capire *perché* quel voto.
+      // Ultimi giudizi interni: la pagella (media) sta sul record, qui servono
+      // i singoli feedback per capire *perché* quel voto.
       feedbackD2C: { orderBy: { dataFeedback: "desc" }, take: 30 },
       passaggi: { orderBy: { creatoIl: "desc" } },
       capogruppo: { select: { id: true, nome: true, citta: true } },
@@ -249,7 +249,7 @@ export default async function Dettaglio({
       <section className="scheda">
         <h2 className="scheda-titolo">
           Valutazione D2C{" "}
-          <span className="scheda-sub">come giudica il cliente finale le consegne servite da questo partner</span>
+          <span className="scheda-sub">giudizio interno di Deluxy sulle consegne D2C servite da questo partner</span>
         </h2>
         <div className="d2c-testata">
           <div className="d2c-punteggio">
@@ -275,9 +275,9 @@ export default async function Dettaglio({
           <div className="d2c-distribuzione">
             {valutazione.voto == null ? (
               <p className="testo-guida" style={{ margin: 0 }}>
-                Nessun feedback ancora ricevuto: il partner non ha un voto (che è diverso da un voto
-                basso). I feedback arrivano dalle app via <code>POST /api/v1/feedback</code> oppure si
-                registrano qui con <strong>＋ Feedback</strong>.
+                Nessun giudizio ancora registrato: il partner non ha un voto (che è diverso da un voto
+                basso). Lo registra chi ha seguito l&apos;ordine con <strong>＋ Feedback</strong>, o
+                un&apos;app interna via <code>POST /api/v1/feedback</code>.
               </p>
             ) : (
               distribuzione.map((d) => (
@@ -310,11 +310,11 @@ export default async function Dettaglio({
                 <tr>
                   <th>Data</th>
                   <th>Voto</th>
-                  <th>Canale</th>
+                  <th>Origine</th>
                   <th>Ordine</th>
-                  <th>Cliente</th>
-                  <th>Cosa dice</th>
-                  <th>Fonte</th>
+                  <th>Chi valuta</th>
+                  <th>Cosa è successo</th>
+                  <th>Registrato da</th>
                   <th aria-label="Elimina"></th>
                 </tr>
               </thead>
@@ -326,10 +326,10 @@ export default async function Dettaglio({
                       <StelleD2C voto={f.voto} feedback={1} soloStelle />
                     </td>
                     <td className="cella-muta">
-                      {f.canale ? (ETICHETTE_CANALE[f.canale] ?? f.canale) : "—"}
+                      {f.origine ? (ETICHETTE_ORIGINE[f.origine] ?? f.origine) : "—"}
                     </td>
                     <td className="cella-muta">{f.ordine ?? "—"}</td>
-                    <td className="cella-muta">{f.cliente ?? "—"}</td>
+                    <td className="cella-muta">{f.autore ?? "—"}</td>
                     <td className="cella-muta">
                       {f.motivi.length > 0 && (
                         <div className="interessi-pillole" style={{ marginBottom: f.commento ? 4 : 0 }}>

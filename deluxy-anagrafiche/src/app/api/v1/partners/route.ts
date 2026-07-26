@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
+import { INTERESSE_AFFILIAZIONE, eRicercaFornitori } from "@/lib/interessi";
 import { calcolaMerge, mergeContatti, nomeSistema, provenienzaIniziale } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { whereRicerca } from "@/lib/ricerca";
@@ -231,6 +232,17 @@ export async function POST(req: NextRequest) {
       );
     }
     await propagaSeFinanziari(esistente.id, datiMerge);
+    // Chi passa dall'app di ricerca fornitori è un affiliato: l'interesse si
+    // aggiunge (push), senza toccare quelli già scelti dal team.
+    const interessiOra = Array.isArray(datiMerge.interessi)
+      ? (datiMerge.interessi as string[])
+      : esistente.interessi;
+    if (eRicercaFornitori(sistema) && !interessiOra.includes(INTERESSE_AFFILIAZIONE)) {
+      await prisma.partner.update({
+        where: { id: esistente.id },
+        data: { interessi: { push: INTERESSE_AFFILIAZIONE } },
+      });
+    }
     const aggiornato = await prisma.partner.findUnique({ where: { id: esistente.id }, include: INCLUDE });
     return NextResponse.json({
       esito: "merged",
@@ -247,6 +259,12 @@ export async function POST(req: NextRequest) {
   if (!sbloccaCurati) {
     delete datiCreate.stato;
     delete datiCreate.interessi;
+  }
+  // Eccezione ai curati: un'anagrafica che nasce dall'app di ricerca fornitori
+  // è un'affiliazione, quindi l'interesse lo mette il registro da sé.
+  if (eRicercaFornitori(sistema)) {
+    const gia = Array.isArray(datiCreate.interessi) ? (datiCreate.interessi as string[]) : [];
+    datiCreate.interessi = [...new Set([...gia, INTERESSE_AFFILIAZIONE])];
   }
   delete datiCreate.account;
   delete datiCreate.attivo;

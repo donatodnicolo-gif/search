@@ -347,7 +347,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
           <section className="scheda">
             <h2 className="scheda-titolo">
-              Valutazione D2C <span className="scheda-sub">giudizio del cliente finale</span>
+              Valutazione D2C <span className="scheda-sub">giudizio interno sulle consegne</span>
             </h2>
             {fasceD2C.map((f) => (
               <Barra

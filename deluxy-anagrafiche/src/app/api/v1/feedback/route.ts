@@ -11,8 +11,9 @@ import {
 } from "@/lib/feedback-d2c";
 import { nomeSistema } from "@/lib/merge";
 
-// Feedback D2C: il giudizio del cliente finale su una consegna servita da un
-// partner. Da qui nasce la "valutazione D2C" dell'anagrafica (media 1–5).
+// Feedback D2C: il giudizio INTERNO su come il partner ha lavorato una
+// consegna D2C (lo scrive Deluxy, non il cliente finale). Da qui nasce la
+// "valutazione D2C" dell'anagrafica (media 1–5).
 //
 // GET  /api/v1/feedback   — elenco (lettura)
 // POST /api/v1/feedback   — invio di un feedback (chiave con scrittura piena
@@ -74,7 +75,7 @@ async function trovaPartner(
 }
 
 // GET /api/v1/feedback — elenco dei feedback, dal più recente.
-// Filtri: partnerId, canale, sistema, votoMax/votoMin, dal/al (ISO), page, perPage.
+// Filtri: partnerId, origine, sistema, votoMax/votoMin, dal/al (ISO), page, perPage.
 export async function GET(req: NextRequest) {
   const client = await autentica(req);
   if (client instanceof NextResponse) return client;
@@ -84,8 +85,8 @@ export async function GET(req: NextRequest) {
 
   const partnerId = p.get("partnerId")?.trim();
   if (partnerId) where.partnerId = partnerId;
-  const canale = p.get("canale")?.trim();
-  if (canale) where.canale = canale;
+  const origine = p.get("origine")?.trim();
+  if (origine) where.origine = origine;
   const sistema = p.get("sistema")?.trim();
   if (sistema) where.sistema = sistema;
 
@@ -141,11 +142,11 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// POST /api/v1/feedback — registra il giudizio di un cliente finale.
+// POST /api/v1/feedback — registra un giudizio interno su un partner.
 //
 // Body:
 //   { partnerId? | riferimento?{sistema,idEsterno} | platformId? | negozio?+citta?,
-//     voto (obbligatorio), scala?=5, canale?, idEsterno?, ordine?, cliente?,
+//     voto (obbligatorio), scala?=5, origine?, idEsterno?, ordine?, autore?,
 //     commento?, motivi?: string[], data? (ISO, default adesso) }
 //
 // Idempotente: mandare due volte lo stesso `idEsterno` aggiorna quel feedback,
@@ -208,10 +209,12 @@ export async function POST(req: NextRequest) {
     voto,
     votoOriginale: isFinite(votoOriginale) ? votoOriginale : null,
     scala: isFinite(scala) && scala >= 5 ? Math.round(scala) : 5,
-    canale: pulisci(body.canale)?.toLowerCase() ?? null,
+    origine: pulisci(body.origine)?.toLowerCase() ?? null,
     sistema,
     ordine: pulisci(body.ordine) ?? pulisci(body.numeroOrdine),
-    cliente: pulisci(body.cliente),
+    // Chi ha valutato, dentro Deluxy: senza autore il giudizio resta anonimo
+    // (accettato, ma è un dato che vale la pena mandare).
+    autore: pulisci(body.autore) ?? pulisci(body.operatore),
     commento: pulisci(body.commento) ?? pulisci(body.testo),
     motivi,
     dataFeedback,

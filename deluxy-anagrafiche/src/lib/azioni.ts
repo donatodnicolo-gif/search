@@ -454,10 +454,10 @@ export async function ignoraRichiestaMatch(richiestaId: string) {
 }
 
 // ————————————————————— Valutazione D2C —————————————————————
-// Feedback del cliente finale inserito a mano dalla scheda (il team ne raccoglie
-// per telefono/WhatsApp prima ancora che le app li mandino via API). Stessa
-// tabella e stesso ricalcolo dei feedback che arrivano dalle app: la sorgente
-// resta scritta nel campo `sistema` ("ui").
+// Giudizio interno registrato a mano dalla scheda: lo scrive chi ha seguito
+// l'ordine o gestito il caso. Stessa tabella e stesso ricalcolo dei feedback
+// che arrivano dalle app interne: la sorgente resta nel campo `sistema` ("ui"),
+// chi ha valutato in `autore`.
 export async function registraFeedbackD2C(partnerId: string, fd: FormData) {
   const testo = (k: string) => {
     const v = String(fd.get(k) ?? "").trim();
@@ -481,10 +481,10 @@ export async function registraFeedbackD2C(partnerId: string, fd: FormData) {
       voto,
       votoOriginale: voto,
       scala: 5,
-      canale: testo("canale")?.toLowerCase() ?? "manuale",
+      origine: testo("origine")?.toLowerCase() ?? "consegna",
       sistema: "ui",
       ordine: testo("ordine"),
-      cliente: testo("cliente"),
+      autore: testo("autore"),
       commento: testo("commento"),
       motivi,
       dataFeedback,

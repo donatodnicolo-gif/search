@@ -40,3 +40,15 @@ export function coloreInteresse(nome: string): string {
 export function eAffiliatoReseller(interessi: string[]): boolean {
   return interessi.includes("Affiliazioni") || interessi.includes("Re-seller");
 }
+
+// ————————————————————— Regola: chi entra dai fornitori è affiliato —————————————————————
+// L'app di ricerca fornitori (search/suppliers) registra i fiorai e le
+// pasticcerie con cui lavoriamo davvero: un'anagrafica che entra o passa di lì
+// è per definizione un'affiliazione. L'interesse si AGGIUNGE (mai sostituito,
+// mai tolto): resta poi modificabile a mano dal registro.
+export const INTERESSE_AFFILIAZIONE = "Affiliazioni";
+
+export function eRicercaFornitori(sistema: string): boolean {
+  const s = sistema.trim().toLowerCase().replace(/^deluxy-/, "");
+  return s.includes("supplier") || s.includes("fornitor") || s === "search" || s.startsWith("search-");
+}

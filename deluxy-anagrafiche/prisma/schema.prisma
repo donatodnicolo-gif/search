@@ -57,7 +57,8 @@ model Partner {
   amministrazioneEmail    String?
   // Tipologie di interesse commerciale (multi-scelta, catalogo in src/lib/interessi.ts)
   interessi      String[]   @default([])
-  // — Valutazione D2C (qualità percepita dal cliente finale) —
+  // — Valutazione D2C (come lavora il partner sulle consegne D2C) —
+  // Media dei feedback INTERNI (li scrive Deluxy, non il cliente finale).
   // Aggregati ricalcolati a ogni feedback (src/lib/feedback-d2c.ts): media dei
   // voti su scala 1–5, quanti feedback l'hanno prodotta, l'ultimo ricevuto e
   // quando è stata ricalcolata. `votoD2C` null = NESSUN feedback: si legge
@@ -103,30 +104,31 @@ model Partner {
   @@index([votoD2C])
 }
 
-// Feedback del cliente finale (D2C) su una consegna servita dal partner.
+// Feedback INTERNO su come il partner ha lavorato una consegna D2C.
+// Non è una recensione del cliente finale: lo scrive Deluxy — chi ha seguito
+// l'ordine, il customer service che gestisce un reclamo, chi fa un controllo.
 // È il mattone della "valutazione D2C": ogni feedback resta singolo e
-// consultabile (chi, quando, che ordine, cosa ha detto), la pagella del
-// partner è la media che ne esce (aggregati su Partner, ricalcolati a ogni
-// scrittura). Chi li manda: le app che li raccolgono (customer service,
-// piattaforma consegne, recensioni dei siti) via POST /api/v1/feedback, o il
-// team a mano dalla scheda.
+// consultabile (chi ha valutato, quando, che ordine, cosa non è andato), la
+// pagella del partner è la media che ne esce (aggregati su Partner,
+// ricalcolati a ogni scrittura). Arriva dalle app interne via
+// POST /api/v1/feedback o dal team a mano nella scheda.
 model FeedbackD2C {
   id            String   @id @default(cuid())
   partnerId     String
   // Voto normalizzato 1–5 (le stelle mostrate ovunque). Se la sorgente usa
-  // un'altra scala (NPS 0–10, percentuali) manda `votoOriginale` + `scala` e
-  // il registro normalizza — così le medie sono confrontabili.
+  // un'altra scala (es. 1–10) manda `votoOriginale` + `scala` e il registro
+  // normalizza — così le medie sono confrontabili.
   voto          Int
   votoOriginale Float?
   scala         Int      @default(5)
-  canale        String? // shopify | google | trustpilot | whatsapp | email | telefono | modulo | manuale
+  origine       String? // da dove nasce il giudizio: consegna | reclamo | controllo | visita | segnalazione | altro
   sistema       String // app che l'ha inviato (nome della chiave API) o "ui"
   idEsterno     String? // id del feedback nell'app di origine: rende la scrittura idempotente
   ordine        String? // numero d'ordine/consegna a cui si riferisce
-  cliente       String? // nome o etichetta del cliente finale (facoltativo)
+  autore        String? // CHI ha valutato, dentro Deluxy (persona o team)
   commento      String?
   motivi        String[] @default([]) // tag del giudizio (puntualita, qualita_prodotto, …)
-  dataFeedback  DateTime // quando il cliente l'ha dato (non quando è arrivato qui)
+  dataFeedback  DateTime // a quando si riferisce il giudizio (non quando è arrivato qui)
   creatoIl      DateTime @default(now())
   partner       Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 

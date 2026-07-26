@@ -3,15 +3,15 @@
 import { useState } from "react";
 import { registraFeedbackD2C } from "@/lib/azioni";
 import {
-  CANALI_FEEDBACK,
-  ETICHETTE_CANALE,
   ETICHETTE_MOTIVO,
+  ETICHETTE_ORIGINE,
   MOTIVI_FEEDBACK,
+  ORIGINI_FEEDBACK,
 } from "@/lib/feedback-d2c";
 
-// Inserimento a mano di un feedback del cliente finale. Serve al team che li
-// raccoglie a voce o su WhatsApp: le app li manderanno via API, ma la scheda
-// resta il posto dove registrarne uno subito.
+// Inserimento a mano di un giudizio interno sul partner. È la via principale:
+// chi ha seguito l'ordine o gestito il reclamo lo registra qui; le app interne
+// possono mandarlo via API.
 export function FormFeedbackD2C({ partnerId, nome }: { partnerId: string; nome: string }) {
   const [aperto, setAperto] = useState(false);
   const [voto, setVoto] = useState(0);
@@ -23,7 +23,7 @@ export function FormFeedbackD2C({ partnerId, nome }: { partnerId: string; nome: 
         className="btn btn-secondario"
         style={{ fontSize: 12.5, padding: "6px 14px" }}
         onClick={() => setAperto(true)}
-        title={`Registra un feedback ricevuto su ${nome}`}
+        title={`Registra un giudizio interno su ${nome}`}
       >
         ＋ Feedback
       </button>
@@ -55,14 +55,14 @@ export function FormFeedbackD2C({ partnerId, nome }: { partnerId: string; nome: 
           ))}
         </div>
         <input type="hidden" name="voto" value={voto || ""} />
-        <select name="canale" defaultValue="manuale" aria-label="Canale">
-          {CANALI_FEEDBACK.map((c) => (
-            <option key={c} value={c}>{ETICHETTE_CANALE[c] ?? c}</option>
+        <select name="origine" defaultValue="consegna" aria-label="Da dove nasce il giudizio">
+          {ORIGINI_FEEDBACK.map((o) => (
+            <option key={o} value={o}>{ETICHETTE_ORIGINE[o] ?? o}</option>
           ))}
         </select>
         <input type="date" name="data" aria-label="Data del feedback" />
         <input type="text" name="ordine" placeholder="Ordine (facoltativo)" />
-        <input type="text" name="cliente" placeholder="Cliente (facoltativo)" />
+        <input type="text" name="autore" placeholder="Chi valuta" />
       </div>
 
       <div className="form-feedback-motivi">
@@ -74,7 +74,7 @@ export function FormFeedbackD2C({ partnerId, nome }: { partnerId: string; nome: 
         ))}
       </div>
 
-      <textarea name="commento" rows={2} placeholder="Cosa ha detto il cliente (testuale)…" />
+      <textarea name="commento" rows={2} placeholder="Cosa è successo, in due righe…" />
 
       <div className="azioni-modulo">
         <button
