@@ -110,19 +110,32 @@ export const CATEGORIE_GUSTO = CATEGORIE.filter((c) => !c.servizio).map((c) => c
 //  1. quello che ha detto una PERSONA (CategoriaProdotto, origine `manuale`);
 //  2. le PAROLE del titolo: deterministiche, si leggono, non cambiano da sole;
 //  3. la proposta dell'**AI** sul singolo prodotto (origine `ai`);
-//  4. la SPECIALITÀ del negozio;
-//  5. «non classificato», che è una risposta onesta.
+//  4. i TAG dell'ordine: «Fiori», «Torta», «Colazione» sono etichette che una
+//     persona ha messo sull'ordine intero. Valgono meno del titolo — dicono
+//     come il negozio chiama quell'ordine, non che cosa c'è nella scatola — ma
+//     molto più della specialità del negozio, e recuperano gli ordini il cui
+//     prodotto si chiama «Botticelli»;
+//  5. la SPECIALITÀ del negozio;
+//  6. «non classificato», che è una risposta onesta.
 // `prodotto` è l'alias della tabella CategoriaProdotto già in join (o `NULL` se
-// chi chiama non ce l'ha).
-export function sqlCategoria(colonna: string, predefinita: string, prodotto?: string): string {
-  const rami = CATEGORIE.map((c) => `WHEN ${colonna} ~* '${c.parole}' THEN '${c.chiave}'`).join("\n      ");
-  const dalleParole = `CASE\n      ${rami}\n      ELSE NULL\n    END`;
+// chi chiama non ce l'ha); `tag` è l'espressione coi tag dell'ordine.
+export function sqlCategoria(
+  colonna: string,
+  predefinita: string,
+  prodotto?: string,
+  tag?: string,
+): string {
+  const caso = (espressione: string) =>
+    `CASE\n      ${CATEGORIE.map((c) => `WHEN ${espressione} ~* '${c.parole}' THEN '${c.chiave}'`).join("\n      ")}\n      ELSE NULL\n    END`;
+  const dalleParole = caso(colonna);
+  const daiTag = tag ? caso(tag) : "NULL";
   const manuale = prodotto ? `CASE WHEN ${prodotto}."origine" = 'manuale' THEN ${prodotto}."categoria" END` : "NULL";
   const dallAI = prodotto ? `${prodotto}."categoria"` : "NULL";
   return `COALESCE(
     ${manuale},
     ${dalleParole},
     ${dallAI},
+    ${daiTag},
     NULLIF(${predefinita}, ''),
     'non-classificato'
   )`;
@@ -140,9 +153,22 @@ export function categoriaDaTitolo(titolo: string, predefinita?: string | null): 
 // — lo stesso che usa Postgres in `string_agg(DISTINCT …)` — così la stringa
 // scritta dalla sync e quella scritta dal ricalcolo sono identiche e non si
 // riscrivono a vicenda a ogni giro.
-export function categorieOrdine(titoli: string[], predefinita?: string | null): string {
-  const trovate = new Set(titoli.map((t) => categoriaDaTitolo(t, predefinita)));
+export function categorieOrdine(titoli: string[], predefinita?: string | null, tag?: string | null): string {
+  // Stessa precedenza della versione SQL: prima le parole del titolo, poi i tag
+  // dell'ordine, e solo alla fine la specialità del negozio.
+  const daiTag = tag ? dalleParole(tag) : null;
+  const trovate = new Set(
+    titoli.map((t) => dalleParole(t) ?? daiTag ?? predefinita?.trim() ?? "non-classificato"),
+  );
   return [...trovate].sort().join(" ");
+}
+
+// La categoria che si legge nelle parole di un testo, o `null` se non ce n'è.
+function dalleParole(testo: string): string | null {
+  for (const c of CATEGORIE) {
+    if (new RegExp(c.parole.replace(/\\M/g, "\\b"), "i").test(testo)) return c.chiave;
+  }
+  return null;
 }
 
 // Ricalcola le categorie di TUTTI gli ordini partendo dalle righe già salvate.
@@ -151,7 +177,7 @@ export function categorieOrdine(titoli: string[], predefinita?: string | null): 
 export async function ricalcolaCategorie(): Promise<{ aggiornati: number }> {
   const { prisma, tabella } = await import("./db");
   const { Prisma } = await import("@prisma/client");
-  const caso = Prisma.raw(sqlCategoria(`r."titolo"`, `n."categoriaPredefinita"`, "cp"));
+  const caso = Prisma.raw(sqlCategoria(`r."titolo"`, `n."categoriaPredefinita"`, "cp", `o2."tagShopify"`));
 
   const aggiornati = await prisma.$executeRaw(Prisma.sql`
     UPDATE ${tabella("Ordine")} o

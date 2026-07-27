@@ -15,7 +15,8 @@
     "verifica:totali": "tsx scripts/verifica-totali.ts",
     "negozi:da-finance": "node scripts/importa-negozi-da-finance.mjs",
     "importa:provenienza": "tsx scripts/importa-provenienza.ts",
-    "importa:mittente": "tsx scripts/importa-mittente.ts"
+    "importa:mittente": "tsx scripts/importa-mittente.ts",
+    "riconcilia": "tsx scripts/riconcilia-ordini.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",

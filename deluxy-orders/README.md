@@ -198,6 +198,8 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
   ogni ordine nuovo invece di essere riscritto da capo.
 - `src/lib/marketing.ts` — da dove è arrivato un ordine: i 12 canali col loro
   simbolo e la regola che li deduce da `utm`, prima visita e canale Shopify.
+- `src/lib/riconcilia.ts` — recupera la città di consegna dai tag e dal nome
+  del prodotto per gli ordini che non ce l'hanno, con la controprova sui fatti.
 - `src/lib/luoghi.ts` — le città e i paesi di consegna e del mittente: forma
   unica per raggrupparli, nome italiano del paese e bandiera.
 - `src/lib/urgenza.ts` — quanto tempo c'è fra ordine e consegna (urgenza,

@@ -5,7 +5,7 @@ import {
   creaNegozio, toggleNegozio, eliminaNegozio, cambiaColoreBrand, cambiaBrandRicerca,
   creaStato, aggiornaStato, eliminaStato,
   creaEtichetta, eliminaEtichetta,
-  toggleChiave, sincronizza, importaFeedbackOrdini, impostaCategoriaNegozio, ricalcolaCategorieOrdini,
+  toggleChiave, sincronizza, importaFeedbackOrdini, impostaCategoriaNegozio, ricalcolaCategorieOrdini, riconciliaOrdini,
 } from "@/app/actions";
 import { configurazione, riepilogoFeedback } from "@/lib/feedback";
 import { CATEGORIE } from "@/lib/categorie";
@@ -61,7 +61,31 @@ export default async function Impostazioni({
         </form>
         <p className="testo-guida" style={{ marginTop: 8 }}>
           Il ricalcolo legge le righe già salvate — non chiama Shopify — e riscrive solo gli ordini in
-          cui il risultato cambia. Va lanciato dopo aver cambiato una specialità.
+          cui il risultato cambia. Va lanciato dopo aver cambiato una specialità. Nella catena entrano
+          anche i <strong>tag dell&apos;ordine</strong> («Fiori», «Torta»): valgono meno del titolo del
+          prodotto, ma più della specialità del negozio.
+        </p>
+      </div>
+
+      {/* ---------- Riconciliazione: la città che manca ---------- */}
+      <div className="scheda">
+        <div className="scheda-titolo">Riconciliazione: la città che manca</div>
+        <p className="testo-guida">
+          Migliaia di ordini non hanno la <strong>città di consegna</strong> nell&apos;indirizzo, ma la
+          nominano da un&apos;altra parte: nei <strong>tag</strong> dell&apos;ordine («Roma», «Milano») o
+          dentro il <strong>nome del prodotto</strong> («Colazione Alassio», «Torta per 10 Roma»). La
+          riconciliazione la recupera e la mette in un campo <em>suo</em>, con scritto da dove viene.
+        </p>
+        <form action={riconciliaOrdini} style={{ marginTop: 10 }}>
+          <button className="btn" type="submit">Riconcilia città e categorie</button>
+        </form>
+        <p className="testo-guida" style={{ marginTop: 8 }}>
+          <strong>Una città dedotta non diventa mai l&apos;indirizzo di consegna</strong>: un indirizzo
+          è un impegno con un fattorino davanti, una deduzione è un&apos;ipotesi buona per contare e
+          cercare. E quando la città sta nel nome del prodotto c&apos;è una{" "}
+          <strong>controprova</strong>: quegli stessi prodotti, negli ordini che l&apos;indirizzo ce
+          l&apos;hanno, dove sono andati davvero? «Bouquet Venezia» è finito 21 volte su 21 fuori
+          Venezia — quindi Venezia, nei titoli, non è una destinazione, e non le si crede.
         </p>
       </div>
 

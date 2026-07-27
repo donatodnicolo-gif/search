@@ -392,6 +392,16 @@ model Ordine {
   provincia      String?
   paese          String?
 
+  // La città RICAVATA quando l'indirizzo non ce l'ha: dai tag dell'ordine
+  // («Roma») o dal nome del prodotto («Colazione Alassio»). Sta in un campo
+  // SUO, separato da `citta`: un indirizzo di consegna è un impegno, una
+  // deduzione è un'ipotesi, e confonderle vorrebbe dire mandare un fattorino a
+  // un indirizzo che nessuno ha mai scritto. `cittaDedottaProva` conserva il
+  // testo esatto in cui è stata trovata, così chi legge può darle torto.
+  cittaDedotta      String?
+  cittaDedottaDa    String? // tag | prodotto
+  cittaDedottaProva String?
+
   // ---- chi manda (indirizzo di fatturazione su Shopify) ----
   // In un negozio di regali il mittente e il destinatario sono due persone e
   // due luoghi diversi: si spedisce da Kuwait a Gardone Riviera. Senza queste
@@ -468,6 +478,7 @@ model Ordine {
   @@index([urgenza])
   @@index([citta])
   @@index([paese])
+  @@index([cittaDedotta])
   @@index([mittenteCitta])
   @@index([mittentePaese])
   @@index([assegnatoApp])

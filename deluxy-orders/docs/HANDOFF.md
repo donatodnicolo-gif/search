@@ -410,6 +410,27 @@ browser) e `orders_visto_fino` (pulsante «Ho visto»). Il confronto è su
 - Provato creando due ordini finti (`orderId` con prefisso `gid://prova/`),
   verificando badge, contatore, filtro e «Ho visto», e poi cancellandoli.
 
+### Riconciliazione: città dai tag e dal nome del prodotto (27/07/2026)
+`src/lib/riconcilia.ts` + pulsante in Impostazioni + `npm run riconcilia`.
+Campi nuovi: `cittaDedotta`, `cittaDedottaDa` (tag|prodotto), `cittaDedottaProva`.
+
+- **Non si scrive MAI in `citta`**: la deduzione sta in un campo suo. In pagina
+  il tag è 📍? e il titolo dice la fonte; il filtro `citta=` cerca in tutt'e due,
+  altrimenti cliccando il tag l'ordine stesso non uscirebbe.
+- **La controprova** (`fiduciaNeiTitoli`): una città trovata in un titolo si
+  accetta solo se quei prodotti, negli ordini indirizzati, ci sono andati
+  davvero. Bocciate dai fatti: Capri, Dubai, Magenta, Monza, Napoli, Sorrento,
+  Venezia («Bouquet Venezia» 21 volte su 21 fuori Venezia).
+- **Vocabolario dalle 239 città degli indirizzi veri** (≥3 occorrenze, ≥4
+  lettere, confini di parola): non una lista inventata.
+- **La categoria dai tag sta DENTRO `sqlCategoria`**, nella catena titolo → AI
+  → tag → specialità. Metterla accanto al ricalcolo è l'errore che ho fatto
+  prima: il primo «Ricalcola le categorie» la cancellava senza dire niente.
+- Risultati veri: 894 città recuperate (571 tag, 323 prodotto), 2.421 restano
+  senza; «non classificato» da 2.525 a **607**.
+- ⚠️ 200 `update` in parallelo esauriscono il pool (limite 5): scrivere in
+  blocco con `UPDATE … FROM (VALUES …)`. Terza volta che succede.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare

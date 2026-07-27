@@ -111,7 +111,7 @@ function cte(brand: string | null, indiceParametroBrand: number): string {
     ),
     base AS (
       SELECT o."id", o."numero", o."data", o."totale", o."annullatoIl", o."financialStatus",
-             o."categorie", o."citta", o."paese", o."urgenza", o."canaleMarketing", o."clienteNome", o."mittentePaese",
+             o."categorie", o."citta", o."cittaDedotta", o."paese", o."urgenza", o."canaleMarketing", o."clienteNome", o."mittentePaese",
              COALESCE(p.pezzi, 0) AS pezzi,
              COALESCE(
                NULLIF(LOWER(TRIM(o."clienteEmail")), ''),
@@ -234,7 +234,9 @@ export const DIMENSIONI: Dimensione[] = [
     chiave: "citta",
     nome: "Città di consegna",
     spiega: "Dove arriva il regalo.",
-    gruppo: `COALESCE(NULLIF(${CITTA_NORMALIZZATA}, ''), '(città non indicata)')`,
+    nota:
+      "Quando l'indirizzo non ha la città si usa quella **dedotta** dai tag dell'ordine o dal nome del prodotto (894 ordini su 13.983, riconciliazione in Impostazioni). Una città dedotta non è un indirizzo di consegna: serve a contare e a cercare, e sulla scheda dell'ordine si legge da dove è stata presa.",
+    gruppo: `COALESCE(NULLIF(${CITTA_NORMALIZZATA}, ''), "cittaDedotta", '(città non indicata)')`,
   },
   {
     chiave: "categoria",

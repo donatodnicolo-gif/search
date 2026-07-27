@@ -135,6 +135,40 @@ Regno Unito, e ce n'è un ordine vero. Tradurre alla cieca sposterebbe un ordine
 di mille chilometri. Il filtro cerca tutte le grafie: cliccando «Milano» escono
 anche i «Milan», altrimenti sparirebbero senza che nessuno se ne accorga.
 
+### La riconciliazione: la città che il registro sa e non diceva
+**3.315 ordini non avevano la città di consegna** — non perché non si sapesse
+dove andavano, ma perché quel dato era finito da un'altra parte: nei **tag**
+dell'ordine («Roma», «Milano», e sono 1.986 e 1.386 ordini) o dentro il **nome
+del prodotto** («Colazione Alassio», «Torta per 10 Roma», «15 cupcake roma»).
+
+Il pulsante **Riconcilia città e categorie**, in Impostazioni, li rimette
+insieme. Sui dati veri: **894 ordini** hanno ora una città — 571 dai tag, 323
+dal nome del prodotto — e ne restano 2.421 senza, che è una risposta onesta.
+
+Tre regole, e sono il motivo per cui ci si può fidare:
+
+1. **una città dedotta non diventa mai l'indirizzo di consegna.** Vive in un
+   campo suo, il tag in pagina si vede diverso (📍? invece di 📍) e sotto il
+   mouse dice da dove viene: «presa dai tag — “Roma”». Un indirizzo è un impegno
+   con un fattorino davanti; una deduzione serve a contare e a cercare;
+2. **il vocabolario delle città non è inventato**: sono le 239 città in cui
+   abbiamo consegnato davvero, prese dagli indirizzi veri. Cresce da sé e non
+   contiene posti dove non siamo mai stati;
+3. **la controprova sui nomi dei prodotti.** «Bouquet Tulipani Rosa e Magenta»
+   nomina un comune vicino a Milano, ma Magenta lì è un colore. Non lo si
+   indovina: si guarda dove sono andati *davvero* quegli stessi prodotti negli
+   ordini che l'indirizzo ce l'hanno. «Bouquet Venezia» è finito **21 volte su
+   21 fuori Venezia** — quindi nei titoli Venezia non è una destinazione, e non
+   le si crede. Le parole bocciate dai fatti: Capri, Dubai, Magenta, Monza,
+   Napoli, Sorrento, Venezia. 34 deduzioni scartate così.
+
+**Stessa storia per le categorie**, ma la deduzione dai tag sta *dentro* il
+ricalcolo, non accanto: la catena è titolo del prodotto → proposta dell'AI →
+**tag dell'ordine** → specialità del negozio → «non classificato». Un tag dice
+come il negozio chiama quell'ordine, non che cosa c'è nella scatola: per questo
+vale meno del titolo e più della specialità. Risultato: gli ordini «non
+classificati» sono passati da **2.525 a 607**.
+
 ### Quanto manca alla consegna: urgenze, pensieri, eventi
 Un ordine da consegnare domani mattina e uno per un matrimonio fra tre settimane
 si assomigliano in una tabella e non c'entrano niente l'uno con l'altro. Ogni

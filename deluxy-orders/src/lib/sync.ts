@@ -129,7 +129,7 @@ function datiShopify(brand: string, o: OrdineNormalizzato, categoriaPredefinita?
     // `cambiato()`: sarebbe un motivo di riscrittura per tutto l'archivio. Si
     // riscrive quando l'ordine si aggiorna per altri motivi (righe comprese), e
     // lo storico si ricalcola in blocco dal pulsante in Impostazioni.
-    categorie: categorieOrdine(o.righe.map((r) => r.titolo), categoriaPredefinita),
+    categorie: categorieOrdine(o.righe.map((r) => r.titolo), categoriaPredefinita, o.tagShopify),
     numero: o.numero,
     data: o.data,
     totale: o.totale,

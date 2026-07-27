@@ -61,6 +61,9 @@ export function PillRepeater({ ordinale }: { ordinale: Ordinale | undefined }) {
 
 type OrdineLuoghi = {
   citta: string | null;
+  cittaDedotta?: string | null;
+  cittaDedottaDa?: string | null;
+  cittaDedottaProva?: string | null;
   paese: string | null;
   mittenteCitta: string | null;
   mittentePaese: string | null;
@@ -88,7 +91,11 @@ function TagLuogo({
 }
 
 export function TagLuoghi({ ordine, compatto = false }: { ordine: OrdineLuoghi; compatto?: boolean }) {
-  const cittaConsegna = normalizzaCitta(ordine.citta, ordine.paese);
+  // La città vera; se non c'è, quella DEDOTTA dai tag o dal nome del prodotto —
+  // e in quel caso il tag lo dice, con la prova sotto il mouse.
+  const cittaVera = normalizzaCitta(ordine.citta, ordine.paese);
+  const cittaConsegna = cittaVera ?? ordine.cittaDedotta ?? null;
+  const dedotta = !cittaVera && Boolean(ordine.cittaDedotta);
   const cittaMittente = normalizzaCitta(ordine.mittenteCitta, ordine.mittentePaese);
   const paeseConsegna = nomePaese(ordine.paese);
   const paeseMittente = nomePaese(ordine.mittentePaese);
@@ -107,8 +114,12 @@ export function TagLuoghi({ ordine, compatto = false }: { ordine: OrdineLuoghi; 
           chiave="citta"
           valore={cittaConsegna}
           etichetta={cittaConsegna}
-          simbolo="📍"
-          titolo={`Consegna a ${cittaConsegna}${paeseConsegna ? `, ${paeseConsegna}` : ""} — clic per vedere tutti gli ordini consegnati qui`}
+          simbolo={dedotta ? "📍?" : "📍"}
+          titolo={
+            dedotta
+              ? `Città DEDOTTA, non l'indirizzo: presa ${ordine.cittaDedottaDa === "tag" ? "dai tag" : "dal nome del prodotto"} — «${ordine.cittaDedottaProva ?? ""}»`
+              : `Consegna a ${cittaConsegna}${paeseConsegna ? `, ${paeseConsegna}` : ""} — clic per vedere tutti gli ordini consegnati qui`
+          }
         />
       )}
       {mostraPaeseConsegna && ordine.paese && (

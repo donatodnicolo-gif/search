@@ -758,3 +758,21 @@ export async function segnaOrdiniVisti() {
   c.set(COOKIE_VISTO, new Date().toISOString(), { sameSite: "lax", path: "/" });
   revalidatePath("/");
 }
+
+// ---- Riconciliazione: recuperare la città dai tag e dal nome del prodotto ----
+// Tocca solo gli ordini a cui la città manca, e non scrive mai nell'indirizzo:
+// la deduzione vive in un campo suo, con la prova.
+export async function riconciliaOrdini() {
+  const { riconcilia } = await import("@/lib/riconcilia");
+  const e = await riconcilia();
+  revalidatePath("/impostazioni");
+  revalidatePath("/analisi");
+  revalidatePath("/");
+  const messaggio =
+    `${(e.cittaDaTag + e.cittaDaProdotto).toLocaleString("it-IT")} ordini hanno ora una città dedotta ` +
+    `(${e.cittaDaTag} dai tag, ${e.cittaDaProdotto} dal nome del prodotto) · ` +
+    `${e.cittaSenzaRisposta.toLocaleString("it-IT")} restano senza · ` +
+    `${e.categorieDaTag.toLocaleString("it-IT")} ordini riclassificati per categoria` +
+    (e.scartatePerControprova ? ` · ${e.scartatePerControprova} deduzioni scartate dalla controprova` : "");
+  redirect(`/impostazioni?esito=${encodeURIComponent(messaggio)}`);
+}

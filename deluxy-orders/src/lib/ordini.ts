@@ -127,9 +127,17 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
   // Il filtro cerca anche le altre grafie della stessa città («Milano» trova i
   // 171 ordini scritti «Milan»): senza, cliccando sul tag quegli ordini
   // sparirebbero senza che nessuno se ne accorga.
+  // Cerca anche fra le città DEDOTTE dai tag o dal nome del prodotto:
+  // altrimenti cliccando il tag «Roma» su un ordine riconciliato non
+  // uscirebbe l'ordine stesso, che è il modo più veloce di perdere fiducia.
   const citta = p.get("citta")?.trim();
   if (citta) {
-    and.push({ OR: variantiCitta(citta).map((v) => ({ citta: { equals: v, mode: "insensitive" as const } })) });
+    and.push({
+      OR: [
+        ...variantiCitta(citta).map((v) => ({ citta: { equals: v, mode: "insensitive" as const } })),
+        { cittaDedotta: { equals: citta, mode: "insensitive" as const } },
+      ],
+    });
   }
 
   const paese = p.get("paese")?.trim();
