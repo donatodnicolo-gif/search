@@ -2,13 +2,18 @@
 
 Ultimo aggiornamento: **26 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
 
+> 🏷️ **«Visite» si chiama POTENZIALI, e ha tutte le azioni di contatto (26 lug 2026)** — richiesta utente: «visite ora viene rinominato in Potenziali» e «in potenziali le azioni sono comunque tutte quelle per instaurare un contatto».
+> - **Rinominata solo l'etichetta**: voce di menu e titolo dicono «Potenziali», ma la **rotta resta `/visite`** e il file `app/(app)/visite.tsx` — così i link già in giro continuano a funzionare. Chi cerca il codice deve saperlo.
+> - **Azioni complete su ogni scheda** (5): Chiama · WhatsApp · Email · Completa/Registra la visita · Nuova trattativa. Quelle senza recapito restano **visibili ma spente**, così si vede a colpo d'occhio cosa manca.
+> - **Da dove arrivano i recapiti:** `fetchRecapitiPlace()` in `lib/db.ts` — telefoni ed email non stanno su `places` ma sui `contacts`, e si caricano in **una query sola** per tutta la lista. Fra più referenti vince chi **decide**, poi il primo con un recapito; gli archiviati si saltano.
+>
 > 🗑️ **Si può eliminare una trattativa (26 lug 2026)** — nato dal caso «Akris non dovrebbe essere una trattativa»: dall'app **non c'era modo di cancellarne una**, quindi una trattativa nata per sbaglio restava per sempre e teneva il negozio fuori dalle Visite.
 > - **`eliminaDeal(id)`** in `lib/db.ts` + bottone **«Elimina trattativa»** in fondo al form, con conferma (`lib/dialoghi.ts`, che sul web usa `window.confirm` perché `Alert.alert` non mostra i pulsanti).
 > - **Solo sulle trattative di Scout**: il bottone non compare su quelle che arrivano da **HubSpot** o dal **registro Anagrafiche**, che non nascono qui e tornerebbero al primo sync — vanno chiuse nell'app che le possiede.
 > - **Effetto voluto:** eliminata la trattativa, il negozio torna indietro nel funnel e, se ha una visita senza risposta, **ricompare fra le Visite** (è il caso di Akris).
 > - **Caso Akris, per la cronaca:** la trattativa esiste davvero in `deals` (fase *Appuntamento fissato*) ma ha **valore, canale e `created_at` tutti NULL** → è una delle 14 preesistenti alla migr. 0039, non creata dall'app. Sul negozio c'è una visita del 23/07 con esito *da richiamare*. In più **«Akris» è duplicato**: due schede, una `Akris` (visitato, con visita e trattativa) e una `AKRIS` (da visitare, dal registro come *prospect*) — il lavoro fatto su una non si vede sull'altra. Il duplicato **non è stato toccato**.
 >
-> 🚶 **Nuova sezione VISITE, in Vendita (26 lug 2026)** — richiesta utente: «prima di vendita metti visite dove salveremo i risultati delle visite e anche quelle in bozza che devono essere completate. Cancella le visite che son diventate trattative. Da visite ci sarà il pulsante per creare trattative».
+> 🚶 **Sezione POTENZIALI (rotta /visite), in Vendita (26 lug 2026)** — richiesta utente: «prima di vendita metti visite dove salveremo i risultati delle visite e anche quelle in bozza che devono essere completate. Cancella le visite che son diventate trattative. Da visite ci sarà il pulsante per creare trattative».
 > - **`app/(app)/visite.tsx`** con due sezioni: **Da completare** (le bozze, cioè `places.da_completare` — negozi segnati «sono stato qui» ma con la visita mai compilata) e **Visite fatte** (da `visits`, con esito, note e data). Voce di menu «Visite» inserita **prima di Vendita**.
 > - **Azioni:** sulla bozza «Completa la visita» (apre `VisitaModal`) e «Nuova trattativa»; sulla visita fatta «Crea trattativa». Il bottone riusa il percorso già fatto per i Clienti: `/(app)/trattative?nuovoPer=<placeId>&nuovoNome=<nome>`, che apre il form col negozio già scelto.
 > - **⚠️ «Cancella» = nascoste, non eliminate.** Le visite di un negozio che ha già una trattativa non compaiono più nell'elenco, ma i record di `visits` restano: alimentano Storico, Dashboard e Team. Eliminarli davvero cancellerebbe lo storico del lavoro sul campo.

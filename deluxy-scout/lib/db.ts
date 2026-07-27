@@ -1639,3 +1639,36 @@ export async function rimuoviChiaveApp(app: string): Promise<void> {
   const { error } = await supabase.from('chiavi_app').delete().eq('app', app);
   if (error) throw error;
 }
+
+/** Il recapito da usare per contattare un negozio (dal referente migliore). */
+export interface RecapitoPlace {
+  telefono: string | null;
+  email: string | null;
+}
+
+/**
+ * I recapiti dei negozi, presi dai contatti in rubrica.
+ *
+ * Serve ai **Potenziali**: lì le azioni sono quelle per instaurare un contatto
+ * (chiama, WhatsApp, email), e i recapiti non stanno su `places` ma sui
+ * `contacts`. Si carica tutto in una query sola: chiederlo riga per riga
+ * sarebbe una query per negozio.
+ *
+ * Fra più referenti vince chi **decide**, poi chi ha un recapito.
+ */
+export async function fetchRecapitiPlace(): Promise<Map<string, RecapitoPlace>> {
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('place_id, telefono, email, is_decisore, archiviato');
+  if (error) throw error;
+  const out = new Map<string, RecapitoPlace>();
+  for (const c of (data ?? []) as any[]) {
+    if (!c.place_id || c.archiviato) continue;
+    const attuale = out.get(c.place_id) ?? { telefono: null, email: null };
+    // Il decisore sovrascrive; altrimenti si tiene il primo valore trovato.
+    if (c.telefono && (c.is_decisore || !attuale.telefono)) attuale.telefono = c.telefono;
+    if (c.email && (c.is_decisore || !attuale.email)) attuale.email = c.email;
+    out.set(c.place_id, attuale);
+  }
+  return out;
+}

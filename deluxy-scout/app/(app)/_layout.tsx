@@ -55,7 +55,7 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     // l'occasione), poi la trattativa, l'ordine e l'incasso.
     titolo: 'Vendita',
     voci: [
-      { name: 'visite', label: 'Visite', icon: 'walk-outline' },
+      { name: 'visite', label: 'Potenziali', icon: 'walk-outline' },
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
       { name: 'ordini', label: 'Ordini', icon: 'receipt-outline' },
       { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
@@ -314,7 +314,7 @@ export default function AppLayout() {
         <Drawer.Screen name="lista" options={{ title: 'Prospect e Lead' }} />
         <Drawer.Screen name="rubrica" options={{ title: 'Rubrica' }} />
         <Drawer.Screen name="script" options={{ title: 'Script' }} />
-        <Drawer.Screen name="visite" options={{ title: 'Visite' }} />
+        <Drawer.Screen name="visite" options={{ title: 'Potenziali' }} />
         <Drawer.Screen name="trattative" options={{ title: 'Trattative' }} />
         <Drawer.Screen name="ordini" options={{ title: 'Ordini' }} />
         <Drawer.Screen name="lead" options={{ title: 'Richieste Web' }} />

@@ -1,5 +1,5 @@
-// Visite: il risultato di quello che si è fatto sul campo, e il punto da cui
-// nasce la trattativa.
+// Potenziali (rotta /visite): i negozi su cui si sta lavorando prima che
+// diventino una trattativa — il risultato di quello che si è fatto sul campo.
 //
 // Contiene due cose, in quest'ordine:
 //   1. le BOZZE — negozi segnati «sono stato qui» ma con la visita non ancora
@@ -11,7 +11,7 @@
 // il loro lavoro e la palla è passata a Vendita. ⚠️ Sono nascoste, NON
 // cancellate: i record di `visits` alimentano Storico, Dashboard e Team.
 import { useCallback, useMemo, useState } from 'react';
-import { RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Linking, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place, Visit } from '@/types';
@@ -20,7 +20,9 @@ import {
   fetchAllVisits,
   fetchDaCompletare,
   fetchPlaces,
+  fetchRecapitiPlace,
   fetchTutteTrattative,
+  type RecapitoPlace,
   type TrattativaConLuogo,
 } from '@/lib/db';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
@@ -58,6 +60,8 @@ export default function Visite() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [bozze, setBozze] = useState<Place[]>([]);
   const [trattative, setTrattative] = useState<TrattativaConLuogo[]>([]);
+  // I recapiti stanno sui contatti, non sul negozio: servono per le azioni.
+  const [recapiti, setRecapiti] = useState<Map<string, RecapitoPlace>>(new Map());
   const [loading, setLoading] = useState(true);
   const [daCompletare, setDaCompletare] = useState<Place | null>(null);
 
@@ -74,6 +78,12 @@ export default function Visite() {
       setPlaces(p);
       setBozze(b);
       setTrattative(t);
+      // Best-effort: senza recapiti le azioni restano spente, la lista funziona.
+      try {
+        setRecapiti(await fetchRecapitiPlace());
+      } catch {
+        setRecapiti(new Map());
+      }
     } finally {
       setLoading(false);
     }
@@ -114,6 +124,52 @@ export default function Visite() {
     router.push(`/(app)/trattative?nuovoPer=${placeId}&nuovoNome=${encodeURIComponent(nome)}`);
   }
 
+  /**
+   * Le azioni di un potenziale: tutte quelle che servono a **instaurare un
+   * contatto** — chiamare, WhatsApp, email, andarlo a trovare — più la
+   * trattativa quando il contatto è avvenuto. Quelle senza recapito restano
+   * visibili ma spente, così si vede a colpo d'occhio cosa manca.
+   */
+  function azioniPotenziale(place: Place, opts?: { bozza?: boolean }) {
+    const r = recapiti.get(place.id);
+    const tel = r?.telefono ?? null;
+    const mail = r?.email ?? null;
+    return (
+      <AzioniRiga>
+        <IconaAzione
+          nome="call-outline"
+          attiva={Boolean(tel)}
+          label="Chiama"
+          onPress={() => tel && Linking.openURL(`tel:${tel}`)}
+        />
+        <IconaAzione
+          nome="logo-whatsapp"
+          attiva={Boolean(tel)}
+          label="WhatsApp"
+          onPress={() => tel && Linking.openURL(`https://wa.me/${tel.replace(/[^0-9]/g, '')}`)}
+        />
+        <IconaAzione
+          nome="mail-outline"
+          attiva={Boolean(mail)}
+          label="Email"
+          onPress={() => mail && Linking.openURL(`mailto:${mail}`)}
+        />
+        <IconaAzione
+          nome={opts?.bozza ? 'create-outline' : 'walk-outline'}
+          attiva
+          label={opts?.bozza ? 'Completa la visita' : 'Registra una visita'}
+          onPress={() => setDaCompletare(place)}
+        />
+        <IconaAzione
+          nome="briefcase-outline"
+          attiva
+          label="Nuova trattativa"
+          onPress={() => apriTrattativa(place.id, place.nome)}
+        />
+      </AzioniRiga>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <SectionList
@@ -124,15 +180,15 @@ export default function Visite() {
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListHeaderComponent={
           <View style={styles.headerScroll}>
-            <PageIntro testo="Quello che hai raccolto sul campo. Le bozze vanno chiuse; da una visita nasce la trattativa. Quando la trattativa c'è, la visita esce da qui." />
+            <PageIntro testo="I negozi su cui stai lavorando: qui ci sono tutte le azioni per instaurare un contatto. Le bozze vanno chiuse; quando nasce la trattativa il negozio esce da qui." />
           </View>
         }
         ListEmptyComponent={
           <EmptyState
             loading={loading}
             icona="walk-outline"
-            titolo="Nessuna visita da lavorare"
-            aiuto="Le visite si registrano dalla Mappa o dalla scheda di un negozio. Quelle già diventate trattativa non compaiono qui: le trovi in Vendita."
+            titolo="Nessun potenziale da lavorare"
+            aiuto="I potenziali arrivano dalle visite fatte sulla Mappa o dalla scheda di un negozio. Quelli già diventati trattativa non compaiono qui: li trovi in Trattative."
           />
         }
         renderSectionHeader={({ section }) => <Text style={styles.sezione}>{section.title.toUpperCase()}</Text>}
@@ -147,12 +203,7 @@ export default function Visite() {
                 tag={p.linea_ipotizzata ? [p.linea_ipotizzata] : []}
                 onPress={() => setDaCompletare(p)}
                 badge={<StatusBadge small label="Da completare" colore={colors.oro} />}
-                azioni={
-                  <AzioniRiga>
-                    <IconaAzione nome="create-outline" attiva label="Completa la visita" onPress={() => setDaCompletare(p)} />
-                    <IconaAzione nome="briefcase-outline" attiva label="Nuova trattativa" onPress={() => apriTrattativa(p.id, p.nome)} />
-                  </AzioniRiga>
-                }
+                azioni={azioniPotenziale(p, { bozza: true })}
               />
             );
           }
@@ -178,11 +229,7 @@ export default function Visite() {
                   </Text>
                 ) : null
               }
-              azioni={
-                <AzioniRiga>
-                  <IconaAzione nome="briefcase-outline" attiva label="Crea trattativa" onPress={() => apriTrattativa(v.place_id, nome)} />
-                </AzioniRiga>
-              }
+              azioni={item.place ? azioniPotenziale(item.place) : null}
             />
           );
         }}
