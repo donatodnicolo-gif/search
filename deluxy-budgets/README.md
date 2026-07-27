@@ -260,3 +260,30 @@ inventato che in una tabella mensile sembrerebbe misurato.
 Su un esercizio chiuso e compilato compare il **confronto col gestionale**, con la spiegazione
 riga per riga del perché può non tornare. Le differenze non sono errori: sono due contabilità che
 misurano cose diverse. Quando una differenza *non* ha una spiegazione, quella è la cosa da guardare.
+
+## API per le altre app Deluxy
+
+Autenticazione: header `X-API-Key` con **`BUDGETS_API_KEY`** (variabile d'ambiente, oppure
+Configurazione → Chiavi, oppure cassaforte del Hub — nell'ordine deciso da `chiave()`). Il
+controllo sta in un file solo, `src/lib/api-auth.ts`: ripulisce i caratteri invisibili incollati
+nell'header, confronta trimmato e risponde **503** se la chiave non è configurata (diverso da 401:
+«l'API è spenta» non è «non sei autorizzato»).
+
+| Metodo | Rotta | Scopo |
+| --- | --- | --- |
+| GET | `/api/v1/categorie` | le categorie di costo, per Finance (`?regole=1` per le regole) |
+| GET | `/api/v1/maison` | i **budget per maison**, per Marketing (`?anno`, `?livello`, `?maison`) |
+
+**`/api/v1/maison` nasce per Marketing**, che deve sapere due cose che vivono solo qui: quanto una
+maison deve vendere in un mese e **quanto può spendere in ADV** in quel mese. Senza, Marketing
+terrebbe una copia dei budget — e due copie che divergono fanno decidere le campagne su numeri
+sbagliati.
+
+Risposta: per ogni maison i dodici mesi con `vendite` per tipologia, `venditeTotali`, `advPercent`,
+`advConsentito` e `advPubblicato`, più i totali. In cima l'elenco delle `tipologie` con il margine,
+perché le chiavi di `vendite` sono i loro slug e senza l'elenco chi consuma dovrebbe indovinarli.
+
+> **Lo scenario vale anche per l'ADV.** Con `?livello=SFIDANTE` le vendite salgono del
+> moltiplicatore e **con loro il budget pubblicitario**, perché l'ADV consentito è una percentuale
+> sulle vendite: restituire la crescita senza i soldi per farla sarebbe un piano che non sta in
+> piedi. `advPubblicato` invece **non** si moltiplica: è un riferimento storico, non uno scenario.
