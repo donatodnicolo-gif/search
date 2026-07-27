@@ -12,7 +12,7 @@ import { importaCollezioniDa } from "./shopify-collezioni";
  * messaggio, perché «import fallito» senza dire di quale negozio non serve a
  * nessuno.
  */
-export async function importaCollezioniAzione() {
+export async function importaCollezioniAzione(negozioId: string) {
   const negozi = await negoziAttivi();
   if (negozi.length === 0) {
     redirect(
@@ -21,23 +21,21 @@ export async function importaCollezioniAzione() {
     );
   }
 
-  // Un negozio per volta, con una pausa in mezzo: il credito di query di
-  // Shopify è per negozio ma si esaurisce lo stesso se si tira senza respiro,
-  // e il terzo negozio si prendeva un «Throttled» in faccia.
-  const esiti = [];
-  for (const [i, n] of negozi.entries()) {
-    if (i > 0) await new Promise((r) => setTimeout(r, 3000));
-    esiti.push(await importaCollezioniDa(n));
+  // **Un negozio per richiesta.** Facendoli tutti insieme il più grande non
+  // arrivava in fondo: la richiesta muore per tempo massimo e l'import resta a
+  // metà senza dirlo. Un bottone per negozio è anche più chiaro su cosa sta
+  // succedendo.
+  const negozio = negozi.find((n) => n.id === negozioId);
+  if (!negozio) {
+    redirect("/collezioni?errore=" + encodeURIComponent("Negozio non trovato o non attivo."));
   }
 
-  const riuscite = esiti.filter((e) => e.ok);
-  const messaggio = esiti
-    .map((e) => `${e.negozio}: ${e.ok ? `${e.collezioniLette} collezioni, ${e.abbinamenti} abbinamenti` : e.messaggio}`)
-    .join(" · ");
+  const esito = await importaCollezioniDa(negozio);
 
   revalidatePath("/collezioni");
   revalidatePath("/assortimento");
+  revalidatePath("/anagrafica");
   redirect(
-    `/collezioni?esito=${riuscite.length === esiti.length ? "ok" : "parziale"}&messaggio=${encodeURIComponent(messaggio)}`
+    `/collezioni?esito=${esito.ok ? "ok" : "errore"}&messaggio=${encodeURIComponent(`${esito.negozio}: ${esito.messaggio}`)}`
   );
 }

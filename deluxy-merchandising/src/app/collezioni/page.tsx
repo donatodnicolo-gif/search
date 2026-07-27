@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { importaCollezioniAzione } from "@/lib/azioni-collezioni";
 import { brandCorrente } from "@/lib/brand";
 import { prisma } from "@/lib/db";
+import { elencoNegozi } from "@/lib/negozi";
 import { ultimiImportCollezioni } from "@/lib/shopify-collezioni";
 import {
   calcolaMargine,
@@ -16,6 +17,9 @@ import {
 } from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
+// L'import di un negozio grande fa migliaia di chiamate: senza questo la
+// richiesta viene tagliata a metà strada.
+export const maxDuration = 300;
 
 export default async function CollezioniPage({
   searchParams,
@@ -43,6 +47,7 @@ export default async function CollezioniPage({
     }),
     ultimiImportCollezioni(),
   ]);
+  const negozi = (await elencoNegozi()).filter((n) => n.attivo);
 
   // Il margine medio conta solo dove il costo c'è: a costo zero il margine non
   // è 100%, è un costo che nessuno ha inserito.
@@ -71,11 +76,17 @@ export default async function CollezioniPage({
               pubblicazione su Shopify.
             </p>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div className="riga-azione">
             <a className="btn btn-secondario" href="/collezioni/nuova">Nuova collezione</a>
-            <form action={importaCollezioniAzione}>
-              <button className="btn" type="submit">Importa da Shopify</button>
-            </form>
+            {/* Un bottone per negozio: l'import di tutti insieme non arrivava
+                in fondo col negozio più grande. */}
+            {negozi.map((n) => (
+              <form action={importaCollezioniAzione.bind(null, n.id)} key={n.id}>
+                <button className="btn" type="submit">
+                  Importa {n.nome}
+                </button>
+              </form>
+            ))}
           </div>
         </div>
 
