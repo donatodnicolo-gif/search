@@ -76,12 +76,43 @@ type OrdineOrders = {
     ordiniPrima?: number | null
     numeroOrdine?: number | null
   }
-  // Il testo che il cliente ha scritto all'ordine. Ci si guarda solo se è
-  // vuoto o no: vedi `haBiglietto`.
+  // Attributo «biglietto» dell'ordine: c'è di rado (71 ordini su 800). Il
+  // testo vero sta quasi sempre in `shopify.note`.
   biglietto?: string | null
+  shopify?: { note?: string | null } | null
   spedizione?: { citta?: string | null; paese?: string | null }
   consegna?: { data?: string | null; fascia?: string | null }
   classificazione?: { stato?: { chiave?: string; nome?: string } | null }
+}
+
+/**
+ * Il testo del biglietto: la NOTA dell'ordine, più l'attributo «biglietto» se
+ * contiene qualcosa di diverso.
+ *
+ * ⚠️ Sono due campi e non uno, e la fonte principale è la nota — misurato su
+ * 800 ordini: la nota c'è su 680 (85%), l'attributo su 71, e dei 70 con
+ * entrambi 67 hanno testo identico. Prima leggevamo solo l'attributo, e nove
+ * ordini su dieci risultavano «senza biglietto» pur avendone uno scritto.
+ *
+ * Quando i due testi differiscono si mostrano ENTRAMBI: uno dei due non è la
+ * versione buona dell'altro, e scegliere vorrebbe dire buttare via del testo
+ * che il cliente ha scritto.
+ */
+export function testoBiglietto(
+  nota: string | null | undefined,
+  attributo: string | null | undefined
+): string {
+  const n = (nota ?? '').trim()
+  const a = (attributo ?? '').trim()
+  if (!n) return a
+  if (!a || a === n) return n
+  // Contenuto l'uno nell'altro: si tiene il più completo, non si duplica.
+  if (n.includes(a)) return n
+  if (a.includes(n)) return a
+  return `${n}
+
+— altre note dell'ordine —
+${a}`
 }
 
 function normalizza(o: OrdineOrders): OrdineArchivio {
@@ -110,10 +141,11 @@ function normalizza(o: OrdineOrders): OrdineArchivio {
     // quelli che Orders non riesce a riconoscere.
     clienteOrdiniPrima: o.cliente?.ordiniPrima ?? null,
     clienteNumeroOrdine: o.cliente?.numeroOrdine ?? null,
-    // Vuoto o soli spazi = niente nota. Non si guarda DENTRO al testo: quel
-    // campo contiene anche indirizzi e telefoni, e interpretarlo è la trappola
-    // già pagata (vedi la sezione Biglietto in DettaglioOrdine).
-    haBiglietto: Boolean((o.biglietto ?? '').trim()),
+    // Il biglietto sta nelle NOTE dell'ordine (85% degli ordini), non
+    // nell'attributo omonimo (9%): vedi testoBiglietto(). Si guarda solo se c'è
+    // o non c'è — DENTRO al testo non si entra, perché contiene anche indirizzi
+    // e telefoni e interpretarlo è la trappola già pagata.
+    haBiglietto: Boolean(testoBiglietto(o.shopify?.note, o.biglietto)),
   }
 }
 
@@ -330,6 +362,12 @@ export async function righeOrdineDaOrders(
         brand?: string
         orderId?: string
         biglietto?: string | null
+        // ⚠️ LA NOTA È IL CAMPO GIUSTO. Misurato su 800 ordini: `note` ha
+        // contenuto su 680 (85%), `biglietto` su 71 — e dei 70 che hanno
+        // entrambi, 67 sono lo stesso testo. Il biglietto lo scrive il cliente
+        // nelle NOTE dell'ordine; `biglietto` è un attributo che si riempie di
+        // rado. Leggere solo quello lasciava senza testo 9 ordini su 10.
+        shopify?: { note?: string | null } | null
         spedizione?: {
           nome?: string | null
           indirizzo?: string | null
@@ -381,7 +419,7 @@ export async function righeOrdineDaOrders(
             paese: sp.paese ?? '',
           }
         : null,
-      biglietto: scelto.biglietto ?? '',
+      biglietto: testoBiglietto(scelto.shopify?.note, scelto.biglietto),
       righe: (scelto.righe ?? []).map((r) => ({
         titolo: r.titolo ?? '',
         variante: r.variante ?? '',

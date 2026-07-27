@@ -55,6 +55,37 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **CORREZIONE: il biglietto sta nelle NOTE dell'ordine, non nell'attributo**
+  (27/07/2026). Segnalato dall'utente, e i numeri gli danno ragione.
+  `testoBiglietto(nota, attributo)` in `src/lib/orders.ts` unisce i due campi:
+  la nota (`shopify.note`) è la fonte, l'attributo (`biglietto`) si aggiunge solo
+  se dice qualcosa di diverso e non è già contenuto nell'altra.
+  ⚠️ **Misurato su 800 ordini del registro**: `shopify.note` ha testo su **680
+  (85%)**, l'attributo `biglietto` su **71** — e dei 70 con entrambi, **67 sono
+  lo stesso testo**. Leggendo solo l'attributo (come faceva la prima versione)
+  nove ordini su dieci risultavano «senza biglietto» pur avendone uno scritto:
+  era il caso di **#12663**, dove la nota è «They say the best trips… Bien à toi,
+  Arthur» e la sezione non compariva affatto.
+  **Effetto della correzione, misurato in locale: buste da 77 a 758 su 938
+  (dal 8,2% all'80,8%)**, dopo `POST /api/ordini/sync?completo=1`.
+  ⚠️ **CONSEGUENZA DA DECIDERE**: un'icona presente sull'81% delle righe non
+  distingue più niente — l'informazione è diventata l'ASSENZA (il 19% senza
+  biglietto). Se dà fastidio, si inverte: si marca chi NON ha il biglietto. Per
+  ora resta come chiesto, ma il numero va tenuto presente.
+  ⚠️ La sezione nel dettaglio ora dice «note dell'ordine» e non «nota del
+  cliente», e nello stato vuoto «Nessun biglietto: il cliente non ha scritto
+  note»: le parole devono corrispondere al campo che si legge davvero.
+  ⚠️ **Resta valida la regola di non interpretare il testo**: le note contengono
+  spesso anche indirizzo, telefoni e istruzioni per il fornitore (e in un caso
+  «30 Luglio 08/12», dove 08/12 è la fascia oraria). Si mostra tutto, si copia
+  tutto, taglia una persona.
+  ⚠️ **Lezione di metodo**: avevo scartato la pista «biglietto previsto» con una
+  misura corretta (il Sì/No della variante NON c'entra — verificato) ma stavo
+  leggendo un secondo campo sbagliato senza accorgermene, perché il campo si
+  chiamava proprio `biglietto`. **Un nome giusto non garantisce il contenuto
+  giusto**: quando un campo «di dominio» risulta pieno nell'8% dei casi, il
+  sospetto va al campo, non ai dati.
+
 - **La sezione Biglietto nel dettaglio c'è SEMPRE, con l'icona lettera**
   (27/07/2026). Prima spariva quando il campo era vuoto, e una sezione che
   scompare è ambigua: chi apre un ordine senza biglietto non sa se non c'è, se

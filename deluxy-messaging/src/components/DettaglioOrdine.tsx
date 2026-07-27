@@ -386,9 +386,17 @@ export function DettaglioOrdine({
                 ))}
               </div>
 
-              {/* ── La nota del cliente (dentro c'è il biglietto) ──
+              {/* ── Il biglietto: la NOTA dell'ordine ──
                 *
-                * ⚠️ SI MOSTRA INTERA E NON SI INTERPRETA. Sembrerebbe comodo
+                * ⚠️ LA FONTE È LA NOTA, non l'attributo «biglietto». Misurato su
+                * 800 ordini del registro: la nota ha testo su 680 (85%),
+                * l'attributo su 71 — e dei 70 con entrambi, 67 sono lo stesso
+                * testo. Leggendo solo l'attributo, nove ordini su dieci
+                * risultavano «senza biglietto» pur avendolo scritto: era il caso
+                * dell'ordine #12663, dove la nota diceva «They say the best
+                * trips… Bien à toi, Arthur» e la sezione non compariva.
+                *
+                * SI MOSTRA INTERA E NON SI INTERPRETA. Sembrerebbe comodo
                 * estrarne «il messaggio del biglietto» e offrire quello, ma su
                 * ordini veri questo campo contiene il messaggio INSIEME a
                 * indirizzo del destinatario, due numeri di telefono, il budget
@@ -427,10 +435,11 @@ export function DettaglioOrdine({
                       </button>
                     </div>
                     <p className="descrizione" style={{ marginTop: 6, marginBottom: 0 }}>
-                      È il testo che il cliente ha scritto all&apos;ordine, così com&apos;è. Spesso
-                      oltre al messaggio contiene indirizzi, numeri di telefono e istruzioni:{' '}
-                      <strong>rileggilo prima di mandarlo al fornitore</strong> — il biglietto è
-                      solo la parte da scrivere sul cartoncino.
+                      Sono le <strong>note dell&apos;ordine</strong>, così come le ha scritte il
+                      cliente. Di solito è il messaggio del biglietto, ma a volte contiene anche
+                      indirizzi, numeri di telefono e istruzioni per il fornitore:{' '}
+                      <strong>rileggile prima di copiarle</strong> — sul cartoncino va solo la
+                      parte del messaggio.
                     </p>
                   </>
                 ) : (
@@ -440,7 +449,7 @@ export function DettaglioOrdine({
                     </span>
                     <p className="descrizione" style={{ margin: 0 }}>
                       {caricato
-                        ? 'Non indicato: su questo ordine il cliente non ha scritto niente.'
+                        ? 'Nessun biglietto: su questo ordine il cliente non ha scritto note.'
                         : 'Carico…'}
                     </p>
                   </div>
