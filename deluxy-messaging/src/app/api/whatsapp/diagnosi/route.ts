@@ -104,7 +104,7 @@ export async function GET() {
     }
 
     const num = await chiedi(
-      `${API}/${n.phoneNumberId}?fields=display_phone_number,verified_name,quality_rating`,
+      `${API}/${n.phoneNumberId}?fields=display_phone_number,verified_name,quality_rating,platform_type`,
       token
     )
     esiti.push({
@@ -115,6 +115,21 @@ export async function GET() {
         : `Meta risponde ${num.stato}: ${num.corpo.error?.message ?? 'errore sconosciuto'}.`,
     })
     if (!num.ok) continue
+
+    // ⚠️ Un numero può stare sulla CLOUD API o sull'app WhatsApp Business del
+    // telefono, **non su tutte e due**. Se è ancora sull'app, i messaggi
+    // arrivano sul telefono e il webhook non riceve niente — e tutto il resto
+    // dei controlli resta verde, perché il numero esiste e il token lo vede.
+    const piattaforma = String(num.corpo.platform_type ?? '')
+    esiti.push({
+      passo: `${n.etichetta} — il numero è sulla Cloud API`,
+      ok: piattaforma ? piattaforma === 'CLOUD_API' : null,
+      dettaglio: !piattaforma
+        ? 'Meta non lo dichiara.'
+        : piattaforma === 'CLOUD_API'
+          ? 'Sì: i messaggi passano dal webhook.'
+          : `NO, risulta «${piattaforma}»: il numero non è sulla Cloud API, quindi i messaggi non passano da qui. Se è ancora collegato all’app WhatsApp Business del telefono va migrato.`,
+    })
 
     // LA DOMANDA CHE CONTA: la nostra app è iscritta a quel WhatsApp Business?
     // Senza questa iscrizione Meta non manda NIENTE per quanto il webhook sia
@@ -207,6 +222,22 @@ export async function GET() {
     db.conversazione.count({ where: { canale: 'whatsapp' } }),
     db.messaggio.count({ where: { conversazione: { canale: 'whatsapp' } } }),
   ])
+  // ⚠️ LA RIGA CHE TAGLIA LA TESTA AL TORO: Meta ci ha mai chiamati?
+  //
+  // Con tutti i controlli verdi e l'inbox vuota restano due spiegazioni opposte
+  // — Meta non chiama, oppure chiama e noi respingiamo — e si risolvono in
+  // posti diversi. Il webhook ora lascia traccia di ogni chiamata, respinte
+  // comprese, e qui la si legge.
+  const traccia = await leggiImpostazioni(['webhookUltimaChiamata', 'webhookUltimoEsito'])
+  const quando = traccia.webhookUltimaChiamata?.trim()
+  esiti.push({
+    passo: 'Meta ci ha chiamati?',
+    ok: Boolean(quando),
+    dettaglio: quando
+      ? `Ultima chiamata: ${new Date(quando).toLocaleString('it-IT')} — esito: ${traccia.webhookUltimoEsito || 'non registrato'}.`
+      : 'MAI. Nessuna chiamata è mai arrivata al nostro webhook: il problema è tutto dal lato Meta, non nostro.',
+  })
+
   esiti.push({
     passo: 'Messaggi WhatsApp ricevuti finora',
     ok: msg > 0,

@@ -23,6 +23,35 @@ export async function GET(req: NextRequest) {
   return new NextResponse('Verify token errato', { status: 403 })
 }
 
+/**
+ * Lascia traccia di OGNI chiamata di Meta, anche di quelle respinte.
+ *
+ * ⚠️ Senza questo, un webhook che non funziona è muto: la diagnosi risulta
+ * tutta verde (token valido, app iscritta, campo messages spuntato, URL giusto)
+ * e in inbox non arriva niente, senza modo di distinguere «Meta non ci ha mai
+ * chiamati» da «ci chiama e lo respingiamo per firma non valida». Sono due
+ * problemi opposti e si risolvono in posti diversi.
+ *
+ * Non si usa un file di log: quelli di Vercel durano pochi minuti e la prova
+ * arriva sempre dopo. Due righe in tabella bastano.
+ */
+async function annotaChiamata(esito: string) {
+  try {
+    await db.impostazione.upsert({
+      where: { chiave: 'webhookUltimaChiamata' },
+      update: { valore: new Date().toISOString() },
+      create: { chiave: 'webhookUltimaChiamata', valore: new Date().toISOString() },
+    })
+    await db.impostazione.upsert({
+      where: { chiave: 'webhookUltimoEsito' },
+      update: { valore: esito },
+      create: { chiave: 'webhookUltimoEsito', valore: esito },
+    })
+  } catch {
+    // La traccia non deve MAI far fallire la ricezione di un messaggio.
+  }
+}
+
 export async function POST(req: NextRequest) {
   const grezzo = await req.text()
 
@@ -35,6 +64,7 @@ export async function POST(req: NextRequest) {
     const a = Buffer.from(firma)
     const b = Buffer.from(attesa)
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      await annotaChiamata('firma non valida — l’App Secret salvato non è quello di questa app Meta')
       return new NextResponse('Firma non valida', { status: 401 })
     }
   }
@@ -43,6 +73,7 @@ export async function POST(req: NextRequest) {
   try {
     corpo = JSON.parse(grezzo)
   } catch {
+    await annotaChiamata('JSON non valido')
     return new NextResponse('JSON non valido', { status: 400 })
   }
 
@@ -52,8 +83,10 @@ export async function POST(req: NextRequest) {
     if (corpo.object === 'whatsapp_business_account') await gestisciWhatsApp(corpo)
     else if (corpo.object === 'page') await gestisciMessaging('messenger', corpo)
     else if (corpo.object === 'instagram') await gestisciMessaging('instagram', corpo)
+    await annotaChiamata(`ricevuto: ${corpo.object ?? 'oggetto sconosciuto'}`)
   } catch (e) {
     console.error('Webhook Meta: errore in elaborazione', e)
+    await annotaChiamata(`errore in elaborazione: ${(e as Error).message}`)
   }
   return NextResponse.json({ ok: true })
 }
