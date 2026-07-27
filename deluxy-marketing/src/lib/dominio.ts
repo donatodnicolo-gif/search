@@ -28,6 +28,7 @@ export const COLORE_BRAND: Record<string, string> = {
 export const CANALI = [
   "google_ads",
   "meta_ads",
+  "tiktok",
   "email",
   "sito",
   "seo",
@@ -39,6 +40,7 @@ export const CANALI = [
 export const ETICHETTA_CANALE: Record<string, string> = {
   google_ads: "Google Ads",
   meta_ads: "Meta Ads",
+  tiktok: "TikTok Ads",
   email: "Email",
   sito: "Sito / landing",
   seo: "SEO",

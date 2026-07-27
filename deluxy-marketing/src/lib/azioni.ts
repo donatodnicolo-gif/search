@@ -1,5 +1,6 @@
 "use server";
 import { FORNITORI, IMP_FORNITORE, impChiaveApi, impModello, type Fornitore } from "@/lib/ai";
+import { IMP_TOKEN_TIKTOK } from "@/lib/tiktok";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -1347,6 +1348,42 @@ export async function aggiornaAdesso(fd: FormData) {
     redirect(`${dove}?aggiornamento=meta-fatto&righe=${salvate}`);
   }
 
+  if (canale === "tiktok") {
+    const { leggiMetricheTikTok, leggiStatoCampagneTikTok, tiktokConfigurato } = await import("./tiktok");
+    if (!(await tiktokConfigurato())) {
+      redirect(`${dove}?aggiornamento=tiktok-non-configurato`);
+    }
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const al = iso(new Date());
+    const dal = iso(new Date(Date.now() - giorni * 86_400_000));
+    const advertiser = await prisma.accountAdv.findMany({
+      where: { piattaforma: "tiktok", attivo: true },
+      select: { idEsterno: true, brand: true },
+    });
+    const { salvaMetriche } = await import("./ingest-metriche");
+    let salvate = 0;
+    const rifiutate = new Set<string>();
+    for (const acc of advertiser) {
+      const lettura = await leggiMetricheTikTok(acc.idEsterno, dal, al);
+      lettura.metricheRifiutate.forEach((m) => rifiutate.add(m));
+      if (lettura.righe.length === 0) continue;
+      const { stati } = await leggiStatoCampagneTikTok(acc.idEsterno);
+      const righe = lettura.righe.map((r) => {
+        const s = stati.get(r.idCampagna);
+        return { ...r, stato: s?.stato ?? null, budgetGiornaliero: s?.budget ?? null, obiettivo: s?.obiettivo ?? null };
+      });
+      const esito = await salvaMetriche(righe, { canale: "tiktok", account: acc.idEsterno, brand: acc.brand ?? undefined });
+      salvate += esito.metricheSalvate;
+    }
+    await registra({
+      autore: "utente", tipo: "sync", entita: "metrica",
+      titolo: `Aggiornamento TikTok a mano: ${salvate} giorni-campagna`,
+      dettaglio: `Periodo ${dal} → ${al}` + (rifiutate.size ? ` · metriche rifiutate: ${[...rifiutate].join(", ")}` : ""),
+    });
+    revalidatePath(dove);
+    redirect(`${dove}?aggiornamento=tiktok-fatto&righe=${salvate}`);
+  }
+
   // Google: si mette in coda. Premere due volte non crea due richieste.
   const gia = await prisma.richiestaAggiornamento.findFirst({
     where: { stato: "in_attesa", canale, lavoro, account: account ?? null },
@@ -1483,32 +1520,100 @@ export async function salvaBudgetVendite(formData: FormData) {
   const numero = (v: FormDataEntryValue | null): number | null => {
     const grezzo = String(v ?? "").trim();
     if (!grezzo) return null;
-    const pulito = grezzo.replace(/[^0-9,.-]/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", ".");
+    // Via tutto quello che non e cifra o separatore, poi il punto delle
+    // migliaia (solo se seguito da ESATTAMENTE tre cifre, altrimenti "1.5"
+    // diventerebbe 15), poi la virgola decimale italiana.
+    const pulito = grezzo
+      .replace(/[^0-9,.-]/g, "")
+      .replace(/[.](?=[0-9]{3}([^0-9]|$))/g, "")
+      .replace(",", ".");
+    // Un testo senza cifre ("abc") diventa stringa vuota, e Number("") vale
+    // ZERO: scriverebbe un budget di zero al posto di un errore di battitura.
+    if (!/[0-9]/.test(pulito)) return null;
     const n = Number(pulito);
     return Number.isFinite(n) ? n : null;
   };
 
+  // UNA lettura per tutto l'anno, non una per casella. Il modulo ha 72 caselle
+  // (3 siti × 12 mesi × 2 campi): interrogare il database una volta per casella
+  // voleva dire 72 viaggi di andata e ritorno prima ancora di scrivere qualcosa,
+  // e su Vercel la funzione moriva per tempo scaduto — il bottone sembrava non
+  // fare niente. Ora si legge una volta, si confronta in memoria, e si scrive
+  // solo quello che è davvero cambiato: quasi sempre una riga o due.
+  const esistenti = await prisma.venditaMensile.findMany({ where: { anno } });
+  const perChiave = new Map(esistenti.map((r) => [`${r.sito}:${r.mese}`, r]));
+
+  type Modifica = { sito: string; mese: number; campo: "vendite" | "budgetAdv"; valore: number | null };
+  const modifiche: Modifica[] = [];
+
   for (const [chiave, valore] of formData.entries()) {
-    const m = /^riga:(\w+):(\d+):(vendite|budgetAdv)$/.exec(chiave);
+    const m = /^riga:([a-z]+):([0-9]+):(vendite|budgetAdv)$/.exec(chiave);
     if (!m) continue;
     const [, sito, meseStr, campoStr] = m;
     const campo = campoStr as "vendite" | "budgetAdv";
     const mese = Number(meseStr);
     const n = numero(valore);
+    const attuale = perChiave.get(`${sito}:${mese}`);
 
-    const esistente = await prisma.venditaMensile.findUnique({
-      where: { anno_mese_sito: { anno, mese, sito } },
-    });
-    if (!esistente && n == null) continue; // niente da creare per una casella vuota
-    if (esistente) {
-      if ((esistente[campo] ?? null) === n) continue; // invariato: non si tocca
-      await prisma.venditaMensile.update({ where: { id: esistente.id }, data: { [campo]: n } });
-    } else {
-      await prisma.venditaMensile.create({ data: { anno, mese, sito, [campo]: n } });
-    }
+    if (!attuale && n == null) continue; // casella vuota su una riga che non esiste
+    if (attuale && (attuale[campo] ?? null) === n) continue; // invariata
+    modifiche.push({ sito, mese, campo, valore: n });
   }
+
+  if (modifiche.length === 0) {
+    redirect(`/vendite?anno=${anno}&salvato=niente`);
+  }
+
+  // Una sola istruzione per RIGA, non per casella: vendite e budget dello
+  // stesso mese cambiano insieme. Senza raggruppare, un mese nuovo con
+  // entrambi i valori generava due create con la stessa chiave e la
+  // transazione moriva sul vincolo di unicità.
+  const perRiga = new Map<string, { sito: string; mese: number; dati: Record<string, number | null> }>();
+  for (const m of modifiche) {
+    const k = `${m.sito}:${m.mese}`;
+    const v = perRiga.get(k) ?? { sito: m.sito, mese: m.mese, dati: {} };
+    v.dati[m.campo] = m.valore;
+    perRiga.set(k, v);
+  }
+
+  // O entra tutto o niente: un piano di budget salvato a metà è peggio di uno
+  // non salvato, perché non si vede.
+  await prisma.$transaction(
+    [...perRiga.values()].map((r) => {
+      const attuale = perChiave.get(`${r.sito}:${r.mese}`);
+      return attuale
+        ? prisma.venditaMensile.update({ where: { id: attuale.id }, data: r.dati })
+        : prisma.venditaMensile.create({ data: { anno, mese: r.mese, sito: r.sito, ...r.dati } });
+    })
+  );
 
   revalidatePath("/vendite");
   revalidatePath("/");
-  redirect(`/vendite?anno=${anno}&salvato=1`);
+  redirect(`/vendite?anno=${anno}&salvato=${modifiche.length}`);
+}
+
+
+// Il token di TikTok Ads.
+//
+// Sta nel database e non in una variabile d'ambiente come quello di Meta: un
+// token si cambia quando scade, e cambiarlo non deve richiedere un deploy.
+// Vale la stessa regola delle chiavi AI: non si rilegge, e una casella vuota
+// non cancella quello salvato.
+export async function salvaTokenTikTok(formData: FormData) {
+  "use server";
+  const nuovo = String(formData.get("token") ?? "").replace(/[s﻿]/g, "");
+  const svuota = formData.get("svuota") === "1";
+
+  if (svuota) {
+    await prisma.impostazione.deleteMany({ where: { chiave: IMP_TOKEN_TIKTOK } });
+  } else if (nuovo) {
+    await prisma.impostazione.upsert({
+      where: { chiave: IMP_TOKEN_TIKTOK },
+      update: { valore: nuovo },
+      create: { chiave: IMP_TOKEN_TIKTOK, valore: nuovo },
+    });
+  }
+
+  revalidatePath("/impostazioni");
+  redirect("/impostazioni?salvato=tiktok");
 }

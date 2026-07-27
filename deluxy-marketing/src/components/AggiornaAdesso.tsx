@@ -46,6 +46,11 @@ export async function AggiornaAdesso({
       testo: "Meta non è collegato: manca META_ACCESS_TOKEN fra le variabili d'ambiente.",
       colore: "var(--red)",
     },
+    "tiktok-fatto": { testo: "TikTok aggiornato adesso.", colore: "var(--green)" },
+    "tiktok-non-configurato": {
+      testo: "TikTok non è collegato: manca il token in Impostazioni → TikTok Ads.",
+      colore: "var(--red)",
+    },
   };
   const messaggio = esito ? messaggi[esito] : null;
 
@@ -84,6 +89,13 @@ export async function AggiornaAdesso({
               <input type="hidden" name="giorni" value="7" />
               <input type="hidden" name="dove" value={dove} />
               <button className="btn fantasma" type="submit">Aggiorna Meta ora</button>
+            </form>
+
+            <form action={aggiornaAdesso}>
+              <input type="hidden" name="canale" value="tiktok" />
+              <input type="hidden" name="giorni" value="7" />
+              <input type="hidden" name="dove" value={dove} />
+              <button className="btn fantasma" type="submit">Aggiorna TikTok ora</button>
             </form>
           </>
         )}

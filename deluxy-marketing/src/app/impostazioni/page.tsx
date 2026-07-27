@@ -1,6 +1,7 @@
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
-import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi } from "@/lib/azioni";
+import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaTokenTikTok } from "@/lib/azioni";
+import { tokenTikTok } from "@/lib/tiktok";
 import { FORNITORI, statoAi } from "@/lib/ai";
 import { ChiaviApi } from "@/components/ChiaviApi";
 import { prisma } from "@/lib/db";
@@ -29,6 +30,7 @@ const CONFERME: Record<string, string> = {
   account: "Account salvato.",
   apikey: "Chiave API salvata: ora la sincronizzazione può leggere Google Drive online.",
   ai: "Impostazioni AI salvate: la prossima lettura userà questo fornitore.",
+  tiktok: "Token TikTok salvato: ora la sincronizzazione può leggere l’advertiser.",
 };
 
 export default async function PaginaImpostazioni({
@@ -37,7 +39,7 @@ export default async function PaginaImpostazioni({
   searchParams: Promise<{ salvato?: string }>;
 }) {
   const { salvato } = await searchParams;
-  const [cartella, documenti, account, ultimaSync, impApiKey, ai, chiaviApi] = await Promise.all([
+  const [cartella, documenti, account, ultimaSync, impApiKey, ai, chiaviApi, tokenTt] = await Promise.all([
     driveDir(),
     prisma.documentoDrive.count(),
     prisma.accountAdv.findMany({ orderBy: [{ piattaforma: "asc" }, { nome: "asc" }] }),
@@ -48,6 +50,7 @@ export default async function PaginaImpostazioni({
     prisma.impostazione.findUnique({ where: { chiave: CHIAVE_APIKEY } }).catch(() => null),
     statoAi(),
     prisma.apiKey.findMany({ orderBy: [{ attiva: "desc" }, { creataIl: "desc" }] }).catch(() => []),
+    tokenTikTok(),
   ]);
 
   const piattaformeConAccount = PIATTAFORME_ACCOUNT.filter((pf) =>
@@ -89,6 +92,60 @@ export default async function PaginaImpostazioni({
             ultimoUso: c.ultimoUso?.toISOString() ?? null,
           }))}
         />
+
+        <section className="scheda">
+          <div className="scheda-titolo">TikTok Ads</div>
+          <p className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
+            TikTok, come Meta e a differenza di Google, non ha script che girano dentro
+            l&apos;account: è l&apos;app che va a prendere i dati, e per farlo le serve un token.
+            Si ottiene da un&apos;app <b>TikTok for Business</b> con accesso all&apos;advertiser
+            (permesso di lettura dei report). L&apos;ID dell&apos;advertiser va invece censito qui
+            sotto, fra gli account pubblicitari, scegliendo <b>TikTok Ads</b>.
+          </p>
+
+          <div className="cella-sub" style={{ marginBottom: 14 }}>
+            Token:{" "}
+            {tokenTt ? (
+              <span style={{ color: "var(--green)" }}>presente</span>
+            ) : (
+              <span style={{ color: "var(--red)" }}>mancante — la sincronizzazione TikTok non parte</span>
+            )}
+            {" · "}Advertiser censiti:{" "}
+            <b>{account.filter((a) => a.piattaforma === "tiktok").length}</b>
+          </div>
+
+          <form className="modulo" action={salvaTokenTikTok}>
+            <div className="campo-modulo largo">
+              <label>Access token</label>
+              <input
+                name="token"
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={tokenTt ? "già impostato — lascia vuoto per non cambiarlo" : "incolla qui il token"}
+              />
+              {tokenTt && (
+                <label className="cella-sub" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+                  <input type="checkbox" name="svuota" value="1" /> cancella il token salvato
+                </label>
+              )}
+            </div>
+            <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
+              <button className="btn" type="submit">Salva</button>
+            </div>
+          </form>
+
+          <p className="cella-sub" style={{ marginTop: 12, whiteSpace: "normal" }}>
+            Il token sta nel database, non in una variabile d&apos;ambiente come quello di Meta:
+            un token si cambia quando scade, e cambiarlo non deve richiedere un deploy. Non si
+            rilegge da nessuna pagina — qui si vede solo se c&apos;è.
+            <br />
+            Due cose da sapere sui numeri che arrivano: TikTok dà il <b>ritorno</b>, non
+            l&apos;importo incassato, quindi i ricavi sono calcolati come ROAS × spesa; e se
+            TikTok rifiuta una metrica, la sincronizzazione salva lo stesso spesa e clic e
+            dichiara quale metrica manca, invece di non salvare niente.
+          </p>
+        </section>
 
         <section className="scheda">
           <div className="scheda-titolo">Intelligenza artificiale</div>

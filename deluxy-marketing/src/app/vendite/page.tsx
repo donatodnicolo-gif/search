@@ -76,7 +76,10 @@ export default async function PaginaVendite({
 
         {salvato && (
           <div className="conferma">
-            <span className="segno">✓</span> Budget salvato.
+            <span className="segno">✓</span>{" "}
+            {salvato === "niente"
+              ? "Non c'era niente da salvare: nessuna casella è cambiata."
+              : `Budget salvato: ${salvato} ${salvato === "1" ? "valore aggiornato" : "valori aggiornati"}.`}
           </div>
         )}
 
