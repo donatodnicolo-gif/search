@@ -33,7 +33,11 @@ export async function numeriBrand(brand: string, p: Periodo): Promise<NumeriBran
       _sum: { spesa: true, ricavi: true, conversioni: true, click: true, impression: true },
     }),
     prisma.ordine.findMany({
-      where: { brand, data: { gte: p.da, lt: p.a }, stato: { not: "annullato" } },
+      // Fuori annullati E rimborsati, come ovunque nell'app: i primi non sono
+      // mai entrati, i secondi sono tornati indietro. Prima qui restavano
+      // dentro i rimborsati, e le tessere dei brand davano un totale diverso
+      // dalla tabella del mese nella stessa schermata.
+      where: { brand, data: { gte: p.da, lt: p.a }, stato: { notIn: ["annullato", "rimborsato"] } },
       select: { totale: true, utmSource: true, utmCampagna: true },
     }),
   ]);

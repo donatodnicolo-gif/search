@@ -65,7 +65,8 @@ export default async function PaginaOfferte({
 
   const [ordini, metriche] = await Promise.all([
     prisma.ordine.findMany({
-      where: { data: { gte: da, lte: a }, stato: { not: "annullato" }, ...(p.brand ? { brand: p.brand } : {}) },
+      // Come nel resto dell'app: fuori annullati e rimborsati.
+      where: { data: { gte: da, lte: a }, stato: { notIn: ["annullato", "rimborsato"] }, ...(p.brand ? { brand: p.brand } : {}) },
       include: { righe: true },
     }),
     // spesa pubblicitaria del periodo, per confronto complessivo
