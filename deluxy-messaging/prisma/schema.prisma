@@ -57,7 +57,9 @@ model NegozioShopify {
   attivo       Boolean  @default(true)
   creatoIl     DateTime @default(now())
 
-  ordini Ordine[]
+  ordini       Ordine[]
+  istruzioniAI IstruzioneAI[]
+  documentiAI  DocumentoAI[]
 }
 
 // Uno "script": una risposta pronta da dare ai clienti. Sono la memoria
@@ -536,11 +538,62 @@ model IstruzioneAI {
   // Dove vale: tutti | chat | email. Alla chat e alla mail si scrive in modo
   // diverso — una chat è breve e immediata, una mail ha oggetto e firma.
   ambito    String   @default("tutti")
+  // Il BRAND per cui vale. Vuoto = tutti i brand. La holding ha più negozi
+  // (Flowers, Cake Design, Gifts) e non parlano allo stesso modo: la firma dei
+  // fiori non deve finire in una mail della pasticceria.
+  negozioId String?
+  // Da quale documento caricato è stata ricavata. Vuoto = scritta a mano. Serve
+  // a risalire: una regola di cui non si sa da dove viene non si può né
+  // difendere davanti a un cliente né correggere quando la fonte cambia.
+  documentoId String?
+  // Quale regola GENERALE questa regola di brand manda in pensione.
+  //
+  // ⚠️ Serve perché due regole che si contraddicono non si risolvono da sole nel
+  // prompt. Misurato: con «firma Servizio Clienti Deluxy» (generale) e «firma Il
+  // team di Cake Design» (brand) nello stesso prompt — anche scrivendo a chiare
+  // lettere che vince quella del brand — il modello sceglieva la generale 4-6
+  // volte su 6. L'unico modo affidabile è non mandargliele tutte e due: chi
+  // scrive la regola di brand dice quale sostituisce, e quella non parte.
+  sostituisceId String?
   // In che ordine finiscono nel prompt: le più importanti per prime.
   ordine    Int      @default(0)
   attiva    Boolean  @default(true)
   creatoIl  DateTime @default(now())
   aggiornatoIl DateTime @updatedAt
 
+  negozio   NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
+  documento DocumentoAI?    @relation(fields: [documentoId], references: [id], onDelete: SetNull)
+
   @@index([ambito])
+  @@index([negozioId])
+  @@index([documentoId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I DOCUMENTI da cui l'AI ricava le istruzioni: il manuale del servizio clienti,
+// la brand voice, le regole di consegna. Si caricano PDF, Word o testo.
+//
+// ⚠️ Si salva il TESTO ESTRATTO, non il file originale, e il documento NON
+// finisce nel prompt così com'è: da trenta pagine si ricavano poche regole, che
+// una persona approva prima che diventino istruzioni. Allegare il manuale intero
+// a ogni risposta costerebbe a ogni messaggio, annegherebbe le regole che
+// contano in mezzo agli indici e ai frontespizi, e renderebbe impossibile capire
+// perché l'AI ha scritto una certa frase.
+// ─────────────────────────────────────────────────────────────────────────────
+model DocumentoAI {
+  id         String   @id @default(cuid())
+  nome       String // nome del file caricato
+  tipo       String   @default("") // mime dichiarato dal browser
+  dimensione Int      @default(0) // byte dell'originale
+  testo      String   @db.Text // il testo estratto: è questo che legge l'AI
+  pagine     Int      @default(0) // solo per i PDF
+  // Il brand a cui si riferisce. Vuoto = vale per tutti.
+  negozioId  String?
+  nota       String   @default("") @db.Text
+  creatoIl   DateTime @default(now())
+
+  negozio    NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
+  istruzioni IstruzioneAI[]
+
+  @@index([negozioId])
 }

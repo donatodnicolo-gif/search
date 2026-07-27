@@ -13,8 +13,14 @@ export async function GET(req: NextRequest) {
   const q = (p.get('q') ?? '').trim()
   const ambito = (p.get('ambito') ?? '').trim()
 
+  const negozioId = (p.get('negozioId') ?? '').trim()
+
   const dove: Prisma.IstruzioneAIWhereInput = {}
   if (ambito) dove.ambito = ambito
+  // Filtrando per brand escono le sue regole PIÙ quelle generali: sono le due
+  // cose che valgono insieme quando si scrive per quel brand. Mostrare solo le
+  // sue farebbe credere che siano tutte.
+  if (negozioId) dove.AND = [{ OR: [{ negozioId }, { negozioId: null }] }]
   if (q) {
     const testo: Prisma.StringFilter = { contains: q, mode: 'insensitive' }
     dove.OR = [{ titolo: testo }, { testo }, { categoria: testo }]
@@ -23,6 +29,10 @@ export async function GET(req: NextRequest) {
   const istruzioni = await db.istruzioneAI.findMany({
     where: dove,
     orderBy: [{ attiva: 'desc' }, { ordine: 'asc' }, { categoria: 'asc' }, { titolo: 'asc' }],
+    include: {
+      negozio: { select: { id: true, nome: true } },
+      documento: { select: { id: true, nome: true } },
+    },
   })
   return NextResponse.json({ istruzioni })
 }
@@ -34,6 +44,8 @@ export async function POST(req: NextRequest) {
     categoria?: string
     testo?: string
     ambito?: string
+    negozioId?: string | null
+    sostituisceId?: string | null
     ordine?: number
     attiva?: boolean
   }
@@ -53,6 +65,13 @@ export async function POST(req: NextRequest) {
     categoria: (c.categoria ?? '').trim() || 'Generale',
     testo,
     ambito: ambitoValido((c.ambito ?? '').trim()) ? (c.ambito as string).trim() : 'tutti',
+    // Vuoto = vale per tutti i brand. Un id inesistente lo rifiuta il vincolo
+    // di chiave esterna, e va bene così: meglio un errore che una regola
+    // agganciata a un brand che non c'è e che quindi non si applicherebbe mai.
+    negozioId: (c.negozioId ?? '')?.trim() || null,
+    // «Sostituisce» ha senso SOLO su una regola di brand: senza brand vorrebbe
+    // dire spegnere una regola per tutti, e per quello c'è il tasto Elimina.
+    sostituisceId: (c.negozioId ?? '')?.trim() ? (c.sostituisceId ?? '')?.trim() || null : null,
     ordine: Number.isFinite(Number(c.ordine)) ? Math.round(Number(c.ordine)) : 0,
     ...(c.attiva === undefined ? {} : { attiva: c.attiva }),
   }

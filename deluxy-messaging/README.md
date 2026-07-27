@@ -59,6 +59,53 @@ Il pulsante **«Cosa legge l'AI»** mostra il blocco esatto che finisce nel prom
 per chat e per mail: serve a vedere se un'istruzione è arrivata davvero e in che ordine. Una
 regola che credi attiva e non lo è, è peggio di una che manca.
 
+## Documenti: insegnare all'AI a partire da quello che è già scritto
+
+In CS AI si caricano i documenti dell'azienda — il manuale del servizio clienti, la brand
+voice, le regole di consegna: PDF, Word, testo, fino a 4 MB. L'AI li legge e **propone**
+delle regole; tu spunti quelle da tenere. Sotto ognuna c'è la frase del documento da cui
+nasce, così si controlla in un secondo che non se la sia inventata.
+
+> **Il documento non viene allegato a ogni risposta.** Da trenta pagine restano poche
+> regole, approvate da una persona. Mandare il manuale intero a ogni messaggio costerebbe
+> a ogni messaggio, annegherebbe le regole che contano fra indici e frontespizi, e
+> renderebbe impossibile capire perché l'AI ha scritto una certa frase.
+
+Un PDF *scansionato* è un'immagine e non contiene testo: l'app lo dice, invece di salvare un
+documento vuoto. Le regole ricavate ricordano da quale documento vengono e restano anche se
+il documento viene cancellato — perdono solo il rimando alla fonte.
+
+## Ogni brand parla con la sua voce
+
+Un'istruzione può valere per **tutti i marchi** o per **uno solo**. Il brand si prende
+dall'ordine, e le regole del brand sbagliato non entrano mai: se il brand non si riesce a
+stabilire valgono solo le regole generali — meglio il tono neutro dell'azienda che quello
+di un altro negozio.
+
+Quando una regola di brand contraddice una generale — «firmati Servizio Clienti Deluxy»
+contro «firmati Il team di Cake Design» — si indica quale **sostituisce**, e quella non
+viene nemmeno mandata all'AI.
+
+> **Le istruzioni si scrivono come ordini.** «Chiudi ogni mail con…» funziona; «ci si firma
+> sempre…» viene ignorata. Non è una preferenza di stile: misurato, il modello legge una
+> descrizione come un'informazione sull'azienda invece che come una cosa da fare adesso.
+
+> **Le risposte ai clienti usano gpt-4o, non il modello piccolo**, e costano di più. Con
+> gpt-4o-mini, su sei prove identiche, la firma richiesta dalle istruzioni non compariva mai
+> quando c'era di mezzo un brand; con gpt-4o compare sei volte su sei, sempre quella del
+> marchio giusto. Si cambia in Impostazioni.
+
+## Esportare le linee guida
+
+Dalla pagina CS AI, **Stampa o PDF** apre il documento pronto da stampare (o da salvare in
+PDF dal browser) e **Scarica (.md)** lo dà in Markdown. Escono le regole non negoziabili
+insieme alle istruzioni, raggruppate per categoria, con la fonte di ognuna; filtrando per
+brand esce il documento di quel brand, e le regole che lì non valgono si vedono barrate.
+
+Serve perché le regole che legge l'AI devono poterle leggere anche le persone: chi entra in
+squadra, chi lavora dall'esterno, chi deve approvarle. Se il tono di voce vive solo dentro
+un prompt, esiste per il modello e non per l'azienda.
+
 ## Come si contatta il cliente
 
 Su ogni ordine ci sono i canali che quel cliente ha **davvero**: WhatsApp, Chiama,

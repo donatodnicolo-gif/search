@@ -40,6 +40,7 @@ export default async function PaginaImpostazioni({
     'openaiApiKey',
     'openaiModello',
     'openaiModelloImmagini',
+    'openaiModelloRisposte',
     'partnerUrl',
     'partnerApiKey',
     'anagraficheUrl',
@@ -289,10 +290,25 @@ export default async function PaginaImpostazioni({
                   placeholder="gpt-4o"
                 />
               </label>
+              <label className="campo" style={{ flex: 1 }}>
+                <span>Modello per le risposte ai clienti</span>
+                <input
+                  name="openaiModelloRisposte"
+                  defaultValue={config.openaiModelloRisposte}
+                  placeholder="gpt-4o"
+                />
+              </label>
             </div>
             <p className="descrizione" style={{ marginTop: -6 }}>
               Sulle immagini serve il modello più accurato: in prova gpt-4o-mini ha letto un
               IBAN perdendo due cifre, gpt-4o l&apos;ha letto giusto.
+            </p>
+            <p className="descrizione" style={{ margin: '2px 0 10px' }}>
+              Anche le risposte ai clienti hanno il modello grande, e per lo stesso motivo:
+              con gpt-4o-mini le istruzioni di <a href="/cs-ai" style={{ textDecoration: 'underline' }}>CS AI</a>{' '}
+              venivano applicate a intermittenza e, quando c&apos;era di mezzo un brand, la firma
+              spariva 6 volte su 6. Con gpt-4o le stesse prove danno la firma giusta 6 su 6.
+              Costa di più a messaggio, ma è il testo che leggerà un cliente.
             </p>
             <p className="descrizione" style={{ margin: '2px 0 10px' }}>
               — in alternativa — Claude (usato solo se manca la chiave OpenAI):

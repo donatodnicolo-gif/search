@@ -32,6 +32,7 @@ const IN_CHIARO = [
   'anagraficheUrl',
   'openaiModello',
   'openaiModelloImmagini',
+  'openaiModelloRisposte',
 ]
 
 export async function salvaImpostazioni(formData: FormData) {

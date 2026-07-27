@@ -55,6 +55,74 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **DOCUMENTI, BRAND ed ESPORTAZIONE in CS AI** (27/07/2026).
+  Tre cose in una: si CARICANO documenti da cui l'AI ricava le istruzioni, ogni
+  istruzione può valere per un solo BRAND, e le linee guida si ESPORTANO come
+  documento leggibile dalle persone.
+  Tabella `DocumentoAI` + campi `IstruzioneAI.negozioId` / `documentoId` /
+  `sostituisceId`; librerie `src/lib/documenti-ai.ts` (estrazione) e
+  `src/lib/linee-guida.ts` (Markdown + HTML da stampare); rotte
+  `/api/cs-ai/documenti` (carica/elenca/elimina), `/api/cs-ai/documenti/proposte`
+  (POST propone, PUT salva le scelte) e `/api/cs-ai/esporta?formato=md|html`.
+  Si legge PDF, .docx, .txt/.md, .csv, .html fino a 4 MB.
+  **Il documento NON entra nel prompt**: da trenta pagine l'AI ricava poche
+  regole, ognuna con la CITAZIONE della frase da cui nasce, e una persona spunta
+  quali tenere. Le regole salvate ricordano da quale documento vengono.
+  Verificato su un manuale finto ma realistico: delle sei sezioni ha preso solo
+  le regole di comunicazione, lasciando fuori turni di laboratorio, storia
+  dell'azienda e fatturazione.
+
+  ⚠️⚠️ **IL MODELLO DELLE RISPOSTE È `gpt-4o`, NON `gpt-4o-mini` — misurato.**
+  Impostazione dedicata `openaiModelloRisposte`, default `MODELLO_RISPOSTE_DEFAULT`
+  in `src/lib/ai.ts`. `openaiModello` resta mini per il resto (estrazione IBAN).
+  Su 6 chiamate identiche per condizione, con **mini**: brand Cake firma giusta
+  **0/6**, brand Flowers **0/6**, senza brand 5/6. Con **4o**: Cake 6/6, Flowers
+  6/6, senza brand 6/6, oggetto 6/6, **mai** la firma di un marchio sbagliato.
+  Ci ho girato attorno per cinque riscritture del prompt — brand in testa, brand
+  in coda, gerarchie scritte in maiuscolo, identità nel messaggio di sistema — e
+  nessuna cambiava il risultato. **Non era il prompt: era il modello.**
+  Regola operativa: prima di riscrivere un prompt per la sesta volta, misura su
+  N chiamate e prova il modello grande. Una chiamata sola non dice niente: le
+  risposte oscillano fra chiamate identiche, e ci ho creduto due volte.
+
+  ⚠️ **Le istruzioni vanno scritte come ORDINI, non come descrizioni.**
+  «Chiudi ogni mail con…» attecchisce, «ci si firma sempre…» viene ignorata: il
+  modello legge una descrizione come un'informazione sull'azienda, non come una
+  cosa da fare. Vale anche per l'estrazione dai documenti — il prompt di
+  `ricavaIstruzioni` ordina esplicitamente di trasformare il raccontato in
+  comandi, perché i manuali aziendali sono scritti al descrittivo. Le 6
+  istruzioni di partenza sono state riscritte all'imperativo per lo stesso
+  motivo (e le righe già in tabella migrate una tantum).
+
+  ⚠️ **La firma di partenza non nomina più «Deluxy» ma «il negozio per cui stai
+  scrivendo»**: in un gruppo con più marchi una firma fissa è una firma che
+  sparisce — col brand impostato, il modello preferiva non firmare piuttosto che
+  firmare col nome di un altro.
+
+  ⚠️ **`sostituisceId`: una regola di brand può mandare in pensione una regola
+  generale.** Serve quando le due si contraddicono (firma Deluxy contro firma
+  Cake Design): la generale non viene proprio mandata all'AI. Con `gpt-4o` il
+  conflitto si risolve bene anche senza — il 6/6 è stato ottenuto SENZA
+  collegamento — ma il campo resta come valvola di sicurezza e rende la scelta
+  visibile invece che affidata al modello. Nel documento esportato la regola
+  sostituita si vede **barrata**, con scritto da cosa è rimpiazzata: toglierla
+  farebbe sparire una regola che per gli altri brand vale, lasciarla muta
+  farebbe credere che l'AI la legga.
+
+  ⚠️ **`serverExternalPackages: ['pdf-parse', 'mammoth']` in `next.config.ts` non
+  è facoltativo**: impacchettato da Next, pdf-parse fallisce su OGNI pdf con
+  «Object.defineProperty called on non-object». In uno script node di prova non
+  si vede — lì il pacchetto è già esterno — quindi il caricamento va provato
+  passando dall'app.
+
+  ⚠️ Un PDF **scansionato** non contiene testo: viene respinto dicendolo
+  («è un'immagine, serve l'originale o l'OCR») invece di salvare un documento
+  vuoto da cui non si ricava niente. Verificato, insieme al rifiuto dei formati
+  non letti (.png, .doc vecchio, file Apple) e del file mancante.
+  L'elenco dei documenti NON rilegge i testi: estratto e lunghezza li calcola
+  Postgres con `left()`/`length()`, altrimenti dieci manuali sarebbero megabyte
+  per disegnare dieci righe di tabella.
+
 - SEZIONE **CS AI** — le istruzioni con cui l'AI parla ai clienti (26/07/2026).
   Tabella `IstruzioneAI`, libreria `src/lib/cs-ai.ts`, pagina `/cs-ai`, rotte
   `/api/cs-ai` (CRUD), `/api/cs-ai/iniziali` (6 istruzioni di partenza, non

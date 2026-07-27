@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { AMBITI, PALETTI, nomeAmbito } from '@/lib/cs-ai'
+import { DocumentiAI, type Brand } from './DocumentiAI'
 
 // CS AI — dove si scrive COME l'AI parla ai clienti.
 //
 // Non è il posto dei testi da mandare (quelli sono gli Script): qui stanno le
 // regole di comportamento — tono, firma, cosa non promettere, cosa cambia fra
-// chat e mail. Vanno a finire nel prompt di ogni risposta suggerita.
+// chat e mail, e cosa cambia da un brand all'altro. Vanno a finire nel prompt di
+// ogni risposta suggerita.
 
 type Istruzione = {
   id: string
@@ -15,8 +17,12 @@ type Istruzione = {
   categoria: string
   testo: string
   ambito: string
+  negozioId: string | null
+  sostituisceId: string | null
   ordine: number
   attiva: boolean
+  negozio: Brand | null
+  documento: { id: string; nome: string } | null
 }
 
 const VUOTA = {
@@ -25,15 +31,18 @@ const VUOTA = {
   categoria: '',
   testo: '',
   ambito: 'tutti',
+  negozioId: '',
+  sostituisceId: '',
   ordine: 0,
   attiva: true,
 }
 
-export function CsAiLista() {
+export function CsAiLista({ brand }: { brand: Brand[] }) {
   const [istruzioni, setIstruzioni] = useState<Istruzione[]>([])
   const [caricato, setCaricato] = useState(false)
   const [q, setQ] = useState('')
   const [filtroAmbito, setFiltroAmbito] = useState('')
+  const [filtroBrand, setFiltroBrand] = useState('')
   const [bozza, setBozza] = useState<typeof VUOTA>(VUOTA)
   const [avviso, setAvviso] = useState('')
   const [errore, setErrore] = useState('')
@@ -42,6 +51,8 @@ export function CsAiLista() {
   // L'anteprima di quello che legge davvero il modello.
   const [anteprima, setAnteprima] = useState('')
   const [contestoAnteprima, setContestoAnteprima] = useState<'chat' | 'email'>('chat')
+  const [brandAnteprima, setBrandAnteprima] = useState('')
+  const [escluseAltroBrand, setEscluseAltroBrand] = useState(0)
   const [anteprimaAperta, setAnteprimaAperta] = useState(false)
 
   const carica = useCallback(async () => {
@@ -49,6 +60,7 @@ export function CsAiLista() {
       const p = new URLSearchParams()
       if (q) p.set('q', q)
       if (filtroAmbito) p.set('ambito', filtroAmbito)
+      if (filtroBrand) p.set('negozioId', filtroBrand)
       const res = await fetch('/api/cs-ai?' + p.toString())
       if (!res.ok) return
       const d = (await res.json()) as { istruzioni: Istruzione[] }
@@ -58,7 +70,7 @@ export function CsAiLista() {
     } finally {
       setCaricato(true)
     }
-  }, [q, filtroAmbito])
+  }, [q, filtroAmbito, filtroBrand])
 
   useEffect(() => {
     const t = setTimeout(carica, 250)
@@ -67,14 +79,17 @@ export function CsAiLista() {
 
   const caricaAnteprima = useCallback(async () => {
     try {
-      const res = await fetch('/api/cs-ai/anteprima?contesto=' + contestoAnteprima)
+      const p = new URLSearchParams({ contesto: contestoAnteprima })
+      if (brandAnteprima) p.set('negozioId', brandAnteprima)
+      const res = await fetch('/api/cs-ai/anteprima?' + p.toString())
       if (!res.ok) return
-      const d = (await res.json()) as { prompt: string }
+      const d = (await res.json()) as { prompt: string; escluseDiAltriBrand?: number }
       setAnteprima(d.prompt)
+      setEscluseAltroBrand(d.escluseDiAltriBrand ?? 0)
     } catch {
       setAnteprima('')
     }
-  }, [contestoAnteprima])
+  }, [contestoAnteprima, brandAnteprima])
 
   useEffect(() => {
     if (anteprimaAperta) caricaAnteprima()
@@ -144,9 +159,31 @@ export function CsAiLista() {
             , che sono il <strong>cosa</strong>.
           </p>
         </div>
-        <button className="btn btn-secondario" onClick={() => setAnteprimaAperta(!anteprimaAperta)}>
-          {anteprimaAperta ? 'Chiudi anteprima' : 'Cosa legge l’AI'}
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondario"
+            onClick={() => setAnteprimaAperta(!anteprimaAperta)}
+          >
+            {anteprimaAperta ? 'Chiudi anteprima' : 'Cosa legge l’AI'}
+          </button>
+          {/* Esportazione: le stesse regole che legge l'AI, leggibili dalle
+              persone. Il brand esportato è quello del filtro, così il documento
+              corrisponde a ciò che si sta guardando. */}
+          <a
+            className="btn btn-secondario"
+            href={'/api/cs-ai/esporta?formato=html' + (filtroBrand ? `&negozioId=${filtroBrand}` : '')}
+            target="_blank"
+            rel="noopener"
+          >
+            Stampa o PDF
+          </a>
+          <a
+            className="btn btn-secondario"
+            href={'/api/cs-ai/esporta?formato=md' + (filtroBrand ? `&negozioId=${filtroBrand}` : '')}
+          >
+            Scarica (.md)
+          </a>
+        </div>
       </div>
 
       {avviso ? <div className="avviso-ok">{avviso}</div> : null}
@@ -181,15 +218,36 @@ export function CsAiLista() {
               <option value="chat">quando risponde in chat</option>
               <option value="email">quando scrive una mail</option>
             </select>
+            <select
+              value={brandAnteprima}
+              onChange={(e) => setBrandAnteprima(e.target.value)}
+              aria-label="Brand"
+            >
+              <option value="">brand sconosciuto</option>
+              {brand.map((b) => (
+                <option key={b.id} value={b.id}>
+                  per {b.nome}
+                </option>
+              ))}
+            </select>
           </div>
           <p className="descrizione">
             È il blocco esatto che finisce nel prompt. Serve a vedere se un&apos;istruzione è
             arrivata davvero e in che ordine: una regola che credi attiva e non lo è, è peggio di
             una che manca.
           </p>
+          {escluseAltroBrand ? (
+            <p className="descrizione">
+              {escluseAltroBrand} istruzion{escluseAltroBrand === 1 ? 'e' : 'i'} di altri brand
+              {brandAnteprima ? '' : ' (qui il brand non è noto)'} restano fuori da questo prompt.
+            </p>
+          ) : null}
           <pre className="anteprima-prompt">{anteprima || 'Carico…'}</pre>
         </div>
       ) : null}
+
+      {/* I documenti da cui ricavare le istruzioni. */}
+      <DocumentiAI brand={brand} onCambio={carica} />
 
       {/* Nuova / modifica */}
       <div className="card" style={{ maxWidth: 760 }}>
@@ -229,7 +287,7 @@ export function CsAiLista() {
             placeholder="Si dà sempre del lei. Il tono è cortese e caldo, mai sbrigativo…"
           />
         </label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <label className="campo">
             <span>Quando vale</span>
             <select
@@ -244,6 +302,20 @@ export function CsAiLista() {
             </select>
           </label>
           <label className="campo">
+            <span>Per quale brand</span>
+            <select
+              value={bozza.negozioId}
+              onChange={(e) => setBozza({ ...bozza, negozioId: e.target.value })}
+            >
+              <option value="">Tutti i brand</option>
+              {brand.map((b) => (
+                <option key={b.id} value={b.id}>
+                  Solo {b.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
             <span>Ordine (le più importanti per prime)</span>
             <input
               type="number"
@@ -252,8 +324,37 @@ export function CsAiLista() {
             />
           </label>
         </div>
+        {/* Solo per le regole di brand: quale regola generale mandano in
+            pensione. Senza questo, due regole contrarie finiscono insieme nel
+            prompt e il modello sceglie lui — e sceglie quella sbagliata. */}
+        {bozza.negozioId ? (
+          <label className="campo">
+            <span>Sostituisce una regola generale (facoltativo)</span>
+            <select
+              value={bozza.sostituisceId}
+              onChange={(e) => setBozza({ ...bozza, sostituisceId: e.target.value })}
+            >
+              <option value="">Non ne sostituisce nessuna: si aggiunge</option>
+              {istruzioni
+                .filter((i) => !i.negozioId && i.id !== bozza.id)
+                .map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.titolo}
+                  </option>
+                ))}
+            </select>
+          </label>
+        ) : null}
         <p className="descrizione" style={{ marginTop: -4 }}>
           {AMBITI.find((a) => a.chiave === bozza.ambito)?.spiega}
+          {bozza.negozioId
+            ? ' Vale solo quando si scrive per questo brand: se il brand non si riesce a stabilire, questa regola resta fuori. Se dice il contrario di una regola generale — per esempio come firmarsi — indica quale sostituisce: mandarle tutte e due all’AI significa lasciarle scegliere, e sceglie male.'
+            : ''}
+        </p>
+        <p className="descrizione" style={{ marginTop: -6 }}>
+          <strong>Scrivila come un ordine</strong>, non come una descrizione: «Chiudi ogni mail
+          con…» funziona, «ci si firma sempre…» viene ignorata. È misurato, non è una preferenza
+          di stile.
         </p>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <input
@@ -295,6 +396,18 @@ export function CsAiLista() {
             </option>
           ))}
         </select>
+        <select
+          value={filtroBrand}
+          onChange={(e) => setFiltroBrand(e.target.value)}
+          aria-label="Brand"
+        >
+          <option value="">Tutti i brand</option>
+          {brand.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.nome}
+            </option>
+          ))}
+        </select>
         {caricato && istruzioni.length > 0 ? (
           <span className="cella-sub" style={{ alignSelf: 'center' }}>
             {attive} attive su {istruzioni.length}
@@ -325,6 +438,7 @@ export function CsAiLista() {
                 <th>Istruzione</th>
                 <th>Categoria</th>
                 <th>Quando vale</th>
+                <th>Brand</th>
                 <th className="num">Ordine</th>
                 <th></th>
               </tr>
@@ -337,9 +451,13 @@ export function CsAiLista() {
                     <div className="cella-sub" style={{ maxWidth: 460 }}>
                       {i.testo.length > 150 ? i.testo.slice(0, 150) + '…' : i.testo}
                     </div>
+                    {i.documento ? (
+                      <div className="cella-sub">Da: {i.documento.nome}</div>
+                    ) : null}
                   </td>
                   <td className="cella-muta">{i.categoria}</td>
                   <td className="cella-muta">{nomeAmbito(i.ambito)}</td>
+                  <td className="cella-muta">{i.negozio?.nome ?? 'Tutti'}</td>
                   <td className="cella-num">{i.ordine}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button
@@ -351,6 +469,8 @@ export function CsAiLista() {
                           categoria: i.categoria,
                           testo: i.testo,
                           ambito: i.ambito,
+                          negozioId: i.negozioId ?? '',
+                          sostituisceId: i.sostituisceId ?? '',
                           ordine: i.ordine,
                           attiva: i.attiva,
                         })

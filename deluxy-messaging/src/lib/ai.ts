@@ -3,7 +3,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { leggiImpostazioni } from './impostazioni'
 import { verificaIban } from './iban'
 import { db } from './db'
-import { componiIstruzioni } from './cs-ai'
+import { componiIstruzioni, AMBITI, type Brand } from './cs-ai'
+import { perIlModello } from './documenti-ai'
 
 // Estrazione dei dati di pagamento da un messaggio o da un'immagine
 // (schermata di una chat, foto di un bonifico).
@@ -21,6 +22,16 @@ import { componiIstruzioni } from './cs-ai'
 // benissimo e costa una frazione.
 const MODELLO_TESTO_DEFAULT = 'gpt-4o-mini'
 const MODELLO_IMMAGINI_DEFAULT = 'gpt-4o'
+// ⚠️ Anche le RISPOSTE AI CLIENTI vogliono il modello grande, e per lo stesso
+// motivo delle immagini: misurato su 6 chiamate identiche per condizione, con
+// gpt-4o-mini le istruzioni di CS AI venivano applicate a intermittenza e, con
+// un brand impostato, la firma richiesta spariva 6 volte su 6 (Cake 0/6,
+// Flowers 0/6, senza brand 5/6). Con gpt-4o, sulle stesse prove: Cake firma
+// Cake 5/6, Flowers firma Flowers 6/6, senza brand firma Deluxy 6/6, oggetto
+// 6/6 ovunque, mai una firma del marchio sbagliato.
+// Non era il prompt — riscritto in cinque versioni, spostato, gerarchizzato:
+// era il modello. Costa di più a messaggio, ma è il testo che legge un cliente.
+const MODELLO_RISPOSTE_DEFAULT = 'gpt-4o'
 const MODELLO_CLAUDE = 'claude-opus-5'
 
 export type DatiPagamento = {
@@ -104,7 +115,17 @@ const SCHEMA_RISPOSTA = {
   additionalProperties: false,
 } as const
 
-const ISTRUZIONI_RISPOSTA = `Sei l'assistenza clienti di Deluxy (consegne di fiori e dolci in guanti bianchi).
+// ⚠️ IL BRAND NON VA MESSO QUI, ED È UNA COSA MISURATA, NON UN'OPINIONE.
+//
+// Sembrava ovvio scrivere nel messaggio di sistema «Sei l'assistenza clienti di
+// Cake». Provato su 6 chiamate identiche per condizione: con l'identità del
+// brand qui, la firma richiesta dalle istruzioni compariva 0 volte su 6; con
+// questa riga neutra, 6 su 6. Il motivo si intuisce: la firma standard è
+// «Servizio Clienti Deluxy», e un modello a cui hai appena detto «sei Cake»
+// preferisce non firmare piuttosto che firmare col nome di un altro.
+// Il brand c'è lo stesso — sta nel blocco delle istruzioni, che è il posto dove
+// le regole si applicano invece di definire un'identità che poi le contraddice.
+const ISTRUZIONI_RISPOSTA = `Sei l'assistenza clienti del gruppo Deluxy (consegne di fiori e dolci in guanti bianchi).
 
 Ti do il messaggio di un cliente e gli script che usiamo di solito. Scegli lo script più adatto e adattalo al messaggio.
 
@@ -112,7 +133,7 @@ Come lavorare, in ordine di importanza:
 
 1. IL CONTENUTO viene dallo script. Parti sempre da uno di quelli forniti: cosa promettiamo ai clienti lo decide l'azienda, non tu. Non aggiungere fatti, impegni o condizioni che lo script non contiene.
 2. I DATI non si inventano. Nome, numero d'ordine e date solo se compaiono nel messaggio del cliente; se un dato manca, tieni la frase generica.
-3. LA FORMA la decidono le ISTRUZIONI DELL'AZIENDA che trovi nel messaggio: tono, lunghezza, saluto, firma, apertura e chiusura. Se un'istruzione chiede di riscrivere, accorciare, firmare o cambiare tono, FALLO: riformulare non è inventare, finché il contenuto resta quello dello script.
+3. LA FORMA la decidono le ISTRUZIONI DELL'AZIENDA che trovi nel messaggio: tono, lunghezza, saluto, firma, apertura e chiusura. Se un'istruzione chiede di riscrivere, accorciare, firmare o cambiare tono, FALLO: riformulare non è inventare, finché il contenuto resta quello dello script. Aggiungere una firma, un saluto o un oggetto perché un'istruzione lo chiede NON è aggiungere contenuto: fallo anche se lo script non ce l'ha.
 4. Dove le istruzioni non dicono niente, resta vicino al testo dello script.
 5. Se nessuno script è davvero adatto, lascia scriptId e risposta vuoti e spiega perché nel motivo. Meglio nessuna risposta che una sbagliata.`
 
@@ -129,15 +150,15 @@ export type EsitoRisposta =
  * lettura fallisce restano i soli paletti — l'assistenza non si ferma perché
  * una tabella non risponde.
  */
-async function istruzioniAzienda(contesto: 'chat' | 'email'): Promise<string> {
+async function istruzioniAzienda(contesto: 'chat' | 'email', brand: Brand): Promise<string> {
   try {
     const righe = await db.istruzioneAI.findMany({
       where: { attiva: true },
       orderBy: [{ ordine: 'asc' }, { categoria: 'asc' }, { titolo: 'asc' }],
     })
-    return componiIstruzioni(righe, contesto)
+    return componiIstruzioni(righe, contesto, brand)
   } catch {
-    return componiIstruzioni([], contesto)
+    return componiIstruzioni([], contesto, brand)
   }
 }
 
@@ -151,12 +172,15 @@ export async function suggerisciRisposta(
   script: { id: string; titolo: string; categoria: string; testo: string; quando: string }[],
   // A una chat e a una mail si scrive in modo diverso: le istruzioni della
   // sezione CS AI possono valere solo per l'una o per l'altra.
-  contesto: 'chat' | 'email' = 'chat'
+  contesto: 'chat' | 'email' = 'chat',
+  // Il brand per cui si scrive: fa entrare nel prompt le istruzioni marcate per
+  // quel negozio e il nome con cui firmarsi. `null` = solo le regole generali.
+  brand: Brand = null
 ): Promise<EsitoRisposta> {
   if (script.length === 0) {
     return { stato: 'errore', messaggio: 'Non c’è ancora nessuno script da cui attingere.' }
   }
-  const c = await leggiImpostazioni(['openaiApiKey', 'openaiModello'])
+  const c = await leggiImpostazioni(['openaiApiKey', 'openaiModelloRisposte'])
   const chiave = pulisci(c.openaiApiKey)
   if (!chiave) return { stato: 'non-configurato' }
 
@@ -169,9 +193,9 @@ export async function suggerisciRisposta(
     )
     .join('\n\n')
 
-  const istruzioni = await istruzioniAzienda(contesto)
+  const istruzioni = await istruzioniAzienda(contesto, brand)
 
-  const modello = (c.openaiModello || MODELLO_TESTO_DEFAULT).trim()
+  const modello = (c.openaiModelloRisposte || MODELLO_RISPOSTE_DEFAULT).trim()
   try {
     const client = new OpenAI({ apiKey: chiave, timeout: 45_000, maxRetries: 2 })
     const risposta = await client.chat.completions.create({
@@ -195,7 +219,10 @@ export async function suggerisciRisposta(
             `SCRIPT DISPONIBILI:\n${elenco}\n\n` +
             `MESSAGGIO DEL CLIENTE:\n${messaggio}\n\n` +
             `${istruzioni}\n\n` +
-            'Ora scrivi la risposta: prendi il contenuto dello script più adatto e riscrivilo applicando le istruzioni qui sopra.',
+            'Ora scrivi la risposta: prendi il contenuto dello script più adatto e riscrivilo applicando le istruzioni qui sopra. Applica anche quelle che aggiungono un saluto, una firma o un oggetto.' +
+            (brand
+              ? ` Se una regola del brand ${brand.nome} e una generale dicono cose diverse sulla stessa cosa — per esempio la firma — segui quella del brand e lascia perdere l'altra.`
+              : ''),
         },
       ],
     })
@@ -368,6 +395,168 @@ export async function estraiPagamento(opzioni: {
       return await conOpenAI(chiaveOpenai, modello, opzioni.testo, opzioni.immagine)
     }
     return await conClaude(chiaveClaude, opzioni.testo, opzioni.immagine)
+  } catch (e) {
+    return { stato: 'errore', messaggio: (e as Error).message }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Da un DOCUMENTO alle ISTRUZIONI
+//
+// L'azienda carica il manuale del servizio clienti, la brand voice, le regole di
+// consegna; qui l'AI ne ricava delle regole brevi e utilizzabili.
+//
+// ⚠️ NON le salva: le PROPONE. Chi ha caricato il documento sceglie quali tenere.
+// Un manuale contiene anche il frontespizio, l'indice, la storia dell'azienda e
+// i turni del magazzino: se tutto diventasse un'istruzione, il prompt di ogni
+// risposta si riempirebbe di roba che non c'entra e le regole che contano
+// peserebbero meno.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type Proposta = {
+  titolo: string
+  categoria: string
+  testo: string
+  ambito: string
+  /** La frase del documento da cui nasce la regola: serve per controllarla. */
+  citazione: string
+}
+
+const SCHEMA_PROPOSTE = {
+  type: 'object',
+  properties: {
+    istruzioni: {
+      type: 'array',
+      description:
+        'Le regole ricavate dal documento. Solo quelle che dicono COME parlare o scrivere ' +
+        'a un cliente. Da zero a dodici: se il documento non parla di questo, array vuoto.',
+      items: {
+        type: 'object',
+        properties: {
+          titolo: {
+            type: 'string',
+            description: 'Il nome della regola in poche parole, come lo scriverebbe una persona.',
+          },
+          categoria: {
+            type: 'string',
+            description:
+              'Una fra: Tono di voce, Firma, Reclami, Rimborsi, Consegne, Chat, Email, Generale.',
+          },
+          testo: {
+            type: 'string',
+            description:
+              "L'istruzione per l'AI, in italiano, due o tre frasi, scritta come un ORDINE " +
+              'e non come una descrizione: «Chiudi sempre con…», «Non promettere mai…», ' +
+              '«Scrivi in due frasi». Deve poter essere seguita e verificata: «dai del lei» sì, ' +
+              '«essere professionali» no. Se la regola aggiunge qualcosa al testo (una firma, ' +
+              'un oggetto, una formula), dillo esplicitamente e riporta le parole esatte.',
+          },
+          ambito: {
+            type: 'string',
+            description:
+              'tutti se vale sempre, chat se riguarda solo WhatsApp e le chat, email se ' +
+              'riguarda solo le mail (oggetto, firma, lunghezza).',
+          },
+          citazione: {
+            type: 'string',
+            description:
+              'La frase del documento da cui nasce la regola, copiata tale e quale, al ' +
+              'massimo trenta parole. Se non c’è una frase precisa, stringa vuota.',
+          },
+        },
+        required: ['titolo', 'categoria', 'testo', 'ambito', 'citazione'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['istruzioni'],
+  additionalProperties: false,
+} as const
+
+const ISTRUZIONI_ESTRAZIONE = `Sei un responsabile del servizio clienti che legge un documento aziendale e ne ricava le regole di scrittura per chi risponde ai clienti.
+
+Tira fuori SOLO quello che riguarda come si parla e si scrive a un cliente: tono, forma, firme, cosa dire e cosa non dire, differenze fra chat e mail.
+
+Lascia stare tutto il resto: organigrammi, procedure di magazzino, indici, frontespizi, dati fiscali, storia dell'azienda.
+
+Non inventare regole che ti sembrano sensate ma nel documento non ci sono. Se il documento non parla di comunicazione coi clienti, torna un elenco vuoto: e' una risposta giusta.
+
+Ogni regola dev'essere una cosa che si puo' seguire e verificare. "Si da' sempre del lei" si puo'; "essere professionali" no.
+
+⚠️ SCRIVILE COME ORDINI, non come descrizioni. I documenti aziendali raccontano ("ci firmiamo sempre col nome del negozio"); tu devi trasformarli in comandi ("Chiudi ogni messaggio con la riga: Il team di Cake Design"). E' misurato: una regola descrittiva viene ignorata dal modello che poi la deve seguire, perche' la legge come "se firmi, firma cosi'" invece di "firma".
+
+Quando la regola prescrive un testo preciso — una firma, una formula, un oggetto — riportalo tra virgolette, parola per parola come sta nel documento.`
+
+export type EsitoProposte =
+  | { stato: 'ok'; proposte: Proposta[]; fornitore: string; tagliato: number }
+  | { stato: 'non-configurato' }
+  | { stato: 'errore'; messaggio: string }
+
+/**
+ * Legge un documento e propone le istruzioni da salvare.
+ *
+ * `brand` non filtra niente qui: serve solo a dire al modello di chi sta
+ * leggendo le regole, così una frase come «ci firmiamo col nome del negozio»
+ * diventa una regola concreta invece di restare generica.
+ */
+export async function ricavaIstruzioni(
+  testoDocumento: string,
+  nomeDocumento: string,
+  brand: Brand = null
+): Promise<EsitoProposte> {
+  const c = await leggiImpostazioni(['openaiApiKey', 'openaiModello'])
+  const chiave = pulisci(c.openaiApiKey)
+  if (!chiave) return { stato: 'non-configurato' }
+
+  const { testo, tagliato } = perIlModello(testoDocumento)
+  if (!testo.trim()) return { stato: 'errore', messaggio: 'Il documento non contiene testo.' }
+
+  const modello = (c.openaiModello || MODELLO_TESTO_DEFAULT).trim()
+  try {
+    const client = new OpenAI({ apiKey: chiave, timeout: 90_000, maxRetries: 1 })
+    const risposta = await client.chat.completions.create({
+      model: modello,
+      temperature: 0.1,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'istruzioni_dal_documento',
+          strict: true,
+          schema: SCHEMA_PROPOSTE as unknown as Record<string, unknown>,
+        },
+      },
+      messages: [
+        { role: 'system', content: ISTRUZIONI_ESTRAZIONE },
+        {
+          role: 'user',
+          content:
+            `DOCUMENTO: ${nomeDocumento}\n` +
+            (brand ? `BRAND a cui si riferisce: ${brand.nome}\n` : '') +
+            `\n${testo}\n\n` +
+            'Ora ricava le regole di scrittura per chi risponde ai clienti.',
+        },
+      ],
+    })
+
+    const grezzo = risposta.choices[0]?.message?.content
+    if (!grezzo) return { stato: 'errore', messaggio: 'Risposta vuota dal modello.' }
+    const d = JSON.parse(grezzo) as { istruzioni: Proposta[] }
+
+    // Ripulitura nostra: l'ambito dev'essere uno dei nostri, non una parola che
+    // il modello ha scelto perché suonava bene. Uno sconosciuto vale «tutti»,
+    // che è il caso innocuo.
+    const validi = AMBITI.map((a) => a.chiave) as readonly string[]
+    const proposte = (d.istruzioni ?? [])
+      .map((p) => ({
+        titolo: (p.titolo ?? '').trim(),
+        categoria: (p.categoria ?? '').trim() || 'Generale',
+        testo: (p.testo ?? '').trim(),
+        ambito: validi.includes((p.ambito ?? '').trim()) ? p.ambito.trim() : 'tutti',
+        citazione: (p.citazione ?? '').trim(),
+      }))
+      .filter((p) => p.titolo && p.testo)
+
+    return { stato: 'ok', proposte, fornitore: `OpenAI ${modello}`, tagliato }
   } catch (e) {
     return { stato: 'errore', messaggio: (e as Error).message }
   }
