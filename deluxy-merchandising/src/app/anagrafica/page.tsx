@@ -2,13 +2,13 @@ import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { FormFiltri } from "@/components/FormFiltri";
 import { Sidebar } from "@/components/Sidebar";
+import { classificaProdottoAzione, escludiProdottoAzione } from "@/lib/azioni-classificazione";
 import { brandCorrente, filtroProdotti } from "@/lib/brand";
+import { elencoCategorie, elencoLinee } from "@/lib/classificazione";
 import { prisma } from "@/lib/db";
 import {
-  CATEGORIE,
   COLORE_FASE,
   ETICHETTA_FASE,
-  etichettaCategoria,
   euro,
   FASI_PLM,
 } from "@/lib/dominio";
@@ -53,10 +53,12 @@ export default async function AnagraficaPage({
   if (sp.manca === "categoria") where.categoria = "DA_CLASSIFICARE";
   if (sp.manca === "collezione") where.collezioniShopify = { none: {} };
   if (sp.manca === "tipo") where.tipoShopify = null;
+  if (sp.manca === "esclusi") where.esclusoDaAnalisi = true;
+  else if (sp.manca === "linea") where.lineaId = null;
 
   const f = finestra(90);
 
-  const [prodotti, totale, tipi, venditePeriodo] = await Promise.all([
+  const [prodotti, totale, tipi, venditePeriodo, categorie, linee, quantiEsclusi] = await Promise.all([
     prisma.prodotto.findMany({
       where,
       orderBy: [{ nome: "asc" }],
@@ -65,6 +67,7 @@ export default async function AnagraficaPage({
       include: {
         varianti: { select: { nome: true, sku: true, giacenza: true } },
         collezione: { select: { nome: true } },
+        linea: { select: { id: true, nome: true } },
         collezioniShopify: { include: { collezione: { select: { titolo: true, negozio: true } } } },
       },
     }),
@@ -80,6 +83,9 @@ export default async function AnagraficaPage({
       where: { data: { gte: f.dal, lte: f.al }, ...FILTRO_BUON_FINE, ...(brand ? { canale: brand } : {}) },
       _sum: { quantita: true, ricavo: true },
     }),
+    elencoCategorie(),
+    elencoLinee(),
+    prisma.prodotto.count({ where: { esclusoDaAnalisi: true } }),
   ]);
 
   const venduto = new Map(venditePeriodo.map((v) => [v.prodottoId as string, v]));
@@ -119,9 +125,9 @@ export default async function AnagraficaPage({
           <input type="search" name="q" placeholder="Cerca per nome, codice o SKU…" defaultValue={sp.q ?? ""} />
           <select name="categoria" defaultValue={sp.categoria ?? ""} aria-label="Categoria">
             <option value="">Tutte le categorie</option>
-            {CATEGORIE.map((c) => (
-              <option key={c} value={c}>
-                {etichettaCategoria(c)}
+            {categorie.map((c) => (
+              <option key={c.chiave} value={c.chiave}>
+                {c.nome}
               </option>
             ))}
           </select>
@@ -146,7 +152,9 @@ export default async function AnagraficaPage({
             <option value="costo">Senza costo di produzione</option>
             <option value="categoria">Da classificare</option>
             <option value="tipo">Senza tipo da Shopify</option>
+            <option value="linea">Senza linea</option>
             <option value="collezione">Fuori da ogni collezione Shopify</option>
+            <option value="esclusi">Esclusi dalle analisi{quantiEsclusi ? ` (${quantiEsclusi})` : ""}</option>
           </select>
           <button className="btn btn-secondario" type="submit">
             Filtra
@@ -166,13 +174,13 @@ export default async function AnagraficaPage({
                 <tr>
                   <th>Prodotto</th>
                   <th>Tipo su Shopify</th>
-                  <th>Categoria</th>
+                  <th style={{ minWidth: 260 }}>Categoria e linea</th>
                   <th>Varianti e SKU</th>
                   <th className="num">Prezzo</th>
                   <th className="num">Costo</th>
                   <th>Collezioni</th>
                   <th className="num">Venduto 90gg</th>
-                  <th>Fase</th>
+                  <th>Nelle analisi</th>
                 </tr>
               </thead>
               <tbody>
@@ -190,7 +198,31 @@ export default async function AnagraficaPage({
                         </div>
                       </td>
                       <td className="cella-muta">{p.tipoShopify ?? "—"}</td>
-                      <td className="cella-muta">{etichettaCategoria(p.categoria)}</td>
+                      <td>
+                        {/* Si classifica da qui, senza aprire la scheda: con
+                            migliaia di prodotti da sistemare, un giro in meno
+                            per prodotto è il lavoro di un pomeriggio in meno. */}
+                        <form action={classificaProdottoAzione.bind(null, p.id)} className="riga-classifica">
+                          <select name="categoria" defaultValue={p.categoria} aria-label={`Categoria di ${p.nome}`}>
+                            {categorie.map((c) => (
+                              <option key={c.chiave} value={c.chiave}>
+                                {c.nome}
+                              </option>
+                            ))}
+                          </select>
+                          <select name="lineaId" defaultValue={p.lineaId ?? ""} aria-label={`Linea di ${p.nome}`}>
+                            <option value="">— nessuna linea —</option>
+                            {linee.map((l) => (
+                              <option key={l.id} value={l.id}>
+                                {l.nome}
+                              </option>
+                            ))}
+                          </select>
+                          <button className="btn small" type="submit">
+                            Salva
+                          </button>
+                        </form>
+                      </td>
                       <td className="cella-muta">
                         {p.varianti.length === 0
                           ? "—"
@@ -218,10 +250,22 @@ export default async function AnagraficaPage({
                         {v && <div className="cella-sub">{v._sum.quantita} pz</div>}
                       </td>
                       <td>
-                        <Badge
-                          testo={ETICHETTA_FASE[p.fase] ?? p.fase}
-                          colore={COLORE_FASE[p.fase] ?? "var(--text-tertiary)"}
-                        />
+                        {/* Escludere non cancella: il prodotto resta qui, con
+                            scritto perché è fuori, e sparisce solo dai conti. */}
+                        <form action={escludiProdottoAzione.bind(null, p.id, !p.esclusoDaAnalisi)}>
+                          <button
+                            className={`btn small ${p.esclusoDaAnalisi ? "" : "btn-secondario"}`}
+                            type="submit"
+                            title={
+                              p.esclusoDaAnalisi
+                                ? `Escluso: ${p.motivoEsclusione ?? "senza motivo"}. Rimettilo nelle analisi.`
+                                : "Toglilo da classifiche, trend, assortimento e riordini"
+                            }
+                          >
+                            {p.esclusoDaAnalisi ? "Escluso · rimetti" : "Escludi"}
+                          </button>
+                        </form>
+                        <div className="cella-sub">{ETICHETTA_FASE[p.fase] ?? p.fase}</div>
                       </td>
                     </tr>
                   );

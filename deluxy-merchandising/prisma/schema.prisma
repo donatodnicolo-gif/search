@@ -48,8 +48,20 @@ model Prodotto {
   nome         String
   collezioneId String?
   collezione   Collezione? @relation(fields: [collezioneId], references: [id], onDelete: SetNull)
-  // catalogo in dominio.ts: BOUQUET, COMPOSIZIONE, PIANTA, GIFT_BOX, EDIZIONE_LIMITATA, ACCESSORIO, HOME_FRAGRANCE
+  // Chiave della categoria: il catalogo vive in `CategoriaProdotto` (modificabile
+  // dall'app) e `dominio.ts` tiene solo le etichette di riserva per le chiavi
+  // storiche. Resta una stringa e non una relazione obbligatoria perché un
+  // prodotto non deve sparire dalle liste se qualcuno rinomina una categoria.
   categoria    String   @default("BOUQUET")
+  // La linea del prodotto (come nell'app reale: "Linea"), decisa qui.
+  lineaId      String?
+  linea        LineaProdotto? @relation(fields: [lineaId], references: [id], onDelete: SetNull)
+  // Fuori dalle analisi: righe di servizio dei negozi (supplementi di prezzo,
+  // spese), prove, prodotti che non sono prodotti. Restano in anagrafica — non
+  // si cancella niente — ma spariscono da classifiche, trend, assortimento e
+  // ipotesi di ordinativo, dove falserebbero i conti.
+  esclusoDaAnalisi Boolean @default(false)
+  motivoEsclusione String?
   // Fase del ciclo di vita (PLM): concept | prototipo | approvato | in_vendita | archiviato
   fase         String   @default("concept")
   descrizione  String?
@@ -230,6 +242,40 @@ model Impostazione {
   valoreCifrato String
   impronta      String   @default("")
   aggiornataIl  DateTime @updatedAt
+}
+
+// Il catalogo delle **categorie di prodotto**, deciso qui dentro.
+//
+// Ogni categoria ha una **descrizione**: non è decorazione, è il testo con cui
+// l'AI capisce che cosa ci va dentro quando deve riconciliare i prodotti
+// importati dai negozi (dove la stessa cosa si chiama «Fiori», «Rose»,
+// «Bouquet»…). Più è precisa la descrizione, meno l'AI tira a indovinare.
+model CategoriaProdotto {
+  chiave      String   @id // es. BOUQUET — è quella scritta su Prodotto.categoria
+  nome        String
+  descrizione String? // che cosa ci va dentro e cosa no: guida umana e guida AI
+  colore      String? // token del design system, es. "var(--green)"
+  ordine      Int      @default(0)
+  attiva      Boolean  @default(true)
+  creataIl    DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
+
+  @@index([attiva, ordine])
+}
+
+// Le **linee** di prodotto: la famiglia commerciale trasversale alle stagioni
+// ("Ora Blu", "Gifting", "B2B"). Anche qui la descrizione serve all'AI.
+model LineaProdotto {
+  id          String     @id @default(cuid())
+  nome        String     @unique
+  descrizione String?
+  ordine      Int        @default(0)
+  attiva      Boolean    @default(true)
+  prodotti    Prodotto[]
+  creataIl    DateTime   @default(now())
+  aggiornataIl DateTime  @updatedAt
+
+  @@index([attiva, ordine])
 }
 
 // Una collezione **vera** di Shopify, importata dal negozio.

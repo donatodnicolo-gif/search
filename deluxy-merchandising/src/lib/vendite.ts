@@ -521,7 +521,7 @@ export async function panoramicaBrand(giorni: number): Promise<{ finestra: Fines
   const f = finestra(giorni);
   const dove = {
     ...FILTRO_BUON_FINE,
-    OR: [{ prodottoId: null }, { prodotto: { fase: { not: "archiviato" } } }],
+    OR: [{ prodottoId: null }, { prodotto: { fase: { not: "archiviato" }, esclusoDaAnalisi: false } }],
   };
 
   const [correnti, precedenti] = await Promise.all([
@@ -641,7 +641,7 @@ export async function analizzaAssortimento(
   const dove = {
     ...FILTRO_BUON_FINE,
     ...(canale ? { canale } : {}),
-    prodotto: { fase: { not: "archiviato" } },
+    prodotto: { fase: { not: "archiviato" }, esclusoDaAnalisi: false },
   };
 
   const [righe, prodotti] = await Promise.all([
@@ -667,6 +667,7 @@ export async function analizzaAssortimento(
     prisma.prodotto.findMany({
       where: {
         fase: { not: "archiviato" },
+        esclusoDaAnalisi: false,
         ...(canale ? { vendite: { some: { canale } } } : {}),
       },
       select: { id: true, categoria: true, collezioneId: true, collezione: { select: { nome: true } } },
@@ -855,7 +856,7 @@ export async function classifiche(opzioni: {
         // dei negozi ("_Additional Price", supplementi, spese) che altrimenti
         // vincono la classifica dei pezzi senza vendere niente. Riconoscerle dal
         // nome sarebbe indovinare: archiviarle è una decisione, e si vede.
-        OR: [{ prodottoId: null }, { prodotto: { fase: { not: "archiviato" } } }],
+        OR: [{ prodottoId: null }, { prodotto: { fase: { not: "archiviato" }, esclusoDaAnalisi: false } }],
       },
       select: {
         prodottoId: true,

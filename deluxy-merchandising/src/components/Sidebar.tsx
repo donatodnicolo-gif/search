@@ -21,6 +21,7 @@ export async function Sidebar({
     | "collezioni"
     | "prodotti"
     | "anagrafica"
+    | "classificazione"
     | "sviluppo"
     | "costi"
     | "vendite"
@@ -85,6 +86,7 @@ export async function Sidebar({
           {voce("collezioni", "/collezioni", "collezioni", "Collezioni", nCollezioni)}
           {voce("prodotti", "/prodotti", "prodotti", "Prodotti", nProdotti)}
           {voce("anagrafica", "/anagrafica", "anagrafica", "Anagrafica completa")}
+          {voce("classificazione", "/classificazione", "collezioni", "Categorie, linee, collezioni")}
           {voce("sviluppo", "/sviluppo", "sviluppo", "Sviluppo", nInSviluppo)}
           {voce("costi", "/costi", "costi", "Costi & margini")}
         </SbSezione>

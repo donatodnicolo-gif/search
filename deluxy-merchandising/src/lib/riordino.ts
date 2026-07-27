@@ -142,6 +142,8 @@ export async function calcolaIpotesi(p: Parametri & { canale?: string | null }):
     prisma.prodotto.findMany({
       where: {
         fase: { in: ["approvato", "in_vendita"] },
+        // Chi è stato escluso a mano non si riordina: non è un prodotto.
+        esclusoDaAnalisi: false,
         // Dentro un brand si propone solo ciò che su quel brand si vende.
         ...(canale ? { vendite: { some: { canale } } } : {}),
       },
