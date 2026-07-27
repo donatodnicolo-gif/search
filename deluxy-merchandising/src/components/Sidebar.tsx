@@ -20,6 +20,7 @@ export async function Sidebar({
     | "cruscotto"
     | "collezioni"
     | "prodotti"
+    | "anagrafica"
     | "sviluppo"
     | "costi"
     | "vendite"
@@ -83,6 +84,7 @@ export async function Sidebar({
         <SbSezione titolo="Prodotto">
           {voce("collezioni", "/collezioni", "collezioni", "Collezioni", nCollezioni)}
           {voce("prodotti", "/prodotti", "prodotti", "Prodotti", nProdotti)}
+          {voce("anagrafica", "/anagrafica", "anagrafica", "Anagrafica completa")}
           {voce("sviluppo", "/sviluppo", "sviluppo", "Sviluppo", nInSviluppo)}
           {voce("costi", "/costi", "costi", "Costi & margini")}
         </SbSezione>

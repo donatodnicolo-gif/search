@@ -59,6 +59,12 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M4 20h16" />
     </>
   ),
+  anagrafica: (
+    <>
+      <path d="M4 4h16v16H4z" />
+      <path d="M4 9h16M4 14h16M9 4v16" />
+    </>
+  ),
   impostazioni: (
     <>
       <path d="M5 20v-6M5 10V4M12 20v-9M12 7V4M19 20v-4M19 12V4" />

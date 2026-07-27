@@ -66,6 +66,15 @@ model Prodotto {
   // — Visual merchandising —
   immagine     String? // URL immagine still-life di prodotto
   priorita     Int      @default(0) // priorità di esposizione (più alto = più in vista)
+  // — Quello che dice Shopify del prodotto (letto, non dedotto) —
+  // `tipoShopify` è il "product type" del negozio: è la categoria vera, scritta
+  // da chi cura il sito. Vale più di qualsiasi tentativo di indovinarla dal
+  // titolo, e infatti la categoria interna resta separata: una si legge, l'altra
+  // si decide.
+  tipoShopify    String?
+  vendorShopify  String?
+  tagShopify     String? // separati da virgola, come li dà Shopify
+  handleShopify  String?
   // — Sincronizzazione Shopify (canale di vendita a valle) —
   shopifyStato   String  @default("non_pubblicato") // non_pubblicato | bozza | pubblicato
   shopifyId      String? // id prodotto su Shopify una volta pubblicato

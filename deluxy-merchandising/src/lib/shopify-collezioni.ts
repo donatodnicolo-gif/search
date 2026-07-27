@@ -139,6 +139,9 @@ type ProdottoShopifyApi = {
   id: string;
   title: string;
   handle: string;
+  productType: string | null;
+  vendor: string | null;
+  tags: string[];
   variants: { nodes: { sku: string | null }[] };
   collections: { nodes: { id: string }[] };
 };
@@ -160,7 +163,7 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
          products(first: 25, after: $cursore) {
            pageInfo { hasNextPage endCursor }
            nodes {
-             id title handle
+             id title handle productType vendor tags
              variants(first: 10) { nodes { sku } }
              collections(first: 10) { nodes { id } }
            }
@@ -226,8 +229,9 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     const perCodice = new Map(nostri.map((p) => [p.codice.trim().toLowerCase(), p.id]));
     const perNome = new Map(nostri.map((p) => [normalizza(p.nome), p.id]));
 
-    // — Le appartenenze —
+    // — Le appartenenze, e quello che Shopify sa del prodotto —
     const legami: { collezioneId: string; prodottoId: string }[] = [];
+    const daAggiornare: { id: string; tipoShopify: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string }[] = [];
     for (const p of prodottiShopify) {
       let nostroId: string | undefined;
       for (const v of p.variants.nodes) {
@@ -253,6 +257,17 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
         const collezioneId = idLocale.get(c.id);
         if (collezioneId) legami.push({ collezioneId, prodottoId: nostroId });
       }
+
+      // Il tipo prodotto lo scrive chi cura il negozio: è un dato, non una
+      // deduzione dal titolo. Si salva accanto alla categoria interna senza
+      // sovrascriverla — una si legge da Shopify, l'altra la decide una persona.
+      daAggiornare.push({
+        id: nostroId,
+        tipoShopify: p.productType?.trim() || null,
+        vendorShopify: p.vendor?.trim() || null,
+        tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
+        handleShopify: p.handle,
+      });
     }
 
     // Si riscrive l'appartenenza di questo negozio: un prodotto tolto da una
@@ -270,6 +285,24 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
         skipDuplicates: true,
       });
       base.abbinamenti += esito.count;
+    }
+
+    // Aggiornamento in blocchi: sono migliaia di righe, una per volta ci
+    // metterebbe minuti.
+    for (let i = 0; i < daAggiornare.length; i += 25) {
+      await Promise.all(
+        daAggiornare.slice(i, i + 25).map((d) =>
+          prisma.prodotto.update({
+            where: { id: d.id },
+            data: {
+              tipoShopify: d.tipoShopify,
+              vendorShopify: d.vendorShopify,
+              tagShopify: d.tagShopify,
+              handleShopify: d.handleShopify,
+            },
+          })
+        )
+      );
     }
 
     base.ok = true;
