@@ -22,6 +22,15 @@ import { idCartellaDrive, driveDir } from "@/lib/drive";
 // documento lo rispetta chi se lo ricorda.
 
 export const IMP_SERVICE_ACCOUNT = "drive.service_account";
+// Per conto di CHI scrive l'app.
+//
+// Un account di servizio non ha spazio su Drive — è un utente senza cassetto:
+// Google risponde "Service Accounts do not have storage quota" e il file non
+// si crea, anche con la cartella condivisa e i permessi giusti. Le uscite sono
+// due: un Drive condiviso (i file appartengono al drive, non a una persona),
+// oppure l'IMPERSONAZIONE — l'account di servizio agisce per conto di una
+// persona vera, e il file nasce nel cassetto di quella persona.
+export const IMP_IMPERSONA = "drive.impersona";
 const PERCORSO_OUT = ["ads", "App Azioni", "OUT - dall'app"];
 
 type Credenziali = { client_email: string; private_key: string };
@@ -47,12 +56,21 @@ export async function emailServizio(): Promise<string | null> {
   return (await credenziali())?.client_email ?? null;
 }
 
+export async function emailImpersonata(): Promise<string | null> {
+  const r = await prisma.impostazione.findUnique({ where: { chiave: IMP_IMPERSONA } }).catch(() => null);
+  const v = (r?.valore ?? "").trim();
+  return v || null;
+}
+
 // Il token dura un'ora: si tiene finché vale, altrimenti ogni scrittura
 // pagherebbe una chiamata in più solo per farsi riconoscere.
-let cache: { token: string; scade: number } | null = null;
+let cache: { token: string; scade: number; perConto: string | null } | null = null;
 
 async function token(): Promise<{ token: string | null; errore: string | null }> {
-  if (cache && cache.scade > Date.now() + 60_000) return { token: cache.token, errore: null };
+  const perContoOra = await emailImpersonata();
+  if (cache && cache.scade > Date.now() + 60_000 && cache.perConto === perContoOra) {
+    return { token: cache.token, errore: null };
+  }
   const c = await credenziali();
   if (!c) {
     return {
@@ -64,8 +82,13 @@ async function token(): Promise<{ token: string | null; errore: string | null }>
 
   const adesso = Math.floor(Date.now() / 1000);
   const intestazione = { alg: "RS256", typ: "JWT" };
+  const perConto = await emailImpersonata();
   const corpo = {
     iss: c.client_email,
+    // "sub" = per conto di chi. Con questo il file nasce nel Drive di quella
+    // persona e usa il suo spazio; senza, l'account di servizio prova a
+    // possederlo lui e Google rifiuta perché non ha spazio.
+    ...(perConto ? { sub: perConto } : {}),
     scope: "https://www.googleapis.com/auth/drive",
     aud: "https://oauth2.googleapis.com/token",
     iat: adesso,
@@ -98,7 +121,7 @@ async function token(): Promise<{ token: string | null; errore: string | null }>
     if (!r.ok || !d.access_token) {
       return { token: null, errore: `Google ha rifiutato la credenziale: ${d.error_description ?? d.error ?? r.status}` };
     }
-    cache = { token: d.access_token, scade: Date.now() + (d.expires_in ?? 3600) * 1000 };
+    cache = { token: d.access_token, scade: Date.now() + (d.expires_in ?? 3600) * 1000, perConto: perContoOra };
     return { token: d.access_token, errore: null };
   } catch (e) {
     return { token: null, errore: `Chiamata a Google fallita: ${String(e).slice(0, 140)}` };
@@ -224,7 +247,15 @@ export async function scriviInOut(nome: string, contenuto: string): Promise<Esit
     );
     const d = (await r.json()) as { id?: string; name?: string; error?: { message?: string } };
     if (!r.ok || !d.id) {
-      return { ok: false, errore: `Drive ha risposto ${r.status}: ${d.error?.message ?? "errore sconosciuto"}` };
+      const msg = d.error?.message ?? "errore sconosciuto";
+      if (/storage quota/i.test(msg)) {
+        return {
+          ok: false,
+          errore:
+            "Un account di servizio non ha spazio su Drive e non può possedere file. Due uscite: (a) scrivere PER CONTO DI una persona — compila «Agisci per conto di» qui sotto e autorizza la delega nella Console di amministrazione; (b) spostare la cartella in un Drive condiviso, dove i file appartengono al drive e non a una persona.",
+        };
+      }
+      return { ok: false, errore: `Drive ha risposto ${r.status}: ${msg}` };
     }
     return { ok: true, id: d.id, nome: d.name ?? nome };
   } catch (e) {

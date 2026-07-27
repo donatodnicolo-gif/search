@@ -1,7 +1,7 @@
 "use server";
 import { FORNITORI, IMP_FORNITORE, impChiaveApi, impModello, type Fornitore } from "@/lib/ai";
 import { IMP_ISTRUZIONI } from "@/lib/ai";
-import { IMP_SERVICE_ACCOUNT, scriviInOut } from "@/lib/drive-scrittura";
+import { IMP_IMPERSONA, IMP_SERVICE_ACCOUNT, scriviInOut } from "@/lib/drive-scrittura";
 import { IMP_TOKEN_TIKTOK } from "@/lib/tiktok";
 
 import { revalidatePath } from "next/cache";
@@ -1746,4 +1746,28 @@ export async function provaScritturaDrive() {
       ? `/impostazioni?salvato=drive-prova-ok`
       : `/impostazioni?salvato=drive-prova-no&perche=${encodeURIComponent(esito.errore.slice(0, 160))}`
   );
+}
+
+// Per conto di chi scrive l'app su Drive.
+//
+// Senza questo, l'account di servizio prova a possedere lui il file e Google
+// rifiuta: non ha spazio ("Service Accounts do not have storage quota").
+export async function salvaImpersonazioneDrive(formData: FormData) {
+  "use server";
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!email) {
+    await prisma.impostazione.deleteMany({ where: { chiave: IMP_IMPERSONA } });
+    revalidatePath("/impostazioni");
+    redirect("/impostazioni?salvato=drive-impersona-tolta");
+  }
+  if (!/^[^@s]+@[^@s]+.[a-z]{2,}$/.test(email)) {
+    redirect("/impostazioni?salvato=drive-impersona-invalida");
+  }
+  await prisma.impostazione.upsert({
+    where: { chiave: IMP_IMPERSONA },
+    update: { valore: email },
+    create: { chiave: IMP_IMPERSONA, valore: email },
+  });
+  revalidatePath("/impostazioni");
+  redirect("/impostazioni?salvato=drive-impersona");
 }

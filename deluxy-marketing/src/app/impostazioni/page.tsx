@@ -1,9 +1,9 @@
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
-import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaServiceAccountDrive, provaScritturaDrive, salvaTokenTikTok } from "@/lib/azioni";
+import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaServiceAccountDrive, salvaImpersonazioneDrive, provaScritturaDrive, salvaTokenTikTok } from "@/lib/azioni";
 import { tokenTikTok } from "@/lib/tiktok";
 import { FORNITORI, istruzioniOperative, statoAi } from "@/lib/ai";
-import { statoScritturaDrive } from "@/lib/drive-scrittura";
+import { emailImpersonata, statoScritturaDrive } from "@/lib/drive-scrittura";
 import { ChiaviApi } from "@/components/ChiaviApi";
 import { prisma } from "@/lib/db";
 import { CHIAVE_APIKEY, driveDir, idCartellaDrive } from "@/lib/drive";
@@ -42,6 +42,9 @@ const CONFERME: Record<string, string> = {
   "drive-json-incompleto": "JSON valido ma senza client_email o private_key: non è il file della chiave dell’account di servizio.",
   "drive-prova-ok": "Scrittura riuscita: il file di prova è nel ponte, dentro OUT - dall’app.",
   "drive-prova-no": "Scrittura NON riuscita.",
+  "drive-impersona": "Salvato: da adesso l’app scrive per conto di quella persona.",
+  "drive-impersona-tolta": "Tolto: l’app torna a scrivere come account di servizio (e Drive lo rifiuterà, se la cartella non è in un Drive condiviso).",
+  "drive-impersona-invalida": "Quella non sembra un’email: serve un indirizzo del dominio, es. nome@deluxy.it.",
 };
 
 export default async function PaginaImpostazioni({
@@ -50,7 +53,7 @@ export default async function PaginaImpostazioni({
   searchParams: Promise<{ salvato?: string; perche?: string }>;
 }) {
   const { salvato, perche } = await searchParams;
-  const [cartella, documenti, account, ultimaSync, impApiKey, ai, chiaviApi, tokenTt, istruzioni, drive] = await Promise.all([
+  const [cartella, documenti, account, ultimaSync, impApiKey, ai, chiaviApi, tokenTt, istruzioni, drive, perConto] = await Promise.all([
     driveDir(),
     prisma.documentoDrive.count(),
     prisma.accountAdv.findMany({ orderBy: [{ piattaforma: "asc" }, { nome: "asc" }] }),
@@ -64,6 +67,7 @@ export default async function PaginaImpostazioni({
     tokenTikTok(),
     istruzioniOperative(),
     statoScritturaDrive(),
+    emailImpersonata(),
   ]);
 
   const piattaformeConAccount = PIATTAFORME_ACCOUNT.filter((pf) =>
@@ -169,9 +173,33 @@ export default async function PaginaImpostazioni({
           </form>
 
           {drive.configurato && (
-            <form action={provaScritturaDrive} style={{ marginTop: 10 }}>
-              <button className="btn fantasma" type="submit">Prova a scrivere nel ponte</button>
-            </form>
+            <>
+              <form className="modulo" action={salvaImpersonazioneDrive} style={{ marginTop: 4 }}>
+                <div className="campo-modulo largo">
+                  <label>
+                    Agisci per conto di (email della persona che possiede i file)
+                    {perConto && <span style={{ color: "var(--green)", fontWeight: 400 }}> · adesso: {perConto}</span>}
+                  </label>
+                  <input name="email" defaultValue={perConto ?? ""} placeholder="nome@deluxy.it" spellCheck={false} />
+                  <div className="cella-sub" style={{ marginTop: 6, whiteSpace: "normal" }}>
+                    Un account di servizio <b>non ha spazio su Drive</b>: non può possedere file, e
+                    Google risponde <i>«Service Accounts do not have storage quota»</i> anche con i
+                    permessi giusti. Scrivendo <b>per conto di</b> una persona, il file nasce nel suo
+                    Drive e usa il suo spazio. Va autorizzato una volta sola nella Console di
+                    amministrazione (Sicurezza → Controlli API → <b>Delega a livello di dominio</b>),
+                    abbinando l&apos;ID client dell&apos;account di servizio all&apos;ambito{" "}
+                    <code>https://www.googleapis.com/auth/drive</code>.
+                  </div>
+                </div>
+                <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
+                  <button className="btn fantasma" type="submit">Salva</button>
+                </div>
+              </form>
+
+              <form action={provaScritturaDrive} style={{ marginTop: 10 }}>
+                <button className="btn fantasma" type="submit">Prova a scrivere nel ponte</button>
+              </form>
+            </>
           )}
 
           <p className="cella-sub" style={{ marginTop: 12, whiteSpace: "normal" }}>
