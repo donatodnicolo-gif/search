@@ -2,6 +2,7 @@ import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
 import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi } from "@/lib/azioni";
 import { FORNITORI, statoAi } from "@/lib/ai";
+import { ChiaviApi } from "@/components/ChiaviApi";
 import { prisma } from "@/lib/db";
 import { CHIAVE_APIKEY, driveDir, idCartellaDrive } from "@/lib/drive";
 import {
@@ -36,7 +37,7 @@ export default async function PaginaImpostazioni({
   searchParams: Promise<{ salvato?: string }>;
 }) {
   const { salvato } = await searchParams;
-  const [cartella, documenti, account, ultimaSync, impApiKey, ai] = await Promise.all([
+  const [cartella, documenti, account, ultimaSync, impApiKey, ai, chiaviApi] = await Promise.all([
     driveDir(),
     prisma.documentoDrive.count(),
     prisma.accountAdv.findMany({ orderBy: [{ piattaforma: "asc" }, { nome: "asc" }] }),
@@ -46,6 +47,7 @@ export default async function PaginaImpostazioni({
     }),
     prisma.impostazione.findUnique({ where: { chiave: CHIAVE_APIKEY } }).catch(() => null),
     statoAi(),
+    prisma.apiKey.findMany({ orderBy: [{ attiva: "desc" }, { creataIl: "desc" }] }).catch(() => []),
   ]);
 
   const piattaformeConAccount = PIATTAFORME_ACCOUNT.filter((pf) =>
@@ -76,6 +78,17 @@ export default async function PaginaImpostazioni({
             {CONFERME[salvato]}
           </div>
         )}
+
+        <ChiaviApi
+          chiavi={chiaviApi.map((c) => ({
+            id: c.id,
+            nome: c.nome,
+            scrittura: c.scrittura,
+            attiva: c.attiva,
+            creataIl: c.creataIl.toISOString(),
+            ultimoUso: c.ultimoUso?.toISOString() ?? null,
+          }))}
+        />
 
         <section className="scheda">
           <div className="scheda-titolo">Intelligenza artificiale</div>
