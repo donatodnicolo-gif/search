@@ -860,6 +860,22 @@ export async function aggiornaDeal(
   if (error) throw error;
 }
 
+/**
+ * Cancella una trattativa aperta per sbaglio.
+ *
+ * Serve perché una trattativa nata male restava lì per sempre: dall'app non
+ * c'era modo di toglierla. Cancellandola il negozio torna indietro nel funnel —
+ * se ha una visita senza risposta ricompare fra le **Visite** da lavorare.
+ *
+ * ⚠️ Tocca solo la riga di Scout. Le trattative che arrivano da HubSpot o dal
+ * registro Anagrafiche non nascono qui: vanno chiuse nell'app che le possiede,
+ * altrimenti tornerebbero al primo sync.
+ */
+export async function eliminaDeal(id: string): Promise<void> {
+  const { error } = await supabase.from('deals').delete().eq('id', id);
+  if (error) throw error;
+}
+
 /** Crea una trattativa a mano (poi sincronizzabile su HubSpot col valore). */
 export async function inserisciDeal(d: {
   place_id: string;

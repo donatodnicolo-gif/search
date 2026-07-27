@@ -18,6 +18,7 @@ import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, r
 import {
   aggiornaDeal,
   cercaPlaces,
+  eliminaDeal,
   creaOrdineDaDeal,
   fetchContatti,
   fetchTutteTrattative,
@@ -31,6 +32,7 @@ import { CANALI, MOTIVI_PERSO, type CanaleTrattativa, type Contact, type DealSta
 import { LineaSelector } from '@/components/LineaSelector';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
+import { conferma } from '@/lib/dialoghi';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 
 interface Sezione {
@@ -517,6 +519,28 @@ function TrattativaModal({
     }
   }
 
+  /** Elimina la trattativa, previa conferma: è irreversibile. */
+  function chiediElimina() {
+    if (!deal || salvando) return;
+    conferma(
+      'Eliminare la trattativa?',
+      `«${deal.place_nome ?? 'Questo negozio'}» torna indietro nel funnel: se ha una visita senza risposta ricompare fra le Visite. L'operazione non si può annullare.`,
+      async () => {
+        setSalvando(true);
+        setErrore(null);
+        try {
+          await eliminaDeal(deal.id);
+          onSalvata();
+        } catch (e: any) {
+          setErrore(e?.message ?? 'Trattativa non eliminata.');
+        } finally {
+          setSalvando(false);
+        }
+      },
+      { testoConferma: 'Elimina', distruttivo: true },
+    );
+  }
+
   async function salva() {
     if (!place || salvando) return;
     setSalvando(true);
@@ -827,6 +851,16 @@ function TrattativaModal({
             </View>
             {scadenza ? <Text style={styles.scadenzaSel}>Scade il {formattaData(scadenza)}</Text> : null}
 
+            {/* Elimina: solo sulle trattative nate in Scout. Quelle da HubSpot o
+                dal registro tornerebbero al primo sync, quindi si chiudono
+                nell'app che le possiede. */}
+            {inModifica && !daRegistro && deal?.origine !== 'hubspot' ? (
+              <Pressable style={styles.elimina} disabled={salvando} onPress={chiediElimina}>
+                <Ionicons name="trash-outline" size={16} color={colors.errore} />
+                <Text style={styles.eliminaTxt}>Elimina trattativa</Text>
+              </Pressable>
+            ) : null}
+
             {errore ? <Text style={styles.errore}>{errore}</Text> : null}
           </ScrollView>
 
@@ -1076,4 +1110,18 @@ const styles = StyleSheet.create({
   },
   salvaDisabled: { opacity: 0.4 },
   salvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 16 },
+  // Elimina: in fondo al form e defilato — è distruttivo, non deve competere
+  // col bottone di salvataggio.
+  elimina: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(179,38,30,0.35)',
+  },
+  eliminaTxt: { color: colors.errore, fontWeight: '700', fontSize: 14 },
 });
