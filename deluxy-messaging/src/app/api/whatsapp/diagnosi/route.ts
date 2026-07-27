@@ -104,7 +104,7 @@ export async function GET() {
     }
 
     const num = await chiedi(
-      `${API}/${n.phoneNumberId}?fields=display_phone_number,verified_name,quality_rating,platform_type`,
+      `${API}/${n.phoneNumberId}?fields=display_phone_number,verified_name,quality_rating,platform_type,status,code_verification_status`,
       token
     )
     esiti.push({
@@ -120,6 +120,21 @@ export async function GET() {
     // telefono, **non su tutte e due**. Se è ancora sull'app, i messaggi
     // arrivano sul telefono e il webhook non riceve niente — e tutto il resto
     // dei controlli resta verde, perché il numero esiste e il token lo vede.
+    // ⚠️ Un numero può essere sulla Cloud API e non essere ancora CONNESSO: la
+    // registrazione (con PIN di verifica in due passaggi) è un passo a parte.
+    // Finché non è connesso non riceve niente, e tutto il resto risulta a posto
+    // perché il numero esiste e il token lo vede.
+    const stato = String(num.corpo.status ?? '')
+    esiti.push({
+      passo: `${n.etichetta} — il numero è connesso`,
+      ok: stato ? stato === 'CONNECTED' : null,
+      dettaglio: !stato
+        ? 'Meta non dichiara lo stato.'
+        : stato === 'CONNECTED'
+          ? 'Sì: il numero è registrato e operativo.'
+          : `NO, risulta «${stato}» (verifica: ${num.corpo.code_verification_status ?? 'n/d'}): finché non è connesso non riceve messaggi.`,
+    })
+
     const piattaforma = String(num.corpo.platform_type ?? '')
     esiti.push({
       passo: `${n.etichetta} — il numero è sulla Cloud API`,
