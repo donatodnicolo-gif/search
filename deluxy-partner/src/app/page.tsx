@@ -4,13 +4,15 @@ import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { nomeMese, ivato, residuoFattura, parzialmenteIncassata } from "@/lib/calc";
 import { registraBonifico } from "@/lib/actions";
+import { richiediPagamento } from "@/lib/pagamenti-partner-actions";
+import { transactionsConfigurato, STATI_RICHIESTA } from "@/lib/transactions";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string }>;
+  searchParams: Promise<{ anno?: string; richiesta?: string; errorePag?: string }>;
 }) {
   const sp = await searchParams;
   const anno = annoValido(sp.anno);
@@ -37,7 +39,7 @@ export default async function Dashboard({
   // Mesi con partite aperte. Per i partner senza compensazione le due direzioni
   // sono indipendenti: lo stesso mese puo' avere sia da bonificare sia da incassare.
   const mesiPartner = tutti.flatMap((t) =>
-    t.mesi.map((m) => ({ partner: t.partner, mese: m.mese, r: m.riepilogo }))
+    t.mesi.map((m) => ({ partner: t.partner, mese: m.mese, r: m.riepilogo, saldo: m.saldo }))
   );
   const daPagareAiPartner = mesiPartner
     .filter((x) => x.r.daBonificare >= 0.01)
@@ -46,6 +48,9 @@ export default async function Dashboard({
     .filter((x) => x.r.daIncassare >= 0.01)
     .sort((a, b) => b.r.daIncassare - a.r.daIncassare);
   const totDaPagare = daPagareAiPartner.reduce((a, x) => a + x.r.daBonificare, 0);
+  // Il bottone «Paga» chiede il pagamento a Transactions: se non e collegata,
+  // resta solo l annotazione manuale.
+  const trxAttiva = transactionsConfigurato();
   const totDaIncassare = daIncassareRighe.reduce((a, x) => a + x.r.daIncassare, 0);
 
   return (
@@ -74,6 +79,27 @@ export default async function Dashboard({
         </div>
       </div>
 
+
+      {sp.errorePag && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid var(--red)" }}>
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{sp.errorePag}</span>
+        </div>
+      )}
+      {sp.richiesta && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid var(--blue)" }}>
+          <span className="badge blue">
+            <span className="dot" />
+            {sp.richiesta.split("|")[1] === "gia"
+              ? `Richiesta già inviata: ${sp.richiesta.split("|")[0]}`
+              : `Richiesta inviata: ${sp.richiesta.split("|")[0]}`}
+          </span>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0, lineHeight: 1.6 }}>
+            <strong>Non è uscito nessun denaro.</strong> La richiesta è in attesa di essere autorizzata da una
+            persona dentro <a href="https://deluxy-transactions.vercel.app" target="_blank" rel="noreferrer" style={{ color: "var(--blue)" }}>Deluxy Transactions</a>;
+            il mese qui resta «da bonificare» finché non risulta pagata.
+          </p>
+        </div>
+      )}
 
       <div className="kpi-grid">
         <div className="kpi">
@@ -132,6 +158,40 @@ export default async function Dashboard({
                         <Link className="btn small secondary" href={`/partner/${x.partner.id}`}>
                           Gestisci
                         </Link>
+                        {/* «Paga» CHIEDE il pagamento a Deluxy Transactions,
+                            l'unica app da cui può uscire denaro: qui non esce
+                            niente e non si segna niente come pagato. Se la
+                            richiesta è già partita, al posto del bottone si
+                            mostra a che punto è. */}
+                        {trxAttiva && !x.saldo?.richiestaRif && (
+                          <form
+                            action={richiediPagamento.bind(
+                              null,
+                              x.partner.id,
+                              anno,
+                              x.mese,
+                              +x.r.daBonificare.toFixed(2),
+                              `/?anno=${anno}`
+                            )}
+                          >
+                            <button
+                              className="btn small primary"
+                              type="submit"
+                              title={`Chiede a Deluxy Transactions di pagare ${euro(x.r.daBonificare)} a ${x.partner.nome}. NON esce denaro adesso: la richiesta va autorizzata da una persona dentro Transactions.`}
+                            >
+                              Paga
+                            </button>
+                          </form>
+                        )}
+                        {x.saldo?.richiestaRif && (
+                          <span
+                            className={`badge ${STATI_RICHIESTA[x.saldo.richiestaStato ?? ""]?.badge ?? "neutral"}`}
+                            title={`Richiesta ${x.saldo.richiestaRif} inviata a Deluxy Transactions`}
+                          >
+                            <span className="dot" />
+                            {STATI_RICHIESTA[x.saldo.richiestaStato ?? ""]?.label ?? x.saldo.richiestaStato}
+                          </span>
+                        )}
                         <form
                           action={registraBonifico.bind(
                             null,
@@ -142,15 +202,14 @@ export default async function Dashboard({
                             undefined
                           )}
                         >
-                          {/* NON esegue il bonifico: annota nell'app che il
-                              partner è stato pagato. Il titolo lo dice esplicito
-                              perché il pulsante agisce al primo clic. */}
+                          {/* Resta per i bonifici fatti a mano dalla banca:
+                              annota e basta, non chiede niente a nessuno. */}
                           <button
-                            className="btn small primary"
+                            className="btn small secondary"
                             type="submit"
-                            title={`Annota il pagamento di ${euro(x.r.daBonificare)} al partner con data odierna. NON invia nessun bonifico alla banca (l'uscita vera avviene in banca/nell'app transazioni). Si annulla dalla scheda del partner.`}
+                            title={`Annota che il bonifico di ${euro(x.r.daBonificare)} è GIÀ stato fatto (es. a mano dalla banca), con data odierna. Si annulla dalla scheda del partner.`}
                           >
-                            Paga
+                            Annota pagato
                           </button>
                         </form>
                       </span>

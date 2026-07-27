@@ -243,6 +243,13 @@ model SaldoMensile {
   bonificoImporto Float? // >0 inviato al partner, <0 ricevuto dal partner
   bonificoData    DateTime?
   chiuso          Boolean   @default(false)
+  // RICHIESTA DI PAGAMENTO mandata a **deluxy-transactions** (l'unica app da cui
+  // può uscire denaro). Qui NON c'è un bonifico eseguito: c'è la traccia di
+  // averlo chiesto. `bonificoImporto` sopra si compila solo quando Transactions
+  // notifica che è stato davvero pagato — o quando lo si annota a mano.
+  richiestaRif    String? // TRX-2026-000123
+  richiestaStato  String? // in_attesa | sospesa | approvata | in_lotto | pagata | rifiutata | annullata
+  richiestaIl     DateTime?
   note            String?
   // Quando la nota è stata scritta/modificata l'ultima volta: serve al recap AI
   // per capire se quello che dice è ancora attuale (updatedAt cambia anche per

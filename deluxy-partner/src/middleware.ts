@@ -44,6 +44,10 @@ export const config = {
   // tutto tranne login, callback OAuth, API pubblica di verifica (auth a chiave),
   // asset statici e file pubblici
   matcher: [
-    "/((?!login|api/sso|api/fic/callback|api/shopify|api/verifiche|api/fatture|api/proforma|api/tipologie|api/incassi|api/tasks|api/riepilogo-finanziario|api/clienti|api/spese|api/cron|_next/static|_next/image|favicon.ico).*)",
+    // `api/pagamenti/notifica` è il webhook di Deluxy Transactions: si autentica
+    // da sé con la firma HMAC. Dentro il middleware riceverebbe un redirect al
+    // login, e Transactions leggerebbe HTML credendo che la notifica sia andata
+    // a buon fine.
+    "/((?!login|api/sso|api/fic/callback|api/shopify|api/verifiche|api/fatture|api/proforma|api/tipologie|api/incassi|api/tasks|api/riepilogo-finanziario|api/clienti|api/spese|api/pagamenti/notifica|api/cron|_next/static|_next/image|favicon.ico).*)",
   ],
 };
