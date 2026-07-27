@@ -55,6 +55,33 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **«DA MOBILE LA MAIL NON SI APRE»: bersagli troppo piccoli, e l'indirizzo che
+  non si toccava** (27/07/2026).
+
+  Il pop-up di posta **funzionava**: aperto da uno schermo da 375px con una
+  sequenza di tocco vera (touchstart/touchend + click) si apre, sta dentro lo
+  schermo, e col dettaglio già aperto riceve lui il tocco (stesso z-index 60 ma
+  più avanti nel DOM — verificato con `elementFromPoint`). Il guasto era prima
+  del pop-up: **non si riusciva a premere il bottone**.
+  ⚠️ **Misurato: le nove azioni di una scheda erano alte 24px** — «Email» 47×24,
+  con «Chiama» e «Reclamo» appiccicati ai lati. Il minimo per un polpastrello è
+  44px (Apple) / 48 (Google). A 24px si manca, e mancare qui vuol dire o non far
+  succedere niente o aprire il pannello dell'ordine: da fuori sembra che la mail
+  sia rotta. Ora sotto gli 800px i comandi sono **alti 40px** con 8px di stacco
+  (verificato: Email 63×40, nessun bottone sotto i 40). Sul desktop restano
+  piccoli: lì si punta col mouse e lo spazio serve per far stare più ordini.
+  ⚠️ **Nel dettaglio l'indirizzo email era testo semplice.** Su un telefono è la
+  cosa più naturale su cui premere — è scritto lì e sembra un link — e non
+  faceva niente. Ora è un bottone (`.come-link`) che apre il modulo già
+  compilato; verificato: destinatario e oggetto «Ordine #1736» precompilati.
+  La bozza (`bozzaMail`) è stata tirata fuori dall'IIFE dei canali e calcolata
+  una volta sola, così la usano sia il bottone «Email» sia l'indirizzo.
+  Anche il telefono, che era testo, ora è un `tel:`.
+  ⚠️ Nota di metodo: la prima ipotesi (il pop-up non si apre su mobile) era
+  sbagliata, e l'ho scartata riproducendo invece di correggere alla cieca. Il
+  difetto vero non era nel codice del pop-up ma nella dimensione dei bottoni —
+  una cosa che si vede solo misurando i rettangoli su un viewport da telefono.
+
 - **PAGINA UTENTI + REGISTRAZIONE LIBERA CHIUSA** (27/07/2026).
   `/utenti` (voce di sidebar sotto Configurazione): un amministratore apre gli
   account dei colleghi, cambia ruolo, cambia password e toglie l'accesso.

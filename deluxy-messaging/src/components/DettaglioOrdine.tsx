@@ -250,6 +250,19 @@ export function DettaglioOrdine({
   const msg = ordine ? messaggioFornitore(ordine.dataConsegna, ordine.fasciaConsegna) : null
   const ritiro = ordine ? fasciaRitiro(ordine.fasciaConsegna) : null
   const lingua = ordine ? linguaCliente(ordine.paese, ordine.telefono, ordine.email) : null
+  // La bozza della mail, calcolata una volta sola: la usano sia il bottone
+  // «Email» sia l'indirizzo cliccabile fra i recapiti. Prima viveva dentro
+  // l'IIFE dei canali, e l'indirizzo non poteva raggiungerla.
+  const bozzaMail: BozzaMail | null =
+    ordine && lingua && ordine.email
+      ? {
+          a: ordine.email,
+          oggetto: oggettoCliente(lingua.lingua, ordine.numero),
+          testo: messaggioCliente(lingua.lingua, ordine.clienteNome, ordine.numero),
+          clienteNome: ordine.clienteNome,
+          ordineNumero: ordine.numero,
+        }
+      : null
 
   return (
     <div className="velo" onClick={onChiudi} role="presentation">
@@ -446,8 +459,26 @@ export function DettaglioOrdine({
                 </dd>
                 <dt>Recapiti del mittente</dt>
                 <dd>
-                  {ordine.telefono || '—'}
-                  {ordine.email ? ` · ${ordine.email}` : ''}
+                  {ordine.telefono ? <a href={`tel:${ordine.telefono}`}>{ordine.telefono}</a> : '—'}
+                  {/* L'indirizzo email SI TOCCA e apre il modulo di posta.
+                      Prima era testo e basta: su un telefono è la cosa più
+                      naturale su cui premere — è scritto lì, sembra un link — e
+                      non succedeva niente. Chi lo prova conclude che la mail
+                      non funziona, non che ha premuto il posto sbagliato. */}
+                  {ordine.email ? (
+                    <>
+                      {' · '}
+                      <button
+                        type="button"
+                        className="come-link"
+                        onClick={() => bozzaMail && onScriviMail?.(bozzaMail)}
+                        disabled={!onScriviMail || !bozzaMail}
+                        title="Scrivi una mail a questo indirizzo: si apre il modulo, non parte da sola."
+                      >
+                        {ordine.email}
+                      </button>
+                    </>
+                  ) : null}
                   {lingua ? (
                     <div className="cella-sub">
                       gli si scrive in <strong>{nomeLingua(lingua.lingua)}</strong>

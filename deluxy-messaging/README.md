@@ -129,6 +129,18 @@ Serve perché le regole che legge l'AI devono poterle leggere anche le persone: 
 squadra, chi lavora dall'esterno, chi deve approvarle. Se il tono di voce vive solo dentro
 un prompt, esiste per il modello e non per l'azienda.
 
+## I comandi sotto il dito
+
+Sul telefono i bottoni di ogni ordine sono **alti 40px** e distanziati. Prima erano
+alti 24 e affiancati a nove per riga: «Email» era largo 47 e alto 24, con «Chiama» e
+«Reclamo» attaccati. Il minimo per un polpastrello è 44px, quindi si mancava il
+bersaglio in continuazione — e mancarlo lì vuol dire o non far succedere niente o
+aprire il pannello dell'ordine, che da fuori sembra «la mail non funziona».
+
+Nel dettaglio, anche **l'indirizzo email si tocca** e apre il modulo di posta già
+compilato, e il numero di telefono chiama. Prima erano testo e basta: su un telefono
+sono la prima cosa su cui si preme.
+
 ## Il menu sul telefono
 
 Sotto gli 800px il menu non è una colonna ma un **pannello che scorre da

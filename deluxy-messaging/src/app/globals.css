@@ -1633,3 +1633,46 @@ td .azioni-ordine {
   color: var(--gold);
   vertical-align: middle;
 }
+
+/* Un bottone travestito da link: serve per l'indirizzo email fra i recapiti,
+   che deve sembrare un link e aprire il modulo di posta invece di un mailto. */
+.come-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.come-link:disabled { text-decoration: none; cursor: default; }
+
+/* ---- Su mobile i comandi devono stare sotto un dito ----
+ *
+ * ⚠️ Misurato su schermo da 375px: le nove azioni di una scheda erano alte
+ * **24px** — «Email» era 47×24 — con «Chiama» e «Reclamo» attaccati ai lati.
+ * Il minimo consigliato per un polpastrello è 44px (Apple) / 48 (Google): a
+ * 24px si manca il bersaglio di continuo, e mancarlo qui vuol dire o non far
+ * succedere niente o aprire il pannello dell'ordine al posto della mail. Da
+ * fuori sembra che «la mail non funzioni».
+ *
+ * Sul desktop restano piccoli: lì si punta col mouse e lo spazio serve per far
+ * stare più ordini in pagina.
+ */
+@media (max-width: 800px) {
+  .bottone.mini,
+  .scheda-ordine .azioni-ordine .bottone.mini,
+  .btn.small {
+    min-height: 40px;
+    padding: 9px 14px;
+    font-size: 13.5px;
+  }
+  /* Distanziati, altrimenti ingrandirli li fa solo toccare fra loro e si passa
+     dal mancare il bersaglio al colpire quello sbagliato. */
+  .scheda-ordine .azioni-ordine { gap: 8px; }
+  .riga-bassa { gap: 8px; }
+  /* Anche l'indirizzo email: resta una riga di testo, ma con un po' di
+     spazio sopra e sotto da prendere col dito. */
+  .come-link { display: inline-block; padding: 6px 0; }
+}
