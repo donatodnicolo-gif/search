@@ -3,6 +3,7 @@ import { leggiImpostazioni } from '@/lib/impostazioni'
 
 import { redirectUri } from '@/lib/google'
 import { salvaImpostazioni } from './actions'
+import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,7 @@ export default async function PaginaImpostazioni({
   const config = await leggiImpostazioni([
     'waToken',
     'waPhoneNumberId',
+    'waBusinessAccountId',
     'fbPageToken',
     'igToken',
     'metaVerifyToken',
@@ -113,6 +115,20 @@ export default async function PaginaImpostazioni({
               <span>Phone Number ID</span>
               <input name="waPhoneNumberId" defaultValue={config.waPhoneNumberId} />
             </label>
+            {/* L'ID del WhatsApp Business Account serve alla diagnosi: è l'unico
+                modo per chiedere a Meta se la nostra app è iscritta a quel
+                account. Senza iscrizione Meta non manda NIENTE, per quanto il
+                webhook risulti verificato — e nell'app non si vede in nessun
+                modo: si guarda un'inbox vuota senza sapere perché. */}
+            <label className="campo">
+              <span>WhatsApp Business Account ID (per la diagnosi)</span>
+              <input
+                name="waBusinessAccountId"
+                defaultValue={config.waBusinessAccountId}
+                placeholder="il numero lungo sotto il nome in WhatsApp Manager"
+              />
+            </label>
+            <DiagnosiWhatsApp />
           </div>
 
           <div className="card">

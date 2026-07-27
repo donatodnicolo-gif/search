@@ -22,6 +22,7 @@ const SEGRETI = [
 ]
 const IN_CHIARO = [
   'waPhoneNumberId',
+  'waBusinessAccountId',
   'metaVerifyToken',
   'widgetTitolo',
   'widgetMessaggio',
