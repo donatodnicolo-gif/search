@@ -661,8 +661,9 @@
       <div class="hint" style="margin-top:4px">In base agli orari di Google. I negozi senza orari pubblicati e le schede del registro restano sempre visibili.</div>
     </div>
 
-    <div style="margin-top:14px">
-      <button class="btn" id="go">🔎 Cerca in zona</button>
+    <div style="margin-top:14px; display:flex; gap:10px">
+      <button class="btn" id="go" style="flex:2">🔎 Cerca in zona</button>
+      <button id="resetSearch" type="button" title="Svuota ordine, indirizzo, filtri e risultati" style="flex:1; min-width:120px; border:1px solid var(--hairline-strong); background:var(--fill); color:var(--text); border-radius:var(--radius-pill); padding:13px 18px; font-size:14px; font-weight:600; cursor:pointer">🔄 Azzera</button>
     </div>
   </div>
 
@@ -3175,6 +3176,33 @@ function setOrderCollapsed(collapsed){
   if(cb) cb.style.display = (!collapsed && resultsShown && orderLoaded) ? 'inline-flex' : 'none';
 }
 $('#collapseOrder').addEventListener('click', ()=> setOrderCollapsed(true));
+
+/* ------------------ azzera ricerca (torna allo stato iniziale pulito) ------------------ */
+function resetSearch(){
+  // risultati, mappa, strumenti, footer
+  resultsEl.innerHTML = '';
+  mapPoints = []; resetMap();
+  ['#resultTools','#mapWrap','#extendMore','#noResults','#archivedBox'].forEach(s=>{ const el=$(s); if(el) el.style.display='none'; });
+  extendRadius = 0; lastSearchCtx = null; ultimaRicercaLoggata = '';
+  // filtri a «Tutti»
+  setWaFiltro('tutti'); setOpenFiltro('tutti'); setRateFiltro('tutti');
+  // categorie ai valori predefiniti (fiorai + pasticcerie)
+  cats.clear(); cats.add('fioraio'); cats.add('pasticceria');
+  document.querySelectorAll('.catbtns .chip').forEach(ch=> ch.classList.add('active'));
+  // indirizzo + stato ricerca
+  $('#address').value = ''; localStorage.removeItem('addr');
+  setStatus('');
+  // ordine → stato iniziale
+  $('#orderNum').value = '';
+  $('#orderBox').style.display = 'none';
+  orderLoaded = false; resultsShown = false;
+  setOrderCollapsed(false);
+  setOrderStatus('');
+  // pulisci eventuali parametri deep-link dall'URL (?ordine=…/?indirizzo=…)
+  history.replaceState(null, '', location.pathname);
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+$('#resetSearch').addEventListener('click', resetSearch);
 
 /* ------------------ flusso principale ------------------ */
 $('#go').addEventListener('click', run);
