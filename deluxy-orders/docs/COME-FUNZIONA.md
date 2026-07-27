@@ -89,6 +89,53 @@ Nella scheda dell'ordine c'è tutto per esteso: il **nome della campagna**
 Shopify — cioè il dato grezzo su cui la deduzione è stata fatta, per chi non si
 fida della deduzione.
 
+### I tag di luogo: dove arriva e da dove parte
+Su ogni ordine ci sono i **tag dei luoghi**, e sono cliccabili: un clic mostra
+tutti gli ordini di quella città o di quel paese.
+
+- 📍 **la città di consegna** e la bandiera del paese di arrivo;
+- ✈ **la città e il paese di chi manda**, presi dall'indirizzo di fatturazione.
+
+Sono due cose diverse e servono a due mestieri diversi: la città di consegna è
+un problema operativo (chi consegna lì? in quanto tempo?), il paese del mittente
+è un fatto commerciale. Sui dati veri **1.001 ordini sono mandati da un paese
+diverso da quello di consegna**: Kuwait, Filippine, Stati Uniti, Kazakistan che
+mandano fiori in Italia. C'è un filtro apposta («Solo ordini mandati
+dall'estero»), perché quel cliente non passerà mai dal negozio e va trattato per
+quello che è.
+
+Quando mittente e destinatario sono nello stesso paese la bandiera si mostra una
+volta sola: ripeterla sarebbe rumore. E i tag compaiono **solo se il dato c'è** —
+niente «città sconosciuta» a riempire il buco.
+
+Le città arrivano da Shopify in ogni forma («MILANO», «Milano», « milano ») e
+per i tag vengono ridotte a una forma sola, ma **si mostrano come si scrivono**:
+«Reggio Emilia», non «REGGIO EMILIA». Il filtro ignora maiuscole e spazi.
+
+### Quanto manca alla consegna: urgenze, pensieri, eventi
+Un ordine da consegnare domani mattina e uno per un matrimonio fra tre settimane
+si assomigliano in una tabella e non c'entrano niente l'uno con l'altro. Ogni
+ordine porta quindi una **pallina colorata** che dice quanto tempo c'è fra
+l'ordine e la consegna richiesta:
+
+| | tipo | quando |
+| --- | --- | --- |
+| 🔴 | **Urgenza** | consegna lo stesso giorno o il giorno dopo (entro 24 ore) |
+| 🟠 | **Pensiero** | entro 48 ore |
+| 🔵 | **Pianificato** | entro 7 giorni |
+| 🟣 | **Evento** | entro 30 giorni: una data fissata in anticipo |
+| ⚪ | **Molto in anticipo** | oltre 30 giorni |
+
+Sui dati veri il negozio vive di urgenze: **6.249 ordini su 9.475 con una data
+di consegna sono da consegnare entro 24 ore**. Gli eventi sono 469.
+
+**Si misura in giorni di calendario, non in ore.** La data di consegna che arriva
+da Shopify è un giorno, non un istante: la fascia oraria c'è solo qualche volta.
+Dire «mancano 23 ore e mezza» sarebbe precisione finta, ed è il tipo di numero
+che fa prendere decisioni sbagliate. Gli ordini **senza data di consegna** non
+finiscono nel mucchio dei «pianificati»: restano «consegna non indicata», si
+filtrano a parte e si vedono.
+
 ### Analisi (`/analisi`)
 Come stanno andando le vendite, **sempre accanto a un altro periodo**: 85.000 €
 in un mese è tanto o poco? Da solo quel numero non lo dice. Si sceglie

@@ -1,6 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { chiaveCliente } from "./tipologia-cliente";
 import { CANALI_PAGATI } from "./marketing";
+import { prisma } from "./db";
+import { daLontano } from "./luoghi";
+import { giorniDiAnticipo } from "./urgenza";
 
 // Costruzione del filtro Prisma degli ordini, condivisa tra la UI (elenco) e le
 // API di lettura, così i due percorsi filtrano allo stesso modo.
@@ -117,6 +120,38 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
   if (canale === "sconosciuto") where.canaleMarketing = "";
   else if (canale === "pagato") where.canaleMarketing = { in: CANALI_PAGATI };
   else if (canale) where.canaleMarketing = canale;
+
+  // Dove arriva e da dove parte. Il confronto è insensibile a maiuscole e
+  // spazi, perché le città arrivano da Shopify in ogni forma: «MILANO»,
+  // «Milano» e « milano » sono lo stesso posto.
+  const citta = p.get("citta")?.trim();
+  if (citta) where.citta = { equals: citta, mode: "insensitive" };
+
+  const paese = p.get("paese")?.trim();
+  if (paese) where.paese = { equals: paese, mode: "insensitive" };
+
+  const cittaMittente = p.get("cittaMittente")?.trim();
+  if (cittaMittente) where.mittenteCitta = { equals: cittaMittente, mode: "insensitive" };
+
+  const paeseMittente = p.get("paeseMittente")?.trim();
+  if (paeseMittente) where.mittentePaese = { equals: paeseMittente, mode: "insensitive" };
+
+  // Ordini mandati da un paese diverso da quello di consegna: i regali spediti
+  // da lontano, che al Customer Service arrivano con domande diverse. Il
+  // confronto è fra due colonne della stessa riga (riferimento a campo).
+  if (p.get("estero")?.trim() === "si") {
+    and.push({
+      paese: { not: null },
+      mittentePaese: { not: null },
+      NOT: { mittentePaese: { equals: prisma.ordine.fields.paese } },
+    });
+  }
+
+  // Quanto tempo c'è fino alla consegna. `senza-data` è una risposta legittima:
+  // sono gli ordini in cui la data non è stata indicata, e vanno potuti vedere.
+  const urgenza = p.get("urgenza")?.trim();
+  if (urgenza === "senza-data") where.urgenza = "";
+  else if (urgenza) where.urgenza = urgenza;
 
   const da = p.get("da")?.trim();
   const a = p.get("a")?.trim();
@@ -238,6 +273,24 @@ export function serializzaOrdine(
       provincia: o.provincia,
       paese: o.paese,
     },
+    // Chi manda: nei regali non è la stessa persona né lo stesso posto di chi
+    // riceve. `daLontano` è vero quando il paese di partenza e quello di arrivo
+    // sono diversi — è la riga che spiega metà delle domande al Customer
+    // Service. `null` dove il dato manca: non si deduce dal destinatario.
+    mittente: {
+      nome: o.mittenteNome,
+      citta: o.mittenteCitta,
+      provincia: o.mittenteProvincia,
+      paese: o.mittentePaese,
+      daLontano: daLontano(o),
+    },
+    // Quanto tempo c'è fra l'ordine e la consegna richiesta:
+    // urgenza (≤24h) | pensiero (≤48h) | pianificato (≤7gg) | evento (≤30gg) |
+    // lontano. `null` = consegna non indicata, che NON vuol dire «pianificato».
+    // Si misura in giorni di calendario: la data di consegna è un giorno, non
+    // un istante, e fingere le ore sarebbe precisione inventata.
+    urgenza: o.urgenza || null,
+    giorniAllaConsegna: giorniDiAnticipo(o.data, o.dataConsegna),
     righe: o.righe.map((r) => ({
       titolo: r.titolo,
       variante: r.variante,

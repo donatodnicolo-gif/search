@@ -13,7 +13,7 @@ import { linkRicerca, brandPerRicerca } from "@/lib/fornitori";
 import { cambiaStato, toggleEtichetta, aggiornaClassificazione, segnaProblemaGestito } from "@/app/actions";
 import { ordinali } from "@/lib/repeater";
 import { canale } from "@/lib/marketing";
-import { PillRepeater } from "@/components/Provenienza";
+import { PillRepeater, TagLuoghi, PillUrgenza } from "@/components/Provenienza";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +104,7 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
         <div className="scheda-titolo">Da dove arriva questo ordine</div>
         <div className="riga-provenienza">
           <PillRepeater ordinale={ordinale} />
+          <PillUrgenza chiave={ordine.urgenza} />
           {suoCanale ? (
             <span className={`segno-canale grande${suoCanale.pagato ? " pagato" : ""}`}>
               <span aria-hidden>{suoCanale.simbolo}</span> {suoCanale.nome}
@@ -112,6 +113,7 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
             <span className="tag-vuoto">Provenienza sconosciuta</span>
           )}
         </div>
+        <div style={{ marginTop: 8 }}><TagLuoghi ordine={ordine} /></div>
         <p className="testo-guida" style={{ marginTop: 8 }}>
           {ordinale
             ? ordinale.repeater

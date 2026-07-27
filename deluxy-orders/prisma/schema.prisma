@@ -392,6 +392,22 @@ model Ordine {
   provincia      String?
   paese          String?
 
+  // ---- chi manda (indirizzo di fatturazione su Shopify) ----
+  // In un negozio di regali il mittente e il destinatario sono due persone e
+  // due luoghi diversi: si spedisce da Kuwait a Gardone Riviera. Senza queste
+  // colonne il registro sapeva solo dove arriva la merce, non da dove parte la
+  // richiesta — che è metà del mestiere.
+  mittenteNome      String?
+  mittenteCitta     String?
+  mittenteProvincia String?
+  mittentePaese     String? // codice ISO2: IT, GB, US…
+
+  // Quanto tempo c'è fra l'ordine e la consegna richiesta: urgenza, pensiero,
+  // pianificato, evento, lontano — oppure "" se la data di consegna non c'è.
+  // Si ricalcola da sé (src/lib/urgenza.ts): è una lettura di due date, non un
+  // dato da tenere aggiornato a mano.
+  urgenza String @default("")
+
   // Di che cosa è fatto l'ordine: le categorie dei suoi prodotti, separate da
   // spazio («fiori dolci»). Si ricava dai titoli delle righe (vedi
   // src/lib/categorie.ts) e si riscrive quando l'ordine cambia; l'archivio si
@@ -449,6 +465,11 @@ model Ordine {
   @@index([rischioLivello])
   @@index([categoriaPagamento])
   @@index([canaleMarketing])
+  @@index([urgenza])
+  @@index([citta])
+  @@index([paese])
+  @@index([mittenteCitta])
+  @@index([mittentePaese])
   @@index([assegnatoApp])
   @@index([data])
 }

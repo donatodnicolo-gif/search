@@ -12,7 +12,8 @@ import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
 import { brandConColore, mappaColori, coloreBrand, mappaRicerca } from "@/lib/brand";
 import { linkRicerca } from "@/lib/fornitori";
 import { ordinali } from "@/lib/repeater";
-import { SegnoCanale, PillRepeater } from "@/components/Provenienza";
+import { URGENZE } from "@/lib/urgenza";
+import { SegnoCanale, PillRepeater, TagLuoghi, PillUrgenza } from "@/components/Provenienza";
 import { sincronizza } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -148,7 +149,7 @@ export default async function ElencoOrdini({
       {/* Ricerca in evidenza: una sola casella che cerca ovunque */}
       <form className="ricerca" method="get">
         {/* conserva i filtri attivi mentre si cerca */}
-        {["brand", "stato", "categoria", "app", "etichetta"].map((k) =>
+        {["brand", "stato", "categoria", "app", "etichetta", "citta", "paese", "cittaMittente", "paeseMittente", "urgenza", "canale", "estero"].map((k) =>
           sp[k] ? <input key={k} type="hidden" name={k} value={sp[k]} /> : null,
         )}
         <span className="ricerca-icona" aria-hidden="true">
@@ -224,6 +225,19 @@ export default async function ElencoOrdini({
           <option value="HIGH">Rischio alto</option>
           <option value="MEDIUM">Rischio medio</option>
           <option value="LOW">Rischio basso</option>
+        </select>
+        {/* Quanto tempo c'è fra l'ordine e la consegna richiesta */}
+        <select name="urgenza" defaultValue={sp.urgenza ?? ""}>
+          <option value="">Ogni tempo di consegna</option>
+          {URGENZE.map((u) => (
+            <option key={u.chiave} value={u.chiave}>{u.nome}</option>
+          ))}
+          <option value="senza-data">Consegna non indicata</option>
+        </select>
+        {/* Da dove parte la richiesta: gli ordini spediti da un altro paese */}
+        <select name="estero" defaultValue={sp.estero ?? ""}>
+          <option value="">Da qualunque paese</option>
+          <option value="si">Solo ordini mandati dall&apos;estero</option>
         </select>
         <select name="pagamento" defaultValue={sp.pagamento ?? ""}>
           <option value="">Ogni stato pagamento</option>
@@ -313,8 +327,10 @@ export default async function ElencoOrdini({
                       {/* Chi ordina e da dove è arrivato: due segni, una riga */}
                       <div className="riga-provenienza">
                         <PillRepeater ordinale={ordinaliOrdini.get(o.id)} />
+                        <PillUrgenza chiave={o.urgenza} />
                         <SegnoCanale ordine={o} conNome />
                       </div>
+                      <TagLuoghi ordine={o} />
                       {/* Cosa è stato ordinato: è la prima cosa che serve sapere */}
                       {o.righe.length > 0 && (
                         <div className="card-prodotti">
@@ -451,7 +467,7 @@ export default async function ElencoOrdini({
                     </td>
                     <td>
                       <div>{o.clienteNome ?? o.spedizioneNome ?? "—"}</div>
-                      {o.citta && <div className="cella-sub">{o.citta}</div>}
+                      <TagLuoghi ordine={o} compatto />
                       <PillRepeater ordinale={ordinaliOrdini.get(o.id)} />
                     </td>
                     <td className="cella-num">{euro(o.totale, o.valuta)}</td>

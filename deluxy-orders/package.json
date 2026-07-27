@@ -14,7 +14,8 @@
     "import:storico": "tsx scripts/import-storico.ts",
     "verifica:totali": "tsx scripts/verifica-totali.ts",
     "negozi:da-finance": "node scripts/importa-negozi-da-finance.mjs",
-    "importa:provenienza": "tsx scripts/importa-provenienza.ts"
+    "importa:provenienza": "tsx scripts/importa-provenienza.ts",
+    "importa:mittente": "tsx scripts/importa-mittente.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",

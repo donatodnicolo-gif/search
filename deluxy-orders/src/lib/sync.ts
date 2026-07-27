@@ -151,6 +151,13 @@ function datiShopify(brand: string, o: OrdineNormalizzato, categoriaPredefinita?
     paese: o.paese,
     noteShopify: o.noteShopify,
     tagShopify: o.tagShopify,
+    // Chi manda e quanto tempo c'è fino alla consegna: come la provenienza qui
+    // sotto, questi campi stanno anche nel confronto di `cambiato()`.
+    mittenteNome: o.mittenteNome,
+    mittenteCitta: o.mittenteCitta,
+    mittenteProvincia: o.mittenteProvincia,
+    mittentePaese: o.mittentePaese,
+    urgenza: o.urgenza,
     // Provenienza di marketing. Questi campi stanno ANCHE in `cambiato()`:
     // scriverli senza confrontarli è l'errore già pagato coi consensi — l'import
     // gira, dice «tutto invariato» e non salva niente.
@@ -220,6 +227,11 @@ async function salvaBloccoOrdini(
       paese: true,
       noteShopify: true,
       tagShopify: true,
+      mittenteNome: true,
+      mittenteCitta: true,
+      mittenteProvincia: true,
+      mittentePaese: true,
+      urgenza: true,
       sorgente: true,
       visitaSorgente: true,
       utmSource: true,
@@ -363,6 +375,11 @@ type OrdineSalvato = {
   paese: string | null;
   noteShopify: string | null;
   tagShopify: string | null;
+  mittenteNome: string | null;
+  mittenteCitta: string | null;
+  mittenteProvincia: string | null;
+  mittentePaese: string | null;
+  urgenza: string;
   sorgente: string | null;
   visitaSorgente: string | null;
   utmSource: string | null;
@@ -418,6 +435,11 @@ function cambiato(e: OrdineSalvato, o: OrdineNormalizzato, brand: string): boole
   // già salvati non comparirebbe mai — è l'errore che ha reso muti i consensi
   // per un intero backfill. Prezzo: la prima sync dopo questa modifica riscrive
   // gli ordini della finestra, perché il valore passa da vuoto a un canale.
+  if (e.mittenteNome !== o.mittenteNome) return true;
+  if (e.mittenteCitta !== o.mittenteCitta) return true;
+  if (e.mittenteProvincia !== o.mittenteProvincia) return true;
+  if (e.mittentePaese !== o.mittentePaese) return true;
+  if (e.urgenza !== o.urgenza) return true;
   if (e.sorgente !== o.sorgente) return true;
   if (e.visitaSorgente !== o.visitaSorgente) return true;
   if (e.utmSource !== o.utmSource) return true;

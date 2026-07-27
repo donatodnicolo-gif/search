@@ -970,3 +970,27 @@ td .badge-problema { margin-top: 3px; }
 /* La riga del periodo in corso nella serie storica */
 .riga-corrente { background: var(--fill); }
 .riga-corrente td { font-weight: 600; }
+
+/* ---------- Tag di luogo e tempo di consegna ---------- */
+.tag-luoghi { display: inline-flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.tag-luogo {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+.tag-luogo:hover { background: var(--fill-active); color: var(--text); }
+
+.pill-urgenza {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 500;
+  white-space: nowrap;
+}
+.pill-urgenza .dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+}

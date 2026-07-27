@@ -326,6 +326,43 @@ sbagliato** e **16 nel mese sbagliato** (3.627 €) — il consuntivo D2C che
 Budgets legge da `/api/v1/ricavi` era sbagliato di quei 16. Corretto in
 `ricavi/route.ts`, `marketing/route.ts` e `analisi.ts`.
 
+### Tag di luogo, mittente e tipo di urgenza (27/07/2026)
+Campi nuovi su `Ordine`: `mittenteNome/Citta/Provincia/Paese` (da
+`billingAddress` di Shopify) e `urgenza`. Indici su `urgenza`, `citta`, `paese`,
+`mittenteCitta`, `mittentePaese`.
+
+- `src/lib/luoghi.ts` — normalizzazione delle città (per raggruppare) e nomi dei
+  paesi in italiano dal codice ISO2, più la bandiera come emoji. `daLontano()` =
+  paese del mittente diverso da quello di consegna.
+- `src/lib/urgenza.ts` — il vocabolario (urgenza ≤1 giorno, pensiero ≤2,
+  pianificato ≤7, evento ≤30, lontano oltre) e **due implementazioni della
+  stessa regola**: in TS per la sync, in SQL (`SQL_URGENZA`) per il ricalcolo di
+  massa. Se cambia una, va cambiata l'altra.
+- `src/lib/urgenza-ricalcolo.ts` — riscrive l'urgenza di tutto l'archivio in una
+  query (9.430 ordini in 2,9 s), toccando solo le righe che cambiano.
+- Filtri nuovi (UI + API): `citta`, `paese`, `cittaMittente`, `paeseMittente`,
+  `estero=si`, `urgenza` (`senza-data` per gli ordini senza data di consegna).
+  `estero=si` confronta due colonne della stessa riga con un **riferimento a
+  campo Prisma** (`prisma.ordine.fields.paese`).
+- Numeri veri: 1.001 ordini mandati dall'estero; 6.249 urgenze su 9.475 ordini
+  con una data di consegna.
+
+**⚠️ Trappola trovata e corretta il 27/07/2026: la fascia oraria letta come data
+di consegna.** `RE_DATA` contiene il termine generico `consegn`, e la chiave
+`Fascia_Oraria_Consegna` **corrisponde** — arrivando prima nell'elenco degli
+attributi, vinceva lei. Due effetti opposti, entrambi gravi:
+
+- su **cakedesign.me** la fascia `08-12` veniva letta come **8 dicembre**: un
+  ordine da consegnare lo stesso giorno finiva in agenda a dicembre;
+- su **deluxy.it** la fascia `14-15` non è una data valida, quindi la lettura
+  tornava `null` e la vera `Data_Consegna` **non veniva mai guardata**: ordini
+  con una data di consegna che risultavano «senza data».
+
+Corretto passando a `cercaAttributo` un'esclusione esplicita (`RE_FASCIA`): la
+chiave più specifica vince. Verificato su 180 ordini reali (60 per negozio): 6
+corretti, il resto invariato. Se in futuro si aggiunge un attributo, controllare
+che non finisca per corrispondere a due regex diverse.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare

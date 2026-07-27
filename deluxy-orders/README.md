@@ -63,7 +63,7 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 | Metodo | Rotta | Scopo |
 | --- | --- | --- |
 | GET | `/api/v1/health` | sonda pubblica |
-| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio, problema, canale`) e paginazione (`page, limit`) |
+| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio, problema, canale, citta, paese, cittaMittente, paeseMittente, estero, urgenza`) e paginazione (`page, limit`) |
 | GET | `/api/v1/ordini/:id` | un ordine con la classificazione (410 se annullato) |
 | PATCH | `/api/v1/ordini/:id` | riclassifica (chiave di scrittura): `stato`, `etichette[]`, `categoriaPagamento`, `tipoConsegna`, `tipoProdotto`, `canale`, `assegnatoApp`, `fornitore`, `responsabile`, `classificazioni{}`, `noteInterne` |
 | GET | `/api/v1/ricavi` | venduto **aggregato per brand e per mese** (`anno`, oppure `da`/`a`; `brand`; `annullati=inclusi`, `rimborsati=inclusi`) |
@@ -110,6 +110,16 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 > validi *precedenti a quello*, quindi un ordine vecchio resta `numeroOrdine: 1`
 > anche se oggi quel cliente ne ha venti. Il canale è **attribuzione al primo
 > contatto** del percorso che ha portato all'ordine, non all'ultimo clic.
+
+> **Chi manda e quanto manca alla consegna.** Ogni ordine porta `mittente: {
+> nome, citta, provincia, paese, daLontano }` — l'indirizzo di fatturazione, che
+> in un negozio di regali è un'altra persona e un altro posto rispetto a chi
+> riceve — e `urgenza` (`urgenza` ≤24h, `pensiero` ≤48h, `pianificato` ≤7gg,
+> `evento` ≤30gg, `lontano`) con `giorniAllaConsegna`. `daLontano: true` quando
+> il paese di partenza è diverso da quello di arrivo: sono 1.001 ordini.
+> `urgenza: null` vuol dire **consegna non indicata**, non «pianificato». Si
+> misura in **giorni di calendario**: la data di consegna è un giorno, non un
+> istante, e fingere le ore sarebbe precisione inventata.
 
 > **`/api/v1/marketing` risponde a una domanda che una dashboard pubblicitaria
 > non sa dare: di questi ordini, quanti sono di gente che avrebbe comprato
@@ -188,6 +198,10 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
   ogni ordine nuovo invece di essere riscritto da capo.
 - `src/lib/marketing.ts` — da dove è arrivato un ordine: i 12 canali col loro
   simbolo e la regola che li deduce da `utm`, prima visita e canale Shopify.
+- `src/lib/luoghi.ts` — le città e i paesi di consegna e del mittente: forma
+  unica per raggrupparli, nome italiano del paese e bandiera.
+- `src/lib/urgenza.ts` — quanto tempo c'è fra ordine e consegna (urgenza,
+  pensiero, pianificato, evento), in TS e in SQL per il ricalcolo di massa.
 - `src/lib/analisi.ts` — i numeri delle vendite per settimana, mese o anno:
   scontrino medio, UPT, prezzo medio, incidenza di annullamenti e rimborsi, e i
   confronti **a parità di giorni** quando il periodo è ancora in corso.

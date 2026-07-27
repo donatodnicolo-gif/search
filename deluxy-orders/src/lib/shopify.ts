@@ -1,6 +1,7 @@
 import { prisma } from "./db";
 import { categoriaDaGateway, type CategoriaPagamento } from "./classificazione";
 import { deduciCanale } from "./marketing";
+import { classificaUrgenza } from "./urgenza";
 
 // Client Shopify Admin API (GraphQL 2024-10) per scaricare gli ordini dei
 // negozi collegati. Il token (shpat_... o coniato) di ogni negozio è salvato in
@@ -55,6 +56,11 @@ export type OrdineNormalizzato = {
   paese: string | null;
   noteShopify: string | null;
   tagShopify: string | null;
+  mittenteNome: string | null;
+  mittenteCitta: string | null;
+  mittenteProvincia: string | null;
+  mittentePaese: string | null;
+  urgenza: string;
   sorgente: string | null;
   visitaSorgente: string | null;
   utmSource: string | null;
@@ -116,6 +122,10 @@ query Ordini($cursor: String, $q: String) {
         shippingAddress {
           name address1 address2 city zip provinceCode province countryCodeV2 country phone
         }
+        # Chi manda: l'indirizzo di fatturazione. In un negozio di regali non
+        # coincide quasi mai con quello di consegna, ed è l'unico posto dove si
+        # legge da dove parte la richiesta.
+        billingAddress { name city province provinceCode countryCodeV2 }
         lineItems(first: 25) {
           edges { node {
             title
@@ -178,6 +188,13 @@ type OrderNode = {
     phone: string | null;
     emailMarketingConsent: { marketingState: string | null; consentUpdatedAt: string | null } | null;
     smsMarketingConsent: { marketingState: string | null; consentUpdatedAt: string | null } | null;
+  } | null;
+  billingAddress: {
+    name: string | null;
+    city: string | null;
+    province: string | null;
+    provinceCode: string | null;
+    countryCodeV2: string | null;
   } | null;
   shippingAddress: {
     name: string | null;
@@ -333,10 +350,14 @@ function rischioDaOrdine(n: OrderNode): {
 // italiano o inglese (stessa logica dell'app di smistamento).
 
 // Cerca fra gli attributi dell'ordine e, in seconda battuta, delle righe.
-function cercaAttributo(n: OrderNode, re: RegExp): string | null {
+// `escludi` serve a togliere di mezzo le chiavi che assomigliano a quella
+// cercata ma sono un'altra cosa (vedi consegnaDaOrdine).
+function cercaAttributo(n: OrderNode, re: RegExp, escludi?: RegExp): string | null {
   const tutti: Attributo[] = [...(n.customAttributes ?? [])];
   for (const e of n.lineItems?.edges ?? []) tutti.push(...(e.node.customAttributes ?? []));
-  const trovato = tutti.find((a) => a?.key && re.test(a.key) && a.value && a.value.trim() !== "");
+  const trovato = tutti.find(
+    (a) => a?.key && re.test(a.key) && !(escludi && escludi.test(a.key)) && a.value && a.value.trim() !== "",
+  );
   return trovato?.value?.trim() ?? null;
 }
 
@@ -382,8 +403,16 @@ const RE_BIGLIETTO = /(bigliet|dedica|messagg|message|card|frase|tarjeta|karte|c
 // a espressione regolare la leggeva come 8 dicembre. In uno strumento operativo
 // una data di consegna sbagliata è peggio di una mancante: se l'attributo non
 // c'è, l'ordine resta "consegna non indicata" e la nota si legge nella scheda.
+//
+// ⚠️ La chiave della FASCIA va esclusa esplicitamente dalla ricerca della DATA.
+// «Fascia_Oraria_Consegna» contiene la parola «Consegn», quindi entrava nel
+// riconoscimento della data; e siccome viene prima nell'elenco degli attributi,
+// la data di consegna diventava la fascia letta come giorno/mese: «08-12» →
+// 8 dicembre. Trovato il 27/07/2026 su un ordine da consegnare lo stesso
+// giorno, finito in agenda a dicembre. La fascia è la chiave più specifica:
+// vince lei, e se resta solo una data rotta l'ordine è «consegna non indicata».
 function consegnaDaOrdine(n: OrderNode): { data: Date | null; fascia: string | null } {
-  const data = leggiDataConsegna(cercaAttributo(n, RE_DATA));
+  const data = leggiDataConsegna(cercaAttributo(n, RE_DATA, RE_FASCIA));
   const fascia = cercaAttributo(n, RE_FASCIA);
   return { data, fascia: fascia ? fascia.slice(0, 60) : null };
 }
@@ -491,6 +520,13 @@ export async function scaricaOrdini(
         paese: addr?.countryCodeV2 ?? addr?.country ?? null,
         noteShopify: n.note?.slice(0, 1000) ?? null,
         tagShopify: (n.tags ?? []).join(", ") || null,
+        mittenteNome: n.billingAddress?.name ?? null,
+        mittenteCitta: n.billingAddress?.city ?? null,
+        mittenteProvincia: n.billingAddress?.provinceCode ?? n.billingAddress?.province ?? null,
+        mittentePaese: n.billingAddress?.countryCodeV2 ?? null,
+        // Quanto tempo c'è fra l'ordine e la consegna: si calcola qui, con le
+        // due date già in mano, invece di ricavarlo a ogni lettura.
+        urgenza: classificaUrgenza(new Date(n.createdAt), consegna.data),
         righe,
       });
     }
