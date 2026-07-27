@@ -1021,3 +1021,20 @@ td .badge-problema { margin-top: 3px; }
 /* La tabella per dimensione: molti KPI, ognuno con la sua variazione sotto */
 .tabella-dimensione .delta { display: block; margin-top: 2px; font-size: 11px; }
 .tabella-dimensione td { vertical-align: top; }
+
+/* Periodo scelto a mano dentro i filtri dell'analisi */
+.periodo-a-mano {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px 3px 12px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  font-size: 13px; color: var(--text-secondary);
+}
+.periodo-a-mano input[type="date"] {
+  padding: 4px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-s);
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+}

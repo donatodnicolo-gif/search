@@ -111,7 +111,7 @@ function cte(brand: string | null, indiceParametroBrand: number): string {
     ),
     base AS (
       SELECT o."id", o."numero", o."data", o."totale", o."annullatoIl", o."financialStatus",
-             o."categorie", o."citta", o."paese", o."urgenza", o."canaleMarketing", o."clienteNome",
+             o."categorie", o."citta", o."paese", o."urgenza", o."canaleMarketing", o."clienteNome", o."mittentePaese",
              COALESCE(p.pezzi, 0) AS pezzi,
              COALESCE(
                NULLIF(LOWER(TRIM(o."clienteEmail")), ''),
@@ -264,6 +264,20 @@ export const DIMENSIONI: Dimensione[] = [
       "Un ordine entra in un'occasione solo se quella ricorrenza lo cita fra le sue prove; gli altri stanno in «nessuna occasione riconosciuta». La riga più grande è «da precisare»: sono occasioni vere e riconosciute, di cui però nessuno ha ancora detto il motivo — si fanno dire all'AI dalla pagina Eventi clienti, e solo allora questa tabella diventa interessante.",
   },
   {
+    chiave: "paeseMittente",
+    nome: "Nazione di chi ordina",
+    spiega: "Da quale paese parte la richiesta: l'indirizzo di fatturazione.",
+    gruppo: `COALESCE(NULLIF(UPPER(TRIM("mittentePaese")), ''), '(non indicata)')`,
+    nota:
+      "È il paese di CHI MANDA, non di chi riceve: più di un ordine su quattro arriva da fuori Italia. Gli ordini creati a mano spesso non hanno un indirizzo di fatturazione, e finiscono in «non indicata».",
+  },
+  {
+    chiave: "paese",
+    nome: "Nazione di consegna",
+    spiega: "In quale paese arriva il regalo.",
+    gruppo: `COALESCE(NULLIF(UPPER(TRIM("paese")), ''), '(non indicata)')`,
+  },
+  {
     chiave: "urgenza",
     nome: "Tipo di ordine",
     spiega: "Quanto tempo c'è fra l'ordine e la consegna richiesta.",
@@ -271,7 +285,7 @@ export const DIMENSIONI: Dimensione[] = [
   },
   {
     chiave: "canale",
-    nome: "Provenienza",
+    nome: "Canale di provenienza",
     spiega: "Da dove è arrivato l'ordine: Google Ads, ricerca, social, email…",
     gruppo: `COALESCE(NULLIF("canaleMarketing", ''), 'sconosciuto')`,
   },
@@ -383,6 +397,34 @@ export function finePeriodo(inizio: Date, gran: Granularita): Date {
 // Serve al confronto a parità di giorni: mezzo mese si confronta con mezzo mese.
 export function giorniTrascorsi(inizio: Date, adesso: Date): number {
   return Math.max(1, Math.ceil((adesso.getTime() - inizio.getTime()) / MS_GIORNO));
+}
+
+// Da «2026-02-01» alla mezzanotte italiana di quel giorno. Serve al periodo
+// scelto a mano: chi scrive «1 febbraio» intende il 1° febbraio qui, non a
+// Greenwich — e mezz'ora di differenza sposta gli ordini della notte.
+export function inizioGiornoItaliano(iso: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const sonda = new Date(`${iso}T12:00:00Z`);
+  if (Number.isNaN(sonda.getTime())) return null;
+  const d = new Date(`${iso}T00:00:00${offsetItaliano(sonda)}`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export const MS_IN_GIORNO = MS_GIORNO;
+
+// «01 – 14 feb 2026», o «01 feb – 03 mar 2026» quando il periodo scavalca il
+// mese: si scrive quello che serve a riconoscerlo, non una data intera due volte.
+export function nomeIntervallo(inizio: Date, fineEsclusa: Date): string {
+  const ultimo = new Date(fineEsclusa.getTime() - MS_GIORNO);
+  const f = (d: Date, opzioni: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat("it-IT", { timeZone: FUSO, ...opzioni }).format(d);
+  // Un giorno solo si scrive una volta sola: «14 – 14 feb» sembra un errore.
+  if (fineEsclusa.getTime() - inizio.getTime() <= MS_GIORNO) {
+    return f(inizio, { day: "2-digit", month: "short", year: "numeric" });
+  }
+  const stessoMese = f(inizio, { month: "short", year: "numeric" }) === f(ultimo, { month: "short", year: "numeric" });
+  if (stessoMese) return `${f(inizio, { day: "2-digit" })} – ${f(ultimo, { day: "2-digit", month: "short", year: "numeric" })}`;
+  return `${f(inizio, { day: "2-digit", month: "short" })} – ${f(ultimo, { day: "2-digit", month: "short", year: "numeric" })}`;
 }
 
 // La data come la vede l'Italia, in forma YYYY-MM-DD. Serve per confrontarla

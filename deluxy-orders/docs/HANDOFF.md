@@ -312,12 +312,20 @@ categorie di prodotto e serie storica.
   che li spiega è la coppia UPT × prezzo medio.
 - ⚠️ **Il conto dei clienti nuovi si fa su tutta la storia**, come in
   `/api/v1/marketing`: la CTE `numerati` non è filtrata per data.
-- **Sei dimensioni** (27/07/2026): città di consegna, categoria, tipologia di
-  cliente, occasione, tipo di ordine, provenienza — ognuna con TUTTI i KPI e la
+- **Otto dimensioni** (27/07/2026): città di consegna, categoria, tipologia di
+  cliente, occasione, **nazione di chi ordina**, **nazione di consegna**, tipo
+  di ordine, canale di provenienza — ognuna con TUTTI i KPI e la
   loro variazione. Motore unico: `DIMENSIONI` + `perDimensione()` in
   `analisi.ts`; una dimensione nuova sono tre righe. Le due derivate usano CTE
   in più (`tipologie` da nomi+TagCliente con `SQL_TIPOLOGIA_AUTO`, `occasioni`
   da `EventoCliente.ordini` spezzato con `string_to_array`).
+- **Periodo a mano** (`?da=&a=`, date ISO): il confronto diventa la stessa
+  lunghezza appena prima, o le stesse date dell'anno scorso; l'etichetta mostra
+  i giorni **davvero** confrontati (troncati a parità di giorni se il periodo è
+  in corso). Date invertite → si ignora la scelta invece di rispondere a
+  un'altra domanda.
+- **Gli annullati sono sempre fuori dal venduto** e contati a parte: verificato
+  su luglio 2026, 393 validi + 18 annullati + 9 rimborsati = 420 nel registro.
 - ⚠️ Con i JOIN delle dimensioni la colonna `chiave` diventa **ambigua**: in
   `MISURE` va qualificata `x.chiave`, e ogni query che usa MISURE deve aliasare
   la sottoquery come `x`. È il primo errore che si prende aggiungendone una.

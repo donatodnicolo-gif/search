@@ -171,6 +171,21 @@ luglio: il confronto si ferma al 27 del mese prima. Senza questo accorgimento
 ogni mese sembra un disastro fino al 28, e la pagina scriverebbe cali del 40%
 che sono solo giorni non ancora accaduti.
 
+**Si può anche scegliere un periodo qualsiasi** — «dal 1 al 14 febbraio» — con
+le due date in alto. Lì «il mese prima» non esiste, quindi il confronto diventa
+**la stessa lunghezza appena prima** (18–31 gennaio) oppure **le stesse date
+dell'anno scorso**, e l'etichetta scrive sempre quali giorni sta confrontando.
+Un giorno solo si può chiedere: «14 feb 2026» contro «13 feb 2026». Se le due
+date sono al contrario la scelta viene **ignorata** e si torna ai mesi, invece
+di rispondere a una domanda diversa da quella fatta.
+
+**Gli ordini annullati non entrano nel venduto**, mai. Luglio 2026, per essere
+precisi: nel registro ci sono 420 ordini per 98.984 €; l'analisi ne mostra
+**393 per 87.450 €** e tiene fuori 18 annullati (10.730 €) e 9 rimborsati o
+stornati (803 €), che vengono contati a parte nel riquadro «cosa è rimasto fuori
+dal venduto». 393 + 18 + 9 = 420: nessun ordine sparisce e nessuno viene contato
+due volte.
+
 I numeri che escono:
 
 - **venduto**, **ordini**, **clienti**, **pezzi venduti**;
@@ -199,8 +214,10 @@ tabella si può guardare per:
 - **categoria di prodotto** — fiori, torte, colazioni…;
 - **tipologia di cliente** — privato, azienda, hotel e ristoranti, eventi;
 - **occasione** — compleanni, anniversari, lauree;
+- **nazione di chi ordina** — da quale paese parte la richiesta;
+- **nazione di consegna** — in quale paese arriva il regalo;
 - **tipo di ordine** — urgenza, pensiero, pianificato, evento;
-- **provenienza** — Google Ads, ricerca, social, email, WhatsApp.
+- **canale di provenienza** — Google Ads, ricerca, social, email, WhatsApp.
 
 Ogni riga porta **tutti i KPI della pagina** — venduto, quota, ordini, scontrino
 medio, UPT, prezzo medio, pezzi, clienti, % nuovi, % annullati, % rimborsi —

@@ -6,8 +6,12 @@ import { nomeUrgenza } from "@/lib/urgenza";
 import { nomeCanale } from "@/lib/marketing";
 import { nomeTipologia } from "@/lib/segmenti";
 import { nomeTipoEvento } from "@/lib/eventi";
+import { bandiera, nomePaese } from "@/lib/luoghi";
 import {
   GRANULARITA,
+  inizioGiornoItaliano,
+  MS_IN_GIORNO,
+  nomeIntervallo,
   type Granularita,
   finePeriodo,
   giorniTrascorsi,
@@ -62,6 +66,11 @@ function etichettaDimensione(dimensione: string, valore: string): string {
   }
   if (dimensione === "tipologia") return nomeTipologia(valore);
   if (dimensione === "occasione") return nomeTipoEvento(valore);
+  if (dimensione === "paese" || dimensione === "paeseMittente") {
+    if (valore === "(non indicata)") return "Nazione non indicata";
+    // «US» non dice niente a chi legge di corsa: bandiera e nome per esteso.
+    return `${bandiera(valore)} ${nomePaese(valore) ?? valore}`.trim();
+  }
   return valore;
 }
 
@@ -101,17 +110,35 @@ export default async function Analisi({
   const confrontoCon = sp.confronto === "anno" ? "anno" : "precedente";
 
   const adesso = new Date();
-  // Di quale periodo si parla: quello in corso, o uno indietro con `salto`.
+
+  // PERIODO SCELTO A MANO (es. 1–14 febbraio). Vale solo se ci sono tutte e due
+  // le date e sono nell'ordine giusto: mezza scelta si ignora invece di
+  // mostrare numeri che rispondono a una domanda diversa da quella fatta.
+  const suMisuraDa = inizioGiornoItaliano(sp.da?.trim() ?? "");
+  const suMisuraAInclusa = inizioGiornoItaliano(sp.a?.trim() ?? "");
+  const suMisura =
+    suMisuraDa && suMisuraAInclusa && suMisuraAInclusa >= suMisuraDa
+      ? { inizio: suMisuraDa, fine: new Date(suMisuraAInclusa.getTime() + MS_IN_GIORNO) }
+      : null;
+
+  // Di quale periodo si parla: quello scelto a mano, oppure quello in corso
+  // (o uno indietro con `salto`).
   const salto = -Math.max(0, Number(sp.salto ?? "0") || 0);
-  const inizio = inizioPeriodo(adesso, gran, salto);
-  const fine = finePeriodo(inizio, gran);
+  const inizio = suMisura ? suMisura.inizio : inizioPeriodo(adesso, gran, salto);
+  const fine = suMisura ? suMisura.fine : finePeriodo(inizio, gran);
   const inCorso = fine > adesso;
 
-  // Il periodo con cui confrontare: quello prima, oppure lo stesso dell'anno
-  // scorso (per un mese sono 12 mesi indietro, per una settimana 52).
+  // Il periodo con cui confrontare. Per un periodo a mano non esiste «il mese
+  // prima»: si usa **la stessa lunghezza** appena prima, oppure le stesse date
+  // dell'anno scorso.
+  const durata = fine.getTime() - inizio.getTime();
   const passiIndietro = confrontoCon === "anno" ? (gran === "settimana" ? -52 : gran === "mese" ? -12 : -1) : -1;
-  const inizioPrima = inizioPeriodo(inizio, gran, passiIndietro);
-  const finePrima = finePeriodo(inizioPrima, gran);
+  const inizioPrima = suMisura
+    ? confrontoCon === "anno"
+      ? new Date(new Date(inizio).setFullYear(inizio.getFullYear() - 1))
+      : new Date(inizio.getTime() - durata)
+    : inizioPeriodo(inizio, gran, passiIndietro);
+  const finePrima = suMisura ? new Date(inizioPrima.getTime() + durata) : finePeriodo(inizioPrima, gran);
 
   // A PARITÀ DI GIORNI: se il periodo è in corso, il confronto si ferma allo
   // stesso giorno. Senza, ogni mese sembra un disastro fino al 28.
@@ -151,6 +178,16 @@ export default async function Analisi({
     .sort((a, b) => b.ora.lordo - a.ora.lordo || b.prima.lordo - a.prima.lordo);
   const righeDim = righeDimTutte.slice(0, MAX_RIGHE_DIMENSIONE);
   const lordoDim = righeDimTutte.reduce((s, r) => s + r.ora.lordo, 0);
+
+  // Come si chiamano i due periodi: «luglio 2026» quando è un mese intero,
+  // «01 – 14 feb 2026» quando è stato scelto a mano.
+  const etichettaPeriodo = suMisura ? nomeIntervallo(inizio, fine) : nomePeriodo(inizio, gran);
+  // Sul periodo scelto a mano l'etichetta del confronto mostra le date DAVVERO
+  // confrontate: se il periodo è ancora in corso, il confronto è troncato a
+  // parità di giorni, e scrivere la finestra intera sarebbe una mezza bugia.
+  const etichettaConfronto = suMisura
+    ? nomeIntervallo(inizioPrima, fineConfronto)
+    : nomePeriodo(inizioPrima, gran);
 
   function link(extra: Record<string, string>): string {
     const q = new URLSearchParams(sp);
@@ -287,11 +324,15 @@ export default async function Analisi({
           </div>
 
           <div className="navigazione-periodo">
-            <Link className="btn btn-secondario small" href={link({ salto: String(-salto + 1) })}>
-              ←
-            </Link>
-            <strong>{nomePeriodo(inizio, gran)}</strong>
-            {salto < 0 && (
+            {/* Le frecce non hanno senso su un periodo scelto a mano: «il mese
+                prima del 1–14 febbraio» non esiste. */}
+            {!suMisura && (
+              <Link className="btn btn-secondario small" href={link({ salto: String(-salto + 1) })}>
+                ←
+              </Link>
+            )}
+            <strong>{etichettaPeriodo}</strong>
+            {!suMisura && salto < 0 && (
               <Link className="btn btn-secondario small" href={link({ salto: String(-salto - 1) })}>
                 →
               </Link>
@@ -312,10 +353,29 @@ export default async function Analisi({
               </Link>
             ))}
           </span>
+
+          {/* Un periodo qualsiasi, scritto a mano: «1–14 febbraio». Il confronto
+              diventa la stessa lunghezza appena prima, o le stesse date
+              dell'anno scorso. */}
+          <form className="periodo-a-mano" method="get">
+            {(["gran", "confronto", "brand", "dim"] as const).map((k) =>
+              sp[k] ? <input key={k} type="hidden" name={k} value={sp[k]} /> : null,
+            )}
+            <label htmlFor="da">Dal</label>
+            <input type="date" id="da" name="da" defaultValue={sp.da ?? ""} max={chiaveGiorno(adesso)} />
+            <label htmlFor="a">al</label>
+            <input type="date" id="a" name="a" defaultValue={sp.a ?? ""} max={chiaveGiorno(adesso)} />
+            <button className="btn small" type="submit">Vedi</button>
+            {suMisura && (
+              <Link className="btn btn-secondario small" href={link({ da: "", a: "" })}>
+                Torna ai mesi
+              </Link>
+            )}
+          </form>
         </div>
 
         <p className="testo-guida" style={{ marginTop: 10 }}>
-          Confronto con <strong>{nomePeriodo(inizioPrima, gran)}</strong>.{" "}
+          Confronto con <strong>{etichettaConfronto}</strong>.{" "}
           {inCorso ? (
             <>
               Il periodo è <strong>in corso</strong> ({giorni} {giorni === 1 ? "giorno" : "giorni"}):
@@ -391,7 +451,7 @@ export default async function Analisi({
         </div>
         <p className="testo-guida" style={{ marginTop: 8 }}>
           {dim.spiega} Ogni riga porta gli stessi KPI della pagina, con la variazione rispetto a{" "}
-          <strong>{nomePeriodo(inizioPrima, gran)}</strong>.
+          <strong>{etichettaConfronto}</strong>.
         </p>
 
         <div className="tabella-wrap" style={{ marginTop: 12 }}>
