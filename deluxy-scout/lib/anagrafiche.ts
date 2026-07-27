@@ -154,6 +154,44 @@ export async function fetchSegnalatiDaApp(fonte: string): Promise<{
 }
 
 /**
+ * Tutti i partner del registro, a pagine. Serve alla vista Province, che deve
+ * contare quanti ne abbiamo in ognuna delle 107 province: chiederli una
+ * provincia alla volta sarebbe 107 chiamate.
+ *
+ * ⚠️ Richiede la Edge Function `anagrafiche` aggiornata (parametro `page`).
+ * Senza, il registro rimanda sempre la prima pagina: il ciclo se ne accorge —
+ * la pagina 2 è identica alla 1 — e si ferma invece di girare a vuoto o, peggio,
+ * contare dieci volte gli stessi partner (è già successo mentre verificavo i
+ * numeri: totali tutti multipli tondi di 10).
+ */
+export async function fetchTuttiPartner(max = 1200): Promise<{ partner: PartnerRegistro[]; completo: boolean }> {
+  const PER_PAGINA = 50;
+  const tutti: PartnerRegistro[] = [];
+  const visti = new Set<string>();
+  let completo = true;
+  for (let page = 1; tutti.length < max; page++) {
+    const r = await chiama<{ dati?: PartnerRegistro[]; totale?: number }>({
+      action: 'cerca',
+      perPage: PER_PAGINA,
+      page,
+    });
+    const righe = r.dati ?? [];
+    if (!righe.length) break;
+    const nuovi = righe.filter((p) => !visti.has(p.id));
+    // Nessun id nuovo = la paginazione non sta funzionando: fermarsi e dirlo.
+    if (!nuovi.length) {
+      if (page > 1) completo = false;
+      break;
+    }
+    for (const p of nuovi) visti.add(p.id);
+    tutti.push(...nuovi);
+    if (righe.length < PER_PAGINA) break;
+    if (r.totale && tutti.length >= r.totale) break;
+  }
+  return { partner: tutti, completo };
+}
+
+/**
  * Cerca nel registro il partner corrispondente a un negozio (per nome, con la
  * città come contesto). Ritorna la corrispondenza per nome normalizzato, o la
  * prima se non c'è un match esatto (con confidenza bassa lato UI).

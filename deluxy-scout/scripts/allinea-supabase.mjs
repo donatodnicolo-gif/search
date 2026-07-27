@@ -29,8 +29,12 @@ const MIGRAZIONI = [
   '0045_chiavi_app.sql',
   '0046_contatti_avviati.sql',
   '0047_bozze_e_pianificazione.sql',
+  '0048_stato_selezionato.sql',
 ];
-const FUNZIONI = ['anagrafiche'];
+// `ordini` è il proxy verso Deluxy Orders (venduto per provincia): resta inerte
+// finché in cassaforte non c'è `ORDERS_API_KEY`, ma senza deploy non esiste
+// proprio e la vista Province non mostra nessun valore di vendita.
+const FUNZIONI = ['anagrafiche', 'ordini'];
 
 if (!PAT) {
   console.error('\n✗ Manca SUPABASE_PAT.\n');

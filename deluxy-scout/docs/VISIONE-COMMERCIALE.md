@@ -87,6 +87,31 @@ lead, con valore e scadenza. Il livello dice *a che punto è il rapporto*, la
 trattativa *cosa ci stiamo giocando*. Tenerli distinti evita l'illusione di una
 pipeline piena che in realtà è solo una lista di nomi.
 
+## La copertura per provincia
+
+`Province · Copertura` guarda l'Italia dall'alto: tutte e **107** le province
+(`lib/province.ts`), non solo quelle dove abbiamo qualcosa. È il punto della
+schermata — un elenco costruito sui dati che abbiamo mostrerebbe solo dove siamo
+già, che è l'informazione che non serve per crescere.
+
+Per ogni provincia: **fornitori attivi** e **partner in lavorazione** dal
+registro Anagrafiche, **venduto** da Deluxy Orders (`GET /api/v1/province`, che
+aggrega con le stesse esclusioni di `/api/v1/ricavi` — annullati e rimborsati
+fuori — perché due endpoint che contano il fatturato in modi diversi sono un
+modo sicuro per litigare sui numeri).
+
+Il filtro **Scoperte** toglie le province dove un fornitore attivo c'è già.
+Le righe evidenziate sono il caso che conta: **si vende, ma non abbiamo
+nessuno**. Alla verifica del 27/07/2026: 15 province coperte, **92 scoperte**,
+e Napoli con 54 partner in lavorazione, zero attivi e ordini già in corso.
+
+Due cose che la schermata **dichiara invece di nascondere**:
+- gli ordini senza provincia (3.402, un terzo del fatturato): Shopify non ce
+  l'ha e non viene indovinata dal CAP — sarebbe un'ipotesi travestita da dato;
+- quando il registro o Orders non rispondono per intero, i conteggi sono
+  parziali e viene detto. Una lista incompleta che sembra completa fa credere
+  che il lavoro sia finito.
+
 ## La regola d'oro sulle perse
 
 Una trattativa persa non è spazzatura: è **pipeline differita**. Al momento della

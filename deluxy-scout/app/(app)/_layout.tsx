@@ -35,6 +35,8 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     voci: [
       { name: 'mappa', label: 'Territorio · Mappa', icon: 'map-outline' },
       { name: 'affiliazioni', label: 'Chiamate · Affiliazioni', icon: 'call-outline' },
+      // L'Italia dall'alto: dove siamo, dove vendiamo, dove non c'è nessuno.
+      { name: 'province', label: 'Province · Copertura', icon: 'grid-outline' },
       { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
       // Quarto canale: non li troviamo noi, ce li passa un'altra app.
       { name: 'segnalati', label: 'Segnalati · Fornitori', icon: 'cube-outline' },
