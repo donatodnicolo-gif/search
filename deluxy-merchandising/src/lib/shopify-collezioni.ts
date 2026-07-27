@@ -155,6 +155,7 @@ type ProdottoShopifyApi = {
   title: string;
   handle: string;
   productType: string | null;
+  category: { id: string; name: string; fullName: string | null } | null;
   vendor: string | null;
   tags: string[];
   variants: { nodes: { sku: string | null }[] };
@@ -179,6 +180,7 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
            pageInfo { hasNextPage endCursor }
            nodes {
              id title handle productType vendor tags
+             category { id name fullName }
              variants(first: 10) { nodes { sku } }
              collections(first: 10) { nodes { id } }
            }
@@ -260,7 +262,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
 
     // — Le appartenenze, e quello che Shopify sa del prodotto —
     const legami: { collezioneId: string; prodottoId: string }[] = [];
-    const daAggiornare: { id: string; tipoShopify: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string }[] = [];
+    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string }[] = [];
     for (const p of prodottiShopify) {
       let nostroId: string | undefined;
       for (const v of p.variants.nodes) {
@@ -293,6 +295,8 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
       daAggiornare.push({
         id: nostroId,
         tipoShopify: p.productType?.trim() || null,
+        categoriaShopifyId: p.category?.id ?? null,
+        categoriaShopifyNome: p.category?.fullName || p.category?.name || null,
         vendorShopify: p.vendor?.trim() || null,
         tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
         handleShopify: p.handle,
@@ -325,6 +329,8 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
             where: { id: d.id },
             data: {
               tipoShopify: d.tipoShopify,
+              categoriaShopifyId: d.categoriaShopifyId,
+              categoriaShopifyNome: d.categoriaShopifyNome,
               vendorShopify: d.vendorShopify,
               tagShopify: d.tagShopify,
               handleShopify: d.handleShopify,
@@ -333,6 +339,8 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
         )
       );
     }
+
+    await aggiornaRegistroCategorie();
 
     base.ok = true;
     base.messaggio =
@@ -363,4 +371,65 @@ export async function ultimiImportCollezioni() {
   const perNegozio = new Map<string, (typeof righe)[number]>();
   for (const r of righe) if (!perNegozio.has(r.negozio)) perNegozio.set(r.negozio, r);
   return [...perNegozio.values()];
+}
+
+
+/**
+ * Rifà il registro delle categorie viste sui negozi: la tassonomia standard di
+ * Shopify e i «tipi prodotto» scritti a mano. Si ricalcola per intero a ogni
+ * import — sono poche migliaia di righe — così una categoria sparita dal
+ * negozio sparisce anche da qui invece di restare come fantasma.
+ */
+export async function aggiornaRegistroCategorie(): Promise<void> {
+  const prodotti = await prisma.prodotto.findMany({
+    where: { OR: [{ categoriaShopifyId: { not: null } }, { tipoShopify: { not: null } }] },
+    select: {
+      categoriaShopifyId: true,
+      categoriaShopifyNome: true,
+      tipoShopify: true,
+      collezioniShopify: { select: { collezione: { select: { negozio: true } } } },
+    },
+  });
+
+  type Voce = { origine: string; chiave: string; nome: string; nomeCompleto: string | null; prodotti: number; negozi: Set<string> };
+  const registro = new Map<string, Voce>();
+  const aggiungi = (origine: string, chiave: string, nome: string, nomeCompleto: string | null, negozi: string[]) => {
+    const k = origine + '|' + chiave;
+    const v = registro.get(k) ?? { origine, chiave, nome, nomeCompleto, prodotti: 0, negozi: new Set<string>() };
+    v.prodotti += 1;
+    for (const n of negozi) v.negozi.add(n);
+    registro.set(k, v);
+  };
+
+  for (const p of prodotti) {
+    const negozi = [...new Set(p.collezioniShopify.map((c) => c.collezione.negozio))];
+    if (p.categoriaShopifyId) {
+      const completo = p.categoriaShopifyNome ?? '';
+      const corto = completo.includes('>') ? completo.split('>').pop()!.trim() : completo || p.categoriaShopifyId;
+      aggiungi('tassonomia', p.categoriaShopifyId, corto, completo || null, negozi);
+    }
+    if (p.tipoShopify) aggiungi('tipo', p.tipoShopify, p.tipoShopify, null, negozi);
+  }
+
+  const vive = [...registro.values()];
+  for (const v of vive) {
+    await prisma.categoriaShopify.upsert({
+      where: { origine_chiave: { origine: v.origine, chiave: v.chiave } },
+      create: {
+        origine: v.origine,
+        chiave: v.chiave,
+        nome: v.nome,
+        nomeCompleto: v.nomeCompleto,
+        prodotti: v.prodotti,
+        negozi: [...v.negozi].join(', ') || null,
+      },
+      // La corrispondenza con la nostra categoria NON si tocca: l'ha decisa una
+      // persona e un import non la cancella.
+      update: { nome: v.nome, nomeCompleto: v.nomeCompleto, prodotti: v.prodotti, negozi: [...v.negozi].join(', ') || null },
+    });
+  }
+  const chiaviVive = vive.map((v) => v.origine + '|' + v.chiave);
+  const tutte = await prisma.categoriaShopify.findMany({ select: { id: true, origine: true, chiave: true } });
+  const morte = tutte.filter((x) => !chiaviVive.includes(x.origine + '|' + x.chiave)).map((x) => x.id);
+  if (morte.length) await prisma.categoriaShopify.deleteMany({ where: { id: { in: morte } } });
 }

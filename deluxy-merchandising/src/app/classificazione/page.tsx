@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { Sidebar } from "@/components/Sidebar";
 import {
+  applicaCategoriaShopifyAzione,
+  collegaCategoriaShopifyAzione,
   eliminaCategoriaAzione,
   eliminaCollezioneAzione,
   eliminaLineaAzione,
@@ -25,7 +27,7 @@ export default async function ClassificazionePage({
   searchParams: Promise<{ esito?: string; messaggio?: string }>;
 }) {
   const sp = await searchParams;
-  const [categorie, linee, collezioni, senzaCategoria] = await Promise.all([
+  const [categorie, linee, collezioni, senzaCategoria, categorieShopify] = await Promise.all([
     elencoCategorie(),
     elencoLinee(),
     prisma.collezione.findMany({
@@ -33,6 +35,7 @@ export default async function ClassificazionePage({
       include: { _count: { select: { prodotti: true } } },
     }),
     prisma.prodotto.count({ where: { categoria: "DA_CLASSIFICARE" } }),
+    prisma.categoriaShopify.findMany({ orderBy: [{ prodotti: "desc" }, { nome: "asc" }] }),
   ]);
 
   return (
@@ -165,6 +168,81 @@ export default async function ClassificazionePage({
               </button>
             </div>
           </form>
+        </div>
+
+        {/* ---------- Categorie viste sui negozi ---------- */}
+        <div className="scheda">
+          <div className="scheda-titolo">
+            Categorie viste su Shopify · {categorieShopify.length}
+          </div>
+          <p className="page-sub" style={{ marginBottom: 14 }}>
+            Quello che i negozi dicono dei prodotti: la <b>tassonomia standard</b> di Shopify e i <b>tipi
+            prodotto</b> scritti a mano. Non sono le nostre categorie — si leggono, non si decidono — ma sono
+            la materia prima per costruire la corrispondenza: scegli a quale categoria nostra corrisponde
+            ciascuna, poi <b>Applica</b> per riclassificare i prodotti in blocco. La corrispondenza salvata non
+            tocca i prodotti finché non lo chiedi.
+          </p>
+          {categorieShopify.length === 0 ? (
+            <p className="page-sub">
+              Nessuna categoria letta dai negozi: lanciala con <b>Importa</b> da{" "}
+              <Link href="/collezioni">Collezioni</Link>.
+            </p>
+          ) : (
+            <div className="tabella-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Categoria del negozio</th>
+                    <th>Origine</th>
+                    <th className="num">Prodotti</th>
+                    <th>Corrisponde a</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {categorieShopify.map((cs) => (
+                    <tr key={cs.id}>
+                      <td>
+                        <span className="cella-nome">{cs.nome}</span>
+                        <div className="cella-sub">
+                          {cs.nomeCompleto && cs.nomeCompleto !== cs.nome ? `${cs.nomeCompleto} · ` : ""}
+                          {cs.negozi ?? "—"}
+                        </div>
+                      </td>
+                      <td className="cella-muta">
+                        {cs.origine === "tassonomia" ? "Tassonomia Shopify" : "Tipo prodotto"}
+                      </td>
+                      <td className="num">{cs.prodotti}</td>
+                      <td>
+                        <form action={collegaCategoriaShopifyAzione.bind(null, cs.id)} className="riga-classifica">
+                          <select name="categoriaDeluxy" defaultValue={cs.categoriaDeluxy ?? ""} aria-label={`Categoria per ${cs.nome}`}>
+                            <option value="">— nessuna —</option>
+                            {categorie.map((c) => (
+                              <option key={c.chiave} value={c.chiave}>
+                                {c.nome}
+                              </option>
+                            ))}
+                          </select>
+                          <button className="btn small" type="submit">
+                            Salva
+                          </button>
+                        </form>
+                      </td>
+                      <td>
+                        {cs.categoriaDeluxy && (
+                          <form action={applicaCategoriaShopifyAzione.bind(null, cs.id)}>
+                            <button className="btn btn-secondario small" type="submit">
+                              Applica a {cs.prodotti}
+                            </button>
+                          </form>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* ---------- Linee ---------- */}

@@ -147,6 +147,38 @@ export async function salvaCollezioneAzione(fd: FormData) {
   tornaA("collezione");
 }
 
+// ---------- Corrispondenza categorie Shopify → nostre ----------
+
+/**
+ * Dice a quale nostra categoria corrisponde una categoria vista sul negozio.
+ * Salva soltanto la corrispondenza: i prodotti non si muovono finché non lo si
+ * chiede, perché riclassificare 600 prodotti è una decisione, non un effetto
+ * collaterale di una tendina.
+ */
+export async function collegaCategoriaShopifyAzione(id: string, fd: FormData) {
+  const categoriaDeluxy = testo(fd, "categoriaDeluxy") || null;
+  await prisma.categoriaShopify.update({ where: { id }, data: { categoriaDeluxy } });
+  revalidatePath("/classificazione");
+}
+
+/** Applica la corrispondenza ai prodotti: qui sì che si riclassifica. */
+export async function applicaCategoriaShopifyAzione(id: string) {
+  const c = await prisma.categoriaShopify.findUnique({ where: { id } });
+  if (!c?.categoriaDeluxy) tornaA("errore", "Prima scegli a quale categoria nostra corrisponde.");
+
+  const dove =
+    c!.origine === "tassonomia" ? { categoriaShopifyId: c!.chiave } : { tipoShopify: c!.chiave };
+  const esito = await prisma.prodotto.updateMany({
+    where: dove,
+    data: { categoria: c!.categoriaDeluxy as string },
+  });
+  aggiornaTutto();
+  tornaA(
+    "categoria",
+    `«${c!.nome}» applicata: ${esito.count} prodotti ora sono in «${c!.categoriaDeluxy}».`
+  );
+}
+
 // ---------- Esclusione dalle analisi ----------
 
 /**

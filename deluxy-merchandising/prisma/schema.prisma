@@ -84,6 +84,12 @@ model Prodotto {
   // titolo, e infatti la categoria interna resta separata: una si legge, l'altra
   // si decide.
   tipoShopify    String?
+  // La **categoria della tassonomia Shopify**: non è il tipo scritto a mano, è
+  // una voce di un albero standard ("Home & Garden > Decor > Flowers"). Vale
+  // come il tipo — è letta, non dedotta — ma è normalizzata, quindi si presta a
+  // fare da ponte verso le nostre categorie.
+  categoriaShopifyId   String?
+  categoriaShopifyNome String? // nome completo, col percorso
   vendorShopify  String?
   tagShopify     String? // separati da virgola, come li dà Shopify
   handleShopify  String?
@@ -333,6 +339,30 @@ model ProdottoInCollezioneShopify {
 
   @@unique([collezioneId, prodottoId])
   @@index([prodottoId])
+}
+
+// Il registro delle **categorie viste sui negozi**: la tassonomia standard di
+// Shopify e i «tipi prodotto» scritti a mano da chi cura il sito.
+//
+// Sta separato dalle nostre `CategoriaProdotto` per la stessa ragione per cui
+// le collezioni Shopify stanno separate dalle collezioni di maison: una si
+// legge dal negozio, l'altra la decidiamo noi. Questo elenco è la materia
+// prima con cui — a mano o con l'AI — si costruisce la corrispondenza.
+model CategoriaShopify {
+  id           String   @id @default(cuid())
+  // "tassonomia" = categoria standard Shopify; "tipo" = productType libero.
+  origine      String   @default("tassonomia")
+  chiave       String // gid della tassonomia, oppure il testo del tipo
+  nome         String // nome corto
+  nomeCompleto String? // il percorso completo nell'albero, se c'è
+  prodotti     Int      @default(0) // quanti prodotti nostri ce l'hanno
+  negozi       String? // su quali negozi è stata vista, separati da virgola
+  // A quale categoria nostra corrisponde, quando qualcuno lo decide.
+  categoriaDeluxy String?
+  vistaIl      DateTime @updatedAt
+
+  @@unique([origine, chiave])
+  @@index([origine])
 }
 
 // Chiave API con cui le altre app Deluxy leggono da qui.
