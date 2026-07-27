@@ -255,3 +255,24 @@ model RettificaCompetenza {
   @@index([annoOrigine])
   @@index([annoCompetenza])
 }
+
+// Conto economico **civilistico** (art. 2425 c.c.), cioè il bilancio vero, non
+// la ricostruzione gestionale dai movimenti di banca. Le due cose convivono di
+// proposito: il gestionale risponde «come sta andando adesso», il bilancio
+// «cosa abbiamo depositato». Confrontarli è il modo per scoprire cosa manca
+// nell'uno o nell'altro.
+//
+// Un record per voce e per anno. `mesi` è la ripartizione mensile (JSON, 12
+// valori): se assente la voce vale solo a livello annuo, e le viste mensili lo
+// dicono invece di spalmarla in dodicesimi.
+model VoceBilancio {
+  id      String  @id @default(cuid())
+  anno    Int
+  codice  String // A1, A5, B6, B7, B9, B10, B14, C17, 20, 21…
+  importo Float   @default(0)
+  mesi    String? // JSON: [gen, feb, …, dic]
+  nota    String?
+
+  @@unique([anno, codice])
+  @@index([anno])
+}

@@ -20,6 +20,10 @@
 // - gli ordini ANNULLATI non escono dalle API di Orders se non li si chiede
 //   apposta (--annullati): un annullato resta spesso "pagato" e conteggiarlo
 //   gonfierebbe il fatturato;
+// - l'attribuzione (`origine`, `utmSource`, `utmCampagna`) è quella di Shopify
+//   al PRIMO contatto del percorso, non all'ultimo clic: è volutamente diversa
+//   da come contano Google e Meta, ed è proprio il confronto fra le due che
+//   dice se il tracciamento regge;
 // - il valore NETTO merce, la spedizione e lo sconto non sono esposti da
 //   Orders: sulle righe già presenti non vengono toccati, sulle nuove restano
 //   vuoti. Il `totale` è quello Shopify, IVA e spedizione incluse.
@@ -91,13 +95,28 @@ async function pagina(page) {
   }
   if (conAnnullati) q.set("annullati", "inclusi");
 
-  const risposta = await fetch(`${URL_ORDERS}/api/v1/ordini?${q}`, {
-    headers: { "x-api-key": CHIAVE },
-  });
-  if (!risposta.ok) {
-    throw new Error(`Orders ha risposto ${risposta.status}: ${(await risposta.text()).slice(0, 200)}`);
+  // Un import lungo attraversa mezz'ora di rete: un singolo intoppo non deve
+  // buttare via tutto il lavoro fatto. Tre tentativi con attesa crescente.
+  let attesa = 3000;
+  for (let tentativo = 1; tentativo <= 3; tentativo++) {
+    try {
+      const risposta = await fetch(`${URL_ORDERS}/api/v1/ordini?${q}`, {
+        headers: { "x-api-key": CHIAVE },
+      });
+      if (risposta.ok) return risposta.json();
+      // 4xx: è un errore nostro, ritentare non serve
+      if (risposta.status < 500) {
+        throw new Error(`Orders ha risposto ${risposta.status}: ${(await risposta.text()).slice(0, 200)}`);
+      }
+      console.log(`  (pagina ${page}: HTTP ${risposta.status}, ritento fra ${attesa / 1000}s)`);
+    } catch (e) {
+      if (tentativo === 3 || /Orders ha risposto 4/.test(String(e))) throw e;
+      console.log(`  (pagina ${page}: ${String(e.cause?.code || e.message)}, ritento fra ${attesa / 1000}s)`);
+    }
+    await new Promise((r) => setTimeout(r, attesa));
+    attesa *= 3;
   }
-  return risposta.json();
+  throw new Error(`Pagina ${page}: esauriti i tentativi`);
 }
 
 const conteggi = { nuovi: 0, aggiornati: 0, invariati: 0, saltati: 0, righe: 0 };
@@ -121,7 +140,7 @@ do {
   if (chiavi.length > 0) {
     const trovati = await prisma.ordine.findMany({
       where: { OR: chiavi.map((x) => ({ negozio: x.mappa.negozio, idEsterno: x.idEsterno })) },
-      select: { id: true, negozio: true, idEsterno: true, totale: true, stato: true, numero: true, _count: { select: { righe: true } } },
+      select: { id: true, negozio: true, idEsterno: true, totale: true, stato: true, numero: true, origine: true, utmSource: true, _count: { select: { righe: true } } },
     });
     for (const t of trovati) gia.set(`${t.negozio}|${t.idEsterno}`, t);
   }
@@ -153,7 +172,12 @@ do {
       email: o.cliente?.email ?? undefined,
       citta: o.spedizione?.citta ?? undefined,
       paese: o.spedizione?.paese ?? undefined,
-      ...(o.classificazione?.canale ? { origine: o.classificazione.canale } : {}),
+      // Da dove è arrivato l'ordine secondo Shopify, attribuito al PRIMO
+      // contatto del percorso. È l'altra campana rispetto alle conversioni che
+      // dichiarano Google e Meta: serve a vedere se il tracciamento regge.
+      ...(o.marketing?.canale ? { origine: o.marketing.canale } : {}),
+      ...(o.marketing?.utmSource ? { utmSource: o.marketing.utmSource } : {}),
+      ...(o.marketing?.campagna ? { utmCampagna: o.marketing.campagna } : {}),
     };
 
     const esistente = gia.get(`${mappa.negozio}|${idEsterno}`);
@@ -173,7 +197,9 @@ do {
       const cambiato =
         esistente.totale !== dati.totale ||
         esistente.stato !== dati.stato ||
-        esistente.numero !== dati.numero;
+        esistente.numero !== dati.numero ||
+        (dati.origine != null && esistente.origine !== dati.origine) ||
+        (dati.utmSource != null && esistente.utmSource !== dati.utmSource);
       if (cambiato) await prisma.ordine.update({ where: { id: esistente.id }, data: dati });
       // Le righe si riscrivono solo se mancano: rifarle a ogni giro
       // cancellerebbe e ricreerebbe migliaia di righe per niente.

@@ -228,3 +228,33 @@ l'ecosistema.
 > della sola password: chi la conosce se lo calcolerebbe da sé e lo infilerebbe nel browser,
 > **saltando il codice**. Conseguenza voluta: cambiando `APP_SECRET` (o la password) tutte le
 > sessioni aperte decadono.
+
+## Conto economico civilistico (`/conto-economico`)
+
+Il bilancio **vero**, nello schema di legge (art. 2425 c.c.), con le stesse voci e gli stessi
+codici del PDF del commercialista. Non sostituisce il Consuntivo: risponde a un'altra domanda.
+
+| | Consuntivo / CFO | Conto economico |
+| --- | --- | --- |
+| Domanda | «come sta andando adesso» | «cosa abbiamo chiuso» |
+| Fonte | Finance + banca + Orders | il bilancio depositato |
+| Copertura | arriva a oggi | solo esercizi chiusi |
+| Limite | non conosce ammortamenti, ratei, rimanenze | esiste dopo la chiusura |
+
+**I totali si calcolano, non si digitano** (`totali()` in `src/lib/bilancio.ts`): un bilancio in cui
+il totale è un campo libero prima o poi non quadra e nessuno se ne accorge.
+
+**Import**: si incollano le righe copiate dal PDF o dall'Excel, «codice importo». Il parser dei
+numeri (`numero()`) non tira a indovinare: **l'ultimo fra punto e virgola è il separatore
+decimale**, e tre cifre dopo l'ultimo separatore vogliono dire migliaia. Regge l'italiano
+(`1.250.000,00`), l'inglese (`1,250,000.00`) e i negativi fra parentesi. Le righe con un codice
+fuori schema vengono **ignorate e contate**: nessuna riga finisce in una voce a caso.
+
+**Ripartizione mensile** facoltativa per voce: la somma dei dodici mesi deve fare esattamente
+l'importo annuo, altrimenti il salvataggio viene rifiutato. Le voci senza ripartizione restano
+annue e **non vengono spalmate in dodicesimi** — un dodicesimo di ammortamento è un numero
+inventato che in una tabella mensile sembrerebbe misurato.
+
+Su un esercizio chiuso e compilato compare il **confronto col gestionale**, con la spiegazione
+riga per riga del perché può non tornare. Le differenze non sono errori: sono due contabilità che
+misurano cose diverse. Quando una differenza *non* ha una spiegazione, quella è la cosa da guardare.

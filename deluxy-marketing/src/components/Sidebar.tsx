@@ -6,7 +6,8 @@ import { SbSezione } from "./SbSezione";
 export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "gruppi" | "landing" | "copy" | "keywords"
   | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni"
-  | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo" | "ricezione" | "ai";
+  | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo" | "ricezione" | "ai"
+  | "tracciamento";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -127,6 +128,7 @@ export async function Sidebar({
 
         <SbSezione titolo="Vendite">
           {voce("ordini", "/ordini", "ordini", "Ordini", nOrdini)}
+          {voce("tracciamento", "/tracciamento", "metriche", "Ritorno e tracciamento")}
           {voce("offerte", "/offerte", "vendite", "Analisi per offerta")}
         </SbSezione>
 
