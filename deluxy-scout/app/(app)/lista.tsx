@@ -15,31 +15,41 @@ import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { coloreLivello, LABEL_LIVELLO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 import { VisitaModal } from '@/components/VisitaModal';
-import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
+import { IconaAzione } from '@/components/AzioniRiga';
+import { AzioniContatto } from '@/components/AzioniContatto';
 import { CardElenco } from '@/components/CardElenco';
+import type { RecapitoPlace } from '@/lib/db';
 
 // Le "viste" del menu: ogni voce di Contatti apre /lista già filtrata.
 // "inattivi" = dormienti + persi, la scheda dei rapporti da riattivare.
-type Vista = 'prospect' | 'lead' | 'cliente' | 'inattivi';
+//
+// ⚠️ Dal 27/07/2026 i nomi delle viste coincidono con i livelli (lib/livelli.ts):
+// `vista=prospect` mostra i Prospect veri, non più i Selezionati. Chi avesse un
+// vecchio link salvato finisce su una lista diversa da prima — il titolo in
+// cima dice sempre quale.
+type Vista = 'selezionato' | 'lead' | 'prospect' | 'cliente' | 'inattivi';
 const LIVELLI_VISTA: Record<Vista, Livello[]> = {
-  prospect: ['prospect'],
+  selezionato: ['selezionato'],
   lead: ['lead'],
+  prospect: ['prospect'],
   cliente: ['cliente'],
   inattivi: ['dormiente', 'perso'],
 };
 // Il titolo in cima alla schermata: la rotta è una sola (/lista) ma le viste
-// sono quattro, e "Prospect e Lead" fisso contraddiceva la voce di menu da cui
-// si era arrivati (es. Selezionati).
+// sono cinque, e un titolo fisso contraddiceva la voce di menu da cui si era
+// arrivati.
 const NOME_VISTA: Record<Vista, string> = {
-  prospect: 'Selezionati',
-  lead: 'Prospect',
+  selezionato: 'Selezionati',
+  lead: 'Lead',
+  prospect: 'Prospect',
   cliente: 'Clienti',
   inattivi: 'Dormienti e persi',
 };
 
 const TITOLO_VISTA: Record<Vista, string> = {
-  prospect: 'Selezionati — scelti con la ⭐ da Mappa o Affiliazioni: non c’è ancora una persona con cui parlare. L’azione è la visita.',
-  lead: 'Prospect — c’è un contatto in rubrica: l’azione è tenere caldo il rapporto (mail con script).',
+  selezionato: 'Selezionati — scelti con la ⭐ da Mappa o Affiliazioni: non gli è ancora stato detto niente. L’azione è il primo contatto.',
+  lead: 'Lead — gli abbiamo scritto, telefonato o siamo passati, ma non c’è ancora una persona in rubrica: sono quelli da incalzare.',
+  prospect: 'Prospect — c’è un contatto in rubrica: l’azione è tenere caldo il rapporto (mail con script).',
   cliente: 'Clienti — hanno chiuso una trattativa.',
   inattivi: 'Dormienti e persi — rapporti da riattivare o da capire perché non sono partiti.',
 };
@@ -50,10 +60,14 @@ export default function Lista() {
   const router = useRouter();
   const { session } = useAuth();
   const admin = isAdmin(session?.user?.email);
-  const { places, conContatto, loading, opzioni, ricarica } = usePlaces();
+  const { places, conContatto, contattati, recapiti, loading, opzioni, ricarica } = usePlaces();
+  // Il livello di un negozio dipende da due insiemi caricati una volta sola:
+  // scriverlo qui evita di ripetere `conContatto.has(...)` a ogni chiamata e di
+  // dimenticarsi `contattati` in una delle quattro.
+  const livelloPlace = (p: Place) => livelloDi(p, conContatto.has(p.id), contattati.has(p.id));
   const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
   const { vista } = useLocalSearchParams<{ vista?: string }>();
-  const vistaCorr = (['prospect', 'lead', 'cliente', 'inattivi'] as Vista[]).includes(vista as Vista)
+  const vistaCorr = (['selezionato', 'lead', 'prospect', 'cliente', 'inattivi'] as Vista[]).includes(vista as Vista)
     ? (vista as Vista)
     : null;
   const livelliVista = vistaCorr ? LIVELLI_VISTA[vistaCorr] : null;
@@ -96,8 +110,8 @@ export default function Lista() {
       // stellati prima che si registrasse `creato_da` (23/07) restavano fuori
       // dai Selezionati pur essendo stati scelti: qui rientrano.
       .filter((p) => Boolean(p.creato_da) || Boolean(p.starred))
-      .filter((p) => (livelliVista ? livelliVista.includes(livelloDi(p, conContatto.has(p.id))) : true))
-      .filter((p) => (livello ? livelloDi(p, conContatto.has(p.id)) === livello : true))
+      .filter((p) => (livelliVista ? livelliVista.includes(livelloPlace(p)) : true))
+      .filter((p) => (livello ? livelloPlace(p) === livello : true))
       .filter((p) => {
       if (!q) return true;
       return (
@@ -109,19 +123,22 @@ export default function Lista() {
       );
     });
     return [...f].sort((a, b) => RANK[a.priorita] - RANK[b.priorita] || a.nome.localeCompare(b.nome));
-  }, [places, conContatto, filtri, query, livello, livelliVista]);
+  }, [places, conContatto, contattati, filtri, query, livello, livelliVista]);
 
   // Quanti ce ne sono per livello (i numeri sui chip: dicono dove sta il lavoro).
   const perLivello = useMemo(() => {
-    const c: Record<string, number> = { prospect: 0, lead: 0, cliente: 0, dormiente: 0, perso: 0 };
+    // Partire dai livelli veri: con le chiavi scritte a mano, aggiungerne uno
+    // (è successo con "lead") lasciava un conteggio `undefined` e il chip senza
+    // numero.
+    const c: Record<string, number> = Object.fromEntries(LIVELLI.map((l) => [l, 0]));
     for (const p of places) {
       // Stesso criterio della lista: se cambia solo lì, i numeri sui chip non
       // corrispondono più alle righe che si vedono.
       if (p.nascosto || (!p.creato_da && !p.starred)) continue;
-      c[livelloDi(p, conContatto.has(p.id))] += 1;
+      c[livelloPlace(p)] += 1;
     }
     return c;
-  }, [places, conContatto]);
+  }, [places, conContatto, contattati]);
 
   // I chip: dentro una vista mostro solo i suoi livelli, e solo se più d'uno.
   const chipLivelli = livelliVista ?? LIVELLI;
@@ -190,12 +207,15 @@ export default function Lista() {
         renderItem={({ item }) => (
           <Riga
             place={item}
-            haContatto={conContatto.has(item.id)}
-            vista={vistaCorr}
+            livello={livelloPlace(item)}
+            recapito={recapiti.get(item.id)}
             onPress={() => router.push(`/(app)/attivita/${item.id}`)}
             onNascondi={() => nascondi(item)}
             onVisita={() => setVisitaPlace(item)}
             onMail={() => setMailPlace(item)}
+            onTrattativa={(p) =>
+              router.push(`/(app)/trattative?nuovoPer=${p.id}&nuovoNome=${encodeURIComponent(p.nome)}`)
+            }
           />
         )}
       />
@@ -238,29 +258,24 @@ function origineInserimento(place: Place): string {
 
 function Riga({
   place,
-  haContatto,
-  vista,
+  livello,
+  recapito,
   onPress,
   onNascondi,
   onVisita,
   onMail,
+  onTrattativa,
 }: {
   place: Place;
-  haContatto: boolean;
-  vista: Vista | null;
+  /** Già calcolato dalla lista: la riga non deve rifare il conto (e sbagliarlo). */
+  livello: Livello;
+  recapito: RecapitoPlace | undefined;
   onPress: () => void;
   onNascondi: () => void;
   onVisita: () => void;
   onMail: () => void;
+  onTrattativa: (place: Place) => void;
 }) {
-  // L'azione giusta per il livello: un Selezionato si VISITA, un Prospect si
-  // tiene caldo con una MAIL (script a scelta o nuovo).
-  const azione =
-    vista === 'prospect'
-      ? { label: 'Visita', icona: 'walk-outline' as const, onPress: onVisita }
-      : vista === 'lead'
-        ? { label: 'Mail', icona: 'mail-outline' as const, onPress: onMail }
-        : null;
   return (
     // Stessa scheda dei Clienti (components/CardElenco.tsx): icona a sinistra,
     // testo al centro, badge a destra, azioni in fondo.
@@ -272,7 +287,7 @@ function Riga({
       onPress={onPress}
       badge={
         <>
-          <StatusBadge small label={LABEL_LIVELLO[livelloDi(place, haContatto)]} colore={coloreLivello(livelloDi(place, haContatto))} />
+          <StatusBadge small label={LABEL_LIVELLO[livello]} colore={coloreLivello(livello)} />
           <PriorityBadge priorita={place.priorita} small />
         </>
       }
@@ -283,12 +298,18 @@ function Riga({
         </Text>
       }
       azioni={
-        <AzioniRiga>
-          {azione ? (
-            <IconaAzione nome={azione.icona} attiva label={azione.label} onPress={azione.onPress} />
-          ) : null}
+        // Le stesse azioni dei Potenziali (components/AzioniContatto.tsx): un
+        // Selezionato serve a poco se dalla riga non si può nemmeno chiamarlo o
+        // scrivergli. La mail parte dall'app con gli script, non con `mailto:`.
+        <AzioniContatto
+          place={place}
+          recapito={recapito}
+          onVisita={onVisita}
+          onMail={onMail}
+          onTrattativa={onTrattativa}
+        >
           <IconaAzione nome="eye-off-outline" attiva label="Rimuovi target (nascondi)" onPress={onNascondi} />
-        </AzioniRiga>
+        </AzioniContatto>
       }
     />
   );

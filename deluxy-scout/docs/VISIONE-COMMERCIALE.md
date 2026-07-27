@@ -27,11 +27,26 @@ non è un campo in più da aggiornare a mano.
 
 | Livello | Chi è | Come ci si arriva |
 |---|---|---|
-| **Prospect** | potenzialmente interessante, non ancora contattato | ⭐ dalla Mappa o bottone + |
-| **Lead** | il contatto è avviato | visita registrata, chiamata, richiesta web presa in carico, trattativa aperta |
+| **Selezionato** | potenzialmente interessante, non gli è ancora stato detto niente | ⭐ dalla Mappa o dalle Affiliazioni, bottone + |
+| **Lead** | il contatto è stato **avviato**, ma non sappiamo ancora con chi parlare | mail partita dall'app, chiamata registrata, visita fatta |
+| **Prospect** | c'è una **persona** in rubrica da cui ripartire | contatto salvato in Rubrica, o già noto da HubSpot |
 | **Cliente** | ha chiuso una trattativa | trattativa vinta → ordine |
 | **Dormiente** | ha lavorato con noi, poi si è fermato | stato `dismesso` nel registro Anagrafiche |
 | **Perso** | chiuso senza esito o non in target | esito visita, stato registro |
+
+Il confine fra Lead e Prospect è **una persona con cui parlare**, non l'attività
+svolta: si può aver bussato tre volte e restare un Lead. È la differenza fra
+«abbiamo scritto a quel negozio» e «abbiamo il nome della titolare».
+
+⚠️ Fino al 27/07/2026 gli identificatori nel codice erano sfasati rispetto a
+queste etichette (`prospect` si mostrava come "Selezionato"). Ora coincidono, e
+per questo `/lista?vista=prospect` mostra i Prospect veri, non più i
+Selezionati. I livelli non sono salvati nel database: si ricalcolano.
+
+La traccia dei contatti avviati sta in tre tabelle, non una: `contatti_avviati`
+(email e WhatsApp, migrazione 0046), `chiamate` e `visits`. Le prime due
+esistevano già, la mail invece **partiva senza lasciare traccia** — ed è il
+motivo per cui il livello Lead non era calcolabile prima.
 
 I **dormienti** non sono persi: ci conoscono già, hanno comprato, e riattivarli
 costa molto meno che conquistare un nome nuovo. È la lista più redditizia che

@@ -452,9 +452,84 @@ export async function fetchContatti(placeId: string): Promise<Contact[]> {
  * lista: chiederlo riga per riga sarebbe una query per negozio.
  */
 export async function fetchPlaceIdConContatto(): Promise<Set<string>> {
-  const { data, error } = await supabase.from('contacts').select('place_id');
+  return idPaginati('contacts');
+}
+
+/**
+ * Gli id dei negozi a cui è stato **avviato un contatto**: mail partita
+ * dall'app, chiamata registrata o visita fatta. È ciò che distingue un LEAD da
+ * un SELEZIONATO mai toccato (vedi lib/livelli.ts).
+ *
+ * Le tre fonti restano separate perché lo sono davvero: `contatti_avviati`
+ * copre i canali senza registro proprio (email, WhatsApp), le chiamate e le
+ * visite hanno già il loro. Qui si uniscono, non si duplicano.
+ *
+ * Best-effort per fonte: se `contatti_avviati` non esiste ancora (migrazione
+ * 0046 non applicata) le altre due continuano a valere, e i lead si vedono lo
+ * stesso — non si spegne tutta la sezione per una tabella mancante.
+ */
+export async function fetchPlaceIdContattati(): Promise<Set<string>> {
+  const fonti = await Promise.all([
+    idPaginati('contatti_avviati').catch(() => new Set<string>()),
+    idPaginati('chiamate').catch(() => new Set<string>()),
+    idPaginati('visits').catch(() => new Set<string>()),
+  ]);
+  const tutti = new Set<string>();
+  for (const f of fonti) for (const id of f) tutti.add(id);
+  return tutti;
+}
+
+/**
+ * Registra un contatto avviato verso un negozio.
+ *
+ * Best-effort **di proposito**: se questa scrittura fallisce (o la tabella non
+ * c'è ancora) la mail è comunque partita, e far fallire l'invio per il registro
+ * sarebbe peggio del buco nel registro. L'errore torna a chi chiama, che decide
+ * se dirlo o ignorarlo.
+ */
+export async function registraContattoAvviato(dati: {
+  placeIds: string[];
+  canale: 'email' | 'whatsapp' | 'altro';
+  scriptId?: string | null;
+  oggetto?: string | null;
+  destinatari?: string[];
+}): Promise<void> {
+  const ids = Array.from(new Set(dati.placeIds.filter(Boolean)));
+  if (!ids.length) return;
+  const { error } = await supabase.from('contatti_avviati').insert(
+    ids.map((place_id) => ({
+      place_id,
+      canale: dati.canale,
+      script_id: dati.scriptId ?? null,
+      oggetto: dati.oggetto ?? null,
+      destinatari: dati.destinatari ?? null,
+    })),
+  );
   if (error) throw error;
-  return new Set((data ?? []).map((r: any) => r.place_id).filter(Boolean) as string[]);
+}
+
+/**
+ * Tutti i `place_id` di una tabella, **a blocchi**.
+ *
+ * ⚠️ Trappola già pagata due volte: senza `range()` PostgREST ne restituisce
+ * 1000 e basta, senza errore. Con la rubrica sopra le mille righe i negozi in
+ * fondo risultavano «senza contatto» e retrocedevano di livello da soli.
+ */
+async function idPaginati(tabella: string): Promise<Set<string>> {
+  const BLOCCO = 1000;
+  const ids = new Set<string>();
+  for (let da = 0; ; da += BLOCCO) {
+    const { data, error } = await supabase
+      .from(tabella)
+      .select('place_id')
+      .order('place_id') // ordine stabile: senza, i blocchi possono ripetersi
+      .range(da, da + BLOCCO - 1);
+    if (error) throw error;
+    const blocco = data ?? [];
+    for (const r of blocco) if ((r as any).place_id) ids.add((r as any).place_id);
+    if (blocco.length < BLOCCO) break;
+  }
+  return ids;
 }
 
 /** Marca un contatto HubSpot come "non pertinente" per questo negozio (non riproporlo). */

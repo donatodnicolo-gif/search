@@ -11,7 +11,7 @@
 // il loro lavoro e la palla è passata a Vendita. ⚠️ Sono nascoste, NON
 // cancellate: i record di `visits` alimentano Storico, Dashboard e Team.
 import { useCallback, useMemo, useState } from 'react';
-import { Linking, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place, Visit } from '@/types';
@@ -27,8 +27,9 @@ import {
 } from '@/lib/db';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CardElenco } from '@/components/CardElenco';
-import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
+import { AzioniContatto } from '@/components/AzioniContatto';
 import { VisitaModal } from '@/components/VisitaModal';
+import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 
 const LABEL_ESITO: Record<string, string> = {
   interessato: 'Interessato',
@@ -64,6 +65,8 @@ export default function Visite() {
   const [recapiti, setRecapiti] = useState<Map<string, RecapitoPlace>>(new Map());
   const [loading, setLoading] = useState(true);
   const [daCompletare, setDaCompletare] = useState<Place | null>(null);
+  // «Invia mail»: si sceglie lo script e si parte dall'app, come in Clienti.
+  const [mailPlace, setMailPlace] = useState<Place | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -131,42 +134,15 @@ export default function Visite() {
    * visibili ma spente, così si vede a colpo d'occhio cosa manca.
    */
   function azioniPotenziale(place: Place, opts?: { bozza?: boolean }) {
-    const r = recapiti.get(place.id);
-    const tel = r?.telefono ?? null;
-    const mail = r?.email ?? null;
     return (
-      <AzioniRiga>
-        <IconaAzione
-          nome="call-outline"
-          attiva={Boolean(tel)}
-          label="Chiama"
-          onPress={() => tel && Linking.openURL(`tel:${tel}`)}
-        />
-        <IconaAzione
-          nome="logo-whatsapp"
-          attiva={Boolean(tel)}
-          label="WhatsApp"
-          onPress={() => tel && Linking.openURL(`https://wa.me/${tel.replace(/[^0-9]/g, '')}`)}
-        />
-        <IconaAzione
-          nome="mail-outline"
-          attiva={Boolean(mail)}
-          label="Email"
-          onPress={() => mail && Linking.openURL(`mailto:${mail}`)}
-        />
-        <IconaAzione
-          nome={opts?.bozza ? 'create-outline' : 'walk-outline'}
-          attiva
-          label={opts?.bozza ? 'Completa la visita' : 'Registra una visita'}
-          onPress={() => setDaCompletare(place)}
-        />
-        <IconaAzione
-          nome="briefcase-outline"
-          attiva
-          label="Nuova trattativa"
-          onPress={() => apriTrattativa(place.id, place.nome)}
-        />
-      </AzioniRiga>
+      <AzioniContatto
+        place={place}
+        recapito={recapiti.get(place.id)}
+        bozza={opts?.bozza}
+        onVisita={() => setDaCompletare(place)}
+        onMail={(p) => setMailPlace(p)}
+        onTrattativa={(p) => apriTrattativa(p.id, p.nome)}
+      />
     );
   }
 
@@ -243,6 +219,7 @@ export default function Visite() {
           carica();
         }}
       />
+      {mailPlace ? <ScegliScriptModal place={mailPlace} onClose={() => setMailPlace(null)} /> : null}
     </View>
   );
 }

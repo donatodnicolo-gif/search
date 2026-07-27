@@ -2,7 +2,13 @@
 // ipotesi, ed espone opzioni di filtro derivate dai dati.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Place } from '@/types';
-import { fetchPlaces, fetchPlaceIdConContatto } from '@/lib/db';
+import {
+  fetchPlaces,
+  fetchPlaceIdConContatto,
+  fetchPlaceIdContattati,
+  fetchRecapitiPlace,
+  type RecapitoPlace,
+} from '@/lib/db';
 import { caricaRegole, popolaIpotesiMancanti } from '@/lib/categoryRules';
 import { passaFiltroCitta } from '@/lib/citta';
 import type { FiltriMappa } from '@/components/Filters';
@@ -12,6 +18,12 @@ export function usePlaces() {
   // Negozi che hanno almeno una persona in rubrica: è ciò che distingue un
   // Prospect da un Selezionato (vedi lib/livelli.ts).
   const [conContatto, setConContatto] = useState<Set<string>>(new Set());
+  // Negozi a cui abbiamo già scritto/telefonato/fatto visita: è ciò che
+  // distingue un Lead da un Selezionato mai toccato.
+  const [contattati, setContattati] = useState<Set<string>>(new Set());
+  // Telefono e mail del negozio, presi dalla rubrica (decisore per primo): le
+  // liste ci appendono le azioni di contatto senza rifare la query ognuna.
+  const [recapiti, setRecapiti] = useState<Map<string, RecapitoPlace>>(new Map());
   const [loading, setLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -30,6 +42,18 @@ export function usePlaces() {
         setConContatto(await fetchPlaceIdConContatto());
       } catch {
         setConContatto(new Set());
+      }
+      try {
+        setContattati(await fetchPlaceIdContattati());
+      } catch {
+        setContattati(new Set());
+      }
+      // Idem: senza recapiti le azioni di contatto restano spente, non sparisce
+      // la lista.
+      try {
+        setRecapiti(await fetchRecapitiPlace());
+      } catch {
+        setRecapiti(new Map());
       }
     } catch (e: any) {
       setErrore(e?.message ?? 'Errore nel caricamento delle attività');
@@ -54,7 +78,7 @@ export function usePlaces() {
     };
   }, [places]);
 
-  return { places, conContatto, loading, errore, ricarica: carica, opzioni };
+  return { places, conContatto, contattati, recapiti, loading, errore, ricarica: carica, opzioni };
 }
 
 /** Applica i filtri a una lista di places. La mappa NON filtra via i pin di default

@@ -39,13 +39,15 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     ],
   },
   {
-    // I livelli del rapporto (lib/livelli.ts), ognuno la sua area: prospect
-    // (scelto, da contattare) → lead (contatto avviato) → cliente. Dormienti e
-    // persi stanno insieme in una scheda a parte: sono i rapporti da riattivare.
+    // I livelli del rapporto (lib/livelli.ts), in ordine di funnel: selezionato
+    // (scelto, mai toccato) → lead (gli abbiamo scritto o telefonato) →
+    // prospect (c'è una persona in rubrica) → cliente. Dormienti e persi stanno
+    // insieme in una scheda a parte: sono i rapporti da riattivare.
     titolo: 'Contatti',
     voci: [
-      { name: 'lista-prospect', route: 'lista', params: { vista: 'prospect' }, label: 'Selezionati', icon: 'star-outline' },
-      { name: 'lista-lead', route: 'lista', params: { vista: 'lead' }, label: 'Prospect', icon: 'people-outline' },
+      { name: 'lista-selezionati', route: 'lista', params: { vista: 'selezionato' }, label: 'Selezionati', icon: 'star-outline' },
+      { name: 'lista-lead', route: 'lista', params: { vista: 'lead' }, label: 'Lead', icon: 'send-outline' },
+      { name: 'lista-prospect', route: 'lista', params: { vista: 'prospect' }, label: 'Prospect', icon: 'people-outline' },
       { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
       { name: 'lista-inattivi', route: 'lista', params: { vista: 'inattivi' }, label: 'Dormienti e persi', icon: 'moon-outline' },
     ],

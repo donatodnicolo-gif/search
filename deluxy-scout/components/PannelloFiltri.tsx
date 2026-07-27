@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '@/lib/theme';
 
@@ -25,9 +25,10 @@ export function PannelloFiltri({
   onAzzera?: () => void;
   children: ReactNode;
 }) {
-  const { width } = useWindowDimensions();
-  const schermoLargo = width >= 900;
-  const [aperto, setAperto] = useState(schermoLargo);
+  // Chiusi sempre, anche su desktop (scelta utente): la lista si vede subito e
+  // i filtri si aprono quando servono. Il conteggio sul bottone dice se ce n'è
+  // qualcuno attivo, così una lista ridotta non sembra mai vuota senza motivo.
+  const [aperto, setAperto] = useState(false);
 
   return (
     <View style={styles.wrap}>

@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { conferma, avvisa } from '@/lib/dialoghi';
-import { fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
+import { fetchTuttiContatti, registraContattoAvviato, type ContattoConLuogo } from '@/lib/db';
 import { fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
 import { applicaVariabili, htmlDaTesto, sembraHtml, testoSemplice, variabiliManuali, type DatiContatto } from '@/lib/variabili';
 import { RichTextEditor } from '@/components/RichTextEditor';
@@ -135,6 +135,23 @@ export default function InvioScript() {
         return;
       }
       const falliti = r.falliti?.length ?? 0;
+      // Il negozio a cui abbiamo scritto diventa un LEAD. Senza questa riga
+      // l'invio non lasciava traccia da nessuna parte: il giorno dopo non si
+      // sapeva più a chi era già partita la mail. Solo i destinatari riusciti.
+      const nonRiusciti = new Set((r.falliti ?? []).map((f) => f.email));
+      const placeIds = selezionati
+        .filter((c) => c.email && !nonRiusciti.has(c.email))
+        .map((c) => c.place_id)
+        .filter(Boolean) as string[];
+      // Se il registro rifiuta la riga la mail è comunque partita: non si
+      // trasforma un invio riuscito in un errore.
+      await registraContattoAvviato({
+        placeIds,
+        canale: 'email',
+        scriptId,
+        oggetto,
+        destinatari: selezionati.map((c) => c.email as string).filter(Boolean),
+      }).catch(() => {});
       avvisa(
         'Invio completato',
         `Inviate ${r.inviate} su ${r.totale}.` + (falliti ? `\nNon riuscite: ${falliti} (email errata o rifiutata).` : ''),
