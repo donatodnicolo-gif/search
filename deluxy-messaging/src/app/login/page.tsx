@@ -47,11 +47,14 @@ export default async function PaginaLogin({
           </button>
         </form>
 
+        {/* ⚠️ Niente più «Non hai un account? Registrati» quando gli utenti
+            esistono: la registrazione libera è chiusa, e un invito che poi
+            rimanda indietro è solo un giro a vuoto. Gli accessi li apre un
+            amministratore dalla pagina Utenti. */}
         <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Non hai un account?{' '}
-          <Link href="/registrati" style={{ color: 'var(--text)', textDecoration: 'underline' }}>
-            Registrati
-          </Link>
+          {nessunUtente
+            ? 'Il primo account creato sarà l’amministratore.'
+            : 'Non hai un account? Chiedilo a chi amministra l’app: gli accessi si aprono dalla pagina Utenti.'}
         </p>
       </div>
     </div>

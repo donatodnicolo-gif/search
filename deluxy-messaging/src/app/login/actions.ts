@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { creaSessione, SESSION_COOKIE } from '@/lib/auth'
 import { hashPassword, verificaPassword } from '@/lib/password'
+import { installazioneVergine, normalizzaEmail, emailValida, MIN_PASSWORD } from '@/lib/utenti'
 
 async function apriSessione(userId: string) {
   const negozio = await cookies()
@@ -30,32 +31,47 @@ export async function entra(formData: FormData) {
   redirect('/')
 }
 
-// Registrazione: il PRIMO utente registrato diventa amministratore (bootstrap
-// della prima apertura), i successivi nascono operatori.
+/**
+ * Registrazione: SOLO il primo amministratore di un'installazione nuova.
+ *
+ * ⚠️ Prima questa funzione era aperta a chiunque. L'intenzione era il bootstrap
+ * («il primo che si registra diventa amministratore, gli altri operatori»), ma
+ * la porta restava aperta per sempre: chi conosceva l'indirizzo dell'app si
+ * apriva un account ed entrava fra novecento ordini con nomi, indirizzi,
+ * telefoni ed email dei clienti, i reclami e i rimborsi. Adesso, se esiste già
+ * un utente, la registrazione libera non passa: gli account li crea un
+ * amministratore da /utenti.
+ */
 export async function registrati(formData: FormData) {
-  const nome = String(formData.get('nome') ?? '').trim()
-  const email = String(formData.get('email') ?? '').trim().toLowerCase()
-  const password = String(formData.get('password') ?? '')
-  if (!nome || !email || password.length < 8) {
+  if (!(await installazioneVergine())) {
     redirect(
-      '/registrati?errore=' +
-        encodeURIComponent('Servono nome, email e una password di almeno 8 caratteri.')
+      '/login?errore=' +
+        encodeURIComponent(
+          'Gli account li apre un amministratore dalla pagina Utenti: chiedi a lui di crearne uno per te.'
+        )
     )
   }
 
-  const esistente = await db.utente.findUnique({ where: { email } })
-  if (esistente) {
-    redirect('/registrati?errore=' + encodeURIComponent('Questa email è già registrata: accedi.'))
+  const nome = String(formData.get('nome') ?? '').trim()
+  const email = normalizzaEmail(String(formData.get('email') ?? ''))
+  const password = String(formData.get('password') ?? '')
+  if (!nome || !emailValida(email) || password.length < MIN_PASSWORD) {
+    redirect(
+      '/registrati?errore=' +
+        encodeURIComponent(
+          `Servono nome, un'email valida e una password di almeno ${MIN_PASSWORD} caratteri.`
+        )
+    )
   }
 
-  const quanti = await db.utente.count()
+  // Si ricontrolla qui: fra il controllo di sopra e questa riga potrebbe
+  // essersi registrato qualcun altro. È improbabile e costa una query.
+  if (!(await installazioneVergine())) {
+    redirect('/login?errore=' + encodeURIComponent('Il primo account è già stato creato.'))
+  }
+
   const utente = await db.utente.create({
-    data: {
-      nome,
-      email,
-      passwordHash: hashPassword(password),
-      ruolo: quanti === 0 ? 'admin' : 'operatore',
-    },
+    data: { nome, email, passwordHash: hashPassword(password), ruolo: 'admin' },
   })
   await apriSessione(utente.id)
   redirect('/')

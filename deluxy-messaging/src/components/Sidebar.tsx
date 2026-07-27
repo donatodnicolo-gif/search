@@ -53,6 +53,7 @@ export function Sidebar() {
     {
       titolo: 'Configurazione',
       voci: [
+        { href: '/utenti', nome: 'Utenti', icona: iconaUtenti },
         { href: '/negozi', nome: 'Negozi', icona: iconaNegozi },
         { href: '/caselle', nome: 'Caselle', icona: iconaBusta },
         { href: '/impostazioni', nome: 'Impostazioni', icona: iconaImpostazioni },
@@ -165,6 +166,15 @@ const iconaScript = (
     <path d="M5 3.5h10l4 4v13H5z" />
     <path d="M15 3.5v4h4" />
     <path d="M8.5 12h7M8.5 16h4.5" />
+  </svg>
+)
+const iconaUtenti = (
+  // Due persone: gli account di chi entra nell'app.
+  <svg {...T} strokeLinejoin="round">
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M3.5 20v-1a5.5 5.5 0 0 1 11 0v1" />
+    <path d="M16.5 5.2a3.2 3.2 0 0 1 0 6.1" />
+    <path d="M17.5 14.2A5.5 5.5 0 0 1 20.5 19v1" />
   </svg>
 )
 const iconaNegozi = (

@@ -14,6 +14,29 @@ sugli ordini — ognuno con una casistica, le azioni da eseguire e la colpa attr
 > cartella (`deluxy-messaging/`), progetto Vercel, schema Postgres `messaging` e cookie
 > `msg_session` restano quelli, perché rinominarli romperebbe URL, deploy e sessioni.
 
+## Chi può entrare: la pagina Utenti
+
+In **Utenti** (sotto Configurazione) un amministratore apre gli account dei colleghi:
+nome, email, password e ruolo. La password la scegli tu e **gliela dici a voce** —
+l'app non manda email, e la password non compare mai in un indirizzo o in un
+messaggio, perché da lì finirebbe nella cronologia del browser.
+
+Due ruoli: **amministratore** (usa l'app e gestisce gli accessi) e **operatore**
+(usa l'app). Un operatore che apre la pagina legge che gli accessi li gestisce un
+amministratore, e non può farci niente — nemmeno aggirando la schermata.
+
+> **La registrazione libera è chiusa, e prima era un problema vero.** Chiunque
+> conoscesse l'indirizzo di questa app poteva crearsi un account da solo ed entrare:
+> dentro ci sono nomi, indirizzi, telefoni ed email dei clienti, i reclami e i
+> rimborsi. La pagina di registrazione ora funziona **solo su un'installazione senza
+> nessun utente**, per creare il primo amministratore. Tutti gli altri accessi si
+> aprono da Utenti.
+
+Due cose non si possono fare, e l'app lo dice invece di rifiutare in silenzio:
+togliere il **proprio** account (te lo chiude sotto i piedi mentre lo usi) e togliere
+o retrocedere l'**ultimo amministratore** — resteremmo senza nessuno che possa aprire
+account, e da dentro l'app non si rimedia.
+
 ## Reclami (Customer Service)
 
 **Il giro completo.** Da ogni ordine il bottone **Reclamo** apre il form già pieno con

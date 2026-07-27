@@ -55,6 +55,52 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **PAGINA UTENTI + REGISTRAZIONE LIBERA CHIUSA** (27/07/2026).
+  `/utenti` (voce di sidebar sotto Configurazione): un amministratore apre gli
+  account dei colleghi, cambia ruolo, cambia password e toglie l'accesso.
+  Libreria `src/lib/utenti.ts` (ruoli, controlli), azioni in
+  `src/app/(app)/utenti/actions.ts`.
+
+  ⚠️⚠️ **ERA UN BUCO, NON UNA FEATURE MANCANTE.** `/registrati` era **aperta a
+  chiunque**: chi conosceva l'indirizzo dell'app si apriva un account ed entrava
+  fra 929 ordini con nomi, indirizzi, telefoni ed email dei clienti, i reclami e
+  i rimborsi. Era nata come bootstrap («il primo che si registra è admin, gli
+  altri operatori») ma restava aperta per sempre. Ora la registrazione libera
+  passa **solo se non esiste NESSUN utente**, per creare il primo
+  amministratore; tolto anche il link «Non hai un account? Registrati» dal
+  login, che altrimenti invitava a un giro a vuoto.
+
+  ⚠️ **Il controllo del ruolo sta in OGNI server action, non nella pagina.** Una
+  server action è un endpoint: nascondere il bottone non impedisce di chiamarla.
+  **Verificato costruendo a mano il modulo** che la pagina non mostra
+  all'operatore (con l'`$ACTION_ID` preso dall'HTML dell'admin) e inviandolo:
+  da operatore l'account NON viene creato, con lo stesso identico modulo da
+  admin viene creato. Il controllo vale perché ci sono entrambe le prove — la
+  prima volta avevo provato con curl e falliva anche da admin, quindi non
+  dimostrava niente: una richiesta malformata non è un cancello che funziona.
+
+  ⚠️ **L'ultimo amministratore non si può togliere né retrocedere**
+  (`puoEssereRimosso` / `puoCambiareRuolo`): senza, un clic distratto chiude
+  tutti fuori dalla gestione degli account e da dentro l'app non si rientra più.
+  **NON verificato end-to-end**: al momento c'è **un solo** amministratore
+  (quello vero) e provarlo vorrebbe dire tentare di cancellare l'account del
+  titolare su dati veri. Verificati i conteggi su cui la regola si regge
+  (`altriAmministratori` esclude l'id giusto, e con un id inesistente torna il
+  totale). Da esercitare quando ci saranno due amministratori.
+  Verificati invece: **non si può cancellare il proprio account** (rifiutato col
+  motivo scritto) e la cancellazione legittima di un operatore.
+
+  ⚠️ La password la scrive l'amministratore e **la comunica a voce**: l'app non
+  manda email. Non finisce mai nel messaggio di ritorno, perché quello sta
+  nell'URL e da lì passa in cronologia e nei log.
+
+  ⚠️ **PULITO IN PRODUZIONE**: c'era `prova-tipo@local.test` con diritti di
+  **amministratore**, avanzo di una sessione precedente. Rimosso insieme ai miei
+  account di prova. Resta `diagnostica@deluxy.local` (operatore), che non ho
+  creato io: **da decidere se serve** — è un accesso attivo all'app.
+  Regola per il futuro: un account di prova su un'app live va cancellato nella
+  stessa sessione in cui lo si crea, e mai con ruolo admin.
+
 - **SIMBOLO «C'È IL BIGLIETTO» + SEZIONE BIGLIETTO NEL DETTAGLIO** (27/07/2026).
   Icona a busta oro su ogni ordine che ha una nota del cliente (in scheda e in
   tabella), e nel dettaglio una sezione **Biglietto e note del cliente** col
