@@ -132,11 +132,17 @@ export default async function CollezioniPage({
     });
 
   // Link di intestazione: cliccando si ordina, ricliccando si inverte.
+  //
+  // Il primo clic sceglie il verso che ci si aspetta da quella colonna: i nomi
+  // partono dalla A, i numeri dal più grande. Una colonna di testo che parte
+  // dalla Z sembra rotta.
+  const NUMERICHE = new Set(["prodotti", "venduto", "pezzi"]);
   const linkOrdine = (chiave: string) => {
     const q = new URLSearchParams();
     for (const [k, v] of Object.entries(sp)) if (v && k !== "ordina" && k !== "dir") q.set(k, v);
     q.set("ordina", chiave);
-    q.set("dir", ordina === chiave && discendente ? "asc" : "desc");
+    const versoNaturale = NUMERICHE.has(chiave) ? "desc" : "asc";
+    q.set("dir", ordina === chiave ? (discendente ? "asc" : "desc") : versoNaturale);
     return `/collezioni?${q}`;
   };
   const freccia = (chiave: string) => (ordina === chiave ? (discendente ? " ↓" : " ↑") : "");
