@@ -149,6 +149,7 @@ const sections: { label: string; items: Item[] }[] = [
     items: [
       { href: "/tasks", label: "Tasks finance", icon: icons.tasks },
       { href: "/saldi", label: "Saldi e bonifici", icon: icons.saldi },
+      { href: "/richiedi-pagamento", label: "Richiedi pagamento", icon: icons.pagamenti },
       { href: "/transazioni", label: "Import transazioni", icon: icons.transazioni },
       { href: "/spese", label: "Spese per categoria", icon: icons.analisi },
       { href: "/scadenzario", label: "Scadenzario", icon: icons.scadenze },

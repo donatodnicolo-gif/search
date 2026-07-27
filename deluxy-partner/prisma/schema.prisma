@@ -74,6 +74,38 @@ model UtenteApp {
   @@index([attivo])
 }
 
+// Richiesta di pagamento LIBERA: non legata al saldo di un partner né a un
+// ordine, ma a una spesa qualsiasi (un fornitore, un affitto, una consulenza).
+// Qui resta la traccia di quello che è stato chiesto; il denaro esce solo da
+// **deluxy-transactions**, dopo l'autorizzazione di una persona.
+//
+// `categoria` è una CATEGORIA DI COSTO di deluxy-budgets: la stessa con cui si
+// classificano le spese in `/spese`. Sceglierla al momento della richiesta vuol
+// dire che la spesa nasce già collocata nel conto economico, invece di doverla
+// rincorrere dopo, quando dall'estratto conto si legge solo un nome di banca.
+model RichiestaPagamento {
+  id             String    @id @default(cuid())
+  beneficiario   String
+  iban           String
+  importo        Float
+  causale        String // quella che arriva in banca: max 140 caratteri (SEPA)
+  categoriaId    String? // id della categoria in Budgets
+  categoriaNome  String? // etichetta al momento della richiesta
+  categoriaTipoPL String? // COGS | ADV | PERSONALE | STRUTTURA | ESCLUSA
+  note           String?
+  scadenza       DateTime?
+  partnerId      String? // se il beneficiario è un partner in anagrafica
+  partnerNome    String?
+  richiedente    String? // chi l'ha chiesta (dalla sessione)
+  // esito lato Transactions
+  riferimento    String? // TRX-2026-000123
+  stato          String    @default("in_attesa")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([stato, createdAt])
+}
+
 // Registro degli ACCESSI: chi è ENTRATO nell'app, quando, come e da dove.
 // Diverso da RegistroModifica, che annota cosa è stato cambiato: qui si annota
 // l'ingresso, compresi i tentativi con password sbagliata (per accorgersi di

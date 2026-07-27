@@ -123,6 +123,55 @@ export async function richiediPagamentoPartner(opts: {
   }
 }
 
+/** Richiesta di pagamento LIBERA (non legata al saldo di un partner).
+ *  `riferimentoEsterno` è l'id della nostra riga: idempotente come le altre,
+ *  così un doppio invio del form non genera due pagamenti. */
+export async function richiediPagamentoLibero(opts: {
+  idRichiesta: string;
+  beneficiario: string;
+  iban: string;
+  importo: number;
+  causale: string;
+  categoria?: string | null;
+  note?: string | null;
+  scadenza?: string | null;
+}): Promise<EsitoRichiesta> {
+  const riferimentoEsterno = `libera-${opts.idRichiesta}`;
+  try {
+    const { stato, dati } = await chiamataFirmata(
+      "POST",
+      "/api/v1/richieste",
+      {
+        importo: opts.importo.toFixed(2),
+        beneficiario: opts.beneficiario.slice(0, 120),
+        iban: opts.iban.replace(/\s+/g, "").toUpperCase(),
+        causale: opts.causale.slice(0, 140),
+        // La categoria di costo di Budgets viaggia fin dentro Transactions: chi
+        // autorizza vede subito di che spesa si tratta, non solo un IBAN.
+        ...(opts.categoria ? { categoria: opts.categoria } : {}),
+        ...(opts.note ? { note: opts.note } : {}),
+        ...(opts.scadenza ? { scadenza: opts.scadenza } : {}),
+        riferimentoEsterno,
+        ...(urlNotifica() ? { urlNotifica: urlNotifica() } : {}),
+      },
+      riferimentoEsterno
+    );
+    if (stato === 200 || stato === 201) {
+      return {
+        ok: true,
+        riferimento: String(dati?.riferimento ?? ""),
+        stato: String(dati?.stato ?? "in_attesa"),
+        ripetuta: Boolean(dati?.ripetuta),
+        nota: dati?.nota ? String(dati.nota) : undefined,
+      };
+    }
+    const msg = dati?.errore ?? dati?.error ?? dati?.messaggio;
+    return { ok: false, errore: `Transactions ha risposto ${stato}${msg ? `: ${String(msg)}` : ""}` };
+  } catch (e) {
+    return { ok: false, errore: `Transactions non raggiungibile: ${(e as Error).message}` };
+  }
+}
+
 /** Verifica la firma di una notifica IN ARRIVO da Transactions.
  *  La documentazione di Transactions è esplicita: la notifica è un avviso, non
  *  una prova. Senza questo controllo chiunque conoscesse l'URL potrebbe

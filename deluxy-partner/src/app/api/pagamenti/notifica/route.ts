@@ -34,9 +34,33 @@ export async function POST(req: NextRequest) {
   // `riferimentoEsterno` è "saldo-<partnerId>-<anno>-<mese>": l'abbiamo scelto
   // noi quando abbiamo chiesto il pagamento, quindi da lì si risale al mese
   // senza doversi fidare di altro.
+  const riferimentoEsterno = dati.riferimentoEsterno ?? "";
+
+  // Richieste LIBERE (sezione «Richiedi pagamento»): il riferimento è
+  // `libera-<id>`. Senza questo ramo resterebbero per sempre «in attesa» in
+  // pagina, anche dopo essere state pagate davvero.
+  const libera = /^libera-(.+)$/.exec(riferimentoEsterno);
+  if (libera) {
+    const richiesta = await prisma.richiestaPagamento.findUnique({ where: { id: libera[1] } });
+    if (!richiesta) return NextResponse.json({ ok: true, nota: "Richiesta non trovata: ignorata." });
+    await prisma.richiestaPagamento.update({
+      where: { id: richiesta.id },
+      data: { stato: String(dati.stato ?? richiesta.stato) },
+    });
+    await registra({
+      azione: `Transactions: richiesta ${dati.riferimento ?? ""} → ${dati.stato ?? ""}`,
+      categoria: "pagamenti",
+      entita: "richiesta",
+      entitaId: richiesta.id,
+      partner: richiesta.partnerNome,
+      dettaglio: `${richiesta.beneficiario} · ${richiesta.causale}`,
+    });
+    return NextResponse.json({ ok: true });
+  }
+
   // `-rN` è il numero di tentativo: una richiesta rifiutata e rifatta ha lo
   // stesso mese ma un riferimento diverso, e va comunque riconosciuta.
-  const m = /^saldo-(.+)-(\d{4})-(\d{2})(?:-r\d+)?$/.exec(dati.riferimentoEsterno ?? "");
+  const m = /^saldo-(.+)-(\d{4})-(\d{2})(?:-r\d+)?$/.exec(riferimentoEsterno);
   if (!m) return NextResponse.json({ ok: true, nota: "Riferimento non nostro: ignorata." });
   const [, partnerId, annoS, meseS] = m;
   const anno = Number(annoS);
