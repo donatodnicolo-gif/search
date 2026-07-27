@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { db } from '@/lib/db'
+import { numeriCollegati, tokenPerNumero } from '@/lib/numeri-whatsapp'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -61,59 +62,82 @@ export async function GET() {
       : 'Manca: il webhook accetta chiunque conosca l’indirizzo. Da riempire.',
   })
 
-  const token = c.waToken?.trim()
-  const numeroId = c.waPhoneNumberId?.trim()
-  if (!token || !numeroId) {
+  // 2. Ogni numero collegato si controlla da solo: token, numero, iscrizione.
+  //    Se non ce n'è nessuno in tabella si ricade sulla vecchia configurazione
+  //    singola delle Impostazioni, che è ancora valida per chi ha un numero solo.
+  const collegati = await numeriCollegati()
+  const daControllare = collegati.length
+    ? collegati
+        .filter((n) => n.attivo)
+        .map((n) => ({
+          etichetta: n.brand || n.nome || n.phoneNumberId,
+          phoneNumberId: n.phoneNumberId,
+          wabaId: n.wabaId,
+        }))
+    : [
+        {
+          etichetta: 'numero delle Impostazioni',
+          phoneNumberId: c.waPhoneNumberId?.trim() ?? '',
+          wabaId: c.waBusinessAccountId?.trim() ?? '',
+        },
+      ]
+
+  if (!daControllare.some((n) => n.phoneNumberId)) {
     esiti.push({
-      passo: 'Token e Phone Number ID',
+      passo: 'Numeri WhatsApp collegati',
       ok: false,
-      dettaglio: 'Mancano: senza non si può chiedere niente a Meta.',
+      dettaglio: 'Nessuno: aggiungine uno in Numeri WhatsApp, o compila le Impostazioni.',
     })
-    return NextResponse.json({ esiti, conclusione: 'Configurazione incompleta nell’app.' })
+    return NextResponse.json({ esiti, conclusione: 'Nessun numero da controllare.' })
   }
 
-  // 2. Il token è valido e vede quel numero?
-  const num = await chiedi(
-    `${API}/${numeroId}?fields=display_phone_number,verified_name,quality_rating,platform_type`,
-    token
-  )
-  esiti.push({
-    passo: 'Il token vede il numero',
-    ok: num.ok,
-    dettaglio: num.ok
-      ? `Numero ${num.corpo.display_phone_number ?? '?'} (${num.corpo.verified_name ?? '?'}), qualità ${num.corpo.quality_rating ?? 'n/d'}.`
-      : `Meta risponde ${num.stato}: ${num.corpo.error?.message ?? 'errore sconosciuto'}.`,
-  })
-  if (!num.ok) {
-    return NextResponse.json({
-      esiti,
-      conclusione:
-        'Il token non è valido per questo numero: rigeneralo (Utente di sistema, permesso whatsapp_business_messaging) e ricontrolla il Phone Number ID.',
-    })
-  }
+  for (const n of daControllare) {
+    if (!n.phoneNumberId) continue
+    const token = (await tokenPerNumero(n.phoneNumberId)).trim()
+    if (!token) {
+      esiti.push({
+        passo: `${n.etichetta} — token`,
+        ok: false,
+        dettaglio: 'Nessun token: né suo né quello generale delle Impostazioni.',
+      })
+      continue
+    }
 
-  // 3. LA DOMANDA CHE CONTA: la nostra app è iscritta al WhatsApp Business?
-  //    Senza questa iscrizione Meta non manda NIENTE, per quanto il webhook sia
-  //    verificato — ed è il caso che non si vede da nessuna parte nell'app.
-  const wabaId = c.waBusinessAccountId?.trim()
-  if (!wabaId) {
+    const num = await chiedi(
+      `${API}/${n.phoneNumberId}?fields=display_phone_number,verified_name,quality_rating`,
+      token
+    )
     esiti.push({
-      passo: 'App iscritta al WhatsApp Business (WABA)',
-      ok: null,
-      dettaglio:
-        'Non controllabile: manca l’ID del WhatsApp Business Account in Impostazioni. È il numero lungo che vedi in WhatsApp Manager sotto il nome dell’account.',
+      passo: `${n.etichetta} — il token vede il numero`,
+      ok: num.ok,
+      dettaglio: num.ok
+        ? `${num.corpo.display_phone_number ?? '?'} (${num.corpo.verified_name ?? '?'}), qualità ${num.corpo.quality_rating ?? 'n/d'}.`
+        : `Meta risponde ${num.stato}: ${num.corpo.error?.message ?? 'errore sconosciuto'}.`,
     })
-  } else {
-    const iscr = await chiedi(`${API}/${wabaId}/subscribed_apps`, token)
+    if (!num.ok) continue
+
+    // LA DOMANDA CHE CONTA: la nostra app è iscritta a quel WhatsApp Business?
+    // Senza questa iscrizione Meta non manda NIENTE per quanto il webhook sia
+    // verificato — ed è il caso che dall'app non si vede in nessun modo.
+    if (!n.wabaId) {
+      esiti.push({
+        passo: `${n.etichetta} — app iscritta al WhatsApp Business`,
+        ok: null,
+        dettaglio:
+          'Non controllabile: manca il WhatsApp Business Account ID di questo numero (il numero lungo sotto il nome in WhatsApp Manager).',
+      })
+      continue
+    }
+    const iscr = await chiedi(`${API}/${n.wabaId}/subscribed_apps`, token)
     const app = (iscr.corpo.data as { whatsapp_business_api_data?: { name?: string } }[]) ?? []
     esiti.push({
-      passo: 'App iscritta al WhatsApp Business (WABA)',
+      passo: `${n.etichetta} — app iscritta al WhatsApp Business`,
       ok: iscr.ok ? app.length > 0 : false,
       dettaglio: !iscr.ok
         ? `Meta risponde ${iscr.stato}: ${iscr.corpo.error?.message ?? 'errore'}.`
         : app.length
           ? `Iscritte: ${app.map((a) => a.whatsapp_business_api_data?.name ?? '?').join(', ')}.`
-          : 'NESSUNA app iscritta a questo WABA: ecco perché non arriva niente. Va iscritta l’app (Meta → WhatsApp → Configurazione, oppure POST /{waba-id}/subscribed_apps).',
+          : 'NESSUNA app iscritta: ecco perché non arriva niente. Va iscritta l’app su Meta → WhatsApp → Configurazione.',
     })
   }
 

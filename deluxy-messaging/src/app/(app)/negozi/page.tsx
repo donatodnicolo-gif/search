@@ -68,19 +68,9 @@ export default async function PaginaNegozi() {
                 <span>Dominio</span>
                 <input name="dominio" defaultValue={n.dominio} />
               </label>
-              {/* Il numero WhatsApp di questo brand. Senza, in Inbox un
-                  messaggio arrivato su quella linea si vede col numero
-                  grezzo invece del nome del marchio, e l'AI non sa con che
-                  tono rispondere (le istruzioni di CS AI sono per brand). */}
-              <label className="campo">
-                <span>Numero WhatsApp Business — Phone Number ID</span>
-                <input
-                  name="waPhoneNumberId"
-                  defaultValue={n.waPhoneNumberId}
-                  inputMode="numeric"
-                  placeholder="app Meta → WhatsApp → Configurazione API"
-                />
-              </label>
+              {/* Il numero WhatsApp non si imposta piu qui: sta in Numeri WhatsApp,
+                  perche i numeri sono piu di uno e ognuno ha il suo account.
+                  Due posti per lo stesso dato = due verita che divergono. */}
               <button className="bottone">Salva</button>
             </form>
 

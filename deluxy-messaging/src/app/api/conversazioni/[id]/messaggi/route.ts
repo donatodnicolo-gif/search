@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { inviaPagina, inviaWhatsApp } from '@/lib/meta'
 import { casellaPerId, inviaEmail } from '@/lib/email'
+import { tokenPerNumero } from '@/lib/numeri-whatsapp'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,10 +52,13 @@ export async function POST(req: NextRequest, { params }: Params) {
       // l'impostazione resta come ripiego per le conversazioni vecchie, che il
       // numero non l'hanno registrato.
       const numeroDaCuiRispondere = conversazione.numeroId || config.waPhoneNumberId
+      // Ogni numero può avere il suo token (account Meta diversi); se non ce
+      // l'ha si usa quello generale delle Impostazioni.
+      const tokenDiQuelNumero = await tokenPerNumero(numeroDaCuiRispondere)
       esito =
-        config.waToken && numeroDaCuiRispondere
+        tokenDiQuelNumero && numeroDaCuiRispondere
           ? await inviaWhatsApp(
-              config.waToken,
+              tokenDiQuelNumero,
               numeroDaCuiRispondere,
               conversazione.idEsterno,
               pulito

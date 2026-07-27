@@ -65,6 +65,7 @@ model NegozioShopify {
   ordini       Ordine[]
   istruzioniAI IstruzioneAI[]
   documentiAI  DocumentoAI[]
+  numeriWhatsApp NumeroWhatsApp[]
 }
 
 // Uno "script": una risposta pronta da dare ai clienti. Sono la memoria
@@ -116,6 +117,42 @@ model RichiestaPagamento {
   creatoIl     DateTime @default(now())
 
   @@index([creatoIl])
+}
+
+// Un numero WhatsApp Business collegato. Ce n'è più d'uno perché la holding ha
+// più marchi (Deluxy Flowers, Cake Design, Deluxy Cake Delivery…) e ognuno ha
+// il suo numero, spesso sotto un WhatsApp Business Account diverso.
+//
+// ⚠️ Prima la configurazione era SINGOLA (un token e un Phone Number ID nelle
+// Impostazioni) e il legame col marchio stava su `NegozioShopify.waPhoneNumberId`.
+// Con due marchi già non bastava: si rispondeva a tutti dal numero impostato,
+// cioè per metà dei clienti dal marchio sbagliato — dal loro telefono è
+// un'altra azienda che scrive di punto in bianco.
+//
+// Le Impostazioni restano come RIPIEGO per il token: chi ha un solo utente di
+// sistema per tutti i numeri non deve ripeterlo qui.
+model NumeroWhatsApp {
+  id            String  @id @default(cuid())
+  nome          String  @default("") // etichetta leggibile, es. "Deluxy Flowers"
+  // `phone_number_id` di Meta: è la chiave con cui il webhook riconosce su
+  // quale linea è arrivato un messaggio (Conversazione.numeroId).
+  phoneNumberId String  @unique
+  numeroVisibile String @default("") // +39 … , come lo vede il cliente
+  // L'ID del WhatsApp Business Account che possiede il numero: serve alla
+  // diagnosi per chiedere a Meta se la nostra app è iscritta a quell'account.
+  wabaId        String  @default("")
+  // Token dedicato a questo numero. Vuoto = si usa quello delle Impostazioni.
+  // Cifrato come le password delle caselle: mai in chiaro in tabella.
+  token         String  @default("") @db.Text
+  // Il marchio a cui appartiene: decide il tono e la firma delle risposte
+  // (le istruzioni di CS AI sono per brand).
+  negozioId     String?
+  attivo        Boolean @default(true)
+  creatoIl      DateTime @default(now())
+
+  negozio NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
+
+  @@index([negozioId])
 }
 
 // Una casella di posta collegata (se ne possono collegare più d'una).

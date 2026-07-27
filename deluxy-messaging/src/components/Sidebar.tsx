@@ -55,6 +55,7 @@ export function Sidebar() {
       voci: [
         { href: '/utenti', nome: 'Utenti', icona: iconaUtenti },
         { href: '/negozi', nome: 'Negozi', icona: iconaNegozi },
+        { href: '/numeri-whatsapp', nome: 'Numeri WhatsApp', icona: iconaChat },
         { href: '/caselle', nome: 'Caselle', icona: iconaBusta },
         { href: '/impostazioni', nome: 'Impostazioni', icona: iconaImpostazioni },
       ],
