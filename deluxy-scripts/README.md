@@ -119,11 +119,42 @@ valori.
 | `GET /api/v1/script?app=<chiave>` | tutti i testi accesi per quell'app |
 | `GET /api/v1/script/<slug>?app=<chiave>` | uno solo |
 | `GET /api/v1/script/<slug>/testo?app=<chiave>` | solo il messaggio, in `text/plain` (oggetto nell'header `X-Oggetto`) |
+| `POST /api/v1/script` | **crea** un testo (o lo aggiorna passando `slug`) e lo accende per l'app che scrive — richiede una chiave di **scrittura** |
 
 ```bash
 curl -H "x-api-key: $SCRIPTS_API_KEY" \
   "https://deluxy-scripts.vercel.app/api/v1/script?app=deluxy-messaging"
 ```
+
+### Scrivere un testo da un'altra app
+
+I testi hanno **un padrone solo — quest'app** — e le altre li leggono. Ma «un
+padrone solo» non vuol dire «si scrivono solo da qui»: chi risponde alle mail
+tutto il giorno le formule buone le riconosce *là*, mentre scrive, e obbligarlo
+a cambiare app per salvarle significa che non le salverà mai. Il `POST` lascia
+**creare** da fuori mentre il testo continua a vivere qui: è l'opposto di
+copiarlo.
+
+```jsonc
+// POST /api/v1/script   (chiave di scrittura)
+{
+  "nome": "Ritardo consegna — scuse e nuova data",  // obbligatorio
+  "corpo": "Gentile {{NOME_CLIENTE}}, …",           // obbligatorio
+  "oggetto": "Il suo ordine {{ORDINE}}",            // opz. (canale email)
+  "descrizione": "Quando il valletto arriva dopo la fascia",
+  "categoria": "assistenza",                        // opz. default vendite
+  "canale": "email",                                // opz. default email
+  "autore": "Nicolò",
+  "app": "deluxy-mail",                             // opz. default = nome della chiave
+  "slug": "ritardo-consegna"                        // opz.: se c'è, AGGIORNA quello
+}
+```
+
+Risponde `201` se creato, `200` se aggiornato, con `{ esito, slug, app, variabili }`.
+I segnaposto `{{COSÌ}}` trovati nel testo (e nell'oggetto) **diventano variabili
+da soli**, come salvando dalla UI. Il testo viene **acceso per l'app che scrive**:
+uno creato da AI Mail e non abilitato per AI Mail sarebbe invisibile a chi l'ha
+appena scritto. Se l'app non è ancora fra quelle collegate, viene creata.
 
 Nel JSON: `testo` e `oggetto` sono le versioni composte, `corpo` quella coi
 segnaposto, `variabili` dice per ognuna da dove viene il valore (`app`,

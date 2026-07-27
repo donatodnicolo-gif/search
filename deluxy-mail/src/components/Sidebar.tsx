@@ -124,6 +124,9 @@ export async function Sidebar() {
     // I quadri conversazione fatti dall'AI, col link al thread.
     { href: '/riassunti', label: 'Riassunti', badge: riassunti },
     { href: '/rubrica', label: 'Rubrica' },
+    // I testi pronti per rispondere. Vivono nell'app Scripts, non qui: questa
+    // voce li mostra e permette di scriverne mentre si lavora sulla posta.
+    { href: '/script', label: 'Risposte rapide' },
   ]
 
   const applicazioni: Voce[] = [

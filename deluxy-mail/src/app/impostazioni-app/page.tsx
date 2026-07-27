@@ -212,9 +212,11 @@ export default async function ImpostazioniApp() {
         I copioni aziendali — offerte, inviti, presentazioni, solleciti, risposte ai reclami —
         scritti una volta sola nell’app <strong>Scripts</strong> e richiamabili mentre si scrive una
         mail: compare «Usa un testo pronto», si sceglie, e oggetto e messaggio arrivano già composti
-        con la firma e i recapiti della posta. Qui basta una chiave di <strong>lettura</strong>:
-        AI Mail i testi li legge soltanto, si scrivono e si modificano nell’app Scripts — averne due
-        copie vorrebbe dire vederle divergere.
+        con la firma e i recapiti della posta. Dalla sezione <strong>Risposte rapide</strong> se ne
+        possono anche scrivere di nuovi: nascono direttamente <em>dentro</em> Scripts, non se ne
+        tiene una copia qui — due versioni dello stesso testo aziendale divergerebbero. Per leggere
+        basta una chiave qualsiasi; per <strong>scrivere</strong> serve una chiave di scrittura
+        («npm run chiave -- deluxy-mail --scrittura»).
       </p>
       <div className="card" style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>

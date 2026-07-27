@@ -27,6 +27,66 @@ const SCRIPTS_URL = (process.env.SCRIPTS_URL || 'https://deluxy-scripts.vercel.a
 const APP = process.env.SCRIPTS_APP || 'deluxy-mail'
 
 
+/**
+ * Crea (o aggiorna, passando `slug`) un testo pronto DENTRO l'app Scripts, e lo
+ * accende per AI Mail.
+ *
+ * ⚠️ Non è una copia locale, ed è la differenza che conta. Il testo nasce e vive
+ * là — qui non se ne tiene nessuna versione — ma lo si può scrivere **da qui**,
+ * mentre si risponde alla posta. Chi risponde alle mail tutto il giorno le
+ * formule buone le riconosce lì, in quel momento: obbligarlo a cambiare app per
+ * salvarle vuol dire che non le salverà mai.
+ *
+ * Serve una chiave di SCRITTURA (leggere basta una qualsiasi).
+ */
+export async function creaScriptPronto(dati: {
+  nome: string
+  corpo: string
+  oggetto?: string
+  descrizione?: string
+  categoria?: string
+  canale?: string
+  autore?: string
+  slug?: string
+}): Promise<{ ok: boolean; messaggio: string; slug?: string }> {
+  const chiave = await chiaveScripts()
+  if (!chiave) {
+    return { ok: false, messaggio: 'Testi pronti non collegati (Impostazioni → App Deluxy → Testi pronti).' }
+  }
+  try {
+    const res = await fetch(`${SCRIPTS_URL}/api/v1/script`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': chiave },
+      body: JSON.stringify({ ...dati, app: APP, nomeApp: 'AI Mail' }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10000),
+    })
+    const risposta = (await res.json().catch(() => ({}))) as {
+      slug?: string
+      esito?: string
+      errore?: string
+      variabili?: string[]
+    }
+    if (!res.ok) {
+      // Il motivo per esteso: «non riuscito» da solo fa tirare a indovinare.
+      const aiuto =
+        res.status === 403
+          ? ' Serve una chiave di SCRITTURA: rigenerala nell’app Scripts e reincollala in Impostazioni App.'
+          : ''
+      return { ok: false, messaggio: `${risposta.errore ?? `Errore ${res.status}`}.${aiuto}` }
+    }
+    const quante = risposta.variabili?.length ?? 0
+    const nota = quante > 0 ? ` ${quante} variabil${quante === 1 ? 'e' : 'i'} riconosciut${quante === 1 ? 'a' : 'e'}.` : ''
+    return {
+      ok: true,
+      slug: risposta.slug,
+      messaggio: `${risposta.esito === 'aggiornato' ? 'Testo aggiornato' : 'Testo salvato'} in Scripts e acceso per AI Mail.${nota}`,
+    }
+  } catch {
+    return { ok: false, messaggio: 'Non riesco a raggiungere i Testi pronti: riprova fra poco.' }
+  }
+}
+
 async function chiaveScripts(): Promise<string> {
   try {
     return (await leggiChiaviApp()).scripts

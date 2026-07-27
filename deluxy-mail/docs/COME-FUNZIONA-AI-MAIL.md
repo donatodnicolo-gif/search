@@ -141,8 +141,27 @@ lasci vuoto resta scritto `{{COSÌ}}` dentro il messaggio**: è voluto. Una data
 caso dal programma è un invito col giorno sbagliato spedito a un cliente; un segnaposto
 che si vede è sempre meglio di un dato inventato che non si nota.
 
-I testi **non si modificano da qui**: si scrivono in Scripts, e AI Mail li legge soltanto.
-Averne due copie vorrebbe dire vederle divergere — che è il motivo per cui Scripts esiste.
+### Scriverne di nuovi: «Risposte rapide»
+
+Nella barra laterale c'è la sezione **Risposte rapide**: elenca i testi accesi per la
+posta e permette di scriverne di nuovi senza uscire da AI Mail. Il testo però **non
+nasce qui**: viene creato direttamente *dentro* Scripts e acceso per AI Mail, così
+compare subito anche mentre scrivi una mail — e da lì lo vedranno anche le altre app a
+cui verrà abilitato.
+
+Il punto è che chi risponde alle mail tutto il giorno le formule buone le riconosce
+**mentre scrive**: se per salvarne una deve cambiare app, non lo farà mai. Ma la copia
+resta una sola, in Scripts.
+
+Scrivendo un testo, i dati che cambiano da un cliente all'altro vanno messi come
+`{{NOME_CLIENTE}}`, `{{DATA}}`, `{{FIRMA}}` — l'elenco dei nomi più usati è lì sotto il
+riquadro, e conviene attenersi a quello: è **per nome** che i valori impostati per l'app
+(firma, recapiti) si agganciano al testo. ⚠️ Non mettere un valore «di esempio» al posto
+di un segnaposto: resterebbe lì e partirebbe al cliente.
+
+Per **modificare o togliere** un testo si va nell'app Scripts: lì si cambia una volta
+sola e cambia per tutte le app che lo usano. Averne due copie vorrebbe dire vederle
+divergere — che è il motivo per cui Scripts esiste.
 
 ## 6a. Scarico della posta in background
 

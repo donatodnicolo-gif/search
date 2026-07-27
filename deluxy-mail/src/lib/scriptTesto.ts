@@ -7,6 +7,24 @@
 // fallisce: «Reading from node:crypto is not handled by plugins». Tipi e funzioni
 // pure di qua, chiamate al server di là.
 
+/**
+ * I segnaposto che ricorrono in quasi tutti i testi. Si propongono scrivendone
+ * uno nuovo, così i nomi restano gli stessi in tutta l'azienda: è per NOME che
+ * i valori impostati per una app (firma, recapiti, tono) si agganciano al testo.
+ * Scriverne uno diverso non è un errore, ma quel buco resterà da compilare a
+ * mano per sempre.
+ */
+export const VARIABILI_SUGGERITE = [
+  'NOME_CLIENTE',
+  'AZIENDA',
+  'REFERENTE',
+  'DATA',
+  'ORA',
+  'LUOGO',
+  'FIRMA',
+  'LINK',
+] as const
+
 export type ScriptPronto = {
   slug: string
   nome: string

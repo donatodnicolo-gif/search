@@ -82,7 +82,7 @@ import { db } from './db'
 import { cifra, decifra } from './crypto'
 import { allineaAttivitaOra } from './registroTask'
 import { allineaEventoOra } from './registroCalendario'
-import { elencoScriptPronti, scriptProntiAttivi } from './scriptPronti'
+import { creaScriptPronto, elencoScriptPronti, scriptProntiAttivi } from './scriptPronti'
 import type { ScriptPronto } from './scriptTesto'
 import {
   analizzaContattoOra,
@@ -3359,6 +3359,39 @@ export async function leggiScriptPronti(
   }
 
   return { attivo, nomeProposto, script }
+}
+
+/**
+ * Salva una RISPOSTA RAPIDA: un testo pronto scritto da qui che va a vivere
+ * nell'app Scripts (vedi `creaScriptPronto`). Passando `slug` si aggiorna quello
+ * esistente invece di crearne un altro.
+ */
+export async function salvaScriptPronto(
+  form: FormData
+): Promise<{ ok: boolean; messaggio: string; slug?: string }> {
+  const u = await utenteCorrente()
+  if (!u) return { ok: false, messaggio: 'Sessione scaduta: rientra.' }
+
+  const nome = testo(form, 'nome')
+  const corpo = testo(form, 'corpo')
+  if (!nome) return { ok: false, messaggio: 'Serve un nome: è come lo ritroverai.' }
+  if (!corpo) return { ok: false, messaggio: 'Serve il testo del messaggio.' }
+
+  const esito = await creaScriptPronto({
+    nome,
+    corpo,
+    oggetto: testo(form, 'oggetto'),
+    descrizione: testo(form, 'descrizione'),
+    categoria: testo(form, 'categoria') || 'assistenza',
+    canale: 'email',
+    // Chi l'ha scritto resta scritto: un testo aziendale senza padre non lo
+    // corregge nessuno.
+    autore: u.nome || u.email,
+    slug: testo(form, 'slug') || undefined,
+  })
+
+  if (esito.ok) revalidatePath('/script')
+  return esito
 }
 
 export async function attivaRegolaApp(id: string, attiva: boolean) {
