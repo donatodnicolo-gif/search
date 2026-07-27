@@ -79,6 +79,11 @@ export default function MappaWeb() {
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
       setDestinazione({ lat, lng });
       setIndirizzoScelto({ indirizzo: String(params.indirizzo ?? ''), lat, lng });
+      // Tornando su un indirizzo salvato si rivede subito la ricerca già fatta:
+      // prima la mappa si limitava a centrarsi e l'elenco restava vuoto, come se
+      // la zona non fosse mai stata battuta. `force = false` = niente chiamata a
+      // Google; per rinfrescare c'è «Cerca di nuovo qui».
+      cerca({ lat, lng }, undefined, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.lat, params.lng]);
@@ -111,16 +116,23 @@ export default function MappaWeb() {
     );
   }, [preferiti, indirizzoScelto]);
 
-  async function cerca(c: Coord, f?: FiltroScoperta) {
+  /**
+   * Cerca i negozi intorno a un punto.
+   *
+   * `force` distingue le due strade:
+   * - **true** (bottone «Cerca di nuovo qui»): interroga Google e aggiorna.
+   * - **false** (apertura di un indirizzo salvato): usa la **ricerca già
+   *   salvata**, senza spendere una chiamata a Google. Chi vuole i risultati
+   *   freschi preme il bottone.
+   */
+  async function cerca(c: Coord, f?: FiltroScoperta, force = true) {
     setScopErrore(null);
     setScopLoading(true);
     try {
       // Il sotto-filtro (fiori/pasticcerie/…) vale solo con la linea Affiliazioni attiva;
       // altrimenti la scoperta cerca tutti i tipi.
       const filtro = f ?? (lineaFocus === 'Affiliazioni' ? filtroScoperta : 'tutti');
-      // "Cerca di nuovo qui" è un'azione esplicita: force = risultati freschi,
-      // non la cache (che altrimenti in una zona già visitata ma vuota resta a 0).
-      const res = await scopriNegozi(c.lat, c.lng, 400, filtro, true);
+      const res = await scopriNegozi(c.lat, c.lng, 400, filtro, force);
       setScoperti(res.places);
       setScopInfo(res);
     } catch (e) {
@@ -144,10 +156,12 @@ export default function MappaWeb() {
     setScopErrore(null);
   }
 
-  // Dopo una visita: ricarica dalla cache (riflette stato/da_completare aggiornati).
+  // Dopo una visita: ricarica dalla cache (riflette stato/da_completare
+  // aggiornati). `force = false` come dice il commento: serve rileggere i
+  // nostri dati, non ripagare una chiamata a Google.
   function chiudiVisita() {
     setVisitaPlace(null);
-    if (destinazione) cerca(destinazione);
+    if (destinazione) cerca(destinazione, undefined, false);
   }
 
   async function salvaInPreferiti() {
@@ -403,11 +417,20 @@ export default function MappaWeb() {
             <Text style={[styles.capTxt, { color: colors.errore }]}>{scopErrore}</Text>
           ) : destinazione && scopInfo ? (
             <>
-              <Text style={styles.capTxt}>
-                {scopInfo.places.length} attività · {scopInfo.nuovi ? `${scopInfo.nuovi} novità · ` : ''}
-                {scopInfo.cached ? 'ricerca recente salvata' : 'appena aggiornate da Google'}
-                {stellatiCount ? ` · ${stellatiCount} nel giro` : ''}
-              </Text>
+              <View style={styles.capRow}>
+                <Text style={styles.capTxt}>
+                  {scopInfo.places.length} attività · {scopInfo.nuovi ? `${scopInfo.nuovi} novità · ` : ''}
+                  {scopInfo.cached ? 'ricerca salvata' : 'appena aggiornate da Google'}
+                  {stellatiCount ? ` · ${stellatiCount} nel giro` : ''}
+                </Text>
+                {/* Stai guardando dati già raccolti: l'aggiornamento è a un
+                    tocco, ma lo chiedi tu (ogni ricerca costa una chiamata). */}
+                {scopInfo.cached ? (
+                  <Pressable onPress={() => destinazione && cerca(destinazione)} hitSlop={6}>
+                    <Text style={styles.capAggiorna}>Aggiorna</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               {!giroAttivo && scopInfo.places.length ? (
                 <Text style={styles.legenda}>
                   Sulle card: ⭐ aggiungi al giro · cerchio segna la visita · occhio nascondi
@@ -642,6 +665,7 @@ const styles = StyleSheet.create({
   caption: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
   capRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   capTxt: { color: colors.testoSoft, fontSize: 13 },
+  capAggiorna: { color: colors.oro, fontSize: 13, fontWeight: '700' },
   legenda: { color: colors.grigio, fontSize: 11, marginTop: 2 },
 
   filterBar: {
