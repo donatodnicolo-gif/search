@@ -55,6 +55,67 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **MENU A SCOMPARSA SU MOBILE + ETICHETTA «NUOVO» + CHE CLIENTE È** (27/07/2026).
+
+  **Menu mobile.** Sotto gli 800px il menu non è più una riga orizzontale sopra
+  il contenuto (ventidue voci da scorrere di lato, intestazioni dei gruppi
+  nascoste, e il tasto che lo spostava fuori lasciando una banda vuota alta come
+  prima): ora è un pannello `position: fixed` che scorre da sinistra, chiuso di
+  partenza, col velo dietro. Si chiude toccando il velo, con Esc, e **da solo
+  quando cambi pagina** (`useEffect` su `usePathname` in `Sidebar.tsx`: al
+  cambio di percorso, così copre anche tasto indietro e redirect).
+  Stato mobile = `data-menu-aperto` sull'html, **non** salvato: un pannello che
+  copre lo schermo e si ritrova aperto domani è una porta lasciata aperta.
+  Lo stato desktop (`data-sidebar-chiusa`, in localStorage) è rimasto identico.
+  ⚠️ **Nella media query mobile bisogna AZZERARE il collasso desktop**
+  (`margin-left/opacity/pointer-events` di `[data-sidebar-chiusa] .sidebar`):
+  la preferenza sta sull'html e vale per entrambi gli schermi, quindi chi tiene
+  il menu chiuso sul computer si ritroverebbe il pannello invisibile sul telefono.
+  ⚠️ **`visibility: hidden` sul pannello chiuso non è estetica**: senza, i 19
+  link e il bottone del velo **restano nell'ordine di tabulazione** — misurato,
+  `link.focus()` funzionava a pannello chiuso. Il ritardo `visibility 0s linear
+  260ms` serve a non farlo sparire di colpo mentre scorre via.
+  ⚠️ **NON VERIFICATO**: il ritorno a desktop col pannello aperto. Il browser di
+  prova non propaga NESSUN segnale di ridimensionamento — né `resize`, né il
+  `change` di matchMedia, né ResizeObserver (provati tutti e tre, zero scatti).
+  Il listener su matchMedia in `ToggleSidebar.tsx` è il meccanismo standard e su
+  un browser vero scatta, ma qui non si può dimostrare: da riprovare a mano.
+
+  **Etichetta «NUOVO».** Gli ordini comparsi mentre la sessione è aperta si
+  accendono con un bollino oro pieno (l'unico pieno della lista, di proposito).
+  `src/lib/cliente-valore.ts`: l'istante di apertura sta in **sessionStorage**
+  (per scheda — con localStorage riaprendo domani sarebbero «nuovi» tutti quelli
+  di ieri sera), e il confronto è su **`creatoIl`**, cioè quando l'ordine è
+  comparso DA NOI, non sulla data dell'ordine: al primo scarico entrano insieme
+  due mesi di ordini, e con la data sarebbero nuovi tutti quelli di oggi.
+  ⚠️ L'istante si legge in un `useEffect`, non nel render: sul server
+  sessionStorage non esiste e si avrebbe un errore di idratazione. Finché vale 0,
+  `arrivatoAdesso()` torna **falso** — senza quella guardia `t > 0` è vero per
+  qualunque data e per un istante si accende tutta la lista.
+  Verificato spostando indietro l'inizio sessione: 19 ordini accesi su 928.
+
+  **Che cliente è.** Bollino «Nuovo cliente» / «2° ordine» / «Cliente VIP · N°
+  ordine» accanto al tipo cliente, in scheda e in tabella. Campi nuovi
+  `Ordine.clienteNumeroOrdine` / `clienteOrdiniPrima`, ricopiati da Orders come
+  `clienteTipo` (stessa regola: un null in arrivo non cancella un ordinale noto).
+  ⚠️⚠️ **IL CONTO LO FA ORDERS, E NON POTEVA FARLO QUESTA APP.** Misurato: la
+  copia locale copre **solo 2 mesi** (928 ordini, 25/05→27/07) contro i ~14.000
+  del registro. Contando qui, dei 795 clienti distinti il 91,7% risultava con un
+  ordine solo e appena 3 arrivavano a cinque — un cliente che compra ogni Natale
+  sarebbe stato «nuovo» ogni Natale. Con gli ordinali di Orders sulla storia
+  intera: 845 ordini su 928 hanno il dato, 646 sono primi ordini, e ci sono
+  clienti al 20°, 21°, 26° e **33° ordine**. Gli ordini da clienti affezionati
+  sono **61 su 845 (7,2%)** — abbastanza rari da voler dire qualcosa.
+  ⚠️ **Soglia VIP = dal 4° ordine in su, ed è misurata, non un numero tondo.**
+  A cinque ordini l'etichetta sarebbe comparsa su pochissimi; a due su troppi.
+  ⚠️ **Quando l'ordinale è `null` non si scrive «nuovo cliente»**: è lo stesso
+  errore del voto dato a chi non ha dati (vedi la pagella dei partner). 83
+  ordini su 928 sono in questo caso — clienti che Orders non riesce a
+  riconoscere — e per loro il bollino semplicemente non c'è.
+  ⚠️ Per riempire il campo sugli ordini già in tabella serve **un sync completo**
+  (`POST /api/ordini/sync?completo=1`): quello normale guarda solo la finestra
+  recente e la prima volta ne aveva aggiornati 26 su 928.
+
 - **DOCUMENTI, BRAND ed ESPORTAZIONE in CS AI** (27/07/2026).
   Tre cose in una: si CARICANO documenti da cui l'AI ricava le istruzioni, ogni
   istruzione può valere per un solo BRAND, e le linee guida si ESPORTANO come

@@ -180,6 +180,16 @@ model Ordine {
   // "manuale" (deciso da un operatore in Orders) oppure "dedotta" (dal nome).
   // Serve a sapere quanto fidarsi: una deduzione si può smentire.
   clienteTipoDa  String   @default("")
+  // Quante volte quel cliente aveva già comprato PRIMA di questo ordine, e che
+  // numero ha questo ordine per lui (1 = è il suo primo).
+  //
+  // ⚠️ Il conto lo fa ORDERS sulla storia completa, e va preso da lì: la copia
+  // locale copre solo gli ultimi due mesi (927 ordini su ~14.000), quindi
+  // contando qui un cliente che compra ogni Natale risulterebbe nuovo ogni
+  // volta. `null` = Orders non l'ha calcolato o non riconosce il cliente —
+  // che è diverso da «è la prima volta», e non va mostrato come tale.
+  clienteOrdiniPrima Int?
+  clienteNumeroOrdine Int?
   contattoSalvato Boolean @default(false) // salvato su Google Contacts
   contattoEsito  String   @default("") // esito/errore dell'ultimo salvataggio
   // Come stiamo lavorando l'ordine QUI (nostro, distinto dallo stato della

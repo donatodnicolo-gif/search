@@ -41,6 +41,12 @@ export type OrdineArchivio = {
   // Se quel tipo l'ha deciso un operatore ("manuale") o è dedotto dal nome
   // dell'acquirente ("dedotta"). Una deduzione si può smentire, una scelta no.
   clienteTipoDa: string
+  // Quante volte il cliente aveva già comprato PRIMA di questo ordine, e che
+  // numero ha questo ordine per lui. Li conta Orders sulla storia completa: la
+  // nostra copia è di due mesi e non basterebbe. `null` = non calcolato, o
+  // cliente non riconoscibile — che non vuol dire «è il suo primo ordine».
+  clienteOrdiniPrima: number | null
+  clienteNumeroOrdine: number | null
 }
 
 export type EsitoArchivio =
@@ -62,6 +68,10 @@ type OrdineOrders = {
     telefono?: string | null
     tipo?: string | null
     tipoDa?: string | null
+    // Ordinali sulla storia completa del cliente (Orders li calcola su ~14.000
+    // ordini). Facoltativi: una versione più vecchia di Orders non li manda.
+    ordiniPrima?: number | null
+    numeroOrdine?: number | null
   }
   spedizione?: { citta?: string | null; paese?: string | null }
   consegna?: { data?: string | null; fascia?: string | null }
@@ -89,6 +99,11 @@ function normalizza(o: OrdineOrders): OrdineArchivio {
     statoNome: o.classificazione?.stato?.nome ?? '',
     clienteTipo: o.cliente?.tipo ?? '',
     clienteTipoDa: o.cliente?.tipoDa ?? '',
+    // `?? null` e non `?? 0`: zero vuol dire «primo ordine», null vuol dire
+    // «non lo sappiamo». Confonderli farebbe passare per clienti nuovi tutti
+    // quelli che Orders non riesce a riconoscere.
+    clienteOrdiniPrima: o.cliente?.ordiniPrima ?? null,
+    clienteNumeroOrdine: o.cliente?.numeroOrdine ?? null,
   }
 }
 

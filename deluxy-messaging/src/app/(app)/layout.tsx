@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { utenteCorrente } from '@/lib/sessione'
 import { Sidebar } from '@/components/Sidebar'
-import { ToggleSidebar } from '@/components/ToggleSidebar'
+import { ToggleSidebar, VeloMenu } from '@/components/ToggleSidebar'
 import { esci } from '../login/actions'
 
 export const dynamic = 'force-dynamic'
@@ -26,8 +26,10 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
           </form>
         </div>
       </header>
-      {/* Il menu sta a sinistra: la barra in alto tiene solo marchio e utente. */}
+      {/* Il menu sta a sinistra: la barra in alto tiene solo marchio e utente.
+          Su mobile diventa un pannello a scomparsa, col velo che lo chiude. */}
       <div className="layout">
+        <VeloMenu />
         <Sidebar />
         <main className="main">{children}</main>
       </div>

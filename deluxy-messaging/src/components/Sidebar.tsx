@@ -2,11 +2,21 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect } from 'react'
 
-// Menu laterale (stesso impianto di Deluxy Orders). È un client component solo
-// per evidenziare la voce attiva.
+// Menu laterale (stesso impianto di Deluxy Orders). È un client component per
+// evidenziare la voce attiva e per richiudersi da solo su mobile.
 export function Sidebar() {
   const path = usePathname()
+
+  // Su mobile il menu è un pannello che copre la pagina: appena hai scelto dove
+  // andare deve togliersi di mezzo. Chiuderlo al cambio di PERCORSO — e non nel
+  // click del link — copre anche le navigazioni che partono da altrove (tasto
+  // indietro, redirect dopo un'azione): il pannello non resta mai davanti a una
+  // pagina che non c'entra più.
+  useEffect(() => {
+    document.documentElement.removeAttribute('data-menu-aperto')
+  }, [path])
 
   const gruppi = [
     {
@@ -60,7 +70,9 @@ export function Sidebar() {
     .sort((a, b) => b.href.length - a.href.length)[0]?.href
 
   return (
-    <nav className="sidebar">
+    // L'id serve al bottone del menu (aria-controls): chi usa un lettore di
+    // schermo deve poter sapere che cosa apre quel tasto.
+    <nav className="sidebar" id="menu-laterale">
       {gruppi.map((g) => (
         <div className="sb-sezione" key={g.titolo}>
           <div className="sb-label">{g.titolo}</div>

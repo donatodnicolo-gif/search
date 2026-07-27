@@ -111,22 +111,98 @@ button {
 .sb-item.attiva .sb-icona { color: var(--gold); }
 .sb-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Su schermi stretti il menu diventa una riga orizzontale sopra il contenuto. */
+/* Il velo dietro al pannello del menu: su desktop non esiste. */
+.velo-menu { display: none; }
+
+/* ---- Su mobile il menu è un PANNELLO A SCOMPARSA, non una colonna ----
+ *
+ * Prima diventava una riga orizzontale sopra il contenuto: ventidue voci in
+ * fila da scorrere di lato, con le intestazioni dei gruppi nascoste — si
+ * arrivava in fondo alla riga senza sapere più dove si era. E il tasto del
+ * menu, che da desktop stringe la colonna con `margin-left: -232px`, lì
+ * spostava la riga fuori schermo lasciando una banda vuota alta come prima.
+ *
+ * Ora scorre da sinistra sopra la pagina, chiuso di partenza, coi gruppi al
+ * loro posto — e si richiude appena scegli una voce (vedi Sidebar.tsx).
+ */
 @media (max-width: 800px) {
   .layout { display: block; }
+
   .sidebar {
-    position: static;
+    position: fixed;
+    top: 63px; /* sotto la barra in alto, che resta visibile */
+    left: 0;
+    bottom: 0;
+    z-index: 30;
+    width: min(290px, 84vw);
     height: auto;
-    width: auto;
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    padding: 10px 12px;
-    border-right: none;
-    border-bottom: 1px solid var(--hairline);
+    flex: none;
+    overflow-y: auto;
+    padding: 16px 12px 40px;
+    border-right: 1px solid var(--hairline);
+    transform: translateX(-100%);
+    /* ⚠️ `visibility` non è decorazione: senza, il pannello chiuso è soltanto
+       spostato fuori schermo e i suoi 19 link RESTANO nell'ordine di
+       tabulazione — misurato. Chi naviga da tastiera passerebbe per venti
+       comandi invisibili prima di toccare la pagina. Il ritardo di 260ms serve
+       a non farlo sparire di colpo mentre sta ancora scorrendo via. */
+    visibility: hidden;
+    transition:
+      transform 260ms var(--ease),
+      visibility 0s linear 260ms;
   }
-  .sb-label { display: none; }
-  .sb-sezione { display: flex; gap: 6px; }
+
+  /* ⚠️ Azzera il collasso del desktop. Senza questo, chi tiene il menu chiuso
+     sul computer si ritrova il pannello invisibile anche sul telefono: la
+     preferenza è scritta sull'html e vale per tutti e due gli schermi. */
+  [data-sidebar-chiusa] .sidebar {
+    margin-left: 0;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  [data-menu-aperto] .sidebar {
+    transform: translateX(0);
+    visibility: visible;
+    transition:
+      transform 260ms var(--ease),
+      visibility 0s;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  }
+
+  /* Il pannello copre la pagina: sotto non si scorre, altrimenti si trascina il
+     contenuto dietro credendo di scorrere il menu. */
+  [data-menu-aperto] body { overflow: hidden; }
+
+  .velo-menu {
+    display: block;
+    position: fixed;
+    inset: 63px 0 0 0;
+    z-index: 20;
+    border: 0;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.28);
+    opacity: 0;
+    pointer-events: none;
+    /* Stesso motivo del pannello: da chiuso è un bottone «Chiudi il menu»
+       invisibile che il Tab raccoglieva lo stesso. */
+    visibility: hidden;
+    transition:
+      opacity 220ms var(--ease),
+      visibility 0s linear 220ms;
+  }
+  [data-menu-aperto] .velo-menu {
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+    transition:
+      opacity 220ms var(--ease),
+      visibility 0s;
+  }
+
+  /* Bersaglio più grande per un dito, e voci più spaziate per lo stesso motivo. */
+  .toggle-sidebar { width: 40px; height: 40px; }
+  .sb-item { padding: 10px 12px; font-size: 15px; }
 }
 
 .main { flex: 1; min-width: 0; max-width: 1500px; margin: 0 auto; padding: 32px 24px 64px; }
@@ -269,6 +345,22 @@ button {
   border-radius: 50%;
   background: currentColor;
 }
+
+/* «NUOVO»: arrivato mentre stavi lavorando.
+ *
+ * È l'unico bollino pieno della lista, e di proposito: gli altri dicono com'è
+ * fatto un ordine, questo dice che è cambiato qualcosa sotto gli occhi mentre
+ * guardavi altrove. Se somigliasse agli altri non lo si vedrebbe, ed è l'unica
+ * cosa che deve farsi notare. Niente pallino davanti: la parola basta. */
+.badge-nuovo {
+  background: var(--gold);
+  color: #fff;
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+}
+.badge-nuovo::before { display: none; }
 
 .badge.verde {
   background: rgba(36, 138, 61, 0.1);

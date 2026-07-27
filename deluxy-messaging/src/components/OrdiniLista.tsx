@@ -9,6 +9,7 @@ import {
   origineTipoCliente,
 } from '@/lib/clienti-tipo'
 import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
+import { profiloCliente, inizioSessione, arrivatoAdesso } from '@/lib/cliente-valore'
 import { DettaglioOrdine } from './DettaglioOrdine'
 import { ComponiMail, type BozzaMail } from './ComponiMail'
 
@@ -31,6 +32,13 @@ type OrdineDto = {
   gestione: string
   clienteTipo: string
   clienteTipoDa: string
+  // Che numero ha questo ordine per quel cliente (1 = il suo primo), contato da
+  // Orders sulla storia completa. `null` = non lo sappiamo, che NON vuol dire
+  // «primo». Vedi src/lib/cliente-valore.ts.
+  clienteNumeroOrdine: number | null
+  // Quando l'ordine è comparso DA NOI — non quando è stato fatto: regge
+  // l'etichetta NUOVO di chi arriva mentre stai lavorando.
+  creatoIl: string
   // Paese di spedizione (ISO 2 lettere): decide in che lingua gli si scrive.
   paese: string
   // Quando e in che fascia oraria il cliente vuole la consegna. Arrivano da
@@ -110,6 +118,40 @@ function TipoCliente({ tipo, da }: { tipo: string; da: string }) {
       }
     >
       {nomeTipoCliente(tipo)}
+    </span>
+  )
+}
+
+/**
+ * Che cliente è: nuovo, di ritorno, affezionato.
+ *
+ * Non si mostra niente quando non lo sappiamo. Scrivere «nuovo cliente» perché
+ * il dato manca è lo stesso errore del voto dato a chi non ha dati: sembra
+ * un'informazione, è un'assenza, e ci si costruisce sopra il tono della
+ * risposta.
+ */
+function ProfiloCliente({ numeroOrdine }: { numeroOrdine: number | null }) {
+  const p = profiloCliente(numeroOrdine)
+  if (!p.etichetta) return null
+  return (
+    <span
+      className="badge"
+      style={p.tono === 'oro' ? { color: 'var(--gold)', borderColor: 'var(--gold)' } : undefined}
+      title={p.spiega + ' Conteggio dal registro Ordini, su tutta la storia del cliente.'}
+    >
+      {p.etichetta}
+    </span>
+  )
+}
+
+/** L'ordine è arrivato mentre eri qui: non deve passare inosservato. */
+function BollinoNuovo() {
+  return (
+    <span
+      className="badge badge-nuovo"
+      title="Questo ordine è comparso dopo che hai aperto l’app. Sparisce alla prossima sessione."
+    >
+      NUOVO
     </span>
   )
 }
@@ -371,6 +413,16 @@ function riepilogoContatti(c: EsitoContatti | undefined): string {
 //    cercare. Non è una lista di lavoro: è l'indice.
 export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'globali' } = {}) {
   const globale = modalita === 'globali'
+  // Da quando sei qui. Si fissa al primo disegno e non cambia più: gli ordini
+  // comparsi dopo questo istante prendono l'etichetta NUOVO.
+  //
+  // ⚠️ Va letto in un effetto e non durante il render: `sessionStorage` sul
+  // server non esiste, e leggerlo direttamente darebbe due valori diversi fra
+  // HTML del server e primo disegno del browser (errore di idratazione).
+  // Finché resta 0 nessun ordine è «nuovo», che è il ripiego giusto.
+  const [sessioneDa, setSessioneDa] = useState(0)
+  useEffect(() => setSessioneDa(inizioSessione()), [])
+
   const [ordini, setOrdini] = useState<OrdineDto[]>([])
   const [negozi, setNegozi] = useState<NegozioDto[]>([])
   // Vista: colonne per brand (come Deluxy Orders) o elenco in tabella.
@@ -940,6 +992,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                             mandava i badge a capo, 27px per scheda; la data
                             dell'ordine si legge nel dettaglio. */}
                         <div className="riga-bassa" style={{ flexWrap: 'wrap', gap: 6 }}>
+                          {arrivatoAdesso(o.creatoIl, sessioneDa) ? <BollinoNuovo /> : null}
+                          <ProfiloCliente numeroOrdine={o.clienteNumeroOrdine} />
                           <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
                           <span
                             className="badge"
@@ -1131,13 +1185,25 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                       <span style={{ color: 'var(--text-tertiary)' }}>—</span>
                     )}
                   </td>
-                  <td>{o.clienteNome || '—'}</td>
+                  <td>
+                    {o.clienteNome || '—'}
+                    {arrivatoAdesso(o.creatoIl, sessioneDa) ? (
+                      <>
+                        {' '}
+                        <BollinoNuovo />
+                      </>
+                    ) : null}
+                  </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
-                    {o.clienteTipo ? (
-                      <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
-                    ) : (
-                      <span style={{ color: 'var(--text-tertiary)' }}>—</span>
-                    )}
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {o.clienteTipo ? (
+                        <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
+                      ) : null}
+                      <ProfiloCliente numeroOrdine={o.clienteNumeroOrdine} />
+                      {!o.clienteTipo && o.clienteNumeroOrdine === null ? (
+                        <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                      ) : null}
+                    </div>
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>{o.telefono || '—'}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>

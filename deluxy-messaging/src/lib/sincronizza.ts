@@ -115,6 +115,12 @@ export async function sincronizzaOrdini(
       // il dato è diventato falso, e non deve svuotare una colonna che qualcuno
       // sta guardando.
       ...(o.clienteTipo ? { clienteTipo: o.clienteTipo, clienteTipoDa: o.clienteTipoDa } : {}),
+      // Stessa regola per gli ordinali del cliente: si scrivono solo se Orders
+      // li ha davvero calcolati. Un null in arrivo non deve cancellare un
+      // ordinale già noto e far tornare «nuovo» un cliente affezionato.
+      ...(o.clienteNumeroOrdine !== null
+        ? { clienteOrdiniPrima: o.clienteOrdiniPrima, clienteNumeroOrdine: o.clienteNumeroOrdine }
+        : {}),
     }
     const esito = await db.ordine.upsert({
       // il gid Shopify è la chiave stabile: gli ordini presi prima da Shopify

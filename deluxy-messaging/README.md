@@ -106,6 +106,49 @@ Serve perché le regole che legge l'AI devono poterle leggere anche le persone: 
 squadra, chi lavora dall'esterno, chi deve approvarle. Se il tono di voce vive solo dentro
 un prompt, esiste per il modello e non per l'azienda.
 
+## Il menu sul telefono
+
+Sotto gli 800px il menu non è una colonna ma un **pannello che scorre da
+sinistra**: si apre col tasto in alto a sinistra, si chiude toccando la pagina
+dietro, con Esc, e da solo appena scegli dove andare. Parte sempre chiuso.
+
+> Prima diventava una riga orizzontale sopra il contenuto: ventidue voci da
+> scorrere di lato, con le intestazioni dei gruppi nascoste — si arrivava in
+> fondo alla riga senza sapere più dove si era. E il tasto del menu, che sul
+> computer stringe la colonna, sul telefono spostava la riga fuori schermo
+> lasciando una banda vuota alta uguale.
+
+Sul computer non cambia niente: il tasto stringe la colonna e la scelta resta
+salvata per la volta dopo.
+
+## «NUOVO»: gli ordini arrivati mentre lavoravi
+
+Gli ordini entrano da soli ogni quindici minuti, e la lista è ordinata per
+urgenza: uno nuovo può spuntare a metà pagina senza che nessuno se ne accorga.
+Da oggi porta un bollino **NUOVO** dorato — l'unico bollino pieno della lista,
+perché è l'unica cosa che deve farsi notare.
+
+Vale per la sessione in corso: chiudendo la scheda e riaprendo domani, quegli
+ordini non sono più nuovi. Il conto parte da quando hai aperto l'app, non
+dalla data dell'ordine.
+
+## Che cliente è: nuovo, di ritorno, VIP
+
+Accanto al tipo di cliente c'è **quante volte ha già comprato**: *Nuovo cliente*,
+*2° ordine*, *Cliente VIP · 7° ordine*. A chi è al primo ordine si spiegano cose
+che al nono sono offensive, e a chi ha comprato dieci volte e stavolta ha un
+problema si risponde con un'altra faccia.
+
+> **Il conto viene dal registro Ordini, non da qui.** Questa app tiene solo gli
+> ultimi due mesi: contando su quelli, il 91,7% dei clienti sembrava avere un
+> ordine solo e un cliente che compra ogni Natale sarebbe risultato nuovo ogni
+> Natale. Sulla storia intera saltano fuori clienti al 20°, 26°, 33° ordine.
+
+**VIP dal quarto ordine in su**, ed è una soglia misurata: gli ordini di clienti
+affezionati sono il 7,2% del totale — rari abbastanza da voler dire qualcosa,
+frequenti abbastanza da vederli. Quando il registro non riconosce il cliente il
+bollino **non compare**: non si scrive «nuovo cliente» perché il dato manca.
+
 ## Come si contatta il cliente
 
 Su ogni ordine ci sono i canali che quel cliente ha **davvero**: WhatsApp, Chiama,
