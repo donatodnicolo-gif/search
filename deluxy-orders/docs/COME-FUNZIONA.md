@@ -89,6 +89,46 @@ Nella scheda dell'ordine c'è tutto per esteso: il **nome della campagna**
 Shopify — cioè il dato grezzo su cui la deduzione è stata fatta, per chi non si
 fida della deduzione.
 
+### Analisi (`/analisi`)
+Come stanno andando le vendite, **sempre accanto a un altro periodo**: 85.000 €
+in un mese è tanto o poco? Da solo quel numero non lo dice. Si sceglie
+**settimane, mesi o anni** e il confronto — *periodo precedente* oppure *stesso
+periodo dell'anno scorso* — e ogni misura esce con la sua variazione. Con le
+frecce si va indietro nel tempo; il filtro per negozio taglia tutto.
+
+**Il periodo in corso si confronta a parità di giorni.** Al 27 luglio si è al 27
+luglio: il confronto si ferma al 27 del mese prima. Senza questo accorgimento
+ogni mese sembra un disastro fino al 28, e la pagina scriverebbe cali del 40%
+che sono solo giorni non ancora accaduti.
+
+I numeri che escono:
+
+- **venduto**, **ordini**, **clienti**, **pezzi venduti**;
+- **scontrino medio** — è lo stesso numero dell'«ordine medio»: venduto diviso
+  ordini. E siccome un unico numero non dice mai *perché* si è mosso, accanto ci
+  sono i due pezzi da cui è fatto: **UPT** (pezzi per ordine) e **prezzo medio a
+  pezzo**. Scontrino medio = UPT × prezzo medio, e la differenza fra «vendiamo
+  meno» e «vendiamo le stesse cose a meno» si legge lì;
+- **ordini da clienti nuovi**, in percentuale: la stessa numerazione dei
+  repeater, calcolata su tutta la storia e non solo dentro il periodo;
+- **annullati** e **rimborsati** in percentuale, con le frecce di colore
+  invertito — un aumento dei resi non è una buona notizia e non deve sembrarlo.
+
+Poi tre tabelle: **cosa è rimasto fuori dal venduto** (annullati, rimborsi pieni,
+e i rimborsi parziali che restano contati per intero perché l'importo reso non
+esiste nel registro), il venduto **per categoria di prodotto** con la variazione
+rispetto al periodo di confronto, e la **serie storica** degli ultimi 12–13
+periodi con tutti i KPI riga per riga: è lì che si confrontano fra loro
+settimane, mesi e anni.
+
+Due avvertenze scritte anche in pagina:
+
+1. **le categorie stanno sull'ordine, non sulla riga**: un ordine con fiori e
+   una torta è contato in entrambe le righe, e la somma supera il totale.
+   Spezzare l'importo a metà sarebbe un numero inventato;
+2. **l'ultima riga della serie è il periodo in corso**: va letta sapendo che non
+   è ancora finita.
+
 ### La consegna richiesta
 Su Shopify il giorno e la fascia oraria di consegna sono **attributi
 dell'ordine**: `Data_Consegna` (data) e `Fascia_Oraria_Consegna` (es. `16-20`).

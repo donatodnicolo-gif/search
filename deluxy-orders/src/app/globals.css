@@ -943,3 +943,30 @@ td .badge-problema { margin-top: 3px; }
   background: var(--gold-soft);
   color: var(--gold-strong);
 }
+
+/* ---------- Analisi: confronti fra periodi ---------- */
+.filtri-analisi { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.navigazione-periodo {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 14px;
+}
+.navigazione-periodo strong { min-width: 130px; text-align: center; }
+
+.griglia-kpi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.kpi-analisi .kpi-etichetta { margin: 0 0 4px; }
+.kpi-analisi .kpi-valore { font-size: 22px; }
+
+/* La variazione rispetto al periodo di confronto */
+.delta { display: inline-block; margin-top: 6px; font-size: 12.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.delta-su { color: var(--green); }
+.delta-giu { color: var(--red); }
+.delta-fermo, .delta-nuovo { color: var(--text-tertiary); }
+
+/* La riga del periodo in corso nella serie storica */
+.riga-corrente { background: var(--fill); }
+.riga-corrente td { font-weight: 600; }

@@ -297,6 +297,35 @@ simbolo). **Attribuzione al primo contatto**, non all'ultimo clic.
 - ⚠️ `clienti` nella risposta è la **somma dei distinti per mese**: chi compra a
   gennaio e a marzo è contato due volte. È dichiarato in `criteri`.
 
+### Analisi delle vendite (`/analisi`, 27/07/2026)
+`src/lib/analisi.ts` + pagina. Settimane / mesi / anni, confronto col periodo
+precedente o con lo stesso dell'anno scorso, filtro per negozio, navigazione
+all'indietro. KPI: venduto, ordini, clienti, pezzi, scontrino medio, **UPT**,
+prezzo medio a pezzo, % ordini da clienti nuovi, % annullati, % rimborsati; più
+categorie di prodotto e serie storica.
+
+- **Confronto a parità di giorni** quando il periodo è in corso: il periodo di
+  confronto viene troncato allo stesso numero di giorni. Senza, a metà mese la
+  pagina mostrerebbe cali inventati.
+- «Ordine medio» e «scontrino medio» sono **lo stesso numero** (venduto/ordini):
+  la pagina lo dice invece di mostrare due KPI identici con nomi diversi. Quello
+  che li spiega è la coppia UPT × prezzo medio.
+- ⚠️ **Il conto dei clienti nuovi si fa su tutta la storia**, come in
+  `/api/v1/marketing`: la CTE `numerati` non è filtrata per data.
+- ⚠️ **Categorie: doppio conteggio voluto.** Stanno sull'ordine, non sulla riga;
+  un ordine multi-categoria è contato in ogni riga e la somma supera il totale.
+  Scritto in pagina.
+
+**⚠️ Trappola del fuso orario, trovata e corretta il 27/07/2026 — riguardava
+anche codice già in produzione.** `Ordine.data` è `timestamp without time zone`
+e contiene UTC. Scrivere `data AT TIME ZONE 'Europe/Rome'` **sottrae** due ore
+invece di aggiungerle (Postgres interpreta il valore come ora di Roma e lo
+converte in UTC). La forma giusta è `data AT TIME ZONE 'UTC' AT TIME ZONE
+'Europe/Rome'`. Effetto misurato sull'archivio: **593 ordini finivano nel giorno
+sbagliato** e **16 nel mese sbagliato** (3.627 €) — il consuntivo D2C che
+Budgets legge da `/api/v1/ricavi` era sbagliato di quei 16. Corretto in
+`ricavi/route.ts`, `marketing/route.ts` e `analisi.ts`.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare

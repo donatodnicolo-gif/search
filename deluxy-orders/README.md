@@ -188,9 +188,13 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
   ogni ordine nuovo invece di essere riscritto da capo.
 - `src/lib/marketing.ts` — da dove è arrivato un ordine: i 12 canali col loro
   simbolo e la regola che li deduce da `utm`, prima visita e canale Shopify.
+- `src/lib/analisi.ts` — i numeri delle vendite per settimana, mese o anno:
+  scontrino medio, UPT, prezzo medio, incidenza di annullamenti e rimborsi, e i
+  confronti **a parità di giorni** quando il periodo è ancora in corso.
 - `src/lib/repeater.ts` — prima volta o cliente che torna, contando gli ordini
   validi **precedenti a quello** (una query per schermata).
 - `src/lib/brand.ts` — brand e loro colori.
 - `src/app/` — Ordini (elenco + colonne per brand), Bacheca (kanban), scheda
   ordine, Clienti (elenco ordinabile per ogni colonna + scheda con tipologia e
-  privacy), Liste (catalogo + dettaglio + export CSV), Automazioni, Impostazioni.
+  privacy), Liste (catalogo + dettaglio + export CSV), **Analisi** (confronti fra
+  settimane, mesi e anni), Automazioni, Impostazioni.

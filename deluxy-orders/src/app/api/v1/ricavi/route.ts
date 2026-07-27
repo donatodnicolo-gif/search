@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
   const [righe, annullati, rimborsati, parziali] = await Promise.all([
     prisma.$queryRawUnsafe<Riga[]>(
       `SELECT brand,
-              EXTRACT(MONTH FROM (data AT TIME ZONE 'Europe/Rome'))::int AS mese,
+              EXTRACT(MONTH FROM (data AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome'))::int AS mese,
               COUNT(*)::int AS ordini,
               COALESCE(SUM(totale), 0)::float8 AS lordo
          FROM "${SCHEMA}"."Ordine"

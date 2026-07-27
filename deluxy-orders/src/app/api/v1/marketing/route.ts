@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
     prisma.$queryRawUnsafe<RigaCanale[]>(
       `${NUMERATI}
        SELECT COALESCE(NULLIF("canaleMarketing", ''), 'sconosciuto') AS canale,
-              EXTRACT(MONTH FROM ("data" AT TIME ZONE 'Europe/Rome'))::int AS mese,
+              EXTRACT(MONTH FROM ("data" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome'))::int AS mese,
               COUNT(*)::int AS ordini,
               COALESCE(SUM("totale"), 0)::float8 AS lordo,
               COUNT(*) FILTER (WHERE precedenti = 0)::int AS primi,

@@ -31,6 +31,10 @@ export function Sidebar({
       ],
     },
     {
+      titolo: "Analisi",
+      voci: [{ href: "/analisi", nome: "Andamento vendite", count: null, icona: iconaAnalisi }],
+    },
+    {
       titolo: "Clienti",
       voci: [
         { href: "/clienti", nome: "Clienti", count: conteggi.clienti, icona: iconaClienti },
@@ -124,6 +128,12 @@ const iconaConsegna = (
     <rect x="3" y="5" width="18" height="16" rx="2" />
     <line x1="3" y1="10" x2="21" y2="10" /><line x1="8" y1="3" x2="8" y2="7" /><line x1="16" y1="3" x2="16" y2="7" />
     <circle cx="12" cy="15.5" r="2.5" /><path d="M12 14.3v1.4l1 .6" />
+  </svg>
+);
+const iconaAnalisi = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 19V5" /><path d="M4 19h16" />
+    <path d="M8 16V11" /><path d="M13 16V7" /><path d="M18 16v-4" />
   </svg>
 );
 const iconaCategorie = (
