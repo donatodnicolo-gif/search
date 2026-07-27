@@ -53,7 +53,7 @@ export default async function SchedaLanding({ params }: { params: Promise<{ id: 
 
         <section className="scheda">
           <div className="scheda-titolo">Stato</div>
-          <form className="pill-scelta" action={cambiaStatoLanding}>
+          <form className="pill-scelta">
             <input type="hidden" name="id" value={landing.id} />
             {STATI_LANDING.map((s) => (
               <button
@@ -61,8 +61,7 @@ export default async function SchedaLanding({ params }: { params: Promise<{ id: 
                 className={`pill-opt${landing.stato === s ? " attuale" : ""}`}
                 style={{ color: landing.stato === s ? undefined : COLORE_STATO_LANDING[s] }}
                 type="submit"
-                name="stato"
-                value={s}
+                formAction={cambiaStatoLanding.bind(null, s)}
                 disabled={landing.stato === s}
               >
                 <span className="dot" />

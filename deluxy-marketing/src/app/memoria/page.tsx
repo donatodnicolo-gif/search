@@ -128,10 +128,10 @@ export default async function PaginaMemoria({
                   </span>
                   {v.stato === "attiva" && (
                     <span className="storia-autore">
-                      <form action={consolidaMemoria} style={{ display: "inline-flex", gap: 5 }}>
+                      <form style={{ display: "inline-flex", gap: 5 }}>
                         <input type="hidden" name="id" value={v.id} />
-                        <button className="pill-opt" name="stato" value="consolidata" title="Diventata regola nei documenti canonici">Consolida</button>
-                        <button className="pill-opt" name="stato" value="storico" title="Obsoleta: va in Storico">Archivia</button>
+                        <button className="pill-opt" formAction={consolidaMemoria.bind(null, "consolidata")} title="Diventata regola nei documenti canonici">Consolida</button>
+                        <button className="pill-opt" formAction={consolidaMemoria.bind(null, "storico")} title="Obsoleta: va in Storico">Archivia</button>
                       </form>
                     </span>
                   )}

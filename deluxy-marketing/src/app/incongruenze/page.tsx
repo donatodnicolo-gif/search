@@ -102,23 +102,23 @@ export default async function PaginaIncongruenze() {
               )}
             </div>
             {v.stato === "aperta" && (
-              <form className="pill-scelta" action={verdettoIncongruenza} style={{ marginTop: 12 }}>
+              <form className="pill-scelta" style={{ marginTop: 12 }}>
                 <input type="hidden" name="id" value={v.id} />
-                <button className="pill-opt" name="stato" value="vera" style={{ color: "var(--red)" }}>
+                <button className="pill-opt" formAction={verdettoIncongruenza.bind(null, "vera")} style={{ color: "var(--red)" }}>
                   <span className="dot" /><span style={{ color: "var(--text)" }}>Verificata: vera</span>
                 </button>
-                <button className="pill-opt" name="stato" value="parziale" style={{ color: "var(--gold-strong)" }}>
+                <button className="pill-opt" formAction={verdettoIncongruenza.bind(null, "parziale")} style={{ color: "var(--gold-strong)" }}>
                   <span className="dot" /><span style={{ color: "var(--text)" }}>Parziale</span>
                 </button>
-                <button className="pill-opt" name="stato" value="respinta" style={{ color: "var(--text-tertiary)" }}>
+                <button className="pill-opt" formAction={verdettoIncongruenza.bind(null, "respinta")} style={{ color: "var(--text-tertiary)" }}>
                   <span className="dot" /><span style={{ color: "var(--text)" }}>Non confermata</span>
                 </button>
               </form>
             )}
             {(v.stato === "vera" || v.stato === "parziale") && (
-              <form className="pill-scelta" action={verdettoIncongruenza} style={{ marginTop: 12 }}>
+              <form className="pill-scelta" style={{ marginTop: 12 }}>
                 <input type="hidden" name="id" value={v.id} />
-                <button className="pill-opt" name="stato" value="integrata" style={{ color: "var(--green)" }}>
+                <button className="pill-opt" formAction={verdettoIncongruenza.bind(null, "integrata")} style={{ color: "var(--green)" }}>
                   <span className="dot" /><span style={{ color: "var(--text)" }}>Correzione integrata nei documenti</span>
                 </button>
               </form>

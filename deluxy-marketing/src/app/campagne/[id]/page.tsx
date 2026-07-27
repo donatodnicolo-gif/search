@@ -80,7 +80,7 @@ export default async function SchedaCampagna({
             </p>
             {/* Lo stato sta col titolo: è la prima cosa che si guarda e la più
                 frequente da cambiare, non merita di stare sotto a una scheda. */}
-            <form className="pill-scelta" action={cambiaStatoCampagna} style={{ marginTop: 10 }}>
+            <form className="pill-scelta" style={{ marginTop: 10 }}>
               <input type="hidden" name="id" value={campagna.id} />
               {STATI_CAMPAGNA.map((s) => (
                 <button
@@ -88,8 +88,7 @@ export default async function SchedaCampagna({
                   className={`pill-opt${campagna.stato === s ? " attuale" : ""}`}
                   style={{ color: campagna.stato === s ? undefined : COLORE_STATO_CAMPAGNA[s] }}
                   type="submit"
-                  name="stato"
-                  value={s}
+                  formAction={cambiaStatoCampagna.bind(null, s)}
                   disabled={campagna.stato === s}
                   title={campagna.stato === s ? "Stato attuale" : `Porta la campagna a "${ETICHETTA_STATO_CAMPAGNA[s]}"`}
                 >

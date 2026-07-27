@@ -68,7 +68,7 @@ export default async function SchedaAzione({ params }: { params: Promise<{ id: s
 
         <section className="scheda">
           <div className="scheda-titolo">Stato</div>
-          <form className="pill-scelta" action={cambiaStatoAzione}>
+          <form className="pill-scelta">
             <input type="hidden" name="id" value={azione.id} />
             {STATI_AZIONE.map((s) => (
               <button
@@ -76,8 +76,7 @@ export default async function SchedaAzione({ params }: { params: Promise<{ id: s
                 className={`pill-opt${azione.stato === s ? " attuale" : ""}`}
                 style={{ color: azione.stato === s ? undefined : COLORE_STATO_AZIONE[s] }}
                 type="submit"
-                name="stato"
-                value={s}
+                formAction={cambiaStatoAzione.bind(null, s)}
                 disabled={azione.stato === s}
               >
                 <span className="dot" />
@@ -119,17 +118,17 @@ export default async function SchedaAzione({ params }: { params: Promise<{ id: s
         {azione.stato === "fatta" && !azione.verificataIl && (
           <section className="scheda">
             <div className="scheda-titolo">Verifica di efficacia (FATTA ≠ VERIFICATA)</div>
-            <form className="modulo" action={esitoVerificaAzione} style={{ gridTemplateColumns: "2fr auto auto" }}>
+            <form className="modulo" style={{ gridTemplateColumns: "2fr auto auto" }}>
               <input type="hidden" name="id" value={azione.id} />
               <div className="campo-modulo">
                 <label>Nota di verifica</label>
                 <input name="nota" placeholder="I numeri confermano l effetto?" />
               </div>
               <div className="azioni-modulo" style={{ alignSelf: "end" }}>
-                <button className="btn small" name="esitoVerifica" value="verificata">✓ Verificata</button>
+                <button className="btn small" formAction={esitoVerificaAzione.bind(null, "verificata")}>✓ Verificata</button>
               </div>
               <div className="azioni-modulo" style={{ alignSelf: "end" }}>
-                <button className="btn small btn-secondario" name="esitoVerifica" value="riaperta">Riapri</button>
+                <button className="btn small btn-secondario" formAction={esitoVerificaAzione.bind(null, "riaperta")}>Riapri</button>
               </div>
             </form>
           </section>
@@ -139,14 +138,14 @@ export default async function SchedaAzione({ params }: { params: Promise<{ id: s
           <div>
             <section className="scheda">
               <div className="scheda-titolo">Storia &amp; feedback</div>
-              <form className="modulo" action={aggiungiFeedback} style={{ marginBottom: 16 }}>
+              <form className="modulo" style={{ marginBottom: 16 }}>
                 <input type="hidden" name="id" value={azione.id} />
                 <div className="campo-modulo largo">
                   <textarea name="testo" rows={2} required placeholder="Scrivi un feedback su questa azione (com'è andata, cosa cambiare)…" />
                 </div>
                 <div className="azioni-modulo" style={{ gridColumn: "1 / -1", justifyContent: "flex-start" }}>
-                  <button className="btn small" type="submit" name="tipo" value="feedback">Aggiungi feedback</button>
-                  <button className="btn small btn-secondario" type="submit" name="tipo" value="nota">Aggiungi nota</button>
+                  <button className="btn small" type="submit" formAction={aggiungiFeedback.bind(null, "feedback")}>Aggiungi feedback</button>
+                  <button className="btn small btn-secondario" type="submit" formAction={aggiungiFeedback.bind(null, "nota")}>Aggiungi nota</button>
                 </div>
               </form>
               {azione.eventi.length === 0 ? (

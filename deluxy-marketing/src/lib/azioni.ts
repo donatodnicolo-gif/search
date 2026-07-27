@@ -83,9 +83,8 @@ export async function creaAzione(fd: FormData) {
   redirect(`/azioni/${azione.id}`);
 }
 
-export async function cambiaStatoAzione(fd: FormData) {
+export async function cambiaStatoAzione(stato: string, fd: FormData) {
   const id = testo(fd, "id");
-  const stato = testo(fd, "stato");
   if (!id || !stato || !(STATI_AZIONE as readonly string[]).includes(stato)) return;
   const azione = await prisma.azione.findUnique({ where: { id } });
   if (!azione || azione.stato === stato) return;
@@ -103,10 +102,10 @@ export async function cambiaStatoAzione(fd: FormData) {
   revalidatePath("/");
 }
 
-export async function aggiungiFeedback(fd: FormData) {
+export async function aggiungiFeedback(tipoScelto: string, fd: FormData) {
   const id = testo(fd, "id");
   const testoFeedback = testo(fd, "testo");
-  const tipo = testo(fd, "tipo") === "nota" ? "nota" : "feedback";
+  const tipo = tipoScelto === "nota" ? "nota" : "feedback";
   if (!id || !testoFeedback) return;
   await prisma.eventoAzione.create({
     data: { azioneId: id, tipo, testo: testoFeedback, autore: "utente" },
@@ -139,9 +138,8 @@ export async function creaCampagna(fd: FormData) {
   redirect(`/campagne/${campagna.id}`);
 }
 
-export async function cambiaStatoCampagna(fd: FormData) {
+export async function cambiaStatoCampagna(stato: string, fd: FormData) {
   const id = testo(fd, "id");
-  const stato = testo(fd, "stato");
   if (!id || !stato || !(STATI_CAMPAGNA as readonly string[]).includes(stato)) return;
   const prima = await prisma.campagna.findUnique({ where: { id } });
   if (!prima || prima.stato === stato) return;
@@ -237,9 +235,8 @@ export async function creaTestMeta(fd: FormData) {
   revalidatePath("/meta");
 }
 
-export async function cambiaStatoTestMeta(fd: FormData) {
+export async function cambiaStatoTestMeta(stato: string, fd: FormData) {
   const id = testo(fd, "id");
-  const stato = testo(fd, "stato");
   if (!id || !stato) return;
   const test = await prisma.testMeta.update({
     where: { id },
@@ -281,9 +278,8 @@ export async function creaLanding(fd: FormData) {
   redirect(`/landing/${landing.id}`);
 }
 
-export async function cambiaStatoLanding(fd: FormData) {
+export async function cambiaStatoLanding(stato: string, fd: FormData) {
   const id = testo(fd, "id");
-  const stato = testo(fd, "stato");
   if (!id || !stato) return;
   const landing = await prisma.landingPage.update({ where: { id }, data: { stato, verificataIl: new Date() } });
   const { registra } = await import("./registro");
@@ -626,9 +622,8 @@ export async function aggiungiMemoria(fd: FormData) {
   revalidatePath("/memoria");
 }
 
-export async function consolidaMemoria(fd: FormData) {
+export async function consolidaMemoria(stato: string, fd: FormData) {
   const id = testo(fd, "id");
-  const stato = testo(fd, "stato");
   if (!id || !stato) return;
   await prisma.memoriaVoce.update({ where: { id }, data: { stato } });
   revalidatePath("/memoria");
@@ -653,9 +648,8 @@ export async function creaIncongruenza(fd: FormData) {
   revalidatePath("/incongruenze");
 }
 
-export async function verdettoIncongruenza(fd: FormData) {
+export async function verdettoIncongruenza(stato: string, fd: FormData) {
   const id = testo(fd, "id");
-  const stato = testo(fd, "stato");
   if (!id || !stato) return;
   const voce = await prisma.incongruenza.update({ where: { id }, data: { stato, verdettoIl: new Date() } });
   // Verdetto VERA o PARZIALE: azione di correzione nel kanban (dal modello Incongruenze)
@@ -724,9 +718,8 @@ export async function chiudiAzioneConPaperTrail(fd: FormData) {
   revalidatePath("/azioni");
 }
 
-export async function esitoVerificaAzione(fd: FormData) {
+export async function esitoVerificaAzione(esito: string, fd: FormData) {
   const id = testo(fd, "id");
-  const esito = testo(fd, "esitoVerifica"); // verificata | riaperta
   if (!id || !esito) return;
   const azione = await prisma.azione.findUnique({ where: { id } });
   if (!azione) return;
@@ -773,9 +766,8 @@ export async function salvaCreativo(fd: FormData) {
   revalidatePath("/meta");
 }
 
-export async function cambiaStatoCreativo(fd: FormData) {
+export async function cambiaStatoCreativo(stato: string, fd: FormData) {
   const id = testo(fd, "id");
-  const stato = testo(fd, "stato");
   if (!id || !stato) return;
   const dati: { stato: string; lanciatoIl?: Date } = { stato };
   if (stato === "attivo") dati.lanciatoIl = new Date();

@@ -143,10 +143,10 @@ export default async function PaginaMeta({
                     )}
                     {t.fonte && <div className="cella-sub" style={{ marginTop: 6 }}>Fonte: {t.fonte}</div>}
                     {PROSSIMI[stato].length > 0 && (
-                      <form className="pill-scelta" action={cambiaStatoTestMeta} style={{ marginTop: 10 }}>
+                      <form className="pill-scelta" style={{ marginTop: 10 }}>
                         <input type="hidden" name="id" value={t.id} />
                         {PROSSIMI[stato].map((p) => (
-                          <button key={p.stato} className="pill-opt" type="submit" name="stato" value={p.stato} style={{ color: COLORE_STATO_TEST[p.stato] }}>
+                          <button key={p.stato} className="pill-opt" type="submit" formAction={cambiaStatoTestMeta.bind(null, p.stato)} style={{ color: COLORE_STATO_TEST[p.stato] }}>
                             <span className="dot" />
                             <span style={{ color: "var(--text)" }}>{p.etichetta}</span>
                           </button>

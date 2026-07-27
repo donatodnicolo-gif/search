@@ -94,10 +94,10 @@ export async function RotazioneCreativa() {
                           <span className="dot" /> Vincente 🔒
                         </span>
                       ) : (
-                        <form className="pill-scelta" action={cambiaStatoCreativo}>
+                        <form className="pill-scelta">
                           <input type="hidden" name="id" value={c.id} />
                           {STATI_CREATIVO.filter((s) => s !== c.stato).slice(0, 3).map((s) => (
-                            <button key={s} className="pill-opt" name="stato" value={s} style={{ color: COLORE_STATO_CREATIVO[s] }}>
+                            <button key={s} className="pill-opt" formAction={cambiaStatoCreativo.bind(null, s)} style={{ color: COLORE_STATO_CREATIVO[s] }}>
                               <span className="dot" />
                               <span style={{ color: "var(--text)" }}>{ETICHETTA_STATO_CREATIVO[s]}</span>
                             </button>
