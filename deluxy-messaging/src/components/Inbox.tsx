@@ -14,6 +14,10 @@ export type ConversazioneDto = {
   ultimoTesto: string
   ultimoMessaggioIl: string
   nonLetti: number
+  /** Il nostro numero che ha ricevuto (solo WhatsApp), in forma leggibile. */
+  numeroNostro?: string
+  /** Il brand di quel numero, se lo abbiamo collegato in Negozi. */
+  brand?: string
 }
 
 type MessaggioDto = {
@@ -208,6 +212,14 @@ export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: Conver
               </span>
               <span className="anteprima">
                 <span className={`badge canale-${c.canale}`}>{etichettaCanale(c.canale)}</span>
+                {/* A quale nostro numero ha scritto. Con più WhatsApp
+                    Business è la prima cosa da sapere: cambia il tono, la
+                    firma e chi risponde. */}
+                {c.brand || c.numeroNostro ? (
+                  <span className="badge" title={`Arrivato sul nostro numero ${c.numeroNostro || '—'}`}>
+                    {c.brand || c.numeroNostro}
+                  </span>
+                ) : null}
                 <span className="testo">{c.ultimoTesto}</span>
                 {c.nonLetti > 0 ? <span className="pill-nonletti">{c.nonLetti}</span> : null}
               </span>
@@ -223,6 +235,14 @@ export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: Conver
           <>
             <div className="testata-thread">
               <span className="nome">{selezionata.nome || selezionata.idEsterno}</span>
+              {selezionata.brand || selezionata.numeroNostro ? (
+                <span
+                  className="badge"
+                  title="Il nostro numero che ha ricevuto: la risposta parte da qui"
+                >
+                  {selezionata.brand || selezionata.numeroNostro}
+                </span>
+              ) : null}
               <span className={`badge canale-${selezionata.canale}`}>
                 {etichettaCanale(selezionata.canale)}
               </span>

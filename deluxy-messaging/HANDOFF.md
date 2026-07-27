@@ -55,6 +55,59 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **INBOX MULTI-NUMERO: si sa su quale nostro WhatsApp è arrivato un messaggio**
+  (27/07/2026). Preparato per l'arrivo dei numeri veri (l'utente ha connesso il
+  WABA «Deluxy Flowers», ID 1473727904063695).
+  `Conversazione.numeroId` + `numeroNostro`, chiave unica ora
+  **`[canale, idEsterno, numeroId]`**; `NegozioShopify.waPhoneNumberId` collega
+  numero → brand (campo in `/negozi`); `src/lib/numeri-whatsapp.ts` per la
+  traduzione; l'Inbox mostra il brand accanto al canale, in elenco e in testata.
+
+  ⚠️⚠️ **IL DIFETTO CHE C'ERA: il webhook buttava via `metadata`.** Meta dice
+  SEMPRE su quale nostro numero è arrivato il messaggio
+  (`value.metadata.phone_number_id` / `display_phone_number`) e non lo leggevamo.
+  Con più WhatsApp Business (Flowers, Cake Design, Deluxy Cake Delivery…) le
+  conseguenze erano tre, tutte silenziose:
+   1. non si sapeva a quale marchio avesse scritto il cliente — e le istruzioni
+      di CS AI sono **per brand**, quindi si sarebbe risposto col tono e la firma
+      di un altro negozio;
+   2. la chiave era `[canale, idEsterno]`, quindi lo **stesso cliente che scrive
+      a due numeri finiva in UNA conversazione**, con due discorsi mescolati;
+   3. la risposta usciva dall'unico `waPhoneNumberId` delle Impostazioni: per
+      metà dei messaggi il numero sbagliato — dal telefono del cliente è
+      un'altra azienda che gli scrive di un ordine che non ha fatto lì.
+  Ora si risponde da `conversazione.numeroId`, con l'impostazione come ripiego
+  per le conversazioni vecchie che il numero non l'hanno.
+
+  **Verificato simulando il webhook vero** (forma Meta completa, due
+  `phone_number_id` diversi collegati a FLowers e Cake): lo stesso cliente
+  produce **2 conversazioni distinte**, ognuna col suo numero e il suo brand, e
+  l'Inbox mostra «WhatsApp + FLowers» e «WhatsApp + Cake». Il dedup per
+  `idMessaggio` regge (evento ripetuto → nessun messaggio in più).
+  Dati di prova rimossi, e i `waPhoneNumberId` finti (prefisso 9999) azzerati
+  sui brand veri: nessun numero inventato è rimasto in tabella.
+
+  ⚠️ `prisma db push` chiedeva `--accept-data-loss` per il nuovo vincolo unico.
+  Accettato **dopo aver verificato che `Conversazione` ha 0 righe**: l'avviso
+  riguarda solo il fallimento in caso di duplicati, non la cancellazione. Su una
+  tabella piena andrebbe fatta prima una migrazione che riempie `numeroId`.
+
+  ⚠️⚠️ **PERCHÉ L'INBOX È ANCORA VUOTA: manca tutta la configurazione Meta.**
+  Verificato in produzione: `metaVerifyToken`, `metaAppSecret`, `waToken`,
+  `waPhoneNumberId`, `fbPageToken`, `igToken` sono **tutte mancanti**, e
+  conversazioni/messaggi sono 0. Per RICEVERE non serve il token, servono:
+   1. **Impostazioni → Verify token**: una parola scelta da chi configura;
+   2. su developers.facebook.com, app Meta → WhatsApp → Configurazione →
+      **Webhook**: URL `https://deluxy-messaging.vercel.app/api/webhooks/meta`,
+      lo stesso verify token, e **iscrizione al campo `messages`**;
+   3. il WABA va **iscritto all'app** (`POST /{waba-id}/subscribed_apps`);
+   4. **Impostazioni → App Secret** (facoltativo ma consigliato: se c'è, il
+      webhook accetta solo richieste firmate — vedi `x-hub-signature-256`);
+   5. per **rispondere** servono anche token permanente e Phone Number ID;
+   6. in **Negozi**, il Phone Number ID sul brand giusto, altrimenti in Inbox si
+      vede il numero grezzo invece di «Deluxy Flowers».
+  I token li crea una persona sul suo account Meta: non li genero io.
+
 - **CORREZIONE: il biglietto sta nelle NOTE dell'ordine, non nell'attributo**
   (27/07/2026). Segnalato dall'utente, e i numeri gli danno ragione.
   `testoBiglietto(nota, attributo)` in `src/lib/orders.ts` unisce i due campi:

@@ -39,12 +39,32 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   let esito: { ok: true; idEsterno: string } | { ok: false; errore: string }
   switch (conversazione.canale) {
-    case 'whatsapp':
+    case 'whatsapp': {
+      // ⚠️ SI RISPONDE DAL NUMERO CHE HA RICEVUTO, non da quello impostato.
+      //
+      // La holding ha più WhatsApp Business (Deluxy Flowers, Cake Design,
+      // Deluxy Cake Delivery…). Con un solo `waPhoneNumberId` nelle
+      // Impostazioni, a un cliente che ha scritto ai fiori avremmo risposto dal
+      // numero della pasticceria: dal suo telefono è un'altra azienda che gli
+      // scrive di punto in bianco su un ordine che non ha fatto lì.
+      // `numeroId` della conversazione è quello vero, letto dal webhook di Meta;
+      // l'impostazione resta come ripiego per le conversazioni vecchie, che il
+      // numero non l'hanno registrato.
+      const numeroDaCuiRispondere = conversazione.numeroId || config.waPhoneNumberId
       esito =
-        config.waToken && config.waPhoneNumberId
-          ? await inviaWhatsApp(config.waToken, config.waPhoneNumberId, conversazione.idEsterno, pulito)
-          : { ok: false, errore: 'WhatsApp non configurato: token o Phone Number ID mancanti (Impostazioni).' }
+        config.waToken && numeroDaCuiRispondere
+          ? await inviaWhatsApp(
+              config.waToken,
+              numeroDaCuiRispondere,
+              conversazione.idEsterno,
+              pulito
+            )
+          : {
+              ok: false,
+              errore: 'WhatsApp non configurato: token o Phone Number ID mancanti (Impostazioni).',
+            }
       break
+    }
     case 'messenger':
       esito = config.fbPageToken
         ? await inviaPagina(config.fbPageToken, conversazione.idEsterno, pulito)

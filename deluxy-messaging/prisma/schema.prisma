@@ -54,6 +54,11 @@ model NegozioShopify {
   token        String   @default("") @db.Text // shpat_… cifrato (se app legacy)
   clientId     String   @default("")
   clientSecret String   @default("") @db.Text // cifrato (se app Dev Dashboard)
+  // Il numero WhatsApp Business di questo brand: `phone_number_id` di Meta
+  // (app Meta → WhatsApp → Configurazione API). Serve a sapere a QUALE marchio
+  // ha scritto un cliente, e quindi con che tono rispondergli — le istruzioni
+  // di CS AI sono per brand. Vuoto = questo brand non ha un suo WhatsApp.
+  waPhoneNumberId String @default("")
   attivo       Boolean  @default(true)
   creatoIl     DateTime @default(now())
 
@@ -220,6 +225,22 @@ model Conversazione {
   idEsterno         String
   // Solo email: la casella che ha ricevuto (da lì partono le risposte).
   casellaId         String   @default("")
+  // ⚠️ SU QUALE NOSTRO NUMERO È ARRIVATO il messaggio (WhatsApp): il
+  // `phone_number_id` di Meta, più il numero leggibile per mostrarlo.
+  //
+  // Serve perché la holding ha PIÙ WhatsApp Business (Deluxy Flowers, Cake
+  // Design, Deluxy Cake Delivery…) e senza questo campo:
+  //  - non si sa a quale marchio ha scritto il cliente, e la risposta parte col
+  //    tono e la firma di un altro brand (le regole di CS AI sono per brand);
+  //  - lo stesso cliente che scrive a due numeri finisce in UNA conversazione
+  //    sola, con due discorsi diversi mescolati, perché la chiave era
+  //    `[canale, idEsterno]`;
+  //  - la risposta esce dal numero impostato nelle Impostazioni, che per metà
+  //    dei messaggi è il numero sbagliato.
+  // Vuoto = arrivato prima di questa modifica, o canale che non ha un numero
+  // nostro (widget, Messenger, Instagram).
+  numeroId          String   @default("")
+  numeroNostro      String   @default("")
   nome              String   @default("")
   ultimoTesto       String   @default("") @db.Text
   ultimoMessaggioIl DateTime @default(now())
@@ -229,8 +250,11 @@ model Conversazione {
 
   messaggi Messaggio[]
 
-  @@unique([canale, idEsterno])
+  // La chiave comprende il NOSTRO numero: due discorsi con lo stesso cliente su
+  // due linee diverse sono due conversazioni, non una.
+  @@unique([canale, idEsterno, numeroId])
   @@index([ultimoMessaggioIl])
+  @@index([numeroId])
 }
 
 model Messaggio {

@@ -31,7 +31,7 @@ export async function POST() {
         }
 
         const conversazione = await db.conversazione.upsert({
-          where: { canale_idEsterno: { canale: 'email', idEsterno: m.da } },
+          where: { canale_idEsterno_numeroId: { canale: 'email', idEsterno: m.da, numeroId: '' } },
           update: {
             nome: m.nome,
             casellaId: casella.id,

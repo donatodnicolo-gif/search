@@ -63,6 +63,11 @@ type MetaWebhook = {
   entry?: {
     changes?: {
       value?: {
+        // ⚠️ Meta dice SEMPRE su quale nostro numero è arrivato il messaggio,
+        // e finora lo buttavamo via. Con più WhatsApp Business (Flowers, Cake,
+        // Deluxy…) è l'unico modo per sapere a quale marchio ha scritto il
+        // cliente — e quindi con che tono e che firma rispondergli.
+        metadata?: { phone_number_id?: string; display_phone_number?: string }
         contacts?: { wa_id?: string; profile?: { name?: string } }[]
         messages?: {
           id?: string
@@ -90,6 +95,10 @@ async function registraInArrivo(opz: {
   testo: string
   tipo?: string
   idMessaggio: string
+  /** Il nostro numero che ha ricevuto: `phone_number_id` di Meta. */
+  numeroId?: string
+  /** Lo stesso numero in forma leggibile, per mostrarlo in inbox. */
+  numeroNostro?: string
 }) {
   // Dedup: Meta può consegnare lo stesso evento più volte.
   if (opz.idMessaggio) {
@@ -97,18 +106,26 @@ async function registraInArrivo(opz: {
     if (esiste) return
   }
 
+  const numeroId = opz.numeroId ?? ''
   const conversazione = await db.conversazione.upsert({
-    where: { canale_idEsterno: { canale: opz.canale, idEsterno: opz.idEsterno } },
+    where: {
+      canale_idEsterno_numeroId: { canale: opz.canale, idEsterno: opz.idEsterno, numeroId },
+    },
     update: {
       ultimoTesto: opz.testo,
       ultimoMessaggioIl: new Date(),
       nonLetti: { increment: 1 },
       archiviata: false,
       ...(opz.nome ? { nome: opz.nome } : {}),
+      // Il numero leggibile può arrivare dopo: si scrive quando c'è, senza
+      // cancellare quello già noto.
+      ...(opz.numeroNostro ? { numeroNostro: opz.numeroNostro } : {}),
     },
     create: {
       canale: opz.canale,
       idEsterno: opz.idEsterno,
+      numeroId,
+      numeroNostro: opz.numeroNostro ?? '',
       nome: opz.nome ?? '',
       ultimoTesto: opz.testo,
       nonLetti: 1,
@@ -132,6 +149,10 @@ async function gestisciWhatsApp(corpo: MetaWebhook) {
       const valore = change.value
       if (!valore) continue
 
+      // Su quale nostro numero è arrivato: sta nel metadata di ogni change.
+      const numeroId = valore.metadata?.phone_number_id ?? ''
+      const numeroNostro = valore.metadata?.display_phone_number ?? ''
+
       const nomi = new Map<string, string>()
       for (const c of valore.contacts ?? []) {
         if (c.wa_id && c.profile?.name) nomi.set(c.wa_id, c.profile.name)
@@ -152,6 +173,8 @@ async function gestisciWhatsApp(corpo: MetaWebhook) {
           testo,
           tipo: msg.text?.body ? 'testo' : 'media',
           idMessaggio: msg.id ?? '',
+          numeroId,
+          numeroNostro,
         })
       }
 

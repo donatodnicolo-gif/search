@@ -14,6 +14,23 @@ sugli ordini — ognuno con una casistica, le azioni da eseguire e la colpa attr
 > cartella (`deluxy-messaging/`), progetto Vercel, schema Postgres `messaging` e cookie
 > `msg_session` restano quelli, perché rinominarli romperebbe URL, deploy e sessioni.
 
+## Più WhatsApp, una sola inbox
+
+La holding ha più numeri WhatsApp Business — Deluxy Flowers, Cake Design, Deluxy Cake
+Delivery. Ogni messaggio in arrivo porta con sé **su quale numero è arrivato**, e in
+Inbox si vede il nome del brand accanto al canale. Serve a tre cose concrete:
+
+- **rispondere col tono giusto**: le istruzioni di CS AI sono per brand;
+- **rispondere dal numero giusto**: la risposta esce dalla linea che ha ricevuto, non
+  da un numero fisso. Altrimenti a chi ha scritto ai fiori risponde la pasticceria, e
+  dal suo telefono è un'altra azienda che gli scrive di un ordine che non ha fatto lì;
+- **non mescolare i discorsi**: lo stesso cliente che scrive a due numeri ha due
+  conversazioni separate, non una con due argomenti dentro.
+
+Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Number ID*
+(app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
+Inbox si vede il numero grezzo invece del nome del marchio.
+
 ## Chi può entrare: la pagina Utenti
 
 In **Utenti** (sotto Configurazione) un amministratore apre gli account dei colleghi:

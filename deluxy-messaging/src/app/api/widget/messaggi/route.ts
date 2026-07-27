@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 async function conversazioneDaToken(token: string | null) {
   if (!token || token.length < 20) return null
   return db.conversazione.findUnique({
-    where: { canale_idEsterno: { canale: 'widget', idEsterno: token } },
+    where: { canale_idEsterno_numeroId: { canale: 'widget', idEsterno: token, numeroId: '' } },
   })
 }
 

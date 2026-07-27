@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   try {
     const anteprima = testo.length > 200 ? testo.slice(0, 200) + '…' : testo
     const conversazione = await db.conversazione.upsert({
-      where: { canale_idEsterno: { canale: 'email', idEsterno: a } },
+      where: { canale_idEsterno_numeroId: { canale: 'email', idEsterno: a, numeroId: '' } },
       update: {
         ultimoTesto: anteprima,
         ultimoMessaggioIl: new Date(),

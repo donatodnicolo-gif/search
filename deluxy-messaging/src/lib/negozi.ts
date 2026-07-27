@@ -56,6 +56,8 @@ type DatiNegozio = {
   prefisso?: string
   brandRicerca?: string
   dominio: string
+  /** phone_number_id del WhatsApp Business di questo brand (solo cifre). */
+  waPhoneNumberId?: string
   attivo?: boolean // se undefined, non si tocca
 }
 
@@ -68,6 +70,10 @@ export async function salvaNegozio(id: string | null, dati: DatiNegozio): Promis
     nome: dati.nome.trim() || dominio,
     prefisso: (dati.prefisso ?? '').trim().toUpperCase(),
     brandRicerca: (dati.brandRicerca ?? '').trim(),
+    // Il phone_number_id del WhatsApp Business di questo brand: solo cifre.
+    // Serve a sapere a QUALE marchio ha scritto un cliente in inbox, e da
+    // quale numero rispondergli.
+    waPhoneNumberId: (dati.waPhoneNumberId ?? '').replace(/\D/g, ''),
     dominio,
     ...(dati.attivo === undefined ? {} : { attivo: dati.attivo }),
   }
