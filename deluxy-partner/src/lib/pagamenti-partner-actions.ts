@@ -49,6 +49,12 @@ export async function richiediPagamento(
     torna(destinazione, "errorePag", `${partner.nome} non ha un IBAN in anagrafica: aggiungilo prima di chiedere il pagamento.`);
   }
 
+  const precedente = await prisma.saldoMensile.findUnique({
+    where: { partnerId_anno_mese: { partnerId, anno, mese } },
+    select: { richiestaTentativi: true },
+  });
+  const tentativo = (precedente?.richiestaTentativi ?? 0) + 1;
+
   const beneficiario = partner.ragioneSociale?.trim() || partner.nome;
   const esito = await richiediPagamentoPartner({
     partnerId,
@@ -59,14 +65,15 @@ export async function richiediPagamento(
     mese,
     causale: `Saldo ${nomeMese(mese)} ${anno} - ${partner.nome}`,
     note: `Dovuto al partner per ${nomeMese(mese)} ${anno}, richiesto da Deluxy Finance.`,
+    tentativo,
   });
 
   if (!esito.ok) torna(destinazione, "errorePag", esito.errore);
 
   await prisma.saldoMensile.upsert({
     where: { partnerId_anno_mese: { partnerId, anno, mese } },
-    update: { richiestaRif: esito.riferimento, richiestaStato: esito.stato, richiestaIl: new Date() },
-    create: { partnerId, anno, mese, richiestaRif: esito.riferimento, richiestaStato: esito.stato, richiestaIl: new Date() },
+    update: { richiestaRif: esito.riferimento, richiestaStato: esito.stato, richiestaIl: new Date(), richiestaTentativi: tentativo },
+    create: { partnerId, anno, mese, richiestaRif: esito.riferimento, richiestaStato: esito.stato, richiestaIl: new Date(), richiestaTentativi: tentativo },
   });
 
   await registra({

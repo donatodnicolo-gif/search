@@ -7,6 +7,7 @@ import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, commissione, dovutoVendita, ivato, residuoFattura, incassatoFattura, parzialmenteIncassata, MESI } from "@/lib/calc";
 import { segnaFatturaPagata, segnaFatturaCompensata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
+import { transactionsConfigurato } from "@/lib/transactions";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
 import { ContattoAmministrativo } from "@/components/ContattoAmministrativo";
@@ -37,6 +38,8 @@ export default async function PartnerDetail({
   const sp = await searchParams;
   const partner = await prisma.partner.findUnique({ where: { id } });
   if (!partner) notFound();
+  // Il bottone «Richiedi pagamento» compare solo se Transactions e collegata.
+  const trxAttiva = transactionsConfigurato();
 
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
@@ -586,6 +589,9 @@ export default async function PartnerDetail({
               bonificoData={saldo?.bonificoData ?? null}
               note={saldo?.note ?? null}
               noteAggiornateIl={saldo?.noteAggiornateIl ?? null}
+              trxAttiva={trxAttiva}
+              richiestaRif={saldo?.richiestaRif ?? null}
+              richiestaStato={saldo?.richiestaStato ?? null}
             />
           </div>
         </div>

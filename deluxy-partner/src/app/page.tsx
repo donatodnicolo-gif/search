@@ -5,7 +5,7 @@ import { euro, dataIt } from "@/lib/format";
 import { nomeMese, ivato, residuoFattura, parzialmenteIncassata } from "@/lib/calc";
 import { registraBonifico } from "@/lib/actions";
 import { richiediPagamento } from "@/lib/pagamenti-partner-actions";
-import { transactionsConfigurato, STATI_RICHIESTA } from "@/lib/transactions";
+import { transactionsConfigurato, STATI_RICHIESTA, richiestaRifacibile } from "@/lib/transactions";
 
 export const dynamic = "force-dynamic";
 
@@ -163,7 +163,7 @@ export default async function Dashboard({
                             niente e non si segna niente come pagato. Se la
                             richiesta è già partita, al posto del bottone si
                             mostra a che punto è. */}
-                        {trxAttiva && !x.saldo?.richiestaRif && (
+                        {trxAttiva && (!x.saldo?.richiestaRif || richiestaRifacibile(x.saldo.richiestaStato)) && (
                           <form
                             action={richiediPagamento.bind(
                               null,
@@ -179,11 +179,11 @@ export default async function Dashboard({
                               type="submit"
                               title={`Chiede a Deluxy Transactions di pagare ${euro(x.r.daBonificare)} a ${x.partner.nome}. NON esce denaro adesso: la richiesta va autorizzata da una persona dentro Transactions.`}
                             >
-                              Paga
+                              Richiedi pagamento
                             </button>
                           </form>
                         )}
-                        {x.saldo?.richiestaRif && (
+                        {x.saldo?.richiestaRif && !richiestaRifacibile(x.saldo.richiestaStato) && (
                           <span
                             className={`badge ${STATI_RICHIESTA[x.saldo.richiestaStato ?? ""]?.badge ?? "neutral"}`}
                             title={`Richiesta ${x.saldo.richiestaRif} inviata a Deluxy Transactions`}

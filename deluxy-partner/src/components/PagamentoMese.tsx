@@ -1,5 +1,7 @@
 import { euro, dataIt } from "@/lib/format";
 import { registraPagamentoMese, azzeraPagamentoMese, salvaNoteMese } from "@/lib/actions";
+import { richiediPagamento } from "@/lib/pagamenti-partner-actions";
+import { STATI_RICHIESTA, richiestaRifacibile } from "@/lib/transactions";
 
 // Footer del blocco mese nella scheda partner.
 // Mostra SOLO ciò che serve: un riquadro "Da pagare al partner" se c'è un
@@ -16,6 +18,9 @@ export function PagamentoMese({
   bonificoData,
   note,
   noteAggiornateIl,
+  trxAttiva,
+  richiestaRif,
+  richiestaStato,
 }: {
   partnerId: string;
   anno: number;
@@ -26,12 +31,18 @@ export function PagamentoMese({
   bonificoData: Date | null;
   note: string | null;
   noteAggiornateIl?: Date | null;
+  // Richiesta di pagamento verso Deluxy Transactions: se e gia partita si
+  // mostra il suo stato invece di un bottone che la duplicherebbe.
+  trxAttiva?: boolean;
+  richiestaRif?: string | null;
+  richiestaStato?: string | null;
 }) {
   const oggi = new Date().toISOString().slice(0, 10);
   const inviato = registraPagamentoMese.bind(null, partnerId, anno, mese, "inviato");
   const ricevuto = registraPagamentoMese.bind(null, partnerId, anno, mese, "ricevuto");
   const azzera = azzeraPagamentoMese.bind(null, partnerId, anno, mese);
   const salvaNote = salvaNoteMese.bind(null, partnerId, anno, mese);
+  const richiedi = richiediPagamento.bind(null, partnerId, anno, mese, +daBonificare.toFixed(2), `/partner/${partnerId}`);
 
   const pareggiato = daBonificare < 0.01 && daIncassare < 0.01;
   const registrato = bonificoImporto != null && Math.abs(bonificoImporto) >= 0.005;
@@ -58,10 +69,29 @@ export function PagamentoMese({
               aria-label="Importo da pagare"
             />
             <input type="date" name="data" defaultValue={oggi} aria-label="Data pagamento" />
-            <button className="btn small primary" type="submit" title="Registra il bonifico inviato al partner">
+            <button className="btn small secondary" type="submit" title="Registra un bonifico GIA fatto dalla banca. Non chiede niente a nessuno.">
               Abbiamo pagato
             </button>
           </form>
+        )}
+
+        {/* Form a se: dentro quello sopra, premendo Invio nel campo importo
+            sarebbe partita la richiesta invece della registrazione. */}
+        {daBonificare >= 0.01 && trxAttiva && (!richiestaRif || richiestaRifacibile(richiestaStato)) && (
+          <form action={richiedi} className="pay-group">
+            <span className="pay-title" style={{ color: "var(--blue)" }}>Chiedi a Transactions</span>
+            <button className="btn small primary" type="submit" title="Chiede a Deluxy Transactions di pagare il residuo del mese. NON esce denaro adesso: la richiesta va autorizzata da una persona.">
+              Richiedi pagamento
+            </button>
+          </form>
+        )}
+        {richiestaRif && !richiestaRifacibile(richiestaStato) && (
+          <span className="pay-group" style={{ alignItems: "center" }}>
+            <span className="pay-title">Richiesta a Transactions</span>
+            <span className={`badge ${STATI_RICHIESTA[richiestaStato ?? ""]?.badge ?? "neutral"}`} title={richiestaRif}>
+              <span className="dot" />{STATI_RICHIESTA[richiestaStato ?? ""]?.label ?? richiestaStato}
+            </span>
+          </span>
         )}
 
         {daIncassare >= 0.01 && (

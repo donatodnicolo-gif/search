@@ -83,8 +83,13 @@ export async function richiediPagamentoPartner(opts: {
   mese: number;
   causale: string;
   note?: string;
+  tentativo?: number;
 }): Promise<EsitoRichiesta> {
-  const riferimentoEsterno = `saldo-${opts.partnerId}-${opts.anno}-${String(opts.mese).padStart(2, "0")}`;
+  // Il numero di tentativo entra nel riferimento solo dal secondo in poi: cosi'
+  // i riferimenti gia' mandati restano quelli, e una richiesta rifiutata puo'
+  // essere rifatta senza che Transactions restituisca la vecchia.
+  const base = `saldo-${opts.partnerId}-${opts.anno}-${String(opts.mese).padStart(2, "0")}`;
+  const riferimentoEsterno = (opts.tentativo ?? 1) > 1 ? `${base}-r${opts.tentativo}` : base;
   try {
     const { stato, dati } = await chiamataFirmata(
       "POST",
@@ -137,6 +142,13 @@ export function notificaAutentica(corpoGrezzo: string, timestamp: string, firmaH
   let diff = 0;
   for (let i = 0; i < attesa.length; i++) diff |= attesa.charCodeAt(i) ^ inviata.charCodeAt(i);
   return diff === 0;
+}
+
+/** Una richiesta annullata o rifiutata e' una partita CHIUSA senza pagamento:
+ *  il dovuto e' ancora li' e va poter essere richiesto di nuovo. Senza questo,
+ *  un rifiuto bloccherebbe quel mese per sempre. */
+export function richiestaRifacibile(stato: string | null | undefined): boolean {
+  return stato === "annullata" || stato === "rifiutata";
 }
 
 export const STATI_RICHIESTA: Record<string, { label: string; badge: string }> = {

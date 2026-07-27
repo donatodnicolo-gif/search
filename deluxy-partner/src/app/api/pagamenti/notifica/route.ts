@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
   // `riferimentoEsterno` è "saldo-<partnerId>-<anno>-<mese>": l'abbiamo scelto
   // noi quando abbiamo chiesto il pagamento, quindi da lì si risale al mese
   // senza doversi fidare di altro.
-  const m = /^saldo-(.+)-(\d{4})-(\d{2})$/.exec(dati.riferimentoEsterno ?? "");
+  // `-rN` è il numero di tentativo: una richiesta rifiutata e rifatta ha lo
+  // stesso mese ma un riferimento diverso, e va comunque riconosciuta.
+  const m = /^saldo-(.+)-(\d{4})-(\d{2})(?:-r\d+)?$/.exec(dati.riferimentoEsterno ?? "");
   if (!m) return NextResponse.json({ ok: true, nota: "Riferimento non nostro: ignorata." });
   const [, partnerId, annoS, meseS] = m;
   const anno = Number(annoS);

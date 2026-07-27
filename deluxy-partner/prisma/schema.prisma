@@ -250,6 +250,11 @@ model SaldoMensile {
   richiestaRif    String? // TRX-2026-000123
   richiestaStato  String? // in_attesa | sospesa | approvata | in_lotto | pagata | rifiutata | annullata
   richiestaIl     DateTime?
+  // Quante volte si è chiesto per questo mese. Serve a poter RICHIEDERE dopo un
+  // rifiuto o un annullamento: Transactions è idempotente sulla coppia
+  // (app, riferimentoEsterno), quindi rimandare lo stesso riferimento
+  // restituirebbe per sempre la vecchia richiesta annullata.
+  richiestaTentativi Int   @default(0)
   note            String?
   // Quando la nota è stata scritta/modificata l'ultima volta: serve al recap AI
   // per capire se quello che dice è ancora attuale (updatedAt cambia anche per
