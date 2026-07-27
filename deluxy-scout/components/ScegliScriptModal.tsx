@@ -9,7 +9,19 @@ import { colors, radius, spacing } from '@/lib/theme';
 import { fetchScript, LABEL_TIPO, type ScriptEmail } from '@/lib/script';
 import type { Place } from '@/types';
 
-export function ScegliScriptModal({ place, onClose }: { place: Place; onClose: () => void }) {
+/**
+ * Scelta dello script per scrivere a un negozio.
+ *
+ * Basta `{ id, nome }`: così lo usano sia le liste che hanno un `Place` intero
+ * sia i Clienti, che lavorano su una riga più leggera.
+ */
+export function ScegliScriptModal({
+  place,
+  onClose,
+}: {
+  place: Pick<Place, 'id' | 'nome'>;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [script, setScript] = useState<ScriptEmail[] | null>(null);
 
@@ -21,7 +33,9 @@ export function ScegliScriptModal({ place, onClose }: { place: Place; onClose: (
 
   function scegli(s: ScriptEmail) {
     onClose();
-    router.push(`/(app)/invio/${s.id}`);
+    // Si porta dietro il negozio: nella schermata d'invio i suoi contatti
+    // risultano già selezionati, invece di ripescarli fra tutti.
+    router.push(`/(app)/invio/${s.id}?place=${place.id}`);
   }
 
   return (

@@ -11,6 +11,7 @@ import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
 import { CardElenco } from '@/components/CardElenco';
+import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 
 export default function Clienti() {
   const router = useRouter();
@@ -20,6 +21,8 @@ export default function Clienti() {
   const [zonaFiltro, setZonaFiltro] = useState<string | null>(null);
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
   const [accountFiltro, setAccountFiltro] = useState<string | null>(null);
+  // Scrittura di una mail con uno script: si sceglie il testo, poi si conferma.
+  const [mailPlace, setMailPlace] = useState<{ id: string; nome: string } | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -156,11 +159,14 @@ export default function Clienti() {
                   label="WhatsApp"
                   onPress={() => item.telefono && Linking.openURL(`https://wa.me/${item.telefono.replace(/[^0-9]/g, '')}`)}
                 />
+                {/* La mail parte dall'app con uno script della libreria: si
+                    sceglie il testo, si rivedono i destinatari e si conferma.
+                    Prima apriva il client di posta esterno con un mailto. */}
                 <IconaAzione
                   nome="mail-outline"
-                  attiva={Boolean(item.email)}
-                  label="Email"
-                  onPress={() => item.email && Linking.openURL(`mailto:${item.email}`)}
+                  attiva
+                  label="Scrivi una mail"
+                  onPress={() => setMailPlace({ id: item.id, nome: item.nome })}
                 />
                 <IconaAzione
                   nome="walk-outline"
@@ -186,6 +192,8 @@ export default function Clienti() {
           />
         )}
       />
+
+      {mailPlace ? <ScegliScriptModal place={mailPlace} onClose={() => setMailPlace(null)} /> : null}
     </View>
   );
 }
