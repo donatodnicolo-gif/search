@@ -1,5 +1,6 @@
 "use server";
 import { FORNITORI, IMP_FORNITORE, impChiaveApi, impModello, type Fornitore } from "@/lib/ai";
+import { IMP_ISTRUZIONI } from "@/lib/ai";
 import { IMP_TOKEN_TIKTOK } from "@/lib/tiktok";
 
 import { revalidatePath } from "next/cache";
@@ -1631,4 +1632,57 @@ export async function salvaTokenTikTok(formData: FormData) {
 
   revalidatePath("/impostazioni");
   redirect("/impostazioni?salvato=tiktok");
+}
+
+// Il blocco di istruzioni operative dell'AI (RUOLO, protocollo PONTE, vincoli).
+//
+// È un documento, non una configurazione: si incolla intero e si rilegge
+// intero. Ogni salvataggio lascia una voce nel registro con la data e quanto è
+// cambiato — il protocollo dice che lo storico vive in 00.2/00.3, e almeno la
+// traccia di QUANDO è cambiato deve restare anche qui.
+export async function salvaIstruzioniAi(formData: FormData) {
+  "use server";
+  const nuovo = String(formData.get("istruzioni") ?? "").trim();
+  const precedente = await prisma.impostazione
+    .findUnique({ where: { chiave: IMP_ISTRUZIONI } })
+    .catch(() => null);
+
+  if (!nuovo) {
+    if (precedente) {
+      await prisma.impostazione.deleteMany({ where: { chiave: IMP_ISTRUZIONI } });
+      await registra({
+        autore: "utente",
+        tipo: "modifica",
+        entita: "impostazione",
+        titolo: "Istruzioni operative dell'AI rimosse",
+        dettaglio: `Erano ${precedente.valore.length} caratteri: da adesso l'AI lavora senza protocollo.`,
+      });
+    }
+    revalidatePath("/impostazioni");
+    redirect("/impostazioni?salvato=istruzioni-vuote");
+  }
+
+  if (precedente?.valore === nuovo) {
+    redirect("/impostazioni?salvato=istruzioni-uguali");
+  }
+
+  await prisma.impostazione.upsert({
+    where: { chiave: IMP_ISTRUZIONI },
+    update: { valore: nuovo },
+    create: { chiave: IMP_ISTRUZIONI, valore: nuovo },
+  });
+
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "impostazione",
+    titolo: precedente ? "Istruzioni operative dell'AI aggiornate" : "Istruzioni operative dell'AI depositate",
+    dettaglio: precedente
+      ? `Da ${precedente.valore.length} a ${nuovo.length} caratteri.`
+      : `${nuovo.length} caratteri.`,
+  });
+
+  revalidatePath("/impostazioni");
+  revalidatePath("/ai");
+  redirect("/impostazioni?salvato=istruzioni");
 }

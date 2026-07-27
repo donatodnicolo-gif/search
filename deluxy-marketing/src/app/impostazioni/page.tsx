@@ -1,8 +1,8 @@
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
-import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaTokenTikTok } from "@/lib/azioni";
+import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaTokenTikTok } from "@/lib/azioni";
 import { tokenTikTok } from "@/lib/tiktok";
-import { FORNITORI, statoAi } from "@/lib/ai";
+import { FORNITORI, istruzioniOperative, statoAi } from "@/lib/ai";
 import { ChiaviApi } from "@/components/ChiaviApi";
 import { prisma } from "@/lib/db";
 import { CHIAVE_APIKEY, driveDir, idCartellaDrive } from "@/lib/drive";
@@ -31,6 +31,9 @@ const CONFERME: Record<string, string> = {
   apikey: "Chiave API salvata: ora la sincronizzazione può leggere Google Drive online.",
   ai: "Impostazioni AI salvate: la prossima lettura userà questo fornitore.",
   tiktok: "Token TikTok salvato: ora la sincronizzazione può leggere l’advertiser.",
+  istruzioni: "Istruzioni operative salvate: valgono da subito per ogni chiamata all’AI.",
+  "istruzioni-uguali": "Nessuna modifica: il testo è identico a quello già depositato.",
+  "istruzioni-vuote": "Istruzioni rimosse: da adesso l’AI lavora senza protocollo.",
 };
 
 export default async function PaginaImpostazioni({
@@ -39,7 +42,7 @@ export default async function PaginaImpostazioni({
   searchParams: Promise<{ salvato?: string }>;
 }) {
   const { salvato } = await searchParams;
-  const [cartella, documenti, account, ultimaSync, impApiKey, ai, chiaviApi, tokenTt] = await Promise.all([
+  const [cartella, documenti, account, ultimaSync, impApiKey, ai, chiaviApi, tokenTt, istruzioni] = await Promise.all([
     driveDir(),
     prisma.documentoDrive.count(),
     prisma.accountAdv.findMany({ orderBy: [{ piattaforma: "asc" }, { nome: "asc" }] }),
@@ -51,6 +54,7 @@ export default async function PaginaImpostazioni({
     statoAi(),
     prisma.apiKey.findMany({ orderBy: [{ attiva: "desc" }, { creataIl: "desc" }] }).catch(() => []),
     tokenTikTok(),
+    istruzioniOperative(),
   ]);
 
   const piattaformeConAccount = PIATTAFORME_ACCOUNT.filter((pf) =>
@@ -92,6 +96,59 @@ export default async function PaginaImpostazioni({
             ultimoUso: c.ultimoUso?.toISOString() ?? null,
           }))}
         />
+
+        <section className="scheda">
+          <div className="scheda-titolo">Istruzioni operative dell&apos;AI</div>
+          <p className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
+            Il blocco che dice all&apos;AI <b>chi è, cosa può fare e cosa no</b>: ruolo, account,
+            protocollo PONTE con la cartella Drive, regole di esecuzione, modelli dei file in
+            uscita. Vale per <b>ogni</b> chiamata all&apos;AI e viene <b>prima</b> delle istruzioni
+            della singola pagina: se le due cose si contraddicono, vince questo.
+          </p>
+
+          <div className="cella-sub" style={{ marginBottom: 14 }}>
+            {istruzioni ? (
+              <>
+                Depositate: <b>{istruzioni.length.toLocaleString("it-IT")}</b> caratteri ·{" "}
+                <span style={{ color: "var(--green)" }}>attive su tutte le chiamate</span>
+              </>
+            ) : (
+              <span style={{ color: "var(--orange)" }}>
+                Nessun blocco depositato: l&apos;AI lavora solo con le istruzioni della singola
+                pagina, senza protocollo, senza vincoli di esecuzione e senza sapere degli account.
+              </span>
+            )}
+          </div>
+
+          <form className="modulo" action={salvaIstruzioniAi}>
+            <div className="campo-modulo largo">
+              <label>Blocco istruzioni (lo modifica solo il custode)</label>
+              <textarea
+                name="istruzioni"
+                defaultValue={istruzioni ?? ""}
+                rows={18}
+                spellCheck={false}
+                style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12.5, lineHeight: 1.5 }}
+              />
+            </div>
+            <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
+              <button className="btn" type="submit">Deposita le istruzioni</button>
+            </div>
+          </form>
+
+          <p className="cella-sub" style={{ marginTop: 12, whiteSpace: "normal" }}>
+            Questo testo si rilegge <b>intero</b>, a differenza delle chiavi: non è un segreto, è un
+            documento di lavoro, e chi deve modificarlo deve poterlo rileggere. Ogni salvataggio
+            lascia una voce nello <a href="/storico">Storico</a> con la data e di quanto è cambiato:
+            lo storico ufficiale resta 00.2/00.3, ma quando l&apos;AI si comporta in modo strano la
+            prima domanda è «quando sono cambiate le istruzioni».
+            <br />
+            <b>Attenzione:</b> l&apos;AI dell&apos;app oggi <b>legge e propone</b> — non esegue nulla
+            da sola e non ha accesso a Google Drive. Le parti del protocollo che parlano di scrivere
+            file in <code>OUT - dall&apos;app</code> valgono per le sessioni Claude, non per questa
+            app: qui restano come contesto, non come capacità.
+          </p>
+        </section>
 
         <section className="scheda">
           <div className="scheda-titolo">TikTok Ads</div>

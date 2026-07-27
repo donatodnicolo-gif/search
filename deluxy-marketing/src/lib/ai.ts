@@ -47,12 +47,24 @@ export const FORNITORI: {
 export const impChiaveApi = (f: Fornitore) => `ai_chiave_${f}`;
 export const impModello = (f: Fornitore) => `ai_modello_${f}`;
 export const IMP_FORNITORE = "ai_fornitore";
+// Il blocco di istruzioni operative dell'AI: il RUOLO, il protocollo PONTE, i
+// vincoli di esecuzione. Sta nel database e non nel codice perché è un
+// documento di lavoro, non una scelta tecnica: lo cambia il custode quando
+// cambia il protocollo, senza toccare l'app.
+export const IMP_ISTRUZIONI = "ai_istruzioni";
 
 const leggiImp = async (chiave: string): Promise<string | null> => {
   const r = await prisma.impostazione.findUnique({ where: { chiave } }).catch(() => null);
   const v = (r?.valore ?? "").trim();
   return v || null;
 };
+
+// Le istruzioni operative depositate dal custode. Valgono per OGNI chiamata
+// all'AI: vengono prima delle istruzioni della singola pagina, che descrivono
+// solo il compito del momento.
+export async function istruzioniOperative(): Promise<string | null> {
+  return leggiImp(IMP_ISTRUZIONI);
+}
 
 export async function fornitoreScelto(): Promise<Fornitore> {
   const v = await leggiImp(IMP_FORNITORE);
@@ -137,11 +149,21 @@ export async function chiediAllAi(opzioni: {
   const modello = await modelloDi(fornitore);
   const massimoToken = opzioni.massimoToken ?? 16000;
 
+  // Il protocollo del custode sta SOPRA il compito del momento: se le due cose
+  // si contraddicono deve vincere il protocollo, ed è l'ordine a dirlo.
+  const protocollo = await istruzioniOperative();
+  const istruzioni = protocollo
+    ? `${protocollo}
+
+═══ COMPITO DI QUESTA CHIAMATA ═══
+${opzioni.istruzioni}`
+    : opzioni.istruzioni;
+
   try {
     const testo =
       fornitore === "anthropic"
-        ? await chiediAClaude({ apiKey, modello, massimoToken, ...opzioni })
-        : await chiediAOpenAi({ apiKey, modello, massimoToken, ...opzioni });
+        ? await chiediAClaude({ apiKey, modello, massimoToken, ...opzioni, istruzioni })
+        : await chiediAOpenAi({ apiKey, modello, massimoToken, ...opzioni, istruzioni });
     if (!testo.trim()) {
       return { ok: false, configurata: true, errore: `${nome} ha risposto senza contenuto.` };
     }
