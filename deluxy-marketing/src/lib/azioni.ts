@@ -1376,22 +1376,45 @@ export async function aggiornaAdesso(fd: FormData) {
     redirect(`${dove}?aggiornamento=tiktok-fatto&righe=${salvate}`);
   }
 
-  // Google: si mette in coda. Premere due volte non crea due richieste.
-  const gia = await prisma.richiestaAggiornamento.findFirst({
-    where: { stato: "in_attesa", canale, lavoro, account: account ?? null },
-  });
-  if (!gia) {
-    await prisma.richiestaAggiornamento.create({
-      data: { canale, account: account ?? null, lavoro, giorni, motivo: testo(fd, "motivo") },
+  // Google: si mette in coda, UNA RICHIESTA PER ACCOUNT.
+  //
+  // Una richiesta senza account se la prendeva il primo script che passava, e
+  // chiudendola la toglieva agli altri due: si chiedevano i gruppi di tutte le
+  // campagne e arrivavano quelli di un brand solo. Ora ogni account ha la sua,
+  // la esegue e chiude la sua.
+  const destinatari = account
+    ? [account]
+    : (
+        await prisma.accountAdv.findMany({
+          where: { piattaforma: canale, attivo: true },
+          select: { idEsterno: true },
+        })
+      ).map((a) => a.idEsterno);
+
+  // Nessun account censito: resta la richiesta generica, meglio di nessuna.
+  const daCreare: (string | null)[] = destinatari.length > 0 ? destinatari : [null];
+
+  let create = 0;
+  for (const dest of daCreare) {
+    const gia = await prisma.richiestaAggiornamento.findFirst({
+      where: { stato: "in_attesa", canale, lavoro, account: dest },
     });
+    if (gia) continue;
+    await prisma.richiestaAggiornamento.create({
+      data: { canale, account: dest, lavoro, giorni, motivo: testo(fd, "motivo") },
+    });
+    create++;
+  }
+
+  if (create > 0) {
     await registra({
       autore: "utente", tipo: "sync", entita: "metrica",
-      titolo: `Chiesto aggiornamento ${lavoro} (${giorni} giorni)${account ? ` su ${account}` : ""}`,
-      dettaglio: "Parte alla prossima esecuzione di uno qualsiasi degli script dell'account",
+      titolo: `Chiesto aggiornamento ${lavoro} (${giorni} giorni) su ${create} account`,
+      dettaglio: "Parte alla prossima esecuzione dello script di ciascun account",
     });
   }
   revalidatePath(dove);
-  redirect(`${dove}?aggiornamento=${gia ? "gia-in-coda" : "in-coda"}`);
+  redirect(`${dove}?aggiornamento=${create === 0 ? "gia-in-coda" : "in-coda"}`);
 }
 
 // ---------- Vendite attese per canale ----------
