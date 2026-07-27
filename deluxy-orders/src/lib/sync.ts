@@ -2,6 +2,7 @@ import { prisma } from "./db";
 import { categorieOrdine } from "./categorie";
 import { scaricaOrdini, tokenNegozio, type OrdineNormalizzato } from "./shopify";
 import { statoPredefinito } from "./stati";
+import { ricalcolaUrgenza } from "./urgenza-ricalcolo";
 
 // Nucleo dello scarico ordini Shopify, riutilizzabile dal bottone in pagina, dal
 // cron e dagli script CLI. Scarica gli ordini da tutti i negozi collegati e li
@@ -56,6 +57,16 @@ export async function eseguiSyncOrdini(
     }
     await prisma.negozioShopify.update({ where: { id: neg.id }, data: { ultimaSync: new Date() } });
   }
+
+  // L'urgenza è una lettura di due date che abbiamo già: si riallinea alla fine
+  // di ogni sync, in una query da un paio di secondi. Non è ridondanza — è la
+  // rete di sicurezza di un campo *derivato*: basta una riga scritta da un
+  // percorso diverso (una migrazione che mette il valore predefinito, uno
+  // script, un import interrotto a metà) perché resti incoerente con le date
+  // da cui dipende. Riconciliare costa poco; accorgersene tardi costa una
+  // consegna.
+  await ricalcolaUrgenza();
+
   return { nuovi, aggiornati, errori };
 }
 
