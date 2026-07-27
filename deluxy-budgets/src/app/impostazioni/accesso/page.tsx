@@ -20,6 +20,18 @@ export default async function AccessoPage() {
         </div>
       </div>
 
+      <div className="card" style={{ marginBottom: 14 }}>
+        <h3 style={{ margin: "0 0 6px", fontSize: 15 }}>Piu persone, ognuna con il proprio accesso</h3>
+        <p className="page-caption" style={{ margin: 0 }}>
+          Il codice qui sotto e il secondo fattore della <strong>password di team</strong>, che e una sola per
+          tutti. Se devono entrare <strong>piu persone</strong>, la strada non e questa: si entra{" "}
+          <strong>dal Hub</strong>, dove ogni utente ha le sue credenziali e il suo ruolo. Chi arriva dal Hub come
+          <strong> admin</strong> vede tutta l app; chiunque altro vede <strong>solo le proposte di budget</strong> —
+          qui dentro ci sono stipendi e premi, e non e roba che riguarda tutti. La password di team resta come via
+          di riserva: se il Hub e irraggiungibile si entra lo stesso, con pieni poteri.
+        </p>
+      </div>
+
       <AccessoEditor
         obbligatorio={stato.obbligatorio}
         daConfermare={stato.daConfermare}

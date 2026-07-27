@@ -184,8 +184,16 @@ const nav: AreaNav[] = [
   },
 ];
 
-export function Sidebar() {
+// Un non-admin vede solo le proposte: e la stessa regola del middleware, qui
+// applicata alle voci di menu. Mostrare porte che poi si chiudono in faccia e
+// il modo piu sicuro per far pensare che l app sia rotta.
+export function Sidebar({ ruolo = "admin", nome = null }: { ruolo?: "admin" | "proposte"; nome?: string | null }) {
   const pathname = usePathname();
+  const visibile = ruolo === "admin"
+    ? nav
+    : nav
+        .map((a) => ({ ...a, gruppi: a.gruppi.map((g) => ({ ...g, items: g.items.filter((i) => i.href.startsWith("/proposte")) })).filter((g) => g.items.length) }))
+        .filter((a) => a.gruppi.length);
   // La radice rimanda al consuntivo: finché il redirect non è atterrato è quella
   // la voce accesa, così la sidebar non lampeggia su niente all'apertura.
   // Vince la voce col percorso **più lungo** che combacia: con il semplice
@@ -206,7 +214,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      {nav.map((a) => (
+      {visibile.map((a) => (
         <div className="nav-area" key={a.area}>
           <div className="nav-area-head">
             <span className={`dot dot-${a.badge}`} />
@@ -233,8 +241,10 @@ export function Sidebar() {
       <div className="sidebar-footer">
         <div className="avatar">DX</div>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Deluxy</div>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Finanza &amp; Commerciale</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{nome ?? "Deluxy"}</div>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            {nome ? (ruolo === "admin" ? "Amministratore" : "Proposte budget") : "Finanza & Commerciale"}
+          </div>
         </div>
       </div>
     </aside>

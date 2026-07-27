@@ -287,3 +287,35 @@ perché le chiavi di `vendite` sono i loro slug e senza l'elenco chi consuma dov
 > moltiplicatore e **con loro il budget pubblicitario**, perché l'ADV consentito è una percentuale
 > sulle vendite: restituire la crescita senza i soldi per farla sarebbe un piano che non sta in
 > piedi. `advPubblicato` invece **non** si moltiplica: è un riferimento storico, non uno scenario.
+
+## Più utenti: si entra dal Hub (SSO)
+
+La password di team è **una sola e condivisa**: va bene per chi amministra, non per far entrare
+persone diverse. Gli utenti stanno nel **Hub** — email, ruolo, e quali app può aprire ciascuno — e
+il Hub passa a Budgets un token cifrato (`HUB_SSO_SECRET`, lo stesso valore nelle due app) su
+`/api/sso?token=…`. Budgets **non tiene un elenco di utenti suo**: due elenchi che divergono sono il
+modo più veloce per lasciare dentro qualcuno che è stato tolto.
+
+Due profili, mappati sul ruolo del Hub:
+
+| Ruolo nel Hub | In Budgets | Cosa vede |
+| --- | --- | --- |
+| `admin` | **admin** | tutta l'app |
+| qualsiasi altro (es. `commerciale`) | **proposte** | **solo** `/proposte`: manda il proprio budget e vede le proprie |
+
+Perché così: in queste pagine ci sono stipendi, premi e margini. Chi entra per mandare il proprio
+budget non ha bisogno di sapere quanto guadagnano gli altri, e «non ne ha bisogno» è il criterio
+giusto per un permesso.
+
+Il ruolo viaggia in una **sessione firmata** (`src/lib/sessione.ts`, HMAC-SHA256 con Web Crypto —
+niente Prisma né `node:crypto`, perché la legge anche il middleware che gira su Edge). Chi provasse
+a scriversi `ruolo: admin` produrrebbe una firma che non torna. Dura **7 giorni**, meno dei 30 della
+password di team: disattivando un utente il middleware non può accorgersene subito, quindi la
+finestra in cui una sessione già aperta sopravvive va tenuta stretta.
+
+> **La password di team resta come via di riserva**, con pieni poteri: se il Hub è irraggiungibile o
+> si lavora in locale si entra lo stesso. È una porta che resta aperta, ed è una scelta — non una
+> dimenticanza.
+
+Serve in produzione: `HUB_SSO_SECRET` (uguale a quello del Hub) e `APP_SECRET`. Nel catalogo del Hub
+Budgets ha `sso: true` e i ruoli `admin` + `commerciale`.

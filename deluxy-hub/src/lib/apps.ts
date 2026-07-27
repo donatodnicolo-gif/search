@@ -118,7 +118,10 @@ export function catalogoApp(): AppDeluxy[] {
       // L'app è pubblicata: si punta al sito di produzione, sovrascrivibile con
       // APP_URL_BUDGETS (es. http://localhost:3080 in sviluppo).
       url: process.env.APP_URL_BUDGETS ?? "https://deluxy-budgets.vercel.app",
-      ruoli: ["admin"],
+      sso: true, // Budgets legge il token del Hub: si entra senza ridigitare la password di team
+      // Anche i commerciali entrano, ma vedono SOLO le proposte di budget: il
+      // filtro lo fa Budgets sul ruolo che arriva nel token, non il Hub.
+      ruoli: ["admin", "commerciale"],
     },
     {
       id: "scout",

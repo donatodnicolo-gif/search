@@ -1,20 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
+import { leggiSessione } from "@/lib/sessione";
 
-// Protezione della UI con password unica del team, come le altre app Deluxy.
-// Qui dentro ci sono budget, premi e costi del personale: senza password
-// l'app NON va pubblicata. Se BUDGETS_APP_PASSWORD non è impostata (sviluppo
-// locale) la UI resta aperta.
+// Chi può entrare, e dove.
+//
+// Due modi di entrare, di proposito:
+//  1. **dal Hub** (Single Sign-On): il cookie è una sessione **firmata** che
+//     porta nome e ruolo. È così che entrano le persone, ognuna con le proprie
+//     credenziali, aggiunte e tolte dal Hub;
+//  2. **con la password unica di team**: resta come via di riserva — se il Hub
+//     è irraggiungibile o si lavora in locale si entra lo stesso, con pieni
+//     poteri, perché quella password ce l'ha chi amministra.
+//
+// Il ruolo viaggia **dentro il cookie firmato** e non in un parametro: chi
+// provasse a scriversi «admin» produrrebbe una firma che non torna.
+//
+// Le pagine che un non-admin può vedere sono solo quelle delle proposte: qui
+// dentro ci sono stipendi, premi e margini, e chi entra per mandare il proprio
+// budget non ha bisogno di sapere quanto guadagnano gli altri.
+const APERTE_A_TUTTI = ["/proposte", "/api/proposte"];
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const password = process.env.BUDGETS_APP_PASSWORD;
-  if (!password || pathname === "/login") return NextResponse.next();
+  // `/login` e `/api/sso` sono le due porte: se fossero protette non si
+  // potrebbe entrare da nessuna parte.
+  if (pathname === "/login" || pathname === "/api/sso") return NextResponse.next();
 
+  const password = process.env.BUDGETS_APP_PASSWORD;
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;
-  if (cookie && cookie === (await sessionToken(password))) {
-    return NextResponse.next();
+
+  // Sviluppo locale senza password: l'app è aperta, come prima.
+  if (!password) return NextResponse.next();
+
+  // 1) Sessione firmata (Hub). Porta il ruolo con sé.
+  const sessione = await leggiSessione(cookie);
+  if (sessione) {
+    if (sessione.ruolo === "admin") return NextResponse.next();
+    const permesso = APERTE_A_TUTTI.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+    if (permesso) return NextResponse.next();
+    // Non un errore: si viene portati dove si può stare.
+    return NextResponse.redirect(new URL("/proposte", req.url));
   }
+
+  // 2) Password di team: accesso pieno, come è sempre stato.
+  if (cookie && cookie === (await sessionToken(password))) return NextResponse.next();
+
   return NextResponse.redirect(new URL("/login", req.url));
 }
 
