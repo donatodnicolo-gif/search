@@ -10,11 +10,11 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { CategoryRule } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { caricaRegole, regolaPerCategoria } from '@/lib/categoryRules';
-import { inserisciPlace } from '@/lib/db';
+import { inserisciPlace, registraContattoAvviato } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { posizioneCorrente, type Coord } from '@/lib/location';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
@@ -22,8 +22,22 @@ import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { Loader } from '../_layout';
 
+/** I canali proponibili qui: chiamate e visite hanno una loro schermata e un
+ *  loro registro (`chiamate`, `visits`), non passano da qui. */
+const CANALI: { id: 'email' | 'whatsapp' | 'altro'; label: string; icona: 'mail-outline' | 'logo-whatsapp' | 'ellipsis-horizontal' }[] = [
+  { id: 'email', label: 'Email', icona: 'mail-outline' },
+  { id: 'whatsapp', label: 'WhatsApp', icona: 'logo-whatsapp' },
+  { id: 'altro', label: 'Di persona o altro', icona: 'ellipsis-horizontal' },
+];
+
 export default function NuovoTarget() {
   const router = useRouter();
+  // `come=lead` quando si arriva col + dalla sezione Lead: il negozio nasce
+  // già contattato. Senza, nascerebbe Selezionato e sparirebbe subito dalla
+  // lista da cui lo si è appena creato.
+  const { come } = useLocalSearchParams<{ come?: string }>();
+  const nasceLead = come === 'lead';
+  const [canale, setCanale] = useState<'email' | 'whatsapp' | 'altro'>('altro');
   const [regole, setRegole] = useState<Omit<CategoryRule, 'id'>[]>([]);
   const [pos, setPos] = useState<Coord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,6 +97,19 @@ export default function NuovoTarget() {
         linee_ipotizzate: lineeScelte.length ? lineeScelte : regola?.linea_ipotizzata ? [regola.linea_ipotizzata] : null,
         aggancio_apertura: regola?.aggancio_apertura ?? null,
       });
+      if (nasceLead) {
+        // Qui l'errore NON si ingoia: il negozio è stato creato comunque, ma
+        // senza questa riga resta un Selezionato e chi l'ha appena inserito
+        // come lead non lo ritroverebbe più dove lo cerca.
+        try {
+          await registraContattoAvviato({ placeIds: [place.id], canale });
+        } catch (e: any) {
+          avvisa(
+            'Creato, ma non segnato come contattato',
+            `${nome.trim()} è stato salvato: lo trovi fra i Selezionati, non fra i Lead.\n\n${e?.message ?? 'Registro dei contatti non disponibile.'}`,
+          );
+        }
+      }
       router.replace(`/(app)/attivita/${place.id}`);
     } catch (e: any) {
       avvisa('Errore', e?.message ?? 'Impossibile salvare il target.');
@@ -95,7 +122,7 @@ export default function NuovoTarget() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Nuovo target' }} />
+      <Stack.Screen options={{ title: nasceLead ? 'Nuovo lead' : 'Nuovo target' }} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.checkin}>
@@ -138,8 +165,32 @@ export default function NuovoTarget() {
           <Text style={styles.label}>Tipologia di interesse (linea)</Text>
           <LineaSelector value={lineeScelte} onChange={setLineeOverride} />
 
+          {nasceLead ? (
+            <>
+              <Text style={styles.label}>Come l’abbiamo contattato?</Text>
+              <View style={styles.chipWrap}>
+                {CANALI.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => setCanale(c.id)}
+                    style={[styles.chip, styles.chipCanale, canale === c.id && styles.chipOn]}
+                  >
+                    <Ionicons name={c.icona} size={14} color={canale === c.id ? colors.bianco : colors.navy} />
+                    <Text style={[styles.chipTxt, canale === c.id && styles.chipTxtOn]}>{c.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.aiuto}>
+                Nasce come <Text style={styles.aiutoForte}>Lead</Text>: il contatto è già partito, ma non c’è ancora
+                una persona in rubrica. Aggiungendola dalla sua scheda diventa un Prospect.
+              </Text>
+            </>
+          ) : null}
+
           <Pressable style={[styles.salva, salvataggio && styles.salvaOff]} onPress={salva} disabled={salvataggio}>
-            <Text style={styles.salvaTxt}>{salvataggio ? 'Salvataggio…' : 'Crea target'}</Text>
+            <Text style={styles.salvaTxt}>
+              {salvataggio ? 'Salvataggio…' : nasceLead ? 'Crea lead' : 'Crea target'}
+            </Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -171,7 +222,10 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: radius.pill,
   },
+  chipCanale: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  aiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18, marginTop: spacing.sm },
+  aiutoForte: { fontWeight: '800', color: colors.testo },
   chipTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
   prioRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },

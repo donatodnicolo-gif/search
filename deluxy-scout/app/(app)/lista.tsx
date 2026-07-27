@@ -195,14 +195,27 @@ export default function Lista() {
           </View>
         }
         ListEmptyComponent={
-          <EmptyState
-            loading={loading}
-            icona="flag-outline"
-            titolo="Nessun negozio in lista"
-            aiuto="Qui entrano solo i negozi che scegli tu: mettili in lista dalla Mappa con la ⭐ (diventano PROSPECT), oppure creane uno col bottone +. Se pensavi di trovarne, prova ad azzerare filtri e ricerca."
-            azione="Vai alla Mappa"
-            onAzione={() => router.push('/(app)/mappa')}
-          />
+          // Nei Lead il consiglio "mettili in lista con la ⭐" sarebbe sbagliato:
+          // la stella crea un Selezionato, non un Lead. Qui l'azione è un'altra.
+          vistaCorr === 'lead' ? (
+            <EmptyState
+              loading={loading}
+              icona="send-outline"
+              titolo="Nessun lead"
+              aiuto="Un negozio diventa Lead quando gli scrivi, lo chiami o ci passi: fallo dalle azioni di un Selezionato. Se il contatto è già avvenuto fuori dall'app, inseriscilo qui col bottone +."
+              azione="Vai ai Selezionati"
+              onAzione={() => router.push('/(app)/lista?vista=selezionato')}
+            />
+          ) : (
+            <EmptyState
+              loading={loading}
+              icona="flag-outline"
+              titolo="Nessun negozio in lista"
+              aiuto="Qui entrano solo i negozi che scegli tu: mettili in lista dalla Mappa con la ⭐ (diventano SELEZIONATI), oppure creane uno col bottone +. Se pensavi di trovarne, prova ad azzerare filtri e ricerca."
+              azione="Vai alla Mappa"
+              onAzione={() => router.push('/(app)/mappa')}
+            />
+          )
         }
         renderItem={({ item }) => (
           <Riga
@@ -219,7 +232,14 @@ export default function Lista() {
           />
         )}
       />
-      <Pressable style={styles.fab} onPress={() => router.push('/(app)/nuovo-target')} accessibilityLabel="Nuovo target">
+      {/* Dalla vista Lead il + crea un lead, non un selezionato: altrimenti il
+          negozio appena inserito nascerebbe "mai contattato" e sparirebbe
+          dall'elenco da cui lo si è appena creato. */}
+      <Pressable
+        style={styles.fab}
+        onPress={() => router.push(vistaCorr === 'lead' ? '/(app)/nuovo-target?come=lead' : '/(app)/nuovo-target')}
+        accessibilityLabel={vistaCorr === 'lead' ? 'Nuovo lead' : 'Nuovo target'}
+      >
         <Ionicons name="add" size={30} color={colors.bianco} />
       </Pressable>
       {mailPlace ? <ScegliScriptModal place={mailPlace} onClose={() => setMailPlace(null)} /> : null}
