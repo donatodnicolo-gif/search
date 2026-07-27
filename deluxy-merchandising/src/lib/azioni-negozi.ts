@@ -22,6 +22,7 @@ export async function salvaNegozioAzione(fd: FormData) {
     token: testo(fd, "token") || null,
     clientId: testo(fd, "clientId") || null,
     clientSecret: testo(fd, "clientSecret") || null,
+    canaleVendite: testo(fd, "canaleVendite") || null,
   });
   revalidatePath("/impostazioni");
   if (!esito.ok) redirect(`/impostazioni?errore=${encodeURIComponent(esito.errore)}`);

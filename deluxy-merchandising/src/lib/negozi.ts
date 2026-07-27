@@ -93,6 +93,7 @@ export type NegozioInElenco = {
   nome: string;
   dominio: string;
   attivo: boolean;
+  canaleVendite: string | null;
   // "credenziali" = Client ID + Secret (l'app si conia il token da sola);
   // "token" = token statico incollato a mano.
   modo: "credenziali" | "token" | "nessuno";
@@ -115,6 +116,7 @@ export async function elencoNegozi(): Promise<NegozioInElenco[]> {
       nome: n.nome,
       dominio: n.dominio,
       attivo: n.attivo,
+      canaleVendite: n.canaleVendite,
       modo: n.clientIdCifrato && n.clientSecretCifrato ? "credenziali" : n.tokenCifrato ? "token" : "nessuno",
       tokenScadeIl: n.tokenScadeIl,
       tokenImpronta: n.tokenImpronta,
@@ -245,9 +247,11 @@ export async function salvaNegozio(dati: {
   token?: string | null;
   clientId?: string | null;
   clientSecret?: string | null;
+  canaleVendite?: string | null;
 }): Promise<EsitoSalvataggio> {
   const nome = dati.nome.trim();
   const dominio = normalizzaDominio(dati.dominio);
+  const canaleVendite = dati.canaleVendite?.trim() || null;
   const token = dati.token?.trim() || null;
   const clientId = dati.clientId?.trim() || null;
   const clientSecret = dati.clientSecret?.trim() || null;
@@ -294,6 +298,7 @@ export async function salvaNegozio(dati: {
         data: {
           nome,
           dominio,
+          canaleVendite,
           ...(clientId
             ? {
                 clientIdCifrato: cifra(clientId),
@@ -323,6 +328,7 @@ export async function salvaNegozio(dati: {
       data: {
         nome,
         dominio,
+        canaleVendite,
         ...(clientId
           ? { clientIdCifrato: cifra(clientId), clientSecretCifrato: cifra(clientSecret as string) }
           : { tokenCifrato: cifra(token as string), tokenImpronta: impronta(token as string) }),

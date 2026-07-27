@@ -29,11 +29,15 @@ export default async function ImpostazioniPage({
   searchParams: Promise<{ esito?: string; errore?: string }>;
 }) {
   const sp = await searchParams;
-  const [negozi, chiaveAi, righePrompt] = await Promise.all([
+  const [negozi, chiaveAi, righePrompt, canali] = await Promise.all([
     elencoNegozi(),
     statoSegreto("OPENAI_API_KEY"),
     prisma.promptCategoria.findMany(),
+    // I nomi che i negozi hanno **nel venduto**: servono a collegare la scheda
+    // Shopify alle vendite, che arrivano da Orders con i nomi dei brand.
+    prisma.vendita.findMany({ distinct: ["canale"], select: { canale: true }, orderBy: { canale: "asc" } }),
   ]);
+  const canaliVenduto = canali.map((c) => c.canale).filter(Boolean);
   const prompt = new Map(righePrompt.map((r) => [r.categoria, r.prompt]));
   const cifraturaOk = cifraturaConfigurata();
 
@@ -202,6 +206,17 @@ export default async function ImpostazioniPage({
                         <label htmlFor={`dominio-${n.id}`}>Dominio tecnico</label>
                         <input id={`dominio-${n.id}`} name="dominio" defaultValue={n.dominio} required />
                       </div>
+                      <div className="campo-modulo largo">
+                        <label htmlFor={`canale-${n.id}`}>
+                          Nome nel venduto {canaliVenduto.length > 0 && <em>— usati oggi: {canaliVenduto.join(", ")}</em>}
+                        </label>
+                        <input
+                          id={`canale-${n.id}`}
+                          name="canaleVendite"
+                          defaultValue={n.canaleVendite ?? ""}
+                          placeholder="come si chiama questo negozio negli ordini"
+                        />
+                      </div>
                       <div className="campo-modulo">
                         <label htmlFor={`clientId-${n.id}`}>Nuovo Client ID</label>
                         <input id={`clientId-${n.id}`} name="clientId" autoComplete="off" placeholder="lascia vuoto per non cambiarlo" />
@@ -262,6 +277,16 @@ export default async function ImpostazioniPage({
             <div className="campo-modulo">
               <label htmlFor="clientSecret">Client Secret</label>
               <input id="clientSecret" name="clientSecret" type="password" autoComplete="off" />
+            </div>
+            <div className="campo-modulo largo">
+              <label htmlFor="canaleVendite">
+                Nome nel venduto {canaliVenduto.length > 0 && <em>— usati oggi: {canaliVenduto.join(", ")}</em>}
+              </label>
+              <input
+                id="canaleVendite"
+                name="canaleVendite"
+                placeholder="come si chiama questo negozio negli ordini (es. cakedesign.me)"
+              />
             </div>
             <div className="campo-modulo largo">
               <label htmlFor="token">Oppure token statico <code>shpat_…</code> (app personalizzate vecchio stile)</label>

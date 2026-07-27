@@ -38,6 +38,17 @@ export default async function CollezioneShopifyPage({ params }: { params: Promis
 
   const prodotti = collezione.prodotti.map((r) => r.prodotto);
   const f = finestra(90);
+
+  // Il negozio qui si chiama "Cake", nel venduto è "cakedesign.me": il nome
+  // della scheda e il canale delle vendite non coincidono. Si usa la
+  // corrispondenza impostata sul negozio; se non c'è, si contano tutti i canali
+  // e lo si dice, invece di mostrare uno zero che sembra un dato.
+  const negozio = await prisma.negozioShopify.findFirst({
+    where: { nome: collezione.negozio },
+    select: { canaleVendite: true },
+  });
+  const canale = negozio?.canaleVendite?.trim() || null;
+
   const vendite =
     prodotti.length > 0
       ? await prisma.vendita.groupBy({
@@ -45,7 +56,7 @@ export default async function CollezioneShopifyPage({ params }: { params: Promis
           where: {
             prodottoId: { in: prodotti.map((p) => p.id) },
             data: { gte: f.dal, lte: f.al },
-            canale: collezione.negozio,
+            ...(canale ? { canale } : {}),
             ...FILTRO_BUON_FINE,
           },
           _sum: { quantita: true, ricavo: true },
@@ -93,7 +104,9 @@ export default async function CollezioneShopifyPage({ params }: { params: Promis
           </div>
           <div className="kpi">
             <div className="kpi-valore">{euro(ricavoTotale)}</div>
-            <div className="kpi-etichetta">Venduto in 90 giorni su {collezione.negozio}</div>
+            <div className="kpi-etichetta">
+              Venduto in 90 giorni {canale ? `su ${canale}` : "(tutti i canali)"}
+            </div>
           </div>
           <div className="kpi">
             <div className="kpi-valore">{pezziTotali}</div>
@@ -158,7 +171,18 @@ export default async function CollezioneShopifyPage({ params }: { params: Promis
 
         <p className="page-sub" style={{ marginTop: 14 }}>
           Aggiornata il {iso(collezione.aggiornataIl)}. Il venduto conta solo le vendite andate a buon fine
-          fatte <b>su {collezione.negozio}</b>: lo stesso prodotto su un altro negozio è un&apos;altra storia.
+          {canale ? (
+            <>
+              {" "}
+              fatte <b>su {canale}</b>: lo stesso prodotto su un altro negozio è un&apos;altra storia.
+            </>
+          ) : (
+            <>
+              , di <b>tutti i canali</b>: il negozio «{collezione.negozio}» non ha ancora una corrispondenza
+              col nome che ha nel venduto (che arriva da Orders, tipo <code>cakedesign.me</code>). Si imposta
+              in <Link href="/impostazioni">Negozi &amp; permessi</Link>, campo «nome nel venduto».
+            </>
+          )}
         </p>
       </main>
     </div>

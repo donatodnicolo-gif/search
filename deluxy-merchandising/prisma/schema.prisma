@@ -179,6 +179,10 @@ model NegozioShopify {
   //
   // Se ci sono le credenziali si usano quelle: il token qui sotto diventa solo
   // la copia di lavoro dell'ultimo token coniato.
+  // Come si chiama questo negozio **nel venduto**, cioè il `canale` che arriva
+  // da Deluxy Orders (es. "cakedesign.me" per il negozio qui chiamato "Cake").
+  // Senza, incrociare vendite e collezioni dà zero senza dire perché.
+  canaleVendite       String?
   clientIdCifrato     String?
   clientSecretCifrato String?
   tokenCifrato  String?
