@@ -332,6 +332,26 @@ solo dove siamo e come si lavora.
      cache in memoria `ctData` (condivisa Contatti/Province): lento solo al primo caricamento
      della sessione, poi istantaneo; «↻ Aggiorna» forza il refetch.
 
+36. **Estensione a 10 km, filtro stelle, mappa migliorata, «vedi su Maps»** (27/07):
+   - **Estendi a scatti di 10 km** (prima ~40 km in un colpo): `extendRadius` +10 km a ogni clic,
+     max 50 km (`EXTEND_STEP`/`EXTEND_MAX`); `wideSearch(...,radius)` passa il raggio a
+     `textSearchOne`; `showExtendFooter` mostra «~N km» e il bottone «+10 km» finché non è al max;
+     `run()` azzera `extendRadius`.
+   - **Filtro «⭐ 4+ stelle»** in `#rateFilterResults` (`ratingFiltro`, applyFilters su
+     `dataset.rating` = `d.rating`, soglia ≥ 4). Le schede del registro (senza rating Google)
+     restano sempre visibili, come per gli altri filtri.
+   - **Mappa — clic sul segnaposto**: non salta più al record; apre una **tendina (infowindow)**
+     coi dettagli (nome, indirizzo, ★ valutazione, distanza, aperto/chiuso, link 📞/💬/🗺️ Maps e
+     «Vedi la scheda completa ↓» che usa `focusCard`). `mapPoints` arricchito (address, rating,
+     phone, waDigits, url).
+   - **«🗺️ Vedi tutti su Google Maps»** (`#openGmaps`): apre Google Maps con la ricerca della
+     categoria centrata sulla consegna (`/maps/search/<kw>/@lat,lng,13z`).
+   - **Fix mobile**: le pillole dei filtri risultati venivano tagliate (testo icone poco
+     visibile) → su ≤560px `flex:0 0 auto` così si dimensionano al testo e vanno a capo.
+   Verificato: filtro stelle (incl. registro sempre visibile), fix mobile (niente clip/overflow),
+   sintassi OK, console pulita. NON collaudati end-to-end su Google (serve chiave+login): infowindow
+   mappa e URL «vedi su Maps» — logica verificata staticamente.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche

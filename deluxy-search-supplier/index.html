@@ -342,8 +342,10 @@
     /* riepilogo ordine: foto sopra, prezzi sotto (già 1 colonna) con un po' meno padding */
     .deal{ padding:16px; gap:14px }
     .content{ padding:16px 12px 28px }
-    /* pillole filtro a larghezza piena e ben distribuite */
-    #waFilter .wchip, #openFilter .wchip{ min-width:0; flex:1 1 30% }
+    /* pillole filtro: si dimensionano al testo e vanno a capo (niente testo tagliato) */
+    #waFilter .wchip, #openFilter .wchip,
+    #waFilterResults .wchip, #openFilterResults .wchip, #rateFilterResults .wchip{ flex:0 0 auto; min-width:0; padding:9px 13px }
+    #waFilterResults label{ margin-left:0 !important }
   }
 </style>
 </head>
@@ -686,13 +688,21 @@
             <select id="limitResults" style="width:auto"></select>
           </label>
         </div>
-        <!-- filtro apertura + bottone mappa -->
+        <!-- filtro apertura + valutazione -->
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px">
           <div id="openFilterResults" style="display:flex; gap:6px">
             <button class="wchip active" data-open="tutti" type="button">Tutti</button>
             <button class="wchip" data-open="aperti" type="button">🟢 Aperti ora</button>
             <button class="wchip" data-open="chiusi" type="button">🔴 Chiusi ora</button>
           </div>
+          <div id="rateFilterResults" style="display:flex; gap:6px">
+            <button class="wchip active" data-rate="tutti" type="button">Tutte</button>
+            <button class="wchip" data-rate="4plus" type="button">⭐ 4+ stelle</button>
+          </div>
+        </div>
+        <!-- azioni mappa -->
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px">
+          <button class="btn-dl" id="openGmaps" type="button">🗺️ Vedi tutti su Google Maps</button>
           <button class="btn-dl" id="toggleMap" type="button" style="margin-left:auto">🗺️ Mostra sulla mappa</button>
         </div>
       </div>
@@ -1843,9 +1853,9 @@ function textSearchOne(service, query, location, radius){
     });
   });
 }
-async function wideSearch(service, location, cat, lang){
+async function wideSearch(service, location, cat, lang, radius){
   const kws = keywordsFor(cat, lang);
-  const liste = await Promise.all(kws.map(kw => textSearchOne(service, kw, location)));
+  const liste = await Promise.all(kws.map(kw => textSearchOne(service, kw, location, radius)));
   return [].concat(...liste).map(r => ({ place:r, cat }));
 }
 
@@ -2308,6 +2318,7 @@ function updateDeal(){
 // Le schede del registro anagrafiche restano SEMPRE visibili (non hanno questi dati).
 let waFiltro = 'tutti';
 let openFiltro = 'tutti';
+let ratingFiltro = 'tutti';   // 'tutti' | '4plus' (solo valutazione ≥ 4)
 function applyFilters(){
   let shown=0;
   resultsEl.querySelectorAll('.shop').forEach(el=>{
@@ -2320,6 +2331,8 @@ function applyFilters(){
         if(openFiltro==='aperti') hide = el.dataset.open!=='open';
         if(openFiltro==='chiusi') hide = el.dataset.open!=='closed';
       }
+      // solo valutazione ≥ 4 stelle (chi non ha valutazione viene escluso col filtro attivo)
+      if(!hide && ratingFiltro==='4plus') hide = !(parseFloat(el.dataset.rating||'0') >= 4);
     }
     el.style.display = hide ? 'none' : '';
     if(!hide) shown++;
@@ -2351,6 +2364,16 @@ function setOpenFiltro(val){
     const b = e.target.closest('.wchip'); if(!b) return;
     setOpenFiltro(b.dataset.open);
   });
+});
+function setRateFiltro(val){
+  ratingFiltro = val;
+  document.querySelectorAll('#rateFilterResults .wchip')
+    .forEach(x=>x.classList.toggle('active', x.dataset.rate===val));
+  applyFilters();
+}
+$('#rateFilterResults').addEventListener('click', e=>{
+  const b = e.target.closest('.wchip'); if(!b) return;
+  setRateFiltro(b.dataset.rate);
 });
 
 $('#fetchOrder').addEventListener('click', fetchOrder);
@@ -3047,6 +3070,7 @@ function shopCard(d, cat, dist, pid){
   el.className = 'shop';
   el.dataset.wakind = kind;
   el.dataset.open = (open===true) ? 'open' : (open===false) ? 'closed' : 'unknown';
+  el.dataset.rating = d.rating || 0;
   el.dataset.lang = shopLang;
   el.dataset.sid = pid || d.place_id || '';
   el.innerHTML = `
@@ -3184,6 +3208,7 @@ async function run(){
     setStatus('Cerco i negozi più vicini…');
     const service = new google.maps.places.PlacesService(document.createElement('div'));
     lastSearchCtx = { service, origin, geo };   // per «Estendi la ricerca»
+    extendRadius = 0;                            // nuova ricerca → riparte dal raggio in zona
     resetMap();                                  // nuova ricerca → mappa azzerata
     $('#noResults').style.display = 'none';
     $('#extendMore').style.display = 'none';
@@ -3269,8 +3294,14 @@ async function renderResults(found, geo, origin, service, opts){
     cards.push({card, website:d.website, pid:f.place.place_id});
     // punto per la mappa (posizione dai dettagli, ripiego sulla scheda della ricerca)
     const loc = (d.geometry && d.geometry.location) || (f.place.geometry && f.place.geometry.location);
-    if(loc) mapPoints.push({ name:d.name, loc, sid:f.place.place_id, cat:f.cat,
-      open: card.dataset.open, distText: (f.driveText||distanceStr(f.dist)) });
+    if(loc){
+      const intlN = d.international_phone_number || '';
+      const waN = intlN ? intlN.replace(/[^\d]/g,'') : '';
+      mapPoints.push({ name:d.name, loc, sid:f.place.place_id, cat:f.cat,
+        open: card.dataset.open, distText: (f.driveText||distanceStr(f.dist)),
+        address: d.formatted_address||'', rating: d.rating||0, ratingTotal: d.user_ratings_total||0,
+        phone: d.formatted_phone_number || intlN || '', waDigits: (waN.length>=8?waN:''), url: d.url||'' });
+    }
   }
 
   // registro anagrafiche: evidenzia chi è già partner/prospect e portalo in cima
@@ -3372,16 +3403,20 @@ async function renderResults(found, geo, origin, service, opts){
   }
 }
 
-/* ------------------ ESTENDI la ricerca (area ~40 km, quando in zona non c'è nulla) ------------------ */
+/* ------------------ ESTENDI la ricerca (a scatti di 10 km, fino a 50 km) ------------------ */
 let lastSearchCtx = null;   // { service, origin, geo } dell'ultima ricerca
+let extendRadius = 0;       // raggio corrente dell'allargamento (m); +10 km a ogni clic, max 50 km
+const EXTEND_STEP = 10000, EXTEND_MAX = 50000;
 async function extendSearch(){
   if(!lastSearchCtx){ run(); return; }
   const { service, origin, geo } = lastSearchCtx;
-  $('#extendBtn').disabled = true;
-  setStatus('Allargo la ricerca a un\'area più ampia…');
+  extendRadius = Math.min(EXTEND_MAX, (extendRadius || 0) + EXTEND_STEP);
+  const km = Math.round(extendRadius / 1000);
+  $('#extendBtn').disabled = true; $('#extendMoreBtn').disabled = true;
+  setStatus(`Allargo la ricerca a ~${km} km dalla consegna…`);
   try{
     let found = [];
-    for(const cat of cats){ found = found.concat(await wideSearch(service, origin, cat, currentLang)); }
+    for(const cat of cats){ found = found.concat(await wideSearch(service, origin, cat, currentLang, extendRadius)); }
     // dedup per place_id, tieni solo chi ha una posizione, calcola distanza
     const seen = new Set();
     found = found.filter(f=>{
@@ -3393,7 +3428,7 @@ async function extendSearch(){
       f.rating = f.place.rating || 0;
     });
     if(found.length===0){
-      setStatus('Ancora nessun negozio, anche allargando l\'area. Prova un altro indirizzo o categoria.', true);
+      setStatus(`Ancora nessun negozio entro ~${km} km. ${extendRadius<EXTEND_MAX?'Allarga ancora o prova un altro indirizzo/categoria.':'Prova un altro indirizzo o categoria.'}`, true);
       return;
     }
     $('#noResults').style.display = 'none';
@@ -3402,18 +3437,21 @@ async function extendSearch(){
     console.error(err);
     setStatus(err.message || 'Errore durante l\'estensione della ricerca.', true);
   }finally{
-    $('#extendBtn').disabled = false;
+    $('#extendBtn').disabled = false; $('#extendMoreBtn').disabled = false;
   }
 }
 $('#extendBtn').addEventListener('click', extendSearch);
 $('#extendMoreBtn').addEventListener('click', extendSearch);
-// footer «estendi» in fondo alla lista: sempre visibile dopo una ricerca con risultati.
-// Se la ricerca è già stata allargata, resta solo il messaggio (siamo già a ~40 km).
+// footer «estendi» in fondo alla lista: allarga di 10 km alla volta (fino a 50 km).
 function showExtendFooter(extended){
+  const km = Math.round((extendRadius || 0) / 1000);
+  const atMax = extendRadius >= EXTEND_MAX;
   $('#extendMoreMsg').textContent = extended
-    ? 'Questi risultati sono già su un\'area più ampia (~40 km dalla consegna).'
-    : 'Non trovi il fornitore giusto? Cerca lo stesso tipo di negozio in un\'area più ampia (~40 km).';
-  $('#extendMoreBtn').style.display = extended ? 'none' : '';
+    ? (atMax ? `Ricerca allargata al massimo (~${km} km dalla consegna).`
+             : `Ricerca allargata a ~${km} km dalla consegna. Puoi allargare ancora.`)
+    : 'Non trovi il fornitore giusto? Allarga la ricerca di 10 km alla volta.';
+  $('#extendMoreBtn').textContent = extended ? '🔎 Allarga di altri 10 km' : '🔎 Estendi la ricerca (+10 km)';
+  $('#extendMoreBtn').style.display = atMax ? 'none' : '';
   $('#extendMore').style.display = 'block';
 }
 
@@ -3459,16 +3497,27 @@ function buildMap(){
     const marker = new google.maps.Marker({
       position: p.loc, map: mapState.map, title: p.name, label: String(i+1)
     });
+    // clic sul segnaposto: NON salta al record, apre una tendina coi dettagli dell'attività
     marker.addListener('click', ()=>{
       const emoji = CAT_META[p.cat] ? CAT_META[p.cat].emoji : '📍';
-      const stato = p.open==='open' ? '🟢 Aperto ora' : p.open==='closed' ? '🔴 Chiuso ora' : '';
+      const stato = p.open==='open' ? '<span style="color:#248a3d">🟢 Aperto ora</span>'
+                  : p.open==='closed' ? '<span style="color:#d70015">🔴 Chiuso ora</span>' : '';
+      const rating = p.rating ? `<span style="color:#b8963e">★</span> ${Number(p.rating).toFixed(1)}${p.ratingTotal?` (${p.ratingTotal})`:''}` : '';
+      const riga2 = [rating, p.distText, stato].filter(Boolean).join(' · ');
+      const A = 'style="text-decoration:none; color:#0071e3; font-weight:600; white-space:nowrap"';
+      const links = [];
+      if(p.phone)    links.push(`<a href="tel:${esc(p.phone)}" ${A}>📞 Chiama</a>`);
+      if(p.waDigits) links.push(`<a href="${waChatUrl(p.waDigits)}" target="_blank" rel="noopener" ${A}>💬 WhatsApp</a>`);
+      if(p.url)      links.push(`<a href="${esc(p.url)}" target="_blank" rel="noopener" ${A}>🗺️ Maps</a>`);
       mapState.info.setContent(
-        `<div style="font-family:var(--font-sans,sans-serif); max-width:220px; line-height:1.4">
+        `<div style="font-family:-apple-system,Segoe UI,sans-serif; max-width:250px; line-height:1.45; color:#1d1d1f">
            <div style="font-weight:600; margin-bottom:2px">${emoji} ${esc(p.name)}</div>
-           <div style="font-size:12px; color:#555">${esc(p.distText||'')}${stato?' · '+stato:''}</div>
+           ${p.address?`<div style="font-size:12px; color:#555">${esc(p.address)}</div>`:''}
+           ${riga2?`<div style="font-size:12px; margin-top:3px">${riga2}</div>`:''}
+           ${links.length?`<div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; font-size:12px">${links.join('')}</div>`:''}
+           <div style="margin-top:8px; font-size:12px"><a href="#" onclick="focusCard('${esc(p.sid)}');return false" style="text-decoration:none; color:#6e6e73">Vedi la scheda completa ↓</a></div>
          </div>`);
       mapState.info.open(mapState.map, marker);
-      focusCard(p.sid);
     });
     mapState.markers[p.sid] = marker;
     bounds.extend(p.loc);
@@ -3496,6 +3545,15 @@ $('#toggleMap').addEventListener('click', ()=>{
     wrap.style.display = 'none';
     $('#toggleMap').textContent = '🗺️ Mostra sulla mappa';
   }
+});
+// «Vedi tutti su Google Maps»: apre Google Maps con la ricerca della categoria nella zona
+$('#openGmaps').addEventListener('click', ()=>{
+  const loc = lastSearchCtx && lastSearchCtx.origin;
+  const q = [...cats].map(c => (KEYWORDS[c] && (KEYWORDS[c][currentLang] || KEYWORDS[c].default)) || (CAT_META[c] && CAT_META[c].label) || c).join(' ');
+  const url = loc
+    ? `https://www.google.com/maps/search/${encodeURIComponent(q)}/@${loc.lat()},${loc.lng()},13z`
+    : `https://www.google.com/maps/search/${encodeURIComponent(q + ' ' + ($('#address').value||''))}`;
+  window.open(url, '_blank', 'noopener');
 });
 </script>
 </body>
