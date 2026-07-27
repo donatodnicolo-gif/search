@@ -92,7 +92,10 @@ export default function Lista() {
       // 23/07/2026). I record senza `creato_da` — scoperta Google e import da
       // terminale — restano nel database e sulla Mappa, ma qui non entrano:
       // erano migliaia e rendevano la lista inutilizzabile.
-      .filter((p) => Boolean(p.creato_da))
+      // …oppure che ha la ⭐: la stella È la scelta di una persona. I negozi
+      // stellati prima che si registrasse `creato_da` (23/07) restavano fuori
+      // dai Selezionati pur essendo stati scelti: qui rientrano.
+      .filter((p) => Boolean(p.creato_da) || Boolean(p.starred))
       .filter((p) => (livelliVista ? livelliVista.includes(livelloDi(p, conContatto.has(p.id))) : true))
       .filter((p) => (livello ? livelloDi(p, conContatto.has(p.id)) === livello : true))
       .filter((p) => {
@@ -112,7 +115,9 @@ export default function Lista() {
   const perLivello = useMemo(() => {
     const c: Record<string, number> = { prospect: 0, lead: 0, cliente: 0, dormiente: 0, perso: 0 };
     for (const p of places) {
-      if (p.nascosto || !p.creato_da) continue;
+      // Stesso criterio della lista: se cambia solo lì, i numeri sui chip non
+      // corrispondono più alle righe che si vedono.
+      if (p.nascosto || (!p.creato_da && !p.starred)) continue;
       c[livelloDi(p, conContatto.has(p.id))] += 1;
     }
     return c;

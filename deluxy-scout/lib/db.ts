@@ -113,9 +113,24 @@ export async function archiviaLinea(id: string): Promise<void> {
 }
 
 export async function fetchPlaces(): Promise<Place[]> {
-  const { data, error } = await supabase.from('places').select('*');
-  if (error) throw error;
-  const righe = (data ?? []) as Place[];
+  // ⚠️ A PAGINE, obbligatoriamente. Una `select('*')` secca si ferma a **1000
+  // righe** (limite di PostgREST) e i negozi sono già 1313: quelli oltre la
+  // soglia sparivano da Mappa, Selezionati e Potenziali. Senza `order` il
+  // troncamento non è nemmeno stabile — un negozio appena stellato compariva o
+  // no a seconda della query, e sembrava che la stella non funzionasse.
+  const BLOCCO = 1000;
+  const righe: Place[] = [];
+  for (let da = 0; ; da += BLOCCO) {
+    const { data, error } = await supabase
+      .from('places')
+      .select('*')
+      .order('id') // ordine stabile: senza, le pagine possono ripetere o saltare righe
+      .range(da, da + BLOCCO - 1);
+    if (error) throw error;
+    const blocco = (data ?? []) as Place[];
+    righe.push(...blocco);
+    if (blocco.length < BLOCCO) break;
+  }
   // Risolvi il nome di chi ha inserito ogni target (dai profili).
   const ids = [...new Set(righe.map((p) => p.creato_da).filter(Boolean))] as string[];
   if (ids.length) {
@@ -920,7 +935,16 @@ export async function aggiornaStarred(placeId: string, starred: boolean): Promis
     const { data } = await supabase.auth.getUser();
     const uid = data.user?.id;
     if (uid) {
-      await supabase.from('places').update({ creato_da: uid }).eq('id', placeId).is('creato_da', null);
+      // L'errore va fatto emergere: se questa scrittura fallisce in silenzio il
+      // negozio resta senza creatore e sparisce dai Selezionati, e chi ha messo
+      // la stella non capisce perché. (Il filtro della lista accetta comunque i
+      // negozi stellati, quindi è una rete di sicurezza, non l'unica difesa.)
+      const { error: errCreatore } = await supabase
+        .from('places')
+        .update({ creato_da: uid })
+        .eq('id', placeId)
+        .is('creato_da', null);
+      if (errCreatore) throw errCreatore;
     }
   }
 }
