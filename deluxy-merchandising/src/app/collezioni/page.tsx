@@ -33,7 +33,13 @@ export const maxDuration = 300;
 export default async function CollezioniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ esito?: string; messaggio?: string; errore?: string }>;
+  searchParams: Promise<{
+    esito?: string;
+    messaggio?: string;
+    errore?: string;
+    ordina?: string;
+    dir?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const brand = await brandCorrente();
@@ -83,13 +89,57 @@ export default async function CollezioniPage({
       })
     : [];
   const vp = new Map(venditePerProdotto.map((v) => [v.prodottoId as string, v]));
+  // L'ordinamento si fa qui e non nel database perché il venduto non è una
+  // colonna: è la somma delle vendite dei prodotti della collezione, calcolata
+  // sopra. Ordinare in SQL vorrebbe dire non poter ordinare per la colonna che
+  // interessa di più.
+  const ordina = sp.ordina ?? "venduto";
+  const discendente = (sp.dir ?? (ordina === "titolo" || ordina === "negozio" ? "asc" : "desc")) === "desc";
   const conVenduto = collezioniShopify
     .map((c) => {
       const ricavo = c.prodotti.reduce((s, x) => s + (vp.get(x.prodottoId)?._sum.ricavo ?? 0), 0);
       const pezzi = c.prodotti.reduce((s, x) => s + (vp.get(x.prodottoId)?._sum.quantita ?? 0), 0);
       return { c, ricavo, pezzi };
     })
-    .sort((a, b) => b.ricavo - a.ricavo);
+    .sort((a, b) => {
+      const testo = (x: string, y: string) => x.localeCompare(y, "it");
+      let d = 0;
+      switch (ordina) {
+        case "titolo":
+          d = testo(a.c.titolo, b.c.titolo);
+          break;
+        case "negozio":
+          d = testo(a.c.negozio, b.c.negozio) || testo(a.c.titolo, b.c.titolo);
+          break;
+        case "tipo":
+          d = testo(a.c.tipo, b.c.tipo) || testo(a.c.titolo, b.c.titolo);
+          break;
+        case "prodotti":
+          d = a.c._count.prodotti - b.c._count.prodotti;
+          break;
+        case "pezzi":
+          d = a.pezzi - b.pezzi;
+          break;
+        case "stato":
+          d = testo(a.c.stato, b.c.stato) || testo(a.c.titolo, b.c.titolo);
+          break;
+        default:
+          d = a.ricavo - b.ricavo;
+      }
+      // A parità, il titolo: così l'ordine non balla fra un caricamento e l'altro.
+      if (d === 0) d = testo(a.c.titolo, b.c.titolo);
+      return discendente ? -d : d;
+    });
+
+  // Link di intestazione: cliccando si ordina, ricliccando si inverte.
+  const linkOrdine = (chiave: string) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (v && k !== "ordina" && k !== "dir") q.set(k, v);
+    q.set("ordina", chiave);
+    q.set("dir", ordina === chiave && discendente ? "asc" : "desc");
+    return `/collezioni?${q}`;
+  };
+  const freccia = (chiave: string) => (ordina === chiave ? (discendente ? " ↓" : " ↑") : "");
   // La quota è sul venduto delle collezioni mostrate. Un prodotto in due
   // collezioni pesa in entrambe: le collezioni si sovrappongono per natura, e
   // le percentuali non fanno 100. È così anche su Shopify.
@@ -203,13 +253,13 @@ export default async function CollezioniPage({
               <table>
                 <thead>
                   <tr>
-                    <th>Collezione</th>
-                    <th>Negozio</th>
-                    <th>Tipo</th>
-                    <th className="num">Prodotti</th>
-                    <th className="num">Venduto 90gg</th>
-                    <th>% del venduto</th>
-                    <th>Stato e uso</th>
+                    <th><Link href={linkOrdine("titolo")} className="th-ordina">Collezione{freccia("titolo")}</Link></th>
+                    <th><Link href={linkOrdine("negozio")} className="th-ordina">Negozio{freccia("negozio")}</Link></th>
+                    <th><Link href={linkOrdine("tipo")} className="th-ordina">Tipo{freccia("tipo")}</Link></th>
+                    <th className="num"><Link href={linkOrdine("prodotti")} className="th-ordina">Prodotti{freccia("prodotti")}</Link></th>
+                    <th className="num"><Link href={linkOrdine("venduto")} className="th-ordina">Venduto 90gg{freccia("venduto")}</Link></th>
+                    <th><Link href={linkOrdine("pezzi")} className="th-ordina">Pezzi e quota{freccia("pezzi")}</Link></th>
+                    <th><Link href={linkOrdine("stato")} className="th-ordina">Stato e uso{freccia("stato")}</Link></th>
                   </tr>
                 </thead>
                 <tbody>

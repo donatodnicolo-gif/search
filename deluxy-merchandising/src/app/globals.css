@@ -534,6 +534,11 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 }
 .riga-classifica select:focus { background: var(--surface); border-color: var(--hairline-strong); }
 
+/* Intestazione di colonna ordinabile: resta un link, così si apre anche in una
+   scheda nuova e si capisce che è cliccabile. */
+.th-ordina { color: inherit; display: inline-block; white-space: nowrap; }
+.th-ordina:hover { color: var(--text); }
+
 /* ---------- Riga della scrittura AI ---------- */
 .riga-ai { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .riga-ai select {
