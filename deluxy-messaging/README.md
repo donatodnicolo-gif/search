@@ -221,9 +221,12 @@ cima quelli che si usano davvero.
 
 ## Il biglietto
 
-Gli ordini che hanno una nota del cliente portano una **busta dorata** accanto al
-numero: sono l'8,3% (77 su 929). Aprendo l'ordine, la sezione **Biglietto e note del
-cliente** mostra il testo per intero, con il tasto *Copia biglietto*.
+Gli ordini con una nota del cliente portano una **busta dorata** accanto al numero:
+sono l'8,8% (70 su 800). Aprendo l'ordine, la sezione **Biglietto e note del cliente**
+c'è **sempre**: col testo per intero e il tasto *Copia biglietto* quando c'è qualcosa,
+e con scritto «non indicato» quando il cliente non ha scritto niente. Non spariscono
+sezioni: una sezione che scompare lascia il dubbio se il dato manchi o non sia stato
+caricato.
 
 > **Quel testo non è solo il biglietto, ed è per questo che si mostra tutto.** Sugli
 > ordini veri contiene il messaggio per il cartoncino insieme all'indirizzo del
@@ -232,6 +235,14 @@ cliente** mostra il testo per intero, con il tasto *Copia biglietto*.
 > Tagliarne fuori "il messaggio" in automatico vuol dire, prima o poi, stampare un
 > numero di telefono su un cartoncino o perdere metà della dedica. Chi taglia è una
 > persona che ha letto: l'app mette il testo davanti e lo copia tutto.
+
+> **Sapere se un biglietto è *previsto* è un'altra cosa, e oggi il dato non c'è.**
+> Su alcuni prodotti la variante finisce con un Sì/No («Medio-Grande / No»), ma di
+> quell'opzione non si conosce il nome: il registro salva solo i valori. Controllato
+> su 800 ordini — compare su 23, e i due con «Sì» non hanno nessun biglietto scritto,
+> mentre il 9% di tutti gli altri sì. Quindi quel Sì/No è un'altra opzione, e usarlo
+> per la busta l'avrebbe messa sugli ordini sbagliati. Per averlo davvero serve che
+> l'app Ordini importi da Shopify anche il *nome* delle opzioni.
 
 ## Il dettaglio di un ordine
 

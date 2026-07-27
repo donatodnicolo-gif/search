@@ -55,6 +55,39 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **La sezione Biglietto nel dettaglio c'è SEMPRE, con l'icona lettera**
+  (27/07/2026). Prima spariva quando il campo era vuoto, e una sezione che
+  scompare è ambigua: chi apre un ordine senza biglietto non sa se non c'è, se
+  l'app non l'ha caricato o se va cercato altrove. Ora due stati espliciti —
+  il testo con «Copia biglietto», oppure «Non indicato: su questo ordine il
+  cliente non ha scritto niente». Verificati entrambi su ordini veri (#12372 con
+  282 caratteri, e un ordine senza). L'icona è la stessa busta dell'elenco:
+  icone diverse per la stessa cosa non si collegano.
+
+  ⚠️⚠️ **«SE È PREVISTO BIGLIETTO» NON È UN DATO CHE ABBIAMO — MISURATO.**
+  Sull'ordine dello screenshot (#12663) la riga è «Bouquet Beethoven —
+  Medio-Grande / **No**», e sembrava naturale leggere quel «No» come «biglietto:
+  no». **È una deduzione, e sarebbe stata sbagliata.** Su 800 ordini del
+  registro:
+    - la variante è la sola stringa dei VALORI (`variantTitle` di Shopify):
+      i NOMI delle opzioni non li salva nessuno, quindi non si sa a cosa si
+      riferisca quel Sì/No;
+    - l'opzione finale Sì/No compare su **23 ordini su 800** (2 «Sì», 21 «No»):
+      è una famiglia di prodotti, non un meccanismo generale;
+    - **correlazione zero col biglietto**: i 2 ordini con «Sì» hanno **0** note
+      del cliente, mentre il 9% dei 777 senza quell'opzione ce l'ha. Se il «Sì»
+      fosse il biglietto, sarebbe il contrario.
+    - nelle proprietà delle righe (che SONO strutturate, «chiave: valore»:
+      Ingredienti, Base, Farcitura, Scritta sulla torta, Topping…) **non esiste
+      nessuna chiave «Biglietto»** su 120 righe con proprietà.
+  Quindi l'icona resta agganciata al solo segnale reale: **il testo scritto dal
+  cliente** (`biglietto` non vuoto), 70 ordini su 800 (8,8%).
+  **COME AVERE IL DATO VERO**: in `deluxy-orders` l'import Shopify chiede
+  `variantTitle`; va aggiunto `selectedOptions { name value }` sul line item —
+  lì il nome dell'opzione c'è. Poi si espone nell'API e qui l'icona può dire
+  «biglietto previsto» come fatto e non come indovinello. Serve un re-import per
+  riempire lo storico.
+
 - **«DA MOBILE LA MAIL NON SI APRE»: bersagli troppo piccoli, e l'indirizzo che
   non si toccava** (27/07/2026).
 

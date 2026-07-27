@@ -50,6 +50,30 @@ type OrdineDettaglio = {
   clienteTipoDa: string
 }
 
+/**
+ * La lettera che segna il biglietto. La stessa busta che compare sugli ordini in
+ * elenco: se l'icona in lista e quella nel dettaglio fossero diverse, nessuno
+ * capirebbe che parlano della stessa cosa.
+ */
+function IconaLettera() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinejoin="round"
+      style={{ verticalAlign: '-2px', marginRight: 4, color: 'var(--gold)' }}
+      aria-hidden="true"
+    >
+      <rect x="3" y="5.5" width="18" height="13" rx="2" />
+      <path d="m3.5 7 8.5 6 8.5-6" />
+    </svg>
+  )
+}
+
 function soldi(v: number, valuta: string): string {
   return v.toLocaleString('it-IT', { style: 'currency', currency: valuta || 'EUR' })
 }
@@ -374,31 +398,54 @@ export function DettaglioOrdine({
                 * o butta via metà del messaggio. Legge una persona, che vede
                 * tutto e copia il pezzo giusto.
                 */}
-              {biglietto.trim() ? (
-                <div style={{ marginTop: 14 }}>
-                  <label className="campo" style={{ marginBottom: 6 }}>
-                    <span>Biglietto e note del cliente</span>
-                    <textarea
-                      rows={Math.min(12, Math.max(4, biglietto.split('\n').length + 1))}
-                      readOnly
-                      value={biglietto}
-                      style={{ fontFamily: 'inherit', lineHeight: 1.55 }}
-                      onFocus={(e) => e.currentTarget.select()}
-                    />
-                  </label>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <button className="btn" onClick={() => copia(biglietto, 'biglietto')}>
-                      {copiato === 'biglietto' ? 'Copiato ✓' : 'Copia biglietto'}
-                    </button>
+              {/* ⚠️ LA SEZIONE C'È SEMPRE, anche quando il biglietto non c'è.
+                *
+                * Prima spariva quando il campo era vuoto, e nascondere una
+                * sezione è ambiguo: chi apre un ordine senza biglietto non
+                * capisce se non c'è, se l'app non l'ha caricato o se va cercato
+                * altrove. Scritto «non indicato» la domanda non nasce. */}
+              <div style={{ marginTop: 14 }}>
+                {biglietto.trim() ? (
+                  <>
+                    <label className="campo" style={{ marginBottom: 6 }}>
+                      <span>
+                        <IconaLettera /> Biglietto e note del cliente
+                      </span>
+                      <textarea
+                        rows={Math.min(12, Math.max(4, biglietto.split('\n').length + 1))}
+                        readOnly
+                        value={biglietto}
+                        style={{ fontFamily: 'inherit', lineHeight: 1.55 }}
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                    </label>
+                    <div
+                      style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
+                    >
+                      <button className="btn" onClick={() => copia(biglietto, 'biglietto')}>
+                        {copiato === 'biglietto' ? 'Copiato ✓' : 'Copia biglietto'}
+                      </button>
+                    </div>
+                    <p className="descrizione" style={{ marginTop: 6, marginBottom: 0 }}>
+                      È il testo che il cliente ha scritto all&apos;ordine, così com&apos;è. Spesso
+                      oltre al messaggio contiene indirizzi, numeri di telefono e istruzioni:{' '}
+                      <strong>rileggilo prima di mandarlo al fornitore</strong> — il biglietto è
+                      solo la parte da scrivere sul cartoncino.
+                    </p>
+                  </>
+                ) : (
+                  <div className="campo" style={{ marginBottom: 0 }}>
+                    <span>
+                      <IconaLettera /> Biglietto e note del cliente
+                    </span>
+                    <p className="descrizione" style={{ margin: 0 }}>
+                      {caricato
+                        ? 'Non indicato: su questo ordine il cliente non ha scritto niente.'
+                        : 'Carico…'}
+                    </p>
                   </div>
-                  <p className="descrizione" style={{ marginTop: 6, marginBottom: 0 }}>
-                    È il testo che il cliente ha scritto all&apos;ordine, così com&apos;è. Spesso
-                    oltre al messaggio contiene indirizzi, numeri di telefono e istruzioni:{' '}
-                    <strong>rileggilo prima di mandarlo al fornitore</strong> — il biglietto è solo
-                    la parte da scrivere sul cartoncino.
-                  </p>
-                </div>
-              ) : null}
+                )}
+              </div>
 
               {/* Il messaggio pronto. */}
               <label className="campo" style={{ marginTop: 14 }}>
