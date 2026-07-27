@@ -244,6 +244,8 @@ codici del PDF del commercialista. Non sostituisce il Consuntivo: risponde a un'
 **I totali si calcolano, non si digitano** (`totali()` in `src/lib/bilancio.ts`): un bilancio in cui
 il totale è un campo libero prima o poi non quadra e nessuno se ne accorge.
 
+**Proposta dai dati dell app**: un riquadro propone le voci che l app puo ricavare da se — A1 dal fatturato Finance (tutte le tipologie, non solo quelle mappate) piu la quota ecommerce, B7 dalle uscite di banca «Costo per servizi» e «Pubblicita», B9 dal roster, B14 dalla «Struttura». Ogni riga dice **da dove viene** e nulla si salva da solo: si spunta e si conferma. Le voci gia compilate sono segnalate in arancio perche accettare la proposta le sovrascriverebbe. Sotto, l elenco di **quello che l app non puo sapere** con il motivo (ammortamenti, rimanenze, imposte di competenza…): e la parte piu utile, perche dice perche il gestionale non torna col bilancio. Se in banca ci sono uscite non ancora categorizzate, la proposta lo dichiara e avverte che i costi sono sottostimati di almeno quella cifra.
+
 **Import**: si incollano le righe copiate dal PDF o dall'Excel, «codice importo». Il parser dei
 numeri (`numero()`) non tira a indovinare: **l'ultimo fra punto e virgola è il separatore
 decimale**, e tre cifre dopo l'ultimo separatore vogliono dire migliaia. Regge l'italiano

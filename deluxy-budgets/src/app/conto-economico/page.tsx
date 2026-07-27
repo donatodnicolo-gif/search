@@ -4,6 +4,8 @@ import { caricaBilancio, totali } from "@/lib/bilancio";
 import { caricaConsuntivo } from "@/lib/consuntivo";
 import { eur, MESI, pct } from "@/lib/format";
 import { BilancioEditor } from "@/components/BilancioEditor";
+import { PropostaBilancio } from "@/components/PropostaBilancio";
+import { proponiDaApp } from "@/lib/bilancio-proposta";
 
 export const dynamic = "force-dynamic";
 
@@ -21,12 +23,17 @@ export default async function ContoEconomicoPage({
   const t = totali(importi);
   const compilato = valori.length > 0;
 
+  // Le voci che l'app può proporre da sé (Finance, banca, Orders). Si calcolano
+  // sempre: servono anche a bilancio già compilato, per vedere quanto si
+  // discosta il gestionale — ma non si scrive niente senza conferma.
+  const datiProposta = await caricaAnno(anno);
+  const { proposte, avvisi } = await proponiDaApp(datiProposta);
+
   // Il confronto col gestionale ha senso solo su un anno concluso e solo se il
   // bilancio c'è: su un anno in corso il bilancio non esiste ancora, e mettere
   // un consuntivo parziale accanto a un bilancio vuoto direbbe «-100%».
   const annoConcluso = anno < ANNO_CORRENTE;
-  const dati = compilato && annoConcluso ? await caricaAnno(anno) : null;
-  const gest = dati ? await caricaConsuntivo(dati, [1,2,3,4,5,6,7,8,9,10,11,12]) : null;
+  const gest = compilato && annoConcluso ? await caricaConsuntivo(datiProposta, [1,2,3,4,5,6,7,8,9,10,11,12]) : null;
 
   // Ripartizione mensile: si mostra solo per le voci che ce l'hanno davvero.
   const conMesi = valori.filter((v) => v.mesi);
@@ -72,6 +79,13 @@ export default async function ContoEconomicoPage({
           <div className="kpi-sub">dopo oneri finanziari e imposte</div>
         </div>
       </div>
+
+      <PropostaBilancio
+        anno={anno}
+        proposte={proposte}
+        avvisi={avvisi}
+        gia={Object.fromEntries(valori.map((v) => [v.codice, v.importo]))}
+      />
 
       <BilancioEditor anno={anno} valori={valori} />
 

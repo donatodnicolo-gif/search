@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { eur, MESI } from "@/lib/format";
-import { SCHEMA, totali, valoreSezione, type Voce } from "@/lib/bilancio";
+import { SCHEMA, totali, valoreSezione, type Voce } from "@/lib/bilancio-voci";
 
 type Valore = { codice: string; importo: number; mesi: number[] | null; nota: string | null };
 
