@@ -2,6 +2,10 @@ import Link from "next/link";
 import { euro } from "@/lib/ordini";
 import { brandConColore } from "@/lib/brand";
 import { nomeCategoria } from "@/lib/categorie";
+import { nomeUrgenza } from "@/lib/urgenza";
+import { nomeCanale } from "@/lib/marketing";
+import { nomeTipologia } from "@/lib/segmenti";
+import { nomeTipoEvento } from "@/lib/eventi";
 import {
   GRANULARITA,
   type Granularita,
@@ -12,7 +16,9 @@ import {
   kpi,
   metriche,
   nomePeriodo,
-  perCategoria,
+  perDimensione,
+  dimensione,
+  DIMENSIONI,
   serie,
   variazione,
 } from "@/lib/analisi";
@@ -20,6 +26,44 @@ import {
 export const dynamic = "force-dynamic";
 
 const QUANTI_NELLA_SERIE: Record<Granularita, number> = { settimana: 12, mese: 13, anno: 5 };
+
+// Oltre questa soglia una tabella non si legge più: le città di consegna sono
+// centinaia. Le righe tagliate restano nei totali della pagina, e la pagina lo
+// dice invece di far sparire numeri in silenzio.
+const MAX_RIGHE_DIMENSIONE = 25;
+
+// Una riga senza dati non è un buco: è uno zero, e va confrontata come tale.
+const ZERO_METRICHE = {
+  ordini: 0,
+  lordo: 0,
+  pezzi: 0,
+  clienti: 0,
+  primi: 0,
+  daRepeater: 0,
+  annullatiOrdini: 0,
+  annullatiLordo: 0,
+  rimborsatiOrdini: 0,
+  rimborsatiLordo: 0,
+  parzialiOrdini: 0,
+  parzialiLordo: 0,
+};
+
+// Le etichette arrivano dal database come chiavi («torte», «google-ads»,
+// «urgenza»): qui tornano nella lingua di chi legge.
+function etichettaDimensione(dimensione: string, valore: string): string {
+  if (dimensione === "categoria") {
+    return valore === "non-classificato" ? "Non classificato" : nomeCategoria(valore);
+  }
+  if (dimensione === "urgenza") {
+    return valore === "senza-data" ? "Consegna non indicata" : nomeUrgenza(valore);
+  }
+  if (dimensione === "canale") {
+    return valore === "sconosciuto" ? "Provenienza sconosciuta" : nomeCanale(valore);
+  }
+  if (dimensione === "tipologia") return nomeTipologia(valore);
+  if (dimensione === "occasione") return nomeTipoEvento(valore);
+  return valore;
+}
 
 function numero(n: number, decimali = 0): string {
   return n.toLocaleString("it-IT", { minimumFractionDigits: decimali, maximumFractionDigits: decimali });
@@ -77,19 +121,36 @@ export default async function Analisi({
     ? new Date(Math.min(inizioPrima.getTime() + giorni * 86_400_000, finePrima.getTime()))
     : finePrima;
 
-  const [negozi, ora, prima, catOra, catPrima, storico] = await Promise.all([
+  // Lungo quale asse spezzare i numeri: città, categoria, tipologia di cliente,
+  // occasione, tipo di ordine, provenienza.
+  const dim = dimensione(sp.dim);
+
+  const [negozi, ora, prima, dimOra, dimPrima, storico] = await Promise.all([
     brandConColore(),
     metriche(inizio, fineOra, brand),
     metriche(inizioPrima, fineConfronto, brand),
-    perCategoria(inizio, fineOra, brand),
-    perCategoria(inizioPrima, fineConfronto, brand),
+    perDimensione(dim, inizio, fineOra, brand),
+    perDimensione(dim, inizioPrima, fineConfronto, brand),
     serie(gran, QUANTI_NELLA_SERIE[gran], brand, adesso),
   ]);
 
   const k = kpi(ora);
   const kPrima = kpi(prima);
-  const catPrimaMappa = new Map(catPrima.map((c) => [c.categoria, c]));
-  const lordoCategorie = catOra.reduce((s, c) => s + c.lordo, 0);
+
+  // Le due letture si affiancano per etichetta. Una riga che c'era prima e ora
+  // non c'è più **resta in tabella a zero**: sparire sarebbe la cosa peggiore —
+  // «Firenze non c'è più» è esattamente la notizia che si sta cercando.
+  const primaPerEtichetta = new Map(dimPrima.map((r) => [r.etichetta, r]));
+  const etichette = [...new Set([...dimOra.map((r) => r.etichetta), ...dimPrima.map((r) => r.etichetta)])];
+  const righeDimTutte = etichette
+    .map((etichetta) => ({
+      etichetta,
+      ora: kpi(dimOra.find((r) => r.etichetta === etichetta) ?? ZERO_METRICHE),
+      prima: kpi(primaPerEtichetta.get(etichetta) ?? ZERO_METRICHE),
+    }))
+    .sort((a, b) => b.ora.lordo - a.ora.lordo || b.prima.lordo - a.prima.lordo);
+  const righeDim = righeDimTutte.slice(0, MAX_RIGHE_DIMENSIONE);
+  const lordoDim = righeDimTutte.reduce((s, r) => s + r.ora.lordo, 0);
 
   function link(extra: Record<string, string>): string {
     const q = new URLSearchParams(sp);
@@ -313,57 +374,109 @@ export default async function Analisi({
         </p>
       </div>
 
-      {/* Le categorie di prodotto */}
+      {/* Gli stessi numeri, tagliati lungo una dimensione a scelta */}
       <div className="scheda">
-        <div className="scheda-titolo">Per categoria di prodotto</div>
-        <div className="tabella-wrap">
-          <table>
+        <div className="scheda-titolo">Da dove viene il risultato</div>
+        <div className="scelta-vista" role="group" aria-label="Dimensione" style={{ flexWrap: "wrap" }}>
+          {DIMENSIONI.map((d) => (
+            <Link
+              key={d.chiave}
+              className={`vista-opz${dim.chiave === d.chiave ? " attiva" : ""}`}
+              href={link({ dim: d.chiave })}
+              title={d.spiega}
+            >
+              {d.nome}
+            </Link>
+          ))}
+        </div>
+        <p className="testo-guida" style={{ marginTop: 8 }}>
+          {dim.spiega} Ogni riga porta gli stessi KPI della pagina, con la variazione rispetto a{" "}
+          <strong>{nomePeriodo(inizioPrima, gran)}</strong>.
+        </p>
+
+        <div className="tabella-wrap" style={{ marginTop: 12 }}>
+          <table className="tabella-dimensione">
             <thead>
               <tr>
-                <th>Categoria</th>
+                <th>{dim.nome}</th>
                 <th className="num">Venduto</th>
                 <th className="num">Quota</th>
-                <th className="num">Variazione</th>
                 <th className="num">Ordini</th>
+                <th className="num">Scontrino</th>
+                <th className="num">UPT</th>
+                <th className="num">Prezzo medio</th>
                 <th className="num">Pezzi</th>
-                <th className="num">Scontrino medio</th>
+                <th className="num">Clienti</th>
+                <th className="num">Nuovi</th>
+                <th className="num">Annullati</th>
+                <th className="num">Rimborsi</th>
               </tr>
             </thead>
             <tbody>
-              {catOra.map((c) => {
-                const p = catPrimaMappa.get(c.categoria);
-                return (
-                  <tr key={c.categoria}>
-                    <td>{c.categoria === "non-classificato" ? "Non classificato" : nomeCategoria(c.categoria)}</td>
-                    <td className="cella-num">{euro(c.lordo)}</td>
-                    <td className="cella-num">
-                      {lordoCategorie ? percento((c.lordo / lordoCategorie) * 100) : "—"}
-                    </td>
-                    <td className="cella-num">
-                      <Delta ora={c.lordo} prima={p?.lordo ?? 0} />
-                    </td>
-                    <td className="cella-num">{numero(c.ordini)}</td>
-                    <td className="cella-num">{numero(c.pezzi)}</td>
-                    <td className="cella-num">{c.ordini ? euro(c.lordo / c.ordini) : "—"}</td>
-                  </tr>
-                );
-              })}
-              {catOra.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="cella-muta">
-                    Nessun ordine in questo periodo.
+              {righeDim.map((r) => (
+                <tr key={r.etichetta}>
+                  <td>{etichettaDimensione(dim.chiave, r.etichetta)}</td>
+                  <td className="cella-num">
+                    {euro(r.ora.lordo)}
+                    <Delta ora={r.ora.lordo} prima={r.prima.lordo} />
                   </td>
+                  <td className="cella-num">{lordoDim ? percento((r.ora.lordo / lordoDim) * 100) : "—"}</td>
+                  <td className="cella-num">
+                    {numero(r.ora.ordini)}
+                    <Delta ora={r.ora.ordini} prima={r.prima.ordini} />
+                  </td>
+                  <td className="cella-num">
+                    {euro(r.ora.scontrinoMedio)}
+                    <Delta ora={r.ora.scontrinoMedio} prima={r.prima.scontrinoMedio} />
+                  </td>
+                  <td className="cella-num">
+                    {numero(r.ora.upt, 2)}
+                    <Delta ora={r.ora.upt} prima={r.prima.upt} />
+                  </td>
+                  <td className="cella-num">
+                    {euro(r.ora.prezzoMedio)}
+                    <Delta ora={r.ora.prezzoMedio} prima={r.prima.prezzoMedio} />
+                  </td>
+                  <td className="cella-num">
+                    {numero(r.ora.pezzi)}
+                    <Delta ora={r.ora.pezzi} prima={r.prima.pezzi} />
+                  </td>
+                  <td className="cella-num">
+                    {numero(r.ora.clienti)}
+                    <Delta ora={r.ora.clienti} prima={r.prima.clienti} />
+                  </td>
+                  <td className="cella-num">
+                    {percento(r.ora.quotaPrimi, 0)}
+                    <Delta ora={r.ora.quotaPrimi} prima={r.prima.quotaPrimi} />
+                  </td>
+                  <td className="cella-num">
+                    {percento(r.ora.quotaAnnullati, 0)}
+                    <Delta ora={r.ora.quotaAnnullati} prima={r.prima.quotaAnnullati} alContrario />
+                  </td>
+                  <td className="cella-num">
+                    {percento(r.ora.quotaRimborsati, 0)}
+                    <Delta ora={r.ora.quotaRimborsati} prima={r.prima.quotaRimborsati} alContrario />
+                  </td>
+                </tr>
+              ))}
+              {righeDim.length === 0 && (
+                <tr>
+                  <td colSpan={12} className="cella-muta">Nessun ordine in questo periodo.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <p className="testo-guida" style={{ marginTop: 8 }}>
-          Le categorie stanno sull&apos;<strong>ordine</strong>, non sulla singola riga: un ordine con
-          fiori e una torta è contato in <strong>tutte e due</strong> le righe, e la somma supera il
-          totale. Spezzare l&apos;importo «a metà» sarebbe un numero inventato. La{" "}
-          <em>quota</em> è calcolata sulla somma delle righe, non sul venduto.
-        </p>
+        {righeDim.length === MAX_RIGHE_DIMENSIONE && (
+          <p className="testo-guida" style={{ marginTop: 8 }}>
+            Sono mostrate le <strong>{MAX_RIGHE_DIMENSIONE}</strong> righe che valgono di più; le
+            altre esistono e stanno nei totali della pagina — semplicemente non entrano in una
+            tabella leggibile.
+          </p>
+        )}
+        {dim.nota && (
+          <p className="testo-guida" style={{ marginTop: 8 }}>{dim.nota}</p>
+        )}
       </div>
 
       {/* La serie storica: è qui che si confrontano settimane, mesi e anni */}

@@ -184,20 +184,46 @@ I numeri che escono:
 - **annullati** e **rimborsati** in percentuale, con le frecce di colore
   invertito — un aumento dei resi non è una buona notizia e non deve sembrarlo.
 
-Poi tre tabelle: **cosa è rimasto fuori dal venduto** (annullati, rimborsi pieni,
-e i rimborsi parziali che restano contati per intero perché l'importo reso non
-esiste nel registro), il venduto **per categoria di prodotto** con la variazione
-rispetto al periodo di confronto, e la **serie storica** degli ultimi 12–13
-periodi con tutti i KPI riga per riga: è lì che si confrontano fra loro
-settimane, mesi e anni.
+Poi **cosa è rimasto fuori dal venduto** (annullati, rimborsi pieni, e i
+rimborsi parziali che restano contati per intero perché l'importo reso non
+esiste nel registro) e la **serie storica** degli ultimi 12–13 periodi con tutti
+i KPI riga per riga: è lì che si confrontano fra loro settimane, mesi e anni.
+**L'ultima riga della serie è il periodo in corso**: va letta sapendo che non è
+ancora finita.
 
-Due avvertenze scritte anche in pagina:
+#### Da dove viene il risultato: gli stessi numeri tagliati in sei modi
+«Il venduto è sceso» non è una notizia finché non si sa **dove**. La stessa
+tabella si può guardare per:
 
-1. **le categorie stanno sull'ordine, non sulla riga**: un ordine con fiori e
-   una torta è contato in entrambe le righe, e la somma supera il totale.
-   Spezzare l'importo a metà sarebbe un numero inventato;
-2. **l'ultima riga della serie è il periodo in corso**: va letta sapendo che non
-   è ancora finita.
+- **città di consegna** — dove arriva il regalo;
+- **categoria di prodotto** — fiori, torte, colazioni…;
+- **tipologia di cliente** — privato, azienda, hotel e ristoranti, eventi;
+- **occasione** — compleanni, anniversari, lauree;
+- **tipo di ordine** — urgenza, pensiero, pianificato, evento;
+- **provenienza** — Google Ads, ricerca, social, email, WhatsApp.
+
+Ogni riga porta **tutti i KPI della pagina** — venduto, quota, ordini, scontrino
+medio, UPT, prezzo medio, pezzi, clienti, % nuovi, % annullati, % rimborsi —
+ognuno **con la sua variazione** rispetto allo stesso periodo di confronto.
+
+Tre cose volute:
+
+1. **una riga che sparisce resta a zero**: se il mese scorso c'erano ordini a
+   Firenze e questo mese no, la riga «Firenze» resta in tabella con `0,00 €` e
+   la sua freccia rossa. Farla sparire nasconderebbe esattamente la notizia che
+   si sta cercando;
+2. **le categorie stanno sull'ordine, non sulla riga**: un ordine con fiori e
+   una torta è contato in entrambe, e la somma supera il totale. Spezzare
+   l'importo a metà sarebbe un numero inventato;
+3. **si mostrano le 25 righe che valgono di più** — le città sono centinaia — e
+   la pagina lo scrive, invece di far sparire numeri in silenzio.
+
+Due letture che sembrano errori e non lo sono, spiegate sotto le tabelle:
+**«azienda» è piccolissima** (11 ordini nel 2026) perché il riconoscimento
+automatico è prudente apposta e le circa mille «probabili aziende» sono ancora
+da confermare a mano; **«da precisare» è la riga più grande fra le occasioni**
+(59% del venduto 2026) perché sono ricorrenze vere di cui nessuno ha ancora
+detto il motivo — si fa dire all'AI dalla pagina Eventi clienti.
 
 ### La consegna richiesta
 Su Shopify il giorno e la fascia oraria di consegna sono **attributi

@@ -312,6 +312,18 @@ categorie di prodotto e serie storica.
   che li spiega è la coppia UPT × prezzo medio.
 - ⚠️ **Il conto dei clienti nuovi si fa su tutta la storia**, come in
   `/api/v1/marketing`: la CTE `numerati` non è filtrata per data.
+- **Sei dimensioni** (27/07/2026): città di consegna, categoria, tipologia di
+  cliente, occasione, tipo di ordine, provenienza — ognuna con TUTTI i KPI e la
+  loro variazione. Motore unico: `DIMENSIONI` + `perDimensione()` in
+  `analisi.ts`; una dimensione nuova sono tre righe. Le due derivate usano CTE
+  in più (`tipologie` da nomi+TagCliente con `SQL_TIPOLOGIA_AUTO`, `occasioni`
+  da `EventoCliente.ordini` spezzato con `string_to_array`).
+- ⚠️ Con i JOIN delle dimensioni la colonna `chiave` diventa **ambigua**: in
+  `MISURE` va qualificata `x.chiave`, e ogni query che usa MISURE deve aliasare
+  la sottoquery come `x`. È il primo errore che si prende aggiungendone una.
+- **Verificato**: la somma delle righe di ogni dimensione torna esatta col
+  totale della pagina (86.700,25 € a luglio 2026) — nessuna riga persa né
+  contata due volte, categorie a parte che si moltiplicano apposta.
 - ⚠️ **Categorie: doppio conteggio voluto.** Stanno sull'ordine, non sulla riga;
   un ordine multi-categoria è contato in ogni riga e la somma supera il totale.
   Scritto in pagina.

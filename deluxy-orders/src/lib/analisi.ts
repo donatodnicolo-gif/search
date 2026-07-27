@@ -1,4 +1,6 @@
 import { prisma, SCHEMA } from "./db";
+import { ESONIMI } from "./luoghi";
+import { SQL_TIPOLOGIA_AUTO } from "./segmenti";
 
 // ANALISI DELLE VENDITE — gli stessi numeri che si guardano in un negozio, ma
 // calcolati sull'archivio invece che a mente.
@@ -108,8 +110,9 @@ function cte(brand: string | null, indiceParametroBrand: number): string {
        GROUP BY 1
     ),
     base AS (
-      SELECT o."id", o."data", o."totale", o."annullatoIl", o."financialStatus",
-             o."categorie", COALESCE(p.pezzi, 0) AS pezzi,
+      SELECT o."id", o."numero", o."data", o."totale", o."annullatoIl", o."financialStatus",
+             o."categorie", o."citta", o."paese", o."urgenza", o."canaleMarketing", o."clienteNome",
+             COALESCE(p.pezzi, 0) AS pezzi,
              COALESCE(
                NULLIF(LOWER(TRIM(o."clienteEmail")), ''),
                NULLIF(TRIM(o."clienteTelefono"), ''),
@@ -136,7 +139,7 @@ const MISURE = `
   COUNT(*) FILTER (WHERE valido)::int AS ordini,
   COALESCE(SUM("totale") FILTER (WHERE valido), 0)::float8 AS lordo,
   COALESCE(SUM(pezzi) FILTER (WHERE valido), 0)::int AS pezzi,
-  COUNT(DISTINCT chiave) FILTER (WHERE valido)::int AS clienti,
+  COUNT(DISTINCT x.chiave) FILTER (WHERE valido)::int AS clienti,
   COUNT(*) FILTER (WHERE valido AND precedenti = 0)::int AS primi,
   COUNT(*) FILTER (WHERE valido AND precedenti > 0)::int AS "daRepeater",
   COUNT(*) FILTER (WHERE "annullatoIl" IS NOT NULL)::int AS "annullatiOrdini",
@@ -192,36 +195,134 @@ export async function serie(
   return righe;
 }
 
-export type RigaCategoria = {
-  categoria: string;
-  ordini: number;
-  lordo: number;
-  pezzi: number;
+// ---- Le dimensioni: gli assi lungo cui tagliare gli stessi numeri -----------
+//
+// Lo stesso mestiere visto da sei parti diverse. Non è vezzo: «il venduto è
+// sceso» non è una notizia finché non si sa DOVE — a Milano o a Roma, sui fiori
+// o sulle torte, sui clienti nuovi o su quelli che tornano. Ogni riga porta
+// tutti i KPI e la variazione rispetto allo stesso periodo di confronto della
+// pagina.
+//
+// Ogni dimensione dichiara come si raggruppa; qualcuna ha bisogno di un pezzo
+// di query in più (le categorie si moltiplicano, la tipologia e l'occasione
+// stanno su altre tabelle). Sta tutto qui in un posto solo, così aggiungerne
+// una domanda tre righe.
+
+export type Dimensione = {
+  chiave: string;
+  nome: string;
+  spiega: string;
+  gruppo: string; // l'espressione SQL che dà l'etichetta della riga
+  join?: string; // eventuale pezzo di FROM in più
+  nota?: string; // avvertenza da mostrare sotto la tabella
 };
 
-// Il venduto per categoria di prodotto.
-//
-// ⚠️ Un ordine con fiori E una torta conta in TUTTE E DUE le righe: le
-// categorie stanno sull'ordine, non sulla singola riga, e spezzare l'importo
-// «a metà» sarebbe un numero inventato. La somma delle righe supera quindi il
-// totale, ed è giusto che si veda: la pagina lo scrive.
-export async function perCategoria(da: Date, a: Date, brand: string | null): Promise<RigaCategoria[]> {
+// «Milan» e «Milano» sono la stessa città, ma solo in Italia: la stessa regola
+// che vale per i tag, scritta in SQL perché il raggruppamento avviene lì.
+const CITTA_NORMALIZZATA = `CASE
+  WHEN UPPER(COALESCE("paese", '')) = 'IT' AND LOWER(TRIM("citta")) IN (${Object.keys(ESONIMI)
+    .map((k) => `'${k}'`)
+    .join(", ")})
+  THEN CASE ${Object.entries(ESONIMI)
+    .map(([ing, ita]) => `WHEN LOWER(TRIM("citta")) = '${ing}' THEN '${ita}'`)
+    .join(" ")} END
+  ELSE INITCAP(LOWER(TRIM("citta")))
+END`;
+
+export const DIMENSIONI: Dimensione[] = [
+  {
+    chiave: "citta",
+    nome: "Città di consegna",
+    spiega: "Dove arriva il regalo.",
+    gruppo: `COALESCE(NULLIF(${CITTA_NORMALIZZATA}, ''), '(città non indicata)')`,
+  },
+  {
+    chiave: "categoria",
+    nome: "Categoria di prodotto",
+    spiega: "Di che cosa è fatto l'ordine, dai titoli delle sue righe.",
+    gruppo: `COALESCE(NULLIF(cat, ''), 'non-classificato')`,
+    join: `, UNNEST(CASE WHEN COALESCE("categorie", '') = '' THEN ARRAY[''] ELSE string_to_array("categorie", ' ') END) AS cat`,
+    nota:
+      "Le categorie stanno sull'ordine, non sulla riga: un ordine con fiori e una torta è contato in tutte e due le righe, e la somma supera il totale.",
+  },
+  {
+    chiave: "tipologia",
+    nome: "Tipologia di cliente",
+    spiega: "Privato, azienda, hotel e ristoranti, eventi, rivenditore.",
+    gruppo: `COALESCE(tip.tipologia, 'privato')`,
+    join: `LEFT JOIN tipologie tip ON tip.chiave = x.chiave`,
+    nota:
+      "La tipologia è del CLIENTE, non dell'ordine: si deduce dai nomi con cui quella persona ha comprato, e una scelta fatta a mano vince sulla deduzione. Se «azienda» sembra troppo piccola non è un errore del conto: il riconoscimento automatico è prudente apposta — pescava i cognomi «Villa» e «Fiori» — e le circa mille «probabili aziende» sono ancora da confermare a mano nella pagina Clienti. Finché non lo sono, il loro venduto sta dentro «privato».",
+  },
+  {
+    chiave: "occasione",
+    nome: "Occasione",
+    spiega: "Compleanni, anniversari, lauree: le ricorrenze riconosciute negli ordini.",
+    gruppo: `COALESCE(occ.tipo, '(nessuna occasione riconosciuta)')`,
+    join: `LEFT JOIN occasioni occ ON occ.chiave = x.chiave AND occ.numero = x."numero"`,
+    nota:
+      "Un ordine entra in un'occasione solo se quella ricorrenza lo cita fra le sue prove; gli altri stanno in «nessuna occasione riconosciuta». La riga più grande è «da precisare»: sono occasioni vere e riconosciute, di cui però nessuno ha ancora detto il motivo — si fanno dire all'AI dalla pagina Eventi clienti, e solo allora questa tabella diventa interessante.",
+  },
+  {
+    chiave: "urgenza",
+    nome: "Tipo di ordine",
+    spiega: "Quanto tempo c'è fra l'ordine e la consegna richiesta.",
+    gruppo: `COALESCE(NULLIF("urgenza", ''), 'senza-data')`,
+  },
+  {
+    chiave: "canale",
+    nome: "Provenienza",
+    spiega: "Da dove è arrivato l'ordine: Google Ads, ricerca, social, email…",
+    gruppo: `COALESCE(NULLIF("canaleMarketing", ''), 'sconosciuto')`,
+  },
+];
+
+export function dimensione(chiave: string | null | undefined): Dimensione {
+  return DIMENSIONI.find((d) => d.chiave === chiave) ?? DIMENSIONI[0];
+}
+
+export type RigaDimensione = Metriche & { etichetta: string };
+
+// Le due CTE che servono solo a certe dimensioni. Si aggiungono sempre: costano
+// una scansione su tabelle piccole e tengono la query una sola.
+function cteExtra(): string {
+  return `,
+    nomiCliente AS (
+      SELECT chiave, COALESCE(STRING_AGG(DISTINCT nome, ' | '), '') AS nomi
+        FROM (SELECT chiave, "clienteNome" AS nome FROM base WHERE "clienteNome" IS NOT NULL) n
+       GROUP BY 1
+    ),
+    tipologie AS (
+      SELECT n.chiave,
+             COALESCE(t."tipo", ${SQL_TIPOLOGIA_AUTO.sql}) AS tipologia
+        FROM nomiCliente n
+        LEFT JOIN "${SCHEMA}"."TagCliente" t ON t."chiave" = n.chiave
+    ),
+    occasioni AS (
+      SELECT e."chiave", UNNEST(string_to_array(e."ordini", ' ')) AS numero, e."tipo"
+        FROM "${SCHEMA}"."EventoCliente" e
+       WHERE e."stato" <> 'ignorato' AND COALESCE(e."ordini", '') <> ''
+    )`;
+}
+
+// Gli stessi numeri di `metriche`, ma spezzati lungo una dimensione.
+export async function perDimensione(
+  d: Dimensione,
+  da: Date,
+  a: Date,
+  brand: string | null,
+): Promise<RigaDimensione[]> {
   const parametri: unknown[] = [da, a];
   if (brand) parametri.push(brand);
-  return prisma.$queryRawUnsafe<RigaCategoria[]>(
-    `${cte(brand, 3)}
-     SELECT COALESCE(NULLIF(cat, ''), 'non-classificato') AS categoria,
-            COUNT(*)::int AS ordini,
-            COALESCE(SUM("totale"), 0)::float8 AS lordo,
-            COALESCE(SUM(pezzi), 0)::int AS pezzi
+  return prisma.$queryRawUnsafe<RigaDimensione[]>(
+    `${cte(brand, 3)}${cteExtra()}
+     SELECT ${d.gruppo} AS etichetta, ${MISURE}
        FROM (
-         SELECT n.*, UNNEST(
-                  CASE WHEN COALESCE(n."categorie", '') = '' THEN ARRAY['']
-                       ELSE string_to_array(n."categorie", ' ') END
-                ) AS cat
+         SELECT n.*, ${VALIDO} AS valido
            FROM numerati n
-          WHERE n."data" >= $1 AND n."data" < $2 AND ${VALIDO}
-       ) y
+          WHERE n."data" >= $1 AND n."data" < $2
+       ) x
+       ${d.join ?? ""}
       GROUP BY 1
       ORDER BY 3 DESC`,
     ...parametri,

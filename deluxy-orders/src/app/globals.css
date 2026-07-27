@@ -1017,3 +1017,7 @@ td .badge-problema { margin-top: 3px; }
   font-size: 14px;
 }
 .avviso-nuovi .cresce { flex: 1; min-width: 200px; }
+
+/* La tabella per dimensione: molti KPI, ognuno con la sua variazione sotto */
+.tabella-dimensione .delta { display: block; margin-top: 2px; font-size: 11px; }
+.tabella-dimensione td { vertical-align: top; }

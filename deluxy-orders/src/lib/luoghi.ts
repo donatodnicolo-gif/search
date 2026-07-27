@@ -13,7 +13,7 @@
 // Si applicano SOLO agli ordini con paese IT: «Florence» esiste anche nel
 // Regno Unito, e c'è un ordine vero consegnato lì. Tradurre alla cieca
 // sposterebbe un ordine di mille chilometri.
-const ESONIMI: Record<string, string> = {
+export const ESONIMI: Record<string, string> = {
   milan: "Milano",
   rome: "Roma",
   florence: "Firenze",
