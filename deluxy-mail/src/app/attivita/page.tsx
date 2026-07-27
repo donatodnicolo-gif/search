@@ -5,17 +5,45 @@ import { BottoneEsegui } from '@/components/BottoneEsegui'
 import { NuovaAttivita } from '@/components/NuovaAttivita'
 import { coloreDiPriorita, priorita as livello, FUSO } from '@/lib/format'
 import { richiediUtente } from '@/lib/sessione'
+import { raggruppa } from '@/lib/thread'
+import { nomiPerGruppi } from '@/lib/nomiThread'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * Le attività, raggruppate per PROVENIENZA.
+ *
+ * Un elenco piatto di cose da fare nasconde la cosa più utile che si sappia su
+ * di loro: quali riguardano la stessa pratica. Cinque righe sparse fra decine
+ * sono cinque compiti; le stesse cinque sotto «Preparazione Meeting Malavenda»
+ * sono una cosa sola, e si sbrigano in un colpo.
+ *
+ * ⚠️ Il raggruppamento è per CONVERSAZIONE, non per singola mail: due attività
+ * nate da due messaggi dello stesso scambio appartengono alla stessa pratica, e
+ * separarle sarebbe esattamente l'errore da evitare. Si usa lo stesso
+ * `raggruppa()` del resto dell'app — così un thread a cui hai dato un nome si
+ * chiama qui come si chiama là — applicato alle sole mail citate dalle attività
+ * aperte: sono poche, quindi non costa niente.
+ */
 export default async function Attivita() {
   const u = await richiediUtente()
+  const campiMessaggio = {
+    id: true,
+    oggetto: true,
+    mittente: true,
+    mittenteNome: true,
+    data: true,
+    thread: true,
+    threadManuale: true,
+    scollegato: true,
+  } as const
+
   const [daFare, fatte] = await Promise.all([
     db.attivita.findMany({
       where: { utenteId: u.id, fatta: false },
       // Le più recenti in cima: ordine per data di creazione, discendente.
       orderBy: { creataIl: 'desc' },
-      include: { messaggio: { select: { id: true, oggetto: true, mittente: true } } },
+      include: { messaggio: { select: campiMessaggio } },
     }),
     db.attivita.findMany({
       where: { utenteId: u.id, fatta: true },
@@ -28,21 +56,94 @@ export default async function Attivita() {
   const oggi = new Date()
   oggi.setHours(23, 59, 59, 999)
 
+  type Riga = (typeof daFare)[number]
+
+  // Le mail citate dalle attività aperte, senza doppioni: è su queste che si
+  // ricostruiscono le conversazioni.
+  const messaggi = [
+    ...new Map(daFare.filter((a) => a.messaggio).map((a) => [a.messaggio!.id, a.messaggio!])).values(),
+  ]
+  const gruppiThread = raggruppa(messaggi)
+  const nomiThread = await nomiPerGruppi(u.id, gruppiThread)
+
+  // Da quale conversazione viene ogni mail (indice del gruppo).
+  const gruppoDiMessaggio = new Map<string, number>()
+  gruppiThread.forEach((g, i) => g.forEach((m) => gruppoDiMessaggio.set(m.id, i)))
+
+  type Blocco = {
+    chiave: string
+    titolo: string
+    /** Link al posto da cui l'attività nasce: la conversazione o la scheda. */
+    href?: string
+    sottotitolo?: string
+    /** Etichetta della provenienza, per capire a colpo d'occhio da dove viene. */
+    tipo: 'thread' | 'contatto' | 'mano'
+    righe: Riga[]
+  }
+
+  const perChiave = new Map<string, Blocco>()
+  for (const a of daFare) {
+    let b: Blocco
+    if (a.messaggio) {
+      const i = gruppoDiMessaggio.get(a.messaggio.id) ?? -1
+      const gruppo = i >= 0 ? gruppiThread[i] : [a.messaggio]
+      const volto = gruppo[gruppo.length - 1]
+      const nome = i >= 0 ? nomiThread[i] : null
+      b = {
+        chiave: `t:${i >= 0 ? i : a.messaggio.id}`,
+        titolo: nome || volto.oggetto || '(senza oggetto)',
+        href: `/messaggio/${volto.id}`,
+        sottotitolo:
+          gruppo.length > 1
+            ? `${volto.mittenteNome || volto.mittente} · conversazione di ${gruppo.length} messaggi`
+            : volto.mittenteNome || volto.mittente,
+        tipo: 'thread',
+        righe: [],
+      }
+    } else if (a.contattoEmail) {
+      b = {
+        chiave: `c:${a.contattoEmail}`,
+        titolo: a.contattoEmail,
+        href: `/rubrica/${encodeURIComponent(a.contattoEmail)}`,
+        sottotitolo: 'dal punto della situazione col contatto',
+        tipo: 'contatto',
+        righe: [],
+      }
+    } else {
+      b = { chiave: 'mano', titolo: 'Aggiunte a mano', tipo: 'mano', righe: [] }
+    }
+    const gia = perChiave.get(b.chiave)
+    if (gia) gia.righe.push(a)
+    else perChiave.set(b.chiave, { ...b, righe: [a] })
+  }
+
+  // Ordine dei blocchi: prima quello con l'attività più recente. Le «aggiunte a
+  // mano» in fondo — non sono una pratica, sono un contenitore.
+  const blocchi = [...perChiave.values()].sort((x, y) => {
+    if (x.tipo === 'mano') return 1
+    if (y.tipo === 'mano') return -1
+    return y.righe[0].creataIl.getTime() - x.righe[0].creataIl.getTime()
+  })
+
+  const ETICHETTA = { thread: 'Conversazione', contatto: 'Contatto', mano: 'A mano' } as const
+
   return (
     <>
       <div className="page-head">
         <div>
           <h1 className="page-title">Attività</h1>
           <p className="page-caption">
-            Quello che le mail ti chiedono di fare, più le attività che aggiungi tu.
+            Quello che le mail ti chiedono di fare, più le attività che aggiungi tu. Sono raggruppate
+            per <strong>provenienza</strong>: le cose che nascono dallo stesso scambio stanno
+            insieme, così si sbrigano insieme.
           </p>
         </div>
       </div>
 
       <NuovaAttivita />
 
-      <div className="card tight">
-        {daFare.length === 0 ? (
+      {daFare.length === 0 ? (
+        <div className="card tight">
           <div className="empty">
             <div className="empty-icon">✓</div>
             <div className="empty-title">Non hai attività aperte</div>
@@ -50,63 +151,86 @@ export default async function Attivita() {
               Quando una mail ti chiede qualcosa, l’attività compare qui da sola.
             </p>
           </div>
-        ) : (
-          daFare.map((a) => {
-            const scaduta = a.scadenza && a.scadenza < oggi
-            return (
-              <div key={a.id} className="task-row">
-                <CheckAttivita id={a.id} fatta={a.fatta} />
-                <div style={{ minWidth: 0 }}>
-                  <div className="task-titolo">{a.titolo}</div>
-                  {a.dettaglio && <div className="task-sub">{a.dettaglio}</div>}
-                  {a.messaggio ? (
-                    <div className="task-sub">
-                      da{' '}
-                      <Link href={`/messaggio/${a.messaggio.id}`} style={{ textDecoration: 'underline' }}>
-                        {a.messaggio.oggetto}
-                      </Link>{' '}
-                      · {a.messaggio.mittente}
+        </div>
+      ) : (
+        blocchi.map((b) => (
+          <div key={b.chiave} style={{ marginBottom: 18 }}>
+            <div
+              className="col-attivita-head"
+              style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}
+            >
+              <span className={`badge ${b.tipo === 'thread' ? 'gold' : b.tipo === 'contatto' ? 'neutral' : 'neutral'}`}>
+                <span className="dot" />
+                {ETICHETTA[b.tipo]}
+              </span>
+              <strong style={{ fontSize: 14.5, minWidth: 0 }}>
+                {b.href ? (
+                  <Link href={b.href} style={{ textDecoration: 'none' }}>
+                    {b.titolo}
+                  </Link>
+                ) : (
+                  b.titolo
+                )}
+              </strong>
+              {b.sottotitolo && (
+                <span className="muted" style={{ fontSize: 12.5 }}>
+                  {b.sottotitolo}
+                </span>
+              )}
+              <span className="muted" style={{ fontSize: 12 }}>
+                {b.righe.length} {b.righe.length === 1 ? 'cosa da fare' : 'cose da fare'}
+              </span>
+            </div>
+
+            <div className="card tight">
+              {b.righe.map((a) => {
+                const scaduta = a.scadenza && a.scadenza < oggi
+                return (
+                  <div key={a.id} className="task-row">
+                    <CheckAttivita id={a.id} fatta={a.fatta} />
+                    <div style={{ minWidth: 0 }}>
+                      <div className="task-titolo">{a.titolo}</div>
+                      {a.dettaglio && <div className="task-sub">{a.dettaglio}</div>}
+                      {/* La provenienza sta nell'intestazione del blocco: qui si
+                          ripete solo la mail precisa, quando il gruppo ne ha più
+                          d'una e sapere QUALE cambia qualcosa. */}
+                      {a.messaggio && b.righe.some((x) => x.messaggio?.id !== a.messaggio?.id) && (
+                        <div className="task-sub">
+                          da{' '}
+                          <Link href={`/messaggio/${a.messaggio.id}`} style={{ textDecoration: 'underline' }}>
+                            {a.messaggio.oggetto}
+                          </Link>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    a.contattoEmail && (
-                      <div className="task-sub">
-                        dal punto della situazione con{' '}
-                        <Link
-                          href={`/rubrica/${encodeURIComponent(a.contattoEmail)}`}
-                          style={{ textDecoration: 'underline' }}
-                        >
-                          {a.contattoEmail}
-                        </Link>
-                      </div>
-                    )
-                  )}
-                </div>
-                <div className="task-side">
-                  {a.scadenza && (
-                    <span className={`badge ${scaduta ? 'red' : 'neutral'}`}>
-                      {scaduta ? 'scaduta ' : 'entro '}
-                      {a.scadenza.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short' })}
-                    </span>
-                  )}
-                  <span
-                    className={`badge ${coloreDiPriorita(a.priorita)}`}
-                    title={livello(a.priorita)?.quando}
-                  >
-                    {a.priorita}
-                  </span>
-                  <span className="muted" style={{ fontSize: 12 }}>
-                    creata il{' '}
-                    {a.creataIl.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short' })}
-                  </span>
-                  {/* Esegui solo se c'è una mail a cui rispondere: un'attività
-                      scritta a mano senza origine non ha nulla da eseguire. */}
-                  {(a.messaggio || a.contattoEmail) && <BottoneEsegui id={a.id} />}
-                </div>
-              </div>
-            )
-          })
-        )}
-      </div>
+                    <div className="task-side">
+                      {a.scadenza && (
+                        <span className={`badge ${scaduta ? 'red' : 'neutral'}`}>
+                          {scaduta ? 'scaduta ' : 'entro '}
+                          {a.scadenza.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short' })}
+                        </span>
+                      )}
+                      <span
+                        className={`badge ${coloreDiPriorita(a.priorita)}`}
+                        title={livello(a.priorita)?.quando}
+                      >
+                        {a.priorita}
+                      </span>
+                      <span className="muted" style={{ fontSize: 12 }}>
+                        creata il{' '}
+                        {a.creataIl.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short' })}
+                      </span>
+                      {/* Esegui solo se c'è una mail a cui rispondere: un'attività
+                          scritta a mano senza origine non ha nulla da eseguire. */}
+                      {(a.messaggio || a.contattoEmail) && <BottoneEsegui id={a.id} />}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))
+      )}
 
       {fatte.length > 0 && (
         <>

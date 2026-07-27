@@ -78,6 +78,14 @@ mai inventata.
 Se una regola ha `creaAttivita` ma l'AI non ha trovato niente da fare, viene creata
 comunque un'attività generica ("Gestire: <oggetto>"): l'hai chiesto tu esplicitamente.
 
+**Sono raggruppate per provenienza.** Nella pagina Attività le cose da fare non sono un
+elenco piatto: stanno sotto la **conversazione** da cui nascono — con il nome che le hai
+dato, se gliel'hai dato — più due gruppi a parte per quelle nate dal punto della
+situazione con un contatto e per quelle scritte a mano. Cinque righe sparse fra decine
+sono cinque compiti; le stesse cinque sotto «Preparazione Meeting Malavenda» sono una
+cosa sola, e si sbrigano insieme. Il raggruppamento è per conversazione e non per singola
+mail: due richieste arrivate in due messaggi dello stesso scambio restano insieme.
+
 ### Le attività vivono anche in Deluxy Tasks
 
 Le cose da fare di una persona non devono stare in dieci elenchi diversi, uno per app.

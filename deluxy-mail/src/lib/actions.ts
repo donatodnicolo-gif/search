@@ -11,6 +11,7 @@ import nodemailer from 'nodemailer'
 import MailComposer from 'nodemailer/lib/mail-composer'
 import type { Account, Messaggio, Prisma } from '@prisma/client'
 import { alternative } from './condizioni'
+import { svuotaCestinoDi } from './cestino'
 import { leggiEventoProposto } from './eventoProposto'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
 import { preparaRisposta, modoValido, type Modo } from './rispondi'
@@ -112,7 +113,7 @@ import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione
 import { raggruppa } from './thread'
 import { azioneDi, regolaAppPerMail, chiaveDiAzione, type AzioneDescritta } from './appDeluxy'
 import { leggiChiaviApp, salvaChiaveApp, type NomeChiaveApp } from './chiaviApp'
-import { provaConnessione, salvaInInviata, trovaCartellaInviata, eliminaDalServer, leggiAllegati as leggiAllegatiImap } from './imap'
+import { provaConnessione, salvaInInviata, trovaCartellaInviata, leggiAllegati as leggiAllegatiImap } from './imap'
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
 import { CHIAVE_TOKEN_API } from './apiAuth'
 import { utenteCorrente } from './sessione'
@@ -939,53 +940,18 @@ export async function ripristinaMessaggio(id: string) {
   revalidatePath('/', 'layout')
 }
 
+/**
+ * Svuota il cestino. ⚠️ La usa solo chi non può passare dalla rotta: dall'app si
+ * chiama `POST /api/svuota-cestino`, perché una Server Action lunga si accoda
+ * con le navigazioni e blocca i clic ovunque (è il motivo per cui «l'app
+ * rimaneva bloccata mentre si svuotava il cestino»). Il lavoro vero sta in
+ * `lib/cestino.ts`, condiviso fra le due strade.
+ */
 export async function svuotaCestino(): Promise<{ ok: boolean; messaggio: string }> {
   try {
-    const utenteId = await uid()
-    const cestinati = await db.messaggio.findMany({
-      where: { cestinato: true, utenteId },
-      select: { uid: true, messageId: true, direzione: true, accountId: true },
-    })
-
-    // Cancellazione DAL SERVER (irreversibile). La mail si trova per Message-ID
-    // (vedi eliminaDalServer): la posta in entrata sta nella INBOX, gli inviati
-    // nella cartella "Inviata". Le copie locali senza riscontro sul server (uid
-    // negativo E senza Message-ID) non hanno nulla da cancellare: si saltano.
-    type Rif = { uid: number; messageId: string | null }
-    const perAccount = new Map<string, { inbox: Rif[]; inviata: Rif[] }>()
-    for (const m of cestinati) {
-      if (m.uid <= 0 && !m.messageId) continue
-      const g = perAccount.get(m.accountId) ?? { inbox: [], inviata: [] }
-      const rif = { uid: m.uid, messageId: m.messageId }
-      if (m.direzione === 'uscita') g.inviata.push(rif)
-      else g.inbox.push(rif)
-      perAccount.set(m.accountId, g)
-    }
-
-    let suServer = 0
-    const errori: string[] = []
-    for (const [accountId, g] of perAccount) {
-      const account = await db.account.findUnique({ where: { id: accountId } })
-      if (!account) continue
-      try {
-        if (g.inbox.length) suServer += await eliminaDalServer(account, account.cartella, g.inbox)
-        if (g.inviata.length && account.cartellaInviata) {
-          suServer += await eliminaDalServer(account, account.cartellaInviata, g.inviata)
-        }
-      } catch {
-        errori.push(account.email)
-      }
-    }
-
-    const r = await db.messaggio.deleteMany({ where: { cestinato: true, utenteId } })
+    const esito = await svuotaCestinoDi(await uid())
     revalidatePath('/', 'layout')
-    const nota = errori.length
-      ? ` Attenzione: sul server di ${errori.join(', ')} la cancellazione non è riuscita (riprova).`
-      : ''
-    return {
-      ok: errori.length === 0,
-      messaggio: `Cestino svuotato: ${r.count} rimossi da AI Mail, ${suServer} cancellati anche dal server (definitivo).${nota}`,
-    }
+    return { ok: esito.ok, messaggio: esito.messaggio }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
   }
