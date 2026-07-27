@@ -29,6 +29,14 @@ export default async function CollezioniPage({
   const sp = await searchParams;
   const brand = await brandCorrente();
 
+  // Quali negozi corrispondono all'ambito scelto: per la corrispondenza
+  // impostata sul negozio («nome nel venduto») o, in mancanza, per nome uguale.
+  const negoziTutti = await elencoNegozi();
+  const negoziDellAmbito = brand
+    ? negoziTutti.filter((n) => n.canaleVendite === brand || n.nome === brand).map((n) => n.nome)
+    : [];
+  const ambitoSenzaNegozio = Boolean(brand) && negoziDellAmbito.length === 0;
+
   const [collezioni, prodotti, inVendita, daPubblicare, collezioniShopify, ultimiImport] = await Promise.all([
     prisma.collezione.findMany({
       orderBy: [{ anno: "desc" }, { creataIl: "desc" }],
@@ -40,14 +48,19 @@ export default async function CollezioniPage({
     prisma.prodotto.findMany({ select: { costoProduzione: true, prezzoVendita: true } }),
     prisma.prodotto.count({ where: { fase: "in_vendita" } }),
     prisma.prodotto.count({ where: { shopifyStato: { not: "pubblicato" }, fase: { not: "archiviato" } } }),
+    // L'ambito è il **canale del venduto** ("deluxy.it", "cakedesign.me"), il
+    // negozio qui si chiama "Gifts" o "Cake": filtrare per nome uguale mostrava
+    // zero collezioni, che è indistinguibile da «non le hai importate».
+    // Si passa dalla corrispondenza impostata sul negozio; se non c'è, si
+    // mostrano tutte e la pagina lo dice.
     prisma.collezioneShopify.findMany({
-      where: brand ? { negozio: brand } : {},
+      where: negoziDellAmbito.length > 0 ? { negozio: { in: negoziDellAmbito } } : {},
       orderBy: [{ negozio: "asc" }, { titolo: "asc" }],
       include: { _count: { select: { prodotti: true } } },
     }),
     ultimiImportCollezioni(),
   ]);
-  const negozi = (await elencoNegozi()).filter((n) => n.attivo);
+  const negozi = negoziTutti.filter((n) => n.attivo);
 
   // Il margine medio conta solo dove il costo c'è: a costo zero il margine non
   // è 100%, è un costo che nessuno ha inserito.
@@ -135,6 +148,18 @@ export default async function CollezioniPage({
           <div className="scheda-titolo">
             Collezioni Shopify {brand ? `— ${brand}` : "(tutti i negozi)"} · {collezioniShopify.length}
           </div>
+          {ambitoSenzaNegozio && (
+            <div className="nota-info" style={{ marginBottom: 12 }}>
+              <span className="nota-icona">◆</span>
+              <span>
+                Nessun negozio collegato corrisponde all&apos;ambito <b>{brand}</b>: qui i negozi si chiamano{" "}
+                {negoziTutti.map((n) => n.nome).join(", ") || "—"}, mentre il venduto arriva da Orders con nomi
+                come «{brand}». Imposta la corrispondenza in{" "}
+                <Link href="/impostazioni">Negozi &amp; permessi</Link>, campo «nome nel venduto». Intanto
+                sotto vedi <b>tutte</b> le collezioni.
+              </span>
+            </div>
+          )}
           {collezioniShopify.length === 0 ? (
             <p className="page-sub">
               Nessuna collezione importata. Il bottone <b>Importa da Shopify</b> le legge dai negozi collegati
