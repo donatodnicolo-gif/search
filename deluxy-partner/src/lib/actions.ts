@@ -48,6 +48,9 @@ function partnerData(fd: FormData) {
     nome: s(fd, "nome") ?? "",
     // ragioneSociale NON si scrive da qui: è centralizzata nel registro
     // Anagrafiche (mostrata in sola lettura nel form). Evita copie divergenti.
+    // Normalizzato in maiuscolo: «CHANEL» e «Chanel» sarebbero due gruppi
+    // diversi, e il raggruppamento fallirebbe senza che si capisca perche.
+    gruppo: s(fd, "gruppo")?.toUpperCase() ?? null,
     categoria: s(fd, "categoria"),
     citta: s(fd, "citta"),
     servizi: s(fd, "servizi"),

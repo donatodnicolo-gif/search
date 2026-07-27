@@ -19,6 +19,14 @@ model Partner {
   id                     String   @id @default(cuid())
   nome                   String   @unique
   ragioneSociale         String?
+  // GRUPPO DI PAGAMENTO: più schede che vengono pagate (o che pagano) da un'unica
+  // sede centrale. Caso vero: CHANEL FIRENZE, CHANEL MILANO e CHANEL ROMA sono
+  // tre negozi distinti, ma la fattura la salda l'amministrazione unica — e
+  // sollecitarli tre volte significa scrivere tre volte alla stessa persona.
+  //
+  // È un'etichetta scritta A MANO di proposito: dedurla dal nome unirebbe le
+  // cinque «PASTICCERIA …» in elenco, che sono aziende diverse fra loro.
+  gruppo                 String?
   categoria              String? // Pasticceria, Fiori, Boutique, Ristorante...
   citta                  String?
   servizi                String? // etichette: Vendor, Consegne, Magazzino...

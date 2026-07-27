@@ -1,7 +1,9 @@
+import { gruppiEsistenti } from "@/lib/gruppi";
 import { PartnerForm } from "@/components/PartnerForm";
 import { createPartner } from "@/lib/actions";
 
-export default function NuovoPartner() {
+export default async function NuovoPartner() {
+  const gruppi = await gruppiEsistenti();
   return (
     <>
       <div className="page-head">
@@ -10,7 +12,7 @@ export default function NuovoPartner() {
           <p className="page-caption">Anagrafica e condizioni amministrative del partner.</p>
         </div>
       </div>
-      <PartnerForm action={createPartner} submitLabel="Crea partner" />
+      <PartnerForm action={createPartner} submitLabel="Crea partner" gruppi={gruppi} />
     </>
   );
 }

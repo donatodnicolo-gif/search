@@ -40,9 +40,29 @@ export default async function Scadenzario({
     riepilogoTutti(anno),
   ]);
   const aperte = aperteRaw.filter((f) =>
-    cerca(f.partner.nome, f.partner.ragioneSociale, f.numero, f.tipologia.nome, f.descrizione)
+    cerca(f.partner.nome, f.partner.ragioneSociale, f.partner.gruppo, f.numero, f.tipologia.nome, f.descrizione)
   );
   const scadute = aperte.filter((f) => f.scadenza && f.scadenza < oggi);
+
+  // GRUPPI DI PAGAMENTO: piu schede saldate da un unica amministrazione (es.
+  // CHANEL per Firenze, Milano e Roma). Sollecitarle una per una vuol dire
+  // scrivere tre volte alla stessa persona per lo stesso pagamento, e non
+  // vedere mai quanto ci deve DAVVERO quel cliente.
+  const perGruppo = new Map<string, { gruppo: string; partner: Set<string>; fatture: number; residuo: number; scaduto: number; scadenzaPiuVecchia: Date | null }>();
+  for (const f of aperte) {
+    const g = f.partner.gruppo?.trim();
+    if (!g) continue;
+    const r = perGruppo.get(g) ?? { gruppo: g, partner: new Set<string>(), fatture: 0, residuo: 0, scaduto: 0, scadenzaPiuVecchia: null };
+    r.partner.add(f.partner.nome);
+    r.fatture++;
+    r.residuo += residuoFattura(f);
+    if (f.scadenza && f.scadenza < oggi) {
+      r.scaduto += residuoFattura(f);
+      if (!r.scadenzaPiuVecchia || f.scadenza < r.scadenzaPiuVecchia) r.scadenzaPiuVecchia = f.scadenza;
+    }
+    perGruppo.set(g, r);
+  }
+  const gruppi = [...perGruppo.values()].sort((a, b) => b.residuo - a.residuo);
 
   type F = (typeof aperte)[number];
   const campiF: Record<string, (f: F) => string | number | Date | null> = {
@@ -218,6 +238,60 @@ export default async function Scadenzario({
         )}
       </div>
 
+      {gruppi.length > 0 && (
+        <>
+          <h2 className="section-title">Chi paga a livello centrale</h2>
+          <div className="card tight" style={{ marginBottom: 16 }}>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Gruppo</th>
+                    <th>Schede che ne fanno parte</th>
+                    <th className="num">Fatture aperte</th>
+                    <th className="num">Scaduto</th>
+                    <th className="num">Totale da incassare</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gruppi.map((g) => (
+                    <tr key={g.gruppo}>
+                      <td style={{ fontWeight: 600 }}>{g.gruppo}</td>
+                      <td style={{ fontSize: 12.5, color: "var(--text-secondary)", maxWidth: 340 }}>
+                        {[...g.partner].sort().join(" · ")}
+                      </td>
+                      <td className="num">{g.fatture}</td>
+                      <td className="num">
+                        {g.scaduto >= 0.01 ? (
+                          <span className="badge red"><span className="dot" />{euro(g.scaduto)}</span>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                        {g.scadenzaPiuVecchia && (
+                          <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>dal {dataIt(g.scadenzaPiuVecchia)}</div>
+                        )}
+                      </td>
+                      <td className="num neg" style={{ fontWeight: 600 }}>{euro(g.residuo)}</td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        <Link className="btn small secondary" href={`/scadenzario?q=${encodeURIComponent(g.gruppo)}`}>
+                          Vedi le fatture
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="muted" style={{ fontSize: 12, padding: "10px 20px", margin: 0 }}>
+              Queste schede sono saldate da un&apos;unica amministrazione: il totale qui sopra è quello che il
+              gruppo ci deve davvero, e si sollecita una volta sola invece di scrivere tre volte alla stessa
+              persona. Il gruppo si assegna dalla scheda del partner, campo «Gruppo di pagamento».
+            </p>
+          </div>
+        </>
+      )}
+
       <h2 className="section-title">Fatture servizi da incassare</h2>
       <div className="card tight">
         {fatture.length === 0 ? (
@@ -245,7 +319,17 @@ export default async function Scadenzario({
               <tbody>
                 {fatture.map((f) => (
                   <tr key={f.id}>
-                    <td><Link href={`/partner/${f.partnerId}`} style={{ fontWeight: 500 }}>{f.partner.nome}</Link></td>
+                    <td>
+                      {/* Il gruppo si legge PRIMA del nome: è chi paga davvero,
+                          ed è la riga che dice se stai per sollecitare una
+                          persona che hai già sollecitato per un altro negozio. */}
+                      {f.partner.gruppo && (
+                        <div className="badge purple" style={{ marginBottom: 4 }}>
+                          <span className="dot" />{f.partner.gruppo}
+                        </div>
+                      )}
+                      <Link href={`/partner/${f.partnerId}`} style={{ fontWeight: 500 }}>{f.partner.nome}</Link>
+                    </td>
                     <td>{nomeMese(f.mese)}</td>
                     <td>
                       <Link href={`/fatture/${f.id}`} style={{ color: "var(--blue)" }} title="Apri il record della fattura">

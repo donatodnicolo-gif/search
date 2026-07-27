@@ -7,6 +7,7 @@ export function PartnerForm({
   action,
   submitLabel,
   anagrafica,
+  gruppi,
 }: {
   partner?: Partner | null;
   action: (fd: FormData) => Promise<void>;
@@ -15,6 +16,9 @@ export function PartnerForm({
   // presente, i campi anagrafici (ragione sociale, IBAN, email, telefono, contatto
   // amministrativo) sono precompilati da qui; al salvataggio tornano nel registro.
   anagrafica?: Anagrafica | null;
+  // Gruppi di pagamento gia in uso, per suggerirli invece di farli riscrivere
+  // (e sbagliare: «CHANEL» e «Chanel» sarebbero due gruppi diversi).
+  gruppi?: string[];
 }) {
   const p = partner;
   const fin = anagrafica?.datiFinanziari;
@@ -49,6 +53,25 @@ export function PartnerForm({
             title="La denominazione legale è centralizzata nel registro Anagrafiche e si modifica lì, non qui."
             style={{ background: "var(--bg)", color: "var(--text-secondary)", cursor: "not-allowed" }}
           />
+        </div>
+        <div>
+          <label className="field-label">Gruppo di pagamento</label>
+          <input
+            type="text"
+            name="gruppo"
+            defaultValue={p?.gruppo ?? ""}
+            placeholder="es. CHANEL"
+            list="gruppi-esistenti"
+            title="Se piu schede vengono saldate da un unica amministrazione, scrivi qui lo stesso nome su tutte: nello scadenzario si sollecitano insieme."
+          />
+          <span className="muted" style={{ fontSize: 11.5 }}>
+            Stesso nome su piu partner = nello scadenzario si vedono insieme.
+          </span>
+          {gruppi && gruppi.length > 0 && (
+            <datalist id="gruppi-esistenti">
+              {gruppi.map((g) => <option key={g} value={g} />)}
+            </datalist>
+          )}
         </div>
         <div>
           <label className="field-label">Categoria</label>
