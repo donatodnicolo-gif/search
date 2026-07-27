@@ -44,17 +44,30 @@ export async function salvaCategoriaAzione(fd: FormData) {
 }
 
 /**
- * Elimina una categoria solo se non la usa nessuno: spostare d'ufficio i
- * prodotti altrove sarebbe una riclassificazione silenziosa, e chi guarda i
- * numeri domani non saprebbe perché sono cambiati.
+ * Elimina una categoria. Se ci sono prodotti dentro, **si dice dove vanno**:
+ * la destinazione arriva dal form (di norma «Da classificare»). Non si spostano
+ * di nascosto e non si blocca l'eliminazione: chi elimina sceglie, e il
+ * messaggio racconta quanti prodotti sono stati spostati e dove.
  */
-export async function eliminaCategoriaAzione(chiave: string) {
+export async function eliminaCategoriaAzione(chiave: string, fd?: FormData) {
   const usata = await prisma.prodotto.count({ where: { categoria: chiave } });
-  if (usata > 0)
-    tornaA("errore", `«${chiave}» è ancora la categoria di ${usata} prodotti: spostali prima di eliminarla.`);
+  const destinazione = (fd ? testo(fd, "destinazione") : "") || "DA_CLASSIFICARE";
+
+  if (usata > 0) {
+    if (destinazione === chiave) tornaA("errore", "La destinazione non può essere la categoria che stai eliminando.");
+    const esiste = await prisma.categoriaProdotto.findUnique({ where: { chiave: destinazione } });
+    if (!esiste) tornaA("errore", `La categoria di destinazione «${destinazione}» non esiste.`);
+    await prisma.prodotto.updateMany({ where: { categoria: chiave }, data: { categoria: destinazione } });
+  }
+
   await prisma.categoriaProdotto.delete({ where: { chiave } });
   aggiornaTutto();
-  tornaA("categoria-tolta");
+  tornaA(
+    "categoria-tolta",
+    usata > 0
+      ? `Categoria eliminata: ${usata} prodotti spostati in «${destinazione}».`
+      : "Categoria eliminata: non la usava nessun prodotto."
+  );
 }
 
 // ---------- Linee ----------
@@ -80,12 +93,39 @@ export async function salvaLineaAzione(fd: FormData) {
   tornaA("linea");
 }
 
+/**
+ * Elimina una linea. I prodotti che la portavano restano dove sono, senza
+ * linea: una linea è un'etichetta, toglierla non cambia cos'è il prodotto.
+ */
 export async function eliminaLineaAzione(id: string) {
   const usata = await prisma.prodotto.count({ where: { lineaId: id } });
-  if (usata > 0) tornaA("errore", `Questa linea è ancora su ${usata} prodotti: toglila da loro prima.`);
+  if (usata > 0) await prisma.prodotto.updateMany({ where: { lineaId: id }, data: { lineaId: null } });
   await prisma.lineaProdotto.delete({ where: { id } });
   aggiornaTutto();
-  tornaA("linea-tolta");
+  tornaA(
+    "linea-tolta",
+    usata > 0 ? `Linea eliminata: tolta da ${usata} prodotti, che restano al loro posto.` : "Linea eliminata."
+  );
+}
+
+/**
+ * Elimina una collezione di maison. I prodotti restano: perdono solo
+ * l'appartenenza (`collezioneId` va a null per come è definita la relazione).
+ * Le collezioni **Shopify** non si toccano da qui: quelle sono la vetrina del
+ * sito e si rifanno con un import.
+ */
+export async function eliminaCollezioneAzione(id: string) {
+  const quanti = await prisma.prodotto.count({ where: { collezioneId: id } });
+  const collezione = await prisma.collezione.findUnique({ where: { id }, select: { nome: true } });
+  await prisma.collezione.delete({ where: { id } });
+  aggiornaTutto();
+  revalidatePath("/collezioni");
+  tornaA(
+    "collezione-tolta",
+    quanti > 0
+      ? `Collezione «${collezione?.nome ?? ""}» eliminata: ${quanti} prodotti restano, senza collezione.`
+      : `Collezione «${collezione?.nome ?? ""}» eliminata.`
+  );
 }
 
 // ---------- Collezioni della maison ----------

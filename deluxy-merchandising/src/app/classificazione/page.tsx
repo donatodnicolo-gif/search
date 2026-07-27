@@ -3,6 +3,7 @@ import { Badge } from "@/components/Badge";
 import { Sidebar } from "@/components/Sidebar";
 import {
   eliminaCategoriaAzione,
+  eliminaCollezioneAzione,
   eliminaLineaAzione,
   salvaCategoriaAzione,
   salvaCollezioneAzione,
@@ -114,13 +115,29 @@ export default async function ClassificazionePage({
                           Salva
                         </button>
                       </form>
-                      {c.prodotti === 0 && (
-                        <form action={eliminaCategoriaAzione.bind(null, c.chiave)} className="rm-elimina">
-                          <button className="btn btn-secondario small" type="submit">
-                            Elimina
-                          </button>
-                        </form>
-                      )}
+                      {/* Si elimina sempre; se dentro c'è qualcosa, si sceglie
+                          dove va invece di essere bloccati. */}
+                      <form action={eliminaCategoriaAzione.bind(null, c.chiave)} className="rm-elimina">
+                        {c.prodotti > 0 && (
+                          <>
+                            <span className="cella-sub">
+                              {c.prodotti} prodotti: spostali in
+                            </span>
+                            <select name="destinazione" defaultValue="DA_CLASSIFICARE" aria-label="Categoria di destinazione">
+                              {categorie
+                                .filter((x) => x.chiave !== c.chiave)
+                                .map((x) => (
+                                  <option key={x.chiave} value={x.chiave}>
+                                    {x.nome}
+                                  </option>
+                                ))}
+                            </select>
+                          </>
+                        )}
+                        <button className="btn btn-secondario small" type="submit">
+                          Elimina
+                        </button>
+                      </form>
                     </td>
                   </tr>
                 ))}
@@ -185,13 +202,16 @@ export default async function ClassificazionePage({
                             Salva
                           </button>
                         </form>
-                        {l.prodotti === 0 && (
-                          <form action={eliminaLineaAzione.bind(null, l.id)} className="rm-elimina">
-                            <button className="btn btn-secondario small" type="submit">
-                              Elimina
-                            </button>
-                          </form>
-                        )}
+                        <form action={eliminaLineaAzione.bind(null, l.id)} className="rm-elimina">
+                          {l.prodotti > 0 && (
+                            <span className="cella-sub">
+                              la tolgo da {l.prodotti} prodotti, che restano al loro posto
+                            </span>
+                          )}
+                          <button className="btn btn-secondario small" type="submit">
+                            Elimina
+                          </button>
+                        </form>
                       </td>
                     </tr>
                   ))}
@@ -259,6 +279,16 @@ export default async function ClassificazionePage({
                           <span className="rm-conta">{c._count.prodotti}</span>
                           <button className="btn small" type="submit">
                             Salva
+                          </button>
+                        </form>
+                        <form action={eliminaCollezioneAzione.bind(null, c.id)} className="rm-elimina">
+                          {c._count.prodotti > 0 && (
+                            <span className="cella-sub">
+                              {c._count.prodotti} prodotti restano, senza collezione
+                            </span>
+                          )}
+                          <button className="btn btn-secondario small" type="submit">
+                            Elimina
                           </button>
                         </form>
                       </td>
