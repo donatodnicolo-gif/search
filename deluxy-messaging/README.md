@@ -184,6 +184,20 @@ cima quelli che si usano davvero.
 > non si "migliora" il testo che hai salvato. Se avevi selezionato del testo, lo script lo
 > sostituisce in linea; altrimenti diventa un paragrafo a sé.
 
+## Il biglietto
+
+Gli ordini che hanno una nota del cliente portano una **busta dorata** accanto al
+numero: sono l'8,3% (77 su 929). Aprendo l'ordine, la sezione **Biglietto e note del
+cliente** mostra il testo per intero, con il tasto *Copia biglietto*.
+
+> **Quel testo non è solo il biglietto, ed è per questo che si mostra tutto.** Sugli
+> ordini veri contiene il messaggio per il cartoncino insieme all'indirizzo del
+> destinatario, ai numeri di telefono, al budget e alle specifiche del prodotto — e
+> in un caso «30 Luglio 08/12», dove 08/12 è la fascia oraria, non l'8 dicembre.
+> Tagliarne fuori "il messaggio" in automatico vuol dire, prima o poi, stampare un
+> numero di telefono su un cartoncino o perdere metà della dedica. Chi taglia è una
+> persona che ha letto: l'app mette il testo davanti e lo copia tutto.
+
 ## Il dettaglio di un ordine
 
 Cliccando un ordine si apre il pannello con foto dei prodotti, messaggio pronto per

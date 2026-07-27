@@ -1623,3 +1623,13 @@ td .azioni-ordine {
   max-height: 320px;
   overflow-y: auto;
 }
+
+/* Il simbolo «c'è un biglietto» sugli ordini: un'icona, non un bollino, perché
+   sulla scheda i bollini sono già cinque e questa è una sola informazione
+   binaria. Colore oro come gli altri accenti Deluxy. */
+.segno-biglietto {
+  display: inline-flex;
+  align-items: center;
+  color: var(--gold);
+  vertical-align: middle;
+}

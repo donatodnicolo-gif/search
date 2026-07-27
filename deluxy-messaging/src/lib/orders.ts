@@ -47,6 +47,9 @@ export type OrdineArchivio = {
   // cliente non riconoscibile — che non vuol dire «è il suo primo ordine».
   clienteOrdiniPrima: number | null
   clienteNumeroOrdine: number | null
+  // C'è una nota del cliente su questo ordine (dentro c'è il biglietto)?
+  // Solo il sì/no: il testo resta in Orders e lo chiede il dettaglio.
+  haBiglietto: boolean
 }
 
 export type EsitoArchivio =
@@ -73,6 +76,9 @@ type OrdineOrders = {
     ordiniPrima?: number | null
     numeroOrdine?: number | null
   }
+  // Il testo che il cliente ha scritto all'ordine. Ci si guarda solo se è
+  // vuoto o no: vedi `haBiglietto`.
+  biglietto?: string | null
   spedizione?: { citta?: string | null; paese?: string | null }
   consegna?: { data?: string | null; fascia?: string | null }
   classificazione?: { stato?: { chiave?: string; nome?: string } | null }
@@ -104,6 +110,10 @@ function normalizza(o: OrdineOrders): OrdineArchivio {
     // quelli che Orders non riesce a riconoscere.
     clienteOrdiniPrima: o.cliente?.ordiniPrima ?? null,
     clienteNumeroOrdine: o.cliente?.numeroOrdine ?? null,
+    // Vuoto o soli spazi = niente nota. Non si guarda DENTRO al testo: quel
+    // campo contiene anche indirizzi e telefoni, e interpretarlo è la trappola
+    // già pagata (vedi la sezione Biglietto in DettaglioOrdine).
+    haBiglietto: Boolean((o.biglietto ?? '').trim()),
   }
 }
 

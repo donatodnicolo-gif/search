@@ -166,6 +166,9 @@ export function DettaglioOrdine({
   // Il destinatario arriva da Orders insieme alle righe: qui in casa c'è solo
   // chi compra, e nei regali sono due persone diverse.
   const [spedizione, setSpedizione] = useState<Spedizione | null>(null)
+  // La nota che il cliente ha lasciato all'ordine. Arriva da Orders e NON si
+  // tiene in copia qui, come il destinatario: la fonte è il registro.
+  const [biglietto, setBiglietto] = useState('')
   const [caricato, setCaricato] = useState(false)
   const [errore, setErrore] = useState('')
   const [copiato, setCopiato] = useState('')
@@ -181,6 +184,7 @@ export function DettaglioOrdine({
         righe?: Riga[]
         righeNota?: string
         spedizione?: Spedizione | null
+        biglietto?: string
         errore?: string
       }
       if (!res.ok) {
@@ -191,6 +195,7 @@ export function DettaglioOrdine({
       setRighe(d.righe ?? [])
       setRigheNota(d.righeNota ?? '')
       setSpedizione(d.spedizione ?? null)
+      setBiglietto(d.biglietto ?? '')
     } catch {
       setErrore('Dettaglio non disponibile: problema di rete.')
     } finally {
@@ -343,6 +348,44 @@ export function DettaglioOrdine({
                   </div>
                 ))}
               </div>
+
+              {/* ── La nota del cliente (dentro c'è il biglietto) ──
+                *
+                * ⚠️ SI MOSTRA INTERA E NON SI INTERPRETA. Sembrerebbe comodo
+                * estrarne «il messaggio del biglietto» e offrire quello, ma su
+                * ordini veri questo campo contiene il messaggio INSIEME a
+                * indirizzo del destinatario, due numeri di telefono, il budget
+                * e le specifiche della torta — e in un caso un «30 Luglio
+                * 08/12», dove 08/12 è la fascia oraria e non l'8 dicembre.
+                * Qualunque taglio automatico o stampa un telefono sul biglietto
+                * o butta via metà del messaggio. Legge una persona, che vede
+                * tutto e copia il pezzo giusto.
+                */}
+              {biglietto.trim() ? (
+                <div style={{ marginTop: 14 }}>
+                  <label className="campo" style={{ marginBottom: 6 }}>
+                    <span>Biglietto e note del cliente</span>
+                    <textarea
+                      rows={Math.min(12, Math.max(4, biglietto.split('\n').length + 1))}
+                      readOnly
+                      value={biglietto}
+                      style={{ fontFamily: 'inherit', lineHeight: 1.55 }}
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button className="btn" onClick={() => copia(biglietto, 'biglietto')}>
+                      {copiato === 'biglietto' ? 'Copiato ✓' : 'Copia biglietto'}
+                    </button>
+                  </div>
+                  <p className="descrizione" style={{ marginTop: 6, marginBottom: 0 }}>
+                    È il testo che il cliente ha scritto all&apos;ordine, così com&apos;è. Spesso
+                    oltre al messaggio contiene indirizzi, numeri di telefono e istruzioni:{' '}
+                    <strong>rileggilo prima di mandarlo al fornitore</strong> — il biglietto è solo
+                    la parte da scrivere sul cartoncino.
+                  </p>
+                </div>
+              ) : null}
 
               {/* Il messaggio pronto. */}
               <label className="campo" style={{ marginTop: 14 }}>

@@ -121,6 +121,10 @@ export async function sincronizzaOrdini(
       ...(o.clienteNumeroOrdine !== null
         ? { clienteOrdiniPrima: o.clienteOrdiniPrima, clienteNumeroOrdine: o.clienteNumeroOrdine }
         : {}),
+      // Qui invece si riscrive SEMPRE, anche a falso: se il cliente cancella la
+      // nota, il simbolo in lista deve spegnersi. È l'opposto degli ordinali,
+      // dove un null in arrivo vuol dire «non calcolato» e non «non c'è più».
+      haBiglietto: o.haBiglietto,
     }
     const esito = await db.ordine.upsert({
       // il gid Shopify è la chiave stabile: gli ordini presi prima da Shopify

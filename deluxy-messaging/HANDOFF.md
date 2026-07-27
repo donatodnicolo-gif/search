@@ -55,6 +55,40 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **SIMBOLO «C'È IL BIGLIETTO» + SEZIONE BIGLIETTO NEL DETTAGLIO** (27/07/2026).
+  Icona a busta oro su ogni ordine che ha una nota del cliente (in scheda e in
+  tabella), e nel dettaglio una sezione **Biglietto e note del cliente** col
+  testo intero e il tasto **Copia biglietto**.
+  Campo nuovo `Ordine.haBiglietto` (solo il sì/no), riempito dal sync da
+  `biglietto` di Orders; il TESTO non si copia in locale — lo chiede il
+  dettaglio a Orders, come già fa per destinatario e indirizzo.
+  Misurato: **77 ordini su 929 (8,3%)** hanno una nota, 76 fra quelli da gestire.
+
+  ⚠️⚠️ **IL CAMPO NON CONTIENE «IL BIGLIETTO»: CONTIENE TUTTO.** Guardati gli
+  ordini veri, dentro ci sono — nello stesso testo libero — il messaggio per il
+  cartoncino, l'indirizzo completo del destinatario, uno o due numeri di
+  telefono, il budget, le specifiche della torta, e in un caso
+  «30 Luglio 08/12», dove 08/12 è la FASCIA ORARIA e non l'8 dicembre. Un altro
+  ordine dice «20 giugno ore 17-17.30 / Via delle Calasanziane… / +39 389…
+  marito per ritiro / BIGLIETTO: …».
+  Quindi: **niente estrazione automatica del messaggio**. Sarebbe comodissimo e
+  stamperebbe un numero di telefono su un cartoncino, o butterebbe via metà
+  messaggio. Si mostra il testo COM'È, in sola lettura, e sotto c'è scritto che
+  va riletto prima di girarlo al fornitore. La copia prende tutto: chi taglia è
+  una persona che ha letto. È la stessa regola già scritta per consegna e stati
+  («meglio non indicato che sbagliato»).
+  ⚠️ `haBiglietto` si riscrive SEMPRE nel sync, anche a falso — al contrario
+  degli ordinali del cliente: se il cliente toglie la nota il simbolo deve
+  spegnersi, mentre un ordinale mancante vuol dire «non calcolato», non «non
+  c'è più».
+  ⚠️ Per accendere il simbolo sugli ordini già in tabella serve un **sync
+  completo** (`POST /api/ordini/sync?completo=1`).
+  ⚠️ Il tasto Copia usa lo stesso `copia()` di «Copia messaggio», già in uso in
+  produzione. Dal pannello browser nascosto fallisce sempre
+  (`NotAllowedError: Document is not focused`) e **non è un bug**: gli appunti
+  vogliono la finestra a fuoco. Verificato che il ripiego lo dice
+  («seleziona il testo e copialo a mano») invece di tacere.
+
 - **MENU A SCOMPARSA SU MOBILE + ETICHETTA «NUOVO» + CHE CLIENTE È** (27/07/2026).
 
   **Menu mobile.** Sotto gli 800px il menu non è più una riga orizzontale sopra

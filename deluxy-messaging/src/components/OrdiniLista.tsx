@@ -39,6 +39,9 @@ type OrdineDto = {
   // Quando l'ordine è comparso DA NOI — non quando è stato fatto: regge
   // l'etichetta NUOVO di chi arriva mentre stai lavorando.
   creatoIl: string
+  // C'è una nota del cliente (dentro c'è il biglietto)? Solo il sì/no: il
+  // testo lo mostra il dettaglio, chiedendolo a Orders.
+  haBiglietto: boolean
   // Paese di spedizione (ISO 2 lettere): decide in che lingua gli si scrive.
   paese: string
   // Quando e in che fascia oraria il cliente vuole la consegna. Arrivano da
@@ -140,6 +143,37 @@ function ProfiloCliente({ numeroOrdine }: { numeroOrdine: number | null }) {
       title={p.spiega + ' Conteggio dal registro Ordini, su tutta la storia del cliente.'}
     >
       {p.etichetta}
+    </span>
+  )
+}
+
+/**
+ * C'è un biglietto (o comunque una nota) del cliente su questo ordine.
+ *
+ * Un simbolo e non una parola: sulla scheda i bollini sono già cinque, e questa
+ * è un'informazione binaria che si legge meglio con un'icona. Il titolo dice
+ * cosa fa, perché un'icona senza spiegazione è un indovinello.
+ */
+function SegnoBiglietto() {
+  return (
+    <span
+      className="segno-biglietto"
+      title="Il cliente ha lasciato un biglietto o delle note: aprilo per leggerle"
+      aria-label="Con biglietto"
+      role="img"
+    >
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="5.5" width="18" height="13" rx="2" />
+        <path d="m3.5 7 8.5 6 8.5-6" />
+      </svg>
     </span>
   )
 }
@@ -993,6 +1027,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                             dell'ordine si legge nel dettaglio. */}
                         <div className="riga-bassa" style={{ flexWrap: 'wrap', gap: 6 }}>
                           {arrivatoAdesso(o.creatoIl, sessioneDa) ? <BollinoNuovo /> : null}
+                          {o.haBiglietto ? <SegnoBiglietto /> : null}
                           <ProfiloCliente numeroOrdine={o.clienteNumeroOrdine} />
                           <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
                           <span
@@ -1187,6 +1222,12 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                   </td>
                   <td>
                     {o.clienteNome || '—'}
+                    {o.haBiglietto ? (
+                      <>
+                        {' '}
+                        <SegnoBiglietto />
+                      </>
+                    ) : null}
                     {arrivatoAdesso(o.creatoIl, sessioneDa) ? (
                       <>
                         {' '}

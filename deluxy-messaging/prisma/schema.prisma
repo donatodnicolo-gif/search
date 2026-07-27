@@ -190,6 +190,14 @@ model Ordine {
   // che è diverso da «è la prima volta», e non va mostrato come tale.
   clienteOrdiniPrima Int?
   clienteNumeroOrdine Int?
+  // C'è una nota del cliente su questo ordine (dentro c'è il biglietto)?
+  //
+  // ⚠️ Si tiene solo il SÌ/NO, non il testo. Il testo lo mostra il dettaglio
+  // chiedendolo a Orders, come il destinatario e l'indirizzo: è pieno di dati
+  // personali (indirizzi, telefoni) e duplicarli qui vorrebbe dire tenerne due
+  // copie che possono divergere. Qui serve solo per accendere il simbolo in
+  // lista senza interrogare Orders per ogni riga.
+  haBiglietto    Boolean  @default(false)
   contattoSalvato Boolean @default(false) // salvato su Google Contacts
   contattoEsito  String   @default("") // esito/errore dell'ultimo salvataggio
   // Come stiamo lavorando l'ordine QUI (nostro, distinto dallo stato della
