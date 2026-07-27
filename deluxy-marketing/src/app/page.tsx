@@ -1,3 +1,4 @@
+import { AndamentoMese } from "@/components/AndamentoMese";
 import { Badge } from "@/components/Badge";
 import { BottoneSync } from "@/components/BottoneSync";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
@@ -203,6 +204,8 @@ export default async function Dashboard({
         </div>
 
         <ScelteBrand />
+
+        <AndamentoMese />
 
         {/* Il periodo comanda tutto quello che è una somma: spesa, vendite,
             analisi e grafico. Le azioni aperte restano quelle di adesso. */}
