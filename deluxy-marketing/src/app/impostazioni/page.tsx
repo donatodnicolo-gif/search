@@ -1,9 +1,9 @@
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
-import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaServiceAccountDrive, salvaImpersonazioneDrive, provaScritturaDrive, salvaTokenTikTok } from "@/lib/azioni";
+import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaServiceAccountDrive, salvaImpersonazioneDrive, salvaOauthDrive, provaScritturaDrive, salvaTokenTikTok } from "@/lib/azioni";
 import { tokenTikTok } from "@/lib/tiktok";
 import { FORNITORI, istruzioniOperative, statoAi } from "@/lib/ai";
-import { emailImpersonata, statoScritturaDrive } from "@/lib/drive-scrittura";
+import { emailImpersonata, oauthConfigurato, statoScritturaDrive } from "@/lib/drive-scrittura";
 import { ChiaviApi } from "@/components/ChiaviApi";
 import { prisma } from "@/lib/db";
 import { CHIAVE_APIKEY, driveDir, idCartellaDrive } from "@/lib/drive";
@@ -45,6 +45,12 @@ const CONFERME: Record<string, string> = {
   "drive-impersona": "Salvato: da adesso l’app scrive per conto di quella persona.",
   "drive-impersona-tolta": "Tolto: l’app torna a scrivere come account di servizio (e Drive lo rifiuterà, se la cartella non è in un Drive condiviso).",
   "drive-impersona-invalida": "Quella non sembra un’email: serve un indirizzo del dominio, es. nome@deluxy.it.",
+  "drive-oauth-salvato": "Credenziali dell’app OAuth salvate: ora premi «Collega Drive».",
+  "drive-oauth-manca": "Prima servono ID client e segreto dell’app OAuth.",
+  "drive-oauth-ok": "Drive collegato. Prova a scrivere nel ponte.",
+  "drive-oauth-no": "Collegamento non riuscito.",
+  "drive-oauth-negato": "Consenso non dato: il collegamento non è stato creato.",
+  "drive-scollegato": "Drive scollegato: l’app non può più scrivere.",
 };
 
 export default async function PaginaImpostazioni({
@@ -53,7 +59,7 @@ export default async function PaginaImpostazioni({
   searchParams: Promise<{ salvato?: string; perche?: string }>;
 }) {
   const { salvato, perche } = await searchParams;
-  const [cartella, documenti, account, ultimaSync, impApiKey, ai, chiaviApi, tokenTt, istruzioni, drive, perConto] = await Promise.all([
+  const [cartella, documenti, account, ultimaSync, impApiKey, ai, chiaviApi, tokenTt, istruzioni, drive, perConto, oauth] = await Promise.all([
     driveDir(),
     prisma.documentoDrive.count(),
     prisma.accountAdv.findMany({ orderBy: [{ piattaforma: "asc" }, { nome: "asc" }] }),
@@ -68,6 +74,7 @@ export default async function PaginaImpostazioni({
     istruzioniOperative(),
     statoScritturaDrive(),
     emailImpersonata(),
+    oauthConfigurato(),
   ]);
 
   const piattaformeConAccount = PIATTAFORME_ACCOUNT.filter((pf) =>
@@ -131,7 +138,8 @@ export default async function PaginaImpostazioni({
             ) : drive.cartellaOut ? (
               <>
                 <span style={{ color: "var(--green)" }}>Ponte aperto</span> — l&apos;app scrive come{" "}
-                <code>{drive.email}</code> dentro <code>OUT - dall&apos;app</code>.
+                <code>{drive.email}</code> ({drive.via === "utente" ? "collegamento utente" : "account di servizio"}){" "}
+                dentro <code>OUT - dall&apos;app</code>.
               </>
             ) : (
               <span style={{ color: "var(--red)" }}>
@@ -171,6 +179,53 @@ export default async function PaginaImpostazioni({
               <button className="btn" type="submit">Salva la credenziale</button>
             </div>
           </form>
+
+          <div style={{ borderTop: "1px solid var(--hairline)", marginTop: 18, paddingTop: 18 }}>
+            <div className="cella-nome" style={{ marginBottom: 6 }}>
+              Collegare Drive come utente {oauth.refresh && <span style={{ color: "var(--green)" }}>· collegato{oauth.email ? ` come ${oauth.email}` : ""}</span>}
+            </div>
+            <p className="cella-sub" style={{ marginBottom: 12, whiteSpace: "normal" }}>
+              È la strada da usare quando la cartella appartiene a un <b>account Gmail normale</b>:
+              lì l&apos;account di servizio non può possedere file, l&apos;impersonazione non esiste
+              (non c&apos;è nessun amministratore che possa autorizzarla) e i Drive condivisi
+              nemmeno. Una persona dà il consenso una volta sola e l&apos;app scrive <b>come lei</b>.
+            </p>
+            <p className="cella-sub" style={{ marginBottom: 12, whiteSpace: "normal" }}>
+              Nella Console Google → <i>Credenziali</i> → <b>Crea credenziali → ID client OAuth</b> →
+              tipo <b>Applicazione web</b>. Fra gli URI di reindirizzamento autorizzati incolla
+              esattamente questo:
+              <br />
+              <code style={{ userSelect: "all" }}>https://deluxy-marketing.vercel.app/api/interno/drive/oauth</code>
+            </p>
+
+            <form className="modulo" action={salvaOauthDrive}>
+              <div className="campo-modulo">
+                <label>ID client {oauth.id && <span style={{ color: "var(--green)", fontWeight: 400 }}>· presente</span>}</label>
+                <input name="client_id" defaultValue={oauth.id ?? ""} spellCheck={false} placeholder="....apps.googleusercontent.com" />
+              </div>
+              <div className="campo-modulo">
+                <label>Segreto client {oauth.segreto && <span style={{ color: "var(--green)", fontWeight: 400 }}>· presente</span>}</label>
+                <input name="client_secret" type="password" autoComplete="off" spellCheck={false} placeholder={oauth.segreto ? "già impostato — lascia vuoto per non cambiarlo" : "GOCSPX-..."} />
+              </div>
+              <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
+                <button className="btn fantasma" type="submit">Salva credenziali OAuth</button>
+              </div>
+            </form>
+
+            {oauth.id && oauth.segreto && (
+              <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                <a className="btn" href="/api/interno/drive/oauth">
+                  {oauth.refresh ? "Ricollega Drive" : "Collega Drive"}
+                </a>
+                {oauth.refresh && (
+                  <form action={salvaOauthDrive}>
+                    <input type="hidden" name="scollega" value="1" />
+                    <button className="btn fantasma" type="submit">Scollega</button>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
 
           {drive.configurato && (
             <>

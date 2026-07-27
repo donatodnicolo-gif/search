@@ -31,6 +31,65 @@ export const IMP_SERVICE_ACCOUNT = "drive.service_account";
 // oppure l'IMPERSONAZIONE — l'account di servizio agisce per conto di una
 // persona vera, e il file nasce nel cassetto di quella persona.
 export const IMP_IMPERSONA = "drive.impersona";
+
+// COLLEGAMENTO COME UTENTE (OAuth).
+//
+// Serve quando la cartella appartiene a un account Gmail normale, non a un
+// dominio Workspace: lì l'impersonazione non esiste — non c'è nessun
+// amministratore che possa autorizzarla — e i Drive condivisi nemmeno.
+// L'unica via è che una persona dia il consenso una volta sola: da quel
+// momento l'app scrive COME quella persona, nel suo spazio, sulla sua cartella.
+export const IMP_OAUTH_ID = "drive.oauth_client_id";
+export const IMP_OAUTH_SEGRETO = "drive.oauth_client_secret";
+export const IMP_OAUTH_REFRESH = "drive.oauth_refresh";
+export const IMP_OAUTH_EMAIL = "drive.oauth_email";
+
+// Ambito richiesto: "drive.file" dà accesso ai soli file creati dall'app, che
+// è esattamente quello che serve per depositare nel ponte e non un grammo di
+// più. Se Google dovesse rifiutare la creazione dentro una cartella altrui si
+// passa a "drive" pieno, ma si parte dal minimo: un permesso che non serve è
+// un permesso che prima o poi fa danno.
+export const AMBITO_DRIVE = "https://www.googleapis.com/auth/drive.file";
+
+export async function oauthConfigurato(): Promise<{ id: string | null; segreto: string | null; refresh: string | null; email: string | null }> {
+  const righe = await prisma.impostazione
+    .findMany({ where: { chiave: { in: [IMP_OAUTH_ID, IMP_OAUTH_SEGRETO, IMP_OAUTH_REFRESH, IMP_OAUTH_EMAIL] } } })
+    .catch(() => []);
+  const v = (k: string) => righe.find((r) => r.chiave === k)?.valore.trim() || null;
+  return { id: v(IMP_OAUTH_ID), segreto: v(IMP_OAUTH_SEGRETO), refresh: v(IMP_OAUTH_REFRESH), email: v(IMP_OAUTH_EMAIL) };
+}
+
+// Un token d'accesso a partire dal consenso già dato.
+async function tokenDaRefresh(): Promise<{ token: string | null; errore: string | null }> {
+  const o = await oauthConfigurato();
+  if (!o.id || !o.segreto || !o.refresh) return { token: null, errore: null };
+  try {
+    const r = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: o.id,
+        client_secret: o.segreto,
+        refresh_token: o.refresh,
+        grant_type: "refresh_token",
+      }),
+      cache: "no-store",
+    });
+    const d = (await r.json()) as { access_token?: string; expires_in?: number; error?: string; error_description?: string };
+    if (!r.ok || !d.access_token) {
+      // Il consenso può decadere: succede se l'app OAuth è in "Test", dove
+      // Google fa scadere il collegamento dopo 7 giorni. Va detto così, o
+      // sembra un guasto invece di una scadenza prevista.
+      return {
+        token: null,
+        errore: `Il collegamento a Drive non è più valido (${d.error ?? r.status}): premi di nuovo «Collega Drive». Se succede ogni settimana, l'app OAuth è in stato "Test" — pubblicala per non ripetere il consenso.`,
+      };
+    }
+    return { token: d.access_token, errore: null };
+  } catch (e) {
+    return { token: null, errore: `Rinnovo del collegamento fallito: ${String(e).slice(0, 140)}` };
+  }
+}
 const PERCORSO_OUT = ["ads", "App Azioni", "OUT - dall'app"];
 
 type Credenziali = { client_email: string; private_key: string };
@@ -67,6 +126,14 @@ export async function emailImpersonata(): Promise<string | null> {
 let cache: { token: string; scade: number; perConto: string | null } | null = null;
 
 async function token(): Promise<{ token: string | null; errore: string | null }> {
+  // Il collegamento come utente viene PRIMA: se c'è, è quello che funziona
+  // anche su un account Gmail, dove l'account di servizio non può possedere
+  // file. Non si tiene in cache perché Google lo rinnova già da sé a ogni
+  // scambio ed è una chiamata sola.
+  const daUtente = await tokenDaRefresh();
+  if (daUtente.token) return daUtente;
+  if (daUtente.errore) return daUtente;
+
   const perContoOra = await emailImpersonata();
   if (cache && cache.scade > Date.now() + 60_000 && cache.perConto === perContoOra) {
     return { token: cache.token, errore: null };
@@ -76,7 +143,7 @@ async function token(): Promise<{ token: string | null; errore: string | null }>
     return {
       token: null,
       errore:
-        "Account di servizio non impostato: si incolla in Impostazioni → Scrittura su Drive (file JSON della chiave).",
+        "Drive non è collegato: premi «Collega Drive» in Impostazioni (oppure incolla la chiave di un account di servizio, se la cartella è su un dominio Workspace).",
     };
   }
 
@@ -148,6 +215,8 @@ async function figlia(idPadre: string, nome: string, t: string): Promise<string 
 
 export type StatoDrive = {
   configurato: boolean;
+  // "utente" = consenso OAuth · "servizio" = account di servizio
+  via: "utente" | "servizio" | null;
   email: string | null;
   cartellaOut: string | null;
   errore: string | null;
@@ -155,17 +224,21 @@ export type StatoDrive = {
 
 /** Dove siamo: credenziale a posto? cartella OUT raggiungibile? */
 export async function statoScritturaDrive(): Promise<StatoDrive> {
+  const o = await oauthConfigurato();
   const c = await credenziali();
-  if (!c) return { configurato: false, email: null, cartellaOut: null, errore: null };
+  const via = o.refresh ? "utente" : c ? "servizio" : null;
+  const chi = o.refresh ? o.email : c?.client_email ?? null;
+  if (!via) return { configurato: false, via: null, email: null, cartellaOut: null, errore: null };
 
   const { token: t, errore } = await token();
-  if (!t) return { configurato: true, email: c.client_email, cartellaOut: null, errore };
+  if (!t) return { configurato: true, via, email: chi, cartellaOut: null, errore };
 
   const radice = idCartellaDrive(await driveDir());
   if (!radice) {
     return {
       configurato: true,
-      email: c.client_email,
+      via,
+      email: chi,
       cartellaOut: null,
       errore:
         "La cartella impostata è un percorso su disco, non un link di Google Drive: la scrittura ha bisogno del link della cartella condivisa.",
@@ -178,14 +251,18 @@ export async function statoScritturaDrive(): Promise<StatoDrive> {
     if (!trovata) {
       return {
         configurato: true,
-        email: c.client_email,
+        via,
+        email: chi,
         cartellaOut: null,
-        errore: `Non trovo la cartella "${passo}". O il percorso ads/App Azioni/OUT - dall'app non esiste, o la cartella non è condivisa con ${c.client_email} come Editor.`,
+        errore:
+          via === "utente"
+            ? `Non trovo la cartella "${passo}". Il percorso atteso è ads/App Azioni/OUT - dall'app dentro la cartella impostata, e ${chi ?? "l'account collegato"} deve poterla vedere.`
+            : `Non trovo la cartella "${passo}". O il percorso ads/App Azioni/OUT - dall'app non esiste, o la cartella non è condivisa con ${chi} come Editor.`,
       };
     }
     corrente = trovata;
   }
-  return { configurato: true, email: c.client_email, cartellaOut: corrente, errore: null };
+  return { configurato: true, via, email: chi, cartellaOut: corrente, errore: null };
 }
 
 export type EsitoScrittura =

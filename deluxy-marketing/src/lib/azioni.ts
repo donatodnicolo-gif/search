@@ -1,7 +1,15 @@
 "use server";
 import { FORNITORI, IMP_FORNITORE, impChiaveApi, impModello, type Fornitore } from "@/lib/ai";
 import { IMP_ISTRUZIONI } from "@/lib/ai";
-import { IMP_IMPERSONA, IMP_SERVICE_ACCOUNT, scriviInOut } from "@/lib/drive-scrittura";
+import {
+  IMP_IMPERSONA,
+  IMP_OAUTH_EMAIL,
+  IMP_OAUTH_ID,
+  IMP_OAUTH_REFRESH,
+  IMP_OAUTH_SEGRETO,
+  IMP_SERVICE_ACCOUNT,
+  scriviInOut,
+} from "@/lib/drive-scrittura";
 import { IMP_TOKEN_TIKTOK } from "@/lib/tiktok";
 
 import { revalidatePath } from "next/cache";
@@ -1770,4 +1778,37 @@ export async function salvaImpersonazioneDrive(formData: FormData) {
   });
   revalidatePath("/impostazioni");
   redirect("/impostazioni?salvato=drive-impersona");
+}
+
+// Le credenziali dell'app OAuth con cui collegare Drive come utente.
+export async function salvaOauthDrive(formData: FormData) {
+  "use server";
+  const id = String(formData.get("client_id") ?? "").trim();
+  const segreto = String(formData.get("client_secret") ?? "").trim();
+  const scollega = formData.get("scollega") === "1";
+
+  if (scollega) {
+    await prisma.impostazione.deleteMany({
+      where: { chiave: { in: [IMP_OAUTH_REFRESH, IMP_OAUTH_EMAIL] } },
+    });
+    revalidatePath("/impostazioni");
+    redirect("/impostazioni?salvato=drive-scollegato");
+  }
+
+  if (id) {
+    await prisma.impostazione.upsert({
+      where: { chiave: IMP_OAUTH_ID },
+      update: { valore: id },
+      create: { chiave: IMP_OAUTH_ID, valore: id },
+    });
+  }
+  if (segreto) {
+    await prisma.impostazione.upsert({
+      where: { chiave: IMP_OAUTH_SEGRETO },
+      update: { valore: segreto },
+      create: { chiave: IMP_OAUTH_SEGRETO, valore: segreto },
+    });
+  }
+  revalidatePath("/impostazioni");
+  redirect(id || segreto ? "/impostazioni?salvato=drive-oauth-salvato" : "/impostazioni?salvato=drive-invariato");
 }
