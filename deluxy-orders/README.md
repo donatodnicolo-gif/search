@@ -63,7 +63,7 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 | Metodo | Rotta | Scopo |
 | --- | --- | --- |
 | GET | `/api/v1/health` | sonda pubblica |
-| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio, problema, canale, citta, paese, cittaMittente, paeseMittente, estero, urgenza`) e paginazione (`page, limit`) |
+| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio, problema, canale, citta, paese, cittaMittente, paeseMittente, estero, urgenza, nuoviDa`) e paginazione (`page, limit`) |
 | GET | `/api/v1/ordini/:id` | un ordine con la classificazione (410 se annullato) |
 | PATCH | `/api/v1/ordini/:id` | riclassifica (chiave di scrittura): `stato`, `etichette[]`, `categoriaPagamento`, `tipoConsegna`, `tipoProdotto`, `canale`, `assegnatoApp`, `fornitore`, `responsabile`, `classificazioni{}`, `noteInterne` |
 | GET | `/api/v1/ricavi` | venduto **aggregato per brand e per mese** (`anno`, oppure `da`/`a`; `brand`; `annullati=inclusi`, `rimborsati=inclusi`) |

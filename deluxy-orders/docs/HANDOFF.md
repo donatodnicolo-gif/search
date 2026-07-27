@@ -378,6 +378,18 @@ finte di dicembre 2026 da 3+ a **zero**. Erano appuntamenti sbagliati in agenda.
 (giusto: non lo sappiamo) invece di prendersi la fascia oraria. **Il bug è del
 sito e va sistemato là**: finché c'è, quegli ordini non hanno una data.
 
+### Etichetta «Nuovo»: ordini arrivati durante la sessione (27/07/2026)
+`src/lib/sessione.ts` + cookie scritto dal **middleware** (una pagina server non
+può metterne). Due cookie: `orders_sessione_da` (inizio sessione, muore col
+browser) e `orders_visto_fino` (pulsante «Ho visto»). Il confronto è su
+`Ordine.createdAt` — quando è entrato nel REGISTRO, non la data Shopify.
+
+- Filtro nuovo `nuoviDa=<iso>` in `whereOrdini` (vale anche per le API); in
+  pagina il pulsante usa `nuovi=si` e ci mette dentro il momento di sessione.
+- Se manca il cookie non si segna NIENTE, invece di segnare tutto come nuovo.
+- Provato creando due ordini finti (`orderId` con prefisso `gid://prova/`),
+  verificando badge, contatore, filtro e «Ho visto», e poi cancellandoli.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare

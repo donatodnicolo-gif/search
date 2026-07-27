@@ -164,6 +164,16 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
   if (urgenza === "senza-data") where.urgenza = "";
   else if (urgenza) where.urgenza = urgenza;
 
+  // Ordini ENTRATI NEL REGISTRO dopo un certo momento: è la domanda «che cosa è
+  // arrivato mentre non guardavo». Diversa da `da`/`a`, che filtrano la data
+  // dell'ordine su Shopify — un ordine di ieri sera importato stamattina è
+  // nuovo per chi lavora, anche se per Shopify è di ieri.
+  const nuoviDa = p.get("nuoviDa")?.trim();
+  if (nuoviDa) {
+    const quando = new Date(nuoviDa);
+    if (!Number.isNaN(quando.getTime())) where.createdAt = { gte: quando };
+  }
+
   const da = p.get("da")?.trim();
   const a = p.get("a")?.trim();
   if (da || a) {

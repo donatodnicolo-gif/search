@@ -89,6 +89,23 @@ Nella scheda dell'ordine c'è tutto per esteso: il **nome della campagna**
 Shopify — cioè il dato grezzo su cui la deduzione è stata fatta, per chi non si
 fida della deduzione.
 
+### «Nuovo»: cosa è arrivato mentre eri qui
+In una tabella da 14.000 righe, accorgersi che è entrato un ordine vuol dire
+ricordare a memoria qual era il primo numero in cima. Non funziona. Perciò gli
+ordini **entrati nel registro dopo che hai aperto l'app** portano un'etichetta
+verde **Nuovo**, e in cima compare un avviso — «3 ordini nuovi dagli ultimi 20
+minuti» — con due pulsanti: *Vedi solo questi* e *Ho visto*.
+
+- **«Ho visto»** sposta ad adesso il momento da cui contare. Non tocca gli
+  ordini e non cancella niente: sposta il segnalibro **di chi guarda**.
+- Il momento sta in un **cookie di sessione**, non nel database: due persone che
+  lavorano insieme hanno due «da quando sono arrivato» diversi, e nessuna
+  azzera le novità dell'altra. Chiudendo il browser si riparte.
+- Si guarda **quando l'ordine è entrato nel registro**, non la sua data su
+  Shopify: un ordine di ieri sera importato stamattina è nuovo per chi lavora.
+- L'avviso compare **solo se ci sono novità**: un avviso che dice «zero» ogni
+  volta smette di essere letto dopo due giorni.
+
 ### I tag di luogo: dove arriva e da dove parte
 Su ogni ordine ci sono i **tag dei luoghi**, e sono cliccabili: un clic mostra
 tutti gli ordini di quella città o di quel paese.

@@ -13,8 +13,9 @@ import { brandConColore, mappaColori, coloreBrand, mappaRicerca } from "@/lib/br
 import { linkRicerca } from "@/lib/fornitori";
 import { ordinali } from "@/lib/repeater";
 import { URGENZE } from "@/lib/urgenza";
-import { SegnoCanale, PillRepeater, TagLuoghi, PillUrgenza } from "@/components/Provenienza";
-import { sincronizza } from "./actions";
+import { SegnoCanale, PillRepeater, TagLuoghi, PillUrgenza, PillNuovo } from "@/components/Provenienza";
+import { daQuando, daQuandoLeggibile } from "@/lib/sessione";
+import { sincronizza, segnaOrdiniVisti } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +30,15 @@ export default async function ElencoOrdini({
 }) {
   const sp = await searchParams;
   const params = new URLSearchParams(sp);
+  // Da quando sei qui: serve sia per l'etichetta «Nuovo» sia per il filtro.
+  const daQuandoSeiQui = await daQuando();
+  if (sp.nuovi === "si" && daQuandoSeiQui) params.set("nuoviDa", daQuandoSeiQui.toISOString());
   const where = whereOrdini(params);
   const pagina = Math.max(1, Number(sp.page ?? "1") || 1);
   // Due viste: colonne per brand (predefinita) ed elenco in tabella.
   const vista = sp.vista === "elenco" ? "elenco" : "brand";
 
-  const [stati, brand, etichette, totale, somma, problemiAperti, ordini] = await Promise.all([
+  const [stati, brand, etichette, totale, somma, problemiAperti, arrivatiOra, ordini] = await Promise.all([
     statiOrdinati(),
     brandConColore(),
     prisma.etichetta.findMany({ orderBy: { nome: "asc" } }),
@@ -43,6 +47,11 @@ export default async function ElencoOrdini({
     // Quanti ordini problematici aspettano ancora un occhio (su TUTTO il
     // registro, non sul filtro: è una coda di lavoro, non una statistica).
     prisma.ordine.count({ where: { financialStatus: { in: [...STATI_PROBLEMA] }, problemaGestito: false } }),
+    // Quanti ordini sono ENTRATI nel registro da quando sei qui. Si conta su
+    // tutto, non sul filtro: è una notizia, non una statistica del filtro.
+    daQuandoSeiQui
+      ? prisma.ordine.count({ where: { createdAt: { gte: daQuandoSeiQui } } })
+      : Promise.resolve(0),
     vista === "elenco"
       ? prisma.ordine.findMany({
           where,
@@ -145,6 +154,31 @@ export default async function ElencoOrdini({
           </Link>
         )}
       </div>
+
+      {/* Arrivati mentre eri qui. Compare solo se ce ne sono: un avviso che dice
+          «zero» ogni volta smette di essere letto dopo due giorni. */}
+      {arrivatiOra > 0 && (
+        <div className="avviso-nuovi">
+          <span className="cresce">
+            <strong>
+              {arrivatiOra === 1 ? "1 ordine nuovo" : `${arrivatiOra.toLocaleString("it-IT")} ordini nuovi`}
+            </strong>{" "}
+            {daQuandoSeiQui ? daQuandoLeggibile(daQuandoSeiQui) : ""}: sono entrati nel registro dopo
+            che eri già qui.
+          </span>
+          <Link
+            className={`btn small${sp.nuovi === "si" ? " btn-secondario" : ""}`}
+            href={conFiltro({ nuovi: sp.nuovi === "si" ? "" : "si", page: "" })}
+          >
+            {sp.nuovi === "si" ? "Mostra tutti" : "Vedi solo questi"}
+          </Link>
+          <form action={segnaOrdiniVisti}>
+            <button className="btn btn-secondario small" type="submit" title="Riparte da adesso: gli ordini di prima non saranno più segnati come nuovi">
+              Ho visto
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Ricerca in evidenza: una sola casella che cerca ovunque */}
       <form className="ricerca" method="get">
@@ -326,6 +360,7 @@ export default async function ElencoOrdini({
                       </div>
                       {/* Chi ordina e da dove è arrivato: due segni, una riga */}
                       <div className="riga-provenienza">
+                        <PillNuovo arrivato={o.createdAt} da={daQuandoSeiQui} />
                         <PillRepeater ordinale={ordinaliOrdini.get(o.id)} />
                         <PillUrgenza chiave={o.urgenza} />
                         <SegnoCanale ordine={o} conNome />
@@ -437,6 +472,7 @@ export default async function ElencoOrdini({
                         {/* Da dove è arrivato: un simbolo, il nome sotto il mouse */}
                         <SegnoCanale ordine={o} />
                       </Link>
+                      <PillNuovo arrivato={o.createdAt} da={daQuandoSeiQui} />
                       {rischioDaSegnalare(o.rischioLivello) && (
                         <span className="badge-rischio" style={{ color: coloreRischio(o.rischioLivello) }} title={o.rischioMotivi ?? ""}>
                           ⚠ {rischioLeggibile(o.rischioLivello)}

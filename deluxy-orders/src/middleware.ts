@@ -14,6 +14,23 @@ const CORS_HEADERS = {
   "Access-Control-Max-Age": "86400",
 };
 
+// DA QUANDO SEI QUI. Serve a una cosa sola, ma importante: segnare gli ordini
+// **arrivati mentre stavi lavorando**, così in una tabella da 14.000 righe si
+// vede subito cosa è nuovo senza doverla rileggere tutta.
+//
+// È un cookie di sessione — niente scadenza, muore quando si chiude il browser
+// — e si scrive nel middleware perché una pagina server non può mettere cookie.
+// Sta nel browser e non nel database apposta: due persone che lavorano insieme
+// hanno due «da quando sono arrivato» diversi, ed è giusto così.
+export const COOKIE_SESSIONE = "orders_sessione_da";
+
+function conMarcaSessione(req: NextRequest, res: NextResponse): NextResponse {
+  if (!req.cookies.get(COOKIE_SESSIONE)) {
+    res.cookies.set(COOKIE_SESSIONE, new Date().toISOString(), { sameSite: "lax", path: "/" });
+  }
+  return res;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -27,11 +44,11 @@ export async function middleware(req: NextRequest) {
   }
 
   const password = process.env.ORDERS_APP_PASSWORD;
-  if (!password || pathname === "/login") return NextResponse.next();
+  if (!password || pathname === "/login") return conMarcaSessione(req, NextResponse.next());
 
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;
   if (cookie && cookie === (await sessionToken(password))) {
-    return NextResponse.next();
+    return conMarcaSessione(req, NextResponse.next());
   }
   return NextResponse.redirect(new URL("/login", req.url));
 }

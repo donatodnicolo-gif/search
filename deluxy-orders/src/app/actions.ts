@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { registraEvento } from "@/lib/classificazione";
 import { codificaChiave } from "@/lib/clienti";
+import { COOKIE_VISTO } from "@/lib/sessione";
 import { canaleValido, tipologiaValida } from "@/lib/segmenti";
 import { importaFeedback } from "@/lib/feedback";
 import { preparaGiro, type VariabileScript } from "@/lib/automazioni";
@@ -745,4 +747,14 @@ export async function toggleChiave(fd: FormData) {
   const k = await prisma.apiKey.findUnique({ where: { id } });
   if (k) await prisma.apiKey.update({ where: { id }, data: { attiva: !k.attiva } });
   revalidatePath("/impostazioni");
+}
+
+// ---- «Ho visto»: sposta ad adesso il momento da cui contare gli ordini nuovi ----
+// Non cancella niente e non tocca gli ordini: sposta solo il segnalibro di CHI
+// GUARDA. Ognuno ha il suo, perché sta in un cookie del suo browser — due
+// persone che lavorano insieme non si azzerano le novità a vicenda.
+export async function segnaOrdiniVisti() {
+  const c = await cookies();
+  c.set(COOKIE_VISTO, new Date().toISOString(), { sameSite: "lax", path: "/" });
+  revalidatePath("/");
 }

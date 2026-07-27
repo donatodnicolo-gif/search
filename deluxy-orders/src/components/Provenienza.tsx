@@ -153,3 +153,16 @@ export function PillUrgenza({ chiave }: { chiave: string }) {
     </span>
   );
 }
+
+// ---------- Arrivato mentre eri qui ----------
+// L'etichetta più semplice di tutte, e la più richiesta: in una tabella da
+// 14.000 righe dice quali ordini non c'erano quando hai aperto l'app.
+export function PillNuovo({ arrivato, da }: { arrivato: Date; da: Date | null }) {
+  if (!da || arrivato < da) return null;
+  const ora = arrivato.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  return (
+    <span className="pill-nuovo" title={`Entrato nel registro alle ${ora}, dopo che eri già qui`}>
+      Nuovo
+    </span>
+  );
+}
