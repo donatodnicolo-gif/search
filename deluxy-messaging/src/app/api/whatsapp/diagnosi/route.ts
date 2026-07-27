@@ -141,14 +141,78 @@ export async function GET() {
     })
   }
 
+  // 3. L'ALTRO PEZZO, SEPARATO E FACILE DA DIMENTICARE: l'iscrizione al campo
+  //    `messages`.
+  //
+  //    Sono due cose diverse e vanno fatte tutte e due: l'app iscritta al WABA
+  //    (sopra) e l'app iscritta al CAMPO `messages` del webhook. Con la prima
+  //    fatta e la seconda no, Meta non manda i messaggi e ogni controllo
+  //    risulta verde — che è esattamente il vicolo cieco in cui si finisce.
+  //    Qui si legge dall'app Meta: quali oggetti/campi sono iscritti e a quale
+  //    URL, così si vede anche se l'indirizzo registrato è davvero il nostro.
+  const tokenQualsiasi = (await tokenPerNumero(daControllare[0]?.phoneNumberId ?? '')).trim()
+  const segreto = c.metaAppSecret?.trim()
+  if (tokenQualsiasi && segreto) {
+    const app = await chiedi(`${API}/app?fields=id,name`, tokenQualsiasi)
+    const appId = typeof app.corpo.id === 'string' ? app.corpo.id : ''
+    if (!appId) {
+      esiti.push({
+        passo: 'Iscrizione al campo «messages»',
+        ok: null,
+        dettaglio: `Non controllabile: Meta non dice a quale app appartiene il token (${app.corpo.error?.message ?? 'risposta inattesa'}).`,
+      })
+    } else {
+      // Il token dell'APP è "id|segreto": serve per leggere le iscrizioni.
+      const sub = await chiedi(
+        `${API}/${appId}/subscriptions?access_token=${appId}|${segreto}`,
+        tokenQualsiasi
+      )
+      const righe = (sub.corpo.data as
+        | { object?: string; callback_url?: string; fields?: { name?: string }[] }[]
+        | undefined) ?? []
+      const wa = righe.find((r) => r.object === 'whatsapp_business_account')
+      const campi = (wa?.fields ?? []).map((f) => f.name).filter(Boolean) as string[]
+      esiti.push({
+        passo: 'Iscrizione al campo «messages»',
+        ok: !sub.ok ? false : campi.includes('messages'),
+        dettaglio: !sub.ok
+          ? `Meta risponde ${sub.stato}: ${sub.corpo.error?.message ?? 'errore'}. (App Secret sbagliato?)`
+          : !wa
+            ? 'L’app non ha nessun webhook per WhatsApp: va aggiunto l’URL e iscritto il campo messages.'
+            : campi.includes('messages')
+              ? `Iscritta a: ${campi.join(', ')}. URL registrato: ${wa.callback_url ?? '?'}`
+              : `MANCA «messages» — iscritta solo a: ${campi.join(', ') || 'niente'}. È per questo che non arriva nulla.`,
+      })
+      if (wa?.callback_url) {
+        const nostro = 'https://deluxy-messaging.vercel.app/api/webhooks/meta'
+        esiti.push({
+          passo: 'URL del webhook registrato su Meta',
+          ok: wa.callback_url === nostro,
+          dettaglio:
+            wa.callback_url === nostro
+              ? 'È il nostro.'
+              : `Punta altrove: ${wa.callback_url} — i messaggi vanno lì, non a noi.`,
+        })
+      }
+    }
+  }
+
   // 4. Cosa è arrivato davvero da noi.
-  const [conv, msg] = await Promise.all([db.conversazione.count(), db.messaggio.count()])
+  //
+  // ⚠️ SOLO WhatsApp. In inbox ci sono anche le email — 107 al momento — e
+  // contarle tutte insieme faceva sembrare che l'inbox funzionasse mentre
+  // WhatsApp era fermo a zero. Un numero giusto sulla domanda sbagliata inganna
+  // più del numero mancante.
+  const [conv, msg] = await Promise.all([
+    db.conversazione.count({ where: { canale: 'whatsapp' } }),
+    db.messaggio.count({ where: { conversazione: { canale: 'whatsapp' } } }),
+  ])
   esiti.push({
-    passo: 'Messaggi ricevuti finora',
+    passo: 'Messaggi WhatsApp ricevuti finora',
     ok: msg > 0,
     dettaglio:
       msg > 0
-        ? `${msg} messaggi in ${conv} conversazioni.`
+        ? `${msg} messaggi in ${conv} conversazioni WhatsApp.`
         : 'Nessuno: se i passi qui sopra sono tutti verdi, manda un messaggio di prova al numero.',
   })
 
