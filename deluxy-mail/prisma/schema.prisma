@@ -408,6 +408,15 @@ model Messaggio {
   // La conversazione di una mail VECCHIA si ricostruisce dalla sua radice
   // (vedi idsThread in sync.ts): senza indice sarebbe una scansione.
   @@index([utenteId, thread])
+  // ⚠️ L'indice della schermata principale, ed è quello che mancava agli
+  // ARCHIVIATI. La query della posta è sempre la stessa: utente fisso,
+  // `direzione='entrata'`, `cestinato=false`, `archiviato` vero o falso,
+  // ordinata per data. Con solo `[utenteId, data]` la vista «Archiviati»
+  // partiva dalla mail più recente e scendeva scartando tutto ciò che
+  // archiviato non è, finché non ne trovava 800: e le mail archiviate sono
+  // vecchie per definizione, quindi si finiva a scorrere l'intera casella.
+  // Le colonne di uguaglianza vanno prima, la data (che ordina) per ultima.
+  @@index([utenteId, direzione, cestinato, archiviato, data])
 }
 
 // Un'attività, da un messaggio o dal quadro di un contatto o dall'Assistente.

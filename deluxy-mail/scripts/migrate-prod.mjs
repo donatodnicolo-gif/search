@@ -361,6 +361,11 @@ const stmts = [
   // La conversazione di una mail VECCHIA si ricostruisce dalla sua radice
   // (idsThread in src/lib/sync.ts): senza indice sarebbe una scansione.
   `CREATE INDEX IF NOT EXISTS "Messaggio_utenteId_thread_idx" ON "Messaggio"("utenteId","thread")`,
+  // ⚠️ L'indice della schermata principale, ed è quello che mancava agli
+  // ARCHIVIATI: la vista partiva dalla mail più recente e scendeva scartando
+  // tutto ciò che archiviato non è, finché non ne trovava 800 — e le archiviate
+  // sono vecchie per definizione, quindi si scorreva l'intera casella.
+  `CREATE INDEX IF NOT EXISTS "Messaggio_posta_idx" ON "Messaggio"("utenteId","direzione","cestinato","archiviato","data")`,
 ]
 
 async function main() {

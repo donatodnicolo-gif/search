@@ -125,6 +125,27 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // con «Non è spam», non ci si sposta a mano).
   const sezioniPerSposta = tutteLeSezioni.filter((s) => s.nome !== 'SPAM')
 
+  // ⚠️ ESCLUDERE LO SPAM SENZA PAGARE UNA SOTTOQUERY PER RIGA.
+  //
+  // Prima si filtrava sulla RELAZIONE — `NOT: { sezione: { nome: 'SPAM' } }` —
+  // e Prisma lo traduce in una sottoquery su Sezione valutata per ogni riga
+  // candidata. In posta in arrivo si nota poco (le righe buone stanno in cima e
+  // se ne guardano 800); negli ARCHIVIATI le candidate sono migliaia, e lì
+  // quella sottoquery costa davvero.
+  //
+  // Il filtro scalare secco `NOT sezioneId = spamId` NON si può usare: per le
+  // righe con `sezioneId` NULL (tutta la posta non smistata) dà NULL invece di
+  // TRUE e le ESCLUDE — è la trappola che il commento qui sotto ricordava, ed è
+  // vera. La forma corretta è dirlo per esteso: «senza sezione, OPPURE in una
+  // sezione che non è lo SPAM». I NULL rientrano dal primo ramo.
+  //
+  // L'id dello SPAM ce l'abbiamo già: le sezioni sono state lette nell'ondata
+  // parallela qui sopra, quindi non costa nessuna query in più.
+  const spamId = tutteLeSezioni.find((s) => s.nome === 'SPAM')?.id ?? null
+  const fuoriSpam = spamId
+    ? { AND: [{ OR: [{ sezioneId: null }, { sezioneId: { not: spamId } }] }] }
+    : {}
+
   if (account === 0) {
     return (
       <>
@@ -200,16 +221,13 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       // notifiche degli ordini) replicherebbe sé stessa in posta in arrivo
       // seppellendo il resto. Nella AI Inbox invece si vede tutto il contatto,
       // in qualunque sezione (tranne SPAM).
+      // Lo SPAM si esclude con `fuoriSpam` (vedi il commento dov'è costruito:
+      // niente sottoquery per riga, e i NULL restano dentro).
       ...(sezione
         ? { sezioneId: { in: idsSezione } }
-        // ⚠️ Lo SPAM si esclude col filtro sulla RELAZIONE (sezione.nome), NON
-        // con "NOT sezioneId = spamId" su campo scalare: quest'ultimo, per le
-        // righe con sezioneId NULL (la posta NON smistata), dà NULL invece di
-        // TRUE e le ESCLUDE — nascondendo così quasi tutta la posta in arrivo.
-        // Il filtro-relazione include correttamente anche le mail senza sezione.
         : vistaAI
           // AI Inbox: le mail dei contatti AI+, SPAM escluso.
-          ? { NOT: { sezione: { nome: 'SPAM' } } }
+          ? fuoriSpam
           : vistaNonSmistate
             // "Non smistate" = la posta in arrivo MENO quella già in una sezione:
             // tutto ciò che non ha ancora una sezione. Nessun vincolo sull'analisi AI.
@@ -217,7 +235,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             // "In arrivo": TUTTA la posta (anche quella già smistata, che in riga
             // mostra il badge della sua sezione), tranne lo SPAM. Il Cestino è
             // già escluso a monte (cestinato: false).
-            : { NOT: { sezione: { nome: 'SPAM' } } }),
+            : fuoriSpam),
       ...(stato === 'non-letti' ? { letto: false } : {}),
       ...(stato === 'da-rispondere' ? { serveRisposta: true } : {}),
       ...(p ? { priorita: p } : {}),
