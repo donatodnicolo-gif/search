@@ -1,14 +1,15 @@
 import { mer, numeriBrand, type NumeriBrand } from "@/lib/brand-dati";
-import { COLORE_BRAND, ETICHETTA_BRAND, formattaEuro, MESI_IT } from "@/lib/dominio";
+import { COLORE_BRAND, ETICHETTA_BRAND, formattaEuro } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
+import type { Periodo } from "@/lib/periodo";
 
 // Le porte d'ingresso ai brand, in cima alla home: una tessera per brand con i
 // due numeri che contano (quanto si spende, quanto si vende) e il MER, che dice
 // se il rapporto regge.
 //
-// Il periodo è il MESE IN CORSO, non "ultimi 30 giorni": il budget si governa a
-// mesi, il piano è mensile, e trenta giorni a cavallo di due mesi non si
-// confrontano con nessun obiettivo.
+// Il periodo arriva da fuori: è quello scelto in cima alla pagina, lo stesso di
+// tutti gli altri numeri. Prima era il mese in corso e basta, e chi cambiava
+// periodo si ritrovava con le tessere ferme su un'altra finestra temporale.
 //
 // Le tessere sono i tre brand veri più il TOTALE. "Cross-brand" non ha una
 // tessera: sono le campagne che non appartengono a nessuno dei tre, e in una
@@ -22,11 +23,7 @@ const VUOTI: NumeriBrand = {
   venditeTotali: 0, ordini: 0, venditeDaCampagne: 0, ordiniDaCampagne: 0,
 };
 
-export async function ScelteBrand() {
-  const adesso = new Date();
-  const inizio = new Date(adesso.getFullYear(), adesso.getMonth(), 1);
-  const domani = new Date(adesso.getFullYear(), adesso.getMonth(), adesso.getDate() + 1);
-  const periodo = { da: inizio, a: domani, etichetta: "mese in corso" };
+export async function ScelteBrand({ periodo }: { periodo: Periodo }) {
 
   // Anche "cross" entra nel totale: sono soldi spesi e vendite fatte, e
   // lasciarli fuori farebbe tornare male i conti con la tabella del mese.
@@ -76,8 +73,8 @@ export async function ScelteBrand() {
         </div>
         {vuoto ? (
           <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 8 }}>
-            Nessun dato questo mese: lo script di Google Ads non è ancora installato su questo
-            account, o mancano gli ordini.
+            Nessun dato in questo periodo: lo script di Google Ads non è ancora installato su
+            questo account, mancano gli ordini, oppure la finestra scelta è troppo stretta.
           </div>
         ) : (
           <>
@@ -128,10 +125,7 @@ export async function ScelteBrand() {
 
   return (
     <section className="scheda">
-      <div className="scheda-titolo">
-        Scegli il brand — {MESI_IT[adesso.getMonth()].toLowerCase()} {adesso.getFullYear()}, dal primo
-        del mese a oggi
-      </div>
+      <div className="scheda-titolo">Scegli il brand — {periodo.etichetta}</div>
       <div className="griglia-brand">
         {tessere.map(({ brand, n }) =>
           tessera(brand, n, {

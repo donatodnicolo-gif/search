@@ -1464,3 +1464,51 @@ export async function salvaImpostazioniAi(formData: FormData) {
   revalidatePath("/ai");
   redirect("/impostazioni?salvato=ai");
 }
+
+// Il budget vendite di un mese, scritto a mano.
+//
+// Prima si poteva cambiare solo rifacendo `npm run import:monitoraggio`, cioè
+// ritoccando l'Excel e rilanciando uno script: per correggere un mese si
+// passava da un file che sta sul computer di qualcun altro.
+//
+// ATTENZIONE: l'import del Monitoraggio riscrive queste righe. Una modifica
+// fatta qui vale finché non si reimporta quel foglio — sta scritto in pagina.
+export async function salvaBudgetVendite(formData: FormData) {
+  "use server";
+  const anno = Number(formData.get("anno"));
+  if (!Number.isFinite(anno)) return;
+
+  // Un numero scritto a mano: "65.000", "65000,50", "65 000 €" devono valere
+  // tutti lo stesso. Vuoto vuol dire «non lo so», che NON è zero.
+  const numero = (v: FormDataEntryValue | null): number | null => {
+    const grezzo = String(v ?? "").trim();
+    if (!grezzo) return null;
+    const pulito = grezzo.replace(/[^0-9,.-]/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", ".");
+    const n = Number(pulito);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  for (const [chiave, valore] of formData.entries()) {
+    const m = /^riga:(\w+):(\d+):(vendite|budgetAdv)$/.exec(chiave);
+    if (!m) continue;
+    const [, sito, meseStr, campoStr] = m;
+    const campo = campoStr as "vendite" | "budgetAdv";
+    const mese = Number(meseStr);
+    const n = numero(valore);
+
+    const esistente = await prisma.venditaMensile.findUnique({
+      where: { anno_mese_sito: { anno, mese, sito } },
+    });
+    if (!esistente && n == null) continue; // niente da creare per una casella vuota
+    if (esistente) {
+      if ((esistente[campo] ?? null) === n) continue; // invariato: non si tocca
+      await prisma.venditaMensile.update({ where: { id: esistente.id }, data: { [campo]: n } });
+    } else {
+      await prisma.venditaMensile.create({ data: { anno, mese, sito, [campo]: n } });
+    }
+  }
+
+  revalidatePath("/vendite");
+  revalidatePath("/");
+  redirect(`/vendite?anno=${anno}&salvato=1`);
+}

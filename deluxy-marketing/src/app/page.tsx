@@ -3,10 +3,11 @@ import { Badge } from "@/components/Badge";
 import { BottoneSync } from "@/components/BottoneSync";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { Scadenza } from "@/components/Scadenza";
+import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { ScelteBrand } from "@/components/ScelteBrand";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
-import { PRESET_PERIODO, risolviPeriodo, variazione } from "@/lib/periodo";
+import { risolviPeriodo, variazione } from "@/lib/periodo";
 import {
   COLORE_BRAND,
   COLORE_ESITO,
@@ -57,7 +58,10 @@ export default async function Dashboard({
   searchParams: Promise<{ preset?: string; da?: string; a?: string }>;
 }) {
   const p = await searchParams;
-  const periodo = risolviPeriodo(p.preset ?? "30g", p.da, p.a);
+  // Il mese è il difetto giusto qui: il piano è mensile e la tabella sotto
+  // confronta col budget del mese. "Ultimi 30 giorni" a cavallo di due mesi
+  // non si confronta con nessun obiettivo.
+  const periodo = risolviPeriodo(p.preset ?? "mese", p.da, p.a);
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
   // I giorni del grafico e delle somme seguono il periodo scelto; le azioni
@@ -156,17 +160,7 @@ export default async function Dashboard({
   const ros = spesaPeriodo > 0 ? vendite / spesaPeriodo : null;
   const rosPrec = spesaPrec > 0 ? venditePrec / spesaPrec : null;
 
-  // Link che cambia il periodo tenendo il resto della querystring
-  const linkPeriodo = (chiave: string) => {
-    const q = new URLSearchParams();
-    if (chiave !== "libero") q.set("preset", chiave);
-    else {
-      if (p.da) q.set("da", p.da);
-      if (p.a) q.set("a", p.a);
-    }
-    return `/?${q.toString()}`;
-  };
-  const delta = (ora: number, prima: number) => {
+ const delta = (ora: number, prima: number) => {
     const v = variazione(ora, prima); // è già in percentuale
     if (v == null) return null;
     return { testo: `${v >= 0 ? "+" : ""}${v.toFixed(0)}%`, colore: v >= 0 ? "var(--green)" : "var(--red)" };
@@ -203,33 +197,11 @@ export default async function Dashboard({
           </div>
         </div>
 
-        <ScelteBrand />
+        <SceltaPeriodo periodo={periodo} da={p.da} a={p.a} azione="/" />
+
+        <ScelteBrand periodo={periodo.corrente} />
 
         <AndamentoMese />
-
-        {/* Il periodo comanda tutto quello che è una somma: spesa, vendite,
-            analisi e grafico. Le azioni aperte restano quelle di adesso. */}
-        <section className="scheda" style={{ paddingBottom: 14 }}>
-          <div className="pill-scelta" style={{ marginBottom: 12 }}>
-            {PRESET_PERIODO.filter((x) => x.chiave !== "libero").map((x) => (
-              <a
-                key={x.chiave}
-                className={`pill-opt${periodo.preset === x.chiave ? " attuale" : ""}`}
-                href={linkPeriodo(x.chiave)}
-              >
-                {x.nome}
-              </a>
-            ))}
-          </div>
-          <form className="filtri" method="get" action="/" style={{ marginBottom: 0 }}>
-            <input type="date" name="da" defaultValue={p.da ?? ""} title="Dal" />
-            <input type="date" name="a" defaultValue={p.a ?? ""} title="Al (compreso)" />
-            <button className="btn small" type="submit">Vai</button>
-            <span className="cella-sub" style={{ alignSelf: "center" }}>
-              Stai guardando: <b>{periodo.corrente.etichetta}</b> ({giorniPeriodo} giorni)
-            </span>
-          </form>
-        </section>
 
         <div className="kpi-riga">
           <div className="kpi">

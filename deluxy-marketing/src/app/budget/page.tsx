@@ -40,6 +40,9 @@ export default async function PaginaBudget({
 
         {/* Le attese per canale stanno in cima: sono la decisione da cui
             discende tutto il resto della pagina. */}
+        {/* Le attese per canale vivono anche in Budget vendite, che è dove si va
+            a cercarle: qui restano perché è la pagina della spesa e le due cose
+            si guardano insieme. */}
         <VenditeAttese anno={anno} mese={mese} salvato={salvato === "1"} />
 
         <div className="pill-scelta" style={{ marginBottom: 18 }}>
