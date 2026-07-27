@@ -63,10 +63,11 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 | Metodo | Rotta | Scopo |
 | --- | --- | --- |
 | GET | `/api/v1/health` | sonda pubblica |
-| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio, problema`) e paginazione (`page, limit`) |
+| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio, problema, canale`) e paginazione (`page, limit`) |
 | GET | `/api/v1/ordini/:id` | un ordine con la classificazione (410 se annullato) |
 | PATCH | `/api/v1/ordini/:id` | riclassifica (chiave di scrittura): `stato`, `etichette[]`, `categoriaPagamento`, `tipoConsegna`, `tipoProdotto`, `canale`, `assegnatoApp`, `fornitore`, `responsabile`, `classificazioni{}`, `noteInterne` |
 | GET | `/api/v1/ricavi` | venduto **aggregato per brand e per mese** (`anno`, oppure `da`/`a`; `brand`; `annullati=inclusi`, `rimborsati=inclusi`) |
+| GET | `/api/v1/marketing` | venduto **per canale di provenienza**, con lo split clienti nuovi / clienti che tornano, i dodici mesi e le **campagne** per nome (`anno` oppure `da`/`a`; `brand`) |
 | GET | `/api/v1/stati` | la pipeline degli stati (per interpretare `stato`) |
 | GET | `/api/v1/liste` | catalogo delle liste di clienti, con conteggi, criteri e soglie |
 | GET | `/api/v1/liste/:chiave` | i clienti di una lista (`q, ordina, page, limit≤500`) con segmento, tipologia, spesa e recency; con `riepilogo=si` anche riassunto e gusti |
@@ -109,6 +110,25 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 > validi *precedenti a quello*, quindi un ordine vecchio resta `numeroOrdine: 1`
 > anche se oggi quel cliente ne ha venti. Il canale è **attribuzione al primo
 > contatto** del percorso che ha portato all'ordine, non all'ultimo clic.
+
+> **`/api/v1/marketing` risponde a una domanda che una dashboard pubblicitaria
+> non sa dare: di questi ordini, quanti sono di gente che avrebbe comprato
+> comunque?** Per ogni canale escono `ordini`, `lordo`, i dodici `mesi` e il
+> taglio `primi` / `daRepeater` / `nonAttribuibili` — più le `campagne` col loro
+> nome vero, per riconciliare spesa e venduto riga per riga. Il conto dei
+> clienti nuovi si fa **prima** di tagliare il periodo: se si guardasse solo
+> l'anno in corso, il secondo ordine di un cliente del 2024 risulterebbe un
+> cliente nuovo. `nonAttribuibili` sono gli ordini senza email, telefono né
+> nome: non si può dire se il cliente sia nuovo, e non si indovina.
+> Numeri veri del 2026: **Brand Protection** ha 43 ordini di cui **21 nuovi** —
+> metà di quella spesa raggiunge chi ci cercava già per nome.
+
+> **Da dove ci è arrivato un CLIENTE è un'altra domanda da «da dove arriva
+> quest'ordine».** `/api/v1/clienti` porta `acquisizione: { canale, primoOrdine
+> }`, cioè il canale del suo **primo ordine valido**: una persona la si acquista
+> una volta sola, e se poi torna scrivendo l'indirizzo quegli ordini sono
+> «diretti» ma a portarcela è stato il canale di allora. `canale: null` = quel
+> primo ordine non ha provenienza, **non** «diretto».
 
 > **Il riassunto del cliente esce, ma `riepilogo: null` non vuol dire «cliente
 > senza preferenze».** Vuol dire che non è ancora stato scritto: si scrive

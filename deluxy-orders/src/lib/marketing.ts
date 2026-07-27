@@ -115,6 +115,10 @@ export const CANALI: CanaleMarketing[] = [
 
 const PER_CHIAVE = new Map(CANALI.map((c) => [c.chiave, c]));
 
+// I canali che ci sono costati qualcosa: è il taglio che serve più spesso a
+// chi guarda i numeri («quanto del venduto l'abbiamo comprato?»).
+export const CANALI_PAGATI = CANALI.filter((c) => c.pagato).map((c) => c.chiave);
+
 export function canale(chiave: string | null | undefined): CanaleMarketing | null {
   return chiave ? (PER_CHIAVE.get(chiave) ?? null) : null;
 }

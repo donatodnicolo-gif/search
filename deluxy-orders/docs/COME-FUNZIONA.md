@@ -682,9 +682,40 @@ viene aggiornato per altri motivi, il rischio viene salvato in quell'occasione.
 ## Lettura dalle altre app
 Le altre app leggono con una chiave di sola lettura (`GET /api/v1/ordini`,
 `/api/v1/ordini/:id`, `/api/v1/stati`, `/api/v1/liste`, `/api/v1/liste/:chiave`,
-`/api/v1/clienti`, `/api/v1/clienti/:cliente`, `/api/v1/ricavi`). Chi ha una
-chiave di scrittura può anche riclassificare (`PATCH /api/v1/ordini/:id`).
-Dettaglio in `README.md`.
+`/api/v1/clienti`, `/api/v1/clienti/:cliente`, `/api/v1/ricavi`,
+`/api/v1/marketing`). Chi ha una chiave di scrittura può anche riclassificare
+(`PATCH /api/v1/ordini/:id`). Dettaglio in `README.md`.
+
+### Quanto vale ogni canale (`/api/v1/marketing`)
+L'app Marketing sa quanto ha **speso** per canale; qui trova quanto ha
+**incassato** — e soprattutto il taglio che nessuna dashboard pubblicitaria sa
+dare: **di quegli ordini, quanti sono di gente che avrebbe comprato comunque.**
+Un canale che porta solo clienti che tornavano già non sta acquistando niente:
+sta rifatturando la fedeltà.
+
+Per ogni canale: ordini, lordo, i dodici mesi, e lo split `primi` (clienti mai
+visti prima) / `daRepeater` / `nonAttribuibili`. In più le **campagne per nome**
+(«[Deluxy] - Fiori Milano»), che è la riga con cui si riconcilia la spesa
+pubblicitaria col venduto.
+
+Sul 2026 (3.419 ordini, 602.160 €): **Google Ads** 792 ordini e 144.499 € di cui
+**701 da clienti nuovi**; la ricerca non pagata 838 ordini e 121.683 €; il
+traffico diretto 783 ordini, ma con 316 ordini su 783 fatti da clienti che
+tornavano. La campagna «Brand Protection» ha 43 ordini di cui **21 nuovi**: metà
+di quella spesa raggiunge chi ci cercava già per nome — è esattamente il tipo di
+cosa che non si vede finché qualcuno non la conta.
+
+Due precisazioni che cambiano i numeri:
+
+- **il cliente nuovo si conta prima di tagliare il periodo**: se si guardasse
+  solo l'anno in corso, il secondo ordine di un cliente del 2024 risulterebbe un
+  cliente nuovo. La numerazione si fa su tutta la storia e solo dopo si taglia;
+- **annullati e rimborsati restano fuori**, come nel venduto, e la risposta
+  dichiara quanti sono (141 ordini, 32.438 € nel 2026).
+
+Sull'elenco degli ordini c'è il filtro `canale=`: una chiave (`google-ads`,
+`ricerca`…), `pagato` per tutti i canali che ci sono costati qualcosa, o
+`sconosciuto` per la coda di ordini di cui non sappiamo la provenienza.
 
 ### Chi è questo cliente (`/api/v1/clienti`)
 Il riassunto scritto dall'AI non resta chiuso qui dentro: esce con le API, così

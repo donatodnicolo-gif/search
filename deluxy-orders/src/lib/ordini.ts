@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { chiaveCliente } from "./tipologia-cliente";
+import { CANALI_PAGATI } from "./marketing";
 
 // Costruzione del filtro Prisma degli ordini, condivisa tra la UI (elenco) e le
 // API di lettura, così i due percorsi filtrano allo stesso modo.
@@ -108,6 +109,14 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
   const rischio = p.get("rischio")?.trim();
   if (rischio === "sospetti") where.rischioLivello = { in: ["MEDIUM", "HIGH"] };
   else if (rischio) where.rischioLivello = rischio;
+
+  // Da dove è arrivato l'ordine. `canale=sconosciuto` chiede proprio quelli su
+  // cui Shopify non sa dire niente: sono una coda di lavoro per il marketing,
+  // non un buco da nascondere.
+  const canale = p.get("canale")?.trim();
+  if (canale === "sconosciuto") where.canaleMarketing = "";
+  else if (canale === "pagato") where.canaleMarketing = { in: CANALI_PAGATI };
+  else if (canale) where.canaleMarketing = canale;
 
   const da = p.get("da")?.trim();
   const a = p.get("a")?.trim();

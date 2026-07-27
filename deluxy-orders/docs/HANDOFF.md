@@ -278,6 +278,25 @@ simbolo). **Attribuzione al primo contatto**, non all'ultimo clic.
   diretto, 192 creati a mano, 189 sconosciuti, 48 Shopping, 16 email, 11
   referral, 8 Meta, 6 AI, 1 WhatsApp, 1 social.
 
+**Esposto alle altre app (27/07/2026)**
+
+- `GET /api/v1/ordini` porta `marketing{}` e, dentro `cliente`, `repeater`,
+  `ordiniPrima`, `numeroOrdine`; nuovo filtro **`canale=`** (una chiave,
+  `pagato`, oppure `sconosciuto`).
+- `GET /api/v1/clienti` porta `acquisizione { canale, primoOrdine }` — il canale
+  del **primo** ordine valido (`src/lib/acquisizione.ts`, `DISTINCT ON`).
+- **`GET /api/v1/marketing`** (nuovo): per canale × mese ordini, lordo, `primi`
+  / `daRepeater` / `nonAttribuibili`, clienti distinti, più le campagne per
+  nome. Misurato in dev: **0,86 s** a caldo (a freddo 20–36 s = compilazione
+  Next, non la query). Due query, ciascuna con una window function su tutta la
+  tabella.
+- ⚠️ **La numerazione dei clienti si fa PRIMA di tagliare il periodo**: la CTE
+  `numerati` scorre tutti gli ordini e solo la CTE `dentro` applica le date. Se
+  si invertisse, il secondo ordine di un cliente del 2024 risulterebbe «cliente
+  nuovo» nel 2026 — il numero sarebbe plausibile e sbagliato.
+- ⚠️ `clienti` nella risposta è la **somma dei distinti per mese**: chi compra a
+  gennaio e a marzo è contato due volte. È dichiarato in `criteri`.
+
 ## Trappole già pagate — leggere prima di toccare l'import
 
 1. **La consegna non si deduce dalle note.** Un ripiego a espressione regolare

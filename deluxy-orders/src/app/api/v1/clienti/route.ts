@@ -9,6 +9,7 @@ import {
 } from "@/lib/clienti";
 import { lista } from "@/lib/segmenti";
 import { prisma } from "@/lib/db";
+import { acquisizioni } from "@/lib/acquisizione";
 
 // GET /api/v1/clienti — i clienti del registro con il RIASSUNTO scritto dall'AI.
 //
@@ -51,13 +52,12 @@ export async function GET(req: NextRequest) {
     prisma.riepilogoCliente.count(),
   ]);
 
-  const riepiloghi = new Map(
-    (
-      await prisma.riepilogoCliente.findMany({
-        where: { chiave: { in: clienti.map((c) => c.chiave) } },
-      })
-    ).map((r) => [r.chiave, r]),
-  );
+  const [riepiloghi, comeArrivati] = await Promise.all([
+    prisma.riepilogoCliente
+      .findMany({ where: { chiave: { in: clienti.map((c) => c.chiave) } } })
+      .then((r) => new Map(r.map((x) => [x.chiave, x]))),
+    acquisizioni(clienti.map((c) => c.chiave)),
+  ]);
 
   const righe = clienti.map((c) => {
       const r = riepiloghi.get(c.chiave);
@@ -75,6 +75,15 @@ export async function GET(req: NextRequest) {
         brand: c.brand,
         segmento: c.segmento,
         tipologia: c.tipologia,
+        // Da dove ci è arrivata questa persona: il canale del suo PRIMO ordine.
+        // Un cliente lo si acquista una volta sola — se poi torna scrivendo
+        // l'indirizzo, quegli ordini sono «diretti» ma la persona l'ha portata
+        // il canale di allora. `canale: null` = quel primo ordine non ha
+        // provenienza, e non va letto come «diretto».
+        acquisizione: {
+          canale: comeArrivati.get(c.chiave)?.canale || null,
+          primoOrdine: comeArrivati.get(c.chiave)?.data ?? null,
+        },
         riepilogo: r
           ? {
               riassunto: r.testo,
