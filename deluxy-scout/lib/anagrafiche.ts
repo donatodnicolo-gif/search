@@ -110,13 +110,47 @@ export async function sincronizzaNegozioRegistro(dati: {
  * Finché non è deployata, il registro ignora il filtro e tornerebbero partner
  * di tutte le fonti: per questo si ricontrolla anche qui.
  */
-export async function fetchSegnalatiDaApp(fonte: string): Promise<PartnerRegistro[]> {
-  const r = await chiama<{ dati?: (PartnerRegistro & { fonte?: string })[] }>({
-    action: 'cerca',
-    fonte,
-    perPage: 50,
-  });
-  return (r.dati ?? []).filter((p) => !p.fonte || p.fonte === fonte);
+export async function fetchSegnalatiDaApp(fonte: string): Promise<{
+  partner: PartnerRegistro[];
+  /** true = l'elenco può essere incompleto (vedi il ripiego qui sotto). */
+  parziale: boolean;
+  /** Quanti ne esistono in tutto, quando si riesce a saperlo. */
+  totali: number | null;
+}> {
+  type Riga = PartnerRegistro & { fonte?: string };
+  const cerca = (extra: Record<string, unknown>) =>
+    chiama<{ dati?: Riga[]; totale?: number }>({ action: 'cerca', perPage: 50, ...extra });
+
+  // Strada buona: il registro filtra per fonte e torna solo quelli giusti.
+  const r = await cerca({ fonte });
+  const dati = r.dati ?? [];
+  const miei = dati.filter((p) => p.fonte === fonte);
+  // Se sono TUTTI della fonte chiesta, il filtro è stato applicato davvero.
+  // Se tornano anche partner di altre fonti, la Edge Function è quella vecchia
+  // (il parametro `fonte` è arrivato dopo) e ha semplicemente ignorato il
+  // filtro: quello che ha risposto non vuol dire niente.
+  if (dati.length && miei.length === dati.length) {
+    return { partner: miei, parziale: false, totali: r.totale ?? miei.length };
+  }
+
+  // Ripiego, finché la funzione non è rideployata: si chiede per categoria —
+  // uno dei pochi filtri che la versione vecchia passa — e si scarta il resto
+  // qui. ⚠️ Il registro ordina per nome e ne dà 50 per volta: se una categoria
+  // ne ha di più, quelli in fondo NON si vedono. Per questo torna
+  // `parziale: true`: un elenco incompleto che si spaccia per completo è
+  // peggio di un elenco vuoto.
+  const CATEGORIE = ['FIORISTA', 'PASTICCERIA'];
+  const risposte = await Promise.all(
+    CATEGORIE.map((categoria) => cerca({ categoria, stato: 'prospect' }).catch(() => ({ dati: [], totale: 0 }))),
+  );
+  const trovati: Riga[] = [];
+  let parziale = false;
+  for (const risposta of risposte) {
+    const righe = risposta.dati ?? [];
+    if ((risposta.totale ?? 0) > righe.length) parziale = true;
+    trovati.push(...righe.filter((p) => p.fonte === fonte));
+  }
+  return { partner: trovati, parziale, totali: null };
 }
 
 /**

@@ -34,16 +34,21 @@ export default function Segnalati() {
   const [loading, setLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
   const [inCorso, setInCorso] = useState<string | null>(null);
+  // true = il registro non ha potuto filtrare per fonte e l'elenco può essere
+  // monco. Va detto: una lista incompleta che sembra completa fa credere che
+  // il lavoro sia finito.
+  const [parziale, setParziale] = useState(false);
 
   const carica = useCallback(async () => {
     setLoading(true);
     setErrore(null);
     try {
-      const [p, ids] = await Promise.all([
+      const [r, ids] = await Promise.all([
         fetchSegnalatiDaApp(FONTE),
         fetchAnagraficheIdPresi().catch(() => new Set<string>()),
       ]);
-      setPartner(p);
+      setPartner(r.partner);
+      setParziale(r.parziale);
       setPresi(ids);
     } catch (e: any) {
       setErrore(e?.message ?? 'Registro non raggiungibile.');
@@ -109,6 +114,18 @@ export default function Segnalati() {
       {errore ? (
         <Text style={styles.errore}>
           <Ionicons name="warning-outline" size={13} color={colors.errore} /> {errore}
+        </Text>
+      ) : null}
+
+      {/* Se il registro non ha potuto filtrare per fonte, l'elenco qui sotto
+          è quello che si è riusciti a recuperare per categoria — non
+          necessariamente tutto. Dirlo è il minimo. */}
+      {parziale ? (
+        <Text style={styles.avviso}>
+          <Ionicons name="information-circle-outline" size={13} color={colors.testo} /> Elenco possibilmente
+          incompleto: il registro sta rispondendo senza il filtro per fonte, quindi si vedono solo i primi
+          fioristi e pasticcerie in ordine alfabetico. Si risolve rilanciando il deploy della funzione
+          `anagrafiche`.
         </Text>
       ) : null}
 
@@ -200,6 +217,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     backgroundColor: colors.bianco,
     borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  avviso: {
+    color: colors.testo,
+    fontSize: 12.5,
+    lineHeight: 18,
+    backgroundColor: colors.bianco,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
     padding: spacing.md,
   },
   fonte: { fontSize: 12, color: colors.grigio, fontWeight: '600' },
