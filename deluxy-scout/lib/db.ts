@@ -1,7 +1,7 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
 import type { AffiliazioneRow, Contact, Deal, EsitoVisita, FonteLead, Lead, Linea, Ordine, Place, Profilo, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
-import { LINEE_ATTIVE, statoDaEsito } from '@/types';
+import { LINEE_ATTIVE, statoDaEsito, statoRegistroDaAffiliazione } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
 import { notificaArchiviazioneReferente, sincronizzaNegozioRegistro } from '@/lib/anagrafiche';
@@ -264,8 +264,9 @@ export async function sincronizzaPlaceRegistro(placeId: string): Promise<void> {
       categoria: p.categoria ?? null,
       stato: p.stato ?? null,
       // Stato "vero" di Anagrafiche (8 valori): se impostato ha priorità sulla
-      // derivazione dai 4 stati di pipeline.
-      statoRegistro: p.stato_affiliazione ?? null,
+      // derivazione dai 4 stati di pipeline. ⚠️ Tradotto: `selezionato` è di
+      // Scout e il registro non lo conosce — per lui è un prospect.
+      statoRegistro: statoRegistroDaAffiliazione(p.stato_affiliazione),
       // Account = venditore che segue il cliente (aggiornato anche su Anagrafiche).
       account: p.anagrafiche_account ?? null,
       linee,

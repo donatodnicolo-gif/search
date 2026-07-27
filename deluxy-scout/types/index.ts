@@ -7,7 +7,13 @@ export type StatoPlace = 'da_visitare' | 'visitato' | 'cliente' | 'perso';
 export type EsitoVisita = 'interessato' | 'da_richiamare' | 'non_target' | 'chiuso';
 
 // Stato di lavorazione dell'affiliazione — gli 8 valori del registro Deluxy Anagrafiche.
+// ⚠️ `selezionato` è **di Scout, non del registro**: Anagrafiche ha i suoi 8
+// stati e questo non è fra quelli. Esiste perché nel funnel di Scout
+// (lib/livelli.ts) un negozio scelto con la ⭐ ma mai contattato è un
+// SELEZIONATO, e finora lo si poteva solo dedurre, non dichiarare. Verso il
+// registro viene tradotto in `prospect` (`statoRegistroDaAffiliazione`).
 export type StatoAffiliazione =
+  | 'selezionato'
   | 'prospect'
   | 'in_contatto'
   | 'in_attesa'
@@ -19,6 +25,7 @@ export type StatoAffiliazione =
 
 // Ordine dello "step" (dal primo contatto alla chiusura) per la UI.
 export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
+  'selezionato',
   'prospect',
   'in_contatto',
   'in_attesa',
@@ -29,11 +36,22 @@ export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
   'dismesso',
 ];
 
+/**
+ * Lo stato da mandare ad Anagrafiche. Il registro conosce i suoi 8 stati: se
+ * gli si manda `selezionato` lo scarta (o peggio, lo accetta e nessuno capisce
+ * più cosa vuol dire). Un selezionato per il registro è un prospect.
+ */
+export function statoRegistroDaAffiliazione(s: StatoAffiliazione | null | undefined): string | null {
+  if (!s) return null;
+  return s === 'selezionato' ? 'prospect' : s;
+}
+
 // Ponte tra i due modelli di stato: il registro Anagrafiche ha 8 stati
 // (StatoAffiliazione), la pipeline interna di Scout ne ha 4 (StatoPlace). Quando
 // si imposta lo stato "vero" (quello di Anagrafiche) si deriva anche lo stato di
 // pipeline, così percorso/filtri restano coerenti.
 export const statoPlaceDaAffiliazione: Record<StatoAffiliazione, StatoPlace> = {
+  selezionato: 'da_visitare',
   prospect: 'da_visitare',
   in_contatto: 'visitato',
   in_attesa: 'visitato',
