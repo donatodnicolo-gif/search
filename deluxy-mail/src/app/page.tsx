@@ -1,6 +1,5 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { PRIORITA } from '@/lib/format'
 import { ColonnaAttivita } from '@/components/ColonnaAttivita'
@@ -16,16 +15,12 @@ import { DelegaReneDialog } from '@/components/DelegaRene'
 import { AgganciaDialog } from '@/components/AgganciaRiga'
 import { NomeThreadDialog } from '@/components/NomeThreadRiga'
 import { FinestraScrivi } from '@/components/FinestraScrivi'
-import { ListaMail } from '@/components/ListaMail'
-import type { RigaData } from '@/components/RigaMail'
+import { ListaPosta, ListaPostaInCorso } from '@/components/ListaPosta'
 import { descriviAzioni } from '@/lib/appDeluxy'
 import { leggiChiaviApp } from '@/lib/chiaviApp'
 import { richiediUtente } from '@/lib/sessione'
-import { raggruppa } from '@/lib/thread'
 import { emailContattiAI } from '@/lib/contattiAI'
-import { nomiPerGruppi } from '@/lib/nomiThread'
 import { idsThreadAI } from '@/lib/threadAI'
-import { indiceClienti } from '@/lib/anagrafiche'
 import { accountAttivoId } from '@/lib/accountAttivo'
 
 export const dynamic = 'force-dynamic'
@@ -36,29 +31,6 @@ export const maxDuration = 60
 
 type Props = {
   searchParams: Promise<{ sezione?: string; stato?: string; p?: string; vista?: string; q?: string }>
-}
-
-/**
- * In ricerca: estrae un pezzetto di testo attorno alla PRIMA occorrenza del
- * termine cercato, così la riga fa vedere DOVE compare (di solito nel corpo,
- * non nell'oggetto). Scandisce i campi nell'ordine in cui è più utile vederlo;
- * torna null solo se il termine non è in nessuno (non dovrebbe succedere: la
- * mail è nei risultati proprio perché lo contiene).
- */
-function snippetRicerca(campi: (string | null | undefined)[], termine: string, contorno = 90): string | null {
-  const t = termine.toLowerCase()
-  for (const campo of campi) {
-    if (!campo) continue
-    const i = campo.toLowerCase().indexOf(t)
-    if (i === -1) continue
-    const inizio = Math.max(0, i - contorno)
-    const fine = Math.min(campo.length, i + termine.length + contorno)
-    let s = campo.slice(inizio, fine).replace(/\s+/g, ' ').trim()
-    if (inizio > 0) s = '… ' + s
-    if (fine < campo.length) s = s + ' …'
-    return s
-  }
-  return null
 }
 
 export default async function PostaInArrivo({ searchParams }: Props) {
@@ -111,16 +83,6 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         : Promise.resolve([]),
     ])
 
-  const setAI = new Set(emailAI)
-  // Nella AI Inbox "non c'è niente da seguire" solo se mancano SIA i contatti
-  // col PLUS AI SIA le conversazioni col PLUS AI.
-  const senzaAI = emailAI.length === 0 && idsAI.length === 0
-
-  // Riconciliazione coi CLIENTI di Anagrafiche (come in /clienti): si avvia
-  // subito e si aspetta solo alla fine. L'indice sta in memoria (30 min) e non
-  // blocca mai la pagina: se non è pronto si va avanti senza badge.
-  const clientiPromise = indiceClienti().catch(() => null)
-
   // Le sezioni per lo spostamento rapido dalla riga (SPAM esclusa: da lì si esce
   // con «Non è spam», non ci si sposta a mano).
   const sezioniPerSposta = tutteLeSezioni.filter((s) => s.nome !== 'SPAM')
@@ -142,9 +104,6 @@ export default async function PostaInArrivo({ searchParams }: Props) {
   // L'id dello SPAM ce l'abbiamo già: le sezioni sono state lette nell'ondata
   // parallela qui sopra, quindi non costa nessuna query in più.
   const spamId = tutteLeSezioni.find((s) => s.nome === 'SPAM')?.id ?? null
-  const fuoriSpam = spamId
-    ? { AND: [{ OR: [{ sezioneId: null }, { sezioneId: { not: spamId } }] }] }
-    : {}
 
   if (account === 0) {
     return (
@@ -184,294 +143,6 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     : sezione
       ? [sezione]
       : []
-
-  // La sezione SPAM si vede solo aprendola: nella posta in arrivo (e nella AI
-  // Inbox) la posta indesiderata resta fuori — escluso col filtro sulla
-  // relazione sezione.nome più sotto (NON con l'id, per non perdere i NULL).
-
-  // In RICERCA la posta si guarda tutta: ricevute e inviate, in qualunque
-  // sezione (tranne il cestino). I filtri sezione/vista non si applicano.
-  const whereRicerca = {
-    utenteId: u.id,
-    cestinato: false,
-    OR: [
-      { oggetto: { contains: q, mode: 'insensitive' as const } },
-      { mittente: { contains: q, mode: 'insensitive' as const } },
-      { mittenteNome: { contains: q, mode: 'insensitive' as const } },
-      { destinatari: { contains: q, mode: 'insensitive' as const } },
-      { corpoTesto: { contains: q, mode: 'insensitive' as const } },
-      { corpoTradotto: { contains: q, mode: 'insensitive' as const } },
-    ],
-  }
-
-  const messaggi = await db.messaggio.findMany({
-    where: ricerca ? whereRicerca : {
-      utenteId: u.id,
-      // Casella attiva (multi-account): se scelta, si vede solo la sua posta.
-      ...(accountAttivo ? { accountId: accountAttivo } : {}),
-      // Il cestino ha una pagina sua: qui non si vede mai, nemmeno fra gli
-      // archiviati o filtrando per sezione.
-      cestinato: false,
-      // Quello che hai inviato tu sta in "Posta inviata".
-      direzione: 'entrata',
-      archiviato: stato === 'archiviati',
-      // Una mail smistata in una sezione sta NELLA SUA SEZIONE, come le
-      // cartelle di un client classico: la posta in arrivo mostra solo quella
-      // ancora da smistare. Senza questo, una sezione ad alto volume (es. le
-      // notifiche degli ordini) replicherebbe sé stessa in posta in arrivo
-      // seppellendo il resto. Nella AI Inbox invece si vede tutto il contatto,
-      // in qualunque sezione (tranne SPAM).
-      // Lo SPAM si esclude con `fuoriSpam` (vedi il commento dov'è costruito:
-      // niente sottoquery per riga, e i NULL restano dentro).
-      ...(sezione
-        ? { sezioneId: { in: idsSezione } }
-        : vistaAI
-          // AI Inbox: le mail dei contatti AI+, SPAM escluso.
-          ? fuoriSpam
-          : vistaNonSmistate
-            // "Non smistate" = la posta in arrivo MENO quella già in una sezione:
-            // tutto ciò che non ha ancora una sezione. Nessun vincolo sull'analisi AI.
-            ? { sezioneId: null }
-            // "In arrivo": TUTTA la posta (anche quella già smistata, che in riga
-            // mostra il badge della sua sezione), tranne lo SPAM. Il Cestino è
-            // già escluso a monte (cestinato: false).
-            : fuoriSpam),
-      ...(stato === 'non-letti' ? { letto: false } : {}),
-      ...(stato === 'da-rispondere' ? { serveRisposta: true } : {}),
-      ...(p ? { priorita: p } : {}),
-      // AI Inbox: SOLO le mail dei contatti col PLUS AI. Le mail nuove degli
-      // altri restano in "In arrivo". Confronto CASE-INSENSITIVE: il mittente è
-      // salvato com'è nell'indirizzo (la parte prima della @ può avere maiuscole,
-      // es. "Martina.Calia@…"), mentre i contatti AI sono minuscoli — un "in"
-      // secco non aggancerebbe.
-      // …e ANCHE le mail delle conversazioni col PLUS AI (il segno sta su ogni
-      // mail del thread, quindi basta guardare l'id).
-      ...(vistaAI
-        ? {
-            OR: [
-              ...emailAI.map((e) => ({ mittente: { equals: e, mode: 'insensitive' as const } })),
-              ...(idsAI.length ? [{ id: { in: idsAI } }] : []),
-            ],
-          }
-        : {}),
-    },
-    // Sempre in ordine di arrivo: una mail appena arrivata non è ancora stata
-    // analizzata, e ordinare per priorità la spingerebbe in fondo. Per vedere
-    // le urgenze si usano i filtri P0…P3 qui sopra.
-    orderBy: { data: 'desc' },
-    // Finestra larga: con molte notifiche automatiche (es. gli ordini) le
-    // ultime 100 sarebbero quasi tutte quelle, e il resto della posta
-    // sparirebbe. Si prende largo (senza i corpi, che pesano) e si taglia
-    // DOPO il raggruppamento in conversazioni.
-    // 800 basta: con 2000 si pagava il trasporto dal database (e il tempo di
-    // raggruppamento) di mail che nessuno arriva mai a scorrere.
-    take: 800,
-    // ⚠️ PESO DELLA RISPOSTA. Qui prima c'era `omit: { corpoTesto, corpoHtml }`,
-    // cioè "prendi tutto tranne due campi": restavano dentro `corpoTradotto` e
-    // `eventoProposto`, che sono TEXT e possono pesare decine di KB l'uno — per
-    // 800 righe, megabyte trasportati dall'Europa agli Stati Uniti a ogni
-    // apertura di una cartella (lo SPAM, pieno di mail straniere tradotte, era
-    // il caso peggiore). Ora si elencano SOLO i campi che la riga usa davvero;
-    // della traduzione servono 200 caratteri e dell'evento solo "c'è o no": si
-    // prendono più sotto, con una query mirata sulle sole righe mostrate.
-    select: {
-      id: true,
-      thread: true,
-      messageId: true,
-      threadManuale: true,
-      scollegato: true,
-      direzione: true,
-      mittente: true,
-      mittenteNome: true,
-      destinatari: true,
-      oggetto: true,
-      data: true,
-      anteprima: true,
-      riassunto: true,
-      lingua: true,
-      letto: true,
-      archiviato: true,
-      cestinato: true,
-      sezioneId: true,
-      priorita: true,
-      prioritaDa: true,
-      analizzatoIl: true,
-      dimensione: true,
-      // Piccolo (di solito NULL, altrimenti un JSON di poche righe): resta qui.
-      eventoProposto: true,
-      sezione: { select: { nome: true, colore: true } },
-      bozze: { where: { inviata: false }, select: { id: true } },
-      _count: { select: { attivita: true, inviiApp: true } },
-    },
-  })
-
-  // Raggruppa la posta in conversazioni: una riga per thread (catena di
-  // risposte o stesso oggetto anche con destinatari diversi). Il volto della
-  // riga è il messaggio più recente del thread. La lista si carica poi 25 alla
-  // volta lato client, così l'apertura resta leggera anche con molta posta.
-  // 300 conversazioni: oltre, si spediva al browser un elenco enorme che
-  // nessuno scorre (in fondo alla lista c'è comunque «Carica altre» e, per la
-  // posta vecchia, la ricerca sul server).
-  const gruppi = raggruppa(messaggi).slice(0, 300)
-
-  // Iconcina "risposto": una mail ha una nostra risposta se nel suo thread c'è
-  // un messaggio in USCITA. (Gli inoltri aprono una conversazione nuova, quindi
-  // non risultano legati all'originale: qui si segna solo "risposto".)
-  // Deduplicati: in un thread di 30 mail la radice è sempre la stessa, e senza
-  // il `Set` finiva 30 volte dentro l'`IN (…)` delle due query qui sotto.
-  const rootsVisti = [
-    ...new Set(messaggi.map((m) => m.thread || m.messageId).filter((x): x is string => Boolean(x))),
-  ]
-  // I codici di aggancio manuale presenti: servono a ritrovare gli INOLTRI, che
-  // non hanno la radice del thread (aprono una catena nuova) e sono legati
-  // all'originale solo dall'aggancio.
-  const codiciManuali = [...new Set(messaggi.map((m) => m.threadManuale).filter((x): x is string => Boolean(x)))]
-
-  // Le letture che dipendono dai gruppi vanno insieme, non in fila.
-  const [uscite, inoltri, nomiConv] = await Promise.all([
-    rootsVisti.length
-      ? db.messaggio.findMany({
-          where: { utenteId: u.id, direzione: 'uscita', thread: { in: rootsVisti } },
-          select: { thread: true },
-        })
-      : Promise.resolve([]),
-    rootsVisti.length || codiciManuali.length
-      ? db.messaggio.findMany({
-          where: {
-            utenteId: u.id,
-            direzione: 'uscita',
-            modoInvio: 'inoltra',
-            OR: [{ thread: { in: rootsVisti } }, { threadManuale: { in: codiciManuali } }],
-          },
-          select: { thread: true, threadManuale: true },
-        })
-      : Promise.resolve([]),
-    // Il nome dato a mano alle conversazioni (badge oro nella riga). Si cerca
-    // su TUTTI i messaggi del gruppo: vedi il commento in nomiPerGruppi.
-    nomiPerGruppi(u.id, gruppi),
-  ])
-  const threadRisposti = new Set<string>()
-  for (const o of uscite) if (o.thread) threadRisposti.add(o.thread)
-  const radiciInoltrate = new Set<string>()
-  const agganciInoltrati = new Set<string>()
-  for (const o of inoltri) {
-    if (o.thread) radiciInoltrate.add(o.thread)
-    if (o.threadManuale) agganciInoltrati.add(o.threadManuale)
-  }
-
-  // Il cliente (azienda attiva in Anagrafiche) del mittente, per email esatta
-  // o per dominio aziendale — stessa regola della pagina /clienti.
-  const idxClienti = await clientiPromise
-  const clienteDi = (mittente: string): string | null => {
-    if (!idxClienti) return null
-    const e = mittente.toLowerCase()
-    const cli = idxClienti.perEmail.get(e) || idxClienti.perDominio.get(e.split('@')[1] || '')
-    return cli ? cli.nome : null
-  }
-
-  const righe: RigaData[] = gruppi.map((g, i) => {
-    const m = g[g.length - 1] // il volto: il messaggio più recente del thread
-    return {
-      nomeThread: nomiConv[i] ?? null,
-      id: m.id,
-      mittente: m.mittente,
-      mittenteNome: m.mittenteNome,
-      oggetto: m.oggetto,
-      data: m.data,
-      riassunto: m.riassunto,
-      anteprima: m.anteprima,
-      // L'anteprima della traduzione arriva dalla query mirata più sotto: il
-      // corpo tradotto INTERO non si trasporta, né dal database né al browser.
-      corpoTradotto: null,
-      lingua: m.lingua,
-      sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
-      sezioneId: m.sezioneId,
-      bozze: m.bozze.length,
-      attivita: m._count.attivita,
-      inviiApp: m._count.inviiApp,
-      eventoProposto: Boolean(m.eventoProposto),
-      archiviato: m.archiviato,
-      cestinato: m.cestinato,
-      priorita: m.priorita,
-      prioritaDa: m.prioritaDa,
-      analizzato: m.analizzatoIl !== null,
-      nel: g.length,
-      parti: new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size,
-      nonLetti: g.some((x) => !x.letto),
-      contattoAI: setAI.has(m.mittente.toLowerCase()),
-      risposto: threadRisposti.has(m.thread || m.messageId || ''),
-      // Inoltrata: c'è una nostra mail d'inoltro nella stessa conversazione
-      // (per radice o per aggancio manuale).
-      inoltrato:
-        radiciInoltrate.has(m.thread || m.messageId || '') ||
-        g.some((x) => x.threadManuale && agganciInoltrati.has(x.threadManuale)),
-      // In ricerca compaiono anche le mail INVIATE: le mostriamo col "a …".
-      inviata: m.direzione === 'uscita',
-      destinatari: m.destinatari,
-      // Badge verde col nome dell'azienda se il mittente è un cliente.
-      clienteNome: m.direzione === 'uscita' ? null : clienteDi(m.mittente),
-      // Per l'ordinamento: la dimensione del volto (la mail più recente).
-      dimensione: m.dimensione ?? 0,
-    }
-  })
-
-  // ⚠️ I CAMPI PESANTI, presi SOLO per le righe davvero mostrate e SOLO nella
-  // misura che serve. Tre cose in una query sola, tutta di interi e stringhe
-  // corte:
-  //  • DIMENSIONE per l'ordinamento: le mail salvate prima del campo
-  //    `dimensione` (e quelle che un backfill non ha raggiunto) l'hanno a 0, e
-  //    senza questo ordinare per dimensione non produrrebbe alcun effetto.
-  //  • TRADUZIONE: la riga ne mostra 200 caratteri — si tagliano nel database,
-  //    invece di trasportare il corpo tradotto intero di ogni mail.
-  // Si interrogano solo le righe che hanno qualcosa da chiedere: se le
-  // dimensioni ci sono già e nessuna mail è in lingua straniera, costo zero.
-  const daCompletare = righe.filter((r) => !r.dimensione || r.lingua)
-  if (daCompletare.length > 0) {
-    try {
-      const extra = await db.$queryRaw<{ id: string; peso: number; tradotto: string | null }[]>(
-        Prisma.sql`SELECT "id",
-                          (octet_length("corpoTesto") + COALESCE(octet_length("corpoHtml"), 0))::int AS peso,
-                          left("corpoTradotto", 400) AS tradotto
-                     FROM "Messaggio"
-                    WHERE "id" IN (${Prisma.join(daCompletare.map((r) => r.id))})`
-      )
-      const perId = new Map(extra.map((e) => [e.id, e]))
-      for (const r of daCompletare) {
-        const e = perId.get(r.id)
-        if (!e) continue
-        if (!r.dimensione) r.dimensione = Number(e.peso) || 0
-        r.corpoTradotto = e.tradotto ? e.tradotto.replace(/\s+/g, ' ').slice(0, 200) : null
-      }
-    } catch {
-      /* niente: si ordina e si mostra con quello che c'è */
-    }
-  }
-
-  // In ricerca: per far vedere DOVE compare la parola cercata, prendo il corpo
-  // delle sole mail mostrate (i corpi sono esclusi dalla query leggera) e ne
-  // ricavo uno snippet evidenziato. Così ogni risultato mostra la parola.
-  if (ricerca) {
-    const corpi = await db.messaggio.findMany({
-      where: { id: { in: righe.map((r) => r.id) }, utenteId: u.id },
-      select: {
-        id: true,
-        corpoTesto: true,
-        corpoTradotto: true,
-        oggetto: true,
-        destinatari: true,
-        mittenteNome: true,
-        mittente: true,
-      },
-    })
-    const perId = new Map(corpi.map((c) => [c.id, c]))
-    for (const r of righe) {
-      const c = perId.get(r.id)
-      r.snippet = c
-        ? snippetRicerca([c.corpoTesto, c.corpoTradotto, c.oggetto, c.destinatari, c.mittenteNome, c.mittente], q)
-        : null
-      r.evidenzia = q
-    }
-  }
 
   // Il pannello APP DELUXY: le funzioni delle altre app richiamabili da qui.
   // Le chiavi (già lette nell'ondata parallela) decidono quali sono collegate.
@@ -596,43 +267,32 @@ export default async function PostaInArrivo({ searchParams }: Props) {
       {vistaAI && !ricerca && <AnalisiAIInbox />}
 
       <div className="inbox-split">
-        <div className="card tight">
-        {messaggi.length === 0 ? (
-          <div className="empty">
-            <div className="empty-icon">{ricerca ? '⌕' : vistaAI && senzaAI ? 'AI' : '✓'}</div>
-            <div className="empty-title">
-              {ricerca
-                ? 'Nessun risultato'
-                : vistaAI && senzaAI
-                  ? 'Nessun contatto col PLUS AI'
-                  : 'Niente da vedere qui'}
-            </div>
-            <p className="empty-text">
-              {ricerca ? (
-                <>Nessuna mail (ricevuta o inviata) contiene «{q}».</>
-              ) : vistaAI && senzaAI ? (
-                <>
-                  Apri una mail (o una scheda in Rubrica) e premi <strong>+ AI</strong> per
-                  seguirne il contatto qui. Intanto trovi la posta in{' '}
-                  <Link href="/?vista=all" style={{ textDecoration: 'underline' }}>
-                    In arrivo
-                  </Link>
-                  .
-                </>
-              ) : (
-                'Nessun messaggio con questi filtri. Premi “Aggiorna posta” per leggere le novità.'
-              )}
-            </p>
-          </div>
-        ) : (
-          <ListaMail
-            righe={righe}
-            sezioni={sezioniPerSposta}
-            // In ricerca no: scaricare blocchi vecchi a caso non c'entra coi risultati.
-            cercaVecchie={!ricerca && storicoIncompleto}
+        {/* ⚠️ PRIMA LA PAGINA, POI LA POSTA. L'elenco stava qui dentro, e Next
+            non manda una riga di HTML finché il componente non ha finito:
+            aprire la posta in arrivo voleva dire restare sul bianco per tutto
+            il tempo delle query (800 mail, raggruppamento, nomi, risposte,
+            clienti). Ora titolo, filtri e schede escono subito e l'elenco
+            arriva un attimo dopo. Il lavoro è lo stesso: non è più veloce, è
+            non bloccante — ed è quello che si sente. */}
+        <Suspense fallback={<ListaPostaInCorso />}>
+          <ListaPosta
+            utenteId={u.id}
+            accountAttivo={accountAttivo}
+            q={q}
+            ricerca={ricerca}
+            sezione={sezione}
+            idsSezione={idsSezione}
+            spamId={spamId}
+            vistaAI={vistaAI}
+            vistaNonSmistate={vistaNonSmistate}
+            stato={stato}
+            p={p}
+            emailAI={emailAI}
+            idsAI={idsAI}
+            sezioniPerSposta={sezioniPerSposta}
+            storicoIncompleto={storicoIncompleto}
           />
-        )}
-        </div>
+        </Suspense>
 
         <div className="inbox-lato">
           {/* ⚠️ La colonna di destra sta DENTRO un Suspense. Senza, la pagina non

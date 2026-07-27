@@ -220,6 +220,11 @@ testi tradotti delle mail (che nella riga si vedono per 200 caratteri) né la co
 di destra: la posta compare subito, «Top thread», agenda e attività si riempiono un
 attimo dopo.
 
+**La pagina arriva prima della posta.** Passando da una cartella all'altra la schermata
+— titolo, filtri, schede — compare **subito**, e l'elenco dei messaggi si riempie un
+istante dopo, al posto della scritta «Carico la posta…». Prima si restava sul bianco
+finché non era pronto tutto: il lavoro è lo stesso, ma non blocca più il passaggio.
+
 ## 7. Sicurezza
 
 **Password.** Cifrate con AES-256-GCM (`src/lib/crypto.ts`), chiave derivata da
