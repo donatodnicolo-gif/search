@@ -33,9 +33,30 @@ export type EsitoSync = {
   errore?: string
 }
 
+/**
+ * ⚠️ DATABASE IN SOLA LETTURA. Postgres risponde `25006 — cannot execute INSERT
+ * in a read-only transaction` quando il database non accetta più scritture: su
+ * Supabase succede quando il disco è pieno, e resta così finché non si libera
+ * spazio. Non è un errore del messaggio: è l'intero database che non scrive.
+ *
+ * Va riconosciuto a parte perché il danno peggiore non era non ricevere la
+ * posta — era **perderla**. Un errore non riconosciuto veniva trattato come
+ * «messaggio scartato», ed essendo un esito definitivo il cursore avanzava:
+ * quelle mail non sarebbero MAI più state rilette, nemmeno a database tornato
+ * a posto. Riconoscendolo, il cursore resta fermo e la posta si riprende tutta
+ * appena si può scrivere di nuovo.
+ */
+export function dbInSolaLettura(e: unknown): boolean {
+  const t = e instanceof Error ? e.message : String(e)
+  return t.includes('read-only transaction') || t.includes('25006')
+}
+
 function transitorio(e: unknown): boolean {
   const t = e instanceof Error ? e.message : String(e)
   return (
+    // Il database in sola lettura è un blocco temporaneo, non un messaggio
+    // guasto: NON deve mai contare come «scartato» (vedi sopra).
+    dbInSolaLettura(e) ||
     t.includes('unexpected message from server') ||
     t.includes("Can't reach database server") ||
     t.includes('Connection reset') ||
@@ -893,7 +914,7 @@ export async function sincronizzaAccount(
       return { ...esito, errore }
     }
 
-    const { primoFallito } = await salvaMessaggi({
+    const { primoFallito, solaLettura } = await salvaMessaggi({
       utenteId: account.utenteId,
       accountId: account.id,
       messaggi: nuovi.messaggi,
@@ -903,6 +924,18 @@ export async function sincronizzaAccount(
       esito,
       avanzaUltimoUid: true,
     })
+
+    // ⚠️ Database in sola lettura: si esce SUBITO, senza toccare il cursore e
+    // senza provare le altre caselle. E si dice perché: senza questo messaggio
+    // l'app sembra semplicemente «inchiodata, non riceve più posta», che è
+    // esattamente come è stata vista da fuori.
+    if (solaLettura) {
+      return {
+        ...esito,
+        errore:
+          'Il database non accetta scritture (sola lettura): su Supabase succede quando lo spazio è esaurito. La posta NON è persa — riprende da sola appena si libera spazio.',
+      }
+    }
 
     // Solo in avanti (updateMany con condizione): mai regressioni del cursore.
     const ultimoUid = primoFallito !== null ? primoFallito - 1 : nuovi.ultimoUid
@@ -972,9 +1005,11 @@ async function salvaMessaggi(opts: {
   /** true SOLO per lo scarico dei nuovi: fa avanzare account.ultimoUid man
    *  mano. Lo storico NON deve toccarlo (uid bassi: lo farebbe regredire). */
   avanzaUltimoUid?: boolean
-}): Promise<{ primoFallito: number | null }> {
+}): Promise<{ primoFallito: number | null; solaLettura: boolean }> {
   const { utenteId, accountId, messaggi, regole, traduzioneAuto, dominioProprio, esito } = opts
   let primoFallito: number | null = null
+  // Il database non accetta scritture: inutile insistere sugli altri messaggi.
+  let solaLettura = false
 
   // Contesto anti-spam, preparato una volta per giro: la sezione SPAM e i
   // contatti col PLUS AI (che non vanno mai marcati spam). Un budget limita le
@@ -1159,6 +1194,10 @@ async function salvaMessaggi(opts: {
         if (transitorio(e)) {
           esito.nonSalvati++
           if (primoFallito === null || msg.uid < primoFallito) primoFallito = msg.uid
+          // Database in sola lettura: non è QUESTO messaggio a non andare, è che
+          // niente si può scrivere. Insistere sugli altri trecento è tempo
+          // buttato e riempie i log di errori identici — meglio uscire e dirlo.
+          if (dbInSolaLettura(e)) solaLettura = true
         } else {
           esito.scartati++
           console.error(`[AI Mail] messaggio uid ${msg.uid} scartato ("${msg.oggetto}"):`, e instanceof Error ? e.message : e)
@@ -1167,12 +1206,19 @@ async function salvaMessaggi(opts: {
       }
     }
 
+    if (solaLettura) {
+      console.error(
+        '[AI Mail] database in SOLA LETTURA: scarico interrotto. Nessuna mail persa — il cursore resta fermo e si riprende da qui quando il database torna scrivibile.'
+      )
+      break
+    }
+
     // Esito definitivo (salvato, esistente o scartato): il cursore avanza ORA,
     // così un eventuale timeout non butta via il lavoro fatto fin qui.
     await avanzaCursore(msg.uid)
   }
 
-  return { primoFallito }
+  return { primoFallito, solaLettura }
 }
 
 /**
