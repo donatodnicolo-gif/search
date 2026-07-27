@@ -190,6 +190,22 @@ export default async function PaginaPubblici({
                           </div>
                           <div className="card-campagna-tag">
                             <span className="tag-neutro">{ETICHETTA_TIPO_PUBBLICO[x.tipo] ?? x.tipo}</span>
+                            {/* Da dove viene questo pubblico. Senza, un elenco di nomi
+                                non dice se l'ha scritto qualcuno a mano o se arriva da
+                                un registro che si aggiorna da solo. */}
+                            {x.fonte === "deluxy-orders" && (
+                              <span
+                                className="tag-salute"
+                                style={{ color: "var(--blue)" }}
+                                title="Lista calcolata da Deluxy Orders sul comportamento d'acquisto dei clienti: si aggiorna a ogni import"
+                              >
+                                <span className="dot" />
+                                da Orders
+                              </span>
+                            )}
+                            {x.fonte && x.fonte !== "deluxy-orders" && (
+                              <span className="tag-neutro" title="Origine di questo pubblico">{x.fonte}</span>
+                            )}
                             {piccolo && (
                               <span className="tag-salute" style={{ color: "var(--orange)" }} title={`Sotto i ${SOGLIA_POOL_MINIMO} utenti: pool che satura in fretta`}>
                                 <span className="dot" />

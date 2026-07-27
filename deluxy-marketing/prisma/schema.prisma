@@ -934,3 +934,31 @@ model RichiestaAggiornamento {
   @@index([stato])
   @@index([canale, account])
 }
+
+// Le vendite che ci si aspetta da ogni canale, brand per brand e mese per mese.
+// Il Monitoraggio arriva fino al brand ("Gifts venderà 65.000 € a luglio"), ma
+// la domanda operativa è un'altra: quanto deve portare Google, quanto Meta,
+// quanto arriva da solo. Senza questa riga non si può dire se un canale sta
+// mancando l'obiettivo o se è il mercato che va piano.
+//
+// Si compila a mano nella sezione Budget: è una DECISIONE, non un dato
+// importato, e nessun import la sovrascrive.
+model VenditaAttesa {
+  id           String   @id @default(cuid())
+  anno         Int
+  mese         Int
+  // gifts | flowers | cake
+  brand        String
+  // google_ads | meta_ads | tiktok | organico | diretto | email | altro
+  canale       String
+  // Vendite attese dal canale in quel mese
+  vendite      Float?
+  // Spesa prevista per ottenerle (facoltativa: se c'è, l'app calcola il ROS atteso)
+  spesa        Float?
+  note         String?
+  aggiornatoIl DateTime @updatedAt
+  creataIl     DateTime @default(now())
+
+  @@unique([anno, mese, brand, canale])
+  @@index([anno, mese])
+}

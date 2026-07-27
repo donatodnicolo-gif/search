@@ -1363,3 +1363,53 @@ export async function aggiornaAdesso(fd: FormData) {
   revalidatePath(dove);
   redirect(`${dove}?aggiornamento=${gia ? "gia-in-coda" : "in-coda"}`);
 }
+
+// ---------- Vendite attese per canale ----------
+// Il piano del Monitoraggio arriva fino al brand; qui si dice quanto ci si
+// aspetta da ciascun canale. È una decisione di chi governa il budget, quindi
+// vive solo qui e nessun import la sovrascrive.
+export async function salvaVenditeAttese(fd: FormData) {
+  const anno = numeroDa(fd, "anno");
+  const mese = numeroDa(fd, "mese");
+  if (!anno || !mese) return;
+
+  // Il modulo manda una casella per ogni coppia brand+canale: "attesa:gifts:google_ads"
+  const scritte: { brand: string; canale: string; vendite: number | null; spesa: number | null }[] = [];
+  for (const [chiave, valore] of fd.entries()) {
+    if (!chiave.startsWith("attesa:") || typeof valore !== "string") continue;
+    const [, brand, canale] = chiave.split(":");
+    if (!brand || !canale) continue;
+    const vendite = valore.trim() === "" ? null : Number(valore.replace(",", "."));
+    const spesaRaw = fd.get(`spesa:${brand}:${canale}`);
+    const spesa =
+      typeof spesaRaw === "string" && spesaRaw.trim() !== "" ? Number(spesaRaw.replace(",", ".")) : null;
+    if (vendite != null && isNaN(vendite)) continue;
+    scritte.push({ brand, canale, vendite, spesa: spesa != null && !isNaN(spesa) ? spesa : null });
+  }
+
+  for (const s of scritte) {
+    // Una casella svuotata cancella l'attesa invece di salvare uno zero: zero
+    // vendite attese è una previsione, "non lo so" è un'altra cosa.
+    if (s.vendite == null && s.spesa == null) {
+      await prisma.venditaAttesa.deleteMany({
+        where: { anno, mese, brand: s.brand, canale: s.canale },
+      });
+      continue;
+    }
+    await prisma.venditaAttesa.upsert({
+      where: { anno_mese_brand_canale: { anno, mese, brand: s.brand, canale: s.canale } },
+      create: { anno, mese, brand: s.brand, canale: s.canale, vendite: s.vendite, spesa: s.spesa },
+      update: { vendite: s.vendite, spesa: s.spesa },
+    });
+  }
+
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "budget",
+    titolo: `Vendite attese aggiornate: ${String(mese).padStart(2, "0")}/${anno}`,
+    dettaglio: `${scritte.length} caselle salvate`,
+  });
+  revalidatePath("/budget");
+  redirect(`/budget?anno=${anno}&mese=${mese}&salvato=1`);
+}

@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/Sidebar";
+import { VenditeAttese } from "@/components/VenditeAttese";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_SITO, formattaEuro, MESI_IT, SITI } from "@/lib/dominio";
 
@@ -11,10 +12,12 @@ type Ripartizione = Record<string, { quota: number | null; giorno: number | null
 export default async function PaginaBudget({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string }>;
+  searchParams: Promise<{ anno?: string; mese?: string; salvato?: string }>;
 }) {
-  const { anno: annoParam } = await searchParams;
+  const { anno: annoParam, mese: meseParam, salvato } = await searchParams;
   const anno = Number(annoParam) || 2026;
+  const adesso = new Date();
+  const mese = Number(meseParam) || (anno === adesso.getFullYear() ? adesso.getMonth() + 1 : 1);
   const righe = await prisma.budgetMensile.findMany({
     where: { anno },
     orderBy: [{ sito: "asc" }, { mese: "asc" }],
@@ -33,6 +36,22 @@ export default async function PaginaBudget({
               Monitoraggio, si aggiorna con l&apos;import.
             </p>
           </div>
+        </div>
+
+        {/* Le attese per canale stanno in cima: sono la decisione da cui
+            discende tutto il resto della pagina. */}
+        <VenditeAttese anno={anno} mese={mese} salvato={salvato === "1"} />
+
+        <div className="pill-scelta" style={{ marginBottom: 18 }}>
+          {MESI_IT.map((nome, i) => (
+            <a
+              key={nome}
+              className={`pill-opt${mese === i + 1 ? " attuale" : ""}`}
+              href={`/budget?anno=${anno}&mese=${i + 1}`}
+            >
+              {nome.slice(0, 3)}
+            </a>
+          ))}
         </div>
 
         {SITI.map((sito) => {
