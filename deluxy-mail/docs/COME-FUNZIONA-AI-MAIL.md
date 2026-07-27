@@ -180,6 +180,26 @@ calcolata **in background** e appare un attimo dopo (prima invece la prima apert
 ogni mail restava bloccata sulla chiamata di traduzione). Tutte le letture della pagina
 girano in parallelo, non una dopo l'altra.
 
+## 6a-bis. Mandare una mail a un'app Deluxy
+
+Una mail spesso non va risposta: va **passata a un'altra app** — un partner da creare in
+Anagrafiche, un ordine da smistare, una pratica per il Finance. Si può fare in tre modi,
+e ora anche dal punto in cui serve davvero:
+
+- **dalla mail aperta** — riquadro «Manda a un'app Deluxy»: «Automatico» lascia decidere
+  alle regole, oppure scegli tu la funzione. È il modo naturale, perché scegli **dopo**
+  aver letto cosa chiede la mail;
+- **dalla riga** in posta in arrivo — il tasto «→ App»;
+- **trascinando** la riga su una delle carte del pannello a destra.
+
+In tutti e tre i casi succede la stessa cosa: l'AI legge la mail, prepara i dati e te li
+mostra in un modulo. **Non parte niente finché non confermi tu.** L'esito resta poi
+scritto sulla mail, sotto «Risposte dalle app», col link per aprire il risultato nell'app
+di destinazione.
+
+Le app non collegate si vedono lo stesso, spente: nasconderle farebbe pensare che non
+esistano. Le chiavi si mettono in Impostazioni → App Deluxy.
+
 ## 6b-bis. Inviti di calendario
 
 Se una mail porta con sé un **invito vero** (la parte `text/calendar` che allegano

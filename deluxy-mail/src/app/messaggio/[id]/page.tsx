@@ -30,7 +30,10 @@ import { threadHaAI } from '@/lib/threadAI'
 import { threadEChiuso } from '@/lib/threadChiusi'
 import { ChiudiThread } from '@/components/ChiudiThread'
 import { eContattoAI } from '@/lib/contattiAI'
-import { azioneDi } from '@/lib/appDeluxy'
+import { azioneDi, descriviAzioni } from '@/lib/appDeluxy'
+import { leggiChiaviApp } from '@/lib/chiaviApp'
+import { AppSuMessaggio } from '@/components/AppSuMessaggio'
+import { InvioAppDialog } from '@/components/InvioAppDialog'
 import { leggiEventoProposto } from '@/lib/eventoProposto'
 import { PropostaEvento } from '@/components/PropostaEvento'
 
@@ -73,7 +76,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     link: string | null
     creatoIl: Date
   }
-  const [sezioni, conversazione, conversazioneStretta, contattoAI, inviiApp] = await Promise.all([
+  const [sezioni, conversazione, conversazioneStretta, contattoAI, inviiApp, chiaviApp] = await Promise.all([
     db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } }),
     // La conversazione a cui appartiene questo messaggio. Vista "completa"
     // (ampia): comprende anche le mail scambiate con le stesse persone.
@@ -89,7 +92,12 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         select: { id: true, azioneId: true, esito: true, esitoTesto: true, link: true, creatoIl: true },
       })
       .catch(() => [] as InvioAppRiga[]),
+    // Quali APP DELUXY sono collegate: decide cosa si può richiamare da qui.
+    // (In cache 5 minuti: non è una fetch a ogni apertura di mail.)
+    leggiChiaviApp(),
   ])
+
+  const azioniApp = descriviAzioni(chiaviApp)
 
   // Traduzione: si usa quella già salvata. Se manca (mail in arrivo mai
   // controllata) e la traduzione automatica è attiva, si calcola dopo il render.
@@ -475,6 +483,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         </div>
       )}
 
+      {/* Richiamare le app DA QUI: prima si poteva solo dalla riga in posta in
+          arrivo, cioè prima di aver letto la mail. Il dialogo è lo stesso. */}
+      <AppSuMessaggio messaggioId={messaggio.id} azioni={azioniApp} />
+
       {inviiApp.length > 0 && (
         <div className="card">
           <div className="mail-subject" style={{ fontSize: 18, marginBottom: 12 }}>
@@ -514,6 +526,11 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           })}
         </div>
       )}
+
+      {/* Il dialogo di conferma delle app, montato una volta per la pagina:
+          senza, «Manda a un'app» qui non aprirebbe niente (finora stava solo
+          in posta in arrivo, ed è per questo che dalla mail non si poteva). */}
+      <InvioAppDialog azioni={azioniApp} />
     </>
   )
 }
