@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { numeriCollegati } from '@/lib/numeri-whatsapp'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
+import { RegistraNumero } from '@/components/RegistraNumero'
 import { salvaNumeroAction, eliminaNumeroAction } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -98,6 +99,8 @@ export default async function PaginaNumeriWhatsApp() {
               <button className="bottone">Salva</button>
             </div>
           </form>
+
+          <RegistraNumero phoneNumberId={n.phoneNumberId} etichetta={n.brand || n.nome} />
 
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             {/* Sospendi/riattiva riusa la stessa action cambiando solo `attivo`. */}
