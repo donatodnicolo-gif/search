@@ -1,4 +1,5 @@
 "use server";
+import { FORNITORI, IMP_FORNITORE, impChiaveApi, impModello, type Fornitore } from "@/lib/ai";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -1412,4 +1413,54 @@ export async function salvaVenditeAttese(fd: FormData) {
   });
   revalidatePath("/budget");
   redirect(`/budget?anno=${anno}&mese=${mese}&salvato=1`);
+}
+
+// Quale AI usa l'app, e con quale chiave.
+//
+// Le chiavi non si rileggono MAI: una casella lasciata vuota lascia in pace
+// quella già salvata invece di cancellarla, perché il modulo non può mostrare
+// il valore attuale e un invio distratto altrimenti spegnerebbe l'AI.
+export async function salvaImpostazioniAi(formData: FormData) {
+  "use server";
+  const fornitore = String(formData.get("fornitore") ?? "anthropic");
+  const scelto: Fornitore = fornitore === "openai" ? "openai" : "anthropic";
+
+  await prisma.impostazione.upsert({
+    where: { chiave: IMP_FORNITORE },
+    update: { valore: scelto },
+    create: { chiave: IMP_FORNITORE, valore: scelto },
+  });
+
+  for (const f of FORNITORI) {
+    // Le chiavi arrivano con spazi e a volte con un BOM invisibile incollato
+    // dal browser: va tolto qui, o l'header parte malformato e l'errore
+    // sembra una chiave sbagliata.
+    const nuova = String(formData.get(`chiave:${f.chiave}`) ?? "").replace(/[\s﻿]/g, "");
+    const svuota = formData.get(`svuota:${f.chiave}`) === "1";
+    if (svuota) {
+      await prisma.impostazione.deleteMany({ where: { chiave: impChiaveApi(f.chiave) } });
+    } else if (nuova) {
+      await prisma.impostazione.upsert({
+        where: { chiave: impChiaveApi(f.chiave) },
+        update: { valore: nuova },
+        create: { chiave: impChiaveApi(f.chiave), valore: nuova },
+      });
+    }
+
+    const modello = String(formData.get(`modello:${f.chiave}`) ?? "").trim();
+    if (modello) {
+      await prisma.impostazione.upsert({
+        where: { chiave: impModello(f.chiave) },
+        update: { valore: modello },
+        create: { chiave: impModello(f.chiave), valore: modello },
+      });
+    } else {
+      // Casella svuotata: si torna al modello di riferimento del fornitore.
+      await prisma.impostazione.deleteMany({ where: { chiave: impModello(f.chiave) } });
+    }
+  }
+
+  revalidatePath("/impostazioni");
+  revalidatePath("/ai");
+  redirect("/impostazioni?salvato=ai");
 }

@@ -1,6 +1,5 @@
-import OpenAI from "openai";
+import { chiediAllAi, statoAi } from "@/lib/ai";
 import { mer, numeriBrand, quotaPagato, roasPiattaforma, scostamentoAttribuzione } from "@/lib/brand-dati";
-import { chiave as chiaveVault } from "@/lib/chiavi";
 import { prisma } from "@/lib/db";
 import { breakEvenRoas } from "@/lib/guardrail";
 import { risolviPeriodo, type PeriodoRisolto } from "@/lib/periodo";
@@ -15,21 +14,53 @@ import { risolviPeriodo, type PeriodoRisolto } from "@/lib/periodo";
 //    coda di /operazioni con approvazione manuale e guardrail, come qualsiasi
 //    altra modifica (regola AGENDA PIANI dei Definitivi).
 //
-// Chiave in OPENAI_API_KEY (env locale o cassaforte del Hub), modello in
-// OPENAI_MODEL. Stessa infrastruttura di deluxy-budgets e deluxy-mail.
+// QUALE AI la scrive è una scelta, non un dato del codice: Claude o OpenAI si
+// impostano da Impostazioni → Intelligenza artificiale. Qui si sa solo che
+// esiste un'AI a cui chiedere; il fornitore vive in lib/ai.ts.
 
-const MODELLO = (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
-
-let clientCache: OpenAI | null = null;
-async function client(): Promise<OpenAI | null> {
-  const apiKey = (await chiaveVault("OPENAI_API_KEY"))?.replace(/\s+/g, "");
-  if (!apiKey) return null;
-  clientCache ??= new OpenAI({ apiKey, timeout: 90_000, maxRetries: 2 });
-  return clientCache;
-}
+// La forma della risposta. Claude la riceve come vincolo (non può uscirne);
+// OpenAI la usa come descrizione. In tutti i casi si valida quello che torna.
+const SCHEMA_LETTURA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["sintesi", "osservazioni", "azioni", "domandeAperte"],
+  properties: {
+    sintesi: { type: "string" },
+    osservazioni: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["titolo", "tipo", "spiegazione", "numeri"],
+        properties: {
+          titolo: { type: "string" },
+          tipo: { type: "string", enum: ["cosa_va", "cosa_non_va", "da_capire", "rischio"] },
+          spiegazione: { type: "string" },
+          numeri: { type: "string" },
+        },
+      },
+    },
+    azioni: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["titolo", "perche", "livello", "campagna", "priorita"],
+        properties: {
+          titolo: { type: "string" },
+          perche: { type: "string" },
+          livello: { type: "string", enum: ["L0", "L1", "L2", "L3"] },
+          campagna: { type: ["string", "null"] },
+          priorita: { type: "string", enum: ["P0", "P1", "P2"] },
+        },
+      },
+    },
+    domandeAperte: { type: "array", items: { type: "string" } },
+  },
+};
 
 export async function aiConfigurata(): Promise<boolean> {
-  return Boolean(await chiaveVault("OPENAI_API_KEY"));
+  return (await statoAi()).configurata;
 }
 
 export type Osservazione = {
@@ -250,13 +281,12 @@ export async function leggiPerformance(
   const periodo = risolviPeriodo(preset ?? "30g", dal, al);
   const dati = await raccogliDati(brand, periodo);
 
-  const configurata = await aiConfigurata();
-  if (!configurata) {
+  const stato = await statoAi();
+  if (!stato.configurata) {
     return {
       ok: false,
       configurata: false,
-      errore:
-        "Chiave OpenAI non disponibile: va messa in OPENAI_API_KEY (variabili d'ambiente) oppure nella cassaforte del Hub per il progetto deluxy-marketing.",
+      errore: `Manca la chiave di ${stato.nome}: si mette in Impostazioni → Intelligenza artificiale, dove si sceglie anche quale AI usare.`,
       dati,
     };
   }
@@ -269,23 +299,17 @@ export async function leggiPerformance(
     };
   }
 
-  const c = await client();
-  if (!c) return { ok: false, configurata: false, errore: "Client OpenAI non inizializzabile", dati };
+  const risposta = await chiediAllAi({
+    istruzioni: ISTRUZIONI,
+    dati,
+    schema: SCHEMA_LETTURA as unknown as Record<string, unknown>,
+  });
+  if (!risposta.ok) {
+    return { ok: false, configurata: risposta.configurata, errore: risposta.errore, dati };
+  }
 
   try {
-    const risposta = await c.chat.completions.create({
-      model: MODELLO,
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: ISTRUZIONI },
-        { role: "user", content: JSON.stringify(dati) },
-      ],
-    });
-    const testo = risposta.choices[0]?.message?.content ?? "";
-    if (!testo) return { ok: false, configurata: true, errore: "Risposta vuota dal modello", dati };
-
-    const grezzo = JSON.parse(testo) as Partial<LetturaAI>;
+    const grezzo = JSON.parse(risposta.testo) as Partial<LetturaAI>;
     const lettura: LetturaAI = {
       sintesi: String(grezzo.sintesi ?? "").trim(),
       osservazioni: Array.isArray(grezzo.osservazioni)
@@ -312,12 +336,14 @@ export async function leggiPerformance(
     if (!lettura.sintesi) {
       return { ok: false, configurata: true, errore: "Il modello non ha prodotto una sintesi leggibile", dati };
     }
-    return { ok: true, lettura, modello: MODELLO, dati };
+    // Il modello si dichiara: leggendo una lettura vecchia si deve poter
+    // sapere chi l'ha scritta, visto che il fornitore si cambia a piacere.
+    return { ok: true, lettura, modello: `${risposta.fornitore === "anthropic" ? "Claude" : "OpenAI"} · ${risposta.modello}`, dati };
   } catch (e) {
     return {
       ok: false,
       configurata: true,
-      errore: `Chiamata a OpenAI fallita: ${String(e).slice(0, 200)}`,
+      errore: `Risposta illeggibile da ${risposta.modello}: ${String(e).slice(0, 200)}`,
       dati,
     };
   }

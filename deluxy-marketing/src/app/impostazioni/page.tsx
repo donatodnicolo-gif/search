@@ -1,6 +1,7 @@
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
-import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive } from "@/lib/azioni";
+import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi } from "@/lib/azioni";
+import { FORNITORI, statoAi } from "@/lib/ai";
 import { prisma } from "@/lib/db";
 import { CHIAVE_APIKEY, driveDir, idCartellaDrive } from "@/lib/drive";
 import {
@@ -26,6 +27,7 @@ const CONFERME: Record<string, string> = {
   cartella: "Cartella salvata: la prossima sincronizzazione leggerà da qui.",
   account: "Account salvato.",
   apikey: "Chiave API salvata: ora la sincronizzazione può leggere Google Drive online.",
+  ai: "Impostazioni AI salvate: la prossima lettura userà questo fornitore.",
 };
 
 export default async function PaginaImpostazioni({
@@ -34,7 +36,7 @@ export default async function PaginaImpostazioni({
   searchParams: Promise<{ salvato?: string }>;
 }) {
   const { salvato } = await searchParams;
-  const [cartella, documenti, account, ultimaSync, impApiKey] = await Promise.all([
+  const [cartella, documenti, account, ultimaSync, impApiKey, ai] = await Promise.all([
     driveDir(),
     prisma.documentoDrive.count(),
     prisma.accountAdv.findMany({ orderBy: [{ piattaforma: "asc" }, { nome: "asc" }] }),
@@ -43,6 +45,7 @@ export default async function PaginaImpostazioni({
       select: { sincronizzatoIl: true },
     }),
     prisma.impostazione.findUnique({ where: { chiave: CHIAVE_APIKEY } }).catch(() => null),
+    statoAi(),
   ]);
 
   const piattaformeConAccount = PIATTAFORME_ACCOUNT.filter((pf) =>
@@ -73,6 +76,91 @@ export default async function PaginaImpostazioni({
             {CONFERME[salvato]}
           </div>
         )}
+
+        <section className="scheda">
+          <div className="scheda-titolo">Intelligenza artificiale</div>
+          <p className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
+            Quale AI scrive la <b>Lettura AI</b> e le analisi: <b>Claude</b> o <b>OpenAI</b>, a
+            scelta. L&apos;AI riceve solo numeri già calcolati dall&apos;app — non li ricalcola — e
+            non esegue niente: quello che propone passa comunque dalla coda approvata.
+          </p>
+
+          <div className="cella-sub" style={{ marginBottom: 14 }}>
+            Adesso è attivo: <b>{ai.nome}</b> · modello <code>{ai.modello}</code> ·{" "}
+            {ai.configurata ? (
+              <span style={{ color: "var(--green)" }}>
+                chiave presente{ai.origine === "ambiente" ? " (da variabile d'ambiente)" : ""}
+              </span>
+            ) : (
+              <span style={{ color: "var(--red)" }}>chiave mancante: le pagine AI non funzionano</span>
+            )}
+          </div>
+
+          <form className="modulo" action={salvaImpostazioniAi}>
+            <div className="campo-modulo largo">
+              <label>Quale AI usare</label>
+              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 4 }}>
+                {FORNITORI.map((f) => (
+                  <label key={f.chiave} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 500 }}>
+                    <input type="radio" name="fornitore" value={f.chiave} defaultChecked={ai.fornitore === f.chiave} />
+                    {f.nome}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {FORNITORI.map((f) => {
+              const presente = ai.chiaviPresenti[f.chiave];
+              return (
+                <div key={f.chiave} className="campo-modulo largo" style={{ borderTop: "1px solid var(--hairline)", paddingTop: 14 }}>
+                  <label>
+                    {f.nome} — chiave API{" "}
+                    {presente === "impostazioni" && <span style={{ color: "var(--green)", fontWeight: 400 }}>· salvata qui</span>}
+                    {presente === "ambiente" && <span style={{ color: "var(--gold-strong)", fontWeight: 400 }}>· presa dalla variabile {f.variabile}</span>}
+                    {!presente && <span style={{ color: "var(--text-tertiary)", fontWeight: 400 }}>· non impostata</span>}
+                  </label>
+                  <input
+                    name={`chiave:${f.chiave}`}
+                    type="password"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder={presente ? "già impostata — lascia vuoto per non cambiarla" : "incolla qui la chiave"}
+                  />
+                  <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
+                    <span className="cella-sub">Modello</span>
+                    <input
+                      name={`modello:${f.chiave}`}
+                      defaultValue={ai.fornitore === f.chiave ? ai.modello : ""}
+                      placeholder={f.modelloDifetto}
+                      spellCheck={false}
+                      style={{ maxWidth: 260 }}
+                    />
+                    {presente === "impostazioni" && (
+                      <label className="cella-sub" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <input type="checkbox" name={`svuota:${f.chiave}`} value="1" /> cancella la chiave salvata
+                      </label>
+                    )}
+                  </div>
+                  <div className="cella-sub" style={{ marginTop: 6, whiteSpace: "normal" }}>
+                    {f.nota} La chiave si crea su{" "}
+                    <a href={f.dove} target="_blank" rel="noreferrer">{new URL(f.dove).host}</a>.
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
+              <button className="btn" type="submit">Salva</button>
+            </div>
+          </form>
+
+          <p className="cella-sub" style={{ marginTop: 12, whiteSpace: "normal" }}>
+            Le chiavi salvate <b>non si rileggono più</b> da nessuna pagina: qui si vede solo se ci
+            sono. Una casella lasciata vuota lascia in pace la chiave già salvata — per toglierla
+            davvero c&apos;è la spunta. Se una chiave arriva da una variabile d&apos;ambiente,
+            quella salvata qui ha comunque la precedenza, così si cambia senza rifare un deploy.
+          </p>
+        </section>
 
         <section className="scheda">
           <div className="scheda-titolo">Cartella da sincronizzare</div>

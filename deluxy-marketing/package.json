@@ -28,6 +28,7 @@
     "seed": "node prisma/seed.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@prisma/client": "^6.5.0",
     "next": "^15.3.0",
     "openai": "^6.49.0",
