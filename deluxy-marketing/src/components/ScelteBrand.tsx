@@ -10,9 +10,11 @@ import { breakEvenRoas } from "@/lib/guardrail";
 // mesi, il piano è mensile, e trenta giorni a cavallo di due mesi non si
 // confrontano con nessun obiettivo.
 //
-// L'ultima tessera è il TOTALE, non "cross-brand". Cross-brand è un brand come
-// gli altri — le campagne che non appartengono a nessuno dei tre — e stando in
-// fondo faceva credere di essere la somma. La somma, invece, serve davvero.
+// Le tessere sono i tre brand veri più il TOTALE. "Cross-brand" non ha una
+// tessera: sono le campagne che non appartengono a nessuno dei tre, e in una
+// riga di scelte è rumore. La sua spesa però NON sparisce — entra nel totale e
+// viene dichiarata sotto le tessere, perché sono soldi usciti davvero. Chi vuole
+// guardarle le trova in "Brand › Cross-brand" nel menu.
 const BRAND_VERI = ["gifts", "flowers", "cake"];
 
 const VUOTI: NumeriBrand = {
@@ -47,9 +49,9 @@ export async function ScelteBrand() {
     { ...VUOTI }
   );
 
-  // I tre brand ci sono sempre; "cross" solo se ha davvero qualcosa dentro.
+  const cross = dati.find((d) => d.brand === "cross")?.n ?? { ...VUOTI };
   const tessere = dati
-    .filter((d) => BRAND_VERI.includes(d.brand) || d.n.spesa > 0 || d.n.venditeTotali > 0)
+    .filter((d) => BRAND_VERI.includes(d.brand))
     .sort((a, b) => {
       const peso = (x: typeof a) => (x.n.venditeTotali > 0 ? 2 : x.n.spesa > 0 ? 1 : 0);
       return peso(b) - peso(a) || b.n.venditeTotali - a.n.venditeTotali;
@@ -140,6 +142,15 @@ export async function ScelteBrand() {
         )}
         {tessera("totale", totale, { etichetta: "Tutti i brand", colore: "var(--text)", totale: true })}
       </div>
+
+      {(cross.spesa > 0 || cross.venditeTotali > 0) && (
+        <p className="cella-sub" style={{ marginTop: 12, whiteSpace: "normal" }}>
+          Nel totale ci sono anche {formattaEuro(cross.spesa)} di spesa
+          {cross.venditeTotali > 0 ? ` e ${formattaEuro(cross.venditeTotali)} di vendite` : ""} di
+          campagne <b>cross-brand</b>, che non appartengono a nessuno dei tre marchi e quindi non
+          hanno una tessera. Si guardano da <a href="/brand/cross">Brand › Cross-brand</a>.
+        </p>
+      )}
     </section>
   );
 }
