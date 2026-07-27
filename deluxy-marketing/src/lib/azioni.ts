@@ -1,6 +1,7 @@
 "use server";
 import { FORNITORI, IMP_FORNITORE, impChiaveApi, impModello, type Fornitore } from "@/lib/ai";
 import { IMP_ISTRUZIONI } from "@/lib/ai";
+import { IMP_SERVICE_ACCOUNT, scriviInOut } from "@/lib/drive-scrittura";
 import { IMP_TOKEN_TIKTOK } from "@/lib/tiktok";
 
 import { revalidatePath } from "next/cache";
@@ -1685,4 +1686,64 @@ export async function salvaIstruzioniAi(formData: FormData) {
   revalidatePath("/impostazioni");
   revalidatePath("/ai");
   redirect("/impostazioni?salvato=istruzioni");
+}
+
+// La credenziale con cui l'app scrive nel ponte su Drive.
+//
+// È un file JSON con dentro una chiave privata: si incolla, non si rilegge.
+// Vale la stessa regola delle altre chiavi — casella vuota lascia in pace
+// quella salvata, la spunta la cancella.
+export async function salvaServiceAccountDrive(formData: FormData) {
+  "use server";
+  const svuota = formData.get("svuota") === "1";
+  const grezzo = String(formData.get("json") ?? "").trim();
+
+  if (svuota) {
+    await prisma.impostazione.deleteMany({ where: { chiave: IMP_SERVICE_ACCOUNT } });
+    revalidatePath("/impostazioni");
+    redirect("/impostazioni?salvato=drive-scrittura-tolta");
+  }
+  if (!grezzo) redirect("/impostazioni?salvato=drive-invariato");
+
+  // Si controlla SUBITO che sia il file giusto: un JSON incollato a metà o la
+  // chiave sbagliata darebbero un errore solo al primo tentativo di scrittura,
+  // cioè quando serve davvero.
+  try {
+    const j = JSON.parse(grezzo) as { client_email?: string; private_key?: string; type?: string };
+    if (!j.client_email || !j.private_key) {
+      redirect("/impostazioni?salvato=drive-json-incompleto");
+    }
+  } catch {
+    redirect("/impostazioni?salvato=drive-json-rotto");
+  }
+
+  await prisma.impostazione.upsert({
+    where: { chiave: IMP_SERVICE_ACCOUNT },
+    update: { valore: grezzo },
+    create: { chiave: IMP_SERVICE_ACCOUNT, valore: grezzo },
+  });
+  revalidatePath("/impostazioni");
+  redirect("/impostazioni?salvato=drive-scrittura");
+}
+
+// Prova di scrittura: deposita un file di verifica nel ponte.
+//
+// Serve a scoprire ADESSO se la condivisione della cartella è giusta, invece
+// di scoprirlo il giorno in cui l'app deve depositare un log vero.
+export async function provaScritturaDrive() {
+  "use server";
+  const adesso = new Date();
+  const stampa = `${adesso.getFullYear()}-${String(adesso.getMonth() + 1).padStart(2, "0")}-${String(adesso.getDate()).padStart(2, "0")} ${String(adesso.getHours()).padStart(2, "0")}${String(adesso.getMinutes()).padStart(2, "0")}`;
+  const esito = await scriviInOut(
+    `PROVA App scrittura [${stampa}].md`,
+    `# PROVA di scrittura — App Marketing — ${stampa}\n\n` +
+      `File depositato dall'app per verificare che il ponte funzioni.\n` +
+      `Non contiene dati e non richiede nessuna azione: si può cancellare.\n`
+  );
+  revalidatePath("/impostazioni");
+  redirect(
+    esito.ok
+      ? `/impostazioni?salvato=drive-prova-ok`
+      : `/impostazioni?salvato=drive-prova-no&perche=${encodeURIComponent(esito.errore.slice(0, 160))}`
+  );
 }

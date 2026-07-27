@@ -1,8 +1,9 @@
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
-import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaTokenTikTok } from "@/lib/azioni";
+import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaServiceAccountDrive, provaScritturaDrive, salvaTokenTikTok } from "@/lib/azioni";
 import { tokenTikTok } from "@/lib/tiktok";
 import { FORNITORI, istruzioniOperative, statoAi } from "@/lib/ai";
+import { statoScritturaDrive } from "@/lib/drive-scrittura";
 import { ChiaviApi } from "@/components/ChiaviApi";
 import { prisma } from "@/lib/db";
 import { CHIAVE_APIKEY, driveDir, idCartellaDrive } from "@/lib/drive";
@@ -34,15 +35,22 @@ const CONFERME: Record<string, string> = {
   istruzioni: "Istruzioni operative salvate: valgono da subito per ogni chiamata all’AI.",
   "istruzioni-uguali": "Nessuna modifica: il testo è identico a quello già depositato.",
   "istruzioni-vuote": "Istruzioni rimosse: da adesso l’AI lavora senza protocollo.",
+  "drive-scrittura": "Credenziale salvata. Ora condividi la cartella con l’email qui sotto e premi «Prova a scrivere».",
+  "drive-scrittura-tolta": "Credenziale rimossa: l’app torna a leggere soltanto.",
+  "drive-invariato": "Niente da salvare: la casella era vuota.",
+  "drive-json-rotto": "Quel testo non è un JSON valido: incolla il file della chiave per intero.",
+  "drive-json-incompleto": "JSON valido ma senza client_email o private_key: non è il file della chiave dell’account di servizio.",
+  "drive-prova-ok": "Scrittura riuscita: il file di prova è nel ponte, dentro OUT - dall’app.",
+  "drive-prova-no": "Scrittura NON riuscita.",
 };
 
 export default async function PaginaImpostazioni({
   searchParams,
 }: {
-  searchParams: Promise<{ salvato?: string }>;
+  searchParams: Promise<{ salvato?: string; perche?: string }>;
 }) {
-  const { salvato } = await searchParams;
-  const [cartella, documenti, account, ultimaSync, impApiKey, ai, chiaviApi, tokenTt, istruzioni] = await Promise.all([
+  const { salvato, perche } = await searchParams;
+  const [cartella, documenti, account, ultimaSync, impApiKey, ai, chiaviApi, tokenTt, istruzioni, drive] = await Promise.all([
     driveDir(),
     prisma.documentoDrive.count(),
     prisma.accountAdv.findMany({ orderBy: [{ piattaforma: "asc" }, { nome: "asc" }] }),
@@ -55,6 +63,7 @@ export default async function PaginaImpostazioni({
     prisma.apiKey.findMany({ orderBy: [{ attiva: "desc" }, { creataIl: "desc" }] }).catch(() => []),
     tokenTikTok(),
     istruzioniOperative(),
+    statoScritturaDrive(),
   ]);
 
   const piattaformeConAccount = PIATTAFORME_ACCOUNT.filter((pf) =>
@@ -83,6 +92,7 @@ export default async function PaginaImpostazioni({
           <div className="conferma">
             <span className="segno">✓</span>
             {CONFERME[salvato]}
+            {perche && <div className="cella-sub" style={{ marginTop: 6, whiteSpace: "normal" }}>{perche}</div>}
           </div>
         )}
 
@@ -96,6 +106,82 @@ export default async function PaginaImpostazioni({
             ultimoUso: c.ultimoUso?.toISOString() ?? null,
           }))}
         />
+
+        <section className="scheda">
+          <div className="scheda-titolo">Scrittura su Drive — il ponte</div>
+          <p className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
+            L&apos;app <b>legge</b> già la cartella Drive (653 documenti indicizzati) con una chiave
+            API. Per <b>scrivere</b> nel ponte <code>ads/App Azioni/OUT - dall&apos;app</code> quella
+            chiave non basta, e non è un limite dell&apos;app: una chiave API identifica
+            l&apos;applicazione, non una persona, e Drive risponde{" "}
+            <i>«API keys are not supported by this API»</i>. Serve un <b>account di servizio</b> —
+            un utente Google non umano — e la cartella condivisa con la sua email come <b>Editor</b>.
+          </p>
+
+          <div className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
+            {!drive.configurato ? (
+              <span style={{ color: "var(--orange)" }}>
+                Credenziale non impostata: l&apos;app oggi legge soltanto e non può depositare log,
+                risultati o segnalazioni.
+              </span>
+            ) : drive.cartellaOut ? (
+              <>
+                <span style={{ color: "var(--green)" }}>Ponte aperto</span> — l&apos;app scrive come{" "}
+                <code>{drive.email}</code> dentro <code>OUT - dall&apos;app</code>.
+              </>
+            ) : (
+              <span style={{ color: "var(--red)" }}>
+                Credenziale presente ma il ponte non si apre: {drive.errore}
+              </span>
+            )}
+          </div>
+
+          {drive.email && (
+            <p className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
+              <b>Condividi la cartella «ADV DELUXY SRL» con questa email, come Editor:</b>
+              <br />
+              <code style={{ userSelect: "all" }}>{drive.email}</code>
+              <br />
+              Senza quella condivisione l&apos;account di servizio esiste ma non vede niente: è un
+              utente nuovo, e su Drive un utente nuovo non ha accesso a nulla finché non glielo dai.
+            </p>
+          )}
+
+          <form className="modulo" action={salvaServiceAccountDrive}>
+            <div className="campo-modulo largo">
+              <label>File JSON della chiave dell&apos;account di servizio</label>
+              <textarea
+                name="json"
+                rows={5}
+                spellCheck={false}
+                placeholder={drive.configurato ? "già impostato — lascia vuoto per non cambiarlo" : '{ "type": "service_account", "client_email": "...", "private_key": "-----BEGIN PRIVATE KEY-----..." }'}
+                style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}
+              />
+              {drive.configurato && (
+                <label className="cella-sub" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+                  <input type="checkbox" name="svuota" value="1" /> cancella la credenziale salvata
+                </label>
+              )}
+            </div>
+            <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
+              <button className="btn" type="submit">Salva la credenziale</button>
+            </div>
+          </form>
+
+          {drive.configurato && (
+            <form action={provaScritturaDrive} style={{ marginTop: 10 }}>
+              <button className="btn fantasma" type="submit">Prova a scrivere nel ponte</button>
+            </form>
+          )}
+
+          <p className="cella-sub" style={{ marginTop: 12, whiteSpace: "normal" }}>
+            Tre regole del protocollo sono scritte nel codice, non lasciate alla buona volontà:
+            l&apos;app scrive <b>solo</b> dentro <code>OUT - dall&apos;app</code>, <b>solo</b> file
+            .md, e <b>solo file nuovi</b> — se il nome esiste già si ferma invece di sovrascrivere.
+            Append-only applicato davvero vuol dire che un secondo invio con lo stesso nome deve
+            fallire, non sostituire il primo.
+          </p>
+        </section>
 
         <section className="scheda">
           <div className="scheda-titolo">Istruzioni operative dell&apos;AI</div>
