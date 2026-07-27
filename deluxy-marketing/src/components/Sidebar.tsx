@@ -96,64 +96,57 @@ export async function Sidebar({
   return (
     <aside className="sidebar">
       <nav>
-        <SbSezione titolo="Marketing">
+        {/* L'ordine è quello del lavoro, non quello dei canali: prima cosa
+            devo fare adesso, poi su cosa lo faccio, poi com'è andata.
+            Analisi/Audit/Azioni/Campagne comparivano tre volte a testa —
+            generiche, Google e Meta — per un totale di dodici voci: il canale
+            ora è un filtro dentro la pagina, non una sezione del menu. */}
+        <SbSezione titolo="Adesso">
           {voce("home", "/", "home", "Dashboard")}
-          {voce("analisi", "/analisi", "analisi", "Analisi", nAnalisi)}
-          {voce("periodo", "/analisi-campagne", "metriche", "Analisi periodo")}
-          {voce("ai", "/ai", "analisi", "Lettura AI")}
-          {voce("audit", "/audit", "audit", "Audit", nAudit)}
-          {voce("azioni", "/azioni", "azioni", "Azioni", nAzioniAperte)}
-          {voce("campagne", "/campagne", "campagne", "Campagne", nCampagneVive)}
+          {voce("azioni", "/azioni", "azioni", "Da fare", nAzioniAperte)}
+          {voce("operazioni", "/operazioni", "azioni", "Coda su Google", nOperazioni)}
+          {voce("errori", "/errori", "audit", "Incidenti aperti", nErroriAperti)}
+        </SbSezione>
+
+        <SbSezione titolo="Campagne">
+          {voce("campagne", "/campagne", "campagne", "Tutte le campagne", nCampagneVive)}
+          {voceCanale("campagne", "google_ads", "/campagne?canale=google_ads", "campagne", "Solo Google", conta(campagneCanale, "google_ads"))}
+          {voceCanale("campagne", "meta_ads", "/campagne?canale=meta_ads", "campagne", "Solo Meta", conta(campagneCanale, "meta_ads"))}
+          {voce("gruppi", "/gruppi", "metriche", "Gruppi di annunci", nGruppi)}
+          {voce("keywords", "/keywords", "analisi", "Keywords")}
+          {voce("copy", "/copy", "copy", "Copy & annunci")}
           {voce("landing", "/landing", "landing", "Landing page", nLanding)}
           {voce("pubblici", "/pubblici", "pubblici", "Pubblici", nPubblici)}
-        </SbSezione>
-
-        <SbSezione titolo="Google Ads">
-          {voceCanale("azioni", "google_ads", "/azioni?canale=google_ads", "azioni", "Azioni Google", conta(aperteCanale, "google_ads"))}
-          {voceCanale("analisi", "google_ads", "/analisi?canale=google_ads", "analisi", "Analisi Google", conta(analisiCanale, "google_ads"))}
-          {voceCanale("audit", "google_ads", "/audit?canale=google_ads", "audit", "Audit Google", conta(auditCanale, "google_ads"))}
-          {voceCanale("campagne", "google_ads", "/campagne?canale=google_ads", "campagne", "Campagne Google", conta(campagneCanale, "google_ads"))}
-          {voce("gruppi", "/gruppi", "metriche", "Gruppi di annunci", nGruppi)}
-          {voce("copy", "/copy", "copy", "Copy & annunci")}
-          {voce("keywords", "/keywords", "analisi", "Keywords")}
-        </SbSezione>
-
-        <SbSezione titolo="Meta">
-          {voceCanale("azioni", "meta_ads", "/azioni?canale=meta_ads", "azioni", "Azioni Meta", conta(aperteCanale, "meta_ads"))}
-          {voceCanale("analisi", "meta_ads", "/analisi?canale=meta_ads", "analisi", "Analisi Meta", conta(analisiCanale, "meta_ads"))}
-          {voceCanale("audit", "meta_ads", "/audit?canale=meta_ads", "audit", "Audit Meta", conta(auditCanale, "meta_ads"))}
-          {voceCanale("campagne", "meta_ads", "/campagne?canale=meta_ads", "campagne", "Campagne Meta", conta(campagneCanale, "meta_ads"))}
           {voce("meta", "/meta", "meta", "Test & AIDA", nTestAperti)}
         </SbSezione>
 
-        <SbSezione titolo="Vendite">
-          {voce("ordini", "/ordini", "ordini", "Ordini", nOrdini)}
+        <SbSezione titolo="Com'è andata">
+          {voce("periodo", "/analisi-campagne", "metriche", "Analisi periodo")}
           {voce("tracciamento", "/tracciamento", "metriche", "Ritorno e tracciamento")}
+          {voce("mkt", "/mkt", "metriche", "MKT vs 2025")}
+          {voce("ordini", "/ordini", "ordini", "Ordini", nOrdini)}
           {voce("offerte", "/offerte", "vendite", "Analisi per offerta")}
         </SbSezione>
 
-        <SbSezione titolo="Budget">
-          {voce("vendite", "/vendite", "vendite", "Budget vendite")}
+        <SbSezione titolo="Piano">
           {voce("budget", "/budget", "budget", "Budget ADV")}
-        </SbSezione>
-
-        <SbSezione titolo="Monitoraggio">
-          {voce("mkt", "/mkt", "metriche", "MKT vs 2025")}
-        </SbSezione>
-
-        <SbSezione titolo="Governance">
-          {voce("operazioni", "/operazioni", "azioni", "Operazioni", nOperazioni)}
+          {voce("vendite", "/vendite", "vendite", "Budget vendite")}
           {voce("occasioni", "/occasioni", "vendite", "Occasioni")}
           {voce("cadenze", "/cadenze", "storico", "Cadenze")}
-          {voce("errori", "/errori", "audit", "Storico errori", nErroriAperti)}
-          {voce("memoria", "/memoria", "analisi", "Memoria condivisa")}
-          {voce("incongruenze", "/incongruenze", "pagina", "Incongruenze", nIncongruenzeAperte)}
         </SbSezione>
 
-        <SbSezione titolo="Archivio">
-          {voce("ricezione", "/ricezione", "metriche", "Dati in arrivo")}
+        <SbSezione titolo="Da sapere">
+          {voce("analisi", "/analisi", "analisi", "Analisi", nAnalisi)}
+          {voce("audit", "/audit", "audit", "Audit", nAudit)}
+          {voce("ai", "/ai", "analisi", "Lettura AI")}
+          {voce("memoria", "/memoria", "analisi", "Memoria condivisa")}
           {voce("drive", "/drive", "drive", "Documenti Drive", nDocumenti)}
-          {voce("storico", "/storico", "storico", "Storico")}
+        </SbSezione>
+
+        <SbSezione titolo="I dati tengono?">
+          {voce("ricezione", "/ricezione", "metriche", "Dati in arrivo")}
+          {voce("incongruenze", "/incongruenze", "pagina", "Incongruenze", nIncongruenzeAperte)}
+          {voce("storico", "/storico", "storico", "Storico modifiche")}
           {voce("impostazioni", "/impostazioni", "impostazioni", "Impostazioni")}
         </SbSezione>
 
