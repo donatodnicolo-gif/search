@@ -860,8 +860,11 @@ const LANG_NAME = { it:'Italiano', en:'English', fr:'Français', de:'Deutsch', e
 let currentLang = 'it';
 
 // comodità locali (non sensibili)
-$('#address').value = localStorage.getItem('addr') || '';
+// l'indirizzo si ricorda SOLO se c'è un numero ordine: senza ordine il campo resta vuoto
+$('#address').value = ($('#orderNum').value.trim() ? (localStorage.getItem('addr') || '') : '');
 $('#address').addEventListener('change', e => localStorage.setItem('addr', e.target.value.trim()));
+// numero ordine vuoto ⇒ indirizzo vuoto (si svuota appena cancelli il numero)
+$('#orderNum').addEventListener('input', ()=>{ if(!$('#orderNum').value.trim()) $('#address').value = ''; });
 $('#brand').value = localStorage.getItem('brand') || 'deluxy.it';
 $('#brand').addEventListener('change', e => localStorage.setItem('brand', e.target.value));
 
