@@ -1209,6 +1209,11 @@ $('#storicoBody').addEventListener('click', e=>{
   // ricerca fatta solo per indirizzo (senza ordine): riparte la stessa ricerca in zona
   const r = e.target.closest('.st-reopen-search');
   if(r){
+    // riprendi come ricerca in zona PULITA (nessun ordine): così viene ri-registrata
+    $('#orderNum').value = '';
+    orderLoaded = false; resultsShown = false;
+    $('#orderBox').style.display = 'none';
+    if(typeof setOrderCollapsed === 'function') setOrderCollapsed(false);
     $('#address').value = r.dataset.addr; localStorage.setItem('addr', r.dataset.addr);
     const cat = (r.dataset.cat||'').toLowerCase();
     if(cat.startsWith('fior') || cat.startsWith('pasticc')){
@@ -3401,9 +3406,12 @@ async function renderResults(found, geo, origin, service, opts){
 
   // le ricerche per sola zona (senza ordine) vanno nello Storico, così si possono
   // riaprire con «↻ Riapri ricerca»; con un ordine c'è già l'evento check di /api/order.
-  if(!orderLoaded && ultimaRicercaLoggata !== address){
-    ultimaRicercaLoggata = address;
-    logEvento({ tipo:'ricerca', esito:'trovati '+cards.length+' negozi'+(extended?' (area allargata)':''), negozio:{ nome: address } });
+  // NB: `address` qui NON è in scope (è locale a run()) — va letto dal campo, altrimenti
+  // il bareword risolverebbe l'elemento <input id="address"> e il log finirebbe rotto.
+  const searchAddr = $('#address').value.trim();
+  if(!orderLoaded && searchAddr && ultimaRicercaLoggata !== searchAddr){
+    ultimaRicercaLoggata = searchAddr;
+    logEvento({ tipo:'ricerca', esito:'trovati '+cards.length+' negozi'+(extended?' (area allargata)':''), negozio:{ nome: searchAddr } });
   }
 
   // email + Instagram dal sito del negozio, in background (best effort).
