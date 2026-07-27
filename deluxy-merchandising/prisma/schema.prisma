@@ -75,6 +75,7 @@ model Prodotto {
   vetrine      VetrinaProdotto[]
   vendite      Vendita[]
   righeRiordino RigaRiordino[]
+  collezioniShopify ProdottoInCollezioneShopify[]
   creatoIl     DateTime @default(now())
   aggiornatoIl DateTime @updatedAt
 
@@ -216,6 +217,61 @@ model Impostazione {
   valoreCifrato String
   impronta      String   @default("")
   aggiornataIl  DateTime @updatedAt
+}
+
+// Una collezione **vera** di Shopify, importata dal negozio.
+//
+// Non si mescola con `Collezione` (le collezioni stagionali della maison, che
+// nascono qui): sono due cose diverse. «Fioritura Notturna» è una scelta
+// creativa, «Bouquet sotto i 50 €» è un raggruppamento del sito. Tenerle nella
+// stessa lista confonderebbe il merchandising con la vetrina.
+//
+// Su Shopify un prodotto sta in **molte** collezioni: per questo la relazione
+// passa da una tabella di legame e non dal campo `collezioneId` del prodotto,
+// che di collezioni ne tiene una sola.
+model CollezioneShopify {
+  id           String   @id @default(cuid())
+  negozio      String // nome del negozio collegato: "Flowers", "Cake"…
+  shopifyId    String // gid://shopify/Collection/...
+  handle       String
+  titolo       String
+  descrizione  String?
+  immagine     String?
+  // Quanti prodotti dice Shopify che contiene: confrontato con quelli abbinati
+  // qui dice quanta parte di quella collezione l'app conosce.
+  prodottiShopify Int   @default(0)
+  aggiornataIl DateTime @updatedAt
+  creataIl     DateTime @default(now())
+  prodotti     ProdottoInCollezioneShopify[]
+
+  @@unique([negozio, shopifyId])
+  @@index([negozio])
+}
+
+model ProdottoInCollezioneShopify {
+  id           String            @id @default(cuid())
+  collezioneId String
+  collezione   CollezioneShopify @relation(fields: [collezioneId], references: [id], onDelete: Cascade)
+  prodottoId   String
+  prodotto     Prodotto          @relation(fields: [prodottoId], references: [id], onDelete: Cascade)
+
+  @@unique([collezioneId, prodottoId])
+  @@index([prodottoId])
+}
+
+// Storico degli import delle collezioni da Shopify.
+model ImportCollezioni {
+  id            String   @id @default(cuid())
+  iniziatoIl    DateTime @default(now())
+  negozio       String
+  collezioniLette Int    @default(0)
+  prodottiLetti Int      @default(0)
+  abbinamenti   Int      @default(0)
+  prodottiIgnoti Int     @default(0)
+  esito         String   @default("ok")
+  messaggio     String?
+
+  @@index([iniziatoIl])
 }
 
 // Una riga venduta, al giorno in cui è stata venduta. È il fatto elementare su

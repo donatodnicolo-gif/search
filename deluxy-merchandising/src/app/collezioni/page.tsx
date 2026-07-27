@@ -1,7 +1,11 @@
+import Link from "next/link";
 import { Badge } from "@/components/Badge";
+import { BarraQuota } from "@/components/Grafico";
 import { Sidebar } from "@/components/Sidebar";
+import { importaCollezioniAzione } from "@/lib/azioni-collezioni";
 import { brandCorrente } from "@/lib/brand";
 import { prisma } from "@/lib/db";
+import { ultimiImportCollezioni } from "@/lib/shopify-collezioni";
 import {
   calcolaMargine,
   COLORE_STATO_COLLEZIONE,
@@ -13,10 +17,15 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function CollezioniPage() {
+export default async function CollezioniPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ esito?: string; messaggio?: string; errore?: string }>;
+}) {
+  const sp = await searchParams;
   const brand = await brandCorrente();
 
-  const [collezioni, prodotti, inVendita, daPubblicare] = await Promise.all([
+  const [collezioni, prodotti, inVendita, daPubblicare, collezioniShopify, ultimiImport] = await Promise.all([
     prisma.collezione.findMany({
       orderBy: [{ anno: "desc" }, { creataIl: "desc" }],
       include: {
@@ -27,6 +36,12 @@ export default async function CollezioniPage() {
     prisma.prodotto.findMany({ select: { costoProduzione: true, prezzoVendita: true } }),
     prisma.prodotto.count({ where: { fase: "in_vendita" } }),
     prisma.prodotto.count({ where: { shopifyStato: { not: "pubblicato" }, fase: { not: "archiviato" } } }),
+    prisma.collezioneShopify.findMany({
+      where: brand ? { negozio: brand } : {},
+      orderBy: [{ negozio: "asc" }, { titolo: "asc" }],
+      include: { _count: { select: { prodotti: true } } },
+    }),
+    ultimiImportCollezioni(),
   ]);
 
   // Il margine medio conta solo dove il costo c'è: a costo zero il margine non
@@ -58,9 +73,19 @@ export default async function CollezioniPage() {
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <a className="btn btn-secondario" href="/collezioni/nuova">Nuova collezione</a>
-            <a className="btn" href="/prodotti/nuovo">Nuovo prodotto</a>
+            <form action={importaCollezioniAzione}>
+              <button className="btn" type="submit">Importa da Shopify</button>
+            </form>
           </div>
         </div>
+
+        {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
+        {sp.esito && (
+          <div className={sp.esito === "ok" ? "nota-info" : "avviso-errore"}>
+            {sp.esito === "ok" && <span className="nota-icona">✓</span>}
+            <span>{sp.messaggio || "Import completato."}</span>
+          </div>
+        )}
 
         {brand && (
           <div className="nota-info">
@@ -94,8 +119,75 @@ export default async function CollezioniPage() {
           </div>
         </div>
 
+        {/* Le collezioni vere dei negozi: quelle che il cliente vede sul sito. */}
+        <div className="scheda">
+          <div className="scheda-titolo">
+            Collezioni Shopify {brand ? `— ${brand}` : "(tutti i negozi)"} · {collezioniShopify.length}
+          </div>
+          {collezioniShopify.length === 0 ? (
+            <p className="page-sub">
+              Nessuna collezione importata. Il bottone <b>Importa da Shopify</b> le legge dai negozi collegati
+              in <Link href="/impostazioni">Negozi &amp; permessi</Link> e le abbina ai prodotti per SKU.
+            </p>
+          ) : (
+            <div className="tabella-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Collezione</th>
+                    <th>Negozio</th>
+                    <th className="num">Prodotti qui</th>
+                    <th className="num">Su Shopify</th>
+                    <th>Copertura</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {collezioniShopify.map((c) => {
+                    const quota = c.prodottiShopify > 0 ? c._count.prodotti / c.prodottiShopify : 0;
+                    return (
+                      <tr key={c.id} className="riga-cliccabile">
+                        <td>
+                          <Link href={`/collezioni/shopify/${c.id}`} className="cella-nome link-riga">
+                            {c.titolo}
+                          </Link>
+                          <div className="cella-sub">/{c.handle}</div>
+                        </td>
+                        <td className="cella-muta">{c.negozio}</td>
+                        <td className="num">{c._count.prodotti}</td>
+                        <td className="num cella-muta">{c.prodottiShopify}</td>
+                        <td style={{ width: 130 }}>
+                          <BarraQuota quota={quota} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {ultimiImport.length > 0 && (
+            <p className="page-sub" style={{ marginTop: 12 }}>
+              Ultimo import —{" "}
+              {ultimiImport.map((i, k) => (
+                <span key={i.id}>
+                  {k > 0 ? " · " : ""}
+                  <b>{i.negozio}</b> {iso(i.iniziatoIl)}: {i.messaggio}
+                </span>
+              ))}
+            </p>
+          )}
+          <p className="page-sub" style={{ marginTop: 12 }}>
+            «Prodotti qui» sono quelli della collezione che l&apos;app riconosce (abbinati per SKU, poi per
+            codice, poi per titolo esatto); «su Shopify» quanti ne contiene davvero. La differenza è la parte
+            di quella collezione che qui non esiste — non viene indovinata.
+          </p>
+        </div>
+
+        <div className="scheda-titolo" style={{ margin: "26px 0 12px" }}>
+          Collezioni della maison — nate qui, per stagione
+        </div>
         {collezioni.length === 0 ? (
-          <div className="vuoto">Nessuna collezione. Crea la prima per iniziare.</div>
+          <div className="vuoto">Nessuna collezione di maison. Crea la prima per iniziare.</div>
         ) : (
           <div className="griglia-collezioni">
             {collezioni.map((c) => {
