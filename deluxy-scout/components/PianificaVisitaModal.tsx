@@ -61,7 +61,15 @@ export function PianificaVisitaModal({
       await pianificaVisita(place!.id, valore);
       onDone(valore);
     } catch (e: any) {
-      setErrore(e?.message ?? 'Non è stato possibile salvare la data.');
+      const msg = String(e?.message ?? '');
+      // PostgREST qui dice «Could not find the 'visita_pianificata' column …
+      // in the schema cache», che è vero ma incomprensibile: vuol dire solo
+      // che la migrazione 0047 non è ancora stata applicata.
+      setErrore(
+        /visita_pianificata|schema cache/i.test(msg)
+          ? 'Questa funzione ha bisogno della migrazione 0047 (non ancora applicata al database). La data non può essere salvata finché non viene lanciata.'
+          : msg || 'Non è stato possibile salvare la data.',
+      );
       setBusy(false);
     }
   }

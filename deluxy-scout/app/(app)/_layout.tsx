@@ -36,6 +36,8 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       { name: 'mappa', label: 'Territorio · Mappa', icon: 'map-outline' },
       { name: 'affiliazioni', label: 'Chiamate · Affiliazioni', icon: 'call-outline' },
       { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
+      // Quarto canale: non li troviamo noi, ce li passa un'altra app.
+      { name: 'segnalati', label: 'Segnalati · Fornitori', icon: 'cube-outline' },
     ],
   },
   {

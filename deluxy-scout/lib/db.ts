@@ -1618,6 +1618,70 @@ export async function pianificaVisita(placeId: string, giorno: string | null): P
   if (error) throw error;
 }
 
+/**
+ * Porta in Scout un partner **segnalato da un'altra app** (oggi: i fioristi e
+ * le pasticcerie trovati dall'app fornitori). Nasce come SELEZIONATO: qualcuno
+ * l'ha scelto, ma nessuno gli ha ancora detto niente.
+ *
+ * Il legame col registro passa da `anagrafiche_id`, che ha un indice unico: se
+ * due persone lo prendono in carico nello stesso momento, la seconda non crea
+ * un doppione — si ritrova la riga già esistente.
+ */
+export async function importaDalRegistro(p: {
+  anagraficheId: string;
+  nome: string;
+  indirizzo: string | null;
+  citta: string | null;
+  categoria: string | null;
+  lat: number;
+  lng: number;
+  linee: string[];
+}): Promise<Place> {
+  const esistente = async () => {
+    const { data } = await supabase.from('places').select('*').eq('anagrafiche_id', p.anagraficheId).maybeSingle();
+    return (data as Place) ?? null;
+  };
+  const gia = await esistente();
+  if (gia) return gia;
+
+  const { data, error } = await supabase
+    .from('places')
+    .insert({
+      nome: p.nome,
+      indirizzo: p.indirizzo,
+      zona: p.citta,
+      categoria: p.categoria,
+      lat: p.lat,
+      lng: p.lng,
+      priorita: 'P2',
+      stato: 'da_visitare',
+      // È stato scelto da una persona (in un'altra app): la ⭐ lo fa entrare
+      // nei Selezionati come qualsiasi altro negozio messo in lista a mano.
+      starred: true,
+      anagrafiche_id: p.anagraficheId,
+      linea_ipotizzata: p.linee[0] ?? null,
+      linee_ipotizzate: p.linee.length ? p.linee : null,
+    })
+    .select('*')
+    .single();
+  if (error) {
+    // 23505 = l'indice unico su anagrafiche_id: è arrivato prima qualcun altro.
+    if ((error as any).code === '23505') {
+      const altrui = await esistente();
+      if (altrui) return altrui;
+    }
+    throw error;
+  }
+  return data as Place;
+}
+
+/** Gli id del registro già presi in carico: servono a non riproporli. */
+export async function fetchAnagraficheIdPresi(): Promise<Set<string>> {
+  const { data, error } = await supabase.from('places').select('anagrafiche_id').not('anagrafiche_id', 'is', null);
+  if (error) throw error;
+  return new Set((data ?? []).map((r: any) => r.anagrafiche_id).filter(Boolean) as string[]);
+}
+
 /** Prossimo passo commerciale suggerito dall'esito (per la visita rapida). */
 export const nextStepDaEsito: Record<EsitoVisita, string> = {
   interessato: 'Inviare recap email entro 12 ore',

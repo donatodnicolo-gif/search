@@ -139,6 +139,11 @@ Deno.serve(async (req) => {
       if (body.citta) p.set('citta', String(body.citta));
       if (body.categoria) p.set('categoria', String(body.categoria));
       if (body.stato) p.set('stato', String(body.stato));
+      // `fonte` = quale app ha segnalato il partner (es. `deluxy-suppliers`,
+      // i fioristi e le pasticcerie trovati dall'app fornitori). Senza questo
+      // filtro l'unico modo di trovarli era scaricare tutti i 600+ prospect.
+      if (body.fonte) p.set('fonte', String(body.fonte));
+      if (body.page) p.set('page', String(body.page));
       p.set('perPage', String(Math.min(Number(body.perPage ?? 10), 50)));
       path = `/api/v1/partners?${p.toString()}`;
     } else if (body.action === 'dettaglio' && body.id) {

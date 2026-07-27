@@ -98,6 +98,28 @@ export async function sincronizzaNegozioRegistro(dati: {
 }
 
 /**
+ * I partner **segnalati da un'altra app** e non ancora lavorati da Scout.
+ *
+ * Il caso vero: l'app fornitori (`deluxy-suppliers`) trova fioristi e
+ * pasticcerie in giro per l'Italia e li scrive nel registro come `prospect`
+ * con interesse Affiliazioni. Erano già lì da giorni, ma in Scout non li
+ * vedeva nessuno: si leggeva il registro solo per cercare la corrispondenza di
+ * un negozio che si aveva già.
+ *
+ * ⚠️ Richiede la Edge Function `anagrafiche` aggiornata (parametro `fonte`).
+ * Finché non è deployata, il registro ignora il filtro e tornerebbero partner
+ * di tutte le fonti: per questo si ricontrolla anche qui.
+ */
+export async function fetchSegnalatiDaApp(fonte: string): Promise<PartnerRegistro[]> {
+  const r = await chiama<{ dati?: (PartnerRegistro & { fonte?: string })[] }>({
+    action: 'cerca',
+    fonte,
+    perPage: 50,
+  });
+  return (r.dati ?? []).filter((p) => !p.fonte || p.fonte === fonte);
+}
+
+/**
  * Cerca nel registro il partner corrispondente a un negozio (per nome, con la
  * città come contesto). Ritorna la corrispondenza per nome normalizzato, o la
  * prima se non c'è un match esatto (con confidenza bassa lato UI).
