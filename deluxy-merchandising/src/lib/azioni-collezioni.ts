@@ -21,8 +21,14 @@ export async function importaCollezioniAzione() {
     );
   }
 
+  // Un negozio per volta, con una pausa in mezzo: il credito di query di
+  // Shopify è per negozio ma si esaurisce lo stesso se si tira senza respiro,
+  // e il terzo negozio si prendeva un «Throttled» in faccia.
   const esiti = [];
-  for (const n of negozi) esiti.push(await importaCollezioniDa(n));
+  for (const [i, n] of negozi.entries()) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 3000));
+    esiti.push(await importaCollezioniDa(n));
+  }
 
   const riuscite = esiti.filter((e) => e.ok);
   const messaggio = esiti

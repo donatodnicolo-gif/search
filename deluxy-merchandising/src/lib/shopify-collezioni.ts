@@ -38,23 +38,68 @@ function normalizza(s: string): string {
     .trim();
 }
 
+const attendi = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Una chiamata GraphQL, con la gestione del **limite di Shopify**.
+ *
+ * Shopify non conta le richieste ma il "costo" dei campi chiesti, e ricarica il
+ * credito a ritmo costante. Scaricando più negozi di fila il credito finisce e
+ * la risposta è `Throttled`: non è un errore da mostrare all'utente, è un
+ * «aspetta». Qui si aspetta e si riprova, allungando l'attesa a ogni tentativo;
+ * quando Shopify dice quanto credito resta e a che ritmo lo ricarica (campo
+ * `throttleStatus`), si usa quello invece di un tempo a caso.
+ */
 async function graphql<T>(
   n: Negozio,
   query: string,
   variables: Record<string, unknown> = {}
 ): Promise<T> {
-  const res = await fetch(`https://${n.dominio}/admin/api/${VERSIONE_API}/graphql.json`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": n.token },
-    body: JSON.stringify({ query, variables }),
-    signal: AbortSignal.timeout(30000),
-    cache: "no-store",
-  });
-  if (res.status === 401 || res.status === 403) throw new Error("Token rifiutato dal negozio (401/403).");
-  const corpo = (await res.json().catch(() => ({}))) as { data?: T; errors?: { message: string }[] };
-  if (corpo.errors?.length) throw new Error(corpo.errors.map((e) => e.message).join(" · "));
-  if (!corpo.data) throw new Error(`Risposta vuota dal negozio (HTTP ${res.status}).`);
-  return corpo.data;
+  let attesa = 2000;
+  for (let tentativo = 1; tentativo <= 6; tentativo++) {
+    const res = await fetch(`https://${n.dominio}/admin/api/${VERSIONE_API}/graphql.json`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": n.token },
+      body: JSON.stringify({ query, variables }),
+      signal: AbortSignal.timeout(30000),
+      cache: "no-store",
+    });
+    if (res.status === 401 || res.status === 403) throw new Error("Token rifiutato dal negozio (401/403).");
+
+    if (res.status === 429) {
+      if (tentativo === 6) throw new Error("Shopify continua a rifiutare per limite di richieste (429).");
+      await attendi(attesa);
+      attesa *= 2;
+      continue;
+    }
+
+    const corpo = (await res.json().catch(() => ({}))) as {
+      data?: T;
+      errors?: { message: string; extensions?: { code?: string } }[];
+      extensions?: { cost?: { throttleStatus?: { currentlyAvailable: number; restoreRate: number }; requestedQueryCost?: number } };
+    };
+
+    const limitato = corpo.errors?.some(
+      (e) => e.extensions?.code === "THROTTLED" || /throttl/i.test(e.message)
+    );
+    if (limitato) {
+      if (tentativo === 6) throw new Error("Shopify limita le richieste: riprova fra qualche minuto.");
+      const stato = corpo.extensions?.cost?.throttleStatus;
+      const costo = corpo.extensions?.cost?.requestedQueryCost ?? 0;
+      const secondi =
+        stato && stato.restoreRate > 0
+          ? Math.min(20, Math.max(1, (costo - stato.currentlyAvailable) / stato.restoreRate + 1))
+          : attesa / 1000;
+      await attendi(secondi * 1000);
+      attesa *= 2;
+      continue;
+    }
+
+    if (corpo.errors?.length) throw new Error(corpo.errors.map((e) => e.message).join(" · "));
+    if (!corpo.data) throw new Error(`Risposta vuota dal negozio (HTTP ${res.status}).`);
+    return corpo.data;
+  }
+  throw new Error("Shopify non ha risposto dopo più tentativi.");
 }
 
 type CollezioneShopifyApi = {
