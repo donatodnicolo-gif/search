@@ -88,8 +88,8 @@ function TagLuogo({
 }
 
 export function TagLuoghi({ ordine, compatto = false }: { ordine: OrdineLuoghi; compatto?: boolean }) {
-  const cittaConsegna = normalizzaCitta(ordine.citta);
-  const cittaMittente = normalizzaCitta(ordine.mittenteCitta);
+  const cittaConsegna = normalizzaCitta(ordine.citta, ordine.paese);
+  const cittaMittente = normalizzaCitta(ordine.mittenteCitta, ordine.mittentePaese);
   const paeseConsegna = nomePaese(ordine.paese);
   const paeseMittente = nomePaese(ordine.mittentePaese);
   const lontano = daLontano(ordine);

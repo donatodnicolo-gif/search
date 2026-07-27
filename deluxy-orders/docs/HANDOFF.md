@@ -344,8 +344,14 @@ Campi nuovi su `Ordine`: `mittenteNome/Citta/Provincia/Paese` (da
   `estero=si`, `urgenza` (`senza-data` per gli ordini senza data di consegna).
   `estero=si` confronta due colonne della stessa riga con un **riferimento a
   campo Prisma** (`prisma.ordine.fields.paese`).
-- Numeri veri: 1.001 ordini mandati dall'estero; 6.249 urgenze su 9.475 ordini
-  con una data di consegna.
+- **Numeri veri dopo la risincronizzazione completa** (27/07/2026, 36,7 minuti,
+  13.367 ordini aggiornati): 13.980 ordini, **13.279 col mittente** (i 701 senza
+  sono quasi tutti ordini creati a mano), **3.790 mandati dall'estero** (US
+  1.220, GB 793, AE 272), 6.313 urgenze · 1.131 pensieri · 1.538 pianificati ·
+  476 eventi · 37 molto in anticipo · 4.485 senza data di consegna.
+- **Esonimi**: «Milan»→Milano, «Rome»→Roma… solo se il paese è `IT`. Il filtro
+  cerca tutte le grafie (`variantiCitta`), altrimenti cliccando il tag «Milano»
+  i 171 ordini scritti «Milan» sparivano in silenzio.
 
 **⚠️ Trappola trovata e corretta il 27/07/2026: la fascia oraria letta come data
 di consegna.** `RE_DATA` contiene il termine generico `consegn`, e la chiave
@@ -362,6 +368,15 @@ Corretto passando a `cercaAttributo` un'esclusione esplicita (`RE_FASCIA`): la
 chiave più specifica vince. Verificato su 180 ordini reali (60 per negozio): 6
 corretti, il resto invariato. Se in futuro si aggiunge un attributo, controllare
 che non finisca per corrispondere a due regex diverse.
+
+**Effetto misurato dopo la risincronizzazione di tutto lo storico**: gli ordini
+con una consegna a più di 300 giorni sono passati da **110 a 4**, e le consegne
+finte di dicembre 2026 da 3+ a **zero**. Erano appuntamenti sbagliati in agenda.
+
+⚠️ Il tema di **cakedesign.me** scrive date rotte: `Data_Consegna =
+"2026-undefined-27"`. Ora quegli ordini risultano «consegna non indicata»
+(giusto: non lo sappiamo) invece di prendersi la fascia oraria. **Il bug è del
+sito e va sistemato là**: finché c'è, quegli ordini non hanno una data.
 
 ## Trappole già pagate — leggere prima di toccare l'import
 

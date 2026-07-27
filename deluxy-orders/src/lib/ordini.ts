@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { chiaveCliente } from "./tipologia-cliente";
 import { CANALI_PAGATI } from "./marketing";
 import { prisma } from "./db";
-import { daLontano } from "./luoghi";
+import { daLontano, variantiCitta } from "./luoghi";
 import { giorniDiAnticipo } from "./urgenza";
 
 // Costruzione del filtro Prisma degli ordini, condivisa tra la UI (elenco) e le
@@ -124,14 +124,25 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
   // Dove arriva e da dove parte. Il confronto è insensibile a maiuscole e
   // spazi, perché le città arrivano da Shopify in ogni forma: «MILANO»,
   // «Milano» e « milano » sono lo stesso posto.
+  // Il filtro cerca anche le altre grafie della stessa città («Milano» trova i
+  // 171 ordini scritti «Milan»): senza, cliccando sul tag quegli ordini
+  // sparirebbero senza che nessuno se ne accorga.
   const citta = p.get("citta")?.trim();
-  if (citta) where.citta = { equals: citta, mode: "insensitive" };
+  if (citta) {
+    and.push({ OR: variantiCitta(citta).map((v) => ({ citta: { equals: v, mode: "insensitive" as const } })) });
+  }
 
   const paese = p.get("paese")?.trim();
   if (paese) where.paese = { equals: paese, mode: "insensitive" };
 
   const cittaMittente = p.get("cittaMittente")?.trim();
-  if (cittaMittente) where.mittenteCitta = { equals: cittaMittente, mode: "insensitive" };
+  if (cittaMittente) {
+    and.push({
+      OR: variantiCitta(cittaMittente).map((v) => ({
+        mittenteCitta: { equals: v, mode: "insensitive" as const },
+      })),
+    });
+  }
 
   const paeseMittente = p.get("paeseMittente")?.trim();
   if (paeseMittente) where.mittentePaese = { equals: paeseMittente, mode: "insensitive" };

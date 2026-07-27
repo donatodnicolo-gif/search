@@ -116,7 +116,7 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 > in un negozio di regali è un'altra persona e un altro posto rispetto a chi
 > riceve — e `urgenza` (`urgenza` ≤24h, `pensiero` ≤48h, `pianificato` ≤7gg,
 > `evento` ≤30gg, `lontano`) con `giorniAllaConsegna`. `daLontano: true` quando
-> il paese di partenza è diverso da quello di arrivo: sono 1.001 ordini.
+> il paese di partenza è diverso da quello di arrivo: sono 3.790 ordini su 13.980.
 > `urgenza: null` vuol dire **consegna non indicata**, non «pianificato». Si
 > misura in **giorni di calendario**: la data di consegna è un giorno, non un
 > istante, e fingere le ore sarebbe precisione inventata.

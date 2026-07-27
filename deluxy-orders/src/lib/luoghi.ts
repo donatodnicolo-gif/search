@@ -9,12 +9,34 @@
 // perché «MILANO», «Milano» e « milano » siano lo stesso tag. Nient'altro: non
 // si corregge la geografia dei clienti, non si indovinano le province mancanti.
 
+// I nomi italiani delle città che i clienti stranieri scrivono in inglese.
+// Si applicano SOLO agli ordini con paese IT: «Florence» esiste anche nel
+// Regno Unito, e c'è un ordine vero consegnato lì. Tradurre alla cieca
+// sposterebbe un ordine di mille chilometri.
+const ESONIMI: Record<string, string> = {
+  milan: "Milano",
+  rome: "Roma",
+  florence: "Firenze",
+  venice: "Venezia",
+  naples: "Napoli",
+  turin: "Torino",
+  genoa: "Genova",
+  padua: "Padova",
+  mantua: "Mantova",
+  syracuse: "Siracusa",
+};
+
 // Le città arrivano in ogni forma: tutte maiuscole, tutte minuscole, con spazi
-// doppi. Per raggrupparle serve una forma unica, ma la si mostra come si scrive
-// davvero — «Reggio Emilia», non «REGGIO EMILIA» né «reggio emilia».
-export function normalizzaCitta(citta: string | null | undefined): string | null {
+// doppi, e dai clienti stranieri anche in inglese. Per raggrupparle serve una
+// forma unica, ma la si mostra come si scrive davvero — «Reggio Emilia», non
+// «REGGIO EMILIA» né «reggio emilia».
+export function normalizzaCitta(citta: string | null | undefined, paese?: string | null): string | null {
   const pulita = (citta ?? "").replace(/\s+/g, " ").trim();
   if (!pulita) return null;
+  if ((paese ?? "").trim().toUpperCase() === "IT") {
+    const italiana = ESONIMI[pulita.toLocaleLowerCase("it-IT")];
+    if (italiana) return italiana;
+  }
   return pulita
     .toLocaleLowerCase("it-IT")
     .split(" ")
@@ -125,15 +147,28 @@ export function bandiera(codice: string | null | undefined): string {
   return String.fromCodePoint(...[...c].map((l) => 0x1f1e6 + l.charCodeAt(0) - 65));
 }
 
+// Tutti i modi in cui quella città può essere scritta nel registro. Serve al
+// filtro: il tag dice «Milano», ma in archivio ci sono anche 171 ordini scritti
+// «Milan» — se il filtro cercasse solo la forma mostrata, cliccando sul tag
+// quegli ordini sparirebbero senza che nessuno se ne accorga.
+export function variantiCitta(citta: string): string[] {
+  const c = citta.trim();
+  if (!c) return [];
+  const inglesi = Object.entries(ESONIMI)
+    .filter(([, italiana]) => italiana.toLocaleLowerCase("it-IT") === c.toLocaleLowerCase("it-IT"))
+    .map(([inglese]) => inglese);
+  return [c, ...inglesi];
+}
+
 export type Luogo = { citta: string | null; paese: string | null; bandiera: string };
 
 export function luogoConsegna(o: { citta: string | null; paese: string | null }): Luogo {
-  return { citta: normalizzaCitta(o.citta), paese: nomePaese(o.paese), bandiera: bandiera(o.paese) };
+  return { citta: normalizzaCitta(o.citta, o.paese), paese: nomePaese(o.paese), bandiera: bandiera(o.paese) };
 }
 
 export function luogoMittente(o: { mittenteCitta: string | null; mittentePaese: string | null }): Luogo {
   return {
-    citta: normalizzaCitta(o.mittenteCitta),
+    citta: normalizzaCitta(o.mittenteCitta, o.mittentePaese),
     paese: nomePaese(o.mittentePaese),
     bandiera: bandiera(o.mittentePaese),
   };

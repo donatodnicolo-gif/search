@@ -98,9 +98,10 @@ tutti gli ordini di quella città o di quel paese.
 
 Sono due cose diverse e servono a due mestieri diversi: la città di consegna è
 un problema operativo (chi consegna lì? in quanto tempo?), il paese del mittente
-è un fatto commerciale. Sui dati veri **1.001 ordini sono mandati da un paese
-diverso da quello di consegna**: Kuwait, Filippine, Stati Uniti, Kazakistan che
-mandano fiori in Italia. C'è un filtro apposta («Solo ordini mandati
+è un fatto commerciale. Sui dati veri **3.790 ordini su 13.980 — più di uno su quattro — sono mandati
+da un paese diverso da quello di consegna**: Stati Uniti (1.220), Regno Unito
+(793), Emirati (272), Svizzera, Francia, Australia. Gente che manda fiori in
+Italia da lontano. C'è un filtro apposta («Solo ordini mandati
 dall'estero»), perché quel cliente non passerà mai dal negozio e va trattato per
 quello che è.
 
@@ -110,7 +111,12 @@ niente «città sconosciuta» a riempire il buco.
 
 Le città arrivano da Shopify in ogni forma («MILANO», «Milano», « milano ») e
 per i tag vengono ridotte a una forma sola, ma **si mostrano come si scrivono**:
-«Reggio Emilia», non «REGGIO EMILIA». Il filtro ignora maiuscole e spazi.
+«Reggio Emilia», non «REGGIO EMILIA». I clienti stranieri le scrivono anche in
+inglese — 171 ordini dicono «Milan», 77 «Rome» — e quelli si uniscono al tag
+italiano, ma **solo quando il paese è l'Italia**: «Florence» esiste anche nel
+Regno Unito, e ce n'è un ordine vero. Tradurre alla cieca sposterebbe un ordine
+di mille chilometri. Il filtro cerca tutte le grafie: cliccando «Milano» escono
+anche i «Milan», altrimenti sparirebbero senza che nessuno se ne accorga.
 
 ### Quanto manca alla consegna: urgenze, pensieri, eventi
 Un ordine da consegnare domani mattina e uno per un matrimonio fra tre settimane
@@ -126,8 +132,8 @@ l'ordine e la consegna richiesta:
 | 🟣 | **Evento** | entro 30 giorni: una data fissata in anticipo |
 | ⚪ | **Molto in anticipo** | oltre 30 giorni |
 
-Sui dati veri il negozio vive di urgenze: **6.249 ordini su 9.475 con una data
-di consegna sono da consegnare entro 24 ore**. Gli eventi sono 469.
+Sui dati veri il negozio vive di urgenze: **6.313 ordini su 9.495 con una data
+di consegna sono da consegnare entro 24 ore**. Gli eventi sono 476.
 
 **Si misura in giorni di calendario, non in ore.** La data di consegna che arriva
 da Shopify è un giorno, non un istante: la fascia oraria c'è solo qualche volta.
