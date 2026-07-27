@@ -5,6 +5,7 @@ import { ivato } from "@/lib/calc";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { STATI_TASK, PRIORITA_TASK, normPriorita, pesoPriorita } from "@/lib/tasks";
 import { creaTask, cambiaStatoTask, eliminaTask } from "@/lib/tasks-actions";
+import { ritiraAggiornamenti, tasksConfigurato } from "@/lib/tasks-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,11 @@ export default async function TasksPage({
 }) {
   const sp = await searchParams;
   const oggi = new Date();
+  // Prima di leggere: si tira giu' quello che e' cambiato nel registro
+  // condiviso (es. un collega ha completato l'attivita' da Deluxy Tasks).
+  // E' best-effort e non blocca: se il registro non risponde, la pagina si apre
+  // lo stesso coi dati locali.
+  const sync = await ritiraAggiornamenti();
   const [tasks, partners, scaduteRaw] = await Promise.all([
     prisma.taskFinance.findMany({
       where: {
@@ -60,9 +66,33 @@ export default async function TasksPage({
       <div className="page-head">
         <div>
           <h1 className="page-title">Tasks finance</h1>
-          <p className="page-caption">Attività amministrative da portare a termine: solleciti, emissioni, verifiche, incassi.</p>
+          <p className="page-caption">
+            Attività amministrative da portare a termine: solleciti, emissioni, verifiche, incassi.
+            {tasksConfigurato() ? (
+              <> Sincronizzate con <a href="https://deluxy-tasks.vercel.app" target="_blank" rel="noreferrer" style={{ color: "var(--blue)" }}>Deluxy Tasks</a>, dove ognuno vede insieme le proprie attività di tutte le app.</>
+            ) : (
+              <> <strong>Non sincronizzate</strong>: manca <code>TASKS_API_KEY</code>, quindi restano solo qui dentro.</>
+            )}
+          </p>
         </div>
       </div>
+
+      {/* Si dice solo quando è successo qualcosa: uno «0 aggiornate» a ogni
+          apertura sarebbe rumore che nessuno legge più. */}
+      {sync.aggiornate > 0 && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge blue">
+            <span className="dot" />{sync.aggiornate} attività aggiornate da Deluxy Tasks
+          </span>
+        </div>
+      )}
+      {sync.errore && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid var(--orange)" }}>
+          <span style={{ fontSize: 13, color: "var(--orange)" }}>
+            Registro condiviso non raggiungibile: {sync.errore}. Le attività qui sotto sono quelle locali.
+          </span>
+        </div>
+      )}
 
       {sp.creato && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
@@ -148,6 +178,12 @@ export default async function TasksPage({
             <select name="priorita" defaultValue="P1">
               {Object.entries(PRIORITA_TASK).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
+          </div>
+          <div>
+            {/* Serve al registro condiviso per sapere DI CHI è l'attività.
+                Lasciandolo vuoto resta tua: è la risposta giusta quasi sempre. */}
+            <label className="field-label">Assegnata a (email)</label>
+            <input type="email" name="assegnatario" placeholder="vuoto = a te" />
           </div>
           <div>
             <label className="field-label">Assegnata a</label>

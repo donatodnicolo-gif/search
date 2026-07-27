@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { registra } from "./registro";
+import { spingiTask, archiviaTask } from "./tasks-sync";
 
 function s(fd: FormData, k: string): string | null {
   const v = fd.get(k);
@@ -23,7 +24,7 @@ export async function creaTask(fd: FormData) {
   if (!titolo) redirect("/tasks?errore=" + encodeURIComponent("Il titolo è obbligatorio."));
   const partnerId = s(fd, "partnerId");
   const partner = partnerId ? await prisma.partner.findUnique({ where: { id: partnerId }, select: { nome: true } }) : null;
-  await prisma.taskFinance.create({
+  const creato = await prisma.taskFinance.create({
     data: {
       titolo,
       note: s(fd, "note"),
@@ -35,6 +36,9 @@ export async function creaTask(fd: FormData) {
       riferimento: s(fd, "riferimento"),
     },
   });
+  // Copia nel registro condiviso. Non blocca: se Tasks è giù, l'attività è
+  // comunque salvata qui e riparte al primo cambio di stato.
+  await spingiTask(creato);
   await registra({ azione: `Creato task «${titolo}»`, categoria: "tasks", partner: partner?.nome ?? null });
   revalidatePath("/tasks", "layout");
   revalidatePath("/", "layout");
@@ -47,13 +51,19 @@ export async function cambiaStatoTask(id: string, stato: string) {
     where: { id },
     data: { stato, completatoIl: stato === "fatto" ? new Date() : null },
   });
+  await spingiTask(t);
   await registra({ azione: `Task «${t.titolo}» → ${stato}`, categoria: "tasks", partner: t.partnerNome });
   revalidatePath("/tasks", "layout");
   revalidatePath("/", "layout");
 }
 
 export async function eliminaTask(id: string) {
+  // Prima si legge l'id remoto: dopo la delete non ci sarebbe più modo di
+  // sapere quale task archiviare nel registro condiviso, e là resterebbe in
+  // eterno una cosa da fare che non esiste più.
+  const t = await prisma.taskFinance.findUnique({ where: { id }, select: { tasksId: true } });
   await prisma.taskFinance.delete({ where: { id } });
+  await archiviaTask(t?.tasksId ?? null);
   revalidatePath("/tasks", "layout");
   revalidatePath("/", "layout");
 }

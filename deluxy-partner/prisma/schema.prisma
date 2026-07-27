@@ -476,6 +476,11 @@ model TaskFinance {
   // così un'app che crea/aggiorna lo stesso task non genera doppioni.
   origineApp   String? // app che ha aperto il task via API (es. deluxy-mail)
   idEsterno    String? // id del task nell'app d'origine
+  // Copia nel registro centralizzato **deluxy-tasks**: là l'attività si vede
+  // insieme a quelle di tutte le altre app. Qui si tiene l'id nativo per poterla
+  // ritrovare e archiviare, e l'ora dell'ultimo allineamento riuscito.
+  tasksId      String? // id della task dentro deluxy-tasks
+  tasksIl      DateTime?
   completatoIl DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
