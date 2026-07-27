@@ -2,6 +2,12 @@
 
 Ultimo aggiornamento: **26 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
 
+> 🐛 **TRAPPOLA: `select('*')` si ferma a 1000 righe — i negozi oltre sparivano (26 lug 2026)** — segnalazione «se metto la stella in un negozio da mappa non mi va in selezionati». **Non era la stella.**
+> - **Causa:** `fetchPlaces()` faceva una `select('*')` secca. PostgREST tronca a **1000 righe** e i negozi sono **1313**: 313 non venivano proprio caricati e mancavano da Mappa, Selezionati e Potenziali. Senza `order()` il troncamento non è nemmeno stabile → lo stesso negozio compariva o no a seconda della query. Misurato: dei negozi stellati, nell'elenco caricato ce n'erano **2 su 5**.
+> - **Correzione:** `fetchPlaces` ora **pagina a blocchi di 1000 con `order('id')`**. L'ordine stabile è obbligatorio: senza, le pagine possono ripetere o saltare righe.
+> - **⚠️ Vale per tutte le tabelle:** qualunque `select()` senza `range()` in questa app ha lo stesso tetto. Da controllare quando una lista «perde» record senza motivo.
+> - **Due rinforzi:** la lista accetta un negozio se ha `creato_da` **oppure** la ⭐ (la stella è già la scelta di una persona: quelli stellati prima del 23/07 restavano fuori) — stesso criterio nel conteggio dei chip, se no i numeri non tornano con le righe; e `aggiornaStarred` ora **fa emergere l'errore** sulla scrittura di `creato_da`, che prima falliva in silenzio.
+>
 > 🏷️ **«Visite» si chiama POTENZIALI, e ha tutte le azioni di contatto (26 lug 2026)** — richiesta utente: «visite ora viene rinominato in Potenziali» e «in potenziali le azioni sono comunque tutte quelle per instaurare un contatto».
 > - **Rinominata solo l'etichetta**: voce di menu e titolo dicono «Potenziali», ma la **rotta resta `/visite`** e il file `app/(app)/visite.tsx` — così i link già in giro continuano a funzionare. Chi cerca il codice deve saperlo.
 > - **Azioni complete su ogni scheda** (5): Chiama · WhatsApp · Email · Completa/Registra la visita · Nuova trattativa. Quelle senza recapito restano **visibili ma spente**, così si vede a colpo d'occhio cosa manca.
