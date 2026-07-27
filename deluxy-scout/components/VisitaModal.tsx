@@ -1,6 +1,11 @@
 // Pop-up "sono stato qui": esito (obbligatorio) + contatto (opzionale) + note.
 // Si può salvare subito oppure posticipare (il negozio resta "da completare").
-import { useEffect, useState } from 'react';
+//
+// ⚠️ Quello che si scrive qui **non si perde**: mentre si digita la bozza va da
+// sola nel database (tabella `bozze_visita`) e alla riapertura torna com'era.
+// Prima bastava chiudere il pop-up — o che lo chiudesse il telefono — per
+// buttare via tutto: sul campo, con una mano sola, succedeva di continuo.
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -15,7 +20,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { EsitoVisita, Place } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
-import { registraVisitaRapida, segnaVisitatoDaCompletare } from '@/lib/db';
+import { fetchBozzaVisita, registraVisitaRapida, salvaBozzaVisita, segnaVisitatoDaCompletare } from '@/lib/db';
 import { EsitoButtons } from '@/components/EsitoButtons';
 
 export function VisitaModal({
@@ -37,9 +42,18 @@ export function VisitaModal({
   const [concorrenti, setConcorrenti] = useState('');
   const [busy, setBusy] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  // 'no' = niente da salvare · 'attesa' = sta per partire · 'ok' = salvata.
+  const [bozza, setBozza] = useState<'no' | 'attesa' | 'ok'>('no');
+  // Finché la bozza precedente non è stata riletta, non si salva niente:
+  // altrimenti il primo autosave (a campi ancora vuoti) cancellerebbe proprio
+  // gli appunti che stiamo per ricaricare.
+  const pronto = useRef(false);
 
-  // Reset dei campi ad ogni apertura su un negozio diverso.
+  // Reset dei campi ad ogni apertura su un negozio diverso, poi si ricarica la
+  // bozza di quel negozio se c'è.
   useEffect(() => {
+    let vivo = true;
+    pronto.current = false;
     setEsito(null);
     setNome('');
     setRuolo('');
@@ -50,7 +64,53 @@ export function VisitaModal({
     setConcorrenti('');
     setErrore(null);
     setBusy(false);
+    setBozza('no');
+    if (!place?.id) return;
+    const id = place.id;
+    (async () => {
+      const b = await fetchBozzaVisita(id);
+      if (!vivo) return;
+      if (b) {
+        setEsito((b.esito as EsitoVisita) ?? null);
+        setNome(b.nome ?? '');
+        setRuolo(b.ruolo ?? '');
+        setTelefono(b.telefono ?? '');
+        setEmail(b.email ?? '');
+        setDecisore(Boolean(b.decisore));
+        setNote(b.note ?? '');
+        setConcorrenti(b.concorrenti ?? '');
+        setBozza('ok');
+      }
+      // Solo ora l'autosave può partire: da qui in poi ogni modifica è una
+      // scelta di chi scrive, non il rimbalzo del ripristino.
+      pronto.current = true;
+    })();
+    return () => {
+      vivo = false;
+    };
   }, [place?.id]);
+
+  // L'autosave vero e proprio: mezzo secondo dopo l'ultimo tasto, così non si
+  // scrive nel database a ogni lettera.
+  const campi = { esito, nome, ruolo, telefono, email, decisore, note, concorrenti };
+  const serialized = JSON.stringify(campi);
+  useEffect(() => {
+    if (!place?.id || !pronto.current) return;
+    // Un pop-up aperto e mai toccato non merita una riga nel database.
+    const vuoto = !esito && !nome && !ruolo && !telefono && !email && !note && !concorrenti && !decisore;
+    if (vuoto) return;
+    setBozza('attesa');
+    const id = place.id;
+    const t = setTimeout(() => {
+      salvaBozzaVisita(id, campi)
+        .then(() => setBozza('ok'))
+        // Muto di proposito: si sta ancora scrivendo, e un errore ogni tre
+        // lettere sarebbe peggio del danno. Il salvataggio vero è «Salva visita».
+        .catch(() => setBozza('no'));
+    }, 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serialized, place?.id]);
 
   if (!place) return null;
 
@@ -154,6 +214,19 @@ export function VisitaModal({
             {errore ? <Text style={styles.errore}>{errore}</Text> : null}
           </ScrollView>
 
+          {/* Dire che la bozza è al sicuro serve: senza, chi chiude il pop-up
+              non ha modo di sapere che ritroverà quello che ha scritto. */}
+          {bozza !== 'no' ? (
+            <Text style={styles.bozza}>
+              <Ionicons
+                name={bozza === 'ok' ? 'cloud-done-outline' : 'cloud-upload-outline'}
+                size={12}
+                color={colors.testoSoft}
+              />{' '}
+              {bozza === 'ok' ? 'Bozza salvata: puoi chiudere e riprendere dopo.' : 'Salvataggio della bozza…'}
+            </Text>
+          ) : null}
+
           <View style={styles.azioni}>
             <Pressable style={[styles.btn, styles.btnSec]} onPress={posticipa} disabled={busy}>
               <Text style={styles.btnSecTxt}>Compila dopo</Text>
@@ -201,6 +274,7 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.xs },
   switchLbl: { color: colors.navy, fontWeight: '600' },
   errore: { color: colors.errore, fontWeight: '600', marginTop: spacing.sm },
+  bozza: { color: colors.testoSoft, fontSize: 12, marginTop: spacing.xs, textAlign: 'center' },
   azioni: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   btn: { flex: 1, borderRadius: radius.md, paddingVertical: 15, alignItems: 'center' },
   btnSec: { backgroundColor: colors.fill, borderWidth: 0 },

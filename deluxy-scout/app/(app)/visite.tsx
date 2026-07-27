@@ -19,12 +19,14 @@ import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import {
   fetchAllVisits,
   fetchDaCompletare,
+  fetchPlaceIdConBozza,
   fetchPlaces,
   fetchRecapitiPlace,
   fetchTutteTrattative,
   type RecapitoPlace,
   type TrattativaConLuogo,
 } from '@/lib/db';
+import { COLORE_VISITA, LABEL_VISITA } from '@/lib/statoVisita';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CardElenco } from '@/components/CardElenco';
 import { AzioniContatto } from '@/components/AzioniContatto';
@@ -71,15 +73,20 @@ export default function Visite() {
   const carica = useCallback(async () => {
     setLoading(true);
     try {
-      const [v, p, b, t] = await Promise.all([
+      const [v, p, b, t, idBozze] = await Promise.all([
         fetchAllVisits(),
         fetchPlaces(),
         fetchDaCompletare(),
         fetchTutteTrattative(),
+        // Chi ha scritto qualcosa nel pop-up e l'ha chiuso senza premere niente:
+        // la bozza è salva, ma senza questa riga non comparirebbe da nessuna
+        // parte e si ritroverebbe solo riaprendo quel negozio per caso.
+        fetchPlaceIdConBozza().catch(() => new Set<string>()),
       ]);
       setVisite(v);
       setPlaces(p);
-      setBozze(b);
+      const gia = new Set(b.map((x) => x.id));
+      setBozze([...b, ...p.filter((x) => idBozze.has(x.id) && !gia.has(x.id))]);
       setTrattative(t);
       // Best-effort: senza recapiti le azioni restano spente, la lista funziona.
       try {
@@ -174,11 +181,14 @@ export default function Visite() {
             return (
               <CardElenco
                 icona="create-outline"
+                // Giallo: il giro è già stato fatto ma il resoconto è a metà.
+                coloreIcona={COLORE_VISITA.da_finire}
+                titoloIcona={LABEL_VISITA.da_finire}
                 nome={p.nome}
                 meta={p.indirizzo}
                 tag={p.linea_ipotizzata ? [p.linea_ipotizzata] : []}
                 onPress={() => setDaCompletare(p)}
-                badge={<StatusBadge small label="Da completare" colore={colors.oro} />}
+                badge={<StatusBadge small label="Da completare" colore={COLORE_VISITA.da_finire} />}
                 azioni={azioniPotenziale(p, { bozza: true })}
               />
             );
@@ -189,6 +199,9 @@ export default function Visite() {
           return (
             <CardElenco
               icona="walk-outline"
+              // Verde: la visita è stata fatta e registrata.
+              coloreIcona={COLORE_VISITA.fatta}
+              titoloIcona={LABEL_VISITA.fatta}
               nome={nome}
               meta={`${quando(v.data)}${v.next_step ? ' · ' + v.next_step : ''}`}
               tag={v.linea_proposta ? [v.linea_proposta] : []}

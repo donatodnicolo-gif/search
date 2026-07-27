@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Place } from '@/types';
 import {
   fetchPlaces,
+  fetchPlaceIdConBozza,
   fetchPlaceIdConContatto,
   fetchPlaceIdContattati,
+  fetchPlaceIdVisitati,
   fetchRecapitiPlace,
   type RecapitoPlace,
 } from '@/lib/db';
@@ -21,6 +23,9 @@ export function usePlaces() {
   // Negozi a cui abbiamo già scritto/telefonato/fatto visita: è ciò che
   // distingue un Lead da un Selezionato mai toccato.
   const [contattati, setContattati] = useState<Set<string>>(new Set());
+  // Il semaforo della visita: chi ha un resoconto a metà e chi c'è già stato.
+  const [conBozza, setConBozza] = useState<Set<string>>(new Set());
+  const [visitati, setVisitati] = useState<Set<string>>(new Set());
   // Telefono e mail del negozio, presi dalla rubrica (decisore per primo): le
   // liste ci appendono le azioni di contatto senza rifare la query ognuna.
   const [recapiti, setRecapiti] = useState<Map<string, RecapitoPlace>>(new Map());
@@ -47,6 +52,17 @@ export function usePlaces() {
         setContattati(await fetchPlaceIdContattati());
       } catch {
         setContattati(new Set());
+      }
+      // Il semaforo della visita (lib/statoVisita.ts): bozza aperta = giallo,
+      // visita registrata = verde. Se una delle due letture non riesce il
+      // semaforo perde una sfumatura, non la lista.
+      try {
+        const [b, v] = await Promise.all([fetchPlaceIdConBozza().catch(() => new Set<string>()), fetchPlaceIdVisitati().catch(() => new Set<string>())]);
+        setConBozza(b);
+        setVisitati(v);
+      } catch {
+        setConBozza(new Set());
+        setVisitati(new Set());
       }
       // Idem: senza recapiti le azioni di contatto restano spente, non sparisce
       // la lista.
@@ -78,7 +94,7 @@ export function usePlaces() {
     };
   }, [places]);
 
-  return { places, conContatto, contattati, recapiti, loading, errore, ricarica: carica, opzioni };
+  return { places, conContatto, contattati, conBozza, visitati, recapiti, loading, errore, ricarica: carica, opzioni };
 }
 
 /** Applica i filtri a una lista di places. La mappa NON filtra via i pin di default

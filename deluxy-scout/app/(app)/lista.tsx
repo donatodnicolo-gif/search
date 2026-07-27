@@ -18,6 +18,8 @@ import { VisitaModal } from '@/components/VisitaModal';
 import { IconaAzione } from '@/components/AzioniRiga';
 import { AzioniContatto } from '@/components/AzioniContatto';
 import { CardElenco } from '@/components/CardElenco';
+import { PianificaVisitaModal } from '@/components/PianificaVisitaModal';
+import { COLORE_VISITA, LABEL_VISITA, giorniDaOggi, giornoBreve, statoVisita, type StatoVisita } from '@/lib/statoVisita';
 import type { RecapitoPlace } from '@/lib/db';
 
 // Le "viste" del menu: ogni voce di Contatti apre /lista già filtrata.
@@ -60,7 +62,7 @@ export default function Lista() {
   const router = useRouter();
   const { session } = useAuth();
   const admin = isAdmin(session?.user?.email);
-  const { places, conContatto, contattati, recapiti, loading, opzioni, ricarica } = usePlaces();
+  const { places, conContatto, contattati, conBozza, visitati, recapiti, loading, opzioni, ricarica } = usePlaces();
   // Il livello di un negozio dipende da due insiemi caricati una volta sola:
   // scriverlo qui evita di ripetere `conContatto.has(...)` a ogni chiamata e di
   // dimenticarsi `contattati` in una delle quattro.
@@ -88,6 +90,8 @@ export default function Lista() {
   const [mailPlace, setMailPlace] = useState<Place | null>(null);
   // La visita: stessa finestra della Mappa (VisitaModal), non una pagina a parte.
   const [visitaPlace, setVisitaPlace] = useState<Place | null>(null);
+  // «Quando ci vado?»: la data che ci si dà per andare a trovare il negozio.
+  const [pianificaPlace, setPianificaPlace] = useState<Place | null>(null);
 
   async function nascondi(place: Place) {
     try {
@@ -221,10 +225,12 @@ export default function Lista() {
           <Riga
             place={item}
             livello={livelloPlace(item)}
+            visita={statoVisita(item, conBozza.has(item.id), visitati.has(item.id))}
             recapito={recapiti.get(item.id)}
             onPress={() => router.push(`/(app)/attivita/${item.id}`)}
             onNascondi={() => nascondi(item)}
             onVisita={() => setVisitaPlace(item)}
+            onPianifica={() => setPianificaPlace(item)}
             onMail={() => setMailPlace(item)}
             onTrattativa={(p) =>
               router.push(`/(app)/trattative?nuovoPer=${p.id}&nuovoNome=${encodeURIComponent(p.nome)}`)
@@ -244,6 +250,11 @@ export default function Lista() {
       </Pressable>
       {mailPlace ? <ScegliScriptModal place={mailPlace} onClose={() => setMailPlace(null)} /> : null}
       <VisitaModal place={visitaPlace} onClose={() => setVisitaPlace(null)} onDone={() => { setVisitaPlace(null); ricarica(); }} />
+      <PianificaVisitaModal
+        place={pianificaPlace}
+        onClose={() => setPianificaPlace(null)}
+        onDone={() => { setPianificaPlace(null); ricarica(); }}
+      />
     </View>
   );
 }
@@ -279,27 +290,38 @@ function origineInserimento(place: Place): string {
 function Riga({
   place,
   livello,
+  visita,
   recapito,
   onPress,
   onNascondi,
   onVisita,
+  onPianifica,
   onMail,
   onTrattativa,
 }: {
   place: Place;
   /** Già calcolato dalla lista: la riga non deve rifare il conto (e sbagliarlo). */
   livello: Livello;
+  /** Il semaforo: rosso da fare, giallo da finire, verde fatta. */
+  visita: StatoVisita;
   recapito: RecapitoPlace | undefined;
   onPress: () => void;
   onNascondi: () => void;
   onVisita: () => void;
+  onPianifica: () => void;
   onMail: () => void;
   onTrattativa: (place: Place) => void;
 }) {
+  const quando = giornoBreve(place.visita_pianificata);
+  const fra = giorniDaOggi(place.visita_pianificata);
   return (
     // Stessa scheda dei Clienti (components/CardElenco.tsx): icona a sinistra,
     // testo al centro, badge a destra, azioni in fondo.
     <CardElenco
+      // Il riquadro dell'icona è il semaforo della visita: si legge prima del
+      // testo, ed è la cosa che dice se quel negozio è lavoro da fare.
+      coloreIcona={COLORE_VISITA[visita]}
+      titoloIcona={LABEL_VISITA[visita]}
       nome={place.nome}
       meta={place.indirizzo}
       account={place.anagrafiche_account ?? null}
@@ -312,10 +334,20 @@ function Riga({
         </>
       }
       extra={
-        <Text style={styles.inserito} numberOfLines={1}>
-          <Ionicons name="person-outline" size={11} color={colors.grigio} /> Inserito{' '}
-          {dataInserimento(place.created_at)} · {origineInserimento(place)}
-        </Text>
+        <>
+          {/* La data che ci si è dati, se c'è: in ritardo va detto, altrimenti
+              un giro saltato resta in agenda senza che nessuno se ne accorga. */}
+          {quando ? (
+            <Text style={[styles.pianificata, fra !== null && fra < 0 && styles.pianificataTardi]} numberOfLines={1}>
+              <Ionicons name="calendar-outline" size={11} /> Visita prevista {quando}
+              {fra === 0 ? ' · oggi' : fra !== null && fra < 0 ? ` · in ritardo di ${-fra} g` : ''}
+            </Text>
+          ) : null}
+          <Text style={styles.inserito} numberOfLines={1}>
+            <Ionicons name="person-outline" size={11} color={colors.grigio} /> Inserito{' '}
+            {dataInserimento(place.created_at)} · {origineInserimento(place)}
+          </Text>
+        </>
       }
       azioni={
         // Le stesse azioni dei Potenziali (components/AzioniContatto.tsx): un
@@ -328,6 +360,15 @@ function Riga({
           onMail={onMail}
           onTrattativa={onTrattativa}
         >
+          <IconaAzione
+            nome="calendar-outline"
+            attiva
+            // Acceso quando una data c'è già: si vede dalla fila dei bottoni
+            // quali negozi sono in agenda, senza leggere riga per riga.
+            evidenza={Boolean(place.visita_pianificata)}
+            label={quando ? `Visita prevista ${quando} — cambia` : 'Pianifica la visita'}
+            onPress={onPianifica}
+          />
           <IconaAzione nome="eye-off-outline" attiva label="Rimuovi target (nascondi)" onPress={onNascondi} />
         </AzioniContatto>
       }
@@ -397,6 +438,8 @@ const styles = StyleSheet.create({
   },
   accountTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12 },
   inserito: { fontSize: 12, color: colors.grigio, fontWeight: '600' },
+  pianificata: { fontSize: 12.5, color: colors.testo, fontWeight: '700' },
+  pianificataTardi: { color: colors.errore },
   fab: {
     position: 'absolute',
     right: spacing.lg,

@@ -19,17 +19,21 @@ export function AzioniRiga({ children }: { children: ReactNode }) {
 export function IconaAzione({
   nome,
   attiva,
+  evidenza,
   label,
   onPress,
 }: {
   nome: IconName;
   attiva: boolean;
+  /** Pieno invece che vuoto: quell'azione è già stata usata su questa riga
+   *  (es. la visita è in agenda). Si legge dalla fila, senza aprire la scheda. */
+  evidenza?: boolean;
   label: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
-      style={[styles.icona, !attiva && styles.spenta]}
+      style={[styles.icona, !attiva && styles.spenta, evidenza && styles.piena]}
       disabled={!attiva}
       hitSlop={8}
       onPress={(e) => {
@@ -38,8 +42,11 @@ export function IconaAzione({
         onPress();
       }}
       accessibilityLabel={label}
+      // Sul web diventa un tooltip: l'etichetta è l'unico posto dove sta
+      // scritto per esteso cosa fa il cerchietto.
+      {...({ title: label } as any)}
     >
-      <Ionicons name={nome} size={18} color={colors.navy} />
+      <Ionicons name={nome} size={18} color={evidenza ? colors.bianco : colors.navy} />
     </Pressable>
   );
 }
@@ -57,4 +64,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   spenta: { opacity: 0.35 },
+  piena: { backgroundColor: colors.ink, borderColor: colors.ink },
 });

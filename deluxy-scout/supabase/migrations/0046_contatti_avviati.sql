@@ -11,12 +11,13 @@
 --
 -- ⚠️ Le chiamate (`chiamate`) e le visite (`visits`) hanno già il loro registro:
 -- qui NON si duplicano. Questa tabella copre i canali che una traccia non ce
--- l'hanno — oggi l'email, domani WhatsApp.
+-- l'hanno: email, WhatsApp, il **web** (ci ha scritto lui dal sito o dai
+-- social) e tutto il resto.
 
 create table if not exists contatti_avviati (
   id          uuid primary key default gen_random_uuid(),
   place_id    uuid not null references places(id) on delete cascade,
-  canale      text not null check (canale in ('email', 'whatsapp', 'altro')),
+  canale      text not null,
   -- Con quale testo: serve a sapere cosa gli è già stato detto prima di
   -- riscrivergli la stessa cosa.
   script_id   uuid references script_email(id) on delete set null,
@@ -25,6 +26,14 @@ create table if not exists contatti_avviati (
   owner       uuid references auth.users(id) default auth.uid(),
   created_at  timestamptz not null default now()
 );
+
+-- I canali ammessi stanno in un constraint a parte, ricreato a ogni esecuzione:
+-- `create table if not exists` non tocca una tabella che esiste già, quindi
+-- aggiungerne uno (è successo con 'web') non sarebbe mai arrivato a chi aveva
+-- applicato la migrazione prima. Così questo file resta **rieseguibile**.
+alter table contatti_avviati drop constraint if exists contatti_avviati_canale_ck;
+alter table contatti_avviati add constraint contatti_avviati_canale_ck
+  check (canale in ('email', 'whatsapp', 'web', 'altro'));
 
 create index if not exists contatti_avviati_place_ix
   on contatti_avviati (place_id, created_at desc);

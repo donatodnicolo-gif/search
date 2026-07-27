@@ -44,9 +44,39 @@ per questo `/lista?vista=prospect` mostra i Prospect veri, non più i
 Selezionati. I livelli non sono salvati nel database: si ricalcolano.
 
 La traccia dei contatti avviati sta in tre tabelle, non una: `contatti_avviati`
-(email e WhatsApp, migrazione 0046), `chiamate` e `visits`. Le prime due
-esistevano già, la mail invece **partiva senza lasciare traccia** — ed è il
-motivo per cui il livello Lead non era calcolabile prima.
+(email, WhatsApp, web, altro — migrazione 0046), `chiamate` e `visits`. Le
+ultime due esistevano già, la mail invece **partiva senza lasciare traccia** —
+ed è il motivo per cui il livello Lead non era calcolabile prima. Il canale
+`web` è il contatto che arriva dal verso opposto: ci ha scritto lui dal sito o
+dai social.
+
+## Il semaforo della visita
+
+Su ogni scheda di elenco il riquadro dell'icona è colorato (`lib/statoVisita.ts`):
+
+| | Cosa vuol dire |
+|---|---|
+| 🔴 **Rosso** | la visita non è ancora stata fatta |
+| 🟡 **Giallo** | c'è un resoconto a metà da chiudere |
+| 🟢 **Verde** | la visita è stata fatta e registrata |
+
+Il giallo **vince sul verde**: un negozio visitato in passato con una bozza
+aperta adesso ha comunque qualcosa da chiudere, ed è quello che serve vedere. È
+anche il caso peggiore dei tre, perché un giro è già stato speso.
+
+Quello che si scrive nel pop-up della visita **si salva da solo** (tabella
+`bozze_visita`, una riga per negozio, cancellata quando la visita viene
+registrata). Prima bastava chiudere il pop-up per perdere tutto: sul campo, con
+una mano sola, succedeva di continuo. Le bozze sono **private di chi le
+scrive** — al team serve la visita finita, non gli appunti a metà di un collega.
+
+## Pianificare la visita
+
+`places.visita_pianificata` è **quando si ha intenzione di andarci**: una data
+che ci si dà, spostabile e cancellabile. Non va confusa con `visits.data`, che è
+quando ci si è andati per davvero. Registrando la visita si azzera da sola,
+altrimenti il negozio resterebbe in agenda per sempre. Le liste segnano in rosso
+le date già passate: un giro saltato deve dare fastidio, non sparire.
 
 I **dormienti** non sono persi: ci conoscono già, hanno comprato, e riattivarli
 costa molto meno che conquistare un nome nuovo. È la lista più redditizia che

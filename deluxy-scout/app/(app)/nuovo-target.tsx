@@ -14,7 +14,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { CategoryRule } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { caricaRegole, regolaPerCategoria } from '@/lib/categoryRules';
-import { inserisciPlace, registraContattoAvviato } from '@/lib/db';
+import { inserisciPlace, registraContattoAvviato, type CanaleContatto } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { posizioneCorrente, type Coord } from '@/lib/location';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
@@ -24,9 +24,12 @@ import { Loader } from '../_layout';
 
 /** I canali proponibili qui: chiamate e visite hanno una loro schermata e un
  *  loro registro (`chiamate`, `visits`), non passano da qui. */
-const CANALI: { id: 'email' | 'whatsapp' | 'altro'; label: string; icona: 'mail-outline' | 'logo-whatsapp' | 'ellipsis-horizontal' }[] = [
+const CANALI: { id: CanaleContatto; label: string; icona: keyof typeof Ionicons.glyphMap }[] = [
   { id: 'email', label: 'Email', icona: 'mail-outline' },
   { id: 'whatsapp', label: 'WhatsApp', icona: 'logo-whatsapp' },
+  // Il contatto può arrivare anche dal verso opposto: ci ha scritto lui dal
+  // sito o dai social. Resta un contatto avviato a tutti gli effetti.
+  { id: 'web', label: 'Dal web', icona: 'globe-outline' },
   { id: 'altro', label: 'Di persona o altro', icona: 'ellipsis-horizontal' },
 ];
 
@@ -37,7 +40,7 @@ export default function NuovoTarget() {
   // lista da cui lo si è appena creato.
   const { come } = useLocalSearchParams<{ come?: string }>();
   const nasceLead = come === 'lead';
-  const [canale, setCanale] = useState<'email' | 'whatsapp' | 'altro'>('altro');
+  const [canale, setCanale] = useState<CanaleContatto>('altro');
   const [regole, setRegole] = useState<Omit<CategoryRule, 'id'>[]>([]);
   const [pos, setPos] = useState<Coord | null>(null);
   const [loading, setLoading] = useState(true);

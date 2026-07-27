@@ -480,6 +480,13 @@ export async function fetchPlaceIdContattati(): Promise<Set<string>> {
 }
 
 /**
+ * Come è partito il contatto. Chiamate e visite NON sono qui: hanno le loro
+ * tabelle (`chiamate`, `visits`). `web` = è arrivato lui — modulo del sito,
+ * social, richiesta spontanea.
+ */
+export type CanaleContatto = 'email' | 'whatsapp' | 'web' | 'altro';
+
+/**
  * Registra un contatto avviato verso un negozio.
  *
  * Best-effort **di proposito**: se questa scrittura fallisce (o la tabella non
@@ -489,7 +496,7 @@ export async function fetchPlaceIdContattati(): Promise<Set<string>> {
  */
 export async function registraContattoAvviato(dati: {
   placeIds: string[];
-  canale: 'email' | 'whatsapp' | 'altro';
+  canale: CanaleContatto;
   scriptId?: string | null;
   oggetto?: string | null;
   destinatari?: string[];
@@ -1532,6 +1539,85 @@ export async function segnaVisitatoDaCompletare(placeId: string): Promise<void> 
   if (error) throw error;
 }
 
+/**
+ * La visita lasciata a metà: quello che era stato scritto nel pop-up prima di
+ * chiuderlo. Una riga per negozio, riscritta ogni volta.
+ */
+export interface BozzaVisita {
+  place_id: string;
+  esito: EsitoVisita | null;
+  note: string | null;
+  concorrenti: string | null;
+  nome: string | null;
+  ruolo: string | null;
+  telefono: string | null;
+  email: string | null;
+  decisore: boolean;
+  updated_at: string;
+}
+
+/**
+ * Salva (o aggiorna) la bozza di una visita.
+ *
+ * Chiamata mentre si scrive: deve essere **silenziosa e a prova di rete**. Se
+ * fallisce non si dice niente — l'utente sta ancora scrivendo, e un pop-up
+ * d'errore ogni tre lettere sarebbe peggio del danno. Il vero salvataggio
+ * resta «Salva visita».
+ */
+export async function salvaBozzaVisita(placeId: string, b: Partial<Omit<BozzaVisita, 'place_id' | 'updated_at'>>): Promise<void> {
+  const { data: u } = await supabase.auth.getUser();
+  const { error } = await supabase.from('bozze_visita').upsert(
+    {
+      place_id: placeId,
+      esito: b.esito ?? null,
+      note: b.note ?? null,
+      concorrenti: b.concorrenti ?? null,
+      nome: b.nome ?? null,
+      ruolo: b.ruolo ?? null,
+      telefono: b.telefono ?? null,
+      email: b.email ?? null,
+      decisore: b.decisore ?? false,
+      owner: u.user?.id ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'place_id' },
+  );
+  if (error) throw error;
+}
+
+/** La bozza di un negozio, se c'è. `null` anche quando la tabella non esiste
+ *  ancora (migrazione 0047 non applicata): il pop-up si apre lo stesso, vuoto. */
+export async function fetchBozzaVisita(placeId: string): Promise<BozzaVisita | null> {
+  const { data, error } = await supabase.from('bozze_visita').select('*').eq('place_id', placeId).maybeSingle();
+  if (error) return null;
+  return (data as BozzaVisita) ?? null;
+}
+
+/** I negozi che hanno una bozza aperta: serve alle liste per il giallo. */
+export async function fetchPlaceIdConBozza(): Promise<Set<string>> {
+  return idPaginati('bozze_visita');
+}
+
+/** I negozi con almeno una visita registrata: il verde del semaforo. */
+export async function fetchPlaceIdVisitati(): Promise<Set<string>> {
+  return idPaginati('visits');
+}
+
+/** Butta la bozza: la visita vera è stata registrata, gli appunti non servono
+ *  più (e riaprendo il pop-up ricomparirebbero sopra una visita già fatta). */
+export async function eliminaBozzaVisita(placeId: string): Promise<void> {
+  await supabase.from('bozze_visita').delete().eq('place_id', placeId);
+}
+
+/**
+ * Quando si ha intenzione di andare a trovarlo (`null` = toglie la data).
+ * ⚠️ Non è `visits.data`: quella dice quando ci si è andati davvero.
+ */
+export async function pianificaVisita(placeId: string, giorno: string | null): Promise<void> {
+  const { error } = await supabase.from('places').update({ visita_pianificata: giorno }).eq('id', placeId);
+  if (error) throw error;
+}
+
 /** Prossimo passo commerciale suggerito dall'esito (per la visita rapida). */
 export const nextStepDaEsito: Record<EsitoVisita, string> = {
   interessato: 'Inviare recap email entro 12 ore',
@@ -1583,9 +1669,19 @@ export async function registraVisitaRapida(
 
   const { error } = await supabase
     .from('places')
-    .update({ stato: statoDaEsito[opts.esito], da_completare: false, novita: false })
+    .update({
+      stato: statoDaEsito[opts.esito],
+      da_completare: false,
+      novita: false,
+      // La visita è stata fatta: la data che ci si era dati non serve più, e
+      // lasciarla farebbe restare il negozio fra i «da visitare questa
+      // settimana» per sempre.
+      visita_pianificata: null,
+    })
     .eq('id', placeId);
   if (error) throw error;
+  // Gli appunti hanno fatto il loro lavoro: ora esiste la visita vera.
+  eliminaBozzaVisita(placeId).catch(() => {});
   sincronizzaPlaceRegistro(placeId).catch(() => {}); // best-effort verso Anagrafiche
 
   // Best effort: porta subito la visita su HubSpot (company+contact+deal).

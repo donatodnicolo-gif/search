@@ -16,6 +16,8 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
  */
 export function CardElenco({
   icona = 'storefront-outline',
+  coloreIcona,
+  titoloIcona,
   nome,
   meta,
   account,
@@ -27,6 +29,14 @@ export function CardElenco({
 }: {
   /** Icona nel riquadro oro a sinistra. */
   icona?: IconName;
+  /**
+   * Colore dell'icona quando deve dire qualcosa (il semaforo della visita, vedi
+   * `lib/statoVisita.ts`). Senza, resta oro come sempre: il colore va usato
+   * quando significa, non per decorare.
+   */
+  coloreIcona?: string;
+  /** Cosa vuol dire quel colore, per chi ci passa sopra o usa il lettore. */
+  titoloIcona?: string;
   /** Nome del negozio/cliente: mai troncato oltre le 3 righe. */
   nome: string;
   /** Riga secondaria (zona · categoria, oppure indirizzo). */
@@ -46,8 +56,14 @@ export function CardElenco({
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <View style={styles.cardTop}>
-        <View style={styles.iconaBox}>
-          <Ionicons name={icona} size={20} color={colors.goldStrong} />
+        <View
+          style={[styles.iconaBox, coloreIcona ? { backgroundColor: coloreIcona + '1A', borderColor: coloreIcona + '40' } : null]}
+          accessibilityLabel={titoloIcona}
+          // Sul web il titolo compare come tooltip: il colore da solo non basta
+          // a dire cosa significa (e non tutti lo distinguono).
+          {...(titoloIcona ? { title: titoloIcona } : {})}
+        >
+          <Ionicons name={icona} size={20} color={coloreIcona ?? colors.goldStrong} />
         </View>
         <View style={styles.cardTesto}>
           <Text numberOfLines={3} style={styles.nome}>
@@ -100,6 +116,10 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: radius.sm,
     backgroundColor: colors.goldSoft,
+    // Trasparente di default: c'è solo quando il riquadro prende un colore che
+    // significa qualcosa (semaforo della visita).
+    borderWidth: 1,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
